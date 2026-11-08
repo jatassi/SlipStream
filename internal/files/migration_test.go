@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -54,7 +55,7 @@ var corpus = []string{
 	"The Quiet Orchard 2021",
 }
 
-var frames = []files.Probe{{Width: 3840, Height: 2160}, {Width: 3840, Height: 1600}, {Width: 1920, Height: 1080}, {Width: 1280, Height: 720}, {Width: 720, Height: 480}}
+var frames = []media.Video{{Width: 3840, Height: 2160}, {Width: 3840, Height: 1600}, {Width: 1920, Height: 1080}, {Width: 1280, Height: 720}, {Width: 720, Height: 480}}
 
 func TestExistingFilesMigrateToTheQualityTheirGrabAndProbeGive(t *testing.T) {
 	ctx := t.Context()
@@ -129,11 +130,11 @@ func TestExistingFilesKeepTheVideoCodecTheirGrabProbed(t *testing.T) {
 	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
 	t.Cleanup(func() { _ = lib.Close() })
 	for path, video := range want {
-		var p files.Probe
+		var p media.Record
 		if err := lib.QueryRowContext(ctx, `SELECT probe FROM files_file WHERE path = ?`, path).Scan(&p); err != nil {
 			t.Fatal(err)
 		}
-		if got := (files.File{Probe: p}).Facts().Video; got != video || p.Width != 1920 || p.Height != 1080 {
+		if got := (files.File{Media: p}).Facts().Video; got != video || p.Version != 0 || p.Width != 1920 || p.Height != 1080 {
 			t.Errorf("file %s migrated with the probe %+v, video %v, want its Grab's 1920x1080 and video %v", path, p, got, video)
 		}
 	}
@@ -173,7 +174,7 @@ func seedProbed(ctx context.Context, tx *storage.Tx[storage.Library]) (map[strin
 
 type seeded struct {
 	title string // empty for a file no Grab brought
-	probe files.Probe
+	probe media.Video
 }
 
 type seeds struct {
@@ -202,7 +203,7 @@ func seedLibrary(ctx context.Context, tx *storage.Tx[storage.Library]) (seeds, e
 // seedFile adds the nth Item of the Work and a file of it probed at probe,
 // brought by a Grab of title unless title is empty, and returns the
 // file's path.
-func seedFile(ctx context.Context, tx *storage.Tx[storage.Library], n int, title string, probe files.Probe, at seeds) (string, error) {
+func seedFile(ctx context.Context, tx *storage.Tx[storage.Library], n int, title string, probe media.Video, at seeds) (string, error) {
 	item, file := storage.NewUUID(), storage.NewUUID()
 	if _, err := tx.ExecContext(ctx, `INSERT INTO works_item (id, work_id, key, label, position) VALUES (?, ?, ?, 'Item', ?)`, item, at.work, strconv.Itoa(n), n); err != nil {
 		return "", err

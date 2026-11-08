@@ -212,10 +212,10 @@ func continues(before, after Cell) bool {
 	case before.Edition != targets.AnyEdition && after.Edition != targets.AnyEdition:
 		return false
 	}
-	return fileOf(before) == fileOf(after)
+	return fileIDOf(before) == fileIDOf(after)
 }
 
-func fileOf(c Cell) ID {
+func fileIDOf(c Cell) ID {
 	if c.File == nil {
 		return ID{}
 	}

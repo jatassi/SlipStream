@@ -42,7 +42,8 @@ sql:
               type: Quality
           - column: files_file.probe
             go_type:
-              type: Probe
+              import: github.com/jatassi/slipstream/internal/media
+              type: Record
           - column: files_file.grab_id
             go_type:
               import: github.com/jatassi/slipstream/internal/storage

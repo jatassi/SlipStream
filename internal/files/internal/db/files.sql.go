@@ -9,6 +9,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -196,7 +197,7 @@ type InsertFileParams struct {
 	RootID  roots.ID
 	Path    string
 	Size    int64
-	Probe   Probe
+	Probe   media.Record
 	GrabID  storage.UUID
 	Quality release.Quality
 	Label   string

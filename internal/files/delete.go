@@ -31,7 +31,7 @@ func Holding(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (ma
 		h := out[row.WorkID]
 		h.Files++
 		h.Bytes += row.Size
-		if File(row).Kept() {
+		if fileOf(row).Kept() {
 			h.Kept++
 		}
 		if i, found := slices.BinarySearchFunc(h.Roots, row.RootID, func(a, b roots.ID) int { return a.Compare(b.UUID) }); !found {
@@ -53,7 +53,7 @@ func DoomIn(ctx context.Context, tx *storage.Tx[file], ws []works.WorkID) error 
 		return err
 	}
 	for _, row := range rows {
-		if err := doom(ctx, q, File(row)); err != nil {
+		if err := doom(ctx, q, fileOf(row)); err != nil {
 			return err
 		}
 	}

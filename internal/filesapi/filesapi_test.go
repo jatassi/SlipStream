@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
@@ -89,7 +90,7 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		var err error
 		placed, err = files.Add(ctx, tx, files.File{
 			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: root.ID,
-			Path: "The Attic/The Attic - 1080p.mkv", Size: 4096, Probe: files.Probe{Width: 1920, Height: 1080}, Quality: release.WEBDL1080p,
+			Path: "The Attic/The Attic - 1080p.mkv", Size: 4096, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p,
 		}, []targets.TargetID{hd.ID, small.ID})
 		return err
 	})

@@ -251,9 +251,9 @@ type failsOnce struct {
 	failed atomic.Bool
 }
 
-func (p *failsOnce) Probe(ctx context.Context, path string) (media.Probe, error) {
+func (p *failsOnce) Probe(ctx context.Context, path string) (media.Record, error) {
 	if p.failed.CompareAndSwap(false, true) {
-		return media.Probe{}, errors.New("the probe failed once")
+		return media.Record{}, errors.New("the probe failed once")
 	}
 	return p.Prober.Probe(ctx, path)
 }

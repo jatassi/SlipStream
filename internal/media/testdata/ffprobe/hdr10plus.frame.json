@@ -1,0 +1,97 @@
+{
+    "frames": [
+        {
+            "media_type": "video",
+            "stream_index": 0,
+            "key_frame": 1,
+            "pts": 0,
+            "pts_time": "0.000000",
+            "best_effort_timestamp": 0,
+            "best_effort_timestamp_time": "0.000000",
+            "duration": 41,
+            "duration_time": "0.041000",
+            "pkt_pos": "3065",
+            "pkt_size": "5700",
+            "width": 320,
+            "height": 180,
+            "crop_top": 0,
+            "crop_bottom": 0,
+            "crop_left": 0,
+            "crop_right": 0,
+            "pix_fmt": "yuv420p10le",
+            "sample_aspect_ratio": "1:1",
+            "pict_type": "I",
+            "interlaced_frame": 0,
+            "top_field_first": 0,
+            "lossless": 0,
+            "repeat_pict": 0,
+            "color_range": "tv",
+            "color_space": "bt2020nc",
+            "color_primaries": "bt2020",
+            "color_transfer": "smpte2084",
+            "chroma_location": "left",
+            "side_data_list": [
+                {
+                    "side_data_type": "H.26[45] User Data Unregistered SEI message"
+                },
+                {
+                    "side_data_type": "H.26[45] User Data Unregistered SEI message"
+                },
+                {
+                    "side_data_type": "Mastering display metadata",
+                    "red_x": "34000/50000",
+                    "red_y": "16000/50000",
+                    "green_x": "13250/50000",
+                    "green_y": "34500/50000",
+                    "blue_x": "7500/50000",
+                    "blue_y": "3000/50000",
+                    "white_point_x": "15635/50000",
+                    "white_point_y": "16450/50000",
+                    "min_luminance": "1/10000",
+                    "max_luminance": "10000000/10000"
+                },
+                {
+                    "side_data_type": "Content light level metadata",
+                    "max_content": 1000,
+                    "max_average": 400
+                },
+                {
+                    "side_data_type": "HDR Dynamic Metadata SMPTE2094-40 (HDR10+)",
+                    "application version": 1,
+                    "num_windows": 1,
+                    "targeted_system_display_maximum_luminance": "400/1",
+                    "maxscl": "1000/100000",
+                    "maxscl": "1000/100000",
+                    "maxscl": "1000/100000",
+                    "average_maxrgb": "1000/100000",
+                    "num_distribution_maxrgb_percentiles": 9,
+                    "distribution_maxrgb_percentage": 1,
+                    "distribution_maxrgb_percentile": "0/100000",
+                    "distribution_maxrgb_percentage": 5,
+                    "distribution_maxrgb_percentile": "100/100000",
+                    "distribution_maxrgb_percentage": 10,
+                    "distribution_maxrgb_percentile": "200/100000",
+                    "distribution_maxrgb_percentage": 25,
+                    "distribution_maxrgb_percentile": "300/100000",
+                    "distribution_maxrgb_percentage": 50,
+                    "distribution_maxrgb_percentile": "400/100000",
+                    "distribution_maxrgb_percentage": 75,
+                    "distribution_maxrgb_percentile": "500/100000",
+                    "distribution_maxrgb_percentage": 90,
+                    "distribution_maxrgb_percentile": "600/100000",
+                    "distribution_maxrgb_percentage": 95,
+                    "distribution_maxrgb_percentile": "700/100000",
+                    "distribution_maxrgb_percentage": 99,
+                    "distribution_maxrgb_percentile": "800/100000",
+                    "fraction_bright_pixels": "0/1000",
+                    "knee_point_x": "0/4095",
+                    "knee_point_y": "0/4095",
+                    "num_bezier_curve_anchors": 3,
+                    "bezier_curve_anchors": "256/1023",
+                    "bezier_curve_anchors": "512/1023",
+                    "bezier_curve_anchors": "768/1023"
+                }
+            ]
+        }
+    ]
+}

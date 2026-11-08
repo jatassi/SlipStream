@@ -164,13 +164,13 @@ func wholeFiles(ctx context.Context, q *db.Queries, among works.Among[works.Work
 	})
 	out := make([]File, len(rows))
 	for i, row := range rows {
-		out[i] = File(row)
+		out[i] = fileOf(row)
 	}
 	return out, err
 }
 
 // briefFiles reads only what cells and a Rollup read of each file: not its
-// path, probe, Grab or label.
+// path, media record, Grab or label.
 func briefFiles(ctx context.Context, q *db.Queries, among works.Among[works.WorkID]) ([]File, error) {
 	rows, err := works.Read(among, func() ([]db.ListEveryBriefFileRow, error) { return q.ListEveryBriefFile(ctx) }, func(ids []works.WorkID) ([]db.ListEveryBriefFileRow, error) {
 		rows, err := q.ListBriefFilesOfWorks(ctx, ids)

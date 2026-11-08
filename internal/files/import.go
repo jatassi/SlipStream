@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/jatassi/slipstream/internal/files/internal/db"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -34,7 +35,7 @@ type Incoming struct {
 	// Holding is root-relative, '/' separated; its extension is the file's.
 	Holding string
 	Size    int64
-	Probe   Probe
+	Media   media.Record
 	Quality release.Quality
 	GrabID  storage.UUID
 	// Meant is the Targets its Grab was meant to fill, in Profile order.
@@ -91,7 +92,7 @@ func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) 
 	}
 	fresh := File{
 		ID: ID{UUID: storage.NewUUID()}, WorkID: in.WorkID, ItemID: in.ItemID, Cut: in.Cut, RootID: in.RootID, Path: in.Holding,
-		Size: in.Size, Probe: in.Probe, GrabID: in.GrabID, Quality: in.Quality,
+		Size: in.Size, Media: in.Media, GrabID: in.GrabID, Quality: in.Quality,
 	}
 	after := before
 	after.files = append(slices.Clone(before.files), fresh)
