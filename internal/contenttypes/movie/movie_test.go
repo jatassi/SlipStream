@@ -634,7 +634,14 @@ func TestTheEnglishTitleFeedsSearchTermsAndNaming(t *testing.T) {
 		return err
 	})
 	terms.Covers = nil
-	want := indexers.Terms{Expect: indexers.Expect{Claim: release.Claim{IDs: map[string]string{"tmdbid": "9000005", "imdbid": "tt9000005"}}}, Mode: "movie", Query: "The Salt Road 2022"}
+	want := indexers.Terms{Expect: indexers.Expect{
+		Claim: release.Claim{
+			IDs:    map[string]string{"tmdbid": "9000005", "imdbid": "tt9000005"},
+			Titles: []string{"La Route du Sel", "The Salt Road", "The Salt Way", "Salt Road"},
+			Year:   release.Known(2022), Slack: 1,
+		},
+		Original: release.Known(release.Language("fr")),
+	}, Mode: "movie", Query: "The Salt Road 2022"}
 	if !reflect.DeepEqual(terms, want) {
 		t.Fatalf("terms %+v, want %+v", terms, want)
 	}
@@ -838,7 +845,7 @@ func TestNamingTokensNameTheMovie(t *testing.T) {
 	}
 }
 
-func TestSearchTermsCarryTheIDsAndTitleYear(t *testing.T) {
+func TestSearchTermsAndExpectCarryTheSameClaim(t *testing.T) {
 	sh, tree := added(t, "9000001")
 	var terms indexers.Terms
 	var expect indexers.Expect
@@ -857,7 +864,13 @@ func TestSearchTermsCarryTheIDsAndTitleYear(t *testing.T) {
 		}
 	}
 	terms.Covers, expect.Covers = nil, nil
-	want := indexers.Terms{Expect: indexers.Expect{Claim: release.Claim{IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}}}, Mode: "movie", Query: "The Quiet Orchard 2021"}
+	want := indexers.Terms{Expect: indexers.Expect{
+		Claim: release.Claim{
+			IDs:    map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"},
+			Titles: []string{"The Quiet Orchard"}, Year: release.Known(2021), Slack: 1,
+		},
+		Original: release.Known(release.Language("en")),
+	}, Mode: "movie", Query: "The Quiet Orchard 2021"}
 	if !reflect.DeepEqual(terms, want) || !reflect.DeepEqual(expect, want.Expect) {
 		t.Fatalf("terms %+v and the Work's Expect %+v, want %+v", terms, expect, want)
 	}
