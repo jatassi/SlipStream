@@ -28,6 +28,7 @@ import type { LiveEventTasksProgress } from "./liveEventTasksProgress.ts";
 import type { LiveEventTorrentsChanged } from "./liveEventTorrentsChanged.ts";
 import type { LiveEventTorrentsLive } from "./liveEventTorrentsLive.ts";
 import type { LiveEventTrackersChanged } from "./liveEventTrackersChanged.ts";
+import type { LiveEventTrackersSeedingChanged } from "./liveEventTrackersSeedingChanged.ts";
 import type { LiveEventTransfersChanged } from "./liveEventTransfersChanged.ts";
 import type { LiveEventVolumesChanged } from "./liveEventVolumesChanged.ts";
 import type { LiveEventWorksChanged } from "./liveEventWorksChanged.ts";
@@ -66,6 +67,7 @@ export type LiveEvent =
   | LiveEventTorrentsChanged
   | LiveEventTorrentsLive
   | LiveEventTrackersChanged
+  | LiveEventTrackersSeedingChanged
   | LiveEventTransfersChanged
   | LiveEventVolumesChanged
   | LiveEventWorksChanged

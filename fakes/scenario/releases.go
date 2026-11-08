@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"fmt"
+	"maps"
 	"math"
 	"regexp"
 	"slices"
@@ -44,6 +45,9 @@ type Release struct {
 	// Trackerless leaves tr out of the release's magnet link, so a Node
 	// finds its peers only through fake-dht.
 	Trackerless bool `yaml:"trackerless,omitempty"`
+	// Sites are the labels of the fixture-site sites that list the
+	// release. Empty lists it on every site.
+	Sites []string `yaml:"sites,omitempty"`
 }
 
 // ReleaseEpisode is the series a release is of, by TVDB id, and the
@@ -174,6 +178,46 @@ type Tracker struct {
 	AllowPeerIDs []string `yaml:"allow_peer_ids,omitempty"`
 	// FailWithoutInterval answers failures with no interval or min interval.
 	FailWithoutInterval bool `yaml:"fail_without_interval,omitempty"`
+	// Prewarn is how long an account's torrent that owes its site's rule
+	// stays inactive before UNIT3D prewarns it, and Grace how long before
+	// the prewarned torrent is a hit and run. Zero is UNIT3D's: a day and
+	// three days.
+	Prewarn time.Duration `yaml:"prewarn,omitempty"`
+	Grace   time.Duration `yaml:"grace,omitempty"`
+	// InactiveAfter is how long a peer that stops announcing without a
+	// stopped event counts as active. Zero is UNIT3D's ghost peer flush,
+	// two hours.
+	InactiveAfter time.Duration `yaml:"inactive_after,omitempty"`
+	// Sites replace the rules SiteRules gives sites by label, each stating
+	// what its site's rule states.
+	Sites map[string]SiteRule `yaml:"sites,omitempty"`
+}
+
+// SiteRule is the seeding rule a site states for every release it lists:
+// a ratio, a seed time or both, either of which meets it.
+type SiteRule struct {
+	MinRatio    float64       `jsonschema:"minimum=0" yaml:"min_ratio,omitempty"`
+	MinSeedTime time.Duration `yaml:"min_seed_time,omitempty"`
+}
+
+// SiteRules are the rules fixture-site's sites state. heron is
+// seedpool's shape, a seed time where ratio doesn't count, and tamarack
+// is TorrentLeech's, 1:1 or 10 days. A site missing here states none.
+var SiteRules = map[string]SiteRule{
+	"torznab":  {MinRatio: 1, MinSeedTime: 48 * time.Hour},
+	"prowlarr": {MinRatio: 1, MinSeedTime: 48 * time.Hour},
+	"heron":    {MinSeedTime: 10 * 24 * time.Hour},
+	"tamarack": {MinRatio: 1, MinSeedTime: 10 * 24 * time.Hour},
+}
+
+// Rule is the rule the site labeled site states in a world with t,
+// false when it states none.
+func (t Tracker) Rule(site string) (SiteRule, bool) {
+	if r, ok := t.Sites[site]; ok {
+		return r, true
+	}
+	r, ok := SiteRules[site]
+	return r, ok
 }
 
 // TrackerMode is the private tracker software fake-tracker plays.
@@ -231,6 +275,11 @@ func checkReleases(add func(format string, args ...any), releases []Release, mov
 		}
 		r.BadPeer.check(add, r.Name)
 		r.checkLink(add)
+		for _, site := range r.Sites {
+			if !isFixtureSite(site) {
+				add("release %s names site %q, which fixture-site doesn't serve", r.Name, site)
+			}
+		}
 	}
 }
 
@@ -263,6 +312,33 @@ func (t Tracker) check(add func(format string, args ...any)) {
 	if slices.Contains(t.AllowPeerIDs, "") {
 		add("tracker allow_peer_ids lists an empty prefix, which allows every peer ID")
 	}
+	for name, d := range map[string]time.Duration{"prewarn": t.Prewarn, "grace": t.Grace, "inactive_after": t.InactiveAfter} {
+		if d < 0 {
+			add("tracker %s %s is negative", name, d)
+		}
+	}
+	for _, site := range slices.Sorted(maps.Keys(t.Sites)) {
+		r, stated := t.Sites[site], SiteRules[site]
+		switch {
+		case stated == SiteRule{}:
+			add("tracker sites names %q, which states no rule", site)
+		case (r.MinRatio > 0) != (stated.MinRatio > 0) || (r.MinSeedTime > 0) != (stated.MinSeedTime > 0):
+			add("tracker sites %s states %s, and site %s states %s", site, r.shape(), site, stated.shape())
+		}
+	}
+}
+
+// shape names what r states.
+func (r SiteRule) shape() string {
+	switch {
+	case r.MinRatio > 0 && r.MinSeedTime > 0:
+		return "a ratio and a seed time"
+	case r.MinRatio > 0:
+		return "a ratio only"
+	case r.MinSeedTime > 0:
+		return "a seed time only"
+	}
+	return "nothing"
 }
 
 // checkSubject holds r to one movie or one episode its fake lists.

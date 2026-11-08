@@ -16,8 +16,9 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// Intent is node's Downloading intent: its live Torrents and its
-// discards, the Removing ones, each in added order and naming its client,
+// Intent is node's Downloading intent: its live Torrents, with a Retry
+// waiting for its Node's check, and its discards, the Removing ones, each
+// in added order and naming its client,
 // its settings with defaults, the thresholds, the disk guard's hold, how
 // often to sample the downloads volume, and its external clients, on or
 // off, with every setting but their secrets. The same library gives the
@@ -69,8 +70,13 @@ func Intent(ctx context.Context, r storage.Reader[file], node role.NodeID) (*dlv
 			client = row.ClientID.Bytes()
 		}
 		if row.RemovedAt.IsZero() {
+			retryAt, err := retryAtOnWire(row.Retry)
+			if err != nil {
+				return nil, fmt.Errorf("torrent %s: %w", row.ID, err)
+			}
 			intent.Torrents = append(intent.Torrents, &dlv1.Torrent{
 				Id: row.ID.Bytes(), InfoHash: row.InfoHash, Wanted: wantedOnWire[Wanted(row.Wanted)], Order: row.AddedOrder, ClientId: client,
+				RetryAtUnixMs: retryAt,
 			})
 			continue
 		}
@@ -171,10 +177,13 @@ func reportOf(stored *string) (*Report, error) {
 
 // DownloadingOwner counts the Torrents a Node holds until it parts from
 // them: a Removing one too, so a drain lasts until the Node confirms each
-// removal. Live Torrents seed until seeding goals exist, so a Node never
-// finishes them on its own. Its external clients keep Downloading on the
-// Node until the Admin deletes or moves them.
-var DownloadingOwner = nodes.Owner{Role: role.Downloading, Held: held, Keeps: clientsOn}
+// removal. A live built-in Torrent's goal removes it, or pauses it, which
+// a drain turns into a remove. One whose goal never acts is endless. Its
+// external clients keep Downloading on the Node until the Admin deletes or
+// moves them.
+func (c *Clients) DownloadingOwner() nodes.Owner {
+	return nodes.Owner{Role: role.Downloading, Held: c.held, Keeps: clientsOn}
+}
 
 // clientsOn names node's external clients by name.
 func clientsOn(ctx context.Context, r storage.Reader[file], node role.NodeID) ([]string, error) {
@@ -187,7 +196,14 @@ func clientsOn(ctx context.Context, r storage.Reader[file], node role.NodeID) ([
 	return names, err
 }
 
-func held(ctx context.Context, r storage.Reader[file], node role.NodeID) (nodes.Held, error) {
+func (c *Clients) held(ctx context.Context, r storage.Reader[file], node role.NodeID) (nodes.Held, error) {
 	row, err := db.New(r).CountHeld(ctx, node)
-	return nodes.Held{Units: row.Torrents, Noun: nodes.Noun{One: "torrent", Many: "torrents"}, Bytes: row.Bytes, Endless: row.Live > 0}, err
+	if err != nil {
+		return nodes.Held{}, err
+	}
+	endless, err := c.cfg.Seeding.EndlessUnits(ctx, r, node)
+	if err != nil {
+		return nodes.Held{}, err
+	}
+	return nodes.Held{Units: row.Torrents, Noun: nodes.Noun{One: "torrent", Many: "torrents"}, Bytes: row.Bytes, EndlessUnits: endless}, nil
 }

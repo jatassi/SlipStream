@@ -22,6 +22,7 @@ import { libraryRootsSection } from "../roots/section";
 import { EditionsSection } from "../targets/editions-section";
 import { ProfilesSection } from "../targets/profiles-section";
 import { TargetsSection } from "../targets/targets-section";
+import { trackersSection } from "../trackers/section";
 import { AddressSection } from "./address";
 import { ApiKeySection } from "./api-key";
 import { contentTypesSection } from "./content-types";
@@ -121,7 +122,7 @@ export const settingsGroups: readonly [SettingsGroup, ...SettingsGroup[]] = [
   {
     id: "search-download",
     label: "Search and download",
-    sections: [indexersSection, downloadClientsSection],
+    sections: [indexersSection, trackersSection, downloadClientsSection],
   },
   { id: "access", label: "Access", sections: [addressSection, signInSection, apiKeySection] },
   { id: "system", label: "System", sections: [nodesSection, emailSection] },

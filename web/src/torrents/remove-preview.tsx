@@ -1,8 +1,9 @@
-import type { DownloadclientsActed } from "../api/gen/model";
+import type { DownloadclientsActed, DownloadclientsHitAndRun } from "../api/gen/model";
 import { bytes } from "../format";
 import { useNow } from "../tasks/use-now";
 import { Data } from "../ui/data";
 import { type Subject, outcomeWords } from "./actions";
+import { owedWords } from "./seeding";
 
 export type Parting = "remove" | "mark-failed";
 
@@ -18,6 +19,60 @@ const cancelsLead: { readonly [P in Parting]: (count: number) => string } = {
       ? "This Grab fails, and its Item goes back to wanted:"
       : `These ${count} Grabs fail, and their Items go back to wanted:`,
 };
+
+const parted: { readonly [P in Parting]: (who: string) => string } = {
+  remove: (who) => `Removing ${who}`,
+  "mark-failed": (who) => `Marking ${who} failed`,
+};
+
+const owes = (hit: DownloadclientsHitAndRun) =>
+  hit.owes === undefined ? undefined : owedWords(hit.owes, hit.clears);
+
+function HitsAndRuns({
+  parting,
+  hits,
+  subjects,
+}: {
+  parting: Parting;
+  hits: readonly DownloadclientsHitAndRun[];
+  subjects: readonly Subject[];
+}) {
+  const names = new Map(subjects.map(({ id, name }) => [id, name]));
+  const name = (id: string) => (subjects.length === 1 ? undefined : names.get(id));
+  const groups = new Map<string | undefined, DownloadclientsHitAndRun[]>();
+  for (const hit of hits) {
+    groups.set(hit.tracker?.name, [...(groups.get(hit.tracker?.name) ?? []), hit]);
+  }
+  return [...groups].map(([tracker, owing]) => {
+    const [only, ...rest] = owing;
+    if (only !== undefined && rest.length === 0) {
+      const owed = owes(only);
+      return (
+        <p key={only.torrentId} className="text-warn-ink">
+          {`${parted[parting](name(only.torrentId) ?? "it")} now counts as a hit and run on ${tracker ?? "its Tracker"}.`}
+          {owed !== undefined && ` It still owes ${owed}.`}
+        </p>
+      );
+    }
+    return (
+      <div key={tracker ?? ""}>
+        <p className="text-warn-ink">
+          {`${parted[parting]("these")} now counts as a hit and run on ${tracker === undefined ? "each one's Tracker" : `${tracker} for each`}:`}
+        </p>
+        <ul className="mt-2 flex flex-col gap-1">
+          {owing.map((hit) => (
+            <li key={hit.torrentId} className="flex min-w-0 flex-col">
+              <span className="text-ink-1">{name(hit.torrentId) ?? "A torrent"}</span>
+              {owes(hit) !== undefined && (
+                <span className="text-meta text-ink-3">{`Owes ${owes(hit)}`}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  });
+}
 
 export const freesWords = (frees: number | null | undefined) =>
   frees === null || frees === undefined ? "" : ` (frees ${bytes(frees)})`;
@@ -59,6 +114,9 @@ export function Preview({
             ))}
           </ul>
         </div>
+      )}
+      {preview !== undefined && (
+        <HitsAndRuns parting={parting} hits={preview.hitAndRun} subjects={subjects} />
       )}
       {stops.length > 0 && (
         <p>

@@ -1,37 +1,36 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
+import { createFileRoute, useMatch, useNavigate } from "@tanstack/react-router";
 
-import {
-  getListDownloadClientsSuspenseQueryOptions,
-  getListTorrentsSuspenseQueryOptions,
-} from "../../../api/gen/query/downloadclients/downloadclients";
-import { getListNodesSuspenseQueryOptions } from "../../../api/gen/query/nodes/nodes";
-import {
-  getListCutsSuspenseQueryOptions,
-  getListQualitiesSuspenseQueryOptions,
-} from "../../../api/gen/query/targets/targets";
-import { getListContentTypesSuspenseQueryOptions } from "../../../api/gen/query/works/works";
-import { ensureQuery } from "../../../api/query-client";
-import { ensureLibrary } from "../../../library/projection";
+import { loadTorrents, torrentsSearch } from "../../../torrents/load";
 import { TorrentsPage } from "../../../torrents/torrents-page";
 import { Skeleton } from "../../../ui/skeleton";
 
 export const Route = createFileRoute("/_app/activity/torrents")({
   staticData: { title: "Torrents", view: true },
-  validateSearch: z.object({
-    tab: z.enum(["downloading", "seeding", "problems", "all"]).optional().catch(undefined),
-    client: z.string().optional().catch(undefined),
-  }),
-  loader: ({ context }) =>
-    Promise.all([
-      ensureQuery(context.queryClient, getListTorrentsSuspenseQueryOptions()),
-      ensureQuery(context.queryClient, getListDownloadClientsSuspenseQueryOptions()),
-      ensureLibrary(context.queryClient),
-      ensureQuery(context.queryClient, getListNodesSuspenseQueryOptions()),
-      ensureQuery(context.queryClient, getListContentTypesSuspenseQueryOptions()),
-      ensureQuery(context.queryClient, getListQualitiesSuspenseQueryOptions()),
-      ensureQuery(context.queryClient, getListCutsSuspenseQueryOptions()),
-    ]),
+  validateSearch: torrentsSearch,
+  loader: ({ context }) => loadTorrents(context.queryClient),
   pendingComponent: () => <Skeleton label="Loading Torrents" />,
-  component: TorrentsPage,
+  component: ActivityTorrents,
 });
+
+function ActivityTorrents() {
+  const navigate = useNavigate();
+  const selected = useMatch({ from: "/_app/activity/torrents/$torrentId", shouldThrow: false })
+    ?.params.torrentId;
+  return (
+    <TorrentsPage
+      search={Route.useSearch()}
+      selected={selected}
+      onSearchChange={(change) => {
+        void navigate({ to: ".", search: (prev) => ({ ...prev, ...change }), replace: true });
+      }}
+      onSelect={(row) => {
+        void navigate({
+          to: "/activity/torrents/$torrentId",
+          params: { torrentId: row.id },
+          search: (prev) => prev,
+          replace: selected !== undefined,
+        });
+      }}
+    />
+  );
+}

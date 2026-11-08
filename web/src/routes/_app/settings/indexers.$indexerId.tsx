@@ -7,11 +7,13 @@ import {
 import {
   getGetIndexerSuspenseQueryOptions,
   getListIndexerQueriesSuspenseQueryOptions,
-  getListTrackersSuspenseQueryOptions,
   useGetIndexerSuspense,
   useListIndexerQueriesSuspense,
-  useListTrackersSuspense,
 } from "../../../api/gen/query/indexers/indexers";
+import {
+  getListTrackersSuspenseQueryOptions,
+  useListTrackersSuspense,
+} from "../../../api/gen/query/trackers/trackers";
 import {
   getListNodesSuspenseQueryOptions,
   useListNodesSuspense,

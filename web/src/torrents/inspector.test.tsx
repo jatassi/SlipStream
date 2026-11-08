@@ -21,7 +21,7 @@ const orchard = torrent({
   done: 250_000_000,
   uploaded: 50_000_000,
   ratio: 0.05,
-  tracker: { host: "beacon.example", status: "working" },
+  announce: { host: "beacon.example", status: "working" },
 });
 const paused = torrent({
   state: "paused",
@@ -98,7 +98,7 @@ test("a row opens the Inspector beside the table, leading with what the torrent 
 
   const section = (name: string) => inspector().getByRole("heading", { name, level: 3 });
   await Promise.all(
-    ["Numbers", "Announce URLs", "Files", "Grabs", "Details"].map((name) =>
+    ["Numbers", "Seeding", "Announce URLs", "Files", "Grabs", "Details"].map((name) =>
       expect.element(section(name)).toBeVisible(),
     ),
   );
@@ -164,7 +164,7 @@ test("Pause and Announce now act on the torrent the Inspector shows", async () =
 test("a recheck of files the library shares asks first", async () => {
   const live = liveServer();
   const actions = actionsServer({
-    preview: { cancels: [], stopSeeding: [], frees: 0, linked: true },
+    preview: { cancels: [], stopSeeding: [], frees: 0, linked: true, hitAndRun: [] },
   });
   renderApp({
     path: `/activity/torrents/${orchard.id}?tab=all`,

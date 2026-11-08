@@ -32,6 +32,7 @@ import (
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/trackers"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -58,6 +59,8 @@ func (worker) Minter() (artwork.Minter, bool) { return artwork.Minter{}, false }
 func (worker) Metadata() (*metadata.Metadata, bool) { return nil, false }
 
 func (worker) Indexers() (*indexers.Indexers, bool) { return nil, false }
+
+func (worker) Trackers() (*trackers.Trackers, bool) { return nil, false }
 
 func (worker) Targets() (*targets.Targets, bool) { return nil, false }
 

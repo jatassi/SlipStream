@@ -1,12 +1,20 @@
+import { getListDownloadClientsQueryKey } from "../api/gen/query/downloadclients/downloadclients";
 import {
   getGetIndexerCatalogQueryKey,
   getGetIndexerQueryKey,
   getGetIndexerSettingsQueryKey,
   getListIndexerQueriesQueryKey,
   getListIndexersQueryKey,
-  getGetTrackerQueryKey,
-  getListTrackersQueryKey,
 } from "../api/gen/query/indexers/indexers";
+import {
+  getGetDefaultGoalQueryKey,
+  getGetSeedingSettingsQueryKey,
+  getGetTrackerQueryKey,
+  getListTrackerRoutesQueryKey,
+  getListTrackerWindowsQueryKey,
+  getListTrackersQueryKey,
+  getPreviewSeedingGoalsQueryKey,
+} from "../api/gen/query/trackers/trackers";
 import { everyPath } from "./refresh";
 import type { LiveEffects } from "./types";
 
@@ -37,6 +45,19 @@ export const indexerEffects = {
     refresh({ queryKey: getListIndexersQueryKey() });
     refresh(everyIndexer);
   },
+  "trackers.seeding-changed": (data, { refresh }) => {
+    refresh({ queryKey: getListTrackersQueryKey() });
+    refresh({ queryKey: getPreviewSeedingGoalsQueryKey() });
+    if (data.trackerId === null) {
+      refresh({ queryKey: getGetDefaultGoalQueryKey() });
+      refresh({ queryKey: getGetSeedingSettingsQueryKey() });
+      return;
+    }
+    refresh({ queryKey: getGetTrackerQueryKey(data.trackerId) });
+    refresh({ queryKey: getListTrackerWindowsQueryKey(data.trackerId) });
+    refresh({ queryKey: getListTrackerRoutesQueryKey(data.trackerId) });
+    refresh({ queryKey: getListDownloadClientsQueryKey() });
+  },
 } satisfies Pick<
   LiveEffects,
   | "indexers.changed"
@@ -44,4 +65,5 @@ export const indexerEffects = {
   | "indexers.catalog-changed"
   | "indexers.settings-changed"
   | "trackers.changed"
+  | "trackers.seeding-changed"
 >;

@@ -5,9 +5,9 @@
 .torrents [data-torrent-row] {
   display: grid;
   grid-template-columns:
-    auto minmax(0, 2.2fr) minmax(0, 1.6fr) minmax(0, 1.5fr) minmax(0, 0.75fr) minmax(0, 1fr)
-    minmax(0, 1.3fr) minmax(0, 1fr) auto;
-  grid-template-areas: "pick work state progress ratio speed tracker node menu";
+    auto minmax(0, 2.2fr) minmax(0, 1.6fr) minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 1.3fr)
+    minmax(0, 1fr) auto;
+  grid-template-areas: "pick work state progress speed tracker node menu";
   align-items: center;
 }
 
@@ -27,9 +27,6 @@
 }
 .torrents [data-col="progress"] {
   grid-area: progress;
-}
-.torrents [data-col="ratio"] {
-  grid-area: ratio;
 }
 .torrents [data-col="speed"] {
   grid-area: speed;
@@ -58,7 +55,7 @@
     grid-template-areas: "pick work state progress menu";
   }
 
-  .torrents :is([data-col="ratio"], [data-col="speed"], [data-col="tracker"], [data-col="node"]) {
+  .torrents :is([data-col="speed"], [data-col="tracker"], [data-col="node"]) {
     display: none;
   }
 }
@@ -79,17 +76,16 @@
       ". state state state"
       ". progress progress progress"
       ". speed tracker tracker"
-      ". ratio node node";
+      ". node node node";
     row-gap: 10px;
     padding-block: 14px;
   }
 
-  .torrents :is([data-col="ratio"], [data-col="speed"], [data-col="tracker"], [data-col="node"]) {
+  .torrents :is([data-col="speed"], [data-col="tracker"], [data-col="node"]) {
     display: block;
   }
 
-  .torrents
-    :is([data-col="ratio"], [data-col="speed"], [data-col="tracker"], [data-col="node"])::before {
+  .torrents :is([data-col="speed"], [data-col="tracker"], [data-col="node"])::before {
     content: attr(data-label);
     display: block;
     margin-bottom: 2px;

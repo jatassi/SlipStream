@@ -4,6 +4,7 @@ import type {
   ActInputBody,
   DownloadclientsActResult,
   DownloadclientsPreview,
+  DownloadclientsSeedingView,
   DownloadclientsTorrentDetail,
   DownloadclientsTorrentList,
   DownloadclientsTorrentRow,
@@ -34,7 +35,7 @@ const states = [
   "downloading",
   "seeding",
 ] as const;
-const tabs = ["downloading", "seeding", "problems", "all"] as const;
+const tabs = ["downloading", "seeding", "problems", "goal-met", "all"] as const;
 
 export const harvestId = "5d7f9b1c-3e5a-4c7e-9f1b-3d5f7a9c1e2b";
 
@@ -47,6 +48,22 @@ export const orchardPoster = artworkUrl("red");
 const posteredOrchard: WorksLibraryRow = { ...orchardRow, posterUrl: orchardPoster };
 
 let serial = 0;
+
+/** A torrent's seeding view: the default goal, and no Tracker it owes. */
+export const seedingOf = (
+  more: Partial<DownloadclientsSeedingView> = {},
+): DownloadclientsSeedingView => ({
+  ratio: { value: 0, goal: 2 },
+  time: { value: 0, goal: 1_209_600 },
+  state: "none",
+  atRisk: "no",
+  goalMet: false,
+  combine: "first",
+  action: "remove-delete",
+  endless: "none",
+  clears: "none",
+  ...more,
+});
 
 export function torrent(row: Partial<Row> & Pick<Row, "state">): Row {
   serial += 1;
@@ -64,6 +81,9 @@ export function torrent(row: Partial<Row> & Pick<Row, "state">): Row {
     uploaded: 0,
     ratio: 0,
     seedingSeconds: 0,
+    tracker: null,
+    seeding: seedingOf(),
+    retryable: false,
     addedAt: `2026-10-12T09:${String(serial % 60).padStart(2, "0")}:00Z`,
     ...row,
   };
@@ -103,7 +123,6 @@ export function detailOf(
     saveFolder: `/srv/downloads/Movies/0102030405060708090a0b0c0d0e0f1011121314`,
     pieceSize: 4 * 1024 * 1024,
     private: true,
-    trackerId: null,
     trackers: [],
     files: [{ index: 0, path: `${row.name}/${row.name}.mkv`, size: row.size, done: row.done }],
     grabs: [],
@@ -117,7 +136,7 @@ export function detailOf(
  * unless `refuse` names a refusal for its id, and a dry run's preview.
  */
 export function actionsServer({
-  preview = { cancels: [], stopSeeding: [], frees: 0, linked: false },
+  preview = { cancels: [], stopSeeding: [], frees: 0, linked: false, hitAndRun: [] },
   refuse,
 }: {
   preview?: DownloadclientsPreview;

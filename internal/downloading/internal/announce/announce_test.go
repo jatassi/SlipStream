@@ -32,7 +32,7 @@ func at(d time.Duration) time.Time { return t0.Add(d) }
 type step func(*announce.Ledger)
 
 func sent(h bencode.InfoHash, t announce.Tracker, ev announce.Event, d time.Duration) step {
-	return func(l *announce.Ledger) { l.Sent(h, t, ev, at(d)) }
+	return func(l *announce.Ledger) { l.Sent(h, t, ev, at(d), false) }
 }
 
 func replied(h bencode.InfoHash, t announce.Tracker, d, minInterval time.Duration) step {
@@ -352,10 +352,10 @@ func TestAnUnregisteredTrackerFaultsAfterTheGap(t *testing.T) {
 // unknown, and when its window lets an announce through.
 func TestDetailShowsEachTrackersAnswerAndWhenItAccepts(t *testing.T) {
 	l := ledger()
-	l.Sent(h, beacon, announce.Started, at(0))
+	l.Sent(h, beacon, announce.Started, at(0), false)
 	l.Answered(h, beacon, at(time.Second))
 	replied(h, beacon, time.Second, 30*time.Minute)(l)
-	l.Sent(h, second, announce.Started, at(0))
+	l.Sent(h, second, announce.Started, at(0), false)
 	l.Answered(h, second, at(2*time.Second))
 
 	got := l.Detail(h, true, at(time.Minute))

@@ -39,6 +39,10 @@ type Harness interface {
 	// files lie under dir, and returns what has a torrent on an engine
 	// reach that peer.
 	Seed(t *testing.T, meta []byte, dir string) (reach func(engine.Engine, engine.Handle))
+	// Fail has e fail th, which seeds the release whose metainfo is meta
+	// from dir, as a read of its files for a peer fails, and returns what
+	// puts its files back.
+	Fail(t *testing.T, e engine.Engine, th engine.Handle, meta []byte, dir string) (restore func())
 	// TakePort holds a port on loopback for as long as t runs.
 	TakePort(t *testing.T) netip.AddrPort
 	// Incoming has a peer connect to e's listener, waits until e took the
@@ -85,11 +89,13 @@ func Run(t *testing.T, h Harness) {
 		{"TrackerListCarriesNextAndMinAnnounce", trackerListCarriesNextAndMinAnnounce},
 		{"TheAnnounceFloorLengthensAShortInterval", theAnnounceFloorLengthensAShortInterval},
 		{"AWarningIsReportedAndListed", aWarningIsReportedAndListed},
+		{"SwarmCountsFollowTheResponse", swarmCountsFollowTheResponse},
 		{"AFailureWithoutIntervalWaits1800s", aFailureWithoutIntervalWaits1800s},
 		{"ReannounceMovesMinAnnounce", reannounceMovesMinAnnounce},
 		{"ReannounceIgnoringMinIntervalAnnouncesNow", reannounceIgnoringMinIntervalAnnouncesNow},
 		{"RecheckSendsNoAnnounceAndEndsPaused", recheckSendsNoAnnounceAndEndsPaused},
 		{"ARecheckThatFindsNoFilesEndsPaused", aRecheckThatFindsNoFilesEndsPaused},
+		{"RecheckClearsFailure", recheckClearsFailure},
 		{"ATakenPortStaysTakenAndTheSessionRuns", aTakenPortStaysTakenAndTheSessionRuns},
 		{"ConfigureAppliesLive", configureAppliesLive},
 		{"StatsCountThePayload", statsCountThePayload},
@@ -391,6 +397,27 @@ func aWarningIsReportedAndListed(t *testing.T, h Harness) {
 	}
 }
 
+func swarmCountsFollowTheResponse(t *testing.T, h Harness) {
+	counted := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute, Swarm: &engine.Swarm{Seeders: 142, Leechers: 3}})
+	uncounted := h.Tracker(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	for _, tc := range []struct {
+		name string
+		url  string
+		want *engine.Swarm
+	}{
+		{"Counted", counted.URL, &engine.Swarm{Seeders: 142, Leechers: 3}},
+		{"Uncounted", uncounted.URL, nil},
+	} {
+		th := running(t, e, tc.name, tc.url)
+		await(t, h, r, func(rp engine.TrackerReplied) bool { return rp.Torrent == th })
+		if got := onlyTracker(t, trackerList(t, h, e, r, th)).Swarm; !reflect.DeepEqual(got, tc.want) {
+			t.Fatalf("the tracker at %s answered counts %v, and its tracker list holds %v", tc.url, tc.want, got)
+		}
+	}
+}
+
 func aFailureWithoutIntervalWaits1800s(t *testing.T, h Harness) {
 	const reason = "Unregistered torrent"
 	tr := h.Tracker(t, enginetest.TrackerRules{Failure: reason})
@@ -507,6 +534,33 @@ func aRecheckThatFindsNoFilesEndsPaused(t *testing.T, h Harness) {
 	}
 	if got := tr.Announces(); len(got) != 0 {
 		t.Fatalf("around a recheck of a torrent that never ran the tracker received %+v, want nothing", got)
+	}
+}
+
+// recheckClearsFailure fails a seeding torrent as a read of its files
+// fails, then rechecks it once they are back: the check clears the error
+// and finds every piece.
+func recheckClearsFailure(t *testing.T, h Harness) {
+	e := h.Open(t, engine.Config{})
+	r := record(e)
+	rel := release(t, "Failed", "")
+	th := add(t, e, engine.AddParams{Metainfo: rel.meta, SavePath: rel.dir, SeedMode: true})
+	if err := e.Resume(th); err != nil {
+		t.Fatal(err)
+	}
+	awaitStatus(t, h, e, r, th, func(s engine.Status) bool { return s.State == engine.StateSeeding })
+	restore := h.Fail(t, e, th, rel.meta, rel.dir)
+	await(t, h, r, func(f engine.TorrentFailed) bool { return f.Torrent == th })
+	awaitStatus(t, h, e, r, th, func(s engine.Status) bool { return s.Err != nil })
+	restore()
+
+	if err := e.Recheck(th); err != nil {
+		t.Fatal(err)
+	}
+	await(t, h, r, func(c engine.Checked) bool { return c.Torrent == th })
+	s := awaitStatus(t, h, e, r, th, func(s engine.Status) bool { return s.State != engine.StateCheckingFiles })
+	if s.Err != nil || s.Done != int64(len(rel.payload)) || s.State != engine.StateSeeding {
+		t.Fatalf("rechecked with its files back, the failed torrent reads %+v, want no error and seeding with every byte done", s)
 	}
 }
 

@@ -173,6 +173,24 @@ func (h *holder) totals() [][]*dlv1.TotalsRow {
 	return out
 }
 
+// announced is the announced seconds of every totals row of the torrent
+// id, oldest first.
+func (h *holder) announced(id storage.UUID) []int64 {
+	var out []int64
+	for _, r := range h.reported() {
+		rows := r.GetTotals().GetRows()
+		for _, tr := range r.GetTorrents().GetReports() {
+			rows = append(rows, tr.GetTotals())
+		}
+		for _, row := range rows {
+			if bytes.Equal(row.GetId(), id.Bytes()) {
+				out = append(out, row.GetAnnouncedSeconds())
+			}
+		}
+	}
+	return out
+}
+
 func (h *holder) lastFacts() *dlv1.Facts {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -877,6 +895,153 @@ func TestTotalsGoToTheControllerInBatches(t *testing.T) {
 			t.Errorf("a complete torrent's totals carry done %d, want none", second.GetDone())
 		}
 	})
+}
+
+// TestTheSeedTimeTrackersCreditReachesTheTotals seeds a private torrent
+// from its completion, pauses it, then seeds and pauses it again: every
+// report's totals carry the seed time its tracker credited, which never
+// falls, and the last is the time from each run's first seeder announce to
+// its stopped, less under a second per announce.
+func TestTheSeedTimeTrackersCreditReachesTheTotals(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+		f := newPrivateFile(t, "Orchard.mkv")
+		n.world.Payload(f.hash, f.payload)
+		id := n.hold(f)
+		c := n.start()
+		for range 2 {
+			c.send(live(f.started(id, 1)))
+			time.Sleep(2 * time.Hour)
+			c.send(live(f.paused(id, 1)))
+			time.Sleep(timings.TotalsReport)
+			synctest.Wait()
+		}
+
+		announces := n.world.Announces(trackerURL)
+		seeded := seededBetween(announces)
+		if seeded < 3*time.Hour {
+			t.Fatalf("the tracker heard %v of seeding, want two runs of about two hours", seeded)
+		}
+		announced := c.h.announced(id)
+		if !slices.IsSorted(announced) {
+			t.Fatalf("the totals carried announced seconds %v, want them never to fall", announced)
+		}
+		got := time.Duration(announced[len(announced)-1]) * time.Second
+		if got > seeded || got <= seeded-time.Duration(len(announces))*time.Second {
+			t.Errorf("the totals carry %v announced, want the %v seeded between announces, in whole seconds per announce", got, seeded)
+		}
+	})
+}
+
+// stored is the announced seconds the Node keeps for f.
+func (n *node) stored(f file) int64 {
+	n.t.Helper()
+	var s int64
+	if err := n.local.QueryRowContext(n.t.Context(), "SELECT announced_seconds FROM downloading_torrent WHERE info_hash = ?", f.hash[:]).Scan(&s); err != nil {
+		n.t.Fatal(err)
+	}
+	return s
+}
+
+// expectStoredAtLeastSent fails unless the Node keeps for f at least the
+// most announced seconds it has sent, so a restart can't count from less.
+func (n *node) expectStoredAtLeastSent(when string, f file, sent []int64) {
+	n.t.Helper()
+	if stored := n.stored(f); len(sent) == 0 || stored < slices.Max(sent) {
+		n.t.Fatalf("%s the Node keeps %d announced seconds and sent %v, want at least the most it sent", when, stored, sent)
+	}
+}
+
+// regularAnnounced reports whether f's tracker heard a regular announce,
+// the first that credits seeding time.
+func regularAnnounced(w *enginetest.World, f file) bool {
+	return slices.ContainsFunc(w.Announces(trackerURL), func(a enginetest.Announce) bool { return a.InfoHash == f.hash && a.Event == "" })
+}
+
+// TestARestartCountsOnFromTheAnnouncedSecondsTheNodeSent seeds a private
+// torrent, pauses it right after its first credited announce, seeds again
+// and restarts the client: it counts on from what it sent, never sends
+// less, and keeps at least what it sent at each step.
+func TestARestartCountsOnFromTheAnnouncedSecondsTheNodeSent(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+		f := newPrivateFile(t, "Orchard.mkv")
+		n.world.Payload(f.hash, f.payload)
+		id := n.hold(f)
+		c := n.start()
+		c.send(live(f.started(id, 1)))
+		for !regularAnnounced(n.world, f) {
+			time.Sleep(time.Second)
+			synctest.Wait()
+		}
+		c.send(live(f.paused(id, 1)))
+		n.expectStoredAtLeastSent("paused right after its first credited announce,", f, c.h.announced(id))
+		c.send(live(f.started(id, 1)))
+		time.Sleep(time.Hour + timings.TotalsReport)
+		synctest.Wait()
+		before := c.h.announced(id)
+		n.expectStoredAtLeastSent("seeding again,", f, before)
+		c.stop()
+		time.Sleep(time.Hour)
+
+		c = n.start()
+		c.send(live(f.started(id, 1)))
+		time.Sleep(2 * time.Hour)
+		c.send(live(f.paused(id, 1)))
+		time.Sleep(timings.TotalsReport)
+		synctest.Wait()
+		after := c.h.announced(id)
+		n.expectStoredAtLeastSent("after the restart,", f, after)
+		if len(n.ctl.fetched()) != 1 {
+			t.Fatalf("the client fetched %d times, want once: the restart adds the torrent from its resume data", len(n.ctl.fetched()))
+		}
+		if last := slices.Max(before); slices.Min(after) < last || slices.Max(after) < last+int64(time.Hour/time.Second) {
+			t.Errorf("before the restart the client sent %v announced seconds and after it %v, want it to count on from %d by more than an hour",
+				before, after, last)
+		}
+	})
+}
+
+// TestAFetchedTorrentCountsOnFromTheControllersAnnouncedSeconds is a Node
+// that lost its local row: the Controller's baseline is where its count
+// goes on from.
+func TestAFetchedTorrentCountsOnFromTheControllersAnnouncedSeconds(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNode(t, enginetest.TrackerRules{Interval: 30 * time.Minute})
+		f := newPrivateFile(t, "Orchard.mkv")
+		n.world.Payload(f.hash, f.payload)
+		id := storage.NewUUID()
+		const baseline = 7200
+		n.ctl.answer(id, &dlv1.TorrentResponse{Metainfo: f.meta, ContentType: "Movies", Baseline: &dlv1.TotalsRow{Id: id.Bytes(), AnnouncedSeconds: baseline}})
+		c := n.start()
+		c.send(live(f.started(id, 1)))
+		time.Sleep(2 * time.Hour)
+		c.send(live(f.paused(id, 1)))
+		time.Sleep(timings.TotalsReport)
+		synctest.Wait()
+
+		sent := c.h.announced(id)
+		n.expectStoredAtLeastSent("after seeding from the baseline,", f, sent)
+		if slices.Min(sent) < baseline || slices.Max(sent) <= baseline+int64(time.Hour/time.Second) {
+			t.Errorf("the client sent %v announced seconds, want it to count on from the baseline's %d by more than an hour", sent, baseline)
+		}
+	})
+}
+
+// seededBetween is the time from each run's first seeder announce to its
+// stopped: from the completed, then from each started after it.
+func seededBetween(announces []enginetest.Announce) time.Duration {
+	var seeded time.Duration
+	var from time.Time
+	for _, a := range announces {
+		switch {
+		case a.Event == "completed", a.Event == "started" && !from.IsZero():
+			from = a.At
+		case a.Event == "stopped":
+			seeded += a.At.Sub(from)
+		}
+	}
+	return seeded
 }
 
 func TestATrackerFailureShowsInTheReport(t *testing.T) {

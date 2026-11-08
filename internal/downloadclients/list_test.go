@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"maps"
 	"slices"
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	dc "github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/health"
@@ -21,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"github.com/jatassi/slipstream/internal/trackers/seeding"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -44,17 +47,19 @@ type listed struct {
 	lib     library
 	r       *roster
 	u       uses
+	s       seeder
 	seedbox role.NodeID
 	attic   role.NodeID
 	work    works.WorkID
 	held    map[string]dc.ID
+	hashes  map[string]bencode.InfoHash
 	node    inspector
 }
 
 func newListed(t *testing.T) *listed {
 	t.Helper()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), health.Schema(), roots.Schema(), dc.Schema(), indexers.Schema())
-	l := &listed{lib: lib, u: uses{}, held: map[string]dc.ID{}, work: works.WorkID{UUID: storage.NewUUID()}, node: inspector{held: map[dc.ID]*dlv1.InspectResponse{}}}
+	l := &listed{lib: lib, u: uses{}, held: map[string]dc.ID{}, hashes: map[string]bencode.InfoHash{}, work: works.WorkID{UUID: storage.NewUUID()}, node: inspector{held: map[dc.ID]*dlv1.InspectResponse{}}}
 	l.seedbox, l.attic = addNode(t, lib, "seedbox"), addNode(t, lib, "attic")
 	l.r = &roster{serving: []role.NodeID{l.seedbox, l.attic}, away: map[role.NodeID]bool{l.attic: true}}
 	exec(t, lib, "INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, 'movie', '1', 'The Quiet Orchard', 'quiet orchard', 0, 0)", l.work)
@@ -68,13 +73,13 @@ func (l *listed) add(t *testing.T, node role.NodeID, name string, r *dlv1.Torren
 	if r != nil {
 		apply(t, l.lib, node, id, r)
 	}
-	l.held[name] = id
+	l.held[name], l.hashes[name] = id, m.InfoHash
 	return id
 }
 
 func (l *listed) clients() *dc.Clients {
 	return dc.New(dc.Config{
-		Library: l.lib, Touch: func(...role.NodeID) {}, Changed: published{}, CardsChanged: &told{}, Roster: l.r, Uses: l.u,
+		Library: l.lib, Touch: func(...role.NodeID) {}, Changed: published{}, CardsChanged: &told{}, Roster: l.r, Uses: l.u, Seeding: l.s,
 		Remote: func(role.NodeID) downloadingv1connect.DownloadingServiceHandler { return l.node },
 		Facts:  func(role.NodeID) (*dlv1.Facts, bool) { return nil, false },
 		Live:   dc.LiveConfig{Watched: func() []role.NodeID { return nil }, Event: &admin{}, Sample: liveSample},
@@ -92,15 +97,15 @@ type shown struct {
 	InLine    int
 	Pending   dc.Wanted
 	Tabs      dc.Tab
-	Tracker   dc.TrackerCell
+	Announce  dc.TrackerCell
 	Fault     dc.FaultKind
 	LastKnown time.Time
 }
 
 func shownOf(r dc.Row) shown {
 	s := shown{State: r.State, InLine: r.QueuePosition, Pending: r.Pending, Tabs: r.Tabs, LastKnown: r.LastKnown}
-	if r.Tracker != nil {
-		s.Tracker = *r.Tracker
+	if r.Announce != nil {
+		s.Announce = *r.Announce
 	}
 	if r.Fault != nil {
 		s.Fault = r.Fault.Kind
@@ -137,10 +142,10 @@ func TestTheListDerivesEachTorrentsWordsAndCountsThemAll(t *testing.T) {
 	l.add(t, l.seedbox, "Attic", queued())
 	paused := l.add(t, l.seedbox, "Pantry", queued())
 	l.add(t, l.seedbox, "Cellar", queued())
-	seeding := completed()
-	seeding.Trackers = []*dlv1.TrackerLine{unregistered, working}
-	seeding.Fault = &dlv1.Fault{Kind: dlv1.FaultKind_FAULT_KIND_UNREGISTERED, AtUnixMs: reportedAt.UnixMilli()}
-	l.add(t, l.seedbox, "Harbor", seeding)
+	seeded := completed()
+	seeded.Trackers = []*dlv1.TrackerLine{unregistered, working}
+	seeded.Fault = &dlv1.Fault{Kind: dlv1.FaultKind_FAULT_KIND_UNREGISTERED, AtUnixMs: reportedAt.UnixMilli()}
+	l.add(t, l.seedbox, "Harbor", seeded)
 	gone := l.add(t, l.seedbox, "Shed", queued())
 	removeTorrent(t, l.lib, gone, dc.ByAdmin)
 	l.add(t, l.attic, "Loft", queued(&dlv1.TrackerLine{Index: 0, Status: dlv1.TrackerStatus_TRACKER_STATUS_ERROR, Message: "timed out"}))
@@ -152,14 +157,14 @@ func TestTheListDerivesEachTorrentsWordsAndCountsThemAll(t *testing.T) {
 	all := list(t, c, dc.Filter{})
 	notContacted := dc.TrackerCell{Host: "tracker.test", Status: dc.TrackerNotContacted}
 	want := map[string]shown{
-		"Orchard": {State: dc.StateQueued, InLine: 1, Tabs: dc.TabDownloading | dc.TabAll, Tracker: dc.TrackerCell{Host: "backup.test", Status: dc.TrackerWorking}},
-		"Attic":   {State: dc.StateQueued, InLine: 2, Tabs: dc.TabDownloading | dc.TabAll, Tracker: notContacted},
-		"Pantry":  {State: dc.StatePaused, Pending: dc.Paused, Tabs: dc.TabDownloading | dc.TabAll, Tracker: notContacted},
-		"Cellar":  {State: dc.StateQueued, InLine: 3, Tabs: dc.TabDownloading | dc.TabAll, Tracker: notContacted},
-		"Harbor":  {State: dc.StateSeeding, Tabs: dc.TabSeeding | dc.TabAll, Tracker: dc.TrackerCell{Host: "backup.test", Status: dc.TrackerWorking}, Fault: dc.FaultUnregistered},
-		"Shed":    {State: dc.StateRemoving, Tabs: dc.TabAll, Tracker: notContacted},
+		"Orchard": {State: dc.StateQueued, InLine: 1, Tabs: dc.TabDownloading | dc.TabAll, Announce: dc.TrackerCell{Host: "backup.test", Status: dc.TrackerWorking}},
+		"Attic":   {State: dc.StateQueued, InLine: 2, Tabs: dc.TabDownloading | dc.TabAll, Announce: notContacted},
+		"Pantry":  {State: dc.StatePaused, Pending: dc.Paused, Tabs: dc.TabDownloading | dc.TabAll, Announce: notContacted},
+		"Cellar":  {State: dc.StateQueued, InLine: 3, Tabs: dc.TabDownloading | dc.TabAll, Announce: notContacted},
+		"Harbor":  {State: dc.StateSeeding, Tabs: dc.TabSeeding | dc.TabAll, Announce: dc.TrackerCell{Host: "backup.test", Status: dc.TrackerWorking}, Fault: dc.FaultUnregistered},
+		"Shed":    {State: dc.StateRemoving, Tabs: dc.TabAll, Announce: notContacted},
 		"Loft": {State: dc.StateTrackerErr, Tabs: dc.TabProblems | dc.TabAll, LastKnown: reportedAt,
-			Tracker: dc.TrackerCell{Host: "tracker.test", Status: dc.TrackerError, Message: "timed out"}},
+			Announce: dc.TrackerCell{Host: "tracker.test", Status: dc.TrackerError, Message: "timed out"}},
 	}
 	got := map[string]shown{}
 	for _, r := range all.Rows {
@@ -324,5 +329,90 @@ func TestACardReadsItsNodesClientFactsSettingsAndTotals(t *testing.T) {
 	c.Arrived(l.attic, string(role.Downloading))
 	if want := [][]string{{l.seedbox.String()}, {l.attic.String()}}; !slices.EqualFunc(cards.nodes, want, slices.Equal) {
 		t.Errorf("download-clients.changed named %v, want seedbox for its settings, then attic for its Downloading facts alone", cards.nodes)
+	}
+}
+
+func TestTheGoalMetAndProblemsTabsFollowTheSeedingView(t *testing.T) {
+	l := newListed(t)
+	l.add(t, l.seedbox, "Harbor", completed())
+	l.add(t, l.seedbox, "Orchard", completed())
+	l.add(t, l.seedbox, "Attic", completed())
+	l.s.views = map[bencode.InfoHash]seeding.View{
+		l.hashes["Harbor"]:  {Goal: seeding.Forever{}, Risk: seeding.Safe, GoalMet: true},
+		l.hashes["Orchard"]: {Goal: seeding.Forever{}, Window: &seeding.Window{State: seeding.Owing}, Risk: seeding.AtRisk},
+		l.hashes["Attic"]:   {Goal: seeding.Forever{}, Window: &seeding.Window{State: seeding.Owing}, Risk: seeding.RiskUnknown},
+	}
+	c := l.clients()
+
+	all := list(t, c, dc.Filter{})
+	tabs := map[string]dc.Tab{}
+	for _, row := range all.Rows {
+		tabs[names(l, []dc.Row{row})[0]] = row.Tabs
+	}
+	want := map[string]dc.Tab{
+		"Harbor":  dc.TabSeeding | dc.TabGoalMet | dc.TabAll,
+		"Orchard": dc.TabSeeding | dc.TabProblems | dc.TabAll,
+		"Attic":   dc.TabSeeding | dc.TabAll,
+	}
+	if !maps.Equal(tabs, want) {
+		t.Errorf("tabs = %v, want %v", tabs, want)
+	}
+	if all.Counts.Tabs[dc.TabGoalMet] != 1 || all.Counts.Tabs[dc.TabProblems] != 1 {
+		t.Errorf("counts by tab = %v, want 1 Goal met and 1 Problems", all.Counts.Tabs)
+	}
+	if got := names(l, list(t, c, dc.Filter{Tab: dc.TabGoalMet}).Rows); !slices.Equal(got, []string{"Harbor"}) {
+		t.Errorf("the Goal met tab lists %v, want Harbor", got)
+	}
+}
+
+func TestRowsReadOnlyATrackersTorrentsTheTrackerlessOnesOrSomeHashes(t *testing.T) {
+	l := newListed(t)
+	seedpool := indexers.TrackerID{UUID: storage.NewUUID()}
+	exec(t, l.lib, "INSERT INTO indexers_tracker (id, name, privacy, created_at) VALUES (?, 'seedpool', 'private', 0)", seedpool)
+	for _, name := range []string{"Harbor", "Orchard", "Attic"} {
+		l.add(t, l.seedbox, name, completed())
+	}
+	for _, id := range []dc.ID{l.held["Harbor"], l.held["Orchard"]} {
+		exec(t, l.lib, "UPDATE downloadclients_torrent SET tracker_id = ? WHERE id = ?", seedpool, id)
+	}
+	c := l.clients()
+	read := func(f dc.Filter) []string {
+		t.Helper()
+		var rows []dc.Row
+		err := l.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+			var err error
+			rows, err = c.Rows(ctx, r, f)
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := []string{}
+		for _, row := range rows {
+			out = append(out, row.Name)
+		}
+		return out
+	}
+	for _, x := range []struct {
+		what string
+		f    dc.Filter
+		want []string
+	}{
+		{"seedpool's", dc.Filter{Tracker: &seedpool}, []string{"Harbor", "Orchard"}},
+		{"no Tracker's", dc.Filter{NoTracker: true}, []string{"Attic"}},
+		{"Harbor's hash", dc.Filter{Hashes: []bencode.InfoHash{l.hashes["Harbor"]}}, []string{"Harbor"}},
+		{"an empty hash set", dc.Filter{Hashes: []bencode.InfoHash{}}, []string{}},
+		{"every", dc.Filter{}, []string{"Harbor", "Orchard", "Attic"}},
+	} {
+		if got := read(x.f); !slices.Equal(got, x.want) {
+			t.Errorf("%s Torrents = %v, want %v", x.what, got, x.want)
+		}
+	}
+
+	ref := dc.TrackerRef{ID: seedpool, Name: "seedpool"}
+	l.s.trackers = map[dc.ID]dc.TrackerRef{l.held["Harbor"]: ref, l.held["Orchard"]: ref}
+	listed := list(t, l.clients(), dc.Filter{Tracker: &seedpool})
+	if got := names(l, listed.Rows); !slices.Equal(got, []string{"Harbor", "Orchard"}) || listed.Counts.Tabs[dc.TabAll] != 3 {
+		t.Errorf("seedpool's list = %v counting %d, want Harbor and Orchard counting all 3", got, listed.Counts.Tabs[dc.TabAll])
 	}
 }

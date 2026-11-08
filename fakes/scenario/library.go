@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/ports/all"
 	"github.com/jatassi/slipstream/internal/release"
@@ -23,6 +24,9 @@ type Library struct {
 	Targets       []LibraryTarget  `yaml:"targets,omitempty"`
 	Profiles      []LibraryProfile `yaml:"profiles,omitempty"`
 	Indexers      []LibraryIndexer `yaml:"indexers,omitempty"`
+	// Seeding is the seeding settings and the Seeding goals task's cadence
+	// the world sets, so a Scenario's windows and Health move in minutes.
+	Seeding *LibrarySeeding `yaml:"seeding,omitempty"`
 	// Works are added last, after the Indexers.
 	Works *LibraryWorks `yaml:"works,omitempty"`
 	// Folders are written before any root is made.
@@ -144,9 +148,9 @@ type LibraryProfile struct {
 type LibraryIndexer struct {
 	Name string `jsonschema:"required"                              yaml:"name"`
 	Kind string `jsonschema:"required,enum=catalog,enum=torznab,enum=rss,enum=native" yaml:"kind"`
-	// Site is the fixture-site site's label: torznab for a Torznab feed,
-	// brook for an RSS feed, a catalog site such as larkspur, or a ported
-	// site's port id.
+	// Site is the fixture-site site's label: a Torznab feed's such as
+	// torznab or heron, brook for an RSS feed, a catalog site such as
+	// larkspur, or a ported site's port id.
 	Site string `jsonschema:"required" yaml:"site"`
 	// Definition is a catalog Indexer's definition id, the site's label
 	// when empty.
@@ -169,7 +173,7 @@ type LibraryIndexer struct {
 // FixtureSites are the labels of fixture-site's sites by the kind of
 // Indexer each serves.
 var FixtureSites = map[string][]string{
-	"torznab": {"torznab"},
+	"torznab": {"torznab", "prowlarr", "heron", "tamarack"},
 	"rss":     {"brook"},
 	"catalog": {"larkspur", "quarry", "cinder", "marsh", "ferry"},
 	"native":  portIDs(),
@@ -185,6 +189,38 @@ func portIDs() []string {
 	return out
 }
 
+func isFixtureSite(label string) bool {
+	for _, labels := range FixtureSites {
+		if slices.Contains(labels, label) {
+			return true
+		}
+	}
+	return false
+}
+
+// LibrarySeeding is the seeding settings the world sets. Each zero keeps
+// its default.
+type LibrarySeeding struct {
+	// Margin is added to every rule's seeding time.
+	Margin time.Duration `yaml:"margin,omitempty"`
+	// WarnAfter is how long a torrent that owes may go without seeding
+	// before Health warns.
+	WarnAfter time.Duration `yaml:"warn_after,omitempty"`
+	// Cadence is how often the Seeding goals task runs.
+	Cadence time.Duration `yaml:"cadence,omitempty"`
+}
+
+func (s LibrarySeeding) check(add func(format string, args ...any)) {
+	if s.Margin < 0 {
+		add("library seeding margin %s is negative", s.Margin)
+	}
+	for name, d := range map[string]time.Duration{"warn_after": s.WarnAfter, "cadence": s.Cadence} {
+		if d != 0 && (d < time.Minute || d%time.Second != 0) {
+			add("library seeding %s %s is under a minute or not whole seconds", name, d)
+		}
+	}
+}
+
 var folderName = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
 
 func (l Library) check(add func(format string, args ...any)) {
@@ -193,6 +229,9 @@ func (l Library) check(add func(format string, args ...any)) {
 	l.checkTargets(add)
 	l.checkProfiles(add)
 	l.checkIndexers(add)
+	if l.Seeding != nil {
+		l.Seeding.check(add)
+	}
 }
 
 func (l Library) checkRoots(add func(format string, args ...any)) {

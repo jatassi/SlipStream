@@ -31,6 +31,7 @@ import (
 	"github.com/jatassi/slipstream/internal/system"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/trackers"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -235,6 +236,14 @@ func (s surfaceNode) Indexers() (*indexers.Indexers, bool) {
 		return nil, false
 	}
 	return h.indexers, true
+}
+
+func (s surfaceNode) Trackers() (*trackers.Trackers, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.trackers == nil {
+		return nil, false
+	}
+	return h.trackers, true
 }
 
 func (s surfaceNode) Targets() (*targets.Targets, bool) {

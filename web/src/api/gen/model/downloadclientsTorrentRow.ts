@@ -1,4 +1,6 @@
 import type { DownloadclientsFault } from "./downloadclientsFault.ts";
+import type { DownloadclientsRetried } from "./downloadclientsRetried.ts";
+import type { DownloadclientsSeedingView } from "./downloadclientsSeedingView.ts";
 import type { DownloadclientsTorrentRowClientKind } from "./downloadclientsTorrentRowClientKind.ts";
 import type { DownloadclientsTorrentRowHold } from "./downloadclientsTorrentRowHold.ts";
 import type { DownloadclientsTorrentRowLastKnownCause } from "./downloadclientsTorrentRowLastKnownCause.ts";
@@ -8,9 +10,12 @@ import type { DownloadclientsTorrentRowSeverity } from "./downloadclientsTorrent
 import type { DownloadclientsTorrentRowState } from "./downloadclientsTorrentRowState.ts";
 import type { DownloadclientsTorrentRowTabsItem } from "./downloadclientsTorrentRowTabsItem.ts";
 import type { DownloadclientsTrackerCell } from "./downloadclientsTrackerCell.ts";
+import type { DownloadclientsTrackerRef } from "./downloadclientsTrackerRef.ts";
 
 export interface DownloadclientsTorrentRow {
   addedAt: string;
+  /** Absent when its metainfo names no announce URL */
+  announce?: DownloadclientsTrackerCell;
   /** It was in its external client before SlipStream attached to it, so removing it only stops tracking it */
   attached?: boolean;
   /** Its external client; absent for its Node's built-in client */
@@ -60,6 +65,12 @@ export interface DownloadclientsTorrentRow {
    * @minimum 0
    */
   ratio: number;
+  /** Its last Retry, absent before one */
+  retry?: DownloadclientsRetried;
+  /** It failed in its Node's built-in client after it completed, so retry can check its files again */
+  retryable: boolean;
+  /** Its seeding against its Tracker's rule and its seeding goal, null in an external client, whose own limits govern its seeding */
+  seeding: DownloadclientsSeedingView | null;
   /**
    * All-time seconds seeded
    * @minimum 0
@@ -76,8 +87,8 @@ export interface DownloadclientsTorrentRow {
   stoppedAtLimit?: boolean;
   /** The Torrents view's tabs it shows under */
   tabs: DownloadclientsTorrentRowTabsItem[];
-  /** Absent when its metainfo names no announce URL */
-  tracker?: DownloadclientsTrackerCell;
+  /** The Tracker its first Grab's Release reached, null when none did or it is in an external client */
+  tracker: DownloadclientsTrackerRef | null;
   /** When a window hold starts it, or a check resumes it */
   until?: string;
   /**

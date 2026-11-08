@@ -2,7 +2,7 @@
 export const settingsGroupLabels = {
   Library: ["Content Types", "Library roots", "Library scan", "Metadata"],
   "Files to keep": ["Targets", "Profiles", "Editions"],
-  "Search and download": ["Indexers", "Download Clients"],
+  "Search and download": ["Indexers", "Trackers", "Download Clients"],
   Access: ["Address", "Sign-in", "API key"],
   System: ["Nodes", "Email"],
 } as const;

@@ -15,6 +15,7 @@ export function IndexerRow({
   nodes: readonly NodesNode[];
 }) {
   const nameId = useId();
+  const others = indexer.trackerIds.length - 1;
   return (
     <li
       aria-labelledby={nameId}
@@ -35,10 +36,18 @@ export function IndexerRow({
           </p>
           <StatusLine indexer={indexer} />
         </div>
-        <div className="flex flex-wrap gap-x-5">
-          <IndexerSwitch indexer={indexer} name="on" />
-          <IndexerSwitch indexer={indexer} name="automaticSearch" />
-          <IndexerSwitch indexer={indexer} name="rss" />
+        <div className="flex flex-col gap-1">
+          <div className="flex flex-wrap gap-x-5">
+            <IndexerSwitch indexer={indexer} name="on" />
+            <IndexerSwitch indexer={indexer} name="automaticSearch" />
+            <IndexerSwitch indexer={indexer} name="rss" />
+          </div>
+          {others > 0 && (
+            <p className="text-meta text-ink-3">
+              Turning it off also stops searching on {others}{" "}
+              {others === 1 ? "other Tracker" : "other Trackers"}.
+            </p>
+          )}
         </div>
       </div>
     </li>

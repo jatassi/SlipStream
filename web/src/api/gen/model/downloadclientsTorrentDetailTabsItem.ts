@@ -1,1 +1,6 @@
-export type DownloadclientsTorrentDetailTabsItem = "downloading" | "seeding" | "problems" | "all";
+export type DownloadclientsTorrentDetailTabsItem =
+  | "downloading"
+  | "seeding"
+  | "problems"
+  | "goal-met"
+  | "all";

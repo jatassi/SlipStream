@@ -1,21 +1,30 @@
-import { GitMergeIcon, MoreHorizontalIcon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
+import {
+  Delete02Icon,
+  GitMergeIcon,
+  MoreHorizontalIcon,
+  PencilEdit02Icon,
+} from "@hugeicons/core-free-icons";
 import { useState } from "react";
 
-import type { IndexersTracker } from "../api/gen/model";
+import type { TrackersTracker } from "../api/gen/model";
+import { RemoveTrackerDialog } from "../trackers/remove-tracker";
 import { IconButton } from "../ui/icon-button";
 import { Menu, type MenuEntry } from "../ui/menu";
 import { MergeTrackerDialog } from "./merge-tracker";
 import { RenameTrackerDialog } from "./rename-tracker";
 
-type Acting = "rename" | "merge" | undefined;
+type Acting = "rename" | "merge" | "remove" | undefined;
 
-/** Rename, and Merge into… while another Tracker exists. */
+/** Rename, Merge into… while another Tracker exists, and Remove… */
 export function TrackerMenu({
   tracker,
   others,
+  onGone,
 }: {
-  tracker: IndexersTracker;
-  others: readonly IndexersTracker[];
+  tracker: TrackersTracker;
+  others: readonly TrackersTracker[];
+  /** Runs once the Tracker is merged away or removed, before it leaves the caches; kept is the Tracker it merged into. */
+  onGone?: ((kept: TrackersTracker | undefined) => Promise<unknown>) | undefined;
 }) {
   const [acting, setActing] = useState<Acting>();
   const act = (next: Acting) => () => {
@@ -26,6 +35,7 @@ export function TrackerMenu({
     ...(others.length === 0
       ? []
       : [{ label: "Merge into…", icon: GitMergeIcon, onSelect: act("merge") }]),
+    { label: "Remove…", icon: Delete02Icon, tone: "danger", onSelect: act("remove") },
   ];
   return (
     <>
@@ -36,7 +46,19 @@ export function TrackerMenu({
       />
       {acting === "rename" && <RenameTrackerDialog tracker={tracker} onClose={act(undefined)} />}
       {acting === "merge" && (
-        <MergeTrackerDialog tracker={tracker} others={others} onClose={act(undefined)} />
+        <MergeTrackerDialog
+          tracker={tracker}
+          others={others}
+          onClose={act(undefined)}
+          onMerged={onGone}
+        />
+      )}
+      {acting === "remove" && (
+        <RemoveTrackerDialog
+          tracker={tracker}
+          onClose={act(undefined)}
+          onRemoved={onGone && (() => onGone(undefined))}
+        />
       )}
     </>
   );

@@ -254,11 +254,11 @@ func (s *site) serving(label string, h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// found are the releases the feeds list that every query hits.
-func (s *site) found(queries ...string) []Release {
+// found are the releases r's site lists that every query hits.
+func (s *site) found(r *http.Request, queries ...string) []Release {
 	var out []Release
 	for _, rel := range s.releases {
-		if s.shown(rel) && !slices.ContainsFunc(queries, func(q string) bool { return !hits(rel, q) }) {
+		if s.shown(labelOf(r), rel) && !slices.ContainsFunc(queries, func(q string) bool { return !hits(rel, q) }) {
 			out = append(out, rel)
 		}
 	}
@@ -271,9 +271,9 @@ func hits(rel Release, query string) bool {
 	return strings.HasPrefix(query, "tt") && rel.IMDbID == query || matches(rel.Name, query)
 }
 
-// byHash is the release whose info hash is hash.
-func (s *site) byHash(hash string) (Release, bool) {
-	i := slices.IndexFunc(s.releases, func(rel Release) bool { return rel.InfoHash == hash })
+// byHash is the release on r's site whose info hash is hash.
+func (s *site) byHash(r *http.Request, hash string) (Release, bool) {
+	i := slices.IndexFunc(s.releases, func(rel Release) bool { return rel.InfoHash == hash && rel.On(labelOf(r)) })
 	if i < 0 {
 		return Release{}, false
 	}

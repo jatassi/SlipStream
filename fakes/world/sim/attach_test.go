@@ -81,6 +81,7 @@ func TestAttachFollowsTheTorrentsState(t *testing.T) {
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			synctest.Test(t, func(t *testing.T) {
 				w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Media = &failsOnce{Prober: e.Media} }))
 				work := simtest.AddOrchard(t, w)

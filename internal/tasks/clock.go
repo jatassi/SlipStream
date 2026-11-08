@@ -124,6 +124,11 @@ func (s *Scheduler) tick(ctx context.Context, started time.Time, atStart map[Tas
 	}
 	wake := p.Wake
 	for _, o := range p.Open {
+		// A Soon that lands while this run opens asks for one more after it.
+		s.mu.Lock()
+		soon := s.soon[o.Task]
+		delete(s.soon, o.Task)
+		s.mu.Unlock()
 		err := s.planned(ctx, s.byID[o.Task], o.Trigger)
 		if errors.Is(err, errNoUnits) && o.Trigger != ByReturn {
 			// A hidden task's passed slot leaves the window free for the
@@ -134,6 +139,11 @@ func (s *Scheduler) tick(ctx context.Context, started time.Time, atStart map[Tas
 			s.cfg.Log.Error("open a run", "task", o.Task, "trigger", o.Trigger, "err", err)
 			if wake.IsZero() || now.Add(retry).Before(wake) {
 				wake = now.Add(retry)
+			}
+			if soon {
+				s.mu.Lock()
+				s.soon[o.Task] = true
+				s.mu.Unlock()
 			}
 			continue
 		}
@@ -232,7 +242,7 @@ func (s *Scheduler) states(snap snapshot, started time.Time, atStart map[TaskID]
 		st := state{
 			task: t, every: row.EverySeconds, override: row.Overdue,
 			firstSeen: row.FirstSeenAt.Time(), slot: row.SlotStartedAt.Time(),
-			cut: s.cut[t.ID], atStart: atStart[t.ID], returned: returned[t.ID],
+			cut: s.cut[t.ID], soon: s.soon[t.ID], atStart: atStart[t.ID], returned: returned[t.ID],
 		}
 		if row.JitterFrac != nil {
 			st.jitter = *row.JitterFrac

@@ -328,6 +328,7 @@ func rehome(t *testing.T, w *sim.World, root simtest.RootRow, to, path string) {
 func TestARootRehomedMidTransferTakesTheFileWhereItIsNow(t *testing.T) {
 	t.Parallel()
 	t.Run("onto home", func(t *testing.T) {
+		t.Parallel()
 		synctest.Test(t, func(t *testing.T) {
 			s := seedboxNAS(t)
 			s.Nodes[0].Roles = append(s.Nodes[0].Roles, "storage")
@@ -359,6 +360,7 @@ func TestARootRehomedMidTransferTakesTheFileWhereItIsNow(t *testing.T) {
 		})
 	})
 	t.Run("onto seedbox", func(t *testing.T) {
+		t.Parallel()
 		synctest.Test(t, func(t *testing.T) {
 			s := seedboxNAS(t)
 			s.Nodes[1].Roles = append(s.Nodes[1].Roles, "storage")

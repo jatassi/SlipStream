@@ -61,6 +61,7 @@ test.each([
       limits: homeCard.limits,
       torrents: 0,
       totals: homeCard.totals,
+      trackers: homeCard.trackers,
     },
     words: {
       sentence: "home is offline, so its client's status is unknown.",
@@ -78,6 +79,7 @@ test.each([
       limits: homeCard.limits,
       torrents: 0,
       totals: homeCard.totals,
+      trackers: homeCard.trackers,
     },
     words: { sentence: "home's client hasn't reported yet." },
   },

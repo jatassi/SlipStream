@@ -3,6 +3,7 @@ import type { DownloadclientsDiskGuard } from "./downloadclientsDiskGuard.ts";
 import type { DownloadclientsDownloadsVolume } from "./downloadclientsDownloadsVolume.ts";
 import type { DownloadclientsExternalClient } from "./downloadclientsExternalClient.ts";
 import type { DownloadclientsLimits } from "./downloadclientsLimits.ts";
+import type { DownloadclientsRoutedTracker } from "./downloadclientsRoutedTracker.ts";
 import type { DownloadclientsTotals } from "./downloadclientsTotals.ts";
 
 export interface DownloadclientsClientCard {
@@ -31,4 +32,6 @@ export interface DownloadclientsClientCard {
   torrents: number;
   /** Added up over the built-in client's live Torrents */
   totals: DownloadclientsTotals;
+  /** The private Trackers whose Grabs download on the built-in client now, by name */
+  trackers: DownloadclientsRoutedTracker[];
 }

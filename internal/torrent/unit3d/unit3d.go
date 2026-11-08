@@ -22,6 +22,10 @@ const (
 	// min interval.
 	WindowLow  = 85
 	WindowHigh = 95
+	// SeedGap is the longest gap between two seeder announces that UNIT3D
+	// still credits as seed time. fake-tracker keeps its own copy of
+	// UNIT3D's 5400 seconds, so a Node's count and the fake's share no code.
+	SeedGap = 90 * time.Minute
 )
 
 // Windows plays checkMinInterval for the fake trackers, keyed by passkey,

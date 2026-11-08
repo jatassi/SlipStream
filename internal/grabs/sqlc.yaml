@@ -38,6 +38,16 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/indexers
               type: QueryID
+          - column: grabs_grab.sent_built_in_on
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+              pointer: true
+          - column: grabs_grab.sent_client_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/downloadclients
+              type: ClientID
+              pointer: true
           - column: "*.tracker_id"
             go_type:
               import: github.com/jatassi/slipstream/internal/indexers

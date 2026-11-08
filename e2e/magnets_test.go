@@ -128,4 +128,20 @@ func TestMagnetLinksGetTheirMetadataFromTheSwarm(t *testing.T) {
 	if n := len(selected(t, run, events.Query{Kind: tracker.Announces.Kind, Node: "home", Match: map[string]string{"infoHash": orchard}})); n > 0 {
 		t.Errorf("the tracker saw %d announces of the trackerless release from home, want none", n)
 	}
+	announcedOverUDP(t, run, harborMagnet, meadowRedirect)
+}
+
+// announcedOverUDP checks home announced each public release with a
+// tracker to fake-tracker's UDP announce alone.
+func announcedOverUDP(t *testing.T, run *world.Run, public ...magnetRelease) {
+	t.Helper()
+	for _, rel := range public {
+		h := infoHashOf(t, run.Manifest(), rel.name)
+		if len(selected(t, run, events.Query{Kind: tracker.UDPAnnounces.Kind, Node: "home", Match: map[string]string{"infoHash": h, "event": "started"}})) == 0 {
+			t.Errorf("fake-tracker's UDP announce saw no started of the public release %s from home", rel.name)
+		}
+		if n := len(selected(t, run, events.Query{Kind: tracker.Announces.Kind, Node: "home", Match: map[string]string{"infoHash": h}})); n > 0 {
+			t.Errorf("fake-tracker's HTTPS announce saw %d announces of the public release %s from home, want none", n, rel.name)
+		}
+	}
 }

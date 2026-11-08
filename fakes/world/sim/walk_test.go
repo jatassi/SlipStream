@@ -158,6 +158,7 @@ func TestAControllerRestartedAtEachStageImportsOnce(t *testing.T) {
 	t.Parallel()
 	for _, stage := range []grabs.Stage{grabs.Fetching, grabs.Downloading, grabs.Probing, grabs.Transferring, grabs.Importing} {
 		t.Run(string(stage), func(t *testing.T) {
+			t.Parallel()
 			synctest.Test(t, func(t *testing.T) {
 				held := newStageHold(stage)
 				w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), sim.Edit(held.edit))
@@ -364,6 +365,7 @@ func TestATransferResumes(t *testing.T) {
 		{name: "after chunk 2 arrives damaged", cut: -1, flip: 1, sent: map[int]int{0: 1, 1: 2, 2: 1, 3: 1, 4: 1}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			synctest.Test(t, func(t *testing.T) {
 				var cut atomic.Bool
 				counted := &sends{by: map[int]int{}, flip: tc.flip}

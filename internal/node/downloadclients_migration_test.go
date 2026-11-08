@@ -148,7 +148,7 @@ func TestTheTorrentRebuildKeepsEveryGrabsTorrent(t *testing.T) {
 			[]any{g.id, work, item, node, g.stage, g.torrent, g.failure}})
 		grabbed[g.id] = g.torrent
 	}
-	before := seed(t, path, with(LibrarySchemas(noTypes), downloadclients.Schema().Through(4)), stmts)
+	before := seed(t, path, with(LibrarySchemas(noTypes), downloadclients.Schema().Through(4), grabs.Schema().Through(7)), stmts)
 
 	lib := openAt(t, path, LibrarySchemas(noTypes))
 	t.Cleanup(func() { _ = lib.Close() })

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
@@ -249,7 +250,7 @@ func TestGrabsToTakesOnlyAnOnClientOfItsNode(t *testing.T) {
 	var target downloadclients.Target
 	err := w.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		target, err = downloadclients.Route(ctx, r, downloadclients.Ask{Node: w.self})
+		target, err = downloadclients.Router{Roster: rootRoster{}, Routes: noRoutes{}}.Route(ctx, r, downloadclients.Ask{Root: w.self})
 		return err
 	})
 	if err != nil || target.Client == nil || target.Client.String() != on.ID {
@@ -447,4 +448,18 @@ func TestADelugeTestThatNeedsADaemonListsTheDaemons(t *testing.T) {
 	w.o.Expect(t, http.MethodPost, "/api/v1/external-download-clients/test", deluge, http.StatusUnprocessableEntity,
 		`{"status":422,"code":"download_client_test_failed","title":"The Download Client's Test failed",`+
 			`"detail":"Deluge rejected the password. Check it and test again.","fields":["password"]}`)
+}
+
+// rootRoster routes each Work's Grabs to the Node of its root.
+type rootRoster struct{}
+
+func (rootRoster) Route(_ role.Name, home role.NodeID) (role.NodeID, error) { return home, nil }
+func (rootRoster) Holds(role.Name, role.NodeID) bool                        { return true }
+func (rootRoster) WrittenOff(role.Name, role.NodeID) bool                   { return false }
+
+// noRoutes is Tracker routing with no private Tracker.
+type noRoutes struct{}
+
+func (noRoutes) Route(context.Context, storage.Reader[storage.Library], indexers.TrackerID, indexers.ID) (downloadclients.Target, bool, error) {
+	return downloadclients.Target{}, false, nil
 }

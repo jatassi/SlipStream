@@ -10,7 +10,7 @@ An Admin comes to Settings with a question, such as "where do my files go?" or "
 | --- | --- | --- | --- |
 | Library | What do I collect, where does it live, and what is it called? | Content Types, Library roots, Library scan, Metadata | Naming, Subtitles |
 | Files to keep | Which versions of each Work do I want? | Targets, Profiles, Editions | Custom Formats, Conversion |
-| Search and download | How does SlipStream find and fetch releases? | Indexers, Download Clients (built-in and external) | Trackers, Automatic search |
+| Search and download | How does SlipStream find and fetch releases? | Indexers, Trackers, Download Clients (built-in and external) | Automatic search |
 | Access | Who can reach SlipStream, and how? | Address, Sign-in, API key | Requests, Member portal |
 | System | How do the Nodes and the server itself run? | Nodes, Email | Backups, Updates, Media Servers, Notifications |
 

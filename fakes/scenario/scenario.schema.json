@@ -1809,6 +1809,12 @@
           },
           "trackerless": {
             "type": "boolean"
+          },
+          "sites": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "additionalProperties": false,
@@ -1846,6 +1852,35 @@
         },
         "fail_without_interval": {
           "type": "boolean"
+        },
+        "prewarn": {
+          "type": "string",
+          "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+        },
+        "grace": {
+          "type": "string",
+          "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+        },
+        "inactive_after": {
+          "type": "string",
+          "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+        },
+        "sites": {
+          "additionalProperties": {
+            "properties": {
+              "min_ratio": {
+                "type": "number",
+                "minimum": 0
+              },
+              "min_seed_time": {
+                "type": "string",
+                "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+              }
+            },
+            "additionalProperties": false,
+            "type": "object"
+          },
+          "type": "object"
         }
       },
       "additionalProperties": false,
@@ -2168,6 +2203,24 @@
             ]
           },
           "type": "array"
+        },
+        "seeding": {
+          "properties": {
+            "margin": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "warn_after": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "cadence": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
         },
         "works": {
           "properties": {

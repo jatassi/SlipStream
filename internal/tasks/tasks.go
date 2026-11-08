@@ -126,6 +126,7 @@ type Scheduler struct {
 	started time.Time
 	running map[RunID]*active
 	cut     map[TaskID]bool
+	soon    map[TaskID]bool
 }
 
 // Open checks the catalog, drops rows of tasks it no longer lists, adds
@@ -140,6 +141,7 @@ func Open(ctx context.Context, cfg Config) (*Scheduler, error) {
 		asks:    make(chan ask),
 		running: map[RunID]*active{},
 		cut:     map[TaskID]bool{},
+		soon:    map[TaskID]bool{},
 	}
 	err := cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
@@ -287,6 +289,17 @@ func (s *Scheduler) Wake() {
 	case s.wake <- struct{}{}:
 	default:
 	}
+}
+
+// Soon asks for a scheduled run of id as soon as one can open: now, or
+// right after the open run closes. Calls before that run opens add
+// nothing, so at most one run follows. The ask is held in memory: after a
+// restart the task's cadence covers it.
+func (s *Scheduler) Soon(id TaskID) {
+	s.mu.Lock()
+	s.soon[id] = true
+	s.mu.Unlock()
+	s.Wake()
 }
 
 func (s *Scheduler) changed(ctx context.Context, id TaskID) {

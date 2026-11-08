@@ -71,7 +71,7 @@ func (s *site) tbBrowse(w http.ResponseWriter, r *http.Request) {
 	rows.WriteString(`<table><tbody><tr><td class="colhead">Type</td><td class="colhead">Name</td><td class="colhead">Files</td><td class="colhead">Comm.</td>` +
 		`<td class="colhead">Added</td><td class="colhead">TTL</td><td class="colhead">Size</td><td class="colhead">Snatched</td>` +
 		`<td class="colhead">Seeders</td><td class="colhead">Leechers</td><td class="colhead">Upped by</td></tr>`)
-	for _, rel := range s.found(r.URL.Query().Get("search")) {
+	for _, rel := range s.found(r, r.URL.Query().Get("search")) {
 		free := ""
 		if rel.Freeleech {
 			free = ` <font color="green"><b>[FREE LEECH]</b></font>`
@@ -93,7 +93,7 @@ func (s *site) tbDownload(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login.php", http.StatusFound)
 		return
 	}
-	rel, ok := s.byHash(r.URL.Query().Get("id"))
+	rel, ok := s.byHash(r, r.URL.Query().Get("id"))
 	if !ok {
 		http.NotFound(w, r)
 		return

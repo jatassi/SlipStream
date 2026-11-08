@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { IndexersTracker } from "../api/gen/model";
+import type { TrackersTrackerItem } from "../api/gen/model";
 import {
   aitherTrackerId,
   beyondHd,
@@ -13,7 +13,8 @@ import { indexersServer } from "../test/indexers-server";
 import { renderApp } from "../test/render-app";
 
 const path = "/settings/indexers";
-const byName = (list: IndexersTracker[]) => list.toSorted((a, b) => a.name.localeCompare(b.name));
+const byName = (list: TrackersTrackerItem[]) =>
+  list.toSorted((a, b) => a.name.localeCompare(b.name));
 const heading = (name: string) => page.getByRole("heading", { name, exact: true });
 const group = (name: string) => page.getByRole("list", { name });
 
@@ -105,7 +106,7 @@ test("a merge the server refuses keeps the dialog open with its reason", async (
   await expect
     .element(dialog.getByRole("alert"))
     .toHaveTextContent(
-      "That Tracker no longer exists. It may have been merged into another Tracker.",
+      "That Tracker no longer exists. It may have been removed or merged into another Tracker.",
     );
 });
 

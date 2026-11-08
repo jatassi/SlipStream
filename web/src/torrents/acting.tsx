@@ -6,11 +6,12 @@ import { useProjection } from "../library/projection";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { toast } from "../ui/toast";
 import { type Subject, type TorrentAction, outcomeWords } from "./actions";
+import { PauseDialog } from "./pause-dialog";
 import { RemoveDialog } from "./remove-dialog";
 import type { Parting } from "./remove-preview";
 
 type Asking = {
-  readonly action: Parting | "recheck";
+  readonly action: Parting | "recheck" | "pause";
   readonly subjects: readonly Subject[];
 };
 
@@ -49,8 +50,9 @@ function failed(error: unknown) {
 
 /**
  * Runs Torrent actions and says how each went. Remove and mark failed ask
- * first, and so does a recheck that would read library files; `dialogs` is
- * where those questions render.
+ * first, and so do a recheck that would read library files and a pause of
+ * a torrent that still owes its Tracker; `dialogs` is where those
+ * questions render.
  */
 export function useActing(): {
   start: (action: TorrentAction, subjects: readonly Subject[]) => void;
@@ -69,7 +71,11 @@ export function useActing(): {
   };
 
   const begin = async (action: TorrentAction, subjects: readonly Subject[]) => {
-    if (action === "remove" || action === "mark-failed") {
+    if (
+      action === "remove" ||
+      action === "mark-failed" ||
+      (action === "pause" && subjects.some(({ owing }) => owing !== undefined))
+    ) {
       ask({ action, subjects });
       return;
     }
@@ -115,6 +121,16 @@ function Asked({
   work: (id: string) => string | undefined;
 }) {
   const parting = asking.action;
+  if (parting === "pause") {
+    return (
+      <PauseDialog
+        subjects={asking.subjects}
+        open={open}
+        onOpenChange={onOpenChange}
+        onConfirm={() => act("pause", asking.subjects)}
+      />
+    );
+  }
   return parting === "recheck" ? (
     <RecheckDialog
       subjects={asking.subjects}

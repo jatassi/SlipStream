@@ -4,7 +4,7 @@ import { page, userEvent } from "vitest/browser";
 import type { GrabsGrab } from "../api/gen/model";
 import { homeCard, seedboxCard } from "../test/download-clients";
 import { attic, atticAway, refusal, withExternals } from "../test/external-clients";
-import { downloading } from "../test/grabs";
+import { downloading, waitingForSeedbox } from "../test/grabs";
 import { orchardId } from "../test/library";
 import { homeId, seedboxId } from "../test/nodes";
 import { renderApp } from "../test/render-app";
@@ -25,9 +25,9 @@ const upstairs = {
 const sheet = () => page.getByRole("dialog", { name: "Send to another client" });
 const choices = () => sheet().getByRole("radiogroup", { name: "Send to" });
 
-function open(answer?: () => Response) {
+function open(answer?: () => Response, grab: GrabsGrab = inTransmission) {
   const server = sendingServer(
-    inTransmission,
+    grab,
     [withExternals(homeCard, atticAway, upstairs), seedboxCard],
     answer,
   );
@@ -71,6 +71,23 @@ test("a client on the same Node that already has the torrent refuses with its se
         "Transmission already has this torrent. Send it to a client on another Node, or remove it in Activity.",
       ),
     )
+    .toBeVisible();
+  expect(sent).toEqual([{ clientId: upstairs.id }]);
+});
+
+test("a private Grab waiting to fetch for its offline routed Node says so and sends to another client", async () => {
+  const { sent, needsYou } = open(undefined, waitingForSeedbox);
+  await expect
+    .element(needsYou)
+    .toHaveTextContent(
+      "Needs you1WaitingWaiting to send to the built-in client on seedboxseedbox is offline. This download goes there once seedbox is back online.Send to another client",
+    );
+  await userEvent.click(needsYou.getByRole("button", { name: "Send to another client" }));
+  await expect.element(choices()).toHaveTextContent("Built-in client on homeUpstairs on home");
+  await userEvent.click(choices().getByText("Upstairs on home"));
+  await userEvent.click(sheet().getByRole("button", { name: "Send" }));
+  await expect
+    .element(page.getByText(`Sent ${waitingForSeedbox.releaseTitle} to Upstairs on home`))
     .toBeVisible();
   expect(sent).toEqual([{ clientId: upstairs.id }]);
 });

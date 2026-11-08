@@ -45,10 +45,11 @@ type Config struct {
 	// Remote is a Node's client as the Controller calls it.
 	Remote func(role.NodeID) downloadingv1connect.DownloadingServiceHandler
 	// Sealer seals and opens external clients' secrets.
-	Sealer *secret.Sealer
-	Roster Roster
-	Uses   Uses
-	Live   LiveConfig
+	Sealer  *secret.Sealer
+	Roster  Roster
+	Uses    Uses
+	Seeding Seeder
+	Live    LiveConfig
 	// Hub wakes Run when the storage levels the disk guard follows change.
 	Hub Hub
 	Log *slog.Logger
@@ -221,7 +222,7 @@ func (c *Clients) wake() {
 }
 
 // applyReports records each report, and whether one changed a Torrent's
-// wanted state.
+// wanted state or settled its Retry.
 func applyReports(ctx context.Context, q *db.Queries, node role.NodeID, reports []*dlv1.TorrentReport) (ids []ID, touched bool, err error) {
 	ids = make([]ID, 0, len(reports))
 	for _, r := range reports {
@@ -241,7 +242,11 @@ func applyReports(ctx context.Context, q *db.Queries, node role.NodeID, reports 
 		if err != nil {
 			return nil, false, err
 		}
-		touched = touched || changed
+		settled, err := settleRetry(ctx, q, node, id, r)
+		if err != nil {
+			return nil, false, err
+		}
+		touched = touched || changed || settled
 	}
 	return ids, touched, nil
 }
@@ -402,7 +407,7 @@ func applyTotals(ctx context.Context, tx *storage.Tx[file], node role.NodeID, ro
 func totalsParams(node role.NodeID, id ID, t *dlv1.TotalsRow, at storage.Time) db.MergeTotalsParams {
 	return db.MergeTotalsParams{
 		Uploaded: t.GetUploaded(), Downloaded: t.GetDownloaded(),
-		ActiveSeconds: t.GetActiveSeconds(), SeedingSeconds: t.GetSeedingSeconds(),
+		ActiveSeconds: t.GetActiveSeconds(), SeedingSeconds: t.GetSeedingSeconds(), AnnouncedSeconds: t.GetAnnouncedSeconds(),
 		TotalsAt: at, ID: id, NodeID: node,
 	}
 }
