@@ -211,7 +211,7 @@ func TestAMoveIsTestedFromTheNewNodeAndRefusedWithTorrents(t *testing.T) {
 
 	w.o.Expect(t, http.MethodPatch, "/api/v1/external-download-clients/"+c.ID, `{"nodeId":"`+media.String()+`"}`, http.StatusConflict,
 		`{"status":409,"code":"download_client_has_torrents","title":"This client holds torrents SlipStream tracks",`+
-			`"detail":"Transmission holds 1 torrent SlipStream tracks. Remove them, or delete the client with Stop tracking, then move it."}`)
+			`"detail":"Transmission holds 1 torrent SlipStream tracks. Remove it, or delete the client with Stop tracking, then move the client."}`)
 	if len(w.node.tests) != 1 {
 		t.Errorf("a refused move ran %d Tests, want none", len(w.node.tests)-1)
 	}

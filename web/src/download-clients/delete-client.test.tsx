@@ -82,3 +82,16 @@ test("the client a Node's new Grabs go to refuses to delete with the API's sente
     )
     .toBeVisible();
 });
+
+test("a client that holds one torrent says it stays in the client", async () => {
+  const clients = downloadClients({ cards: [withExternals(homeCard, { ...attic, torrents: 1 })] });
+  renderApp({ path, handlers: clients.handlers });
+  await openDelete();
+  await expect
+    .element(
+      confirm().getByText(
+        "Transmission holds 1 torrent SlipStream tracks. It stays in Transmission, and SlipStream stops tracking it.",
+      ),
+    )
+    .toBeVisible();
+});

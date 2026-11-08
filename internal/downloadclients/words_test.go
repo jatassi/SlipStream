@@ -156,4 +156,7 @@ func TestEveryWarningAndRefusalHasASentence(t *testing.T) {
 	} {
 		readsAsWritten(t, "refusal", got)
 	}
+	if got, want := dc.HasTorrents("Transmission", 1, false), "Transmission holds 1 torrent SlipStream tracks. Stop tracking it to delete the client."; got != want {
+		t.Errorf("one held torrent reads %q, want %q", got, want)
+	}
 }

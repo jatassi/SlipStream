@@ -13,9 +13,14 @@ import { toast } from "../ui/toast";
 const torrents = { one: "torrent", many: "torrents" } as const;
 
 function heldWords({ name, torrents: held }: External): string {
-  return held === 0
-    ? `SlipStream stops checking ${name}. Nothing in ${name} changes.`
-    : `${name} holds ${countWords(held, torrents)} SlipStream tracks. They stay in ${name}, and SlipStream stops tracking them.`;
+  if (held === 0) {
+    return `SlipStream stops checking ${name}. Nothing in ${name} changes.`;
+  }
+  const stay =
+    held === 1
+      ? `It stays in ${name}, and SlipStream stops tracking it.`
+      : `They stay in ${name}, and SlipStream stops tracking them.`;
+  return `${name} holds ${countWords(held, torrents)} SlipStream tracks. ${stay}`;
 }
 
 /** Delete an external client. The client and its torrents stay as they are. */
