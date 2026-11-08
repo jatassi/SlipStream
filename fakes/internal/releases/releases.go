@@ -20,7 +20,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"slices"
 	"strconv"
+	"sync"
 
 	"github.com/zeebo/blake3"
 
@@ -103,19 +106,56 @@ func Build(ctx context.Context, s scenario.Scenario, cfg Config) (*Catalog, erro
 	if err := os.MkdirAll(cfg.Dir, 0o755); err != nil {
 		return nil, fmt.Errorf("create the release folder: %w", err)
 	}
+	cached, err := payloads(ctx, cfg, version, s.Releases)
+	if err != nil {
+		return nil, err
+	}
 	announce := "https://" + cfg.Tracker.String() + "/announce/" + Passkey(s, Seeders)
 	for _, r := range s.Releases {
-		cached, err := payload(ctx, cfg, version, r.Video)
-		if err != nil {
-			return nil, fmt.Errorf("release %s: %w", r.Name, err)
-		}
-		release, err := place(cached, cfg.Dir, r, announce)
+		release, err := place(cached[r.Video], cfg.Dir, r, announce)
 		if err != nil {
 			return nil, fmt.Errorf("release %s: %w", r.Name, err)
 		}
 		c.Releases = append(c.Releases, release)
 	}
 	return c, nil
+}
+
+// payloads returns the cached payload of each video releases name, making
+// the distinct ones the cache lacks as many at a time as there are CPUs. An
+// encode runs on one thread, so only running several at once spreads a cold
+// launch over the machine.
+func payloads(ctx context.Context, cfg Config, version []byte, releases []scenario.Release) (map[scenario.Video]string, error) {
+	type encode struct {
+		video   scenario.Video
+		release string
+		path    string
+		err     error
+	}
+	var encodes []encode
+	for _, r := range releases {
+		if !slices.ContainsFunc(encodes, func(e encode) bool { return e.video == r.Video }) {
+			encodes = append(encodes, encode{video: r.Video, release: r.Name})
+		}
+	}
+	slots := make(chan struct{}, runtime.NumCPU())
+	var wg sync.WaitGroup
+	for i := range encodes {
+		wg.Go(func() {
+			slots <- struct{}{}
+			defer func() { <-slots }()
+			encodes[i].path, encodes[i].err = payload(ctx, cfg, version, encodes[i].video)
+		})
+	}
+	wg.Wait()
+	paths := make(map[scenario.Video]string, len(encodes))
+	for _, e := range encodes {
+		if e.err != nil {
+			return nil, fmt.Errorf("release %s: %w", e.release, e.err)
+		}
+		paths[e.video] = e.path
+	}
+	return paths, nil
 }
 
 // encodeArgs make a video whose bytes depend only on v and the ffmpeg
