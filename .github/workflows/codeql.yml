@@ -34,12 +34,8 @@ jobs:
           # the root sees only the shipped packages.
           - language: go
             build-mode: manual
-            build: go build ./...
-          # The go command is a static binary, so the tracer never sees the
-          # compilers cgo runs. Compile the shim directly instead.
           - language: c-cpp
-            build-mode: manual
-            build: $CXX $CGO_CXXFLAGS -std=c++17 -c internal/torrent/libtorrent/shim.cpp -o "$RUNNER_TEMP/shim.o"
+            build-mode: none
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7
@@ -62,11 +58,12 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+          debug: true
       - name: Build
         if: matrix.build-mode == 'manual'
         run: |
           eval "$(go run ./cmd/release deps env)"
-          ${{ matrix.build }}
+          go build ./...
       - name: Analyze
         uses: github/codeql-action/analyze@v4
         with:
