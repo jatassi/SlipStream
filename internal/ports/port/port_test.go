@@ -3,6 +3,7 @@ package port
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"reflect"
 	"slices"
 	"strings"
@@ -362,6 +363,21 @@ func TestSearchCriteriaWritesEpisodesAndImdbIDsAsProwlarrDoes(t *testing.T) {
 	for in, want := range map[string]string{"tt0076759": "tt0076759", "76759": "tt0076759", "tt123456789": "", "": "", "x1": ""} {
 		if got := (SearchCriteria{ImdbID: in}).FullImdbID(); got != want {
 			t.Errorf("FullImdbID of %q = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestURLKeepsThePathsEscapesAsWritten(t *testing.T) {
+	base, _ := url.Parse("https://site.example/tracker/")
+	ix := &Indexer[struct{}]{BaseURL: base}
+	for path, want := range map[string]string{
+		"browse/q/Caf%C3%A9+(2019)": "https://site.example/tracker/browse/q/Caf%C3%A9+(2019)",
+		"/a%2Fb?x=%20":              "https://site.example/tracker/a%2Fb?x=%20",
+		"two words":                 "https://site.example/tracker/two%20words",
+		"100%":                      "https://site.example/tracker/100%25",
+	} {
+		if got := ix.URL(path).String(); got != want {
+			t.Errorf("URL(%q) = %s, want %s", path, got, want)
 		}
 	}
 }

@@ -37,10 +37,14 @@ type Indexer[S any] struct {
 }
 
 // URL is BaseURL joined with path, as Settings.BaseUrl + "path". A query
-// in path stays the query.
+// in path stays the query, and an escape in path stays as written.
 func (ix *Indexer[S]) URL(path string) *url.URL {
 	p, query, _ := strings.Cut(strings.TrimLeft(path, "/"), "?")
-	return ix.BaseURL.ResolveReference(&url.URL{Path: p, RawQuery: query})
+	ref := &url.URL{Path: p, RawQuery: query}
+	if unescaped, err := url.PathUnescape(p); err == nil {
+		ref.Path, ref.RawPath = unescaped, p
+	}
+	return ix.BaseURL.ResolveReference(ref)
 }
 
 // Fetch sends r through the same loop as a search request: the session,
