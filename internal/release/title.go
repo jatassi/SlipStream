@@ -15,7 +15,7 @@ func Title(name string, names Names, cuts []Cut) Read {
 		tail = p.Title.String()
 	}
 	f := Facts{
-		Revision:  readRevision(p),
+		Revision:  readRevision(p, s),
 		Group:     readGroup(p, s),
 		Cut:       readCut(tail, cuts),
 		Edition:   readEdition(tail),

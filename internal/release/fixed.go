@@ -20,13 +20,17 @@ type fixed struct {
 
 // compiledOptions are the .NET options that change nothing on regexp2 or
 // that regex.Options carries.
-const compiledOptions = upstream.IgnoreCase | upstream.Compiled | upstream.CultureInvariant
+const compiledOptions = upstream.IgnoreCase | upstream.IgnorePatternWhitespace | upstream.Compiled | upstream.CultureInvariant
 
 func compile(p upstream.Pattern) fixed {
 	if extra := p.Options &^ compiledOptions; extra != 0 {
 		panic(fmt.Sprintf("%s has .NET options %d that the parser doesn't run", p.Key, extra))
 	}
-	o := regex.Options{IgnoreCase: p.Options&upstream.IgnoreCase != 0, Timeout: fixedLimit}
+	o := regex.Options{
+		IgnoreCase:              p.Options&upstream.IgnoreCase != 0,
+		IgnorePatternWhitespace: p.Options&upstream.IgnorePatternWhitespace != 0,
+		Timeout:                 fixedLimit,
+	}
 	return fixed{key: p.Key, re: regex.MustCompile(p.Text, o)}
 }
 
