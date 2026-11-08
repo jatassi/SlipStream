@@ -24,7 +24,7 @@ type moves map[ID]map[targets.TargetID]int
 // a file whose score at some Target moves, and those files' moves. It
 // decodes a file's Title, in those goroutines, only when an edit tests
 // more than the name.
-func (f *Files) flips(ctx context.Context, r storage.Reader[file], ws []works.WorkID, edits []targets.FormatEdit) ([]works.WorkID, moves, error) {
+func (f *Files) flips(ctx context.Context, r storage.Reader[file], ws []works.WorkID, edits *targets.Narrow) ([]works.WorkID, moves, error) {
 	q := db.New(r)
 	var rows []db.ListFileReadsOfWorksRow
 	for chunk := range slices.Chunk(ws, works.Batch) {
@@ -38,7 +38,7 @@ func (f *Files) flips(ctx context.Context, r storage.Reader[file], ws []works.Wo
 	if err != nil {
 		return nil, nil, err
 	}
-	nameOnly := !slices.ContainsFunc(edits, func(e targets.FormatEdit) bool { return !e.Match.NameOnly() })
+	nameOnly := edits.Match.NameOnly()
 	moved := make([]map[targets.TargetID]int, len(rows))
 	failed := make([]error, len(rows))
 	inParallel(len(rows), func(i int) {
@@ -48,7 +48,7 @@ func (f *Files) flips(ctx context.Context, r storage.Reader[file], ws []works.Wo
 				return
 			}
 		}
-		moved[i] = movesOf(asNamed(title.Read, rows[i].ReleaseName, originals[rows[i].WorkID]), edits)
+		moved[i] = edits.Moves(asNamed(title.Read, rows[i].ReleaseName, originals[rows[i].WorkID]))
 	})
 	if err := errors.Join(failed...); err != nil {
 		return nil, nil, err
@@ -62,25 +62,6 @@ func (f *Files) flips(ctx context.Context, r storage.Reader[file], ws []works.Wo
 		}
 	}
 	return slices.DeleteFunc(slices.Clone(ws), func(w works.WorkID) bool { return !kept[w] }), out, nil
-}
-
-// movesOf is how far edits move read's score at each Target, leaving out
-// the Targets it doesn't move.
-func movesOf(read release.Read, edits []targets.FormatEdit) map[targets.TargetID]int {
-	var out map[targets.TargetID]int
-	for _, e := range edits {
-		flip := e.Match.Match(read)
-		for t := range e.Scores {
-			if m := e.Move(flip, t); m != 0 {
-				if out == nil {
-					out = map[targets.TargetID]int{}
-				}
-				out[t] += m
-			}
-		}
-	}
-	maps.DeleteFunc(out, func(_ targets.TargetID, n int) bool { return n == 0 })
-	return out
 }
 
 // inParallel calls do for each index below n, split in contiguous runs

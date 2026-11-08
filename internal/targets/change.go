@@ -92,26 +92,41 @@ type Touched struct {
 	// Narrow, when set, is every format edit of a Change that moves only
 	// scores: of Works, only those holding a file whose score at some
 	// Target one of them moves change.
-	Narrow []FormatEdit
+	Narrow *Narrow
 }
 
-// FormatEdit is one format's match before and after a Change, and its
-// score at each Target that scores it before and after.
-type FormatEdit struct {
-	Match  formats.Edit
-	Scores map[TargetID][2]int
+// Narrow is a Change's formats before and after, compiled together, and
+// each one's score at each Target that scores it before and after, in
+// the Edits' order.
+type Narrow struct {
+	Match  formats.Edits
+	Scores []map[TargetID][2]int
 }
 
-// Move is how far flip, a name's match of e, moves its score at t.
-func (e FormatEdit) Move(flip formats.Flip, t TargetID) int {
-	s, move := e.Scores[t], 0
-	if flip.Before {
-		move -= s[0]
+// Moves is how far the edits move rd's score at each Target, leaving out
+// the Targets they don't move.
+func (n *Narrow) Moves(rd release.Read) map[TargetID]int {
+	var out map[TargetID]int
+	for i, flip := range n.Match.Match(rd) {
+		for t, s := range n.Scores[i] {
+			move := 0
+			if flip.Before {
+				move -= s[0]
+			}
+			if flip.After {
+				move += s[1]
+			}
+			if move == 0 {
+				continue
+			}
+			if out == nil {
+				out = map[TargetID]int{}
+			}
+			out[t] += move
+		}
 	}
-	if flip.After {
-		move += s[1]
-	}
-	return move
+	maps.DeleteFunc(out, func(_ TargetID, n int) bool { return n == 0 })
+	return out
 }
 
 // Touches reads in r, before c applies, what c may change.
@@ -167,18 +182,32 @@ func (c UpdateTarget) touches(ctx context.Context, q *db.Queries, tm formats.Tim
 		}
 	}
 	slices.SortFunc(moved, byFormatID)
-	var narrow []FormatEdit
+	var edits []versions
 	for _, id := range moved {
 		f, err := formatIn(ctx, q, id)
 		if err != nil {
 			return Touched{}, err
 		}
-		narrow = append(narrow, FormatEdit{Match: formats.Diff(&f.Format, &f.Format, tm), Scores: map[TargetID][2]int{c.ID: {before[id], after[id]}}})
+		edits = append(edits, versions{id: id, Versions: formats.Versions{Before: &f.Format, After: &f.Format}})
 	}
-	if narrow == nil {
+	if edits == nil {
 		return Touched{}, nil
 	}
-	return Touched{Works: ws, Narrow: narrow}, nil
+	return Touched{Works: ws, Narrow: narrowed(edits, tm, func(e versions) map[TargetID][2]int {
+		return map[TargetID][2]int{c.ID: {before[e.id], after[e.id]}}
+	})}, nil
+}
+
+// narrowed compiles edits together, each scored at each Target as score
+// answers.
+func narrowed(edits []versions, tm formats.Timings, score func(versions) map[TargetID][2]int) *Narrow {
+	n := &Narrow{Scores: make([]map[TargetID][2]int, len(edits))}
+	vs := make([]formats.Versions, len(edits))
+	for i, e := range edits {
+		vs[i], n.Scores[i] = e.Versions, score(e)
+	}
+	n.Match = formats.Diff(vs, tm)
+	return n
 }
 
 func (c UpdateTarget) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
@@ -424,25 +453,28 @@ func edited(ctx context.Context, q *db.Queries, tm formats.Timings, edits []vers
 	}
 	var (
 		ids    []formats.ID
-		narrow []FormatEdit
+		scored []versions
 	)
 	for _, e := range edits {
-		if s, ok := scores[e.id]; ok {
+		if _, ok := scores[e.id]; ok {
 			ids = append(ids, e.id)
-			narrow = append(narrow, FormatEdit{Match: formats.Diff(e.before, e.after, tm), Scores: s})
+			scored = append(scored, e)
 		}
 	}
 	if ids == nil {
 		return Touched{}, nil
 	}
 	ws, err := q.ListWorksScoring(ctx, rowIDs(ids))
-	return Touched{Works: ws, Narrow: narrow}, err
+	if err != nil {
+		return Touched{}, err
+	}
+	return Touched{Works: ws, Narrow: narrowed(scored, tm, func(e versions) map[TargetID][2]int { return scores[e.id] })}, nil
 }
 
-// versions is format id before and after a change, nil when absent.
+// versions is format id before and after a change.
 type versions struct {
-	id            formats.ID
-	before, after *formats.Format
+	id formats.ID
+	formats.Versions
 }
 
 func (c UpdateFormat) touches(ctx context.Context, q *db.Queries, tm formats.Timings) (Touched, error) {
@@ -451,7 +483,7 @@ func (c UpdateFormat) touches(ctx context.Context, q *db.Queries, tm formats.Tim
 		return Touched{}, err
 	}
 	after := c.saved(stored)
-	return edited(ctx, q, tm, []versions{{id: c.ID, before: &stored.Format, after: &after}})
+	return edited(ctx, q, tm, []versions{{id: c.ID, Versions: formats.Versions{Before: &stored.Format, After: &after}}})
 }
 
 // saved is the format c saves over stored.
@@ -474,7 +506,7 @@ func (c DeleteFormat) touches(ctx context.Context, q *db.Queries, tm formats.Tim
 	if err != nil {
 		return Touched{}, err
 	}
-	return edited(ctx, q, tm, []versions{{id: c.ID, before: &stored.Format}})
+	return edited(ctx, q, tm, []versions{{id: c.ID, Versions: formats.Versions{Before: &stored.Format}}})
 }
 
 func (c DeleteFormat) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
@@ -495,7 +527,7 @@ func (c AddFormats) touches(ctx context.Context, q *db.Queries, tm formats.Timin
 			return Touched{}, err
 		}
 		after := c.replacing(id)
-		edits = append(edits, versions{id: id, before: &stored.Format, after: &after})
+		edits = append(edits, versions{id: id, Versions: formats.Versions{Before: &stored.Format, After: &after}})
 	}
 	return edited(ctx, q, tm, edits)
 }

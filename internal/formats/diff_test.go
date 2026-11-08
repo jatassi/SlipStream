@@ -15,7 +15,7 @@ func TestDiff(t *testing.T) {
 	at := func(res release.Resolution) release.Read {
 		return release.Read{Release: "Film.x264", Facts: release.Facts{Resolution: release.Known(res)}}
 	}
-	e := formats.Diff(&before, &after, limit)
+	e := formats.Diff([]formats.Versions{{Before: &before, After: &after}}, limit)
 	cases := []struct {
 		name string
 		read release.Read
@@ -27,12 +27,12 @@ func TestDiff(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := e.Match(tc.read); got.Before != tc.want.Before || got.After != tc.want.After {
+			if got := e.Match(tc.read)[0]; got.Before != tc.want.Before || got.After != tc.want.After {
 				t.Errorf("Match = %+v, want %+v", got, tc.want)
 			}
 		})
 	}
-	if got := formats.Diff(&before, nil, limit).Match(at(release.R1080p)); !got.Before || got.After {
+	if got := formats.Diff([]formats.Versions{{Before: &before}}, limit).Match(at(release.R1080p))[0]; !got.Before || got.After {
 		t.Errorf("a deleted format: %+v", got)
 	}
 }
@@ -41,7 +41,7 @@ func TestDiffReportsTheAfterVersionsTimeouts(t *testing.T) {
 	short := formats.Timings{Match: 10 * time.Millisecond}
 	before := format(1, formats.Radarr, title(slow))
 	after := format(1, formats.Radarr, title(`x`), title(slow))
-	got := formats.Diff(&before, &after, short).Match(aaa)
+	got := formats.Diff([]formats.Versions{{Before: &before, After: &after}}, short).Match(aaa)[0]
 	if got.Before || got.After || !slices.Equal(got.Timeouts, []formats.Timeout{{Format: after.ID, Condition: 1}}) {
 		t.Errorf("Match = %+v", got)
 	}
@@ -60,8 +60,25 @@ func TestAnEditReadsOnlyTheNameWhenBothVersionsTestOnlyTheTitle(t *testing.T) {
 		{"a group condition added", &titleOnly, &byGroup, false},
 		{"a group condition removed", &byGroup, &titleOnly, false},
 	} {
-		if got := formats.Diff(c.before, c.after, limit).NameOnly(); got != c.want {
+		if got := formats.Diff([]formats.Versions{{Before: c.before, After: c.after}}, limit).NameOnly(); got != c.want {
 			t.Errorf("%s: NameOnly = %t, want %t", c.name, got, c.want)
+		}
+	}
+}
+
+func TestDiffFlipsEachFormatOfOneChangeOnItsOwn(t *testing.T) {
+	hdr := format(1, formats.Radarr, title(`\bHDR\b`))
+	dv := format(2, formats.Radarr, title(`\bDV\b`))
+	widened := format(2, formats.Radarr, title(`\b(DV|HDR)\b`))
+	e := formats.Diff([]formats.Versions{{Before: &hdr}, {Before: &dv, After: &widened}, {After: &hdr}}, limit)
+	got := e.Match(release.Read{Given: "Film.2160p.HDR"})
+	want := []formats.Flip{{Before: true}, {After: true}, {After: true}}
+	if len(got) != len(want) {
+		t.Fatalf("Match = %+v, want %+v", got, want)
+	}
+	for i := range want {
+		if got[i].Before != want[i].Before || got[i].After != want[i].After {
+			t.Errorf("format %d: Match = %+v, want %+v", i, got[i], want[i])
 		}
 	}
 }
