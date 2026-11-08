@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/newznab"
 	avistazbase "github.com/jatassi/slipstream/internal/ports/internal/avistaz"
 	"github.com/jatassi/slipstream/internal/ports/port"
+	"github.com/jatassi/slipstream/internal/prowlarr/stringutil"
 )
 
 //go:embed upstream.json
@@ -66,14 +67,14 @@ func setCapabilities() port.Capabilities {
 
 // getBasicSearchParameters is AnimeZRequestGenerator's.
 // SlipStream: TrackerIDs is already distinct, as C#'s Distinct.
-func getBasicSearchParameters(ix *ix, searchCriteria port.SearchCriteria) avistazbase.Parameters {
+func getBasicSearchParameters(ix *ix, searchCriteria port.SearchCriteria) stringutil.KeyValuePairs {
 	limit := avistazbase.PageSize
 	if searchCriteria.Limit > 0 {
 		limit = min(avistazbase.PageSize, searchCriteria.Limit)
 	}
 
-	parameters := avistazbase.Parameters{
-		{"limit", strconv.Itoa(limit)},
+	parameters := stringutil.KeyValuePairs{
+		{Key: "limit", Value: strconv.Itoa(limit)},
 	}
 
 	categoryMappings := ix.Categories.TrackerIDs(searchCriteria.Categories)

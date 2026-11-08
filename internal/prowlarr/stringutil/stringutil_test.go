@@ -45,3 +45,14 @@ func TestGetQueryStringWithItsOptionalParameters(t *testing.T) {
 		t.Errorf("GetQueryStringWith = %q, want %q", got, want)
 	}
 }
+
+func TestGetQueryStringOverPairsKeepsEachRepeatedKey(t *testing.T) {
+	var parameters KeyValuePairs
+	parameters.Add("st", "1")
+	parameters.Add("cat[]", "19")
+	parameters.Add("cat[]", "6")
+	parameters.Add("search", "Mørk Skog+")
+	if got, want := parameters.GetQueryString(), "st=1&cat[]=19&cat[]=6&search=M%C3%B8rk+Skog%2B"; got != want {
+		t.Errorf("GetQueryString() = %q, want %q", got, want)
+	}
+}

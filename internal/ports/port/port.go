@@ -34,6 +34,7 @@
 //	AllowAutoRedirect = false              r.NoRedirect()
 //	SuppressHttpErrorStatusCodes           r.SuppressHTTPErrorStatusCodes(codes...)
 //	NameValueCollection, GetQueryString()  stringutil.NameValueCollection, qc.GetQueryString()
+//	List<KeyValuePair<string, string>>     stringutil.KeyValuePairs, parameters.GetQueryString()
 //	GetParser().ParseResponse              Impl.Parse
 //	IndexerResponse / HttpResponse         port.IndexerResponse
 //	TorrentInfo                            port.TorrentInfo (same field names, Go initialisms:

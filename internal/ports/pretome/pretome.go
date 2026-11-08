@@ -14,8 +14,8 @@ import (
 	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
 	"github.com/jatassi/slipstream/internal/prowlarr/dom"
-	"github.com/jatassi/slipstream/internal/prowlarr/encoding"
 	"github.com/jatassi/slipstream/internal/prowlarr/parseutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/stringutil"
 )
 
 //go:embed upstream.json
@@ -175,14 +175,15 @@ func setCapabilities() port.Capabilities {
 
 func getPagedRequests(ix *ix, term string, categories []newznab.ID, imdbID string) *port.Request {
 	// NameValueCollection don't support cat[]=19&cat[]=6
-	parameters := [][2]string{
-		{"st", "1"}, // search in title
+	parameters := stringutil.KeyValuePairs{
+		{Key: "st", Value: "1"}, // search in title
 	}
 
 	if strings.TrimSpace(imdbID) != "" {
-		parameters = append(parameters, [2]string{"search", imdbID}, [2]string{"sd", "1"}) // search in description
+		parameters.Add("search", imdbID)
+		parameters.Add("sd", "1") // search in description
 	} else {
-		parameters = append(parameters, [2]string{"search", term})
+		parameters.Add("search", term)
 	}
 
 	// parse categories and tags
@@ -204,31 +205,25 @@ func getPagedRequests(ix *ix, term string, categories []newznab.ID, imdbID strin
 
 	// add categories
 	for _, cat := range catGroups {
-		parameters = append(parameters, [2]string{"cat[]", cat})
+		parameters.Add("cat[]", cat)
 	}
 
 	// do not include too many tags as it'll mess with their servers
 	if len(tagGroups) < 7 {
-		parameters = append(parameters, [2]string{"tags", strings.Join(tagGroups, ",")})
+		parameters.Add("tags", strings.Join(tagGroups, ","))
 		// if tags are specified match any
 		// if no tags are specified match all, with any we get random results
 		tf := "all"
 		if len(tagGroups) > 0 {
 			tf = "any"
 		}
-		parameters = append(parameters, [2]string{"tf", tf})
+		parameters.Add("tf", tf)
 	}
 
 	searchURL := "browse.php"
 
 	if len(parameters) > 0 {
-		// SlipStream: GetQueryString over a list of pairs, which keeps
-		// each repeated cat[] as its own pair.
-		var query []string
-		for _, p := range parameters {
-			query = append(query, p[0]+"="+encoding.URLEncode(p[1]))
-		}
-		searchURL += "?" + strings.Join(query, "&")
+		searchURL += "?" + parameters.GetQueryString()
 	}
 
 	return port.Get(ix.URL(searchURL)).Accept("text/html").NoRedirect()

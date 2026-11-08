@@ -11,20 +11,14 @@ import (
 
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/ports/port"
+	"github.com/jatassi/slipstream/internal/prowlarr/stringutil"
 )
-
-// Parameters is a search's query in order, as C#'s
-// List<KeyValuePair<string, string>>, because the site reads
-// video_quality[] more than once.
-type Parameters [][2]string
-
-func (p *Parameters) Add(key, value string) { *p = append(*p, [2]string{key, value}) }
 
 type requestGenerator struct{ site Site }
 
 const searchURL = "api/v1/jackett/torrents"
 
-func getBasicSearchParameters(ix *port.Indexer[Settings], searchCriteria port.SearchCriteria) Parameters {
+func getBasicSearchParameters(ix *port.Indexer[Settings], searchCriteria port.SearchCriteria) stringutil.KeyValuePairs {
 	categories := searchCriteria.Categories
 
 	categoryMapping := ix.Categories.TrackerIDs(categories)
@@ -34,10 +28,10 @@ func getBasicSearchParameters(ix *port.Indexer[Settings], searchCriteria port.Se
 		limit = min(PageSize, searchCriteria.Limit)
 	}
 
-	qc := Parameters{
-		{"in", "1"},
-		{"type", firstIfSingleOrDefault(categoryMapping, "0")},
-		{"limit", strconv.Itoa(limit)},
+	qc := stringutil.KeyValuePairs{
+		{Key: "in", Value: "1"},
+		{Key: "type", Value: firstIfSingleOrDefault(categoryMapping, "0")},
+		{Key: "limit", Value: strconv.Itoa(limit)},
 	}
 
 	if searchCriteria.Limit > 0 && searchCriteria.Offset > 0 {
@@ -81,10 +75,10 @@ func firstIfSingleOrDefault(s []string, def string) string {
 
 // SlipStream: the framework sets the bearer token and hands every
 // status to the parser, so the request carries neither.
-func getRequest(ix *port.Indexer[Settings], searchParameters Parameters) (port.Chain, error) {
+func getRequest(ix *port.Indexer[Settings], searchParameters stringutil.KeyValuePairs) (port.Chain, error) {
 	request := port.Get(ix.URL(searchURL)).Accept("application/json")
 	for _, p := range searchParameters {
-		request.AddQueryParam(p[0], p[1])
+		request.AddQueryParam(p.Key, p.Value)
 	}
 
 	return port.One(request)

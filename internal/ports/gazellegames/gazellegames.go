@@ -21,7 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
-	"github.com/jatassi/slipstream/internal/prowlarr/encoding"
+	"github.com/jatassi/slipstream/internal/prowlarr/stringutil"
 )
 
 //go:embed upstream.json
@@ -230,8 +230,8 @@ func getBasicSearchRequests(ix *indexer, searchCriteria port.SearchCriteria) (po
 	return port.One(getRequest(ix, getBasicSearchParameters(ix, searchCriteria.SanitizedSearchTerm(), searchCriteria)))
 }
 
-func getRequest(ix *indexer, parameters keyValuePairs) *port.Request {
-	return requestBuilder(ix, "api.php?"+parameters.getQueryString())
+func getRequest(ix *indexer, parameters stringutil.KeyValuePairs) *port.Request {
+	return requestBuilder(ix, "api.php?"+parameters.GetQueryString())
 }
 
 func requestBuilder(ix *indexer, resource string) *port.Request {
@@ -242,13 +242,13 @@ func requestBuilder(ix *indexer, resource string) *port.Request {
 
 // SlipStream: MinSize and MaxSize are gone, since a SlipStream search
 // carries no size bounds.
-func getBasicSearchParameters(ix *indexer, searchTerm string, searchCriteria port.SearchCriteria) keyValuePairs {
-	parameters := keyValuePairs{
-		{"request", "search"},
-		{"search_type", "torrents"},
-		{"empty_groups", "filled"},
-		{"order_by", "time"},
-		{"order_way", "desc"},
+func getBasicSearchParameters(ix *indexer, searchTerm string, searchCriteria port.SearchCriteria) stringutil.KeyValuePairs {
+	parameters := stringutil.KeyValuePairs{
+		{Key: "request", Value: "search"},
+		{Key: "search_type", Value: "torrents"},
+		{Key: "empty_groups", Value: "filled"},
+		{Key: "order_by", Value: "time"},
+		{Key: "order_way", Value: "desc"},
 	}
 
 	if strings.TrimSpace(searchTerm) != "" {
@@ -256,19 +256,19 @@ func getBasicSearchParameters(ix *indexer, searchTerm string, searchCriteria por
 		if ix.Settings.SearchGroupNames {
 			name = "groupname"
 		}
-		parameters = append(parameters, keyValuePair{name, strings.ReplaceAll(searchTerm, ".", " ")})
+		parameters.Add(name, strings.ReplaceAll(searchTerm, ".", " "))
 	}
 
 	if searchCriteria.Categories != nil {
 		for _, category := range ix.Categories.TrackerIDs(searchCriteria.Categories) {
 			if !isAllDigits(category) {
-				parameters = append(parameters, keyValuePair{"artistcheck[]", category})
+				parameters.Add("artistcheck[]", category)
 			}
 		}
 	}
 
 	if ix.Settings.FreeleechOnly {
-		parameters = append(parameters, keyValuePair{"freetorrent", "1"})
+		parameters.Add("freetorrent", "1")
 	}
 
 	return parameters
@@ -276,21 +276,6 @@ func getBasicSearchParameters(ix *indexer, searchTerm string, searchCriteria por
 
 func isAllDigits(s string) bool {
 	return !strings.ContainsFunc(s, func(r rune) bool { return !unicode.IsDigit(r) })
-}
-
-// keyValuePairs is a List<KeyValuePair<string, string>>, whose
-// GetQueryString writes each pair, a repeated key too, with its value
-// URL-encoded and its key as it is.
-type keyValuePairs []keyValuePair
-
-type keyValuePair struct{ Key, Value string }
-
-func (c keyValuePairs) getQueryString() string {
-	pairs := make([]string, 0, len(c))
-	for _, a := range c {
-		pairs = append(pairs, a.Key+"="+encoding.UTF8.URLEncode(a.Value))
-	}
-	return strings.Join(pairs, "&")
 }
 
 var yearRegex = regexp.MustCompile(`(?:^|[^\p{L}\p{Mn}\p{Nd}\p{Pc}])(?:19|20|21)\p{Nd}{2}(?:[^\p{L}\p{Mn}\p{Nd}\p{Pc}]|$)`)
