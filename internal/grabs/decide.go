@@ -42,7 +42,8 @@ type copied struct {
 // candidateOf reads a listed release's title with its Content Type's
 // names and cuts, every cut its Work's titles can name. covers answers the
 // Items of its Work the title names, and runtime is the searched Item's,
-// unknown when its Content Type can't answer it.
+// unknown when its Content Type can't answer it. A flag no release.Flag
+// names is dropped.
 func candidateOf(r indexers.Release, names release.Names, cuts []release.Cut, covers func(release.Name) []works.ItemID, runtime release.Fact[time.Duration]) candidate {
 	read := release.Title(r.Title, names, cuts)
 	f := read.Facts
@@ -50,6 +51,11 @@ func candidateOf(r indexers.Release, names release.Names, cuts []release.Cut, co
 		f.Size = release.Known(r.Size)
 	}
 	f.Coverage.Runtime = runtime
+	for _, flag := range r.Flags {
+		if parsed, ok := release.ParseFlag(string(flag)); ok {
+			f.Flags = append(f.Flags, parsed)
+		}
+	}
 	return candidate{Release: r, Facts: f, name: read.Name, covers: covers(read.Name)}
 }
 
