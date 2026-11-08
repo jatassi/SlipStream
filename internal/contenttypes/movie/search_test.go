@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 
@@ -30,15 +31,9 @@ func (sh shelf) expect(t *testing.T, work works.WorkID) indexers.Expect {
 	return ex
 }
 
-func claims(sh shelf, c release.Claim, name string) bool {
-	for _, got := range title(name).Name.Titles {
-		for _, want := range c.Titles {
-			if sh.m.CleanTitle(got) == sh.m.CleanTitle(want) {
-				return true
-			}
-		}
-	}
-	return false
+func matches(sh shelf, c release.Claim, name string) bool {
+	m, _ := release.Match(title(name).Name, nil, c, sh.m)
+	return m == release.Matched
 }
 
 func TestExpectClaimsTheMovieTitlesYearAndOriginalLanguage(t *testing.T) {
@@ -65,8 +60,8 @@ func TestExpectClaimsTheMovieTitlesYearAndOriginalLanguage(t *testing.T) {
 		"The.Pepper.Road.2022.1080p.BluRay.x264-GRP":        false,
 		"Le Chemin a.k.a. The Pepper Way 2022 1080p BluRay": false,
 	} {
-		if got := claims(sh, ex.Claim, name); got != want {
-			t.Errorf("%s gives a title of the claim: %t, want %t", name, got, want)
+		if got := matches(sh, ex.Claim, name); got != want {
+			t.Errorf("%s matches the claim: %t, want %t", name, got, want)
 		}
 	}
 }
@@ -125,6 +120,29 @@ func TestReleaseYearCanDifferBy(t *testing.T) {
 		var refused *setting.RangeError
 		if _, err := slack(raw); !errors.As(err, &refused) {
 			t.Fatalf("a year slack of %s = %v, want a RangeError", raw, err)
+		}
+	}
+}
+
+func TestTheYearSlackJudgesAReleaseYear(t *testing.T) {
+	sh, tree := added(t, saltRoad)
+	for _, tc := range []struct {
+		raw   string
+		years map[int]bool
+	}{
+		{"null", map[int]bool{2021: true, 2023: true, 2024: false}},
+		{"0", map[int]bool{2022: true, 2023: false}},
+		{"10", map[int]bool{2012: true, 2032: true, 2033: false}},
+	} {
+		if _, err := sh.works.SetSettings(t.Context(), identity.Admin{}, movie.Def.ID(), setting.Patch{movie.YearSlack.Key: json.RawMessage(tc.raw)}); err != nil {
+			t.Fatalf("a year slack of %s = %v", tc.raw, err)
+		}
+		claim := sh.expect(t, tree.ID).Claim
+		for year, want := range tc.years {
+			name := fmt.Sprintf("The.Salt.Road.%d.1080p.BluRay.x264-GRP", year)
+			if got := matches(sh, claim, name); got != want {
+				t.Errorf("at a year slack of %s %s matches the 2022 movie: %t, want %t", tc.raw, name, got, want)
+			}
 		}
 	}
 }
