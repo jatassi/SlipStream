@@ -34,7 +34,7 @@ func read(p Prepared, names Names, cuts []Cut) Read {
 		Revision:  readRevision(p, s),
 		Group:     readGroup(masked, s),
 		Cut:       readCut(tail, cuts),
-		Edition:   readEdition(tail),
+		Edition:   readEdition(tail, s),
 		Languages: readLanguages(tail),
 		IDs:       readIDs(p),
 	}
