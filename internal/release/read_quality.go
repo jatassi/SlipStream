@@ -106,8 +106,8 @@ type named struct {
 
 // readQuality sets f's Source, Modifier and Resolution to what the name
 // names, and its Quality by S17 (Targets, Profiles and Editions)'s rules.
-func readQuality(p Prepared, s *scan, f *Facts) {
-	n := parseQuality(s, p.Original)
+func readQuality(p Prepared, f *Facts) {
+	n := parseQuality(p.Original)
 	if n.source {
 		f.Source = Known(n.origin)
 		if n.modifier != 0 {
@@ -122,12 +122,12 @@ func readQuality(p Prepared, s *scan, f *Facts) {
 
 // parseQuality is upstream's ParseQuality: the name's quality, or its
 // extension's when the name names none.
-func parseQuality(s *scan, name string) named {
+func parseQuality(name string) named {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return named{}
 	}
-	n := parseQualityName(s, name)
+	n := parseQualityName(name)
 	if n.grade == (grade{}) {
 		if g, ok := mediaExtensions[strings.ToLower(extension(name))]; ok {
 			return named{g, true, true}
@@ -141,14 +141,14 @@ func parseQuality(s *scan, name string) named {
 // both, the comment says why.
 //
 //nolint:gocyclo,gocognit,cyclop,funlen // a line-for-line port of upstream's one function
-func parseQualityName(s *scan, name string) named {
+func parseQualityName(name string) named {
 	norm := strings.TrimSpace(strings.ReplaceAll(name, "_", " "))
 	t := regex.TextOf(norm)
-	source := sourceOf(s, t)
-	res := parseResolution(s, t)
-	codecs := s.group(codecRegex, t, codecGroups)
-	remuxed := s.match(remuxRegex, t) || s.match(germanRemuxRegex, t)
-	disk := s.match(brDiskRegex, t)
+	source := sourceOf(t)
+	res := parseResolution(t)
+	codecs := codecRegex.group(t, codecGroups)
+	remuxed := remuxRegex.match(t) || germanRemuxRegex.match(t)
+	disk := brDiskRegex.match(t)
 	resNamed := res != 0
 	// byName is a quality whose resolution is named only when the name
 	// names one: upstream's default for a name without one is left
@@ -158,7 +158,7 @@ func parseQualityName(s *scan, name string) named {
 	byName := func(g grade) named { return named{g, true, resNamed} }
 	implied := func(g grade) named { return named{g, true, true} }
 
-	if s.match(rawHDRegex, t) && !disk {
+	if rawHDRegex.match(t) && !disk {
 		return implied(rawHD)
 	}
 
@@ -209,7 +209,7 @@ func parseQualityName(s *scan, name string) named {
 		return implied(regional)
 	case "hdtv":
 		switch {
-		case s.match(mpeg2Regex, t):
+		case mpeg2Regex.match(t):
 			return implied(rawHD)
 		case res == R2160p || res == R1080p || res == R720p:
 			return byName(hdtv.at(res))
@@ -232,7 +232,7 @@ func parseQualityName(s *scan, name string) named {
 			return byName(hdtv.at(R1080p))
 		case res == R720p || containsFold(norm, "720p"):
 			return byName(hdtv.at(R720p))
-		case s.match(highDefPdtvRegex, t):
+		case highDefPdtvRegex.match(t):
 			return implied(hdtv.at(R720p))
 		}
 		// SDTV, PDTV, DSR and TVRip name standard definition, as HDTV
@@ -248,7 +248,7 @@ func parseQualityName(s *scan, name string) named {
 		return byName(remux.at(res))
 	}
 
-	if s.match(animeBlurayRegex, t) {
+	if animeBlurayRegex.match(t) {
 		switch {
 		case res == R360p || res == R480p || res == R540p || res == R576p || containsFold(norm, "480p"):
 			return implied(dvd)
@@ -262,7 +262,7 @@ func parseQualityName(s *scan, name string) named {
 		return byName(bluray.at(R720p))
 	}
 
-	if s.match(animeWebDlRegex, t) {
+	if animeWebDlRegex.match(t) {
 		switch {
 		case res == R360p || res == R480p || res == R540p || res == R576p || containsFold(norm, "480p"):
 			return implied(webdl.at(R480p))
@@ -318,7 +318,7 @@ func parseQualityName(s *scan, name string) named {
 		}
 	}
 
-	switch s.group(otherSourceRegex, t, otherSourceGroups) {
+	switch otherSourceRegex.group(t, otherSourceGroups) {
 	case "sdtv":
 		return implied(sdtv)
 	case "hdtv":
@@ -331,10 +331,10 @@ func parseQualityName(s *scan, name string) named {
 // Radarr's names none. S17 (Targets, Profiles and Editions) has a cinema
 // source win over any other, so the last cinema source wins over a later
 // source of another kind.
-func sourceOf(s *scan, t regex.Text) string {
-	all := s.findAll(sourceRegex, t)
+func sourceOf(t regex.Text) string {
+	all := sourceRegex.findAll(t)
 	if len(all) == 0 {
-		all = s.findAll(sonarrSource, t)
+		all = sonarrSource.findAll(t)
 	}
 	last := ""
 	for _, m := range slices.Backward(all) {
@@ -350,10 +350,10 @@ func sourceOf(s *scan, t regex.Text) string {
 }
 
 // parseResolution is upstream's ParseResolution, 0 for none.
-func parseResolution(s *scan, t regex.Text) Resolution {
-	m, ok := s.find(resolutionRegex, t)
+func parseResolution(t regex.Text) Resolution {
+	m, ok := resolutionRegex.find(t)
 	if !ok {
-		m, ok = s.find(sonarrResolution, t)
+		m, ok = sonarrResolution.find(t)
 	}
 	if ok {
 		for _, g := range resolutionGroups {
@@ -362,7 +362,7 @@ func parseResolution(s *scan, t regex.Text) Resolution {
 			}
 		}
 	}
-	if s.match(alternativeRegex, t) {
+	if alternativeRegex.match(t) {
 		return R2160p
 	}
 	return 0

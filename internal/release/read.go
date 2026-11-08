@@ -6,9 +6,6 @@ type Read struct {
 	Given string
 	Name  Name
 	Facts Facts
-	// Slow names each fixed pattern that ran past its limit, by upstream
-	// key, whose fact stayed unknown. The caller logs a Warn for each.
-	Slow []string
 }
 
 // Name is the Content Type's reading of a name: every title it gives, as

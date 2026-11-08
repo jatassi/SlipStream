@@ -236,7 +236,7 @@ func judged(open []files.Cell, c candidate) (ranked, []Reason) {
 		}
 		var held *targets.Held
 		if cell.File != nil {
-			held = &targets.Held{Facts: cell.File.Facts()}
+			held = &targets.Held{Facts: cell.File.Facts(), Score: cell.Score}
 		}
 		v := targets.Judge(cell.Target, targets.Scored{Facts: c.Facts}, held)
 		var said []Reason

@@ -2,6 +2,7 @@ package series
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/jatassi/slipstream/internal/contenttypes/series/internal/db"
@@ -13,8 +14,9 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// Expect is the series' TVDB id, and covers the stored episodes a name's
-// marks name.
+// Expect is the series' TVDB id, titles, first-aired year and original
+// language, with the type's year slack, and covers the stored episodes a
+// name's marks name.
 func (*Series) Expect(ctx context.Context, r storage.Reader[file], work works.WorkID) (indexers.Expect, error) {
 	q := db.New(r)
 	row, err := q.GetSeries(ctx, work)
@@ -29,10 +31,33 @@ func expect(ctx context.Context, q *db.Queries, row db.SeriesSeries) (indexers.E
 	if err != nil {
 		return indexers.Expect{}, err
 	}
-	return indexers.Expect{
-		Claim:  release.Claim{IDs: map[string]string{"tvdbid": strconv.FormatInt(int64(row.TvdbID), 10)}},
-		Covers: episodesOf(tvdb.Order(row.EpisodeOrder), eps).covered,
-	}, nil
+	settings, err := q.GetSettings(ctx)
+	if err != nil {
+		return indexers.Expect{}, err
+	}
+	titles, err := titlesOf(row)
+	if err != nil {
+		return indexers.Expect{}, err
+	}
+	claim := release.Claim{
+		IDs:    map[string]string{"tvdbid": strconv.FormatInt(int64(row.TvdbID), 10)},
+		Titles: titles,
+		Slack:  int(YearSlack.Value(settings.YearSlack)),
+	}
+	if row.FirstAired != nil {
+		first, err := works.ParseDate(*row.FirstAired)
+		if err != nil {
+			return indexers.Expect{}, fmt.Errorf("series %d: %w", row.TvdbID, err)
+		}
+		claim.Year = release.Known(first.Year)
+	}
+	ex := indexers.Expect{Claim: claim, Covers: episodesOf(tvdb.Order(row.EpisodeOrder), eps).covered}
+	if row.OriginalLanguage != nil {
+		if l, err := release.ParseLanguage(*row.OriginalLanguage); err == nil {
+			ex.Original = release.Known(l)
+		}
+	}
+	return ex, nil
 }
 
 // SearchTerms search tvsearch by the series' TVDB id with the episode's
@@ -82,46 +107,4 @@ func searchedAs(order tvdb.Order, e db.SeriesEpisode) episodeAt {
 		return episodeAt{int(*e.AiredSeason), int(*e.AiredNumber)}
 	}
 	return episodeAt{int(e.SeasonNumber), int(e.EpisodeNumber)}
-}
-
-// episodes are a series' stored episodes as releases name them.
-type episodes struct {
-	at      map[episodeAt]works.ItemID
-	seasons map[int][]works.ItemID
-}
-
-func episodesOf(order tvdb.Order, eps []db.SeriesEpisode) episodes {
-	e := episodes{at: map[episodeAt]works.ItemID{}, seasons: map[int][]works.ItemID{}}
-	for _, ep := range eps {
-		at := searchedAs(order, ep)
-		e.at[at] = ep.ItemID
-		e.seasons[at.season] = append(e.seasons[at.season], ep.ItemID)
-	}
-	return e
-}
-
-// covered is the stored episodes n's marks name: a season pack's every
-// episode, each season's of a multi-season pack, or each episode first
-// to last.
-func (e episodes) covered(n release.Name) []works.ItemID {
-	var out []works.ItemID
-	for _, mk := range n.Marks {
-		switch m := markedBy(mk.Key); m.kind {
-		case markSeason:
-			out = append(out, e.seasons[m.season]...)
-		case markSeasons:
-			for s := m.season; s <= m.last; s++ {
-				out = append(out, e.seasons[s]...)
-			}
-		case markEpisodes:
-			for ep := m.first; ep <= m.last; ep++ {
-				if id, ok := e.at[episodeAt{m.season, ep}]; ok {
-					out = append(out, id)
-				}
-			}
-		case markPart, markAbsolute, markSpecial:
-			// Parts and absolute numbers cover no stored episode yet.
-		}
-	}
-	return out
 }

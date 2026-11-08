@@ -187,6 +187,21 @@ func TestDecideAsksARankAboveTheFileFillingTheCell(t *testing.T) {
 	}
 }
 
+func TestDecideReadsTheHeldFilesScoreAgainstUpgradeUntil(t *testing.T) {
+	candidates := []candidate{listed("Orchard.1080p.WEBRip", 90, 10, nil)}
+	for _, c := range []struct {
+		score int
+		grabs bool
+	}{{-10, true}, {0, false}} {
+		held := cell(hd, files.Upgradable)
+		held.File, held.Score = &files.File{Quality: release.WEBDL1080p}, c.score
+		pick, _ := best(decide([]files.Cell{held}, item.ID, orchard, candidates))
+		if (pick != nil) != c.grabs {
+			t.Errorf("decide over a WEB-DL scoring %d at upgrade-until 0 picked %+v, want a pick %t: a same-tier Release scoring 0 upgrades only a file below upgrade-until", c.score, pick, c.grabs)
+		}
+	}
+}
+
 func TestDecideJudgesACandidateOnlyForTheCellsOfItsCut(t *testing.T) {
 	standard, extended := targets.EditionOf(release.Standard), targets.Edition("extended")
 	candidates := []candidate{listed("Orchard.1080p.BluRay", 90, 10, nil), listed("Orchard.EXTENDED.1080p.WEB-DL", 5, 10, nil)}

@@ -158,6 +158,7 @@ func TestEpisodeSearchSendsSeasonAndEp(t *testing.T) {
 		want := []string{
 			"The.Lantern.Keepers.S01E02.720p.WEB-DL.H264-FKW wrong_item S01E02",
 			"The.Lantern.Keepers.S01.1080p.WEB-DL.H264-FKW covers_more S01",
+			"The.Lantern.Keepers.S01E02E03.1080p.WEB-DL.H264-FKW covers_more S01E02-E03",
 		}
 		if r.ItemID == special {
 			want = nil

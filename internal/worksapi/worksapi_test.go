@@ -53,6 +53,10 @@ func (grabbing) Unfinished(context.Context, storage.Reader[storage.Library]) ([]
 	return nil, nil
 }
 
+func (grabbing) ReleaseTitles(context.Context, storage.Reader[storage.Library]) (map[storage.UUID]string, error) {
+	return nil, nil
+}
+
 func (grabbing) Settle(context.Context, *storage.Tx[storage.Library], works.WorkID, map[files.CellKey]bool, files.Unwanted) (int, error) {
 	return 0, nil
 }
@@ -194,7 +198,10 @@ func serveAt(t *testing.T, today func() time.Time) *server {
 	}
 	r := api.NewRouter(api.Services{Node: identitytest.Controller{Node: identitytest.Node{Service: svc}}, Gate: gate, Web: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, Log: log})
 	cells := grabbing{}
-	shelved := files.New(files.Config{Library: lib, Targets: goals, Grabs: cells, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}, Today: today})
+	shelved, err := files.Open(t.Context(), files.Config{Library: lib, Targets: goals, Grabs: cells, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}, Today: today})
+	if err != nil {
+		t.Fatal(err)
+	}
 	sh := shelf{lib: lib, w: w, t: goals, f: shelved, l: library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: homes, Files: shelved, Grabs: noGrabs{}})}
 	worksapi.Routes(r, sh)
 	filesapi.Routes(r, sh)

@@ -183,24 +183,27 @@ func (q *Queries) InsertDoomed(ctx context.Context, arg InsertDoomedParams) erro
 }
 
 const insertFile = `-- name: InsertFile :exec
-INSERT INTO files_file (id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra)
+INSERT INTO files_file (id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6,
-    ?7, ?8, ?9, ?10, ?11, ?12)
+    ?7, ?8, ?9, ?10, ?11, ?12,
+    ?13, ?14)
 `
 
 type InsertFileParams struct {
-	ID      FileID
-	WorkID  works.WorkID
-	ItemID  works.ItemID
-	Cut     release.CutKey
-	RootID  roots.ID
-	Path    string
-	Size    int64
-	Probe   Probe
-	GrabID  storage.UUID
-	Quality release.Quality
-	Label   string
-	Extra   int64
+	ID          FileID
+	WorkID      works.WorkID
+	ItemID      works.ItemID
+	Cut         release.CutKey
+	RootID      roots.ID
+	Path        string
+	Size        int64
+	Probe       Probe
+	GrabID      storage.UUID
+	Quality     release.Quality
+	Label       string
+	Extra       int64
+	ReleaseName string
+	TitleRead   Reading
 }
 
 func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
@@ -217,13 +220,15 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
 		arg.Quality,
 		arg.Label,
 		arg.Extra,
+		arg.ReleaseName,
+		arg.TitleRead,
 	)
 	return err
 }
 
 const insertFill = `-- name: InsertFill :exec
-INSERT INTO files_fill (file_id, target_id, item_id, edition)
-VALUES (?1, ?2, ?3, ?4)
+INSERT INTO files_fill (file_id, target_id, item_id, edition, score)
+VALUES (?1, ?2, ?3, ?4, ?5)
 `
 
 type InsertFillParams struct {
@@ -231,6 +236,7 @@ type InsertFillParams struct {
 	TargetID targets.TargetID
 	ItemID   works.ItemID
 	Edition  targets.Edition
+	Score    int64
 }
 
 func (q *Queries) InsertFill(ctx context.Context, arg InsertFillParams) error {
@@ -239,6 +245,7 @@ func (q *Queries) InsertFill(ctx context.Context, arg InsertFillParams) error {
 		arg.TargetID,
 		arg.ItemID,
 		arg.Edition,
+		arg.Score,
 	)
 	return err
 }
@@ -394,7 +401,7 @@ func (q *Queries) ListEveryBriefFile(ctx context.Context) ([]ListEveryBriefFileR
 }
 
 const listEveryFile = `-- name: ListEveryFile :many
-SELECT id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra FROM files_file ORDER BY rowid
+SELECT id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read FROM files_file ORDER BY rowid
 `
 
 func (q *Queries) ListEveryFile(ctx context.Context) ([]FilesFile, error) {
@@ -419,6 +426,8 @@ func (q *Queries) ListEveryFile(ctx context.Context) ([]FilesFile, error) {
 			&i.Quality,
 			&i.Label,
 			&i.Extra,
+			&i.ReleaseName,
+			&i.TitleRead,
 		); err != nil {
 			return nil, err
 		}
@@ -434,7 +443,7 @@ func (q *Queries) ListEveryFile(ctx context.Context) ([]FilesFile, error) {
 }
 
 const listEveryFill = `-- name: ListEveryFill :many
-SELECT file_id, target_id, item_id, edition FROM files_fill ORDER BY rowid
+SELECT file_id, target_id, item_id, edition, score FROM files_fill ORDER BY rowid
 `
 
 func (q *Queries) ListEveryFill(ctx context.Context) ([]FilesFill, error) {
@@ -451,6 +460,7 @@ func (q *Queries) ListEveryFill(ctx context.Context) ([]FilesFill, error) {
 			&i.TargetID,
 			&i.ItemID,
 			&i.Edition,
+			&i.Score,
 		); err != nil {
 			return nil, err
 		}
@@ -493,7 +503,7 @@ func (q *Queries) ListFileIDs(ctx context.Context) ([]FileID, error) {
 }
 
 const listFilesOfWorks = `-- name: ListFilesOfWorks :many
-SELECT id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY id
+SELECT id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY id
 `
 
 func (q *Queries) ListFilesOfWorks(ctx context.Context, workIds []works.WorkID) ([]FilesFile, error) {
@@ -528,6 +538,8 @@ func (q *Queries) ListFilesOfWorks(ctx context.Context, workIds []works.WorkID) 
 			&i.Quality,
 			&i.Label,
 			&i.Extra,
+			&i.ReleaseName,
+			&i.TitleRead,
 		); err != nil {
 			return nil, err
 		}
@@ -595,7 +607,7 @@ func (q *Queries) ListFillsOfTargets(ctx context.Context, targetIds []targets.Ta
 }
 
 const listFillsOfWorks = `-- name: ListFillsOfWorks :many
-SELECT files_fill.file_id, files_fill.target_id, files_fill.item_id, files_fill.edition FROM files_fill
+SELECT files_fill.file_id, files_fill.target_id, files_fill.item_id, files_fill.edition, files_fill.score FROM files_fill
 JOIN files_file ON files_file.id = files_fill.file_id
 WHERE files_file.work_id IN (/*SLICE:work_ids*/?)
 ORDER BY files_fill.item_id, files_fill.edition, files_fill.target_id
@@ -625,6 +637,7 @@ func (q *Queries) ListFillsOfWorks(ctx context.Context, workIds []works.WorkID) 
 			&i.TargetID,
 			&i.ItemID,
 			&i.Edition,
+			&i.Score,
 		); err != nil {
 			return nil, err
 		}
@@ -665,6 +678,45 @@ func (q *Queries) ListMoves(ctx context.Context) ([]ListMovesRow, error) {
 			&i.FileID,
 			&i.Sits,
 			&i.RootID,
+			&i.Path,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnreadFiles = `-- name: ListUnreadFiles :many
+SELECT id, work_id, grab_id, path FROM files_file WHERE title_read IS NULL ORDER BY id
+`
+
+type ListUnreadFilesRow struct {
+	ID     FileID
+	WorkID works.WorkID
+	GrabID storage.UUID
+	Path   string
+}
+
+func (q *Queries) ListUnreadFiles(ctx context.Context) ([]ListUnreadFilesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUnreadFiles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUnreadFilesRow
+	for rows.Next() {
+		var i ListUnreadFilesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkID,
+			&i.GrabID,
 			&i.Path,
 		); err != nil {
 			return nil, err
@@ -823,6 +875,22 @@ func (q *Queries) RenameFile(ctx context.Context, arg RenameFileParams) error {
 		arg.Extra,
 		arg.ID,
 	)
+	return err
+}
+
+const setFileRead = `-- name: SetFileRead :exec
+UPDATE files_file SET release_name = ?1, title_read = ?2
+WHERE id = ?3 AND title_read IS NULL
+`
+
+type SetFileReadParams struct {
+	ReleaseName string
+	TitleRead   Reading
+	ID          FileID
+}
+
+func (q *Queries) SetFileRead(ctx context.Context, arg SetFileReadParams) error {
+	_, err := q.db.ExecContext(ctx, setFileRead, arg.ReleaseName, arg.TitleRead, arg.ID)
 	return err
 }
 

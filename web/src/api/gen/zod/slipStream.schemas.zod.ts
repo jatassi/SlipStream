@@ -1716,6 +1716,266 @@ export const FirstrunFirstRun = zod.object({
 export type FirstrunFirstRun = zod.input<typeof FirstrunFirstRun>;
 export type FirstrunFirstRunOutput = zod.output<typeof FirstrunFirstRun>;
 
+export const FormatsCondition = zod.object({
+  fields: zod
+    .record(zod.string(), zod.unknown())
+    .describe(
+      "Each field by name, as Radarr and Sonarr export them, such as value, or min and max; a value is a number in the radarr and sonarr dialects and a name in slipstream's",
+    ),
+  kind: zod
+    .string()
+    .describe("Radarr's and Sonarr's implementation name, such as ReleaseTitleSpecification"),
+  name: zod.string(),
+  negate: zod.boolean().describe("The condition matches when its test fails"),
+  required: zod
+    .boolean()
+    .describe("The format matches only when this condition does, beside the others of its kind"),
+});
+
+export type FormatsCondition = zod.input<typeof FormatsCondition>;
+export type FormatsConditionOutput = zod.output<typeof FormatsCondition>;
+
+export const FormatsTargetRef = zod.object({
+  id: zod.uuid(),
+  name: zod.string(),
+});
+
+export type FormatsTargetRef = zod.input<typeof FormatsTargetRef>;
+export type FormatsTargetRefOutput = zod.output<typeof FormatsTargetRef>;
+
+export const formatsCustomFormatSlowReleasesMin = 0;
+
+export const FormatsCustomFormat = zod.object({
+  conditions: zod.array(FormatsCondition),
+  dialect: zod
+    .enum(["slipstream", "radarr", "sonarr"])
+    .describe(
+      "The app whose values its conditions hold: radarr or sonarr for a pasted format, slipstream for one made here",
+    ),
+  id: zod.uuid(),
+  includeWhenRenaming: zod.boolean().describe("The Custom Formats naming token lists it"),
+  name: zod.string(),
+  scoredBy: zod.array(FormatsTargetRef).describe("Every Target that scores it, by name"),
+  slowReleases: zod
+    .int()
+    .min(formatsCustomFormatSlowReleasesMin)
+    .describe(
+      "Releases one of its patterns ran past the match limit on since its last save; they count as not matching it",
+    ),
+});
+
+export type FormatsCustomFormat = zod.input<typeof FormatsCustomFormat>;
+export type FormatsCustomFormatOutput = zod.output<typeof FormatsCustomFormat>;
+
+export const FormatsKindValue = zod.object({
+  value: Bare.describe(
+    "As the value field holds it: a number in the radarr and sonarr dialects, a name in slipstream's",
+  ),
+  words: zod.string(),
+});
+
+export type FormatsKindValue = zod.input<typeof FormatsKindValue>;
+export type FormatsKindValueOutput = zod.output<typeof FormatsKindValue>;
+
+export const FormatsOfferedKind = zod.object({
+  fields: zod.array(zod.string()).describe("The fields its conditions take, in upstream's order"),
+  kind: zod.string(),
+  pattern: zod.boolean().describe("Its value is a .NET regular expression, matched ignoring case"),
+  values: zod
+    .array(FormatsKindValue)
+    .describe(
+      "What its value field takes, in upstream's order; empty for a kind whose value is a pattern or a number",
+    ),
+  words: zod.string(),
+});
+
+export type FormatsOfferedKind = zod.input<typeof FormatsOfferedKind>;
+export type FormatsOfferedKindOutput = zod.output<typeof FormatsOfferedKind>;
+
+export const FormatsDialectSchema = zod.object({
+  dialect: zod.enum(["slipstream", "radarr", "sonarr"]),
+  kinds: zod
+    .array(FormatsOfferedKind)
+    .describe("In upstream's order; a kind only the other app has is left out"),
+});
+
+export type FormatsDialectSchema = zod.input<typeof FormatsDialectSchema>;
+export type FormatsDialectSchemaOutput = zod.output<typeof FormatsDialectSchema>;
+
+export const targetsUnwantedFilesBytesMin = 0;
+
+export const targetsUnwantedFilesFilesMin = 0;
+
+export const TargetsUnwantedFiles = zod.object({
+  bytes: zod.int().min(targetsUnwantedFilesBytesMin),
+  files: zod.int().min(targetsUnwantedFilesFilesMin),
+});
+
+export type TargetsUnwantedFiles = zod.input<typeof TargetsUnwantedFiles>;
+export type TargetsUnwantedFilesOutput = zod.output<typeof TargetsUnwantedFiles>;
+
+export const targetsImpactDownloadingMin = 0;
+
+export const targetsImpactNewlyWantedMin = 0;
+
+export const targetsImpactOwnListMin = 0;
+
+export const targetsImpactRenamedMin = 0;
+
+export const targetsImpactWorksMin = 0;
+
+export const TargetsImpact = zod.object({
+  downloading: zod
+    .int()
+    .min(targetsImpactDownloadingMin)
+    .describe(
+      "Downloads in progress for cells that are no longer wanted. The save's choice decides whether their files are deleted or kept",
+    ),
+  newlyWanted: zod.int().min(targetsImpactNewlyWantedMin).describe("Cells that become wanted"),
+  ownList: zod
+    .int()
+    .min(targetsImpactOwnListMin)
+    .describe("Works that keep their own Edition list through a change to their Profile's"),
+  renamed: zod
+    .int()
+    .min(targetsImpactRenamedMin)
+    .describe("Files that still fill a cell and change name"),
+  unwanted: TargetsUnwantedFiles.describe(
+    "Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses",
+  ),
+  works: zod
+    .int()
+    .min(targetsImpactWorksMin)
+    .describe("Works whose cells, fills or file names change"),
+});
+
+export type TargetsImpact = zod.input<typeof TargetsImpact>;
+export type TargetsImpactOutput = zod.output<typeof TargetsImpact>;
+
+export const FormatsFormatChange = zod.object({
+  format: FormatsCustomFormat,
+  impact: TargetsImpact,
+});
+
+export type FormatsFormatChange = zod.input<typeof FormatsFormatChange>;
+export type FormatsFormatChangeOutput = zod.output<typeof FormatsFormatChange>;
+
+export const FormatsFormatDeletion = zod.object({
+  impact: TargetsImpact,
+  scoredBy: zod
+    .array(FormatsTargetRef)
+    .describe("The Targets whose scores for it the delete drops, by name"),
+});
+
+export type FormatsFormatDeletion = zod.input<typeof FormatsFormatDeletion>;
+export type FormatsFormatDeletionOutput = zod.output<typeof FormatsFormatDeletion>;
+
+export const formatsFormatListMatchLimitMillisecondsMin = 0;
+
+export const FormatsFormatList = zod.object({
+  formats: zod.array(FormatsCustomFormat).describe("By name"),
+  matchLimitMilliseconds: zod
+    .int()
+    .min(formatsFormatListMatchLimitMillisecondsMin)
+    .describe("How long one pattern may run against one name before it counts as not matching"),
+});
+
+export type FormatsFormatList = zod.input<typeof FormatsFormatList>;
+export type FormatsFormatListOutput = zod.output<typeof FormatsFormatList>;
+
+export const FormatsFormatRef = zod.object({
+  dialect: zod.enum(["slipstream", "radarr", "sonarr"]),
+  id: zod.uuid(),
+  name: zod.string(),
+});
+
+export type FormatsFormatRef = zod.input<typeof FormatsFormatRef>;
+export type FormatsFormatRefOutput = zod.output<typeof FormatsFormatRef>;
+
+export const formatsNewFormatNameMax = 100;
+
+export const FormatsNewFormat = zod.object({
+  conditions: zod
+    .array(FormatsCondition)
+    .describe(
+      "Conditions of a kind match when one of them does and every required one does; the format matches when every kind's do",
+    ),
+  includeWhenRenaming: zod
+    .boolean()
+    .exactOptional()
+    .describe("The Custom Formats naming token lists it"),
+  name: zod
+    .string()
+    .min(1)
+    .max(formatsNewFormatNameMax)
+    .describe("Unique among Custom Formats, ignoring case"),
+});
+
+export type FormatsNewFormat = zod.input<typeof FormatsNewFormat>;
+export type FormatsNewFormatOutput = zod.output<typeof FormatsNewFormat>;
+
+export const FormatsPaste = zod.object({
+  app: zod
+    .enum(["radarr", "sonarr"])
+    .exactOptional()
+    .describe(
+      "The app the text was written for; left out, the app its kinds settle: Edition, Quality modifier or Year mean Radarr and Release type means Sonarr",
+    ),
+  replace: zod
+    .array(zod.uuid())
+    .nullish()
+    .describe(
+      "The Custom Formats of a pasted one's name that it replaces; a pasted one whose name is taken and not listed here is added beside the other, with a number after its name",
+    ),
+  text: zod
+    .string()
+    .min(1)
+    .describe(
+      "One Custom Format's JSON or a list of them, as TRaSH Guides, Radarr and Sonarr export them or as Sonarr's API returns them",
+    ),
+});
+
+export type FormatsPaste = zod.input<typeof FormatsPaste>;
+export type FormatsPasteOutput = zod.output<typeof FormatsPaste>;
+
+export const FormatsPastedFormat = zod.object({
+  name: zod.string().describe("Its name in the text"),
+  outcome: zod
+    .enum(["add", "replace", "keep_both"])
+    .describe("Added, replacing sameName, or added beside sameName"),
+  sameName: FormatsFormatRef.exactOptional().describe(
+    "The Custom Format that already has its name",
+  ),
+  savedAs: zod
+    .string()
+    .describe(
+      "The name it is saved under: its own, or with a number after it when another Custom Format has its name",
+    ),
+});
+
+export type FormatsPastedFormat = zod.input<typeof FormatsPastedFormat>;
+export type FormatsPastedFormatOutput = zod.output<typeof FormatsPastedFormat>;
+
+export const FormatsPasted = zod.object({
+  app: zod
+    .enum(["radarr", "sonarr"])
+    .describe("The app the formats are read for: the one given, or the one their kinds settle"),
+  formats: zod.array(FormatsPastedFormat).describe("In the text's order"),
+  impact: TargetsImpact,
+});
+
+export type FormatsPasted = zod.input<typeof FormatsPasted>;
+export type FormatsPastedOutput = zod.output<typeof FormatsPasted>;
+
+export const FormatsSchema = zod.object({
+  dialects: zod
+    .array(FormatsDialectSchema)
+    .describe("SlipStream's own, then Radarr's and Sonarr's"),
+});
+
+export type FormatsSchema = zod.input<typeof FormatsSchema>;
+export type FormatsSchemaOutput = zod.output<typeof FormatsSchema>;
+
 export const GrabsChanged = zod.object({
   grabId: zod.uuid(),
   progress: zod.boolean().describe("True when only the download's progress moved"),
@@ -5522,56 +5782,6 @@ export const TargetsCut = zod.object({
 
 export type TargetsCut = zod.input<typeof TargetsCut>;
 export type TargetsCutOutput = zod.output<typeof TargetsCut>;
-
-export const targetsUnwantedFilesBytesMin = 0;
-
-export const targetsUnwantedFilesFilesMin = 0;
-
-export const TargetsUnwantedFiles = zod.object({
-  bytes: zod.int().min(targetsUnwantedFilesBytesMin),
-  files: zod.int().min(targetsUnwantedFilesFilesMin),
-});
-
-export type TargetsUnwantedFiles = zod.input<typeof TargetsUnwantedFiles>;
-export type TargetsUnwantedFilesOutput = zod.output<typeof TargetsUnwantedFiles>;
-
-export const targetsImpactDownloadingMin = 0;
-
-export const targetsImpactNewlyWantedMin = 0;
-
-export const targetsImpactOwnListMin = 0;
-
-export const targetsImpactRenamedMin = 0;
-
-export const targetsImpactWorksMin = 0;
-
-export const TargetsImpact = zod.object({
-  downloading: zod
-    .int()
-    .min(targetsImpactDownloadingMin)
-    .describe(
-      "Downloads in progress for cells that are no longer wanted. The save's choice decides whether their files are deleted or kept",
-    ),
-  newlyWanted: zod.int().min(targetsImpactNewlyWantedMin).describe("Cells that become wanted"),
-  ownList: zod
-    .int()
-    .min(targetsImpactOwnListMin)
-    .describe("Works that keep their own Edition list through a change to their Profile's"),
-  renamed: zod
-    .int()
-    .min(targetsImpactRenamedMin)
-    .describe("Files that still fill a cell and change name"),
-  unwanted: TargetsUnwantedFiles.describe(
-    "Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses",
-  ),
-  works: zod
-    .int()
-    .min(targetsImpactWorksMin)
-    .describe("Works whose cells, fills or file names change"),
-});
-
-export type TargetsImpact = zod.input<typeof TargetsImpact>;
-export type TargetsImpactOutput = zod.output<typeof TargetsImpact>;
 
 export const TargetsCutChange = zod.object({
   cut: TargetsCut,

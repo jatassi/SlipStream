@@ -194,9 +194,11 @@ func (*Movie) DefaultTemplates() naming.Templates {
 	return naming.Templates{Folder: "{Movie Title} ({Year})", File: "{Movie Title} ({Year}) - {Edition Tag} {Target}"}
 }
 
-// Expect is the movie's TMDB and IMDb ids, and covers its one Item.
+// Expect is the movie's TMDB and IMDb ids, titles, year and original
+// language, with the type's year slack, and covers its one Item.
 func (*Movie) Expect(ctx context.Context, r storage.Reader[file], work works.WorkID) (indexers.Expect, error) {
-	mv, err := db.New(r).GetMovie(ctx, work)
+	q := db.New(r)
+	mv, err := q.GetMovie(ctx, work)
 	if err != nil {
 		return indexers.Expect{}, err
 	}
@@ -204,15 +206,31 @@ func (*Movie) Expect(ctx context.Context, r storage.Reader[file], work works.Wor
 	if err != nil {
 		return indexers.Expect{}, err
 	}
-	return expect(mv, items[work][0].ID), nil
+	return expect(ctx, q, mv, items[work][0].ID)
 }
 
-func expect(mv db.MovieMovie, item works.ItemID) indexers.Expect {
+func expect(ctx context.Context, q *db.Queries, mv db.MovieMovie, item works.ItemID) (indexers.Expect, error) {
+	settings, err := q.GetSettings(ctx)
+	if err != nil {
+		return indexers.Expect{}, err
+	}
+	titles, err := titlesOf(ctx, q, mv)
+	if err != nil {
+		return indexers.Expect{}, err
+	}
 	ids := map[string]string{"tmdbid": strconv.FormatInt(int64(mv.TmdbID), 10)}
 	if mv.ImdbID != nil {
 		ids["imdbid"] = string(*mv.ImdbID)
 	}
-	return indexers.Expect{Claim: release.Claim{IDs: ids}, Covers: indexers.CoversOnly(item)}
+	claim := release.Claim{IDs: ids, Titles: titles, Slack: int(YearSlack.Value(settings.YearSlack))}
+	if mv.Year != nil {
+		claim.Year = release.Known(int(*mv.Year))
+	}
+	ex := indexers.Expect{Claim: claim, Covers: indexers.CoversOnly(item)}
+	if l, err := release.ParseLanguage(mv.OriginalLanguage); err == nil {
+		ex.Original = release.Known(l)
+	}
+	return ex, nil
 }
 
 // SearchTerms searches by the movie's TMDB and IMDb ids, else by its
@@ -222,11 +240,16 @@ func (*Movie) SearchTerms(ctx context.Context, r storage.Reader[file], item work
 	if err != nil {
 		return indexers.Terms{}, err
 	}
-	mv, err := db.New(r).GetMovie(ctx, work.ID)
+	q := db.New(r)
+	mv, err := q.GetMovie(ctx, work.ID)
 	if err != nil {
 		return indexers.Terms{}, err
 	}
-	t := indexers.Terms{Expect: expect(mv, item), Mode: "movie", Query: mv.TitleEnglish}
+	ex, err := expect(ctx, q, mv, item)
+	if err != nil {
+		return indexers.Terms{}, err
+	}
+	t := indexers.Terms{Expect: ex, Mode: "movie", Query: mv.TitleEnglish}
 	if mv.Year != nil {
 		t.Query += " " + strconv.FormatInt(*mv.Year, 10)
 	}

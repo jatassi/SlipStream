@@ -20,18 +20,20 @@ type FilesDoomed struct {
 }
 
 type FilesFile struct {
-	ID      FileID
-	WorkID  works.WorkID
-	ItemID  works.ItemID
-	Cut     release.CutKey
-	RootID  roots.ID
-	Path    string
-	Size    int64
-	Probe   Probe
-	GrabID  storage.UUID
-	Quality release.Quality
-	Label   string
-	Extra   int64
+	ID          FileID
+	WorkID      works.WorkID
+	ItemID      works.ItemID
+	Cut         release.CutKey
+	RootID      roots.ID
+	Path        string
+	Size        int64
+	Probe       Probe
+	GrabID      storage.UUID
+	Quality     release.Quality
+	Label       string
+	Extra       int64
+	ReleaseName string
+	TitleRead   Reading
 }
 
 type FilesFill struct {
@@ -39,6 +41,7 @@ type FilesFill struct {
 	TargetID targets.TargetID
 	ItemID   works.ItemID
 	Edition  targets.Edition
+	Score    int64
 }
 
 type FilesMove struct {

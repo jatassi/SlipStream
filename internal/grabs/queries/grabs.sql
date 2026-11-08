@@ -178,3 +178,6 @@ SELECT id, work_id FROM grabs_grab WHERE torrent_id = sqlc.arg(torrent_id) AND s
 -- send-to moves every Grab downloading a Torrent with it.
 UPDATE grabs_grab SET torrent_id = sqlc.arg(to_id), node_id = sqlc.arg(node_id), updated_at = sqlc.arg(updated_at)
 WHERE torrent_id = sqlc.arg(from_id) AND stage = 'downloading';
+
+-- name: ListReleaseTitles :many
+SELECT id, release_title FROM grabs_grab ORDER BY id;

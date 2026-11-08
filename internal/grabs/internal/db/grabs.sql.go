@@ -923,6 +923,38 @@ func (q *Queries) ListRefusalsOfWork(ctx context.Context, workID works.WorkID) (
 	return items, nil
 }
 
+const listReleaseTitles = `-- name: ListReleaseTitles :many
+SELECT id, release_title FROM grabs_grab ORDER BY id
+`
+
+type ListReleaseTitlesRow struct {
+	ID           GrabID
+	ReleaseTitle string
+}
+
+func (q *Queries) ListReleaseTitles(ctx context.Context) ([]ListReleaseTitlesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listReleaseTitles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListReleaseTitlesRow
+	for rows.Next() {
+		var i ListReleaseTitlesRow
+		if err := rows.Scan(&i.ID, &i.ReleaseTitle); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReleasesOfSearch = `-- name: ListReleasesOfSearch :many
 SELECT search_id, position, indexer_id, "release", link_sealed FROM grabs_release WHERE search_id = ?1 ORDER BY position
 `

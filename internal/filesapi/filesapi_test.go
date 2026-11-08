@@ -97,9 +97,11 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := ownertest.Serve(t, lib, func(r *api.Router) {
-		filesapi.Routes(r, library{files.New(files.Config{Library: lib, Targets: goals, Grabs: files.NoGrabs{}, Today: time.Now})})
-	})
+	shelf, err := files.Open(t.Context(), files.Config{Library: lib, Targets: goals, Grabs: files.NoGrabs{}, Today: time.Now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := ownertest.Serve(t, lib, func(r *api.Router) { filesapi.Routes(r, library{shelf}) })
 
 	code, body := s.Call(t, http.MethodGet, "/api/v1/works/"+tree.ID.String()+"/cells", "")
 	file := `"file":{"id":"` + placed.ID.String() + `","path":"The Attic/The Attic - 1080p.mkv","size":4096,"quality":"webdl-1080p","probe":{"width":1920,"height":1080}}`

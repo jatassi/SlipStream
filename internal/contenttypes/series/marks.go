@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/release"
 )
@@ -17,15 +18,18 @@ const (
 	markPart
 	markAbsolute
 	markSpecial
+	markAired
 )
 
 // marked is one Mark read back: a season's episodes first to last, a
 // whole season, seasons season to last, part of a season, absolute
-// numbers first to last, or an absolute special such as 12.5.
+// numbers first to last, an absolute special such as 12.5, or an air
+// date with its part, 0 when it names none.
 type marked struct {
 	kind                markKind
 	season, first, last int
 	special             float64
+	aired               time.Time
 }
 
 // marks are the Marks a parsed name numbers, with its Span.
@@ -40,6 +44,8 @@ func (r *parsed) marks() ([]release.Mark, release.Span) {
 		ms = append(ms, marked{kind: markSeason, season: r.seasons[0]})
 	case r.part > 0:
 		ms = append(ms, marked{kind: markPart, season: r.seasons[0], first: r.part})
+	case !r.airDate.IsZero():
+		ms = append(ms, marked{kind: markAired, aired: r.airDate, first: r.dailyPart})
 	}
 	switch {
 	case len(r.absolutes) > 0:
@@ -60,7 +66,7 @@ func (r *parsed) span() release.Span {
 	switch {
 	case len(r.episodes) > 1 || len(r.absolutes) > 1:
 		return release.Several
-	case len(r.episodes) == 1 || len(r.absolutes) == 1 || r.specialAbsolute != 0:
+	case len(r.episodes) == 1 || len(r.absolutes) == 1 || r.specialAbsolute != 0 || !r.airDate.IsZero():
 		return release.One
 	case r.fullSeason && len(r.seasons) > 1:
 		return release.Levels
@@ -92,12 +98,18 @@ func (m marked) key() string {
 		return fmt.Sprintf("a%d-%d", m.first, m.last)
 	case markSpecial:
 		return "a" + strconv.FormatFloat(m.special, 'f', -1, 64)
+	case markAired:
+		if m.first == 0 {
+			return "d" + m.aired.Format(time.DateOnly)
+		}
+		return fmt.Sprintf("d%s.%d", m.aired.Format(time.DateOnly), m.first)
 	}
 	return ""
 }
 
 // words is m as the many-Items layout names it: S01E02, S01E02-E04, S01,
-// S01-S03, S01 Part 2, or an absolute number alone.
+// S01-S03, S01 Part 2, an absolute number alone, or an air date with its
+// part: 2024-03-15 Part 2.
 func (m marked) words() string {
 	switch m.kind {
 	case markEpisodes:
@@ -118,6 +130,11 @@ func (m marked) words() string {
 		return fmt.Sprintf("%d-%d", m.first, m.last)
 	case markSpecial:
 		return strconv.FormatFloat(m.special, 'f', -1, 64)
+	case markAired:
+		if m.first == 0 {
+			return m.aired.Format(time.DateOnly)
+		}
+		return fmt.Sprintf("%s Part %d", m.aired.Format(time.DateOnly), m.first)
 	}
 	return ""
 }
@@ -135,6 +152,11 @@ func markedBy(key string) marked {
 		return true
 	}
 	switch {
+	case strings.HasPrefix(key, "d"):
+		date, part, _ := strings.Cut(key[1:], ".")
+		m.kind = markAired
+		m.aired, _ = time.Parse(time.DateOnly, date)
+		m.first, _ = strconv.Atoi(part)
 	case strings.HasPrefix(key, "a") && strings.Contains(key, "."):
 		m.kind = markSpecial
 		m.special, _ = strconv.ParseFloat(key[1:], 64)

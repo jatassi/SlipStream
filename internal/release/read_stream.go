@@ -117,8 +117,8 @@ var (
 // reading the name the group reads, as Radarr's Release Title condition
 // tests its simpleReleaseTitle. TRaSH has no XviD format, so XviD is
 // Radarr's CodecRegex reading XviD or DivX.
-func readStream(name string, s *scan, f *Facts) {
-	r := trashRun{s: s, t: regex.TextOf(name), done: make([]int8, len(trashPatterns))}
+func readStream(name string, f *Facts) {
+	r := trashRun{t: regex.TextOf(name), done: make([]int8, len(trashPatterns))}
 	f.HDR = knownList(values(&r, hdrTests))
 	f.Audio = knownList(values(&r, audioTests))
 	f.Channels = knownList(values(&r, channelTests))
@@ -126,7 +126,7 @@ func readStream(name string, s *scan, f *Facts) {
 		f.Video = Known(v[0])
 		return
 	}
-	m, ok := s.find(codec, r.t)
+	m, ok := codec.find(r.t)
 	if ok && slices.ContainsFunc([]string{"xvid", "xvidhd", "divx"}, func(g string) bool { _, ok := m.Group(g); return ok }) {
 		f.Video = Known[VideoCodec]("XviD")
 	}
@@ -141,7 +141,6 @@ func knownList[T any](v []T) Fact[[]T] {
 
 // trashRun runs trashPatterns over one name, each at most once.
 type trashRun struct {
-	s    *scan
 	t    regex.Text
 	done []int8 // 0 not run, 1 matched, -1 not matched
 }
@@ -149,7 +148,7 @@ type trashRun struct {
 func (r *trashRun) matches(at int) bool {
 	if r.done[at] == 0 {
 		r.done[at] = -1
-		if r.s.match(trashPatterns[at], r.t) {
+		if trashPatterns[at].match(r.t) {
 			r.done[at] = 1
 		}
 	}

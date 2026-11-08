@@ -41,8 +41,12 @@ type cond struct {
 // Check compiles a format with the Match limit, and names the first
 // condition that doesn't compile: a *PatternError, a *KindError, a
 // *FieldError for a field its kind lacks, or a *ValueError for a value
-// its kind can't read in the format's dialect.
+// its kind can't read in the format's dialect. A format with no
+// conditions is an *EmptyError.
 func Check(f Format, t Timings) error {
+	if len(f.Conditions) == 0 {
+		return &EmptyError{Name: f.Name}
+	}
 	c := newCatalog(t)
 	c.add(f)
 	return c.formats[0].err
@@ -97,7 +101,7 @@ func (c *Catalog) compileTest(at int, fc *Condition, d *dialect) (test, error) {
 	if err != nil {
 		return nil, err
 	}
-	return k.compile(fields{at: at, c: fc, by: by, dialect: d, timeout: c.timings.Match})
+	return k.compile(fields{at: at, c: fc, kind: &k.KindInfo, by: by, dialect: d, timeout: c.timings.Match})
 }
 
 // fieldsOf is a condition's fields by name, refusing a name its kind

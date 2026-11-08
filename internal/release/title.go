@@ -22,7 +22,6 @@ func read(p Prepared, names Names, cuts []Cut) Read {
 	if !p.Obfuscated {
 		n = names.ReadName(p)
 	}
-	s := &scan{slow: p.slow}
 	tail := n.Tail
 	if tail == "" {
 		tail = p.Title.String()
@@ -31,22 +30,22 @@ func read(p Prepared, names Names, cuts []Cut) Read {
 	if masked == "" {
 		masked = p.Release.String()
 	}
-	group := readGroup(masked, s)
+	group := readGroup(masked)
 	languages := tail
 	if n.Masked != "" {
 		languages = withoutGroup(n.Masked, group)
 	}
 	f := Facts{
-		Revision:  readRevision(p, s),
+		Revision:  readRevision(p),
 		Group:     group,
 		Cut:       readCut(tail, cuts),
-		Edition:   readEdition(tail, s),
-		Languages: readLanguages(languages, s),
-		IDs:       readIDs(masked, s),
+		Edition:   readEdition(tail),
+		Languages: readLanguages(languages),
+		IDs:       readIDs(masked),
 	}
-	readQuality(p, s, &f)
-	readStream(masked, s, &f)
-	return Read{Given: p.Original, Name: n, Facts: f, Slow: s.slow}
+	readQuality(p, &f)
+	readStream(masked, &f)
+	return Read{Given: p.Original, Name: n, Facts: f}
 }
 
 // File reads a file path's name, and its folder's when the file name
@@ -57,14 +56,12 @@ func read(p Prepared, names Names, cuts []Cut) Read {
 // facts only: a file's probe joins with Facts.WithProbe.
 func File(path string, names Names, cuts []Cut) Read {
 	folder, file := splitPath(path)
-	var s scan
 	t := regex.TextOf(file)
 	for _, sub := range pathPreSubstitutions {
-		t = s.replace(sub, t)
+		t = sub.replace(t)
 	}
 	p := Prepare(t.String())
 	p.Folder = folder
-	p.slow = append(s.slow, p.slow...)
 	r := read(p, names, cuts)
 	if folder == "" || readsAny(r.Name) {
 		return r

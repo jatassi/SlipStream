@@ -36,7 +36,10 @@ type Incoming struct {
 	Size    int64
 	Probe   Probe
 	Quality release.Quality
-	GrabID  storage.UUID
+	// ReleaseName is its Grab's Release title, and Title its reading.
+	ReleaseName string
+	Title       release.Read
+	GrabID      storage.UUID
 	// Meant is the Targets its Grab was meant to fill, in Profile order.
 	Meant []targets.TargetID
 	// Unwanted is what its Grab's import does if the file fills nothing,
@@ -78,7 +81,7 @@ type placed struct {
 	before world
 	after  world
 	file   File
-	fills  map[CellKey]ID
+	fills  map[CellKey]Fill
 	doomed []File
 	names  map[ID]name
 }
@@ -91,7 +94,7 @@ func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) 
 	}
 	fresh := File{
 		ID: ID{UUID: storage.NewUUID()}, WorkID: in.WorkID, ItemID: in.ItemID, Cut: in.Cut, RootID: in.RootID, Path: in.Holding,
-		Size: in.Size, Probe: in.Probe, GrabID: in.GrabID, Quality: in.Quality,
+		Size: in.Size, Probe: in.Probe, GrabID: in.GrabID, Quality: in.Quality, ReleaseName: in.ReleaseName, Title: in.Title,
 	}
 	after := before
 	after.files = append(slices.Clone(before.files), fresh)
@@ -115,7 +118,7 @@ func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) 
 // and fills none after, or the fresh file filling none, goes when doom
 // says so and is named Kept otherwise. Every file is named under fills
 // and after's cut names.
-func (f *Files) converge(ctx context.Context, r storage.Reader[file], before, after world, fills map[CellKey]ID, doom func(File) bool) (placed, error) {
+func (f *Files) converge(ctx context.Context, r storage.Reader[file], before, after world, fills map[CellKey]Fill, doom func(File) bool) (placed, error) {
 	p := placed{before: before, after: after, fills: fills}
 	p.after.retagged = retagged(before.cuts, after.cuts)
 	was, is := filling(before.fills), filling(fills)
@@ -157,7 +160,7 @@ func (f *Files) Place(ctx context.Context, r storage.Reader[file], in Incoming) 
 	var out Placement
 	e := p.after.goals.Editions.Filling(in.Cut)
 	for _, t := range p.after.goals.Targets {
-		if p.fills[CellKey{Item: in.ItemID, Edition: e, Target: t.ID}] == p.file.ID {
+		if p.fills[CellKey{Item: in.ItemID, Edition: e, Target: t.ID}].File == p.file.ID {
 			out.Fills = append(out.Fills, t.ID)
 		}
 	}
@@ -197,10 +200,10 @@ func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], in Incoming) (
 	return p.file, landed, nil
 }
 
-// apply writes p: its fills, its dooms, every name that changed, and a
-// move for each file whose bytes must reach a new path. A path changes
-// in two steps, through the file's holding path, so files may trade
-// names in one Write.
+// apply writes p: its fills and their scores, its dooms, every name that
+// changed, and a move for each file whose bytes must reach a new path. A
+// path changes in two steps, through the file's holding path, so files
+// may trade names in one Write.
 func apply(ctx context.Context, q *db.Queries, p placed) error {
 	if err := unfill(ctx, q, p); err != nil {
 		return err
@@ -226,9 +229,10 @@ func apply(ctx context.Context, q *db.Queries, p placed) error {
 			return err
 		}
 	}
-	for key, id := range p.fills {
-		if p.before.fills[key] != id {
-			if err := q.InsertFill(ctx, db.InsertFillParams{FileID: id, TargetID: key.Target, ItemID: key.Item, Edition: key.Edition}); err != nil {
+	for key, fill := range p.fills {
+		if p.before.fills[key] != fill {
+			err := q.InsertFill(ctx, db.InsertFillParams{FileID: fill.File, TargetID: key.Target, ItemID: key.Item, Edition: key.Edition, Score: int64(fill.Score)})
+			if err != nil {
 				return err
 			}
 		}
@@ -236,10 +240,11 @@ func apply(ctx context.Context, q *db.Queries, p placed) error {
 	return nil
 }
 
-// unfill deletes every fill p changes, before any file it held goes.
+// unfill deletes every fill p changes or rescores, before any file it
+// held goes.
 func unfill(ctx context.Context, q *db.Queries, p placed) error {
-	for key, id := range p.before.fills {
-		if p.fills[key] != id {
+	for key, fill := range p.before.fills {
+		if p.fills[key] != fill {
 			if err := q.DeleteFill(ctx, db.DeleteFillParams{ItemID: key.Item, Edition: key.Edition, TargetID: key.Target}); err != nil {
 				return err
 			}

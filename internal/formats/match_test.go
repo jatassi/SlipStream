@@ -61,7 +61,6 @@ func TestCombining(t *testing.T) {
 		conds []formats.Condition
 		want  bool
 	}{
-		{"no conditions match every name", nil, true},
 		{"one matching condition", []formats.Condition{title(`\bREPACK\b`)}, true},
 		{"one condition of a kind is enough", []formats.Condition{title(`\bPROPER\b`), title(`\bREPACK\b`)}, true},
 		{"none of a kind matching fails", []formats.Condition{title(`\bPROPER\b`), title(`\bRERIP\b`)}, false},
@@ -79,6 +78,13 @@ func TestCombining(t *testing.T) {
 				t.Errorf("matched = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestCheckRefusesAFormatWithNoConditions(t *testing.T) {
+	var empty *formats.EmptyError
+	if err := formats.Check(format(1, formats.Radarr), limit); !errors.As(err, &empty) || empty.Name != "format B" {
+		t.Errorf("Check = %v, want an EmptyError naming format B", err)
 	}
 }
 
@@ -273,11 +279,11 @@ func TestCheck(t *testing.T) {
 		},
 		{
 			"a value outside the dialect", format(1, formats.Radarr, cond(formats.Source, map[string]any{"value": 42})),
-			formats.ValueError{Name: "SourceSpecification", Kind: formats.Source, Field: "value", Value: "42", Want: "a radarr SourceSpecification value"},
+			formats.ValueError{Name: "SourceSpecification", Kind: formats.Source, Field: "value", Value: "42", Want: "a Radarr source value"},
 		},
 		{
 			"a kind the dialect has no values for", format(1, formats.Sonarr, cond(formats.QualityModifier, map[string]any{"value": 5})),
-			formats.ValueError{Name: "QualityModifierSpecification", Kind: formats.QualityModifier, Field: "value", Value: "5", Want: "a sonarr QualityModifierSpecification value"},
+			formats.ValueError{Name: "QualityModifierSpecification", Kind: formats.QualityModifier, Field: "value", Value: "5", Want: "a Sonarr quality modifier value"},
 		},
 		{
 			"a number where a name goes", format(1, formats.SlipStream, cond(formats.Source, map[string]any{"value": 9})),

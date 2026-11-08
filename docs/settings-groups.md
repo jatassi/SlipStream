@@ -40,6 +40,8 @@ A group label is a short noun phrase. It never repeats a glossary term in a diff
 
 Nodes is its own nav row. Each Node's own settings, such as its port and log level, are sections under that Node on the Nodes page, never a Settings section and never a new nav row. The Nodes section in Settings holds only the settings that apply across every Node, such as how long a Join Code works.
 
+A setting of one Content Type sits under that type in Content Types, in the Library group. TV's "Delay after an air date" and "Release year can differ by" sit under TV. Movies' "Movies count as released on", "Delay after a cinema release" and "Release year can differ by" sit under Movies.
+
 A setting the Controller stores for each Node, such as where that Node's Grabs go, stays in its feature's section on that Node's card. "New Grabs go to" sits on each downloading Node's card in Download Clients, beside that Node's external clients. A setting of one record stays on that record's sheet. Check every and Import delay belong to one external Download Client, so they sit under Details on its sheet.
 
 A setting can show in more than one place when an Admin would look for it there, such as a task's frequency on the Tasks page and in its feature's section. It still has one stored value.

@@ -215,8 +215,12 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Types: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Works: w,
 		Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{}, Timings: indexers.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
 	})
+	shelf, err := files.Open(ctx, files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Today: time.Now})
+	if err != nil {
+		t.Fatal(err)
+	}
 	g := grabs.New(grabs.Config{
-		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Today: time.Now}),
+		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: shelf,
 		Indexers: xs,
 		Terms:    map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Names: map[works.TypeID]release.Names{contenttypetest.ID: fx},
 		Roster: roster, Downloads: roster, Roots: library,

@@ -55,11 +55,16 @@ func (grabbing) Unfinished(context.Context, storage.Reader[storage.Library]) ([]
 	return nil, nil
 }
 
+func (grabbing) ReleaseTitles(context.Context, storage.Reader[storage.Library]) (map[storage.UUID]string, error) {
+	return nil, nil
+}
+
 func (grabbing) Settle(context.Context, *storage.Tx[storage.Library], works.WorkID, map[files.CellKey]bool, files.Unwanted) (int, error) {
 	return 0, nil
 }
 
 type library struct {
+	t       testing.TB
 	lib     *storage.DB[storage.Library]
 	fx      *contenttypetest.Fixture
 	works   *works.Works
@@ -93,7 +98,7 @@ func open(t testing.TB) *library {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &library{lib: lib, fx: fx, works: w, targets: goals, root: root, held: rootstest.Held(t, lib, node, nil, contenttypetest.ID)}
+	return &library{t: t, lib: lib, fx: fx, works: w, targets: goals, root: root, held: rootstest.Held(t, lib, node, nil, contenttypetest.ID)}
 }
 
 // files is the files owner over l, whose today is the fixture's release
@@ -104,7 +109,7 @@ func (l *library) files(cells files.Inflight) *files.Files {
 
 // on is the files owner over l whose disk queue works through disk.
 func (l *library) on(cells files.Inflight, disk files.Disk) *files.Files {
-	return files.New(files.Config{
+	f, err := files.Open(l.t.Context(), files.Config{
 		Library: l.lib, Targets: l.targets, Grabs: cells,
 		Transfers: func(context.Context, storage.Reader[storage.Library]) (map[transfers.ID]bool, error) {
 			return l.staged, nil
@@ -113,6 +118,10 @@ func (l *library) on(cells files.Inflight, disk files.Disk) *files.Files {
 		Disk: disk, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
 		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
 	})
+	if err != nil {
+		l.t.Fatal(err)
+	}
+	return f
 }
 
 var today = time.Date(contenttypetest.Released.Year, time.Month(contenttypetest.Released.Month), contenttypetest.Released.Day, 9, 0, 0, 0, time.UTC)

@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/filesapi"
 	"github.com/jatassi/slipstream/internal/firstrun"
 	"github.com/jatassi/slipstream/internal/firstrunapi"
+	"github.com/jatassi/slipstream/internal/formatsapi"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/grabsapi"
 	"github.com/jatassi/slipstream/internal/health"
@@ -129,6 +130,7 @@ func Mount(r *api.Router, s Services) {
 	worksapi.Routes(r, s.Node)
 	metadataapi.Routes(r, s.Node)
 	targetsapi.Routes(r, s.Node)
+	formatsapi.Routes(r, s.Node)
 	rootsapi.Routes(r, s.Node)
 	indexersapi.Routes(r, s.Node)
 	filesapi.Routes(r, s.Node)

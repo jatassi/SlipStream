@@ -112,9 +112,9 @@ func TestNames(t *testing.T) {
 			for _, s := range c.files {
 				w.files = append(w.files, File{ID: ids[s.id], ItemID: scarf.ID, Cut: release.Standard, Quality: s.quality, Label: s.label, Extra: s.extra, Path: s.path})
 			}
-			fills := map[CellKey]ID{}
+			fills := map[CellKey]Fill{}
 			for target, id := range c.fills {
-				fills[CellKey{Item: scarf.ID, Edition: targets.AnyEdition, Target: target.ID}] = ids[id]
+				fills[CellKey{Item: scarf.ID, Edition: targets.AnyEdition, Target: target.ID}] = Fill{File: ids[id]}
 			}
 			got, err := names(w, fills)
 			if err != nil {
@@ -141,7 +141,7 @@ func TestTwoFilesOnOneNameIsAClash(t *testing.T) {
 		templates: naming.Templates{Folder: "{Shelf}", File: "{Shelf} - {Thing}"},
 		tokens:    map[works.ItemID]map[string]string{scarf.ID: {"Shelf": "Attic", "Thing": "Scarf"}},
 	}
-	_, err := names(w, map[CellKey]ID{{Item: scarf.ID, Edition: targets.AnyEdition, Target: web.ID}: held.ID})
+	_, err := names(w, map[CellKey]Fill{{Item: scarf.ID, Edition: targets.AnyEdition, Target: web.ID}: {File: held.ID}})
 	if !errors.Is(err, ErrNameClash) {
 		t.Fatalf("names of a Kept file whose template names no Target = %v, want ErrNameClash", err)
 	}
