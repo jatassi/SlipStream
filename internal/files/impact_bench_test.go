@@ -26,8 +26,8 @@ import (
 // The spec's size for a scored format edit's preview: 20,000 movie Works
 // and 200,000 episode files, here 1,000 series of 10 seasons of 20.
 const (
-	movieWorks     = 20_000
-	seriesWorks    = 1_000
+	singleWorks    = 20_000
+	seasonedWorks  = 1_000
 	seasonsEach    = 10
 	episodesEach   = 20
 	trashRadarrDir = "../formats/testdata/trash/radarr/cf"
@@ -116,10 +116,10 @@ func stockUp(b *testing.B) *stockroom {
 	s.profile = l.profile(b, "Library", s.hd, s.any)
 	r := rand.New(rand.NewPCG(20, 200)) //nolint:gosec // seeded on purpose so runs compare
 	var shelf []stock
-	for m := range movieWorks {
+	for m := range singleWorks {
 		shelf = append(shelf, stock{key: works.Key(fmt.Sprintf("m%d", m)), title: fmt.Sprintf("Movie.Number.%d.%d", m, 1950+m%70), items: 1})
 	}
-	for sw := range seriesWorks {
+	for sw := range seasonedWorks {
 		shelf = append(shelf, stock{key: works.Key(fmt.Sprintf("s%d", sw)), title: fmt.Sprintf("Series.Number.%d", sw), items: seasonsEach * episodesEach})
 	}
 	for i := range shelf {
