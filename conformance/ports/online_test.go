@@ -17,6 +17,7 @@ import (
 // searches are a search each public site has had Releases for, for
 // years.
 var searches = map[port.ID]searching.Query{
+	"anidex":      {Mode: "search", Text: "One Piece"},
 	"knaben":      {Mode: "movie", Text: "Big Buck Bunny"},
 	"subsplease":  {Mode: "search", Text: "One Piece"},
 	"torrentscsv": {Mode: "search", Text: "Ubuntu"},

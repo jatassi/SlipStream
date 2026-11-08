@@ -6,10 +6,12 @@
 package ports
 
 import (
+	"bytes"
 	_ "embed"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"testing"
 
 	"github.com/jatassi/slipstream/conformance/internal/shape"
@@ -88,7 +90,16 @@ func Run(t *testing.T, tgt Target) {
 			}
 		}
 	}
-	shape.Verify(t, rec.Bodies(), shapeJSON, tgt.Record)
+	shape.Verify(t, jsonBodies(rec.Bodies()), shapeJSON, tgt.Record)
+}
+
+// jsonBodies are the bodies a JSON API sent; an HTML site such as
+// Anidex has no shape to keep.
+func jsonBodies(bodies []shape.Body) []shape.Body {
+	return slices.DeleteFunc(bodies, func(b shape.Body) bool {
+		t := bytes.TrimSpace(b.JSON)
+		return len(t) == 0 || (t[0] != '{' && t[0] != '[')
+	})
 }
 
 func entry(id port.ID) (port.Entry, bool) {
