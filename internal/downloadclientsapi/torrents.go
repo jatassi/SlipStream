@@ -337,6 +337,8 @@ type trackerDetail struct {
 	NextAnnounce *time.Time `json:"nextAnnounce,omitempty" doc:"When its next announce is due, set while live"`
 	MinInterval  int64      `json:"minIntervalSeconds,omitempty" minimum:"0" doc:"Its min interval as the announce policy holds to it, set while live"`
 	AcceptsAt    *time.Time `json:"acceptsAt,omitempty" doc:"The earliest it accepts an announce, set while live"`
+	Seeders      *int       `json:"seeders,omitempty" minimum:"0" doc:"The seeders its last announce response counted, set while live and the response carried a count"`
+	Leechers     *int       `json:"leechers,omitempty" minimum:"0" doc:"The leechers its last announce response counted, set while live and the response carried a count"`
 }
 
 type fileDetail struct {
@@ -362,10 +364,14 @@ func detailOf(d downloadclients.Detail) TorrentDetail {
 		Trackers: []trackerDetail{}, Files: []fileDetail{}, Grabs: []torrentGrab{}, Live: d.Live, AnnounceAt: when(d.AnnounceAt),
 	}
 	for _, t := range d.Trackers {
-		out.Trackers = append(out.Trackers, trackerDetail{
+		td := trackerDetail{
 			URL: t.URL, Tier: t.Tier, Status: string(t.Status), Message: t.Message, RetryAt: when(t.RetryAt),
 			AnsweredAt: when(t.AnsweredAt), NextAnnounce: when(t.NextAnnounce), MinInterval: int64(t.MinInterval / time.Second), AcceptsAt: when(t.AcceptsAt),
-		})
+		}
+		if t.Swarm != nil {
+			td.Seeders, td.Leechers = new(t.Swarm.Seeders), new(t.Swarm.Leechers)
+		}
+		out.Trackers = append(out.Trackers, td)
 	}
 	for _, f := range d.Files {
 		fd := fileDetail{Index: f.Index, Path: f.Path, Size: f.Size, Done: f.Done}

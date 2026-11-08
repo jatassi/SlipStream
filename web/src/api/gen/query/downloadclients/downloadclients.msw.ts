@@ -1219,6 +1219,7 @@ export const getGetTorrentResponseMock = (
       ...(faker.datatype.boolean()
         ? { answeredAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
         : {}),
+      ...(faker.datatype.boolean() ? { leechers: faker.number.int({ min: 0 }) } : {}),
       ...(faker.datatype.boolean()
         ? { message: faker.string.alpha({ length: { min: 10, max: 20 } }) }
         : {}),
@@ -1229,6 +1230,7 @@ export const getGetTorrentResponseMock = (
       ...(faker.datatype.boolean()
         ? { retryAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
         : {}),
+      ...(faker.datatype.boolean() ? { seeders: faker.number.int({ min: 0 }) } : {}),
       status: faker.helpers.arrayElement([
         "working",
         "updating",
