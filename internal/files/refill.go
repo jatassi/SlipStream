@@ -39,7 +39,7 @@ func fillOf(t targets.Target, key CellKey, files []File, incumbent ID) ID {
 		if !key.Edition.Takes(f.Cut) {
 			continue
 		}
-		v := targets.Judge(t, f.Facts(), nil)
+		v := targets.Judge(t, targets.Scored{Facts: f.Facts()}, nil)
 		r, _ := v.Rank()
 		if !v.Meets() || !best.IsZero() && (r > rank || r == rank && f.ID != incumbent) {
 			continue

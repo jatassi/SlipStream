@@ -23,7 +23,11 @@ func titled(r golden.Row) error {
 }
 
 func year(read release.Read, want int) error {
-	return golden.Same("year", read.Name.Year, release.Known(want))
+	y := release.Fact[int]{}
+	if want != 0 {
+		y = release.Known(want)
+	}
+	return golden.Same("year", read.Name.Year, y)
 }
 
 func group(read release.Read, want string) error {
@@ -44,19 +48,23 @@ func idTag(kind string, value func(golden.Row) string) golden.Check {
 	}
 }
 
+func languages(check func(release.Fact[[]release.Language]) error) golden.Check {
+	return func(r golden.Row) error { return golden.LanguageCheck(r, postTitle(r).Facts.Languages, check) }
+}
+
 func has(langs ...string) golden.Check {
-	return func(r golden.Row) error { return golden.HasLanguages(postTitle(r).Facts.Languages, langs...) }
+	return languages(func(got release.Fact[[]release.Language]) error { return golden.HasLanguages(got, langs...) })
 }
 
 func exactly(langs ...string) golden.Check {
-	return func(r golden.Row) error { return golden.Languages(postTitle(r).Facts.Languages, langs...) }
+	return languages(func(got release.Fact[[]release.Language]) error { return golden.Languages(got, langs...) })
 }
 
 func first(lang string) golden.Check {
-	return func(r golden.Row) error {
-		langs, _ := postTitle(r).Facts.Languages.Get()
+	return languages(func(got release.Fact[[]release.Language]) error {
+		langs, _ := got.Get()
 		return golden.Languages(release.Known(langs[:min(len(langs), 1)]), lang)
-	}
+	})
 }
 
 func unreadTitle(param string) golden.Check {

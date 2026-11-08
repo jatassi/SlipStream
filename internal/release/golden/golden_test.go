@@ -119,16 +119,20 @@ func TestAnOverrideRunsTheRowWithSlipStreamsArguments(t *testing.T) {
 	failsWith(t, rec)
 }
 
-func TestAnOverrideSaysWhatSlipStreamReadsWhereUpstreamExpectsNothing(t *testing.T) {
-	evenOrRead := Check(func(r Row) error {
-		var read int
-		if r.Reads(&read) && read == r.Int("n") {
+func TestAnOverrideCarriesSlipStreamsReading(t *testing.T) {
+	even := map[string]Check{
+		"should_be_even": func(r Row) error {
+			odd := false
+			r.Reads(&odd)
+			if n := r.Int("n"); (n%2 == 1) != odd {
+				return fmt.Errorf("%d has the other parity", n)
+			}
 			return nil
-		}
-		return parity(false)(r)
-	})
-	overrides := `[{"method":"should_be_even","args":[5],"ours":[5],"reads":5,"reason":"SlipStream reads 5 as itself."}]`
-	rec, _ := fixture(t, `[{"method":"should_be_even","args":[3]}]`, overrides, Fixture{Checks: map[string]Check{"should_be_even": evenOrRead, "should_be_odd": parity(true)}})
+		},
+		"should_be_odd": parity(true),
+	}
+	overrides := `[{"method":"should_be_even","args":[3],"reads":true,"reason":"SlipStream reads 3 as odd."}]`
+	rec, _ := fixture(t, `[{"method":"should_be_even","args":[5]}]`, overrides, Fixture{Checks: even})
 	failsWith(t, rec)
 }
 

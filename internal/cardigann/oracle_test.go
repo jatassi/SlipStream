@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"unicode"
 
 	"github.com/jatassi/slipstream/internal/regex"
 )
@@ -117,7 +116,7 @@ func oracleLogic(template string, lookup func(string) (any, error)) (string, err
 		captures := m.Captures("2")
 		var params []string
 		for _, c := range captures {
-			params = append(params, strings.Trim(c, "()"))
+			params = append(params, strings.Trim(c.Value, "()"))
 		}
 		var result string
 		var err error
@@ -125,7 +124,7 @@ func oracleLogic(template string, lookup func(string) (any, error)) (string, err
 			result, err = oracleAndOr(name == "and", params, lookup)
 		} else {
 			if len(params) > 2 {
-				length = thirdCaptureAt([]rune(m.Value()), name, captures)
+				length = captures[2].Index - start
 			}
 			result, err = oracleEq(name == "eq", params[:2], lookup)
 		}
@@ -135,21 +134,6 @@ func oracleLogic(template string, lookup func(string) (any, error)) (string, err
 		runes := []rune(template)
 		template = string(runes[:start]) + result + string(runes[start+length:])
 	}
-}
-
-// thirdCaptureAt is Groups[2].Captures[2].Index less the match's: the
-// match is the name, then each capture behind its run of spaces.
-func thirdCaptureAt(match []rune, name string, captures []string) int {
-	at := len([]rune(name))
-	for i := range 3 {
-		for unicode.IsSpace(match[at]) {
-			at++
-		}
-		if i < 2 {
-			at += len([]rune(captures[i]))
-		}
-	}
-	return at
 }
 
 func oracleAndOr(isAnd bool, params []string, lookup func(string) (any, error)) (string, error) {

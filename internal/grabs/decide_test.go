@@ -114,7 +114,7 @@ func TestDecideRefusesWithEveryReasonPerTarget(t *testing.T) {
 		listed("Orchard.1080p.WEB-DL.Other", 50, 10, map[string]string{"tmdbid": "9000002"}),
 		listed("Orchard.WEB-DL", 50, 10, nil),
 		listed("Orchard.2021", 50, 10, nil),
-		listed("Orchard.1080p.TS", 50, 10, nil),
+		listed("Orchard.1080p.TS.x264", 50, 10, nil),
 		big,
 	}
 	pick, refused := best(decide([]files.Cell{cell(hd, files.Missing), cell(small, files.Failed)}, item.ID, orchard, candidates))
@@ -124,7 +124,7 @@ func TestDecideRefusesWithEveryReasonPerTarget(t *testing.T) {
 	want := []Refusal{
 		{"Orchard.1080p.WEB-DL.Other", []Reason{{Reason: targets.Reason{Code: WrongWork}}}},
 		{"Orchard.2021", []Reason{notIn(hd, ""), notIn(small, "")}},
-		{"Orchard.1080p.TS", []Reason{notIn(hd, "cam"), notIn(small, "cam")}},
+		{"Orchard.1080p.TS.x264", []Reason{notIn(hd, "cam"), notIn(small, "cam")}},
 		{"Orchard.1080p.WEB-DL.Big", []Reason{{Reason: targets.Reason{Code: targets.SizeAbove}, Target: hd.ID}, notIn(small, "webdl-1080p")}},
 	}
 	if want := (&Pick{Release: candidates[1].Release, Edition: targets.AnyEdition, Targets: []targets.TargetID{small.ID}, Notes: []Reason{notChecked(small)}}); !reflect.DeepEqual(pick, want) {

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 )
 
@@ -12,11 +11,6 @@ const dialectTypes = `package formats
 type upstreamValue struct {
 	Name  string
 	Value int
-}
-
-type upstreamIsoLanguage struct {
-	Args     []string
-	Language string
 }
 
 var (
@@ -37,11 +31,6 @@ func dialectTable(t *tree, p pins, cos map[string]checkout) error {
 	}
 	for _, l := range p.Dialects.Languages {
 		if err := w.values(l.From+"Language", l.From, l.File, readLanguages); err != nil {
-			return err
-		}
-	}
-	for _, l := range p.Dialects.Iso {
-		if err := w.iso(l.From+"IsoLanguages", l.From, l.File); err != nil {
 			return err
 		}
 	}
@@ -80,27 +69,6 @@ func (w *dialectWriter) values(ident, from, file string, read func(*source) ([]e
 	fmt.Fprintf(&w.b, "\t%s = []upstreamValue{\n", ident)
 	for _, v := range values {
 		fmt.Fprintf(&w.b, "\t\t{%q, %d},\n", v.name, v.value)
-	}
-	w.b.WriteString("\t}\n")
-	return nil
-}
-
-func (w *dialectWriter) iso(ident, from, file string) error {
-	s, err := w.source(from, file)
-	if err != nil {
-		return err
-	}
-	isos, err := readIsoLanguages(s)
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(&w.b, "\t%s = []upstreamIsoLanguage{\n", ident)
-	for _, iso := range isos {
-		quoted := make([]string, len(iso.args))
-		for i, c := range iso.args {
-			quoted[i] = strconv.Quote(c)
-		}
-		fmt.Fprintf(&w.b, "\t\t{[]string{%s}, %q},\n", strings.Join(quoted, ", "), strings.TrimPrefix(iso.language, "Language."))
 	}
 	w.b.WriteString("\t}\n")
 	return nil

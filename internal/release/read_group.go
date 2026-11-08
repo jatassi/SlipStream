@@ -20,13 +20,13 @@ var (
 	groupPreSubstitutions = compileReplaces(upstream.RadarrParserCommonPreSubstitutionRegex)
 )
 
-// readGroup ports Radarr's ReleaseGroupParser.ParseReleaseGroup over
-// Sonarr's release title. Radarr's differs from Sonarr's on fewer
-// fixture rows, and its exception lists hold the groups TRaSH's Radarr
-// formats match by group (YTS, YIFY, Tigole, D-Z0N3), while TRaSH's
-// Sonarr formats match Sonarr's exception groups by title.
-func readGroup(p Prepared, s *scan) Fact[string] {
-	t := regex.TextOf(withoutExtension(s, strings.TrimSpace(p.release.String())))
+// readGroup ports Radarr's ReleaseGroupParser.ParseReleaseGroup.
+// Radarr's differs from Sonarr's on fewer fixture rows, and its
+// exception lists hold the groups TRaSH's Radarr formats match by group
+// (YTS, YIFY, Tigole, D-Z0N3), while TRaSH's Sonarr formats match
+// Sonarr's exception groups by title.
+func readGroup(name string, s *scan) Fact[string] {
+	t := regex.TextOf(withoutExtension(s, strings.TrimSpace(name)))
 	for _, sub := range groupPreSubstitutions {
 		if s.match(sub.fixed, t) {
 			t = s.replace(sub, t)

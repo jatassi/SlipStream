@@ -57,20 +57,27 @@ func unreadTitle(param string) golden.Check {
 	return func(r golden.Row) error { return golden.Unread(title(r.String(param)).Name) }
 }
 
+// group is nil when n reads want as its group, or no group when want is
+// empty, as upstream's null.
 func group(n release.Read, want string) error {
+	if want == "" {
+		return golden.Same("group", n.Facts.Group, release.Fact[string]{})
+	}
 	return golden.Same("group", n.Facts.Group, release.Known(want))
 }
 
-func has(langs ...string) golden.Check {
+func languages(check func(release.Fact[[]release.Language]) error) golden.Check {
 	return func(r golden.Row) error {
-		return golden.HasLanguages(title(r.String("postTitle")).Facts.Languages, langs...)
+		return golden.LanguageCheck(r, title(r.String("postTitle")).Facts.Languages, check)
 	}
 }
 
+func has(langs ...string) golden.Check {
+	return languages(func(got release.Fact[[]release.Language]) error { return golden.HasLanguages(got, langs...) })
+}
+
 func exactly(langs ...string) golden.Check {
-	return func(r golden.Row) error {
-		return golden.Languages(title(r.String("postTitle")).Facts.Languages, langs...)
-	}
+	return languages(func(got release.Fact[[]release.Language]) error { return golden.Languages(got, langs...) })
 }
 
 func season(r golden.Row) error {
@@ -298,8 +305,12 @@ func TestGoldenParser(t *testing.T) {
 		Path: "testdata/upstream/sonarr/ParserFixture.json",
 		Checks: map[string]golden.Check{
 			"should_parse_series_name": func(r golden.Row) error {
-				got := names.CleanTitle(golden.FirstTitle(title(r.String("postTitle")).Name))
-				return golden.Same("clean title", got, names.CleanTitle(r.String("title")))
+				n := title(r.String("postTitle")).Name
+				got := golden.FirstTitle(n)
+				if golden.Unread(n) == nil {
+					got = r.String("postTitle")
+				}
+				return golden.Same("clean title", names.CleanTitle(got), names.CleanTitle(r.String("title")))
 			},
 			"should_parse_series_title_info": func(r golden.Row) error {
 				want := release.Fact[int]{}

@@ -333,9 +333,22 @@ func (t Target) RankOf(q release.Quality) (Rank, bool) {
 	return r, ok
 }
 
-// Final reports whether a file at r is at or past the cutoff, so nothing
-// upgrades it.
-func (t Target) Final(r Rank) bool { return int(r) <= t.Cutoff }
+// Final reports whether a file at r scoring score is at or past the
+// cutoff and at or above upgrade-until, so only a proper or repack of its
+// Quality upgrades it.
+func (t Target) Final(r Rank, score int) bool {
+	return int(r) <= t.Cutoff && score >= t.Scores.UpgradeUntil
+}
+
+// Score is s's score at t: the sum of t's scores for the formats s
+// matches.
+func (t Target) Score(s Scored) int {
+	sum := 0
+	for _, id := range s.Formats {
+		sum += t.Scores.Formats[id]
+	}
+	return sum
+}
 
 // Contains reports whether every file that meets inner also meets outer:
 // inner's qualities are outer's, each of inner's filters passes only what

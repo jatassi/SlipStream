@@ -6,7 +6,7 @@ import {
 
 import { useListQualitiesSuspense } from "../api/gen/query/targets/targets";
 import { Icon } from "../ui/icon";
-import { type TargetDraft, layoutOfDraft } from "./draft";
+import { type TargetDraft, rulesOfDraft } from "./draft";
 import { useQualityNames } from "./quality-names";
 import { type Sample, upgradeSentence } from "./upgrade-sentence";
 
@@ -39,7 +39,7 @@ export function Meaning({ draft }: { draft: TargetDraft }) {
   const { qualities } = useListQualitiesSuspense().data;
   const name = useQualityNames();
   const { sentence, samples } = upgradeSentence(
-    layoutOfDraft(draft),
+    rulesOfDraft(draft),
     qualities.map((quality) => quality.key),
     name,
   );

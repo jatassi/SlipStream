@@ -8,9 +8,10 @@ import (
 	"github.com/jatassi/slipstream/internal/release/internal/upstream"
 )
 
-// fixedLimit is the compiled-in limit on one fixed pattern's match, the
-// formats Timings default, which the parser doesn't read from settings.
-const fixedLimit = 100 * time.Millisecond
+// PatternLimit is the compiled-in limit on one upstream parser pattern's
+// match, the core's and each type's, the formats Timings default, which
+// the parser doesn't read from settings.
+const PatternLimit = 100 * time.Millisecond
 
 // fixed is an upstream pattern compiled once, named by its upstream key.
 type fixed struct {
@@ -20,13 +21,17 @@ type fixed struct {
 
 // compiledOptions are the .NET options that change nothing on regexp2 or
 // that regex.Options carries.
-const compiledOptions = upstream.IgnoreCase | upstream.Compiled | upstream.CultureInvariant
+const compiledOptions = upstream.IgnoreCase | upstream.IgnorePatternWhitespace | upstream.Compiled | upstream.CultureInvariant
 
 func compile(p upstream.Pattern) fixed {
 	if extra := p.Options &^ compiledOptions; extra != 0 {
 		panic(fmt.Sprintf("%s has .NET options %d that the parser doesn't run", p.Key, extra))
 	}
-	o := regex.Options{IgnoreCase: p.Options&upstream.IgnoreCase != 0, Timeout: fixedLimit}
+	o := regex.Options{
+		IgnoreCase:              p.Options&upstream.IgnoreCase != 0,
+		IgnorePatternWhitespace: p.Options&upstream.IgnorePatternWhitespace != 0,
+		Timeout:                 PatternLimit,
+	}
 	return fixed{key: p.Key, re: regex.MustCompile(p.Text, o)}
 }
 
@@ -57,7 +62,7 @@ func compileReplaces(rs []upstream.Replace) []replacer {
 }
 
 // scan runs fixed patterns over one name and keeps the key of each that
-// ran past fixedLimit. A pattern that did reads as no match, so the fact
+// ran past PatternLimit. A pattern that did reads as no match, so the fact
 // it reads stays unknown.
 type scan struct{ slow []string }
 
@@ -93,4 +98,24 @@ func (s *scan) replace(r replacer, t regex.Text) regex.Text {
 		return t
 	}
 	return regex.TextOf(out)
+}
+
+// group is the first of names that f's first match on t captured, or ""
+// when f doesn't match.
+func (s *scan) group(f fixed, t regex.Text, names []string) string {
+	m, ok := s.find(f, t)
+	if !ok {
+		return ""
+	}
+	return firstGroup(m, names)
+}
+
+// firstGroup is the first of names m captured, or "".
+func firstGroup(m regex.Match, names []string) string {
+	for _, n := range names {
+		if _, ok := m.Group(n); ok {
+			return n
+		}
+	}
+	return ""
 }

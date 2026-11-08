@@ -3,7 +3,9 @@
 // method has one Go check, and each fixture file has two hand-kept
 // siblings: <File>.pending.json lists the rows that don't pass yet, and
 // <File>.overrides.json the rows where SlipStream reads a name differently
-// from upstream on purpose, each with its reason.
+// from upstream on purpose, each with its reason. An override gives
+// SlipStream's arguments, or, for a method whose assertion is in its body,
+// SlipStream's reading, which the check reads with Row.Reads.
 package golden
 
 import (
@@ -60,10 +62,13 @@ type row struct {
 
 type override struct {
 	row
-	// Ours are the arguments SlipStream's reading passes with.
-	Ours []json.RawMessage `json:"ours"`
-	// Reads is what SlipStream reads where the upstream method takes no
-	// expected value to replace, such as a group upstream wants unknown.
+	// Ours are the arguments SlipStream's reading passes with, when they
+	// differ from upstream's.
+	Ours []json.RawMessage `json:"ours,omitempty"`
+	// Reads is SlipStream's reading, in the shape the check decodes, for a
+	// method whose expectation is no argument Ours could replace, such as
+	// a quality asserted in the method's body or a group upstream wants
+	// unknown.
 	Reads  json.RawMessage `json:"reads,omitempty"`
 	Reason string          `json:"reason"`
 }
@@ -139,7 +144,10 @@ func (r *run) method(m method) {
 		key := upstream.key()
 		row := Row{method: m.Name, params: m.Params, args: upstream.Args}
 		if o, ok := r.ours[key]; ok {
-			row.args, row.reads = o.Ours, o.Reads
+			if o.Ours != nil {
+				row.args = o.Ours
+			}
+			row.reads = o.Reads
 			r.used[key] = true
 		}
 		err := check(row)

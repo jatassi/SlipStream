@@ -1,10 +1,10 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { TargetsImpact } from "../api/gen/model";
+import type { TargetsImpact, TargetsTarget } from "../api/gen/model";
 import { changeOp, noImpact } from "../test/impact";
 import { renderApp } from "../test/render-app";
-import { starter, targetHandlers } from "../test/targets";
+import { keeper, starter, targetHandlers } from "../test/targets";
 
 const oneUnwanted: TargetsImpact = {
   works: 2,
@@ -127,4 +127,30 @@ test("Cancel on the Impact saves nothing and keeps the edit", async () => {
   await expect.element(sheet()).not.toBeInTheDocument();
   await expect.element(page.getByRole("checkbox", { name: "WEBDL-1080p" })).not.toBeChecked();
   expect(op.sent.map((call) => call.query)).toEqual([{ preview: "true" }]);
+});
+
+test("saving a Target sends back the scores and propers setting it opened with", async () => {
+  const scored: TargetsTarget = {
+    ...keeper,
+    scores: {
+      formats: [{ formatId: "0199e1f2-7a3b-7c4d-8e5f-6a7b8c9d0f01", score: 25 }],
+      minimum: 10,
+      upgradeUntil: 50,
+      increment: 5,
+    },
+    propers: "dont_prefer",
+  };
+  const op = changeOp("put", `*/api/v1/targets/${scored.id}`, () => noImpact, { target: scored });
+  renderApp({
+    path: `/settings/targets/${scored.id}`,
+    handlers: [op.handler, ...targetHandlers([scored])],
+  });
+  await userEvent.fill(page.getByRole("textbox", { name: "Name" }), "2160p HDR10");
+  await userEvent.click(page.getByRole("button", { name: "Save", exact: true }));
+
+  await expect.element(page.getByText("Saved 2160p HDR10.")).toBeVisible();
+  expect(op.sent.map((call) => call.body)).toEqual([
+    expect.objectContaining({ scores: scored.scores, propers: "dont_prefer" }),
+    expect.objectContaining({ scores: scored.scores, propers: "dont_prefer" }),
+  ]);
 });

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 )
 
@@ -55,6 +54,13 @@ type patternFile struct {
 	// HashSet of extensions or a Dictionary's keys, which the lever writes
 	// as []string tables.
 	Strings []string `json:"strings,omitempty"`
+	// Adds names methods whose if-statements add an enum value when a
+	// Contains call or a match's named group says so, which the lever
+	// writes as []Adds tables, one per kind of test.
+	Adds []string `json:"adds,omitempty"`
+	// IsoLanguages makes the lever read the file's IsoLanguage rows as an
+	// []IsoLanguage table.
+	IsoLanguages bool `json:"iso_languages,omitempty"`
 }
 
 type fixtureSet struct {
@@ -68,7 +74,6 @@ type dialectSources struct {
 	Out       string       `json:"out"`
 	Enums     []enumSource `json:"enums"`
 	Languages []fileSource `json:"languages"`
-	Iso       []fileSource `json:"iso_languages"`
 }
 
 type enumSource struct {
@@ -138,7 +143,7 @@ func (p pins) check() error {
 	for _, e := range p.Dialects.Enums {
 		keys = append(keys, e.From)
 	}
-	for _, f := range slices.Concat(p.Dialects.Languages, p.Dialects.Iso) {
+	for _, f := range p.Dialects.Languages {
 		keys = append(keys, f.From)
 	}
 	for _, f := range p.Fuzz.Sources {

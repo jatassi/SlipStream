@@ -114,8 +114,9 @@ func TestRepeatedGroupCaptures(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("Find = %v, %v; want a match", ok, err)
 	}
-	if got := m.Captures("episode"); !slices.Equal(got, []string{"01", "02", "03"}) {
-		t.Errorf(`Captures("episode") = %q; want 01, 02, 03`, got)
+	want := []Capture{{"01", 9, 11}, {"02", 12, 14}, {"03", 15, 17}}
+	if got := m.Captures("episode"); !slices.Equal(got, want) {
+		t.Errorf(`Captures("episode") = %v; want %v`, got, want)
 	}
 	if got, ok := m.Group("episode"); got != "03" || !ok {
 		t.Errorf(`Group("episode") = %q, %v; want the last capture, 03`, got, ok)
@@ -135,6 +136,9 @@ func TestGroupThatCapturedNothing(t *testing.T) {
 	}
 	if got, ok := m.Group("nope"); got != "" || ok {
 		t.Errorf(`Group("nope") = %q, %v; want "", false`, got, ok)
+	}
+	if got := m.Captures("b"); len(got) != 0 {
+		t.Errorf(`Captures("b") = %v; want none`, got)
 	}
 }
 

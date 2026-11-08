@@ -21,14 +21,18 @@ type Prepared struct {
 	// Simple is Title with resolution, codec, audio, bit depth and frame
 	// sizes blanked, so no number in them reads as an episode.
 	Simple regex.Text
+	// Release is Sonarr's releaseTitle: Original reversed when written
+	// backwards, without its extension, with 【】 read as [] and every
+	// pre-substitution applied. The group reads it when the Name masks
+	// nothing.
+	Release regex.Text
 	// Obfuscated is a hashed or obfuscated name. Its Name is zero.
 	Obfuscated bool
+	// Folder is the name of the folder File found the name in, which a
+	// type may read with it, as Sonarr's ParsePath reads a season folder.
+	Folder string
 
-	// release is Sonarr's releaseTitle: Original reversed when written
-	// backwards, without its extension, with 【】 read as [] and every
-	// pre-substitution applied. The group reader reads it.
-	release regex.Text
-	slow    []string
+	slow []string
 }
 
 // Prepare ports Sonarr's ParseTitle up to its pattern loop, with
@@ -44,12 +48,12 @@ func Prepare(name string) Prepared {
 		title = reverse(base) + name[len(base):]
 	}
 	title = strings.NewReplacer("【", "[", "】", "]").Replace(withoutExtension(&s, title))
-	p.release = regex.TextOf(title)
+	p.Release = regex.TextOf(title)
 	for _, sub := range preSubstitutions {
-		p.release = s.replace(sub, p.release)
+		p.Release = s.replace(sub, p.Release)
 	}
-	p.Title = unsited(&s, p.release)
-	p.Simple = unsited(&s, s.replace(simpleTitle, p.release))
+	p.Title = unsited(&s, p.Release)
+	p.Simple = unsited(&s, s.replace(simpleTitle, p.Release))
 	p.slow = s.slow
 	return p
 }
@@ -108,17 +112,8 @@ func unsited(s *scan, t regex.Text) regex.Text {
 	t = s.replace(websitePostfix, t)
 	t = s.replace(torrentSuffix, t)
 	m, ok := s.find(qualityBrackets, t)
-	if !ok || !namesQuality(m.Value()) {
+	if !ok || parseQualityName(s, m.Value()).grade == (grade{}) {
 		return t
 	}
 	return regex.TextOf(string([]rune(t.String())[:m.Index()]))
-}
-
-// namesQuality is whether text alone reads as a quality, Sonarr's
-// ParseQualityName(text).Quality != Unknown.
-func namesQuality(text string) bool {
-	var f Facts
-	readQuality(Prepared{Original: text, Title: regex.TextOf(text), Simple: regex.TextOf(text)}, &f)
-	_, ok := f.Quality.Get()
-	return ok
 }

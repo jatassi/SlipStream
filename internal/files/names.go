@@ -131,7 +131,7 @@ func filledBy(g targets.Goals, fills map[CellKey]ID, f File) (string, bool) {
 // firstMet is the first Target in Profile order f meets.
 func firstMet(ts []targets.Target, f File) (string, bool) {
 	for _, t := range ts {
-		if targets.Judge(t, f.Facts(), nil).Meets() {
+		if targets.Judge(t, targets.Scored{Facts: f.Facts()}, nil).Meets() {
 			return t.Name, true
 		}
 	}

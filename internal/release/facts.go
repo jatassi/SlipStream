@@ -76,9 +76,9 @@ type Probed struct {
 // over the name's, and Quality is derived again from f's Source and
 // Modifier at the probed Resolution.
 func (f Facts) WithProbe(p Probed) Facts {
-	if res, ok := p.Resolution.Get(); ok {
+	if _, ok := p.Resolution.Get(); ok {
 		f.Resolution = p.Resolution
-		f.Quality = qualityAt(f.Source, f.Modifier, res)
+		f.Quality = qualityOfFacts(f.Source, f.Modifier, f.Resolution)
 	}
 	f.Video = probedOr(p.Video, f.Video)
 	f.HDR = probedOr(p.HDR, f.HDR)

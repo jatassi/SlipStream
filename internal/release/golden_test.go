@@ -25,10 +25,28 @@ func proper(r golden.Row) int {
 	return 1
 }
 
+// reading is the fine quality facts an override in a Quality fixture
+// gives.
+type reading struct {
+	Source     release.Fact[release.Origin]
+	Modifier   release.Fact[release.Modifier]
+	Resolution release.Fact[release.Resolution]
+}
+
+// ours is nil when f reads as r's override says, and upstream's check of
+// f when r has no override reading.
+func ours(r golden.Row, f release.Facts, upstream func(release.Facts) error) error {
+	var want reading
+	if !r.Reads(&want) {
+		return upstream(f)
+	}
+	return golden.Same("reading", reading{f.Source, f.Modifier, f.Resolution}, want)
+}
+
 func sonarrQuality(name string) golden.Check {
 	return func(r golden.Row) error {
 		f := titleFacts(r.String("title"))
-		return errors.Join(golden.SonarrQuality(name).Read(f), version(f, proper(r)))
+		return errors.Join(ours(r, f, golden.SonarrQuality(name).Read), version(f, proper(r)))
 	}
 }
 
@@ -60,22 +78,24 @@ var radarrModifiers = map[string]release.Modifier{
 	"RAWHD":  release.ModRawHD,
 }
 
-// radarrReads is Radarr's ParseAndVerifyQuality: an Unknown resolution
-// and a NONE modifier aren't checked.
-func radarrReads(f release.Facts, source, resolution, modifier string, v int) error {
-	errs := []error{golden.Same("source", f.Source, radarrSources[source]), version(f, v)}
-	if res := radarrResolutions[resolution]; res != (release.Fact[release.Resolution]{}) {
-		errs = append(errs, golden.Same("resolution", f.Resolution, res))
-	}
-	if m, ok := radarrModifiers[modifier]; ok {
-		errs = append(errs, golden.Same("modifier", f.Modifier, release.Known(m)))
-	}
-	return errors.Join(errs...)
+// radarrReads is Radarr's ParseAndVerifyQuality, or r's override reading:
+// an Unknown resolution and a NONE modifier aren't checked.
+func radarrReads(r golden.Row, f release.Facts, source, resolution, modifier string, v int) error {
+	return errors.Join(version(f, v), ours(r, f, func(f release.Facts) error {
+		errs := []error{golden.Same("source", f.Source, radarrSources[source])}
+		if res := radarrResolutions[resolution]; res != (release.Fact[release.Resolution]{}) {
+			errs = append(errs, golden.Same("resolution", f.Resolution, res))
+		}
+		if m, ok := radarrModifiers[modifier]; ok {
+			errs = append(errs, golden.Same("modifier", f.Modifier, release.Known(m)))
+		}
+		return errors.Join(errs...)
+	}))
 }
 
 func radarrQuality(source, resolution, modifier string) golden.Check {
 	return func(r golden.Row) error {
-		return radarrReads(titleFacts(r.String("title")), source, resolution, modifier, proper(r))
+		return radarrReads(r, titleFacts(r.String("title")), source, resolution, modifier, proper(r))
 	}
 }
 
@@ -83,7 +103,7 @@ func radarrQuality(source, resolution, modifier string) golden.Check {
 // proper parameter.
 func radarrBluray(resolution, modifier string) golden.Check {
 	return func(r golden.Row) error {
-		return radarrReads(titleFacts(r.String("title")), "BLURAY", resolution, modifier, 1)
+		return radarrReads(r, titleFacts(r.String("title")), "BLURAY", resolution, modifier, 1)
 	}
 }
 
@@ -189,7 +209,7 @@ func TestGoldenSonarrQuality(t *testing.T) {
 			},
 			"should_parse_quality_from_other_source": func(r golden.Row) error {
 				q := golden.SonarrQuality(enumValue(r.Ref("quality")))
-				return otherSource(r, func(f release.Facts) error { return errors.Join(q.Read(f), version(f, 1)) })
+				return otherSource(r, func(f release.Facts) error { return errors.Join(ours(r, f, q.Read), version(f, 1)) })
 			},
 		},
 	})
@@ -234,7 +254,7 @@ func TestGoldenRadarrQuality(t *testing.T) {
 			"should_be_able_to_parse_repack":                              repack,
 			"should_parse_quality_from_other_source": func(r golden.Row) error {
 				source, res, mod := enumValue(r.Ref("source")), enumValue(r.Ref("resolution")), enumValue(r.Ref("modifier"))
-				return otherSource(r, func(f release.Facts) error { return radarrReads(f, source, res, mod, 1) })
+				return otherSource(r, func(f release.Facts) error { return radarrReads(r, f, source, res, mod, 1) })
 			},
 		},
 	})
