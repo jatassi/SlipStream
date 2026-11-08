@@ -35,6 +35,15 @@ func (q *Queries) CountHeld(ctx context.Context, nodeID role.NodeID) (CountHeldR
 	return i, err
 }
 
+const forgetTracker = `-- name: ForgetTracker :exec
+UPDATE downloadclients_torrent SET tracker_id = NULL WHERE tracker_id = ?1 AND removed_at IS NOT NULL
+`
+
+func (q *Queries) ForgetTracker(ctx context.Context, trackerID *indexers.TrackerID) error {
+	_, err := q.db.ExecContext(ctx, forgetTracker, trackerID)
+	return err
+}
+
 const getDetails = `-- name: GetDetails :one
 SELECT info_hash, metainfo, save_folder, private, tracker_id FROM downloadclients_torrent
 WHERE id = ?1 AND parted_at IS NULL
@@ -680,6 +689,38 @@ func (q *Queries) ListSources(ctx context.Context, arg ListSourcesParams) ([]Lis
 			&i.RemovedReason,
 			&i.Report,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTorrentsOfTracker = `-- name: ListTorrentsOfTracker :many
+SELECT id, removed_at IS NULL AS live FROM downloadclients_torrent WHERE tracker_id = ?1 ORDER BY id
+`
+
+type ListTorrentsOfTrackerRow struct {
+	ID   TorrentID
+	Live bool
+}
+
+func (q *Queries) ListTorrentsOfTracker(ctx context.Context, trackerID *indexers.TrackerID) ([]ListTorrentsOfTrackerRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTorrentsOfTracker, trackerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTorrentsOfTrackerRow
+	for rows.Next() {
+		var i ListTorrentsOfTrackerRow
+		if err := rows.Scan(&i.ID, &i.Live); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

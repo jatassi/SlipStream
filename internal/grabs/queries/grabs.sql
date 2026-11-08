@@ -170,3 +170,9 @@ RETURNING metadata_started_at;
 
 -- name: RepointTracker :exec
 UPDATE grabs_grab SET tracker_id = sqlc.arg(into_id) WHERE tracker_id = sqlc.arg(from_id);
+
+-- name: CountUnfinishedOfTracker :one
+SELECT count(*) FROM grabs_grab WHERE tracker_id = sqlc.arg(tracker_id) AND stage NOT IN ('imported', 'failed');
+
+-- name: ForgetTracker :exec
+UPDATE grabs_grab SET tracker_id = NULL WHERE tracker_id = sqlc.arg(tracker_id);

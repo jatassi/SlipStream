@@ -32,3 +32,14 @@ func (TrackerFacts) Stated(ctx context.Context, r storage.Reader[file]) (map[ind
 	}
 	return out, nil
 }
+
+// Unfinished is how many Grabs naming id are neither imported nor failed.
+func (TrackerFacts) Unfinished(ctx context.Context, r storage.Reader[file], id indexers.TrackerID) (int, error) {
+	n, err := db.New(r).CountUnfinishedOfTracker(ctx, id)
+	return int(n), err
+}
+
+// Forget sets tracker_id NULL on every Grab naming id.
+func (TrackerFacts) Forget(ctx context.Context, tx *storage.Tx[file], id indexers.TrackerID) error {
+	return db.New(tx).ForgetTracker(ctx, id)
+}

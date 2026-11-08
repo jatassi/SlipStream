@@ -152,6 +152,17 @@ func (q *Queries) CountMoving(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countUnfinishedOfTracker = `-- name: CountUnfinishedOfTracker :one
+SELECT count(*) FROM grabs_grab WHERE tracker_id = ?1 AND stage NOT IN ('imported', 'failed')
+`
+
+func (q *Queries) CountUnfinishedOfTracker(ctx context.Context, trackerID indexers.TrackerID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUnfinishedOfTracker, trackerID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteRelease = `-- name: DeleteRelease :exec
 DELETE FROM grabs_release WHERE search_id = ?1 AND position = ?2
 `
@@ -208,6 +219,15 @@ func (q *Queries) FinishSearch(ctx context.Context, arg FinishSearchParams) erro
 		arg.Notes,
 		arg.ID,
 	)
+	return err
+}
+
+const forgetTracker = `-- name: ForgetTracker :exec
+UPDATE grabs_grab SET tracker_id = NULL WHERE tracker_id = ?1
+`
+
+func (q *Queries) ForgetTracker(ctx context.Context, trackerID indexers.TrackerID) error {
+	_, err := q.db.ExecContext(ctx, forgetTracker, trackerID)
 	return err
 }
 
