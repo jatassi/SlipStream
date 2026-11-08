@@ -50,11 +50,11 @@ export function EditorActions({
       {unplaced.map((text) => (
         <AlertLine key={text} text={text} />
       ))}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button onClick={tryIt.run}>Try it</Button>
         <Button look="primary" busy={busy} onClick={onSave}>
           {label}
         </Button>
-        <Button onClick={tryIt.run}>Try it</Button>
       </div>
       {tryIt.dialog}
     </div>

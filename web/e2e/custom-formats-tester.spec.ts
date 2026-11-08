@@ -191,6 +191,13 @@ test("Try it with a pattern that doesn't compile says so in the tester and under
   await page.getByRole("button", { name: "Add condition" }).click();
   await pattern(page, 1).fill(String.raw`\b(DV`);
   await pattern(page, 2).fill(String.raw`\bDoVi\b`);
+  const tryIt = await page.getByRole("button", { name: "Try it" }).boundingBox();
+  const create = await page.getByRole("button", { name: "Create Custom Format" }).boundingBox();
+  expect(create && tryIt && create.x > tryIt.x, "the primary action ends the row").toBe(true);
+  expect(
+    create && tryIt && Math.abs(create.y + create.height / 2 - (tryIt.y + tryIt.height / 2)),
+    "Try it and the primary action share a centre line",
+  ).toBe(0);
   await page.getByRole("button", { name: "Try it" }).click();
 
   const dialog = page.getByRole("dialog", { name: "Tester" });
