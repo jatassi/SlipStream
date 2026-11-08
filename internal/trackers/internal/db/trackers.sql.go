@@ -7,7 +7,9 @@ package db
 
 import (
 	"context"
+	"strings"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -27,6 +29,25 @@ DELETE FROM trackers_goal WHERE tracker_id = ?1
 
 func (q *Queries) ClearGoal(ctx context.Context, trackerID indexers.TrackerID) error {
 	_, err := q.db.ExecContext(ctx, clearGoal, trackerID)
+	return err
+}
+
+const deleteGoalRuns = `-- name: DeleteGoalRuns :exec
+DELETE FROM trackers_goal_run WHERE torrent_id IN (/*SLICE:torrent_ids*/?)
+`
+
+func (q *Queries) DeleteGoalRuns(ctx context.Context, torrentIds []downloadclients.ID) error {
+	query := deleteGoalRuns
+	var queryParams []interface{}
+	if len(torrentIds) > 0 {
+		for _, v := range torrentIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:torrent_ids*/?", strings.Repeat(",?", len(torrentIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:torrent_ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
 	return err
 }
 

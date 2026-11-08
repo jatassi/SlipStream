@@ -269,10 +269,11 @@ func (n *Node) startController(ctx context.Context) error {
 	types := n.env.Types.IDs()
 	var scheduler *tasks.Scheduler
 	seeding := trackers.New(trackers.Config{
-		Library: lib.db,
-		Grabs:   grabs.TrackerFacts{},
-		Soon:    func() { scheduler.Soon(trackers.TaskID) },
-		Changed: trackers.SeedingChangedEvent.Bind(n.hub),
+		Library:         lib.db,
+		Grabs:           grabs.TrackerFacts{},
+		Soon:            func() { scheduler.Soon(trackers.TaskID) },
+		Changed:         trackers.SeedingChangedEvent.Bind(n.hub),
+		TrackersChanged: indexers.TrackersEvent.Bind(n.hub),
 	})
 	registry := indexers.New(indexers.Config{
 		Library: lib.db,
