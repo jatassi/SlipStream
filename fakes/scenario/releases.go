@@ -50,9 +50,6 @@ type Release struct {
 	Sites []string `yaml:"sites,omitempty"`
 }
 
-// On reports whether the site labelled site lists r.
-func (r Release) On(site string) bool { return len(r.Sites) == 0 || slices.Contains(r.Sites, site) }
-
 // ReleaseEpisode is the series a release is of, by TVDB id, and the
 // Aired season and episode fixture-site lists it under, which its name
 // needn't name. Episode 0 is a pack of the whole season, listed under
@@ -213,7 +210,7 @@ var SiteRules = map[string]SiteRule{
 	"tamarack": {MinRatio: 1, MinSeedTime: 10 * 24 * time.Hour},
 }
 
-// Rule is the rule the site labelled site states in a world with t,
+// Rule is the rule the site labeled site states in a world with t,
 // false when it states none.
 func (t Tracker) Rule(site string) (SiteRule, bool) {
 	if r, ok := t.Sites[site]; ok {
@@ -326,7 +323,7 @@ func (t Tracker) check(add func(format string, args ...any)) {
 		case stated == SiteRule{}:
 			add("tracker sites names %q, which states no rule", site)
 		case (r.MinRatio > 0) != (stated.MinRatio > 0) || (r.MinSeedTime > 0) != (stated.MinSeedTime > 0):
-			add("tracker sites %s states %s; site %s states %s", site, r.shape(), site, stated.shape())
+			add("tracker sites %s states %s, and site %s states %s", site, r.shape(), site, stated.shape())
 		}
 	}
 }

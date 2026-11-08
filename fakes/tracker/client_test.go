@@ -106,9 +106,9 @@ func serveTracker(t *testing.T, s scenario.Scenario, n int) (rels []release, ann
 	if err != nil {
 		t.Fatal(err)
 	}
-	passkey := releases.Passkey(s)
+	passkey := releases.Passkey(s, "torznab")
 	rels = seededReleases(t, n, fake.Address{AddrPort: tf.Addr(), TLS: true}.URL("/announce/"+passkey))
-	catalog := &releases.Catalog{Passkey: passkey}
+	catalog := &releases.Catalog{}
 	for i, r := range rels {
 		catalog.Releases = append(catalog.Releases, releases.Release{Release: scenario.Release{Name: fmt.Sprintf("release-%d", i)}, InfoHash: r.hash})
 	}

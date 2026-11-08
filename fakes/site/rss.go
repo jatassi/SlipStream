@@ -87,7 +87,7 @@ func (s *site) rss(w http.ResponseWriter, r *http.Request) {
 		}
 		link := origin + "/download/" + rel.InfoHash + ".torrent"
 		if rel.Link == scenario.MagnetLink {
-			magnet, err := s.magnet(rel, fake.OriginOf(r.Context()))
+			magnet, err := s.magnet(r, rel)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -118,10 +118,10 @@ func (s *site) rss(w http.ResponseWriter, r *http.Request) {
 	reply(w, b.String())
 }
 
-// inRSS reports whether Brook's feed lists rel: every feed does, or the
-// RSSItem cue listed it.
+// inRSS reports whether Brook's feed lists rel: every feed on Brook's
+// site does, or the RSSItem cue listed it.
 func (s *site) inRSS(rel Release) bool {
-	if s.shown(rel) {
+	if s.shown(Brook, rel) {
 		return true
 	}
 	s.mu.Lock()

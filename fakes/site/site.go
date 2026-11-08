@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
@@ -94,9 +95,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 		unlisted[r.Name] = r.Unlisted
 	}
 	var listed []Release
-	passkey := ""
 	if env.Releases != nil {
-		passkey = env.Releases.Passkey
 		for _, r := range env.Releases.Releases {
 			size := r.Size
 			if r.AdvertisedSize > 0 {
@@ -105,16 +104,16 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 			listed = append(listed, Release{
 				Name: r.Name, Size: size, InfoHash: r.InfoHash.String(),
 				TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], TVDB: r.TVDB, Seeders: int64(r.Seeders), Torrent: r.Metainfo, Unlisted: unlisted[r.Name],
-				Link: r.Link, Trackerless: r.Trackerless,
+				Link: r.Link, Trackerless: r.Trackerless, Sites: r.Sites,
 			})
 		}
 	}
-	announce := func(origin string) (string, error) {
+	announce := func(label, origin string) (string, error) {
 		at, ok := env.Fronts.Find(fault.Target(tracker.Fake.Name), origin)
 		if !ok {
 			return "", fmt.Errorf("no tracker front for %q", origin)
 		}
-		return at.URL("/announce/" + passkey), nil
+		return at.URL("/announce/" + tracker.Passkey(s, label)), nil
 	}
 	site := newSite(s, listed, announce)
 	var err error
@@ -162,6 +161,9 @@ type Release struct {
 	Link scenario.Link
 	// Trackerless leaves tr out of its magnet link.
 	Trackerless bool
+	// Sites are the labels of the sites that list it, every site when
+	// empty.
+	Sites []string
 	// Leechers, Grabs and Freeleech are what an extended feed lists.
 	Leechers  int64
 	Grabs     int64
@@ -186,6 +188,14 @@ const Torznab = "torznab"
 // Prowlarr is the label of the site whose feed names a source in each
 // item as Prowlarr does: Source, private, with Prowlarr's id 1.
 const Prowlarr = "prowlarr"
+
+// Heron and Tamarack are private Torznab sites that each state their
+// rule from scenario.SiteRules: Heron a seed time only, as seedpool does,
+// and Tamarack a ratio and a seed time, as TorrentLeech does.
+const (
+	Heron    = "heron"
+	Tamarack = "tamarack"
+)
 
 // Source is the source the Prowlarr site's items name.
 const Source = "Fixture Source"
@@ -240,9 +250,21 @@ type site struct {
 	thanked map[string]bool
 }
 
-// Announce is the tracker URL a .torrent announces to when origin fetches
-// it, and the tr of a magnet link origin reads.
-type Announce func(origin string) (string, error)
+// Announce is the tracker URL a .torrent of the site labeled label
+// announces to when origin fetches it, and the tr of a magnet link origin
+// reads there. Each site's URL carries its own account's passkey.
+type Announce func(label, origin string) (string, error)
+
+// On reports whether the site labeled label lists rel.
+func (rel Release) On(label string) bool {
+	return len(rel.Sites) == 0 || slices.Contains(rel.Sites, label)
+}
+
+// labelOf is the label of the site r was sent to.
+func labelOf(r *http.Request) string {
+	label, _, _ := strings.Cut(r.Host, ".")
+	return label
+}
 
 // Routes serve releases on every site of the world with Scenario s. Each
 // .torrent announces to the URL announce gives its downloader, and each
@@ -274,7 +296,7 @@ func (s *site) routes() fake.Routes {
 			out[label+"."+name] = fake.Route{Pattern: method + " " + Host(label) + path, Handler: h}
 		}
 	}
-	for _, label := range []string{Torznab, Prowlarr} {
+	for _, label := range scenario.FixtureSites["torznab"] {
 		add(label, fake.Routes{
 			"api":      {Pattern: "GET " + TorznabPath + "/api", Handler: s.api},
 			"download": {Pattern: "GET /download/{file}", Handler: s.download},
@@ -350,11 +372,11 @@ func (s *site) refusing() int {
 	return s.refusal
 }
 
-// shown reports whether the feeds list rel.
-func (s *site) shown(rel Release) bool {
+// shown reports whether the site labeled label lists rel.
+func (s *site) shown(label string, rel Release) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return !rel.Unlisted || s.listed[rel.Name]
+	return rel.On(label) && (!rel.Unlisted || s.listed[rel.Name])
 }
 
 // PlayKey is an API key the site refuses with Newznab error code: 100 to
@@ -392,7 +414,7 @@ func (s *site) api(w http.ResponseWriter, r *http.Request) {
 		torznabError(w, 100, "Invalid API Key")
 		return
 	}
-	label, _, _ := strings.Cut(r.Host, ".")
+	label := labelOf(r)
 	if t := q.Get("t"); t != "caps" {
 		s.searched(r.Context(), Search{Site: label, T: t, Q: q.Get("q"), TVDBID: q.Get("tvdbid"), Season: q.Get("season"), Ep: q.Get("ep")})
 	}
@@ -511,13 +533,14 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
 	origin := originOf(r)
 	win := windowOf(r.URL.Query())
 	extended := r.URL.Query().Get("extended") == "1"
+	label := labelOf(r)
 	var source string
-	if label, _, _ := strings.Cut(r.Host, "."); label == Prowlarr {
+	if label == Prowlarr {
 		source = `      <prowlarrindexer id="1" type="private">` + Source + "</prowlarrindexer>\n"
 	}
 	var listed []Release
 	for _, rel := range s.releases {
-		if win.asks(rel) && keep(rel) && s.shown(rel) {
+		if win.asks(rel) && keep(rel) && s.shown(label, rel) {
 			listed = append(listed, rel)
 		}
 	}
@@ -533,7 +556,7 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
 		link := origin + "/download/" + rel.InfoHash + ".torrent"
 		var magnetAttr string
 		if rel.Link.Magnet() {
-			magnet, err := s.magnet(rel, fake.OriginOf(r.Context()))
+			magnet, err := s.magnet(r, rel)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -552,7 +575,7 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
       <torznab:attr name="seeders" value="%d" />
       <torznab:attr name="infohash" value="%s" />
 %s%s%s%s    </item>
-`, esc(rel.Name), esc(link), rel.Size, esc(link), esc(link), rel.Size, rel.Seeders, rel.InfoHash, idAttrs(rel), magnetAttr, extendedAttrs(rel, origin, extended), source)
+`, esc(rel.Name), esc(link), rel.Size, esc(link), esc(link), rel.Size, rel.Seeders, rel.InfoHash, idAttrs(rel), magnetAttr, s.extendedAttrs(label, rel, origin, extended), source)
 	}
 	b.WriteString("  </channel>\n</rss>\n")
 	reply(w, b.String())
@@ -578,14 +601,24 @@ func originOf(r *http.Request) string {
 }
 
 // extendedAttrs are the attributes only an extended feed lists: every one
-// a Release carries, as a private tracker sets them.
-func extendedAttrs(rel Release, origin string, extended bool) string {
+// a Release carries, as a private tracker sets them, and the seeding rule
+// the site labeled label states.
+func (s *site) extendedAttrs(label string, rel Release, origin string, extended bool) string {
 	if !extended {
 		return ""
 	}
 	download := 1
 	if rel.Freeleech {
 		download = 0
+	}
+	var rule string
+	if r, ok := s.scenario.Tracker.Rule(label); ok {
+		if r.MinRatio > 0 {
+			rule += fmt.Sprintf(`      <torznab:attr name="minimumratio" value="%s" />`+"\n", strconv.FormatFloat(r.MinRatio, 'f', -1, 64))
+		}
+		if r.MinSeedTime > 0 {
+			rule += fmt.Sprintf(`      <torznab:attr name="minimumseedtime" value="%d" />`+"\n", int64(r.MinSeedTime/time.Second))
+		}
 	}
 	return fmt.Sprintf(`      <pubDate>%s</pubDate>
       <comments>%s</comments>
@@ -595,9 +628,7 @@ func extendedAttrs(rel Release, origin string, extended bool) string {
       <torznab:attr name="grabs" value="%d" />
       <torznab:attr name="downloadvolumefactor" value="%d" />
       <torznab:attr name="uploadvolumefactor" value="1" />
-      <torznab:attr name="minimumratio" value="1" />
-      <torznab:attr name="minimumseedtime" value="172800" />
-`, published, esc(origin+"/details/"+rel.InfoHash), rel.family(), rel.family(), rel.Seeders+rel.Leechers, rel.Grabs, download)
+%s`, published, esc(origin+"/details/"+rel.InfoHash), rel.family(), rel.family(), rel.Seeders+rel.Leechers, rel.Grabs, download, rule)
 }
 
 // published is when the site says every release was posted.
@@ -609,14 +640,15 @@ func esc(s string) string {
 	return b.String()
 }
 
-// magnet is rel's magnet link as origin reads it: its info hash, its
-// name and, unless it's trackerless, origin's tracker URL.
-func (s *site) magnet(rel Release, origin string) (string, error) {
+// magnet is rel's magnet link as r's origin reads it on r's site: its
+// info hash, its name and, unless it's trackerless, the tracker URL of
+// that site and origin.
+func (s *site) magnet(r *http.Request, rel Release) (string, error) {
 	link := "magnet:?xt=urn:btih:" + rel.InfoHash + "&dn=" + url.QueryEscape(rel.Name)
 	if rel.Trackerless {
 		return link, nil
 	}
-	tr, err := s.announce(origin)
+	tr, err := s.announce(labelOf(r), fake.OriginOf(r.Context()))
 	if err != nil {
 		return "", err
 	}
@@ -629,13 +661,13 @@ func (s *site) magnet(rel Release, origin string) (string, error) {
 // magnet link instead.
 func (s *site) download(w http.ResponseWriter, r *http.Request) {
 	hash, ok := strings.CutSuffix(r.PathValue("file"), ".torrent")
-	i := slices.IndexFunc(s.releases, func(rel Release) bool { return ok && rel.InfoHash == hash })
-	if i < 0 {
+	rel, found := s.byHash(r, hash)
+	if !ok || !found {
 		http.NotFound(w, r)
 		return
 	}
-	if s.releases[i].Link == scenario.RedirectLink {
-		magnet, err := s.magnet(s.releases[i], fake.OriginOf(r.Context()))
+	if rel.Link == scenario.RedirectLink {
+		magnet, err := s.magnet(r, rel)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -643,7 +675,7 @@ func (s *site) download(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, magnet, http.StatusFound)
 		return
 	}
-	s.torrent(w, r, s.releases[i])
+	s.torrent(w, r, rel)
 }
 
 // torrent serves rel's .torrent announcing to the downloader's own
@@ -654,7 +686,7 @@ func (s *site) torrent(w http.ResponseWriter, r *http.Request, rel Release) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	announce, err := s.announce(fake.OriginOf(r.Context()))
+	announce, err := s.announce(labelOf(r), fake.OriginOf(r.Context()))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
