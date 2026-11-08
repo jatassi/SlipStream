@@ -26,7 +26,11 @@ func open(l Library) *files.Files {
 	return f
 }
 
-var workNotFound = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
+var (
+	workNotFound = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
+	fileNotFound = api.NewCode(http.StatusNotFound, "file_not_found", "No file has that id")
+	filesNotGone = api.NewCode(http.StatusConflict, "files_not_gone", "Only gone files can be forgotten")
+)
 
 type probe struct {
 	Width  int `json:"width" minimum:"0"`
@@ -154,6 +158,15 @@ func Routes(r *api.Router, lib Library) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{workNotFound},
 	}, h.listWorkFiles)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "forgetFiles",
+		Method:  http.MethodPost,
+		Path:    "/files/forget",
+		Summary: "Delete the records of gone files, all or none",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{fileNotFound, filesNotGone},
+	}, h.forgetFiles)
 }
 
 type handlers struct{ lib Library }

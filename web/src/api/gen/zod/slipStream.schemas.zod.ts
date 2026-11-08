@@ -1353,6 +1353,26 @@ export const FieldError = zod.object({
 export type FieldError = zod.input<typeof FieldError>;
 export type FieldErrorOutput = zod.output<typeof FieldError>;
 
+export const filesAudioTrackChannelsMin = 0;
+
+export const FilesAudioTrack = zod.object({
+  atmos: zod.boolean(),
+  channels: zod.int().min(filesAudioTrackChannelsMin),
+  codec: zod.string().describe("ffprobe's codec name, such as eac3"),
+  default: zod.boolean(),
+  language: zod.string().nullable().describe("An ISO 639 code; null when the track names none"),
+  layout: zod
+    .string()
+    .describe("ffprobe's channel layout, such as 5.1(side); empty when it names none"),
+  profile: zod
+    .string()
+    .describe("Such as Dolby Digital Plus + Dolby Atmos; empty when ffprobe names none"),
+  title: zod.string().describe("Empty when the track has none"),
+});
+
+export type FilesAudioTrack = zod.input<typeof FilesAudioTrack>;
+export type FilesAudioTrackOutput = zod.output<typeof FilesAudioTrack>;
+
 export const FilesUnreleasedCell = zod.object({
   edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   itemId: zod.uuid(),
@@ -1615,6 +1635,29 @@ export const FilesChanged = zod.object({
 export type FilesChanged = zod.input<typeof FilesChanged>;
 export type FilesChangedOutput = zod.output<typeof FilesChanged>;
 
+export const filesDolbyVisionCompatibilityMin = 0;
+
+export const filesDolbyVisionLevelMin = 0;
+
+export const filesDolbyVisionProfileMin = 0;
+
+export const FilesDolbyVision = zod.object({
+  compatibility: zod
+    .int()
+    .min(filesDolbyVisionCompatibilityMin)
+    .describe("The base layer's signal: 1 HDR10, 2 SDR, 4 HLG, 6 Blu-ray HDR10, 0 none"),
+  level: zod.int().min(filesDolbyVisionLevelMin),
+  profile: zod.int().min(filesDolbyVisionProfileMin),
+});
+
+export type FilesDolbyVision = zod.input<typeof FilesDolbyVision>;
+export type FilesDolbyVisionOutput = zod.output<typeof FilesDolbyVision>;
+
+export const FilesVideoCodec = zod.enum(["x264", "x265", "AV1", "VP9", "XviD", "MPEG2"]);
+
+export type FilesVideoCodec = zod.input<typeof FilesVideoCodec>;
+export type FilesVideoCodecOutput = zod.output<typeof FilesVideoCodec>;
+
 export const FilesFill = zod.object({
   edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   itemId: zod.uuid(),
@@ -1624,15 +1667,105 @@ export const FilesFill = zod.object({
 export type FilesFill = zod.input<typeof FilesFill>;
 export type FilesFillOutput = zod.output<typeof FilesFill>;
 
+export const FilesSubtitleTrack = zod.object({
+  codec: zod.string().describe("ffprobe's codec name, such as subrip"),
+  default: zod.boolean(),
+  forced: zod.boolean(),
+  image: zod.boolean().describe("A bitmap format, such as PGS"),
+  language: zod.string().nullable().describe("An ISO 639 code; null when the track names none"),
+});
+
+export type FilesSubtitleTrack = zod.input<typeof FilesSubtitleTrack>;
+export type FilesSubtitleTrackOutput = zod.output<typeof FilesSubtitleTrack>;
+
+export const FilesHdrFormat = zod.enum(["DV", "HDR10+", "HDR10", "HLG", "SDR"]);
+
+export type FilesHdrFormat = zod.input<typeof FilesHdrFormat>;
+export type FilesHdrFormatOutput = zod.output<typeof FilesHdrFormat>;
+
+export const filesVideoInfoBitDepthMin = 0;
+
+export const filesVideoInfoFrameRateMin = 0;
+
+export const filesVideoInfoHeightMin = 0;
+
+export const filesVideoInfoWidthMin = 0;
+
+export const FilesVideoInfo = zod.object({
+  bitDepth: zod.int().min(filesVideoInfoBitDepthMin).describe("0 when the stream states none"),
+  codec: zod.string().describe("ffprobe's codec name, such as hevc"),
+  dolbyVision: zod
+    .union([FilesDolbyVision, zod.null()])
+    .describe("Null when it carries no Dolby Vision"),
+  frameRate: zod
+    .number()
+    .min(filesVideoInfoFrameRateMin)
+    .describe("Frames per second to three decimals; 0 when the stream states none"),
+  hdr: zod.array(FilesHdrFormat).describe("Every HDR format it carries, or SDR alone"),
+  height: zod.int().min(filesVideoInfoHeightMin),
+  profile: zod.string().describe("Such as Main 10; empty when ffprobe names none"),
+  width: zod.int().min(filesVideoInfoWidthMin),
+});
+
+export type FilesVideoInfo = zod.input<typeof FilesVideoInfo>;
+export type FilesVideoInfoOutput = zod.output<typeof FilesVideoInfo>;
+
+export const filesMediaInfoBitrateMin = 0;
+
+export const filesMediaInfoDurationSecondsMin = 0;
+
+export const FilesMediaInfo = zod.object({
+  audio: zod.array(FilesAudioTrack).describe("In stream order"),
+  bitrate: zod
+    .int()
+    .min(filesMediaInfoBitrateMin)
+    .describe("Bits per second; 0 when the container states none"),
+  container: zod.string().describe("ffprobe's format name, such as matroska,webm"),
+  durationSeconds: zod
+    .int()
+    .min(filesMediaInfoDurationSecondsMin)
+    .describe("0 when the container states none"),
+  subtitles: zod.array(FilesSubtitleTrack).describe("In stream order"),
+  video: FilesVideoInfo.describe("Its first video stream that isn't cover art"),
+});
+
+export type FilesMediaInfo = zod.input<typeof FilesMediaInfo>;
+export type FilesMediaInfoOutput = zod.output<typeof FilesMediaInfo>;
+
 export const filesListedFileSizeMin = 0;
 
 export const FilesListedFile = zod.object({
-  fills: zod.array(FilesFill).describe("The cells it fills; empty for a Kept file"),
+  codec: zod
+    .union([FilesVideoCodec, zod.null()])
+    .describe(
+      "Its video codec in the words a Target filters on; null for a codec they have no word for",
+    ),
+  cut: zod.string().describe("The key of its own cut"),
+  fills: zod.array(FilesFill).describe("The cells it fills; empty for a Kept or gone file"),
   folder: zod.string().describe("The folder it sits in, relative to its root, / separated"),
+  goneAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When a library scan found it missing from its root; null while it is there"),
   id: zod.uuid(),
   kept: zod.boolean().describe("A Kept file, which fills no cell"),
+  label: zod.string().describe("The Target name its file name carries, before any suffix"),
+  media: zod
+    .union([FilesMediaInfo, zod.null()])
+    .describe("What ffprobe read of it; null for a file read before SlipStream kept its tracks"),
+  modifiedAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "Its modification time as a library scan or its import last read it; null until one did",
+    ),
   path: zod.string().describe("Relative to its root, / separated"),
-  probe: FilesProbe,
+  probeError: zod
+    .string()
+    .nullable()
+    .describe(
+      "The first line ffprobe printed when the last library scan couldn't read it, and media is then the read before; null when that read worked",
+    ),
   quality: zod.enum([
     "sdtv",
     "dvd",
@@ -1663,7 +1796,7 @@ export const FilesFileList = zod.object({
   files: zod
     .array(FilesListedFile)
     .describe(
-      "Filling files first, in Profile order of the first Target each fills, then Kept files",
+      "Filling files first, in Profile order of the first Target each fills, then Kept and gone files, oldest first",
     ),
   folder: zod
     .string()
@@ -1715,6 +1848,13 @@ export const FirstrunFirstRun = zod.object({
 
 export type FirstrunFirstRun = zod.input<typeof FirstrunFirstRun>;
 export type FirstrunFirstRunOutput = zod.output<typeof FirstrunFirstRun>;
+
+export const ForgetInputBody = zod.object({
+  fileIds: zod.array(zod.uuid()).min(1),
+});
+
+export type ForgetInputBody = zod.input<typeof ForgetInputBody>;
+export type ForgetInputBodyOutput = zod.output<typeof ForgetInputBody>;
 
 export const GrabsChanged = zod.object({
   grabId: zod.uuid(),
@@ -7081,6 +7221,8 @@ export const worksLibraryRowFailedMin = 0;
 
 export const worksLibraryRowFilesMin = 0;
 
+export const worksLibraryRowGoneFilesMin = 0;
+
 export const worksLibraryRowItemsMin = 0;
 
 export const worksLibraryRowKeptMin = 0;
@@ -7089,6 +7231,9 @@ export const worksLibraryRowNeedsYouMin = 0;
 
 export const WorksLibraryRow = zod.object({
   addedAt: zod.iso.datetime({ offset: true }),
+  addedBy: zod
+    .enum(["admin", "scan"])
+    .describe("Who added it: an Admin, or a library scan that matched a folder on disk"),
   availableOn: zod
     .string()
     .regex(worksLibraryRowAvailableOnRegExp)
@@ -7107,6 +7252,12 @@ export const WorksLibraryRow = zod.object({
     .min(worksLibraryRowFailedMin)
     .describe("Its wanted cells whose download failed"),
   files: zod.int().min(worksLibraryRowFilesMin).describe("Its library files, Kept files included"),
+  goneFiles: zod
+    .int()
+    .min(worksLibraryRowGoneFilesMin)
+    .describe(
+      "Its files a library scan found missing from its root, which the other counts leave out",
+    ),
   goneUpstreamAt: zod.iso
     .datetime({ offset: true })
     .nullable()

@@ -2326,6 +2326,56 @@
         ],
         "type": "object"
       },
+      "FilesAudioTrack": {
+        "additionalProperties": false,
+        "properties": {
+          "atmos": {
+            "type": "boolean"
+          },
+          "channels": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "codec": {
+            "description": "ffprobe's codec name, such as eac3",
+            "type": "string"
+          },
+          "default": {
+            "type": "boolean"
+          },
+          "language": {
+            "description": "An ISO 639 code; null when the track names none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "layout": {
+            "description": "ffprobe's channel layout, such as 5.1(side); empty when it names none",
+            "type": "string"
+          },
+          "profile": {
+            "description": "Such as Dolby Digital Plus + Dolby Atmos; empty when ffprobe names none",
+            "type": "string"
+          },
+          "title": {
+            "description": "Empty when the track has none",
+            "type": "string"
+          }
+        },
+        "required": [
+          "codec",
+          "profile",
+          "atmos",
+          "channels",
+          "layout",
+          "language",
+          "default",
+          "title"
+        ],
+        "type": "object"
+      },
       "FilesCell": {
         "discriminator": {
           "mapping": {
@@ -2406,6 +2456,33 @@
         },
         "required": [
           "workId"
+        ],
+        "type": "object"
+      },
+      "FilesDolbyVision": {
+        "additionalProperties": false,
+        "properties": {
+          "compatibility": {
+            "description": "The base layer's signal: 1 HDR10, 2 SDR, 4 HLG, 6 Blu-ray HDR10, 0 none",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "level": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "profile": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "profile",
+          "level",
+          "compatibility"
         ],
         "type": "object"
       },
@@ -2539,7 +2616,7 @@
         "additionalProperties": false,
         "properties": {
           "files": {
-            "description": "Filling files first, in Profile order of the first Target each fills, then Kept files",
+            "description": "Filling files first, in Profile order of the first Target each fills, then Kept and gone files, oldest first",
             "items": {
               "$ref": "#/components/schemas/FilesListedFile"
             },
@@ -2578,6 +2655,16 @@
           "targetId"
         ],
         "type": "object"
+      },
+      "FilesHdrFormat": {
+        "enum": [
+          "DV",
+          "HDR10+",
+          "HDR10",
+          "HLG",
+          "SDR"
+        ],
+        "type": "string"
       },
       "FilesItemStatus": {
         "additionalProperties": false,
@@ -2659,8 +2746,23 @@
       "FilesListedFile": {
         "additionalProperties": false,
         "properties": {
+          "codec": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesVideoCodec"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its video codec in the words a Target filters on; null for a codec they have no word for"
+          },
+          "cut": {
+            "description": "The key of its own cut",
+            "type": "string"
+          },
           "fills": {
-            "description": "The cells it fills; empty for a Kept file",
+            "description": "The cells it fills; empty for a Kept or gone file",
             "items": {
               "$ref": "#/components/schemas/FilesFill"
             },
@@ -2670,6 +2772,14 @@
             "description": "The folder it sits in, relative to its root, / separated",
             "type": "string"
           },
+          "goneAt": {
+            "description": "When a library scan found it missing from its root; null while it is there",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "id": {
             "format": "uuid",
             "type": "string"
@@ -2678,12 +2788,39 @@
             "description": "A Kept file, which fills no cell",
             "type": "boolean"
           },
+          "label": {
+            "description": "The Target name its file name carries, before any suffix",
+            "type": "string"
+          },
+          "media": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesMediaInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What ffprobe read of it; null for a file read before SlipStream kept its tracks"
+          },
+          "modifiedAt": {
+            "description": "Its modification time as a library scan or its import last read it; null until one did",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "path": {
             "description": "Relative to its root, / separated",
             "type": "string"
           },
-          "probe": {
-            "$ref": "#/components/schemas/FilesProbe"
+          "probeError": {
+            "description": "The first line ffprobe printed when the last library scan couldn't read it, and media is then the read before; null when that read worked",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "quality": {
             "enum": [
@@ -2715,14 +2852,68 @@
           }
         },
         "required": [
-          "folder",
-          "kept",
-          "fills",
           "id",
           "path",
+          "folder",
           "size",
           "quality",
-          "probe"
+          "codec",
+          "cut",
+          "label",
+          "kept",
+          "fills",
+          "modifiedAt",
+          "goneAt",
+          "probeError",
+          "media"
+        ],
+        "type": "object"
+      },
+      "FilesMediaInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "audio": {
+            "description": "In stream order",
+            "items": {
+              "$ref": "#/components/schemas/FilesAudioTrack"
+            },
+            "type": "array"
+          },
+          "bitrate": {
+            "description": "Bits per second; 0 when the container states none",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "container": {
+            "description": "ffprobe's format name, such as matroska,webm",
+            "type": "string"
+          },
+          "durationSeconds": {
+            "description": "0 when the container states none",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "subtitles": {
+            "description": "In stream order",
+            "items": {
+              "$ref": "#/components/schemas/FilesSubtitleTrack"
+            },
+            "type": "array"
+          },
+          "video": {
+            "$ref": "#/components/schemas/FilesVideoInfo",
+            "description": "Its first video stream that isn't cover art"
+          }
+        },
+        "required": [
+          "container",
+          "durationSeconds",
+          "bitrate",
+          "video",
+          "audio",
+          "subtitles"
         ],
         "type": "object"
       },
@@ -2911,6 +3102,40 @@
         },
         "type": "object"
       },
+      "FilesSubtitleTrack": {
+        "additionalProperties": false,
+        "properties": {
+          "codec": {
+            "description": "ffprobe's codec name, such as subrip",
+            "type": "string"
+          },
+          "default": {
+            "type": "boolean"
+          },
+          "forced": {
+            "type": "boolean"
+          },
+          "image": {
+            "description": "A bitmap format, such as PGS",
+            "type": "boolean"
+          },
+          "language": {
+            "description": "An ISO 639 code; null when the track names none",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "codec",
+          "image",
+          "language",
+          "forced",
+          "default"
+        ],
+        "type": "object"
+      },
       "FilesSummary": {
         "additionalProperties": false,
         "properties": {
@@ -3068,6 +3293,81 @@
         ],
         "type": "object"
       },
+      "FilesVideoCodec": {
+        "enum": [
+          "x264",
+          "x265",
+          "AV1",
+          "VP9",
+          "XviD",
+          "MPEG2"
+        ],
+        "type": "string"
+      },
+      "FilesVideoInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "bitDepth": {
+            "description": "0 when the stream states none",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "codec": {
+            "description": "ffprobe's codec name, such as hevc",
+            "type": "string"
+          },
+          "dolbyVision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesDolbyVision"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when it carries no Dolby Vision"
+          },
+          "frameRate": {
+            "description": "Frames per second to three decimals; 0 when the stream states none",
+            "format": "double",
+            "minimum": 0,
+            "type": "number"
+          },
+          "hdr": {
+            "description": "Every HDR format it carries, or SDR alone",
+            "items": {
+              "$ref": "#/components/schemas/FilesHdrFormat"
+            },
+            "type": "array"
+          },
+          "height": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "profile": {
+            "description": "Such as Main 10; empty when ffprobe names none",
+            "type": "string"
+          },
+          "width": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "codec",
+          "profile",
+          "width",
+          "height",
+          "bitDepth",
+          "frameRate",
+          "hdr",
+          "dolbyVision"
+        ],
+        "type": "object"
+      },
       "FilesWaitingNeed": {
         "additionalProperties": false,
         "properties": {
@@ -3169,6 +3469,23 @@
         "required": [
           "id",
           "state"
+        ],
+        "type": "object"
+      },
+      "ForgetInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "fileIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "fileIds"
         ],
         "type": "object"
       },
@@ -14575,6 +14892,14 @@
             "format": "date-time",
             "type": "string"
           },
+          "addedBy": {
+            "description": "Who added it: an Admin, or a library scan that matched a folder on disk",
+            "enum": [
+              "admin",
+              "scan"
+            ],
+            "type": "string"
+          },
           "availableOn": {
             "description": "Its one Item's availability date, or for many Items the earliest not yet out, else the latest out, read over its monitored Items, or over every Item while none is monitored; null while none of those has a date",
             "pattern": "^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$",
@@ -14605,6 +14930,12 @@
           },
           "files": {
             "description": "Its library files, Kept files included",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "goneFiles": {
+            "description": "Its files a library scan found missing from its root, which the other counts leave out",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -14724,6 +15055,8 @@
           "bytes",
           "files",
           "kept",
+          "goneFiles",
+          "addedBy",
           "status",
           "cells",
           "failed",
@@ -24202,6 +24535,194 @@
         "summary": "Test a saved external Download Client with unsaved changes, using its saved secrets where the changes leave them",
         "tags": [
           "downloadclients"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/files/forget": {
+      "post": {
+        "operationId": "forgetFiles",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgetInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "file_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "files_not_gone",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Delete the records of gone files, all or none",
+        "tags": [
+          "files"
         ],
         "x-slipstream-access": "admin"
       }

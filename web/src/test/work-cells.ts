@@ -151,11 +151,34 @@ export function filesOf({ cells }: FilesCellList): FilesFileList {
     if ("file" in cell) {
       const fill = { itemId: cell.itemId, edition: cell.edition, targetId: cell.targetId };
       const known = files.get(cell.file.id);
+      const { probe, ...file } = cell.file;
       files.set(cell.file.id, {
-        ...cell.file,
+        ...file,
         folder: "movies/The Quiet Orchard (2021)",
+        codec: "x264",
+        cut: "standard",
+        label: "",
         kept: false,
         fills: [...(known?.fills ?? []), fill],
+        modifiedAt: null,
+        goneAt: null,
+        probeError: null,
+        media: {
+          container: "matroska,webm",
+          durationSeconds: 0,
+          bitrate: 0,
+          video: {
+            ...probe,
+            codec: "h264",
+            profile: "",
+            bitDepth: 8,
+            frameRate: 0,
+            hdr: ["SDR"],
+            dolbyVision: null,
+          },
+          audio: [],
+          subtitles: [],
+        },
       });
     }
   }
