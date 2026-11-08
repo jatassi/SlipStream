@@ -259,7 +259,7 @@ func (q *Queries) InsertTorrent(ctx context.Context, arg InsertTorrentParams) er
 }
 
 const listActed = `-- name: ListActed :many
-SELECT id, node_id, removed_at, wanted, report, completion FROM downloadclients_torrent
+SELECT id, node_id, info_hash, removed_at, wanted, report, completion FROM downloadclients_torrent
 WHERE id IN (/*SLICE:ids*/?)
 ORDER BY id
 `
@@ -267,6 +267,7 @@ ORDER BY id
 type ListActedRow struct {
 	ID         TorrentID
 	NodeID     role.NodeID
+	InfoHash   []byte
 	RemovedAt  storage.Time
 	Wanted     string
 	Report     *string
@@ -295,6 +296,7 @@ func (q *Queries) ListActed(ctx context.Context, ids []TorrentID) ([]ListActedRo
 		if err := rows.Scan(
 			&i.ID,
 			&i.NodeID,
+			&i.InfoHash,
 			&i.RemovedAt,
 			&i.Wanted,
 			&i.Report,

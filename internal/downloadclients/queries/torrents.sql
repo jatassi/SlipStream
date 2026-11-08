@@ -139,7 +139,7 @@ UPDATE downloadclients_torrent SET
 WHERE node_id = sqlc.arg(node_id) AND parted_at IS NULL;
 
 -- name: ListActed :many
-SELECT id, node_id, removed_at, wanted, report, completion FROM downloadclients_torrent
+SELECT id, node_id, info_hash, removed_at, wanted, report, completion FROM downloadclients_torrent
 WHERE id IN (sqlc.slice(ids))
 ORDER BY id;
 

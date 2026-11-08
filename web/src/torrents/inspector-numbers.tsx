@@ -32,8 +32,6 @@ export function Numbers({
         ] as const)),
     ["Downloaded", <Data key="d">{bytes(detail.downloaded)}</Data>],
     ["Uploaded", <Data key="u">{bytes(detail.uploaded)}</Data>],
-    ["Ratio", <Data key="r">{detail.ratio.toFixed(2)}</Data>],
-    ["Seed time", lengthOf(detail.seedingSeconds)],
     ["Active time", lengthOf(detail.activeSeconds)],
   ];
   return (

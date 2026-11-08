@@ -162,7 +162,7 @@ func TestTheTorrentsListAnswersEachRowsWordsAndCountsEveryTorrent(t *testing.T) 
 // unjudged is the seeding of a private torrent with no Tracker that has
 // downloaded nothing, on the initial default goal.
 const unjudged = `"tracker":null,"seeding":{"ratio":{"value":0,"goal":2},"time":{"value":0,"goal":1209600},` +
-	`"state":"none","atRisk":"no","goalMet":false,"combine":"first","clears":"none"}`
+	`"state":"none","atRisk":"no","goalMet":false,"combine":"first","action":"remove-delete","endless":"none","clears":"none"}`
 
 func TestATorrentReadsLiveFromItsNodeAndRefusesAnUnknownID(t *testing.T) {
 	w := serveWorld(t)
@@ -207,7 +207,7 @@ func TestActionsAnswerForEachTorrent(t *testing.T) {
 	w.o.Expect(t, http.MethodPost, "/api/v1/torrents/actions", `{"action":"announce","ids":["`+harbor.String()+`"]}`, http.StatusOK,
 		`{"results":[{"id":"id1","done":false,"refusal":{"code":"window","acceptsAt":"T"}}]}`)
 	w.o.Expect(t, http.MethodPost, "/api/v1/torrents/actions", `{"action":"remove","ids":["`+orchard.String()+`"],"deleteFiles":true,"dryRun":true}`, http.StatusOK,
-		`{"results":[{"id":"id1","done":true}],"preview":{"cancels":[{"grabId":"id2","workId":"id3","release":"`+orchardRelease+`"}],"stopSeeding":[],"frees":900,"linked":false}}`)
+		`{"results":[{"id":"id1","done":true}],"preview":{"cancels":[{"grabId":"id2","workId":"id3","release":"`+orchardRelease+`"}],"stopSeeding":[],"frees":900,"linked":false,"hitAndRun":[]}}`)
 	w.o.Expect(t, http.MethodPost, "/api/v1/torrents/actions", `{"action":"pause","ids":["`+orchard.String()+`"],"dryRun":true}`, http.StatusBadRequest,
 		`{"status":400,"code":"no_preview","title":"Only remove, mark failed and recheck can be previewed"}`)
 
@@ -290,7 +290,7 @@ func TestARowShowsItsTrackerAndItsSeedingAndListsByTrackerAndGoalMet(t *testing.
 	want := row{
 		ID: orchard.String(), Tracker: json.RawMessage(`{"id":"` + seedpool.String() + `","name":"seedpool"}`),
 		Seeding: json.RawMessage(`{"ratio":{"value":0.25,"rule":1,"goal":2},"time":{"value":0,"goal":1209600},"state":"owing",` +
-			`"owes":{"seconds":0,"bytes":750},"atRisk":"no","goalMet":false,"combine":"first","clears":"ratio"}`),
+			`"owes":{"seconds":0,"bytes":750},"atRisk":"no","goalMet":false,"combine":"first","action":"remove-delete","endless":"none","clears":"ratio"}`),
 	}
 	if len(got.Rows) != 1 || string(got.Rows[0].Tracker) != string(want.Tracker) || string(got.Rows[0].Seeding) != string(want.Seeding) {
 		t.Errorf("seedpool's torrents = %+v, want only Orchard owing seedpool 750 bytes of upload: %s %s", got.Rows, want.Tracker, want.Seeding)
@@ -299,6 +299,33 @@ func TestARowShowsItsTrackerAndItsSeedingAndListsByTrackerAndGoalMet(t *testing.
 	decodeReply(t, w, "/api/v1/torrents?tab=goal-met", &got)
 	if len(got.Rows) != 1 || got.Rows[0].ID != harbor.String() {
 		t.Errorf("the Goal met tab = %+v, want public Harbor past ratio 2", got.Rows)
+	}
+}
+
+func TestRemovingTheLastCopyOfATorrentThatOwesPreviewsAHitAndRun(t *testing.T) {
+	w := serveWorld(t)
+	seedpool, nyaa := storage.NewUUID(), storage.NewUUID()
+	w.exec(t, `INSERT INTO indexers_tracker (id, name, privacy, created_at) VALUES (?, 'seedpool', 'private', 0), (?, 'Nyaa', 'public', 0)`, seedpool, nyaa)
+	complete := &dlv1.TorrentReport{AtUnixMs: reportedAt.UnixMilli(), Engine: dlv1.EngineState_ENGINE_STATE_SEEDING, Complete: true}
+	harbor, orchard, quay := w.hold(t, "Harbor", complete), w.hold(t, "Orchard", complete), w.hold(t, "Quay", complete)
+	w.exec(t, `UPDATE downloadclients_torrent SET tracker_id = ?, uploaded = 3000, downloaded = 1000 WHERE id = ?`, nyaa, harbor)
+	w.exec(t, `UPDATE downloadclients_torrent SET tracker_id = ?, uploaded = 250, downloaded = 1000 WHERE id = ?`, seedpool, orchard)
+	w.exec(t, `UPDATE downloadclients_torrent SET tracker_id = ?, downloaded = 1000 WHERE id = ?`, seedpool, quay)
+	w.uses[orchard] = []downloadclients.Use{{Grab: storage.NewUUID(), Release: orchardRelease, Stage: downloadclients.UseImported, Floor: seeding.RatioRule{Ratio: 100}}}
+	ids := `["` + harbor.String() + `","` + orchard.String() + `","` + quay.String() + `"]`
+
+	w.o.Expect(t, http.MethodPost, "/api/v1/torrents/actions", `{"action":"remove","ids":`+ids+`,"dryRun":true}`, http.StatusOK,
+		`{"results":[{"id":"id1","done":true},{"id":"id2","done":true},{"id":"id3","done":true}],"preview":{"cancels":[],"stopSeeding":[],"frees":0,"linked":false,`+
+			`"hitAndRun":[{"torrentId":"id2","tracker":{"id":"id4","name":"seedpool"},"owes":{"seconds":0,"bytes":750},"clears":"ratio"},{"torrentId":"id3","tracker":{"id":"id4","name":"seedpool"},"clears":"none"}]}}`)
+
+	var got struct {
+		Seeding struct {
+			Endless string `json:"endless"`
+		} `json:"seeding"`
+	}
+	decodeReply(t, w, "/api/v1/torrents/"+quay.String(), &got)
+	if got.Seeding.Endless != "no-rule" {
+		t.Errorf("Quay, owing seedpool under no known rule, seeds with no end because %q, want no-rule", got.Seeding.Endless)
 	}
 }
 

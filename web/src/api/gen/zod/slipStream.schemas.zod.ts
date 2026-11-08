@@ -100,6 +100,48 @@ export const DownloadclientsCanceled = zod.object({
 export type DownloadclientsCanceled = zod.input<typeof DownloadclientsCanceled>;
 export type DownloadclientsCanceledOutput = zod.output<typeof DownloadclientsCanceled>;
 
+export const downloadclientsOwesBytesMin = 0;
+
+export const downloadclientsOwesSecondsMin = 0;
+
+export const DownloadclientsOwes = zod.object({
+  bytes: zod
+    .int()
+    .min(downloadclientsOwesBytesMin)
+    .describe("Upload still needed, 0 when the rule doesn't count ratio or it is reached"),
+  seconds: zod
+    .int()
+    .min(downloadclientsOwesSecondsMin)
+    .describe("Seeding time still needed, 0 when the rule doesn't count it or it is reached"),
+});
+
+export type DownloadclientsOwes = zod.input<typeof DownloadclientsOwes>;
+export type DownloadclientsOwesOutput = zod.output<typeof DownloadclientsOwes>;
+
+export const DownloadclientsTrackerRef = zod.object({
+  id: zod.uuid(),
+  name: zod.string(),
+});
+
+export type DownloadclientsTrackerRef = zod.input<typeof DownloadclientsTrackerRef>;
+export type DownloadclientsTrackerRefOutput = zod.output<typeof DownloadclientsTrackerRef>;
+
+export const DownloadclientsHitAndRun = zod.object({
+  clears: zod
+    .enum(["none", "time", "ratio", "either", "both"])
+    .describe("What meets the rule it owes, or none while no rule is known"),
+  owes: DownloadclientsOwes.exactOptional().describe(
+    "What it still owes, absent while its Tracker's rule isn't known",
+  ),
+  torrentId: zod.uuid(),
+  tracker: zod
+    .union([DownloadclientsTrackerRef, zod.null()])
+    .describe("The Tracker it owes, null while that Tracker isn't known"),
+});
+
+export type DownloadclientsHitAndRun = zod.input<typeof DownloadclientsHitAndRun>;
+export type DownloadclientsHitAndRunOutput = zod.output<typeof DownloadclientsHitAndRun>;
+
 export const downloadclientsPreviewFreesMin = 0;
 
 export const DownloadclientsPreview = zod.object({
@@ -111,6 +153,11 @@ export const DownloadclientsPreview = zod.object({
     .min(downloadclientsPreviewFreesMin)
     .nullable()
     .describe("Bytes deleting the download copies frees, null while a Node can't report it"),
+  hitAndRun: zod
+    .array(DownloadclientsHitAndRun)
+    .describe(
+      "The removed torrents whose removal counts as a hit and run, each the last copy of a torrent that still owes its Tracker",
+    ),
   linked: zod.boolean().describe("Some file is also a library file, as a recheck reads it"),
   stopSeeding: zod.array(zod.uuid()).describe("The Works whose complete Torrents stop seeding"),
 });
@@ -442,24 +489,6 @@ export const DownloadclientsLiveTick = zod.object({
 export type DownloadclientsLiveTick = zod.input<typeof DownloadclientsLiveTick>;
 export type DownloadclientsLiveTickOutput = zod.output<typeof DownloadclientsLiveTick>;
 
-export const downloadclientsOwesBytesMin = 0;
-
-export const downloadclientsOwesSecondsMin = 0;
-
-export const DownloadclientsOwes = zod.object({
-  bytes: zod
-    .int()
-    .min(downloadclientsOwesBytesMin)
-    .describe("Upload still needed, 0 when the rule doesn't count ratio or it is reached"),
-  seconds: zod
-    .int()
-    .min(downloadclientsOwesSecondsMin)
-    .describe("Seeding time still needed, 0 when the rule doesn't count it or it is reached"),
-});
-
-export type DownloadclientsOwes = zod.input<typeof DownloadclientsOwes>;
-export type DownloadclientsOwesOutput = zod.output<typeof DownloadclientsOwes>;
-
 export const downloadclientsRatioLaneValueMin = 0;
 
 export const DownloadclientsRatioLane = zod.object({
@@ -479,6 +508,8 @@ export type DownloadclientsRatioLaneOutput = zod.output<typeof DownloadclientsRa
 
 export const downloadclientsTimeLaneGoalMin = 0;
 
+export const downloadclientsTimeLaneMarginMin = 0;
+
 export const downloadclientsTimeLaneRuleMin = 0;
 
 export const downloadclientsTimeLaneValueMin = 0;
@@ -489,6 +520,13 @@ export const DownloadclientsTimeLane = zod.object({
     .min(downloadclientsTimeLaneGoalMin)
     .exactOptional()
     .describe("Seconds the goal needs, absent when the goal doesn't count seeding time"),
+  margin: zod
+    .int()
+    .min(downloadclientsTimeLaneMarginMin)
+    .exactOptional()
+    .describe(
+      "Seconds of the margin the rule's mark includes, absent when the rule doesn't count seeding time",
+    ),
   rule: zod
     .int()
     .min(downloadclientsTimeLaneRuleMin)
@@ -508,6 +546,10 @@ export type DownloadclientsTimeLane = zod.input<typeof DownloadclientsTimeLane>;
 export type DownloadclientsTimeLaneOutput = zod.output<typeof DownloadclientsTimeLane>;
 
 export const DownloadclientsSeedingView = zod.object({
+  action: zod
+    .enum(["pause", "remove", "remove-delete"])
+    .exactOptional()
+    .describe("What its goal does once met, absent for a forever goal"),
   atRisk: zod
     .enum(["no", "yes", "unknown"])
     .describe(
@@ -521,6 +563,9 @@ export const DownloadclientsSeedingView = zod.object({
     .describe(
       "How its goal's ratio and seeding time combine. A forever goal seeds until an Admin removes it",
     ),
+  endless: zod
+    .enum(["none", "forever", "resumed", "no-tracker", "no-rule", "partial"])
+    .describe("Why its goal never acts on it, or none while its goal can act"),
   goalMet: zod.boolean().describe("Its seeding goal is met and it owes its Tracker nothing"),
   owes: DownloadclientsOwes.exactOptional().describe(
     "What it still needs to meet its Tracker's rule and the margin, absent unless it owes under a known rule",
@@ -718,14 +763,6 @@ export const DownloadclientsTorrentGrab = zod.object({
 
 export type DownloadclientsTorrentGrab = zod.input<typeof DownloadclientsTorrentGrab>;
 export type DownloadclientsTorrentGrabOutput = zod.output<typeof DownloadclientsTorrentGrab>;
-
-export const DownloadclientsTrackerRef = zod.object({
-  id: zod.uuid(),
-  name: zod.string(),
-});
-
-export type DownloadclientsTrackerRef = zod.input<typeof DownloadclientsTrackerRef>;
-export type DownloadclientsTrackerRefOutput = zod.output<typeof DownloadclientsTrackerRef>;
 
 export const downloadclientsTrackerDetailMinIntervalSecondsMin = 0;
 

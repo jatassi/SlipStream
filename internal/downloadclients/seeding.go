@@ -28,6 +28,8 @@ type Seeder interface {
 type Judged struct {
 	Tracker *TrackerRef
 	View    seeding.View
+	// Plan is what the row's own goal does now.
+	Plan seeding.Plan
 }
 
 // HashFact is one Torrent of an info hash as its seeding is judged: its

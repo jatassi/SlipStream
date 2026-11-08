@@ -50,6 +50,7 @@ const shared: DownloadclientsPreview = {
   stopSeeding: [harvestId],
   frees: 15_246_000_000,
   linked: false,
+  hitAndRun: [],
 };
 
 test("remove names the torrent, keeps library files, and lists what it takes with it", async () => {

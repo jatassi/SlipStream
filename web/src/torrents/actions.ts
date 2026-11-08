@@ -9,8 +9,19 @@ import type { Row, State } from "./model";
 
 export type TorrentAction = ActInputBodyAction;
 
-/** A Torrent as an action names it: the Work it is for, else its release. */
-export type Subject = { readonly id: string; readonly name: string };
+/** The Tracker a Torrent still owes seeding, by name, undefined while it isn't known. */
+export type Owing = { readonly tracker: string | undefined };
+
+/**
+ * A Torrent as an action names it: the Work it is for, else its release,
+ * and the Tracker it still owes, which pausing or removing it lets down.
+ */
+export type Subject = { readonly id: string; readonly name: string; readonly owing?: Owing };
+
+export const subjectOf = (row: Row, name: string): Subject =>
+  row.seeding.state === "owing"
+    ? { id: row.id, name, owing: { tracker: row.tracker?.name } }
+    : { id: row.id, name };
 
 export type Wanted = "started" | "paused";
 

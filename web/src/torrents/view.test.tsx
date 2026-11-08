@@ -12,6 +12,7 @@ import {
   orchardId,
   orchardPoster,
   seedboxId,
+  seedingOf,
   torrent,
   torrentsServer,
 } from "../test/torrents";
@@ -38,6 +39,10 @@ const seeding = torrent({
   done: 1_000_000_000,
   ratio: 1.42,
   seedingSeconds: 6 * 86_400,
+  seeding: seedingOf({
+    ratio: { value: 1.42, goal: 2 },
+    time: { value: 6 * 86_400, goal: 14 * 86_400 },
+  }),
 });
 
 const unregistered = torrent({
@@ -84,7 +89,7 @@ test("Torrents leads with its sentence and problems, then the downloads by defau
   await expect
     .element(row)
     .toHaveTextContent(
-      "The Quiet OrchardDirector's Cut · WEBDL-1080pDownloading25%0.00↓ —↑ —beacon.exampleWorkinghomeBuilt-in",
+      "The Quiet OrchardDirector's Cut · WEBDL-1080pDownloading25%↓ —↑ —beacon.exampleWorkinghomeBuilt-in",
     );
   expect(table().getByRole("row").all()).toHaveLength(2);
 });
@@ -130,8 +135,12 @@ test("a tab, a Node and a search narrow the table", async () => {
     .element(table().getByRole("row", { name: /^Orchard Harvest/u }))
     .toMatchTextContent("Seeding");
   await expect
-    .element(table().getByRole("row", { name: /^Orchard Harvest/u }))
-    .toMatchTextContent("Seeded 6 days");
+    .element(
+      table()
+        .getByRole("row", { name: /^Orchard Harvest/u })
+        .getByRole("meter", { name: "Seeding time" }),
+    )
+    .toHaveAttribute("aria-valuetext", "6 days, goal 14 days");
 
   await userEvent.click(page.getByRole("combobox", { name: "Node" }));
   await userEvent.click(page.getByRole("option", { name: "Every Node" }));

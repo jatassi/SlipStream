@@ -117,6 +117,9 @@ type View struct {
 	// goal reads, and its rule mark includes the margin.
 	Ratio Lane[Ratio]
 	Time  Lane[time.Duration]
+	// Margin is what Time's rule mark adds past the rule, zero when the
+	// rule doesn't count seeding time.
+	Margin time.Duration
 	// Owes is set while the window owes under a known rule.
 	Owes *Owes
 	// Risk is Safe unless the window owes.
@@ -207,7 +210,7 @@ func Evaluate(h Hash) Verdict {
 			v.Ratio.Rule = &ratio
 		}
 		if seed > 0 {
-			v.Time.Rule = new(seed + h.Margin)
+			v.Time.Rule, v.Margin = new(seed+h.Margin), h.Margin
 		}
 	}
 	if f, ok := h.Goal.(Finite); ok {

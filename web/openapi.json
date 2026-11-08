@@ -516,6 +516,47 @@
         ],
         "type": "object"
       },
+      "DownloadclientsHitAndRun": {
+        "additionalProperties": false,
+        "properties": {
+          "clears": {
+            "description": "What meets the rule it owes, or none while no rule is known",
+            "enum": [
+              "none",
+              "time",
+              "ratio",
+              "either",
+              "both"
+            ],
+            "type": "string"
+          },
+          "owes": {
+            "$ref": "#/components/schemas/DownloadclientsOwes",
+            "description": "What it still owes, absent while its Tracker's rule isn't known"
+          },
+          "torrentId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "tracker": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadclientsTrackerRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Tracker it owes, null while that Tracker isn't known"
+          }
+        },
+        "required": [
+          "torrentId",
+          "tracker",
+          "clears"
+        ],
+        "type": "object"
+      },
       "DownloadclientsLimits": {
         "additionalProperties": false,
         "properties": {
@@ -703,6 +744,13 @@
               "null"
             ]
           },
+          "hitAndRun": {
+            "description": "The removed torrents whose removal counts as a hit and run, each the last copy of a torrent that still owes its Tracker",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsHitAndRun"
+            },
+            "type": "array"
+          },
           "linked": {
             "description": "Some file is also a library file, as a recheck reads it",
             "type": "boolean"
@@ -720,7 +768,8 @@
           "cancels",
           "stopSeeding",
           "frees",
-          "linked"
+          "linked",
+          "hitAndRun"
         ],
         "type": "object"
       },
@@ -783,6 +832,15 @@
       "DownloadclientsSeedingView": {
         "additionalProperties": false,
         "properties": {
+          "action": {
+            "description": "What its goal does once met, absent for a forever goal",
+            "enum": [
+              "pause",
+              "remove",
+              "remove-delete"
+            ],
+            "type": "string"
+          },
           "atRisk": {
             "description": "Whether a torrent that owes is at risk of a hit and run: yes while no copy of it announces as a seeder, unknown while every copy's Node is offline",
             "enum": [
@@ -809,6 +867,18 @@
               "first",
               "both",
               "forever"
+            ],
+            "type": "string"
+          },
+          "endless": {
+            "description": "Why its goal never acts on it, or none while its goal can act",
+            "enum": [
+              "none",
+              "forever",
+              "resumed",
+              "no-tracker",
+              "no-rule",
+              "partial"
             ],
             "type": "string"
           },
@@ -845,6 +915,7 @@
           "atRisk",
           "goalMet",
           "combine",
+          "endless",
           "clears"
         ],
         "type": "object"
@@ -1066,6 +1137,12 @@
         "properties": {
           "goal": {
             "description": "Seconds the goal needs, absent when the goal doesn't count seeding time",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "margin": {
+            "description": "Seconds of the margin the rule's mark includes, absent when the rule doesn't count seeding time",
             "format": "int64",
             "minimum": 0,
             "type": "integer"

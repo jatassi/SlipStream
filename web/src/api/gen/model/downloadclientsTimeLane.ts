@@ -5,6 +5,11 @@ export interface DownloadclientsTimeLane {
    */
   goal?: number;
   /**
+   * Seconds of the margin the rule's mark includes, absent when the rule doesn't count seeding time
+   * @minimum 0
+   */
+  margin?: number;
+  /**
    * Seconds the rule needs plus the margin, absent when the rule doesn't count seeding time
    * @minimum 0
    */

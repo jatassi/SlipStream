@@ -3,7 +3,7 @@ import { MoreHorizontalIcon } from "@hugeicons/core-free-icons";
 import { Button } from "../ui/button";
 import { IconButton } from "../ui/icon-button";
 import { Menu } from "../ui/menu";
-import { type Subject, type TorrentAction, actionLabels, menuFor } from "./actions";
+import { type TorrentAction, actionLabels, menuFor, subjectOf } from "./actions";
 import { useActing } from "./acting";
 import { actionIcons, menuItems } from "./actions-menu";
 import type { Row } from "./model";
@@ -12,14 +12,15 @@ const onButtons = new Set<TorrentAction>(["pause", "resume", "remove"]);
 
 export function Actions({
   row,
-  subject,
+  name,
   trackersAccept,
 }: {
   row: Row;
-  subject: Subject;
+  name: string;
   trackersAccept: boolean;
 }) {
   const { start, dialogs } = useActing();
+  const subject = subjectOf(row, name);
   const offered = menuFor(row, trackersAccept);
   const buttons = offered.filter((action) => onButtons.has(action));
   const more = offered.filter((action) => !onButtons.has(action));

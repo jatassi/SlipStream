@@ -230,9 +230,5 @@ export function seedLength(seconds: number): string {
   return `${Math.floor(seconds / day)} days`;
 }
 
-/** A seed's progress cell, until seeding goals take its place. */
-export const seedWords = ({ seedingSeconds }: Row): string =>
-  seedingSeconds < 60 ? "Seeding since just now" : `Seeded ${seedLength(seedingSeconds)}`;
-
 export const tabCount = (counts: DownloadclientsCounts, tab: Tab): number =>
   counts.byTab.find((count) => count.tab === tab)?.torrents ?? 0;
