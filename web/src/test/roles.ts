@@ -82,7 +82,7 @@ export const seedboxSeat: NodesBoardNode = {
     {
       role: "downloading",
       state: "holding",
-      held: { units: 3, noun: "torrents", bytes: 41 * 1024 ** 3, endless: true },
+      held: { units: 3, noun: "torrents", bytes: 41 * 1024 ** 3, endlessUnits: 3 },
     },
   ],
   probes: [{ probe: "engine-starts", fit: "fits", at: "2026-10-12T10:00:00Z" }],

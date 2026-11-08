@@ -81,7 +81,7 @@ test.each<
   ["an engine failure", { state: "failed", error: "file too short" }, false, "file too short"],
   [
     "an unregistered torrent",
-    { state: "tracker-error", tracker: { host: "beacon.example", status: "unregistered" } },
+    { state: "tracker-error", announce: { host: "beacon.example", status: "unregistered" } },
     false,
     "Unregistered by beacon.example",
   ],
@@ -158,7 +158,7 @@ const down = (host: string, at: string) =>
     state: "tracker-error",
     severity: "warning",
     addedAt: at,
-    tracker: { host, status: "error", message: "Tracker is down" },
+    announce: { host, status: "error", message: "Tracker is down" },
   });
 
 test("one tracker down for many seeds is one warning holding them all", () => {
@@ -190,7 +190,7 @@ test("failures lead the warnings, each cause with its oldest torrent first", () 
     state: "tracker-error",
     severity: "failure",
     addedAt: "2026-10-12T09:00:00Z",
-    tracker: { host: "beacon.example", status: "unregistered" },
+    announce: { host: "beacon.example", status: "unregistered" },
   });
   const guarded = torrent({
     state: "queued",

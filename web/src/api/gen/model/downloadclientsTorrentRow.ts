@@ -1,4 +1,5 @@
 import type { DownloadclientsFault } from "./downloadclientsFault.ts";
+import type { DownloadclientsSeedingView } from "./downloadclientsSeedingView.ts";
 import type { DownloadclientsTorrentRowHold } from "./downloadclientsTorrentRowHold.ts";
 import type { DownloadclientsTorrentRowPending } from "./downloadclientsTorrentRowPending.ts";
 import type { DownloadclientsTorrentRowQuality } from "./downloadclientsTorrentRowQuality.ts";
@@ -6,9 +7,12 @@ import type { DownloadclientsTorrentRowSeverity } from "./downloadclientsTorrent
 import type { DownloadclientsTorrentRowState } from "./downloadclientsTorrentRowState.ts";
 import type { DownloadclientsTorrentRowTabsItem } from "./downloadclientsTorrentRowTabsItem.ts";
 import type { DownloadclientsTrackerCell } from "./downloadclientsTrackerCell.ts";
+import type { DownloadclientsTrackerRef } from "./downloadclientsTrackerRef.ts";
 
 export interface DownloadclientsTorrentRow {
   addedAt: string;
+  /** Absent when its metainfo names no announce URL */
+  announce?: DownloadclientsTrackerCell;
   /** The Content Type it was first grabbed for */
   contentType: string;
   /**
@@ -44,6 +48,8 @@ export interface DownloadclientsTorrentRow {
    * @minimum 0
    */
   ratio: number;
+  /** Its seeding against its Tracker's rule and its seeding goal */
+  seeding: DownloadclientsSeedingView;
   /**
    * All-time seconds seeded
    * @minimum 0
@@ -58,8 +64,8 @@ export interface DownloadclientsTorrentRow {
   state: DownloadclientsTorrentRowState;
   /** The Torrents view's tabs it shows under */
   tabs: DownloadclientsTorrentRowTabsItem[];
-  /** Absent when its metainfo names no announce URL */
-  tracker?: DownloadclientsTrackerCell;
+  /** The Tracker its first Grab's Release reached, null when none did */
+  tracker: DownloadclientsTrackerRef | null;
   /** When a window hold starts it, or a check resumes it */
   until?: string;
   /**
