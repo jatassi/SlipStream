@@ -204,6 +204,16 @@ func (t *Targets) GetFormat(ctx context.Context, by identity.Admin, id formats.I
 	return all[i], nil
 }
 
+// ScoredIn is every format some Target of goals scores.
+func ScoredIn(goals Goals) formats.Set {
+	var out formats.Set
+	for _, t := range goals.Targets {
+		out = slices.AppendSeq(out, maps.Keys(t.Scores.Formats))
+	}
+	slices.SortFunc(out, byFormatID)
+	return slices.Compact(out)
+}
+
 // catalog is the last compiled catalog and the formats' revisions it was
 // compiled from.
 type catalog struct {
