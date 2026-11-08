@@ -780,7 +780,7 @@ func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 		l.call(t, "save a torrent's resume data", ev.Err)
 		l.resumeDone(t)
 	case engine.TrackerAnnounced:
-		l.ledger.Sent(t.Hash, l.tracker(t, ev.Tracker), announce.Event(ev.Event), ev.At)
+		l.ledger.Sent(t.Hash, l.tracker(t, ev.Tracker), announce.Event(ev.Event), ev.At, t.Complete)
 	case engine.TrackerReplied:
 		l.ledger.Answered(t.Hash, l.tracker(t, ev.Tracker), ev.At)
 		t.replied[ev.Tracker] = ev.At
