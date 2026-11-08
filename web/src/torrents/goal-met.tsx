@@ -23,14 +23,35 @@ const keptWords: {
     `SlipStream removes ${name} and keeps its download copy, because ${node} is draining Downloading.`,
 };
 
-const waitWords: { readonly [W in TrackersWaitWhy]: string } = {
-  removing: "It's being removed.",
-  resumed: "You resumed it after its goal was met, so it seeds with no end.",
-  ran: "Its goal already acted on it.",
-  incomplete: "Its goal waits until all of its selected files are there.",
-  "grab-downloading": "Its goal waits until its Grab finishes downloading.",
-  "grab-importing": "Its goal waits until its Grab finishes importing.",
-  reconciling: "Its goal waits until SlipStream finishes reconciling the library after a restore.",
+const waiting = "Goal met, waiting";
+const notActing = "Goal met, not acting";
+const waitGroups = [waiting, notActing] as const;
+
+const waitWords: {
+  readonly [W in TrackersWaitWhy]: {
+    readonly group: (typeof waitGroups)[number];
+    readonly words: string;
+  };
+} = {
+  removing: { group: notActing, words: "It's being removed." },
+  resumed: {
+    group: notActing,
+    words: "You resumed it after its goal was met, so it seeds with no end.",
+  },
+  ran: { group: notActing, words: "Its goal already acted on it." },
+  incomplete: {
+    group: waiting,
+    words: "Its goal waits until all of its selected files are there.",
+  },
+  "grab-downloading": {
+    group: waiting,
+    words: "Its goal waits until its Grab finishes downloading.",
+  },
+  "grab-importing": { group: waiting, words: "Its goal waits until its Grab finishes importing." },
+  reconciling: {
+    group: waiting,
+    words: "Its goal waits until SlipStream finishes reconciling the library after a restore.",
+  },
 };
 
 type Shown<T> = T & { row: Row };
@@ -99,15 +120,24 @@ function Preview({ rows, names }: { rows: readonly Row[]; names: Names }) {
         nameOf={nameOf}
         names={names}
       />
-      {waits.length > 0 && (
-        <Section title="Goal met, waiting" count={waits.length}>
-          <List label="Goal met, waiting">
-            {waits.map((wait) => (
-              <ListRow key={wait.torrent.id} title={nameOf(wait)} meta={waitWords[wait.why]} />
-            ))}
-          </List>
-        </Section>
-      )}
+      {waitGroups.map((group) => {
+        const held = waits.filter((wait) => waitWords[wait.why].group === group);
+        return (
+          held.length > 0 && (
+            <Section key={group} title={group} count={held.length}>
+              <List label={group}>
+                {held.map((wait) => (
+                  <ListRow
+                    key={wait.torrent.id}
+                    title={nameOf(wait)}
+                    meta={waitWords[wait.why].words}
+                  />
+                ))}
+              </List>
+            </Section>
+          )
+        );
+      })}
     </>
   );
 }

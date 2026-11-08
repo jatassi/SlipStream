@@ -87,7 +87,10 @@ const windowOf = (
     ...more,
   }) satisfies TrackersWindow;
 
-/** seedpool's windows, newest opened first: two open, then one met, one missed and one released. */
+/**
+ * seedpool's windows, newest opened first: two open, Salt Line missed and
+ * grabbed again, then one met, one missed and one released.
+ */
 export const seedpoolWindows: TrackersWindow[] = [
   windowOf("a", {
     name: "Hold.Fast.2024.1080p.WEB-DL",
@@ -104,6 +107,7 @@ export const seedpoolWindows: TrackersWindow[] = [
     quietSince: "2026-10-12T08:00:00Z",
     closedAt: "2026-10-05T10:00:00Z",
     regrabbedAt: "2026-10-06T10:00:00Z",
+    owed: { seconds: 518_400, bytes: 0 },
   }),
   windowOf("c", {
     name: "Low.Tide.2023.1080p.WEB-DL",
@@ -123,7 +127,8 @@ export const seedpoolWindows: TrackersWindow[] = [
   }),
 ];
 
-const planned = (row: DownloadclientsTorrentRow | undefined) => ({
+/** A torrent row as the goals preview names it. */
+export const planned = (row: DownloadclientsTorrentRow | undefined) => ({
   id: row?.id ?? "",
   name: row?.name ?? "",
   tracker: row?.tracker ?? null,
@@ -147,13 +152,18 @@ export const seedingGoalsTask = cadenceTask("seeding-goals", "Seeding goals", 90
 
 const windowsPage = 2;
 
-/** GET /trackers/{id}/windows over seedpoolWindows, two to a page, filtered by state. */
+const inList: { readonly [list: string]: (window: TrackersWindow) => boolean } = {
+  open: (window) => window.state === "owing",
+  history: (window) => window.state !== "owing" || window.closedAt !== null,
+};
+
+/** GET /trackers/{id}/windows over seedpoolWindows, two to a page, in the list asked for. */
 const windowsHandler = http.get("*/api/v1/trackers/:id/windows", ({ params, request }) => {
   const query = new URL(request.url).searchParams;
   const offset = Number(query.get("offset") ?? 0);
-  const state = query.get("state");
-  const all = (params["id"] === seedpoolId ? seedpoolWindows : []).filter(
-    (window) => state === null || window.state === state,
+  const holds = inList[query.get("list") ?? ""] ?? (() => true);
+  const all = (params["id"] === seedpoolId ? seedpoolWindows : []).filter((window) =>
+    holds(window),
   );
   const end = offset + windowsPage;
   return HttpResponse.json({

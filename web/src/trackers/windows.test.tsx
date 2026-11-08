@@ -47,8 +47,8 @@ test("the Seeding tab lists the windows still owed with their lanes, and a link 
     .element(saltLine)
     .toMatchTextContent(/It was missed at .+ and grabbed again at .+\./u);
   expect(windows.asked).toEqual([
-    `/api/v1/trackers/${seedpoolId}/windows?state=owing`,
-    `/api/v1/trackers/${seedpoolId}/windows`,
+    `/api/v1/trackers/${seedpoolId}/windows?list=open`,
+    `/api/v1/trackers/${seedpoolId}/windows?list=history`,
   ]);
   await userEvent.click(holdFast.getByRole("link"));
   await expect
@@ -59,29 +59,42 @@ test("the Seeding tab lists the windows still owed with their lanes, and a link 
 test("the history lists met, missed and released windows a page at a time", async () => {
   const windows = recorded();
   renderApp({ path: seedingTab, handlers: [windows.handler, ...trackersServer().handlers] });
+  await expect
+    .element(rowOf(history(), "Low.Tide.2023.1080p.WEB-DL"))
+    .toMatchTextContent(/Met at /u);
+  expect(history().getByText("Ash.Road.2020.1080p.WEB-DL").query()).toBeNull();
   const more = page
     .getByRole("region", { name: "History" })
     .getByRole("button", { name: "Show more" });
   await userEvent.click(more);
   await expect
-    .element(rowOf(history(), "Low.Tide.2023.1080p.WEB-DL"))
-    .toMatchTextContent(/Met at /u);
-  await expect
     .element(rowOf(history(), "Ash.Road.2020.1080p.WEB-DL"))
     .toMatchTextContent(
       /Missed at .+It still owed 1 day of seeding when its last torrent was removed\./u,
     );
-  expect(history().getByText("Gone.Quiet.2019.1080p.WEB-DL").query()).toBeNull();
-  await userEvent.click(more);
   await expect
     .element(rowOf(history(), "Gone.Quiet.2019.1080p.WEB-DL"))
     .toMatchTextContent(/Released at /u);
   await expect.element(more).not.toBeInTheDocument();
-  expect(page.getByText("No hit and run window has ended yet.").query()).toBeNull();
-  expect(windows.asked.slice(-2)).toEqual([
-    `/api/v1/trackers/${seedpoolId}/windows?offset=2`,
-    `/api/v1/trackers/${seedpoolId}/windows?offset=4`,
+  expect(windows.asked.slice(-1)).toEqual([
+    `/api/v1/trackers/${seedpoolId}/windows?list=history&offset=2`,
   ]);
+});
+
+test("a window missed and grabbed again stays in the history as its miss while it owes again", async () => {
+  renderApp({ path: seedingTab, handlers: trackersServer().handlers });
+  const missed = rowOf(history(), "Salt.Line.2022.1080p.WEB-DL");
+  await expect
+    .element(missed)
+    .toMatchTextContent(
+      /Missed at .+It still owed 6 days of seeding when its last torrent was removed\.It was grabbed again at .+\./u,
+    );
+  expect(missed.getByText("At risk").query()).toBeNull();
+  expect(missed.getByText(/Owes /u).query()).toBeNull();
+  await expect
+    .element(rowOf(open(), "Salt.Line.2022.1080p.WEB-DL"))
+    .toMatchTextContent("Owes 5 days of seeding");
+  expect(page.getByText("No hit and run window has ended yet.").query()).toBeNull();
 });
 
 test("a Tracker with no windows says what each list is waiting for", async () => {
@@ -100,6 +113,7 @@ test("the header says what needs a look as getTracker words it, amber when a tor
   );
   await expect.element(warning).toBeVisible();
   await expect.element(warning).toHaveClass(/text-warn/u);
+  await expect.element(page.getByLabelText("Totals")).toMatchTextContent(/Open windows2$/u);
 });
 
 test("a private Tracker with no rule says so once, in its header's attention line", async () => {

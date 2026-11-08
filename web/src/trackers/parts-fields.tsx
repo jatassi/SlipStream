@@ -1,11 +1,15 @@
+import { nounOf } from "../format";
 import { withFieldGroup } from "../ui/form";
 import { Segmented } from "../ui/segmented";
 import { type Parts, partsSchema } from "./draft";
 
 const units = [
-  { value: "days", label: "days" },
-  { value: "hours", label: "hours" },
+  { value: "days", noun: { one: "day", many: "days" } },
+  { value: "hours", noun: { one: "h", many: "h" } },
 ] as const;
+
+const unitOptions = (amount: string) =>
+  units.map(({ value, noun }) => ({ value, label: nounOf(Number(amount), noun) }));
 
 const noParts: Parts = { ratio: "", amount: "", unit: "days" };
 
@@ -41,16 +45,20 @@ export const PartsFields = withFieldGroup({
               </group.AppField>
             </div>
             <div className="pt-6.5">
-              <group.Field name="unit">
-                {(field) => (
-                  <Segmented
-                    label="Seeding time unit"
-                    options={units}
-                    value={field.state.value}
-                    onValueChange={field.handleChange}
-                  />
+              <group.Subscribe selector={(state) => state.values.amount}>
+                {(amount) => (
+                  <group.Field name="unit">
+                    {(field) => (
+                      <Segmented
+                        label="Seeding time unit"
+                        options={unitOptions(amount)}
+                        value={field.state.value}
+                        onValueChange={field.handleChange}
+                      />
+                    )}
+                  </group.Field>
                 )}
-              </group.Field>
+              </group.Subscribe>
             </div>
           </div>
         )}

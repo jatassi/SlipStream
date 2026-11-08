@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 
 import type { TrackersWindow } from "../api/gen/model";
-import { endedLine, owesWords, windowSentences } from "./window-words";
+import { asEnded, endedLine, owesWords, windowSentences } from "./window-words";
 
 const clock = { now: new Date("2026-10-12T12:00:00Z"), zone: "UTC" };
 
@@ -70,6 +70,28 @@ test("a window's sentences say how it stands at risk, after a regrab, and what a
         owed: { seconds: 86_400, bytes: 0 },
         atRisk: "yes",
       },
+      "seedpool",
+      clock,
+    ),
+  ).toEqual(["It still owed 1 day of seeding when its last torrent was removed."]);
+});
+
+test("the history tells a window grabbed again after its miss as that miss, and drops a regrab older than its last miss", () => {
+  const regrabbed = {
+    ...owing,
+    rule: tenDays,
+    closedAt: "2026-10-12T08:00:00Z",
+    regrabbedAt: "2026-10-12T10:00:00Z",
+    owed: { seconds: 86_400, bytes: 0 },
+  };
+  expect(endedLine(asEnded(regrabbed), clock)).toBe("Missed at 08:00");
+  expect(windowSentences(asEnded(regrabbed), "seedpool", clock)).toEqual([
+    "It still owed 1 day of seeding when its last torrent was removed.",
+    "It was grabbed again at 10:00.",
+  ]);
+  expect(
+    windowSentences(
+      { ...regrabbed, state: "missed", closedAt: "2026-10-12T11:00:00Z" },
       "seedpool",
       clock,
     ),

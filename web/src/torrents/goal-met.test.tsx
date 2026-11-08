@@ -4,7 +4,8 @@ import { page } from "vitest/browser";
 
 import { liveServer } from "../test/live-server";
 import { renderApp } from "../test/render-app";
-import { seedpoolId, trackersServer } from "../test/trackers";
+import { planned } from "../test/tracker-seeding";
+import { seedpoolId, seedpoolRows, trackersServer } from "../test/trackers";
 
 const wouldAct = () => page.getByRole("list", { name: "Would act now" });
 const waiting = () => page.getByRole("list", { name: "Goal met, waiting" });
@@ -44,6 +45,38 @@ test("the Goal met tab leads with what the goals would do now, each kept copy an
     .element(rowOf(waiting(), "Salt.Line.2022.1080p.WEB-DL"))
     .toMatchTextContent("Its goal waits until its Grab finishes importing.");
   expect(preview.asked).toEqual(["/api/v1/torrents/goals/preview"]);
+});
+
+test("a goal met that won't act sits apart from one that waits, each under a heading true of it", async () => {
+  const [holdFast, lowTide, saltLine] = seedpoolRows;
+  renderApp({
+    path: "/activity/torrents?tab=goal-met",
+    handlers: [
+      ...liveServer().handlers,
+      ...trackersServer({
+        preview: {
+          acts: [],
+          kept: [],
+          waits: [
+            { why: "ran", torrent: planned(holdFast) },
+            { why: "grab-importing", torrent: planned(saltLine) },
+            { why: "resumed", torrent: planned(lowTide) },
+          ],
+        },
+      }).handlers,
+    ],
+  });
+  const notActing = page.getByRole("list", { name: "Goal met, not acting" });
+  await expect
+    .element(rowOf(notActing, "Hold.Fast.2024.1080p.WEB-DL"))
+    .toMatchTextContent("Its goal already acted on it.");
+  await expect
+    .element(rowOf(notActing, "Low.Tide.2023.1080p.WEB-DL"))
+    .toMatchTextContent("You resumed it after its goal was met, so it seeds with no end.");
+  await expect
+    .element(rowOf(waiting(), "Salt.Line.2022.1080p.WEB-DL"))
+    .toMatchTextContent("Its goal waits until its Grab finishes importing.");
+  expect(waiting().getByText("Hold.Fast.2024.1080p.WEB-DL").query()).toBeNull();
 });
 
 test("a Tracker's Goal met tab shows only what the goals would do to its own torrents", async () => {

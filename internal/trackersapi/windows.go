@@ -28,7 +28,7 @@ const windowsPage = 50
 
 type windowsInput struct {
 	ID     string `path:"id" format:"uuid"`
-	State  string `query:"state" enum:"owing,met,missed,released" doc:"Only windows in this state; every state when absent"`
+	List   string `query:"list" enum:"open,history" doc:"open lists the windows that owe. history lists those met, missed or released, a missed one grabbed again included. Every window when absent."`
 	Offset int    `query:"offset" minimum:"0" doc:"How many of the newest to skip"`
 }
 
@@ -71,7 +71,7 @@ func (h handlers) listWindows(ctx context.Context, by identity.Admin, in *window
 	if err != nil {
 		return nil, err
 	}
-	all, err := h.trackers().Windows(ctx, by, id, seeding.State(in.State))
+	all, err := h.trackers().Windows(ctx, by, id, trackers.WindowList(in.List))
 	if err != nil {
 		return nil, trackerAnswer(err)
 	}

@@ -21,7 +21,7 @@ export function RemoveTrackerDialog({
   const queryClient = useQueryClient();
   return (
     <ConfirmDialog
-      title={`Remove ${tracker.name}`}
+      title={`Remove ${tracker.name}?`}
       confirmLabel="Remove"
       look="fail"
       open

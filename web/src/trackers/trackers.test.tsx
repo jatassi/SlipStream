@@ -44,7 +44,7 @@ test("the default goal saves whole, and Forever sends no ratio, time or action",
   await userEvent.click(goalForm().getByRole("radio", { name: "Both" }));
   await userEvent.fill(goalForm().getByRole("textbox", { name: "Ratio" }), "1.5");
   await userEvent.fill(goalForm().getByRole("textbox", { name: "Seeding time" }), "36");
-  await userEvent.click(goalForm().getByRole("radio", { name: "hours" }));
+  await userEvent.click(goalForm().getByRole("radio", { name: "h", exact: true }));
   await userEvent.click(goalForm().getByRole("combobox", { name: "When the goal is met" }));
   await userEvent.click(page.getByRole("option", { name: "Pause" }));
   await userEvent.click(goalForm().getByRole("button", { name: "Save goal" }));
@@ -193,7 +193,7 @@ test("Remove shows what still uses the Tracker and keeps it", async () => {
   renderApp({ path: trackerPage, handlers: server.handlers });
   await userEvent.click(page.getByRole("button", { name: "seedpool actions" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Remove…" }));
-  const dialog = page.getByRole("dialog", { name: "Remove seedpool" });
+  const dialog = page.getByRole("dialog", { name: "Remove seedpool?" });
   await expect.element(dialog.getByText(/also deletes its seeding rule/u)).toBeVisible();
   await userEvent.click(dialog.getByRole("button", { name: "Remove" }));
   await expect.element(dialog.getByRole("alert")).toMatchTextContent(inUse);
@@ -206,7 +206,7 @@ test("Remove of a Tracker nothing uses goes back to Settings > Trackers", async 
   await userEvent.click(page.getByRole("button", { name: "seedpool actions" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Remove…" }));
   await userEvent.click(
-    page.getByRole("dialog", { name: "Remove seedpool" }).getByRole("button", { name: "Remove" }),
+    page.getByRole("dialog", { name: "Remove seedpool?" }).getByRole("button", { name: "Remove" }),
   );
   await expect.poll(() => router.state.location.pathname).toBe("/settings/trackers");
   expect(page.getByRole("link", { name: /^seedpool/u }).query()).toBeNull();

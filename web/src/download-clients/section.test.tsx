@@ -189,6 +189,7 @@ test("New Grabs go to offers the built-in client and each external client that i
   expect(page.getByRole("combobox").elements()).toHaveLength(1);
 
   await userEvent.click(choice);
+  await expect.element(page.getByRole("option", { name: "Transmission" })).toBeVisible();
   expect(
     page
       .getByRole("option")

@@ -288,11 +288,11 @@ func TestTheListCountsATrackersTorrentsAndItsPageSumsThem(t *testing.T) {
 	if !strings.Contains(page, attention) {
 		t.Errorf("getTracker = %s, want %s", page, attention)
 	}
-	_, owing := s.owner.Call(t, http.MethodGet, "/api/v1/trackers/"+seedpool+"/windows?state=owing", "")
+	_, owing := s.owner.Call(t, http.MethodGet, "/api/v1/trackers/"+seedpool+"/windows?list=open", "")
 	if !strings.Contains(owing, `"name":"Orchard","state":"owing","torrents":["`+orchard.String()+`"],"rule":null,`) || !strings.Contains(owing, `"owed":null,"owes":null,"atRisk":"yes","quietSince":`) ||
 		!strings.HasSuffix(owing, `"nextOffset":null}`+"\n") {
-		t.Errorf("listTrackerWindows owing = %s, want Orchard's window alone with its live Torrent, owing with no rule known and at risk", owing)
+		t.Errorf("listTrackerWindows open = %s, want Orchard's window alone with its live Torrent, owing with no rule known and at risk", owing)
 	}
-	s.owner.Expect(t, http.MethodGet, "/api/v1/trackers/"+seedpool+"/windows?state=met", "", http.StatusOK, `{"windows":[],"nextOffset":null}`)
+	s.owner.Expect(t, http.MethodGet, "/api/v1/trackers/"+seedpool+"/windows?list=history", "", http.StatusOK, `{"windows":[],"nextOffset":null}`)
 	s.owner.Expect(t, http.MethodGet, "/api/v1/torrents/goals/preview", "", http.StatusOK, `{"acts":[],"kept":[],"waits":[]}`)
 }

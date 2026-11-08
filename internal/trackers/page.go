@@ -240,10 +240,32 @@ func liveIn(facts []downloadclients.HashFact) []downloadclients.ID {
 	return live
 }
 
-// Windows is Tracker id's windows in state, every state when state is "",
-// newest opened first. Each is judged live, so a torrent removed since
-// the last Seeding goals run reads missed. It fails with ErrNoTracker.
-func (t *Trackers) Windows(ctx context.Context, _ identity.Admin, id indexers.TrackerID, state seeding.State) ([]WindowView, error) {
+// WindowList is one of a Tracker page's lists of windows, or every window
+// when "".
+type WindowList string
+
+const (
+	OpenWindows WindowList = "open"
+	// WindowHistory are the windows met, missed or released. A missed
+	// window grabbed again owes again and stays in it, because its miss
+	// is kept.
+	WindowHistory WindowList = "history"
+)
+
+func (l WindowList) holds(w seeding.Window) bool {
+	switch l {
+	case OpenWindows:
+		return w.State == seeding.Owing
+	case WindowHistory:
+		return w.State != seeding.Owing || !w.ClosedAt.IsZero()
+	}
+	return true
+}
+
+// Windows is Tracker id's windows in list, newest opened first. Each is
+// judged live, so a torrent removed since the last Seeding goals run
+// reads missed. It fails with ErrNoTracker.
+func (t *Trackers) Windows(ctx context.Context, _ identity.Admin, id indexers.TrackerID, list WindowList) ([]WindowView, error) {
 	var out []WindowView
 	err := t.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		if _, err := summaryIn(ctx, r, id); err != nil {
@@ -259,7 +281,7 @@ func (t *Trackers) Windows(ctx context.Context, _ identity.Admin, id indexers.Tr
 		}
 		for h, jh := range j.hashes {
 			v := jh.verdict.View
-			if jh.tracker != id || v.Window == nil || state != "" && v.Window.State != state {
+			if jh.tracker != id || v.Window == nil || !list.holds(*v.Window) {
 				continue
 			}
 			out = append(out, WindowView{InfoHash: h, Name: jh.facts[len(jh.facts)-1].Name, Window: *v.Window, Torrents: liveIn(jh.facts), Owes: v.Owes, Risk: v.Risk})

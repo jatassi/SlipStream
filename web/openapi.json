@@ -53640,17 +53640,15 @@
             }
           },
           {
-            "description": "Only windows in this state; every state when absent",
+            "description": "open lists the windows that owe. history lists those met, missed or released, a missed one grabbed again included. Every window when absent.",
             "explode": false,
             "in": "query",
-            "name": "state",
+            "name": "list",
             "schema": {
-              "description": "Only windows in this state; every state when absent",
+              "description": "open lists the windows that owe. history lists those met, missed or released, a missed one grabbed again included. Every window when absent.",
               "enum": [
-                "owing",
-                "met",
-                "missed",
-                "released"
+                "open",
+                "history"
               ],
               "type": "string"
             }
