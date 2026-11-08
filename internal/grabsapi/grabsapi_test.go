@@ -212,11 +212,12 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Types: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Works: w,
 		Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{}, Timings: indexers.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
 	})
+	router := downloadclients.Router{Roster: roster, Routes: trackers.Routing{Roster: roster}}
 	g := grabs.New(grabs.Config{
-		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Today: time.Now}),
+		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }, Router: router}, Today: time.Now}),
 		Indexers: xs,
 		Terms:    map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Roster: roster, Downloads: roster, Roots: library,
-		Router:    downloadclients.Router{Roster: roster, Routes: trackers.Routing{Roster: roster}},
+		Router:    router,
 		Transfers: transfers.New(transfers.ControllerConfig{Library: lib}),
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, Log: slog.New(slog.DiscardHandler),

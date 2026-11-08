@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
@@ -11,11 +12,19 @@ import (
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
+
+// byRoot routes every Grab to the built-in client of its root's Node.
+type byRoot struct{}
+
+func (byRoot) Route(_ context.Context, _ storage.Reader[storage.Library], a downloadclients.Ask) (downloadclients.Target, error) {
+	return downloadclients.Target{Node: a.Root}, nil
+}
 
 func TestAnUnfinishedGrabOnANodeOutOfStepWaitsOnIt(t *testing.T) {
 	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
@@ -35,11 +44,12 @@ func TestAnUnfinishedGrabOnANodeOutOfStepWaitsOnIt(t *testing.T) {
 		sql(grab, failed, work, item, away, "failed", "fetch_failed", 3, 3),
 		sql(`INSERT INTO grabs_target VALUES (?, 0, ?), (?, 0, ?), (?, 0, ?)`, fetching, hd, waiting, uhd, failed, sd),
 	)
+	rootstest.Root(t, lib, role.NodeID{UUID: home}, contenttypetest.ID, t.TempDir())
 	inStep := func(n role.NodeID) bool { return n.UUID == home }
 	var got map[files.CellKey]files.GrabCell
 	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		got, err = grabs.GrabCells{InStep: inStep}.GrabCells(ctx, r, works.Only([]works.WorkID{{UUID: work}}))
+		got, err = grabs.GrabCells{InStep: inStep, Router: byRoot{}}.GrabCells(ctx, r, works.Only([]works.WorkID{{UUID: work}}))
 		return err
 	})
 	if err != nil {

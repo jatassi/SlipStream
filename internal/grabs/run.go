@@ -474,7 +474,7 @@ func (gr *Grabs) attach(ctx context.Context, tx *storage.Tx[file], g Grab, a adv
 	if err != nil {
 		return downloadclients.ID{}, role.NodeID{}, err
 	}
-	target, err := gr.routeIn(ctx, tx, g)
+	target, err := routeOf(ctx, tx, gr.cfg.Router, g)
 	if err != nil {
 		return downloadclients.ID{}, role.NodeID{}, err
 	}

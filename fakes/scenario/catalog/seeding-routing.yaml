@@ -1,13 +1,15 @@
 # yaml-language-server: $schema=../scenario.schema.json
 description: >-
-  Three Nodes for Tracker routing. The Controller home holds neither
+  Four Nodes for Tracker routing. The Controller home holds neither
   Searching, Downloading nor Storage. The Worker seedbox pairs by Join
   Code and holds Searching and Downloading, so every Indexer searches from
   it. The Worker den pairs by Join Code and holds Storage with the Movies
   root and Downloading, so a Grab that goes by its Work's library root
-  downloads on den. The private site heron lists four releases and Fixture
-  Site lists a public one. A private Tracker's Grab downloads on seedbox,
-  its Indexer's home, and reaches den through a Transfer.
+  downloads on den. The Worker nas pairs by Join Code and holds only
+  Downloading, so a route can send heron's Grabs to a Node that neither
+  searches nor stores. The private site heron lists four releases and
+  Fixture Site lists a public one. A private Tracker's Grab downloads on
+  seedbox, its Indexer's home, and reaches den through a Transfer.
 seed: seeding-routing
 admin:
   email: ada@example.test
@@ -23,6 +25,9 @@ nodes:
   - name: den
     setup: join
     roles: [storage, downloading]
+  - name: nas
+    setup: join
+    roles: [downloading]
 timings:
   node:
     stop_deadline: 5s

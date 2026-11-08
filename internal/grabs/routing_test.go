@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -17,6 +18,8 @@ import (
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/trackers"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 func releaseNamed(t *testing.T, name string) release {
@@ -102,6 +105,71 @@ func TestSendToRefusesAFetchingGrabWhoseClientIsInStep(t *testing.T) {
 		err := p.g.SendTo(t.Context(), identity.Admin{}, id, downloadclients.Choice{BuiltInOn: p.node})
 		if !errors.Is(err, grabs.ErrNotSendable) {
 			t.Fatalf("a send of a Grab whose home is in step answered %v, want ErrNotSendable", err)
+		}
+	})
+}
+
+// waitingByTarget is what cells reads each of p's Work's cells as waiting
+// on, by Target.
+func (p *pipeline) waitingByTarget(cells grabs.GrabCells) map[storage.UUID]string {
+	p.t.Helper()
+	var got map[files.CellKey]files.GrabCell
+	err := p.lib.Read(p.t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		got, err = cells.GrabCells(ctx, r, works.Only([]works.WorkID{p.work}))
+		return err
+	})
+	if err != nil {
+		p.t.Fatal(err)
+	}
+	out := map[storage.UUID]string{}
+	for key, cell := range got {
+		out[key.Target.UUID] = cell.Waiting
+	}
+	return out
+}
+
+// TestAFetchingGrabWaitsOnTheOfflineNodeItsRouteNames keeps home, the
+// Indexer's home Node, in step while seedbox is out of step. A private
+// Tracker's Grab routed from home to seedbox's built-in client, and a
+// public one the Admin sent there, each wait at fetching on seedbox, while
+// a public one that goes by its Work's root waits on nothing.
+func TestAFetchingGrabWaitsOnTheOfflineNodeItsRouteNames(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := newPipeline(t)
+		seedbox := p.addNode("seedbox")
+		p.roster.takeAway(seedbox, p.node)
+		routed := p.trackedGrab(releaseNamed(t, "Private.Release"), indexers.Private)
+		sent := p.trackedGrab(releaseNamed(t, "Sent.Release"), indexers.Public)
+		rooted := p.trackedGrab(releaseNamed(t, "Public.Release"), indexers.Public)
+		goals := map[grabs.GrabID]storage.UUID{routed: storage.NewUUID(), sent: storage.NewUUID(), rooted: storage.NewUUID()}
+		for id, target := range goals {
+			run(t, p.lib,
+				sql(`INSERT INTO targets_target (id, name, created_at) VALUES (?, ?, 0)`, target, target.String()),
+				sql(`INSERT INTO grabs_target VALUES (?, 0, ?)`, id, target),
+			)
+		}
+		run(t, p.lib,
+			sql(`INSERT INTO trackers_route (tracker_id, home_node_id, built_in_on) SELECT tracker_id, ?, ? FROM grabs_grab WHERE id = ?`, p.node, seedbox, routed),
+			sql(`UPDATE grabs_grab SET sent_built_in_on = ? WHERE id = ?`, seedbox, sent),
+		)
+
+		waiting := p.waitingByTarget(grabs.GrabCells{InStep: p.roster.InStep, Router: downloadclients.Router{Roster: p.roster, Routes: trackers.Routing{Roster: p.roster}}})
+		for _, c := range []struct {
+			what string
+			id   grabs.GrabID
+			want string
+		}{
+			{"routed to seedbox", routed, grabs.NodeAway},
+			{"sent to seedbox", sent, grabs.NodeAway},
+			{"going by its root", rooted, ""},
+		} {
+			if w, ok := waiting[goals[c.id]]; !ok || w != c.want {
+				t.Errorf("the Grab %s waits on %q (listed %t), want %q", c.what, w, ok, c.want)
+			}
+			if v := p.view(c.id); (v.WaitsFor != nil) != (c.want != "") || (v.WaitsFor != nil && v.WaitsFor.Node != seedbox) {
+				t.Errorf("the view of the Grab %s waits for %+v, want seedbox's built-in client only while its cell waits", c.what, v.WaitsFor)
+			}
 		}
 	})
 }
