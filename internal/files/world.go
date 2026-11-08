@@ -270,11 +270,11 @@ func appendCells(out []Cell, w world) []Cell {
 	return out
 }
 
-// final reports whether f is at or past t's cutoff. A file whose quality t
-// doesn't rank is not.
+// final reports whether f is final at t. A file whose quality t doesn't
+// rank is not.
 func final(t targets.Target, f File) bool {
 	r, ok := t.RankOf(f.Quality)
-	return ok && t.Final(r)
+	return ok && t.Final(r, 0)
 }
 
 // filling is the set of files fills holds.

@@ -94,7 +94,7 @@ func checkBest(t *testing.T, w world, fills map[CellKey]ID) {
 // whether any does.
 func bestRank(w world, item works.ItemID, target targets.Target) (best targets.Rank, met bool) {
 	for _, f := range w.files {
-		if v := targets.Judge(target, f.Facts(), nil); f.ItemID == item && v.Meets() {
+		if v := targets.Judge(target, targets.Scored{Facts: f.Facts()}, nil); f.ItemID == item && v.Meets() {
 			r, _ := v.Rank()
 			if !met || r < best {
 				best, met = r, true

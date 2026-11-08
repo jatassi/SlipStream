@@ -234,11 +234,11 @@ func judged(open []files.Cell, c candidate) (ranked, []Reason) {
 		if !cell.Edition.Takes(c.Facts.Cut) {
 			continue
 		}
-		var held *release.Facts
+		var held *targets.Held
 		if cell.File != nil {
-			held = new(cell.File.Facts())
+			held = &targets.Held{Facts: cell.File.Facts()}
 		}
-		v := targets.Judge(cell.Target, c.Facts, held)
+		v := targets.Judge(cell.Target, targets.Scored{Facts: c.Facts}, held)
 		var said []Reason
 		for _, reason := range v.Reasons() {
 			said = append(said, Reason{Reason: reason, Target: cell.Target.ID})

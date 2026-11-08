@@ -51,19 +51,19 @@ func judgeEveryMove(tg targets.Target) judged {
 	for _, tier := range s.Tiers {
 		out.Tiers = append(out.Tiers, names(tier))
 	}
-	helds := []*release.Facts{nil}
+	helds := []*targets.Held{nil}
 	for _, q := range release.Qualities() {
-		helds = append(helds, &release.Facts{Quality: release.Known(q)})
+		helds = append(helds, &targets.Held{Facts: release.Facts{Quality: release.Known(q)}})
 	}
 	for _, held := range helds {
 		var from *string
 		if held != nil {
-			q, _ := held.Quality.Get()
+			q, _ := held.Facts.Quality.Get()
 			key := q.String()
 			from = &key
 		}
 		for _, to := range release.Qualities() {
-			v := targets.Judge(tg, release.Facts{Quality: release.Known(to)}, held)
+			v := targets.Judge(tg, targets.Scored{Facts: release.Facts{Quality: release.Known(to)}}, held)
 			reasons := []string{}
 			for _, r := range v.Reasons() {
 				if r.Code != targets.SizeNotChecked {
