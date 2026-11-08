@@ -81,8 +81,8 @@ func (s *shelved) add(t *testing.T, key, label, body string, things ...string) w
 func (s *shelved) addRecord(t *testing.T, key string, r contenttypetest.Record, body string) works.Tree {
 	t.Helper()
 	s.fx.Put(works.Key(key), r)
-	if !strings.Contains(body, `"monitor"`) {
-		body += `,"monitor":false`
+	if !strings.Contains(body, `"preset"`) {
+		body += `,"preset":"none"`
 	}
 	code, reply := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"`+key+`"`+body+`}`)
 	if code != http.StatusOK {
@@ -180,12 +180,12 @@ func TestEachLibraryRowRollsUpItsCellsAndFiles(t *testing.T) {
 			Artwork: []works.Art{{Kind: "photo", Ref: photo}},
 		},
 		WorkFields: []works.FieldValue{works.TextField("origin", "Los Angeles"), works.TextsField("tags", []string{"Crime", "Drama"})},
-	}, `,"monitor":true`)
+	}, `,"preset":"all"`)
 	s.place(t, heat, "Heat/Heat - HD.mkv", release.Bluray1080p, 1000, s.hd.ID)
 	s.place(t, heat, "Heat/Heat - 2160p.mkv", release.WEBDL2160p, 3000, s.uhd.ID)
 	s.place(t, heat, "Heat/Heat - HD (extra 1).mkv", release.WEBDL1080p, 500)
 
-	one := `,"monitor":true,"profileId":"` + s.one.ID.String() + `"`
+	one := `,"preset":"all","profileId":"` + s.one.ID.String() + `"`
 	s.add(t, "arrival", "Arrival", one, "Arrival")
 	brazil := s.add(t, "brazil", "Brazil", one, "Brazil")
 	s.grab(brazil.Items[0], s.hd.ID, files.GrabCell{State: files.GrabDownloading})
@@ -223,7 +223,6 @@ func TestEachLibraryRowRollsUpItsCellsAndFiles(t *testing.T) {
 		{"Contact", "failed", "all", 1, 1, "2000-01-01"},
 		{"Dune", "unreleased", "all", 0, 0, "2026-12"},
 		{"Eraser", "upgradable", "all", 0, 1, "2000-01-01"},
-		{"Fargo", "failed", "none", 0, 0, "2000-01-01"},
 	} {
 		r := got[i]
 		if r.Label != c.label || *r.Status != c.status || !reflect.DeepEqual(r.Cells, map[string]int{c.status: 1}) || r.Monitored != c.monitored ||
@@ -232,6 +231,14 @@ func TestEachLibraryRowRollsUpItsCellsAndFiles(t *testing.T) {
 			t.Fatalf("row %d is %+v, want %s %s, %s monitored, %d failed, %d Needs you, available %s, from One, in the root, with no poster, rating or values",
 				i, r, c.label, c.status, c.monitored, c.failed, c.needsYou, c.available)
 		}
+	}
+
+	unmonitored := row{
+		ID: fargo.ID.String(), Label: "Fargo", Monitored: "none", ProfileID: s.one.ID.String(), RootID: root,
+		Rating: json.RawMessage("null"), AvailableOn: str("2000-01-01"), Cells: map[string]int{}, ItemStatus: map[string]int{}, Values: json.RawMessage("{}"),
+	}
+	if !reflect.DeepEqual(got[5], unmonitored) {
+		t.Fatalf("Fargo's row is\n%+v\nwant\n%+v: an unmonitored Work counts nothing, so it reads no status, though its download failed", got[5], unmonitored)
 	}
 
 	named := s.rows(t, "?workIds="+heat.ID.String()+","+contact.ID.String()+","+storage.NewUUID().String())
@@ -247,7 +254,7 @@ func TestEachLibraryRowRollsUpItsCellsAndFiles(t *testing.T) {
 
 func TestNeedsYouIsOneEntryPerItemAndEditionInRankOrder(t *testing.T) {
 	s := stock(t, true)
-	w := s.add(t, "mixed", "Mixed", `,"monitor":true`, "a", "b", "c", "d", "e", "f", "g")
+	w := s.add(t, "mixed", "Mixed", `,"preset":"all"`, "a", "b", "c", "d", "e", "f", "g")
 	a, b, c, d, e, f, g := w.Items[0], w.Items[1], w.Items[2], w.Items[3], w.Items[4], w.Items[5], w.Items[6]
 	failedA := s.grab(a, s.hd.ID, files.GrabCell{State: files.GrabFailed})
 	for _, it := range []works.Item{b, c, e} {
@@ -278,7 +285,7 @@ func TestNeedsYouIsOneEntryPerItemAndEditionInRankOrder(t *testing.T) {
 	}
 
 	rootless := stock(t, false)
-	lost := rootless.add(t, "lost", "Lost", `,"monitor":true`, "a")
+	lost := rootless.add(t, "lost", "Lost", `,"preset":"all"`, "a")
 	if got := rootless.needsYou(t, lost); got != `[{"kind":"no_root"}]` {
 		t.Fatalf("a rootless monitored Work's Needs you is %s, want no_root", got)
 	}
@@ -305,7 +312,7 @@ func (s *shelved) needsYou(t *testing.T, w works.Tree) string {
 
 func TestListWorkFilesListsFillingFilesInProfileOrderThenKeptOnes(t *testing.T) {
 	s := stock(t, true)
-	heat := s.add(t, "heat", "Heat", `,"monitor":true`, "Heat")
+	heat := s.add(t, "heat", "Heat", `,"preset":"all"`, "Heat")
 	uhd := s.place(t, heat, "Heat/Heat - 2160p.mkv", release.WEBDL2160p, 3000, s.uhd.ID)
 	kept := s.place(t, heat, "Heat/Heat - HD (extra 1).mkv", release.WEBDL1080p, 500)
 	hd := s.place(t, heat, "Heat/Heat - HD.mkv", release.Bluray1080p, 1000, s.hd.ID)
@@ -346,7 +353,7 @@ func TestGetWorkAnswersItsProfileAndRoot(t *testing.T) {
 
 	rootless := stock(t, false)
 	lost := rootless.add(t, "lost", "Lost", "", "Lost")
-	if code, body := rootless.call(t, http.MethodGet, "/api/v1/works/"+lost.ID.String(), ""); code != http.StatusOK || !strings.HasSuffix(body, `"root":null}`+"\n") {
+	if code, body := rootless.call(t, http.MethodGet, "/api/v1/works/"+lost.ID.String(), ""); code != http.StatusOK || !strings.Contains(body, `"root":null,`) {
 		t.Fatalf("getWork of a rootless Work = %d %s, want root null", code, body)
 	}
 }

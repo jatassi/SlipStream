@@ -63,10 +63,11 @@ var Description = works.Description{
 		{Key: "country", Label: "Country", Tier: works.TierWork, Kind: works.KindText, In: []works.Place{works.PlaceFacts, works.PlaceAbout}},
 		{Key: "released", Label: "Released", Tier: works.TierLevel(1), Kind: works.KindDate, In: []works.Place{works.PlaceFacts}},
 		{Key: "kind", Label: "Kind", Tier: works.TierLevel(1), Kind: works.KindText, In: []works.Place{works.PlaceFacts}},
+		{Key: "track", Label: "Track", Tier: works.TierItem, Kind: works.KindNumber, In: []works.Place{works.PlaceCode}},
 		{Key: "disc", Label: "Disc", Tier: works.TierItem, Kind: works.KindNumber, In: []works.Place{works.PlaceDetails}},
 		{Key: "length", Label: "Length", Tier: works.TierItem, Kind: works.KindDuration, In: []works.Place{works.PlaceFacts}},
 	},
-	Artwork: []artwork.Kind{coverKind},
+	Artwork: []artwork.Kind{coverKind, albumCoverKind},
 }
 
 // Source is the provider half: it reads MusicBrainz on any Metadata
@@ -116,7 +117,9 @@ type trackDetail struct {
 	LengthMs *int64    `json:"lengthMs"`
 }
 
-func (s *Source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (works.Fetched, error) {
+// Fetch reads an artist the one way MusicBrainz lists it, so it takes no
+// options.
+func (s *Source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key, _ []byte) (works.Fetched, error) {
 	artist, err := s.mb.Artist(ctx, ask, string(key))
 	if err != nil {
 		return works.Fetched{}, err
@@ -151,10 +154,11 @@ func (s *Source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (wo
 			}
 		}
 		f.Children = append(f.Children, level)
+		f.Artwork = append(f.Artwork, works.Art{Level: level.Key, Kind: albumCoverKind.Key, Ref: artwork.Ref{Source: CoverArtID, Shape: artwork.ShapeCover, Path: string(level.Key)}})
 		d.Albums = append(d.Albums, ad)
 	}
 	if len(f.Children) > 0 {
-		f.Artwork = []works.Art{{Kind: coverKind.Key, Ref: artwork.Ref{Source: CoverArtID, Shape: artwork.ShapeCover, Path: string(f.Children[0].Key)}}}
+		f.Artwork = append(f.Artwork, works.Art{Kind: coverKind.Key, Ref: artwork.Ref{Source: CoverArtID, Shape: artwork.ShapeCover, Path: string(f.Children[0].Key)}})
 	}
 	if f.Detail, err = json.Marshal(d); err != nil {
 		return works.Fetched{}, fmt.Errorf("encode artist %s: %w", key, err)
@@ -241,7 +245,7 @@ func (*Music) Fields(ctx context.Context, r storage.Reader[file], w works.WorkID
 		fs.Levels[a.LevelID] = values
 	}
 	for _, t := range tracks {
-		values := []works.FieldValue{works.NumberField("disc", float64(t.Disc))}
+		values := []works.FieldValue{works.NumberField("track", float64(t.Number)), works.NumberField("disc", float64(t.Disc))}
 		if t.LengthMs != nil {
 			values = append(values, works.DurationField("length", time.Duration(*t.LengthMs)*time.Millisecond))
 		}
@@ -325,6 +329,28 @@ func (*Music) Timings(ctx context.Context, r storage.Reader[file], ws works.Amon
 // it.
 func (*Source) Changes(context.Context, metadata.Ask, time.Time, time.Time, int) (metadata.ChangesPage, error) {
 	return metadata.ChangesPage{}, metadata.ErrNoChanges
+}
+
+// OptionFields answers none: an artist has no per-Work options.
+func (*Music) OptionFields(context.Context, storage.Reader[file], works.WorkID) ([]setting.Field, error) {
+	return nil, nil
+}
+
+// FetchOptions answers the default: an artist is fetched one way.
+func (*Music) FetchOptions(context.Context, storage.Reader[file], works.WorkID) ([]byte, error) {
+	return nil, nil
+}
+
+func (*Music) PatchOptions(_ context.Context, _ storage.Reader[file], _ works.WorkID, p setting.Patch) ([]byte, error) {
+	if len(p) > 0 {
+		return nil, &setting.UnknownKeyError{Key: slices.Min(slices.Collect(maps.Keys(p)))}
+	}
+	return nil, nil
+}
+
+// KeysOf maps none: an artist is known by its MusicBrainz id alone.
+func (*Music) KeysOf(context.Context, storage.Reader[file], []works.Key) ([]works.Key, error) {
+	return nil, nil
 }
 
 // Growing answers none.

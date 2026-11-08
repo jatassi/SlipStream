@@ -20,7 +20,7 @@ on:
         type: string
         required: true
       timings:
-        description: The cache key of the test timings to split by
+        description: The artifact that holds the test timings to split by; empty splits by count
         type: string
       filter:
         description: Run only the tests that match, as go test -run and playwright --grep
@@ -31,7 +31,11 @@ on:
         default: "1"
     secrets:
       TMDB_API_KEY:
+      TVDB_API_KEY:
       OMDB_API_KEY:
+
+permissions:
+  contents: read
 
 defaults:
   run:
@@ -41,6 +45,9 @@ jobs:
   build:
     name: Build release binaries (${{ matrix.target }})
     timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: write
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.build) }}
@@ -83,17 +90,18 @@ jobs:
       # Only a tag build carries SlipStream's metadata keys, and only into
       # cmd/slipstream; its e2e jobs still reach nothing but fakes. Until the
       # repository has the secrets, a release is keyless and status says so;
-      # with one of the two, the build refuses.
+      # with some but not all three, the build refuses.
       - name: Build the release binaries, fakeworld and the release tool
         run: |
           args=()
-          if [ "$TAG" = true ] && [ -n "$SLIPSTREAM_TMDB_KEY$SLIPSTREAM_OMDB_KEY" ]; then args+=(-bundle-keys); fi
+          if [ "$TAG" = true ] && [ -n "$SLIPSTREAM_TMDB_KEY$SLIPSTREAM_TVDB_KEY$SLIPSTREAM_OMDB_KEY" ]; then args+=(-bundle-keys); fi
           go run ./cmd/release build "${args[@]}"
           eval "$(go run ./cmd/release deps env)"
           go build -o dist/ ./cmd/fakeworld ./cmd/release
         env:
           TAG: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
           SLIPSTREAM_TMDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.TMDB_API_KEY || '' }}
+          SLIPSTREAM_TVDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.TVDB_API_KEY || '' }}
           SLIPSTREAM_OMDB_KEY: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.OMDB_API_KEY || '' }}
       # The build test checks that the binary embeds web/dist/index.html.
       - name: Upload dist/ for the test jobs
@@ -167,6 +175,11 @@ jobs:
             ${{ runner.temp }}/go-build
             ${{ runner.temp }}/go-mod
           key: ${{ steps.go.outputs.cache-key }}
+      - name: Delete this target's older Go caches
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: ./.github/actions/prune-cache
+        with:
+          prefix: go-${{ matrix.target }}-
 
   e2e:
     name: End-to-end Go tests (${{ matrix.target }}${{ matrix.shards > 1 && format(', shard {0} of {1}', matrix.shard, matrix.shards) || '' }})
@@ -205,14 +218,12 @@ jobs:
       # An artifact does not keep the executable bit.
       - name: Restore the executable bits on dist/
         run: chmod +x dist/*
-      - name: Restore the Go test timings
+      - name: Download the test timings the plan job restored
         if: inputs.timings != ''
-        uses: actions/cache/restore@v6
+        uses: actions/download-artifact@v8
         with:
+          name: ${{ inputs.timings }}
           path: .timings
-          key: ${{ inputs.timings }}
-          enableCrossOsArchive: true
-          fail-on-cache-miss: true
       # The tier's Nodes bind 127.0.0.2 and up, which macOS answers only
       # once aliased. The second run must change nothing.
       - name: Alias loopback addresses for the Nodes
@@ -305,14 +316,12 @@ jobs:
       - name: Alias loopback addresses for the Nodes
         if: matrix.goos == 'darwin'
         run: sudo dist/fakeworld setup-loopback
-      - name: Restore the test timings
+      - name: Download the test timings the plan job restored
         if: inputs.timings != ''
-        uses: actions/cache/restore@v6
+        uses: actions/download-artifact@v8
         with:
+          name: ${{ inputs.timings }}
           path: .timings
-          key: ${{ inputs.timings }}
-          enableCrossOsArchive: true
-          fail-on-cache-miss: true
       # The browsers' system libraries are not in the cache, so Linux
       # installs them on every run.
       - name: Install the Playwright browsers and their system libraries

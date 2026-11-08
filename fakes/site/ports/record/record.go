@@ -85,8 +85,12 @@ func parseLive(args []string, reg port.Catalog) (liveConfig, error) {
 			return c, fmt.Errorf("read the search: %w", err)
 		}
 		s := &ports.Search{Mode: q.Get("mode"), Text: q.Get("q"), Episode: q.Get("ep"), IDs: map[string]string{}}
-		if s.Season, err = strconv.Atoi(q.Get("season")); q.Has("season") && err != nil {
-			return c, fmt.Errorf("season %q isn't a number", q.Get("season"))
+		if q.Has("season") {
+			n, err := strconv.Atoi(q.Get("season"))
+			if err != nil {
+				return c, fmt.Errorf("season %q isn't a number", q.Get("season"))
+			}
+			s.Season = &n
 		}
 		for k := range q {
 			if !slices.Contains([]string{"mode", "q", "season", "ep"}, k) {

@@ -17,6 +17,7 @@ import {
   type ListKind,
   type SharedField,
   type SortKey,
+  availabilityOf,
   fieldKey,
   monitoredWords,
   noRoot,
@@ -186,7 +187,14 @@ const fieldSorts: {
 
 /** The sorts a Library offers: the core ones, then each field its types mark sortable. */
 export function sortsFor(types: readonly WorksContentType[]): readonly SortDef[] {
-  const core = Object.values(coreSorts).filter((sort) => sort.key !== "rating" || rated(types));
+  const available = availabilityOf(types);
+  const core = Object.values(coreSorts)
+    .filter((sort) => sort.key !== "rating" || rated(types))
+    .map((sort) =>
+      sort.key === "available" && available !== undefined
+        ? Object.assign({}, sort, { label: available })
+        : sort,
+    );
   const fields = sharedFields(types, "sort").map((field): SortDef =>
     Object.assign({ key: fieldKey(field.key), label: field.label }, fieldSorts[field.kind](field)),
   );

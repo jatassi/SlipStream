@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -128,7 +129,8 @@ func TestTheSiteAnswersAsATorznabIndexerDoes(t *testing.T) {
 			{api + "&t=search&q=orchard&offset=1&limit=1", feed(item(origin, listing[1]))},
 			{api + "&t=search&q=orchard&cat=5000", feed()},
 			{api + "&t=search&q=orchard&cat=5000,2040&offset=2", feed(item(origin, listing[2]))},
-			{api + "&t=tvsearch&q=orchard", errorDoc("202", "No such function")},
+			{api + "&t=tvsearch&q=orchard", feed()},
+			{api + "&t=music&q=orchard", errorDoc("202", "No such function")},
 			{site.TorznabPath + "/api?apikey=" + site.PlayKey(910) + "&t=caps", errorDoc("910", "API Disabled")},
 			{site.TorznabPath + "/api?apikey=" + site.PlayKey(500) + "&t=search", errorDoc("500", "Request limit reached")},
 			{site.TorznabPath + "/api?apikey=" + site.PlayKey(429) + "&t=search", "429 Too Many Requests Too Many Requests\n"},
@@ -146,6 +148,62 @@ func TestTheSiteAnswersAsATorznabIndexerDoes(t *testing.T) {
 	t.Run("in memory", func(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) { check(t, faketest.InMemory(t, spec(listing), s)) })
 	})
+}
+
+// episodes are releases of TVDB series 1001: S01E03, a mislabeled title
+// listed as S01E03, the season 1 pack, a special, and S01E03 of series
+// 1002.
+var episodes = []site.Release{
+	{Name: "Lantern.Keepers.S01E03.1080p", Size: 10, InfoHash: strings.Repeat("1", 40), TVDB: &scenario.ReleaseEpisode{Series: 1001, Season: 1, Episode: 3}},
+	{Name: "Lantern.Keepers.S01E02.720p", Size: 10, InfoHash: strings.Repeat("2", 40), TVDB: &scenario.ReleaseEpisode{Series: 1001, Season: 1, Episode: 3}},
+	{Name: "Lantern.Keepers.S01.1080p", Size: 10, InfoHash: strings.Repeat("3", 40), TVDB: &scenario.ReleaseEpisode{Series: 1001, Season: 1}},
+	{Name: "Lantern.Keepers.S00E01.1080p", Size: 10, InfoHash: strings.Repeat("4", 40), TVDB: &scenario.ReleaseEpisode{Series: 1001, Season: 0, Episode: 1}},
+	{Name: "Harbor.Nights.S01E03.1080p", Size: 10, InfoHash: strings.Repeat("5", 40), TVDB: &scenario.ReleaseEpisode{Series: 1002, Season: 1, Episode: 3}},
+}
+
+func episodeItem(origin string, r site.Release) string {
+	link := origin + "/download/" + r.InfoHash + ".torrent"
+	return `    <item>
+      <title>` + r.Name + `</title>
+      <guid>` + link + `</guid>
+      <size>` + itoa(r.Size) + `</size>
+      <link>` + link + `</link>
+      <enclosure url="` + link + `" length="` + itoa(r.Size) + `" type="application/x-bittorrent" />
+      <torznab:attr name="seeders" value="0" />
+      <torznab:attr name="infohash" value="` + r.InfoHash + `" />
+      <torznab:attr name="tvdbid" value="` + itoa(r.TVDB.Series) + `" />
+    </item>
+`
+}
+
+func TestTheSiteAnswersATVSearchBySeriesSeasonAndEpisode(t *testing.T) {
+	s := scenarioWithSeed()
+	f := faketest.Loopback(t, spec(append(slices.Clone(listing), episodes...)), s)
+	origin := site.Origin(f.Address, site.Torznab)
+	api := site.TorznabPath + "/api?apikey=" + site.APIKey(s)
+	at := func(i ...int) []string {
+		var out []string
+		for _, n := range i {
+			out = append(out, episodeItem(origin, episodes[n]))
+		}
+		return out
+	}
+	for _, e := range []struct{ path, want string }{
+		{api + "&t=tvsearch&tvdbid=1001&season=1&ep=3", feed(at(0, 1, 2)...)},
+		{api + "&t=tvsearch&tvdbid=1001&season=1&ep=2", feed(at(2)...)},
+		{api + "&t=tvsearch&tvdbid=1001&season=0&ep=1", feed(at(3)...)},
+		{api + "&t=tvsearch&tvdbid=1002&season=1&ep=3&cat=5000", feed(at(4)...)},
+		{api + "&t=tvsearch&tvdbid=1001&season=1&ep=3&cat=2000", feed()},
+		{api + "&t=search&q=keepers+s01e03", feed(at(0)...)},
+		{api + "&t=movie&q=keepers", feed()},
+	} {
+		if got := get(t, f, e.path); got != e.want {
+			t.Errorf("GET %s =\n%s\nwant\n%s", e.path, got, e.want)
+		}
+	}
+	if caps := get(t, f, api+"&t=caps"); !strings.Contains(caps, `<tv-search available="yes" supportedParams="q,season,ep,tvdbid" />`) || !strings.Contains(caps, `<category id="5000" name="TV" />`) {
+		t.Fatalf("caps =\n%s\nwant a tv-search by q, season, ep and tvdbid in category 5000", caps)
+	}
 }
 
 func TestTheAPIKeyFollowsTheSeed(t *testing.T) {

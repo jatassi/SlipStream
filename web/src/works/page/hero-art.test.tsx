@@ -1,7 +1,8 @@
+import { http } from "msw";
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import { artworkHandlers, artworkUrl } from "../../test/ambient/fixtures";
+import { artwork, artworkHandlers, artworkResponse, artworkUrl } from "../../test/ambient/fixtures";
 import { renderKit } from "../../test/render-kit";
 import { worker } from "../../test/worker";
 import { TitleHeading } from "./hero-art";
@@ -18,6 +19,26 @@ test("the title treatment is the heading's image, and the label its accessible n
   expect(image?.getAttribute("alt")).toBe("");
   expect(image?.getAttribute("src")).toBe(`${treatment}?size=medium`);
   expect(image?.naturalWidth).toBeGreaterThan(0);
+});
+
+test("the title treatment keeps its height while it loads, so the actions under it stay put", async () => {
+  let release: (() => void) | undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  worker.use(
+    http.get("/artwork/held.png", async () => {
+      await held;
+      return artworkResponse(artwork.white);
+    }),
+  );
+  renderKit(<TitleHeading label="The Quiet Orchard" treatment="/artwork/held.png" />);
+  const heading = page.getByRole("heading", { name: "The Quiet Orchard", level: 1 });
+  await expect.element(heading).toBeInTheDocument();
+  const loading = heading.element().getBoundingClientRect().height;
+  release?.();
+  await expect.poll(() => heading.element().querySelector("img")?.naturalWidth).toBeGreaterThan(0);
+  expect(heading.element().getBoundingClientRect().height).toBe(loading);
 });
 
 test("a Work without a title treatment shows its label as text", async () => {

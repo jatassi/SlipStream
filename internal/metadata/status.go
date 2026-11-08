@@ -24,6 +24,9 @@ const (
 	StateUnused State = iota + 1
 	StateWorking
 	StateKeyRefused
+	// StatePinRefused is a login the provider refused for the PIN beside
+	// the Admin's key.
+	StatePinRefused
 	// StateRateLimited until Until.
 	StateRateLimited
 	// StateOutOfAllowance is a daily allowance spent, until Until.
@@ -38,6 +41,7 @@ var states = map[OutcomeKind]State{
 	Limited:     StateRateLimited,
 	Capped:      StateOutOfAllowance,
 	Unreachable: StateUnreachable,
+	PinRefused:  StatePinRefused,
 }
 
 // ProviderStatus is how a provider stands, built only from the outcomes of
@@ -51,7 +55,11 @@ type ProviderStatus struct {
 	Key     KeyInUse
 	// KeySetAt is when the Admin set the key in use, zero unless it is
 	// theirs.
-	KeySetAt    time.Time
+	KeySetAt time.Time
+	// TakesPin is whether Set key offers a PIN beside the key, and PinSet
+	// whether the Admin's key carries one.
+	TakesPin    bool
+	PinSet      bool
 	KeyPage     string
 	Attribution *Attribution
 	State       State
@@ -153,7 +161,8 @@ func (m *Metadata) Test(ctx context.Context, _ identity.Admin, p ProviderID) (Pr
 }
 
 func (m *Metadata) test(p ProviderID) *metadatav1.TestRequest {
-	return &metadatav1.TestRequest{Ask: askToWire(Ask{keys: m.inEffect(), fresh: true, generation: m.cacheGeneration()}), Provider: string(p)}
+	keys, pins := m.inEffect()
+	return &metadatav1.TestRequest{Ask: askToWire(Ask{keys: keys, pins: pins, fresh: true, generation: m.cacheGeneration()}), Provider: string(p)}
 }
 
 // Run retests each provider a holder couldn't reach, on that holder, a
@@ -311,7 +320,8 @@ func (m *Metadata) label(p ProviderID) (string, bool) {
 // view is s as the API reads it; m.mu is held.
 func (m *Metadata) view(s *status) ProviderStatus {
 	v := ProviderStatus{
-		Provider: s.p.ID, Label: s.p.Label, Key: m.keyInUse(s.p.ID), KeySetAt: m.yours[s.p.ID].setAt, KeyPage: s.p.KeyPage, Attribution: s.p.Attribution,
+		Provider: s.p.ID, Label: s.p.Label, Key: m.keyInUse(s.p.ID), KeySetAt: m.yours[s.p.ID].setAt, TakesPin: s.p.Auth != nil && s.p.Auth.Pin,
+		PinSet: m.yours[s.p.ID].pin != "", KeyPage: s.p.KeyPage, Attribution: s.p.Attribution,
 		State: s.state, Until: s.until,
 		LastSuccess: s.lastSuccess, LastError: s.lastError, LastErrorAt: s.lastErrorAt, Nodes: []NodeReach{},
 	}
@@ -349,6 +359,8 @@ func summary(s ProviderStatus) string {
 		case KeyYours:
 			return l + " refused your key. Check it and save it again, or remove it."
 		}
+	case StatePinRefused:
+		return l + " refused your PIN. Check it and save it again with your key, or remove your key."
 	case StateRateLimited:
 		return l + " is rate limiting SlipStream. SlipStream retries automatically when the limit ends."
 	case StateOutOfAllowance:

@@ -223,19 +223,41 @@ func outcomeOf(a searching.Answer, st Status, home role.NodeID) Outcome {
 }
 
 // query is the query for terms under caps: terms' mode with every id
-// parameter caps list for it, else a free-text search. It chooses by
-// declared capability, so it never retries.
+// parameter caps list for it, and its season and episode where caps list
+// season and ep, else a free-text search that names the episode, such as
+// "The Lantern Keepers S01E03". It chooses by declared capability, so it
+// never retries.
 func query(c Caps, terms Terms) searching.Query {
+	params := c.Modes[terms.Mode]
 	ids := map[string]string{}
-	for _, p := range c.Modes[terms.Mode] {
+	for _, p := range params {
 		if id, ok := terms.IDs[p]; ok {
 			ids[p] = id
 		}
 	}
 	if len(ids) == 0 {
-		return searching.Query{Mode: "search", Text: terms.Query}
+		return searching.Query{Mode: "search", Text: terms.Query + episodeWords(terms)}
 	}
-	return searching.Query{Mode: terms.Mode, IDs: ids}
+	q := searching.Query{Mode: terms.Mode, IDs: ids}
+	if slices.Contains(params, "season") {
+		q.Season = terms.Season
+	}
+	if slices.Contains(params, "ep") {
+		q.Episode = terms.Episode
+	}
+	return q
+}
+
+// episodeWords is the season and episode a free-text search appends, such
+// as " S01E03" or " S01", empty when terms name no season.
+func episodeWords(terms Terms) string {
+	if terms.Season == nil {
+		return ""
+	}
+	if terms.Episode == "" {
+		return fmt.Sprintf(" S%02d", *terms.Season)
+	}
+	return fmt.Sprintf(" S%02dE%02s", *terms.Season, terms.Episode)
 }
 
 // CategoriesOf is ids as Newznab category ids.

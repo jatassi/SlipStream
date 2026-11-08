@@ -142,6 +142,7 @@ func Routes(r *api.Router, lib Library) {
 		Path:    "/works/{workId}/cells",
 		Summary: "Get each of a Work's cells with its state and the file filling it, and each Item's status",
 		Status:  http.StatusOK,
+		Gzip:    true,
 		Errors:  []*api.Code{workNotFound},
 	}, h.getWorkCells)
 

@@ -50,6 +50,9 @@ jobs:
     name: Plan CI lanes
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write
     outputs:
       planned: ${{ steps.plan.outputs.planned }}
       target: ${{ steps.plan.outputs.target }}
@@ -61,7 +64,7 @@ jobs:
       package: ${{ steps.plan.outputs.package }}
       online: ${{ steps.scope.outputs.online }}
       link: ${{ steps.scope.outputs.link }}
-      timings: ${{ steps.timings.outputs.cache-matched-key }}
+      timings: ${{ steps.timings.outputs.cache-matched-key && 'split-timings' || '' }}
       image: ${{ steps.tag.outputs.image }}
       image-tags: ${{ steps.tag.outputs.image-tags }}
       version: ${{ steps.tag.outputs.version }}
@@ -101,17 +104,26 @@ jobs:
           DIAGRAM: ${{ steps.scope.outputs.diagram }}
           TARGETS: ${{ inputs.targets }}
           TIER: ${{ inputs.tier || 'all' }}
-      # Every go, e2e and browser shard splits its tier by the same timings, so each
-      # restores the one entry this finds rather than the newest it sees.
-      - name: Find the test timings to split by
+      # Every go, e2e and browser shard splits its tier by the same timings,
+      # so each downloads the set this restores. The artifact lasts the whole
+      # run, and the cache entry can be evicted before a shard starts.
+      - name: Restore the test timings to split by
         id: timings
         uses: actions/cache/restore@v6
         with:
           path: .timings
           key: go-timings-${{ github.sha }}
           restore-keys: go-timings-
-          lookup-only: true
           enableCrossOsArchive: true
+      - name: Upload the test timings for the shards
+        if: steps.timings.outputs.cache-matched-key != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: split-timings
+          path: .timings
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
       - name: Check that shipped migrations are unchanged
         if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: go run ./cmd/release migrations-frozen -base "$BASE"
@@ -130,6 +142,11 @@ jobs:
             ${{ runner.temp }}/go-build
             ${{ runner.temp }}/go-mod
           key: ${{ steps.go.outputs.cache-key }}
+      - name: Delete the plan job's older Go caches
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: ./.github/actions/prune-cache
+        with:
+          prefix: go-plan-
 
   # GitHub starts a job only when every matrix leg of each job it needs has
   # ended, so each target's build and the lanes on its dist/ share one call and
@@ -138,6 +155,9 @@ jobs:
     name: ${{ matrix.target }}
     needs: plan
     if: fromJSON(needs.plan.outputs.planned)['target']
+    permissions:
+      contents: read
+      actions: write
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.target) }}
@@ -152,6 +172,7 @@ jobs:
       repeat: ${{ inputs.repeat || '1' }}
     secrets:
       TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+      TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
       OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
 
   # Lint runs on every target so gofmt, line endings and the cgo type check
@@ -161,6 +182,9 @@ jobs:
     needs: plan
     if: fromJSON(needs.plan.outputs.planned)['lint']
     timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: write
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.lint) }}
@@ -197,6 +221,11 @@ jobs:
         with:
           path: ${{ runner.temp }}/golangci-lint
           key: ${{ steps.lint-cache.outputs.cache-primary-key }}
+      - name: Delete the older golangci-lint caches
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: ./.github/actions/prune-cache
+        with:
+          prefix: lint-${{ matrix.target }}-
 
   lint-repo:
     name: Lint repo-wide checks
@@ -271,14 +300,12 @@ jobs:
         with:
           path: ${{ runner.temp }}/slipstream-native
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
-      - name: Restore the Go test timings
+      - name: Download the test timings the plan job restored
         if: needs.plan.outputs.timings != ''
-        uses: actions/cache/restore@v6
+        uses: actions/download-artifact@v8
         with:
+          name: ${{ needs.plan.outputs.timings }}
           path: .timings
-          key: ${{ needs.plan.outputs.timings }}
-          enableCrossOsArchive: true
-          fail-on-cache-miss: true
       # Windows runners keep TEMP on C:, which is far slower than D:, and the
       # tests' temp dirs live under TEMP.
       - name: Point TEMP at the fast drive
@@ -475,13 +502,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
 
-  # The conformance suites against the real TMDB, OMDb, TMDB's image host
-  # and MusicBrainz (spec #135, Online runs): nightly, by hand, on a release
+  # The conformance suites against the real TMDB, TVDB, OMDb, TMDB's image
+  # host and MusicBrainz (spec #135, Online runs): nightly, by hand, on a release
   # tag, and on pull requests whose scope touches a fake, client or suite
   # the job checks. It is not a required check. A fork's pull request gets
   # no secrets, so it never runs the job. A run without the TMDB key fails
-  # rather than skips; the OMDb suite skips until the OMDB_API_KEY secret
-  # exists.
+  # rather than skips; the OMDb and TVDB suites skip without their key.
   online:
     name: Online conformance suites
     needs: plan
@@ -503,6 +529,7 @@ jobs:
         run: go run ./cmd/release test -tier online ${{ inputs.update-shapes && '-update' || '' }}
         env:
           TEST_ONLINE_TMDB_KEY: ${{ secrets.TMDB_API_KEY }}
+          TEST_ONLINE_TVDB_KEY: ${{ secrets.TVDB_API_KEY }}
           TEST_ONLINE_OMDB_KEY: ${{ secrets.OMDB_API_KEY }}
       - name: Upload the updated shape.json files
         if: inputs.update-shapes
@@ -513,9 +540,12 @@ jobs:
 
   # The required check: every lane the plan runs passes, and every lane it
   # leaves out is skipped.
+  # A skipped required check counts as passed, so the gate skips when every
+  # lane ended as planned and takes a runner only to fail and say which
+  # lane didn't. Waiting for a runner held each passing run back minutes.
   gate:
     name: All required checks passed
-    if: always()
+    if: ${{ always() && (needs.plan.result != 'success' || needs.target.result != (fromJSON(needs.plan.outputs.planned)['target'] && 'success' || 'skipped') || needs.lint.result != (fromJSON(needs.plan.outputs.planned)['lint'] && 'success' || 'skipped') || needs.lint-repo.result != (fromJSON(needs.plan.outputs.planned)['lint-repo'] && 'success' || 'skipped') || needs.go.result != (fromJSON(needs.plan.outputs.planned)['go'] && 'success' || 'skipped') || needs.component.result != (fromJSON(needs.plan.outputs.planned)['component'] && 'success' || 'skipped') || needs.diagram.result != (fromJSON(needs.plan.outputs.planned)['diagram'] && 'success' || 'skipped')) }}
     needs: [plan, target, lint, lint-repo, go, component, diagram]
     runs-on: ubuntu-24.04
     timeout-minutes: 5

@@ -259,7 +259,7 @@ func TestMonitoringReArmsTheTimer(t *testing.T) {
 		l.run(t, storagetest.Local(t, metadata.LocalSchema()))
 
 		until(2, 12, 0)
-		if err := l.works.SetMonitored(t.Context(), identity.Admin{}, ids(item(t, shelf, "c1")), true); err != nil {
+		if _, err := l.works.SetMonitored(t.Context(), identity.Admin{}, shelf.ID, works.Within{Items: ids(item(t, shelf, "c1"))}, true); err != nil {
 			t.Fatal(err)
 		}
 		synctest.Wait()
@@ -295,7 +295,7 @@ func TestTheHookGetsOnlyMonitoredItems(t *testing.T) {
 		l := openLibrary(t)
 		watched := l.shelf(t, "s1", true, map[works.Key]works.Date{"c1": jan(2), "c2": jan(2)})
 		l.shelf(t, "s2", false, map[works.Key]works.Date{"c1": jan(2)})
-		if err := l.works.SetMonitored(t.Context(), identity.Admin{}, ids(item(t, watched, "c2")), false); err != nil {
+		if _, err := l.works.SetMonitored(t.Context(), identity.Admin{}, watched.ID, works.Within{Items: ids(item(t, watched, "c2"))}, false); err != nil {
 			t.Fatal(err)
 		}
 		l.run(t, storagetest.Local(t, metadata.LocalSchema()))
@@ -303,6 +303,23 @@ func TestTheHookGetsOnlyMonitoredItems(t *testing.T) {
 		until(2, 0, 0)
 		l.hook.want(t, ids(item(t, watched, "c1")))
 		l.changed.want(t, watched)
+	})
+}
+
+func TestTheHookSkipsWithdrawnItems(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		l := openLibrary(t)
+		shelf := l.shelf(t, "s1", true, map[works.Key]works.Date{"c1": jan(2), "c2": jan(2)})
+		l.fx.Put("s1", contenttypetest.Record{Tree: works.Fetched{Label: "Shelf s1", Children: []works.Entry{
+			{Key: "b1", Label: "Box", Children: []works.Entry{{Key: "c1", Label: "Thing c1"}}},
+		}}})
+		if _, err := l.works.Refresh(t.Context(), identity.Admin{}, shelf.ID); err != nil {
+			t.Fatal(err)
+		}
+		l.run(t, storagetest.Local(t, metadata.LocalSchema()))
+
+		until(2, 0, 0)
+		l.hook.want(t, ids(item(t, shelf, "c1")))
 	})
 }
 

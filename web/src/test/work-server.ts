@@ -26,10 +26,11 @@ import {
   getGetWorkMockHandler,
   getListContentTypesMockHandler,
 } from "../api/gen/query/works/works.msw";
+import { anthologies } from "./anthology";
 import { grabId, imported, indexerId } from "./grabs";
 import type { LiveMap } from "./handlers";
-import { cinema, orchard, orchardId, orchardItemId } from "./library";
 // oxlint-disable-next-line import/max-dependencies -- the Work page reads every section's queries, the Nodes', Targets' and roots' included
+import { cinema, orchard, orchardId, orchardItemId } from "./library";
 import { home, nodesAre, seedbox } from "./nodes";
 import { profileHandlers, ultra } from "./profiles";
 import { filmsRoot, mediaVolumes } from "./roots";
@@ -163,9 +164,9 @@ export const fromUltra: TargetsWants = {
   from: "profile",
 };
 
-const fixedHandlers = () => [
-  getListContentTypesMockHandler({ contentTypes: [cinema] }),
-  getGetWorkMockHandler(orchardOnUltra),
+const fixedHandlers = (work: WorksWorkView) => [
+  getListContentTypesMockHandler({ contentTypes: [cinema, anthologies] }),
+  getGetWorkMockHandler(work),
   getGetWorkWantsMockHandler(fromUltra),
   ...profileHandlers(),
   ...targetHandlers(),
@@ -186,14 +187,18 @@ function liveStream() {
   return { handler, send };
 }
 
-export function workServer() {
-  let cells = missing;
+/** The Work page's reads, of The Quiet Orchard on Ultra unless work names another Work and its cells. */
+export function workServer({
+  work = orchardOnUltra,
+  startCells = missing,
+}: { work?: WorksWorkView; startCells?: FilesCellList } = {}) {
+  let cells = startCells;
   let searches: GrabsSearchList = { searches: [] };
   let grabs: GrabsGrab[] = [otherWork];
   const searched: string[] = [];
   const { handler, send } = liveStream();
   const handlers = [
-    ...fixedHandlers(),
+    ...fixedHandlers(work),
     getGetWorkCellsMockHandler(() => cells),
     getListWorkFilesMockHandler(() => filesOf(cells)),
     getListSearchesMockHandler(() => searches),

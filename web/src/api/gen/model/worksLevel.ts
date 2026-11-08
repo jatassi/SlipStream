@@ -1,6 +1,11 @@
+import type { WorksArt } from "./worksArt.ts";
 import type { WorksFieldValue } from "./worksFieldValue.ts";
 
 export interface WorksLevel {
+  /** By kind */
+  artwork: WorksArt[];
+  /** An outermost level outside the Work's main run, such as Specials */
+  aside: boolean;
   /** @minimum 1 */
   depth: number;
   fields: WorksFieldValue[];

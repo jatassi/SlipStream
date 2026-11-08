@@ -112,7 +112,8 @@ func TestAPageCarriesTheQueryExtendedAndItsWindow(t *testing.T) {
 		want string
 	}{
 		{"ids", torznab.Query{Mode: "tvsearch", IDs: map[string]string{"tvdbid": "501", "imdbid": "tt0000501"}}, "apikey=k&extended=1&imdbid=tt0000501&limit=100&offset=200&t=tvsearch&tvdbid=501"},
-		{"text, an episode and categories", torznab.Query{Mode: "tvsearch", Text: "Lantern Coast", Season: 2, Episode: "5", Categories: []int{5000, 5040}}, "apikey=k&cat=5000%2C5040&ep=5&extended=1&limit=100&offset=200&q=Lantern+Coast&season=2&t=tvsearch"},
+		{"a special", torznab.Query{Mode: "tvsearch", IDs: map[string]string{"tvdbid": "501"}, Season: new(0), Episode: "1"}, "apikey=k&ep=1&extended=1&limit=100&offset=200&season=0&t=tvsearch&tvdbid=501"},
+		{"text, an episode and categories", torznab.Query{Mode: "tvsearch", Text: "Lantern Coast", Season: new(2), Episode: "5", Categories: []int{5000, 5040}}, "apikey=k&cat=5000%2C5040&ep=5&extended=1&limit=100&offset=200&q=Lantern+Coast&season=2&t=tvsearch"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			u := torznab.API(base, "k", tc.q.Page(200, 100))

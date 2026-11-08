@@ -48,6 +48,16 @@ sql:
               type: Key
           - column: works_item.monitored
             go_type: bool
+          - column: works_item.aside
+            go_type: bool
+          - column: works_level.aside
+            go_type: bool
+          - column: works_work.monitor_new
+            go_type: bool
+          - column: works_work.monitor_asides
+            go_type: bool
+          - column: works_work.level_folders
+            go_type: bool
           - column: works_rating.work_id
             go_type:
               type: WorkID
@@ -57,6 +67,9 @@ sql:
           - column: works_artwork.work_id
             go_type:
               type: WorkID
+          - column: works_artwork.level_id
+            go_type:
+              type: LevelID
           - column: works_artwork.item_id
             go_type:
               type: ItemID
@@ -69,5 +82,11 @@ sql:
           - column: works_add_default.content_type
             go_type:
               type: TypeID
-          - column: works_add_default.monitor
-            go_type: bool
+          - column: works_add_default.asides
+            go_type:
+              type: bool
+              pointer: true
+          - column: works_add_default.level_folders
+            go_type:
+              type: bool
+              pointer: true

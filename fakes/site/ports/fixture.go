@@ -126,7 +126,7 @@ type Search struct {
 	Mode    string            `yaml:"mode"`
 	IDs     map[string]string `yaml:"ids,omitempty"`
 	Text    string            `yaml:"text,omitempty"`
-	Season  int               `yaml:"season,omitempty"`
+	Season  *int              `yaml:"season,omitempty"`
 	Episode string            `yaml:"episode,omitempty"`
 }
 

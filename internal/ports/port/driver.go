@@ -248,7 +248,7 @@ func (t *typed[S]) criteria(e Entry, q searching.Query, cats []int) (generator[S
 	case "movie":
 		params, gen = c.MovieSearchParams, t.impl.Movie
 	}
-	crit := SearchCriteria{Season: q.Season, Episode: q.Episode, Categories: categories(cats), Limit: e.PageSize}
+	crit := SearchCriteria{Season: seasonOf(q.Season), Episode: q.Episode, Categories: categories(cats), Limit: e.PageSize}
 	if slices.Contains(params, Q) {
 		crit.SearchTerm = q.Text
 	}
@@ -671,4 +671,13 @@ func capabilitiesOf(c Capabilities) searching.Capabilities {
 		}
 	}
 	return out
+}
+
+// seasonOf reads no season as 0, as the C# reads a null Season wherever
+// a port compares it.
+func seasonOf(season *int) int {
+	if season == nil {
+		return 0
+	}
+	return *season
 }

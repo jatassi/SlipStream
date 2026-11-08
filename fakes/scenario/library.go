@@ -26,12 +26,13 @@ type Library struct {
 	Works *LibraryWorks `yaml:"works,omitempty"`
 }
 
-// LibraryWorks adds a Work for every movie fake-tmdb serves, listed and
-// generated, through POST /api/v1/works as an Admin would, monitored when
-// Monitor is set.
+// LibraryWorks adds a Work for every record of its Content Type the fakes
+// serve, listed and generated, through POST /api/v1/works as an Admin
+// would, monitored as Preset says, or as the type's add default when it
+// is empty.
 type LibraryWorks struct {
-	ContentType string `jsonschema:"required,enum=movie" yaml:"content_type"`
-	Monitor     bool   `yaml:"monitor,omitempty"`
+	ContentType string `jsonschema:"required,enum=movie,enum=series" yaml:"content_type"`
+	Preset      string `jsonschema:"enum=all,enum=future,enum=missing,enum=existing,enum=first,enum=latest,enum=none" yaml:"preset,omitempty"`
 }
 
 // LibraryRoot is a root of a Content Type, the folder named Folder under

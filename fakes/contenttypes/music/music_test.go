@@ -156,7 +156,11 @@ func lanternsRevision(second bool) works.Fetched {
 	return works.Fetched{
 		Label:     "The Lanterns",
 		SortLabel: "Lanterns, The",
-		Artwork:   []works.Art{{Kind: "cover", Ref: artwork.Ref{Source: music.CoverArtID, Shape: artwork.ShapeCover, Path: "b1000000-0000-4000-8000-000000000001"}}},
+		Artwork: []works.Art{
+			{Level: "b1000000-0000-4000-8000-000000000001", Kind: "cover", Ref: artwork.Ref{Source: music.CoverArtID, Shape: artwork.ShapeCover, Path: "b1000000-0000-4000-8000-000000000001"}},
+			{Level: "b1000000-0000-4000-8000-000000000002", Kind: "cover", Ref: artwork.Ref{Source: music.CoverArtID, Shape: artwork.ShapeCover, Path: "b1000000-0000-4000-8000-000000000002"}},
+			{Kind: "cover", Ref: artwork.Ref{Source: music.CoverArtID, Shape: artwork.ShapeCover, Path: "b1000000-0000-4000-8000-000000000001"}},
+		},
 		Children: []works.Entry{
 			{Key: "b1000000-0000-4000-8000-000000000001", Label: "Harbor Lights", Children: []works.Entry{
 				{Key: "b1000000-0000-4000-8000-000000000001/d1000000-0000-4000-8000-000000000001", Label: "Tidewater"},
@@ -179,7 +183,7 @@ func TestFetchServesEachRevisionInTurn(t *testing.T) {
 	inEachTier(t, func(t *testing.T, f faketest.Served) {
 		m := open(f)
 		for i, want := range []works.Fetched{lanternsRevision(false), lanternsRevision(true), lanternsRevision(true)} {
-			got, err := m.Fetch(t.Context(), metadata.Ask{}, lanterns)
+			got, err := m.Fetch(t.Context(), metadata.Ask{}, lanterns, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -221,13 +225,13 @@ func TestFaultsMapOntoTheSourceErrors(t *testing.T) {
 			{missing, "GET /artist/a1000000-0000-4000-8000-000000000003: MusicBrainz: has no such record", works.ErrNotFound},
 			{unknownArt, "GET /artist/ffffffff-0000-4000-8000-000000000000: MusicBrainz: has no such record", works.ErrNotFound},
 		} {
-			_, err := m.Fetch(t.Context(), metadata.Ask{}, c.key)
+			_, err := m.Fetch(t.Context(), metadata.Ask{}, c.key, nil)
 			if err == nil || err.Error() != c.want || !errors.Is(err, c.is) {
 				t.Errorf("Fetch(%s) = %v, want %s wrapping %v", c.key, err, c.want, c.is)
 			}
 		}
 		for _, key := range []works.Key{marrowBay, missing} {
-			got, err := m.Fetch(t.Context(), metadata.Ask{}, key)
+			got, err := m.Fetch(t.Context(), metadata.Ask{}, key, nil)
 			if err != nil || got.Label == "" {
 				t.Errorf("Fetch(%s) once its fault is spent = %+v, %v", key, got, err)
 			}
@@ -242,7 +246,7 @@ func TestASlowSourceGivesUpAtTheFetchTiming(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), fetch)
 		defer cancel()
 		start := time.Now()
-		_, err := m.Fetch(ctx, metadata.Ask{}, slow)
+		_, err := m.Fetch(ctx, metadata.Ask{}, slow, nil)
 		if took := time.Since(start); err == nil || took != fetch {
 			t.Fatalf("Fetch(slow) = %v after %s, want it to give up at %s", err, took, fetch)
 		}
@@ -251,7 +255,7 @@ func TestASlowSourceGivesUpAtTheFetchTiming(t *testing.T) {
 
 func TestFetchPagesReleaseGroupsAndNumbersTracksAcrossDiscs(t *testing.T) {
 	inEachTier(t, func(t *testing.T, f faketest.Served) {
-		got, err := open(f).Fetch(t.Context(), metadata.Ask{}, prolific)
+		got, err := open(f).Fetch(t.Context(), metadata.Ask{}, prolific, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -272,7 +276,7 @@ func TestAnAlbumDatedOffTheCalendarHasNoReleaseDate(t *testing.T) {
 		ID: "b6000000-0000-4000-8000-000000000001", Release: "c6000000-0000-4000-8000-000000000001", Title: "Thirteenth", Kind: "Album", FirstRelease: "2001-13",
 		Tracks: []scenario.MusicTrack{{Recording: "d6000000-0000-4000-8000-000000000001", Title: "Only", Disc: 1}},
 	}}}}})
-	got, err := open(faketest.Loopback(t, musicmeta.Fake, s)).Fetch(t.Context(), metadata.Ask{}, calendar)
+	got, err := open(faketest.Loopback(t, musicmeta.Fake, s)).Fetch(t.Context(), metadata.Ask{}, calendar, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,8 +302,8 @@ func TestStoreThenFields(t *testing.T) {
 	}
 	level := func(key works.Key) works.LevelID { return at.Levels[key] }
 	item := func(key works.Key) works.ItemID { return at.Items[key] }
-	track := func(ms int) []works.FieldValue {
-		return []works.FieldValue{works.NumberField("disc", 1), works.DurationField("length", time.Duration(ms)*time.Millisecond)}
+	track := func(number float64, ms int) []works.FieldValue {
+		return []works.FieldValue{works.NumberField("track", number), works.NumberField("disc", 1), works.DurationField("length", time.Duration(ms)*time.Millisecond)}
 	}
 	want := works.FieldSet{
 		Work: []works.FieldValue{works.TextField("country", "GB")},
@@ -308,11 +312,11 @@ func TestStoreThenFields(t *testing.T) {
 			level("b1000000-0000-4000-8000-000000000002"): {works.TextField("kind", "EP"), works.DateField("released", works.Date{Year: 2003})},
 		},
 		Items: map[works.ItemID][]works.FieldValue{
-			item("b1000000-0000-4000-8000-000000000001/d1000000-0000-4000-8000-000000000001"): track(205000),
-			item("b1000000-0000-4000-8000-000000000001/d1000000-0000-4000-8000-000000000002"): track(242000),
-			item("b1000000-0000-4000-8000-000000000001/d1000000-0000-4000-8000-000000000003"): track(178000),
-			item("b1000000-0000-4000-8000-000000000002/d1000000-0000-4000-8000-000000000004"): track(190000),
-			item("b1000000-0000-4000-8000-000000000002/d1000000-0000-4000-8000-000000000005"): track(224000),
+			item("b1000000-0000-4000-8000-000000000001/d1000000-0000-4000-8000-000000000001"): track(1, 205000),
+			item("b1000000-0000-4000-8000-000000000001/d1000000-0000-4000-8000-000000000002"): track(2, 242000),
+			item("b1000000-0000-4000-8000-000000000001/d1000000-0000-4000-8000-000000000003"): track(3, 178000),
+			item("b1000000-0000-4000-8000-000000000002/d1000000-0000-4000-8000-000000000004"): track(1, 190000),
+			item("b1000000-0000-4000-8000-000000000002/d1000000-0000-4000-8000-000000000005"): track(2, 224000),
 		},
 	}
 	fields := func(when string) {
@@ -331,7 +335,7 @@ func TestStoreThenFields(t *testing.T) {
 	}
 	fields("after the add")
 
-	again, err := open(faketest.Loopback(t, musicmeta.Fake, catalog(t))).Fetch(t.Context(), metadata.Ask{}, lanterns)
+	again, err := open(faketest.Loopback(t, musicmeta.Fake, catalog(t))).Fetch(t.Context(), metadata.Ask{}, lanterns, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

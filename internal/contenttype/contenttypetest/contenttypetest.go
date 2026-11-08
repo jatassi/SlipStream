@@ -36,6 +36,7 @@ var Description = works.Description{
 	Source: "Fixture source",
 	Work:   works.Noun{One: "Shelf", Many: "Shelves"},
 	Levels: []works.Noun{{One: "Box", Many: "Boxes"}},
+	Aside:  works.Noun{One: "Spare box", Many: "Spare boxes"},
 	Item:   works.Noun{One: "Thing", Many: "Things"},
 	Items:  works.ItemsMany,
 	Fields: []works.FieldSpec{
@@ -46,10 +47,12 @@ var Description = works.Description{
 		{Key: "tags", Label: "Tags", Tier: works.TierWork, Kind: works.KindTexts, In: []works.Place{works.PlaceAbout}, List: works.ListColumn | works.ListFilter},
 		{Key: "makers", Label: "Makers", Tier: works.TierWork, Kind: works.KindPeople, In: []works.Place{works.PlaceCredits}},
 		{Key: "page", Label: "Page", Tier: works.TierWork, Kind: works.KindLink, In: []works.Place{works.PlaceDetails}},
+		{Key: "code", Label: "Code", Tier: works.TierItem, Kind: works.KindText, In: []works.Place{works.PlaceCode}},
 	},
 	Artwork: []artwork.Kind{
 		{Key: "photo", Label: "Photo", Shape: artwork.ShapePoster, Prefetch: artwork.SizeMedium},
-		{Key: "snap", Label: "Snap", Item: true, Shape: artwork.ShapeBackdrop},
+		{Key: "label", Label: "Label", Tier: works.TierLevel(1), Shape: artwork.ShapePoster},
+		{Key: "snap", Label: "Snap", Tier: works.TierItem, Shape: artwork.ShapeBackdrop},
 	},
 	Art:     works.ArtRoles{Poster: "photo"},
 	Ratings: []works.RatingSource{"tmdb", "imdb"},
@@ -60,12 +63,45 @@ type Endpoints struct {
 }
 
 type Record struct {
-	Tree        works.Fetched
+	Tree works.Fetched
+	// Stacked is the record in OrderStack, nil when its source lists it in
+	// OrderShelf only.
+	Stacked     *works.Fetched
 	WorkFields  []works.FieldValue
 	LevelFields map[works.Key][]works.FieldValue
 	ItemFields  map[works.Key][]works.FieldValue
 	// Titles are the Work's titles beyond its label, which Titles answers.
 	Titles []string
+	// Order is the order a Fetch answered the record in; Fetch sets it.
+	Order Order
+}
+
+// Order is the Fixture's one per-Work option: which of a record's trees a
+// Fetch answers.
+type Order string
+
+const (
+	// OrderShelf answers Record.Tree, and is every Work's default.
+	OrderShelf Order = "shelf"
+	// OrderStack answers Record.Stacked.
+	OrderStack Order = "stack"
+)
+
+var orderChoice = setting.Choice[Order]{Key: "order", Label: "Order", Default: OrderShelf, Options: []setting.Option[Order]{
+	{Value: OrderShelf, Label: "Shelf order"}, {Value: OrderStack, Label: "Stack order"},
+}}
+
+type options struct {
+	Order Order `json:"order"`
+}
+
+// box is a stored level: the order of the tree that placed it, and its
+// label. Level keys differ between a record's orders, so a Work's live
+// levels name the order it was last stored in, and a Write that rolls back
+// leaves no trace.
+type box struct {
+	order Order
+	label string
 }
 
 // Fixture is the library half, and each provider half it opens reads its
@@ -89,6 +125,9 @@ type Fixture struct {
 	changed   []works.Key
 	changeErr error
 	growing   map[works.WorkID]bool
+	aliases   map[works.Key]works.Key
+	boxes     map[works.LevelID]box
+	stacked   map[works.WorkID]bool
 }
 
 // Released is the date every Item is released on until SetTiming says
@@ -108,6 +147,8 @@ type Call struct {
 	Ask   metadata.Ask
 	Query string
 	Key   works.Key
+	// Options are a Fetch's.
+	Options []byte
 	// Since and Page are a Changes call's.
 	Since time.Time
 	Page  int
@@ -127,6 +168,9 @@ func New() *Fixture {
 		titles:  map[works.WorkID][]string{},
 		timings: map[works.ItemID]targets.Timing{},
 		growing: map[works.WorkID]bool{},
+		aliases: map[works.Key]works.Key{},
+		boxes:   map[works.LevelID]box{},
+		stacked: map[works.WorkID]bool{},
 	}
 }
 
@@ -269,11 +313,21 @@ func (s *source) Search(_ context.Context, ask metadata.Ask, query string) ([]wo
 	return out, nil
 }
 
-func (s *source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (works.Fetched, error) {
+// Fetch answers the record's tree in the order options name, OrderShelf
+// when they name none.
+func (s *source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key, opts []byte) (works.Fetched, error) {
+	order := OrderShelf
+	if opts != nil {
+		var o options
+		if err := json.Unmarshal(opts, &o); err != nil {
+			return works.Fetched{}, fmt.Errorf("decode the options of %s: %w", key, err)
+		}
+		order = o.Order
+	}
 	f := s.f
 	f.mu.Lock()
 	f.fetches[key]++
-	f.calls = append(f.calls, Call{Open: s.open, Ask: ask, Key: key})
+	f.calls = append(f.calls, Call{Open: s.open, Ask: ask, Key: key, Options: opts})
 	h := f.hold
 	f.mu.Unlock()
 	if h != nil {
@@ -293,11 +347,18 @@ func (s *source) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (wo
 	if !ok {
 		return works.Fetched{}, works.ErrNotFound
 	}
+	fetched := r.Tree
+	if order == OrderStack {
+		if r.Stacked == nil {
+			return works.Fetched{}, works.ErrOrderUnavailable
+		}
+		fetched = *r.Stacked
+	}
+	r.Order = order
 	detail, err := json.Marshal(r)
 	if err != nil {
 		return works.Fetched{}, fmt.Errorf("encode the record of %s: %w", key, err)
 	}
-	fetched := r.Tree
 	fetched.Detail = detail
 	return fetched, nil
 }
@@ -374,12 +435,16 @@ func (f *Fixture) Store(_ context.Context, _ *storage.Tx[storage.Library], at wo
 	if !ok {
 		fs = works.FieldSet{Levels: map[works.LevelID][]works.FieldValue{}, Items: map[works.ItemID][]works.FieldValue{}}
 	}
-	changed := !ok || !reflect.DeepEqual(fs.Work, r.WorkFields) || !slices.Equal(f.titles[at.Work], r.Titles)
+	changed := !ok || !reflect.DeepEqual(fs.Work, r.WorkFields) || !slices.Equal(f.titles[at.Work], r.Titles) || f.stacked[at.Work] != (r.Stacked != nil)
 	fs.Work = r.WorkFields
 	f.titles[at.Work] = r.Titles
+	f.stacked[at.Work] = r.Stacked != nil
+	labels := labelsOf(r.tree(r.Order).Children, map[works.Key]string{})
 	for key, id := range at.Levels {
-		changed = changed || !reflect.DeepEqual(fs.Levels[id], r.LevelFields[key])
+		b := box{order: r.Order, label: labels[key]}
+		changed = changed || !reflect.DeepEqual(fs.Levels[id], r.LevelFields[key]) || f.boxes[id] != b
 		fs.Levels[id] = r.LevelFields[key]
+		f.boxes[id] = b
 	}
 	for key, id := range at.Items {
 		changed = changed || !reflect.DeepEqual(fs.Items[id], r.ItemFields[key])
@@ -389,11 +454,68 @@ func (f *Fixture) Store(_ context.Context, _ *storage.Tx[storage.Library], at wo
 	return changed, nil
 }
 
-func (f *Fixture) Fields(_ context.Context, _ storage.Reader[storage.Library], w works.WorkID) (works.FieldSet, error) {
+// tree is the record's tree in order o.
+func (r Record) tree(o Order) works.Fetched {
+	if o == OrderStack {
+		return *r.Stacked
+	}
+	return r.Tree
+}
+
+// labelsOf adds the label of every level in es to into.
+func labelsOf(es []works.Entry, into map[works.Key]string) map[works.Key]string {
+	for _, e := range es {
+		if len(e.Children) > 0 {
+			into[e.Key] = e.Label
+			labelsOf(e.Children, into)
+		}
+	}
+	return into
+}
+
+// orderIn is the order Work w's live levels were placed in, in r:
+// OrderShelf for a Work with none.
+func (f *Fixture) orderIn(ctx context.Context, r storage.Reader[storage.Library], w works.WorkID) (Order, error) {
+	levels, err := works.LevelsOf(ctx, r, w)
+	if err != nil {
+		return "", fmt.Errorf("contenttypetest: levels of work %s: %w", w, err)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, l := range levels {
+		if l.WithdrawnAt.IsZero() {
+			return f.boxes[l.ID].order, nil
+		}
+	}
+	return OrderShelf, nil
+}
+
+// Fields answers the stored fields of each of w's nodes r holds, leaving
+// out the nodes of a Write that rolled back.
+func (f *Fixture) Fields(ctx context.Context, r storage.Reader[storage.Library], w works.WorkID) (works.FieldSet, error) {
+	levels, err := works.LevelsOf(ctx, r, w)
+	if err != nil {
+		return works.FieldSet{}, fmt.Errorf("contenttypetest: levels of work %s: %w", w, err)
+	}
+	items, err := works.ItemsOf(ctx, r, works.Only([]works.WorkID{w}))
+	if err != nil {
+		return works.FieldSet{}, fmt.Errorf("contenttypetest: items of work %s: %w", w, err)
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	fs := f.stored[w]
-	return works.FieldSet{Work: fs.Work, Levels: maps.Clone(fs.Levels), Items: maps.Clone(fs.Items)}, nil
+	out := works.FieldSet{Work: fs.Work, Levels: map[works.LevelID][]works.FieldValue{}, Items: map[works.ItemID][]works.FieldValue{}}
+	for _, l := range levels {
+		if v, ok := fs.Levels[l.ID]; ok {
+			out.Levels[l.ID] = v
+		}
+	}
+	for _, it := range items[w] {
+		if v, ok := fs.Items[it.ID]; ok {
+			out.Items[it.ID] = v
+		}
+	}
+	return out, nil
 }
 
 // ListFields answers each Work's stored Work-tier fields that Description
@@ -417,6 +539,94 @@ func (f *Fixture) Titles(_ context.Context, _ storage.Reader[storage.Library], w
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return slices.Clone(f.titles[w]), nil
+}
+
+// OptionFields answers w's order, offering OrderStack only when its source
+// lists w that way.
+func (f *Fixture) OptionFields(ctx context.Context, r storage.Reader[storage.Library], w works.WorkID) ([]setting.Field, error) {
+	order, err := f.orderIn(ctx, r, w)
+	if err != nil {
+		return nil, err
+	}
+	f.mu.Lock()
+	stacked := f.stacked[w]
+	f.mu.Unlock()
+	c := orderChoice
+	if !stacked {
+		c.Options = c.Options[:1]
+	}
+	var override *Order
+	if order != OrderShelf {
+		override = &order
+	}
+	return []setting.Field{c.Field(override)}, nil
+}
+
+// FetchOptions answers w's order, nil for OrderShelf.
+func (f *Fixture) FetchOptions(ctx context.Context, r storage.Reader[storage.Library], w works.WorkID) ([]byte, error) {
+	order, err := f.orderIn(ctx, r, w)
+	if err != nil {
+		return nil, err
+	}
+	return encodeOrder(order)
+}
+
+// PatchOptions answers the options p's order makes of w's: ErrOrderUnavailable
+// for OrderStack when w's source lists it in OrderShelf only.
+func (f *Fixture) PatchOptions(ctx context.Context, r storage.Reader[storage.Library], w works.WorkID, p setting.Patch) ([]byte, error) {
+	order, err := f.orderIn(ctx, r, w)
+	if err != nil {
+		return nil, err
+	}
+	f.mu.Lock()
+	stacked := f.stacked[w]
+	f.mu.Unlock()
+	for key, raw := range p {
+		if key != orderChoice.Key {
+			return nil, &setting.UnknownKeyError{Key: key}
+		}
+		v, err := orderChoice.ParseJSON(raw)
+		if err != nil {
+			return nil, err
+		}
+		order = orderChoice.Value(v.Override())
+	}
+	if order == OrderStack && !stacked {
+		return nil, works.ErrOrderUnavailable
+	}
+	return encodeOrder(order)
+}
+
+func encodeOrder(o Order) ([]byte, error) {
+	if o == OrderShelf || o == "" {
+		return nil, nil
+	}
+	b, err := json.Marshal(options{Order: o})
+	if err != nil {
+		return nil, fmt.Errorf("contenttypetest: encode order %s: %w", o, err)
+	}
+	return b, nil
+}
+
+// Alias has KeysOf map other to the Shelf keyed key, as a series' TMDB
+// id maps to its TVDB key.
+func (f *Fixture) Alias(other, key works.Key) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.aliases[other] = key
+}
+
+// KeysOf maps each key Alias named to its Shelf's key, and others to none.
+func (f *Fixture) KeysOf(_ context.Context, _ storage.Reader[storage.Library], keys []works.Key) ([]works.Key, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []works.Key
+	for _, k := range keys {
+		if key, ok := f.aliases[k]; ok {
+			out = append(out, key)
+		}
+	}
+	return out, nil
 }
 
 // Links answers none: a Shelf links nowhere.
@@ -454,17 +664,21 @@ func (f *Fixture) ApplySettings(_ context.Context, _ *storage.Tx[storage.Library
 }
 
 // NamingTokens names an Item's files after its Work's label, as Shelf,
-// and its own, as Thing.
-func (*Fixture) NamingTokens(ctx context.Context, r storage.Reader[storage.Library], item works.ItemID) (map[string]string, error) {
+// its level's, as Box, and its own, as Thing.
+func (f *Fixture) NamingTokens(ctx context.Context, r storage.Reader[storage.Library], item works.ItemID) (map[string]string, error) {
 	work, it, err := works.ItemOf(ctx, r, item)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]string{"Shelf": work.Label, "Thing": it.Label}, nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return map[string]string{"Shelf": work.Label, "Box": f.boxes[it.LevelID].label, "Thing": it.Label}, nil
 }
 
+// DefaultTemplates put a file in a folder per box, and one in a spare box
+// in Spare boxes.
 func (*Fixture) DefaultTemplates() naming.Templates {
-	return naming.Templates{Folder: "{Shelf}", File: "{Shelf} - {Thing} - {Edition Tag} {Target}"}
+	return naming.Templates{Folder: "{Shelf}", Levels: []string{"{Box}"}, Aside: "Spare boxes", File: "{Shelf} - {Thing} - {Edition Tag} {Target}"}
 }
 
 // SearchTerms answers indexers' empty answer: the Fixture can't be

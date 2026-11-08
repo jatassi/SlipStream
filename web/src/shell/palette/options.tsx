@@ -1,15 +1,22 @@
 import { Add01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 
-import type { Bare, WorksContentType, WorksFieldSpec, WorksLibraryRow } from "../../api/gen/model";
+import type {
+  Bare,
+  WorksCandidate,
+  WorksContentType,
+  WorksFieldSpec,
+  WorksLibraryRow,
+} from "../../api/gen/model";
 import { statusMarks } from "../../library/status";
 import type { PaletteGroup, PaletteOption } from "../../ui/command-palette";
 import { Poster } from "../../ui/poster";
 import { factTexts } from "../../works/page/facts";
+import { unlistedLine } from "../../works/add/candidates";
 import { openAddSheet } from "../../works/add/sheet-state";
 import { addLabel, fieldText } from "../../works/fields";
 import type { CommandContext } from "../commands";
-import { contentTypeIcons } from "../icons";
 // oxlint-disable-next-line import/max-dependencies -- an option leads with a poster and opens a Work, the add sheet or the add page
+import { contentTypeIcons } from "../icons";
 import { closePalette } from "../palette-state";
 import type { CatalogResults } from "./provider";
 
@@ -64,43 +71,64 @@ export function workOptions(
   });
 }
 
-export function addGroup(
-  { type, query, candidates }: CatalogResults,
+function candidateOption(
+  type: WorksContentType,
+  candidate: WorksCandidate,
   { navigate }: CommandContext,
-): PaletteGroup {
-  const options: PaletteOption[] = candidates.map((candidate) => {
-    const { workId } = candidate;
-    const meta = [
-      ...factTexts(type, candidate.fields).slice(0, 1),
-      ...(workId === null ? [] : ["In the library"]),
-    ];
+  seeAll: () => void,
+): PaletteOption {
+  const { workId } = candidate;
+  const facts = factTexts(type, candidate.fields).slice(0, 1);
+  const shown = {
+    id: `${type.id}/${candidate.key}`,
+    label: candidate.label,
+    art: <Poster url={candidate.posterUrl ?? undefined} size="option" />,
+  };
+  if (workId !== null) {
     return {
-      id: `${type.id}/${candidate.key}`,
-      label: candidate.label,
-      meta: meta.join(" · "),
+      ...shown,
+      meta: [...facts, "In the library"].join(" · "),
       icon: Add01Icon,
-      art: <Poster url={candidate.posterUrl ?? undefined} size="option" />,
       choose: closingThen(() => {
-        if (workId === null) {
-          openAddSheet({ type, candidate });
-          return;
-        }
         void navigate({ to: "/works/$workId", params: { workId } });
       }),
     };
+  }
+  if (candidate.unlisted) {
+    return {
+      ...shown,
+      meta: [...facts, unlistedLine(type)].join(" · "),
+      icon: Search01Icon,
+      choose: seeAll,
+    };
+  }
+  return {
+    ...shown,
+    meta: facts.join(" · "),
+    icon: Add01Icon,
+    choose: closingThen(() => {
+      openAddSheet({ type, candidate });
+    }),
+  };
+}
+
+export function addGroup(
+  { type, query, candidates }: CatalogResults,
+  context: CommandContext,
+): PaletteGroup {
+  const seeAll = closingThen(() => {
+    void context.navigate({ to: "/add", search: { contentType: type.id, query } });
   });
   return {
     label: addLabel(type),
     items: [
-      ...options,
+      ...candidates.map((candidate) => candidateOption(type, candidate, context, seeAll)),
       {
         id: `${type.id}/all`,
         label: "See all results",
         meta: type.work.many,
         icon: Search01Icon,
-        choose: closingThen(() => {
-          void navigate({ to: "/add", search: { contentType: type.id, query } });
-        }),
+        choose: seeAll,
       },
     ],
   };

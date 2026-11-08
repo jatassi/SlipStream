@@ -16,6 +16,7 @@ import (
 
 	"github.com/jatassi/slipstream/conformance/internal/shape"
 	"github.com/jatassi/slipstream/internal/metadata"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	provider "github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -37,6 +38,16 @@ type Known struct {
 	Year   int
 }
 
+// KnownSeries is a series the target holds under its TVDB and IMDb ids,
+// with cast, creators, a US content rating, a trailer, a network logo, a
+// poster, a backdrop and a title treatment.
+type KnownSeries struct {
+	ID     int64
+	Name   string
+	TVDB   int64
+	IMDbID string
+}
+
 type Target struct {
 	// Endpoints is the fake's front, or the real default.
 	Endpoints provider.Endpoints
@@ -44,8 +55,9 @@ type Target struct {
 	Client *http.Client
 	// Key is sent as api_key. It is "" against the fake, which takes any
 	// key or none.
-	Key   string
-	Known Known
+	Key    string
+	Known  Known
+	Series KnownSeries
 	// Lines builds a call layer over a client, as a Node does.
 	Lines   func(*http.Client) *metadata.Lines
 	Timings provider.Timings
@@ -59,7 +71,9 @@ type Target struct {
 // search finds Known by title, by primary release year and page by page,
 // the movie call decodes every appended block, an unknown id is
 // works.ErrNotFound and the changes list reads a day and refuses more than
-// TMDB keeps. A target with a key also gets a wrong key refused. It then
+// TMDB keeps. Search, the series call, its external ids, the lookup by
+// TVDB id and the series changes list do the same for Series. A target
+// with a key also gets a wrong key refused. It then
 // checks every recorded body against shape.json: keys and types, no
 // values.
 func Run(t *testing.T, tgt Target) {
@@ -81,6 +95,7 @@ func Run(t *testing.T, tgt Target) {
 	}
 	search(t, c, ask(tgt.Key), known)
 	movie(t, c, ask(tgt.Key), known)
+	series(t, c, ask(tgt.Key), tgt.Series)
 
 	_, err := c.Movie(ctx, ask(tgt.Key), unknownID)
 	if want := "GET /movie/" + strconv.Itoa(unknownID) + ": TMDB: has no such record"; err == nil || err.Error() != want || !errors.Is(err, works.ErrNotFound) {
@@ -95,6 +110,14 @@ func Run(t *testing.T, tgt Target) {
 	t.Logf("a day of TMDB changes is %d pages", day.TotalPages)
 	if _, err := c.MovieChanges(ctx, ask(tgt.Key), now.Add(-provider.ChangesWindow-time.Hour), now, 1); !errors.Is(err, metadata.ErrNoChanges) {
 		t.Errorf("MovieChanges past %s = %v, want metadata.ErrNoChanges", provider.ChangesWindow, err)
+	}
+	tvDay, err := c.SeriesChanges(ctx, ask(tgt.Key), now.Add(-24*time.Hour), now, 1)
+	if err != nil || tvDay.Page != 1 {
+		t.Errorf("SeriesChanges over a day = page %d, %v; want page 1", tvDay.Page, err)
+	}
+	t.Logf("a day of TMDB series changes is %d pages", tvDay.TotalPages)
+	if _, err := c.SeriesChanges(ctx, ask(tgt.Key), now.Add(-provider.ChangesWindow-time.Hour), now, 1); !errors.Is(err, metadata.ErrNoChanges) {
+		t.Errorf("SeriesChanges past %s = %v, want metadata.ErrNoChanges", provider.ChangesWindow, err)
 	}
 
 	if tgt.Key != "" {
@@ -177,16 +200,89 @@ func movie(t *testing.T, c *provider.Client, ask metadata.Ask, known Known) {
 	}
 }
 
+func series(t *testing.T, c *provider.Client, ask metadata.Ask, known KnownSeries) {
+	t.Helper()
+	ctx := t.Context()
+	found, err := c.SearchSeries(ctx, ask, known.Name)
+	if err != nil || !slices.ContainsFunc(found, func(f provider.SeriesFound) bool {
+		return f.ID == known.ID && f.Name == known.Name && f.FirstAired != ""
+	}) {
+		t.Errorf("SearchSeries(%q) = %+v, %v; want %d %q with a first air date", known.Name, found, err, known.ID, known.Name)
+	}
+
+	s, err := c.Series(ctx, ask, known.ID)
+	if err != nil {
+		t.Fatalf("Series(%d): %v", known.ID, err)
+	}
+	ids := provider.SeriesIDs{TVDB: known.TVDB, IMDb: known.IMDbID}
+	if s.ID != known.ID || s.SeriesIDs != ids {
+		t.Errorf("Series(%d) = %d with %+v, want %+v", known.ID, s.ID, s.SeriesIDs, ids)
+	}
+	for block, filled := range map[string]bool{
+		"cast":            len(s.Cast) > 0 && s.Cast[0].Name != "" && s.Cast[0].Role != "",
+		"creators":        len(s.Creators) > 0 && s.Creators[0].Name != "",
+		"US rating":       s.Certifications["US"] != "",
+		"trailer":         s.Trailer != nil && s.Trailer.Site == "YouTube" && s.Trailer.Key != "",
+		"network logo":    s.NetworkLogo != "",
+		"title treatment": s.TitleTreatment != "",
+		"votes":           s.VoteCount > 0,
+	} {
+		if !filled {
+			t.Errorf("Series(%d) has no %s: %+v", known.ID, block, s)
+		}
+	}
+	for shape, path := range map[artwork.Shape]string{artwork.ShapePoster: s.Poster, artwork.ShapeBackdrop: s.Backdrop, artwork.ShapeLogo: s.NetworkLogo} {
+		if _, err := c.Images().URL(shape, path, artwork.SizeMedium); err != nil {
+			t.Errorf("Series(%d) %s %q: %v", known.ID, shape, path, err)
+		}
+	}
+
+	seriesLookups(t, c, ask, known)
+}
+
+func seriesLookups(t *testing.T, c *provider.Client, ask metadata.Ask, known KnownSeries) {
+	t.Helper()
+	ctx := t.Context()
+	ids := provider.SeriesIDs{TVDB: known.TVDB, IMDb: known.IMDbID}
+	if got, err := c.SeriesExternalIDs(ctx, ask, known.ID); err != nil || got != ids {
+		t.Errorf("SeriesExternalIDs(%d) = %+v, %v; want %+v", known.ID, got, err, ids)
+	}
+	if id, ok, err := c.FindTVDB(ctx, ask, known.TVDB); err != nil || !ok || id != known.ID {
+		t.Errorf("FindTVDB(%d) = %d, %t, %v; want %d", known.TVDB, id, ok, err, known.ID)
+	}
+	if id, ok, err := c.FindTVDB(ctx, ask, unknownID); err != nil || ok {
+		t.Errorf("FindTVDB(%d) = %d, %t, %v; want none", unknownID, id, ok, err)
+	}
+	for name, call := range map[string]func() error{
+		"Series":            func() error { _, err := c.Series(ctx, ask, unknownID); return err },
+		"SeriesExternalIDs": func() error { _, err := c.SeriesExternalIDs(ctx, ask, unknownID); return err },
+	} {
+		if err := call(); !errors.Is(err, works.ErrNotFound) {
+			t.Errorf("%s(%d) = %v, want works.ErrNotFound", name, unknownID, err)
+		}
+	}
+}
+
 func route(p string) string {
 	switch {
 	case p == "/3/movie/changes":
 		return "changes"
+	case p == "/3/tv/changes":
+		return "tv changes"
 	case p == "/3/configuration":
 		return "configuration"
+	case p == "/3/search/tv":
+		return "search tv"
 	case strings.HasPrefix(p, "/3/search/"):
 		return "search"
 	case strings.HasPrefix(p, "/3/movie/"):
 		return "movie"
+	case strings.HasPrefix(p, "/3/find/"):
+		return "find"
+	case strings.HasPrefix(p, "/3/tv/") && strings.HasSuffix(p, "/external_ids"):
+		return "tv external_ids"
+	case strings.HasPrefix(p, "/3/tv/"):
+		return "tv"
 	}
 	return p
 }

@@ -60,7 +60,7 @@ func (cached) Search(context.Context, metadata.Ask, string) ([]works.Candidate, 
 	return nil, nil
 }
 
-func (c cached) Fetch(ctx context.Context, ask metadata.Ask, key works.Key) (works.Fetched, error) {
+func (c cached) Fetch(ctx context.Context, ask metadata.Ask, key works.Key, _ []byte) (works.Fetched, error) {
 	c.h.add("fetch "+string(key), ask)
 	if err := c.line.Get(ctx, ask, metadata.Request{URL: c.base.JoinPath("record", string(key)), Cache: true}, &body{}); err != nil {
 		return works.Fetched{}, err

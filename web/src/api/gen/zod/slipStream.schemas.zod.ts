@@ -1188,13 +1188,20 @@ export type FilesStateCountsOutput = zod.output<typeof FilesStateCounts>;
 export const filesSummaryItemsMin = 0;
 
 export const FilesSummary = zod.object({
-  cells: FilesStateCounts.describe("Its cells by state"),
-  itemStatus: FilesStateCounts.describe("Its Items by status; an Item with no cell isn't counted"),
-  items: zod.int().min(filesSummaryItemsMin),
+  cells: FilesStateCounts.describe("Its monitored Items' cells by state"),
+  itemStatus: FilesStateCounts.describe(
+    "Its monitored Items by status; an Item with no cell isn't counted",
+  ),
+  items: zod
+    .int()
+    .min(filesSummaryItemsMin)
+    .describe(
+      "Its monitored Items that its source still lists, the only Items the status and counts read",
+    ),
   status: zod
     .union([FilesState, zod.null()])
     .describe(
-      "The first status its Items hold, in the glossary's order; null for a Work with no cell",
+      "The first status its monitored Items hold, in the glossary's order; null while none holds a cell",
     ),
 });
 
@@ -1530,25 +1537,33 @@ export const GrabsReason = zod.object({
     .enum(["hdr", "video_codec", "audio_codec", "channels", "language"])
     .exactOptional()
     .describe("The attribute a failed filter rules on"),
-  code: zod.enum([
-    "wrong_work",
-    "cut_not_wanted",
-    "quality_not_in_target",
-    "filter",
-    "size_below",
-    "size_above",
-    "size_not_checked",
-    "not_an_upgrade",
-  ]),
+  code: zod
+    .enum([
+      "wrong_work",
+      "wrong_item",
+      "covers_more",
+      "cut_not_wanted",
+      "quality_not_in_target",
+      "filter",
+      "size_below",
+      "size_above",
+      "size_not_checked",
+      "not_an_upgrade",
+    ])
+    .describe(
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that covers more than one Item, such as a season pack, and SlipStream doesn't grab those yet.",
+    ),
   targetId: zod
     .uuid()
     .exactOptional()
-    .describe("The Target whose verdict it is, absent for wrong_work and cut_not_wanted"),
+    .describe(
+      "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and cut_not_wanted",
+    ),
   value: zod
     .string()
     .exactOptional()
     .describe(
-      "The value a filter failed on, the quality a Target doesn't accept, or the cut no open cell wants",
+      "The value a filter failed on, the quality a Target doesn't accept, the cut no open cell wants, or what a wrong_item or covers_more title names, such as S01E02",
     ),
 });
 
@@ -1647,8 +1662,23 @@ export const GrabsSearchList = zod.object({
 export type GrabsSearchList = zod.input<typeof GrabsSearchList>;
 export type GrabsSearchListOutput = zod.output<typeof GrabsSearchList>;
 
+export const grabsSearchScopeItemIdsMax = 20000;
+
+export const grabsSearchScopeLevelIdsMax = 20000;
+
+export const GrabsSearchScope = zod.object({
+  itemIds: zod.array(zod.uuid()).max(grabsSearchScopeItemIdsMax),
+  levelIds: zod
+    .array(zod.uuid())
+    .max(grabsSearchScopeLevelIdsMax)
+    .describe("Each level stands for every Item under it"),
+});
+
+export type GrabsSearchScope = zod.input<typeof GrabsSearchScope>;
+export type GrabsSearchScopeOutput = zod.output<typeof GrabsSearchScope>;
+
 export const GrabsSearchStarted = zod.object({
-  searchIds: zod.array(zod.string()).describe("One run per Item with a wanted cell"),
+  searchIds: zod.array(zod.string()).describe("One run per Item in the scope with a wanted cell"),
 });
 
 export type GrabsSearchStarted = zod.input<typeof GrabsSearchStarted>;
@@ -3405,7 +3435,12 @@ export type MergeTrackerInputBody = zod.input<typeof MergeTrackerInputBody>;
 export type MergeTrackerInputBodyOutput = zod.output<typeof MergeTrackerInputBody>;
 
 export const MetadataAttribution = zod.object({
-  logo: zod.enum(["tmdb"]).describe("The logo the web app bundles to show beside it"),
+  logo: zod
+    .union([zod.literal("tmdb"), zod.literal(null)])
+    .nullable()
+    .describe(
+      "The logo the web app bundles to show beside it; null when it bundles none, so the text shows alone",
+    ),
   text: zod.string().describe("The sentence to show, word for word"),
 });
 
@@ -3451,8 +3486,17 @@ export type MetadataDetailsOutput = zod.output<typeof MetadataDetails>;
 
 export const metadataNewKeyKeyMax = 256;
 
+export const metadataNewKeyPinMax = 256;
+
 export const MetadataNewKey = zod.object({
   key: zod.string().min(1).max(metadataNewKeyKeyMax),
+  pin: zod
+    .string()
+    .max(metadataNewKeyPinMax)
+    .exactOptional()
+    .describe(
+      "A subscriber PIN to send beside the key, for a provider that takes one; left out, none",
+    ),
 });
 
 export type MetadataNewKey = zod.input<typeof MetadataNewKey>;
@@ -3475,6 +3519,7 @@ export const MetadataProvider = zod.object({
     .nullable()
     .describe("When the Admin set the key in use; null unless it is theirs"),
   label: zod.string(),
+  pinSet: zod.boolean().describe("The Admin's key in use carries a PIN"),
   state: zod
     .enum(["unused", "working", "key_refused", "rate_limited", "out_of_allowance", "unreachable"])
     .describe("From the latest outcome of a call or test, unused until one"),
@@ -3483,6 +3528,7 @@ export const MetadataProvider = zod.object({
     .describe(
       "How the provider stands and what to do, in plain words: the sentence a page leads with, the rest under Details",
     ),
+  takesPin: zod.boolean().describe("Set key offers a subscriber PIN beside the key"),
   until: zod.iso
     .datetime({ offset: true })
     .nullable()
@@ -6150,9 +6196,12 @@ export type WorksRatingOutput = zod.output<typeof WorksRating>;
 
 export const WorksItem = zod.object({
   artwork: zod.array(WorksArt).describe("By kind"),
-  availability: WorksAvailability.describe(
-    "The day the Item counts as released and the rule that chose it; null while no date is known",
-  ),
+  aside: zod.boolean().describe("It sits in an aside level"),
+  availability: zod
+    .union([WorksAvailability, zod.null()])
+    .describe(
+      "The day the Item counts as released and the rule that chose it; null while no date is known",
+    ),
   fields: zod.array(WorksFieldValue),
   id: zod.uuid(),
   key: zod.string(),
@@ -6171,6 +6220,8 @@ export type WorksItem = zod.input<typeof WorksItem>;
 export type WorksItemOutput = zod.output<typeof WorksItem>;
 
 export const WorksLevel = zod.object({
+  artwork: zod.array(WorksArt).describe("By kind"),
+  aside: zod.boolean().describe("An outermost level outside the Work's main run, such as Specials"),
   depth: zod.int().min(1),
   fields: zod.array(WorksFieldValue),
   id: zod.uuid(),
@@ -6233,12 +6284,28 @@ export const WorksWorkView = zod.object({
     .describe("By their level's order, live before withdrawn, then position"),
   key: zod.string(),
   label: zod.string(),
+  levelFolders: zod
+    .boolean()
+    .describe("New files sit in a folder per level; unread for a Content Type with no levels"),
   levels: zod
     .array(WorksLevel)
     .describe("By depth, then their parent's order, live before withdrawn, then position"),
   links: zod
     .array(WorksWebLink)
     .describe("Pages about the Work on other sites, in its Content Type's order"),
+  monitorAsides: zod
+    .boolean()
+    .describe("The Items of aside levels are part of the Work's monitoring choice"),
+  monitorNew: zod
+    .boolean()
+    .describe(
+      "Items a refresh adds arrive monitored, unless they sit in an aside level and monitorAsides is off",
+    ),
+  options: zod
+    .array(SettingField)
+    .describe(
+      "The Content Type's own options for the Work, in Edit's order; empty when it has none",
+    ),
   profile: WorksWorkProfile.describe("The Profile the Work wants from"),
   ratings: zod.array(WorksRating).describe("The Work's own, by source"),
   refreshedAt: zod.iso.datetime({ offset: true }),
@@ -6278,10 +6345,15 @@ export type WorksArtRoles = zod.input<typeof WorksArtRoles>;
 export type WorksArtRolesOutput = zod.output<typeof WorksArtRoles>;
 
 export const WorksArtworkKind = zod.object({
+  depth: zod
+    .int()
+    .min(1)
+    .exactOptional()
+    .describe("The level's depth, 1 for the outermost; present only on tier level"),
   key: zod.string(),
   label: zod.string(),
   shape: zod.enum(["poster", "backdrop", "logo", "photo", "cover"]),
-  tier: zod.enum(["work", "item"]),
+  tier: zod.enum(["work", "level", "item"]),
 });
 
 export type WorksArtworkKind = zod.input<typeof WorksArtworkKind>;
@@ -6298,6 +6370,11 @@ export const WorksCandidate = zod.object({
     .nullable()
     .describe(
       "The artwork route for the result's poster, without a size; null when the source has none",
+    ),
+  unlisted: zod
+    .boolean()
+    .describe(
+      "Another source found it and the Content Type's source doesn't list it, so it can't be added",
     ),
   workId: zod.uuid().nullable().describe("The Work, once it is in the library"),
 });
@@ -6318,6 +6395,14 @@ export const WorksChanged = zod.object({
 
 export type WorksChanged = zod.input<typeof WorksChanged>;
 export type WorksChangedOutput = zod.output<typeof WorksChanged>;
+
+export const WorksNoun = zod.object({
+  many: zod.string(),
+  one: zod.string(),
+});
+
+export type WorksNoun = zod.input<typeof WorksNoun>;
+export type WorksNounOutput = zod.output<typeof WorksNoun>;
 
 export const WorksListing = zod.object({
   column: zod.boolean().describe("A column of the Library's table"),
@@ -6343,8 +6428,10 @@ export const WorksFieldSpec = zod.object({
     .exactOptional()
     .describe("The level's depth, 1 for the outermost; present only on tier level"),
   in: zod
-    .array(zod.enum(["facts", "tagline", "overview", "about", "credits", "details"]))
-    .describe("Every place the Work page shows it"),
+    .array(zod.enum(["facts", "tagline", "overview", "about", "credits", "details", "code"]))
+    .describe(
+      "Every place the Work page shows it. Code is the short identifier the many-Items layout shows before an Item's label",
+    ),
   key: zod.string(),
   kind: zod.enum(["text", "number", "date", "duration", "texts", "people", "link"]),
   label: zod.string(),
@@ -6363,19 +6450,21 @@ export const WorksFieldSpec = zod.object({
 export type WorksFieldSpec = zod.input<typeof WorksFieldSpec>;
 export type WorksFieldSpecOutput = zod.output<typeof WorksFieldSpec>;
 
-export const WorksNoun = zod.object({
-  many: zod.string(),
-  one: zod.string(),
-});
-
-export type WorksNoun = zod.input<typeof WorksNoun>;
-export type WorksNounOutput = zod.output<typeof WorksNoun>;
-
 export const worksContentTypeIdRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
 export const WorksContentType = zod.object({
   art: WorksArtRoles,
   artwork: zod.array(WorksArtworkKind).describe("The kinds of image its Works and Items carry"),
+  aside: zod
+    .union([WorksNoun, zod.null()])
+    .describe(
+      "What the type calls its outermost levels outside a Work's main run, such as Specials; null when it marks none",
+    ),
+  availability: zod
+    .string()
+    .describe(
+      "The label of the Library's availability column and sort, such as Next airing; empty reads Available",
+    ),
   enabled: zod.boolean(),
   fields: zod.array(WorksFieldSpec),
   icon: zod.enum(["film", "tv", "note", "open-book", "headphones", "panels", "image", "shapes"]),
@@ -6390,6 +6479,11 @@ export const WorksContentType = zod.object({
     .array(zod.string())
     .describe(
       "The ratings sources its Works show, in order. The first a Work holds is its hero rating",
+    ),
+  releases: zod
+    .string()
+    .describe(
+      "The verb for unreleased Items coming out, as in Episodes 4 to 7 air 12 October; empty reads come out",
     ),
   source: zod.string().describe("Its metadata source's name, such as TMDB"),
   work: WorksNoun,
@@ -6560,13 +6654,13 @@ export const WorksLibraryRow = zod.object({
     .regex(worksLibraryRowAvailableOnRegExp)
     .nullable()
     .describe(
-      "Its one Item's availability date, or for many Items the earliest not yet out, else the latest out; null while no Item has a date",
+      "Its one Item's availability date, or for many Items the earliest not yet out, else the latest out, read over its monitored Items, or over every Item while none is monitored; null while none of those has a date",
     ),
   bytes: zod
     .int()
     .min(worksLibraryRowBytesMin)
     .describe("The size of its library files, Kept files included"),
-  cells: FilesStateCounts.describe("Its cells by state"),
+  cells: FilesStateCounts.describe("Its monitored Items' cells by state"),
   contentType: zod.string().regex(worksLibraryRowContentTypeRegExp),
   failed: zod
     .int()
@@ -6580,12 +6674,21 @@ export const WorksLibraryRow = zod.object({
       "When the metadata source last reported that it no longer has this Work; null while it has it",
     ),
   id: zod.uuid(),
-  itemStatus: FilesStateCounts.describe("Its Items by status; an Item with no cell isn't counted"),
-  items: zod.int().min(worksLibraryRowItemsMin),
+  itemStatus: FilesStateCounts.describe(
+    "Its monitored Items by status; an Item with no cell isn't counted",
+  ),
+  items: zod
+    .int()
+    .min(worksLibraryRowItemsMin)
+    .describe(
+      "Its monitored Items that its source still lists, the only Items the status and counts read",
+    ),
   kept: zod.int().min(worksLibraryRowKeptMin).describe("Its Kept files"),
   key: zod.string(),
   label: zod.string(),
-  monitored: zod.enum(["all", "some", "none"]).describe("How many of its Items are monitored"),
+  monitored: zod
+    .enum(["all", "some", "none"])
+    .describe("How many of the Items its source still lists are monitored"),
   needsYou: zod.int().min(worksLibraryRowNeedsYouMin).describe("The entries of its Needs you"),
   posterUrl: zod
     .string()
@@ -6603,7 +6706,7 @@ export const WorksLibraryRow = zod.object({
   status: zod
     .union([FilesState, zod.null()])
     .describe(
-      "The first status its Items hold, in the glossary's order; null for a Work with no cell",
+      "The first status its monitored Items hold, in the glossary's order; null while none holds a cell",
     ),
   values: zod
     .record(zod.string(), Bare)
@@ -6625,7 +6728,11 @@ export type WorksLibraryRowsOutput = zod.output<typeof WorksLibraryRows>;
 export const worksMonitoredChangeWorkIdsMax = 20000;
 
 export const WorksMonitoredChange = zod.object({
-  on: zod.boolean().describe("Monitor every Item of each Work, or none"),
+  on: zod
+    .boolean()
+    .describe(
+      "Apply the All preset to each Work, keeping its own aside choice, or None with asides off",
+    ),
   workIds: zod
     .array(zod.uuid())
     .min(1)
@@ -6636,21 +6743,113 @@ export const WorksMonitoredChange = zod.object({
 export type WorksMonitoredChange = zod.input<typeof WorksMonitoredChange>;
 export type WorksMonitoredChangeOutput = zod.output<typeof WorksMonitoredChange>;
 
+export const worksMonitoringChangeWorkIdsMax = 20000;
+
+export const WorksMonitoringChange = zod.object({
+  includeAsides: zod
+    .boolean()
+    .describe("Monitor the aside Items the preset picks, and new ones when it monitors new Items"),
+  monitorNew: zod
+    .boolean()
+    .exactOptional()
+    .describe("Whether to monitor Items a refresh adds; left out, the preset decides"),
+  preset: zod.enum(["all", "future", "missing", "existing", "first", "latest", "none"]),
+  preview: zod.boolean().describe("Answer what the change would move and write nothing"),
+  workIds: zod
+    .array(zod.uuid())
+    .min(1)
+    .max(worksMonitoringChangeWorkIdsMax)
+    .describe("A repeated id counts once"),
+});
+
+export type WorksMonitoringChange = zod.input<typeof WorksMonitoringChange>;
+export type WorksMonitoringChangeOutput = zod.output<typeof WorksMonitoringChange>;
+
+export const WorksPresetCount = zod.object({
+  monitors: zod.int().describe("Live Items the preset monitors, asides left out"),
+  monitorsNew: zod.boolean().describe("Whether the preset monitors Items a refresh adds"),
+  preset: zod.enum(["all", "future", "missing", "existing", "first", "latest", "none"]),
+});
+
+export type WorksPresetCount = zod.input<typeof WorksPresetCount>;
+export type WorksPresetCountOutput = zod.output<typeof WorksPresetCount>;
+
+export const WorksPresetCounts = zod.object({
+  asides: zod.int().describe("Items in aside levels, which Include adds to a preset"),
+  choices: zod.array(WorksPresetCount).describe("One per preset, in the order the presets show"),
+});
+
+export type WorksPresetCounts = zod.input<typeof WorksPresetCounts>;
+export type WorksPresetCountsOutput = zod.output<typeof WorksPresetCounts>;
+
+export const WorksMonitoringDoneOutcome = zod.object({
+  counts: zod
+    .union([WorksPresetCounts, zod.null()])
+    .describe("What each preset would monitor of the Work; null unless a preview"),
+  outcome: zod.enum(["done"]),
+  start: zod.int().describe("Items the change starts monitoring"),
+  stop: zod.int().describe("Items the change stops monitoring"),
+  workId: zod.uuid(),
+});
+
+export type WorksMonitoringDoneOutcome = zod.input<typeof WorksMonitoringDoneOutcome>;
+export type WorksMonitoringDoneOutcomeOutput = zod.output<typeof WorksMonitoringDoneOutcome>;
+
+export const WorksMonitoringSkippedOutcome = zod.object({
+  counts: zod
+    .union([WorksPresetCounts, zod.null()])
+    .describe("What each preset would monitor of the Work; null unless a preview"),
+  outcome: zod.enum(["skipped"]),
+  reason: zod.enum(["already"]).describe("Why the change left the Work as it was"),
+  workId: zod.uuid(),
+});
+
+export type WorksMonitoringSkippedOutcome = zod.input<typeof WorksMonitoringSkippedOutcome>;
+export type WorksMonitoringSkippedOutcomeOutput = zod.output<typeof WorksMonitoringSkippedOutcome>;
+
+export const WorksMonitoringOutcome = zod.discriminatedUnion("outcome", [
+  WorksMonitoringDoneOutcome,
+  WorksMonitoringSkippedOutcome,
+  WorksFailedOutcome,
+]);
+
+export type WorksMonitoringOutcome = zod.input<typeof WorksMonitoringOutcome>;
+export type WorksMonitoringOutcomeOutput = zod.output<typeof WorksMonitoringOutcome>;
+
+export const WorksMonitoringList = zod.object({
+  outcomes: zod.array(WorksMonitoringOutcome).describe("One per Work, in request order"),
+});
+
+export type WorksMonitoringList = zod.input<typeof WorksMonitoringList>;
+export type WorksMonitoringListOutput = zod.output<typeof WorksMonitoringList>;
+
 export const worksNewWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 export const worksNewWorkKeyMax = 200;
 
 export const WorksNewWork = zod.object({
   contentType: zod.string().regex(worksNewWorkContentTypeRegExp),
+  includeAsides: zod
+    .boolean()
+    .exactOptional()
+    .describe(
+      "Add every Item of the aside levels, such as Specials, to what the preset monitors, now and as new ones arrive; left out, the type's add default",
+    ),
   key: zod
     .string()
     .min(1)
     .max(worksNewWorkKeyMax)
     .describe("The Work's key at its metadata source"),
-  monitor: zod
+  levelFolders: zod
     .boolean()
     .exactOptional()
     .describe(
-      "Monitor a new Work's Items; left out, the type's add default. Adding a Work already in the library changes nothing",
+      "Put a new Work's files in a folder per level; left out, the type's add default. Unread for a Content Type with no levels",
+    ),
+  preset: zod
+    .enum(["all", "future", "missing", "existing", "first", "latest", "none"])
+    .exactOptional()
+    .describe(
+      "The monitoring preset a new Work's Items follow; left out, the type's add default. Adding a Work already in the library changes nothing",
     ),
   profileId: zod
     .uuid()
@@ -6674,6 +6873,34 @@ export const WorksNewWork = zod.object({
 
 export type WorksNewWork = zod.input<typeof WorksNewWork>;
 export type WorksNewWorkOutput = zod.output<typeof WorksNewWork>;
+
+export const WorksOptionsChange = zod.object({
+  levelFolders: zod
+    .boolean()
+    .exactOptional()
+    .describe("Whether the Work's files go in a folder per level; left out, it keeps its own"),
+  preview: zod.boolean().describe("Answer what the change would withdraw and write nothing"),
+  type: zod
+    .record(zod.string(), zod.unknown())
+    .exactOptional()
+    .describe("The Content Type's own options to change, by key"),
+});
+
+export type WorksOptionsChange = zod.input<typeof WorksOptionsChange>;
+export type WorksOptionsChangeOutput = zod.output<typeof WorksOptionsChange>;
+
+export const WorksOptionsChanged = zod.object({
+  levelFolders: zod.boolean(),
+  options: zod.array(SettingField).describe("The Content Type's own options for the Work"),
+  withdraws: zod
+    .int()
+    .describe(
+      "Live Items the change withdraws: the source doesn't list them under the new options, and they keep their files",
+    ),
+});
+
+export type WorksOptionsChanged = zod.input<typeof WorksOptionsChanged>;
+export type WorksOptionsChangedOutput = zod.output<typeof WorksOptionsChanged>;
 
 export const WorksOutcomeList = zod.object({
   outcomes: zod.array(WorksOutcome).describe("One per Work, in request order"),
@@ -6716,6 +6943,11 @@ export const WorksPreviewed = zod.object({
   inLibrary: zod
     .boolean()
     .describe("Whether the Work is in the library; while it isn't, the ids in work name nothing"),
+  presets: zod
+    .union([WorksPresetCounts, zod.null()])
+    .describe(
+      "What each monitoring preset would monitor of the Work; null while it is in the library",
+    ),
   work: WorksTree,
 });
 
@@ -6814,6 +7046,22 @@ export const WorksTypeSettings = zod.object({
 
 export type WorksTypeSettings = zod.input<typeof WorksTypeSettings>;
 export type WorksTypeSettingsOutput = zod.output<typeof WorksTypeSettings>;
+
+export const worksWorkMonitoredItemIdsMax = 20000;
+
+export const worksWorkMonitoredLevelIdsMax = 20000;
+
+export const WorksWorkMonitored = zod.object({
+  itemIds: zod.array(zod.uuid()).max(worksWorkMonitoredItemIdsMax),
+  levelIds: zod
+    .array(zod.uuid())
+    .max(worksWorkMonitoredLevelIdsMax)
+    .describe("Each level stands for every Item under it"),
+  on: zod.boolean().describe("Monitor the levels and Items, or stop"),
+});
+
+export type WorksWorkMonitored = zod.input<typeof WorksWorkMonitored>;
+export type WorksWorkMonitoredOutput = zod.output<typeof WorksWorkMonitored>;
 
 export const LiveEventDownloadClientsChanged = zod.object({
   event: zod.enum(["download-clients.changed"]),

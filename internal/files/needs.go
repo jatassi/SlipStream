@@ -41,16 +41,22 @@ const (
 )
 
 // needs is a Work's Needs you from its cells, in tree order, and the Grab
-// of each. Each Item and Edition gives one entry from its wanted cells: a
-// failure, which its still missing Targets wait on, else its upgrades.
-// Each Grab that waits on an Admin gives one, and a rootless Work with a
-// wanted cell one more. Entries sort by kind, then tree order, and an
-// entry the same as one for the Item before it joins that one's run.
+// of each. Each counted Item and Edition gives one entry from its wanted
+// cells: a failure, which its still missing Targets wait on, else its
+// upgrades. Each Grab that waits on an Admin for a counted Item gives one,
+// and a rootless Work with a wanted cell one more. An Item that doesn't
+// count gives none. Entries sort by kind, then Edition, then tree order,
+// so the entries of consecutive Items sit side by side, and an entry the
+// same as the one before it, for the Item before, joins its run.
 func needs(items []works.Item, cells []Cell, grabs map[CellKey]GrabCell, rooted bool) []Need {
 	var out []Need
 	waits := map[storage.UUID]bool{}
 	wanted := false
 	for group := range groupsOf(cells) {
+		head := group[0]
+		if !head.Item.Counts() {
+			continue
+		}
 		var failed, missing, upgrades []targets.TargetID
 		for _, c := range group {
 			g := grabs[c.key()]
@@ -72,7 +78,6 @@ func needs(items []works.Item, cells []Cell, grabs map[CellKey]GrabCell, rooted 
 			case Unreleased, Downloading, Met:
 			}
 		}
-		head := group[0]
 		at := []works.ItemID{head.Item.ID}
 		switch {
 		case len(failed) > 0:
@@ -85,8 +90,22 @@ func needs(items []works.Item, cells []Cell, grabs map[CellKey]GrabCell, rooted 
 	if !rooted && wanted {
 		out = append(out, Need{Kind: NeedNoRoot})
 	}
-	slices.SortStableFunc(out, func(a, b Need) int { return cmp.Compare(a.Kind, b.Kind) })
+	editions := ranksOf(cells)
+	slices.SortStableFunc(out, func(a, b Need) int {
+		return cmp.Or(cmp.Compare(a.Kind, b.Kind), cmp.Compare(editions[a.Edition], editions[b.Edition]))
+	})
 	return runs(items, out)
+}
+
+// ranksOf ranks each Edition of cells by where it first appears.
+func ranksOf(cells []Cell) map[targets.Edition]int {
+	out := map[targets.Edition]int{}
+	for _, c := range cells {
+		if _, seen := out[c.Edition]; !seen {
+			out[c.Edition] = len(out)
+		}
+	}
+	return out
 }
 
 // groupsOf yields each run of cells of one Item and Edition.
@@ -105,8 +124,8 @@ func groupsOf(cells []Cell) iter.Seq[[]Cell] {
 	}
 }
 
-// runs joins each one-Item entry of ns to an entry the same as it whose
-// run ends at the Item before.
+// runs joins each one-Item entry of ns to the entry before it when that
+// one is the same and its run ends at the Item before.
 func runs(items []works.Item, ns []Need) []Need {
 	index := make(map[works.ItemID]int, len(items))
 	for i, it := range items {
@@ -114,14 +133,14 @@ func runs(items []works.Item, ns []Need) []Need {
 	}
 	var out []Need
 	for _, n := range ns {
-		i := slices.IndexFunc(out, func(o Need) bool {
-			return len(n.Items) == 1 && len(o.Items) > 0 && index[o.Items[len(o.Items)-1]]+1 == index[n.Items[0]] && same(o, n)
-		})
-		if i < 0 {
-			out = append(out, n)
-			continue
+		if len(out) > 0 && len(n.Items) == 1 {
+			last := &out[len(out)-1]
+			if index[last.Items[len(last.Items)-1]]+1 == index[n.Items[0]] && same(*last, n) {
+				last.Items = append(last.Items, n.Items[0])
+				continue
+			}
 		}
-		out[i].Items = append(out[i].Items, n.Items[0])
+		out = append(out, n)
 	}
 	return out
 }

@@ -123,7 +123,7 @@ func TestSearchRequestsEveryMatchingPath(t *testing.T) {
 	)
 	s := site{"GET " + browse: page("<table></table>"), "GET " + negate: page(""), "POST " + api: page("")}
 	settings := Settings{BaseURL: "https://old.example/", Values: map[string]string{"sort": "seeders", "freeleech": "false", "apikey": "KEY"}}
-	x := d.Search(settings, Query{Mode: "tv-search", Text: "Show (2020)", Season: 1, Episode: "2", Categories: []newznab.ID{5000}}, testClock)
+	x := d.Search(settings, Query{Mode: "tv-search", Text: "Show (2020)", Season: new(1), Episode: "2", Categories: []newznab.ID{5000}}, testClock)
 	sent := s.drive(t, x)
 	if rs, err := x.Result(); err != nil || len(rs) != 0 {
 		t.Fatalf("Result = %v, %v", rs, err)
@@ -575,19 +575,20 @@ search:
 
 func TestEpisodeSearchString(t *testing.T) {
 	tests := []struct {
-		season  int
+		season  *int
 		episode string
 		want    string
 	}{
-		{0, "3", ""},
-		{1, "", "S01"},
-		{1, "2", "S01E02"},
-		{12, "103", "S12E103"},
-		{2026, "10/27", "2026.10.27"},
+		{nil, "3", ""},
+		{new(0), "3", ""},
+		{new(1), "", "S01"},
+		{new(1), "2", "S01E02"},
+		{new(12), "103", "S12E103"},
+		{new(2026), "10/27", "2026.10.27"},
 	}
 	for _, tt := range tests {
 		if got := episodeSearchString(tt.season, tt.episode, testClock); got != tt.want {
-			t.Errorf("episodeSearchString(%d, %q) = %q, want %q", tt.season, tt.episode, got, tt.want)
+			t.Errorf("episodeSearchString(%v, %q) = %q, want %q", tt.season, tt.episode, got, tt.want)
 		}
 	}
 }
