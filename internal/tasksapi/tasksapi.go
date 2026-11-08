@@ -40,10 +40,12 @@ var (
 
 func answer(err error) error {
 	if running, ok := errors.AsType[*tasks.ErrRunning](err); ok {
-		return taskRunning.Because("The task has been running since " + running.Since.UTC().Format(time.RFC3339))
+		return taskRunning.At(running.Since, func(at string) string { return "The task has been running since " + at + "." })
 	}
 	if waiting, ok := errors.AsType[*tasks.ErrWaiting](err); ok {
-		return taskWaiting.Because(fmt.Sprintf("Every unit waits for %s, %s since %s", waiting.Node, standingWords[waiting.Standing], waiting.Since.UTC().Format(time.RFC3339)))
+		return taskWaiting.At(waiting.Since, func(at string) string {
+			return fmt.Sprintf("Every unit waits for %s, %s since %s.", waiting.Node, standingWords[waiting.Standing], at)
+		})
 	}
 	switch {
 	case errors.Is(err, tasks.ErrUnknownTask):

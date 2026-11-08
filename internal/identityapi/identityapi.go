@@ -181,7 +181,7 @@ func Routes(r *api.Router, lib Library) {
 		Path:    "/passkeys/assertion",
 		Summary: "Start signing in with a passkey for this address",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{passkeyUnavailable, tooManyAttempts},
+		Errors:  []*api.Code{passkeyUnavailable, tooManyAttempts.Code},
 	}, startPasskeySignIn(lib))
 
 	api.Register(o, api.Public, api.Op{
@@ -190,7 +190,7 @@ func Routes(r *api.Router, lib Library) {
 		Path:    "/passkeys/assertion/{ceremony}",
 		Summary: "Sign in with the browser's passkey response. On a turned-off PIN, the session must set a new PIN first",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{passkeyUnavailable, passkeyFailed, tooManyAttempts, accountDisabled},
+		Errors:  []*api.Code{passkeyUnavailable, passkeyFailed, tooManyAttempts.Code, accountDisabled},
 	}, finishPasskeySignIn(lib))
 
 	api.Register(o, api.Bearer, api.Op{
@@ -236,7 +236,7 @@ func Routes(r *api.Router, lib Library) {
 		Path:    "/session/reconfirm/passkey",
 		Summary: "Start confirming it's you with one of your passkeys for this address",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{passkeyUnavailable, tooManyAttempts},
+		Errors:  []*api.Code{passkeyUnavailable, tooManyAttempts.Code},
 	}, startPasskeyReconfirm(lib))
 
 	api.Register(o, api.Account, api.Op{
@@ -245,7 +245,7 @@ func Routes(r *api.Router, lib Library) {
 		Path:    "/session/reconfirm/passkey/{ceremony}",
 		Summary: "Confirm it's you with the browser's passkey response",
 		Status:  http.StatusNoContent,
-		Errors:  []*api.Code{passkeyUnavailable, passkeyFailed, tooManyAttempts},
+		Errors:  []*api.Code{passkeyUnavailable, passkeyFailed, tooManyAttempts.Code},
 	}, finishPasskeyReconfirm(lib))
 
 	api.Register(o, api.Bearer, api.Op{
