@@ -1,10 +1,16 @@
 import { HttpResponse, http } from "msw";
 
-import type { TargetsQualityList, TargetsTarget } from "../api/gen/model";
+import type {
+  FormatsCustomFormat,
+  FormatsFormatList,
+  TargetsQualityList,
+  TargetsTarget,
+} from "../api/gen/model";
 import {
   getListQualitiesMockHandler,
   getListTargetsMockHandler,
 } from "../api/gen/query/targets/targets.msw";
+import { getListCustomFormatsMockHandler } from "../api/gen/query/formats/formats.msw";
 
 const quality = (
   key: TargetsQualityList["qualities"][number]["key"],
@@ -90,6 +96,26 @@ const qualityList: TargetsQualityList = {
   ],
 };
 
+const format = (id: string, name: string): FormatsCustomFormat => ({
+  id,
+  name,
+  dialect: "radarr",
+  includeWhenRenaming: false,
+  conditions: [],
+  scoredBy: [],
+  slowReleases: 0,
+});
+
+/** GET /custom-formats as the Node answers it. */
+const formatList: FormatsFormatList = {
+  formats: [
+    format("0199e1f2-7a3b-7c4d-8e5f-0000000000f1", "BR-DISK"),
+    format("0199e1f2-7a3b-7c4d-8e5f-0000000000f2", "DV HDR10+"),
+    format("0199e1f2-7a3b-7c4d-8e5f-0000000000f3", "HD Bluray Tier 01"),
+  ],
+  matchLimitMilliseconds: 100,
+};
+
 /** The starter Target a fresh Controller makes, held by the Movies Profile. */
 export const starter: TargetsTarget = {
   id: "0199e1f2-7a3b-7c4d-8e5f-6a7b8c9d0e1f",
@@ -141,6 +167,7 @@ export const keeper: TargetsTarget = {
 
 export const targetHandlers = (targets: readonly TargetsTarget[] = [starter, keeper]) => [
   getListQualitiesMockHandler(qualityList),
+  getListCustomFormatsMockHandler(formatList),
   getListTargetsMockHandler({ targets: [...targets] }),
   ...targets.map((target) =>
     http.get(`*/api/v1/targets/${target.id}`, () => HttpResponse.json(target)),

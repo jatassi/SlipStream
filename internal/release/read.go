@@ -2,10 +2,12 @@ package release
 
 // Read is what one name says: the Content Type's part and the core's.
 type Read struct {
-	// Given is the name as passed, which a Release title condition reads.
-	Given string
-	Name  Name
-	Facts Facts
+	// Release is the name as the group, the stream facts, the id tags and
+	// a Release title condition read it: Radarr's SimpleReleaseTitle, with
+	// the movie's title masked, or Sonarr's releaseTitle.
+	Release string
+	Name    Name
+	Facts   Facts
 }
 
 // Name is the Content Type's reading of a name: every title it gives, as

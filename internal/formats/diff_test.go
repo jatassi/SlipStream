@@ -13,7 +13,7 @@ func TestDiff(t *testing.T) {
 	before := format(1, formats.Radarr, title(`x264`), cond(formats.Resolution, map[string]any{"value": 1080}))
 	after := format(1, formats.Radarr, title(`x264`), cond(formats.Resolution, map[string]any{"value": 2160}))
 	at := func(res release.Resolution) release.Read {
-		return release.Read{Given: "Film.x264", Facts: release.Facts{Resolution: release.Known(res)}}
+		return release.Read{Release: "Film.x264", Facts: release.Facts{Resolution: release.Known(res)}}
 	}
 	e := formats.Diff(&before, &after, limit)
 	cases := []struct {

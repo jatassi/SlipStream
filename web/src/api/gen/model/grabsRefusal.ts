@@ -1,7 +1,7 @@
 import type { GrabsReason } from "./grabsReason.ts";
 
 export interface GrabsRefusal {
-  /** Each open cell's Target's failures and notes, in Profile order */
+  /** The release's own refusals, then each cell's failures and notes, in Profile order */
   reasons: GrabsReason[];
   title: string;
 }

@@ -88,15 +88,15 @@ func TestASearchRefusesReleasesOutsideTheTargetsSizesAndGrabsTheOneWithin(t *tes
 	t.Parallel()
 	w, target := sized(t, "9000001", "Films", "Sized")
 	w.searchedOnce(t, 3, `[`+
-		`{"title":"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-BLOAT","reasons":[{"code":"size_above","targetId":"`+target+`"}]},`+
-		`{"title":"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-TINY","reasons":[{"code":"size_below","targetId":"`+target+`"}]}]`, `[]`)
+		`{"title":"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-BLOAT","reasons":[{"code":"size_above","targetId":"`+target+`","soft":true}]},`+
+		`{"title":"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-TINY","reasons":[{"code":"size_below","targetId":"`+target+`","soft":true}]}]`, `[]`)
 	w.holdsRelease(t, "movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - Sized.mkv", "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW")
 }
 
 func TestAWorkWithNoKnownRuntimeGrabsWithItsSizeNotChecked(t *testing.T) {
 	t.Parallel()
 	w, target := sized(t, "9000002", "Films", "Sized")
-	w.searchedOnce(t, 1, `[]`, `[{"code":"size_not_checked","targetId":"`+target+`"}]`)
+	w.searchedOnce(t, 1, `[]`, `[{"code":"size_not_checked","targetId":"`+target+`","soft":false}]`)
 	w.holdsRelease(t, "movies/The Lantern Keeper (2019)/The Lantern Keeper (2019) - Sized.mkv", "The.Lantern.Keeper.2019.1080p.WEB-DL.H264-FKW")
 }
 

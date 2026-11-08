@@ -2,17 +2,21 @@ package grabs
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
+	"unicode"
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/release"
@@ -24,7 +28,11 @@ import (
 )
 
 func target(name string, cutoff release.Quality, sizes map[release.Quality]targets.Size, tiers ...[]release.Quality) targets.Target {
-	t, err := targets.NewTarget(targets.Spec{Scores: targets.Scores{Increment: 1}, Name: name, Tiers: tiers, Cutoff: cutoff, Sizes: sizes})
+	return targetOf(targets.Spec{Scores: targets.Scores{Increment: 1}, Name: name, Tiers: tiers, Cutoff: cutoff, Sizes: sizes})
+}
+
+func targetOf(s targets.Spec) targets.Target {
+	t, err := targets.NewTarget(s)
 	if err != nil {
 		panic(err)
 	}
@@ -47,31 +55,102 @@ func cellOf(e targets.Edition, t targets.Target, s files.State) files.Cell {
 	return files.Cell{Item: item, Edition: e, Target: t, State: s}
 }
 
-var orchard = indexers.Terms{
-	Expect: indexers.Expect{Claim: release.Claim{IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}}, Covers: indexers.CoversOnly(item.ID)},
-	Mode:   "search", Query: "The Quiet Orchard 2021",
+var noFormats = formats.Compile(nil, formats.DefaultTimings())
+
+// orchard is how a search judges a release of The Quiet Orchard (2021).
+var orchard = judging{
+	searched: item.ID,
+	expect: indexers.Expect{
+		Claim: release.Claim{
+			IDs:    map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"},
+			Titles: []string{"The Quiet Orchard", "Orchard"}, Year: release.Known(2021), Slack: 1,
+		},
+		Covers: indexers.CoversOnly(item.ID),
+	},
+	names: episodic{}, cuts: release.BuiltIn(), scoring: noFormats,
 }
 
-func listed(title string, seeders int, size int64, ids map[string]string) candidate {
-	return listedFor(orchard, title, seeders, size, ids)
+// lanternS01E03 is how a search judges a release of S01E03 of The Lantern
+// Keepers, TVDB series 1001.
+var lanternS01E03 = judging{
+	searched: item.ID,
+	expect: indexers.Expect{
+		Claim: release.Claim{IDs: map[string]string{"tvdbid": "1001"}, Titles: []string{"The Lantern Keepers", "Lantern Keepers"}},
+		Covers: func(n release.Name) []works.ItemID {
+			switch marks(n) {
+			case "S01E02":
+				return []works.ItemID{s01e02}
+			case "S01":
+				return []works.ItemID{s01e02, item.ID}
+			case "S01E03":
+				return []works.ItemID{item.ID}
+			}
+			return nil
+		},
+	},
+	names: episodic{}, cuts: release.BuiltIn(), scoring: noFormats,
 }
 
-// listedFor is a release listed by a search for terms.
-func listedFor(terms indexers.Terms, title string, seeders int, size int64, ids map[string]string) candidate {
-	r := indexers.Release{Release: searching.Release{Title: title, Seeders: seeders, Size: size, IDs: ids}}
-	return candidateOf(r, episodic{}, release.BuiltIn(), terms.Covers, release.Fact[time.Duration]{})
+var s01e02 = works.ItemID{UUID: storage.NewUUID()}
+
+// lasting is j where the searched Item runs d.
+func lasting(j judging, d time.Duration) judging {
+	j.runtime = map[works.ItemID]release.Fact[time.Duration]{item.ID: release.Known(d)}
+	return j
 }
 
-// episodic reads a title's S01E02, S01E03 or S01 as its one Mark.
-type episodic struct{ release.TitleOnly }
+func offered(title string, seeders int, size int64, ids map[string]string) listed {
+	return listed{Release: indexers.Release{Release: searching.Release{Title: title, Seeders: seeders, Size: size, IDs: ids}}}
+}
+
+func assessedBy(j judging, ls ...listed) []assessed {
+	out := make([]assessed, len(ls))
+	for i, l := range ls {
+		l.at = i
+		out[i] = assess(j, l)
+	}
+	return out
+}
+
+// searched is what a search does with as at the open cells: its picks
+// and its refusals.
+func searched(open []files.Cell, as []assessed) ([]Pick, []Refusal) {
+	c := cells{open: open}
+	d := decide(c, as)
+	return d.picks(c), d.refusals()
+}
+
+// episodic reads a name's capitalised words up to its first other word as
+// its title, a year among its words, and its S01E02, S01E03 or S01 as its
+// one Mark. Its clean rule folds case.
+type episodic struct{}
 
 func (episodic) ReadName(p release.Prepared) release.Name {
-	for _, words := range []string{"S01E02", "S01E03", "S01"} {
-		if strings.Contains(p.Title.String(), "."+words+".") {
-			return release.Name{Marks: []release.Mark{{Words: words, Key: words}}}
+	words := strings.Split(p.Title.String(), ".")
+	var n release.Name
+	end := slices.IndexFunc(words, func(w string) bool { return !capitalised(w) })
+	if end < 0 {
+		end = len(words)
+	}
+	if end > 0 {
+		n.Titles = []string{strings.Join(words[:end], " ")}
+	}
+	for _, w := range words {
+		if y, err := strconv.Atoi(w); err == nil && y > 1900 {
+			n.Year = release.Known(y)
+		}
+		if w == "S01E02" || w == "S01E03" || w == "S01" {
+			n.Marks = []release.Mark{{Words: w, Key: w}}
 		}
 	}
-	return release.Name{}
+	return n
+}
+
+func (episodic) CleanTitle(title string) string { return strings.ToLower(title) }
+
+func capitalised(w string) bool {
+	r := []rune(w)
+	return len(r) > 1 && unicode.IsUpper(r[0]) && !slices.ContainsFunc(r[1:], func(c rune) bool { return !unicode.IsLower(c) })
 }
 
 func notChecked(t targets.Target) Reason {
@@ -80,54 +159,54 @@ func notChecked(t targets.Target) Reason {
 
 func TestDecideRanksByTargetThenTierThenSeedersSizeAndTitle(t *testing.T) {
 	open := []files.Cell{cell(hd, files.Missing), cell(small, files.Missing)}
-	candidates := []candidate{
-		listed("Orchard.720p.WEB-DL.A", 90, 10, nil),
-		listed("Orchard.576p.DVD.B", 99, 10, nil),
-		listed("Orchard.1080p.WEB-DL.C", 5, 10, map[string]string{"tmdbid": "9000001"}),
-		listed("Orchard.1080p.WEBRip.D", 5, 20, nil),
-		listed("Orchard.1080p.HDTV.B", 5, 20, nil),
-		listed("Orchard.1080p.BluRay.A", 1, 1, nil),
+	ls := []listed{
+		offered("Orchard.720p.WEB-DL.A", 90, 10, nil),
+		offered("Orchard.576p.DVD.B", 99, 10, nil),
+		offered("Orchard.1080p.WEB-DL.C", 5, 10, map[string]string{"tmdbid": "9000001"}),
+		offered("Orchard.1080p.WEBRip.D", 5, 20, nil),
+		offered("Orchard.1080p.HDTV.B", 5, 20, nil),
+		offered("Orchard.1080p.BluRay.A", 1, 1, nil),
 	}
-	pick, refused := best(decide(open, item.ID, orchard, candidates))
-	if want := (&Pick{Release: candidates[5].Release, Edition: targets.AnyEdition, Targets: []targets.TargetID{hd.ID}, Notes: []Reason{notChecked(hd)}}); !reflect.DeepEqual(pick, want) || refused != nil {
+	pick, refused := best(searched(open, assessedBy(orchard, ls...)))
+	if want := (&Pick{Release: ls[5].Release, at: 5, Edition: targets.AnyEdition, Targets: []targets.TargetID{hd.ID}, Notes: []Reason{notChecked(hd)}}); !reflect.DeepEqual(pick, want) || refused != nil {
 		t.Fatalf("decide = %+v, %v; want %+v", pick, refused, want)
 	}
-	pick, _ = best(decide(open, item.ID, orchard, candidates[:5]))
+	pick, _ = best(searched(open, assessedBy(orchard, ls[:5]...)))
 	if pick.Release.Title != "Orchard.1080p.HDTV.B" {
 		t.Fatalf("decide among tied 1080p web picked %s, want the larger, then first by title, Orchard.1080p.HDTV.B", pick.Release.Title)
 	}
-	pick, _ = best(decide(open[1:], item.ID, orchard, candidates))
-	if want := (&Pick{Release: candidates[0].Release, Edition: targets.AnyEdition, Targets: []targets.TargetID{small.ID}, Notes: []Reason{notChecked(small)}}); !reflect.DeepEqual(pick, want) {
+	pick, _ = best(searched(open[1:], assessedBy(orchard, ls...)))
+	if want := (&Pick{Release: ls[0].Release, Edition: targets.AnyEdition, Targets: []targets.TargetID{small.ID}, Notes: []Reason{notChecked(small)}}); !reflect.DeepEqual(pick, want) {
 		t.Fatalf("decide for Small = %+v, want WEB-DL 720p over a DVD in a lower tier: %+v", pick, want)
 	}
 	both := target("Any", release.WEBDL1080p, nil, []release.Quality{release.WEBDL1080p, release.WEBDL720p})
-	pick, _ = best(decide([]files.Cell{cell(small, files.Missing), cell(both, files.Missing)}, item.ID, orchard, candidates[:1]))
+	pick, _ = best(searched([]files.Cell{cell(small, files.Missing), cell(both, files.Missing)}, assessedBy(orchard, ls[0])))
 	if want := []targets.TargetID{small.ID, both.ID}; !reflect.DeepEqual(pick.Targets, want) {
 		t.Fatalf("decide for two Targets = %v, want both in Profile order", pick.Targets)
 	}
 }
 
 func TestDecideRefusesWithEveryReasonPerTarget(t *testing.T) {
-	big := listed("Orchard.1080p.WEB-DL.Big", 50, 10000*(1<<20), nil)
-	big.Facts.Coverage.Runtime = release.Known(100 * time.Minute)
-	candidates := []candidate{
-		listed("Orchard.1080p.WEB-DL.Other", 50, 10, map[string]string{"tmdbid": "9000002"}),
-		listed("Orchard.WEB-DL", 50, 10, nil),
-		listed("Orchard.2021", 50, 10, nil),
-		listed("Orchard.1080p.TS.x264", 50, 10, nil),
-		big,
-	}
-	pick, refused := best(decide([]files.Cell{cell(hd, files.Missing), cell(small, files.Failed)}, item.ID, orchard, candidates))
+	as := assessedBy(orchard,
+		offered("Orchard.1080p.WEB-DL.Other", 50, 10, map[string]string{"tmdbid": "9000002"}),
+		offered("Orchard.WEB-DL", 50, 10, nil),
+		offered("Orchard.2021", 50, 10, nil),
+		offered("Orchard.1080p.TS.x264", 50, 10, nil),
+	)
+	big := assess(lasting(orchard, 100*time.Minute), offered("Orchard.1080p.WEB-DL.Big", 50, 10000*(1<<20), nil))
+	big.at = len(as)
+	as = append(as, big)
+	pick, refused := best(searched([]files.Cell{cell(hd, files.Missing), cell(small, files.Failed)}, as))
 	notIn := func(t targets.Target, q string) Reason {
 		return Reason{Reason: targets.Reason{Code: targets.QualityNotInTarget, Value: q}, Target: t.ID}
 	}
 	want := []Refusal{
-		{"Orchard.1080p.WEB-DL.Other", []Reason{{Reason: targets.Reason{Code: WrongWork}}}},
+		{"Orchard.1080p.WEB-DL.Other", []Reason{own(targets.WrongWork, "")}},
 		{"Orchard.2021", []Reason{notIn(hd, ""), notIn(small, "")}},
 		{"Orchard.1080p.TS.x264", []Reason{notIn(hd, "cam"), notIn(small, "cam")}},
 		{"Orchard.1080p.WEB-DL.Big", []Reason{{Reason: targets.Reason{Code: targets.SizeAbove}, Target: hd.ID}, notIn(small, "webdl-1080p")}},
 	}
-	if want := (&Pick{Release: candidates[1].Release, Edition: targets.AnyEdition, Targets: []targets.TargetID{small.ID}, Notes: []Reason{notChecked(small)}}); !reflect.DeepEqual(pick, want) {
+	if want := (&Pick{Release: as[1].Release, at: 1, Edition: targets.AnyEdition, Targets: []targets.TargetID{small.ID}, Notes: []Reason{notChecked(small)}}); !reflect.DeepEqual(pick, want) {
 		t.Fatalf("decide = %+v, want the source-only WEB-DL as 720p for Small: %+v", pick, want)
 	}
 	if !reflect.DeepEqual(refused, want) {
@@ -135,52 +214,135 @@ func TestDecideRefusesWithEveryReasonPerTarget(t *testing.T) {
 	}
 }
 
-// lanternS01E03 is S01E03 of TVDB series 1001, covered by the titles
-// that name S01E03 alone.
-var lanternS01E03 = indexers.Terms{
-	Expect: indexers.Expect{
-		Claim: release.Claim{IDs: map[string]string{"tvdbid": "1001"}},
-		Covers: func(n release.Name) []works.ItemID {
-			switch marks(n) {
-			case "S01E02":
-				return []works.ItemID{s01e02}
-			case "S01":
-				return []works.ItemID{s01e02, item.ID}
-			}
-			return []works.ItemID{item.ID}
-		},
-	},
-	Mode: "tvsearch", Query: "The Lantern Keepers", Season: new(1), Episode: "3",
-}
-
-var s01e02 = works.ItemID{UUID: storage.NewUUID()}
-
 func TestDecideRefusesAnotherEpisodeAndAPack(t *testing.T) {
-	candidates := []candidate{
-		listedFor(lanternS01E03, "Lantern.Keepers.S01E02.1080p.WEB-DL", 90, 10, nil),
-		listedFor(lanternS01E03, "Lantern.Keepers.S01.1080p.WEB-DL", 90, 10, nil),
-		listedFor(lanternS01E03, "Lantern.Keepers.S01E03.1080p.WEB-DL", 5, 10, map[string]string{"tvdbid": "1001"}),
-		listedFor(lanternS01E03, "Lantern.Keepers.S01E03.Extended.1080p.WEB-DL", 5, 10, map[string]string{"tvdbid": "1002"}),
+	ls := []listed{
+		offered("Lantern.Keepers.S01E02.1080p.WEB-DL", 90, 10, nil),
+		offered("Lantern.Keepers.S01.1080p.WEB-DL", 90, 10, nil),
+		offered("Lantern.Keepers.S01E03.1080p.WEB-DL", 5, 10, map[string]string{"tvdbid": "1001"}),
+		offered("Lantern.Keepers.S01E03.Extended.1080p.WEB-DL", 5, 10, map[string]string{"tvdbid": "1002"}),
 	}
-	pick, refused := best(decide([]files.Cell{cell(hd, files.Missing)}, item.ID, lanternS01E03, candidates))
+	pick, refused := best(searched([]files.Cell{cell(hd, files.Missing)}, assessedBy(lanternS01E03, ls...)))
 	if pick == nil || pick.Release.Title != "Lantern.Keepers.S01E03.1080p.WEB-DL" {
 		t.Fatalf("decide picked %+v, want the release of S01E03 alone over better-seeded ones of S01E02 and S01", pick)
 	}
 	want := []Refusal{
-		{"Lantern.Keepers.S01E02.1080p.WEB-DL", []Reason{{Reason: targets.Reason{Code: WrongItem, Value: "S01E02"}}}},
-		{"Lantern.Keepers.S01.1080p.WEB-DL", []Reason{{Reason: targets.Reason{Code: CoversMore, Value: "S01"}}}},
-		{"Lantern.Keepers.S01E03.Extended.1080p.WEB-DL", []Reason{{Reason: targets.Reason{Code: WrongWork}}}},
+		{"Lantern.Keepers.S01E02.1080p.WEB-DL", []Reason{own(targets.WrongItem, "S01E02")}},
+		{"Lantern.Keepers.S01.1080p.WEB-DL", []Reason{own(targets.CoversMore, "S01"), notChecked(hd)}},
+		{"Lantern.Keepers.S01E03.Extended.1080p.WEB-DL", []Reason{own(targets.WrongWork, "")}},
 	}
 	if !reflect.DeepEqual(refused, want) {
-		t.Fatalf("refused = %+v\nwant another episode as wrong_item, the pack as covers_more and another series as wrong_work, each before its cut: %+v", refused, want)
+		t.Fatalf("refused = %+v\nwant another episode as wrong_item and another series as wrong_work, judged no further, and the pack as covers_more, judged at the cell: %+v", refused, want)
+	}
+}
+
+func TestASoftRefusedReleaseIsStillScoredAndRanked(t *testing.T) {
+	x265 := formats.Format{ID: formats.ID{1}, Name: "x265", Conditions: []formats.Condition{
+		{Name: "x265", Kind: formats.ReleaseTitle, Fields: json.RawMessage(`{"value":"\\bx265\\b"}`)},
+	}}
+	scored := targetOf(targets.Spec{
+		Name: "Scored", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p,
+		Scores: targets.Scores{Formats: map[formats.ID]int{x265.ID: 50}, Increment: 1},
+	})
+	j := lanternS01E03
+	j.scoring = formats.Compile([]formats.Format{x265}, formats.DefaultTimings())
+	c := cells{open: []files.Cell{cell(scored, files.Missing)}}
+	d := decide(c, assessedBy(j,
+		offered("Lantern.Keepers.S01E03.1080p.WEB-DL", 5, 10, nil),
+		offered("Lantern.Keepers.S01.1080p.WEB-DL.x265", 90, 10, nil),
+		offered("Lantern.Watchers.S01E03.1080p.WEB-DL.x265", 50, 10, nil),
+	))
+	var ranked []string
+	for _, r := range d.Ranked {
+		var codes []targets.ReasonCode
+		for _, reason := range r.refusals {
+			codes = append(codes, reason.Code)
+		}
+		ranked = append(ranked, fmt.Sprintf("%s %d %v", r.Release.Title, r.verdicts[0].v.Score(), codes))
+	}
+	want := []string{
+		"Lantern.Keepers.S01.1080p.WEB-DL.x265 50 [covers_more]",
+		"Lantern.Watchers.S01E03.1080p.WEB-DL.x265 50 [wrong_title]",
+		"Lantern.Keepers.S01E03.1080p.WEB-DL 0 []",
+	}
+	if !slices.Equal(ranked, want) {
+		t.Fatalf("ranked %q\nwant %q: a pack and another title, softly refused, still scored at the Target and ranked", ranked, want)
+	}
+	if picks := d.picks(c); len(picks) != 1 || picks[0].Release.Title != "Lantern.Keepers.S01E03.1080p.WEB-DL" {
+		t.Fatalf("an automatic search may take %+v, want only the release with no refusal of its own", picks)
+	}
+}
+
+func TestDecideRefusesForEachReason(t *testing.T) {
+	notX265 := targets.Spec{Name: "No x265", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p, Scores: targets.Scores{Increment: 1}}
+	if err := notX265.Filters.Set(targets.VideoCodec, "not", []string{"x265"}); err != nil {
+		t.Fatal(err)
+	}
+	minimum := targets.Spec{Name: "Minimum", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p, Scores: targets.Scores{Minimum: 10, Increment: 1}}
+	extended := []files.Cell{cellOf(targets.Edition("extended"), hd, files.Missing)}
+	open := []files.Cell{cell(hd, files.Missing)}
+	long := lasting(orchard, 100*time.Minute)
+	for _, c := range []struct {
+		j     judging
+		open  []files.Cell
+		title string
+		size  int64
+		ids   map[string]string
+		want  []targets.ReasonCode
+	}{
+		{orchard, open, "Orchard.2021.1080p.WEB-DL", 10, map[string]string{"tmdbid": "9000002"}, []targets.ReasonCode{targets.WrongWork}},
+		{orchard, open, "Another.Film.2021.1080p.WEB-DL", 10, nil, []targets.ReasonCode{targets.WrongTitle, targets.SizeNotChecked}},
+		{orchard, open, "Orchard.2019.1080p.WEB-DL", 10, nil, []targets.ReasonCode{targets.WrongTitle, targets.SizeNotChecked}},
+		{lanternS01E03, open, "Lantern.Keepers.S01E02.1080p.WEB-DL", 10, nil, []targets.ReasonCode{targets.WrongItem}},
+		{lanternS01E03, open, "Lantern.Keepers.S01.1080p.WEB-DL", 10, nil, []targets.ReasonCode{targets.CoversMore, targets.SizeNotChecked}},
+		{orchard, extended, "Orchard.2021.1080p.WEB-DL", 10, nil, []targets.ReasonCode{targets.CutNotWanted, targets.SizeNotChecked}},
+		{orchard, open, "Orchard.2021.1080p.TS.x264", 10, nil, []targets.ReasonCode{targets.QualityNotInTarget}},
+		{orchard, []files.Cell{cell(targetOf(notX265), files.Missing)}, "Orchard.2021.1080p.WEB-DL.x265", 10, nil, []targets.ReasonCode{targets.FilterFailed, targets.SizeNotChecked}},
+		{long, open, "Orchard.2021.1080p.WEB-DL", 10, nil, []targets.ReasonCode{targets.SizeBelow}},
+		{long, open, "Orchard.2021.1080p.WEB-DL", 10000 << 20, nil, []targets.ReasonCode{targets.SizeAbove}},
+		{orchard, []files.Cell{cell(targetOf(minimum), files.Missing)}, "Orchard.2021.1080p.WEB-DL", 10, nil, []targets.ReasonCode{targets.SizeNotChecked, targets.ScoreBelowMinimum}},
+	} {
+		_, refused := searched(c.open, assessedBy(c.j, offered(c.title, 5, c.size, c.ids)))
+		var got []targets.ReasonCode
+		for _, r := range refused {
+			for _, reason := range r.Reasons {
+				got = append(got, reason.Code)
+			}
+		}
+		if len(refused) != 1 || !slices.Equal(got, c.want) {
+			t.Errorf("%s is refused as %v, want %v", c.title, got, c.want)
+		}
+	}
+}
+
+func TestDecideTakesAProperOnAFilledCell(t *testing.T) {
+	web := target("Web", release.WEBDL1080p, nil, []release.Quality{release.WEBDL1080p}, []release.Quality{release.WEBDL720p})
+	filled := cell(web, files.Met)
+	filled.File = &files.File{Quality: release.WEBDL1080p, Title: release.Title("Orchard.2021.1080p.WEB-DL-GRP", episodic{}, release.BuiltIn())}
+	c := cells{filled: []files.Cell{filled}}
+	ls := []listed{
+		offered("Orchard.2021.1080p.WEB-DL-GRP2", 90, 10, nil),
+		offered("Orchard.2021.720p.WEB-DL.PROPER-GRP", 90, 10, nil),
+		offered("Orchard.2021.1080p.WEB-DL.REPACK-OTHER", 90, 10, nil),
+		offered("Orchard.2021.1080p.WEB-DL.PROPER-GRP", 5, 10, nil),
+	}
+	d := decide(c, assessedBy(orchard, ls...))
+	if want := []Pick{{Release: ls[3].Release, at: 3, Edition: targets.AnyEdition, Targets: []targets.TargetID{web.ID}, Notes: []Reason{notChecked(web)}}}; !reflect.DeepEqual(d.picks(c), want) {
+		t.Fatalf("decide over a filled cell picks %+v, want only the proper of its file: %+v", d.picks(c), want)
+	}
+	want := []Refusal{
+		{"Orchard.2021.1080p.WEB-DL-GRP2", nil},
+		{"Orchard.2021.720p.WEB-DL.PROPER-GRP", nil},
+		{"Orchard.2021.1080p.WEB-DL.REPACK-OTHER", []Reason{notChecked(web), {Reason: targets.Reason{Code: targets.RepackOtherGroup}, Target: web.ID}}},
+	}
+	if got := d.refusals(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("refused = %+v\nwant the same revision and another Quality's proper judged at no cell, and a repack from another group refused: %+v", got, want)
 	}
 }
 
 func TestDecideAsksARankAboveTheFileFillingTheCell(t *testing.T) {
 	held := cell(hd, files.Upgradable)
 	held.File = &files.File{Quality: release.WEBDL1080p}
-	candidates := []candidate{listed("Orchard.1080p.WEBRip", 90, 10, nil), listed("Orchard.1080p.BluRay", 1, 10, nil)}
-	pick, refused := best(decide([]files.Cell{held}, item.ID, orchard, candidates))
+	pick, refused := best(searched([]files.Cell{held}, assessedBy(orchard, offered("Orchard.1080p.WEBRip", 90, 10, nil), offered("Orchard.1080p.BluRay", 1, 10, nil))))
 	want := []Refusal{{"Orchard.1080p.WEBRip", []Reason{notChecked(hd), {Reason: targets.Reason{Code: targets.NotAnUpgrade}, Target: hd.ID}}}}
 	if pick == nil || pick.Release.Title != "Orchard.1080p.BluRay" || !reflect.DeepEqual(refused, want) {
 		t.Fatalf("decide over a held WEB-DL = %+v, %+v; want the Bluray and the WEBRip refused as %+v", pick, refused, want)
@@ -188,31 +350,62 @@ func TestDecideAsksARankAboveTheFileFillingTheCell(t *testing.T) {
 }
 
 func TestDecideReadsTheHeldFilesScoreAgainstUpgradeUntil(t *testing.T) {
-	candidates := []candidate{listed("Orchard.1080p.WEBRip", 90, 10, nil)}
+	as := assessedBy(orchard, offered("Orchard.1080p.WEBRip", 90, 10, nil))
 	for _, c := range []struct {
 		score int
 		grabs bool
 	}{{-10, true}, {0, false}} {
 		held := cell(hd, files.Upgradable)
 		held.File, held.Score = &files.File{Quality: release.WEBDL1080p}, c.score
-		pick, _ := best(decide([]files.Cell{held}, item.ID, orchard, candidates))
+		pick, _ := best(searched([]files.Cell{held}, as))
 		if (pick != nil) != c.grabs {
 			t.Errorf("decide over a WEB-DL scoring %d at upgrade-until 0 picked %+v, want a pick %t: a same-tier Release scoring 0 upgrades only a file below upgrade-until", c.score, pick, c.grabs)
 		}
 	}
 }
 
-func TestDecideJudgesACandidateOnlyForTheCellsOfItsCut(t *testing.T) {
+func TestDecideJudgesACandidateAtEachCellAndRefusesTheCutsItDoesntTake(t *testing.T) {
 	standard, extended := targets.EditionOf(release.Standard), targets.Edition("extended")
-	candidates := []candidate{listed("Orchard.1080p.BluRay", 90, 10, nil), listed("Orchard.EXTENDED.1080p.WEB-DL", 5, 10, nil)}
-	pick, refused := best(decide([]files.Cell{cellOf(standard, hd, files.Upgradable), cellOf(extended, hd, files.Missing)}, item.ID, orchard, candidates))
-	if want := (&Pick{Release: candidates[0].Release, Edition: standard, Targets: []targets.TargetID{hd.ID}, Notes: []Reason{notChecked(hd)}}); !reflect.DeepEqual(pick, want) || refused != nil {
+	ls := []listed{offered("Orchard.1080p.BluRay", 90, 10, nil), offered("Orchard.EXTENDED.1080p.WEB-DL", 5, 10, nil)}
+	pick, refused := best(searched([]files.Cell{cellOf(standard, hd, files.Upgradable), cellOf(extended, hd, files.Missing)}, assessedBy(orchard, ls...)))
+	if want := (&Pick{Release: ls[0].Release, at: 0, Edition: standard, Targets: []targets.TargetID{hd.ID}, Notes: []Reason{notChecked(hd)}}); !reflect.DeepEqual(pick, want) || refused != nil {
 		t.Fatalf("decide over Standard then Extended = %+v, %+v; want the Standard Bluray for Standard's cell: %+v", pick, refused, want)
 	}
-	pick, refused = best(decide([]files.Cell{cellOf(extended, hd, files.Missing)}, item.ID, orchard, candidates))
-	want := []Refusal{{"Orchard.1080p.BluRay", []Reason{{Reason: targets.Reason{Code: CutNotWanted, Value: "standard"}}}}}
+	pick, refused = best(searched([]files.Cell{cellOf(extended, hd, files.Missing)}, assessedBy(orchard, ls...)))
+	want := []Refusal{{"Orchard.1080p.BluRay", []Reason{{Reason: targets.Reason{Code: targets.CutNotWanted, Value: "standard"}, Target: hd.ID}, notChecked(hd)}}}
 	if pick == nil || pick.Release.Title != "Orchard.EXTENDED.1080p.WEB-DL" || pick.Edition != extended || !reflect.DeepEqual(refused, want) {
-		t.Fatalf("decide over Extended alone = %+v, %+v; want the Extended WEB-DL and the Standard Bluray refused as %+v", pick, refused, want)
+		t.Fatalf("decide over Extended alone = %+v, %+v; want the Extended WEB-DL and the Standard Bluray refused at the cell as %+v", pick, refused, want)
+	}
+}
+
+func TestDecideRanksTheBetterIndexerPriorityAfterTierAndBeforeSeeders(t *testing.T) {
+	open := []files.Cell{cell(hd, files.Missing)}
+	worse := offered("Orchard.1080p.WEB-DL.A", 90, 20, nil)
+	worse.Release.Priority = 25
+	better := offered("Orchard.1080p.WEBRip.B", 1, 20, nil)
+	better.Release.Priority = 10
+	bluray := offered("Orchard.1080p.BluRay.C", 1, 20, nil)
+	bluray.Release.Priority = 50
+	picks, _ := searched(open, assessedBy(orchard, worse, better))
+	if len(picks) != 2 || picks[0].Release.Title != better.Release.Title || picks[1].Release.Title != worse.Release.Title {
+		t.Fatalf("decide ranked %+v, want the priority 10 Release over the better-seeded priority 25 one in one tier", picks)
+	}
+	if pick, _ := best(searched(open, assessedBy(orchard, worse, better, bluray))); pick.Release.Title != bluray.Release.Title {
+		t.Fatalf("decide picked %s, want %s from a better tier whatever its Indexer's priority", pick.Release.Title, bluray.Release.Title)
+	}
+}
+
+func TestAssessSumsTheRuntimeOfEveryCoveredItem(t *testing.T) {
+	j := lanternS01E03
+	j.runtime = map[works.ItemID]release.Fact[time.Duration]{item.ID: release.Known(40 * time.Minute), s01e02: release.Known(45 * time.Minute)}
+	for title, want := range map[string]release.Fact[time.Duration]{
+		"Lantern.Keepers.S01.1080p.WEB-DL":    release.Known(85 * time.Minute),
+		"Lantern.Keepers.S01E03.1080p.WEB-DL": release.Known(40 * time.Minute),
+		"Lantern.Keepers.1080p.WEB-DL":        {},
+	} {
+		if got := assess(j, offered(title, 5, 10, nil)).read.Facts.Coverage.Runtime; got != want {
+			t.Errorf("%s runs %v, want %v", title, got, want)
+		}
 	}
 }
 
@@ -270,8 +463,8 @@ func best(picks []Pick, refused []Refusal) (*Pick, []Refusal) {
 	return &picks[0], refused
 }
 
-func from(priority int, title, hash string, size int64, at int) candidate {
-	c := listed(title, 5, size, nil)
+func from(priority int, title, hash string, size int64, at int) listed {
+	c := offered(title, 5, size, nil)
 	c.Release.Priority, c.at = priority, at
 	if hash != "" {
 		h := bencode.InfoHash([]byte(strings.Repeat(hash, 20)))
@@ -281,7 +474,7 @@ func from(priority int, title, hash string, size int64, at int) candidate {
 }
 
 func TestDedupeCountsAReleaseListedTwiceOnceFromTheBetterPriority(t *testing.T) {
-	kept := dedupe([]candidate{
+	kept := dedupe([]listed{
 		from(25, "Orchard.1080p.WEB-DL", "a", 10, 0),
 		from(25, "Orchard.720p.WEB-DL", "", 5, 1),
 		from(10, "Orchard.1080p.WEB-DL.Mirror", "a", 10, 2),
@@ -296,23 +489,6 @@ func TestDedupeCountsAReleaseListedTwiceOnceFromTheBetterPriority(t *testing.T) 
 	want := []string{"2 10 Orchard.1080p.WEB-DL.Mirror", "3 10 Orchard.720p.WEB-DL", "4 10 Orchard.2160p.WEB-DL", "5 25 Orchard.2160p.WEB-DL"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("dedupe kept %q, want %q: one hash, or one title and size where a copy lacks a hash, from the better priority", got, want)
-	}
-}
-
-func TestDecideRanksTheBetterIndexerPriorityAfterTierAndBeforeSeeders(t *testing.T) {
-	open := []files.Cell{cell(hd, files.Missing)}
-	worse := listed("Orchard.1080p.WEB-DL.A", 90, 20, nil)
-	worse.Release.Priority = 25
-	better := listed("Orchard.1080p.WEBRip.B", 1, 20, nil)
-	better.Release.Priority = 10
-	bluray := listed("Orchard.1080p.BluRay.C", 1, 20, nil)
-	bluray.Release.Priority = 50
-	picks, _ := decide(open, item.ID, orchard, []candidate{worse, better})
-	if len(picks) != 2 || picks[0].Release.Title != better.Release.Title || picks[1].Release.Title != worse.Release.Title {
-		t.Fatalf("decide ranked %+v, want the priority 10 Release over the better-seeded priority 25 one in one tier", picks)
-	}
-	if pick, _ := best(decide(open, item.ID, orchard, []candidate{worse, better, bluray})); pick.Release.Title != bluray.Release.Title {
-		t.Fatalf("decide picked %s, want %s from a better tier whatever its Indexer's priority", pick.Release.Title, bluray.Release.Title)
 	}
 }
 

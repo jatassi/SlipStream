@@ -3,7 +3,7 @@ import { isPhone, navigate } from "./shell.ts";
 
 const groups = [
   ["Library", ["Content Types", "Library roots", "Metadata"]],
-  ["Files to keep", ["Targets", "Profiles", "Editions"]],
+  ["Files to keep", ["Targets", "Profiles", "Custom Formats", "Editions"]],
   ["Search and download", ["Indexers", "Download Clients"]],
   ["Access", ["Address", "Sign-in", "API key"]],
   ["System", ["Nodes", "Email"]],

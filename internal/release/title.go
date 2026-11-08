@@ -45,7 +45,7 @@ func read(p Prepared, names Names, cuts []Cut) Read {
 	}
 	readQuality(p, &f)
 	readStream(masked, &f)
-	return Read{Given: p.Original, Name: n, Facts: f}
+	return Read{Release: masked, Name: n, Facts: f}
 }
 
 // File reads a file path's name, and its folder's when the file name

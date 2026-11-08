@@ -1,9 +1,11 @@
 package movie_test
 
 import (
+	"encoding/json"
 	"slices"
 	"testing"
 
+	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/release"
 )
 
@@ -43,5 +45,20 @@ func TestTheTitleNamesNoGroup(t *testing.T) {
 	}
 	if g, _ := title("Spider-Man.2002.1080p.BluRay.x264-SPARKS").Facts.Group.Get(); g != "SPARKS" {
 		t.Errorf("the group reads %q; want SPARKS", g)
+	}
+}
+
+func TestAReleaseTitleConditionSkipsTheMoviesTitle(t *testing.T) {
+	remux := formats.Format{ID: formats.ID{1}, Name: "Remux", Conditions: []formats.Condition{
+		{Name: "Remux", Kind: formats.ReleaseTitle, Fields: json.RawMessage(`{"value":"\\bremux\\b"}`)},
+	}}
+	c := formats.Compile([]formats.Format{remux}, formats.DefaultTimings())
+	for name, want := range map[string]bool{
+		"The.Remux.Heist.2021.1080p.WEB-DL.x264-GRP": false,
+		"The.Heist.2021.1080p.BluRay.REMUX.AVC-GRP":  true,
+	} {
+		if got := len(c.Match(title(name)).Matched) == 1; got != want {
+			t.Errorf("a Release title condition on remux matches %s: %t; want %t, as Radarr tests SimpleReleaseTitle with the movie's title masked", name, got, want)
+		}
 	}
 }

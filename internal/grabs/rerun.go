@@ -49,7 +49,7 @@ type keptSource struct {
 }
 
 // keep stores c in run's kept Releases, at its position in the run.
-func (gr *Grabs) keep(ctx context.Context, q *db.Queries, run SearchID, c candidate) error {
+func (gr *Grabs) keep(ctx context.Context, q *db.Queries, run SearchID, c copied) error {
 	r := c.Release
 	k := keptRelease{
 		Priority: r.Priority, Title: r.Title, Size: r.Size, Seeders: r.Seeders, IDs: r.IDs,
@@ -122,65 +122,85 @@ var dropOf = map[indexers.DropWhy]dropped{
 	indexers.DropRemoved:     {IndexerRemoved, "The Indexer was removed before the .torrent was fetched"},
 }
 
-// left settles the run of g, a Grab leaving fetching by o: a drop reruns
-// its decision, returning the rerun's Grab and run, and any other way out
-// ends the run's kept Releases, since no rerun follows.
-func (gr *Grabs) left(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome) (*Grab, *Search, error) {
-	q := db.New(tx)
-	if _, drop := o.(dropped); !drop {
-		return nil, nil, q.DeleteReleasesOfGrab(ctx, g.ID)
-	}
-	row, err := q.GetSearchOfGrab(ctx, g.ID)
-	if errors.Is(err, storage.ErrNoRows) {
-		return nil, nil, nil
-	}
-	if err != nil {
-		return nil, nil, err
-	}
-	run, err := searchOf(row, nil, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	grab, err := gr.redecide(ctx, tx, run)
-	return grab, &run, err
+// redo is what a dropped Grab's rerun reads before its Write: the run,
+// and the Releases it kept, assessed.
+type redo struct {
+	run      Search
+	assessed []assessed
 }
 
-// redecide is run's decision again over the Releases it kept, which no
-// Grab of the run took: the first pick its Indexer takes becomes the
+// rerunOf reads, in one Read, the rerun of g's run, nil when no run
+// holds g.
+func (gr *Grabs) rerunOf(ctx context.Context, g Grab) (*redo, error) {
+	var out *redo
+	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		q := db.New(r)
+		row, err := q.GetSearchOfGrab(ctx, g.ID)
+		if errors.Is(err, storage.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		run, err := searchOf(row, nil, nil)
+		if err != nil {
+			return err
+		}
+		rows, err := q.ListReleasesOfSearch(ctx, run.ID)
+		if err != nil {
+			return err
+		}
+		ls := make([]listed, len(rows))
+		for i, row := range rows {
+			if ls[i].Release, err = gr.kept(row); err != nil {
+				return err
+			}
+			ls[i].at = int(row.Position)
+		}
+		tree, err := gr.cfg.Works.TreeIn(ctx, r, run.WorkID)
+		if err != nil {
+			return err
+		}
+		terms, err := gr.cfg.Terms[tree.ContentType].SearchTerms(ctx, r, run.ItemID)
+		if err != nil {
+			return err
+		}
+		j, err := gr.judgingOf(ctx, r, tree.ContentType, run, terms.Expect)
+		if err != nil {
+			return err
+		}
+		out = &redo{run: run, assessed: assessAll(j, dedupe(ls))}
+		return nil
+	})
+	return out, err
+}
+
+// left settles the run of g, a Grab leaving fetching by o: a drop reruns
+// its decision over re, returning the rerun's Grab and run, and any other
+// way out ends the run's kept Releases, since no rerun follows.
+func (gr *Grabs) left(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome, re *redo) (*Grab, *Search, error) {
+	if _, drop := o.(dropped); !drop {
+		return nil, nil, db.New(tx).DeleteReleasesOfGrab(ctx, g.ID)
+	}
+	if re == nil {
+		return nil, nil, nil
+	}
+	grab, err := gr.redecide(ctx, tx, *re)
+	return grab, &re.run, err
+}
+
+// redecide is re's run's decision again over the Releases it kept, which
+// no Grab of the run took: the first pick its Indexer takes becomes the
 // run's Grab, else the run found nothing acceptable. The run keeps its
 // first decision's refusals.
-func (gr *Grabs) redecide(ctx context.Context, tx *storage.Tx[file], run Search) (*Grab, error) {
+func (gr *Grabs) redecide(ctx context.Context, tx *storage.Tx[file], re redo) (*Grab, error) {
 	q := db.New(tx)
-	rows, err := q.ListReleasesOfSearch(ctx, run.ID)
+	run := re.run
+	d, c, err := gr.decision(ctx, tx, run, re.assessed)
 	if err != nil {
 		return nil, err
 	}
-	releases := make([]indexers.Release, len(rows))
-	for i, row := range rows {
-		if releases[i], err = gr.kept(row); err != nil {
-			return nil, err
-		}
-	}
-	tree, err := gr.cfg.Works.TreeIn(ctx, tx, run.WorkID)
-	if err != nil {
-		return nil, err
-	}
-	terms, err := gr.cfg.Terms[tree.ContentType].SearchTerms(ctx, tx, run.ItemID)
-	if err != nil {
-		return nil, err
-	}
-	candidates, err := gr.candidates(ctx, tx, run, terms, releases)
-	if err != nil {
-		return nil, err
-	}
-	for i, row := range rows {
-		candidates[i].at = int(row.Position)
-	}
-	picks, _, err := gr.decision(ctx, tx, run, terms, dedupe(candidates))
-	if err != nil {
-		return nil, err
-	}
-	grab, pick, err := gr.take(ctx, tx, run, picks, storage.Now())
+	grab, pick, err := gr.take(ctx, tx, run, d.picks(c), storage.Now())
 	if err != nil {
 		return nil, err
 	}

@@ -3,7 +3,6 @@ import type {
   TargetsNewTarget,
   TargetsQuality,
   TargetsQualityList,
-  TargetsScores,
   TargetsTarget,
   TargetsTargetPropers,
 } from "../api/gen/model";
@@ -20,6 +19,14 @@ import {
   presetOrder,
   rankedOf,
 } from "./order";
+import {
+  type FormatName,
+  type ScoresDraft,
+  scoresDraftOf,
+  scoresProblem,
+  scoresBody,
+  totalsOf,
+} from "./scores";
 import type { Rules } from "./upgrade-sentence";
 import { type Attribute, attributes } from "./vocab";
 
@@ -33,8 +40,7 @@ export type SizeDraft = { readonly min: string; readonly max: string };
 /**
  * A Target being edited. The order ranks the accepted qualities but CAM,
  * and `cinema` says whether CAM is accepted; sizes are kept for every
- * quality and only the accepted ones are sent. Scores and propers are
- * sent as they were loaded.
+ * quality and only the accepted ones are sent.
  */
 export type TargetDraft = {
   readonly name: string;
@@ -42,7 +48,7 @@ export type TargetDraft = {
   readonly cinema: boolean;
   readonly filters: Readonly<Record<Attribute, Rule>>;
   readonly sizes: Readonly<Partial<Record<QualityKey, SizeDraft>>>;
-  readonly scores: TargetsScores;
+  readonly scores: ScoresDraft;
   readonly propers: TargetsTargetPropers;
 };
 
@@ -68,7 +74,10 @@ export function sizeOf(draft: TargetDraft, key: QualityKey): SizeDraft {
 }
 
 /** A new Target: every quality but CAM accepted under the default preset, at their floors, scoring nothing. */
-export function newDraft({ qualities, presets }: TargetsQualityList): TargetDraft {
+export function newDraft(
+  { qualities, presets }: TargetsQualityList,
+  formats: readonly FormatName[],
+): TargetDraft {
   return {
     name: "",
     order: presetOrder(
@@ -78,12 +87,16 @@ export function newDraft({ qualities, presets }: TargetsQualityList): TargetDraf
     cinema: false,
     filters: anyRules(),
     sizes: floors(qualities),
-    scores: { formats: [], minimum: 0, upgradeUntil: 0, increment: 1 },
+    scores: scoresDraftOf({ formats: [], minimum: 0, upgradeUntil: 0, increment: 1 }, formats),
     propers: "prefer_and_upgrade",
   };
 }
 
-export function draftOf(target: TargetsTarget, { qualities }: TargetsQualityList): TargetDraft {
+export function draftOf(
+  target: TargetsTarget,
+  { qualities }: TargetsQualityList,
+  formats: readonly FormatName[],
+): TargetDraft {
   const keys = qualities.map((quality) => quality.key);
   const known = (key: string) => keys.find((candidate) => candidate === key);
   const tiers = target.tiers.map((tier) => (tier ?? []).flatMap((key) => known(key) ?? []));
@@ -102,7 +115,7 @@ export function draftOf(target: TargetsTarget, { qualities }: TargetsQualityList
     cinema: tiers.some((tier) => tier.includes(cam)),
     filters,
     sizes,
-    scores: target.scores,
+    scores: scoresDraftOf(target.scores, formats),
     propers: target.propers,
   };
 }
@@ -127,7 +140,7 @@ export const layoutOfDraft = (draft: TargetDraft): Layout => layoutOf(draft.orde
 
 export const rulesOfDraft = (draft: TargetDraft): Rules => ({
   ...layoutOfDraft(draft),
-  scores: draft.scores,
+  scores: totalsOf(draft.scores),
   propers: draft.propers,
 });
 
@@ -170,6 +183,9 @@ export function problemsOf(draft: TargetDraft): string[] {
   if (acceptedInOrder(draft).some((key) => sizeProblem(sizeOf(draft, key)) !== undefined)) {
     problems.push("Fix the sizes marked below.");
   }
+  if (scoresProblem(draft.scores)) {
+    problems.push("Fix the scores marked below.");
+  }
   return problems;
 }
 
@@ -194,7 +210,7 @@ export function bodyOf(draft: TargetDraft): TargetsNewTarget {
       const { min, max } = sizeOf(draft, quality);
       return { quality, min: Number(min), max: max.trim() === "" ? null : Number(max) };
     }),
-    scores: draft.scores,
+    scores: scoresBody(draft.scores),
     propers: draft.propers,
   };
 }

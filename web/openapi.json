@@ -3997,33 +3997,41 @@
             "type": "string"
           },
           "code": {
-            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that covers more than one Item, such as a season pack, and SlipStream doesn't grab those yet.",
+            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's.",
             "enum": [
               "wrong_work",
               "wrong_item",
               "covers_more",
+              "wrong_title",
               "cut_not_wanted",
               "quality_not_in_target",
               "filter",
               "size_below",
               "size_above",
               "size_not_checked",
-              "not_an_upgrade"
+              "score_below_minimum",
+              "not_an_upgrade",
+              "repack_other_group"
             ],
             "type": "string"
           },
+          "soft": {
+            "description": "Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note.",
+            "type": "boolean"
+          },
           "targetId": {
-            "description": "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and cut_not_wanted",
+            "description": "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
             "format": "uuid",
             "type": "string"
           },
           "value": {
-            "description": "The value a filter failed on, the quality a Target doesn't accept, the cut no open cell wants, or what a wrong_item or covers_more title names, such as S01E02",
+            "description": "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
             "type": "string"
           }
         },
         "required": [
-          "code"
+          "code",
+          "soft"
         ],
         "type": "object"
       },
@@ -4031,7 +4039,7 @@
         "additionalProperties": false,
         "properties": {
           "reasons": {
-            "description": "Each open cell's Target's failures and notes, in Profile order",
+            "description": "The release's own refusals, then each cell's failures and notes, in Profile order",
             "items": {
               "$ref": "#/components/schemas/GrabsReason"
             },
@@ -4106,7 +4114,7 @@
             ]
           },
           "refused": {
-            "description": "The Releases it didn't grab for a reason, in the Indexers' order; a Release it outranked isn't refused",
+            "description": "The Releases it didn't grab for a reason, in the Indexers' order. A Release it outranked isn't refused.",
             "items": {
               "$ref": "#/components/schemas/GrabsRefusal"
             },

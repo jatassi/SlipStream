@@ -230,7 +230,8 @@ function sampleMoves(layout: Layout, table: readonly QualityKey[]): [QualityKey,
 
 /**
  * The sentence under the Qualities list and up to six sample moves, such as
- * "Grabs WEBRip-720p or better. Upgrades until Bluray-1080p, then stops."
+ * "Grabs WEBRip-720p or better. Upgrades until Bluray-1080p and a score of
+ * 50, then stops."
  * `table` is every quality, low to high, for a sample of one left out.
  */
 export function upgradeSentence(
@@ -238,16 +239,21 @@ export function upgradeSentence(
   table: readonly QualityKey[],
   name: Name,
 ): { sentence: string; samples: Sample[] } {
-  const { tiers, cutoff } = rules;
+  const { tiers, cutoff, scores } = rules;
   const bottom = tiers.at(-1);
   if (bottom === undefined) {
     return { sentence: "Accepts no quality yet, so it grabs nothing.", samples: [] };
   }
   const grabs = `Grabs ${either(bottom.map((key) => name(key)))}${tiers.length > 1 ? " or better" : ""}.`;
+  const score = scores.upgradeUntil === 0 ? [] : [`a score of ${String(scores.upgradeUntil)}`];
+  const until = [
+    ...(cutoff >= tiers.length - 1 ? [] : [either((tiers[cutoff] ?? []).map((key) => name(key)))]),
+    ...score,
+  ];
   const stops =
-    cutoff >= tiers.length - 1
+    until.length === 0
       ? "Keeps the first file it grabs."
-      : `Upgrades until ${either((tiers[cutoff] ?? []).map((key) => name(key)))}, then stops.`;
+      : `Upgrades until ${until.join(" and ")}, then stops.`;
   const samples = sampleMoves(rules, table).map(([from, to]): Sample =>
     Object.assign(judgeInWords(rules, { from: plain(from), to: plain(to) }, name), { from, to }),
   );

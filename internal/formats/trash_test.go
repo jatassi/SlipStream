@@ -52,7 +52,7 @@ func runTRaSH(t *testing.T, f formats.Format, reads []release.Read) {
 	c := formats.Compile([]formats.Format{f}, snapshotLimit)
 	for _, r := range reads {
 		for i := range slowConditions(c, r) {
-			t.Errorf("condition %d (%s) ran past %v on %q, %d times running", i, f.Conditions[i].Name, snapshotLimit.Match, r.Given, attempts)
+			t.Errorf("condition %d (%s) ran past %v on %q, %d times running", i, f.Conditions[i].Name, snapshotLimit.Match, r.Release, attempts)
 		}
 	}
 }

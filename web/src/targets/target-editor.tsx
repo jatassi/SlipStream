@@ -1,4 +1,5 @@
 import type { TargetsQualityList, TargetsTarget } from "../api/gen/model";
+import type { FormatName } from "./scores";
 import { updateTarget } from "../api/gen/query/targets/targets";
 import { toast } from "../ui/toast";
 import { type TargetDraft, bodyOf, draftOf, problemsOf } from "./draft";
@@ -21,17 +22,19 @@ export function TargetEditor({ initial, save }: { initial: TargetDraft; save: Sa
 export function SavedTargetEditor({
   target,
   qualities,
+  formats,
   onSaved,
 }: {
   target: TargetsTarget;
   qualities: TargetsQualityList;
+  formats: readonly FormatName[];
   onSaved: () => Promise<void> | void;
 }) {
   const impact = useImpactSheet();
   return (
     <>
       <TargetEditor
-        initial={draftOf(target, qualities)}
+        initial={draftOf(target, qualities, formats)}
         save={{
           label: "Save",
           onSave: (draft) =>
