@@ -249,6 +249,11 @@ func TestAProbeWinsOverTheName(t *testing.T) {
 	if v, _ := probed.Video.Get(); qualityKey(probed.Quality) != "sdtv" || v != "x265" {
 		t.Errorf("probed at 480p in x265, the file reads as %q in %q, want sdtv in x265", qualityKey(probed.Quality), v)
 	}
+	french := release.Title("Orchard.2021.FRENCH.1080p.WEB-DL", release.TitleOnly{}, nil).Facts
+	audio := french.WithProbe(release.Probed{Languages: release.Known([]release.Language{"de"})})
+	if got, _ := audio.Languages.Get(); !reflect.DeepEqual(got, []release.Language{"de"}) {
+		t.Errorf("a file whose audio tracks probe as German reads as %v, want [de]", got)
+	}
 }
 
 func TestRevisionsCompareRealThenVersion(t *testing.T) {
