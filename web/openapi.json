@@ -12784,7 +12784,14 @@
             "type": "string"
           },
           "tracker": {
-            "$ref": "#/components/schemas/TrackersTrackerRef",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrackersTrackerRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "null for a torrent with no known Tracker"
           }
         },
@@ -13362,11 +13369,25 @@
             "type": "string"
           },
           "owed": {
-            "$ref": "#/components/schemas/TrackersOwed",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrackersOwed"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "What its latest miss still owed; null before a miss"
           },
           "owes": {
-            "$ref": "#/components/schemas/TrackersOwed",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrackersOwed"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "What it still needs to meet its Tracker's rule and the margin; null unless it owes under a known rule"
           },
           "quietSince": {
@@ -13386,7 +13407,14 @@
             ]
           },
           "rule": {
-            "$ref": "#/components/schemas/TrackersRuleShape",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrackersRuleShape"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "The rule it snapshot when it opened; null while none is known"
           },
           "state": {
@@ -13397,12 +13425,20 @@
               "released"
             ],
             "type": "string"
+          },
+          "torrents": {
+            "description": "Its live Torrents' ids, in added order; empty once none is live",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "required": [
           "infoHash",
           "name",
           "state",
+          "torrents",
           "rule",
           "openedAt",
           "metAt",

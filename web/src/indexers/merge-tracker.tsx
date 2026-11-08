@@ -23,10 +23,13 @@ export function MergeTrackerDialog({
   tracker,
   others,
   onClose,
+  onMerged,
 }: {
   tracker: TrackersTracker;
   others: readonly TrackersTracker[];
   onClose: () => void;
+  /** Runs before the merged Tracker leaves the caches, such as to leave its page. */
+  onMerged?: ((kept: TrackersTracker) => Promise<unknown>) | undefined;
 }) {
   const queryClient = useQueryClient();
   const options = others.map((other) => ({ value: other.id, label: other.name }));
@@ -45,6 +48,7 @@ export function MergeTrackerDialog({
       onConfirm={async () => {
         try {
           const saved = await mergeTracker(tracker.id, { into });
+          await onMerged?.(saved);
           adoptMerge(queryClient, tracker.id, saved);
           toast(`Merged ${tracker.name} into ${saved.name}`);
         } catch (error) {

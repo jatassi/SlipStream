@@ -255,7 +255,7 @@ func TestTheListCountsATrackersTorrentsAndItsPageSumsThem(t *testing.T) {
 		return id
 	}
 	paused := `{"at":"2026-11-08T00:00:00Z","engine":"seeding","hold":"wanted","complete":true,"done":0}`
-	held("Orchard", "paused", paused, 1<<30, 4<<30)
+	orchard := held("Orchard", "paused", paused, 1<<30, 4<<30)
 	gone := held("Harbor", "started", paused, 8<<30, 4<<30)
 	s.exec(t, `UPDATE downloadclients_torrent SET removed_at = ?, removed_reason = 'admin', parted_at = ?, freed = 0 WHERE id = ?`, now, now, gone)
 	s.exec(t, `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, tracker_id, node_id, release_title, release_size, release_magnet,
@@ -276,9 +276,9 @@ func TestTheListCountsATrackersTorrentsAndItsPageSumsThem(t *testing.T) {
 		t.Errorf("getTracker = %s, want %s", page, attention)
 	}
 	_, owing := s.owner.Call(t, http.MethodGet, "/api/v1/trackers/"+seedpool+"/windows?state=owing", "")
-	if !strings.Contains(owing, `"name":"Orchard","state":"owing","rule":null,`) || !strings.Contains(owing, `"owed":null,"owes":null,"atRisk":"yes","quietSince":`) ||
+	if !strings.Contains(owing, `"name":"Orchard","state":"owing","torrents":["`+orchard.String()+`"],"rule":null,`) || !strings.Contains(owing, `"owed":null,"owes":null,"atRisk":"yes","quietSince":`) ||
 		!strings.HasSuffix(owing, `"nextOffset":null}`+"\n") {
-		t.Errorf("listTrackerWindows owing = %s, want Orchard's window alone, owing with no rule known and at risk", owing)
+		t.Errorf("listTrackerWindows owing = %s, want Orchard's window alone with its live Torrent, owing with no rule known and at risk", owing)
 	}
 	s.owner.Expect(t, http.MethodGet, "/api/v1/trackers/"+seedpool+"/windows?state=met", "", http.StatusOK, `{"windows":[],"nextOffset":null}`)
 	s.owner.Expect(t, http.MethodGet, "/api/v1/torrents/goals/preview", "", http.StatusOK, `{"acts":[],"kept":[],"waits":[]}`)

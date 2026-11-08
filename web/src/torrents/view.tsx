@@ -3,7 +3,9 @@ import { useNow } from "../tasks/use-now";
 import { StatusSentence } from "../ui/status-sentence";
 import { Browse, type Seams, type TorrentsSearch } from "./browse";
 import { NoTorrents } from "./empty";
+import { GoalMetPreview } from "./goal-met";
 import { useNames } from "./names";
+import { type Scope, scoped } from "./scope";
 import { Signals } from "./signals";
 import { signalsOf, torrentsSentence } from "./summary";
 
@@ -14,16 +16,19 @@ const wordsTick = 60_000;
 export function TorrentsView({
   search,
   onSearchChange,
+  scope,
   ...seams
 }: Seams & {
   search: TorrentsSearch;
   onSearchChange: (change: Partial<TorrentsSearch>) => void;
+  scope?: Scope | undefined;
 }) {
-  const list = useListTorrentsSuspense().data;
+  const all = useListTorrentsSuspense().data;
+  const list = scope === undefined ? all : scoped(all, scope.keep);
   const names = useNames();
   const clock = { now: useNow(wordsTick), zone: undefined };
   if (list.rows.length === 0) {
-    return <NoTorrents />;
+    return scope === undefined ? <NoTorrents /> : scope.empty;
   }
   const signals = signalsOf(list.rows, names.node, clock);
   return (
@@ -42,6 +47,7 @@ export function TorrentsView({
         onSearchChange={onSearchChange}
         names={names}
         clock={clock}
+        goalMet={<GoalMetPreview rows={list.rows} names={names} />}
         {...seams}
       />
     </>

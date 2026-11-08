@@ -5934,7 +5934,9 @@ export type TrackersTrackerRefOutput = zod.output<typeof TrackersTrackerRef>;
 export const TrackersPlannedTorrent = zod.object({
   id: zod.uuid(),
   name: zod.string(),
-  tracker: TrackersTrackerRef.describe("null for a torrent with no known Tracker"),
+  tracker: zod
+    .union([TrackersTrackerRef, zod.null()])
+    .describe("null for a torrent with no known Tracker"),
 });
 
 export type TrackersPlannedTorrent = zod.input<typeof TrackersPlannedTorrent>;
@@ -6298,10 +6300,14 @@ export const TrackersWindow = zod.object({
     .describe("When its Tracker's rule and the margin were met; null unless met"),
   name: zod.string().describe("Its latest torrent's name"),
   openedAt: zod.iso.datetime({ offset: true }).describe("Its torrent's first downloaded byte"),
-  owed: TrackersOwed.describe("What its latest miss still owed; null before a miss"),
-  owes: TrackersOwed.describe(
-    "What it still needs to meet its Tracker's rule and the margin; null unless it owes under a known rule",
-  ),
+  owed: zod
+    .union([TrackersOwed, zod.null()])
+    .describe("What its latest miss still owed; null before a miss"),
+  owes: zod
+    .union([TrackersOwed, zod.null()])
+    .describe(
+      "What it still needs to meet its Tracker's rule and the margin; null unless it owes under a known rule",
+    ),
   quietSince: zod.iso
     .datetime({ offset: true })
     .nullable()
@@ -6310,8 +6316,13 @@ export const TrackersWindow = zod.object({
     .datetime({ offset: true })
     .nullable()
     .describe("When a torrent of it came back after a miss"),
-  rule: TrackersRuleShape.describe("The rule it snapshot when it opened; null while none is known"),
+  rule: zod
+    .union([TrackersRuleShape, zod.null()])
+    .describe("The rule it snapshot when it opened; null while none is known"),
   state: zod.enum(["owing", "met", "missed", "released"]),
+  torrents: zod
+    .array(zod.string())
+    .describe("Its live Torrents' ids, in added order; empty once none is live"),
 });
 
 export type TrackersWindow = zod.input<typeof TrackersWindow>;

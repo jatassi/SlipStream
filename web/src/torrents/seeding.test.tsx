@@ -4,7 +4,7 @@ import { page } from "vitest/browser";
 import type { DownloadclientsSeedingView, DownloadclientsTorrentRow } from "../api/gen/model";
 import { liveServer } from "../test/live-server";
 import { renderApp } from "../test/render-app";
-import { seedboxId, seedingOf, torrent, torrentsServer } from "../test/torrents";
+import { detailOf, seedboxId, seedingOf, torrent, torrentsServer } from "../test/torrents";
 
 const day = 86_400;
 const seedpool = { id: "5e000000-0000-4000-8000-000000000001", name: "seedpool" };
@@ -45,8 +45,15 @@ const unruled = (endless: DownloadclientsSeedingView["endless"]) =>
 const table = () => page.getByRole("table", { name: "Torrents" });
 const rowOf = (name: string) => table().getByRole("row", { name: new RegExp(`^${name}`, "u") });
 
-function open(rows: readonly DownloadclientsTorrentRow[], path = "/activity/torrents?tab=all") {
-  renderApp({ path, handlers: [...liveServer().handlers, ...torrentsServer(rows).handlers] });
+function open(
+  rows: readonly DownloadclientsTorrentRow[],
+  path = "/activity/torrents?tab=all",
+  details?: Parameters<typeof torrentsServer>[1],
+) {
+  renderApp({
+    path,
+    handlers: [...liveServer().handlers, ...torrentsServer(rows, details).handlers],
+  });
 }
 
 test.each([
@@ -177,4 +184,48 @@ test("the Inspector of a private torrent with no known Tracker says it never sto
         "Ratio0.4 of 2.0Seeding time0 min of 14 days" +
         "This torrent has no known Tracker, so SlipStream never stops it. Remove it yourself once its Tracker's rule is met.",
     );
+});
+
+test("the Inspector's Tracker is a link to that Tracker's Seeding tab", async () => {
+  const harbor = seed("Harbor.2019.1080p", owing());
+  open([harbor], `/activity/torrents/${harbor.id}?tab=all`);
+  await expect
+    .element(inspector("Harbor.2019.1080p").getByRole("link", { name: "seedpool" }))
+    .toHaveAttribute("href", `/settings/trackers/${seedpool.id}/seeding`);
+});
+
+const announcing = (url: string, counts: { seeders?: number; leechers?: number }) => ({
+  url,
+  tier: 0,
+  status: "working" as const,
+  answeredAt: "2026-10-12T09:00:00Z",
+  ...counts,
+});
+
+test("each announce URL reads the swarm counts its last response carried, naming a private torrent's Tracker", async () => {
+  const harbor = seed("Harbor.2019.1080p", owing());
+  open([harbor], `/activity/torrents/${harbor.id}?tab=all`, (row) =>
+    detailOf(row, {
+      trackers: [
+        announcing("https://tracker.seedpool.org/announce/•••", { seeders: 142, leechers: 3 }),
+        announcing("https://backup.seedpool.org/announce/•••", { seeders: 1, leechers: 0 }),
+        announcing("https://quiet.seedpool.org/announce/•••", {}),
+      ],
+    }),
+  );
+  const urls = page.getByRole("complementary", { name: "Harbor.2019.1080p" });
+  await expect.element(urls.getByText("142 seeders and 3 leechers on seedpool.")).toBeVisible();
+  await expect.element(urls.getByText("1 seeder and 0 leechers on seedpool.")).toBeVisible();
+  expect(urls.getByText(/on seedpool\.$/u).all()).toHaveLength(2);
+});
+
+test("a public torrent's swarm counts name the announce host", async () => {
+  const harbor = seed("Harbor.2019.1080p", owing());
+  open([harbor], `/activity/torrents/${harbor.id}?tab=all`, (row) =>
+    detailOf(row, {
+      private: false,
+      trackers: [announcing("https://open.example/announce", { seeders: 12, leechers: 40 })],
+    }),
+  );
+  await expect.element(page.getByText("12 seeders and 40 leechers on open.example.")).toBeVisible();
 });

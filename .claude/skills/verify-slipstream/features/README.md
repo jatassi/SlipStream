@@ -50,6 +50,7 @@ Run `bun .claude/skills/verify-slipstream/bin/check-map.ts` after any edit here.
 - [Accounts](./accounts.md) covers the Accounts list, making an Admin a Member and the re-gated tab, the last Admin, turning an Account off and the Member's portal.
 - [Settings](./settings.md) covers how Settings groups its sections on a desktop browser and on phone, Settings > Address, Email with its test email, and Sign-in.
 - [Indexers and Trackers](./indexers.md) covers Settings > Indexers grouped by Tracker, a Tracker no Indexer reaches, renaming and merging Trackers, and on `indexers` an Indexer's page: edit and test, a stop and its return, a captcha on Test, a Move's cookie, limits, backoff, Recent grabs, catalog updates and categories, with a Node's Challenge solver.
+- [Trackers and seeding goals](./trackers.md) covers Settings > Trackers with the default goal and the seeding settings, a Tracker's page with its Torrents, Seeding and Indexers tabs, editing its rule and goal, and Remove with its refusal.
 - [API key](./api-key.md) covers Settings > API key, regenerating it and the old key refused.
 - [Pairing](./pairing.md) covers a Join Code, the Add a Node dialog and its open codes, wiping the seedbox with `fakeworld node`, `slipstream join` and the Worker page.
 - [Roles](./roles.md) covers the Role board, a Node's Roles section with its Review and write-off dialog, planning and applying a set of Roles, the handback to home, a stale or blocked set, probes, reach tests, Notifying, drain and write-off.

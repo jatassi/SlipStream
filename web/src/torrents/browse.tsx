@@ -25,6 +25,8 @@ export type Seams = RowSeams & {
 
 type BrowseProps = Seams & {
   list: DownloadclientsTorrentList;
+  /** What shows above the Goal met tab's table. */
+  goalMet: ReactNode;
   search: TorrentsSearch;
   onSearchChange: (change: Partial<TorrentsSearch>) => void;
   names: Names;
@@ -50,6 +52,7 @@ export function Browse({
   onSearchChange,
   names,
   clock,
+  goalMet,
   renderBulk,
   ...seams
 }: BrowseProps) {
@@ -76,6 +79,7 @@ export function Browse({
         onQChange={write}
         onChange={onSearchChange}
       />
+      {tab === "goal-met" && goalMet}
       {renderBulk !== undefined && picked.length > 0 && renderBulk(picked, unpick)}
       {shown.length === 0 ? (
         <NoMatch onClear={narrowed ? clear : undefined} />

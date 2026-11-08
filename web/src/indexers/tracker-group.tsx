@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { type ReactNode, useId } from "react";
 
 import type { IndexersIndexer, TrackersTracker, NodesNode } from "../api/gen/model";
@@ -44,7 +45,8 @@ export function useTrackerGroups(indexers: readonly IndexersIndexer[]) {
   return { trackers, groups: groupsOf(indexers, trackers) };
 }
 
-function Rows({
+/** Indexers as rows with their switches. */
+export function IndexerRows({
   label,
   indexers,
   nodes,
@@ -121,7 +123,7 @@ function NoTrackerGroup({
         A feed of many sites reaches a Tracker for each site once SlipStream grabs a Release from
         it.
       </p>
-      <Rows label="Indexers with no Tracker yet" indexers={indexers} nodes={nodes} />
+      <IndexerRows label="Indexers with no Tracker yet" indexers={indexers} nodes={nodes} />
     </section>
   );
 }
@@ -145,7 +147,13 @@ export function TrackerGroup({
     <section aria-labelledby={titleId} className="flex flex-col gap-1">
       <div className="flex items-center justify-between gap-3">
         <h3 id={titleId} className={headingLook}>
-          {tracker.name}
+          <Link
+            to="/settings/trackers/$trackerId"
+            params={{ trackerId: tracker.id }}
+            className="rounded-item underline-offset-4 hover:text-ink-1 hover:underline"
+          >
+            {tracker.name}
+          </Link>
         </h3>
         <TrackerMenu
           tracker={tracker}
@@ -155,7 +163,11 @@ export function TrackerGroup({
       <TrackerMachinery tracker={tracker} reached={indexers.length > 0} />
       {indexers.length > 0 && (
         <div className="mt-1">
-          <Rows label={`Indexers reaching ${tracker.name}`} indexers={indexers} nodes={nodes} />
+          <IndexerRows
+            label={`Indexers reaching ${tracker.name}`}
+            indexers={indexers}
+            nodes={nodes}
+          />
         </div>
       )}
     </section>
@@ -170,5 +182,5 @@ export function UngroupedIndexers({
   indexers: readonly IndexersIndexer[];
   nodes: readonly NodesNode[];
 }) {
-  return <Rows label="Indexers" indexers={indexers} nodes={nodes} />;
+  return <IndexerRows label="Indexers" indexers={indexers} nodes={nodes} />;
 }

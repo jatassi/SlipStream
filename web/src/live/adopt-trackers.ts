@@ -1,12 +1,19 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import type {
+  TrackersGoal,
+  TrackersSettings,
   TrackersTracker,
   TrackersTrackerItem,
   TrackersTrackerList,
   TrackersTrackerPage,
 } from "../api/gen/model";
-import { getGetTrackerQueryKey, getListTrackersQueryKey } from "../api/gen/query/trackers/trackers";
+import {
+  getGetDefaultGoalQueryKey,
+  getGetSeedingSettingsQueryKey,
+  getGetTrackerQueryKey,
+  getListTrackersQueryKey,
+} from "../api/gen/query/trackers/trackers";
 
 // A save answers the Tracker alone, so its page keeps its stats and its
 // list item its counts.
@@ -41,4 +48,21 @@ export function adoptMerge(queryClient: QueryClient, from: string, kept: Tracker
           .map((shown) => adopted(shown, kept)),
       },
   );
+}
+
+/** id is removed. */
+export function adoptRemoved(queryClient: QueryClient, id: string) {
+  queryClient.removeQueries({ queryKey: getGetTrackerQueryKey(id), exact: true });
+  queryClient.setQueryData<TrackersTrackerList>(
+    getListTrackersQueryKey(),
+    (list) => list && { trackers: list.trackers.filter((shown) => shown.id !== id) },
+  );
+}
+
+export function adoptDefaultGoal(queryClient: QueryClient, goal: TrackersGoal) {
+  queryClient.setQueryData(getGetDefaultGoalQueryKey(), goal);
+}
+
+export function adoptSeedingSettings(queryClient: QueryClient, settings: TrackersSettings) {
+  queryClient.setQueryData(getGetSeedingSettingsQueryKey(), settings);
 }

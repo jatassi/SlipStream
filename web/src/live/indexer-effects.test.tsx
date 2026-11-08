@@ -10,7 +10,9 @@ import {
   getGetDefaultGoalQueryKey,
   getGetSeedingSettingsQueryKey,
   getGetTrackerQueryKey,
+  getListTrackerWindowsQueryKey,
   getListTrackersQueryKey,
+  getPreviewSeedingGoalsQueryKey,
 } from "../api/gen/query/trackers/trackers";
 import { liveServer, seeded, synced } from "../test/live-server";
 import { renderApp } from "../test/render-app";
@@ -73,11 +75,20 @@ test("trackers.seeding-changed for a Tracker refreshes the list and that Tracker
     seedpool: getGetTrackerQueryKey(seedpool),
     aither: getGetTrackerQueryKey(aither),
     defaultGoal: getGetDefaultGoalQueryKey(),
+    seedpoolHistory: getListTrackerWindowsQueryKey(seedpool, { offset: 50 }),
+    aitherWindows: getListTrackerWindowsQueryKey(aither),
+    preview: getPreviewSeedingGoalsQueryKey(),
   });
   server.clients[0]?.send({ event: "trackers.seeding-changed", data: { trackerId: seedpool } });
-  await expect
-    .poll(invalidated)
-    .toEqual({ list: true, seedpool: true, aither: false, defaultGoal: false });
+  await expect.poll(invalidated).toEqual({
+    list: true,
+    seedpool: true,
+    aither: false,
+    defaultGoal: false,
+    seedpoolHistory: true,
+    aitherWindows: false,
+    preview: true,
+  });
 });
 
 test("trackers.seeding-changed for no Tracker refreshes the list, the default goal and the settings", async () => {
