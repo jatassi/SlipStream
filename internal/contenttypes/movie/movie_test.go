@@ -998,6 +998,7 @@ func TestATypeSettingChangePublishesOneTypeChanged(t *testing.T) {
 		setting.Switch{Key: "movie.add.monitor", Label: "New movies are monitored", Default: true}.Field(nil),
 		movie.CountsAs.Field(ptr(movie.CountsAs.Options[1].Value)),
 		movie.CinemaDelay.Field(ptr(int64(604800))),
+		movie.YearSlack.Field(nil),
 	}
 	if !reflect.DeepEqual(fields, want) {
 		t.Fatalf("fields = %+v, want %+v", fields, want)
