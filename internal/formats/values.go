@@ -1,6 +1,7 @@
 package formats
 
 import (
+	"slices"
 	"strconv"
 
 	"github.com/jatassi/slipstream/internal/release"
@@ -75,6 +76,12 @@ var slipstreamValues = map[Kind][]Value{
 	ReleaseType: words(release.Span.String, []release.Span{release.One, release.Several, release.Level, release.Levels},
 		[]string{"One Item", "Several Items", "A whole level", "Several whole levels"}),
 	Language: slipstreamLanguages(),
+}
+
+// Words is the words for key, a value of k in SlipStream's own values.
+func Words(k Kind, key string) string {
+	vs := slipstreamValues[k]
+	return vs[slices.IndexFunc(vs, func(v Value) bool { return v.Key == key })].Words
 }
 
 func words[T any](key func(T) string, vs []T, ws []string) []Value {

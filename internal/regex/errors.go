@@ -72,7 +72,7 @@ var reasons = map[syntax.ErrorCode]reason{
 	syntax.ErrAlternationCantHaveComment: {"a (?(...)) condition can't be a comment", true},
 	syntax.ErrMalformedReference:         {"(?(%v) ) can't be read", true},
 	syntax.ErrUndefinedReference:         {"(?(%v) ) refers to a group that doesn't exist", true},
-	syntax.ErrIllegalEndEscape:           {"the pattern ends with a lone \\", false},
+	syntax.ErrIllegalEndEscape:           {"it ends with a lone \\", false},
 	syntax.ErrMalformedSlashP:            {"a \\p{...} escape can't be read", true},
 	syntax.ErrIncompleteSlashP:           {"unterminated \\p{...} escape", false},
 	syntax.ErrUnknownSlashP:              {"%v isn't a known Unicode category or block", true},

@@ -17,6 +17,9 @@ func TestDescribe(t *testing.T) {
 		{"The.Quiet.Orchard.2021.720p.HDTV.AAC-GRP", release.Known(int64(734_003_200)), "HDTV-720p · AAC · GRP · 700 MB"},
 		{"The.Quiet.Orchard.2021.1080p.BluRay.5.1.x264", release.Fact[int64]{}, "Bluray-1080p · 5.1"},
 		{"The Quiet Orchard", release.Known(int64(512)), "512 bytes"},
+		{"The.Quiet.Orchard.2021.REPACK.1080p.WEB-DL.H264-FKW", release.Known(int64(8_804_682_956)), "WEBDL-1080p · v2 REPACK · FKW · 8.2 GB"},
+		{"The.Quiet.Orchard.2021.PROPER.1080p.WEB-DL.H264-FKW", release.Fact[int64]{}, "WEBDL-1080p · v2 · FKW"},
+		{"The.Quiet.Orchard.2021.REAL.1080p.WEB-DL.H264-FKW", release.Fact[int64]{}, "WEBDL-1080p · REAL v1 · FKW"},
 	} {
 		r := release.Title(c.name, release.TitleOnly{}, release.BuiltIn())
 		r.Facts.Size = c.size

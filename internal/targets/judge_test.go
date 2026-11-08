@@ -2,6 +2,7 @@ package targets_test
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -385,5 +386,15 @@ func TestFinalNeedsTheCutoffTierAndUpgradeUntil(t *testing.T) {
 		if got := target.Final(c.rank, c.score); got != c.final {
 			t.Errorf("Final(%d, %d) = %t, want %t", c.rank, c.score, got, c.final)
 		}
+	}
+}
+
+func TestARepackFromAnotherGroupNamesTheHeldFilesGroup(t *testing.T) {
+	target := must[targets.Target](t)(targets.NewTarget(scoredSpec(discsOverWeb, release.Remux1080p, 0, 0, 1, targets.PreferAndUpgrade)))
+	repack := release.Facts{Quality: release.Known(release.Remux1080p), Revision: release.Revision{Version: 2, Repack: true}, Group: release.Known("NTb")}
+	held := &targets.Held{Facts: release.Facts{Quality: release.Known(release.Remux1080p), Revision: release.Revision{Version: 1}, Group: release.Known("FKW")}}
+	got := targets.Judge(target, targets.Scored{Facts: repack}, held).Reasons()
+	if want := (targets.Reason{Code: targets.RepackOtherGroup, Value: "FKW"}); !slices.Contains(got, want) {
+		t.Errorf("reasons %+v, want %+v", got, want)
 	}
 }

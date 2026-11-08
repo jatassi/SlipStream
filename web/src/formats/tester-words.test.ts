@@ -18,7 +18,7 @@ const plain: FormatsReadFacts = {
   source: null,
   resolution: null,
   modifier: null,
-  revision: { version: 1, real: 0, repack: false },
+  revision: null,
   group: null,
   cut: "standard",
   edition: null,
@@ -51,14 +51,14 @@ test("the facts list only what the name gives, in reading order", () => {
   expect(
     factRows({
       ...plain,
-      quality: "webdl-1080p",
-      source: "webdl",
+      quality: "WEBDL-1080p",
+      source: "WEB-DL",
       resolution: "1080p",
-      revision: { version: 2, real: 1, repack: true },
+      revision: "REAL v2 REPACK",
       group: "FLUX",
       cut: "extended",
-      hdr: ["dv", "hdr10"],
-      audio: ["eac3"],
+      hdr: ["Dolby Vision", "HDR10"],
+      audio: ["DD+"],
       channels: ["5.1"],
       ids: { tmdbid: "949" },
       titles: ["Heat", "Heat AKA"],
@@ -69,14 +69,14 @@ test("the facts list only what the name gives, in reading order", () => {
     { label: "Titles", value: "Heat, Heat AKA" },
     { label: "Year", value: "1995" },
     { label: "Numbering", value: "S01E02" },
-    { label: "Quality", value: "webdl-1080p" },
-    { label: "Source", value: "webdl" },
+    { label: "Quality", value: "WEBDL-1080p" },
+    { label: "Source", value: "WEB-DL" },
     { label: "Resolution", value: "1080p" },
-    { label: "Revision", value: "Repack, version 2, Real 1" },
+    { label: "Revision", value: "REAL v2 REPACK" },
     { label: "Release group", value: "FLUX" },
     { label: "Cut", value: "extended" },
-    { label: "HDR", value: "dv, hdr10" },
-    { label: "Audio", value: "eac3" },
+    { label: "HDR", value: "Dolby Vision, HDR10" },
+    { label: "Audio", value: "DD+" },
     { label: "Channels", value: "5.1" },
     { label: "Id tags", value: "tmdbid 949" },
   ]);
@@ -116,12 +116,15 @@ test("a condition's result reads after Negate, and a timed-out pattern fails", (
   ]);
 });
 
-const result = (works: number): FormatsParsed => ({
+const heat = { id: "heat", label: "Heat" };
+
+const result = (works: number, judgedAgainst = works === 1): FormatsParsed => ({
   name: "Heat.1995.1080p.BluRay-GRP",
   sentence: "",
   words: "",
   facts: plain,
-  works: Array.from({ length: works }, (_, index) => ({ id: String(index), label: "Heat" })),
+  work: judgedAgainst ? heat : null,
+  works: Array.from({ length: works }, () => heat),
   covers: [],
   formats: [],
   targets: [],
@@ -132,6 +135,7 @@ test("a name judged against one Work fills, and one matching several Works or no
   expect(verdictWords(result(1), false)).toBe("Wouldn't fill");
   expect(verdictWords(result(0), true)).toBe("Accepts it");
   expect(verdictWords(result(2), false)).toBe("Doesn't accept it");
+  expect(verdictWords(result(0, true), false)).toBe("Wouldn't fill");
 });
 
 test("a draft's compile refusal lands under the editor's own field", () => {

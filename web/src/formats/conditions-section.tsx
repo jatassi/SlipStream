@@ -78,7 +78,7 @@ export function ConditionsSection({
       </p>
       {draft.dialect !== "slipstream" && (
         <p className="text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
-          {`Pasted from ${appWords[draft.dialect]}, so its values are ${appWords[draft.dialect]}'s.`}
+          {`Written for ${appWords[draft.dialect]}, so its values are ${appWords[draft.dialect]}'s.`}
         </p>
       )}
       {draft.conditions.length > 0 && (

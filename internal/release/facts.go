@@ -6,6 +6,9 @@ package release
 
 import (
 	"cmp"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -55,6 +58,19 @@ type Revision struct {
 	// Repack is REPACK or RERIP, which the same-group rule applies to.
 	Repack bool
 }
+
+// String is r in upstream's words: "v1", "v2", "REAL v1" or "v2 REPACK".
+func (r Revision) String() string {
+	words := slices.Repeat([]string{"REAL"}, r.Real)
+	words = append(words, "v"+strconv.Itoa(max(r.Version, 1)))
+	if r.Repack {
+		words = append(words, "REPACK")
+	}
+	return strings.Join(words, " ")
+}
+
+// Original reports that r is the first release: v1 and never REAL.
+func (r Revision) Original() bool { return r.Real == 0 && r.Version <= 1 }
 
 // Compare orders Real first, then Version. A zero Version reads as 1.
 // Repack takes no part.

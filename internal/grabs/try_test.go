@@ -175,3 +175,14 @@ func TestTryRefusesADraftThatDoesntCompile(t *testing.T) {
 		t.Errorf("Try = %v, want the pattern error of condition 0", err)
 	}
 }
+
+func TestTrySpeaksOfTheGivenWorkWhenANameGivesAnotherTitle(t *testing.T) {
+	g, _, ids := tester(t, "w1")
+	got := tried(t, g, grabs.Trial{Names: []string{"The.Cellar.2020.1080p.BluRay.x264-GRP"}, Work: &ids[0]})
+	if want := "Reads as Bluray-1080p from GRP. Its name gives The Cellar (2020), which isn't this Work. It would fill no Target."; got.Sentence != want {
+		t.Errorf("sentence = %q, want %q", got.Sentence, want)
+	}
+	if len(got.Works) != 0 || len(got.Targets) != 1 || got.Targets[0].WouldFill {
+		t.Errorf("works %v, targets %+v, want no match and no fill", got.Works, got.Targets)
+	}
+}

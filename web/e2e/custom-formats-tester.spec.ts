@@ -99,8 +99,8 @@ test("the tester reads each pasted name, matches it to a Work by its title and s
   await expect(first.getByRole("definition")).toHaveText([
     "The Quiet Orchard",
     "2021",
-    "webdl-1080p",
-    "webdl",
+    "WEBDL-1080p",
+    "WEB-DL",
     "1080p",
     "FKW",
     "x264",
@@ -191,11 +191,18 @@ test("Try it with a pattern that doesn't compile says so in the tester and under
   await page.getByRole("button", { name: "Add condition" }).click();
   await pattern(page, 1).fill(String.raw`\b(DV`);
   await pattern(page, 2).fill(String.raw`\bDoVi\b`);
+  const tryIt = await page.getByRole("button", { name: "Try it" }).boundingBox();
+  const create = await page.getByRole("button", { name: "Create Custom Format" }).boundingBox();
+  expect(create && tryIt && create.x > tryIt.x, "the primary action ends the row").toBe(true);
+  expect(
+    create && tryIt && Math.abs(create.y + create.height / 2 - (tryIt.y + tryIt.height / 2)),
+    "Try it and the primary action share a centre line",
+  ).toBe(0);
   await page.getByRole("button", { name: "Try it" }).click();
 
   const dialog = page.getByRole("dialog", { name: "Tester" });
   await testNames(dialog, "Release names", [webdl]);
-  const refusal = String.raw`The pattern in "\b(DV" doesn't compile (unterminated group). Fix the pattern and try it again.`;
+  const refusal = String.raw`The pattern in condition "\b(DV" doesn't compile (unterminated group). Fix the pattern and try it again.`;
   await expect(dialog.getByRole("alert")).toHaveText(refusal);
   await expectAccessible(page);
   await page.keyboard.press("Escape");

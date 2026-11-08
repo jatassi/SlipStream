@@ -116,7 +116,7 @@ test("a saved format's editor warns of its slow pattern and saves its edit throu
     )
     .toBeVisible();
   await expect
-    .element(page.getByText("Pasted from Radarr, so its values are Radarr's."))
+    .element(page.getByText("Written for Radarr, so its values are Radarr's."))
     .toBeVisible();
   await userEvent.fill(page.getByRole("textbox", { name: "Pattern" }), String.raw`\bGOLDEN\b`);
   await userEvent.click(page.getByRole("button", { name: "Save" }));

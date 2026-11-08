@@ -1796,6 +1796,9 @@
             "maximum": 1,
             "minimum": 0
           },
+          "untagged": {
+            "type": "boolean"
+          },
           "unlisted": {
             "type": "boolean"
           },

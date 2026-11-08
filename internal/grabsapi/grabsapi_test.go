@@ -308,7 +308,10 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	item := tree.Items[0].ID.String()
 	run1 := `{"id":"` + run + `","itemId":"` + item + `","startedAt":"T","indexers":[{"indexerId":"` + indexer.String() + `","name":"Fixture Site",`
 	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
-		`{"searches":[`+run1+`"outcome":null,"releases":0,"sentence":"Searching"}],"finishedAt":null,"outcome":null,"candidates":0,"refused":[],"grabId":null,"notes":[]}]}`)
+		`{"searches":[`+run1+`"outcome":null,"releases":0,"sentence":"Searching"}],"finishedAt":null,"outcome":null,"candidates":0,"grabId":null,"notes":[]}]}`)
+	expect(t, s, http.MethodGet, "/api/v1/searches/"+run+"/releases", http.StatusOK, `{"releases":[]}`)
+	expect(t, s, http.MethodGet, "/api/v1/searches/"+none+"/releases", http.StatusNotFound,
+		`{"status":404,"code":"search_not_found","title":"No search run has that id"}`)
 	if got := <-searched; got != (grabs.SearchChanged{SearchID: run, WorkID: tree.ID.String()}) {
 		t.Fatalf("grabs.search-changed = %+v, want the run %s", got, run)
 	}
@@ -321,8 +324,15 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	}
 	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
 		`{"searches":[`+run1+`"outcome":"found","releases":2,"sentence":"Found 2 Releases"}],"finishedAt":"T","outcome":"grabbed","candidates":2,`+
-			`"refused":[{"title":"The.Attic.720p.WEB","reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p","soft":false}]}],"grabId":"`+grab+`",`+
-			`"notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`","soft":false}]}]}`)
+			`"grabId":"`+grab+`","notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`","soft":false}]}]}`)
+	attic := `"indexerId":"` + indexer.String() + `","indexerName":"Fixture Site",`
+	scored := `"covers":["` + item + `"],"scores":[{"targetId":"` + hd.ID.String() + `","score":0}],"formatIds":[],`
+	expect(t, s, http.MethodGet, "/api/v1/searches/"+run+"/releases", http.StatusOK, `{"releases":[`+
+		`{"position":0,"title":"The.Attic.1080p.WEB","words":"WEBDL-1080p · 4.0 KB",`+attic+`"size":4096,"seeders":5,"outcome":"grabbed","rank":1,"copyOf":null,`+
+		scored+`"reasons":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`","soft":false,`+
+		`"words":"Its size isn't checked at HD because the name gives no size or the runtime is unknown."}],"lostAt":null},`+
+		`{"position":1,"title":"The.Attic.720p.WEB","words":"WEBDL-720p · 2.0 KB",`+attic+`"size":2048,"seeders":50,"outcome":"refused","rank":null,"copyOf":null,`+
+		scored+`"reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p","soft":false,"words":"HD doesn't accept WEBDL-720p."}],"lostAt":null}]}`)
 	reached, err := f.xs.Trackers(ctx, admin)
 	if err != nil || len(reached) != 1 || reached[0].Name != "Fixture Site" {
 		t.Fatalf("Trackers = %+v, %v; want the Fixture Site one the Grab reached", reached, err)
@@ -447,6 +457,7 @@ func (f *atticFixture) searchAttic(t *testing.T) {
 }
 
 type searchRun struct {
+	ID         string `json:"id"`
 	Outcome    string `json:"outcome"`
 	Candidates int    `json:"candidates"`
 	GrabID     string `json:"grabId"`
@@ -465,6 +476,40 @@ func (f *atticFixture) onlyRun(t *testing.T) searchRun {
 	return runs.Searches[0]
 }
 
+func (f *atticFixture) onlyRunID(t *testing.T) string {
+	t.Helper()
+	return f.onlyRun(t).ID
+}
+
+type listedRelease struct {
+	Title   string          `json:"title"`
+	Outcome string          `json:"outcome"`
+	Reasons json.RawMessage `json:"reasons"`
+}
+
+// releases is the Releases run lists.
+func (f *atticFixture) releases(t *testing.T, run string) []listedRelease {
+	t.Helper()
+	_, got := f.s.Call(t, http.MethodGet, "/api/v1/searches/"+run+"/releases", "")
+	var list struct {
+		Releases []listedRelease `json:"releases"`
+	}
+	if err := json.Unmarshal([]byte(got), &list); err != nil {
+		t.Fatalf("listSearchReleases = %s, %v", got, err)
+	}
+	return list.Releases
+}
+
+// outcomes is each Release run lists and its outcome, in its order.
+func (f *atticFixture) outcomes(t *testing.T, run string) []string {
+	t.Helper()
+	var out []string
+	for _, r := range f.releases(t, run) {
+		out = append(out, r.Title+" "+r.Outcome)
+	}
+	return out
+}
+
 func TestAGrabDroppedAtFetchingRerunsTheDecisionOverTheKeptReleases(t *testing.T) {
 	f, stopping, other := mirrored(t, "The.Attic.1080p.WEB-STOP", "The.Attic.1080p.WEB-GO", true, indexers.Edit{})
 	f.searchAttic(t)
@@ -477,8 +522,11 @@ func TestAGrabDroppedAtFetchingRerunsTheDecisionOverTheKeptReleases(t *testing.T
 		t.Fatalf("the run is %+v, want grabbed of 2 candidates with the rerun's Grab %s", r, rerun.ID)
 	}
 	var kept int
-	if err := f.lib.QueryRowContext(f.ctx, `SELECT count(*) FROM grabs_release`).Scan(&kept); err != nil || kept != 0 {
-		t.Fatalf("grabs_release holds %d rows (%v) once the rerun's Grab failed, want none", kept, err)
+	if err := f.lib.QueryRowContext(f.ctx, `SELECT count(*) FROM grabs_release WHERE release IS NOT NULL OR link_sealed IS NOT NULL`).Scan(&kept); err != nil || kept != 0 {
+		t.Fatalf("grabs_release keeps %d Releases for a rerun (%v) once the rerun's Grab failed, want none", kept, err)
+	}
+	if got, want := f.outcomes(t, f.onlyRunID(t)), []string{"The.Attic.1080p.WEB-STOP not_taken", "The.Attic.1080p.WEB-GO grabbed"}; !slices.Equal(got, want) {
+		t.Fatalf("the run's Releases are %q, want %q: the dropped Release its Indexer stopped, ranked above the rerun's Grab", got, want)
 	}
 }
 
@@ -560,19 +608,60 @@ func TestARefusalSaysWhetherAManualSearchCanGrabPastIt(t *testing.T) {
 	f, _, _ := mirrored(t, "The.Attic.1080p.WEB", "Another.Film.1080p.WEB", false, indexers.Edit{})
 	f.searchAttic(t)
 	f.failed(t, 1)
+	var refused []string
+	for _, r := range f.releases(t, f.onlyRunID(t)) {
+		if r.Outcome == "refused" {
+			refused = append(refused, r.Title+" "+string(r.Reasons))
+		}
+	}
+	want := `Another.Film.1080p.WEB [{"code":"wrong_title","value":"Another.Film.1080p.WEB","soft":true,"words":"Its name gives Another.Film.1080p.WEB, which isn't this Work."},` +
+		`{"code":"size_not_checked","targetId":"` + f.hd.ID.String() + `","soft":false,` +
+		`"words":"Its size isn't checked at HD because the name gives no size or the runtime is unknown."}]`
+	if !slices.Equal(refused, []string{want}) {
+		t.Fatalf("the run refused %q, want another film's release as a soft wrong_title in words, judged at the cell: %s", refused, want)
+	}
+}
+
+// TestARunKeepsItsReleasesUntilALaterRunOfItsItemFinishes searches The
+// Attic twice. Each Grab fails at fetching, so the Item is wanted again.
+func TestARunKeepsItsReleasesUntilALaterRunOfItsItemFinishes(t *testing.T) {
+	f, better, _ := mirrored(t, "The.Attic.1080p.WEB", "The.Attic.720p.WEB", false, indexers.Edit{})
+	f.searchAttic(t)
+	f.failed(t, 1)
+	first := f.onlyRunID(t)
+	want := []string{"The.Attic.1080p.WEB grabbed", "The.Attic.720p.WEB refused"}
+	if got := f.outcomes(t, first); !slices.Equal(got, want) {
+		t.Fatalf("the first run lists %q, want %q", got, want)
+	}
+	if code, body := f.s.Call(t, http.MethodPost, f.search, ""); code != http.StatusAccepted {
+		t.Fatalf("searchWork = %d %s, want 202", code, body)
+	}
+	for {
+		<-f.changed
+		var failed int
+		if err := f.lib.QueryRowContext(f.ctx, `SELECT count(*) FROM grabs_grab WHERE stage = 'failed' AND indexer_id = ?`, better.UUID).Scan(&failed); err != nil {
+			t.Fatal(err)
+		}
+		if failed == 2 {
+			break
+		}
+	}
 	_, got := f.s.Call(t, http.MethodGet, f.search+"es", "")
 	var runs struct {
-		Searches []struct {
-			Refused json.RawMessage `json:"refused"`
-		} `json:"searches"`
+		Searches []searchRun `json:"searches"`
 	}
-	if err := json.Unmarshal([]byte(got), &runs); err != nil || len(runs.Searches) != 1 {
-		t.Fatalf("listSearches = %s, %v; want one run", got, err)
+	if err := json.Unmarshal([]byte(got), &runs); err != nil || len(runs.Searches) != 2 || runs.Searches[1].ID != first {
+		t.Fatalf("listSearches = %s, %v; want the second run then the first", got, err)
 	}
-	want := `[{"title":"Another.Film.1080p.WEB","reasons":[{"code":"wrong_title","value":"Another.Film.1080p.WEB","soft":true},` +
-		`{"code":"size_not_checked","targetId":"` + f.hd.ID.String() + `","soft":false}]}]`
-	if string(runs.Searches[0].Refused) != want {
-		t.Fatalf("the run refused %s, want another film's release as a soft wrong_title, judged at the cell: %s", runs.Searches[0].Refused, want)
+	if got := f.outcomes(t, runs.Searches[0].ID); !slices.Equal(got, want) {
+		t.Fatalf("the second run lists %q, want %q", got, want)
+	}
+	if got := f.outcomes(t, first); got != nil {
+		t.Fatalf("the first run lists %q once the second finished, want none", got)
+	}
+	var rows int
+	if err := f.lib.QueryRowContext(f.ctx, `SELECT count(*) FROM grabs_release`).Scan(&rows); err != nil || rows != 2 {
+		t.Fatalf("grabs_release holds %d rows (%v), want the latest run's 2", rows, err)
 	}
 }
 

@@ -25,6 +25,7 @@ import type {
   GrabsGrab,
   GrabsGrabList,
   GrabsIndexerGrabList,
+  GrabsReleaseList,
   GrabsSearchList,
   GrabsSearchScope,
   GrabsSearchStarted,
@@ -39,6 +40,12 @@ import type {
   ListIndexerGrabs422,
   ListIndexerGrabs500,
   ListIndexerGrabsParams,
+  ListSearchReleases401,
+  ListSearchReleases403,
+  ListSearchReleases404,
+  ListSearchReleases409,
+  ListSearchReleases422,
+  ListSearchReleases500,
   ListSearches401,
   ListSearches403,
   ListSearches404,
@@ -582,6 +589,170 @@ export function useListIndexerGrabsSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
   const queryOptions = getListIndexerGrabsSuspenseQueryOptions(id, params, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getListSearchReleasesUrl = (searchId: string) => {
+  return `/api/v1/searches/${searchId}/releases`;
+};
+
+/**
+ * @summary List the Releases a search run saw, with what it did with each and why
+ */
+export const listSearchReleases = async (
+  searchId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<GrabsReleaseList> => {
+  return apiFetch<GrabsReleaseList>(getListSearchReleasesUrl(searchId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSearchReleasesQueryKey = (searchId: string) => {
+  return [`/api/v1/searches/${searchId}/releases`] as const;
+};
+
+export const getListSearchReleasesSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSearchReleases>>,
+  TError = ErrorType<
+    | ListSearchReleases401
+    | ListSearchReleases403
+    | ListSearchReleases404
+    | ListSearchReleases409
+    | ListSearchReleases422
+    | ListSearchReleases500
+  >,
+>(
+  searchId: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listSearchReleases>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListSearchReleasesQueryKey(searchId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listSearchReleases>>> = ({ signal }) =>
+    listSearchReleases(searchId, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listSearchReleases>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type ListSearchReleasesSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSearchReleases>>
+>;
+export type ListSearchReleasesSuspenseQueryError = ErrorType<
+  | ListSearchReleases401
+  | ListSearchReleases403
+  | ListSearchReleases404
+  | ListSearchReleases409
+  | ListSearchReleases422
+  | ListSearchReleases500
+>;
+
+export function useListSearchReleasesSuspense<
+  TData = Awaited<ReturnType<typeof listSearchReleases>>,
+  TError = ErrorType<
+    | ListSearchReleases401
+    | ListSearchReleases403
+    | ListSearchReleases404
+    | ListSearchReleases409
+    | ListSearchReleases422
+    | ListSearchReleases500
+  >,
+>(
+  searchId: string,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listSearchReleases>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListSearchReleasesSuspense<
+  TData = Awaited<ReturnType<typeof listSearchReleases>>,
+  TError = ErrorType<
+    | ListSearchReleases401
+    | ListSearchReleases403
+    | ListSearchReleases404
+    | ListSearchReleases409
+    | ListSearchReleases422
+    | ListSearchReleases500
+  >,
+>(
+  searchId: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listSearchReleases>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListSearchReleasesSuspense<
+  TData = Awaited<ReturnType<typeof listSearchReleases>>,
+  TError = ErrorType<
+    | ListSearchReleases401
+    | ListSearchReleases403
+    | ListSearchReleases404
+    | ListSearchReleases409
+    | ListSearchReleases422
+    | ListSearchReleases500
+  >,
+>(
+  searchId: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listSearchReleases>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List the Releases a search run saw, with what it did with each and why
+ */
+
+export function useListSearchReleasesSuspense<
+  TData = Awaited<ReturnType<typeof listSearchReleases>>,
+  TError = ErrorType<
+    | ListSearchReleases401
+    | ListSearchReleases403
+    | ListSearchReleases404
+    | ListSearchReleases409
+    | ListSearchReleases422
+    | ListSearchReleases500
+  >,
+>(
+  searchId: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listSearchReleases>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListSearchReleasesSuspenseQueryOptions(searchId, options);
 
   const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
     TData,

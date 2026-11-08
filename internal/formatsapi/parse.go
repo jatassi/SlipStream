@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/grabsapi"
@@ -29,26 +30,20 @@ type parse struct {
 
 type parseInput struct{ Body parse }
 
-type revision struct {
-	Version int  `json:"version" minimum:"1"`
-	Real    int  `json:"real" minimum:"0"`
-	Repack  bool `json:"repack"`
-}
-
 type readFacts struct {
-	Quality    *string           `json:"quality" doc:"The Quality key, such as webdl-1080p; null when the name gives none"`
-	Source     *string           `json:"source" doc:"The fine source, such as webdl"`
+	Quality    *string           `json:"quality" doc:"The Quality's name, such as WEBDL-1080p; null when the name gives none"`
+	Source     *string           `json:"source" doc:"The fine source in words, such as WEB-DL"`
 	Resolution *string           `json:"resolution"`
-	Modifier   *string           `json:"modifier"`
-	Revision   revision          `json:"revision"`
+	Modifier   *string           `json:"modifier" doc:"The quality modifier in words, such as Remux"`
+	Revision   *string           `json:"revision" doc:"The revision in words, such as v2 REPACK; null for the original release"`
 	Group      *string           `json:"group" doc:"The release group"`
 	Cut        string            `json:"cut" doc:"The cut's key, standard when the name names none"`
 	Edition    *string           `json:"edition" doc:"The edition text as the name gives it"`
-	HDR        []string          `json:"hdr" nullable:"false" doc:"Best first"`
+	HDR        []string          `json:"hdr" nullable:"false" doc:"In words, such as Dolby Vision, best first"`
 	Video      *string           `json:"video" doc:"The video codec"`
 	Audio      []string          `json:"audio" nullable:"false" doc:"Audio codecs, best first"`
 	Channels   []string          `json:"channels" nullable:"false" doc:"Channel layouts, best first"`
-	Languages  []string          `json:"languages" nullable:"false" doc:"ISO 639 codes"`
+	Languages  []string          `json:"languages" nullable:"false" doc:"In words, such as French"`
 	IDs        map[string]string `json:"ids" nullable:"false" doc:"The id tags the name carries, by Torznab's names: tmdbid, imdbid, tvdbid"`
 	Titles     []string          `json:"titles" nullable:"false" doc:"Every title the name gives, as in A AKA B"`
 	Year       *int              `json:"year"`
@@ -79,28 +74,24 @@ type explained struct {
 	Conditions []evaluated `json:"conditions" nullable:"false"`
 }
 
-type triedReason struct {
-	grabsapi.Reason
-	Words string `json:"words" doc:"The reason as a sentence"`
-}
-
 type triedTarget struct {
-	TargetID  string        `json:"targetId" format:"uuid"`
-	Name      string        `json:"name"`
-	Score     int           `json:"score"`
-	WouldFill bool          `json:"wouldFill" doc:"An automatic search would grab it for this Target"`
-	Reasons   []triedReason `json:"reasons" nullable:"false" doc:"The name's own refusals, then the reasons of the first cell it would fill, else of the first cell it was judged at"`
+	TargetID  string                  `json:"targetId" format:"uuid"`
+	Name      string                  `json:"name"`
+	Score     int                     `json:"score"`
+	WouldFill bool                    `json:"wouldFill" doc:"An automatic search would grab it for this Target"`
+	Reasons   []grabsapi.WordedReason `json:"reasons" nullable:"false" doc:"The name's own refusals, then the reasons of the first cell it would fill, else of the first cell it was judged at"`
 }
 
 type parsed struct {
-	Name     string        `json:"name"`
-	Sentence string        `json:"sentence" doc:"What the name reads as, the Works it matches and the Targets it would fill, or why it would fill none"`
-	Words    string        `json:"words" doc:"The facts in words, joined with a middle dot: Quality, HDR, audio and channels, release group and size"`
-	Facts    readFacts     `json:"facts"`
-	Works    []workRef     `json:"works" nullable:"false" doc:"The given Work when the name matches it, else every Work whose title and year it gives"`
-	Covers   []string      `json:"covers" nullable:"false" format:"uuid" doc:"The Items the name covers of the one Work it was judged against"`
-	Formats  []explained   `json:"formats" nullable:"false" doc:"Every Custom Format, the draft included, by name"`
-	Targets  []triedTarget `json:"targets" nullable:"false" doc:"With one Work, its Profile's Targets judged against its held files; with several or none, every Target with no held file"`
+	Name     string                `json:"name"`
+	Sentence string                `json:"sentence" doc:"What the name reads as, the Works it matches and the Targets it would fill, or why it would fill none"`
+	Words    string                `json:"words" doc:"The facts in words, joined with a middle dot: Quality, the revision when it isn't the original, HDR, audio and channels, release group and size"`
+	Facts    readFacts             `json:"facts"`
+	Work     api.Nullable[workRef] `json:"work" doc:"The one Work the name is judged against: the given Work, or the only Work it matches; null when it matches several or none"`
+	Works    []workRef             `json:"works" nullable:"false" doc:"The given Work when the name matches it, else every Work whose title and year it gives"`
+	Covers   []string              `json:"covers" nullable:"false" format:"uuid" doc:"The Items the name covers of the one Work it was judged against"`
+	Formats  []explained           `json:"formats" nullable:"false" doc:"Every Custom Format, the draft included, by name"`
+	Targets  []triedTarget         `json:"targets" nullable:"false" doc:"With one Work, its Profile's Targets judged against its held files; with several or none, every Target with no held file"`
 }
 
 type parseResults struct {
@@ -167,6 +158,9 @@ func parsedOf(t grabs.Tried, d *formats.Format) parsed {
 		Works: make([]workRef, len(t.Works)), Covers: make([]string, len(t.Covers)),
 		Formats: make([]explained, len(t.Formats)), Targets: make([]triedTarget, len(t.Targets)),
 	}
+	if w := t.Work; w != nil {
+		out.Work = api.Some(workRef{ID: w.ID.String(), Label: w.Label})
+	}
 	for i, w := range t.Works {
 		out.Works[i] = workRef{ID: w.ID.String(), Label: w.Label}
 	}
@@ -181,11 +175,7 @@ func parsedOf(t grabs.Tried, d *formats.Format) parsed {
 		out.Formats[i] = x
 	}
 	for i, tt := range t.Targets {
-		x := triedTarget{TargetID: tt.Target.ID.String(), Name: tt.Target.Name, Score: tt.Score, WouldFill: tt.WouldFill, Reasons: make([]triedReason, len(tt.Reasons))}
-		for j, r := range grabsapi.ReasonsOf(tt.Reasons) {
-			x.Reasons[j] = triedReason{Reason: r, Words: grabs.ReasonWords(tt.Reasons[j], tt.Target, t.Read.Facts)}
-		}
-		out.Targets[i] = x
+		out.Targets[i] = triedTarget{TargetID: tt.Target.ID.String(), Name: tt.Target.Name, Score: tt.Score, WouldFill: tt.WouldFill, Reasons: grabsapi.WordedOf(tt.Reasons)}
 	}
 	return out
 }
@@ -193,11 +183,19 @@ func parsedOf(t grabs.Tried, d *formats.Format) parsed {
 func factsOf(rd release.Read) readFacts {
 	f, n := rd.Facts, rd.Name
 	out := readFacts{
-		Quality: known(f.Quality), Source: known(f.Source), Resolution: known(f.Resolution), Modifier: known(f.Modifier),
-		Revision: revision{Version: max(f.Revision.Version, 1), Real: f.Revision.Real, Repack: f.Revision.Repack},
-		Group:    stringOf(f.Group), Cut: string(f.Cut), Edition: stringOf(f.Edition),
-		HDR: listOf(f.HDR), Video: stringOf(f.Video), Audio: listOf(f.Audio), Channels: listOf(f.Channels), Languages: listOf(f.Languages),
-		IDs: map[string]string{}, Titles: append([]string{}, n.Titles...), Marks: []string{}, Span: n.Span.String(),
+		Source: wordsOf(formats.Source, f.Source), Resolution: wordsOf(formats.Resolution, f.Resolution), Modifier: wordsOf(formats.QualityModifier, f.Modifier),
+		Group: stringOf(f.Group), Cut: string(f.Cut), Edition: stringOf(f.Edition),
+		HDR: listOf(f.HDR, release.HDR.Words), Video: stringOf(f.Video), Audio: listOf(f.Audio, plain[release.AudioCodec]), Channels: listOf(f.Channels, plain[release.Channels]),
+		Languages: listOf(f.Languages, func(l release.Language) string { return formats.Words(formats.Language, string(l)) }),
+		IDs:       map[string]string{}, Titles: append([]string{}, n.Titles...), Marks: []string{}, Span: n.Span.String(),
+	}
+	if q, ok := f.Quality.Get(); ok {
+		name := q.Info().Name
+		out.Quality = &name
+	}
+	if !f.Revision.Original() {
+		r := f.Revision.String()
+		out.Revision = &r
 	}
 	for k, v := range f.IDs {
 		out.IDs[k] = v
@@ -211,12 +209,13 @@ func factsOf(rd release.Read) readFacts {
 	return out
 }
 
-func known[T interface{ String() string }](f release.Fact[T]) *string {
+// wordsOf is f's value in the words of k's SlipStream values.
+func wordsOf[T interface{ String() string }](k formats.Kind, f release.Fact[T]) *string {
 	v, ok := f.Get()
 	if !ok {
 		return nil
 	}
-	s := v.String()
+	s := formats.Words(k, v.String())
 	return &s
 }
 
@@ -229,11 +228,13 @@ func stringOf[T ~string](f release.Fact[T]) *string {
 	return &s
 }
 
-func listOf[T ~string](f release.Fact[[]T]) []string {
+func listOf[T any](f release.Fact[[]T], words func(T) string) []string {
 	vs, _ := f.Get()
 	out := make([]string, len(vs))
 	for i, v := range vs {
-		out[i] = string(v)
+		out[i] = words(v)
 	}
 	return out
 }
+
+func plain[T ~string](v T) string { return string(v) }

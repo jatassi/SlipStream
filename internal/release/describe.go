@@ -5,8 +5,9 @@ import (
 	"strings"
 )
 
-// Describe is the facts in words, joined with " · ": Quality, HDR, audio
-// and channels, group, size. "WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB".
+// Describe is the facts in words, joined with " · ": Quality, the
+// revision when it isn't the original, HDR, audio and channels, group,
+// size. "WEBDL-1080p · v2 REPACK · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB".
 // It names the first HDR format, audio codec and channel layout in each
 // fact, which the title readers list best first, and leaves out each fact
 // that's unknown or empty.
@@ -16,8 +17,11 @@ func Describe(r Read) string {
 	if q, ok := f.Quality.Get(); ok {
 		parts = append(parts, q.Info().Name)
 	}
+	if !f.Revision.Original() {
+		parts = append(parts, f.Revision.String())
+	}
 	if hdr, ok := firstOf(f.HDR); ok {
-		parts = append(parts, hdrWords(hdr))
+		parts = append(parts, hdr.Words())
 	}
 	var sound []string
 	if a, ok := firstOf(f.Audio); ok {
@@ -47,7 +51,8 @@ func firstOf[T any](f Fact[[]T]) (T, bool) {
 	return v[0], true
 }
 
-func hdrWords(h HDR) string {
+// Words is h as a person reads it: Dolby Vision for DV.
+func (h HDR) Words() string {
 	if h == "DV" {
 		return "Dolby Vision"
 	}

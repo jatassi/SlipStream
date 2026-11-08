@@ -139,19 +139,6 @@ func TestOneFileFillsTwoTargetsAndSitsOnDiskOnce(t *testing.T) {
 	}
 }
 
-type searchRefusals struct {
-	Searches []struct {
-		ID      string `json:"id"`
-		Refused []struct {
-			Title   string `json:"title"`
-			Reasons []struct {
-				Code     string `json:"code"`
-				TargetID string `json:"targetId"`
-			} `json:"reasons"`
-		} `json:"refused"`
-	} `json:"searches"`
-}
-
 func TestASearchUpgradesTheHeldWEBDLToTheBlurayAndDeletesIt(t *testing.T) {
 	t.Parallel()
 	w := grabbedTargets(t)
@@ -166,19 +153,13 @@ func TestASearchUpgradesTheHeldWEBDLToTheBlurayAndDeletesIt(t *testing.T) {
 	if found.Outcome == nil || *found.Outcome != "grabbed" || found.Candidates != 2 || found.GrabID == nil {
 		t.Fatalf("the upgrade search ended %+v, want the Bluray of two candidates grabbed", found)
 	}
-	list := decode(t, "getWorkSearches", w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/searches", ""), &searchRefusals{})
-	cells := w.cells(t)
-	for _, s := range list.Searches {
-		if s.ID != id {
-			continue
-		}
-		if len(s.Refused) != 1 || s.Refused[0].Title != release || len(s.Refused[0].Reasons) != 2 {
-			t.Fatalf("the upgrade search refused %+v, want the held WEB-DL alone", s.Refused)
-		}
-		for i, r := range s.Refused[0].Reasons {
-			if r.Code != "not_an_upgrade" || r.TargetID != cells.Cells[i].TargetID {
-				t.Fatalf("the WEB-DL was refused for %+v, want not_an_upgrade at both Targets", s.Refused[0].Reasons)
-			}
+	refused, cells := w.refused(t, id), w.cells(t)
+	if len(refused) != 1 || refused[0].Title != release || len(refused[0].Reasons) != 2 {
+		t.Fatalf("the upgrade search refused %+v, want the held WEB-DL alone", refused)
+	}
+	for i, r := range refused[0].Reasons {
+		if r.Code != "not_an_upgrade" || r.TargetID != cells.Cells[i].TargetID {
+			t.Fatalf("the WEB-DL was refused for %+v, want not_an_upgrade at both Targets", refused[0].Reasons)
 		}
 	}
 	w.ended(t, *found.GrabID)

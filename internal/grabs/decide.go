@@ -68,12 +68,6 @@ type Reason struct {
 	Target targets.TargetID
 }
 
-// Refusal is a Release a search didn't grab and why.
-type Refusal struct {
-	Title   string
-	Reasons []Reason
-}
-
 // dedupe is ls with each Release listed twice counted once: the same info
 // hash, or the same title and size when either lacks one. The copy from
 // the Indexer with the better priority stays, the first of a tie, and
@@ -179,13 +173,6 @@ func (j judged) reasons() []Reason {
 	return out
 }
 
-// tier is j's rank at its first cell.
-func (j judged) tier() int {
-	i := slices.IndexFunc(j.verdicts, func(v verdict) bool { return v.cell == j.first })
-	rank, _ := j.verdicts[i].v.Rank()
-	return int(rank)
-}
-
 // pick is j as a search grabs it: at its first cell's Edition, for every
 // cell's Target it is grabbable at, with their notes.
 func (j judged) pick(c cells) Pick {
@@ -211,9 +198,7 @@ type Decision struct {
 // own stops judging. A soft one is recorded and the Release is judged at
 // every open cell, under any cut, so a Manual search can show what it
 // would fill, and at each filled cell of its cut only as a proper or
-// repack of the file. The ranked order is the first cell grabbable at,
-// then the tier there, then the Indexer's priority, then seeders and size
-// descending, then title, so ties replay.
+// repack of the file. Ranked is in chain order.
 func decide(c cells, as []assessed) Decision {
 	var d Decision
 	for _, a := range as {
@@ -224,16 +209,7 @@ func decide(c cells, as []assessed) Decision {
 			d.Ranked = append(d.Ranked, j)
 		}
 	}
-	slices.SortStableFunc(d.Ranked, func(a, b judged) int {
-		return cmp.Or(
-			cmp.Compare(a.first, b.first),
-			cmp.Compare(a.tier(), b.tier()),
-			cmp.Compare(a.Release.Priority, b.Release.Priority),
-			cmp.Compare(b.Release.Seeders, a.Release.Seeders),
-			cmp.Compare(b.Release.Size, a.Release.Size),
-			strings.Compare(a.Release.Title, b.Release.Title),
-		)
-	})
+	rank(c, d.Ranked)
 	return d
 }
 
@@ -277,23 +253,6 @@ func (d Decision) picks(c cells) []Pick {
 	return out
 }
 
-// refusals is every Release of d with a refusal of its own or grabbable
-// at no cell, with every reason, in the Indexers' order.
-func (d Decision) refusals() []Refusal {
-	refused := slices.Clone(d.Refused)
-	for _, j := range d.Ranked {
-		if len(j.refusals) > 0 {
-			refused = append(refused, j)
-		}
-	}
-	slices.SortFunc(refused, func(a, b judged) int { return cmp.Compare(a.at, b.at) })
-	var out []Refusal
-	for _, j := range refused {
-		out = append(out, Refusal{Title: j.Release.Title, Reasons: j.reasons()})
-	}
-	return out
-}
-
 // marks is what n names, such as S01E02, in words.
 func marks(n release.Name) string {
 	words := make([]string, len(n.Marks))
@@ -303,7 +262,7 @@ func marks(n release.Name) string {
 	return strings.Join(words, " ")
 }
 
-// storedReason is a Reason as grabs_refusal and grabs_search.notes keep it.
+// storedReason is a Reason as grabs_release.reasons and grabs_search.notes keep it.
 type storedReason struct {
 	Code      targets.ReasonCode `json:"code"`
 	TargetID  string             `json:"targetId,omitempty"`

@@ -729,6 +729,11 @@ func (w *trackerRun) udpAnnounces() []tracker.Announce {
 func (n *seedbox) swarmOf(r release) *engine.Swarm {
 	n.t.Helper()
 	res, err := n.client.Inspect(n.t.Context(), &dlv1.InspectRequest{Id: r.id.Bytes()})
+	if rpc.CodeOf(err) == rpc.CodeNotFound {
+		// The Node adds the torrent after it hears the Wanted state, so an
+		// Inspect sent first finds nothing yet.
+		return nil
+	}
 	if err != nil {
 		n.t.Fatal(err)
 	}

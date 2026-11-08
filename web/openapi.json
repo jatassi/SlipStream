@@ -4008,8 +4008,19 @@
             "type": "array"
           },
           "words": {
-            "description": "The facts in words, joined with a middle dot: Quality, HDR, audio and channels, release group and size",
+            "description": "The facts in words, joined with a middle dot: Quality, the revision when it isn't the original, HDR, audio and channels, release group and size",
             "type": "string"
+          },
+          "work": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FormatsWorkRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The one Work the name is judged against: the given Work, or the only Work it matches; null when it matches several or none"
           },
           "works": {
             "description": "The given Work when the name matches it, else every Work whose title and year it gives",
@@ -4024,6 +4035,7 @@
           "sentence",
           "words",
           "facts",
+          "work",
           "works",
           "covers",
           "formats",
@@ -4161,7 +4173,7 @@
             ]
           },
           "hdr": {
-            "description": "Best first",
+            "description": "In words, such as Dolby Vision, best first",
             "items": {
               "type": "string"
             },
@@ -4175,7 +4187,7 @@
             "type": "object"
           },
           "languages": {
-            "description": "ISO 639 codes",
+            "description": "In words, such as French",
             "items": {
               "type": "string"
             },
@@ -4189,13 +4201,14 @@
             "type": "array"
           },
           "modifier": {
+            "description": "The quality modifier in words, such as Remux",
             "type": [
               "string",
               "null"
             ]
           },
           "quality": {
-            "description": "The Quality key, such as webdl-1080p; null when the name gives none",
+            "description": "The Quality's name, such as WEBDL-1080p; null when the name gives none",
             "type": [
               "string",
               "null"
@@ -4208,10 +4221,14 @@
             ]
           },
           "revision": {
-            "$ref": "#/components/schemas/FormatsRevision"
+            "description": "The revision in words, such as v2 REPACK; null for the original release",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "source": {
-            "description": "The fine source, such as webdl",
+            "description": "The fine source in words, such as WEB-DL",
             "type": [
               "string",
               "null"
@@ -4272,30 +4289,6 @@
         ],
         "type": "object"
       },
-      "FormatsRevision": {
-        "additionalProperties": false,
-        "properties": {
-          "real": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "repack": {
-            "type": "boolean"
-          },
-          "version": {
-            "format": "int64",
-            "minimum": 1,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "version",
-          "real",
-          "repack"
-        ],
-        "type": "object"
-      },
       "FormatsSchema": {
         "additionalProperties": false,
         "properties": {
@@ -4329,64 +4322,6 @@
         ],
         "type": "object"
       },
-      "FormatsTriedReason": {
-        "additionalProperties": false,
-        "properties": {
-          "attribute": {
-            "description": "The attribute a failed filter rules on",
-            "enum": [
-              "hdr",
-              "video_codec",
-              "audio_codec",
-              "channels",
-              "language"
-            ],
-            "type": "string"
-          },
-          "code": {
-            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's.",
-            "enum": [
-              "wrong_work",
-              "wrong_item",
-              "covers_more",
-              "wrong_title",
-              "cut_not_wanted",
-              "quality_not_in_target",
-              "filter",
-              "size_below",
-              "size_above",
-              "size_not_checked",
-              "score_below_minimum",
-              "not_an_upgrade",
-              "repack_other_group"
-            ],
-            "type": "string"
-          },
-          "soft": {
-            "description": "Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note.",
-            "type": "boolean"
-          },
-          "targetId": {
-            "description": "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
-            "format": "uuid",
-            "type": "string"
-          },
-          "value": {
-            "description": "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
-            "type": "string"
-          },
-          "words": {
-            "description": "The reason as a sentence",
-            "type": "string"
-          }
-        },
-        "required": [
-          "words",
-          "code",
-          "soft"
-        ],
-        "type": "object"
-      },
       "FormatsTriedTarget": {
         "additionalProperties": false,
         "properties": {
@@ -4396,7 +4331,7 @@
           "reasons": {
             "description": "The name's own refusals, then the reasons of the first cell it would fill, else of the first cell it was judged at",
             "items": {
-              "$ref": "#/components/schemas/FormatsTriedReason"
+              "$ref": "#/components/schemas/GrabsWordedReason"
             },
             "type": "array"
           },
@@ -4831,6 +4766,178 @@
         ],
         "type": "object"
       },
+      "GrabsListedRelease": {
+        "additionalProperties": false,
+        "properties": {
+          "copyOf": {
+            "description": "The position of the Release this is a copy of, listed by an Indexer of no better priority; null when it is no copy",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "covers": {
+            "description": "The Items of the Work it holds",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "formatIds": {
+            "description": "The Custom Formats it matched of those the Work's Targets score, as the run saw them",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "indexerId": {
+            "description": "Null once the Indexer is deleted",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "indexerName": {
+            "description": "The Indexer's name when the run started",
+            "type": "string"
+          },
+          "lostAt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrabsLostAt"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where an outranked or kept Release lost to the reference Release; null for the others and for one that ties it at every step"
+          },
+          "outcome": {
+            "description": "grabbed is the run's Grab. not_taken ranked above it, and its Indexer stopped, reached its limit or dropped it. outranked ranked below it. kept ranked, and the run grabbed nothing. refused has a refusal of its own or is grabbable at no cell.",
+            "enum": [
+              "grabbed",
+              "not_taken",
+              "outranked",
+              "kept",
+              "refused"
+            ],
+            "type": "string"
+          },
+          "position": {
+            "description": "Its place in the order the Indexers listed the run's Releases",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rank": {
+            "description": "Its place among the Releases grabbable at some cell, from 1; null for one grabbable at none",
+            "format": "int64",
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "reasons": {
+            "description": "Its own refusals, then each cell's failures and notes, in Profile order",
+            "items": {
+              "$ref": "#/components/schemas/GrabsWordedReason"
+            },
+            "type": "array"
+          },
+          "scores": {
+            "description": "Its score at each Target it was judged at, in Profile order",
+            "items": {
+              "$ref": "#/components/schemas/GrabsTargetScore"
+            },
+            "type": "array"
+          },
+          "seeders": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "size": {
+            "description": "Bytes",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "words": {
+            "description": "What SlipStream reads from the title, in words, such as WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB",
+            "type": "string"
+          }
+        },
+        "required": [
+          "position",
+          "title",
+          "words",
+          "indexerId",
+          "indexerName",
+          "size",
+          "seeders",
+          "outcome",
+          "rank",
+          "copyOf",
+          "covers",
+          "scores",
+          "formatIds",
+          "reasons",
+          "lostAt"
+        ],
+        "type": "object"
+      },
+      "GrabsLostAt": {
+        "additionalProperties": false,
+        "properties": {
+          "own": {
+            "description": "This Release's value at the step: a Target's name for want, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title",
+            "type": "string"
+          },
+          "ref": {
+            "description": "The reference Release's value at the step, written as own is. The reference is the grabbed Release, or the first a search could take when the run grabbed none.",
+            "type": "string"
+          },
+          "step": {
+            "description": "The first step of the ranking where the reference Release ranked above this one",
+            "enum": [
+              "want",
+              "tier",
+              "revision",
+              "score",
+              "priority",
+              "freeleech",
+              "seeders",
+              "size",
+              "title"
+            ],
+            "type": "string"
+          },
+          "targetId": {
+            "description": "The Target the tier, revision and score steps compare at; null at the other steps and once the Target is deleted",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "step",
+          "targetId",
+          "own",
+          "ref"
+        ],
+        "type": "object"
+      },
       "GrabsMetadataSearch": {
         "additionalProperties": false,
         "properties": {
@@ -4927,23 +5034,19 @@
         ],
         "type": "object"
       },
-      "GrabsRefusal": {
+      "GrabsReleaseList": {
         "additionalProperties": false,
         "properties": {
-          "reasons": {
-            "description": "The release's own refusals, then each cell's failures and notes, in Profile order",
+          "releases": {
+            "description": "Ranked ones first, in rank order, then the rest in the order they were listed. Empty once a later run of the Item finished.",
             "items": {
-              "$ref": "#/components/schemas/GrabsReason"
+              "$ref": "#/components/schemas/GrabsListedRelease"
             },
             "type": "array"
-          },
-          "title": {
-            "type": "string"
           }
         },
         "required": [
-          "title",
-          "reasons"
+          "releases"
         ],
         "type": "object"
       },
@@ -5005,13 +5108,6 @@
               "null"
             ]
           },
-          "refused": {
-            "description": "The Releases it didn't grab for a reason, in the Indexers' order. A Release it outranked isn't refused.",
-            "items": {
-              "$ref": "#/components/schemas/GrabsRefusal"
-            },
-            "type": "array"
-          },
           "startedAt": {
             "format": "date-time",
             "type": "string"
@@ -5025,7 +5121,6 @@
           "finishedAt",
           "outcome",
           "candidates",
-          "refused",
           "grabId",
           "notes"
         ],
@@ -5159,6 +5254,82 @@
         },
         "required": [
           "searchIds"
+        ],
+        "type": "object"
+      },
+      "GrabsTargetScore": {
+        "additionalProperties": false,
+        "properties": {
+          "score": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "targetId",
+          "score"
+        ],
+        "type": "object"
+      },
+      "GrabsWordedReason": {
+        "additionalProperties": false,
+        "properties": {
+          "attribute": {
+            "description": "The attribute a failed filter rules on",
+            "enum": [
+              "hdr",
+              "video_codec",
+              "audio_codec",
+              "channels",
+              "language"
+            ],
+            "type": "string"
+          },
+          "code": {
+            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's.",
+            "enum": [
+              "wrong_work",
+              "wrong_item",
+              "covers_more",
+              "wrong_title",
+              "cut_not_wanted",
+              "quality_not_in_target",
+              "filter",
+              "size_below",
+              "size_above",
+              "size_not_checked",
+              "score_below_minimum",
+              "not_an_upgrade",
+              "repack_other_group"
+            ],
+            "type": "string"
+          },
+          "soft": {
+            "description": "Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note.",
+            "type": "boolean"
+          },
+          "targetId": {
+            "description": "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
+            "format": "uuid",
+            "type": "string"
+          },
+          "value": {
+            "description": "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
+            "type": "string"
+          },
+          "words": {
+            "description": "The reason as a sentence",
+            "type": "string"
+          }
+        },
+        "required": [
+          "words",
+          "code",
+          "soft"
         ],
         "type": "object"
       },
@@ -45327,6 +45498,201 @@
         "summary": "Make a root where its Content Type's new Works go",
         "tags": [
           "roots"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/searches/{searchId}/releases": {
+      "get": {
+        "operationId": "listSearchReleases",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "searchId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrabsReleaseList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "search_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the Releases a search run saw, with what it did with each and why",
+        "tags": [
+          "grabs"
         ],
         "x-slipstream-access": "admin"
       }

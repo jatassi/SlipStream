@@ -65,7 +65,7 @@ content-type=<media type>
 
 The `omdb` fake's `omdb-revoke-key` refuses `{"key": "…"}`, or every key it has seen, with OMDb's bad-key answer. `omdb-cap` spends the rest of today's allowance of `{"key": "…"}`, or of every key, so OMDb answers "Request limit reached!" until the next UTC midnight.
 
-`fixture-site-list` with `{"release": "<name>"}` lists a release the Scenario marks `unlisted: true`, so a search after the cue finds it and one before does not. The `targets` Scenario holds its Bluray back this way until its WEB-DL is imported. `fixture-site-refuse` with `{"code": 101}` has the Torznab API answer every request with that Newznab error, which stops each Indexer on the site, and `{"code": 0}` serves requests again.
+`fixture-site-list` with `{"release": "<name>"}` lists a release the Scenario marks `unlisted: true`, so a search after the cue finds it and one before does not. The `targets` Scenario holds its Bluray back this way until its WEB-DL is imported. A release the Scenario marks `untagged: true` lists no `tmdbid` or `imdbid`, so only its name says which film it is. `fixture-site-refuse` with `{"code": 101}` has the Torznab API answer every request with that Newznab error, which stops each Indexer on the site, and `{"code": 0}` serves requests again.
 
 `tracker-unregister` with `{"release": "<name>"}` has fake-tracker respond to that release's announces with `Unregistered torrent` from then on, as for a torrent the site deleted while it seeds. The cue's result `was` says whether it already did.
 

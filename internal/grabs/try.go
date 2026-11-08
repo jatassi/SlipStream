@@ -37,8 +37,11 @@ type Tried struct {
 	// Sentence is what the name reads as, the Works it matches and the
 	// Targets it would fill, or why it would fill none.
 	Sentence string
-	// Works are the Works it matches: the given Work, or each Work whose
-	// title it gives.
+	// Work is the one Work it is judged against: the given Work, or the
+	// only Work it matches. Nil when it matches several Works or none.
+	Work *works.Summary
+	// Works are the Works it matches: the given Work when the name names
+	// it, or each Work whose title it gives.
 	Works []works.Summary
 	// Covers are the Items it names of the one Work it is judged against.
 	Covers  []works.ItemID
@@ -53,7 +56,13 @@ type TriedTarget struct {
 	Target    targets.Target
 	Score     int
 	WouldFill bool
-	Reasons   []Reason
+	Reasons   []Worded
+}
+
+// Worded is a reason with its words.
+type Worded struct {
+	Reason
+	Words string
 }
 
 // Try reads each name and judges it as a search would. With one Work,
@@ -209,13 +218,14 @@ func (tr trier) againstWork(ctx context.Context, r storage.Reader[file], name st
 		}
 	}
 	judged := judge(c, a)
-	t := Tried{Name: name, Read: a.read, Covers: a.covers, Formats: tr.catalog.Explain(a.read)}
+	t := Tried{Name: name, Read: a.read, Work: &w, Covers: a.covers, Formats: tr.catalog.Explain(a.read)}
 	if a.namesTheWork() {
 		t.Works = []works.Summary{w}
 	}
 	s := scoredOf(a.read, t.Formats)
 	for _, target := range goals.Targets {
-		tt := TriedTarget{Target: target, Score: target.Score(s), Reasons: slices.Clone(a.refusals)}
+		tt := TriedTarget{Target: target, Score: target.Score(s)}
+		reasons := slices.Clone(a.refusals)
 		var at []verdict
 		for _, v := range judged.verdicts {
 			if v.target == target.ID {
@@ -224,13 +234,14 @@ func (tr trier) againstWork(ctx context.Context, r storage.Reader[file], name st
 		}
 		if i := slices.IndexFunc(at, verdict.grabbable); i >= 0 {
 			tt.WouldFill = len(a.refusals) == 0
-			tt.Reasons = append(tt.Reasons, at[i].reasons()...)
+			reasons = append(reasons, at[i].reasons()...)
 		} else if len(at) > 0 {
-			tt.Reasons = append(tt.Reasons, at[0].reasons()...)
+			reasons = append(reasons, at[0].reasons()...)
 		}
+		tt.Reasons = worded(reasons, &target, a.read.Facts)
 		t.Targets = append(t.Targets, tt)
 	}
-	t.Sentence = sentence(t)
+	t.Sentence = sentence(t, worded(a.refusals, nil, a.read.Facts))
 	return t, nil
 }
 
@@ -241,7 +252,7 @@ func (tr trier) againstEvery(name string, rd release.Read, ws []works.Summary) T
 	s := scoredOf(rd, t.Formats)
 	for _, target := range tr.every {
 		v := verdict{target: target.ID, wanted: true, v: targets.Judge(target, s, nil)}
-		t.Targets = append(t.Targets, TriedTarget{Target: target, Score: v.v.Score(), WouldFill: v.grabbable(), Reasons: v.reasons()})
+		t.Targets = append(t.Targets, TriedTarget{Target: target, Score: v.v.Score(), WouldFill: v.grabbable(), Reasons: worded(v.reasons(), &target, rd.Facts)})
 	}
 	t.Sentence = acceptance(t)
 	return t
@@ -261,9 +272,13 @@ func scoredOf(rd release.Read, es []formats.Explained) targets.Scored {
 // sentence is t, judged against one Work, in words: "Reads as
 // WEBDL-1080p from FLUX. It matches Heat (1995) and would fill 1080p." A
 // name that would fill no Target ends with the first reason a Target
-// gives, in Profile order.
-func sentence(t Tried) string {
-	read := readWords(t)
+// gives, in Profile order. A name that doesn't name the Work says why
+// with the first of own, its own refusals.
+func sentence(t Tried, own []Worded) string {
+	if len(t.Works) == 0 {
+		return readWords(t) + ". " + own[0].Words + " It would fill no Target."
+	}
+	read := readWords(t) + ". " + matchWords(t)
 	fills := targetNames(t)
 	if len(fills) > 0 {
 		return read + " and would fill " + joinWords(fills) + "."
@@ -276,7 +291,7 @@ func sentence(t Tried) string {
 // FLUX. It matches no Work. 1080p and HD accept it." With no Work there
 // is no cell to fill, so it says which Targets accept the name.
 func acceptance(t Tried) string {
-	read := readWords(t) + "."
+	read := readWords(t) + ". " + matchWords(t) + "."
 	if len(t.Targets) == 0 {
 		return read + " No Target is set up. Add a Target in Settings."
 	}
@@ -290,8 +305,7 @@ func acceptance(t Tried) string {
 	}
 }
 
-// readWords is what t reads as and the Works it matches: "Reads as
-// WEBDL-1080p from FLUX. It matches Heat (1995)".
+// readWords is what t reads as: "Reads as WEBDL-1080p from FLUX".
 func readWords(t Tried) string {
 	f := t.Read.Facts
 	read := "Reads no Quality"
@@ -301,14 +315,19 @@ func readWords(t Tried) string {
 	if g, ok := f.Group.Get(); ok {
 		read += " from " + g
 	}
+	return read
+}
+
+// matchWords is the Works t matches: "It matches Heat (1995)".
+func matchWords(t Tried) string {
 	if len(t.Works) == 0 {
-		return read + ". It matches no Work"
+		return "It matches no Work"
 	}
 	labels := make([]string, len(t.Works))
 	for i, w := range t.Works {
 		labels[i] = w.Label
 	}
-	return read + ". It matches " + joinWords(labels)
+	return "It matches " + joinWords(labels)
 }
 
 // targetNames is the names of the Targets t would fill.
@@ -331,7 +350,7 @@ func whyNot(t Tried) string {
 	for _, tt := range t.Targets {
 		for _, r := range tt.Reasons {
 			if r.Code != targets.SizeNotChecked {
-				return ReasonWords(r, tt.Target, t.Read.Facts)
+				return r.Words
 			}
 		}
 	}
@@ -343,9 +362,25 @@ var attributeWords = map[targets.Attribute]string{
 	targets.Channels: "channels", targets.Language: "language",
 }
 
-// ReasonWords is r, a reason at t about a name whose facts are f, as a
-// sentence.
-func ReasonWords(r Reason, t targets.Target, f release.Facts) string {
+// worded is rs, reasons at t about a name whose facts are f, each with
+// its words. t is nil once the Target is deleted.
+func worded(rs []Reason, t *targets.Target, f release.Facts) []Worded {
+	out := make([]Worded, len(rs))
+	for i, r := range rs {
+		out[i] = Worded{Reason: r, Words: reasonWords(r, t, f)}
+	}
+	return out
+}
+
+const deletedTarget = "a deleted Target"
+
+// reasonWords is r, a reason at t about a name whose facts are f, as a
+// sentence. t is nil once the Target is deleted.
+func reasonWords(r Reason, t *targets.Target, f release.Facts) string {
+	at := deletedTarget
+	if t != nil {
+		at = t.Name
+	}
 	switch r.Code {
 	case targets.WrongWork:
 		return "An id in the name belongs to another Work."
@@ -358,30 +393,44 @@ func ReasonWords(r Reason, t targets.Target, f release.Facts) string {
 		return "It holds more than one Item."
 	case targets.WrongTitle:
 		if r.Value == "" {
-			return "Title doesn't match."
+			return "Its name gives no title."
 		}
-		return "Title doesn't match: " + r.Value + "."
+		return "Its name gives " + r.Value + ", which isn't this Work."
 	case targets.CutNotWanted:
-		return "The Work doesn't want the " + r.Value + " cut at " + t.Name + "."
+		return "The Work doesn't want the " + r.Value + " cut at " + at + "."
 	case targets.QualityNotInTarget:
+		what := "a release with no Quality"
 		if q, ok := f.Quality.Get(); ok {
-			return t.Name + " doesn't accept " + q.Info().Name + "."
+			what = q.Info().Name
 		}
-		return t.Name + " doesn't accept a release with no Quality."
+		if t == nil {
+			return "A deleted Target doesn't accept " + what + "."
+		}
+		return at + " doesn't accept " + what + "."
 	case targets.FilterFailed:
-		return "It fails the " + attributeWords[r.Attribute] + " filter of " + t.Name + "."
+		return "It fails the " + attributeWords[r.Attribute] + " filter of " + at + "."
 	case targets.SizeBelow:
-		return "It's smaller than " + t.Name + " allows."
+		return "It's smaller than " + at + " allows."
 	case targets.SizeAbove:
-		return "It's larger than " + t.Name + " allows."
+		return "It's larger than " + at + " allows."
 	case targets.SizeNotChecked:
-		return "Its size isn't checked at " + t.Name + " because the name gives no size or the runtime is unknown."
+		return "Its size isn't checked at " + at + " because the name gives no size or the runtime is unknown."
 	case targets.ScoreBelowMinimum:
-		return "Score " + r.Value + " is below the minimum of " + strconv.Itoa(t.Scores.Minimum) + " at " + t.Name + "."
+		if t == nil {
+			return "Score " + r.Value + " is below the minimum of " + deletedTarget + "."
+		}
+		return "Score " + r.Value + " is below the minimum of " + strconv.Itoa(t.Scores.Minimum) + " at " + at + "."
 	case targets.NotAnUpgrade:
-		return "It isn't an upgrade of the file at " + t.Name + "."
+		return "It isn't an upgrade of the file at " + at + "."
 	case targets.RepackOtherGroup:
-		return "This repack is from another release group than the file it would replace."
+		from := "It's a repack with no release group"
+		if g, ok := f.Group.Get(); ok {
+			from = "It's a repack from " + g
+		}
+		if r.Value == "" {
+			return from + ", and the file at " + at + " has no release group."
+		}
+		return from + ", and the file at " + at + " is from " + r.Value + "."
 	}
 	panic("grabs: no words for the reason " + string(r.Code))
 }

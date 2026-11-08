@@ -5,7 +5,6 @@ import type {
   FormatsParseKind,
   FormatsParsed,
   FormatsReadFacts,
-  FormatsRevision,
 } from "../api/gen/model";
 import type { Problems } from "./draft";
 
@@ -33,14 +32,6 @@ export function namesProblem(names: readonly string[], kind: TesterKind): string
   return `This has ${String(names.length)} ${noun}. Test ${String(nameLimit)} or fewer at a time.`;
 }
 
-function revisionWords({ version, real, repack }: FormatsRevision): string | undefined {
-  const parts = [
-    ...(version > 1 ? [`${repack ? "Repack" : "Proper"}, version ${String(version)}`] : []),
-    ...(real > 0 ? [`Real ${String(real)}`] : []),
-  ];
-  return parts.length === 0 ? undefined : parts.join(", ");
-}
-
 export type FactRow = { readonly label: string; readonly value: string };
 
 /** What a name reads as, one row per fact the name gives. */
@@ -54,7 +45,7 @@ export function factRows(facts: FormatsReadFacts): FactRow[] {
     ["Source", facts.source],
     ["Resolution", facts.resolution],
     ["Modifier", facts.modifier],
-    ["Revision", revisionWords(facts.revision)],
+    ["Revision", facts.revision],
     ["Release group", facts.group],
     ["Edition", facts.edition],
     ["Cut", facts.cut === "standard" ? null : facts.cut],
@@ -109,7 +100,7 @@ export const conditionNotes = (condition: FormatsEvaluated): string[] => [
  * Works or none is judged at every Target, which accepts it or doesn't.
  */
 export function verdictWords(result: FormatsParsed, wouldFill: boolean): string {
-  const oneWork = result.works.length === 1;
+  const oneWork = result.work !== null;
   if (wouldFill) {
     return oneWork ? "Would fill" : "Accepts it";
   }

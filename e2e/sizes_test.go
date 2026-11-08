@@ -31,9 +31,10 @@ func sized(t *testing.T, key, profile, target string) (w walked, id string) {
 }
 
 // searchedOnce searches w's Work, checks the searches view lists that one
-// search exactly, grabbed of candidates with refused and notes as their
-// JSON, and waits for the Grab it made to be imported.
-func (w *walked) searchedOnce(t *testing.T, candidates int, refused, notes string) {
+// search exactly, grabbed of candidates with notes as their JSON, that it
+// refused each of refused as its title and reasons as their JSON, and
+// waits for the Grab it made to be imported.
+func (w *walked) searchedOnce(t *testing.T, candidates int, refused []string, notes string) {
 	t.Helper()
 	id := w.search(t)
 	found := w.searched(t, id)
@@ -63,7 +64,18 @@ func (w *walked) searchedOnce(t *testing.T, candidates int, refused, notes strin
 	worldtest.Expect(t, "getWorkSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + id + `","itemId":"` + s.ItemID +
 		`","startedAt":"` + s.StartedAt + `","indexers":[{"indexerId":"` + s.Indexers[0].IndexerID + `","name":"Fixture Site","outcome":"found","releases":` +
 		strconv.Itoa(candidates) + `,"sentence":"` + sentence + `"}],"finishedAt":"` + s.FinishedAt + `","outcome":"grabbed","candidates":` +
-		strconv.Itoa(candidates) + `,"refused":` + refused + `,"grabId":"` + *found.GrabID + `","notes":` + notes + `}]}` + "\n"})
+		strconv.Itoa(candidates) + `,"grabId":"` + *found.GrabID + `","notes":` + notes + `}]}` + "\n"})
+	var got []string
+	for _, r := range w.refused(t, id) {
+		reasons, err := json.Marshal(r.Reasons)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, r.Title+" "+string(reasons))
+	}
+	if !slices.Equal(got, refused) {
+		t.Fatalf("the search refused %q, want %q", got, refused)
+	}
 	w.ended(t, *found.GrabID)
 	if w.grab.Stage != "imported" {
 		t.Fatalf("the Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())
@@ -87,16 +99,17 @@ func (w *walked) holdsRelease(t *testing.T, path, name string) {
 func TestASearchRefusesReleasesOutsideTheTargetsSizesAndGrabsTheOneWithin(t *testing.T) {
 	t.Parallel()
 	w, target := sized(t, "9000001", "Films", "Sized")
-	w.searchedOnce(t, 3, `[`+
-		`{"title":"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-BLOAT","reasons":[{"code":"size_above","targetId":"`+target+`","soft":true}]},`+
-		`{"title":"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-TINY","reasons":[{"code":"size_below","targetId":"`+target+`","soft":true}]}]`, `[]`)
+	w.searchedOnce(t, 3, []string{
+		`The.Quiet.Orchard.2021.1080p.WEB-DL.H264-BLOAT [{"code":"size_above","targetId":"` + target + `","value":""}]`,
+		`The.Quiet.Orchard.2021.1080p.WEB-DL.H264-TINY [{"code":"size_below","targetId":"` + target + `","value":""}]`,
+	}, `[]`)
 	w.holdsRelease(t, "movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - Sized.mkv", "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW")
 }
 
 func TestAWorkWithNoKnownRuntimeGrabsWithItsSizeNotChecked(t *testing.T) {
 	t.Parallel()
 	w, target := sized(t, "9000002", "Films", "Sized")
-	w.searchedOnce(t, 1, `[]`, `[{"code":"size_not_checked","targetId":"`+target+`","soft":false}]`)
+	w.searchedOnce(t, 1, nil, `[{"code":"size_not_checked","targetId":"`+target+`","soft":false}]`)
 	w.holdsRelease(t, "movies/The Lantern Keeper (2019)/The Lantern Keeper (2019) - Sized.mkv", "The.Lantern.Keeper.2019.1080p.WEB-DL.H264-FKW")
 }
 

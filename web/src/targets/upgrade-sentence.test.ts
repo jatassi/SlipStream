@@ -194,7 +194,7 @@ test("a repack, a minimum and the scores say why in words", () => {
       plain("webdl-1080p", { group: "FLUX", score: 30 }),
       plain("webdl-1080p", { version: 2, repack: true, group: "NTb", score: 30 }),
     ),
-  ).toEqual([false, "This repack is from another release group than the file it would replace."]);
+  ).toEqual([false, "It's a repack from NTb, and the WEBDL-1080p file is from FLUX."]);
   expect(
     said(
       plain("webdl-1080p", { group: "FLUX", score: 30 }),

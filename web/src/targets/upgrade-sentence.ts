@@ -154,7 +154,8 @@ const reasons: { readonly [W in Why]: (said: Said) => string } = {
   vacant: ({ from, to }) => `${to} ranks above ${from}.`,
   not_in_target: ({ to }) => `This Target doesn't accept ${to}.`,
   proper: ({ from }) => `This release is a newer revision of the ${from} file.`,
-  other_group: () => "This repack is from another release group than the file it would replace.",
+  other_group: ({ from, move }) =>
+    `It's a repack ${move.to.group === null ? "with no release group" : `from ${move.to.group}`}, and the ${from} file ${move.from.group === null ? "has no release group" : `is from ${move.from.group}`}.`,
   final: ({ from }) => `${from} has reached the cutoff, so no better tier replaces it.`,
   lower: ({ from, to }) => `${to} ranks below ${from}.`,
   older: ({ from }) => `This release is an older revision of the ${from} file.`,
@@ -170,8 +171,7 @@ const reasons: { readonly [W in Why]: (said: Said) => string } = {
 
 /**
  * Judge's answer for a move over a held file, with its reasons in words,
- * such as "This repack is from another release group than the file it
- * would replace."
+ * such as "It's a repack from NTb, and the WEBDL-1080p file is from FLUX."
  */
 export function judgeInWords(
   rules: Rules,

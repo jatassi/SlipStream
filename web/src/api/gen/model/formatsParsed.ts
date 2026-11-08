@@ -14,8 +14,10 @@ export interface FormatsParsed {
   sentence: string;
   /** With one Work, its Profile's Targets judged against its held files; with several or none, every Target with no held file */
   targets: FormatsTriedTarget[];
-  /** The facts in words, joined with a middle dot: Quality, HDR, audio and channels, release group and size */
+  /** The facts in words, joined with a middle dot: Quality, the revision when it isn't the original, HDR, audio and channels, release group and size */
   words: string;
+  /** The one Work the name is judged against: the given Work, or the only Work it matches; null when it matches several or none */
+  work: FormatsWorkRef | null;
   /** The given Work when the name matches it, else every Work whose title and year it gives */
   works: FormatsWorkRef[];
 }
