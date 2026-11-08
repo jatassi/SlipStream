@@ -112,33 +112,56 @@ const Saved = z.object({
   targets: z.array(
     z.object({
       name: z.string(),
-      scores: z.object({ minimum: z.number(), upgradeUntil: z.number(), increment: z.number() }),
+      scores: z.object({
+        formats: z.array(z.object({ formatId: z.string(), score: z.number() })),
+        minimum: z.number(),
+        upgradeUntil: z.number(),
+        increment: z.number(),
+      }),
       propers: z.string(),
     }),
   ),
 });
+
+async function open1080p(page: Page) {
+  await page
+    .getByRole("table", { name: "Targets" })
+    .getByRole("link", { name: "1080p", exact: true })
+    .click();
+}
 
 async function saved1080p(world: World) {
   const { targets } = Saved.parse((await world.api("GET", "/api/v1/targets")).body);
   return targets.find((target) => target.name === "1080p");
 }
 
+async function makeHdrFormat(world: World) {
+  const made = await world.api("POST", "/api/v1/custom-formats", {
+    name: "HDR",
+    conditions: [
+      {
+        name: "HDR",
+        kind: "ReleaseTitleSpecification",
+        negate: false,
+        required: false,
+        fields: { value: String.raw`\bHDR\b` },
+      },
+    ],
+  });
+  return z.object({ id: z.string() }).parse(made.body).id;
+}
+
 test("a Target's scores and propers setting show in its sentence, and save", async ({
   adminPage: page,
   world,
 }, testInfo) => {
+  const hdr = await makeHdrFormat(world);
   await openTargets(page);
-  await page
-    .getByRole("table", { name: "Targets" })
-    .getByRole("link", { name: "1080p", exact: true })
-    .click();
+  await open1080p(page);
   const scores = page.getByRole("region", { name: "Scores" });
-  await expect(
-    scores.getByText(
-      "No Custom Formats exist yet, so this Target ranks Releases by quality alone.",
-    ),
-  ).toBeVisible();
+  await expect(scores.getByText(/^Scores none of the 1 Custom Format, /u)).toBeVisible();
   await scores.getByRole("button", { name: "Details" }).click();
+  await scores.getByRole("textbox", { name: "HDR score" }).fill("40");
   await scores.getByRole("textbox", { name: "Upgrade until" }).fill("100");
   await scores.getByRole("textbox", { name: "Increment" }).fill("5");
   await expect(page.getByText(/^Grabs /u)).toHaveText(
@@ -154,10 +177,18 @@ test("a Target's scores and propers setting show in its sentence, and save", asy
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Saved 1080p.")).toBeVisible();
   expect(await saved1080p(world)).toMatchObject({
-    scores: { minimum: 0, upgradeUntil: 100, increment: 5 },
+    scores: {
+      formats: [{ formatId: hdr, score: 40 }],
+      minimum: 0,
+      upgradeUntil: 100,
+      increment: 5,
+    },
     propers: "dont_prefer",
   });
-  await page.reload();
+  await open1080p(page);
+  await expect(scores.getByText(/^Scores 1 of 1 Custom Format\./u)).toBeVisible();
+  await scores.getByRole("button", { name: "Details" }).click();
+  await expect(scores.getByRole("textbox", { name: "HDR score" })).toHaveValue("40");
   await expect(page.getByRole("radio", { name: "Don't prefer" })).toBeChecked();
   await expect(page.getByText(/^Grabs /u)).toContainText("and a score of 100, then stops.");
 });
