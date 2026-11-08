@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strconv"
 	"time"
-	_ "unsafe"
+	_ "unsafe" // for go:linkname
 
 	"github.com/dlclark/regexp2"
 	"github.com/dlclark/regexp2/syntax"
