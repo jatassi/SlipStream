@@ -22,7 +22,7 @@ export type ClientPick = {
   readonly body: SendToInputBody;
 };
 
-const builtInKey = (nodeId: string) => `built-in:${nodeId}`;
+export const builtInKey = (nodeId: string) => `built-in:${nodeId}`;
 
 export const currentKey = (grab: GrabsGrab): string =>
   grab.downloadClient?.id ?? builtInKey(grab.nodeId);
