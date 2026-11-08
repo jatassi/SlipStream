@@ -22,6 +22,10 @@ on:
       timings:
         description: The artifact that holds the test timings to split by; empty splits by count
         type: string
+      record-timings:
+        description: Whether the e2e and browser shards upload the timings of what they ran, true or false
+        type: string
+        default: "false"
       filter:
         description: Run only the tests that match, as go test -run and playwright --grep
         type: string
@@ -259,7 +263,7 @@ jobs:
             !${{ runner.temp }}/fakeworld-runs/**/bin/**
           if-no-files-found: ignore
       - name: Upload this shard's test timings
-        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        if: ${{ !cancelled() && inputs.record-timings == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: timings-${{ matrix.target }}-e2e-${{ matrix.shard }}
@@ -353,7 +357,7 @@ jobs:
             !${{ runner.temp }}/fakeworld-runs/**/bin/**
           if-no-files-found: ignore
       - name: Upload this shard's test timings
-        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        if: ${{ !cancelled() && inputs.record-timings == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: timings-${{ matrix.target }}-browser-${{ matrix.shard }}
