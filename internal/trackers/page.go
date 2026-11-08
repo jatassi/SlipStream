@@ -223,9 +223,21 @@ type WindowView struct {
 	// Name is its latest Torrent's.
 	Name   string
 	Window seeding.Window
+	// Torrents are its live Torrents, in added order.
+	Torrents []downloadclients.ID
 	// Owes is set while it owes under a known rule.
 	Owes *seeding.Owes
 	Risk seeding.Risk
+}
+
+func liveIn(facts []downloadclients.HashFact) []downloadclients.ID {
+	var live []downloadclients.ID
+	for _, f := range facts {
+		if f.Removal == nil {
+			live = append(live, f.ID)
+		}
+	}
+	return live
 }
 
 // Windows is Tracker id's windows in state, every state when state is "",
@@ -250,7 +262,7 @@ func (t *Trackers) Windows(ctx context.Context, _ identity.Admin, id indexers.Tr
 			if jh.tracker != id || v.Window == nil || state != "" && v.Window.State != state {
 				continue
 			}
-			out = append(out, WindowView{InfoHash: h, Name: jh.facts[len(jh.facts)-1].Name, Window: *v.Window, Owes: v.Owes, Risk: v.Risk})
+			out = append(out, WindowView{InfoHash: h, Name: jh.facts[len(jh.facts)-1].Name, Window: *v.Window, Torrents: liveIn(jh.facts), Owes: v.Owes, Risk: v.Risk})
 		}
 		return nil
 	})

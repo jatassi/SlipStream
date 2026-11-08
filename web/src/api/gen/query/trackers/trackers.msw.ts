@@ -1220,6 +1220,9 @@ export const getListTrackerWindowsResponseMock = (
         null,
       ]),
       state: faker.helpers.arrayElement(["owing", "met", "missed", "released"] as const),
+      torrents: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ),
     }),
   ),
   ...overrideResponse,

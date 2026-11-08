@@ -6320,6 +6320,9 @@ export const TrackersWindow = zod.object({
     .union([TrackersRuleShape, zod.null()])
     .describe("The rule it snapshot when it opened; null while none is known"),
   state: zod.enum(["owing", "met", "missed", "released"]),
+  torrents: zod
+    .array(zod.string())
+    .describe("Its live Torrents' ids, in added order; empty once none is live"),
 });
 
 export type TrackersWindow = zod.input<typeof TrackersWindow>;

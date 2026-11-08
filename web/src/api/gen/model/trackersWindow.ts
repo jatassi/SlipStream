@@ -39,4 +39,6 @@ export interface TrackersWindow {
   /** The rule it snapshot when it opened; null while none is known */
   rule: TrackersRuleShape | null;
   state: TrackersWindowState;
+  /** Its live Torrents' ids, in added order; empty once none is live */
+  torrents: string[];
 }

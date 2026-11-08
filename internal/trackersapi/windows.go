@@ -41,6 +41,7 @@ type window struct {
 	InfoHash    string                  `json:"infoHash" pattern:"^[0-9a-f]{40}$"`
 	Name        string                  `json:"name" doc:"Its latest torrent's name"`
 	State       string                  `json:"state" enum:"owing,met,missed,released"`
+	Torrents    []string                `json:"torrents" nullable:"false" doc:"Its live Torrents' ids, in added order; empty once none is live"`
 	Rule        api.Nullable[ruleShape] `json:"rule" doc:"The rule it snapshot when it opened; null while none is known"`
 	OpenedAt    time.Time               `json:"openedAt" doc:"Its torrent's first downloaded byte"`
 	MetAt       *time.Time              `json:"metAt" doc:"When its Tracker's rule and the margin were met; null unless met"`
@@ -90,7 +91,10 @@ func windowOf(v trackers.WindowView) window {
 	out := window{
 		InfoHash: hex.EncodeToString(v.InfoHash[:]), Name: v.Name, State: string(w.State), OpenedAt: w.OpenedAt,
 		MetAt: when(w.MetAt), ClosedAt: when(w.ClosedAt), RegrabbedAt: when(w.RegrabbedAt), QuietSince: when(w.QuietSince),
-		AtRisk: string(v.Risk),
+		AtRisk: string(v.Risk), Torrents: make([]string, len(v.Torrents)),
+	}
+	for i, id := range v.Torrents {
+		out.Torrents[i] = id.String()
 	}
 	if w.Rule != nil {
 		ratio, seed := partsOf(w.Rule.Parts())
