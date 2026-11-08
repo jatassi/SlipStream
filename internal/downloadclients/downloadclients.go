@@ -93,10 +93,12 @@ const (
 	// ClientDeleted is the Admin deleting the torrent's client with Stop
 	// tracking.
 	ClientDeleted RemoveReason = "client_deleted"
+	// GoalMet is a seeding goal's remove.
+	GoalMet RemoveReason = "goal_met"
 )
 
 // RemoveReasons is every RemoveReason, the list the schema's CHECK holds.
-var RemoveReasons = []RemoveReason{ByAdmin, ByMarkFailed, NodeWrittenOff, ByClient, ClientDeleted}
+var RemoveReasons = []RemoveReason{ByAdmin, ByMarkFailed, NodeWrittenOff, ByClient, ClientDeleted, GoalMet}
 
 // Removal is set when the Torrent leaves its Node's intent. It is Removing
 // until Parted: the Node confirmed, or a write-off ended the wait.

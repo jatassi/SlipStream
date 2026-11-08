@@ -233,6 +233,8 @@ func failOfGone(g downloadclients.Gone) fail {
 		return fail{Removed, g.Client + " removed the torrent before SlipStream imported it."}
 	case downloadclients.ClientDeleted:
 		return fail{Removed, "The Admin deleted " + g.Client + " before SlipStream imported this torrent."}
+	case downloadclients.GoalMet:
+		return fail{Removed, "SlipStream removed this Grab's torrent once it met its seeding goal."}
 	}
 	panic("grabs: no failure for removal reason " + string(g.Reason))
 }
