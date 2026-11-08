@@ -10,6 +10,7 @@ import (
 	"testing/synctest"
 
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/bencode"
 )
@@ -95,14 +96,14 @@ func nextTraffic(t *testing.T, r *bufio.Reader, id string) trafficView {
 // listens, nodes.traffic carries seedbox's upload and the torrent.
 func TestTheTopologyDrawsSeedboxsTorrentAndTrafficCarriesItsUpload(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t), sim.WithWalk())
-		search(t, w, addOrchard(t, w))
-		g := await(t, w)
-		expectImported(t, g)
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk())
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		g := simtest.Await(t, w)
+		simtest.ExpectImported(t, g)
 		a := w.API()
 		box := seedbox(t, a)
 
-		topo := decode[topologyView](t, "getTopology", a.Admin("home", http.MethodGet, "/api/v1/nodes/topology", ""))
+		topo := simtest.Decode[topologyView](t, "getTopology", a.Admin("home", http.MethodGet, "/api/v1/nodes/topology", ""))
 		if topo.Sentence != "Both Nodes are online." || len(topo.Nodes) != 2 || topo.Nodes[1].ID != box.ID || topo.Nodes[1].State != "online" {
 			t.Fatalf("the topology reads %+v, want home and seedbox online", topo)
 		}

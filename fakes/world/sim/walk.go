@@ -127,7 +127,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 			w.served = append(w.served, m)
 		}
 		w.probes[r.Name+".mkv"] = media.Record{
-			Container: "matroska,webm", Duration: time.Duration(r.Video.Seconds) * time.Second, Video: media.Video{Codec: "h264", Width: r.Video.Width, Height: r.Video.Height},
+			Version: media.Version, Container: "matroska,webm", Duration: time.Duration(r.Video.Seconds) * time.Second, Video: media.Video{Codec: "h264", Width: r.Video.Width, Height: r.Video.Height},
 		}
 		size := int64(PayloadSize)
 		if r.AdvertisedSize > 0 {

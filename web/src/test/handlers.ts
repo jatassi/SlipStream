@@ -2,14 +2,15 @@ import { HttpResponse, type RequestHandler, http, sse } from "msw";
 import { onTestFinished } from "vitest";
 
 import type { IdentityAccount, SystemPasskeys } from "../api/gen/model";
+import { getListWorkFilesMockHandler } from "../api/gen/query/files/files.msw";
 import { getGetSessionMockHandler } from "../api/gen/query/identity/identity.msw";
 import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
 import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
 import type { LiveEventName, PayloadOf } from "../live/types";
-import { quietHealth } from "./health";
 // oxlint-disable-next-line import/max-dependencies -- the base handlers answer every read the shell and Settings make
+import { quietHealth } from "./health";
 import { home, homeId, nodesAre, topologyIs, topologyOf } from "./nodes";
 import { board, boardIs, homeSeat } from "./roles";
 
@@ -78,6 +79,9 @@ const signedInAsAda = getGetSessionMockHandler({
 });
 const noTaskRunning = getListOpenTaskRunsMockHandler({ headerDelaySeconds: 5, runs: [] });
 const emptyLibrary = getListLibraryMockHandler({ rows: [] });
+
+// The generated files mock names random language codes, which Intl refuses.
+const noFiles = getListWorkFilesMockHandler({ folder: "", files: [] });
 const resyncStream = sse<LiveMap>("*/api/v1/events", ({ client }) => {
   client.send({ event: "live.resync", data: {} });
 });
@@ -92,6 +96,7 @@ export const baseHandlers: RequestHandler[] = [
   boardIs(board(homeSeat)),
   noTaskRunning,
   emptyLibrary,
+  noFiles,
   ...quietHealth,
   ...tagMocks,
 ];

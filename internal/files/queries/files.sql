@@ -129,7 +129,7 @@ ORDER BY 1;
 -- name: PathTaken :one
 SELECT EXISTS (
     SELECT 1 FROM files_file a WHERE a.root_id = sqlc.arg(root_id) AND a.path = sqlc.arg(path)
-    UNION ALL SELECT 1 FROM files_move m JOIN files_file f ON f.id = m.file_id WHERE f.root_id = sqlc.arg(root_id) AND m.sits = sqlc.arg(path)
+    UNION ALL SELECT 1 FROM files_move m WHERE m.sits = sqlc.arg(path) AND EXISTS (SELECT 1 FROM files_file f WHERE f.id = m.file_id AND f.root_id = sqlc.arg(root_id))
     UNION ALL SELECT 1 FROM files_doomed d WHERE d.root_id = sqlc.arg(root_id) AND (d.path = sqlc.arg(path) OR d.sits = sqlc.arg(path)));
 
 -- name: ListGone :many

@@ -13,13 +13,14 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/site"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 )
 
 func magnetic(t *testing.T, edit func(*scenario.Release)) scenario.Scenario {
 	t.Helper()
-	s := home(t)
+	s := simtest.Home(t)
 	edit(&s.Releases[0])
 	return s
 }
@@ -31,7 +32,7 @@ var (
 )
 
 func fetches(n *atomic.Int64) sim.Option {
-	return onSeedbox(func(e *node.Env) {
+	return simtest.OnSeedbox(func(e *node.Env) {
 		open := e.Engine
 		e.Engine = func(cfg engine.Config) (engine.Engine, error) {
 			eng, err := open(cfg)
@@ -67,7 +68,7 @@ type torrentRows struct {
 
 func expectTorrent(t *testing.T, w *sim.World) {
 	t.Helper()
-	rows := decode[torrentRows](t, "listTorrents", w.API().Admin("home", http.MethodGet, "/api/v1/torrents?tab=all", "")).Rows
+	rows := simtest.Decode[torrentRows](t, "listTorrents", w.API().Admin("home", http.MethodGet, "/api/v1/torrents?tab=all", "")).Rows
 	if len(rows) != 1 || rows[0].Name != release+".mkv" || rows[0].Size != sim.PayloadSize {
 		t.Fatalf("listTorrents = %+v, want the one Torrent %s.mkv of %d bytes", rows, release, sim.PayloadSize)
 	}
@@ -77,9 +78,9 @@ func TestAPublicMagnetLinkResolvesAndImports(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var n atomic.Int64
 		w := sim.Launch(t, magnetic(t, publicMagnet), sim.WithWalk(), fetches(&n))
-		search(t, w, addOrchard(t, w))
-		g := await(t, w)
-		expectImported(t, g)
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		g := simtest.Await(t, w)
+		simtest.ExpectImported(t, g)
 		expectPlaced(t, w)
 		expectTorrent(t, w)
 		if g.InfoHash != w.InfoHash(release).String() || n.Load() != 1 {
@@ -91,8 +92,8 @@ func TestAPublicMagnetLinkResolvesAndImports(t *testing.T) {
 func TestATrackerlessMagnetLinkResolvesThroughTheDHT(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, magnetic(t, trackerless), sim.WithWalk())
-		search(t, w, addOrchard(t, w))
-		expectImported(t, await(t, w))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		simtest.ExpectImported(t, simtest.Await(t, w))
 		expectPlaced(t, w)
 		swarm, h := w.Node("seedbox").Swarm(), w.InfoHash(release)
 		if swarm.Lookups(h) == 0 {
@@ -116,11 +117,11 @@ func TestATrackerlessMagnetLinkWithTheDHTOffFailsAtOnce(t *testing.T) {
 		}
 		synctest.Wait()
 		start := time.Now()
-		search(t, w, addOrchard(t, w))
-		g := await(t, w)
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		g := simtest.Await(t, w)
 		expectFailed(t, g, "fetching", "no_peer_source", "The magnet link names no announce URL, and DHT is off on the Node that downloads it")
-		if took := time.Since(start); took > time.Minute || n.Load() != 0 || !slices.Equal(g.stages(), []string{"fetching", "failed"}) {
-			t.Fatalf("the Grab failed after %s and %d searches through %v, want at once with none", took, n.Load(), g.stages())
+		if took := time.Since(start); took > time.Minute || n.Load() != 0 || !slices.Equal(g.Stages(), []string{"fetching", "failed"}) {
+			t.Fatalf("the Grab failed after %s and %d searches through %v, want at once with none", took, n.Load(), g.Stages())
 		}
 	})
 }
@@ -130,14 +131,14 @@ func TestAPrivateMagnetLinkFailsOnceTheMetadataWaitPasses(t *testing.T) {
 		w := sim.Launch(t, magnetic(t, privateMagnet), sim.WithWalk())
 		metadataWait(t, w, 2*time.Minute)
 		start := time.Now()
-		search(t, w, addOrchard(t, w))
-		g := await(t, w)
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		g := simtest.Await(t, w)
 		took := time.Since(start)
 		expectFailed(t, g, "fetching", "no_metadata", "No peer sent the metadata in 2 min")
 		if took < 2*time.Minute || took > 2*time.Minute+time.Minute {
 			t.Fatalf("the Grab failed %s after the search, want once the 2 minute wait passed", took)
 		}
-		if rows := decode[torrentRows](t, "listTorrents", w.API().Admin("home", http.MethodGet, "/api/v1/torrents?tab=all", "")).Rows; len(rows) != 0 {
+		if rows := simtest.Decode[torrentRows](t, "listTorrents", w.API().Admin("home", http.MethodGet, "/api/v1/torrents?tab=all", "")).Rows; len(rows) != 0 {
 			t.Fatalf("listTorrents = %+v, want none", rows)
 		}
 		if n := w.Node("seedbox").Swarm().Lookups(w.InfoHash(release)); n != 0 {
@@ -149,8 +150,8 @@ func TestAPrivateMagnetLinkFailsOnceTheMetadataWaitPasses(t *testing.T) {
 func TestARedirectToAMagnetLinkResolvesAndImports(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, magnetic(t, func(r *scenario.Release) { r.Public, r.Link = true, scenario.RedirectLink }), sim.WithWalk())
-		search(t, w, addOrchard(t, w))
-		expectImported(t, await(t, w))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		simtest.ExpectImported(t, simtest.Await(t, w))
 		expectPlaced(t, w)
 		expectTorrent(t, w)
 	})
@@ -173,16 +174,16 @@ func TestTwoGrabsOfOneMagnetLinkMakeOneSearch(t *testing.T) {
 				r.InfoHash = orchard.String()
 			}
 		}))
-		harbor := decode[struct {
+		harbor := simtest.Decode[struct {
 			Work struct {
 				ID string `json:"id"`
 			} `json:"work"`
 		}](t, "addWork", w.API().Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"9000002","preset":"all"}`)).Work.ID
-		search(t, w, addOrchard(t, w))
-		search(t, w, harbor)
-		var gs []grabView
-		eventually(t, "both Grabs leave fetching", func() bool {
-			gs = grabsListed(t, w)
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		simtest.Search(t, w, harbor)
+		var gs []simtest.GrabView
+		simtest.Eventually(t, "both Grabs leave fetching", func() bool {
+			gs = simtest.GrabsListed(t, w)
 			return len(gs) == 2 && gs[0].Stage != "fetching" && gs[1].Stage != "fetching"
 		})
 		for _, g := range gs {
@@ -200,10 +201,10 @@ func TestAControllerRestartedMidSearchJoinsIt(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var n atomic.Int64
 		reached, release := make(chan struct{}), make(chan struct{})
-		w := sim.Launch(t, magnetic(t, publicMagnet), sim.WithWalk(), onSeedbox(func(e *node.Env) {
+		w := sim.Launch(t, magnetic(t, publicMagnet), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) {
 			e.Engine = holdAt[engine.MetadataReceived](e.Engine, reached, release)
 		}), fetches(&n))
-		search(t, w, addOrchard(t, w))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
 		<-reached
 		h := w.Node("home")
 		link := h.Ready().Listeners.Link
@@ -211,7 +212,7 @@ func TestAControllerRestartedMidSearchJoinsIt(t *testing.T) {
 		h.Start(func(e *node.Env) { e.Environ = append(e.Environ, "SLIPSTREAM_LINK_LISTEN="+link.String()) })
 		time.Sleep(time.Minute)
 		close(release)
-		expectImported(t, await(t, w))
+		simtest.ExpectImported(t, simtest.Await(t, w))
 		expectPlaced(t, w)
 		if got := n.Load(); got != 1 {
 			t.Fatalf("seedbox started %d metadata searches, want the restarted Controller to join the first", got)
@@ -225,12 +226,12 @@ func TestANodeRestartedMidSearchKeepsTheDeadline(t *testing.T) {
 		w := sim.Launch(t, magnetic(t, privateMagnet), sim.WithWalk(), fetches(&n))
 		metadataWait(t, w, 3*time.Minute)
 		start := time.Now()
-		search(t, w, addOrchard(t, w))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
 		time.Sleep(2 * time.Minute)
 		box := w.Node("seedbox")
 		box.Stop()
 		box.Start()
-		g := await(t, w)
+		g := simtest.Await(t, w)
 		took := time.Since(start)
 		expectFailed(t, g, "fetching", "no_metadata", "No peer sent the metadata in 3 min")
 		if took < 3*time.Minute || took >= 4*time.Minute || n.Load() != 2 {

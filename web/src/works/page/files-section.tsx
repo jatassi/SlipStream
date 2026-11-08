@@ -6,6 +6,7 @@ import { Data } from "../../ui/data";
 import { List, ListRow } from "../../ui/list";
 import { Section } from "../../ui/section";
 import { nameOf } from "../paths";
+import { FileMedia, ForgetFile, goneWords } from "./file-media";
 import { anyCut } from "./matrix-model";
 
 type Names = {
@@ -25,37 +26,72 @@ const fillWords =
       ),
     )}`;
 
-function FileRow({
-  file,
-  fills,
-}: {
-  file: FilesListedFile;
-  fills: (file: FilesListedFile) => string;
-}) {
+function FileRow({ file, about }: { file: FilesListedFile; about: string }) {
   const quality = useQualityNames();
+  const gone = file.goneAt !== null;
   return (
     <ListRow
       title={<Data>{nameOf(file.path)}</Data>}
       meta={
         <>
-          <Data>{file.folder}</Data> · {fills(file)}
+          <Data>{file.folder}</Data> · {about}
         </>
       }
+      detail={<FileMedia file={file} />}
       trailing={
         <span className="flex items-center gap-2 text-meta">
           {file.kept && <Chip look="outline">Kept file</Chip>}
           <Data>
             {quality(file.quality)} ·{" "}
-            {file.media && `${file.media.video.width}×${file.media.video.height} · `}
+            {!gone && file.media && `${file.media.video.width}×${file.media.video.height} · `}
             {bytes(file.size)}
           </Data>
+          {gone && <ForgetFile file={file} />}
         </span>
       }
     />
   );
 }
 
-/** Every library file of the Work, the ones that fill its cells first, then Kept files apart. */
+type Group = "filling" | "kept" | "gone";
+
+const groups: readonly { readonly group: Group; readonly label: string }[] = [
+  { group: "filling", label: "Files" },
+  { group: "kept", label: "Kept files" },
+  { group: "gone", label: "Gone files" },
+];
+
+function placed(file: FilesListedFile, fills: (file: FilesListedFile) => string) {
+  if (file.goneAt !== null) {
+    return { file, group: "gone", about: goneWords(file.goneAt) } as const;
+  }
+  return file.kept
+    ? ({ file, group: "kept", about: "Fills no wanted Target" } as const)
+    : ({ file, group: "filling", about: fills(file) } as const);
+}
+
+function FileLists({ files, names }: { files: readonly FilesListedFile[]; names: Names }) {
+  const fills = fillWords(names);
+  const rows = files.map((file) => placed(file, fills));
+  return (
+    <div className="flex flex-col gap-3">
+      {groups.map(({ group, label }) => {
+        const listed = rows.filter((row) => row.group === group);
+        return (
+          listed.length > 0 && (
+            <List key={group} label={label}>
+              {listed.map(({ file, about }) => (
+                <FileRow key={file.id} file={file} about={about} />
+              ))}
+            </List>
+          )
+        );
+      })}
+    </div>
+  );
+}
+
+/** Every library file of the Work, the ones that fill its cells first, then Kept files and gone files apart. */
 export function FilesSection({
   listing: { folder, files },
   root,
@@ -65,8 +101,6 @@ export function FilesSection({
   root: WorksWorkRoot | null;
   names: Names;
 }) {
-  const filling = files.filter((file) => !file.kept);
-  const kept = files.filter((file) => file.kept);
   return (
     <Section title="Files" count={files.length}>
       <dl className="mb-3 flex flex-wrap gap-x-8 gap-y-2">
@@ -84,22 +118,7 @@ export function FilesSection({
       {files.length === 0 ? (
         <p className="text-ink-3">No files yet. A Grab that imports puts its file here.</p>
       ) : (
-        <div className="flex flex-col gap-3">
-          {filling.length > 0 && (
-            <List label="Files">
-              {filling.map((file) => (
-                <FileRow key={file.id} file={file} fills={fillWords(names)} />
-              ))}
-            </List>
-          )}
-          {kept.length > 0 && (
-            <List label="Kept files">
-              {kept.map((file) => (
-                <FileRow key={file.id} file={file} fills={() => "Fills no wanted Target"} />
-              ))}
-            </List>
-          )}
-        </div>
+        <FileLists files={files} names={names} />
       )}
     </Section>
   );

@@ -8,9 +8,11 @@ import (
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/node/internal/logs"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
@@ -42,6 +44,9 @@ type Test struct {
 	Transfers transfers.Hooks
 	// BeforeStep sees each Grab step on the Controller before it runs.
 	BeforeStep func(context.Context, grabs.Stage)
+	// BeforeScanStep sees each phase of a root's Library scan unit before
+	// it runs.
+	BeforeScanStep func(context.Context, roots.ID, imports.Phase)
 	// Today stands in for the Controller's clock where it decides which
 	// Items are out, for a synctest bubble, whose time starts in 2000.
 	Today func() time.Time
@@ -58,6 +63,8 @@ type Half struct {
 	Cluster  *rpc.Cluster
 	// Clients is the Controller's record of every Node's built-in client.
 	Clients *downloadclients.Clients
+	// Imports is the Controller's Library scan and Pending imports.
+	Imports *imports.Imports
 }
 
 func (t Test) held(local *storage.DB[storage.Local]) []role.Held {

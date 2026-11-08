@@ -7,6 +7,7 @@ package imports
 import (
 	"context"
 	"embed"
+	"log/slog"
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/files"
@@ -17,6 +18,8 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -53,17 +56,24 @@ type Publisher[T any] interface {
 
 type Config struct {
 	Library *storage.DB[file]
+	Remote  storing.Remote
 	Roots   *roots.Roots
 	Files   *files.Files
 	Works   *works.Works
+	Targets *targets.Targets
 	Facets  map[works.TypeID]scanning.Facet
 	// Add is library.Add. The library is built after imports, which is its
 	// Leaver.
 	Add func(ctx context.Context, by identity.Admin, a library.Adding) (library.Added, error)
-	// Steps is the Scheduler's, which opens after imports.
+	// Start and Steps are the Scheduler's, which opens after imports.
+	Start        func(ctx context.Context, st tasks.Start) (tasks.Started, error)
 	Steps        func(task tasks.TaskID) (run tasks.RunID, steps map[tasks.UnitKey]tasks.Step, open bool)
+	Hub          *live.Hub
 	Changed      Publisher[Changed]
 	FilesChanged Publisher[files.Changed]
+	// BeforeStep sees each root's unit before each phase, in tests.
+	BeforeStep func(ctx context.Context, root roots.ID, phase Phase)
+	Log        *slog.Logger
 }
 
 type Imports struct {

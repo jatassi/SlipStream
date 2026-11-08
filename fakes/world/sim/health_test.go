@@ -13,67 +13,10 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/health"
 )
-
-type healthItem struct {
-	Key       string
-	Level     string
-	Subject   string
-	Text      string
-	Since     time.Time
-	ChangedAt time.Time
-	Unsure    bool
-	Action    *struct{ Kind, Href, Label string }
-}
-
-type healthReport struct {
-	Categories []struct {
-		ID     string
-		Unread string
-		Items  []healthItem
-	}
-}
-
-func (r healthReport) items(t *testing.T, id string) map[string]healthItem {
-	t.Helper()
-	for _, c := range r.Categories {
-		if c.ID == id {
-			if c.Unread != "" {
-				t.Fatalf("Health couldn't read %s: %s", id, c.Unread)
-			}
-			out := map[string]healthItem{}
-			for _, it := range c.Items {
-				out[it.Key] = it
-			}
-			return out
-		}
-	}
-	t.Fatalf("the Health report has no category %s", id)
-	return nil
-}
-
-func healthItems(t *testing.T, a *worldtest.API, id string) map[string]healthItem {
-	t.Helper()
-	return decode[healthReport](t, "getSystemHealth", a.Admin("home", http.MethodGet, "/api/v1/system/health", "")).items(t, id)
-}
-
-type healthChecked struct {
-	Report    healthReport
-	Unreached []struct{ Key, Words string }
-}
-
-// checkStorage is Check now on the Storage item key, or on the whole
-// category when key is "".
-func checkStorage(t *testing.T, a *worldtest.API, key string) healthChecked {
-	t.Helper()
-	path := "/api/v1/system/health/storage/check"
-	if key != "" {
-		path = "/api/v1/system/health/storage/items/" + key + "/check"
-	}
-	return decode[healthChecked](t, "Check now on storage "+key, a.Admin("home", http.MethodPost, path, ""))
-}
 
 type healthVolumes struct {
 	Volumes []struct {
@@ -92,7 +35,7 @@ type healthVolumes struct {
 
 func listHealthVolumes(t *testing.T, a *worldtest.API) healthVolumes {
 	t.Helper()
-	return decode[healthVolumes](t, "listHealthVolumes", a.Admin("home", http.MethodGet, "/api/v1/system/health/volumes", ""))
+	return simtest.Decode[healthVolumes](t, "listHealthVolumes", a.Admin("home", http.MethodGet, "/api/v1/system/health/volumes", ""))
 }
 
 func patch(t *testing.T, a *worldtest.API, path, body string) {
@@ -137,7 +80,7 @@ type moviesOnHome struct {
 // the figures space plays are judged by.
 func launchMoviesOnHome(t *testing.T) moviesOnHome {
 	t.Helper()
-	s := home(t)
+	s := simtest.Home(t)
 	s.Library.StorageLevels = nil
 	w := sim.Launch(t, s, sim.WithWalk())
 	synctest.Wait()
@@ -150,11 +93,11 @@ func launchMoviesOnHome(t *testing.T) moviesOnHome {
 
 // at plays free GiB on the movies volume, checks storage now, and answers
 // the volume's item after.
-func (m moviesOnHome) at(t *testing.T, gib int64) healthItem {
+func (m moviesOnHome) at(t *testing.T, gib int64) simtest.HealthItem {
 	t.Helper()
 	m.space.free(gib)
 	time.Sleep(time.Second)
-	return checkStorage(t, m.a, "").Report.items(t, "storage")[m.volume]
+	return simtest.CheckStorage(t, m.a, "").Report.Items(t, "storage")[m.volume]
 }
 
 // TestAVolumeWarnsThenFailsThenRecovers checks the movies volume as its
@@ -175,12 +118,12 @@ func TestAVolumeWarnsThenFailsThenRecovers(t *testing.T) {
 		}
 		m.space.free(10)
 		time.Sleep(time.Second)
-		failed := checkStorage(t, m.a, m.volume).Report.items(t, "storage")[m.volume]
+		failed := simtest.CheckStorage(t, m.a, m.volume).Report.Items(t, "storage")[m.volume]
 		if failed.Level != "fail" || !failed.Since.Equal(warned.Since) || !failed.ChangedAt.After(warned.ChangedAt) {
 			t.Fatalf("Check now on the volume with 10 GB free = %+v, want an error since %s, changed after %s", failed, warned.Since, warned.ChangedAt)
 		}
 		m.space.free(200)
-		if it, ok := checkStorage(t, m.a, "").Report.items(t, "storage")[m.volume]; ok {
+		if it, ok := simtest.CheckStorage(t, m.a, "").Report.Items(t, "storage")[m.volume]; ok {
 			t.Fatalf("with 200 GB free again the volume is %+v, want it cleared", it)
 		}
 	})
@@ -195,7 +138,7 @@ func TestAVolumesLevelsAreSetGloballyAndPerVolume(t *testing.T) {
 		if it := m.at(t, 200); it.Level != "" {
 			t.Fatalf("with 200 GB free the volume is %+v, want no item", it)
 		}
-		level := func() string { return healthItems(t, m.a, "storage")[m.volume].Level }
+		level := func() string { return simtest.HealthItems(t, m.a, "storage")[m.volume].Level }
 		patch(t, m.a, "/api/v1/system/health/settings", `{"warnBelow":{"amount":50,"unit":"percent"}}`)
 		if got := level(); got != "warn" {
 			t.Fatalf("with 40%% free under a 50%% global warning the volume reads %q, want warn", got)
@@ -240,13 +183,13 @@ func TestAVolumesOwnLevelsOutliveItsFigures(t *testing.T) {
 		m.at(t, 200)
 		volume := `{"nodeId":"` + m.home + `","mount":` + strconv.Quote(m.folder) + `,`
 		patch(t, m.a, "/api/v1/system/health/volumes", volume+`"warnBelow":{"amount":`+bytesOf(300)+`,"unit":"bytes"}}`)
-		if got := healthItems(t, m.a, "storage")[m.volume].Level; got != "warn" {
+		if got := simtest.HealthItems(t, m.a, "storage")[m.volume].Level; got != "warn" {
 			t.Fatalf("with 200 GB free under its own 300 GB warning the volume reads %q, want warn", got)
 		}
 		gone := func(when string) {
 			t.Helper()
 			m.space.off()
-			checkStorage(t, m.a, "")
+			simtest.CheckStorage(t, m.a, "")
 			not := listHealthVolumes(t, m.a).NotReporting
 			if len(not) != 1 || not[0].NodeID != m.home || not[0].Mount != m.folder || not[0].WarnBelow == nil || not[0].WarnBelow.Amount != 300<<30 {
 				t.Fatalf("%s the overrides not reporting are %+v, want the movies volume's 300 GB warning", when, not)
@@ -272,9 +215,9 @@ func TestAVolumesOwnLevelsOutliveItsFigures(t *testing.T) {
 func TestAnUnmountedRootIsAStorageErrorThroughARestart(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		m := launchMoviesOnHome(t)
-		root := string(health.KeyOf("r", rootAt(t, m.a, m.folder).ID))
+		root := string(health.KeyOf("r", simtest.RootAt(t, m.a, m.folder).ID))
 		lift := m.w.Disk("home", m.folder, fault.Unmounted{})
-		raised := checkStorage(t, m.a, "").Report.items(t, "storage")[root]
+		raised := simtest.CheckStorage(t, m.a, "").Report.Items(t, "storage")[root]
 		if raised.Level != "fail" || raised.Subject != "Movies library root on home" || raised.Action == nil || raised.Action.Kind != "check" ||
 			raised.Text != "The folder is there but looks unmounted. Plug in or mount the disk." {
 			t.Fatalf("the unmounted root's item is %+v, want an error on the Movies library root offering Check now", raised)
@@ -286,12 +229,12 @@ func TestAnUnmountedRootIsAStorageErrorThroughARestart(t *testing.T) {
 		h.Start()
 		synctest.Wait()
 		m.a = m.w.API()
-		if after := checkStorage(t, m.a, "").Report.items(t, "storage")[root]; after.Level != "fail" || after.Unsure || !after.Since.Equal(raised.Since) {
+		if after := simtest.CheckStorage(t, m.a, "").Report.Items(t, "storage")[root]; after.Level != "fail" || after.Unsure || !after.Since.Equal(raised.Since) {
 			t.Fatalf("after a Controller restart the root's item is %+v, want the error since %s", after, raised.Since)
 		}
 
 		lift()
-		if it, ok := checkStorage(t, m.a, root).Report.items(t, "storage")[root]; ok {
+		if it, ok := simtest.CheckStorage(t, m.a, root).Report.Items(t, "storage")[root]; ok {
 			t.Fatalf("Check now on the root with its disk back left %+v, want it cleared", it)
 		}
 	})
@@ -303,7 +246,7 @@ func TestAnUnmountedRootIsAStorageErrorThroughARestart(t *testing.T) {
 // unreached.
 func TestARootOnAnOfflineNodeRaisesOnlyTheNodesItem(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		s := home(t)
+		s := simtest.Home(t)
 		s.Nodes[1].Roles = append(s.Nodes[1].Roles, "storage")
 		s.Library.Roots = []scenario.LibraryRoot{{ContentType: "movie", Folder: "movies", Node: "seedbox", Volume: &scenario.LibraryVolume{TotalGiB: 500, FreeGiB: 200}}}
 		w := sim.Launch(t, s, sim.WithWalk())
@@ -314,11 +257,11 @@ func TestARootOnAnOfflineNodeRaisesOnlyTheNodesItem(t *testing.T) {
 		w.Node("seedbox").Stop()
 		time.Sleep(2 * time.Minute)
 		synctest.Wait()
-		if it := healthItems(t, a, "nodes")[box]; it.Level != "fail" {
+		if it := simtest.HealthItems(t, a, "nodes")[box]; it.Level != "fail" {
 			t.Fatalf("past the grace seedbox's Nodes item is %+v, want an error", it)
 		}
-		checked := checkStorage(t, a, "")
-		if items := checked.Report.items(t, "storage"); len(items) != 0 {
+		checked := simtest.CheckStorage(t, a, "")
+		if items := checked.Report.Items(t, "storage"); len(items) != 0 {
 			t.Fatalf("with seedbox offline Storage holds %+v, want nothing", items)
 		}
 		if len(checked.Unreached) != 1 || !strings.HasPrefix(checked.Unreached[0].Words, "seedbox is offline, so its figures are as of ") {

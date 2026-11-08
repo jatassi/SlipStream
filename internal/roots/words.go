@@ -29,6 +29,24 @@ func (r *Roots) Words(ctx context.Context) (map[ID]string, error) {
 	return r.wordsOf(all, names), nil
 }
 
+// WordsIn is Words read in rd, naming only the Nodes not removed: a
+// Library scan unit's label.
+func (r *Roots) WordsIn(ctx context.Context, rd storage.Reader[file]) (map[ID]string, error) {
+	all, err := All(ctx, rd)
+	if err != nil {
+		return nil, err
+	}
+	live, err := nodes.Names(ctx, rd)
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[role.NodeID]nodes.Named, len(live))
+	for _, n := range live {
+		names[n.ID] = n
+	}
+	return r.wordsOf(all, names), nil
+}
+
 func (r *Roots) wordsOf(all []Root, names map[role.NodeID]nodes.Named) map[ID]string {
 	type typeOn struct {
 		t    works.TypeID
@@ -82,6 +100,21 @@ func (r *Roots) Ready(ctx context.Context) ([]Root, error) {
 		}
 	}
 	return out, nil
+}
+
+// StateOf is root id and the State it reads now. ErrNotFound when no root
+// has id.
+func (r *Roots) StateOf(ctx context.Context, id ID) (Root, State, error) {
+	all, states, err := r.states(ctx)
+	if err != nil {
+		return Root{}, "", err
+	}
+	for i, root := range all {
+		if root.ID == id {
+			return root, states[i].state, nil
+		}
+	}
+	return Root{}, "", ErrNotFound
 }
 
 // states is every root with its State, from one snapshot.

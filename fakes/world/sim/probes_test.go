@@ -12,6 +12,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/world/internal/nodeapi"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/node"
 )
@@ -44,7 +45,7 @@ func suggested(t *testing.T, a *worldtest.API, name string) []string {
 // name.
 func topologyProbes(t *testing.T, a *worldtest.API, name string) []worldtest.Probe {
 	t.Helper()
-	topo := decode[topologyView](t, "getTopology", a.Admin("home", http.MethodGet, "/api/v1/nodes/topology", ""))
+	topo := simtest.Decode[topologyView](t, "getTopology", a.Admin("home", http.MethodGet, "/api/v1/nodes/topology", ""))
 	for _, n := range topo.Nodes {
 		if n.Name == name {
 			return n.Probes
@@ -80,7 +81,7 @@ func awaitSeedboxProbes(t *testing.T, a *worldtest.API, want []worldtest.Probe) 
 // is blocked in those words.
 func TestADownloadsFolderSeedboxCantWriteBlocksDownloadingThere(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t))
+		w := sim.Launch(t, simtest.Home(t))
 		a := w.API()
 		for _, r := range a.Nodes("home") {
 			if got := r.Probes; !slices.Equal(got, fitting) {

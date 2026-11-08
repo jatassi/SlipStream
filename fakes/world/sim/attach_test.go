@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -43,11 +44,11 @@ func TestAttachFollowsTheTorrentsState(t *testing.T) {
 		name string
 		set  string
 		// then checks the second Grab and the Torrents of its hash.
-		then func(t *testing.T, w *sim.World, first grabView)
+		then func(t *testing.T, w *sim.World, first simtest.GrabView)
 	}{
-		{name: "seeding imports at once", then: func(t *testing.T, w *sim.World, first grabView) {
+		{name: "seeding imports at once", then: func(t *testing.T, w *sim.World, first simtest.GrabView) {
 			next := awaitSecond(t, w)
-			expectImported(t, next)
+			simtest.ExpectImported(t, next)
 			if next.NodeID != first.NodeID || torrentsOf(t, w, first.InfoHash) != 1 {
 				t.Fatalf("the second Grab downloaded on %s with %d Torrents of its hash, want seedbox %s's one", next.NodeID, torrentsOf(t, w, first.InfoHash), first.NodeID)
 			}
@@ -55,7 +56,7 @@ func TestAttachFollowsTheTorrentsState(t *testing.T) {
 		{
 			name: "failed fails the Grab",
 			set:  `UPDATE downloadclients_torrent SET report = '{"at":"2026-10-19T21:00:00Z","engine":"failed","error":"disk on fire","done":0}', reported_at = 1`,
-			then: func(t *testing.T, w *sim.World, _ grabView) {
+			then: func(t *testing.T, w *sim.World, _ simtest.GrabView) {
 				next := awaitSecond(t, w)
 				expectFailed(t, next, "downloading", "download_failed", "disk on fire")
 			},
@@ -63,15 +64,15 @@ func TestAttachFollowsTheTorrentsState(t *testing.T) {
 		{
 			name: "Removing waits for the confirmation, then adds a new Torrent",
 			set:  `UPDATE downloadclients_torrent SET removed_at = 1, removed_reason = 'admin'`,
-			then: func(t *testing.T, w *sim.World, first grabView) {
+			then: func(t *testing.T, w *sim.World, first simtest.GrabView) {
 				time.Sleep(time.Minute)
 				synctest.Wait()
-				if gs := grabsListed(t, w); len(gs) != 2 || gs[0].Stage != "fetching" {
+				if gs := simtest.GrabsListed(t, w); len(gs) != 2 || gs[0].Stage != "fetching" {
 					t.Fatalf("while seedbox removes the Torrent the Grabs are %+v, want the second waiting at fetching", gs)
 				}
 				onTorrents(t, w, `UPDATE downloadclients_torrent SET parted_at = 2, freed = 0`)
 				next := awaitSecond(t, w)
-				expectImported(t, next)
+				simtest.ExpectImported(t, next)
 				if n := torrentsOf(t, w, first.InfoHash); n != 2 || next.NodeID != first.NodeID {
 					t.Fatalf("the second Grab downloaded on %s with %d Torrents of its hash, want a new one on seedbox %s beside the parted one", next.NodeID, n, first.NodeID)
 				}
@@ -80,17 +81,17 @@ func TestAttachFollowsTheTorrentsState(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Media = &failsOnce{Prober: e.Media} }))
-				work := addOrchard(t, w)
-				search(t, w, work)
-				first := await(t, w)
+				w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Media = &failsOnce{Prober: e.Media} }))
+				work := simtest.AddOrchard(t, w)
+				simtest.Search(t, w, work)
+				first := simtest.Await(t, w)
 				if first.Stage != "failed" || first.Failure == nil || first.Failure.Stage != "probing" {
 					t.Fatalf("the first Grab ended %s with %+v, want failed at probing", first.Stage, first.Failure)
 				}
 				if c.set != "" {
 					onTorrents(t, w, c.set)
 				}
-				search(t, w, work)
+				simtest.Search(t, w, work)
 				c.then(t, w, first)
 			})
 		})
@@ -99,11 +100,11 @@ func TestAttachFollowsTheTorrentsState(t *testing.T) {
 
 // awaitSecond waits in fake time until the world's second Grab is done,
 // and returns it.
-func awaitSecond(t *testing.T, w *sim.World) grabView {
+func awaitSecond(t *testing.T, w *sim.World) simtest.GrabView {
 	t.Helper()
-	var next grabView
-	eventually(t, "the second Grab finishes", func() bool {
-		gs := grabsListed(t, w)
+	var next simtest.GrabView
+	simtest.Eventually(t, "the second Grab finishes", func() bool {
+		gs := simtest.GrabsListed(t, w)
 		if len(gs) == 2 {
 			next = gs[0]
 		}
@@ -118,7 +119,7 @@ func awaitSecond(t *testing.T, w *sim.World) grabView {
 func TestARemoveBetweenTheReadAndTheCommitFailsTheGrab(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var lib atomic.Pointer[storage.DB[storage.Library]]
-		w := sim.Launch(t, home(t), sim.WithWalk(), sim.Edit(func(name string, e *node.Env) {
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), sim.Edit(func(name string, e *node.Env) {
 			if name != "home" {
 				return
 			}
@@ -136,10 +137,10 @@ func TestARemoveBetweenTheReadAndTheCommitFailsTheGrab(t *testing.T) {
 			}
 		}))
 		lib.Store(w.Node("home").Half().Library)
-		search(t, w, addOrchard(t, w))
-		g := await(t, w)
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		g := simtest.Await(t, w)
 		expectFailed(t, g, "downloading", "removed", "The Admin removed this Grab's torrent")
-		if got := g.stages(); !slices.Equal(got, []string{"fetching", "downloading", "failed"}) {
+		if got := g.Stages(); !slices.Equal(got, []string{"fetching", "downloading", "failed"}) {
 			t.Fatalf("the Grab's history is %v, want [fetching downloading failed]", got)
 		}
 	})

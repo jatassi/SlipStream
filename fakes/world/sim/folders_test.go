@@ -9,6 +9,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/internal/mediafix"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/node"
 )
@@ -19,7 +20,7 @@ import (
 func TestScenarioFoldersProbeAsTheirSpec(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		probers := map[string]media.Prober{}
-		s := home(t)
+		s := simtest.Home(t)
 		w := sim.Launch(t, s, sim.WithWalk(), sim.Edit(func(name string, e *node.Env) { probers[name] = e.Media }))
 		dir := w.Manifest().MediaDir
 		for _, f := range s.Library.Folders {

@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/world/internal/nodeapi"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/install"
@@ -127,7 +128,7 @@ func testMail(t *testing.T, a *worldtest.API, session string) sent {
 // sends the mail itself.
 func TestMailGoesThroughTheNodeThatSendsIt(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t))
+		w := sim.Launch(t, simtest.Home(t))
 		a := w.API()
 		box := serveMail(t, w)
 		setMail(t, a, smtpAt)
@@ -144,7 +145,7 @@ func TestMailGoesThroughTheNodeThatSendsIt(t *testing.T) {
 			t.Fatalf("the mail server heard from %v, want seedbox at 127.0.0.3", got)
 		}
 
-		flip(t, w.Path("home", "seedbox"), fault.Stall{})
+		simtest.Flip(t, w.Path("home", "seedbox"), fault.Stall{})
 		link := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link
 		time.Sleep(link.Keepalive + link.WriteTimeout)
 		synctest.Wait()
@@ -175,7 +176,7 @@ func TestMailGoesThroughTheNodeThatSendsIt(t *testing.T) {
 // blocked.
 func TestAMailServerSeedboxCantReachBlocksNotifyingThere(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t))
+		w := sim.Launch(t, simtest.Home(t))
 		a := w.API()
 		setMail(t, a, smtpAt)
 		checks := blockedChecks(t, notifyingOnSeedbox(t, a))

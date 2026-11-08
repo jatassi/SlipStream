@@ -13,6 +13,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identity/passkey/passkeytest"
 	"github.com/jatassi/slipstream/internal/node"
@@ -22,7 +23,7 @@ import (
 // serving is the home Scenario with Serving on seedbox too.
 func serving(t *testing.T) scenario.Scenario {
 	t.Helper()
-	s := home(t)
+	s := simtest.Home(t)
 	for i, n := range s.Nodes {
 		if n.Name == "seedbox" {
 			s.Nodes[i].Roles = append(s.Nodes[i].Roles, role.Serving)
