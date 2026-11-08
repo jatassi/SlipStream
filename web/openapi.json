@@ -12604,7 +12604,8 @@
               "schedule",
               "catch-up",
               "run-now",
-              "returned"
+              "returned",
+              "event"
             ],
             "type": "string"
           }
@@ -12735,6 +12736,10 @@
           "total": {
             "format": "int64",
             "type": "integer"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/TasksUnitStep",
+            "description": "The unit whose step moved; absent when a unit ended"
           }
         },
         "required": [
@@ -12801,7 +12806,8 @@
               "schedule",
               "catch-up",
               "run-now",
-              "returned"
+              "returned",
+              "event"
             ],
             "type": "string"
           },
@@ -12941,7 +12947,8 @@
               "schedule",
               "catch-up",
               "run-now",
-              "returned"
+              "returned",
+              "event"
             ],
             "type": "string"
           }
@@ -13242,6 +13249,37 @@
           "endedAt",
           "lastSuccessAt",
           "dueOnReturn"
+        ],
+        "type": "object"
+      },
+      "TasksUnitStep": {
+        "additionalProperties": false,
+        "properties": {
+          "done": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "key": {
+            "type": "string"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "total": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "key",
+          "phase",
+          "done",
+          "total"
         ],
         "type": "object"
       },
@@ -48524,7 +48562,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Run a task now over every unit. Its schedule stays as it was",
+        "summary": "Run a task now over every unit, or add each unit its open run lacks. Its schedule stays as it was",
         "tags": [
           "tasks"
         ],

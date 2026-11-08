@@ -24,6 +24,11 @@ type Adding struct {
 	IncludeAsides *bool
 	LevelFolders  *bool
 	Remember      bool
+	By            works.AddedBy
+	// Attach runs in the add's Write once the Work has its Profile and
+	// root and before its preset applies, so a preset that reads files
+	// (missing, existing) counts the files it attaches.
+	Attach func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error
 }
 
 // Added is the Work an add made or found. Created is false when it was
@@ -66,12 +71,18 @@ func (l *Library) Add(ctx context.Context, by identity.Admin, a Adding) (Added, 
 	var moved remembered
 	tree, created, err := l.cfg.Works.Add(ctx, by, a.Type, a.Key, works.Adding{
 		LevelFolders: folders,
+		By:           a.By,
 		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
 			if err := targets.Assign(ctx, tx, w, a.Profile); err != nil {
 				return err
 			}
 			if err := roots.Assign(ctx, tx, w, a.Root); err != nil {
 				return err
+			}
+			if a.Attach != nil {
+				if err := a.Attach(ctx, tx, w); err != nil {
+					return err
+				}
 			}
 			if _, err := l.applyIn(ctx, tx, works.Only([]works.WorkID{w.ID}), choice); err != nil {
 				return err

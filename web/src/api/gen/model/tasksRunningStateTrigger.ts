@@ -1,1 +1,1 @@
-export type TasksRunningStateTrigger = "schedule" | "catch-up" | "run-now" | "returned";
+export type TasksRunningStateTrigger = "schedule" | "catch-up" | "run-now" | "returned" | "event";

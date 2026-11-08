@@ -64,7 +64,7 @@ func (q *Queries) GetItem(ctx context.Context, id ItemID) (WorksItem, error) {
 }
 
 const getWork = `-- name: GetWork :one
-SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders FROM works_work WHERE id = ?1
+SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders, added_by FROM works_work WHERE id = ?1
 `
 
 func (q *Queries) GetWork(ctx context.Context, id WorkID) (WorksWork, error) {
@@ -83,12 +83,13 @@ func (q *Queries) GetWork(ctx context.Context, id WorkID) (WorksWork, error) {
 		&i.MonitorNew,
 		&i.MonitorAsides,
 		&i.LevelFolders,
+		&i.AddedBy,
 	)
 	return i, err
 }
 
 const getWorkByKey = `-- name: GetWorkByKey :one
-SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders FROM works_work WHERE content_type = ?1 AND key = ?2
+SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders, added_by FROM works_work WHERE content_type = ?1 AND key = ?2
 `
 
 type GetWorkByKeyParams struct {
@@ -112,6 +113,7 @@ func (q *Queries) GetWorkByKey(ctx context.Context, arg GetWorkByKeyParams) (Wor
 		&i.MonitorNew,
 		&i.MonitorAsides,
 		&i.LevelFolders,
+		&i.AddedBy,
 	)
 	return i, err
 }
@@ -275,9 +277,9 @@ func (q *Queries) InsertRating(ctx context.Context, arg InsertRatingParams) erro
 }
 
 const insertWork = `-- name: InsertWork :exec
-INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at, monitor_new, level_folders)
+INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at, monitor_new, level_folders, added_by)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
-    ?8, ?9)
+    ?8, ?9, ?10)
 `
 
 type InsertWorkParams struct {
@@ -290,6 +292,7 @@ type InsertWorkParams struct {
 	RefreshedAt  storage.Time
 	MonitorNew   bool
 	LevelFolders bool
+	AddedBy      AddedBy
 }
 
 func (q *Queries) InsertWork(ctx context.Context, arg InsertWorkParams) error {
@@ -303,6 +306,7 @@ func (q *Queries) InsertWork(ctx context.Context, arg InsertWorkParams) error {
 		arg.RefreshedAt,
 		arg.MonitorNew,
 		arg.LevelFolders,
+		arg.AddedBy,
 	)
 	return err
 }
@@ -536,7 +540,7 @@ func (q *Queries) ListRatings(ctx context.Context, workID WorkID) ([]WorksRating
 }
 
 const listWorks = `-- name: ListWorks :many
-SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders FROM works_work ORDER BY sort_label, id
+SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders, added_by FROM works_work ORDER BY sort_label, id
 `
 
 func (q *Queries) ListWorks(ctx context.Context) ([]WorksWork, error) {
@@ -561,6 +565,7 @@ func (q *Queries) ListWorks(ctx context.Context) ([]WorksWork, error) {
 			&i.MonitorNew,
 			&i.MonitorAsides,
 			&i.LevelFolders,
+			&i.AddedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -576,7 +581,7 @@ func (q *Queries) ListWorks(ctx context.Context) ([]WorksWork, error) {
 }
 
 const listWorksOfType = `-- name: ListWorksOfType :many
-SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders FROM works_work WHERE content_type = ?1 ORDER BY sort_label, id
+SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders, added_by FROM works_work WHERE content_type = ?1 ORDER BY sort_label, id
 `
 
 func (q *Queries) ListWorksOfType(ctx context.Context, contentType TypeID) ([]WorksWork, error) {
@@ -601,6 +606,7 @@ func (q *Queries) ListWorksOfType(ctx context.Context, contentType TypeID) ([]Wo
 			&i.MonitorNew,
 			&i.MonitorAsides,
 			&i.LevelFolders,
+			&i.AddedBy,
 		); err != nil {
 			return nil, err
 		}

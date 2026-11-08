@@ -10,7 +10,7 @@ import (
 )
 
 const listUntitled = `-- name: ListUntitled :many
-SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders FROM works_work WHERE id NOT IN (SELECT work_id FROM works_title) ORDER BY id
+SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders, added_by FROM works_work WHERE id NOT IN (SELECT work_id FROM works_title) ORDER BY id
 `
 
 func (q *Queries) ListUntitled(ctx context.Context) ([]WorksWork, error) {
@@ -35,6 +35,7 @@ func (q *Queries) ListUntitled(ctx context.Context) ([]WorksWork, error) {
 			&i.MonitorNew,
 			&i.MonitorAsides,
 			&i.LevelFolders,
+			&i.AddedBy,
 		); err != nil {
 			return nil, err
 		}

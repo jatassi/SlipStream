@@ -359,3 +359,56 @@ func distinct(t *testing.T, lib *storage.DB[storage.Library], query, want string
 		t.Fatalf("%s = %v after the migration, want only %s", query, got, want)
 	}
 }
+
+func TestFilesFromBeforeTheScanReadAsNeverScanned(t *testing.T) {
+	ctx := t.Context()
+	open := opener(t)
+	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema().Through(1), indexers.Schema().Through(2), grabs.Schema().Through(1), files.Schema().Through(1))
+	var at seeds
+	var old, versioned string
+	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		var err error
+		if at, err = seedLibrary(ctx, tx); err != nil {
+			return err
+		}
+		if old, err = seedFile(ctx, tx, 1, "", frames[2], at); err != nil {
+			return err
+		}
+		versioned, err = seedFile(ctx, tx, 2, "", frames[2], at)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := before.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
+	t.Cleanup(func() { _ = lib.Close() })
+	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, `UPDATE files_file SET probe = json_set(probe, '$.version', ?) WHERE path = ?`, media.Version, versioned)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var on files.OnRootFiles
+	err = lib.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		on, err = files.OnRoot(ctx, r, roots.ID{UUID: at.root})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale := map[string]bool{}
+	for _, r := range on.Files {
+		if r.Seen != nil || r.Gone || r.Sits != r.Path {
+			t.Errorf("a file from before reads %+v, want no stamps, live, at its path", r)
+		}
+		stale[r.Path.String()] = r.Stale
+	}
+	if want := map[string]bool{old: true, versioned: false}; !maps.Equal(stale, want) || len(on.Held) != 0 {
+		t.Fatalf("stale by path %v and held %v, want the record without a version stale and the one at media.Version not: %v", stale, on.Held, want)
+	}
+}

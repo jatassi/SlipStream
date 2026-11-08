@@ -1,6 +1,7 @@
 package works
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -41,7 +42,17 @@ type Summary struct {
 	// LevelFolders: new files sit in a folder per level. Unread for a type
 	// with no levels.
 	LevelFolders bool
+	AddedBy      AddedBy
 }
+
+// AddedBy is who put a Work in the library: an Admin, or a library scan
+// that matched a folder on disk.
+type AddedBy = db.AddedBy
+
+const (
+	AddedByAdmin AddedBy = "admin"
+	AddedByScan  AddedBy = "scan"
+)
 
 // StoredRating is a Rating as the library holds it.
 type StoredRating struct {
@@ -208,12 +219,13 @@ const maxCandidates = 25
 
 // Adding is how Add creates a Work. Monitor is its monitor_new, so its
 // Items arrive monitored as the insert rule says, asides left out.
-// LevelFolders is its level_folders. Also, when set, runs in the same
-// Write once the Work exists, so another owner's rows for it commit or
-// roll back with it.
+// LevelFolders is its level_folders. By is who adds it, an Admin when
+// zero. Also, when set, runs in the same Write once the Work exists, so
+// another owner's rows for it commit or roll back with it.
 type Adding struct {
 	Monitor      bool
 	LevelFolders bool
+	By           AddedBy
 	Also         func(ctx context.Context, tx *storage.Tx[file], w Summary) error
 }
 
@@ -351,7 +363,8 @@ func insert(ctx context.Context, tx *storage.Tx[file], reg registered, w Summary
 	q := db.New(tx)
 	w.AddedAt = storage.Now()
 	w.RefreshedAt = w.AddedAt
-	work := db.InsertWorkParams{ID: w.ID, ContentType: w.ContentType, Key: w.Key, Label: w.Label, SortLabel: w.SortLabel, AddedAt: w.AddedAt, RefreshedAt: w.RefreshedAt, MonitorNew: w.MonitorNew, LevelFolders: w.LevelFolders}
+	w.AddedBy = cmp.Or(a.By, AddedByAdmin)
+	work := db.InsertWorkParams{ID: w.ID, ContentType: w.ContentType, Key: w.Key, Label: w.Label, SortLabel: w.SortLabel, AddedAt: w.AddedAt, RefreshedAt: w.RefreshedAt, MonitorNew: w.MonitorNew, LevelFolders: w.LevelFolders, AddedBy: w.AddedBy}
 	if err := q.InsertWork(ctx, work); err != nil {
 		return err
 	}

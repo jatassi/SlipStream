@@ -14,8 +14,8 @@ import (
 
 var ErrWorksToType = errors.New("the root's Works can go only to a root of their Content Type")
 
-// InUseError is a root that can't go while it holds files, doomed ones
-// counted, or Grabs are in flight into it.
+// InUseError is a root that can't go while it holds live files, doomed
+// ones counted, or Grabs are in flight into it.
 type InUseError struct{ Files, Grabs int64 }
 
 func (e *InUseError) Error() string {
@@ -23,7 +23,8 @@ func (e *InUseError) Error() string {
 }
 
 // Delete takes root id out of the library and leaves its folder and
-// everything in it on disk. The type's default can't go while another root
+// everything in it on disk. Its gone files are forgotten, and only its
+// live files keep it. The type's default can't go while another root
 // of its type exists. Its Works go to worksTo, another root of its type,
 // which they need while one exists; with the type's last root they become
 // rootless. Its finished Grabs keep their history without it.
@@ -55,6 +56,9 @@ func (r *Roots) Delete(ctx context.Context, _ identity.Admin, id ID, worksTo *ID
 			changed = append(changed, *to)
 		}
 		if err := r.cfg.Inflight.Release(ctx, tx, id); err != nil {
+			return err
+		}
+		if err := r.cfg.Contents.ForgetGone(ctx, tx, id); err != nil {
 			return err
 		}
 		return q.DeleteRoot(ctx, id)

@@ -2553,6 +2553,7 @@ export * from "./tasksTaskPatch.ts";
 export * from "./tasksTaskPatchTuning.ts";
 export * from "./tasksUnit.ts";
 export * from "./tasksUnitOutcome.ts";
+export * from "./tasksUnitStep.ts";
 export * from "./tasksWaitingState.ts";
 export * from "./tasksWaitingStateKind.ts";
 export * from "./tasksWaitingStateStanding.ts";

@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
@@ -48,6 +49,17 @@ type File struct {
 	Path   string
 	Size   int64
 	Media  media.Record
+	// ProbedAt is when a scan last read Media, zero when the file's import
+	// brought it. ProbeError is ffprobe's first line when that read failed;
+	// Media is then the record before it.
+	ProbedAt   storage.Time
+	ProbeError string
+	// Seen is what a scan or an import last read of its bytes besides
+	// their size, nil until one did.
+	Seen *storing.Seen
+	// GoneAt is when a scan found its bytes absent from its Ready root,
+	// zero while they are there. A gone file fills nothing.
+	GoneAt storage.Time
 	// GrabID is the Grab that brought it, zero for none.
 	GrabID storage.UUID
 	// Quality is release.File's over its Grab's release title, or its own
@@ -59,8 +71,12 @@ type File struct {
 	Extra int64
 }
 
-// Kept reports whether f fills no Target and stays, flagged.
-func (f File) Kept() bool { return f.Extra > 0 }
+// Gone reports whether a scan found f's bytes absent from its root.
+func (f File) Gone() bool { return !f.GoneAt.IsZero() }
+
+// Kept reports whether f fills no Target and stays, flagged. A gone file
+// is gone, not Kept.
+func (f File) Kept() bool { return f.Extra > 0 && !f.Gone() }
 
 // Facts is what f's row knows about it, for Judge: its quality, cut and
 // size, and what its media record reads.
@@ -73,10 +89,39 @@ func (f File) Facts() release.Facts {
 }
 
 func fileOf(row db.FilesFile) File {
-	return File{
+	f := File{
 		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Cut: row.Cut, RootID: row.RootID, Path: row.Path, Size: row.Size, Media: row.Probe,
+		ProbedAt: row.ProbedAt, Seen: seenOf(row.ModifiedAt, row.NodeFileID, row.NodeVolumeID), GoneAt: row.GoneAt,
 		GrabID: row.GrabID, Quality: row.Quality, Label: row.Label, Extra: row.Extra,
 	}
+	if row.ProbeError != nil {
+		f.ProbeError = *row.ProbeError
+	}
+	return f
+}
+
+// seenOf is what a row records of a file's bytes, nil while nothing read
+// them.
+func seenOf(modified storage.Time, file, volume *string) *storing.Seen {
+	if modified.IsZero() {
+		return nil
+	}
+	s := &storing.Seen{Modified: modified.Time()}
+	if file != nil {
+		s.ID = storing.FileID{Volume: *volume, File: *file}
+	}
+	return s
+}
+
+// seenColumns is s as a row records it.
+func seenColumns(s *storing.Seen) (modified storage.Time, file, volume *string) {
+	if s == nil {
+		return storage.Time{}, nil, nil
+	}
+	if !s.ID.IsZero() {
+		file, volume = &s.ID.File, &s.ID.Volume
+	}
+	return storage.FromTime(s.Modified), file, volume
 }
 
 type Changed struct {
@@ -115,9 +160,11 @@ func Add(ctx context.Context, tx *storage.Tx[file], f File, fills []targets.Targ
 }
 
 func insertFile(ctx context.Context, q *db.Queries, f File) error {
+	modified, file, volume := seenColumns(f.Seen)
 	return q.InsertFile(ctx, db.InsertFileParams{
 		ID: f.ID, WorkID: f.WorkID, ItemID: f.ItemID, Cut: f.Cut, RootID: f.RootID, Path: f.Path, Size: f.Size, Probe: f.Media,
 		GrabID: f.GrabID, Quality: f.Quality, Label: f.Label, Extra: f.Extra,
+		ModifiedAt: modified, NodeFileID: file, NodeVolumeID: volume, ProbedAt: f.ProbedAt,
 	})
 }
 

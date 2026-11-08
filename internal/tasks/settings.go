@@ -160,9 +160,14 @@ func PruneRuns(ctx context.Context, lib *storage.DB[file]) error {
 	})
 }
 
+// sinceOf is when each unit last succeeded, leaving out a unit whose last
+// skip its feature's own Health category raises.
 func sinceOf(units []db.TasksUnit) []unitSince {
 	since := make([]unitSince, 0, len(units))
 	for _, u := range units {
+		if u.LastOwned {
+			continue
+		}
 		at := u.LastSuccessAt
 		if at.IsZero() {
 			at = u.FirstSeenAt

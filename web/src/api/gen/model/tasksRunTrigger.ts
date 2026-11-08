@@ -1,1 +1,1 @@
-export type TasksRunTrigger = "schedule" | "catch-up" | "run-now" | "returned";
+export type TasksRunTrigger = "schedule" | "catch-up" | "run-now" | "returned" | "event";

@@ -20,6 +20,14 @@ type Config struct {
 	Roots   *roots.Roots
 	Files   *files.Files
 	Grabs   Grabs
+	Leaver  Leaver
+}
+
+// Leaver hears of the Works a Leave files delete removes, inside the
+// delete's Write while their file rows still stand, so it can keep a
+// record of the files left on disk.
+type Leaver interface {
+	Leave(ctx context.Context, tx *storage.Tx[storage.Library], ws []works.WorkID) error
 }
 
 // Grabs cancels the Transfers of a deleted Work's Grabs: in the delete's

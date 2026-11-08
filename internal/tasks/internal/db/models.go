@@ -57,4 +57,5 @@ type TasksUnit struct {
 	LastSuccessAt storage.Time
 	FirstSeenAt   storage.Time
 	DueOnReturn   *int64
+	LastOwned     bool
 }

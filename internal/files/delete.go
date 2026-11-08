@@ -10,7 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// Held is what one Work's library files add up to.
+// Held is what one Work's live library files add up to.
 type Held struct {
 	// Files counts them, Kept files included, and Bytes is their size.
 	Files, Kept int
@@ -19,8 +19,8 @@ type Held struct {
 	Roots []roots.ID
 }
 
-// Holding reads what the library files of each of ws add up to in r. A
-// Work with none has no entry.
+// Holding reads what the live library files of each of ws add up to in
+// r. A Work with none has no entry.
 func Holding(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (map[works.WorkID]Held, error) {
 	rows, err := db.New(r).ListFilesOfWorks(ctx, ws)
 	if err != nil {
@@ -28,24 +28,32 @@ func Holding(ctx context.Context, r storage.Reader[file], ws []works.WorkID) (ma
 	}
 	out := map[works.WorkID]Held{}
 	for _, row := range rows {
-		h := out[row.WorkID]
-		h.Files++
-		h.Bytes += row.Size
-		if fileOf(row).Kept() {
-			h.Kept++
+		if f := fileOf(row); !f.Gone() {
+			h := out[row.WorkID]
+			h.add(f)
+			out[row.WorkID] = h
 		}
-		if i, found := slices.BinarySearchFunc(h.Roots, row.RootID, func(a, b roots.ID) int { return a.Compare(b.UUID) }); !found {
-			h.Roots = slices.Insert(h.Roots, i, row.RootID)
-		}
-		out[row.WorkID] = h
 	}
 	return out, nil
 }
 
-// DoomIn queues every library file of ws for the disk queue in tx, from
-// wherever its bytes sit, and deletes its row. The queue removes the bytes
-// on each root's Node once tx commits and it is poked, retrying until they
-// are gone.
+// add counts f, a live file.
+func (h *Held) add(f File) {
+	h.Files++
+	h.Bytes += f.Size
+	if f.Kept() {
+		h.Kept++
+	}
+	if i, found := slices.BinarySearchFunc(h.Roots, f.RootID, func(a, b roots.ID) int { return a.Compare(b.UUID) }); !found {
+		h.Roots = slices.Insert(h.Roots, i, f.RootID)
+	}
+}
+
+// DoomIn queues every live library file of ws for the disk queue in tx,
+// from wherever its bytes sit, and deletes its row, and deletes the rows
+// of their gone files, whose bytes are nowhere to remove. The queue
+// removes the bytes on each root's Node once tx commits and it is poked,
+// retrying until they are gone.
 func DoomIn(ctx context.Context, tx *storage.Tx[file], ws []works.WorkID) error {
 	q := db.New(tx)
 	rows, err := q.ListFilesOfWorks(ctx, ws)
@@ -53,7 +61,13 @@ func DoomIn(ctx context.Context, tx *storage.Tx[file], ws []works.WorkID) error 
 		return err
 	}
 	for _, row := range rows {
-		if err := doom(ctx, q, fileOf(row)); err != nil {
+		f := fileOf(row)
+		if f.Gone() {
+			err = q.DeleteFile(ctx, f.ID)
+		} else {
+			err = doom(ctx, q, f)
+		}
+		if err != nil {
 			return err
 		}
 	}
