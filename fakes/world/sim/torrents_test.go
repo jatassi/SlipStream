@@ -199,12 +199,11 @@ func seeding(t *testing.T, h node.Half) int {
 
 // launchSwarm launches home with seedbox's engines in swarm, followed by
 // box, and swarm's tracker at idleTracker answering by rules.
-func launchSwarm(t *testing.T, rules enginetest.TrackerRules, box *engines, opts ...sim.Option) (w *sim.World, swarm *enginetest.World) {
+func launchSwarm(t *testing.T, rules enginetest.TrackerRules, box *engines) (w *sim.World, swarm *enginetest.World) {
 	t.Helper()
 	swarm = enginetest.NewWorld()
 	swarm.Tracker(idleTracker, rules)
-	opts = append(opts, simtest.OnSeedbox(func(e *node.Env) { e.Engine = box.wrap(swarm.Open) }))
-	return sim.Launch(t, simtest.Home(t), opts...), swarm
+	return sim.Launch(t, simtest.Home(t), simtest.OnSeedbox(func(e *node.Env) { e.Engine = box.wrap(swarm.Open) })), swarm
 }
 
 // act has home's Clients run a, failing the test on any refusal.
