@@ -34,6 +34,7 @@
               "resume",
               "announce",
               "recheck",
+              "retry",
               "mark-failed",
               "remove"
             ],
@@ -1387,7 +1388,8 @@
               "client_off",
               "window",
               "not_running",
-              "failed"
+              "failed",
+              "not_retryable"
             ],
             "type": "string"
           },
@@ -1403,6 +1405,25 @@
         },
         "required": [
           "code"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsRetried": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "found": {
+            "description": "The bytes its check found, absent until its Node checked; all of size means it seeds again",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "at"
         ],
         "type": "object"
       },
@@ -2018,6 +2039,14 @@
             "minimum": 0,
             "type": "number"
           },
+          "retry": {
+            "$ref": "#/components/schemas/DownloadclientsRetried",
+            "description": "Its last Retry, absent before one"
+          },
+          "retryable": {
+            "description": "It failed in its Node's built-in client after it completed, so retry can check its files again",
+            "type": "boolean"
+          },
           "saveFolder": {
             "description": "Where its Node keeps it, absent until its Node reports it",
             "type": "string"
@@ -2145,6 +2174,7 @@
           "seedingSeconds",
           "tracker",
           "seeding",
+          "retryable",
           "addedAt"
         ],
         "type": "object"
@@ -2357,6 +2387,14 @@
             "minimum": 0,
             "type": "number"
           },
+          "retry": {
+            "$ref": "#/components/schemas/DownloadclientsRetried",
+            "description": "Its last Retry, absent before one"
+          },
+          "retryable": {
+            "description": "It failed in its Node's built-in client after it completed, so retry can check its files again",
+            "type": "boolean"
+          },
           "seeding": {
             "anyOf": [
               {
@@ -2464,6 +2502,7 @@
           "seedingSeconds",
           "tracker",
           "seeding",
+          "retryable",
           "addedAt"
         ],
         "type": "object"

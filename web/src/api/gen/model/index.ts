@@ -543,6 +543,7 @@ export * from "./downloadclientsPreview.ts";
 export * from "./downloadclientsRatioLane.ts";
 export * from "./downloadclientsRefusal.ts";
 export * from "./downloadclientsRefusalCode.ts";
+export * from "./downloadclientsRetried.ts";
 export * from "./downloadclientsRoutedTracker.ts";
 export * from "./downloadclientsSeedingView.ts";
 export * from "./downloadclientsSeedingViewAction.ts";
