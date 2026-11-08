@@ -1,6 +1,6 @@
 # Prowlarr sync report
 
-Prowlarr at `a69a7eae0ad82aff9a040ad0283271e4fa61a630` (2026-01-09). 7 change sets, 2 units up to date.
+Prowlarr at `1783dc960e566e33d39e4d0315e4e28449ec1c13` (2026-01-10). 8 change sets, 2 units up to date.
 
 ## Ports
 
@@ -134,6 +134,16 @@ DesiGaane derives from GazelleBase and carries movies, audio. Start its port wit
 | Commit | Date | Subject |
 |---|---|---|
 | `5fd890d` | 2026-01-04 | New: (Indexer) DesiGaane |
+
+### new:SpeedApp@1783dc9
+
+SpeedApp derives from SpeedAppBase and carries movies. Start its port with `prowlarr-sync new --site SpeedApp`, or list it in skipped.json with why.
+
+- `src/NzbDrone.Core/Indexers/Definitions/SpeedApp.cs`
+
+| Commit | Date | Subject |
+|---|---|---|
+| `1783dc9` | 2026-01-10 | New: (Indexer) SpeedApp |
 
 ## Hidden list
 

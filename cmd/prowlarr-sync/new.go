@@ -19,7 +19,8 @@ import (
 
 const module = "github.com/jatassi/slipstream"
 
-var portID = regexp.MustCompile(`^[a-z][a-z0-9]*$`)
+// portID is a port id, a Go package name once its hyphens are dropped.
+var portID = regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`)
 
 // logins maps each --auth value, a Login family of port.Impl, to the
 // auth family it derives.
@@ -30,9 +31,10 @@ var logins = map[string]port.Auth{
 const loginNames = "none, form, token, cookie or code"
 
 // newPort writes a port's boilerplate: one Go file per C# file, each
-// with its header and package clause, the upstream.json that maps them,
-// the registry file and a fixture with every case its auth family
-// needs, each with a call and no exchanges yet.
+// with its header and package clause, the upstream.json that maps them
+// and a fixture with every case its auth family needs, each with a call
+// and no exchanges yet. The registry file waits for the package's Port,
+// since the build breaks on one before it.
 func newPort(ctx context.Context, out io.Writer, repo string, tree *provenance.Tree, ref, site, id, family, login string) error {
 	if site == "" {
 		return errors.New("new needs --site, the site's C# class")
@@ -45,9 +47,10 @@ func newPort(ctx context.Context, out io.Writer, repo string, tree *provenance.T
 		id = strings.NewReplacer(" ", "", ".", "", "-", "").Replace(strings.ToLower(site))
 	}
 	if !portID.MatchString(id) {
-		return fmt.Errorf("the port id %q isn't a Go package name; pass one with --id", id)
+		return fmt.Errorf("the port id %q isn't lowercase letters and digits with single hyphens between; pass one with --id", id)
 	}
-	dir := "internal/ports/" + id
+	pkg := strings.ReplaceAll(id, "-", "")
+	dir := "internal/ports/" + pkg
 	if _, err := os.Stat(filepath.Join(repo, filepath.FromSlash(dir))); !errors.Is(err, fs.ErrNotExist) { //nolint:gosec // G703: a directory in the repository the maintainer names
 		return fmt.Errorf("%s already exists", dir)
 	}
@@ -59,20 +62,17 @@ func newPort(ctx context.Context, out io.Writer, repo string, tree *provenance.T
 	if err != nil {
 		return err
 	}
-	u := provenance.Unit{ID: "port:" + id, Kind: provenance.Port, Dir: dir, Manifest: provenance.Manifest{
+	u := provenance.Unit{ID: "port:" + pkg, Kind: provenance.Port, Dir: dir, Manifest: provenance.Manifest{
 		Commit: head.SHA, Date: head.Date, Family: family, Files: map[string][]string{},
 	}}
 	for _, f := range files {
-		gofile := goFile(site, id, f)
+		gofile := goFile(site, pkg, f)
 		u.Files[gofile] = append(u.Files[gofile], f)
-		if err := writeNew(repo, path.Join(dir, gofile), "package "+id+"\n"); err != nil {
+		if err := writeNew(repo, path.Join(dir, gofile), "package "+pkg+"\n"); err != nil {
 			return err
 		}
 	}
 	if err := provenance.Write(repo, u); err != nil {
-		return err
-	}
-	if err := writeNew(repo, "internal/ports/all/"+id+".go", fmt.Sprintf("package all\n\nimport \"%s/%s\"\n\nfunc init() { add(%s.Port) }\n", module, dir, id)); err != nil {
 		return err
 	}
 	fixture, err := ports.Skeleton(port.ID(id), auth).Marshal()
@@ -83,22 +83,30 @@ func newPort(ctx context.Context, out io.Writer, repo string, tree *provenance.T
 		return err
 	}
 	_, err = fmt.Fprintf(out, `Wrote %[1]s from %[2]s at %[3]s.
-Translate each C# file into its Go file. Then give each case in fakes/site/ports/%[4]s/fixture.yaml its exchanges and bodies, and write the goldens:
+Translate each C# file into its Go file. Once the package declares Port, register it in internal/ports/all/%[5]s.go:
+  package all
+
+  import "%[6]s/%[1]s"
+
+  func init() { add(%[5]s.Port) }
+
+Then give each case in fakes/site/ports/%[4]s/fixture.yaml its exchanges and bodies, and write the goldens:
   eval "$(scripts/native-deps env)"
   go test -p 2 ./fakes/site/ports -run 'TestPorts/%[4]s' -update
-`, dir, site, head.SHA, id)
+`, dir, site, head.SHA, id, pkg, module)
 	return err //nolint:wrapcheck // the one write of the command's output
 }
 
-// siteFiles are the site's C# files at commit: every file in its folder
-// under Definitions when it has one, else its one file.
+// siteFiles are the site's C# files at commit: its one file under
+// Definitions when it has one, else every file in its folder. A folder
+// beside the site's file holds a base other sites share (SpeedApp/).
 func siteFiles(ctx context.Context, tree *provenance.Tree, commit, site string) ([]string, error) {
-	files, err := tree.Files(ctx, commit, definitionsDir+site+"/")
+	file := definitionsDir + site + ".cs"
+	files, err := tree.Files(ctx, commit, file)
 	if err != nil || len(files) > 0 {
 		return files, err
 	}
-	file := definitionsDir + site + ".cs"
-	if files, err = tree.Files(ctx, commit, file); err != nil {
+	if files, err = tree.Files(ctx, commit, definitionsDir+site+"/"); err != nil {
 		return nil, err
 	}
 	if len(files) == 0 {
