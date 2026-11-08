@@ -84,8 +84,8 @@ test("Library scan leads with what it does and its cadence, with the stop share 
   await userEvent.clear(each);
   await userEvent.type(each, "4");
   await userEvent.click(page.getByRole("button", { name: "Save" }));
+  await expect.poll(() => sent).toEqual([{ "library.scan.probes": 4 }]);
   await expect.element(each).toHaveValue("4");
-  expect(sent).toEqual([{ "library.scan.probes": 4 }]);
   await expect
     .element(page.getByRole("link", { name: "Library roots" }).last())
     .toHaveAttribute("href", "/settings/library-roots");
