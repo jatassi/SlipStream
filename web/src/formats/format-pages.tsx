@@ -40,6 +40,7 @@ export function SavedFormatEditor({
     <>
       <FormatEditor
         initial={draftOf(format, schema)}
+        formatId={format.id}
         schema={schema}
         slow={{ releases: format.slowReleases, limit: matchLimit }}
         label="Save"
