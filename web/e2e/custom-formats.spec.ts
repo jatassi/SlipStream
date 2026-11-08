@@ -88,7 +88,7 @@ test("a Custom Format made in the editor says what it matches, refuses a broken 
 
   await page.getByRole("button", { name: "Create Custom Format" }).click();
   await expect(first.getByRole("textbox", { name: "Pattern" })).toHaveAccessibleDescription(
-    /^The pattern in ".+" doesn't compile \(unterminated group\)\. Fix the pattern and save again\.$/u,
+    /^The pattern in condition ".+" doesn't compile \(unterminated group\)\. Fix the pattern and save again\.$/u,
   );
   await first.getByRole("textbox", { name: "Pattern" }).fill(String.raw`\bDV\b`);
   await expect(first.getByRole("textbox", { name: "Pattern" })).toHaveAccessibleDescription(

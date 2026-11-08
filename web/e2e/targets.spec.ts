@@ -159,7 +159,7 @@ test("a Target's scores and propers setting show in its sentence, and save", asy
   await openTargets(page);
   await open1080p(page);
   const scores = page.getByRole("region", { name: "Scores" });
-  await expect(scores.getByText(/^Scores none of the 1 Custom Format, /u)).toBeVisible();
+  await expect(scores.getByText(/^No Custom Format has a score here, /u)).toBeVisible();
   await scores.getByRole("button", { name: "Details" }).click();
   await scores.getByRole("textbox", { name: "HDR score" }).fill("40");
   await scores.getByRole("textbox", { name: "Upgrade until" }).fill("100");

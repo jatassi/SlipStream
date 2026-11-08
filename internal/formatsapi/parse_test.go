@@ -195,7 +195,7 @@ func TestTheTesterScoresTheFormatsANameMatchesWithADraftInPlaceOfItsSavedFormat(
 			}
 		})
 	}
-	detail := `The pattern in \"Group\" doesn't compile (unterminated group). Fix the pattern and try it again.`
+	detail := `The pattern in condition \"Group\" doesn't compile (unterminated group). Fix the pattern and try it again.`
 	s.expect(t, http.MethodPost, "/api/v1/releases/parse", names+`,"draft":`+group("Broken", "(a")+`}`, http.StatusBadRequest,
 		`{"status":400,"code":"format_pattern_not_compiled","title":"The pattern in this condition doesn't compile","detail":"`+detail+
 			`","errors":[{"location":"body.draft.conditions[0].fields.value","message":"`+detail+`"}]}`)

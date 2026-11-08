@@ -195,7 +195,7 @@ test("Try it with a pattern that doesn't compile says so in the tester and under
 
   const dialog = page.getByRole("dialog", { name: "Tester" });
   await testNames(dialog, "Release names", [webdl]);
-  const refusal = String.raw`The pattern in "\b(DV" doesn't compile (unterminated group). Fix the pattern and try it again.`;
+  const refusal = String.raw`The pattern in condition "\b(DV" doesn't compile (unterminated group). Fix the pattern and try it again.`;
   await expect(dialog.getByRole("alert")).toHaveText(refusal);
   await expectAccessible(page);
   await page.keyboard.press("Escape");

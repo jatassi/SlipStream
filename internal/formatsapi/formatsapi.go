@@ -412,9 +412,9 @@ func refused(err error, field, again string) error {
 // every error, and one it can't place has no position.
 func patternWords(e *formats.PatternError, of string) string {
 	if e.Offset > 0 {
-		return fmt.Sprintf("The pattern in %s%s doesn't compile at position %d (%s).", quoted(e.Name), of, e.Offset, e.Reason)
+		return fmt.Sprintf("The pattern in condition %s%s doesn't compile at position %d (%s).", quoted(e.Name), of, e.Offset, e.Reason)
 	}
-	return fmt.Sprintf("The pattern in %s%s doesn't compile (%s).", quoted(e.Name), of, e.Reason)
+	return fmt.Sprintf("The pattern in condition %s%s doesn't compile (%s).", quoted(e.Name), of, e.Reason)
 }
 
 // kindName is k's words as they read inside a sentence.

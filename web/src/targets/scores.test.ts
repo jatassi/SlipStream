@@ -92,7 +92,7 @@ test("a Target scoring nothing ranks by quality alone", () => {
     catalog,
   );
   expect(scoresInWords(unscored).lead).toBe(
-    "Scores none of the 3 Custom Formats, so this Target ranks Releases by quality alone. Score a Custom Format to prefer the Releases that match it.",
+    "No Custom Format has a score here, so this Target ranks Releases by quality alone. Score a Custom Format to prefer the Releases that match it.",
   );
   expect(scoresInWords({ ...unscored, formats: [] }).lead).toBe(
     "No Custom Formats exist yet, so this Target ranks Releases by quality alone.",

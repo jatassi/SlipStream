@@ -340,23 +340,23 @@ func TestAFormatThatWontRunIsRefusedWithWhatToFix(t *testing.T) {
 		{
 			"a pattern refused at a position", "/api/v1/custom-formats", format(`{"name":"Atmos","kind":"ReleaseGroupSpecification","negate":false,"required":false,"fields":{"value":"x"}},` + title("ab**")),
 			400, refusal(400, "format_pattern_not_compiled", notCompiled,
-				`The pattern in \"Not HDR10+\" doesn't compile at position 4 (a repetition follows another repetition). Fix the pattern and save again.`, "conditions[1].fields.value"),
+				`The pattern in condition \"Not HDR10+\" doesn't compile at position 4 (a repetition follows another repetition). Fix the pattern and save again.`, "conditions[1].fields.value"),
 		},
 		{
 			"a condition named for its pattern, quoted as typed", "/api/v1/custom-formats",
 			format(`{"name":"\\b(DV","kind":"ReleaseTitleSpecification","negate":false,"required":false,"fields":{"value":"\\b(DV"}}`),
 			400, refusal(400, "format_pattern_not_compiled", notCompiled,
-				`The pattern in \"\\b(DV\" doesn't compile (unterminated group). Fix the pattern and save again.`, "conditions[0].fields.value"),
+				`The pattern in condition \"\\b(DV\" doesn't compile (unterminated group). Fix the pattern and save again.`, "conditions[0].fields.value"),
 		},
 		{
 			"a pattern refused with no position", "/api/v1/custom-formats", format(title("(a")),
 			400, refusal(400, "format_pattern_not_compiled", notCompiled,
-				`The pattern in \"Not HDR10+\" doesn't compile (unterminated group). Fix the pattern and save again.`, "conditions[0].fields.value"),
+				`The pattern in condition \"Not HDR10+\" doesn't compile (unterminated group). Fix the pattern and save again.`, "conditions[0].fields.value"),
 		},
 		{
 			"a pasted pattern refused, naming its format", "/api/v1/custom-formats/paste", pasteBody(trash("Atmos", "ReleaseTitleSpecification", `{"value":"(a"}`), `,"app":"radarr"`),
 			400, refusal(400, "format_pattern_not_compiled", notCompiled,
-				`The pattern in \"Atmos\" of the Custom Format \"Atmos\" doesn't compile (unterminated group). Fix the pattern and paste again.`, "text"),
+				`The pattern in condition \"Atmos\" of the Custom Format \"Atmos\" doesn't compile (unterminated group). Fix the pattern and paste again.`, "text"),
 		},
 		{
 			"a format with no conditions", "/api/v1/custom-formats", format(""),

@@ -88,7 +88,7 @@ export function scoresInWords(scores: ScoresDraft): {
     total === 0
       ? "No Custom Formats exist yet, so this Target ranks Releases by quality alone."
       : scored === 0
-        ? `Scores none of the ${String(total)} ${formatsWord(total)}, so this Target ranks Releases by quality alone. Score a Custom Format to prefer the Releases that match it.`
+        ? "No Custom Format has a score here, so this Target ranks Releases by quality alone. Score a Custom Format to prefer the Releases that match it."
         : `Scores ${String(scored)} of ${String(total)} ${formatsWord(total)}. A Release needs a score of ${String(minimum)} or more to be grabbed. In the same tier, a Release replaces a file when it scores ${String(increment)} more, until the file scores ${String(upgradeUntil)}.`;
   const warnings = [
     ...(minimum > most
