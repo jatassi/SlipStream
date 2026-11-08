@@ -59,6 +59,7 @@ func TestAddPrefetchesPosterMediumAndBackdropLarge(t *testing.T) {
 		TMDB: tmdb.New(lines, tmdb.Endpoints{API: endpoint.MustParseURL(sv.tmdb.Address.URL("/3")), Images: endpoint.MustParseURL(cdn.Address.URL(imagecdn.Root))}, tmdb.DefaultTimings()),
 		OMDb: omdb.New(lines, omdb.Endpoints{API: endpoint.MustParseURL(sv.omdb.Address.URL(""))}, omdb.DefaultTimings()),
 		Log:  slog.New(slog.DiscardHandler),
+		Now:  time.Now,
 	}, nil)
 	lib := storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(movie.Def))...)
 	meta := metadatatest.Artwork(t, lib, map[works.TypeID]metadata.Source{movie.Def.ID(): src}, client, metadata.DefaultTimings())

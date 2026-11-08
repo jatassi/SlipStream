@@ -126,7 +126,7 @@ func TestRehomeFindsEveryFile(t *testing.T) {
 	s.changed.ids = nil
 
 	s.Expect(t, http.MethodPatch, "/api/v1/roots/"+id, rehome(to+string(filepath.Separator), ""), http.StatusOK,
-		`{"id":"id1","contentType":"fixture","nodeId":"id2","path":`+strconv.Quote(to)+`,"default":true,"state":"checking","works":1,"fileBytes":4096}`)
+		`{"id":"id1","contentType":"fixture","nodeId":"id2","path":`+strconv.Quote(to)+`,"default":true,"state":"checking","works":1,"fileBytes":4096,"scan":`+notScanned+`}`)
 	if got, want := s.intent(t, id), to+" place=2 adopt=true"; got != want {
 		t.Fatalf("self's intent for the re-homed root = %q, want %q", got, want)
 	}
@@ -143,7 +143,7 @@ func TestRehomeFindsEveryFile(t *testing.T) {
 	}
 
 	s.Expect(t, http.MethodPatch, "/api/v1/roots/"+id, `{}`, http.StatusOK,
-		`{"id":"id1","contentType":"fixture","nodeId":"id2","path":`+strconv.Quote(to)+`,"default":true,"state":"checking","works":1,"fileBytes":4096}`)
+		`{"id":"id1","contentType":"fixture","nodeId":"id2","path":`+strconv.Quote(to)+`,"default":true,"state":"checking","works":1,"fileBytes":4096,"scan":`+notScanned+`}`)
 	if got, want := s.intent(t, id), to+" place=3 adopt=true"; got != want {
 		t.Fatalf("self's intent after re-homing onto its own folder = %q, want %q, adopted again", got, want)
 	}
@@ -173,7 +173,7 @@ func TestRehomeWithMissingFilesAndForget(t *testing.T) {
 	}
 
 	s.Expect(t, http.MethodPatch, "/api/v1/roots/"+id, rehome(to, `,"forget":2`), http.StatusOK,
-		`{"id":"id1","contentType":"fixture","nodeId":"id2","path":`+strconv.Quote(to)+`,"default":true,"state":"checking","works":1,"fileBytes":1024}`)
+		`{"id":"id1","contentType":"fixture","nodeId":"id2","path":`+strconv.Quote(to)+`,"default":true,"state":"checking","works":1,"fileBytes":1024,"scan":`+notScanned+`}`)
 	if got, want := s.intent(t, id), to+" place=2 adopt=true"; got != want {
 		t.Fatalf("self's intent = %q, want %q", got, want)
 	}
@@ -264,7 +264,7 @@ func TestRehomeFindsFilesTheDiskQueueIsMoving(t *testing.T) {
 	}
 
 	s.Expect(t, http.MethodPatch, "/api/v1/roots/"+id, rehome(to, ""), http.StatusOK,
-		`{"id":"id1","contentType":"fixture","nodeId":"id2","path":`+strconv.Quote(to)+`,"default":true,"state":"checking","works":1,"fileBytes":30}`)
+		`{"id":"id1","contentType":"fixture","nodeId":"id2","path":`+strconv.Quote(to)+`,"default":true,"state":"checking","works":1,"fileBytes":30,"scan":`+notScanned+`}`)
 }
 
 func TestRehomeRefusals(t *testing.T) {
@@ -339,7 +339,7 @@ func TestDeleteRefusesFilesAndGrabs(t *testing.T) {
 
 	empty := t.TempDir()
 	s.Expect(t, http.MethodPatch, "/api/v1/roots/"+id, rehome(empty, `,"forget":1`), http.StatusOK,
-		`{"id":"id1","contentType":"fixture","nodeId":"id2","path":`+strconv.Quote(empty)+`,"default":true,"state":"checking","works":2,"fileBytes":0}`)
+		`{"id":"id1","contentType":"fixture","nodeId":"id2","path":`+strconv.Quote(empty)+`,"default":true,"state":"checking","works":2,"fileBytes":0,"scan":`+notScanned+`}`)
 	s.Expect(t, http.MethodDelete, "/api/v1/roots/"+id, "", http.StatusConflict, inUse(0, 1))
 	err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := tx.ExecContext(ctx, `UPDATE grabs_grab SET stage = 'failed', failed_stage = 'downloading', failure_code = 'download_failed',

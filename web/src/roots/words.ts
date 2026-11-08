@@ -85,3 +85,21 @@ export function verdictOf(verdict: RootsVerdict, namer: Namer): FolderVerdict {
         : `This folder is on ${volume.name}, ${bytes(volume.free)} free.`,
   };
 }
+
+/** How copy names a root: "Films library root on home", or with its folder when its Node holds another root of its type. */
+export function rootWords(
+  root: RootsRoot,
+  others: readonly RootsRoot[],
+  type: WorksContentType,
+  node: string,
+): string {
+  const twin = others.some(
+    (other) =>
+      other.id !== root.id &&
+      other.nodeId === root.nodeId &&
+      other.contentType === root.contentType,
+  );
+  return twin
+    ? `${type.work.many} library root at ${root.path} on ${node}`
+    : `${type.work.many} library root on ${node}`;
+}

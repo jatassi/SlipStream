@@ -532,6 +532,7 @@ func (n *Node) openHolder(client *http.Client) metadata.HolderConfig {
 		TVDB:  tvdb.New(lines, n.cfg.Endpoints.TVDB, n.cfg.Timings.TVDB),
 		OMDb:  omdb.New(lines, n.cfg.Endpoints.OMDb, n.cfg.Timings.OMDb),
 		Lines: lines,
+		Now:   n.today,
 	}
 	sources := map[works.TypeID]metadata.Source{}
 	for _, t := range n.env.Types.All() {

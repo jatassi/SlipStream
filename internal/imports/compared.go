@@ -210,11 +210,9 @@ func guardOf(ctx context.Context, r storage.Reader[file], root roots.ID) (scanni
 // words for one waiting on its Node, named node.
 func skipCause(s roots.State, node string) string {
 	switch s {
-	case roots.Offline:
-		return node + " is offline."
 	case roots.Checking:
 		return "Waiting for " + node + " to check the folder."
-	case roots.Ready, roots.Missing, roots.Unmounted, roots.Foreign, roots.Unwritable, roots.Unresponsive, roots.WrittenOff:
+	case roots.Ready, roots.Offline, roots.Missing, roots.Unmounted, roots.Foreign, roots.Unwritable, roots.Unresponsive, roots.WrittenOff:
 	}
 	sentence, fix, _ := roots.Trouble(s)
 	return sentence + " " + fix

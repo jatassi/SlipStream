@@ -26,6 +26,7 @@ import {
   seedboxSeat,
   writeOffServer,
 } from "../../../test/roles";
+import { notScanned } from "../../../test/roots";
 
 const TB = 1024 ** 4;
 const GB = 1024 ** 3;
@@ -113,6 +114,7 @@ const rootOf = (id: string, nodeId: string, path: string): RootsRoot => ({
   fileBytes: 6 * GB,
   state: "ready",
   works: 4,
+  scan: notScanned,
 });
 
 const roots = [

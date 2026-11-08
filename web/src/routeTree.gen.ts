@@ -41,6 +41,7 @@ import { Route as AppActivityIndexRouteImport } from "./routes/_app/activity/ind
 import { Route as AppActivityTorrentsRouteImport } from "./routes/_app/activity/torrents";
 import { Route as AppLibraryIndexRouteImport } from "./routes/_app/library/index";
 import { Route as AppLibraryContentTypeRouteImport } from "./routes/_app/library/$contentType";
+import { Route as AppLibraryPendingRouteImport } from "./routes/_app/library/pending";
 import { Route as AppNodesIndexRouteImport } from "./routes/_app/nodes/index";
 import { Route as AppNodesNodeIdRouteRouteImport } from "./routes/_app/nodes/$nodeId/route";
 import { Route as AppSettingsIndexRouteImport } from "./routes/_app/settings/index";
@@ -228,6 +229,11 @@ const AppLibraryContentTypeRoute = AppLibraryContentTypeRouteImport.update({
   path: "/$contentType",
   getParentRoute: () => AppLibraryRouteRoute,
 } as any);
+const AppLibraryPendingRoute = AppLibraryPendingRouteImport.update({
+  id: "/pending",
+  path: "/pending",
+  getParentRoute: () => AppLibraryRouteRoute,
+} as any);
 const AppNodesIndexRoute = AppNodesIndexRouteImport.update({
   id: "/",
   path: "/",
@@ -405,6 +411,7 @@ export interface FileRoutesByFullPath {
   "/accounts/$accountId": typeof AppAccountsAccountIdRoute;
   "/activity/torrents": typeof AppActivityTorrentsRouteWithChildren;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
+  "/library/pending": typeof AppLibraryPendingRoute;
   "/settings/$section": typeof AppSettingsSectionRoute;
   "/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
@@ -459,6 +466,7 @@ export interface FileRoutesByTo {
   "/accounts/$accountId": typeof AppAccountsAccountIdRoute;
   "/activity/torrents": typeof AppActivityTorrentsRouteWithChildren;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
+  "/library/pending": typeof AppLibraryPendingRoute;
   "/settings/$section": typeof AppSettingsSectionRoute;
   "/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/works/$workId": typeof AppWorksWorkIdRoute;
@@ -521,6 +529,7 @@ export interface FileRoutesById {
   "/_app/accounts/$accountId": typeof AppAccountsAccountIdRoute;
   "/_app/activity/torrents": typeof AppActivityTorrentsRouteWithChildren;
   "/_app/library/$contentType": typeof AppLibraryContentTypeRoute;
+  "/_app/library/pending": typeof AppLibraryPendingRoute;
   "/_app/settings/$section": typeof AppSettingsSectionRoute;
   "/_app/tasks/$taskId": typeof AppTasksTaskIdRoute;
   "/_app/works/$workId": typeof AppWorksWorkIdRoute;
@@ -583,6 +592,7 @@ export interface FileRouteTypes {
     | "/accounts/$accountId"
     | "/activity/torrents"
     | "/library/$contentType"
+    | "/library/pending"
     | "/settings/$section"
     | "/tasks/$taskId"
     | "/works/$workId"
@@ -637,6 +647,7 @@ export interface FileRouteTypes {
     | "/accounts/$accountId"
     | "/activity/torrents"
     | "/library/$contentType"
+    | "/library/pending"
     | "/settings/$section"
     | "/tasks/$taskId"
     | "/works/$workId"
@@ -698,6 +709,7 @@ export interface FileRouteTypes {
     | "/_app/accounts/$accountId"
     | "/_app/activity/torrents"
     | "/_app/library/$contentType"
+    | "/_app/library/pending"
     | "/_app/settings/$section"
     | "/_app/tasks/$taskId"
     | "/_app/works/$workId"
@@ -970,6 +982,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppLibraryContentTypeRouteImport;
       parentRoute: typeof AppLibraryRouteRoute;
     };
+    "/_app/library/pending": {
+      id: "/_app/library/pending";
+      path: "/pending";
+      fullPath: "/library/pending";
+      preLoaderRoute: typeof AppLibraryPendingRouteImport;
+      parentRoute: typeof AppLibraryRouteRoute;
+    };
     "/_app/nodes/": {
       id: "/_app/nodes/";
       path: "/";
@@ -1188,11 +1207,13 @@ const AppActivityRouteRouteWithChildren =
 
 interface AppLibraryRouteRouteChildren {
   AppLibraryContentTypeRoute: typeof AppLibraryContentTypeRoute;
+  AppLibraryPendingRoute: typeof AppLibraryPendingRoute;
   AppLibraryIndexRoute: typeof AppLibraryIndexRoute;
 }
 
 const AppLibraryRouteRouteChildren: AppLibraryRouteRouteChildren = {
   AppLibraryContentTypeRoute: AppLibraryContentTypeRoute,
+  AppLibraryPendingRoute: AppLibraryPendingRoute,
   AppLibraryIndexRoute: AppLibraryIndexRoute,
 };
 

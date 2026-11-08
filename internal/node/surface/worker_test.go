@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/library"
@@ -63,6 +64,8 @@ func (worker) Targets() (*targets.Targets, bool) { return nil, false }
 func (worker) Roots() (*roots.Roots, bool) { return nil, false }
 
 func (worker) Files() (*files.Files, bool) { return nil, false }
+
+func (worker) Imports() (*imports.Imports, bool) { return nil, false }
 
 func (worker) Library() (*library.Library, bool) { return nil, false }
 

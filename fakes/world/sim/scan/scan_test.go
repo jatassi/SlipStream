@@ -244,10 +244,13 @@ func expectScanned(t *testing.T, got scanned, result string, units ...string) {
 }
 
 // works is the library's movies, by label.
-func (s *shelf) works() map[string]string {
+func (s *shelf) works() map[string]string { return s.worksOf("movie") }
+
+// worksOf is the library's Works of contentType, by label.
+func (s *shelf) worksOf(contentType string) map[string]string {
 	s.t.Helper()
 	type row struct{ ID, Label string }
-	rows := simtest.Decode[struct{ Rows []row }](s.t, "listLibrary", s.w.API().Admin("home", http.MethodGet, "/api/v1/library?contentType=movie", "")).Rows
+	rows := simtest.Decode[struct{ Rows []row }](s.t, "listLibrary", s.w.API().Admin("home", http.MethodGet, "/api/v1/library?contentType="+contentType, "")).Rows
 	out := map[string]string{}
 	for _, r := range rows {
 		out[r.Label] = r.ID
@@ -372,6 +375,28 @@ func TestAFirstScanAddsTheWorksItIsSureOfAndAnUnchangedRootReadsNothing(t *testi
 		s.expectWorks(films...)
 		if n := s.count("SELECT count(*) FROM imports_pending"); n != 1 {
 			t.Fatalf("Pending imports hold %d entries after a scan of the unchanged root, want 1", n)
+		}
+	})
+}
+
+// TestAFlatSeriesFolderNamedByTitleAndYearIsAdded stocks a series root
+// with one untagged folder named "Title (Year)" holding its episodes
+// flat: a scan adds the series TVDB lists as first aired that year.
+func TestAFlatSeriesFolderNamedByTitleAndYearIsAdded(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		s := shelve(t, func(sc *scenario.Scenario) {
+			sc.Library.Roots = append(sc.Library.Roots, scenario.LibraryRoot{ContentType: "series", Folder: "tv"})
+		})
+		tv := s.on("tv")
+		tv.put("Brass Meridian (2015)/Brass Meridian - S01E01.mkv", 4096, hd)
+		tv.put("Brass Meridian (2015)/Brass Meridian - 2x05.mkv", 4097, hd)
+		s.scan()
+		if got := s.worksOf("series"); len(got) != 1 || got["Brass Meridian"] == "" {
+			t.Fatalf("the library's series are %v, want Brass Meridian alone", got)
+		}
+		if n := s.count("SELECT count(*) FROM imports_pending"); n != 0 {
+			t.Fatalf("Pending imports hold %d entries, want none", n)
 		}
 	})
 }

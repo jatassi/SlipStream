@@ -11,6 +11,7 @@ import {
   RootsRoot,
   RootsRootList,
   RootsRootSettings,
+  RootsScanStarted,
   RootsSuggestions,
   RootsVerdict,
   RootsVolumeList,
@@ -138,6 +139,24 @@ export const MakeDefaultRootParams = zod.object({
 });
 
 export const MakeDefaultRootResponse = zod.void();
+
+/**
+ * @summary Confirm the gone files that stopped a root's last library scan and scan it again to mark them gone
+ */
+export const MarkRootGoneParams = zod.object({
+  rootId: zod.uuid(),
+});
+
+export const MarkRootGoneResponse = RootsScanStarted;
+
+/**
+ * @summary Scan a root now, in the open Library scan run or a new one
+ */
+export const ScanRootParams = zod.object({
+  rootId: zod.uuid(),
+});
+
+export const ScanRootResponse = RootsScanStarted;
 
 /**
  * @summary List each Storage Node's volumes that hold a library root

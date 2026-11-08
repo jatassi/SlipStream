@@ -10,4 +10,9 @@ export interface ShellCounts {
   alerts: ShellAlerts;
   /** Every download at once; torrents.live keeps it current */
   downloads: DownloadclientsAggregate;
+  /**
+   * The pending imports that aren't ignored
+   * @minimum 0
+   */
+  pendingImports: number;
 }

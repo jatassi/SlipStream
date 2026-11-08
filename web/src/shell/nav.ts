@@ -78,6 +78,7 @@ export const adminNav: NavTable = [
     audience: "admin",
     place: "main",
     tab: { order: 1 },
+    count: "pendingImports",
     children: "content-types",
   },
   {

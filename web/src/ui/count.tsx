@@ -18,7 +18,7 @@ const dots: { readonly [D in CountDot]: { word: string; dot: ReactElement } } = 
   },
 };
 
-export function Count({ value, dot }: { value: number; dot?: CountDot }) {
+export function Count({ value, dot }: { value: number; dot?: CountDot | undefined }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-label text-ink-3 tabular-nums">
       {dot === undefined ? null : dots[dot].dot}
