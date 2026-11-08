@@ -1,4 +1,7 @@
 {
-  "releases": [],
+  "outcome": {
+    "kind": "stopped",
+    "cause": "cookie_expired"
+  },
   "sessionChanged": false
 }

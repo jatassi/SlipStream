@@ -49,10 +49,11 @@ var Port = port.Define(port.Entry{
 	Parse: ParseResponse,
 })
 
-// CheckIfLoginNeeded never reads a response as logged out, as upstream,
-// so an expired cookie shows as a search with no Releases.
-func CheckIfLoginNeeded(*port.IndexerResponse) bool {
-	return false
+func CheckIfLoginNeeded(httpResponse *port.IndexerResponse) bool {
+	// SlipStream: upstream returns false, so an expired cookie passed the
+	// Test with no Releases. A request redirected to the sign-in page,
+	// login.php, reads as logged out.
+	return strings.HasSuffix(httpResponse.URL.Path, "/login.php")
 }
 
 func SetCapabilities() port.Capabilities {
