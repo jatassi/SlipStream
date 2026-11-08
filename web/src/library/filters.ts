@@ -85,6 +85,13 @@ const coreGroups: readonly FilterGroup[] = [
     labelOf: (value, { roots }) => (value === rootless ? noRoot : (roots.get(value) ?? value)),
   },
   { kind: "flag", key: "needs", label: "Needs you", has: (work) => work.needsYou > 0 },
+  { kind: "flag", key: "gone", label: "Files gone", has: (work) => work.goneFiles > 0 },
+  {
+    kind: "flag",
+    key: "scanned",
+    label: "Added by a library scan",
+    has: (work) => work.addedBy === "scan",
+  },
 ];
 
 const minuteMs = 60_000;
