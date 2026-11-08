@@ -97,9 +97,16 @@ func (f *Files) Change(ctx context.Context, _ identity.Admin, c targets.Change, 
 
 // change answers the Impact and the Works c touches.
 func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Change, m Mode) (Impact, []works.WorkID, error) {
-	touched, err := targets.Touches(ctx, tx, c)
+	touched, err := f.cfg.Targets.Touches(ctx, tx, c)
 	if err != nil {
 		return Impact{}, nil, err
+	}
+	var moved moves
+	if touched.Narrow != nil {
+		touched.Works, moved, err = f.flips(ctx, tx, touched.Works, touched.Narrow)
+		if err != nil {
+			return Impact{}, nil, err
+		}
 	}
 	q := db.New(tx)
 	tagged, err := q.ListWorksOfCuts(ctx, touched.Cuts)
@@ -139,6 +146,9 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 	impact := Impact{OwnList: touched.OwnList}
 	for i, was := range before {
 		after := afters[i]
+		if moved != nil {
+			after.scoring.known = moved.onto(was.fills)
+		}
 		p, err := f.converge(ctx, tx, was, after, refill(after), func(File) bool { return m.Unwanted == Delete })
 		if err != nil {
 			return Impact{}, nil, err

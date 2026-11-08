@@ -155,7 +155,7 @@ func checkFill(t *testing.T, target targets.Target, meeting []File, f *File, sco
 
 // scoredOf is f with every marked format its release name matches.
 func scoredOf(f File) targets.Scored {
-	return targets.Scored{Facts: f.Facts(), Formats: marked.Match(f.named()).Matched}
+	return targets.Scored{Facts: f.Facts(), Formats: marked.Match(asNamed(f.Title, f.ReleaseName, release.Fact[release.Language]{})).Matched}
 }
 
 // meetingAt is item's files that meet target.

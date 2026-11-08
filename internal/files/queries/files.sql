@@ -13,6 +13,9 @@ DELETE FROM files_file WHERE id = sqlc.arg(id);
 -- name: ListFilesOfWorks :many
 SELECT * FROM files_file WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY id;
 
+-- name: ListFileReadsOfWorks :many
+SELECT id, work_id, release_name, title_read FROM files_file WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY id;
+
 -- name: ListEveryFile :many
 SELECT * FROM files_file ORDER BY rowid;
 
