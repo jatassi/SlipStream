@@ -1,10 +1,11 @@
-import { useListTorrentsSuspense } from "../api/gen/query/downloadclients/downloadclients";
 import { useNow } from "../tasks/use-now";
 import { StatusSentence } from "../ui/status-sentence";
 import { Browse, type Seams, type TorrentsSearch } from "./browse";
 import { ClientCards } from "./client-cards";
 import { NoTorrents } from "./empty";
+import { GoalMetPreview } from "./goal-met";
 import { useNames } from "./names";
+import { type Scope, useScopedTorrents } from "./scope";
 import { Signals } from "./signals";
 import { signalsOf, torrentsSentence } from "./summary";
 
@@ -15,12 +16,14 @@ const wordsTick = 60_000;
 export function TorrentsView({
   search,
   onSearchChange,
+  scope,
   ...seams
 }: Seams & {
   search: TorrentsSearch;
   onSearchChange: (change: Partial<TorrentsSearch>) => void;
+  scope?: Scope | undefined;
 }) {
-  const list = useListTorrentsSuspense().data;
+  const list = useScopedTorrents(scope);
   const names = useNames();
   const clock = { now: useNow(wordsTick), zone: undefined };
   const cards = <ClientCards rows={list.rows} clock={clock} />;
@@ -28,7 +31,7 @@ export function TorrentsView({
     return (
       <>
         {cards}
-        <NoTorrents />
+        {scope === undefined ? <NoTorrents /> : scope.empty}
       </>
     );
   }
@@ -50,6 +53,7 @@ export function TorrentsView({
         onSearchChange={onSearchChange}
         names={names}
         clock={clock}
+        goalMet={<GoalMetPreview rows={list.rows} names={names} />}
         {...seams}
       />
     </>

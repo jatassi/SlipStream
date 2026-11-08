@@ -34,7 +34,7 @@ func reported(engine dlv1.EngineState, complete bool) *dlv1.TorrentReport {
 var (
 	checking    = reported(dlv1.EngineState_ENGINE_STATE_CHECKING, false)
 	downloading = reported(dlv1.EngineState_ENGINE_STATE_DOWNLOADING, false)
-	seeding     = reported(dlv1.EngineState_ENGINE_STATE_SEEDING, true)
+	seeded      = reported(dlv1.EngineState_ENGINE_STATE_SEEDING, true)
 )
 
 // TestReadinessFollowsTheTorrentsReportAndRemoval is a Transfer's
@@ -51,27 +51,27 @@ func TestReadinessFollowsTheTorrentsReportAndRemoval(t *testing.T) {
 			apply(t, lib, node, id, downloading)
 		}, source.Readiness{State: source.Incomplete, Name: "Orchard"}},
 		{"complete", func(t *testing.T, lib library, node role.NodeID, id dc.ID) {
-			apply(t, lib, node, id, seeding)
+			apply(t, lib, node, id, seeded)
 		}, source.Readiness{State: source.Ready, Name: "Orchard"}},
 		{"checked once complete", func(t *testing.T, lib library, node role.NodeID, id dc.ID) {
-			apply(t, lib, node, id, seeding)
+			apply(t, lib, node, id, seeded)
 			apply(t, lib, node, id, checking)
 		}, source.Readiness{State: source.Checking, Name: "Orchard"}},
 		{"found incomplete by a check", func(t *testing.T, lib library, node role.NodeID, id dc.ID) {
-			apply(t, lib, node, id, seeding)
+			apply(t, lib, node, id, seeded)
 			apply(t, lib, node, id, checking)
 			apply(t, lib, node, id, downloading)
 		}, source.Readiness{State: source.Incomplete, Name: "Orchard"}},
 		{"failed once complete", func(t *testing.T, lib library, node role.NodeID, id dc.ID) {
-			apply(t, lib, node, id, seeding)
+			apply(t, lib, node, id, seeded)
 			apply(t, lib, node, id, failed())
 		}, source.Readiness{State: source.FailedSource, Name: "Orchard", Detail: "disk on fire"}},
 		{"written off", func(t *testing.T, lib library, node role.NodeID, id dc.ID) {
-			apply(t, lib, node, id, seeding)
+			apply(t, lib, node, id, seeded)
 			removeTorrent(t, lib, id, dc.NodeWrittenOff)
 		}, source.Readiness{State: source.WrittenOff, Name: "Orchard"}},
 		{"removed by an Admin", func(t *testing.T, lib library, node role.NodeID, id dc.ID) {
-			apply(t, lib, node, id, seeding)
+			apply(t, lib, node, id, seeded)
 			removeTorrent(t, lib, id, dc.ByAdmin)
 		}, source.Readiness{State: source.Unknown, Name: "Orchard"}},
 		{"attached again after a write-off", func(t *testing.T, lib library, node role.NodeID, id dc.ID) {
@@ -79,7 +79,7 @@ func TestReadinessFollowsTheTorrentsReportAndRemoval(t *testing.T) {
 			partTorrent(t, lib, id)
 			m, raw := dotTorrent(t, "Orchard")
 			again, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: node}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
-			apply(t, lib, node, again, seeding)
+			apply(t, lib, node, again, seeded)
 		}, source.Readiness{State: source.Ready, Name: "Orchard"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -100,7 +100,7 @@ func TestReadinessOfAHashTheNodeNeverHeldIsUnknown(t *testing.T) {
 	box, home := addNode(t, lib, "seedbox"), addNode(t, lib, "home")
 	m, raw := dotTorrent(t, "Orchard")
 	id, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: home}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
-	apply(t, lib, home, id, seeding)
+	apply(t, lib, home, id, seeded)
 	if got := readinessOf(t, lib, clients(), box, source.Torrent{Hash: m.InfoHash}); got != (source.Readiness{}) {
 		t.Errorf("ReadinessIn on seedbox of a hash only home holds = %+v, want Unknown", got)
 	}
@@ -123,7 +123,7 @@ func TestMovedClosesWhenAReportChangesReadiness(t *testing.T) {
 	}{
 		{"the check starts", checking, source.Checking},
 		{"the check ends", downloading, source.Incomplete},
-		{"the download completes", seeding, source.Ready},
+		{"the download completes", seeded, source.Ready},
 	} {
 		moved := c.Moved()
 		step.report.Id = id.Bytes()
@@ -151,7 +151,7 @@ func TestAWriteOffMakesTheSourceWrittenOffAndMoves(t *testing.T) {
 		box := addNode(t, lib, "seedbox")
 		m, raw := dotTorrent(t, "Orchard")
 		id, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: box}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
-		apply(t, lib, box, id, seeding)
+		apply(t, lib, box, id, seeded)
 		r := &roster{}
 		c, _ := newClients(lib, r, nil, nil)
 		ctx, stop := context.WithCancel(context.WithoutCancel(t.Context()))

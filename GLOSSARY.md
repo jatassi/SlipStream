@@ -284,13 +284,21 @@ _Avoid_: Default client, grabs to
 A site a torrent comes from and seeds to. It carries the site's seeding rule, the admin's seeding goals over it, hit and run state and its Tracker routing. A Tracker outlives every Indexer that reaches it.
 _Avoid_: Site, indexer (for the seeding side), tracker (for an announce URL)
 
+**Seeding rule**:
+What a Tracker requires before a torrent may stop seeding: a ratio, a seeding time, and which of them clears it. SlipStream reads it from the minimum ratio and seeding time the Tracker's Releases state, and the Admin can set it.
+_Avoid_: floor, minimums, H&R rule
+
 **Seeding goal**:
-What the built-in client seeds a torrent to: a ratio, a time, how they combine (Whichever first, Both or Forever) and what happens when met. A default goal applies unless a Tracker has its own, and the Tracker's seeding rule is a floor under both. External clients keep their own rules.
+What the built-in client seeds a torrent to: a ratio, a time, how they combine (Whichever first, Both or Forever) and what happens when met. A default goal applies unless a Tracker has its own. It never ends seeding before the Tracker's seeding rule is met. External clients keep their own rules.
 _Avoid_: Seed ratio target, cleanup mode, seeding rule (for the admin's goal)
 
 **Hit and run**:
 Stopping or removing a torrent before its Tracker's seeding rule is met. Each seeding torrent counts down to when removing it no longer counts as one.
 _Avoid_: H&R, HnR
+
+**Hit and run window**:
+The time a private torrent owes its Tracker's seeding rule, from its first downloaded byte until the rule is met. It ends met, missed or released.
+_Avoid_: H&R window
 
 **Indexer**:
 One configured way to search one or more Trackers, such as a catalog definition, a ported site indexer, a Torznab feed or an RSS feed. Each Indexer searches from one home Node. An Indexer that signs in to its site holds a login session and doesn't fail over unless the Admin allows it.
@@ -313,7 +321,7 @@ A service speaking FlareSolverr's API, such as Byparr, that clears a site's brow
 _Avoid_: FlareSolverr (as a generic term), captcha solver
 
 **Tracker routing**:
-Which Download Client a Tracker's Grabs go to.
+Which Download Client a Tracker's Grabs go to, set per Node an Indexer of the Tracker searches from. By default it is the built-in client on that Node.
 _Avoid_: Client mapping, routing rule
 
 **Release**:

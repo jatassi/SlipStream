@@ -919,7 +919,11 @@ type Torrent struct {
 	Order    int64                  `protobuf:"varint,4,opt,name=order,proto3" json:"order,omitempty"`
 	// client_id is the external client that holds it, empty for the
 	// built-in client.
-	ClientId      []byte `protobuf:"bytes,5,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	ClientId []byte `protobuf:"bytes,5,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	// retry_at_unix_ms is the Admin's Retry of a failed torrent while it is
+	// pending, 0 for none: the Node clears its failure and checks its files,
+	// and wanted is paused in the same intent.
+	RetryAtUnixMs int64 `protobuf:"varint,6,opt,name=retry_at_unix_ms,json=retryAtUnixMs,proto3" json:"retry_at_unix_ms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -987,6 +991,13 @@ func (x *Torrent) GetClientId() []byte {
 		return x.ClientId
 	}
 	return nil
+}
+
+func (x *Torrent) GetRetryAtUnixMs() int64 {
+	if x != nil {
+		return x.RetryAtUnixMs
+	}
+	return 0
 }
 
 type Discard struct {
@@ -2338,8 +2349,11 @@ type TorrentReport struct {
 	// stopped_at_limit is an external torrent its client stopped at its
 	// seeding limit.
 	StoppedAtLimit bool `protobuf:"varint,21,opt,name=stopped_at_limit,json=stoppedAtLimit,proto3" json:"stopped_at_limit,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// retry_checked_unix_ms is the Retry whose check ended, 0 before one
+	// did. done is what that check found.
+	RetryCheckedUnixMs int64 `protobuf:"varint,22,opt,name=retry_checked_unix_ms,json=retryCheckedUnixMs,proto3" json:"retry_checked_unix_ms,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *TorrentReport) Reset() {
@@ -2517,6 +2531,13 @@ func (x *TorrentReport) GetStoppedAtLimit() bool {
 		return x.StoppedAtLimit
 	}
 	return false
+}
+
+func (x *TorrentReport) GetRetryCheckedUnixMs() int64 {
+	if x != nil {
+		return x.RetryCheckedUnixMs
+	}
+	return 0
 }
 
 // WantedChange is the wanted state the Node saw change in the client,
@@ -2855,9 +2876,14 @@ type TotalsRow struct {
 	ActiveSeconds  int64                  `protobuf:"varint,4,opt,name=active_seconds,json=activeSeconds,proto3" json:"active_seconds,omitempty"`
 	SeedingSeconds int64                  `protobuf:"varint,5,opt,name=seeding_seconds,json=seedingSeconds,proto3" json:"seeding_seconds,omitempty"`
 	// done is the bytes done, sent only while incomplete.
-	Done          int64 `protobuf:"varint,6,opt,name=done,proto3" json:"done,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Done int64 `protobuf:"varint,6,opt,name=done,proto3" json:"done,omitempty"`
+	// announced_seconds is the seed time the torrent's trackers credited it
+	// by UNIT3D's rule, counted on the Node from its accepted announces. The
+	// Node stores it in the Write that queues the row, so a restart counts
+	// on from it.
+	AnnouncedSeconds int64 `protobuf:"varint,7,opt,name=announced_seconds,json=announcedSeconds,proto3" json:"announced_seconds,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *TotalsRow) Reset() {
@@ -2928,6 +2954,13 @@ func (x *TotalsRow) GetSeedingSeconds() int64 {
 func (x *TotalsRow) GetDone() int64 {
 	if x != nil {
 		return x.Done
+	}
+	return 0
+}
+
+func (x *TotalsRow) GetAnnouncedSeconds() int64 {
+	if x != nil {
+		return x.AnnouncedSeconds
 	}
 	return 0
 }
@@ -4178,8 +4211,13 @@ type TrackerDetail struct {
 	// accepts_at_unix_ms is the earliest the tracker would accept an
 	// announce.
 	AcceptsAtUnixMs int64 `protobuf:"varint,7,opt,name=accepts_at_unix_ms,json=acceptsAtUnixMs,proto3" json:"accepts_at_unix_ms,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// seeders and leechers are the counts the tracker's last announce
+	// response carried, unset while none did. Only Inspect carries them, so
+	// an announce changes no report.
+	Seeders       *int32 `protobuf:"varint,8,opt,name=seeders,proto3,oneof" json:"seeders,omitempty"`
+	Leechers      *int32 `protobuf:"varint,9,opt,name=leechers,proto3,oneof" json:"leechers,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TrackerDetail) Reset() {
@@ -4257,6 +4295,20 @@ func (x *TrackerDetail) GetMinIntervalSeconds() int64 {
 func (x *TrackerDetail) GetAcceptsAtUnixMs() int64 {
 	if x != nil {
 		return x.AcceptsAtUnixMs
+	}
+	return 0
+}
+
+func (x *TrackerDetail) GetSeeders() int32 {
+	if x != nil && x.Seeders != nil {
+		return *x.Seeders
+	}
+	return 0
+}
+
+func (x *TrackerDetail) GetLeechers() int32 {
+	if x != nil && x.Leechers != nil {
+		return *x.Leechers
 	}
 	return 0
 }
@@ -4809,13 +4861,14 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"thresholds\x18\x05 \x01(\v2%.slipstream.downloading.v1.ThresholdsR\n" +
 	"thresholds\x120\n" +
 	"\x14sample_every_seconds\x18\x06 \x01(\x03R\x12sampleEverySeconds\x12;\n" +
-	"\aclients\x18\a \x03(\v2!.slipstream.downloading.v1.ClientR\aclients\"\xa4\x01\n" +
+	"\aclients\x18\a \x03(\v2!.slipstream.downloading.v1.ClientR\aclients\"\xcd\x01\n" +
 	"\aTorrent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x1b\n" +
 	"\tinfo_hash\x18\x02 \x01(\fR\binfoHash\x129\n" +
 	"\x06wanted\x18\x03 \x01(\x0e2!.slipstream.downloading.v1.WantedR\x06wanted\x12\x14\n" +
 	"\x05order\x18\x04 \x01(\x03R\x05order\x12\x1b\n" +
-	"\tclient_id\x18\x05 \x01(\fR\bclientId\"v\n" +
+	"\tclient_id\x18\x05 \x01(\fR\bclientId\x12'\n" +
+	"\x10retry_at_unix_ms\x18\x06 \x01(\x03R\rretryAtUnixMs\"v\n" +
 	"\aDiscard\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x1b\n" +
 	"\tinfo_hash\x18\x02 \x01(\fR\binfoHash\x12!\n" +
@@ -4917,7 +4970,7 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x0fseeding_seconds\x18\x05 \x01(\x03R\x0eseedingSeconds\x12\x12\n" +
 	"\x04done\x18\x06 \x01(\x03R\x04done\"N\n" +
 	"\bTorrents\x12B\n" +
-	"\areports\x18\x01 \x03(\v2(.slipstream.downloading.v1.TorrentReportR\areports\"\xaa\a\n" +
+	"\areports\x18\x01 \x03(\v2(.slipstream.downloading.v1.TorrentReportR\areports\"\xdd\a\n" +
 	"\rTorrentReport\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x1c\n" +
 	"\n" +
@@ -4944,7 +4997,8 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x03run\x18\x12 \x01(\x0e2!.slipstream.downloading.v1.WantedR\x03run\x12)\n" +
 	"\x11import_at_unix_ms\x18\x13 \x01(\x03R\x0eimportAtUnixMs\x12%\n" +
 	"\x0equeue_position\x18\x14 \x01(\x05R\rqueuePosition\x12(\n" +
-	"\x10stopped_at_limit\x18\x15 \x01(\bR\x0estoppedAtLimit\"x\n" +
+	"\x10stopped_at_limit\x18\x15 \x01(\bR\x0estoppedAtLimit\x121\n" +
+	"\x15retry_checked_unix_ms\x18\x16 \x01(\x03R\x12retryCheckedUnixMs\"x\n" +
 	"\fWantedChange\x125\n" +
 	"\x04from\x18\x01 \x01(\x0e2!.slipstream.downloading.v1.WantedR\x04from\x121\n" +
 	"\x02to\x18\x02 \x01(\x0e2!.slipstream.downloading.v1.WantedR\x02to\"\xa8\x01\n" +
@@ -4965,7 +5019,7 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\n" +
 	"at_unix_ms\x18\x02 \x01(\x03R\batUnixMs\"B\n" +
 	"\x06Totals\x128\n" +
-	"\x04rows\x18\x01 \x03(\v2$.slipstream.downloading.v1.TotalsRowR\x04rows\"\xbb\x01\n" +
+	"\x04rows\x18\x01 \x03(\v2$.slipstream.downloading.v1.TotalsRowR\x04rows\"\xe8\x01\n" +
 	"\tTotalsRow\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x1a\n" +
 	"\buploaded\x18\x02 \x01(\x03R\buploaded\x12\x1e\n" +
@@ -4974,7 +5028,8 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"downloaded\x12%\n" +
 	"\x0eactive_seconds\x18\x04 \x01(\x03R\ractiveSeconds\x12'\n" +
 	"\x0fseeding_seconds\x18\x05 \x01(\x03R\x0eseedingSeconds\x12\x12\n" +
-	"\x04done\x18\x06 \x01(\x03R\x04done\".\n" +
+	"\x04done\x18\x06 \x01(\x03R\x04done\x12+\n" +
+	"\x11announced_seconds\x18\a \x01(\x03R\x10announcedSeconds\".\n" +
 	"\x06Parted\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\fR\x02id\x12\x14\n" +
 	"\x05freed\x18\x02 \x01(\x03R\x05freed\"\x8c\x01\n" +
@@ -5052,7 +5107,7 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x13announce_at_unix_ms\x18\x03 \x01(\x03R\x10announceAtUnixMs\"8\n" +
 	"\fFileProgress\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\x05R\x05index\x12\x12\n" +
-	"\x04done\x18\x02 \x01(\x03R\x04done\"\xc2\x02\n" +
+	"\x04done\x18\x02 \x01(\x03R\x04done\"\x9b\x03\n" +
 	"\rTrackerDetail\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\x05R\x05index\x12@\n" +
 	"\x06status\x18\x02 \x01(\x0e2(.slipstream.downloading.v1.TrackerStatusR\x06status\x12\x18\n" +
@@ -5060,7 +5115,12 @@ const file_slipstream_downloading_v1_downloading_proto_rawDesc = "" +
 	"\x13answered_at_unix_ms\x18\x04 \x01(\x03R\x10answeredAtUnixMs\x121\n" +
 	"\x15next_announce_unix_ms\x18\x05 \x01(\x03R\x12nextAnnounceUnixMs\x120\n" +
 	"\x14min_interval_seconds\x18\x06 \x01(\x03R\x12minIntervalSeconds\x12+\n" +
-	"\x12accepts_at_unix_ms\x18\a \x01(\x03R\x0facceptsAtUnixMs\"P\n" +
+	"\x12accepts_at_unix_ms\x18\a \x01(\x03R\x0facceptsAtUnixMs\x12\x1d\n" +
+	"\aseeders\x18\b \x01(\x05H\x00R\aseeders\x88\x01\x01\x12\x1f\n" +
+	"\bleechers\x18\t \x01(\x05H\x01R\bleechers\x88\x01\x01B\n" +
+	"\n" +
+	"\b_seedersB\v\n" +
+	"\t_leechers\"P\n" +
 	"\n" +
 	"ActRequest\x120\n" +
 	"\x03act\x18\x01 \x01(\x0e2\x1e.slipstream.downloading.v1.ActR\x03act\x12\x10\n" +
@@ -5397,6 +5457,7 @@ func file_slipstream_downloading_v1_downloading_proto_init() {
 		(*ResolveResponse_Held)(nil),
 		(*ResolveResponse_NotTaking)(nil),
 	}
+	file_slipstream_downloading_v1_downloading_proto_msgTypes[46].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

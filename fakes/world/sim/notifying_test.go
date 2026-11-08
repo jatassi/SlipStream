@@ -126,6 +126,7 @@ func testMail(t *testing.T, a *worldtest.API, session string) sent {
 // neither does home, and once seedbox lapses home covers Notifying and
 // sends the mail itself.
 func TestMailGoesThroughTheNodeThatSendsIt(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t))
 		a := w.API()
@@ -174,6 +175,7 @@ func TestMailGoesThroughTheNodeThatSendsIt(t *testing.T) {
 // nothing listens at, so seedbox's reach test fails and the move is
 // blocked.
 func TestAMailServerSeedboxCantReachBlocksNotifyingThere(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t))
 		a := w.API()

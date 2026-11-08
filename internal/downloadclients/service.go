@@ -49,7 +49,7 @@ func (s ControlService) Torrent(ctx context.Context, req *dlv1.TorrentRequest) (
 		Metainfo: row.Metainfo,
 		Baseline: &dlv1.TotalsRow{
 			Id: id.Bytes(), Uploaded: row.Uploaded, Downloaded: row.Downloaded,
-			ActiveSeconds: row.ActiveSeconds, SeedingSeconds: row.SeedingSeconds,
+			ActiveSeconds: row.ActiveSeconds, SeedingSeconds: row.SeedingSeconds, AnnouncedSeconds: row.AnnouncedSeconds,
 		},
 		ContentType: desc.Name,
 	}

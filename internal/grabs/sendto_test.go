@@ -198,8 +198,8 @@ func TestSendToIsRefusedForAFinishedDownloadOrAnOffClient(t *testing.T) {
 
 		run(t, s.lib, sql(`UPDATE downloadclients_torrent SET report = ?, reported_at = ?, completed_at = ?, completion = '{"files":[]}'`,
 			seedingReport, storage.Now(), storage.Now()))
-		if err := s.sendTo(downloadclients.Choice{BuiltInOn: s.media}); !errors.Is(err, grabs.ErrNotDownloading) {
-			t.Errorf("a send of a finished download answered %v, want ErrNotDownloading", err)
+		if err := s.sendTo(downloadclients.Choice{BuiltInOn: s.media}); !errors.Is(err, grabs.ErrNotSendable) {
+			t.Errorf("a send of a finished download answered %v, want ErrNotSendable", err)
 		}
 	})
 }

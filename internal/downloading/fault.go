@@ -1,10 +1,13 @@
 package downloading
 
 import (
+	"context"
 	"errors"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/downloading/internal/db"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 )
 
@@ -16,15 +19,54 @@ func (t *torrent) recordFault(kind dlv1.FaultKind, at time.Time) {
 	}
 }
 
-// fail records that the engine failed t with err, and an engine error
-// fault when err is the torrent's own.
-func (t *torrent) fail(err error, at time.Time) {
+// fail records that the engine failed t with err, in memory and in its
+// local row, and an engine error fault when err is the torrent's own.
+func (l *loop) fail(t *torrent, err error, at time.Time) {
 	t.failed = err.Error()
 	if e, ok := errors.AsType[*engine.Error](err); ok {
 		t.failed = e.Text
 	}
 	if blamesTheTorrent(err) {
 		t.recordFault(dlv1.FaultKind_FAULT_KIND_ENGINE_ERROR, at)
+	}
+	l.storeFailed(t)
+}
+
+// retry acts on the intent's Retry at: it clears t's failure and checks
+// its files, whatever it acted on before a restart, so a Retry the Node
+// restarted in the middle of runs its check again. The intent pauses t
+// in the same snapshot, so the check starts no download.
+func (l *loop) retry(t *torrent, at int64) {
+	t.retried, t.NeedsCheck = at, true
+	if t.failed != "" {
+		t.failed = ""
+		l.storeFailed(t)
+	}
+}
+
+// found reads what t's check found, for the report that names its Retry.
+func (l *loop) found(t *torrent) {
+	done, err := l.eng.FileProgress(t.handle)
+	if err != nil {
+		l.call(t, "read what a torrent's check found", err)
+		return
+	}
+	t.status.Done = 0
+	for _, d := range done {
+		t.status.Done += d
+	}
+}
+
+func (l *loop) storeFailed(t *torrent) {
+	var failed *string
+	if t.failed != "" {
+		failed = &t.failed
+	}
+	err := l.local.Write(context.Background(), func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
+		return db.New(tx).SetFailed(ctx, db.SetFailedParams{Failed: failed, InfoHash: t.Hash[:]})
+	})
+	if err != nil {
+		l.c.cfg.Log.Error("record a torrent's failure", "info_hash", t.Hash.String(), "err", err.Error())
 	}
 }
 

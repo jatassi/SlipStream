@@ -115,7 +115,8 @@ export const ListTorrentsQueryParams = zod.object({
     .array(zod.uuid())
     .nullish()
     .describe("Only these Torrents, such as the ones a torrents.changed named"),
-  tab: zod.enum(["downloading", "seeding", "problems", "all"]).exactOptional(),
+  tab: zod.enum(["downloading", "seeding", "problems", "goal-met", "all"]).exactOptional(),
+  tracker: zod.uuid().exactOptional().describe("Only the Torrents of this Tracker"),
   nodeId: zod.uuid().exactOptional(),
   contentType: zod.string().exactOptional(),
   client: zod

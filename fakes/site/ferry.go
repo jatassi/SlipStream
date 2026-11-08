@@ -38,8 +38,8 @@ func (s *site) ferryBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 	var b strings.Builder
 	b.WriteString("<ul>")
-	for _, rel := range s.found(r.URL.Query().Get("q")) {
-		magnet, err := s.magnet(rel, fake.OriginOf(r.Context()))
+	for _, rel := range s.found(r, r.URL.Query().Get("q")) {
+		magnet, err := s.magnet(r, rel)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -73,7 +73,7 @@ func (s *site) ferryDetails(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	hash := r.PathValue("hash")
-	if _, ok := s.byHash(hash); !ok {
+	if _, ok := s.byHash(r, hash); !ok {
 		http.NotFound(w, r)
 		return
 	}
@@ -90,7 +90,7 @@ func (s *site) ferryDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	hash, _ := strings.CutSuffix(r.PathValue("file"), ".torrent")
-	rel, ok := s.byHash(hash)
+	rel, ok := s.byHash(r, hash)
 	if !ok {
 		http.NotFound(w, r)
 		return

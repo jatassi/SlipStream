@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 
 import type { DownloadclientsTorrentRow } from "../api/gen/model";
 import { homeId, listOf, seedboxId, torrent } from "../test/torrents";
-import { matches, paceOf, rateWords, seedWords, stateLine, trackerLine } from "./model";
+import { matches, paceOf, rateWords, stateLine, trackerLine } from "./model";
 import { signalsOf, torrentsSentence } from "./summary";
 
 const clock = { now: new Date("2026-10-20T12:00:00Z"), zone: "UTC" };
@@ -92,7 +92,7 @@ test.each<
   ["an engine failure", { state: "failed", error: "file too short" }, false, "file too short"],
   [
     "an unregistered torrent",
-    { state: "tracker-error", tracker: { host: "beacon.example", status: "unregistered" } },
+    { state: "tracker-error", announce: { host: "beacon.example", status: "unregistered" } },
     false,
     "Unregistered by beacon.example",
   ],
@@ -153,7 +153,7 @@ test.each([
   expect(trackerLine(cell, clock)).toEqual(words);
 });
 
-test("rates, a pace only while downloading, and seed words", () => {
+test("rates and a pace only while downloading", () => {
   expect(rateWords(0)).toBe("—");
   expect(rateWords(4.1 * 1024 * 1024)).toBe("4.1 MB/s");
   expect(rateWords(597)).toBe("0.6 KB/s");
@@ -161,12 +161,6 @@ test("rates, a pace only while downloading, and seed words", () => {
   expect(paceOf("downloading", moving)).toEqual({ eta: "10 min left", rate: "1.0 MB/s" });
   expect(paceOf("downloading", { ...live, downBps: 0, wanted: 10 })).toEqual({ eta: "", rate: "" });
   expect(paceOf("paused", moving)).toEqual({ eta: "", rate: "" });
-  expect(seedWords(torrent({ state: "seeding", seedingSeconds: 6 * 86_400 }))).toBe(
-    "Seeded 6 days",
-  );
-  expect(seedWords(torrent({ state: "seeding", seedingSeconds: 30 }))).toBe(
-    "Seeding since just now",
-  );
 });
 
 test("a filter matches the tab, the Node, the Content Type and the Work or Release name", () => {
@@ -193,7 +187,7 @@ const down = (host: string, at: string) =>
     state: "tracker-error",
     severity: "warning",
     addedAt: at,
-    tracker: { host, status: "error", message: "Tracker is down" },
+    announce: { host, status: "error", message: "Tracker is down" },
   });
 
 test("one tracker down for many seeds is one warning holding them all", () => {
@@ -225,7 +219,7 @@ test("failures lead the warnings, each cause with its oldest torrent first", () 
     state: "tracker-error",
     severity: "failure",
     addedAt: "2026-10-12T09:00:00Z",
-    tracker: { host: "beacon.example", status: "unregistered" },
+    announce: { host: "beacon.example", status: "unregistered" },
   });
   const guarded = torrent({
     state: "queued",

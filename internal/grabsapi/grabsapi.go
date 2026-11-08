@@ -44,7 +44,7 @@ var (
 	grabNotFound    = api.NewCode(http.StatusNotFound, "grab_not_found", "No Grab has that id")
 	indexerNotFound = api.NewCode(http.StatusNotFound, "indexer_not_found", "No Indexer has that id")
 
-	grabNotDownloading  = api.NewCode(http.StatusConflict, "grab_not_downloading", "This Grab isn't downloading")
+	grabNotSendable     = api.NewCode(http.StatusConflict, "grab_not_sendable", "This Grab can't be sent to another client")
 	grabTorrentInClient = api.NewCode(http.StatusConflict, "grab_torrent_in_client", "This client's Node already has the torrent")
 	clientNotFound      = api.NewCode(http.StatusNotFound, "download_client_not_found", "No Download Client has this id")
 	clientRefused       = api.NewCode(http.StatusUnprocessableEntity, "download_client_field_refused", "SlipStream can't use a value in this client's settings")
@@ -211,6 +211,11 @@ type grabClient struct {
 	Kind string `json:"kind" enum:"qbittorrent,transmission,deluge,rtorrent"`
 }
 
+type clientWait struct {
+	NodeID string                   `json:"nodeId" format:"uuid" doc:"The client's Node, which is offline"`
+	Client api.Nullable[grabClient] `json:"client" doc:"The external client; null for the Node's built-in client"`
+}
+
 type grab struct {
 	ID           string                   `json:"id" format:"uuid"`
 	WorkID       string                   `json:"workId" format:"uuid"`
@@ -233,6 +238,7 @@ type grab struct {
 	Progress     *progress                `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
 	Metadata     *metadataSearch          `json:"metadata,omitempty" doc:"The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node"`
 	FetchWait    *fetchWait               `json:"fetchWait,omitempty" doc:"Why fetching the .torrent waits on its Indexer, absent unless it does"`
+	WaitsFor     *clientWait              `json:"waitsFor,omitempty" doc:"The client a fetching Grab goes to, absent unless it waits for that client's Node to be back online"`
 	CreatedAt    time.Time                `json:"createdAt"`
 }
 
@@ -275,6 +281,12 @@ func grabOf(v grabs.View) grab {
 		out.FetchWait = &fetchWait{Sentence: w.Sentence}
 		if !w.Outcome.Until.IsZero() {
 			out.FetchWait.Until = &w.Outcome.Until
+		}
+	}
+	if w := v.WaitsFor; w != nil {
+		out.WaitsFor = &clientWait{NodeID: w.Node.String()}
+		if c := w.Client; c != nil {
+			out.WaitsFor.Client = api.Some(grabClient{ID: c.ID.String(), Name: c.Name, Kind: string(c.Kind)})
 		}
 	}
 	return out
@@ -345,9 +357,9 @@ func Routes(r *api.Router, p Pipeline) {
 		ID:      "sendGrabTo",
 		Method:  http.MethodPost,
 		Path:    "/grabs/{grabId}/send-to",
-		Summary: "Send a downloading Grab's torrent to another Download Client",
+		Summary: "Send a Grab to another Download Client: a downloading Grab's torrent, or a Grab whose fetch waits for its client's Node, which then fetches for the new client",
 		Status:  http.StatusNoContent,
-		Errors:  []*api.Code{grabNotFound, grabNotDownloading, grabTorrentInClient, clientNotFound, clientRefused, nodeNotDownloading},
+		Errors:  []*api.Code{grabNotFound, grabNotSendable, grabTorrentInClient, clientNotFound, clientRefused, nodeNotDownloading},
 	}, h.sendTo)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listIndexerGrabs",
@@ -500,8 +512,8 @@ func (h handlers) sendTo(ctx context.Context, by identity.Admin, in *sendToInput
 		inClient *downloadclients.InClientError
 	)
 	switch {
-	case errors.Is(err, grabs.ErrNotDownloading):
-		return nil, grabNotDownloading
+	case errors.Is(err, grabs.ErrNotSendable):
+		return nil, grabNotSendable.Because("Only a download that hasn't finished, or a Grab waiting for its client's Node, can be sent to another client.")
 	case errors.As(err, &inClient):
 		return nil, grabTorrentInClient.Because(downloadclients.InClient(inClient.Client, inClient.Node))
 	case errors.Is(err, downloadclients.ErrRemoving):

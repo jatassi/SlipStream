@@ -48,6 +48,7 @@ func cgnatHome(t *testing.T) *sim.World {
 // home's session. home records the address and dials seedbox from then
 // on, across a restart of both Nodes.
 func TestAControllerDialsANodeBehindCGNAT(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := cgnatHome(t)
 		a := w.API()
@@ -101,6 +102,7 @@ func TestAControllerDialsANodeBehindCGNAT(t *testing.T) {
 // meanwhile answers join_pending, and once home dials, getWorkerClaim
 // reads the Join as joined and the topology draws the link from home.
 func TestASetupJoinAwaitsTheDial(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := cgnatHome(t)
 		a := w.API()

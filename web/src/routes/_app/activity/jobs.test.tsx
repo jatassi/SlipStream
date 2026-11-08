@@ -239,6 +239,7 @@ test("a downloading Job's menu pauses its torrent and removes it through the sam
       stopSeeding: [],
       frees: 734_003_200,
       linked: false,
+      hitAndRun: [],
     },
   });
   renderApp({ path: "/activity", handlers: [actions.handler, ...activityServer().handlers] });

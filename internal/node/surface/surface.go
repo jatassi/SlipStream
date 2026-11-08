@@ -41,6 +41,8 @@ import (
 	"github.com/jatassi/slipstream/internal/targetsapi"
 	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/tasksapi"
+	"github.com/jatassi/slipstream/internal/trackers"
+	"github.com/jatassi/slipstream/internal/trackersapi"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/transfersapi"
 	"github.com/jatassi/slipstream/internal/works"
@@ -71,6 +73,7 @@ var Events = []live.Event{
 	indexers.CatalogChangedEvent,
 	indexers.SettingsChangedEvent,
 	indexers.TrackersEvent,
+	trackers.SeedingChangedEvent,
 	files.ChangedEvent,
 	grabs.ChangedEvent,
 	grabs.SearchChangedEvent,
@@ -98,6 +101,7 @@ type Node interface {
 	targetsapi.Goals
 	rootsapi.Folders
 	indexersapi.Registry
+	trackersapi.Registry
 	filesapi.Library
 	grabsapi.Pipeline
 	downloadclientsapi.Clients
@@ -133,6 +137,7 @@ func Mount(r *api.Router, s Services) {
 	formatsapi.Routes(r, s.Node)
 	rootsapi.Routes(r, s.Node)
 	indexersapi.Routes(r, s.Node)
+	trackersapi.Routes(r, s.Node)
 	filesapi.Routes(r, s.Node)
 	grabsapi.Routes(r, s.Node)
 	downloadclientsapi.Routes(r, s.Node)

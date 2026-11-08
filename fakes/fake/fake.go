@@ -159,7 +159,8 @@ type Env struct {
 	Dir string
 	// Leaf serves a run-CA certificate for Spec.LeafNames, for an OwnTLS fake,
 	// and is nil otherwise.
-	Leaf *tls.Config
+	Leaf   *tls.Config
+	Shared *Shared
 
 	captures []CaptureSpec
 	sink     Sink
@@ -181,6 +182,7 @@ func NewEnv(s scenario.Scenario, spec Spec, log *slog.Logger, faults *fault.Plan
 		Log:      log.With("fake", spec.Name),
 		Streams:  node.NewStreams(s.Seed + "/fake/" + spec.Name),
 		Faults:   faults,
+		Shared:   NewShared(),
 		captures: spec.Captures,
 		sink:     sink,
 		cueSpecs: spec.Cues,

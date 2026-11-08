@@ -178,6 +178,7 @@ export const homeCard: DownloadclientsClientCard = {
   client: { ...unbound, bound: "192.168.1.20:6881" },
   limits,
   torrents: 12,
+  trackers: [],
   totals: {
     uploaded: 3 * 1024 ** 4,
     downloaded: 900 * 1024 ** 3,
@@ -201,6 +202,7 @@ export const seedboxCard: DownloadclientsClientCard = {
   },
   limits,
   torrents: 1,
+  trackers: [],
   totals: { uploaded: 0, downloaded: 0, seedingSeconds: 0, activeSeconds: 0 },
 };
 

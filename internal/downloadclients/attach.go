@@ -79,6 +79,29 @@ func RepointTracker(ctx context.Context, tx *storage.Tx[storage.Library], from, 
 	return db.New(tx).RepointTracker(ctx, db.RepointTrackerParams{IntoID: &into, FromID: &from})
 }
 
+// OfTracker is how many live Torrents name Tracker t, which block its
+// removal, and the removed ones that do.
+func OfTracker(ctx context.Context, r storage.Reader[storage.Library], t indexers.TrackerID) (live int, removed []ID, err error) {
+	rows, err := db.New(r).ListTorrentsOfTracker(ctx, &t)
+	if err != nil {
+		return 0, nil, err
+	}
+	for _, row := range rows {
+		if row.Live {
+			live++
+		} else {
+			removed = append(removed, row.ID)
+		}
+	}
+	return live, removed, nil
+}
+
+// ForgetTracker sets tracker_id NULL on every removed Torrent naming t, in
+// a Tracker's removal.
+func ForgetTracker(ctx context.Context, tx *storage.Tx[storage.Library], t indexers.TrackerID) error {
+	return db.New(tx).ForgetTracker(ctx, &t)
+}
+
 func insert(ctx context.Context, q *db.Queries, id ID, want Want, now storage.Time) error {
 	m := want.Metainfo
 	trackers, err := json.Marshal(HostsOf(m.Trackers()))
@@ -104,7 +127,7 @@ func insert(ctx context.Context, q *db.Queries, id ID, want Want, now storage.Ti
 		ID: id, NodeID: want.Target.Node, ClientID: want.Target.Client, InfoHash: m.InfoHash[:], Metainfo: want.Raw, Name: m.Info.Name, Size: size,
 		Private: private, Trackers: string(trackers), ContentType: want.ContentType, TrackerID: trackerOf(want), AddedOrder: order, AddedAt: now,
 		Uploaded: totals.Uploaded, Downloaded: totals.Downloaded, ActiveSeconds: totals.ActiveSeconds,
-		SeedingSeconds: totals.SeedingSeconds, TotalsAt: totals.TotalsAt,
+		SeedingSeconds: totals.SeedingSeconds, AnnouncedSeconds: totals.AnnouncedSeconds, TotalsAt: totals.TotalsAt,
 	})
 }
 

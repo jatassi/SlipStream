@@ -1,5 +1,6 @@
 import type { GrabsGrab } from "../api/gen/model";
 import { orchardId, orchardItemId } from "./library";
+import { seedboxId } from "./nodes";
 
 export const grabId = "6c8e0a2b-4d6f-4b8a-9c1e-5f7a9b1d3e5f";
 export const indexerId = "0e2a4c6e-8f1b-4d3f-a5c7-e9b1d3f5a7c9";
@@ -33,6 +34,18 @@ export const waitingToFetch: GrabsGrab = {
     sentence: "Waiting to fetch the .torrent from Fixture Site. SlipStream retries at 14:20.",
     until: "2026-10-12T14:20:00Z",
   },
+};
+
+/**
+ * A private Tracker's Grab whose route is the built-in client on seedbox,
+ * waiting to fetch while seedbox is offline.
+ */
+export const waitingForSeedbox: GrabsGrab = {
+  ...fetched,
+  nodeId: seedboxId,
+  torrentId: null,
+  infoHash: null,
+  waitsFor: { nodeId: seedboxId, client: null },
 };
 
 export const downloading: GrabsGrab = {

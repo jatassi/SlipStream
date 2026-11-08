@@ -16,6 +16,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/fakes/site"
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
@@ -360,7 +361,7 @@ func checkAnnounces(t *testing.T, w walked, downloader world.Node) {
 	if ours[0].Event != "started" {
 		t.Fatalf("the downloader's first announce = %+v, want started", ours[0])
 	}
-	passkey := tracker.Passkey(w.s)
+	passkey := tracker.Passkey(w.s, site.Torznab)
 	completed := false
 	for _, an := range ours {
 		if an.Passkey != passkey || an.Failure != "" {

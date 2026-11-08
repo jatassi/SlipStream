@@ -33,9 +33,6 @@ import (
 const PieceLength = 256 << 10
 
 type Catalog struct {
-	// Passkey is the one passkey fake-tracker accepts, derived from the
-	// Scenario seed.
-	Passkey  string
 	Releases []Release
 }
 
@@ -60,9 +57,13 @@ func (c *Catalog) ByInfoHash(h bencode.InfoHash) (Release, bool) {
 	return Release{}, false
 }
 
-// Passkey is the tracker passkey of a world with Scenario s.
-func Passkey(s scenario.Scenario) string {
-	r := node.NewStreams(s.Seed + "/releases").Stream("passkey")
+// Seeders is the account fixture-seeders announce as. Every other account
+// is a fixture-site site's, named by its label.
+const Seeders = "seeders"
+
+// Passkey is account's tracker passkey in a world with Scenario s.
+func Passkey(s scenario.Scenario, account string) string {
+	r := node.NewStreams(s.Seed + "/releases").Stream("passkey/" + account)
 	return fmt.Sprintf("%016x%016x", r.Uint64(), r.Uint64())
 }
 
@@ -87,10 +88,11 @@ func CacheDir() (string, error) {
 	return filepath.Join(dir, "slipstream-fixtures"), nil
 }
 
-// Build makes the catalog of s's releases. A Scenario without releases
-// gets a catalog of only its passkey, and runs no ffmpeg.
+// Build makes the catalog of s's releases, whose metainfo announces as
+// Seeders. A Scenario without releases gets an empty catalog, and runs no
+// ffmpeg.
 func Build(ctx context.Context, s scenario.Scenario, cfg Config) (*Catalog, error) {
-	c := &Catalog{Passkey: Passkey(s)}
+	c := &Catalog{}
 	if len(s.Releases) == 0 {
 		return c, nil
 	}
@@ -101,7 +103,7 @@ func Build(ctx context.Context, s scenario.Scenario, cfg Config) (*Catalog, erro
 	if err := os.MkdirAll(cfg.Dir, 0o755); err != nil {
 		return nil, fmt.Errorf("create the release folder: %w", err)
 	}
-	announce := "https://" + cfg.Tracker.String() + "/announce/" + c.Passkey
+	announce := "https://" + cfg.Tracker.String() + "/announce/" + Passkey(s, Seeders)
 	for _, r := range s.Releases {
 		cached, err := payload(ctx, cfg, version, r.Video)
 		if err != nil {

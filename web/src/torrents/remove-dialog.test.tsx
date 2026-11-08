@@ -50,6 +50,7 @@ const shared: DownloadclientsPreview = {
   stopSeeding: [harvestId],
   frees: 15_246_000_000,
   linked: false,
+  hitAndRun: [],
 };
 
 test("removing a torrent SlipStream attached to stops tracking it and offers no delete", async () => {

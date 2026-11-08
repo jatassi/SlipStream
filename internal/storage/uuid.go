@@ -2,7 +2,9 @@ package storage
 
 import (
 	"database/sql/driver"
+	"encoding/binary"
 	"fmt"
+	"sync"
 	"uuid"
 )
 
@@ -20,7 +22,26 @@ type UUID struct {
 	u uuid.UUID
 }
 
-func NewUUID() UUID { return UUID{u: uuid.NewV7()} }
+// minted is the timestamp of the last id NewUUID minted, in uuid.NewV7's
+// units of 1/4096 ms.
+var minted struct {
+	mu sync.Mutex
+	at uint64
+}
+
+// NewUUID mints an id that sorts after every id minted before it in this
+// process. uuid.NewV7 alone starts again from the clock when the clock
+// steps back, as it does between synctest bubbles that run side by side.
+func NewUUID() UUID {
+	u := uuid.NewV7()
+	hi := binary.BigEndian.Uint64(u[:8])
+	minted.mu.Lock()
+	at := max(hi>>16<<12|hi&0x0fff, minted.at+1)
+	minted.at = at
+	minted.mu.Unlock()
+	binary.BigEndian.PutUint64(u[:8], at>>12<<16|hi&0xf000|at&0x0fff)
+	return UUID{u: u}
+}
 
 func ParseUUID(s string) (UUID, error) {
 	u, err := uuid.Parse(s)

@@ -58,7 +58,7 @@ func newWorld(t *testing.T, serve served, s scenario.Scenario) catalogWorld {
 	if err != nil {
 		t.Fatal(err)
 	}
-	catalog := &releases.Catalog{Passkey: "p4ss", Releases: []releases.Release{
+	catalog := &releases.Catalog{Releases: []releases.Release{
 		{Release: scenario.Release{Name: orchard, TMDBID: 9000001, Seeders: 12}, Metainfo: meta, InfoHash: hash, Size: 6000},
 		{Release: scenario.Release{Name: meadow, TMDBID: 9000004, Seeders: 3, Link: scenario.MagnetLink}, InfoHash: bencode.InfoHash{1}, Size: 5000},
 	}}

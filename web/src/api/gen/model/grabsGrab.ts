@@ -1,3 +1,4 @@
+import type { GrabsClientWait } from "./grabsClientWait.ts";
 import type { GrabsEntered } from "./grabsEntered.ts";
 import type { GrabsFailure } from "./grabsFailure.ts";
 import type { GrabsFetchWait } from "./grabsFetchWait.ts";
@@ -60,5 +61,7 @@ export interface GrabsGrab {
    * @nullable
    */
   trackerId: string | null;
+  /** The client a fetching Grab goes to, absent unless it waits for that client's Node to be back online */
+  waitsFor?: GrabsClientWait;
   workId: string;
 }

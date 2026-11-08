@@ -8,11 +8,13 @@ import (
 	"slices"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients/internal/db"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/clients"
+	"github.com/jatassi/slipstream/internal/trackers/seeding"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -35,6 +37,8 @@ type Use struct {
 	// probed one.
 	File    *int
 	Created time.Time
+	// Floor is the seeding rule its Release stated, nil for none.
+	Floor seeding.Rule
 }
 
 type UseStage string
@@ -55,6 +59,9 @@ const (
 	Resume   ActionKind = "resume"
 	Announce ActionKind = "announce"
 	Recheck  ActionKind = "recheck"
+	// Retry checks the files of a failed Torrent that had completed: it
+	// seeds again once all its data is there, and stays paused otherwise.
+	Retry ActionKind = "retry"
 	// MarkFailed removes a stalled download with its download copy, and
 	// fails its downloading Grabs as download_failed.
 	MarkFailed ActionKind = "mark-failed"
@@ -62,7 +69,7 @@ const (
 )
 
 // ActionKinds is every ActionKind.
-var ActionKinds = []ActionKind{Pause, Resume, Announce, Recheck, MarkFailed, Remove}
+var ActionKinds = []ActionKind{Pause, Resume, Announce, Recheck, Retry, MarkFailed, Remove}
 
 type Action struct {
 	Kind ActionKind
@@ -109,6 +116,9 @@ const (
 	RefusedNotRunning RefusalCode = "not_running"
 	// RefusedFailed is announce or recheck of a Torrent the engine failed.
 	RefusedFailed RefusalCode = "failed"
+	// RefusedNotRetryable is Retry of a Torrent that isn't failed, that
+	// failed before it completed, or that an external client holds.
+	RefusedNotRetryable RefusalCode = "not_retryable"
 )
 
 type Refusal struct {
@@ -133,6 +143,18 @@ type Preview struct {
 	Frees *int64
 	// Linked is some file also being a library file: a recheck reads it.
 	Linked bool
+	// HitAndRun are the Torrents whose removal counts as a hit and run, in
+	// the action's order: each is the last live copy of an info hash that
+	// still owes its Tracker.
+	HitAndRun []HitAndRun
+}
+
+type HitAndRun struct {
+	ID ID
+	// Tracker is nil while the Tracker it owes isn't known.
+	Tracker *TrackerRef
+	// Owes is nil while its Tracker's rule isn't known.
+	Owes *seeding.Owes
 }
 
 // Act runs a on each of its Torrents and answers for each, in a's order,
@@ -153,6 +175,8 @@ func (c *Clients) Act(ctx context.Context, a Action) ([]Result, *Preview, error)
 		return c.remove(ctx, a)
 	case Announce, Recheck:
 		return c.ask(ctx, a)
+	case Retry:
+		return c.retry(ctx, a)
 	}
 	return nil, nil, fmt.Errorf("no action %q", a.Kind)
 }
@@ -190,48 +214,76 @@ func (c *Clients) want(ctx context.Context, a Action) ([]Result, *Preview, error
 		wanted = Paused
 	}
 	var results []Result
-	var nodes []role.NodeID
-	var changed []ID
+	var touched Touched
 	err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		results, nodes, changed = nil, nil, nil
-		rows, err := readActed(ctx, tx, a.IDs)
-		if err != nil {
-			return err
-		}
-		for _, id := range a.IDs {
-			r := Result{ID: id, Refusal: rows.refusal(id)}
-			results = append(results, r)
-			if r.Refusal != nil || Wanted(rows[id].Wanted) == wanted {
-				continue
-			}
-			if err := db.New(tx).SetWanted(ctx, db.SetWantedParams{Wanted: string(wanted), ID: id}); err != nil {
-				return err
-			}
-			nodes, changed = append(nodes, rows[id].NodeID), append(changed, id)
-		}
-		return nil
+		var err error
+		results, touched, err = c.WantIn(ctx, tx, a.IDs, wanted)
+		return err
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	c.committed(nodes, changed)
+	c.Touched(touched)
 	return results, nil, nil
 }
 
-// remove removes each Torrent no Grab is importing from, in one Write that
-// reads the Grabs, so an import that started first refuses it and one
-// that starts after finds it removed. A dry run reads the same and writes
-// nothing.
+// Touched is what a write inside a caller's Write changed, for Touched
+// once that Write commits. Only RemoveIn and WantIn make one.
+type Touched struct {
+	nodes []role.NodeID
+	ids   []ID
+}
+
+// Touched tells each changed Torrent's Node and the Admins, once the
+// Write that made ts committed.
+func (c *Clients) Touched(ts ...Touched) {
+	var all Touched
+	for _, t := range ts {
+		all.nodes, all.ids = append(all.nodes, t.nodes...), append(all.ids, t.ids...)
+	}
+	c.committed(all.nodes, all.ids)
+}
+
+// WantIn sets each of ids to wanted in tx, and refuses one not found or
+// removed.
+func (c *Clients) WantIn(ctx context.Context, tx *storage.Tx[file], ids []ID, wanted Wanted) ([]Result, Touched, error) {
+	rows, err := readActed(ctx, tx, ids)
+	if err != nil {
+		return nil, Touched{}, err
+	}
+	var (
+		results []Result
+		touched Touched
+	)
+	for _, id := range ids {
+		r := Result{ID: id, Refusal: rows.refusal(id)}
+		results = append(results, r)
+		if r.Refusal != nil || Wanted(rows[id].Wanted) == wanted {
+			continue
+		}
+		if err := db.New(tx).SetWanted(ctx, db.SetWantedParams{Wanted: string(wanted), ID: id}); err != nil {
+			return nil, Touched{}, err
+		}
+		touched.nodes, touched.ids = append(touched.nodes, rows[id].NodeID), append(touched.ids, id)
+	}
+	return results, touched, nil
+}
+
+// remove removes each Torrent no Grab is importing from, as RemoveIn
+// does. A dry run reads the same and writes nothing.
 func (c *Clients) remove(ctx context.Context, a Action) ([]Result, *Preview, error) {
 	reason, deleteFiles := ByAdmin, a.DeleteFiles
 	if a.Kind == MarkFailed {
 		reason, deleteFiles = ByMarkFailed, true
 	}
-	var plan removal
 	if a.DryRun {
+		var plan removal
 		err := c.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 			var err error
-			plan, err = c.planRemoval(ctx, r, a)
+			if plan, err = c.planRemoval(ctx, r, a.IDs, reason); err != nil {
+				return err
+			}
+			plan.preview.HitAndRun, err = c.hitsAndRuns(ctx, r, plan)
 			return err
 		})
 		if err != nil {
@@ -241,24 +293,37 @@ func (c *Clients) remove(ctx context.Context, a Action) ([]Result, *Preview, err
 		plan.preview.Frees, plan.preview.Linked = c.frees(ctx, nodes, ids)
 		return plan.results, plan.preview, nil
 	}
+	var results []Result
+	var touched Touched
 	err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		var err error
-		if plan, err = c.planRemoval(ctx, tx, a); err != nil {
-			return err
-		}
-		now := storage.Now()
-		for _, id := range plan.ids {
-			if err := removeIn(ctx, db.New(tx), plan.rows[id], reason, deleteFiles, now); err != nil {
-				return err
-			}
-		}
-		return nil
+		results, touched, err = c.RemoveIn(ctx, tx, a.IDs, reason, deleteFiles)
+		return err
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	c.committed(plan.nodes, plan.ids)
-	return plan.results, nil, nil
+	c.Touched(touched)
+	return results, nil, nil
+}
+
+// RemoveIn removes each of ids for reason in tx, with its download copy
+// when deleteFiles says so. It reads the Grabs in tx, so it refuses a
+// Torrent a Grab is importing from, and an import that starts after it
+// finds the Torrent removed. For ByMarkFailed it also refuses a download
+// that isn't stalled.
+func (c *Clients) RemoveIn(ctx context.Context, tx *storage.Tx[file], ids []ID, reason RemoveReason, deleteFiles bool) ([]Result, Touched, error) {
+	plan, err := c.planRemoval(ctx, tx, ids, reason)
+	if err != nil {
+		return nil, Touched{}, err
+	}
+	now := storage.Now()
+	for _, id := range plan.ids {
+		if err := removeIn(ctx, db.New(tx), plan.rows[id], reason, deleteFiles, now); err != nil {
+			return nil, Touched{}, err
+		}
+	}
+	return plan.results, Touched{nodes: plan.nodes, ids: plan.ids}, nil
 }
 
 // removalWay is how a Torrent's removal is carried out.
@@ -305,6 +370,7 @@ type removal struct {
 	results []Result
 	ids     []ID
 	nodes   []role.NodeID
+	hashes  []bencode.InfoHash
 	rows    acted
 	preview *Preview
 }
@@ -321,40 +387,40 @@ func (p removal) deleting() (nodes []role.NodeID, ids []ID) {
 	return nodes, ids
 }
 
-func (c *Clients) planRemoval(ctx context.Context, r storage.Reader[file], a Action) (removal, error) {
+func (c *Clients) planRemoval(ctx context.Context, r storage.Reader[file], ids []ID, reason RemoveReason) (removal, error) {
 	plan := removal{preview: &Preview{}}
-	rows, err := readActed(ctx, r, a.IDs)
+	rows, err := readActed(ctx, r, ids)
 	if err != nil {
 		return removal{}, err
 	}
 	plan.rows = rows
-	uses, err := c.cfg.Uses.Of(ctx, r, a.IDs)
+	uses, err := c.cfg.Uses.Of(ctx, r, ids)
 	if err != nil {
 		return removal{}, err
 	}
-	for _, id := range a.IDs {
+	for _, id := range ids {
 		res := Result{ID: id, Refusal: rows.refusal(id)}
 		if res.Refusal == nil {
-			if res.Refusal, err = removable(rows[id], uses[id], a.Kind); err != nil {
+			if res.Refusal, err = removable(rows[id], uses[id], reason); err != nil {
 				return removal{}, err
 			}
 		}
 		plan.results = append(plan.results, res)
 		if res.Refusal == nil {
-			plan.ids, plan.nodes = append(plan.ids, id), append(plan.nodes, rows[id].NodeID)
+			plan.ids, plan.nodes, plan.hashes = append(plan.ids, id), append(plan.nodes, rows[id].NodeID), append(plan.hashes, bencode.InfoHash(rows[id].InfoHash))
 			plan.preview.add(rows[id], uses[id])
 		}
 	}
 	return plan, nil
 }
 
-// removable is why a Torrent may not be removed by kind: a Grab importing
-// from it, or for mark-failed, a download that isn't stalled.
-func removable(row db.ListActedRow, uses []Use, kind ActionKind) (*Refusal, error) {
+// removable is why a Torrent may not be removed for reason: a Grab
+// importing from it, or for ByMarkFailed, a download that isn't stalled.
+func removable(row db.ListActedRow, uses []Use, reason RemoveReason) (*Refusal, error) {
 	if i := slices.IndexFunc(uses, func(u Use) bool { return u.Stage == UseImporting }); i >= 0 {
 		return &Refusal{Code: RefusedImporting, Work: uses[i].Work}, nil
 	}
-	if kind != MarkFailed {
+	if reason != ByMarkFailed {
 		return nil, nil
 	}
 	rep, err := reportOf(row.Report)
@@ -365,6 +431,35 @@ func removable(row db.ListActedRow, uses []Use, kind ActionKind) (*Refusal, erro
 		return &Refusal{Code: RefusedNotStalled}, nil
 	}
 	return nil, nil
+}
+
+// hitsAndRuns is each Torrent plan removes that leaves its info hash with
+// no live built-in copy while the hash owes its Tracker, once per hash. An
+// external client's copy is no part of the hash's seeding.
+func (c *Clients) hitsAndRuns(ctx context.Context, r storage.Reader[file], plan removal) ([]HitAndRun, error) {
+	rows, err := c.Rows(ctx, r, Filter{Hashes: plan.hashes})
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[ID]Row, len(rows))
+	stays := map[bencode.InfoHash]bool{}
+	for _, row := range rows {
+		byID[row.ID] = row
+		if row.Client == nil && row.State != StateRemoving && !slices.Contains(plan.ids, row.ID) {
+			stays[row.InfoHash] = true
+		}
+	}
+	var out []HitAndRun
+	for _, id := range plan.ids {
+		row := byID[id]
+		w := row.Seeding.Window
+		if stays[row.InfoHash] || w == nil || w.State != seeding.Owing {
+			continue
+		}
+		stays[row.InfoHash] = true
+		out = append(out, HitAndRun{ID: id, Tracker: row.Tracker, Owes: row.Seeding.Owes})
+	}
+	return out, nil
 }
 
 // add counts a removed Torrent's Grabs into p: those downloading it are

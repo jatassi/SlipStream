@@ -1,8 +1,6 @@
 import {
   getListIndexersSuspenseQueryOptions,
-  getListTrackersSuspenseQueryOptions,
   useListIndexersSuspense,
-  useListTrackersSuspense,
 } from "../api/gen/query/indexers/indexers";
 import {
   getListNodesSuspenseQueryOptions,
@@ -14,16 +12,15 @@ import { Empty } from "../shell/empty";
 import { Section } from "../ui/section";
 import { AddIndexerButton } from "./add/add-button";
 import { SectionTail, loadSectionTail } from "./section-tail";
-import { TrackerGroup, UngroupedIndexers, groupsOf } from "./tracker-group";
+import { TrackerGroup, UngroupedIndexers, trackersQuery, useTrackerGroups } from "./tracker-group";
 import { summaryOf } from "./words";
 
 const addIndexer = <AddIndexerButton />;
 
 function IndexersSection() {
   const { indexers } = useListIndexersSuspense().data;
-  const { trackers } = useListTrackersSuspense().data;
+  const { trackers, groups } = useTrackerGroups(indexers);
   const { nodes } = useListNodesSuspense().data;
-  const groups = groupsOf(indexers, trackers);
   return (
     <>
       <Section
@@ -64,7 +61,7 @@ export const indexersSection: SettingsSection = {
   load: async (queryClient) => {
     await Promise.all([
       ensureQuery(queryClient, getListIndexersSuspenseQueryOptions()),
-      ensureQuery(queryClient, getListTrackersSuspenseQueryOptions()),
+      ensureQuery(queryClient, trackersQuery()),
       ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
       loadSectionTail(queryClient),
     ]);

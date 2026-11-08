@@ -249,7 +249,7 @@ func TestStorageOwnsANodesRootsForever(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if owner.Role != role.Storage || held.Units != 1 || held.Noun.One != "root" || !held.Endless {
+	if owner.Role != role.Storage || held.Units != 1 || held.Noun.One != "root" || held.EndlessUnits != 1 {
 		t.Fatalf("Storage's owner = %v holding %+v, want Storage holding 1 root endlessly", owner.Role, held)
 	}
 }

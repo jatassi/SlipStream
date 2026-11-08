@@ -123,11 +123,19 @@ type torrent struct {
 	replied map[int]time.Time
 	state   plan.State
 	// failed is the engine's error text, "" while it holds the torrent.
+	// It is kept in the local row, so a restart keeps the torrent failed
+	// and out of the plan until the Admin's Retry.
 	failed string
+	// retried is the intent's Retry the torrent last acted on, in unix
+	// milliseconds, 0 for none.
+	retried int64
 	// fault is the release fault recorded on the torrent, nil for none.
 	fault *dlv1.Fault
 	// freed is the bytes its removal deletes.
-	freed          int64
+	freed int64
+	// announced is the seed time its trackers credited it, counted on from
+	// the local row or the Controller's baseline.
+	announced      time.Duration
 	fetching       bool
 	fetches        int
 	retryAt        time.Time
@@ -343,6 +351,9 @@ func (l *loop) snapshot(s role.Snapshot[*dlv1.Intent]) {
 	for _, it := range s.Intent.GetTorrents() {
 		t := l.list(it.GetId(), it.GetInfoHash())
 		t.Order, t.Paused, t.Discard = it.GetOrder(), it.GetWanted() == dlv1.Wanted_WANTED_PAUSED, plan.Kept
+		if at := it.GetRetryAtUnixMs(); at > t.retried {
+			l.retry(t, at)
+		}
 	}
 	for _, d := range s.Intent.GetDiscards() {
 		t := l.list(d.GetId(), d.GetInfoHash())
@@ -429,6 +440,9 @@ func (l *loop) list(id, hash []byte) *torrent {
 	t := l.torrents[h]
 	if t == nil {
 		t = &torrent{Torrent: plan.Torrent{Hash: h, Phase: plan.Fetching}, replied: map[int]time.Time{}}
+		if f := l.rows[h].Failed; f != nil {
+			t.failed = *f
+		}
 		l.torrents[h] = t
 		l.addFromResume(t)
 	}
@@ -453,7 +467,7 @@ func (l *loop) addFromResume(t *torrent) {
 	}
 	spread := l.c.cfg.Timings.StartSpread
 	t.NotBefore = time.Now().Add(time.Duration(l.c.cfg.Rand.Int64N(int64(spread) + 1)))
-	t.Private, t.folder = row.Private, row.SaveFolder
+	t.Private, t.folder, t.announced = row.Private, row.SaveFolder, time.Duration(row.AnnouncedSeconds)*time.Second
 	l.added(t, handle)
 }
 
@@ -476,21 +490,27 @@ func (l *loop) fetched(t *torrent, res *dlv1.TorrentResponse, err error) {
 	t.fetches = 0
 	m, err := bencode.DecodeMetainfo(res.GetMetainfo())
 	if err != nil {
-		t.fail(err, time.Now())
+		l.fail(t, err, time.Now())
 		return
 	}
 	t.Private, t.folder = m.Info.Private, res.GetSaveFolder()
 	if t.folder == "" {
 		t.folder = filepath.Join(l.c.cfg.Dir, folderName(res.GetContentType()), t.Hash.String())
 	}
+	b := res.GetBaseline()
+	var announced int64
 	err = l.local.Write(context.Background(), func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
-		return db.New(tx).PutTorrent(ctx, db.PutTorrentParams{InfoHash: t.Hash[:], SaveFolder: t.folder, Private: t.Private})
+		var err error
+		announced, err = db.New(tx).PutTorrent(ctx, db.PutTorrentParams{
+			InfoHash: t.Hash[:], SaveFolder: t.folder, Private: t.Private, AnnouncedSeconds: b.GetAnnouncedSeconds(),
+		})
+		return err
 	})
 	if err != nil {
 		l.c.cfg.Log.Error("record a torrent the Node holds", "info_hash", t.Hash.String(), "err", err.Error())
 		return
 	}
-	b := res.GetBaseline()
+	t.announced = time.Duration(announced) * time.Second
 	handle, err := l.eng.Add(engine.AddParams{
 		Metainfo: res.GetMetainfo(), SavePath: t.folder, Discover: mayDiscover(withInfo{private: t.Private}),
 		Baseline: engine.Totals{
@@ -499,13 +519,13 @@ func (l *loop) fetched(t *torrent, res *dlv1.TorrentResponse, err error) {
 		},
 	})
 	if err != nil {
-		t.fail(err, time.Now())
+		l.fail(t, err, time.Now())
 		return
 	}
 	t.NeedsCheck = true
 	t.sentTotals = &dlv1.TotalsRow{
 		Id: t.id.Bytes(), Uploaded: b.GetUploaded(), Downloaded: b.GetDownloaded(),
-		ActiveSeconds: b.GetActiveSeconds(), SeedingSeconds: b.GetSeedingSeconds(),
+		ActiveSeconds: b.GetActiveSeconds(), SeedingSeconds: b.GetSeedingSeconds(), AnnouncedSeconds: b.GetAnnouncedSeconds(),
 	}
 	l.added(t, handle)
 	l.call(t, "save a torrent's resume data", l.eng.SaveResume(handle))
@@ -755,6 +775,9 @@ func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 		t.Complete = true
 	case engine.Checked:
 		t.NeedsCheck = false
+		if t.retried != 0 {
+			l.found(t)
+		}
 	case engine.Paused:
 		switch {
 		case t.Phase == plan.Checking && !t.NeedsCheck, t.Phase == plan.Pausing, t.Phase == plan.Running:
@@ -764,7 +787,7 @@ func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 		l.part(t)
 	case engine.TorrentFailed:
 		if !errors.Is(ev.Err, engine.ErrDiskFull) {
-			t.fail(ev.Err, time.Now())
+			l.fail(t, ev.Err, time.Now())
 		}
 	case engine.FileError:
 		if errors.Is(ev.Err, engine.ErrDiskFull) {
@@ -772,7 +795,7 @@ func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 			l.disk.full = &outOfSpace{at: time.Now()}
 			l.sampleVolume()
 		} else {
-			t.fail(ev.Err, time.Now())
+			l.fail(t, ev.Err, time.Now())
 		}
 	case engine.ResumeSaved:
 		l.resumeSaved(t, ev.Data)
@@ -780,9 +803,9 @@ func (l *loop) torrentEvent(t *torrent, ev engine.Event) {
 		l.call(t, "save a torrent's resume data", ev.Err)
 		l.resumeDone(t)
 	case engine.TrackerAnnounced:
-		l.ledger.Sent(t.Hash, l.tracker(t, ev.Tracker), announce.Event(ev.Event), ev.At)
+		l.ledger.Sent(t.Hash, l.tracker(t, ev.Tracker), announce.Event(ev.Event), ev.At, t.Complete)
 	case engine.TrackerReplied:
-		l.ledger.Answered(t.Hash, l.tracker(t, ev.Tracker), ev.At)
+		t.announced += l.ledger.Answered(t.Hash, l.tracker(t, ev.Tracker), ev.At)
 		t.replied[ev.Tracker] = ev.At
 		l.call(t, "list a torrent's trackers", l.eng.PostTrackers(t.handle))
 	case engine.TrackerFailed:

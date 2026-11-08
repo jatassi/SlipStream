@@ -160,6 +160,12 @@ type Downloads interface {
 	Retargeted(downloadclients.Retargeted)
 }
 
+// Router chooses the client a Grab's download goes to, as
+// downloadclients.Router does. It reads in the caller's tx.
+type Router interface {
+	Route(ctx context.Context, r storage.Reader[file], a downloadclients.Ask) (downloadclients.Target, error)
+}
+
 // Roots is the library roots as a Grab reaches them: bytes go into a
 // root only through the Node that holds it.
 type Roots interface {
@@ -184,8 +190,10 @@ type Config struct {
 	Names     map[works.TypeID]release.Names
 	Roster    Roster
 	Downloads Downloads
-	Media     media.Remote
-	Roots     Roots
+	// Router chooses the client each Grab's download goes to.
+	Router Router
+	Media  media.Remote
+	Roots  Roots
 	// Transfers copies a Grab's file from the Node that downloaded it to
 	// the Node that holds its root.
 	Transfers     *transfers.Transfers
@@ -204,6 +212,7 @@ type Grabs struct {
 	cfg       Config
 	poke      chan struct{}
 	searching metadataPeers
+	routes    routes
 
 	mu sync.Mutex
 	// moved is each Grab a transfers hook moved, for grabs.changed once
@@ -213,7 +222,10 @@ type Grabs struct {
 
 // New builds the Grab pipeline and registers its Transfers purpose.
 func New(cfg Config) *Grabs {
-	gr := &Grabs{cfg: cfg, poke: make(chan struct{}, 1), moved: map[string]Changed{}, searching: metadataPeers{peers: map[GrabID]int{}}}
+	gr := &Grabs{
+		cfg: cfg, poke: make(chan struct{}, 1), moved: map[string]Changed{}, searching: metadataPeers{peers: map[GrabID]int{}},
+		routes: routes{changed: make(chan struct{})},
+	}
 	cfg.Transfers.Register(transfers.Purpose{
 		Kind:     transfers.Grab,
 		Verified: gr.transferVerified,
@@ -303,7 +315,10 @@ type Grab struct {
 	// MetadataSince is when the Grab first asked for its magnet link's
 	// metadata, zero until it did.
 	MetadataSince time.Time
-	Stage         Stage
+	// Sent is the client an Admin sent the Grab to before its fetch, nil
+	// for none.
+	Sent  *downloadclients.Choice
+	Stage Stage
 	// Torrent is nil until the fetch attached one.
 	Torrent *Torrent
 	Plan    *Plan
@@ -370,6 +385,12 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 		Ticket:  indexers.Ticket{Indexer: row.IndexerID, Query: row.FetchQueryID, Tracker: row.TrackerID},
 		Node:    row.NodeID, FetchNode: row.FetchNodeID, MetadataSince: row.MetadataStartedAt.Time(), Stage: row.Stage,
 		History: rel.history[row.ID], Created: row.CreatedAt.Time(),
+	}
+	switch {
+	case row.SentClientID != nil:
+		g.Sent = &downloadclients.Choice{Client: row.SentClientID}
+	case row.SentBuiltInOn != nil:
+		g.Sent = &downloadclients.Choice{BuiltInOn: *row.SentBuiltInOn}
 	}
 	if row.ReleaseInfoHash != nil {
 		h := bencode.InfoHash(row.ReleaseInfoHash)

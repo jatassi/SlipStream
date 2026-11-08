@@ -152,6 +152,17 @@ func (q *Queries) CountMoving(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countUnfinishedOfTracker = `-- name: CountUnfinishedOfTracker :one
+SELECT count(*) FROM grabs_grab WHERE tracker_id = ?1 AND stage NOT IN ('imported', 'failed')
+`
+
+func (q *Queries) CountUnfinishedOfTracker(ctx context.Context, trackerID indexers.TrackerID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUnfinishedOfTracker, trackerID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteRelease = `-- name: DeleteRelease :exec
 DELETE FROM grabs_release WHERE search_id = ?1 AND position = ?2
 `
@@ -211,8 +222,17 @@ func (q *Queries) FinishSearch(ctx context.Context, arg FinishSearchParams) erro
 	return err
 }
 
+const forgetTracker = `-- name: ForgetTracker :exec
+UPDATE grabs_grab SET tracker_id = NULL WHERE tracker_id = ?1
+`
+
+func (q *Queries) ForgetTracker(ctx context.Context, trackerID indexers.TrackerID) error {
+	_, err := q.db.ExecContext(ctx, forgetTracker, trackerID)
+	return err
+}
+
 const getGrab = `-- name: GetGrab :one
-SELECT id, work_id, item_id, edition, source, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at FROM grabs_grab WHERE id = ?1
+SELECT id, work_id, item_id, edition, source, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id FROM grabs_grab WHERE id = ?1
 `
 
 func (q *Queries) GetGrab(ctx context.Context, id GrabID) (GrabsGrab, error) {
@@ -251,6 +271,8 @@ func (q *Queries) GetGrab(ctx context.Context, id GrabID) (GrabsGrab, error) {
 		&i.Unwanted,
 		&i.FetchNodeID,
 		&i.MetadataStartedAt,
+		&i.SentBuiltInOn,
+		&i.SentClientID,
 	)
 	return i, err
 }
@@ -604,7 +626,7 @@ func (q *Queries) ListFills(ctx context.Context) ([]GrabsFill, error) {
 }
 
 const listGrabs = `-- name: ListGrabs :many
-SELECT id, work_id, item_id, edition, source, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at FROM grabs_grab ORDER BY created_at DESC, id DESC
+SELECT id, work_id, item_id, edition, source, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id FROM grabs_grab ORDER BY created_at DESC, id DESC
 `
 
 func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
@@ -649,6 +671,8 @@ func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
 			&i.Unwanted,
 			&i.FetchNodeID,
 			&i.MetadataStartedAt,
+			&i.SentBuiltInOn,
+			&i.SentClientID,
 		); err != nil {
 			return nil, err
 		}
@@ -664,7 +688,7 @@ func (q *Queries) ListGrabs(ctx context.Context) ([]GrabsGrab, error) {
 }
 
 const listGrabsOfIndexer = `-- name: ListGrabsOfIndexer :many
-SELECT id, work_id, item_id, edition, source, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at FROM grabs_grab WHERE indexer_id = ?1 ORDER BY created_at DESC, id DESC
+SELECT id, work_id, item_id, edition, source, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id FROM grabs_grab WHERE indexer_id = ?1 ORDER BY created_at DESC, id DESC
 LIMIT ?3 OFFSET ?2
 `
 
@@ -716,6 +740,8 @@ func (q *Queries) ListGrabsOfIndexer(ctx context.Context, arg ListGrabsOfIndexer
 			&i.Unwanted,
 			&i.FetchNodeID,
 			&i.MetadataStartedAt,
+			&i.SentBuiltInOn,
+			&i.SentClientID,
 		); err != nil {
 			return nil, err
 		}
@@ -731,21 +757,23 @@ func (q *Queries) ListGrabsOfIndexer(ctx context.Context, arg ListGrabsOfIndexer
 }
 
 const listGrabsOfTorrents = `-- name: ListGrabsOfTorrents :many
-SELECT id, torrent_id, work_id, item_id, edition, release_title, stage, file_index, created_at FROM grabs_grab
+SELECT id, torrent_id, work_id, item_id, edition, release_title, stage, file_index, min_ratio, min_seed_seconds, created_at FROM grabs_grab
 WHERE torrent_id IN (/*SLICE:torrent_ids*/?)
 ORDER BY created_at, id
 `
 
 type ListGrabsOfTorrentsRow struct {
-	ID           GrabID
-	TorrentID    downloadclients.ID
-	WorkID       works.WorkID
-	ItemID       works.ItemID
-	Edition      targets.Edition
-	ReleaseTitle string
-	Stage        Stage
-	FileIndex    *int64
-	CreatedAt    storage.Time
+	ID             GrabID
+	TorrentID      downloadclients.ID
+	WorkID         works.WorkID
+	ItemID         works.ItemID
+	Edition        targets.Edition
+	ReleaseTitle   string
+	Stage          Stage
+	FileIndex      *int64
+	MinRatio       *float64
+	MinSeedSeconds *int64
+	CreatedAt      storage.Time
 }
 
 func (q *Queries) ListGrabsOfTorrents(ctx context.Context, torrentIds []downloadclients.ID) ([]ListGrabsOfTorrentsRow, error) {
@@ -776,6 +804,8 @@ func (q *Queries) ListGrabsOfTorrents(ctx context.Context, torrentIds []download
 			&i.ReleaseTitle,
 			&i.Stage,
 			&i.FileIndex,
+			&i.MinRatio,
+			&i.MinSeedSeconds,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -792,7 +822,7 @@ func (q *Queries) ListGrabsOfTorrents(ctx context.Context, torrentIds []download
 }
 
 const listOpenGrabs = `-- name: ListOpenGrabs :many
-SELECT id, work_id, item_id, edition, source, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
+SELECT id, work_id, item_id, edition, source, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
 `
 
 func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
@@ -837,6 +867,8 @@ func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
 			&i.Unwanted,
 			&i.FetchNodeID,
 			&i.MetadataStartedAt,
+			&i.SentBuiltInOn,
+			&i.SentClientID,
 		); err != nil {
 			return nil, err
 		}
@@ -1329,6 +1361,28 @@ type RepointTrackerParams struct {
 
 func (q *Queries) RepointTracker(ctx context.Context, arg RepointTrackerParams) error {
 	_, err := q.db.ExecContext(ctx, repointTracker, arg.IntoID, arg.FromID)
+	return err
+}
+
+const setSent = `-- name: SetSent :exec
+UPDATE grabs_grab SET sent_built_in_on = ?1, sent_client_id = ?2, updated_at = ?3
+WHERE id = ?4
+`
+
+type SetSentParams struct {
+	BuiltInOn *role.NodeID
+	ClientID  *downloadclients.ClientID
+	UpdatedAt storage.Time
+	ID        GrabID
+}
+
+func (q *Queries) SetSent(ctx context.Context, arg SetSentParams) error {
+	_, err := q.db.ExecContext(ctx, setSent,
+		arg.BuiltInOn,
+		arg.ClientID,
+		arg.UpdatedAt,
+		arg.ID,
+	)
 	return err
 }
 

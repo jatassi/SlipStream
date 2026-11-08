@@ -60,7 +60,7 @@ SELECT * FROM grabs_fill ORDER BY grab_id, position;
 SELECT * FROM grabs_stage ORDER BY grab_id, entered_at, rowid;
 
 -- name: ListGrabsOfTorrents :many
-SELECT id, torrent_id, work_id, item_id, edition, release_title, stage, file_index, created_at FROM grabs_grab
+SELECT id, torrent_id, work_id, item_id, edition, release_title, stage, file_index, min_ratio, min_seed_seconds, created_at FROM grabs_grab
 WHERE torrent_id IN (sqlc.slice(torrent_ids))
 ORDER BY created_at, id;
 
@@ -171,6 +171,12 @@ RETURNING metadata_started_at;
 -- name: RepointTracker :exec
 UPDATE grabs_grab SET tracker_id = sqlc.arg(into_id) WHERE tracker_id = sqlc.arg(from_id);
 
+-- name: CountUnfinishedOfTracker :one
+SELECT count(*) FROM grabs_grab WHERE tracker_id = sqlc.arg(tracker_id) AND stage NOT IN ('imported', 'failed');
+
+-- name: ForgetTracker :exec
+UPDATE grabs_grab SET tracker_id = NULL WHERE tracker_id = sqlc.arg(tracker_id);
+
 -- name: ListDownloading :many
 SELECT id, work_id FROM grabs_grab WHERE torrent_id = sqlc.arg(torrent_id) AND stage = 'downloading' ORDER BY id;
 
@@ -181,3 +187,7 @@ WHERE torrent_id = sqlc.arg(from_id) AND stage = 'downloading';
 
 -- name: ListReleaseTitles :many
 SELECT id, release_title FROM grabs_grab ORDER BY id;
+
+-- name: SetSent :exec
+UPDATE grabs_grab SET sent_built_in_on = sqlc.narg(built_in_on), sent_client_id = sqlc.narg(client_id), updated_at = sqlc.arg(updated_at)
+WHERE id = sqlc.arg(id);

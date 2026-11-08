@@ -312,7 +312,7 @@ func TestDownloadingKeepsTheNodesExternalClientsByName(t *testing.T) {
 	var kept []string
 	err := w.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		kept, err = dc.DownloadingOwner.Keeps(ctx, r, w.media)
+		kept, err = w.c.DownloadingOwner().Keeps(ctx, r, w.media)
 		return err
 	})
 	if err != nil || !slices.Equal(kept, []string{"Deluge", "Transmission"}) {

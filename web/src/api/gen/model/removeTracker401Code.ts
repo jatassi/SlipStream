@@ -1,0 +1,1 @@
+export type RemoveTracker401Code = "api_key_wrong" | "signed_out";

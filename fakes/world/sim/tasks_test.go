@@ -148,6 +148,7 @@ func at(clock string) time.Time {
 }
 
 func TestHousekeepingTidiesEveryNodeAndCatchesUpAReturningWorker(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), inUTC)
 		a := w.API()
@@ -182,6 +183,7 @@ func TestHousekeepingTidiesEveryNodeAndCatchesUpAReturningWorker(t *testing.T) {
 }
 
 func TestHousekeepingSkipsAWorkerOnAnotherBuild(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), inUTC)
 		worker := w.Node("seedbox")
@@ -200,6 +202,7 @@ func TestHousekeepingSkipsAWorkerOnAnotherBuild(t *testing.T) {
 }
 
 func TestHousekeepingWarnsOnlyOnceAUnitMissedThreeIntervals(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), inUTC)
 		a := w.API()
@@ -242,6 +245,7 @@ func held(release <-chan struct{}) tasks.Task {
 }
 
 func TestAControllerRestartMidRunCatchesUpOnce(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		release := make(chan struct{})
 		w := sim.Launch(t, home(t), inUTC, sim.Edit(func(name string, e *node.Env) {
@@ -301,6 +305,7 @@ func searching(h node.Half) tasks.Task {
 }
 
 func TestAPortableUnitWaitsForItsNextSlotAndCancelReachesTheWorker(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), inUTC, sim.Edit(func(name string, e *node.Env) {
 			if name == "home" {

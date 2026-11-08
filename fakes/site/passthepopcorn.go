@@ -43,7 +43,7 @@ func (s *site) ptpTorrents(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	switch q.Get("action") {
 	case "advanced":
-		s.ptpSearch(w, q.Get("searchstr"))
+		s.ptpSearch(w, r, q.Get("searchstr"))
 	case "download":
 		id, err := strconv.Atoi(q.Get("id"))
 		if err != nil || id < 1 || id > len(s.releases) {
@@ -56,9 +56,9 @@ func (s *site) ptpTorrents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *site) ptpSearch(w http.ResponseWriter, searchstr string) {
+func (s *site) ptpSearch(w http.ResponseWriter, r *http.Request, searchstr string) {
 	movies := []ptpMovie{}
-	for _, rel := range s.found(searchstr) {
+	for _, rel := range s.found(r, searchstr) {
 		id := s.place(rel)
 		t := ptpTorrent{
 			ID: id, Size: strconv.FormatInt(rel.Size, 10), UploadTime: "2026-06-01 12:00:00", Snatched: strconv.FormatInt(rel.Grabs, 10),

@@ -68,7 +68,7 @@ func (s *site) quarrySearch(w http.ResponseWriter, r *http.Request) {
 		query = "tt" + imdb
 	}
 	rows := []quarryRow{}
-	for _, rel := range s.found(query) {
+	for _, rel := range s.found(r, query) {
 		link := originOf(r) + "/api/download?" + url.Values{"id": {rel.InfoHash}, "apikey": {Key(s.scenario, Quarry)}}.Encode()
 		rows = append(rows, quarryRow{
 			Category: "movies", Name: rel.Name, Link: link, Size: rel.Size, Seeders: rel.Seeders, Leechers: rel.Leechers,
@@ -82,7 +82,7 @@ func (s *site) quarryDownload(w http.ResponseWriter, r *http.Request) {
 	if !s.quarryKeyed(w, r) {
 		return
 	}
-	rel, ok := s.byHash(strings.ToLower(r.URL.Query().Get("id")))
+	rel, ok := s.byHash(r, strings.ToLower(r.URL.Query().Get("id")))
 	if !ok {
 		http.NotFound(w, r)
 		return

@@ -121,7 +121,7 @@ const roots = [
   rootOf("r3", seedboxId, "/srv/media/zines"),
 ];
 
-const storageHeld = { units: 2, noun: "roots", bytes: 12 * GB, endless: true };
+const storageHeld = { units: 2, noun: "roots", bytes: 12 * GB, endlessUnits: 2 };
 
 const drainingStorage: NodesBoardNode = {
   ...seedboxSeat,
