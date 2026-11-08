@@ -31,6 +31,7 @@ import (
 // TestAVolumeReportsItsScenarioFigures puts a Movies root on seedbox with
 // 2.5 GiB free of 10, and seedbox reports the root on that volume.
 func TestAVolumeReportsItsScenarioFigures(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := simtest.Home(t)
 		s.Nodes[1].Roles = append(s.Nodes[1].Roles, "storage")
@@ -65,6 +66,7 @@ func TestAVolumeReportsItsScenarioFigures(t *testing.T) {
 // stat deadline: the next sample reads it unresponsive without stalling,
 // and once the share answers the one after reads it ready again.
 func TestAHungShareReadsUnresponsive(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, simtest.Home(t), sim.WithWalk())
 		synctest.Wait()
@@ -104,6 +106,7 @@ func TestAHungShareReadsUnresponsive(t *testing.T) {
 // unmounted, and once the disk is back the next sample lets the Grab
 // import.
 func TestAnImportIntoAnUnmountedRootWaitsUntilItIsBack(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		reached, unmounted := make(chan struct{}), make(chan struct{})
 		var held atomic.Bool
@@ -139,6 +142,7 @@ func TestAnImportIntoAnUnmountedRootWaitsUntilItIsBack(t *testing.T) {
 // seedbox and cuts seedbox off: a search of a movie is refused, naming
 // seedbox.
 func TestAWorkOnAnOfflineNodesRootDoesntSearch(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := simtest.Home(t)
 		s.Nodes[1].Roles = append(s.Nodes[1].Roles, "storage")
@@ -162,6 +166,7 @@ func TestAWorkOnAnOfflineNodesRootDoesntSearch(t *testing.T) {
 // no Storage, and has it judge a downloads folder but refuse to judge a
 // root.
 func TestASeedboxWithoutStorageBrowsesItsFolders(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, simtest.Home(t))
 		synctest.Wait()
@@ -190,6 +195,7 @@ func TestASeedboxWithoutStorageBrowsesItsFolders(t *testing.T) {
 // words checkFolder's judge gives, and saves a folder apart from it for
 // the next restart.
 func TestTheDownloadsRowRefusesARootOverlap(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, simtest.Home(t), sim.WithWalk())
 		synctest.Wait()

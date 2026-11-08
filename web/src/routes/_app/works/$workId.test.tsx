@@ -73,7 +73,7 @@ test("files.changed shows the new file without a reload", async () => {
   await expect
     .element(page.getByRole("list", { name: "Files" }).getByRole("listitem"))
     .toHaveTextContent(
-      "The Quiet Orchard (2021) - 1080p.mkvmovies/The Quiet Orchard (2021) · Fills 1080pDetailsWEBDL-1080p · 1920×1080 · 700 MB",
+      "The Quiet Orchard (2021) - 1080p.mkvmovies/The Quiet Orchard (2021) · Fills 1080pWEBDL-1080p · 1920×1080 · 700 MBDetails",
     );
 });
 
@@ -127,13 +127,13 @@ test("Search starts a search and says so, and the run and its Grab show without 
   const searches = page.getByRole("list", { name: "Searches" });
   await expect
     .element(searches)
-    .toMatchTextContent(/^SearchingFixture MirrorSearchingFixture SiteSearchingOct 12/u);
+    .toMatchTextContent(/^SearchingOct 12.*Fixture MirrorSearchingFixture SiteSearching$/u);
 
   server.searchRuns(grabbed);
   await expect
     .element(searches)
     .toMatchTextContent(
-      /^Grabbed a Release2 Releases foundFixture MirrorFound 2 ReleasesFixture SiteFound 2 ReleasesOct 12/u,
+      /^Grabbed a Release2 Releases foundOct 12.*Fixture MirrorFound 2 ReleasesFixture SiteFound 2 Releases$/u,
     );
 
   server.grabMoves(downloading);

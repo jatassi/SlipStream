@@ -111,7 +111,7 @@ func (im *Imports) unit(ctx context.Context, u tasks.Unit, p *tasks.Progress) er
 	if err := im.prune(ctx, s, plan); err != nil {
 		return err
 	}
-	c := Comparison{Place: root.Place, Found: len(plan.Found), Gone: len(gone), Returned: returned(plan), Added: s.added, Consumed: s.known.guard.Confirmed}
+	c := Comparison{Place: root.Place, Found: len(plan.Found), Changed: changed(plan), Gone: len(gone), Returned: returned(plan), Added: s.added, Consumed: s.known.guard.Confirmed}
 	stopped, isStopped := plan.Gone.(scanning.Stopped)
 	if isStopped {
 		c.Stopped = &stopped
@@ -396,6 +396,18 @@ func toRead(shares map[works.WorkID]scanning.Share, groups []scanning.Group) int
 	}
 	for _, g := range groups {
 		n += len(g.Found)
+	}
+	return n
+}
+
+// changed is how many of p's recorded files changed on disk, leaving out
+// the returned ones, which the line counts as returned.
+func changed(p scanning.Plan) int {
+	n := 0
+	for _, s := range slices.Concat(p.Same, p.Changed) {
+		if !s.Returned && (s.Reprobe == scanning.Touched || s.Reprobe == scanning.Resized) {
+			n++
+		}
 	}
 	return n
 }

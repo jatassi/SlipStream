@@ -18,6 +18,7 @@ import (
 // no root names, and a Node probes each file as the process world's encode
 // of it reads.
 func TestScenarioFoldersProbeAsTheirSpec(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		probers := map[string]media.Prober{}
 		s := simtest.Home(t)

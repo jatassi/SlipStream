@@ -123,6 +123,7 @@ func dataDir(t *testing.T, r reply) string {
 // stopped, seedbox answers the API 503 controller_unreachable, serves its
 // own app, and getServing says what it holds, never what anyone asked for.
 func TestAServingWorkerServesTheControllersApp(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, serving(t))
 		synctest.Wait()
@@ -188,6 +189,7 @@ func nextEvent(t *testing.T, r *bufio.Reader) string {
 // TestAMismatchedServingWorkerStillServes restarts seedbox on another
 // build, as during an update: its Serve streams still reach home.
 func TestAMismatchedServingWorkerStillServes(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, serving(t))
 		synctest.Wait()
@@ -209,6 +211,7 @@ func TestAMismatchedServingWorkerStillServes(t *testing.T) {
 // TestUntickingServingHandsTheAddressBack takes Serving off seedbox: its
 // address answers as a Worker's again.
 func TestUntickingServingHandsTheAddressBack(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, serving(t))
 		synctest.Wait()
@@ -232,6 +235,7 @@ func TestUntickingServingHandsTheAddressBack(t *testing.T) {
 // the browser has none to offer at seedbox's, while the PIN signs in at
 // both. The origin check reads the Host the Worker received.
 func TestAPasskeyWorksAtTheAddressItWasMadeAt(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, serving(t))
 		synctest.Wait()

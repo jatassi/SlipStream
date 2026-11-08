@@ -65,6 +65,9 @@ type RootRow struct {
 	Path     string `json:"path"`
 	State    string `json:"state"`
 	VolumeID string `json:"volumeId"`
+	Scan     struct {
+		Summary string `json:"summary"`
+	} `json:"scan"`
 }
 
 func RootAt(t *testing.T, a *worldtest.API, path string) RootRow {

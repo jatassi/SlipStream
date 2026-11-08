@@ -48,11 +48,12 @@ const Version = "0.0.0-sim"
 const logLinesOnFailure = 50
 
 type options struct {
-	version string
-	probe   bool
-	walk    bool
-	listed  func(*site.Release)
-	edits   []func(name string, e *node.Env)
+	version  string
+	probe    bool
+	walk     bool
+	metadata bool
+	listed   func(*site.Release)
+	edits    []func(name string, e *node.Env)
 }
 
 type Option func(*options)
@@ -119,6 +120,9 @@ func Launch(t *testing.T, s scenario.Scenario, opts ...Option) *World {
 	endpoints := node.Defaults(contenttype.Set{}, install.Dev).Endpoints
 	w.fakes = startServers(t)
 	w.fakes.catalog(t, s, local, &endpoints)
+	if w.opts.metadata {
+		w.fakes.metadata(t, s, local, &endpoints)
+	}
 	if w.opts.walk {
 		w.walk = startWalk(t, s, local, w.fakes, w.opts.listed, &endpoints)
 	}

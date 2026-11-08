@@ -80,6 +80,7 @@ func awaitSeedboxProbes(t *testing.T, a *worldtest.API, want []worldtest.Probe) 
 // the board suggests Searching alone, and giving seedbox Downloading back
 // is blocked in those words.
 func TestADownloadsFolderSeedboxCantWriteBlocksDownloadingThere(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, simtest.Home(t))
 		a := w.API()

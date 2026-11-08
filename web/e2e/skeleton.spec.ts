@@ -22,7 +22,7 @@ test("an Admin adds a movie, searches it, and watches it import", async ({
   await workSearch(page).click();
   await expect(page.getByRole("region", { name: "Notifications" })).toContainText("Search started");
   await expect(page.getByRole("list", { name: "Searches" })).toContainText(
-    "Grabbed a Release2 Releases foundFixture SiteFound 2 Releases",
+    /Grabbed a Release2 Releases found.*Fixture SiteFound 2 Releases/u,
   );
 
   await navigate(page, "Activity");
@@ -38,7 +38,7 @@ test("an Admin adds a movie, searches it, and watches it import", async ({
   await page.getByRole("link", { name: "The Quiet Orchard", exact: true }).click();
   const file = page.getByRole("list", { name: "Files" }).getByRole("listitem");
   await expect(file).toContainText(
-    "The Quiet Orchard (2021) - 1080p.mkvThe Quiet Orchard (2021) · Fills 1080pDetailsWEBDL-1080p · 1920×1080",
+    "The Quiet Orchard (2021) - 1080p.mkvThe Quiet Orchard (2021) · Fills 1080pWEBDL-1080p · 1920×1080",
   );
 
   const completed = await world.fw.capture("announces").list({ where: { event: "completed" } });

@@ -143,6 +143,7 @@ func expectDownloadKept(t *testing.T, w *sim.World) {
 // Writing it off empties seedbox's intent, so the torrent leaves its
 // engine with its file kept, and the forfeit goes once nothing is held.
 func TestAnUntickedDownloadingRoleDrainsUntilItIsWrittenOff(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		box := &engines{}
 		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Engine = box.wrap(e.Engine) }))
@@ -183,6 +184,7 @@ func TestAnUntickedDownloadingRoleDrainsUntilItIsWrittenOff(t *testing.T) {
 // the Grab fails node_written_off and the forfeit goes at once, and once
 // seedbox is back its engine holds no torrent and its file is kept.
 func TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		box := &engines{}
 		reached := make(chan struct{})
@@ -254,6 +256,7 @@ func (p *failsOnce) Probe(ctx context.Context, path string) (media.Record, error
 // picks home, it attaches to the Torrent seedbox already holds instead of
 // downloading the release again.
 func TestANewGrabAttachesToTheTorrentADrainingSeedboxSeeds(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		box := &engines{}
 		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) {

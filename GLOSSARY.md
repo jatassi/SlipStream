@@ -45,8 +45,16 @@ A file fills a Target for an Edition when it is the one file that Target holds f
 _Avoid_: Holds, occupies, assigned to
 
 **Kept file**:
-A library video file that fills no wanted Target and stays, flagged, such as one whose Edition stopped being wanted or one a rescan found. It is named with the label of the first Target it meets, or its current label when it meets none, plus ` (extra N)`, a counter, so two Kept files never clash.
+A library video file that fills no wanted Target and stays, flagged, such as one whose Edition stopped being wanted or one a Library scan found. It is named with the label of the first Target it meets, or its current label when it meets none, plus ` (extra N)`, a counter, so two Kept files never clash. A Library scan records the label and counter without renaming the file.
 _Avoid_: Extra, extras
+
+**Gone file**:
+A library file a Library scan didn't find on its Ready root. Its record stays and its cells read missing until it returns or the Admin forgets it on its Work's page. A gone file never starts a search by itself.
+_Avoid_: Missing file (missing is a cell state), vanished, deleted
+
+**Media info**:
+What the bundled ffprobe read from a file's streams: the video codec, resolution, bit depth and HDR format, each audio track's codec, channels and language, the subtitle languages and the duration. Targets judge a library file by it.
+_Avoid_: MediaInfo, probe data
 
 **Impact**:
 What a change to a Target, a Profile, a cut or one Work's Profile or Editions would do, shown before it saves: the Works it changes, the files it leaves filling nothing, the files it renames and the cells it makes wanted. The Admin chooses whether the files that fill nothing are deleted or stay as Kept files.
@@ -147,7 +155,7 @@ A folder on a Node that receives a copy of every Backup.
 _Avoid_: Backup target, backup location, remote
 
 **Reconciling**:
-The state every restored Controller starts in, including after a manual rollback, until it matches the Backup to what Nodes hold. It cancels in-flight jobs from the Backup, adopts torrents it doesn't know and sends unmatched files to pending imports, and nothing searches, blocklists, or removes or renames a torrent or file until it finishes.
+The state every restored Controller starts in, including after a manual rollback, until it matches the Backup to what Nodes hold. It cancels in-flight jobs from the Backup, adopts torrents it doesn't know and sends unmatched files to Pending imports, and nothing searches, blocklists, or removes or renames a torrent or file until it finishes.
 _Avoid_: Resync, recovery mode
 
 **Role**:
@@ -245,6 +253,14 @@ _Avoid_: Job, cron job, background task, timer
 **Maintenance window**:
 The daily stretch of the Controller's local time when updates install and the nightly Scheduled tasks, such as Backup and Library scan, start.
 _Avoid_: Update window, quiet hours
+
+**Library scan**:
+The Scheduled task that compares each library root with SlipStream's records, matches found files to Works, sends the rest to Pending imports and reads media info. It runs daily in the Maintenance window with one unit per root. A new root's first Ready report, a finished re-home and Scan now each scan one root at once. A scan that would mark more of a root's files gone than the share the Admin set, 25% by default, marks none until the Admin confirms them with Mark them gone.
+_Avoid_: Rescan, library sync, refresh
+
+**Pending import**:
+A folder of video files SlipStream found or downloaded that joins no Work until the Admin chooses: Add its suggested Work, Change the match, Import into a Work in the same root, or Ignore it.
+_Avoid_: Unmatched, manual import queue, orphan
 
 **Metadata refresh**:
 The Scheduled task that keeps every Work's record current from its metadata source. Each run refreshes the Works the source reports changed, then every Work its tier makes due: Works with an unreleased Item, Works that can still gain Items, and every other Work, each on its own cadence. Refreshing a Work never searches for it again.

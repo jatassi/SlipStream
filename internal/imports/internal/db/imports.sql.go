@@ -104,7 +104,7 @@ func (q *Queries) DeleteEntryFiles(ctx context.Context, pendingID EntryID) error
 }
 
 const getCompared = `-- name: GetCompared :one
-SELECT root_id, place, compared_at, found, gone, returned, added, stopped_gone, stopped_of, confirmed FROM imports_root WHERE root_id = ?
+SELECT root_id, place, compared_at, found, gone, returned, added, stopped_gone, stopped_of, confirmed, changed FROM imports_root WHERE root_id = ?
 `
 
 func (q *Queries) GetCompared(ctx context.Context, rootID roots.ID) (ImportsRoot, error) {
@@ -121,6 +121,7 @@ func (q *Queries) GetCompared(ctx context.Context, rootID roots.ID) (ImportsRoot
 		&i.StoppedGone,
 		&i.StoppedOf,
 		&i.Confirmed,
+		&i.Changed,
 	)
 	return i, err
 }
@@ -273,7 +274,7 @@ func (q *Queries) InsertEntryFile(ctx context.Context, arg InsertEntryFileParams
 }
 
 const listCompared = `-- name: ListCompared :many
-SELECT root_id, place, compared_at, found, gone, returned, added, stopped_gone, stopped_of, confirmed FROM imports_root ORDER BY root_id
+SELECT root_id, place, compared_at, found, gone, returned, added, stopped_gone, stopped_of, confirmed, changed FROM imports_root ORDER BY root_id
 `
 
 func (q *Queries) ListCompared(ctx context.Context) ([]ImportsRoot, error) {
@@ -296,6 +297,7 @@ func (q *Queries) ListCompared(ctx context.Context) ([]ImportsRoot, error) {
 			&i.StoppedGone,
 			&i.StoppedOf,
 			&i.Confirmed,
+			&i.Changed,
 		); err != nil {
 			return nil, err
 		}
@@ -462,10 +464,10 @@ func (q *Queries) ListRootsOf(ctx context.Context, ids []EntryID) ([]roots.ID, e
 }
 
 const recordComparison = `-- name: RecordComparison :exec
-INSERT INTO imports_root (root_id, place, compared_at, found, gone, returned, added, stopped_gone, stopped_of)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO imports_root (root_id, place, compared_at, found, changed, gone, returned, added, stopped_gone, stopped_of)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (root_id) DO UPDATE SET
-    place = excluded.place, compared_at = excluded.compared_at, found = excluded.found, gone = excluded.gone,
+    place = excluded.place, compared_at = excluded.compared_at, found = excluded.found, changed = excluded.changed, gone = excluded.gone,
     returned = excluded.returned, added = excluded.added, stopped_gone = excluded.stopped_gone, stopped_of = excluded.stopped_of
 `
 
@@ -474,6 +476,7 @@ type RecordComparisonParams struct {
 	Place       int64
 	ComparedAt  storage.Time
 	Found       int64
+	Changed     int64
 	Gone        int64
 	Returned    int64
 	Added       int64
@@ -487,6 +490,7 @@ func (q *Queries) RecordComparison(ctx context.Context, arg RecordComparisonPara
 		arg.Place,
 		arg.ComparedAt,
 		arg.Found,
+		arg.Changed,
 		arg.Gone,
 		arg.Returned,
 		arg.Added,

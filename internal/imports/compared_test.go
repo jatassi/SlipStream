@@ -60,6 +60,8 @@ func TestTheScanLineSaysWhatTheLastComparisonFound(t *testing.T) {
 		{Comparison{Found: 3, Gone: 1}, "It found 3 new files and 1 gone file."},
 		{Comparison{Found: 1204}, "It found 1,204 new files."},
 		{Comparison{Found: 1, Gone: 2, Returned: 3}, "It found 1 new file, 2 gone files and 3 returned files."},
+		{Comparison{Changed: 1}, "It found 1 changed file."},
+		{Comparison{Found: 1, Changed: 2, Gone: 1}, "It found 1 new file, 2 changed files and 1 gone file."},
 		{Comparison{}, "Nothing changed."},
 		{Comparison{Gone: 1912, Stopped: &scanning.Stopped{Gone: 1912, Of: 2000}}, "Library scan stopped because 1,912 of 2,000 files are gone. Check the disk or share it is on, then scan again."},
 		{Comparison{Stopped: &scanning.Stopped{Gone: 1, Of: 3}}, "Library scan stopped because 1 of 3 files is gone. Check the disk or share it is on, then scan again."},

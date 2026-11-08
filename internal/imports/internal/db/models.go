@@ -48,6 +48,7 @@ type ImportsRoot struct {
 	StoppedGone *int64
 	StoppedOf   *int64
 	Confirmed   *int64
+	Changed     int64
 }
 
 type ImportsSetting struct {

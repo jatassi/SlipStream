@@ -52,10 +52,10 @@ SELECT * FROM imports_root ORDER BY root_id;
 SELECT * FROM imports_root WHERE root_id = ?;
 
 -- name: RecordComparison :exec
-INSERT INTO imports_root (root_id, place, compared_at, found, gone, returned, added, stopped_gone, stopped_of)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO imports_root (root_id, place, compared_at, found, changed, gone, returned, added, stopped_gone, stopped_of)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (root_id) DO UPDATE SET
-    place = excluded.place, compared_at = excluded.compared_at, found = excluded.found, gone = excluded.gone,
+    place = excluded.place, compared_at = excluded.compared_at, found = excluded.found, changed = excluded.changed, gone = excluded.gone,
     returned = excluded.returned, added = excluded.added, stopped_gone = excluded.stopped_gone, stopped_of = excluded.stopped_of;
 
 -- name: ConsumeConfirmed :exec
