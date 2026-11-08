@@ -185,7 +185,7 @@ func Required(a port.Auth) []string {
 func (f Fixture) TVCase() (Case, bool) {
 	i := slices.IndexFunc(f.Cases, func(c Case) bool {
 		s := c.Call.Search
-		return s != nil && s.Mode == "tvsearch" && s.Season > 0 && s.Episode != ""
+		return s != nil && s.Mode == "tvsearch" && s.Season != nil && *s.Season > 0 && s.Episode != ""
 	})
 	if i < 0 {
 		return Case{}, false
@@ -200,7 +200,7 @@ func Skeleton(id port.ID, a port.Auth) Fixture {
 	calls := map[string]Call{
 		"search": {Search: &Search{Mode: "search", Text: "The Quiet Orchard"}},
 		"empty":  {Search: &Search{Mode: "search", Text: "Juniper Falls"}},
-		"tv":     {Search: &Search{Mode: "tvsearch", Text: "Harbor Lights", Season: 2, Episode: "3"}},
+		"tv":     {Search: &Search{Mode: "tvsearch", Text: "Harbor Lights", Season: new(2), Episode: "3"}},
 	}
 	f := Fixture{Port: id, Source: Synthetic, Settings: map[string]string{}}
 	for _, name := range append(Required(a), "tv") {
