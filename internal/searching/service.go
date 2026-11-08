@@ -7,6 +7,7 @@ import (
 	"time"
 
 	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/rpc"
 )
 
@@ -108,16 +109,16 @@ func withFactorFlags(r Release) []Flag {
 	flags := r.Flags
 	switch r.Factors.Download {
 	case 0:
-		flags = append(flags, Freeleech)
+		flags = append(flags, release.Freeleech)
 	case 0.25:
-		flags = append(flags, Freeleech75)
+		flags = append(flags, release.Freeleech75)
 	case 0.5:
-		flags = append(flags, Halfleech)
+		flags = append(flags, release.Halfleech)
 	case 0.75:
-		flags = append(flags, Freeleech25)
+		flags = append(flags, release.Freeleech25)
 	}
 	if r.Factors.Upload == 2 {
-		flags = append(flags, DoubleUpload)
+		flags = append(flags, release.DoubleUpload)
 	}
 	return flags
 }
