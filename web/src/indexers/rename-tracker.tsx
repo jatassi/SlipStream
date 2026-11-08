@@ -2,15 +2,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { DialogActions } from "../account/dialog-actions";
-import type { IndexersTracker } from "../api/gen/model";
-import { renameTracker } from "../api/gen/query/indexers/indexers";
-import { adoptTracker } from "../live/adopt";
+import type { TrackersTracker } from "../api/gen/model";
+import { renameTracker } from "../api/gen/query/trackers/trackers";
+import { adoptTracker } from "../live/adopt-trackers";
 import { Button } from "../ui/button";
 import { Dialog, DialogClose } from "../ui/dialog";
 import { submitErrors, useAppForm } from "../ui/form";
 import { toast } from "../ui/toast";
 
-type Props = { tracker: IndexersTracker; onClose: () => void };
+type Props = { tracker: TrackersTracker; onClose: () => void };
 
 const renameForm = z.object({
   name: z.string().trim().min(1, "Give the Tracker a name").max(100, "Use 100 characters or fewer"),

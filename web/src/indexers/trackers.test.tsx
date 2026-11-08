@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { IndexersTracker } from "../api/gen/model";
+import type { TrackersTracker } from "../api/gen/model";
 import {
   aitherTrackerId,
   beyondHd,
@@ -13,7 +13,7 @@ import { indexersServer } from "../test/indexers-server";
 import { renderApp } from "../test/render-app";
 
 const path = "/settings/indexers";
-const byName = (list: IndexersTracker[]) => list.toSorted((a, b) => a.name.localeCompare(b.name));
+const byName = (list: TrackersTracker[]) => list.toSorted((a, b) => a.name.localeCompare(b.name));
 const heading = (name: string) => page.getByRole("heading", { name, exact: true });
 const group = (name: string) => page.getByRole("list", { name });
 

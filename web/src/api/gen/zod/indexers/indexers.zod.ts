@@ -18,10 +18,6 @@ import {
   IndexersSettingsChange,
   IndexersSolverChange,
   IndexersTestBody,
-  IndexersTracker,
-  IndexersTrackerList,
-  MergeTrackerInputBody,
-  RenameTrackerInputBody,
 } from "../slipStream.schemas.zod.ts";
 
 /**
@@ -190,39 +186,3 @@ export const SetChallengeSolverParams = zod.object({
 export const SetChallengeSolverBody = IndexersSolverChange;
 
 export const SetChallengeSolverResponse = IndexersChallengeSolver;
-
-/**
- * @summary List the Trackers and the Indexers that reach each
- */
-export const ListTrackersResponse = IndexersTrackerList;
-
-/**
- * @summary Get a Tracker
- */
-export const GetTrackerParams = zod.object({
-  id: zod.uuid(),
-});
-
-export const GetTrackerResponse = IndexersTracker;
-
-/**
- * @summary Rename a Tracker. Every Indexer and Release that reached it still does.
- */
-export const RenameTrackerParams = zod.object({
-  id: zod.uuid(),
-});
-
-export const RenameTrackerBody = RenameTrackerInputBody;
-
-export const RenameTrackerResponse = IndexersTracker;
-
-/**
- * @summary Merge a Tracker into another, which keeps its name and takes its Indexers, Grabs, Torrents and hosts. The merged Tracker is deleted.
- */
-export const MergeTrackerParams = zod.object({
-  id: zod.uuid(),
-});
-
-export const MergeTrackerBody = MergeTrackerInputBody;
-
-export const MergeTrackerResponse = IndexersTracker;

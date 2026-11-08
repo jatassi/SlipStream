@@ -4,19 +4,13 @@ import type { z } from "zod";
 import type {
   IndexersIndexer,
   IndexersLimitUse,
-  IndexersTracker,
+  TrackersTracker,
   NodesNode,
 } from "../api/gen/model";
-import {
-  MergeTrackerBody,
-  RenameTrackerBody,
-  UpdateIndexerBody,
-  UpdateIndexerSettingsBody,
-} from "../api/gen/zod/indexers/indexers.zod";
+import { UpdateIndexerBody, UpdateIndexerSettingsBody } from "../api/gen/zod/indexers/indexers.zod";
 import { catalogServer } from "./catalog-server";
 import { imported } from "./grabs";
-import { problem } from "./handlers";
-import { type Server, find, missing, testHandlers, tested } from "./indexer-plays";
+import { type Server, find, missing, testHandlers, tested, trackerHandlers } from "./indexer-plays";
 import {
   larkspur,
   longBackoff,
@@ -128,72 +122,6 @@ function writeHandlers(server: Server) {
   ];
 }
 
-const noTracker = () =>
-  problem(
-    404,
-    "tracker_not_found",
-    "That Tracker no longer exists. It may have been merged into another Tracker.",
-  );
-
-const folded = (name: string) => name.toLowerCase().replaceAll(/[^\p{L}\p{N}]/gu, "");
-
-const findTracker = ({ state }: Server, id: unknown) =>
-  state.trackers.find((tracker) => tracker.id === id);
-
-function merge(server: Server, from: IndexersTracker, into: IndexersTracker) {
-  const kept: IndexersTracker = {
-    ...into,
-    keys: [...into.keys, ...from.keys],
-    hosts: [...new Set([...into.hosts, ...from.hosts])],
-    indexerIds: [...new Set([...into.indexerIds, ...from.indexerIds])],
-  };
-  server.state.trackers = server.state.trackers
-    .filter((tracker) => tracker.id !== from.id)
-    .map((tracker) => (tracker.id === into.id ? kept : tracker));
-  server.state.indexers = server.state.indexers.map((indexer) => ({
-    ...indexer,
-    trackerIds: [...new Set(indexer.trackerIds.map((id) => (id === from.id ? into.id : id)))],
-  }));
-  return kept;
-}
-
-function trackerHandlers(server: Server) {
-  return [
-    http.patch("*/api/v1/trackers/:id", async ({ request, params }) => {
-      const tracker = findTracker(server, params["id"]);
-      if (tracker === undefined) {
-        return noTracker();
-      }
-      const body = RenameTrackerBody.parse(await request.json());
-      server.writes.push({ method: "PATCH", id: tracker.id, body });
-      const taken = server.state.trackers.some(
-        (other) => other.id !== tracker.id && folded(other.name) === folded(body.name),
-      );
-      if (taken) {
-        return problem(409, "tracker_name_taken", "Another Tracker has that name");
-      }
-      const renamed = { ...tracker, name: body.name };
-      server.state.trackers = server.state.trackers.map((other) =>
-        other.id === tracker.id ? renamed : other,
-      );
-      return HttpResponse.json(renamed);
-    }),
-    http.post("*/api/v1/trackers/:id/merge", async ({ request, params }) => {
-      const from = findTracker(server, params["id"]);
-      const body = MergeTrackerBody.parse(await request.json());
-      const into = findTracker(server, body.into);
-      if (from === undefined || into === undefined) {
-        return noTracker();
-      }
-      server.writes.push({ method: "MERGE", id: from.id, body });
-      if (from.id === into.id) {
-        return problem(422, "tracker_merge_self", "A Tracker can't be merged into itself");
-      }
-      return HttpResponse.json(merge(server, from, into));
-    }),
-  ];
-}
-
 /**
  * An Indexers server that keeps its list: a PATCH merges what it sends, a
  * DELETE drops the Indexer, and each is recorded in writes. A Test, and a
@@ -210,7 +138,7 @@ export function indexersServer({
   expireFirst = false,
 }: {
   indexers?: IndexersIndexer[];
-  trackerList?: IndexersTracker[];
+  trackerList?: TrackersTracker[];
   nodes?: NodesNode[];
   failTest?: string;
   captchaTests?: string[];

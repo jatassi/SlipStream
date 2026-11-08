@@ -648,33 +648,6 @@ func Routes(r *api.Router, registry Registry) {
 	}, h.deleteCustom)
 
 	api.Register(o, api.Admin, api.Op{
-		ID: "listTrackers", Method: http.MethodGet, Path: "/trackers", Summary: "List the Trackers and the Indexers that reach each", Status: http.StatusOK,
-	}, h.listTrackers)
-
-	api.Register(o, api.Admin, api.Op{
-		ID: "getTracker", Method: http.MethodGet, Path: "/trackers/{id}", Summary: "Get a Tracker", Status: http.StatusOK,
-		Errors: []*api.Code{trackerNotFound},
-	}, h.getTracker)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "renameTracker",
-		Method:  http.MethodPatch,
-		Path:    "/trackers/{id}",
-		Summary: "Rename a Tracker. Every Indexer and Release that reached it still does.",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{trackerNotFound, trackerNameTaken},
-	}, h.renameTracker)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "mergeTracker",
-		Method:  http.MethodPost,
-		Path:    "/trackers/{id}/merge",
-		Summary: "Merge a Tracker into another, which keeps its name and takes its Indexers, Grabs, Torrents and hosts. The merged Tracker is deleted.",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{trackerNotFound, trackerMergeSelf},
-	}, h.mergeTracker)
-
-	api.Register(o, api.Admin, api.Op{
 		ID: "getIndexerSettings", Method: http.MethodGet, Path: "/indexer-settings", Summary: "Get the Indexer settings", Status: http.StatusOK,
 	}, h.getSettings)
 

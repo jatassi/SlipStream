@@ -2,7 +2,7 @@ import type {
   GrabsGrab,
   IndexersIndexer,
   IndexersQuery,
-  IndexersTracker,
+  TrackersTracker,
   NodesNode,
 } from "../api/gen/model";
 import { useShell } from "../ui/shell-context";
@@ -45,7 +45,7 @@ export function IndexerPage({
   queries: readonly IndexersQuery[];
   grabs: readonly GrabsGrab[];
   nodes: readonly NodesNode[];
-  trackers: readonly IndexersTracker[];
+  trackers: readonly TrackersTracker[];
 }) {
   return (
     <div className="flex max-w-[860px] flex-col gap-6">

@@ -15,5 +15,6 @@ export * from "./shell/shell.zod.ts";
 export * from "./system/system.zod.ts";
 export * from "./targets/targets.zod.ts";
 export * from "./tasks/tasks.zod.ts";
+export * from "./trackers/trackers.zod.ts";
 export * from "./transfers/transfers.zod.ts";
 export * from "./works/works.zod.ts";

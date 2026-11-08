@@ -3216,35 +3216,12 @@ export const IndexersTestBody = zod.object({
 export type IndexersTestBody = zod.input<typeof IndexersTestBody>;
 export type IndexersTestBodyOutput = zod.output<typeof IndexersTestBody>;
 
-export const IndexersTracker = zod.object({
-  hosts: zod.array(zod.string()).describe("The announce hosts of its private torrents"),
-  id: zod.uuid(),
-  indexerIds: zod.array(zod.string()).describe("The Indexers that reach it, by name"),
-  keys: zod
-    .array(zod.string())
-    .describe(
-      "How a Release finds it: definition:<id>, prowlarr:<feed Indexer>:<source id> or named:<Indexer>",
-    ),
-  name: zod.string(),
-  privacy: zod.enum(["private", "semi-private", "public", "unknown"]),
-});
-
-export type IndexersTracker = zod.input<typeof IndexersTracker>;
-export type IndexersTrackerOutput = zod.output<typeof IndexersTracker>;
-
 export const IndexersTrackerChanged = zod.object({
   trackerId: zod.uuid(),
 });
 
 export type IndexersTrackerChanged = zod.input<typeof IndexersTrackerChanged>;
 export type IndexersTrackerChangedOutput = zod.output<typeof IndexersTrackerChanged>;
-
-export const IndexersTrackerList = zod.object({
-  trackers: zod.array(IndexersTracker).describe("By name"),
-});
-
-export type IndexersTrackerList = zod.input<typeof IndexersTrackerList>;
-export type IndexersTrackerListOutput = zod.output<typeof IndexersTrackerList>;
 
 export const joinInputBodyDisplayNameMax = 100;
 
@@ -5776,6 +5753,132 @@ export const TasksTaskPatch = zod.object({
 export type TasksTaskPatch = zod.input<typeof TasksTaskPatch>;
 export type TasksTaskPatchOutput = zod.output<typeof TasksTaskPatch>;
 
+export const TrackersGoal = zod.object({
+  action: zod
+    .union([
+      zod.literal("pause"),
+      zod.literal("remove"),
+      zod.literal("remove-delete"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe(
+      "What happens to the torrent once the goal is met, where remove-delete also deletes its download copy; null when combine is forever",
+    ),
+  combine: zod
+    .enum(["first", "both", "forever"])
+    .describe(
+      "first is whichever of the ratio and seeding time is reached first; both needs both of them; forever seeds until an Admin removes the torrent",
+    ),
+  ratio: zod.number().nullable().describe("At most two decimals; null when combine is forever"),
+  seedSeconds: zod.int().nullable().describe("Seconds; null when combine is forever"),
+});
+
+export type TrackersGoal = zod.input<typeof TrackersGoal>;
+export type TrackersGoalOutput = zod.output<typeof TrackersGoal>;
+
+export const TrackersRule = zod.object({
+  clears: zod
+    .enum(["time", "ratio", "either", "both"])
+    .describe("What meets the rule: its seeding time, its ratio, either of them or both"),
+  ratio: zod
+    .number()
+    .nullable()
+    .describe("At most two decimals; null when the rule doesn't count ratio"),
+  seedSeconds: zod
+    .int()
+    .nullable()
+    .describe("Seconds; null when the rule doesn't count seeding time"),
+  source: zod
+    .enum(["releases", "admin"])
+    .describe(
+      "releases is the latest rule the Tracker's Releases stated; admin is the rule an Admin set, which Releases never replace",
+    ),
+});
+
+export type TrackersRule = zod.input<typeof TrackersRule>;
+export type TrackersRuleOutput = zod.output<typeof TrackersRule>;
+
+export const TrackersRuleBody = zod.object({
+  clears: zod
+    .enum(["time", "ratio", "either", "both"])
+    .describe("What meets the rule: its seeding time, its ratio, either of them or both"),
+  ratio: zod
+    .number()
+    .nullable()
+    .describe("At most two decimals; null when the rule doesn't count ratio"),
+  seedSeconds: zod
+    .int()
+    .nullable()
+    .describe("Seconds; null when the rule doesn't count seeding time"),
+});
+
+export type TrackersRuleBody = zod.input<typeof TrackersRuleBody>;
+export type TrackersRuleBodyOutput = zod.output<typeof TrackersRuleBody>;
+
+export const TrackersSeedingChanged = zod.object({
+  trackerId: zod
+    .uuid()
+    .nullable()
+    .describe(
+      "The Tracker whose seeding changed; null for the default goal and the seeding settings",
+    ),
+});
+
+export type TrackersSeedingChanged = zod.input<typeof TrackersSeedingChanged>;
+export type TrackersSeedingChangedOutput = zod.output<typeof TrackersSeedingChanged>;
+
+export const TrackersSettings = zod.object({
+  settings: zod
+    .array(SettingField)
+    .describe(
+      "The margin added to every rule's seeding time, and how long a torrent that owes may go without announcing before Health warns",
+    ),
+});
+
+export type TrackersSettings = zod.input<typeof TrackersSettings>;
+export type TrackersSettingsOutput = zod.output<typeof TrackersSettings>;
+
+export const TrackersSettingsChange = zod.object({
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe("Each setting's new value by key, all or none; null resets one to its default"),
+});
+
+export type TrackersSettingsChange = zod.input<typeof TrackersSettingsChange>;
+export type TrackersSettingsChangeOutput = zod.output<typeof TrackersSettingsChange>;
+
+export const TrackersTracker = zod.object({
+  goal: zod
+    .union([TrackersGoal, zod.null()])
+    .describe("Its own seeding goal; null while it follows the default goal"),
+  hosts: zod.array(zod.string()).describe("The announce hosts of its private torrents"),
+  id: zod.uuid(),
+  indexerIds: zod.array(zod.string()).describe("The Indexers that reach it, by name"),
+  keys: zod
+    .array(zod.string())
+    .describe(
+      "How a Release finds it: definition:<id>, prowlarr:<feed Indexer>:<source id> or named:<Indexer>",
+    ),
+  name: zod.string(),
+  privacy: zod.enum(["private", "semi-private", "public", "unknown"]),
+  rule: zod
+    .union([TrackersRule, zod.null()])
+    .describe(
+      "Its seeding rule in force; null while none is known, and always for a public Tracker",
+    ),
+});
+
+export type TrackersTracker = zod.input<typeof TrackersTracker>;
+export type TrackersTrackerOutput = zod.output<typeof TrackersTracker>;
+
+export const TrackersTrackerList = zod.object({
+  trackers: zod.array(TrackersTracker).describe("By name"),
+});
+
+export type TrackersTrackerList = zod.input<typeof TrackersTrackerList>;
+export type TrackersTrackerListOutput = zod.output<typeof TrackersTrackerList>;
+
 export const TransfersChanged = zod.object({
   nodeIds: zod.array(zod.string()),
   transferIds: zod.array(zod.string()),
@@ -7215,6 +7318,16 @@ export const LiveEventTrackersChanged = zod.object({
 export type LiveEventTrackersChanged = zod.input<typeof LiveEventTrackersChanged>;
 export type LiveEventTrackersChangedOutput = zod.output<typeof LiveEventTrackersChanged>;
 
+export const LiveEventTrackersSeedingChanged = zod.object({
+  event: zod.enum(["trackers.seeding-changed"]),
+  data: TrackersSeedingChanged,
+});
+
+export type LiveEventTrackersSeedingChanged = zod.input<typeof LiveEventTrackersSeedingChanged>;
+export type LiveEventTrackersSeedingChangedOutput = zod.output<
+  typeof LiveEventTrackersSeedingChanged
+>;
+
 export const LiveEventTransfersChanged = zod.object({
   event: zod.enum(["transfers.changed"]),
   data: TransfersChanged,
@@ -7295,6 +7408,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventTorrentsChanged,
   LiveEventTorrentsLive,
   LiveEventTrackersChanged,
+  LiveEventTrackersSeedingChanged,
   LiveEventTransfersChanged,
   LiveEventVolumesChanged,
   LiveEventWorksChanged,
