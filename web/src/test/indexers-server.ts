@@ -4,7 +4,7 @@ import type { z } from "zod";
 import type {
   IndexersIndexer,
   IndexersLimitUse,
-  TrackersTracker,
+  TrackersTrackerItem,
   NodesNode,
 } from "../api/gen/model";
 import { UpdateIndexerBody, UpdateIndexerSettingsBody } from "../api/gen/zod/indexers/indexers.zod";
@@ -138,7 +138,7 @@ export function indexersServer({
   expireFirst = false,
 }: {
   indexers?: IndexersIndexer[];
-  trackerList?: TrackersTracker[];
+  trackerList?: TrackersTrackerItem[];
   nodes?: NodesNode[];
   failTest?: string;
   captchaTests?: string[];

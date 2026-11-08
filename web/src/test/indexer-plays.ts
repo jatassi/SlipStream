@@ -3,7 +3,7 @@ import { HttpResponse, type JsonBodyType, http } from "msw";
 import type {
   IndexersCaptchaImage,
   IndexersIndexer,
-  TrackersTracker,
+  TrackersTrackerItem,
   SettingDurationField,
 } from "../api/gen/model";
 import { TestIndexerBody } from "../api/gen/zod/indexers/indexers.zod";
@@ -16,7 +16,7 @@ export type IndexerWrite = { method: string; id: string; body?: JsonBodyType };
 export type Server = {
   state: {
     indexers: IndexersIndexer[];
-    trackers: TrackersTracker[];
+    trackers: TrackersTrackerItem[];
     settings: SettingDurationField[];
   };
   writes: IndexerWrite[];
@@ -105,8 +105,8 @@ const folded = (name: string) => name.toLowerCase().replaceAll(/[^\p{L}\p{N}]/gu
 const findTracker = ({ state }: Server, id: unknown) =>
   state.trackers.find((tracker) => tracker.id === id);
 
-function merge(server: Server, from: TrackersTracker, into: TrackersTracker) {
-  const kept: TrackersTracker = {
+function merge(server: Server, from: TrackersTrackerItem, into: TrackersTrackerItem) {
+  const kept: TrackersTrackerItem = {
     ...into,
     keys: [...into.keys, ...from.keys],
     hosts: [...new Set([...into.hosts, ...from.hosts])],
