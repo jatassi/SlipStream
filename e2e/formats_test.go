@@ -35,20 +35,21 @@ type listedRelease struct {
 // String is "<title> <outcome>", then where it lost, its scores and its
 // reasons' codes and values.
 func (r listedRelease) String() string {
-	line := r.Title + " " + r.Outcome
+	var b strings.Builder
+	b.WriteString(r.Title + " " + r.Outcome)
 	if r.LostAt != nil {
-		line += fmt.Sprintf(" lost at %s %s<%s", r.LostAt.Step, r.LostAt.Own, r.LostAt.Ref)
+		fmt.Fprintf(&b, " lost at %s %s<%s", r.LostAt.Step, r.LostAt.Own, r.LostAt.Ref)
 	}
 	for _, s := range r.Scores {
-		line += fmt.Sprintf(" score %d", s.Score)
+		fmt.Fprintf(&b, " score %d", s.Score)
 	}
 	for _, reason := range r.Reasons {
-		line += " " + reason.Code
+		b.WriteString(" " + reason.Code)
 		if reason.Value != "" {
-			line += "=" + reason.Value
+			b.WriteString("=" + reason.Value)
 		}
 	}
-	return line
+	return b.String()
 }
 
 // releasesAre checks the Releases run id saw, in the order listed, are
@@ -259,11 +260,12 @@ func (r tried) lines() []string {
 		out = append(out, "work "+w.Label)
 	}
 	for _, c := range r.Formats {
-		line := fmt.Sprintf("format %s %t", c.Name, c.Matched)
+		var b strings.Builder
+		fmt.Fprintf(&b, "format %s %t", c.Name, c.Matched)
 		for _, cond := range c.Conditions {
-			line += fmt.Sprintf(" %s %t", cond.Name, cond.Matched)
+			fmt.Fprintf(&b, " %s %t", cond.Name, cond.Matched)
 		}
-		out = append(out, line)
+		out = append(out, b.String())
 	}
 	for _, t := range r.Targets {
 		out = append(out, fmt.Sprintf("target %s %d %t", t.Name, t.Score, t.WouldFill))
