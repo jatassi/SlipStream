@@ -7,9 +7,40 @@ package db
 import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/torrent/clients"
 	"github.com/jatassi/slipstream/internal/works"
 )
+
+type DownloadclientsClient struct {
+	ID                  ClientID
+	NodeID              role.NodeID
+	Kind                clients.Kind
+	Name                string
+	Address             string
+	AddressKey          string
+	Username            *string
+	SecretsSealed       secret.Sealed
+	Label               string
+	Folder              *string
+	ClientFolders       string
+	DaemonHost          *string
+	DaemonPort          *int64
+	CheckEverySeconds   *int64
+	ImportDelaySeconds  *int64
+	IsOn                bool
+	SettingsVersion     int64
+	PollState           *string
+	PollSince           storage.Time
+	PollProblem         *string
+	PollSettingsVersion *int64
+	PollCheck           []byte
+	ClientVersion       *string
+	CreatedAt           storage.Time
+	UpdatedAt           storage.Time
+	DeletedAt           storage.Time
+}
 
 type DownloadclientsNode struct {
 	NodeID              role.NodeID
@@ -21,6 +52,7 @@ type DownloadclientsNode struct {
 	Utp                 *bool
 	StalledAfterSeconds *int64
 	Dht                 *bool
+	GrabsTo             *ClientID
 }
 
 type DownloadclientsSetting struct {
@@ -31,36 +63,42 @@ type DownloadclientsSetting struct {
 }
 
 type DownloadclientsTorrent struct {
-	ID             TorrentID
-	NodeID         role.NodeID
-	InfoHash       []byte
-	Metainfo       []byte
-	Name           string
-	Size           int64
-	Private        int64
-	Trackers       string
-	ContentType    works.TypeID
-	SaveFolder     *string
-	Wanted         string
-	AddedOrder     int64
-	AddedAt        storage.Time
-	RemovedAt      storage.Time
-	RemovedReason  *string
-	DeleteFiles    int64
-	PartedAt       storage.Time
-	Freed          *int64
-	Uploaded       int64
-	Downloaded     int64
-	ActiveSeconds  int64
-	SeedingSeconds int64
-	TotalsAt       storage.Time
-	Report         *string
-	ReportedAt     storage.Time
-	Completion     *string
-	CompletedAt    storage.Time
-	Fault          *string
-	FaultAt        storage.Time
-	TrackerID      *indexers.TrackerID
+	ID                TorrentID
+	NodeID            role.NodeID
+	ClientID          *ClientID
+	Attached          *bool
+	InfoHash          []byte
+	Metainfo          []byte
+	Name              string
+	Size              int64
+	Private           int64
+	Trackers          string
+	ContentType       works.TypeID
+	TrackerID         *indexers.TrackerID
+	SaveFolder        *string
+	Wanted            string
+	AddedOrder        int64
+	AddedAt           storage.Time
+	RemovedAt         storage.Time
+	RemovedReason     *string
+	DeleteFiles       int64
+	PartedAt          storage.Time
+	Freed             *int64
+	Uploaded          int64
+	Downloaded        int64
+	ActiveSeconds     int64
+	SeedingSeconds    int64
+	TotalsAt          storage.Time
+	RawUploaded       *int64
+	RawDownloaded     *int64
+	RawActiveSeconds  *int64
+	RawSeedingSeconds *int64
+	Report            *string
+	ReportedAt        storage.Time
+	Completion        *string
+	CompletedAt       storage.Time
+	Fault             *string
+	FaultAt           storage.Time
 }
 
 type DownloadclientsVolume struct {

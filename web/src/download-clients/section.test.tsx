@@ -8,7 +8,8 @@ import {
   thresholds,
   unbound,
 } from "../test/download-clients";
-import { seedboxId } from "../test/nodes";
+import { attic, atticAway, orphan, withExternals } from "../test/external-clients";
+import { home, homeId, nodesAre, seedbox, seedboxId } from "../test/nodes";
 import { renderApp } from "../test/render-app";
 
 const path = "/settings/download-clients";
@@ -132,4 +133,93 @@ test("with no Node downloading, the section says how to get a client", async () 
   await expect
     .element(page.getByText(/^No Node downloads yet\. Give one Downloading in its/u))
     .toBeVisible();
+});
+
+const externals = (node: string) => page.getByRole("list", { name: `External clients on ${node}` });
+
+test("a Node's external clients follow its built-in client, with their status in words and a link to their web UI", async () => {
+  const upstairs = {
+    ...atticAway,
+    id: "c0ffee00-0000-4000-8000-000000000001",
+    name: "Upstairs",
+    webUi: null,
+  };
+  renderApp({
+    path,
+    handlers: downloadClients({ cards: [withExternals(homeCard, attic, upstairs)] }).handlers,
+  });
+  const transmission = externals("home").getByRole("listitem", { name: "Transmission" });
+  await expect.element(transmission.getByText("Responding")).toBeVisible();
+  await expect.element(transmission.getByText("home reached Transmission 4.1.0.")).toBeVisible();
+  await expect.element(transmission.getByText("Transmission, 3 torrents")).toBeVisible();
+  const web = transmission.getByRole("link", { name: "Open Transmission" });
+  await expect.element(web).toHaveAttribute("href", "http://192.168.1.20:9091/transmission/web/");
+  await expect.element(web).toHaveAttribute("target", "_blank");
+
+  const away = externals("home").getByRole("listitem", { name: "Upstairs" });
+  await expect.element(away.getByText("Not responding")).toBeVisible();
+  await expect
+    .element(
+      away.getByText(
+        "Transmission isn't responding. Check that it's running and that home can reach 192.168.1.20:9091.",
+      ),
+    )
+    .toBeVisible();
+  expect(away.getByRole("link").query()).toBeNull();
+  await expect.element(away.getByRole("button", { name: "Edit" })).toBeVisible();
+  await expect.element(away.getByRole("button", { name: "Delete" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Add a Download Client" })).toBeVisible();
+});
+
+test("New Grabs go to offers the built-in client and each external client that is on, and saves the choice", async () => {
+  const off = {
+    ...attic,
+    id: "c0ffee00-0000-4000-8000-000000000002",
+    name: "Spare",
+    on: false,
+    reach: "off",
+  } as const;
+  const clients = downloadClients({ cards: [withExternals(homeCard, attic, off), seedboxCard] });
+  renderApp({ path, handlers: clients.handlers });
+  const choice = page.getByRole("combobox", { name: "New Grabs go to" });
+  await expect.element(choice).toHaveTextContent("Built-in client");
+  await expect
+    .element(page.getByText("Grabs for Works whose library root is on home go to this client."))
+    .toBeVisible();
+  expect(page.getByRole("combobox").elements()).toHaveLength(1);
+
+  await userEvent.click(choice);
+  expect(
+    page
+      .getByRole("option")
+      .elements()
+      .map((option) => option.textContent),
+  ).toEqual(["Built-in client", "Transmission"]);
+  await userEvent.click(page.getByRole("option", { name: "Transmission" }));
+  await expect.element(page.getByText("New Grabs on home go to Transmission")).toBeVisible();
+  await expect.element(choice).toHaveTextContent("Transmission");
+  expect(clients.writes).toEqual([{ path: `${homeId}/settings`, body: { grabsTo: attic.id } }]);
+});
+
+test("clients on Nodes that no longer download sit under their own heading with Delete only", async () => {
+  renderApp({
+    path,
+    handlers: [
+      nodesAre(home, seedbox),
+      ...downloadClients({ cards: [homeCard], orphans: [orphan] }).handlers,
+    ],
+  });
+  const section = page.getByRole("region", { name: "Nodes that no longer download" });
+  await expect
+    .element(
+      section.getByText(
+        "SlipStream doesn't check these clients, because their Nodes no longer hold Downloading. Delete each one, or give its Node Downloading again.",
+      ),
+    )
+    .toBeVisible();
+  const row = section.getByRole("listitem", { name: "qBittorrent" });
+  await expect.element(row.getByText("qBittorrent on seedbox, 0 torrents")).toBeVisible();
+  await expect.element(row.getByRole("button", { name: "Delete" })).toBeVisible();
+  expect(row.getByRole("button", { name: "Edit" }).query()).toBeNull();
+  expect(row.getByRole("link").query()).toBeNull();
 });

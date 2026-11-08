@@ -3,6 +3,7 @@ package sim
 import (
 	"context"
 	"log/slog"
+	"net"
 	"net/netip"
 	"testing"
 
@@ -41,10 +42,14 @@ func (f *servers) serve(t *testing.T, local *fault.Host, server fake.Server) fak
 	if err != nil {
 		t.Fatal(err)
 	}
+	f.serveOn(server, l)
+	return fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String())}
+}
+
+func (f *servers) serveOn(server fake.Server, l net.Listener) {
 	done := make(chan error, 1)
 	go func() { done <- server.Serve(f.ctx, l) }()
 	f.done = append(f.done, done)
-	return fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String())}
 }
 
 func (f *servers) stop(t *testing.T) {

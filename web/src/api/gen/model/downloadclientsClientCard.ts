@@ -1,6 +1,7 @@
 import type { DownloadclientsClientFacts } from "./downloadclientsClientFacts.ts";
 import type { DownloadclientsDiskGuard } from "./downloadclientsDiskGuard.ts";
 import type { DownloadclientsDownloadsVolume } from "./downloadclientsDownloadsVolume.ts";
+import type { DownloadclientsExternalClient } from "./downloadclientsExternalClient.ts";
 import type { DownloadclientsLimits } from "./downloadclientsLimits.ts";
 import type { DownloadclientsTotals } from "./downloadclientsTotals.ts";
 
@@ -11,16 +12,23 @@ export interface DownloadclientsClientCard {
   diskGuard?: DownloadclientsDiskGuard;
   /** The downloads folder's volume as last sampled, absent until the first sample */
   downloads?: DownloadclientsDownloadsVolume;
+  /** The Node's external clients, by name */
+  externals: DownloadclientsExternalClient[];
+  /**
+   * The external client the Node's new Grabs go to; null for its built-in client
+   * @nullable
+   */
+  grabsTo: string | null;
   /** The Node is in step; while it isn't the card has no client */
   inStep: boolean;
   limits: DownloadclientsLimits;
   nodeId: string;
   nodeName: string;
   /**
-   * The Node's live Torrents
+   * The built-in client's live Torrents
    * @minimum 0
    */
   torrents: number;
-  /** Added up over the Node's live Torrents */
+  /** Added up over the built-in client's live Torrents */
   totals: DownloadclientsTotals;
 }

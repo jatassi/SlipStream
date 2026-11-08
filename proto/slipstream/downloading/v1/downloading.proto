@@ -1,6 +1,7 @@
-// The Downloading Role's messages: what each Node's built-in client holds
-// and how, what it reports of each torrent, and what it asks the
-// Controller for a torrent it holds no data for.
+// The Downloading Role's messages: what each Node's built-in client and
+// external Download Clients hold and how, what it reports of each torrent
+// and client, and what it asks the Controller for a torrent it holds no
+// data for and for a client's secrets.
 syntax = "proto3";
 
 package slipstream.downloading.v1;
@@ -22,6 +23,10 @@ message Intent {
   // sample_every_seconds is how often the Node samples its downloads
   // volume: Storage's cadence.
   int64 sample_every_seconds = 6;
+  // clients are the Node's external Download Clients, on or off, in id
+  // order. They carry no secret: the intent is cached in plain bytes on
+  // the Worker.
+  repeated Client clients = 7;
 }
 
 message Torrent {
@@ -29,6 +34,9 @@ message Torrent {
   bytes info_hash = 2;
   Wanted wanted = 3;
   int64 order = 4;
+  // client_id is the external client that holds it, empty for the
+  // built-in client.
+  bytes client_id = 5;
 }
 
 enum Wanted {
@@ -41,6 +49,58 @@ message Discard {
   bytes id = 1;
   bytes info_hash = 2;
   bool delete_files = 3;
+  // client_id is the external client that holds it, empty for the
+  // built-in client.
+  bytes client_id = 4;
+}
+
+// Client is one external Download Client with every setting but its
+// secrets.
+message Client {
+  bytes id = 1;
+  Kind kind = 2;
+  string name = 3;
+  // address is the whole parsed URL.
+  string address = 4;
+  string username = 5;
+  string label = 6;
+  // folder is the download folder as the client sees it, empty for the
+  // client's default.
+  string folder = 7;
+  repeated ClientFolder client_folders = 8;
+  // daemon is Deluge's chosen daemon, absent for the only one.
+  Daemon daemon = 9;
+  int64 check_every_seconds = 10;
+  int64 import_delay_seconds = 11;
+  bool on = 12;
+  // settings_version changes on every edit. The Node fetches the client's
+  // secrets again when it does.
+  int64 settings_version = 13;
+}
+
+enum Kind {
+  KIND_UNSPECIFIED = 0;
+  KIND_QBITTORRENT = 1;
+  KIND_TRANSMISSION = 2;
+  KIND_DELUGE = 3;
+  KIND_RTORRENT = 4;
+}
+
+// ClientFolder pairs a folder as the client reports it with the path of
+// the same folder on the client's Node.
+message ClientFolder {
+  string client = 1;
+  string node = 2;
+}
+
+message Daemon {
+  string host = 1;
+  int32 port = 2;
+}
+
+message Secrets {
+  string password = 1;
+  string api_key = 2;
 }
 
 // Settings are the Node's client settings with every default applied.
@@ -99,13 +159,110 @@ message Volume {
 }
 
 // Report is one outbox entry: the torrents whose report changed, a totals
-// batch, or a removal's confirmation.
+// batch, a removal's confirmation, an external client's poll state, a
+// torrent an external client stopped listing, or an external client's raw
+// counters.
 message Report {
   oneof kind {
     Torrents torrents = 1;
     Totals totals = 2;
     Parted parted = 3;
+    ClientPoll client = 4;
+    Vanished vanished = 5;
+    ClientTotals client_totals = 6;
   }
+}
+
+// ClientPoll is one external client's poll state as its Node judged it,
+// sent when it changed and after every Check now.
+message ClientPoll {
+  bytes client_id = 1;
+  // settings_version is the settings the poll ran under.
+  int64 settings_version = 2;
+  PollState state = 3;
+  // since_unix_ms is when the state began: the first failure for not
+  // responding, which shows only once it has lasted past the grace.
+  int64 since_unix_ms = 4;
+  // version is the product's version, read at the last sign-in.
+  string version = 5;
+  // problem is why the state isn't responding, absent while it is.
+  Problem problem = 6;
+  // check is the Check now token the poll answers, empty for none.
+  bytes check = 7;
+}
+
+enum PollState {
+  POLL_STATE_UNSPECIFIED = 0;
+  POLL_STATE_RESPONDING = 1;
+  POLL_STATE_NOT_RESPONDING = 2;
+  POLL_STATE_SIGN_IN_REFUSED = 3;
+  POLL_STATE_NEEDS_ATTENTION = 4;
+}
+
+// Problem is what went wrong with an external client, and the facts its
+// sentence names.
+message Problem {
+  Cause cause = 1;
+  // status is the HTTP status, for CAUSE_SERVER_ERROR.
+  int32 status = 2;
+  // version is the version reached, for CAUSE_VERSION_TOO_OLD.
+  string version = 3;
+  // folder is the folder tried as the Node sees it, and paired the client
+  // folder it is paired with, empty for none.
+  string folder = 4;
+  string paired = 5;
+  // host is the host name refused, for CAUSE_HOST_REFUSED.
+  string host = 6;
+  // missing is how many torrents the client no longer lists, for
+  // CAUSE_MOST_MISSING.
+  int32 missing = 7;
+  // daemons are the daemons Deluge's web UI lists, for a Test that failed
+  // with CAUSE_DAEMON_NEEDED or CAUSE_WRONG_DAEMON.
+  repeated Daemon daemons = 8;
+}
+
+enum Cause {
+  CAUSE_UNSPECIFIED = 0;
+  CAUSE_NO_RESPONSE = 1;
+  CAUSE_TIMED_OUT = 2;
+  CAUSE_TLS_FAILED = 3;
+  CAUSE_SERVER_ERROR = 4;
+  CAUSE_WRONG_CREDENTIALS = 5;
+  CAUSE_WRONG_API_KEY = 6;
+  CAUSE_BANNED = 7;
+  CAUSE_LOCKED_OUT = 8;
+  CAUSE_VERSION_TOO_OLD = 9;
+  CAUSE_LABEL_PLUGIN_OFF = 10;
+  CAUSE_FOLDER_UNREADABLE = 11;
+  CAUSE_FOLDER_IN_ROOT = 12;
+  CAUSE_ADDRESS_REFUSED = 13;
+  CAUSE_HOST_REFUSED = 14;
+  CAUSE_DAEMON_NEEDED = 15;
+  CAUSE_WRONG_DAEMON = 16;
+  CAUSE_NOT_KEPT = 17;
+  CAUSE_MOST_MISSING = 18;
+}
+
+// Vanished is a torrent an external client listed and then didn't list
+// on two successful polls in a row.
+message Vanished {
+  bytes id = 1;
+}
+
+message ClientTotals {
+  repeated ClientCounters rows = 1;
+}
+
+// ClientCounters are an external client's raw counters for one torrent,
+// which can drop. The Controller counts their increase.
+message ClientCounters {
+  bytes id = 1;
+  int64 uploaded = 2;
+  int64 downloaded = 3;
+  int64 active_seconds = 4;
+  int64 seeding_seconds = 5;
+  // done is the bytes done, sent only while incomplete.
+  int64 done = 6;
 }
 
 message Torrents {
@@ -136,7 +293,38 @@ message TorrentReport {
   string save_folder = 12;
   int64 done = 13;
   int64 wanted = 14;
+  // totals is the built-in client's counters. An external torrent's go in
+  // ClientTotals.
   TotalsRow totals = 15;
+  // origin is whether SlipStream added an external torrent or attached to
+  // one already in the client, set from the Node's first sight of it.
+  Origin origin = 16;
+  // wanted_change is a pause or resume made in the external client.
+  WantedChange wanted_change = 17;
+  // run is what the external client means to do with the torrent.
+  Wanted run = 18;
+  // import_at_unix_ms is when a finished external torrent imports, set
+  // while the Import delay runs.
+  int64 import_at_unix_ms = 19;
+  // queue_position is its place in its external client's queue, from 1, 0
+  // for none.
+  int32 queue_position = 20;
+  // stopped_at_limit is an external torrent its client stopped at its
+  // seeding limit.
+  bool stopped_at_limit = 21;
+}
+
+enum Origin {
+  ORIGIN_UNSPECIFIED = 0;
+  ORIGIN_ADDED = 1;
+  ORIGIN_ATTACHED = 2;
+}
+
+// WantedChange is the wanted state the Node saw change in the client,
+// from the state it last applied.
+message WantedChange {
+  Wanted from = 1;
+  Wanted to = 2;
 }
 
 enum EngineState {
@@ -158,6 +346,9 @@ enum Hold {
   HOLD_DISK_GUARD = 6;
   HOLD_DRAINING = 7;
   HOLD_CONTROLLER = 8;
+  // HOLD_CLIENT_ERROR is a local error in an external client, with the
+  // client's words in error.
+  HOLD_CLIENT_ERROR = 9;
 }
 
 message TrackerLine {
@@ -255,7 +446,54 @@ service DownloadingService {
   // call for the same info hash joins the first, and a found info
   // dictionary stays for a call whose answer was lost.
   rpc Resolve(ResolveRequest) returns (ResolveResponse);
+  // TestClient tests a draft external client from this Node with its
+  // secrets in the call, and changes nothing in the client.
+  rpc TestClient(TestClientRequest) returns (TestClientResponse);
+  // CheckClients polls each named external client now, ones whose sign-in
+  // was refused too, and answers once each poll's report is in the outbox
+  // with check.
+  rpc CheckClients(CheckClientsRequest) returns (CheckClientsResponse);
 }
+
+message TestClientRequest {
+  Client client = 1;
+  Secrets secrets = 2;
+}
+
+message TestClientResponse {
+  oneof answer {
+    Passed passed = 1;
+    Problem failed = 2;
+  }
+}
+
+// Passed is what a passing Test learned.
+message Passed {
+  // product is the product's name as it answered.
+  string product = 1;
+  string version = 2;
+  // node_folder is the download folder as the Node sees it, through the
+  // Client folders.
+  string node_folder = 3;
+  repeated Warning warnings = 4;
+  // daemons are the daemons Deluge's web UI lists, empty for other kinds.
+  repeated Daemon daemons = 5;
+}
+
+enum Warning {
+  WARNING_UNSPECIFIED = 0;
+  WARNING_REMOVES_AT_LIMIT = 1;
+  WARNING_MOVES_AFTER_FINISH = 2;
+  WARNING_NO_MOVING_STATE = 3;
+}
+
+message CheckClientsRequest {
+  repeated bytes ids = 1;
+  // check is the Check now token each poll's report carries.
+  bytes check = 2;
+}
+
+message CheckClientsResponse {}
 
 message ResolveRequest {
   bytes info_hash = 1;
@@ -431,6 +669,9 @@ enum Refusal {
   REFUSAL_WINDOW = 3;
   // REFUSAL_FAILED is a recheck of a torrent the engine failed.
   REFUSAL_FAILED = 4;
+  // REFUSAL_CLIENT_AWAY is a torrent of an external client whose polls
+  // don't succeed now.
+  REFUSAL_CLIENT_AWAY = 5;
 }
 
 message FreesRequest {
@@ -459,6 +700,10 @@ service DownloadingControlService {
   // no data for. It answers only the Torrent's own Node, and NotFound for
   // a removed one.
   rpc Torrent(TorrentRequest) returns (TorrentResponse);
+  // ClientSecrets is an external client's secrets at its current settings
+  // version. It answers only the client's own Node, and NotFound for a
+  // deleted client or another Node's.
+  rpc ClientSecrets(ClientSecretsRequest) returns (ClientSecretsResponse);
 }
 
 message TorrentRequest {
@@ -474,4 +719,17 @@ message TorrentResponse {
   string save_folder = 3;
   // content_type is the Content Type's name, for a new torrent's folder.
   string content_type = 4;
+  // origin is an external torrent's origin as the Controller recorded it,
+  // unspecified before the Node first reported it.
+  Origin origin = 5;
+}
+
+message ClientSecretsRequest {
+  bytes id = 1;
+}
+
+message ClientSecretsResponse {
+  Secrets secrets = 1;
+  // settings_version is the settings version the secrets belong to.
+  int64 settings_version = 2;
 }

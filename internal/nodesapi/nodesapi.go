@@ -58,6 +58,7 @@ var blockedAs = map[nodes.Reason]api.Carrying[outcome]{
 	nodes.ReachFailed:  rolesBlocked,
 	nodes.NothingHeld:  nothingHeld,
 	nodes.KeepsRole:    keepsRole,
+	nodes.KeepsConfig:  rolesBlocked,
 	nodes.IsController: isController,
 	nodes.HoldsWork:    holdsWork,
 }
@@ -357,7 +358,7 @@ type check struct {
 	Node    named  `json:"node"`
 	Role    string `json:"role,omitempty" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving" doc:"Absent for a check on the whole Node"`
 	Verdict string `json:"verdict" enum:"allow,warn,block"`
-	Reason  string `json:"reason" enum:"role_taken,probe_fails,probe_weak,offline_unchecked,reach_failed,reached,nothing_to_test,node_is_controller,node_holds_work,nothing_held,keeps_role"`
+	Reason  string `json:"reason" enum:"role_taken,probe_fails,probe_weak,offline_unchecked,reach_failed,reached,nothing_to_test,node_is_controller,node_holds_work,nothing_held,keeps_role,keeps_config"`
 	Words   string `json:"words"`
 }
 

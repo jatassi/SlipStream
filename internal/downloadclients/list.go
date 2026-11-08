@@ -15,6 +15,7 @@ import (
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/torrent/clients"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -25,8 +26,16 @@ var ErrNotFound = errors.New("no Torrent has this id")
 // Row is one Torrent as the Torrents view lists it: its record and what
 // is derived from it.
 type Row struct {
-	ID          ID
-	Node        role.NodeID
+	ID   ID
+	Node role.NodeID
+	// Client is nil for the Node's built-in client.
+	Client *ClientRef
+	// Attached is an external torrent that was in its client before
+	// SlipStream attached to it.
+	Attached bool
+	// DeleteFiles is a remove that may delete its download copy: false
+	// for one that parts at once, attached or in an off client.
+	DeleteFiles bool
 	Name        string
 	Size        int64
 	ContentType works.TypeID
@@ -38,7 +47,7 @@ type Row struct {
 	Until    time.Time
 	Severity Severity
 	Tabs     Tab
-	// QueuePosition is its place, from 1, among its Node's downloads
+	// QueuePosition is its place, from 1, among its client's downloads
 	// waiting for a slot, 0 while it waits for none.
 	QueuePosition int
 	// Pending is the wanted state its Node has yet to act on, "" when
@@ -49,11 +58,20 @@ type Row struct {
 	Totals Totals
 	// Tracker is nil for a Torrent whose metainfo names no tracker.
 	Tracker *TrackerCell
-	Error   string
-	Fault   *Fault
-	// LastKnown is when its Node last reported it, set only while the
-	// Node is out of step.
-	LastKnown time.Time
+	// Error is the engine's error text while failed, or an external
+	// client's words for its local error.
+	Error string
+	Fault *Fault
+	// LastKnown is when its Node last reported it, set only while the row
+	// is stale for LastKnownCause.
+	LastKnown      time.Time
+	LastKnownCause StaleCause
+	// ImportAt is when a finished external torrent imports, set while its
+	// client's Import delay runs.
+	ImportAt time.Time
+	// StoppedAtLimit is an external torrent its client stopped at its
+	// seeding limit.
+	StoppedAtLimit bool
 
 	report *Report
 }
@@ -74,9 +92,22 @@ type Filter struct {
 	Tab  Tab
 	Node role.NodeID
 	Type works.TypeID
+	// Client lets through one client's Torrents when set.
+	Client *ClientFilter
 	// Search matches the Torrent's name, its Grabs' release titles and
 	// their Works' labels, ignoring case.
 	Search string
+}
+
+// ClientFilter is one external client's Torrents, or every built-in
+// client's for a nil ID.
+type ClientFilter struct{ ID *ClientID }
+
+func (f ClientFilter) lets(row Row) bool {
+	if f.ID == nil || row.Client == nil {
+		return f.ID == nil && row.Client == nil
+	}
+	return row.Client.ID == *f.ID
 }
 
 // Listing is the rows a Filter lets through, and counts of every Torrent
@@ -126,7 +157,8 @@ func (f Filter) lets(row Row, labels map[works.WorkID]string) bool {
 	case f.IDs != nil && !slices.Contains(f.IDs, row.ID),
 		f.Tab != 0 && row.Tabs&f.Tab == 0,
 		!f.Node.IsZero() && row.Node != f.Node,
-		f.Type != "" && row.ContentType != f.Type:
+		f.Type != "" && row.ContentType != f.Type,
+		f.Client != nil && !f.Client.lets(row):
 		return false
 	}
 	if f.Search == "" {
@@ -177,6 +209,10 @@ func (c *Clients) rows(ctx context.Context, r storage.Reader[file]) ([]Row, erro
 	if err != nil {
 		return nil, err
 	}
+	externals, err := externalsIn(ctx, r)
+	if err != nil {
+		return nil, err
+	}
 	rows := make([]Row, len(held))
 	inLine := map[role.NodeID]int{}
 	for i, h := range held {
@@ -184,7 +220,17 @@ func (c *Clients) rows(ctx context.Context, r storage.Reader[file]) ([]Row, erro
 		if err != nil {
 			return nil, fmt.Errorf("torrent %s: %w", h.ID, err)
 		}
-		if row.State == StateQueued && row.Hold == HoldSlot {
+		if row.LastKnownCause = staleOf(c.cfg.Roster.InStep(h.NodeID), row.Client, externals); row.LastKnownCause != "" {
+			row.LastKnown = row.AddedAt
+			if row.report != nil {
+				row.LastKnown = row.report.At
+			}
+		}
+		switch {
+		case row.State != StateQueued || row.Hold != HoldSlot:
+		case row.Client != nil:
+			row.QueuePosition = row.report.QueuePosition
+		default:
 			inLine[row.Node]++
 			row.QueuePosition = inLine[row.Node]
 		}
@@ -207,7 +253,9 @@ func (c *Clients) rowOf(h db.ListHeldRow, uses []Use) (Row, error) {
 	row := Row{
 		ID: h.ID, Node: h.NodeID, Name: h.Name, Size: h.Size, ContentType: h.ContentType, AddedAt: h.AddedAt.Time(),
 		Uses: uses, State: state, Severity: SeverityOf(facts, state), Tabs: TabsOf(facts, state),
-		Done: rep.done(h.Size), Tracker: cellOf(hosts, rep), report: rep,
+		Client: refOf(h.ClientID, h.ClientKind, h.ClientName), Attached: h.Attached != nil && *h.Attached,
+		DeleteFiles: removalOf(h.ClientID, h.Attached, h.ClientOn) == removedByNode,
+		Done:        rep.done(h.Size), Tracker: cellOf(hosts, rep), report: rep,
 		Totals: Totals{
 			Uploaded: h.Uploaded, Downloaded: h.Downloaded,
 			Active: time.Duration(h.ActiveSeconds) * time.Second, Seeding: time.Duration(h.SeedingSeconds) * time.Second,
@@ -221,26 +269,33 @@ func (c *Clients) rowOf(h db.ListHeldRow, uses []Use) (Row, error) {
 		row.Pending = pendingOf(facts.Wanted, rep)
 	}
 	if rep == nil {
-		if !c.cfg.Roster.InStep(h.NodeID) {
-			row.LastKnown = row.AddedAt
-		}
 		return row, nil
 	}
-	row.Hold, row.Until = rep.Hold, rep.Until
-	if rep.Engine == EngineFailed {
+	row.Hold, row.Until, row.ImportAt, row.StoppedAtLimit = rep.Hold, rep.Until, rep.ImportAt, rep.StoppedAtLimit
+	if rep.Engine == EngineFailed || rep.Hold == HoldClientError {
 		row.Error = rep.Error
-	}
-	if !c.cfg.Roster.InStep(h.NodeID) {
-		row.LastKnown = rep.At
 	}
 	return row, nil
 }
 
+// refOf is a Torrent's client as a row names it, nil for the built-in
+// client.
+func refOf(id *ClientID, kind clients.Kind, name string) *ClientRef {
+	if id == nil {
+		return nil
+	}
+	return &ClientRef{ID: *id, Kind: kind, Name: name}
+}
+
 // pendingOf is wanted when the Node's report doesn't yet show it: a pause
-// the Node hasn't held it for, or a resume of one it still holds.
+// the client doesn't hold it for, or a resume of one it still holds. The
+// built-in client holds it with HoldWanted, an external one with a paused
+// run. A stop at a seeding limit is no pause, so it leaves no resume
+// pending.
 func pendingOf(wanted Wanted, rep *Report) Wanted {
-	held := rep != nil && rep.Hold == HoldWanted
-	if wanted == Paused && !held || wanted == Started && held {
+	held := rep != nil && (rep.Hold == HoldWanted || rep.Run == Paused)
+	limit := rep != nil && rep.StoppedAtLimit
+	if wanted == Paused && !held || wanted == Started && held && !limit {
 		return wanted
 	}
 	return ""

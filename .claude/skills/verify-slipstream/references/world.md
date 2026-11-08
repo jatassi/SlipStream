@@ -26,6 +26,8 @@ Each Node reaches each fake through its own front, a listener on `127.0.0.1` tha
 | `smtp` | the SMTP server an Admin saves, plaintext with STARTTLS or implicit TLS on one front |
 | `seeders` or `seeders/<release>` | every swarm byte from the fake seeders, TCP only |
 | `link/<node>` | the Node link to the Node that listens, for example `link/home` |
+| `transmission` | fake-transmission's RPC (route `rpc`), on a Scenario that gives the Node a Transmission, such as `external-clients`. The world typed its front as the client's address |
+| `qbittorrent`, `deluge`, `rtorrent` | fake-qbittorrent's WebUI API (route `webui`), fake-deluge's JSON-RPC (route `json`) and fake-rtorrent's XML-RPC (route `rpc`), on a Scenario that gives the Node that kind, such as `external-kinds`. The world typed each front as the client's address |
 | `dht` | KRPC queries to fake-dht, the Node's one DHT router. A UDP socket per Node, not a front, so fault rules don't play on it |
 
 The Indexer was entered as `https://torznab.fixture-site.fake.localhost/torznab`. Each Node's `endpoints.searching.sites` sends every host under `fixture-site.fake.localhost` to that Node's own fixture-site front, so a fault rule on `fixture-site@seedbox` plays on the seedbox's searches and one on `fixture-site@home` on the Controller's. A feed entered at `https://prowlarr.fixture-site.fake.localhost/torznab` lists the same Releases with each item naming the source `Fixture Source`, as Prowlarr does, so its first Grab makes that Tracker.

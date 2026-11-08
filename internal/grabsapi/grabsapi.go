@@ -11,10 +11,12 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -41,6 +43,12 @@ var (
 	notSearchable   = api.NewCode(http.StatusConflict, "not_searchable", "The Work's Content Type can't be searched")
 	grabNotFound    = api.NewCode(http.StatusNotFound, "grab_not_found", "No Grab has that id")
 	indexerNotFound = api.NewCode(http.StatusNotFound, "indexer_not_found", "No Indexer has that id")
+
+	grabNotDownloading  = api.NewCode(http.StatusConflict, "grab_not_downloading", "This Grab isn't downloading")
+	grabTorrentInClient = api.NewCode(http.StatusConflict, "grab_torrent_in_client", "This client's Node already has the torrent")
+	clientNotFound      = api.NewCode(http.StatusNotFound, "download_client_not_found", "No Download Client has this id")
+	clientRefused       = api.NewCode(http.StatusUnprocessableEntity, "download_client_field_refused", "SlipStream can't use a value in this client's settings")
+	nodeNotDownloading  = api.NewCode(http.StatusConflict, "node_not_downloading", "That Node doesn't hold Downloading")
 )
 
 func answer(err error) error {
@@ -172,7 +180,7 @@ func idOrNil(id storage.UUID) *string {
 
 type failure struct {
 	Stage   string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
-	Code    string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,no_download_client,download_failed,removed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed"`
+	Code    string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,removed,no_video_file,probe_failed,fills_nothing,transfer_failed,import_failed,node_written_off,root_changed"`
 	Message string `json:"message"`
 }
 
@@ -196,28 +204,35 @@ type fetchWait struct {
 	Until    *time.Time `json:"until" doc:"When SlipStream retries; null while it waits for the Indexer's home Node"`
 }
 
+type grabClient struct {
+	ID   string `json:"id" format:"uuid"`
+	Name string `json:"name"`
+	Kind string `json:"kind" enum:"qbittorrent,transmission,deluge,rtorrent"`
+}
+
 type grab struct {
-	ID           string          `json:"id" format:"uuid"`
-	WorkID       string          `json:"workId" format:"uuid"`
-	ItemID       string          `json:"itemId" format:"uuid"`
-	Edition      string          `json:"edition" doc:"The Edition it was grabbed to fill: any under any cut, else a cut key"`
-	TargetIDs    []string        `json:"targetIds" nullable:"false" doc:"The Targets it was grabbed for, in Profile order"`
-	ReleaseTitle string          `json:"releaseTitle"`
-	Quality      string          `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality the release title names, absent when it names none"`
-	ReleaseSize  int64           `json:"releaseSize" minimum:"0"`
-	IndexerID    *string         `json:"indexerId" format:"uuid" doc:"The Indexer it was grabbed from, null once the Indexer is deleted"`
-	TrackerID    *string         `json:"trackerId" format:"uuid" doc:"The Tracker its Release reached, null for a Grab older than Trackers"`
-	NodeID       string          `json:"nodeId" format:"uuid" doc:"The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to"`
-	FetchNodeID  *string         `json:"fetchNodeId" format:"uuid" doc:"The Node that fetched the .torrent: the Indexer's Searching Node, or the Downloading Node that got a magnet link's metadata from peers. Null until one did"`
-	TorrentID    *string         `json:"torrentId" format:"uuid" doc:"The Torrent it downloads, null until the .torrent is fetched"`
-	InfoHash     *string         `json:"infoHash" doc:"The v1 info hash in hex, null until the .torrent is fetched"`
-	Stage        string          `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
-	Failure      *failure        `json:"failure,omitempty" doc:"Why it failed, absent unless it did"`
-	History      []entered       `json:"history" nullable:"false" doc:"Each stage it entered, when it last entered it, oldest first"`
-	Progress     *progress       `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
-	Metadata     *metadataSearch `json:"metadata,omitempty" doc:"The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node"`
-	FetchWait    *fetchWait      `json:"fetchWait,omitempty" doc:"Why fetching the .torrent waits on its Indexer, absent unless it does"`
-	CreatedAt    time.Time       `json:"createdAt"`
+	ID           string                   `json:"id" format:"uuid"`
+	WorkID       string                   `json:"workId" format:"uuid"`
+	ItemID       string                   `json:"itemId" format:"uuid"`
+	Edition      string                   `json:"edition" doc:"The Edition it was grabbed to fill: any under any cut, else a cut key"`
+	TargetIDs    []string                 `json:"targetIds" nullable:"false" doc:"The Targets it was grabbed for, in Profile order"`
+	ReleaseTitle string                   `json:"releaseTitle"`
+	Quality      string                   `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality the release title names, absent when it names none"`
+	ReleaseSize  int64                    `json:"releaseSize" minimum:"0"`
+	IndexerID    *string                  `json:"indexerId" format:"uuid" doc:"The Indexer it was grabbed from, null once the Indexer is deleted"`
+	TrackerID    *string                  `json:"trackerId" format:"uuid" doc:"The Tracker its Release reached, null for a Grab older than Trackers"`
+	NodeID       string                   `json:"nodeId" format:"uuid" doc:"The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to"`
+	FetchNodeID  *string                  `json:"fetchNodeId" format:"uuid" doc:"The Node that fetched the .torrent: the Indexer's Searching Node, or the Downloading Node that got a magnet link's metadata from peers. Null until one did"`
+	TorrentID    *string                  `json:"torrentId" format:"uuid" doc:"The Torrent it downloads, null until the .torrent is fetched"`
+	Client       api.Nullable[grabClient] `json:"downloadClient" doc:"Its Torrent's external Download Client, null for its Node's built-in client or until the .torrent is fetched"`
+	InfoHash     *string                  `json:"infoHash" doc:"The v1 info hash in hex, null until the .torrent is fetched"`
+	Stage        string                   `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
+	Failure      *failure                 `json:"failure,omitempty" doc:"Why it failed, absent unless it did"`
+	History      []entered                `json:"history" nullable:"false" doc:"Each stage it entered, when it last entered it, oldest first"`
+	Progress     *progress                `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
+	Metadata     *metadataSearch          `json:"metadata,omitempty" doc:"The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node"`
+	FetchWait    *fetchWait               `json:"fetchWait,omitempty" doc:"Why fetching the .torrent waits on its Indexer, absent unless it does"`
+	CreatedAt    time.Time                `json:"createdAt"`
 }
 
 func grabOf(v grabs.View) grab {
@@ -239,6 +254,9 @@ func grabOf(v grabs.View) grab {
 	if v.Torrent != nil {
 		out.TorrentID = new(v.Torrent.ID.String())
 		out.InfoHash = new(v.Torrent.InfoHash.String())
+		if c := v.Torrent.Client; c != nil {
+			out.Client = api.Some(grabClient{ID: c.ID.String(), Name: c.Name, Kind: string(c.Kind)})
+		}
 	}
 	if v.Failed != nil {
 		out.Failure = &failure{Stage: string(v.Failed.Stage), Code: string(v.Failed.Code), Message: v.Failed.Message}
@@ -322,6 +340,14 @@ func Routes(r *api.Router, p Pipeline) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{grabNotFound},
 	}, h.getGrab)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "sendGrabTo",
+		Method:  http.MethodPost,
+		Path:    "/grabs/{grabId}/send-to",
+		Summary: "Send a downloading Grab's torrent to another Download Client",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{grabNotFound, grabNotDownloading, grabTorrentInClient, clientNotFound, clientRefused, nodeNotDownloading},
+	}, h.sendTo)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listIndexerGrabs",
 		Method:  http.MethodGet,
@@ -445,4 +471,66 @@ func (h handlers) listIndexerGrabs(ctx context.Context, by identity.Admin, in *i
 		out.Grabs = append(out.Grabs, grabOf(v))
 	}
 	return &indexerGrabsOutput{Body: out}, nil
+}
+
+type sendToInput struct {
+	GrabID string `path:"grabId" format:"uuid"`
+	Body   struct {
+		ClientID  *string `json:"clientId,omitempty" format:"uuid" doc:"An external client; send this or builtInOn"`
+		BuiltInOn *string `json:"builtInOn,omitempty" format:"uuid" doc:"A downloading Node, for its built-in client; send this or clientId"`
+	}
+}
+
+func (h handlers) sendTo(ctx context.Context, by identity.Admin, in *sendToInput) (*struct{}, error) {
+	id, err := storage.ParseUUID(in.GrabID)
+	if err != nil {
+		return nil, grabNotFound
+	}
+	c, err := choiceOf(in.Body.ClientID, in.Body.BuiltInOn)
+	if err != nil {
+		return nil, err
+	}
+	err = open(h.p).SendTo(ctx, by, grabs.GrabID{UUID: id}, c)
+	if err == nil {
+		return nil, nil
+	}
+	var (
+		off      *downloadclients.ClientOffError
+		inClient *downloadclients.InClientError
+	)
+	switch {
+	case errors.Is(err, grabs.ErrNotDownloading):
+		return nil, grabNotDownloading
+	case errors.As(err, &inClient):
+		return nil, grabTorrentInClient.Because(downloadclients.InClient(inClient.Client, inClient.Node))
+	case errors.Is(err, downloadclients.ErrRemoving):
+		return nil, grabTorrentInClient.Because("That Node is still removing this torrent. Send the Grab there once it's removed.")
+	case errors.As(err, &off):
+		return nil, clientRefused.On("clientId", off.Name+" is off. Turn it on, then send the Grab to it.")
+	case errors.Is(err, downloadclients.ErrNoClient):
+		return nil, clientNotFound
+	case errors.Is(err, downloadclients.ErrNotDownloading):
+		return nil, nodeNotDownloading
+	}
+	return nil, answer(err)
+}
+
+// choiceOf is the client a send-to's body names: exactly one of an
+// external client's id or a Node for its built-in client.
+func choiceOf(client, builtInOn *string) (downloadclients.Choice, error) {
+	switch {
+	case (client == nil) == (builtInOn == nil):
+		return downloadclients.Choice{}, api.Invalid.Fields(api.FieldError{Location: "body", Message: "Send exactly one of clientId and builtInOn."})
+	case client != nil:
+		u, err := storage.ParseUUID(*client)
+		if err != nil {
+			return downloadclients.Choice{}, clientNotFound
+		}
+		return downloadclients.Choice{Client: &downloadclients.ClientID{UUID: u}}, nil
+	}
+	u, err := storage.ParseUUID(*builtInOn)
+	if err != nil {
+		return downloadclients.Choice{}, nodeNotDownloading
+	}
+	return downloadclients.Choice{BuiltInOn: role.NodeID{UUID: u}}, nil
 }

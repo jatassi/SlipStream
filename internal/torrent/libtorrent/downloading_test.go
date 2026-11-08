@@ -17,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloading"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
@@ -80,6 +81,10 @@ func (intents) Report(context.Context, *storage.Tx[storage.Local], *dlv1.Report)
 
 // controller answers each Torrent fetch from the metainfo it holds by id.
 type controller map[storage.UUID][]byte
+
+func (controller) ClientSecrets(context.Context, *dlv1.ClientSecretsRequest) (*dlv1.ClientSecretsResponse, error) {
+	return nil, rpc.Errorf(rpc.CodeNotFound, "no external Download Client")
+}
 
 func (c controller) Torrent(_ context.Context, req *dlv1.TorrentRequest) (*dlv1.TorrentResponse, error) {
 	id, err := storage.UUIDFromBytes(req.GetId())

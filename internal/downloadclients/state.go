@@ -40,7 +40,7 @@ func StateOf(f Facts) State {
 		return StateFailed
 	case r != nil && trackerErr(r.Trackers):
 		return StateTrackerErr
-	case f.Wanted == Paused || r != nil && slices.Contains(pausedHolds, r.Hold):
+	case f.Wanted == Paused || r != nil && (slices.Contains(pausedHolds, r.Hold) || r.Run == Paused):
 		return StatePaused
 	case r == nil:
 		return StateQueued
@@ -57,8 +57,10 @@ func StateOf(f Facts) State {
 }
 
 var (
-	pausedHolds = []Hold{HoldWanted, HoldWindow, HoldDiskFull}
+	pausedHolds = []Hold{HoldWanted, HoldWindow, HoldDiskFull, HoldClientError}
 	queuedHolds = []Hold{HoldSlot, HoldCheckSlot, HoldDiskGuard, HoldDraining, HoldController}
+	// warnedHolds are the holds an Admin may need to act on.
+	warnedHolds = []Hold{HoldDiskFull, HoldDiskGuard, HoldClientError}
 )
 
 // trackerErr is some line failing while none works: per BEP 12 a working
@@ -127,7 +129,7 @@ func SeverityOf(f Facts, s State) Severity {
 	case StateStalled:
 		return SeverityWarning
 	case StatePaused, StateQueued:
-		if f.Report != nil && (f.Report.Hold == HoldDiskFull || f.Report.Hold == HoldDiskGuard) {
+		if f.Report != nil && slices.Contains(warnedHolds, f.Report.Hold) {
 			return SeverityWarning
 		}
 	case StateRemoving, StateChecking, StateDownloading, StateSeeding:

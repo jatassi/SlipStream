@@ -4,14 +4,18 @@ package faketest
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"slices"
 	"sync"
 	"testing"
@@ -78,6 +82,31 @@ type Option func(*options)
 // WithReleases hands the fake a release catalog, as the world does.
 func WithReleases(c *releases.Catalog) Option {
 	return func(o *options) { o.releases = c }
+}
+
+// Catalog is a release catalog of one release per name, each a payload of
+// size bytes drawn from its name and placed in a test folder as
+// <name>.mkv, as the world's catalog places it.
+func Catalog(t testing.TB, size int, names ...string) *releases.Catalog {
+	t.Helper()
+	dir := t.TempDir()
+	c := &releases.Catalog{}
+	for _, name := range names {
+		payload := make([]byte, size)
+		_, _ = rand.NewChaCha8(sha256.Sum256([]byte(name))).Read(payload)
+		file := filepath.Join(dir, name+".mkv")
+		if err := os.WriteFile(file, payload, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		meta, hash, err := releases.Metainfo(name+".mkv", payload, "https://127.0.0.1/announce/faketest", false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.Releases = append(c.Releases, releases.Release{
+			Release: scenario.Release{Name: name}, Dir: dir, File: file, Size: int64(size), Metainfo: meta, InfoHash: hash,
+		})
+	}
+	return c
 }
 
 // WithFronts hands the fake the world's fronts, as the world does.
@@ -158,7 +187,7 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 	}
 	t.Cleanup(func() { _ = log.Close() })
 	env := fake.NewEnv(s, spec, slog.New(slog.NewTextHandler(t.Output(), nil)), plan, log)
-	env.Releases, env.Fronts, env.Files = o.releases, o.fronts, runDir
+	env.Releases, env.Fronts, env.Files, env.Dir = o.releases, o.fronts, runDir, t.TempDir()
 	if spec.TLS == fake.OwnTLS {
 		env.Leaf = served
 	}

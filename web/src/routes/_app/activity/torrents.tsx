@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
-import { getListTorrentsSuspenseQueryOptions } from "../../../api/gen/query/downloadclients/downloadclients";
+import {
+  getListDownloadClientsSuspenseQueryOptions,
+  getListTorrentsSuspenseQueryOptions,
+} from "../../../api/gen/query/downloadclients/downloadclients";
 import { getListNodesSuspenseQueryOptions } from "../../../api/gen/query/nodes/nodes";
 import {
   getListCutsSuspenseQueryOptions,
@@ -17,10 +20,12 @@ export const Route = createFileRoute("/_app/activity/torrents")({
   staticData: { title: "Torrents", view: true },
   validateSearch: z.object({
     tab: z.enum(["downloading", "seeding", "problems", "all"]).optional().catch(undefined),
+    client: z.string().optional().catch(undefined),
   }),
   loader: ({ context }) =>
     Promise.all([
       ensureQuery(context.queryClient, getListTorrentsSuspenseQueryOptions()),
+      ensureQuery(context.queryClient, getListDownloadClientsSuspenseQueryOptions()),
       ensureLibrary(context.queryClient),
       ensureQuery(context.queryClient, getListNodesSuspenseQueryOptions()),
       ensureQuery(context.queryClient, getListContentTypesSuspenseQueryOptions()),

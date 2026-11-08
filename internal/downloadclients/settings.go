@@ -26,6 +26,8 @@ var (
 	FaultStall      = setting.Duration{Key: "downloading.faultStall", Label: "A download with no data at all is bad after", Default: 12 * time.Hour, Min: time.Hour, Max: 30 * 24 * time.Hour, Step: time.Hour}
 	UnregisteredGap = setting.Duration{Key: "downloading.unregisteredGap", Label: "Unregistered twice, this far apart", Default: 30 * time.Minute, Min: time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute}
 	MetadataWait    = setting.Duration{Key: "downloading.metadataWait", Label: "A magnet link with no metadata fails after", Default: 30 * time.Minute, Min: time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute}
+	CheckEvery      = setting.Duration{Key: "downloadClients.checkEvery", Label: "Check every", Default: 10 * time.Second, Min: 2 * time.Second, Max: time.Hour, Step: time.Second}
+	ImportDelay     = setting.Duration{Key: "downloadClients.importDelay", Label: "Import delay", Default: 0, Min: 0, Max: 24 * time.Hour, Step: time.Minute}
 )
 
 // NodeSettings is one Node's client settings with every default applied.
@@ -43,12 +45,32 @@ type NodeSettings struct {
 type NodeOverrides struct {
 	DownloadLimit, UploadLimit, ActiveDownloads, ActiveChecks, Connections, StalledAfter *int64
 	UTP, DHT                                                                             *bool
+	// GrabsTo is the external client the Node's New Grabs go to, nil for
+	// its built-in client.
+	GrabsTo *ClientID
 }
 
 // NodeChange is the per-Node settings to store, each nil to leave.
 type NodeChange struct {
 	DownloadLimit, UploadLimit, ActiveDownloads, ActiveChecks, Connections, StalledAfter *setting.Stored[int64]
 	UTP, DHT                                                                             *setting.Stored[bool]
+	// GrabsTo is where the Node's new Grabs go: one of its on external
+	// clients, or its built-in client for a nil *ClientID.
+	GrabsTo **ClientID
+}
+
+// GrabsToError refuses New Grabs go to for client Name: it is off, or on
+// another Node.
+type GrabsToError struct {
+	Name string
+	Off  bool
+}
+
+func (e *GrabsToError) Error() string {
+	if e.Off {
+		return e.Name + " is off"
+	}
+	return e.Name + " is on another Node"
 }
 
 func (o NodeOverrides) Settings() NodeSettings {
@@ -76,6 +98,7 @@ func nodeOverridesOf(ctx context.Context, r storage.Reader[file], node role.Node
 	return NodeOverrides{
 		DownloadLimit: row.DownloadLimit, UploadLimit: row.UploadLimit, ActiveDownloads: row.ActiveDownloads,
 		ActiveChecks: row.ActiveChecks, Connections: row.Connections, StalledAfter: row.StalledAfterSeconds, UTP: row.Utp, DHT: row.Dht,
+		GrabsTo: row.GrabsTo,
 	}, nil
 }
 
@@ -85,7 +108,8 @@ func (c *Clients) NodeSettings(ctx context.Context, node role.NodeID) (NodeOverr
 }
 
 // SetNodeSettings stores ch as node's settings, which node applies from
-// its next intent.
+// its next intent. A GrabsTo naming no client is ErrNoClient, and one
+// naming an off client or another Node's is *GrabsToError.
 func (c *Clients) SetNodeSettings(ctx context.Context, node role.NodeID, ch NodeChange) (NodeOverrides, error) {
 	var o NodeOverrides
 	err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
@@ -127,9 +151,24 @@ func setNodeSettings(ctx context.Context, tx *storage.Tx[file], node role.NodeID
 	if c.DHT != nil {
 		o.DHT = c.DHT.Override()
 	}
+	if c.GrabsTo != nil {
+		if id := *c.GrabsTo; id != nil {
+			e, err := ExternalOf(ctx, tx, *id)
+			switch {
+			case err != nil:
+				return NodeOverrides{}, err
+			case e.Node != node:
+				return NodeOverrides{}, &GrabsToError{Name: e.Name}
+			case !e.On:
+				return NodeOverrides{}, &GrabsToError{Name: e.Name, Off: true}
+			}
+		}
+		o.GrabsTo = *c.GrabsTo
+	}
 	return o, db.New(tx).SetNodeSettings(ctx, db.SetNodeSettingsParams{
 		NodeID: node, DownloadLimit: o.DownloadLimit, UploadLimit: o.UploadLimit, ActiveDownloads: o.ActiveDownloads,
 		ActiveChecks: o.ActiveChecks, Connections: o.Connections, Utp: o.UTP, StalledAfterSeconds: o.StalledAfter, Dht: o.DHT,
+		GrabsTo: o.GrabsTo,
 	})
 }
 

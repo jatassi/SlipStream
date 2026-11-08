@@ -221,10 +221,11 @@ type Node struct {
 	// orders its reports to the holder half.
 	host   *nodeHost
 	hostMu sync.Mutex
-	// torrent is the Node's torrent engine, and downloads its built-in
-	// client.
-	torrent   engine.Engine
-	downloads *downloading.Client
+	// torrent is the Node's torrent engine, downloads its built-in client,
+	// and downloading the Role that holds it beside each external client.
+	torrent     engine.Engine
+	downloads   *downloading.Client
+	downloading *downloading.Node
 	// ports is the one port Registry, which the Controller lists and the
 	// Node runs.
 	ports port.Registry
@@ -421,7 +422,7 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	n.tasksRand = streams.Stream("tasks")
 	n.metadataRand = streams.Stream("metadata")
 	n.cacheRand = streams.Stream("metadata-cache")
-	if err := n.startTorrent(cfg, l, streams.Stream("torrent")); err != nil {
+	if err := n.startTorrent(cfg, l, streams.Stream("torrent"), streams.Stream("download-clients")); err != nil {
 		return 0, "", err
 	}
 	if err := n.startStorage(cfg); err != nil {
@@ -485,7 +486,7 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 
 // startTorrent opens the torrent engine and the Node's built-in client,
 // which reads its events from now on, claimed or not.
-func (n *Node) startTorrent(cfg Config, l *Listeners, torrentRand *rand.Rand) error {
+func (n *Node) startTorrent(cfg Config, l *Listeners, torrentRand, clientsRand *rand.Rand) error {
 	torrent, err := n.env.Engine(engine.Config{
 		ListenInterface:   cfg.Torrent.Listen,
 		AnnounceFloor:     cfg.Timings.Downloading.AnnounceFloor,
@@ -510,6 +511,15 @@ func (n *Node) startTorrent(cfg Config, l *Listeners, torrentRand *rand.Rand) er
 		Volume:     func(ctx context.Context, path string) (storing.Volume, error) { return n.store.Volume(ctx, path) },
 		Log:        n.rootLog.With("subsystem", "downloading"),
 	})
+	n.downloading = downloading.NewNode(n.downloads, downloading.NodeConfig{
+		HTTP:    httpClient(n.stack, n.env.Net.DialContext),
+		Timings: cfg.Timings.Downloading,
+		Folder: func(ctx context.Context, path string, write bool) (storing.CheckResult, error) {
+			return n.store.JudgeClientFolder(ctx, path, write)
+		},
+		Rand: clientsRand,
+		Log:  n.rootLog.With("subsystem", "download clients"),
+	})
 	n.stack.Go("torrent client", n.downloads.Loop)
 	n.stack.OnStop("torrent", func(context.Context) error { return torrent.Close() })
 	// An engine whose port was taken runs without a listener, and the
@@ -529,7 +539,7 @@ func (n *Node) startStorage(cfg Config) error {
 		return fmt.Errorf("open the disk: %w", err)
 	}
 	n.disk = disk
-	n.store = storing.NewStore(storing.Config{Disk: disk, Payloads: n.downloads, Downloads: n.downloads.Folders, Timings: cfg.Timings.Storing})
+	n.store = storing.NewStore(storing.Config{Disk: disk, Payloads: n.downloading, Downloads: n.downloading.Folders, Timings: cfg.Timings.Storing})
 	return nil
 }
 

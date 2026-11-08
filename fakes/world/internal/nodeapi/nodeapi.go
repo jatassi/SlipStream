@@ -173,6 +173,39 @@ func SetRoles(ctx context.Context, c *http.Client, baseURL, apiKey string, set [
 // member nil to leave.
 type ClientSettings struct {
 	UTP *bool `json:"utp,omitempty"`
+	// GrabsTo is the id of the external client the Node's New Grabs go to.
+	GrabsTo *string `json:"grabsTo,omitempty"`
+}
+
+// NewClient is an external Download Client as an Admin adds it.
+type NewClient struct {
+	NodeID        string         `json:"nodeId"`
+	Kind          string         `json:"kind"`
+	Name          string         `json:"name,omitempty"`
+	Address       string         `json:"address"`
+	Username      string         `json:"username,omitempty"`
+	Password      string         `json:"password,omitempty"`
+	Label         string         `json:"label,omitempty"`
+	ClientFolders []ClientFolder `json:"clientFolders,omitempty"`
+	ImportDelay   *int64         `json:"importDelay,omitempty"`
+}
+
+type ClientFolder struct {
+	Client string `json:"client"`
+	Node   string `json:"node"`
+}
+
+// CreateExternalClient adds the client once its Test passes on its Node,
+// and returns its id.
+func CreateExternalClient(ctx context.Context, c *http.Client, baseURL, apiKey string, nc NewClient) (string, error) {
+	var created struct {
+		ID string `json:"id"`
+	}
+	err := call(ctx, c, request{
+		what: "add the " + nc.Kind + " Download Client", method: http.MethodPost, url: baseURL + "/api/v1/external-download-clients",
+		header: apiKeyHeader(apiKey), body: nc, want: http.StatusCreated,
+	}, &created)
+	return created.ID, err
 }
 
 func SetClientSettings(ctx context.Context, c *http.Client, baseURL, apiKey, nodeID string, s ClientSettings) error {

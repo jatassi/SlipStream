@@ -79,6 +79,8 @@ func (alone) PickOther(role.Name, role.NodeID) (role.NodeID, bool) { return role
 func (alone) Name(role.NodeID) string                              { return "home" }
 func (alone) Changed() <-chan struct{}                             { return nil }
 func (alone) Touch(...role.NodeID)                                 {}
+func (a alone) Holds(_ role.Name, n role.NodeID) bool              { return n == a.self }
+func (alone) Retargeted(downloadclients.Retargeted)                {}
 func (alone) Moved() <-chan struct{}                               { return nil }
 func (alone) Sample(downloadclients.ID) (downloadclients.Sample, bool) {
 	return downloadclients.Sample{}, false
@@ -307,7 +309,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	}
 	want := `{"id":"` + grab + `","workId":"` + tree.ID.String() + `","itemId":"` + item + `","edition":"any","targetIds":["` + hd.ID.String() + `"],` +
 		`"releaseTitle":"The.Attic.1080p.WEB","quality":"webdl-1080p","releaseSize":4096,"indexerId":"` + indexer.String() + `",` +
-		`"trackerId":"` + trackers[0].ID.String() + `","nodeId":"` + home.String() + `","fetchNodeId":null,"torrentId":null,"infoHash":null,` +
+		`"trackerId":"` + trackers[0].ID.String() + `","nodeId":"` + home.String() + `","fetchNodeId":null,"torrentId":null,"downloadClient":null,"infoHash":null,` +
 		`"stage":"failed","failure":{"stage":"fetching","code":"torrent_invalid","message":"bencode: the metainfo is not a dictionary"},` +
 		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"createdAt":"T"}`
 	expect(t, s, http.MethodGet, "/api/v1/grabs/"+grab, http.StatusOK, want)
@@ -537,4 +539,16 @@ func TestRerunRedecidesWithCoverage(t *testing.T) {
 	if r := f.onlyRun(t); r.Outcome != "nothing_acceptable" || r.GrabID != "" {
 		t.Fatalf("the run after the rerun is %+v, want nothing acceptable: the kept release names Spring, another Item", r)
 	}
+}
+
+func TestSendToTakesExactlyOneClient(t *testing.T) {
+	f := searchable(t, site{})
+	path := "/api/v1/grabs/" + storage.NewUUID().String() + "/send-to"
+	invalid := `{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept",` +
+		`"errors":[{"location":"body","message":"Send exactly one of clientId and builtInOn."}]}`
+	for _, body := range []string{`{}`, `{"clientId":"` + storage.NewUUID().String() + `","builtInOn":"` + f.home.String() + `"}`} {
+		f.s.Expect(t, http.MethodPost, path, body, http.StatusUnprocessableEntity, invalid)
+	}
+	f.s.Expect(t, http.MethodPost, path, `{"builtInOn":"`+f.home.String()+`"}`, http.StatusNotFound,
+		`{"status":404,"code":"grab_not_found","title":"No Grab has that id"}`)
 }

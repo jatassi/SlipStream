@@ -4,15 +4,22 @@ import {
   getListDownloadClientsSuspenseQueryOptions,
   useListDownloadClientsSuspense,
 } from "../api/gen/query/downloadclients/downloadclients";
-import { freshQuery } from "../api/query-client";
+import {
+  getListNodesSuspenseQueryOptions,
+  useListNodesSuspense,
+} from "../api/gen/query/nodes/nodes";
+import { ensureQuery, freshQuery } from "../api/query-client";
 import type { SettingsSection } from "../settings/section";
 import { Empty } from "../shell/empty";
 import { Section } from "../ui/section";
-import { ClientCard } from "./card";
+import { NodeCard } from "./node-card";
 import { Thresholds } from "./thresholds";
+import { Unattached } from "./unattached";
 
 function DownloadClientsSection() {
-  const { cards, thresholds } = useListDownloadClientsSuspense().data;
+  const { cards, orphans, kinds, thresholds } = useListDownloadClientsSuspense().data;
+  const { nodes } = useListNodesSuspense().data;
+  const downloading = cards.map((card) => ({ id: card.nodeId, name: card.nodeName }));
   return (
     <>
       <Section title="Clients">
@@ -27,11 +34,12 @@ function DownloadClientsSection() {
         ) : (
           <div className="flex flex-col gap-3">
             {cards.map((card) => (
-              <ClientCard key={card.nodeId} card={card} />
+              <NodeCard key={card.nodeId} card={card} kinds={kinds} nodes={downloading} />
             ))}
           </div>
         )}
       </Section>
+      {orphans.length > 0 && <Unattached orphans={orphans} kinds={kinds} nodes={nodes} />}
       <Thresholds thresholds={thresholds} />
     </>
   );
@@ -41,7 +49,10 @@ export const downloadClientsSection: SettingsSection = {
   id: "download-clients",
   label: "Download Clients",
   load: async (queryClient) => {
-    await freshQuery(queryClient, getListDownloadClientsSuspenseQueryOptions());
+    await Promise.all([
+      freshQuery(queryClient, getListDownloadClientsSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
+    ]);
   },
   component: DownloadClientsSection,
   health: ["download-clients"],

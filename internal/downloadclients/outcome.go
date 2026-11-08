@@ -20,8 +20,12 @@ type (
 	Completed struct{}
 	// Failed is the latest report saying the engine failed the Torrent.
 	Failed struct{ Error string }
-	// Gone is a removed Torrent, Removing or Parted.
-	Gone struct{ Reason RemoveReason }
+	// Gone is a removed Torrent, Removing or Parted. Client is its
+	// client's name for ByClient and ClientDeleted, "" otherwise.
+	Gone struct {
+		Reason RemoveReason
+		Client string
+	}
 )
 
 func (Pending) outcome()   {}
@@ -32,6 +36,8 @@ func (Gone) outcome()      {}
 // Attached is a Torrent as the Grabs attached to it read it.
 type Attached struct {
 	InfoHash bencode.InfoHash
+	// Client is nil for the built-in client.
+	Client *ClientRef
 	// Files are its files from its first complete report, nil before.
 	// They stay once it is removed, for a Grab already past downloading.
 	Files   []engine.File
@@ -66,7 +72,7 @@ func Outcomes(ctx context.Context, r storage.Reader[file], ids []ID) (map[ID]Att
 }
 
 func attachedOf(row db.ListAttachedRow) (Attached, error) {
-	a := Attached{InfoHash: bencode.InfoHash(row.InfoHash), Outcome: Pending{}}
+	a := Attached{InfoHash: bencode.InfoHash(row.InfoHash), Client: refOf(row.ClientID, row.ClientKind, row.ClientName), Outcome: Pending{}}
 	if row.Completion != nil {
 		var c Completion
 		if err := json.Unmarshal([]byte(*row.Completion), &c); err != nil {
@@ -85,7 +91,11 @@ func attachedOf(row db.ListAttachedRow) (Attached, error) {
 		}
 	}
 	if row.RemovedReason != nil {
-		a.Outcome = Gone{Reason: RemoveReason(*row.RemovedReason)}
+		gone := Gone{Reason: RemoveReason(*row.RemovedReason)}
+		if gone.Reason == ByClient || gone.Reason == ClientDeleted {
+			gone.Client = row.ClientName
+		}
+		a.Outcome = gone
 	}
 	if row.Fault != nil {
 		a.Fault = &Fault{Kind: FaultKind(*row.Fault), At: row.FaultAt.Time()}

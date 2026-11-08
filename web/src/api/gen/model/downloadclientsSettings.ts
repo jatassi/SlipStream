@@ -9,6 +9,11 @@ export interface DownloadclientsSettings {
   connections: SettingCountField;
   dht: SettingSwitchField;
   downloadLimit: SettingRateField;
+  /**
+   * The external client the Node's new Grabs go to; null for its built-in client
+   * @nullable
+   */
+  grabsTo: string | null;
   stalledAfter: SettingDurationField;
   uploadLimit: SettingRateField;
   utp: SettingSwitchField;

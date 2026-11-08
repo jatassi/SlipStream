@@ -238,6 +238,21 @@
             "$ref": "#/components/schemas/DownloadclientsDownloadsVolume",
             "description": "The downloads folder's volume as last sampled, absent until the first sample"
           },
+          "externals": {
+            "description": "The Node's external clients, by name",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsExternalClient"
+            },
+            "type": "array"
+          },
+          "grabsTo": {
+            "description": "The external client the Node's new Grabs go to; null for its built-in client",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "inStep": {
             "description": "The Node is in step; while it isn't the card has no client",
             "type": "boolean"
@@ -253,24 +268,118 @@
             "type": "string"
           },
           "torrents": {
-            "description": "The Node's live Torrents",
+            "description": "The built-in client's live Torrents",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
           "totals": {
             "$ref": "#/components/schemas/DownloadclientsTotals",
-            "description": "Added up over the Node's live Torrents"
+            "description": "Added up over the built-in client's live Torrents"
           }
         },
         "required": [
           "nodeId",
           "nodeName",
+          "grabsTo",
+          "externals",
           "inStep",
           "limits",
           "totals",
           "torrents"
         ],
+        "type": "object"
+      },
+      "DownloadclientsClientEdit": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "apiKey": {
+            "description": "Write-only; empty keeps the saved one",
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "checkEvery": {
+            "description": "Seconds; null resets it to its default",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "clientFolders": {
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsClientFolder"
+            },
+            "maxItems": 50,
+            "type": "array"
+          },
+          "daemon": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadclientsDaemon"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null for Deluge's only daemon"
+          },
+          "folder": {
+            "description": "Empty for the client's default",
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "importDelay": {
+            "description": "Seconds; null resets it to its default",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "kind": {
+            "enum": [
+              "qbittorrent",
+              "transmission",
+              "deluge",
+              "rtorrent"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "description": "Empty for the kind's name",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "Another Node that holds Downloading; a client with Torrents can't move",
+            "format": "uuid",
+            "type": "string"
+          },
+          "on": {
+            "type": "boolean"
+          },
+          "password": {
+            "description": "Write-only; empty keeps the saved one",
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "username": {
+            "description": "Empty signs in with none",
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "DownloadclientsClientFacts": {
@@ -323,11 +432,40 @@
         ],
         "type": "object"
       },
+      "DownloadclientsClientFolder": {
+        "additionalProperties": false,
+        "properties": {
+          "client": {
+            "description": "The folder as the client reports it, such as /downloads",
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "node": {
+            "description": "The same folder on the client's Node, such as D:\\Torrents",
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "client",
+          "node"
+        ],
+        "type": "object"
+      },
       "DownloadclientsClientsChanged": {
         "additionalProperties": false,
         "properties": {
+          "clientIds": {
+            "description": "The external clients whose settings or state changed",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "nodeIds": {
-            "description": "The Nodes whose built-in client's card or settings changed",
+            "description": "The Nodes whose card or settings changed",
             "items": {
               "type": "string"
             },
@@ -335,7 +473,8 @@
           }
         },
         "required": [
-          "nodeIds"
+          "nodeIds",
+          "clientIds"
         ],
         "type": "object"
       },
@@ -349,12 +488,28 @@
             },
             "type": "array"
           },
+          "kinds": {
+            "description": "The kinds of external client, in the order the form offers them",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsKind"
+            },
+            "type": "array"
+          },
+          "orphans": {
+            "description": "External clients on Nodes that no longer serve Downloading, which can only be deleted",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsExternalClient"
+            },
+            "type": "array"
+          },
           "thresholds": {
             "$ref": "#/components/schemas/DownloadclientsThresholds"
           }
         },
         "required": [
           "cards",
+          "orphans",
+          "kinds",
           "thresholds"
         ],
         "type": "object"
@@ -388,6 +543,27 @@
           "byState",
           "byTab",
           "byNode"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsDaemon": {
+        "additionalProperties": false,
+        "properties": {
+          "host": {
+            "maxLength": 253,
+            "minLength": 1,
+            "type": "string"
+          },
+          "port": {
+            "format": "int64",
+            "maximum": 65535,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "host",
+          "port"
         ],
         "type": "object"
       },
@@ -453,6 +629,178 @@
         ],
         "type": "object"
       },
+      "DownloadclientsExternalClient": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "description": "The actions its kind supports",
+            "items": {
+              "enum": [
+                "pause",
+                "resume",
+                "recheck",
+                "announce"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "address": {
+            "description": "The whole address, with the kind's usual path filled in",
+            "type": "string"
+          },
+          "apiKeySaved": {
+            "description": "An API key is saved. Secrets are never returned",
+            "type": "boolean"
+          },
+          "away": {
+            "description": "It isn't responding, refused the sign-in or needs attention while its Node is in step, so its card is red",
+            "type": "boolean"
+          },
+          "checkEvery": {
+            "$ref": "#/components/schemas/SettingDurationField"
+          },
+          "clientFolders": {
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsClientFolder"
+            },
+            "type": "array"
+          },
+          "daemon": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadclientsDaemon"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Deluge's daemon; null for the only one and for every other kind"
+          },
+          "folder": {
+            "description": "The download folder as the client sees it; empty for the client's default",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "importDelay": {
+            "$ref": "#/components/schemas/SettingDurationField"
+          },
+          "kind": {
+            "enum": [
+              "qbittorrent",
+              "transmission",
+              "deluge",
+              "rtorrent"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "on": {
+            "type": "boolean"
+          },
+          "passwordSaved": {
+            "description": "A password is saved. Secrets are never returned",
+            "type": "boolean"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DownloadclientsPollProblem"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why its last poll failed; null while it responds and before its first poll"
+          },
+          "productVersion": {
+            "description": "The product's version at the last sign-in, such as 4.1.1; empty before one",
+            "type": "string"
+          },
+          "reach": {
+            "enum": [
+              "responding",
+              "not_responding",
+              "sign_in_refused",
+              "needs_attention",
+              "off",
+              "node_offline",
+              "unchecked"
+            ],
+            "type": "string"
+          },
+          "settingsVersion": {
+            "description": "Bumped on every edit",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "since": {
+            "description": "When its poll state began; null before its Node first polled it",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "torrents": {
+            "description": "Its live Torrents",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "username": {
+            "description": "Empty when it signs in with none",
+            "type": "string"
+          },
+          "webUi": {
+            "description": "The client's own web UI; null for a kind with none",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "nodeId",
+          "kind",
+          "name",
+          "address",
+          "webUi",
+          "username",
+          "passwordSaved",
+          "apiKeySaved",
+          "label",
+          "folder",
+          "clientFolders",
+          "daemon",
+          "checkEvery",
+          "importDelay",
+          "on",
+          "settingsVersion",
+          "reach",
+          "away",
+          "since",
+          "productVersion",
+          "problem",
+          "torrents",
+          "actions"
+        ],
+        "type": "object"
+      },
       "DownloadclientsFault": {
         "additionalProperties": false,
         "properties": {
@@ -513,6 +861,95 @@
           "index",
           "path",
           "size"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsKind": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "items": {
+              "enum": [
+                "pause",
+                "resume",
+                "recheck",
+                "announce"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "apiKey": {
+            "description": "It may sign in with an API key in place of the username and password",
+            "type": "boolean"
+          },
+          "daemon": {
+            "description": "Its web UI connects to a daemon the Admin may choose",
+            "type": "boolean"
+          },
+          "deletesData": {
+            "description": "Its remove deletes data itself",
+            "type": "boolean"
+          },
+          "floor": {
+            "description": "The oldest version SlipStream supports, such as 4.0",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "qbittorrent",
+              "transmission",
+              "deluge",
+              "rtorrent"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "description": "Which labels it takes: lower_word is a-z, 0-9, _ and - only",
+            "enum": [
+              "any",
+              "no_comma",
+              "lower_word"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "description": "The product's name, a new client's name by default",
+            "type": "string"
+          },
+          "password": {
+            "enum": [
+              "none",
+              "optional",
+              "required"
+            ],
+            "type": "string"
+          },
+          "path": {
+            "description": "The path an address with none takes; empty for a kind with none",
+            "type": "string"
+          },
+          "username": {
+            "enum": [
+              "none",
+              "optional",
+              "required"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "path",
+          "username",
+          "password",
+          "apiKey",
+          "daemon",
+          "label",
+          "floor",
+          "actions",
+          "deletesData"
         ],
         "type": "object"
       },
@@ -643,6 +1080,94 @@
         ],
         "type": "object"
       },
+      "DownloadclientsNewClient": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "description": "The client's whole address, such as http://localhost:9091/transmission/rpc; with no path it takes the kind's usual one",
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "apiKey": {
+            "description": "qBittorrent 5.2 and later. Write-only",
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "checkEvery": {
+            "description": "Seconds; absent for the default",
+            "format": "int64",
+            "type": "integer"
+          },
+          "clientFolders": {
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsClientFolder"
+            },
+            "maxItems": 50,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "daemon": {
+            "$ref": "#/components/schemas/DownloadclientsDaemon",
+            "description": "Deluge's daemon; absent for the only one"
+          },
+          "folder": {
+            "description": "The download folder as the client sees it; absent for the client's default",
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "importDelay": {
+            "description": "Seconds; absent for the default",
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "qbittorrent",
+              "transmission",
+              "deluge",
+              "rtorrent"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "description": "Absent for slipstream",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "name": {
+            "description": "Absent for the kind's name, such as Transmission",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "A Node that holds Downloading",
+            "format": "uuid",
+            "type": "string"
+          },
+          "on": {
+            "description": "Absent for on",
+            "type": "boolean"
+          },
+          "password": {
+            "description": "Write-only",
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeId",
+          "kind",
+          "address"
+        ],
+        "type": "object"
+      },
       "DownloadclientsNodeCount": {
         "additionalProperties": false,
         "properties": {
@@ -659,6 +1184,32 @@
         "required": [
           "nodeId",
           "torrents"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsPollProblem": {
+        "additionalProperties": false,
+        "properties": {
+          "cause": {
+            "description": "Why the client isn't responding, refused the sign-in or needs attention",
+            "type": "string"
+          },
+          "fields": {
+            "description": "The form fields an Admin changes to fix it",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sentence": {
+            "description": "What happened and what to do, as a sentence",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cause",
+          "sentence",
+          "fields"
         ],
         "type": "object"
       },
@@ -710,6 +1261,10 @@
             "format": "date-time",
             "type": "string"
           },
+          "client": {
+            "description": "client_away and client_off: the external client's name",
+            "type": "string"
+          },
           "code": {
             "enum": [
               "not_found",
@@ -717,10 +1272,16 @@
               "importing",
               "not_stalled",
               "offline",
+              "client_away",
+              "client_off",
               "window",
               "not_running",
               "failed"
             ],
+            "type": "string"
+          },
+          "node": {
+            "description": "client_away and client_off: the name of the external client's Node",
             "type": "string"
           },
           "workId": {
@@ -752,6 +1313,14 @@
           "downloadLimit": {
             "$ref": "#/components/schemas/SettingRateField"
           },
+          "grabsTo": {
+            "description": "The external client the Node's new Grabs go to; null for its built-in client",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "stalledAfter": {
             "$ref": "#/components/schemas/SettingDurationField"
           },
@@ -770,7 +1339,8 @@
           "connections",
           "utp",
           "dht",
-          "stalledAfter"
+          "stalledAfter",
+          "grabsTo"
         ],
         "type": "object"
       },
@@ -813,6 +1383,14 @@
             "format": "int64",
             "type": [
               "integer",
+              "null"
+            ]
+          },
+          "grabsTo": {
+            "description": "One of the Node's on external clients, which Grabs for Works whose library root is on the Node go to; null for its built-in client",
+            "format": "uuid",
+            "type": [
+              "string",
               "null"
             ]
           },
@@ -895,6 +1473,45 @@
         ],
         "type": "object"
       },
+      "DownloadclientsTestReport": {
+        "additionalProperties": false,
+        "properties": {
+          "daemons": {
+            "description": "The daemons Deluge's web UI lists; empty for every other kind",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsDaemon"
+            },
+            "type": "array"
+          },
+          "nodeFolder": {
+            "description": "The download folder as the Node sees it",
+            "type": "string"
+          },
+          "product": {
+            "description": "The product's name as it responded, such as Transmission",
+            "type": "string"
+          },
+          "version": {
+            "description": "Such as 4.1.1",
+            "type": "string"
+          },
+          "warnings": {
+            "description": "What could go wrong with these settings, as sentences",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "product",
+          "version",
+          "nodeFolder",
+          "warnings",
+          "daemons"
+        ],
+        "type": "object"
+      },
       "DownloadclientsThresholds": {
         "additionalProperties": false,
         "properties": {
@@ -963,9 +1580,36 @@
             "format": "date-time",
             "type": "string"
           },
+          "attached": {
+            "description": "It was in its external client before SlipStream attached to it, so removing it only stops tracking it",
+            "type": "boolean"
+          },
+          "clientId": {
+            "description": "Its external client; absent for its Node's built-in client",
+            "format": "uuid",
+            "type": "string"
+          },
+          "clientKind": {
+            "description": "Its external client's kind",
+            "enum": [
+              "qbittorrent",
+              "transmission",
+              "deluge",
+              "rtorrent"
+            ],
+            "type": "string"
+          },
+          "clientName": {
+            "description": "Its external client's name",
+            "type": "string"
+          },
           "contentType": {
             "description": "The Content Type it was first grabbed for",
             "type": "string"
+          },
+          "deleteFiles": {
+            "description": "A remove may delete its download copy; false when removing it only stops tracking it, attached or in an off client",
+            "type": "boolean"
           },
           "done": {
             "description": "Bytes done as its Node last reported them; torrents.live carries the live figure",
@@ -984,7 +1628,7 @@
             "type": "string"
           },
           "error": {
-            "description": "The engine's error message for the failure",
+            "description": "The engine's error message for the failure, or an external client's own words for its error",
             "type": "string"
           },
           "fault": {
@@ -1006,7 +1650,7 @@
             "type": "array"
           },
           "hold": {
-            "description": "Why its Node holds it back, as its Node last reported",
+            "description": "Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error",
             "enum": [
               "wanted",
               "window",
@@ -1015,7 +1659,8 @@
               "check_slot",
               "disk_guard",
               "draining",
-              "controller"
+              "controller",
+              "client_error"
             ],
             "type": "string"
           },
@@ -1023,13 +1668,27 @@
             "format": "uuid",
             "type": "string"
           },
+          "importAt": {
+            "description": "When a finished external torrent imports, set while its client's Import delay runs",
+            "format": "date-time",
+            "type": "string"
+          },
           "infoHash": {
             "description": "The v1 info hash in hex",
             "type": "string"
           },
           "lastKnown": {
-            "description": "When its Node last reported it, set while the Node is out of step",
+            "description": "When its Node last reported it, set while the row is stale for lastKnownCause",
             "format": "date-time",
+            "type": "string"
+          },
+          "lastKnownCause": {
+            "description": "Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off",
+            "enum": [
+              "node",
+              "client",
+              "off"
+            ],
             "type": "string"
           },
           "live": {
@@ -1135,6 +1794,10 @@
             ],
             "type": "string"
           },
+          "stoppedAtLimit": {
+            "description": "Its external client stopped it at its seeding limit",
+            "type": "boolean"
+          },
           "tabs": {
             "description": "The Torrents view's tabs it shows under",
             "items": {
@@ -1197,6 +1860,7 @@
           "live",
           "id",
           "nodeId",
+          "deleteFiles",
           "name",
           "contentType",
           "state",
@@ -1276,9 +1940,36 @@
             "format": "date-time",
             "type": "string"
           },
+          "attached": {
+            "description": "It was in its external client before SlipStream attached to it, so removing it only stops tracking it",
+            "type": "boolean"
+          },
+          "clientId": {
+            "description": "Its external client; absent for its Node's built-in client",
+            "format": "uuid",
+            "type": "string"
+          },
+          "clientKind": {
+            "description": "Its external client's kind",
+            "enum": [
+              "qbittorrent",
+              "transmission",
+              "deluge",
+              "rtorrent"
+            ],
+            "type": "string"
+          },
+          "clientName": {
+            "description": "Its external client's name",
+            "type": "string"
+          },
           "contentType": {
             "description": "The Content Type it was first grabbed for",
             "type": "string"
+          },
+          "deleteFiles": {
+            "description": "A remove may delete its download copy; false when removing it only stops tracking it, attached or in an off client",
+            "type": "boolean"
           },
           "done": {
             "description": "Bytes done as its Node last reported them; torrents.live carries the live figure",
@@ -1291,7 +1982,7 @@
             "type": "string"
           },
           "error": {
-            "description": "The engine's error message for the failure",
+            "description": "The engine's error message for the failure, or an external client's own words for its error",
             "type": "string"
           },
           "fault": {
@@ -1299,7 +1990,7 @@
             "description": "The fault found in the release itself, once there is one"
           },
           "hold": {
-            "description": "Why its Node holds it back, as its Node last reported",
+            "description": "Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error",
             "enum": [
               "wanted",
               "window",
@@ -1308,7 +1999,8 @@
               "check_slot",
               "disk_guard",
               "draining",
-              "controller"
+              "controller",
+              "client_error"
             ],
             "type": "string"
           },
@@ -1316,9 +2008,23 @@
             "format": "uuid",
             "type": "string"
           },
-          "lastKnown": {
-            "description": "When its Node last reported it, set while the Node is out of step",
+          "importAt": {
+            "description": "When a finished external torrent imports, set while its client's Import delay runs",
             "format": "date-time",
+            "type": "string"
+          },
+          "lastKnown": {
+            "description": "When its Node last reported it, set while the row is stale for lastKnownCause",
+            "format": "date-time",
+            "type": "string"
+          },
+          "lastKnownCause": {
+            "description": "Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off",
+            "enum": [
+              "node",
+              "client",
+              "off"
+            ],
             "type": "string"
           },
           "name": {
@@ -1407,6 +2113,10 @@
             ],
             "type": "string"
           },
+          "stoppedAtLimit": {
+            "description": "Its external client stopped it at its seeding limit",
+            "type": "boolean"
+          },
           "tabs": {
             "description": "The Torrents view's tabs it shows under",
             "items": {
@@ -1444,6 +2154,7 @@
         "required": [
           "id",
           "nodeId",
+          "deleteFiles",
           "name",
           "contentType",
           "state",
@@ -2361,9 +3072,10 @@
         "additionalProperties": false,
         "properties": {
           "code": {
-            "description": "Why the Grab waits: node_away while its Node is out of step",
+            "description": "Why the Grab waits: node_away while its Node is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention",
             "enum": [
-              "node_away"
+              "node_away",
+              "client_away"
             ],
             "type": "string"
           },
@@ -2525,7 +3237,6 @@
               "torrent_invalid",
               "infohash_mismatch",
               "torrent_v2_only",
-              "no_download_client",
               "download_failed",
               "removed",
               "no_video_file",
@@ -2587,6 +3298,17 @@
           "createdAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "downloadClient": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrabsGrabClient"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its Torrent's external Download Client, null for its Node's built-in client or until the .torrent is fetched"
           },
           "edition": {
             "description": "The Edition it was grabbed to fill: any under any cut, else a cut key",
@@ -2736,10 +3458,38 @@
           "nodeId",
           "fetchNodeId",
           "torrentId",
+          "downloadClient",
           "infoHash",
           "stage",
           "history",
           "createdAt"
+        ],
+        "type": "object"
+      },
+      "GrabsGrabClient": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "qbittorrent",
+              "transmission",
+              "deluge",
+              "rtorrent"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind"
         ],
         "type": "object"
       },
@@ -6832,7 +7582,8 @@
               "node_is_controller",
               "node_holds_work",
               "nothing_held",
-              "keeps_role"
+              "keeps_role",
+              "keeps_config"
             ],
             "type": "string"
           },
@@ -9338,6 +10089,22 @@
           "nodeId",
           "volumeIds"
         ],
+        "type": "object"
+      },
+      "SendToInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "builtInOn": {
+            "description": "A downloading Node, for its built-in client; send this or clientId",
+            "format": "uuid",
+            "type": "string"
+          },
+          "clientId": {
+            "description": "An external client; send this or builtInOn",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "ServingWorker": {
@@ -20320,7 +21087,7 @@
             "apiKey": []
           }
         ],
-        "summary": "List each downloading Node's built-in client, and the thresholds for a bad release",
+        "summary": "List each downloading Node's built-in and external clients, the kinds of external client, and the thresholds for a bad release",
         "tags": [
           "downloadclients"
         ],
@@ -20685,7 +21452,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get a Node's built-in torrent client settings",
+        "summary": "Get a Node's built-in torrent client settings and where its new Grabs go",
         "tags": [
           "downloadclients"
         ],
@@ -20789,6 +21556,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "download_client_not_found",
                             "node_not_found"
                           ],
                           "type": "string"
@@ -20839,6 +21607,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "download_client_field_refused",
                             "invalid",
                             "setting_out_of_range"
                           ],
@@ -20889,7 +21658,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Change a Node's built-in torrent client settings, which the Node applies at once",
+        "summary": "Change a Node's built-in torrent client settings and where its new Grabs go, which the Node applies at once",
         "tags": [
           "downloadclients"
         ],
@@ -22213,6 +22982,1150 @@
         "x-slipstream-access": "account"
       }
     },
+    "/external-download-clients": {
+      "post": {
+        "operationId": "createDownloadClient",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadclientsNewClient"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadclientsExternalClient"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_address_taken",
+                            "download_client_name_taken",
+                            "node_not_downloading",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_choose_daemon",
+                            "download_client_field_refused",
+                            "download_client_test_failed",
+                            "invalid",
+                            "setting_out_of_range"
+                          ],
+                          "type": "string"
+                        },
+                        "daemons": {
+                          "items": {
+                            "$ref": "#/components/schemas/DownloadclientsDaemon"
+                          },
+                          "type": [
+                            "array",
+                            "null"
+                          ]
+                        },
+                        "fields": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": [
+                            "array",
+                            "null"
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Add an external Download Client once its Test passed on its Node",
+        "tags": [
+          "downloadclients"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/external-download-clients/test": {
+      "post": {
+        "operationId": "testDownloadClientDraft",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadclientsNewClient"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadclientsTestReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_downloading",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_choose_daemon",
+                            "download_client_field_refused",
+                            "download_client_test_failed",
+                            "invalid",
+                            "setting_out_of_range"
+                          ],
+                          "type": "string"
+                        },
+                        "daemons": {
+                          "items": {
+                            "$ref": "#/components/schemas/DownloadclientsDaemon"
+                          },
+                          "type": [
+                            "array",
+                            "null"
+                          ]
+                        },
+                        "fields": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": [
+                            "array",
+                            "null"
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Test an external Download Client from its Node without saving it",
+        "tags": [
+          "downloadclients"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/external-download-clients/{id}": {
+      "delete": {
+        "operationId": "deleteDownloadClient",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Delete a client that holds torrents SlipStream tracks: they stay in the client, and Grabs not yet imported from them fail",
+            "explode": false,
+            "in": "query",
+            "name": "stopTracking",
+            "schema": {
+              "description": "Delete a client that holds torrents SlipStream tracks: they stay in the client, and Grabs not yet imported from them fail",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_has_torrents",
+                            "download_client_importing",
+                            "download_client_in_use",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Delete an external Download Client, and with stopTracking stop tracking the torrents it holds",
+        "tags": [
+          "downloadclients"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "updateDownloadClient",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadclientsClientEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadclientsExternalClient"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_address_taken",
+                            "download_client_has_torrents",
+                            "download_client_in_use",
+                            "download_client_name_taken",
+                            "node_not_downloading",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_choose_daemon",
+                            "download_client_field_refused",
+                            "download_client_test_failed",
+                            "invalid",
+                            "setting_out_of_range"
+                          ],
+                          "type": "string"
+                        },
+                        "daemons": {
+                          "items": {
+                            "$ref": "#/components/schemas/DownloadclientsDaemon"
+                          },
+                          "type": [
+                            "array",
+                            "null"
+                          ]
+                        },
+                        "fields": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": [
+                            "array",
+                            "null"
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change an external Download Client, testing it first when the change is to its Node, kind, address, sign-in, daemon, label, folder or Client folders",
+        "tags": [
+          "downloadclients"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/external-download-clients/{id}/test": {
+      "post": {
+        "operationId": "testDownloadClient",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DownloadclientsClientEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadclientsTestReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_downloading",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_choose_daemon",
+                            "download_client_field_refused",
+                            "download_client_test_failed",
+                            "invalid",
+                            "setting_out_of_range"
+                          ],
+                          "type": "string"
+                        },
+                        "daemons": {
+                          "items": {
+                            "$ref": "#/components/schemas/DownloadclientsDaemon"
+                          },
+                          "type": [
+                            "array",
+                            "null"
+                          ]
+                        },
+                        "fields": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": [
+                            "array",
+                            "null"
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Test a saved external Download Client with unsaved changes, using its saved secrets where the changes leave them",
+        "tags": [
+          "downloadclients"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
     "/first-run": {
       "get": {
         "operationId": "getFirstRun",
@@ -23002,6 +24915,209 @@
           }
         ],
         "summary": "Get a Grab with its stage and progress",
+        "tags": [
+          "grabs"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/grabs/{grabId}/send-to": {
+      "post": {
+        "operationId": "sendGrabTo",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grabId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendToInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_not_found",
+                            "grab_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "grab_not_downloading",
+                            "grab_torrent_in_client",
+                            "node_not_downloading",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_field_refused",
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Send a downloading Grab's torrent to another Download Client",
         "tags": [
           "grabs"
         ],
@@ -46468,6 +48584,17 @@
             }
           },
           {
+            "description": "Only one client's Torrents: an external client's id, or built-in for every Node's built-in client",
+            "explode": false,
+            "in": "query",
+            "name": "client",
+            "schema": {
+              "description": "Only one client's Torrents: an external client's id, or built-in for every Node's built-in client",
+              "pattern": "^(built-in|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+              "type": "string"
+            }
+          },
+          {
             "description": "Matches the release name, the Grabs' release titles and their Works' labels, ignoring case",
             "explode": false,
             "in": "query",
@@ -46628,7 +48755,7 @@
             "apiKey": []
           }
         ],
-        "summary": "List the Torrents every Node's built-in client holds, with their state and counts",
+        "summary": "List the Torrents every Node's Download Clients hold, with their state and counts",
         "tags": [
           "downloadclients"
         ],

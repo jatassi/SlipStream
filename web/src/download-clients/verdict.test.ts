@@ -55,6 +55,8 @@ test.each([
     card: {
       nodeId: homeCard.nodeId,
       nodeName: "home",
+      grabsTo: null,
+      externals: homeCard.externals,
       inStep: false,
       limits: homeCard.limits,
       torrents: 0,
@@ -70,6 +72,8 @@ test.each([
     card: {
       nodeId: homeCard.nodeId,
       nodeName: "home",
+      grabsTo: null,
+      externals: homeCard.externals,
       inStep: true,
       limits: homeCard.limits,
       torrents: 0,

@@ -11,3 +11,25 @@ sql:
           - column: downloading_torrent.private
             go_type:
               type: bool
+          - column: downloading_external.client_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: "downloading_external.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: downloading_external.origin
+            go_type:
+              type: string
+              pointer: true
+          - column: downloading_external.applied
+            go_type:
+              type: string
+              pointer: true
+          - column: downloading_external.seen
+            go_type:
+              type: bool
+          - column: downloading_external.completed
+            go_type:
+              type: bool

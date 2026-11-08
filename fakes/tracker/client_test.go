@@ -176,6 +176,10 @@ func (intents) Report(context.Context, *storage.Tx[storage.Local], *dlv1.Report)
 // the folder its files lie in.
 type controller map[storage.UUID]release
 
+func (controller) ClientSecrets(context.Context, *dlv1.ClientSecretsRequest) (*dlv1.ClientSecretsResponse, error) {
+	return nil, rpc.Errorf(rpc.CodeNotFound, "no external Download Client")
+}
+
 func (c controller) Torrent(_ context.Context, req *dlv1.TorrentRequest) (*dlv1.TorrentResponse, error) {
 	id, err := storage.UUIDFromBytes(req.GetId())
 	if err != nil {
