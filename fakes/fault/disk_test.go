@@ -23,6 +23,8 @@ func TestDiskFaultGrammarRoundTrips(t *testing.T) {
 		{fault.Unmounted{}, "unmounted"},
 		{fault.Hung{}, "hung"},
 		{fault.ReadOnly{}, "readonly"},
+		{fault.FoldCase{}, "foldcase"},
+		{fault.NoIDs{}, "noids"},
 		{fault.Volume{Total: 10 << 30, Free: 1536 << 20}, "volume=10GiB,free=1536MiB"},
 		{fault.Volume{Total: 1 << 40, Free: 0}, "volume=1024GiB,free=0B"},
 	} {
@@ -108,6 +110,8 @@ func TestDiskFaultsPlayOnCue(t *testing.T) {
 	t.Run("unmounted", playsUnmounted)
 	t.Run("readonly", playsReadOnly)
 	t.Run("volume and full", playsVolumeAndFull)
+	t.Run("foldcase", playsFoldCase)
+	t.Run("noids", playsNoIDs)
 	t.Run("hung", func(t *testing.T) { synctest.Test(t, playsHung) })
 	t.Run("on an open writer", playsOnAnOpenWriter)
 	t.Run("on an open reader", playsOnAnOpenReader)
@@ -303,5 +307,43 @@ func playsHung(t *testing.T) {
 	lift()
 	if err := <-answered; err != nil {
 		t.Fatalf("Stat of a folder no longer hung = %v", err)
+	}
+}
+
+func playsFoldCase(t *testing.T) {
+	c := newCued(t)
+	upper := filepath.Join(c.folder, ".SLIPSTREAM-ROOT")
+	if _, err := c.d.Stat(c.ctx, upper); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("Stat of the marker in upper case before the fault = %v, want not exist", err)
+	}
+	c.cue(fault.FoldCase{})
+	marker, err := c.d.Stat(c.ctx, c.marker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found, err := c.d.Stat(c.ctx, upper); err != nil || !found.Same(marker) {
+		t.Fatalf("Stat of the marker in upper case = %v, %v; want the marker", found, err)
+	}
+	if err := os.WriteFile(filepath.Join(c.sibling, "x"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.d.Stat(c.ctx, filepath.Join(c.sibling, "X")); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("Stat in upper case in a sibling = %v, want not exist", err)
+	}
+}
+
+func playsNoIDs(t *testing.T) {
+	c := newCued(t)
+	own, err := c.d.Stat(c.ctx, c.marker)
+	if err != nil || own.FileID() == nil || own.Volume() == "" {
+		t.Fatalf("Stat before the fault = %v, %v; want an id on a volume", own, err)
+	}
+	c.cue(fault.NoIDs{})
+	idless, err := c.d.Stat(c.ctx, c.marker)
+	if err != nil || idless.FileID() != nil || idless.Volume() != "" || !idless.Same(own) {
+		t.Fatalf("Stat under the fault = %v, %v; want the same file with no id and no volume", idless, err)
+	}
+	if info, err := c.d.Stat(c.ctx, c.sibling); err != nil || info.FileID() == nil {
+		t.Fatalf("Stat of a sibling = %v, %v; want its id", info, err)
 	}
 }

@@ -173,6 +173,7 @@ func (folderInfo) Size() int64        { return 0 }
 func (folderInfo) ModTime() time.Time { return time.Time{} }
 func (folderInfo) Same(Info) bool     { return false }
 func (folderInfo) FileID() []byte     { return nil }
+func (folderInfo) Volume() string     { return "" }
 
 func (l listing) Host() Host { return Host{Style: l.style} }
 

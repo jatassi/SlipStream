@@ -1,11 +1,12 @@
 package storing
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
 	"io/fs"
-
+	"os"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -20,6 +21,36 @@ func newOSDisk(t *testing.T) OSDisk {
 		t.Fatal(err)
 	}
 	return d
+}
+
+func TestOSDiskFileIDsOutliveARename(t *testing.T) {
+	ctx, d, base := t.Context(), newOSDisk(t), t.TempDir()
+	heat, other := write(t, filepath.Join(base, "Heat.mkv"), "film"), write(t, filepath.Join(base, "Ronin.mkv"), "film")
+	before, err := d.Stat(ctx, heat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.FileID() == nil || before.Volume() == "" {
+		t.Fatalf("a file on a local disk reads id %x on volume %q, want both", before.FileID(), before.Volume())
+	}
+	moved := filepath.Join(dir(t, base, "Heat (1995)"), "Heat (1995).mkv")
+	if err := os.Rename(heat, moved); err != nil {
+		t.Fatal(err)
+	}
+	after, err := d.Stat(ctx, moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(after.FileID(), before.FileID()) || after.Volume() != before.Volume() {
+		t.Errorf("after a rename the file reads %x on %q, want %x on %q", after.FileID(), after.Volume(), before.FileID(), before.Volume())
+	}
+	next, err := d.Stat(ctx, other)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Equal(next.FileID(), before.FileID()) || next.Volume() != before.Volume() {
+		t.Errorf("another file on the volume reads %x on %q, want an id of its own on %q", next.FileID(), next.Volume(), before.Volume())
+	}
 }
 
 func TestOSDiskHost(t *testing.T) {
