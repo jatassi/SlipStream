@@ -50,9 +50,12 @@ jobs:
         with:
           path: ${{ runner.temp }}/slipstream-native
           key: native-linux-amd64-${{ hashFiles('native/lock.json') }}
+      # Before init, so the Go tracer never sees these go run calls.
       - name: Fetch the native bundle
         if: matrix.build-mode == 'manual'
-        run: go run ./cmd/release deps fetch
+        run: |
+          go run ./cmd/release deps fetch
+          go run ./cmd/release deps env > "$RUNNER_TEMP/native.env"
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
@@ -62,7 +65,7 @@ jobs:
       - name: Build
         if: matrix.build-mode == 'manual'
         run: |
-          eval "$(go run ./cmd/release deps env)"
+          . "$RUNNER_TEMP/native.env"
           go build ./...
       - name: Analyze
         uses: github/codeql-action/analyze@v4
