@@ -1,3 +1,10 @@
+// The race detector slows the walk several times over, so its timing says
+// nothing about the 60 s target and it alone ran 250 s of the package's
+// 20 minute budget. The unchanged rescan is proved under -race at small
+// scale by TestAFirstScanAddsTheWorksItIsSureOfAndAnUnchangedRootReadsNothing.
+
+//go:build !race
+
 package sim_test
 
 import (
