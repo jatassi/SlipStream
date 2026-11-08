@@ -1493,6 +1493,15 @@ export const getListTorrentsResponseMock = (
       : {}),
     ...(faker.datatype.boolean() ? { queuePosition: faker.number.int({ min: 0 }) } : {}),
     ratio: faker.number.float({ min: 0, fractionDigits: 2 }),
+    ...(faker.datatype.boolean()
+      ? {
+          retry: {
+            at: faker.date.past().toISOString().slice(0, 19) + "Z",
+            ...(faker.datatype.boolean() ? { found: faker.number.int({ min: 0 }) } : {}),
+          },
+        }
+      : {}),
+    retryable: faker.datatype.boolean(),
     seeding: faker.helpers.arrayElement([
       {
         ...(faker.datatype.boolean()
@@ -1638,6 +1647,7 @@ export const getActOnTorrentsResponseMock = (
                 "window",
                 "not_running",
                 "failed",
+                "not_retryable",
               ] as const),
               ...(faker.datatype.boolean()
                 ? { node: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -1787,6 +1797,15 @@ export const getGetTorrentResponseMock = (
     : {}),
   ...(faker.datatype.boolean() ? { queuePosition: faker.number.int({ min: 0 }) } : {}),
   ratio: faker.number.float({ min: 0, fractionDigits: 2 }),
+  ...(faker.datatype.boolean()
+    ? {
+        retry: {
+          at: faker.date.past().toISOString().slice(0, 19) + "Z",
+          ...(faker.datatype.boolean() ? { found: faker.number.int({ min: 0 }) } : {}),
+        },
+      }
+    : {}),
+  retryable: faker.datatype.boolean(),
   ...(faker.datatype.boolean()
     ? { saveFolder: faker.string.alpha({ length: { min: 10, max: 20 } }) }
     : {}),

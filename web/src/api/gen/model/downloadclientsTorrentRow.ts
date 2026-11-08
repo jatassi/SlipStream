@@ -1,4 +1,5 @@
 import type { DownloadclientsFault } from "./downloadclientsFault.ts";
+import type { DownloadclientsRetried } from "./downloadclientsRetried.ts";
 import type { DownloadclientsSeedingView } from "./downloadclientsSeedingView.ts";
 import type { DownloadclientsTorrentRowClientKind } from "./downloadclientsTorrentRowClientKind.ts";
 import type { DownloadclientsTorrentRowHold } from "./downloadclientsTorrentRowHold.ts";
@@ -64,6 +65,10 @@ export interface DownloadclientsTorrentRow {
    * @minimum 0
    */
   ratio: number;
+  /** Its last Retry, absent before one */
+  retry?: DownloadclientsRetried;
+  /** It failed in its Node's built-in client after it completed, so retry can check its files again */
+  retryable: boolean;
   /** Its seeding against its Tracker's rule and its seeding goal, null in an external client, whose own limits govern its seeding */
   seeding: DownloadclientsSeedingView | null;
   /**

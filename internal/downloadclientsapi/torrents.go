@@ -55,11 +55,18 @@ type TorrentRow struct {
 	SeedingView api.Nullable[seedingView] `json:"seeding" doc:"Its seeding against its Tracker's rule and its seeding goal, null in an external client, whose own limits govern its seeding"`
 	Error       string                    `json:"error,omitempty" doc:"The engine's error message for the failure, or an external client's own words for its error"`
 	Fault       *fault                    `json:"fault,omitempty" doc:"The fault found in the release itself, once there is one"`
+	Retryable   bool                      `json:"retryable" doc:"It failed in its Node's built-in client after it completed, so retry can check its files again"`
+	Retry       *retried                  `json:"retry,omitempty" doc:"Its last Retry, absent before one"`
 	LastKnown   *time.Time                `json:"lastKnown,omitempty" doc:"When its Node last reported it, set while the row is stale for lastKnownCause"`
 	Stale       string                    `json:"lastKnownCause,omitempty" enum:"node,client,off" doc:"Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off"`
 	ImportAt    *time.Time                `json:"importAt,omitempty" doc:"When a finished external torrent imports, set while its client's Import delay runs"`
 	AtLimit     bool                      `json:"stoppedAtLimit,omitempty" doc:"Its external client stopped it at its seeding limit"`
 	AddedAt     time.Time                 `json:"addedAt"`
+}
+
+type retried struct {
+	At    time.Time `json:"at"`
+	Found *int64    `json:"found,omitempty" minimum:"0" doc:"The bytes its check found, absent until its Node checked; all of size means it seeds again"`
 }
 
 type trackerCell struct {
@@ -207,6 +214,10 @@ func rowOf(r downloadclients.Row) TorrentRow {
 	}
 	if f := r.Fault; f != nil {
 		out.Fault = &fault{Kind: string(f.Kind), At: f.At, Sentence: faultWords[f.Kind]}
+	}
+	out.Retryable = r.Retryable
+	if rt := r.Retry; rt != nil {
+		out.Retry = &retried{At: rt.At, Found: rt.Found}
 	}
 	return out
 }
@@ -440,7 +451,7 @@ func (h handlers) getTorrent(ctx context.Context, _ identity.Admin, in *torrentI
 
 type actInput struct {
 	Body struct {
-		Action      string   `json:"action" enum:"pause,resume,announce,recheck,mark-failed,remove"`
+		Action      string   `json:"action" enum:"pause,resume,announce,recheck,retry,mark-failed,remove"`
 		IDs         []string `json:"ids" format:"uuid" minItems:"1" nullable:"false"`
 		DeleteFiles bool     `json:"deleteFiles,omitempty" doc:"remove: also delete each download copy"`
 		DryRun      bool     `json:"dryRun,omitempty" doc:"remove, mark-failed and recheck: return what it would do and change nothing"`
@@ -459,7 +470,7 @@ type actResult struct {
 }
 
 type refusal struct {
-	Code      string     `json:"code" enum:"not_found,removed,importing,not_stalled,offline,client_away,client_off,window,not_running,failed"`
+	Code      string     `json:"code" enum:"not_found,removed,importing,not_stalled,offline,client_away,client_off,window,not_running,failed,not_retryable"`
 	WorkID    *string    `json:"workId,omitempty" format:"uuid" doc:"importing: the Work whose import holds it"`
 	AcceptsAt *time.Time `json:"acceptsAt,omitempty" doc:"window: when every announce URL accepts an announce"`
 	Client    string     `json:"client,omitempty" doc:"client_away and client_off: the external client's name"`

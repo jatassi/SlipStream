@@ -83,6 +83,7 @@ export function torrent(row: Partial<Row> & Pick<Row, "state">): Row {
     seedingSeconds: 0,
     tracker: null,
     seeding: seedingOf(),
+    retryable: false,
     addedAt: `2026-10-12T09:${String(serial % 60).padStart(2, "0")}:00Z`,
     ...row,
   };

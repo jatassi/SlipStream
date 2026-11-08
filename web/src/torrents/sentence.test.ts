@@ -109,6 +109,48 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
     'The torrent client stopped it with the error "no space left on device". Remove it, then search for another Release.',
   ],
   [
+    "a seed that failed offers Retry",
+    { state: "failed", error: "No such file or directory", retryable: true },
+    undefined,
+    'The torrent client stopped it with the error "No such file or directory". Retry it to check its files.',
+  ],
+  [
+    "a Retry that found part of the data says how much",
+    {
+      state: "paused",
+      hold: "wanted",
+      size: 1_000_000_000,
+      done: 400_000_000,
+      retry: { at: "2026-10-20T11:00:00Z", found: 400_000_000 },
+    },
+    undefined,
+    "SlipStream checked its files and 40% of its data was there. Resume it to download the rest.",
+  ],
+  [
+    "a Retry that found all of the data says nothing once it is paused again",
+    {
+      state: "paused",
+      hold: "wanted",
+      size: 1_000_000_000,
+      done: 1_000_000_000,
+      retry: { at: "2026-10-20T11:00:00Z", found: 1_000_000_000 },
+    },
+    undefined,
+    "Paused. It stays paused until you resume it.",
+  ],
+  [
+    "a Retry's finding is old news once the download moved on",
+    {
+      state: "paused",
+      hold: "wanted",
+      size: 1_000_000_000,
+      done: 700_000_000,
+      retry: { at: "2026-10-20T11:00:00Z", found: 400_000_000 },
+    },
+    undefined,
+    "Paused. It stays paused until you resume it.",
+  ],
+  [
     "an unregistered torrent",
     { state: "tracker-error", announce: { host: "beacon.example", status: "unregistered" } },
     undefined,
