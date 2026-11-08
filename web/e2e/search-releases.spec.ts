@@ -112,12 +112,16 @@ test("a search's Details list every Release it saw, the grabbed one first, and w
     "Score -10 is below the minimum of 0 at HD.",
   ]);
   await expect(refused).toContainText("Matches Superfan cut. Scores -10 at 1080p and -10 at HD.");
-  await expect(refused.getByRole("link", { name: "Open in tester" })).toHaveAttribute(
-    "href",
-    `/settings/custom-formats?release=${superfan}`,
-  );
 
   await expectAccessible(page);
   await refused.scrollIntoViewIfNeeded();
   await screenshotWholePage(page, testInfo.outputPath("releases.png"));
+
+  await refused.getByRole("button", { name: "Open in tester" }).click();
+  const tester = page.getByRole("dialog", { name: "Tester" });
+  await expect(tester.getByRole("textbox", { name: "Release names" })).toHaveValue(superfan);
+  await expect(tester).toContainText("Each name is judged against The Quiet Orchard");
+  await expect(tester).toContainText("Score -10 is below the minimum of 0 at");
+  await expect(page).toHaveURL(new RegExp(`/works/${workId}$`, "u"));
+  await expectAccessible(page);
 });

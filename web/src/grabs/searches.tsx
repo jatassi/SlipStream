@@ -1,6 +1,8 @@
 import type { GrabsSearch } from "../api/gen/model";
 import { useListSearchesSuspense } from "../api/gen/query/grabs/grabs";
 import { clock } from "../format";
+import { useTester } from "../formats/tester-dialog";
+import type { WorkRef } from "../formats/testing";
 import { Data } from "../ui/data";
 import { List, ListRow } from "../ui/list";
 import { Section } from "../ui/section";
@@ -38,16 +40,18 @@ function latestRuns(searches: readonly GrabsSearch[]): ReadonlySet<string> {
   return new Set(latest.values());
 }
 
-function RunDetails({ search, releases }: { search: GrabsSearch; releases: boolean }) {
+type Run = { search: GrabsSearch; releases: boolean; onTest: (title: string) => void };
+
+function RunDetails({ search, releases, onTest }: Run) {
   return (
     <>
       {search.indexers.length > 0 && <IndexerLines search={search} />}
-      {releases && <RunReleases search={search} />}
+      {releases && <RunReleases search={search} onTest={onTest} />}
     </>
   );
 }
 
-function SearchRow({ search, releases }: { search: GrabsSearch; releases: boolean }) {
+function SearchRow({ search, releases, onTest }: Run) {
   const time = (
     <span className="text-meta">
       <Data>{clock(search.startedAt)}</Data>
@@ -67,7 +71,7 @@ function SearchRow({ search, releases }: { search: GrabsSearch; releases: boolea
       }
       detail={
         search.indexers.length === 0 && !releases ? undefined : (
-          <RunDetails search={search} releases={releases} />
+          <RunDetails search={search} releases={releases} onTest={onTest} />
         )
       }
       trailing={
@@ -82,9 +86,14 @@ function SearchRow({ search, releases }: { search: GrabsSearch; releases: boolea
   );
 }
 
-export function Searches({ workId }: { workId: string }) {
-  const { searches } = useListSearchesSuspense(workId).data;
+/** The Work's search runs; a Release of one opens the tester over this page, judged against the Work. */
+export function Searches({ work }: { work: WorkRef }) {
+  const { searches } = useListSearchesSuspense(work.id).data;
   const latest = latestRuns(searches);
+  const tester = useTester();
+  const onTest = (title: string) => {
+    tester.open({ names: [title], work });
+  };
   return (
     <Section title="Searches" count={searches.length}>
       {searches.length === 0 ? (
@@ -96,10 +105,12 @@ export function Searches({ workId }: { workId: string }) {
               key={search.id}
               search={search}
               releases={latest.has(search.id) && search.candidates > 0}
+              onTest={onTest}
             />
           ))}
         </List>
       )}
+      {tester.dialog}
     </Section>
   );
 }

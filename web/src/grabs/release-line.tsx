@@ -1,11 +1,10 @@
-import { Link } from "@tanstack/react-router";
-
 import type {
   GrabsListedRelease,
   GrabsListedReleaseOutcome,
   GrabsWordedReason,
 } from "../api/gen/model";
 import { countWords } from "../format";
+import { Button } from "../ui/button";
 import { Data } from "../ui/data";
 import { type Reference, lostAtSentence } from "./lost-at-sentence";
 
@@ -86,10 +85,18 @@ function scoreWords(release: GrabsListedRelease, names: RunNames): string | unde
 
 /**
  * One Release a run saw: the facts in words, the raw title under them, its
- * outcome in a sentence, each reason in words, and a link that opens the
- * tester with its title.
+ * outcome in a sentence, each reason in words, and "Open in tester".
  */
-export function ReleaseLine({ release, names }: { release: GrabsListedRelease; names: RunNames }) {
+export function ReleaseLine({
+  release,
+  names,
+  onTest,
+}: {
+  release: GrabsListedRelease;
+  names: RunNames;
+  /** Opens the tester on this title, judged against the run's Work. */
+  onTest: (title: string) => void;
+}) {
   const scores = scoreWords(release, names);
   return (
     <li className="flex min-w-0 flex-col gap-1 py-3">
@@ -113,14 +120,16 @@ export function ReleaseLine({ release, names }: { release: GrabsListedRelease; n
         </ul>
       )}
       {scores !== undefined && <p className="text-meta text-ink-3">{scores}</p>}
-      <Link
-        to="/settings/$section"
-        params={{ section: "custom-formats" }}
-        search={{ release: release.title }}
-        className="self-start rounded-item font-medium text-ink-2 underline-offset-4 hover:text-ink-1 hover:underline"
+      <Button
+        look="ghost"
+        size="small"
+        className="self-start"
+        onClick={() => {
+          onTest(release.title);
+        }}
       >
         Open in tester
-      </Link>
+      </Button>
     </li>
   );
 }

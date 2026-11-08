@@ -49,7 +49,9 @@ function useRunNames(search: GrabsSearch) {
   return { releases: byOutcome(listed.releases), names };
 }
 
-function SearchReleases({ search }: { search: GrabsSearch }) {
+type Opened = { search: GrabsSearch; onTest: (title: string) => void };
+
+function SearchReleases({ search, onTest }: Opened) {
   const { releases, names } = useRunNames(search);
   if (releases.length === 0) {
     return <p className="text-ink-3">A later search of this Item replaced this list.</p>;
@@ -57,18 +59,18 @@ function SearchReleases({ search }: { search: GrabsSearch }) {
   return (
     <ul aria-label="Releases" className="flex flex-col divide-y divide-hairline">
       {releases.map((release) => (
-        <ReleaseLine key={release.position} release={release} names={names} />
+        <ReleaseLine key={release.position} release={release} names={names} onTest={onTest} />
       ))}
     </ul>
   );
 }
 
 /** Every Release a run saw under Details, each with its outcome in words, loaded on open. */
-export function RunReleases({ search }: { search: GrabsSearch }) {
+export function RunReleases({ search, onTest }: Opened) {
   return (
     <Details>
       <Suspense fallback={<Skeleton label="Loading the Releases" />}>
-        <SearchReleases search={search} />
+        <SearchReleases search={search} onTest={onTest} />
       </Suspense>
     </Details>
   );
