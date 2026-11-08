@@ -63,6 +63,44 @@ func TestEpisodeCover(t *testing.T) {
 	}
 }
 
+func TestAirDateCoversTheEpisodeOnThatDate(t *testing.T) {
+	sh := open(t)
+	r := newShow(8001, "Night Desk", 2, 4)
+	for i, day := range []string{"2024-03-14", "2024-03-15", "2024-03-15", "2024-03-16", "2024-03-15", "2024-03-16"} {
+		r.Episodes[i].AirDate = day
+	}
+	tree := sh.add(t, r)
+	ep := func(season, n int64) works.ItemID { return itemOf(t, tree, keyOf(8001*100000+season*1000+n)).ID }
+	var work indexers.Expect
+	sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		work, err = sh.s.Expect(ctx, r, tree.ID)
+		return err
+	})
+	for _, tc := range []struct {
+		title, words string
+		want         []works.ItemID
+	}{
+		{"Night.Desk.2024.03.14.720p.HDTV.x264-GRP", "2024-03-14", []works.ItemID{ep(1, 1)}},
+		{"Night.Desk.2024.03.14.Part2.720p.HDTV.x264-GRP", "2024-03-14 Part 2", []works.ItemID{ep(1, 1)}},
+		{"Night.Desk.2024.03.15.720p.HDTV.x264-GRP", "2024-03-15", nil},
+		{"Night.Desk.2024.03.15.Part1.720p.HDTV.x264-GRP", "2024-03-15 Part 1", []works.ItemID{ep(1, 2)}},
+		{"Night.Desk.2024.03.15.Part.2.720p.HDTV.x264-GRP", "2024-03-15 Part 2", []works.ItemID{ep(1, 3)}},
+		{"Night.Desk.2024.03.15.Part3.720p.HDTV.x264-GRP", "2024-03-15 Part 3", nil},
+		{"Night.Desk.2024.03.16.720p.HDTV.x264-GRP", "2024-03-16", []works.ItemID{ep(1, 4)}},
+		{"Night.Desk.2024.03.17.720p.HDTV.x264-GRP", "2024-03-17", nil},
+	} {
+		name := release.Title(tc.title, sh.s, nil).Name
+		var words string
+		if len(name.Marks) > 0 {
+			words = name.Marks[0].Words
+		}
+		if got := work.Covers(name); words != tc.words || !slices.Equal(got, tc.want) {
+			t.Errorf("%s names %q and covers %v, want %q covering %v", tc.title, words, got, tc.words, tc.want)
+		}
+	}
+}
+
 // covers is the episodes title covers by terms, read as a series reads it.
 func covers(sh shelf, terms indexers.Terms, title string) []works.ItemID {
 	return terms.Covers(release.Title(title, sh.s, nil).Name)
