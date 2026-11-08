@@ -13,7 +13,18 @@ import (
 
 type ReasonCode string
 
+// A Release's own refusals, which grabs sets before any Target judges it:
+// WrongWork is an id naming another Work, WrongItem a name that covers
+// none of the searched Items, CoversMore one that covers more than the
+// searched Item, and WrongTitle one whose title or year doesn't match the
+// Work. CutNotWanted is a cell whose Edition doesn't take the Release's
+// cut. The rest are Judge's.
 const (
+	WrongWork          ReasonCode = "wrong_work"
+	WrongItem          ReasonCode = "wrong_item"
+	CoversMore         ReasonCode = "covers_more"
+	WrongTitle         ReasonCode = "wrong_title"
+	CutNotWanted       ReasonCode = "cut_not_wanted"
 	QualityNotInTarget ReasonCode = "quality_not_in_target"
 	FilterFailed       ReasonCode = "filter"
 	SizeBelow          ReasonCode = "size_below"
@@ -24,10 +35,51 @@ const (
 	RepackOtherGroup   ReasonCode = "repack_other_group"
 )
 
-// Hard is whether the reason keeps a file from filling a cell. Size, score
-// and upgrade reasons only keep an automatic grab from taking a release,
-// and size_not_checked is a note.
-func (c ReasonCode) Hard() bool { return c == QualityNotInTarget || c == FilterFailed }
+type weight uint8
+
+type weighed struct {
+	code   ReasonCode
+	weight weight
+}
+
+const (
+	note weight = iota
+	soft
+	hard
+)
+
+// weights is every ReasonCode, in the order the API lists them, and how
+// much it weighs.
+var weights = []weighed{
+	{WrongWork, hard}, {WrongItem, hard}, {CoversMore, soft}, {WrongTitle, soft}, {CutNotWanted, soft},
+	{QualityNotInTarget, hard}, {FilterFailed, hard}, {SizeBelow, soft}, {SizeAbove, soft}, {SizeNotChecked, note},
+	{ScoreBelowMinimum, soft}, {NotAnUpgrade, soft}, {RepackOtherGroup, soft},
+}
+
+// ReasonCodes is every ReasonCode.
+func ReasonCodes() []ReasonCode {
+	out := make([]ReasonCode, len(weights))
+	for i, w := range weights {
+		out[i] = w.code
+	}
+	return out
+}
+
+func (c ReasonCode) weight() weight {
+	i := slices.IndexFunc(weights, func(w weighed) bool { return w.code == c })
+	return weights[i].weight
+}
+
+// Hard is whether the reason refuses a Release outright: a file it names
+// never fills the cell, and nothing grabs it. A Release of another Work
+// or another Item, a quality the Target doesn't accept and a failed
+// filter are hard.
+func (c ReasonCode) Hard() bool { return c.weight() == hard }
+
+// Soft is whether the reason keeps only an automatic grab from taking a
+// Release: a Manual search may grab past it. size_not_checked is a note,
+// neither hard nor soft.
+func (c ReasonCode) Soft() bool { return c.weight() == soft }
 
 // Reason is one failure or note. Attribute and Value name the filter
 // that failed, Value the quality a Target doesn't accept, and Value the
