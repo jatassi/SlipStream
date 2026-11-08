@@ -30,3 +30,20 @@ func TestAReasonAtADeletedTargetNamesItAsDeleted(t *testing.T) {
 		}
 	}
 }
+
+func TestARepackFromAnotherGroupNamesBothGroupsAndTheTarget(t *testing.T) {
+	ntb := release.Facts{Group: release.Known("NTb")}
+	for _, c := range []struct {
+		held  string
+		facts release.Facts
+		want  string
+	}{
+		{"FKW", ntb, "It's a repack from NTb, and the file at 1080p is from FKW."},
+		{"", ntb, "It's a repack from NTb, and the file at 1080p has no release group."},
+		{"FKW", release.Facts{}, "It's a repack with no release group, and the file at 1080p is from FKW."},
+	} {
+		if got := reasonWords(Reason{Reason: targets.Reason{Code: targets.RepackOtherGroup, Value: c.held}}, &targets.Target{Name: "1080p"}, c.facts); got != c.want {
+			t.Errorf("held %q reads %q, want %q", c.held, got, c.want)
+		}
+	}
+}

@@ -412,7 +412,14 @@ func reasonWords(r Reason, t *targets.Target, f release.Facts) string {
 	case targets.NotAnUpgrade:
 		return "It isn't an upgrade of the file at " + at + "."
 	case targets.RepackOtherGroup:
-		return "This repack is from another release group than the file it would replace."
+		from := "It's a repack with no release group"
+		if g, ok := f.Group.Get(); ok {
+			from = "It's a repack from " + g
+		}
+		if r.Value == "" {
+			return from + ", and the file at " + at + " has no release group."
+		}
+		return from + ", and the file at " + at + " is from " + r.Value + "."
 	}
 	panic("grabs: no words for the reason " + string(r.Code))
 }

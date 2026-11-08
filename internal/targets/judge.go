@@ -18,7 +18,8 @@ type ReasonCode string
 // none of the searched Items, CoversMore one that covers more than the
 // searched Item, and WrongTitle one whose title or year doesn't match the
 // Work. CutNotWanted is a cell whose Edition doesn't take the Release's
-// cut. The rest are Judge's.
+// cut. The rest are Judge's. RepackOtherGroup's value is the held file's
+// release group, empty when the file gives none.
 const (
 	WrongWork          ReasonCode = "wrong_work"
 	WrongItem          ReasonCode = "wrong_item"
@@ -191,7 +192,11 @@ func Judge(t Target, s Scored, held *Held) Verdict {
 		if r.applies(m) {
 			v.rule, v.upgrade = r.rule, r.refusal == ""
 			if !v.upgrade {
-				v.reasons = append(v.reasons, Reason{Code: r.refusal})
+				refused := Reason{Code: r.refusal}
+				if r.refusal == RepackOtherGroup {
+					refused.Value = m.heldGroup
+				}
+				v.reasons = append(v.reasons, refused)
 			}
 			break
 		}
@@ -210,6 +215,7 @@ type move struct {
 	heldFinal      bool // the file's tier is at or past the cutoff
 	repack         bool
 	sameGroup      bool // both groups are known and the same
+	heldGroup      string
 	propers        Propers
 	score, held    int
 	upgradeUntil   int
@@ -239,6 +245,7 @@ func moveOf(t Target, r Rank, s Scored, score int, held *Held) move {
 	group, gok := s.Facts.Group.Get()
 	heldGroup, hok := held.Facts.Group.Get()
 	m.sameGroup = gok && hok && strings.EqualFold(group, heldGroup)
+	m.heldGroup = heldGroup
 	m.held = held.Score
 	return m
 }

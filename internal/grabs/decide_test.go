@@ -348,7 +348,7 @@ func TestDecideTakesAProperOnAFilledCell(t *testing.T) {
 	want := []refusal{
 		{"Orchard.2021.1080p.WEB-DL-GRP2", nil},
 		{"Orchard.2021.720p.WEB-DL.PROPER-GRP", nil},
-		{"Orchard.2021.1080p.WEB-DL.REPACK-OTHER", []Reason{notChecked(web), {Reason: targets.Reason{Code: targets.RepackOtherGroup}, Target: web.ID}}},
+		{"Orchard.2021.1080p.WEB-DL.REPACK-OTHER", []Reason{notChecked(web), {Reason: targets.Reason{Code: targets.RepackOtherGroup, Value: "GRP"}, Target: web.ID}}},
 	}
 	if got := refusedIn(outcomes(d, c, -1)); !reflect.DeepEqual(got, want) {
 		t.Fatalf("refused = %+v\nwant the same revision and another Quality's proper judged at no cell, and a repack from another group refused: %+v", got, want)

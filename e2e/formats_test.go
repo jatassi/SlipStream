@@ -197,7 +197,7 @@ func TestARepackFromTheHeldFilesGroupReplacesItAndOneFromAnotherGroupDoesnt(t *t
 	w.releasesAre(t, id,
 		repack+" grabbed score 0 score 0",
 		release+" refused score 0 score 0 not_an_upgrade not_an_upgrade",
-		otherRepack+" refused score 0 score 0 repack_other_group repack_other_group",
+		otherRepack+" refused score 0 score 0 repack_other_group=FKW repack_other_group=FKW",
 	)
 	w.holds(t, repack)
 	name := "The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv"
