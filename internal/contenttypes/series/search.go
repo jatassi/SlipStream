@@ -101,19 +101,26 @@ func episodesOf(order tvdb.Order, eps []db.SeriesEpisode) episodes {
 }
 
 // covered is the stored episodes n's marks name: a season pack's every
-// episode, or each episode first to last.
+// episode, each season's of a multi-season pack, or each episode first
+// to last.
 func (e episodes) covered(n release.Name) []works.ItemID {
 	var out []works.ItemID
 	for _, mk := range n.Marks {
-		m := markedBy(mk.Key)
-		if m.first == 0 {
+		switch m := markedBy(mk.Key); m.kind {
+		case markSeason:
 			out = append(out, e.seasons[m.season]...)
-			continue
-		}
-		for ep := m.first; ep <= m.last; ep++ {
-			if id, ok := e.at[episodeAt{m.season, ep}]; ok {
-				out = append(out, id)
+		case markSeasons:
+			for s := m.season; s <= m.last; s++ {
+				out = append(out, e.seasons[s]...)
 			}
+		case markEpisodes:
+			for ep := m.first; ep <= m.last; ep++ {
+				if id, ok := e.at[episodeAt{m.season, ep}]; ok {
+					out = append(out, id)
+				}
+			}
+		case markPart, markAbsolute, markSpecial:
+			// Parts and absolute numbers cover no stored episode yet.
 		}
 	}
 	return out

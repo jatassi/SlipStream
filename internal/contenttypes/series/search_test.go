@@ -38,7 +38,7 @@ func TestEpisodeCover(t *testing.T) {
 		{"Lantern.Keepers.S01E02.1080p.WEB-DL", "S01E02", []works.ItemID{ep(2)}},
 		{"Lantern.Keepers.S02E03.1080p.WEB-DL", "S02E03", nil},
 		{"Lantern.Keepers.S01.1080p.WEB-DL", "S01", []works.ItemID{ep(1), ep(2), ep(3), ep(4)}},
-		{"Lantern.Keepers.S01E03E04.1080p.WEB-DL", "S01E03E04", []works.ItemID{ep(3), ep(4)}},
+		{"Lantern.Keepers.S01E03E04.1080p.WEB-DL", "S01E03-E04", []works.ItemID{ep(3), ep(4)}},
 		{"Lantern.Keepers.S01E02-E04.1080p.WEB-DL", "S01E02-E04", []works.ItemID{ep(2), ep(3), ep(4)}},
 		{"Lantern.Keepers.1080p.WEB-DL", "", nil},
 	} {
