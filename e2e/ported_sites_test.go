@@ -44,7 +44,7 @@ func (w *walked) prioritize(t *testing.T, id string, priority int) {
 // addWork adds the movie key, monitored, as w's Work.
 func (w *walked) addWork(t *testing.T, key string) {
 	t.Helper()
-	made := decode(t, "addWork", w.a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"`+key+`","monitor":true}`), &added{})
+	made := decode(t, "addWork", w.a.Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"movie","key":"`+key+`","preset":"all"}`), &added{})
 	var tr tree
 	if err := json.Unmarshal(made.Work, &tr); err != nil || !made.Created {
 		t.Fatalf("addWork %s created %t: %v; want a created Work", key, made.Created, err)
