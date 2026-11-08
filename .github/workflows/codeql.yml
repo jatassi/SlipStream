@@ -35,11 +35,11 @@ jobs:
           - language: go
             build-mode: manual
             build: go build ./...
-          # A fresh build cache makes cgo compile shim.cpp in view of the
-          # tracer.
+          # The go command is a static binary, so the tracer never sees the
+          # compilers cgo runs. Compile the shim directly instead.
           - language: c-cpp
             build-mode: manual
-            build: GOCACHE="$RUNNER_TEMP/go-build-fresh" go build ./internal/torrent/libtorrent
+            build: $CXX $CGO_CXXFLAGS -std=c++17 -c internal/torrent/libtorrent/shim.cpp -o "$RUNNER_TEMP/shim.o"
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7
