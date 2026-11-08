@@ -339,7 +339,7 @@ func (c *Clients) rowOf(h db.ListHeldRow, uses []Use) (Row, error) {
 		Totals: Totals{
 			Uploaded: h.Uploaded, Downloaded: h.Downloaded,
 			Active: time.Duration(h.ActiveSeconds) * time.Second, Seeding: time.Duration(h.SeedingSeconds) * time.Second,
-			At: h.TotalsAt.Time(),
+			Announced: time.Duration(h.AnnouncedSeconds) * time.Second, At: h.TotalsAt.Time(),
 		},
 	}
 	if h.Fault != nil {

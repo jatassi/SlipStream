@@ -130,21 +130,22 @@ func (q *Queries) GetDetails(ctx context.Context, id TorrentID) (GetDetailsRow, 
 
 const getFetched = `-- name: GetFetched :one
 SELECT node_id, metainfo, content_type, save_folder, removed_at, attached,
-       uploaded, downloaded, active_seconds, seeding_seconds
+       uploaded, downloaded, active_seconds, seeding_seconds, announced_seconds
 FROM downloadclients_torrent WHERE id = ?1
 `
 
 type GetFetchedRow struct {
-	NodeID         role.NodeID
-	Metainfo       []byte
-	ContentType    works.TypeID
-	SaveFolder     *string
-	RemovedAt      storage.Time
-	Attached       *bool
-	Uploaded       int64
-	Downloaded     int64
-	ActiveSeconds  int64
-	SeedingSeconds int64
+	NodeID           role.NodeID
+	Metainfo         []byte
+	ContentType      works.TypeID
+	SaveFolder       *string
+	RemovedAt        storage.Time
+	Attached         *bool
+	Uploaded         int64
+	Downloaded       int64
+	ActiveSeconds    int64
+	SeedingSeconds   int64
+	AnnouncedSeconds int64
 }
 
 func (q *Queries) GetFetched(ctx context.Context, id TorrentID) (GetFetchedRow, error) {
@@ -161,23 +162,25 @@ func (q *Queries) GetFetched(ctx context.Context, id TorrentID) (GetFetchedRow, 
 		&i.Downloaded,
 		&i.ActiveSeconds,
 		&i.SeedingSeconds,
+		&i.AnnouncedSeconds,
 	)
 	return i, err
 }
 
 const getInheritedTotals = `-- name: GetInheritedTotals :one
-SELECT uploaded, downloaded, active_seconds, seeding_seconds, totals_at FROM downloadclients_torrent
+SELECT uploaded, downloaded, active_seconds, seeding_seconds, announced_seconds, totals_at FROM downloadclients_torrent
 WHERE info_hash = ?1 AND removed_at IS NOT NULL
 ORDER BY removed_at DESC, added_order DESC
 LIMIT 1
 `
 
 type GetInheritedTotalsRow struct {
-	Uploaded       int64
-	Downloaded     int64
-	ActiveSeconds  int64
-	SeedingSeconds int64
-	TotalsAt       storage.Time
+	Uploaded         int64
+	Downloaded       int64
+	ActiveSeconds    int64
+	SeedingSeconds   int64
+	AnnouncedSeconds int64
+	TotalsAt         storage.Time
 }
 
 func (q *Queries) GetInheritedTotals(ctx context.Context, infoHash []byte) (GetInheritedTotalsRow, error) {
@@ -188,6 +191,7 @@ func (q *Queries) GetInheritedTotals(ctx context.Context, infoHash []byte) (GetI
 		&i.Downloaded,
 		&i.ActiveSeconds,
 		&i.SeedingSeconds,
+		&i.AnnouncedSeconds,
 		&i.TotalsAt,
 	)
 	return i, err
@@ -340,33 +344,34 @@ func (q *Queries) GetThresholds(ctx context.Context) (GetThresholdsRow, error) {
 const insertTorrent = `-- name: InsertTorrent :exec
 INSERT INTO downloadclients_torrent (
     id, node_id, client_id, info_hash, metainfo, name, size, private, trackers, content_type, tracker_id, wanted, added_order, added_at,
-    uploaded, downloaded, active_seconds, seeding_seconds, totals_at
+    uploaded, downloaded, active_seconds, seeding_seconds, announced_seconds, totals_at
 ) VALUES (
     ?1, ?2, ?3, ?4, ?5, ?6, ?7,
     ?8, ?9, ?10, ?11, 'started', ?12, ?13,
-    ?14, ?15, ?16, ?17, ?18
+    ?14, ?15, ?16, ?17, ?18, ?19
 )
 `
 
 type InsertTorrentParams struct {
-	ID             TorrentID
-	NodeID         role.NodeID
-	ClientID       *ClientID
-	InfoHash       []byte
-	Metainfo       []byte
-	Name           string
-	Size           int64
-	Private        int64
-	Trackers       string
-	ContentType    works.TypeID
-	TrackerID      *indexers.TrackerID
-	AddedOrder     int64
-	AddedAt        storage.Time
-	Uploaded       int64
-	Downloaded     int64
-	ActiveSeconds  int64
-	SeedingSeconds int64
-	TotalsAt       storage.Time
+	ID               TorrentID
+	NodeID           role.NodeID
+	ClientID         *ClientID
+	InfoHash         []byte
+	Metainfo         []byte
+	Name             string
+	Size             int64
+	Private          int64
+	Trackers         string
+	ContentType      works.TypeID
+	TrackerID        *indexers.TrackerID
+	AddedOrder       int64
+	AddedAt          storage.Time
+	Uploaded         int64
+	Downloaded       int64
+	ActiveSeconds    int64
+	SeedingSeconds   int64
+	AnnouncedSeconds int64
+	TotalsAt         storage.Time
 }
 
 func (q *Queries) InsertTorrent(ctx context.Context, arg InsertTorrentParams) error {
@@ -388,6 +393,7 @@ func (q *Queries) InsertTorrent(ctx context.Context, arg InsertTorrentParams) er
 		arg.Downloaded,
 		arg.ActiveSeconds,
 		arg.SeedingSeconds,
+		arg.AnnouncedSeconds,
 		arg.TotalsAt,
 	)
 	return err
@@ -573,7 +579,7 @@ func (q *Queries) ListDownloads(ctx context.Context) ([]ListDownloadsRow, error)
 const listHashFacts = `-- name: ListHashFacts :many
 SELECT t.id, t.node_id, t.info_hash, t.name, t.size, t.private, t.trackers, t.content_type, t.tracker_id, t.wanted,
        t.added_order, t.added_at, t.removed_at, t.removed_reason, t.parted_at, t.uploaded, t.downloaded, t.active_seconds,
-       t.seeding_seconds, t.totals_at, t.report, t.fault, t.fault_at, t.client_id, t.attached,
+       t.seeding_seconds, t.announced_seconds, t.totals_at, t.report, t.fault, t.fault_at, t.client_id, t.attached,
        coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.info_hash IN (/*SLICE:info_hashes*/?) AND t.client_id IS NULL
@@ -586,34 +592,35 @@ ORDER BY t.added_order
 `
 
 type ListHashFactsRow struct {
-	ID             TorrentID
-	NodeID         role.NodeID
-	InfoHash       []byte
-	Name           string
-	Size           int64
-	Private        int64
-	Trackers       string
-	ContentType    works.TypeID
-	TrackerID      *indexers.TrackerID
-	Wanted         string
-	AddedOrder     int64
-	AddedAt        storage.Time
-	RemovedAt      storage.Time
-	RemovedReason  *string
-	PartedAt       storage.Time
-	Uploaded       int64
-	Downloaded     int64
-	ActiveSeconds  int64
-	SeedingSeconds int64
-	TotalsAt       storage.Time
-	Report         *string
-	Fault          *string
-	FaultAt        storage.Time
-	ClientID       *ClientID
-	Attached       *bool
-	ClientKind     clients.Kind
-	ClientName     string
-	ClientOn       bool
+	ID               TorrentID
+	NodeID           role.NodeID
+	InfoHash         []byte
+	Name             string
+	Size             int64
+	Private          int64
+	Trackers         string
+	ContentType      works.TypeID
+	TrackerID        *indexers.TrackerID
+	Wanted           string
+	AddedOrder       int64
+	AddedAt          storage.Time
+	RemovedAt        storage.Time
+	RemovedReason    *string
+	PartedAt         storage.Time
+	Uploaded         int64
+	Downloaded       int64
+	ActiveSeconds    int64
+	SeedingSeconds   int64
+	AnnouncedSeconds int64
+	TotalsAt         storage.Time
+	Report           *string
+	Fault            *string
+	FaultAt          storage.Time
+	ClientID         *ClientID
+	Attached         *bool
+	ClientKind       clients.Kind
+	ClientName       string
+	ClientOn         bool
 }
 
 // Every built-in Torrent of the hashes its Node holds, Removing ones too,
@@ -658,6 +665,7 @@ func (q *Queries) ListHashFacts(ctx context.Context, infoHashes [][]byte) ([]Lis
 			&i.Downloaded,
 			&i.ActiveSeconds,
 			&i.SeedingSeconds,
+			&i.AnnouncedSeconds,
 			&i.TotalsAt,
 			&i.Report,
 			&i.Fault,
@@ -684,7 +692,7 @@ func (q *Queries) ListHashFacts(ctx context.Context, infoHashes [][]byte) ([]Lis
 const listHeld = `-- name: ListHeld :many
 SELECT t.id, t.node_id, t.info_hash, t.name, t.size, t.private, t.trackers, t.content_type, t.tracker_id, t.wanted,
        t.added_order, t.added_at, t.removed_at, t.removed_reason, t.parted_at, t.uploaded, t.downloaded, t.active_seconds,
-       t.seeding_seconds, t.totals_at, t.report, t.fault, t.fault_at, t.client_id, t.attached,
+       t.seeding_seconds, t.announced_seconds, t.totals_at, t.report, t.fault, t.fault_at, t.client_id, t.attached,
        coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.parted_at IS NULL
@@ -703,34 +711,35 @@ type ListHeldParams struct {
 }
 
 type ListHeldRow struct {
-	ID             TorrentID
-	NodeID         role.NodeID
-	InfoHash       []byte
-	Name           string
-	Size           int64
-	Private        int64
-	Trackers       string
-	ContentType    works.TypeID
-	TrackerID      *indexers.TrackerID
-	Wanted         string
-	AddedOrder     int64
-	AddedAt        storage.Time
-	RemovedAt      storage.Time
-	RemovedReason  *string
-	PartedAt       storage.Time
-	Uploaded       int64
-	Downloaded     int64
-	ActiveSeconds  int64
-	SeedingSeconds int64
-	TotalsAt       storage.Time
-	Report         *string
-	Fault          *string
-	FaultAt        storage.Time
-	ClientID       *ClientID
-	Attached       *bool
-	ClientKind     clients.Kind
-	ClientName     string
-	ClientOn       bool
+	ID               TorrentID
+	NodeID           role.NodeID
+	InfoHash         []byte
+	Name             string
+	Size             int64
+	Private          int64
+	Trackers         string
+	ContentType      works.TypeID
+	TrackerID        *indexers.TrackerID
+	Wanted           string
+	AddedOrder       int64
+	AddedAt          storage.Time
+	RemovedAt        storage.Time
+	RemovedReason    *string
+	PartedAt         storage.Time
+	Uploaded         int64
+	Downloaded       int64
+	ActiveSeconds    int64
+	SeedingSeconds   int64
+	AnnouncedSeconds int64
+	TotalsAt         storage.Time
+	Report           *string
+	Fault            *string
+	FaultAt          storage.Time
+	ClientID         *ClientID
+	Attached         *bool
+	ClientKind       clients.Kind
+	ClientName       string
+	ClientOn         bool
 }
 
 // Each by_ flag narrows to its argument. An empty info_hashes lists none.
@@ -777,6 +786,7 @@ func (q *Queries) ListHeld(ctx context.Context, arg ListHeldParams) ([]ListHeldR
 			&i.Downloaded,
 			&i.ActiveSeconds,
 			&i.SeedingSeconds,
+			&i.AnnouncedSeconds,
 			&i.TotalsAt,
 			&i.Report,
 			&i.Fault,
@@ -1145,18 +1155,20 @@ UPDATE downloadclients_torrent SET
     downloaded = MAX(downloaded, CAST(?2 AS INTEGER)),
     active_seconds = MAX(active_seconds, CAST(?3 AS INTEGER)),
     seeding_seconds = MAX(seeding_seconds, CAST(?4 AS INTEGER)),
-    totals_at = ?5
-WHERE id = ?6 AND node_id = ?7
+    announced_seconds = MAX(announced_seconds, CAST(?5 AS INTEGER)),
+    totals_at = ?6
+WHERE id = ?7 AND node_id = ?8
 `
 
 type MergeTotalsParams struct {
-	Uploaded       int64
-	Downloaded     int64
-	ActiveSeconds  int64
-	SeedingSeconds int64
-	TotalsAt       storage.Time
-	ID             TorrentID
-	NodeID         role.NodeID
+	Uploaded         int64
+	Downloaded       int64
+	ActiveSeconds    int64
+	SeedingSeconds   int64
+	AnnouncedSeconds int64
+	TotalsAt         storage.Time
+	ID               TorrentID
+	NodeID           role.NodeID
 }
 
 func (q *Queries) MergeTotals(ctx context.Context, arg MergeTotalsParams) error {
@@ -1165,6 +1177,7 @@ func (q *Queries) MergeTotals(ctx context.Context, arg MergeTotalsParams) error 
 		arg.Downloaded,
 		arg.ActiveSeconds,
 		arg.SeedingSeconds,
+		arg.AnnouncedSeconds,
 		arg.TotalsAt,
 		arg.ID,
 		arg.NodeID,
