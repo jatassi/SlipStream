@@ -208,7 +208,7 @@ func hashOf(p policy, facts []downloadclients.HashFact, ran map[downloadclients.
 			}
 		}
 		if f.Removal != nil && f.Removal.Parted != nil {
-			h.Last = &seeding.Removed{At: f.Removal.At, Totals: totalsOf(f), Unregistered: unregistered(f)}
+			h.Last = &seeding.Removed{At: f.Removal.At, Totals: totalsOf(f), Unregistered: unregistered(f), Continues: f.Continued}
 			continue
 		}
 		h.Copies = append(h.Copies, copyOf(f, ran[f.ID], nodes))
