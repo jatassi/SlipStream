@@ -203,6 +203,15 @@ func TestRouteFollowsTheTrackerRoutingTable(t *testing.T) {
 			},
 			want: func(r *routing) downloadclients.Target { return downloadclients.Target{Node: r.seedbox} },
 		},
+		{
+			name: "private whose Indexer was deleted goes by its root", privacy: indexers.Private,
+			set: func(t *testing.T, r *routing, tracker indexers.TrackerID) *downloadclients.Choice {
+				mustNot(t, r.setRoute(tracker, downloadclients.Choice{BuiltInOn: r.den}))
+				r.exec(`DELETE FROM indexers_indexer WHERE id = ?`, r.heron)
+				return nil
+			},
+			want: func(r *routing) downloadclients.Target { return downloadclients.Target{Node: r.attic} },
+		},
 		{name: "public goes by its root", privacy: indexers.Public, want: func(r *routing) downloadclients.Target { return downloadclients.Target{Node: r.attic} }},
 		{name: "semi-private goes by its root", privacy: indexers.SemiPrivate, want: func(r *routing) downloadclients.Target { return downloadclients.Target{Node: r.attic} }},
 		{name: "unknown goes by its root", privacy: indexers.Unknown, want: func(r *routing) downloadclients.Target { return downloadclients.Target{Node: r.attic} }},
