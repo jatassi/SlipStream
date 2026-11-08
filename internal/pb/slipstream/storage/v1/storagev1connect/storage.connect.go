@@ -43,6 +43,10 @@ const (
 	StorageServiceListProcedure = "/slipstream.storage.v1.StorageService/List"
 	// StorageServiceSampleProcedure is the procedure name of the StorageService's Sample RPC.
 	StorageServiceSampleProcedure = "/slipstream.storage.v1.StorageService/Sample"
+	// StorageServiceWalkProcedure is the procedure name of the StorageService's Walk RPC.
+	StorageServiceWalkProcedure = "/slipstream.storage.v1.StorageService/Walk"
+	// StorageServiceProbeProcedure is the procedure name of the StorageService's Probe RPC.
+	StorageServiceProbeProcedure = "/slipstream.storage.v1.StorageService/Probe"
 	// FolderServiceBrowseProcedure is the procedure name of the FolderService's Browse RPC.
 	FolderServiceBrowseProcedure = "/slipstream.storage.v1.FolderService/Browse"
 	// FolderServiceSuggestProcedure is the procedure name of the FolderService's Suggest RPC.
@@ -96,11 +100,26 @@ var (
 			Procedure:  StorageServiceSampleProcedure,
 		}
 	})
+	storageServiceWalkSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("StorageService").Methods().ByName("Walk"),
+			Procedure:  StorageServiceWalkProcedure,
+		}
+	})
+	storageServiceProbeSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("StorageService").Methods().ByName("Probe"),
+			Procedure:  StorageServiceProbeProcedure,
+		}
+	})
 )
 
 // StorageServiceClient is a client for the slipstream.storage.v1.StorageService service.
 type StorageServiceClient interface {
-	// Verify checks one batch of recorded files at a proposed folder.
+	// Verify checks one batch of recorded files under a root, or at a
+	// proposed folder for a re-home.
 	Verify(context.Context, *v1.VerifyRequest) (*v1.VerifyResponse, error)
 	// Place puts a finished download's file at a root-relative holding path.
 	Place(context.Context, *v1.PlaceRequest) (*v1.PlaceResponse, error)
@@ -115,6 +134,11 @@ type StorageServiceClient interface {
 	// Sample judges every root and samples its volume now, sets the facts,
 	// and answers their pass time.
 	Sample(context.Context, *v1.SampleRequest) (*v1.SampleResponse, error)
+	// Walk lists one page of a root's video files.
+	Walk(context.Context, *v1.WalkRequest) (*v1.WalkResponse, error)
+	// Probe reads one root file's media record with the bundled ffprobe. A
+	// file ffprobe can't read is FAILED_PRECONDITION with an Unprobed detail.
+	Probe(context.Context, *v1.ProbeRequest) (*v1.ProbeResponse, error)
 }
 
 // NewStorageServiceClient constructs a client for the slipstream.storage.v1.StorageService service.
@@ -125,7 +149,8 @@ func NewStorageServiceClient(client *connect.Client) StorageServiceClient {
 
 // StorageServiceHandler is an implementation of the slipstream.storage.v1.StorageService service.
 type StorageServiceHandler interface {
-	// Verify checks one batch of recorded files at a proposed folder.
+	// Verify checks one batch of recorded files under a root, or at a
+	// proposed folder for a re-home.
 	Verify(context.Context, *v1.VerifyRequest) (*v1.VerifyResponse, error)
 	// Place puts a finished download's file at a root-relative holding path.
 	Place(context.Context, *v1.PlaceRequest) (*v1.PlaceResponse, error)
@@ -140,6 +165,11 @@ type StorageServiceHandler interface {
 	// Sample judges every root and samples its volume now, sets the facts,
 	// and answers their pass time.
 	Sample(context.Context, *v1.SampleRequest) (*v1.SampleResponse, error)
+	// Walk lists one page of a root's video files.
+	Walk(context.Context, *v1.WalkRequest) (*v1.WalkResponse, error)
+	// Probe reads one root file's media record with the bundled ffprobe. A
+	// file ffprobe can't read is FAILED_PRECONDITION with an Unprobed detail.
+	Probe(context.Context, *v1.ProbeRequest) (*v1.ProbeResponse, error)
 }
 
 // RegisterStorageServiceHandler registers svc as the slipstream.storage.v1.StorageService
@@ -153,6 +183,8 @@ func RegisterStorageServiceHandler(server *connect.Server, svc StorageServiceHan
 		connect.Method{Spec: storageServiceRemoveSpec(), Handler: adapter.remove},
 		connect.Method{Spec: storageServiceListSpec(), Handler: adapter.list},
 		connect.Method{Spec: storageServiceSampleSpec(), Handler: adapter.sample},
+		connect.Method{Spec: storageServiceWalkSpec(), Handler: adapter.walk},
+		connect.Method{Spec: storageServiceProbeSpec(), Handler: adapter.probe},
 	)
 }
 
@@ -181,6 +213,14 @@ func (UnimplementedStorageServiceHandler) List(context.Context, *v1.ListRequest)
 
 func (UnimplementedStorageServiceHandler) Sample(context.Context, *v1.SampleRequest) (*v1.SampleResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.StorageService.Sample is not implemented")
+}
+
+func (UnimplementedStorageServiceHandler) Walk(context.Context, *v1.WalkRequest) (*v1.WalkResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.StorageService.Walk is not implemented")
+}
+
+func (UnimplementedStorageServiceHandler) Probe(context.Context, *v1.ProbeRequest) (*v1.ProbeResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.StorageService.Probe is not implemented")
 }
 
 type storageServiceClient struct {
@@ -230,6 +270,22 @@ func (c *storageServiceClient) List(ctx context.Context, req *v1.ListRequest) (*
 func (c *storageServiceClient) Sample(ctx context.Context, req *v1.SampleRequest) (*v1.SampleResponse, error) {
 	var res v1.SampleResponse
 	if err := c.client.CallUnary(ctx, storageServiceSampleSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *storageServiceClient) Walk(ctx context.Context, req *v1.WalkRequest) (*v1.WalkResponse, error) {
+	var res v1.WalkResponse
+	if err := c.client.CallUnary(ctx, storageServiceWalkSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *storageServiceClient) Probe(ctx context.Context, req *v1.ProbeRequest) (*v1.ProbeResponse, error) {
+	var res v1.ProbeResponse
+	if err := c.client.CallUnary(ctx, storageServiceProbeSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -303,6 +359,30 @@ func (h storageServiceHandler) sample(ctx context.Context, _ connect.Spec, strea
 		return err
 	}
 	res, err := h.svc.Sample(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h storageServiceHandler) walk(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.WalkRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Walk(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h storageServiceHandler) probe(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.ProbeRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Probe(ctx, &req)
 	if err != nil {
 		return err
 	}

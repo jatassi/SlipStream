@@ -3,11 +3,13 @@ package storing
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/media"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
 	"github.com/jatassi/slipstream/internal/role"
@@ -116,10 +118,21 @@ func (f Folders) Check(ctx context.Context, node role.NodeID, path string, purpo
 // Verify checks files at path on node in batches of 500, calling progress
 // with the count checked after each, and answers the missing ones.
 func (r Remote) Verify(ctx context.Context, node role.NodeID, path string, files []Recorded, progress func(checked int)) ([]MissingFile, error) {
+	return r.verify(ctx, node, &storagev1.VerifyRequest{At: &storagev1.VerifyRequest_Path{Path: path}}, files, progress)
+}
+
+// VerifyIn is Verify under the root at, its marker read again first: a
+// root unmounted since a walk is *NotReady, never every file missing.
+func (r Remote) VerifyIn(ctx context.Context, at At, files []Recorded, progress func(checked int)) ([]MissingFile, error) {
+	return r.verify(ctx, at.Node, &storagev1.VerifyRequest{At: &storagev1.VerifyRequest_RootId{RootId: at.Root.Bytes()}}, files, progress)
+}
+
+// verify sends files in batches to the folder or root where names.
+func (r Remote) verify(ctx context.Context, node role.NodeID, where *storagev1.VerifyRequest, files []Recorded, progress func(checked int)) ([]MissingFile, error) {
 	var missing []MissingFile
 	for at := 0; at < len(files); at += verifyBatch {
 		batch := files[at:min(at+verifyBatch, len(files))]
-		req := &storagev1.VerifyRequest{Path: path}
+		req := &storagev1.VerifyRequest{At: where.GetAt()}
 		for _, f := range batch {
 			req.Files = append(req.Files, &storagev1.Recorded{Path: f.Sits.String(), Size: f.Size, Next: f.Next.String()})
 		}
@@ -166,6 +179,50 @@ func (r Remote) Move(ctx context.Context, at At, from, to Rel) (Placed, error) {
 		return Placed{}, occupied(err)
 	}
 	return Placed{Size: res.GetSize(), Seen: seenOf(res.GetIdentity())}, nil
+}
+
+// Walk lists one page of the root's video files after the cursor, up to
+// limit of them, 1 to 1000. A root that isn't ready is *NotReady, and one
+// that stops answering mid-page a *FolderError.
+func (r Remote) Walk(ctx context.Context, at At, after Cursor, limit int) (Page, error) {
+	res, err := r(at.Node).Walk(ctx, &storagev1.WalkRequest{RootId: at.Root.Bytes(), After: []byte(after.b), Limit: int32(limit)}) //nolint:gosec // the Node refuses a limit past 1000
+	if err != nil {
+		return Page{}, answer(err)
+	}
+	p := Page{Next: Cursor{string(res.GetNext())}, Done: len(res.GetNext()) == 0, CaseFold: res.GetCaseInsensitive()}
+	for _, e := range res.GetEntries() {
+		path, err := ParseRel(e.GetPath())
+		if err != nil {
+			return Page{}, fmt.Errorf("a walked file: %w", err)
+		}
+		p.Entries = append(p.Entries, Walked{Path: path, Size: e.GetSize(), Seen: seenOf(e.GetIdentity())})
+	}
+	for _, u := range res.GetUnread() {
+		reason, err := unreadReasons.parse(u.GetReason())
+		if err != nil {
+			return Page{}, err
+		}
+		p.Unread = append(p.Unread, Unread{Path: u.GetPath(), Reason: reason})
+	}
+	return p, nil
+}
+
+// Probe reads path's media record under the root. A file ffprobe can't
+// read is *media.UnreadableError, one gone since the walk a *FolderError
+// NotFound, and a root that isn't ready *NotReady.
+func (r Remote) Probe(ctx context.Context, at At, path Rel) (media.Record, error) {
+	res, err := r(at.Node).Probe(ctx, &storagev1.ProbeRequest{RootId: at.Root.Bytes(), Path: path.String()})
+	if d, ok := rpc.DetailOf[*storagev1.Unprobed](err); ok {
+		return media.Record{}, &media.UnreadableError{Line: d.GetLine()}
+	}
+	if err != nil {
+		return media.Record{}, answer(err)
+	}
+	var rec media.Record
+	if err := json.Unmarshal(res.GetRecord(), &rec); err != nil {
+		return media.Record{}, fmt.Errorf("read the media record: %w", err)
+	}
+	return rec, nil
 }
 
 func seenOf(id *storagev1.Identity) Seen {

@@ -497,7 +497,7 @@ func TestVerifyFindsMissingFilesInBatches(t *testing.T) {
 	if !slices.Equal(progress, []int{500, 1000, 1201}) {
 		t.Errorf("progress = %v, want [500 1000 1201]", progress)
 	}
-	req := &storagev1.VerifyRequest{Path: folder}
+	req := &storagev1.VerifyRequest{At: &storagev1.VerifyRequest_Path{Path: folder}}
 	for range 501 {
 		req.Files = append(req.Files, &storagev1.Recorded{Path: "a.mkv"})
 	}

@@ -85,7 +85,8 @@ message Result {}
 
 service StorageService {
   option (slipstream.node.v1.served_by) = {role: "storage"};
-  // Verify checks one batch of recorded files at a proposed folder.
+  // Verify checks one batch of recorded files under a root, or at a
+  // proposed folder for a re-home.
   rpc Verify(VerifyRequest) returns (VerifyResponse);
   // Place puts a finished download's file at a root-relative holding path.
   rpc Place(PlaceRequest) returns (PlaceResponse);
@@ -100,6 +101,11 @@ service StorageService {
   // Sample judges every root and samples its volume now, sets the facts,
   // and answers their pass time.
   rpc Sample(SampleRequest) returns (SampleResponse);
+  // Walk lists one page of a root's video files.
+  rpc Walk(WalkRequest) returns (WalkResponse);
+  // Probe reads one root file's media record with the bundled ffprobe. A
+  // file ffprobe can't read is FAILED_PRECONDITION with an Unprobed detail.
+  rpc Probe(ProbeRequest) returns (ProbeResponse);
 }
 
 // FolderService is the folder ops every Node serves, Storage or not, so an
@@ -234,7 +240,13 @@ enum Reason {
 }
 
 message VerifyRequest {
-  string path = 1;
+  oneof at {
+    // path is a proposed folder for a re-home.
+    string path = 1;
+    // root_id is a root the Node holds, its marker read again first, so a
+    // root unmounted since a walk is NotReady and never every file missing.
+    bytes root_id = 3;
+  }
   repeated Recorded files = 2;
 }
 
@@ -323,6 +335,62 @@ message SampleRequest {}
 
 message SampleResponse {
   int64 passed_at_unix_ms = 1;
+}
+
+message WalkRequest {
+  bytes root_id = 1;
+  // after is the last page's next, empty for the first page.
+  bytes after = 2;
+  // limit is at most 1000 entries.
+  int32 limit = 3;
+}
+
+message WalkResponse {
+  // entries are video files, depth first, each folder's names in byte
+  // order.
+  repeated Walked entries = 1;
+  repeated Unread unread = 2;
+  // next is opaque to the Controller, and empty once the walk is done.
+  bytes next = 3;
+  // case_insensitive: the root resolves names ignoring case.
+  bool case_insensitive = 4;
+}
+
+message Walked {
+  // path is root-relative, '/' separated, spelled as the Node spells it.
+  string path = 1;
+  int64 size = 2;
+  Identity identity = 3;
+}
+
+// Unread is a name a walk couldn't list.
+message Unread {
+  // path is for people: invalid bytes read as U+FFFD.
+  string path = 1;
+  UnreadReason reason = 2;
+}
+
+enum UnreadReason {
+  UNREAD_REASON_UNSPECIFIED = 0;
+  UNREAD_REASON_NOT_UTF8 = 1;
+  UNREAD_REASON_REFUSED = 2;
+  UNREAD_REASON_DENIED = 3;
+}
+
+message ProbeRequest {
+  bytes root_id = 1;
+  string path = 2;
+}
+
+message ProbeResponse {
+  // record is media.Record as JSON, the shape files_file.probe keeps.
+  bytes record = 1;
+}
+
+// Unprobed details a Probe of a file ffprobe can't read.
+message Unprobed {
+  // line is the first line of ffprobe's error output.
+  string line = 1;
 }
 
 // FolderError details a folder op's error.
