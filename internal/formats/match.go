@@ -93,6 +93,16 @@ func (c *Catalog) compileTest(at int, fc *Condition, d *dialect) (test, error) {
 	if !ok {
 		return nil, &KindError{Name: fc.Name, Kind: string(fc.Kind)}
 	}
+	by, err := k.fieldsOf(fc)
+	if err != nil {
+		return nil, err
+	}
+	return k.compile(fields{at: at, c: fc, by: by, dialect: d, timeout: c.timings.Match})
+}
+
+// fieldsOf is a condition's fields by name, refusing a name its kind
+// lacks.
+func (k *kind) fieldsOf(fc *Condition) (map[string]json.RawMessage, error) {
 	by := map[string]json.RawMessage{}
 	if len(fc.Fields) > 0 {
 		if err := json.Unmarshal(fc.Fields, &by); err != nil {
@@ -104,7 +114,7 @@ func (c *Catalog) compileTest(at int, fc *Condition, d *dialect) (test, error) {
 			return nil, &FieldError{Name: fc.Name, Kind: fc.Kind, Field: name}
 		}
 	}
-	return k.compile(fields{at: at, c: fc, by: by, dialect: d, timeout: c.timings.Match})
+	return by, nil
 }
 
 func (c *Catalog) intern(t test) int {
