@@ -1,5 +1,7 @@
 package release
 
+import "strconv"
+
 // Claim is what a Work says about itself for matching a name.
 type Claim struct {
 	// IDs are the Work's ids, by Torznab's names: tmdbid, imdbid, tvdbid.
@@ -24,16 +26,55 @@ const (
 )
 
 // Match judges a name against w. ids are the Indexer's and the name's id
-// tags. A shared id matches, a conflicting id is WrongWork, and otherwise
-// any title equal to any of w's under names' clean rule matches when the
-// years, both known, differ by at most Slack. It answers the title and
-// year as the name gives them, for the reason's value: "Heat (1986)".
-// Until titles are compared, every name without a conflicting id matches.
-func Match(_ Name, ids map[string]string, w Claim, _ Names) (m Matching, given string) {
+// tags. A conflicting id is WrongWork and a shared id matches. Otherwise
+// any of the name's titles equal to any of w's under names' clean rule
+// matches when the years, both known, differ by at most Slack. It answers
+// the title and year as the name gives them, for the reason's value:
+// "Heat (1986)".
+func Match(n Name, ids map[string]string, w Claim, names Names) (m Matching, given string) {
+	shared := false
 	for k, v := range ids {
-		if want, ok := w.IDs[k]; ok && want != v {
+		want, ok := w.IDs[k]
+		if ok && want != v {
 			return WrongWork, ""
+		}
+		shared = shared || ok
+	}
+	if shared {
+		return Matched, ""
+	}
+	given = givenTitle(n)
+	if !titled(n, w, names) {
+		return WrongTitle, given
+	}
+	if y, ok := n.Year.Get(); ok {
+		if want, ok := w.Year.Get(); ok && abs(y-want) > w.Slack {
+			return WrongTitle, given
 		}
 	}
 	return Matched, ""
 }
+
+func titled(n Name, w Claim, names Names) bool {
+	for _, t := range n.Titles {
+		clean := names.CleanTitle(t)
+		for _, want := range w.Titles {
+			if clean == names.CleanTitle(want) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func givenTitle(n Name) string {
+	if len(n.Titles) == 0 {
+		return ""
+	}
+	if y, ok := n.Year.Get(); ok {
+		return n.Titles[0] + " (" + strconv.Itoa(y) + ")"
+	}
+	return n.Titles[0]
+}
+
+func abs(n int) int { return max(n, -n) }
