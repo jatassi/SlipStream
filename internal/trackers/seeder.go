@@ -88,6 +88,15 @@ type judgedHash struct {
 	facts   []downloadclients.HashFact
 	copies  []downloadclients.HashFact
 	verdict seeding.Verdict
+	// tracker is the hash's Tracker, the zero id for none, and stored the
+	// Tracker its stored window names.
+	tracker, stored indexers.TrackerID
+}
+
+// moved reports whether the hash's window differs from the stored one,
+// its Tracker included.
+func (h judgedHash) moved() bool {
+	return h.verdict.Write || h.verdict.View.Window != nil && h.stored != h.tracker
 }
 
 // judge evaluates each of hashes in r's snapshot, its Nodes as nodes
@@ -120,8 +129,8 @@ func (t *Trackers) judge(ctx context.Context, r storage.Reader[file], hashes []b
 	}
 	j := judgment{hashes: make(map[bencode.InfoHash]judgedHash, len(facts)), trackers: in.trackers}
 	for h, fs := range facts {
-		jh := judgedHash{facts: fs}
-		hash, err := hashOf(in, fs, ran, in.windows[h], nodes)
+		jh := judgedHash{facts: fs, stored: in.windows[h].TrackerID}
+		hash, tracker, err := hashOf(in, fs, ran, in.windows[h], nodes)
 		if err != nil {
 			return judgment{}, err
 		}
@@ -130,7 +139,7 @@ func (t *Trackers) judge(ctx context.Context, r storage.Reader[file], hashes []b
 				jh.copies = append(jh.copies, f)
 			}
 		}
-		jh.verdict = seeding.Evaluate(hash)
+		jh.verdict, jh.tracker = seeding.Evaluate(hash), tracker
 		j.hashes[h] = jh
 	}
 	return j, nil
@@ -181,9 +190,9 @@ func (t *Trackers) policyIn(ctx context.Context, r storage.Reader[file], hashes 
 	return p, nil
 }
 
-// hashOf is one hash's input to Evaluate. Its Tracker is the first one a
-// Torrent of the hash names.
-func hashOf(p policy, facts []downloadclients.HashFact, ran map[downloadclients.ID]seeding.Ran, stored db.TrackersWindow, nodes Roster) (seeding.Hash, error) {
+// hashOf is one hash's input to Evaluate, and its Tracker: the first one
+// a Torrent of the hash names, the zero id for none.
+func hashOf(p policy, facts []downloadclients.HashFact, ran map[downloadclients.ID]seeding.Ran, stored db.TrackersWindow, nodes Roster) (seeding.Hash, indexers.TrackerID, error) {
 	h := seeding.Hash{Now: p.now, Goal: p.goal, Margin: p.margin, Reconciling: p.reconciling}
 	var (
 		tracker *Summary
@@ -205,17 +214,21 @@ func hashOf(p policy, facts []downloadclients.HashFact, ran map[downloadclients.
 		h.Copies = append(h.Copies, copyOf(f, ran[f.ID], nodes))
 	}
 	h.Privacy = privacyOf(tracker, facts[0].Private, floors)
-	if tracker != nil && tracker.Goal != nil {
-		h.Goal = tracker.Goal
+	var id indexers.TrackerID
+	if tracker != nil {
+		id = tracker.ID
+		if tracker.Goal != nil {
+			h.Goal = tracker.Goal
+		}
 	}
 	if stored.InfoHash != nil {
 		w, err := windowOf(stored)
 		if err != nil {
-			return seeding.Hash{}, err
+			return seeding.Hash{}, id, err
 		}
 		h.Stored = &w
 	}
-	return h, nil
+	return h, id, nil
 }
 
 func copyOf(f downloadclients.HashFact, ran seeding.Ran, nodes Roster) seeding.Copy {

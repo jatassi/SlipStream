@@ -146,6 +146,7 @@ func TestHealthRaisesAPartialUnitTheInstantItIsOverdue(t *testing.T) {
 			Categories: []health.Category{
 				{About: health.About{ID: health.NodesID, Label: "Nodes", Phrase: "Nodes"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: health.About{ID: health.DownloadClientsID, Label: "Download Clients", Phrase: "download clients"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
+				{About: health.About{ID: health.SeedingID, Label: "Seeding", Phrase: "torrents that still owe a Tracker"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: health.About{ID: health.IndexersID, Label: "Indexers", Phrase: "Indexers"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 				{About: tasks.HealthAbout, Source: s.HealthSource(health.ScheduledTasksID)},
 			},
@@ -163,7 +164,7 @@ func TestHealthRaisesAPartialUnitTheInstantItIsOverdue(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			return r.Categories[4].Items
+			return r.Categories[5].Items
 		}
 		time.Sleep(time.Until(overdue) - time.Second)
 		synctest.Wait()

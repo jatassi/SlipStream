@@ -35,10 +35,10 @@ type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
 
-// roster is every Node in step, and drains nothing.
-type roster struct{}
+// roster is every Node in step unless offline, and drains nothing.
+type roster struct{ offline *bool }
 
-func (roster) InStep(role.NodeID) bool                { return true }
+func (r roster) InStep(role.NodeID) bool              { return !*r.offline }
 func (roster) WrittenOff(role.Name, role.NodeID) bool { return false }
 func (roster) Changed() <-chan struct{}               { return nil }
 func (roster) Serving(role.Name) []role.NodeID        { return nil }
@@ -63,6 +63,8 @@ type library struct {
 	changed         *published
 	trackersChanged *identities
 	soon            int
+	// offline takes the library's Node out of step.
+	offline bool
 	// node, work and item are what every planted Grab names.
 	node, work, item storage.UUID
 }
@@ -75,9 +77,9 @@ func newLibrary(t *testing.T) *library {
 			grabs.Schema(), indexers.Schema(), trackers.Schema(), files.Schema()),
 		node: storage.NewUUID(), work: storage.NewUUID(), item: storage.NewUUID(),
 	}
-	l.clients = downloadclients.New(downloadclients.Config{Library: l.lib, Roster: roster{}, Uses: grabs.TorrentUses{}, Seeding: late{&l.x}})
+	l.clients = downloadclients.New(downloadclients.Config{Library: l.lib, Roster: roster{&l.offline}, Uses: grabs.TorrentUses{}, Seeding: late{&l.x}})
 	l.x = trackers.New(trackers.Config{
-		Library: l.lib, Clients: l.clients, Grabs: grabs.TrackerFacts{}, Roster: roster{},
+		Library: l.lib, Clients: l.clients, Grabs: grabs.TrackerFacts{}, Roster: roster{&l.offline},
 		Soon: func() { l.soon++ }, Reconciling: trackers.NotReconciling, Changed: l.changed, TrackersChanged: l.trackersChanged,
 	})
 	l.exec(`INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, l.node)

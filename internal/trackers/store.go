@@ -95,7 +95,7 @@ func (t *Trackers) ClearRule(ctx context.Context, _ identity.Admin, id indexers.
 		if err := db.New(tx).ClearAdminRule(ctx, id); err != nil {
 			return err
 		}
-		_, err := syncReleases(ctx, tx, t.cfg.Grabs)
+		_, err := syncReleases(ctx, tx, t.cfg.Grabs, func(other indexers.TrackerID) bool { return other == id })
 		return err
 	})
 }
@@ -190,7 +190,7 @@ func (t *Trackers) SyncReleases(ctx context.Context) error {
 	var moved []indexers.TrackerID
 	err := t.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		var err error
-		moved, err = syncReleases(ctx, tx, t.cfg.Grabs)
+		moved, err = syncReleases(ctx, tx, t.cfg.Grabs, func(indexers.TrackerID) bool { return true })
 		return err
 	})
 	if err != nil {
@@ -202,7 +202,9 @@ func (t *Trackers) SyncReleases(ctx context.Context) error {
 	return nil
 }
 
-func syncReleases(ctx context.Context, tx *storage.Tx[file], grabs Grabs) ([]indexers.TrackerID, error) {
+// syncReleases is SyncReleases for the Trackers keep lets through, in tx.
+// It answers the Trackers whose rule moved.
+func syncReleases(ctx context.Context, tx *storage.Tx[file], grabs Grabs, keep func(indexers.TrackerID) bool) ([]indexers.TrackerID, error) {
 	stated, err := grabs.Stated(ctx, tx)
 	if err != nil {
 		return nil, err
@@ -210,6 +212,9 @@ func syncReleases(ctx context.Context, tx *storage.Tx[file], grabs Grabs) ([]ind
 	q, now := db.New(tx), storage.Now()
 	var moved []indexers.TrackerID
 	for id, s := range stated {
+		if !keep(id) {
+			continue
+		}
 		ratio, seed := columnsOf(s.Rule)
 		n, err := q.SetStatedRule(ctx, db.SetStatedRuleParams{
 			TrackerID: id, Clears: string(s.Rule.Clears()), RatioCenti: ratio, SeedSeconds: seed,

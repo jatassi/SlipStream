@@ -450,3 +450,53 @@ func (q *Queries) SetWarnAfter(ctx context.Context, warnAfterSeconds *int64) err
 	_, err := q.db.ExecContext(ctx, setWarnAfter, warnAfterSeconds)
 	return err
 }
+
+const setWindow = `-- name: SetWindow :exec
+INSERT INTO trackers_window (info_hash, tracker_id, state, rule_clears, rule_ratio_centi, rule_seed_seconds, opened_at, met_at,
+    closed_at, regrabbed_at, owed_clears, owed_seconds, owed_bytes, quiet_since)
+VALUES (?1, ?2, ?3, ?4, ?5,
+    ?6, ?7, ?8, ?9, ?10,
+    ?11, ?12, ?13, ?14)
+ON CONFLICT (info_hash) DO UPDATE SET
+    tracker_id = excluded.tracker_id, state = excluded.state, rule_clears = excluded.rule_clears,
+    rule_ratio_centi = excluded.rule_ratio_centi, rule_seed_seconds = excluded.rule_seed_seconds, opened_at = excluded.opened_at,
+    met_at = excluded.met_at, closed_at = excluded.closed_at, regrabbed_at = excluded.regrabbed_at, owed_clears = excluded.owed_clears,
+    owed_seconds = excluded.owed_seconds, owed_bytes = excluded.owed_bytes, quiet_since = excluded.quiet_since
+`
+
+type SetWindowParams struct {
+	InfoHash        []byte
+	TrackerID       indexers.TrackerID
+	State           string
+	RuleClears      *string
+	RuleRatioCenti  *int64
+	RuleSeedSeconds *int64
+	OpenedAt        storage.Time
+	MetAt           storage.Time
+	ClosedAt        storage.Time
+	RegrabbedAt     storage.Time
+	OwedClears      *string
+	OwedSeconds     *int64
+	OwedBytes       *int64
+	QuietSince      storage.Time
+}
+
+func (q *Queries) SetWindow(ctx context.Context, arg SetWindowParams) error {
+	_, err := q.db.ExecContext(ctx, setWindow,
+		arg.InfoHash,
+		arg.TrackerID,
+		arg.State,
+		arg.RuleClears,
+		arg.RuleRatioCenti,
+		arg.RuleSeedSeconds,
+		arg.OpenedAt,
+		arg.MetAt,
+		arg.ClosedAt,
+		arg.RegrabbedAt,
+		arg.OwedClears,
+		arg.OwedSeconds,
+		arg.OwedBytes,
+		arg.QuietSince,
+	)
+	return err
+}
