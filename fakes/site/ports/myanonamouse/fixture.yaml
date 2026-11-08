@@ -94,7 +94,5 @@ cases:
   - name: grab
     call: {fetch: "/tor/download.php?tid=1004&fl=1"}
     exchanges:
-      - request: {path: /jsonLoad.php}
-        response: {headers: {Content-Type: application/json}, body: user.json}
       - request: {path: /tor/download.php, query: {tid: "1004", fl: "1"}, headers: {Cookie: "mam_id={{mamId}}"}}
         response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

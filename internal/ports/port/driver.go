@@ -172,7 +172,7 @@ func (t *typed[S]) recent(ctx context.Context, s *searching.Site, e Entry) ([]se
 }
 
 func (t *typed[S]) releases(ctx context.Context, s *searching.Site, e Entry, gen generator[S], crit SearchCriteria) ([]searching.Release, error) {
-	j, err := t.start(ctx, s, e)
+	j, err := t.start(ctx, s, e, searching.Read)
 	if err != nil {
 		return nil, outcome(e.Auth, err)
 	}
@@ -188,11 +188,10 @@ func (t *typed[S]) fetch(ctx context.Context, s *searching.Site, e Entry, link s
 	if err != nil || u.Host == "" {
 		return nil, &searching.Failing{Err: errors.New("the download link isn't a URL")}
 	}
-	j, err := t.start(ctx, s, e)
+	j, err := t.start(ctx, s, e, searching.Download)
 	if err != nil {
 		return nil, outcome(e.Auth, err)
 	}
-	j.purpose = searching.Download
 	got, err := j.download(u)
 	if err != nil {
 		return nil, outcome(e.Auth, err)
@@ -210,7 +209,7 @@ func (t *typed[S]) fetch(ctx context.Context, s *searching.Site, e Entry, link s
 // typed code is used. A CodeLogin with no authenticator key and no typed
 // code reads with the session it holds, as a captcha site does.
 func (t *typed[S]) test(ctx context.Context, s *searching.Site, e Entry) (searching.Report, error) {
-	j, err := t.start(ctx, s, e)
+	j, err := t.start(ctx, s, e, searching.Read)
 	if err == nil && t.login.signIn != nil {
 		must := t.login.auth != FormWithCode || s.Settings[authenticatorKey.Name] != "" || s.Code != ""
 		err = j.signIn(nil, must)
@@ -298,15 +297,16 @@ type job[S any] struct {
 	purpose searching.Purpose
 }
 
-// start is the job's Indexer, with what Impl.Derive read once per
-// Indexer revision on this Node.
-func (t *typed[S]) start(ctx context.Context, s *searching.Site, e Entry) (*job[S], error) {
+// start is the job's Indexer. A job that reads the site has what
+// Impl.Derive read once per Indexer revision on this Node. A download
+// has none, since Prowlarr reads those values only in its parsers.
+func (t *typed[S]) start(ctx context.Context, s *searching.Site, e Entry, purpose searching.Purpose) (*job[S], error) {
 	settings, err := decode[S](t.settings, s.Settings)
 	if err != nil {
 		return nil, &searching.Failing{Err: err}
 	}
 	base := baseURL(e, s.Address)
-	j := &job[S]{ctx: ctx, site: s, e: e, t: t, hosts: []string{strings.ToLower(base.Host)}, purpose: searching.Read}
+	j := &job[S]{ctx: ctx, site: s, e: e, t: t, hosts: []string{strings.ToLower(base.Host)}, purpose: purpose}
 	if e.Hosts != nil {
 		for _, h := range e.Hosts(base) {
 			j.hosts = append(j.hosts, strings.ToLower(h))
@@ -316,7 +316,7 @@ func (t *typed[S]) start(ctx context.Context, s *searching.Site, e Entry) (*job[
 		Settings: settings, BaseURL: base, Categories: e.Capabilities.Categories,
 		Clock: datetimeutil.Clock{Now: time.Now(), Location: time.UTC}, j: j,
 	}
-	if t.impl.Derive != nil {
+	if t.impl.Derive != nil && purpose != searching.Download {
 		if j.ix.Derived, err = s.Derived(ctx, func() (map[string]string, error) { return t.impl.Derive(j.ix) }); err != nil {
 			return nil, err
 		}

@@ -284,7 +284,8 @@ type Impl[S any] struct {
 	FilterReleases func(ix *Indexer[S], q SearchCriteria, rs []TorrentInfo) []TorrentInfo
 	// Derive reads values the port keeps in Node memory, once per
 	// Indexer revision per Node: GazelleGames' passkey from its API key,
-	// MyAnonamouse's user class. They reach the port as ix.Derived.
+	// MyAnonamouse's user class. They reach the port as ix.Derived in a
+	// search, Recent and Test, never in Download.
 	Derive func(ix *Indexer[S]) (map[string]string, error)
 }
 

@@ -748,7 +748,7 @@ func TestAPortsDownloadFetchesTheLinkItFoundAsTheDefaultDoes(t *testing.T) {
 	})
 }
 
-func TestDeriveRunsOncePerRevisionOnANode(t *testing.T) {
+func TestDeriveRunsOncePerRevisionOnANodeAndNeverForADownload(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		passkeys := 0
 		w := &world{hosts: map[string]http.HandlerFunc{"lantern.test": func(w http.ResponseWriter, r *http.Request) {
@@ -784,6 +784,10 @@ func TestDeriveRunsOncePerRevisionOnANode(t *testing.T) {
 		}
 		if want := []string{"https://lantern.test/dl/pk1", "https://lantern.test/dl/pk1", "https://lantern.test/dl/pk2"}; !slices.Equal(links, want) || passkeys != 2 {
 			t.Errorf("links = %v after %d passkey reads, want %v after 2", links, passkeys, want)
+		}
+		run(t, n, searching.Job{Port: "lantern", Revision: 3, Settings: map[string]string{"apiKey": "k"}, Call: searching.FetchCall{Link: searching.LinkOf(links[2])}})
+		if passkeys != 2 {
+			t.Errorf("a download at a new revision read the passkey, %d reads in all; want none", passkeys-2)
 		}
 	})
 }
