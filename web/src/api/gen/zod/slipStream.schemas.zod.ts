@@ -2205,28 +2205,36 @@ export const GrabsReason = zod.object({
       "wrong_work",
       "wrong_item",
       "covers_more",
+      "wrong_title",
       "cut_not_wanted",
       "quality_not_in_target",
       "filter",
       "size_below",
       "size_above",
       "size_not_checked",
+      "score_below_minimum",
       "not_an_upgrade",
+      "repack_other_group",
     ])
     .describe(
-      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that covers more than one Item, such as a season pack, and SlipStream doesn't grab those yet.",
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's.",
+    ),
+  soft: zod
+    .boolean()
+    .describe(
+      "Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note.",
     ),
   targetId: zod
     .uuid()
     .exactOptional()
     .describe(
-      "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and cut_not_wanted",
+      "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
     ),
   value: zod
     .string()
     .exactOptional()
     .describe(
-      "The value a filter failed on, the quality a Target doesn't accept, the cut no open cell wants, or what a wrong_item or covers_more title names, such as S01E02",
+      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
     ),
 });
 
@@ -2236,7 +2244,7 @@ export type GrabsReasonOutput = zod.output<typeof GrabsReason>;
 export const GrabsRefusal = zod.object({
   reasons: zod
     .array(GrabsReason)
-    .describe("Each open cell's Target's failures and notes, in Profile order"),
+    .describe("The release's own refusals, then each cell's failures and notes, in Profile order"),
   title: zod.string(),
 });
 
@@ -2302,7 +2310,7 @@ export const GrabsSearch = zod.object({
   refused: zod
     .array(GrabsRefusal)
     .describe(
-      "The Releases it didn't grab for a reason, in the Indexers' order; a Release it outranked isn't refused",
+      "The Releases it didn't grab for a reason, in the Indexers' order. A Release it outranked isn't refused.",
     ),
   startedAt: zod.iso.datetime({ offset: true }),
 });

@@ -318,8 +318,8 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	}
 	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
 		`{"searches":[`+run1+`"outcome":"found","releases":2,"sentence":"Found 2 Releases"}],"finishedAt":"T","outcome":"grabbed","candidates":2,`+
-			`"refused":[{"title":"The.Attic.720p.WEB","reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p"}]}],"grabId":"`+grab+`",`+
-			`"notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`"}]}]}`)
+			`"refused":[{"title":"The.Attic.720p.WEB","reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p","soft":false}]}],"grabId":"`+grab+`",`+
+			`"notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`","soft":false}]}]}`)
 	trackers, err := f.xs.Trackers(ctx, admin)
 	if err != nil || len(trackers) != 1 || trackers[0].Name != "Fixture Site" {
 		t.Fatalf("Trackers = %+v, %v; want the Fixture Site one the Grab reached", trackers, err)
@@ -550,6 +550,26 @@ func TestSightingNeedsCoverage(t *testing.T) {
 	}
 	if got := seen[f.tree.Items[0].ID]; !slices.Equal(got, []release.CutKey{release.Standard}) {
 		t.Fatalf("the Item's sighted cuts are %v, want only the standard cut of the release that covers it, not Spring's Extended", got)
+	}
+}
+
+func TestARefusalSaysWhetherAManualSearchCanGrabPastIt(t *testing.T) {
+	f, _, _ := mirrored(t, "The.Attic.1080p.WEB", "Another.Film.1080p.WEB", false, indexers.Edit{})
+	f.searchAttic(t)
+	f.failed(t, 1)
+	_, got := f.s.Call(t, http.MethodGet, f.search+"es", "")
+	var runs struct {
+		Searches []struct {
+			Refused json.RawMessage `json:"refused"`
+		} `json:"searches"`
+	}
+	if err := json.Unmarshal([]byte(got), &runs); err != nil || len(runs.Searches) != 1 {
+		t.Fatalf("listSearches = %s, %v; want one run", got, err)
+	}
+	want := `[{"title":"Another.Film.1080p.WEB","reasons":[{"code":"wrong_title","value":"Another.Film.1080p.WEB","soft":true},` +
+		`{"code":"size_not_checked","targetId":"` + f.hd.ID.String() + `","soft":false}]}]`
+	if string(runs.Searches[0].Refused) != want {
+		t.Fatalf("the run refused %s, want another film's release as a soft wrong_title, judged at the cell: %s", runs.Searches[0].Refused, want)
 	}
 }
 

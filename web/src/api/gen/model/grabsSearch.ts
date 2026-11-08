@@ -30,7 +30,7 @@ export interface GrabsSearch {
    * @nullable
    */
   outcome: GrabsSearchOutcome;
-  /** The Releases it didn't grab for a reason, in the Indexers' order; a Release it outranked isn't refused */
+  /** The Releases it didn't grab for a reason, in the Indexers' order. A Release it outranked isn't refused. */
   refused: GrabsRefusal[];
   startedAt: string;
 }
