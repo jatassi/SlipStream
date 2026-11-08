@@ -7,7 +7,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -121,6 +123,11 @@ func removable(dev string) bool {
 		}
 	}
 	return false
+}
+
+// deviceOf is st's device in hex.
+func deviceOf(st *syscall.Stat_t) string {
+	return strconv.FormatUint(uint64(st.Dev), 16) //nolint:unconvert // Dev is uint32 on some architectures
 }
 
 func device(dev uint64) string { return fmt.Sprintf("%d:%d", unix.Major(dev), unix.Minor(dev)) }

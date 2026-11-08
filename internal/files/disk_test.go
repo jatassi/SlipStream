@@ -311,14 +311,14 @@ func (d *crashing) at(do func() error) error {
 	return errCrashed
 }
 
-func (d *crashing) Move(ctx context.Context, root roots.ID, from, to storing.Rel) (int64, error) {
-	var size int64
+func (d *crashing) Move(ctx context.Context, root roots.ID, from, to storing.Rel) (storing.Placed, error) {
+	var moved storing.Placed
 	err := d.at(func() error {
 		var err error
-		size, err = d.Disk.Move(ctx, root, from, to)
+		moved, err = d.Disk.Move(ctx, root, from, to)
 		return err
 	})
-	return size, err
+	return moved, err
 }
 
 func (d *crashing) Remove(ctx context.Context, root roots.ID, rel storing.Rel) error {
@@ -563,7 +563,7 @@ func (d *watching) moved() {
 	d.ch = make(chan struct{})
 }
 
-func (d *watching) Move(ctx context.Context, root roots.ID, from, to storing.Rel) (int64, error) {
+func (d *watching) Move(ctx context.Context, root roots.ID, from, to storing.Rel) (storing.Placed, error) {
 	d.mu.Lock()
 	d.moves++
 	d.mu.Unlock()

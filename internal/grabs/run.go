@@ -324,10 +324,11 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 		Media: g.Plan.Media, GrabID: g.ID.UUID, Meant: g.Targets,
 	}}
 	if root.Node == g.Node {
-		imported.file.Size, err = gr.cfg.Roots.Place(ctx, root.ID, holding, storing.Payload{InfoHash: g.Torrent.InfoHash, FileIndex: g.Plan.FileIndex})
+		placed, err := gr.cfg.Roots.Place(ctx, root.ID, holding, storing.Payload{InfoHash: g.Torrent.InfoHash, FileIndex: g.Plan.FileIndex})
 		if err != nil {
 			return storageOutcome(ctx, err, until)
 		}
+		imported.file.Size = placed.Size
 		return imported
 	}
 	t, verified, err := gr.staged(ctx, g)
@@ -337,13 +338,14 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 	case !verified:
 		return advance{to: Transferring}
 	}
-	imported.file.Size, err = gr.cfg.Roots.Move(ctx, root.ID, transfers.StagedRel(t, 0), holding)
+	moved, err := gr.cfg.Roots.Move(ctx, root.ID, transfers.StagedRel(t, 0), holding)
 	if err != nil {
 		if _, verified, rerr := gr.staged(ctx, g); rerr == nil && !verified {
 			return advance{to: Transferring}
 		}
 		return storageOutcome(ctx, err, until)
 	}
+	imported.file.Size = moved.Size
 	imported.placed = &t
 	return imported
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"strconv"
+	"syscall"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -68,6 +70,11 @@ func kindOf(st *unix.Statfs_t) Kind {
 
 func networkFSName(name string) bool {
 	return name == "nfs" || name == "smbfs" || name == "afpfs" || name == "webdav"
+}
+
+// deviceOf is st's device in hex.
+func deviceOf(st *syscall.Stat_t) string {
+	return strconv.FormatUint(uint64(uint32(st.Dev)), 16) //nolint:gosec // the device's bits, not a number
 }
 
 func stableIDs(st *unix.Statfs_t) bool { return stableFSName(unix.ByteSliceToString(st.Fstypename[:])) }

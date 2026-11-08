@@ -41,11 +41,16 @@ const (
 	UnreadDenied                          // a folder the Node can't list
 )
 
-// Page is one page of a walk. CaseFold is whether the root resolves names
-// ignoring case.
+// Cursor is where a walk's next page starts, opaque to the Controller.
+// The zero Cursor starts the walk.
+type Cursor struct{ b string }
+
+// Page is one page of a walk. Next starts the page after it, until Done.
+// CaseFold is whether the root resolves names ignoring case.
 type Page struct {
 	Entries  []Walked
 	Unread   []Unread
+	Next     Cursor
 	Done     bool
 	CaseFold bool
 }
