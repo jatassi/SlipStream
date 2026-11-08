@@ -1,0 +1,57 @@
+{
+  "releases": [
+    {
+      "title": "Harbor.Lights.2024.Soundtrack.FLAC-FIXTURE",
+      "size": 98566144,
+      "published": "2024-11-07T18:30:00Z",
+      "seeders": 3,
+      "leechers": 8,
+      "grabs": 2,
+      "link": "https://desigaane.fixture-site.fake.localhost/torrents.php?action=download\u0026id=20530",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 0
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://desigaane.fixture-site.fake.localhost/torrents.php?id=8820\u0026torrentid=20530",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Juniper.Falls.2024.Live.MP3-FIXTURE",
+      "size": 734003200,
+      "published": "2024-11-07T06:30:00Z",
+      "seeders": 12,
+      "leechers": 0,
+      "grabs": 11,
+      "link": "https://desigaane.fixture-site.fake.localhost/torrents.php?action=download\u0026id=20527",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://desigaane.fixture-site.fake.localhost/torrents.php?id=8819\u0026torrentid=20527",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

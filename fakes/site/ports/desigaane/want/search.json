@@ -1,0 +1,57 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2023.FLAC.Lossless.CD-FIXTURE",
+      "size": 412316860,
+      "published": "2024-11-06T21:10:00Z",
+      "seeders": 18,
+      "leechers": 1,
+      "grabs": 33,
+      "link": "https://desigaane.fixture-site.fake.localhost/torrents.php?action=download\u0026id=20511",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://desigaane.fixture-site.fake.localhost/torrents.php?id=8812\u0026torrentid=20511",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "The.Quiet.Orchard.2023.MP3.320.WEB-FIXTURE",
+      "size": 125829120,
+      "published": "2024-11-06T20:55:41Z",
+      "seeders": 41,
+      "leechers": 2,
+      "grabs": 90,
+      "link": "https://desigaane.fixture-site.fake.localhost/torrents.php?action=download\u0026id=20509",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3000,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://desigaane.fixture-site.fake.localhost/torrents.php?id=8811\u0026torrentid=20509",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}
