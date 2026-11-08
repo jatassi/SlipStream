@@ -128,3 +128,15 @@ func (m moves) onto(fills map[CellKey]Fill) map[ID]map[targets.TargetID]int {
 	}
 	return out
 }
+
+// heldIn reads the files of ws again for a Change narrowed by format
+// edits, which changes no file.
+func heldIn(ws []world) fileRead {
+	return func(context.Context, *db.Queries, works.Among[works.WorkID]) ([]File, error) {
+		var out []File
+		for _, w := range ws {
+			out = append(out, w.files...)
+		}
+		return out, nil
+	}
+}
