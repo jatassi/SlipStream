@@ -3,7 +3,8 @@
 // contributors, GPL-3.0. Modified for SlipStream: rewritten in Go.
 
 // Package stringutil is Prowlarr's StringUtil.GetQueryString over .NET's
-// NameValueCollection: the query string most HTML sites build.
+// NameValueCollection and over a list of key/value pairs: the query
+// string most HTML sites build.
 package stringutil
 
 import (
@@ -78,16 +79,42 @@ func (c *NameValueCollection) GetQueryStringWith(o QueryString) string {
 	if separator == "" {
 		separator = "&"
 	}
-	var pairs []string
+	pairs := c.toEnumerable(o.DuplicateKeysIfMulti)
+	return pairs.getQueryString(o.Encoding, separator)
+}
+
+func (c *NameValueCollection) toEnumerable(duplicateKeysIfMulti bool) KeyValuePairs {
+	var out KeyValuePairs
 	for i, name := range c.names {
 		value := strings.Join(c.values[i], ",")
-		parts := []string{value}
-		if o.DuplicateKeysIfMulti {
-			parts = strings.Split(value, ",")
+		if !duplicateKeysIfMulti {
+			out.Add(name, value)
+			continue
 		}
-		for _, v := range parts {
-			pairs = append(pairs, name+"="+o.Encoding.URLEncode(v))
+		for v := range strings.SplitSeq(value, ",") {
+			out.Add(name, v)
 		}
+	}
+	return out
+}
+
+// KeyValuePairs is a List<KeyValuePair<string, string>>: the pairs in
+// the order added, a repeated key kept as a pair of its own, as in
+// "cat[]=19&cat[]=6". The zero value is empty.
+type KeyValuePairs []KeyValuePair
+
+type KeyValuePair struct{ Key, Value string }
+
+func (c *KeyValuePairs) Add(key, value string) { *c = append(*c, KeyValuePair{key, value}) }
+
+// GetQueryString is GetQueryString() with C#'s defaults: key=value pairs
+// joined by "&", each value URL-encoded as UTF-8 and each key as it is.
+func (c *KeyValuePairs) GetQueryString() string { return c.getQueryString(encoding.UTF8, "&") }
+
+func (c *KeyValuePairs) getQueryString(e encoding.Charset, separator string) string {
+	pairs := make([]string, len(*c))
+	for i, a := range *c {
+		pairs[i] = a.Key + "=" + e.URLEncode(a.Value)
 	}
 	return strings.Join(pairs, separator)
 }

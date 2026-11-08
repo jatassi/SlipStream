@@ -8,7 +8,6 @@ import (
 	_ "embed"
 	"encoding/json"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -44,7 +43,7 @@ var Port = port.Define(port.Entry{
 		"https://tday.venom.global/",
 		"https://tday.workisboring.net/",
 	},
-	Description:  "TorrentDay is a private general tracker with TV, movies, games, music, apps and books.",
+	Description:  "TorrentDay is a private general Tracker with TV, movies, games, music, apps and books.",
 	Privacy:      port.Private,
 	Capabilities: setCapabilities(),
 	Upstream:     port.ReadUpstream(upstream),
@@ -133,7 +132,7 @@ func getPagedRequests(c *ix, term string, categories []newznab.ID, imdbID string
 
 	cats := c.Categories.TrackerIDs(categories)
 	if len(cats) == 0 {
-		cats = getTrackerCategories(c.Categories)
+		cats = c.Categories.TrackerCategories()
 	}
 
 	query := strings.Join(cats, ";")
@@ -153,18 +152,6 @@ func getPagedRequests(c *ix, term string, categories []newznab.ID, imdbID string
 	searchURL.RawQuery = query
 
 	return port.Get(searchURL).Accept("application/rss+xml, text/rss+xml, application/xml, text/xml")
-}
-
-// getTrackerCategories is IndexerCapabilitiesCategories.GetTrackerCategories:
-// each tracker category with a standard Newznab mapping, once.
-func getTrackerCategories(c *newznab.Categories) []string {
-	var out []string
-	for _, m := range c.Mappings() {
-		if m.Newznab < 100000 && !slices.Contains(out, m.Tracker) {
-			out = append(out, m.Tracker)
-		}
-	}
-	return out
 }
 
 func movieSearch(c *ix, q port.SearchCriteria) (port.Chain, error) {

@@ -468,7 +468,7 @@ func TestATwoFactorCodeGoesWithTheTestAndItsStopWaitsForTheAdmin(t *testing.T) {
 	d := indexers.Draft{Kind: indexers.Native, Name: "Quill", Port: "quill", Values: map[string]string{"username": "ada", "password": "pw"}, On: true}
 	_, err := w.x.Create(t.Context(), identity.Admin{}, d, indexers.Typed{})
 	var failed *indexers.TestFailedError
-	if !errors.As(err, &failed) || failed.Sentence != "Quill needs a two-factor code to sign in again. Type the current code and test again." {
+	if !errors.As(err, &failed) || failed.Sentence != "Quill needs a two-factor code to sign in. Type the current code and test again." {
 		t.Fatalf("Create without a code = %v", err)
 	}
 	v, err := w.x.Create(t.Context(), identity.Admin{}, d, indexers.Typed{Code: "123456"})

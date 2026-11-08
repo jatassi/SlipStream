@@ -19,7 +19,7 @@ export function kindOf(indexer: IndexersIndexer): string {
   return kindWords[indexer.kind];
 }
 
-const syncedFormat = new Intl.DateTimeFormat("en-GB", {
+const syncedFormat = new Intl.DateTimeFormat(undefined, {
   day: "numeric",
   month: "short",
   year: "numeric",

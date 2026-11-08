@@ -18,7 +18,7 @@ var upstream []byte
 var Port = port.Define(port.Entry{
 	ID:          "passthepopcorn",
 	Name:        "PassThePopcorn",
-	Description: "PassThePopcorn is a private tracker for movies.",
+	Description: "PassThePopcorn is a private Tracker for movies.",
 	Privacy:     port.Private,
 	IndexerURLs: []string{"https://passthepopcorn.me"},
 	RateLimit:   4 * time.Second,

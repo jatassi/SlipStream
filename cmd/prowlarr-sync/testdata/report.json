@@ -1,6 +1,6 @@
 {
-  "ref": "a69a7eae0ad82aff9a040ad0283271e4fa61a630",
-  "date": "2026-01-09",
+  "ref": "1783dc960e566e33d39e4d0315e4e28449ec1c13",
+  "date": "2026-01-10",
   "changeSets": [
     {
       "key": "port:hdbits@c6e3f94",
@@ -156,6 +156,29 @@
         "media": [
           "movies",
           "audio"
+        ]
+      }
+    },
+    {
+      "key": "new:SpeedApp@1783dc9",
+      "subject": "new:SpeedApp",
+      "kind": "new-site",
+      "to": "1783dc960e566e33d39e4d0315e4e28449ec1c13",
+      "commits": [
+        {
+          "sha": "1783dc960e566e33d39e4d0315e4e28449ec1c13",
+          "date": "2026-01-10",
+          "subject": "New: (Indexer) SpeedApp"
+        }
+      ],
+      "site": {
+        "name": "SpeedApp",
+        "base": "SpeedAppBase",
+        "files": [
+          "src/NzbDrone.Core/Indexers/Definitions/SpeedApp.cs"
+        ],
+        "media": [
+          "movies"
         ]
       }
     },

@@ -42,33 +42,33 @@ func getTvSearchRequests(ix *indexer, searchCriteria port.SearchCriteria) (port.
 		parameters.Search = strings.ReplaceAll(searchTerm, " ", "%")
 	}
 
-	showDate, daily := datetimeutil.TryParseExact(fmt.Sprintf("%d %s", searchCriteria.Season, searchCriteria.Episode), "yyyy MM/dd", datetimeutil.None, ix.Clock)
+	showDate, daily := datetimeutil.TryParseExact(port.Interpolated(searchCriteria.Season)+" "+searchCriteria.Episode, "yyyy MM/dd", datetimeutil.None, ix.Clock)
 	episode, episodeErr := strconv.Atoi(strings.TrimSpace(searchCriteria.Episode))
 	_, termErr := strconv.Atoi(strings.TrimSpace(searchTerm))
 
 	switch {
 	// If only the season/episode is searched for then change format to match expected format
-	case searchCriteria.Season > 0 && strings.TrimSpace(searchCriteria.Episode) == "":
+	case searchCriteria.Season != nil && *searchCriteria.Season > 0 && strings.TrimSpace(searchCriteria.Episode) == "":
 		// Search Season
 		parameters.Category = "Season"
-		parameters.Name = fmt.Sprintf("Season %d%%", searchCriteria.Season)
+		parameters.Name = fmt.Sprintf("Season %d%%", *searchCriteria.Season)
 		pageableRequests.Add(getPagedRequests(ix, parameters, btnResults, btnOffset))
 
 		// Search Episode
 		parameters.Category = "Episode"
-		parameters.Name = fmt.Sprintf("S%02dE%%", searchCriteria.Season)
+		parameters.Name = fmt.Sprintf("S%02dE%%", *searchCriteria.Season)
 		pageableRequests.Add(getPagedRequests(ix, parameters, btnResults, btnOffset))
 	case daily:
 		// Daily Episode
 		parameters.Name = showDate.Format("2006.01.02") + "%"
 		parameters.Category = "Episode"
 		pageableRequests.Add(getPagedRequests(ix, parameters, btnResults, btnOffset))
-	case searchCriteria.Season > 0 && episodeErr == nil && episode > 0:
+	case searchCriteria.Season != nil && *searchCriteria.Season > 0 && episodeErr == nil && episode > 0:
 		// Standard (S/E) Episode
 		if episode > 0 && episode < 100 {
-			parameters.Name = fmt.Sprintf("S%02dE%%%02d%%", searchCriteria.Season, episode)
+			parameters.Name = fmt.Sprintf("S%02dE%%%02d%%", *searchCriteria.Season, episode)
 		} else {
-			parameters.Name = fmt.Sprintf("S%02dE%02d%%", searchCriteria.Season, episode)
+			parameters.Name = fmt.Sprintf("S%02dE%02d%%", *searchCriteria.Season, episode)
 		}
 		parameters.Category = "Episode"
 		pageableRequests.Add(getPagedRequests(ix, parameters, btnResults, btnOffset))

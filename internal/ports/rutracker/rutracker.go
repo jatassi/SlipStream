@@ -38,7 +38,6 @@ var Port = port.Define(port.Entry{
 		"https://rutracker.net/",
 		"https://rutracker.nl/",
 	},
-	// SlipStream: SlipStream's own sentence, per WRITING.md.
 	Description:  "RuTracker.org is a semi-private Russian Tracker for movies, TV, music, books, games and software.",
 	Language:     "ru-RU",
 	Encoding:     "windows-1251",
@@ -70,14 +69,7 @@ func Download(ix *ix, link *url.URL) (port.Got, error) {
 		return port.Magnet{Link: magnetLink}, nil
 	}
 
-	// SlipStream: the kit has no base.Download to hand the .torrent link
-	// back to, so the default GET is written out here.
-	response, err := ix.Fetch(port.Get(link))
-	if err != nil {
-		return nil, err
-	}
-
-	return port.Torrent{Raw: response.Body}, nil
+	return ix.Download(link)
 }
 
 func DoLogin(in *port.SignIn[RuTrackerSettings]) error {
@@ -1445,7 +1437,11 @@ func GetSearchRequests(ix *ix, searchCriteria port.SearchCriteria) (port.Chain, 
 }
 
 func GetTvSearchRequests(ix *ix, searchCriteria port.SearchCriteria) (port.Chain, error) {
-	return GetPageableRequests(ix, searchCriteria.SearchTerm, searchCriteria.Categories, searchCriteria.Season), nil
+	season := 0
+	if searchCriteria.Season != nil {
+		season = *searchCriteria.Season
+	}
+	return GetPageableRequests(ix, searchCriteria.SearchTerm, searchCriteria.Categories, season), nil
 }
 
 func GetPageableRequests(ix *ix, searchTerm string, categories []newznab.ID, season int) port.Chain {

@@ -20,7 +20,7 @@ var Port = avistazbase.Define(port.Entry{
 	ID:          "privatehd",
 	Name:        "PrivateHD",
 	IndexerURLs: []string{"https://privatehd.to/"},
-	Description: "PrivateHD, the sister site of AvistaZ, is a private tracker for HD movies and TV series.",
+	Description: "PrivateHD, the sister site of AvistaZ, is a private Tracker for HD movies and TV series.",
 	Privacy:     port.Private,
 	Capabilities: port.Capabilities{
 		// SlipStream: no genre, which SearchCriteria doesn't carry.

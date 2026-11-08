@@ -6,8 +6,6 @@ package speedcd
 
 import (
 	_ "embed"
-	"fmt"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -46,7 +44,7 @@ var Port = port.Define(port.Entry{
 			term = q.FullImdbID()
 		}
 
-		return one(getPagedRequests(ix, strings.TrimSpace(term), q, strings.TrimSpace(q.FullImdbID()) != ""))
+		return port.One(getPagedRequests(ix, strings.TrimSpace(term), q, strings.TrimSpace(q.FullImdbID()) != ""))
 	},
 	TV: func(ix *ix, q port.SearchCriteria) (port.Chain, error) {
 		term := q.SanitizedTvSearchString()
@@ -54,26 +52,19 @@ var Port = port.Define(port.Entry{
 			term = q.FullImdbID()
 			if strings.TrimSpace(q.EpisodeSearchString()) != "" {
 				term += " " + q.EpisodeSearchString()
-				if q.Season != 0 && strings.TrimSpace(q.Episode) == "" {
+				if q.Season != nil && strings.TrimSpace(q.Episode) == "" {
 					term += "*"
 				}
 			}
 		}
 
-		return one(getPagedRequests(ix, strings.TrimSpace(term), q, strings.TrimSpace(q.FullImdbID()) != ""))
+		return port.One(getPagedRequests(ix, strings.TrimSpace(term), q, strings.TrimSpace(q.FullImdbID()) != ""))
 	},
 	Basic: func(ix *ix, q port.SearchCriteria) (port.Chain, error) {
-		return one(getPagedRequests(ix, q.SanitizedSearchTerm(), q, false))
+		return port.One(getPagedRequests(ix, q.SanitizedSearchTerm(), q, false))
 	},
 	Parse: parseResponse,
 })
-
-func one(r *port.Request, err error) (port.Chain, error) {
-	if err != nil {
-		return port.Chain{}, err
-	}
-	return port.One(r)
-}
 
 var tokenRegex = regexp.MustCompile(`name=\\"a\\" value=\\"([^"]+)\\"`)
 
@@ -165,7 +156,7 @@ func setCapabilities() port.Capabilities {
 	}
 }
 
-func getPagedRequests(ix *ix, term string, searchCriteria port.SearchCriteria, deep bool) (*port.Request, error) {
+func getPagedRequests(ix *ix, term string, searchCriteria port.SearchCriteria, deep bool) *port.Request {
 	var parameters []string
 
 	parameters = append(parameters, ix.Categories.TrackerIDs(searchCriteria.Categories)...)
@@ -191,14 +182,9 @@ func getPagedRequests(ix *ix, term string, searchCriteria port.SearchCriteria, d
 		parameters = append(parameters, "p", strconv.Itoa(page))
 	}
 
-	// SlipStream: the URL is parsed whole, so the term's escapes stay as
-	// UrlEncode wrote them.
-	searchURL, err := url.Parse(strings.TrimRight(ix.BaseURL.String(), "/") + "/browse/" + strings.Join(parameters, "/"))
-	if err != nil {
-		return nil, fmt.Errorf("parse the search address: %w", err)
-	}
+	searchURL := ix.URL("browse/" + strings.Join(parameters, "/"))
 
-	return port.Get(searchURL).Accept("text/html"), nil
+	return port.Get(searchURL).Accept("text/html")
 }
 
 func parseResponse(ix *ix, indexerResponse *port.IndexerResponse) ([]port.TorrentInfo, error) {

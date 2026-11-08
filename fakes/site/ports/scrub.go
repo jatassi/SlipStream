@@ -1,6 +1,7 @@
 package ports
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -31,11 +32,14 @@ var (
 	userKey = regexp.MustCompile(`(?i)"(user(?:_?name)?|uploader|owner|author|login)"\s*:\s*"([^"]*)"`)
 )
 
-// upstreamConstants are key-shaped runs a Prowlarr indexer hard-codes,
-// which every user's requests carry, so they aren't anyone's secret.
+// upstreamConstants are values a Prowlarr indexer hard-codes in a key or
+// a credential's place, which every user's requests carry, so they
+// aren't anyone's secret.
 var upstreamConstants = []string{
 	// TorrentSyndikat.cs: the API's path segment.
 	"api_9djWe8Tb2NE3p6opyqnh",
+	// GazelleGames.cs: the dummy authkey its download link carries.
+	"prowlarr",
 }
 
 // credentialNames are the setting, query, form, JSON and session names
@@ -46,8 +50,16 @@ var credentialNames = []string{
 }
 
 // userNames are the names whose values must be FixtureUser or
-// FixtureEmail, lowercased.
-var userNames = []string{"username", "user", "login", "uname", "email"}
+// FixtureEmail, lowercased. A sign-in form's uid is its username field
+// (HDTorrents.cs), where elsewhere uid is a credential.
+var (
+	userNames     = []string{"username", "user", "login", "uname", "email"}
+	formUserNames = append(slices.Clone(userNames), "uid")
+)
+
+// buttonValues are the values a sign-in form's submit button sends,
+// lowercased, which a field named login carries in place of a username.
+var buttonValues = []string{"login", "submit", "вхід"}
 
 // secretHeaders are the headers whose values must be placeholders.
 var secretHeaders = []string{"Authorization", "Cookie", "Set-Cookie", "X-Api-Key", "Api-Key", "Apikey", "Apiuser"}
@@ -60,7 +72,7 @@ var secretHeaders = []string{"Authorization", "Cookie", "Set-Cookie", "X-Api-Key
 func Scrub(f Fixture) []string {
 	s := scrubber{}
 	for k, v := range sorted(f.Settings) {
-		s.named("settings", k, v)
+		s.named("settings", userNames, k, v)
 	}
 	for _, sess := range append([]*Session{f.Session}, sessions(f.Cases)...) {
 		if sess != nil {
@@ -71,6 +83,9 @@ func Scrub(f Fixture) []string {
 	}
 	for _, c := range f.Cases {
 		at := "case " + c.Name
+		for k, v := range sorted(c.Settings) {
+			s.named(at+" settings", userNames, k, v)
+		}
 		if q := c.Call.Search; q != nil {
 			s.title(at+" search", q.Text)
 			for k, v := range sorted(q.IDs) {
@@ -79,17 +94,7 @@ func Scrub(f Fixture) []string {
 		}
 		s.text(at+" fetch", c.Call.Fetch)
 		for i, x := range c.Exchanges {
-			ex := fmt.Sprintf("%s exchange %d", at, i+1)
-			s.text(ex+" path", x.Request.Path)
-			s.headers(ex+" request", x.Request.Headers)
-			s.headers(ex+" response", x.Response.Headers)
-			for k, v := range sorted(x.Request.Query) {
-				s.named(ex+" query", k, v)
-			}
-			for k, v := range sorted(x.Request.Form) {
-				s.named(ex+" form", k, v)
-			}
-			s.jsonFields(ex+" json", x.Request.JSON)
+			s.exchange(fmt.Sprintf("%s exchange %d", at, i+1), x)
 		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(f.Bodies)) {
@@ -111,16 +116,30 @@ func sessions(cs []Case) []*Session {
 
 type scrubber struct{ found []string }
 
+func (s *scrubber) exchange(at string, x Exchange) {
+	s.text(at+" path", x.Request.Path)
+	s.text(at+" rawQuery", x.Request.RawQuery)
+	s.headers(at+" request", x.Request.Headers)
+	s.headers(at+" response", x.Response.Headers)
+	for k, v := range sorted(x.Request.Query) {
+		s.named(at+" query", userNames, k, v)
+	}
+	for k, v := range sorted(x.Request.Form) {
+		s.named(at+" form", formUserNames, k, v)
+	}
+	s.jsonFields(at+" json", x.Request.JSON)
+}
+
 func (s *scrubber) report(at, format string, args ...any) {
 	s.found = append(s.found, at+": "+fmt.Sprintf(format, args...))
 }
 
-// named checks a value by its name, then as text. A value with a space
-// is no username, such as a submit button's "Log in!" named login.
-func (s *scrubber) named(at, name, v string) {
+// named checks a value by its name, then as text. A submit button's
+// value is no username, such as "Login" or "Log in!" named login.
+func (s *scrubber) named(at string, users []string, name, v string) {
 	lower := strings.ToLower(name)
 	switch {
-	case slices.Contains(userNames, lower) && !strings.ContainsFunc(v, unicode.IsSpace):
+	case slices.Contains(users, lower) && !button(v):
 		if v != FixtureUser && v != FixtureEmail {
 			s.report(at, "%s is %q, which isn't %s or %s", name, v, FixtureUser, FixtureEmail)
 		}
@@ -131,10 +150,14 @@ func (s *scrubber) named(at, name, v string) {
 	}
 }
 
+func button(v string) bool {
+	return strings.ContainsFunc(v, unicode.IsSpace) || slices.Contains(buttonValues, strings.ToLower(v))
+}
+
 // secret checks a credential: it must be placeholders and the words
-// around them.
+// around them, or an upstream constant.
 func (s *scrubber) secret(at, v string) {
-	if v == "" {
+	if v == "" || slices.Contains(upstreamConstants, v) {
 		return
 	}
 	if !placeholder.MatchString(v) {
@@ -166,6 +189,8 @@ func (s *scrubber) headers(at string, h map[string]string) {
 				first, _, _ := strings.Cut(line, ";")
 				s.cookies(at+" header "+k, first)
 			}
+		case canonical == "Authorization" && strings.HasPrefix(v, "Basic "):
+			s.basic(at+" header "+k, strings.TrimPrefix(v, "Basic "))
 		case slices.Contains(secretHeaders, canonical):
 			s.secret(at+" header "+k, v)
 		default:
@@ -174,13 +199,26 @@ func (s *scrubber) headers(at string, h map[string]string) {
 	}
 }
 
+// basic checks a Basic credential, base64 of a username, a colon and a
+// password, which are checked as a form's would be.
+func (s *scrubber) basic(at, v string) {
+	raw, err := base64.StdEncoding.DecodeString(v)
+	user, password, ok := strings.Cut(string(raw), ":")
+	if err != nil || !ok {
+		s.secret(at, v)
+		return
+	}
+	s.named(at, userNames, "username", user)
+	s.secret(at+" password", password)
+}
+
 func (s *scrubber) jsonFields(at string, m map[string]any) {
 	for _, k := range slices.Sorted(maps.Keys(m)) {
 		switch v := m[k].(type) {
 		case map[string]any:
 			s.jsonFields(at+"."+k, v)
 		case string:
-			s.named(at, k, v)
+			s.named(at, userNames, k, v)
 		default:
 			s.text(at+"."+k, fmt.Sprint(v))
 		}

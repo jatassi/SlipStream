@@ -3,6 +3,7 @@ package port
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"reflect"
 	"slices"
 	"strings"
@@ -349,19 +350,39 @@ func TestSearchCriteriaWritesEpisodesAndImdbIDsAsProwlarrDoes(t *testing.T) {
 		q    SearchCriteria
 		want string
 	}{
-		{SearchCriteria{Season: 1, Episode: "2"}, "S01E02"},
-		{SearchCriteria{Season: 1, Episode: "1.000"}, "S01E1000"},
-		{SearchCriteria{Season: 1}, "S01"},
-		{SearchCriteria{Season: 1, Episode: "2a"}, "S01E02"},
-		{SearchCriteria{Season: 2026, Episode: "06/01"}, "2026.06.01"},
+		{SearchCriteria{Season: new(1), Episode: "2"}, "S01E02"},
+		{SearchCriteria{Season: new(1), Episode: "1.000"}, "S01E1000"},
+		{SearchCriteria{Season: new(1)}, "S01"},
+		{SearchCriteria{Season: new(1), Episode: "2a"}, "S01E02"},
+		{SearchCriteria{Season: new(2026), Episode: "06/01"}, "2026.06.01"},
+		{SearchCriteria{Season: new(0), Episode: "2"}, ""},
+		{SearchCriteria{Episode: "2"}, ""},
 	} {
 		if got := tt.q.EpisodeSearchString(); got != tt.want {
 			t.Errorf("%+v.EpisodeSearchString() = %q, want %q", tt.q, got, tt.want)
 		}
 	}
+	if got, want := Interpolated(nil)+"|"+Interpolated(new(0)), "|0"; got != want {
+		t.Errorf("Interpolated of null and 0 = %q, want %q", got, want)
+	}
 	for in, want := range map[string]string{"tt0076759": "tt0076759", "76759": "tt0076759", "tt123456789": "", "": "", "x1": ""} {
 		if got := (SearchCriteria{ImdbID: in}).FullImdbID(); got != want {
 			t.Errorf("FullImdbID of %q = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestURLKeepsThePathsEscapesAsWritten(t *testing.T) {
+	base, _ := url.Parse("https://site.example/tracker/")
+	ix := &Indexer[struct{}]{BaseURL: base}
+	for path, want := range map[string]string{
+		"browse/q/Caf%C3%A9+(2019)": "https://site.example/tracker/browse/q/Caf%C3%A9+(2019)",
+		"/a%2Fb?x=%20":              "https://site.example/tracker/a%2Fb?x=%20",
+		"two words":                 "https://site.example/tracker/two%20words",
+		"100%":                      "https://site.example/tracker/100%25",
+	} {
+		if got := ix.URL(path).String(); got != want {
+			t.Errorf("URL(%q) = %s, want %s", path, got, want)
 		}
 	}
 }

@@ -167,7 +167,7 @@ func TestATwoFactorCodeGoesWithTheTestsAndTheEdit(t *testing.T) {
 	s := serve(t, indexerstest.Alone(self), role.NodeID{})
 	body := `{"kind":"native","name":"Quill","port":"quill","values":{"username":"ada","password":"pw"}`
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers/test", body+`}`, http.StatusUnprocessableEntity,
-		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Quill needs a two-factor code to sign in again. Type the current code and test again.","cause":"code_needed"}`)
+		`{"status":422,"code":"indexer_test_failed","title":"The Indexer's Test failed","detail":"Quill needs a two-factor code to sign in. Type the current code and test again.","cause":"code_needed"}`)
 	s.owner.Expect(t, http.MethodPost, "/api/v1/indexers/test", body+`,"code":"123456"}`, http.StatusOK, `{"searchModes":[{"mode":"search","params":["q"]}],"items":0,"sources":[]}`)
 	code, reply := s.owner.Call(t, http.MethodPost, "/api/v1/indexers", body+`,"code":"123456"}`)
 	if code != http.StatusCreated {

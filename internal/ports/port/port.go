@@ -15,8 +15,9 @@
 //
 // A site's package lives at internal/ports/<id>, a family's at
 // internal/ports/internal/<family>. Either imports this package,
-// internal/newznab, internal/indexerfields and internal/prowlarr/...
-// only, never net/http's client, net's dialers, internal/searching,
+// internal/newznab, internal/indexerfields, internal/prowlarr/... and
+// github.com/dlclark/regexp2 for a .NET regex Go's regexp can't read,
+// never net/http's client, net's dialers, internal/searching,
 // internal/cardigann or another site (lint rule ports-confined).
 //
 // Vocabulary map, C# to Go, for whoever ports an upstream diff:
@@ -33,6 +34,7 @@
 //	AllowAutoRedirect = false              r.NoRedirect()
 //	SuppressHttpErrorStatusCodes           r.SuppressHTTPErrorStatusCodes(codes...)
 //	NameValueCollection, GetQueryString()  stringutil.NameValueCollection, qc.GetQueryString()
+//	List<KeyValuePair<string, string>>     stringutil.KeyValuePairs, parameters.GetQueryString()
 //	GetParser().ParseResponse              Impl.Parse
 //	IndexerResponse / HttpResponse         port.IndexerResponse
 //	TorrentInfo                            port.TorrentInfo (same field names, Go initialisms:
@@ -41,16 +43,19 @@
 //	DoLogin, CheckIfLoginNeeded            the Login family's DoLogin and CheckIfLoginNeeded
 //	ModifyRequest, GetDownloadRequest      Impl.ModifyRequest
 //	Download(Uri)                          Impl.Download
+//	base.Download(link)                    ix.Download(link)
 //	Settings.BaseUrl                       ix.BaseURL
 //	Capabilities.Categories.MapTorznabCapsToTrackers(cats)   ix.Categories.TrackerIDs(q.Categories)
 //	_categories.MapTrackerCatToNewznab(id) ix.Categories.FromTracker(id)
 //	MapTrackerCatDescToNewznab(desc)       ix.Categories.FromDesc(desc)
+//	Categories.GetTrackerCategories()      ix.Categories.TrackerCategories()
 //	searchCriteria.SanitizedSearchTerm     q.SanitizedSearchTerm()
 //	searchCriteria.SanitizedTvSearchString q.SanitizedTvSearchString()
 //	searchCriteria.FullImdbId              q.FullImdbID()
 //	searchCriteria.IsRssSearch             q.IsRssSearch()
 //	searchCriteria.IsIdSearch              q.IsIDSearch()
 //	ParseUtil.X, DateTimeUtil.X, StringUtil.X   parseutil.X, datetimeutil.X, stringutil.X
+//	A response field Json or STJson fills    serializer.String, Int, Bool; serializer.STJInt, STJFloat, STJBool
 //	DateTime.Now, the host's zone         ix.Clock, as the clock argument of datetimeutil.X
 //	AngleSharp QuerySelector(All)          dom.Parse(...).QuerySelector(All)
 //	IndexerException                       port.IndexerError
@@ -279,7 +284,8 @@ type Impl[S any] struct {
 	FilterReleases func(ix *Indexer[S], q SearchCriteria, rs []TorrentInfo) []TorrentInfo
 	// Derive reads values the port keeps in Node memory, once per
 	// Indexer revision per Node: GazelleGames' passkey from its API key,
-	// MyAnonamouse's user class. They reach the port as ix.Derived.
+	// MyAnonamouse's user class. They reach the port as ix.Derived in a
+	// search, Recent and Test, never in Download.
 	Derive func(ix *Indexer[S]) (map[string]string, error)
 }
 

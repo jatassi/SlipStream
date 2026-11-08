@@ -26,7 +26,14 @@ var stopSaid = map[Cause]string{
 	searching.PortRetired:          "SlipStream no longer supports %[1]s, because %[2]s.",
 }
 
-// portSaid is a port's own stopSaid for the variants that name its
+// testSaid is stopSaid in a Test's sentence, which may come from the
+// Indexer's first sign-in.
+var testSaid = map[Cause]string{
+	searching.CaptchaNeeded: "%[1]s needs a captcha to sign in.",
+	searching.CodeNeeded:    "%[1]s needs a two-factor code to sign in.",
+}
+
+// portSaid is an Indexer's own stopSaid for the variants that name its
 // credentials: %[4]s is the key account_refused names ("passkey"), %[5]s
 // the sign-in fields credentials_rejected names ("email or password").
 var portSaid = map[variant]string{
@@ -35,7 +42,8 @@ var portSaid = map[variant]string{
 	rejectedSignIn: "%[1]s rejected the %[5]s.",
 }
 
-// variant is which of a port's own words a stop takes, "" for its cause's.
+// variant is which of an Indexer's own words a stop takes, "" for its
+// cause's.
 type variant string
 
 const (
@@ -45,16 +53,21 @@ const (
 	cookieUserAgent variant = "cookie with User-Agent"
 )
 
-// credentials are the names a ported site's stops use, zero for any other
-// Indexer.
+// credentials are the names a ported site's or a stateless catalog
+// sign-in's stops use, zero for any other Indexer.
 type credentials struct {
 	key, signIn string
 	userAgent   bool
 }
 
 func credentialsOf(idx Indexer) credentials {
-	p, _ := idx.Source.(Port)
-	return credentials{key: p.Entry.Key, signIn: p.Entry.SignInWords, userAgent: p.Entry.PastesUserAgent}
+	switch s := idx.Source.(type) {
+	case Port:
+		return credentials{key: s.Entry.Key, signIn: s.Entry.SignInWords, userAgent: s.Entry.PastesUserAgent}
+	case Definition:
+		return credentials{key: s.Key}
+	}
+	return credentials{}
 }
 
 func (c credentials) variant(cause Cause, text string) variant {
@@ -147,6 +160,9 @@ func (x *Indexers) testFailed(idx Indexer, node role.NodeID, a searching.Answer,
 	case errors.As(a.Outcome, &stopped):
 		c := credentialsOf(idx)
 		said, fix := c.pick(stopSaid, portSaid, stopped.Cause, stopped.Text), c.pick(stopFormFixes, portFormFixes, stopped.Cause, stopped.Text)
+		if f, ok := testSaid[stopped.Cause]; ok {
+			said = f
+		}
 		switch {
 		case stopped.SolverTried:
 			said, fix = solverTriedSaid, "Paste a browser cookie and test again."

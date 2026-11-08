@@ -26,7 +26,7 @@ const pastedTorrentLeech = {
   ...torrentLeech,
   session: { nodeId: torrentLeech.homeNodeId, pasted: true, earnedAt: "2026-10-26T08:00:00Z" },
 };
-const needsCaptcha = "Larkspur needs a captcha to sign in again. Type the code and test again.";
+const needsCaptcha = "Larkspur needs a captcha to sign in. Type the code and test again.";
 
 test("a Test that meets a captcha shows its image, and the next Test answers its code", async () => {
   const server = indexersServer({ captchaTests: [needsCaptcha] });
@@ -113,7 +113,7 @@ test("moving an Indexer whose session is a pasted cookie asks for a cookie for t
 });
 
 test("a move whose Test meets a captcha on the new home shows it, and Move answers its code", async () => {
-  const sentence = "TorrentLeech needs a captcha to sign in again. Type the code and test again.";
+  const sentence = "TorrentLeech needs a captcha to sign in. Type the code and test again.";
   const server = indexersServer({ captchaTests: [sentence] });
   renderApp({ path: pageOf(torrentLeechId), handlers: server.handlers });
   await moveHome();

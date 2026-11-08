@@ -11,6 +11,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/serializer"
 )
 
 type indexer = port.Indexer[hdBitsSettings]
@@ -56,16 +57,13 @@ func getTvSearchRequests(ix *indexer, searchCriteria port.SearchCriteria) (port.
 		}
 		query.TvdbInfo.ID = &tvdbID
 
-		if showDate, ok := datetimeutil.TryParseExact(strconv.Itoa(searchCriteria.Season)+" "+searchCriteria.Episode, "yyyy MM/dd", datetimeutil.None, ix.Clock); ok {
+		if showDate, ok := datetimeutil.TryParseExact(port.Interpolated(searchCriteria.Season)+" "+searchCriteria.Episode, "yyyy MM/dd", datetimeutil.None, ix.Clock); ok {
 			query.Search = showDate.Format("2006-01-02")
 		} else {
-			// SlipStream: a Go zero Season and empty Episode are C#'s nulls,
-			// which ToJson leaves out.
-			if searchCriteria.Season != 0 {
-				season := searchCriteria.Season
-				query.TvdbInfo.Season = &season
-			}
-			query.TvdbInfo.Episode = looseString(searchCriteria.Episode)
+			// SlipStream: an empty Episode is C#'s null, which ToJson leaves
+			// out.
+			query.TvdbInfo.Season = searchCriteria.Season
+			query.TvdbInfo.Episode = serializer.String(searchCriteria.Episode)
 		}
 	}
 

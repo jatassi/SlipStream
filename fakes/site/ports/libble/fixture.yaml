@@ -35,7 +35,7 @@ cases:
           method: POST
           path: /login.php
           headers: {Content-Type: application/x-www-form-urlencoded, Referer: "https://libble.fixture-site.fake.localhost/login.php"}
-          form: {username: fixture-user, password: "{{password}}", code: "", keeplogged: "1"}
+          form: {username: fixture-user, password: "{{password}}", code: "", keeplogged: "1", login: Login}
         response: {headers: {Content-Type: text/html; charset=utf-8}, body: refused.html}
   - name: limit
     call: {recent: {}}

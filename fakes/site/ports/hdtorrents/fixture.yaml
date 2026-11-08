@@ -50,7 +50,7 @@ cases:
           method: POST
           path: /login.php
           headers: {Referer: "https://hdtorrents.fixture-site.fake.localhost/login.php"}
-          form: {pwd: "{{password}}"}
+          form: {uid: fixture-user, pwd: "{{password}}"}
         response:
           headers: {Content-Type: text/html; charset=utf-8}
           body: loginfailed.html
@@ -72,7 +72,7 @@ cases:
       - request:
           method: POST
           path: /login.php
-          form: {pwd: "{{password}}"}
+          form: {uid: fixture-user, pwd: "{{password}}"}
         response:
           headers:
             Content-Type: text/html; charset=utf-8

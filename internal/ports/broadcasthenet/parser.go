@@ -110,9 +110,9 @@ func parseResponse(ix *indexer, indexerResponse *port.IndexerResponse) ([]port.T
 			Categories:           ix.Categories.FromTracker(torrent.Resolution),
 			InfoHash:             torrent.InfoHash,
 			Size:                 int64(torrent.Size),
-			Grabs:                torrent.Snatched.value(),
-			Seeders:              torrent.Seeders.value(),
-			Peers:                torrent.Leechers.value() + torrent.Seeders.value(),
+			Grabs:                value(torrent.Snatched),
+			Seeders:              value(torrent.Seeders),
+			Peers:                value(torrent.Leechers) + value(torrent.Seeders),
 			PublishDate:          time.Unix(int64(torrent.Time), 0).UTC(),
 			IndexerFlags:         flags,
 			DownloadVolumeFactor: 0,
@@ -121,8 +121,8 @@ func parseResponse(ix *indexer, indexerResponse *port.IndexerResponse) ([]port.T
 			MinimumSeedTime:      minimumSeedTime,
 		}
 
-		if torrent.TvdbID.value() > 0 {
-			releaseInfo.TvdbID = torrent.TvdbID.value()
+		if value(torrent.TvdbID) > 0 {
+			releaseInfo.TvdbID = value(torrent.TvdbID)
 		}
 
 		if imdbID, err := strconv.Atoi(strings.TrimSpace(torrent.ImdbID)); strings.TrimSpace(torrent.ImdbID) != "" && err == nil {

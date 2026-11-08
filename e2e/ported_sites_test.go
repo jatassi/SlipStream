@@ -125,7 +125,7 @@ func TestNorBitsMakesItsOwnCodeFromTheKeyOrStopsForOneTypedOnItsTest(t *testing.
 	if !slices.Contains(saved.Sealed, "authenticatorKey") || saved.Values["authenticatorKey"] != "" {
 		t.Errorf("NorBits' port = %+v, want the authenticator key sealed and never shown", saved)
 	}
-	needsCode := "NorBits by code needs a two-factor code to sign in again. Type the current code and test again."
+	needsCode := "NorBits by code needs a two-factor code to sign in. Type the current code and test again."
 	draft := `{"kind":"native","name":"NorBits by code","port":"norbits","baseAddress":"` + saved.BaseAddress + `","homeNodeId":"` + w.a.Node("seedbox").NodeID +
 		`","values":{"username":"` + site.Username + `","password":"` + site.Password(w.s, site.NorBits) + `"}`
 	refusedBecause(t, "testIndexer with no code", w.a.Admin("home", http.MethodPost, "/api/v1/indexers/test", draft+"}"), "code_needed", needsCode)

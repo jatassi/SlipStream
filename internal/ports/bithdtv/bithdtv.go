@@ -29,10 +29,9 @@ type settings struct{}
 type ix = port.Indexer[settings]
 
 var Port = port.Define(port.Entry{
-	ID:          "bithdtv",
-	Name:        "BitHDTV",
-	IndexerURLs: []string{"https://www.bit-hdtv.com/"},
-	// SlipStream: SlipStream's own sentence, per WRITING.md.
+	ID:           "bithdtv",
+	Name:         "BitHDTV",
+	IndexerURLs:  []string{"https://www.bit-hdtv.com/"},
 	Description:  "BitHDTV is a private Tracker for HD movies, TV, documentaries, sports and music.",
 	Language:     "en-US",
 	Encoding:     "iso-8859-1",
@@ -53,10 +52,11 @@ var Port = port.Define(port.Entry{
 	Parse: ParseResponse,
 })
 
-// CheckIfLoginNeeded never reads a response as logged out, as upstream,
-// so an expired cookie shows as a search with no Releases.
-func CheckIfLoginNeeded(*port.IndexerResponse) bool {
-	return false
+func CheckIfLoginNeeded(httpResponse *port.IndexerResponse) bool {
+	// SlipStream: upstream returns false, so an expired cookie passed the
+	// Test with no Releases. A page holding the sign-in form, which posts
+	// to takelogin.php, reads as logged out.
+	return strings.Contains(httpResponse.Content, "takelogin.php")
 }
 
 func SetCapabilities() port.Capabilities {

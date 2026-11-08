@@ -29,7 +29,7 @@ var upstream []byte
 var Port = port.Define(port.Entry{
 	ID:          "torrentsyndikat",
 	Name:        "TorrentSyndikat",
-	Description: "TorrentSyndikat is a private German tracker for movies, TV and more.",
+	Description: "TorrentSyndikat is a private German Tracker for movies, TV and more.",
 	Language:    "de-DE",
 	Privacy:     port.Private,
 	IndexerURLs: []string{"https://torrent-syndikat.org/"},

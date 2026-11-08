@@ -25,7 +25,7 @@ type ix = port.Indexer[XSpeedsSettings]
 var Port = port.Define(port.Entry{
 	ID:           "xspeeds",
 	Name:         "XSpeeds",
-	Description:  "XSpeeds is a private Tracker for movies, TV and general releases.",
+	Description:  "XSpeeds is a private Tracker for movies, TV and general Releases.",
 	Language:     "en-US",
 	Privacy:      port.Private,
 	IndexerURLs:  []string{"https://www.xspeeds.eu/"},

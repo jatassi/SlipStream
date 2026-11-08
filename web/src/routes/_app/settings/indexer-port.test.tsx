@@ -26,7 +26,7 @@ test("a ported site is named by its site, and its Details say where its support 
   await expect
     .element(
       page.getByText(
-        "SlipStream's IPTorrents support is ported from Prowlarr's code of 6 Nov 2026.",
+        "SlipStream's IPTorrents support is ported from Prowlarr's code of Nov 6, 2026.",
       ),
     )
     .toBeVisible();
@@ -92,7 +92,7 @@ test("Health's link to #code opens the page on the code step", async () => {
 test("a Test that meets a sign-in needing a code opens the code step at phone width too", async () => {
   await asPhone();
   const codeNeeded =
-    "NorBits needs a two-factor code to sign in again. Type the current code and test again.";
+    "NorBits needs a two-factor code to sign in. Type the current code and test again.";
   const working = { ...norbits, status: { ...norbits.status, state: "ok", cause: null } } as const;
   const server = indexersServer({ indexers: [working, prowlarr], codeNeeded });
   renderApp({ path: pageOf(norbitsId), handlers: server.handlers });
@@ -170,7 +170,7 @@ test("Edit switches a ported site's mirror and replaces a sealed setting, tested
 
 test("Edit keeps a typed address typed, and a refused Test for a code opens the code step", async () => {
   const codeNeeded =
-    "IPTorrents needs a two-factor code to sign in again. Type the current code and test again.";
+    "IPTorrents needs a two-factor code to sign in. Type the current code and test again.";
   const server = indexersServer({ indexers: ported, codeNeeded });
   renderApp({ path: pageOf(iptorrentsId), handlers: server.handlers });
   await userEvent.click(page.getByRole("button", { name: "Edit" }));

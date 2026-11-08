@@ -25,10 +25,9 @@ var upstream []byte
 type ix = port.Indexer[AnidexSettings]
 
 var Port = port.Define(port.Entry{
-	ID:          "anidex",
-	Name:        "Anidex",
-	IndexerURLs: []string{"https://anidex.info/"},
-	// SlipStream: SlipStream's own sentence, per WRITING.md.
+	ID:           "anidex",
+	Name:         "Anidex",
+	IndexerURLs:  []string{"https://anidex.info/"},
 	Description:  "Anidex is a public Tracker for anime, mostly from English fansub groups.",
 	Language:     "en-US",
 	Privacy:      port.Public,
@@ -88,7 +87,7 @@ func GetPagedRequests(ix *ix, term string, categories []newznab.ID) *port.Reques
 
 	queryCats := ix.Categories.TrackerIDs(categories)
 
-	if len(queryCats) > 0 && slices.ContainsFunc(GetTrackerCategories(ix), func(c string) bool { return !slices.Contains(queryCats, c) }) {
+	if len(queryCats) > 0 && slices.ContainsFunc(ix.Categories.TrackerCategories(), func(c string) bool { return !slices.Contains(queryCats, c) }) {
 		searchURL.RawQuery += "&id=" + strings.Join(queryCats, ",")
 	}
 
@@ -101,18 +100,6 @@ func GetPagedRequests(ix *ix, term string, categories []newznab.ID) *port.Reques
 	}
 
 	return port.Get(searchURL).Accept("text/html")
-}
-
-// GetTrackerCategories is Categories.GetTrackerCategories: each tracker
-// category the mapping names.
-func GetTrackerCategories(ix *ix) []string {
-	var out []string
-	for _, m := range ix.Categories.Mappings() {
-		if !slices.Contains(out, m.Tracker) {
-			out = append(out, m.Tracker)
-		}
-	}
-	return out
 }
 
 func ParseResponse(ix *ix, indexerResponse *port.IndexerResponse) ([]port.TorrentInfo, error) {

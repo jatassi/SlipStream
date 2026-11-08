@@ -34,7 +34,7 @@ const userAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, li
 var Port = port.Define(port.Entry{
 	ID:          "mteamtp",
 	Name:        "M-Team - TP",
-	Description: "M-Team TP is a private Chinese tracker for HD movies, TV and adult video.",
+	Description: "M-Team TP is a private Chinese Tracker for HD movies, TV and adult video.",
 	Language:    "zh-CN",
 	Privacy:     port.Private,
 	IndexerURLs: []string{
@@ -105,8 +105,7 @@ var Port = port.Define(port.Entry{
 type indexer = port.Indexer[mTeamTpSettings]
 
 // SlipStream: the token request goes through ix.Fetch, so it is spaced
-// like a search. GetDownloadRequest's User-Agent is Entry.UserAgent, and
-// base.Download is a GET of the link the token names.
+// like a search. GetDownloadRequest's User-Agent is Entry.UserAgent.
 func download(ix *indexer, link *url.URL) (port.Got, error) {
 	res, err := ix.Fetch(port.Post(link).
 		SetHeader("x-api-key", ix.Settings.APIKey).
@@ -129,16 +128,7 @@ func download(ix *indexer, link *url.URL) (port.Got, error) {
 		return nil, port.IndexerError("the Indexer's download link %q isn't a URL", jsonResponse.Data)
 	}
 
-	torrent, err := ix.Fetch(port.Get(torrentURL))
-	switch {
-	case err != nil:
-		return nil, err
-	case torrent.StatusCode == http.StatusNotFound:
-		return nil, port.ErrReleaseUnavailable
-	case torrent.StatusCode != http.StatusOK:
-		return nil, port.IndexerError("the Indexer's download link responded with status %d", torrent.StatusCode)
-	}
-	return port.Torrent{Raw: torrent.Body}, nil
+	return ix.Download(torrentURL)
 }
 
 // apiHosts is BuildApiUrl's host: "api." and the address's host after

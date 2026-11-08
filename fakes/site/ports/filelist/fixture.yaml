@@ -8,7 +8,7 @@ cases:
     exchanges:
       - request:
           path: /api.php
-          headers: {Accept: application/json}
+          headers: {Accept: application/json, Authorization: Basic Zml4dHVyZS11c2VyOnt7cGFzc2tleX19}
           query: {action: search-torrents, type: imdb, query: tt0000001}
         response: {headers: {Content-Type: application/json}, body: recent.json}
   - name: text

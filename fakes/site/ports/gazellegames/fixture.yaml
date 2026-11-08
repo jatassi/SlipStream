@@ -76,7 +76,5 @@ cases:
   - name: grab
     call: {fetch: "/torrents.php?action=download&id=5001&authkey=prowlarr&torrent_pass={{passkey}}"}
     exchanges:
-      - request: {path: /api.php, query: {request: quick_user}}
-        response: {headers: {Content-Type: application/json}, body: user.json}
-      - request: {path: /torrents.php, query: {action: download, id: "5001", torrent_pass: "{{passkey}}"}}
+      - request: {path: /torrents.php, query: {action: download, id: "5001", authkey: prowlarr, torrent_pass: "{{passkey}}"}}
         response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

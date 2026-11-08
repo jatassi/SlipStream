@@ -22,7 +22,7 @@ var Port = avistazbase.Define(port.Entry{
 	ID:           "exoticaz",
 	Name:         "ExoticaZ",
 	IndexerURLs:  []string{"https://exoticaz.to/"},
-	Description:  "ExoticaZ, once called YourExotic, is a private tracker for adult videos.",
+	Description:  "ExoticaZ, once called YourExotic, is a private Tracker for adult videos.",
 	Privacy:      port.Private,
 	Capabilities: setCapabilities(),
 	Upstream:     port.ReadUpstream(upstream),

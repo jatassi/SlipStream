@@ -25,10 +25,9 @@ var upstream []byte
 type ix = port.Indexer[TolokaSettings]
 
 var Port = port.Define(port.Entry{
-	ID:          "toloka",
-	Name:        "Toloka.to",
-	IndexerURLs: []string{"https://toloka.to/"},
-	// SlipStream: SlipStream's own sentence, per WRITING.md.
+	ID:           "toloka",
+	Name:         "Toloka.to",
+	IndexerURLs:  []string{"https://toloka.to/"},
 	Description:  "Toloka.to is a semi-private Ukrainian Tracker for movies, TV, music, books, games and software.",
 	Language:     "uk-UA",
 	Privacy:      port.SemiPrivate,
@@ -211,8 +210,8 @@ func GetSearchRequests(ix *ix, searchCriteria port.SearchCriteria) (port.Chain, 
 func GetTvSearchRequests(ix *ix, searchCriteria port.SearchCriteria) (port.Chain, error) {
 	term := searchCriteria.SanitizedSearchTerm()
 
-	if searchCriteria.Season > 0 {
-		term += " Сезон " + strconv.Itoa(searchCriteria.Season)
+	if searchCriteria.Season != nil && *searchCriteria.Season > 0 {
+		term += " Сезон " + strconv.Itoa(*searchCriteria.Season)
 	}
 
 	return port.One(GetPagedRequests(ix, term, searchCriteria.Categories))

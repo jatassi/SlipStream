@@ -26,6 +26,7 @@
 //	          path: /api/torrents
 //	          json: {passkey: "{{passkey}}", imdb: {id: 1}}   # a subset match
 //	          noQuery: [freeleech]                              # parameters it must not carry
+//	          rawQuery: "11;5;q=tt0000001"                      # the whole query, for one not joined by &
 //	        response:
 //	          status: 200
 //	          headers: {Content-Type: application/json}
@@ -33,8 +34,10 @@
 //
 // A call is one of search, recent, fetch (a link, relative to the
 // address) and test (with a typed code). A case may set its own session,
-// and session: {} starts it with none. A call that sends no request, such
-// as a TV search on a port with none, has exchanges: [].
+// and session: {} starts it with none. A case's settings are set over the
+// fixture's, and its categories are the Indexer's, none when unset. A
+// call that sends no request, such as a TV search on a port with none,
+// has exchanges: [].
 //
 // A request matches an exchange on method, host (the port's fixture host
 // when the exchange names none), path, and the headers and the query,
@@ -52,6 +55,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"path"
 	"slices"
 	"strings"
@@ -108,6 +112,10 @@ type Case struct {
 	Call Call   `yaml:"call"`
 	// Session replaces the fixture's for this case.
 	Session *Session `yaml:"session,omitempty"`
+	// Settings are set over the fixture's for this case.
+	Settings map[string]string `yaml:"settings,omitempty"`
+	// Categories are the Newznab categories the Indexer has.
+	Categories []int `yaml:"categories,omitempty"`
 	// Exchanges is every request the case sends in order, exchanges: []
 	// for a call that sends none.
 	Exchanges []Exchange `yaml:"exchanges"`
@@ -150,8 +158,11 @@ type Match struct {
 	Headers map[string]string `yaml:"headers,omitempty"`
 	Query   map[string]string `yaml:"query,omitempty"`
 	NoQuery []string          `yaml:"noQuery,omitempty"`
-	Form    map[string]string `yaml:"form,omitempty"`
-	JSON    map[string]any    `yaml:"json,omitempty"`
+	// RawQuery is the whole query as sent, for a site whose query isn't
+	// name=value pairs joined by "&".
+	RawQuery string            `yaml:"rawQuery,omitempty"`
+	Form     map[string]string `yaml:"form,omitempty"`
+	JSON     map[string]any    `yaml:"json,omitempty"`
 }
 
 type Response struct {
@@ -294,6 +305,14 @@ func (f Fixture) SessionOf(c Case) *Session {
 		return nil
 	}
 	return s
+}
+
+// SettingsOf are the settings c runs with.
+func (f Fixture) SettingsOf(c Case) map[string]string {
+	out := map[string]string{}
+	maps.Copy(out, f.Settings)
+	maps.Copy(out, c.Settings)
+	return out
 }
 
 // Marshal is f as fixture.yaml.

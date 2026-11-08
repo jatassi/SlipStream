@@ -21,7 +21,7 @@ var Port = avistazbase.Define(port.Entry{
 	ID:          "avistaz",
 	Name:        "AvistaZ",
 	IndexerURLs: []string{"https://avistaz.to/"},
-	Description: "AvistaZ, once called AsiaTorrents, is a private tracker for Asian movies and TV series.",
+	Description: "AvistaZ, once called AsiaTorrents, is a private Tracker for Asian movies and TV series.",
 	Privacy:     port.Private,
 	Capabilities: port.Capabilities{
 		// SlipStream: no genre, which SearchCriteria doesn't carry.
@@ -45,7 +45,7 @@ var Port = avistazbase.Define(port.Entry{
 
 // AvistaZ has episodes without season. eg Running Man E323
 func getEpisodeSearchTerm(searchCriteria port.SearchCriteria) string {
-	if searchCriteria.Season == 0 && strings.TrimSpace(searchCriteria.Episode) != "" {
+	if (searchCriteria.Season == nil || *searchCriteria.Season == 0) && strings.TrimSpace(searchCriteria.Episode) != "" {
 		return "E" + searchCriteria.Episode
 	}
 	return searchCriteria.EpisodeSearchString()

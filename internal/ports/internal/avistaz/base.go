@@ -18,6 +18,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/ports/port"
+	"github.com/jatassi/slipstream/internal/prowlarr/stringutil"
 )
 
 const (
@@ -30,7 +31,7 @@ const (
 // parser's included. A nil member is the base's.
 type Site struct {
 	// GetBasicSearchParameters is AnimeZ's format[] parameters.
-	GetBasicSearchParameters func(ix *port.Indexer[Settings], searchCriteria port.SearchCriteria) Parameters
+	GetBasicSearchParameters func(ix *port.Indexer[Settings], searchCriteria port.SearchCriteria) stringutil.KeyValuePairs
 	// GetEpisodeSearchTerm is AvistaZ's episode without a season.
 	GetEpisodeSearchTerm func(searchCriteria port.SearchCriteria) string
 	// ParseCategories is AnimeZ's and ExoticaZ's mapped categories.

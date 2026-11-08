@@ -21,11 +21,13 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/cardigann"
+	"github.com/jatassi/slipstream/internal/indexerfields"
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/newznab"
@@ -140,12 +142,26 @@ type Definition struct {
 	BaseAddress string
 	// Plain is the select and checkbox values and the username.
 	Plain map[string]string
-	// Name, Privacy, Login and Captcha are the pinned version's, read
-	// from its summary: zero while that version doesn't load.
+	// Name, Privacy, Login, Captcha and Key are the pinned version's,
+	// read from its summary: zero while that version doesn't load.
 	Name    string
 	Privacy cardigann.Privacy
 	Login   cardigann.LoginClass
 	Captcha bool
+	// Key names the fields a stateless sign-in sends, for its stops: "API
+	// key". It is "" for any other sign-in.
+	Key string
+}
+
+// definitionOf is the Definition of the pinned version that s summarizes.
+func definitionOf(id, sha, baseAddress string, s cardigann.Summary) Definition {
+	d := Definition{ID: id, SHA: sha, BaseAddress: baseAddress, Name: s.Name, Privacy: s.Privacy, Login: s.Login, Captcha: s.Captcha}
+	if s.Login == cardigann.StatelessLogin {
+		d.Key = indexerfields.Words(slices.DeleteFunc(slices.Clone(s.Fields), func(f indexerfields.Field) bool {
+			return f.Type != indexerfields.Text && f.Type != indexerfields.Password
+		}))
+	}
+	return d
 }
 
 // Feed is a Torznab or RSS feed.
@@ -566,16 +582,16 @@ func indexerOf(row db.IndexersIndexer, summary *string, fetched storage.Time, pa
 func sourceOf(row db.IndexersIndexer, summary *string, fetched storage.Time) (Source, error) {
 	switch {
 	case row.DefinitionID != nil:
-		d := Definition{ID: *row.DefinitionID, SHA: deref(row.DefinitionSha), Fetched: fetched.Time(), BaseAddress: deref(row.BaseAddress)}
-		if err := decode(row.Plain, &d.Plain); err != nil {
-			return nil, fmt.Errorf("plain: %w", err)
-		}
+		var s cardigann.Summary
 		if summary != nil {
-			var s cardigann.Summary
 			if err := decode(*summary, &s); err != nil {
 				return nil, fmt.Errorf("definition summary: %w", err)
 			}
-			d.Name, d.Privacy, d.Login, d.Captcha = s.Name, s.Privacy, s.Login, s.Captcha
+		}
+		d := definitionOf(*row.DefinitionID, deref(row.DefinitionSha), deref(row.BaseAddress), s)
+		d.Fetched = fetched.Time()
+		if err := decode(row.Plain, &d.Plain); err != nil {
+			return nil, fmt.Errorf("plain: %w", err)
 		}
 		return d, nil
 	case row.PortID != nil:

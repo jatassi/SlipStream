@@ -17,7 +17,7 @@ var upstream []byte
 var Port = port.Define(port.Entry{
 	ID:          "hdbits",
 	Name:        "HDBits",
-	Description: "HDBits is a private tracker for HD movies and TV.",
+	Description: "HDBits is a private Tracker for HD movies and TV.",
 	Privacy:     port.Private,
 	IndexerURLs: []string{"https://hdbits.org/"},
 	LegacyURLs:  []string{"https://hdbits.org"},

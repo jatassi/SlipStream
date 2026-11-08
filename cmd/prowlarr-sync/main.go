@@ -50,7 +50,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	unit := fs.String("unit", "", "bump: the unit, such as port:hdbits, or hidden-list")
 	to := fs.String("to", "", "bump: the Prowlarr commit to move the unit to")
 	site := fs.String("site", "", "new: the site's C# class, such as HDBits")
-	id := fs.String("id", "", "new: the port id; the class lowercased with spaces, dots and hyphens dropped by default")
+	id := fs.String("id", "", "new: the port id, which may hold hyphens (beyond-hd); the class lowercased with spaces, dots and hyphens dropped by default")
 	family := fs.String("family", "", "new: the family the port builds on, such as gazelle")
 	login := fs.String("auth", "", "new: the port's Login family, which sets its fixture's cases: "+loginNames)
 	if err := fs.Parse(args[1:]); err != nil {

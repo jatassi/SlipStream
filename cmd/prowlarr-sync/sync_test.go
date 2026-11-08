@@ -2,11 +2,14 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -123,6 +126,10 @@ func history(t *testing.T) (prowlarrDir, repo string) {
 	f.commit("Fixed: (Gazelle) Page size 100 | for every site", map[string]string{
 		defs + "Gazelle/GazelleBase.cs": "public abstract class GazelleBase<TSettings> : TorrentIndexerBase<TSettings>\n{\n    // page size 100\n}\n",
 	})
+	f.commit("New: (Indexer) SpeedApp", map[string]string{
+		defs + "SpeedApp.cs":              site("", "SpeedApp", "SpeedAppBase", mapping("Movies")),
+		defs + "SpeedApp/SpeedAppBase.cs": "public abstract class SpeedAppBase : TorrentIndexerBase<SpeedAppSettings>\n{\n}\n",
+	})
 
 	repo = t.TempDir()
 	units := []provenance.Unit{
@@ -225,8 +232,8 @@ func TestNewWritesAPortThatPassesTheCheck(t *testing.T) {
 	if !strings.HasPrefix(string(src), "// Ported from Prowlarr's "+defs+"DesiGaane.cs\n") || !strings.HasSuffix(string(src), "\npackage desigaane\n") {
 		t.Errorf("desigaane.go =\n%s", src)
 	}
-	if _, err := os.Stat(filepath.Join(repo, filepath.FromSlash("internal/ports/all/desigaane.go"))); err != nil {
-		t.Errorf("new didn't write the registry file: %v", err)
+	if _, err := os.Stat(filepath.Join(repo, filepath.FromSlash("internal/ports/all/desigaane.go"))); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("new wrote the registry file before the package has a Port: %v", err)
 	}
 	raw, err := os.ReadFile(filepath.Join(repo, filepath.FromSlash("fakes/site/ports/desigaane/fixture.yaml")))
 	if err != nil {
@@ -250,6 +257,36 @@ func TestNewWritesAPortThatPassesTheCheck(t *testing.T) {
 	}
 	if got := runSync(t, "check", "--repo", repo, "--prowlarr", prowlarr); !strings.Contains(got, "matches its code") {
 		t.Errorf("check after new = %q", got)
+	}
+}
+
+func TestNewTakesTheSitesOwnFileAndAHyphenatedID(t *testing.T) {
+	prowlarr, repo := history(t)
+	out := runSync(t, "new", "--repo", repo, "--prowlarr", prowlarr, "--site", "SpeedApp", "--id", "speed-app", "--family", "speedapp", "--auth", "token")
+	if !strings.Contains(out, "internal/ports/all/speedapp.go") || !strings.Contains(out, "func init() { add(speedapp.Port) }") {
+		t.Errorf("new's output doesn't say how to register the port:\n%s", out)
+	}
+	units, problems, err := provenance.Units(repo)
+	if err != nil || len(problems) > 0 {
+		t.Fatalf("Units = %v, %v", problems, err)
+	}
+	i := slices.IndexFunc(units, func(u provenance.Unit) bool { return u.ID == "port:speedapp" })
+	if i < 0 {
+		t.Fatalf("new wrote no unit port:speedapp: %v", units)
+	}
+	if got := units[i].Upstream(); !slices.Equal(got, []string{defs + "SpeedApp.cs"}) {
+		t.Errorf("port:speedapp ports %v, want only SpeedApp.cs", got)
+	}
+	src, err := os.ReadFile(filepath.Join(repo, filepath.FromSlash("internal/ports/speedapp/speedapp.go")))
+	if err != nil || !strings.HasSuffix(string(src), "\npackage speedapp\n") {
+		t.Errorf("speedapp.go = %s, %v", src, err)
+	}
+	raw, err := os.ReadFile(filepath.Join(repo, filepath.FromSlash("fakes/site/ports/speed-app/fixture.yaml")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ports.Parse("speed-app", raw); err != nil {
+		t.Errorf("the fixture new wrote doesn't parse: %v", err)
 	}
 }
 

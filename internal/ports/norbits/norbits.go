@@ -23,10 +23,9 @@ import (
 var upstream []byte
 
 var Port = port.Define(port.Entry{
-	ID:          "norbits",
-	Name:        "NorBits",
-	IndexerURLs: []string{"https://norbits.net/"},
-	// SlipStream: SlipStream's own sentence, per WRITING.md.
+	ID:           "norbits",
+	Name:         "NorBits",
+	IndexerURLs:  []string{"https://norbits.net/"},
 	Description:  "NorBits is a private Norwegian Tracker for movies, TV, software, games, music and books.",
 	Language:     "nb-NO",
 	Privacy:      port.Private,

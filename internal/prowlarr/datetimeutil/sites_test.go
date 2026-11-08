@@ -92,6 +92,8 @@ func TestParse(t *testing.T) {
 		{"short offset", "2026-11-05T14:30:00 +8", None, utc(2026, 11, 5, 6, 30, 0)},
 		{"invariant", "11/05/2026 2:30 PM", AssumeUniversal, utc(2026, 11, 5, 14, 30, 0)},
 		{"RFC 1123", "Thu, 05 Nov 2026 14:30:00 GMT", None, utc(2026, 11, 5, 14, 30, 0)},
+		{"SubsPlease", "Thu, 05 Nov 2026 14:30:00 +0100", None, utc(2026, 11, 5, 13, 30, 0)},
+		{"RFC 1123 offset with a colon", "Thu, 05 Nov 2026 14:30:00 -05:00", AdjustToUniversal, utc(2026, 11, 5, 19, 30, 0)},
 	}
 	for _, tt := range tests {
 		got, err := Parse(tt.in, tt.style, shanghai)

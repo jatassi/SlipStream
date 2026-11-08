@@ -34,7 +34,7 @@ var Port = port.Define(port.Entry{
 	ID:           "orpheus",
 	Name:         "Orpheus",
 	IndexerURLs:  []string{"https://orpheus.network/"},
-	Description:  "Orpheus, once called Apollo, is a private tracker for music.",
+	Description:  "Orpheus, once called Apollo, is a private Tracker for music.",
 	Privacy:      port.Private,
 	RateLimit:    3 * time.Second,
 	PageSize:     50,

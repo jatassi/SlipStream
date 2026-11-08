@@ -21,7 +21,7 @@ var upstream []byte
 var Port = port.Define(port.Entry{
 	ID:          "filelist",
 	Name:        "FileList.io",
-	Description: "FileList is a private Romanian tracker for movies, TV and more.",
+	Description: "FileList is a private Romanian Tracker for movies, TV and more.",
 	Privacy:     port.Private,
 	IndexerURLs: []string{"https://filelist.io/", "https://thefl.org/"},
 	LegacyURLs: []string{

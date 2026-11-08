@@ -6,7 +6,6 @@ package filelist
 
 import (
 	"encoding/base64"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -26,7 +25,7 @@ func getTvSearchRequests(ix *indexer, searchCriteria port.SearchCriteria) (port.
 
 		searchQuery := strings.TrimSpace(searchCriteria.SanitizedSearchTerm())
 
-		if showDate, ok := datetimeutil.TryParseExact(fmt.Sprintf("%d %s", searchCriteria.Season, searchCriteria.Episode), "yyyy MM/dd", datetimeutil.None, ix.Clock); ok {
+		if showDate, ok := datetimeutil.TryParseExact(port.Interpolated(searchCriteria.Season)+" "+searchCriteria.Episode, "yyyy MM/dd", datetimeutil.None, ix.Clock); ok {
 			if strings.TrimSpace(searchCriteria.ImdbID) != "" {
 				// Skip ID searches for daily episodes
 				return pageableRequests, nil
@@ -34,8 +33,8 @@ func getTvSearchRequests(ix *indexer, searchCriteria port.SearchCriteria) (port.
 
 			searchQuery = strings.TrimSpace(searchQuery + " " + showDate.Format("2006.01.02"))
 		} else {
-			if searchCriteria.Season != 0 {
-				parameters.Set("season", strconv.Itoa(searchCriteria.Season))
+			if searchCriteria.Season != nil {
+				parameters.Set("season", strconv.Itoa(*searchCriteria.Season))
 			}
 
 			if strings.TrimSpace(searchCriteria.Episode) != "" {

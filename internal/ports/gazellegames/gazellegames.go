@@ -21,7 +21,8 @@ import (
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
-	"github.com/jatassi/slipstream/internal/prowlarr/encoding"
+	"github.com/jatassi/slipstream/internal/prowlarr/serializer"
+	"github.com/jatassi/slipstream/internal/prowlarr/stringutil"
 )
 
 //go:embed upstream.json
@@ -35,7 +36,7 @@ var upstream []byte
 var Port = port.Define(port.Entry{
 	ID:          "gazellegames",
 	Name:        "GazelleGames",
-	Description: "GazelleGames (GGn) is a Private Torrent Tracker for GAMES",
+	Description: "GazelleGames is a private Tracker for games.",
 	Language:    "en-US",
 	Privacy:     port.Private,
 	IndexerURLs: []string{"https://gazellegames.net/"},
@@ -230,8 +231,8 @@ func getBasicSearchRequests(ix *indexer, searchCriteria port.SearchCriteria) (po
 	return port.One(getRequest(ix, getBasicSearchParameters(ix, searchCriteria.SanitizedSearchTerm(), searchCriteria)))
 }
 
-func getRequest(ix *indexer, parameters keyValuePairs) *port.Request {
-	return requestBuilder(ix, "api.php?"+parameters.getQueryString())
+func getRequest(ix *indexer, parameters stringutil.KeyValuePairs) *port.Request {
+	return requestBuilder(ix, "api.php?"+parameters.GetQueryString())
 }
 
 func requestBuilder(ix *indexer, resource string) *port.Request {
@@ -242,13 +243,13 @@ func requestBuilder(ix *indexer, resource string) *port.Request {
 
 // SlipStream: MinSize and MaxSize are gone, since a SlipStream search
 // carries no size bounds.
-func getBasicSearchParameters(ix *indexer, searchTerm string, searchCriteria port.SearchCriteria) keyValuePairs {
-	parameters := keyValuePairs{
-		{"request", "search"},
-		{"search_type", "torrents"},
-		{"empty_groups", "filled"},
-		{"order_by", "time"},
-		{"order_way", "desc"},
+func getBasicSearchParameters(ix *indexer, searchTerm string, searchCriteria port.SearchCriteria) stringutil.KeyValuePairs {
+	parameters := stringutil.KeyValuePairs{
+		{Key: "request", Value: "search"},
+		{Key: "search_type", Value: "torrents"},
+		{Key: "empty_groups", Value: "filled"},
+		{Key: "order_by", Value: "time"},
+		{Key: "order_way", Value: "desc"},
 	}
 
 	if strings.TrimSpace(searchTerm) != "" {
@@ -256,19 +257,19 @@ func getBasicSearchParameters(ix *indexer, searchTerm string, searchCriteria por
 		if ix.Settings.SearchGroupNames {
 			name = "groupname"
 		}
-		parameters = append(parameters, keyValuePair{name, strings.ReplaceAll(searchTerm, ".", " ")})
+		parameters.Add(name, strings.ReplaceAll(searchTerm, ".", " "))
 	}
 
 	if searchCriteria.Categories != nil {
 		for _, category := range ix.Categories.TrackerIDs(searchCriteria.Categories) {
 			if !isAllDigits(category) {
-				parameters = append(parameters, keyValuePair{"artistcheck[]", category})
+				parameters.Add("artistcheck[]", category)
 			}
 		}
 	}
 
 	if ix.Settings.FreeleechOnly {
-		parameters = append(parameters, keyValuePair{"freetorrent", "1"})
+		parameters.Add("freetorrent", "1")
 	}
 
 	return parameters
@@ -276,21 +277,6 @@ func getBasicSearchParameters(ix *indexer, searchTerm string, searchCriteria por
 
 func isAllDigits(s string) bool {
 	return !strings.ContainsFunc(s, func(r rune) bool { return !unicode.IsDigit(r) })
-}
-
-// keyValuePairs is a List<KeyValuePair<string, string>>, whose
-// GetQueryString writes each pair, a repeated key too, with its value
-// URL-encoded and its key as it is.
-type keyValuePairs []keyValuePair
-
-type keyValuePair struct{ Key, Value string }
-
-func (c keyValuePairs) getQueryString() string {
-	pairs := make([]string, 0, len(c))
-	for _, a := range c {
-		pairs = append(pairs, a.Key+"="+encoding.UTF8.URLEncode(a.Value))
-	}
-	return strings.Join(pairs, "&")
 }
 
 var yearRegex = regexp.MustCompile(`(?:^|[^\p{L}\p{Mn}\p{Nd}\p{Pc}])(?:19|20|21)\p{Nd}{2}(?:[^\p{L}\p{Mn}\p{Nd}\p{Pc}]|$)`)
@@ -516,44 +502,44 @@ type gazelleGamesSettings struct {
 }
 
 type gazelleGamesResponse struct {
-	Status   nsString        `json:"status"`
-	Response json.RawMessage `json:"response"`
+	Status   serializer.String `json:"status"`
+	Response json.RawMessage   `json:"response"`
 }
 
 type gazelleGamesGroup struct {
 	Artists  []gazelleGamesArtist `json:"artists"`
 	Torrents json.RawMessage      `json:"torrents"`
-	Year     *nsInt               `json:"year"`
+	Year     *serializer.Int      `json:"year"`
 }
 
 type gazelleGamesArtist struct {
-	ID   nsString `json:"id"`
-	Name nsString `json:"name"`
+	ID   serializer.String `json:"id"`
+	Name serializer.String `json:"name"`
 }
 
 type gazelleGamesTorrent struct {
-	CategoryID    nsInt    `json:"categoryId"`
-	Format        nsString `json:"format"`
-	Encoding      nsString `json:"encoding"`
-	Language      nsString `json:"language"`
-	Region        nsString `json:"region"`
-	RemasterYear  nsString `json:"remasterYear"`
-	RemasterTitle nsString `json:"remasterTitle"`
-	ReleaseTitle  nsString `json:"releaseTitle"`
-	Miscellaneous nsString `json:"miscellaneous"`
-	Scene         nsInt    `json:"scene"`
-	Dupable       nsInt    `json:"dupable"`
-	Time          nsString `json:"time"`
-	TorrentType   nsString `json:"torrentType"`
-	FileCount     nsInt    `json:"fileCount"`
-	Size          nsString `json:"size"`
-	Snatched      *nsInt   `json:"snatched"`
-	Seeders       nsInt    `json:"seeders"`
-	Leechers      nsInt    `json:"leechers"`
-	FreeTorrent   nsString `json:"freeTorrent"`
-	PersonalFL    nsBool   `json:"personalFL"`
-	LowSeedFL     nsBool   `json:"lowSeedFL"`
-	GameDoxType   nsString `json:"GameDOXType"`
+	CategoryID    serializer.Int    `json:"categoryId"`
+	Format        serializer.String `json:"format"`
+	Encoding      serializer.String `json:"encoding"`
+	Language      serializer.String `json:"language"`
+	Region        serializer.String `json:"region"`
+	RemasterYear  serializer.String `json:"remasterYear"`
+	RemasterTitle serializer.String `json:"remasterTitle"`
+	ReleaseTitle  serializer.String `json:"releaseTitle"`
+	Miscellaneous serializer.String `json:"miscellaneous"`
+	Scene         serializer.Int    `json:"scene"`
+	Dupable       serializer.Int    `json:"dupable"`
+	Time          serializer.String `json:"time"`
+	TorrentType   serializer.String `json:"torrentType"`
+	FileCount     serializer.Int    `json:"fileCount"`
+	Size          serializer.String `json:"size"`
+	Snatched      *serializer.Int   `json:"snatched"`
+	Seeders       serializer.Int    `json:"seeders"`
+	Leechers      serializer.Int    `json:"leechers"`
+	FreeTorrent   serializer.String `json:"freeTorrent"`
+	PersonalFL    serializer.Bool   `json:"personalFL"`
+	LowSeedFL     serializer.Bool   `json:"lowSeedFL"`
+	GameDoxType   serializer.String `json:"GameDOXType"`
 }
 
 type gazelleGamesUserResponse struct {
@@ -579,7 +565,7 @@ var freeTorrentNames = map[string]gazelleGamesFreeTorrent{"normal": normal, "fre
 // tryParseFreeTorrent is Enum.TryParse(value, true, out freeTorrent): a
 // name in any case or a number, or names and numbers joined by commas,
 // OR'd. Anything else is Normal.
-func tryParseFreeTorrent(value nsString) gazelleGamesFreeTorrent {
+func tryParseFreeTorrent(value serializer.String) gazelleGamesFreeTorrent {
 	var parsed gazelleGamesFreeTorrent
 	for part := range strings.SplitSeq(string(value), ",") {
 		part = strings.TrimSpace(part)
@@ -641,73 +627,4 @@ func decodeJSON(body []byte, v any) error {
 		return fmt.Errorf("read JSON: %w", err)
 	}
 	return nil
-}
-
-// nsString is a string Newtonsoft reads: a JSON string, or the text of a
-// number or a boolean.
-type nsString string
-
-func (s *nsString) UnmarshalJSON(raw []byte) error {
-	switch {
-	case string(raw) == "null":
-		return nil
-	case len(raw) > 0 && raw[0] == '"':
-		var v string
-		if err := json.Unmarshal(raw, &v); err != nil {
-			return fmt.Errorf("read a string: %w", err)
-		}
-		*s = nsString(v)
-	case string(raw) == "true":
-		*s = "True"
-	case string(raw) == "false":
-		*s = "False"
-	default:
-		*s = nsString(raw)
-	}
-	return nil
-}
-
-// nsInt is a whole number Newtonsoft reads: a JSON number or a string of
-// one.
-type nsInt int64
-
-func (n *nsInt) UnmarshalJSON(raw []byte) error {
-	if string(raw) == "null" {
-		return nil
-	}
-	s := strings.Trim(string(raw), `"`)
-	if s == "" && raw[0] == '"' {
-		return nil
-	}
-	v, err := strconv.ParseInt(s, 10, 64)
-	if err != nil {
-		return fmt.Errorf("%s isn't a whole number", raw)
-	}
-	*n = nsInt(v)
-	return nil
-}
-
-// nsBool is a boolean Newtonsoft reads: true, false, a number, nonzero
-// for true, or "true" or "false" in any case.
-type nsBool bool
-
-func (b *nsBool) UnmarshalJSON(raw []byte) error {
-	s := strings.ToLower(strings.Trim(string(raw), `"`))
-	switch s {
-	case "null":
-		return nil
-	case "true":
-		*b = true
-		return nil
-	case "false":
-		*b = false
-		return nil
-	}
-	if raw[0] != '"' {
-		if v, err := strconv.ParseFloat(s, 64); err == nil {
-			*b = v != 0
-			return nil
-		}
-	}
-	return fmt.Errorf("%s isn't a boolean", raw)
 }
