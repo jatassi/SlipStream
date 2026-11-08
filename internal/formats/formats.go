@@ -164,13 +164,3 @@ type Evaluated struct {
 	Matched  bool
 	TimedOut bool
 }
-
-// Paste reads one format or a list, with fields as an object (TRaSH and
-// export) or as Sonarr's API array. Unknown kinds and field names are a
-// *KindError or *FieldError naming them. Each Format's Source is its
-// document, verbatim.
-func Paste([]byte) ([]Format, error) { panic("not implemented") }
-
-// AppOf is the app formats were written for when their kinds settle it:
-// Edition, QualityModifier or Year say Radarr, ReleaseType says Sonarr.
-func AppOf([]Format) (Dialect, bool) { panic("not implemented") }
