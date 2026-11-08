@@ -105,3 +105,68 @@ test("an Admin opens a Tracker from Settings > Trackers and sets its rule and go
       goal: { combine: "first", ratio: 3, seedSeconds: 1_209_600, action: "remove-delete" },
     });
 });
+
+const Routes = z.object({
+  routes: z.array(z.object({ homeNodeId: z.string(), stored: z.unknown().nullable() })),
+});
+
+async function storedRoutes(world: World, trackerId: string) {
+  const { body } = await world.api("GET", `/api/v1/trackers/${trackerId}/routes`);
+  return Routes.parse(body).routes.map((route) => route.stored);
+}
+
+async function openRouting(page: Page, name: string) {
+  const sections = isPhone(page)
+    ? page.getByRole("list", { name })
+    : page.getByRole("navigation", { name });
+  await sections.getByRole("link", { name: /^Routing/u }).click();
+  await expect(page).toHaveURL(/\/routing$/u);
+}
+
+test("an Admin routes a private Tracker's Grabs to a client, which Download Clients lists, then uses the default again", async ({
+  adminPage: page,
+  world,
+}, testInfo) => {
+  const tracker = (await trackers(world)).find((each) => each.privacy === "private");
+  if (tracker === undefined) {
+    throw new Error("the indexers world has no private Tracker");
+  }
+  await openSettingsSection(page, "Trackers");
+  await page
+    .getByRole("list", { name: "Trackers" })
+    .getByRole("link", { name: tracker.name })
+    .click();
+  await openRouting(page, tracker.name);
+  const row = page.getByRole("region", { name: /^Indexers on /u }).first();
+  await expect(row.getByRole("combobox", { name: "Grabs go to" })).toBeVisible();
+  await capture(page, testInfo.outputPath("routing-tab.png"));
+  await expectAccessible(page);
+
+  await row.getByRole("combobox", { name: "Grabs go to" }).click();
+  await page.getByRole("option", { name: /^Built-in client on home/u }).click();
+  await expect(
+    row.getByText("These Grabs go to the built-in client on home, which you picked."),
+  ).toBeVisible();
+  await expect(
+    row.getByText(/^The built-in client on home announces as libtorrent /u),
+  ).toBeVisible();
+  await expect
+    .poll(() => storedRoutes(world, tracker.id))
+    .toContainEqual({ builtInOn: expect.any(String) });
+  await capture(page, testInfo.outputPath("routing-picked.png"));
+
+  await openSettingsSection(page, "Download Clients");
+  const routed = page
+    .getByRole("article", { name: "Built-in client on home" })
+    .getByRole("list", { name: "Trackers routed here" });
+  await expect(routed.getByRole("link", { name: tracker.name })).toBeVisible();
+  await expect(routed).not.toContainText("(default)");
+  await capture(page, testInfo.outputPath("download-clients-routed.png"));
+  await expectAccessible(page);
+
+  await routed.getByRole("link", { name: tracker.name }).click();
+  await expect(page).toHaveURL(new RegExp(`/settings/trackers/${tracker.id}/routing$`, "u"));
+  await row.getByRole("button", { name: "Use the default" }).click();
+  await expect(row.getByRole("button", { name: "Use the default" })).not.toBeVisible();
+  await expect.poll(() => storedRoutes(world, tracker.id)).not.toContainEqual(expect.anything());
+});

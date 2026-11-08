@@ -1945,6 +1945,25 @@ export const GrabsChanged = zod.object({
 export type GrabsChanged = zod.input<typeof GrabsChanged>;
 export type GrabsChangedOutput = zod.output<typeof GrabsChanged>;
 
+export const GrabsGrabClient = zod.object({
+  id: zod.uuid(),
+  kind: zod.enum(["qbittorrent", "transmission", "deluge", "rtorrent"]),
+  name: zod.string(),
+});
+
+export type GrabsGrabClient = zod.input<typeof GrabsGrabClient>;
+export type GrabsGrabClientOutput = zod.output<typeof GrabsGrabClient>;
+
+export const GrabsClientWait = zod.object({
+  client: zod
+    .union([GrabsGrabClient, zod.null()])
+    .describe("The external client; null for the Node's built-in client"),
+  nodeId: zod.uuid().describe("The client's Node, which is offline"),
+});
+
+export type GrabsClientWait = zod.input<typeof GrabsClientWait>;
+export type GrabsClientWaitOutput = zod.output<typeof GrabsClientWait>;
+
 export const GrabsEntered = zod.object({
   at: zod.iso.datetime({ offset: true }),
   stage: zod.enum([
@@ -2005,15 +2024,6 @@ export const GrabsFetchWait = zod.object({
 
 export type GrabsFetchWait = zod.input<typeof GrabsFetchWait>;
 export type GrabsFetchWaitOutput = zod.output<typeof GrabsFetchWait>;
-
-export const GrabsGrabClient = zod.object({
-  id: zod.uuid(),
-  kind: zod.enum(["qbittorrent", "transmission", "deluge", "rtorrent"]),
-  name: zod.string(),
-});
-
-export type GrabsGrabClient = zod.input<typeof GrabsGrabClient>;
-export type GrabsGrabClientOutput = zod.output<typeof GrabsGrabClient>;
 
 export const grabsMetadataSearchPeersMin = 0;
 
@@ -2134,6 +2144,9 @@ export const GrabsGrab = zod.object({
     .uuid()
     .nullable()
     .describe("The Tracker its Release reached, null for a Grab older than Trackers"),
+  waitsFor: GrabsClientWait.exactOptional().describe(
+    "The client a fetching Grab goes to, absent unless it waits for that client's Node to be back online",
+  ),
   workId: zod.uuid(),
 });
 

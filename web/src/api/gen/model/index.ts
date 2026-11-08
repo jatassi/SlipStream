@@ -1238,6 +1238,7 @@ export * from "./getWorkWants422Code.ts";
 export * from "./getWorkWants500.ts";
 export * from "./getWorkWants500Code.ts";
 export * from "./grabsChanged.ts";
+export * from "./grabsClientWait.ts";
 export * from "./grabsEntered.ts";
 export * from "./grabsEnteredStage.ts";
 export * from "./grabsFailure.ts";

@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 
+import { getListDownloadClientsQueryKey } from "../api/gen/query/downloadclients/downloadclients";
 import {
   getGetIndexerQueryKey,
   getGetIndexerSettingsQueryKey,
@@ -10,6 +11,7 @@ import {
   getGetDefaultGoalQueryKey,
   getGetSeedingSettingsQueryKey,
   getGetTrackerQueryKey,
+  getListTrackerRoutesQueryKey,
   getListTrackerWindowsQueryKey,
   getListTrackersQueryKey,
   getPreviewSeedingGoalsQueryKey,
@@ -66,7 +68,7 @@ test("indexers.settings-changed refreshes the Indexer settings", async () => {
   await expect.poll(invalidated).toEqual({ settings: true, list: false });
 });
 
-test("trackers.seeding-changed for a Tracker refreshes the list and that Tracker", async () => {
+test("trackers.seeding-changed for a Tracker refreshes the list, that Tracker, its routes and the Download Clients", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/", handlers: server.handlers });
   await synced(app);
@@ -78,6 +80,9 @@ test("trackers.seeding-changed for a Tracker refreshes the list and that Tracker
     seedpoolHistory: getListTrackerWindowsQueryKey(seedpool, { offset: 50 }),
     aitherWindows: getListTrackerWindowsQueryKey(aither),
     preview: getPreviewSeedingGoalsQueryKey(),
+    seedpoolRoutes: getListTrackerRoutesQueryKey(seedpool),
+    aitherRoutes: getListTrackerRoutesQueryKey(aither),
+    clients: getListDownloadClientsQueryKey(),
   });
   server.clients[0]?.send({ event: "trackers.seeding-changed", data: { trackerId: seedpool } });
   await expect.poll(invalidated).toEqual({
@@ -88,6 +93,9 @@ test("trackers.seeding-changed for a Tracker refreshes the list and that Tracker
     seedpoolHistory: true,
     aitherWindows: false,
     preview: true,
+    seedpoolRoutes: true,
+    aitherRoutes: false,
+    clients: true,
   });
 });
 

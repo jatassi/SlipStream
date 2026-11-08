@@ -7,6 +7,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -73,12 +74,50 @@ func (gr *Grabs) route(ctx context.Context, g Grab) (downloadclients.Target, out
 	return to, nil
 }
 
-// waitsForClient reports whether fetching Grab g waits for its client's
-// Node, read in r: its route names a client whose Node is out of step.
-func (gr *Grabs) waitsForClient(ctx context.Context, r storage.Reader[file], g Grab) (bool, error) {
+// ClientWait is the client a fetching Grab goes to while that client's
+// Node is out of step: Node's built-in client when Client is nil.
+type ClientWait struct {
+	Node   role.NodeID
+	Client *downloadclients.ClientRef
+}
+
+// waitingFor is the client fetching Grab g waits for, read in r: its route
+// names a client whose Node is out of step. It is nil while g's fetch may
+// go ahead or no Node may take it.
+func (gr *Grabs) waitingFor(ctx context.Context, r storage.Reader[file], g Grab) (*ClientWait, error) {
 	to, err := gr.routeIn(ctx, r, g)
 	if _, unrouted := errors.AsType[*nodes.Unrouted](err); unrouted {
-		return false, nil
+		return nil, nil
 	}
-	return err == nil && !gr.cfg.Roster.InStep(to.Node), err
+	if err != nil || gr.cfg.Roster.InStep(to.Node) {
+		return nil, err
+	}
+	w := &ClientWait{Node: to.Node}
+	if to.Client != nil {
+		e, err := downloadclients.ExternalOf(ctx, r, *to.Client)
+		if err != nil {
+			return nil, err
+		}
+		w.Client = &downloadclients.ClientRef{ID: e.ID, Kind: e.Kind, Name: e.Name}
+	}
+	return w, nil
+}
+
+// clientWaits is the client each fetching Grab of grabs waits for, read
+// in r, absent for one that waits for none.
+func (gr *Grabs) clientWaits(ctx context.Context, r storage.Reader[file], grabs []Grab) (map[GrabID]ClientWait, error) {
+	out := map[GrabID]ClientWait{}
+	for _, g := range grabs {
+		if g.Stage != Fetching {
+			continue
+		}
+		w, err := gr.waitingFor(ctx, r, g)
+		if err != nil {
+			return nil, err
+		}
+		if w != nil {
+			out[g.ID] = *w
+		}
+	}
+	return out, nil
 }

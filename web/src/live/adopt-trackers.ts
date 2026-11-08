@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 
 import type {
   TrackersGoal,
+  TrackersRouteList,
   TrackersSettings,
   TrackersTracker,
   TrackersTrackerItem,
@@ -12,6 +13,7 @@ import {
   getGetDefaultGoalQueryKey,
   getGetSeedingSettingsQueryKey,
   getGetTrackerQueryKey,
+  getListTrackerRoutesQueryKey,
   getListTrackersQueryKey,
 } from "../api/gen/query/trackers/trackers";
 
@@ -30,6 +32,11 @@ export function adoptTracker(queryClient: QueryClient, saved: TrackersTracker) {
     getListTrackersQueryKey(),
     (list) => list && { trackers: list.trackers.map((shown) => adopted(shown, saved)) },
   );
+}
+
+/** A route save answers every route of the Tracker. */
+export function adoptRoutes(queryClient: QueryClient, trackerId: string, saved: TrackersRouteList) {
+  queryClient.setQueryData(getListTrackerRoutesQueryKey(trackerId), saved);
 }
 
 /** from is gone, and kept now lists from's Indexers. */

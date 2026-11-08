@@ -4,8 +4,8 @@ import { useState } from "react";
 import type {
   FilesUpgradeNeed,
   FilesWaitingNeedCode,
+  GrabsClientWait,
   GrabsGrab,
-  GrabsGrabClient,
 } from "../../api/gen/model";
 import { useListNodesSuspense } from "../../api/gen/query/nodes/nodes";
 import { useStartSearch } from "../../grabs/search";
@@ -47,15 +47,15 @@ export function Upgrades({
   );
 }
 
-/** A Grab waiting on its client that isn't responding, with a way to send it to another. */
-function WaitingOnClient({
+/** A waiting Grab that the Admin can send to another client. */
+function SendableWait({
   grab,
-  client,
-  node,
+  subject,
+  detail,
 }: {
   grab: GrabsGrab;
-  client: GrabsGrabClient;
-  node: string;
+  subject: string;
+  detail: string;
 }) {
   const [sending, setSending] = useState(false);
   return (
@@ -63,8 +63,8 @@ function WaitingOnClient({
       <WarningLine
         signal="warn"
         chip="Waiting"
-        subject={`Waiting for ${client.name} on ${node}`}
-        detail={`Its download carries on once ${client.name} responds again.`}
+        subject={subject}
+        detail={detail}
         action={{
           label: "Send to another client",
           onClick: () => {
@@ -77,7 +77,40 @@ function WaitingOnClient({
   );
 }
 
-/** A Grab waiting on its Node that is away, or on its client that isn't responding. */
+type Words = { readonly subject: string; readonly detail: string };
+
+const routeWaitWords = ({ client }: GrabsClientWait, node: string): Words => ({
+  subject: `Waiting to send to ${client === null ? "the built-in client" : client.name} on ${node}`,
+  detail: `${node} is offline. This download goes there once ${node} is back online.`,
+});
+
+/**
+ * The words of a wait the Admin can end by sending the Grab elsewhere: to
+ * fetch for its routed client's offline Node, or on its away client.
+ */
+function sendableWords(
+  grab: GrabsGrab,
+  code: FilesWaitingNeedCode,
+  nodeName: (id: string) => string | undefined,
+): Words | undefined {
+  const { waitsFor, downloadClient } = grab;
+  if (waitsFor !== undefined) {
+    return routeWaitWords(waitsFor, nodeName(waitsFor.nodeId) ?? waitsFor.nodeId);
+  }
+  const node = nodeName(grab.nodeId);
+  if (code !== "client_away" || downloadClient === null || node === undefined) {
+    return undefined;
+  }
+  return {
+    subject: `Waiting for ${downloadClient.name} on ${node}`,
+    detail: `Its download carries on once ${downloadClient.name} responds again.`,
+  };
+}
+
+/**
+ * A Grab waiting on its Node that is away, on its client that isn't
+ * responding, or to send its fetch to a client whose Node is offline.
+ */
 export function Waiting({
   grab,
   code,
@@ -89,9 +122,10 @@ export function Waiting({
   const { nodes } = useListNodesSuspense().data;
   const node = nodes.find(({ id }) => id === grab?.nodeId);
   const release = grab?.releaseTitle ?? "This Work's download";
-  const client = grab?.downloadClient ?? null;
-  if (code === "client_away" && grab !== undefined && client !== null && node !== undefined) {
-    return <WaitingOnClient grab={grab} client={client} node={node.name} />;
+  const sendable =
+    grab && sendableWords(grab, code, (nodeId) => nodes.find(({ id }) => id === nodeId)?.name);
+  if (grab !== undefined && sendable !== undefined) {
+    return <SendableWait grab={grab} {...sendable} />;
   }
   if (node === undefined) {
     return (

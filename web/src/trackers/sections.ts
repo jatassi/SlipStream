@@ -1,4 +1,4 @@
-import { Download04Icon, Search01Icon, Plant01Icon } from "@hugeicons/core-free-icons";
+import { Download04Icon, Plant01Icon, Route01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 
 import type { TrackersTrackerItem } from "../api/gen/model";
@@ -10,7 +10,7 @@ export type TrackerSection = {
   readonly icon: IconSvgElement;
   readonly to: `/settings/trackers/$trackerId${string}`;
   /** The number beside the section's tab or row, shown above zero. */
-  readonly count: (tracker: TrackersTrackerItem) => number;
+  readonly count?: (tracker: TrackersTrackerItem) => number;
   readonly dot?: (tracker: TrackersTrackerItem) => AlertTone | undefined;
 };
 
@@ -41,6 +41,12 @@ export const trackerSections = [
     to: "/settings/trackers/$trackerId/seeding",
     count: (tracker) => tracker.counts.owing,
     dot: (tracker) => (wantsRule(tracker) ? "warn" : atRisk(tracker)),
+  },
+  {
+    id: "routing",
+    label: "Routing",
+    icon: Route01Icon,
+    to: "/settings/trackers/$trackerId/routing",
   },
   {
     id: "indexers",

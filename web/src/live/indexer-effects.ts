@@ -1,3 +1,4 @@
+import { getListDownloadClientsQueryKey } from "../api/gen/query/downloadclients/downloadclients";
 import {
   getGetIndexerCatalogQueryKey,
   getGetIndexerQueryKey,
@@ -9,6 +10,7 @@ import {
   getGetDefaultGoalQueryKey,
   getGetSeedingSettingsQueryKey,
   getGetTrackerQueryKey,
+  getListTrackerRoutesQueryKey,
   getListTrackerWindowsQueryKey,
   getListTrackersQueryKey,
   getPreviewSeedingGoalsQueryKey,
@@ -53,6 +55,8 @@ export const indexerEffects = {
     }
     refresh({ queryKey: getGetTrackerQueryKey(data.trackerId) });
     refresh({ queryKey: getListTrackerWindowsQueryKey(data.trackerId) });
+    refresh({ queryKey: getListTrackerRoutesQueryKey(data.trackerId) });
+    refresh({ queryKey: getListDownloadClientsQueryKey() });
   },
 } satisfies Pick<
   LiveEffects,
