@@ -39,6 +39,7 @@ func torrentsOf(t *testing.T, w *sim.World, hash string) int64 {
 // and searches again: the second Grab attaches to the Torrent, and the
 // Torrent's state alone decides what it does.
 func TestAttachFollowsTheTorrentsState(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		name string
 		set  string
@@ -79,6 +80,7 @@ func TestAttachFollowsTheTorrentsState(t *testing.T) {
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			synctest.Test(t, func(t *testing.T) {
 				w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Media = &failsOnce{Prober: e.Media} }))
 				work := addOrchard(t, w)
@@ -116,6 +118,7 @@ func awaitSecond(t *testing.T, w *sim.World) grabView {
 // after the reconciler read it complete and before it commits the move to
 // probing: the commit sees the removal and fails the Grab with removed.
 func TestARemoveBetweenTheReadAndTheCommitFailsTheGrab(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		var lib atomic.Pointer[storage.DB[storage.Library]]
 		w := sim.Launch(t, home(t), sim.WithWalk(), sim.Edit(func(name string, e *node.Env) {

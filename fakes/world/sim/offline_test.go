@@ -35,6 +35,7 @@ func homeHolds(t *testing.T, a *worldtest.API) []string {
 // intent holds Searching, but not Downloading, whose torrents wait. Once
 // seedbox is back and has settled, home lets Searching go again.
 func TestHomeCoversSearchingForALapsedSeedbox(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t))
 		a := w.API()
@@ -90,6 +91,7 @@ func TestHomeCoversSearchingForALapsedSeedbox(t *testing.T) {
 // so home closes the link at the stall and seedbox dials again, where a
 // beating seedbox keeps its one session.
 func TestAWorkerSilentOnSyncLosesItsLink(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t))
 		a := w.API()

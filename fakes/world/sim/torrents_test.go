@@ -53,6 +53,7 @@ func (c counted) PostStats() error {
 // only while an Admin's live stream is open on home: never before, about
 // once a live sample during, and never once it closes.
 func TestWatchSendsNothingWhileNoAdminListens(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		var n atomic.Int64
 		w := sim.Launch(t, home(t), reads(&n))
@@ -100,6 +101,7 @@ const (
 // within the race detector's time: the client settles every torrent on
 // each event.
 func TestAnIdleSeedboxOf3000TorrentsSendsUnder1KBps(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		swarm := enginetest.NewWorld()
 		swarm.Tracker(idleTracker, enginetest.TrackerRules{Interval: 30 * time.Minute, MinInterval: 30 * time.Minute})
@@ -257,6 +259,7 @@ func parted(t *testing.T, w *sim.World, id downloadclients.ID) (partedAt, freed 
 // remove until UNIT3D takes a second stopped, removes it, and the
 // Controller parts it once the Node confirms with the bytes it freed.
 func TestRemoveWaitsForStoppedAndConfirms(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		const minInterval = 10 * time.Second
 		box := &engines{}
@@ -296,6 +299,7 @@ func TestRemoveWaitsForStoppedAndConfirms(t *testing.T) {
 // and resumes it at once: the Node starts it again only once UNIT3D's
 // window from its first started ends.
 func TestPauseAndResumeInsideTheWindowAreAccepted(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		const minInterval = 5 * time.Minute
 		w, swarm := launchSwarm(t, enginetest.TrackerRules{Interval: 30 * time.Minute, MinInterval: minInterval}, &engines{})
@@ -321,6 +325,7 @@ func TestPauseAndResumeInsideTheWindowAreAccepted(t *testing.T) {
 // between one interval and one interval plus the jitter after the last,
 // and the waits differ.
 func TestSteadyAnnouncesAreJittered(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		const (
 			n        = 20
@@ -362,6 +367,7 @@ func TestSteadyAnnouncesAreJittered(t *testing.T) {
 // downloads: the preview names the Grab it cancels, and the remove fails
 // it with removed and a Detail that reads as a sentence.
 func TestRemoveFailsDownloadingGrabsWithRemoved(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Engine = enginetest.Open }))
 		search(t, w, addOrchard(t, w))

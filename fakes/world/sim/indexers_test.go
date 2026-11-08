@@ -19,6 +19,7 @@ import (
 // every 6 hours plus at most its jitter, and each run succeeds because
 // the Test ran.
 func TestAnIndexerFailingForTheLongBackoffWarnsAndTheHealthCheckRunsEverySixHours(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), sim.WithWalk(), inUTC)
 		a := w.API()
@@ -67,6 +68,7 @@ type limitUse struct {
 // an hour. A search uses it until the hour since it passes, and the next
 // second the limit is free again.
 func TestASearchLimitFreesAnHourAfterTheSearch(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), sim.WithWalk(), inUTC)
 		a := w.API()
@@ -107,6 +109,7 @@ type queryPage struct {
 // Housekeeping, the first Test's row is gone and every row left is from
 // the last 12 hours.
 func TestHousekeepingDeletesIndexerQueriesPastTheirKeep(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := home(t)
 		s.Timings.Indexers.KeepQueries = 12 * time.Hour

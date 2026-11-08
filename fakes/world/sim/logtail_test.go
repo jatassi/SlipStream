@@ -13,6 +13,7 @@ import (
 // TestFailedWorldLogsEveryNode fails a world whose seedbox has no log file
 // in a child process, and checks the child's output accounts for both Nodes.
 func TestFailedWorldLogsEveryNode(t *testing.T) {
+	t.Parallel()
 	if os.Getenv("SIM_FAILED_WORLD_CHILD") == "1" {
 		synctest.Test(t, func(t *testing.T) {
 			s, err := scenario.Load("home")
