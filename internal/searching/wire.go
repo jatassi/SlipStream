@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/url"
 	"time"
 
@@ -440,10 +441,10 @@ func ints(ids []int32) []int {
 }
 
 func season32(s *int) *int32 {
-	if s == nil {
+	if s == nil || *s < math.MinInt32 || *s > math.MaxInt32 {
 		return nil
 	}
-	return new(int32(*s)) //nolint:gosec // G115: a season fits
+	return new(int32(*s))
 }
 
 func seasonOf(q *searchv1.Query) *int {
