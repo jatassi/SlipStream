@@ -193,6 +193,32 @@ func TestATorrentReadsLiveFromItsNodeAndRefusesAnUnknownID(t *testing.T) {
 		`{"status":404,"code":"torrent_not_found","title":"No Torrent has this id"}`)
 }
 
+func TestATrackerLineCountsTheSwarmOnlyWhenItsResponseDid(t *testing.T) {
+	w := serveWorld(t)
+	harbor := w.hold(t, "Harbor", unregisteredSeeding())
+	working := dlv1.TrackerStatus_TRACKER_STATUS_WORKING
+	w.node.inspected = map[downloadclients.ID]*dlv1.InspectResponse{harbor: {Trackers: []*dlv1.TrackerDetail{
+		{Index: 0, Status: working},
+		{Index: 1, Status: working, Seeders: new(int32(142)), Leechers: new(int32(0))},
+	}}}
+	var got struct {
+		Trackers []map[string]any `json:"trackers"`
+	}
+	decodeReply(t, w, "/api/v1/torrents/"+harbor.String(), &got)
+	if len(got.Trackers) != 2 {
+		t.Fatalf("getTorrent lists trackers %v, want Harbor's two", got.Trackers)
+	}
+	if _, ok := got.Trackers[0]["seeders"]; ok {
+		t.Errorf("the line whose response carried no counts reads %v, want no seeders", got.Trackers[0])
+	}
+	if _, ok := got.Trackers[0]["leechers"]; ok {
+		t.Errorf("the line whose response carried no counts reads %v, want no leechers", got.Trackers[0])
+	}
+	if s, l := got.Trackers[1]["seeders"], got.Trackers[1]["leechers"]; s != float64(142) || l != float64(0) {
+		t.Errorf("the line whose response counted 142 seeders and 0 leechers reads %v", got.Trackers[1])
+	}
+}
+
 func TestActionsAnswerForEachTorrent(t *testing.T) {
 	w := serveWorld(t)
 	orchard := w.hold(t, "Orchard", queuedReport())

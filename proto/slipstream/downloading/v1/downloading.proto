@@ -394,6 +394,11 @@ message TrackerDetail {
   // accepts_at_unix_ms is the earliest the tracker would accept an
   // announce.
   int64 accepts_at_unix_ms = 7;
+  // seeders and leechers are the counts the tracker's last announce
+  // response carried, unset while none did. Only Inspect carries them, so
+  // an announce changes no report.
+  optional int32 seeders = 8;
+  optional int32 leechers = 9;
 }
 
 message ActRequest {

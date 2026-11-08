@@ -59,7 +59,7 @@ func scenarioWithSeed() scenario.Scenario { return scenario.Scenario{Name: "x", 
 
 func spec(rels []site.Release) fake.Spec {
 	return fake.Spec{Name: site.Fake.Name, TLS: fake.FrontTLS, Online: site.Fake.Online, Endpoints: site.Fake.Endpoints, New: func(s scenario.Scenario, env fake.Env) (fake.Server, error) {
-		return fake.HTTP(env, site.Routes(s, rels, func(string, string) (string, error) { return announce, nil })), nil
+		return fake.HTTP(env, site.Routes(s, rels, func(string, string, bool) (string, error) { return announce, nil })), nil
 	}}
 }
 
@@ -504,6 +504,39 @@ func TestAMagnetLinkNamesTheReadersTrackerFront(t *testing.T) {
 	_ = res.Body.Close()
 	if want := strings.ReplaceAll(orchard, "&amp;", "&"); res.StatusCode != http.StatusFound || res.Header.Get("Location") != want {
 		t.Fatalf("GET the redirect release's .torrent = %d to %q, want 302 to %s", res.StatusCode, res.Header.Get("Location"), want)
+	}
+}
+
+func TestAPublicReleaseAnnouncesToTheReadersUDPSocket(t *testing.T) {
+	s := scenarioWithSeed()
+	meta, hash, err := releases.Metainfo("orchard.mkv", []byte("the orchard payload"), "https://127.0.0.1:1/announce/built", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog := &releases.Catalog{Releases: []releases.Release{
+		{Release: scenario.Release{Name: "orchard", Public: true}, Metainfo: meta, InfoHash: hash},
+		{Release: scenario.Release{Name: "Harbor.Lights", Link: scenario.MagnetLink, Public: true}, InfoHash: bencode.InfoHash{1}},
+	}}
+	fronts := fake.Fronts{
+		{Target: "tracker", Node: "seedbox", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7002"), TLS: true}},
+		{Target: "tracker-udp", Node: "home", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7011")}},
+		{Target: "tracker-udp", Node: "seedbox", Address: fake.Address{AddrPort: netip.MustParseAddrPort("127.0.0.1:7012")}},
+	}
+	f := faketest.Loopback(t, site.Fake, s, faketest.WithReleases(catalog), faketest.WithFronts(fronts), faketest.As("seedbox"))
+	status, body, _ := strings.Cut(get(t, f, "/download/"+hash.String()+".torrent"), " OK ")
+	if status != "200" {
+		t.Fatalf("GET the .torrent = %s %s", status, body)
+	}
+	served, err := bencode.DecodeMetainfo([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "udp://127.0.0.1:7012/announce"; served.Announce != want {
+		t.Errorf("the public .torrent announces to %s, want seedbox's UDP socket %s", served.Announce, want)
+	}
+	harbor := "magnet:?xt=urn:btih:" + bencode.InfoHash{1}.String() + "&amp;dn=Harbor.Lights&amp;tr=udp%3A%2F%2F127.0.0.1%3A7012%2Fannounce"
+	if feed := get(t, f, site.TorznabPath+"/api?apikey="+site.APIKey(s)+"&t=search&q="); !strings.Contains(feed, "<link>"+harbor+"</link>") {
+		t.Errorf("the feed\n%s\nholds no public magnet link %s", feed, harbor)
 	}
 }
 

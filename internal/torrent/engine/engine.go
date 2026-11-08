@@ -289,7 +289,13 @@ type Tracker struct {
 	Updating bool
 	// StartSent is whether the tracker answered started.
 	StartSent bool
+	// Swarm is the counts the tracker last answered an announce with, nil
+	// while no answer carried them.
+	Swarm *Swarm
 }
+
+// Swarm is a tracker's count of a torrent's seeders and leechers.
+type Swarm struct{ Seeders, Leechers int }
 
 type Event interface{ event() }
 

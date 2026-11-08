@@ -363,7 +363,13 @@ type TrackerDetail struct {
 	NextAnnounce time.Time
 	MinInterval  time.Duration
 	AcceptsAt    time.Time
+	// Swarm is the counts its last announce response carried, nil while
+	// none did or the detail is not Live.
+	Swarm *Swarm
 }
+
+// Swarm is a tracker's count of a Torrent's seeders and leechers.
+type Swarm struct{ Seeders, Leechers int }
 
 type FileDetail struct {
 	Index int
@@ -499,6 +505,9 @@ func (c *Clients) inspect(ctx context.Context, d *Detail) {
 		tr.Status, tr.Message, tr.RetryAt = trackerFromWire[t.GetStatus()], t.GetMessage(), time.Time{}
 		tr.AnsweredAt, tr.NextAnnounce, tr.AcceptsAt = atMillis(t.GetAnsweredAtUnixMs()), atMillis(t.GetNextAnnounceUnixMs()), atMillis(t.GetAcceptsAtUnixMs())
 		tr.MinInterval = time.Duration(t.GetMinIntervalSeconds()) * time.Second
+		if t.Seeders != nil && t.Leechers != nil {
+			tr.Swarm = &Swarm{Seeders: int(t.GetSeeders()), Leechers: int(t.GetLeechers())}
+		}
 	}
 }
 

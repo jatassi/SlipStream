@@ -101,6 +101,9 @@ func (l *loop) inspect(id storage.UUID, now time.Time) *dlv1.InspectResponse {
 		if !tr.NextAnnounce.IsZero() {
 			d.NextAnnounceUnixMs = tr.NextAnnounce.UnixMilli()
 		}
+		if sw := tr.Swarm; sw != nil {
+			d.Seeders, d.Leechers = new(int32(sw.Seeders)), new(int32(sw.Leechers)) //nolint:gosec // a tracker's peer counts fit
+		}
 		if i := slices.IndexFunc(lines, func(p announce.Line) bool { return p.Index == tr.Index }); i >= 0 {
 			p := lines[i]
 			d.MinIntervalSeconds, d.AcceptsAtUnixMs = int64(p.MinInterval/time.Second), p.AcceptsAt.UnixMilli()

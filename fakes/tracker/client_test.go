@@ -11,6 +11,7 @@ import (
 	"iter"
 	"log/slog"
 	"math/rand/v2"
+	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -54,9 +55,9 @@ type release struct {
 // nodeAccount is the site account the Node announces as.
 const nodeAccount = "torznab"
 
-// seededReleases are n small private releases announcing to the announce
-// URL of each account, each with its file written.
-func seededReleases(t *testing.T, n int, announce func(account string) string) []release {
+// seededReleases are n small releases announcing to the announce URL of
+// each account, each with its file written, private unless public.
+func seededReleases(t *testing.T, n int, announce func(account string) string, public bool) []release {
 	t.Helper()
 	out := make([]release, n)
 	for i := range out {
@@ -64,7 +65,10 @@ func seededReleases(t *testing.T, n int, announce func(account string) string) [
 		_, _ = rand.NewChaCha8([32]byte{byte(i), byte(i >> 8)}).Read(payload)
 		sum := sha1.Sum(payload) //nolint:gosec // v1 piece hashes
 		name := fmt.Sprintf("Release.%04d.mkv", i)
-		info := map[string]any{"length": len(payload), "name": name, "piece length": releases.PieceLength, "pieces": sum[:], "private": 1}
+		info := map[string]any{"length": len(payload), "name": name, "piece length": releases.PieceLength, "pieces": sum[:]}
+		if !public {
+			info["private"] = 1
+		}
 		meta, err := bencode.Encode(map[string]any{"announce": announce(nodeAccount), "info": info})
 		if err != nil {
 			t.Fatal(err)
@@ -107,15 +111,26 @@ var trackerFront = fault.Front{Target: fault.Target(tracker.Fake.Name), Origin: 
 // and a reader of the tracker's announces.
 func serveTracker(t *testing.T, s scenario.Scenario, n int) (rels []release, announces func() []tracker.Announce) {
 	t.Helper()
-	w := startTracker(t, s, n, false)
+	w := startTracker(t, s, n, trackerOpts{})
 	return w.rels, w.announces
+}
+
+// trackerOpts are how a test's fake-tracker runs.
+type trackerOpts struct {
+	// swarm has fixture-seeders seed each release, and the tracker hand a
+	// leecher a seeder front that reaches them.
+	swarm bool
+	// listed is the seeders the feeds list of each release.
+	listed int
+	// udp makes the Node's releases public, announcing to fake-tracker's
+	// BEP 15 socket, while fixture-seeders still announce over HTTPS.
+	udp bool
 }
 
 // startTracker serves fake-tracker as Scenario s says behind a TLS front
 // from a run CA, which libtorrent trusts through SSL_CERT_FILE, for n
-// releases. With swarm, fixture-seeders seed each release and the tracker
-// hands a leecher a seeder front that reaches them.
-func startTracker(t *testing.T, s scenario.Scenario, n int, swarm bool) *trackerRun {
+// releases, and with opts.udp its BEP 15 announce on a loopback socket.
+func startTracker(t *testing.T, s scenario.Scenario, n int, opts trackerOpts) *trackerRun {
 	t.Helper()
 	authority, err := ca.New("client")
 	if err != nil {
@@ -135,7 +150,7 @@ func startTracker(t *testing.T, s scenario.Scenario, n int, swarm bool) *tracker
 	logger := slog.New(slog.DiscardHandler)
 	name := func(i int) string { return fmt.Sprintf("release-%d", i) }
 	fronts := []fault.Front{trackerFront}
-	if swarm {
+	if opts.swarm {
 		for i := range n {
 			fronts = append(fronts, fault.Front{Target: tracker.SeedersTarget(name(i)), Origin: trackerFront.Origin, Layers: fault.Conn})
 		}
@@ -147,11 +162,22 @@ func startTracker(t *testing.T, s scenario.Scenario, n int, swarm bool) *tracker
 		t.Fatal(err)
 	}
 	at := fake.Address{AddrPort: tf.Addr(), TLS: true}
-	w.rels = seededReleases(t, n, func(account string) string { return at.URL("/announce/" + releases.Passkey(s, account)) })
+	socket, err := net.ListenUDP("udp", net.UDPAddrFromAddrPort(netip.MustParseAddrPort("127.0.0.1:0")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	announce := func(account string) string {
+		if opts.udp && account == nodeAccount {
+			return "udp://" + socket.LocalAddr().String() + "/announce"
+		}
+		return at.URL("/announce/" + releases.Passkey(s, account))
+	}
+	w.rels = seededReleases(t, n, announce, opts.udp)
 	env := fake.NewEnv(s, tracker.Fake, logger, w.plan, log)
 	env.Releases = &releases.Catalog{}
 	for i, r := range w.rels {
-		env.Releases.Releases = append(env.Releases.Releases, releases.Release{Release: scenario.Release{Name: name(i), Seeded: swarm}, Dir: r.folder, Metainfo: r.seed, InfoHash: r.hash})
+		rel := scenario.Release{Name: name(i), Seeded: opts.swarm, Seeders: opts.listed, Public: opts.udp}
+		env.Releases.Releases = append(env.Releases.Releases, releases.Release{Release: rel, Dir: r.folder, Metainfo: r.seed, InfoHash: r.hash})
 	}
 	for i, f := range fronts[1:] {
 		sf, err := set.Listen(t.Context(), f)
@@ -161,27 +187,15 @@ func startTracker(t *testing.T, s scenario.Scenario, n int, swarm bool) *tracker
 		sf.Serve(front.Forward(w.seeder(w.rels[i])))
 		env.Fronts = append(env.Fronts, fake.Front{Target: f.Target, Node: f.Origin, Address: fake.Address{AddrPort: sf.Addr()}})
 	}
-	server, err := tracker.Fake.New(s, env)
-	if err != nil {
-		t.Fatal(err)
-	}
 	leaf, err := authority.Leaf("127.0.0.1", "tracker.fake.localhost")
 	if err != nil {
 		t.Fatal(err)
 	}
 	in := front.NewInbox(tf.Addr())
 	tf.Serve(front.Served(in, &tls.Config{Certificates: []tls.Certificate{leaf}, MinVersion: tls.VersionTLS12}))
-	ctx, cancel := context.WithCancel(context.WithoutCancel(t.Context()))
-	done := make(chan error, 1)
-	go func() { done <- server.Serve(ctx, in) }()
-	t.Cleanup(func() {
-		cancel()
-		if err := <-done; err != nil {
-			t.Errorf("fake-tracker: %v", err)
-		}
-		set.Close()
-	})
-	if swarm {
+	t.Cleanup(set.Close)
+	serveBoth(t, s, env, log, in, socket)
+	if opts.swarm {
 		seeding, err := seeders.Start(t.Context(), env.Releases, caFile)
 		if err != nil {
 			t.Fatal(err)
@@ -189,6 +203,36 @@ func startTracker(t *testing.T, s scenario.Scenario, n int, swarm bool) *tracker
 		t.Cleanup(func() { _ = seeding.Close() })
 	}
 	return w
+}
+
+// serveBoth serves fake-tracker from env on in, and its BEP 15 announce
+// on socket as the seedbox origin's, recording into sink, until the test
+// ends.
+func serveBoth(t *testing.T, s scenario.Scenario, env fake.Env, sink fake.Sink, in net.Listener, socket *net.UDPConn) {
+	t.Helper()
+	server, err := tracker.Fake.New(s, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	udpEnv := fake.NewEnv(s, tracker.UDP, env.Log, env.Faults, sink)
+	udpEnv.Releases, udpEnv.Fronts, udpEnv.Shared = env.Releases, env.Fronts, env.Shared
+	udp, err := tracker.UDP.NewUDP(s, udpEnv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.WithoutCancel(t.Context()))
+	done, udpDone := make(chan error, 1), make(chan error, 1)
+	go func() { done <- server.Serve(ctx, in) }()
+	go func() { udpDone <- udp.ServeUDP(ctx, map[string]*net.UDPConn{trackerFront.Origin: socket}) }()
+	t.Cleanup(func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Errorf("fake-tracker: %v", err)
+		}
+		if err := <-udpDone; err != nil {
+			t.Errorf("fake-tracker's UDP announce: %v", err)
+		}
+	})
 }
 
 // seeder finds where fixture-seeders seed r, from their announce.
@@ -616,7 +660,7 @@ func TestGazelleAcceptsTheRealAnnounce(t *testing.T) {
 func TestAnnouncedSecondsNeverAheadOfTheTracker(t *testing.T) {
 	const interval = 20 * time.Second
 	s := scenario.Scenario{Seed: "client", Tracker: scenario.Tracker{Interval: interval, MinInterval: interval, Mode: scenario.UNIT3D}}
-	w := startTracker(t, s, 1, true)
+	w := startTracker(t, s, 1, trackerOpts{swarm: true})
 	leech := w.rels[0]
 	leech.folder = t.TempDir()
 	box := newSeedbox(t, []release{leech})
@@ -664,4 +708,80 @@ func TestAnnouncedSecondsNeverAheadOfTheTracker(t *testing.T) {
 		t.Errorf("the Node reported announced seconds %v, want them never to fall", counted)
 	}
 	t.Logf("the tracker credited %d s over %d announces and the Node counted %d s", h.SeedSeconds, credited, counted[len(counted)-1])
+}
+
+// udpAnnounces are the BEP 15 announces fake-tracker heard.
+func (w *trackerRun) udpAnnounces() []tracker.Announce {
+	w.t.Helper()
+	as, err := captured[tracker.Announce](w.runDir, tracker.UDPAnnounces.Kind)
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	return as
+}
+
+// swarmOf is the counts the Node's Inspect gives r's one tracker line,
+// nil while it gives none.
+func (n *seedbox) swarmOf(r release) *engine.Swarm {
+	n.t.Helper()
+	res, err := n.client.Inspect(n.t.Context(), &dlv1.InspectRequest{Id: r.id.Bytes()})
+	if err != nil {
+		n.t.Fatal(err)
+	}
+	lines := res.GetTrackers()
+	if len(lines) != 1 || lines[0].Seeders == nil {
+		return nil
+	}
+	return &engine.Swarm{Seeders: int(lines[0].GetSeeders()), Leechers: int(lines[0].GetLeechers())}
+}
+
+// untilSwarm waits up to two minutes until the Node's Inspect gives r's
+// tracker line the counts want, and returns each count it gave on the way.
+func (n *seedbox) untilSwarm(r release, want engine.Swarm) []engine.Swarm {
+	n.t.Helper()
+	var seen []engine.Swarm
+	for deadline := time.Now().Add(2 * time.Minute); len(seen) == 0 || seen[len(seen)-1] != want; time.Sleep(100 * time.Millisecond) {
+		if sw := n.swarmOf(r); sw != nil && (len(seen) == 0 || seen[len(seen)-1] != *sw) {
+			seen = append(seen, *sw)
+		}
+		if time.Now().After(deadline) {
+			n.t.Fatalf("timed out waiting until the Inspector reads %+v; it read %+v", want, seen)
+		}
+	}
+	return seen
+}
+
+// TestSwarmCountsReachTheInspector downloads a release from fixture-seeders
+// that the feeds list 141 more seeders of, over HTTPS as a private
+// release and over BEP 15 as a public one. fake-tracker answers each
+// announce with the seeders it lists and the peers it saw, and the Node's
+// Inspect reads those counts: 142 seeders and the Node leeching, then 143
+// and none once it seeds.
+func TestSwarmCountsReachTheInspector(t *testing.T) {
+	const listed = 141
+	s := scenario.Scenario{Seed: "client", Tracker: scenario.Tracker{Interval: time.Minute}}
+	for _, tc := range []struct {
+		name string
+		udp  bool
+	}{{"HTTPS", false}, {"UDP", true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := startTracker(t, s, 1, trackerOpts{swarm: true, listed: listed, udp: tc.udp})
+			leech := w.rels[0]
+			leech.folder = t.TempDir()
+			box := newSeedbox(t, []release{leech})
+			send, _ := box.start()
+			send(dlv1.Wanted_WANTED_STARTED)
+			leeching, seeding := engine.Swarm{Seeders: listed + 1, Leechers: 1}, engine.Swarm{Seeders: listed + 2}
+			seen := box.untilSwarm(leech, seeding)
+			for _, sw := range seen {
+				if sw != leeching && sw != seeding {
+					t.Errorf("the Inspector read %+v, which fake-tracker never answered; it read %+v", sw, seen)
+				}
+			}
+			heard := w.udpAnnounces()
+			if tc.udp != (len(heard) > 0) {
+				t.Errorf("over %s the Node sent %d BEP 15 announces", tc.name, len(heard))
+			}
+		})
+	}
 }

@@ -1785,6 +1785,12 @@
             "format": "date-time",
             "type": "string"
           },
+          "leechers": {
+            "description": "The leechers its last announce response counted, set while live and the response carried a count",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "message": {
             "description": "The announce URL's failure reason or warning, verbatim",
             "type": "string"
@@ -1804,6 +1810,12 @@
             "description": "When it tries a failing announce URL again, from the last report",
             "format": "date-time",
             "type": "string"
+          },
+          "seeders": {
+            "description": "The seeders its last announce response counted, set while live and the response carried a count",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
           "status": {
             "enum": [

@@ -764,7 +764,11 @@ export const DownloadclientsTorrentGrab = zod.object({
 export type DownloadclientsTorrentGrab = zod.input<typeof DownloadclientsTorrentGrab>;
 export type DownloadclientsTorrentGrabOutput = zod.output<typeof DownloadclientsTorrentGrab>;
 
+export const downloadclientsTrackerDetailLeechersMin = 0;
+
 export const downloadclientsTrackerDetailMinIntervalSecondsMin = 0;
+
+export const downloadclientsTrackerDetailSeedersMin = 0;
 
 export const downloadclientsTrackerDetailTierMin = 0;
 
@@ -777,6 +781,13 @@ export const DownloadclientsTrackerDetail = zod.object({
     .datetime({ offset: true })
     .exactOptional()
     .describe("When it last responded, set while live"),
+  leechers: zod
+    .int()
+    .min(downloadclientsTrackerDetailLeechersMin)
+    .exactOptional()
+    .describe(
+      "The leechers its last announce response counted, set while live and the response carried a count",
+    ),
   message: zod
     .string()
     .exactOptional()
@@ -794,6 +805,13 @@ export const DownloadclientsTrackerDetail = zod.object({
     .datetime({ offset: true })
     .exactOptional()
     .describe("When it tries a failing announce URL again, from the last report"),
+  seeders: zod
+    .int()
+    .min(downloadclientsTrackerDetailSeedersMin)
+    .exactOptional()
+    .describe(
+      "The seeders its last announce response counted, set while live and the response carried a count",
+    ),
   status: zod.enum(["working", "updating", "error", "unregistered", "not_contacted"]),
   tier: zod.int().min(downloadclientsTrackerDetailTierMin),
   url: zod.string().describe("With its passkey hidden"),

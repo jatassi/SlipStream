@@ -104,18 +104,11 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 			listed = append(listed, Release{
 				Name: r.Name, Size: size, InfoHash: r.InfoHash.String(),
 				TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], TVDB: r.TVDB, Seeders: int64(r.Seeders), Torrent: r.Metainfo, Unlisted: unlisted[r.Name],
-				Link: r.Link, Trackerless: r.Trackerless, Sites: r.Sites,
+				Link: r.Link, Trackerless: r.Trackerless, Public: r.Public, Sites: r.Sites,
 			})
 		}
 	}
-	announce := func(label, origin string) (string, error) {
-		at, ok := env.Fronts.Find(fault.Target(tracker.Fake.Name), origin)
-		if !ok {
-			return "", fmt.Errorf("no tracker front for %q", origin)
-		}
-		return at.URL("/announce/" + tracker.Passkey(s, label)), nil
-	}
-	site := newSite(s, listed, announce)
+	site := newSite(s, listed, trackerURLs(s, env.Fronts))
 	var err error
 	if site.captchas, err = env.Capture(CaptchaShown.Name); err != nil {
 		return nil, err
@@ -161,6 +154,8 @@ type Release struct {
 	Link scenario.Link
 	// Trackerless leaves tr out of its magnet link.
 	Trackerless bool
+	// Public releases announce to fake-tracker's UDP announce.
+	Public bool
 	// Sites are the labels of the sites that list it, every site when
 	// empty.
 	Sites []string
@@ -250,10 +245,31 @@ type site struct {
 	thanked map[string]bool
 }
 
+// trackerURLs is the Announce of the world with Scenario s whose fronts
+// are fronts: fake-tracker's front for the origin with the site's
+// passkey, or its UDP socket for the origin for a public release.
+func trackerURLs(s scenario.Scenario, fronts fake.Fronts) Announce {
+	return func(label, origin string, public bool) (string, error) {
+		if public {
+			at, ok := fronts.Find(fault.Target(tracker.UDP.Name), origin)
+			if !ok {
+				return "", fmt.Errorf("no UDP tracker socket for %q", origin)
+			}
+			return tracker.UDP.URL(at) + "/announce", nil
+		}
+		at, ok := fronts.Find(fault.Target(tracker.Fake.Name), origin)
+		if !ok {
+			return "", fmt.Errorf("no tracker front for %q", origin)
+		}
+		return at.URL("/announce/" + tracker.Passkey(s, label)), nil
+	}
+}
+
 // Announce is the tracker URL a .torrent of the site labeled label
 // announces to when origin fetches it, and the tr of a magnet link origin
-// reads there. Each site's URL carries its own account's passkey.
-type Announce func(label, origin string) (string, error)
+// reads there. Each site's URL carries its own account's passkey, and a
+// public release's names fake-tracker's UDP announce instead.
+type Announce func(label, origin string, public bool) (string, error)
 
 // On reports whether the site labeled label lists rel.
 func (rel Release) On(label string) bool {
@@ -648,7 +664,7 @@ func (s *site) magnet(r *http.Request, rel Release) (string, error) {
 	if rel.Trackerless {
 		return link, nil
 	}
-	tr, err := s.announce(labelOf(r), fake.OriginOf(r.Context()))
+	tr, err := s.announce(labelOf(r), fake.OriginOf(r.Context()), rel.Public)
 	if err != nil {
 		return "", err
 	}
@@ -686,7 +702,7 @@ func (s *site) torrent(w http.ResponseWriter, r *http.Request, rel Release) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	announce, err := s.announce(labelOf(r), fake.OriginOf(r.Context()))
+	announce, err := s.announce(labelOf(r), fake.OriginOf(r.Context()), rel.Public)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
