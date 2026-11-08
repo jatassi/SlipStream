@@ -23,7 +23,11 @@ func titled(r golden.Row) error {
 }
 
 func year(read release.Read, want int) error {
-	return golden.Same("year", read.Name.Year, release.Known(want))
+	y := release.Fact[int]{}
+	if want != 0 {
+		y = release.Known(want)
+	}
+	return golden.Same("year", read.Name.Year, y)
 }
 
 func group(read release.Read, want string) error {

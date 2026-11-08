@@ -154,7 +154,6 @@
         "ReportImdbId": "internal/release",
         "ReportTmdbId": "internal/release",
         "SimpleTitleRegex": "internal/release",
-        "SimpleReleaseTitleRegex": "internal/release",
         "CleanQualityBracketsRegex": "internal/release",
         "MultiRegex": "internal/release",
         "NormalizeImdbId.imdbRegex": "internal/release"
