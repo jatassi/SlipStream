@@ -5,6 +5,7 @@ import type { FilesCellList, FilesNeed, GrabsGrab } from "../../api/gen/model";
 import { getGetWorkCellsMockHandler } from "../../api/gen/query/files/files.msw";
 import { getListGrabsMockHandler } from "../../api/gen/query/grabs/grabs.msw";
 import { orchardId } from "../../test/library";
+import { homeId, seedboxId } from "../../test/nodes";
 import { renderApp } from "../../test/render-app";
 import { awayGrab as stuck, upgradable } from "../../test/work-cells";
 import { workServer } from "../../test/work-server";
@@ -73,6 +74,22 @@ test("a download waiting to fetch for an external client on an offline Node name
     .element(needsYou)
     .toHaveTextContent(
       "Needs you1WaitingWaiting to send to qBittorrent on seedboxseedbox is offline. This download goes there once seedbox is back online.Send to another client",
+    );
+});
+
+test("a download fetched on an online Node that waits for its routed client's offline Node names that Node", async () => {
+  const routed = {
+    ...stuck,
+    nodeId: homeId,
+    stage: "fetching",
+    torrentId: null,
+    waitsFor: { nodeId: seedboxId, client: null },
+  } as const;
+  const needsYou = openWith([{ kind: "waiting", grabId: routed.id, code: "node_away" }], [routed]);
+  await expect
+    .element(needsYou)
+    .toHaveTextContent(
+      "Needs you1WaitingWaiting to send to the built-in client on seedboxseedbox is offline. This download goes there once seedbox is back online.Send to another client",
     );
 });
 

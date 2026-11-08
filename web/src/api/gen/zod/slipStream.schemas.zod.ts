@@ -1757,7 +1757,7 @@ export const FilesWaitingNeed = zod.object({
   code: zod
     .enum(["node_away", "client_away"])
     .describe(
-      "Why the Grab waits: node_away while its Node is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention",
+      "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention",
     ),
   grabId: zod.uuid(),
   kind: zod.enum(["waiting"]),
