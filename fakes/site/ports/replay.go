@@ -171,6 +171,8 @@ func (r *Replay) matches(m Match, req *http.Request, body []byte) string {
 		return "its host isn't " + want
 	case req.URL.Path != m.Path:
 		return "its path isn't " + m.Path
+	case m.RawQuery != "" && req.URL.RawQuery != m.RawQuery:
+		return "its query isn't " + m.RawQuery
 	}
 	for k, v := range sorted(m.Headers) {
 		if got := req.Header.Get(k); got != v {

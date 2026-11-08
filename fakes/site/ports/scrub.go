@@ -93,6 +93,7 @@ func Scrub(f Fixture) []string {
 		for i, x := range c.Exchanges {
 			ex := fmt.Sprintf("%s exchange %d", at, i+1)
 			s.text(ex+" path", x.Request.Path)
+			s.text(ex+" rawQuery", x.Request.RawQuery)
 			s.headers(ex+" request", x.Request.Headers)
 			s.headers(ex+" response", x.Response.Headers)
 			for k, v := range sorted(x.Request.Query) {

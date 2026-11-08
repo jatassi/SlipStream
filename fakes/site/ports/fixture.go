@@ -26,6 +26,7 @@
 //	          path: /api/torrents
 //	          json: {passkey: "{{passkey}}", imdb: {id: 1}}   # a subset match
 //	          noQuery: [freeleech]                              # parameters it must not carry
+//	          rawQuery: "11;5;q=tt0000001"                      # the whole query, for one not joined by &
 //	        response:
 //	          status: 200
 //	          headers: {Content-Type: application/json}
@@ -150,8 +151,11 @@ type Match struct {
 	Headers map[string]string `yaml:"headers,omitempty"`
 	Query   map[string]string `yaml:"query,omitempty"`
 	NoQuery []string          `yaml:"noQuery,omitempty"`
-	Form    map[string]string `yaml:"form,omitempty"`
-	JSON    map[string]any    `yaml:"json,omitempty"`
+	// RawQuery is the whole query as sent, for a site whose query isn't
+	// name=value pairs joined by "&".
+	RawQuery string            `yaml:"rawQuery,omitempty"`
+	Form     map[string]string `yaml:"form,omitempty"`
+	JSON     map[string]any    `yaml:"json,omitempty"`
 }
 
 type Response struct {
