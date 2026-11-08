@@ -3,7 +3,6 @@ package e2e
 import (
 	"encoding/json"
 	"net/http"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -62,16 +61,7 @@ func scannedHome(t *testing.T) (a *worldtest.API, listed map[string]listedMedia,
 	s.Library.Profiles = []scenario.LibraryProfile{{Name: "HDR", ContentType: "series", Targets: []string{"HDR10"}, Default: true}}
 	run := worldtest.LaunchScenario(t, s)
 	a = api(t, run)
-	m := run.Manifest()
-	for _, root := range []struct{ contentType, folder string }{{"movie", "shelf-movies"}, {"series", "shelf-series"}} {
-		body, err := json.Marshal(map[string]string{"contentType": root.contentType, "nodeId": m.Nodes[0].NodeID, "path": filepath.Join(m.MediaDir, root.folder)})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if r := a.Admin("home", http.MethodPost, "/api/v1/roots", string(body)); r.Status != http.StatusCreated {
-			t.Fatalf("createRoot %s = %d %s, want 201", root.folder, r.Status, r.Body)
-		}
-	}
+	addShelves(t, a, run.Manifest())
 	worldtest.Until(t, "the first scans list every probed file on its Work", func() (bool, error) {
 		var library struct {
 			Rows []struct {
