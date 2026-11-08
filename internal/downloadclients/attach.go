@@ -19,8 +19,8 @@ var ErrRemoving = errors.New("the Torrent for this info hash is being removed on
 
 // Want is the Torrent a Grab's fetch asks for.
 type Want struct {
-	// Node is the Node the router picked.
-	Node        role.NodeID
+	// Target is the client Route picked, on the Node the Torrent is for.
+	Target      Target
 	Metainfo    bencode.Metainfo
 	Raw         []byte
 	ContentType works.TypeID
@@ -31,11 +31,12 @@ type Want struct {
 	WrittenOff func(role.NodeID) bool
 }
 
-// Attach is the live Torrent for want's info hash on want.Node, else a
-// live one on a Node not written off. Otherwise it refuses with
-// ErrRemoving while the hash is Removing on want.Node, or adds a Torrent
-// on want.Node, started, last in order, with the totals of the latest
-// removed Torrent of the hash on any Node. It runs in the caller's tx and
+// Attach is the live Torrent for want's info hash on want.Target's Node,
+// in any of its clients, else a live one on a Node not written off.
+// Otherwise it refuses with ErrRemoving while the hash is Removing on that
+// Node, or adds a Torrent in want.Target's client, started, last in
+// order, with the totals of the latest removed Torrent of the hash on any
+// Node. It runs in the caller's tx and
 // does no IO: the caller Touches the Node it answers after commit.
 func Attach(ctx context.Context, tx *storage.Tx[file], want Want, now storage.Time) (ID, role.NodeID, error) {
 	q := db.New(tx)
@@ -44,13 +45,14 @@ func Attach(ctx context.Context, tx *storage.Tx[file], want Want, now storage.Ti
 	if err != nil {
 		return ID{}, role.NodeID{}, err
 	}
+	node := want.Target.Node
 	removing := false
 	var elsewhere *db.ListHeldOfHashRow
 	for i, t := range held {
 		switch {
-		case t.NodeID == want.Node && t.RemovedAt.IsZero():
+		case t.NodeID == node && t.RemovedAt.IsZero():
 			return t.ID, t.NodeID, reached(ctx, q, t.ID, want)
-		case t.NodeID == want.Node:
+		case t.NodeID == node:
 			removing = true
 		case t.RemovedAt.IsZero() && !want.WrittenOff(t.NodeID) && elsewhere == nil:
 			elsewhere = &held[i]
@@ -63,7 +65,7 @@ func Attach(ctx context.Context, tx *storage.Tx[file], want Want, now storage.Ti
 		return ID{}, role.NodeID{}, ErrRemoving
 	}
 	id := ID{UUID: storage.NewUUID()}
-	return id, want.Node, insert(ctx, q, id, want, now)
+	return id, node, insert(ctx, q, id, want, now)
 }
 
 // reached sets a reused Torrent's Tracker to want's while it has none.
@@ -122,7 +124,7 @@ func insert(ctx context.Context, q *db.Queries, id ID, want Want, now storage.Ti
 		private = 1
 	}
 	return q.InsertTorrent(ctx, db.InsertTorrentParams{
-		ID: id, NodeID: want.Node, InfoHash: m.InfoHash[:], Metainfo: want.Raw, Name: m.Info.Name, Size: size,
+		ID: id, NodeID: want.Target.Node, ClientID: want.Target.Client, InfoHash: m.InfoHash[:], Metainfo: want.Raw, Name: m.Info.Name, Size: size,
 		Private: private, Trackers: string(trackers), ContentType: want.ContentType, TrackerID: trackerOf(want), AddedOrder: order, AddedAt: now,
 		Uploaded: totals.Uploaded, Downloaded: totals.Downloaded, ActiveSeconds: totals.ActiveSeconds,
 		SeedingSeconds: totals.SeedingSeconds, TotalsAt: totals.TotalsAt,

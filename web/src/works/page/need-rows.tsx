@@ -1,8 +1,15 @@
 import { useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 
-import type { FilesUpgradeNeed, GrabsGrab } from "../../api/gen/model";
+import type {
+  FilesUpgradeNeed,
+  FilesWaitingNeedCode,
+  GrabsGrab,
+  GrabsGrabClient,
+} from "../../api/gen/model";
 import { useListNodesSuspense } from "../../api/gen/query/nodes/nodes";
 import { useStartSearch } from "../../grabs/search";
+import { SendToSheet } from "../../grabs/send-to-sheet";
 import { Button } from "../../ui/button";
 import { List, ListRow } from "../../ui/list";
 import { WarningLine } from "../../ui/warning-line";
@@ -40,12 +47,52 @@ export function Upgrades({
   );
 }
 
-/** A Grab whose Node is away, the one reason a Grab waits today. */
-export function Waiting({ grab }: { grab: GrabsGrab | undefined }) {
+/** A Grab waiting on its client that isn't responding, with a way to send it to another. */
+function WaitingOnClient({
+  grab,
+  client,
+  node,
+}: {
+  grab: GrabsGrab;
+  client: GrabsGrabClient;
+  node: string;
+}) {
+  const [sending, setSending] = useState(false);
+  return (
+    <>
+      <WarningLine
+        signal="warn"
+        chip="Waiting"
+        subject={`Waiting for ${client.name} on ${node}`}
+        detail={`Its download carries on once ${client.name} responds again.`}
+        action={{
+          label: "Send to another client",
+          onClick: () => {
+            setSending(true);
+          },
+        }}
+      />
+      <SendToSheet grab={grab} open={sending} onOpenChange={setSending} />
+    </>
+  );
+}
+
+/** A Grab waiting on its Node that is away, or on its client that isn't responding. */
+export function Waiting({
+  grab,
+  code,
+}: {
+  grab: GrabsGrab | undefined;
+  code: FilesWaitingNeedCode;
+}) {
   const navigate = useNavigate();
   const { nodes } = useListNodesSuspense().data;
   const node = nodes.find(({ id }) => id === grab?.nodeId);
   const release = grab?.releaseTitle ?? "This Work's download";
+  const client = grab?.downloadClient ?? null;
+  if (code === "client_away" && grab !== undefined && client !== null && node !== undefined) {
+    return <WaitingOnClient grab={grab} client={client} node={node.name} />;
+  }
   if (node === undefined) {
     return (
       <WarningLine

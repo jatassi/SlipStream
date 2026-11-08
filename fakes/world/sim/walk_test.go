@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/fs"
 	"maps"
 	"net/http"
 	"os"
@@ -177,7 +178,7 @@ func expectPlaced(t *testing.T, w *sim.World) {
 	if blake3.Sum256(data) != blake3.Sum256(sim.Payload(release)) {
 		t.Fatal("the placed file's BLAKE3 is not the release payload's")
 	}
-	if entries, err := os.ReadDir(filepath.Join(dir, "movies", ".slipstream-staging")); err != nil || len(entries) != 0 {
+	if entries, err := os.ReadDir(filepath.Join(dir, "movies", ".slipstream-staging")); (err != nil && !errors.Is(err, fs.ErrNotExist)) || len(entries) != 0 {
 		t.Fatalf("the staging folder holds %v, %v; want nothing", entries, err)
 	}
 	if n := fileRows(t, w); n != 1 {
@@ -585,7 +586,7 @@ func TestCreatingAnIndexerWhileItsHomeIsAwayCantRunTheTest(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s := home(t)
 		s.Library.Indexers = nil
-		w := sim.Launch(t, s, sim.WithWalk())
+		w := sim.Launch(t, s, sim.WithWalk(), inUTC)
 		synctest.Wait()
 		flip(t, w.Path("home", "seedbox"), fault.Stall{})
 		link := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link

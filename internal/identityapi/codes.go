@@ -10,9 +10,9 @@ import (
 
 var (
 	pinWrong           = api.NewCode(http.StatusUnauthorized, "pin_wrong", "The email or PIN is wrong")
-	pinWait            = api.NewCode(http.StatusTooManyRequests, "pin_wait", "Too many wrong PINs. Wait before trying again.")
+	pinWait            = api.NewWaiting(http.StatusTooManyRequests, "pin_wait", "Too many wrong PINs. Wait before trying again.")
 	pinOff             = api.NewCode(http.StatusForbidden, "pin_off", "This PIN is turned off. Use a passkey or ask an Admin for a Reset link.")
-	tooManyAttempts    = api.NewCode(http.StatusTooManyRequests, "too_many_attempts", "Too many failed attempts from this address. Wait before trying again.")
+	tooManyAttempts    = api.NewWaiting(http.StatusTooManyRequests, "too_many_attempts", "Too many failed attempts from this address. Wait before trying again.")
 	addressIP          = api.NewCode(http.StatusUnprocessableEntity, "address_ip", "The address must be a name, not an IP address")
 	accountDisabled    = api.NewCode(http.StatusForbidden, "account_disabled", "This Account is turned off. Ask an Admin to turn it back on.")
 	addressUnset       = api.NewCode(http.StatusConflict, "address_unset", "Set SlipStream's address first, so links point somewhere people can reach")
@@ -28,7 +28,7 @@ var (
 	passkeyFailed      = api.NewCode(http.StatusUnauthorized, "passkey_failed", "The passkey couldn't be verified")
 )
 
-var pinChecked = []*api.Code{pinWrong, pinWait, pinOff, tooManyAttempts}
+var pinChecked = []*api.Code{pinWrong, pinWait.Code, pinOff, tooManyAttempts.Code}
 
 var errorCodes = []struct {
 	err  error

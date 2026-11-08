@@ -45,9 +45,10 @@ type HashFact struct {
 	Removal *Removal
 }
 
-// HashFacts is every Torrent of hashes that its Node holds, Removing ones
-// too, and each hash's latest Torrent its Node parted from, with their
-// Grabs, in added order by hash.
+// HashFacts is every built-in Torrent of hashes that its Node holds,
+// Removing ones too, and each hash's latest built-in Torrent its Node
+// parted from, with their Grabs, in added order by hash. An external
+// client's Torrents are no part of a hash's seeding.
 func (c *Clients) HashFacts(ctx context.Context, r storage.Reader[file], hashes []bencode.InfoHash) (map[bencode.InfoHash][]HashFact, error) {
 	raw := make([][]byte, len(hashes))
 	for i, h := range hashes {
@@ -83,8 +84,8 @@ func (c *Clients) HashFacts(ctx context.Context, r storage.Reader[file], hashes 
 	return out, nil
 }
 
-// TrackerHashes is every info hash with a Torrent naming tracker, live or
-// removed.
+// TrackerHashes is every info hash with a built-in Torrent naming
+// tracker, live or removed.
 func TrackerHashes(ctx context.Context, r storage.Reader[file], tracker indexers.TrackerID) ([]bencode.InfoHash, error) {
 	rows, err := db.New(r).ListTrackerHashes(ctx, &tracker)
 	if err != nil {

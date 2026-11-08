@@ -7,6 +7,7 @@ import {
   GrabsSearchList,
   GrabsSearchScope,
   GrabsSearchStarted,
+  SendToInputBody,
 } from "../slipStream.schemas.zod.ts";
 
 /**
@@ -22,6 +23,17 @@ export const GetGrabParams = zod.object({
 });
 
 export const GetGrabResponse = GrabsGrab;
+
+/**
+ * @summary Send a downloading Grab's torrent to another Download Client
+ */
+export const SendGrabToParams = zod.object({
+  grabId: zod.uuid(),
+});
+
+export const SendGrabToBody = SendToInputBody;
+
+export const SendGrabToResponse = zod.void();
 
 /**
  * @summary List the Grabs taken from an Indexer, 50 at a time

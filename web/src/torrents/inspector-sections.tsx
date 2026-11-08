@@ -32,7 +32,9 @@ export function Sections({
   return (
     <>
       <Numbers row={row} detail={detail.data} live={live} />
-      <Seeding detail={detail.data} node={node} />
+      {detail.data.seeding !== null && (
+        <Seeding detail={detail.data} seeding={detail.data.seeding} node={node} />
+      )}
       <AnnounceUrls detail={detail.data} node={node} clock={clock} />
       <Files detail={detail.data} />
       <Grabs detail={detail.data} names={names} />

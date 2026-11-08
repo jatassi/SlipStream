@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
 import type {
+  DownloadclientsSeedingView,
   DownloadclientsSeedingViewAtRisk,
   DownloadclientsTorrentDetail,
 } from "../api/gen/model";
@@ -45,8 +46,39 @@ function RiskLine({
   }
 }
 
-export function Seeding({ detail, node }: { detail: DownloadclientsTorrentDetail; node: string }) {
-  const { seeding } = detail;
+function TrackerFact({ tracker }: { tracker: DownloadclientsTorrentDetail["tracker"] }) {
+  return (
+    <FactList
+      facts={[
+        [
+          "Tracker",
+          tracker === null ? (
+            "Not known"
+          ) : (
+            <Link
+              key="tracker"
+              to="/settings/trackers/$trackerId/seeding"
+              params={{ trackerId: tracker.id }}
+              className="rounded-item font-medium underline-offset-4 hover:underline"
+            >
+              {tracker.name}
+            </Link>
+          ),
+        ],
+      ]}
+    />
+  );
+}
+
+export function Seeding({
+  detail,
+  seeding,
+  node,
+}: {
+  detail: DownloadclientsTorrentDetail;
+  seeding: DownloadclientsSeedingView;
+  node: string;
+}) {
   const tracker = detail.tracker?.name ?? "its Tracker";
   const sentences = [
     ruleSentence(tracker, seeding),
@@ -60,25 +92,7 @@ export function Seeding({ detail, node }: { detail: DownloadclientsTorrentDetail
   return (
     <InspectorSection title="Seeding">
       <div className="flex flex-col gap-3">
-        <FactList
-          facts={[
-            [
-              "Tracker",
-              detail.tracker === null ? (
-                "Not known"
-              ) : (
-                <Link
-                  key="tracker"
-                  to="/settings/trackers/$trackerId/seeding"
-                  params={{ trackerId: detail.tracker.id }}
-                  className="rounded-item font-medium underline-offset-4 hover:underline"
-                >
-                  {detail.tracker.name}
-                </Link>
-              ),
-            ],
-          ]}
-        />
+        <TrackerFact tracker={detail.tracker} />
         {seeding.goalMet && (
           <p>
             <SignalChip kind="ok">Goal met</SignalChip>

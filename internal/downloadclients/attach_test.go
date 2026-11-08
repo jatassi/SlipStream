@@ -14,6 +14,7 @@ import (
 	dc "github.com/jatassi/slipstream/internal/downloadclients"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/secret/secrettest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 )
@@ -108,7 +109,7 @@ func TestAttachAddsATorrentFromTheMetainfo(t *testing.T) {
 	lib := open(t)
 	a := addNode(t, lib, "seedbox")
 	m, raw := dotTorrent(t, "Orchard")
-	id, node := mustAttach(t, lib, dc.Want{Node: a, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+	id, node := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: a}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 	if node != a {
 		t.Fatalf("Attach put the Torrent on %s, want the routed Node %s", node, a)
 	}
@@ -142,7 +143,7 @@ func TestAttachPrefersTheRoutedNodeThenAnyLiveOne(t *testing.T) {
 		err        error
 	}{
 		{name: "live on the routed Node and, added earlier, on another", held: func(t *testing.T, lib library, a, b role.NodeID, want dc.Want) dc.ID {
-			want.Node = b
+			want.Target.Node = b
 			first, _ := mustAttach(t, lib, want)
 			id := dc.ID{UUID: storage.NewUUID()}
 			exec(t, lib, `INSERT INTO downloadclients_torrent (id, node_id, info_hash, metainfo, name, size, private, trackers, content_type,
@@ -151,12 +152,12 @@ func TestAttachPrefersTheRoutedNodeThenAnyLiveOne(t *testing.T) {
 			return id
 		}},
 		{name: "live only on another Node", held: func(t *testing.T, lib library, _, b role.NodeID, want dc.Want) dc.ID {
-			want.Node = b
+			want.Target.Node = b
 			id, _ := mustAttach(t, lib, want)
 			return id
 		}},
 		{name: "live only on a written-off Node", writtenOff: true, held: func(t *testing.T, lib library, _, b role.NodeID, want dc.Want) dc.ID {
-			want.Node = b
+			want.Target.Node = b
 			mustAttach(t, lib, want)
 			return dc.ID{}
 		}},
@@ -166,7 +167,7 @@ func TestAttachPrefersTheRoutedNodeThenAnyLiveOne(t *testing.T) {
 			return dc.ID{}
 		}},
 		{name: "Removing on another Node, live on none", held: func(t *testing.T, lib library, _, b role.NodeID, want dc.Want) dc.ID {
-			want.Node = b
+			want.Target.Node = b
 			id, _ := mustAttach(t, lib, want)
 			removeTorrent(t, lib, id, dc.ByAdmin)
 			return dc.ID{}
@@ -182,7 +183,7 @@ func TestAttachPrefersTheRoutedNodeThenAnyLiveOne(t *testing.T) {
 			lib := open(t)
 			a, b := addNode(t, lib, "home"), addNode(t, lib, "seedbox")
 			m, raw := dotTorrent(t, "Orchard")
-			want := dc.Want{Node: a, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff}
+			want := dc.Want{Target: dc.Target{Node: a}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff}
 			bound := c.held(t, lib, a, b, want)
 			want.WrittenOff = func(n role.NodeID) bool { return c.writtenOff && n == b }
 			id, node, err := attach(t, lib, want)
@@ -223,7 +224,7 @@ func TestANewTorrentStartsFromTheLatestRemovedTotals(t *testing.T) {
 	lib := open(t)
 	a, b := addNode(t, lib, "home"), addNode(t, lib, "seedbox")
 	m, raw := dotTorrent(t, "Orchard")
-	want := dc.Want{Node: b, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff}
+	want := dc.Want{Target: dc.Target{Node: b}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff}
 	t0 := time.Date(2026, 10, 19, 20, 0, 0, 0, time.UTC)
 	older, _ := mustAttach(t, lib, want)
 	write(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
@@ -237,7 +238,7 @@ func TestANewTorrentStartsFromTheLatestRemovedTotals(t *testing.T) {
 	})
 	removeTorrent(t, lib, newer, dc.ByAdmin)
 
-	want.Node = a
+	want.Target.Node = a
 	id, _ := mustAttach(t, lib, want)
 	got := totalsOf(t, lib, id)
 	if got.Uploaded != 5000 || got.Downloaded != 1024 || got.Active != 2*time.Hour || got.Seeding != time.Hour || !got.At.Equal(t0.Add(time.Hour)) {
@@ -340,7 +341,7 @@ func TestOutcomesFollowTheTorrentsState(t *testing.T) {
 			lib := open(t)
 			node := addNode(t, lib, "seedbox")
 			m, raw := dotTorrent(t, "Orchard")
-			id, _ := mustAttach(t, lib, dc.Want{Node: node, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+			id, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: node}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 			c.to(t, lib, node, id)
 			got := outcomeOf(t, lib, id)
 			if got.Outcome != c.want || got.InfoHash != m.InfoHash || !slices.Equal(got.Files, c.files) {
@@ -360,7 +361,7 @@ func TestAWriteOffPartsEveryTorrentOfTheNodeAndKeepsFiles(t *testing.T) {
 		box, home := addNode(t, lib, "seedbox"), addNode(t, lib, "home")
 		attachNamed := func(node role.NodeID, name string) dc.ID {
 			m, raw := dotTorrent(t, name)
-			id, _ := mustAttach(t, lib, dc.Want{Node: node, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+			id, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: node}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 			return id
 		}
 		live, removing, kept := attachNamed(box, "Orchard"), attachNamed(box, "Attic"), attachNamed(home, "Harbor")
@@ -403,7 +404,7 @@ func TestTheFirstReleaseFaultStays(t *testing.T) {
 	lib := open(t)
 	a := addNode(t, lib, "seedbox")
 	m, raw := dotTorrent(t, "Orchard")
-	id, _ := mustAttach(t, lib, dc.Want{Node: a, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+	id, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: a}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 	if got := outcomeOf(t, lib, id).Fault; got != nil {
 		t.Fatalf("a new Torrent has fault %+v, want none", got)
 	}
@@ -415,5 +416,35 @@ func TestTheFirstReleaseFaultStays(t *testing.T) {
 	apply(t, lib, a, id, &dlv1.TorrentReport{AtUnixMs: reportedAt.Add(2 * time.Hour).UnixMilli(), Engine: dlv1.EngineState_ENGINE_STATE_DOWNLOADING})
 	if got := outcomeOf(t, lib, id).Fault; got == nil || got.Kind != dc.FaultUnregistered || !got.At.Equal(reportedAt) {
 		t.Fatalf("the Torrent's fault is %+v, want the first one, unregistered at %v", got, reportedAt)
+	}
+}
+
+func TestAttachAddsInTheRoutedClientAndReusesOneInAnyClientOnTheNode(t *testing.T) {
+	lib := open(t)
+	a := addNode(t, lib, "Media server")
+	external := mustImport(t, lib, secrettest.Sealer(t), transmission(t, a, "Transmission", "http://192.168.1.20:9091"))
+	clientOf := func(id dc.ID) *dc.ClientID {
+		t.Helper()
+		var client *storage.UUID
+		if err := lib.QueryRowContext(t.Context(), "SELECT client_id FROM downloadclients_torrent WHERE id = ?", id).Scan(&client); err != nil {
+			t.Fatal(err)
+		}
+		if client == nil {
+			return nil
+		}
+		return &dc.ClientID{UUID: *client}
+	}
+
+	m, raw := dotTorrent(t, "Orchard")
+	added, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: a, Client: &external}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+	if got := clientOf(added); got == nil || *got != external {
+		t.Errorf("a Torrent routed to Transmission is in client %v, want Transmission %s", got, external)
+	}
+
+	m, raw = dotTorrent(t, "Harbor")
+	builtIn, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: a}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+	again, node := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: a, Client: &external}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+	if again != builtIn || node != a || clientOf(again) != nil {
+		t.Errorf("a Grab routed to Transmission for a hash the built-in client holds bound %s in client %v, want the built-in client's %s", again, clientOf(again), builtIn)
 	}
 }

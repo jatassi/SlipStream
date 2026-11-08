@@ -3,12 +3,11 @@ import { LaneMeter } from "../ui/lane-meter";
 import { LiveBar } from "../ui/live-bar";
 import { Meter } from "../ui/meter";
 import { SignalChip } from "../ui/signal-chip";
-import { type Row, paceOf, percentOf, progressOf, stateWords } from "./model";
+import { type Row, paceOf, percentOf, progressOf, seedWords, stateWords } from "./model";
 import type { CellProps } from "./row";
 import { lanesOf, seedLine } from "./seeding";
 
-function SeedingCell({ row }: { row: Row }) {
-  const { seeding } = row;
+function SeedingCell({ seeding }: { seeding: NonNullable<Row["seeding"]> }) {
   const risk = seeding.atRisk === "yes";
   const line = seedLine(seeding);
   return (
@@ -30,7 +29,17 @@ const moving = new Set<Row["state"]>(["downloading", "checking"]);
 export function ProgressCell({ row, live }: CellProps) {
   const progress = progressOf(row, live);
   if (progress.done >= progress.wanted) {
-    return <SeedingCell row={row} />;
+    return row.seeding === null ? (
+      <span className="truncate text-meta text-ink-2">
+        {seedWords(row)}
+        <span data-column-echo="">
+          {" · Ratio "}
+          <Data>{row.ratio.toFixed(2)}</Data>
+        </span>
+      </span>
+    ) : (
+      <SeedingCell seeding={row.seeding} />
+    );
   }
   const percent = percentOf(progress);
   const label = `${stateWords[row.state]} ${row.name}`;

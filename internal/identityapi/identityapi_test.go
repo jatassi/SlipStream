@@ -1,6 +1,7 @@
 package identityapi_test
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -49,6 +50,8 @@ type nodeOptions struct {
 	proxies []api.Proxy
 	// setupOpen leaves first setup open after the claim.
 	setupOpen bool
+	// zone is the Node's zone, UTC when nil.
+	zone *time.Location
 }
 
 func newNode(t *testing.T) *node { return newNodeWith(t, nodeOptions{}) }
@@ -78,6 +81,7 @@ func newNodeWith(t *testing.T, o nodeOptions) *node {
 		Web:            fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}},
 		TrustedOrigins: o.origins,
 		TrustedProxies: o.proxies,
+		Zone:           cmp.Or(o.zone, time.UTC),
 		Log:            log,
 	})
 	identityapi.Routes(r, identitytest.Node{Service: svc, SetupOpen: o.setupOpen})

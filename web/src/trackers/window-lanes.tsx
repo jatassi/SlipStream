@@ -7,9 +7,11 @@ import { LaneMeter } from "../ui/lane-meter";
 export function useLanes() {
   const rows = new Map(useListTorrentsSuspense().data.rows.map((row) => [row.id, row]));
   return (window: TrackersWindow) => {
-    const row = window.torrents.map((id) => rows.get(id)).find((found) => found !== undefined);
-    return row === undefined ? undefined : (
-      <LaneMeter lanes={lanesOf(row.seeding)} risk={row.seeding.atRisk === "yes"} />
+    const seeding = window.torrents
+      .map((id) => rows.get(id)?.seeding)
+      .find((found) => found !== undefined && found !== null);
+    return seeding === undefined ? undefined : (
+      <LaneMeter lanes={lanesOf(seeding)} risk={seeding.atRisk === "yes"} />
     );
   };
 }

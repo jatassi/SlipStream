@@ -1,5 +1,5 @@
 /**
- * Why its Node holds it back, as its Node last reported
+ * Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error
  */
 export type DownloadclientsTorrentDetailHold =
   | "wanted"
@@ -9,4 +9,5 @@ export type DownloadclientsTorrentDetailHold =
   | "check_slot"
   | "disk_guard"
   | "draining"
-  | "controller";
+  | "controller"
+  | "client_error";

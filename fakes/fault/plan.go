@@ -172,6 +172,7 @@ type Plan struct {
 	conns   []*conn
 	routes  map[Target][]Route
 	changed chan struct{}
+	follow  func()
 }
 
 type entry struct {
@@ -219,6 +220,15 @@ func NewPlan(fronts []Front, fired func(Firing)) *Plan {
 	return &Plan{fronts: fronts, fired: fired, routes: map[Target][]Route{}}
 }
 
+// OnChange has fn run after each change to the rules, outside the Plan's
+// lock and before the change returns, so the fronts follow a refuse rule
+// by the time it is set or cleared.
+func (p *Plan) OnChange(fn func()) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.follow = fn
+}
+
 // Set checks r and arms it, replacing the rule with its ID, and returns
 // the occurrences arming played. Beyond Check, an HTTP rule's route and
 // params must be ones a fake serving its target declared through HTTP.
@@ -227,8 +237,8 @@ func (p *Plan) Set(r Rule) ([]Firing, error) {
 		return nil, err
 	}
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	if err := p.checkRouteLocked(r); err != nil {
+		p.mu.Unlock()
 		return nil, err
 	}
 	p.removeLocked(r.ID)
@@ -238,7 +248,7 @@ func (p *Plan) Set(r Rule) ([]Firing, error) {
 	if r.After == nil {
 		fired = p.armLocked(e)
 	}
-	p.signalLocked()
+	p.unlockChanged()
 	return fired, nil
 }
 
@@ -246,7 +256,6 @@ func (p *Plan) Set(r Rule) ([]Firing, error) {
 // whether it removed any. Connections it held go back to no fault.
 func (p *Plan) Clear(id string) bool {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	before := len(p.rules)
 	if id == "" {
 		for _, e := range p.rules {
@@ -256,8 +265,9 @@ func (p *Plan) Clear(id string) bool {
 	} else {
 		p.removeLocked(id)
 	}
-	p.signalLocked()
-	return len(p.rules) < before
+	removed := len(p.rules) < before
+	p.unlockChanged()
+	return removed
 }
 
 // Observe arms each waiting rule whose After matches rec, and returns the
@@ -265,7 +275,6 @@ func (p *Plan) Clear(id string) bool {
 // before Append returns, so rules arm in log order.
 func (p *Plan) Observe(rec events.Record) []Firing {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	var fired []Firing
 	armed := false
 	for _, e := range p.rules {
@@ -274,29 +283,29 @@ func (p *Plan) Observe(rec events.Record) []Firing {
 			armed = true
 		}
 	}
-	if armed {
-		p.signalLocked()
+	if !armed {
+		p.mu.Unlock()
+		return fired
 	}
+	p.unlockChanged()
 	return fired
 }
 
-// Refused reports whether a refuse rule holds f, and returns a channel
-// closed when any rule next changes.
-func (p *Plan) Refused(f Front) (refused bool, changed <-chan struct{}) {
+// Refused reports whether a refuse rule holds f.
+func (p *Plan) Refused(f Front) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	refused = slices.ContainsFunc(p.rules, func(e *entry) bool {
+	return slices.ContainsFunc(p.rules, func(e *entry) bool {
 		_, ok := e.Fault.(Refuse)
 		return ok && e.armed && e.Covers(f)
 	})
-	return refused, p.changedLocked()
 }
 
 // dialing is what a dial through f on a Network path meets: Refuse while
 // a refuse rule holds f, Stall when a stall would take the connection,
 // since a stalled path drops the handshake, and nil otherwise.
 func (p *Plan) dialing(f Front) Fault {
-	if refused, _ := p.Refused(f); refused {
+	if p.Refused(f) {
 		return Refuse{}
 	}
 	p.mu.Lock()
@@ -443,10 +452,17 @@ func (p *Plan) changedLocked() <-chan struct{} {
 	return p.changed
 }
 
-func (p *Plan) signalLocked() {
+// unlockChanged ends a change to the rules: it wakes what waits on the
+// next change, releases the lock, and runs the OnChange hook.
+func (p *Plan) unlockChanged() {
 	if p.changed != nil {
 		close(p.changed)
 		p.changed = nil
+	}
+	follow := p.follow
+	p.mu.Unlock()
+	if follow != nil {
+		follow()
 	}
 }
 

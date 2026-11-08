@@ -26,32 +26,40 @@ var (
 
 // TorrentRow is one Torrent as the Torrents view lists it.
 type TorrentRow struct {
-	ID          string                   `json:"id" format:"uuid"`
-	NodeID      string                   `json:"nodeId" format:"uuid"`
-	Name        string                   `json:"name" doc:"The release's name in its metainfo, shown for a Torrent whose Work was deleted"`
-	ContentType string                   `json:"contentType" doc:"The Content Type it was first grabbed for"`
-	WorkID      *string                  `json:"workId,omitempty" format:"uuid" doc:"Its newest Grab's Work, absent once no Grab is left"`
-	Edition     string                   `json:"edition,omitempty" doc:"Its newest Grab's Edition"`
-	Quality     string                   `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality its newest Grab's release title names"`
-	State       string                   `json:"state" enum:"removing,failed,tracker-error,paused,checking,queued,stalled,downloading,seeding"`
-	Hold        string                   `json:"hold,omitempty" enum:"wanted,window,disk_full,slot,check_slot,disk_guard,draining,controller" doc:"Why its Node holds it back, as its Node last reported"`
-	Until       *time.Time               `json:"until,omitempty" doc:"When a window hold starts it, or a check resumes it"`
-	InLine      int                      `json:"queuePosition,omitempty" minimum:"0" doc:"Its place, from 1, among its Node's downloads waiting for a slot"`
-	Severity    string                   `json:"severity" enum:"none,warning,failure"`
-	Tabs        []string                 `json:"tabs" enum:"downloading,seeding,problems,goal-met,all" nullable:"false" doc:"The Torrents view's tabs it shows under"`
-	Pending     string                   `json:"pending,omitempty" enum:"pause,resume" doc:"An Admin's pause or resume its Node hasn't applied yet"`
-	Size        int64                    `json:"size" minimum:"0" doc:"Bytes wanted"`
-	Done        int64                    `json:"done" minimum:"0" doc:"Bytes done as its Node last reported them; torrents.live carries the live figure"`
-	Uploaded    int64                    `json:"uploaded" minimum:"0" doc:"All-time bytes uploaded"`
-	Ratio       float64                  `json:"ratio" minimum:"0" doc:"Uploaded over the larger of downloaded and size"`
-	Seeding     int64                    `json:"seedingSeconds" minimum:"0" doc:"All-time seconds seeded"`
-	Announce    *trackerCell             `json:"announce,omitempty" doc:"Absent when its metainfo names no announce URL"`
-	Tracker     api.Nullable[trackerRef] `json:"tracker" doc:"The Tracker its first Grab's Release reached, null when none did"`
-	SeedingView seedingView              `json:"seeding" doc:"Its seeding against its Tracker's rule and its seeding goal"`
-	Error       string                   `json:"error,omitempty" doc:"The engine's error message for the failure"`
-	Fault       *fault                   `json:"fault,omitempty" doc:"The fault found in the release itself, once there is one"`
-	LastKnown   *time.Time               `json:"lastKnown,omitempty" doc:"When its Node last reported it, set while the Node is out of step"`
-	AddedAt     time.Time                `json:"addedAt"`
+	ID          string                    `json:"id" format:"uuid"`
+	NodeID      string                    `json:"nodeId" format:"uuid"`
+	ClientID    *string                   `json:"clientId,omitempty" format:"uuid" doc:"Its external client; absent for its Node's built-in client"`
+	ClientName  string                    `json:"clientName,omitempty" doc:"Its external client's name"`
+	ClientKind  string                    `json:"clientKind,omitempty" enum:"qbittorrent,transmission,deluge,rtorrent" doc:"Its external client's kind"`
+	Attached    bool                      `json:"attached,omitempty" doc:"It was in its external client before SlipStream attached to it, so removing it only stops tracking it"`
+	DeleteFiles bool                      `json:"deleteFiles" doc:"A remove may delete its download copy; false when removing it only stops tracking it, attached or in an off client"`
+	Name        string                    `json:"name" doc:"The release's name in its metainfo, shown for a Torrent whose Work was deleted"`
+	ContentType string                    `json:"contentType" doc:"The Content Type it was first grabbed for"`
+	WorkID      *string                   `json:"workId,omitempty" format:"uuid" doc:"Its newest Grab's Work, absent once no Grab is left"`
+	Edition     string                    `json:"edition,omitempty" doc:"Its newest Grab's Edition"`
+	Quality     string                    `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality its newest Grab's release title names"`
+	State       string                    `json:"state" enum:"removing,failed,tracker-error,paused,checking,queued,stalled,downloading,seeding"`
+	Hold        string                    `json:"hold,omitempty" enum:"wanted,window,disk_full,slot,check_slot,disk_guard,draining,controller,client_error" doc:"Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error"`
+	Until       *time.Time                `json:"until,omitempty" doc:"When a window hold starts it, or a check resumes it"`
+	InLine      int                       `json:"queuePosition,omitempty" minimum:"0" doc:"Its place, from 1, among its Node's downloads waiting for a slot"`
+	Severity    string                    `json:"severity" enum:"none,warning,failure"`
+	Tabs        []string                  `json:"tabs" enum:"downloading,seeding,problems,goal-met,all" nullable:"false" doc:"The Torrents view's tabs it shows under"`
+	Pending     string                    `json:"pending,omitempty" enum:"pause,resume" doc:"An Admin's pause or resume its Node hasn't applied yet"`
+	Size        int64                     `json:"size" minimum:"0" doc:"Bytes wanted"`
+	Done        int64                     `json:"done" minimum:"0" doc:"Bytes done as its Node last reported them; torrents.live carries the live figure"`
+	Uploaded    int64                     `json:"uploaded" minimum:"0" doc:"All-time bytes uploaded"`
+	Ratio       float64                   `json:"ratio" minimum:"0" doc:"Uploaded over the larger of downloaded and size"`
+	Seeding     int64                     `json:"seedingSeconds" minimum:"0" doc:"All-time seconds seeded"`
+	Announce    *trackerCell              `json:"announce,omitempty" doc:"Absent when its metainfo names no announce URL"`
+	Tracker     api.Nullable[trackerRef]  `json:"tracker" doc:"The Tracker its first Grab's Release reached, null when none did or it is in an external client"`
+	SeedingView api.Nullable[seedingView] `json:"seeding" doc:"Its seeding against its Tracker's rule and its seeding goal, null in an external client, whose own limits govern its seeding"`
+	Error       string                    `json:"error,omitempty" doc:"The engine's error message for the failure, or an external client's own words for its error"`
+	Fault       *fault                    `json:"fault,omitempty" doc:"The fault found in the release itself, once there is one"`
+	LastKnown   *time.Time                `json:"lastKnown,omitempty" doc:"When its Node last reported it, set while the row is stale for lastKnownCause"`
+	Stale       string                    `json:"lastKnownCause,omitempty" enum:"node,client,off" doc:"Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off"`
+	ImportAt    *time.Time                `json:"importAt,omitempty" doc:"When a finished external torrent imports, set while its client's Import delay runs"`
+	AtLimit     bool                      `json:"stoppedAtLimit,omitempty" doc:"Its external client stopped it at its seeding limit"`
+	AddedAt     time.Time                 `json:"addedAt"`
 }
 
 type trackerCell struct {
@@ -170,12 +178,19 @@ func rowOf(r downloadclients.Row) TorrentRow {
 		State: string(r.State), Hold: string(r.Hold), Until: when(r.Until), InLine: r.QueuePosition,
 		Severity: severityWords[r.Severity], Tabs: []string{}, Pending: pendingWords[r.Pending],
 		Size: r.Size, Done: r.Done, Uploaded: r.Totals.Uploaded, Ratio: downloadclients.Ratio(r.Totals, r.Size),
-		Seeding: int64(r.Totals.Seeding / time.Second), SeedingView: seedingOf(r.Seeding, r.Plan), Error: r.Error, LastKnown: when(r.LastKnown), AddedAt: r.AddedAt,
+		Seeding: int64(r.Totals.Seeding / time.Second), Error: r.Error, LastKnown: when(r.LastKnown), Stale: string(r.LastKnownCause), AddedAt: r.AddedAt,
+		DeleteFiles: r.DeleteFiles, ImportAt: when(r.ImportAt), AtLimit: r.StoppedAtLimit,
 	}
 	for _, t := range downloadclients.Tabs {
 		if r.Tabs&t != 0 {
 			out.Tabs = append(out.Tabs, tabWords[t])
 		}
+	}
+	if c := r.Client; c != nil {
+		out.ClientID, out.ClientName, out.ClientKind, out.Attached = new(c.ID.String()), c.Name, string(c.Kind), r.Attached
+	}
+	if r.Client == nil {
+		out.SeedingView = api.Some(seedingOf(r.Seeding, r.Plan))
 	}
 	if len(r.Uses) > 0 {
 		newest := r.Uses[0]
@@ -196,6 +211,9 @@ func rowOf(r downloadclients.Row) TorrentRow {
 	return out
 }
 
+// builtIn is the client filter for every Node's built-in client.
+const builtIn = "built-in"
+
 // when is t, nil for the zero time.
 func when(t time.Time) *time.Time {
 	if t.IsZero() {
@@ -210,6 +228,7 @@ type listInput struct {
 	Tracker     string   `query:"tracker" format:"uuid" doc:"Only the Torrents of this Tracker"`
 	NodeID      string   `query:"nodeId" format:"uuid"`
 	ContentType string   `query:"contentType"`
+	Client      string   `query:"client" pattern:"^(built-in|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$" doc:"Only one client's Torrents: an external client's id, or built-in for every Node's built-in client"`
 	Q           string   `query:"q" maxLength:"200" doc:"Matches the release name, the Grabs' release titles and their Works' labels, ignoring case"`
 }
 
@@ -261,6 +280,17 @@ func filterOf(in *listInput) (downloadclients.Filter, error) {
 			return f, err
 		}
 		f.Tracker = &indexers.TrackerID{UUID: u}
+	}
+	switch in.Client {
+	case "":
+	case builtIn:
+		f.Client = &downloadclients.ClientFilter{}
+	default:
+		u, err := storage.ParseUUID(in.Client)
+		if err != nil {
+			return f, err
+		}
+		f.Client = &downloadclients.ClientFilter{ID: &downloadclients.ClientID{UUID: u}}
 	}
 	if in.IDs != nil {
 		f.IDs = []downloadclients.ID{}
@@ -429,9 +459,11 @@ type actResult struct {
 }
 
 type refusal struct {
-	Code      string     `json:"code" enum:"not_found,removed,importing,not_stalled,offline,window,not_running,failed"`
+	Code      string     `json:"code" enum:"not_found,removed,importing,not_stalled,offline,client_away,client_off,window,not_running,failed"`
 	WorkID    *string    `json:"workId,omitempty" format:"uuid" doc:"importing: the Work whose import holds it"`
 	AcceptsAt *time.Time `json:"acceptsAt,omitempty" doc:"window: when every announce URL accepts an announce"`
+	Client    string     `json:"client,omitempty" doc:"client_away and client_off: the external client's name"`
+	Node      string     `json:"node,omitempty" doc:"client_away and client_off: the name of the external client's Node"`
 }
 
 type preview struct {
@@ -478,7 +510,7 @@ func (h handlers) actOnTorrents(ctx context.Context, _ identity.Admin, in *actIn
 	for i, r := range results {
 		out.Results[i] = actResult{ID: r.ID.String(), Done: r.Refusal == nil}
 		if f := r.Refusal; f != nil {
-			out.Results[i].Refusal = &refusal{Code: string(f.Code), AcceptsAt: when(f.AcceptsAt)}
+			out.Results[i].Refusal = &refusal{Code: string(f.Code), AcceptsAt: when(f.AcceptsAt), Client: f.Client, Node: f.Node}
 			if !f.Work.IsZero() {
 				out.Results[i].Refusal.WorkID = new(f.Work.String())
 			}

@@ -1,6 +1,7 @@
 package scenario
 
 import (
+	"fmt"
 	"regexp"
 	"slices"
 	"strconv"
@@ -30,7 +31,7 @@ type TMDBSeries struct {
 	OriginalLanguage string              `jsonschema:"pattern=^[a-z]{2}$" yaml:"original_language,omitempty"`
 	Overview         string              `yaml:"overview,omitempty"`
 	FirstAired       string              `jsonschema:"pattern=^[0-9]{4}-[0-9]{2}-[0-9]{2}$" yaml:"first_aired,omitempty"`
-	Network          *TMDBNamed          `yaml:"network,omitempty"`
+	Network          *TMDBNetwork        `yaml:"network,omitempty"`
 	Creators         []TMDBCast          `yaml:"creators,omitempty"`
 	Credits          TMDBCredits         `yaml:"credits,omitempty"`
 	Certifications   []TMDBCertification `yaml:"certifications,omitempty"`
@@ -139,6 +140,14 @@ type TMDBNamed struct {
 	Name string `jsonschema:"required"           yaml:"name"`
 }
 
+// TMDBNetwork is the network a series first aired on. Logo is as Profile
+// on TMDBCast.
+type TMDBNetwork struct {
+	ID   int64  `jsonschema:"required,minimum=1"                    yaml:"id"`
+	Name string `jsonschema:"required"                              yaml:"name"`
+	Logo string `jsonschema:"pattern=^/[A-Za-z0-9]+\\.(jpg|png|svg)$" yaml:"logo,omitempty"`
+}
+
 // TMDBImage is one image. Language is empty for an image with no text.
 // Path is the TMDB file path of a recorded image in the artwork store,
 // and Width and Height the size TMDB lists for its original. Without a
@@ -153,7 +162,8 @@ type TMDBImage struct {
 }
 
 var (
-	imdbID   = regexp.MustCompile(`^tt\d{7,}$`)
+	// IMDbID is an IMDb title id.
+	IMDbID   = regexp.MustCompile(`^tt\d{7,}$`)
 	dayDate  = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 	country  = regexp.MustCompile(`^[A-Z]{2}$`)
 	language = regexp.MustCompile(`^[a-z]{2}-[A-Z]{2}$`)
@@ -173,7 +183,7 @@ func (c TMDB) check(add func(format string, args ...any)) {
 		if slices.ContainsFunc(c.Movies[:i], func(o TMDBMovie) bool { return o.ID == m.ID }) {
 			add("tmdb movie %d is listed twice", m.ID)
 		}
-		if !imdbID.MatchString(m.IMDbID) {
+		if !IMDbID.MatchString(m.IMDbID) {
 			add("tmdb movie %d imdb_id %q is not tt and seven or more digits", m.ID, m.IMDbID)
 		}
 		if m.Title == "" {
@@ -201,6 +211,14 @@ func (c TMDB) checkGenerated(add func(format string, args ...any)) {
 		}
 		if s.FirstAired != "" && !isDay(s.FirstAired) {
 			add("tmdb series %d first_aired %q is not YYYY-MM-DD", s.ID, s.FirstAired)
+		}
+		of := fmt.Sprintf("tmdb series %d", s.ID)
+		checkArtwork(add, of, s.Images, s.Credits)
+		for _, c := range s.Creators {
+			checkFile(add, of, "profile", c.Profile)
+		}
+		if s.Network != nil {
+			checkFile(add, of, "network logo", s.Network.Logo)
 		}
 	}
 	if g := c.Generated; g != nil && (g.Count < 1 || g.Count > MaxGenerated || g.Seed == "") {
@@ -238,39 +256,41 @@ func (m TMDBMovie) checkRecord(add func(format string, args ...any)) {
 			add("tmdb movie %d translation %s is listed twice", m.ID, t.Language)
 		}
 	}
-	m.checkArtwork(add)
+	checkArtwork(add, fmt.Sprintf("tmdb movie %d", m.ID), m.Images, m.Credits)
 }
 
-func (m TMDBMovie) checkArtwork(add func(format string, args ...any)) {
-	for _, im := range m.Images {
+// checkArtwork checks the images and photos of one record, which of
+// names, such as "tmdb movie 603".
+func checkArtwork(add func(format string, args ...any), of string, ims []TMDBImage, credits TMDBCredits) {
+	for _, im := range ims {
 		if !slices.Contains([]string{"poster", "backdrop", "logo"}, im.Shape) {
-			add("tmdb movie %d image shape %q is not poster, backdrop or logo", m.ID, im.Shape)
+			add("%s image shape %q is not poster, backdrop or logo", of, im.Shape)
 		}
 		if im.Path == "" && (im.Width != 0 || im.Height != 0) {
-			add("tmdb movie %d %s image has a size and no path", m.ID, im.Shape)
+			add("%s %s image has a size and no path", of, im.Shape)
 		}
 		if im.Path != "" && (im.Width < 1) != (im.Height < 1) {
-			add("tmdb movie %d image %s has width %d and height %d; set both or neither", m.ID, im.Path, im.Width, im.Height)
+			add("%s image %s has width %d and height %d; set both or neither", of, im.Path, im.Width, im.Height)
 		}
-		checkFile(add, m.ID, "image", im.Path)
+		checkFile(add, of, "image", im.Path)
 	}
-	for _, c := range m.Credits.Cast {
-		checkFile(add, m.ID, "profile", c.Profile)
+	for _, c := range credits.Cast {
+		checkFile(add, of, "profile", c.Profile)
 	}
-	for _, c := range m.Credits.Crew {
-		checkFile(add, m.ID, "profile", c.Profile)
+	for _, c := range credits.Crew {
+		checkFile(add, of, "profile", c.Profile)
 	}
 }
 
 // checkFile checks a recorded file's path, when the record names one.
-func checkFile(add func(format string, args ...any), id int64, what, p string) {
+func checkFile(add func(format string, args ...any), of, what, p string) {
 	switch {
 	case p == "":
 	case !ArtworkFile.MatchString(p):
-		add("tmdb movie %d %s %q is not a TMDB file path such as /abc123.jpg", id, what, p)
+		add("%s %s %q is not a TMDB file path such as /abc123.jpg", of, what, p)
 	default:
 		if _, ok := artworkStore.Lookup(p); !ok {
-			add("tmdb movie %d %s %s is not in fakes/internal/artwork/files", id, what, p)
+			add("%s %s %s is not in fakes/internal/artwork/files", of, what, p)
 		}
 	}
 }

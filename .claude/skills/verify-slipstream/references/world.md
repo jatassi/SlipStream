@@ -26,6 +26,8 @@ Each Node reaches each fake through its own front, a listener on `127.0.0.1` tha
 | `smtp` | the SMTP server an Admin saves, plaintext with STARTTLS or implicit TLS on one front |
 | `seeders` or `seeders/<release>` | every swarm byte from the fake seeders, TCP only |
 | `link/<node>` | the Node link to the Node that listens, for example `link/home` |
+| `transmission` | fake-transmission's RPC (route `rpc`), on a Scenario that gives the Node a Transmission, such as `external-clients`. The world typed its front as the client's address |
+| `qbittorrent`, `deluge`, `rtorrent` | fake-qbittorrent's WebUI API (route `webui`), fake-deluge's JSON-RPC (route `json`) and fake-rtorrent's XML-RPC (route `rpc`), on a Scenario that gives the Node that kind, such as `external-kinds`. The world typed each front as the client's address |
 | `dht` | KRPC queries to fake-dht, the Node's one DHT router. A UDP socket per Node, not a front, so fault rules don't play on it |
 | `tracker-udp` | BEP 15 announces of public releases, whose `.torrent` and magnet link name it. A UDP socket per Node, not a front, so fault rules don't play on it |
 

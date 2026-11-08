@@ -312,7 +312,7 @@ func withSeries(s scenario.Scenario) scenario.Scenario {
 	s.TMDB.Series = []scenario.TMDBSeries{
 		{
 			ID: 9000001, TVDB: 70001, Name: "The Lantern Keepers", Overview: "Two keepers tend a lighthouse.", FirstAired: "2022-03-04",
-			Network:        &scenario.TMDBNamed{ID: 93001, Name: "Harbor One"},
+			Network:        &scenario.TMDBNetwork{ID: 93001, Name: "Harbor One"},
 			Creators:       []scenario.TMDBCast{{ID: 91003, Name: "Ines Calder"}},
 			Credits:        scenario.TMDBCredits{Cast: []scenario.TMDBCast{{ID: 91001, Name: "Mara Venn", Character: "Ada"}}},
 			Certifications: []scenario.TMDBCertification{{Country: "US", Rating: "TV-14"}, {Country: "DE", Rating: "12"}},
@@ -460,6 +460,29 @@ func TestSeriesCuesChangeTheSeriesListOnly(t *testing.T) {
 		}
 		if got := get(t, f, "/3/movie/9000001"); !strings.Contains(got, "200 OK") {
 			t.Errorf("the movie sharing the deleted series' id = %s, want 200", got)
+		}
+	})
+}
+
+func TestARecordedSeriesAnswersItsCreatorsPhotosAndNetworkLogo(t *testing.T) {
+	s := withSeries(load(t, "single-machine"))
+	s.TMDB.Series[0].Creators[0].Profile = "/creat0r.jpg"
+	s.TMDB.Series[0].Network.Logo = "/netw0rk.svg"
+	inBothTiers(t, s, func(t *testing.T, f faketest.Served) {
+		var record struct {
+			CreatedBy []struct {
+				ProfilePath string `json:"profile_path"`
+			} `json:"created_by"`
+			Networks []struct {
+				LogoPath string `json:"logo_path"`
+			} `json:"networks"`
+		}
+		body := get(t, f, "/3/tv/9000001")
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(body, "200 OK ")), &record); err != nil {
+			t.Fatalf("GET /3/tv/9000001 = %s: %v", body, err)
+		}
+		if len(record.CreatedBy) != 1 || record.CreatedBy[0].ProfilePath != "/creat0r.jpg" || len(record.Networks) != 1 || record.Networks[0].LogoPath != "/netw0rk.svg" {
+			t.Errorf("GET /3/tv/9000001 = %s, want the recorded creator photo and network logo", body)
 		}
 	})
 }

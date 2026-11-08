@@ -519,6 +519,38 @@ func (q *Queries) InsertTarget(ctx context.Context, arg InsertTargetParams) erro
 	return err
 }
 
+const listDownloading = `-- name: ListDownloading :many
+SELECT id, work_id FROM grabs_grab WHERE torrent_id = ?1 AND stage = 'downloading' ORDER BY id
+`
+
+type ListDownloadingRow struct {
+	ID     GrabID
+	WorkID works.WorkID
+}
+
+func (q *Queries) ListDownloading(ctx context.Context, torrentID downloadclients.ID) ([]ListDownloadingRow, error) {
+	rows, err := q.db.QueryContext(ctx, listDownloading, torrentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDownloadingRow
+	for rows.Next() {
+		var i ListDownloadingRow
+		if err := rows.Scan(&i.ID, &i.WorkID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEveryGrabTarget = `-- name: ListEveryGrabTarget :many
 SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_target.target_id
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
@@ -1252,6 +1284,29 @@ UPDATE grabs_grab SET root_id = NULL WHERE root_id = ?1 AND stage IN ('imported'
 
 func (q *Queries) ReleaseRoot(ctx context.Context, rootID roots.ID) error {
 	_, err := q.db.ExecContext(ctx, releaseRoot, rootID)
+	return err
+}
+
+const repoint = `-- name: Repoint :exec
+UPDATE grabs_grab SET torrent_id = ?1, node_id = ?2, updated_at = ?3
+WHERE torrent_id = ?4 AND stage = 'downloading'
+`
+
+type RepointParams struct {
+	ToID      downloadclients.ID
+	NodeID    role.NodeID
+	UpdatedAt storage.Time
+	FromID    downloadclients.ID
+}
+
+// send-to moves every Grab downloading a Torrent with it.
+func (q *Queries) Repoint(ctx context.Context, arg RepointParams) error {
+	_, err := q.db.ExecContext(ctx, repoint,
+		arg.ToID,
+		arg.NodeID,
+		arg.UpdatedAt,
+		arg.FromID,
+	)
 	return err
 }
 

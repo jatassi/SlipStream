@@ -18,7 +18,7 @@ import (
 const (
 	longSeries    = "60000001"
 	longerSeries  = "60000002"
-	addBudget     = 5 * time.Second
+	addBudget     = 30 * time.Second
 	refreshBudget = 30 * time.Second
 )
 

@@ -446,3 +446,52 @@ func TestGesturesAreThePlansVerdicts(t *testing.T) {
 		}
 	}
 }
+
+func seedboxWithClients(kept ...string) nodes.Situation {
+	sb := seat(seedbox, role.Of(role.Searching, role.Downloading))
+	sb.Held = map[role.Name]nodes.Held{role.Downloading: torrents}
+	sb.Keeps = map[role.Name][]string{role.Downloading: kept}
+	return situation(seat(home, homeRoles), sb)
+}
+
+func TestUntickingDownloadingOnANodeWithExternalClientsIsBlocked(t *testing.T) {
+	for _, c := range []struct {
+		kept []string
+		want string
+	}{
+		{[]string{"Transmission"}, "seedbox still has Transmission. Delete it, or move it to another Node that downloads, first."},
+		{[]string{"Transmission", "qBittorrent"}, "seedbox still has Transmission and qBittorrent. Delete them, or move them to another Node that downloads, first."},
+	} {
+		s := seedboxWithClients(c.kept...)
+		out := nodes.Plan(s, nodes.SetRoles{Want: nodes.Roles{seedbox.ID: role.Of(role.Searching)}})
+		if !out.Blocked() || !slices.Equal(reasons(out), []nodes.Reason{nodes.KeepsConfig}) {
+			t.Fatalf("checks = %+v, want Downloading kept by its clients", out.Checks)
+		}
+		if got := out.Checks[0].Words; got != c.want {
+			t.Errorf("the block reads %q, want %q", got, c.want)
+		}
+		if removed := nodes.Plan(s, nodes.Remove{Node: seedbox.ID}); !slices.Contains(reasons(removed), nodes.KeepsConfig) {
+			t.Errorf("removing seedbox without a write-off checks %+v, want it kept by its clients too", removed.Checks)
+		}
+	}
+	s := seedboxWithClients("Transmission")
+	for _, g := range nodes.Gestures(s) {
+		if g.Role == role.Downloading && g.From == seedbox.ID && (g.Verdict != nodes.Block || g.Word != "Has Transmission") {
+			t.Errorf("dragging Downloading off seedbox reads %v %q, want blocked by Transmission", g.Verdict, g.Word)
+		}
+	}
+	if out := nodes.Plan(s, nodes.SetRoles{Want: nodes.Roles{seedbox.ID: role.Of(role.Downloading)}}); out.Blocked() {
+		t.Errorf("unticking only Searching checks %+v, want it allowed", out.Checks)
+	}
+}
+
+func TestAWriteOffStillTakesDownloadingOffANodeWithExternalClients(t *testing.T) {
+	s := seedboxWithClients("Transmission")
+	out := nodes.Plan(s, nodes.WriteOff{Node: seedbox.ID, Roles: role.Of(role.Downloading)})
+	if out.Blocked() || out.Next[seedbox.ID].Has(role.Downloading) {
+		t.Fatalf("writing off seedbox's Downloading checks %+v, next %v; want it to go through", out.Checks, out.Next)
+	}
+	if removed := nodes.Plan(s, nodes.Remove{Node: seedbox.ID, WriteOff: true}); removed.Blocked() {
+		t.Errorf("removing seedbox with a write-off checks %+v, want it to go through", removed.Checks)
+	}
+}

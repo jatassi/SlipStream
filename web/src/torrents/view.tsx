@@ -1,11 +1,11 @@
-import { useListTorrentsSuspense } from "../api/gen/query/downloadclients/downloadclients";
 import { useNow } from "../tasks/use-now";
 import { StatusSentence } from "../ui/status-sentence";
 import { Browse, type Seams, type TorrentsSearch } from "./browse";
+import { ClientCards } from "./client-cards";
 import { NoTorrents } from "./empty";
 import { GoalMetPreview } from "./goal-met";
 import { useNames } from "./names";
-import { type Scope, scoped } from "./scope";
+import { type Scope, useScopedTorrents } from "./scope";
 import { Signals } from "./signals";
 import { signalsOf, torrentsSentence } from "./summary";
 
@@ -23,16 +23,22 @@ export function TorrentsView({
   onSearchChange: (change: Partial<TorrentsSearch>) => void;
   scope?: Scope | undefined;
 }) {
-  const all = useListTorrentsSuspense().data;
-  const list = scope === undefined ? all : scoped(all, scope.keep);
+  const list = useScopedTorrents(scope);
   const names = useNames();
   const clock = { now: useNow(wordsTick), zone: undefined };
+  const cards = <ClientCards rows={list.rows} clock={clock} />;
   if (list.rows.length === 0) {
-    return scope === undefined ? <NoTorrents /> : scope.empty;
+    return (
+      <>
+        {cards}
+        {scope === undefined ? <NoTorrents /> : scope.empty}
+      </>
+    );
   }
   const signals = signalsOf(list.rows, names.node, clock);
   return (
     <>
+      {cards}
       <div className="mb-6">
         <StatusSentence parts={torrentsSentence(list.counts, signals)} />
       </div>

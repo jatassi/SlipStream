@@ -17,6 +17,7 @@ import {
   getListLibraryMockHandler,
 } from "../api/gen/query/works/works.msw";
 import { artworkHandlers, artworkUrl } from "./ambient/fixtures";
+import { downloadClients } from "./download-clients";
 import { cinema, libraryRow, orchardId, orchardRow } from "./library";
 import { home, homeId, nodesAre, seedbox, seedboxId } from "./nodes";
 import { targetHandlers } from "./targets";
@@ -70,6 +71,7 @@ export function torrent(row: Partial<Row> & Pick<Row, "state">): Row {
   return {
     id: `7a000000-0000-4000-8000-${tail}`,
     nodeId: homeId,
+    deleteFiles: true,
     name: `Release.${serial}.1080p.WEB-DL`,
     contentType: "cinema",
     severity: "none",
@@ -171,12 +173,14 @@ function detailHandler(
 }
 
 /**
- * The Controller's Torrents and what the view reads beside them. `rows` is
- * what GET /torrents answers from now on; `asked` records each ids splice.
+ * The Controller's Torrents and what the view reads beside them, the
+ * Download Clients list among them. `rows` is what GET /torrents answers
+ * from now on; `asked` records each ids splice.
  */
 export function torrentsServer(
   initial: readonly Row[],
   details: (row: Row) => DownloadclientsTorrentDetail = (row) => detailOf(row),
+  clients: ReturnType<typeof downloadClients> = downloadClients(),
 ) {
   let rows = [...initial];
   const asked: string[][] = [];
@@ -203,6 +207,7 @@ export function torrentsServer(
         ],
       }),
       ...targetHandlers(),
+      ...clients.handlers,
     ],
     asked,
     become(next: readonly Row[]) {

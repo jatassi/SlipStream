@@ -51,6 +51,13 @@ import type {
   SearchWork409,
   SearchWork422,
   SearchWork500,
+  SendGrabTo401,
+  SendGrabTo403,
+  SendGrabTo404,
+  SendGrabTo409,
+  SendGrabTo422,
+  SendGrabTo500,
+  SendToInputBody,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -289,6 +296,119 @@ export function useGetGrabSuspense<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getSendGrabToUrl = (grabId: string) => {
+  return `/api/v1/grabs/${grabId}/send-to`;
+};
+
+/**
+ * @summary Send a downloading Grab's torrent to another Download Client
+ */
+export const sendGrabTo = async (
+  grabId: string,
+  sendToInputBody: SendToInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<void>(getSendGrabToUrl(grabId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(sendToInputBody),
+  });
+};
+
+export const getSendGrabToMutationKey = () => ["sendGrabTo"] as const;
+
+export const getSendGrabToMutationOptions = <
+  TError = ErrorType<
+    SendGrabTo401 | SendGrabTo403 | SendGrabTo404 | SendGrabTo409 | SendGrabTo422 | SendGrabTo500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendGrabTo>>,
+    TError,
+    SendGrabToMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendGrabTo>>,
+  TError,
+  SendGrabToMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSendGrabToMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendGrabTo>>,
+    SendGrabToMutationVariables
+  > = (props) => {
+    const { grabId, data } = props ?? {};
+
+    return sendGrabTo(grabId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendGrabToMutationResult = NonNullable<Awaited<ReturnType<typeof sendGrabTo>>>;
+export type SendGrabToMutationBody = SendToInputBody;
+export type SendGrabToMutationError = ErrorType<
+  SendGrabTo401 | SendGrabTo403 | SendGrabTo404 | SendGrabTo409 | SendGrabTo422 | SendGrabTo500
+>;
+export type SendGrabToMutationVariables = { grabId: string; data: SendToInputBody };
+
+/**
+ * @summary Send a downloading Grab's torrent to another Download Client
+ */
+export const useSendGrabTo = <
+  TError = ErrorType<
+    SendGrabTo401 | SendGrabTo403 | SendGrabTo404 | SendGrabTo409 | SendGrabTo422 | SendGrabTo500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof sendGrabTo>>,
+      TError,
+      SendGrabToMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof sendGrabTo>>,
+  TError,
+  SendGrabToMutationVariables,
+  TContext
+> => {
+  return useMutation(getSendGrabToMutationOptions(options), queryClient);
+};
 export const getListIndexerGrabsUrl = (id: string, params?: ListIndexerGrabsParams) => {
   const normalizedParams = new URLSearchParams();
 

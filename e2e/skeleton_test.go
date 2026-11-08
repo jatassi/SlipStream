@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -394,6 +395,10 @@ func filesUnder(t *testing.T, dir string) []string {
 	t.Helper()
 	var out []string
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if errors.Is(err, fs.ErrNotExist) && path != dir {
+			// The import removes its staging folder while the walk reads it; Until looks again.
+			return nil
+		}
 		if err != nil || d.IsDir() || d.Name() == storing.MarkerName {
 			return err
 		}

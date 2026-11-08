@@ -54,7 +54,7 @@ type upgradeNeed struct {
 type waitingNeed struct {
 	Kind   string `json:"kind" enum:"waiting"`
 	GrabID string `json:"grabId" format:"uuid"`
-	Code   string `json:"code" enum:"node_away" doc:"Why the Grab waits: node_away while its Node is out of step"`
+	Code   string `json:"code" enum:"node_away,client_away" doc:"Why the Grab waits: node_away while its Node is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention"`
 }
 
 type noRootNeed struct {

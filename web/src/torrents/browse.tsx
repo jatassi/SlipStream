@@ -14,6 +14,7 @@ export type TorrentsSearch = {
   readonly tab?: Tab | undefined;
   readonly node?: string | undefined;
   readonly type?: string | undefined;
+  readonly client?: string | undefined;
   readonly q?: string | undefined;
 };
 
@@ -33,7 +34,8 @@ type BrowseProps = Seams & {
   clock: Clock;
 };
 
-// The search box's text: deferred for the filter, and kept in the address.
+// The search box's text, deferred for the filter and kept in the address,
+// and a clear of every filter.
 function useDraft(
   initial: string | undefined,
   onSearchChange: (change: Partial<TorrentsSearch>) => void,
@@ -43,7 +45,11 @@ function useDraft(
     setDraft(next);
     onSearchChange({ q: next === "" ? undefined : next });
   };
-  return { draft, setDraft, q: useDeferredValue(draft), write };
+  const clear = () => {
+    setDraft("");
+    onSearchChange({ node: undefined, type: undefined, client: undefined, q: undefined });
+  };
+  return { draft, q: useDeferredValue(draft), write, clear };
 }
 
 export function Browse({
@@ -57,16 +63,12 @@ export function Browse({
   ...seams
 }: BrowseProps) {
   const shell = useShell();
-  const { draft, setDraft, q, write } = useDraft(search.q, onSearchChange);
+  const { draft, q, write, clear } = useDraft(search.q, onSearchChange);
   const tab = search.tab ?? (shell === "phone" ? "all" : "downloading");
-  const filter = { tab, node: search.node, type: search.type, q };
+  const filter = { tab, node: search.node, type: search.type, client: search.client, q };
   const shown = list.rows.filter((row) => matches(row, filter, names.work(row.workId)));
   const { picking, picked, clear: unpick } = usePicking(shown);
-  const narrowed = search.node !== undefined || search.type !== undefined || q !== "";
-  const clear = () => {
-    setDraft("");
-    onSearchChange({ node: undefined, type: undefined, q: undefined });
-  };
+  const narrowed = [search.node, search.type, search.client].some(Boolean) || q !== "";
   return (
     <>
       <Toolbar
@@ -75,6 +77,7 @@ export function Browse({
         rows={list.rows}
         node={search.node}
         type={search.type}
+        client={search.client}
         q={draft}
         onQChange={write}
         onChange={onSearchChange}

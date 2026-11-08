@@ -100,8 +100,9 @@ func addAttic(t *testing.T, lib library) works.WorkID {
 
 type noDownloads struct{}
 
-func (noDownloads) Touch(...role.NodeID)   {}
-func (noDownloads) Moved() <-chan struct{} { return nil }
+func (noDownloads) Touch(...role.NodeID)                  {}
+func (noDownloads) Moved() <-chan struct{}                { return nil }
+func (noDownloads) Retargeted(downloadclients.Retargeted) {}
 func (noDownloads) Sample(downloadclients.ID) (downloadclients.Sample, bool) {
 	return downloadclients.Sample{}, false
 }

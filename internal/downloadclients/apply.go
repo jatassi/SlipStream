@@ -14,7 +14,9 @@ import (
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/torrent/clients"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 )
 
@@ -41,7 +43,9 @@ type Config struct {
 	// Facts is a Node's latest client facts, false while it has none.
 	Facts func(role.NodeID) (*dlv1.Facts, bool)
 	// Remote is a Node's client as the Controller calls it.
-	Remote  func(role.NodeID) downloadingv1connect.DownloadingServiceHandler
+	Remote func(role.NodeID) downloadingv1connect.DownloadingServiceHandler
+	// Sealer seals and opens external clients' secrets.
+	Sealer  *secret.Sealer
 	Roster  Roster
 	Uses    Uses
 	Seeding Seeder
@@ -59,6 +63,8 @@ type Hub interface {
 type Roster interface {
 	// InStep reports whether node's Sync session is attached.
 	InStep(node role.NodeID) bool
+	// Holds reports whether node is assigned r, in step or not.
+	Holds(r role.Name, node role.NodeID) bool
 	// WrittenOff reports whether the Admin wrote off what node holds for
 	// r.
 	WrittenOff(r role.Name, node role.NodeID) bool
@@ -83,8 +89,12 @@ type Clients struct {
 }
 
 type pending struct {
-	ids    []ID
-	parted bool
+	ids []ID
+	// touch is a change to the Node's intent: a discard parted, a Torrent
+	// its client removed, or a wanted state its client changed.
+	touch bool
+	// polled is the clients whose poll state changed.
+	polled []ClientID
 }
 
 func New(cfg Config) *Clients {
@@ -107,28 +117,40 @@ func (c *Clients) Moved() <-chan struct{} {
 }
 
 // Apply records one of node's reports in tx: the Torrents' latest
-// reports, a totals batch, or a removal's confirmation. An id that is not
-// node's Torrent changes nothing. Applied tells the readers once tx
+// reports, a totals batch, a removal's confirmation, an external client's
+// poll, a torrent its client stopped listing, or an external client's raw
+// counters. An id that is not node's changes nothing, and each applies
+// alike when the outbox replays it. Applied tells the readers once tx
 // commits.
 func (c *Clients) Apply(ctx context.Context, tx *storage.Tx[file], node role.NodeID, rep *dlv1.Report) error {
 	var (
-		ids    []ID
-		parted bool
-		err    error
+		got pending
+		err error
 	)
 	q := db.New(tx)
 	switch k := rep.GetKind().(type) {
 	case *dlv1.Report_Torrents:
-		ids, err = applyReports(ctx, q, node, k.Torrents.GetReports())
+		got.ids, got.touch, err = applyReports(ctx, q, node, k.Torrents.GetReports())
 	case *dlv1.Report_Totals:
-		ids, err = applyTotals(ctx, tx, node, k.Totals.GetRows())
+		got.ids, err = applyTotals(ctx, tx, node, k.Totals.GetRows())
 	case *dlv1.Report_Parted:
 		var id ID
 		if id, err = idOf(k.Parted.GetId()); err == nil {
 			var n int64
 			n, err = q.SetParted(ctx, db.SetPartedParams{PartedAt: storage.Now(), Freed: new(k.Parted.GetFreed()), ID: id, NodeID: node})
-			ids, parted = []ID{id}, n > 0
+			got.ids, got.touch = []ID{id}, n > 0
 		}
+	case *dlv1.Report_Client:
+		got.polled, got.ids, err = applyPoll(ctx, q, node, k.Client)
+	case *dlv1.Report_Vanished:
+		var id ID
+		if id, err = idOf(k.Vanished.GetId()); err == nil {
+			var n int64
+			n, err = q.Vanish(ctx, db.VanishParams{At: storage.Now(), ID: id, NodeID: node})
+			got.ids, got.touch = []ID{id}, n > 0
+		}
+	case *dlv1.Report_ClientTotals:
+		got.ids, err = applyClientTotals(ctx, q, node, k.ClientTotals.GetRows())
 	default:
 		return fmt.Errorf("a report of kind %T", k)
 	}
@@ -142,14 +164,16 @@ func (c *Clients) Apply(ctx context.Context, tx *storage.Tx[file], node role.Nod
 		p = &pending{}
 		c.pending[node] = p
 	}
-	p.ids = append(p.ids, ids...)
-	p.parted = p.parted || parted
+	p.ids = append(p.ids, got.ids...)
+	p.touch = p.touch || got.touch
+	p.polled = append(p.polled, got.polled...)
 	return nil
 }
 
 // Applied is role.ControlsConfig.Applied: once node's Downloading reports
-// commit, it publishes the Torrents they changed, wakes what reads their
-// outcomes, and touches node's intent when a discard parted.
+// commit, it publishes the Torrents and client cards they changed, wakes
+// what reads their outcomes, and touches node's intent when they changed
+// it.
 func (c *Clients) Applied(node role.NodeID, scope string) {
 	if scope != string(role.Downloading) {
 		return
@@ -163,8 +187,11 @@ func (c *Clients) Applied(node role.NodeID, scope string) {
 		return
 	}
 	var touched []role.NodeID
-	if p.parted {
+	if p.touch {
 		touched = []role.NodeID{node}
+	}
+	if len(p.polled) > 0 {
+		c.clientsChanged(p.polled, node)
 	}
 	c.committed(touched, p.ids)
 }
@@ -194,25 +221,117 @@ func (c *Clients) wake() {
 	c.moved = make(chan struct{})
 }
 
-func applyReports(ctx context.Context, q *db.Queries, node role.NodeID, reports []*dlv1.TorrentReport) ([]ID, error) {
-	ids := make([]ID, 0, len(reports))
+// applyReports records each report, and whether one changed a Torrent's
+// wanted state.
+func applyReports(ctx context.Context, q *db.Queries, node role.NodeID, reports []*dlv1.TorrentReport) (ids []ID, touched bool, err error) {
+	ids = make([]ID, 0, len(reports))
 	for _, r := range reports {
 		id, err := idOf(r.GetId())
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		held, err := applyReport(ctx, q, node, id, r)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		if held {
-			ids = append(ids, id)
+		if !held {
+			continue
 		}
+		ids = append(ids, id)
+		changed, err := applyExternal(ctx, q, node, id, r)
+		if err != nil {
+			return nil, false, err
+		}
+		touched = touched || changed
 	}
-	return ids, nil
+	return ids, touched, nil
 }
 
-// applyReport records r, false when id is not node's Torrent.
+// applyExternal records what only an external client's report says: the
+// origin where none is recorded, and a pause or resume made in the client
+// as a compare and set on the wanted state, true when it landed. A stop at
+// the client's seeding limit is no pause, so it never changes wanted.
+func applyExternal(ctx context.Context, q *db.Queries, node role.NodeID, id ID, r *dlv1.TorrentReport) (bool, error) {
+	if o := r.GetOrigin(); o != dlv1.Origin_ORIGIN_UNSPECIFIED {
+		if err := q.SetOrigin(ctx, db.SetOriginParams{Attached: new(o == dlv1.Origin_ORIGIN_ATTACHED), ID: id, NodeID: node}); err != nil {
+			return false, err
+		}
+	}
+	wc := r.GetWantedChange()
+	if wc == nil || r.GetStoppedAtLimit() {
+		return false, nil
+	}
+	n, err := q.ChangeWanted(ctx, db.ChangeWantedParams{
+		FromWanted: string(wantedFromWire[wc.GetFrom()]), ToWanted: string(wantedFromWire[wc.GetTo()]), ID: id, NodeID: node,
+	})
+	return n > 0, err
+}
+
+// applyPoll stores p on its client when the client is node's and p ran
+// under settings at least as new as the stored poll's, naming the client
+// and its live Torrents, whose rows may turn stale or current, when it
+// did.
+func applyPoll(ctx context.Context, q *db.Queries, node role.NodeID, p *dlv1.ClientPoll) (polled []ClientID, held []ID, err error) {
+	u, err := storage.UUIDFromBytes(p.GetClientId())
+	if err != nil {
+		return nil, nil, fmt.Errorf("client id: %w", err)
+	}
+	id := ClientID{UUID: u}
+	state, ok := pollStateFromWire[p.GetState()]
+	if !ok {
+		return nil, nil, fmt.Errorf("client %s: a poll in state %s", id, p.GetState())
+	}
+	var problem *string
+	if pr := p.GetProblem(); pr != nil {
+		got, err := problemFromWire(pr)
+		if err != nil {
+			return nil, nil, fmt.Errorf("client %s: %w", id, err)
+		}
+		if problem, err = storedOf(got); err != nil {
+			return nil, nil, err
+		}
+	}
+	n, err := q.SetPoll(ctx, db.SetPollParams{
+		PollState: new(string(state)), PollSince: storage.FromTime(time.UnixMilli(p.GetSinceUnixMs())), PollProblem: problem,
+		PollSettingsVersion: new(p.GetSettingsVersion()), PollCheck: p.GetCheck(), ClientVersion: text(p.GetVersion()), ID: id, NodeID: node,
+	})
+	if err != nil || n == 0 {
+		return nil, nil, err
+	}
+	held, err = q.ListLiveOfClient(ctx, &id)
+	return []ClientID{id}, held, err
+}
+
+func problemFromWire(pr *dlv1.Problem) (clients.Problem, error) {
+	cause, ok := causeFromWire[pr.GetCause()]
+	if !ok {
+		return clients.Problem{}, fmt.Errorf("a problem with cause %s", pr.GetCause())
+	}
+	p := clients.Problem{
+		Cause: cause, Status: int(pr.GetStatus()), Folder: pr.GetFolder(), Paired: pr.GetPaired(), Host: pr.GetHost(), Missing: int(pr.GetMissing()),
+	}
+	if v := pr.GetVersion(); v != "" {
+		var err error
+		if p.Version, err = clients.ParseVersion(v); err != nil {
+			return clients.Problem{}, err
+		}
+	}
+	return p, nil
+}
+
+// storedOf is p as a poll's problem is stored.
+func storedOf(p clients.Problem) (*string, error) {
+	s := storedProblem{Cause: p.Cause, Status: p.Status, Folder: p.Folder, Paired: p.Paired, Host: p.Host, Missing: p.Missing}
+	if p.Cause == clients.VersionTooOld {
+		s.Version = p.Version.String()
+	}
+	b, err := json.Marshal(s)
+	if err != nil {
+		return nil, fmt.Errorf("encode the problem: %w", err)
+	}
+	return new(string(b)), nil
+}
+
 func applyReport(ctx context.Context, q *db.Queries, node role.NodeID, id ID, r *dlv1.TorrentReport) (bool, error) {
 	stored, err := json.Marshal(reportFrom(r))
 	if err != nil {
@@ -299,16 +418,22 @@ func idOf(b []byte) (ID, error) {
 
 func reportFrom(r *dlv1.TorrentReport) Report {
 	out := Report{
-		At:       time.UnixMilli(r.GetAtUnixMs()).UTC(),
-		Engine:   engineFromWire[r.GetEngine()],
-		Hold:     holdFromWire[r.GetHold()],
-		Complete: r.GetComplete(),
-		Stalled:  r.GetStalled(),
-		Error:    r.GetError(),
-		Done:     r.GetDone(),
+		At:             time.UnixMilli(r.GetAtUnixMs()).UTC(),
+		Engine:         engineFromWire[r.GetEngine()],
+		Hold:           holdFromWire[r.GetHold()],
+		Complete:       r.GetComplete(),
+		Stalled:        r.GetStalled(),
+		Error:          r.GetError(),
+		Done:           r.GetDone(),
+		Run:            wantedFromWire[r.GetRun()],
+		QueuePosition:  int(r.GetQueuePosition()),
+		StoppedAtLimit: r.GetStoppedAtLimit(),
 	}
 	if u := r.GetUntilUnixMs(); u != 0 {
 		out.Until = time.UnixMilli(u).UTC()
+	}
+	if u := r.GetImportAtUnixMs(); u != 0 {
+		out.ImportAt = time.UnixMilli(u).UTC()
 	}
 	for _, t := range r.GetTrackers() {
 		line := TrackerLine{Index: int(t.GetIndex()), Status: trackerFromWire[t.GetStatus()], Message: t.GetMessage()}
@@ -328,15 +453,16 @@ var (
 		dlv1.EngineState_ENGINE_STATE_FAILED:      EngineFailed,
 	}
 	holdFromWire = map[dlv1.Hold]Hold{
-		dlv1.Hold_HOLD_UNSPECIFIED: HoldNone,
-		dlv1.Hold_HOLD_WANTED:      HoldWanted,
-		dlv1.Hold_HOLD_WINDOW:      HoldWindow,
-		dlv1.Hold_HOLD_DISK_FULL:   HoldDiskFull,
-		dlv1.Hold_HOLD_SLOT:        HoldSlot,
-		dlv1.Hold_HOLD_CHECK_SLOT:  HoldCheckSlot,
-		dlv1.Hold_HOLD_DISK_GUARD:  HoldDiskGuard,
-		dlv1.Hold_HOLD_DRAINING:    HoldDraining,
-		dlv1.Hold_HOLD_CONTROLLER:  HoldController,
+		dlv1.Hold_HOLD_UNSPECIFIED:  HoldNone,
+		dlv1.Hold_HOLD_WANTED:       HoldWanted,
+		dlv1.Hold_HOLD_WINDOW:       HoldWindow,
+		dlv1.Hold_HOLD_DISK_FULL:    HoldDiskFull,
+		dlv1.Hold_HOLD_SLOT:         HoldSlot,
+		dlv1.Hold_HOLD_CHECK_SLOT:   HoldCheckSlot,
+		dlv1.Hold_HOLD_DISK_GUARD:   HoldDiskGuard,
+		dlv1.Hold_HOLD_DRAINING:     HoldDraining,
+		dlv1.Hold_HOLD_CONTROLLER:   HoldController,
+		dlv1.Hold_HOLD_CLIENT_ERROR: HoldClientError,
 	}
 	faultFromWire = map[dlv1.FaultKind]FaultKind{
 		dlv1.FaultKind_FAULT_KIND_ENGINE_ERROR: FaultEngineError,

@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -151,7 +150,7 @@ func writeMessage(w http.ResponseWriter, rc *http.ResponseController, names map[
 		if !ok {
 			return fmt.Errorf("api: %T is no event of this stream", m.Data)
 		}
-		data, err := json.Marshal(m.Data)
+		data, err := marshal(m.Data)
 		if err != nil {
 			return fmt.Errorf("api: encode %T: %w", m.Data, err)
 		}

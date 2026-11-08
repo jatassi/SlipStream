@@ -111,20 +111,24 @@ func averageRuntime(series scenario.TVDBSeries) *int {
 	return &avg
 }
 
-// originalLanguage is jpn for a series whose English name differs from
-// its own, else eng.
+// originalLanguage is the recorded one, else jpn for a series whose
+// English name differs from its own, else eng.
 func originalLanguage(series scenario.TVDBSeries) string {
-	if series.English != "" && series.English != series.Name {
+	switch {
+	case series.OriginalLanguage != "":
+		return series.OriginalLanguage
+	case series.English != "" && series.English != series.Name:
 		return "jpn"
+	default:
+		return "eng"
 	}
-	return "eng"
 }
 
 func englishName(series scenario.TVDBSeries) string { return cmp.Or(series.English, series.Name) }
 
 // overview is the series' English overview, marked by each Change cue.
 func overview(series scenario.TVDBSeries, rev int) string {
-	s := englishName(series) + " is a fictional series."
+	s := cmp.Or(series.Overview, englishName(series)+" is a fictional series.")
 	for n := range rev {
 		s = fmt.Sprintf("%s Revision %d.", s, n+1)
 	}
@@ -142,6 +146,13 @@ var statusIDs = map[string]int{"continuing": 1, "ended": 2, "upcoming": 3}
 var genreNames = []string{"Drama", "Comedy", "Mystery", "Science Fiction", "Documentary", "Animation", "Crime", "Fantasy"}
 
 func genres(series scenario.TVDBSeries) []genreJSON {
+	if len(series.Genres) > 0 {
+		out := make([]genreJSON, len(series.Genres))
+		for i, name := range series.Genres {
+			out[i] = genreJSON{ID: int(hash("genre", name) % 1000), Name: name, Slug: slug(name)}
+		}
+		return out
+	}
 	first := int(hash("genres", strconv.FormatInt(series.ID, 10)) % uint64(len(genreNames))) //nolint:gosec // G115: the remainder fits the list
 	second := (first + 1) % len(genreNames)
 	return []genreJSON{genreOf(first), genreOf(second)}
@@ -257,11 +268,11 @@ func base(series scenario.TVDBSeries) baseJSON {
 		langs = append(langs, l)
 	}
 	b := baseJSON{
-		ID: series.ID, Name: series.Name, Slug: slug(englishName(series)), Image: artwork("series", series.ID, "posters"),
+		ID: series.ID, Name: series.Name, Slug: slug(englishName(series)), Image: recorded(series.Image, "series", series.ID, "posters"),
 		NameTranslations: langs, OverviewTranslations: []string{"eng"}, Aliases: []aliasJSON{},
 		FirstAired: first, LastAired: last, NextAired: next,
 		Status:          statusJSON{ID: statusIDs[series.Status], Name: statusName(series), RecordType: "series", KeepUpdated: series.Status != "ended"},
-		OriginalCountry: "usa", OriginalLanguage: originalLanguage(series), DefaultSeasonType: aired.ID, LastUpdated: lastUpdated,
+		OriginalCountry: cmp.Or(series.OriginalCountry, "usa"), OriginalLanguage: originalLanguage(series), DefaultSeasonType: aired.ID, LastUpdated: lastUpdated,
 		AverageRuntime: averageRuntime(series),
 	}
 	if first != "" {
@@ -313,19 +324,24 @@ func (s *server) series(w http.ResponseWriter, r *http.Request) {
 	reply(w, http.StatusOK, envelope{Status: "success", Data: out})
 }
 
-// seasonsIn are the seasons of series in order t, each numbered once.
+// seasonsIn are the seasons of series in order t, each numbered once. An
+// Aired season answers its recorded name and poster.
 func seasonsIn(series scenario.TVDBSeries, t seasonType) []seasonJSON {
 	var out []seasonJSON
 	for _, e := range episodesIn(series, t) {
 		if slices.ContainsFunc(out, func(s seasonJSON) bool { return s.Number == e.season }) {
 			continue
 		}
+		var rec scenario.TVDBSeason
+		if i := slices.IndexFunc(series.Seasons, func(s scenario.TVDBSeason) bool { return s.Number == e.season }); i >= 0 && t == aired {
+			rec = series.Seasons[i]
+		}
 		sid := seasonID(series.ID, t, e.season)
 		season := seasonJSON{
-			ID: sid, SeriesID: series.ID, Number: e.season, Image: artwork("seasons", sid, "posters"), ImageType: 7, Type: t,
+			ID: sid, SeriesID: series.ID, Number: e.season, Name: rec.Name, Image: recorded(rec.Image, "seasons", sid, "posters"), ImageType: 7, Type: t,
 			NameTranslations: []string{}, OverviewTranslations: []string{}, LastUpdated: lastUpdated,
 		}
-		if e.season == 0 {
+		if e.season == 0 && season.Name == "" {
 			season.Name = "Specials"
 		}
 		out = append(out, season)
@@ -387,8 +403,8 @@ func (s *server) episodes(w http.ResponseWriter, r *http.Request) {
 		for _, e := range all[from:min(from+episodesPage, len(all))] {
 			out := episodeJSON{
 				ID: e.ID, SeriesID: series.ID, Name: e.Name, Aired: e.Aired, NameTranslations: []string{"eng"},
-				Overview: fmt.Sprintf("%s, an episode of %s.", e.Name, englishName(series)), OverviewTranslations: []string{"eng"},
-				Image: artwork("episodes", e.ID, "screencap"), ImageType: 11, Number: e.number, AbsoluteNumber: series.Absolute[e.ID],
+				Overview: cmp.Or(e.Overview, fmt.Sprintf("%s, an episode of %s.", e.Name, englishName(series))), OverviewTranslations: []string{"eng"},
+				Image: recorded(e.Image, "episodes", e.ID, "screencap"), ImageType: 11, Number: e.number, AbsoluteNumber: series.Absolute[e.ID],
 				SeasonNumber: e.season, LastUpdated: lastUpdated,
 			}
 			if e.Runtime > 0 {
@@ -448,7 +464,7 @@ func (s *server) search(w http.ResponseWriter, r *http.Request) {
 				Status: b.Status.Name, Type: "series", TVDBID: id, Year: b.Year, Slug: b.Slug,
 				Overviews:    map[string]string{"eng": overview(series, rev)},
 				Translations: map[string]string{"eng": englishName(series)},
-				Network:      series.Network, RemoteIDs: []remoteIDJSON{}, Thumbnail: strings.TrimSuffix(b.Image, ".jpg") + "_t.jpg",
+				Network:      series.Network, RemoteIDs: []remoteIDJSON{}, Thumbnail: thumbnail(b.Image),
 			}
 			if hit.Aliases == nil {
 				hit.Aliases = []string{}

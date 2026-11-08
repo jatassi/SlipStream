@@ -3,4 +3,5 @@ import type { Problem } from "./problem.ts";
 
 export type CreateSession429 = Problem & {
   code?: CreateSession429Code;
+  until?: string;
 };

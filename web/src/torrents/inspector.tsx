@@ -8,7 +8,7 @@ import { useInspected } from "./inspector-detail";
 import { Sections } from "./inspector-sections";
 import type { Row } from "./model";
 import type { Names } from "./names";
-import { inspectorSentence } from "./sentence";
+import { attachedSentence, inspectorSentence } from "./sentence";
 
 function Content({ row, names }: { row: Row; names: Names }) {
   const inspected = useInspected(row.id);
@@ -18,6 +18,9 @@ function Content({ row, names }: { row: Row; names: Names }) {
     <>
       <InspectorSection>
         <p className="text-sentence text-ink-1">{inspectorSentence(row, live, { node, clock })}</p>
+        {attachedSentence(row) !== undefined && (
+          <p className="mt-3 text-ink-2">{attachedSentence(row)}</p>
+        )}
         {row.fault !== undefined && (
           <p className="mt-3 flex flex-wrap items-center gap-2">
             <SignalChip kind="fail">Bad Release</SignalChip>

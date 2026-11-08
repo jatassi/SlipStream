@@ -2,14 +2,18 @@ import type { ShellCounts } from "../api/gen/model";
 import {
   getGetDownloadClientSettingsQueryKey,
   getListDownloadClientsQueryKey,
+  getListTorrentsQueryKey,
 } from "../api/gen/query/downloadclients/downloadclients";
 import { getGetTopologyQueryKey } from "../api/gen/query/nodes/nodes";
 import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
 import { getPreviewSeedingGoalsQueryKey } from "../api/gen/query/trackers/trackers";
+import { everyPath } from "./refresh";
 import { torrentsSplicer } from "./torrents-splice";
 import { takeTorrents } from "./torrents";
 import { transferEffects } from "./transfer-effects";
 import type { LiveEffects } from "./types";
+
+const everyWorksCells = everyPath(/^\/api\/v1\/works\/[^/]+\/cells$/u);
 
 export const downloadEffects = {
   ...transferEffects,
@@ -31,6 +35,11 @@ export const downloadEffects = {
     refresh({ queryKey: getListDownloadClientsQueryKey() });
     for (const nodeId of data.nodeIds) {
       refresh({ queryKey: getGetDownloadClientSettingsQueryKey(nodeId) });
+    }
+    // A client's reach moves every row's last known and its Grabs' client_away.
+    if (data.clientIds.length > 0) {
+      refresh({ queryKey: getListTorrentsQueryKey() });
+      refresh(everyWorksCells);
     }
   },
 } satisfies Pick<

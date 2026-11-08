@@ -4,6 +4,22 @@
 
 package db
 
+import (
+	"github.com/jatassi/slipstream/internal/storage"
+)
+
+type DownloadingExternal struct {
+	ClientID   storage.UUID
+	InfoHash   []byte
+	Origin     *string
+	SentAt     storage.Time
+	Resends    int64
+	Seen       bool
+	Applied    *string
+	FinishedAt storage.Time
+	Completed  bool
+}
+
 type DownloadingTorrent struct {
 	InfoHash   []byte
 	SaveFolder string

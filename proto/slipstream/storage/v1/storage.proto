@@ -195,6 +195,10 @@ enum Purpose {
   // DOWNLOADS: where the Node downloads, writable, on no network share,
   // and apart from every root it holds.
   PURPOSE_DOWNLOADS = 2;
+  // CLIENT_FOLDER: an external Download Client's download folder as its
+  // Node sees it: readable, on any volume, and apart from every root the
+  // Node holds. It is never written.
+  PURPOSE_CLIENT_FOLDER = 3;
 }
 
 message Other {

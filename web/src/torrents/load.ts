@@ -1,7 +1,10 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
-import { getListTorrentsSuspenseQueryOptions } from "../api/gen/query/downloadclients/downloadclients";
+import {
+  getListDownloadClientsSuspenseQueryOptions,
+  getListTorrentsSuspenseQueryOptions,
+} from "../api/gen/query/downloadclients/downloadclients";
 import { getListNodesSuspenseQueryOptions } from "../api/gen/query/nodes/nodes";
 import {
   getListCutsSuspenseQueryOptions,
@@ -17,12 +20,14 @@ export const torrentsSearch = z.object({
     .enum(["downloading", "seeding", "problems", "goal-met", "all"])
     .optional()
     .catch(undefined),
+  client: z.string().optional().catch(undefined),
 });
 
 /** What a Torrents page reads before it draws. */
 export const loadTorrents = (queryClient: QueryClient) =>
   Promise.all([
     ensureQuery(queryClient, getListTorrentsSuspenseQueryOptions()),
+    ensureQuery(queryClient, getListDownloadClientsSuspenseQueryOptions()),
     ensureLibrary(queryClient),
     ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
     ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),

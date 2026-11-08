@@ -1,0 +1,72 @@
+name: codeql
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "41 5 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          # The default setup's autobuild builds every go.mod it finds,
+          # including the broken fixture modules under testdata, and builds
+          # libtorrent's cgo without the native bundle. A real build from
+          # the root sees only the shipped packages.
+          - language: go
+            build-mode: manual
+          - language: c-cpp
+            build-mode: none
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+      - name: Set up Go and restore the Go caches
+        if: matrix.build-mode == 'manual'
+        uses: ./.github/actions/go
+        with:
+          cache: go-linux-amd64
+      - name: Restore the native layers cache
+        if: matrix.build-mode == 'manual'
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/slipstream-native
+          key: native-linux-amd64-${{ hashFiles('native/lock.json') }}
+      # Before init, so the Go tracer never sees these go run calls.
+      - name: Fetch the native bundle
+        if: matrix.build-mode == 'manual'
+        run: |
+          go run ./cmd/release deps fetch
+          go run ./cmd/release deps env > "$RUNNER_TEMP/native.env"
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+      - name: Build
+        if: matrix.build-mode == 'manual'
+        run: |
+          . "$RUNNER_TEMP/native.env"
+          go build ./...
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}

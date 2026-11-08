@@ -132,11 +132,15 @@ type Purpose uint8
 const (
 	PurposeRoot Purpose = iota + 1
 	PurposeDownloads
+	// PurposeClientFolder is an external Download Client's download folder
+	// as its Node sees it. The client writes it, so it is never written.
+	PurposeClientFolder
 )
 
 var purposes = enum[Purpose, storagev1.Purpose]{
 	{PurposeRoot, storagev1.Purpose_PURPOSE_ROOT, "root"},
 	{PurposeDownloads, storagev1.Purpose_PURPOSE_DOWNLOADS, "downloads"},
+	{PurposeClientFolder, storagev1.Purpose_PURPOSE_CLIENT_FOLDER, "client_folder"},
 }
 
 func (p Purpose) String() string                    { return purposes.of(p).word }

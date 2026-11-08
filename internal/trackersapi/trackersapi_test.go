@@ -45,6 +45,7 @@ func (roster) WrittenOff(role.Name, role.NodeID) bool { return false }
 func (roster) Changed() <-chan struct{}               { return nil }
 func (roster) Serving(role.Name) []role.NodeID        { return nil }
 func (roster) Draining(role.Name, role.NodeID) bool   { return false }
+func (roster) Holds(role.Name, role.NodeID) bool      { return true }
 
 // late is the Trackers' seeder once they are made, after the clients.
 type late struct{ x **trackers.Trackers }

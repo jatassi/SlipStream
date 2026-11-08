@@ -144,7 +144,7 @@ func attachSeeded(t *testing.T, controller node.Half, swarm *enginetest.World, b
 			if err != nil {
 				return err
 			}
-			want := downloadclients.Want{Node: box, Metainfo: m, Raw: raw, ContentType: works.TypeID("movie"), WrittenOff: func(role.NodeID) bool { return false }}
+			want := downloadclients.Want{Target: downloadclients.Target{Node: box}, Metainfo: m, Raw: raw, ContentType: works.TypeID("movie"), WrittenOff: func(role.NodeID) bool { return false }}
 			id, _, err := downloadclients.Attach(ctx, tx, want, storage.Now())
 			if err != nil {
 				return err

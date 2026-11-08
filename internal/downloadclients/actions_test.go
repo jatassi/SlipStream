@@ -40,6 +40,10 @@ func (r *roster) Serving(name role.Name) []role.NodeID {
 	return slices.Clone(r.serving)
 }
 
+func (r *roster) Holds(name role.Name, node role.NodeID) bool {
+	return slices.Contains(r.Serving(name), node)
+}
+
 func (r *roster) InStep(node role.NodeID) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -288,7 +292,7 @@ func newShelf(t *testing.T) shelf {
 	box := addNode(t, lib, "seedbox")
 	add := func(name string) dc.ID {
 		m, raw := dotTorrent(t, name)
-		id, _ := mustAttach(t, lib, dc.Want{Node: box, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+		id, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: box}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 		return id
 	}
 	s := shelf{lib: lib, box: box, orchard: add("Orchard"), attic: add("Attic"), harbor: add("Harbor")}

@@ -2,20 +2,26 @@ package sim
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"log/slog"
 	"math/rand/v2"
+	"net/netip"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
+	"github.com/jatassi/slipstream/fakes/internal/clientfake"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/omdb"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/site"
 	"github.com/jatassi/slipstream/fakes/tmdb"
 	"github.com/jatassi/slipstream/fakes/tvdb"
+	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/internal/setup"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/contenttype"
@@ -72,21 +78,32 @@ type walk struct {
 	served []bencode.Metainfo
 	hashes map[string]bencode.InfoHash
 	probes map[string]media.Probe
+	// clients is where each Node reaches the fake Download Client of each
+	// kind, and the folder that client downloads into, by Node then kind.
+	clients map[string]map[string]clientAt
+	// envs are the client fakes' Envs, by kind.
+	envs map[string]fake.Env
 }
+
+type clientAt struct{ url, folder string }
 
 // startWalk serves the walk's fakes on local and points endpoints at them.
 func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *servers, listed func(*site.Release), endpoints *node.EndpointsBlock) *walk {
 	t.Helper()
+	base := shortTempDir(t)
 	w := &walk{
-		mediaDir: filepath.Join(shortTempDir(t), "media"),
+		mediaDir: filepath.Join(base, "media"),
 		payloads: map[bencode.InfoHash][]byte{},
 		hashes:   map[string]bencode.InfoHash{},
 		probes:   map[string]media.Probe{},
+		clients:  map[string]map[string]clientAt{},
+		envs:     map[string]fake.Env{},
 	}
 	imdb := imdbIDs(s)
 	w.announce = siteAnnounces(s)
 	announce := "https://127.0.0.1/announce/" + releases.Passkey(s, releases.Seeders)
 	var listing []site.Release
+	catalog := &releases.Catalog{}
 	for _, r := range s.Releases {
 		payload := Payload(r.Name)
 		meta, hash, err := releases.Metainfo(r.Name+".mkv", payload, announce, r.Public)
@@ -94,6 +111,11 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 			t.Fatal(err)
 		}
 		w.hashes[r.Name] = hash
+		file := filepath.Join(base, r.Name+".mkv")
+		if err := os.WriteFile(file, payload, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		catalog.Releases = append(catalog.Releases, releases.Release{Release: r, Dir: base, File: file, Size: int64(len(payload)), Metainfo: meta, InfoHash: hash})
 		if r.Seeded {
 			w.payloads[hash] = payload
 		}
@@ -121,7 +143,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 		listing = append(listing, item)
 	}
 	log := slog.New(slog.NewTextHandler(t.Output(), nil))
-	faults := fault.NewPlan([]fault.Front{{Target: fault.Target(site.Fake.Name), Layers: fault.HTTP}}, nil)
+	faults := fault.NewPlan(append([]fault.Front{{Target: fault.Target(site.Fake.Name), Layers: fault.HTTP}}, clientFronts(s)...), nil)
 	w.faults = faults
 	for _, spec := range []fake.Spec{tmdb.Fake, omdb.Fake, tvdb.Fake} {
 		server, err := spec.New(s, fake.NewEnv(s, spec, log, faults, nil))
@@ -132,6 +154,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 	}
 	w.site = fakes.serve(t, local, fake.HTTP(fake.NewEnv(s, site.Fake, log, faults, nil), site.Routes(s, listing, func(label, _ string, _ bool) (string, error) { return w.announce[label], nil })))
 	site.Fake.Endpoints(endpoints, w.site)
+	w.serveClients(t, s, local, fakes, catalog, filepath.Join(base, "fakes"), log)
 	return w
 }
 
@@ -158,6 +181,84 @@ func imdbIDs(s scenario.Scenario) map[int64]string {
 	return ids
 }
 
+// clientFronts are the fronts of each Node's Download Clients, one a
+// Node and kind.
+func clientFronts(s scenario.Scenario) []fault.Front {
+	var out []fault.Front
+	for _, n := range s.Nodes {
+		for _, c := range n.DownloadClients {
+			out = append(out, clientFront(c.Kind, n.Name))
+		}
+	}
+	return out
+}
+
+func clientFront(kind, origin string) fault.Front {
+	return fault.Front{Target: fault.Target(kind), Origin: origin, Layers: fault.Conn | fault.HTTP}
+}
+
+// serveClients serves the fake of each kind of Download Client the
+// Scenario's Nodes have, one front a Node, each downloading into its own
+// folder under dir.
+func (w *walk) serveClients(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *servers, catalog *releases.Catalog, dir string, log *slog.Logger) {
+	t.Helper()
+	runDir := t.TempDir()
+	sink, err := events.Create(runDir, func(events.Record) []events.Record { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sink.Close() })
+	served := map[string]fake.Server{}
+	for _, n := range s.Nodes {
+		for _, c := range n.DownloadClients {
+			spec, ok := world.FakeNamed(c.Kind)
+			if !ok {
+				t.Fatalf("the world has no fake for %s", c.Kind)
+			}
+			server, ok := served[c.Kind]
+			if !ok {
+				env := fake.NewEnv(s, spec, log, w.faults, sink)
+				env.Releases, env.Files, env.Dir = catalog, runDir, filepath.Join(dir, c.Kind)
+				if server, err = spec.New(s, env); err != nil {
+					t.Fatal(err)
+				}
+				served[c.Kind] = server
+				w.envs[c.Kind] = env
+			}
+			l, err := local.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			at := fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String())}
+			fakes.serveOn(server, w.faults.Listener(l, clientFront(c.Kind, n.Name)))
+			if w.clients[n.Name] == nil {
+				w.clients[n.Name] = map[string]clientAt{}
+			}
+			w.clients[n.Name][c.Kind] = clientAt{url: spec.URL(at), folder: clientfake.Folder(filepath.Join(dir, c.Kind), n.Name)}
+		}
+	}
+}
+
+// ClientFolder is the folder the client of kind on the Node named on
+// downloads into, as that Node sees it.
+func (w *World) ClientFolder(on, kind string) string { return w.walk.clients[on][kind].folder }
+
+// Cue plays the cue name of the client fake of kind with args, as
+// fakeworld cue does.
+func (w *World) Cue(kind, name string, args any) {
+	w.t.Helper()
+	raw, err := json.Marshal(args)
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	if _, err := w.walk.envs[kind].Cue(w.t.Context(), name, raw); err != nil {
+		w.t.Fatalf("cue %s: %v", name, err)
+	}
+}
+
+// ClientURL is where the Node named on reaches its client of kind.
+func (w *World) ClientURL(on, kind string) string { return w.walk.clients[on][kind].url }
+
 // Faults is the Plan the walk's fakes read. A rule's Target names the fake,
 // such as fixture-site.
 func (w *World) Faults() *fault.Plan { return w.walk.faults }
@@ -171,10 +272,13 @@ func (w *World) InfoHash(release string) bencode.InfoHash { return w.walk.hashes
 
 // seed creates the Scenario's library on the Controller, as the process
 // world's seedLibrary does.
-func (w *walk) seed(world *World, ready []node.Ready) {
-	t := world.t
+func (w *walk) seed(run *World, ready []node.Ready) {
+	t := run.t
 	t.Helper()
-	err := setup.Library(t.Context(), world.client, world.scenario, ready, world.claims, w.mediaDir, map[string]fake.Address{site.Fake.Name: w.site}, nil)
+	err := setup.Library(t.Context(), run.client, run.scenario, ready, run.claims, w.mediaDir, map[string]fake.Address{site.Fake.Name: w.site}, nil, func(on, kind string) (string, string) {
+		at := w.clients[on][kind]
+		return at.url, at.folder
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

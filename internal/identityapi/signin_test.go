@@ -33,7 +33,8 @@ func (n *node) signInFrom(from, email, pin string, headers map[string]string) an
 }
 
 func waitProblem(code, title string, until time.Time, seconds int) answer {
-	body := fmt.Sprintf(`{"status":429,"code":%q,"title":%q,"detail":%q}`, code, title, until.UTC().Format(time.RFC3339)) + "\n"
+	body := fmt.Sprintf(`{"status":429,"code":%q,"title":%q,"detail":"You can try again at %s.","until":%q}`,
+		code, title, until.UTC().Format("15:04"), until.UTC().Format(time.RFC3339)) + "\n"
 	return answer{status: 429, body: body, retryAfter: strconv.Itoa(seconds)}
 }
 
@@ -55,6 +56,19 @@ func want(t *testing.T, step string, got, want answer) {
 	if got != want {
 		t.Fatalf("%s: got %d %q Retry-After %q, want %d %q Retry-After %q", step, got.status, got.body, got.retryAfter, want.status, want.body, want.retryAfter)
 	}
+}
+
+func TestAWaitSaysWhenToTryAgainInTheNodesZone(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		n := newNodeWith(t, nodeOptions{zone: time.FixedZone("UTC+9", 9*60*60)})
+		n.claimed()
+		for i := 1; i <= 5; i++ {
+			want(t, fmt.Sprintf("wrong PIN %d", i), n.signInFrom("192.0.2.1:1", "admin@example.com", "9999", nil), wrongAnswer)
+		}
+		body := `{"status":429,"code":"pin_wait","title":"Too many wrong PINs. Wait before trying again.",` +
+			`"detail":"You can try again at 09:15.","until":"2000-01-01T00:15:00Z"}` + "\n"
+		want(t, "the right PIN during the wait", n.signInFrom("192.0.2.1:1", "admin@example.com", "1234", nil), answer{status: 429, body: body, retryAfter: "900"})
+	})
 }
 
 // TestFiveWrongPINsWaitAndTenTurnThePINOff walks one Account and one email

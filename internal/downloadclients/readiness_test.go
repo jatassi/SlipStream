@@ -78,7 +78,7 @@ func TestReadinessFollowsTheTorrentsReportAndRemoval(t *testing.T) {
 			removeTorrent(t, lib, id, dc.NodeWrittenOff)
 			partTorrent(t, lib, id)
 			m, raw := dotTorrent(t, "Orchard")
-			again, _ := mustAttach(t, lib, dc.Want{Node: node, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+			again, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: node}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 			apply(t, lib, node, again, seeded)
 		}, source.Readiness{State: source.Ready, Name: "Orchard"}},
 	} {
@@ -86,7 +86,7 @@ func TestReadinessFollowsTheTorrentsReportAndRemoval(t *testing.T) {
 			lib := open(t)
 			node := addNode(t, lib, "seedbox")
 			m, raw := dotTorrent(t, "Orchard")
-			id, _ := mustAttach(t, lib, dc.Want{Node: node, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+			id, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: node}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 			c.to(t, lib, node, id)
 			if got := readinessOf(t, lib, clients(), node, source.Torrent{Hash: m.InfoHash, File: 0}); got != c.want {
 				t.Errorf("ReadinessIn = %+v, want %+v", got, c.want)
@@ -99,7 +99,7 @@ func TestReadinessOfAHashTheNodeNeverHeldIsUnknown(t *testing.T) {
 	lib := open(t)
 	box, home := addNode(t, lib, "seedbox"), addNode(t, lib, "home")
 	m, raw := dotTorrent(t, "Orchard")
-	id, _ := mustAttach(t, lib, dc.Want{Node: home, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+	id, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: home}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 	apply(t, lib, home, id, seeded)
 	if got := readinessOf(t, lib, clients(), box, source.Torrent{Hash: m.InfoHash}); got != (source.Readiness{}) {
 		t.Errorf("ReadinessIn on seedbox of a hash only home holds = %+v, want Unknown", got)
@@ -113,7 +113,7 @@ func TestMovedClosesWhenAReportChangesReadiness(t *testing.T) {
 	lib := open(t)
 	node := addNode(t, lib, "seedbox")
 	m, raw := dotTorrent(t, "Orchard")
-	id, _ := mustAttach(t, lib, dc.Want{Node: node, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+	id, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: node}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 	c := clients()
 	ref := source.Torrent{Hash: m.InfoHash}
 	for _, step := range []struct {
@@ -150,7 +150,7 @@ func TestAWriteOffMakesTheSourceWrittenOffAndMoves(t *testing.T) {
 		lib := open(t)
 		box := addNode(t, lib, "seedbox")
 		m, raw := dotTorrent(t, "Orchard")
-		id, _ := mustAttach(t, lib, dc.Want{Node: box, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+		id, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: box}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
 		apply(t, lib, box, id, seeded)
 		r := &roster{}
 		c, _ := newClients(lib, r, nil, nil)

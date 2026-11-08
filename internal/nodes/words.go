@@ -235,3 +235,17 @@ func keepsRole(n Named, r role.Name, h Held) Check {
 			n.Name, r.Purpose(), r.Label(), h, r.Label()),
 		"Last Node that "+r.Purpose())
 }
+
+func keepsConfig(n Named, r role.Name, kept []string) Check {
+	them := "them"
+	if len(kept) == 1 {
+		them = "it"
+	}
+	names := strings.Join(kept, " and ")
+	if len(kept) > 2 {
+		names = strings.Join(kept[:len(kept)-1], ", ") + " and " + kept[len(kept)-1]
+	}
+	return newCheck(n, r, Block, KeepsConfig,
+		fmt.Sprintf("%s still has %s. Delete %s, or move %s to another Node that %s, first.", n.Name, names, them, them, r.Purpose()),
+		"Has "+names)
+}

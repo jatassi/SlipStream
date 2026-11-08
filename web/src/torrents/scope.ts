@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import type { DownloadclientsTorrentList } from "../api/gen/model";
+import { useListTorrentsSuspense } from "../api/gen/query/downloadclients/downloadclients";
 import type { Row } from "./model";
 
 /** Some of the Torrents, such as one Tracker's, and what shows while none are. */
@@ -20,10 +21,7 @@ function count<K extends string, C>(
 
 // The scoped rows come from the one list live events splice, so they stay
 // live; the server's counts are for every Torrent, so these are counted here.
-export function scoped(
-  list: DownloadclientsTorrentList,
-  keep: Scope["keep"],
-): DownloadclientsTorrentList {
+function scoped(list: DownloadclientsTorrentList, keep: Scope["keep"]): DownloadclientsTorrentList {
   const rows = list.rows.filter((row) => keep(row));
   return {
     rows,
@@ -45,4 +43,10 @@ export function scoped(
       ),
     },
   };
+}
+
+/** The Torrents a view shows: every one, or those scope keeps. */
+export function useScopedTorrents(scope: Scope | undefined): DownloadclientsTorrentList {
+  const all = useListTorrentsSuspense().data;
+  return scope === undefined ? all : scoped(all, scope.keep);
 }

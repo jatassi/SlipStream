@@ -423,6 +423,10 @@ func (s *Service) situation(ctx context.Context, r storage.Reader[file], board *
 		if err != nil {
 			return Situation{}, err
 		}
+		keeps, err := s.keeps(ctx, r, n.id)
+		if err != nil {
+			return Situation{}, err
+		}
 		seats[i] = Seat{
 			Named:    Named{ID: n.id, Name: n.name},
 			Assigned: n.assigned,
@@ -431,6 +435,7 @@ func (s *Service) situation(ctx context.Context, r storage.Reader[file], board *
 			Probes:   map[role.Probe]role.ProbeResult{},
 			Held:     held,
 			Moves:    moves,
+			Keeps:    keeps,
 		}
 		for _, p := range s.probesOf(n.id) {
 			seats[i].Probes[p.Probe] = p
@@ -470,6 +475,24 @@ func (s *Service) work(ctx context.Context, r storage.Reader[file], node ID) (he
 		}
 	}
 	return held, moves, nil
+}
+
+// keeps is the config each Role's owner keeps on node.
+func (s *Service) keeps(ctx context.Context, r storage.Reader[file], node ID) (map[role.Name][]string, error) {
+	out := map[role.Name][]string{}
+	for _, name := range role.Names() {
+		if s.owners[name].Keeps == nil {
+			continue
+		}
+		kept, err := s.owners[name].Keeps(ctx, r, node)
+		if err != nil {
+			return nil, fmt.Errorf("read the %s config on node %s: %w", name, node, err)
+		}
+		if len(kept) > 0 {
+			out[name] = kept
+		}
+	}
+	return out, nil
 }
 
 // Run follows the link and the board's clock until ctx ends: it notes

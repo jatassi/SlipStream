@@ -344,7 +344,7 @@ func insert(ctx context.Context, tx *storage.Tx[file], root Root, makeDefault bo
 
 // Check judges path on node as a folder for purpose without saving
 // anything. A root's folder needs node to hold Storage and stays apart from
-// every other root but except, which a downloads folder ignores.
+// every other root but except, which a downloads or client folder ignores.
 func (r *Roots) Check(ctx context.Context, _ identity.Admin, node role.NodeID, path string, purpose storing.Purpose, except *ID) (Verdict, error) {
 	switch purpose {
 	case storing.PurposeRoot:
@@ -352,7 +352,7 @@ func (r *Roots) Check(ctx context.Context, _ identity.Admin, node role.NodeID, p
 			return Verdict{}, ErrNotStorage
 		}
 		return r.check(ctx, node, path, except)
-	case storing.PurposeDownloads:
+	case storing.PurposeDownloads, storing.PurposeClientFolder:
 		v, _, err := r.judged(ctx, node, path, purpose, nil)
 		return v, err
 	}

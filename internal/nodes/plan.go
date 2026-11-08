@@ -60,6 +60,9 @@ type Seat struct {
 	// Moves is the portable work each Role's owner moves to the heir once
 	// the Node loses the Role.
 	Moves map[role.Name]Held
+	// Keeps names the config each Role's owner keeps on the Node, which
+	// blocks taking the Role off it.
+	Keeps map[role.Name][]string
 }
 
 // Suggested is what a new Node's Roles step ticks first: each Acquire
@@ -162,6 +165,7 @@ const (
 	HoldsWork        Reason = "node_holds_work"
 	NothingHeld      Reason = "nothing_held"
 	KeepsRole        Reason = "keeps_role"
+	KeepsConfig      Reason = "keeps_config"
 )
 
 // Check is a guardrail's answer for one Node and Role. Role is "" for a
@@ -254,6 +258,7 @@ func Plan(s Situation, c Change) Outcome {
 		p.remove(s.seat(c.Node), c.WriteOff)
 	}
 	p.rules()
+	p.keeps()
 	p.settleWriteOffs()
 	prune(p.next)
 	prune(p.forfeit)
@@ -317,6 +322,28 @@ func (p *planner) remove(seat Seat, writeOff bool) {
 			p.written[NodeRole{seat.ID, r}] = true
 		} else {
 			p.checks = append(p.checks, holdsWork(seat.Named, r, seat.Held[r]))
+		}
+	}
+	for _, r := range seat.Assigned.Names() {
+		if kept := seat.Keeps[r]; len(kept) > 0 && !writeOff {
+			p.checks = append(p.checks, keepsConfig(seat.Named, r, kept))
+		}
+	}
+}
+
+// keeps blocks taking a Role off a Node its owner keeps config on, unless
+// a write-off gives the Role up. A Node that leaves is checked by remove.
+func (p *planner) keeps() {
+	for _, seat := range p.s.Seats {
+		if p.leaving != nil && p.leaving.ID == seat.ID {
+			continue
+		}
+		for _, r := range p.was[seat.ID].Names() {
+			kept := seat.Keeps[r]
+			if len(kept) == 0 || p.next[seat.ID].Has(r) || slices.Contains(p.writing, NodeRole{seat.ID, r}) {
+				continue
+			}
+			p.checks = append(p.checks, keepsConfig(seat.Named, r, kept))
 		}
 	}
 }

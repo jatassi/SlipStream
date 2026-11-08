@@ -564,6 +564,7 @@ export const getSetRolesResponseMock = (
         "node_holds_work",
         "nothing_held",
         "keeps_role",
+        "keeps_config",
       ] as const),
       ...(faker.datatype.boolean()
         ? {
@@ -848,6 +849,7 @@ export const getPlanRolesResponseMock = (
         "node_holds_work",
         "nothing_held",
         "keeps_role",
+        "keeps_config",
       ] as const),
       ...(faker.datatype.boolean()
         ? {
@@ -1767,6 +1769,7 @@ export const getWriteOffResponseMock = (
         "node_holds_work",
         "nothing_held",
         "keeps_role",
+        "keeps_config",
       ] as const),
       ...(faker.datatype.boolean()
         ? {

@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 
 import type {
   DownloadclientsClientsList,
+  DownloadclientsExternalClient,
   DownloadclientsSettings,
   DownloadclientsThresholds,
   HealthReport,
@@ -89,6 +90,63 @@ export function adoptThresholds(queryClient: QueryClient, thresholds: Downloadcl
   queryClient.setQueryData<DownloadclientsClientsList>(
     getListDownloadClientsQueryKey(),
     (list) => list && { ...list, thresholds },
+  );
+}
+
+const byName = (a: DownloadclientsExternalClient, b: DownloadclientsExternalClient) =>
+  a.name.localeCompare(b.name);
+
+/** A saved external client on its Node's card, taken off any card it moved from. */
+export function adoptExternalClient(
+  queryClient: QueryClient,
+  saved: DownloadclientsExternalClient,
+) {
+  queryClient.setQueryData<DownloadclientsClientsList>(
+    getListDownloadClientsQueryKey(),
+    (list) =>
+      list && {
+        ...list,
+        cards: list.cards.map((card) => {
+          const others = card.externals.filter((shown) => shown.id !== saved.id);
+          const externals =
+            card.nodeId === saved.nodeId ? [...others, saved].toSorted(byName) : others;
+          return { ...card, externals };
+        }),
+        orphans: list.orphans.map((shown) => (shown.id === saved.id ? saved : shown)),
+      },
+  );
+}
+
+export function dropExternalClient(queryClient: QueryClient, id: string) {
+  queryClient.setQueryData<DownloadclientsClientsList>(
+    getListDownloadClientsQueryKey(),
+    (list) =>
+      list && {
+        ...list,
+        cards: list.cards.map((card) => ({
+          ...card,
+          externals: card.externals.filter((shown) => shown.id !== id),
+        })),
+        orphans: list.orphans.filter((shown) => shown.id !== id),
+      },
+  );
+}
+
+export function adoptGrabsTo(
+  queryClient: QueryClient,
+  nodeId: string,
+  settings: DownloadclientsSettings,
+) {
+  adoptClientSettings(queryClient, nodeId, settings);
+  queryClient.setQueryData<DownloadclientsClientsList>(
+    getListDownloadClientsQueryKey(),
+    (list) =>
+      list && {
+        ...list,
+        cards: list.cards.map((card) =>
+          card.nodeId === nodeId ? { ...card, grabsTo: settings.grabsTo } : card,
+        ),
+      },
   );
 }
 

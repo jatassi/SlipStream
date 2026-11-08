@@ -121,6 +121,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Remote: func(id role.NodeID) downloadingv1connect.DownloadingServiceHandler {
 			return downloadingv1connect.DownloadingService.On(cluster, id)
 		},
+		Sealer:  lib.sealer,
 		Roster:  openedRoster{&side},
 		Uses:    grabs.TorrentUses{},
 		Seeding: lateSeeder{&seeding},
@@ -214,11 +215,11 @@ func (n *Node) startController(ctx context.Context) error {
 	}
 	searchv1connect.SearchingService.Mount(dispatch, n.searchingService())
 	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(holder))
-	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
+	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
 	storagev1connect.FolderService.Mount(dispatch, n.store)
-	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloads)
+	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	n.serveSystem(dispatch)
 	providers := make([]metadata.Provider, len(holder.Testers))
 	for i, t := range holder.Testers {
@@ -260,7 +261,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	downloadingv1connect.DownloadingControlService.Mount(cluster, downloadclients.TorrentService{Library: lib.db, Nodes: side, Types: tree})
+	downloadingv1connect.DownloadingControlService.Mount(cluster, downloadclients.ControlService{Library: lib.db, Sealer: lib.sealer, Nodes: side, Types: tree})
 	systems = nodesystem.NewNodes(
 		func(id role.NodeID) systemv1connect.NodeSystemServiceHandler {
 			return systemv1connect.NodeSystemService.On(cluster, id)
@@ -454,6 +455,10 @@ func (r openedRoster) Changed() <-chan struct{} { return (*r.side).Changed() }
 
 func (r openedRoster) Serving(name role.Name) []role.NodeID { return (*r.side).Serving(name) }
 
+func (r openedRoster) Holds(name role.Name, node role.NodeID) bool {
+	return (*r.side).Holds(name, node)
+}
+
 func (r openedRoster) Draining(name role.Name, node role.NodeID) bool {
 	return (*r.side).Draining(name, node)
 }
@@ -495,14 +500,18 @@ func (n *Node) searchingService() *searching.Service {
 
 // httpClient is a half's client for the hosts the Node reaches, dialing
 // with dial and trusting the OS roots.
-func (n *Node) httpClient(dial searching.DialFunc) *http.Client {
+func (n *Node) httpClient(dial searching.DialFunc) *http.Client { return httpClient(n.claimed, dial) }
+
+// httpClient is a client that dials with dial and trusts the OS roots,
+// whose idle connections close as stack stops.
+func httpClient(stack *Stack, dial searching.DialFunc) *http.Client {
 	transport := &http.Transport{
 		DialContext:         dial,
 		ForceAttemptHTTP2:   true,
 		TLSHandshakeTimeout: 10 * time.Second,
 		IdleConnTimeout:     90 * time.Second,
 	}
-	n.claimed.OnStop("http client", func(context.Context) error {
+	stack.OnStop("http client", func(context.Context) error {
 		transport.CloseIdleConnections()
 		return nil
 	})
@@ -556,11 +565,11 @@ func (n *Node) startWorker(ctx context.Context) error {
 	}
 	searchv1connect.SearchingService.Mount(dispatch, n.searchingService())
 	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(n.openHolder(n.httpClient(n.env.Net.DialContext))))
-	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloads, n.cfg.Timings.Media))
+	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
 	storagev1connect.FolderService.Mount(dispatch, n.store)
-	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloads)
+	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
 	n.serveSystem(dispatch)
 	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
 	n.lockstep.Handle("/", dispatch)
@@ -602,7 +611,7 @@ func (n *Node) startHolding(ctx context.Context, upstream role.Upstream, dispatc
 		Local:   local,
 		Disk:    n.disk,
 		Link:    n.link,
-		Sources: n.downloads,
+		Sources: n.downloading,
 		Roots:   n.store,
 		Timings: n.cfg.Timings.Transfers,
 		Hooks:   n.env.Test.Transfers,
@@ -662,7 +671,7 @@ func owners(clients *downloadclients.Clients) []nodes.Owner {
 // every Node holds, one held line each.
 func (n *Node) heldRoles(local *storage.DB[storage.Local], dispatch *rpc.Dispatch, copier *transfers.Node) []role.Held {
 	return []role.Held{
-		downloading.Def.Hold(n.downloads.Run(local, downloadingv1connect.DownloadingControlService.Call(dispatch)), n.downloads.Release),
+		downloading.Def.Hold(n.downloading.Run(local, downloadingv1connect.DownloadingControlService.Call(dispatch)), n.downloading.Release),
 		storing.Def.Hold(n.store.Run, n.store.Release),
 		transfers.Def.Hold(copier.Run, copier.Release),
 	}

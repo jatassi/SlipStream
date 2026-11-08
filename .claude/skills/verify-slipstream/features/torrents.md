@@ -24,7 +24,14 @@ Activity's Torrents view lists every torrent the downloading Nodes' built-in cli
 - `torrents-seeding-lanes` a complete torrent's Progress cell is two thin lanes, `Ratio` and `Seeding time`, each a meter whose value text names its rule and goal; a torrent that owes its Tracker reads `Owes <time> of seeding` (`or`/`and <size> of upload` as the rule clears) with a tick at the rule on each lane the rule counts, amber with an `At risk` chip while it isn't seeding; a met goal reads `Goal met` in a green chip and lists under `Goal met`; a Forever goal fills to the rule and reads `Seeds with no end`.
 - `torrents-inspector-seeding` the Inspector's `Seeding` section names the Tracker, draws the large lanes with their values, says the rule (`seedpool requires 10 days of seeding for each torrent. Ratio doesn't count.`), what it owes and `This includes 2 h past seedpool's rule.`, the goal and what happens once it's met, the at-risk or offline line, and why a goal never acts (no Tracker, no rule, resumed after its goal paused it).
 - `torrents-hit-and-run` `Pause` on a torrent that owes asks `Pause <Work>?` with `seedpool counts no seeding time while it's paused. Resume it before seedpool counts a hit and run.`; `Remove` on one says `Removing it now counts as a hit and run on seedpool. It still owes <time> of seeding.` from the dry run's `hitAndRun`, and a bulk remove lists each torrent that owes under its Tracker.
+- `torrents-external` on an `external-clients` run a Grab of The Quiet Orchard goes to home's Transmission: `GET /api/v1/torrents` lists its row with `clientName` `Transmission` and `clientKind` `transmission`, the Grab imports a hard link of Transmission's file, and `transmission-adds list` records the add under the Content Type's subfolder of `/downloads` with the label `slipstream`. The cue `transmission-pause` (a person pausing it in Transmission's web UI) makes the row read `paused` within a poll, and `POST /api/v1/torrents/actions` `resume` starts it in Transmission again, so it reads `seeding`. The web Torrents view doesn't name external clients yet.
+- `torrents-external-kinds` on an `external-kinds` run a Grab goes to the client `grabsTo` names, qBittorrent until `PATCH /api/v1/download-clients/{nodeId}/settings` changes it. With `grabsTo` set to rTorrent's id, a Grab of The Quiet Orchard lists its row with `clientName` `rTorrent` and `clientKind` `rtorrent` and imports a hard link of rTorrent's file. `POST /api/v1/torrents/actions` `remove` with `deleteFiles` removes the row and empties `fakes/rtorrent/home` under the run's scratch dir, Content Type subfolder included, while the library file stays: rTorrent's remove keeps its data, so home deletes it.
 - `torrents-remove` `Remove` asks `Remove The Quiet Orchard?`, says `Files in your library stay.` and lists the Work that stops seeding; with `Also delete the download copy` the download copy goes, the library file still matches the release, the tracker gets `stopped`, and the row leaves once home confirms (P-166).
+- `torrents-client-away` with an external client on seedbox that isn't responding, past the Node's grace, `GET /api/v1/torrents` marks each of its rows `lastKnown` at its last report with `lastKnownCause` `client`; a refused sign-in reads `client` too, an off client `off`, and seedbox out of step `node`. A client that needs attention still reports, so its rows stay current. Each applied poll carries `torrents.changed` naming the client's live Torrents.
+- `torrents-client-card` while that client is away, Torrents leads with one red card per away client: its chip (`Not responding`, `Sign-in refused` or `Needs attention`), `Transmission on seedbox`, `Since <HH:MM>`, the client's problem sentence, `<n> torrents show last known data.`, `Check now` (`POST /api/v1/system/health/download-clients/check`, then `Checked.`) and `Edit client`, which opens `Edit Transmission`. Its rows read `Last known at <HH:MM>` and name `Transmission` under their Node (P-145, P-168).
+- `torrents-client-sentences` the Inspector of an away client's row says `Transmission on seedbox isn't responding. When it last responded, at <HH:MM>, this was downloading.`, an off client's `SlipStream isn't checking Transmission while it's turned off. When it last responded, at <HH:MM>, this was seeding.`, a pending pause `It pauses when Transmission responds again.`, a pending remove `It's removed once Transmission responds again.`, a stop at the seeding limit `Transmission stopped it at its seeding limit.` and a finished torrent in its Import delay `Finished. SlipStream imports it at <HH:MM>, when the Import delay for Transmission ends.` Numbers says `Transmission's own seeding rules apply to this torrent.`
+- `torrents-client-filter` the `Client` filter lists `Built-in client` and each external client as `Transmission on seedbox`, writes `?client=built-in` or `?client=<id>`, and narrows the table to that client's rows.
+- `torrents-attached-remove` an attached torrent's Inspector says `This torrent was in Transmission before SlipStream attached to it. Removing it here stops SlipStream tracking it and leaves it in Transmission.`; its remove dialog says `SlipStream stops tracking it and leaves it in Transmission. Files in your library stay.`, has no `Also delete the download copy`, and confirms with `Stop tracking`. A torrent of an off client reads the same.
 
 ## How to get to it (user POV)
 
@@ -32,7 +39,7 @@ Activity's Torrents view lists every torrent the downloading Nodes' built-in cli
 - Phone shell: the `Activity` tab, then `Torrents` in the segmented control; the tabs list All first, the filters sit behind `Filter`, a row is a card, and the Inspector is a pushed page.
 - Jobs: `/activity`, a Job's `<Work> actions` menu, `Open its torrent`.
 - Magnet links: a Grab's Progress cell on Jobs or the Work page while it is fetching, its card under `Needs you` once it fails, the `DHT for public torrents` switch under `Peers` on a Node's `Torrent client` page, and `A magnet link with no metadata fails after` under `Magnet links` on Settings > Download Clients.
-- API: `GET /api/v1/torrents` (`?tab=&nodeId=&contentType=&q=&ids=`), `GET /api/v1/torrents/{id}`, `POST /api/v1/torrents/actions` with `{action, ids, deleteFiles?, dryRun?}`, and the events `torrents.changed` and `torrents.live`.
+- API: `GET /api/v1/torrents` (`?tab=&nodeId=&contentType=&q=&ids=`), `GET /api/v1/torrents/{id}`, `POST /api/v1/torrents/actions` with `{action, ids, deleteFiles?, dryRun?}` (a row's `deleteFiles` is false for a torrent SlipStream attached to, whose remove only stops tracking it), and the events `torrents.changed` and `torrents.live`.
 
 ## Driving it with fakeworld and playwright cli
 
@@ -332,6 +339,35 @@ Steps:
   $FW exec $RUN --proof torrents/torrents-magnet-torrent -- sh -c "curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents?tab=all' | jq -c '.rows[] | {name, size, state}'"
   $FW exec $RUN --proof torrents/torrents-magnet-torrent -- $FW fs match {runDir} '{mediaDir}/movies/Salt Meadow (2020)/Salt Meadow (2020) - 1080p.mkv' --release Salt.Meadow.2020.1080p.WEB-DL.H264-FKW
   $FW exec $RUN --proof torrents/torrents-magnet-torrent -- $FW lookups list {runDir} --where infoHash=$(hashOf Juniper)
+  ```
+
+- **Grab through Transmission.** On an `external-clients` run, search The Quiet Orchard, wait for the Grab to import, and read the Torrent and the add Transmission recorded. Then pause it in Transmission with the cue, see it read `paused`, and resume it through SlipStream.
+
+  ```sh
+  $FW exec $RUN --proof torrents/torrents-external -- sh -c "id=\$(curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{\"contentType\":\"movie\",\"key\":\"9000001\",\"monitor\":true}' '{nodes.home.url}/api/v1/works' | jq -r .work.id); curl -sS -X POST -H 'X-Api-Key: {apiKey}' \"{nodes.home.url}/api/v1/works/\$id/search\""
+  $FW exec $RUN -- bash -c "for i in \$(seq 60); do curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs' | jq -e '.grabs[0].stage == \"imported\"' >/dev/null && exit 0; sleep 1; done; exit 1"
+  $FW exec $RUN --proof torrents/torrents-external -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents'
+  $FW exec $RUN --proof torrents/torrents-external -- $FW transmission-adds list $RUN
+  $FW cue $RUN transmission-pause '{"node": "home", "release": "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW"}'
+  $FW exec $RUN -- bash -c "for i in \$(seq 30); do curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents' | jq -e '.rows[0].state == \"paused\"' >/dev/null && exit 0; sleep 1; done; exit 1"
+  TID=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents' | jq -r '.rows[0].id')
+  $FW exec $RUN --proof torrents/torrents-external -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"action\":\"resume\",\"ids\":[\"$TID\"]}" '{nodes.home.url}/api/v1/torrents/actions'
+  $FW exec $RUN -- bash -c "for i in \$(seq 30); do curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents' | jq -e '.rows[0].state == \"seeding\"' >/dev/null && exit 0; sleep 1; done; exit 1"
+  ```
+
+- **Grab through rTorrent and remove it with its files.** On an `external-kinds` run, send home's New Grabs to rTorrent, search The Quiet Orchard, wait for the import, then remove the Torrent with its files and list rTorrent's folder, which home emptied.
+
+  ```sh
+  CL=$(curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/download-clients')
+  RID=$(jq -r '.cards[0].externals[] | select(.kind == "rtorrent") | .id' <<<"$CL")
+  $FW exec $RUN --proof torrents/torrents-external-kinds -- curl -sS -X PATCH -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "{\"grabsTo\":\"$RID\"}" "{nodes.home.url}/api/v1/download-clients/$(jq -r '.cards[0].nodeId' <<<"$CL")/settings"
+  $FW exec $RUN --proof torrents/torrents-external-kinds -- sh -c "id=\$(curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d '{\"contentType\":\"movie\",\"key\":\"9000001\",\"monitor\":true}' '{nodes.home.url}/api/v1/works' | jq -r .work.id); curl -sS -X POST -H 'X-Api-Key: {apiKey}' \"{nodes.home.url}/api/v1/works/\$id/search\""
+  $FW exec $RUN -- bash -c "for i in \$(seq 90); do curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs' | jq -e '.grabs[0].stage == \"imported\"' >/dev/null && exit 0; sleep 1; done; exit 1"
+  $FW exec $RUN --proof torrents/torrents-external-kinds -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents'
+  TID=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents' | jq -r '.rows[0].id')
+  $FW exec $RUN --proof torrents/torrents-external-kinds -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary "{\"action\":\"remove\",\"ids\":[\"$TID\"],\"deleteFiles\":true}" '{nodes.home.url}/api/v1/torrents/actions'
+  $FW exec $RUN -- bash -c "for i in \$(seq 30); do curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/torrents' | jq -e '.rows | length == 0' >/dev/null && exit 0; sleep 1; done; exit 1"
+  $FW exec $RUN --proof torrents/torrents-external-kinds -- sh -c "ls -R \"\$(dirname \"\$(jq -r .mediaDir $RUN/manifest.json)\")/fakes/rtorrent/home\""
   ```
 
 ## Gotchas

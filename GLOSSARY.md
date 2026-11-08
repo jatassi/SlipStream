@@ -265,8 +265,20 @@ _Avoid_: Alert, issue, warning (for an item at either level)
 ## Acquisition
 
 **Download Client**:
-A torrent client that a downloading Node sends grabs to, either the built-in one or an external one such as qBittorrent.
+A torrent client that a downloading Node sends Grabs to, either its built-in one or an external one such as qBittorrent, Transmission, Deluge or rTorrent. An external client runs on its own, and its Node reaches it at one address.
 _Avoid_: Downloader, torrent app
+
+**Client folder**:
+A folder as a Download Client reports it, paired with the path of the same folder on the client's Node.
+_Avoid_: Path mapping, remote path mapping
+
+**Attached torrent**:
+A torrent that was already in an external Download Client when a Grab sent the same info hash. SlipStream tracks it without having added it, and removing it in SlipStream stops tracking it and leaves it in the client.
+_Avoid_: Adopted torrent, existing torrent
+
+**New Grabs go to**:
+A downloading Node's setting that names the one Download Client its Grabs go to: its built-in client or one of its external clients that is on. It starts at the built-in client. Tracker routing, where a Tracker has one, comes before it.
+_Avoid_: Default client, grabs to
 
 **Tracker**:
 A site a torrent comes from and seeds to. It carries the site's seeding rule, the admin's seeding goals over it, hit and run state and its Tracker routing. A Tracker outlives every Indexer that reaches it.
