@@ -163,26 +163,23 @@ func (q *Queries) CountUnfinishedOfTracker(ctx context.Context, trackerID indexe
 	return count, err
 }
 
-const deleteRelease = `-- name: DeleteRelease :exec
-DELETE FROM grabs_release WHERE search_id = ?1 AND position = ?2
+const deleteOlderReleasesOfItem = `-- name: DeleteOlderReleasesOfItem :exec
+DELETE FROM grabs_release WHERE search_id IN (
+    SELECT grabs_search.id FROM grabs_search
+    LEFT JOIN grabs_grab ON grabs_grab.id = grabs_search.grab_id
+    WHERE grabs_search.item_id = ?1 AND grabs_search.id <> ?2
+        AND (grabs_grab.stage IS NULL OR grabs_grab.stage <> 'fetching'))
 `
 
-type DeleteReleaseParams struct {
+type DeleteOlderReleasesOfItemParams struct {
+	ItemID   works.ItemID
 	SearchID SearchID
-	Position int64
 }
 
-func (q *Queries) DeleteRelease(ctx context.Context, arg DeleteReleaseParams) error {
-	_, err := q.db.ExecContext(ctx, deleteRelease, arg.SearchID, arg.Position)
-	return err
-}
-
-const deleteReleasesOfGrab = `-- name: DeleteReleasesOfGrab :exec
-DELETE FROM grabs_release WHERE search_id IN (SELECT id FROM grabs_search WHERE grab_id = ?1)
-`
-
-func (q *Queries) DeleteReleasesOfGrab(ctx context.Context, grabID GrabID) error {
-	_, err := q.db.ExecContext(ctx, deleteReleasesOfGrab, grabID)
+// Finishing a run deletes the rows of its Item's other runs but those whose
+// Grab still fetches, which a rerun reads.
+func (q *Queries) DeleteOlderReleasesOfItem(ctx context.Context, arg DeleteOlderReleasesOfItemParams) error {
+	_, err := q.db.ExecContext(ctx, deleteOlderReleasesOfItem, arg.ItemID, arg.SearchID)
 	return err
 }
 
@@ -192,6 +189,17 @@ DELETE FROM grabs_release WHERE search_id = ?1
 
 func (q *Queries) DeleteReleasesOfSearch(ctx context.Context, searchID SearchID) error {
 	_, err := q.db.ExecContext(ctx, deleteReleasesOfSearch, searchID)
+	return err
+}
+
+const endReleasesOfGrab = `-- name: EndReleasesOfGrab :exec
+UPDATE grabs_release SET release = NULL, link_sealed = NULL
+WHERE search_id IN (SELECT id FROM grabs_search WHERE grab_id = ?1)
+`
+
+// No rerun follows once a run's Grab leaves fetching other than by a drop.
+func (q *Queries) EndReleasesOfGrab(ctx context.Context, grabID GrabID) error {
+	_, err := q.db.ExecContext(ctx, endReleasesOfGrab, grabID)
 	return err
 }
 
@@ -273,6 +281,27 @@ func (q *Queries) GetGrab(ctx context.Context, id GrabID) (GrabsGrab, error) {
 		&i.MetadataStartedAt,
 		&i.SentBuiltInOn,
 		&i.SentClientID,
+	)
+	return i, err
+}
+
+const getSearch = `-- name: GetSearch :one
+SELECT id, work_id, item_id, started_at, finished_at, outcome, candidates, grab_id, notes FROM grabs_search WHERE id = ?1
+`
+
+func (q *Queries) GetSearch(ctx context.Context, id SearchID) (GrabsSearch, error) {
+	row := q.db.QueryRowContext(ctx, getSearch, id)
+	var i GrabsSearch
+	err := row.Scan(
+		&i.ID,
+		&i.WorkID,
+		&i.ItemID,
+		&i.StartedAt,
+		&i.FinishedAt,
+		&i.Outcome,
+		&i.Candidates,
+		&i.GrabID,
+		&i.Notes,
 	)
 	return i, err
 }
@@ -380,46 +409,58 @@ func (q *Queries) InsertGrab(ctx context.Context, arg InsertGrabParams) error {
 	return err
 }
 
-const insertRefusal = `-- name: InsertRefusal :exec
-INSERT INTO grabs_refusal (search_id, position, title, reasons)
-VALUES (?1, ?2, ?3, ?4)
-`
-
-type InsertRefusalParams struct {
-	SearchID SearchID
-	Position int64
-	Title    string
-	Reasons  string
-}
-
-func (q *Queries) InsertRefusal(ctx context.Context, arg InsertRefusalParams) error {
-	_, err := q.db.ExecContext(ctx, insertRefusal,
-		arg.SearchID,
-		arg.Position,
-		arg.Title,
-		arg.Reasons,
-	)
-	return err
-}
-
 const insertRelease = `-- name: InsertRelease :exec
-INSERT INTO grabs_release (search_id, position, indexer_id, release, link_sealed)
-VALUES (?1, ?2, ?3, ?4, ?5)
+INSERT INTO grabs_release (search_id, position, title, indexer_id, indexer_name, size, seeders, outcome, rank, reasons, lost_step,
+    lost_target_id, lost_own, lost_ref, scores, formats, covers, copy_of, release, link_sealed)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6,
+    ?7, ?8, ?9, ?10, ?11, ?12,
+    ?13, ?14, ?15, ?16, ?17, ?18,
+    ?19, ?20)
 `
 
 type InsertReleaseParams struct {
-	SearchID   SearchID
-	Position   int64
-	IndexerID  indexers.ID
-	Release    string
-	LinkSealed secret.Sealed
+	SearchID     SearchID
+	Position     int64
+	Title        string
+	IndexerID    indexers.ID
+	IndexerName  string
+	Size         int64
+	Seeders      int64
+	Outcome      ReleaseOutcome
+	Rank         *int64
+	Reasons      string
+	LostStep     *Step
+	LostTargetID targets.TargetID
+	LostOwn      *string
+	LostRef      *string
+	Scores       string
+	Formats      string
+	Covers       string
+	CopyOf       *int64
+	Release      *string
+	LinkSealed   secret.Sealed
 }
 
 func (q *Queries) InsertRelease(ctx context.Context, arg InsertReleaseParams) error {
 	_, err := q.db.ExecContext(ctx, insertRelease,
 		arg.SearchID,
 		arg.Position,
+		arg.Title,
 		arg.IndexerID,
+		arg.IndexerName,
+		arg.Size,
+		arg.Seeders,
+		arg.Outcome,
+		arg.Rank,
+		arg.Reasons,
+		arg.LostStep,
+		arg.LostTargetID,
+		arg.LostOwn,
+		arg.LostRef,
+		arg.Scores,
+		arg.Formats,
+		arg.Covers,
+		arg.CopyOf,
 		arg.Release,
 		arg.LinkSealed,
 	)
@@ -821,6 +862,54 @@ func (q *Queries) ListGrabsOfTorrents(ctx context.Context, torrentIds []download
 	return items, nil
 }
 
+const listKeptReleasesOfSearch = `-- name: ListKeptReleasesOfSearch :many
+SELECT search_id, position, title, indexer_id, indexer_name, size, seeders, outcome, rank, reasons, lost_step, lost_target_id, lost_own, lost_ref, scores, formats, covers, copy_of, "release", link_sealed FROM grabs_release WHERE search_id = ?1 AND release IS NOT NULL ORDER BY position
+`
+
+func (q *Queries) ListKeptReleasesOfSearch(ctx context.Context, searchID SearchID) ([]GrabsRelease, error) {
+	rows, err := q.db.QueryContext(ctx, listKeptReleasesOfSearch, searchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrabsRelease
+	for rows.Next() {
+		var i GrabsRelease
+		if err := rows.Scan(
+			&i.SearchID,
+			&i.Position,
+			&i.Title,
+			&i.IndexerID,
+			&i.IndexerName,
+			&i.Size,
+			&i.Seeders,
+			&i.Outcome,
+			&i.Rank,
+			&i.Reasons,
+			&i.LostStep,
+			&i.LostTargetID,
+			&i.LostOwn,
+			&i.LostRef,
+			&i.Scores,
+			&i.Formats,
+			&i.Covers,
+			&i.CopyOf,
+			&i.Release,
+			&i.LinkSealed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOpenGrabs = `-- name: ListOpenGrabs :many
 SELECT id, work_id, item_id, edition, source, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, file_index, probe, root_id, path, failed_stage, failure_code, failure_message, created_at, updated_at, unwanted, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
 `
@@ -920,41 +1009,6 @@ func (q *Queries) ListOpenSearches(ctx context.Context) ([]GrabsSearch, error) {
 	return items, nil
 }
 
-const listRefusalsOfWork = `-- name: ListRefusalsOfWork :many
-SELECT grabs_refusal.search_id, grabs_refusal.position, grabs_refusal.title, grabs_refusal.reasons FROM grabs_refusal
-JOIN grabs_search ON grabs_search.id = grabs_refusal.search_id
-WHERE grabs_search.work_id = ?1
-ORDER BY grabs_refusal.search_id, grabs_refusal.position
-`
-
-func (q *Queries) ListRefusalsOfWork(ctx context.Context, workID works.WorkID) ([]GrabsRefusal, error) {
-	rows, err := q.db.QueryContext(ctx, listRefusalsOfWork, workID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GrabsRefusal
-	for rows.Next() {
-		var i GrabsRefusal
-		if err := rows.Scan(
-			&i.SearchID,
-			&i.Position,
-			&i.Title,
-			&i.Reasons,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listReleaseTitles = `-- name: ListReleaseTitles :many
 SELECT id, release_title FROM grabs_grab ORDER BY id
 `
@@ -988,7 +1042,7 @@ func (q *Queries) ListReleaseTitles(ctx context.Context) ([]ListReleaseTitlesRow
 }
 
 const listReleasesOfSearch = `-- name: ListReleasesOfSearch :many
-SELECT search_id, position, indexer_id, "release", link_sealed FROM grabs_release WHERE search_id = ?1 ORDER BY position
+SELECT search_id, position, title, indexer_id, indexer_name, size, seeders, outcome, rank, reasons, lost_step, lost_target_id, lost_own, lost_ref, scores, formats, covers, copy_of, "release", link_sealed FROM grabs_release WHERE search_id = ?1 ORDER BY rank IS NULL, rank, position
 `
 
 func (q *Queries) ListReleasesOfSearch(ctx context.Context, searchID SearchID) ([]GrabsRelease, error) {
@@ -1003,7 +1057,22 @@ func (q *Queries) ListReleasesOfSearch(ctx context.Context, searchID SearchID) (
 		if err := rows.Scan(
 			&i.SearchID,
 			&i.Position,
+			&i.Title,
 			&i.IndexerID,
+			&i.IndexerName,
+			&i.Size,
+			&i.Seeders,
+			&i.Outcome,
+			&i.Rank,
+			&i.Reasons,
+			&i.LostStep,
+			&i.LostTargetID,
+			&i.LostOwn,
+			&i.LostRef,
+			&i.Scores,
+			&i.Formats,
+			&i.Covers,
+			&i.CopyOf,
 			&i.Release,
 			&i.LinkSealed,
 		); err != nil {

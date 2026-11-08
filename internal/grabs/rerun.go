@@ -48,9 +48,8 @@ type keptSource struct {
 	Origin  string `json:"origin"`
 }
 
-// keep stores c in run's kept Releases, at its position in the run.
-func (gr *Grabs) keep(ctx context.Context, q *db.Queries, run SearchID, c copied) error {
-	r := c.Release
+// encodeKept is r as grabs_release keeps it for a rerun, its link apart.
+func encodeKept(r indexers.Release) (string, error) {
 	k := keptRelease{
 		Priority: r.Priority, Title: r.Title, Size: r.Size, Seeders: r.Seeders, IDs: r.IDs,
 		DownloadFactor: r.Factors.Download, UploadFactor: r.Factors.Upload, MinRatio: r.Floor.MinRatio, MinSeedSeconds: int64(r.Floor.MinSeed.Seconds()),
@@ -64,23 +63,16 @@ func (gr *Grabs) keep(ctx context.Context, q *db.Queries, run SearchID, c copied
 	}
 	b, err := json.Marshal(k)
 	if err != nil {
-		return fmt.Errorf("encode a kept Release: %w", err)
+		return "", fmt.Errorf("encode a kept Release: %w", err)
 	}
-	return q.InsertRelease(ctx, db.InsertReleaseParams{
-		SearchID: run, Position: int64(c.at), IndexerID: r.Indexer, Release: string(b),
-		LinkSealed: gr.cfg.Sealer.Seal([]byte(r.Offered().Reveal()), keptLinkAD(run, c.at)),
-	})
+	return string(b), nil
 }
 
-// kept is the Release row keeps, opened.
+// kept is the Release row keeps, opened, with no link when it is gone.
 func (gr *Grabs) kept(row db.GrabsRelease) (indexers.Release, error) {
 	var k keptRelease
-	if err := json.Unmarshal([]byte(row.Release), &k); err != nil {
+	if err := json.Unmarshal([]byte(*row.Release), &k); err != nil {
 		return indexers.Release{}, fmt.Errorf("search %s: decode kept Release %d: %w", row.SearchID, row.Position, err)
-	}
-	raw, err := gr.cfg.Sealer.Open(row.LinkSealed, keptLinkAD(row.SearchID, int(row.Position)))
-	if err != nil {
-		return indexers.Release{}, fmt.Errorf("search %s: open kept Release %d's link: %w", row.SearchID, row.Position, err)
 	}
 	r := indexers.Release{Indexer: row.IndexerID, Priority: k.Priority, Release: searching.Release{
 		Title: k.Title, Size: k.Size, Seeders: k.Seeders, IDs: k.IDs,
@@ -97,6 +89,13 @@ func (gr *Grabs) kept(row db.GrabsRelease) (indexers.Release, error) {
 	}
 	if s := k.Source; s != nil {
 		r.Source = &searching.Source{ID: s.ID, Name: s.Name, Privacy: s.Privacy, Origin: s.Origin}
+	}
+	if !row.LinkSealed.Set() {
+		return r, nil
+	}
+	raw, err := gr.cfg.Sealer.Open(row.LinkSealed, keptLinkAD(row.SearchID, int(row.Position)))
+	if err != nil {
+		return indexers.Release{}, fmt.Errorf("search %s: open kept Release %d's link: %w", row.SearchID, row.Position, err)
 	}
 	if link := searching.LinkOf(string(raw)); link.IsMagnet() {
 		r.Magnet = link
@@ -123,10 +122,13 @@ var dropOf = map[indexers.DropWhy]dropped{
 }
 
 // redo is what a dropped Grab's rerun reads before its Write: the run,
-// and the Releases it kept, assessed.
+// the Releases it kept, assessed, the positions of those gone, taken by a
+// Grab of the run, and each one's Indexer's name by position.
 type redo struct {
 	run      Search
 	assessed []assessed
+	gone     map[int]bool
+	names    map[int]string
 }
 
 // rerunOf reads, in one Read, the rerun of g's run, nil when no run
@@ -142,20 +144,22 @@ func (gr *Grabs) rerunOf(ctx context.Context, g Grab) (*redo, error) {
 		if err != nil {
 			return err
 		}
-		run, err := searchOf(row, nil, nil)
+		run, err := searchOf(row, nil)
 		if err != nil {
 			return err
 		}
-		rows, err := q.ListReleasesOfSearch(ctx, run.ID)
+		rows, err := q.ListKeptReleasesOfSearch(ctx, run.ID)
 		if err != nil {
 			return err
 		}
 		ls := make([]listed, len(rows))
+		gone, names := map[int]bool{}, map[int]string{}
 		for i, row := range rows {
 			if ls[i].Release, err = gr.kept(row); err != nil {
 				return err
 			}
 			ls[i].at = int(row.Position)
+			gone[ls[i].at], names[ls[i].at] = !row.LinkSealed.Set(), row.IndexerName
 		}
 		tree, err := gr.cfg.Works.TreeIn(ctx, r, run.WorkID)
 		if err != nil {
@@ -169,7 +173,7 @@ func (gr *Grabs) rerunOf(ctx context.Context, g Grab) (*redo, error) {
 		if err != nil {
 			return err
 		}
-		out = &redo{run: run, assessed: assessAll(j, dedupe(ls))}
+		out = &redo{run: run, assessed: assessAll(j, dedupe(ls)), gone: gone, names: names}
 		return nil
 	})
 	return out, err
@@ -177,10 +181,11 @@ func (gr *Grabs) rerunOf(ctx context.Context, g Grab) (*redo, error) {
 
 // left settles the run of g, a Grab leaving fetching by o: a drop reruns
 // its decision over re, returning the rerun's Grab and run, and any other
-// way out ends the run's kept Releases, since no rerun follows.
+// way out ends what the run's Releases keep for a rerun, since none
+// follows.
 func (gr *Grabs) left(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome, re *redo) (*Grab, *Search, error) {
 	if _, drop := o.(dropped); !drop {
-		return nil, nil, db.New(tx).DeleteReleasesOfGrab(ctx, g.ID)
+		return nil, nil, db.New(tx).EndReleasesOfGrab(ctx, g.ID)
 	}
 	if re == nil {
 		return nil, nil, nil
@@ -189,10 +194,10 @@ func (gr *Grabs) left(ctx context.Context, tx *storage.Tx[file], g Grab, o outco
 	return grab, &re.run, err
 }
 
-// redecide is re's run's decision again over the Releases it kept, which
-// no Grab of the run took: the first pick its Indexer takes becomes the
-// run's Grab, else the run found nothing acceptable. The run keeps its
-// first decision's refusals.
+// redecide is re's run's decision again over the Releases it kept: the
+// first its Indexer takes, of those no Grab of the run took, becomes the
+// run's Grab, else the run found nothing acceptable. The run's Releases
+// are stored again with their new outcomes.
 func (gr *Grabs) redecide(ctx context.Context, tx *storage.Tx[file], re redo) (*Grab, error) {
 	q := db.New(tx)
 	run := re.run
@@ -200,21 +205,21 @@ func (gr *Grabs) redecide(ctx context.Context, tx *storage.Tx[file], re redo) (*
 	if err != nil {
 		return nil, err
 	}
-	grab, pick, err := gr.take(ctx, tx, run, d.picks(c), storage.Now())
+	grab, pick, err := gr.take(ctx, tx, run, d.picks(c), re.gone, storage.Now())
 	if err != nil {
 		return nil, err
 	}
+	if err := q.DeleteReleasesOfSearch(ctx, run.ID); err != nil {
+		return nil, err
+	}
+	if err := gr.storeReleases(ctx, q, run.ID, outcomes(d, c, pick.at), re.names, grab != nil, re.gone); err != nil {
+		return nil, err
+	}
 	if grab == nil {
-		if err := q.DeleteReleasesOfSearch(ctx, run.ID); err != nil {
-			return nil, err
-		}
 		return nil, q.Redecide(ctx, db.RedecideParams{ID: run.ID, Outcome: new(NothingAcceptable)})
 	}
 	notes, err := encodeReasons(pick.Notes)
 	if err != nil {
-		return nil, err
-	}
-	if err := q.DeleteRelease(ctx, db.DeleteReleaseParams{SearchID: run.ID, Position: int64(pick.at)}); err != nil {
 		return nil, err
 	}
 	return grab, q.Redecide(ctx, db.RedecideParams{ID: run.ID, Outcome: new(Grabbed), GrabID: grab.ID, Notes: &notes})

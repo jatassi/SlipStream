@@ -68,12 +68,6 @@ type Reason struct {
 	Target targets.TargetID
 }
 
-// Refusal is a Release a search didn't grab and why.
-type Refusal struct {
-	Title   string
-	Reasons []Reason
-}
-
 // dedupe is ls with each Release listed twice counted once: the same info
 // hash, or the same title and size when either lacks one. The copy from
 // the Indexer with the better priority stays, the first of a tie, and
@@ -259,23 +253,6 @@ func (d Decision) picks(c cells) []Pick {
 	return out
 }
 
-// refusals is every Release of d with a refusal of its own or grabbable
-// at no cell, with every reason, in the Indexers' order.
-func (d Decision) refusals() []Refusal {
-	refused := slices.Clone(d.Refused)
-	for _, j := range d.Ranked {
-		if len(j.refusals) > 0 {
-			refused = append(refused, j)
-		}
-	}
-	slices.SortFunc(refused, func(a, b judged) int { return cmp.Compare(a.at, b.at) })
-	var out []Refusal
-	for _, j := range refused {
-		out = append(out, Refusal{Title: j.Release.Title, Reasons: j.reasons()})
-	}
-	return out
-}
-
 // marks is what n names, such as S01E02, in words.
 func marks(n release.Name) string {
 	words := make([]string, len(n.Marks))
@@ -285,7 +262,7 @@ func marks(n release.Name) string {
 	return strings.Join(words, " ")
 }
 
-// storedReason is a Reason as grabs_refusal and grabs_search.notes keep it.
+// storedReason is a Reason as grabs_release.reasons and grabs_search.notes keep it.
 type storedReason struct {
 	Code      targets.ReasonCode `json:"code"`
 	TargetID  string             `json:"targetId,omitempty"`

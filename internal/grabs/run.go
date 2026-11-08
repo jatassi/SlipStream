@@ -928,7 +928,7 @@ func (gr *Grabs) open(ctx context.Context) ([]Search, []Grab, error) {
 			return err
 		}
 		for _, run := range runs {
-			s, err := searchOf(run, nil, nil)
+			s, err := searchOf(run, nil)
 			if err != nil {
 				return err
 			}

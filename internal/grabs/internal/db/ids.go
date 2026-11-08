@@ -25,3 +25,9 @@ type Code string
 
 // Outcome is how a search run ended.
 type Outcome string
+
+// ReleaseOutcome is what a run did with one Release it listed.
+type ReleaseOutcome string
+
+// Step is one step of the ranking chain.
+type Step string

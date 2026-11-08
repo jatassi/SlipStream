@@ -2654,6 +2654,41 @@ export const GrabsIndexerGrabList = zod.object({
 export type GrabsIndexerGrabList = zod.input<typeof GrabsIndexerGrabList>;
 export type GrabsIndexerGrabListOutput = zod.output<typeof GrabsIndexerGrabList>;
 
+export const GrabsLostAt = zod.object({
+  own: zod
+    .string()
+    .describe(
+      "This Release's value at the step: a Target's name for want, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title",
+    ),
+  ref: zod
+    .string()
+    .describe(
+      "The reference Release's value at the step, written as own is. The reference is the grabbed Release, or the first a search could take when the run grabbed none.",
+    ),
+  step: zod
+    .enum([
+      "want",
+      "tier",
+      "revision",
+      "score",
+      "priority",
+      "freeleech",
+      "seeders",
+      "size",
+      "title",
+    ])
+    .describe("The first step of the ranking where the reference Release ranked above this one"),
+  targetId: zod
+    .uuid()
+    .nullable()
+    .describe(
+      "The Target the tier, revision and score steps compare at; null at the other steps and once the Target is deleted",
+    ),
+});
+
+export type GrabsLostAt = zod.input<typeof GrabsLostAt>;
+export type GrabsLostAtOutput = zod.output<typeof GrabsLostAt>;
+
 export const GrabsReason = zod.object({
   attribute: zod
     .enum(["hdr", "video_codec", "audio_codec", "channels", "language"])
@@ -2700,15 +2735,86 @@ export const GrabsReason = zod.object({
 export type GrabsReason = zod.input<typeof GrabsReason>;
 export type GrabsReasonOutput = zod.output<typeof GrabsReason>;
 
-export const GrabsRefusal = zod.object({
-  reasons: zod
-    .array(GrabsReason)
-    .describe("The release's own refusals, then each cell's failures and notes, in Profile order"),
-  title: zod.string(),
+export const GrabsTargetScore = zod.object({
+  score: zod.int(),
+  targetId: zod.uuid(),
 });
 
-export type GrabsRefusal = zod.input<typeof GrabsRefusal>;
-export type GrabsRefusalOutput = zod.output<typeof GrabsRefusal>;
+export type GrabsTargetScore = zod.input<typeof GrabsTargetScore>;
+export type GrabsTargetScoreOutput = zod.output<typeof GrabsTargetScore>;
+
+export const grabsListedReleaseCopyOfMin = 0;
+
+export const grabsListedReleasePositionMin = 0;
+
+export const grabsListedReleaseSeedersMin = 0;
+
+export const grabsListedReleaseSizeMin = 0;
+
+export const GrabsListedRelease = zod.object({
+  copyOf: zod
+    .int()
+    .min(grabsListedReleaseCopyOfMin)
+    .nullable()
+    .describe(
+      "The position of the Release this is a copy of, listed by an Indexer of no better priority; null when it is no copy",
+    ),
+  covers: zod.array(zod.uuid()).describe("The Items of the Work it holds"),
+  formatIds: zod
+    .array(zod.uuid())
+    .describe(
+      "The Custom Formats it matched of those the Work's Targets score, as the run saw them",
+    ),
+  indexerId: zod.uuid().nullable().describe("Null once the Indexer is deleted"),
+  indexerName: zod.string().describe("The Indexer's name when the run started"),
+  lostAt: GrabsLostAt.describe(
+    "Where an outranked or kept Release lost to the reference Release; null for the others and for one that ties it at every step",
+  ),
+  outcome: zod
+    .enum(["grabbed", "not_taken", "outranked", "kept", "refused"])
+    .describe(
+      "grabbed is the run's Grab. not_taken ranked above it, and its Indexer stopped, reached its limit or dropped it. outranked ranked below it. kept ranked, and the run grabbed nothing. refused has a refusal of its own or is grabbable at no cell.",
+    ),
+  position: zod
+    .int()
+    .min(grabsListedReleasePositionMin)
+    .describe("Its place in the order the Indexers listed the run's Releases"),
+  rank: zod
+    .int()
+    .min(1)
+    .nullable()
+    .describe(
+      "Its place among the Releases grabbable at some cell, from 1; null for one grabbable at none",
+    ),
+  reasons: zod
+    .array(GrabsReason)
+    .describe("Its own refusals, then each cell's failures and notes, in Profile order"),
+  scores: zod
+    .array(GrabsTargetScore)
+    .describe("Its score at each Target it was judged at, in Profile order"),
+  seeders: zod.int().min(grabsListedReleaseSeedersMin),
+  size: zod.int().min(grabsListedReleaseSizeMin).describe("Bytes"),
+  title: zod.string(),
+  words: zod
+    .string()
+    .describe(
+      "What SlipStream reads from the title, in words, such as WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB",
+    ),
+});
+
+export type GrabsListedRelease = zod.input<typeof GrabsListedRelease>;
+export type GrabsListedReleaseOutput = zod.output<typeof GrabsListedRelease>;
+
+export const GrabsReleaseList = zod.object({
+  releases: zod
+    .array(GrabsListedRelease)
+    .describe(
+      "Ranked ones first, in rank order, then the rest in the order they were listed. Empty once a later run of the Item finished.",
+    ),
+});
+
+export type GrabsReleaseList = zod.input<typeof GrabsReleaseList>;
+export type GrabsReleaseListOutput = zod.output<typeof GrabsReleaseList>;
 
 export const grabsSearchIndexerReleasesMin = 0;
 
@@ -2766,11 +2872,6 @@ export const GrabsSearch = zod.object({
     .union([zod.literal("grabbed"), zod.literal("nothing_acceptable"), zod.literal(null)])
     .nullable()
     .describe("Null while the run searches"),
-  refused: zod
-    .array(GrabsRefusal)
-    .describe(
-      "The Releases it didn't grab for a reason, in the Indexers' order. A Release it outranked isn't refused.",
-    ),
   startedAt: zod.iso.datetime({ offset: true }),
 });
 

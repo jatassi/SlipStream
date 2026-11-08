@@ -42,11 +42,13 @@ var schemaFiles embed.FS
 func Schema() storage.Schema[file] { return storage.NewSchema[file]("grabs", schemaFiles) }
 
 type (
-	GrabID   = db.GrabID
-	SearchID = db.SearchID
-	Stage    = db.Stage
-	Code     = db.Code
-	Outcome  = db.Outcome
+	GrabID         = db.GrabID
+	SearchID       = db.SearchID
+	Stage          = db.Stage
+	Code           = db.Code
+	Outcome        = db.Outcome
+	ReleaseOutcome = db.ReleaseOutcome
+	Step           = db.Step
 )
 
 const (
