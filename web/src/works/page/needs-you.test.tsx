@@ -51,6 +51,31 @@ test("a download waiting on a client that isn't responding names the client and 
     );
 });
 
+test("a download waiting to fetch for an external client on an offline Node names the client", async () => {
+  const toQbittorrent = {
+    ...stuck,
+    stage: "fetching",
+    torrentId: null,
+    waitsFor: {
+      nodeId: stuck.nodeId,
+      client: {
+        id: "2b4d6f8a-0c1e-4a3b-9d5f-7e9a1c3b5d7f",
+        kind: "qbittorrent",
+        name: "qBittorrent",
+      },
+    },
+  } as const;
+  const needsYou = openWith(
+    [{ kind: "waiting", grabId: toQbittorrent.id, code: "node_away" }],
+    [toQbittorrent],
+  );
+  await expect
+    .element(needsYou)
+    .toHaveTextContent(
+      "Needs you1WaitingWaiting to send to qBittorrent on seedboxseedbox is offline. This download goes there once seedbox is back online.Send to another client",
+    );
+});
+
 test("a Work with no library root says where to add one", async () => {
   const needsYou = openWith([{ kind: "no_root" }]);
   await expect.element(needsYou.getByText("No library root for this Work")).toBeVisible();
