@@ -64,7 +64,7 @@ var reasons = map[syntax.ErrorCode]reason{
 	syntax.ErrConditionalExpression:      {"a (?(...)) condition can't be read", true},
 	syntax.ErrTooManyAlternates:          {"a (?(...)) condition has more than two branches", true},
 	syntax.ErrUnrecognizedGrouping:       {"(%v isn't a known group construct", true},
-	syntax.ErrInvalidGroupName:           {"a group name must start with a letter, digit or underscore and end with its closing bracket", true},
+	syntax.ErrInvalidGroupName:           {"a group name must start with a letter, a digit or _ and end with its closing bracket", true},
 	syntax.ErrCapNumNotZero:              {"a group can't be numbered 0", true},
 	syntax.ErrUndefinedBackRef:           {"group %v doesn't exist", true},
 	syntax.ErrUndefinedNameRef:           {"group %v doesn't exist", true},
