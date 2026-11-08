@@ -1,0 +1,53 @@
+source: synthetic
+cases:
+  - name: search
+    call: {search: {mode: movie, text: "The Quiet Orchard 2021"}}
+    exchanges:
+      - request:
+          method: POST
+          path: /v1
+          headers: {Accept: application/json, Content-Type: application/json}
+          json: {order_by: date, order_direction: desc, from: 0, size: 100, hide_unsafe: true, search_type: "100%", search_field: title, query: The Quiet Orchard 2021}
+        response:
+          headers: {Content-Type: application/json; charset=utf-8}
+          body: search.json
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {method: POST, path: /v1, json: {query: Juniper Falls}}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: /v1, json: {order_by: date, order_direction: desc, from: 0, size: 100, hide_unsafe: true}}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request: {method: POST, path: /v1, json: {search_type: "100%", search_field: title, query: Harbor Lights S02E03}}
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {method: POST, path: /v1, json: {order_by: date, size: 100}}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: auth
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: /v1}
+        response: {status: 403, headers: {Content-Type: text/html}, body: blocked.html}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: /v1}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: nohits
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: /v1}
+        response: {headers: {Content-Type: application/json}, body: nohits.json}
+  - name: notjson
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: /v1}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: blocked.html}

@@ -1,5 +1,5 @@
 import { isProblem } from "../api/errors";
-import type { IndexersCaptchaImage } from "../api/gen/model";
+import type { IndexersCaptchaImage, TestIndexer422Cause } from "../api/gen/model";
 
 const isCaptcha = (value: unknown): value is IndexersCaptchaImage =>
   typeof value === "object" &&
@@ -19,4 +19,15 @@ export function captchaOf(error: unknown): IndexersCaptchaImage | undefined {
   const { body } = error;
   const captcha = typeof body === "object" && body !== null && "captcha" in body && body.captcha;
   return isCaptcha(captcha) ? captcha : undefined;
+}
+
+const codeNeeded: TestIndexer422Cause = "code_needed";
+
+/** A failed Test that met a sign-in needing a two-factor code. */
+export function needsCode(error: unknown): boolean {
+  if (!isProblem(error, "indexer_test_failed")) {
+    return false;
+  }
+  const { body } = error;
+  return typeof body === "object" && body !== null && "cause" in body && body.cause === codeNeeded;
 }

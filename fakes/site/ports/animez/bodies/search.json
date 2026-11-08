@@ -1,0 +1,27 @@
+{
+  "data": [
+    {
+      "id": 30100,
+      "url": "https://animez.fixture-site.fake.localhost/torrent/30100-the-quiet-orchard-2021-1080p-bluray-flac-x264-nogroup",
+      "download": "https://animez.fixture-site.fake.localhost/rss/download/123456789/30100-86f93e9a427f347df00ddaa6cd04d810acba5766.torrent",
+      "category": {
+        "2": "Anime Movie"
+      },
+      "info_hash": "86f93e9a427f347df00ddaa6cd04d810acba5766",
+      "file_name": "The Quiet Orchard 2021 1080p BluRay FLAC x264-NOGROUP",
+      "release_title": "",
+      "file_size": 9663676416,
+      "file_count": 3,
+      "seed": 18,
+      "leech": 0,
+      "completed": 64,
+      "upload_multiply": 1,
+      "download_multiply": 0.5,
+      "video_quality": "1080p",
+      "type": "Movie",
+      "format": "MOVIE",
+      "created_at_iso": "2026-10-29T09:00:00+09:00",
+      "movie_tv": null
+    }
+  ]
+}

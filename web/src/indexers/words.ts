@@ -2,11 +2,39 @@ import type { IndexersIndexer, IndexersLimitUse, IndexersQuery, NodesNode } from
 import { clock, countWords } from "../format";
 import type { AlertTone } from "../ui/count";
 
-export const kindWords: { readonly [K in IndexersIndexer["kind"]]: string } = {
+const kindWords: { readonly [K in Exclude<IndexersIndexer["kind"], "native">]: string } = {
   catalog: "Catalog site",
   torznab: "Torznab feed",
   rss: "RSS feed",
 };
+
+/** What kind of Indexer it is in words; a ported site is named by its site. */
+export function kindOf(indexer: IndexersIndexer): string {
+  if (indexer.port !== null) {
+    return indexer.port.name;
+  }
+  if (indexer.kind === "native") {
+    throw new Error("a native Indexer came without its port");
+  }
+  return kindWords[indexer.kind];
+}
+
+const syncedFormat = new Intl.DateTimeFormat(undefined, {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+/** Where a ported site's support comes from: Prowlarr's code as of the commit it was synced to. */
+export const portedWords = (name: string, synced: string) =>
+  `SlipStream's ${name} support is ported from Prowlarr's code of ${syncedFormat.format(new Date(synced))}.`;
+
+const seconds = { one: "second", many: "seconds" } as const;
+
+/** The least time between two requests to a ported site. */
+export const spacingWords = (name: string, spacing: number) =>
+  `Requests to ${name} are at least ${countWords(spacing, seconds)} apart.`;
 
 export const nodeName = (nodes: readonly NodesNode[], id: string): string =>
   nodes.find((node) => node.id === id)?.name ?? "a removed Node";

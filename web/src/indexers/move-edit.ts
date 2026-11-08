@@ -1,6 +1,6 @@
 import { isApiError, isProblem } from "../api/errors";
 import type { IndexersIndexer, IndexersIndexerEdit, NodesNode } from "../api/gen/model";
-import type { CaptchaStep } from "./add/use-add";
+import type { SignInStep } from "./add/use-add";
 import { captchaOf } from "./captcha-of";
 import { refusal } from "./edit-values";
 
@@ -16,7 +16,7 @@ export type MoveValues = { to: string; cookie: string; userAgent: string; captch
  * The move to values.to, with a new browser cookie when the old one was
  * pasted, and the code of the captcha step shown for that Node.
  */
-export function moveOf(indexer: IndexersIndexer, values: MoveValues, step: CaptchaStep) {
+export function moveOf(indexer: IndexersIndexer, values: MoveValues, step: SignInStep) {
   const edit: IndexersIndexerEdit = { homeNodeId: values.to };
   if (indexer.session?.pasted === true) {
     edit.cookie = { cookie: values.cookie.trim(), userAgent: values.userAgent.trim() };
@@ -28,7 +28,7 @@ export function moveOf(indexer: IndexersIndexer, values: MoveValues, step: Captc
 }
 
 /** The captcha step after a refused move to Node to: the captcha its Test handed back, if any. */
-export function stepAfter(error: unknown, to: string): CaptchaStep {
+export function stepAfter(error: unknown, to: string): SignInStep {
   const captcha = captchaOf(error);
   return captcha === undefined ? { kind: "none" } : { kind: "shown", captcha, signIn: to };
 }

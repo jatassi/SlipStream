@@ -189,3 +189,36 @@ func TestTheLogAndErrorsCarryNoKeyOrLink(t *testing.T) {
 		t.Fatalf("the request log is %q, want each response", log.String())
 	}
 }
+
+func TestEveryKindsReleasesCarryTheFlagsTheirFactorsMean(t *testing.T) {
+	item := func(title, down, up string) string {
+		return `<item><title>` + title + `</title><guid>` + title + `</guid><link>http://x.test/` + title + `</link>` +
+			`<torznab:attr name="downloadvolumefactor" value="` + down + `"/><torznab:attr name="uploadvolumefactor" value="` + up + `"/></item>`
+	}
+	feed := `<rss xmlns:torznab="http://torznab.com/schemas/2015/feed"><channel>` +
+		item("Free", "0", "2") + item("Quarter", "0.25", "1") + item("Half", "0.5", "1") + item("ThreeQuarters", "0.75", "1") + item("Full", "1", "1") +
+		`<item><title>Unstated</title><guid>u</guid><link>http://x.test/u</link></item></channel></rss>`
+	indexer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(feed)) }))
+	t.Cleanup(indexer.Close)
+	a := run(t, node(t, &bytes.Buffer{}), indexer.URL, "k", searching.SearchCall{Query: searching.Query{Mode: "search", Text: "orchard"}})
+	var got []string
+	for _, r := range a.Releases {
+		got = append(got, fmt.Sprint(r.Title, r.Flags))
+	}
+	want := "[Free[freeleech doubleupload] Quarter[freeleech75] Half[halfleech] ThreeQuarters[freeleech25] Full[] Unstated[]]"
+	if fmt.Sprint(got) != want {
+		t.Errorf("a Torznab search's Releases = %v, want %s", got, want)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(brookFeed)) }))
+	t.Cleanup(srv.Close)
+	rs := feedJob(feedNode(t, srv), t, nil, searching.RecentCall{}).Releases
+	if len(rs) != 2 {
+		t.Fatalf("the RSS feed's Releases = %+v, want its two items", rs)
+	}
+	for _, r := range rs {
+		if r.Flags != nil {
+			t.Errorf("the RSS item %s has flags %v, want none from a feed that states no factors", r.Title, r.Flags)
+		}
+	}
+}

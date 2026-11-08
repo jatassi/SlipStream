@@ -1,0 +1,82 @@
+{
+  "releases": [
+    {
+      "title": "The Quiet Orchard 2021 2160p UHD BluRay REMUX HDR HEVC TrueHD 7.1-CMCT",
+      "size": 64424509440,
+      "published": "2026-05-28T14:00:00Z",
+      "seeders": 30,
+      "leechers": 5,
+      "grabs": 12,
+      "link": "https://api.fixture-site.fake.localhost/api/torrent/genDlToken?id=880207",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2040,
+        100439
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 2
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://mteamtp.fixture-site.fake.localhost/detail/880207",
+      "source": null,
+      "flags": [
+        "freeleech",
+        "doubleupload"
+      ]
+    },
+    {
+      "title": "The Quiet Orchard 2021 1080p BluRay x264-CMCT",
+      "size": 12884901888,
+      "published": "2026-05-20T10:00:00Z",
+      "seeders": 88,
+      "leechers": 2,
+      "grabs": 301,
+      "link": "https://api.fixture-site.fake.localhost/api/torrent/genDlToken?id=880201",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2040,
+        100419
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0.5,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://mteamtp.fixture-site.fake.localhost/detail/880201",
+      "source": null,
+      "flags": [
+        "halfleech"
+      ]
+    },
+    {
+      "title": "The Quiet Orchard 2021 720p WEB-DL H264 AAC-MTeam",
+      "size": 3221225472,
+      "published": "",
+      "seeders": 9,
+      "leechers": 0,
+      "grabs": 40,
+      "link": "https://api.fixture-site.fake.localhost/api/torrent/genDlToken?id=880203",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://mteamtp.fixture-site.fake.localhost/detail/880203",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

@@ -1,0 +1,83 @@
+{
+  "releases": [
+    {
+      "title": "[SubsPlease] Harbor Lights S2 - 03 (480p)",
+      "size": 367001600,
+      "published": "2026-06-07T15:31:06Z",
+      "seeders": 1,
+      "leechers": 1,
+      "grabs": 0,
+      "link": "",
+      "magnet": "magnet:?xt=urn:btih:6aa755433d4021e67204767ecb4fa0e2b9a2d5a2\u0026dn=%5BSubsPlease%5D+Harbor+Lights+S2+-+03+%28480p%29+%5BABCD1234%5D.mkv\u0026tr=http%3A%2F%2Ftracker.fixture-site.fake.localhost%2Fannounce",
+      "infoHash": "6aa755433d4021e67204767ecb4fa0e2b9a2d5a2",
+      "categories": [
+        5070
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://subsplease.fixture-site.fake.localhost/shows/harbor-lights-s2/",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "[SubsPlease] Harbor Lights S2 - 03 (720p)",
+      "size": 734003200,
+      "published": "2026-06-07T15:31:06Z",
+      "seeders": 1,
+      "leechers": 1,
+      "grabs": 0,
+      "link": "",
+      "magnet": "magnet:?xt=urn:btih:8faec840b125a2d289214bd07d9a87e2efbd9fb7\u0026dn=%5BSubsPlease%5D+Harbor+Lights+S2+-+03+%28720p%29+%5BABCD1234%5D.mkv\u0026tr=http%3A%2F%2Ftracker.fixture-site.fake.localhost%2Fannounce",
+      "infoHash": "8faec840b125a2d289214bd07d9a87e2efbd9fb7",
+      "categories": [
+        5070
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://subsplease.fixture-site.fake.localhost/shows/harbor-lights-s2/",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "[SubsPlease] Harbor Lights S2 - 03 (1080p)",
+      "size": 1503238553,
+      "published": "2026-06-07T15:31:06Z",
+      "seeders": 1,
+      "leechers": 1,
+      "grabs": 0,
+      "link": "",
+      "magnet": "magnet:?xt=urn:btih:e01e04b9c18391fe360fb34d0ae757d5cf62bf53\u0026dn=%5BSubsPlease%5D+Harbor+Lights+S2+-+03+%281080p%29+%5BABCD1234%5D.mkv\u0026tr=http%3A%2F%2Ftracker.fixture-site.fake.localhost%2Fannounce\u0026xl=1503238553",
+      "infoHash": "e01e04b9c18391fe360fb34d0ae757d5cf62bf53",
+      "categories": [
+        5070
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://subsplease.fixture-site.fake.localhost/shows/harbor-lights-s2/",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

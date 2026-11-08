@@ -1,0 +1,59 @@
+{
+  "releases": [
+    {
+      "title": "Огни гавани / Harbor Lights [01-12 из 12] [HDTV 720p]",
+      "size": 1503238553,
+      "published": "2000-01-01T11:30:00Z",
+      "seeders": 25,
+      "leechers": 4,
+      "grabs": 310,
+      "link": "https://anidub.fixture-site.fake.localhost/engine/download.php?id=501",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5070,
+        100014
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://anidub.fixture-site.fake.localhost/anime_tv/full/1001-harbor-lights.html",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Огни гавани / Harbor Lights [01-12 из 12] [BDRip 1080p]",
+      "size": 3435973836,
+      "published": "2000-01-01T11:30:00Z",
+      "seeders": 12,
+      "leechers": 1,
+      "grabs": 120,
+      "link": "https://anidub.fixture-site.fake.localhost/engine/download.php?id=502",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5070,
+        100014
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://anidub.fixture-site.fake.localhost/anime_tv/full/1001-harbor-lights.html",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

@@ -28,6 +28,9 @@ func TestSiteOfNamesWhatAnAdminEnters(t *testing.T) {
 			Origin:   "https://larkspur.fixture-site.fake.localhost",
 			Settings: map[string]string{"username": site.Username, "password": site.Password(s, site.Larkspur)},
 		}},
+		{site.IPTorrents, siteEntry{
+			Origin: "https://iptorrents.fixture-site.fake.localhost", Settings: map[string]string{}, Cookie: site.IPTorrentsCookie(s), UserAgent: site.BrowserUserAgent,
+		}},
 	}
 	for _, c := range cases {
 		got, err := siteOf(m, c.label, "")
@@ -37,6 +40,10 @@ func TestSiteOfNamesWhatAnAdminEnters(t *testing.T) {
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("siteOf(%s) = %+v, want %+v", c.label, got, c.want)
 		}
+	}
+	norbits, err := siteOf(m, site.NorBits, "")
+	if err != nil || norbits.Settings["authenticatorKey"] != site.AuthenticatorKey(s) || len(norbits.Code) != 6 {
+		t.Errorf("siteOf(norbits) = %+v, %v; want its authenticator key and a six-digit code", norbits, err)
 	}
 	if _, err := siteOf(world.Manifest{}, site.Larkspur, ""); err == nil {
 		t.Error("siteOf a run with no fixture-site succeeded")

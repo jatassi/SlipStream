@@ -1,0 +1,7 @@
+{
+  "outcome": {
+    "kind": "stopped",
+    "cause": "account_refused"
+  },
+  "sessionChanged": false
+}

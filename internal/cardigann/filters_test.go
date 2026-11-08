@@ -1,11 +1,15 @@
 package cardigann
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jatassi/slipstream/internal/prowlarr/encoding"
+)
 
 func arg(s string) filterArgs     { return filterArgs{Items: []string{s}} }
 func args(s ...string) filterArgs { return filterArgs{Items: s, IsList: true} }
-func testEnv(t *testing.T) env {
-	return env{Scope: fixtureScope(), Clock: testClock, charset: mustCharset(t, "UTF-8")}
+func testEnv() env {
+	return env{Scope: fixtureScope(), Clock: testClock, charset: encoding.UTF8}
 }
 func runFilter(t *testing.T, name string, a filterArgs, in value) (value, error) {
 	t.Helper()
@@ -13,7 +17,7 @@ func runFilter(t *testing.T, name string, a filterArgs, in value) (value, error)
 	if err != nil {
 		t.Fatalf("compile %s: %v", name, err)
 	}
-	return filterBlocks{f}.Apply(in, testEnv(t))
+	return filterBlocks{f}.Apply(in, testEnv())
 }
 
 func TestFilters(t *testing.T) {
@@ -173,7 +177,7 @@ func TestFilterChain(t *testing.T) {
 		}
 		fs = append(fs, b)
 	}
-	got, err := fs.Apply(textValue("Size: 1.5 GB"), testEnv(t))
+	got, err := fs.Apply(textValue("Size: 1.5 GB"), testEnv())
 	if err != nil || got.String() != "1,5 GB" {
 		t.Errorf("chain = %q, %v", got.String(), err)
 	}

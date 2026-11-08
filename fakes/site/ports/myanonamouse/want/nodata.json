@@ -1,0 +1,7 @@
+{
+  "outcome": {
+    "kind": "failing",
+    "text": "the Indexer's search response holds no Releases: You aren't signed in."
+  },
+  "sessionChanged": false
+}

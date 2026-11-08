@@ -1,0 +1,61 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2021.1080p.BluRay.x264-FIXTURE",
+      "size": 9123456789,
+      "published": "2021-11-14T21:26:21Z",
+      "seeders": 22,
+      "leechers": 1,
+      "grabs": 41,
+      "link": "https://speedapp.fixture-site.fake.localhost/api/torrent/310201/download",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2040,
+        100008
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://speedapp.fixture-site.fake.localhost/browse/310201",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.720p.WEB-DL.x264-FIXTURE",
+      "size": 3456789012,
+      "published": "2021-11-14T08:00:00Z",
+      "seeders": 9,
+      "leechers": 0,
+      "grabs": 5,
+      "link": "https://speedapp.fixture-site.fake.localhost/api/torrent/310188/download",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2040,
+        100029
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://speedapp.fixture-site.fake.localhost/browse/310188",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

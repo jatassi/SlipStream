@@ -206,7 +206,7 @@ export const getGetIndexerCatalogUrl = () => {
 };
 
 /**
- * @summary List the Indexer catalog's definitions and the custom ones, with when the catalog last refreshed
+ * @summary List the sites SlipStream includes, the Indexer catalog's definitions but those an included site replaces, and the custom definitions, with when the catalog last refreshed
  */
 export const getIndexerCatalog = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -300,7 +300,7 @@ export function useGetIndexerCatalogSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary List the Indexer catalog's definitions and the custom ones, with when the catalog last refreshed
+ * @summary List the sites SlipStream includes, the Indexer catalog's definitions but those an included site replaces, and the custom definitions, with when the catalog last refreshed
  */
 
 export function useGetIndexerCatalogSuspense<
@@ -692,7 +692,7 @@ export const getGetCatalogDefinitionUrl = (id: string) => {
 };
 
 /**
- * @summary Get the fields of a definition's add form, from the custom definition with the id or else the catalog's
+ * @summary Get the add form of an included site or a definition: the site with the id, else the custom definition with it, else the catalog's
  */
 export const getCatalogDefinition = async (
   id: string,
@@ -823,7 +823,7 @@ export function useGetCatalogDefinitionSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get the fields of a definition's add form, from the custom definition with the id or else the catalog's
+ * @summary Get the add form of an included site or a definition: the site with the id, else the custom definition with it, else the catalog's
  */
 
 export function useGetCatalogDefinitionSuspense<
@@ -1866,7 +1866,7 @@ export const getUpdateIndexerUrl = (id: string) => {
 };
 
 /**
- * @summary Change an Indexer, testing it first when the change is to its home, address, API key, cookie or catalog settings
+ * @summary Change an Indexer, testing it first when the change is to its home, address, API key, cookie or settings
  */
 export const updateIndexer = async (
   id: string,
@@ -1962,7 +1962,7 @@ export type UpdateIndexerMutationError = ErrorType<
 export type UpdateIndexerMutationVariables = { id: string; data: IndexersIndexerEdit };
 
 /**
- * @summary Change an Indexer, testing it first when the change is to its home, address, API key, cookie or catalog settings
+ * @summary Change an Indexer, testing it first when the change is to its home, address, API key, cookie or settings
  */
 export const useUpdateIndexer = <
   TError = ErrorType<

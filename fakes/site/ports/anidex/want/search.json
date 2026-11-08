@@ -1,0 +1,59 @@
+{
+  "releases": [
+    {
+      "title": "[FKW] The Quiet Orchard (2021) [BD 1080p] [English]",
+      "size": 9126805504,
+      "published": "2026-01-01T12:00:00Z",
+      "seeders": 25,
+      "leechers": 4,
+      "grabs": 310,
+      "link": "https://anidex.fixture-site.fake.localhost/dl/2001",
+      "magnet": "magnet:?xt=urn:btih:33ee01d828becdd3316463583df181ee2c8a7b1c\u0026dn=fixture",
+      "infoHash": "33ee01d828becdd3316463583df181ee2c8a7b1c",
+      "categories": [
+        5070,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://anidex.fixture-site.fake.localhost/torrent/2001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Salt Meadow - Orchard OST [FLAC] [Japanese]",
+      "size": 432013312,
+      "published": "2026-01-02T08:30:00Z",
+      "seeders": 7,
+      "leechers": 0,
+      "grabs": 33,
+      "link": "https://anidex.fixture-site.fake.localhost/dl/2002",
+      "magnet": "magnet:?xt=urn:btih:798a28c73de6212789019a8c59183cd774f9dd95\u0026dn=fixture",
+      "infoHash": "798a28c73de6212789019a8c59183cd774f9dd95",
+      "categories": [
+        3040,
+        100010
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://anidex.fixture-site.fake.localhost/torrent/2002",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

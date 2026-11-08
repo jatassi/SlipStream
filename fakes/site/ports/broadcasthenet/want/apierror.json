@@ -1,0 +1,7 @@
+{
+  "outcome": {
+    "kind": "failing",
+    "text": "the Indexer's API responded with the error {\"code\":-32602,\"message\":\"Invalid params\"}"
+  },
+  "sessionChanged": false
+}

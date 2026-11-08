@@ -1,0 +1,25 @@
+{
+  "report": {
+    "modes": {
+      "movie": [
+        "q",
+        "imdbid"
+      ],
+      "search": [
+        "q"
+      ]
+    },
+    "categories": [
+      2000,
+      100001,
+      100002,
+      100003,
+      100004,
+      100005,
+      100006
+    ],
+    "items": 3,
+    "sources": null
+  },
+  "sessionChanged": false
+}

@@ -1,0 +1,72 @@
+{
+  "status": "success",
+  "response": {
+    "currentPage": 1,
+    "pages": 3,
+    "results": [
+      {
+        "groupId": "30420",
+        "groupName": "Harbor.Lights.2024.v5.2.macOS-FIXTURE",
+        "torrentId": 71900,
+        "category": "MacOS Apps",
+        "fileCount": 4,
+        "groupTime": "1731002400",
+        "size": "524288000",
+        "snatches": 3,
+        "seeders": "4",
+        "leechers": "6",
+        "isFreeleech": false,
+        "isNeutralLeech": true,
+        "isPersonalFreeleech": false,
+        "canUseToken": false
+      },
+      {
+        "groupId": 30418,
+        "groupName": "Juniper.Falls.2023.Sound.Pack-FIXTURE",
+        "torrentId": 71888,
+        "category": "Audio",
+        "fileCount": 120,
+        "groupTime": "2024-11-07 12:00:00",
+        "size": 1073741824,
+        "snatches": 20,
+        "seeders": 15,
+        "leechers": 1,
+        "isFreeleech": false,
+        "isNeutralLeech": false,
+        "isPersonalFreeleech": true,
+        "canUseToken": false
+      },
+      {
+        "groupId": 30417,
+        "groupName": "Cedar.Hollow.2022.Puzzle.Collection.macOS-FIXTURE",
+        "torrentId": 71870,
+        "category": "--Select Category--",
+        "fileCount": 1,
+        "groupTime": "1730900000",
+        "size": 3221225472,
+        "snatches": 77,
+        "seeders": 40,
+        "leechers": 3,
+        "isFreeleech": false,
+        "isNeutralLeech": false,
+        "isPersonalFreeleech": false,
+        "canUseToken": true
+      },
+      {
+        "groupId": 30416,
+        "groupName": "Salt.Meadow.2021.Typography.Course-FIXTURE",
+        "torrentId": 71866,
+        "fileCount": 18,
+        "groupTime": "1730800000",
+        "size": 2147483648,
+        "snatches": 5,
+        "seeders": 6,
+        "leechers": 0,
+        "isFreeleech": false,
+        "isNeutralLeech": false,
+        "isPersonalFreeleech": false,
+        "canUseToken": true
+      }
+    ]
+  }
+}

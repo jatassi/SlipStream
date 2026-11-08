@@ -281,7 +281,7 @@ func (x *Indexers) catalogHeld(ctx context.Context) (db.IndexersCatalogState, ma
 }
 
 // store records what fetch read, in tx, and answers the Indexers whose
-// pins moved.
+// pins moved or that moved from a port to their catalog definition.
 func (x *Indexers) store(ctx context.Context, tx *storage.Tx[file], f fetched, now storage.Time) ([]ID, error) {
 	q := db.New(tx)
 	refreshed := db.SetCatalogRefreshedParams{RefreshedAt: now, LastModified: orNil(f.lastModified)}
@@ -302,6 +302,11 @@ func (x *Indexers) store(ctx context.Context, tx *storage.Tx[file], f fetched, n
 	if err != nil {
 		return nil, err
 	}
+	migrated, err := x.migrateMoved(ctx, tx, now)
+	if err != nil {
+		return nil, err
+	}
+	moved = append(moved, migrated...)
 	if err := q.PruneDefinitions(ctx); err != nil {
 		return nil, err
 	}

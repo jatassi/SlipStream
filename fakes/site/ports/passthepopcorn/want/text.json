@@ -1,0 +1,94 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW",
+      "size": 6000000000,
+      "published": "2026-06-01T12:00:00Z",
+      "seeders": 12,
+      "leechers": 3,
+      "grabs": 40,
+      "link": "https://passthepopcorn.fixture-site.fake.localhost/torrents.php?action=download\u0026id=910001",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100001
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 0.5,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "96h0m0s",
+      "details": "https://passthepopcorn.fixture-site.fake.localhost/torrents.php?id=900001\u0026torrentid=910001",
+      "source": null,
+      "flags": [
+        "golden",
+        "approved",
+        "halfleech"
+      ]
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW",
+      "size": 3000000000,
+      "published": "2026-05-30T08:30:00Z",
+      "seeders": 4,
+      "leechers": 0,
+      "grabs": 9,
+      "link": "https://passthepopcorn.fixture-site.fake.localhost/torrents.php?action=download\u0026id=910002",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100001
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 0
+      },
+      "minRatio": 1,
+      "minSeed": "96h0m0s",
+      "details": "https://passthepopcorn.fixture-site.fake.localhost/torrents.php?id=900001\u0026torrentid=910002",
+      "source": null,
+      "flags": [
+        "scene",
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Salt.Meadow.2024.1080p.BluRay.x264-FKW",
+      "size": 8500000000,
+      "published": "2026-05-28T21:15:09Z",
+      "seeders": 1,
+      "leechers": 5,
+      "grabs": 0,
+      "link": "https://passthepopcorn.fixture-site.fake.localhost/torrents.php?action=download\u0026id=910003",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100002
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "96h0m0s",
+      "details": "https://passthepopcorn.fixture-site.fake.localhost/torrents.php?id=900002\u0026torrentid=910003",
+      "source": null,
+      "flags": [
+        "approved",
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

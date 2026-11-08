@@ -1,0 +1,41 @@
+{
+  "status": "success",
+  "response": {
+    "currentPage": 1,
+    "pages": 1,
+    "results": [
+      {
+        "groupId": 8812,
+        "groupName": "The.Quiet.Orchard.2023.FLAC.Lossless.CD-FIXTURE",
+        "torrentId": 20511,
+        "category": "Music",
+        "fileCount": 14,
+        "groupTime": "1730927400",
+        "size": 412316860,
+        "snatches": 33,
+        "seeders": 18,
+        "leechers": 1,
+        "isFreeleech": false,
+        "isNeutralLeech": false,
+        "isPersonalFreeleech": false,
+        "canUseToken": true
+      },
+      {
+        "groupId": "8811",
+        "groupName": "The.Quiet.Orchard.2023.MP3.320.WEB-FIXTURE",
+        "torrentId": 20509,
+        "category": "Music",
+        "fileCount": 12,
+        "groupTime": "1730926541",
+        "size": "125829120",
+        "snatches": 90,
+        "seeders": "41",
+        "leechers": "2",
+        "isFreeleech": true,
+        "isNeutralLeech": false,
+        "isPersonalFreeleech": false,
+        "canUseToken": false
+      }
+    ]
+  }
+}

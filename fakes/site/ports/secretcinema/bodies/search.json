@@ -1,0 +1,96 @@
+{
+  "status": "success",
+  "response": {
+    "currentPage": 1,
+    "pages": 1,
+    "results": [
+      {
+        "groupId": 3120,
+        "groupName": "The Quiet Orchard",
+        "artist": "Ada Marsh",
+        "groupYear": 1961,
+        "groupTime": "1731000000",
+        "torrents": [
+          {
+            "torrentId": 51001,
+            "media": "BDMV",
+            "encoding": "",
+            "format": "",
+            "remasterTitle": "Criterion &amp; Restored",
+            "releaseName": "",
+            "hasCue": false,
+            "scene": false,
+            "fileCount": 210,
+            "time": "2024-11-07 10:00:00",
+            "size": 46170898432,
+            "snatches": 3,
+            "seeders": 4,
+            "leechers": 1,
+            "category": "Movies",
+            "isFreeleech": false,
+            "isNeutralLeech": false,
+            "isPersonalFreeleech": false,
+            "canUseToken": true
+          },
+          {
+            "torrentId": 50988,
+            "media": "SD",
+            "encoding": "",
+            "format": "",
+            "remasterTitle": "",
+            "releaseName": "The.Quiet.Orchard.1961.DVDRip.x264-FIXTURE",
+            "hasCue": false,
+            "scene": true,
+            "fileCount": 1,
+            "time": "2024-11-06 23:30:00",
+            "size": "1468006400",
+            "snatches": 27,
+            "seeders": "12",
+            "leechers": "0",
+            "category": "Movies",
+            "isFreeleech": false,
+            "isNeutralLeech": true,
+            "isPersonalFreeleech": false,
+            "canUseToken": false
+          },
+          {
+            "torrentId": 50950,
+            "media": "SD",
+            "encoding": "",
+            "format": "",
+            "remasterTitle": "",
+            "releaseName": "Orchard cut without a year",
+            "hasCue": false,
+            "scene": false,
+            "fileCount": 1,
+            "time": "2024-11-05 08:15:00",
+            "size": 734003200,
+            "snatches": 8,
+            "seeders": 2,
+            "leechers": 0,
+            "isFreeleech": false,
+            "isNeutralLeech": false,
+            "isPersonalFreeleech": true,
+            "canUseToken": false
+          }
+        ]
+      },
+      {
+        "groupId": 3122,
+        "groupName": "The.Quiet.Orchard.1961.Collection.1080p-FIXTURE",
+        "torrentId": 51020,
+        "category": "Movies",
+        "fileCount": 3,
+        "groupTime": "1730800000",
+        "size": 9663676416,
+        "snatches": 1,
+        "seeders": 2,
+        "leechers": 3,
+        "isFreeleech": false,
+        "isNeutralLeech": false,
+        "isPersonalFreeleech": false,
+        "canUseToken": true
+      }
+    ]
+  }
+}

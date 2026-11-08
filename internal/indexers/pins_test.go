@@ -5,21 +5,22 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/cardigann"
+	"github.com/jatassi/slipstream/internal/indexerfields"
 )
 
 func TestCarryTakesEachSettingByNameIntoWhereTheNewVersionKeepsIt(t *testing.T) {
-	from := cardigann.Summary{Fields: []cardigann.Field{
-		{Name: "username", Type: cardigann.TextField},
-		{Name: "pin", Type: cardigann.SelectField, Options: []cardigann.Option{{Value: "1", Label: "One"}}},
-		{Name: "freeleech", Type: cardigann.CheckboxField},
-		{Name: "gone", Type: cardigann.TextField},
+	from := cardigann.Summary{Fields: []indexerfields.Field{
+		{Name: "username", Type: indexerfields.Text},
+		{Name: "pin", Type: indexerfields.Select, Options: []indexerfields.Option{{Value: "1", Label: "One"}}},
+		{Name: "freeleech", Type: indexerfields.Checkbox},
+		{Name: "gone", Type: indexerfields.Text},
 	}}
-	to := cardigann.Summary{Fields: []cardigann.Field{
-		{Name: "username", Type: cardigann.TextField},
-		{Name: "password", Type: cardigann.PasswordField},
-		{Name: "pin", Type: cardigann.TextField},
-		{Name: "freeleech", Type: cardigann.CheckboxField},
-		{Name: "info", Type: cardigann.InfoField},
+	to := cardigann.Summary{Fields: []indexerfields.Field{
+		{Name: "username", Type: indexerfields.Text},
+		{Name: "password", Type: indexerfields.Password},
+		{Name: "pin", Type: indexerfields.Text},
+		{Name: "freeleech", Type: indexerfields.Checkbox},
+		{Name: "info", Type: indexerfields.Info},
 	}}
 	got := carry(
 		map[string]string{"username": "ada", "pin": "1", "freeleech": "true"},

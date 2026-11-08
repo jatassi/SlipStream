@@ -13,6 +13,9 @@ import (
 	"strings"
 
 	"golang.org/x/net/html"
+
+	"github.com/jatassi/slipstream/internal/prowlarr/dom"
+	"github.com/jatassi/slipstream/internal/prowlarr/encoding"
 )
 
 var (
@@ -103,7 +106,7 @@ func (x *CaptchaFetch) start(d *Definition, s Settings, clock Clock) (*step, err
 		if img == nil {
 			return nil, x.finish(si, pre)
 		}
-		src, _ := attr(img, "src")
+		src, _ := dom.Attr(img, "src")
 		u, err := resolveURL(si.loginURL, src)
 		if err != nil {
 			return nil, err
@@ -201,7 +204,7 @@ func (si *signIn) start(c *Captcha) (*step, error) {
 		if err != nil {
 			return nil, err
 		}
-		return si.getAt(si.path + "?" + charset{}.QueryString(pairs, "&"))
+		return si.getAt(si.path + "?" + queryString(encoding.UTF8, pairs, "&"))
 	case l.Method == "oneurl":
 		one, ok := l.Inputs.Get("oneurl")
 		if !ok {
@@ -274,7 +277,7 @@ func (si *signIn) post() (*step, error) {
 	req := si.request(http.MethodPost, si.loginURL, si.site.String())
 	req.FollowRedirects = true
 	req.Header.Set("Content-Type", formContentType)
-	req.Body = []byte(si.d.charset.QueryString(pairs, "&"))
+	req.Body = []byte(queryString(si.d.charset, pairs, "&"))
 	return si.signedIn(req), nil
 }
 
@@ -299,7 +302,7 @@ func (si *signIn) landing(then func(*html.Node) (*step, error)) *step {
 			return nil, fmt.Errorf("the sign-in page responded with HTTP %d", r.Status)
 		}
 		si.keep(r)
-		doc, err := parseHTML(si.d.charset.Decode(r.Body))
+		doc, err := dom.ParseHTML(si.d.charset.GetString(r.Body))
 		if err != nil {
 			return nil, err
 		}
@@ -338,7 +341,7 @@ func (si *signIn) readForm(doc *html.Node) (*preLogin, error) {
 	if form == nil {
 		return nil, fmt.Errorf("the sign-in page has no form matching %q", formCSS)
 	}
-	enctype, _ := attr(form, "enctype")
+	enctype, _ := dom.Attr(form, "enctype")
 	pre := &preLogin{Multipart: enctype == "multipart/form-data"}
 	if pre.Form, err = formInputs(form); err != nil {
 		return nil, err
@@ -353,12 +356,12 @@ func (si *signIn) readForm(doc *html.Node) (*preLogin, error) {
 	if err != nil {
 		return nil, err
 	}
-	action, _ := attr(form, "action")
+	action, _ := dom.Attr(form, "action")
 	if l.SubmitPath != "" {
 		action = l.SubmitPath
 	}
 	if len(query) > 0 {
-		action += "?" + charset{}.QueryString(query, "&")
+		action += "?" + queryString(encoding.UTF8, query, "&")
 	}
 	u, err := resolveURL(si.loginURL, action)
 	if err != nil {
@@ -376,21 +379,21 @@ func (si *signIn) readForm(doc *html.Node) (*preLogin, error) {
 // formInputs are the form's named, enabled inputs, a checkbox or radio
 // only when checked, as a browser submits them.
 func formInputs(form *html.Node) ([]pair, error) {
-	sel, err := compileSelector("input")
+	sel, err := dom.Compile("input")
 	if err != nil {
 		return nil, err
 	}
 	var out []pair
 	for _, in := range sel.All(form) {
-		name, named := attr(in, "name")
-		if _, disabled := attr(in, "disabled"); !named || disabled {
+		name, named := dom.Attr(in, "name")
+		if _, disabled := dom.Attr(in, "disabled"); !named || disabled {
 			continue
 		}
-		typ, _ := attr(in, "type")
-		if _, checked := attr(in, "checked"); !checked && slices.Contains([]string{"checkbox", "radio"}, strings.ToLower(typ)) {
+		typ, _ := dom.Attr(in, "type")
+		if _, checked := dom.Attr(in, "checked"); !checked && slices.Contains([]string{"checkbox", "radio"}, strings.ToLower(typ)) {
 			continue
 		}
-		v, _ := attr(in, "value")
+		v, _ := dom.Attr(in, "value")
 		out = setPair(out, name, v)
 	}
 	return out, nil
@@ -446,7 +449,7 @@ func inputName(doc *html.Node, css string) (string, error) {
 	if el == nil {
 		return "", fmt.Errorf("the sign-in page has no input matching %q", css)
 	}
-	name, _ := attr(el, "name")
+	name, _ := dom.Attr(el, "name")
 	return name, nil
 }
 
@@ -487,7 +490,7 @@ func (si *signIn) submit(pre *preLogin, answer string) (*step, error) {
 		return nil, err
 	}
 	return &step{req: si.request(http.MethodGet, u, si.loginURL.String()), then: func(r Response) (*step, error) {
-		hash, err := simpleCaptchaHash(si.d.charset.Decode(r.Body))
+		hash, err := simpleCaptchaHash(si.d.charset.GetString(r.Body))
 		if err != nil {
 			return nil, err
 		}
@@ -523,7 +526,7 @@ func (si *signIn) postForm(pre *preLogin, pairs []pair) (*step, error) {
 	req.FollowRedirects = true
 	if !pre.Multipart {
 		req.Header.Set("Content-Type", formContentType)
-		req.Body = []byte(si.d.charset.QueryString(pairs, "&"))
+		req.Body = []byte(queryString(si.d.charset, pairs, "&"))
 		return si.signedIn(req), nil
 	}
 	boundary := "---------------------------" + strconv.FormatInt(si.env.Clock.Now.UnixMicro(), 10)
@@ -534,7 +537,7 @@ func (si *signIn) postForm(pre *preLogin, pairs []pair) (*step, error) {
 	parts = append(parts, "--"+boundary+"--")
 	req.Header.Set("Content-Type", "multipart/form-data; boundary="+boundary)
 	req.Header.Set("Referer", si.site.String())
-	req.Body = si.d.charset.Encode(strings.Join(parts, "\r\n"))
+	req.Body = si.d.charset.GetBytes(strings.Join(parts, "\r\n"))
 	return si.signedIn(req), nil
 }
 
@@ -559,7 +562,7 @@ func (si *signIn) checkError(r Response) error {
 	if len(si.login.Error) == 0 {
 		return nil
 	}
-	doc, err := parseHTML(si.d.charset.Decode(r.Body))
+	doc, err := dom.ParseHTML(si.d.charset.GetString(r.Body))
 	if err != nil {
 		return err
 	}
@@ -612,7 +615,7 @@ func (d *Definition) LoggedOut(r Response) bool {
 	if ct := r.Header.Get("Content-Type"); ct != "" && !strings.Contains(ct, "text/html") {
 		return false
 	}
-	doc, err := parseHTML(d.charset.Decode(r.Body))
+	doc, err := dom.ParseHTML(d.charset.GetString(r.Body))
 	if err != nil {
 		return true
 	}
@@ -621,7 +624,7 @@ func (d *Definition) LoggedOut(r Response) bool {
 }
 
 func firstMatch(doc *html.Node, css string) (*html.Node, error) {
-	sel, err := compileSelector(css)
+	sel, err := dom.Compile(css)
 	if err != nil {
 		return nil, err
 	}

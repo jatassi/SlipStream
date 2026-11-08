@@ -1,0 +1,30 @@
+{
+  "releases": [
+    {
+      "title": "Harbor.Lights.S01E02.1080p.WEB-DL.H264-FKW",
+      "size": 2254857830,
+      "published": "2026-06-03T21:15:07Z",
+      "seeders": 9,
+      "leechers": 1,
+      "grabs": 7,
+      "link": "https://torrentbytes.fixture-site.fake.localhost/download.php?id=2001\u0026SSL=1\u0026name=Harbor.Lights.S01E02.1080p.WEB-DL.H264-FKW.torrent",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5040,
+        100038
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://torrentbytes.fixture-site.fake.localhost/details.php?id=2001\u0026hit=1",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

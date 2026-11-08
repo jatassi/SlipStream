@@ -1,0 +1,85 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW",
+      "size": 2147483648,
+      "published": "2026-06-01T12:00:00Z",
+      "seeders": 120,
+      "leechers": 14,
+      "grabs": 0,
+      "link": "https://marsh.fixture-site.fake.localhost/download/1001.torrent",
+      "magnet": "magnet:?xt=urn:btih:3a09bbfb97c5074d6d263730ff9cb8d82140c05f\u0026dn=The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW",
+      "infoHash": "3a09bbfb97c5074d6d263730ff9cb8d82140c05f",
+      "categories": [
+        2040,
+        3101000,
+        2000,
+        3100000
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://marsh.fixture-site.fake.localhost/torrent/1001/the-quiet-orchard-2021-1080p",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The Quiet Orchard (2021) 720p BluRay x264",
+      "size": 1073741824,
+      "published": "2026-05-30T21:15:00Z",
+      "seeders": 8,
+      "leechers": 1,
+      "grabs": 0,
+      "link": "",
+      "magnet": "magnet:?xt=urn:btih:f3d82ea776451f96507397646f0e0f626997da6a\u0026dn=The+Quiet+Orchard+%282021%29+720p+BluRay+x264",
+      "infoHash": "f3d82ea776451f96507397646f0e0f626997da6a",
+      "categories": [
+        2040,
+        3101000
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://quarry.fixture-site.fake.localhost/t/2002",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The Quiet Orchard 2021 480p DVDRip",
+      "size": 734003200,
+      "published": "2026-05-28T13:30:00Z",
+      "seeders": 2,
+      "leechers": 0,
+      "grabs": 0,
+      "link": "https://quarry.fixture-site.fake.localhost/dl/2004",
+      "magnet": "",
+      "infoHash": "33ee01d828becdd3316463583df181ee2c8a7b1c",
+      "categories": [],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://quarry.fixture-site.fake.localhost/t/2004",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

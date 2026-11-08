@@ -393,7 +393,7 @@ func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 		f.env = fake.NewEnv(r.scenario, f.spec, r.log, r.faults, r.events)
 		f.env.Releases, f.env.Fronts, f.env.Files, f.env.Dir = r.releases, r.table, r.runDir, r.fakeDir(f.spec.Name)
 		if f.spec.TLS == fake.OwnTLS {
-			leaf, err := r.leaf(f.spec.Name)
+			leaf, err := r.leaf(f.spec)
 			if err != nil {
 				return fmt.Errorf("fake %s: %w", f.spec.Name, err)
 			}

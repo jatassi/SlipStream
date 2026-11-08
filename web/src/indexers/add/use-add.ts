@@ -14,7 +14,7 @@ import {
   testIndexerDraft,
 } from "../../api/gen/query/indexers/indexers";
 import { useAppForm } from "../../ui/form";
-import { captchaOf } from "../captcha-of";
+import { captchaOf, needsCode } from "../captcha-of";
 import { type SubmitErrors, submitErrors } from "../../ui/form-context";
 import { toast } from "../../ui/toast";
 import {
@@ -23,18 +23,21 @@ import {
   draftOf,
   feedOf,
   fieldOf,
+  formOf,
   signInOf,
   startValues,
 } from "./source";
 
 /**
- * Where a captcha definition's sign-in stands: no captcha yet, one shown for
- * a username on a Node, or one that expired before it was answered.
+ * Where a sign-in that needs the Admin stands: nothing asked yet, a captcha
+ * shown for a username on a Node, one that expired before it was answered,
+ * or a two-factor code to type.
  */
-export type CaptchaStep =
+export type SignInStep =
   | { readonly kind: "none" }
   | { readonly kind: "shown"; readonly captcha: IndexersCaptchaImage; readonly signIn: string }
-  | { readonly kind: "expired"; readonly signIn: string; readonly words: string };
+  | { readonly kind: "expired"; readonly signIn: string; readonly words: string }
+  | { readonly kind: "code" };
 
 /** A Torznab feed's passing Test, for the feed it read. */
 export type Tested = { readonly feed: string; readonly report: IndexersReport };
@@ -45,15 +48,14 @@ export type Next = "test" | "captcha" | "save";
 export function nextOf(
   source: Source,
   values: AddValues,
-  step: CaptchaStep,
+  step: SignInStep,
   tried: Tested | undefined,
 ): Next {
   if (source.kind === "torznab" && tried?.feed !== feedOf(values)) {
     return "test";
   }
   if (
-    source.kind === "catalog" &&
-    source.form.captcha &&
+    formOf(source)?.captcha === true &&
     !(step.kind === "shown" && step.signIn === signInOf(source, values))
   ) {
     return "captcha";
@@ -80,9 +82,9 @@ function refusalOf(source: Source, error: unknown): SubmitErrors {
 
 type Steps = {
   source: Source;
-  setStep: (step: CaptchaStep) => void;
+  setStep: (step: SignInStep) => void;
   setTried: (tried: Tested) => void;
-  setField: (name: "captcha" | "trackerName", value: string) => void;
+  setField: (name: "captcha" | "code" | "trackerName", value: string) => void;
 };
 
 /** Tests a Torznab feed, naming its Tracker after the Indexer when its items name none. */
@@ -100,20 +102,38 @@ async function loadCaptcha(steps: Steps, draft: IndexersNewIndexer, value: AddVa
   steps.setStep({ kind: "shown", captcha, signIn: signInOf(steps.source, value) });
 }
 
-/** Saves the draft, with the answer to the captcha the step shows. */
-function save(draft: IndexersNewIndexer, step: CaptchaStep, value: AddValues) {
-  return createIndexer(
-    step.kind === "shown"
-      ? { ...draft, captcha: { attempt: step.captcha.attempt, answer: value.captcha.trim() } }
-      : draft,
-  );
+/** Saves the draft, with the answer the step asks for: the captcha's or the two-factor code. */
+function save(draft: IndexersNewIndexer, step: SignInStep, value: AddValues) {
+  switch (step.kind) {
+    case "shown":
+      return createIndexer({
+        ...draft,
+        captcha: { attempt: step.captcha.attempt, answer: value.captcha.trim() },
+      });
+    case "code":
+      return createIndexer({ ...draft, code: value.code.trim() });
+    case "none":
+    case "expired":
+      return createIndexer(draft);
+    default:
+      return step satisfies never;
+  }
 }
 
-/** After a refused save: a new captcha when the Test handed one back, else none until Continue. */
+/**
+ * After a refused save: the code step when the sign-in needs a two-factor
+ * code, a new captcha when the Test handed one back, else none until
+ * Continue.
+ */
 function afterRefusal(steps: Steps, error: unknown, value: AddValues) {
   const signIn = signInOf(steps.source, value);
   if (isProblem(error, "captcha_expired")) {
     steps.setStep({ kind: "expired", signIn, words: sentenceOf(error) });
+    return;
+  }
+  steps.setField("code", "");
+  if (needsCode(error)) {
+    steps.setStep({ kind: "code" });
     return;
   }
   const captcha = captchaOf(error);
@@ -128,7 +148,7 @@ function afterRefusal(steps: Steps, error: unknown, value: AddValues) {
  * Node first. A saved Indexer opens its page.
  */
 export function useAdd(source: Source, home: NodesNode | undefined, homeShown: boolean) {
-  const [step, setStep] = useState<CaptchaStep>({ kind: "none" });
+  const [step, setStep] = useState<SignInStep>({ kind: "none" });
   const [tried, setTried] = useState<Tested>();
   const navigate = useNavigate();
   const form = useAppForm({

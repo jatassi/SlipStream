@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
@@ -75,10 +76,17 @@ func (x *Indexers) prepare(ctx context.Context, q QueryID, idx Indexer, u Use, n
 			w.Settings[k] = v
 		}
 	}
+	if p, ok := idx.Source.(Port); ok {
+		w.Port, w.Address = string(p.ID), p.Address
+		w.Settings = maps.Clone(p.Plain)
+		maps.Copy(w.Settings, secrets.Fields)
+	}
 	return job{q: q, idx: idx, use: u, node: node, wire: w}, nil
 }
 
-var kindOnWire = map[Kind]searching.Kind{Catalog: searching.Catalog, Torznab: searching.Torznab, RSS: searching.RSS}
+var kindOnWire = map[Kind]searching.Kind{
+	Catalog: searching.Catalog, Torznab: searching.Torznab, RSS: searching.RSS, Native: searching.Native,
+}
 
 // routed is the job running c for idx as query q on the Node idx routes
 // to now, or *WaitError while no Node may take it. The caller reserved q.

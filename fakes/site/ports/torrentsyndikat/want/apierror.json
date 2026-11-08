@@ -1,0 +1,7 @@
+{
+  "outcome": {
+    "kind": "failing",
+    "text": "the Indexer's search response has no rows"
+  },
+  "sessionChanged": false
+}

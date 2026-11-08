@@ -97,7 +97,7 @@ func targetChecks(ctx context.Context, root string) ([]lintCheck, error) {
 	return []lintCheck{
 		{"gofmt", func() error { return golangciLint(ctx, root, nil, "fmt", "--diff") }},
 		{"go vet", func() error { return run(ctx, root, goEnv, "go", "vet", "./...") }},
-		{"golangci-lint", func() error { return golangciLint(ctx, root, goEnv, "run", "./...") }},
+		{"golangci-lint", func() error { return golangciLint(ctx, root, goEnv, "run", "--allow-parallel-runners", "./...") }},
 	}, nil
 }
 

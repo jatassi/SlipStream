@@ -11,6 +11,9 @@ import (
 	"strings"
 
 	"golang.org/x/net/html"
+
+	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/dom"
 )
 
 // Rejected is a login.error or search.error match, with the site's own
@@ -51,7 +54,7 @@ func (x *Search) parse(p *searchPathBlock, reqURL *url.URL, r Response) error {
 	if r.Status != http.StatusOK {
 		return fmt.Errorf("the search page responded with HTTP %d", r.Status)
 	}
-	body := x.d.charset.Decode(r.Body)
+	body := x.d.charset.GetString(r.Body)
 	if p.Response != nil && p.Response.Type == "json" {
 		return x.parseJSONResponse(p.Response, body, reqURL)
 	}
@@ -89,7 +92,7 @@ func isRedirect(r Response) bool {
 // and the row kept.
 func (x *Search) parseDocument(isXML bool, body string, reqURL *url.URL) error {
 	search := &x.d.def.Search
-	parseDoc := parseHTML
+	parseDoc := dom.ParseHTML
 	if isXML {
 		parseDoc = parseXML
 	}
@@ -114,7 +117,7 @@ func (x *Search) parseDocument(isXML bool, body string, reqURL *url.URL) error {
 	if err != nil {
 		return fmt.Errorf("rows selector: %w", err)
 	}
-	sel, err := compileSelector(css)
+	sel, err := dom.Compile(css)
 	if err != nil {
 		return err
 	}
@@ -176,7 +179,7 @@ func matchError(blocks []errorBlock, doc *html.Node, env env) (msg string, found
 		if el == nil {
 			continue
 		}
-		msg := textContent(el)
+		msg := dom.TextContent(el)
 		if e.Message != nil {
 			v, err := e.Message.Select(firstElement(doc), env, true)
 			if err != nil {
@@ -190,7 +193,7 @@ func matchError(blocks []errorBlock, doc *html.Node, env env) (msg string, found
 }
 
 func (x *Search) parseHTMLRow(row *html.Node, reqURL *url.URL) (*parsed, error) {
-	r := &parsed{}
+	r := &parsed{Release: Release{DownloadFactor: 1, UploadFactor: 1}}
 	for _, f := range x.d.def.Search.Fields {
 		_ = x.field(r, f, reqURL, func(b *selectorBlock, required bool) (value, error) {
 			return b.Select(row, x.env, required)
@@ -213,7 +216,7 @@ func (x *Search) dateHeader(r *parsed, row *html.Node) error {
 			if v.IsNull() {
 				break
 			}
-			t, err := parseDate(v.text, x.env.Clock)
+			t, err := datetimeutil.FromUnknown(v.text, x.env.Clock)
 			if err != nil {
 				return err
 			}
@@ -278,7 +281,7 @@ func (x *Search) parseJSONResponse(resp *responseBlock, body string, reqURL *url
 		return err
 	}
 	for _, o := range objs {
-		r := &parsed{}
+		r := &parsed{Release: Release{DownloadFactor: 1, UploadFactor: 1}}
 		for _, f := range x.d.def.Search.Fields {
 			obj := o.obj
 			if strings.HasPrefix(f.Value.Selector.Source(), "..") {

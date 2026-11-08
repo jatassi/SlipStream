@@ -104,6 +104,19 @@ func (c *Categories) TrackerIDs(query []ID) []string {
 	return out
 }
 
+// TrackerCategories are the tracker categories mapped to a standard
+// Newznab category, in mapping order without repeats: Prowlarr's
+// GetTrackerCategories.
+func (c *Categories) TrackerCategories() []string {
+	var out []string
+	for _, m := range c.mappings {
+		if m.Newznab < CustomBase && !slices.Contains(out, m.Tracker) {
+			out = append(out, m.Tracker)
+		}
+	}
+	return out
+}
+
 // FromTracker are the Newznab categories mapped from the tracker's category,
 // compared case-insensitively: Prowlarr's MapTrackerCatToNewznab.
 func (c *Categories) FromTracker(tracker string) []Category {

@@ -1,0 +1,88 @@
+# Synthetic, written from GazelleBase, GazelleRequestGenerator, GazelleParser and DICMusic.cs.
+# Prowlarr has no DICMusic recording. The rows are groups without torrents, since the
+# Artist - Group (Year) title of a group with torrents can't be one of the release catalog's
+# titles (the Gazelle base's tests cover that branch). They reach a freeleech row, a personal
+# freeleech row and each category. The cookie setting is empty, so the session comes from the
+# sign-in form. The site declares only music search, which SlipStream has no mode for, so a TV
+# search sends no request.
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+session: {cookie: "session={{session}}"}
+cases:
+  - name: search
+    call: {search: {mode: search, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /ajax.php
+          headers: {Cookie: "session={{session}}", Accept: application/json}
+          query: {action: browse, order_by: time, order_way: desc, searchstr: The Quiet Orchard}
+          noQuery: [page, freetorrent, cataloguenumber]
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: search.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request:
+          path: /ajax.php
+          query: {action: browse, searchstr: Juniper Falls}
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          path: /ajax.php
+          query: {action: browse, order_by: time, order_way: desc}
+          noQuery: [searchstr]
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: recent.json}
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request:
+          method: POST
+          path: /login.php
+          headers: {Accept: application/json, Referer: "https://dicmusic.fixture-site.fake.localhost/login.php"}
+          form: {username: fixture-user, password: "{{password}}", keeplogged: "1"}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: login.html}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /ajax.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "session={{expiredSession}}"}
+    exchanges:
+      - request:
+          path: /ajax.php
+          headers: {Cookie: "session={{expiredSession}}"}
+        response:
+          status: 302
+          headers: {Location: login.php}
+      - request:
+          method: POST
+          path: /login.php
+          form: {username: fixture-user, password: "{{password}}", keeplogged: "1"}
+        response:
+          status: 302
+          headers:
+            Location: index.php
+            Set-Cookie: "session={{session}}; expires=Sat, 07-Dec-2026 12:00:00 GMT; path=/; secure; HttpOnly"
+      - request:
+          path: /ajax.php
+          headers: {Cookie: "session={{session}}"}
+          query: {action: browse}
+        response: {headers: {Content-Type: application/json; charset=utf-8}, body: recent.json}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges: []
+  - name: grab
+    call: {fetch: "/torrents.php?action=download&id=140322"}
+    exchanges:
+      - request:
+          path: /torrents.php
+          headers: {Cookie: "session={{session}}"}
+          query: {action: download, id: "140322"}
+          noQuery: [usetoken]
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

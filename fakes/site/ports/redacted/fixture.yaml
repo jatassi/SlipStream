@@ -1,0 +1,63 @@
+# recent.json is Prowlarr's Files/Indexers/Redacted/recentfeed.json trimmed to four torrents of
+# its first group and the group after it, with fictional artists, a catalog title for each group,
+# and its covers, tags and artist lists, which the parser doesn't read, dropped. The other bodies
+# are synthetic, written from Redacted.cs: a search with a freeleech, a neutral-leech, a scene and
+# a freeload torrent and one group without torrents, and the site's JSON errors. The settings
+# prefer a freeleech token, so a torrent that can take one links with usetoken=1, and grab
+# downloads again without it when the site has no token left.
+source: prowlarr
+settings:
+  apiKey: "{{apiKey}}"
+  useFreeleechToken: "1"
+cases:
+  - name: search
+    call: {search: {mode: search, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /ajax.php
+          headers: {Authorization: "{{apiKey}}", Accept: application/json}
+          query: {action: browse, order_by: time, order_way: desc, searchstr: The Quiet Orchard}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request:
+          path: /ajax.php
+          query: {action: browse, searchstr: Juniper Falls}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          path: /ajax.php
+          headers: {Authorization: "{{apiKey}}"}
+          query: {action: browse, order_by: time, order_way: desc}
+          noQuery: [searchstr, freetorrent]
+        response: {headers: {Content-Type: application/json}, body: recent.json}
+  - name: auth
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /ajax.php}
+        response: {status: 401, headers: {Content-Type: application/json}, body: refused.json}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /ajax.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges: []
+  - name: grab
+    call: {fetch: "/ajax.php?action=download&id=910002&usetoken=1"}
+    exchanges:
+      - request:
+          path: /ajax.php
+          headers: {Authorization: "{{apiKey}}"}
+          query: {action: download, id: "910002", usetoken: "1"}
+        response: {headers: {Content-Type: application/json}, body: notokens.json}
+      - request:
+          path: /ajax.php
+          headers: {Authorization: "{{apiKey}}"}
+          query: {action: download, id: "910002"}
+          noQuery: [usetoken]
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

@@ -1,0 +1,84 @@
+source: synthetic
+settings:
+  apiKey: "{{apiKey}}"
+  rssKey: "{{rssKey}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}}}
+    exchanges:
+      - request:
+          method: POST
+          path: "/api/torrents/{{apiKey}}"
+          headers: {Accept: application/json, Content-Type: application/json}
+          json: {action: search, rsskey: "{{rssKey}}", imdb_id: tt0000001}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: tmdb
+    call: {search: {mode: movie, ids: {tmdbid: "1"}}}
+    exchanges:
+      - request:
+          method: POST
+          path: "/api/torrents/{{apiKey}}"
+          json: {action: search, tmdb_id: movie/1}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request:
+          method: POST
+          path: "/api/torrents/{{apiKey}}"
+          json: {action: search, search: Juniper Falls}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          method: POST
+          path: "/api/torrents/{{apiKey}}"
+          json: {action: search, rsskey: "{{rssKey}}"}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {method: POST, path: "/api/torrents/{{apiKey}}"}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: auth
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: "/api/torrents/{{apiKey}}"}
+        response: {headers: {Content-Type: application/json}, body: badkey.json}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: "/api/torrents/{{apiKey}}"}
+        response: {status: 429, headers: {Retry-After: "90"}}
+  - name: apierror
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: "/api/torrents/{{apiKey}}"}
+        response: {headers: {Content-Type: application/json}, body: error.json}
+  - name: maintenance
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, path: "/api/torrents/{{apiKey}}"}
+        response: {status: 200, headers: {Content-Type: text/html; charset=UTF-8}, body: maintenance.html}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          method: POST
+          path: "/api/torrents/{{apiKey}}"
+          json: {action: search, search: Harbor Lights S02E03}
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: daily
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2026, episode: "05/28"}}
+    exchanges:
+      - request:
+          method: POST
+          path: "/api/torrents/{{apiKey}}"
+          json: {action: search, search: Harbor Lights 2026-05-28}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: grab
+    call: {fetch: "/torrent/download/auto.180001.{{rssKey}}"}
+    exchanges:
+      - request: {path: "/torrent/download/auto.180001.{{rssKey}}"}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

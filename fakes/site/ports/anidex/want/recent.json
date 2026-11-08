@@ -1,0 +1,32 @@
+{
+  "releases": [
+    {
+      "title": "[FKW] Juniper Falls - 01 [1080p] [English]",
+      "size": 1288490188,
+      "published": "2026-01-06T06:00:00Z",
+      "seeders": 18,
+      "leechers": 2,
+      "grabs": 600,
+      "link": "https://anidex.fixture-site.fake.localhost/dl/3001",
+      "magnet": "magnet:?xt=urn:btih:2dab737c0865f80647b6a1f14aca754853fa55c4\u0026dn=fixture",
+      "infoHash": "2dab737c0865f80647b6a1f14aca754853fa55c4",
+      "categories": [
+        5070,
+        100004
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://anidex.fixture-site.fake.localhost/torrent/3001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

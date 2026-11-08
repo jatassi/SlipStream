@@ -1,0 +1,23 @@
+{
+  "report": {
+    "modes": {
+      "movie": [
+        "q"
+      ],
+      "search": [
+        "q"
+      ],
+      "tvsearch": [
+        "q",
+        "season",
+        "ep"
+      ]
+    },
+    "categories": [
+      8000
+    ],
+    "items": 0,
+    "sources": null
+  },
+  "sessionChanged": false
+}

@@ -1,0 +1,63 @@
+{
+  "current_page": 1,
+  "data": [
+    {
+      "id": 78486,
+      "url": "https://privatehd.fixture-site.fake.localhost/torrent/78486-the-copper-bell-2013-1080p-bluray-avc-dts-hd-ma-51-publichd",
+      "download": "https://privatehd.fixture-site.fake.localhost/rss/download/123456789/78486-798a28c73de6212789019a8c59183cd774f9dd95.torrent",
+      "type_id": 1,
+      "type": "Movie",
+      "info_hash": "798a28c73de6212789019a8c59183cd774f9dd95",
+      "file_name": "The Copper Bell 2013 1080p BluRay AVC DTS-HD MA 5.1-PublicHD",
+      "file_size": 22355890076,
+      "file_count": 101,
+      "seed": 5,
+      "leech": 0,
+      "completed": 3,
+      "downloaded": 22,
+      "upload_multiply": 1,
+      "download_multiply": 0.5,
+      "adult": false,
+      "video_quality_id": 3,
+      "video_quality": "1080p",
+      "rip_type_id": 3,
+      "rip_type": "BluRay Raw",
+      "movie_tv": {
+        "imdb": "tt1838520",
+        "tmdb": "157351",
+        "tvdb": null,
+        "title": "The Copper Bell",
+        "tv_season": null,
+        "tv_episode": null,
+        "tv_full_season": false,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 45,
+          "language": "English"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-03-18 07:09:34",
+      "created_at_iso": "2021-03-18T07:09:34-04:00",
+      "description": null
+    }
+  ],
+  "first_page_url": "https://privatehd.fixture-site.fake.localhost/api/v1/jackett/torrents?type=1&page=1",
+  "from": 1,
+  "last_page": 324,
+  "last_page_url": "https://privatehd.fixture-site.fake.localhost/api/v1/jackett/torrents?type=1&page=324",
+  "next_page_url": "https://privatehd.fixture-site.fake.localhost/api/v1/jackett/torrents?type=1&page=2",
+  "path": "https://privatehd.fixture-site.fake.localhost/api/v1/jackett/torrents",
+  "per_page": 100,
+  "prev_page_url": null,
+  "to": 100,
+  "total": 32322
+}

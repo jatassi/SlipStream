@@ -1,0 +1,47 @@
+source: synthetic
+settings:
+  passkey: "{{passkey}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /browse.php
+          headers: {Accept: application/json}
+          query: {api: "", passkey: "{{passkey}}", search: tt0000001 The Quiet Orchard}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /browse.php, query: {search: Juniper Falls}}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /browse.php, query: {api: "", passkey: "{{passkey}}", search: ""}, noQuery: [cat]}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {path: /browse.php}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: auth
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /browse.php}
+        response: {headers: {Content-Type: text/html}, body: badkey.txt}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /browse.php}
+        response: {status: 429}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request: {path: /browse.php, query: {search: Harbor Lights S02E03}}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: grab
+    call: {fetch: "/download.php?id=412001&passkey={{passkey}}"}
+    exchanges:
+      - request: {path: /download.php, query: {id: "412001", passkey: "{{passkey}}"}}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

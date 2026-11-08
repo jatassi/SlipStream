@@ -10,4 +10,6 @@ export type IndexersStatusCause =
   | "definition_unloadable"
   | "account_refused"
   | "request_rejected"
+  | "code_needed"
+  | "port_retired"
   | null;

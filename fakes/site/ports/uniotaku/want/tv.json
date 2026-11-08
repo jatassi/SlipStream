@@ -1,0 +1,57 @@
+{
+  "releases": [
+    {
+      "title": "Harbor Lights - Episódio 3 [Fansub]",
+      "size": 367001600,
+      "published": "1999-12-31T23:59:00Z",
+      "seeders": 12,
+      "leechers": 1,
+      "grabs": 40,
+      "link": "https://uniotaku.fixture-site.fake.localhost/torrents-details.php?id=2001",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5070,
+        100028
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0.5,
+        "upload": 1
+      },
+      "minRatio": 0.7,
+      "minSeed": "0s",
+      "details": "https://uniotaku.fixture-site.fake.localhost/torrents-details.php?id=2001",
+      "source": null,
+      "flags": [
+        "halfleech"
+      ]
+    },
+    {
+      "title": "Harbor Lights S01 Completo [Fansub]",
+      "size": 6442450944,
+      "published": "1999-12-31T23:58:00Z",
+      "seeders": 40,
+      "leechers": 9,
+      "grabs": 120,
+      "link": "https://uniotaku.fixture-site.fake.localhost/torrents-details.php?id=2002",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5070,
+        100052
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 0.7,
+      "minSeed": "0s",
+      "details": "https://uniotaku.fixture-site.fake.localhost/torrents-details.php?id=2002",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}
