@@ -66,7 +66,7 @@ func (s *site) iptSearch(w http.ResponseWriter, r *http.Request) {
 		`<th>Sort by size</th><th>Sort by comments</th><th>Sort by snatches</th><th>Sort by seeders</th><th>Sort by leechers</th></tr></thead><tbody>`)
 	for _, rel := range s.found(queries...) {
 		free := ""
-		if rel.Freeleech {
+		if rel.downloadFactor() == 0 {
 			free = `<span class="free">FreeLeech</span>`
 		}
 		fmt.Fprintf(&rows, `<tr><td><a href="?72"><img src="/pic/cat.png" alt="cat"></a></td>`+
