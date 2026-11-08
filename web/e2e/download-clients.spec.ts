@@ -82,7 +82,7 @@ test.describe("an external client", () => {
       ),
     ).toBeVisible();
     await expectAccessible(page);
-    await page.screenshot({ path: testInfo.outputPath("client-away.png"), fullPage: true });
+    await screenshotWholePage(page, testInfo.outputPath("client-away.png"));
 
     await world.fw.fault.clear("transmission-down");
     await card.getByRole("button", { name: "Check now" }).click();
