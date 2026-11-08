@@ -11,8 +11,6 @@ import (
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/role"
-	"github.com/jatassi/slipstream/internal/storage"
-	"github.com/jatassi/slipstream/internal/works"
 )
 
 // HealthEvents are the events after which HealthSource may answer
@@ -61,17 +59,6 @@ func unreachable(err error) error {
 		return fmt.Errorf("%w: %w", health.ErrUnreachable, err)
 	}
 	return err
-}
-
-// trouble is what a root item says of each State that is wrong: what the
-// root's row says, then what to do.
-var trouble = map[State]struct{ sentence, fix string }{
-	Missing:      {"The folder isn't there.", "Restore it, or edit the root to where it is now."},
-	Unmounted:    {"The folder is there but looks unmounted.", "Plug in or mount the disk."},
-	Foreign:      {"The folder holds another library root's marker.", "Edit the root to a folder of its own."},
-	Unwritable:   {"SlipStream can't write to the folder.", "Let SlipStream write to it."},
-	Unresponsive: {"The folder isn't responding.", "Check the disk or share it is on."},
-	WrittenOff:   {"Its Node was written off, so its files count as missing.", "Re-home the root to a Node that holds Storage."},
 }
 
 // HealthSource answers a Fail item per root whose State is in trouble: a
@@ -130,50 +117,20 @@ func (r *Roots) healthAnswer(ctx context.Context) (health.Answer, error) {
 	return a, nil
 }
 
-// said is every root with its State and the words naming it: "Movies
-// library root on Media server", with its path when its Node holds
-// another root of its type.
+// said is every root with its State and its Words.
 func (r *Roots) said(ctx context.Context) ([]rootSaid, error) {
 	names, err := r.cfg.Names(ctx)
 	if err != nil {
 		return nil, err
 	}
-	var (
-		all  []Root
-		lost map[ID]bool
-	)
-	err = r.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[file]) error {
-		var err error
-		if all, err = All(ctx, rd); err != nil {
-			return err
-		}
-		lost, err = LostIn(ctx, rd)
-		return err
-	})
-	if err != nil {
-		return nil, fmt.Errorf("read the library roots: %w", err)
-	}
-	states, err := r.judge(all, lost)
+	all, states, err := r.states(ctx)
 	if err != nil {
 		return nil, err
 	}
-	type typeOn struct {
-		t    works.TypeID
-		node role.NodeID
-	}
-	twins := map[typeOn]int{}
-	for _, root := range all {
-		twins[typeOn{root.ContentType, root.Node}]++
-	}
+	words := r.wordsOf(all, names)
 	out := make([]rootSaid, len(all))
 	for i, root := range all {
-		node := names[root.Node].Name
-		d, _ := r.cfg.Describe(root.ContentType)
-		words := d.Work.Many + " library root on " + node
-		if twins[typeOn{root.ContentType, root.Node}] > 1 {
-			words = d.Work.Many + " library root at " + root.Path + " on " + node
-		}
-		out[i] = rootSaid{root: root, key: health.KeyOf("r", root.ID.String()), node: node, words: words, judged: states[i]}
+		out[i] = rootSaid{root: root, key: health.KeyOf("r", root.ID.String()), node: names[root.Node].Name, words: words[root.ID], judged: states[i]}
 	}
 	return out, nil
 }
