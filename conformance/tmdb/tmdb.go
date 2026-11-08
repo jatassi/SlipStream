@@ -203,11 +203,22 @@ func movie(t *testing.T, c *provider.Client, ask metadata.Ask, known Known) {
 func series(t *testing.T, c *provider.Client, ask metadata.Ask, known KnownSeries) {
 	t.Helper()
 	ctx := t.Context()
-	found, err := c.SearchSeries(ctx, ask, known.Name)
-	if err != nil || !slices.ContainsFunc(found, func(f provider.SeriesFound) bool {
+	found, err := c.SearchSeries(ctx, ask, known.Name, 0)
+	at := slices.IndexFunc(found, func(f provider.SeriesFound) bool {
 		return f.ID == known.ID && f.Name == known.Name && f.FirstAired != ""
-	}) {
-		t.Errorf("SearchSeries(%q) = %+v, %v; want %d %q with a first air date", known.Name, found, err, known.ID, known.Name)
+	})
+	if err != nil || at < 0 {
+		t.Fatalf("SearchSeries(%q) = %+v, %v; want %d %q with a first air date", known.Name, found, err, known.ID, known.Name)
+	}
+	first, err := works.ParseDate(found[at].FirstAired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for year, want := range map[int]bool{first.Year: true, first.Year - 1: false} {
+		inYear, err := c.SearchSeries(ctx, ask, known.Name, year)
+		if got := slices.ContainsFunc(inYear, func(f provider.SeriesFound) bool { return f.ID == known.ID }); err != nil || got != want {
+			t.Errorf("SearchSeries(%q, %d) holds %d: %t, %v; want %t", known.Name, year, known.ID, got, err, want)
+		}
 	}
 
 	s, err := c.Series(ctx, ask, known.ID)

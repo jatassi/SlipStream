@@ -39,7 +39,7 @@ func (s *Source) Sources() []artwork.Source {
 // call a result. A result TVDB doesn't list is keyed "tmdb-<id>" and
 // Unlisted. When TMDB fails too, Search answers TVDB's error.
 func (s *Source) Search(ctx context.Context, ask metadata.Ask, query string) ([]works.Candidate, error) {
-	found, err := s.tvdb.Search(ctx, ask, query)
+	found, err := s.tvdb.Search(ctx, ask, query, 0)
 	if err == nil {
 		out := make([]works.Candidate, len(found))
 		for i, f := range found {
@@ -50,7 +50,7 @@ func (s *Source) Search(ctx context.Context, ask metadata.Ask, query string) ([]
 	if !errors.Is(err, works.ErrUnavailable) && !errors.Is(err, works.ErrRefused) {
 		return nil, err
 	}
-	results, terr := s.tmdb.SearchSeries(ctx, ask, query)
+	results, terr := s.tmdb.SearchSeries(ctx, ask, query, 0)
 	if terr != nil {
 		return nil, err
 	}
