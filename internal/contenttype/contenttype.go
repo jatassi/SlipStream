@@ -50,6 +50,7 @@ import (
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
+	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -64,6 +65,7 @@ type Library interface {
 	indexers.Facet
 	targets.Facet
 	metadata.Refreshing
+	scanning.Facet
 }
 
 // ProviderDeps is what a provider half gets on any Node: clients over the
@@ -124,13 +126,16 @@ var idShape = regexp.MustCompile(`^[a-z][a-z0-9]{1,15}$`)
 // migration set, its config key and the API's contentType. migrations
 // holds schema/NNNNN_slug.sql, nil when the type keeps no tables;
 // defaultEndpoints is nil when it reaches no host. Define panics on a bad
-// id.
+// id, and on pending, which /library/pending would hide.
 func Define[E any](id string, migrations fs.FS, defaultEndpoints func() E, h Halves[E]) Def[E] {
 	if !idShape.MatchString(id) {
 		panic(fmt.Sprintf("contenttype: id %q is not %s", id, idShape))
 	}
 	if id == "goose" || id == "sqlite" {
 		panic(fmt.Sprintf("contenttype: id %s names a set storage reserves", id))
+	}
+	if id == "pending" {
+		panic("contenttype: id pending names the Pending imports page")
 	}
 	d := Def[E]{id: works.TypeID(id), defaultEndpoints: defaultEndpoints, halves: h}
 	if migrations != nil {
