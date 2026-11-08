@@ -352,14 +352,8 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, a
 	if err != nil {
 		return nil, err
 	}
-	for i, r := range d.refusals() {
-		reasons, err := encodeReasons(r.Reasons)
-		if err != nil {
-			return nil, err
-		}
-		if err := q.InsertRefusal(ctx, db.InsertRefusalParams{SearchID: run.ID, Position: int64(i), Title: r.Title, Reasons: reasons}); err != nil {
-			return nil, err
-		}
+	if err := refuse(ctx, q, run.ID, d.refusals()); err != nil {
+		return nil, err
 	}
 	finished := storage.Now()
 	grab, pick, err := gr.take(ctx, tx, run, d.picks(c), finished)
@@ -386,6 +380,20 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, a
 		}
 	}
 	return grab, q.FinishSearch(ctx, finish)
+}
+
+// refuse stores refused as run's refusals, in their order.
+func refuse(ctx context.Context, q *db.Queries, run SearchID, refused []Refusal) error {
+	for i, r := range refused {
+		reasons, err := encodeReasons(r.Reasons)
+		if err != nil {
+			return err
+		}
+		if err := q.InsertRefusal(ctx, db.InsertRefusalParams{SearchID: run, Position: int64(i), Title: r.Title, Reasons: reasons}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // sight records a sighting of the cut of every listed Release whose name
