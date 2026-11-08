@@ -64,7 +64,7 @@ func TestLoadReadsTheHomeScenario(t *testing.T) {
 	}
 	want := Scenario{
 		Name:        "home",
-		Description: "Two Nodes. The Controller home holds every Role but Acquire and Relaying. The Worker seedbox pairs by Join Code and holds Searching and Downloading. A leecher from outside connects in to the seedbox once it runs the 1080p release, so the seedbox's listen port reads reachable. Grace joins as a Member by Signup link, and fakes/smtp is the email setting.",
+		Description: "Two Nodes. The Controller home holds every Role but Acquire and Relaying. The Worker seedbox pairs by Join Code and holds Searching and Downloading. A leecher from outside connects in to the seedbox once it runs the 1080p release, so the seedbox's listen port reads reachable. Grace joins as a Member by Signup link, and fakes/smtp is the email setting. The media dir holds shelf-movies and shelf-series, a library on disk no root names, for an Admin to add as roots: Work folders tagged with an id, named by title and year, ambiguous and unknown, a sample, bonus features, a loose file, episodes numbered S02E05 and 2x05 in season folders and flat, an episode the series lacks, and every HDR format.",
 		Seed:        "home",
 		Admin:       &Admin{Email: "ada@example.test", DisplayName: "Ada Okafor", PIN: "2468"},
 		Members:     []Member{{Email: "grace@example.test", DisplayName: "Grace Hopper", PIN: "1357"}},
@@ -74,15 +74,71 @@ func TestLoadReadsTheHomeScenario(t *testing.T) {
 			{Name: "seedbox", Setup: SetupJoin, Roles: []role.Name{role.Searching, role.Downloading}},
 		},
 		Timings:  node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}},
-		TMDB:     quietOrchard(),
+		TMDB:     &TMDB{Movies: append(quietOrchard().Movies, shelfMovies...)},
+		TVDB:     shelfSeries(),
 		Releases: quietOrchardReleases(),
 		Tracker:  Tracker{Interval: 5 * time.Second},
 		Leecher:  &Leecher{Node: "seedbox", Release: "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW"},
 		Library:  movieLibrary(),
 	}
+	folders := got.Library.Folders
+	got.Library.Folders = nil
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Load(home) = %+v, want %+v", got, want)
 	}
+	shelves := map[string][]string{}
+	hdr := map[string]bool{}
+	for _, f := range folders {
+		for _, m := range f.Files {
+			shelves[f.Folder] = append(shelves[f.Folder], m.Path)
+			hdr[m.Video.HDR] = true
+		}
+	}
+	wantShelves := map[string][]string{
+		"shelf-movies": {
+			"Lanterns at Low Tide (2016) {tmdb-9000101}/Lanterns at Low Tide (2016).mkv",
+			"Saltmarsh Radio (2018)/Saltmarsh Radio (2018).mkv",
+			"Saltmarsh Radio (2018)/Saltmarsh Radio (2018)-sample.mkv",
+			"Saltmarsh Radio (2018)/Featurettes/Making Saltmarsh Radio.mkv",
+			"Nightfall/Nightfall.mkv",
+			"Grandma's 80th Birthday (2019)/Grandma's 80th Birthday (2019).mkv",
+			"Copper Kettle (2012).mkv",
+		},
+		"shelf-series": {
+			"The Tin Signal [tvdbid-9100201]/Season 01/The Tin Signal - S01E01.mkv",
+			"The Tin Signal [tvdbid-9100201]/Season 02/The Tin Signal - S02E05.mkv",
+			"The Tin Signal [tvdbid-9100201]/Season 02/The Tin Signal - S02E06.mkv",
+			"Brass Meridian (2015)/Brass Meridian - 2x05.mkv",
+			"Brass Meridian (2015)/Brass Meridian - S03E09.mkv",
+		},
+	}
+	if !reflect.DeepEqual(shelves, wantShelves) {
+		t.Errorf("home's folders hold %v, want %v", shelves, wantShelves)
+	}
+	if len(hdr) != len(HDRKinds) {
+		t.Errorf("home's folders have HDR %v, want each of %v", hdr, HDRKinds)
+	}
+}
+
+var shelfMovies = []TMDBMovie{
+	{ID: 9000101, IMDbID: "tt9000101", Title: "Lanterns at Low Tide", Released: "2016-09-09", Runtime: 118 * time.Minute},
+	{ID: 9000102, IMDbID: "tt9000102", Title: "Saltmarsh Radio", Released: "2018-05-25", Runtime: 97 * time.Minute},
+	{ID: 9000103, IMDbID: "tt9000103", Title: "Nightfall", Released: "1998-10-30", Runtime: 91 * time.Minute},
+	{ID: 9000104, IMDbID: "tt9000104", Title: "Nightfall", Released: "2014-10-17", Runtime: 109 * time.Minute},
+	{ID: 9000105, IMDbID: "tt9000105", Title: "Copper Kettle", Released: "2012-02-03", Runtime: 88 * time.Minute},
+}
+
+func shelfSeries() *TVDB {
+	return &TVDB{Series: []TVDBSeries{
+		{ID: 9100201, Name: "The Tin Signal", Status: "continuing", Seasons: []TVDBSeason{
+			{Number: 1, Episodes: []TVDBEpisode{{ID: 9120101, Number: 1, Name: "Static", Aired: "2019-01-07"}, {ID: 9120102, Number: 2, Name: "Carrier Wave", Aired: "2019-01-14"}}},
+			{Number: 2, Episodes: []TVDBEpisode{{ID: 9120205, Number: 5, Name: "Dead Air", Aired: "2020-02-03"}, {ID: 9120206, Number: 6, Name: "Sign Off", Aired: "2020-02-10"}}},
+		}},
+		{ID: 9100202, Name: "Brass Meridian", Status: "ended", Seasons: []TVDBSeason{
+			{Number: 1, Episodes: []TVDBEpisode{{ID: 9220101, Number: 1, Name: "Noon", Aired: "2015-03-02"}}},
+			{Number: 2, Episodes: []TVDBEpisode{{ID: 9220205, Number: 5, Name: "Longitude", Aired: "2016-03-28"}}},
+		}},
+	}}
 }
 
 func TestLoadRefusesANameOutsideTheCatalog(t *testing.T) {
