@@ -951,3 +951,58 @@ func TestARootOnAnOfflineWorkerIsSkippedThenScannedOnReturn(t *testing.T) {
 		s.expectWorks(films[0])
 	})
 }
+
+// pending is each folder Pending imports lists, as "<folder> suggests
+// <label (year)>, or nothing: <reason code>".
+func (s *shelf) pending() []string {
+	s.t.Helper()
+	type entry struct {
+		Folder     string
+		Suggestion *struct {
+			Label string
+			Year  int
+		}
+		Files []struct{ Reason struct{ Code string } }
+	}
+	entries := simtest.Decode[struct{ Entries []entry }](s.t, "listPendingImports", s.w.API().Admin("home", http.MethodGet, "/api/v1/imports/pending", "")).Entries
+	var out []string
+	for _, e := range entries {
+		suggests := "nothing"
+		if e.Suggestion != nil {
+			suggests = fmt.Sprintf("%s (%d)", e.Suggestion.Label, e.Suggestion.Year)
+		}
+		out = append(out, e.Folder+" suggests "+suggests+": "+e.Files[0].Reason.Code)
+	}
+	slices.Sort(out)
+	return out
+}
+
+// TestAWaitingFolderSuggestsOnlyAMovieItsReasonNames shelves a folder no
+// movie is titled, one two movies are titled, listed after one whose title
+// only holds the name, and one a movie is titled without the year: each
+// waits, and its suggestion is a movie its reason names, or none when no
+// movie matches.
+func TestAWaitingFolderSuggestsOnlyAMovieItsReasonNames(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		s := shelve(t, func(sc *scenario.Scenario) {
+			sc.TMDB.Movies = append(sc.TMDB.Movies,
+				scenario.TMDBMovie{ID: 9100011, IMDbID: "tt9100011", Title: "Before Nightfall", Released: "2011-05-06", Runtime: 90 * time.Minute},
+				scenario.TMDBMovie{ID: 9100012, IMDbID: "tt9100012", Title: "Nightfall", Released: "1998-02-13", Runtime: 95 * time.Minute},
+				scenario.TMDBMovie{ID: 9100013, IMDbID: "tt9100013", Title: "Nightfall", Released: "2014-10-03", Runtime: 101 * time.Minute},
+			)
+		})
+		s.put("a/a.mkv", 2048, hd)
+		s.put("Nightfall/Nightfall.mkv", 2049, hd)
+		s.put("Salt Road/Salt Road.mkv", 2050, hd)
+		expectScanned(t, s.scan(), "succeeded", succeeded)
+		want := []string{
+			"Nightfall suggests Nightfall (1998): several",
+			"Salt Road suggests Salt Road (2020): no_year",
+			"a suggests nothing: no_match",
+		}
+		if got := s.pending(); !slices.Equal(got, want) {
+			t.Fatalf("Pending imports list %q, want %q", got, want)
+		}
+	})
+}

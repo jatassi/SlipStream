@@ -48,18 +48,18 @@ func (im *Imports) settle(ctx context.Context, s *scan, g scanning.Group) error 
 	if err != nil {
 		return err
 	}
-	best, sure := scanning.Confident(hint, bare(cs))
-	switch {
-	case sure && !cs[best].WorkID.IsZero():
-		return im.join(ctx, s, g, hint, cs[best].WorkID, found)
-	case sure:
-		return im.adopt(ctx, s, g, hint, cs[best], found)
+	switch i := scanning.Confident(hint, bare(cs)); {
+	case i >= 0 && !cs[i].WorkID.IsZero():
+		return im.join(ctx, s, g, hint, cs[i].WorkID, found)
+	case i >= 0:
+		return im.adopt(ctx, s, g, hint, cs[i], found)
 	}
+	reason, named := unsure(hint, bare(cs))
 	var suggestion *Suggestion
-	if best >= 0 {
-		suggestion = new(cs[best].suggestion(false))
+	if named >= 0 {
+		suggestion = new(cs[named].suggestion(false))
 	}
-	return im.pend(ctx, s, g, hint, suggestion, withReason(found, unsure(hint, bare(cs))))
+	return im.pend(ctx, s, g, hint, suggestion, withReason(found, reason))
 }
 
 // found is each of ws read, as a pending file: one ffprobe can't read
@@ -271,29 +271,32 @@ func folderReason(e Entry) scanning.Reason {
 }
 
 // unsure is why a folder whose candidates cs name no Work with confidence
-// waits: several candidates share its title, one does but the name has no
-// year, or none matches.
-func unsure(h scanning.Hint, cs []scanning.Candidate) scanning.Reason {
-	r := scanning.Reason{Title: h.Title, Year: h.Year}
+// waits, and the first of cs that reason names, its suggestion: several
+// candidates share its title, one does but the name has no year, or none
+// matches and named is -1.
+func unsure(h scanning.Hint, cs []scanning.Candidate) (r scanning.Reason, named int) {
+	r = scanning.Reason{Title: h.Title, Year: h.Year}
 	title := scanning.Fold(h.Title)
-	titled, dated := 0, 0
-	for _, c := range cs {
+	var titled, dated []int
+	for i, c := range cs {
 		if slices.ContainsFunc(c.Titles, func(t string) bool { return scanning.Fold(t) == title }) {
-			titled++
+			titled = append(titled, i)
 			if c.Year == h.Year {
-				dated++
+				dated = append(dated, i)
 			}
 		}
 	}
 	switch {
-	case h.Year == 0 && titled == 1:
+	case h.Year == 0 && len(titled) == 1:
 		r.Code = scanning.NoYear
-	case h.Year == 0 && titled > 1:
-		r.Code, r.Count = scanning.Several, titled
-	case dated > 1:
-		r.Code, r.Count = scanning.Several, dated
-	default:
-		r.Code = scanning.NoMatch
+		return r, titled[0]
+	case h.Year == 0 && len(titled) > 1:
+		r.Code, r.Count = scanning.Several, len(titled)
+		return r, titled[0]
+	case len(dated) > 1:
+		r.Code, r.Count = scanning.Several, len(dated)
+		return r, dated[0]
 	}
-	return r
+	r.Code = scanning.NoMatch
+	return r, -1
 }

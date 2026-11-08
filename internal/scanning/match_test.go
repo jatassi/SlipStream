@@ -172,25 +172,23 @@ func TestConfident(t *testing.T) {
 		{Key: "55", Titles: []string{"Heat"}, Year: 1995},
 	}
 	tests := []struct {
-		name      string
-		hint      scanning.Hint
-		cs        []scanning.Candidate
-		best      int
-		confident bool
+		name string
+		hint scanning.Hint
+		cs   []scanning.Candidate
+		want int
 	}{
-		{"a key the tag names", scanning.Hint{Title: "Anything", Key: "22"}, cs, 1, true},
-		{"one title and year", scanning.Hint{Title: "Halloween", Year: 2018}, cs, 1, true},
-		{"an original title counts", scanning.Hint{Title: "hate", Year: 1995}, cs, 2, true},
-		{"two candidates with the title and year", scanning.Hint{Title: "Heat", Year: 1995}, cs, 0, false},
-		{"no year is never confident", scanning.Hint{Title: "Halloween"}, cs[:1], 0, false},
-		{"a year no candidate has", scanning.Hint{Title: "Halloween", Year: 2007}, cs, 0, false},
-		{"a key no candidate has falls to title and year", scanning.Hint{Title: "Halloween", Year: 1978, Key: "99"}, cs, 0, true},
-		{"no candidates", scanning.Hint{Title: "Brazil", Year: 1985}, nil, -1, false},
+		{"a key the tag names", scanning.Hint{Title: "Anything", Key: "22"}, cs, 1},
+		{"one title and year", scanning.Hint{Title: "Halloween", Year: 2018}, cs, 1},
+		{"an original title counts", scanning.Hint{Title: "hate", Year: 1995}, cs, 2},
+		{"two candidates with the title and year", scanning.Hint{Title: "Heat", Year: 1995}, cs, -1},
+		{"no year is never confident", scanning.Hint{Title: "Halloween"}, cs[:1], -1},
+		{"a year no candidate has", scanning.Hint{Title: "Halloween", Year: 2007}, cs, -1},
+		{"a key no candidate has falls to title and year", scanning.Hint{Title: "Halloween", Year: 1978, Key: "99"}, cs, 0},
+		{"no candidates", scanning.Hint{Title: "Brazil", Year: 1985}, nil, -1},
 	}
 	for _, tt := range tests {
-		best, confident := scanning.Confident(tt.hint, tt.cs)
-		if best != tt.best || confident != tt.confident {
-			t.Errorf("%s: Confident = %d, %t; want %d, %t", tt.name, best, confident, tt.best, tt.confident)
+		if got := scanning.Confident(tt.hint, tt.cs); got != tt.want {
+			t.Errorf("%s: Confident = %d, want %d", tt.name, got, tt.want)
 		}
 	}
 }

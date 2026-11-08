@@ -210,15 +210,15 @@ type Candidate struct {
 	WorkID works.WorkID
 }
 
-// Confident is the one candidate a hint names with confidence: the one
-// whose key an id tag names (Hint.Key), or, when the hint has a year, the
-// one candidate with a folded title and the year equal to the hint's. A
-// hint with no year and no key is never confident. best is the suggestion
-// either way: the confident one, else the first, and -1 when cs is empty.
-func Confident(h Hint, cs []Candidate) (best int, confident bool) {
+// Confident is the index of the one candidate a hint names with
+// confidence, -1 for none: the one whose key an id tag names (Hint.Key),
+// or, when the hint has a year, the one candidate with a folded title and
+// the year equal to the hint's. A hint with no year and no key is never
+// confident.
+func Confident(h Hint, cs []Candidate) int {
 	if h.Key != "" {
 		if i := slices.IndexFunc(cs, func(c Candidate) bool { return c.Key == h.Key }); i >= 0 {
-			return i, true
+			return i
 		}
 	}
 	if h.Year != 0 {
@@ -229,18 +229,15 @@ func Confident(h Hint, cs []Candidate) (best int, confident bool) {
 				continue
 			}
 			if match >= 0 {
-				return 0, false
+				return -1
 			}
 			match = i
 		}
 		if match >= 0 {
-			return match, true
+			return match
 		}
 	}
-	if len(cs) == 0 {
-		return -1, false
-	}
-	return 0, false
+	return -1
 }
 
 // Fold is a title as the rules compare it: letters and digits only, lower
