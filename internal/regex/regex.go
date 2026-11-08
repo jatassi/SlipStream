@@ -26,7 +26,19 @@ type Options struct {
 // regexp2 reads match deadlines from a clock that ticks every 100 ms and
 // adds one tick to every limit, so a 100 ms limit fired after 200 ms.
 // A 10 ms tick keeps a timeout within 20 ms of its limit.
-func init() { regexp2.SetTimeoutCheckPeriod(10 * time.Millisecond) }
+//
+// The clock is a goroutine the first timed match starts. Started from a
+// match inside a test's synctest bubble, it outlives the bubble, which
+// panics. One match here with a deadline a century away starts it for the
+// life of the process, outside any bubble.
+func init() {
+	regexp2.SetTimeoutCheckPeriod(10 * time.Millisecond)
+	clock := regexp2.MustCompile(``, regexp2.None)
+	clock.MatchTimeout = 100 * 365 * 24 * time.Hour
+	if _, err := clock.MatchString(""); err != nil {
+		panic(err)
+	}
+}
 
 // Regex is a compiled pattern, safe for concurrent use.
 type Regex struct {
