@@ -40,6 +40,10 @@ func (noFacet) Timings(context.Context, storage.Reader[storage.Library], works.A
 	return nil, nil
 }
 
+func (noFacet) Originals(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[works.WorkID]release.Fact[release.Language], error) {
+	return nil, nil
+}
+
 func (noFacet) Cuts() []release.Cut { return nil }
 
 func (discard) Publish(context.Context, targets.Changed) {}

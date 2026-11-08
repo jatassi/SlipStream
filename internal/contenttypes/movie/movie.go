@@ -277,6 +277,12 @@ func (m *Movie) Timings(ctx context.Context, r storage.Reader[file], ws works.Am
 	return out, nil
 }
 
+// Originals answers no movie yet: every original language reads as
+// unknown.
+func (*Movie) Originals(context.Context, storage.Reader[file], works.Among[works.WorkID]) (map[works.WorkID]release.Fact[release.Language], error) {
+	return nil, nil
+}
+
 // Cuts answers none: every cut a movie names is built in.
 func (*Movie) Cuts() []release.Cut { return nil }
 

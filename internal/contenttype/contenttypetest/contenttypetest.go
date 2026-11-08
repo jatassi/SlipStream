@@ -722,6 +722,11 @@ func (f *Fixture) Timings(_ context.Context, _ storage.Reader[storage.Library], 
 	return out, nil
 }
 
+// Originals answers no Work: every Shelf's original language is unknown.
+func (*Fixture) Originals(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[works.WorkID]release.Fact[release.Language], error) {
+	return nil, nil
+}
+
 func (f *Fixture) Cuts() []release.Cut {
 	f.mu.Lock()
 	defer f.mu.Unlock()

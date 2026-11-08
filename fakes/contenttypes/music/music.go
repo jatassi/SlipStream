@@ -358,6 +358,12 @@ func (*Music) Growing(context.Context, storage.Reader[file], []works.WorkID) (ma
 	return nil, nil
 }
 
+// Originals answers no album: every album's original language is
+// unknown.
+func (*Music) Originals(context.Context, storage.Reader[file], works.Among[works.WorkID]) (map[works.WorkID]release.Fact[release.Language], error) {
+	return nil, nil
+}
+
 func (*Music) Cuts() []release.Cut {
 	return []release.Cut{{Key: "deluxe", Name: "Deluxe", Aliases: []string{"Deluxe", "Deluxe Edition"}}}
 }
