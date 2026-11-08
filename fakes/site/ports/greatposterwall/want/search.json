@@ -1,0 +1,93 @@
+{
+  "releases": [
+    {
+      "title": "The.Quiet.Orchard.2021.1080p.BluRay.x264-FIXTURE",
+      "size": 9123456789,
+      "published": "2024-11-07T12:00:00Z",
+      "seeders": 22,
+      "leechers": 1,
+      "grabs": 41,
+      "link": "https://greatposterwall.fixture-site.fake.localhost/torrents.php?action=download\u0026id=90410\u0026usetoken=1",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        2040
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 0.5,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://greatposterwall.fixture-site.fake.localhost/torrents.php?id=6210\u0026torrentid=90410",
+      "source": null,
+      "flags": [
+        "halfleech"
+      ]
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.2160p.WEB-DL.DDP5.1.HDR.H.265-FIXTURE",
+      "size": 18234567890,
+      "published": "2024-11-06T01:30:15Z",
+      "seeders": 9,
+      "leechers": 0,
+      "grabs": 7,
+      "link": "https://greatposterwall.fixture-site.fake.localhost/torrents.php?action=download\u0026id=90398",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        2045
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://greatposterwall.fixture-site.fake.localhost/torrents.php?id=6210\u0026torrentid=90398",
+      "source": null,
+      "flags": [
+        "scene",
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.DVDRip.x264-FIXTURE",
+      "size": 1468006400,
+      "published": "2024-11-05T15:10:00Z",
+      "seeders": 5,
+      "leechers": 3,
+      "grabs": 12,
+      "link": "https://greatposterwall.fixture-site.fake.localhost/torrents.php?action=download\u0026id=90377\u0026usetoken=1",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        2030
+      ],
+      "ids": {
+        "imdbid": "tt0000001"
+      },
+      "factors": {
+        "download": 0.75,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://greatposterwall.fixture-site.fake.localhost/torrents.php?id=6210\u0026torrentid=90377",
+      "source": null,
+      "flags": [
+        "freeleech25"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

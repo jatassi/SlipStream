@@ -573,3 +573,12 @@ func jsonJoinArray(s string, p jsonPath, sep string) (string, error) {
 	}
 	return strings.Join(parts, sep), nil
 }
+
+func isASCIIDigit(r rune) bool { return r >= '0' && r <= '9' }
+
+func validDate(y, m, d int) bool {
+	if y < 1 || y > 9999 || m < 1 || m > 12 || d < 1 {
+		return false
+	}
+	return d <= time.Date(y, time.Month(m)+1, 0, 0, 0, 0, 0, time.UTC).Day()
+}

@@ -2808,7 +2808,7 @@ export const IndexersCatalogEntry = zod.object({
   id: zod.string(),
   language: zod.string().describe("A language tag such as en-US"),
   name: zod.string(),
-  origin: zod.enum(["catalog", "custom"]),
+  origin: zod.enum(["catalog", "custom", "native"]),
   privacy: zod.enum(["private", "semi-private", "public"]),
   reason: zod.string().nullable().describe("Why SlipStream can't run it; null when it can"),
   replacedByCustom: zod
@@ -2873,16 +2873,25 @@ export const IndexersDefinitionField = zod.object({
   help: zod
     .string()
     .nullable()
-    .describe("An info field's text, written by the definition's authors"),
+    .describe("An info field's text, written by the definition's authors, or a ported site's help"),
   label: zod.string(),
+  max: zod.int().nullable().describe("A number's greatest value; null for none"),
+  min: zod.int().nullable().describe("A number's least value; null for none"),
   name: zod.string().describe("May hold hyphens or start with a digit"),
-  options: zod.array(IndexersOption).describe("A select's choices, by value"),
+  options: zod.array(IndexersOption).describe("A select's or a multiselect's choices, by value"),
+  required: zod
+    .boolean()
+    .describe(
+      "An Indexer can't be saved with the value empty; an edit that sends a sealed one empty keeps the saved value",
+    ),
   sealed: zod.boolean().describe("Its saved value is never returned"),
   type: zod.enum([
     "text",
     "password",
     "checkbox",
     "select",
+    "number",
+    "multiselect",
     "info",
     "info_cookie",
     "info_flaresolverr",
@@ -2895,8 +2904,37 @@ export const IndexersDefinitionField = zod.object({
 export type IndexersDefinitionField = zod.input<typeof IndexersDefinitionField>;
 export type IndexersDefinitionFieldOutput = zod.output<typeof IndexersDefinitionField>;
 
+export const indexersLimitCountMin = 0;
+export const indexersLimitCountMax = 100000;
+
+export const IndexersLimit = zod.object({
+  count: zod.int().min(indexersLimitCountMin).max(indexersLimitCountMax).describe("0 is no limit"),
+  per: zod.enum(["hour", "day"]).describe("The sliding window it counts in"),
+});
+
+export type IndexersLimit = zod.input<typeof IndexersLimit>;
+export type IndexersLimitOutput = zod.output<typeof IndexersLimit>;
+
+export const IndexersPortFacts = zod.object({
+  grabs: IndexersLimit.describe("A new Indexer's grab limit unless the form sets one"),
+  recent: zod.boolean().describe("The site lists its new uploads, so RSS sync can use it"),
+  searches: IndexersLimit.describe("A new Indexer's search limit unless the form sets one"),
+  spacingSeconds: zod.number().describe("The least time between two requests to the site"),
+  synced: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the Prowlarr commit SlipStream's support for the site was synced to was made"),
+  userAgent: zod
+    .boolean()
+    .describe("The pasted cookie works only with the User-Agent of the browser it came from"),
+});
+
+export type IndexersPortFacts = zod.input<typeof IndexersPortFacts>;
+export type IndexersPortFactsOutput = zod.output<typeof IndexersPortFacts>;
+
 export const IndexersDefinitionForm = zod.object({
   captcha: zod.boolean().describe("Signing in asks for an image captcha"),
+  code: zod.boolean().describe("Signing in may ask for a two-factor code"),
   cookie: zod
     .boolean()
     .describe(
@@ -2907,6 +2945,9 @@ export const IndexersDefinitionForm = zod.object({
     .array(IndexersDefinitionField)
     .describe("In the definition's order, the captcha last"),
   links: zod.array(zod.string()).describe("The site's addresses, the first being the default"),
+  port: zod
+    .union([IndexersPortFacts, zod.null()])
+    .describe("What an included site's form says beyond a definition's; null for a definition"),
   session: zod.boolean().describe("Its Indexers sign in and keep a session on their Node"),
   solver: zod
     .boolean()
@@ -2930,6 +2971,9 @@ export const IndexersPin = zod.object({
     .datetime({ offset: true })
     .describe("When SlipStream downloaded the pinned version"),
   id: zod.string(),
+  sealed: zod
+    .array(zod.string())
+    .describe("The names of the sealed settings that hold a value, in order"),
   values: zod
     .record(zod.string(), zod.string())
     .describe("The settings saved in plain, by name. Sealed settings are never returned"),
@@ -2955,6 +2999,27 @@ export const IndexersLimitUse = zod.object({
 
 export type IndexersLimitUse = zod.input<typeof IndexersLimitUse>;
 export type IndexersLimitUseOutput = zod.output<typeof IndexersLimitUse>;
+
+export const IndexersPortPin = zod.object({
+  baseAddress: zod.string(),
+  id: zod.string(),
+  name: zod.string().describe("The site's name"),
+  sealed: zod
+    .array(zod.string())
+    .describe("The names of the sealed settings that hold a value, in order"),
+  synced: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When the Prowlarr commit the port was synced to was made; null once SlipStream no longer includes the site",
+    ),
+  values: zod
+    .record(zod.string(), zod.string())
+    .describe("The settings saved in plain, by name. Sealed settings are never returned"),
+});
+
+export type IndexersPortPin = zod.input<typeof IndexersPortPin>;
+export type IndexersPortPinOutput = zod.output<typeof IndexersPortPin>;
 
 export const IndexersSearchMode = zod.object({
   mode: zod.string().describe("The Torznab t= value"),
@@ -2985,6 +3050,8 @@ export const IndexersStatus = zod.object({
       zod.literal("definition_unloadable"),
       zod.literal("account_refused"),
       zod.literal("request_rejected"),
+      zod.literal("code_needed"),
+      zod.literal("port_retired"),
       zod.literal(null),
     ])
     .nullable()
@@ -3070,7 +3137,7 @@ export const IndexersIndexer = zod.object({
   createdAt: zod.iso.datetime({ offset: true }),
   definition: zod
     .union([IndexersPin, zod.null()])
-    .describe("A catalog Indexer's definition; null for a feed"),
+    .describe("A catalog Indexer's definition; null for every other kind"),
   feedHost: zod
     .string()
     .nullable()
@@ -3082,13 +3149,21 @@ export const IndexersIndexer = zod.object({
   grabs: IndexersLimitUse,
   homeNodeId: zod.uuid().describe("The Node it searches from"),
   id: zod.uuid(),
-  kind: zod.enum(["catalog", "torznab", "rss"]),
+  kind: zod.enum(["catalog", "torznab", "rss", "native"]),
   media: zod
     .array(zod.string())
     .nullable()
     .describe("The Content Types an RSS feed carries; null for every other kind"),
   name: zod.string(),
+  notes: zod
+    .array(zod.string())
+    .describe(
+      "What changed when SlipStream last moved it to a new definition version or from a ported site to its catalog definition, for the Indexer page",
+    ),
   on: zod.boolean(),
+  port: zod
+    .union([IndexersPortPin, zod.null()])
+    .describe("A native Indexer's ported site; null for every other kind"),
   priority: zod.int().min(1).max(indexersIndexerPriorityMax).describe("Lower wins a tie"),
   revision: zod.int().min(1),
   rss: zod.boolean(),
@@ -3157,17 +3232,6 @@ export const IndexersPastedCookie = zod.object({
 export type IndexersPastedCookie = zod.input<typeof IndexersPastedCookie>;
 export type IndexersPastedCookieOutput = zod.output<typeof IndexersPastedCookie>;
 
-export const indexersLimitCountMin = 0;
-export const indexersLimitCountMax = 100000;
-
-export const IndexersLimit = zod.object({
-  count: zod.int().min(indexersLimitCountMin).max(indexersLimitCountMax).describe("0 is no limit"),
-  per: zod.enum(["hour", "day"]).describe("The sliding window it counts in"),
-});
-
-export type IndexersLimit = zod.input<typeof IndexersLimit>;
-export type IndexersLimitOutput = zod.output<typeof IndexersLimit>;
-
 export const indexersIndexerEditAddressMax = 2048;
 
 export const indexersIndexerEditAddressRegExp = new RegExp(
@@ -3176,6 +3240,8 @@ export const indexersIndexerEditAddressRegExp = new RegExp(
 export const indexersIndexerEditApiKeyMax = 256;
 
 export const indexersIndexerEditBaseAddressMax = 2048;
+
+export const indexersIndexerEditCodeMax = 16;
 
 export const indexersIndexerEditNameMax = 100;
 
@@ -3196,11 +3262,18 @@ export const IndexersIndexerEdit = zod.object({
     .string()
     .max(indexersIndexerEditBaseAddressMax)
     .exactOptional()
-    .describe("A catalog Indexer's: one of its definition's addresses"),
+    .describe(
+      "A catalog Indexer's: one of its definition's addresses. A native Indexer's: one its port knows or a typed http or https one",
+    ),
   captcha: IndexersCaptchaAnswer.exactOptional().describe(
     "The answer to a captcha loaded for this Indexer, for the Test the change runs",
   ),
   categories: zod.array(zod.int()).nullish().describe("Null for every category it advertises"),
+  code: zod
+    .string()
+    .max(indexersIndexerEditCodeMax)
+    .exactOptional()
+    .describe("The current two-factor code, for the Test the change runs"),
   cookie: IndexersPastedCookie.exactOptional().describe("A new browser cookie. Write-only"),
   grabs: zod
     .union([IndexersLimit, zod.null()])
@@ -3225,7 +3298,7 @@ export const IndexersIndexerEdit = zod.object({
     .record(zod.string(), zod.string())
     .exactOptional()
     .describe(
-      "A catalog Indexer's settings to change, by name; a sealed one sent empty keeps its saved value",
+      "A catalog or native Indexer's settings to change, by name; a sealed one sent empty keeps its saved value",
     ),
 });
 
@@ -3249,11 +3322,15 @@ export const indexersNewIndexerApiKeyMax = 256;
 export const indexersNewIndexerAutomaticSearchDefault = true;
 export const indexersNewIndexerBaseAddressMax = 2048;
 
+export const indexersNewIndexerCodeMax = 16;
+
 export const indexersNewIndexerDefinitionMax = 200;
 
 export const indexersNewIndexerNameMax = 100;
 
 export const indexersNewIndexerOnDefault = true;
+export const indexersNewIndexerPortMax = 200;
+
 export const indexersNewIndexerPriorityDefault = 25;
 export const indexersNewIndexerPriorityMax = 50;
 
@@ -3281,7 +3358,9 @@ export const IndexersNewIndexer = zod.object({
     .string()
     .max(indexersNewIndexerBaseAddressMax)
     .exactOptional()
-    .describe("One of the definition's addresses; absent for its first"),
+    .describe(
+      "One of the definition's addresses, absent for its first; or a native Indexer's address, one the port knows or a typed http or https one",
+    ),
   captcha: IndexersCaptchaAnswer.exactOptional().describe(
     "The answer to a captcha loaded for this draft",
   ),
@@ -3289,8 +3368,13 @@ export const IndexersNewIndexer = zod.object({
     .array(zod.int())
     .nullish()
     .describe("Newznab category ids; absent for every category it advertises"),
+  code: zod
+    .string()
+    .max(indexersNewIndexerCodeMax)
+    .exactOptional()
+    .describe("The current two-factor code, for a site whose sign-in asks for one"),
   cookie: IndexersPastedCookie.exactOptional().describe(
-    "A browser cookie for an RSS feed that needs one, or for a catalog Indexer whose definition signs in with one. Write-only",
+    "A browser cookie for an RSS feed that needs one, or for a catalog or native Indexer whose site signs in with one. Write-only",
   ),
   definition: zod
     .string()
@@ -3302,7 +3386,7 @@ export const IndexersNewIndexer = zod.object({
     .uuid()
     .exactOptional()
     .describe("A Node that holds Searching; absent for the default home"),
-  kind: zod.enum(["catalog", "torznab", "rss"]),
+  kind: zod.enum(["catalog", "torznab", "rss", "native"]),
   media: zod
     .array(zod.string())
     .nullish()
@@ -3311,6 +3395,11 @@ export const IndexersNewIndexer = zod.object({
     ),
   name: zod.string().min(1).max(indexersNewIndexerNameMax),
   on: zod.boolean().default(indexersNewIndexerOnDefault),
+  port: zod
+    .string()
+    .max(indexersNewIndexerPortMax)
+    .exactOptional()
+    .describe("A native Indexer's port id; required for one"),
   priority: zod
     .int()
     .min(1)
@@ -3329,7 +3418,7 @@ export const IndexersNewIndexer = zod.object({
     .record(zod.string(), zod.string())
     .exactOptional()
     .describe(
-      "A catalog Indexer's settings by name, a checkbox's as true or false; a setting left out takes its default. Sealed ones are write-only",
+      "A catalog or native Indexer's settings by name, a checkbox's as true or false and a multiselect's as comma-separated option values; a setting left out takes its default. Sealed ones are write-only",
     ),
 });
 
@@ -3610,10 +3699,17 @@ export const IndexersStatusChanged = zod.object({
 export type IndexersStatusChanged = zod.input<typeof IndexersStatusChanged>;
 export type IndexersStatusChangedOutput = zod.output<typeof IndexersStatusChanged>;
 
+export const indexersTestBodyCodeMax = 16;
+
 export const IndexersTestBody = zod.object({
   captcha: IndexersCaptchaAnswer.exactOptional().describe(
     "The answer to a captcha loaded for this Indexer",
   ),
+  code: zod
+    .string()
+    .max(indexersTestBodyCodeMax)
+    .exactOptional()
+    .describe("The current two-factor code, for a site whose sign-in asks for one"),
 });
 
 export type IndexersTestBody = zod.input<typeof IndexersTestBody>;

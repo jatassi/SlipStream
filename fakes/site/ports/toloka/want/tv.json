@@ -1,0 +1,57 @@
+{
+  "releases": [
+    {
+      "title": "Harbor Lights (S2E1-3) (2024) WEB-DL 1080p (S2E1-3 of 8)",
+      "size": 6442450944,
+      "published": "2026-01-04T00:00:00Z",
+      "seeders": 40,
+      "leechers": 9,
+      "grabs": 120,
+      "link": "https://toloka.fixture-site.fake.localhost/download.php?id=6001",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5000,
+        100124
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0.75,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "0s",
+      "details": "https://toloka.fixture-site.fake.localhost/t2001",
+      "source": null,
+      "flags": [
+        "freeleech25"
+      ]
+    },
+    {
+      "title": "Harbor Lights (2024) WEB-DL 720p (S2E3)",
+      "size": 734003200,
+      "published": "2026-01-05T00:00:00Z",
+      "seeders": 3,
+      "leechers": 1,
+      "grabs": 15,
+      "link": "https://toloka.fixture-site.fake.localhost/download.php?id=6002",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5000,
+        100124
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "0s",
+      "details": "https://toloka.fixture-site.fake.localhost/t2002",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

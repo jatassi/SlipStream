@@ -1,0 +1,57 @@
+{
+  "releases": [
+    {
+      "title": "The Quiet Orchard (2021) [1080p] [WEBRip]",
+      "size": 2147483648,
+      "published": "2025-06-02T00:00:00Z",
+      "seeders": 0,
+      "leechers": 0,
+      "grabs": 0,
+      "link": "",
+      "magnet": "magnet:?xt=urn:btih:2dab737c0865f80647b6a1f14aca754853fa55c4\u0026dn=The+Quiet+Orchard+%282021%29+%5B1080p%5D+%5BWEBRip%5D",
+      "infoHash": "2dab737c0865f80647b6a1f14aca754853fa55c4",
+      "categories": [
+        8000
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://torrentscsv.fixture-site.fake.localhost/search?q=The%20Quiet%20Orchard%20%282021%29%20%5B1080p%5D%20%5BWEBRip%5D",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The.Quiet.Orchard.2021.720p.BluRay.x264-FKW",
+      "size": 1073741824,
+      "published": "2025-06-01T00:00:00Z",
+      "seeders": 12,
+      "leechers": 3,
+      "grabs": 250,
+      "link": "",
+      "magnet": "magnet:?xt=urn:btih:a074a85107841ab807858c3131171bec6c837e3a\u0026dn=The.Quiet.Orchard.2021.720p.BluRay.x264-FKW",
+      "infoHash": "a074a85107841ab807858c3131171bec6c837e3a",
+      "categories": [
+        8000
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://torrentscsv.fixture-site.fake.localhost/search?q=The.Quiet.Orchard.2021.720p.BluRay.x264-FKW",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

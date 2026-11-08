@@ -1,0 +1,79 @@
+{
+  "releases": [
+    {
+      "title": "Salt Meadow (2020) [BD 2160p]",
+      "size": 20132659200,
+      "published": "2026-05-30T00:00:00Z",
+      "seeders": 3,
+      "leechers": 1,
+      "grabs": 2,
+      "link": "https://bakabt.fixture-site.fake.localhost/torrent/3001/fixture#peers",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        2000,
+        100005
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://bakabt.fixture-site.fake.localhost/torrent/3001/fixture",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "Juniper Falls (2022) [EPUB]",
+      "size": 13002342,
+      "published": "2026-05-28T00:00:00Z",
+      "seeders": 1,
+      "leechers": 0,
+      "grabs": 0,
+      "link": "https://bakabt.fixture-site.fake.localhost/torrent/3002/fixture#peers",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        7020,
+        100009
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://bakabt.fixture-site.fake.localhost/torrent/3002/fixture",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "The Copper Bell (2020) [FLAC]",
+      "size": 432327884,
+      "published": "2026-05-27T00:00:00Z",
+      "seeders": 1,
+      "leechers": 0,
+      "grabs": 0,
+      "link": "https://bakabt.fixture-site.fake.localhost/torrent/3003/fixture#peers",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5070
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://bakabt.fixture-site.fake.localhost/torrent/3003/fixture",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

@@ -1,0 +1,74 @@
+source: synthetic
+settings:
+  apiKey: "{{apiKey}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}}}
+    exchanges:
+      - request:
+          method: POST
+          host: api.fixture-site.fake.localhost
+          path: /api/torrent/search
+          headers: {x-api-key: "{{apiKey}}", Accept: application/json, Content-Type: application/json}
+          json: {mode: normal, categories: [], imdb: tt0000001, pageNumber: 1, pageSize: 100}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request:
+          method: POST
+          host: api.fixture-site.fake.localhost
+          path: /api/torrent/search
+          json: {mode: normal, keyword: Juniper Falls}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          method: POST
+          host: api.fixture-site.fake.localhost
+          path: /api/torrent/search
+          headers: {x-api-key: "{{apiKey}}"}
+          json: {mode: normal, categories: []}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {method: POST, host: api.fixture-site.fake.localhost, path: /api/torrent/search}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: auth
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, host: api.fixture-site.fake.localhost, path: /api/torrent/search}
+        response: {status: 401}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, host: api.fixture-site.fake.localhost, path: /api/torrent/search}
+        response: {status: 429}
+  - name: apierror
+    call: {recent: {}}
+    exchanges:
+      - request: {method: POST, host: api.fixture-site.fake.localhost, path: /api/torrent/search}
+        response: {headers: {Content-Type: application/json}, body: error.json}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          method: POST
+          host: api.fixture-site.fake.localhost
+          path: /api/torrent/search
+          json: {mode: normal, keyword: Harbor Lights S02E03}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: grab
+    call: {fetch: "https://api.fixture-site.fake.localhost/api/torrent/genDlToken?id=880201"}
+    exchanges:
+      - request:
+          method: POST
+          host: api.fixture-site.fake.localhost
+          path: /api/torrent/genDlToken
+          headers: {x-api-key: "{{apiKey}}", User-Agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.35"}
+          query: {id: "880201"}
+        response: {headers: {Content-Type: application/json}, body: token.json}
+      - request: {path: /dl/880201.torrent}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

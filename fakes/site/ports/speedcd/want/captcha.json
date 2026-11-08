@@ -1,0 +1,8 @@
+{
+  "outcome": {
+    "kind": "stopped",
+    "cause": "credentials_rejected",
+    "text": "SpeedCD shows a captcha after a failed sign-in. Sign in once with a browser on this network, then test the Indexer again."
+  },
+  "sessionChanged": false
+}

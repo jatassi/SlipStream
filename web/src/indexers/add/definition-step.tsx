@@ -1,9 +1,11 @@
 import type { IndexersDefinitionForm, NodesNode } from "../../api/gen/model";
 import { Details } from "../../ui/details";
+import { portFormOf } from "../port-form";
 import { AddIndexerForm } from "./add-form";
 import { unrunnable } from "./picker-parts";
+import type { Source } from "./source";
 
-/** A definition's form, or why SlipStream can't run it, with the reason under Details. */
+/** A definition's or a ported site's form, or why SlipStream can't run it, with the reason under Details. */
 export function DefinitionStep({
   definition,
   nodes,
@@ -21,5 +23,9 @@ export function DefinitionStep({
       </div>
     );
   }
-  return <AddIndexerForm source={{ kind: "catalog", form: definition }} nodes={nodes} />;
+  const source: Source =
+    definition.entry.origin === "native"
+      ? { kind: "native", form: portFormOf(definition) }
+      : { kind: "catalog", form: definition };
+  return <AddIndexerForm source={source} nodes={nodes} />;
 }

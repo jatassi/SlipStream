@@ -1,0 +1,58 @@
+source: synthetic
+settings:
+  apiKey: "{{apiKey}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, ids: {imdbid: tt0000001}}}
+    exchanges:
+      - request:
+          path: /api_9djWe8Tb2NE3p6opyqnh/v1/browse.php
+          headers: {Accept: text/html}
+          query: {apikey: "{{apiKey}}", limit: "50", ponly: "false", imdbId: tt0000001}
+          noQuery: [searchstring]
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /api_9djWe8Tb2NE3p6opyqnh/v1/browse.php, query: {searchstring: Juniper Falls}}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api_9djWe8Tb2NE3p6opyqnh/v1/browse.php, query: {apikey: "{{apiKey}}", limit: "50", ponly: "false"}, noQuery: [searchstring, imdbId, cats, release_type]}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {path: /api_9djWe8Tb2NE3p6opyqnh/v1/browse.php}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: auth
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api_9djWe8Tb2NE3p6opyqnh/v1/browse.php}
+        response: {status: 401}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api_9djWe8Tb2NE3p6opyqnh/v1/browse.php}
+        response: {status: 429}
+  - name: apierror
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api_9djWe8Tb2NE3p6opyqnh/v1/browse.php}
+        response: {headers: {Content-Type: application/json}, body: error.json}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request: {path: /api_9djWe8Tb2NE3p6opyqnh/v1/browse.php, query: {searchstring: Harbor Lights S02E03}}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: season
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2}}
+    exchanges:
+      - request: {path: /api_9djWe8Tb2NE3p6opyqnh/v1/browse.php, query: {searchstring: Harbor Lights S02*}}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: grab
+    call: {fetch: "/download.php?id=733001&apikey={{apiKey}}"}
+    exchanges:
+      - request: {path: /download.php, query: {id: "733001", apikey: "{{apiKey}}"}}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

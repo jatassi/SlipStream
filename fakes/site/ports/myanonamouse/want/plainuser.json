@@ -1,0 +1,106 @@
+{
+  "releases": [
+    {
+      "title": "The Quiet Orchard by Ada Fernsby, Bo \u0026 Cy Lark [ENG / EPUB]",
+      "size": 1258291,
+      "published": "2026-06-01T12:00:00Z",
+      "seeders": 10,
+      "leechers": 1,
+      "grabs": 50,
+      "link": "https://myanonamouse.fixture-site.fake.localhost/tor/download.php?tid=1001",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        7020,
+        100064
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://myanonamouse.fixture-site.fake.localhost/t/1001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The Quiet Orchard by Ada Fernsby [ENG / M4B] [VIP]",
+      "size": 327575142,
+      "published": "2026-05-31T08:30:00Z",
+      "seeders": 10,
+      "leechers": 1,
+      "grabs": 50,
+      "link": "https://myanonamouse.fixture-site.fake.localhost/tor/download.php?tid=1002\u0026fl=1",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        3030,
+        100042
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://myanonamouse.fixture-site.fake.localhost/t/1002",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "The Quiet Orchard by Author 1, Author 2, Author 3, Author 4, Author 5 [PDF]",
+      "size": 880640,
+      "published": "2026-05-30T20:15:00Z",
+      "seeders": 10,
+      "leechers": 1,
+      "grabs": 50,
+      "link": "https://myanonamouse.fixture-site.fake.localhost/tor/download.php?tid=1003",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        7020,
+        100064
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://myanonamouse.fixture-site.fake.localhost/t/1003",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "The Quiet Orchard [FRA]",
+      "size": 2202009,
+      "published": "2026-05-29T06:00:00Z",
+      "seeders": 10,
+      "leechers": 1,
+      "grabs": 50,
+      "link": "https://myanonamouse.fixture-site.fake.localhost/tor/download.php?tid=1004\u0026fl=1",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "72h0m0s",
+      "details": "https://myanonamouse.fixture-site.fake.localhost/t/1004",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}

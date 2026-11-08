@@ -1,0 +1,50 @@
+source: synthetic
+cases:
+  - name: search
+    call: {search: {mode: search, text: "[SubsPlease] The Quiet Orchard 1080p"}}
+    exchanges:
+      - request:
+          path: /api/
+          headers: {Accept: application/json}
+          query: {tz: UTC, f: search, s: The Quiet Orchard}
+        response: {headers: {Content-Type: application/json}, body: search.json}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /api/, query: {tz: UTC, f: search, s: Juniper Falls}}
+        response: {headers: {Content-Type: application/json}, body: empty.json}
+  - name: blank
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {path: /api/, query: {f: search, s: Juniper Falls}}
+        response: {headers: {Content-Type: text/html; charset=UTF-8}}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api/, query: {tz: UTC, f: latest}, noQuery: [s]}
+        response: {headers: {Content-Type: application/json}, body: latest.json}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request: {path: /api/, query: {tz: UTC, f: search, s: Harbor Lights S2 03}}
+        response: {headers: {Content-Type: application/json}, body: tv.json}
+  - name: firstseason
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 1, episode: "3"}}
+    exchanges:
+      - request: {path: /api/, query: {f: search, s: Harbor Lights 03}}
+        response: {headers: {Content-Type: application/json}, body: latest.json}
+  - name: test
+    call: {test: {}}
+    exchanges:
+      - request: {path: /api/, query: {f: latest}}
+        response: {headers: {Content-Type: application/json}, body: latest.json}
+  - name: auth
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api/}
+        response: {status: 403, headers: {Content-Type: text/html}, body: blocked.html}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /api/}
+        response: {status: 429, headers: {Retry-After: "60"}}

@@ -1,0 +1,59 @@
+{
+  "releases": [
+    {
+      "title": "[FKW] Harbor Lights - 03 [1080p].mkv [English]",
+      "size": 1503238553,
+      "published": "2026-01-04T21:00:00Z",
+      "seeders": 40,
+      "leechers": 9,
+      "grabs": 120,
+      "link": "https://anidex.fixture-site.fake.localhost/dl/1001",
+      "magnet": "magnet:?xt=urn:btih:f3d82ea776451f96507397646f0e0f626997da6a\u0026dn=fixture",
+      "infoHash": "f3d82ea776451f96507397646f0e0f626997da6a",
+      "categories": [
+        5070,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://anidex.fixture-site.fake.localhost/torrent/1001",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "[FKW] Harbor Lights - 03 (RAW) [720p].mkv",
+      "size": 734003200,
+      "published": "2026-01-05T03:15:00Z",
+      "seeders": 3,
+      "leechers": 1,
+      "grabs": 15,
+      "link": "https://anidex.fixture-site.fake.localhost/dl/1002",
+      "magnet": "magnet:?xt=urn:btih:39349f6b3254f093d94809a9d0ef38ba70f18265\u0026dn=fixture",
+      "infoHash": "39349f6b3254f093d94809a9d0ef38ba70f18265",
+      "categories": [
+        5070,
+        100002
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://anidex.fixture-site.fake.localhost/torrent/1002",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

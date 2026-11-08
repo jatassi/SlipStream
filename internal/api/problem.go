@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"net/http"
@@ -23,7 +24,8 @@ type Code struct {
 	name   string
 	title  string
 	// member is the name of the one member a Carrying code's problem adds,
-	// whose value is a carries. It is empty for a plain code.
+	// whose value is a carries. It is empty for a plain code, and for a
+	// code that adds each member of carries, a struct.
 	member  string
 	carries reflect.Type
 }
@@ -41,6 +43,15 @@ type Carrying[T any] struct{ *Code }
 func NewCarrying[T any](status int, name, title, member string) Carrying[T] {
 	c := NewCode(status, name, title)
 	c.member, c.carries = member, reflect.TypeFor[T]()
+	return Carrying[T]{c}
+}
+
+// NewCarryingMembers declares a code whose problem carries each member of
+// T, a struct, beside its own, which the document describes beside the
+// code.
+func NewCarryingMembers[T any](status int, name, title string) Carrying[T] {
+	c := NewCode(status, name, title)
+	c.carries = reflect.TypeFor[T]()
 	return Carrying[T]{c}
 }
 
@@ -240,25 +251,31 @@ type Problem struct {
 	carried any
 }
 
-// MarshalJSON writes the problem's own members, then the member its code
-// carries.
+// MarshalJSON writes the problem's own members, then the member or members
+// its code carries.
 func (p *Problem) MarshalJSON() ([]byte, error) {
 	type plain Problem
 	own, err := marshal((*plain)(p))
 	if err != nil {
 		return nil, fmt.Errorf("api: encode the %s problem: %w", p.Code, err)
 	}
-	if p.member == "" {
+	if p.carried == nil {
 		return own, nil
 	}
 	carried, err := marshal(p.carried)
 	if err != nil {
-		return nil, fmt.Errorf("api: encode the %s problem's %s: %w", p.Code, p.member, err)
+		return nil, fmt.Errorf("api: encode the %s problem's %s: %w", p.Code, cmp.Or(p.member, "members"), err)
 	}
 	var b bytes.Buffer
 	b.Write(own[:len(own)-1])
-	b.WriteString("," + strconv.Quote(p.member) + ":")
-	b.Write(carried)
+	switch {
+	case p.member != "":
+		b.WriteString("," + strconv.Quote(p.member) + ":")
+		b.Write(carried)
+	case len(carried) > len("{}"):
+		b.WriteByte(',')
+		b.Write(carried[1 : len(carried)-1])
+	}
 	b.WriteByte('}')
 	return b.Bytes(), nil
 }

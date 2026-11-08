@@ -1,0 +1,98 @@
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+session:
+  cookie: "dle_user_id={{uid}}; dle_password={{pass}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          method: POST
+          path: /index.php
+          headers: {Cookie: "dle_user_id={{uid}}; dle_password={{pass}}", Content-Type: application/x-www-form-urlencoded}
+          query: {do: search}
+          form: {do: search, subaction: search, story: The Quiet Orchard, titleonly: "3", resorder: desc, "catlist[]": "0"}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: search.html}
+      - request:
+          path: /anime_movie/2001-the-quiet-orchard.html
+          headers: {Referer: "https://anidub.fixture-site.fake.localhost/", Accept: text/html}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: orchard.html}
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 1, episode: "2"}}
+    exchanges:
+      - request: {method: POST, path: /index.php, form: {story: Harbor Lights}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: tvsearch.html}
+      - request: {path: /anime_tv/full/1001-harbor-lights.html}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: harbor.html}
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls}}
+    exchanges:
+      - request: {method: POST, path: /index.php, form: {story: Juniper Falls}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: empty.html}
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: recent.html}
+      - request: {path: /anime_tv/anime_ongoing/3001-harbor-lights-2.html}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: ongoing.html}
+      - request: {path: /anime_movie/2001-the-quiet-orchard.html}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: orchard.html}
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request: {path: /}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8, Set-Cookie: "PHPSESSID={{phpsessid}}; path=/"}
+          body: guest.html
+      - request:
+          method: POST
+          path: /index.php
+          headers: {Cookie: "PHPSESSID={{phpsessid}}", Content-Type: application/x-www-form-urlencoded}
+          form: {login_name: fixture-user, login_password: "{{password}}", login: submit}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: loginfailed.html}
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: pagelimit
+    call: {search: {mode: movie, text: The Quiet Orchard}}
+    exchanges:
+      - request: {method: POST, path: /index.php}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: search.html}
+      - request: {path: /anime_movie/2001-the-quiet-orchard.html}
+        response: {status: 429, headers: {Retry-After: "120"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "dle_user_id={{uid}}; dle_password={{expiredPass}}"}
+    exchanges:
+      - request: {path: /, headers: {Cookie: "dle_user_id={{uid}}; dle_password={{expiredPass}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: guest.html}
+      - request: {path: /}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: guest.html}
+      - request:
+          method: POST
+          path: /index.php
+          form: {login_name: fixture-user, login_password: "{{password}}", login: submit}
+        response:
+          headers:
+            Content-Type: text/html; charset=utf-8
+            Set-Cookie: |-
+              dle_user_id={{uid}}; path=/
+              dle_password={{pass}}; path=/
+          body: home.html
+      - request: {path: /, headers: {Cookie: "dle_user_id={{uid}}; dle_password={{pass}}"}}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: recent.html}
+      - request: {path: /anime_tv/anime_ongoing/3001-harbor-lights-2.html}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: ongoing.html}
+      - request: {path: /anime_movie/2001-the-quiet-orchard.html}
+        response: {headers: {Content-Type: text/html; charset=utf-8}, body: orchard.html}
+  - name: grab
+    call: {fetch: "/engine/download.php?id=501"}
+    exchanges:
+      - request: {path: /engine/download.php, headers: {Cookie: "dle_user_id={{uid}}; dle_password={{pass}}"}, query: {id: "501"}}
+        response: {headers: {Content-Type: application/x-bittorrent}, body: orchard.torrent}

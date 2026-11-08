@@ -3,6 +3,8 @@ export type IndexersDefinitionFieldType =
   | "password"
   | "checkbox"
   | "select"
+  | "number"
+  | "multiselect"
   | "info"
   | "info_cookie"
   | "info_flaresolverr"

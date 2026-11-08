@@ -10,8 +10,10 @@ import (
 
 	"github.com/jatassi/slipstream/internal/cardigann"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexerfields"
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/newznab"
+	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -65,7 +67,9 @@ type Entry struct {
 	Version time.Time
 }
 
-// Catalog lists the catalog's definitions by name, then the custom ones.
+// Catalog lists the ported sites by name, the catalog's definitions by
+// name but those a port replaces, then the custom definitions. The ports
+// are listed before any refresh has read the catalog.
 func (x *Indexers) Catalog(ctx context.Context, _ identity.Admin) (CatalogView, error) {
 	var c CatalogView
 	err := x.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
@@ -91,17 +95,14 @@ func (x *Indexers) Catalog(ctx context.Context, _ identity.Admin) (CatalogView, 
 		if err != nil {
 			return err
 		}
-		for _, row := range rows {
-			e := Entry{
-				ID: string(row.ID), File: row.File, Name: row.Name, Description: row.Description, Language: row.Language,
-				Privacy: cardigann.Privacy(row.Privacy), Origin: FromCatalog, Reason: deref(row.Refusal), ReplacedBy: replaced[string(row.ID)],
-				Version: row.FetchedAt.Time(),
-			}
-			if err := decode(row.Categories, &e.Categories); err != nil {
-				return fmt.Errorf("catalog entry %s: %w", row.ID, err)
-			}
-			c.Entries = append(c.Entries, e)
+		for _, e := range x.cfg.Ports.Entries() {
+			c.Entries = append(c.Entries, portEntry(e))
 		}
+		listed, err := x.listed(rows, replaced)
+		if err != nil {
+			return err
+		}
+		c.Entries = append(c.Entries, listed...)
 		c.Entries = append(c.Entries, custom...)
 		return nil
 	})
@@ -115,6 +116,26 @@ func (x *Indexers) Catalog(ctx context.Context, _ identity.Admin) (CatalogView, 
 		c.Notice = x.notDownloaded(c.Next)
 	}
 	return c, nil
+}
+
+// listed is the catalog's rows as entries, but those a port hides.
+func (x *Indexers) listed(rows []db.ListCatalogRow, replaced map[string]bool) ([]Entry, error) {
+	var out []Entry
+	for _, row := range rows {
+		if x.hidden(string(row.ID)) {
+			continue
+		}
+		e := Entry{
+			ID: string(row.ID), File: row.File, Name: row.Name, Description: row.Description, Language: row.Language,
+			Privacy: cardigann.Privacy(row.Privacy), Origin: FromCatalog, Reason: deref(row.Refusal), ReplacedBy: replaced[string(row.ID)],
+			Version: row.FetchedAt.Time(),
+		}
+		if err := decode(row.Categories, &e.Categories); err != nil {
+			return nil, fmt.Errorf("catalog entry %s: %w", row.ID, err)
+		}
+		out = append(out, e)
+	}
+	return out, nil
 }
 
 func (x *Indexers) notDownloaded(next time.Time) string {
@@ -167,17 +188,24 @@ type Form struct {
 	Cookie bool
 	// Solver is a definition that asks for a Challenge solver.
 	Solver bool
+	// Code is a port whose sign-in may ask for a two-factor code.
+	Code bool
+	// Port is nil for a definition.
+	Port *Ported
 }
 
 type FormField struct {
-	cardigann.Field
+	indexerfields.Field
 	// Sealed is a value SlipStream never shows again once saved.
 	Sealed bool
 }
 
-// Form describes definition id: the custom definition when one has the
-// id, else the catalog's.
+// Form describes port or definition id: the port with the id, else the
+// custom definition with it, else the catalog's.
 func (x *Indexers) Form(ctx context.Context, _ identity.Admin, id string) (Form, error) {
+	if e, ok := x.cfg.Ports.Lookup(port.ID(id)); ok {
+		return portForm(e), nil
+	}
 	var f Form
 	err := x.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var def db.IndexersDefinition
@@ -192,11 +220,11 @@ func (x *Indexers) Form(ctx context.Context, _ identity.Admin, id string) (Form,
 		}
 		f.Links, f.Session, f.Captcha, f.Cookie = s.Links, s.Login == cardigann.SessionLogin, s.Captcha, s.Uses.Has(cardigann.LoginCookie)
 		for _, field := range s.Fields {
-			f.Solver = f.Solver || field.Type == cardigann.InfoFlareSolverrField
-			if stored(field) && !settable(s, field) {
+			f.Solver = f.Solver || field.Type == indexerfields.InfoFlareSolverr
+			if indexerfields.Stored(field) && !settable(s, field) {
 				continue
 			}
-			f.Fields = append(f.Fields, FormField{Field: field, Sealed: Sealed(field)})
+			f.Fields = append(f.Fields, FormField{Field: field, Sealed: indexerfields.Sealed(field)})
 		}
 		return nil
 	})

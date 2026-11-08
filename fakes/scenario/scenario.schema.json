@@ -2124,13 +2124,17 @@
                 "enum": [
                   "catalog",
                   "torznab",
-                  "rss"
+                  "rss",
+                  "native"
                 ]
               },
               "site": {
                 "type": "string"
               },
               "definition": {
+                "type": "string"
+              },
+              "port": {
                 "type": "string"
               },
               "home": {

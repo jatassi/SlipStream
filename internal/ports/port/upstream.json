@@ -1,0 +1,52 @@
+{
+  "commit": "ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9",
+  "date": "2026-11-06",
+  "family": "",
+  "files": {
+    "driver.go": [
+      "src/NzbDrone.Core/Indexers/HttpIndexerBase.cs",
+      "src/NzbDrone.Core/Indexers/IndexerBase.cs",
+      "src/NzbDrone.Core/Indexers/TorrentIndexerBase.cs"
+    ],
+    "port.go": [
+      "src/NzbDrone.Core/Indexers/CategoryMapping.cs",
+      "src/NzbDrone.Core/Indexers/HttpIndexerBase.cs",
+      "src/NzbDrone.Core/Indexers/IndexerBase.cs",
+      "src/NzbDrone.Core/Indexers/IndexerBaseSettings.cs",
+      "src/NzbDrone.Core/Indexers/IndexerCapabilities.cs",
+      "src/NzbDrone.Core/Indexers/IndexerCapabilitiesCategories.cs",
+      "src/NzbDrone.Core/Indexers/IndexerPrivacy.cs"
+    ],
+    "release.go": [
+      "src/NzbDrone.Common/Http/TooManyRequestsException.cs",
+      "src/NzbDrone.Core/Exceptions/ReleaseUnavailableException.cs",
+      "src/NzbDrone.Core/Indexers/Exceptions/IndexerAuthException.cs",
+      "src/NzbDrone.Core/Indexers/Exceptions/IndexerException.cs",
+      "src/NzbDrone.Core/Indexers/Exceptions/RequestLimitReachedException.cs",
+      "src/NzbDrone.Core/Indexers/IndexerBase.cs",
+      "src/NzbDrone.Core/Indexers/IndexerFlag.cs",
+      "src/NzbDrone.Core/Parser/Model/ReleaseInfo.cs",
+      "src/NzbDrone.Core/Parser/Model/TorrentInfo.cs"
+    ],
+    "request.go": [
+      "src/NzbDrone.Common/Http/HttpRequestBuilder.cs",
+      "src/NzbDrone.Common/Http/HttpResponse.cs",
+      "src/NzbDrone.Common/Http/HttpUri.cs",
+      "src/NzbDrone.Core/IndexerSearch/Definitions/BasicSearchCriteria.cs",
+      "src/NzbDrone.Core/IndexerSearch/Definitions/MovieSearchCriteria.cs",
+      "src/NzbDrone.Core/IndexerSearch/Definitions/SearchCriteriaBase.cs",
+      "src/NzbDrone.Core/IndexerSearch/Definitions/TvSearchCriteria.cs",
+      "src/NzbDrone.Core/Indexers/HttpIndexerBase.cs",
+      "src/NzbDrone.Core/Indexers/IndexerPageableRequest.cs",
+      "src/NzbDrone.Core/Indexers/IndexerPageableRequestChain.cs",
+      "src/NzbDrone.Core/Indexers/IndexerRequest.cs",
+      "src/NzbDrone.Core/Indexers/IndexerResponse.cs"
+    ],
+    "settings.go": [
+      "src/NzbDrone.Core/Annotations/FieldDefinitionAttribute.cs",
+      "src/NzbDrone.Core/Indexers/Settings/CookieTorrentBaseSettings.cs",
+      "src/NzbDrone.Core/Indexers/Settings/NoAuthTorrentBaseSettings.cs",
+      "src/NzbDrone.Core/Indexers/Settings/UserPassTorrentBaseSettings.cs"
+    ]
+  }
+}

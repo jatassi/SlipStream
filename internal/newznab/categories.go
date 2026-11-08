@@ -24,38 +24,6 @@ type Category struct {
 // CustomBase is the first id of a site's own categories.
 const CustomBase ID = 100000
 
-// allCats is Prowlarr's NewznabStandardCategory.AllCats in its order, so a
-// lookup by name finds the entry Prowlarr's does: Other is 8000, not 0.
-var allCats = []Category{
-	{1000, "Console", 0}, {1010, "Console/NDS", 1000}, {1020, "Console/PSP", 1000},
-	{1030, "Console/Wii", 1000}, {1040, "Console/XBox", 1000}, {1050, "Console/XBox 360", 1000},
-	{1060, "Console/Wiiware", 1000}, {1070, "Console/XBox 360 DLC", 1000}, {1080, "Console/PS3", 1000},
-	{1090, "Console/Other", 1000}, {1110, "Console/3DS", 1000}, {1120, "Console/PS Vita", 1000},
-	{1130, "Console/WiiU", 1000}, {1140, "Console/XBox One", 1000}, {1180, "Console/PS4", 1000},
-	{2000, "Movies", 0}, {2010, "Movies/Foreign", 2000}, {2020, "Movies/Other", 2000},
-	{2030, "Movies/SD", 2000}, {2040, "Movies/HD", 2000}, {2045, "Movies/UHD", 2000},
-	{2050, "Movies/BluRay", 2000}, {2060, "Movies/3D", 2000}, {2070, "Movies/DVD", 2000},
-	{2080, "Movies/WEB-DL", 2000}, {2090, "Movies/x265", 2000},
-	{3000, "Audio", 0}, {3010, "Audio/MP3", 3000}, {3020, "Audio/Video", 3000},
-	{3030, "Audio/Audiobook", 3000}, {3040, "Audio/Lossless", 3000}, {3050, "Audio/Other", 3000},
-	{3060, "Audio/Foreign", 3000},
-	{4000, "PC", 0}, {4010, "PC/0day", 4000}, {4020, "PC/ISO", 4000}, {4030, "PC/Mac", 4000},
-	{4040, "PC/Mobile-Other", 4000}, {4050, "PC/Games", 4000}, {4060, "PC/Mobile-iOS", 4000},
-	{4070, "PC/Mobile-Android", 4000},
-	{5000, "TV", 0}, {5010, "TV/WEB-DL", 5000}, {5020, "TV/Foreign", 5000}, {5030, "TV/SD", 5000},
-	{5040, "TV/HD", 5000}, {5045, "TV/UHD", 5000}, {5050, "TV/Other", 5000}, {5060, "TV/Sport", 5000},
-	{5070, "TV/Anime", 5000}, {5080, "TV/Documentary", 5000}, {5090, "TV/x265", 5000},
-	{6000, "XXX", 0}, {6010, "XXX/DVD", 6000}, {6020, "XXX/WMV", 6000}, {6030, "XXX/XviD", 6000},
-	{6040, "XXX/x264", 6000}, {6045, "XXX/UHD", 6000}, {6050, "XXX/Pack", 6000},
-	{6060, "XXX/ImageSet", 6000}, {6070, "XXX/Other", 6000}, {6080, "XXX/SD", 6000},
-	{6090, "XXX/WEB-DL", 6000},
-	{7000, "Books", 0}, {7010, "Books/Mags", 7000}, {7020, "Books/EBook", 7000},
-	{7030, "Books/Comics", 7000}, {7040, "Books/Technical", 7000}, {7050, "Books/Other", 7000},
-	{7060, "Books/Foreign", 7000},
-	{8000, "Other", 0}, {8010, "Other/Misc", 8000}, {8020, "Other/Hashed", 8000},
-	{0, "Other", 0}, {20, "Other/Hashed", 0}, {10, "Other/Misc", 0},
-}
-
 // Standard is Newznab's categories in id order.
 func Standard() []Category {
 	out := slices.Clone(allCats)

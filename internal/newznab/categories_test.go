@@ -137,6 +137,15 @@ func TestCategories(t *testing.T) {
 		}
 	}
 
+	var own Categories
+	own.Add("1", movies, "")
+	own.Add("2", hd, "HD films")
+	own.Add("1", tvhd, "")
+	own.Add("z", Category{ID: Custom("z"), Name: "Zines"}, "")
+	if got, want := own.TrackerCategories(), []string{"1", "2"}; !slices.Equal(got, want) {
+		t.Errorf("TrackerCategories() = %v, want %v", got, want)
+	}
+
 	ids := func(cats []Category) []ID {
 		var out []ID
 		for _, c := range cats {

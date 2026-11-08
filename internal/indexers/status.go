@@ -22,9 +22,10 @@ type Cause = searching.StopCause
 // and met on home it stops it.
 func NodeBound(c Cause) bool {
 	switch c {
-	case searching.ChallengeUnsolved, searching.CaptchaNeeded, searching.CookieExpired:
+	case searching.ChallengeUnsolved, searching.CaptchaNeeded, searching.CookieExpired, searching.CodeNeeded:
 		return true
-	case searching.CredentialsRejected, searching.DefinitionUnloadable, searching.AccountRefused, searching.RequestRejected:
+	case searching.CredentialsRejected, searching.DefinitionUnloadable, searching.AccountRefused, searching.RequestRejected,
+		searching.PortRetired:
 	}
 	return false
 }
@@ -34,7 +35,8 @@ func NodeBound(c Cause) bool {
 // rejected.
 func Retried(c Cause) bool {
 	switch c {
-	case searching.CredentialsRejected, searching.CaptchaNeeded, searching.CookieExpired, searching.AccountRefused:
+	case searching.CredentialsRejected, searching.CaptchaNeeded, searching.CookieExpired, searching.AccountRefused,
+		searching.CodeNeeded, searching.PortRetired:
 		return false
 	case searching.ChallengeUnsolved, searching.DefinitionUnloadable, searching.RequestRejected:
 	}
@@ -194,7 +196,7 @@ func (x *Indexers) recordIn(ctx context.Context, tx *storage.Tx[file], q QueryID
 	if err := complete(ctx, tx, q, a, now); err != nil {
 		return Status{}, err
 	}
-	idx, err := Get(ctx, tx, id)
+	idx, err := x.get(ctx, tx, id)
 	if errors.Is(err, ErrNoIndexer) {
 		return Status{}, nil
 	}

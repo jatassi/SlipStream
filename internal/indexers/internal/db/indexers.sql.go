@@ -47,6 +47,20 @@ func (q *Queries) AddTrackerHost(ctx context.Context, arg AddTrackerHostParams) 
 	return err
 }
 
+const addTrackerKey = `-- name: AddTrackerKey :exec
+INSERT INTO indexers_tracker_key (key, tracker_id) VALUES (?1, ?2) ON CONFLICT (key) DO NOTHING
+`
+
+type AddTrackerKeyParams struct {
+	Key       string
+	TrackerID TrackerID
+}
+
+func (q *Queries) AddTrackerKey(ctx context.Context, arg AddTrackerKeyParams) error {
+	_, err := q.db.ExecContext(ctx, addTrackerKey, arg.Key, arg.TrackerID)
+	return err
+}
+
 const clearCatalog = `-- name: ClearCatalog :exec
 DELETE FROM indexers_catalog
 `
@@ -242,7 +256,7 @@ func (q *Queries) GetDefinition(ctx context.Context, arg GetDefinitionParams) (I
 }
 
 const getIndexer = `-- name: GetIndexer :one
-SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
+SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.port_id, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
     EXISTS (SELECT 1 FROM indexers_session s WHERE s.indexer_id = i.id AND s.pasted) AS pasted
 FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
 WHERE i.id = ?1
@@ -276,6 +290,7 @@ func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (GetIndexerRow, 
 		&i.IndexersIndexer.GrabWindow,
 		&i.IndexersIndexer.DefinitionID,
 		&i.IndexersIndexer.DefinitionSha,
+		&i.IndexersIndexer.PortID,
 		&i.IndexersIndexer.BaseAddress,
 		&i.IndexersIndexer.Plain,
 		&i.IndexersIndexer.SecretsSealed,
@@ -296,7 +311,7 @@ func (q *Queries) GetIndexer(ctx context.Context, id IndexerID) (GetIndexerRow, 
 }
 
 const getSession = `-- name: GetSession :one
-SELECT indexer_id, node_id, cookies_sealed, user_agent, pasted, earned_at FROM indexers_session WHERE indexer_id = ?1 AND node_id = ?2
+SELECT indexer_id, node_id, cookies_sealed, user_agent, pasted, earned_at, token_sealed FROM indexers_session WHERE indexer_id = ?1 AND node_id = ?2
 `
 
 type GetSessionParams struct {
@@ -314,6 +329,7 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (Indexer
 		&i.UserAgent,
 		&i.Pasted,
 		&i.EarnedAt,
+		&i.TokenSealed,
 	)
 	return i, err
 }
@@ -445,15 +461,15 @@ func (q *Queries) InsertDefinition(ctx context.Context, arg InsertDefinitionPara
 const insertIndexer = `-- name: InsertIndexer :exec
 INSERT INTO indexers_indexer (
     id, name, kind, home_node_id, is_on, auto_search, rss, allow_failover, priority, categories, media,
-    search_limit, search_window, grab_limit, grab_window, definition_id, definition_sha, base_address, plain,
+    search_limit, search_window, grab_limit, grab_window, definition_id, definition_sha, port_id, base_address, plain,
     secrets_sealed, feed_host, tracker_name, allow_no_size, rss_reading, caps, notes, revision, created_at, updated_at)
 VALUES (
     ?1, ?2, ?3, ?4, ?5, ?6, ?7,
     ?8, ?9, ?10, ?11, ?12,
     ?13, ?14, ?15, ?16, ?17,
-    ?18, ?19, ?20, ?21, ?22,
-    ?23, ?24, ?25, ?26, ?27, ?28,
-    ?29)
+    ?18, ?19, ?20, ?21, ?22, ?23,
+    ?24, ?25, ?26, ?27, ?28, ?29,
+    ?30)
 `
 
 type InsertIndexerParams struct {
@@ -474,6 +490,7 @@ type InsertIndexerParams struct {
 	GrabWindow    string
 	DefinitionID  *string
 	DefinitionSha *string
+	PortID        *string
 	BaseAddress   *string
 	Plain         string
 	SecretsSealed secret.Sealed
@@ -507,6 +524,7 @@ func (q *Queries) InsertIndexer(ctx context.Context, arg InsertIndexerParams) er
 		arg.GrabWindow,
 		arg.DefinitionID,
 		arg.DefinitionSha,
+		arg.PortID,
 		arg.BaseAddress,
 		arg.Plain,
 		arg.SecretsSealed,
@@ -568,20 +586,6 @@ func (q *Queries) InsertTracker(ctx context.Context, arg InsertTrackerParams) er
 		arg.Privacy,
 		arg.CreatedAt,
 	)
-	return err
-}
-
-const insertTrackerKey = `-- name: InsertTrackerKey :exec
-INSERT INTO indexers_tracker_key (key, tracker_id) VALUES (?1, ?2)
-`
-
-type InsertTrackerKeyParams struct {
-	Key       string
-	TrackerID TrackerID
-}
-
-func (q *Queries) InsertTrackerKey(ctx context.Context, arg InsertTrackerKeyParams) error {
-	_, err := q.db.ExecContext(ctx, insertTrackerKey, arg.Key, arg.TrackerID)
 	return err
 }
 
@@ -707,7 +711,7 @@ func (q *Queries) ListDefinitionKeys(ctx context.Context) ([]ListDefinitionKeysR
 }
 
 const listIndexers = `-- name: ListIndexers :many
-SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
+SELECT i.id, i.name, i.kind, i.home_node_id, i.is_on, i.auto_search, i.rss, i.allow_failover, i.priority, i.categories, i.media, i.search_limit, i.search_window, i.grab_limit, i.grab_window, i.definition_id, i.definition_sha, i.port_id, i.base_address, i.plain, i.secrets_sealed, i.feed_host, i.tracker_name, i.allow_no_size, i.rss_reading, i.caps, i.notes, i.revision, i.created_at, i.updated_at, d.summary AS definition_summary, d.fetched_at AS definition_fetched_at,
     EXISTS (SELECT 1 FROM indexers_session s WHERE s.indexer_id = i.id AND s.pasted) AS pasted
 FROM indexers_indexer i LEFT JOIN indexers_definition d ON d.id = i.definition_id AND d.sha = i.definition_sha
 ORDER BY i.name
@@ -747,6 +751,7 @@ func (q *Queries) ListIndexers(ctx context.Context) ([]ListIndexersRow, error) {
 			&i.IndexersIndexer.GrabWindow,
 			&i.IndexersIndexer.DefinitionID,
 			&i.IndexersIndexer.DefinitionSha,
+			&i.IndexersIndexer.PortID,
 			&i.IndexersIndexer.BaseAddress,
 			&i.IndexersIndexer.Plain,
 			&i.IndexersIndexer.SecretsSealed,
@@ -1161,6 +1166,42 @@ func (q *Queries) MoveReach(ctx context.Context, arg MoveReachParams) error {
 	return err
 }
 
+const moveToDefinition = `-- name: MoveToDefinition :execrows
+UPDATE indexers_indexer SET
+    kind = 'catalog', port_id = NULL, definition_id = ?1, definition_sha = ?2,
+    base_address = ?3, plain = ?4, secrets_sealed = ?5, notes = ?6,
+    revision = revision + 1, updated_at = ?7
+WHERE id = ?8 AND kind = 'native'
+`
+
+type MoveToDefinitionParams struct {
+	DefinitionID  *string
+	DefinitionSha *string
+	BaseAddress   *string
+	Plain         string
+	SecretsSealed secret.Sealed
+	Notes         string
+	UpdatedAt     storage.Time
+	ID            IndexerID
+}
+
+func (q *Queries) MoveToDefinition(ctx context.Context, arg MoveToDefinitionParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, moveToDefinition,
+		arg.DefinitionID,
+		arg.DefinitionSha,
+		arg.BaseAddress,
+		arg.Plain,
+		arg.SecretsSealed,
+		arg.Notes,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const moveTrackerHosts = `-- name: MoveTrackerHosts :exec
 INSERT INTO indexers_tracker_host (tracker_id, host)
 SELECT ?1, h.host FROM indexers_tracker_host AS h WHERE h.tracker_id = ?2
@@ -1208,10 +1249,11 @@ func (q *Queries) NameTaken(ctx context.Context, arg NameTakenParams) (bool, err
 }
 
 const offerSession = `-- name: OfferSession :execrows
-INSERT INTO indexers_session (indexer_id, node_id, cookies_sealed, user_agent, pasted, earned_at)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+INSERT INTO indexers_session (indexer_id, node_id, cookies_sealed, token_sealed, user_agent, pasted, earned_at)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
 ON CONFLICT (indexer_id, node_id) DO UPDATE SET
-    cookies_sealed = excluded.cookies_sealed, user_agent = excluded.user_agent, pasted = excluded.pasted, earned_at = excluded.earned_at
+    cookies_sealed = excluded.cookies_sealed, token_sealed = excluded.token_sealed, user_agent = excluded.user_agent, pasted = excluded.pasted,
+    earned_at = excluded.earned_at
 WHERE excluded.earned_at > indexers_session.earned_at
 `
 
@@ -1219,6 +1261,7 @@ type OfferSessionParams struct {
 	IndexerID     IndexerID
 	NodeID        role.NodeID
 	CookiesSealed secret.Sealed
+	TokenSealed   secret.Sealed
 	UserAgent     string
 	Pasted        bool
 	EarnedAt      storage.Time
@@ -1229,6 +1272,7 @@ func (q *Queries) OfferSession(ctx context.Context, arg OfferSessionParams) (int
 		arg.IndexerID,
 		arg.NodeID,
 		arg.CookiesSealed,
+		arg.TokenSealed,
 		arg.UserAgent,
 		arg.Pasted,
 		arg.EarnedAt,

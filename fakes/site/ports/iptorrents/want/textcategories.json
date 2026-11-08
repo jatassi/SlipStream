@@ -1,0 +1,7 @@
+{
+  "outcome": {
+    "kind": "failing",
+    "text": "the IPTorrents setting \"Torrents - Category column\" isn't Icons, and SlipStream reads categories only from the icons"
+  },
+  "sessionChanged": false
+}

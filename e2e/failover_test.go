@@ -73,15 +73,15 @@ func expectLine(t *testing.T, when string, lines map[string]string, name, want s
 }
 
 // lapse sets the offline grace to its 1 min floor, stops seedbox and waits
-// until Larkspur waits for it past the grace.
-func (w *walked) lapse(t *testing.T) {
+// until the Indexer named waiter waits for it past the grace.
+func (w *walked) lapse(t *testing.T, waiter string) {
 	t.Helper()
 	if r := w.a.Admin("home", http.MethodPatch, "/api/v1/nodes/settings", `{"offlineGrace":60}`); r.Status != http.StatusOK {
 		t.Fatalf("updateNodeSettings = %d %s, want 200", r.Status, r.Body)
 	}
 	act(t, w.run, "seedbox", world.StopNode)
-	worldtest.Until(t, "Larkspur waits for seedbox past the grace", func() (bool, error) {
-		waits := w.indexers(t)["Larkspur"].Waits
+	worldtest.Until(t, waiter+" waits for seedbox past the grace", func() (bool, error) {
+		waits := w.indexers(t)[waiter].Waits
 		return waits != nil && waits.Lapsed, nil
 	})
 }
@@ -128,7 +128,7 @@ func TestALoginSessionIndexerWaitsForItsLapsedHomeUntilItAllowsFailover(t *testi
 	t.Parallel()
 	w := begin(t, "indexers")
 	home := w.a.Node("home").NodeID
-	w.lapse(t)
+	w.lapse(t, "Larkspur")
 	w.expectWaitingWarns(t, "Larkspur", "Marsh", "Cinder")
 
 	lines := w.searchAnother(t, "9000002")
@@ -204,7 +204,7 @@ func TestWhileTheControllerOnlyCoversSearchingASessionWaitsAndAWriteOffDeletesSe
 			t.Errorf("%s's session = %+v, want one on seedbox", name, ix.Session)
 		}
 	}
-	w.lapse(t)
+	w.lapse(t, "Larkspur")
 	w.expectWaitingWarns(t, signedIn...)
 
 	lines := w.searchAnother(t, "9000002")

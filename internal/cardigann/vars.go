@@ -7,6 +7,9 @@ import (
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/newznab"
+
+	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
+	"github.com/jatassi/slipstream/internal/prowlarr/parseutil"
 )
 
 // Settings are one Indexer's setting values by field name, opened, and the
@@ -88,7 +91,7 @@ func (d *Definition) baseScope(s Settings, c Clock) scope {
 		".Config.sitelink": textValue(d.siteLink(s)),
 		".True":            textValue("True"),
 		".False":           nullValue,
-		".Today.Year":      textValue(strconv.Itoa(c.local().Year())),
+		".Today.Year":      textValue(strconv.Itoa(c.Local().Year())),
 	}
 	for _, f := range d.def.Settings {
 		v, set := s.Values[f.Name]
@@ -190,13 +193,13 @@ func episodeSearchString(at *int, episode string, c Clock) string {
 		return ""
 	}
 	season := *at
-	if t, ok := parseExact(fmt.Sprintf("%d %s", season, episode), "yyyy MM/dd", c); ok {
+	if t, ok := datetimeutil.TryParseExact(fmt.Sprintf("%d %s", season, episode), "yyyy MM/dd", datetimeutil.None, c); ok {
 		return t.Format("2006.01.02")
 	}
 	if strings.TrimSpace(episode) == "" {
 		return fmt.Sprintf("S%02d", season)
 	}
-	if n, err := coerceInt(episode); err == nil {
+	if n, err := parseutil.CoerceInt(episode); err == nil {
 		return fmt.Sprintf("S%02dE%02d", season, n)
 	}
 	return fmt.Sprintf("S%02dE%s", season, episode)

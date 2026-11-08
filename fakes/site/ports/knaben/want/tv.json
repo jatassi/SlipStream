@@ -1,0 +1,32 @@
+{
+  "releases": [
+    {
+      "title": "Harbor.Lights.S02E03.1080p.WEB-DL.H264-FKW",
+      "size": 1610612736,
+      "published": "2026-06-03T20:00:00Z",
+      "seeders": 44,
+      "leechers": 5,
+      "grabs": 0,
+      "link": "https://marsh.fixture-site.fake.localhost/download/1005.torrent",
+      "magnet": "magnet:?xt=urn:btih:798a28c73de6212789019a8c59183cd774f9dd95\u0026dn=Harbor.Lights.S02E03.1080p.WEB-DL.H264-FKW",
+      "infoHash": "798a28c73de6212789019a8c59183cd774f9dd95",
+      "categories": [
+        5040,
+        2101000
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 0,
+      "minSeed": "0s",
+      "details": "https://marsh.fixture-site.fake.localhost/torrent/1005/harbor-lights-s02e03-1080p",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    }
+  ],
+  "sessionChanged": false
+}

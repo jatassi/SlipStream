@@ -1,14 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
 
-import type { GrabsGrab, IndexersIndexer, IndexersQuery, NodesNode } from "../api/gen/model";
+import type { GrabsGrab, IndexersQuery } from "../api/gen/model";
 import { clock } from "../format";
 import { stageWord } from "../grabs/stages";
-import { KeyValues } from "../routes/_app/nodes/-facts";
 import { Data } from "../ui/data";
-import { Details } from "../ui/details";
 import { Section } from "../ui/section";
-import { nodeName, outcomeWords, useWords } from "./words";
+import { outcomeWords, useWords } from "./words";
 
 const listClass = "rounded-card bg-glass ring-1 ring-hairline ring-inset";
 
@@ -60,65 +57,5 @@ export function RecentGrabs({ grabs }: { grabs: readonly GrabsGrab[] }) {
         </ul>
       )}
     </Section>
-  );
-}
-
-function sessionWords(indexer: IndexersIndexer, nodes: readonly NodesNode[]): string {
-  const { session } = indexer;
-  if (session === null) {
-    return indexer.signsIn ? "Not signed in on any Node" : "Doesn't sign in";
-  }
-  const how = session.pasted ? "from a pasted browser cookie" : "signed in";
-  return `On ${nodeName(nodes, session.nodeId)}, ${how} at ${clock(session.earnedAt)}`;
-}
-
-const words = (text: string): ReactNode => <span>{text}</span>;
-
-type Row = readonly [string, ReactNode];
-
-function machineryOf(indexer: IndexersIndexer, nodes: readonly NodesNode[]): Row[] {
-  const { status, feedHost, definition } = indexer;
-  const failure = status.lastFailure;
-  return [
-    ...(feedHost === null ? [] : [["Feed host", feedHost] as const]),
-    ...(definition === null
-      ? []
-      : [
-          [
-            "Definition",
-            words(`${definition.id}, the version from ${clock(definition.fetchedAt)}`),
-          ] as const,
-        ]),
-    ["Session", words(sessionWords(indexer, nodes))],
-    ["State", status.state],
-    ["Backoff step", String(status.rung)],
-    ...(failure === null
-      ? []
-      : [["Last failure", words(`${failure.text} at ${clock(failure.at)}`)] as const]),
-    ["Search modes", indexer.searchModes.map((mode) => mode.mode).join(", ") || "None"],
-    ["Revision", String(indexer.revision)],
-    ["Added", clock(indexer.createdAt)],
-  ];
-}
-
-/** When it last responded, and under Details its session, backoff and wire facts. */
-export function IndexerMachinery({
-  indexer,
-  nodes,
-}: {
-  indexer: IndexersIndexer;
-  nodes: readonly NodesNode[];
-}) {
-  const success = indexer.status.successAt;
-  return (
-    <Details
-      summary={
-        success === null ? "It hasn't responded yet." : `It last responded at ${clock(success)}.`
-      }
-    >
-      <div className="mt-2 w-full">
-        <KeyValues rows={machineryOf(indexer, nodes)} />
-      </div>
-    </Details>
   );
 }

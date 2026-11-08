@@ -14,10 +14,17 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-var cookiesColumn = secret.NewColumn("indexers_session.cookies_sealed")
+var (
+	cookiesColumn = secret.NewColumn("indexers_session.cookies_sealed")
+	tokenColumn   = secret.NewColumn("indexers_session.token_sealed")
+)
 
 func sessionAD(id ID, node role.NodeID) secret.AD {
 	return cookiesColumn.Row(id.String() + "/" + node.String())
+}
+
+func tokenAD(id ID, node role.NodeID) secret.AD {
+	return tokenColumn.Row(id.String() + "/" + node.String())
 }
 
 // offer stores s as id's session on node unless the stored one was earned
@@ -27,10 +34,14 @@ func (x *Indexers) offer(ctx context.Context, tx *storage.Tx[file], id ID, node 
 	if err != nil {
 		return fmt.Errorf("encode the session's cookies: %w", err)
 	}
-	_, err = db.New(tx).OfferSession(ctx, db.OfferSessionParams{
+	p := db.OfferSessionParams{
 		IndexerID: id, NodeID: node, CookiesSealed: x.cfg.Sealer.Seal(cookies, sessionAD(id, node)), UserAgent: s.UserAgent,
 		Pasted: s.Pasted, EarnedAt: storage.FromTime(s.Earned),
-	})
+	}
+	if s.Token != "" {
+		p.TokenSealed = x.cfg.Sealer.Seal([]byte(s.Token), tokenAD(id, node))
+	}
+	_, err = db.New(tx).OfferSession(ctx, p)
 	return err
 }
 
@@ -48,6 +59,13 @@ func (x *Indexers) session(ctx context.Context, r storage.Reader[file], id ID, n
 		return nil, fmt.Errorf("indexer %s: open the session on node %s: %w", id, node, err)
 	}
 	s := &searching.Session{UserAgent: row.UserAgent, Pasted: row.Pasted, Earned: row.EarnedAt.Time()}
+	if row.TokenSealed.Set() {
+		token, err := x.cfg.Sealer.Open(row.TokenSealed, tokenAD(id, node))
+		if err != nil {
+			return nil, fmt.Errorf("indexer %s: open the session's token on node %s: %w", id, node, err)
+		}
+		s.Token = string(token)
+	}
 	return s, decode(string(plain), &s.Cookies)
 }
 

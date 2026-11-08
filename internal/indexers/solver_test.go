@@ -101,7 +101,7 @@ func (w solverWorld) solver(t *testing.T) indexers.Solver {
 // tested is the solver the job of a Test carried.
 func (w solverWorld) tested(t *testing.T) *searching.Solver {
 	t.Helper()
-	if _, err := w.x.Test(t.Context(), identity.Admin{}, w.id, nil); err != nil {
+	if _, err := w.x.Test(t.Context(), identity.Admin{}, w.id, indexers.Typed{}); err != nil {
 		t.Fatal(err)
 	}
 	return w.node.last()

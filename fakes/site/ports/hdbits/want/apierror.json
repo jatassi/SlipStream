@@ -1,0 +1,7 @@
+{
+  "outcome": {
+    "kind": "failing",
+    "text": "the Indexer's API responded with status 7 and \"Invalid parameter: limit\""
+  },
+  "sessionChanged": false
+}

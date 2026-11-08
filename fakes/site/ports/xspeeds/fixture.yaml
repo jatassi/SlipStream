@@ -1,0 +1,108 @@
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+session:
+  cookie: "uid={{uid}}; pass={{pass}}"
+cases:
+  - name: search
+    call: {search: {mode: movie, text: The Quiet Orchard}}
+    exchanges:
+      - request:
+          path: /browse.php
+          headers: {Cookie: "uid={{uid}}; pass={{pass}}", Accept: text/html}
+          query: {category: "0", include_dead_torrents: "yes", sort: added, order: desc, do: search, keywords: The Quiet Orchard, search_type: t_name}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: search.html
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          path: /browse.php
+          query: {category: "0", do: search, keywords: Harbor Lights S02E03, search_type: t_name}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: tv.html
+  - name: empty
+    call: {search: {mode: search, text: Juniper.Falls}}
+    exchanges:
+      - request:
+          path: /browse.php
+          query: {do: search, keywords: Juniper Falls}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: empty.html
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          path: /browse.php
+          query: {category: "0", include_dead_torrents: "yes", sort: added, order: desc}
+          noQuery: [do, keywords, search_type]
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: recent.html
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request: {path: /login.php}
+        response:
+          headers:
+            Content-Type: text/html; charset=utf-8
+            Set-Cookie: "PHPSESSID={{sid}}; path=/"
+          body: login.html
+      - request:
+          method: POST
+          path: /takelogin.php
+          headers: {Cookie: "PHPSESSID={{sid}}", Referer: "https://xspeeds.fixture-site.fake.localhost/login.php"}
+          form: {username: fixture-user, password: "{{password}}"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: loginfailed.html
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /browse.php}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "uid={{uid}}; pass={{expiredPass}}"}
+    exchanges:
+      - request:
+          path: /browse.php
+          headers: {Cookie: "uid={{uid}}; pass={{expiredPass}}"}
+        response:
+          status: 302
+          headers: {Location: "/login.php?returnto=browse.php"}
+      - request: {path: /login.php}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: login.html
+      - request: {path: /login.php}
+        response:
+          headers:
+            Content-Type: text/html; charset=utf-8
+            Set-Cookie: "PHPSESSID={{sid}}; path=/"
+          body: login.html
+      - request:
+          method: POST
+          path: /takelogin.php
+          headers: {Cookie: "PHPSESSID={{sid}}"}
+          form: {username: fixture-user, password: "{{password}}"}
+        response:
+          status: 302
+          headers:
+            Location: /index.php
+            Set-Cookie: "uid={{uid}}; expires=Sat, 07-Dec-2026 12:00:00 GMT; path=/\npass={{pass}}; expires=Sat, 07-Dec-2026 12:00:00 GMT; path=/"
+      - request: {path: /index.php}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: index.html
+      - request:
+          path: /browse.php
+          headers: {Cookie: "PHPSESSID={{sid}}; uid={{uid}}; pass={{pass}}"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: recent.html

@@ -1,0 +1,213 @@
+{
+  "ref": "1783dc960e566e33d39e4d0315e4e28449ec1c13",
+  "date": "2026-01-10",
+  "changeSets": [
+    {
+      "key": "port:hdbits@c6e3f94",
+      "subject": "port:hdbits",
+      "kind": "upstream",
+      "unit": "port:hdbits",
+      "from": "8b635bb231486ac88f8214e5a58deae9056ef38a",
+      "to": "c6e3f94a90386f9527927100023b7a53c880cd03",
+      "commits": [
+        {
+          "sha": "c6e3f94a90386f9527927100023b7a53c880cd03",
+          "date": "2026-01-03",
+          "subject": "Fixed: (HDBits) Parse freeleech from the API"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/NzbDrone.Core/Indexers/Definitions/HDBits/HDBitsParser.cs",
+          "status": "modified",
+          "goFiles": [
+            "internal/ports/hdbits/parser.go"
+          ]
+        }
+      ],
+      "diff": "diff --git a/src/NzbDrone.Core/Indexers/Definitions/HDBits/HDBitsParser.cs b/src/NzbDrone.Core/Indexers/Definitions/HDBits/HDBitsParser.cs\nindex 58ccee7..f5dc622 100644\n--- a/src/NzbDrone.Core/Indexers/Definitions/HDBits/HDBitsParser.cs\n+++ b/src/NzbDrone.Core/Indexers/Definitions/HDBits/HDBitsParser.cs\n@@ -1,4 +1,4 @@\n public class HDBitsParser : IParseIndexerResponse\n {\n-    // freeleech is 0\n+    // freeleech is \"yes\"\n }\n"
+    },
+    {
+      "key": "family:gazelle@a69a7ea",
+      "subject": "family:gazelle",
+      "kind": "upstream",
+      "unit": "family:gazelle",
+      "from": "8b635bb231486ac88f8214e5a58deae9056ef38a",
+      "to": "a69a7eae0ad82aff9a040ad0283271e4fa61a630",
+      "commits": [
+        {
+          "sha": "a69a7eae0ad82aff9a040ad0283271e4fa61a630",
+          "date": "2026-01-09",
+          "subject": "Fixed: (Gazelle) Page size 100 | for every site"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/NzbDrone.Core/Indexers/Definitions/Gazelle/GazelleBase.cs",
+          "status": "modified",
+          "goFiles": [
+            "internal/ports/internal/gazelle/gazelle.go"
+          ]
+        }
+      ],
+      "diff": "diff --git a/src/NzbDrone.Core/Indexers/Definitions/Gazelle/GazelleBase.cs b/src/NzbDrone.Core/Indexers/Definitions/Gazelle/GazelleBase.cs\nindex ab0ac36..13c1160 100644\n--- a/src/NzbDrone.Core/Indexers/Definitions/Gazelle/GazelleBase.cs\n+++ b/src/NzbDrone.Core/Indexers/Definitions/Gazelle/GazelleBase.cs\n@@ -1,4 +1,4 @@\n public abstract class GazelleBase<TSettings> : TorrentIndexerBase<TSettings>\n {\n-    // page size 50\n+    // page size 100\n }\n"
+    },
+    {
+      "key": "moved:port:funfile@f6d2b2a",
+      "subject": "moved:port:funfile",
+      "kind": "moved",
+      "unit": "port:funfile",
+      "from": "8b635bb231486ac88f8214e5a58deae9056ef38a",
+      "to": "f6d2b2a52748e4d49b03bd7fe8d7d28c5d7629cc",
+      "commits": [
+        {
+          "sha": "f6d2b2a52748e4d49b03bd7fe8d7d28c5d7629cc",
+          "date": "2026-01-07",
+          "subject": "Fixed: (FunFile) Moved to Cardigann"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/NzbDrone.Core/Indexers/Definitions/FunFile.cs",
+          "status": "modified",
+          "goFiles": [
+            "internal/ports/funfile/funfile.go"
+          ]
+        }
+      ],
+      "diff": "diff --git a/src/NzbDrone.Core/Indexers/Definitions/FunFile.cs b/src/NzbDrone.Core/Indexers/Definitions/FunFile.cs\nindex adc8281..e7196a6 100644\n--- a/src/NzbDrone.Core/Indexers/Definitions/FunFile.cs\n+++ b/src/NzbDrone.Core/Indexers/Definitions/FunFile.cs\n@@ -1,5 +1,6 @@\n namespace NzbDrone.Core.Indexers.Definitions;\n \n+[Obsolete(\"Moved to YML for Cardigann\")]\n public class FunFile : TorrentIndexerBase<UserPassTorrentBaseSettings>\n {\n     private IndexerCapabilities SetCapabilities()\n",
+      "reason": "Moved to YML for Cardigann"
+    },
+    {
+      "key": "deleted:port:rarbg@28dd240",
+      "subject": "deleted:port:rarbg",
+      "kind": "deleted",
+      "unit": "port:rarbg",
+      "from": "8b635bb231486ac88f8214e5a58deae9056ef38a",
+      "to": "28dd2406b3bd5e7e73083cbc5971538e0a741a5f",
+      "commits": [
+        {
+          "sha": "28dd2406b3bd5e7e73083cbc5971538e0a741a5f",
+          "date": "2026-01-06",
+          "subject": "Remove Rarbg"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/NzbDrone.Core/Indexers/Definitions/Rarbg/Rarbg.cs",
+          "status": "deleted",
+          "goFiles": [
+            "internal/ports/rarbg/rarbg.go"
+          ]
+        },
+        {
+          "path": "src/NzbDrone.Core/Indexers/Definitions/Rarbg/RarbgParser.cs",
+          "status": "deleted",
+          "goFiles": [
+            "internal/ports/rarbg/rarbg.go"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "obsolete:port:zonaq@55e8ea4",
+      "subject": "obsolete:port:zonaq",
+      "kind": "obsolete",
+      "unit": "port:zonaq",
+      "from": "8b635bb231486ac88f8214e5a58deae9056ef38a",
+      "to": "55e8ea41770ef800def5e4647a7a40138c7a98d0",
+      "commits": [
+        {
+          "sha": "55e8ea41770ef800def5e4647a7a40138c7a98d0",
+          "date": "2026-01-05",
+          "subject": "Fixed: (ZonaQ) Obsolete per site policy"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/NzbDrone.Core/Indexers/Definitions/ZonaQ.cs",
+          "status": "modified",
+          "goFiles": [
+            "internal/ports/zonaq/zonaq.go"
+          ]
+        }
+      ],
+      "diff": "diff --git a/src/NzbDrone.Core/Indexers/Definitions/ZonaQ.cs b/src/NzbDrone.Core/Indexers/Definitions/ZonaQ.cs\nindex a7f04c7..5b04e2e 100644\n--- a/src/NzbDrone.Core/Indexers/Definitions/ZonaQ.cs\n+++ b/src/NzbDrone.Core/Indexers/Definitions/ZonaQ.cs\n@@ -1,5 +1,6 @@\n namespace NzbDrone.Core.Indexers.Definitions;\n \n+[Obsolete(\"Site does not allow automation\")]\n public class ZonaQ : TorrentIndexerBase<UserPassTorrentBaseSettings>\n {\n     private IndexerCapabilities SetCapabilities()\n",
+      "reason": "Site does not allow automation"
+    },
+    {
+      "key": "new:DesiGaane@5fd890d",
+      "subject": "new:DesiGaane",
+      "kind": "new-site",
+      "to": "5fd890d6f97a533e06df9680bb2a45136db104b6",
+      "commits": [
+        {
+          "sha": "5fd890d6f97a533e06df9680bb2a45136db104b6",
+          "date": "2026-01-04",
+          "subject": "New: (Indexer) DesiGaane"
+        }
+      ],
+      "site": {
+        "name": "DesiGaane",
+        "base": "GazelleBase",
+        "files": [
+          "src/NzbDrone.Core/Indexers/Definitions/DesiGaane.cs"
+        ],
+        "media": [
+          "movies",
+          "audio"
+        ]
+      }
+    },
+    {
+      "key": "new:SpeedApp@1783dc9",
+      "subject": "new:SpeedApp",
+      "kind": "new-site",
+      "to": "1783dc960e566e33d39e4d0315e4e28449ec1c13",
+      "commits": [
+        {
+          "sha": "1783dc960e566e33d39e4d0315e4e28449ec1c13",
+          "date": "2026-01-10",
+          "subject": "New: (Indexer) SpeedApp"
+        }
+      ],
+      "site": {
+        "name": "SpeedApp",
+        "base": "SpeedAppBase",
+        "files": [
+          "src/NzbDrone.Core/Indexers/Definitions/SpeedApp.cs"
+        ],
+        "media": [
+          "movies"
+        ]
+      }
+    },
+    {
+      "key": "hidden-list@8fc53d9",
+      "subject": "hidden-list",
+      "kind": "hidden-list",
+      "from": "8b635bb231486ac88f8214e5a58deae9056ef38a",
+      "to": "8fc53d981f76060f0b3472787e796c2c648ea255",
+      "commits": [
+        {
+          "sha": "8fc53d981f76060f0b3472787e796c2c648ea255",
+          "date": "2026-01-08",
+          "subject": "Hide the FunFile definition"
+        }
+      ],
+      "added": [
+        "funfile"
+      ]
+    }
+  ],
+  "upToDate": [
+    {
+      "unit": "kit",
+      "commit": "8b635bb231486ac88f8214e5a58deae9056ef38a"
+    },
+    {
+      "unit": "port:alpharatio",
+      "commit": "8b635bb231486ac88f8214e5a58deae9056ef38a"
+    }
+  ]
+}

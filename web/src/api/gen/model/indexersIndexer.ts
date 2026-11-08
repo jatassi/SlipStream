@@ -2,6 +2,7 @@ import type { IndexersIndexerKind } from "./indexersIndexerKind.ts";
 import type { IndexersLimitUse } from "./indexersLimitUse.ts";
 import type { IndexersOutcome } from "./indexersOutcome.ts";
 import type { IndexersPin } from "./indexersPin.ts";
+import type { IndexersPortPin } from "./indexersPortPin.ts";
 import type { IndexersSearchMode } from "./indexersSearchMode.ts";
 import type { IndexersSession } from "./indexersSession.ts";
 import type { IndexersStatus } from "./indexersStatus.ts";
@@ -18,7 +19,7 @@ export interface IndexersIndexer {
    */
   categories: number[] | null;
   createdAt: string;
-  /** A catalog Indexer's definition; null for a feed */
+  /** A catalog Indexer's definition; null for every other kind */
   definition: IndexersPin | null;
   /**
    * The host of a feed's address, which is never returned
@@ -41,7 +42,11 @@ export interface IndexersIndexer {
    */
   media: string[] | null;
   name: string;
+  /** What changed when SlipStream last moved it to a new definition version or from a ported site to its catalog definition, for the Indexer page */
+  notes: string[];
   on: boolean;
+  /** A native Indexer's ported site; null for every other kind */
+  port: IndexersPortPin | null;
   /**
    * Lower wins a tie
    * @minimum 1

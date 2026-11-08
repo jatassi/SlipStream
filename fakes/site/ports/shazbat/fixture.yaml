@@ -1,0 +1,118 @@
+source: synthetic
+settings:
+  username: fixture-user
+  password: "{{password}}"
+session:
+  cookie: "PHPSESSID={{sid}}"
+cases:
+  - name: search
+    call: {search: {mode: search, text: Harbor Lights}}
+    exchanges:
+      - request:
+          path: /search
+          headers: {Cookie: "PHPSESSID={{sid}}", Accept: text/html, X-Requested-With: XMLHttpRequest, Referer: "https://shazbat.fixture-site.fake.localhost/"}
+          query: {search: harbor lights, portlet: "true"}
+        response:
+          headers:
+            Content-Type: text/html; charset=utf-8
+            Set-Cookie: "PHPSESSID={{sid}}; path=/"
+          body: search.html
+      - request:
+          path: /show
+          headers: {Cookie: "PHPSESSID={{sid}}", X-Requested-With: XMLHttpRequest, Referer: "https://shazbat.fixture-site.fake.localhost/show?id=101"}
+          query: {id: "101", show_mode: torrents, portlet: "true", tab: "true"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: show101.html
+      - request:
+          path: /show
+          query: {id: "102", show_mode: torrents, portlet: "true", tab: "true"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: show102.html
+  - name: tv
+    call: {search: {mode: tvsearch, text: Harbor Lights, season: 2, episode: "3"}}
+    exchanges:
+      - request:
+          path: /search
+          query: {search: harbor lights, portlet: "true"}
+        response:
+          headers:
+            Content-Type: text/html; charset=utf-8
+            Set-Cookie: "PHPSESSID={{sid}}; path=/"
+          body: tvsearch.html
+      - request:
+          path: /show
+          query: {id: "101", show_mode: torrents, portlet: "true", tab: "true"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: show101.html
+  - name: empty
+    call: {search: {mode: search, text: Juniper Falls (2022)}}
+    exchanges:
+      - request:
+          path: /search
+          query: {search: juniper falls, portlet: "true"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: empty.html
+  - name: recent
+    call: {recent: {}}
+    exchanges:
+      - request:
+          path: /torrents
+          headers: {Referer: "https://shazbat.fixture-site.fake.localhost/"}
+          noQuery: [search]
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: recent.html
+  - name: auth
+    call: {recent: {}}
+    session: {}
+    exchanges:
+      - request:
+          method: POST
+          path: /login
+          headers: {Referer: "https://shazbat.fixture-site.fake.localhost/login"}
+          form: {referer: "", query: "", tv_timezone: "0", username: fixture-user, password: "{{password}}"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: loginfailed.html
+  - name: limit
+    call: {recent: {}}
+    exchanges:
+      - request: {path: /torrents}
+        response: {status: 429, headers: {Retry-After: "60"}}
+  - name: loggedout
+    call: {recent: {}}
+    session: {cookie: "PHPSESSID={{expiredSid}}"}
+    exchanges:
+      - request:
+          path: /torrents
+          headers: {Cookie: "PHPSESSID={{expiredSid}}"}
+        response:
+          status: 302
+          headers: {Location: "/login"}
+      - request: {path: /login}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: login.html
+      - request:
+          method: POST
+          path: /login
+          form: {username: fixture-user, password: "{{password}}"}
+        response:
+          status: 302
+          headers:
+            Location: /
+            Set-Cookie: "PHPSESSID={{sid}}; path=/"
+      - request: {path: /}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: index.html
+      - request:
+          path: /torrents
+          headers: {Cookie: "PHPSESSID={{sid}}"}
+        response:
+          headers: {Content-Type: text/html; charset=utf-8}
+          body: recent.html

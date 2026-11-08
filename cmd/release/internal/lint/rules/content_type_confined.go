@@ -23,7 +23,9 @@ func init() {
 
 const surfacePkg = "./internal/node/surface"
 
-var coreExempt = []string{"cmd/slipstream/", "cmd/slipstream-e2e/", "cmd/release/", "fakes/", "e2e/", "conformance/", "internal/providers/"}
+// internal/ports/ is exempt as internal/providers/ is: a ported site speaks
+// Prowlarr's movie and tv search modes, not SlipStream's Content Types.
+var coreExempt = []string{"cmd/slipstream/", "cmd/slipstream-e2e/", "cmd/release/", "fakes/", "e2e/", "conformance/", "internal/providers/", "internal/ports/"}
 
 var webScripts = []string{".ts", ".tsx", ".mts", ".cts", ".js", ".jsx"}
 

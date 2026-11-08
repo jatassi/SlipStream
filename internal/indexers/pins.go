@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/jatassi/slipstream/internal/cardigann"
+	"github.com/jatassi/slipstream/internal/indexerfields"
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -108,7 +109,7 @@ type carried struct {
 func carry(plain, sealed map[string]string, from, to cardigann.Summary) carried {
 	out := carried{plain: map[string]string{}, sealed: map[string]string{}}
 	for _, f := range to.Fields {
-		if !stored(f) {
+		if !indexerfields.Stored(f) {
 			continue
 		}
 		v, ok := plain[f.Name]
@@ -118,41 +119,20 @@ func carry(plain, sealed map[string]string, from, to cardigann.Summary) carried 
 		if !ok {
 			continue
 		}
-		if f.Type == cardigann.SelectField && optionLabel(f, v) == "" {
+		if f.Type == indexerfields.Select && indexerfields.OptionLabel(f, v) == "" {
 			was := v
-			if i := slices.IndexFunc(from.Fields, func(g cardigann.Field) bool { return g.Name == f.Name }); i >= 0 {
-				was = cmp.Or(optionLabel(from.Fields[i], v), v)
+			if i := slices.IndexFunc(from.Fields, func(g indexerfields.Field) bool { return g.Name == f.Name }); i >= 0 {
+				was = cmp.Or(indexerfields.OptionLabel(from.Fields[i], v), v)
 			}
 			out.notes = append(out.notes, fmt.Sprintf("The definition's new version no longer offers %q for %s. The Indexer now uses its default, %q.",
-				was, f.Label, cmp.Or(optionLabel(f, f.Default), f.Default)))
+				was, f.Label, cmp.Or(indexerfields.OptionLabel(f, f.Default), f.Default)))
 			continue
 		}
-		if Sealed(f) {
+		if indexerfields.Sealed(f) {
 			out.sealed[f.Name] = v
 		} else {
 			out.plain[f.Name] = v
 		}
 	}
 	return out
-}
-
-// stored reports whether an Indexer stores a value for f. Info fields are
-// help text, and a captcha is answered at each sign-in.
-func stored(f cardigann.Field) bool {
-	return slices.Contains([]cardigann.FieldType{cardigann.TextField, cardigann.PasswordField, cardigann.CheckboxField, cardigann.SelectField}, f.Type)
-}
-
-// Sealed reports whether an Indexer seals f's value: every text and
-// password field but the username, since most API key fields are text.
-func Sealed(f cardigann.Field) bool {
-	return (f.Type == cardigann.TextField || f.Type == cardigann.PasswordField) && f.Name != "username"
-}
-
-func optionLabel(f cardigann.Field, value string) string {
-	for _, o := range f.Options {
-		if o.Value == value {
-			return o.Label
-		}
-	}
-	return ""
 }
