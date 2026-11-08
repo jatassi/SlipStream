@@ -150,7 +150,12 @@ var ErrNoFile = errors.New("no file has that id")
 // paths of those files.
 type NotGoneError struct{ Paths []string }
 
-func (e *NotGoneError) Error() string { return strings.Join(e.Paths, ", ") + " isn't gone" }
+func (e *NotGoneError) Error() string {
+	if len(e.Paths) == 1 {
+		return e.Paths[0] + " isn't gone"
+	}
+	return strings.Join(e.Paths, ", ") + " aren't gone"
+}
 
 // Forget deletes the gone files ids name in one Write and tells each of
 // their Works' pages. An id no file has refuses them all with ErrNoFile,
