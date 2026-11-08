@@ -20,7 +20,9 @@
         "src/NzbDrone.Core/Parser/LanguageParser.cs"
       ],
       "read_quality.go": [
-        "src/NzbDrone.Core/Parser/QualityParser.cs"
+        "src/NzbDrone.Core/Parser/QualityParser.cs",
+        "src/NzbDrone.Core/Qualities/Quality.cs",
+        "src/NzbDrone.Core/MediaFiles/MediaFileExtensions.cs"
       ],
       "read_revision.go": [
         "src/NzbDrone.Core/Parser/QualityParser.cs"
@@ -30,11 +32,13 @@
       "src/NzbDrone.Core.Test/ParserTests/ExtendedQualityParserRegex.cs": "ab9b9e7c37628eed8c3b830e238614cd860211ecc1b0945591dcd91ea3c78116",
       "src/NzbDrone.Core.Test/ParserTests/QualityParserFixture.cs": "12672cb79ee5eddc242ea11cc6eb0b2ac2a0731aede1a877f6ae77b90e86f0aa",
       "src/NzbDrone.Core.Test/ParserTests/ReleaseGroupParserFixture.cs": "1ba5515f224c34148449608061361464156fe034fadbf93337e2314a708f88fe",
+      "src/NzbDrone.Core/MediaFiles/MediaFileExtensions.cs": "c8aeca986f835ed22e7ee0009c7ef39c38cbbf831111c266c931ed33a5a10565",
       "src/NzbDrone.Core/Parser/LanguageParser.cs": "8eec30a98aea63446d3d338ec9545084a32651d7cf3f6b2f2c6a6627aeb6a3e5",
       "src/NzbDrone.Core/Parser/Parser.cs": "276d9fce400bf524856bfacd6d02c428c2538d2e60558baf94f3d79369458b05",
       "src/NzbDrone.Core/Parser/ParserCommon.cs": "b17b1fc49f7708bcc2b5c03f75176b0094ce276e3031a1493be2741bb700b306",
       "src/NzbDrone.Core/Parser/QualityParser.cs": "3f844d52b474b103fd22414c8a76ef5bae00ec1d7bd6cedb5e81dba71f680895",
-      "src/NzbDrone.Core/Parser/ReleaseGroupParser.cs": "75db658a79df95ebd74225484b530fad43de77db3c4b75075c630b90de20a88f"
+      "src/NzbDrone.Core/Parser/ReleaseGroupParser.cs": "75db658a79df95ebd74225484b530fad43de77db3c4b75075c630b90de20a88f",
+      "src/NzbDrone.Core/Qualities/Quality.cs": "4a0bcde6cb421d9413da72478b5e1127dec6462069b1fa3132c58c3530b1ae08"
     }
   },
   "sonarr": {
@@ -57,7 +61,9 @@
         "src/NzbDrone.Core/Parser/LanguageParser.cs"
       ],
       "read_quality.go": [
-        "src/NzbDrone.Core/Parser/QualityParser.cs"
+        "src/NzbDrone.Core/Parser/QualityParser.cs",
+        "src/NzbDrone.Core/Qualities/Quality.cs",
+        "src/NzbDrone.Core/MediaFiles/MediaFileExtensions.cs"
       ],
       "read_revision.go": [
         "src/NzbDrone.Core/Parser/QualityParser.cs"
@@ -72,7 +78,8 @@
       "src/NzbDrone.Core/Parser/Parser.cs": "b599c060112359091235539c31d12a79e4a01b148d8e16cbd573e7b372b547e7",
       "src/NzbDrone.Core/Parser/ParserCommon.cs": "c9c3cfe813d30d9a479f1ecbd36cd2901df207ff78256f54ba85e4cd42117fc4",
       "src/NzbDrone.Core/Parser/QualityParser.cs": "14860e24741f163ce9ac1d78fbfb827021d8bffd4242a1f9cec8504b22895051",
-      "src/NzbDrone.Core/Parser/ReleaseGroupParser.cs": "94bd7c94f2b788d3d39a1cf9ee65692fa30d7fa23581d7c1aef4631a87a7b068"
+      "src/NzbDrone.Core/Parser/ReleaseGroupParser.cs": "94bd7c94f2b788d3d39a1cf9ee65692fa30d7fa23581d7c1aef4631a87a7b068",
+      "src/NzbDrone.Core/Qualities/Quality.cs": "8ee20b2e04bbb898621a4e7d6786d0fcecf557341b7937ab62c1f0c9896cf621"
     }
   },
   "trash": {

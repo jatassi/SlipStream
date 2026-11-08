@@ -14,7 +14,8 @@
         "/src/NzbDrone.Core/Qualities/QualitySource.cs",
         "/src/NzbDrone.Core/Languages/Language.cs",
         "/src/NzbDrone.Core/CustomFormats/",
-        "/src/NzbDrone.Core.Test/ParserTests/"
+        "/src/NzbDrone.Core.Test/ParserTests/",
+        "/src/NzbDrone.Core/Qualities/Quality.cs"
       ],
       "notice": "SlipStream's release parser (`internal/release`) and the series Content Type's title and numbering rules (`internal/contenttypes/series`) are Go ports of Sonarr's C# parser, copyright the Sonarr contributors and modified for SlipStream. Their regular expressions are Sonarr's, copied as data into each package's `internal/upstream`, and each package's `upstream.json` maps its Go files to the Sonarr files they port. The parser's golden tests read Sonarr's parser test cases at the commit above, and the formats package ports Sonarr's Custom Format conditions and enums."
     },
@@ -31,7 +32,9 @@
         "/src/NzbDrone.Core/Qualities/Modifier.cs",
         "/src/NzbDrone.Core/Languages/Language.cs",
         "/src/NzbDrone.Core/CustomFormats/",
-        "/src/NzbDrone.Core.Test/ParserTests/"
+        "/src/NzbDrone.Core.Test/ParserTests/",
+        "/src/NzbDrone.Core/Qualities/Quality.cs",
+        "/src/NzbDrone.Core/MediaFiles/MediaFileExtensions.cs"
       ],
       "notice": "SlipStream's release parser (`internal/release`) and the movie Content Type's title rules (`internal/contenttypes/movie`) are Go ports of Radarr's C# parser, copyright the Radarr contributors and modified for SlipStream. Their regular expressions are Radarr's, copied as data into each package's `internal/upstream`, and each package's `upstream.json` maps its Go files to the Radarr files they port. The parser's golden tests read Radarr's parser test cases at the commit above, and the formats package ports Radarr's Custom Format conditions and enums."
     },
@@ -387,7 +390,11 @@
       ],
       "read_quality.go": [
         "sonarr:src/NzbDrone.Core/Parser/QualityParser.cs",
-        "radarr:src/NzbDrone.Core/Parser/QualityParser.cs"
+        "radarr:src/NzbDrone.Core/Parser/QualityParser.cs",
+        "sonarr:src/NzbDrone.Core/Qualities/Quality.cs",
+        "radarr:src/NzbDrone.Core/Qualities/Quality.cs",
+        "sonarr:src/NzbDrone.Core/MediaFiles/MediaFileExtensions.cs",
+        "radarr:src/NzbDrone.Core/MediaFiles/MediaFileExtensions.cs"
       ],
       "read_revision.go": [
         "sonarr:src/NzbDrone.Core/Parser/QualityParser.cs",
