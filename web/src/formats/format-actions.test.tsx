@@ -4,6 +4,7 @@ import { page, userEvent } from "vitest/browser";
 import type { FormatsCustomFormat, FormatsSchema } from "../api/gen/model";
 import {
   getCustomFormatSchemaMockHandler,
+  getDuplicateCustomFormatMockHandler,
   getGetCustomFormatMockHandler,
   getListCustomFormatsMockHandler,
 } from "../api/gen/query/formats/formats.msw";
@@ -77,6 +78,29 @@ test("deleting a scored format names its Targets, then shows the Impact before i
     { preview: "true" },
     { unwanted: "delete", confirm: "0" },
   ]);
+});
+
+test("Duplicate copies a format and says what it made", async () => {
+  const copied: string[] = [];
+  renderApp({
+    path: "/settings/custom-formats",
+    handlers: [
+      getDuplicateCustomFormatMockHandler(({ params }) => {
+        copied.push(String(params["formatId"]));
+        return {
+          ...golden,
+          id: "0199e1f2-7a3b-7c4d-8e5f-0000000000f2",
+          name: "Golden (2)",
+          scoredBy: [],
+        };
+      }),
+      ...handlers,
+    ],
+  });
+  await userEvent.click(page.getByRole("button", { name: "Actions for Golden" }));
+  await userEvent.click(page.getByRole("menuitem", { name: "Duplicate" }));
+  await expect.element(page.getByText("Made Golden (2) from Golden.")).toBeVisible();
+  expect(copied).toEqual([golden.id]);
 });
 
 test("a saved format's editor warns of its slow pattern and saves its edit through the Impact", async () => {

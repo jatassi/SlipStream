@@ -6,6 +6,8 @@ import {
   FormatsFormatDeletion,
   FormatsFormatList,
   FormatsNewFormat,
+  FormatsParse,
+  FormatsParseResults,
   FormatsPaste,
   FormatsPasted,
   FormatsSchema,
@@ -123,3 +125,19 @@ export const UpdateCustomFormatQueryParams = zod.object({
 export const UpdateCustomFormatBody = FormatsNewFormat;
 
 export const UpdateCustomFormatResponse = FormatsFormatChange;
+
+/**
+ * @summary Copy a Custom Format with its app and conditions as they are, under its name with a number after it. No Target scores the copy until one is given a score for it
+ */
+export const DuplicateCustomFormatParams = zod.object({
+  formatId: zod.uuid(),
+});
+
+export const DuplicateCustomFormatResponse = FormatsCustomFormat;
+
+/**
+ * @summary Read release or file names as a search would: the facts, the Work each matches, every Custom Format with each condition's result, and the score and verdict at each Target
+ */
+export const ParseReleasesBody = FormatsParse;
+
+export const ParseReleasesResponse = FormatsParseResults;

@@ -13,6 +13,7 @@ import type { SettingsSection } from "../settings/section";
 import { Button } from "../ui/button";
 import { FormatsList } from "./formats-list";
 import { PasteDialog } from "./paste-dialog";
+import { TesterSection } from "./tester";
 
 function FormatsSection() {
   const { formats } = useListCustomFormatsSuspense().data;
@@ -24,6 +25,7 @@ function FormatsSection() {
         A Custom Format describes Releases you care about, such as Dolby Vision or one release
         group. A Target gives each format a score, and a Release with a higher score wins.
       </p>
+      <TesterSection />
       <div className="flex flex-wrap gap-2">
         <Button
           nativeButton={false}

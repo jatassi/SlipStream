@@ -3284,6 +3284,106 @@
         ],
         "type": "object"
       },
+      "FormatsDraft": {
+        "additionalProperties": false,
+        "properties": {
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/FormatsCondition"
+            },
+            "type": "array"
+          },
+          "formatId": {
+            "description": "The saved Custom Format the draft stands in for, whose app it is written in; left out, the draft is a new format in SlipStream's own values",
+            "format": "uuid",
+            "type": "string"
+          },
+          "includeWhenRenaming": {
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "conditions"
+        ],
+        "type": "object"
+      },
+      "FormatsEvaluated": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "matched": {
+            "description": "After negate",
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "negate": {
+            "type": "boolean"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "timedOut": {
+            "description": "Its pattern ran past the match limit, which counts as not matching",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "negate",
+          "required",
+          "matched",
+          "timedOut"
+        ],
+        "type": "object"
+      },
+      "FormatsExplained": {
+        "additionalProperties": false,
+        "properties": {
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/FormatsEvaluated"
+            },
+            "type": "array"
+          },
+          "draft": {
+            "description": "It is the request's draft",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "matched": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "timedOut": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "draft",
+          "matched",
+          "timedOut",
+          "conditions"
+        ],
+        "type": "object"
+      },
       "FormatsFormatChange": {
         "additionalProperties": false,
         "properties": {
@@ -3450,6 +3550,120 @@
         ],
         "type": "object"
       },
+      "FormatsParse": {
+        "additionalProperties": false,
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/FormatsDraft",
+            "description": "A Custom Format matched as if saved, in place of formatId's"
+          },
+          "kind": {
+            "default": "release",
+            "description": "How each name is read. release reads it as a release title. file reads it as a file path, and reads its folder's name when the file name gives no title.",
+            "enum": [
+              "release",
+              "file"
+            ],
+            "type": "string"
+          },
+          "names": {
+            "description": "Release names, or file paths when kind is file",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "workId": {
+            "description": "The Work to judge every name against; left out, each name is matched to the Works whose titles it gives, read as each Content Type in turn",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "names"
+        ],
+        "type": "object"
+      },
+      "FormatsParseResults": {
+        "additionalProperties": false,
+        "properties": {
+          "results": {
+            "description": "In the order of names",
+            "items": {
+              "$ref": "#/components/schemas/FormatsParsed"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "type": "object"
+      },
+      "FormatsParsed": {
+        "additionalProperties": false,
+        "properties": {
+          "covers": {
+            "description": "The Items the name covers of the one Work it was judged against",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "facts": {
+            "$ref": "#/components/schemas/FormatsReadFacts"
+          },
+          "formats": {
+            "description": "Every Custom Format, the draft included, by name",
+            "items": {
+              "$ref": "#/components/schemas/FormatsExplained"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sentence": {
+            "description": "What the name reads as, the Works it matches and the Targets it would fill, or why it would fill none",
+            "type": "string"
+          },
+          "targets": {
+            "description": "With one Work, its Profile's Targets judged against its held files; with several or none, every Target with no held file",
+            "items": {
+              "$ref": "#/components/schemas/FormatsTriedTarget"
+            },
+            "type": "array"
+          },
+          "words": {
+            "description": "The facts in words, joined with a middle dot: Quality, HDR, audio and channels, release group and size",
+            "type": "string"
+          },
+          "works": {
+            "description": "The given Work when the name matches it, else every Work whose title and year it gives",
+            "items": {
+              "$ref": "#/components/schemas/FormatsWorkRef"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "sentence",
+          "words",
+          "facts",
+          "works",
+          "covers",
+          "formats",
+          "targets"
+        ],
+        "type": "object"
+      },
       "FormatsPaste": {
         "additionalProperties": false,
         "properties": {
@@ -3544,6 +3758,177 @@
         ],
         "type": "object"
       },
+      "FormatsReadFacts": {
+        "additionalProperties": false,
+        "properties": {
+          "audio": {
+            "description": "Audio codecs, best first",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "channels": {
+            "description": "Channel layouts, best first",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "cut": {
+            "description": "The cut's key, standard when the name names none",
+            "type": "string"
+          },
+          "edition": {
+            "description": "The edition text as the name gives it",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "group": {
+            "description": "The release group",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hdr": {
+            "description": "Best first",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ids": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "The id tags the name carries, by Torznab's names: tmdbid, imdbid, tvdbid",
+            "type": "object"
+          },
+          "languages": {
+            "description": "ISO 639 codes",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "marks": {
+            "description": "What the name numbers, such as S01E02, in words",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "modifier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quality": {
+            "description": "The Quality key, such as webdl-1080p; null when the name gives none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resolution": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "$ref": "#/components/schemas/FormatsRevision"
+          },
+          "source": {
+            "description": "The fine source, such as webdl",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "span": {
+            "description": "One Item, several Items of one level, a whole level or several levels; empty when the name numbers nothing",
+            "enum": [
+              "",
+              "one",
+              "several",
+              "level",
+              "levels"
+            ],
+            "type": "string"
+          },
+          "titles": {
+            "description": "Every title the name gives, as in A AKA B",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "video": {
+            "description": "The video codec",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "year": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "quality",
+          "source",
+          "resolution",
+          "modifier",
+          "revision",
+          "group",
+          "cut",
+          "edition",
+          "hdr",
+          "video",
+          "audio",
+          "channels",
+          "languages",
+          "ids",
+          "titles",
+          "year",
+          "marks",
+          "span"
+        ],
+        "type": "object"
+      },
+      "FormatsRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "real": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "repack": {
+            "type": "boolean"
+          },
+          "version": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "real",
+          "repack"
+        ],
+        "type": "object"
+      },
       "FormatsSchema": {
         "additionalProperties": false,
         "properties": {
@@ -3574,6 +3959,116 @@
         "required": [
           "id",
           "name"
+        ],
+        "type": "object"
+      },
+      "FormatsTriedReason": {
+        "additionalProperties": false,
+        "properties": {
+          "attribute": {
+            "description": "The attribute a failed filter rules on",
+            "enum": [
+              "hdr",
+              "video_codec",
+              "audio_codec",
+              "channels",
+              "language"
+            ],
+            "type": "string"
+          },
+          "code": {
+            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's.",
+            "enum": [
+              "wrong_work",
+              "wrong_item",
+              "covers_more",
+              "wrong_title",
+              "cut_not_wanted",
+              "quality_not_in_target",
+              "filter",
+              "size_below",
+              "size_above",
+              "size_not_checked",
+              "score_below_minimum",
+              "not_an_upgrade",
+              "repack_other_group"
+            ],
+            "type": "string"
+          },
+          "soft": {
+            "description": "Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note.",
+            "type": "boolean"
+          },
+          "targetId": {
+            "description": "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
+            "format": "uuid",
+            "type": "string"
+          },
+          "value": {
+            "description": "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
+            "type": "string"
+          },
+          "words": {
+            "description": "The reason as a sentence",
+            "type": "string"
+          }
+        },
+        "required": [
+          "words",
+          "code",
+          "soft"
+        ],
+        "type": "object"
+      },
+      "FormatsTriedTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "reasons": {
+            "description": "The name's own refusals, then the reasons of the first cell it would fill, else of the first cell it was judged at",
+            "items": {
+              "$ref": "#/components/schemas/FormatsTriedReason"
+            },
+            "type": "array"
+          },
+          "score": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "wouldFill": {
+            "description": "An automatic search would grab it for this Target",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "targetId",
+          "name",
+          "score",
+          "wouldFill",
+          "reasons"
+        ],
+        "type": "object"
+      },
+      "FormatsWorkRef": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
         ],
         "type": "object"
       },
@@ -22143,6 +22638,201 @@
           }
         ],
         "summary": "Replace a Custom Format's name, renaming flag and conditions, refilling the Works of the Targets that score it, or preview the change's Impact",
+        "tags": [
+          "formats"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/custom-formats/{formatId}/duplicate": {
+      "post": {
+        "operationId": "duplicateCustomFormat",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "formatId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormatsCustomFormat"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "format_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Copy a Custom Format with its app and conditions as they are, under its name with a number after it. No Target scores the copy until one is given a score for it",
         "tags": [
           "formats"
         ],
@@ -41534,6 +42224,228 @@
         "summary": "List the qualities a Target can accept, and the presets that order them",
         "tags": [
           "targets"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/releases/parse": {
+      "post": {
+        "operationId": "parseReleases",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormatsParse"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormatsParseResults"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "format_pattern_not_compiled"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "format_not_found",
+                            "work_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "format_empty",
+                            "format_kind_unknown",
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Read release or file names as a search would: the facts, the Work each matches, every Custom Format with each condition's result, and the score and verdict at each Target",
+        "tags": [
+          "formats"
         ],
         "x-slipstream-access": "admin"
       }

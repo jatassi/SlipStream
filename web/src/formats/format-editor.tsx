@@ -3,12 +3,11 @@ import { useState } from "react";
 import { fieldErrors, isApiError, isProblem, sentenceOf } from "../api/errors";
 import type { FormatsSchema } from "../api/gen/model";
 import { DraftField } from "../targets/field";
-import { AlertLine } from "../ui/alert-line";
-import { Button } from "../ui/button";
 import { Section } from "../ui/section";
 import { Switch } from "../ui/switch";
 import { ConditionsSection, type Slow } from "./conditions-section";
 import { type FormatDraft, type Problems, problemsOf } from "./draft";
+import { EditorActions } from "./editor-actions";
 
 function refusedOf(error: unknown): Problems {
   if (isProblem(error, "format_name_taken")) {
@@ -91,6 +90,7 @@ function useSave(draft: FormatDraft, onSave: (draft: FormatDraft) => Promise<unk
     problems,
     busy,
     submit: () => void submit(),
+    refuse: setProblems,
     clear: () => {
       setProblems({});
     },
@@ -99,19 +99,22 @@ function useSave(draft: FormatDraft, onSave: (draft: FormatDraft) => Promise<unk
 
 export function FormatEditor({
   initial,
+  formatId,
   schema,
   slow,
   label,
   onSave,
 }: {
   initial: FormatDraft;
+  /** The saved format the draft edits, whose app a tried draft is read in. */
+  formatId?: string;
   schema: FormatsSchema;
   slow?: Slow;
   label: string;
   onSave: (draft: FormatDraft) => Promise<unknown>;
 }) {
   const [draft, setDraft] = useState(initial);
-  const { problems, busy, submit, clear } = useSave(draft, onSave);
+  const { problems, busy, submit, refuse, clear } = useSave(draft, onSave);
   const edit = (next: FormatDraft) => {
     setDraft(next);
     clear();
@@ -130,14 +133,15 @@ export function FormatEditor({
           onChange={edit}
         />
       </Section>
-      <div className="mt-8 flex flex-col items-start gap-3">
-        {unplaced(problems, draft).map((text) => (
-          <AlertLine key={text} text={text} />
-        ))}
-        <Button look="primary" busy={busy} onClick={submit}>
-          {label}
-        </Button>
-      </div>
+      <EditorActions
+        draft={draft}
+        formatId={formatId}
+        unplaced={unplaced(problems, draft)}
+        label={label}
+        busy={busy}
+        onSave={submit}
+        onRefused={refuse}
+      />
     </div>
   );
 }

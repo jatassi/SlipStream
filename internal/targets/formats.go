@@ -123,7 +123,7 @@ func saveFormat(ctx context.Context, q *db.Queries, f formats.Format, replace bo
 	case err != nil:
 		return err
 	case taken:
-		return fmt.Errorf("%w: %q", ErrFormatNameTaken, f.Name)
+		return fmt.Errorf("%w: \"%s\"", ErrFormatNameTaken, f.Name)
 	}
 	conditions := conditionsJSON(f.Conditions)
 	if !replace {

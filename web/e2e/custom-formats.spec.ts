@@ -274,3 +274,26 @@ test("deleting a format names the Targets that score it and drops their scores",
     "no Target scores Golden",
   ).toEqual([]);
 });
+
+test("duplicating a pasted format keeps its app and conditions under the next free name", async ({
+  adminPage: page,
+  world,
+}) => {
+  const pasted = await world.api("POST", "/api/v1/custom-formats/paste", {
+    text: pastedText,
+    app: "radarr",
+  });
+  expect(pasted.status, "the Radarr formats are pasted").toBe(200);
+  await openFormats(page);
+  await formatRow(page, "Remux Tier 01")
+    .getByRole("button", { name: "Actions for Remux Tier 01" })
+    .click();
+  await clickWhenStill(
+    page.getByRole(isPhone(page) ? "button" : "menuitem", { name: "Duplicate", exact: true }),
+  );
+  await expect(page.getByText("Made Remux Tier 01 (2) from Remux Tier 01.")).toBeVisible();
+  const copy = formatRow(page, "Remux Tier 01 (2)");
+  await expect(copy).toContainText("Radarr");
+  await expect(copy).toContainText(`release group matches "^(FraMeSToR)$".`);
+  await expectAccessible(page);
+});

@@ -93,7 +93,7 @@ type PatternError struct {
 }
 
 func (e *PatternError) Error() string {
-	return fmt.Sprintf("the pattern of condition %q doesn't compile: %s", e.Name, e.Reason)
+	return fmt.Sprintf("the pattern of condition %s doesn't compile: %s", quoted(e.Name), e.Reason)
 }
 
 // KindError is a pasted condition of a kind no Custom Format has.
@@ -103,7 +103,7 @@ type KindError struct {
 }
 
 func (e *KindError) Error() string {
-	return fmt.Sprintf("condition %q has the kind %s, which isn't a Custom Format condition kind", e.Name, e.Kind)
+	return fmt.Sprintf("condition %s has the kind %s, which isn't a Custom Format condition kind", quoted(e.Name), e.Kind)
 }
 
 // ValueError is a condition with a field its kind can't read in the
@@ -120,7 +120,7 @@ type ValueError struct {
 }
 
 func (e *ValueError) Error() string {
-	return fmt.Sprintf("condition %q has the %s %s, which isn't %s", e.Name, e.Field, e.Value, e.Want)
+	return fmt.Sprintf("condition %s has the %s %s, which isn't %s", quoted(e.Name), e.Field, e.Value, e.Want)
 }
 
 // FieldError is a condition with a field its kind lacks.
@@ -131,7 +131,7 @@ type FieldError struct {
 }
 
 func (e *FieldError) Error() string {
-	return fmt.Sprintf("condition %q has the field %s, which %s conditions don't have", e.Name, e.Field, e.Kind)
+	return fmt.Sprintf("condition %s has the field %s, which %s conditions don't have", quoted(e.Name), e.Field, e.Kind)
 }
 
 // Set is matched formats, sorted by ID.
@@ -165,3 +165,8 @@ type Evaluated struct {
 	Matched  bool
 	TimedOut bool
 }
+
+// quoted is text a person typed, such as a name or a pattern, in the
+// straight quotes WRITING.md sets and exactly as typed. %q would escape
+// each backslash in a pattern.
+func quoted(s string) string { return `"` + s + `"` }

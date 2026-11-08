@@ -1,5 +1,5 @@
 // Package formatsapi is the Custom Formats operations: list, read, make,
-// change, delete and paste them, and the kinds and values each app's
+// change, duplicate, delete and paste them, and the kinds and values each app's
 // formats take.
 package formatsapi
 
@@ -12,9 +12,13 @@ import (
 	"slices"
 	"strings"
 
+	"golang.org/x/text/cases"
+
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/formats"
+	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/grabsapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/targetsapi"
@@ -27,7 +31,15 @@ var (
 	kindUnknown        = api.NewCode(http.StatusUnprocessableEntity, "format_kind_unknown", "SlipStream doesn't have this kind of condition")
 	appNeeded          = api.NewCode(http.StatusUnprocessableEntity, "format_app_needed", "Say whether this was written for Radarr or Sonarr")
 	formatEmpty        = api.NewCode(http.StatusUnprocessableEntity, "format_empty", "A Custom Format needs at least one condition")
+	workNotFound       = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
 )
+
+// Shelf is what the operations run against: the Targets and files, and
+// the Grabs the tester judges names with.
+type Shelf interface {
+	targetsapi.Goals
+	grabsapi.Pipeline
+}
 
 func open(g targetsapi.Goals) *targets.Targets {
 	t, ok := g.Targets()
@@ -45,9 +57,17 @@ func shelf(g targetsapi.Goals) *files.Files {
 	return f
 }
 
-func Routes(r *api.Router, goals targetsapi.Goals) {
+func grabber(s Shelf) *grabs.Grabs {
+	g, ok := s.Grabs()
+	if !ok {
+		panic("formatsapi: an operation ran on a Node that is no Controller")
+	}
+	return g
+}
+
+func Routes(r *api.Router, s Shelf) {
 	o := r.Owner("formats", api.Admin)
-	h := handlers{goals}
+	h := handlers{s}
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listCustomFormats",
@@ -96,6 +116,14 @@ func Routes(r *api.Router, goals targetsapi.Goals) {
 		Errors:  []*api.Code{formatNotFound, targetsapi.ImpactChanged},
 	}, h.deleteCustomFormat)
 	api.Register(o, api.Admin, api.Op{
+		ID:      "duplicateCustomFormat",
+		Method:  http.MethodPost,
+		Path:    "/custom-formats/{formatId}/duplicate",
+		Summary: "Copy a Custom Format with its app and conditions as they are, under its name with a number after it. No Target scores the copy until one is given a score for it",
+		Status:  http.StatusCreated,
+		Errors:  []*api.Code{formatNotFound},
+	}, h.duplicateCustomFormat)
+	api.Register(o, api.Admin, api.Op{
 		ID:      "pasteCustomFormats",
 		Method:  http.MethodPost,
 		Path:    "/custom-formats/paste",
@@ -104,9 +132,17 @@ func Routes(r *api.Router, goals targetsapi.Goals) {
 		Errors:  []*api.Code{appNeeded, kindUnknown, patternNotCompiled, formatEmpty, nameTaken, targetsapi.ImpactChanged},
 		MaxBody: 16 << 20,
 	}, h.pasteCustomFormats)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "parseReleases",
+		Method:  http.MethodPost,
+		Path:    "/releases/parse",
+		Summary: "Read release or file names as a search would: the facts, the Work each matches, every Custom Format with each condition's result, and the score and verdict at each Target",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{workNotFound, formatNotFound, patternNotCompiled, kindUnknown, formatEmpty},
+	}, h.parseReleases)
 }
 
-type handlers struct{ goals targetsapi.Goals }
+type handlers struct{ goals Shelf }
 
 type condition struct {
 	Name     string                     `json:"name"`
@@ -221,9 +257,40 @@ func (h handlers) createCustomFormat(ctx context.Context, by identity.Admin, in 
 	f := in.Body.format()
 	f.ID = targets.NewFormatID()
 	if _, err := shelf(h.goals).Change(ctx, by, targets.AddFormats{Dialect: formats.SlipStream, Add: []formats.Format{f}}, files.Mode{}); err != nil {
-		return nil, saveRefused(f, err)
+		return nil, formatRefused(f, err, "", "save")
 	}
 	stored, err := open(h.goals).GetFormat(ctx, by, f.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &formatOutput{Body: formatOf(stored)}, nil
+}
+
+func (h handlers) duplicateCustomFormat(ctx context.Context, by identity.Admin, in *formatInput) (*formatOutput, error) {
+	id, err := formatID(in.FormatID)
+	if err != nil {
+		return nil, err
+	}
+	t := open(h.goals)
+	f, err := t.GetFormat(ctx, by, id)
+	if err != nil {
+		return nil, notFound(err)
+	}
+	held, err := t.ListFormats(ctx, by)
+	if err != nil {
+		return nil, err
+	}
+	fold := cases.Fold()
+	taken := map[string]bool{}
+	for _, h := range held {
+		taken[fold.String(h.Name)] = true
+	}
+	c := f.Format
+	c.ID, c.Name = targets.NewFormatID(), freeName(f.Name, taken)
+	if _, err := shelf(h.goals).Change(ctx, by, targets.AddFormats{Dialect: c.Dialect, Add: []formats.Format{c}}, files.Mode{}); err != nil {
+		return nil, err
+	}
+	stored, err := t.GetFormat(ctx, by, c.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +318,7 @@ func (h handlers) updateCustomFormat(ctx context.Context, by identity.Admin, in 
 	f := in.Body.format()
 	i, err := shelf(h.goals).Change(ctx, by, targets.UpdateFormat{ID: id, Format: f}, in.Mode())
 	if err != nil {
-		return nil, saveRefused(f, notFound(err))
+		return nil, formatRefused(f, notFound(err), "", "save")
 	}
 	stored, err := open(h.goals).GetFormat(ctx, by, id)
 	if err != nil {
@@ -302,26 +369,27 @@ func changed(err error) error {
 	return err
 }
 
-// saveRefused answers err from saving f, made or changed in the editor,
-// with the problem on the field that caused it.
-func saveRefused(f formats.Format, err error) error {
+// formatRefused answers err from compiling f, made or changed in the
+// editor, with the problem on the field that caused it. at is where f
+// sits in the body and again what the Admin does once they fix it.
+func formatRefused(f formats.Format, err error, at, again string) error {
 	if e, ok := errors.AsType[*formats.PatternError](err); ok {
-		return patternNotCompiled.On(fmt.Sprintf("conditions[%d].fields.value", e.Condition), patternWords(e, "")+" Fix the pattern and save again.")
+		return patternNotCompiled.On(fmt.Sprintf("%sconditions[%d].fields.value", at, e.Condition), patternWords(e, "")+" Fix the pattern and "+again+" again.")
 	}
 	if e, ok := errors.AsType[*formats.KindError](err); ok {
-		at := 0
-		for i, c := range f.Conditions {
+		i := 0
+		for j, c := range f.Conditions {
 			if string(c.Kind) == e.Kind {
-				at = i
+				i = j
 				break
 			}
 		}
-		return kindUnknown.On(fmt.Sprintf("conditions[%d].kind", at), kindWords(e)+" Pick one of the kinds the schema lists.")
+		return kindUnknown.On(fmt.Sprintf("%sconditions[%d].kind", at, i), kindWords(e)+" Pick one of the kinds the schema lists.")
 	}
 	if e, ok := errors.AsType[*formats.EmptyError](err); ok {
-		return formatEmpty.On("conditions", fmt.Sprintf("The Custom Format %q has no conditions. Add a condition and save again.", e.Name))
+		return formatEmpty.On(at+"conditions", fmt.Sprintf("The Custom Format %s has no conditions. Add a condition and %s again.", quoted(e.Name), again))
 	}
-	return refused(err, "conditions", "save")
+	return refused(err, at+"conditions", again)
 }
 
 // refused answers the errors whose problem is the same from the editor
@@ -331,10 +399,10 @@ func refused(err error, field, again string) error {
 		return nameTaken
 	}
 	if e, ok := errors.AsType[*formats.FieldError](err); ok {
-		return api.Invalid.On(field, fmt.Sprintf("The condition %q has the field %s, which %s conditions don't have. Remove the field and %s again.", e.Name, e.Field, kindName(e.Kind), again))
+		return api.Invalid.On(field, fmt.Sprintf("The condition %s has the field %s, which %s conditions don't have. Remove the field and %s again.", quoted(e.Name), e.Field, kindName(e.Kind), again))
 	}
 	if e, ok := errors.AsType[*formats.ValueError](err); ok {
-		return api.Invalid.On(field, fmt.Sprintf("The condition %q has the %s %s, which isn't %s. Change it and %s again.", e.Name, e.Field, e.Value, e.Want, again))
+		return api.Invalid.On(field, fmt.Sprintf("The condition %s has the %s %s, which isn't %s. Change it and %s again.", quoted(e.Name), e.Field, e.Value, e.Want, again))
 	}
 	return changed(err)
 }
@@ -344,9 +412,9 @@ func refused(err error, field, again string) error {
 // every error, and one it can't place has no position.
 func patternWords(e *formats.PatternError, of string) string {
 	if e.Offset > 0 {
-		return fmt.Sprintf("The pattern in %q%s doesn't compile at position %d (%s).", e.Name, of, e.Offset, e.Reason)
+		return fmt.Sprintf("The pattern in %s%s doesn't compile at position %d (%s).", quoted(e.Name), of, e.Offset, e.Reason)
 	}
-	return fmt.Sprintf("The pattern in %q%s doesn't compile (%s).", e.Name, of, e.Reason)
+	return fmt.Sprintf("The pattern in %s%s doesn't compile (%s).", quoted(e.Name), of, e.Reason)
 }
 
 // kindName is k's words as they read inside a sentence.
@@ -356,5 +424,10 @@ func kindName(k formats.Kind) string {
 }
 
 func kindWords(e *formats.KindError) string {
-	return fmt.Sprintf("The condition %q has the kind %s.", e.Name, e.Kind)
+	return fmt.Sprintf("The condition %s has the kind %s.", quoted(e.Name), e.Kind)
 }
+
+// quoted is text a person typed, such as a name or a pattern, in the
+// straight quotes WRITING.md sets and exactly as typed. %q would escape
+// each backslash in a pattern.
+func quoted(s string) string { return `"` + s + `"` }

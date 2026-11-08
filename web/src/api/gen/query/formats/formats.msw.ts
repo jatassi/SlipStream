@@ -8,6 +8,7 @@ import type {
   FormatsFormatChange,
   FormatsFormatDeletion,
   FormatsFormatList,
+  FormatsParseResults,
   FormatsPasted,
   FormatsSchema,
 } from "../../model";
@@ -217,6 +218,179 @@ export const getUpdateCustomFormatResponseMock = (
   ...overrideResponse,
 });
 
+export const getDuplicateCustomFormatResponseMock = (
+  overrideResponse: Partial<Extract<FormatsCustomFormat, object>> = {},
+): FormatsCustomFormat => ({
+  conditions: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      fields: {
+        [faker.string.alphanumeric(5)]: {},
+      },
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      negate: faker.datatype.boolean(),
+      required: faker.datatype.boolean(),
+    }),
+  ),
+  dialect: faker.helpers.arrayElement(["slipstream", "radarr", "sonarr"] as const),
+  id: faker.string.uuid(),
+  includeWhenRenaming: faker.datatype.boolean(),
+  name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  scoredBy: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({ id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) }),
+  ),
+  slowReleases: faker.number.int({ min: 0 }),
+  ...overrideResponse,
+});
+
+export const getParseReleasesResponseMock = (
+  overrideResponse: Partial<Extract<FormatsParseResults, object>> = {},
+): FormatsParseResults => ({
+  results: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      covers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.uuid(),
+      ),
+      facts: {
+        audio: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+        ),
+        channels: Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1,
+        ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+        cut: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        edition: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        group: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        hdr: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+        ),
+        ids: {
+          [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        },
+        languages: Array.from(
+          { length: faker.number.int({ min: 1, max: 10 }) },
+          (_, i) => i + 1,
+        ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+        marks: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+        ),
+        modifier: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        quality: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        resolution: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        revision: {
+          real: faker.number.int({ min: 0 }),
+          repack: faker.datatype.boolean(),
+          version: faker.number.int({ min: 1 }),
+        },
+        source: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        span: faker.helpers.arrayElement(["", "one", "several", "level", "levels"] as const),
+        titles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+        ),
+        video: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
+        year: faker.helpers.arrayElement([faker.number.int(), null]),
+      },
+      formats: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          conditions: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => ({
+            kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            matched: faker.datatype.boolean(),
+            name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            negate: faker.datatype.boolean(),
+            required: faker.datatype.boolean(),
+            timedOut: faker.datatype.boolean(),
+          })),
+          draft: faker.datatype.boolean(),
+          id: faker.string.uuid(),
+          matched: faker.datatype.boolean(),
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          timedOut: faker.datatype.boolean(),
+        }),
+      ),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          reasons: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            (_, i) => i + 1,
+          ).map(() => ({
+            ...(faker.datatype.boolean()
+              ? {
+                  attribute: faker.helpers.arrayElement([
+                    "hdr",
+                    "video_codec",
+                    "audio_codec",
+                    "channels",
+                    "language",
+                  ] as const),
+                }
+              : {}),
+            code: faker.helpers.arrayElement([
+              "wrong_work",
+              "wrong_item",
+              "covers_more",
+              "wrong_title",
+              "cut_not_wanted",
+              "quality_not_in_target",
+              "filter",
+              "size_below",
+              "size_above",
+              "size_not_checked",
+              "score_below_minimum",
+              "not_an_upgrade",
+              "repack_other_group",
+            ] as const),
+            soft: faker.datatype.boolean(),
+            ...(faker.datatype.boolean() ? { targetId: faker.string.uuid() } : {}),
+            ...(faker.datatype.boolean()
+              ? { value: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+              : {}),
+            words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          })),
+          score: faker.number.int(),
+          targetId: faker.string.uuid(),
+          wouldFill: faker.datatype.boolean(),
+        }),
+      ),
+      words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      works: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          id: faker.string.uuid(),
+          label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        }),
+      ),
+    }),
+  ),
+  ...overrideResponse,
+});
+
 export const getListCustomFormatsMockHandler = (
   overrideResponse?:
     | FormatsFormatList
@@ -384,6 +558,54 @@ export const getUpdateCustomFormatMockHandler = (
     options,
   );
 };
+
+export const getDuplicateCustomFormatMockHandler = (
+  overrideResponse?:
+    | FormatsCustomFormat
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<FormatsCustomFormat> | FormatsCustomFormat),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/custom-formats/:formatId/duplicate",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getDuplicateCustomFormatResponseMock(),
+        { status: 201 },
+      );
+    },
+    options,
+  );
+};
+
+export const getParseReleasesMockHandler = (
+  overrideResponse?:
+    | FormatsParseResults
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<FormatsParseResults> | FormatsParseResults),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/releases/parse",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getParseReleasesResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getFormatsMock = () => [
   getListCustomFormatsMockHandler(),
   getCreateCustomFormatMockHandler(),
@@ -392,4 +614,6 @@ export const getFormatsMock = () => [
   getDeleteCustomFormatMockHandler(),
   getGetCustomFormatMockHandler(),
   getUpdateCustomFormatMockHandler(),
+  getDuplicateCustomFormatMockHandler(),
+  getParseReleasesMockHandler(),
 ];

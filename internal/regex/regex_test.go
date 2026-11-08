@@ -43,9 +43,16 @@ func TestCompileErrorNamesPatternAndOffset(t *testing.T) {
 		if ce.Pattern != tt.pattern || ce.Offset != tt.offset || ce.Reason == "" {
 			t.Errorf("Compile(%q) = %+v; want offset %d", tt.pattern, *ce, tt.offset)
 		}
-		if !strings.Contains(err.Error(), strconv.Quote(tt.pattern)) {
+		if !strings.Contains(err.Error(), `"`+tt.pattern+`"`) {
 			t.Errorf("Compile(%q): %q doesn't name the pattern", tt.pattern, err)
 		}
+	}
+}
+
+func TestCompileErrorQuotesThePatternAsTyped(t *testing.T) {
+	_, err := Compile(`\b(DV`, opts)
+	if want := `the pattern "\b(DV" doesn't compile (unterminated group)`; err == nil || err.Error() != want {
+		t.Errorf("Compile = %v, want %s", err, want)
 	}
 }
 

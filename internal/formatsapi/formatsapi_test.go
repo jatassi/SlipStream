@@ -3,6 +3,7 @@ package formatsapi_test
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"slices"
@@ -31,17 +32,21 @@ import (
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/targetsapi"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
 type goals struct {
 	t *targets.Targets
 	f *files.Files
+	g *grabs.Grabs
 }
 
 func (g goals) Targets() (*targets.Targets, bool) { return g.t, true }
 
 func (g goals) Files() (*files.Files, bool) { return g.f, true }
+
+func (g goals) Grabs() (*grabs.Grabs, bool) { return g.g, true }
 
 type discard[T any] struct{}
 
@@ -52,6 +57,8 @@ type served struct {
 	// starter is the id of the starter Target, which the fixture type's
 	// default Profile holds.
 	starter string
+	// attic is the id of the one Work, The Attic (2020).
+	attic string
 }
 
 // serve mounts the Custom Format and Target operations over a library
@@ -59,7 +66,8 @@ type served struct {
 func serve(t *testing.T) *served {
 	t.Helper()
 	ctx := t.Context()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(),
+		downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), transfers.LibrarySchema())
 	fx := contenttypetest.New()
 	w, err := works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -80,9 +88,14 @@ func serve(t *testing.T) *served {
 	if err != nil {
 		t.Fatal(err)
 	}
+	g := grabs.New(grabs.Config{
+		Library: lib, Works: w, Targets: svc, Files: shelf,
+		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: claims{w}}, Names: map[works.TypeID]release.Names{contenttypetest.ID: dated{}},
+		Transfers: transfers.New(transfers.ControllerConfig{Library: lib}), Timings: grabs.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
+	})
 	s := &served{Owner: ownertest.Serve(t, lib, func(r *api.Router) {
-		targetsapi.Routes(r, goals{svc, shelf})
-		formatsapi.Routes(r, goals{svc, shelf})
+		targetsapi.Routes(r, goals{svc, shelf, g})
+		formatsapi.Routes(r, goals{svc, shelf, g})
 	})}
 	_, body := s.Call(t, http.MethodGet, "/api/v1/targets", "")
 	s.starter = ownertest.FirstID(body)
@@ -102,6 +115,7 @@ func serve(t *testing.T) *served {
 	if err != nil {
 		t.Fatal(err)
 	}
+	s.attic = tree.ID.String()
 	root := rootstest.Root(t, lib, role.NodeID{UUID: storage.NewUUID()}, contenttypetest.ID, t.TempDir())
 	starter, err := storage.ParseUUID(s.starter)
 	if err != nil {
@@ -254,6 +268,25 @@ func TestAPasteAddsReplacesOrKeepsBothOfANameAndReadsInTheAppItWasWrittenFor(t *
 			`"errors":[{"location":"body.replace[0]","message":"No pasted Custom Format has this one's name. Leave it out and paste again."}]}`)
 }
 
+func TestADuplicateKeepsItsAppAndConditionsUnderTheFirstFreeName(t *testing.T) {
+	s := serve(t)
+	s.expect(t, http.MethodPost, "/api/v1/custom-formats/paste", pasteBody(trash("Remux", "QualityModifierSpecification", `{"value":5}`), ""), http.StatusOK,
+		`{"app":"radarr","formats":[{"name":"Remux","outcome":"add","savedAs":"Remux"}],"impact":`+noImpact+`}`)
+	_, body := s.Call(t, http.MethodGet, "/api/v1/custom-formats", "")
+	id := ownertest.FirstID(body)
+	s.scoreStarter(t, id)
+	remux := func(name string) string {
+		return `{"id":"ID","name":"` + name + `","includeWhenRenaming":false,"dialect":"radarr","conditions":[` +
+			`{"name":"Remux","kind":"QualityModifierSpecification","negate":false,"required":true,"fields":{"value":5}}],"scoredBy":[],"slowReleases":0}`
+	}
+	s.expect(t, http.MethodPost, "/api/v1/custom-formats/"+id+"/duplicate", "", http.StatusCreated, remux("Remux (2)"))
+	s.expect(t, http.MethodPost, "/api/v1/custom-formats/"+id+"/duplicate", "", http.StatusCreated, remux("Remux (3)"))
+	s.expect(t, http.MethodGet, "/api/v1/custom-formats", "", http.StatusOK,
+		`{"formats":[`+strings.Replace(remux("Remux"), `"scoredBy":[]`, `"scoredBy":[{"id":"ID","name":"1080p"}]`, 1)+`,`+remux("Remux (2)")+`,`+remux("Remux (3)")+`],"matchLimitMilliseconds":100}`)
+	s.expect(t, http.MethodPost, "/api/v1/custom-formats/"+s.starter+"/duplicate", "", http.StatusNotFound,
+		`{"status":404,"code":"format_not_found","title":"No Custom Format has that id"}`)
+}
+
 func TestAPasteAsksForTheAppUnlessItsKindsSettleIt(t *testing.T) {
 	s := serve(t)
 	needed := `{"status":422,"code":"format_app_needed","title":"Say whether this was written for Radarr or Sonarr"}`
@@ -308,6 +341,12 @@ func TestAFormatThatWontRunIsRefusedWithWhatToFix(t *testing.T) {
 			"a pattern refused at a position", "/api/v1/custom-formats", format(`{"name":"Atmos","kind":"ReleaseGroupSpecification","negate":false,"required":false,"fields":{"value":"x"}},` + title("ab**")),
 			400, refusal(400, "format_pattern_not_compiled", notCompiled,
 				`The pattern in \"Not HDR10+\" doesn't compile at position 4 (a repetition follows another repetition). Fix the pattern and save again.`, "conditions[1].fields.value"),
+		},
+		{
+			"a condition named for its pattern, quoted as typed", "/api/v1/custom-formats",
+			format(`{"name":"\\b(DV","kind":"ReleaseTitleSpecification","negate":false,"required":false,"fields":{"value":"\\b(DV"}}`),
+			400, refusal(400, "format_pattern_not_compiled", notCompiled,
+				`The pattern in \"\\b(DV\" doesn't compile (unterminated group). Fix the pattern and save again.`, "conditions[0].fields.value"),
 		},
 		{
 			"a pattern refused with no position", "/api/v1/custom-formats", format(title("(a")),
