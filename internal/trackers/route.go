@@ -32,7 +32,8 @@ type Routing struct{ Roster RouteRoster }
 
 // Route is the client a Grab of tracker that Indexer indexer found goes
 // to, false when it goes by its Work's library root. The home is the
-// Indexer's stored home, never a Node that covers for it.
+// Indexer's stored home, never a Node that covers for it, so a Grab whose
+// Indexer was deleted goes by its root.
 func (g Routing) Route(ctx context.Context, r storage.Reader[file], tracker indexers.TrackerID, indexer indexers.ID) (downloadclients.Target, bool, error) {
 	if tracker.IsZero() {
 		return downloadclients.Target{}, false, nil
@@ -42,6 +43,9 @@ func (g Routing) Route(ctx context.Context, r storage.Reader[file], tracker inde
 		return downloadclients.Target{}, false, err
 	}
 	idx, err := indexers.Get(ctx, r, indexer)
+	if errors.Is(err, indexers.ErrNoIndexer) {
+		return downloadclients.Target{}, false, nil
+	}
 	if err != nil {
 		return downloadclients.Target{}, false, err
 	}
