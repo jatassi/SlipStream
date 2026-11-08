@@ -1,6 +1,7 @@
 package files
 
 import (
+	"cmp"
 	"context"
 	"maps"
 	"slices"
@@ -311,6 +312,9 @@ type scoring struct {
 	original release.Fact[release.Language]
 	scored   *formats.Catalog
 	matched  map[ID]formats.Set
+	// known is each file's score at each Target that a Change narrowed by
+	// its format edits already knows: its stored fill score, moved.
+	known map[ID]map[targets.TargetID]int
 }
 
 func newScoring(all *formats.Catalog, goals targets.Goals, original release.Fact[release.Language]) *scoring {
@@ -332,22 +336,28 @@ func (s *scoring) of(f File) targets.Scored {
 			s.scored = s.all.Only(targets.ScoredIn(s.goals))
 		}
 		if s.scored.Len() > 0 {
-			r := f.named()
-			r.Facts.Coverage.Original = s.original
-			set = s.scored.Match(r).Matched
+			set = s.scored.Match(asNamed(f.Title, f.ReleaseName, s.original)).Matched
 		}
 		s.matched[f.ID] = set
 	}
 	return targets.Scored{Facts: s.facts(f), Formats: set}
 }
 
-// compare orders a and b at t by its steps, +1 when a is better. Formats
-// are matched only once the two tie before the score.
+// score is f's score at t.
+func (s *scoring) score(t targets.Target, f File) int {
+	if n, ok := s.known[f.ID][t.ID]; ok {
+		return n
+	}
+	return t.Score(s.of(f))
+}
+
+// compare orders a and b at t by its steps, +1 when a is better. They are
+// scored only once the two tie before the score.
 func (s *scoring) compare(t targets.Target, a, b File) int {
 	sa, sb := targets.Scored{Facts: s.facts(a)}, targets.Scored{Facts: s.facts(b)}
 	for _, step := range t.Steps() {
 		if step == targets.ByScore {
-			sa, sb = s.of(a), s.of(b)
+			return cmp.Compare(s.score(t, a), s.score(t, b))
 		}
 		if c := t.CompareBy(step, sa, sb); c != 0 {
 			return c

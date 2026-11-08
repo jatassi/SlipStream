@@ -71,6 +71,8 @@ type library struct {
 	targets *targets.Targets
 	root    roots.Root
 	held    *roots.Roots
+	// published is every targets.changed a saved Change sent.
+	published *published
 	// staged is the Transfers with a record.
 	staged map[transfers.ID]bool
 }
@@ -92,14 +94,19 @@ func open(t testing.TB) *library {
 	}
 	node := role.NodeID{UUID: storage.NewUUID()}
 	root := rootstest.Root(t, lib, node, contenttypetest.ID, t.TempDir())
+	sent := &published{}
 	goals, err := targets.Open(t.Context(), targets.Config{
-		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
+		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: sent,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &library{t: t, lib: lib, fx: fx, works: w, targets: goals, root: root, held: rootstest.Held(t, lib, node, nil, contenttypetest.ID)}
+	return &library{t: t, lib: lib, fx: fx, works: w, targets: goals, root: root, held: rootstest.Held(t, lib, node, nil, contenttypetest.ID), published: sent}
 }
+
+type published struct{ events []targets.Changed }
+
+func (p *published) Publish(_ context.Context, v targets.Changed) { p.events = append(p.events, v) }
 
 // files is the files owner over l, whose today is the fixture's release
 // date, with grabs in flight.

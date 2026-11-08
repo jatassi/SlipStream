@@ -65,7 +65,7 @@ func (s *shelf) touches(t *testing.T, c targets.Change) []works.WorkID {
 	var got targets.Touched
 	err := s.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		got, err = targets.Touches(ctx, r, c)
+		got, err = s.goals.Touches(ctx, r, c)
 		return err
 	})
 	if err != nil {

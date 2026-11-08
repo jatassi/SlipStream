@@ -23,7 +23,7 @@ func refill(w world) map[CellKey]Fill {
 			for _, t := range w.goals.Targets {
 				key := CellKey{Item: it.ID, Edition: e, Target: t.ID}
 				if best, ok := fillOf(w.scoring, t, key, of[it.ID], w.fills[key].File); ok {
-					out[key] = Fill{File: best.ID, Score: t.Score(w.scoring.of(best))}
+					out[key] = Fill{File: best.ID, Score: w.scoring.score(t, best)}
 				}
 			}
 		}

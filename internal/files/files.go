@@ -85,14 +85,6 @@ func (f File) Facts() release.Facts {
 	return facts
 }
 
-// named is f's Title as a Custom Format reads it: a Release title
-// condition tests its release name.
-func (f File) named() release.Read {
-	r := f.Title
-	r.Release = f.ReleaseName
-	return r
-}
-
 type Changed struct {
 	WorkID string `json:"workId" format:"uuid"`
 }
