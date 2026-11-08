@@ -53,6 +53,9 @@ func File(name string, cuts []Cut, probed Resolution) Facts {
 	return Facts{Quality: qualityFact(sourceIn(w), Known(probed)), Cut: cutIn(w, cuts)}
 }
 
+// SourceOf is the source name's words name, unknown when they name none.
+func SourceOf(name string) Fact[Source] { return sourceIn(words(name)) }
+
 func qualityFact(s Fact[Source], r Fact[Resolution]) Fact[Quality] {
 	if q, ok := QualityOf(s, r); ok {
 		return Known(q)

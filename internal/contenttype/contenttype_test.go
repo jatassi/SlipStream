@@ -40,6 +40,9 @@ func TestDefineRefusesABadID(t *testing.T) {
 	assertPanics(t, "contenttype: id goose names a set storage reserves", func() {
 		contenttype.Define[struct{}]("goose", nil, nil, open)
 	})
+	assertPanics(t, "contenttype: id pending names the Pending imports page", func() {
+		contenttype.Define[struct{}]("pending", nil, nil, open)
+	})
 }
 
 func TestDefineNamesTheSetByTheID(t *testing.T) {
