@@ -25,6 +25,7 @@ import (
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	"github.com/jatassi/slipstream/internal/ports/port"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -695,9 +696,9 @@ func TestAMovedPortsIndexersBecomeCatalogIndexersWithTheirTrackerAndHistory(t *t
 
 func TestAReleaseCarriesItsFlagsToTheController(t *testing.T) {
 	p := plannedWith(t, "Alder")
-	p.node.answer(p.ids["Alder"], searching.Answer{Releases: []searching.Release{{Title: "Orchard.1080p", Flags: []searching.Flag{searching.Freeleech, searching.Internal}}}})
+	p.node.answer(p.ids["Alder"], searching.Answer{Releases: []searching.Release{{Title: "Orchard.1080p", Flags: []release.Flag{release.Freeleech, release.Internal}}}})
 	answers := p.search(p.plan())
-	if got := answers[0].Releases[0].Flags; !slices.Equal(got, []searching.Flag{searching.Freeleech, searching.Internal}) {
+	if got := answers[0].Releases[0].Flags; !slices.Equal(got, []release.Flag{release.Freeleech, release.Internal}) {
 		t.Errorf("the Release's flags are %v", got)
 	}
 }

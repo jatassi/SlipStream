@@ -5,6 +5,7 @@
 package db
 
 import (
+	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -33,6 +34,25 @@ type TargetsFilterValue struct {
 	Attribute Attribute
 	Position  int64
 	Value     string
+}
+
+type TargetsFormat struct {
+	ID                  FormatID
+	Name                string
+	NameFolded          string
+	IncludeWhenRenaming bool
+	Dialect             formats.Dialect
+	Conditions          string
+	Source              []byte
+	Revision            int64
+	Timeouts            int64
+	CreatedAt           storage.Time
+}
+
+type TargetsFormatScore struct {
+	TargetID TargetID
+	FormatID FormatID
+	Score    int64
 }
 
 type TargetsProfile struct {
@@ -78,10 +98,14 @@ type TargetsStarter struct {
 }
 
 type TargetsTarget struct {
-	ID         TargetID
-	Name       string
-	CreatedAt  storage.Time
-	CutoffTier int64
+	ID             TargetID
+	Name           string
+	CreatedAt      storage.Time
+	CutoffTier     int64
+	MinScore       int64
+	UpgradeUntil   int64
+	ScoreIncrement int64
+	Propers        string
 }
 
 type TargetsWant struct {

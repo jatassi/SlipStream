@@ -216,7 +216,7 @@ func (q *Queries) GetStarter(ctx context.Context) (TargetsStarter, error) {
 }
 
 const getTarget = `-- name: GetTarget :one
-SELECT id, name, created_at, cutoff_tier FROM targets_target WHERE id = ?1
+SELECT id, name, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers FROM targets_target WHERE id = ?1
 `
 
 func (q *Queries) GetTarget(ctx context.Context, id TargetID) (TargetsTarget, error) {
@@ -227,6 +227,10 @@ func (q *Queries) GetTarget(ctx context.Context, id TargetID) (TargetsTarget, er
 		&i.Name,
 		&i.CreatedAt,
 		&i.CutoffTier,
+		&i.MinScore,
+		&i.UpgradeUntil,
+		&i.ScoreIncrement,
+		&i.Propers,
 	)
 	return i, err
 }
@@ -441,15 +445,20 @@ func (q *Queries) InsertStarter(ctx context.Context, targetID *TargetID) error {
 }
 
 const insertTarget = `-- name: InsertTarget :exec
-INSERT INTO targets_target (id, name, created_at, cutoff_tier)
-VALUES (?1, ?2, ?3, ?4)
+INSERT INTO targets_target (id, name, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6,
+    ?7, ?8)
 `
 
 type InsertTargetParams struct {
-	ID         TargetID
-	Name       string
-	CreatedAt  storage.Time
-	CutoffTier int64
+	ID             TargetID
+	Name           string
+	CreatedAt      storage.Time
+	CutoffTier     int64
+	MinScore       int64
+	UpgradeUntil   int64
+	ScoreIncrement int64
+	Propers        string
 }
 
 func (q *Queries) InsertTarget(ctx context.Context, arg InsertTargetParams) error {
@@ -458,6 +467,10 @@ func (q *Queries) InsertTarget(ctx context.Context, arg InsertTargetParams) erro
 		arg.Name,
 		arg.CreatedAt,
 		arg.CutoffTier,
+		arg.MinScore,
+		arg.UpgradeUntil,
+		arg.ScoreIncrement,
+		arg.Propers,
 	)
 	return err
 }
@@ -951,7 +964,7 @@ func (q *Queries) ListSightingsOf(ctx context.Context, itemIds []works.ItemID) (
 }
 
 const listTargets = `-- name: ListTargets :many
-SELECT id, name, created_at, cutoff_tier FROM targets_target ORDER BY name, id
+SELECT id, name, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers FROM targets_target ORDER BY name, id
 `
 
 func (q *Queries) ListTargets(ctx context.Context) ([]TargetsTarget, error) {
@@ -968,6 +981,10 @@ func (q *Queries) ListTargets(ctx context.Context) ([]TargetsTarget, error) {
 			&i.Name,
 			&i.CreatedAt,
 			&i.CutoffTier,
+			&i.MinScore,
+			&i.UpgradeUntil,
+			&i.ScoreIncrement,
+			&i.Propers,
 		); err != nil {
 			return nil, err
 		}
@@ -1261,16 +1278,30 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) er
 }
 
 const updateTarget = `-- name: UpdateTarget :exec
-UPDATE targets_target SET name = ?1, cutoff_tier = ?2 WHERE id = ?3
+UPDATE targets_target SET name = ?1, cutoff_tier = ?2, min_score = ?3,
+    upgrade_until = ?4, score_increment = ?5, propers = ?6
+WHERE id = ?7
 `
 
 type UpdateTargetParams struct {
-	Name       string
-	CutoffTier int64
-	ID         TargetID
+	Name           string
+	CutoffTier     int64
+	MinScore       int64
+	UpgradeUntil   int64
+	ScoreIncrement int64
+	Propers        string
+	ID             TargetID
 }
 
 func (q *Queries) UpdateTarget(ctx context.Context, arg UpdateTargetParams) error {
-	_, err := q.db.ExecContext(ctx, updateTarget, arg.Name, arg.CutoffTier, arg.ID)
+	_, err := q.db.ExecContext(ctx, updateTarget,
+		arg.Name,
+		arg.CutoffTier,
+		arg.MinScore,
+		arg.UpgradeUntil,
+		arg.ScoreIncrement,
+		arg.Propers,
+		arg.ID,
+	)
 	return err
 }

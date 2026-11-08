@@ -114,6 +114,8 @@ export const starter: TargetsTarget = {
     { quality: "webrip-720p", min: 12.5, max: null },
     { quality: "webdl-720p", min: 12.5, max: null },
   ],
+  scores: { formats: [], minimum: 0, upgradeUntil: 0, increment: 1 },
+  propers: "prefer_and_upgrade",
   profiles: [{ id: "0199e1f2-7a3b-7c4d-8e5f-000000000001", name: "Movies" }],
   contains: [],
 };
@@ -131,6 +133,8 @@ export const keeper: TargetsTarget = {
     { quality: "webdl-2160p", min: 34.5, max: null },
     { quality: "webrip-2160p", min: 34.5, max: null },
   ],
+  scores: { formats: [], minimum: 0, upgradeUntil: 0, increment: 1 },
+  propers: "prefer_and_upgrade",
   profiles: [],
   contains: [],
 };

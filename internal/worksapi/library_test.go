@@ -41,11 +41,12 @@ func stock(t *testing.T, rooted bool) *shelved {
 	s := &shelved{server: serveAt(t, func() time.Time { return today })}
 	var err error
 	if s.hd, err = s.goals.CreateTarget(ctx, identity.Admin{}, targets.Spec{
-		Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}, {release.WEBDL1080p}}, Cutoff: release.Bluray1080p,
+		Scores: targets.Scores{Increment: 1},
+		Name:   "HD", Tiers: [][]release.Quality{{release.Bluray1080p}, {release.WEBDL1080p}}, Cutoff: release.Bluray1080p,
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if s.uhd, err = s.goals.CreateTarget(ctx, identity.Admin{}, targets.Spec{Name: "2160p", Tiers: [][]release.Quality{{release.WEBDL2160p}}, Cutoff: release.WEBDL2160p}); err != nil {
+	if s.uhd, err = s.goals.CreateTarget(ctx, identity.Admin{}, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "2160p", Tiers: [][]release.Quality{{release.WEBDL2160p}}, Cutoff: release.WEBDL2160p}); err != nil {
 		t.Fatal(err)
 	}
 	if s.archive, err = s.goals.CreateProfile(ctx, identity.Admin{}, targets.ProfileSpec{Name: "Archive", ContentType: contenttypetest.ID, Entries: []targets.Entry{

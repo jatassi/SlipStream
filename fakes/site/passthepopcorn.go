@@ -64,7 +64,7 @@ func (s *site) ptpSearch(w http.ResponseWriter, searchstr string) {
 			ID: id, Size: strconv.FormatInt(rel.Size, 10), UploadTime: "2026-06-01 12:00:00", Snatched: strconv.FormatInt(rel.Grabs, 10),
 			Seeders: strconv.FormatInt(rel.Seeders, 10), Leechers: strconv.FormatInt(rel.Leechers, 10), ReleaseName: rel.Name, Checked: true,
 		}
-		if rel.Freeleech {
+		if rel.downloadFactor() == 0 {
 			t.FreeleechType = "Freeleech"
 		}
 		movies = append(movies, ptpMovie{

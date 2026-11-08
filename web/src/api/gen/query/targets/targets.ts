@@ -1561,7 +1561,7 @@ export const getCreateTargetUrl = () => {
 };
 
 /**
- * @summary Create a Target from its tiers of qualities, cutoff, filters and sizes
+ * @summary Create a Target from its tiers of qualities, cutoff, filters, sizes, Custom Format scores and propers setting
  */
 export const createTarget = async (
   targetsNewTarget: TargetsNewTarget,
@@ -1642,7 +1642,7 @@ export type CreateTargetMutationError = ErrorType<
 export type CreateTargetMutationVariables = { data: TargetsNewTarget };
 
 /**
- * @summary Create a Target from its tiers of qualities, cutoff, filters and sizes
+ * @summary Create a Target from its tiers of qualities, cutoff, filters, sizes, Custom Format scores and propers setting
  */
 export const useCreateTarget = <
   TError = ErrorType<

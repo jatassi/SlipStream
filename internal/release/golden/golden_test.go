@@ -119,6 +119,19 @@ func TestAnOverrideRunsTheRowWithSlipStreamsArguments(t *testing.T) {
 	failsWith(t, rec)
 }
 
+func TestAnOverrideSaysWhatSlipStreamReadsWhereUpstreamExpectsNothing(t *testing.T) {
+	evenOrRead := Check(func(r Row) error {
+		var read int
+		if r.Reads(&read) && read == r.Int("n") {
+			return nil
+		}
+		return parity(false)(r)
+	})
+	overrides := `[{"method":"should_be_even","args":[5],"ours":[5],"reads":5,"reason":"SlipStream reads 5 as itself."}]`
+	rec, _ := fixture(t, `[{"method":"should_be_even","args":[3]}]`, overrides, Fixture{Checks: map[string]Check{"should_be_even": evenOrRead, "should_be_odd": parity(true)}})
+	failsWith(t, rec)
+}
+
 func TestUpdatePendingWritesTheFailingRows(t *testing.T) {
 	*updatePending = true
 	t.Cleanup(func() { *updatePending = false })

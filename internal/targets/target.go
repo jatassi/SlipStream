@@ -3,9 +3,11 @@ package targets
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 
+	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets/internal/db"
@@ -146,6 +148,44 @@ func named[V ~string](f Filter[V]) (mode Mode, values []string) {
 	return f.Mode, out
 }
 
+// Scores are a Target's Custom Format scores. A format Formats leaves out
+// scores 0, and Formats holds no 0.
+type Scores struct {
+	Formats map[formats.ID]int
+	// Minimum is the lowest score a Release may have.
+	Minimum int
+	// UpgradeUntil is the score at which a file at or past the cutoff
+	// stops upgrading.
+	UpgradeUntil int
+	// Increment is how far a Release's score must pass a held file's of
+	// the same tier to replace it, at least 1.
+	Increment int
+}
+
+// Propers is how a Target takes propers and repacks. The zero value,
+// PreferAndUpgrade, is a new Target's.
+type Propers uint8
+
+const (
+	PreferAndUpgrade Propers = iota
+	PreferNoUpgrade
+	DontPrefer
+)
+
+var propersNames = [...]string{"prefer_and_upgrade", "prefer_no_upgrade", "dont_prefer"}
+
+func (p Propers) String() string { return propersNames[p] }
+
+// ParsePropers reads a propers setting by name.
+func ParsePropers(s string) (Propers, error) {
+	for p := range Propers(len(propersNames)) {
+		if p.String() == s {
+			return p, nil
+		}
+	}
+	return 0, fmt.Errorf("%q isn't a propers setting", s)
+}
+
 // Target is a named encoding goal.
 type Target struct {
 	ID      TargetID
@@ -153,6 +193,8 @@ type Target struct {
 	Tiers   []Tier // best first
 	Cutoff  int    // index into Tiers; a file at or above it is final
 	Filters Filters
+	Scores  Scores
+	Propers Propers
 	// Profiles is every Profile holding the Target, by name, and Contains
 	// every other Target it contains. Both are read only.
 	Profiles  []ProfileRef
@@ -166,23 +208,27 @@ type ProfileRef struct {
 }
 
 // Spec is a Target as an Admin writes it: tiers of qualities, a cutoff
-// naming a quality of the cutoff tier, and sizes by quality. An accepted
-// quality Sizes leaves out takes its Floor.
+// naming a quality of the cutoff tier, sizes by quality, scores and the
+// propers setting. An accepted quality Sizes leaves out takes its Floor.
 type Spec struct {
 	Name    string
 	Tiers   [][]release.Quality
 	Cutoff  release.Quality
 	Filters Filters
 	Sizes   map[release.Quality]Size
+	Scores  Scores
+	Propers Propers
 }
 
 // ErrQualityNotInTarget is a cutoff or a size naming a quality the Target
 // doesn't accept. ErrBadTiers is no tier, an empty tier or a quality in
 // two places. ErrBadSize is a negative minimum or a maximum below it.
+// ErrBadIncrement is a score increment below 1.
 var (
 	ErrQualityNotInTarget = errors.New("the Target doesn't accept that quality")
 	ErrBadTiers           = errors.New("tiers are missing, empty or repeat a quality")
 	ErrBadSize            = errors.New("a size is negative or its maximum is below its minimum")
+	ErrBadIncrement       = errors.New("the score increment is below 1")
 )
 
 // NewTarget checks s and lays it out as a Target with no id yet.
@@ -206,7 +252,17 @@ func NewTarget(s Spec) (Target, error) {
 			}
 		}
 	}
-	return Target{Name: s.Name, Tiers: tiers, Cutoff: cutoff, Filters: s.Filters}, nil
+	if s.Scores.Increment < 1 {
+		return Target{}, ErrBadIncrement
+	}
+	scores := s.Scores
+	scores.Formats = map[formats.ID]int{}
+	for id, n := range s.Scores.Formats {
+		if n != 0 {
+			scores.Formats[id] = n
+		}
+	}
+	return Target{Name: s.Name, Tiers: tiers, Cutoff: cutoff, Filters: s.Filters, Scores: scores, Propers: s.Propers}, nil
 }
 
 // layTiers lays qualities out as tiers at their floors, with the index of
@@ -243,7 +299,8 @@ func layTiers(qualities [][]release.Quality, cutoff release.Quality) ([]Tier, in
 
 // Spec is t as an Admin writes it, every size named.
 func (t Target) Spec() Spec {
-	s := Spec{Name: t.Name, Filters: t.Filters, Cutoff: t.Tiers[t.Cutoff][0].Quality, Sizes: map[release.Quality]Size{}}
+	s := Spec{Name: t.Name, Filters: t.Filters, Cutoff: t.Tiers[t.Cutoff][0].Quality, Sizes: map[release.Quality]Size{}, Scores: t.Scores, Propers: t.Propers}
+	s.Scores.Formats = maps.Clone(t.Scores.Formats)
 	for _, tier := range t.Tiers {
 		var qs []release.Quality
 		for _, a := range tier {

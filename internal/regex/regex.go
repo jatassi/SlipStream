@@ -1,5 +1,7 @@
 // Package regex runs patterns written for .NET, on regexp2: Sonarr's and
-// Radarr's parser, TRaSH's Custom Formats and Cardigann's definitions.
+// Radarr's parser, TRaSH's Custom Formats, Cardigann's definitions and
+// the ported sites. No other package imports regexp2 (lint rule
+// regexp2-confined).
 package regex
 
 import (
@@ -12,21 +14,37 @@ import (
 	"github.com/dlclark/regexp2/syntax"
 )
 
-// Options are how a pattern compiles. Every caller sets a Timeout.
+// Options are how a pattern compiles. Timeout bounds one match. Zero is
+// .NET's InfiniteMatchTimeout, for a fixed pattern SlipStream wrote or
+// ported whose upstream sets none.
 type Options struct {
-	IgnoreCase bool
-	Timeout    time.Duration
+	IgnoreCase              bool
+	IgnorePatternWhitespace bool
+	Timeout                 time.Duration
 }
 
 // regexp2 reads match deadlines from a clock that ticks every 100 ms and
 // adds one tick to every limit, so a 100 ms limit fired after 200 ms.
 // A 10 ms tick keeps a timeout within 20 ms of its limit.
-func init() { regexp2.SetTimeoutCheckPeriod(10 * time.Millisecond) }
+//
+// The clock is a goroutine the first timed match starts. Started from a
+// match inside a test's synctest bubble, it outlives the bubble, which
+// panics. One match here with a deadline a century away starts it for the
+// life of the process, outside any bubble.
+func init() {
+	regexp2.SetTimeoutCheckPeriod(10 * time.Millisecond)
+	clock := regexp2.MustCompile(``, regexp2.None)
+	clock.MatchTimeout = 100 * 365 * 24 * time.Hour
+	if _, err := clock.MatchString(""); err != nil {
+		panic(err)
+	}
+}
 
 // Regex is a compiled pattern, safe for concurrent use.
 type Regex struct {
 	re      *regexp2.Regexp
 	pattern string
+	flags   regexp2.RegexOptions
 }
 
 // Compile compiles pattern, rewriting .NET's \p{IsBlock} classes first.
@@ -40,8 +58,10 @@ func Compile(pattern string, o Options) (*Regex, error) {
 	if err != nil {
 		return nil, compileError(pattern, o, err)
 	}
-	re.MatchTimeout = o.Timeout
-	return &Regex{re: re, pattern: pattern}, nil
+	if o.Timeout > 0 {
+		re.MatchTimeout = o.Timeout
+	}
+	return &Regex{re: re, pattern: pattern, flags: o.flags()}, nil
 }
 
 // MustCompile is Compile for generated tables, whose patterns CI compiles.
@@ -54,10 +74,14 @@ func MustCompile(pattern string, o Options) *Regex {
 }
 
 func (o Options) flags() regexp2.RegexOptions {
+	f := regexp2.None
 	if o.IgnoreCase {
-		return regexp2.IgnoreCase
+		f |= regexp2.IgnoreCase
 	}
-	return regexp2.None
+	if o.IgnorePatternWhitespace {
+		f |= regexp2.IgnorePatternWhitespace
+	}
+	return f
 }
 
 // Text is a string split into runes once. regexp2 matches runes, so a
@@ -76,17 +100,13 @@ func (t Text) String() string { return t.s }
 func (r *Regex) String() string { return r.pattern }
 
 func (r *Regex) Match(t Text) (bool, error) {
-	ok, err := r.re.MatchRunes(t.r)
-	if err != nil {
-		return false, r.timeout()
-	}
-	return ok, nil
+	return run(r, func(re *regexp2.Regexp) (bool, error) { return re.MatchRunes(t.r) })
 }
 
 func (r *Regex) Find(t Text) (Match, bool, error) {
-	m, err := r.re.FindRunesMatch(t.r)
+	m, err := r.first(t)
 	if err != nil {
-		return Match{}, false, r.timeout()
+		return Match{}, false, err
 	}
 	return Match{m}, m != nil, nil
 }
@@ -94,12 +114,12 @@ func (r *Regex) Find(t Text) (Match, bool, error) {
 // FindAll is .NET's Matches(): every match, left to right.
 func (r *Regex) FindAll(t Text) ([]Match, error) {
 	var all []Match
-	m, err := r.re.FindRunesMatch(t.r)
-	for ; m != nil && err == nil; m, err = r.re.FindNextMatch(m) {
+	m, err := r.first(t)
+	for ; m != nil && err == nil; m, err = r.next(m) {
 		all = append(all, Match{m})
 	}
 	if err != nil {
-		return nil, r.timeout()
+		return nil, err
 	}
 	return all, nil
 }
@@ -114,21 +134,50 @@ func (r *Regex) Replace(t Text, with string) (string, error) {
 	}
 	var b bytes.Buffer
 	at := 0
-	m, err := r.re.FindRunesMatch(t.r)
-	for ; m != nil && err == nil; m, err = r.re.FindNextMatch(m) {
+	m, err := r.first(t)
+	for ; m != nil && err == nil; m, err = r.next(m) {
 		b.WriteString(string(t.r[at:m.Index]))
 		rules.write(&b, Match{m}, t.r)
 		at = m.Index + m.Length
 	}
 	if err != nil {
-		return "", r.timeout()
+		return "", err
 	}
 	b.WriteString(string(t.r[at:]))
 	return b.String(), nil
 }
 
-func (r *Regex) timeout() error {
-	return &TimeoutError{Pattern: r.pattern, Limit: r.re.MatchTimeout}
+func (r *Regex) first(t Text) (*regexp2.Match, error) {
+	return run(r, func(re *regexp2.Regexp) (*regexp2.Match, error) { return re.FindRunesMatch(t.r) })
+}
+
+func (r *Regex) next(m *regexp2.Match) (*regexp2.Match, error) {
+	return run(r, func(re *regexp2.Regexp) (*regexp2.Match, error) { return re.FindNextMatch(m) })
+}
+
+// run makes one regexp2 call, on r's compile first. regexp2 reads its
+// deadline from a clock that a goroutine advances, and under load the
+// goroutine runs late, so the clock leaps and fires a deadline
+// microseconds after the call began. run checks each timeout against the
+// monotonic clock and runs a false one again on a fresh compile limited
+// to the time left, so a *TimeoutError means the limit passed. A false
+// timeout needs the clock to advance by the time left plus a tick, so
+// the reruns end once the limit passes.
+func run[T any](r *Regex, call func(*regexp2.Regexp) (T, error)) (T, error) {
+	start := time.Now()
+	re := r.re
+	for {
+		v, err := call(re)
+		if err == nil {
+			return v, nil
+		}
+		left := r.re.MatchTimeout - time.Since(start)
+		if left <= 0 {
+			return v, &TimeoutError{Pattern: r.pattern, Limit: r.re.MatchTimeout}
+		}
+		re = regexp2.MustCompile(r.re.String(), r.flags)
+		re.MatchTimeout = left
+	}
 }
 
 // replacement is a parsed replacement string: literal runs and group

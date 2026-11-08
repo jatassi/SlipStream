@@ -5,14 +5,18 @@ package release
 // name; languages, the cut and the edition text read Name.Tail.
 func Title(name string, names Names, cuts []Cut) Read {
 	p := Prepare(name)
-	n := names.ReadName(p)
+	var n Name
+	if !p.Obfuscated {
+		n = names.ReadName(p)
+	}
+	s := &scan{slow: p.slow}
 	tail := n.Tail
 	if tail == "" {
 		tail = p.Title.String()
 	}
 	f := Facts{
 		Revision:  readRevision(p),
-		Group:     readGroup(p),
+		Group:     readGroup(p, s),
 		Cut:       readCut(tail, cuts),
 		Edition:   readEdition(tail),
 		Languages: readLanguages(tail),
@@ -20,7 +24,7 @@ func Title(name string, names Names, cuts []Cut) Read {
 	}
 	readQuality(p, &f)
 	readStream(p, &f)
-	return Read{Given: name, Name: n, Facts: f}
+	return Read{Given: name, Name: n, Facts: f, Slow: s.slow}
 }
 
 // File reads a file path's name, and its folder's when the file name

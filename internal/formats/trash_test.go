@@ -71,8 +71,7 @@ func runTRaSH(t *testing.T, f formats.Format, reads []release.Read) {
 
 // attempts is how often a condition must run past the limit to fail. A
 // pattern that backtracks does so every time. On a busy machine a pattern
-// of a few microseconds also does now and then, while it waits for a CPU
-// or while regexp2's deadline clock waits to tick.
+// of a few microseconds also does now and then, while it waits for a CPU.
 const attempts = 3
 
 // slowConditions are the conditions that ran past the limit on every

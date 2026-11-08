@@ -46,6 +46,7 @@ func filters(t *testing.T, rules ...any) targets.Filters {
 func hd(t *testing.T, f targets.Filters) targets.Target {
 	t.Helper()
 	return must[targets.Target](t)(targets.NewTarget(targets.Spec{
+		Scores:  targets.Scores{Increment: 1},
 		Name:    "1080p",
 		Tiers:   [][]release.Quality{{release.Bluray1080p, release.Remux1080p}, {release.WEBDL1080p, release.WEBRip1080p}},
 		Cutoff:  release.Remux1080p,

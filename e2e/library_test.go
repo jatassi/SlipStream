@@ -80,14 +80,14 @@ func TestTheWorldSeedsTheScenarioLibrary(t *testing.T) {
 		`"sizes":[{"quality":"bluray-1080p","min":50.8,"max":null},{"quality":"remux-1080p","min":102,"max":null},{"quality":"hdtv-1080p","min":33.8,"max":null},` +
 		`{"quality":"webrip-1080p","min":12.5,"max":null},{"quality":"webdl-1080p","min":12.5,"max":null},{"quality":"bluray-720p","min":25.7,"max":null},` +
 		`{"quality":"hdtv-720p","min":17.1,"max":null},{"quality":"webrip-720p","min":12.5,"max":null},{"quality":"webdl-720p","min":12.5,"max":null}],` +
-		`"profiles":[{"id":"` + movies + `","name":"Movies"},{"id":"` + music + `","name":"Music"},{"id":"` + tv + `","name":"TV"}],"contains":[],"createdAt":"` + starter.CreatedAt + `"},` +
+		`"scores":{"formats":[],"minimum":0,"upgradeUntil":0,"increment":1},"propers":"prefer_and_upgrade","profiles":[{"id":"` + movies + `","name":"Movies"},{"id":"` + music + `","name":"Music"},{"id":"` + tv + `","name":"TV"}],"contains":[],"createdAt":"` + starter.CreatedAt + `"},` +
 		`{"id":"` + lossless.ID + `","name":"Lossless","tiers":[["remux-1080p","bluray-1080p"],["webdl-1080p"]],"cutoff":"remux-1080p",` +
 		`"filters":[{"attribute":"language","mode":"only","values":["en","original"]}],` +
 		`"sizes":[{"quality":"remux-1080p","min":102,"max":null},{"quality":"bluray-1080p","min":20,"max":100},{"quality":"webdl-1080p","min":12.5,"max":null}],` +
-		`"profiles":` + standard + `,"contains":[],"createdAt":"` + lossless.CreatedAt + `"},` +
+		`"scores":{"formats":[],"minimum":0,"upgradeUntil":0,"increment":1},"propers":"prefer_and_upgrade","profiles":` + standard + `,"contains":[],"createdAt":"` + lossless.CreatedAt + `"},` +
 		`{"id":"` + small.ID + `","name":"Small","tiers":[["webdl-720p"],["dvd"]],"cutoff":"dvd","filters":[],` +
 		`"sizes":[{"quality":"webdl-720p","min":12.5,"max":null},{"quality":"dvd","min":0,"max":null}],` +
-		`"profiles":` + standard + `,"contains":[],"createdAt":"` + small.CreatedAt + `"}]}` + "\n"})
+		`"scores":{"formats":[],"minimum":0,"upgradeUntil":0,"increment":1},"propers":"prefer_and_upgrade","profiles":` + standard + `,"contains":[],"createdAt":"` + small.CreatedAt + `"}]}` + "\n"})
 
 	reply = a.Admin("home", http.MethodGet, "/api/v1/profiles", "")
 	holds := func(ids ...string) string {

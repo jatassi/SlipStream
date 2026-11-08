@@ -61,8 +61,11 @@ type row struct {
 type override struct {
 	row
 	// Ours are the arguments SlipStream's reading passes with.
-	Ours   []json.RawMessage `json:"ours"`
-	Reason string            `json:"reason"`
+	Ours []json.RawMessage `json:"ours"`
+	// Reads is what SlipStream reads where the upstream method takes no
+	// expected value to replace, such as a group upstream wants unknown.
+	Reads  json.RawMessage `json:"reads,omitempty"`
+	Reason string          `json:"reason"`
 }
 
 func (r row) key() string {
@@ -134,12 +137,12 @@ func (r *run) method(m method) {
 	for _, c := range m.Cases {
 		upstream := compact(r.t, row{Method: m.Name, Args: c.Args})
 		key := upstream.key()
-		args := upstream.Args
+		row := Row{method: m.Name, params: m.Params, args: upstream.Args}
 		if o, ok := r.ours[key]; ok {
-			args = o.Ours
+			row.args, row.reads = o.Ours, o.Reads
 			r.used[key] = true
 		}
-		err := check(Row{method: m.Name, params: m.Params, args: args})
+		err := check(row)
 		wasPending := r.pending[key] > 0
 		r.pending[key]--
 		switch {
@@ -239,6 +242,19 @@ type Row struct {
 	method string
 	params []param
 	args   []json.RawMessage
+	reads  json.RawMessage
+}
+
+// Reads decodes into v what an override says SlipStream reads instead of
+// the method's fixed expectation, and is false when no override says.
+func (r Row) Reads(v any) bool {
+	if r.reads == nil {
+		return false
+	}
+	if err := json.Unmarshal(r.reads, v); err != nil {
+		panic(fmt.Sprintf("%s's override reads: %v", r.method, err))
+	}
+	return true
 }
 
 func (r Row) arg(name string) json.RawMessage {

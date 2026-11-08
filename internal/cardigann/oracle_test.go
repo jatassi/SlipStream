@@ -10,8 +10,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"unicode"
 
-	"github.com/dlclark/regexp2"
+	"github.com/jatassi/slipstream/internal/regex"
 )
 
 // prowlarrTemplate is a line-for-line port of Prowlarr's multi-pass
@@ -38,23 +39,23 @@ func prowlarrTemplate(template string, vars map[string]any) (string, error) {
 	return template, nil
 }
 
-func oracleMatches(re *regexp2.Regexp, s string) []*regexp2.Match {
-	var out []*regexp2.Match
-	m, _ := re.FindStringMatch(s)
-	for m != nil {
-		out = append(out, m)
-		m, _ = re.FindNextMatch(m)
-	}
-	return out
+func oracleMatches(re *regex.Regex, s string) []regex.Match {
+	all, _ := re.FindAll(regex.TextOf(s))
+	return all
+}
+
+func g(m regex.Match, name string) string {
+	s, _ := m.Group(name)
+	return s
 }
 
 var (
-	oracleReReplaceRe = regexp2.MustCompile(`{{\s*re_replace\s+(\..+?)\s+"(.*?)"\s+"(.*?)"\s*}}`, regexp2.None)
-	oracleJoinRe      = regexp2.MustCompile(`{{\s*join\s+(\..+?)\s+"(.*?)"\s*}}`, regexp2.None)
-	oracleLogicRe     = regexp2.MustCompile(`\b(and|or|eq|ne)(?:\s+(\(?\.[^\)\s]+\)?|"[^"]+")){2,}`, regexp2.None)
-	oracleIfElseRe    = regexp2.MustCompile(`{{\s*if\s*(.+?)\s*}}(.*?){{\s*else\s*}}(.*?){{\s*end\s*}}`, regexp2.None)
-	oracleRangeRe     = regexp2.MustCompile(`{{\s*range\s*(((?<index>\$.+?),)((\s*(?<element>.+?)\s*(:=)\s*)))?(?<variable>.+?)\s*}}(?<prefix>.*?){{\.}}(?<postfix>.*?){{end}}`, regexp2.None)
-	oracleVariableRe  = regexp2.MustCompile(`{{\s*(\..+?)\s*}}`, regexp2.None)
+	oracleReReplaceRe = regex.MustCompile(`{{\s*re_replace\s+(\..+?)\s+"(.*?)"\s+"(.*?)"\s*}}`, regex.Options{})
+	oracleJoinRe      = regex.MustCompile(`{{\s*join\s+(\..+?)\s+"(.*?)"\s*}}`, regex.Options{})
+	oracleLogicRe     = regex.MustCompile(`\b(and|or|eq|ne)(?:\s+(\(?\.[^\)\s]+\)?|"[^"]+")){2,}`, regex.Options{})
+	oracleIfElseRe    = regex.MustCompile(`{{\s*if\s*(.+?)\s*}}(.*?){{\s*else\s*}}(.*?){{\s*end\s*}}`, regex.Options{})
+	oracleRangeRe     = regex.MustCompile(`{{\s*range\s*(((?<index>\$.+?),)((\s*(?<element>.+?)\s*(:=)\s*)))?(?<variable>.+?)\s*}}(?<prefix>.*?){{\.}}(?<postfix>.*?){{end}}`, regex.Options{})
+	oracleVariableRe  = regex.MustCompile(`{{\s*(\..+?)\s*}}`, regex.Options{})
 )
 
 func oracleString(v any) (string, error) {
@@ -69,7 +70,7 @@ func oracleString(v any) (string, error) {
 
 func oracleReReplace(template string, lookup func(string) (any, error)) (string, error) {
 	for _, m := range oracleMatches(oracleReReplaceRe, template) {
-		v, err := lookup(m.GroupByNumber(1).String())
+		v, err := lookup(g(m, "1"))
 		if err != nil {
 			return "", err
 		}
@@ -77,22 +78,22 @@ func oracleReReplace(template string, lookup func(string) (any, error)) (string,
 		if err != nil {
 			return "", err
 		}
-		re, err := compileRegex(m.GroupByNumber(2).String())
+		re, err := regex.Compile(g(m, "2"), definitionPattern)
 		if err != nil {
 			return "", err
 		}
-		out, err := re.Replace(input, m.GroupByNumber(3).String())
+		out, err := re.Replace(regex.TextOf(input), g(m, "3"))
 		if err != nil {
 			return "", err
 		}
-		template = strings.ReplaceAll(template, m.String(), out)
+		template = strings.ReplaceAll(template, m.Value(), out)
 	}
 	return template, nil
 }
 
 func oracleJoin(template string, lookup func(string) (any, error)) (string, error) {
 	for _, m := range oracleMatches(oracleJoinRe, template) {
-		v, err := lookup(m.GroupByNumber(1).String())
+		v, err := lookup(g(m, "1"))
 		if err != nil {
 			return "", err
 		}
@@ -100,22 +101,23 @@ func oracleJoin(template string, lookup func(string) (any, error)) (string, erro
 		if !ok {
 			return "", errors.New("join over a value that isn't a collection")
 		}
-		template = strings.ReplaceAll(template, m.String(), strings.Join(list, m.GroupByNumber(2).String()))
+		template = strings.ReplaceAll(template, m.Value(), strings.Join(list, g(m, "2")))
 	}
 	return template, nil
 }
 
 func oracleLogic(template string, lookup func(string) (any, error)) (string, error) {
 	for {
-		m, _ := oracleLogicRe.FindStringMatch(template)
-		if m == nil {
+		m, ok, _ := oracleLogicRe.Find(regex.TextOf(template))
+		if !ok {
 			return template, nil
 		}
-		start, length := m.Index, m.Length
-		name := m.GroupByNumber(1).String()
+		start, length := m.Index(), m.Length()
+		name := g(m, "1")
+		captures := m.Captures("2")
 		var params []string
-		for _, c := range m.GroupByNumber(2).Captures {
-			params = append(params, strings.Trim(c.String(), "()"))
+		for _, c := range captures {
+			params = append(params, strings.Trim(c, "()"))
 		}
 		var result string
 		var err error
@@ -123,7 +125,7 @@ func oracleLogic(template string, lookup func(string) (any, error)) (string, err
 			result, err = oracleAndOr(name == "and", params, lookup)
 		} else {
 			if len(params) > 2 {
-				length = m.GroupByNumber(2).Captures[2].Index - start
+				length = thirdCaptureAt([]rune(m.Value()), name, captures)
 			}
 			result, err = oracleEq(name == "eq", params[:2], lookup)
 		}
@@ -133,6 +135,21 @@ func oracleLogic(template string, lookup func(string) (any, error)) (string, err
 		runes := []rune(template)
 		template = string(runes[:start]) + result + string(runes[start+length:])
 	}
+}
+
+// thirdCaptureAt is Groups[2].Captures[2].Index less the match's: the
+// match is the name, then each capture behind its run of spaces.
+func thirdCaptureAt(match []rune, name string, captures []string) int {
+	at := len([]rune(name))
+	for i := range 3 {
+		for unicode.IsSpace(match[at]) {
+			at++
+		}
+		if i < 2 {
+			at += len([]rune(captures[i]))
+		}
+	}
+	return at
 }
 
 func oracleAndOr(isAnd bool, params []string, lookup func(string) (any, error)) (string, error) {
@@ -177,7 +194,7 @@ func oracleEq(wantEqual bool, params []string, lookup func(string) (any, error))
 
 func oracleIfElse(template string, lookup func(string) (any, error)) (string, error) {
 	for _, m := range oracleMatches(oracleIfElseRe, template) {
-		cond := m.GroupByNumber(1).String()
+		cond := g(m, "1")
 		if !strings.HasPrefix(cond, ".") {
 			return "", fmt.Errorf("condition %q not implemented", cond)
 		}
@@ -192,19 +209,19 @@ func oracleIfElse(template string, lookup func(string) (any, error)) (string, er
 		case []string:
 			state = len(v) > 0
 		}
-		result := m.GroupByNumber(3).String()
+		result := g(m, "3")
 		if state {
-			result = m.GroupByNumber(2).String()
+			result = g(m, "2")
 		}
-		template = strings.ReplaceAll(template, m.String(), result)
+		template = strings.ReplaceAll(template, m.Value(), result)
 	}
 	return template, nil
 }
 
 func oracleRange(template string, lookup func(string) (any, error)) (string, error) {
 	for _, m := range oracleMatches(oracleRangeRe, template) {
-		index := m.GroupByName("index").String()
-		v, err := lookup(m.GroupByName("variable").String())
+		index := g(m, "index")
+		v, err := lookup(g(m, "variable"))
 		if err != nil {
 			return "", err
 		}
@@ -212,7 +229,7 @@ func oracleRange(template string, lookup func(string) (any, error)) (string, err
 		if !ok {
 			return "", errors.New("range over a value that isn't a collection")
 		}
-		prefix, postfix := m.GroupByName("prefix").String(), m.GroupByName("postfix").String()
+		prefix, postfix := g(m, "prefix"), g(m, "postfix")
 		var b strings.Builder
 		for i, item := range list {
 			if strings.TrimSpace(index) != "" {
@@ -222,14 +239,14 @@ func oracleRange(template string, lookup func(string) (any, error)) (string, err
 				b.WriteString(prefix + item + postfix)
 			}
 		}
-		template = strings.ReplaceAll(template, m.String(), b.String())
+		template = strings.ReplaceAll(template, m.Value(), b.String())
 	}
 	return template, nil
 }
 
 func oracleVariables(template string, lookup func(string) (any, error)) (string, error) {
 	for _, m := range oracleMatches(oracleVariableRe, template) {
-		v, err := lookup(m.GroupByNumber(1).String())
+		v, err := lookup(g(m, "1"))
 		if err != nil {
 			return "", err
 		}
@@ -237,7 +254,7 @@ func oracleVariables(template string, lookup func(string) (any, error)) (string,
 		if str, ok := v.(string); ok || v == nil {
 			s = str
 		}
-		template = strings.ReplaceAll(template, m.String(), s)
+		template = strings.ReplaceAll(template, m.Value(), s)
 	}
 	return template, nil
 }

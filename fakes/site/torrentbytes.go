@@ -73,7 +73,7 @@ func (s *site) tbBrowse(w http.ResponseWriter, r *http.Request) {
 		`<td class="colhead">Seeders</td><td class="colhead">Leechers</td><td class="colhead">Upped by</td></tr>`)
 	for _, rel := range s.found(r.URL.Query().Get("search")) {
 		free := ""
-		if rel.Freeleech {
+		if rel.downloadFactor() == 0 {
 			free = ` <font color="green"><b>[FREE LEECH]</b></font>`
 		}
 		name := html.EscapeString(rel.Name)

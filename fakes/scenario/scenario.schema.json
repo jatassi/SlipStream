@@ -1791,6 +1791,11 @@
             "type": "string",
             "pattern": "^\\d+(\\.\\d+)?(TiB|GiB|MiB|KiB|B)$"
           },
+          "download_factor": {
+            "type": "number",
+            "maximum": 1,
+            "minimum": 0
+          },
           "unlisted": {
             "type": "boolean"
           },

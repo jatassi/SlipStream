@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dlclark/regexp2"
+	"github.com/jatassi/slipstream/internal/regex"
 )
 
 // jsonToken is a JSON token as Newtonsoft's JToken holds it after JToken.Parse:
@@ -473,7 +473,7 @@ func (j *jsonToken) step(s jsonStep) *jsonToken {
 	return nil
 }
 
-var jsonFilterRe = regexp2.MustCompile(`\:(?<filter>.+?)\((?<key>.+?)\)(?=:|\z)`, regexp2.None)
+var jsonFilterRe = regex.MustCompile(`\:(?<filter>.+?)\((?<key>.+?)\)(?=:|\z)`, regex.Options{})
 
 // fieldSelector is JsonParseFieldSelector (CardigannBase.cs:860-934): the
 // path before the first ':', and whether j passes the :has, :not and
@@ -488,15 +488,17 @@ func (j *jsonToken) fieldSelector(sel string) (text string, found bool, err erro
 		}
 		target = t
 	}
-	m, err := jsonFilterRe.FindStringMatch(sel)
-	for ; m != nil && err == nil; m, err = jsonFilterRe.FindNextMatch(m) {
-		pass, err := target.passes(group(m, "filter"), group(m, "key"))
+	filters, err := jsonFilterRe.FindAll(regex.TextOf(sel))
+	if err != nil {
+		return "", false, fmt.Errorf("read the JSON selector %q: %w", sel, err)
+	}
+	for _, m := range filters {
+		filter, _ := m.Group("filter")
+		key, _ := m.Group("key")
+		pass, err := target.passes(filter, key)
 		if err != nil || !pass {
 			return "", false, err
 		}
-	}
-	if err != nil {
-		return "", false, fmt.Errorf("read the JSON selector %q: %w", sel, err)
 	}
 	return base, true, nil
 }
@@ -516,7 +518,7 @@ func (j *jsonToken) passes(filter, key string) (bool, error) {
 }
 
 func (j *jsonToken) has(key string) (bool, error) {
-	nested, err := jsonFilterRe.MatchString(key)
+	nested, err := jsonFilterRe.Match(regex.TextOf(key))
 	if err != nil {
 		return false, fmt.Errorf("read the JSON selector %q: %w", key, err)
 	}

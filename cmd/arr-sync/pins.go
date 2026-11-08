@@ -51,6 +51,10 @@ type patternFile struct {
 	Fields map[string]string `json:"fields,omitempty"`
 	// Skip names methods whose inline patterns the lever doesn't read.
 	Skip []string `json:"skip,omitempty"`
+	// Strings names fields whose initializers list strings, such as a
+	// HashSet of extensions or a Dictionary's keys, which the lever writes
+	// as []string tables.
+	Strings []string `json:"strings,omitempty"`
 }
 
 type fixtureSet struct {

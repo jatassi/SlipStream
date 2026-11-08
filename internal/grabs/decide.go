@@ -50,6 +50,7 @@ func candidateOf(r indexers.Release, names release.Names, cuts []release.Cut, co
 		f.Size = release.Known(r.Size)
 	}
 	f.Coverage.Runtime = runtime
+	f.Flags = r.Flags
 	return candidate{Release: r, Facts: f, name: read.Name, covers: covers(read.Name)}
 }
 

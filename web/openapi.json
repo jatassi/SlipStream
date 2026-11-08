@@ -11688,6 +11688,25 @@
         ],
         "type": "object"
       },
+      "TargetsFormatScore": {
+        "additionalProperties": false,
+        "properties": {
+          "formatId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "score": {
+            "description": "Added to a Release's score when it matches the Custom Format",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "formatId",
+          "score"
+        ],
+        "type": "object"
+      },
       "TargetsImpact": {
         "additionalProperties": false,
         "properties": {
@@ -11817,6 +11836,39 @@
         ],
         "type": "object"
       },
+      "TargetsNewScores": {
+        "additionalProperties": false,
+        "properties": {
+          "formats": {
+            "description": "A Custom Format left out scores 0",
+            "items": {
+              "$ref": "#/components/schemas/TargetsFormatScore"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "increment": {
+            "default": 1,
+            "description": "How far a Release's score must pass the file's to replace it in the same tier",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "minimum": {
+            "description": "A Release scoring below it isn't grabbed",
+            "format": "int64",
+            "type": "integer"
+          },
+          "upgradeUntil": {
+            "description": "A file at or past the cutoff upgrades to better-scored Releases until it scores this",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "TargetsNewTarget": {
         "additionalProperties": false,
         "properties": {
@@ -11858,6 +11910,20 @@
             "maxLength": 100,
             "minLength": 1,
             "type": "string"
+          },
+          "propers": {
+            "default": "prefer_and_upgrade",
+            "description": "prefer_and_upgrade ranks propers and repacks higher and has one replace a file of its Quality even past the cutoff. prefer_no_upgrade only ranks them higher. dont_prefer leaves them to the scores",
+            "enum": [
+              "prefer_and_upgrade",
+              "prefer_no_upgrade",
+              "dont_prefer"
+            ],
+            "type": "string"
+          },
+          "scores": {
+            "$ref": "#/components/schemas/TargetsNewScores",
+            "description": "Left out, every score is 0 and the increment is 1"
           },
           "sizes": {
             "description": "An accepted quality left out takes its floor and no maximum",
@@ -12195,6 +12261,41 @@
         ],
         "type": "object"
       },
+      "TargetsScores": {
+        "additionalProperties": false,
+        "properties": {
+          "formats": {
+            "description": "Every Custom Format the Target scores; a format left out scores 0",
+            "items": {
+              "$ref": "#/components/schemas/TargetsFormatScore"
+            },
+            "type": "array"
+          },
+          "increment": {
+            "description": "How far a Release's score must pass the file's to replace it in the same tier",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "minimum": {
+            "description": "A Release scoring below it isn't grabbed",
+            "format": "int64",
+            "type": "integer"
+          },
+          "upgradeUntil": {
+            "description": "A file at or past the cutoff upgrades to better-scored Releases until it scores this",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "formats",
+          "minimum",
+          "upgradeUntil",
+          "increment"
+        ],
+        "type": "object"
+      },
       "TargetsSize": {
         "additionalProperties": false,
         "properties": {
@@ -12284,6 +12385,18 @@
             },
             "type": "array"
           },
+          "propers": {
+            "description": "prefer_and_upgrade ranks propers and repacks higher and has one replace a file of its Quality even past the cutoff. prefer_no_upgrade only ranks them higher. dont_prefer leaves them to the scores",
+            "enum": [
+              "prefer_and_upgrade",
+              "prefer_no_upgrade",
+              "dont_prefer"
+            ],
+            "type": "string"
+          },
+          "scores": {
+            "$ref": "#/components/schemas/TargetsScores"
+          },
           "sizes": {
             "description": "Every accepted quality's size, in tier order",
             "items": {
@@ -12312,6 +12425,8 @@
           "cutoff",
           "filters",
           "sizes",
+          "scores",
+          "propers",
           "profiles",
           "contains",
           "createdAt"
@@ -46302,6 +46417,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "format_not_found",
                             "invalid",
                             "quality_not_in_target"
                           ],
@@ -46352,7 +46468,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Create a Target from its tiers of qualities, cutoff, filters and sizes",
+        "summary": "Create a Target from its tiers of qualities, cutoff, filters, sizes, Custom Format scores and propers setting",
         "tags": [
           "targets"
         ],
@@ -46927,6 +47043,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "format_not_found",
                             "invalid",
                             "quality_not_in_target"
                           ],

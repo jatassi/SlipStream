@@ -2,9 +2,12 @@ package regex
 
 import (
 	"errors"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -64,10 +67,45 @@ func TestCatastrophicPatternTimesOut(t *testing.T) {
 		if !errors.As(err, &te) || te.Pattern != re.String() || te.Limit != limit {
 			t.Errorf("%s = %v; want a *TimeoutError for %q at %v", name, err, re, limit)
 		}
-		if elapsed > 2*limit {
-			t.Errorf("%s took %v; want under %v", name, elapsed, 2*limit)
+		if elapsed < limit || elapsed > 2*limit {
+			t.Errorf("%s timed out after %v; want between %v and %v", name, elapsed, limit, 2*limit)
 		}
 	}
+}
+
+func TestATimeoutUnderLoadMeansTheLimitPassed(t *testing.T) {
+	const limit = 20 * time.Millisecond
+	re := MustCompile(`(x+x+)+y`, Options{Timeout: limit})
+	text := TextOf(strings.Repeat("x", 40))
+	var stop atomic.Bool
+	var spun atomic.Int64
+	var spinners sync.WaitGroup
+	for range 4 * runtime.GOMAXPROCS(0) {
+		spinners.Go(func() {
+			x := 0
+			for !stop.Load() {
+				for i := range 1 << 16 {
+					x += i
+				}
+			}
+			spun.Add(int64(x))
+		})
+	}
+	var matchers sync.WaitGroup
+	for range 4 * runtime.GOMAXPROCS(0) {
+		matchers.Go(func() {
+			for range 10 {
+				start := time.Now()
+				_, err := re.Match(text)
+				if elapsed := time.Since(start); elapsed < limit {
+					t.Errorf("a match on a loaded machine ended after %v with %v; want a timeout after %v or more", elapsed, err, limit)
+				}
+			}
+		})
+	}
+	matchers.Wait()
+	stop.Store(true)
+	spinners.Wait()
 }
 
 func TestRepeatedGroupCaptures(t *testing.T) {
@@ -136,14 +174,17 @@ func TestReplace(t *testing.T) {
 
 func TestOptions(t *testing.T) {
 	for _, tt := range []struct {
-		o    Options
-		want bool
+		pattern string
+		o       Options
+		want    bool
 	}{
-		{Options{IgnoreCase: true, Timeout: time.Second}, true},
-		{Options{Timeout: time.Second}, false},
+		{`remux`, Options{IgnoreCase: true, Timeout: time.Second}, true},
+		{`remux`, Options{Timeout: time.Second}, false},
+		{`re mux  # a comment`, Options{IgnoreCase: true, IgnorePatternWhitespace: true}, true},
+		{`re mux`, Options{IgnoreCase: true}, false},
 	} {
-		if got, _ := MustCompile(`remux`, tt.o).Match(TextOf("REMUX")); got != tt.want {
-			t.Errorf("Match with %+v = %v; want %v", tt.o, got, tt.want)
+		if got, _ := MustCompile(tt.pattern, tt.o).Match(TextOf("REMUX")); got != tt.want {
+			t.Errorf("%q with %+v matches REMUX: %v; want %v", tt.pattern, tt.o, got, tt.want)
 		}
 	}
 }

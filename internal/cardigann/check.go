@@ -4,12 +4,12 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
-	"github.com/dlclark/regexp2"
 	"reflect"
 	"slices"
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/prowlarr/dom"
+	"github.com/jatassi/slipstream/internal/regex"
 )
 
 // variantLimit caps how many if-branch combinations of one template are
@@ -166,13 +166,17 @@ func checkJSONSelector(sel string) error {
 	if _, err := compileJSONPath(base); err != nil {
 		return err
 	}
-	m, err := jsonFilterRe.FindStringMatch(sel)
-	for ; m != nil && err == nil; m, err = jsonFilterRe.FindNextMatch(m) {
-		filter, key := group(m, "filter"), group(m, "key")
+	filters, err := jsonFilterRe.FindAll(regex.TextOf(sel))
+	if err != nil {
+		return fmt.Errorf("read the JSON selector %q: %w", sel, err)
+	}
+	for _, m := range filters {
+		filter, _ := m.Group("filter")
+		key, _ := m.Group("key")
 		if filter != "has" && filter != "not" {
 			continue
 		}
-		if nested, _ := jsonFilterRe.MatchString(key); nested {
+		if nested, _ := jsonFilterRe.Match(regex.TextOf(key)); nested {
 			err = checkJSONSelector(key)
 		} else {
 			_, err = compileJSONPath(key)
@@ -180,9 +184,6 @@ func checkJSONSelector(sel string) error {
 		if err != nil {
 			return err
 		}
-	}
-	if err != nil {
-		return fmt.Errorf("read the JSON selector %q: %w", sel, err)
 	}
 	return nil
 }
@@ -317,12 +318,4 @@ func filterTemplates(f filterBlock) []*template {
 		return nil
 	}
 	return []*template{t}
-}
-
-func group(m *regexp2.Match, name string) string {
-	g := m.GroupByName(name)
-	if g == nil {
-		return ""
-	}
-	return g.String()
 }

@@ -45,6 +45,7 @@ var (
 	targetInUse         = api.NewCode(http.StatusConflict, "target_in_use", "Profiles hold the Target")
 	noSuchProfile       = api.NewCode(http.StatusNotFound, "profile_not_found", "No Profile has that id")
 	workNotFound        = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
+	formatNotFound      = api.NewCode(http.StatusUnprocessableEntity, "format_not_found", "No Custom Format has that id")
 )
 
 var codes = []struct {
@@ -58,6 +59,7 @@ var codes = []struct {
 	{targets.ErrNoProfile, noSuchProfile},
 	{targets.ErrNoCut, cutNotFound},
 	{works.ErrNoWork, workNotFound},
+	{targets.ErrNoFormat, formatNotFound},
 }
 
 func answer(err error) error {
@@ -67,7 +69,7 @@ func answer(err error) error {
 	for _, bad := range []struct {
 		err   error
 		field string
-	}{{targets.ErrBadTiers, "tiers"}, {targets.ErrBadSize, "sizes"}, {targets.ErrBadFilter, "filters"}, {targets.ErrTargetTwice, "targets"}, {targets.ErrNoCuts, "editions.cuts"}, {targets.ErrCutTwice, "editions.cuts"}} {
+	}{{targets.ErrBadTiers, "tiers"}, {targets.ErrBadSize, "sizes"}, {targets.ErrBadFilter, "filters"}, {targets.ErrTargetTwice, "targets"}, {targets.ErrNoCuts, "editions.cuts"}, {targets.ErrCutTwice, "editions.cuts"}, {targets.ErrBadIncrement, "scores.increment"}} {
 		if errors.Is(err, bad.err) {
 			return api.Invalid.On(bad.field, err.Error())
 		}
@@ -98,9 +100,9 @@ func Routes(r *api.Router, goals Goals) {
 		ID:      "createTarget",
 		Method:  http.MethodPost,
 		Path:    "/targets",
-		Summary: "Create a Target from its tiers of qualities, cutoff, filters and sizes",
+		Summary: "Create a Target from its tiers of qualities, cutoff, filters, sizes, Custom Format scores and propers setting",
 		Status:  http.StatusCreated,
-		Errors:  []*api.Code{targetNameTaken, qualityNotInTarget},
+		Errors:  []*api.Code{targetNameTaken, qualityNotInTarget, formatNotFound},
 	}, h.createTarget)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listTargets",
@@ -123,7 +125,7 @@ func Routes(r *api.Router, goals Goals) {
 		Path:    "/targets/{targetId}",
 		Summary: "Replace a Target's name and rules, renaming and refilling its Works' files, or preview the change's Impact",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{noSuchTarget, targetNameTaken, qualityNotInTarget, ImpactChanged},
+		Errors:  []*api.Code{noSuchTarget, targetNameTaken, qualityNotInTarget, formatNotFound, ImpactChanged},
 	}, h.updateTarget)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "duplicateTarget",

@@ -174,7 +174,7 @@ export const ListQualitiesResponse = TargetsQualityList;
 export const ListTargetsResponse = TargetsTargetList;
 
 /**
- * @summary Create a Target from its tiers of qualities, cutoff, filters and sizes
+ * @summary Create a Target from its tiers of qualities, cutoff, filters, sizes, Custom Format scores and propers setting
  */
 export const CreateTargetBody = TargetsNewTarget;
 

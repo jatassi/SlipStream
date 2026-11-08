@@ -31,7 +31,7 @@ func randomWorld(t *testing.T, r *rand.Rand) world {
 			n := 1 + r.IntN(len(picked))
 			tiers, picked = append(tiers, picked[:n]), picked[n:]
 		}
-		target, err := targets.NewTarget(targets.Spec{Name: string(rune('A' + i)), Tiers: tiers, Cutoff: tiers[r.IntN(len(tiers))][0]})
+		target, err := targets.NewTarget(targets.Spec{Scores: targets.Scores{Increment: 1}, Name: string(rune('A' + i)), Tiers: tiers, Cutoff: tiers[r.IntN(len(tiers))][0]})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -107,7 +107,8 @@ func bestRank(w world, item works.ItemID, target targets.Target) (best targets.R
 func TestATieKeepsTheIncumbentElseTheOldestFile(t *testing.T) {
 	item := works.Item{ID: works.ItemID{UUID: storage.NewUUID()}}
 	hd, err := targets.NewTarget(targets.Spec{
-		Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p, release.Remux1080p}, {release.WEBDL1080p, release.WEBRip1080p}}, Cutoff: release.Bluray1080p,
+		Scores: targets.Scores{Increment: 1},
+		Name:   "HD", Tiers: [][]release.Quality{{release.Bluray1080p, release.Remux1080p}, {release.WEBDL1080p, release.WEBRip1080p}}, Cutoff: release.Bluray1080p,
 	})
 	if err != nil {
 		t.Fatal(err)

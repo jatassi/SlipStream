@@ -9,9 +9,11 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
+	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -83,6 +85,8 @@ type Config struct {
 	// Types is every Content Type this binary registers, by its facet.
 	Types   map[works.TypeID]Facet
 	Changed Publisher
+	// Formats is the limit a Custom Format's pattern runs under.
+	Formats formats.Timings
 }
 
 // Describer is works.Works as Open reads it.
@@ -90,7 +94,10 @@ type Describer interface {
 	Describe(t works.TypeID) (works.Description, bool)
 }
 
-type Targets struct{ cfg Config }
+type Targets struct {
+	cfg     Config
+	catalog catalog
+}
 
 // Publish sends targets.changed naming ws, for a Change files applied and
 // committed.
@@ -122,14 +129,31 @@ func insertTarget(ctx context.Context, q *db.Queries, t Target) error {
 	case taken:
 		return ErrTargetNameTaken
 	}
-	if err := q.InsertTarget(ctx, db.InsertTargetParams{ID: t.ID, Name: t.Name, CreatedAt: t.CreatedAt, CutoffTier: int64(t.Cutoff)}); err != nil {
+	err := q.InsertTarget(ctx, db.InsertTargetParams{
+		ID: t.ID, Name: t.Name, CreatedAt: t.CreatedAt, CutoffTier: int64(t.Cutoff), MinScore: int64(t.Scores.Minimum),
+		UpgradeUntil: int64(t.Scores.UpgradeUntil), ScoreIncrement: int64(t.Scores.Increment), Propers: t.Propers.String(),
+	})
+	if err != nil {
 		return err
 	}
 	return insertRules(ctx, q, t)
 }
 
-// insertRules writes t's qualities, sizes and filters.
+// insertRules writes t's qualities, sizes, filters and format scores, or
+// ErrNoFormat when a score names no Custom Format.
 func insertRules(ctx context.Context, q *db.Queries, t Target) error {
+	scored := slices.SortedFunc(maps.Keys(t.Scores.Formats), byFormatID)
+	switch n, err := q.CountFormatsOf(ctx, rowIDs(scored)); {
+	case err != nil:
+		return err
+	case int(n) != len(scored):
+		return ErrNoFormat
+	}
+	for _, id := range scored {
+		if err := q.InsertFormatScore(ctx, db.InsertFormatScoreParams{TargetID: t.ID, FormatID: rowID(id), Score: int64(t.Scores.Formats[id])}); err != nil {
+			return err
+		}
+	}
 	position := int64(0)
 	for i, tier := range t.Tiers {
 		for _, a := range tier {
@@ -198,7 +222,8 @@ func (t *Targets) DuplicateTarget(ctx context.Context, _ identity.Admin, id Targ
 			return ErrNoTarget
 		}
 		copied = Target{
-			ID: TargetID{UUID: storage.NewUUID()}, Tiers: all[i].Tiers, Cutoff: all[i].Cutoff, Filters: all[i].Filters, CreatedAt: storage.Now(),
+			ID: TargetID{UUID: storage.NewUUID()}, Tiers: all[i].Tiers, Cutoff: all[i].Cutoff, Filters: all[i].Filters,
+			Scores: all[i].Scores, Propers: all[i].Propers, CreatedAt: storage.Now(),
 		}
 		for n := 1; copied.Name == "" || slices.ContainsFunc(all, func(t Target) bool { return t.Name == copied.Name }); n++ {
 			copied.Name = all[i].Name + " copy"
@@ -279,8 +304,13 @@ func listTargets(ctx context.Context, q *db.Queries) ([]Target, error) {
 	out := make([]Target, len(rows))
 	at := map[TargetID]*Target{}
 	for i, row := range rows {
-		out[i] = Target{ID: row.ID, Name: row.Name, Cutoff: int(row.CutoffTier), CreatedAt: row.CreatedAt}
+		if out[i], err = targetOf(row); err != nil {
+			return nil, err
+		}
 		at[row.ID] = &out[i]
+	}
+	if err := readScores(ctx, q, at); err != nil {
+		return nil, err
 	}
 	for _, row := range qualities {
 		t := at[row.TargetID]
@@ -309,6 +339,27 @@ func listTargets(ctx context.Context, q *db.Queries) ([]Target, error) {
 		out[i].Contains = containedBy(out[i], out)
 	}
 	return out, nil
+}
+
+// targetOf is row's Target with no rules, scoring no format yet.
+func targetOf(row db.TargetsTarget) (Target, error) {
+	propers, err := ParsePropers(row.Propers)
+	if err != nil {
+		return Target{}, fmt.Errorf("target %s: %w", row.ID, err)
+	}
+	return Target{
+		ID: row.ID, Name: row.Name, Cutoff: int(row.CutoffTier), Propers: propers, CreatedAt: row.CreatedAt,
+		Scores: Scores{Formats: map[formats.ID]int{}, Minimum: int(row.MinScore), UpgradeUntil: int(row.UpgradeUntil), Increment: int(row.ScoreIncrement)},
+	}, nil
+}
+
+// readScores adds each Target's format scores to it.
+func readScores(ctx context.Context, q *db.Queries, at map[TargetID]*Target) error {
+	scores, err := q.ListFormatScores(ctx)
+	for _, s := range scores {
+		at[s.TargetID].Scores.Formats[formatID(s.FormatID)] = int(s.Score)
+	}
+	return err
 }
 
 // containedBy is the id of every Target in all but t that t contains.

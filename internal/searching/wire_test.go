@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/release"
 )
 
 func TestAJobAndItsAnswerCrossTheWireWhole(t *testing.T) {
@@ -56,7 +57,7 @@ func TestAJobAndItsAnswerCrossTheWireWhole(t *testing.T) {
 			Categories: []int{5040}, IDs: map[string]string{"tvdbid": "1"}, Factors: Factors{Download: 0, Upload: 2},
 			Floor: Floor{MinRatio: 1, MinSeed: 48 * time.Hour}, Details: "https://site.test/t/1",
 			Source: &Source{ID: "12", Name: "Larkspur", Privacy: "private", Origin: "prowlarr"},
-			Flags:  []Flag{Freeleech, Internal},
+			Flags:  []Flag{release.Freeleech, release.Internal},
 		}},
 	}
 	back, err := decodeAnswer(encodeAnswer(answer))
@@ -88,6 +89,14 @@ func TestANativeJobCrossesTheWireWithItsPortTokenAndCode(t *testing.T) {
 	got, site, err := decodeJob(encodeJob(native))
 	if err != nil || !reflect.DeepEqual(got, native) || site.Port != "hdbits" || site.Code != "123456" {
 		t.Fatalf("the native job came across as %+v, %+v, %v; want %+v", got, site, err, native)
+	}
+}
+
+func TestAnAnswerWithAFlagNoIndexerFlagNamesIsRefused(t *testing.T) {
+	w := encodeAnswer(Answer{Releases: []Release{{Title: "Lantern.S02E05"}}})
+	w.GetReleases().GetReleases()[0].Flags = []string{"g_freeleech"}
+	if _, err := decodeAnswer(w); err == nil {
+		t.Fatal("an answer whose release is flagged g_freeleech decoded, want an error")
 	}
 }
 

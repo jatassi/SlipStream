@@ -116,7 +116,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 			listed = append(listed, Release{
 				Name: r.Name, Size: size, InfoHash: r.InfoHash.String(),
 				TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], TVDB: r.TVDB, Seeders: int64(r.Seeders), Torrent: r.Metainfo, Unlisted: unlisted[r.Name],
-				Link: r.Link, Trackerless: r.Trackerless,
+				Link: r.Link, Trackerless: r.Trackerless, DownloadFactor: r.DownloadFactor,
 			})
 		}
 	}
@@ -177,10 +177,18 @@ type Release struct {
 	Link scenario.Link
 	// Trackerless leaves tr out of its magnet link.
 	Trackerless bool
-	// Leechers, Grabs and Freeleech are what an extended feed lists.
-	Leechers  int64
-	Grabs     int64
-	Freeleech bool
+	// Leechers, Grabs and DownloadFactor are what an extended feed lists.
+	// A nil DownloadFactor lists 1.
+	Leechers       int64
+	Grabs          int64
+	DownloadFactor *float64
+}
+
+func (rel Release) downloadFactor() float64 {
+	if rel.DownloadFactor == nil {
+		return 1
+	}
+	return *rel.DownloadFactor
 }
 
 // APIKey is the site's API key in a world with Scenario s.
@@ -603,21 +611,17 @@ func extendedAttrs(rel Release, origin string, extended bool) string {
 	if !extended {
 		return ""
 	}
-	download := 1
-	if rel.Freeleech {
-		download = 0
-	}
 	return fmt.Sprintf(`      <pubDate>%s</pubDate>
       <comments>%s</comments>
       <category>%d</category>
       <torznab:attr name="category" value="%d" />
       <torznab:attr name="peers" value="%d" />
       <torznab:attr name="grabs" value="%d" />
-      <torznab:attr name="downloadvolumefactor" value="%d" />
+      <torznab:attr name="downloadvolumefactor" value="%g" />
       <torznab:attr name="uploadvolumefactor" value="1" />
       <torznab:attr name="minimumratio" value="1" />
       <torznab:attr name="minimumseedtime" value="172800" />
-`, published, esc(origin+"/details/"+rel.InfoHash), rel.family(), rel.family(), rel.Seeders+rel.Leechers, rel.Grabs, download)
+`, published, esc(origin+"/details/"+rel.InfoHash), rel.family(), rel.family(), rel.Seeders+rel.Leechers, rel.Grabs, rel.downloadFactor())
 }
 
 // published is when the site says every release was posted.

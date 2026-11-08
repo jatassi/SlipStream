@@ -69,6 +69,7 @@ type Probed struct {
 	HDR        Fact[[]HDR]
 	Audio      Fact[[]AudioCodec]
 	Channels   Fact[[]Channels]
+	Languages  Fact[[]Language]
 }
 
 // WithProbe is f as Judge reads a file. Each fact the probe measured wins
@@ -83,6 +84,7 @@ func (f Facts) WithProbe(p Probed) Facts {
 	f.HDR = probedOr(p.HDR, f.HDR)
 	f.Audio = probedOr(p.Audio, f.Audio)
 	f.Channels = probedOr(p.Channels, f.Channels)
+	f.Languages = probedOr(p.Languages, f.Languages)
 	return f
 }
 

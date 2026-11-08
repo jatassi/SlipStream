@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/dlclark/regexp2"
+	"github.com/jatassi/slipstream/internal/regex"
 )
 
 // patternTables writes each owner's internal/upstream package: one
@@ -51,6 +51,34 @@ func patternTables(t *tree, p pins, cos map[string]checkout) (map[string]int, er
 
 type tableKey struct{ owner, from, file string }
 
+// readStrings reads the string literals in the initializer of field
+// name: "name = new HashSet<string> { ".a", ".b" }", or a Dictionary's
+// keys, whose values aren't strings.
+func readStrings(s *source, name string) ([]string, error) {
+	c := &cursor{source: s}
+	for c.i < len(c.toks) && (!c.is(0, name) || !c.is(1, "=") && !c.is(1, "=>")) {
+		c.i++
+	}
+	for c.i < len(c.toks) && !c.is(0, "{") {
+		c.i++
+	}
+	if c.i >= len(c.toks) {
+		return nil, s.errorf(0, "no field %s with an initializer", name)
+	}
+	start := c.i
+	c.skipBalanced()
+	var list []string
+	for _, t := range c.toks[start:c.i] {
+		if t.kind == tString {
+			list = append(list, t.text)
+		}
+	}
+	if len(list) == 0 {
+		return nil, s.errorf(c.toks[start].line, "field %s lists no strings", name)
+	}
+	return list, nil
+}
+
 func groupPatterns(groups map[tableKey][]regexDecl, counts map[string]int, pf patternFile, co checkout) error {
 	s, err := co.source(pf.File)
 	if err != nil {
@@ -59,6 +87,13 @@ func groupPatterns(groups map[tableKey][]regexDecl, counts map[string]int, pf pa
 	decls, err := readRegexes(s, pf.Skip)
 	if err != nil {
 		return err
+	}
+	for _, name := range pf.Strings {
+		list, err := readStrings(s, name)
+		if err != nil {
+			return err
+		}
+		decls = append(decls, regexDecl{name: name, list: list})
 	}
 	seen := map[string]bool{}
 	for _, d := range decls {
@@ -87,6 +122,14 @@ func writeDecl(b *strings.Builder, p pins, owner, app, file string, d regexDecl)
 	ident := goIdent(app, stem(file), d.name)
 	if isCore(owner) {
 		ident = coreIdent(p.CoreWords, ident)
+	}
+	if d.list != nil {
+		quoted := make([]string, len(d.list))
+		for i, v := range d.list {
+			quoted[i] = strconv.Quote(v)
+		}
+		fmt.Fprintf(b, "\t%s = []string{%s}\n", ident, strings.Join(quoted, ", "))
+		return
 	}
 	elem := "Pattern"
 	if d.replace {
@@ -117,21 +160,38 @@ func item(replace bool, key string, it regexItem) string {
 	return pattern
 }
 
-// compileAll compiles every pattern of d on regexp2, the engine SlipStream
-// runs them on, with the options .NET and regexp2 share.
+// compileAll compiles every pattern of d on internal/regex, as SlipStream
+// runs it.
 func compileAll(co checkout, file string, d regexDecl) error {
 	for i, it := range d.items {
-		var opts regexp2.RegexOptions
-		for _, o := range it.options {
-			if v := netOptions[o]; v < 0x80 || v == 0x100 {
-				opts |= regexp2.RegexOptions(v)
-			}
+		o, err := regexOptions(it.options)
+		if err != nil {
+			return fmt.Errorf("%s %s %s[%d]: %w", co.Name, file, d.name, i, err)
 		}
-		if _, err := regexp2.Compile(it.text, opts); err != nil {
+		if _, err := regex.Compile(it.text, o); err != nil {
 			return fmt.Errorf("%s %s %s[%d] doesn't compile: %w", co.Name, file, d.name, i, err)
 		}
 	}
 	return nil
+}
+
+// regexOptions are the internal/regex Options for .NET's options by name.
+// Compiled and CultureInvariant change no match. Any other option is one
+// internal/regex can't run, so a pattern that sets it fails the sync.
+func regexOptions(names []string) (regex.Options, error) {
+	var o regex.Options
+	for _, name := range names {
+		switch name {
+		case "IgnoreCase":
+			o.IgnoreCase = true
+		case "IgnorePatternWhitespace":
+			o.IgnorePatternWhitespace = true
+		case "Compiled", "CultureInvariant":
+		default:
+			return regex.Options{}, fmt.Errorf("RegexOptions.%s has no internal/regex option", name)
+		}
+	}
+	return o, nil
 }
 
 // goString is s as a Go literal, raw when it can be, so a pattern reads as
