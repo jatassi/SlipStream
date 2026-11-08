@@ -3,13 +3,9 @@
 package mediatest
 
 import (
-	"cmp"
 	"context"
 	"fmt"
-	"maps"
 	"path/filepath"
-	"slices"
-	"strings"
 
 	"github.com/jatassi/slipstream/internal/media"
 )
@@ -25,16 +21,17 @@ type Prober struct {
 
 func (p Prober) Probe(_ context.Context, path string) (media.Record, error) {
 	path = "/" + filepath.ToSlash(path)
-	keys := slices.Concat(slices.Collect(maps.Keys(p.Of)), slices.Collect(maps.Keys(p.Fail)))
-	slices.SortFunc(keys, func(a, b string) int { return cmp.Compare(len(b), len(a)) })
-	for _, key := range keys {
-		if !strings.HasSuffix(path, "/"+key) {
+	for i := range len(path) {
+		if path[i] != '/' {
 			continue
 		}
+		key := path[i+1:]
 		if line, failed := p.Fail[key]; failed {
 			return media.Record{}, &media.UnreadableError{Line: line}
 		}
-		return p.Of[key], nil
+		if r, ok := p.Of[key]; ok {
+			return r, nil
+		}
 	}
 	return media.Record{}, fmt.Errorf("mediatest: no probe for %s", path[1:])
 }
