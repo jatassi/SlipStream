@@ -1,6 +1,7 @@
 package enginetest_test
 
 import (
+	"crypto/sha1" //nolint:gosec // BitTorrent v1 piece hashes are SHA-1 by spec (BEP 3)
 	"errors"
 	"net/netip"
 	"os"
@@ -208,4 +209,51 @@ func runEvents(e engine.Engine) []engine.Event {
 		}
 	}
 	return got
+}
+
+func TestACheckAfterLoseFindsWhatIsLeft(t *testing.T) {
+	const piece = 16 << 10
+	payload := make([]byte, 3*piece)
+	for i := range payload {
+		payload[i] = byte(i % 251)
+	}
+	var pieces []byte
+	for off := 0; off < len(payload); off += piece {
+		sum := sha1.Sum(payload[off : off+piece]) //nolint:gosec // BitTorrent v1 piece hashes are SHA-1 by spec (BEP 3)
+		pieces = append(pieces, sum[:]...)
+	}
+	meta, err := bencode.Encode(map[string]any{"info": map[string]any{"length": len(payload), "name": "a.mkv", "piece length": piece, "pieces": pieces}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := bencode.DecodeMetainfo(meta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.mkv"), payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	w := enginetest.NewWorld()
+	e, err := w.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("127.0.0.3:0")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, err := e.Add(engine.AddParams{Metainfo: meta, SavePath: dir, SeedMode: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := w.Lose(m.InfoHash, piece+1); err != nil {
+		t.Fatal(err)
+	}
+	if s, _ := statusOf(t, e, h); s.Done != int64(len(payload)) {
+		t.Fatalf("before a check the torrent reads %d bytes done, want all %d still", s.Done, len(payload))
+	}
+	if err := e.Recheck(h); err != nil {
+		t.Fatal(err)
+	}
+	if s, err := statusOf(t, e, h); err != nil || s.Done != piece || s.State != engine.StateDownloading {
+		t.Fatalf("checked after losing a piece and a byte, the torrent reads %+v, %v; want only its first piece done", s, err)
+	}
 }

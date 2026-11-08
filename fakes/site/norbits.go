@@ -132,7 +132,7 @@ func (s *site) nbBrowse(w http.ResponseWriter, r *http.Request) {
 	var rows strings.Builder
 	rows.WriteString(`<table id="torrentTable"><tbody><tr><td>Type</td><td>Navn</td><td>Filer</td><td>Kom.</td><td>Lagt til</td><td>TTL</td>` +
 		`<td>Størrelse</td><td>Lastet ned</td><td>Seeders</td><td>Leechers</td><td>Opplaster</td></tr>`)
-	for _, rel := range s.found(q.Get("imdbsearch"), q.Get("search")) {
+	for _, rel := range s.found(r, q.Get("imdbsearch"), q.Get("search")) {
 		extra := ""
 		if rel.downloadFactor() == 0 {
 			extra = ` <img src="/pic/free.png" title="100% freeleech">`
@@ -156,7 +156,7 @@ func (s *site) nbDownload(w http.ResponseWriter, r *http.Request) {
 		nbPage(w, false, "<p>Du må logge inn for å se denne siden.</p>")
 		return
 	}
-	rel, ok := s.byHash(r.URL.Query().Get("id"))
+	rel, ok := s.byHash(r, r.URL.Query().Get("id"))
 	if !ok || r.URL.Query().Get("passkey") != Key(s.scenario, NorBits) {
 		http.NotFound(w, r)
 		return

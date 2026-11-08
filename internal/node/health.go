@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/trackers"
 )
 
 // healthCategories is every Health category after Storage, one line each,
@@ -19,6 +20,7 @@ func healthCategories(h *half) []health.Category {
 	return []health.Category{
 		{About: nodes.HealthAbout, Source: h.nodes.HealthSource()},
 		{About: downloadclients.HealthAbout, Source: h.clients.HealthSource()},
+		{About: trackers.HealthAbout, Source: health.Join(h.trackers.HealthSource(), h.tasks.HealthSource(health.SeedingID))},
 		{About: indexers.HealthAbout, Source: health.Join(h.indexers.HealthSource(), h.tasks.HealthSource(health.IndexersID))},
 		{About: tasks.HealthAbout, Source: h.tasks.HealthSource(health.ScheduledTasksID)},
 	}

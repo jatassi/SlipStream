@@ -81,7 +81,7 @@ func (s *site) larkspurBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 	var rows strings.Builder
 	rows.WriteString(`<table id="torrents"><tr><th>Category</th><th>Name</th></tr>`)
-	for _, rel := range s.found(r.URL.Query().Get("search")) {
+	for _, rel := range s.found(r, r.URL.Query().Get("search")) {
 		fmt.Fprintf(&rows, `<tr class="torrent"><td><a href="browse.php?cat=2">Films HD</a></td><td><a class="title" href="details.php?id=%[1]s">%[2]s</a></td>`+
 			`<td><a class="download" href="download.php?id=%[1]s">Download</a></td><td class="size">%[3]d</td><td class="seeders">%[4]d</td>`+
 			`<td class="leechers">%[5]d</td><td class="added">2026-06-01 12:00</td></tr>`, rel.InfoHash, html.EscapeString(rel.Name), rel.Size, rel.Seeders, rel.Leechers)
@@ -110,7 +110,7 @@ func (s *site) larkspurDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	hash := r.URL.Query().Get("id")
-	rel, found := s.byHash(hash)
+	rel, found := s.byHash(r, hash)
 	s.mu.Lock()
 	thanked := s.thanked[token+"/"+hash]
 	s.mu.Unlock()

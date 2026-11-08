@@ -15,7 +15,7 @@ type Cause = Omit<Signal, "anchor" | "rows"> & { readonly key: string };
 
 function causeOf(row: Row, node: string, clock: Clock): Cause | undefined {
   const host =
-    row.tracker === undefined || row.tracker.host === "" ? "Its announce URL" : row.tracker.host;
+    row.announce === undefined || row.announce.host === "" ? "Its announce URL" : row.announce.host;
   switch (row.severity) {
     case "none":
       return undefined;
@@ -68,8 +68,8 @@ function warningOf(row: Row, host: string, node: string, clock: Clock): Cause {
       verdict: `New downloads on ${node} wait for disk space.`,
     };
   }
-  const said = row.tracker?.message;
-  const retry = row.tracker?.retryAt;
+  const said = row.announce?.message;
+  const retry = row.announce?.retryAt;
   return {
     key: `tracker:${host}:${said ?? ""}`,
     signal: "warn",

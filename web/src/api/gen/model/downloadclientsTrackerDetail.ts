@@ -5,6 +5,11 @@ export interface DownloadclientsTrackerDetail {
   acceptsAt?: string;
   /** When it last responded, set while live */
   answeredAt?: string;
+  /**
+   * The leechers its last announce response counted, set while live and the response carried a count
+   * @minimum 0
+   */
+  leechers?: number;
   /** The announce URL's failure reason or warning, verbatim */
   message?: string;
   /**
@@ -16,6 +21,11 @@ export interface DownloadclientsTrackerDetail {
   nextAnnounce?: string;
   /** When it tries a failing announce URL again, from the last report */
   retryAt?: string;
+  /**
+   * The seeders its last announce response counted, set while live and the response carried a count
+   * @minimum 0
+   */
+  seeders?: number;
   status: DownloadclientsTrackerDetailStatus;
   /** @minimum 0 */
   tier: number;

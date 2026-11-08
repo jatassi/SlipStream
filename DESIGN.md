@@ -603,7 +603,7 @@ Running tracks are `role="progressbar"` with a stage-and-title label. Others are
 There are two kinds, and every bar maps to one.
 - **Live.** A white fill rising from the Work's hue, with the live glow. A sheen sweeps it every 2.4s. Width moves linearly each second. The track is a 6px capsule at `hsl(var(--h) 60% 80% / .14)` with a hue ring. Used for downloads, Conversions, Transfers and live matrix cells.
 - **Meter.** Flat `ink-2` on a 4px `fill` capsule, with no glow and no sheen. Used for storage, provider allowances and seeding goals.
-  - **Seeding goal.** Two lanes, ratio and seeded time, 4px each in tables and 8px in the Inspector. A 2px tick marks the tracker's minimum. It turns `warn` when a hit and run is at risk, and the goal-met state carries a green chip.
+  - **Seeding goal.** The lane meter: two lanes, ratio and seeding time, 4px each in tables and 8px in the Inspector, where each lane's name and value sit above it. A lane runs to its goal, or to the Tracker's rule when the rule asks more, and a lane past its end is full. A 2px `ink-1` tick, taller than the lane, marks the rule and turns `warn` while a hit and run is at risk. A lane the rule doesn't count has no tick. A goal short of the rule is a 2px `ink-3` mark. A lane neither the rule nor the goal counts is an empty `hairline-strong` outline. The amber tick never stands alone: an at-risk row carries the amber "At risk" chip, and a met goal the green "Goal met" chip. A Forever goal's lanes run to the rule, and the row then reads "Seeds with no end". Each lane is a `meter` whose value text names its rule and goal.
   - **Allowance.** Thin by design.
 - **Spinner.** One spinner: 14px, a white arc on a faint ring, turning every 0.8s.
 

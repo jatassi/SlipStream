@@ -17,26 +17,81 @@ type Target struct {
 	Client *ClientID
 }
 
-// Ask is what a Grab's client is chosen from: the Downloading Node its
-// fetch picked by the Work's root, and the Tracker its Release reached.
+// Ask is what a Grab's client is chosen from: the Node that holds its
+// Work's library root, the Indexer that found its Release and the Tracker
+// that Release reached, and the client an Admin sent it to, nil for none.
 type Ask struct {
-	Node    role.NodeID
+	Root    role.NodeID
+	Indexer indexers.ID
 	Tracker indexers.TrackerID
+	Sent    *Choice
 }
 
-// Route is the one function that chooses the client a Grab goes to: the
-// client a.Node's New Grabs go to, its built-in client by default and
-// never an off one. S29 (Trackers and seeding goals) puts Tracker
-// routing in front of it here. It reads in the caller's tx.
-func Route(ctx context.Context, r storage.Reader[file], a Ask) (Target, error) {
-	id, err := db.New(r).GetGrabsTo(ctx, a.Node)
+// Routes is Tracker routing, as trackers answers it: the client a Grab of
+// tracker that Indexer indexer found goes to, false when it goes by its
+// Work's library root. It reads in the caller's tx.
+type Routes interface {
+	Route(ctx context.Context, r storage.Reader[file], tracker indexers.TrackerID, indexer indexers.ID) (Target, bool, error)
+}
+
+// RouteRoster is what routing a Grab reads of the Nodes.
+type RouteRoster interface {
+	// Route is where r work homed on home goes now. It fails with
+	// *nodes.Unrouted while no Node may take it.
+	Route(r role.Name, home role.NodeID) (role.NodeID, error)
+	Holds(r role.Name, node role.NodeID) bool
+	WrittenOff(r role.Name, node role.NodeID) bool
+}
+
+// Router chooses the client each Grab goes to.
+type Router struct {
+	Roster RouteRoster
+	Routes Routes
+}
+
+// Route is the client a Grab goes to now: the one an Admin sent it to
+// while that client may take it, else its Tracker's route, else the
+// client where New Grabs go on the Downloading Node its Work's root
+// routes to, the built-in client by default and never an off one. A
+// Tracker's route may name a Node out of step, which the Grab waits for.
+// It reads in the caller's tx, and fails with *nodes.Unrouted while no
+// Node may take a Grab that goes by its root.
+func (rt Router) Route(ctx context.Context, r storage.Reader[file], a Ask) (Target, error) {
+	if a.Sent != nil {
+		t, err := Usable(ctx, r, *a.Sent, rt.downloading)
+		if err == nil || !Unusable(err) {
+			return t, err
+		}
+	}
+	if t, ok, err := rt.Routes.Route(ctx, r, a.Tracker, a.Indexer); err != nil || ok {
+		return t, err
+	}
+	node, err := rt.Roster.Route(role.Downloading, a.Root)
+	if err != nil {
+		return Target{}, err
+	}
+	id, err := db.New(r).GetGrabsTo(ctx, node)
 	switch {
 	case errors.Is(err, storage.ErrNoRows):
-		return Target{Node: a.Node}, nil
+		return Target{Node: node}, nil
 	case err != nil:
 		return Target{}, err
 	}
-	return Target{Node: a.Node, Client: &id}, nil
+	return Target{Node: node, Client: &id}, nil
+}
+
+// downloading reports whether node may take a Grab's download now: it
+// holds Downloading and the Admin hasn't written that off.
+func (rt Router) downloading(node role.NodeID) bool {
+	return rt.Roster.Holds(role.Downloading, node) && !rt.Roster.WrittenOff(role.Downloading, node)
+}
+
+// Unusable reports whether err is Usable refusing a client because it
+// can't take a Grab now: it is off or deleted, or its Node doesn't hold
+// Downloading.
+func Unusable(err error) bool {
+	_, off := errors.AsType[*ClientOffError](err)
+	return off || errors.Is(err, ErrNotDownloading) || errors.Is(err, ErrNoClient)
 }
 
 // Choice is a client as an Admin picks it: an external client by id, or

@@ -9,6 +9,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/site"
 	"github.com/jatassi/slipstream/fakes/world"
+	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
 
 type trackerView struct {
@@ -69,8 +70,10 @@ type trackedGrab struct {
 }
 
 type trackedTorrent struct {
-	TrackerID *string `json:"trackerId"`
-	Trackers  []struct {
+	Tracker *struct {
+		ID string `json:"id"`
+	} `json:"tracker"`
+	Trackers []struct {
 		URL string `json:"url"`
 	} `json:"trackers"`
 }
@@ -83,13 +86,13 @@ func (w *walked) trackedBy(t *testing.T, id string) (grab, torrent string, annou
 		t.Fatalf("Grab %s has Tracker %v and Torrent %v, want both", id, g.TrackerID, g.TorrentID)
 	}
 	tr := decode(t, "getTorrent", w.a.Admin("home", http.MethodGet, "/api/v1/torrents/"+*g.TorrentID, ""), &trackedTorrent{})
-	if tr.TrackerID == nil {
+	if tr.Tracker == nil {
 		t.Fatalf("Torrent %s names no Tracker", *g.TorrentID)
 	}
 	for _, a := range tr.Trackers {
 		announce = append(announce, must(url.Parse(a.URL)).Hostname())
 	}
-	return *g.TrackerID, *tr.TrackerID, announce
+	return *g.TrackerID, tr.Tracker.ID, announce
 }
 
 // TestATorznabSourceBecomesATrackerAtItsFirstGrabAndMergesWithItsGrabAndTorrent
@@ -133,5 +136,30 @@ func TestATorznabSourceBecomesATrackerAtItsFirstGrabAndMergesWithItsGrabAndTorre
 	}
 	if r := w.a.Admin("home", http.MethodGet, "/api/v1/trackers/"+source.ID, ""); r.Status != http.StatusNotFound {
 		t.Fatalf("getTracker of the merged Tracker = %d %s, want 404", r.Status, r.Body)
+	}
+}
+
+// TestATrackerIsRemovedOnceNoIndexerReachesIt refuses to remove Fixture
+// Site's Tracker while its Indexer reaches it, and removes it once the
+// Indexer is deleted.
+func TestATrackerIsRemovedOnceNoIndexerReachesIt(t *testing.T) {
+	t.Parallel()
+	w := begin(t, "home")
+	list := w.trackers(t)
+	if len(list) != 1 || list[0].Name != "Fixture Site" || len(list[0].IndexerIDs) != 1 {
+		t.Fatalf("the Trackers are %+v, want only Fixture Site's, reached by Fixture Site", list)
+	}
+	fixture := list[0]
+	worldtest.Expect(t, "removeTracker while its Indexer reaches it", w.a.Admin("home", http.MethodDelete, "/api/v1/trackers/"+fixture.ID, ""), worldtest.Reply{
+		Status: http.StatusConflict,
+		Body: `{"status":409,"code":"tracker_in_use","title":"This Tracker is still in use",` +
+			`"detail":"Fixture Site is still in use. Delete its Indexer first."}` + "\n",
+	})
+	if r := w.a.Admin("home", http.MethodDelete, "/api/v1/indexers/"+fixture.IndexerIDs[0], ""); r.Status != http.StatusNoContent {
+		t.Fatalf("deleteIndexer = %d %s, want 204", r.Status, r.Body)
+	}
+	worldtest.Expect(t, "removeTracker", w.a.Admin("home", http.MethodDelete, "/api/v1/trackers/"+fixture.ID, ""), worldtest.Reply{Status: http.StatusNoContent})
+	if after := w.trackers(t); len(after) != 0 {
+		t.Fatalf("after the removal the Trackers are %+v, want none", after)
 	}
 }

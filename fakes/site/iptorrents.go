@@ -64,7 +64,7 @@ func (s *site) iptSearch(w http.ResponseWriter, r *http.Request) {
 	var rows strings.Builder
 	rows.WriteString(`<table id="torrents"><thead><tr><th>Type</th><th>Sort by name</th><th>Bookmark</th><th>Download</th><th>Sort by files</th>` +
 		`<th>Sort by size</th><th>Sort by comments</th><th>Sort by snatches</th><th>Sort by seeders</th><th>Sort by leechers</th></tr></thead><tbody>`)
-	for _, rel := range s.found(queries...) {
+	for _, rel := range s.found(r, queries...) {
 		free := ""
 		if rel.downloadFactor() == 0 {
 			free = `<span class="free">FreeLeech</span>`
@@ -84,7 +84,7 @@ func (s *site) iptDownload(w http.ResponseWriter, r *http.Request) {
 		iptPage(w, false, "")
 		return
 	}
-	rel, ok := s.byHash(r.PathValue("id"))
+	rel, ok := s.byHash(r, r.PathValue("id"))
 	if !ok {
 		http.NotFound(w, r)
 		return

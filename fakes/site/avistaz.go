@@ -72,7 +72,7 @@ func (s *site) azSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	var rows []azRow
-	for _, rel := range s.found(q.Get("imdb"), q.Get("search")) {
+	for _, rel := range s.found(r, q.Get("imdb"), q.Get("search")) {
 		if tmdb := q.Get("tmdb"); tmdb != "" && tmdb != strconv.FormatInt(rel.TMDBID, 10) {
 			continue
 		}
@@ -106,7 +106,7 @@ func videoQuality(name string) string {
 // passkey, as an RSS link does.
 func (s *site) azDownload(w http.ResponseWriter, r *http.Request) {
 	hash, isTorrent := strings.CutSuffix(r.PathValue("file"), ".torrent")
-	rel, found := s.byHash(hash)
+	rel, found := s.byHash(r, hash)
 	if r.PathValue("passkey") != Key(s.scenario, AvistaZ) || !isTorrent || !found {
 		http.NotFound(w, r)
 		return

@@ -2,9 +2,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { sentenceOf } from "../api/errors";
-import type { IndexersTracker } from "../api/gen/model";
-import { mergeTracker } from "../api/gen/query/indexers/indexers";
-import { adoptMerge } from "../live/adopt";
+import type { TrackersTracker } from "../api/gen/model";
+import { mergeTracker } from "../api/gen/query/trackers/trackers";
+import { adoptMerge } from "../live/adopt-trackers";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { Select } from "../ui/select";
 import { toast } from "../ui/toast";
@@ -23,10 +23,13 @@ export function MergeTrackerDialog({
   tracker,
   others,
   onClose,
+  onMerged,
 }: {
-  tracker: IndexersTracker;
-  others: readonly IndexersTracker[];
+  tracker: TrackersTracker;
+  others: readonly TrackersTracker[];
   onClose: () => void;
+  /** Runs before the merged Tracker leaves the caches, such as to leave its page. */
+  onMerged?: ((kept: TrackersTracker) => Promise<unknown>) | undefined;
 }) {
   const queryClient = useQueryClient();
   const options = others.map((other) => ({ value: other.id, label: other.name }));
@@ -45,6 +48,7 @@ export function MergeTrackerDialog({
       onConfirm={async () => {
         try {
           const saved = await mergeTracker(tracker.id, { into });
+          await onMerged?.(saved);
           adoptMerge(queryClient, tracker.id, saved);
           toast(`Merged ${tracker.name} into ${saved.name}`);
         } catch (error) {

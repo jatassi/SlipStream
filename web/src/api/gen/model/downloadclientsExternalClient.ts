@@ -4,6 +4,7 @@ import type { DownloadclientsExternalClientActionsItem } from "./downloadclients
 import type { DownloadclientsExternalClientKind } from "./downloadclientsExternalClientKind.ts";
 import type { DownloadclientsExternalClientReach } from "./downloadclientsExternalClientReach.ts";
 import type { DownloadclientsPollProblem } from "./downloadclientsPollProblem.ts";
+import type { DownloadclientsRoutedTracker } from "./downloadclientsRoutedTracker.ts";
 import type { SettingDurationField } from "./settingDurationField.ts";
 
 export interface DownloadclientsExternalClient {
@@ -50,6 +51,8 @@ export interface DownloadclientsExternalClient {
    * @minimum 0
    */
   torrents: number;
+  /** The private Trackers whose Grabs download on it now, by name */
+  trackers: DownloadclientsRoutedTracker[];
   /** Empty when it signs in with none */
   username: string;
   /**

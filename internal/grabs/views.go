@@ -14,13 +14,37 @@ import (
 )
 
 // View is a Grab with its live download or Transfer progress, nil when
-// none, its metadata search, nil unless it fetches from a magnet link,
-// and why its fetch waits on its Indexer, nil unless it does.
+// none, its metadata search, nil unless it fetches from a magnet link, why
+// its fetch waits on its Indexer, nil unless it does, and the client whose
+// Node it waits for, nil unless it does.
 type View struct {
 	Grab
 	Progress  *Progress
 	Metadata  *MetadataSearch
 	FetchWait *indexers.FetchWait
+	WaitsFor  *ClientWait
+}
+
+// reads is what a Grab's view reads beside the Grab, in the same snapshot.
+type reads struct {
+	metadataWait time.Duration
+	fetchWaits   map[indexers.ID]indexers.FetchWait
+	clientWaits  map[GrabID]ClientWait
+}
+
+func (gr *Grabs) readsIn(ctx context.Context, r storage.Reader[file], grabs []Grab) (reads, error) {
+	var (
+		out reads
+		err error
+	)
+	if out.fetchWaits, err = gr.fetchWaits(ctx, r, grabs); err != nil {
+		return reads{}, err
+	}
+	if out.clientWaits, err = gr.clientWaits(ctx, r, grabs); err != nil {
+		return reads{}, err
+	}
+	out.metadataWait, err = metadataWaitIn(ctx, r)
+	return out, err
 }
 
 // List lists every Grab, newest first.
@@ -43,8 +67,7 @@ func (gr *Grabs) OfIndexer(ctx context.Context, _ identity.Admin, id indexers.ID
 
 func (gr *Grabs) listed(ctx context.Context, list func(context.Context, storage.Reader[file]) ([]db.GrabsGrab, error)) ([]View, error) {
 	var grabs []Grab
-	var wait time.Duration
-	var waits map[indexers.ID]indexers.FetchWait
+	var rd reads
 	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		rows, err := list(ctx, r)
 		if err != nil {
@@ -53,16 +76,13 @@ func (gr *Grabs) listed(ctx context.Context, list func(context.Context, storage.
 		if grabs, err = loadAll(ctx, r, rows); err != nil {
 			return err
 		}
-		if waits, err = gr.fetchWaits(ctx, r, grabs); err != nil {
-			return err
-		}
-		wait, err = metadataWaitIn(ctx, r)
+		rd, err = gr.readsIn(ctx, r, grabs)
 		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-	return gr.views(ctx, grabs, wait, waits)
+	return gr.views(ctx, grabs, rd)
 }
 
 // fetchWaits is why the fetch of each of grabs that fetches a .torrent
@@ -99,8 +119,7 @@ func (gr *Grabs) Moving(ctx context.Context, _ identity.Admin) (int, error) {
 // Get reads Grab id, ErrNoGrab when none has it.
 func (gr *Grabs) Get(ctx context.Context, _ identity.Admin, id GrabID) (View, error) {
 	var g Grab
-	var wait time.Duration
-	var waits map[indexers.ID]indexers.FetchWait
+	var rd reads
 	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		row, err := db.New(r).GetGrab(ctx, id)
 		if errors.Is(err, storage.ErrNoRows) {
@@ -116,32 +135,32 @@ func (gr *Grabs) Get(ctx context.Context, _ identity.Admin, id GrabID) (View, er
 		if g, err = load(ctx, r, row, rel); err != nil {
 			return err
 		}
-		if waits, err = gr.fetchWaits(ctx, r, []Grab{g}); err != nil {
-			return err
-		}
-		wait, err = metadataWaitIn(ctx, r)
+		rd, err = gr.readsIn(ctx, r, []Grab{g})
 		return err
 	})
 	if err != nil {
 		return View{}, err
 	}
-	views, err := gr.views(ctx, []Grab{g}, wait, waits)
+	views, err := gr.views(ctx, []Grab{g}, rd)
 	if err != nil {
 		return View{}, err
 	}
 	return views[0], nil
 }
 
-func (gr *Grabs) views(ctx context.Context, grabs []Grab, wait time.Duration, waits map[indexers.ID]indexers.FetchWait) ([]View, error) {
+func (gr *Grabs) views(ctx context.Context, grabs []Grab, rd reads) ([]View, error) {
 	progress, err := gr.progress(ctx, grabs)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]View, len(grabs))
 	for i, g := range grabs {
-		out[i] = View{Grab: g, Progress: progress[g.ID], Metadata: gr.metadataSearch(g, wait)}
-		if w, ok := waits[g.Ticket.Indexer]; ok && fromIndexer(g) {
+		out[i] = View{Grab: g, Progress: progress[g.ID], Metadata: gr.metadataSearch(g, rd.metadataWait)}
+		if w, ok := rd.fetchWaits[g.Ticket.Indexer]; ok && fromIndexer(g) {
 			out[i].FetchWait = &w
+		}
+		if w, ok := rd.clientWaits[g.ID]; ok {
+			out[i].WaitsFor = &w
 		}
 	}
 	return out, nil

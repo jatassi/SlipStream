@@ -13,11 +13,14 @@ import (
 
 // GrabCells is files.Inflight over the Grabs: each cell takes its latest
 // Grab, downloading once past fetching and failed once failed. An
-// unfinished Grab whose Node is out of step waits on it, node_away, and
-// one whose Torrent's client is away while its Node is in step waits on
+// unfinished Grab whose Node is out of step waits on it, node_away, as
+// does a fetching one whose route names a client on a Node out of step.
+// One whose Torrent's client is away while its Node is in step waits on
 // the client, client_away.
 type GrabCells struct {
 	InStep func(role.NodeID) bool
+	// Router chooses the client each Grab's download goes to.
+	Router Router
 }
 
 const (
@@ -41,7 +44,7 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 	if err != nil {
 		return nil, err
 	}
-	away, err := g.awayClients(ctx, r)
+	waits, err := g.waits(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -63,8 +66,8 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 		case row.Stage == Failed:
 		case !g.InStep(row.NodeID):
 			cell.Waiting = NodeAway
-		case away[row.ID]:
-			cell.Waiting = ClientAway
+		default:
+			cell.Waiting = waits[row.ID]
 		}
 		out[key] = cell
 	}
@@ -80,8 +83,10 @@ func (GrabCells) ReleaseTitles(ctx context.Context, r storage.Reader[storage.Lib
 	return out, err
 }
 
-// awayClients is each unfinished Grab whose Torrent an away client holds.
-func (g GrabCells) awayClients(ctx context.Context, r storage.Reader[storage.Library]) (map[GrabID]bool, error) {
+// waits is what each unfinished Grab waits on while its own Node is in
+// step: a fetching one's route's Node out of step, node_away, or its
+// Torrent's away client, client_away.
+func (g GrabCells) waits(ctx context.Context, r storage.Reader[storage.Library]) (map[GrabID]string, error) {
 	open, err := db.New(r).ListOpenGrabs(ctx)
 	if err != nil {
 		return nil, err
@@ -94,10 +99,24 @@ func (g GrabCells) awayClients(ctx context.Context, r storage.Reader[storage.Lib
 	if err != nil {
 		return nil, err
 	}
-	out := map[GrabID]bool{}
-	for _, gr := range open {
-		if away[gr.TorrentID] {
-			out[gr.ID] = true
+	out := map[GrabID]string{}
+	for _, row := range open {
+		if row.Stage == Fetching {
+			grab, err := load(ctx, r, row, related{})
+			if err != nil {
+				return nil, err
+			}
+			_, routedAway, err := awayRoute(ctx, r, g.Router, g.InStep, grab)
+			if err != nil {
+				return nil, err
+			}
+			if routedAway {
+				out[row.ID] = NodeAway
+				continue
+			}
+		}
+		if away[row.TorrentID] {
+			out[row.ID] = ClientAway
 		}
 	}
 	return out, nil

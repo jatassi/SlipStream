@@ -14,7 +14,8 @@ import { upgradable } from "./work-cells";
 import { workServer } from "./work-server";
 
 /**
- * The Work page with grab waiting on its away client in Needs you, the
+ * The Work page with grab waiting in Needs you, on its away client or,
+ * while it waits to fetch for its routed client, on that client's Node, the
  * Download Clients list of cards, and POST /grabs/{grabId}/send-to
  * answered by answer, recording each body it is sent.
  */
@@ -26,7 +27,13 @@ export function sendingServer(
   const sent: SendToInputBody[] = [];
   const cells: FilesCellList = {
     ...upgradable,
-    needsYou: [{ kind: "waiting", grabId: grab.id, code: "client_away" }],
+    needsYou: [
+      {
+        kind: "waiting",
+        grabId: grab.id,
+        code: grab.waitsFor === undefined ? "client_away" : "node_away",
+      },
+    ],
   };
   return {
     sent,

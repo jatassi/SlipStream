@@ -159,7 +159,7 @@ func controller(t *testing.T, f faketest.Served) *indexers.Indexers {
 func TestAnRSSFeedIsAddedWithItsCookieAndReading(t *testing.T) {
 	s := scenarioWithSeed()
 	s.Releases = []scenario.Release{{Name: "Harbor.Lights", Unlisted: true}}
-	catalog := &releases.Catalog{Passkey: "p4ss", Releases: []releases.Release{
+	catalog := &releases.Catalog{Releases: []releases.Release{
 		{Release: scenario.Release{Name: "Quiet.Orchard"}, Size: 6000, InfoHash: bencode.InfoHash{1}, Metainfo: []byte(torrent)},
 		{Release: scenario.Release{Name: "Salt.Meadow"}, Size: 5000, InfoHash: bencode.InfoHash{2}, Metainfo: []byte(torrent)},
 		{Release: scenario.Release{Name: "Harbor.Lights"}, Size: 3000, InfoHash: bencode.InfoHash{3}, Metainfo: []byte(torrent)},

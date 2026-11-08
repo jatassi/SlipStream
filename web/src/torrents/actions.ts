@@ -9,19 +9,25 @@ import type { Row, State } from "./model";
 
 export type TorrentAction = ActInputBodyAction;
 
+/** The Tracker a Torrent still owes seeding, by name, undefined while it isn't known. */
+export type Owing = { readonly tracker: string | undefined };
+
 /**
- * A Torrent as an action names it: the Work it is for, else its release.
- * keptIn is the external client a remove leaves it in, attached or off.
+ * A Torrent as an action names it: the Work it is for, else its release, the
+ * Tracker it still owes, which pausing or removing it lets down, and keptIn,
+ * the external client a remove leaves it in, attached or off.
  */
 export type Subject = {
   readonly id: string;
   readonly name: string;
+  readonly owing?: Owing | undefined;
   readonly keptIn?: string | undefined;
 };
 
 export const subjectOf = (row: Row, name: string): Subject => ({
   id: row.id,
   name,
+  owing: row.seeding?.state === "owing" ? { tracker: row.tracker?.name } : undefined,
   keptIn: row.deleteFiles ? undefined : row.clientName,
 });
 
@@ -46,13 +52,14 @@ const announcing = new Set<State>(["downloading", "seeding", "stalled", "tracker
 /**
  * The actions a Torrent offers, in menu order. Announce now needs the
  * Inspector's word that every announce URL accepts one now; a row has none.
+ * A failed torrent offers Retry when it failed after it completed.
  */
 export function menuFor(row: Row, trackersAccept = false): TorrentAction[] {
   if (row.state === "removing") {
     return [];
   }
   if (row.state === "failed") {
-    return ["remove"];
+    return row.retryable ? ["retry", "remove"] : ["remove"];
   }
   const online = row.lastKnown === undefined;
   const announces =
@@ -71,6 +78,7 @@ export const actionLabels: { readonly [A in TorrentAction]: string } = {
   resume: "Resume",
   announce: "Announce now",
   recheck: "Recheck",
+  retry: "Retry",
   "mark-failed": "Mark failed",
   remove: "Remove",
 };
@@ -80,6 +88,7 @@ const doing: { readonly [A in TorrentAction]: (subject: string) => string } = {
   resume: (subject) => `Resuming ${subject}.`,
   announce: (subject) => `Announcing ${subject}.`,
   recheck: (subject) => `Rechecking ${subject}.`,
+  retry: (subject) => `Checking the files of ${subject}.`,
   "mark-failed": (subject) => `Marked ${subject} failed.`,
   remove: (subject) => `Removing ${subject}.`,
 };
@@ -89,6 +98,7 @@ const verbs: { readonly [A in TorrentAction]: string } = {
   resume: "resume",
   announce: "announce",
   recheck: "recheck",
+  retry: "be retried",
   "mark-failed": "be marked failed",
   remove: "be removed",
 };
@@ -132,6 +142,8 @@ const refusalWords: {
   not_running: ({ names }) => `${names.join(", ")} isn't running, so it has nothing to announce.`,
   failed: ({ names }, { action }) =>
     `${names.join(", ")} failed in the torrent client and can't ${verbs[action]}. Remove it instead.`,
+  not_retryable: ({ names }) =>
+    `${names.join(", ")} can't be retried. Retry checks only a torrent that failed after it finished downloading.`,
 };
 
 // Refusals that say the same thing for every Torrent they hold group into one sentence.

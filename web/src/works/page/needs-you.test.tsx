@@ -5,6 +5,7 @@ import type { FilesCellList, FilesNeed, GrabsGrab } from "../../api/gen/model";
 import { getGetWorkCellsMockHandler } from "../../api/gen/query/files/files.msw";
 import { getListGrabsMockHandler } from "../../api/gen/query/grabs/grabs.msw";
 import { orchardId } from "../../test/library";
+import { homeId, seedboxId } from "../../test/nodes";
 import { renderApp } from "../../test/render-app";
 import { awayGrab as stuck, upgradable } from "../../test/work-cells";
 import { workServer } from "../../test/work-server";
@@ -48,6 +49,47 @@ test("a download waiting on a client that isn't responding names the client and 
     .element(needsYou)
     .toHaveTextContent(
       "Needs you1WaitingWaiting for Transmission on seedboxIts download carries on once Transmission responds again.Send to another client",
+    );
+});
+
+test("a download waiting to fetch for an external client on an offline Node names the client", async () => {
+  const toQbittorrent = {
+    ...stuck,
+    stage: "fetching",
+    torrentId: null,
+    waitsFor: {
+      nodeId: stuck.nodeId,
+      client: {
+        id: "2b4d6f8a-0c1e-4a3b-9d5f-7e9a1c3b5d7f",
+        kind: "qbittorrent",
+        name: "qBittorrent",
+      },
+    },
+  } as const;
+  const needsYou = openWith(
+    [{ kind: "waiting", grabId: toQbittorrent.id, code: "node_away" }],
+    [toQbittorrent],
+  );
+  await expect
+    .element(needsYou)
+    .toHaveTextContent(
+      "Needs you1WaitingWaiting to send to qBittorrent on seedboxseedbox is offline. This download goes there once seedbox is back online.Send to another client",
+    );
+});
+
+test("a download fetched on an online Node that waits for its routed client's offline Node names that Node", async () => {
+  const routed = {
+    ...stuck,
+    nodeId: homeId,
+    stage: "fetching",
+    torrentId: null,
+    waitsFor: { nodeId: seedboxId, client: null },
+  } as const;
+  const needsYou = openWith([{ kind: "waiting", grabId: routed.id, code: "node_away" }], [routed]);
+  await expect
+    .element(needsYou)
+    .toHaveTextContent(
+      "Needs you1WaitingWaiting to send to the built-in client on seedboxseedbox is offline. This download goes there once seedbox is back online.Send to another client",
     );
 });
 

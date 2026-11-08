@@ -1,7 +1,8 @@
 import type {
   IndexersIndexer,
   IndexersQuery,
-  IndexersTracker,
+  TrackersCounts,
+  TrackersTrackerItem,
   NodesNode,
   SettingDurationField,
 } from "../api/gen/model";
@@ -117,7 +118,15 @@ export const larkspur = indexer({
   fix: "Update the username or password with Edit. Saving tests them.",
 });
 
-export const trackers: IndexersTracker[] = [
+export const noTorrents: TrackersCounts = {
+  torrents: 0,
+  seeding: 0,
+  owing: 0,
+  atRisk: 0,
+  goalMet: 0,
+};
+
+export const trackers: TrackersTrackerItem[] = [
   {
     id: aitherTrackerId,
     name: "Aither",
@@ -125,6 +134,9 @@ export const trackers: IndexersTracker[] = [
     hosts: [],
     keys: ["prowlarr:" + prowlarrId + ":3"],
     indexerIds: [prowlarrId],
+    rule: null,
+    goal: null,
+    counts: noTorrents,
   },
   {
     id: torrentLeechTrackerId,
@@ -133,17 +145,23 @@ export const trackers: IndexersTracker[] = [
     hosts: [],
     keys: ["definition:torrentleech"],
     indexerIds: [prowlarrId, torrentLeechId],
+    rule: { clears: "either", ratio: 1, seedSeconds: 864_000, source: "releases" },
+    goal: null,
+    counts: noTorrents,
   },
 ];
 
 /** A Tracker whose last Indexer was deleted: its keys and hosts stay. */
-export const beyondHd: IndexersTracker = {
+export const beyondHd: TrackersTrackerItem = {
   id: "3c4d5e6f-7a8b-4c9d-8e0f-2a3b4c5d6e7f",
   name: "BeyondHD",
   privacy: "private",
   hosts: ["tracker.beyond-hd.me"],
   keys: ["definition:beyondhd"],
   indexerIds: [],
+  rule: null,
+  goal: null,
+  counts: noTorrents,
 };
 
 /** seedbox holding Searching beside home, so an Indexer can move between them. */

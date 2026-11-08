@@ -3,5 +3,6 @@ export type ActInputBodyAction =
   | "resume"
   | "announce"
   | "recheck"
+  | "retry"
   | "mark-failed"
   | "remove";

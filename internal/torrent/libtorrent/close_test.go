@@ -1,7 +1,10 @@
 package libtorrent_test
 
 import (
+	"encoding/binary"
 	"math/rand/v2"
+	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"testing"
@@ -71,4 +74,77 @@ func partlyDownloaded(t *testing.T, meta, payload []byte) (engine.Engine, engine
 		}
 	}
 	return leecher, st
+}
+
+// slowUDPTracker is a BEP 15 tracker on loopback that responds to a
+// stopped announce after delay, as a distant one does, and to every other
+// request at once. stopped receives each stopped it responded to.
+func slowUDPTracker(t *testing.T, delay time.Duration) (url string, stopped <-chan struct{}) {
+	t.Helper()
+	conn, err := net.ListenUDP("udp", net.UDPAddrFromAddrPort(netip.MustParseAddrPort("127.0.0.1:0")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	answered := make(chan struct{}, 8)
+	go func() {
+		buf := make([]byte, 2048)
+		for {
+			n, from, err := conn.ReadFromUDPAddrPort(buf)
+			if err != nil {
+				return
+			}
+			p := buf[:n]
+			if n < 16 {
+				continue
+			}
+			reply := binary.BigEndian.AppendUint32(nil, binary.BigEndian.Uint32(p[8:]))
+			reply = append(reply, p[12:16]...)
+			if binary.BigEndian.Uint32(p[8:]) == 0 {
+				_, _ = conn.WriteToUDPAddrPort(binary.BigEndian.AppendUint64(reply, 7), from)
+				continue
+			}
+			for _, v := range []uint32{1800, 0, 1} {
+				reply = binary.BigEndian.AppendUint32(reply, v)
+			}
+			if n < 98 || binary.BigEndian.Uint32(p[80:]) != 3 {
+				_, _ = conn.WriteToUDPAddrPort(reply, from)
+				continue
+			}
+			time.AfterFunc(delay, func() {
+				answered <- struct{}{}
+				_, _ = conn.WriteToUDPAddrPort(reply, from)
+			})
+		}
+	}()
+	return "udp://" + conn.LocalAddr().String() + "/announce", answered
+}
+
+// TestCloseWaitsForAUDPTrackersStoppedResponse closes a session seeding
+// from a UDP tracker that takes 300 ms to respond to stopped. The close
+// waits for that response: libtorrent's abort closes the socket it would
+// arrive on and then waits out its 5 s stop_tracker_timeout.
+func TestCloseWaitsForAUDPTrackersStoppedResponse(t *testing.T) {
+	url, stopped := slowUDPTracker(t, 300*time.Millisecond)
+	dir := t.TempDir()
+	payload := make([]byte, 1<<16)
+	_, _ = rand.NewChaCha8([32]byte{'u', 'd', 'p'}).Read(payload)
+	if err := os.WriteFile(filepath.Join(dir, "udp.bin"), payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e := open(t)
+	h := started(t, e, engine.AddParams{Metainfo: trackedTorrent(t, "udp.bin", payload, 16<<10, url), SavePath: dir, SeedMode: true})
+	waitFor(t, e.Events(), func(r engine.TrackerReplied) bool { return r.Torrent == h })
+	start := time.Now()
+	if err := e.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	if took := time.Since(start); took > 2*time.Second {
+		t.Errorf("Close took %s, want it done soon after the tracker's 300 ms response to stopped", took)
+	}
+	select {
+	case <-stopped:
+	default:
+		t.Error("the tracker responded to no stopped before Close returned")
+	}
 }

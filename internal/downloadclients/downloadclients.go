@@ -78,6 +78,9 @@ type ClientRef struct {
 type Totals struct {
 	Uploaded, Downloaded int64
 	Active, Seeding      time.Duration
+	// Announced is the seed time the Torrent's trackers credited it, as its
+	// Node counts it.
+	Announced time.Duration
 	// At is when the Node last reported them.
 	At time.Time
 }
@@ -93,10 +96,12 @@ const (
 	// ClientDeleted is the Admin deleting the torrent's client with Stop
 	// tracking.
 	ClientDeleted RemoveReason = "client_deleted"
+	// GoalMet is a seeding goal's remove.
+	GoalMet RemoveReason = "goal_met"
 )
 
 // RemoveReasons is every RemoveReason, the list the schema's CHECK holds.
-var RemoveReasons = []RemoveReason{ByAdmin, ByMarkFailed, NodeWrittenOff, ByClient, ClientDeleted}
+var RemoveReasons = []RemoveReason{ByAdmin, ByMarkFailed, NodeWrittenOff, ByClient, ClientDeleted, GoalMet}
 
 // Removal is set when the Torrent leaves its Node's intent. It is Removing
 // until Parted: the Node confirmed, or a write-off ended the wait.
@@ -219,13 +224,14 @@ type Fault struct {
 // them. An id that is not node's Torrent changes nothing.
 func MergeTotals(ctx context.Context, tx *storage.Tx[file], node role.NodeID, id ID, t Totals) error {
 	return db.New(tx).MergeTotals(ctx, db.MergeTotalsParams{
-		Uploaded:       t.Uploaded,
-		Downloaded:     t.Downloaded,
-		ActiveSeconds:  int64(t.Active / time.Second),
-		SeedingSeconds: int64(t.Seeding / time.Second),
-		TotalsAt:       storage.FromTime(t.At),
-		ID:             id,
-		NodeID:         node,
+		Uploaded:         t.Uploaded,
+		Downloaded:       t.Downloaded,
+		ActiveSeconds:    int64(t.Active / time.Second),
+		SeedingSeconds:   int64(t.Seeding / time.Second),
+		AnnouncedSeconds: int64(t.Announced / time.Second),
+		TotalsAt:         storage.FromTime(t.At),
+		ID:               id,
+		NodeID:           node,
 	})
 }
 

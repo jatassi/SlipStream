@@ -94,6 +94,10 @@ func (s *Service) Serving(r role.Name) []ID { return s.Who(r).Serving() }
 
 func (s *Service) Holds(r role.Name, node ID) bool { return s.Who(r).Holds(node) }
 
+// Draining reports whether node drains r: it takes no new work for r and
+// keeps what it holds.
+func (s *Service) Draining(r role.Name, node ID) bool { return s.Who(r).State(node) == Draining }
+
 func (s *Service) Pick(r role.Name, prefer ID) (ID, bool) { return s.Who(r).Pick(prefer) }
 
 func (s *Service) PickOther(r role.Name, besides ID) (ID, bool) { return s.Who(r).PickOther(besides) }
