@@ -1080,7 +1080,7 @@ func (q *Queries) MoveReached(ctx context.Context, arg MoveReachedParams) (int64
 const pathTaken = `-- name: PathTaken :one
 SELECT EXISTS (
     SELECT 1 FROM files_file a WHERE a.root_id = ?1 AND a.path = ?2
-    UNION ALL SELECT 1 FROM files_move m JOIN files_file f ON f.id = m.file_id WHERE f.root_id = ?1 AND m.sits = ?2
+    UNION ALL SELECT 1 FROM files_move m WHERE m.sits = ?2 AND EXISTS (SELECT 1 FROM files_file f WHERE f.id = m.file_id AND f.root_id = ?1)
     UNION ALL SELECT 1 FROM files_doomed d WHERE d.root_id = ?1 AND (d.path = ?2 OR d.sits = ?2))
 `
 
