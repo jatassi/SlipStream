@@ -89,7 +89,7 @@ func (f File) Facts() release.Facts {
 // condition tests its release name.
 func (f File) named() release.Read {
 	r := f.Title
-	r.Given = f.ReleaseName
+	r.Release = f.ReleaseName
 	return r
 }
 

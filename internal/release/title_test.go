@@ -208,7 +208,7 @@ func (titled) ReadName(p release.Prepared) release.Name {
 
 func TestTheCutIsReadAfterTheTitle(t *testing.T) {
 	r := release.Title("Uncut.Gems.2019.Directors.Cut.1080p.WEB-DL", titled{}, release.BuiltIn())
-	if r.Facts.Cut != "directors-cut" || !slices.Equal(r.Name.Titles, []string{"Uncut.Gems"}) || r.Given != "Uncut.Gems.2019.Directors.Cut.1080p.WEB-DL" {
+	if r.Facts.Cut != "directors-cut" || !slices.Equal(r.Name.Titles, []string{"Uncut.Gems"}) || r.Release != "Uncut.Gems.2019.Directors.Cut.1080p.WEB-DL" {
 		t.Fatalf("Title read %+v, want the type's title and a Director's Cut", r)
 	}
 	if got := release.Title("Uncut.Gems.2019.1080p.WEB-DL", titled{}, release.BuiltIn()).Facts.Cut; got != release.Standard {

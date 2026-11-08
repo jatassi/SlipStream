@@ -81,7 +81,7 @@ const (
 
 func newInput(r *release.Read) *input {
 	in := &input{read: r, languages: languagesOf(r.Facts)}
-	in.texts[onTitle], in.known[onTitle] = regex.TextOf(r.Given), true
+	in.texts[onTitle], in.known[onTitle] = regex.TextOf(r.Release), true
 	if g, ok := r.Facts.Group.Get(); ok {
 		in.texts[onGroup], in.known[onGroup] = regex.TextOf(g), true
 	}

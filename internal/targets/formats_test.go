@@ -265,7 +265,7 @@ func TestFormatsInCompilesTheCatalogOncePerSave(t *testing.T) {
 		return c
 	}
 	matches := func(c *formats.Catalog, title string) bool {
-		return slices.Contains(c.Match(release.Read{Given: title}).Matched, hdr.ID)
+		return slices.Contains(c.Match(release.Read{Release: title}).Matched, hdr.ID)
 	}
 	first := catalog()
 	if !matches(first, "Heat.1995.2160p.HDR.WEB-DL") {

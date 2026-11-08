@@ -52,7 +52,7 @@ func matches(t *testing.T, f formats.Format, r release.Read) bool {
 	return slices.Contains(res.Matched, f.ID)
 }
 
-func named(name string) release.Read { return release.Read{Given: name} }
+func named(name string) release.Read { return release.Read{Release: name} }
 
 func TestCombining(t *testing.T) {
 	r := named("Film.2020.REPACK.1080p.BluRay.x264-GRP")
@@ -107,7 +107,7 @@ func runKindCases(t *testing.T, cases []kindCase) {
 	}
 }
 
-func withFacts(f release.Facts) release.Read { return release.Read{Given: "Name", Facts: f} }
+func withFacts(f release.Facts) release.Read { return release.Read{Release: "Name", Facts: f} }
 
 func TestPatternKinds(t *testing.T) {
 	group := withFacts(release.Facts{Group: release.Known("FraMeSToR")})
@@ -211,7 +211,7 @@ func TestSource(t *testing.T) {
 func TestResolutionModifierAndReleaseType(t *testing.T) {
 	at := func(r release.Resolution) release.Read { return withFacts(release.Facts{Resolution: release.Known(r)}) }
 	mod := func(m release.Modifier) release.Read { return withFacts(release.Facts{Modifier: release.Known(m)}) }
-	span := func(s release.Span) release.Read { return release.Read{Given: "Name", Name: release.Name{Span: s}} }
+	span := func(s release.Span) release.Read { return release.Read{Release: "Name", Name: release.Name{Span: s}} }
 	value := func(k formats.Kind, v any) formats.Condition { return cond(k, map[string]any{"value": v}) }
 	runKindCases(t, []kindCase{
 		{"radarr 2160p", formats.Radarr, value(formats.Resolution, 2160), at(release.R2160p), true},
@@ -234,7 +234,7 @@ func TestSizeAndYear(t *testing.T) {
 	const gib = 1 << 30
 	sized := func(b int64) release.Read { return withFacts(release.Facts{Size: release.Known(b)}) }
 	dated := func(y int) release.Read {
-		return release.Read{Given: "Name", Name: release.Name{Year: release.Known(y)}}
+		return release.Read{Release: "Name", Name: release.Name{Year: release.Known(y)}}
 	}
 	size := cond(formats.Size, map[string]any{"min": 1, "max": 2.5})
 	year := cond(formats.Year, map[string]any{"min": 2000, "max": 2010})
