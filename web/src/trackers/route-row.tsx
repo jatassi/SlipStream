@@ -9,6 +9,8 @@ import { useRouteSave } from "./route-save";
 
 const keyOf = ({ nodeId, clientId }: TrackersTarget) => clientId ?? builtInKey(nodeId);
 
+const byRootKey = "by-root";
+
 const metaLook = "text-meta text-ink-3 in-data-[density=touch]:text-body-touch";
 
 /** Every client that can take the Grabs, the home's built-in one marked as the default. */
@@ -27,11 +29,16 @@ function RoutePicker({
   return (
     <Select
       label="Grabs go to"
-      options={picks.map(({ key, label }) => ({
-        value: key,
-        label: key === fallback ? `${label} (default)` : label,
-      }))}
-      value={route.to === null ? "" : keyOf(route.to)}
+      options={[
+        ...(route.to === null
+          ? [{ value: byRootKey, label: "Where the Work's library root is" }]
+          : []),
+        ...picks.map(({ key, label }) => ({
+          value: key,
+          label: key === fallback ? `${label} (default)` : label,
+        })),
+      ]}
+      value={route.to === null ? byRootKey : keyOf(route.to)}
       disabled={busy}
       onValueChange={(key) => {
         const picked = picks.find((pick) => pick.key === key);
