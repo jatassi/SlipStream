@@ -84,7 +84,9 @@ test("the history lists met, missed and released windows a page at a time", asyn
 test("a window missed and grabbed again stays in the history as its miss while it owes again", async () => {
   renderApp({ path: seedingTab, handlers: trackersServer().handlers });
   const missed = rowOf(history(), "Salt.Line.2022.1080p.WEB-DL");
-  await expect.element(missed).toMatchTextContent(
+  await expect
+    .element(missed)
+    .toMatchTextContent(
       /Missed at .+It still owed 6 days of seeding when its last torrent was removed\.It was grabbed again at .+\./u,
     );
   expect(missed.getByText("At risk").query()).toBeNull();

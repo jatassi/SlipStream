@@ -171,10 +171,12 @@ export const ListTrackerWindowsParams = zod.object({
 export const listTrackerWindowsQueryOffsetMin = 0;
 
 export const ListTrackerWindowsQueryParams = zod.object({
-  state: zod
-    .enum(["owing", "met", "missed", "released"])
+  list: zod
+    .enum(["open", "history"])
     .exactOptional()
-    .describe("Only windows in this state; every state when absent"),
+    .describe(
+      "open lists the windows that owe. history lists those met, missed or released, a missed one grabbed again included. Every window when absent.",
+    ),
   offset: zod
     .int()
     .min(listTrackerWindowsQueryOffsetMin)

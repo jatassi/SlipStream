@@ -3,6 +3,7 @@ package trackers_test
 import (
 	"context"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -176,19 +177,40 @@ func TestARunLatchesAMissSoTheTrackerPageListsIt(t *testing.T) {
 
 	removed := start.Add(time.Minute)
 	l.remove(orchard, removed)
-	missed, err := l.x.Windows(t.Context(), admin, seedpool, seeding.Missed)
+	history, err := l.x.Windows(t.Context(), admin, seedpool, trackers.WindowHistory)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(missed) != 1 || missed[0].Name != "Orchard" || !missed[0].Window.ClosedAt.Equal(removed) {
-		t.Fatalf("before a run the missed windows are %+v, want Orchard's, closed at its removal", missed)
+	if len(history) != 1 || history[0].Name != "Orchard" || history[0].Window.State != seeding.Missed || !history[0].Window.ClosedAt.Equal(removed) {
+		t.Fatalf("before a run the history is %+v, want Orchard's window, missed at its removal", history)
 	}
 	l.runGoals()
-	if owing, err := l.x.Windows(t.Context(), admin, seedpool, seeding.Owing); err != nil || len(owing) != 0 {
-		t.Fatalf("after a run the owing windows are %+v (%v), want none", owing, err)
+	if open, err := l.x.Windows(t.Context(), admin, seedpool, trackers.OpenWindows); err != nil || len(open) != 0 {
+		t.Fatalf("after a run the open windows are %+v (%v), want none", open, err)
 	}
 	l.torrent("Orchard", &seedpool, true, start.Add(2*time.Minute), 0, 4*gib)
-	if w := l.windows(seedpool)["Orchard"].Window; w.State != seeding.Owing || !w.ClosedAt.Equal(removed) {
-		t.Errorf("regrabbed Orchard's window is %+v, want owing again with its miss kept", w)
+	l.torrent("Harbor", &seedpool, true, start.Add(3*time.Minute), 0, 4*gib)
+	l.runGoals()
+	open, err := l.x.Windows(t.Context(), admin, seedpool, trackers.OpenWindows)
+	if err != nil {
+		t.Fatal(err)
 	}
+	if names := windowNames(open); !slices.Equal(names, []string{"Harbor", "Orchard"}) {
+		t.Errorf("after the regrab the open windows are %v, want Harbor's and Orchard's", names)
+	}
+	history, err = l.x.Windows(t.Context(), admin, seedpool, trackers.WindowHistory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(history) != 1 || history[0].Name != "Orchard" || history[0].Window.State != seeding.Owing || !history[0].Window.ClosedAt.Equal(removed) {
+		t.Errorf("after the regrab the history is %+v, want Orchard's window alone, owing again with its miss kept", history)
+	}
+}
+
+func windowNames(views []trackers.WindowView) []string {
+	names := make([]string, len(views))
+	for i, v := range views {
+		names[i] = v.Name
+	}
+	return names
 }

@@ -1,10 +1,10 @@
-import type { ListTrackerWindowsState } from "./listTrackerWindowsState.ts";
+import type { ListTrackerWindowsList } from "./listTrackerWindowsList.ts";
 
 export type ListTrackerWindowsParams = {
   /**
-   * Only windows in this state; every state when absent
+   * open lists the windows that owe. history lists those met, missed or released, a missed one grabbed again included. Every window when absent.
    */
-  state?: ListTrackerWindowsState;
+  list?: ListTrackerWindowsList;
   /**
    * How many of the newest to skip
    * @minimum 0
