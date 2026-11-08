@@ -222,17 +222,17 @@ An exception is written on its row only with the maintainer's explicit yes.
 
 | ID | Feature | v1 path | v1 state | v2 disposition | Covered by | Status |
 |---|---|---|---|---|---|---|
-| P-142 | Download clients with host, port, SSL, URL base, credentials, category, priority and enable | `internal/downloader/service.go`, `web/src/routes/settings/download-pipeline/clients.tsx` | working | kept without priority, excepted by the [maintainer's yes](https://github.com/jatassi/SlipStream/pull/112) | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | planned |
-| P-143 | Client credentials redacted in API responses | `internal/api/handlers_downloads.go` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | planned |
-| P-144 | Test a saved or unsaved client | `POST /downloadclients/:id/test`, `POST /downloadclients/test` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | planned |
-| P-145 | Scheduled download client health check | `internal/scheduler/tasks/downloadclienthealth.go` | working | kept with health read from the client poll instead of a Scheduled task, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | planned |
+| P-142 | Download clients with one Address (host, port, TLS and URL base in one URL), credentials, label and On | `internal/downloader/service.go`, `web/src/routes/settings/download-pipeline/clients.tsx` | working | kept without priority, excepted by the [maintainer's yes](https://github.com/jatassi/SlipStream/pull/112) | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | shipped |
+| P-143 | Client credentials redacted in API responses | `internal/api/handlers_downloads.go` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | shipped |
+| P-144 | Test a saved or unsaved client | `POST /downloadclients/:id/test`, `POST /downloadclients/test` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | shipped |
+| P-145 | Scheduled download client health check | `internal/scheduler/tasks/downloadclienthealth.go` | working | kept with health read from the client poll instead of a Scheduled task, by the [maintainer's yes](https://github.com/jatassi/SlipStream/issues/116#issuecomment-6113592441) | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | shipped |
 | P-146 | Downloads land in a SlipStream subfolder per Content Type | `internal/downloader/service.go (downloadSubDir)` | working | kept | [Built-in torrent client](https://github.com/jatassi/SlipStream/issues/153) | shipped |
-| P-147 | Import delay per client | `internal/import/pipeline.go` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | planned |
+| P-147 | Import delay per client | `internal/import/pipeline.go` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | shipped |
 | P-148 | Cleanup mode and seed ratio target stored but never acted on or shown | `internal/downloader/service.go` | half-built | superseded by the built-in torrent client's seeding goals | [Trackers and seeding goals](https://github.com/jatassi/SlipStream/issues/154) | planned |
-| P-149 | qBittorrent client | `internal/downloader/qbittorrent` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | planned |
-| P-150 | Transmission client | `internal/downloader/transmission` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | planned |
-| P-151 | Deluge client | `internal/downloader/deluge` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | planned |
-| P-152 | rTorrent client | `internal/downloader/rtorrent` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | planned |
+| P-149 | qBittorrent client | `internal/downloader/qbittorrent` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | shipped |
+| P-150 | Transmission client | `internal/downloader/transmission` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | shipped |
+| P-151 | Deluge client | `internal/downloader/deluge` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | shipped |
+| P-152 | rTorrent client | `internal/downloader/rtorrent` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | shipped |
 | P-153 | Vuze client | `internal/downloader/vuze` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/3#issuecomment-5988347467) | - | - |
 | P-154 | Flood client | `internal/downloader/flood` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | - |
 | P-155 | Aria2 client | `internal/downloader/aria2` | working | excepted, [maintainer's yes](https://github.com/jatassi/SlipStream/issues/4#issuecomment-5988473687) | - | - |
@@ -248,7 +248,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-165 | Queue filter by Content Type | `web/src/routes/downloads/use-activity-page.ts` | working | kept | [Built-in torrent client](https://github.com/jatassi/SlipStream/issues/153) | shipped |
 | P-166 | Pause, resume, remove and remove with files | `POST /queue/:id/pause`, `DELETE /queue/:id`, `web/src/routes/downloads/use-queue-row.ts` | working | kept | [Built-in torrent client](https://github.com/jatassi/SlipStream/issues/153) | shipped |
 | P-167 | Live queue push with adaptive polling | `internal/downloader/broadcaster.go` | working | kept, pushed over Server-Sent Events | [Built-in torrent client](https://github.com/jatassi/SlipStream/issues/153) | shipped |
-| P-168 | Unreachable client banner showing last known data | `web/src/routes/downloads/index.tsx` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | planned |
+| P-168 | Unreachable client banner showing last known data | `web/src/routes/downloads/index.tsx` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | shipped |
 | P-169 | Completion detection with import attempt backoff | `internal/downloader/completion.go` | working | kept | [Import pipeline](https://github.com/jatassi/SlipStream/issues/158) | planned |
 | P-170 | Downloads removed from the client flip the item to failed | `internal/downloader/completion.go (CheckForDisappearedDownloads)` | working | kept | [Import pipeline](https://github.com/jatassi/SlipStream/issues/158) | planned |
 
