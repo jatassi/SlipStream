@@ -279,11 +279,11 @@ func TestCheck(t *testing.T) {
 		},
 		{
 			"a value outside the dialect", format(1, formats.Radarr, cond(formats.Source, map[string]any{"value": 42})),
-			formats.ValueError{Name: "SourceSpecification", Kind: formats.Source, Field: "value", Value: "42", Want: "a radarr SourceSpecification value"},
+			formats.ValueError{Name: "SourceSpecification", Kind: formats.Source, Field: "value", Value: "42", Want: "a Radarr source value"},
 		},
 		{
 			"a kind the dialect has no values for", format(1, formats.Sonarr, cond(formats.QualityModifier, map[string]any{"value": 5})),
-			formats.ValueError{Name: "QualityModifierSpecification", Kind: formats.QualityModifier, Field: "value", Value: "5", Want: "a sonarr QualityModifierSpecification value"},
+			formats.ValueError{Name: "QualityModifierSpecification", Kind: formats.QualityModifier, Field: "value", Value: "5", Want: "a Sonarr quality modifier value"},
 		},
 		{
 			"a number where a name goes", format(1, formats.SlipStream, cond(formats.Source, map[string]any{"value": 9})),

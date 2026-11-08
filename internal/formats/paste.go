@@ -3,8 +3,11 @@ package formats
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 )
+
+var ErrNotJSON = errors.New("the text isn't Custom Format JSON")
 
 // EmptyError is a format with no conditions. Upstream matches every name
 // with one, so a save refuses it.
@@ -47,7 +50,7 @@ func Paste(text []byte) ([]Format, error) {
 	docs := []json.RawMessage{text}
 	if bytes.HasPrefix(text, []byte("[")) {
 		if err := json.Unmarshal(text, &docs); err != nil {
-			return nil, fmt.Errorf("the text isn't Custom Format JSON: %w", err)
+			return nil, fmt.Errorf("%w: %w", ErrNotJSON, err)
 		}
 	}
 	fs := make([]Format, 0, len(docs))
@@ -64,7 +67,7 @@ func Paste(text []byte) ([]Format, error) {
 func pasteOne(doc json.RawMessage) (Format, error) {
 	var p pasted
 	if err := json.Unmarshal(doc, &p); err != nil {
-		return Format{}, fmt.Errorf("the text isn't Custom Format JSON: %w", err)
+		return Format{}, fmt.Errorf("%w: %w", ErrNotJSON, err)
 	}
 	if len(p.Specifications) == 0 {
 		return Format{}, &EmptyError{Name: p.Name}

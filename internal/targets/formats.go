@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/text/cases"
 
@@ -213,6 +214,10 @@ func ScoredIn(goals Goals) formats.Set {
 	slices.SortFunc(out, byFormatID)
 	return slices.Compact(out)
 }
+
+// MatchLimit is how long one condition's pattern may run against one
+// name before it counts as not matched.
+func (t *Targets) MatchLimit() time.Duration { return t.cfg.Formats.Match }
 
 // catalog is the last compiled catalog and the formats' revisions it was
 // compiled from.

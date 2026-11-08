@@ -101,7 +101,7 @@ func (c *Catalog) compileTest(at int, fc *Condition, d *dialect) (test, error) {
 	if err != nil {
 		return nil, err
 	}
-	return k.compile(fields{at: at, c: fc, by: by, dialect: d, timeout: c.timings.Match})
+	return k.compile(fields{at: at, c: fc, kind: &k.KindInfo, by: by, dialect: d, timeout: c.timings.Match})
 }
 
 // fieldsOf is a condition's fields by name, refusing a name its kind

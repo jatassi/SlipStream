@@ -7,6 +7,7 @@ import (
 	"math"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/regex"
@@ -44,6 +45,8 @@ func Kinds() []KindInfo {
 	}
 	return out
 }
+
+var appWords = map[Dialect]string{Radarr: "Radarr", Sonarr: "Sonarr", SlipStream: "SlipStream"}
 
 func kindOf(k Kind) (*kind, bool) {
 	i := slices.IndexFunc(kinds, func(row kind) bool { return row.Kind == k })
@@ -114,6 +117,7 @@ func languagesOf(f release.Facts) []release.Language {
 type fields struct {
 	at      int
 	c       *Condition
+	kind    *KindInfo
 	by      map[string]json.RawMessage
 	dialect *dialect
 	timeout time.Duration
@@ -344,6 +348,6 @@ func (f fields) patternError(err error) *PatternError {
 func (f fields) valueError(name string) *ValueError {
 	return &ValueError{
 		Name: f.c.Name, Kind: f.c.Kind, Field: name, Value: string(bytes.TrimSpace(f.by[name])),
-		Want: "a " + string(f.dialect.name) + " " + string(f.c.Kind) + " value",
+		Want: "a " + appWords[f.dialect.name] + " " + strings.ToLower(f.kind.Words) + " value",
 	}
 }
