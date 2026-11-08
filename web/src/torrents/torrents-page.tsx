@@ -1,4 +1,4 @@
-import { Outlet, useMatch, useNavigate, useSearch } from "@tanstack/react-router";
+import { Outlet } from "@tanstack/react-router";
 
 import { useShell } from "../ui/shell-context";
 import { menuFor, subjectOf } from "./actions";
@@ -6,19 +6,24 @@ import { ActionsMenu } from "./actions-menu";
 import { BulkBar } from "./bulk";
 import type { Row } from "./model";
 import { useNames } from "./names";
+import type { Scope } from "./scope";
 import { type TorrentsSearch, TorrentsView } from "./view";
 
-const inspected = "/_app/activity/torrents/$torrentId";
+/** Where the page sits: its address's search, the Torrent its child route inspects, and how to change either. */
+export type TorrentsPlace = {
+  search: TorrentsSearch;
+  selected: string | undefined;
+  onSearchChange: (change: Partial<TorrentsSearch>) => void;
+  onSelect: (row: Row) => void;
+  scope?: Scope | undefined;
+};
 
 /**
- * Every Torrent, with the selected one's Inspector beside the table, or on a
- * phone in its place.
+ * The Torrents, with the selected one's Inspector (the child route) beside the
+ * table, or on a phone in its place.
  */
-export function TorrentsPage() {
-  const navigate = useNavigate();
+export function TorrentsPage({ search, selected, onSearchChange, onSelect, scope }: TorrentsPlace) {
   const names = useNames();
-  const search = useSearch({ from: "/_app/activity/torrents" });
-  const selected = useMatch({ from: inspected, shouldThrow: false })?.params.torrentId;
   if (useShell() === "phone" && selected !== undefined) {
     return <Outlet />;
   }
@@ -27,20 +32,9 @@ export function TorrentsPage() {
     <>
       <TorrentsView
         search={search}
-        onSearchChange={(change: Partial<TorrentsSearch>) => {
-          void navigate({ to: ".", search: (prev) => ({ ...prev, ...change }), replace: true });
-        }}
-        selection={{
-          selected,
-          onSelect: (row) => {
-            void navigate({
-              to: "/activity/torrents/$torrentId",
-              params: { torrentId: row.id },
-              search: (prev) => prev,
-              replace: selected !== undefined,
-            });
-          },
-        }}
+        onSearchChange={onSearchChange}
+        scope={scope}
+        selection={{ selected, onSelect }}
         renderMenu={(row) => <ActionsMenu subject={subject(row)} actions={menuFor(row)} />}
         renderBulk={(picked, clear) => (
           <BulkBar picked={picked} subjectOf={subject} onClear={clear} />
