@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -116,11 +117,12 @@ func (in *SignIn[S]) TwoFactorCode() (code string, ok bool) {
 type SearchCriteria struct {
 	SearchTerm string
 	// ImdbID is "tt0076759" or "".
-	ImdbID     string
-	TmdbID     int
-	TvdbID     int
-	TvMazeID   int
-	Season     int
+	ImdbID   string
+	TmdbID   int
+	TvdbID   int
+	TvMazeID int
+	// Season is C#'s int?: nil for a search with no season.
+	Season     *int
 	Episode    string
 	Categories []newznab.ID
 	Limit      int
@@ -150,19 +152,28 @@ func (q SearchCriteria) SanitizedTvSearchString() string {
 // "2026.06.01" for a daily episode, whose Season is the year and Episode
 // "06/01".
 func (q SearchCriteria) EpisodeSearchString() string {
-	if q.Season == 0 {
+	if q.Season == nil || *q.Season == 0 {
 		return ""
 	}
-	if day, err := time.Parse("2006 01/02", fmt.Sprintf("%d %s", q.Season, q.Episode)); err == nil {
+	season := *q.Season
+	if day, err := time.Parse("2006 01/02", fmt.Sprintf("%d %s", season, q.Episode)); err == nil {
 		return day.Format("2006.01.02")
 	}
 	if strings.TrimSpace(q.Episode) == "" {
-		return fmt.Sprintf("S%02d", q.Season)
+		return fmt.Sprintf("S%02d", season)
 	}
 	if ep, ok := parseutil.TryCoerceInt(q.Episode); ok {
-		return fmt.Sprintf("S%02dE%02d", q.Season, ep)
+		return fmt.Sprintf("S%02dE%02d", season, ep)
 	}
-	return fmt.Sprintf("S%02dE%s", q.Season, q.Episode)
+	return fmt.Sprintf("S%02dE%s", season, q.Episode)
+}
+
+// Interpolated is $"{n}" of a C# int?: "" for null.
+func Interpolated(n *int) string {
+	if n == nil {
+		return ""
+	}
+	return strconv.Itoa(*n)
 }
 
 // FullImdbID is the IMDb id as "tt" and at least seven digits, "" for

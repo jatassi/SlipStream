@@ -45,7 +45,7 @@ var Port = avistazbase.Define(port.Entry{
 
 // AvistaZ has episodes without season. eg Running Man E323
 func getEpisodeSearchTerm(searchCriteria port.SearchCriteria) string {
-	if searchCriteria.Season == 0 && strings.TrimSpace(searchCriteria.Episode) != "" {
+	if (searchCriteria.Season == nil || *searchCriteria.Season == 0) && strings.TrimSpace(searchCriteria.Episode) != "" {
 		return "E" + searchCriteria.Episode
 	}
 	return searchCriteria.EpisodeSearchString()

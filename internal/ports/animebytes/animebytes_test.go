@@ -51,7 +51,7 @@ func TestSearchByYearSendsTheTrailingYear(t *testing.T) {
 
 func TestASeasonSearchLeavesOutTheSpecials(t *testing.T) {
 	ix := newIndexer(animeBytesSettings{FreeleechOnly: true, ExcludeHentai: true})
-	q := getRequest(ix, port.SearchCriteria{SearchTerm: "Harbor Lights", Season: 2, Categories: []newznab.ID{newznab.TVAnime.ID}}, "anime", true).URL.Query()
+	q := getRequest(ix, port.SearchCriteria{SearchTerm: "Harbor Lights", Season: new(2), Categories: []newznab.ID{newznab.TVAnime.ID}}, "anime", true).URL.Query()
 	for _, cat := range []string{"anime[tv_series]", "anime[ona]"} {
 		if q.Get(cat) != "1" {
 			t.Errorf("query = %v, want %s=1", q, cat)

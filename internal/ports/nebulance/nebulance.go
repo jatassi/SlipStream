@@ -7,7 +7,6 @@ package nebulance
 import (
 	_ "embed"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -78,16 +77,16 @@ func getTvSearchRequests(ix *indexer, searchCriteria port.SearchCriteria) (port.
 		queryParams.Set("release", searchQuery)
 	}
 
-	showDate, daily := datetimeutil.TryParseExact(fmt.Sprintf("%d %s", searchCriteria.Season, searchCriteria.Episode), "yyyy MM/dd", datetimeutil.None, ix.Clock)
-	if searchCriteria.Season != 0 && strings.TrimSpace(searchCriteria.Episode) != "" && daily {
+	showDate, daily := datetimeutil.TryParseExact(port.Interpolated(searchCriteria.Season)+" "+searchCriteria.Episode, "yyyy MM/dd", datetimeutil.None, ix.Clock)
+	if searchCriteria.Season != nil && strings.TrimSpace(searchCriteria.Episode) != "" && daily {
 		if searchQuery != "" {
 			queryParams.Set("name", searchQuery)
 		}
 
 		queryParams.Set("release", showDate.Format("2006.01.02"))
 	} else {
-		if searchCriteria.Season != 0 {
-			queryParams.Set("season", strconv.Itoa(searchCriteria.Season))
+		if searchCriteria.Season != nil {
+			queryParams.Set("season", strconv.Itoa(*searchCriteria.Season))
 		}
 
 		if episodeNumber, err := strconv.Atoi(strings.TrimSpace(searchCriteria.Episode)); strings.TrimSpace(searchCriteria.Episode) != "" && err == nil {

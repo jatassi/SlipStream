@@ -152,7 +152,7 @@ func getRequest(ix *indexer, searchCriteria port.SearchCriteria, searchType stri
 
 	queryCats := ix.Categories.TrackerIDs(searchCriteria.Categories)
 
-	if len(queryCats) > 0 && tv && searchCriteria.Season > 0 {
+	if len(queryCats) > 0 && tv && searchCriteria.Season != nil && *searchCriteria.Season > 0 {
 		// Avoid searching for specials if it's a non-zero season search
 		queryCats = slices.DeleteFunc(queryCats, func(cat string) bool {
 			return cat == "anime[tv_special]" || cat == "anime[ova]" || cat == "anime[dvd_special]" || cat == "anime[bd_special]"

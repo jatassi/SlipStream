@@ -52,7 +52,7 @@ var Port = port.Define(port.Entry{
 			term = q.FullImdbID()
 			if strings.TrimSpace(q.EpisodeSearchString()) != "" {
 				term += " " + q.EpisodeSearchString()
-				if q.Season != 0 && strings.TrimSpace(q.Episode) == "" {
+				if q.Season != nil && strings.TrimSpace(q.Episode) == "" {
 					term += "*"
 				}
 			}

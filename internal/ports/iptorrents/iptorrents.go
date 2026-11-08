@@ -203,7 +203,7 @@ func movieSearch(c *ix, q port.SearchCriteria) (port.Chain, error) {
 func tvSearch(c *ix, q port.SearchCriteria) (port.Chain, error) {
 	searchTerm := q.SanitizedTvSearchString()
 
-	if q.Season > 0 && strings.TrimSpace(q.Episode) == "" {
+	if q.Season != nil && *q.Season > 0 && strings.TrimSpace(q.Episode) == "" {
 		searchTerm += "*"
 	}
 

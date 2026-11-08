@@ -69,8 +69,8 @@ func tvSearch(c *ix, q port.SearchCriteria) (port.Chain, error) {
 	searchTerm := strings.TrimSpace(q.SanitizedSearchTerm())
 
 	// Only include season > 1 in searchTerm, format as S2 rather than S02
-	if q.Season > 1 {
-		searchTerm += fmt.Sprintf(" S%d", q.Season)
+	if q.Season != nil && *q.Season > 1 {
+		searchTerm += fmt.Sprintf(" S%d", *q.Season)
 	}
 
 	if episode, err := strconv.Atoi(q.Episode); err == nil && episode > 0 {

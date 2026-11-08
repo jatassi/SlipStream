@@ -134,8 +134,8 @@ func getMovieSearchRequests(ix *indexer, searchCriteria port.SearchCriteria) (po
 func getTvSearchRequests(ix *indexer, searchCriteria port.SearchCriteria) (port.Chain, error) {
 	searchTerm := searchCriteria.SanitizedTvSearchString()
 
-	if searchCriteria.Season > 0 && strings.TrimSpace(searchCriteria.Episode) != "" {
-		if showDate, ok := datetimeutil.TryParseExact(fmt.Sprintf("%d %s", searchCriteria.Season, searchCriteria.Episode), "yyyy MM/dd", datetimeutil.None, ix.Clock); ok {
+	if searchCriteria.Season != nil && *searchCriteria.Season > 0 && strings.TrimSpace(searchCriteria.Episode) != "" {
+		if showDate, ok := datetimeutil.TryParseExact(port.Interpolated(searchCriteria.Season)+" "+searchCriteria.Episode, "yyyy MM/dd", datetimeutil.None, ix.Clock); ok {
 			searchTerm = searchCriteria.SanitizedSearchTerm() + " " + showDate.Format("2006-01-02")
 		}
 	}

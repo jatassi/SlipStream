@@ -1438,7 +1438,11 @@ func GetSearchRequests(ix *ix, searchCriteria port.SearchCriteria) (port.Chain, 
 }
 
 func GetTvSearchRequests(ix *ix, searchCriteria port.SearchCriteria) (port.Chain, error) {
-	return GetPageableRequests(ix, searchCriteria.SearchTerm, searchCriteria.Categories, searchCriteria.Season), nil
+	season := 0
+	if searchCriteria.Season != nil {
+		season = *searchCriteria.Season
+	}
+	return GetPageableRequests(ix, searchCriteria.SearchTerm, searchCriteria.Categories, season), nil
 }
 
 func GetPageableRequests(ix *ix, searchTerm string, categories []newznab.ID, season int) port.Chain {

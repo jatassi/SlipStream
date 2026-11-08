@@ -211,8 +211,8 @@ func GetSearchRequests(ix *ix, searchCriteria port.SearchCriteria) (port.Chain, 
 func GetTvSearchRequests(ix *ix, searchCriteria port.SearchCriteria) (port.Chain, error) {
 	term := searchCriteria.SanitizedSearchTerm()
 
-	if searchCriteria.Season > 0 {
-		term += " Сезон " + strconv.Itoa(searchCriteria.Season)
+	if searchCriteria.Season != nil && *searchCriteria.Season > 0 {
+		term += " Сезон " + strconv.Itoa(*searchCriteria.Season)
 	}
 
 	return port.One(GetPagedRequests(ix, term, searchCriteria.Categories))

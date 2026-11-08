@@ -107,7 +107,7 @@ func doLogin(in *port.SignIn[Settings]) (string, error) {
 type speedAppRequestGenerator struct{ pageSize int }
 
 func (g speedAppRequestGenerator) movie(ix *port.Indexer[Settings], searchCriteria port.SearchCriteria) (port.Chain, error) {
-	return g.getSearch(ix, searchCriteria, searchCriteria.FullImdbID(), 0, "")
+	return g.getSearch(ix, searchCriteria, searchCriteria.FullImdbID(), nil, "")
 }
 
 // SlipStream: no music or book search, which the framework doesn't run.
@@ -117,17 +117,17 @@ func (g speedAppRequestGenerator) tv(ix *port.Indexer[Settings], searchCriteria 
 }
 
 func (g speedAppRequestGenerator) basic(ix *port.Indexer[Settings], searchCriteria port.SearchCriteria) (port.Chain, error) {
-	return g.getSearch(ix, searchCriteria, "", 0, "")
+	return g.getSearch(ix, searchCriteria, "", nil, "")
 }
 
-// SlipStream: a season of 0 and an episode of "" are C#'s nulls.
-func (g speedAppRequestGenerator) getSearch(ix *port.Indexer[Settings], searchCriteria port.SearchCriteria, imdbID string, season int, episode string) (port.Chain, error) {
+// SlipStream: an episode of "" is C#'s null.
+func (g speedAppRequestGenerator) getSearch(ix *port.Indexer[Settings], searchCriteria port.SearchCriteria, imdbID string, season *int, episode string) (port.Chain, error) {
 	return port.One(g.getPagedRequests(ix, searchCriteria.SanitizedSearchTerm(), searchCriteria, imdbID, season, episode))
 }
 
 // SlipStream: the framework sets the bearer token on every request to
 // the Indexer's hosts, so the request doesn't.
-func (g speedAppRequestGenerator) getPagedRequests(ix *port.Indexer[Settings], term string, searchCriteria port.SearchCriteria, imdbID string, season int, episode string) *port.Request {
+func (g speedAppRequestGenerator) getPagedRequests(ix *port.Indexer[Settings], term string, searchCriteria port.SearchCriteria, imdbID string, season *int, episode string) *port.Request {
 	itemsPerPage := g.pageSize
 	if searchCriteria.Limit > 0 {
 		itemsPerPage = min(g.pageSize, searchCriteria.Limit)
@@ -149,8 +149,8 @@ func (g speedAppRequestGenerator) getPagedRequests(ix *port.Indexer[Settings], t
 		parameters.Set("search", term)
 	}
 
-	if season != 0 {
-		parameters.Set("season", strconv.Itoa(season))
+	if season != nil {
+		parameters.Set("season", strconv.Itoa(*season))
 	}
 
 	if episode != "" {
