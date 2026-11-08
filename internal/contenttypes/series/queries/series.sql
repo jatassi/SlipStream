@@ -64,8 +64,8 @@ SELECT * FROM series_episode WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY wo
 -- name: GetSettings :one
 SELECT * FROM series_settings WHERE id = 1;
 
--- name: SetAirDelay :exec
-UPDATE series_settings SET air_delay_seconds = sqlc.arg(air_delay_seconds) WHERE id = 1;
+-- name: SetSettings :exec
+UPDATE series_settings SET air_delay_seconds = sqlc.arg(air_delay_seconds), year_slack = sqlc.arg(year_slack) WHERE id = 1;
 
 -- name: ListEveryListed :many
 SELECT work_id, network, certification, status, first_aired, genres FROM series_series ORDER BY work_id;
