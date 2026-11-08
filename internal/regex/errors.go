@@ -24,9 +24,9 @@ type CompileError struct {
 
 func (e *CompileError) Error() string {
 	if e.Offset == 0 {
-		return fmt.Sprintf("the pattern \"%s\" doesn't compile (%s)", e.Pattern, e.Reason)
+		return fmt.Sprintf("the pattern %s doesn't compile (%s)", quoted(e.Pattern), e.Reason)
 	}
-	return fmt.Sprintf("the pattern \"%s\" doesn't compile at position %d (%s)", e.Pattern, e.Offset, e.Reason)
+	return fmt.Sprintf("the pattern %s doesn't compile at position %d (%s)", quoted(e.Pattern), e.Offset, e.Reason)
 }
 
 // TimeoutError is a match that ran past its limit.
@@ -36,7 +36,7 @@ type TimeoutError struct {
 }
 
 func (e *TimeoutError) Error() string {
-	return fmt.Sprintf("the pattern \"%s\" ran past its %v match limit", e.Pattern, e.Limit)
+	return fmt.Sprintf("the pattern %s ran past its %v match limit", quoted(e.Pattern), e.Limit)
 }
 
 // reason is how one regexp2 error code reads. A positional code is raised
@@ -111,3 +111,8 @@ func stoppedAt(pattern string, o Options, want *syntax.Error) int {
 	}
 	return len(runes)
 }
+
+// quoted is text a person typed, such as a name or a pattern, in the
+// straight quotes WRITING.md sets and exactly as typed. %q would escape
+// each backslash in a pattern.
+func quoted(s string) string { return `"` + s + `"` }

@@ -387,7 +387,7 @@ func formatRefused(f formats.Format, err error, at, again string) error {
 		return kindUnknown.On(fmt.Sprintf("%sconditions[%d].kind", at, i), kindWords(e)+" Pick one of the kinds the schema lists.")
 	}
 	if e, ok := errors.AsType[*formats.EmptyError](err); ok {
-		return formatEmpty.On(at+"conditions", fmt.Sprintf("The Custom Format \"%s\" has no conditions. Add a condition and %s again.", e.Name, again))
+		return formatEmpty.On(at+"conditions", fmt.Sprintf("The Custom Format %s has no conditions. Add a condition and %s again.", quoted(e.Name), again))
 	}
 	return refused(err, at+"conditions", again)
 }
@@ -399,10 +399,10 @@ func refused(err error, field, again string) error {
 		return nameTaken
 	}
 	if e, ok := errors.AsType[*formats.FieldError](err); ok {
-		return api.Invalid.On(field, fmt.Sprintf("The condition \"%s\" has the field %s, which %s conditions don't have. Remove the field and %s again.", e.Name, e.Field, kindName(e.Kind), again))
+		return api.Invalid.On(field, fmt.Sprintf("The condition %s has the field %s, which %s conditions don't have. Remove the field and %s again.", quoted(e.Name), e.Field, kindName(e.Kind), again))
 	}
 	if e, ok := errors.AsType[*formats.ValueError](err); ok {
-		return api.Invalid.On(field, fmt.Sprintf("The condition \"%s\" has the %s %s, which isn't %s. Change it and %s again.", e.Name, e.Field, e.Value, e.Want, again))
+		return api.Invalid.On(field, fmt.Sprintf("The condition %s has the %s %s, which isn't %s. Change it and %s again.", quoted(e.Name), e.Field, e.Value, e.Want, again))
 	}
 	return changed(err)
 }
@@ -412,9 +412,9 @@ func refused(err error, field, again string) error {
 // every error, and one it can't place has no position.
 func patternWords(e *formats.PatternError, of string) string {
 	if e.Offset > 0 {
-		return fmt.Sprintf("The pattern in \"%s\"%s doesn't compile at position %d (%s).", e.Name, of, e.Offset, e.Reason)
+		return fmt.Sprintf("The pattern in %s%s doesn't compile at position %d (%s).", quoted(e.Name), of, e.Offset, e.Reason)
 	}
-	return fmt.Sprintf("The pattern in \"%s\"%s doesn't compile (%s).", e.Name, of, e.Reason)
+	return fmt.Sprintf("The pattern in %s%s doesn't compile (%s).", quoted(e.Name), of, e.Reason)
 }
 
 // kindName is k's words as they read inside a sentence.
@@ -424,5 +424,10 @@ func kindName(k formats.Kind) string {
 }
 
 func kindWords(e *formats.KindError) string {
-	return fmt.Sprintf("The condition \"%s\" has the kind %s.", e.Name, e.Kind)
+	return fmt.Sprintf("The condition %s has the kind %s.", quoted(e.Name), e.Kind)
 }
+
+// quoted is text a person typed, such as a name or a pattern, in the
+// straight quotes WRITING.md sets and exactly as typed. %q would escape
+// each backslash in a pattern.
+func quoted(s string) string { return `"` + s + `"` }
