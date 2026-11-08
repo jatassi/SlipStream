@@ -179,13 +179,6 @@ func (j judged) reasons() []Reason {
 	return out
 }
 
-// tier is j's rank at its first cell.
-func (j judged) tier() int {
-	i := slices.IndexFunc(j.verdicts, func(v verdict) bool { return v.cell == j.first })
-	rank, _ := j.verdicts[i].v.Rank()
-	return int(rank)
-}
-
 // pick is j as a search grabs it: at its first cell's Edition, for every
 // cell's Target it is grabbable at, with their notes.
 func (j judged) pick(c cells) Pick {
@@ -211,9 +204,7 @@ type Decision struct {
 // own stops judging. A soft one is recorded and the Release is judged at
 // every open cell, under any cut, so a Manual search can show what it
 // would fill, and at each filled cell of its cut only as a proper or
-// repack of the file. The ranked order is the first cell grabbable at,
-// then the tier there, then the Indexer's priority, then seeders and size
-// descending, then title, so ties replay.
+// repack of the file. Ranked is in chain order.
 func decide(c cells, as []assessed) Decision {
 	var d Decision
 	for _, a := range as {
@@ -224,16 +215,7 @@ func decide(c cells, as []assessed) Decision {
 			d.Ranked = append(d.Ranked, j)
 		}
 	}
-	slices.SortStableFunc(d.Ranked, func(a, b judged) int {
-		return cmp.Or(
-			cmp.Compare(a.first, b.first),
-			cmp.Compare(a.tier(), b.tier()),
-			cmp.Compare(a.Release.Priority, b.Release.Priority),
-			cmp.Compare(b.Release.Seeders, a.Release.Seeders),
-			cmp.Compare(b.Release.Size, a.Release.Size),
-			strings.Compare(a.Release.Title, b.Release.Title),
-		)
-	})
+	rank(c, d.Ranked)
 	return d
 }
 

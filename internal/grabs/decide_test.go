@@ -511,3 +511,62 @@ func TestAJobWhoseGrabVanishedLeavesTheReconcilerIdle(t *testing.T) {
 		t.Errorf("the vanished Grab's progress stays shown: %v", s.shown)
 	}
 }
+
+func TestDecideRanksByEachStepOfTheChainAndSaysWhereTheOtherLost(t *testing.T) {
+	x265 := formats.Format{ID: formats.ID{1}, Name: "x265", Conditions: []formats.Condition{
+		{Name: "x265", Kind: formats.ReleaseTitle, Fields: json.RawMessage(`{"value":"\\bx265\\b"}`)},
+	}}
+	scoring := orchard
+	scoring.scoring = formats.Compile([]formats.Format{x265}, formats.DefaultTimings())
+	scored := targetOf(targets.Spec{
+		Name: "Scored", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p,
+		Scores: targets.Scores{Formats: map[formats.ID]int{x265.ID: 50}, Increment: 1},
+	})
+	unpreferred := targetOf(targets.Spec{
+		Name: "Unpreferred", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p,
+		Scores: targets.Scores{Increment: 1}, Propers: targets.DontPrefer,
+	})
+	with := func(l listed, edit func(*indexers.Release)) listed {
+		edit(&l.Release)
+		return l
+	}
+	web := offered("Orchard.1080p.WEB-DL", 5, 10, nil)
+	for _, c := range []struct {
+		name          string
+		j             judging
+		open          []files.Cell
+		better, worse listed
+		want          Loss
+	}{
+		{"want", orchard, []files.Cell{cell(hd, files.Missing), cell(small, files.Missing)},
+			web, offered("Orchard.720p.WEB-DL", 99, 10, nil), Loss{Step: StepWant, Own: "Small", Ref: "1080p"}},
+		{"tier", orchard, []files.Cell{cell(hd, files.Missing)},
+			offered("Orchard.1080p.BluRay", 5, 10, nil), offered("Orchard.1080p.WEB-DL", 99, 10, nil), Loss{Step: StepTier, Target: hd.ID, Own: "WEBDL-1080p", Ref: "Bluray-1080p"}},
+		{"revision", orchard, []files.Cell{cell(hd, files.Missing)},
+			offered("Orchard.1080p.WEB-DL.PROPER", 5, 10, nil), offered("Orchard.1080p.WEB-DL", 99, 10, nil), Loss{Step: StepRevision, Target: hd.ID, Own: "v1", Ref: "v2"}},
+		{"revision under Don't prefer", orchard, []files.Cell{cell(unpreferred, files.Missing)},
+			offered("Orchard.1080p.WEB-DL", 99, 10, nil), offered("Orchard.1080p.WEB-DL.PROPER", 5, 10, nil), Loss{Step: StepSeeders, Own: "5", Ref: "99"}},
+		{"score", scoring, []files.Cell{cell(scored, files.Missing)},
+			offered("Orchard.1080p.WEB-DL.x265", 5, 10, nil), offered("Orchard.1080p.WEB-DL.x264", 99, 10, nil), Loss{Step: StepScore, Target: scored.ID, Own: "0", Ref: "50"}},
+		{"priority", orchard, []files.Cell{cell(hd, files.Missing)},
+			with(web, func(r *indexers.Release) { r.Priority = 10 }), with(web, func(r *indexers.Release) { r.Priority, r.Seeders = 25, 99 }), Loss{Step: StepPriority, Own: "25", Ref: "10"}},
+		{"freeleech", orchard, []files.Cell{cell(hd, files.Missing)},
+			with(web, func(r *indexers.Release) { r.Factors.Download = 0 }), with(web, func(r *indexers.Release) { r.Factors.Download, r.Seeders = 0.5, 99 }), Loss{Step: StepFreeleech, Own: "0.5", Ref: "0"}},
+		{"seeders", orchard, []files.Cell{cell(hd, files.Missing)},
+			with(web, func(r *indexers.Release) { r.Seeders = 90 }), web, Loss{Step: StepSeeders, Own: "5", Ref: "90"}},
+		{"size", orchard, []files.Cell{cell(hd, files.Missing)},
+			with(web, func(r *indexers.Release) { r.Size = 20 }), web, Loss{Step: StepSize, Own: "10", Ref: "20"}},
+		{"title", orchard, []files.Cell{cell(hd, files.Missing)},
+			offered("Orchard.1080p.WEB-DL.A", 5, 10, nil), offered("Orchard.1080p.WEB-DL.B", 5, 10, nil), Loss{Step: StepTitle, Own: "Orchard.1080p.WEB-DL.B", Ref: "Orchard.1080p.WEB-DL.A"}},
+	} {
+		cs := cells{open: c.open}
+		d := decide(cs, assessedBy(c.j, c.worse, c.better))
+		if len(d.Ranked) != 2 || d.Ranked[0].at != 1 {
+			t.Errorf("%s: decide ranked %d Releases, want 2 with the better one, listed second, first", c.name, len(d.Ranked))
+			continue
+		}
+		if got := lostAt(cs, &d.Ranked[0], &d.Ranked[1]); got == nil || *got != c.want {
+			t.Errorf("%s: the worse Release lost at %+v, want %+v", c.name, got, c.want)
+		}
+	}
+}
