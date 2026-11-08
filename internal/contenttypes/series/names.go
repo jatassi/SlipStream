@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"golang.org/x/text/unicode/norm"
@@ -68,6 +69,8 @@ type parsed struct {
 	// seasons is never empty: Sonarr's SeasonNumbers starts as [0].
 	seasons, episodes, absolutes []int
 	specialAbsolute              float64
+	airDate                      time.Time
+	dailyPart                    int
 	fullSeason, miniSeries       bool
 	part                         int
 	tail                         string
@@ -150,20 +153,24 @@ var errNext = errors.New("try the next pattern")
 // simple title end at, as Sonarr cuts them.
 func parseMatches(ms []regex.Match, whole []rune) (parsed, error) {
 	first := ms[0]
-	if year, _ := first.Group("airyear"); airYear(year) >= 1900 {
-		// SlipStream doesn't read air dates yet.
-		return parsed{}, errUnread
-	}
 	r := parsed{seasons: []int{0}}
 	at := end(first.Captures("title"))
-	for _, m := range ms {
-		end, err := r.readNumbers(m, first)
+	if year, _ := first.Group("airyear"); airYear(year) >= 1900 {
+		end, err := r.readAirDate(first, airYear(year))
 		if err != nil {
 			return parsed{}, err
 		}
 		at = max(at, end)
+	} else {
+		for _, m := range ms {
+			end, err := r.readNumbers(m, first)
+			if err != nil {
+				return parsed{}, err
+			}
+			at = max(at, end)
+		}
+		at = max(at, r.readSeasons(first))
 	}
-	at = max(at, r.readSeasons(first))
 	if at < len(whole) {
 		r.tail = string(whole[at:])
 	}
@@ -218,6 +225,81 @@ func (r *parsed) readNumbers(m, first regex.Match) (int, error) {
 	}
 	return at, nil
 }
+
+// readAirDate ports ParseMatchCollection's daily branch: the air date
+// and its part, and where the date ends. A date it can't read, an
+// ambiguous one, one more than two weeks ahead, or one before 1970
+// outside Plex DVR's "Title (1955) - 1954-01-23" form answers errUnread,
+// Sonarr's InvalidDateException.
+func (r *parsed) readAirDate(first regex.Match, year int) (int, error) {
+	month, day, err := airMonthDay(first)
+	if err != nil {
+		return 0, err
+	}
+	if month > 12 {
+		month, day = day, month
+	}
+	date := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+	if date.Year() != year || int(date.Month()) != month || date.Day() != day {
+		return 0, errUnread
+	}
+	now := time.Now()
+	if date.After(time.Date(now.Year(), now.Month(), now.Day()+14, 0, 0, 0, 0, time.UTC)) {
+		return 0, errUnread
+	}
+	if titleYear, _ := first.Group("titleyear"); date.Year() < 1970 && strings.TrimSpace(titleYear) == "" {
+		return 0, errUnread
+	}
+	if part, ok := first.Group("part"); ok {
+		if r.dailyPart, err = strconv.Atoi(part); err != nil {
+			return 0, errUnread
+		}
+	}
+	r.airDate = date
+	return max(end(first.Captures("airyear")), end(first.Captures("airmonth")), end(first.Captures("airday"))), nil
+}
+
+// airMonthDay is the month and day as the match gives them: an ambiguous
+// pair only when one of them can't be a month, a short month's name, or
+// digits.
+func airMonthDay(first regex.Match) (month, day int, err error) {
+	ambiguousMonth, okMonth := first.Group("ambiguousairmonth")
+	ambiguousDay, okDay := first.Group("ambiguousairday")
+	shortMonth, okShort := first.Group("shortairmonth")
+	airDay, _ := first.Group("airday")
+	switch {
+	case okMonth && okDay:
+		month, day, err = monthDay(ambiguousMonth, ambiguousDay)
+		if err == nil && month <= 12 && day <= 12 {
+			err = errUnread
+		}
+	case okShort:
+		month = slices.Index(shortMonths, strings.ToLower(shortMonth)) + 1
+		if month == 0 {
+			return 0, 0, errUnread
+		}
+		day, err = strconv.Atoi(airDay)
+	default:
+		airMonth, _ := first.Group("airmonth")
+		month, day, err = monthDay(airMonth, airDay)
+	}
+	if err != nil {
+		return 0, 0, errUnread
+	}
+	return month, day, nil
+}
+
+func monthDay(month, day string) (m, d int, err error) {
+	m, monthErr := strconv.Atoi(month)
+	d, dayErr := strconv.Atoi(day)
+	if monthErr != nil || dayErr != nil {
+		return 0, 0, errUnread
+	}
+	return m, d, nil
+}
+
+// shortMonths are Sonarr's ShortMonths, in month order.
+var shortMonths = []string{"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"}
 
 // rangeOf is the first and last of cs, errNext when they run backwards.
 func rangeOf[N int | float64](cs []regex.Capture, parse func(string) (N, error)) (from, to N, err error) {

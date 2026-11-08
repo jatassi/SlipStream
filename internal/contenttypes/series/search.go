@@ -119,8 +119,8 @@ func (e episodes) covered(n release.Name) []works.ItemID {
 					out = append(out, id)
 				}
 			}
-		case markPart, markAbsolute, markSpecial:
-			// Parts and absolute numbers cover no stored episode yet.
+		case markPart, markAbsolute, markSpecial, markAired:
+			// Parts, absolute numbers and air dates cover no stored episode yet.
 		}
 	}
 	return out
