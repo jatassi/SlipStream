@@ -53,8 +53,8 @@ type known struct {
 // compares the walk with the records, confirms the gone files, writes
 // each Work's recorded files, then settles each folder of found files,
 // each in its own Write, so a cancel or a crash loses at most the folder
-// in flight. A root that isn't Ready is Skipped, and a comparison the
-// guard stopped ends Skipped in the Library Health category.
+// in flight. A root in trouble is Skipped, and a comparison the guard
+// stopped ends Skipped in the Library Health category.
 func (im *Imports) unit(ctx context.Context, u tasks.Unit, p *tasks.Progress) error {
 	id, err := rootOf(u.Key)
 	if err != nil {
@@ -64,7 +64,7 @@ func (im *Imports) unit(ctx context.Context, u tasks.Unit, p *tasks.Progress) er
 	if err != nil {
 		return err
 	}
-	if state != roots.Ready {
+	if !walks(state) {
 		return im.skip(ctx, root, state)
 	}
 	s := &scan{root: root, at: storing.At{Node: root.Node, Root: root.ID.UUID}, p: p}
@@ -95,12 +95,7 @@ func (im *Imports) unit(ctx context.Context, u tasks.Unit, p *tasks.Progress) er
 	s.shelf = scanning.NewShelf(root.ID, s.known.shelved, s.known.files.Files)
 	shares := plan.ByWork(gone)
 	groups := scanning.Groups(plan, s.known.folders())
-	for _, sh := range shares {
-		s.total += len(sh.Reprobes())
-	}
-	for _, g := range groups {
-		s.total += len(g.Found)
-	}
+	s.total = toRead(shares, groups)
 	im.before(ctx, root.ID, Probing)
 	s.step()
 	for _, work := range slices.SortedFunc(maps.Keys(shares), func(a, b works.WorkID) int { return a.Compare(b.UUID) }) {
@@ -132,6 +127,14 @@ func (im *Imports) unit(ctx context.Context, u tasks.Unit, p *tasks.Progress) er
 		return tasks.SkipOwned(stoppedWords(stopped))
 	}
 	return nil
+}
+
+// walks reports whether a root in state is walked. Checking and Offline
+// wait on the Node, which judges the root again when the walk reaches it:
+// an offline Node fails the walk as Lost, and the unit runs again on its
+// return.
+func walks(state roots.State) bool {
+	return state == roots.Ready || state == roots.Checking || state == roots.Offline
 }
 
 func (im *Imports) before(ctx context.Context, root roots.ID, phase Phase) {
@@ -382,6 +385,19 @@ func (im *Imports) prune(ctx context.Context, s *scan, plan scanning.Plan) error
 		s.pending = true
 	}
 	return nil
+}
+
+// toRead is how many files a scan reads: the recorded ones read again and
+// the found ones.
+func toRead(shares map[works.WorkID]scanning.Share, groups []scanning.Group) int {
+	n := 0
+	for _, sh := range shares {
+		n += len(sh.Reprobes())
+	}
+	for _, g := range groups {
+		n += len(g.Found)
+	}
+	return n
 }
 
 func returned(p scanning.Plan) int {
