@@ -7,9 +7,11 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -62,6 +64,35 @@ func TestAGoneFileCountsForNoneOfARootsChecks(t *testing.T) {
 	live := []string{"Shelf w1/Mittens.mkv"}
 	if use[l.root.ID] != (roots.Use{Files: 1, Bytes: 1024}) || !slices.Equal(proof, live) || !slices.Equal(recorded, live) || !has {
 		t.Fatalf("the root counts %+v, proves %v and re-home verifies %v, has files %t; want the live file alone", use[l.root.ID], proof, recorded, has)
+	}
+}
+
+func TestDeletingARootWithOnlyGoneFilesForgetsThem(t *testing.T) {
+	l, svc, tree := goneRoot(t)
+	l.markGone(t, svc, tree.ID, "Shelf w1/Mittens.mkv")
+
+	if err := l.held.Delete(t.Context(), admin, l.root.ID, nil); err != nil {
+		t.Fatalf("deleting a root whose files are all gone = %v, want it to go", err)
+	}
+	if n := fileCount(t, l); n != 0 {
+		t.Fatalf("%d file rows remain, want the root's gone files forgotten", n)
+	}
+}
+
+func TestAWorkWhoseFilesAreAllGoneChangesRootAndForgetsThem(t *testing.T) {
+	l, svc, tree := goneRoot(t)
+	other := rootstest.Root(t, l.lib, l.root.Node, contenttypetest.ID, t.TempDir())
+
+	if _, refused, err := l.held.HomeAll(t.Context(), admin, []works.WorkID{tree.ID}, other.ID); err != nil || !errors.Is(refused[tree.ID], roots.ErrHasFiles) {
+		t.Fatalf("moving a Work with a live file = %v, %v; want ErrHasFiles", refused, err)
+	}
+	l.markGone(t, svc, tree.ID, "Shelf w1/Mittens.mkv")
+	moved, refused, err := l.held.HomeAll(t.Context(), admin, []works.WorkID{tree.ID}, other.ID)
+	if err != nil || len(refused) != 0 || !slices.Equal(moved, []works.WorkID{tree.ID}) {
+		t.Fatalf("moving a Work whose files are all gone = %v, %v, %v; want it moved", moved, refused, err)
+	}
+	if n := fileCount(t, l); n != 0 {
+		t.Fatalf("%d file rows remain, want the Work's gone files forgotten", n)
 	}
 }
 
