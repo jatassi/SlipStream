@@ -123,6 +123,7 @@ test("a home that doesn't hold Downloading sends its Grabs by the Work's library
       ),
     )
     .toBeVisible();
+  await expect.element(picker()).toHaveTextContent("Where the Work's library root is");
 });
 
 test("a public Tracker's Routing tab says its Grabs follow the library root", async () => {
