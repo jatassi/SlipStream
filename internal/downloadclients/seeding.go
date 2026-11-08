@@ -1,9 +1,11 @@
 package downloadclients
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients/internal/db"
@@ -43,6 +45,9 @@ type HashFact struct {
 	Complete  bool
 	// Removal is nil while it is live. A Removing Torrent's has no Parted.
 	Removal *Removal
+	// Continued is a removed Torrent whose hash an external client has
+	// held live since the removal, as a send-to leaves it.
+	Continued bool
 }
 
 // HashFacts is every built-in Torrent of hashes that its Node holds,
@@ -66,6 +71,10 @@ func (c *Clients) HashFacts(ctx context.Context, r storage.Reader[file], hashes 
 	if err != nil {
 		return nil, err
 	}
+	adds, err := db.New(r).ListExternalAdds(ctx, raw)
+	if err != nil {
+		return nil, err
+	}
 	out := map[bencode.InfoHash][]HashFact{}
 	for _, h := range rows {
 		row, err := c.rowOf(db.ListHeldRow(h), uses[h.ID])
@@ -78,6 +87,9 @@ func (c *Clients) HashFacts(ctx context.Context, r storage.Reader[file], hashes 
 			if !h.PartedAt.IsZero() {
 				f.Removal.Parted = &Parted{At: h.PartedAt.Time()}
 			}
+			f.Continued = slices.ContainsFunc(adds, func(a db.ListExternalAddsRow) bool {
+				return bytes.Equal(a.InfoHash, h.InfoHash) && !a.AddedAt.Time().Before(f.Removal.At)
+			})
 		}
 		out[row.InfoHash] = append(out[row.InfoHash], f)
 	}

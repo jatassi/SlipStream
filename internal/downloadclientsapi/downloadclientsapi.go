@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/trackers"
 )
 
 // Clients is the Node's download clients owner and its roster.
@@ -27,6 +28,9 @@ type Clients interface {
 	DownloadClients() (*downloadclients.Clients, bool)
 	// Nodes is the nodes service, false unless the Node is a Controller.
 	Nodes() (*nodes.Service, bool)
+	// Trackers is the Trackers' seeding side, false unless the Node is a
+	// Controller.
+	Trackers() (*trackers.Trackers, bool)
 }
 
 func open(c Clients) (*downloadclients.Clients, *nodes.Service) {
@@ -36,6 +40,29 @@ func open(c Clients) (*downloadclients.Clients, *nodes.Service) {
 		panic("downloadclientsapi: an Admin operation ran on a Node that is no Controller")
 	}
 	return clients, roster
+}
+
+// routedTo is where every private Tracker's Grabs go now.
+func routedTo(ctx context.Context, c Clients, by identity.Admin) (trackers.RoutedHere, error) {
+	x, ok := c.Trackers()
+	if !ok {
+		panic("downloadclientsapi: an Admin operation ran on a Node that is no Controller")
+	}
+	return x.RoutedTo(ctx, by)
+}
+
+type routedTracker struct {
+	ID     string `json:"id" format:"uuid"`
+	Name   string `json:"name"`
+	Stored bool   `json:"stored" doc:"An Admin picked this client for the Tracker's Grabs from some home Node; false while they come here by default"`
+}
+
+func routedOf(rs []trackers.Routed) []routedTracker {
+	out := make([]routedTracker, len(rs))
+	for i, r := range rs {
+		out[i] = routedTracker{ID: r.ID.String(), Name: r.Name, Stored: r.Stored}
+	}
+	return out
 }
 
 var nodeNotFound = api.NewCode(http.StatusNotFound, "node_not_found", "No Node has this id")
@@ -204,6 +231,7 @@ type clientCard struct {
 	Torrents  int              `json:"torrents" minimum:"0" doc:"The built-in client's live Torrents"`
 	Downloads *downloadsVolume `json:"downloads,omitempty" doc:"The downloads folder's volume as last sampled, absent until the first sample"`
 	DiskGuard *diskGuard       `json:"diskGuard,omitempty" doc:"Set while the disk guard holds the Node's new downloads: its downloads volume is below its error level"`
+	Trackers  []routedTracker  `json:"trackers" nullable:"false" doc:"The private Trackers whose Grabs download on the built-in client now, by name"`
 }
 
 type downloadsVolume struct {
@@ -274,10 +302,11 @@ func thresholdsOf(o downloadclients.ThresholdOverrides) thresholds {
 	}
 }
 
-func cardOf(c downloadclients.Card, name string) clientCard {
+func cardOf(c downloadclients.Card, name string, routed trackers.RoutedHere) clientCard {
 	s := c.Settings
 	out := clientCard{
 		NodeID: c.Node.String(), NodeName: name, Externals: []externalClient{}, InStep: c.InStep, Torrents: c.Torrents,
+		Trackers: routedOf(routed.BuiltIn[c.Node]),
 		Limits: limits{
 			DownloadLimit: s.DownloadLimit, UploadLimit: s.UploadLimit, ActiveDownloads: s.ActiveDownloads, ActiveChecks: s.ActiveChecks,
 			Connections: s.Connections, UTP: s.UTP, DHT: s.DHT, StalledAfter: int64(s.StalledAfter / time.Second),
@@ -291,7 +320,7 @@ func cardOf(c downloadclients.Card, name string) clientCard {
 		out.GrabsTo = new(c.GrabsTo.String())
 	}
 	for _, e := range c.Externals {
-		out.Externals = append(out.Externals, clientOf(e, name))
+		out.Externals = append(out.Externals, clientOf(e, name, routed.External[e.ID]))
 	}
 	if g := c.Guard; g != nil {
 		sentence, hint := g.Words(name)
@@ -309,9 +338,13 @@ func cardOf(c downloadclients.Card, name string) clientCard {
 	return out
 }
 
-func (h handlers) listClients(ctx context.Context, _ identity.Admin, _ *struct{}) (*clientsListOutput, error) {
+func (h handlers) listClients(ctx context.Context, by identity.Admin, _ *struct{}) (*clientsListOutput, error) {
 	clients, roster := open(h.clients)
 	cards, err := clients.Cards(ctx)
+	if err != nil {
+		return nil, err
+	}
+	routed, err := routedTo(ctx, h.clients, by)
 	if err != nil {
 		return nil, err
 	}
@@ -329,10 +362,10 @@ func (h handlers) listClients(ctx context.Context, _ identity.Admin, _ *struct{}
 	}
 	out := clientsList{Cards: make([]clientCard, len(cards)), Orphans: []externalClient{}, Kinds: kindsOf(), Thresholds: thresholdsOf(o)}
 	for i, c := range cards {
-		out.Cards[i] = cardOf(c, names[c.Node].Name)
+		out.Cards[i] = cardOf(c, names[c.Node].Name, routed)
 	}
 	for _, e := range orphans {
-		out.Orphans = append(out.Orphans, clientOf(e, names[e.Node].Name))
+		out.Orphans = append(out.Orphans, clientOf(e, names[e.Node].Name, nil))
 	}
 	return &clientsListOutput{Body: out}, nil
 }

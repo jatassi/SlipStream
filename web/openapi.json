@@ -276,6 +276,13 @@
           "totals": {
             "$ref": "#/components/schemas/DownloadclientsTotals",
             "description": "Added up over the built-in client's live Torrents"
+          },
+          "trackers": {
+            "description": "The private Trackers whose Grabs download on the built-in client now, by name",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsRoutedTracker"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -286,7 +293,8 @@
           "inStep",
           "limits",
           "totals",
-          "torrents"
+          "torrents",
+          "trackers"
         ],
         "type": "object"
       },
@@ -761,6 +769,13 @@
             "minimum": 0,
             "type": "integer"
           },
+          "trackers": {
+            "description": "The private Trackers whose Grabs download on it now, by name",
+            "items": {
+              "$ref": "#/components/schemas/DownloadclientsRoutedTracker"
+            },
+            "type": "array"
+          },
           "username": {
             "description": "Empty when it signs in with none",
             "type": "string"
@@ -797,7 +812,8 @@
           "productVersion",
           "problem",
           "torrents",
-          "actions"
+          "actions",
+          "trackers"
         ],
         "type": "object"
       },
@@ -1387,6 +1403,28 @@
         },
         "required": [
           "code"
+        ],
+        "type": "object"
+      },
+      "DownloadclientsRoutedTracker": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "stored": {
+            "description": "An Admin picked this client for the Tracker's Grabs from some home Node; false while they come here by default",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "stored"
         ],
         "type": "object"
       },
@@ -13389,6 +13427,22 @@
         ],
         "type": "object"
       },
+      "TrackersChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "builtInOn": {
+            "description": "A Node, for its built-in client; set this or clientId",
+            "format": "uuid",
+            "type": "string"
+          },
+          "clientId": {
+            "description": "An external client; set this or builtInOn",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "TrackersCounts": {
         "additionalProperties": false,
         "properties": {
@@ -13580,6 +13634,77 @@
           "id",
           "name",
           "tracker"
+        ],
+        "type": "object"
+      },
+      "TrackersRoute": {
+        "additionalProperties": false,
+        "properties": {
+          "default": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrackersTarget"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The home Node's built-in client; null while the home Node doesn't hold Downloading"
+          },
+          "homeNodeId": {
+            "description": "The home Node of the Indexers that find the Grabs",
+            "format": "uuid",
+            "type": "string"
+          },
+          "skipped": {
+            "description": "True while the stored client can't take a Grab because it is off or deleted, or its Node doesn't hold Downloading",
+            "type": "boolean"
+          },
+          "stored": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrackersChoice"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The client an Admin picked; null for none"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrackersTarget"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where the Grabs download now: the stored client while it can take them, else the default; null while they download where the Work's library root is"
+          }
+        },
+        "required": [
+          "homeNodeId",
+          "to",
+          "default",
+          "stored",
+          "skipped"
+        ],
+        "type": "object"
+      },
+      "TrackersRouteList": {
+        "additionalProperties": false,
+        "properties": {
+          "routes": {
+            "description": "One for each home Node of the Tracker's Indexers, by Node name; empty unless the Tracker is private",
+            "items": {
+              "$ref": "#/components/schemas/TrackersRoute"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "routes"
         ],
         "type": "object"
       },
@@ -13803,6 +13928,24 @@
           "seedingBytes",
           "grabs30d",
           "owing"
+        ],
+        "type": "object"
+      },
+      "TrackersTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "clientId": {
+            "description": "The external client; absent for the Node's built-in client",
+            "format": "uuid",
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeId"
         ],
         "type": "object"
       },
@@ -26017,7 +26160,7 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "grab_not_downloading",
+                            "grab_not_sendable",
                             "grab_torrent_in_client",
                             "node_not_downloading",
                             "worker_node"
@@ -26095,7 +26238,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Send a downloading Grab's torrent to another Download Client",
+        "summary": "Send a Grab to another Download Client: a downloading Grab's torrent, or a Grab whose fetch waits for its client's Node, which then fetches for the new client",
         "tags": [
           "grabs"
         ],
@@ -52103,6 +52246,630 @@
           }
         ],
         "summary": "Merge a Tracker into another, which keeps its name and takes its Indexers, Grabs, Torrents, hosts and seeding history. The merged Tracker is deleted.",
+        "tags": [
+          "trackers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/trackers/{id}/routes": {
+      "get": {
+        "operationId": "listTrackerRoutes",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackersRouteList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "tracker_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List where a private Tracker's Grabs download from the home Node of each of its Indexers",
+        "tags": [
+          "trackers"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/trackers/{id}/routes/{nodeId}": {
+      "delete": {
+        "operationId": "clearTrackerRoute",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The home Node",
+            "in": "path",
+            "name": "nodeId",
+            "required": true,
+            "schema": {
+              "description": "The home Node",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackersRouteList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_found",
+                            "tracker_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "route_not_a_home",
+                            "tracker_public",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Delete the client picked for a private Tracker's Grabs from Indexers on a home Node. They then download on its built-in client while it holds Downloading, and where the Work's library root is while it doesn't.",
+        "tags": [
+          "trackers"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "put": {
+        "operationId": "setTrackerRoute",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The home Node",
+            "in": "path",
+            "name": "nodeId",
+            "required": true,
+            "schema": {
+              "description": "The home Node",
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackersChoice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackersRouteList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_not_found",
+                            "node_not_found",
+                            "tracker_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "node_not_downloading",
+                            "route_not_a_home",
+                            "tracker_public",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "download_client_field_refused",
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Send a private Tracker's Grabs from Indexers on a home Node to a client you pick. They download there while it is on and its Node holds Downloading.",
         "tags": [
           "trackers"
         ],

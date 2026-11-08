@@ -48,12 +48,14 @@ type changes struct{}
 func (changes) Publish(context.Context, nodes.Changed) {}
 
 type controller struct {
-	clients *downloadclients.Clients
-	roster  *nodes.Service
+	clients  *downloadclients.Clients
+	roster   *nodes.Service
+	trackers *trackers.Trackers
 }
 
 func (c controller) DownloadClients() (*downloadclients.Clients, bool) { return c.clients, true }
 func (c controller) Nodes() (*nodes.Service, bool)                     { return c.roster, true }
+func (c controller) Trackers() (*trackers.Trackers, bool)              { return c.trackers, true }
 
 // downloaders is the roster as downloadclients reads it: every Node
 // serving Downloading, each in step unless away.
@@ -69,6 +71,8 @@ func (d *downloaders) Draining(role.Name, role.NodeID) bool   { return false }
 func (d *downloaders) Holds(name role.Name, n role.NodeID) bool {
 	return slices.Contains(d.Serving(name), n)
 }
+
+func (d *downloaders) Holding(name role.Name) []role.NodeID { return d.Serving(name) }
 
 func (d *downloaders) Serving(name role.Name) []role.NodeID {
 	if name != role.Downloading {
@@ -147,8 +151,8 @@ func serveWorld(t *testing.T) *world {
 		Live:   downloadclients.LiveConfig{Sample: time.Second},
 		Log:    slog.New(slog.DiscardHandler),
 	})
-	w.trackers = trackers.New(trackers.Config{Library: lib, Clients: clients, Roster: w.roster, Reconciling: trackers.NotReconciling})
-	w.o = ownertest.Serve(t, lib, func(r *api.Router) { downloadclientsapi.Routes(r, controller{clients, side}) })
+	w.trackers = trackers.New(trackers.Config{Library: lib, Clients: clients, Roster: w.roster, Reconciling: trackers.NotReconciling, Routing: trackers.Routing{Roster: w.roster}})
+	w.o = ownertest.Serve(t, lib, func(r *api.Router) { downloadclientsapi.Routes(r, controller{clients, side, w.trackers}) })
 	return w
 }
 

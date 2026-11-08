@@ -39,6 +39,7 @@ func volumes(t *testing.T, a *worldtest.API) volumeList {
 // 2.5 GiB free of 10 and cuts seedbox off: its volume still lists those
 // figures as of their sample, not live.
 func TestAnOfflineNodesVolumesReadAsOf(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := home(t)
 		s.Nodes[1].Roles = append(s.Nodes[1].Roles, "storage")
@@ -69,6 +70,7 @@ func TestAnOfflineNodesVolumesReadAsOf(t *testing.T) {
 // minute: a volume whose figures change reports them within the minute
 // and the stat deadline, not the default five minutes.
 func TestCheckStorageEveryReachesTheNode(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), sim.WithWalk())
 		synctest.Wait()

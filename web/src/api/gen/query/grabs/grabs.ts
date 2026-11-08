@@ -301,7 +301,7 @@ export const getSendGrabToUrl = (grabId: string) => {
 };
 
 /**
- * @summary Send a downloading Grab's torrent to another Download Client
+ * @summary Send a Grab to another Download Client: a downloading Grab's torrent, or a Grab whose fetch waits for its client's Node, which then fetches for the new client
  */
 export const sendGrabTo = async (
   grabId: string,
@@ -383,7 +383,7 @@ export type SendGrabToMutationError = ErrorType<
 export type SendGrabToMutationVariables = { grabId: string; data: SendToInputBody };
 
 /**
- * @summary Send a downloading Grab's torrent to another Download Client
+ * @summary Send a Grab to another Download Client: a downloading Grab's torrent, or a Grab whose fetch waits for its client's Node, which then fetches for the new client
  */
 export const useSendGrabTo = <
   TError = ErrorType<

@@ -576,6 +576,52 @@ func (q *Queries) ListDownloads(ctx context.Context) ([]ListDownloadsRow, error)
 	return items, nil
 }
 
+const listExternalAdds = `-- name: ListExternalAdds :many
+SELECT info_hash, added_at FROM downloadclients_torrent
+WHERE info_hash IN (/*SLICE:info_hashes*/?) AND client_id IS NOT NULL AND removed_at IS NULL
+ORDER BY info_hash, added_at
+`
+
+type ListExternalAddsRow struct {
+	InfoHash []byte
+	AddedAt  storage.Time
+}
+
+// When each live Torrent of the hashes that an external client holds was
+// added.
+func (q *Queries) ListExternalAdds(ctx context.Context, infoHashes [][]byte) ([]ListExternalAddsRow, error) {
+	query := listExternalAdds
+	var queryParams []interface{}
+	if len(infoHashes) > 0 {
+		for _, v := range infoHashes {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:info_hashes*/?", strings.Repeat(",?", len(infoHashes))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:info_hashes*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListExternalAddsRow
+	for rows.Next() {
+		var i ListExternalAddsRow
+		if err := rows.Scan(&i.InfoHash, &i.AddedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listHashFacts = `-- name: ListHashFacts :many
 SELECT t.id, t.node_id, t.info_hash, t.name, t.size, t.private, t.trackers, t.content_type, t.tracker_id, t.wanted,
        t.added_order, t.added_at, t.removed_at, t.removed_reason, t.parted_at, t.uploaded, t.downloaded, t.active_seconds,

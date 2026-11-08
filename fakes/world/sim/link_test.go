@@ -51,6 +51,7 @@ func (p pings) Ping(context.Context, *rpctestv1.PingRequest) (*rpctestv1.PingRes
 // Mismatched, while the frozen services still answer. The link tier sends
 // the raw Hello POST (TestMismatchedPeersServeOnlyTheFrozenPackage).
 func TestMismatch(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, home(t), sim.WithProbe(), sim.Build("0.0.0-a"))
 		synctest.Wait()
@@ -186,6 +187,7 @@ func logged(t *testing.T, n *sim.Node, msg string) []map[string]any {
 // superseded by office's, home's Hello is answered that office superseded
 // it, and a Join Code home mints later is ignored.
 func TestRepairSupersedes(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := home(t)
 		s.Name = "repair"

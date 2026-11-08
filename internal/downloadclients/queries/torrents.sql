@@ -195,6 +195,13 @@ WHERE t.info_hash IN (sqlc.slice(info_hashes)) AND t.client_id IS NULL
       LIMIT 1))
 ORDER BY t.added_order;
 
+-- name: ListExternalAdds :many
+-- When each live Torrent of the hashes that an external client holds was
+-- added.
+SELECT info_hash, added_at FROM downloadclients_torrent
+WHERE info_hash IN (sqlc.slice(info_hashes)) AND client_id IS NOT NULL AND removed_at IS NULL
+ORDER BY info_hash, added_at;
+
 -- name: ListTrackerHashes :many
 SELECT DISTINCT info_hash FROM downloadclients_torrent WHERE tracker_id = sqlc.arg(tracker_id) AND client_id IS NULL ORDER BY info_hash;
 

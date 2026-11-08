@@ -287,7 +287,7 @@ func TestDownloadClientsListEachDownloadingNodesCardAndTheThresholds(t *testing.
 		`{"cards":[{"nodeId":"id1","nodeName":"home","grabsTo":null,"externals":[],"inStep":true,"client":{"libtorrent":"2.0.11.0","peerIdPrefix":"-LT20B0-","userAgent":"libtorrent/2.0.11.0",`+
 			`"listen":"0.0.0.0:6881","bound":"192.0.2.4:6881","reach":"reachable","reachedAt":"T"},`+
 			`"limits":{"downloadLimit":0,"uploadLimit":0,"activeDownloads":3,"activeChecks":1,"connections":8000,"utp":true,"dht":true,"stalledAfterSeconds":600},`+
-			`"totals":{"uploaded":0,"downloaded":0,"seedingSeconds":0,"activeSeconds":0},"torrents":1}],"orphans":[],`+kinds+`,`+thresholds+`}`)
+			`"totals":{"uploaded":0,"downloaded":0,"seedingSeconds":0,"activeSeconds":0},"torrents":1,"trackers":[]}],"orphans":[],`+kinds+`,`+thresholds+`}`)
 
 	_, reply := w.o.Call(t, http.MethodPatch, "/api/v1/download-clients/thresholds", `{"unregisteredGap":3600,"metadataWait":300}`)
 	if want := `"value":3600`; !strings.Contains(reply, want) || !strings.Contains(reply, `"value":300,`) {

@@ -22,6 +22,12 @@ import type {
   ClearTrackerGoal409,
   ClearTrackerGoal422,
   ClearTrackerGoal500,
+  ClearTrackerRoute401,
+  ClearTrackerRoute403,
+  ClearTrackerRoute404,
+  ClearTrackerRoute409,
+  ClearTrackerRoute422,
+  ClearTrackerRoute500,
   ClearTrackerRule401,
   ClearTrackerRule403,
   ClearTrackerRule404,
@@ -42,6 +48,12 @@ import type {
   GetTracker409,
   GetTracker422,
   GetTracker500,
+  ListTrackerRoutes401,
+  ListTrackerRoutes403,
+  ListTrackerRoutes404,
+  ListTrackerRoutes409,
+  ListTrackerRoutes422,
+  ListTrackerRoutes500,
   ListTrackerWindows401,
   ListTrackerWindows403,
   ListTrackerWindows404,
@@ -88,14 +100,22 @@ import type {
   SetTrackerGoal409,
   SetTrackerGoal422,
   SetTrackerGoal500,
+  SetTrackerRoute401,
+  SetTrackerRoute403,
+  SetTrackerRoute404,
+  SetTrackerRoute409,
+  SetTrackerRoute422,
+  SetTrackerRoute500,
   SetTrackerRule401,
   SetTrackerRule403,
   SetTrackerRule404,
   SetTrackerRule409,
   SetTrackerRule422,
   SetTrackerRule500,
+  TrackersChoice,
   TrackersGoal,
   TrackersGoalsPreview,
+  TrackersRouteList,
   TrackersRuleBody,
   TrackersSettings,
   TrackersSettingsChange,
@@ -1590,6 +1610,410 @@ export const useMergeTracker = <
   TContext
 > => {
   return useMutation(getMergeTrackerMutationOptions(options), queryClient);
+};
+export const getListTrackerRoutesUrl = (id: string) => {
+  return `/api/v1/trackers/${id}/routes`;
+};
+
+/**
+ * @summary List where a private Tracker's Grabs download from the home Node of each of its Indexers
+ */
+export const listTrackerRoutes = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TrackersRouteList> => {
+  return apiFetch<TrackersRouteList>(getListTrackerRoutesUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListTrackerRoutesQueryKey = (id: string) => {
+  return [`/api/v1/trackers/${id}/routes`] as const;
+};
+
+export const getListTrackerRoutesSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTrackerRoutes>>,
+  TError = ErrorType<
+    | ListTrackerRoutes401
+    | ListTrackerRoutes403
+    | ListTrackerRoutes404
+    | ListTrackerRoutes409
+    | ListTrackerRoutes422
+    | ListTrackerRoutes500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackerRoutes>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListTrackerRoutesQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listTrackerRoutes>>> = ({ signal }) =>
+    listTrackerRoutes(id, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackerRoutes>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type ListTrackerRoutesSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTrackerRoutes>>
+>;
+export type ListTrackerRoutesSuspenseQueryError = ErrorType<
+  | ListTrackerRoutes401
+  | ListTrackerRoutes403
+  | ListTrackerRoutes404
+  | ListTrackerRoutes409
+  | ListTrackerRoutes422
+  | ListTrackerRoutes500
+>;
+
+export function useListTrackerRoutesSuspense<
+  TData = Awaited<ReturnType<typeof listTrackerRoutes>>,
+  TError = ErrorType<
+    | ListTrackerRoutes401
+    | ListTrackerRoutes403
+    | ListTrackerRoutes404
+    | ListTrackerRoutes409
+    | ListTrackerRoutes422
+    | ListTrackerRoutes500
+  >,
+>(
+  id: string,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackerRoutes>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListTrackerRoutesSuspense<
+  TData = Awaited<ReturnType<typeof listTrackerRoutes>>,
+  TError = ErrorType<
+    | ListTrackerRoutes401
+    | ListTrackerRoutes403
+    | ListTrackerRoutes404
+    | ListTrackerRoutes409
+    | ListTrackerRoutes422
+    | ListTrackerRoutes500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackerRoutes>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListTrackerRoutesSuspense<
+  TData = Awaited<ReturnType<typeof listTrackerRoutes>>,
+  TError = ErrorType<
+    | ListTrackerRoutes401
+    | ListTrackerRoutes403
+    | ListTrackerRoutes404
+    | ListTrackerRoutes409
+    | ListTrackerRoutes422
+    | ListTrackerRoutes500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackerRoutes>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List where a private Tracker's Grabs download from the home Node of each of its Indexers
+ */
+
+export function useListTrackerRoutesSuspense<
+  TData = Awaited<ReturnType<typeof listTrackerRoutes>>,
+  TError = ErrorType<
+    | ListTrackerRoutes401
+    | ListTrackerRoutes403
+    | ListTrackerRoutes404
+    | ListTrackerRoutes409
+    | ListTrackerRoutes422
+    | ListTrackerRoutes500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listTrackerRoutes>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListTrackerRoutesSuspenseQueryOptions(id, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getClearTrackerRouteUrl = (id: string, nodeId: string) => {
+  return `/api/v1/trackers/${id}/routes/${nodeId}`;
+};
+
+/**
+ * @summary Delete the client picked for a private Tracker's Grabs from Indexers on a home Node. They then download on its built-in client while it holds Downloading, and where the Work's library root is while it doesn't.
+ */
+export const clearTrackerRoute = async (
+  id: string,
+  nodeId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TrackersRouteList> => {
+  return apiFetch<TrackersRouteList>(getClearTrackerRouteUrl(id, nodeId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getClearTrackerRouteMutationKey = () => ["clearTrackerRoute"] as const;
+
+export const getClearTrackerRouteMutationOptions = <
+  TError = ErrorType<
+    | ClearTrackerRoute401
+    | ClearTrackerRoute403
+    | ClearTrackerRoute404
+    | ClearTrackerRoute409
+    | ClearTrackerRoute422
+    | ClearTrackerRoute500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearTrackerRoute>>,
+    TError,
+    ClearTrackerRouteMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof clearTrackerRoute>>,
+  TError,
+  ClearTrackerRouteMutationVariables,
+  TContext
+> => {
+  const mutationKey = getClearTrackerRouteMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof clearTrackerRoute>>,
+    ClearTrackerRouteMutationVariables
+  > = (props) => {
+    const { id, nodeId } = props ?? {};
+
+    return clearTrackerRoute(id, nodeId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClearTrackerRouteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof clearTrackerRoute>>
+>;
+
+export type ClearTrackerRouteMutationError = ErrorType<
+  | ClearTrackerRoute401
+  | ClearTrackerRoute403
+  | ClearTrackerRoute404
+  | ClearTrackerRoute409
+  | ClearTrackerRoute422
+  | ClearTrackerRoute500
+>;
+export type ClearTrackerRouteMutationVariables = { id: string; nodeId: string };
+
+/**
+ * @summary Delete the client picked for a private Tracker's Grabs from Indexers on a home Node. They then download on its built-in client while it holds Downloading, and where the Work's library root is while it doesn't.
+ */
+export const useClearTrackerRoute = <
+  TError = ErrorType<
+    | ClearTrackerRoute401
+    | ClearTrackerRoute403
+    | ClearTrackerRoute404
+    | ClearTrackerRoute409
+    | ClearTrackerRoute422
+    | ClearTrackerRoute500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof clearTrackerRoute>>,
+      TError,
+      ClearTrackerRouteMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof clearTrackerRoute>>,
+  TError,
+  ClearTrackerRouteMutationVariables,
+  TContext
+> => {
+  return useMutation(getClearTrackerRouteMutationOptions(options), queryClient);
+};
+export const getSetTrackerRouteUrl = (id: string, nodeId: string) => {
+  return `/api/v1/trackers/${id}/routes/${nodeId}`;
+};
+
+/**
+ * @summary Send a private Tracker's Grabs from Indexers on a home Node to a client you pick. They download there while it is on and its Node holds Downloading.
+ */
+export const setTrackerRoute = async (
+  id: string,
+  nodeId: string,
+  trackersChoice: TrackersChoice,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<TrackersRouteList> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<TrackersRouteList>(getSetTrackerRouteUrl(id, nodeId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(trackersChoice),
+  });
+};
+
+export const getSetTrackerRouteMutationKey = () => ["setTrackerRoute"] as const;
+
+export const getSetTrackerRouteMutationOptions = <
+  TError = ErrorType<
+    | SetTrackerRoute401
+    | SetTrackerRoute403
+    | SetTrackerRoute404
+    | SetTrackerRoute409
+    | SetTrackerRoute422
+    | SetTrackerRoute500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setTrackerRoute>>,
+    TError,
+    SetTrackerRouteMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setTrackerRoute>>,
+  TError,
+  SetTrackerRouteMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetTrackerRouteMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setTrackerRoute>>,
+    SetTrackerRouteMutationVariables
+  > = (props) => {
+    const { id, nodeId, data } = props ?? {};
+
+    return setTrackerRoute(id, nodeId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetTrackerRouteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setTrackerRoute>>
+>;
+export type SetTrackerRouteMutationBody = TrackersChoice;
+export type SetTrackerRouteMutationError = ErrorType<
+  | SetTrackerRoute401
+  | SetTrackerRoute403
+  | SetTrackerRoute404
+  | SetTrackerRoute409
+  | SetTrackerRoute422
+  | SetTrackerRoute500
+>;
+export type SetTrackerRouteMutationVariables = { id: string; nodeId: string; data: TrackersChoice };
+
+/**
+ * @summary Send a private Tracker's Grabs from Indexers on a home Node to a client you pick. They download there while it is on and its Node holds Downloading.
+ */
+export const useSetTrackerRoute = <
+  TError = ErrorType<
+    | SetTrackerRoute401
+    | SetTrackerRoute403
+    | SetTrackerRoute404
+    | SetTrackerRoute409
+    | SetTrackerRoute422
+    | SetTrackerRoute500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setTrackerRoute>>,
+      TError,
+      SetTrackerRouteMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setTrackerRoute>>,
+  TError,
+  SetTrackerRouteMutationVariables,
+  TContext
+> => {
+  return useMutation(getSetTrackerRouteMutationOptions(options), queryClient);
 };
 export const getClearTrackerRuleUrl = (id: string) => {
   return `/api/v1/trackers/${id}/rule`;

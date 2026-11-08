@@ -25,7 +25,7 @@ export const GetGrabParams = zod.object({
 export const GetGrabResponse = GrabsGrab;
 
 /**
- * @summary Send a downloading Grab's torrent to another Download Client
+ * @summary Send a Grab to another Download Client: a downloading Grab's torrent, or a Grab whose fetch waits for its client's Node, which then fetches for the new client
  */
 export const SendGrabToParams = zod.object({
   grabId: zod.uuid(),

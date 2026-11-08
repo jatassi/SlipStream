@@ -122,6 +122,7 @@ func expectSearch(t *testing.T, a *worldtest.API, work, when, want string) {
 // Node that downloads. Once seedbox is back and settled, the Grab is
 // fetched and downloaded on seedbox and the nav alert clears.
 func TestAnOfflineSeedboxsSearchesWaitThenGoHome(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		const blip = 15 * time.Second
 		w := sim.Launch(t, home(t), sim.WithWalk(), sim.Edit(func(name string, e *node.Env) {

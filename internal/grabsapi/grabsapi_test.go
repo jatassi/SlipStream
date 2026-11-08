@@ -38,6 +38,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/trackers"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -161,7 +162,7 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 	t.Helper()
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(),
-		roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), transfers.LibrarySchema())
+		roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), trackers.Schema(), files.Schema(), transfers.LibrarySchema())
 	fx := contenttypetest.New()
 	w := must[*works.Works](t)(works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -215,6 +216,7 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Today: time.Now}),
 		Indexers: xs,
 		Terms:    map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Roster: roster, Downloads: roster, Roots: library,
+		Router:    downloadclients.Router{Roster: roster, Routes: trackers.Routing{Roster: roster}},
 		Transfers: transfers.New(transfers.ControllerConfig{Library: lib}),
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, Log: slog.New(slog.DiscardHandler),
@@ -303,13 +305,13 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		`{"searches":[`+run1+`"outcome":"found","releases":2,"sentence":"Found 2 Releases"}],"finishedAt":"T","outcome":"grabbed","candidates":2,`+
 			`"refused":[{"title":"The.Attic.720p.WEB","reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p"}]}],"grabId":"`+grab+`",`+
 			`"notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`"}]}]}`)
-	trackers, err := f.xs.Trackers(ctx, admin)
-	if err != nil || len(trackers) != 1 || trackers[0].Name != "Fixture Site" {
-		t.Fatalf("Trackers = %+v, %v; want the Fixture Site one the Grab reached", trackers, err)
+	reached, err := f.xs.Trackers(ctx, admin)
+	if err != nil || len(reached) != 1 || reached[0].Name != "Fixture Site" {
+		t.Fatalf("Trackers = %+v, %v; want the Fixture Site one the Grab reached", reached, err)
 	}
 	want := `{"id":"` + grab + `","workId":"` + tree.ID.String() + `","itemId":"` + item + `","edition":"any","targetIds":["` + hd.ID.String() + `"],` +
 		`"releaseTitle":"The.Attic.1080p.WEB","quality":"webdl-1080p","releaseSize":4096,"indexerId":"` + indexer.String() + `",` +
-		`"trackerId":"` + trackers[0].ID.String() + `","nodeId":"` + home.String() + `","fetchNodeId":null,"torrentId":null,"downloadClient":null,"infoHash":null,` +
+		`"trackerId":"` + reached[0].ID.String() + `","nodeId":"` + home.String() + `","fetchNodeId":null,"torrentId":null,"downloadClient":null,"infoHash":null,` +
 		`"stage":"failed","failure":{"stage":"fetching","code":"torrent_invalid","message":"bencode: the metainfo is not a dictionary"},` +
 		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"createdAt":"T"}`
 	expect(t, s, http.MethodGet, "/api/v1/grabs/"+grab, http.StatusOK, want)

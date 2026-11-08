@@ -78,3 +78,20 @@ ON CONFLICT (info_hash) DO UPDATE SET
     rule_ratio_centi = excluded.rule_ratio_centi, rule_seed_seconds = excluded.rule_seed_seconds, opened_at = excluded.opened_at,
     met_at = excluded.met_at, closed_at = excluded.closed_at, regrabbed_at = excluded.regrabbed_at, owed_clears = excluded.owed_clears,
     owed_seconds = excluded.owed_seconds, owed_bytes = excluded.owed_bytes, quiet_since = excluded.quiet_since;
+
+-- name: ListRoutes :many
+SELECT * FROM trackers_route ORDER BY tracker_id, home_node_id;
+
+-- name: ListRoutesOf :many
+SELECT * FROM trackers_route WHERE tracker_id = sqlc.arg(tracker_id) ORDER BY home_node_id;
+
+-- name: SetRoute :exec
+INSERT INTO trackers_route (tracker_id, home_node_id, built_in_on, client_id)
+VALUES (sqlc.arg(tracker_id), sqlc.arg(home_node_id), sqlc.narg(built_in_on), sqlc.narg(client_id))
+ON CONFLICT (tracker_id, home_node_id) DO UPDATE SET built_in_on = excluded.built_in_on, client_id = excluded.client_id;
+
+-- name: ClearRoute :exec
+DELETE FROM trackers_route WHERE tracker_id = sqlc.arg(tracker_id) AND home_node_id = sqlc.arg(home_node_id);
+
+-- name: RepointRoutes :exec
+UPDATE OR IGNORE trackers_route SET tracker_id = sqlc.arg(into_id) WHERE tracker_id = sqlc.arg(from_id);

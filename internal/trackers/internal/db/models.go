@@ -7,6 +7,7 @@ package db
 import (
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -23,6 +24,13 @@ type TrackersGoalRun struct {
 	ActedAt   storage.Time
 	Action    string
 	Kept      *string
+}
+
+type TrackersRoute struct {
+	TrackerID  indexers.TrackerID
+	HomeNodeID role.NodeID
+	BuiltInOn  *role.NodeID
+	ClientID   *downloadclients.ClientID
 }
 
 type TrackersRule struct {

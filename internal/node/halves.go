@@ -111,6 +111,7 @@ func (n *Node) startController(ctx context.Context) error {
 		cluster      *rpc.Cluster
 		homes        *roots.Roots
 		seeding      *trackers.Trackers
+		pipeline     *grabs.Grabs
 	)
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
@@ -139,6 +140,8 @@ func (n *Node) startController(ctx context.Context) error {
 		Clients:         clients,
 		Grabs:           grabs.TrackerFacts{},
 		Roster:          openedRoster{&side},
+		Routing:         trackers.Routing{Roster: openedRoster{&side}},
+		Rerouted:        func() { pipeline.Rerouted() },
 		Soon:            func() { scheduler.Soon(trackers.TaskID) },
 		Reconciling:     trackers.NotReconciling,
 		Changed:         trackers.SeedingChangedEvent.Bind(n.hub),
@@ -347,7 +350,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Rand:    n.filesRand,
 		Log:     n.rootLog.With("subsystem", "files"),
 	})
-	pipeline := grabs.New(grabs.Config{
+	pipeline = grabs.New(grabs.Config{
 		Library:   lib.db,
 		Works:     tree,
 		Targets:   goals,
@@ -357,6 +360,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Terms:     contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
 		Roster:    side,
 		Downloads: clients,
+		Router:    downloadclients.Router{Roster: side, Routes: trackers.Routing{Roster: side}},
 		Media: func(node role.NodeID) mediav1connect.MediaServiceHandler {
 			return mediav1connect.MediaService.On(cluster, node)
 		},
@@ -454,6 +458,8 @@ func (r openedRoster) WrittenOff(name role.Name, node role.NodeID) bool {
 func (r openedRoster) Changed() <-chan struct{} { return (*r.side).Changed() }
 
 func (r openedRoster) Serving(name role.Name) []role.NodeID { return (*r.side).Serving(name) }
+
+func (r openedRoster) Holding(name role.Name) []role.NodeID { return (*r.side).Holding(name) }
 
 func (r openedRoster) Holds(name role.Name, node role.NodeID) bool {
 	return (*r.side).Holds(name, node)

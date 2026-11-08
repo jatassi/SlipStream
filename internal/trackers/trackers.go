@@ -76,6 +76,10 @@ type Config struct {
 	Clients *downloadclients.Clients
 	Grabs   Grabs
 	Roster  Roster
+	Routing Routing
+	// Rerouted tells the Grabs that wait for a client that a route
+	// changed.
+	Rerouted func()
 	// Soon asks the Seeding goals task for a run soon.
 	Soon func()
 	// Reconciling is whether the library is being reconciled after a
