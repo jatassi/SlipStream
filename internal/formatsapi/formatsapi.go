@@ -15,6 +15,8 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/formats"
+	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/grabsapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/targetsapi"
@@ -27,7 +29,15 @@ var (
 	kindUnknown        = api.NewCode(http.StatusUnprocessableEntity, "format_kind_unknown", "SlipStream doesn't have this kind of condition")
 	appNeeded          = api.NewCode(http.StatusUnprocessableEntity, "format_app_needed", "Say whether this was written for Radarr or Sonarr")
 	formatEmpty        = api.NewCode(http.StatusUnprocessableEntity, "format_empty", "A Custom Format needs at least one condition")
+	workNotFound       = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
 )
+
+// Shelf is what the operations run against: the Targets and files, and
+// the Grabs the tester judges names with.
+type Shelf interface {
+	targetsapi.Goals
+	grabsapi.Pipeline
+}
 
 func open(g targetsapi.Goals) *targets.Targets {
 	t, ok := g.Targets()
@@ -45,9 +55,17 @@ func shelf(g targetsapi.Goals) *files.Files {
 	return f
 }
 
-func Routes(r *api.Router, goals targetsapi.Goals) {
+func grabber(s Shelf) *grabs.Grabs {
+	g, ok := s.Grabs()
+	if !ok {
+		panic("formatsapi: an operation ran on a Node that is no Controller")
+	}
+	return g
+}
+
+func Routes(r *api.Router, s Shelf) {
 	o := r.Owner("formats", api.Admin)
-	h := handlers{goals}
+	h := handlers{s}
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listCustomFormats",
@@ -104,9 +122,17 @@ func Routes(r *api.Router, goals targetsapi.Goals) {
 		Errors:  []*api.Code{appNeeded, kindUnknown, patternNotCompiled, formatEmpty, nameTaken, targetsapi.ImpactChanged},
 		MaxBody: 16 << 20,
 	}, h.pasteCustomFormats)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "parseReleases",
+		Method:  http.MethodPost,
+		Path:    "/releases/parse",
+		Summary: "Read release or file names as a search would: the facts, the Work each matches, every Custom Format with each condition's result, and the score and verdict at each Target",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{workNotFound, formatNotFound, patternNotCompiled, kindUnknown, formatEmpty},
+	}, h.parseReleases)
 }
 
-type handlers struct{ goals targetsapi.Goals }
+type handlers struct{ goals Shelf }
 
 type condition struct {
 	Name     string                     `json:"name"`
@@ -221,7 +247,7 @@ func (h handlers) createCustomFormat(ctx context.Context, by identity.Admin, in 
 	f := in.Body.format()
 	f.ID = targets.NewFormatID()
 	if _, err := shelf(h.goals).Change(ctx, by, targets.AddFormats{Dialect: formats.SlipStream, Add: []formats.Format{f}}, files.Mode{}); err != nil {
-		return nil, saveRefused(f, err)
+		return nil, formatRefused(f, err, "", "save")
 	}
 	stored, err := open(h.goals).GetFormat(ctx, by, f.ID)
 	if err != nil {
@@ -251,7 +277,7 @@ func (h handlers) updateCustomFormat(ctx context.Context, by identity.Admin, in 
 	f := in.Body.format()
 	i, err := shelf(h.goals).Change(ctx, by, targets.UpdateFormat{ID: id, Format: f}, in.Mode())
 	if err != nil {
-		return nil, saveRefused(f, notFound(err))
+		return nil, formatRefused(f, notFound(err), "", "save")
 	}
 	stored, err := open(h.goals).GetFormat(ctx, by, id)
 	if err != nil {
@@ -302,26 +328,27 @@ func changed(err error) error {
 	return err
 }
 
-// saveRefused answers err from saving f, made or changed in the editor,
-// with the problem on the field that caused it.
-func saveRefused(f formats.Format, err error) error {
+// formatRefused answers err from compiling f, made or changed in the
+// editor, with the problem on the field that caused it. at is where f
+// sits in the body and again what the Admin does once they fix it.
+func formatRefused(f formats.Format, err error, at, again string) error {
 	if e, ok := errors.AsType[*formats.PatternError](err); ok {
-		return patternNotCompiled.On(fmt.Sprintf("conditions[%d].fields.value", e.Condition), patternWords(e, "")+" Fix the pattern and save again.")
+		return patternNotCompiled.On(fmt.Sprintf("%sconditions[%d].fields.value", at, e.Condition), patternWords(e, "")+" Fix the pattern and "+again+" again.")
 	}
 	if e, ok := errors.AsType[*formats.KindError](err); ok {
-		at := 0
-		for i, c := range f.Conditions {
+		i := 0
+		for j, c := range f.Conditions {
 			if string(c.Kind) == e.Kind {
-				at = i
+				i = j
 				break
 			}
 		}
-		return kindUnknown.On(fmt.Sprintf("conditions[%d].kind", at), kindWords(e)+" Pick one of the kinds the schema lists.")
+		return kindUnknown.On(fmt.Sprintf("%sconditions[%d].kind", at, i), kindWords(e)+" Pick one of the kinds the schema lists.")
 	}
 	if e, ok := errors.AsType[*formats.EmptyError](err); ok {
-		return formatEmpty.On("conditions", fmt.Sprintf("The Custom Format %q has no conditions. Add a condition and save again.", e.Name))
+		return formatEmpty.On(at+"conditions", fmt.Sprintf("The Custom Format %q has no conditions. Add a condition and %s again.", e.Name, again))
 	}
-	return refused(err, "conditions", "save")
+	return refused(err, at+"conditions", again)
 }
 
 // refused answers the errors whose problem is the same from the editor

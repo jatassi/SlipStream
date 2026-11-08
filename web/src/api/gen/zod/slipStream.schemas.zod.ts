@@ -1802,6 +1802,49 @@ export const FormatsDialectSchema = zod.object({
 export type FormatsDialectSchema = zod.input<typeof FormatsDialectSchema>;
 export type FormatsDialectSchemaOutput = zod.output<typeof FormatsDialectSchema>;
 
+export const formatsDraftNameMax = 100;
+
+export const FormatsDraft = zod.object({
+  conditions: zod.array(FormatsCondition),
+  formatId: zod
+    .uuid()
+    .exactOptional()
+    .describe(
+      "The saved Custom Format the draft stands in for, whose app it is written in; left out, the draft is a new format in SlipStream's own values",
+    ),
+  includeWhenRenaming: zod.boolean().exactOptional(),
+  name: zod.string().min(1).max(formatsDraftNameMax),
+});
+
+export type FormatsDraft = zod.input<typeof FormatsDraft>;
+export type FormatsDraftOutput = zod.output<typeof FormatsDraft>;
+
+export const FormatsEvaluated = zod.object({
+  kind: zod.string(),
+  matched: zod.boolean().describe("After negate"),
+  name: zod.string(),
+  negate: zod.boolean(),
+  required: zod.boolean(),
+  timedOut: zod
+    .boolean()
+    .describe("Its pattern ran past the match limit, which counts as not matching"),
+});
+
+export type FormatsEvaluated = zod.input<typeof FormatsEvaluated>;
+export type FormatsEvaluatedOutput = zod.output<typeof FormatsEvaluated>;
+
+export const FormatsExplained = zod.object({
+  conditions: zod.array(FormatsEvaluated),
+  draft: zod.boolean().describe("It is the request's draft"),
+  id: zod.uuid(),
+  matched: zod.boolean(),
+  name: zod.string(),
+  timedOut: zod.boolean(),
+});
+
+export type FormatsExplained = zod.input<typeof FormatsExplained>;
+export type FormatsExplainedOutput = zod.output<typeof FormatsExplained>;
+
 export const targetsUnwantedFilesBytesMin = 0;
 
 export const targetsUnwantedFilesFilesMin = 0;
@@ -1913,6 +1956,188 @@ export const FormatsNewFormat = zod.object({
 
 export type FormatsNewFormat = zod.input<typeof FormatsNewFormat>;
 export type FormatsNewFormatOutput = zod.output<typeof FormatsNewFormat>;
+
+export const formatsParseKindDefault = `release`;
+export const formatsParseNamesMax = 100;
+
+export const FormatsParse = zod.object({
+  draft: FormatsDraft.exactOptional().describe(
+    "A Custom Format matched as if saved, in place of formatId's",
+  ),
+  kind: zod
+    .enum(["release", "file"])
+    .default(formatsParseKindDefault)
+    .describe(
+      "release reads each name as a release title; file reads it as a file path, with its folder's name when the file's gives no title",
+    ),
+  names: zod
+    .array(zod.string())
+    .min(1)
+    .max(formatsParseNamesMax)
+    .nullable()
+    .describe("Release names, or file paths when kind is file"),
+  workId: zod
+    .uuid()
+    .exactOptional()
+    .describe(
+      "The Work to judge every name against; left out, each name is matched to the Works whose titles it gives, read as each Content Type in turn",
+    ),
+});
+
+export type FormatsParse = zod.input<typeof FormatsParse>;
+export type FormatsParseOutput = zod.output<typeof FormatsParse>;
+
+export const formatsRevisionRealMin = 0;
+
+export const FormatsRevision = zod.object({
+  real: zod.int().min(formatsRevisionRealMin),
+  repack: zod.boolean(),
+  version: zod.int().min(1),
+});
+
+export type FormatsRevision = zod.input<typeof FormatsRevision>;
+export type FormatsRevisionOutput = zod.output<typeof FormatsRevision>;
+
+export const FormatsReadFacts = zod.object({
+  audio: zod.array(zod.string()).describe("Audio codecs, best first"),
+  channels: zod.array(zod.string()).describe("Channel layouts, best first"),
+  cut: zod.string().describe("The cut's key, standard when the name names none"),
+  edition: zod.string().nullable().describe("The edition text as the name gives it"),
+  group: zod.string().nullable().describe("The release group"),
+  hdr: zod.array(zod.string()).describe("Best first"),
+  ids: zod
+    .record(zod.string(), zod.string())
+    .describe("The id tags the name carries, by Torznab's names: tmdbid, imdbid, tvdbid"),
+  languages: zod.array(zod.string()).describe("ISO 639 codes"),
+  marks: zod.array(zod.string()).describe("What the name numbers, such as S01E02, in words"),
+  modifier: zod.string().nullable(),
+  quality: zod
+    .string()
+    .nullable()
+    .describe("The Quality key, such as webdl-1080p; null when the name gives none"),
+  resolution: zod.string().nullable(),
+  revision: FormatsRevision,
+  source: zod.string().nullable().describe("The fine source, such as webdl"),
+  span: zod
+    .enum(["", "one", "several", "level", "levels"])
+    .describe(
+      "One Item, several Items of one level, a whole level or several levels; empty when the name numbers nothing",
+    ),
+  titles: zod.array(zod.string()).describe("Every title the name gives, as in A AKA B"),
+  video: zod.string().nullable().describe("The video codec"),
+  year: zod.int().nullable(),
+});
+
+export type FormatsReadFacts = zod.input<typeof FormatsReadFacts>;
+export type FormatsReadFactsOutput = zod.output<typeof FormatsReadFacts>;
+
+export const GrabsReason = zod.object({
+  attribute: zod
+    .enum(["hdr", "video_codec", "audio_codec", "channels", "language"])
+    .exactOptional()
+    .describe("The attribute a failed filter rules on"),
+  code: zod
+    .enum([
+      "wrong_work",
+      "wrong_item",
+      "covers_more",
+      "wrong_title",
+      "cut_not_wanted",
+      "quality_not_in_target",
+      "filter",
+      "size_below",
+      "size_above",
+      "size_not_checked",
+      "score_below_minimum",
+      "not_an_upgrade",
+      "repack_other_group",
+    ])
+    .describe(
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's.",
+    ),
+  soft: zod
+    .boolean()
+    .describe(
+      "Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note.",
+    ),
+  targetId: zod
+    .uuid()
+    .exactOptional()
+    .describe(
+      "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
+    ),
+  value: zod
+    .string()
+    .exactOptional()
+    .describe(
+      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
+    ),
+});
+
+export type GrabsReason = zod.input<typeof GrabsReason>;
+export type GrabsReasonOutput = zod.output<typeof GrabsReason>;
+
+export const FormatsTriedTarget = zod.object({
+  name: zod.string(),
+  reasons: zod
+    .array(GrabsReason)
+    .describe(
+      "The name's own refusals, then the reasons of the first cell it would fill, else of the first cell it was judged at",
+    ),
+  score: zod.int(),
+  targetId: zod.uuid(),
+  wouldFill: zod.boolean().describe("An automatic search would grab it for this Target"),
+});
+
+export type FormatsTriedTarget = zod.input<typeof FormatsTriedTarget>;
+export type FormatsTriedTargetOutput = zod.output<typeof FormatsTriedTarget>;
+
+export const FormatsWorkRef = zod.object({
+  id: zod.uuid(),
+  label: zod.string(),
+});
+
+export type FormatsWorkRef = zod.input<typeof FormatsWorkRef>;
+export type FormatsWorkRefOutput = zod.output<typeof FormatsWorkRef>;
+
+export const FormatsParsed = zod.object({
+  covers: zod
+    .array(zod.uuid())
+    .describe("The Items the name covers of the one Work it was judged against"),
+  facts: FormatsReadFacts,
+  formats: zod.array(FormatsExplained).describe("Every Custom Format, the draft included, by name"),
+  name: zod.string(),
+  sentence: zod
+    .string()
+    .describe(
+      "What the name reads as, the Works it matches and the Targets it would fill, or why it would fill none",
+    ),
+  targets: zod
+    .array(FormatsTriedTarget)
+    .describe(
+      "With one Work, its Profile's Targets judged against its held files; with several or none, every Target with no held file",
+    ),
+  words: zod
+    .string()
+    .describe(
+      "The facts in words, joined with a middle dot: Quality, HDR, audio and channels, release group and size",
+    ),
+  works: zod
+    .array(FormatsWorkRef)
+    .describe(
+      "The given Work when the name matches it, else every Work whose title and year it gives",
+    ),
+});
+
+export type FormatsParsed = zod.input<typeof FormatsParsed>;
+export type FormatsParsedOutput = zod.output<typeof FormatsParsed>;
+
+export const FormatsParseResults = zod.object({
+  results: zod.array(FormatsParsed).describe("In the order of names"),
+});
+
+export type FormatsParseResults = zod.input<typeof FormatsParseResults>;
+export type FormatsParseResultsOutput = zod.output<typeof FormatsParseResults>;
 
 export const FormatsPaste = zod.object({
   app: zod
@@ -2194,52 +2419,6 @@ export const GrabsIndexerGrabList = zod.object({
 
 export type GrabsIndexerGrabList = zod.input<typeof GrabsIndexerGrabList>;
 export type GrabsIndexerGrabListOutput = zod.output<typeof GrabsIndexerGrabList>;
-
-export const GrabsReason = zod.object({
-  attribute: zod
-    .enum(["hdr", "video_codec", "audio_codec", "channels", "language"])
-    .exactOptional()
-    .describe("The attribute a failed filter rules on"),
-  code: zod
-    .enum([
-      "wrong_work",
-      "wrong_item",
-      "covers_more",
-      "wrong_title",
-      "cut_not_wanted",
-      "quality_not_in_target",
-      "filter",
-      "size_below",
-      "size_above",
-      "size_not_checked",
-      "score_below_minimum",
-      "not_an_upgrade",
-      "repack_other_group",
-    ])
-    .describe(
-      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's.",
-    ),
-  soft: zod
-    .boolean()
-    .describe(
-      "Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note.",
-    ),
-  targetId: zod
-    .uuid()
-    .exactOptional()
-    .describe(
-      "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
-    ),
-  value: zod
-    .string()
-    .exactOptional()
-    .describe(
-      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
-    ),
-});
-
-export type GrabsReason = zod.input<typeof GrabsReason>;
-export type GrabsReasonOutput = zod.output<typeof GrabsReason>;
 
 export const GrabsRefusal = zod.object({
   reasons: zod

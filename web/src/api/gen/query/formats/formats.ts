@@ -38,6 +38,8 @@ import type {
   FormatsFormatDeletion,
   FormatsFormatList,
   FormatsNewFormat,
+  FormatsParse,
+  FormatsParseResults,
   FormatsPaste,
   FormatsPasted,
   FormatsSchema,
@@ -51,6 +53,13 @@ import type {
   ListCustomFormats403,
   ListCustomFormats409,
   ListCustomFormats500,
+  ParseReleases400,
+  ParseReleases401,
+  ParseReleases403,
+  ParseReleases404,
+  ParseReleases409,
+  ParseReleases422,
+  ParseReleases500,
   PasteCustomFormats400,
   PasteCustomFormats401,
   PasteCustomFormats403,
@@ -1051,4 +1060,134 @@ export const useUpdateCustomFormat = <
   TContext
 > => {
   return useMutation(getUpdateCustomFormatMutationOptions(options), queryClient);
+};
+export const getParseReleasesUrl = () => {
+  return `/api/v1/releases/parse`;
+};
+
+/**
+ * @summary Read release or file names as a search would: the facts, the Work each matches, every Custom Format with each condition's result, and the score and verdict at each Target
+ */
+export const parseReleases = async (
+  formatsParse: FormatsParse,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<FormatsParseResults> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<FormatsParseResults>(getParseReleasesUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(formatsParse),
+  });
+};
+
+export const getParseReleasesMutationKey = () => ["parseReleases"] as const;
+
+export const getParseReleasesMutationOptions = <
+  TError = ErrorType<
+    | ParseReleases400
+    | ParseReleases401
+    | ParseReleases403
+    | ParseReleases404
+    | ParseReleases409
+    | ParseReleases422
+    | ParseReleases500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof parseReleases>>,
+    TError,
+    ParseReleasesMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof parseReleases>>,
+  TError,
+  ParseReleasesMutationVariables,
+  TContext
+> => {
+  const mutationKey = getParseReleasesMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof parseReleases>>,
+    ParseReleasesMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return parseReleases(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ParseReleasesMutationResult = NonNullable<Awaited<ReturnType<typeof parseReleases>>>;
+export type ParseReleasesMutationBody = FormatsParse;
+export type ParseReleasesMutationError = ErrorType<
+  | ParseReleases400
+  | ParseReleases401
+  | ParseReleases403
+  | ParseReleases404
+  | ParseReleases409
+  | ParseReleases422
+  | ParseReleases500
+>;
+export type ParseReleasesMutationVariables = { data: FormatsParse };
+
+/**
+ * @summary Read release or file names as a search would: the facts, the Work each matches, every Custom Format with each condition's result, and the score and verdict at each Target
+ */
+export const useParseReleases = <
+  TError = ErrorType<
+    | ParseReleases400
+    | ParseReleases401
+    | ParseReleases403
+    | ParseReleases404
+    | ParseReleases409
+    | ParseReleases422
+    | ParseReleases500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof parseReleases>>,
+      TError,
+      ParseReleasesMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof parseReleases>>,
+  TError,
+  ParseReleasesMutationVariables,
+  TContext
+> => {
+  return useMutation(getParseReleasesMutationOptions(options), queryClient);
 };
