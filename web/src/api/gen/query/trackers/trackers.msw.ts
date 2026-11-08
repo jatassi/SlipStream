@@ -1228,6 +1228,25 @@ export const getUpdateSeedingSettingsMockHandler = (
   );
 };
 
+export const getRemoveTrackerMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.delete(
+    "*/api/v1/trackers/:id",
+    async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
 export const getGetTrackerMockHandler = (
   overrideResponse?:
     | TrackersTracker
@@ -1401,6 +1420,7 @@ export const getTrackersMock = () => [
   getSetDefaultGoalMockHandler(),
   getGetSeedingSettingsMockHandler(),
   getUpdateSeedingSettingsMockHandler(),
+  getRemoveTrackerMockHandler(),
   getGetTrackerMockHandler(),
   getRenameTrackerMockHandler(),
   getClearTrackerGoalMockHandler(),

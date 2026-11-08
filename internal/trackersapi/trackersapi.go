@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -42,11 +44,12 @@ func (h handlers) trackers() *trackers.Trackers {
 }
 
 var (
-	trackerNotFound     = api.NewCode(http.StatusNotFound, "tracker_not_found", "That Tracker no longer exists. It may have been merged into another Tracker.")
+	trackerNotFound     = api.NewCode(http.StatusNotFound, "tracker_not_found", "That Tracker no longer exists. It may have been removed or merged into another Tracker.")
 	trackerNameTaken    = api.NewCode(http.StatusConflict, "tracker_name_taken", "Another Tracker has that name")
 	trackerMergeSelf    = api.NewCode(http.StatusUnprocessableEntity, "tracker_merge_self", "A Tracker can't be merged into itself")
 	trackerPublic       = api.NewCode(http.StatusConflict, "tracker_public", "Public Trackers have no seeding rule")
 	seedingValueRefused = api.NewCode(http.StatusUnprocessableEntity, "seeding_value_refused", "A seeding value is out of range")
+	trackerInUse        = api.NewCode(http.StatusConflict, "tracker_in_use", "This Tracker is still in use")
 )
 
 func trackerAnswer(err error) error {
@@ -175,6 +178,49 @@ func (h handlers) mergeTracker(ctx context.Context, by identity.Admin, in *merge
 	return h.trackerReply(ctx, by, into)
 }
 
+func (h handlers) removeTracker(ctx context.Context, by identity.Admin, in *trackerInput) (*struct{}, error) {
+	id, err := parseTrackerID(in.ID)
+	if err != nil {
+		return nil, err
+	}
+	err = h.trackers().Remove(ctx, by, id)
+	if inUse, ok := errors.AsType[*trackers.InUseError](err); ok {
+		return nil, trackerInUse.Because(inUseDetail(inUse))
+	}
+	if err != nil {
+		return nil, trackerAnswer(err)
+	}
+	return nil, nil
+}
+
+// inUseDetail is "seedpool is still in use. Delete its 2 Indexers and
+// remove its 14 torrents first."
+func inUseDetail(e *trackers.InUseError) string {
+	var steps []string
+	if e.Indexers > 0 {
+		steps = append(steps, "delete its "+counted(e.Indexers, "Indexer", "Indexers"))
+	}
+	if e.Torrents > 0 {
+		steps = append(steps, "remove its "+counted(e.Torrents, "torrent", "torrents"))
+	}
+	if e.Grabs > 0 {
+		steps = append(steps, "wait for its "+counted(e.Grabs, "Grab", "Grabs")+" to finish")
+	}
+	list := steps[0]
+	if n := len(steps); n > 1 {
+		list = strings.Join(steps[:n-1], ", ") + " and " + steps[n-1]
+	}
+	return e.Name + " is still in use. " + strings.ToUpper(list[:1]) + list[1:] + " first."
+}
+
+// counted is "Indexer" for one and "2 Indexers" for more.
+func counted(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return strconv.Itoa(n) + " " + many
+}
+
 func Routes(r *api.Router, registry Registry) {
 	o := r.Owner("trackers", api.Admin)
 	h := handlers{registry}
@@ -205,6 +251,15 @@ func Routes(r *api.Router, registry Registry) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{trackerNotFound, trackerMergeSelf},
 	}, h.mergeTracker)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "removeTracker",
+		Method:  http.MethodDelete,
+		Path:    "/trackers/{id}",
+		Summary: "Remove a Tracker that no Indexer reaches and no live torrent or unfinished Grab names. Removing it also deletes its seeding rule, goal and seeding history. Its finished Grabs and removed torrents are kept with no Tracker.",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{trackerNotFound, trackerInUse},
+	}, h.removeTracker)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "setTrackerRule",

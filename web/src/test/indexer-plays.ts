@@ -97,7 +97,7 @@ const noTracker = () =>
   problem(
     404,
     "tracker_not_found",
-    "That Tracker no longer exists. It may have been merged into another Tracker.",
+    "That Tracker no longer exists. It may have been removed or merged into another Tracker.",
   );
 
 const folded = (name: string) => name.toLowerCase().replaceAll(/[^\p{L}\p{N}]/gu, "");

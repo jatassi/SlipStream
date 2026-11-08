@@ -53,6 +53,12 @@ import type {
   MergeTracker422,
   MergeTracker500,
   MergeTrackerInputBody,
+  RemoveTracker401,
+  RemoveTracker403,
+  RemoveTracker404,
+  RemoveTracker409,
+  RemoveTracker422,
+  RemoveTracker500,
   RenameTracker401,
   RenameTracker403,
   RenameTracker404,
@@ -709,6 +715,112 @@ export const useUpdateSeedingSettings = <
   TContext
 > => {
   return useMutation(getUpdateSeedingSettingsMutationOptions(options), queryClient);
+};
+export const getRemoveTrackerUrl = (id: string) => {
+  return `/api/v1/trackers/${id}`;
+};
+
+/**
+ * @summary Remove a Tracker that no Indexer reaches and no live torrent or unfinished Grab names. Removing it also deletes its seeding rule, goal and seeding history. Its finished Grabs and removed torrents are kept with no Tracker.
+ */
+export const removeTracker = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  return apiFetch<void>(getRemoveTrackerUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRemoveTrackerMutationKey = () => ["removeTracker"] as const;
+
+export const getRemoveTrackerMutationOptions = <
+  TError = ErrorType<
+    | RemoveTracker401
+    | RemoveTracker403
+    | RemoveTracker404
+    | RemoveTracker409
+    | RemoveTracker422
+    | RemoveTracker500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeTracker>>,
+    TError,
+    RemoveTrackerMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeTracker>>,
+  TError,
+  RemoveTrackerMutationVariables,
+  TContext
+> => {
+  const mutationKey = getRemoveTrackerMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeTracker>>,
+    RemoveTrackerMutationVariables
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return removeTracker(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RemoveTrackerMutationResult = NonNullable<Awaited<ReturnType<typeof removeTracker>>>;
+
+export type RemoveTrackerMutationError = ErrorType<
+  | RemoveTracker401
+  | RemoveTracker403
+  | RemoveTracker404
+  | RemoveTracker409
+  | RemoveTracker422
+  | RemoveTracker500
+>;
+export type RemoveTrackerMutationVariables = { id: string };
+
+/**
+ * @summary Remove a Tracker that no Indexer reaches and no live torrent or unfinished Grab names. Removing it also deletes its seeding rule, goal and seeding history. Its finished Grabs and removed torrents are kept with no Tracker.
+ */
+export const useRemoveTracker = <
+  TError = ErrorType<
+    | RemoveTracker401
+    | RemoveTracker403
+    | RemoveTracker404
+    | RemoveTracker409
+    | RemoveTracker422
+    | RemoveTracker500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof removeTracker>>,
+      TError,
+      RemoveTrackerMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof removeTracker>>,
+  TError,
+  RemoveTrackerMutationVariables,
+  TContext
+> => {
+  return useMutation(getRemoveTrackerMutationOptions(options), queryClient);
 };
 export const getGetTrackerUrl = (id: string) => {
   return `/api/v1/trackers/${id}`;

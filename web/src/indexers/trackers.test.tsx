@@ -105,7 +105,7 @@ test("a merge the server refuses keeps the dialog open with its reason", async (
   await expect
     .element(dialog.getByRole("alert"))
     .toHaveTextContent(
-      "That Tracker no longer exists. It may have been merged into another Tracker.",
+      "That Tracker no longer exists. It may have been removed or merged into another Tracker.",
     );
 });
 
