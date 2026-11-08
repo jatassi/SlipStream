@@ -1,0 +1,87 @@
+{
+  "releases": [
+    {
+      "title": "The Quiet Orchard 2022 1080p WEB-DL",
+      "size": 7085405541,
+      "published": "2022-06-11T09:04:50Z",
+      "seeders": 33,
+      "leechers": 0,
+      "grabs": 55,
+      "link": "https://exoticaz.fixture-site.fake.localhost/rss/download/123456789/64040-00230c343b580c75b2d13350204811aeb1f181bc.torrent",
+      "magnet": "",
+      "infoHash": "00230c343b580c75b2d13350204811aeb1f181bc",
+      "categories": [
+        6040,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "85h11m51s",
+      "details": "https://exoticaz.fixture-site.fake.localhost/torrent/64040-the-quiet-orchard-2022-1080p-web-dl",
+      "source": null,
+      "flags": []
+    },
+    {
+      "title": "Harbor Lights 2022 Collection",
+      "size": 64424509440,
+      "published": "2022-06-10T20:15:00Z",
+      "seeders": 8,
+      "leechers": 2,
+      "grabs": 19,
+      "link": "https://exoticaz.fixture-site.fake.localhost/rss/download/123456789/64038-a4481c64ca0f0da573b14e06f7802c5de1a854ab.torrent",
+      "magnet": "",
+      "infoHash": "a4481c64ca0f0da573b14e06f7802c5de1a854ab",
+      "categories": [
+        6050,
+        100002,
+        6060,
+        100007
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 2
+      },
+      "minRatio": 1,
+      "minSeed": "190h0m0s",
+      "details": "https://exoticaz.fixture-site.fake.localhost/torrent/64038-harbor-lights-collection-2022",
+      "source": null,
+      "flags": [
+        "freeleech",
+        "doubleupload"
+      ]
+    },
+    {
+      "title": "Cedar Hollow 2021 DVD",
+      "size": 4508876800,
+      "published": "2022-06-09T06:30:00Z",
+      "seeders": 4,
+      "leechers": 0,
+      "grabs": 12,
+      "link": "https://exoticaz.fixture-site.fake.localhost/rss/download/123456789/64031-10bfc21b139cefee30118f55f8f8dee3f20427d6.torrent",
+      "magnet": "",
+      "infoHash": "10bfc21b139cefee30118f55f8f8dee3f20427d6",
+      "categories": [
+        6010,
+        100005
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0.5,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "80h23m54s",
+      "details": "https://exoticaz.fixture-site.fake.localhost/torrent/64031-cedar-hollow-2021-dvd",
+      "source": null,
+      "flags": [
+        "halfleech"
+      ]
+    }
+  ],
+  "sessionChanged": true
+}
