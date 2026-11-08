@@ -11,12 +11,12 @@ An Admin reads what SlipStream reads from release names and steers which Release
 - `formats-wrong-title` an untagged Bluray whose name gives 1987 is refused as `wrong_title` with the value `The Quiet Orchard (1987)`, though it ranks first, and the search grabs the WEB-DL (P-129).
 - `formats-repack` with FKW's WEB-DL held at both Targets, a search grabs FKW's REPACK, refuses NTb's REPACK with `repack_other_group` at each Target, and the REPACK replaces the held file at the same path (P-072).
 - `formats-freeleech` with a freeleech WEB-DL of 2 seeders listed beside FKW's of 12, the search grabs the freeleech one and FKW's lost at freeleech, `1` against `0` (P-071).
-- `formats-tester` the tester reads `The.Quiet.Orchard.2021.1080p.WEB-DL.DDP5.1.Atmos.DV.HDR10.x265-FLUX` as `Reads as WEBDL-1080p from FLUX. It matches The Quiet Orchard and would fill 1080p and HD.`, with HDR `DV` and `HDR10`, `FLUX` matched by its one condition, a Score of 51 at `1080p` and 0 at `HD`, and reads the 1987 Bluray as matching no Work (P-262, P-130).
+- `formats-tester` with FLUX's WEB-DL held at Score 51, the tester reads `The.Quiet.Orchard.2021.1080p.WEB-DL.DDP5.1.Atmos.DV.HDR10.x265-FLUX` as `Reads as WEBDL-1080p from FLUX. It matches The Quiet Orchard and would fill no Target. It isn't an upgrade of the file at 1080p.`, with HDR `DV, HDR10`, `FLUX` matched by its one condition and a Score of 51 at `1080p`, and reads the 1987 Bluray as `Reads as Bluray-1080p from FKW. It matches no Work. 1080p and HD accept it.` (P-262, P-130).
 
 ## How to get to it (user POV)
 
 - Desktop shell: the sidebar's `Settings`, then `Custom Formats` under Files to keep, `/settings/custom-formats`. `Paste` opens `Paste Custom Formats`, `New Custom Format` opens `/settings/custom-formats/new`, and a format's name opens `/settings/custom-formats/<id>`. The `Tester` region sits under the section's intro, above `New Custom Format` and `Paste`. A format editor's `Try it` and a Release's `Open in tester` open the same tester as the `Tester` dialog. The Target editor's `Scores` region and `Propers and repacks` choice are on `/settings/targets/<id>`.
-- Phone shell: `More`, then `Settings`, then `Custom Formats`; the editor and the paste dialog are pushed pages.
+- Phone shell: `More`, then `Settings`, then `Custom Formats`; the editor is a pushed page, and `Paste` and the tester open as bottom sheets.
 - The Work page: the `Searches` list, where each Item's latest search lists its `Releases` under its `Details`.
 - API (Admin): `GET`, `POST /api/v1/custom-formats`, `GET /api/v1/custom-formats/schema`, `GET`, `PUT`, `DELETE /api/v1/custom-formats/{formatId}`, `POST /api/v1/custom-formats/{formatId}/duplicate`, `POST /api/v1/custom-formats/paste`, `POST /api/v1/releases/parse`, `PUT /api/v1/targets/{targetId}` with `scores` and `propers`, `GET /api/v1/searches/{searchId}/releases`.
 
@@ -90,14 +90,14 @@ Steps:
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$W"
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("Grabbed a Release").first().waitFor({ timeout: 30000 }); }'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true }).first()'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Searches" }).getByText("2 Releases found").nth(1).waitFor({ timeout: 30000 }); }'
   S2=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$W/searches" | jq -r '.searches[0].id')
   $FW exec $RUN --proof custom-formats/formats-grab-changes -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/searches/$S2/releases"
   $FW exec $RUN --proof custom-formats/formats-grab-changes -- $FW fs match {runDir} '{mediaDir}/movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv' --release The.Quiet.Orchard.2021.1080p.WEB-DL.DDP5.1.H264-FLUX
   ```
 
-- **Try names in the tester.** Paste the Dolby Vision name and the 1987 Bluray into the `Tester` region's `Release names` and choose `Test`. The first reads as WEBDL-1080p from FLUX, matches The Quiet Orchard and would fill `1080p` at Score 51. The second matches no Work.
+- **Try names in the tester.** Paste the Dolby Vision name and the 1987 Bluray into the `Tester` region's `Release names` and choose `Test`. The first reads as WEBDL-1080p from FLUX and matches The Quiet Orchard at Score 51, and it would fill no Target because FLUX's file already scores 51. The second matches no Work.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/settings/custom-formats'
@@ -131,5 +131,6 @@ Steps:
 - TRaSH's group formats name neither app. A paste over the API without `"app": "radarr"` answers 422 `format_app_needed`.
 - `GET /api/v1/custom-formats` answers `matchLimitMilliseconds` beside `formats`, so a reader that maps every member to a list fails on it.
 - The untagged Bluray lists no `tmdbid`, so only its name says which film it is. A tagged release whose id matches the Work settles the match and is never refused as `wrong_title`.
+- Once a Work holds a file, its page's `Needs you` and `Editions and Targets` add their own `Search` buttons, so `getByRole("main").getByRole("button", { name: "Search", exact: true })` needs `.first()` for the Work's own.
 - The tester reads with no size, so every Target's verdict carries the note `size_not_checked`.
 - `e2e/formats_test.go` drives the same walks with the API alone and runs in CI.
