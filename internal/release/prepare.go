@@ -31,8 +31,6 @@ type Prepared struct {
 	// Folder is the name of the folder File found the name in, which a
 	// type may read with it, as Sonarr's ParsePath reads a season folder.
 	Folder string
-
-	slow []string
 }
 
 // Prepare ports Sonarr's ParseTitle up to its pattern loop, with
@@ -40,21 +38,19 @@ type Prepared struct {
 // superset of Radarr's here: Radarr reads no reversed episode marker,
 // rejects fewer hashes and has no pre-substitutions.
 func Prepare(name string) Prepared {
-	var s scan
-	p := Prepared{Original: name, Obfuscated: obfuscated(&s, name)}
+	p := Prepared{Original: name, Obfuscated: obfuscated(name)}
 	title := name
-	if s.match(reversedTitle, regex.TextOf(name)) {
-		base := withoutExtension(&s, name)
+	if reversedTitle.match(regex.TextOf(name)) {
+		base := withoutExtension(name)
 		title = reverse(base) + name[len(base):]
 	}
-	title = strings.NewReplacer("【", "[", "】", "]").Replace(withoutExtension(&s, title))
+	title = strings.NewReplacer("【", "[", "】", "]").Replace(withoutExtension(title))
 	p.Release = regex.TextOf(title)
 	for _, sub := range preSubstitutions {
-		p.Release = s.replace(sub, p.Release)
+		p.Release = sub.replace(p.Release)
 	}
-	p.Title = unsited(&s, p.Release)
-	p.Simple = unsited(&s, s.replace(simpleTitle, p.Release))
-	p.slow = s.slow
+	p.Title = unsited(p.Release)
+	p.Simple = unsited(simpleTitle.replace(p.Release))
 	return p
 }
 
@@ -72,7 +68,7 @@ var (
 
 // obfuscated is Sonarr's ValidateBeforeParsing failing, but for its
 // season folder rule, which is the series type's.
-func obfuscated(s *scan, name string) bool {
+func obfuscated(name string) bool {
 	lower := strings.ToLower(name)
 	if strings.Contains(lower, "password") && strings.Contains(lower, "yenc") {
 		return true
@@ -80,14 +76,14 @@ func obfuscated(s *scan, name string) bool {
 	if !strings.ContainsFunc(name, func(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) }) {
 		return true
 	}
-	t := regex.TextOf(withoutExtension(s, name))
-	return slices.ContainsFunc(hashedReleases, func(f fixed) bool { return s.match(f, t) })
+	t := regex.TextOf(withoutExtension(name))
+	return slices.ContainsFunc(hashedReleases, func(f fixed) bool { return f.match(t) })
 }
 
 // withoutExtension is Sonarr's FileExtensions.RemoveFileExtension: name
 // without a media or usenet file extension.
-func withoutExtension(s *scan, name string) string {
-	m, ok := s.find(fileExtension, regex.TextOf(name))
+func withoutExtension(name string) string {
+	m, ok := fileExtension.find(regex.TextOf(name))
 	if !ok {
 		return name
 	}
@@ -107,12 +103,12 @@ func reverse(s string) string {
 
 // unsited is t without a site prefix or suffix, a torrent site's suffix
 // and a trailing bracket that names a quality.
-func unsited(s *scan, t regex.Text) regex.Text {
-	t = s.replace(websitePrefix, t)
-	t = s.replace(websitePostfix, t)
-	t = s.replace(torrentSuffix, t)
-	m, ok := s.find(qualityBrackets, t)
-	if !ok || parseQualityName(s, m.Value()).grade == (grade{}) {
+func unsited(t regex.Text) regex.Text {
+	t = websitePrefix.replace(t)
+	t = websitePostfix.replace(t)
+	t = torrentSuffix.replace(t)
+	m, ok := qualityBrackets.find(t)
+	if !ok || parseQualityName(m.Value()).grade == (grade{}) {
 		return t
 	}
 	return regex.TextOf(string([]rune(t.String())[:m.Index()]))

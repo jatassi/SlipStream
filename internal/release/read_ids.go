@@ -24,16 +24,16 @@ var numberIDs = []struct {
 // group reads, Radarr's simpleReleaseTitle: the id tags it carries, by
 // Torznab's names. An IMDb id is "tt" and 7 or 8 digits, and a TMDB or
 // TVDB id a positive int32.
-func readIDs(name string, s *scan) map[string]string {
+func readIDs(name string) map[string]string {
 	t := regex.TextOf(name)
 	ids := map[string]string{}
-	if m, ok := s.find(reportImdbID, t); ok {
+	if m, ok := reportImdbID.find(t); ok {
 		if v, _ := m.Group("imdbid"); len(v) == 9 || len(v) == 10 {
 			ids["imdbid"] = v
 		}
 	}
 	for _, id := range numberIDs {
-		m, ok := s.find(id.f, t)
+		m, ok := id.f.find(t)
 		if !ok {
 			continue
 		}

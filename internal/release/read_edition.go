@@ -11,8 +11,8 @@ var reportEdition = compile(upstream.RadarrParserReportEditionRegex)
 
 // readEdition ports Radarr's ParseEdition: the first edition text tail
 // names after its first character, with dots read as spaces.
-func readEdition(tail string, s *scan) Fact[string] {
-	m, ok := s.find(reportEdition, regex.TextOf(tail))
+func readEdition(tail string) Fact[string] {
+	m, ok := reportEdition.find(regex.TextOf(tail))
 	if !ok {
 		return Fact[string]{}
 	}

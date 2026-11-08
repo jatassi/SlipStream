@@ -54,11 +54,11 @@ var languageWords = func() []upstream.Adds {
 
 // readLanguages ports Sonarr's LanguageParser.ParseLanguages, reading
 // Radarr's words too. A name that names no language reads as unknown.
-func readLanguages(name string, s *scan) Fact[[]Language] {
+func readLanguages(name string) Fact[[]Language] {
 	t := regex.TextOf(name)
 	for _, r := range cleanLanguageTitle {
-		if s.match(r.fixed, t) {
-			t = s.replace(r, t)
+		if r.match(t) {
+			t = r.replace(t)
 			break
 		}
 	}
@@ -70,10 +70,10 @@ func readLanguages(name string, s *scan) Fact[[]Language] {
 		}
 	}
 	var matches []regex.Match
-	if m, ok := s.find(caseSensitiveLanguage, t); ok {
+	if m, ok := caseSensitiveLanguage.find(t); ok {
 		matches = append(matches, m)
 	}
-	for _, m := range append(matches, s.findAll(languageTags, t)...) {
+	for _, m := range append(matches, languageTags.findAll(t)...) {
 		names = append(names, groupLanguages(m)...)
 	}
 	if len(names) == 0 {
@@ -81,9 +81,9 @@ func readLanguages(name string, s *scan) Fact[[]Language] {
 	}
 	if len(names) == 1 && names[0] == "German" {
 		switch {
-		case s.match(germanDual, t):
+		case germanDual.match(t):
 			names = append(names, "Original")
-		case s.match(germanMulti, t):
+		case germanMulti.match(t):
 			names = append(names, "Original", "English")
 		}
 	}

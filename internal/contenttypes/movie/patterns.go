@@ -5,10 +5,11 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttypes/movie/internal/upstream"
 	"github.com/jatassi/slipstream/internal/regex"
-	"github.com/jatassi/slipstream/internal/release"
 )
 
-// fixed is a Radarr pattern compiled once.
+// fixed is a Radarr pattern compiled once. Radarr sets no match timeout
+// on its parser patterns and neither does SlipStream, so a call errs only
+// on a replacement it can't read, which a test would meet.
 type fixed struct{ re *regex.Regex }
 
 const compiledOptions = upstream.IgnoreCase | upstream.Compiled
@@ -17,7 +18,7 @@ func compile(p upstream.Pattern) fixed {
 	if extra := p.Options &^ compiledOptions; extra != 0 {
 		panic(fmt.Sprintf("%s has .NET options %d that the parser doesn't run", p.Key, extra))
 	}
-	o := regex.Options{IgnoreCase: p.Options&upstream.IgnoreCase != 0, Timeout: release.PatternLimit}
+	o := regex.Options{IgnoreCase: p.Options&upstream.IgnoreCase != 0}
 	return fixed{regex.MustCompile(p.Text, o)}
 }
 
@@ -31,13 +32,16 @@ func compileAll(ps []upstream.Pattern) []fixed {
 
 func (f fixed) find(t regex.Text) (regex.Match, bool) {
 	m, ok, err := f.re.Find(t)
-	return m, err == nil && ok
+	if err != nil {
+		panic(err)
+	}
+	return m, ok
 }
 
 func (f fixed) replace(s, with string) string {
 	out, err := f.re.Replace(regex.TextOf(s), with)
 	if err != nil {
-		return s
+		panic(err)
 	}
 	return out
 }
@@ -47,7 +51,7 @@ func (f fixed) split(s string) []string {
 	t := regex.TextOf(s)
 	all, err := f.re.FindAll(t)
 	if err != nil {
-		return []string{s}
+		panic(err)
 	}
 	r := []rune(s)
 	out := make([]string, 0, len(all)+1)

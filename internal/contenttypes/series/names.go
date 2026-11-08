@@ -31,23 +31,6 @@ var (
 	percentSign         = compile(upstream.SonarrParserPercentRegex)
 )
 
-const compiledOptions = upstream.IgnoreCase | upstream.Compiled
-
-func compile(p upstream.Pattern) *regex.Regex {
-	if extra := p.Options &^ compiledOptions; extra != 0 {
-		panic(fmt.Sprintf("%s has .NET options %d that the parser doesn't run", p.Key, extra))
-	}
-	return regex.MustCompile(p.Text, regex.Options{IgnoreCase: p.Options&upstream.IgnoreCase != 0, Timeout: release.PatternLimit})
-}
-
-func compileAll(ps []upstream.Pattern) []*regex.Regex {
-	out := make([]*regex.Regex, len(ps))
-	for i, p := range ps {
-		out[i] = compile(p)
-	}
-	return out
-}
-
 // ReadName ports Sonarr's ParseTitle from its pattern loop, and for a
 // file the season folder and number-only steps of its ParsePath.
 func (*Series) ReadName(p release.Prepared) release.Name {
@@ -77,7 +60,7 @@ type parsed struct {
 }
 
 // errUnread is Sonarr's ParseTitle answering null without trying the
-// next pattern: an exception, a timeout or a date it can't read.
+// next pattern: a number or a date it can't read.
 var errUnread = errors.New("the name reads as nothing")
 
 // parseTitle is Sonarr's ParseTitle on a prepared name, false where it
@@ -86,15 +69,9 @@ func parseTitle(p release.Prepared) (parsed, bool) {
 	if p.Obfuscated || seasonFolderName(p.Title) {
 		return parsed{}, false
 	}
-	simple, err := withAirDateFixed(p.Simple)
-	if err != nil {
-		return parsed{}, false
-	}
+	simple := withAirDateFixed(p.Simple)
 	for _, re := range reportTitles {
-		ms, err := re.FindAll(simple)
-		if err != nil {
-			return parsed{}, false
-		}
+		ms := re.findAll(simple)
 		if len(ms) == 0 {
 			continue
 		}
@@ -118,30 +95,26 @@ func parseTitle(p release.Prepared) (parsed, bool) {
 }
 
 // seasonFolderName is Sonarr's ValidateBeforeParsing rejecting t as a
-// season folder's name, or running past its limit, which Sonarr's
-// ParseTitle also answers null for.
+// season folder's name, which Sonarr's ParseTitle also answers null for.
 func seasonFolderName(t regex.Text) bool {
-	return slices.ContainsFunc(seasonFolderNames, func(re *regex.Regex) bool {
-		ok, err := re.Match(t)
-		return err != nil || ok
-	})
+	return slices.ContainsFunc(seasonFolderNames, func(f fixed) bool { return f.match(t) })
 }
 
 // withAirDateFixed is t with a six-digit air date written out, 140301 as
 // 2014.03.01.
-func withAirDateFixed(t regex.Text) (regex.Text, error) {
-	m, ok, err := sixDigitAirDate.Find(t)
-	if err != nil || !ok {
-		return t, err
+func withAirDateFixed(t regex.Text) regex.Text {
+	m, ok := sixDigitAirDate.find(t)
+	if !ok {
+		return t
 	}
 	year, _ := m.Group("airyear")
 	month, _ := m.Group("airmonth")
 	day, _ := m.Group("airday")
 	if month == "00" && day == "00" {
-		return t, nil
+		return t
 	}
 	date, _ := m.Group("airdate")
-	return regex.TextOf(strings.ReplaceAll(t.String(), date, "20"+year+"."+month+"."+day)), nil
+	return regex.TextOf(strings.ReplaceAll(t.String(), date, "20"+year+"."+month+"."+day))
 }
 
 // errNext is Sonarr's ParseMatchCollection answering null, so ParseTitle
@@ -345,16 +318,10 @@ func (r *parsed) readSeasons(first regex.Match) int {
 // it, the order Sonarr's ParsingService looks a series up in.
 func (r *parsed) readTitle(first regex.Match) error {
 	given, _ := first.Group("title")
-	title, err := requestInfo.Replace(regex.TextOf(spaced(given)), "")
-	if err != nil {
-		return errUnread
-	}
+	title := requestInfo.replace(regex.TextOf(spaced(given)), "")
 	title = strings.Trim(title, " ")
 	withoutYear := title
-	m, ok, err := yearInTitle.Find(regex.TextOf(title))
-	if err != nil {
-		return errUnread
-	}
+	m, ok := yearInTitle.find(regex.TextOf(title))
 	if ok {
 		withoutYear, _ = m.Group("title")
 		year, _ := m.Group("year")
@@ -364,10 +331,7 @@ func (r *parsed) readTitle(first regex.Match) error {
 		}
 		r.year = release.Known(n)
 	}
-	c, ok, err := titleComponents.Find(regex.TextOf(withoutYear))
-	if err != nil {
-		return errUnread
-	}
+	c, ok := titleComponents.find(regex.TextOf(withoutYear))
 	var all []string
 	switch captures := first.Captures("title"); {
 	case ok:
@@ -424,12 +388,12 @@ func parsePath(p release.Prepared, r parsed, ok bool) (parsed, bool) {
 // when the file name starts with an episode number: S01E02 or
 // S01E02-E03, then what the file name gives after the number.
 func seasonTitle(p release.Prepared) (string, bool) {
-	ep, ok, err := simpleEpisodeNumber.Find(regex.TextOf(p.Original))
-	if err != nil || !ok {
+	ep, ok := simpleEpisodeNumber.find(regex.TextOf(p.Original))
+	if !ok {
 		return "", false
 	}
-	s, ok, err := seasonFolder.Find(regex.TextOf(p.Folder))
-	if err != nil || !ok {
+	s, ok := seasonFolder.find(regex.TextOf(p.Folder))
+	if !ok {
 		return "", false
 	}
 	season, ok := s.Group("season")
@@ -521,12 +485,10 @@ func (*Series) CleanTitle(title string) string {
 	}
 	t := regex.TextOf(title)
 	for _, step := range []struct {
-		re   *regex.Regex
+		re   fixed
 		with string
 	}{{percentSign, "percent"}, {normalizeTitle, upstream.SonarrParserNormalizeRegex.With}} {
-		if out, err := step.re.Replace(t, step.with); err == nil {
-			t = regex.TextOf(out)
-		}
+		t = regex.TextOf(step.re.replace(t, step.with))
 	}
 	return withoutDiacritics(strings.ToLower(t.String()))
 }

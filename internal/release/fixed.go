@@ -2,22 +2,15 @@ package release
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/jatassi/slipstream/internal/regex"
 	"github.com/jatassi/slipstream/internal/release/internal/upstream"
 )
 
-// PatternLimit is the compiled-in limit on one upstream parser pattern's
-// match, the core's and each type's, the formats Timings default, which
-// the parser doesn't read from settings.
-const PatternLimit = 100 * time.Millisecond
-
-// fixed is an upstream pattern compiled once, named by its upstream key.
-type fixed struct {
-	key string
-	re  *regex.Regex
-}
+// fixed is an upstream pattern compiled once. Sonarr and Radarr set no
+// match timeout on these patterns and neither does SlipStream, so a call
+// errs only on a replacement it can't read, which a test would meet.
+type fixed struct{ re *regex.Regex }
 
 // compiledOptions are the .NET options that change nothing on regexp2 or
 // that regex.Options carries.
@@ -30,9 +23,8 @@ func compile(p upstream.Pattern) fixed {
 	o := regex.Options{
 		IgnoreCase:              p.Options&upstream.IgnoreCase != 0,
 		IgnorePatternWhitespace: p.Options&upstream.IgnorePatternWhitespace != 0,
-		Timeout:                 PatternLimit,
 	}
-	return fixed{key: p.Key, re: regex.MustCompile(p.Text, o)}
+	return fixed{re: regex.MustCompile(p.Text, o)}
 }
 
 func compileAll(ps []upstream.Pattern) []fixed {
@@ -61,40 +53,37 @@ func compileReplaces(rs []upstream.Replace) []replacer {
 	return out
 }
 
-// scan runs fixed patterns over one name and keeps the key of each that
-// ran past PatternLimit. A pattern that did reads as no match, so the fact
-// it reads stays unknown.
-type scan struct{ slow []string }
-
-func (s *scan) timedOut(f fixed, err error) bool {
-	if err != nil {
-		s.slow = append(s.slow, f.key)
-	}
-	return err != nil
-}
-
-func (s *scan) match(f fixed, t regex.Text) bool {
+func (f fixed) match(t regex.Text) bool {
 	ok, err := f.re.Match(t)
-	return !s.timedOut(f, err) && ok
+	if err != nil {
+		panic(err)
+	}
+	return ok
 }
 
-func (s *scan) find(f fixed, t regex.Text) (regex.Match, bool) {
+func (f fixed) find(t regex.Text) (regex.Match, bool) {
 	m, ok, err := f.re.Find(t)
-	return m, !s.timedOut(f, err) && ok
+	if err != nil {
+		panic(err)
+	}
+	return m, ok
 }
 
-func (s *scan) findAll(f fixed, t regex.Text) []regex.Match {
+func (f fixed) findAll(t regex.Text) []regex.Match {
 	all, err := f.re.FindAll(t)
-	if s.timedOut(f, err) {
-		return nil
+	if err != nil {
+		panic(err)
 	}
 	return all
 }
 
-// replace is r applied to t, or t when r ran past the limit.
-func (s *scan) replace(r replacer, t regex.Text) regex.Text {
+// replace is r applied to t.
+func (r replacer) replace(t regex.Text) regex.Text {
 	out, err := r.re.Replace(t, r.with)
-	if s.timedOut(r.fixed, err) || out == t.String() {
+	if err != nil {
+		panic(err)
+	}
+	if out == t.String() {
 		return t
 	}
 	return regex.TextOf(out)
@@ -102,8 +91,8 @@ func (s *scan) replace(r replacer, t regex.Text) regex.Text {
 
 // group is the first of names that f's first match on t captured, or ""
 // when f doesn't match.
-func (s *scan) group(f fixed, t regex.Text, names []string) string {
-	m, ok := s.find(f, t)
+func (f fixed) group(t regex.Text, names []string) string {
+	m, ok := f.find(t)
 	if !ok {
 		return ""
 	}
