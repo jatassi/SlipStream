@@ -144,18 +144,20 @@ func download[S settings](ix *port.Indexer[S], link *url.URL) (port.Got, error) 
 // site won't take, it downloads again without one. Orpheus and Redacted
 // keep the same.
 func Download[S any](ix *port.Indexer[S], link *url.URL, useFreeleechToken GazelleFreeleechTokenAction) (port.Got, error) {
-	downloadResponse, err := baseDownload(ix, link)
+	downloadResponse, err := ix.Download(link)
 	if err != nil {
 		return nil, err
 	}
 
-	fileData := downloadResponse.Body
+	// SlipStream: a magnet link is no file, so it never holds the site's
+	// page.
+	fileData, _ := downloadResponse.(port.Torrent)
 
 	if useFreeleechToken == Preferred &&
-		len(fileData) >= 1 &&
-		fileData[0] != 'd' && // simple test for torrent vs HTML content
+		len(fileData.Raw) >= 1 &&
+		fileData.Raw[0] != 'd' && // simple test for torrent vs HTML content
 		strings.Contains(link.RawQuery, "usetoken=1") {
-		html := downloadResponse.Content
+		html := string(fileData.Raw)
 
 		if strings.Contains(html, "You do not have any freeleech tokens left.") ||
 			strings.Contains(html, "You do not have enough freeleech tokens") ||
@@ -166,29 +168,13 @@ func Download[S any](ix *port.Indexer[S], link *url.URL, useFreeleechToken Gazel
 			if err != nil {
 				return nil, fmt.Errorf("read the download link without its token: %w", err)
 			}
-			if downloadResponse, err = baseDownload(ix, withoutToken); err != nil {
+			if downloadResponse, err = ix.Download(withoutToken); err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	return port.Torrent{Raw: downloadResponse.Body}, nil
-}
-
-// baseDownload is base.Download, the framework's fetch of a link.
-// SlipStream: the kit has no call for the default fetch, so this sends
-// the GET and reads its status as the default does.
-func baseDownload[S any](ix *port.Indexer[S], link *url.URL) (*port.IndexerResponse, error) {
-	response, err := ix.Fetch(port.Get(link))
-	switch {
-	case err != nil:
-		return nil, err
-	case response.StatusCode == http.StatusNotFound:
-		return nil, port.ErrReleaseUnavailable
-	case response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices:
-		return nil, port.IndexerError("the Indexer responded to the download with status %d", response.StatusCode)
-	}
-	return response, nil
+	return downloadResponse, nil
 }
 
 // SlipStream: CheckIfLoginNeeded reads no settings, so it can't skip

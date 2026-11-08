@@ -90,14 +90,7 @@ func Download(ix *ix, link *url.URL) (port.Got, error) {
 		return nil, port.IndexerError("the details page at %s has no download link", link)
 	}
 
-	// SlipStream: the kit has no base.Download to hand the .torrent link
-	// to, so the default GET is written out here.
-	torrent, err := ix.Fetch(port.Get(ix.URL(downloadLink)))
-	if err != nil {
-		return nil, err
-	}
-
-	return port.Torrent{Raw: torrent.Body}, nil
+	return ix.Download(ix.URL(downloadLink))
 }
 
 func SetCapabilities() port.Capabilities {

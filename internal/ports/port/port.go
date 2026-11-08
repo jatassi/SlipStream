@@ -43,6 +43,7 @@
 //	DoLogin, CheckIfLoginNeeded            the Login family's DoLogin and CheckIfLoginNeeded
 //	ModifyRequest, GetDownloadRequest      Impl.ModifyRequest
 //	Download(Uri)                          Impl.Download
+//	base.Download(link)                    ix.Download(link)
 //	Settings.BaseUrl                       ix.BaseURL
 //	Capabilities.Categories.MapTorznabCapsToTrackers(cats)   ix.Categories.TrackerIDs(q.Categories)
 //	_categories.MapTrackerCatToNewznab(id) ix.Categories.FromTracker(id)

@@ -7,7 +7,6 @@ package bakabt
 import (
 	_ "embed"
 	"fmt"
-	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -69,19 +68,7 @@ func download(ix *ix, link *url.URL) (port.Got, error) {
 		return nil, fmt.Errorf("parse the download link: %w", err)
 	}
 
-	// SlipStream: base.Download is the framework's own fetch, which a
-	// port's Download can't call, so this is its torrent case.
-	torrent, err := ix.Fetch(port.Get(torrentURL))
-	switch {
-	case err != nil:
-		return nil, err
-	case torrent.StatusCode == http.StatusNotFound:
-		return nil, port.ErrReleaseUnavailable
-	case torrent.StatusCode < http.StatusOK || torrent.StatusCode >= http.StatusMultipleChoices:
-		return nil, port.IndexerError("the Indexer responded with status %d", torrent.StatusCode)
-	}
-
-	return port.Torrent{Raw: torrent.Body}, nil
+	return ix.Download(torrentURL)
 }
 
 func doLogin(in *port.SignIn[BakaBTSettings]) error {

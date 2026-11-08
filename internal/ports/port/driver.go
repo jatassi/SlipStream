@@ -391,13 +391,18 @@ func (j *job[S]) page(r *Request) ([]TorrentInfo, error) {
 	return infos, err
 }
 
-// download is Impl.Download, or by default a GET with the Indexer's
-// credentials on its hosts. A redirect off them is fetched again from
-// where it points, with no credentials.
+// download is Impl.Download, or by default baseDownload.
 func (j *job[S]) download(u *url.URL) (Got, error) {
 	if j.t.impl.Download != nil {
 		return j.t.impl.Download(j.ix, u)
 	}
+	return j.baseDownload(u)
+}
+
+// baseDownload is base.Download: a GET with the Indexer's credentials on
+// its hosts. A redirect off them is fetched again from where it points,
+// with no credentials.
+func (j *job[S]) baseDownload(u *url.URL) (Got, error) {
 	res, err := j.send(Get(u))
 	if err == nil && res.HasHTTPRedirect && !magnet.Is(res.RedirectURL) {
 		var away *url.URL

@@ -708,6 +708,46 @@ func TestAFetchedTorrentOrMagnetNeverReadsAsLoggedOut(t *testing.T) {
 	})
 }
 
+func TestAPortsDownloadFetchesTheLinkItFoundAsTheDefaultDoes(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := &world{hosts: map[string]http.HandlerFunc{
+			"lantern.test": func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/t/1":
+					_, _ = w.Write([]byte("dl/1"))
+				case "/t/2":
+					_, _ = w.Write([]byte("dl/gone"))
+				case "/dl/1":
+					http.Redirect(w, r, "https://cdn.test/1.torrent", http.StatusFound)
+				default:
+					http.NotFound(w, r)
+				}
+			},
+			"cdn.test": func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("d4:infod4:name1:aee")) },
+		}}
+		p := Define(lantern("lantern"), Impl[apiKey]{
+			Login: NoLogin{}, Movie: browse[apiKey], Basic: browse[apiKey], Parse: parseListing[apiKey],
+			Download: func(ix *Indexer[apiKey], link *url.URL) (Got, error) {
+				page, err := ix.Fetch(Get(link))
+				if err != nil {
+					return nil, err
+				}
+				return ix.Download(ix.URL(page.Content))
+			},
+		})
+		n := node(w, p)
+		key := map[string]string{"apiKey": "k"}
+		a := run(t, n, searching.Job{Port: "lantern", Settings: key, Call: searching.FetchCall{Link: searching.LinkOf("https://lantern.test/t/1")}})
+		if got, ok := a.Got.(searching.Torrent); !ok || string(got.Raw) != "d4:infod4:name1:aee" {
+			t.Errorf("a download redirected off the Indexer's hosts = %+v, %s; want the .torrent", a.Got, result(a))
+		}
+		a = run(t, n, searching.Job{Port: "lantern", Settings: key, Call: searching.FetchCall{Link: searching.LinkOf("https://lantern.test/t/2")}})
+		if got := result(a); !strings.Contains(got, ErrReleaseUnavailable.Error()) {
+			t.Errorf("a download the site answers with 404 = %s, want %v", got, ErrReleaseUnavailable)
+		}
+	})
+}
+
 func TestDeriveRunsOncePerRevisionOnANode(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		passkeys := 0

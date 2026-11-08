@@ -52,6 +52,11 @@ func (ix *Indexer[S]) URL(path string) *url.URL {
 // reads as logged out. Parsers and Download use it for extra pages.
 func (ix *Indexer[S]) Fetch(r *Request) (*IndexerResponse, error) { return ix.j.send(r) }
 
+// Download is base.Download, the default fetch of a link, for an
+// Impl.Download that finds the link and then fetches it as Prowlarr's
+// base class does.
+func (ix *Indexer[S]) Download(link *url.URL) (Got, error) { return ix.j.baseDownload(link) }
+
 // Token is the bearer token a TokenLogin holds, "" for none.
 func (ix *Indexer[S]) Token() string {
 	if held := ix.j.site.Held(); held != nil {

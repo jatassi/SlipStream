@@ -70,14 +70,7 @@ func Download(ix *ix, link *url.URL) (port.Got, error) {
 		return port.Magnet{Link: magnetLink}, nil
 	}
 
-	// SlipStream: the kit has no base.Download to hand the .torrent link
-	// back to, so the default GET is written out here.
-	response, err := ix.Fetch(port.Get(link))
-	if err != nil {
-		return nil, err
-	}
-
-	return port.Torrent{Raw: response.Body}, nil
+	return ix.Download(link)
 }
 
 func DoLogin(in *port.SignIn[RuTrackerSettings]) error {
