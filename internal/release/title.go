@@ -10,8 +10,9 @@ import (
 
 // Title reads a release title: the type's Name, then every core fact.
 // Quality and revision read the whole name; the group, the stream facts
-// and id tags read Name.Masked; languages, the cut and the edition text
-// read Name.Tail.
+// and id tags read Name.Masked; the cut and the edition text read
+// Name.Tail; languages read Name.Tail, or Name.Masked with the group
+// swapped out where the type sets it, as Radarr reads them.
 func Title(name string, names Names, cuts []Cut) Read {
 	return read(Prepare(name), names, cuts)
 }
@@ -30,12 +31,17 @@ func read(p Prepared, names Names, cuts []Cut) Read {
 	if masked == "" {
 		masked = p.Release.String()
 	}
+	group := readGroup(masked, s)
+	languages := tail
+	if n.Masked != "" {
+		languages = withoutGroup(n.Masked, group)
+	}
 	f := Facts{
 		Revision:  readRevision(p, s),
-		Group:     readGroup(masked, s),
+		Group:     group,
 		Cut:       readCut(tail, cuts),
 		Edition:   readEdition(tail, s),
-		Languages: readLanguages(tail),
+		Languages: readLanguages(languages, s),
 		IDs:       readIDs(masked, s),
 	}
 	readQuality(p, s, &f)

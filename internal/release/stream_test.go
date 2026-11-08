@@ -2,7 +2,6 @@ package release_test
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/release"
@@ -46,18 +45,9 @@ func TestStreamFactsReadAsTRaSHFormatsTestTheTitle(t *testing.T) {
 	}
 }
 
-// masking reads every name's title as the movie type does: the name
-// with its title, the words before the year, replaced.
-type masking struct{ release.TitleOnly }
-
-func (masking) ReadName(p release.Prepared) release.Name {
-	title, rest, _ := strings.Cut(p.Release.String(), ".2019.")
-	return release.Name{Titles: []string{title}, Masked: "A.Movie.2019." + rest}
-}
-
 func TestStreamFactsReadTheNameWithItsTitleMasked(t *testing.T) {
 	name := "Stereo.2019.1080p.WEB-DL.x264-GRP"
-	if got, want := streamOf(release.Title(name, masking{}, nil).Facts), (stream{video: "x264"}); !reflect.DeepEqual(got, want) {
+	if got, want := streamOf(release.Title(name, masking{"A.Movie.2019.1080p.WEB-DL.x264-GRP"}, nil).Facts), (stream{video: "x264"}); !reflect.DeepEqual(got, want) {
 		t.Errorf("%s with its title masked reads %+v, want %+v", name, got, want)
 	}
 	if got := streamOf(titleFacts(name)).channels; !reflect.DeepEqual(got, []release.Channels{"2.0"}) {
