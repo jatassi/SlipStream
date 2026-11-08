@@ -184,18 +184,26 @@ func (m moves) onto(fills map[CellKey]Fill) map[ID]map[targets.TargetID]int {
 	return out
 }
 
-// reread reads the files of before's Works once a Change applied: for
-// one narrowed by format edits, which writes no file, the files before
-// read.
-func (m moves) reread(before []world) fileRead {
-	if m == nil {
-		return wholeFiles
+// after is each of trees' world once a Change applied, given before,
+// their world before it. A Change narrowed by format edits moves scores
+// alone: it changes only the Goals and the formats they score, so the
+// rest of before's world stands.
+func (f *Files) after(ctx context.Context, tx *storage.Tx[file], trees []works.Bare, ids []works.WorkID, before []world, moved moves) ([]world, error) {
+	if moved == nil {
+		return f.worlds(ctx, tx, trees, works.Only(ids), wholeFiles)
 	}
-	return func(context.Context, *db.Queries, works.Among[works.WorkID]) ([]File, error) {
-		var out []File
-		for _, w := range before {
-			out = append(out, w.files...)
-		}
-		return out, nil
+	goals, err := targets.GoalsOf(ctx, tx, works.Only(ids))
+	if err != nil {
+		return nil, err
 	}
+	catalog, err := f.cfg.Targets.FormatsIn(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	out := slices.Clone(before)
+	for i := range out {
+		g := goals[out[i].tree.ID]
+		out[i].goals, out[i].scoring = g, newScoring(catalog, g, before[i].scoring.original)
+	}
+	return out, nil
 }

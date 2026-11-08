@@ -132,7 +132,7 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 	if err := targets.Apply(ctx, tx, known, c); err != nil {
 		return Impact{}, nil, err
 	}
-	afters, err := f.worlds(ctx, tx, trees, works.Only(ids), moved.reread(before))
+	afters, err := f.after(ctx, tx, trees, ids, before, moved)
 	if err != nil {
 		return Impact{}, nil, err
 	}
