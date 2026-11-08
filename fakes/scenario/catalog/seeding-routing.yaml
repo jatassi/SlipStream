@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  Three Nodes for Tracker routing. The Controller home holds neither
+  Searching, Downloading nor Storage. The Worker seedbox pairs by Join
+  Code and holds Searching and Downloading, so every Indexer searches from
+  it. The Worker den pairs by Join Code and holds Storage with the Movies
+  root and Downloading, so a Grab that goes by its Work's library root
+  downloads on den. The private site heron lists four releases and Fixture
+  Site lists a public one. A private Tracker's Grab downloads on seedbox,
+  its Indexer's home, and reaches den through a Transfer.
+seed: seeding-routing
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    roles: [converting, subtitles, metadata, media-server-link, notifying, serving]
+  - name: seedbox
+    setup: join
+    roles: [searching, downloading]
+  - name: den
+    setup: join
+    roles: [storage, downloading]
+timings:
+  node:
+    stop_deadline: 5s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+    - id: 9000002
+      imdb_id: tt9000002
+      title: Harbor Lights
+      released: 2019-09-06
+      runtime: 98m
+    - id: 9000003
+      imdb_id: tt9000003
+      title: Salt Meadow
+      released: 2020-02-14
+      runtime: 91m
+    - id: 9000004
+      imdb_id: tt9000004
+      title: Cedar Hollow
+      released: 2018-05-11
+      runtime: 101m
+    - id: 9000005
+      imdb_id: tt9000005
+      title: Ember Field
+      released: 2022-10-21
+      runtime: 95m
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 5}
+    seeders: 6
+    seeded: true
+    advertised_size: 8.2GiB
+    sites: [heron]
+  - name: Harbor.Lights.2019.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000002
+    video: {width: 1920, height: 1080, seconds: 5}
+    seeders: 6
+    seeded: true
+    advertised_size: 7.6GiB
+    sites: [heron]
+  - name: Salt.Meadow.2020.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000003
+    video: {width: 1920, height: 1080, seconds: 5}
+    seeders: 6
+    seeded: true
+    advertised_size: 7.1GiB
+    public: true
+    sites: [torznab]
+  - name: Cedar.Hollow.2018.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000004
+    video: {width: 1920, height: 1080, seconds: 5}
+    seeders: 6
+    seeded: true
+    advertised_size: 7.4GiB
+    sites: [heron]
+  - name: Ember.Field.2022.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000005
+    video: {width: 1920, height: 1080, seconds: 5}
+    seeders: 6
+    seeded: true
+    advertised_size: 6.9GiB
+    sites: [heron]
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies, node: den}]
+  indexers:
+    - {name: Heron, kind: torznab, site: heron, home: seedbox}
+    - {name: Fixture Site, kind: torznab, site: torznab, home: seedbox}
