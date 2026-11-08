@@ -1,0 +1,30 @@
+{
+  "sonarr": {
+    "commit": "c018578e4b79ee048575c02d7a8aa2b929e4b837",
+    "date": "2026-11-02",
+    "files": {
+      "marks.go": [
+        "src/NzbDrone.Core/Parser/Parser.cs"
+      ],
+      "names.go": [
+        "src/NzbDrone.Core/Parser/Parser.cs"
+      ]
+    },
+    "sha256": {
+      "src/NzbDrone.Core.Test/ParserTests/AbsoluteEpisodeNumberParserFixture.cs": "3f847cf0a6ff70448e8ffa21e2ef1c216d7e14db4bdf790dfcaa08bce89b7da1",
+      "src/NzbDrone.Core.Test/ParserTests/AnimeMetadataParserFixture.cs": "294e763673024ac74038204046e9d115f6a189ed002650ccaec67fbf0fce79e3",
+      "src/NzbDrone.Core.Test/ParserTests/CrapParserFixture.cs": "a653a8ea6538931fa24d54442dac17ee9452ba508aaaf370183dcb065e70b5bb",
+      "src/NzbDrone.Core.Test/ParserTests/DailyEpisodeParserFixture.cs": "ba227c428c6e87528899d6896b7920185f14a8acae344354dc81335be71d644a",
+      "src/NzbDrone.Core.Test/ParserTests/HashedReleaseFixture.cs": "ec847a06742e038ebccbff2c495e2d2e542684d17d15af5b29e58ffb57fc3032",
+      "src/NzbDrone.Core.Test/ParserTests/LanguageParserFixture.cs": "7914e4eb647af5fc6fc4652988c2e5014cdfcfe09d860da4026763420e47c80b",
+      "src/NzbDrone.Core.Test/ParserTests/MultiEpisodeParserFixture.cs": "05e037be27ee10fa82cadc4e6d334ea421fe6fc5876f04e6aeebc58d7f2b3d58",
+      "src/NzbDrone.Core.Test/ParserTests/NormalizeSeriesTitleFixture.cs": "0c36ef5f66891784d75f7e15f09d194d750b4d7d96f02d7bccb591c9a3f352d3",
+      "src/NzbDrone.Core.Test/ParserTests/ParserFixture.cs": "5ccf03e7ba47af7fac554ec757d9f2b8cdd6889868d0c8391e66f0bc1a3a23d5",
+      "src/NzbDrone.Core.Test/ParserTests/PathParserFixture.cs": "64c6383fe87a70f0125bd157eeb6e3415c4fc8edaf1d3c0c2a92cd7c81d8effd",
+      "src/NzbDrone.Core.Test/ParserTests/SeasonParserFixture.cs": "a6427b06702702133a0a2554b152d62b258c4f1f131f31ecc3e158d13c507556",
+      "src/NzbDrone.Core.Test/ParserTests/SingleEpisodeParserFixture.cs": "424d759bfb8ce7fc1162fe7a7dc213a27221a94e4bb0b6044f28acfe5ae5a805",
+      "src/NzbDrone.Core.Test/ParserTests/UnicodeReleaseParserFixture.cs": "304da8f35c42e7b8620319bee1a4b0b33691b1960140a2d1836e45f3128d00c1",
+      "src/NzbDrone.Core/Parser/Parser.cs": "b599c060112359091235539c31d12a79e4a01b148d8e16cbd573e7b372b547e7"
+    }
+  }
+}
