@@ -1,5 +1,7 @@
+import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
+import { z } from "zod";
 
 import type { TargetsImpact, TargetsTarget } from "../api/gen/model";
 import { changeOp, noImpact } from "../test/impact";
@@ -187,4 +189,30 @@ test("saving a Target sends the scores and propers setting as edited", async () 
     expect.objectContaining(sent),
     expect.objectContaining(sent),
   ]);
+});
+
+test("a Target reopened right after its save opens as saved", async () => {
+  let saved = starter;
+  const renamed = z.object({ name: z.string() });
+  renderApp({
+    path: `/settings/targets/${starter.id}`,
+    handlers: [
+      http.put(`*/api/v1/targets/${starter.id}`, async ({ request }) => {
+        if (new URL(request.url).searchParams.get("preview") !== "true") {
+          saved = { ...starter, name: renamed.parse(await request.json()).name };
+        }
+        return HttpResponse.json({ impact: noImpact, target: saved });
+      }),
+      http.get(`*/api/v1/targets/${starter.id}`, () => HttpResponse.json(saved)),
+      ...targetHandlers(),
+    ],
+  });
+  await userEvent.fill(page.getByRole("textbox", { name: "Name" }), "1080p web");
+  await userEvent.click(page.getByRole("button", { name: "Save", exact: true }));
+  await expect.element(page.getByText("Saved 1080p web.")).toBeVisible();
+
+  await userEvent.click(
+    page.getByRole("table", { name: "Targets" }).getByRole("link", { name: "1080p", exact: true }),
+  );
+  await expect.element(page.getByRole("textbox", { name: "Name" })).toHaveValue("1080p web");
 });
