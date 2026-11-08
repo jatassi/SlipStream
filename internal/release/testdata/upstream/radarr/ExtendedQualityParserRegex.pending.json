@@ -1,0 +1,15 @@
+[
+  {"method":"should_parse_reality_from_title","args":["Movie.Title.Garnets.or.Gold.REAL.REAL.PROPER.HDTV.x264-W4F",2]},
+  {"method":"should_parse_reality_from_title","args":["Movie.Title.REAL.PROPER.720p.HDTV.x264-ORENJI-RP",1]},
+  {"method":"should_parse_reality_from_title","args":["Movie.Title.REAL.PROPER.HDTV.x264-KILLERS",1]},
+  {"method":"should_parse_reality_from_title","args":["Movie.Title.REAL.PROPER.720p.HDTV.x264-KILLERS",1]},
+  {"method":"should_parse_reality_from_title","args":["Movie.Title.PROPER.REAL.RERIP.1080p.BluRay.x264-TENEIGHTY",1]},
+  {"method":"should_parse_version_from_title","args":["Movie.Title.Garnets.or.Gold.REAL.REAL.PROPER.HDTV.x264-W4F",2]},
+  {"method":"should_parse_version_from_title","args":["Movie.Title.REAL.PROPER.720p.HDTV.x264-ORENJI-RP",2]},
+  {"method":"should_parse_version_from_title","args":["Movie.Title.REAL.PROPER.HDTV.x264-KILLERS",2]},
+  {"method":"should_parse_version_from_title","args":["Movie.Title.REAL.PROPER.720p.HDTV.x264-KILLERS",2]},
+  {"method":"should_parse_version_from_title","args":["Movie.Title.New.Black.real.proper.720p.webrip.x264-2hd",2]},
+  {"method":"should_parse_version_from_title","args":["Movie.Title.Super.Duper.Real.Proper.HDTV.x264-FTP",2]},
+  {"method":"should_parse_version_from_title","args":["Movie.Title.PROPER.HDTV.x264-RiVER-RP",2]},
+  {"method":"should_parse_version_from_title","args":["Movie.Title.PROPER.REAL.RERIP.1080p.BluRay.x264-TENEIGHTY",2]}
+]
