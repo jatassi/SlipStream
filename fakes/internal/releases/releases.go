@@ -12,10 +12,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"net/netip"
 	"os"
 	"os/exec"
@@ -24,7 +22,9 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"time"
 
+	"github.com/gofrs/flock"
 	"github.com/zeebo/blake3"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -191,6 +191,16 @@ func payload(ctx context.Context, cfg Config, version []byte, v scenario.Video) 
 	if err := os.MkdirAll(cfg.Cache, 0o755); err != nil {
 		return "", fmt.Errorf("create the fixture cache: %w", err)
 	}
+	// Worlds that launch together on a cold cache would each encode every
+	// payload, so one encodes while the others wait for its file.
+	lock := flock.New(path + ".lock")
+	if _, err := lock.TryLockContext(ctx, 50*time.Millisecond); err != nil {
+		return "", fmt.Errorf("lock the payload: %w", err)
+	}
+	defer func() { _ = lock.Unlock() }()
+	if _, err := os.Stat(path); err == nil {
+		return path, nil
+	}
 	tmp, err := os.CreateTemp(cfg.Cache, ".encoding-*.mkv")
 	if err != nil {
 		return "", fmt.Errorf("create the payload: %w", err)
@@ -203,9 +213,7 @@ func payload(ctx context.Context, cfg Config, version []byte, v scenario.Video) 
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("ffmpeg: %w: %s", err, bytes.TrimSpace(stderr.Bytes()))
 	}
-	// A link never replaces a payload another world published, so no open
-	// of the cached path races a rename onto it. That payload is this one.
-	if err := os.Link(tmp.Name(), path); err != nil && !errors.Is(err, fs.ErrExist) {
+	if err := os.Rename(tmp.Name(), path); err != nil {
 		return "", fmt.Errorf("cache the payload: %w", err)
 	}
 	return path, nil
