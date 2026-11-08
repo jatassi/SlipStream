@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	gobuildinfo "debug/buildinfo"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -24,6 +25,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world/internal/control"
 	"github.com/jatassi/slipstream/fakes/world/internal/nodeapi"
 	"github.com/jatassi/slipstream/fakes/world/internal/proc"
@@ -423,15 +425,15 @@ func (d *doctor) fakesAnswer(c *CheckResult) {
 		if held[f.Name+"@"+events.World] {
 			continue
 		}
-		if err := d.answers(f.URL); err != nil {
+		if err := d.answers(f.Name, f.URL); err != nil {
 			fail(c, "%s: %v", f.Name, err)
 		}
 	}
 }
 
-func (d *doctor) answers(rawURL string) error {
+func (d *doctor) answers(name, rawURL string) error {
 	if addr, ok := strings.CutPrefix(rawURL, "udp://"); ok {
-		return d.pingKRPC(addr)
+		return d.pingUDP(name, addr)
 	}
 	addr, ok := strings.CutPrefix(rawURL, "smtp://")
 	if !ok {
@@ -457,42 +459,74 @@ func (d *doctor) answers(rawURL string) error {
 	return nil
 }
 
-// pingKRPC sends a KRPC ping to the UDP fake at addr, since the one UDP
-// boundary is the DHT, and reads its response.
-func (d *doctor) pingKRPC(addr string) error {
-	ctx, cancel := context.WithTimeout(d.ctx, probeTimeout)
-	defer cancel()
-	conn, err := new(net.Dialer).DialContext(ctx, "udp", addr)
-	if err != nil {
-		return fmt.Errorf("dial %s: %w", addr, err)
+// pingUDP pings the UDP fake name at addr in its own protocol: a BEP 15
+// connect for fake-tracker's UDP announce, and a KRPC ping for fake-dht.
+func (d *doctor) pingUDP(name, addr string) error {
+	if name == tracker.UDP.Name {
+		return d.connectBEP15(addr)
 	}
-	defer func() { _ = conn.Close() }()
-	deadline, _ := ctx.Deadline()
-	_ = conn.SetDeadline(deadline)
+	return d.pingKRPC(addr)
+}
+
+// pingKRPC sends a KRPC ping to the UDP fake at addr and reads its
+// response.
+func (d *doctor) pingKRPC(addr string) error {
 	query, err := bencode.Encode(map[string]any{"t": "dr", "y": "q", "q": "ping", "a": map[string]any{"id": "fakeworld-doctor-000"}})
 	if err != nil {
 		return fmt.Errorf("encode a ping: %w", err)
 	}
+	res, err := d.exchange(addr, query)
+	if err != nil {
+		return err
+	}
+	v, _ := bencode.Decode(res)
+	if m, ok := v.(map[string]any); !ok || m["y"] != "r" {
+		return fmt.Errorf("%s responds to a ping with %q", addr, res)
+	}
+	return nil
+}
+
+// connectBEP15 sends a BEP 15 connect to the UDP fake at addr and reads
+// the connection ID it answers.
+func (d *doctor) connectBEP15(addr string) error {
+	query := binary.BigEndian.AppendUint32(binary.BigEndian.AppendUint32(binary.BigEndian.AppendUint64(nil, 0x41727101980), 0), 0xd0c7)
+	res, err := d.exchange(addr, query)
+	if err != nil {
+		return err
+	}
+	if len(res) != 16 || binary.BigEndian.Uint32(res) != 0 || binary.BigEndian.Uint32(res[4:]) != 0xd0c7 {
+		return fmt.Errorf("%s responds to a connect with %x", addr, res)
+	}
+	return nil
+}
+
+// exchange sends query to addr over UDP and reads its response.
+func (d *doctor) exchange(addr string, query []byte) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(d.ctx, probeTimeout)
+	defer cancel()
+	conn, err := new(net.Dialer).DialContext(ctx, "udp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("dial %s: %w", addr, err)
+	}
+	defer func() { _ = conn.Close() }()
+	deadline, _ := ctx.Deadline()
+	_ = conn.SetDeadline(deadline)
 	if _, err := conn.Write(query); err != nil {
-		return fmt.Errorf("ping %s: %w", addr, err)
+		return nil, fmt.Errorf("ping %s: %w", addr, err)
 	}
 	buf := make([]byte, 1500)
 	n, err := conn.Read(buf)
 	if err != nil {
-		return fmt.Errorf("read the ping response of %s: %w", addr, err)
+		return nil, fmt.Errorf("read the ping response of %s: %w", addr, err)
 	}
-	res, _ := bencode.Decode(buf[:n])
-	if m, ok := res.(map[string]any); !ok || m["y"] != "r" {
-		return fmt.Errorf("%s responds to a ping with %q", addr, buf[:n])
-	}
-	return nil
+	return buf[:n], nil
 }
 
 // handshake dials the front f, and completes a TLS handshake with the run
 // CA when f serves HTTPS, or pings it when f is a UDP fake's socket.
 func (d *doctor) handshake(f Front) error {
 	if strings.HasPrefix(f.URL, "udp:") {
-		return d.pingKRPC(f.Address)
+		return d.pingUDP(f.Target, f.Address)
 	}
 	ctx, cancel := context.WithTimeout(d.ctx, probeTimeout)
 	defer cancel()

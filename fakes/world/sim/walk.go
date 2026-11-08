@@ -130,7 +130,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 		}
 		spec.Endpoints(endpoints, fakes.serve(t, local, server))
 	}
-	w.site = fakes.serve(t, local, fake.HTTP(fake.NewEnv(s, site.Fake, log, faults, nil), site.Routes(s, listing, func(label, _ string) (string, error) { return w.announce[label], nil })))
+	w.site = fakes.serve(t, local, fake.HTTP(fake.NewEnv(s, site.Fake, log, faults, nil), site.Routes(s, listing, func(label, _ string, _ bool) (string, error) { return w.announce[label], nil })))
 	site.Fake.Endpoints(endpoints, w.site)
 	return w
 }
