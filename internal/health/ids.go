@@ -4,6 +4,7 @@ package health
 // internal/node/health.go; Open panics unless the two match.
 const (
 	StorageID         ID = "storage"
+	LibraryID         ID = "library"
 	NodesID           ID = "nodes"
 	DownloadClientsID ID = "download-clients"
 	IndexersID        ID = "indexers"
@@ -11,4 +12,6 @@ const (
 )
 
 // IDs is every category, in page order.
-func IDs() []ID { return []ID{StorageID, NodesID, DownloadClientsID, IndexersID, ScheduledTasksID} }
+func IDs() []ID {
+	return []ID{StorageID, LibraryID, NodesID, DownloadClientsID, IndexersID, ScheduledTasksID}
+}

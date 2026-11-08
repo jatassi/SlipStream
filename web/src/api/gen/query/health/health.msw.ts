@@ -19,6 +19,7 @@ export const getGetSystemHealthResponseMock = (
       canCheck: faker.datatype.boolean(),
       id: faker.helpers.arrayElement([
         "storage",
+        "library",
         "nodes",
         "download-clients",
         "indexers",
@@ -78,6 +79,7 @@ export const getGetSystemHealthResponseMock = (
     {
       category: faker.helpers.arrayElement([
         "storage",
+        "library",
         "nodes",
         "download-clients",
         "indexers",
@@ -101,6 +103,7 @@ export const getCheckSystemHealthResponseMock = (
         canCheck: faker.datatype.boolean(),
         id: faker.helpers.arrayElement([
           "storage",
+          "library",
           "nodes",
           "download-clients",
           "indexers",
@@ -160,6 +163,7 @@ export const getCheckSystemHealthResponseMock = (
       {
         category: faker.helpers.arrayElement([
           "storage",
+          "library",
           "nodes",
           "download-clients",
           "indexers",
@@ -543,6 +547,7 @@ export const getCheckHealthCategoryResponseMock = (
         canCheck: faker.datatype.boolean(),
         id: faker.helpers.arrayElement([
           "storage",
+          "library",
           "nodes",
           "download-clients",
           "indexers",
@@ -602,6 +607,7 @@ export const getCheckHealthCategoryResponseMock = (
       {
         category: faker.helpers.arrayElement([
           "storage",
+          "library",
           "nodes",
           "download-clients",
           "indexers",
@@ -637,6 +643,7 @@ export const getCheckHealthItemResponseMock = (
         canCheck: faker.datatype.boolean(),
         id: faker.helpers.arrayElement([
           "storage",
+          "library",
           "nodes",
           "download-clients",
           "indexers",
@@ -696,6 +703,7 @@ export const getCheckHealthItemResponseMock = (
       {
         category: faker.helpers.arrayElement([
           "storage",
+          "library",
           "nodes",
           "download-clients",
           "indexers",
