@@ -27,6 +27,16 @@ func matching(f formats.Format, pattern string) formats.Format {
 	return f
 }
 
+// byGroup is format f matching the release group group instead.
+func byGroup(f formats.Format, group string) formats.Format {
+	value, err := json.Marshal(map[string]string{"value": "^" + group + "$"})
+	if err != nil {
+		panic(err)
+	}
+	f.Conditions = []formats.Condition{{Name: f.Name, Kind: formats.ReleaseGroup, Fields: value}}
+	return f
+}
+
 // saved saves c and answers its preview's Impact and the Works the save
 // published.
 func (l *library) saved(t *testing.T, svc *files.Files, c targets.Change) (files.Impact, []string) {
@@ -166,7 +176,7 @@ func (n *narrowed) step(t *testing.T, r *rand.Rand) (string, *files.Impact) {
 	)
 	switch r.IntN(6) {
 	case 0:
-		name := marking(r, "Scarf.1080p", append(slices.Clone(words), "PROPER"))
+		name := marking(r, "Scarf.1080p", append(slices.Clone(words), "PROPER")) + "-" + pick(r, groups)
 		q := []release.Quality{release.WEBDL1080p, release.WEBRip1080p, release.Bluray1080p}[r.IntN(3)]
 		tree := n.trees[r.IntN(len(n.trees))]
 		n.grabbed(t, n.svc, tree, r.IntN(len(tree.Items)), q, name)
@@ -186,6 +196,10 @@ func (n *narrowed) step(t *testing.T, r *rand.Rand) (string, *files.Impact) {
 	case 3:
 		word := words[r.IntN(len(words))]
 		c, did = targets.UpdateFormat{ID: f.ID, Format: matching(*f, `\b`+word+`\b`)}, "pointed "+f.Name+" at "+word
+		if r.IntN(2) == 0 {
+			group := pick(r, groups)
+			c, did = targets.UpdateFormat{ID: f.ID, Format: byGroup(*f, group)}, "pointed "+f.Name+" at the group "+group
+		}
 	case 4:
 		word := words[r.IntN(len(words))]
 		c, did = targets.AddFormats{Dialect: formats.SlipStream, Replace: map[formats.ID]formats.Format{f.ID: matching(*f, `\b`+word+`\b`)}}, "replaced "+f.Name+" with one matching "+word
@@ -225,6 +239,8 @@ func (n *narrowed) cells(t *testing.T, w works.WorkID) []string {
 	}
 	return out
 }
+
+var groups = []string{"TEAM", "CREW"}
 
 func TestANarrowedChangeMissesNoWorkWhoseCellsItChanges(t *testing.T) {
 	r := rand.New(rand.NewPCG(48, 2)) //nolint:gosec // seeded on purpose so failures replay

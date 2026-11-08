@@ -2,6 +2,7 @@ package files
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"runtime"
 	"slices"
@@ -20,7 +21,9 @@ type moves map[ID]map[targets.TargetID]int
 
 // flips runs each of edits over the files of ws, across GOMAXPROCS
 // goroutines on one prepared name per file, and answers the Works holding
-// a file whose score at some Target moves, and those files' moves.
+// a file whose score at some Target moves, and those files' moves. It
+// decodes a file's Title, in those goroutines, only when an edit tests
+// more than the name.
 func (f *Files) flips(ctx context.Context, r storage.Reader[file], ws []works.WorkID, edits []targets.FormatEdit) ([]works.WorkID, moves, error) {
 	q := db.New(r)
 	var rows []db.ListFileReadsOfWorksRow
@@ -35,13 +38,21 @@ func (f *Files) flips(ctx context.Context, r storage.Reader[file], ws []works.Wo
 	if err != nil {
 		return nil, nil, err
 	}
+	nameOnly := !slices.ContainsFunc(edits, func(e targets.FormatEdit) bool { return !e.Match.NameOnly() })
 	moved := make([]map[targets.TargetID]int, len(rows))
+	failed := make([]error, len(rows))
 	var wg sync.WaitGroup
 	size := max(1, (len(rows)+runtime.GOMAXPROCS(0)-1)/runtime.GOMAXPROCS(0))
 	for lo := 0; lo < len(rows); lo += size {
 		wg.Go(func() {
 			for i := lo; i < min(lo+size, len(rows)); i++ {
-				read := asNamed(rows[i].TitleRead.Read, rows[i].ReleaseName, originals[rows[i].WorkID])
+				var title db.Reading
+				if !nameOnly {
+					if failed[i] = title.Scan(rows[i].TitleJson); failed[i] != nil {
+						return
+					}
+				}
+				read := asNamed(title.Read, rows[i].ReleaseName, originals[rows[i].WorkID])
 				for _, e := range edits {
 					flip := e.Match.Match(read)
 					for t := range e.Scores {
@@ -57,6 +68,9 @@ func (f *Files) flips(ctx context.Context, r storage.Reader[file], ws []works.Wo
 		})
 	}
 	wg.Wait()
+	if err := errors.Join(failed...); err != nil {
+		return nil, nil, err
+	}
 	out := moves{}
 	kept := map[works.WorkID]bool{}
 	for i, m := range moved {

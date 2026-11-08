@@ -56,3 +56,16 @@ func (e Edit) Match(rd release.Read) Flip {
 	flip.Before, flip.After = version(e.before), version(e.after)
 	return flip
 }
+
+// NameOnly reports whether both versions test only a name's text, so a
+// Match reads no other fact of the Read.
+func (e Edit) NameOnly() bool {
+	for _, f := range e.c.formats {
+		for _, c := range f.conds {
+			if c.Kind != ReleaseTitle {
+				return false
+			}
+		}
+	}
+	return true
+}

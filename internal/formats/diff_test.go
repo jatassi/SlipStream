@@ -46,3 +46,22 @@ func TestDiffReportsTheAfterVersionsTimeouts(t *testing.T) {
 		t.Errorf("Match = %+v", got)
 	}
 }
+
+func TestAnEditReadsOnlyTheNameWhenBothVersionsTestOnlyTheTitle(t *testing.T) {
+	titleOnly := format(1, formats.Radarr, title(`x264`))
+	byGroup := format(1, formats.Radarr, title(`x264`), cond(formats.ReleaseGroup, map[string]any{"value": "^GRP$"}))
+	for _, c := range []struct {
+		name          string
+		before, after *formats.Format
+		want          bool
+	}{
+		{"title conditions on both sides", &titleOnly, &titleOnly, true},
+		{"a deleted title-only format", &titleOnly, nil, true},
+		{"a group condition added", &titleOnly, &byGroup, false},
+		{"a group condition removed", &byGroup, &titleOnly, false},
+	} {
+		if got := formats.Diff(c.before, c.after, limit).NameOnly(); got != c.want {
+			t.Errorf("%s: NameOnly = %t, want %t", c.name, got, c.want)
+		}
+	}
+}

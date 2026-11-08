@@ -503,14 +503,14 @@ func (q *Queries) ListFileIDs(ctx context.Context) ([]FileID, error) {
 }
 
 const listFileReadsOfWorks = `-- name: ListFileReadsOfWorks :many
-SELECT id, work_id, release_name, title_read FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY id
+SELECT id, work_id, release_name, CAST(title_read AS TEXT) AS title_json FROM files_file WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY id
 `
 
 type ListFileReadsOfWorksRow struct {
 	ID          FileID
 	WorkID      works.WorkID
 	ReleaseName string
-	TitleRead   Reading
+	TitleJson   string
 }
 
 func (q *Queries) ListFileReadsOfWorks(ctx context.Context, workIds []works.WorkID) ([]ListFileReadsOfWorksRow, error) {
@@ -536,7 +536,7 @@ func (q *Queries) ListFileReadsOfWorks(ctx context.Context, workIds []works.Work
 			&i.ID,
 			&i.WorkID,
 			&i.ReleaseName,
-			&i.TitleRead,
+			&i.TitleJson,
 		); err != nil {
 			return nil, err
 		}
