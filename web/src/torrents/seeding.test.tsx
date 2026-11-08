@@ -181,7 +181,7 @@ test("the Inspector of a private torrent with no known Tracker says it never sto
     .element(seeding)
     .toMatchTextContent(
       "TrackerNot known" +
-        "Ratio0.4 of 2.0Seeding time0 min of 14 days" +
+        "Ratio0.4 of 2.0Seeding time0 s of 14 days" +
         "This torrent has no known Tracker, so SlipStream never stops it. Remove it yourself once its Tracker's rule is met.",
     );
 });

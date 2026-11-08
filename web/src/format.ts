@@ -39,23 +39,37 @@ export function durationWords(seconds: number): string {
   return `${seconds} s`;
 }
 
+type SpanUnit = { readonly seconds: number; readonly words: (count: number) => string };
+
+const spanDays: SpanUnit = {
+  seconds: day,
+  words: (count) => (count === 1 ? "1 day" : `${count} days`),
+};
+const spanHours: SpanUnit = { seconds: hour, words: (count) => `${count} h` };
+const spanMinutes: SpanUnit = { seconds: minute, words: (count) => `${count} min` };
+const spanSeconds: SpanUnit = { seconds: 1, words: (count) => `${count} s` };
+
+const spanPairs = [
+  [spanDays, spanHours],
+  [spanHours, spanMinutes],
+  [spanMinutes, spanSeconds],
+] as const;
+
 /**
  * A length in at most two units, rounded up to the smaller one, so a time
- * still needed is never understated: "3 days 4 h", "4 h 12 min", "12 min".
+ * still needed is never understated: "3 days 4 h", "4 h 12 min", "3 min 27 s".
  */
 export function spanWords(seconds: number): string {
-  const minutes = Math.ceil(seconds / minute);
-  if (minutes < 60) {
-    return `${minutes} min`;
+  for (const [big, small] of spanPairs) {
+    const count = Math.ceil(seconds / small.seconds);
+    const per = big.seconds / small.seconds;
+    if (count >= per) {
+      const rest = count % per;
+      const whole = big.words((count - rest) / per);
+      return rest === 0 ? whole : `${whole} ${small.words(rest)}`;
+    }
   }
-  if (minutes < 24 * 60) {
-    const rest = minutes % 60;
-    return rest === 0 ? `${minutes / 60} h` : `${Math.floor(minutes / 60)} h ${rest} min`;
-  }
-  const hours = Math.ceil(seconds / hour);
-  const days = Math.floor(hours / 24);
-  const dayWords = days === 1 ? "1 day" : `${days} days`;
-  return hours % 24 === 0 ? dayWords : `${dayWords} ${hours % 24} h`;
+  return spanSeconds.words(Math.ceil(seconds));
 }
 
 export type Noun = { readonly one: string; readonly many: string };
