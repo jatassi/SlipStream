@@ -80,7 +80,8 @@ type Source struct {
 func (s *Source) Sources() []artwork.Source { return []artwork.Source{s.covers} }
 
 // Music is the library half.
-type Music struct{}
+// Music reads a name as one title: it numbers nothing.
+type Music struct{ release.TitleOnly }
 
 func (*Music) Describe() works.Description { return Description }
 
@@ -275,6 +276,11 @@ func (*Music) DefaultTemplates() naming.Templates {
 	return naming.Templates{Folder: "{Artist Name}", File: "{Artist Name} - {Disc}-{Track} - {Track Title} {Edition} {Target}"}
 }
 
+// Expect answers indexers' empty answer: music isn't searched.
+func (*Music) Expect(context.Context, storage.Reader[file], works.WorkID) (indexers.Expect, error) {
+	return indexers.Expect{}, nil
+}
+
 // SearchTerms answers indexers' empty answer: music isn't searched.
 func (*Music) SearchTerms(context.Context, storage.Reader[file], works.ItemID) (indexers.Terms, error) {
 	return indexers.Terms{}, nil
@@ -355,6 +361,12 @@ func (*Music) KeysOf(context.Context, storage.Reader[file], []works.Key) ([]work
 
 // Growing answers none.
 func (*Music) Growing(context.Context, storage.Reader[file], []works.WorkID) (map[works.WorkID]bool, error) {
+	return nil, nil
+}
+
+// Originals answers no album: every album's original language is
+// unknown.
+func (*Music) Originals(context.Context, storage.Reader[file], works.Among[works.WorkID]) (map[works.WorkID]release.Fact[release.Language], error) {
 	return nil, nil
 }
 

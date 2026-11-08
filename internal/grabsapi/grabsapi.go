@@ -248,7 +248,7 @@ func grabOf(v grabs.View) grab {
 	for _, t := range v.Targets {
 		out.TargetIDs = append(out.TargetIDs, t.String())
 	}
-	if q, ok := release.Title(v.Release.Title, nil).Quality.Get(); ok {
+	if q, ok := release.QualityIn(v.Release.Title).Get(); ok {
 		out.Quality = q.String()
 	}
 	if v.Torrent != nil {

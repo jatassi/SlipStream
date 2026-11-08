@@ -19,6 +19,89 @@ type (
 
 const Original Language = "original"
 
+// Origin is the fine source: Radarr's and Sonarr's source values meet
+// here, and a Source condition tests it.
+type Origin uint8
+
+const (
+	OriginCAM Origin = iota + 1
+	OriginTelesync
+	OriginTelecine
+	OriginWorkprint
+	OriginDVD
+	OriginTV
+	OriginWEBDL
+	OriginWEBRip
+	OriginBluray
+)
+
+var originKeys = []string{
+	OriginCAM: "cam", OriginTelesync: "telesync", OriginTelecine: "telecine", OriginWorkprint: "workprint", OriginDVD: "dvd",
+	OriginTV: "tv", OriginWEBDL: "webdl", OriginWEBRip: "webrip", OriginBluray: "bluray",
+}
+
+func (o Origin) String() string                { return originKeys[o] }
+func (o Origin) MarshalText() ([]byte, error)  { return []byte(o.String()), nil }
+func (o *Origin) UnmarshalText(b []byte) error { return parseKey(o, "a source", originKeys, b) }
+
+// Modifier is Radarr's quality modifier.
+type Modifier uint8
+
+const (
+	ModRemux Modifier = iota + 1
+	ModBRDisk
+	ModRawHD
+	ModRegional
+	ModScreener
+)
+
+var modifierKeys = []string{ModRemux: "remux", ModBRDisk: "brdisk", ModRawHD: "rawhd", ModRegional: "regional", ModScreener: "screener"}
+
+func (m Modifier) String() string               { return modifierKeys[m] }
+func (m Modifier) MarshalText() ([]byte, error) { return []byte(m.String()), nil }
+func (m *Modifier) UnmarshalText(b []byte) error {
+	return parseKey(m, "a quality modifier", modifierKeys, b)
+}
+
+// Flag is one of Radarr's indexer flags, by S27 (Ported site indexers)'
+// names.
+type Flag string
+
+const (
+	Freeleech    Flag = "freeleech"
+	Halfleech    Flag = "halfleech"
+	Freeleech75  Flag = "freeleech75"
+	Freeleech25  Flag = "freeleech25"
+	DoubleUpload Flag = "doubleupload"
+	Internal     Flag = "internal"
+	Scene        Flag = "scene"
+	Exclusive    Flag = "exclusive"
+	Nuked        Flag = "nuked"
+	Golden       Flag = "golden"
+	Approved     Flag = "approved"
+)
+
+func Flags() []Flag {
+	return []Flag{Freeleech, Halfleech, Freeleech75, Freeleech25, DoubleUpload, Internal, Scene, Exclusive, Nuked, Golden, Approved}
+}
+
+// ParseFlag is the Flag named s, false for a name it doesn't know.
+func ParseFlag(s string) (Flag, bool) {
+	f := Flag(s)
+	return f, slices.Contains(Flags(), f)
+}
+
+// parseKey sets *v to the value whose key in keys is b, the zero value's
+// key being unused.
+func parseKey[T ~uint8](v *T, kind string, keys []string, b []byte) error {
+	i := slices.Index(keys[1:], string(b))
+	if i < 0 {
+		return fmt.Errorf("%q is not %s", b, kind)
+	}
+	*v = T(i + 1)
+	return nil
+}
+
 func HDRs() []HDR { return []HDR{"DV", "HDR10+", "HDR10", "HLG", "SDR"} }
 
 func VideoCodecs() []VideoCodec { return []VideoCodec{"x264", "x265", "AV1", "VP9", "XviD", "MPEG2"} }

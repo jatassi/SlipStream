@@ -1,0 +1,15 @@
+{
+  "upstream": "Sonarr",
+  "commit": "c018578e4b79ee048575c02d7a8aa2b929e4b837",
+  "file": "src/NzbDrone.Core.Test/ParserTests/Fixture.cs",
+  "methods": [
+    {"name":"should_be_even","params":[{"name":"n","type":"int"}], "cases": [
+      {"args":[2]},
+      {"args":[3]},
+      {"args":[5]}
+    ]},
+    {"name":"should_be_odd","params":[{"name":"n","type":"int"}], "cases": [
+      {"args":[1]}
+    ]}
+  ]
+}

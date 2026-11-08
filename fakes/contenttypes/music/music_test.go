@@ -436,13 +436,14 @@ func TestAnUndatedAlbumAndAnUntimedTrackStayUnknown(t *testing.T) {
 }
 
 func TestDeluxeNamesItsCut(t *testing.T) {
-	cuts := append(release.BuiltIn(), library().Cuts()...)
+	lib := library()
+	cuts := append(release.BuiltIn(), lib.Cuts()...)
 	for title, want := range map[string]release.CutKey{
 		"The Lanterns - Harbor Lights (Deluxe Edition) 2001 FLAC": "deluxe",
 		"The Lanterns - Harbor Lights (Deluxe) 2001 FLAC":         "deluxe",
 		"The Lanterns - Harbor Lights 2001 FLAC":                  release.Standard,
 	} {
-		if got := release.Title(title, cuts).Cut; got != want {
+		if got := release.Title(title, lib, cuts).Facts.Cut; got != want {
 			t.Errorf("cut of %q = %s, want %s", title, got, want)
 		}
 	}

@@ -75,8 +75,12 @@ func (r Roster) Name(n role.NodeID) string {
 // Type is a Content Type searched in the Newznab family 2000.
 const Type works.TypeID = "searched"
 
-// Facet is Type's: the family 2000 and the zero Terms.
+// Facet is Type's: the family 2000, the zero Expect and the zero Terms.
 type Facet struct{}
+
+func (Facet) Expect(context.Context, storage.Reader[storage.Library], works.WorkID) (indexers.Expect, error) {
+	return indexers.Expect{}, nil
+}
 
 func (Facet) SearchTerms(context.Context, storage.Reader[storage.Library], works.ItemID) (indexers.Terms, error) {
 	return indexers.Terms{}, nil

@@ -1,0 +1,444 @@
+{
+  "upstreams": {
+    "sonarr": {
+      "name": "Sonarr",
+      "repo": "https://github.com/Sonarr/Sonarr.git",
+      "commit": "c018578e4b79ee048575c02d7a8aa2b929e4b837",
+      "license": "LICENSE.md",
+      "spdx": "GPL-3.0",
+      "paths": [
+        "/LICENSE.md",
+        "/src/NzbDrone.Core/Parser/",
+        "/src/NzbDrone.Core/Qualities/QualitySource.cs",
+        "/src/NzbDrone.Core/Languages/Language.cs",
+        "/src/NzbDrone.Core/CustomFormats/",
+        "/src/NzbDrone.Core.Test/ParserTests/"
+      ],
+      "notice": "SlipStream's release parser (`internal/release`) and the series Content Type's title and numbering rules (`internal/contenttypes/series`) are Go ports of Sonarr's C# parser, copyright the Sonarr contributors and modified for SlipStream. Their regular expressions are Sonarr's, copied as data into each package's `internal/upstream`, and each package's `upstream.json` maps its Go files to the Sonarr files they port. The parser's golden tests read Sonarr's parser test cases at the commit above, and the formats package ports Sonarr's Custom Format conditions and enums."
+    },
+    "radarr": {
+      "name": "Radarr",
+      "repo": "https://github.com/Radarr/Radarr.git",
+      "commit": "928e8871ccad6a899e9d99781a54fcf17ab7c3d9",
+      "license": "LICENSE",
+      "spdx": "GPL-3.0",
+      "paths": [
+        "/LICENSE",
+        "/src/NzbDrone.Core/Parser/",
+        "/src/NzbDrone.Core/Qualities/QualitySource.cs",
+        "/src/NzbDrone.Core/Qualities/Modifier.cs",
+        "/src/NzbDrone.Core/Languages/Language.cs",
+        "/src/NzbDrone.Core/CustomFormats/",
+        "/src/NzbDrone.Core.Test/ParserTests/"
+      ],
+      "notice": "SlipStream's release parser (`internal/release`) and the movie Content Type's title rules (`internal/contenttypes/movie`) are Go ports of Radarr's C# parser, copyright the Radarr contributors and modified for SlipStream. Their regular expressions are Radarr's, copied as data into each package's `internal/upstream`, and each package's `upstream.json` maps its Go files to the Radarr files they port. The parser's golden tests read Radarr's parser test cases at the commit above, and the formats package ports Radarr's Custom Format conditions and enums."
+    },
+    "trash": {
+      "name": "TRaSH Guides",
+      "repo": "https://github.com/TRaSH-Guides/Guides.git",
+      "commit": "98853590599f8583c19768fa469cfbf856de2045",
+      "license": "LICENSE",
+      "spdx": "MIT",
+      "paths": [
+        "/LICENSE",
+        "/docs/json/radarr/cf/",
+        "/docs/json/sonarr/cf/"
+      ],
+      "notice": "The release parser reads HDR, video codec, audio codec and channels from a release name with the conditions of TRaSH Guides' Custom Formats, copied as data into `internal/release/internal/upstream`. The formats tests run every TRaSH Custom Format from a snapshot in `internal/formats/testdata/trash`."
+    },
+    "guessit": {
+      "name": "guessit",
+      "repo": "https://github.com/guessit-io/guessit.git",
+      "commit": "3c73072b8971d412935c6f749be63c564dd41385",
+      "license": "LICENSE",
+      "spdx": "LGPL-3.0",
+      "paths": [
+        "/LICENSE",
+        "/guessit/test/movies.yml",
+        "/guessit/test/episodes.yml"
+      ]
+    },
+    "ptt": {
+      "name": "PTT",
+      "repo": "https://github.com/dreulavelle/PTT.git",
+      "commit": "88429bb90acef55673f421f45038878809b1e577",
+      "license": "LICENSE",
+      "spdx": "MIT",
+      "paths": [
+        "/LICENSE",
+        "/tests/"
+      ]
+    },
+    "jhin": {
+      "name": "jhin",
+      "repo": "https://github.com/dreulavelle/jhin.git",
+      "commit": "ee5459bbecde85ccc1d1084a1e63fa737c89faaf",
+      "license": "LICENSE",
+      "spdx": "MIT",
+      "paths": [
+        "/LICENSE",
+        "/parser/testdata/golden.json"
+      ]
+    }
+  },
+  "core_words": {
+    "Movie": "Film",
+    "Music": "Audio",
+    "Series": "Show"
+  },
+  "patterns": [
+    {
+      "from": "sonarr",
+      "file": "src/NzbDrone.Core/Parser/Parser.cs",
+      "owner": "internal/contenttypes/series",
+      "fields": {
+        "RejectHashedReleasesRegexes": "internal/release",
+        "ReversedTitleRegex": "internal/release",
+        "SimpleTitleRegex": "internal/release",
+        "CleanQualityBracketsRegex": "internal/release",
+        "MultiRegex": "internal/release",
+        "NormalizeImdbId.imdbRegex": "internal/release"
+      }
+    },
+    {
+      "from": "sonarr",
+      "file": "src/NzbDrone.Core/Parser/ParserCommon.cs",
+      "owner": "internal/release"
+    },
+    {
+      "from": "sonarr",
+      "file": "src/NzbDrone.Core/Parser/QualityParser.cs",
+      "owner": "internal/release"
+    },
+    {
+      "from": "sonarr",
+      "file": "src/NzbDrone.Core/Parser/LanguageParser.cs",
+      "owner": "internal/release"
+    },
+    {
+      "from": "sonarr",
+      "file": "src/NzbDrone.Core/Parser/ReleaseGroupParser.cs",
+      "owner": "internal/release"
+    },
+    {
+      "from": "radarr",
+      "file": "src/NzbDrone.Core/Parser/Parser.cs",
+      "owner": "internal/contenttypes/movie",
+      "fields": {
+        "EditionRegex": "internal/release",
+        "ReportEditionRegex": "internal/release",
+        "HardcodedSubsRegex": "internal/release",
+        "RejectHashedReleasesRegex": "internal/release",
+        "ReversedTitleRegex": "internal/release",
+        "ReportImdbId": "internal/release",
+        "ReportTmdbId": "internal/release",
+        "SimpleTitleRegex": "internal/release",
+        "SimpleReleaseTitleRegex": "internal/release",
+        "CleanQualityBracketsRegex": "internal/release",
+        "MultiRegex": "internal/release",
+        "NormalizeImdbId.imdbRegex": "internal/release"
+      },
+      "skip": [
+        "ToUrlSlug"
+      ]
+    },
+    {
+      "from": "radarr",
+      "file": "src/NzbDrone.Core/Parser/ParserCommon.cs",
+      "owner": "internal/release"
+    },
+    {
+      "from": "radarr",
+      "file": "src/NzbDrone.Core/Parser/QualityParser.cs",
+      "owner": "internal/release"
+    },
+    {
+      "from": "radarr",
+      "file": "src/NzbDrone.Core/Parser/LanguageParser.cs",
+      "owner": "internal/release"
+    },
+    {
+      "from": "radarr",
+      "file": "src/NzbDrone.Core/Parser/ReleaseGroupParser.cs",
+      "owner": "internal/release"
+    }
+  ],
+  "fixtures": [
+    {
+      "from": "sonarr",
+      "dir": "src/NzbDrone.Core.Test/ParserTests",
+      "owner": "internal/release",
+      "files": [
+        "QualityParserFixture.cs",
+        "ReleaseGroupParserFixture.cs"
+      ]
+    },
+    {
+      "from": "sonarr",
+      "dir": "src/NzbDrone.Core.Test/ParserTests",
+      "owner": "internal/contenttypes/series",
+      "files": [
+        "SingleEpisodeParserFixture.cs",
+        "MultiEpisodeParserFixture.cs",
+        "AbsoluteEpisodeNumberParserFixture.cs",
+        "SeasonParserFixture.cs",
+        "DailyEpisodeParserFixture.cs",
+        "AnimeMetadataParserFixture.cs",
+        "UnicodeReleaseParserFixture.cs",
+        "ParserFixture.cs",
+        "LanguageParserFixture.cs",
+        "NormalizeSeriesTitleFixture.cs",
+        "PathParserFixture.cs",
+        "CrapParserFixture.cs",
+        "HashedReleaseFixture.cs"
+      ]
+    },
+    {
+      "from": "radarr",
+      "dir": "src/NzbDrone.Core.Test/ParserTests",
+      "owner": "internal/release",
+      "files": [
+        "QualityParserFixture.cs",
+        "ExtendedQualityParserRegex.cs",
+        "ReleaseGroupParserFixture.cs"
+      ]
+    },
+    {
+      "from": "radarr",
+      "dir": "src/NzbDrone.Core.Test/ParserTests",
+      "owner": "internal/contenttypes/movie",
+      "files": [
+        "ParserFixture.cs",
+        "LanguageParserFixture.cs",
+        "EditionParserFixture.cs",
+        "NormalizeTitleFixture.cs",
+        "CrapParserFixture.cs"
+      ]
+    }
+  ],
+  "dialects": {
+    "out": "internal/formats/zz_dialects.go",
+    "enums": [
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core/Qualities/QualitySource.cs",
+        "enum": "QualitySource"
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core/Parser/QualityParser.cs",
+        "enum": "Resolution"
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core/Parser/Model/ReleaseType.cs",
+        "enum": "ReleaseType"
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core/Parser/Model/IndexerFlags.cs",
+        "enum": "IndexerFlags"
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core/Qualities/QualitySource.cs",
+        "enum": "QualitySource"
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core/Qualities/Modifier.cs",
+        "enum": "Modifier"
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core/Parser/QualityParser.cs",
+        "enum": "Resolution"
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core/Parser/Model/IndexerFlags.cs",
+        "enum": "IndexerFlags"
+      }
+    ],
+    "languages": [
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core/Languages/Language.cs"
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core/Languages/Language.cs"
+      }
+    ],
+    "iso_languages": [
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core/Parser/IsoLanguages.cs"
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core/Parser/IsoLanguages.cs"
+      }
+    ]
+  },
+  "trash": {
+    "from": "trash",
+    "root": "docs/json",
+    "snapshot": [
+      "docs/json/radarr/cf",
+      "docs/json/sonarr/cf"
+    ],
+    "out": "internal/formats/testdata/trash",
+    "titles": "internal/formats/testdata/titles.txt",
+    "readers": [
+      "docs/json/radarr/cf/hdr.json",
+      "docs/json/radarr/cf/hdr10plus-boost.json",
+      "docs/json/radarr/cf/dv-boost.json",
+      "docs/json/radarr/cf/dv-wo-hdr-fallback.json",
+      "docs/json/radarr/cf/hlg.json",
+      "docs/json/radarr/cf/sdr.json",
+      "docs/json/radarr/cf/x264.json",
+      "docs/json/radarr/cf/x265.json",
+      "docs/json/radarr/cf/x266.json",
+      "docs/json/radarr/cf/av1.json",
+      "docs/json/radarr/cf/vp9.json",
+      "docs/json/radarr/cf/vc-1.json",
+      "docs/json/radarr/cf/mpeg2.json",
+      "docs/json/radarr/cf/truehd-atmos.json",
+      "docs/json/radarr/cf/truehd.json",
+      "docs/json/radarr/cf/dts-x.json",
+      "docs/json/radarr/cf/dts-hd-ma.json",
+      "docs/json/radarr/cf/dts-hd-hra.json",
+      "docs/json/radarr/cf/dts-es.json",
+      "docs/json/radarr/cf/dts.json",
+      "docs/json/radarr/cf/ddplus-atmos.json",
+      "docs/json/radarr/cf/ddplus.json",
+      "docs/json/radarr/cf/dd.json",
+      "docs/json/radarr/cf/atmos-undefined.json",
+      "docs/json/radarr/cf/aac.json",
+      "docs/json/radarr/cf/flac.json",
+      "docs/json/radarr/cf/pcm.json",
+      "docs/json/radarr/cf/opus.json",
+      "docs/json/radarr/cf/mp3.json",
+      "docs/json/radarr/cf/10-mono.json",
+      "docs/json/radarr/cf/20-stereo.json",
+      "docs/json/radarr/cf/30-sound.json",
+      "docs/json/radarr/cf/40-sound.json",
+      "docs/json/radarr/cf/51-surround.json",
+      "docs/json/radarr/cf/61-surround.json",
+      "docs/json/radarr/cf/71-surround.json"
+    ],
+    "readers_owner": "internal/release"
+  },
+  "fuzz": {
+    "out": "internal/release/testdata/fuzz-seeds",
+    "sources": [
+      {
+        "from": "guessit",
+        "reader": "yaml-keys",
+        "files": [
+          "guessit/test/movies.yml",
+          "guessit/test/episodes.yml"
+        ]
+      },
+      {
+        "from": "ptt",
+        "reader": "python-cases",
+        "files": [
+          "tests/test_*.py"
+        ]
+      },
+      {
+        "from": "jhin",
+        "reader": "json-titles",
+        "files": [
+          "parser/testdata/golden.json"
+        ]
+      }
+    ]
+  },
+  "ports": {
+    "internal/release": {
+      "prepare.go": [
+        "sonarr:src/NzbDrone.Core/Parser/Parser.cs",
+        "radarr:src/NzbDrone.Core/Parser/Parser.cs",
+        "sonarr:src/NzbDrone.Core/Parser/ParserCommon.cs",
+        "radarr:src/NzbDrone.Core/Parser/ParserCommon.cs"
+      ],
+      "read_quality.go": [
+        "sonarr:src/NzbDrone.Core/Parser/QualityParser.cs",
+        "radarr:src/NzbDrone.Core/Parser/QualityParser.cs"
+      ],
+      "read_revision.go": [
+        "sonarr:src/NzbDrone.Core/Parser/QualityParser.cs",
+        "radarr:src/NzbDrone.Core/Parser/QualityParser.cs"
+      ],
+      "read_group.go": [
+        "sonarr:src/NzbDrone.Core/Parser/ReleaseGroupParser.cs",
+        "radarr:src/NzbDrone.Core/Parser/ReleaseGroupParser.cs"
+      ],
+      "read_language.go": [
+        "sonarr:src/NzbDrone.Core/Parser/LanguageParser.cs",
+        "radarr:src/NzbDrone.Core/Parser/LanguageParser.cs"
+      ],
+      "read_edition.go": [
+        "radarr:src/NzbDrone.Core/Parser/Parser.cs"
+      ],
+      "read_ids.go": [
+        "sonarr:src/NzbDrone.Core/Parser/Parser.cs",
+        "radarr:src/NzbDrone.Core/Parser/Parser.cs"
+      ]
+    },
+    "internal/contenttypes/series": {
+      "names.go": [
+        "sonarr:src/NzbDrone.Core/Parser/Parser.cs"
+      ],
+      "marks.go": [
+        "sonarr:src/NzbDrone.Core/Parser/Parser.cs"
+      ]
+    },
+    "internal/contenttypes/movie": {
+      "names.go": [
+        "radarr:src/NzbDrone.Core/Parser/Parser.cs"
+      ]
+    },
+    "internal/formats": {
+      "match.go": [
+        "sonarr:src/NzbDrone.Core/CustomFormats/CustomFormatCalculationService.cs",
+        "radarr:src/NzbDrone.Core/CustomFormats/CustomFormatCalculationService.cs",
+        "sonarr:src/NzbDrone.Core/CustomFormats/SpecificationMatchesGroup.cs",
+        "radarr:src/NzbDrone.Core/CustomFormats/SpecificationMatchesGroup.cs"
+      ],
+      "kinds.go": [
+        "sonarr:src/NzbDrone.Core/CustomFormats/Specifications/CustomFormatSpecificationBase.cs",
+        "sonarr:src/NzbDrone.Core/CustomFormats/Specifications/IndexerFlagSpecification.cs",
+        "sonarr:src/NzbDrone.Core/CustomFormats/Specifications/LanguageSpecification.cs",
+        "sonarr:src/NzbDrone.Core/CustomFormats/Specifications/RegexSpecificationBase.cs",
+        "sonarr:src/NzbDrone.Core/CustomFormats/Specifications/ReleaseGroupSpecification.cs",
+        "sonarr:src/NzbDrone.Core/CustomFormats/Specifications/ReleaseTitleSpecification.cs",
+        "sonarr:src/NzbDrone.Core/CustomFormats/Specifications/ReleaseTypeSpecification.cs",
+        "sonarr:src/NzbDrone.Core/CustomFormats/Specifications/ResolutionSpecification.cs",
+        "sonarr:src/NzbDrone.Core/CustomFormats/Specifications/SizeSpecification.cs",
+        "sonarr:src/NzbDrone.Core/CustomFormats/Specifications/SourceSpecification.cs",
+        "radarr:src/NzbDrone.Core/CustomFormats/Specifications/CustomFormatSpecificationBase.cs",
+        "radarr:src/NzbDrone.Core/CustomFormats/Specifications/EditionSpecification.cs",
+        "radarr:src/NzbDrone.Core/CustomFormats/Specifications/IndexerFlagSpecification.cs",
+        "radarr:src/NzbDrone.Core/CustomFormats/Specifications/LanguageSpecification.cs",
+        "radarr:src/NzbDrone.Core/CustomFormats/Specifications/QualityModifierSpecification.cs",
+        "radarr:src/NzbDrone.Core/CustomFormats/Specifications/RegexSpecificationBase.cs",
+        "radarr:src/NzbDrone.Core/CustomFormats/Specifications/ReleaseGroupSpecification.cs",
+        "radarr:src/NzbDrone.Core/CustomFormats/Specifications/ReleaseTitleSpecification.cs",
+        "radarr:src/NzbDrone.Core/CustomFormats/Specifications/ResolutionSpecification.cs",
+        "radarr:src/NzbDrone.Core/CustomFormats/Specifications/SizeSpecification.cs",
+        "radarr:src/NzbDrone.Core/CustomFormats/Specifications/SourceSpecification.cs",
+        "radarr:src/NzbDrone.Core/CustomFormats/Specifications/YearSpecification.cs"
+      ],
+      "paste.go": [
+        "sonarr:src/NzbDrone.Core/CustomFormats/CustomFormat.cs",
+        "radarr:src/NzbDrone.Core/CustomFormats/CustomFormat.cs",
+        "sonarr:src/NzbDrone.Core/CustomFormats/CustomFormatInput.cs",
+        "radarr:src/NzbDrone.Core/CustomFormats/CustomFormatInput.cs"
+      ]
+    }
+  }
+}

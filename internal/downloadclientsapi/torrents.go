@@ -109,7 +109,7 @@ func rowOf(r downloadclients.Row) TorrentRow {
 	if len(r.Uses) > 0 {
 		newest := r.Uses[0]
 		out.WorkID, out.Edition = new(newest.Work.String()), newest.Edition
-		if q, ok := release.Title(newest.Release, nil).Quality.Get(); ok {
+		if q, ok := release.QualityIn(newest.Release).Get(); ok {
 			out.Quality = q.String()
 		}
 	}

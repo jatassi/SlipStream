@@ -231,7 +231,7 @@ func query(c Caps, terms Terms) searching.Query {
 	params := c.Modes[terms.Mode]
 	ids := map[string]string{}
 	for _, p := range params {
-		if id, ok := terms.IDs[p]; ok {
+		if id, ok := terms.Claim.IDs[p]; ok {
 			ids[p] = id
 		}
 	}

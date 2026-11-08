@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -428,10 +429,10 @@ func TestQueryTakesEveryIDTheModeListsElseText(t *testing.T) {
 		terms Terms
 		want  searching.Query
 	}{
-		{"every id the caps list", Terms{Mode: "tvsearch", IDs: ids, Query: "Lantern Coast"}, searching.Query{Mode: "tvsearch", IDs: map[string]string{"tvdbid": "901", "imdbid": "tt0000901"}}},
-		{"an id the type lacks is skipped", Terms{Mode: "tvsearch", IDs: map[string]string{"imdbid": "tt0000901"}, Query: "Lantern Coast"}, searching.Query{Mode: "tvsearch", IDs: map[string]string{"imdbid": "tt0000901"}}},
-		{"no id the caps list", Terms{Mode: "tvsearch", IDs: map[string]string{"tmdbid": "901"}, Query: "Lantern Coast"}, searching.Query{Mode: "search", Text: "Lantern Coast"}},
-		{"a mode the caps lack", Terms{Mode: "book", IDs: ids, Query: "Lantern Coast"}, searching.Query{Mode: "search", Text: "Lantern Coast"}},
+		{"every id the caps list", Terms{Expect: Expect{Claim: release.Claim{IDs: ids}}, Mode: "tvsearch", Query: "Lantern Coast"}, searching.Query{Mode: "tvsearch", IDs: map[string]string{"tvdbid": "901", "imdbid": "tt0000901"}}},
+		{"an id the type lacks is skipped", Terms{Expect: Expect{Claim: release.Claim{IDs: map[string]string{"imdbid": "tt0000901"}}}, Mode: "tvsearch", Query: "Lantern Coast"}, searching.Query{Mode: "tvsearch", IDs: map[string]string{"imdbid": "tt0000901"}}},
+		{"no id the caps list", Terms{Expect: Expect{Claim: release.Claim{IDs: map[string]string{"tmdbid": "901"}}}, Mode: "tvsearch", Query: "Lantern Coast"}, searching.Query{Mode: "search", Text: "Lantern Coast"}},
+		{"a mode the caps lack", Terms{Expect: Expect{Claim: release.Claim{IDs: ids}}, Mode: "book", Query: "Lantern Coast"}, searching.Query{Mode: "search", Text: "Lantern Coast"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := query(caps, tc.terms); !reflect.DeepEqual(got, tc.want) {

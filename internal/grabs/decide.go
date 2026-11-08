@@ -17,12 +17,15 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// candidate is one listed release and its Facts: the title's quality and
-// cut, the Indexer's advertised size, and the searched Item as Coverage.
-// at is its position among the run's Releases.
+// candidate is one listed release, its Facts with the Indexer's
+// advertised size and the searched Item's runtime, what its title names
+// and the Items of its Work it covers. at is its position among the run's
+// Releases.
 type candidate struct {
 	Release indexers.Release
 	Facts   release.Facts
+	name    release.Name
+	covers  []works.ItemID
 	at      int
 	// copies are the same Release listed by Indexers of no better
 	// priority, best first, which a search takes when this one's Indexer
@@ -36,16 +39,18 @@ type copied struct {
 	at      int
 }
 
-// candidateOf reads a listed release's Facts with cuts, every cut its
-// Work's titles can name: it covers item, whose runtime its Content Type
-// answers, unknown when it can't.
-func candidateOf(r indexers.Release, cuts []release.Cut, item works.ItemID, runtime release.Fact[time.Duration]) candidate {
-	f := release.Title(r.Title, cuts)
+// candidateOf reads a listed release's title with its Content Type's
+// names and cuts, every cut its Work's titles can name. covers answers the
+// Items of its Work the title names, and runtime is the searched Item's,
+// unknown when its Content Type can't answer it.
+func candidateOf(r indexers.Release, names release.Names, cuts []release.Cut, covers func(release.Name) []works.ItemID, runtime release.Fact[time.Duration]) candidate {
+	read := release.Title(r.Title, names, cuts)
+	f := read.Facts
 	if r.Size > 0 {
 		f.Size = release.Known(r.Size)
 	}
-	f.Coverage = release.Coverage{Items: []works.ItemID{item}, Runtime: runtime}
-	return candidate{Release: r, Facts: f}
+	f.Coverage.Runtime = runtime
+	return candidate{Release: r, Facts: f, name: read.Name, covers: covers(read.Name)}
 }
 
 // Pick is the candidate a search grabs, the Edition its cells want, every
@@ -70,8 +75,8 @@ func (p Pick) offers() []Pick {
 }
 
 // WrongWork is a release carrying an id that names another Work,
-// WrongItem one whose title names another Item or none, CoversMore one
-// whose title covers more than the searched Item, and CutNotWanted one
+// WrongItem one whose title doesn't cover the searched Item, CoversMore
+// one whose title covers more than the searched Item, and CutNotWanted one
 // whose cut no open cell wants. WrongItem's and CoversMore's Value is what
 // the title names, such as S01E02.
 const (
@@ -80,10 +85,6 @@ const (
 	CoversMore   targets.ReasonCode = "covers_more"
 	CutNotWanted targets.ReasonCode = "cut_not_wanted"
 )
-
-// coverRefusals are the reason each Covering other than the searched
-// Item's is refused with.
-var coverRefusals = map[indexers.CoverKind]targets.ReasonCode{indexers.CoversOther: WrongItem, indexers.CoversMore: CoversMore}
 
 // Reason is one reason or note about a candidate: its own, or one of a
 // Target's Verdict, which Target names.
@@ -145,16 +146,16 @@ type titleSize struct {
 	size  int64
 }
 
-// decide ranks the candidates grabbable for open, one Item's cells a
-// search may fill, in Edition then Profile order. Each candidate is judged
+// decide ranks the candidates grabbable for open, item's cells a search
+// may fill, in Edition then Profile order. Each candidate is judged
 // against the Target of every open cell its cut can fill, any cell under
 // any cut, and the file filling the cell; one with an id that differs from
-// the same id in terms, whose title terms' Covers doesn't answer as the
-// searched Item alone, whose cut no open cell wants, or grabbable for
-// none, is refused with every reason. The rest rank by the first open cell
-// they are grabbable for, then their tier there, then their Indexer's
-// priority, then seeders and size descending, then title, so ties replay.
-func decide(open []files.Cell, terms indexers.Terms, candidates []candidate) ([]Pick, []Refusal) {
+// the same id in terms, whose title doesn't cover item alone, whose cut no
+// open cell wants, or grabbable for none, is refused with every reason.
+// The rest rank by the first open cell they are grabbable for, then their
+// tier there, then their Indexer's priority, then seeders and size
+// descending, then title, so ties replay.
+func decide(open []files.Cell, item works.ItemID, terms indexers.Terms, candidates []candidate) ([]Pick, []Refusal) {
 	var keep []ranked
 	var refused []Refusal
 	for _, c := range candidates {
@@ -162,8 +163,8 @@ func decide(open []files.Cell, terms indexers.Terms, candidates []candidate) ([]
 			refused = append(refused, Refusal{c.Release.Title, []Reason{{Reason: targets.Reason{Code: WrongWork}}}})
 			continue
 		}
-		if cov := terms.Covers(c.Release.Title); cov.Kind != indexers.CoversItem {
-			refused = append(refused, Refusal{c.Release.Title, []Reason{{Reason: targets.Reason{Code: coverRefusals[cov.Kind], Value: cov.Names}}}})
+		if code, ok := uncovered(item, c); ok {
+			refused = append(refused, Refusal{c.Release.Title, []Reason{{Reason: targets.Reason{Code: code, Value: marks(c.name)}}}})
 			continue
 		}
 		if !slices.ContainsFunc(open, func(cell files.Cell) bool { return cell.Edition.Takes(c.Facts.Cut) }) {
@@ -192,6 +193,28 @@ func decide(open []files.Cell, terms indexers.Terms, candidates []candidate) ([]
 		picks[i] = r.pick
 	}
 	return picks, refused
+}
+
+// uncovered is why c doesn't cover item alone: WrongItem when it doesn't
+// cover item, CoversMore when it covers more. False when it covers item
+// alone.
+func uncovered(item works.ItemID, c candidate) (targets.ReasonCode, bool) {
+	switch {
+	case !slices.Contains(c.covers, item):
+		return WrongItem, true
+	case len(c.covers) > 1:
+		return CoversMore, true
+	}
+	return "", false
+}
+
+// marks is what n names, such as S01E02, in words.
+func marks(n release.Name) string {
+	words := make([]string, len(n.Marks))
+	for i, m := range n.Marks {
+		words[i] = m.Words
+	}
+	return strings.Join(words, " ")
 }
 
 // ranked is a candidate as decide ranks it: the pick it would make, the
@@ -277,7 +300,7 @@ func decodeReasons(s string) ([]Reason, error) {
 
 func wrongWork(r indexers.Release, terms indexers.Terms) bool {
 	for k, v := range r.IDs {
-		if want, ok := terms.IDs[k]; ok && want != v {
+		if want, ok := terms.Claim.IDs[k]; ok && want != v {
 			return true
 		}
 	}

@@ -390,15 +390,16 @@ func probed(p media.Probe) files.Probe {
 	return files.Probe{Width: p.Width, Height: p.Height, Codec: p.Codec}
 }
 
-// facts is what g's file is, read in r: its release's source and cut,
-// among the cuts a title of Content Type typ can name, and the resolution
-// its probe measured.
+// facts is what g's file is, read in r: its release title read by
+// Content Type typ, among the cuts a title of typ can name, and the
+// resolution its probe measured.
 func (gr *Grabs) facts(ctx context.Context, r storage.Reader[file], g Grab, typ works.TypeID, p media.Probe) (release.Facts, error) {
 	known, err := gr.cfg.Targets.CutsIn(ctx, r)
 	if err != nil {
 		return release.Facts{}, err
 	}
-	return release.File(g.Release.Title, known.For(typ), p.Resolution()), nil
+	read := release.File(g.Release.Title, gr.cfg.Names[typ], known.For(typ))
+	return read.Facts.WithProbe(release.Probed{Resolution: release.Known(p.Resolution())}), nil
 }
 
 // errLeft rolls back a commit whose Grab has left the stage it moves
