@@ -5,7 +5,7 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// refill picks each cell's file: among the Item's files of the cut the
+// refill picks each cell's file: among the Item's live files of the cut the
 // cell's Edition wants, any file under any cut, that meet its Target, the
 // best rank; on a tie the incumbent keeps the cell, then the oldest file.
 // It reads w.fills only to find incumbents, so refilling its own answer
@@ -14,7 +14,9 @@ import (
 func refill(w world) map[CellKey]ID {
 	of := map[works.ItemID][]File{}
 	for _, f := range w.files {
-		of[f.ItemID] = append(of[f.ItemID], f)
+		if !f.Gone() {
+			of[f.ItemID] = append(of[f.ItemID], f)
+		}
 	}
 	out := map[CellKey]ID{}
 	for _, it := range w.tree.Items {

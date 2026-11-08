@@ -139,7 +139,7 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 	impact := Impact{OwnList: touched.OwnList}
 	for i, was := range before {
 		after := afters[i]
-		p, err := f.converge(ctx, tx, was, after, refill(after), func(File) bool { return m.Unwanted == Delete })
+		p, err := f.converge(ctx, tx, was, after, refill(after), changing(m))
 		if err != nil {
 			return Impact{}, nil, err
 		}

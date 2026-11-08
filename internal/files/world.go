@@ -37,9 +37,16 @@ type world struct {
 	// from the templates. Until names gives it one, its Path is where its
 	// bytes are held.
 	fresh ID
+	// beside are the Work's files from before the fresh file came, the
+	// ones it dooms included. The fresh file lands beside them.
+	beside []File
 	// meant is the name of the first Target the fresh file's Grab was
 	// meant to fill, which labels it should it fill and meet none.
 	meant string
+	// found are a scan's new files, inserted where the scan found them.
+	found map[ID]bool
+	// keepPaths is a scan's: every file keeps its path.
+	keepPaths bool
 	// retagged is each cut whose name changes, so its files take new names.
 	retagged map[release.CutKey]bool
 	// templates and tokens are loaded by named, for names alone.
@@ -170,7 +177,7 @@ func wholeFiles(ctx context.Context, q *db.Queries, among works.Among[works.Work
 }
 
 // briefFiles reads only what cells and a Rollup read of each file: not its
-// path, media record, Grab or label.
+// path, media record, stamps, Grab or label.
 func briefFiles(ctx context.Context, q *db.Queries, among works.Among[works.WorkID]) ([]File, error) {
 	rows, err := works.Read(among, func() ([]db.ListEveryBriefFileRow, error) { return q.ListEveryBriefFile(ctx) }, func(ids []works.WorkID) ([]db.ListEveryBriefFileRow, error) {
 		rows, err := q.ListBriefFilesOfWorks(ctx, ids)
@@ -182,7 +189,7 @@ func briefFiles(ctx context.Context, q *db.Queries, among works.Among[works.Work
 	})
 	out := make([]File, len(rows))
 	for i, row := range rows {
-		out[i] = File{ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Cut: row.Cut, RootID: row.RootID, Size: row.Size, Quality: row.Quality, Extra: row.Extra}
+		out[i] = File{ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Cut: row.Cut, RootID: row.RootID, Size: row.Size, Quality: row.Quality, Extra: row.Extra, GoneAt: row.GoneAt}
 	}
 	return out, err
 }
