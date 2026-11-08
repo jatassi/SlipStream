@@ -29,18 +29,21 @@ import (
 const importDelay = 5 * time.Minute
 
 func TestTransmission(t *testing.T) {
+	t.Parallel()
 	for _, v := range transmission.Versions {
 		t.Run(v, func(t *testing.T) { clientSuite(t, transmission.Fake, v) })
 	}
 }
 
 func TestQBittorrent(t *testing.T) {
+	t.Parallel()
 	for _, v := range qbittorrent.Versions {
 		t.Run(v, func(t *testing.T) { clientSuite(t, qbittorrent.Fake, v) })
 	}
 }
 
 func TestDeluge(t *testing.T) {
+	t.Parallel()
 	for _, v := range deluge.Versions {
 		t.Run(v, func(t *testing.T) {
 			clientSuite(t, deluge.Fake, v, scenarioTest{"heals a label that never arrived", suite.healsALabelThatNeverArrived})
@@ -49,6 +52,7 @@ func TestDeluge(t *testing.T) {
 }
 
 func TestRTorrent(t *testing.T) {
+	t.Parallel()
 	for _, v := range rtorrent.Versions {
 		t.Run(v, func(t *testing.T) { clientSuite(t, rtorrent.Fake, v) })
 	}
@@ -387,6 +391,7 @@ func (r *clientRig) expectLinked() {
 // has a client of each kind, sees each respond at its version, and imports
 // a Grab through qBittorrent, where its New Grabs go.
 func TestEveryKindOnOneNode(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s, err := scenario.Load("external-kinds")
 		if err != nil {

@@ -48,6 +48,7 @@ func (d *dials) to(name string, addr netip.AddrPort) int {
 // dials once: they settle on one session, the same on both sides, and
 // keep it for a fake minute.
 func TestDualKeepHoldsOneSession(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		d := &dials{seen: map[string]map[string]int{}}
 		w := sim.Launch(t, simtest.Home(t), sim.Edit(func(name string, e *node.Env) {

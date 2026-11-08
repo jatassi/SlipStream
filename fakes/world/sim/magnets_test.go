@@ -75,6 +75,7 @@ func expectTorrent(t *testing.T, w *sim.World) {
 }
 
 func TestAPublicMagnetLinkResolvesAndImports(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		var n atomic.Int64
 		w := sim.Launch(t, magnetic(t, publicMagnet), sim.WithWalk(), fetches(&n))
@@ -90,6 +91,7 @@ func TestAPublicMagnetLinkResolvesAndImports(t *testing.T) {
 }
 
 func TestATrackerlessMagnetLinkResolvesThroughTheDHT(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, magnetic(t, trackerless), sim.WithWalk())
 		simtest.Search(t, w, simtest.AddOrchard(t, w))
@@ -108,6 +110,7 @@ func TestATrackerlessMagnetLinkResolvesThroughTheDHT(t *testing.T) {
 }
 
 func TestATrackerlessMagnetLinkWithTheDHTOffFailsAtOnce(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		var n atomic.Int64
 		w := sim.Launch(t, magnetic(t, trackerless), sim.WithWalk(), fetches(&n))
@@ -127,6 +130,7 @@ func TestATrackerlessMagnetLinkWithTheDHTOffFailsAtOnce(t *testing.T) {
 }
 
 func TestAPrivateMagnetLinkFailsOnceTheMetadataWaitPasses(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, magnetic(t, privateMagnet), sim.WithWalk())
 		metadataWait(t, w, 2*time.Minute)
@@ -148,6 +152,7 @@ func TestAPrivateMagnetLinkFailsOnceTheMetadataWaitPasses(t *testing.T) {
 }
 
 func TestARedirectToAMagnetLinkResolvesAndImports(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, magnetic(t, func(r *scenario.Release) { r.Public, r.Link = true, scenario.RedirectLink }), sim.WithWalk())
 		simtest.Search(t, w, simtest.AddOrchard(t, w))
@@ -158,6 +163,7 @@ func TestARedirectToAMagnetLinkResolvesAndImports(t *testing.T) {
 }
 
 func TestTwoGrabsOfOneMagnetLinkMakeOneSearch(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := magnetic(t, publicMagnet)
 		s.TMDB.Movies = append(s.TMDB.Movies, scenario.TMDBMovie{ID: 9000002, IMDbID: "tt9000002", Title: "Harbor Lights", Released: "2019-09-06", Runtime: 98 * time.Minute})
@@ -198,6 +204,7 @@ func TestTwoGrabsOfOneMagnetLinkMakeOneSearch(t *testing.T) {
 }
 
 func TestAControllerRestartedMidSearchJoinsIt(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		var n atomic.Int64
 		reached, release := make(chan struct{}), make(chan struct{})
@@ -221,6 +228,7 @@ func TestAControllerRestartedMidSearchJoinsIt(t *testing.T) {
 }
 
 func TestANodeRestartedMidSearchKeepsTheDeadline(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		var n atomic.Int64
 		w := sim.Launch(t, magnetic(t, privateMagnet), sim.WithWalk(), fetches(&n))

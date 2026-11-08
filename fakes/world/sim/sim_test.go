@@ -12,6 +12,7 @@ import (
 
 // TestSimHome makes TestHome's assertions on the simulation tier.
 func TestSimHome(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, simtest.Home(t))
 		worldtest.CheckHome(t, w.API())

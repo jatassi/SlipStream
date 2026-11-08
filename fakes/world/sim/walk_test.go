@@ -155,6 +155,7 @@ func (h *stageHold) edit(name string, e *node.Env) {
 // chunk, and starts it again on its link port, as a Controller on the
 // default port restarts: the Grab resumes and ends imported with one file.
 func TestAControllerRestartedAtEachStageImportsOnce(t *testing.T) {
+	t.Parallel()
 	for _, stage := range []grabs.Stage{grabs.Fetching, grabs.Downloading, grabs.Probing, grabs.Transferring, grabs.Importing} {
 		t.Run(string(stage), func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
@@ -216,6 +217,7 @@ func (h *holding) Close() error {
 // download while its link to home is stalled: after the heal the result
 // lands once, home applies it once, and the Grab walks on.
 func TestAResultMadeWhileTheWorkersLinkIsDownLandsOnce(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		finished, release := make(chan struct{}), make(chan struct{})
 		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Engine = holdAt[engine.Finished](e.Engine, finished, release) }))
@@ -262,6 +264,7 @@ func (a adds) Add(p engine.AddParams) (engine.Handle, error) {
 // the resume data it saved, while partitioned, and its reports, once
 // applied, change nothing about the Grab.
 func TestAWorkerRestartedAfterCompletedReAddsAndChangesNothing(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		var mu sync.Mutex
 		var added []string
@@ -351,6 +354,7 @@ func (s *sends) counts() map[int]int {
 // flight after seedbox hashed it: the receiver asks again only for what
 // it hasn't verified, and the placed file's BLAKE3 is the payload's.
 func TestATransferResumes(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name      string
 		cut, flip int
@@ -384,6 +388,7 @@ func TestATransferResumes(t *testing.T) {
 // seedbox, the Indexer's home Node, before the search: the Indexer's line
 // waits for seedbox, and the run finds nothing and makes no Grab.
 func TestASearchWhileTheIndexersHomeNodeIsDisconnectedGrabsNothing(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, simtest.Home(t), sim.WithWalk())
 		work := simtest.AddOrchard(t, w)
@@ -427,6 +432,7 @@ func itemOf(t *testing.T, w *sim.World, work string) string {
 // TestATorrentWhoseInfoHashDiffersFromTheIndexersFailsFetching lists the
 // release with another infohash attribute than its .torrent's.
 func TestATorrentWhoseInfoHashDiffersFromTheIndexersFailsFetching(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		wrong := strings.Repeat("ab", 20)
 		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), sim.Listed(func(r *site.Release) { r.InfoHash = wrong }))
@@ -444,6 +450,7 @@ func TestATorrentWhoseInfoHashDiffersFromTheIndexersFailsFetching(t *testing.T) 
 // fills_nothing, no Transfer starts, and seedbox keeps the torrent in its
 // intent.
 func TestAPayloadProbedAt480pFillsNothing(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		var asked atomic.Bool
 		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) {
@@ -481,6 +488,7 @@ func TestAPayloadProbedAt480pFillsNothing(t *testing.T) {
 // one Node that holds Searching and so the default home, off: before the
 // offline grace the Test waits for it, so createIndexer answers 502.
 func TestCreatingAnIndexerWhileItsHomeIsAwayCantRunTheTest(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := simtest.Home(t)
 		s.Library.Indexers = nil

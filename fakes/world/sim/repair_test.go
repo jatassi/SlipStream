@@ -18,6 +18,7 @@ import (
 // changes; a restart with the code in SLIPSTREAM_JOIN_CODE re-pairs, and
 // seedbox's Roles then follow office.
 func TestARunningWorkerRepairsOnlyAtStart(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		s := simtest.Home(t)
 		s.Name = "repair-running"

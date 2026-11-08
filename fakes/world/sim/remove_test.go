@@ -21,6 +21,7 @@ import (
 // and keeps the file. Joined again with a new Join Code it is a new Node,
 // and Downloading ticked on it adds none of the old torrents.
 func TestARemovedWorkerJoinsAgainWithoutItsOldTorrents(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		box := &engines{}
 		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Engine = box.wrap(e.Engine) }))

@@ -49,6 +49,7 @@ func cgnatHome(t *testing.T) *sim.World {
 // home's session. home records the address and dials seedbox from then
 // on, across a restart of both Nodes.
 func TestAControllerDialsANodeBehindCGNAT(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := cgnatHome(t)
 		a := w.API()
@@ -102,6 +103,7 @@ func TestAControllerDialsANodeBehindCGNAT(t *testing.T) {
 // meanwhile answers join_pending, and once home dials, getWorkerClaim
 // reads the Join as joined and the topology draws the link from home.
 func TestASetupJoinAwaitsTheDial(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := cgnatHome(t)
 		a := w.API()
@@ -132,7 +134,7 @@ func TestASetupJoinAwaitsTheDial(t *testing.T) {
 			t.Fatalf("home lists seedbox %s dialed by %q, want up and dialed by the controller", box.Link.State, box.Dial.By)
 		}
 		topo := simtest.Decode[topologyView](t, "getTopology", a.Admin("home", http.MethodGet, "/api/v1/nodes/topology", ""))
-		if l := topo.Links; len(l) != 1 || l[0].B != box.ID || l[0].Dialer != topo.Nodes[0].ID || l[0].State != "up" {
+		if l := topo.Links; len(l) != 1 || l[0].B != box.ID || l[0].Dialer != l[0].A || l[0].State != "up" {
 			t.Fatalf("the topology's links are %+v, want seedbox's link up and dialed by home", l)
 		}
 	})

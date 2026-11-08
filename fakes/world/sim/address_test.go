@@ -21,6 +21,7 @@ import (
 // session, re-dials home there. home records seedbox's address from the
 // Welcome.
 func TestAMovedControllerIsFollowed(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, simtest.Home(t))
 		h, box := w.Node("home"), w.Node("seedbox")

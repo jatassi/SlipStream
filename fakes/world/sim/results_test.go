@@ -58,6 +58,7 @@ func report(t *testing.T, w *sim.World, name string, results ...uint64) {
 // re-dial that follows an Ack cut on its first byte, with the outbox going
 // on past the cut, and a new epoch's result after seedbox lost its local.db.
 func TestResultsApplyOnce(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, simtest.Home(t), sim.WithProbe())
 		path := w.Path("home", "seedbox")
@@ -116,6 +117,7 @@ func TestResultsApplyOnce(t *testing.T) {
 // TestSupervisorRestarts panics seedbox's Probe once: its facts show it
 // restarting, then running again restart_min later, and the Node runs on.
 func TestSupervisorRestarts(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, simtest.Home(t), sim.WithProbe())
 		a := w.API()
@@ -140,6 +142,7 @@ func TestSupervisorRestarts(t *testing.T) {
 // CheckFresh fails Controller logic that changes a Probe table without
 // Touch, naming the Node it left behind.
 func TestCheckFreshFindsAProbeChangeWithoutTouch(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, simtest.Home(t), sim.WithProbe())
 		synctest.Wait()

@@ -97,6 +97,7 @@ func expectFromSeedbox(t *testing.T, w *sim.World, g simtest.GrabView) {
 // seedbox downloads, the Transfer copies the file to nas's root, and once
 // it is placed the Transfer's record and staging are gone.
 func TestAGrabOnSeedboxLandsInNassRootThroughATransfer(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk())
 		simtest.Search(t, w, simtest.AddOrchard(t, w))
@@ -114,6 +115,7 @@ func TestAGrabOnSeedboxLandsInNassRootThroughATransfer(t *testing.T) {
 // stops seedbox mid-Transfer and restarts home while it is down: once
 // seedbox is back the Transfer resumes and the file arrives whole.
 func TestATransferBetweenWorkersSurvivesASeedboxKillAndAControllerRestart(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		p := newParked()
 		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
@@ -163,6 +165,7 @@ func theTransfer(t *testing.T, a *worldtest.API) transferRow {
 // nas verified a chunk: the Transfer needs space, and listTransfers still
 // counts the bytes nas keeps for resume.
 func TestATransferNeedingSpaceKeepsTheBytesNasVerified(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		p := newParked()
 		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
@@ -187,6 +190,7 @@ func TestATransferNeedingSpaceKeepsTheBytesNasVerified(t *testing.T) {
 // is up and the sender answered, so the Transfer copies rather than
 // connects.
 func TestATransferWhoseLaneCarriesItsFirstChunkIsTransferring(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		p := parkedAt(1)
 		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
@@ -230,6 +234,7 @@ func (l *cutLane) Write(b []byte) (int, error) {
 // seedbox sends each chunk once, and once more for each lane cut, and the
 // file arrives whole.
 func TestATransferBetweenWorkersResumesAcrossCutLanes(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		counted := &sends{by: map[int]int{}, flip: -1}
 		cut := &cutLanes{}
@@ -264,6 +269,7 @@ func TestATransferBetweenWorkersResumesAcrossCutLanes(t *testing.T) {
 // node_written_off at transferring, the Transfer's record goes in the
 // same Write, and nas deletes what it staged.
 func TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		p := newParked()
 		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
@@ -320,6 +326,7 @@ func rehome(t *testing.T, w *sim.World, root simtest.RootRow, to, path string) {
 // downloaded it, the Transfer stops and the file is linked to the
 // download, with no copy.
 func TestARootRehomedMidTransferTakesTheFileWhereItIsNow(t *testing.T) {
+	t.Parallel()
 	t.Run("onto home", func(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) {
 			s := seedboxNAS(t)

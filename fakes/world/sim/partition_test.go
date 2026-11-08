@@ -43,6 +43,7 @@ func standing(t *testing.T, w *sim.World, name string) role.Standing {
 // Roles set while it is down reach it once the path heals, at the instant
 // seedbox's seeded link stream picks for its re-dial.
 func TestPartitionThenRedial(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, simtest.Home(t), sim.WithProbe())
 		a := w.API()
