@@ -1,6 +1,6 @@
-import type { TrackersTracker } from "./trackersTracker.ts";
+import type { TrackersTrackerItem } from "./trackersTrackerItem.ts";
 
 export interface TrackersTrackerList {
   /** By name */
-  trackers: TrackersTracker[];
+  trackers: TrackersTrackerItem[];
 }

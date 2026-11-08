@@ -59,8 +59,8 @@ function heldSentence(row: Row, { node, clock }: Place): string {
 }
 
 function trackerSentence(row: Row, { clock }: Place): string {
-  const { host } = trackerLine(row.tracker, clock);
-  const tracker = row.tracker;
+  const { host } = trackerLine(row.announce, clock);
+  const tracker = row.announce;
   if (tracker?.status === "unregistered") {
     return `${host} reports that this torrent is no longer registered, so no peers come from it. Remove it, then search for another Release.`;
   }

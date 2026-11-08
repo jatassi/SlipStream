@@ -9,6 +9,7 @@ import {
   TrackersSettingsChange,
   TrackersTracker,
   TrackersTrackerList,
+  TrackersTrackerPage,
 } from "../slipStream.schemas.zod.ts";
 
 /**
@@ -47,7 +48,7 @@ export const GetTrackerParams = zod.object({
   id: zod.uuid(),
 });
 
-export const GetTrackerResponse = TrackersTracker;
+export const GetTrackerResponse = TrackersTrackerPage;
 
 /**
  * @summary Rename a Tracker. Every Indexer and Release that reached it still does.

@@ -26,6 +26,7 @@ import (
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
+	"github.com/jatassi/slipstream/internal/trackers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -63,6 +64,7 @@ type downloaders struct {
 func (d *downloaders) InStep(n role.NodeID) bool              { return !d.away[n] }
 func (d *downloaders) WrittenOff(role.Name, role.NodeID) bool { return false }
 func (d *downloaders) Changed() <-chan struct{}               { return nil }
+func (d *downloaders) Draining(role.Name, role.NodeID) bool   { return false }
 func (d *downloaders) Serving(name role.Name) []role.NodeID {
 	if name != role.Downloading {
 		return nil
@@ -99,20 +101,32 @@ func (torrentsChanged) Publish(context.Context, downloadclients.Changed) {}
 // world is a Controller whose only Node is itself, serving Downloading
 // with a client that answers Inspect, Act and Frees as the test sets it.
 type world struct {
-	o      *ownertest.Owner
-	lib    *storage.DB[storage.Library]
-	self   role.NodeID
-	roster *downloaders
-	uses   uses
-	node   *node
-	facts  map[role.NodeID]*dlv1.Facts
-	heard  *heard
-	hashes map[downloadclients.ID]string
+	o        *ownertest.Owner
+	lib      *storage.DB[storage.Library]
+	self     role.NodeID
+	roster   *downloaders
+	uses     uses
+	node     *node
+	facts    map[role.NodeID]*dlv1.Facts
+	heard    *heard
+	hashes   map[downloadclients.ID]string
+	trackers *trackers.Trackers
+}
+
+// late is the Trackers' seeder once they are made, after the clients.
+type late struct{ x **trackers.Trackers }
+
+func (l late) Judge(ctx context.Context, r storage.Reader[storage.Library], rows []downloadclients.Row) (map[downloadclients.ID]downloadclients.Judged, error) {
+	return (*l.x).Seeder().Judge(ctx, r, rows)
+}
+
+func (l late) EndlessUnits(ctx context.Context, r storage.Reader[storage.Library], node role.NodeID) (int64, error) {
+	return (*l.x).Seeder().EndlessUnits(ctx, r, node)
 }
 
 func serveWorld(t *testing.T) *world {
 	t.Helper()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), health.Schema(), roots.Schema(), downloadclients.Schema(), indexers.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), health.Schema(), roots.Schema(), downloadclients.Schema(), indexers.Schema(), trackers.Schema())
 	side, err := nodes.Open(t.Context(), nodes.Config{Library: lib, Name: "home", Link: unlinked{}, Changed: changes{}, Owners: nodestest.Unowned(), Log: slog.New(slog.DiscardHandler)})
 	if err != nil {
 		t.Fatal(err)
@@ -120,12 +134,13 @@ func serveWorld(t *testing.T) *world {
 	w := &world{lib: lib, self: side.Self(), roster: &downloaders{serving: []role.NodeID{side.Self()}, away: map[role.NodeID]bool{}}, uses: uses{}, node: &node{}, facts: map[role.NodeID]*dlv1.Facts{}, heard: &heard{}, hashes: map[downloadclients.ID]string{}}
 	clients := downloadclients.New(downloadclients.Config{
 		Library: lib, Touch: func(n ...role.NodeID) { w.heard.touched = append(w.heard.touched, n...) }, Changed: torrentsChanged{},
-		CardsChanged: w.heard, Roster: w.roster, Uses: w.uses,
+		CardsChanged: w.heard, Roster: w.roster, Uses: w.uses, Seeding: late{&w.trackers},
 		Facts:  func(n role.NodeID) (*dlv1.Facts, bool) { f, ok := w.facts[n]; return f, ok },
 		Remote: func(role.NodeID) downloadingv1connect.DownloadingServiceHandler { return w.node },
 		Live:   downloadclients.LiveConfig{Sample: time.Second},
 		Log:    slog.New(slog.DiscardHandler),
 	})
+	w.trackers = trackers.New(trackers.Config{Library: lib, Clients: clients, Roster: w.roster, Reconciling: trackers.NotReconciling})
 	w.o = ownertest.Serve(t, lib, func(r *api.Router) { downloadclientsapi.Routes(r, controller{clients, side}) })
 	return w
 }

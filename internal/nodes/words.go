@@ -67,12 +67,35 @@ func (Leaves) effect()     {}
 func (e Gains) Words() string  { return e.Node.Name + " starts " + e.Role.Label() + "." }
 func (e LetsGo) Words() string { return e.Node.Name + " stops " + e.Role.Label() + "." }
 
+// Words says what the drain keeps. Only Downloading's work can be endless
+// in part: a seeding goal ends a torrent, and one with no seeding end
+// stays.
 func (e Drains) Words() string {
-	if e.Held.Endless {
-		return fmt.Sprintf("%s takes no new %s work. It keeps its %s until you move or write %s off.",
-			e.Node.Name, e.Role.Label(), e.Held, e.Held.pronoun())
+	h, start := e.Held, e.Node.Name+" takes no new "+e.Role.Label()+" work"
+	switch {
+	case h.EndlessUnits == 0:
+		return fmt.Sprintf("%s and finishes the %s it holds.", start, h)
+	case e.Role != role.Downloading:
+		return fmt.Sprintf("%s. It keeps its %s until you move or write %s off.", start, h, h.pronoun())
 	}
-	return fmt.Sprintf("%s takes no new %s work and finishes the %s it holds.", e.Node.Name, e.Role.Label(), e.Held)
+	kept := Held{Units: h.EndlessUnits, Noun: h.Noun}
+	if kept.Units == h.Units {
+		return fmt.Sprintf("%s. It keeps %s %s until you remove, move or write %s off.", start, kept, noSeedingEnd(kept), kept.pronoun())
+	}
+	ending := Held{Units: h.Units - h.EndlessUnits, Noun: h.Noun}
+	goals := "their seeding goals are"
+	if ending.Units == 1 {
+		goals = "its seeding goal is"
+	}
+	return fmt.Sprintf("%s. It finishes %s as %s met, and keeps %d %s until you remove, move or write %s off.",
+		start, ending, goals, kept.Units, noSeedingEnd(kept), kept.pronoun())
+}
+
+func noSeedingEnd(h Held) string {
+	if h.Units == 1 {
+		return "that has no seeding end"
+	}
+	return "that have no seeding end"
 }
 
 func (e HandedBack) Words() string {

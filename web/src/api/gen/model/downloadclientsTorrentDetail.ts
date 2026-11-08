@@ -1,5 +1,6 @@
 import type { DownloadclientsFault } from "./downloadclientsFault.ts";
 import type { DownloadclientsFileDetail } from "./downloadclientsFileDetail.ts";
+import type { DownloadclientsSeedingView } from "./downloadclientsSeedingView.ts";
 import type { DownloadclientsTorrentDetailHold } from "./downloadclientsTorrentDetailHold.ts";
 import type { DownloadclientsTorrentDetailPending } from "./downloadclientsTorrentDetailPending.ts";
 import type { DownloadclientsTorrentDetailQuality } from "./downloadclientsTorrentDetailQuality.ts";
@@ -9,6 +10,7 @@ import type { DownloadclientsTorrentDetailTabsItem } from "./downloadclientsTorr
 import type { DownloadclientsTorrentGrab } from "./downloadclientsTorrentGrab.ts";
 import type { DownloadclientsTrackerCell } from "./downloadclientsTrackerCell.ts";
 import type { DownloadclientsTrackerDetail } from "./downloadclientsTrackerDetail.ts";
+import type { DownloadclientsTrackerRef } from "./downloadclientsTrackerRef.ts";
 
 export interface DownloadclientsTorrentDetail {
   /**
@@ -17,6 +19,8 @@ export interface DownloadclientsTorrentDetail {
    */
   activeSeconds: number;
   addedAt: string;
+  /** Absent when its metainfo names no announce URL */
+  announce?: DownloadclientsTrackerCell;
   /** The earliest every announce URL accepts an announce, set while live */
   announceAt?: string;
   /** The Content Type it was first grabbed for */
@@ -75,6 +79,8 @@ export interface DownloadclientsTorrentDetail {
   ratio: number;
   /** Where its Node keeps it, absent until its Node reports it */
   saveFolder?: string;
+  /** Its seeding against its Tracker's rule and its seeding goal */
+  seeding: DownloadclientsSeedingView;
   /**
    * All-time seconds seeded
    * @minimum 0
@@ -89,13 +95,8 @@ export interface DownloadclientsTorrentDetail {
   state: DownloadclientsTorrentDetailState;
   /** The Torrents view's tabs it shows under */
   tabs: DownloadclientsTorrentDetailTabsItem[];
-  /** Absent when its metainfo names no announce URL */
-  tracker?: DownloadclientsTrackerCell;
-  /**
-   * The Tracker its Grab's Release reached, null when no Grab named one
-   * @nullable
-   */
-  trackerId: string | null;
+  /** The Tracker its first Grab's Release reached, null when none did */
+  tracker: DownloadclientsTrackerRef | null;
   /** In its metainfo's order */
   trackers: DownloadclientsTrackerDetail[];
   /** When a window hold starts it, or a check resumes it */

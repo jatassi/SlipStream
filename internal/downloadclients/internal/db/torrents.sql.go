@@ -16,8 +16,7 @@ import (
 )
 
 const countHeld = `-- name: CountHeld :one
-SELECT count(*) AS torrents, CAST(coalesce(sum(size), 0) AS INTEGER) AS bytes,
-       CAST(coalesce(sum(removed_at IS NULL), 0) AS INTEGER) AS live
+SELECT count(*) AS torrents, CAST(coalesce(sum(size), 0) AS INTEGER) AS bytes
 FROM downloadclients_torrent
 WHERE node_id = ?1 AND parted_at IS NULL
 `
@@ -25,39 +24,29 @@ WHERE node_id = ?1 AND parted_at IS NULL
 type CountHeldRow struct {
 	Torrents int64
 	Bytes    int64
-	Live     int64
 }
 
 func (q *Queries) CountHeld(ctx context.Context, nodeID role.NodeID) (CountHeldRow, error) {
 	row := q.db.QueryRowContext(ctx, countHeld, nodeID)
 	var i CountHeldRow
-	err := row.Scan(&i.Torrents, &i.Bytes, &i.Live)
+	err := row.Scan(&i.Torrents, &i.Bytes)
 	return i, err
 }
 
 const getDetails = `-- name: GetDetails :one
-SELECT info_hash, metainfo, save_folder, private, tracker_id FROM downloadclients_torrent
+SELECT metainfo, save_folder FROM downloadclients_torrent
 WHERE id = ?1 AND parted_at IS NULL
 `
 
 type GetDetailsRow struct {
-	InfoHash   []byte
 	Metainfo   []byte
 	SaveFolder *string
-	Private    int64
-	TrackerID  *indexers.TrackerID
 }
 
 func (q *Queries) GetDetails(ctx context.Context, id TorrentID) (GetDetailsRow, error) {
 	row := q.db.QueryRowContext(ctx, getDetails, id)
 	var i GetDetailsRow
-	err := row.Scan(
-		&i.InfoHash,
-		&i.Metainfo,
-		&i.SaveFolder,
-		&i.Private,
-		&i.TrackerID,
-	)
+	err := row.Scan(&i.Metainfo, &i.SaveFolder)
 	return i, err
 }
 
@@ -415,25 +404,35 @@ func (q *Queries) ListDownloads(ctx context.Context) ([]ListDownloadsRow, error)
 	return items, nil
 }
 
-const listHeld = `-- name: ListHeld :many
-SELECT id, node_id, name, size, trackers, content_type, wanted, added_order, added_at, removed_at,
-       uploaded, downloaded, active_seconds, seeding_seconds, totals_at, report, fault, fault_at
-FROM downloadclients_torrent
-WHERE parted_at IS NULL
-ORDER BY added_order
+const listHashFacts = `-- name: ListHashFacts :many
+SELECT id, node_id, info_hash, name, size, private, trackers, content_type, tracker_id, wanted, added_order, added_at,
+       removed_at, removed_reason, parted_at, uploaded, downloaded, active_seconds, seeding_seconds, totals_at, report, fault, fault_at
+FROM downloadclients_torrent AS t
+WHERE t.info_hash IN (/*SLICE:info_hashes*/?)
+  AND (t.parted_at IS NULL OR t.id = (
+      SELECT p.id FROM downloadclients_torrent AS p
+      WHERE p.info_hash = t.info_hash AND p.parted_at IS NOT NULL
+      ORDER BY p.removed_at DESC, p.added_order DESC
+      LIMIT 1))
+ORDER BY t.added_order
 `
 
-type ListHeldRow struct {
+type ListHashFactsRow struct {
 	ID             TorrentID
 	NodeID         role.NodeID
+	InfoHash       []byte
 	Name           string
 	Size           int64
+	Private        int64
 	Trackers       string
 	ContentType    works.TypeID
+	TrackerID      *indexers.TrackerID
 	Wanted         string
 	AddedOrder     int64
 	AddedAt        storage.Time
 	RemovedAt      storage.Time
+	RemovedReason  *string
+	PartedAt       storage.Time
 	Uploaded       int64
 	Downloaded     int64
 	ActiveSeconds  int64
@@ -444,8 +443,127 @@ type ListHeldRow struct {
 	FaultAt        storage.Time
 }
 
-func (q *Queries) ListHeld(ctx context.Context) ([]ListHeldRow, error) {
-	rows, err := q.db.QueryContext(ctx, listHeld)
+// Every Torrent of the hashes its Node holds, Removing ones too, and each
+// hash's latest one its Node parted from. It selects ListHeld's columns.
+func (q *Queries) ListHashFacts(ctx context.Context, infoHashes [][]byte) ([]ListHashFactsRow, error) {
+	query := listHashFacts
+	var queryParams []interface{}
+	if len(infoHashes) > 0 {
+		for _, v := range infoHashes {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:info_hashes*/?", strings.Repeat(",?", len(infoHashes))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:info_hashes*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListHashFactsRow
+	for rows.Next() {
+		var i ListHashFactsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.NodeID,
+			&i.InfoHash,
+			&i.Name,
+			&i.Size,
+			&i.Private,
+			&i.Trackers,
+			&i.ContentType,
+			&i.TrackerID,
+			&i.Wanted,
+			&i.AddedOrder,
+			&i.AddedAt,
+			&i.RemovedAt,
+			&i.RemovedReason,
+			&i.PartedAt,
+			&i.Uploaded,
+			&i.Downloaded,
+			&i.ActiveSeconds,
+			&i.SeedingSeconds,
+			&i.TotalsAt,
+			&i.Report,
+			&i.Fault,
+			&i.FaultAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHeld = `-- name: ListHeld :many
+SELECT id, node_id, info_hash, name, size, private, trackers, content_type, tracker_id, wanted, added_order, added_at,
+       removed_at, removed_reason, parted_at, uploaded, downloaded, active_seconds, seeding_seconds, totals_at, report, fault, fault_at
+FROM downloadclients_torrent
+WHERE parted_at IS NULL
+  AND (NOT CAST(?1 AS INTEGER) OR tracker_id = ?2)
+  AND (NOT CAST(?3 AS INTEGER) OR tracker_id IS NULL)
+  AND (NOT CAST(?4 AS INTEGER) OR info_hash IN (/*SLICE:info_hashes*/?))
+ORDER BY added_order
+`
+
+type ListHeldParams struct {
+	ByTracker  int64
+	TrackerID  *indexers.TrackerID
+	NoTracker  int64
+	ByHash     int64
+	InfoHashes [][]byte
+}
+
+type ListHeldRow struct {
+	ID             TorrentID
+	NodeID         role.NodeID
+	InfoHash       []byte
+	Name           string
+	Size           int64
+	Private        int64
+	Trackers       string
+	ContentType    works.TypeID
+	TrackerID      *indexers.TrackerID
+	Wanted         string
+	AddedOrder     int64
+	AddedAt        storage.Time
+	RemovedAt      storage.Time
+	RemovedReason  *string
+	PartedAt       storage.Time
+	Uploaded       int64
+	Downloaded     int64
+	ActiveSeconds  int64
+	SeedingSeconds int64
+	TotalsAt       storage.Time
+	Report         *string
+	Fault          *string
+	FaultAt        storage.Time
+}
+
+// Each by_ flag narrows to its argument. An empty info_hashes lists none.
+func (q *Queries) ListHeld(ctx context.Context, arg ListHeldParams) ([]ListHeldRow, error) {
+	query := listHeld
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.ByTracker)
+	queryParams = append(queryParams, arg.TrackerID)
+	queryParams = append(queryParams, arg.NoTracker)
+	queryParams = append(queryParams, arg.ByHash)
+	if len(arg.InfoHashes) > 0 {
+		for _, v := range arg.InfoHashes {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:info_hashes*/?", strings.Repeat(",?", len(arg.InfoHashes))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:info_hashes*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}
@@ -456,14 +574,19 @@ func (q *Queries) ListHeld(ctx context.Context) ([]ListHeldRow, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.NodeID,
+			&i.InfoHash,
 			&i.Name,
 			&i.Size,
+			&i.Private,
 			&i.Trackers,
 			&i.ContentType,
+			&i.TrackerID,
 			&i.Wanted,
 			&i.AddedOrder,
 			&i.AddedAt,
 			&i.RemovedAt,
+			&i.RemovedReason,
+			&i.PartedAt,
 			&i.Uploaded,
 			&i.Downloaded,
 			&i.ActiveSeconds,
@@ -683,6 +806,33 @@ func (q *Queries) ListSources(ctx context.Context, arg ListSourcesParams) ([]Lis
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTrackerHashes = `-- name: ListTrackerHashes :many
+SELECT DISTINCT info_hash FROM downloadclients_torrent WHERE tracker_id = ?1 ORDER BY info_hash
+`
+
+func (q *Queries) ListTrackerHashes(ctx context.Context, trackerID *indexers.TrackerID) ([][]byte, error) {
+	rows, err := q.db.QueryContext(ctx, listTrackerHashes, trackerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items [][]byte
+	for rows.Next() {
+		var info_hash []byte
+		if err := rows.Scan(&info_hash); err != nil {
+			return nil, err
+		}
+		items = append(items, info_hash)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

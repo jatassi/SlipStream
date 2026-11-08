@@ -142,7 +142,7 @@ export function SpeedCell({ live }: CellProps) {
 }
 
 export function TrackerCell({ row, clock }: CellProps) {
-  const { host, status } = trackerLine(row.tracker, clock);
+  const { host, status } = trackerLine(row.announce, clock);
   return <Lines first={host} second={status} />;
 }
 

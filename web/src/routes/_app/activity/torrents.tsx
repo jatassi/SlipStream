@@ -16,7 +16,10 @@ import { Skeleton } from "../../../ui/skeleton";
 export const Route = createFileRoute("/_app/activity/torrents")({
   staticData: { title: "Torrents", view: true },
   validateSearch: z.object({
-    tab: z.enum(["downloading", "seeding", "problems", "all"]).optional().catch(undefined),
+    tab: z
+      .enum(["downloading", "seeding", "problems", "goal-met", "all"])
+      .optional()
+      .catch(undefined),
   }),
   loader: ({ context }) =>
     Promise.all([

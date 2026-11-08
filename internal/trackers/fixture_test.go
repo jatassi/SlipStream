@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -28,10 +29,31 @@ type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
 
+// roster is every Node in step, and drains nothing.
+type roster struct{}
+
+func (roster) InStep(role.NodeID) bool                { return true }
+func (roster) WrittenOff(role.Name, role.NodeID) bool { return false }
+func (roster) Changed() <-chan struct{}               { return nil }
+func (roster) Serving(role.Name) []role.NodeID        { return nil }
+func (roster) Draining(role.Name, role.NodeID) bool   { return false }
+
+// late is the Trackers' seeder once they are made, after the clients.
+type late struct{ x **trackers.Trackers }
+
+func (l late) Judge(ctx context.Context, r storage.Reader[storage.Library], rows []downloadclients.Row) (map[downloadclients.ID]downloadclients.Judged, error) {
+	return (*l.x).Seeder().Judge(ctx, r, rows)
+}
+
+func (l late) EndlessUnits(ctx context.Context, r storage.Reader[storage.Library], node role.NodeID) (int64, error) {
+	return (*l.x).Seeder().EndlessUnits(ctx, r, node)
+}
+
 type library struct {
 	t       *testing.T
 	lib     *storage.DB[storage.Library]
 	x       *trackers.Trackers
+	clients *downloadclients.Clients
 	changed *published
 	soon    int
 	// node, work and item are what every planted Grab names.
@@ -46,7 +68,11 @@ func newLibrary(t *testing.T) *library {
 			grabs.Schema(), indexers.Schema(), trackers.Schema(), files.Schema()),
 		node: storage.NewUUID(), work: storage.NewUUID(), item: storage.NewUUID(),
 	}
-	l.x = trackers.New(trackers.Config{Library: l.lib, Grabs: grabs.TrackerFacts{}, Soon: func() { l.soon++ }, Changed: l.changed})
+	l.clients = downloadclients.New(downloadclients.Config{Library: l.lib, Roster: roster{}, Uses: grabs.TorrentUses{}, Seeding: late{&l.x}})
+	l.x = trackers.New(trackers.Config{
+		Library: l.lib, Clients: l.clients, Grabs: grabs.TrackerFacts{}, Roster: roster{},
+		Soon: func() { l.soon++ }, Reconciling: trackers.NotReconciling, Changed: l.changed,
+	})
 	l.exec(`INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, l.node)
 	l.exec(`INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, 'fixture', 'w1', 'Orchard', 'Orchard', 0, 0)`, l.work)
 	l.exec(`INSERT INTO works_item (id, work_id, key, label, position) VALUES (?, ?, 'i1', 'Orchard', 1)`, l.item, l.work)

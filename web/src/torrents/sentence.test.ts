@@ -99,7 +99,7 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
   ],
   [
     "an unregistered torrent",
-    { state: "tracker-error", tracker: { host: "beacon.example", status: "unregistered" } },
+    { state: "tracker-error", announce: { host: "beacon.example", status: "unregistered" } },
     undefined,
     "beacon.example reports that this torrent is no longer registered, so no peers come from it. Remove it, then search for another Release.",
   ],
@@ -107,7 +107,7 @@ test.each<[string, Shape, typeof sample | undefined, string]>([
     "a tracker's own words and its retry",
     {
       state: "tracker-error",
-      tracker: {
+      announce: {
         host: "beacon.example",
         status: "error",
         message: "too many requests",

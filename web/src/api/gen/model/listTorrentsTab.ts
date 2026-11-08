@@ -1,1 +1,1 @@
-export type ListTorrentsTab = "downloading" | "seeding" | "problems" | "all";
+export type ListTorrentsTab = "downloading" | "seeding" | "problems" | "goal-met" | "all";

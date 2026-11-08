@@ -152,7 +152,7 @@ function viewOf(seat: Seat, role: RoleName): NodesRoleView {
     return {
       role,
       state: "draining",
-      held: { units: 2, noun: "torrents", bytes: 9.5e9, endless: true },
+      held: { units: 2, noun: "torrents", bytes: 9.5e9, endlessUnits: 2 },
     };
   }
   return { role, state: "holding" };

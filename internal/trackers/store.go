@@ -58,17 +58,6 @@ type Summary struct {
 	Goal seeding.Goal
 }
 
-// List is every Tracker by name with its seeding side.
-func (t *Trackers) List(ctx context.Context, _ identity.Admin) ([]Summary, error) {
-	var out []Summary
-	err := t.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		var err error
-		out, err = summariesIn(ctx, r)
-		return err
-	})
-	return out, err
-}
-
 // Tracker is Tracker id with its seeding side, or ErrNoTracker.
 func (t *Trackers) Tracker(ctx context.Context, _ identity.Admin, id indexers.TrackerID) (Summary, error) {
 	var out Summary

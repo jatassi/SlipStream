@@ -16,12 +16,13 @@ export const tabLabels: { readonly [T in Tab]: string } = {
   downloading: "Downloading",
   seeding: "Seeding",
   problems: "Problems",
+  "goal-met": "Goal met",
   all: "All",
 };
 
 export const tabOrder = {
-  desktop: ["downloading", "seeding", "problems", "all"],
-  phone: ["all", "downloading", "seeding", "problems"],
+  desktop: ["downloading", "seeding", "problems", "goal-met", "all"],
+  phone: ["all", "downloading", "seeding", "problems", "goal-met"],
 } as const satisfies Record<string, readonly Tab[]>;
 
 export const stateWords: { readonly [S in State]: string } = {
@@ -126,7 +127,7 @@ export function stateLine(row: Row, live: LiveRow | undefined, place: Place): st
     case "failed":
       return row.error ?? "The torrent client stopped it";
     case "tracker-error":
-      return trackerLine(row.tracker, place.clock).status;
+      return trackerLine(row.announce, place.clock).status;
     case "checking":
       return row.until === undefined
         ? "Checking its files"

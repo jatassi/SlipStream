@@ -789,13 +789,39 @@ export const getListTorrentsResponseMock = (
     ),
     byTab: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
-        tab: faker.helpers.arrayElement(["downloading", "seeding", "problems", "all"] as const),
+        tab: faker.helpers.arrayElement([
+          "downloading",
+          "seeding",
+          "problems",
+          "goal-met",
+          "all",
+        ] as const),
         torrents: faker.number.int({ min: 0 }),
       }),
     ),
   },
   rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    ...(faker.datatype.boolean()
+      ? {
+          announce: {
+            host: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            ...(faker.datatype.boolean()
+              ? { message: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+              : {}),
+            ...(faker.datatype.boolean()
+              ? { retryAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
+              : {}),
+            status: faker.helpers.arrayElement([
+              "working",
+              "updating",
+              "error",
+              "unregistered",
+              "not_contacted",
+            ] as const),
+          },
+        }
+      : {}),
     contentType: faker.string.alpha({ length: { min: 10, max: 20 } }),
     done: faker.number.int({ min: 0 }),
     ...(faker.datatype.boolean()
@@ -866,6 +892,26 @@ export const getListTorrentsResponseMock = (
       : {}),
     ...(faker.datatype.boolean() ? { queuePosition: faker.number.int({ min: 0 }) } : {}),
     ratio: faker.number.float({ min: 0, fractionDigits: 2 }),
+    seeding: {
+      atRisk: faker.helpers.arrayElement(["no", "yes", "unknown"] as const),
+      clears: faker.helpers.arrayElement(["none", "time", "ratio", "either", "both"] as const),
+      combine: faker.helpers.arrayElement(["first", "both", "forever"] as const),
+      goalMet: faker.datatype.boolean(),
+      ...(faker.datatype.boolean()
+        ? { owes: { bytes: faker.number.int({ min: 0 }), seconds: faker.number.int({ min: 0 }) } }
+        : {}),
+      ratio: {
+        ...(faker.datatype.boolean() ? { goal: faker.number.float({ fractionDigits: 2 }) } : {}),
+        ...(faker.datatype.boolean() ? { rule: faker.number.float({ fractionDigits: 2 }) } : {}),
+        value: faker.number.float({ min: 0, fractionDigits: 2 }),
+      },
+      state: faker.helpers.arrayElement(["none", "owing", "met", "missed", "released"] as const),
+      time: {
+        ...(faker.datatype.boolean() ? { goal: faker.number.int({ min: 0 }) } : {}),
+        ...(faker.datatype.boolean() ? { rule: faker.number.int({ min: 0 }) } : {}),
+        value: faker.number.int({ min: 0 }),
+      },
+    },
     seedingSeconds: faker.number.int({ min: 0 }),
     severity: faker.helpers.arrayElement(["none", "warning", "failure"] as const),
     size: faker.number.int({ min: 0 }),
@@ -880,27 +926,17 @@ export const getListTorrentsResponseMock = (
       "downloading",
       "seeding",
     ] as const),
-    tabs: faker.helpers.arrayElements(["downloading", "seeding", "problems", "all"] as const),
-    ...(faker.datatype.boolean()
-      ? {
-          tracker: {
-            host: faker.string.alpha({ length: { min: 10, max: 20 } }),
-            ...(faker.datatype.boolean()
-              ? { message: faker.string.alpha({ length: { min: 10, max: 20 } }) }
-              : {}),
-            ...(faker.datatype.boolean()
-              ? { retryAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
-              : {}),
-            status: faker.helpers.arrayElement([
-              "working",
-              "updating",
-              "error",
-              "unregistered",
-              "not_contacted",
-            ] as const),
-          },
-        }
-      : {}),
+    tabs: faker.helpers.arrayElements([
+      "downloading",
+      "seeding",
+      "problems",
+      "goal-met",
+      "all",
+    ] as const),
+    tracker: faker.helpers.arrayElement([
+      { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+      null,
+    ]),
     ...(faker.datatype.boolean()
       ? { until: faker.date.past().toISOString().slice(0, 19) + "Z" }
       : {}),
@@ -967,6 +1003,26 @@ export const getGetTorrentResponseMock = (
 ): DownloadclientsTorrentDetail => ({
   activeSeconds: faker.number.int({ min: 0 }),
   addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  ...(faker.datatype.boolean()
+    ? {
+        announce: {
+          host: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          ...(faker.datatype.boolean()
+            ? { message: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          ...(faker.datatype.boolean()
+            ? { retryAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
+            : {}),
+          status: faker.helpers.arrayElement([
+            "working",
+            "updating",
+            "error",
+            "unregistered",
+            "not_contacted",
+          ] as const),
+        },
+      }
+    : {}),
   ...(faker.datatype.boolean()
     ? { announceAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
     : {}),
@@ -1058,6 +1114,26 @@ export const getGetTorrentResponseMock = (
   ...(faker.datatype.boolean()
     ? { saveFolder: faker.string.alpha({ length: { min: 10, max: 20 } }) }
     : {}),
+  seeding: {
+    atRisk: faker.helpers.arrayElement(["no", "yes", "unknown"] as const),
+    clears: faker.helpers.arrayElement(["none", "time", "ratio", "either", "both"] as const),
+    combine: faker.helpers.arrayElement(["first", "both", "forever"] as const),
+    goalMet: faker.datatype.boolean(),
+    ...(faker.datatype.boolean()
+      ? { owes: { bytes: faker.number.int({ min: 0 }), seconds: faker.number.int({ min: 0 }) } }
+      : {}),
+    ratio: {
+      ...(faker.datatype.boolean() ? { goal: faker.number.float({ fractionDigits: 2 }) } : {}),
+      ...(faker.datatype.boolean() ? { rule: faker.number.float({ fractionDigits: 2 }) } : {}),
+      value: faker.number.float({ min: 0, fractionDigits: 2 }),
+    },
+    state: faker.helpers.arrayElement(["none", "owing", "met", "missed", "released"] as const),
+    time: {
+      ...(faker.datatype.boolean() ? { goal: faker.number.int({ min: 0 }) } : {}),
+      ...(faker.datatype.boolean() ? { rule: faker.number.int({ min: 0 }) } : {}),
+      value: faker.number.int({ min: 0 }),
+    },
+  },
   seedingSeconds: faker.number.int({ min: 0 }),
   severity: faker.helpers.arrayElement(["none", "warning", "failure"] as const),
   size: faker.number.int({ min: 0 }),
@@ -1072,28 +1148,17 @@ export const getGetTorrentResponseMock = (
     "downloading",
     "seeding",
   ] as const),
-  tabs: faker.helpers.arrayElements(["downloading", "seeding", "problems", "all"] as const),
-  ...(faker.datatype.boolean()
-    ? {
-        tracker: {
-          host: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          ...(faker.datatype.boolean()
-            ? { message: faker.string.alpha({ length: { min: 10, max: 20 } }) }
-            : {}),
-          ...(faker.datatype.boolean()
-            ? { retryAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
-            : {}),
-          status: faker.helpers.arrayElement([
-            "working",
-            "updating",
-            "error",
-            "unregistered",
-            "not_contacted",
-          ] as const),
-        },
-      }
-    : {}),
-  trackerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+  tabs: faker.helpers.arrayElements([
+    "downloading",
+    "seeding",
+    "problems",
+    "goal-met",
+    "all",
+  ] as const),
+  tracker: faker.helpers.arrayElement([
+    { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    null,
+  ]),
   trackers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       ...(faker.datatype.boolean()

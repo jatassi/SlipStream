@@ -107,7 +107,7 @@ const lines: {
     if (held === undefined) {
       return "Draining";
     }
-    if (held.endless) {
+    if (held.endlessUnits === held.units) {
       return `Draining, ${heldWords(held)} ${held.units === 1 ? "stays" : "stay"}`;
     }
     return `Draining · ${heldWords(held)} left`;

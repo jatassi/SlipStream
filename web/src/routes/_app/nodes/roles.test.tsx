@@ -25,7 +25,7 @@ const onlineSeedbox: NodesNode = {
 
 const homeNamed = { id: homeId, name: "home" };
 const seedboxNamed = { id: seedboxId, name: "seedbox" };
-const torrents = { units: 3, noun: "torrents", bytes: 41 * 1024 ** 3, endless: true };
+const torrents = { units: 3, noun: "torrents", bytes: 41 * 1024 ** 3, endlessUnits: 3 };
 
 const drained: NodesBoardNode = {
   ...seedboxSeat,
@@ -144,7 +144,7 @@ const unticking = outcome({
       role: "searching",
       from: seedboxNamed,
       to: homeNamed,
-      held: { units: 3, noun: "Indexers", bytes: 0, endless: false },
+      held: { units: 3, noun: "Indexers", bytes: 0, endlessUnits: 0 },
       words: "3 Indexers move to home.",
     },
     {

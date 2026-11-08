@@ -21,7 +21,7 @@ const orchard = torrent({
   done: 250_000_000,
   uploaded: 50_000_000,
   ratio: 0.05,
-  tracker: { host: "beacon.example", status: "working" },
+  announce: { host: "beacon.example", status: "working" },
 });
 const paused = torrent({
   state: "paused",

@@ -92,8 +92,7 @@ WHERE removed_at IS NULL AND completion IS NULL
 ORDER BY added_order;
 
 -- name: CountHeld :one
-SELECT count(*) AS torrents, CAST(coalesce(sum(size), 0) AS INTEGER) AS bytes,
-       CAST(coalesce(sum(removed_at IS NULL), 0) AS INTEGER) AS live
+SELECT count(*) AS torrents, CAST(coalesce(sum(size), 0) AS INTEGER) AS bytes
 FROM downloadclients_torrent
 WHERE node_id = sqlc.arg(node_id) AND parted_at IS NULL;
 
@@ -154,14 +153,35 @@ UPDATE downloadclients_torrent SET
 WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: ListHeld :many
-SELECT id, node_id, name, size, trackers, content_type, wanted, added_order, added_at, removed_at,
-       uploaded, downloaded, active_seconds, seeding_seconds, totals_at, report, fault, fault_at
+-- Each by_ flag narrows to its argument. An empty info_hashes lists none.
+SELECT id, node_id, info_hash, name, size, private, trackers, content_type, tracker_id, wanted, added_order, added_at,
+       removed_at, removed_reason, parted_at, uploaded, downloaded, active_seconds, seeding_seconds, totals_at, report, fault, fault_at
 FROM downloadclients_torrent
 WHERE parted_at IS NULL
+  AND (NOT CAST(sqlc.arg(by_tracker) AS INTEGER) OR tracker_id = sqlc.narg(tracker_id))
+  AND (NOT CAST(sqlc.arg(no_tracker) AS INTEGER) OR tracker_id IS NULL)
+  AND (NOT CAST(sqlc.arg(by_hash) AS INTEGER) OR info_hash IN (sqlc.slice(info_hashes)))
 ORDER BY added_order;
 
+-- name: ListHashFacts :many
+-- Every Torrent of the hashes its Node holds, Removing ones too, and each
+-- hash's latest one its Node parted from. It selects ListHeld's columns.
+SELECT id, node_id, info_hash, name, size, private, trackers, content_type, tracker_id, wanted, added_order, added_at,
+       removed_at, removed_reason, parted_at, uploaded, downloaded, active_seconds, seeding_seconds, totals_at, report, fault, fault_at
+FROM downloadclients_torrent AS t
+WHERE t.info_hash IN (sqlc.slice(info_hashes))
+  AND (t.parted_at IS NULL OR t.id = (
+      SELECT p.id FROM downloadclients_torrent AS p
+      WHERE p.info_hash = t.info_hash AND p.parted_at IS NOT NULL
+      ORDER BY p.removed_at DESC, p.added_order DESC
+      LIMIT 1))
+ORDER BY t.added_order;
+
+-- name: ListTrackerHashes :many
+SELECT DISTINCT info_hash FROM downloadclients_torrent WHERE tracker_id = sqlc.arg(tracker_id) ORDER BY info_hash;
+
 -- name: GetDetails :one
-SELECT info_hash, metainfo, save_folder, private, tracker_id FROM downloadclients_torrent
+SELECT metainfo, save_folder FROM downloadclients_torrent
 WHERE id = sqlc.arg(id) AND parted_at IS NULL;
 
 -- name: GetNodeTotals :one
