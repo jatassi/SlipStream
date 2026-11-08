@@ -56,3 +56,36 @@ test("Download Clients shows home's built-in client, saves a threshold, and its 
   expect(Limits.parse(limits.body).activeDownloads.value).toBe(1);
   await screenshotWholePage(page, testInfo.outputPath("torrent-client.png"));
 });
+
+test.describe("an external client", () => {
+  test.use({ scenario: "external-clients" });
+  test.describe.configure({ timeout: 240_000 });
+
+  test("an unreachable Transmission leads Activity > Torrents with a red card, and Check now clears it once it's back", async ({
+    adminPage: page,
+    world,
+  }, testInfo) => {
+    await world.fw.fault.set({
+      id: "transmission-down",
+      target: "transmission",
+      node: "home",
+      fault: "reset",
+    });
+    await page.goto("/activity/torrents");
+    const card = page.getByRole("region", { name: "Transmission on home" });
+    await expect(card.getByText("Not responding", { exact: true })).toBeVisible({
+      timeout: 180_000,
+    });
+    await expect(
+      card.getByText(
+        /^Transmission isn't responding\. Check that it's running and that home can reach .+\.$/u,
+      ),
+    ).toBeVisible();
+    await expectAccessible(page);
+    await page.screenshot({ path: testInfo.outputPath("client-away.png"), fullPage: true });
+
+    await world.fw.fault.clear("transmission-down");
+    await card.getByRole("button", { name: "Check now" }).click();
+    await expect(card).toHaveCount(0);
+  });
+});
