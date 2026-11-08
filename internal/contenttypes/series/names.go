@@ -259,8 +259,8 @@ func (r *parsed) readSeasons(first regex.Match) int {
 }
 
 // readTitle ports Sonarr's series title and GetSeriesTitleInfo: the
-// title, its year, and every title of an "A AKA B" or "A / B" name,
-// Sonarr's series title first when it is one of them.
+// title, its year, and every title of an "A AKA B" or "A / B" name after
+// it, the order Sonarr's ParsingService looks a series up in.
 func (r *parsed) readTitle(first regex.Match) error {
 	given, _ := first.Group("title")
 	title, err := requestInfo.Replace(regex.TextOf(spaced(given)), "")
@@ -286,20 +286,24 @@ func (r *parsed) readTitle(first regex.Match) error {
 	if err != nil {
 		return errUnread
 	}
+	var all []string
 	switch captures := first.Captures("title"); {
 	case ok:
 		for _, t := range c.Captures("title") {
-			r.titles = append(r.titles, t.Value)
+			all = append(all, t.Value)
 		}
 	case len(captures) > 1:
 		for _, t := range captures {
-			r.titles = append(r.titles, spaced(t.Value))
+			all = append(all, spaced(t.Value))
 		}
-	case title != "":
+	}
+	if title != "" {
 		r.titles = []string{title}
 	}
-	if i := slices.Index(r.titles, title); i > 0 {
-		r.titles = slices.Insert(slices.Delete(r.titles, i, i+1), 0, title)
+	for _, t := range all {
+		if t != title {
+			r.titles = append(r.titles, t)
+		}
 	}
 	return nil
 }
