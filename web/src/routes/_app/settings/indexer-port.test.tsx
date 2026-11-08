@@ -26,7 +26,7 @@ test("a ported site is named by its site, and its Details say where its support 
   await expect
     .element(
       page.getByText(
-        "SlipStream's IPTorrents support is ported from Prowlarr's code of 6 Nov 2026.",
+        "SlipStream's IPTorrents support is ported from Prowlarr's code of Nov 6, 2026.",
       ),
     )
     .toBeVisible();
