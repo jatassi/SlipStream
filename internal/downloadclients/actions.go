@@ -59,6 +59,9 @@ const (
 	Resume   ActionKind = "resume"
 	Announce ActionKind = "announce"
 	Recheck  ActionKind = "recheck"
+	// Retry checks the files of a failed Torrent that had completed: it
+	// seeds again once all its data is there, and stays paused otherwise.
+	Retry ActionKind = "retry"
 	// MarkFailed removes a stalled download with its download copy, and
 	// fails its downloading Grabs as download_failed.
 	MarkFailed ActionKind = "mark-failed"
@@ -66,7 +69,7 @@ const (
 )
 
 // ActionKinds is every ActionKind.
-var ActionKinds = []ActionKind{Pause, Resume, Announce, Recheck, MarkFailed, Remove}
+var ActionKinds = []ActionKind{Pause, Resume, Announce, Recheck, Retry, MarkFailed, Remove}
 
 type Action struct {
 	Kind ActionKind
@@ -113,6 +116,9 @@ const (
 	RefusedNotRunning RefusalCode = "not_running"
 	// RefusedFailed is announce or recheck of a Torrent the engine failed.
 	RefusedFailed RefusalCode = "failed"
+	// RefusedNotRetryable is Retry of a Torrent that isn't failed, that
+	// failed before it completed, or that an external client holds.
+	RefusedNotRetryable RefusalCode = "not_retryable"
 )
 
 type Refusal struct {
@@ -169,6 +175,8 @@ func (c *Clients) Act(ctx context.Context, a Action) ([]Result, *Preview, error)
 		return c.remove(ctx, a)
 	case Announce, Recheck:
 		return c.ask(ctx, a)
+	case Retry:
+		return c.retry(ctx, a)
 	}
 	return nil, nil, fmt.Errorf("no action %q", a.Kind)
 }

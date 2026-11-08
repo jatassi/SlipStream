@@ -74,6 +74,11 @@ type Row struct {
 	// client's words for its local error.
 	Error string
 	Fault *Fault
+	// Retryable is a failed Torrent of a built-in client that had
+	// completed, which a Retry checks again.
+	Retryable bool
+	// Retry is its last Retry, nil for none.
+	Retry *Retried
 	// LastKnown is when its Node last reported it, set only while the row
 	// is stale for LastKnownCause.
 	LastKnown      time.Time
@@ -344,6 +349,10 @@ func (c *Clients) rowOf(h db.ListHeldRow, uses []Use) (Row, error) {
 	}
 	if h.Fault != nil {
 		row.Fault = &Fault{Kind: FaultKind(*h.Fault), At: h.FaultAt.Time()}
+	}
+	row.Retryable = retryable(state, h.ClientID, !h.CompletedAt.IsZero())
+	if row.Retry, err = retryOf(h.Retry); err != nil {
+		return Row{}, err
 	}
 	if !facts.Removing {
 		row.Pending = pendingOf(facts.Wanted, rep)

@@ -16,8 +16,9 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// Intent is node's Downloading intent: its live Torrents and its
-// discards, the Removing ones, each in added order and naming its client,
+// Intent is node's Downloading intent: its live Torrents, with a Retry
+// waiting for its Node's check, and its discards, the Removing ones, each
+// in added order and naming its client,
 // its settings with defaults, the thresholds, the disk guard's hold, how
 // often to sample the downloads volume, and its external clients, on or
 // off, with every setting but their secrets. The same library gives the
@@ -69,8 +70,13 @@ func Intent(ctx context.Context, r storage.Reader[file], node role.NodeID) (*dlv
 			client = row.ClientID.Bytes()
 		}
 		if row.RemovedAt.IsZero() {
+			retryAt, err := retryAtOnWire(row.Retry)
+			if err != nil {
+				return nil, fmt.Errorf("torrent %s: %w", row.ID, err)
+			}
 			intent.Torrents = append(intent.Torrents, &dlv1.Torrent{
 				Id: row.ID.Bytes(), InfoHash: row.InfoHash, Wanted: wantedOnWire[Wanted(row.Wanted)], Order: row.AddedOrder, ClientId: client,
+				RetryAtUnixMs: retryAt,
 			})
 			continue
 		}

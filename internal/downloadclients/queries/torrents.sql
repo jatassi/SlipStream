@@ -82,7 +82,7 @@ WHERE node_id = sqlc.arg(node_id) AND info_hash IN (sqlc.slice(hashes))
 ORDER BY added_order;
 
 -- name: ListIntent :many
-SELECT id, client_id, info_hash, wanted, added_order, removed_at, delete_files FROM downloadclients_torrent
+SELECT id, client_id, info_hash, wanted, added_order, removed_at, delete_files, retry FROM downloadclients_torrent
 WHERE node_id = sqlc.arg(node_id) AND parted_at IS NULL
 ORDER BY added_order;
 
@@ -154,6 +154,14 @@ ORDER BY t.id;
 UPDATE downloadclients_torrent SET wanted = sqlc.arg(wanted)
 WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
+-- name: GetRetry :one
+SELECT retry, size FROM downloadclients_torrent
+WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id);
+
+-- name: SetRetry :exec
+UPDATE downloadclients_torrent SET retry = sqlc.arg(retry)
+WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+
 -- name: Remove :exec
 UPDATE downloadclients_torrent SET
     removed_at = sqlc.arg(removed_at), removed_reason = sqlc.arg(removed_reason), delete_files = sqlc.arg(delete_files)
@@ -170,7 +178,7 @@ WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 SELECT t.id, t.node_id, t.info_hash, t.name, t.size, t.private, t.trackers, t.content_type, t.tracker_id, t.wanted,
        t.added_order, t.added_at, t.removed_at, t.removed_reason, t.parted_at, t.uploaded, t.downloaded, t.active_seconds,
        t.seeding_seconds, t.announced_seconds, t.totals_at, t.report, t.fault, t.fault_at, t.client_id, t.attached,
-       coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on
+       t.completed_at, t.retry, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.parted_at IS NULL
   AND (NOT CAST(sqlc.arg(by_tracker) AS INTEGER) OR t.tracker_id = sqlc.narg(tracker_id))
@@ -185,7 +193,7 @@ ORDER BY t.added_order;
 SELECT t.id, t.node_id, t.info_hash, t.name, t.size, t.private, t.trackers, t.content_type, t.tracker_id, t.wanted,
        t.added_order, t.added_at, t.removed_at, t.removed_reason, t.parted_at, t.uploaded, t.downloaded, t.active_seconds,
        t.seeding_seconds, t.announced_seconds, t.totals_at, t.report, t.fault, t.fault_at, t.client_id, t.attached,
-       coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on
+       t.completed_at, t.retry, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name, coalesce(c.is_on, 1) = 1 AS client_on
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.info_hash IN (sqlc.slice(info_hashes)) AND t.client_id IS NULL
   AND (t.parted_at IS NULL OR t.id = (

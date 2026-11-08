@@ -5,8 +5,6 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -102,7 +100,7 @@ type DownloadclientsTorrent struct {
 	CompletedAt       storage.Time
 	Fault             *string
 	FaultAt           storage.Time
-	Retry             sql.NullString
+	Retry             *string
 }
 
 type DownloadclientsVolume struct {

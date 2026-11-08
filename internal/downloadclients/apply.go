@@ -222,7 +222,7 @@ func (c *Clients) wake() {
 }
 
 // applyReports records each report, and whether one changed a Torrent's
-// wanted state.
+// wanted state or settled its Retry.
 func applyReports(ctx context.Context, q *db.Queries, node role.NodeID, reports []*dlv1.TorrentReport) (ids []ID, touched bool, err error) {
 	ids = make([]ID, 0, len(reports))
 	for _, r := range reports {
@@ -242,7 +242,11 @@ func applyReports(ctx context.Context, q *db.Queries, node role.NodeID, reports 
 		if err != nil {
 			return nil, false, err
 		}
-		touched = touched || changed
+		settled, err := settleRetry(ctx, q, node, id, r)
+		if err != nil {
+			return nil, false, err
+		}
+		touched = touched || changed || settled
 	}
 	return ids, touched, nil
 }
