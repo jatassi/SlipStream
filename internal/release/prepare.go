@@ -28,6 +28,9 @@ type Prepared struct {
 	Release regex.Text
 	// Obfuscated is a hashed or obfuscated name. Its Name is zero.
 	Obfuscated bool
+	// Folder is the name of the folder File found the name in, which a
+	// type may read with it, as Sonarr's ParsePath reads a season folder.
+	Folder string
 
 	slow []string
 }

@@ -8,9 +8,10 @@ import (
 	"github.com/jatassi/slipstream/internal/release/internal/upstream"
 )
 
-// fixedLimit is the compiled-in limit on one fixed pattern's match, the
-// formats Timings default, which the parser doesn't read from settings.
-const fixedLimit = 100 * time.Millisecond
+// PatternLimit is the compiled-in limit on one upstream parser pattern's
+// match, the core's and each type's, the formats Timings default, which
+// the parser doesn't read from settings.
+const PatternLimit = 100 * time.Millisecond
 
 // fixed is an upstream pattern compiled once, named by its upstream key.
 type fixed struct {
@@ -29,7 +30,7 @@ func compile(p upstream.Pattern) fixed {
 	o := regex.Options{
 		IgnoreCase:              p.Options&upstream.IgnoreCase != 0,
 		IgnorePatternWhitespace: p.Options&upstream.IgnorePatternWhitespace != 0,
-		Timeout:                 fixedLimit,
+		Timeout:                 PatternLimit,
 	}
 	return fixed{key: p.Key, re: regex.MustCompile(p.Text, o)}
 }
@@ -61,7 +62,7 @@ func compileReplaces(rs []upstream.Replace) []replacer {
 }
 
 // scan runs fixed patterns over one name and keeps the key of each that
-// ran past fixedLimit. A pattern that did reads as no match, so the fact
+// ran past PatternLimit. A pattern that did reads as no match, so the fact
 // it reads stays unknown.
 type scan struct{ slow []string }
 

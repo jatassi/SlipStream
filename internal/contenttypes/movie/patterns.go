@@ -2,15 +2,11 @@ package movie
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttypes/movie/internal/upstream"
 	"github.com/jatassi/slipstream/internal/regex"
+	"github.com/jatassi/slipstream/internal/release"
 )
-
-// patternLimit is the release package's compiled-in limit on one fixed
-// pattern's match. A pattern that runs past it reads as no match.
-const patternLimit = 100 * time.Millisecond
 
 // fixed is a Radarr pattern compiled once.
 type fixed struct{ re *regex.Regex }
@@ -21,7 +17,7 @@ func compile(p upstream.Pattern) fixed {
 	if extra := p.Options &^ compiledOptions; extra != 0 {
 		panic(fmt.Sprintf("%s has .NET options %d that the parser doesn't run", p.Key, extra))
 	}
-	o := regex.Options{IgnoreCase: p.Options&upstream.IgnoreCase != 0, Timeout: patternLimit}
+	o := regex.Options{IgnoreCase: p.Options&upstream.IgnoreCase != 0, Timeout: release.PatternLimit}
 	return fixed{regex.MustCompile(p.Text, o)}
 }
 
