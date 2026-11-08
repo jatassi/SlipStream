@@ -210,6 +210,11 @@ type grabClient struct {
 	Kind string `json:"kind" enum:"qbittorrent,transmission,deluge,rtorrent"`
 }
 
+type clientWait struct {
+	NodeID string                   `json:"nodeId" format:"uuid" doc:"The client's Node, which is offline"`
+	Client api.Nullable[grabClient] `json:"client" doc:"The external client; null for the Node's built-in client"`
+}
+
 type grab struct {
 	ID           string                   `json:"id" format:"uuid"`
 	WorkID       string                   `json:"workId" format:"uuid"`
@@ -232,6 +237,7 @@ type grab struct {
 	Progress     *progress                `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
 	Metadata     *metadataSearch          `json:"metadata,omitempty" doc:"The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node"`
 	FetchWait    *fetchWait               `json:"fetchWait,omitempty" doc:"Why fetching the .torrent waits on its Indexer, absent unless it does"`
+	WaitsFor     *clientWait              `json:"waitsFor,omitempty" doc:"The client a fetching Grab goes to, absent unless it waits for that client's Node to be back online"`
 	CreatedAt    time.Time                `json:"createdAt"`
 }
 
@@ -274,6 +280,12 @@ func grabOf(v grabs.View) grab {
 		out.FetchWait = &fetchWait{Sentence: w.Sentence}
 		if !w.Outcome.Until.IsZero() {
 			out.FetchWait.Until = &w.Outcome.Until
+		}
+	}
+	if w := v.WaitsFor; w != nil {
+		out.WaitsFor = &clientWait{NodeID: w.Node.String()}
+		if c := w.Client; c != nil {
+			out.WaitsFor.Client = api.Some(grabClient{ID: c.ID.String(), Name: c.Name, Kind: string(c.Kind)})
 		}
 	}
 	return out

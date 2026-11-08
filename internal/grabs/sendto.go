@@ -95,11 +95,11 @@ func (gr *Grabs) sendDownloading(ctx context.Context, tx *storage.Tx[file], g Gr
 // sendFetching records c as the client fetching Grab g goes to, in tx,
 // while g waits for its client's Node.
 func (gr *Grabs) sendFetching(ctx context.Context, tx *storage.Tx[file], g Grab, c downloadclients.Choice) error {
-	waits, err := gr.waitsForClient(ctx, tx, g)
+	waits, err := gr.waitingFor(ctx, tx, g)
 	if err != nil {
 		return err
 	}
-	if !waits {
+	if waits == nil {
 		return ErrNotSendable
 	}
 	if _, err := downloadclients.Usable(ctx, tx, c, gr.downloading); err != nil {
