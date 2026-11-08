@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/trackers"
 	"github.com/jatassi/slipstream/internal/trackers/seeding"
@@ -37,18 +38,18 @@ type owed struct {
 }
 
 type window struct {
-	InfoHash    string     `json:"infoHash" pattern:"^[0-9a-f]{40}$"`
-	Name        string     `json:"name" doc:"Its latest torrent's name"`
-	State       string     `json:"state" enum:"owing,met,missed,released"`
-	Rule        *ruleShape `json:"rule" doc:"The rule it snapshot when it opened; null while none is known"`
-	OpenedAt    time.Time  `json:"openedAt" doc:"Its torrent's first downloaded byte"`
-	MetAt       *time.Time `json:"metAt" doc:"When its Tracker's rule and the margin were met; null unless met"`
-	ClosedAt    *time.Time `json:"closedAt" doc:"Its latest miss or release; a regrab keeps it"`
-	RegrabbedAt *time.Time `json:"regrabbedAt" doc:"When a torrent of it came back after a miss"`
-	Owed        *owed      `json:"owed" doc:"What its latest miss still owed; null before a miss"`
-	Owes        *owed      `json:"owes" doc:"What it still needs to meet its Tracker's rule and the margin; null unless it owes under a known rule"`
-	AtRisk      string     `json:"atRisk" enum:"no,yes,unknown" doc:"Whether it is at risk of a hit and run: yes while no copy of it announces as a seeder, unknown while every copy's Node is offline"`
-	QuietSince  *time.Time `json:"quietSince" doc:"When it stopped seeding while it owes; null while it seeds"`
+	InfoHash    string                  `json:"infoHash" pattern:"^[0-9a-f]{40}$"`
+	Name        string                  `json:"name" doc:"Its latest torrent's name"`
+	State       string                  `json:"state" enum:"owing,met,missed,released"`
+	Rule        api.Nullable[ruleShape] `json:"rule" doc:"The rule it snapshot when it opened; null while none is known"`
+	OpenedAt    time.Time               `json:"openedAt" doc:"Its torrent's first downloaded byte"`
+	MetAt       *time.Time              `json:"metAt" doc:"When its Tracker's rule and the margin were met; null unless met"`
+	ClosedAt    *time.Time              `json:"closedAt" doc:"Its latest miss or release; a regrab keeps it"`
+	RegrabbedAt *time.Time              `json:"regrabbedAt" doc:"When a torrent of it came back after a miss"`
+	Owed        api.Nullable[owed]      `json:"owed" doc:"What its latest miss still owed; null before a miss"`
+	Owes        api.Nullable[owed]      `json:"owes" doc:"What it still needs to meet its Tracker's rule and the margin; null unless it owes under a known rule"`
+	AtRisk      string                  `json:"atRisk" enum:"no,yes,unknown" doc:"Whether it is at risk of a hit and run: yes while no copy of it announces as a seeder, unknown while every copy's Node is offline"`
+	QuietSince  *time.Time              `json:"quietSince" doc:"When it stopped seeding while it owes; null while it seeds"`
 }
 
 type ruleShape struct {
@@ -93,7 +94,7 @@ func windowOf(v trackers.WindowView) window {
 	}
 	if w.Rule != nil {
 		ratio, seed := partsOf(w.Rule.Parts())
-		out.Rule = &ruleShape{Clears: string(w.Rule.Clears()), Ratio: ratio, SeedSeconds: seed}
+		out.Rule = api.Some(ruleShape{Clears: string(w.Rule.Clears()), Ratio: ratio, SeedSeconds: seed})
 	}
 	if w.Owed.Clears != "" {
 		out.Owed = owedOf(w.Owed)
@@ -104,8 +105,8 @@ func windowOf(v trackers.WindowView) window {
 	return out
 }
 
-func owedOf(o seeding.Owes) *owed {
-	return &owed{Seconds: int64(o.Time / time.Second), Bytes: o.Bytes}
+func owedOf(o seeding.Owes) api.Nullable[owed] {
+	return api.Some(owed{Seconds: int64(o.Time / time.Second), Bytes: o.Bytes})
 }
 
 func when(t time.Time) *time.Time {
@@ -116,9 +117,9 @@ func when(t time.Time) *time.Time {
 }
 
 type plannedTorrent struct {
-	ID      string      `json:"id" format:"uuid"`
-	Name    string      `json:"name"`
-	Tracker *trackerRef `json:"tracker" doc:"null for a torrent with no known Tracker"`
+	ID      string                   `json:"id" format:"uuid"`
+	Name    string                   `json:"name"`
+	Tracker api.Nullable[trackerRef] `json:"tracker" doc:"null for a torrent with no known Tracker"`
 }
 
 type trackerRef struct {
@@ -172,7 +173,7 @@ func (h handlers) previewGoals(ctx context.Context, by identity.Admin, _ *struct
 func plannedOf(p trackers.Planned) plannedTorrent {
 	out := plannedTorrent{ID: p.ID.String(), Name: p.Name}
 	if r := p.Tracker; r != nil {
-		out.Tracker = &trackerRef{ID: r.ID.String(), Name: r.Name}
+		out.Tracker = api.Some(trackerRef{ID: r.ID.String(), Name: r.Name})
 	}
 	return out
 }

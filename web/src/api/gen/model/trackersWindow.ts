@@ -23,9 +23,9 @@ export interface TrackersWindow {
   /** Its torrent's first downloaded byte */
   openedAt: string;
   /** What its latest miss still owed; null before a miss */
-  owed: TrackersOwed;
+  owed: TrackersOwed | null;
   /** What it still needs to meet its Tracker's rule and the margin; null unless it owes under a known rule */
-  owes: TrackersOwed;
+  owes: TrackersOwed | null;
   /**
    * When it stopped seeding while it owes; null while it seeds
    * @nullable
@@ -37,6 +37,6 @@ export interface TrackersWindow {
    */
   regrabbedAt: string | null;
   /** The rule it snapshot when it opened; null while none is known */
-  rule: TrackersRuleShape;
+  rule: TrackersRuleShape | null;
   state: TrackersWindowState;
 }

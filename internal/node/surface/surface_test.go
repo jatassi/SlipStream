@@ -2,10 +2,13 @@ package surface_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -34,6 +37,49 @@ func TestDocument(t *testing.T) {
 	}
 	if !bytes.Equal(got, want) {
 		t.Fatalf("openapi.json is stale; run go test ./internal/node/surface -run TestDocument -update\n%s", lineDiff(string(want), string(got)))
+	}
+}
+
+type property struct {
+	Description string     `json:"description"`
+	Nullable    bool       `json:"nullable"`
+	Type        any        `json:"type"`
+	AnyOf       []property `json:"anyOf"`
+}
+
+func (p property) acceptsNull() bool {
+	if p.Nullable || p.Type == "null" {
+		return true
+	}
+	if types, ok := p.Type.([]any); ok && slices.Contains(types, any("null")) {
+		return true
+	}
+	return slices.ContainsFunc(p.AnyOf, property.acceptsNull)
+}
+
+// mayBeNull matches how a response member documents a null value; a
+// request's "null resets" doesn't match.
+var mayBeNull = regexp.MustCompile(`(^|; )null (unless|before|while|for|when)\b`)
+
+// A pointer to a struct reads as never null in the document unless it is an
+// api.Nullable, so the web types would promise a value the body omits.
+func TestAMemberDocumentedAsNullAcceptsNull(t *testing.T) {
+	var doc struct {
+		Components struct {
+			Schemas map[string]struct {
+				Properties map[string]property `json:"properties"`
+			} `json:"schemas"`
+		} `json:"components"`
+	}
+	if err := json.Unmarshal(surface.Document(), &doc); err != nil {
+		t.Fatal(err)
+	}
+	for name, schema := range doc.Components.Schemas {
+		for member, p := range schema.Properties {
+			if mayBeNull.MatchString(p.Description) && !p.acceptsNull() {
+				t.Errorf("%s.%s says %q but its schema refuses null; make it an api.Nullable", name, member, p.Description)
+			}
+		}
 	}
 }
 

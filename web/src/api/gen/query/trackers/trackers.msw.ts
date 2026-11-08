@@ -31,20 +31,20 @@ export const getPreviewSeedingGoalsResponseMock = (
     torrent: {
       id: faker.string.uuid(),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      tracker: {
-        id: faker.string.uuid(),
-        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      },
+      tracker: faker.helpers.arrayElement([
+        { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+        null,
+      ]),
     },
   })),
   kept: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     torrent: {
       id: faker.string.uuid(),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      tracker: {
-        id: faker.string.uuid(),
-        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      },
+      tracker: faker.helpers.arrayElement([
+        { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+        null,
+      ]),
     },
     why: faker.helpers.arrayElement(["not-imported", "draining"] as const),
   })),
@@ -52,10 +52,10 @@ export const getPreviewSeedingGoalsResponseMock = (
     torrent: {
       id: faker.string.uuid(),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      tracker: {
-        id: faker.string.uuid(),
-        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      },
+      tracker: faker.helpers.arrayElement([
+        { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+        null,
+      ]),
     },
     why: faker.helpers.arrayElement([
       "removing",
@@ -1195,8 +1195,14 @@ export const getListTrackerWindowsResponseMock = (
       metAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
       openedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
-      owed: { bytes: faker.number.int({ min: 0 }), seconds: faker.number.int({ min: 0 }) },
-      owes: { bytes: faker.number.int({ min: 0 }), seconds: faker.number.int({ min: 0 }) },
+      owed: faker.helpers.arrayElement([
+        { bytes: faker.number.int({ min: 0 }), seconds: faker.number.int({ min: 0 }) },
+        null,
+      ]),
+      owes: faker.helpers.arrayElement([
+        { bytes: faker.number.int({ min: 0 }), seconds: faker.number.int({ min: 0 }) },
+        null,
+      ]),
       quietSince: faker.helpers.arrayElement([
         faker.date.past().toISOString().slice(0, 19) + "Z",
         null,
@@ -1205,11 +1211,14 @@ export const getListTrackerWindowsResponseMock = (
         faker.date.past().toISOString().slice(0, 19) + "Z",
         null,
       ]),
-      rule: {
-        clears: faker.helpers.arrayElement(["time", "ratio", "either", "both"] as const),
-        ratio: faker.helpers.arrayElement([faker.number.float({ fractionDigits: 2 }), null]),
-        seedSeconds: faker.helpers.arrayElement([faker.number.int(), null]),
-      },
+      rule: faker.helpers.arrayElement([
+        {
+          clears: faker.helpers.arrayElement(["time", "ratio", "either", "both"] as const),
+          ratio: faker.helpers.arrayElement([faker.number.float({ fractionDigits: 2 }), null]),
+          seedSeconds: faker.helpers.arrayElement([faker.number.int(), null]),
+        },
+        null,
+      ]),
       state: faker.helpers.arrayElement(["owing", "met", "missed", "released"] as const),
     }),
   ),
