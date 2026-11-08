@@ -215,7 +215,7 @@ func (r *Regex) replacement(with string) (replacement, error) {
 	}
 	data, err := syntax.NewReplacerData(with, slots, len(numbers), names, syntax.RegexOptions(0))
 	if err != nil {
-		return replacement{}, fmt.Errorf("read the replacement %q: %w", with, err)
+		return replacement{}, fmt.Errorf("read the replacement \"%s\": %w", with, err)
 	}
 	return replacement{data: data, last: numbers[len(numbers)-1]}, nil
 }

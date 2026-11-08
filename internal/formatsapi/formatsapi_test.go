@@ -342,6 +342,12 @@ func TestAFormatThatWontRunIsRefusedWithWhatToFix(t *testing.T) {
 			422, refusal(422, "format_empty", empty, `The Custom Format \"Bare\" has no conditions. Add a condition to it or leave it out, and paste again.`, "text"),
 		},
 		{
+			"a condition named for its pattern, quoted as typed", "/api/v1/custom-formats",
+			format(`{"name":"\\b(DV","kind":"ReleaseTitleSpecification","negate":false,"required":false,"fields":{"value":"\\b(DV"}}`),
+			400, refusal(400, "format_pattern_not_compiled", notCompiled,
+				`The pattern in \"\\b(DV\" doesn't compile (unterminated group). Fix the pattern and save again.`, "conditions[0].fields.value"),
+		},
+		{
 			"a kind SlipStream doesn't have", "/api/v1/custom-formats", format(title("x") + `,{"name":"Mine","kind":"MineSpecification","negate":false,"required":false,"fields":{}}`),
 			422, refusal(422, "format_kind_unknown", unknownKind, `The condition \"Mine\" has the kind MineSpecification. Pick one of the kinds the schema lists.`, "conditions[1].kind"),
 		},

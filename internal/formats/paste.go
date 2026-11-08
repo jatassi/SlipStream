@@ -16,7 +16,7 @@ type EmptyError struct {
 }
 
 func (e *EmptyError) Error() string {
-	return fmt.Sprintf("the Custom Format %q has no conditions", e.Name)
+	return fmt.Sprintf("the Custom Format \"%s\" has no conditions", e.Name)
 }
 
 type pasted struct {
@@ -76,7 +76,7 @@ func pasteOne(doc json.RawMessage) (Format, error) {
 	for _, s := range p.Specifications {
 		c, err := pasteCondition(s)
 		if err != nil {
-			return Format{}, fmt.Errorf("read the Custom Format %q: %w", p.Name, err)
+			return Format{}, fmt.Errorf("read the Custom Format \"%s\": %w", p.Name, err)
 		}
 		f.Conditions = append(f.Conditions, c)
 	}
@@ -100,7 +100,7 @@ func pasteCondition(s pastedCondition) (Condition, error) {
 		}
 		object, err := json.Marshal(by)
 		if err != nil {
-			return Condition{}, fmt.Errorf("write the fields of condition %q: %w", c.Name, err)
+			return Condition{}, fmt.Errorf("write the fields of condition \"%s\": %w", c.Name, err)
 		}
 		c.Fields = object
 	}

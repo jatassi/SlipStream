@@ -138,7 +138,7 @@ func pasteRefused(name string, err error) error {
 	if e, ok := errors.AsType[*formats.PatternError](err); ok {
 		of := ""
 		if name != "" {
-			of = fmt.Sprintf(" of the Custom Format %q", name)
+			of = fmt.Sprintf(" of the Custom Format \"%s\"", name)
 		}
 		return patternNotCompiled.On("text", patternWords(e, of)+" Fix the pattern and paste again.")
 	}
@@ -146,7 +146,7 @@ func pasteRefused(name string, err error) error {
 		return kindUnknown.On("text", kindWords(e)+" Remove the condition and paste again.")
 	}
 	if e, ok := errors.AsType[*formats.EmptyError](err); ok {
-		return formatEmpty.On("text", fmt.Sprintf("The Custom Format %q has no conditions. Add a condition to it or leave it out, and paste again.", e.Name))
+		return formatEmpty.On("text", fmt.Sprintf("The Custom Format \"%s\" has no conditions. Add a condition to it or leave it out, and paste again.", e.Name))
 	}
 	if errors.Is(err, formats.ErrNotJSON) {
 		return api.Invalid.On("text", "The text isn't Custom Format JSON. Copy the whole format from TRaSH Guides, Radarr or Sonarr and paste again.")
