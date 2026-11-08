@@ -1,10 +1,12 @@
 package tracker_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1" //nolint:gosec // v1 piece hashes are SHA-1 by the protocol
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"iter"
 	"log/slog"
@@ -12,6 +14,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -23,6 +26,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/internal/ca"
 	"github.com/jatassi/slipstream/fakes/internal/front"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
+	"github.com/jatassi/slipstream/fakes/internal/seeders"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -36,17 +40,23 @@ import (
 	"github.com/jatassi/slipstream/internal/torrent/libtorrent"
 )
 
-// release is a torrent a Node seeds: its files already lie in folder.
+// release is a torrent a Node seeds: its files already lie in folder. meta
+// announces as the Node's site account, and seed, the same torrent, as
+// fixture-seeders.
 type release struct {
 	id     storage.UUID
 	meta   []byte
+	seed   []byte
 	hash   bencode.InfoHash
 	folder string
 }
 
-// seededReleases are n small private releases announcing to announce,
-// each with its file written.
-func seededReleases(t *testing.T, n int, announce string) []release {
+// nodeAccount is the site account the Node announces as.
+const nodeAccount = "torznab"
+
+// seededReleases are n small private releases announcing to the announce
+// URL of each account, each with its file written.
+func seededReleases(t *testing.T, n int, announce func(account string) string) []release {
 	t.Helper()
 	out := make([]release, n)
 	for i := range out {
@@ -54,10 +64,12 @@ func seededReleases(t *testing.T, n int, announce string) []release {
 		_, _ = rand.NewChaCha8([32]byte{byte(i), byte(i >> 8)}).Read(payload)
 		sum := sha1.Sum(payload) //nolint:gosec // v1 piece hashes
 		name := fmt.Sprintf("Release.%04d.mkv", i)
-		meta, err := bencode.Encode(map[string]any{
-			"announce": announce,
-			"info":     map[string]any{"length": len(payload), "name": name, "piece length": releases.PieceLength, "pieces": sum[:], "private": 1},
-		})
+		info := map[string]any{"length": len(payload), "name": name, "piece length": releases.PieceLength, "pieces": sum[:], "private": 1}
+		meta, err := bencode.Encode(map[string]any{"announce": announce(nodeAccount), "info": info})
+		if err != nil {
+			t.Fatal(err)
+		}
+		seed, err := bencode.Encode(map[string]any{"announce": announce(releases.Seeders), "info": info})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -72,16 +84,38 @@ func seededReleases(t *testing.T, n int, announce string) []release {
 		if err := os.WriteFile(filepath.Join(folder, name), payload, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		out[i] = release{id: storage.NewUUID(), meta: meta, hash: m.InfoHash, folder: folder}
+		out[i] = release{id: storage.NewUUID(), meta: meta, seed: seed, hash: m.InfoHash, folder: folder}
 	}
 	return out
 }
 
-// serveTracker serves fake-tracker as Scenario s says behind a TLS front
-// from a run CA, which libtorrent trusts through SSL_CERT_FILE, for n
-// seeded releases. It returns the releases and a reader of the tracker's
-// announces.
+// trackerRun is fake-tracker serving a test's releases, recording into
+// runDir, behind fronts whose faults plan plays.
+type trackerRun struct {
+	t      *testing.T
+	s      scenario.Scenario
+	rels   []release
+	runDir string
+	plan   *fault.Plan
+}
+
+// trackerFront is the front the seedbox origin reaches fake-tracker
+// through.
+var trackerFront = fault.Front{Target: fault.Target(tracker.Fake.Name), Origin: "seedbox", Layers: fault.Conn | fault.TLS | fault.HTTP}
+
+// serveTracker serves fake-tracker for n seeded releases and returns them
+// and a reader of the tracker's announces.
 func serveTracker(t *testing.T, s scenario.Scenario, n int) (rels []release, announces func() []tracker.Announce) {
+	t.Helper()
+	w := startTracker(t, s, n, false)
+	return w.rels, w.announces
+}
+
+// startTracker serves fake-tracker as Scenario s says behind a TLS front
+// from a run CA, which libtorrent trusts through SSL_CERT_FILE, for n
+// releases. With swarm, fixture-seeders seed each release and the tracker
+// hands a leecher a seeder front that reaches them.
+func startTracker(t *testing.T, s scenario.Scenario, n int, swarm bool) *trackerRun {
 	t.Helper()
 	authority, err := ca.New("client")
 	if err != nil {
@@ -92,28 +126,41 @@ func serveTracker(t *testing.T, s scenario.Scenario, n int) (rels []release, ann
 		t.Fatal(err)
 	}
 	t.Setenv("SSL_CERT_FILE", caFile)
-	runDir := t.TempDir()
-	log, err := events.Create(runDir, func(events.Record) []events.Record { return nil })
+	w := &trackerRun{t: t, s: s, runDir: t.TempDir()}
+	log, err := events.Create(w.runDir, func(events.Record) []events.Record { return nil })
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = log.Close() })
 	logger := slog.New(slog.DiscardHandler)
-	trackerFront := fault.Front{Target: fault.Target(tracker.Fake.Name), Origin: "seedbox", Layers: fault.Conn | fault.TLS | fault.HTTP}
-	plan := fault.NewPlan([]fault.Front{trackerFront}, nil)
-	set := front.NewSet(plan, func(r events.Record) { _, _ = log.Append(r) }, logger)
+	name := func(i int) string { return fmt.Sprintf("release-%d", i) }
+	fronts := []fault.Front{trackerFront}
+	if swarm {
+		for i := range n {
+			fronts = append(fronts, fault.Front{Target: tracker.SeedersTarget(name(i)), Origin: trackerFront.Origin, Layers: fault.Conn})
+		}
+	}
+	w.plan = fault.NewPlan(fronts, nil)
+	set := front.NewSet(w.plan, func(r events.Record) { _, _ = log.Append(r) }, logger)
 	tf, err := set.Listen(t.Context(), trackerFront)
 	if err != nil {
 		t.Fatal(err)
 	}
-	passkey := releases.Passkey(s, "torznab")
-	rels = seededReleases(t, n, fake.Address{AddrPort: tf.Addr(), TLS: true}.URL("/announce/"+passkey))
-	catalog := &releases.Catalog{}
-	for i, r := range rels {
-		catalog.Releases = append(catalog.Releases, releases.Release{Release: scenario.Release{Name: fmt.Sprintf("release-%d", i)}, InfoHash: r.hash})
+	at := fake.Address{AddrPort: tf.Addr(), TLS: true}
+	w.rels = seededReleases(t, n, func(account string) string { return at.URL("/announce/" + releases.Passkey(s, account)) })
+	env := fake.NewEnv(s, tracker.Fake, logger, w.plan, log)
+	env.Releases = &releases.Catalog{}
+	for i, r := range w.rels {
+		env.Releases.Releases = append(env.Releases.Releases, releases.Release{Release: scenario.Release{Name: name(i), Seeded: swarm}, Dir: r.folder, Metainfo: r.seed, InfoHash: r.hash})
 	}
-	env := fake.NewEnv(s, tracker.Fake, logger, plan, log)
-	env.Releases = catalog
+	for i, f := range fronts[1:] {
+		sf, err := set.Listen(t.Context(), f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sf.Serve(front.Forward(w.seeder(w.rels[i])))
+		env.Fronts = append(env.Fronts, fake.Front{Target: f.Target, Node: f.Origin, Address: fake.Address{AddrPort: sf.Addr()}})
+	}
 	server, err := tracker.Fake.New(s, env)
 	if err != nil {
 		t.Fatal(err)
@@ -134,30 +181,105 @@ func serveTracker(t *testing.T, s scenario.Scenario, n int) (rels []release, ann
 		}
 		set.Close()
 	})
-	return rels, func() []tracker.Announce {
-		t.Helper()
-		recs, err := events.Select(runDir, events.Query{Kind: tracker.Announces.Kind})
+	if swarm {
+		seeding, err := seeders.Start(t.Context(), env.Releases, caFile)
 		if err != nil {
 			t.Fatal(err)
 		}
-		out := make([]tracker.Announce, len(recs))
-		for i, r := range recs {
-			if err := json.Unmarshal(r.Data, &out[i]); err != nil {
-				t.Fatal(err)
+		t.Cleanup(func() { _ = seeding.Close() })
+	}
+	return w
+}
+
+// seeder finds where fixture-seeders seed r, from their announce.
+func (w *trackerRun) seeder(r release) func() (netip.AddrPort, error) {
+	passkey := releases.Passkey(w.s, releases.Seeders)
+	return func() (netip.AddrPort, error) {
+		as, err := captured[tracker.Announce](w.runDir, tracker.Announces.Kind)
+		if err != nil {
+			return netip.AddrPort{}, err
+		}
+		for _, a := range as {
+			if a.Passkey == passkey && a.InfoHash == r.hash.String() && a.Left == 0 {
+				return netip.AddrPortFrom(netip.MustParseAddr("127.0.0.1"), a.Port), nil
 			}
 		}
-		return out
+		return netip.AddrPort{}, errors.New("no seeder announced")
 	}
 }
 
-// intents hands the client each intent the test sends.
-type intents chan role.Snapshot[*dlv1.Intent]
+func (w *trackerRun) announces() []tracker.Announce {
+	w.t.Helper()
+	as, err := captured[tracker.Announce](w.runDir, tracker.Announces.Kind)
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	return as
+}
+
+// history is the tracker's latest record of account's history of r, zero
+// before the account announced it.
+func (w *trackerRun) history(account string, r release) tracker.History {
+	w.t.Helper()
+	hs, err := captured[tracker.History](w.runDir, tracker.Seeding.Kind)
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	var latest tracker.History
+	for _, h := range hs {
+		if h.Account == account && h.InfoHash == r.hash.String() {
+			latest = h
+		}
+	}
+	return latest
+}
+
+// seeded waits up to d until the tracker's history of r for the Node's
+// account satisfies cond, failing the test at any look that finds box's
+// count of r ahead of it.
+func (w *trackerRun) seeded(box *seedbox, r release, d time.Duration, what string, cond func(tracker.History) bool) tracker.History {
+	w.t.Helper()
+	for deadline := time.Now().Add(d); ; time.Sleep(100 * time.Millisecond) {
+		counted := box.reports.announced(r)
+		h := w.history(nodeAccount, r)
+		if n := len(counted); n > 0 && counted[n-1] > h.SeedSeconds {
+			w.t.Fatalf("the Node counts %d s announced while the tracker credited %d s", counted[n-1], h.SeedSeconds)
+		}
+		if cond(h) {
+			return h
+		}
+		if time.Now().After(deadline) {
+			w.t.Fatalf("timed out after %v waiting until %s; the tracker keeps %+v and the Node counted %v", d, what, h, counted)
+		}
+	}
+}
+
+func captured[T any](runDir, kind string) ([]T, error) {
+	recs, err := events.Select(runDir, events.Query{Kind: kind})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]T, len(recs))
+	for i, r := range recs {
+		if err := json.Unmarshal(r.Data, &out[i]); err != nil {
+			return nil, fmt.Errorf("read a %s record: %w", kind, err)
+		}
+	}
+	return out, nil
+}
+
+// intents hands the client each intent the test sends, and keeps each
+// report it makes.
+type intents struct {
+	ch      chan role.Snapshot[*dlv1.Intent]
+	reports *reports
+}
 
 func (in intents) Intent(ctx context.Context) iter.Seq[role.Snapshot[*dlv1.Intent]] {
 	return func(yield func(role.Snapshot[*dlv1.Intent]) bool) {
 		for {
 			select {
-			case s := <-in:
+			case s := <-in.ch:
 				if !yield(s) {
 					return
 				}
@@ -170,7 +292,52 @@ func (in intents) Intent(ctx context.Context) iter.Seq[role.Snapshot[*dlv1.Inten
 
 func (intents) SetFacts(*dlv1.Facts) {}
 
-func (intents) Report(context.Context, *storage.Tx[storage.Local], *dlv1.Report) error { return nil }
+func (in intents) Report(_ context.Context, _ *storage.Tx[storage.Local], r *dlv1.Report) error {
+	in.reports.mu.Lock()
+	defer in.reports.mu.Unlock()
+	in.reports.all = append(in.reports.all, r)
+	return nil
+}
+
+// reports is every report a seedbox's clients made, oldest first.
+type reports struct {
+	mu  sync.Mutex
+	all []*dlv1.Report
+}
+
+// announced is the announced seconds of each totals row reported of r,
+// oldest first.
+func (rs *reports) announced(r release) []int64 {
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	var out []int64
+	for _, rep := range rs.all {
+		rows := rep.GetTotals().GetRows()
+		for _, tr := range rep.GetTorrents().GetReports() {
+			rows = append(rows, tr.GetTotals())
+		}
+		for _, row := range rows {
+			if bytes.Equal(row.GetId(), r.id.Bytes()) {
+				out = append(out, row.GetAnnouncedSeconds())
+			}
+		}
+	}
+	return out
+}
+
+// failedAnnouncing reports whether a report of r showed a tracker failing.
+func (rs *reports) failedAnnouncing(r release) bool {
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	for _, rep := range rs.all {
+		for _, tr := range rep.GetTorrents().GetReports() {
+			if bytes.Equal(tr.GetId(), r.id.Bytes()) && slices.ContainsFunc(tr.GetTrackers(), func(l *dlv1.TrackerLine) bool { return l.GetStatus() == dlv1.TrackerStatus_TRACKER_STATUS_ERROR }) {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // controller answers a Node's fetch of each release with its metainfo and
 // the folder its files lie in.
@@ -198,10 +365,12 @@ func timings() downloading.Timings {
 
 // seedbox is a Node's built-in client over libtorrent, across restarts.
 type seedbox struct {
-	t      *testing.T
-	local  *storage.DB[storage.Local]
-	ctl    controller
-	client *downloading.Client
+	t       *testing.T
+	local   *storage.DB[storage.Local]
+	ctl     controller
+	timings downloading.Timings
+	client  *downloading.Client
+	reports reports
 }
 
 func newSeedbox(t *testing.T, rels []release) *seedbox {
@@ -209,14 +378,14 @@ func newSeedbox(t *testing.T, rels []release) *seedbox {
 	for _, r := range rels {
 		ctl[r.id] = r
 	}
-	return &seedbox{t: t, local: storagetest.Local(t, downloading.Schema()), ctl: ctl}
+	return &seedbox{t: t, local: storagetest.Local(t, downloading.Schema()), ctl: ctl, timings: timings()}
 }
 
 // start runs a client on a new libtorrent session, which stop shuts down
 // as a Node does: its resume data saved, then the session closed.
 func (n *seedbox) start() (send func(wanted dlv1.Wanted), stop func()) {
 	n.t.Helper()
-	tm := timings()
+	tm := n.timings
 	e, err := libtorrent.Open(engine.Config{ListenInterface: netip.MustParseAddrPort("127.0.0.1:0"), AnnounceFloor: tm.AnnounceFloor, Rand: rand.New(rand.NewPCG(1, 2))}) //nolint:gosec // picks listen ports
 	if err != nil {
 		n.t.Fatal(err)
@@ -226,7 +395,7 @@ func (n *seedbox) start() (send func(wanted dlv1.Wanted), stop func()) {
 		Rand: rand.New(rand.NewPCG(3, 4)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
 	})
 	n.client = c
-	in := intents(make(chan role.Snapshot[*dlv1.Intent]))
+	in := intents{ch: make(chan role.Snapshot[*dlv1.Intent]), reports: &n.reports}
 	ctx, cancel := context.WithCancel(context.WithoutCancel(n.t.Context()))
 	var wg sync.WaitGroup
 	wg.Go(func() { _ = c.Loop(ctx) })
@@ -243,7 +412,7 @@ func (n *seedbox) start() (send func(wanted dlv1.Wanted), stop func()) {
 		for _, r := range n.ctl {
 			ts = append(ts, &dlv1.Torrent{Id: r.id.Bytes(), InfoHash: r.hash[:], Wanted: wanted, Order: int64(len(ts) + 1)})
 		}
-		in <- role.Snapshot[*dlv1.Intent]{Standing: role.Live, Intent: &dlv1.Intent{
+		in.ch <- role.Snapshot[*dlv1.Intent]{Standing: role.Live, Intent: &dlv1.Intent{
 			Torrents:   ts,
 			Settings:   &dlv1.Settings{ActiveDownloads: 3, ActiveChecks: 50, Connections: 8000, Utp: true, StalledAfterSeconds: 600},
 			Thresholds: &dlv1.Thresholds{FaultStallSeconds: 12 * 3600, UnregisteredGapSeconds: 1800},
@@ -436,4 +605,63 @@ func TestGazelleAcceptsTheRealAnnounce(t *testing.T) {
 	if r := rejections(got); len(r) != 0 {
 		t.Fatalf("Gazelle rejected %s", summary(r))
 	}
+}
+
+// TestAnnouncedSecondsNeverAheadOfTheTracker downloads a private torrent
+// from fixture-seeders, seeds it, pauses and resumes it, and seeds through
+// a tracker outage. At every look the Node's count of the seed time the
+// tracker credited is no more than the seed time fake-tracker keeps for the
+// Node's account, and it ends within a second or two per credited announce
+// of it: what a lost interval would cost it is far more.
+func TestAnnouncedSecondsNeverAheadOfTheTracker(t *testing.T) {
+	const interval = 20 * time.Second
+	s := scenario.Scenario{Seed: "client", Tracker: scenario.Tracker{Interval: interval, MinInterval: interval, Mode: scenario.UNIT3D}}
+	w := startTracker(t, s, 1, true)
+	leech := w.rels[0]
+	leech.folder = t.TempDir()
+	box := newSeedbox(t, []release{leech})
+	box.timings.TotalsReport = time.Second
+	send, _ := box.start()
+	seeded := func(d time.Duration, what string, cond func(tracker.History) bool) tracker.History {
+		t.Helper()
+		return w.seeded(box, leech, d, what, cond)
+	}
+
+	send(dlv1.Wanted_WANTED_STARTED)
+	seeded(2*time.Minute, "the torrent completes and seeds two intervals", func(h tracker.History) bool { return h.Seeder && h.SeedSeconds >= int64(interval/time.Second)*3/2 })
+	send(dlv1.Wanted_WANTED_PAUSED)
+	seeded(time.Minute, "the paused torrent's stopped reaches the tracker", func(h tracker.History) bool { return !h.Active })
+	send(dlv1.Wanted_WANTED_STARTED)
+	resumed := seeded(time.Minute, "the resumed torrent's started reaches the tracker", func(h tracker.History) bool { return h.Active })
+	beforeOutage := seeded(time.Minute, "the resumed torrent seeds an interval", func(h tracker.History) bool { return h.SeedSeconds > resumed.SeedSeconds })
+
+	refuse, err := fault.Parse("refuse")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.plan.Set(fault.Rule{ID: "tracker-down", Target: trackerFront.Target, Origin: trackerFront.Origin, Fault: refuse}); err != nil {
+		t.Fatal(err)
+	}
+	seeded(time.Minute, "an announce fails in the outage", func(tracker.History) bool { return box.reports.failedAnnouncing(leech) })
+	w.plan.Clear("tracker-down")
+	seeded(2*time.Minute, "the first announce after the outage credits the time across it", func(h tracker.History) bool {
+		return h.SeedSeconds-beforeOutage.SeedSeconds > int64(interval/time.Second)
+	})
+
+	credited := int64(0)
+	passkey := releases.Passkey(s, nodeAccount)
+	for _, a := range w.announces() {
+		if a.Passkey == passkey && a.Accepted && a.Left == 0 && a.Event != "started" {
+			credited++
+		}
+	}
+	h := seeded(10*time.Second, "the Node counts what the tracker credited", func(h tracker.History) bool {
+		counted := box.reports.announced(leech)
+		return len(counted) > 0 && counted[len(counted)-1] >= h.SeedSeconds-2*credited
+	})
+	counted := box.reports.announced(leech)
+	if !slices.IsSorted(counted) {
+		t.Errorf("the Node reported announced seconds %v, want them never to fall", counted)
+	}
+	t.Logf("the tracker credited %d s over %d announces and the Node counted %d s", h.SeedSeconds, credited, counted[len(counted)-1])
 }
