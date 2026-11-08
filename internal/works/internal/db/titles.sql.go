@@ -9,6 +9,42 @@ import (
 	"context"
 )
 
+const listTitlesOfType = `-- name: ListTitlesOfType :many
+SELECT t.work_id, t.labels, t.titles FROM works_title t
+JOIN works_work w ON w.id = t.work_id
+WHERE w.content_type = ?
+ORDER BY t.work_id
+`
+
+type ListTitlesOfTypeRow struct {
+	WorkID WorkID
+	Labels string
+	Titles string
+}
+
+func (q *Queries) ListTitlesOfType(ctx context.Context, contentType TypeID) ([]ListTitlesOfTypeRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTitlesOfType, contentType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTitlesOfTypeRow
+	for rows.Next() {
+		var i ListTitlesOfTypeRow
+		if err := rows.Scan(&i.WorkID, &i.Labels, &i.Titles); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUntitled = `-- name: ListUntitled :many
 SELECT id, content_type, "key", label, sort_label, added_at, refreshed_at, gone_upstream_at, ratings_read_at, monitor_new, monitor_asides, level_folders, added_by FROM works_work WHERE id NOT IN (SELECT work_id FROM works_title) ORDER BY id
 `
