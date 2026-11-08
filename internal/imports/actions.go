@@ -105,6 +105,7 @@ func (im *Imports) keep(ctx context.Context, tx *storage.Tx[file], e Entry, work
 			return Entry{}, err
 		}
 		s := im.suggestionOf(tree)
+		s.WorkID = work
 		e.Suggestion = &s
 	}
 	return e, write(ctx, tx, e)
