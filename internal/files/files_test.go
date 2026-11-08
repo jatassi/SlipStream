@@ -69,7 +69,13 @@ type library struct {
 	held    *roots.Roots
 	// staged is the Transfers with a record.
 	staged map[transfers.ID]bool
+	// changed is each files.changed its files owners published.
+	changed told
 }
+
+type told []files.Changed
+
+func (t *told) Publish(_ context.Context, c files.Changed) { *t = append(*t, c) }
 
 func open(t testing.TB) *library {
 	t.Helper()
@@ -111,7 +117,7 @@ func (l *library) on(cells files.Inflight, disk files.Disk) *files.Files {
 			return l.staged, nil
 		},
 		Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: l.fx}, Today: func() time.Time { return today },
-		Disk: disk, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
+		Disk: disk, Changed: &l.changed, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
 		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
 	})
 }

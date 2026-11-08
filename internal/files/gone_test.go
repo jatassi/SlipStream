@@ -104,13 +104,21 @@ func TestForgetDeletesGoneFilesAndRefusesLiveOnes(t *testing.T) {
 	}
 	gone, live := ids["Shelf w1/Scarf.mkv"], ids["Shelf w1/Mittens.mkv"]
 
-	_, err := svc.Forget(t.Context(), admin, []files.ID{gone, live})
-	if notGone, ok := errors.AsType[*files.NotGoneError](err); !ok || notGone.Live != 1 || fileCount(t, l) != 2 {
-		t.Fatalf("forgetting a gone and a live file = %v, want *NotGoneError{1} and both kept", err)
+	err := svc.Forget(t.Context(), admin, []files.ID{gone, live})
+	if notGone, ok := errors.AsType[*files.NotGoneError](err); !ok || !slices.Equal(notGone.Paths, []string{"Shelf w1/Mittens.mkv"}) || fileCount(t, l) != 2 {
+		t.Fatalf("forgetting a gone and a live file = %v, want *NotGoneError naming the live one and both kept", err)
 	}
-	touched, err := svc.Forget(t.Context(), admin, []files.ID{gone})
-	if err != nil || !slices.Equal(touched, []works.WorkID{tree.ID}) || fileCount(t, l) != 1 {
-		t.Fatalf("forgetting the gone file = %v, %v with %d files left; want its Work and the live file alone", touched, err, fileCount(t, l))
+	if err := svc.Forget(t.Context(), admin, []files.ID{gone, {UUID: storage.NewUUID()}}); !errors.Is(err, files.ErrNoFile) || fileCount(t, l) != 2 {
+		t.Fatalf("forgetting a gone file and an id no file has = %v, want ErrNoFile and both kept", err)
+	}
+	if len(l.changed) != 0 {
+		t.Fatalf("refused forgets told %v, want nothing", l.changed)
+	}
+	if err := svc.Forget(t.Context(), admin, []files.ID{gone, gone}); err != nil || fileCount(t, l) != 1 {
+		t.Fatalf("forgetting the gone file = %v with %d files left, want the live file alone", err, fileCount(t, l))
+	}
+	if want := (told{{WorkID: tree.ID.String()}}); !slices.Equal(l.changed, want) {
+		t.Fatalf("forgetting told %v, want %v", l.changed, want)
 	}
 }
 

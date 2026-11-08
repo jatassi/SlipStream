@@ -335,6 +335,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Naming:  contenttype.Project(opened, func(t contenttype.Library) naming.Facet { return t }),
 		Today:   n.today,
 		Disk:    homes,
+		Changed: files.ChangedEvent.Bind(n.hub),
 		Timings: n.cfg.Timings.Files,
 		Rand:    n.filesRand,
 		Log:     n.rootLog.With("subsystem", "files"),
