@@ -1,0 +1,79 @@
+{
+  "current_page": 1,
+  "data": [
+    {
+      "id": 78450,
+      "url": "https://privatehd.fixture-site.fake.localhost/torrent/78450-harbor-lights-s02e03-1080p-web-dl-ddp51-h264-nogroup",
+      "download": "https://privatehd.fixture-site.fake.localhost/rss/download/123456789/78450-9390b4926eda0bbd9e94b39c25b4bbfb4a8756b8.torrent",
+      "type_id": 2,
+      "type": "TV-Show",
+      "info_hash": "9390b4926eda0bbd9e94b39c25b4bbfb4a8756b8",
+      "file_name": "Harbor Lights S02E03 1080p WEB-DL DDP5.1 H.264-NOGROUP",
+      "file_size": 2147483648,
+      "file_count": 268,
+      "seed": 22,
+      "leech": 0,
+      "completed": 21,
+      "downloaded": 38,
+      "upload_multiply": 1,
+      "download_multiply": 0,
+      "adult": false,
+      "video_quality_id": 3,
+      "video_quality": "1080p",
+      "rip_type_id": 3,
+      "rip_type": "BluRay Raw",
+      "movie_tv": {
+        "imdb": "tt0000002",
+        "tmdb": "2",
+        "tvdb": "2",
+        "title": "Harbor Lights",
+        "tv_season": 2,
+        "tv_episode": 3,
+        "tv_full_season": false,
+        "tv_complete": false
+      },
+      "audio": [
+        {
+          "id": 45,
+          "language": "English"
+        },
+        {
+          "id": 52,
+          "language": "French"
+        },
+        {
+          "id": 151,
+          "language": "Spanish"
+        }
+      ],
+      "subtitle": [
+        {
+          "id": 45,
+          "language": "English"
+        },
+        {
+          "id": 52,
+          "language": "French"
+        },
+        {
+          "id": 151,
+          "language": "Spanish"
+        }
+      ],
+      "music_type": null,
+      "created_at": "2021-03-20 10:00:00",
+      "created_at_iso": "2021-03-20T10:00:00-04:00",
+      "description": null
+    }
+  ],
+  "first_page_url": "https://privatehd.fixture-site.fake.localhost/api/v1/jackett/torrents?type=1&page=1",
+  "from": 1,
+  "last_page": 324,
+  "last_page_url": "https://privatehd.fixture-site.fake.localhost/api/v1/jackett/torrents?type=1&page=324",
+  "next_page_url": "https://privatehd.fixture-site.fake.localhost/api/v1/jackett/torrents?type=1&page=2",
+  "path": "https://privatehd.fixture-site.fake.localhost/api/v1/jackett/torrents",
+  "per_page": 100,
+  "prev_page_url": null,
+  "to": 100,
+  "total": 32322
+}
