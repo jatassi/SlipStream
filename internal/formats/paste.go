@@ -6,8 +6,8 @@ import (
 	"fmt"
 )
 
-// EmptyError is a pasted format with no conditions. Upstream matches every
-// name with one, so a paste refuses it.
+// EmptyError is a format with no conditions. Upstream matches every name
+// with one, so a save refuses it.
 type EmptyError struct {
 	Name string
 }

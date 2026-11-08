@@ -61,7 +61,6 @@ func TestCombining(t *testing.T) {
 		conds []formats.Condition
 		want  bool
 	}{
-		{"no conditions match every name", nil, true},
 		{"one matching condition", []formats.Condition{title(`\bREPACK\b`)}, true},
 		{"one condition of a kind is enough", []formats.Condition{title(`\bPROPER\b`), title(`\bREPACK\b`)}, true},
 		{"none of a kind matching fails", []formats.Condition{title(`\bPROPER\b`), title(`\bRERIP\b`)}, false},
@@ -79,6 +78,13 @@ func TestCombining(t *testing.T) {
 				t.Errorf("matched = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestCheckRefusesAFormatWithNoConditions(t *testing.T) {
+	var empty *formats.EmptyError
+	if err := formats.Check(format(1, formats.Radarr), limit); !errors.As(err, &empty) || empty.Name != "format B" {
+		t.Errorf("Check = %v, want an EmptyError naming format B", err)
 	}
 }
 

@@ -41,8 +41,12 @@ type cond struct {
 // Check compiles a format with the Match limit, and names the first
 // condition that doesn't compile: a *PatternError, a *KindError, a
 // *FieldError for a field its kind lacks, or a *ValueError for a value
-// its kind can't read in the format's dialect.
+// its kind can't read in the format's dialect. A format with no
+// conditions is an *EmptyError.
 func Check(f Format, t Timings) error {
+	if len(f.Conditions) == 0 {
+		return &EmptyError{Name: f.Name}
+	}
 	c := newCatalog(t)
 	c.add(f)
 	return c.formats[0].err

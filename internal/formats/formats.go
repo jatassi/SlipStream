@@ -74,10 +74,11 @@ const (
 	Year            Kind = "YearSpecification"
 )
 
-// KindInfo is one kind as the editor offers it: its fields, and whether
-// its value is a pattern.
+// KindInfo is one kind as the editor offers it: its name in words, its
+// fields, and whether its value is a pattern.
 type KindInfo struct {
 	Kind   Kind
+	Words  string
 	Fields []string
 	Regex  bool
 }

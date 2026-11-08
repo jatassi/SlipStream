@@ -22,17 +22,17 @@ type kind struct {
 }
 
 var kinds = []kind{
-	{KindInfo{ReleaseTitle, []string{"value"}, true}, 3, patternOn(onTitle)},
-	{KindInfo{Edition, []string{"value"}, true}, 2, patternOn(onEdition)},
-	{KindInfo{Language, []string{"value", "exceptLanguage"}, false}, 0, compileLanguage},
-	{KindInfo{IndexerFlag, []string{"value"}, false}, 0, compileFlag},
-	{KindInfo{Source, []string{"value"}, false}, 0, compileSource},
-	{KindInfo{Resolution, []string{"value"}, false}, 0, compileResolution},
-	{KindInfo{QualityModifier, []string{"value"}, false}, 0, compileModifier},
-	{KindInfo{Size, []string{"min", "max"}, false}, 0, compileSize},
-	{KindInfo{ReleaseGroup, []string{"value"}, true}, 1, patternOn(onGroup)},
-	{KindInfo{ReleaseType, []string{"value"}, false}, 0, compileSpan},
-	{KindInfo{Year, []string{"min", "max"}, false}, 0, compileYear},
+	{KindInfo{ReleaseTitle, "Release title", []string{"value"}, true}, 3, patternOn(onTitle)},
+	{KindInfo{Edition, "Edition", []string{"value"}, true}, 2, patternOn(onEdition)},
+	{KindInfo{Language, "Language", []string{"value", "exceptLanguage"}, false}, 0, compileLanguage},
+	{KindInfo{IndexerFlag, "Indexer flag", []string{"value"}, false}, 0, compileFlag},
+	{KindInfo{Source, "Source", []string{"value"}, false}, 0, compileSource},
+	{KindInfo{Resolution, "Resolution", []string{"value"}, false}, 0, compileResolution},
+	{KindInfo{QualityModifier, "Quality modifier", []string{"value"}, false}, 0, compileModifier},
+	{KindInfo{Size, "Size", []string{"min", "max"}, false}, 0, compileSize},
+	{KindInfo{ReleaseGroup, "Release group", []string{"value"}, true}, 1, patternOn(onGroup)},
+	{KindInfo{ReleaseType, "Release type", []string{"value"}, false}, 0, compileSpan},
+	{KindInfo{Year, "Year", []string{"min", "max"}, false}, 0, compileYear},
 }
 
 // Kinds lists every kind with its fields, in upstream's order. The editor
