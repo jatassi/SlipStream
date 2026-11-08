@@ -25,7 +25,7 @@ test("an Admin adds a Torznab feed, testing it first and naming the Tracker its 
     throw new Error("fakeworld names no Torznab feed");
   }
   await page.goto("/settings/indexers/new");
-  await expect(page.getByRole("option", { name: /^Quarry/u })).toBeVisible();
+  await expect(page.getByRole("listbox", { name: "Indexer catalog" })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("picker.png") });
   await page.getByRole("link", { name: /^Torznab feed/u }).click();
   await expect(page).toHaveURL(/\/settings\/indexers\/new\/torznab$/u);
