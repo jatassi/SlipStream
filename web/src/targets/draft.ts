@@ -3,7 +3,9 @@ import type {
   TargetsNewTarget,
   TargetsQuality,
   TargetsQualityList,
+  TargetsScores,
   TargetsTarget,
+  TargetsTargetPropers,
 } from "../api/gen/model";
 import {
   type Layout,
@@ -30,7 +32,8 @@ export type SizeDraft = { readonly min: string; readonly max: string };
 /**
  * A Target being edited. The order ranks the accepted qualities but CAM,
  * and `cinema` says whether CAM is accepted; sizes are kept for every
- * quality and only the accepted ones are sent.
+ * quality and only the accepted ones are sent. Scores and propers are
+ * sent as they were loaded.
  */
 export type TargetDraft = {
   readonly name: string;
@@ -38,6 +41,8 @@ export type TargetDraft = {
   readonly cinema: boolean;
   readonly filters: Readonly<Record<Attribute, Rule>>;
   readonly sizes: Readonly<Partial<Record<QualityKey, SizeDraft>>>;
+  readonly scores: TargetsScores;
+  readonly propers: TargetsTargetPropers;
 };
 
 const anyRules = (): Record<Attribute, Rule> => ({
@@ -61,7 +66,7 @@ export function sizeOf(draft: TargetDraft, key: QualityKey): SizeDraft {
   return size;
 }
 
-/** A new Target: every quality but CAM accepted under the default preset, at their floors. */
+/** A new Target: every quality but CAM accepted under the default preset, at their floors, scoring nothing. */
 export function newDraft({ qualities, presets }: TargetsQualityList): TargetDraft {
   return {
     name: "",
@@ -72,6 +77,8 @@ export function newDraft({ qualities, presets }: TargetsQualityList): TargetDraf
     cinema: false,
     filters: anyRules(),
     sizes: floors(qualities),
+    scores: { formats: [], minimum: 0, upgradeUntil: 0, increment: 1 },
+    propers: "prefer_and_upgrade",
   };
 }
 
@@ -94,6 +101,8 @@ export function draftOf(target: TargetsTarget, { qualities }: TargetsQualityList
     cinema: tiers.some((tier) => tier.includes(cam)),
     filters,
     sizes,
+    scores: target.scores,
+    propers: target.propers,
   };
 }
 
@@ -178,5 +187,7 @@ export function bodyOf(draft: TargetDraft): TargetsNewTarget {
       const { min, max } = sizeOf(draft, quality);
       return { quality, min: Number(min), max: max.trim() === "" ? null : Number(max) };
     }),
+    scores: draft.scores,
+    propers: draft.propers,
   };
 }
