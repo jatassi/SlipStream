@@ -72,6 +72,6 @@ type Names interface {
 // its own: the whole name is its one title.
 type TitleOnly struct{}
 
-func (TitleOnly) ReadName(p Prepared) Name { return Name{Titles: []string{p.Title}} }
+func (TitleOnly) ReadName(p Prepared) Name { return Name{Titles: []string{p.Title.String()}} }
 
 func (TitleOnly) CleanTitle(title string) string { return title }

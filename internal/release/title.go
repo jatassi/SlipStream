@@ -8,7 +8,7 @@ func Title(name string, names Names, cuts []Cut) Read {
 	n := names.ReadName(p)
 	tail := n.Tail
 	if tail == "" {
-		tail = p.Title
+		tail = p.Title.String()
 	}
 	f := Facts{
 		Revision:  readRevision(p),

@@ -17,7 +17,7 @@ var episodeNumber = regexp.MustCompile(`\d+`)
 
 // ReadName reads a title's first marker as its one Mark.
 func (*Series) ReadName(p release.Prepared) release.Name {
-	m := marker.FindStringSubmatch(p.Title)
+	m := marker.FindStringSubmatch(p.Title.String())
 	if m == nil {
 		return release.Name{}
 	}

@@ -67,7 +67,7 @@ type episodic struct{ release.TitleOnly }
 
 func (episodic) ReadName(p release.Prepared) release.Name {
 	for _, words := range []string{"S01E02", "S01E03", "S01"} {
-		if strings.Contains(p.Title, "."+words+".") {
+		if strings.Contains(p.Title.String(), "."+words+".") {
 			return release.Name{Marks: []release.Mark{{Words: words, Key: words}}}
 		}
 	}

@@ -200,7 +200,7 @@ func TestACustomCutsSlugAndPhraseAreTheWordsATitleReads(t *testing.T) {
 type titled struct{ release.TitleOnly }
 
 func (titled) ReadName(p release.Prepared) release.Name {
-	title, tail, _ := strings.Cut(p.Title, ".2019.")
+	title, tail, _ := strings.Cut(p.Title.String(), ".2019.")
 	return release.Name{Titles: []string{title}, Year: release.Known(2019), Tail: tail}
 }
 

@@ -1,5 +1,7 @@
 package release
 
+import "github.com/jatassi/slipstream/internal/regex"
+
 // Prepared is a name made ready for reading, as Sonarr's ParseTitle
 // prepares it before any pattern runs. Prepare is deterministic.
 type Prepared struct {
@@ -8,14 +10,15 @@ type Prepared struct {
 	// Title is Original reversed when written backwards, without its
 	// extension, site prefix and suffix, torrent suffix and trailing
 	// quality bracket, with 【】 read as [].
-	Title string
+	Title regex.Text
 	// Simple is Title with resolution, codec, audio, bit depth and frame
 	// sizes blanked, so no number in them reads as an episode.
-	Simple string
+	Simple regex.Text
 	// Obfuscated is a hashed or obfuscated name. Its Name is zero.
 	Obfuscated bool
 }
 
 func Prepare(name string) Prepared {
-	return Prepared{Original: name, Title: name, Simple: name}
+	t := regex.TextOf(name)
+	return Prepared{Original: name, Title: t, Simple: t}
 }
