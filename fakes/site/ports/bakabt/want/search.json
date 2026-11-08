@@ -1,0 +1,57 @@
+{
+  "releases": [
+    {
+      "title": "Harbor Lights (2019) [BD 1080p]",
+      "size": 24051816857,
+      "published": "2026-06-01T00:00:00Z",
+      "seeders": 12,
+      "leechers": 3,
+      "grabs": 1000,
+      "link": "https://bakabt.fixture-site.fake.localhost/torrent/1001/fixture#peers",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5070,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 0,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://bakabt.fixture-site.fake.localhost/torrent/1001/fixture",
+      "source": null,
+      "flags": [
+        "freeleech"
+      ]
+    },
+    {
+      "title": "Harbor Lights (2019) Season 2 [WEB 720p]",
+      "size": 6549825126,
+      "published": "2000-01-01T00:00:00Z",
+      "seeders": 4,
+      "leechers": 0,
+      "grabs": 40,
+      "link": "https://bakabt.fixture-site.fake.localhost/torrent/1002/fixture#peers",
+      "magnet": "",
+      "infoHash": "",
+      "categories": [
+        5070,
+        100001
+      ],
+      "ids": null,
+      "factors": {
+        "download": 1,
+        "upload": 1
+      },
+      "minRatio": 1,
+      "minSeed": "48h0m0s",
+      "details": "https://bakabt.fixture-site.fake.localhost/torrent/1002/fixture",
+      "source": null,
+      "flags": []
+    }
+  ],
+  "sessionChanged": false
+}
