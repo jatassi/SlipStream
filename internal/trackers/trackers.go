@@ -42,11 +42,16 @@ type Publisher[T any] interface {
 }
 
 // Grabs is what trackers reads of the Grabs, as grabs.TrackerFacts
-// answers it.
+// answers it. Nothing here writes a Grab but Forget.
 type Grabs interface {
 	// Stated is each Tracker's most recent Grab whose Release stated a
 	// seeding rule.
 	Stated(ctx context.Context, r storage.Reader[file]) (map[indexers.TrackerID]Stated, error)
+	// Unfinished is how many Grabs naming id are neither imported nor
+	// failed, which block its removal.
+	Unfinished(ctx context.Context, r storage.Reader[file], id indexers.TrackerID) (int, error)
+	// Forget sets tracker_id NULL on every Grab naming id, in its removal.
+	Forget(ctx context.Context, tx *storage.Tx[file], id indexers.TrackerID) error
 	// Grabbed is how many Grabs of each Tracker were made since since.
 	Grabbed(ctx context.Context, r storage.Reader[file], since time.Time) (map[indexers.TrackerID]int, error)
 }
@@ -77,6 +82,8 @@ type Config struct {
 	// judged in.
 	Reconciling func(ctx context.Context, r storage.Reader[file]) (bool, error)
 	Changed     Publisher[SeedingChanged]
+	// TrackersChanged publishes trackers.changed when a Tracker is removed.
+	TrackersChanged Publisher[indexers.TrackerChanged]
 }
 
 // NotReconciling is Reconciling until S49 (Backups and restore) stores a

@@ -198,3 +198,9 @@ UPDATE downloadclients_torrent SET tracker_id = sqlc.arg(tracker_id) WHERE id = 
 
 -- name: RepointTracker :exec
 UPDATE downloadclients_torrent SET tracker_id = sqlc.arg(into_id) WHERE tracker_id = sqlc.arg(from_id);
+
+-- name: ListTorrentsOfTracker :many
+SELECT id, removed_at IS NULL AS live FROM downloadclients_torrent WHERE tracker_id = sqlc.arg(tracker_id) ORDER BY id;
+
+-- name: ForgetTracker :exec
+UPDATE downloadclients_torrent SET tracker_id = NULL WHERE tracker_id = sqlc.arg(tracker_id) AND removed_at IS NOT NULL;

@@ -150,6 +150,12 @@ func (x *Indexers) merge(ctx context.Context, tx *storage.Tx[file], from, into T
 	return q.DeleteTracker(ctx, from)
 }
 
+// DeleteTracker deletes Tracker id in a removal's tx. Its keys, hosts and
+// reach cascade, and the caller first forgets every other row naming it.
+func DeleteTracker(ctx context.Context, tx *storage.Tx[file], id TrackerID) error {
+	return db.New(tx).DeleteTracker(ctx, id)
+}
+
 // AddHosts sets Tracker t's privacy from a torrent's private flag while it
 // is unknown, and adds a private torrent's announce hosts to it, inside
 // tx. A public torrent adds none, since it announces to shared trackers.

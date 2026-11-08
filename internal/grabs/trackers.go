@@ -28,6 +28,17 @@ func (TrackerFacts) Stated(ctx context.Context, r storage.Reader[file]) (map[ind
 	return out, nil
 }
 
+// Unfinished is how many Grabs naming id are neither imported nor failed.
+func (TrackerFacts) Unfinished(ctx context.Context, r storage.Reader[file], id indexers.TrackerID) (int, error) {
+	n, err := db.New(r).CountUnfinishedOfTracker(ctx, id)
+	return int(n), err
+}
+
+// Forget sets tracker_id NULL on every Grab naming id.
+func (TrackerFacts) Forget(ctx context.Context, tx *storage.Tx[file], id indexers.TrackerID) error {
+	return db.New(tx).ForgetTracker(ctx, id)
+}
+
 // Grabbed is how many Grabs of each Tracker were made since since.
 func (TrackerFacts) Grabbed(ctx context.Context, r storage.Reader[file], since time.Time) (map[indexers.TrackerID]int, error) {
 	rows, err := db.New(r).CountGrabsSince(ctx, storage.FromTime(since))

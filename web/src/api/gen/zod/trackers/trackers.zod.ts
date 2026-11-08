@@ -42,6 +42,15 @@ export const UpdateSeedingSettingsBody = TrackersSettingsChange;
 export const UpdateSeedingSettingsResponse = TrackersSettings;
 
 /**
+ * @summary Remove a Tracker that no Indexer reaches and no live torrent or unfinished Grab names. Removing it also deletes its seeding rule, goal and seeding history. Its finished Grabs and removed torrents are kept with no Tracker.
+ */
+export const RemoveTrackerParams = zod.object({
+  id: zod.uuid(),
+});
+
+export const RemoveTrackerResponse = zod.void();
+
+/**
  * @summary Get a Tracker
  */
 export const GetTrackerParams = zod.object({

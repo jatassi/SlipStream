@@ -25,6 +25,12 @@ func (p *published) Publish(_ context.Context, v trackers.SeedingChanged) {
 	p.trackers = append(p.trackers, v.TrackerID)
 }
 
+type identities struct{ trackers []string }
+
+func (p *identities) Publish(_ context.Context, v indexers.TrackerChanged) {
+	p.trackers = append(p.trackers, v.TrackerID)
+}
+
 type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
@@ -50,12 +56,13 @@ func (l late) EndlessUnits(ctx context.Context, r storage.Reader[storage.Library
 }
 
 type library struct {
-	t       *testing.T
-	lib     *storage.DB[storage.Library]
-	x       *trackers.Trackers
-	clients *downloadclients.Clients
-	changed *published
-	soon    int
+	t               *testing.T
+	lib             *storage.DB[storage.Library]
+	x               *trackers.Trackers
+	clients         *downloadclients.Clients
+	changed         *published
+	trackersChanged *identities
+	soon            int
 	// node, work and item are what every planted Grab names.
 	node, work, item storage.UUID
 }
@@ -63,7 +70,7 @@ type library struct {
 func newLibrary(t *testing.T) *library {
 	t.Helper()
 	l := &library{
-		t: t, changed: &published{},
+		t: t, changed: &published{}, trackersChanged: &identities{},
 		lib: storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(),
 			grabs.Schema(), indexers.Schema(), trackers.Schema(), files.Schema()),
 		node: storage.NewUUID(), work: storage.NewUUID(), item: storage.NewUUID(),
@@ -71,7 +78,7 @@ func newLibrary(t *testing.T) *library {
 	l.clients = downloadclients.New(downloadclients.Config{Library: l.lib, Roster: roster{}, Uses: grabs.TorrentUses{}, Seeding: late{&l.x}})
 	l.x = trackers.New(trackers.Config{
 		Library: l.lib, Clients: l.clients, Grabs: grabs.TrackerFacts{}, Roster: roster{},
-		Soon: func() { l.soon++ }, Reconciling: trackers.NotReconciling, Changed: l.changed,
+		Soon: func() { l.soon++ }, Reconciling: trackers.NotReconciling, Changed: l.changed, TrackersChanged: l.trackersChanged,
 	})
 	l.exec(`INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, l.node)
 	l.exec(`INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, 'fixture', 'w1', 'Orchard', 'Orchard', 0, 0)`, l.work)

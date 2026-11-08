@@ -134,13 +134,14 @@ func (n *Node) startController(ctx context.Context) error {
 	})
 	var scheduler *tasks.Scheduler
 	seeding = trackers.New(trackers.Config{
-		Library:     lib.db,
-		Clients:     clients,
-		Grabs:       grabs.TrackerFacts{},
-		Roster:      openedRoster{&side},
-		Soon:        func() { scheduler.Soon(trackers.TaskID) },
-		Reconciling: trackers.NotReconciling,
-		Changed:     trackers.SeedingChangedEvent.Bind(n.hub),
+		Library:         lib.db,
+		Clients:         clients,
+		Grabs:           grabs.TrackerFacts{},
+		Roster:          openedRoster{&side},
+		Soon:            func() { scheduler.Soon(trackers.TaskID) },
+		Reconciling:     trackers.NotReconciling,
+		Changed:         trackers.SeedingChangedEvent.Bind(n.hub),
+		TrackersChanged: indexers.TrackersEvent.Bind(n.hub),
 	})
 	downloads = downloading.Def.Serve(downloadclients.Intent, clients.Apply)
 	stored := storing.Def.Serve(roots.StorageIntent(files.RootContents{}), roots.ApplyStorage)

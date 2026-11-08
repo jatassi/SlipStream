@@ -58,6 +58,9 @@ UPDATE OR IGNORE trackers_goal SET tracker_id = sqlc.arg(into_id) WHERE tracker_
 -- name: RepointWindows :exec
 UPDATE trackers_window SET tracker_id = sqlc.arg(into_id) WHERE tracker_id = sqlc.arg(from_id);
 
+-- name: DeleteGoalRuns :exec
+DELETE FROM trackers_goal_run WHERE torrent_id IN (sqlc.slice(torrent_ids));
+
 -- name: ListWindowsOf :many
 SELECT * FROM trackers_window WHERE info_hash IN (sqlc.slice(info_hashes)) ORDER BY info_hash;
 
