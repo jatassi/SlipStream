@@ -1,42 +1,134 @@
+import type { TargetsScores, TargetsTargetPropers } from "../api/gen/model";
 import { type Layout, type QualityKey, cam } from "./order";
 import { listed } from "./words";
 
+/** What Judge in internal/targets reads of a Target: its layout, score settings and propers setting. */
+export type Rules = Layout & {
+  readonly scores: Pick<TargetsScores, "minimum" | "upgradeUntil" | "increment">;
+  readonly propers: TargetsTargetPropers;
+};
+
 /**
- * Why a release may or may not take a cell, as Judge in internal/targets
- * decides it for quality alone: vacant and outside take any accepted
- * quality, upgrade ranks above the held file, and final, tied and lower
- * are Judge's not_an_upgrade.
+ * A release, or the file it would replace. The version is 1 unless a
+ * proper or repack raised it, real counts REAL, and a null group is
+ * unknown.
  */
-export type Why = "vacant" | "outside" | "upgrade" | "not_in_target" | "final" | "tied" | "lower";
+export type Side = {
+  readonly quality: QualityKey;
+  readonly version: number;
+  readonly real: number;
+  readonly repack: boolean;
+  readonly group: string | null;
+  readonly score: number;
+};
 
-export type Move = { readonly from: QualityKey | null; readonly to: QualityKey };
+export type Move = { readonly from: Side | null; readonly to: Side };
 
-type Judged = { readonly allowed: boolean; readonly why: Why };
+/**
+ * Why a release may or may not take a cell, as Judge decides it. Each but
+ * not_in_target is one of Judge's numbered upgrade rules.
+ */
+export type Why =
+  | "not_in_target"
+  | "vacant"
+  | "outside"
+  | "proper"
+  | "other_group"
+  | "upgrade"
+  | "final"
+  | "lower"
+  | "older"
+  | "tied"
+  | "gain"
+  | "short";
+
+type Judged = {
+  readonly allowed: boolean;
+  readonly why: Why;
+  readonly rule: number;
+  readonly belowMinimum: boolean;
+};
+
+/** A release against the file filling its cell, as the upgrade rules read it, mirroring Go's move. */
+type Compared = {
+  readonly vacant: boolean;
+  readonly outside: boolean;
+  /** +1 when the release's tier is better than the file's, -1 when worse. */
+  readonly tier: number;
+  /** The release's revision against the file's within one Quality, 0 across Qualities. */
+  readonly revision: number;
+  readonly heldFinal: boolean;
+  readonly repack: boolean;
+  readonly sameGroup: boolean;
+  readonly propers: TargetsTargetPropers;
+  readonly score: number;
+  readonly held: number;
+  readonly upgradeUntil: number;
+  readonly increment: number;
+};
+
+const upgradeRules: readonly {
+  readonly rule: number;
+  readonly why: Why;
+  readonly applies: (c: Compared) => boolean;
+}[] = [
+  { rule: 1, why: "vacant", applies: (c) => c.vacant },
+  { rule: 1, why: "outside", applies: (c) => c.outside },
+  {
+    rule: 2,
+    why: "other_group",
+    applies: (c) =>
+      c.revision > 0 && c.propers === "prefer_and_upgrade" && c.repack && !c.sameGroup,
+  },
+  { rule: 2, why: "proper", applies: (c) => c.revision > 0 && c.propers === "prefer_and_upgrade" },
+  { rule: 3, why: "upgrade", applies: (c) => c.tier > 0 && !c.heldFinal },
+  { rule: 4, why: "final", applies: (c) => c.tier > 0 },
+  { rule: 5, why: "lower", applies: (c) => c.tier < 0 },
+  { rule: 6, why: "older", applies: (c) => c.revision < 0 && c.propers !== "dont_prefer" },
+  { rule: 7, why: "tied", applies: (c) => c.held >= c.upgradeUntil },
+  { rule: 8, why: "gain", applies: (c) => c.score >= c.held + c.increment },
+];
+
+const otherwise = { rule: 8, why: "short" } as const;
+
+const upgrading: ReadonlySet<Why> = new Set(["vacant", "outside", "proper", "upgrade", "gain"]);
 
 const rankIn = (tiers: Layout["tiers"], key: QualityKey): number | undefined => {
   const at = tiers.findIndex((tier) => tier.includes(key));
   return at === -1 ? undefined : at;
 };
 
-export function judgeMove({ tiers, cutoff }: Layout, { from, to }: Move): Judged {
-  const rank = rankIn(tiers, to);
+const revisionOf = (a: Side, b: Side): number =>
+  Math.sign(a.real - b.real) || Math.sign(Math.max(a.version, 1) - Math.max(b.version, 1));
+
+const sameGroup = (a: string | null, b: string | null): boolean =>
+  a !== null && b !== null && a.toLowerCase() === b.toLowerCase();
+
+export function judgeMove(rules: Rules, { from, to }: Move): Judged {
+  const { tiers, cutoff, scores, propers } = rules;
+  const belowMinimum = to.score < scores.minimum;
+  const rank = rankIn(tiers, to.quality);
   if (rank === undefined) {
-    return { allowed: false, why: "not_in_target" };
+    return { allowed: false, why: "not_in_target", rule: 0, belowMinimum };
   }
-  if (from === null) {
-    return { allowed: true, why: "vacant" };
-  }
-  const held = rankIn(tiers, from);
-  if (held === undefined) {
-    return { allowed: true, why: "outside" };
-  }
-  if (held <= cutoff) {
-    return { allowed: false, why: "final" };
-  }
-  if (rank === held) {
-    return { allowed: false, why: "tied" };
-  }
-  return rank < held ? { allowed: true, why: "upgrade" } : { allowed: false, why: "lower" };
+  const held = from === null ? undefined : rankIn(tiers, from.quality);
+  const compared: Compared = {
+    vacant: from === null,
+    outside: held === undefined,
+    tier: held === undefined ? 0 : Math.sign(held - rank),
+    revision: from !== null && from.quality === to.quality ? revisionOf(to, from) : 0,
+    heldFinal: held !== undefined && held <= cutoff,
+    repack: to.repack,
+    sameGroup: sameGroup(to.group, from?.group ?? null),
+    propers,
+    score: to.score,
+    held: from?.score ?? 0,
+    upgradeUntil: scores.upgradeUntil,
+    increment: scores.increment,
+  };
+  const decided = upgradeRules.find((rule) => rule.applies(compared)) ?? otherwise;
+  const allowed = upgrading.has(decided.why) && !belowMinimum;
+  return { allowed, why: decided.why, rule: decided.rule, belowMinimum };
 }
 
 export type Sample = Judged & {
@@ -49,15 +141,65 @@ type Name = (key: QualityKey) => string;
 
 const either = (names: readonly string[]): string => listed(names, "or");
 
-const reasons: { readonly [W in Why]: (from: string, to: string) => string } = {
-  upgrade: (from, to) => `${to} ranks above ${from}.`,
-  outside: (from, to) => `${to} ranks above ${from}.`,
-  vacant: (from, to) => `${to} ranks above ${from}.`,
-  not_in_target: (_from, to) => `This Target doesn't accept ${to}.`,
-  final: (from) => `${from} has reached the cutoff, so nothing replaces it.`,
-  tied: (from, to) => `${from} and ${to} are tied.`,
-  lower: (from, to) => `${to} ranks below ${from}.`,
+type Said = {
+  readonly from: string;
+  readonly to: string;
+  readonly move: { readonly from: Side; readonly to: Side };
+  readonly rules: Rules;
 };
+
+const reasons: { readonly [W in Why]: (said: Said) => string } = {
+  upgrade: ({ from, to }) => `${to} ranks above ${from}.`,
+  outside: ({ from, to }) => `${to} ranks above ${from}.`,
+  vacant: ({ from, to }) => `${to} ranks above ${from}.`,
+  not_in_target: ({ to }) => `This Target doesn't accept ${to}.`,
+  proper: ({ from }) => `This release is a newer revision of the ${from} file.`,
+  other_group: () => "This repack is from another release group than the file it would replace.",
+  final: ({ from }) => `${from} has reached the cutoff, so no better tier replaces it.`,
+  lower: ({ from, to }) => `${to} ranks below ${from}.`,
+  older: ({ from }) => `This release is an older revision of the ${from} file.`,
+  tied: ({ from, to, move, rules }) =>
+    move.from.score === 0 && rules.scores.upgradeUntil === 0
+      ? `${from} and ${to} are tied.`
+      : `${from} and ${to} are tied, and ${from} scores ${String(move.from.score)}, at or above this Target's upgrade-until score of ${String(rules.scores.upgradeUntil)}.`,
+  gain: ({ from, to, move, rules }) =>
+    `${to} scores ${String(move.to.score)} and ${from} scores ${String(move.from.score)}, a gain of at least ${String(rules.scores.increment)}.`,
+  short: ({ from, to, move, rules }) =>
+    `${to} scores ${String(move.to.score)}. It needs ${String(move.from.score + rules.scores.increment)} or more to replace ${from}.`,
+};
+
+/**
+ * Judge's answer for a move over a held file, with its reasons in words,
+ * such as "This repack is from another release group than the file it
+ * would replace."
+ */
+export function judgeInWords(
+  rules: Rules,
+  move: { readonly from: Side; readonly to: Side },
+  name: Name,
+): Judged & { readonly reason: string } {
+  const judged = judgeMove(rules, move);
+  const said = reasons[judged.why]({
+    from: name(move.from.quality),
+    to: name(move.to.quality),
+    move,
+    rules,
+  });
+  const reason = judged.belowMinimum
+    ? `${said} Score ${String(move.to.score)} is below this Target's minimum of ${String(rules.scores.minimum)}.`
+    : said;
+  return { ...judged, reason };
+}
+
+/** A release or file of quality with no revision, group or score. */
+const plain = (quality: QualityKey): Side => ({
+  quality,
+  version: 1,
+  real: 0,
+  repack: false,
+  group: null,
+  score: 0,
+});
 
 /** The moves worth showing for a layout: an upgrade, a tie, the cutoff, a step down and a quality left out. */
 function sampleMoves(layout: Layout, table: readonly QualityKey[]): [QualityKey, QualityKey][] {
@@ -92,11 +234,11 @@ function sampleMoves(layout: Layout, table: readonly QualityKey[]): [QualityKey,
  * `table` is every quality, low to high, for a sample of one left out.
  */
 export function upgradeSentence(
-  layout: Layout,
+  rules: Rules,
   table: readonly QualityKey[],
   name: Name,
 ): { sentence: string; samples: Sample[] } {
-  const { tiers, cutoff } = layout;
+  const { tiers, cutoff } = rules;
   const bottom = tiers.at(-1);
   if (bottom === undefined) {
     return { sentence: "Accepts no quality yet, so it grabs nothing.", samples: [] };
@@ -106,9 +248,8 @@ export function upgradeSentence(
     cutoff >= tiers.length - 1
       ? "Keeps the first file it grabs."
       : `Upgrades until ${either((tiers[cutoff] ?? []).map((key) => name(key)))}, then stops.`;
-  const samples = sampleMoves(layout, table).map(([from, to]): Sample => {
-    const { allowed, why } = judgeMove(layout, { from, to });
-    return { allowed, why, from, to, reason: reasons[why](name(from), name(to)) };
-  });
+  const samples = sampleMoves(rules, table).map(([from, to]): Sample =>
+    Object.assign(judgeInWords(rules, { from: plain(from), to: plain(to) }, name), { from, to }),
+  );
   return { sentence: `${grabs} ${stops}`, samples };
 }

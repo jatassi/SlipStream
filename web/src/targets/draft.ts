@@ -20,6 +20,7 @@ import {
   presetOrder,
   rankedOf,
 } from "./order";
+import type { Rules } from "./upgrade-sentence";
 import { type Attribute, attributes } from "./vocab";
 
 export type Rule =
@@ -123,6 +124,12 @@ export const unacceptedOf = (draft: TargetDraft, keys: readonly QualityKey[]): Q
 };
 
 export const layoutOfDraft = (draft: TargetDraft): Layout => layoutOf(draft.order, draft.cinema);
+
+export const rulesOfDraft = (draft: TargetDraft): Rules => ({
+  ...layoutOfDraft(draft),
+  scores: draft.scores,
+  propers: draft.propers,
+});
 
 export const acceptedInOrder = (draft: TargetDraft): QualityKey[] =>
   layoutOfDraft(draft).tiers.flat();

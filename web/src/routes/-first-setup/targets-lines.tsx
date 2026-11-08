@@ -6,7 +6,7 @@ import type {
   TargetsSize,
   TargetsTarget,
 } from "../../api/gen/model";
-import { draftOf, layoutOfDraft } from "../../targets/draft";
+import { draftOf, rulesOfDraft } from "../../targets/draft";
 import { useQualityNames } from "../../targets/quality-names";
 import { upgradeSentence } from "../../targets/upgrade-sentence";
 import { Button } from "../../ui/button";
@@ -71,7 +71,7 @@ export function TargetLine({
 }) {
   const name = useQualityNames();
   const { sentence } = upgradeSentence(
-    layoutOfDraft(draftOf(target, qualities)),
+    rulesOfDraft(draftOf(target, qualities)),
     qualities.qualities.map((quality) => quality.key),
     name,
   );

@@ -10,6 +10,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/targets"
 )
@@ -17,19 +18,50 @@ import (
 var update = flag.Bool("update", false, "rewrite testdata/upgrades.json and testdata/filters.json from Judge and the vocabularies")
 
 // The web app's Target editor says in words which moves a Target allows.
-// It reads these files in its own tests, so its rule and Judge can't drift.
+// It reads these files in its own tests, so its rules and Judge can't
+// drift.
 type move struct {
-	From      *string  `json:"from"`
-	To        string   `json:"to"`
+	From      *side    `json:"from"`
+	To        side     `json:"to"`
 	Grabbable bool     `json:"grabbable"`
 	Reasons   []string `json:"reasons"`
+	Rule      int      `json:"rule"`
+}
+
+// side is a release or held file. Version 0 reads as 1, and an empty
+// group is unknown.
+type side struct {
+	Quality string `json:"quality"`
+	Version int    `json:"version,omitempty"`
+	Real    int    `json:"real,omitempty"`
+	Repack  bool   `json:"repack,omitempty"`
+	Group   string `json:"group,omitempty"`
+	Score   int    `json:"score,omitempty"`
+}
+
+func (s side) facts(t *testing.T) release.Facts {
+	t.Helper()
+	f := release.Facts{
+		Quality:  release.Known(must[release.Quality](t)(release.ParseQuality(s.Quality))),
+		Revision: release.Revision{Version: max(s.Version, 1), Real: s.Real, Repack: s.Repack},
+	}
+	if s.Group != "" {
+		f.Group = release.Known(s.Group)
+	}
+	return f
 }
 
 type judged struct {
 	Name   string
 	Tiers  [][]string
 	Cutoff string
-	Moves  []move
+	Scores struct {
+		Minimum      int `json:"minimum"`
+		UpgradeUntil int `json:"upgradeUntil"`
+		Increment    int `json:"increment"`
+	}
+	Propers string
+	Moves   []move
 }
 
 func layout(t *testing.T, name string, p targets.Preset, chosen func(release.QualityInfo) bool, upgrades bool) targets.Target {
@@ -45,35 +77,53 @@ func layout(t *testing.T, name string, p targets.Preset, chosen func(release.Qua
 	return must[targets.Target](t)(targets.NewTarget(s))
 }
 
-func judgeEveryMove(tg targets.Target) judged {
+// offer is a release a golden judges: a side and the formats it matches.
+type offer struct {
+	side
+	formats formats.Set
+}
+
+func judgeMoves(t *testing.T, tg targets.Target, helds []*side, offers []offer) judged {
+	t.Helper()
 	s := tg.Spec()
-	out := judged{Name: tg.Name, Cutoff: s.Cutoff.String()}
+	out := judged{Name: tg.Name, Cutoff: s.Cutoff.String(), Propers: tg.Propers.String()}
+	out.Scores.Minimum, out.Scores.UpgradeUntil, out.Scores.Increment = tg.Scores.Minimum, tg.Scores.UpgradeUntil, tg.Scores.Increment
 	for _, tier := range s.Tiers {
 		out.Tiers = append(out.Tiers, names(tier))
 	}
-	helds := []*targets.Held{nil}
-	for _, q := range release.Qualities() {
-		helds = append(helds, &targets.Held{Facts: release.Facts{Quality: release.Known(q)}})
-	}
-	for _, held := range helds {
-		var from *string
-		if held != nil {
-			q, _ := held.Facts.Quality.Get()
-			key := q.String()
-			from = &key
+	for _, from := range helds {
+		var held *targets.Held
+		if from != nil {
+			held = &targets.Held{Facts: from.facts(t), Score: from.Score}
 		}
-		for _, to := range release.Qualities() {
-			v := targets.Judge(tg, targets.Scored{Facts: release.Facts{Quality: release.Known(to)}}, held)
+		for _, o := range offers {
+			v := targets.Judge(tg, targets.Scored{Facts: o.facts(t), Formats: o.formats}, held)
 			reasons := []string{}
 			for _, r := range v.Reasons() {
 				if r.Code != targets.SizeNotChecked {
 					reasons = append(reasons, string(r.Code))
 				}
 			}
-			out.Moves = append(out.Moves, move{From: from, To: to.String(), Grabbable: v.Grabbable(), Reasons: reasons})
+			to := o.side
+			to.Score = v.Score()
+			rule, _ := v.Upgrade()
+			out.Moves = append(out.Moves, move{From: from, To: to, Grabbable: v.Grabbable(), Reasons: reasons, Rule: rule})
 		}
 	}
 	return out
+}
+
+// judgeEveryMove judges every quality over every quality held, and over
+// none.
+func judgeEveryMove(t *testing.T, tg targets.Target) judged {
+	t.Helper()
+	helds := []*side{nil}
+	var offers []offer
+	for _, q := range release.Qualities() {
+		helds = append(helds, &side{Quality: q.String()})
+		offers = append(offers, offer{side: side{Quality: q.String()}})
+	}
+	return judgeMoves(t, tg, helds, offers)
 }
 
 func names[V fmt.Stringer](vs []V) []string {
@@ -100,10 +150,12 @@ func encode(t *testing.T, all []judged) []byte {
 	b.WriteString("{\"targets\": [\n")
 	for i, j := range all {
 		head, err := json.Marshal(struct {
-			Cutoff string     `json:"cutoff"`
-			Name   string     `json:"name"`
-			Tiers  [][]string `json:"tiers"`
-		}{j.Cutoff, j.Name, j.Tiers})
+			Cutoff  string     `json:"cutoff"`
+			Name    string     `json:"name"`
+			Propers string     `json:"propers"`
+			Scores  any        `json:"scores"`
+			Tiers   [][]string `json:"tiers"`
+		}{j.Cutoff, j.Name, j.Propers, j.Scores, j.Tiers})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -156,11 +208,55 @@ func TestWebGoldens(t *testing.T) {
 	every := func(release.QualityInfo) bool { return true }
 	middle := layout(t, "Anything better", targets.AnythingBetter, notCinema, true).Spec()
 	middle.Cutoff = release.WEBDL1080p
+	scored := func(name string, minimum, until, increment int) targets.Target {
+		s := layout(t, name, targets.DiscOrResolution, hd, true).Spec()
+		s.Scores = targets.Scores{Formats: map[formats.ID]int{fa: 10, fb: 25, fc: -10}, Minimum: minimum, UpgradeUntil: until, Increment: increment}
+		return must[targets.Target](t)(targets.NewTarget(s))
+	}
+	scoredHelds := []*side{nil}
+	for _, q := range []string{"webdl-1080p", "bluray-1080p"} {
+		for _, score := range []int{-10, 0, 10, 30, 40} {
+			scoredHelds = append(scoredHelds, &side{Quality: q, Score: score})
+		}
+	}
+	var scoredOffers []offer
+	for _, q := range []string{"webdl-1080p", "webrip-1080p", "remux-1080p", "bluray-720p"} {
+		for _, fs := range []formats.Set{nil, {fa}, {fb}, {fa, fb}, {fc}} {
+			scoredOffers = append(scoredOffers, offer{side: side{Quality: q}, formats: fs})
+		}
+	}
+	propers := func(name string, p targets.Propers) targets.Target {
+		s := layout(t, name, targets.DiscOrResolution, hd, true).Spec()
+		s.Propers = p
+		return must[targets.Target](t)(targets.NewTarget(s))
+	}
+	revisions := []side{{}, {Version: 2}, {Version: 2, Repack: true}, {Real: 1}}
+	var propersHelds []*side
+	for _, q := range []string{"webdl-1080p", "bluray-1080p"} {
+		for _, r := range revisions[:2] {
+			for _, g := range []string{"FLUX", ""} {
+				propersHelds = append(propersHelds, &side{Quality: q, Version: r.Version, Group: g})
+			}
+		}
+	}
+	var propersOffers []offer
+	for _, q := range []string{"webdl-1080p", "webrip-1080p", "bluray-1080p"} {
+		for _, r := range revisions {
+			for _, g := range []string{"flux", "NTb", ""} {
+				propersOffers = append(propersOffers, offer{side: side{Quality: q, Version: r.Version, Real: r.Real, Repack: r.Repack, Group: g}})
+			}
+		}
+	}
 	golden(t, "upgrades.json", encode(t, []judged{
-		judgeEveryMove(layout(t, "1080p", targets.DiscOrResolution, hd, true)),
-		judgeEveryMove(layout(t, "No upgrades", targets.DiscOrResolution, hd, false)),
-		judgeEveryMove(must[targets.Target](t)(targets.NewTarget(middle))),
-		judgeEveryMove(layout(t, "Resolution only", targets.ResolutionOnly, every, true)),
+		judgeEveryMove(t, layout(t, "1080p", targets.DiscOrResolution, hd, true)),
+		judgeEveryMove(t, layout(t, "No upgrades", targets.DiscOrResolution, hd, false)),
+		judgeEveryMove(t, must[targets.Target](t)(targets.NewTarget(middle))),
+		judgeEveryMove(t, layout(t, "Resolution only", targets.ResolutionOnly, every, true)),
+		judgeMoves(t, scored("Scored", -5, 30, 10), scoredHelds, scoredOffers),
+		judgeMoves(t, scored("Scored, upgrade-until 0", 0, 0, 1), scoredHelds, scoredOffers),
+		judgeMoves(t, propers("Prefer and upgrade", targets.PreferAndUpgrade), propersHelds, propersOffers),
+		judgeMoves(t, propers("Prefer, don't upgrade", targets.PreferNoUpgrade), propersHelds, propersOffers),
+		judgeMoves(t, propers("Don't prefer", targets.DontPrefer), propersHelds, propersOffers),
 	}))
 	if !slices.Equal(targets.Attributes()[:4], []targets.Attribute{targets.HDR, targets.VideoCodec, targets.AudioCodec, targets.Channels}) {
 		t.Fatalf("the attributes are %v", targets.Attributes())
