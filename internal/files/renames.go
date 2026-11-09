@@ -79,10 +79,11 @@ func (f *Files) Unmatched(ctx context.Context, _ identity.Admin) (map[works.Type
 // Rename renames the rows of each Work of cs whose plan under the stored
 // settings still has the confirmed digest, but for the files it leaves
 // out, every row of a group with one left out or blocked, and blocked
-// rows. Other Works are left and named. It asks each root's Node which
-// files sit at the new paths first, then recomputes and renames up to 200
-// Works per Write, each judged by its digest alone, with the new paths of
-// cs's other Works in the way as the plan had them.
+// rows. Other Works are left and named. It first reads where the
+// library's files are and asks each root's Node which files sit at the
+// new paths, then recomputes and renames up to 200 Works per Write, each
+// judged by its digest alone, with the files read first and the new paths
+// of cs's other Works in the way, as a plan of cs has them.
 func (f *Files) Rename(ctx context.Context, _ identity.Admin, cs []Confirm) (Confirmed, error) {
 	asked := make(map[works.WorkID]Confirm, len(cs))
 	var ids []works.WorkID
@@ -93,13 +94,21 @@ func (f *Files) Rename(ctx context.Context, _ identity.Admin, cs []Confirm) (Con
 		}
 	}
 	var first []WorkPlan
+	var owners map[place][]works.WorkID
 	err := f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		pl, err := f.plansOf(ctx, r, ids)
+		if err != nil {
+			return err
+		}
 		first = workPlans(pl)
+		owners, err = ownersIn(ctx, db.New(r))
 		return err
 	})
 	if err != nil {
 		return Confirmed{}, err
+	}
+	for _, p := range first {
+		aside(owners, p)
 	}
 	found, _, err := f.survey(ctx, first, false)
 	if err != nil {
@@ -115,21 +124,8 @@ func (f *Files) Rename(ctx context.Context, _ identity.Admin, cs []Confirm) (Con
 				return err
 			}
 			q := db.New(tx)
-			tracked, err := trackedIn(ctx, q)
-			if err != nil {
-				return err
-			}
-			inChunk := map[works.WorkID]bool{}
-			for _, id := range chunk {
-				inChunk[id] = true
-			}
-			for _, p := range first {
-				if !inChunk[p.Work] {
-					aside(tracked, p)
-				}
-			}
 			ps := workPlans(pl)
-			settle(ps, tracked, found)
+			settle(ps, owners, found)
 			for i, p := range ps {
 				seen[p.Work] = true
 				if p.Digest != asked[p.Work].Digest {
@@ -207,7 +203,7 @@ func (f *Files) settled(ctx context.Context, s Scope, draft *Draft, companions b
 		return nil, err
 	}
 	var ps []WorkPlan
-	var tracked map[place][]works.WorkID
+	var owners map[place][]works.WorkID
 	err := f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		trees, among, err := s.trees(ctx, r)
 		if err != nil {
@@ -218,7 +214,7 @@ func (f *Files) settled(ctx context.Context, s Scope, draft *Draft, companions b
 			return err
 		}
 		ps = workPlans(pl)
-		tracked, err = trackedIn(ctx, db.New(r))
+		owners, err = ownersIn(ctx, db.New(r))
 		return err
 	})
 	if err != nil {
@@ -228,7 +224,7 @@ func (f *Files) settled(ctx context.Context, s Scope, draft *Draft, companions b
 	if err != nil {
 		return nil, err
 	}
-	settle(ps, tracked, found)
+	settle(ps, owners, found)
 	for i := range ps {
 		for j := range ps[i].Rows {
 			ps[i].Rows[j].Companions = beside[ps[i].Rows[j].File]
@@ -300,29 +296,32 @@ func workPlans(pl []worldPlan) []WorkPlan {
 	return out
 }
 
-// trackedIn is each place a live file's bytes belong or sit, and its
-// Work.
-func trackedIn(ctx context.Context, q *db.Queries) (map[place][]works.WorkID, error) {
+// ownersIn is each place, folded, where a live file's bytes belong or
+// sit, and its Works.
+func ownersIn(ctx context.Context, q *db.Queries) (map[place][]works.WorkID, error) {
 	rows, err := q.ListTracked(ctx)
 	if err != nil {
 		return nil, err
 	}
 	out := make(map[place][]works.WorkID, len(rows))
 	for _, row := range rows {
-		out[place{row.RootID, row.Path}] = append(out[place{row.RootID, row.Path}], row.WorkID)
+		at := folded(row.RootID, row.Path)
+		out[at] = append(out[at], row.WorkID)
 		if row.Sits != nil {
-			out[place{row.RootID, *row.Sits}] = append(out[place{row.RootID, *row.Sits}], row.WorkID)
+			at := folded(row.RootID, *row.Sits)
+			out[at] = append(out[at], row.WorkID)
 		}
 	}
 	return out, nil
 }
 
 // aside adds the new path of each row of p not blocked before settling to
-// tracked, as a place p's Work takes.
-func aside(tracked map[place][]works.WorkID, p WorkPlan) {
+// owners, as a place p's Work takes.
+func aside(owners map[place][]works.WorkID, p WorkPlan) {
 	for _, r := range p.Rows {
 		if r.Blocked == (Blocked{}) {
-			tracked[place{r.root, r.To}] = append(tracked[place{r.root, r.To}], p.Work)
+			at := folded(r.root, r.To)
+			owners[at] = append(owners[at], p.Work)
 		}
 	}
 }

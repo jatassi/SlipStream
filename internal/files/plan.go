@@ -227,27 +227,24 @@ func group(rows []Row) {
 }
 
 // settle blocks each row of ps that can't rename now, then seals each
-// plan's digest. tracked is each place SlipStream tracks a file in, or a
-// Work outside ps renames a file to, and those Works; found is what the
-// Node found at each row's To, by the row's file: the paths whose names
-// are To's without case.
+// plan's digest. owners is each place, folded, where SlipStream tracks a
+// file or a Work outside ps renames one to, and those Works; found is what
+// the Node found at each row's To, by the row's file: the paths whose
+// names are To's without case.
 //
 // A row is a Clash when its To is, without case, another Work's tracked
 // file or another Work's row's To, naming the lowest such Work. It
 // is Occupied when the Node found a file there that isn't a From of its
 // own Work's rows: its own source in another case is a case-only rename,
 // and another row's From is vacated.
-func settle(ps []WorkPlan, tracked map[place][]works.WorkID, found map[ID][]string) {
-	owners := map[place][]works.WorkID{}
-	for at, ws := range tracked {
-		owners[folded(at.root, at.path)] = append(owners[folded(at.root, at.path)], ws...)
-	}
+func settle(ps []WorkPlan, owners map[place][]works.WorkID, found map[ID][]string) {
+	to := map[place][]works.WorkID{}
 	vacated := map[place]works.WorkID{}
 	for _, p := range ps {
 		for _, r := range p.Rows {
 			vacated[place{r.root, r.From}] = p.Work
 			if r.Blocked == (Blocked{}) {
-				owners[folded(r.root, r.To)] = append(owners[folded(r.root, r.To)], p.Work)
+				to[folded(r.root, r.To)] = append(to[folded(r.root, r.To)], p.Work)
 			}
 		}
 	}
@@ -258,7 +255,8 @@ func settle(ps []WorkPlan, tracked map[place][]works.WorkID, found map[ID][]stri
 			if r.Blocked != (Blocked{}) {
 				continue
 			}
-			others := slices.DeleteFunc(slices.Clone(owners[folded(r.root, r.To)]), func(w works.WorkID) bool { return w == p.Work })
+			at := folded(r.root, r.To)
+			others := slices.DeleteFunc(slices.Concat(owners[at], to[at]), func(w works.WorkID) bool { return w == p.Work })
 			if len(others) > 0 {
 				r.Blocked = Blocked{Reason: Clash, Other: slices.MinFunc(others, func(a, b works.WorkID) int { return a.Compare(b.UUID) })}
 				continue

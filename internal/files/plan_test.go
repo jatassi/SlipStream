@@ -224,9 +224,9 @@ func TestSettleBlocksRowsThatCantRenameNow(t *testing.T) {
 		ps[0].Rows[4].File: {"A/q.mkv"},
 		ps[0].Rows[5].File: {"A/p.mkv"},
 	}
-	tracked := map[place][]works.WorkID{{root, "B/Held.mkv"}: {b}, {root, "A/p.mkv"}: {a}, {root, "A/q.mkv"}: {a}}
+	owners := map[place][]works.WorkID{folded(root, "B/Held.mkv"): {b}, folded(root, "A/p.mkv"): {a}, folded(root, "A/q.mkv"): {a}}
 
-	settle(ps, tracked, found)
+	settle(ps, owners, found)
 
 	want := []Blocked{{Reason: Clash, Other: b}, {Reason: Occupied}, {}, {Reason: Clash, Other: b}, {}, {}, long}
 	for i, r := range ps[0].Rows {
