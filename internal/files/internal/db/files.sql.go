@@ -280,6 +280,20 @@ func (q *Queries) FinishMove(ctx context.Context, arg FinishMoveParams) (int64, 
 	return result.RowsAffected()
 }
 
+const forgetGoneAt = `-- name: ForgetGoneAt :exec
+DELETE FROM files_file WHERE root_id = ?1 AND path = ?2 AND gone_at IS NOT NULL
+`
+
+type ForgetGoneAtParams struct {
+	RootID roots.ID
+	Path   string
+}
+
+func (q *Queries) ForgetGoneAt(ctx context.Context, arg ForgetGoneAtParams) error {
+	_, err := q.db.ExecContext(ctx, forgetGoneAt, arg.RootID, arg.Path)
+	return err
+}
+
 const forgetGoneOfRoot = `-- name: ForgetGoneOfRoot :exec
 DELETE FROM files_file WHERE root_id = ?1 AND gone_at IS NOT NULL
 `
@@ -1287,6 +1301,46 @@ func (q *Queries) ListPrune(ctx context.Context) ([]FilesPrune, error) {
 	for rows.Next() {
 		var i FilesPrune
 		if err := rows.Scan(&i.RootID, &i.Folder); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTracked = `-- name: ListTracked :many
+SELECT f.work_id, f.root_id, f.path, m.sits FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
+WHERE f.gone_at IS NULL ORDER BY f.id
+`
+
+type ListTrackedRow struct {
+	WorkID works.WorkID
+	RootID roots.ID
+	Path   string
+	Sits   *string
+}
+
+func (q *Queries) ListTracked(ctx context.Context) ([]ListTrackedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTracked)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTrackedRow
+	for rows.Next() {
+		var i ListTrackedRow
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.RootID,
+			&i.Path,
+			&i.Sits,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -52,7 +52,10 @@ type Row struct {
 	// 1, for every row of its Work joined by one's To being another's
 	// From without case: rows that trade or chain paths, ticked together.
 	Group int
-	root  roots.ID
+	// Companions are the files beside From that move with it, such as
+	// its subtitles: only a one-Work plan lists them.
+	Companions []string
+	root       roots.ID
 }
 
 // WorkPlan is one Work's rows, in file id order.
@@ -103,9 +106,17 @@ func digest(rows []Row) Digest {
 }
 
 // plans is each Work of trees's plan under its Content Type's stored
-// scheme, before any Node is asked, read in r with the values of each
-// type's Works in one read. among names trees' Works.
-func (f *Files) plans(ctx context.Context, r storage.Reader[file], trees []works.Bare, among works.Among[works.WorkID]) ([]WorkPlan, error) {
+// scheme, or under draft for draft's type, before any Node is asked, read
+// in r with the values of each type's Works in one read, with the world
+// and names each was made from. among names trees' Works.
+func (f *Files) plans(ctx context.Context, r storage.Reader[file], trees []works.Bare, among works.Among[works.WorkID], draft *Draft) ([]worldPlan, error) {
+	var scheme *naming.Scheme
+	if draft != nil {
+		var err error
+		if scheme, err = f.cfg.Naming.DraftIn(ctx, r, draft.Type, draft.Patch); err != nil {
+			return nil, err
+		}
+	}
 	ws, err := f.worlds(ctx, r, trees, among, wholeFiles)
 	if err != nil {
 		return nil, err
@@ -121,14 +132,25 @@ func (f *Files) plans(ctx context.Context, r storage.Reader[file], trees []works
 	if err != nil {
 		return nil, err
 	}
-	out := make([]WorkPlan, len(ws))
+	out := make([]worldPlan, len(ws))
 	for i, w := range ws {
 		w.moving = moving
-		if out[i], err = plan(w); err != nil {
+		if draft != nil && w.tree.ContentType == draft.Type {
+			w.scheme = scheme
+		}
+		out[i].w = w
+		if out[i].WorkPlan, out[i].names, err = plan(w); err != nil {
 			return nil, err
 		}
 	}
 	return out, nil
+}
+
+// worldPlan is a Work's plan with the world and the names it was made from.
+type worldPlan struct {
+	WorkPlan
+	w     world
+	names map[ID]name
 }
 
 // movingIn is the files of among's Works the disk queue still moves.
@@ -146,11 +168,11 @@ func movingIn(ctx context.Context, q *db.Queries, among works.Among[works.WorkID
 // plan is w's rows under its stored fills: every live file names puts
 // somewhere else in everyFile mode, blocked as names blocks it, grouped.
 // A file the disk queue still moves is counted, not listed.
-func plan(w world) (WorkPlan, error) {
+func plan(w world) (WorkPlan, map[ID]name, error) {
 	w.mode = everyFile
 	nm, blocked, err := names(w, w.fills)
 	if err != nil {
-		return WorkPlan{}, err
+		return WorkPlan{}, nil, err
 	}
 	p := WorkPlan{Work: w.tree.ID, Type: w.tree.ContentType, Title: w.tree.Label}
 	for _, f := range w.files {
@@ -163,7 +185,7 @@ func plan(w world) (WorkPlan, error) {
 		}
 	}
 	group(p.Rows)
-	return p, nil
+	return p, nm, nil
 }
 
 // group numbers each set of rows joined by one's To being another's From
@@ -205,26 +227,24 @@ func group(rows []Row) {
 }
 
 // settle blocks each row of ps that can't rename now, then seals each
-// plan's digest. tracked is each place SlipStream tracks a file in, and
-// its Work; found is what the Node found at each row's To, by the row's
-// file: the paths whose names are To's without case.
+// plan's digest. owners is each place, folded, where SlipStream tracks a
+// file or a Work outside ps renames one to, and those Works; found is what
+// the Node found at each row's To, by the row's file: the paths whose
+// names are To's without case.
 //
 // A row is a Clash when its To is, without case, another Work's tracked
 // file or another Work's row's To, naming the lowest such Work. It
 // is Occupied when the Node found a file there that isn't a From of its
 // own Work's rows: its own source in another case is a case-only rename,
 // and another row's From is vacated.
-func settle(ps []WorkPlan, tracked map[place]works.WorkID, found map[ID][]string) {
-	owners := map[place][]works.WorkID{}
-	for at, w := range tracked {
-		owners[folded(at.root, at.path)] = append(owners[folded(at.root, at.path)], w)
-	}
+func settle(ps []WorkPlan, owners map[place][]works.WorkID, found map[ID][]string) {
+	to := map[place][]works.WorkID{}
 	vacated := map[place]works.WorkID{}
 	for _, p := range ps {
 		for _, r := range p.Rows {
 			vacated[place{r.root, r.From}] = p.Work
 			if r.Blocked == (Blocked{}) {
-				owners[folded(r.root, r.To)] = append(owners[folded(r.root, r.To)], p.Work)
+				to[folded(r.root, r.To)] = append(to[folded(r.root, r.To)], p.Work)
 			}
 		}
 	}
@@ -235,7 +255,8 @@ func settle(ps []WorkPlan, tracked map[place]works.WorkID, found map[ID][]string
 			if r.Blocked != (Blocked{}) {
 				continue
 			}
-			others := slices.DeleteFunc(slices.Clone(owners[folded(r.root, r.To)]), func(w works.WorkID) bool { return w == p.Work })
+			at := folded(r.root, r.To)
+			others := slices.DeleteFunc(slices.Concat(owners[at], to[at]), func(w works.WorkID) bool { return w == p.Work })
 			if len(others) > 0 {
 				r.Blocked = Blocked{Reason: Clash, Other: slices.MinFunc(others, func(a, b works.WorkID) int { return a.Compare(b.UUID) })}
 				continue

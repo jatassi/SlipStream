@@ -8,16 +8,28 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// Scope is the Works a count covers: one Work, or every Work of a Content
-// Type. Only WorkScope and TypeScope make one.
+// Scope is the Works a plan or a count covers: one Work, every Work of a
+// Content Type, or the whole library. Only WorkScope, TypeScope and
+// LibraryScope make one.
 type Scope struct {
+	kind scopeKind
 	work works.WorkID
 	typ  works.TypeID
 }
 
-func WorkScope(w works.WorkID) Scope { return Scope{work: w} }
+type scopeKind uint8
 
-func TypeScope(t works.TypeID) Scope { return Scope{typ: t} }
+const (
+	oneWork scopeKind = iota + 1
+	oneType
+	library
+)
+
+func WorkScope(w works.WorkID) Scope { return Scope{kind: oneWork, work: w} }
+
+func TypeScope(t works.TypeID) Scope { return Scope{kind: oneType, typ: t} }
+
+func LibraryScope() Scope { return Scope{kind: library} }
 
 // Moving counts the files of s the disk queue still moves, for "Renaming
 // 128 files…".
@@ -25,7 +37,7 @@ func (f *Files) Moving(ctx context.Context, s Scope) (int, error) {
 	var n int64
 	err := f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		q := db.New(r)
-		if !s.work.IsZero() {
+		if s.kind == oneWork {
 			var err error
 			n, err = q.CountMovingOfWork(ctx, s.work)
 			return err
@@ -43,7 +55,7 @@ func (f *Files) Moving(ctx context.Context, s Scope) (int, error) {
 			return err
 		}
 		for _, row := range rows {
-			if of[row.WorkID].ContentType == s.typ {
+			if s.kind == library || of[row.WorkID].ContentType == s.typ {
 				n += row.Files
 			}
 		}
