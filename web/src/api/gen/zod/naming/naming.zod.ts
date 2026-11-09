@@ -28,7 +28,7 @@ export const SetNamingBody = SetNamingInputBody;
 export const SetNamingResponse = NamingTypeNaming;
 
 /**
- * @summary Name a Content Type's samples under a draft of its naming settings, with what the save check refuses. Nothing is stored
+ * @summary Name a Content Type's samples, a Work's files and tested file names under a draft of its naming settings, with what the save check refuses. Nothing is stored
  */
 export const previewNamingPathContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 

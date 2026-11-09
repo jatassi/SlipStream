@@ -5552,18 +5552,90 @@ export const NamingNamingList = zod.object({
 export type NamingNamingList = zod.input<typeof NamingNamingList>;
 export type NamingNamingListOutput = zod.output<typeof NamingNamingList>;
 
+export const NamingUnplaced = zod.object({
+  code: zod
+    .enum(["no_number", "no_such_item", "several_items", "no_rule"])
+    .describe("Why the Content Type can't tell which Item the name holds"),
+  names: zod
+    .string()
+    .exactOptional()
+    .describe("For no_such_item: the Item the name names, such as S03E14"),
+});
+
+export type NamingUnplaced = zod.input<typeof NamingUnplaced>;
+export type NamingUnplacedOutput = zod.output<typeof NamingUnplaced>;
+
+export const NamingTestedName = zod.object({
+  detail: zod
+    .string()
+    .exactOptional()
+    .describe("Why it would go nowhere, then what to do, for any other reason"),
+  name: zod.string(),
+  path: zod
+    .string()
+    .describe(
+      "Where a file of that name would go if a library scan found it now, relative to the root; empty when it would go nowhere",
+    ),
+  unplaced: NamingUnplaced.exactOptional().describe(
+    "Why it would go nowhere, when no Item of the Work holds the name",
+  ),
+});
+
+export type NamingTestedName = zod.input<typeof NamingTestedName>;
+export type NamingTestedNameOutput = zod.output<typeof NamingTestedName>;
+
+export const NamingWorkFile = zod.object({
+  detail: zod.string().exactOptional().describe("Why its name doesn't fit, then what to do"),
+  from: zod.string().describe("Where the file is now, relative to its root"),
+  to: zod.string().describe("Where the draft puts it; empty when its name doesn't fit"),
+});
+
+export type NamingWorkFile = zod.input<typeof NamingWorkFile>;
+export type NamingWorkFileOutput = zod.output<typeof NamingWorkFile>;
+
 export const NamingPreview = zod.object({
   fields: zod.array(NamingFieldPreview).describe("Every setting, in the settings' order"),
+  tested: zod
+    .array(NamingTestedName)
+    .describe("Each of names, in order; empty while a setting has a problem"),
+  work: zod
+    .array(NamingWorkFile)
+    .describe(
+      "Each live file of workId's Work, in the order it was added; empty without workId and while a setting has a problem",
+    ),
 });
 
 export type NamingPreview = zod.input<typeof NamingPreview>;
 export type NamingPreviewOutput = zod.output<typeof NamingPreview>;
+
+export const NamingTestName = zod.object({
+  name: zod.string().min(1).describe("A file name, or a path inside the Work's folder"),
+  workId: zod
+    .uuid()
+    .describe("The Work the name matches, as POST /releases/parse with kind file reads it"),
+});
+
+export type NamingTestName = zod.input<typeof NamingTestName>;
+export type NamingTestNameOutput = zod.output<typeof NamingTestName>;
+
+export const namingPreviewInputBodyNamesMax = 100;
 
 export const NamingPreviewInputBody = zod.object({
   draft: zod
     .record(zod.string(), zod.unknown())
     .describe(
       "Values over the stored settings by key, as a save would send them; null reads a setting's default",
+    ),
+  names: zod
+    .array(NamingTestName)
+    .max(namingPreviewInputBodyNamesMax)
+    .nullish()
+    .describe("File names to name under the draft, each in the Work it matches"),
+  workId: zod
+    .uuid()
+    .exactOptional()
+    .describe(
+      "A Work whose files to name under the draft. A Work of another Content Type is named under its own stored settings.",
     ),
 });
 

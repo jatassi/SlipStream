@@ -10,7 +10,9 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/namingapi"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -23,9 +25,15 @@ type discard struct{}
 
 func (discard) Publish(context.Context, naming.Changed) {}
 
-type node struct{ n *naming.Naming }
+type node struct {
+	n  *naming.Naming
+	f  *files.Files
+	im *imports.Imports
+}
 
-func (n node) Naming() (*naming.Naming, bool) { return n.n, true }
+func (n node) Naming() (*naming.Naming, bool)    { return n.n, true }
+func (n node) Files() (*files.Files, bool)       { return n.f, n.f != nil }
+func (n node) Imports() (*imports.Imports, bool) { return n.im, n.im != nil }
 
 // serve serves the naming of the Fixture type, whose roots hold paths of
 // up to 1,000 bytes.
@@ -38,7 +46,7 @@ func serve(t *testing.T) *ownertest.Owner {
 		Budget:   func(context.Context, storage.Reader[storage.Library], works.TypeID) (int, error) { return 1000, nil },
 		Changed:  discard{},
 	})
-	return ownertest.Serve(t, lib, func(r *api.Router) { namingapi.Routes(r, node{n}) })
+	return ownertest.Serve(t, lib, func(r *api.Router) { namingapi.Routes(r, node{n: n}) })
 }
 
 func call[T any](t *testing.T, o *ownertest.Owner, method, path, body string, status int) T {
