@@ -1,6 +1,6 @@
 # Work page
 
-One Work on one scroll. The hero sets the Work's backdrop behind its poster, its title treatment as the heading, the facts line with its first rating, pills for what its cells add up to, its overview, and its actions: Search, Editions, Monitored and the `More actions` menu with Edit, Refresh metadata and Delete. Needs you lists what only an Admin can resolve. The Edition by Target matrix shows each wanted Edition's cells with their files, progress or failure, then Files and Kept files, About with the fields its type places there, and its Grabs and searches.
+One Work on one scroll. The hero sets the Work's backdrop behind its poster, its title treatment as the heading, the facts line with its first rating, pills for what its cells add up to, its overview, and its actions: Search, Editions, Monitored and the `More actions` menu with Edit, Refresh metadata, Rename files and Delete. Needs you lists what only an Admin can resolve. The Edition by Target matrix shows each wanted Edition's cells with their files, progress or failure, then Files and Kept files, About with the fields its type places there, and its Grabs and searches.
 
 ## Sub-features
 
@@ -22,9 +22,9 @@ One Work on one scroll. The hero sets the Work's backdrop behind its poster, its
 
 ## How to get to it (user POV)
 
-- Desktop shell: a Work's poster or row in the Library, a Work in the palette, or `/works/{id}`. The hero's `More actions for <title>` holds `Edit…`, `Refresh metadata` and `Delete…`.
+- Desktop shell: a Work's poster or row in the Library, a Work in the palette, or `/works/{id}`. The hero's `More actions for <title>` holds `Edit…`, `Refresh metadata`, `Rename files…` and `Delete…`, and `Rename files…` opens the Work's rename plan ([naming.md](naming.md)).
 - Both shells: a gone file's `Forget` sits on its row in `Gone files`, and each file's `Details` hold its media info.
-- Phone shell: the same Work, as a pushed page whose nav bar holds the title. `More actions for <title>` opens an action sheet with `Monitored`, `Edit Editions`, `Edit…`, `Refresh metadata` and `Delete…`.
+- Phone shell: the same Work, as a pushed page whose nav bar holds the title. `More actions for <title>` opens an action sheet with `Monitored`, `Edit Editions`, `Edit…`, `Refresh metadata`, `Rename files…` and `Delete…`.
 - API: `GET /api/v1/works/{id}`, `GET /api/v1/works/{id}/cells` (the summary and Needs you), `GET /api/v1/works/{id}/files`, `GET` and `PUT /api/v1/works/{id}/wants` (`{"editions": ...}` or `{"editions": null}`, with `?preview=true`), `PUT /api/v1/works/profile`, `POST /api/v1/works/refresh` with one id, `POST /api/v1/works/delete`, `POST /api/v1/files/forget {fileIds}`, which answers 409 `files_not_gone` for a file that isn't gone.
 - Host CLI: none.
 
