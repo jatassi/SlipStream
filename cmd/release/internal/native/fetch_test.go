@@ -122,7 +122,7 @@ func TestFetchRetriesAServerErrorAndACutDownload(t *testing.T) {
 	noRetryWaits(t)
 	_, asset, _ := publish(t)
 	var requests atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		switch requests.Add(1) {
 		case 1:
 			w.WriteHeader(http.StatusGatewayTimeout)
