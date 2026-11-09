@@ -69,6 +69,12 @@ var divergences = []divergence{
 		spec:     "#135",
 	},
 	{
+		id:          "path-limit",
+		keyPatterns: []string{"storage.path_limit"},
+		reason:      "A Node may write paths no longer than Windows' 259 bytes, so a run on any OS plays the rename plan's path length rules.",
+		spec:        "#149",
+	},
+	{
 		id:          "fake-endpoints",
 		keyPatterns: []string{"endpoints.*"},
 		reason:      "Each boundary's endpoints point at its fake.",

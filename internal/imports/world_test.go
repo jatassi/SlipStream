@@ -150,7 +150,7 @@ func newWorld(t *testing.T) *world {
 	}
 	if w.files, err = files.Open(ctx, files.Config{
 		Library: w.lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }},
-		Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: w.fx}, Names: map[works.TypeID]release.Names{contenttypetest.ID: w.fx}, Today: time.Now,
+		Naming: naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: w.fx}}), Names: map[works.TypeID]release.Names{contenttypetest.ID: w.fx}, Today: time.Now,
 	}); err != nil {
 		t.Fatal(err)
 	}

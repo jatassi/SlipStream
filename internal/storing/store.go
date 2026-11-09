@@ -38,6 +38,8 @@ type Config struct {
 	Prober media.Prober
 	// ProbeTimeout bounds one Probe: timings.media.probe.
 	ProbeTimeout time.Duration
+	// PathLimit is storage.path_limit, which the facts report.
+	PathLimit int64
 }
 
 // resampleEvery is the least time between two samples a placement asks
@@ -312,7 +314,7 @@ func (s *Store) pass(ctx context.Context) *storagev1.Facts {
 		s.judged[r.id] = judgment{r.place, verdicts[i].state}
 	}
 	s.mu.Unlock()
-	facts := &storagev1.Facts{}
+	facts := &storagev1.Facts{PathLimit: s.cfg.PathLimit}
 	for i, r := range roots {
 		facts.Roots = append(facts.Roots, &storagev1.RootFacts{
 			Id: r.id.Bytes(), Place: r.place, State: verdicts[i].state.Wire(), VolumeId: of[r.id], Detail: verdicts[i].detail,

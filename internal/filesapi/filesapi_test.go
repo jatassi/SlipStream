@@ -178,7 +178,7 @@ func TestForgetFilesForgetsGoneFilesAllOrNone(t *testing.T) {
 	}
 	var changed told
 	svc, err := files.Open(ctx, files.Config{
-		Library: lib, Targets: goals, Grabs: files.NoGrabs{}, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx},
+		Library: lib, Targets: goals, Grabs: files.NoGrabs{}, Naming: naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}}),
 		Names: map[works.TypeID]release.Names{contenttypetest.ID: fx}, Today: time.Now, Changed: &changed,
 	})
 	if err != nil {

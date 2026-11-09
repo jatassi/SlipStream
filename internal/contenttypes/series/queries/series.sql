@@ -108,3 +108,15 @@ SELECT work_id, tvdb_id, tmdb_id, imdb_id, first_aired FROM series_series WHERE 
 
 -- name: ListEveryClaim :many
 SELECT work_id, tvdb_id, tmdb_id, imdb_id, first_aired FROM series_series ORDER BY work_id;
+
+-- name: ListNamesOf :many
+SELECT work_id, tvdb_id, tmdb_id, imdb_id, english_title, first_aired, episode_order, name_by_air_date FROM series_series WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
+
+-- name: ListEveryName :many
+SELECT work_id, tvdb_id, tmdb_id, imdb_id, english_title, first_aired, episode_order, name_by_air_date FROM series_series ORDER BY work_id;
+
+-- name: ListEpisodeNamesOf :many
+SELECT item_id, work_id, season_number, episode_number, absolute_number, air_date FROM series_episode WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id, season_number, episode_number;
+
+-- name: ListEveryEpisodeName :many
+SELECT item_id, work_id, season_number, episode_number, absolute_number, air_date FROM series_episode ORDER BY work_id, season_number, episode_number;

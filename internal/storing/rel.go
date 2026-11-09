@@ -35,6 +35,23 @@ func (r Rel) String() string { return r.s }
 
 func (r Rel) segments() []string { return strings.Split(r.s, "/") }
 
+// split is rel's folder, the zero Rel for the root, and its name.
+func (r Rel) split() (folder Rel, name string) {
+	i := strings.LastIndexByte(r.s, '/')
+	if i < 0 {
+		return Rel{}, r.s
+	}
+	return Rel{r.s[:i]}, r.s[i+1:]
+}
+
+// join is name in the folder r, the zero Rel for the root.
+func (r Rel) join(name string) Rel {
+	if r.s == "" {
+		return Rel{name}
+	}
+	return Rel{r.s + "/" + name}
+}
+
 func drive(s string) bool {
 	return len(s) >= 2 && s[1] == ':' && ('a' <= s[0]|0x20 && s[0]|0x20 <= 'z')
 }

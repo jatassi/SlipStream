@@ -13,6 +13,7 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/registry"
 	"golang.org/x/sys/windows/svc"
 )
 
@@ -23,6 +24,21 @@ const (
 	fileAddFile         = 0x2
 	fileAddSubdirectory = 0x4
 )
+
+// PathLimit is the longest absolute path Windows opens, in bytes: MAX_PATH
+// less its terminating NUL, or the long path limit once LongPathsEnabled
+// is 1.
+func PathLimit() int64 {
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, `SYSTEM\CurrentControlSet\Control\FileSystem`, registry.QUERY_VALUE)
+	if err != nil {
+		return 259
+	}
+	defer func() { _ = k.Close() }()
+	if v, _, err := k.GetIntegerValue("LongPathsEnabled"); err == nil && v == 1 {
+		return 32767
+	}
+	return 259
+}
 
 func attrsOf(de fs.DirEntry) uint32 {
 	info, err := de.Info()

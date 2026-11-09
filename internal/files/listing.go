@@ -7,7 +7,6 @@ import (
 	"slices"
 
 	"github.com/jatassi/slipstream/internal/identity"
-	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -31,7 +30,7 @@ type Listing struct {
 // Work has the id: the files that fill a cell first, in Profile order of
 // the first Target each fills, then the rest, Kept files among them,
 // oldest first. Folder is the first file's, or while the Work has none the
-// one its naming template gives its first Item.
+// one its folder template gives it.
 func (f *Files) WorkFiles(ctx context.Context, _ identity.Admin, work works.WorkID) (Listing, error) {
 	var out Listing
 	err := f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
@@ -40,15 +39,18 @@ func (f *Files) WorkFiles(ctx context.Context, _ identity.Admin, work works.Work
 			return err
 		}
 		out = listing(w)
-		if len(out.Files) > 0 || len(w.tree.Items) == 0 {
+		if len(out.Files) > 0 {
 			return nil
 		}
-		facet := f.cfg.Naming[w.tree.ContentType]
-		tokens, err := facet.NamingTokens(ctx, r, w.tree.Items[0].ID)
+		scheme, err := f.cfg.Naming.SchemeIn(ctx, r, w.tree.ContentType)
 		if err != nil {
 			return err
 		}
-		out.Folder, err = naming.Render(facet.DefaultTemplates().Folder, tokens, naming.Core{})
+		values, err := f.cfg.Naming.ValuesIn(ctx, r, w.tree.ContentType, works.Only([]works.WorkID{work}))
+		if err != nil {
+			return err
+		}
+		out.Folder, err = scheme.Folder(values[work].Work)
 		return err
 	})
 	return out, err

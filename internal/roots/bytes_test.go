@@ -129,7 +129,7 @@ func TestBytesGoThroughTheRootsNode(t *testing.T) {
 		t.Fatal(err)
 	}
 	held := rel(storing.HoldingDir + "/g.mkv")
-	if moved, err := svc.Move(ctx, root.ID, rel(storing.StagingDir+"/g.part"), held); err != nil || moved.Size != 4 {
+	if moved, err := svc.Move(ctx, root.ID, rel(storing.StagingDir+"/g.part"), held, false); err != nil || moved.Size != 4 {
 		t.Fatalf("Move from staging = %+v, %v; want the 4 bytes", moved, err)
 	}
 	names, err := svc.ListHeld(ctx, root.ID, storing.Holding)
@@ -149,8 +149,51 @@ func TestBytesGoThroughTheRootsNode(t *testing.T) {
 	if b, err := os.ReadFile(filepath.Join(folder, "Orchard", "Orchard.mkv")); err != nil || string(b) != "orchard" {
 		t.Fatalf("the placed file holds %q, %v; want the download", b, err)
 	}
-	if _, err := svc.Move(ctx, roots.ID{UUID: storage.NewUUID()}, held, held); !errors.Is(err, roots.ErrNotFound) {
+	if _, err := svc.Move(ctx, roots.ID{UUID: storage.NewUUID()}, held, held, false); !errors.Is(err, roots.ErrNotFound) {
 		t.Fatalf("Move in no root = %v, want ErrNotFound", err)
+	}
+}
+
+func TestRenamesGoThroughTheRootsNode(t *testing.T) {
+	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
+	node := role.NodeID{UUID: storage.NewUUID()}
+	folder := t.TempDir()
+	root := rootstest.Root(t, lib, node, alpha, folder)
+	svc := rootstest.Held(t, lib, node, payload(filepath.Join(t.TempDir(), "unused.mkv")), alpha)
+	ctx := t.Context()
+	rel := func(p string) storing.Rel {
+		t.Helper()
+		r, err := storing.ParseRel(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	if err := os.MkdirAll(filepath.Join(folder, "Orchard"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	placed := rel("Orchard/Orchard.mkv")
+	if err := os.WriteFile(filepath.Join(folder, "Orchard", "Orchard.mkv"), []byte("orchard"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(folder, "Orchard", "Orchard.en.srt"), []byte("subs"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	renamed := rel("Orchard (2021)/Orchard (2021).mkv")
+	surveyed, err := svc.Survey(ctx, root.ID, []storing.Planned{{From: placed, To: renamed}, {From: placed, To: rel("Orchard/orchard.MKV")}}, true)
+	if err != nil || len(surveyed) != 2 || len(surveyed[0].Occupants) != 0 || len(surveyed[1].Occupants) != 1 ||
+		!slices.Equal(surveyed[0].Companions, []storing.Rel{rel("Orchard/Orchard.en.srt")}) {
+		t.Fatalf("Survey = %+v, %v; want the first target free, the second the file itself, and its subtitles", surveyed, err)
+	}
+	if moved, err := svc.Move(ctx, root.ID, placed, renamed, true); err != nil || len(moved.Left) != 0 {
+		t.Fatalf("a carrying Move = %+v, %v; want the subtitles carried", moved, err)
+	}
+	if b, err := os.ReadFile(filepath.Join(folder, "Orchard (2021)", "Orchard (2021).en.srt")); err != nil || string(b) != "subs" {
+		t.Fatalf("the carried subtitles hold %q, %v", b, err)
+	}
+	removed, err := svc.Prune(ctx, root.ID, rel("Orchard"), nil)
+	if err != nil || !slices.Equal(removed, []storing.Rel{rel("Orchard")}) {
+		t.Fatalf("Prune = %v, %v; want the emptied Orchard", removed, err)
 	}
 }
 
@@ -168,7 +211,7 @@ func TestAWriteToARootItsNodeDoesntHoldIsNotReady(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	var notReady *storing.NotReady
-	if _, err := svc.Move(ctx, v.ID, held, held); !errors.As(err, &notReady) || !notReady.Unknown {
+	if _, err := svc.Move(ctx, v.ID, held, held, false); !errors.As(err, &notReady) || !notReady.Unknown {
 		t.Fatalf("Move into a root its Node doesn't hold yet = %v, want NotReady unknown", err)
 	}
 }

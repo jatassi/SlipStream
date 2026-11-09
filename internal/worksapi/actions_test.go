@@ -188,9 +188,10 @@ func shelve(t *testing.T) *shelves {
 	}
 	s.queue, err = files.Open(t.Context(), files.Config{
 		Library: lib, Targets: s.goals, Grabs: grabs.GrabCells{}, Transfers: transfers.LiveIn,
-		Naming:  map[works.TypeID]naming.Facet{contenttypetest.ID: s.fx, other: s.fx},
+		Naming:  naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: s.fx, other: s.fx}}),
 		Today:   func() time.Time { return time.Date(2030, time.January, 1, 9, 0, 0, 0, time.UTC) },
 		Disk:    rootstest.Held(t, lib, home, nil, contenttypetest.ID, other),
+		Moved:   discard[files.Moved]{},
 		Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
 		Rand:    rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Log:     slog.New(slog.DiscardHandler),

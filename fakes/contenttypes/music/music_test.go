@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/metadata/metadatatest"
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/naming/namingtest"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/release"
@@ -352,34 +353,31 @@ func TestStoreThenFields(t *testing.T) {
 	fields("after a second Store")
 }
 
-func TestNamingTokensNameATrack(t *testing.T) {
+func TestTheMusicConformsToNaming(t *testing.T) {
+	namingtest.Conform(t, library())
+}
+
+func TestNamingValuesNameATrack(t *testing.T) {
 	m, lib, tree := added(t, catalog(t), lanterns)
-	var tokens map[string]string
+	var values map[works.WorkID]naming.Values
 	if err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		tokens, err = m.NamingTokens(ctx, r, tree.Items[1].ID)
+		values, err = m.NamingValues(ctx, r, works.Only([]works.WorkID{tree.ID}))
 		return err
 	}); err != nil {
 		t.Fatal(err)
 	}
-	templates := m.DefaultTemplates()
-	folder, err := naming.Render(templates.Folder, tokens, naming.Core{Target: "FLAC"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	file, err := naming.Render(templates.File, tokens, naming.Core{Target: "FLAC"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, want := folder+"/"+file, "The Lanterns/The Lanterns - 1-02 - Paper Boats FLAC"; got != want {
-		t.Fatalf("named %q, want %q", got, want)
-	}
-	deluxe, err := naming.Render(templates.File, tokens, naming.Core{Target: "FLAC", EditionTag: "{edition-Deluxe}", Edition: "Deluxe"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := "The Lanterns - 1-02 - Paper Boats Deluxe FLAC"; deluxe != want {
-		t.Fatalf("named the Deluxe file %q, want %q", deluxe, want)
+	sub := values[tree.ID].Of(works.BareOf(tree), []works.ItemID{tree.Items[1].ID})
+	for _, c := range []struct {
+		file naming.FileFacts
+		want string
+	}{
+		{naming.FileFacts{Target: "FLAC"}, "The Lanterns/The Lanterns - 1-02 - Paper Boats FLAC.mkv"},
+		{naming.FileFacts{Target: "FLAC", Cut: "Deluxe"}, "The Lanterns/The Lanterns - 1-02 - Paper Boats Deluxe FLAC.mkv"},
+	} {
+		if got := namingtest.Name(t, m, sub, c.file); got != c.want {
+			t.Errorf("named %q, want %q", got, c.want)
+		}
 	}
 }
 

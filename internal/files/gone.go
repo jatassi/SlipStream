@@ -37,7 +37,7 @@ func OnRoot(ctx context.Context, r storage.Reader[file], root roots.ID) (OnRootF
 			ID: row.ID.UUID, Work: row.WorkID, Size: row.Size, Seen: seenOf(row.ModifiedAt, row.NodeFileID, row.NodeVolumeID),
 			Gone: !row.GoneAt.IsZero(), Stale: row.ProbeVersion < media.Version,
 		}
-		if rec.Path, rec.Sits, rec.Next, err = placesOf(row.ID, row.Path, row.Sits); err != nil {
+		if rec.Path, rec.Sits, rec.Next, err = placesOf(row.ID, row.Path, row.Sits, row.Ring); err != nil {
 			return OnRootFiles{}, fmt.Errorf("file %s of root %s: %w", row.ID, root, err)
 		}
 		out.Files[i] = rec

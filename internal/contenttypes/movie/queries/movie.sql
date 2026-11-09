@@ -86,3 +86,9 @@ SELECT work_id, tmdb_id, imdb_id, year FROM movie_movie WHERE work_id IN (sqlc.s
 
 -- name: ListEveryClaim :many
 SELECT work_id, tmdb_id, imdb_id, year FROM movie_movie ORDER BY rowid;
+
+-- name: ListNamesOf :many
+SELECT work_id, tmdb_id, imdb_id, title_english, original_title, year FROM movie_movie WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
+
+-- name: ListEveryName :many
+SELECT work_id, tmdb_id, imdb_id, title_english, original_title, year FROM movie_movie ORDER BY rowid;

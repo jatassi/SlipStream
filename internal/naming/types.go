@@ -2,6 +2,8 @@ package naming
 
 import (
 	"fmt"
+	"path"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/release"
@@ -37,11 +39,27 @@ type Token struct {
 	Scope   Scope
 	// Seq marks a number token's part in the episode block. Only KindNumber
 	// tokens carry one.
-	Seq     Seq
+	Seq Seq
+	// Group is the token builder's heading. The core sets it: a declared
+	// token's is its Scope's.
+	Group   Group
 	Example string
 	// About is one sentence for the token builder, written to WRITING.md.
 	About string
 }
+
+// Group is a heading of the token builder.
+type Group uint8
+
+const (
+	GroupWork Group = iota + 1
+	GroupLevel
+	GroupItem
+	// GroupTarget is the Target and the cut.
+	GroupTarget
+	GroupRelease
+	GroupMedia
+)
 
 // Kind is what a token's value is, which decides the modifiers it takes
 // and the Value it holds.
@@ -246,10 +264,10 @@ type Unit struct {
 }
 
 // Of is the Subject of a file covering items: for each, in order, the
-// values of its level in tree, its own values, and its Aside from tree.
-func (v Values) Of(tree works.Tree, items []works.ItemID) Subject {
-	byID := make(map[works.ItemID]works.Item, len(tree.Items))
-	for _, it := range tree.Items {
+// values of its level in work, its own values, and its Aside from work.
+func (v Values) Of(work works.Bare, items []works.ItemID) Subject {
+	byID := make(map[works.ItemID]works.Item, len(work.Items))
+	for _, it := range work.Items {
 		byID[it.ID] = it
 	}
 	s := Subject{Work: v.Work, Units: make([]Unit, len(items))}
@@ -385,20 +403,16 @@ type ParseError struct {
 	Pos      int
 	Token    string
 	Sentence string
-	cause    string
 }
 
-func (e *ParseError) Error() string {
-	return fmt.Sprintf("template at byte %d: %s", e.Pos, e.cause)
-}
+// Error is the Sentence, because the template setting shows it to the
+// Admin as it is.
+func (e *ParseError) Error() string { return e.Sentence }
 
 // field is which template of a type a template fills, which decides the
 // scopes its tokens may have.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type field uint8
 
-//nolint:unused // the engine lanes fill the code that reads it
 const (
 	folderField field = iota + 1
 	levelField
@@ -407,14 +421,20 @@ const (
 
 // entry is one name a template may use: a declared token, a title variant
 // derived from one, or a core token.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type entry struct {
 	Token
 	key Key
 	// tag is set for an alias that stands for a tagged ref: {Edition Tag}
 	// is {edition-{Edition}}.
 	tag tag
+	// list is how a KindList entry filters and prints.
+	list listForm
+	// base is the title a derived variant reads, form its variant and
+	// year the year token of its scope, nil when it has none. base is nil
+	// for every other entry.
+	base *entry
+	form *variant
+	year *entry
 	// read is the entry's value for one Unit of a file: a declared token
 	// looks its name up in the Subject, a derived variant computes from
 	// its base token and year, a core token reads FileFacts.
@@ -423,8 +443,6 @@ type entry struct {
 
 // catalog is one type's entries by key: the core's, the type's and the
 // derived title variants.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type catalog struct {
 	byKey   map[Key]*entry
 	ordered []*entry
@@ -432,20 +450,15 @@ type catalog struct {
 
 // boundRef is a ref resolved against a catalog. Its mod is never words:
 // bind reads words as langs, formatFilter or oneFormat.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type boundRef struct {
 	ref
 	entry *entry
 }
 
-//nolint:unused // the engine lanes fill the code that reads it
 func (*boundRef) part() {}
 
 // bound is a Template bound to a catalog for one field: the only form
 // render takes. Its parts are literals and *boundRefs.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type bound struct {
 	field field
 	parts []part
@@ -455,7 +468,8 @@ type bound struct {
 	// alone are the part indexes of SeqAlone refs.
 	alone []int
 	// anchorEnd is where the anchor ends: parts [0, anchorEnd) are the
-	// anchor and the literal " - " starts at anchorEnd.
+	// anchor, which the check wants the literal " - " to follow. It is 0
+	// when the template has no anchor.
 	anchorEnd int
 	// shrinkable are the part indexes of Item-scope KindTitle refs, the only
 	// refs fit cuts.
@@ -463,14 +477,10 @@ type bound struct {
 }
 
 // span is a half-open range of part indexes.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type span struct{ from, to int }
 
 // piece is one rendered part. Only literal pieces take part in the
 // collapse, so a value's dots and a cut's "..." survive.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type piece struct {
 	text    string
 	literal bool
@@ -506,8 +516,8 @@ const (
 )
 
 // Settings is one Content Type's stored overrides. nil is the type's
-// default. Templates are by field key: "folder", "levels.<n>", "aside"
-// and "file.<variant>".
+// default. Templates are by field key: "folder", "levels.<n>" from 1 for
+// the outermost level, "aside" and "file.<variant>".
 type Settings struct {
 	Rename       *bool
 	Templates    map[string]*string
@@ -519,8 +529,6 @@ type Settings struct {
 // Scheme is a type's Declaration under its Settings, bound once: what
 // names every file of the type. It is immutable and safe for concurrent
 // use.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type Scheme struct {
 	decl        Declaration
 	cat         *catalog
@@ -549,13 +557,13 @@ type Placing struct {
 // Landing is where a file goes: folders rendered from the templates, a
 // Work folder that exists with its level folders rendered, or a folder
 // that exists whole. A FolderAnchor is the Work folder the file lands in.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type Landing struct {
 	// work is the Work folder. "" renders it.
 	work string
-	// dir, when set, is the folder the file goes straight into.
-	dir string
+	// dir is the folder the file goes straight into when straight, its
+	// segments Work folder first. None is the root.
+	dir      []string
+	straight bool
 }
 
 // Rendered lands a file where the templates say.
@@ -565,10 +573,15 @@ func Rendered() Landing { return Landing{} }
 // rendered level folders.
 func InWork(folder string) Landing { return Landing{work: folder} }
 
-// InDir lands a file straight in a folder that exists, root-relative. Its
-// Work folder is the folder's first segment.
-func InDir(string) Landing {
-	panic("not implemented")
+// InDir lands a file straight in dir, a folder that exists,
+// root-relative with "/" between segments. Its Work folder is dir's first
+// segment. "" and "." are the root, where the Work folder renders.
+func InDir(dir string) Landing {
+	l := Landing{straight: true}
+	if dir = path.Clean(dir); dir != "." {
+		l.dir = strings.Split(dir, "/")
+	}
+	return l
 }
 
 // FileFacts is what the core tokens read of one file.
@@ -599,31 +612,6 @@ type Named struct {
 	Segments []string
 }
 
-// Name names one file: the Work folder, the level folders and the file
-// name, with a FolderAnchor swapped for the Work folder it lands in,
-// Item-scope titles cut to fit Budget. A path that still doesn't fit is a
-// *TooLongError. With renaming off the file segment is Keep under the
-// cross-OS map.
-func (s *Scheme) Name(Placing) (Named, error) {
-	panic("not implemented")
-}
-
-// Folder renders the Work folder of a Work with no files from the Work's
-// values.
-func (s *Scheme) Folder(Set) (string, error) {
-	panic("not implemented")
-}
-
-func (s *Scheme) Renames() bool {
-	panic("not implemented")
-}
-
-// Reads reports the costly facts the scheme's templates read, so files
-// matches formats only when a template prints them.
-func (s *Scheme) Reads() Reads {
-	panic("not implemented")
-}
-
 type Reads struct{ Formats bool }
 
 // TooLongError is a name that doesn't fit after every shrinkable title is
@@ -637,22 +625,31 @@ type TooLongError struct {
 
 func (e *TooLongError) Error() string {
 	if e.Segment == "" {
-		return fmt.Sprintf("the path takes %d bytes and the limit is %d", e.Bytes, e.Limit)
+		return fmt.Sprintf("the path in the root is %d bytes long and the limit there is %d bytes", e.Bytes, e.Limit)
 	}
-	return fmt.Sprintf("%q takes %d bytes and the limit is %d", e.Segment, e.Bytes, e.Limit)
+	return fmt.Sprintf("the name %q is %d bytes long and the limit is %d bytes", e.Segment, e.Bytes, e.Limit)
 }
 
 // Problem is one setting the check refuses.
 type Problem struct {
-	// Key is the setting key, such as "<type>.naming.file.<variant>".
+	// Key is the field key, as Settings.Templates has it: "folder",
+	// "levels.<n>", "aside" or "file.<variant>", or "colonCustom". The
+	// setting key is "<type>.naming." and Key.
 	Key string
 	// Sentence says what is wrong and then what passes, to WRITING.md.
 	Sentence string
 }
 
+// Error is the Sentence, because the template setting shows it to the
+// Admin as it is.
+func (p Problem) Error() string { return p.Sentence }
+
 // RefusedError is naming settings the check refuses.
 type RefusedError struct{ Problems []Problem }
 
 func (e *RefusedError) Error() string {
+	if len(e.Problems) == 1 {
+		return "the naming settings fail 1 check"
+	}
 	return fmt.Sprintf("the naming settings fail %d checks", len(e.Problems))
 }

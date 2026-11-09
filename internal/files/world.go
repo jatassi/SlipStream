@@ -53,9 +53,9 @@ type world struct {
 	keepPaths bool
 	// retagged is each cut whose name changes, so its files take new names.
 	retagged map[release.CutKey]bool
-	// templates and tokens are loaded by named, for names alone.
-	templates naming.Templates
-	tokens    map[works.ItemID]map[string]string
+	// scheme and values are loaded by named, for names alone.
+	scheme *naming.Scheme
+	values naming.Values
 }
 
 func (f *Files) load(ctx context.Context, r storage.Reader[file], work works.WorkID) (world, error) {
@@ -211,39 +211,27 @@ func briefFiles(ctx context.Context, q *db.Queries, among works.Among[works.Work
 	return out, err
 }
 
-// named adds what names reads to w under fills: the Content Type's
-// templates and the tokens of every Item holding a file whose name
-// changes, read Item by Item. The placed file's come first: labels reads
-// them for its folder.
+// named adds what names reads to w under fills: the Content Type's scheme
+// and the Work's values, when a file of w takes a new path.
 func (f *Files) named(ctx context.Context, r storage.Reader[file], w *world, fills map[CellKey]Fill) error {
-	facet := f.cfg.Naming[w.tree.ContentType]
-	w.templates, w.tokens = facet.DefaultTemplates(), map[works.ItemID]map[string]string{}
-	need := func(item works.ItemID) error {
-		if _, ok := w.tokens[item]; ok {
+	if !slices.ContainsFunc(w.files, func(g File) bool { return g.ID == w.fresh }) {
+		next, err := labels(*w, fills)
+		if err != nil {
+			return err
+		}
+		if !slices.ContainsFunc(w.files, func(g File) bool { return renamed(*w, g, next[g.ID]) }) {
 			return nil
 		}
-		tokens, err := facet.NamingTokens(ctx, r, item)
-		w.tokens[item] = tokens
-		return err
 	}
-	for _, file := range w.files {
-		if file.ID == w.fresh {
-			if err := need(file.ItemID); err != nil {
-				return err
-			}
-		}
-	}
-	next, err := labels(*w, fills)
+	scheme, err := f.cfg.Naming.SchemeIn(ctx, r, w.tree.ContentType)
 	if err != nil {
 		return err
 	}
-	for _, file := range w.files {
-		if renamed(*w, file, next[file.ID]) {
-			if err := need(file.ItemID); err != nil {
-				return err
-			}
-		}
+	values, err := f.cfg.Naming.ValuesIn(ctx, r, w.tree.ContentType, works.Only([]works.WorkID{w.tree.ID}))
+	if err != nil {
+		return err
 	}
+	w.scheme, w.values = scheme, values[w.tree.ID]
 	return nil
 }
 

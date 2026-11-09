@@ -134,8 +134,11 @@ func (s PathStyle) Join(dir, name string) string {
 	return dir + string(s.sep()) + name
 }
 
-// Under is rel under the clean folder root.
+// Under is rel under the clean folder root, root itself for the zero Rel.
 func (s PathStyle) Under(root string, rel Rel) string {
+	if rel.s == "" {
+		return root
+	}
 	p := root
 	for _, name := range rel.segments() {
 		p = s.Join(p, name)
