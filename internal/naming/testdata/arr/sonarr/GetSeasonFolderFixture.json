@@ -1,0 +1,14 @@
+{
+  "upstream": "Sonarr",
+  "commit": "c018578e4b79ee048575c02d7a8aa2b929e4b837",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/GetSeasonFolderFixture.cs",
+  "cases": [
+    {"template":"{Series.Title}.{season:00}","values":{"Season":1,"Season Title":"Part 1?","Series Title":"Venture Bros."},"want":"Venture.Bros.01","source":"GetSeasonFolderFixture.cs should_use_seriesFolderFormat_to_build_folder_name #1"},
+    {"template":"{Series Title} Season {season:00}","values":{"Season":1,"Season Title":"Part 1?","Series Title":"Venture Bros."},"want":"Venture Bros. Season 01","source":"GetSeasonFolderFixture.cs should_use_seriesFolderFormat_to_build_folder_name #2"},
+    {"template":"{Series Title} Season {season:00}","values":{"Season":1,"Season Title":"Part 1?","Series Title":"Series Title?"},"want":"Series Title! Season 01","source":"GetSeasonFolderFixture.cs should_use_seriesFolderFormat_to_build_folder_name #3"},
+    {"template":"Season {season:00} - {Season Title}","values":{"Season":1,"Season Title":"Part 1?","Series Title":"Series Title?"},"want":"Season 01 - Part 1!","source":"GetSeasonFolderFixture.cs should_use_seriesFolderFormat_to_build_folder_name #4"},
+    {"template":"Season {season:00} - {Season CleanTitle}","values":{"Season":1,"Season Title":"Part 1?","Series Title":"Series Title?"},"want":"Season 01 - Part 1","source":"GetSeasonFolderFixture.cs should_use_seriesFolderFormat_to_build_folder_name #5"},
+    {"template":"Season {season:00} - {Season Title}","values":{"Season":1,"Series Title":"Series Title"},"want":"Season 01","source":"GetSeasonFolderFixture.cs should_not_throw_when_season_has_no_title #1"},
+    {"template":"Season {season:00} - {Season CleanTitle}","values":{"Season":1,"Series Title":"Series Title"},"want":"Season 01","source":"GetSeasonFolderFixture.cs should_not_throw_when_season_has_no_title #2"}
+  ]
+}

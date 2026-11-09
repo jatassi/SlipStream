@@ -1,0 +1,13 @@
+{
+  "upstream": "Radarr",
+  "commit": "928e8871ccad6a899e9d99781a54fcf17ab7c3d9",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/IdFixture.cs",
+  "cases": [
+    {"template":"{Movie Title} {imdb-{ImdbId}}","values":{"Movie Title":"Movie Title","TmdbId":123456},"want":"Movie Title","source":"IdFixture.cs should_skip_imdb_tag_if_null #1"},
+    {"template":"{Movie Title} {imdbid-{ImdbId}}","values":{"Movie Title":"Movie Title","TmdbId":123456},"want":"Movie Title","source":"IdFixture.cs should_skip_imdb_tag_if_null #2"},
+    {"template":"{Movie Title} {{imdb-{ImdbId}}}","values":{"Movie Title":"Movie Title","TmdbId":123456},"want":"Movie Title","source":"IdFixture.cs should_skip_imdb_tag_if_null #3"},
+    {"template":"{Movie Title} {{imdbid-{ImdbId}}}","values":{"Movie Title":"Movie Title","TmdbId":123456},"want":"Movie Title","source":"IdFixture.cs should_skip_imdb_tag_if_null #4"},
+    {"template":"{Movie Title} {{imdb-{ImdbId}}}","values":{"ImdbId":"tt12345","Movie Title":"Movie Title","TmdbId":123456},"want":"Movie Title {{imdb-tt12345}}","source":"IdFixture.cs should_handle_imdb_tag_curly_brackets #1"},
+    {"template":"{Movie Title} {{tmdb-{TmdbId}}}","values":{"ImdbId":"tt12345","Movie Title":"Movie Title","TmdbId":123456},"want":"Movie Title {{tmdb-123456}}","source":"IdFixture.cs should_handle_tmdb_tag_curly_brackets #1"}
+  ]
+}

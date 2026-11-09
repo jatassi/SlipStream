@@ -14,7 +14,9 @@
 //     expression as data, keyed by its upstream name.
 //   - internal/formats/zz_dialects.go holds the enums the format dialects map.
 //   - Each owner's testdata/upstream holds every [TestCase] row as JSON.
-//   - The TRaSH snapshot, the fixture titles and the fuzz seeds.
+//   - internal/naming/testdata/arr holds Sonarr's and Radarr's file naming
+//     [TestCase] rows as naming cases.
+//   - The TRaSH snapshots, the fixture titles and the fuzz seeds.
 //   - Each owner's upstream.json, and the notices of the code SlipStream
 //     ships from upstream.
 //
@@ -88,6 +90,14 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
+	namings, err := trashNaming(t, p, cos[p.Trash.From])
+	if err != nil {
+		return err
+	}
+	cases, err := organizerCases(t, p, cos)
+	if err != nil {
+		return err
+	}
 	multiline := titlesFile(t, p, titles)
 	seeds, err := fuzzSeeds(t, p, cos)
 	if err != nil {
@@ -108,7 +118,8 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	w.section("Patterns per owner", patterns)
 	w.section("Rows per fixture file", rows)
 	w.section("Fuzz seeds per file", seeds)
-	w.line("TRaSH formats in the snapshot: %d. Stream reader conditions: %d.", formats, conditions)
+	w.section("Naming cases per file", cases)
+	w.line("TRaSH formats in the snapshot: %d. Stream reader conditions: %d. Naming files: %d.", formats, conditions, namings)
 	w.line("Fixture titles: %d, of which %d span lines and are left out of %s.", len(titles), multiline, p.Trash.Titles)
 	w.list("Review these upstream changes", review)
 	w.list("Files changed", changed)

@@ -15,9 +15,10 @@
         "/src/NzbDrone.Core/Languages/Language.cs",
         "/src/NzbDrone.Core/CustomFormats/",
         "/src/NzbDrone.Core.Test/ParserTests/",
-        "/src/NzbDrone.Core/Qualities/Quality.cs"
+        "/src/NzbDrone.Core/Qualities/Quality.cs",
+        "/src/NzbDrone.Core.Test/OrganizerTests/"
       ],
-      "notice": "SlipStream's release parser (`internal/release`) and the series Content Type's title and numbering rules (`internal/contenttypes/series`) are Go ports of Sonarr's C# parser, copyright the Sonarr contributors and modified for SlipStream. Their regular expressions are Sonarr's, copied as data into each package's `internal/upstream`, and each package's `upstream.json` maps its Go files to the Sonarr files they port. The parser's golden tests read Sonarr's parser test cases at the commit above, and the formats package ports Sonarr's Custom Format conditions and enums."
+      "notice": "SlipStream's release parser (`internal/release`) and the series Content Type's title and numbering rules (`internal/contenttypes/series`) are Go ports of Sonarr's C# parser, copyright the Sonarr contributors and modified for SlipStream. Their regular expressions are Sonarr's, copied as data into each package's `internal/upstream`, and each package's `upstream.json` maps its Go files to the Sonarr files they port. The parser's golden tests read Sonarr's parser test cases at the commit above, and the formats package ports Sonarr's Custom Format conditions and enums. The naming tests read Sonarr's file naming test cases at the same commit."
     },
     "radarr": {
       "name": "Radarr",
@@ -34,9 +35,10 @@
         "/src/NzbDrone.Core/CustomFormats/",
         "/src/NzbDrone.Core.Test/ParserTests/",
         "/src/NzbDrone.Core/Qualities/Quality.cs",
-        "/src/NzbDrone.Core/MediaFiles/MediaFileExtensions.cs"
+        "/src/NzbDrone.Core/MediaFiles/MediaFileExtensions.cs",
+        "/src/NzbDrone.Core.Test/OrganizerTests/"
       ],
-      "notice": "SlipStream's release parser (`internal/release`) and the movie Content Type's title rules (`internal/contenttypes/movie`) are Go ports of Radarr's C# parser, copyright the Radarr contributors and modified for SlipStream. Their regular expressions are Radarr's, copied as data into each package's `internal/upstream`, and each package's `upstream.json` maps its Go files to the Radarr files they port. The parser's golden tests read Radarr's parser test cases at the commit above, and the formats package ports Radarr's Custom Format conditions and enums."
+      "notice": "SlipStream's release parser (`internal/release`) and the movie Content Type's title rules (`internal/contenttypes/movie`) are Go ports of Radarr's C# parser, copyright the Radarr contributors and modified for SlipStream. Their regular expressions are Radarr's, copied as data into each package's `internal/upstream`, and each package's `upstream.json` maps its Go files to the Radarr files they port. The parser's golden tests read Radarr's parser test cases at the commit above, and the formats package ports Radarr's Custom Format conditions and enums. The naming tests read Radarr's file naming test cases at the same commit."
     },
     "trash": {
       "name": "TRaSH Guides",
@@ -47,9 +49,11 @@
       "paths": [
         "/LICENSE",
         "/docs/json/radarr/cf/",
-        "/docs/json/sonarr/cf/"
+        "/docs/json/sonarr/cf/",
+        "/docs/json/radarr/naming/",
+        "/docs/json/sonarr/naming/"
       ],
-      "notice": "The release parser reads HDR, video codec, audio codec and channels from a release name with the conditions of TRaSH Guides' Custom Formats, copied as data into `internal/release/internal/upstream`. The formats tests run every TRaSH Custom Format from a snapshot in `internal/formats/testdata/trash`."
+      "notice": "The release parser reads HDR, video codec, audio codec and channels from a release name with the conditions of TRaSH Guides' Custom Formats, copied as data into `internal/release/internal/upstream`. The formats tests run every TRaSH Custom Format from a snapshot in `internal/formats/testdata/trash`. The naming tests parse every TRaSH naming template from a snapshot in `internal/naming/testdata/trash`."
     },
     "guessit": {
       "name": "guessit",
@@ -318,6 +322,11 @@
       "docs/json/sonarr/cf"
     ],
     "out": "internal/formats/testdata/trash",
+    "naming_snapshot": [
+      "docs/json/radarr/naming",
+      "docs/json/sonarr/naming"
+    ],
+    "naming_out": "internal/naming/testdata/trash",
     "titles": "internal/formats/testdata/titles.txt",
     "readers": [
       "docs/json/radarr/cf/hdr.json",
@@ -475,5 +484,965 @@
         "radarr:src/NzbDrone.Core/CustomFormats/CustomFormatInput.cs"
       ]
     }
+  },
+  "organizer": {
+    "out": "internal/naming/testdata/arr",
+    "files": [
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/BuildFilePathFixture.cs",
+        "skip": {
+          "CalculateFilePath_SeasonFolder_SingleNumber": "Builds a whole path from Sonarr's default episode template, its season folder switch and SceneName."
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/CleanFilenameFixture.cs",
+        "skip": {
+          "should_replaace_invalid_characters": "Calls CleanFileName on a bare string. SlipStream splits it into the value and segment rules.",
+          "should_remove_periods_from_start": "Calls CleanFileName on a bare string. SlipStream splits it into the value and segment rules.",
+          "should_remove_spaces_from_start_and_end": "Calls CleanFileName on a bare string. SlipStream splits it into the value and segment rules."
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CleanTitleFixture.cs",
+        "methods": {
+          "should_get_expected_title_back": {
+            "template": "{Series CleanTitle}",
+            "values": {
+              "Series Title": "${title}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CleanTitleTheFixture.cs",
+        "methods": {
+          "should_get_expected_title_back": {
+            "template": "{Series CleanTitleThe}",
+            "values": {
+              "Series Title": "${title}"
+            },
+            "want": "${expected}"
+          },
+          "should_not_change_title": {
+            "template": "{Series CleanTitleThe}",
+            "values": {
+              "Series Title": "${title}"
+            },
+            "want": "${title}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CleanTitleTheWithoutYearFixture.cs",
+        "methods": {
+          "should_get_expected_title_back": {
+            "template": "{Series CleanTitleTheWithoutYear}",
+            "values": {
+              "Series Title": "${title}",
+              "Series Year": "${year}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CleanTitleTheYearFixture.cs",
+        "methods": {
+          "should_get_expected_title_back": {
+            "template": "{Series CleanTitleTheYear}",
+            "values": {
+              "Series Title": "${title}",
+              "Series Year": "${year}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CleanTitleWithoutYearFixture.cs",
+        "methods": {
+          "should_get_expected_title_back": {
+            "template": "{Series CleanTitleWithoutYear}",
+            "values": {
+              "Series Title": "${title}",
+              "Series Year": "${year}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CleanTitleYearFixture.cs",
+        "methods": {
+          "should_get_expected_title_back": {
+            "template": "{Series CleanTitleYear}",
+            "values": {
+              "Series Title": "${title}",
+              "Series Year": "${year}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/ColonReplacementFixture.cs",
+        "methods": {
+          "should_replace_colon_followed_by_space_with_expected_result": {
+            "template": "{Series Title}",
+            "values": {
+              "Series Title": "${seriesName}"
+            },
+            "settings": {
+              "colon": "${replacementFormat}"
+            },
+            "want": "${expected}"
+          },
+          "should_replace_colon_with_expected_result": {
+            "template": "{Series Title}",
+            "values": {
+              "Series Title": "${seriesName}"
+            },
+            "settings": {
+              "colon": "${replacementFormat}"
+            },
+            "want": "${expected}"
+          },
+          "should_replace_colon_with_custom_format": {
+            "template": "{Series Title}",
+            "values": {
+              "Series Title": "${seriesName}"
+            },
+            "settings": {
+              "colon": "${replacementFormat}",
+              "colonCustom": "${customFormat}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CustomFormatsFixture.cs",
+        "methods": {
+          "should_replace_custom_formats": {
+            "template": "${format}",
+            "values": {
+              "Series Title": "South Park",
+              "Season": 15,
+              "Episode": 6,
+              "Episode Title": "City Sushi",
+              "Custom Formats": [
+                "INTERNAL",
+                "AMZN",
+                "NAME WITH SPACES"
+              ]
+            },
+            "want": "${expected}"
+          },
+          "should_replace_custom_formats_with_no_custom_formats": {
+            "template": "${format}",
+            "values": {
+              "Series Title": "South Park",
+              "Season": 15,
+              "Episode": 6,
+              "Episode Title": "City Sushi",
+              "Custom Formats": []
+            },
+            "want": "${expected}"
+          },
+          "should_replace_custom_formats_with_filtered_names": {
+            "template": "${format}",
+            "values": {
+              "Series Title": "South Park",
+              "Season": 15,
+              "Episode": 6,
+              "Episode Title": "City Sushi",
+              "Custom Formats": [
+                "INTERNAL",
+                "AMZN",
+                "NAME WITH SPACES"
+              ]
+            },
+            "want": "${expected}"
+          },
+          "should_replace_custom_format": {
+            "template": "${format}",
+            "values": {
+              "Series Title": "South Park",
+              "Season": 15,
+              "Episode": 6,
+              "Episode Title": "City Sushi",
+              "Custom Formats": [
+                "INTERNAL",
+                "AMZN",
+                "NAME WITH SPACES"
+              ]
+            },
+            "want": "${expected}"
+          },
+          "should_replace_custom_format_with_no_custom_formats": {
+            "template": "${format}",
+            "values": {
+              "Series Title": "South Park",
+              "Season": 15,
+              "Episode": 6,
+              "Episode Title": "City Sushi",
+              "Custom Formats": []
+            },
+            "want": "${expected}"
+          }
+        },
+        "skip": {
+          "should_not_replace_custom_formats_due_to_invalid_token": "Sonarr prints a token with an empty modifier as typed. SlipStream refuses the template."
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/EpisodeTitleCollapseFixture.cs",
+        "methods": {
+          "should_collapse_episode_titles_when_episode_titles_are_the_same": {
+            "template": "{Episode Title}",
+            "values": {
+              "Series Title": "South Park"
+            },
+            "items": [
+              {
+                "Season": 15,
+                "Episode": 6,
+                "Episode Title": "${title1}"
+              },
+              {
+                "Season": 15,
+                "Episode": 7,
+                "Episode Title": "${title2}"
+              }
+            ],
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/FileNameBuilderFixture.cs",
+        "methods": {
+          "should_trim_extra_separators_from_end_when_quality_proper_is_not_included": {
+            "template": "{Quality${separator}Title}${separator}{Quality${separator}Proper}",
+            "values": {
+              "Series Title": "South Park",
+              "Season": 15,
+              "Episode": 6,
+              "Episode Title": "City Sushi",
+              "Quality Title": "HDTV-720p"
+            },
+            "want": "HDTV-720p"
+          },
+          "should_trim_extra_separators_from_middle_when_quality_proper_is_not_included": {
+            "template": "{Quality${separator}Title}${separator}{Quality${separator}Proper}${separator}{Episode${separator}Title}",
+            "values": {
+              "Series Title": "South Park",
+              "Season": 15,
+              "Episode": 6,
+              "Episode Title": "City Sushi",
+              "Quality Title": "HDTV-720p"
+            },
+            "want": "HDTV-720p${separator}City${separator}Sushi"
+          },
+          "should_not_use_Sonarr_as_release_group_if_pattern_has_separator": {
+            "template": "${pattern}",
+            "values": {
+              "Series Title": "South Park",
+              "Season": 15,
+              "Episode": 6,
+              "Episode Title": "City Sushi"
+            },
+            "want": "${expectedFileName}"
+          },
+          "should_use_existing_casing_for_release_group": {
+            "template": "{Release Group}",
+            "values": {
+              "Series Title": "South Park",
+              "Season": 15,
+              "Episode": 6,
+              "Episode Title": "City Sushi",
+              "Release Group": "${releaseGroup}"
+            },
+            "want": "${releaseGroup}"
+          },
+          "should_format_audio_languages": {
+            "template": "{MediaInfo AudioLanguages}",
+            "values": {
+              "Series Title": "South Park",
+              "Season": 15,
+              "Episode": 6,
+              "Episode Title": "City Sushi",
+              "MediaInfo AudioLanguages": "${audioLanguages}"
+            },
+            "want": "${expected}"
+          },
+          "should_format_audio_languages_all": {
+            "template": "{MediaInfo AudioLanguagesAll}",
+            "values": {
+              "Series Title": "South Park",
+              "Season": 15,
+              "Episode": 6,
+              "Episode Title": "City Sushi",
+              "MediaInfo AudioLanguages": "${audioLanguages}"
+            },
+            "want": "${expected}"
+          },
+          "should_format_subtitle_languages_all": {
+            "template": "{MediaInfo SubtitleLanguages${format}}End",
+            "values": {
+              "Series Title": "South Park",
+              "Season": 15,
+              "Episode": 6,
+              "Episode Title": "City Sushi",
+              "MediaInfo SubtitleLanguages": "${subtitleLanguages}"
+            },
+            "want": "${expected}End"
+          }
+        },
+        "skip": {
+          "should_escape_token_in_format": "Sonarr's {{ and }} escape, which SlipStream refuses because it means the opposite of Radarr's {{Edition Tags}}.",
+          "should_format_languagecodes_properly": "Reads ISO 639-2 codes through {MediaInfo Full}, which Sonarr builds from a codec model.",
+          "should_replace_all_tokens_for_different_cultures": "Sets the C# thread culture, which SlipStream has no counterpart for.",
+          "should_include_hdr_for_mediainfo_videodynamicrange_with_valid_properties": "Sets an HdrFormat on a media info model. SlipStream reads dynamic range from its own facts.",
+          "should_use_updated_media_info_if_token_configured_and_revision_is_old": "Tests when Sonarr probes a file again, which naming has no part in."
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/GetSeasonFolderFixture.cs",
+        "methods": {
+          "should_use_seriesFolderFormat_to_build_folder_name": {
+            "template": "${format}",
+            "values": {
+              "Series Title": "${seriesTitle}",
+              "Season": "${seasonNumber}",
+              "Season Title": "Part ${seasonNumber}?"
+            },
+            "want": "${expected}"
+          },
+          "should_not_throw_when_season_has_no_title": {
+            "template": "${format}",
+            "values": {
+              "Series Title": "Series Title",
+              "Season": 1
+            },
+            "want": "Season 01"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/GetSeriesFolderFixture.cs",
+        "methods": {
+          "should_use_seriesFolderFormat_to_build_folder_name": {
+            "template": "${format}",
+            "values": {
+              "Series Title": "${seriesTitle}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/MultiEpisodeTitleFixture.cs",
+        "methods": {
+          "should_replace_Series_space_Title": {
+            "template": "{Episode Title} {Quality Full}",
+            "values": {
+              "Series Title": "South Park",
+              "Quality Full": "HDTV-720p"
+            },
+            "items": [
+              {
+                "Season": 15,
+                "Episode": 6,
+                "Episode Title": "${firstTitle}"
+              },
+              {
+                "Season": 15,
+                "Episode": 7,
+                "Episode Title": "${secondTitle}"
+              }
+            ],
+            "want": "Episode Title HDTV-720p"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/ReplaceCharacterFixure.cs",
+        "methods": {
+          "should_replace_illegal_characters": {
+            "template": "{Series Title}",
+            "values": {
+              "Series Title": "${title}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/ReservedDeviceNameFixture.cs",
+        "methods": {
+          "should_replace_reserved_device_name_in_series_folder": {
+            "template": "{Series.Title}",
+            "values": {
+              "Series Title": "${title}"
+            },
+            "want": "${expected}"
+          },
+          "should_replace_reserved_device_name_in_season_folder": {
+            "template": "{Series.Title} - Season {Season:00}",
+            "values": {
+              "Series Title": "${title}",
+              "Season": 1
+            },
+            "want": "${expected} - Season 01"
+          },
+          "should_replace_reserved_device_name_in_file_name": {
+            "template": "{Series.Title} - S{Season:00}E{Episode:00}",
+            "values": {
+              "Series Title": "${title}",
+              "Season": 15,
+              "Episode": 6,
+              "Episode Title": "City Sushi"
+            },
+            "want": "${expected} - S15E06"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/SeriesTitleFirstCharacterFixture.cs",
+        "methods": {
+          "should_get_expected_folder_name_back": {
+            "template": "{Series TitleFirstCharacter}\\{Series Title}",
+            "values": {
+              "Series Title": "${title}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/SeriesYearFixture.cs",
+        "methods": {
+          "should_get_expected_folder_name_back": {
+            "template": "{Series Year}\\{Series Title}",
+            "values": {
+              "Series Title": "${title}",
+              "Series Year": "${year}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/TitleTheFixture.cs",
+        "methods": {
+          "should_get_expected_title_back": {
+            "template": "{Series TitleThe}",
+            "values": {
+              "Series Title": "${title}"
+            },
+            "want": "${expected}"
+          },
+          "should_not_change_title": {
+            "template": "{Series TitleThe}",
+            "values": {
+              "Series Title": "${title}"
+            },
+            "want": "${title}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/TitleTheWithoutYearFixture.cs",
+        "methods": {
+          "should_get_expected_title_back": {
+            "template": "{Series TitleTheWithoutYear}",
+            "values": {
+              "Series Title": "${title}",
+              "Series Year": "${year}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/TitleTheYearFixture.cs",
+        "methods": {
+          "should_get_expected_title_back": {
+            "template": "{Series TitleTheYear}",
+            "values": {
+              "Series Title": "${title}",
+              "Series Year": "${year}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/TitleWithoutYearFixture.cs",
+        "methods": {
+          "should_get_expected_title_back": {
+            "template": "{Series TitleWithoutYear}",
+            "values": {
+              "Series Title": "${title}",
+              "Series Year": "${year}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/TitleYearFixture.cs",
+        "methods": {
+          "should_get_expected_title_back": {
+            "template": "{Series TitleYear}",
+            "values": {
+              "Series Title": "${title}",
+              "Series Year": "${year}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "sonarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/TruncatedSeriesTitleFixture.cs",
+        "methods": {
+          "should_truncate_series_title": {
+            "template": "${format}",
+            "values": {
+              "Series Title": "The Fantastic Life of Mr. Sisko"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CleanCollectionTheFixture.cs",
+        "methods": {
+          "should_get_expected_title_back": {
+            "template": "{Movie CleanCollectionThe}",
+            "values": {
+              "Movie Title": "Movie Title",
+              "Movie Collection": "${collection}"
+            },
+            "want": "${expected}"
+          },
+          "should_not_change_title": {
+            "template": "{Movie CleanCollectionThe}",
+            "values": {
+              "Movie Title": "Movie Title",
+              "Movie Collection": "${collection}"
+            },
+            "want": "${collection}"
+          }
+        }
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/CleanFilenameFixture.cs",
+        "skip": {
+          "should_replace_invalid_characters": "Calls CleanFileName on a bare string. SlipStream splits it into the value and segment rules.",
+          "should_remove_periods_from_start": "Calls CleanFileName on a bare string. SlipStream splits it into the value and segment rules.",
+          "should_remove_spaces_from_start_and_end": "Calls CleanFileName on a bare string. SlipStream splits it into the value and segment rules."
+        }
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CleanTitleFixture.cs",
+        "methods": {
+          "should_get_expected_title_back": {
+            "template": "{Movie CleanTitle}",
+            "values": {
+              "Movie Title": "${title}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CleanTitleTheFixture.cs",
+        "methods": {
+          "should_get_expected_title_back": {
+            "template": "{Movie CleanTitleThe}",
+            "values": {
+              "Movie Title": "${title}"
+            },
+            "want": "${expected}"
+          },
+          "should_not_change_title": {
+            "template": "{Movie CleanTitleThe}",
+            "values": {
+              "Movie Title": "${title}"
+            },
+            "want": "${title}"
+          }
+        }
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CollectionTheFixture.cs",
+        "methods": {
+          "should_get_expected_title_back": {
+            "template": "{Movie CollectionThe}",
+            "values": {
+              "Movie Title": "Movie Title",
+              "Movie Collection": "${collection}"
+            },
+            "want": "${expected}"
+          },
+          "should_not_change_title": {
+            "template": "{Movie CollectionThe}",
+            "values": {
+              "Movie Title": "Movie Title",
+              "Movie Collection": "${collection}"
+            },
+            "want": "${collection}"
+          }
+        }
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/ColonReplacementFixture.cs",
+        "methods": {
+          "should_replace_colon_followed_by_space_with_expected_result": {
+            "template": "{Movie Title}",
+            "values": {
+              "Movie Title": "${movieName}"
+            },
+            "settings": {
+              "colon": "${replacementFormat}"
+            },
+            "want": "${expected}"
+          },
+          "should_replace_colon_with_expected_result": {
+            "template": "{Movie Title}",
+            "values": {
+              "Movie Title": "${movieName}"
+            },
+            "settings": {
+              "colon": "${replacementFormat}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CustomFormatsFixture.cs",
+        "methods": {
+          "should_replace_custom_formats": {
+            "template": "${format}",
+            "values": {
+              "Movie Title": "South Park",
+              "Custom Formats": [
+                "INTERNAL",
+                "AMZN",
+                "NAME WITH SPACES"
+              ]
+            },
+            "want": "${expected}"
+          },
+          "should_replace_custom_formats_with_no_custom_formats": {
+            "template": "${format}",
+            "values": {
+              "Movie Title": "South Park",
+              "Custom Formats": []
+            },
+            "want": "${expected}"
+          },
+          "should_replace_custom_formats_with_filtered_names": {
+            "template": "${format}",
+            "values": {
+              "Movie Title": "South Park",
+              "Custom Formats": [
+                "INTERNAL",
+                "AMZN",
+                "NAME WITH SPACES"
+              ]
+            },
+            "want": "${expected}"
+          },
+          "should_replace_custom_format": {
+            "template": "${format}",
+            "values": {
+              "Movie Title": "South Park",
+              "Custom Formats": [
+                "INTERNAL",
+                "AMZN",
+                "NAME WITH SPACES"
+              ]
+            },
+            "want": "${expected}"
+          },
+          "should_replace_custom_format_with_no_custom_formats": {
+            "template": "${format}",
+            "values": {
+              "Movie Title": "South Park",
+              "Custom Formats": []
+            },
+            "want": "${expected}"
+          }
+        },
+        "skip": {
+          "should_not_replace_custom_formats_due_to_invalid_token": "Radarr prints a token with an empty modifier as typed. SlipStream refuses the template."
+        }
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/EditionTagsFixture.cs",
+        "methods": {
+          "should_conditional_hide_edition_tags": {
+            "template": "${movieFormat}",
+            "values": {
+              "Movie Title": "Movie Title"
+            },
+            "want": "Movie Title"
+          },
+          "should_handle_edition_curly_brackets": {
+            "template": "${movieFormat}",
+            "values": {
+              "Movie Title": "Movie Title",
+              "Edition Tags": "Uncut"
+            },
+            "want": "Movie Title {Uncut}"
+          },
+          "should_handle_edition_tag_curly_brackets": {
+            "template": "${movieFormat}",
+            "values": {
+              "Movie Title": "Movie Title",
+              "Edition Tags": "Uncut"
+            },
+            "want": "Movie Title {{edition-Uncut}}"
+          },
+          "should_always_lowercase_ordinals": {
+            "template": "${movieFormat}",
+            "values": {
+              "Movie Title": "Movie Title",
+              "Edition Tags": "${edition}"
+            },
+            "want": "${expected}"
+          },
+          "should_always_uppercase_special_strings": {
+            "template": "${movieFormat}",
+            "values": {
+              "Movie Title": "Movie Title",
+              "Edition Tags": "${edition}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/FileNameBuilderFixture.cs",
+        "methods": {
+          "should_trim_extra_separators_from_end_when_quality_proper_is_not_included": {
+            "template": "{Quality${separator}Title}${separator}{Quality${separator}Proper}",
+            "values": {
+              "Movie Title": "South Park",
+              "Quality Title": "HDTV-720p"
+            },
+            "want": "HDTV-720p"
+          },
+          "should_trim_extra_separators_from_middle_when_quality_proper_is_not_included": {
+            "template": "{Quality${separator}Title}${separator}{Quality${separator}Proper}${separator}{Movie${separator}Title}",
+            "values": {
+              "Movie Title": "South Park",
+              "Quality Title": "HDTV-720p"
+            },
+            "want": "HDTV-720p${separator}South${separator}Park"
+          },
+          "should_not_use_Radarr_as_release_group_if_pattern_has_separator": {
+            "template": "${pattern}",
+            "values": {
+              "Movie Title": "South Park"
+            },
+            "want": "${expectedFileName}"
+          },
+          "should_use_existing_casing_for_release_group": {
+            "template": "{Release Group}",
+            "values": {
+              "Movie Title": "South Park",
+              "Release Group": "${releaseGroup}"
+            },
+            "want": "${releaseGroup}"
+          },
+          "should_format_audio_languages": {
+            "template": "{MediaInfo AudioLanguages}",
+            "values": {
+              "Movie Title": "South Park",
+              "MediaInfo AudioLanguages": "${audioLanguages}"
+            },
+            "want": "${expected}"
+          },
+          "should_format_audio_languages_all": {
+            "template": "{MediaInfo AudioLanguagesAll}",
+            "values": {
+              "Movie Title": "South Park",
+              "MediaInfo AudioLanguages": "${audioLanguages}"
+            },
+            "want": "${expected}"
+          },
+          "should_format_subtitle_languages_all": {
+            "template": "{MediaInfo SubtitleLanguages${format}}End",
+            "values": {
+              "Movie Title": "South Park",
+              "MediaInfo SubtitleLanguages": "${subtitleLanguages}"
+            },
+            "want": "${expected}End"
+          }
+        },
+        "skip": {
+          "should_format_languagecodes_properly": "Reads ISO 639-2 codes through {MediaInfo Full}, which Radarr builds from a codec model.",
+          "should_replace_all_tokens_for_different_cultures": "Sets the C# thread culture, which SlipStream has no counterpart for.",
+          "should_include_hdr_for_mediainfo_videodynamicrange_with_valid_properties": "Sets an HdrFormat on a media info model. SlipStream reads dynamic range from its own facts."
+        }
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/GetMovieFolderFixture.cs",
+        "methods": {
+          "should_use_movieFolderFormat_to_build_folder_name": {
+            "template": "${format}",
+            "values": {
+              "Movie Title": "${movieTitle}",
+              "Release Year": "${year}"
+            },
+            "want": "${expected}"
+          }
+        },
+        "skip": {
+          "should_use_movieFolderFormat_and_CollectionFormat_to_build_folder_name": "Nests a collection folder with \"/\", which a SlipStream template refuses because it names one folder."
+        }
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/IdFixture.cs",
+        "methods": {
+          "should_skip_imdb_tag_if_null": {
+            "template": "${movieFormat}",
+            "values": {
+              "Movie Title": "Movie Title",
+              "TmdbId": 123456
+            },
+            "want": "Movie Title"
+          },
+          "should_handle_imdb_tag_curly_brackets": {
+            "template": "${movieFormat}",
+            "values": {
+              "Movie Title": "Movie Title",
+              "ImdbId": "tt12345",
+              "TmdbId": 123456
+            },
+            "want": "Movie Title {{imdb-tt12345}}"
+          },
+          "should_handle_tmdb_tag_curly_brackets": {
+            "template": "${movieFormat}",
+            "values": {
+              "Movie Title": "Movie Title",
+              "ImdbId": "tt12345",
+              "TmdbId": 123456
+            },
+            "want": "Movie Title {{tmdb-123456}}"
+          }
+        }
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/MovieTitleFirstCharacterFixture.cs",
+        "methods": {
+          "should_get_expected_folder_name_back": {
+            "template": "{Movie TitleFirstCharacter}",
+            "values": {
+              "Movie Title": "${title}"
+            },
+            "want": "${parent}"
+          }
+        }
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/ReservedDeviceNameFixture.cs",
+        "methods": {
+          "should_replace_reserved_device_name_in_movies_folder": {
+            "template": "{Movie.Title} ({Release Year})",
+            "values": {
+              "Movie Title": "${title}",
+              "Release Year": "${year}"
+            },
+            "want": "${expected}"
+          },
+          "should_replace_reserved_device_name_in_file_name": {
+            "template": "{Movie.Title} ({Release Year})",
+            "values": {
+              "Movie Title": "${title}",
+              "Release Year": "${year}"
+            },
+            "want": "${expected}"
+          }
+        }
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/TitleTheFixture.cs",
+        "methods": {
+          "should_get_expected_title_back": {
+            "template": "{Movie TitleThe}",
+            "values": {
+              "Movie Title": "${title}"
+            },
+            "want": "${expected}"
+          },
+          "should_not_change_title": {
+            "template": "{Movie TitleThe}",
+            "values": {
+              "Movie Title": "${title}"
+            },
+            "want": "${title}"
+          }
+        }
+      },
+      {
+        "from": "radarr",
+        "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/TruncatedMovieTitleFixture.cs",
+        "methods": {
+          "should_truncate_series_title": {
+            "template": "${format}",
+            "values": {
+              "Movie Title": "The Fantastic Life of Mr. Sisko"
+            },
+            "want": "${expected}"
+          }
+        }
+      }
+    ]
   }
 }

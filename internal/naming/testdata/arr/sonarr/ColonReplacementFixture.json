@@ -1,0 +1,19 @@
+{
+  "upstream": "Sonarr",
+  "commit": "c018578e4b79ee048575c02d7a8aa2b929e4b837",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/ColonReplacementFixture.cs",
+  "cases": [
+    {"template":"{Series Title}","values":{"Series Title":"CSI: Vegas"},"settings":{"colon":"Smart"},"want":"CSI - Vegas","source":"ColonReplacementFixture.cs should_replace_colon_followed_by_space_with_expected_result #1"},
+    {"template":"{Series Title}","values":{"Series Title":"CSI: Vegas"},"settings":{"colon":"Dash"},"want":"CSI- Vegas","source":"ColonReplacementFixture.cs should_replace_colon_followed_by_space_with_expected_result #2"},
+    {"template":"{Series Title}","values":{"Series Title":"CSI: Vegas"},"settings":{"colon":"Delete"},"want":"CSI Vegas","source":"ColonReplacementFixture.cs should_replace_colon_followed_by_space_with_expected_result #3"},
+    {"template":"{Series Title}","values":{"Series Title":"CSI: Vegas"},"settings":{"colon":"SpaceDash"},"want":"CSI - Vegas","source":"ColonReplacementFixture.cs should_replace_colon_followed_by_space_with_expected_result #4"},
+    {"template":"{Series Title}","values":{"Series Title":"CSI: Vegas"},"settings":{"colon":"SpaceDashSpace"},"want":"CSI - Vegas","source":"ColonReplacementFixture.cs should_replace_colon_followed_by_space_with_expected_result #5"},
+    {"template":"{Series Title}","values":{"Series Title":"Series:Title"},"settings":{"colon":"Smart"},"want":"Series-Title","source":"ColonReplacementFixture.cs should_replace_colon_with_expected_result #1"},
+    {"template":"{Series Title}","values":{"Series Title":"Series:Title"},"settings":{"colon":"Dash"},"want":"Series-Title","source":"ColonReplacementFixture.cs should_replace_colon_with_expected_result #2"},
+    {"template":"{Series Title}","values":{"Series Title":"Series:Title"},"settings":{"colon":"Delete"},"want":"SeriesTitle","source":"ColonReplacementFixture.cs should_replace_colon_with_expected_result #3"},
+    {"template":"{Series Title}","values":{"Series Title":"Series:Title"},"settings":{"colon":"SpaceDash"},"want":"Series -Title","source":"ColonReplacementFixture.cs should_replace_colon_with_expected_result #4"},
+    {"template":"{Series Title}","values":{"Series Title":"Series:Title"},"settings":{"colon":"SpaceDashSpace"},"want":"Series - Title","source":"ColonReplacementFixture.cs should_replace_colon_with_expected_result #5"},
+    {"template":"{Series Title}","values":{"Series Title":"Series: Title"},"settings":{"colon":"Custom","colonCustom":"꞉"},"want":"Series꞉ Title","source":"ColonReplacementFixture.cs should_replace_colon_with_custom_format #1"},
+    {"template":"{Series Title}","values":{"Series Title":"Series: Title"},"settings":{"colon":"Custom","colonCustom":"∶"},"want":"Series∶ Title","source":"ColonReplacementFixture.cs should_replace_colon_with_custom_format #2"}
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "upstream": "Radarr",
+  "commit": "928e8871ccad6a899e9d99781a54fcf17ab7c3d9",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/GetMovieFolderFixture.cs",
+  "cases": [
+    {"template":"{Movie Title} ({Release Year})","values":{"Movie Title":"Arrival","Release Year":2016},"want":"Arrival (2016)","source":"GetMovieFolderFixture.cs should_use_movieFolderFormat_to_build_folder_name #1"},
+    {"template":"{Movie TitleThe} ({Release Year})","values":{"Movie Title":"The Big Short","Release Year":2015},"want":"Big Short, The (2015)","source":"GetMovieFolderFixture.cs should_use_movieFolderFormat_to_build_folder_name #2"},
+    {"template":"{Movie Title} ({Release Year})","values":{"Movie Title":"The Big Short","Release Year":2015},"want":"The Big Short (2015)","source":"GetMovieFolderFixture.cs should_use_movieFolderFormat_to_build_folder_name #3"}
+  ]
+}

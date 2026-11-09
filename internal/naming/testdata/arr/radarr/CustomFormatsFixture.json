@@ -1,0 +1,25 @@
+{
+  "upstream": "Radarr",
+  "commit": "928e8871ccad6a899e9d99781a54fcf17ab7c3d9",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CustomFormatsFixture.cs",
+  "cases": [
+    {"template":"{Custom Formats}","values":{"Custom Formats":["INTERNAL","AMZN","NAME WITH SPACES"],"Movie Title":"South Park"},"want":"INTERNAL AMZN NAME WITH SPACES","source":"CustomFormatsFixture.cs should_replace_custom_formats #1"},
+    {"template":"{Custom Formats}","values":{"Custom Formats":[],"Movie Title":"South Park"},"want":"","source":"CustomFormatsFixture.cs should_replace_custom_formats_with_no_custom_formats #1"},
+    {"template":"{Custom Formats:-INTERNAL}","values":{"Custom Formats":["INTERNAL","AMZN","NAME WITH SPACES"],"Movie Title":"South Park"},"want":"AMZN NAME WITH SPACES","source":"CustomFormatsFixture.cs should_replace_custom_formats_with_filtered_names #1"},
+    {"template":"{Custom Formats:-NAME WITH SPACES}","values":{"Custom Formats":["INTERNAL","AMZN","NAME WITH SPACES"],"Movie Title":"South Park"},"want":"INTERNAL AMZN","source":"CustomFormatsFixture.cs should_replace_custom_formats_with_filtered_names #2"},
+    {"template":"{Custom Formats:-INTERNAL,NAME WITH SPACES}","values":{"Custom Formats":["INTERNAL","AMZN","NAME WITH SPACES"],"Movie Title":"South Park"},"want":"AMZN","source":"CustomFormatsFixture.cs should_replace_custom_formats_with_filtered_names #3"},
+    {"template":"{Custom Formats:INTERNAL}","values":{"Custom Formats":["INTERNAL","AMZN","NAME WITH SPACES"],"Movie Title":"South Park"},"want":"INTERNAL","source":"CustomFormatsFixture.cs should_replace_custom_formats_with_filtered_names #4"},
+    {"template":"{Custom Formats:NAME WITH SPACES}","values":{"Custom Formats":["INTERNAL","AMZN","NAME WITH SPACES"],"Movie Title":"South Park"},"want":"NAME WITH SPACES","source":"CustomFormatsFixture.cs should_replace_custom_formats_with_filtered_names #5"},
+    {"template":"{Custom Formats:INTERNAL,NAME WITH SPACES}","values":{"Custom Formats":["INTERNAL","AMZN","NAME WITH SPACES"],"Movie Title":"South Park"},"want":"INTERNAL NAME WITH SPACES","source":"CustomFormatsFixture.cs should_replace_custom_formats_with_filtered_names #6"},
+    {"template":"{Custom Format}","values":{"Custom Formats":["INTERNAL","AMZN","NAME WITH SPACES"],"Movie Title":"South Park"},"want":"","source":"CustomFormatsFixture.cs should_replace_custom_format #1"},
+    {"template":"{Custom Format:INTERNAL}","values":{"Custom Formats":["INTERNAL","AMZN","NAME WITH SPACES"],"Movie Title":"South Park"},"want":"INTERNAL","source":"CustomFormatsFixture.cs should_replace_custom_format #2"},
+    {"template":"{Custom Format:AMZN}","values":{"Custom Formats":["INTERNAL","AMZN","NAME WITH SPACES"],"Movie Title":"South Park"},"want":"AMZN","source":"CustomFormatsFixture.cs should_replace_custom_format #3"},
+    {"template":"{Custom Format:NAME WITH SPACES}","values":{"Custom Formats":["INTERNAL","AMZN","NAME WITH SPACES"],"Movie Title":"South Park"},"want":"NAME WITH SPACES","source":"CustomFormatsFixture.cs should_replace_custom_format #4"},
+    {"template":"{Custom Format:DOESNOTEXIST}","values":{"Custom Formats":["INTERNAL","AMZN","NAME WITH SPACES"],"Movie Title":"South Park"},"want":"","source":"CustomFormatsFixture.cs should_replace_custom_format #5"},
+    {"template":"{Custom Format:INTERNAL} - {Custom Format:AMZN}","values":{"Custom Formats":["INTERNAL","AMZN","NAME WITH SPACES"],"Movie Title":"South Park"},"want":"INTERNAL - AMZN","source":"CustomFormatsFixture.cs should_replace_custom_format #6"},
+    {"template":"{Custom Format:AMZN} - {Custom Format:INTERNAL}","values":{"Custom Formats":["INTERNAL","AMZN","NAME WITH SPACES"],"Movie Title":"South Park"},"want":"AMZN - INTERNAL","source":"CustomFormatsFixture.cs should_replace_custom_format #7"},
+    {"template":"{Custom Format}","values":{"Custom Formats":[],"Movie Title":"South Park"},"want":"","source":"CustomFormatsFixture.cs should_replace_custom_format_with_no_custom_formats #1"},
+    {"template":"{Custom Format:INTERNAL}","values":{"Custom Formats":[],"Movie Title":"South Park"},"want":"","source":"CustomFormatsFixture.cs should_replace_custom_format_with_no_custom_formats #2"},
+    {"template":"{Custom Format:AMZN}","values":{"Custom Formats":[],"Movie Title":"South Park"},"want":"","source":"CustomFormatsFixture.cs should_replace_custom_format_with_no_custom_formats #3"}
+  ]
+}

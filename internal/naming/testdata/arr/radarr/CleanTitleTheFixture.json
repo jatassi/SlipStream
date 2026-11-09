@@ -1,0 +1,22 @@
+{
+  "upstream": "Radarr",
+  "commit": "928e8871ccad6a899e9d99781a54fcf17ab7c3d9",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CleanTitleTheFixture.cs",
+  "cases": [
+    {"template":"{Movie CleanTitleThe}","values":{"Movie Title":"The Mist"},"want":"Mist, The","source":"CleanTitleTheFixture.cs should_get_expected_title_back #1"},
+    {"template":"{Movie CleanTitleThe}","values":{"Movie Title":"A Place to Call Home"},"want":"Place to Call Home, A","source":"CleanTitleTheFixture.cs should_get_expected_title_back #2"},
+    {"template":"{Movie CleanTitleThe}","values":{"Movie Title":"An Adventure in Space and Time"},"want":"Adventure in Space and Time, An","source":"CleanTitleTheFixture.cs should_get_expected_title_back #3"},
+    {"template":"{Movie CleanTitleThe}","values":{"Movie Title":"The Flash (2010)"},"want":"Flash, The 2010","source":"CleanTitleTheFixture.cs should_get_expected_title_back #4"},
+    {"template":"{Movie CleanTitleThe}","values":{"Movie Title":"A League Of Their Own (AU)"},"want":"League Of Their Own, A AU","source":"CleanTitleTheFixture.cs should_get_expected_title_back #5"},
+    {"template":"{Movie CleanTitleThe}","values":{"Movie Title":"The Fixer (ZH) (2015)"},"want":"Fixer, The ZH 2015","source":"CleanTitleTheFixture.cs should_get_expected_title_back #6"},
+    {"template":"{Movie CleanTitleThe}","values":{"Movie Title":"The Sixth Sense 2 (Thai)"},"want":"Sixth Sense 2, The Thai","source":"CleanTitleTheFixture.cs should_get_expected_title_back #7"},
+    {"template":"{Movie CleanTitleThe}","values":{"Movie Title":"The Amazing Race (Latin America)"},"want":"Amazing Race, The Latin America","source":"CleanTitleTheFixture.cs should_get_expected_title_back #8"},
+    {"template":"{Movie CleanTitleThe}","values":{"Movie Title":"The Rat Pack (A&E)"},"want":"Rat Pack, The AandE","source":"CleanTitleTheFixture.cs should_get_expected_title_back #9"},
+    {"template":"{Movie CleanTitleThe}","values":{"Movie Title":"The Climax: I (Almost) Got Away With It (2016)"},"want":"Climax I Almost Got Away With It, The 2016","source":"CleanTitleTheFixture.cs should_get_expected_title_back #10"},
+    {"template":"{Movie CleanTitleThe}","want":"","source":"CleanTitleTheFixture.cs should_get_expected_title_back #11"},
+    {"template":"{Movie CleanTitleThe}","values":{"Movie Title":"A"},"want":"A","source":"CleanTitleTheFixture.cs should_not_change_title #1"},
+    {"template":"{Movie CleanTitleThe}","values":{"Movie Title":"Anne"},"want":"Anne","source":"CleanTitleTheFixture.cs should_not_change_title #2"},
+    {"template":"{Movie CleanTitleThe}","values":{"Movie Title":"Theodore"},"want":"Theodore","source":"CleanTitleTheFixture.cs should_not_change_title #3"},
+    {"template":"{Movie CleanTitleThe}","values":{"Movie Title":"3%"},"want":"3%","source":"CleanTitleTheFixture.cs should_not_change_title #4"}
+  ]
+}

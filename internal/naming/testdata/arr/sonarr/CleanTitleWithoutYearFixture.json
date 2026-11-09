@@ -1,0 +1,12 @@
+{
+  "upstream": "Sonarr",
+  "commit": "c018578e4b79ee048575c02d7a8aa2b929e4b837",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CleanTitleWithoutYearFixture.cs",
+  "cases": [
+    {"template":"{Series CleanTitleWithoutYear}","values":{"Series Title":"The Mist","Series Year":2018},"want":"The Mist","source":"CleanTitleWithoutYearFixture.cs should_get_expected_title_back #1"},
+    {"template":"{Series CleanTitleWithoutYear}","values":{"Series Title":"The Rat Pack (A&E)","Series Year":1999},"want":"The Rat Pack AandE","source":"CleanTitleWithoutYearFixture.cs should_get_expected_title_back #2"},
+    {"template":"{Series CleanTitleWithoutYear}","values":{"Series Title":"The Climax: I (Almost) Got Away With It (2016)","Series Year":2016},"want":"The Climax I Almost Got Away With It","source":"CleanTitleWithoutYearFixture.cs should_get_expected_title_back #3"},
+    {"template":"{Series CleanTitleWithoutYear}","values":{"Series Title":"The Series Title's (2016)","Series Year":2016},"want":"The Series Titles","source":"CleanTitleWithoutYearFixture.cs should_get_expected_title_back #4"},
+    {"template":"{Series CleanTitleWithoutYear}","values":{"Series Title":"The Series Title's","Series Year":2016},"want":"The Series Title's","source":"CleanTitleWithoutYearFixture.cs should_get_expected_title_back #5"}
+  ]
+}
