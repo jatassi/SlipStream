@@ -162,17 +162,9 @@ func TestAServingWorkerServesTheControllersApp(t *testing.T) {
 			t.Fatalf("a navigation at seedbox's address with home stopped = %d %s, want seedbox's own app", r.status, r.body)
 		}
 		r := box.call(http.MethodGet, "/api/v1/serving", "", "")
-		var got struct {
-			Since time.Time `json:"since"`
-		}
-		if err := json.Unmarshal([]byte(r.body), &got); err != nil {
-			t.Fatal(err)
-		}
-		if got.Since.Before(stopping) || got.Since.After(stopped) {
-			t.Errorf("seedbox lost home at %s, want between %s and %s, as home stopped", got.Since, stopping, stopped)
-		}
+		since := sinceWithin(t, r.body, stopping, stopped)
 		want := `{"name":"seedbox","fingerprint":"` + key(t, w, "seedbox").Fingerprint() + `","controller":"home","since":"` +
-			got.Since.UTC().Format(time.RFC3339Nano) + `","holding":["Searching","Downloading"],"seeding":0}` + "\n"
+			since.UTC().Format(time.RFC3339Nano) + `","holding":["Searching","Downloading"],"seeding":0}` + "\n"
 		if r.status != http.StatusOK || r.body != want {
 			t.Fatalf("getServing with home stopped = %d %s, want 200 %s", r.status, r.body, want)
 		}
@@ -318,4 +310,20 @@ func (e entry) passkeySignIn(key *passkeytest.Authenticator) reply {
 		e.t.Fatalf("asserting at %s: %v", e.origin, err)
 	}
 	return e.call(http.MethodPost, "/api/v1/passkeys/assertion/"+c.Ceremony, string(response), "")
+}
+
+// sinceWithin reads the serving record's since, which must fall while
+// home stopped.
+func sinceWithin(t *testing.T, body string, from, to time.Time) time.Time {
+	t.Helper()
+	var got struct {
+		Since time.Time `json:"since"`
+	}
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("the serving record %s: %v", body, err)
+	}
+	if got.Since.Before(from) || got.Since.After(to) {
+		t.Errorf("seedbox lost home at %s, want between %s and %s, as home stopped", got.Since, from, to)
+	}
+	return got.Since
 }
