@@ -2,6 +2,8 @@ package naming
 
 import (
 	"fmt"
+	"path"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/release"
@@ -466,8 +468,9 @@ type bound struct {
 	// alone are the part indexes of SeqAlone refs.
 	alone []int
 	// anchorEnd is where the anchor ends: parts [0, anchorEnd) are the
-	// anchor and the literal " - " starts at anchorEnd.
-	anchorEnd int //nolint:unused // the anchor lane fills it
+	// anchor, which the check wants the literal " - " to follow. It is 0
+	// when the template has no anchor.
+	anchorEnd int
 	// shrinkable are the part indexes of Item-scope KindTitle refs, the only
 	// refs fit cuts.
 	shrinkable []int
@@ -513,8 +516,8 @@ const (
 )
 
 // Settings is one Content Type's stored overrides. nil is the type's
-// default. Templates are by field key: "folder", "levels.<n>", "aside"
-// and "file.<variant>".
+// default. Templates are by field key: "folder", "levels.<n>" from 1 for
+// the outermost level, "aside" and "file.<variant>".
 type Settings struct {
 	Rename       *bool
 	Templates    map[string]*string
@@ -526,8 +529,6 @@ type Settings struct {
 // Scheme is a type's Declaration under its Settings, bound once: what
 // names every file of the type. It is immutable and safe for concurrent
 // use.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type Scheme struct {
 	decl        Declaration
 	cat         *catalog
@@ -556,13 +557,13 @@ type Placing struct {
 // Landing is where a file goes: folders rendered from the templates, a
 // Work folder that exists with its level folders rendered, or a folder
 // that exists whole. A FolderAnchor is the Work folder the file lands in.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type Landing struct {
 	// work is the Work folder. "" renders it.
 	work string
-	// dir, when set, is the folder the file goes straight into.
-	dir string
+	// dir is the folder the file goes straight into when straight, its
+	// segments Work folder first. None is the root.
+	dir      []string
+	straight bool
 }
 
 // Rendered lands a file where the templates say.
@@ -572,10 +573,15 @@ func Rendered() Landing { return Landing{} }
 // rendered level folders.
 func InWork(folder string) Landing { return Landing{work: folder} }
 
-// InDir lands a file straight in a folder that exists, root-relative. Its
-// Work folder is the folder's first segment.
-func InDir(string) Landing {
-	panic("not implemented")
+// InDir lands a file straight in dir, a folder that exists,
+// root-relative with "/" between segments. Its Work folder is dir's first
+// segment. "" and "." are the root, where the Work folder renders.
+func InDir(dir string) Landing {
+	l := Landing{straight: true}
+	if dir = path.Clean(dir); dir != "." {
+		l.dir = strings.Split(dir, "/")
+	}
+	return l
 }
 
 // FileFacts is what the core tokens read of one file.
@@ -606,31 +612,6 @@ type Named struct {
 	Segments []string
 }
 
-// Name names one file: the Work folder, the level folders and the file
-// name, with a FolderAnchor swapped for the Work folder it lands in,
-// Item-scope titles cut to fit Budget. A path that still doesn't fit is a
-// *TooLongError. With renaming off the file segment is Keep under the
-// cross-OS map.
-func (s *Scheme) Name(Placing) (Named, error) {
-	panic("not implemented")
-}
-
-// Folder renders the Work folder of a Work with no files from the Work's
-// values.
-func (s *Scheme) Folder(Set) (string, error) {
-	panic("not implemented")
-}
-
-func (s *Scheme) Renames() bool {
-	panic("not implemented")
-}
-
-// Reads reports the costly facts the scheme's templates read, so files
-// matches formats only when a template prints them.
-func (s *Scheme) Reads() Reads {
-	panic("not implemented")
-}
-
 type Reads struct{ Formats bool }
 
 // TooLongError is a name that doesn't fit after every shrinkable title is
@@ -644,14 +625,16 @@ type TooLongError struct {
 
 func (e *TooLongError) Error() string {
 	if e.Segment == "" {
-		return fmt.Sprintf("the path takes %d bytes and the limit is %d", e.Bytes, e.Limit)
+		return fmt.Sprintf("the path in the root is %d bytes long and the limit there is %d bytes", e.Bytes, e.Limit)
 	}
-	return fmt.Sprintf("%q takes %d bytes and the limit is %d", e.Segment, e.Bytes, e.Limit)
+	return fmt.Sprintf("the name %q is %d bytes long and the limit is %d bytes", e.Segment, e.Bytes, e.Limit)
 }
 
 // Problem is one setting the check refuses.
 type Problem struct {
-	// Key is the setting key, such as "<type>.naming.file.<variant>".
+	// Key is the field key, as Settings.Templates has it: "folder",
+	// "levels.<n>", "aside" or "file.<variant>", or "colonCustom". The
+	// setting key is "<type>.naming." and Key.
 	Key string
 	// Sentence says what is wrong and then what passes, to WRITING.md.
 	Sentence string
@@ -665,5 +648,8 @@ func (p Problem) Error() string { return p.Sentence }
 type RefusedError struct{ Problems []Problem }
 
 func (e *RefusedError) Error() string {
+	if len(e.Problems) == 1 {
+		return "the naming settings fail 1 check"
+	}
 	return fmt.Sprintf("the naming settings fail %d checks", len(e.Problems))
 }
