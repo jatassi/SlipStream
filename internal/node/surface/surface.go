@@ -30,6 +30,7 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadataapi"
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/namingapi"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesapi"
 	"github.com/jatassi/slipstream/internal/pairing"
@@ -109,6 +110,7 @@ type Node interface {
 	indexersapi.Registry
 	trackersapi.Registry
 	filesapi.Library
+	namingapi.Namer
 	importsapi.Pending
 	grabsapi.Pipeline
 	downloadclientsapi.Clients
@@ -146,6 +148,7 @@ func Mount(r *api.Router, s Services) {
 	indexersapi.Routes(r, s.Node)
 	trackersapi.Routes(r, s.Node)
 	filesapi.Routes(r, s.Node)
+	namingapi.Routes(r, s.Node)
 	importsapi.Routes(r, s.Node)
 	grabsapi.Routes(r, s.Node)
 	downloadclientsapi.Routes(r, s.Node)

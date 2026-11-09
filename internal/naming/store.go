@@ -116,11 +116,16 @@ func refusal(t works.TypeID, problems []Problem) error {
 	if problems == nil {
 		return nil
 	}
-	out := make([]Problem, len(problems))
-	for i, p := range problems {
-		out[i] = Problem{Key: prefixOf(t) + p.Key, Sentence: p.Sentence}
+	return &RefusedError{Problems: prefixed(t, problems)}
+}
+
+// prefixed is problems with each Key the setting key.
+func prefixed(t works.TypeID, problems []Problem) []Problem {
+	var out []Problem
+	for _, p := range problems {
+		out = append(out, Problem{Key: prefixOf(t) + p.Key, Sentence: p.Sentence})
 	}
-	return &RefusedError{Problems: out}
+	return out
 }
 
 // keyed is err with a *RefusedError's keys the setting keys.
