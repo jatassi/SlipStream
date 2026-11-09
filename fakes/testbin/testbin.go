@@ -171,6 +171,9 @@ func placeTools(dir string) error {
 }
 
 func placeProgram(src, dst string) error {
+	if _, err := os.Stat(src); err != nil {
+		return fmt.Errorf("%s: %w", toolsVariable, err)
+	}
 	if os.Symlink(src, dst) == nil {
 		return nil
 	}

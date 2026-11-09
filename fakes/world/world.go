@@ -321,6 +321,9 @@ func (r *Run) copyBinary(source string) error {
 // privilege the user lacks, as on Windows outside Developer Mode, the run
 // gets a copy.
 func linkTool(src, dst string) error {
+	if _, err := os.Stat(src); err != nil {
+		return err //nolint:wrapcheck // the caller names the tool
+	}
 	if os.Symlink(src, dst) == nil {
 		return nil
 	}
