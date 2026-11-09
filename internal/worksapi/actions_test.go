@@ -149,7 +149,7 @@ type shelves struct {
 func shelve(t *testing.T) *shelves {
 	t.Helper()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), health.Schema(), roots.Schema(),
-		indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), transfers.LibrarySchema())
+		indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), naming.Schema(), transfers.LibrarySchema())
 	s := &shelves{lib: lib, fx: contenttypetest.New(), roster: &roster{offline: map[role.NodeID]bool{}}, events: &events{names: map[string]string{}}, byKey: map[string]string{}}
 	s.exec(t, `INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0), (?, randomblob(32), 'seedbox', 0)`, home, seedbox)
 	byWorks := func(v works.Changed) []string { return v.WorkIDs }

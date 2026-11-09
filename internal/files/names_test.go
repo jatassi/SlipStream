@@ -42,8 +42,7 @@ func (shelf) NamingValues(context.Context, storage.Reader[storage.Library], work
 // a Scarf, named by file under goals.
 func shelved(t *testing.T, file string, goals targets.Goals, items ...works.Item) world {
 	t.Helper()
-	const typ works.TypeID = "shelf"
-	scheme, err := naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{typ: shelf(file)}}).SchemeIn(t.Context(), nil, typ)
+	scheme, err := naming.DefaultScheme(shelf(file).Naming())
 	if err != nil {
 		t.Fatal(err)
 	}
