@@ -3,6 +3,7 @@ package naming
 import (
 	"errors"
 	"fmt"
+	"iter"
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/media"
@@ -144,37 +145,54 @@ func (s *Scheme) holds(v int) []string {
 	return out
 }
 
-// samples names every type sample crossed with the core's file samples
-// with variant v, and adds the first that doesn't fit budget or loses its
-// anchor. A sample whose first Item can't take v names with the first
-// variant, which the check judges on its own.
+// samples names every crossing of variant v, and adds the first that
+// doesn't fit budget or loses its anchor.
 func (c *problems) samples(s *Scheme, v, budget int) {
 	key := fileKey(s.decl.Files[v])
 	st := s.style()
-	for _, sample := range s.decl.Samples {
-		sub := Subject{Work: sample.Work, Units: make([]Unit, len(sample.Units))}
-		for i, u := range sample.Units {
-			u.Item.Variant = s.decl.Files[v].Key
-			sub.Units[i] = u
+	for x := range s.crossings(v) {
+		which := fmt.Sprintf("For the sample %q with %s, ", x.sample.Label, x.file.label)
+		_, err := s.Name(Placing{Subject: x.sub, LevelFolders: true, Landing: Rendered(), File: x.file.facts, Ext: sampleExt, Budget: budget})
+		var long *TooLongError
+		if errors.As(err, &long) {
+			c.add(key, which+long.Error()+". Shorten the template.")
+			return
 		}
-		if s.variant(sub) != v {
-			continue
+		name, anchor := st.render(s.files[v], x.sub, x.file.facts), s.anchorText(v, x.sub, x.file.facts)
+		if !strings.HasPrefix(name, anchor+dash) {
+			c.add(key, which+s.lostAnchor(v, name, anchor))
+			return
 		}
-		for _, fs := range fileSamples {
-			if sample.Missing != fs.bare {
+	}
+}
+
+// crossing is a type sample paired with one of the core's file samples.
+type crossing struct {
+	sample Sample
+	sub    Subject
+	file   fileSample
+}
+
+// crossings are the type's samples that name with variant v, each
+// crossed with the core's file samples: a Missing sample with the file
+// that has no release facts, every other with the rest. A sample whose
+// first Item can't take v names with the first variant, which is judged
+// on its own.
+func (s *Scheme) crossings(v int) iter.Seq[crossing] {
+	return func(yield func(crossing) bool) {
+		for _, sample := range s.decl.Samples {
+			sub := Subject{Work: sample.Work, Units: make([]Unit, len(sample.Units))}
+			for i, u := range sample.Units {
+				u.Item.Variant = s.decl.Files[v].Key
+				sub.Units[i] = u
+			}
+			if s.variant(sub) != v {
 				continue
 			}
-			which := fmt.Sprintf("For the sample %q with %s, ", sample.Label, fs.label)
-			_, err := s.Name(Placing{Subject: sub, LevelFolders: true, Landing: Rendered(), File: fs.facts, Ext: sampleExt, Budget: budget})
-			var long *TooLongError
-			if errors.As(err, &long) {
-				c.add(key, which+long.Error()+". Shorten the template.")
-				return
-			}
-			name, anchor := st.render(s.files[v], sub, fs.facts), s.anchorText(v, sub, fs.facts)
-			if !strings.HasPrefix(name, anchor+dash) {
-				c.add(key, which+s.lostAnchor(v, name, anchor))
-				return
+			for _, fs := range fileSamples {
+				if sample.Missing == fs.bare && !yield(crossing{sample: sample, sub: sub, file: fs}) {
+					return
+				}
 			}
 		}
 	}

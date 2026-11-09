@@ -131,6 +131,14 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     cause: "The downloaded video doesn't meet any Target this Work still wants.",
     recovery: searchAgain,
   },
+  name_taken: {
+    cause: "Another file already has the name this video would take in the Work's folder.",
+    recovery: "Move or rename the other file, then search again.",
+  },
+  name_too_long: {
+    cause: "The video's path would be longer than its library root allows.",
+    recovery: "Shorten this Content Type's naming templates, then search again.",
+  },
   transfer_failed: {
     cause: "The finished download couldn't be copied between Nodes.",
   },

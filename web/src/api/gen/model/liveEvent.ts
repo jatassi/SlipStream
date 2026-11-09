@@ -19,6 +19,7 @@ import type { LiveEventLiveAccessChanged } from "./liveEventLiveAccessChanged.ts
 import type { LiveEventLiveResync } from "./liveEventLiveResync.ts";
 import type { LiveEventLiveSessionEnded } from "./liveEventLiveSessionEnded.ts";
 import type { LiveEventMetadataChanged } from "./liveEventMetadataChanged.ts";
+import type { LiveEventNamingChanged } from "./liveEventNamingChanged.ts";
 import type { LiveEventNodesChanged } from "./liveEventNodesChanged.ts";
 import type { LiveEventNodeSettingsChanged } from "./liveEventNodeSettingsChanged.ts";
 import type { LiveEventNodesTraffic } from "./liveEventNodesTraffic.ts";
@@ -59,6 +60,7 @@ export type LiveEvent =
   | LiveEventLiveResync
   | LiveEventLiveSessionEnded
   | LiveEventMetadataChanged
+  | LiveEventNamingChanged
   | LiveEventNodeSettingsChanged
   | LiveEventNodesChanged
   | LiveEventNodesTraffic

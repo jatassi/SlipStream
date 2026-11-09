@@ -1,0 +1,19 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        emit_pointers_for_null_types: true
+        overrides:
+          - column: "*.content_type"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: TypeID
+          - column: naming_type.rename_files
+            go_type:
+              type: bool
+              pointer: true

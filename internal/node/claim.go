@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
 	"github.com/jatassi/slipstream/internal/pairing"
@@ -268,6 +269,14 @@ func (s surfaceNode) Files() (*files.Files, bool) {
 		return nil, false
 	}
 	return h.files, true
+}
+
+func (s surfaceNode) Naming() (*naming.Naming, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.naming == nil {
+		return nil, false
+	}
+	return h.naming, true
 }
 
 func (s surfaceNode) Imports() (*imports.Imports, bool) {

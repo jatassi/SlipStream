@@ -109,7 +109,7 @@ func newWorld(t *testing.T) *world {
 	t.Helper()
 	ctx := t.Context()
 	w := &world{
-		lib:     storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), Schema()),
+		lib:     storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), naming.Schema(), Schema()),
 		fx:      contenttypetest.New(),
 		node:    role.NodeID{UUID: storage.NewUUID()},
 		changed: &heard[Changed]{},

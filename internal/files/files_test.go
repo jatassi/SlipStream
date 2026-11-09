@@ -113,7 +113,7 @@ func (t *told) Publish(_ context.Context, c files.Changed) { *t = append(*t, c) 
 
 func open(t testing.TB) *library {
 	t.Helper()
-	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
+	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), naming.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
@@ -155,7 +155,10 @@ func (l *library) on(cells files.Inflight, disk files.Disk) *files.Files {
 		Transfers: func(context.Context, storage.Reader[storage.Library]) (map[transfers.ID]bool, error) {
 			return l.staged, nil
 		},
-		Naming: naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: l.fx}}), Names: map[works.TypeID]release.Names{contenttypetest.ID: l.fx},
+		Naming: naming.New(naming.Config{
+			Library: l.lib, Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: l.fx}, Describe: l.works.Describe, Budget: roots.SmallestBudget,
+		}),
+		Names: map[works.TypeID]release.Names{contenttypetest.ID: l.fx},
 		Today: func() time.Time { return today },
 		Disk:  disk, Changed: &l.changed, Moved: &l.moved, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
 		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay

@@ -280,6 +280,20 @@ func (q *Queries) FinishMove(ctx context.Context, arg FinishMoveParams) (int64, 
 	return result.RowsAffected()
 }
 
+const forgetGoneAt = `-- name: ForgetGoneAt :exec
+DELETE FROM files_file WHERE root_id = ?1 AND path = ?2 AND gone_at IS NOT NULL
+`
+
+type ForgetGoneAtParams struct {
+	RootID roots.ID
+	Path   string
+}
+
+func (q *Queries) ForgetGoneAt(ctx context.Context, arg ForgetGoneAtParams) error {
+	_, err := q.db.ExecContext(ctx, forgetGoneAt, arg.RootID, arg.Path)
+	return err
+}
+
 const forgetGoneOfRoot = `-- name: ForgetGoneOfRoot :exec
 DELETE FROM files_file WHERE root_id = ?1 AND gone_at IS NOT NULL
 `
@@ -378,11 +392,11 @@ func (q *Queries) InsertDoomed(ctx context.Context, arg InsertDoomedParams) erro
 
 const insertFile = `-- name: InsertFile :exec
 INSERT INTO files_file (id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra,
-    release_name, title_read, modified_at, node_file_id, node_volume_id, probed_at)
+    release_name, title_read, modified_at, node_file_id, node_volume_id, probed_at, source_name)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6,
     ?7, ?8, ?9, ?10, ?11, ?12,
     ?13, ?14, ?15, ?16, ?17,
-    ?18)
+    ?18, ?19)
 `
 
 type InsertFileParams struct {
@@ -404,6 +418,7 @@ type InsertFileParams struct {
 	NodeFileID   *string
 	NodeVolumeID *string
 	ProbedAt     storage.Time
+	SourceName   *string
 }
 
 func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
@@ -426,6 +441,7 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
 		arg.NodeFileID,
 		arg.NodeVolumeID,
 		arg.ProbedAt,
+		arg.SourceName,
 	)
 	return err
 }
@@ -1207,6 +1223,70 @@ func (q *Queries) ListMoves(ctx context.Context) ([]ListMovesRow, error) {
 	return items, nil
 }
 
+const listMovingFiles = `-- name: ListMovingFiles :many
+SELECT file_id FROM files_move ORDER BY file_id
+`
+
+func (q *Queries) ListMovingFiles(ctx context.Context) ([]FileID, error) {
+	rows, err := q.db.QueryContext(ctx, listMovingFiles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FileID
+	for rows.Next() {
+		var file_id FileID
+		if err := rows.Scan(&file_id); err != nil {
+			return nil, err
+		}
+		items = append(items, file_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMovingFilesOfWorks = `-- name: ListMovingFilesOfWorks :many
+SELECT m.file_id FROM files_move m JOIN files_file f ON f.id = m.file_id WHERE f.work_id IN (/*SLICE:work_ids*/?) ORDER BY m.file_id
+`
+
+func (q *Queries) ListMovingFilesOfWorks(ctx context.Context, workIds []works.WorkID) ([]FileID, error) {
+	query := listMovingFilesOfWorks
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FileID
+	for rows.Next() {
+		var file_id FileID
+		if err := rows.Scan(&file_id); err != nil {
+			return nil, err
+		}
+		items = append(items, file_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPrune = `-- name: ListPrune :many
 SELECT root_id, folder FROM files_prune ORDER BY root_id, folder
 `
@@ -1221,6 +1301,46 @@ func (q *Queries) ListPrune(ctx context.Context) ([]FilesPrune, error) {
 	for rows.Next() {
 		var i FilesPrune
 		if err := rows.Scan(&i.RootID, &i.Folder); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTracked = `-- name: ListTracked :many
+SELECT f.work_id, f.root_id, f.path, m.sits FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
+WHERE f.gone_at IS NULL ORDER BY f.id
+`
+
+type ListTrackedRow struct {
+	WorkID works.WorkID
+	RootID roots.ID
+	Path   string
+	Sits   *string
+}
+
+func (q *Queries) ListTracked(ctx context.Context) ([]ListTrackedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTracked)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTrackedRow
+	for rows.Next() {
+		var i ListTrackedRow
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.RootID,
+			&i.Path,
+			&i.Sits,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

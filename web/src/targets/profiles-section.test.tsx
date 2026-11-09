@@ -127,6 +127,7 @@ test("Delete moves a Profile's Works to the one picked, through the Impact", asy
       ownList: 0,
       unwanted: { files: 2, bytes: 2 * 1024 ** 3 },
       renamed: 0,
+      renames: [],
       newlyWanted: 1,
       downloading: 0,
     }),

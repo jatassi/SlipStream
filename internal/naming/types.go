@@ -632,9 +632,11 @@ func (e *TooLongError) Error() string {
 
 // Problem is one setting the check refuses.
 type Problem struct {
-	// Key is the field key, as Settings.Templates has it: "folder",
-	// "levels.<n>", "aside" or "file.<variant>", or "colonCustom". The
-	// setting key is "<type>.naming." and Key.
+	// Key is the setting key, such as "movie.naming.file.standard", in a
+	// refusal Naming returns. The engine judges a Declaration with no type
+	// and names the field alone: "folder", "levels.<n>", "aside",
+	// "file.<variant>", "colonCustom" or another setting after
+	// "<type>.naming.".
 	Key string
 	// Sentence says what is wrong and then what passes, to WRITING.md.
 	Sentence string

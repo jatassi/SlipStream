@@ -11,6 +11,9 @@ import (
 	"unicode/utf8"
 )
 
+// SchemeOf is d's scheme under s, as a type's stored settings make it.
+func SchemeOf(d Declaration, s Settings) (*Scheme, error) { return newScheme(d, s) }
+
 // newScheme binds d's templates under s, d's defaults where s is nil. A
 // Declaration whose tokens don't make a catalog is an error. Templates
 // that don't parse or bind, and a custom colon text a name can't hold,
@@ -23,10 +26,10 @@ func newScheme(d Declaration, s Settings) (*Scheme, error) {
 	sc := &Scheme{
 		decl:        d,
 		cat:         cat,
-		rename:      or(s.Rename, true),
-		colon:       or(s.Colon, ColonSmart),
+		rename:      or(s.Rename, defaultRename),
+		colon:       or(s.Colon, defaultColon),
 		colonCustom: or(s.ColonCustom, ""),
-		multi:       or(s.MultiEpisode, PrefixedRange),
+		multi:       or(s.MultiEpisode, defaultMulti),
 	}
 	var problems []Problem
 	bindField := func(key, text string, f field) bound {

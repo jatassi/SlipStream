@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mail"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesystem"
@@ -67,6 +68,8 @@ func (worker) Targets() (*targets.Targets, bool) { return nil, false }
 func (worker) Roots() (*roots.Roots, bool) { return nil, false }
 
 func (worker) Files() (*files.Files, bool) { return nil, false }
+
+func (worker) Naming() (*naming.Naming, bool) { return nil, false }
 
 func (worker) Imports() (*imports.Imports, bool) { return nil, false }
 

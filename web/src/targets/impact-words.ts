@@ -2,6 +2,8 @@ import type { TargetsImpact } from "../api/gen/model";
 import { bytes } from "../format";
 import type { Unwanted } from "./use-impact-save";
 
+const grouped = new Intl.NumberFormat("en");
+
 const counted = (count: number, one: string, many: string) =>
   `${String(count)} ${count === 1 ? one : many}`;
 
@@ -20,6 +22,15 @@ export function impactLines(impact: TargetsImpact): string[] {
         ? "1 download in progress is for a cell that is no longer wanted. Its file is deleted or kept, as chosen below."
         : `${String(downloading)} downloads in progress are for cells that are no longer wanted. Their files are deleted or kept, as chosen below.`),
   ].filter((line) => line !== false);
+}
+
+export function moreRenamed(impact: TargetsImpact): string | undefined {
+  const listed = impact.renames.reduce((count, work) => count + work.files.length, 0);
+  const more = impact.renamed - listed;
+  if (more === 0) {
+    return undefined;
+  }
+  return more === 1 ? "1 more file is renamed." : `${grouped.format(more)} more files are renamed.`;
 }
 
 export function saveLabel(action: string, impact: TargetsImpact, unwanted: Unwanted): string {

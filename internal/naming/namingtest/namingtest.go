@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/naming"
-	"github.com/jatassi/slipstream/internal/works"
 )
 
 // Conform fails t once for each rule n's declaration breaks: names and
@@ -25,8 +24,7 @@ func Conform(t testing.TB, n naming.Facet) {
 // sub as an .mkv, with level folders, where the templates say.
 func Name(t testing.TB, n naming.Facet, sub naming.Subject, file naming.FileFacts) string {
 	t.Helper()
-	const typ works.TypeID = "namingtest"
-	s, err := naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{typ: n}}).SchemeIn(t.Context(), nil, typ)
+	s, err := naming.DefaultScheme(n.Naming())
 	if err != nil {
 		t.Fatal(err)
 	}

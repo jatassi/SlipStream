@@ -102,7 +102,7 @@ func (f *Files) Scan(ctx context.Context, tx *storage.Tx[file], s Scan) (Scanned
 		g := File{
 			ID: ID{UUID: storage.NewUUID()}, WorkID: s.Work, ItemID: fd.Item, Cut: fd.Cut, RootID: s.Root, Path: fd.At.Path.String(),
 			Size: fd.At.Size, Media: fd.Media, ProbedAt: sc.now, Seen: &fd.At.Seen, Quality: fd.Quality,
-			ReleaseName: path.Base(fd.At.Path.String()), Title: release.File(fd.At.Path.String(), sc.names, sc.cuts),
+			ReleaseName: path.Base(fd.At.Path.String()), Title: release.File(fd.At.Path.String(), sc.names, sc.cuts), SourceName: path.Base(fd.At.Path.String()),
 		}
 		after.files = append(after.files, g)
 		after.found[g.ID] = true

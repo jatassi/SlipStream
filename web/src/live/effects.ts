@@ -20,6 +20,7 @@ import type { LiveEffects } from "./types";
 
 const everyAccount = everyPath(/^\/api\/v1\/accounts\/[^/]+(\/sessions)?$/u);
 const everySignupLink = everyPath(/^\/api\/v1\/signup-links\/[^/]+$/u);
+const everyNaming = everyPath(/^\/api\/v1\/naming(\/|$)/u);
 
 export const effects = {
   ...systemEffects,
@@ -54,5 +55,8 @@ export const effects = {
   },
   "metadata.changed": (_data, { refresh }) => {
     refresh({ queryKey: getListMetadataProvidersQueryKey() });
+  },
+  "naming.changed": (_data, { refresh }) => {
+    refresh(everyNaming);
   },
 } satisfies LiveEffects;
