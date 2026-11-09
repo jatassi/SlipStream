@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/naming/namingtest"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -85,4 +86,8 @@ func TestCutsAreTheSetList(t *testing.T) {
 	if got := f.Cuts(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Cuts = %+v, want %+v", got, want)
 	}
+}
+
+func TestTheFixtureConformsToNaming(t *testing.T) {
+	namingtest.Conform(t, contenttypetest.New())
 }

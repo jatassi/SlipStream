@@ -33,3 +33,6 @@ SELECT * FROM music_album WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY level
 
 -- name: ListTracksOf :many
 SELECT * FROM music_track WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY item_id;
+
+-- name: ListEveryTrack :many
+SELECT * FROM music_track ORDER BY item_id;

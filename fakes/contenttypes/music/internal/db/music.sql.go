@@ -116,6 +116,39 @@ func (q *Queries) ListAlbumsOf(ctx context.Context, workIds []works.WorkID) ([]M
 	return items, nil
 }
 
+const listEveryTrack = `-- name: ListEveryTrack :many
+SELECT item_id, work_id, disc, number, length_ms FROM music_track ORDER BY item_id
+`
+
+func (q *Queries) ListEveryTrack(ctx context.Context) ([]MusicTrack, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryTrack)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MusicTrack
+	for rows.Next() {
+		var i MusicTrack
+		if err := rows.Scan(
+			&i.ItemID,
+			&i.WorkID,
+			&i.Disc,
+			&i.Number,
+			&i.LengthMs,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTracks = `-- name: ListTracks :many
 SELECT item_id, work_id, disc, number, length_ms FROM music_track WHERE work_id = ?1 ORDER BY item_id
 `

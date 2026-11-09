@@ -678,6 +678,50 @@ func (f *Fixture) ApplySettings(_ context.Context, _ *storage.Tx[storage.Library
 	return true, nil
 }
 
+var declaration = naming.Declaration{
+	Tokens: []naming.Token{
+		{Name: "Shelf", Kind: naming.KindTitle, Scope: naming.WorkScope, Example: "Attic", About: "The Work's label."},
+		{Name: "Box", Kind: naming.KindText, Scope: naming.LevelScope, Example: "Box 1", About: "The label of the box the Thing sits in."},
+		{Name: "Thing", Kind: naming.KindTitle, Scope: naming.ItemScope, Example: "Scarf", About: "The Thing's label."},
+	},
+	Folder: "{Shelf}",
+	Levels: []string{"{Box}"},
+	Aside:  "Spare boxes",
+	Files: []naming.Variant{
+		{Key: "standard", Label: "Thing file", File: "{Shelf} - {Thing} - {Edition Tag} {Target}", Anchor: naming.TokenAnchor("Thing")},
+	},
+	Samples: []naming.Sample{
+		{Label: "A Thing", Work: naming.Set{"Shelf": naming.Text("Attic")}, Units: []naming.Unit{{Level: naming.Set{"Box": naming.Text("Box 1")}, Item: naming.ItemValues{Set: naming.Set{"Thing": naming.Text("Scarf")}}}}},
+		{Label: "A spare Thing", Work: naming.Set{"Shelf": naming.Text("Attic")}, Units: []naming.Unit{{Level: naming.Set{"Box": naming.Text("Loose")}, Item: naming.ItemValues{Set: naming.Set{"Thing": naming.Text("Odd sock")}}, Aside: true}}},
+		{Label: "Nothing known", Missing: true, Work: naming.Set{"Shelf": naming.Text("Attic")}, Units: []naming.Unit{{Level: naming.Set{"Box": naming.Text("Box 1")}, Item: naming.ItemValues{Set: naming.Set{"Thing": naming.Text("Scarf")}}}}},
+	},
+}
+
+// Naming puts a file in a folder per box, and one in a spare box in Spare
+// boxes.
+func (*Fixture) Naming() naming.Declaration { return declaration }
+
+// NamingValues names an Item's files after its Work's label, as Shelf,
+// its level's, as Box, and its own, as Thing.
+func (f *Fixture) NamingValues(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[works.WorkID]naming.Values, error) {
+	trees, err := works.OutlinesIn(ctx, r, ws)
+	if err != nil {
+		return nil, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make(map[works.WorkID]naming.Values, len(trees))
+	for _, t := range trees {
+		v := naming.Values{Work: naming.Set{"Shelf": naming.Text(t.Label)}, Levels: map[works.LevelID]naming.Set{}, Items: map[works.ItemID]naming.ItemValues{}}
+		for _, it := range t.Items {
+			v.Levels[it.LevelID] = naming.Set{"Box": naming.Text(f.boxes[it.LevelID].label)}
+			v.Items[it.ID] = naming.ItemValues{Set: naming.Set{"Thing": naming.Text(it.Label)}}
+		}
+		out[t.ID] = v
+	}
+	return out, nil
+}
+
 // NamingTokens names an Item's files after its Work's label, as Shelf,
 // its level's, as Box, and its own, as Thing.
 func (f *Fixture) NamingTokens(ctx context.Context, r storage.Reader[storage.Library], item works.ItemID) (map[string]string, error) {
