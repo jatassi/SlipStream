@@ -361,3 +361,33 @@ func TestCatalogRefusesCollisions(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderSeveralUnits(t *testing.T) {
+	swat := Set{"Series Title": Text("S.W.A.T.")}
+	unit := func(season, ep int64, title string, day int) Unit {
+		return Unit{Level: Set{"season": Number(season)}, Item: ItemValues{Set: Set{
+			"episode": Number(ep), "Episode Title": Text(title), "Air Date": Day(works.Date{Year: 2026, Month: 11, Day: day}),
+		}}}
+	}
+	file := "{Series Title} - S{season:00}E{episode:00} - {Episode Title} {Target}"
+	for _, c := range []struct {
+		name  string
+		text  string
+		multi MultiEpisode
+		units []Unit
+		want  string
+	}{
+		{"one unit", file, PrefixedRange, []Unit{unit(1, 1, "Pilot", 1)}, "S.W.A.T. - S01E01 - Pilot 1080p"},
+		{"prefixed range", file, PrefixedRange, []Unit{unit(1, 1, "Pilot (1)", 1), unit(1, 2, "Pilot (2)", 2)}, "S.W.A.T. - S01E01-E02 - Pilot 1080p"},
+		{"extend", file, Extend, []Unit{unit(1, 1, "Fire", 1), unit(1, 2, "Ice", 2), unit(1, 3, "Ash", 3)}, "S.W.A.T. - S01E01-02-03 - Fire + Ice + Ash 1080p"},
+		{"a gap repeats", file, PrefixedRange, []Unit{unit(1, 1, "Fire", 1), unit(1, 3, "Ash", 3)}, "S.W.A.T. - S01E01E03 - Fire + Ash 1080p"},
+		{"a crossing duplicates", file, Range, []Unit{unit(1, 12, "Fire", 1), unit(2, 1, "Ice", 2)}, "S.W.A.T. - S01E12 - S02E01 - Fire + Ice 1080p"},
+		{"clean titles join with and", "{Series Title} {season}x{episode:00} {Episode CleanTitle}", Scene, []Unit{unit(1, 1, "Law & Order (1)", 1), unit(1, 2, "Law & Order (2)", 2)}, "S.W.A.T. 1x01-x02 Law and Order"},
+		{"other item tokens read the first", "{Series Title} - {Air-Date} - {Episode Title}", PrefixedRange, []Unit{unit(1, 1, "Fire", 9), unit(1, 2, "Ice", 10)}, "S.W.A.T. - 2026-11-09 - Fire + Ice"},
+	} {
+		got := rendered(t, showTokens, style{colon: ColonSmart, multi: c.multi}, c.text, Subject{Work: swat, Units: c.units}, FileFacts{Target: "1080p"})
+		if got != c.want {
+			t.Errorf("%s: %q = %q; want %q", c.name, c.text, got, c.want)
+		}
+	}
+}

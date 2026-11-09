@@ -10,10 +10,12 @@ import (
 	"unicode/utf8"
 )
 
-// style is how values print under a Scheme's settings.
+// style is how values and episode blocks print under a Scheme's
+// settings.
 type style struct {
 	colon  Colon
 	custom string
+	multi  MultiEpisode
 }
 
 // separators are the characters the collapse joins and the segment end
@@ -22,21 +24,37 @@ const separators = " -._"
 
 const ellipsis = "..."
 
-// render renders b for s and f, every Item-scope token reading the first
-// Unit. The caller applies segment to the whole segment, a file's
-// extension included, so a cut's "..." before the extension survives.
+// render renders b for s and f. With several Units each episode block
+// renders them in the multi-episode style, an Item-scope title joins
+// theirs, and every other Item-scope token reads the first. The caller
+// applies segment to the whole segment, a file's extension included, so a
+// cut's "..." before the extension survives.
 func (st style) render(b bound, s Subject, f FileFacts) string {
 	return collapse(st.pieces(b, s, f))
 }
 
 func (st style) pieces(b bound, s Subject, f FileFacts) []piece {
-	ps := make([]piece, len(b.parts))
-	for i, p := range b.parts {
+	ps := make([]piece, 0, len(b.parts))
+	at := 0
+	if len(s.Units) > 1 {
+		one := func(r *boundRef, u Unit) piece { return st.piece(r, Subject{Work: s.Work, Units: []Unit{u}}, 0, f) }
+		for _, sp := range b.blockSpans() {
+			ps = st.run(ps, b.parts[at:sp.from], s, f)
+			ps = append(ps, multi(blockOf(b.parts, sp), st.multi, s.Units, one)...)
+			at = sp.to
+		}
+	}
+	return st.run(ps, b.parts[at:], s, f)
+}
+
+// run appends the pieces of parts outside any episode block.
+func (st style) run(ps []piece, parts []part, s Subject, f FileFacts) []piece {
+	for _, p := range parts {
 		switch p := p.(type) {
 		case literal:
-			ps[i] = piece{text: string(p), literal: true}
+			ps = append(ps, piece{text: string(p), literal: true})
 		case *boundRef:
-			ps[i] = st.piece(p, s, 0, f)
+			ps = append(ps, st.piece(p, s, 0, f))
 		}
 	}
 	return ps
@@ -45,7 +63,7 @@ func (st style) pieces(b bound, s Subject, f FileFacts) []piece {
 // piece is r's value for one Unit of s with its prefix, suffix and tag,
 // or an empty piece when the value prints nothing.
 func (st style) piece(r *boundRef, s Subject, unit int, f FileFacts) piece {
-	v := st.value(r, r.entry.read(s, unit, f), f)
+	v := st.value(r, valueOf(r.entry, s, unit, f), f)
 	if strings.TrimSpace(v) == "" {
 		return piece{empty: true}
 	}
@@ -56,6 +74,35 @@ func (st style) piece(r *boundRef, s Subject, unit int, f FileFacts) piece {
 		v = "{" + r.entry.tag.word() + "-" + v + "}"
 	}
 	return piece{text: r.prefix + v + r.suffix}
+}
+
+// valueOf is e's value for one Unit of s, or for an Item-scope title over
+// several Units, their titles joined.
+func valueOf(e *entry, s Subject, unit int, f FileFacts) Value {
+	if len(s.Units) < 2 || e.Scope != ItemScope || e.Kind != KindTitle {
+		return e.read(s, unit, f)
+	}
+	base := e
+	if e.base != nil {
+		base = e.base
+	}
+	titles := make([]Value, len(s.Units))
+	for i := range s.Units {
+		titles[i] = base.read(s, i, f)
+	}
+	if e.form == nil {
+		return joinTitles(titles, nil)
+	}
+	year := e.yearAt(s, 0, f)
+	derive := func(t string) string { return e.derive(t, year) }
+	if strings.HasPrefix(e.form.suffix, "Clean") {
+		return joinTitles(titles, derive)
+	}
+	joined := joinTitles(titles, nil)
+	if joined.kind != textValue {
+		return joined
+	}
+	return Text(derive(joined.text))
 }
 
 // value is v through r's pipeline: its kind's form and r's modifier, the

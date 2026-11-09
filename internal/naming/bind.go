@@ -15,8 +15,8 @@ const unstorable = `:*?<>|"`
 // bind resolves t's refs against c for field f. It refuses an unknown
 // token, a token whose scope f doesn't take, a modifier the token's kind
 // doesn't take, and a literal holding a character a name can't hold, each
-// as a *ParseError. It leaves the episode block, alone and anchorEnd to
-// the multi-episode and anchor code.
+// as a *ParseError. It finds the episode blocks and leaves anchorEnd to
+// the anchor code.
 func bind(t Template, c *catalog, f field) (bound, error) {
 	b := bound{field: f, parts: make([]part, len(t.parts))}
 	at := 0
@@ -40,6 +40,7 @@ func bind(t Template, c *catalog, f field) (bound, error) {
 			at += len(p.text)
 		}
 	}
+	b.block, b.alone = blockSpan(b.parts)
 	return b, nil
 }
 
