@@ -2212,6 +2212,24 @@ export const FormatsExplained = zod.object({
 export type FormatsExplained = zod.input<typeof FormatsExplained>;
 export type FormatsExplainedOutput = zod.output<typeof FormatsExplained>;
 
+export const TargetsRenamedFile = zod.object({
+  fileId: zod.uuid(),
+  from: zod.string().describe("The file's path in its root now"),
+  to: zod.string().describe("The file's path in its root after the change"),
+});
+
+export type TargetsRenamedFile = zod.input<typeof TargetsRenamedFile>;
+export type TargetsRenamedFileOutput = zod.output<typeof TargetsRenamedFile>;
+
+export const TargetsWorkRenames = zod.object({
+  files: zod.array(TargetsRenamedFile).describe("In the order the files were added"),
+  title: zod.string(),
+  workId: zod.uuid(),
+});
+
+export type TargetsWorkRenames = zod.input<typeof TargetsWorkRenames>;
+export type TargetsWorkRenamesOutput = zod.output<typeof TargetsWorkRenames>;
+
 export const targetsUnwantedFilesBytesMin = 0;
 
 export const targetsUnwantedFilesFilesMin = 0;
@@ -2249,7 +2267,10 @@ export const TargetsImpact = zod.object({
   renamed: zod
     .int()
     .min(targetsImpactRenamedMin)
-    .describe("Files that still fill a cell and change name"),
+    .describe("Files whose path changes, Kept files included"),
+  renames: zod
+    .array(TargetsWorkRenames)
+    .describe("The first 500 of the renamed files, by Work in title order"),
   unwanted: TargetsUnwantedFiles.describe(
     "Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses",
   ),
