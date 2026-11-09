@@ -1207,6 +1207,70 @@ func (q *Queries) ListMoves(ctx context.Context) ([]ListMovesRow, error) {
 	return items, nil
 }
 
+const listMovingFiles = `-- name: ListMovingFiles :many
+SELECT file_id FROM files_move ORDER BY file_id
+`
+
+func (q *Queries) ListMovingFiles(ctx context.Context) ([]FileID, error) {
+	rows, err := q.db.QueryContext(ctx, listMovingFiles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FileID
+	for rows.Next() {
+		var file_id FileID
+		if err := rows.Scan(&file_id); err != nil {
+			return nil, err
+		}
+		items = append(items, file_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMovingFilesOfWorks = `-- name: ListMovingFilesOfWorks :many
+SELECT m.file_id FROM files_move m JOIN files_file f ON f.id = m.file_id WHERE f.work_id IN (/*SLICE:work_ids*/?) ORDER BY m.file_id
+`
+
+func (q *Queries) ListMovingFilesOfWorks(ctx context.Context, workIds []works.WorkID) ([]FileID, error) {
+	query := listMovingFilesOfWorks
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FileID
+	for rows.Next() {
+		var file_id FileID
+		if err := rows.Scan(&file_id); err != nil {
+			return nil, err
+		}
+		items = append(items, file_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPrune = `-- name: ListPrune :many
 SELECT root_id, folder FROM files_prune ORDER BY root_id, folder
 `

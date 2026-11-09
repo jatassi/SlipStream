@@ -117,6 +117,12 @@ SELECT * FROM files_prune ORDER BY root_id, folder;
 -- name: DeletePrune :exec
 DELETE FROM files_prune WHERE root_id = sqlc.arg(root_id) AND folder = sqlc.arg(folder);
 
+-- name: ListMovingFiles :many
+SELECT file_id FROM files_move ORDER BY file_id;
+
+-- name: ListMovingFilesOfWorks :many
+SELECT m.file_id FROM files_move m JOIN files_file f ON f.id = m.file_id WHERE f.work_id IN (sqlc.slice(work_ids)) ORDER BY m.file_id;
+
 -- name: CountMovingOfWork :one
 SELECT count(*) FROM files_move m JOIN files_file f ON f.id = m.file_id WHERE f.work_id = sqlc.arg(work_id);
 

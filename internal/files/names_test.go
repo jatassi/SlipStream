@@ -8,6 +8,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -52,7 +53,7 @@ func shelved(t *testing.T, file string, goals targets.Goals, items ...works.Item
 	}
 	return world{
 		tree: works.Bare{Items: items}, goals: goals, scoring: newScoring(nil, goals, release.Fact[release.Language]{}),
-		scheme: scheme, values: values,
+		scheme: scheme, values: values, budgets: map[roots.ID]int{{}: 250},
 	}
 }
 
@@ -147,7 +148,7 @@ func TestNames(t *testing.T) {
 			for target, id := range c.fills {
 				fills[CellKey{Item: scarf.ID, Edition: targets.AnyEdition, Target: target.ID}] = Fill{File: ids[id]}
 			}
-			got, err := names(w, fills)
+			got, _, err := names(w, fills)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -169,7 +170,7 @@ func TestTwoFilesOnOneNameIsAClash(t *testing.T) {
 	fresh := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Path: ".slipstream-incoming/grab.mkv"}
 	w := shelved(t, "{Shelf} - {Thing}", targets.Goals{Targets: []targets.Target{web}}, scarf)
 	w.files, w.fresh = []File{held, fresh}, fresh.ID
-	_, err := names(w, map[CellKey]Fill{{Item: scarf.ID, Edition: targets.AnyEdition, Target: web.ID}: {File: held.ID}})
+	_, _, err := names(w, map[CellKey]Fill{{Item: scarf.ID, Edition: targets.AnyEdition, Target: web.ID}: {File: held.ID}})
 	if !errors.Is(err, ErrNameClash) {
 		t.Fatalf("names of a Kept file whose template names no Target = %v, want ErrNameClash", err)
 	}
@@ -185,7 +186,7 @@ func TestAGoneFileKeepsItsNameAndHoldsItsN(t *testing.T) {
 	kept := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.HDTV720p, Label: "Web", Path: "Attic/Scarf.mkv"}
 	w := shelved(t, "{Shelf} - {Thing} - {Edition Tag} {Target}", targets.Goals{Targets: []targets.Target{best}}, scarf)
 	w.files, w.retagged = []File{gone, kept}, map[release.CutKey]bool{release.Standard: true}
-	got, err := names(w, nil)
+	got, _, err := names(w, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
