@@ -13,6 +13,7 @@ import type {
   SettingRateField,
   SettingSpaceField,
   SettingSwitchField,
+  SettingTemplateField,
   SettingTimes,
   SettingWindowField,
 } from "../api/gen/model";
@@ -29,6 +30,7 @@ export type Fields = {
   address: SettingAddressField;
   folder: SettingFolderField;
   space: SettingSpaceField;
+  template: SettingTemplateField;
 };
 
 export type Values = {
@@ -42,6 +44,7 @@ export type Values = {
   address: string;
   folder: string;
   space: SettingAmount;
+  template: string;
 };
 
 export type SettingKind = keyof Fields;

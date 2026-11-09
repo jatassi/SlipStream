@@ -13,6 +13,7 @@ import type {
   SettingRateField,
   SettingSpaceField,
   SettingSwitchField,
+  SettingTemplateField,
   SettingWindowField,
   TasksDetail,
   TasksFailurePart,
@@ -1425,6 +1426,37 @@ export const getGetTaskResponseSettingSpaceFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetTaskResponseSettingTemplateFieldMock = (
+  overrideResponse: Partial<SettingTemplateField> = {},
+): SettingTemplateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    field: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["template"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    plain: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetTaskResponseMock = (
   overrideResponse: Partial<Extract<TasksDetail, object>> = {},
 ): TasksDetail => ({
@@ -1639,6 +1671,7 @@ export const getGetTaskResponseMock = (
       { ...getGetTaskResponseSettingAddressFieldMock() },
       { ...getGetTaskResponseSettingFolderFieldMock() },
       { ...getGetTaskResponseSettingSpaceFieldMock() },
+      { ...getGetTaskResponseSettingTemplateFieldMock() },
     ]),
   ),
   units: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
