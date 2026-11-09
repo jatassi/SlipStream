@@ -57,6 +57,9 @@ func TestBuildReadsAsWant(t *testing.T) {
 	}
 	for _, f := range files {
 		t.Run(f.Path, func(t *testing.T) {
+			if why := mediafix.Lacks(f.Video.HDR); why != "" {
+				t.Skip(why)
+			}
 			built, err := b.Build(t.Context(), f)
 			if err != nil {
 				t.Fatal(err)
@@ -125,6 +128,10 @@ func TestCapturesHaveNotDrifted(t *testing.T) {
 	for _, c := range mediafix.Captures {
 		if got, want := read(t, checkedIn, c.Name+".cmd"), read(t, fresh, c.Name+".cmd"); !bytes.Equal(got, want) {
 			t.Errorf("%s.cmd differs from the recipe's commands; %s", c.Name, again)
+		}
+		if why := mediafix.Lacks(c.File.Video.HDR); why != "" {
+			t.Logf("%s isn't compared: %s", c.Name, why)
+			continue
 		}
 		got, want := parse(t, checkedIn, c.Name), parse(t, fresh, c.Name)
 		got.Bitrate, want.Bitrate = 0, 0

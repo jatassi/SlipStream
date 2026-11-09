@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -252,4 +253,13 @@ func dvLevel(v scenario.MediaVideo) int {
 		}
 	}
 	return len(dvLevels) + 1
+}
+
+// Lacks is why the bundled ffmpeg can't write hdr on this platform, empty
+// when it can.
+func Lacks(hdr string) string {
+	if hdr == "hdr10plus" && runtime.GOOS == "windows" {
+		return "the bundled Windows ffmpeg's x265 is built without HDR10+"
+	}
+	return ""
 }

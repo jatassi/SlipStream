@@ -3,6 +3,7 @@ package e2e
 import (
 	"encoding/json"
 	"net/http"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -123,6 +124,11 @@ func TestTheWorkFilesReadEveryHDRFormatAndEachTracksLanguage(t *testing.T) {
 			`[{"codec":"flac","profile":"","atmos":false,"channels":2,"layout":"stereo","language":"en","default":true,"title":""},` +
 				`{"codec":"aac","profile":"LC","atmos":false,"channels":2,"layout":"stereo","language":"de","default":false,"title":""}]`, `[]`,
 		},
+	}
+	if runtime.GOOS == "windows" {
+		// The bundled Windows ffmpeg's x265 is built without HDR10+, so the
+		// world can't make this film's file there.
+		delete(want, hdr10PlusFilm)
 	}
 	for p, w := range want {
 		m := listed[p].Media
