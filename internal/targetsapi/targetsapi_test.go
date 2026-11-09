@@ -82,7 +82,7 @@ func serve(t *testing.T) *served {
 	}
 	changed.n = 0
 	shelf, err := files.Open(t.Context(), files.Config{
-		Library: lib, Targets: svc, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}, Today: time.Now,
+		Library: lib, Targets: svc, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Naming: naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}}), Today: time.Now,
 	})
 	if err != nil {
 		t.Fatal(err)

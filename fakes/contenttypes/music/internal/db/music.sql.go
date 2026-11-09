@@ -23,23 +23,6 @@ func (q *Queries) GetArtist(ctx context.Context, workID works.WorkID) (MusicArti
 	return i, err
 }
 
-const getTrack = `-- name: GetTrack :one
-SELECT item_id, work_id, disc, number, length_ms FROM music_track WHERE item_id = ?1
-`
-
-func (q *Queries) GetTrack(ctx context.Context, itemID works.ItemID) (MusicTrack, error) {
-	row := q.db.QueryRowContext(ctx, getTrack, itemID)
-	var i MusicTrack
-	err := row.Scan(
-		&i.ItemID,
-		&i.WorkID,
-		&i.Disc,
-		&i.Number,
-		&i.LengthMs,
-	)
-	return i, err
-}
-
 const listAlbums = `-- name: ListAlbums :many
 SELECT level_id, work_id, released, primary_type, release_id FROM music_album WHERE work_id = ?1 ORDER BY level_id
 `
@@ -102,6 +85,39 @@ func (q *Queries) ListAlbumsOf(ctx context.Context, workIds []works.WorkID) ([]M
 			&i.Released,
 			&i.PrimaryType,
 			&i.ReleaseID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEveryTrack = `-- name: ListEveryTrack :many
+SELECT item_id, work_id, disc, number, length_ms FROM music_track ORDER BY item_id
+`
+
+func (q *Queries) ListEveryTrack(ctx context.Context) ([]MusicTrack, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryTrack)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MusicTrack
+	for rows.Next() {
+		var i MusicTrack
+		if err := rows.Scan(
+			&i.ItemID,
+			&i.WorkID,
+			&i.Disc,
+			&i.Number,
+			&i.LengthMs,
 		); err != nil {
 			return nil, err
 		}

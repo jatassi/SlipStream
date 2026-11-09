@@ -30,6 +30,7 @@ import (
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/metadata/metadatatest"
 	"github.com/jatassi/slipstream/internal/naming"
+	"github.com/jatassi/slipstream/internal/naming/namingtest"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
@@ -625,13 +626,13 @@ func TestTheEnglishTitleFeedsSearchTermsAndNaming(t *testing.T) {
 		t.Fatalf("label %q, want the title in French, La Route du Sel", tree.Label)
 	}
 	var terms indexers.Terms
-	var tokens map[string]string
+	var values map[works.WorkID]naming.Values
 	sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
 		if terms, err = sh.m.SearchTerms(ctx, r, tree.Items[0].ID); err != nil {
 			return err
 		}
-		tokens, err = sh.m.NamingTokens(ctx, r, tree.Items[0].ID)
+		values, err = sh.m.NamingValues(ctx, r, works.Only([]works.WorkID{tree.ID}))
 		return err
 	})
 	terms.Covers = nil
@@ -646,16 +647,8 @@ func TestTheEnglishTitleFeedsSearchTermsAndNaming(t *testing.T) {
 	if !reflect.DeepEqual(terms, want) {
 		t.Fatalf("terms %+v, want %+v", terms, want)
 	}
-	templates := sh.m.DefaultTemplates()
-	folder, err := naming.Render(templates.Folder, tokens, naming.Core{Target: "1080p"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	file, err := naming.Render(templates.File, tokens, naming.Core{Target: "1080p"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, want := folder+"/"+file, "The Salt Road (2022)/The Salt Road (2022) - 1080p"; got != want {
+	sub := values[tree.ID].Of(works.BareOf(tree), []works.ItemID{tree.Items[0].ID})
+	if got, want := namingtest.Name(t, sh.m, sub, naming.FileFacts{Target: "1080p"}), "The Salt Road (2022)/The Salt Road (2022) - 1080p.mkv"; got != want {
 		t.Fatalf("named %q, want %q", got, want)
 	}
 }
@@ -824,25 +817,31 @@ func TestATitleTreatmentPrefersLanguageThenEnglishThenAny(t *testing.T) {
 	}
 }
 
-func TestNamingTokensNameTheMovie(t *testing.T) {
-	sh, tree := added(t, "9000001")
-	var tokens map[string]string
-	sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		var err error
-		tokens, err = sh.m.NamingTokens(ctx, r, tree.Items[0].ID)
-		return err
-	})
-	templates := sh.m.DefaultTemplates()
-	folder, err := naming.Render(templates.Folder, tokens, naming.Core{Target: "1080p"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	file, err := naming.Render(templates.File, tokens, naming.Core{Target: "1080p"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, want := folder+"/"+file, "The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p"; got != want {
-		t.Fatalf("named %q, want %q", got, want)
+func TestTheMovieConformsToNaming(t *testing.T) {
+	namingtest.Conform(t, library())
+}
+
+func TestNamingValuesNameTheMovie(t *testing.T) {
+	for _, c := range []struct {
+		key  works.Key
+		file naming.FileFacts
+		want string
+	}{
+		{"9000001", naming.FileFacts{Target: "1080p"}, "The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv"},
+		{"9000001", naming.FileFacts{Target: "4K HDR", Cut: "Director's Cut"}, "The Quiet Orchard (2021)/The Quiet Orchard (2021) - {edition-Director's Cut} 4K HDR.mkv"},
+		{"9000004", naming.FileFacts{Target: "4K"}, "Untitled Project/Untitled Project - 4K.mkv"},
+	} {
+		sh, tree := added(t, c.key)
+		var values map[works.WorkID]naming.Values
+		sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+			var err error
+			values, err = sh.m.NamingValues(ctx, r, works.Every([]works.WorkID{tree.ID}))
+			return err
+		})
+		sub := values[tree.ID].Of(works.BareOf(tree), []works.ItemID{tree.Items[0].ID})
+		if got := namingtest.Name(t, sh.m, sub, c.file); got != c.want {
+			t.Errorf("named %q, want %q", got, c.want)
+		}
 	}
 }
 

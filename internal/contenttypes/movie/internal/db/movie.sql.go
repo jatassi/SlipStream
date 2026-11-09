@@ -319,6 +319,49 @@ func (q *Queries) ListEveryClaim(ctx context.Context) ([]ListEveryClaimRow, erro
 	return items, nil
 }
 
+const listEveryName = `-- name: ListEveryName :many
+SELECT work_id, tmdb_id, imdb_id, title_english, original_title, year FROM movie_movie ORDER BY rowid
+`
+
+type ListEveryNameRow struct {
+	WorkID        works.WorkID
+	TmdbID        TMDBID
+	ImdbID        *IMDbID
+	TitleEnglish  string
+	OriginalTitle string
+	Year          *int64
+}
+
+func (q *Queries) ListEveryName(ctx context.Context) ([]ListEveryNameRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEveryNameRow
+	for rows.Next() {
+		var i ListEveryNameRow
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.TmdbID,
+			&i.ImdbID,
+			&i.TitleEnglish,
+			&i.OriginalTitle,
+			&i.Year,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEveryReleaseDate = `-- name: ListEveryReleaseDate :many
 SELECT work_id, country, kind, date FROM movie_release ORDER BY rowid
 `
@@ -414,6 +457,59 @@ func (q *Queries) ListGenres(ctx context.Context, workID works.WorkID) ([]string
 			return nil, err
 		}
 		items = append(items, name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listNamesOf = `-- name: ListNamesOf :many
+SELECT work_id, tmdb_id, imdb_id, title_english, original_title, year FROM movie_movie WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
+`
+
+type ListNamesOfRow struct {
+	WorkID        works.WorkID
+	TmdbID        TMDBID
+	ImdbID        *IMDbID
+	TitleEnglish  string
+	OriginalTitle string
+	Year          *int64
+}
+
+func (q *Queries) ListNamesOf(ctx context.Context, workIds []works.WorkID) ([]ListNamesOfRow, error) {
+	query := listNamesOf
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListNamesOfRow
+	for rows.Next() {
+		var i ListNamesOfRow
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.TmdbID,
+			&i.ImdbID,
+			&i.TitleEnglish,
+			&i.OriginalTitle,
+			&i.Year,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

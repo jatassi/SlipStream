@@ -3,6 +3,7 @@ package naming
 import (
 	"errors"
 	"fmt"
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -151,6 +152,16 @@ func (s *Scheme) Name(p Placing) (Named, error) {
 		}
 	}
 	return s.fit(b, p, folders, anchor)
+}
+
+// Dir is the folder p's file lands in, root-relative: its Work folder and
+// level folders as Name puts them, "" for the root.
+func (s *Scheme) Dir(p Placing) (string, error) {
+	folders, err := s.folders(p)
+	if err != nil {
+		return "", err
+	}
+	return path.Join(folders...), nil
 }
 
 // folders are the folders p's file lands in, Work folder first.

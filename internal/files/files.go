@@ -322,7 +322,7 @@ type Config struct {
 	// folders the sweep keeps. transfers.LiveIn is it.
 	Transfers func(ctx context.Context, r storage.Reader[storage.Library]) (map[transfers.ID]bool, error)
 	// Naming names each Content Type's files.
-	Naming map[works.TypeID]naming.Facet
+	Naming *naming.Naming
 	// Names read each Content Type's release and file names.
 	Names map[works.TypeID]release.Names
 	// Today is the time now in the Controller's zone, whose calendar date
