@@ -264,10 +264,10 @@ type Unit struct {
 }
 
 // Of is the Subject of a file covering items: for each, in order, the
-// values of its level in tree, its own values, and its Aside from tree.
-func (v Values) Of(tree works.Tree, items []works.ItemID) Subject {
-	byID := make(map[works.ItemID]works.Item, len(tree.Items))
-	for _, it := range tree.Items {
+// values of its level in work, its own values, and its Aside from work.
+func (v Values) Of(work works.Bare, items []works.ItemID) Subject {
+	byID := make(map[works.ItemID]works.Item, len(work.Items))
+	for _, it := range work.Items {
 		byID[it.ID] = it
 	}
 	s := Subject{Work: v.Work, Units: make([]Unit, len(items))}
