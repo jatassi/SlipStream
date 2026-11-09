@@ -335,14 +335,17 @@ func TestAfterAnEpisodeOrderChangeTwoFilesTradeNamesTogether(t *testing.T) {
 		"The Tin Signal (2019)/Season 01/The Tin Signal - S01E01 - 1080p.mkv", e05, e06)
 	shelf := filepath.Join(sh.m.MediaDir, "shelf-series")
 	stat := func(p string) (os.FileInfo, error) { return os.Stat(filepath.Join(shelf, filepath.FromSlash(p))) }
-	deadAir, err := stat(e05)
-	if err != nil {
-		t.Fatal(err)
+	identity := func(p string) os.FileInfo {
+		info, err := stat(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// On Windows a FileInfo reads its file's id from its path when it is
+		// first compared, which after the trade is the other file.
+		os.SameFile(info, info)
+		return info
 	}
-	signOff, err := stat(e06)
-	if err != nil {
-		t.Fatal(err)
-	}
+	deadAir, signOff := identity(e05), identity(e06)
 	holds := func(p string, was os.FileInfo) bool {
 		now, err := stat(p)
 		return err == nil && os.SameFile(was, now)
