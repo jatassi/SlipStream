@@ -95,3 +95,14 @@ test("a many-Items type's row orders Profile, root, the add defaults, then its o
   );
   expect(sorted).toEqual(shown);
 });
+
+test("a type's row links to its card in Naming", async () => {
+  renderApp({ path: "/settings/content-types", handlers });
+  const row = page.getByRole("article", { name: "Anthologies" });
+  await expect
+    .element(row.getByText("The names of anthology files and folders are set in Naming."))
+    .toBeVisible();
+  await expect
+    .element(row.getByRole("link", { name: "Naming" }))
+    .toHaveAttribute("href", "/settings/naming#anthology");
+});

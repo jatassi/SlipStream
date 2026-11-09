@@ -288,7 +288,7 @@ export const getPreviewNamingUrl = (contentType: string) => {
 };
 
 /**
- * @summary Name a Content Type's samples under a draft of its naming settings, with what the save check refuses. Nothing is stored
+ * @summary Name a Content Type's samples, a Work's files and tested file names under a draft of its naming settings, with what the save check refuses. Nothing is stored
  */
 export const previewNaming = async (
   contentType: string,
@@ -380,7 +380,7 @@ export type PreviewNamingMutationError = ErrorType<
 export type PreviewNamingMutationVariables = { contentType: string; data: NamingPreviewInputBody };
 
 /**
- * @summary Name a Content Type's samples under a draft of its naming settings, with what the save check refuses. Nothing is stored
+ * @summary Name a Content Type's samples, a Work's files and tested file names under a draft of its naming settings, with what the save check refuses. Nothing is stored
  */
 export const usePreviewNaming = <
   TError = ErrorType<

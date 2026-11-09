@@ -20,7 +20,7 @@ An Admin decides what each file should be. A Target ranks the qualities it accep
 - `sizes-refusals` on the `sizes` Scenario a search refuses the 14 GiB encode with `size_above` and the 1.5 GiB one with `size_below`, grabs the 8.2 GiB one, and a Work whose runtime TMDB doesn't know grabs with the note `size_not_checked` (P-203).
 - `sizes-probed-codec` a release whose title names no video codec is grabbed for `Encoded`, which refuses x264, and its file, probed as H.264, fills nothing. The Grab fails at probing with `fills_nothing`, no file lands, and the cell reads `Failed` (P-069).
 - `editions-cuts` Settings > Editions lists every cut with the phrases it is read as and where it comes from, and `Add cut` adds `Superfan`, also read as `Fan Cut`, as `Custom`.
-- `editions-cut-rename` renaming `Superfan` to `Superfan Edition` opens the Impact, `1 Work changes.` and `1 file is renamed.`, with no Delete or Keep, and its file is renamed to `{edition-Superfan Edition}` (P-202).
+- `editions-cut-rename` renaming `Superfan` to `Superfan Edition` opens the Impact, `1 Work changes.` and `1 file is renamed.`, with no Delete or Keep and the file's old and new path under `Details`' `Renamed files`, and its file is renamed to `{edition-Superfan Edition}` (P-202).
 - `editions-cut-in-use` deleting `Superfan Edition` while `Films` lists it and a file holds it reads `Superfan Edition can't be deleted. Films and 1 file use it.`, and the API answers 409 `cut_in_use`.
 
 ## How to get to it (user POV)

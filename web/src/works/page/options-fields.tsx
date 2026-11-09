@@ -4,6 +4,7 @@ import { ApiError, isProblem } from "../../api/errors";
 import type { SettingField as Field, WorksContentType, WorksWorkView } from "../../api/gen/model";
 import { setWorkOptions } from "../../api/gen/query/works/works";
 import { countWords } from "../../format";
+import { Button } from "../../ui/button";
 import { ConfirmDialog } from "../../ui/confirm-dialog";
 import { SettingField } from "../../ui/setting-field";
 import { Switch } from "../../ui/switch";
@@ -66,15 +67,12 @@ function ChangeWords({ type, pending }: { type: WorksContentType; pending: Pendi
           {`${countWords(withdraws, items)} ${withdraws === 1 ? "isn't" : "aren't"} in ${pickedWords(pending.field, pending.value)}, so ${withdraws === 1 ? "it'll" : "they'll"} show as No longer listed by ${type.source}.`}
         </p>
       )}
-      <p>
-        File names change to the new numbering when SlipStream renames files. Renaming comes in a
-        later release.
-      </p>
+      <p>File names keep the old numbering until you rename the files.</p>
     </>
   );
 }
 
-function useOptionChange(type: WorksContentType, work: WorksWorkView) {
+function useOptionChange(type: WorksContentType, work: WorksWorkView, onSaved: () => void) {
   const [options, setOptions] = useState(work.options);
   const [pending, setPending] = useState<Pending>();
   const send = (field: Field, value: unknown, preview: boolean) =>
@@ -82,6 +80,7 @@ function useOptionChange(type: WorksContentType, work: WorksWorkView) {
   const apply = async ({ field, value }: Omit<Pending, "withdraws">) => {
     try {
       setOptions((await send(field, value, false)).options);
+      onSaved();
     } catch (error) {
       const refusal = refusalOf(type, error, { field, value });
       throw refusal instanceof ApiError ? new Error(refusal.detail ?? refusal.title) : refusal;
@@ -127,6 +126,20 @@ export function LevelFolders({
   return <Switch label={`${level.one} folders`} checked={on} onCheckedChange={onChange} />;
 }
 
+/** After a change that leaves files with old names or folders, the way to the Work's rename plan. */
+export function RenameLine({ onRename }: { onRename: () => void }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <p className="min-w-0 flex-[1_1_24ch] text-ink-2">
+        Files keep their names and folders until you rename them.
+      </p>
+      <Button size="small" onClick={onRename}>
+        Rename files
+      </Button>
+    </div>
+  );
+}
+
 export const saveLevelFolders = (workId: string, levelFolders: boolean) =>
   setWorkOptions(workId, { levelFolders, preview: false });
 
@@ -135,8 +148,17 @@ export const saveLevelFolders = (workId: string, levelFolders: boolean) =>
  * levels is previewed and saved once the Admin confirms it. Any other
  * change saves at once.
  */
-export function OptionsFields({ type, work }: { type: WorksContentType; work: WorksWorkView }) {
-  const { options, pending, cancel, change, apply } = useOptionChange(type, work);
+export function OptionsFields({
+  type,
+  work,
+  onSaved,
+}: {
+  type: WorksContentType;
+  work: WorksWorkView;
+  /** A saved option can change the Work's file names. */
+  onSaved: () => void;
+}) {
+  const { options, pending, cancel, change, apply } = useOptionChange(type, work, onSaved);
   return (
     <>
       {options.map((field) => (

@@ -861,6 +861,37 @@ export const getPreviewNamingResponseMock = (
       ),
     }),
   ),
+  tested: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      ...(faker.datatype.boolean()
+        ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? {
+            unplaced: {
+              code: faker.helpers.arrayElement([
+                "no_number",
+                "no_such_item",
+                "several_items",
+                "no_rule",
+              ] as const),
+              ...(faker.datatype.boolean()
+                ? { names: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                : {}),
+            },
+          }
+        : {}),
+    }),
+  ),
+  work: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    ...(faker.datatype.boolean()
+      ? { detail: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    from: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    to: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  })),
   ...overrideResponse,
 });
 

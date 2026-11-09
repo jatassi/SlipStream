@@ -89,11 +89,14 @@ func (n *Naming) keysOf(t works.TypeID) keys {
 		tpl(fileKey(v), v.Label, v.File)
 	}
 	colon := choiceOf(prefix+"colon", "Colon replacement", defaultColon, colonWords)
+	custom := setting.Template{Key: prefix + colonCustomKey, Label: "Custom colon replacement", Tokens: colonCustomKey, Check: parses, Plain: true}
 	ks = append(ks,
 		keyOf(colon.Key, "colon", colon.ParseJSON, colon.Field,
 			func(s Settings) *string { return toWord(colonWords, s.Colon) },
 			func(s *Settings, w *string) { s.Colon = fromWord(colonWords, w) }),
-		templateKey(setting.Template{Key: prefix + colonCustomKey, Label: "Custom colon replacement", Tokens: colonCustomKey, Check: parses, Plain: true}),
+		keyOf(custom.Key, colonCustomKey, custom.ParseJSON, custom.Field,
+			func(s Settings) *string { return s.ColonCustom },
+			func(s *Settings, v *string) { s.ColonCustom = v }),
 	)
 	if slices.ContainsFunc(d.Tokens, func(tk Token) bool { return tk.Seq != 0 }) {
 		multi := choiceOf(prefix+"multiEpisode", fmt.Sprintf("Multi-%s style", strings.ToLower(nouns.Item.One)), defaultMulti, multiWords)

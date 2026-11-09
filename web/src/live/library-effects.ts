@@ -17,6 +17,9 @@ const everyWork = everyPath(/^\/api\/v1\/works\/[^/]+(\/cells)?$/u);
 const everyIndexersGrabs = everyPath(/^\/api\/v1\/indexers\/[^/]+\/grabs$/u);
 const everyPendingImport = everyPath(/^\/api\/v1\/imports\/pending/u);
 
+/** The counts of files that don't match the naming templates and of files still moving, which renames, imports and naming saves change. */
+export const renameCounts = everyPath(/^\/api\/v1\/renames\/(unmatched|moving)$/u);
+
 /**
  * The library's events: Works, their files and the disk queue's moves of
  * them, pending imports, Grabs and searches. A row of the Library is read again only for the Works an event
@@ -33,6 +36,7 @@ export const libraryEffects = {
       refresh({ queryKey: getGetWorkCellsQueryKey(workId) });
     }
     refresh({ queryKey: getListRootsQueryKey() });
+    refresh(renameCounts);
   },
   "works.removed": ({ workIds }, { queryClient, refresh }) => {
     noteRemoved(queryClient, workIds);
@@ -52,12 +56,14 @@ export const libraryEffects = {
     refresh({ queryKey: getGetWorkCellsQueryKey(workId) });
     refresh({ queryKey: getListWorkFilesQueryKey(workId) });
     refresh({ queryKey: getListRootsQueryKey() });
+    refresh(renameCounts);
   },
   "files.moved": ({ workIds }, { refresh }) => {
     for (const workId of workIds) {
       refresh({ queryKey: getGetWorkCellsQueryKey(workId) });
       refresh({ queryKey: getListWorkFilesQueryKey(workId) });
     }
+    refresh(renameCounts);
   },
   "imports.changed": (_data, { refresh }) => {
     refresh(everyPendingImport);

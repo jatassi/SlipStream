@@ -30,8 +30,9 @@ export type VirtualRowsProps<R> = {
   rows: readonly R[];
   rowKey: (row: R) => string | number;
   estimate: number;
-  follow: boolean;
-  onFollowChange: (follow: boolean) => void;
+  /** Keeps the tail in view, as a log does. */
+  follow?: boolean;
+  onFollowChange?: (follow: boolean) => void;
   renderRow: (row: R) => ReactNode;
 };
 
@@ -45,7 +46,7 @@ export function VirtualRows<R>({
   rows,
   rowKey,
   estimate,
-  follow,
+  follow = false,
   onFollowChange,
   renderRow,
 }: VirtualRowsProps<R>) {
@@ -69,7 +70,7 @@ export function VirtualRows<R>({
       onScroll={(event) => {
         const tail = atTail(event.currentTarget);
         if (tail !== follow) {
-          onFollowChange(tail);
+          onFollowChange?.(tail);
         }
       }}
       className="min-h-0 flex-1 overflow-y-auto overscroll-contain"

@@ -10,7 +10,7 @@ import { TestedName } from "./tested-name";
 import { type TesterKind, kindLabels, nameLimit, namesIn, namesProblem } from "./tester-words";
 import { type Outcome, type Testing, type WorkRef, useTesting } from "./testing";
 
-function NamesBox({
+export function NamesBox({
   kind,
   text,
   problem,

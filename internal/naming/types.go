@@ -630,6 +630,14 @@ func (e *TooLongError) Error() string {
 	return fmt.Sprintf("the name %q is %d bytes long and the limit is %d bytes", e.Segment, e.Bytes, e.Limit)
 }
 
+// Sentence is e for a person, with what to do.
+func (e *TooLongError) Sentence() string {
+	if e.Segment == "" {
+		return fmt.Sprintf("The path is %d bytes long, and paths on this root's Node can be at most %d bytes. Shorten the naming templates.", e.Bytes, e.Limit)
+	}
+	return fmt.Sprintf("The name %q is %d bytes long, and a name can be at most %d bytes. Shorten the naming templates.", e.Segment, e.Bytes, e.Limit)
+}
+
 // Problem is one setting the check refuses.
 type Problem struct {
 	// Key is the setting key, such as "movie.naming.file.standard", in a
