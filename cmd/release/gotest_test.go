@@ -36,23 +36,30 @@ func placed(shards [][]goRun) map[string]int {
 	return count
 }
 
-func TestPartitionSplitsEvenlyWithoutTimings(t *testing.T) {
-	pkgs := packages("a", "b", "c", "d", "e", "f", "g")
-	pkgs = append(pkgs, goPackage{path: "notests"})
-	shards := partition(pkgs, timings{}, 3, true)
-	if count := placed(shards); len(count) != len(pkgs) || slices.ContainsFunc(slices.Collect(maps.Values(count)), func(n int) bool { return n != 1 }) {
+func TestPartitionPacksByTestFileSizeWithoutTimings(t *testing.T) {
+	pkgs := []goPackage{
+		{path: "cmd/release", tests: true, testBytes: 58},
+		{path: "cmd/slipstream", tests: true, testBytes: 107},
+		{path: "e2e", tests: true, testBytes: 329},
+		{path: "fakes/tracker", tests: true, testBytes: 63},
+		{path: "fakes/world/sim", tests: true, testBytes: 230},
+		{path: "notests"},
+	}
+	shards := partition(pkgs, timings{}, 2, true)
+	count := placed(shards)
+	if len(count) != len(pkgs) || slices.ContainsFunc(slices.Collect(maps.Values(count)), func(n int) bool { return n != 1 }) {
 		t.Fatalf("packages placed %v, want each of %d once", count, len(pkgs))
 	}
-	var sizes []int
-	for _, runs := range shards {
-		n := 0
+	shardOf := map[string]int{}
+	for i, runs := range shards {
 		for _, r := range runs {
-			n += len(slices.DeleteFunc(slices.Clone(r.packages), func(p string) bool { return p == "notests" }))
+			for _, p := range r.packages {
+				shardOf[p] = i + 1
+			}
 		}
-		sizes = append(sizes, n)
 	}
-	if slices.Max(sizes)-slices.Min(sizes) > 1 {
-		t.Errorf("shards hold %v packages with tests, want an even split", sizes)
+	if shardOf["e2e"] == shardOf["fakes/world/sim"] {
+		t.Errorf("e2e and fakes/world/sim both run on shard %d of %v, want the two largest test files apart", shardOf["e2e"], shards)
 	}
 }
 
@@ -152,6 +159,36 @@ func timesRun(parts []goRun, test string) int {
 		}
 	}
 	return n
+}
+
+func TestListGoPackagesSumsTheTestFiles(t *testing.T) {
+	root, err := repoRoot(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkgs, err := listGoPackages(t.Context(), root, os.Environ())
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := filepath.Glob(filepath.Join(root, "cmd", "release", "*_test.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want int64
+	for _, f := range files {
+		info, err := os.Stat(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want += info.Size()
+	}
+	i := slices.IndexFunc(pkgs, func(p goPackage) bool { return p.path == "github.com/jatassi/slipstream/cmd/release" })
+	if i < 0 {
+		t.Fatal("go list leaves out cmd/release")
+	}
+	if pkgs[i].testBytes != want {
+		t.Errorf("cmd/release test files weigh %d bytes, want the %d its *_test.go files hold", pkgs[i].testBytes, want)
+	}
 }
 
 // TestGoAndE2ETiersRunEveryPackageOnce partitions the module's packages as
