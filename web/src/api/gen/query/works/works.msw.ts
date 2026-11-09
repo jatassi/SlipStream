@@ -3467,6 +3467,7 @@ export const getSetWorkOptionsResponseMock = (
   overrideResponse: Partial<Extract<WorksOptionsChanged, object>> = {},
 ): WorksOptionsChanged => ({
   levelFolders: faker.datatype.boolean(),
+  moves: faker.datatype.boolean(),
   options: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.helpers.arrayElement([
       { ...getSetWorkOptionsResponseSettingDurationFieldMock() },

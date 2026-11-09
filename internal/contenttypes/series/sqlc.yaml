@@ -38,6 +38,12 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/storage
               type: Time
+          - column: series_series.name_by_air_date
+            go_type: bool
+          - column: series_settings.add_name_by_air_date
+            go_type:
+              type: bool
+              pointer: true
           - column: series_settings.id
             go_type:
               type: Singleton

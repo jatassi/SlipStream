@@ -354,6 +354,13 @@ func (*Music) PatchOptions(_ context.Context, _ storage.Reader[file], _ works.Wo
 	return nil, nil
 }
 
+func (*Music) StoreOptions(_ context.Context, _ *storage.Tx[file], _ works.WorkID, p setting.Patch) (bool, error) {
+	if len(p) > 0 {
+		return false, &setting.UnknownKeyError{Key: slices.Min(slices.Collect(maps.Keys(p)))}
+	}
+	return false, nil
+}
+
 // KeysOf maps none: an artist is known by its MusicBrainz id alone.
 func (*Music) KeysOf(context.Context, storage.Reader[file], []works.Key) ([]works.Key, error) {
 	return nil, nil

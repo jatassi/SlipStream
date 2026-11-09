@@ -31,14 +31,14 @@ func TestSetWorkOptionsPreviewsThenChangesTheOrder(t *testing.T) {
 	}
 
 	expect(t, s, http.MethodPut, "/api/v1/works/"+id+"/options", `{"type":{"order":"stack"},"levelFolders":false,"preview":true}`, http.StatusOK,
-		`{"levelFolders":false,`+options("stack")+`,"withdraws":1}`)
+		`{"levelFolders":false,`+options("stack")+`,"moves":true,"withdraws":1}`)
 	_, work := s.call(t, http.MethodGet, "/api/v1/works/"+id, "")
 	if !strings.Contains(work, `"levelFolders":true,`+options("shelf")) || strings.Contains(work, `"key":"s1"`) {
 		t.Fatalf("after a preview the Work reads %s, want its shelf order and level folders kept", work)
 	}
 
 	expect(t, s, http.MethodPut, "/api/v1/works/"+id+"/options", `{"type":{"order":"stack"},"preview":false}`, http.StatusOK,
-		`{"levelFolders":true,`+options("stack")+`,"withdraws":1}`)
+		`{"levelFolders":true,`+options("stack")+`,"moves":true,"withdraws":1}`)
 	_, work = s.call(t, http.MethodGet, "/api/v1/works/"+id, "")
 	if !strings.Contains(work, options("stack")) || !strings.Contains(work, `"key":"s1"`) {
 		t.Fatalf("after the change the Work reads %s, want it in stack order", work)

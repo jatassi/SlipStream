@@ -52,9 +52,9 @@ export const signedInAsGrace = getGetSessionMockHandler({
   keyPrompt: "ask",
 });
 
-export function problem(status: number, code: string, title: string) {
+export function problem(status: number, code: string, title: string, detail?: string) {
   return HttpResponse.json(
-    { status, code, title },
+    { status, code, title, detail },
     { status, headers: { "Content-Type": "application/problem+json" } },
   );
 }

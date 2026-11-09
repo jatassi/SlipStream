@@ -79,27 +79,34 @@ function useOptionChange(type: WorksContentType, work: WorksWorkView) {
   const [pending, setPending] = useState<Pending>();
   const send = (field: Field, value: unknown, preview: boolean) =>
     setWorkOptions(work.id, { type: { [field.key]: value }, preview });
+  const apply = async ({ field, value }: Omit<Pending, "withdraws">) => {
+    try {
+      setOptions((await send(field, value, false)).options);
+    } catch (error) {
+      const refusal = refusalOf(type, error, { field, value });
+      throw refusal instanceof ApiError ? new Error(refusal.detail ?? refusal.title) : refusal;
+    }
+  };
   return {
     options,
     pending,
     cancel: () => {
       setPending(undefined);
     },
-    preview: async (field: Field, value: unknown) => {
+    change: async (field: Field, value: unknown) => {
+      let preview;
       try {
-        setPending({ field, value, withdraws: (await send(field, value, true)).withdraws });
+        preview = await send(field, value, true);
       } catch (error) {
         throw refusalOf(type, error, { field, value });
       }
-    },
-    apply: async ({ field, value }: Pending) => {
-      try {
-        setOptions((await send(field, value, false)).options);
-      } catch (error) {
-        const refusal = refusalOf(type, error, { field, value });
-        throw refusal instanceof ApiError ? new Error(refusal.detail ?? refusal.title) : refusal;
+      if (preview.moves) {
+        setPending({ field, value, withdraws: preview.withdraws });
+      } else {
+        await apply({ field, value });
       }
     },
+    apply,
   };
 }
 
@@ -124,18 +131,19 @@ export const saveLevelFolders = (workId: string, levelFolders: boolean) =>
   setWorkOptions(workId, { levelFolders, preview: false });
 
 /**
- * The type's options for this Work. A change is previewed first, since it
- * can move Items between levels, and saved once the Admin confirms it.
+ * The type's options for this Work. A change that moves Items between
+ * levels is previewed and saved once the Admin confirms it. Any other
+ * change saves at once.
  */
 export function OptionsFields({ type, work }: { type: WorksContentType; work: WorksWorkView }) {
-  const { options, pending, cancel, preview, apply } = useOptionChange(type, work);
+  const { options, pending, cancel, change, apply } = useOptionChange(type, work);
   return (
     <>
       {options.map((field) => (
         <SettingField
           key={field.key}
           field={field}
-          onSave={(value) => preview(field, value ?? field.default)}
+          onSave={(value) => change(field, value ?? field.default)}
         />
       ))}
       {pending !== undefined && (

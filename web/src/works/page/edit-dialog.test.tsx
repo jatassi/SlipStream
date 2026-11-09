@@ -10,6 +10,7 @@ import { workServer } from "../../test/work-server";
 const edit = page.getByRole("dialog", { name: "Edit The Long Shelf" });
 const confirm = page.getByRole("dialog", { name: "Change the story order to Reading order?" });
 const order = edit.getByRole("radiogroup", { name: "Story order" });
+const byPrinting = edit.getByRole("switch", { name: "Name by first printing" });
 
 async function openEdit(options: Parameters<typeof optionsServer>[0]) {
   const server = optionsServer(options);
@@ -29,6 +30,28 @@ test("Edit shows the type's options and the level folders of a Work of many Item
   await openEdit({ withdraws: 0 });
   await expect.element(edit.getByRole("switch", { name: "Volume folders" })).toBeChecked();
   await expect.element(order.getByRole("radio", { name: "Published order" })).toBeChecked();
+  await expect.element(byPrinting).not.toBeChecked();
+});
+
+test("a switch that moves nothing saves at once, with no confirmation", async () => {
+  const server = await openEdit({ withdraws: 0 });
+  await userEvent.click(byPrinting);
+  await expect.element(byPrinting).toBeChecked();
+  expect(page.getByRole("dialog", { name: /^Change/u }).query()).toBeNull();
+  expect(server.sent).toEqual([
+    { type: { byPrinting: true }, preview: true },
+    { type: { byPrinting: true }, preview: false },
+  ]);
+});
+
+test("a switch the type refuses shows the refusal on the field", async () => {
+  const sentence =
+    "Reading order names stories by number. Turn off Name by first printing to use it.";
+  const server = await openEdit({ withdraws: 0, refused: { byPrinting: sentence } });
+  await userEvent.click(byPrinting);
+  await expect.element(edit.getByText(sentence)).toBeVisible();
+  await expect.element(byPrinting).not.toBeChecked();
+  expect(server.sent).toEqual([{ type: { byPrinting: true }, preview: true }]);
 });
 
 test("an order change previews what it withdraws and saves once confirmed", async () => {

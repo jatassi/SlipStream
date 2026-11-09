@@ -601,6 +601,17 @@ func (f *Fixture) PatchOptions(ctx context.Context, r storage.Reader[storage.Lib
 	return encodeOrder(order)
 }
 
+// StoreOptions stores nothing: the order is the Fixture's one option, and
+// a fetch option.
+func (*Fixture) StoreOptions(_ context.Context, _ *storage.Tx[storage.Library], _ works.WorkID, p setting.Patch) (bool, error) {
+	for key := range p {
+		if key != orderChoice.Key {
+			return false, &setting.UnknownKeyError{Key: key}
+		}
+	}
+	return false, nil
+}
+
 func encodeOrder(o Order) ([]byte, error) {
 	if o == OrderShelf || o == "" {
 		return nil, nil

@@ -9127,6 +9127,9 @@ export type WorksOptionsChangeOutput = zod.output<typeof WorksOptionsChange>;
 
 export const WorksOptionsChanged = zod.object({
   levelFolders: zod.boolean(),
+  moves: zod
+    .boolean()
+    .describe("The change fetches the Work again, so its Items may move between levels"),
   options: zod.array(SettingField).describe("The Content Type's own options for the Work"),
   withdraws: zod
     .int()
