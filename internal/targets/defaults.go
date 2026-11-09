@@ -17,10 +17,11 @@ import (
 // skeleton's "- 1080p" file names.
 const StarterName = "1080p"
 
-// Open makes sure, in one idempotent Write, that a library that never had
-// a starter Target gets one, that every registered Content Type has a
-// default Profile, and that every Work has a wants row. It runs at claim
-// and at every Controller start, and publishes only when it wrote.
+// Open makes sure, in one idempotent Write, that every Target has its
+// folded name, that a library that never had a starter Target gets one,
+// that every registered Content Type has a default Profile, and that every
+// Work has a wants row. It runs at claim and at every Controller start,
+// and publishes only when it wrote.
 func Open(ctx context.Context, cfg Config) (*Targets, error) {
 	var (
 		wrote    bool
@@ -28,6 +29,10 @@ func Open(ctx context.Context, cfg Config) (*Targets, error) {
 	)
 	err := cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
+		folded, err := foldNames(ctx, q, cfg.Log)
+		if err != nil {
+			return err
+		}
 		starter, made, err := ensureStarter(ctx, q)
 		if err != nil {
 			return err
@@ -37,7 +42,7 @@ func Open(ctx context.Context, cfg Config) (*Targets, error) {
 			return err
 		}
 		assigned, err = ensureWants(ctx, tx, q, defaults)
-		wrote = made || named || len(assigned) > 0
+		wrote = folded || made || named || len(assigned) > 0
 		return err
 	})
 	if err != nil {

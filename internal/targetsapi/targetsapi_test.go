@@ -211,7 +211,7 @@ func TestEachTargetsErrorAnswersItsProblem(t *testing.T) {
 		status             int
 		want               string
 	}{
-		{http.MethodPost, "/api/v1/targets", webBody, http.StatusConflict, `{"status":409,"code":"target_name_taken","title":"A Target already has that name"}`},
+		{http.MethodPost, "/api/v1/targets", webBody, http.StatusConflict, `{"status":409,"code":"target_name_taken","title":"A Target already has that name","detail":"Another Target is named Web. Choose another name."}`},
 		{
 			http.MethodPost, "/api/v1/targets", `{"name":"X","tiers":[["webdl-1080p"]],"cutoff":"bluray-1080p"}`, http.StatusUnprocessableEntity,
 			`{"status":422,"code":"quality_not_in_target","title":"The Target doesn't accept that quality","detail":"the Target doesn't accept that quality: the cutoff bluray-1080p"}`,

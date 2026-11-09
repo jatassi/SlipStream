@@ -106,6 +106,7 @@ type TargetsTarget struct {
 	UpgradeUntil   int64
 	ScoreIncrement int64
 	Propers        string
+	NameFolded     *string
 }
 
 type TargetsWant struct {

@@ -201,7 +201,7 @@ func TestEachChangesErrorAnswersItsProblem(t *testing.T) {
 		want               string
 	}{
 		{http.MethodPut, "/api/v1/targets/@none", webBody, http.StatusNotFound, notFound("target")},
-		{http.MethodPut, "/api/v1/targets/@starter", webBody, http.StatusConflict, `{"status":409,"code":"target_name_taken","title":"A Target already has that name"}`},
+		{http.MethodPut, "/api/v1/targets/@starter", webBody, http.StatusConflict, `{"status":409,"code":"target_name_taken","title":"A Target already has that name","detail":"Another Target is named Web. Choose another name."}`},
 		{
 			http.MethodPut, "/api/v1/targets/@starter", `{"name":"1080p","tiers":[["webdl-1080p"]],"cutoff":"bluray-1080p"}`, http.StatusUnprocessableEntity,
 			`{"status":422,"code":"quality_not_in_target","title":"The Target doesn't accept that quality","detail":"the Target doesn't accept that quality: the cutoff bluray-1080p"}`,
