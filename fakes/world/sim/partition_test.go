@@ -58,8 +58,8 @@ func TestPartitionThenRedial(t *testing.T) {
 			t.Fatalf("seedbox's Probe stands %s after the stall, want unreachable", got)
 		}
 		box := seedbox(t, a)
-		if box.Link.State != "down" || box.Link.Since != stalled.Format(time.RFC3339Nano) {
-			t.Fatalf("listNodes shows seedbox %s since %s, want down since %s", box.Link.State, box.Link.Since, stalled.Format(time.RFC3339Nano))
+		if since, err := time.Parse(time.RFC3339Nano, box.Link.Since); box.Link.State != "down" || err != nil || since.After(stalled) {
+			t.Fatalf("listNodes shows seedbox %s since %s, want down since its last Sync frame, at or before the stall at %s", box.Link.State, box.Link.Since, stalled.Format(time.RFC3339Nano))
 		}
 
 		a.SetRoles("home", box.ID, "searching")
