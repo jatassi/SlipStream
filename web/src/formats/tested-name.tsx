@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { FormatsExplained, FormatsParsed } from "../api/gen/model";
+import type { FormatsExplained, FormatsParsed, FormatsReadFacts } from "../api/gen/model";
 import { Chip } from "../ui/chip";
 import { Data } from "../ui/data";
 import { Details } from "../ui/details";
@@ -22,8 +22,8 @@ function Part({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Facts({ result }: { result: FormatsParsed }) {
-  const rows = factRows(result.facts);
+export function Facts({ facts }: { facts: FormatsReadFacts }) {
+  const rows = factRows(facts);
   return (
     <Part title="What it reads as">
       {rows.length === 0 ? (
@@ -122,7 +122,7 @@ export function TestedName({ result }: { result: FormatsParsed }) {
         action={<Data className="wrap-anywhere text-ink-3">{result.name}</Data>}
       >
         <div className="mt-1 flex flex-col gap-4">
-          <Facts result={result} />
+          <Facts facts={result.facts} />
           <Formats formats={result.formats} />
           <Targets result={result} />
         </div>
