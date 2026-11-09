@@ -189,7 +189,7 @@ jobs:
     name: End-to-end Go tests (${{ matrix.target }}${{ matrix.shards > 1 && format(', shard {0} of {1}', matrix.shard, matrix.shards) || '' }})
     needs: build
     if: fromJSON(inputs.e2e).include[0]
-    timeout-minutes: 30
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.e2e) }}

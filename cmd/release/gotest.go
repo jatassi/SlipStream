@@ -33,10 +33,11 @@ func testGoPackages(ctx context.Context, root string, o testOptions, tier string
 		return err
 	}
 	env := bundleEnv(bundle)
-	// A simulation package, and worksapi's 20,000-Work and 32,767-Item
-	// cases, run for most of go test's default ten minutes under -race on
-	// a busy runner; the job's own limit is thirty.
-	flags := []string{"-race", "-shuffle=on", "-timeout", "20m"}
+	// A simulation package, worksapi's 20,000-Work and 32,767-Item cases,
+	// and the e2e package when no timings split it across shards run for
+	// most of twenty minutes under -race on a busy runner; the e2e job's
+	// own limit is thirty-five.
+	flags := []string{"-race", "-shuffle=on", "-timeout", "25m"}
 	if len(o.goArgs) > 0 {
 		return goTest(ctx, root, env, append(flags, o.goArgs...), os.Stdout)
 	}
