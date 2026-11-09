@@ -31,7 +31,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 	}
 	want := []string{
 		"seed", "name", "torrent.listen", "torrent.downloads", "torrent.loopback_peers", "http.listen", "http.trusted_origins", "http.ports_to_try", "http.trusted_proxies", "link.listen", "link.advertise", "link.stream_window", "join.code",
-		"log.level", "log.max_size_mb", "log.max_files", "log.max_age_days", "log.compress", "log.viewer_lines",
+		"log.level", "log.max_size_mb", "log.max_files", "log.max_age_days", "log.compress", "log.viewer_lines", "storage.path_limit",
 		"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog", "endpoints.searching.sites",
 		"timings.node.stop_deadline", "timings.node.restart_lock_wait", "timings.storage.busy_timeout", "timings.http.read_header", "timings.http.idle",
 		"timings.live.heartbeat", "timings.live.retry",

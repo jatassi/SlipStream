@@ -54,6 +54,7 @@ type Config struct {
 	Link      link.Settings    `yaml:"link"`
 	Join      pairing.Settings `yaml:"join"`
 	Log       logs.Settings    `yaml:"log"`
+	Storage   storing.Settings `yaml:"storage"`
 	Endpoints EndpointsBlock   `yaml:"endpoints"`
 	Timings   TimingsBlock     `yaml:"timings"`
 }
@@ -183,6 +184,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 		Torrent: engine.DefaultSettings(),
 		HTTP:    http,
 		Log:     logs.DefaultSettings(),
+		Storage: storing.DefaultSettings(),
 		Endpoints: EndpointsBlock{
 			TMDB:         tmdb.DefaultEndpoints(),
 			TVDB:         tvdb.DefaultEndpoints(),

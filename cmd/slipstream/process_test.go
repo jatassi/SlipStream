@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -24,6 +25,7 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/example/shelf"
+	"github.com/jatassi/slipstream/internal/storing"
 )
 
 // localListeners keep parallel Nodes off each other's ports, and the
@@ -513,6 +515,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	limit := strconv.FormatInt(storing.PathLimit(), 10)
 	want := node.Resolved{
 		Keys: []node.Key{
 			{Key: "seed", Value: "fixed", Default: "", Source: "env", Env: "SLIPSTREAM_SEED"},
@@ -534,6 +537,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "log.max_age_days", Value: "30", Default: "30", Source: "default", Env: "SLIPSTREAM_LOG_MAX_AGE_DAYS"},
 			{Key: "log.compress", Value: "true", Default: "true", Source: "default", Env: "SLIPSTREAM_LOG_COMPRESS"},
 			{Key: "log.viewer_lines", Value: "2000", Default: "2000", Source: "default", Env: "SLIPSTREAM_LOG_VIEWER_LINES"},
+			{Key: "storage.path_limit", Value: limit, Default: limit, Source: "default", Env: "SLIPSTREAM_STORAGE_PATH_LIMIT"},
 			{Key: "endpoints.tmdb.api", Value: "https://api.themoviedb.org/3", Default: "https://api.themoviedb.org/3", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_API"},
 			{Key: "endpoints.tmdb.images", Value: "https://image.tmdb.org/t/p", Default: "https://image.tmdb.org/t/p", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_IMAGES"},
 			{Key: "endpoints.tmdb.key_page", Value: "https://www.themoviedb.org/settings/api", Default: "https://www.themoviedb.org/settings/api", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TMDB_KEY_PAGE"},
