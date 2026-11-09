@@ -51,7 +51,7 @@ func (RootContents) Recorded(ctx context.Context, r storage.Reader[file], root r
 	out := make([]storing.Recorded, len(rows))
 	for i, row := range rows {
 		out[i].Size = row.Size
-		if out[i].Path, out[i].Sits, out[i].Next, err = placesOf(row.ID, row.Path, row.Sits); err != nil {
+		if out[i].Path, out[i].Sits, out[i].Next, err = placesOf(row.ID, row.Path, row.Sits, row.Ring); err != nil {
 			return nil, fmt.Errorf("file %s of root %s: %w", row.ID, root, err)
 		}
 	}
@@ -60,19 +60,15 @@ func (RootContents) Recorded(ctx context.Context, r storage.Reader[file], root r
 
 // placesOf is where the bytes of file id, recorded at p, belong, where
 // they sit and, while a move is pending, where the disk queue takes them
-// next: from sits to the holding path, or from there to p.
-func placesOf(id ID, p string, sits *string) (at, now, next storing.Rel, err error) {
+// next.
+func placesOf(id ID, p string, sits *string, ring storage.UUID) (at, now, next storing.Rel, err error) {
 	if at, err = storing.ParseRel(p); err != nil || sits == nil {
 		return at, at, storing.Rel{}, err
-	}
-	hop := p
-	if hold := holdingOf(id, p); *sits != hold {
-		hop = hold
 	}
 	if now, err = storing.ParseRel(*sits); err != nil {
 		return storing.Rel{}, storing.Rel{}, storing.Rel{}, err
 	}
-	next, err = storing.ParseRel(hop)
+	next, err = storing.ParseRel(move{file: id, path: p, sits: *sits, ring: ring}.next())
 	return at, now, next, err
 }
 

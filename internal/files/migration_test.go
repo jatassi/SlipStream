@@ -417,3 +417,56 @@ func TestFilesFromBeforeTheScanReadAsNeverScanned(t *testing.T) {
 		t.Fatalf("stale by path %v and held %v, want the record without a version stale and the one at media.Version not: %v", stale, on.Held, want)
 	}
 }
+
+func TestAMoveQueuedBeforeNamingKeepsItsTwoHopsAndAFoundFileItsName(t *testing.T) {
+	ctx := t.Context()
+	open := opener(t)
+	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema().Through(1), indexers.Schema().Through(2), grabs.Schema().Through(1), files.Schema().Through(1))
+	var at seeds
+	var found, grabbed string
+	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		var err error
+		if at, err = seedLibrary(ctx, tx); err != nil {
+			return err
+		}
+		if found, err = seedFile(ctx, tx, 1, "", frames[2], at); err != nil {
+			return err
+		}
+		grabbed, err = seedFile(ctx, tx, 2, migrated[0].title, frames[2], at)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := before.Close(); err != nil {
+		t.Fatal(err)
+	}
+	queued := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema().Through(4))
+	err = queued.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		if _, err := tx.ExecContext(ctx, `UPDATE files_file SET release_name = 'Orchard.mkv' WHERE grab_id IS NULL`); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `INSERT INTO files_move (file_id, sits) SELECT id, path FROM files_file WHERE path = ?`, grabbed)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := queued.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
+	t.Cleanup(func() { _ = lib.Close() })
+	distinct(t, lib, `SELECT CAST(origin = sits AND ring = file_id AS TEXT) FROM files_move`, "1")
+	var foundName, grabbedName *string
+	if err := lib.QueryRowContext(ctx, `SELECT source_name FROM files_file WHERE path = ?`, found).Scan(&foundName); err != nil {
+		t.Fatal(err)
+	}
+	if err := lib.QueryRowContext(ctx, `SELECT source_name FROM files_file WHERE path = ?`, grabbed).Scan(&grabbedName); err != nil {
+		t.Fatal(err)
+	}
+	if foundName == nil || *foundName != "Orchard.mkv" || grabbedName != nil {
+		t.Fatalf("source names are %v for the found file and %v for the grabbed one, want its own name and none", foundName, grabbedName)
+	}
+}

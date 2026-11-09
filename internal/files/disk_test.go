@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -325,9 +326,20 @@ func (d *crashing) Remove(ctx context.Context, root roots.ID, rel storing.Rel) e
 	return d.at(func() error { return d.Disk.Remove(ctx, root, rel) })
 }
 
+func (d *crashing) Prune(ctx context.Context, root roots.ID, folder storing.Rel, keep []storing.Rel) ([]storing.Rel, error) {
+	var removed []storing.Rel
+	err := d.at(func() error {
+		var err error
+		removed, err = d.Disk.Prune(ctx, root, folder, keep)
+		return err
+	})
+	return removed, err
+}
+
 // crashWorld is a library whose disk queue holds a same-path upgrade of
-// a placed file, a new file in w2 and one in w1, and two files of w1
-// trading names, all committed.
+// a placed file, a new file in w2 and one in w1, two files of w1 trading
+// names, and a file of w3 with its companion moving to another folder, a
+// chain behind it, all committed.
 type crashWorld struct {
 	l      *library
 	w1, w2 works.Tree
@@ -365,6 +377,9 @@ func newCrashWorld(t *testing.T) crashWorld {
 	l.download(t, svc, c.w2, 0, release.Bluray1080p, "z")
 	l.download(t, svc, c.w2, 1, release.WEBDL1080p, "w2")
 	l.download(t, svc, c.w1, 1, release.WEBDL1080p, "v")
+	l.stock(t, l.work(t, "w3", true, nil), "Old/w3.mkv", "Old/next.mkv")
+	l.put(t, "Old/w3.en.srt", "subtitles")
+	l.renames(t, map[string]string{"Old/w3.mkv": "New/w3.mkv", "Old/next.mkv": "Old/w3.mkv"})
 	return c
 }
 
@@ -381,6 +396,9 @@ var converged = map[string]string{
 	"Shelf w1/Shelf w1 - Mittens - Best.mkv": "v",
 	"Shelf w2/Shelf w2 - Scarf - Best.mkv":   "z",
 	"Shelf w2/Shelf w2 - Mittens - Best.mkv": "z2",
+	"New/w3.mkv":                             "Old/w3.mkv",
+	"New/w3.en.srt":                          "subtitles",
+	"Old/w3.mkv":                             "Old/next.mkv",
 }
 
 func (c crashWorld) check(t *testing.T) {
@@ -388,8 +406,13 @@ func (c crashWorld) check(t *testing.T) {
 	if got := c.l.onDisk(t); !maps.Equal(got, converged) {
 		t.Fatalf("the root holds\n%v\nwant\n%v", got, converged)
 	}
-	if got := c.l.paths(t, c.w1.ID, c.w2.ID); !maps.Equal(got, converged) {
-		t.Fatalf("the library's files hold\n%v\nwant\n%v", got, converged)
+	cells := maps.Clone(converged)
+	maps.DeleteFunc(cells, func(p, _ string) bool { return !strings.HasPrefix(p, "Shelf ") })
+	if got := c.l.paths(t, c.w1.ID, c.w2.ID); !maps.Equal(got, cells) {
+		t.Fatalf("the library's files hold\n%v\nwant\n%v", got, cells)
+	}
+	if got := c.l.rows(t); got["New/w3.mkv"].IsZero() || got["Old/w3.mkv"].IsZero() {
+		t.Fatalf("the library's rows are %v, want w3's files at their new paths", got)
 	}
 }
 
@@ -405,6 +428,7 @@ func TestTheDiskQueueConvergesFromACrashAtEveryStep(t *testing.T) {
 				disk := &crashing{Disk: c.l.held, n: n, after: after, crash: cancel}
 				c.l.drain(ctx, t, c.l.on(files.NoGrabs{}, disk), cancel)
 				reached = disk.seen >= n
+				c.l.foundWhereRecorded(t)
 				c.later(t)
 				c.l.settle(t, c.l.files(files.NoGrabs{}))
 				c.check(t)
@@ -415,8 +439,8 @@ func TestTheDiskQueueConvergesFromACrashAtEveryStep(t *testing.T) {
 			break
 		}
 	}
-	if steps < 10 {
-		t.Fatalf("the queue took %d steps, want at least the ten moves and the removals it holds", steps)
+	if steps < 12 {
+		t.Fatalf("the queue took %d steps, want at least the ten moves, the removal and the prune it holds", steps)
 	}
 }
 

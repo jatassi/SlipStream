@@ -18,8 +18,8 @@ const everyIndexersGrabs = everyPath(/^\/api\/v1\/indexers\/[^/]+\/grabs$/u);
 const everyPendingImport = everyPath(/^\/api\/v1\/imports\/pending/u);
 
 /**
- * The library's events: Works, their files, pending imports, Grabs and
- * searches. A row of the Library is read again only for the Works an event
+ * The library's events: Works, their files and the disk queue's moves of
+ * them, pending imports, Grabs and searches. A row of the Library is read again only for the Works an event
  * names. A fetch or a search also moves the Diagram's machines. A Grab's
  * progress tick leaves the cells alone, since a downloading cell reads its
  * progress from the Grab.
@@ -53,6 +53,12 @@ export const libraryEffects = {
     refresh({ queryKey: getListWorkFilesQueryKey(workId) });
     refresh({ queryKey: getListRootsQueryKey() });
   },
+  "files.moved": ({ workIds }, { refresh }) => {
+    for (const workId of workIds) {
+      refresh({ queryKey: getGetWorkCellsQueryKey(workId) });
+      refresh({ queryKey: getListWorkFilesQueryKey(workId) });
+    }
+  },
   "imports.changed": (_data, { refresh }) => {
     refresh(everyPendingImport);
     refresh({ queryKey: getGetCountsQueryKey() });
@@ -80,6 +86,7 @@ export const libraryEffects = {
   | "works.content-types-changed"
   | "works.type-changed"
   | "files.changed"
+  | "files.moved"
   | "imports.changed"
   | "grabs.changed"
   | "grabs.search-changed"

@@ -42,6 +42,7 @@ type FilesFile struct {
 	ProbeVersion int64
 	ProbedAt     storage.Time
 	ProbeError   *string
+	SourceName   *string
 }
 
 type FilesFill struct {
@@ -55,4 +56,20 @@ type FilesFill struct {
 type FilesMove struct {
 	FileID FileID
 	Sits   string
+	Origin string
+	Ring   storage.UUID
+}
+
+type FilesPrune struct {
+	RootID roots.ID
+	Folder string
+}
+
+type FilesRenamed struct {
+	ID        RenameID
+	FileID    FileID
+	RootID    roots.ID
+	FromPath  string
+	ToPath    string
+	RenamedAt storage.Time
 }

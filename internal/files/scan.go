@@ -192,14 +192,14 @@ func (sc *scan) transition(ctx context.Context, rec scanning.Recorded, change fu
 		sc.dropped++
 		return nil
 	}
-	sits, err := sc.q.GetMove(ctx, g.ID)
-	switch {
-	case errors.Is(err, storage.ErrNoRows):
-		sits = g.Path
-	case err != nil:
+	sits, next := g.Path, ""
+	switch m, err := sc.q.GetMove(ctx, g.ID); {
+	case err == nil:
+		sits, next = m.Sits, move{file: g.ID, path: g.Path, sits: m.Sits, ring: m.Ring}.next()
+	case !errors.Is(err, storage.ErrNoRows):
 		return err
 	}
-	if g.Path != rec.Path.String() || sits != rec.Sits.String() || g.Size != rec.Size || g.Gone() != rec.Gone {
+	if g.Path != rec.Path.String() || sits != rec.Sits.String() || next != rec.Next.String() || g.Size != rec.Size || g.Gone() != rec.Gone {
 		sc.dropped++
 		return nil
 	}

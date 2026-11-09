@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -78,6 +79,32 @@ type library struct {
 	staged map[transfers.ID]bool
 	// changed is each files.changed its files owners published.
 	changed told
+	// moved is each files.moved its disk queues published.
+	moved moves
+}
+
+type moves struct {
+	mu   sync.Mutex
+	sent []files.Moved
+}
+
+func (m *moves) Publish(_ context.Context, v files.Moved) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.sent = append(m.sent, v)
+}
+
+// works is every Work id the disk queue's files.moved named.
+func (m *moves) works() map[string]bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := map[string]bool{}
+	for _, v := range m.sent {
+		for _, w := range v.WorkIDs {
+			out[w] = true
+		}
+	}
+	return out
 }
 
 type told []files.Changed
@@ -130,7 +157,7 @@ func (l *library) on(cells files.Inflight, disk files.Disk) *files.Files {
 		},
 		Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: l.fx}, Names: map[works.TypeID]release.Names{contenttypetest.ID: l.fx},
 		Today: func() time.Time { return today },
-		Disk:  disk, Changed: &l.changed, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
+		Disk:  disk, Changed: &l.changed, Moved: &l.moved, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
 		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
 	})
 	if err != nil {
