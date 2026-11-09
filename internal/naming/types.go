@@ -37,11 +37,27 @@ type Token struct {
 	Scope   Scope
 	// Seq marks a number token's part in the episode block. Only KindNumber
 	// tokens carry one.
-	Seq     Seq
+	Seq Seq
+	// Group is the token builder's heading. The core sets it: a declared
+	// token's is its Scope's.
+	Group   Group
 	Example string
 	// About is one sentence for the token builder, written to WRITING.md.
 	About string
 }
+
+// Group is a heading of the token builder.
+type Group uint8
+
+const (
+	GroupWork Group = iota + 1
+	GroupLevel
+	GroupItem
+	// GroupTarget is the Target and the cut.
+	GroupTarget
+	GroupRelease
+	GroupMedia
+)
 
 // Kind is what a token's value is, which decides the modifiers it takes
 // and the Value it holds.
@@ -394,11 +410,8 @@ func (e *ParseError) Error() string {
 
 // field is which template of a type a template fills, which decides the
 // scopes its tokens may have.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type field uint8
 
-//nolint:unused // the engine lanes fill the code that reads it
 const (
 	folderField field = iota + 1
 	levelField
@@ -407,14 +420,20 @@ const (
 
 // entry is one name a template may use: a declared token, a title variant
 // derived from one, or a core token.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type entry struct {
 	Token
 	key Key
 	// tag is set for an alias that stands for a tagged ref: {Edition Tag}
 	// is {edition-{Edition}}.
 	tag tag
+	// list is how a KindList entry filters and prints.
+	list listForm
+	// base is the title a derived variant reads, form its variant and
+	// year the year token of its scope, nil when it has none. base is nil
+	// for every other entry.
+	base *entry
+	form *variant
+	year *entry
 	// read is the entry's value for one Unit of a file: a declared token
 	// looks its name up in the Subject, a derived variant computes from
 	// its base token and year, a core token reads FileFacts.
@@ -423,8 +442,6 @@ type entry struct {
 
 // catalog is one type's entries by key: the core's, the type's and the
 // derived title variants.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type catalog struct {
 	byKey   map[Key]*entry
 	ordered []*entry
@@ -432,20 +449,15 @@ type catalog struct {
 
 // boundRef is a ref resolved against a catalog. Its mod is never words:
 // bind reads words as langs, formatFilter or oneFormat.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type boundRef struct {
 	ref
 	entry *entry
 }
 
-//nolint:unused // the engine lanes fill the code that reads it
 func (*boundRef) part() {}
 
 // bound is a Template bound to a catalog for one field: the only form
 // render takes. Its parts are literals and *boundRefs.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type bound struct {
 	field field
 	parts []part
@@ -456,7 +468,7 @@ type bound struct {
 	alone []int
 	// anchorEnd is where the anchor ends: parts [0, anchorEnd) are the
 	// anchor and the literal " - " starts at anchorEnd.
-	anchorEnd int
+	anchorEnd int //nolint:unused // the anchor lane fills it
 	// shrinkable are the part indexes of Item-scope KindTitle refs, the only
 	// refs fit cuts.
 	shrinkable []int
@@ -469,8 +481,6 @@ type span struct{ from, to int }
 
 // piece is one rendered part. Only literal pieces take part in the
 // collapse, so a value's dots and a cut's "..." survive.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type piece struct {
 	text    string
 	literal bool

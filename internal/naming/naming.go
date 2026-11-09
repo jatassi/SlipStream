@@ -128,12 +128,3 @@ func Sanitize(s string) string {
 	}
 	return s
 }
-
-var devices = regexp.MustCompile(`(?i)^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$`)
-
-// reserved holds whatever follows the device name, as Windows does:
-// NUL.txt and NUL .txt open the device too.
-func reserved(s string) bool {
-	base, _, _ := strings.Cut(s, ".")
-	return devices.MatchString(strings.TrimRight(base, " "))
-}
