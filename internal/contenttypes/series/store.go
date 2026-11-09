@@ -27,26 +27,9 @@ func (*Series) Store(ctx context.Context, tx *storage.Tx[file], at works.Placed,
 		return false, fmt.Errorf("work %s: %w", at.Work, err)
 	}
 	q := db.New(tx)
-	next, err := showRow(at.Work, r)
+	changed, err := storeShow(ctx, q, at.Work, r)
 	if err != nil {
 		return false, err
-	}
-	stored, err := q.GetSeries(ctx, at.Work)
-	found := !errors.Is(err, storage.ErrNoRows)
-	if err != nil && found {
-		return false, err
-	}
-	if r.Show.Awards == nil {
-		next.Awards = stored.Awards
-	}
-	if next.NameByAirDate, err = airDateOf(ctx, q, stored, found); err != nil {
-		return false, err
-	}
-	changed := !found || !reflect.DeepEqual(db.UpsertSeriesParams(stored), next)
-	if changed {
-		if err := q.UpsertSeries(ctx, next); err != nil {
-			return false, err
-		}
 	}
 	seasons, err := seasonRows(at, r)
 	if err != nil {
@@ -84,6 +67,29 @@ func (*Series) Store(ctx context.Context, tx *storage.Tx[file], at works.Placed,
 		}
 	}
 	return changed || wrote, nil
+}
+
+// storeShow writes w's series row when r changes it.
+func storeShow(ctx context.Context, q *db.Queries, w works.WorkID, r record) (bool, error) {
+	next, err := showRow(w, r)
+	if err != nil {
+		return false, err
+	}
+	stored, err := q.GetSeries(ctx, w)
+	found := !errors.Is(err, storage.ErrNoRows)
+	if err != nil && found {
+		return false, err
+	}
+	if r.Show.Awards == nil {
+		next.Awards = stored.Awards
+	}
+	if next.NameByAirDate, err = airDateOf(ctx, q, stored, found); err != nil {
+		return false, err
+	}
+	if found && reflect.DeepEqual(db.UpsertSeriesParams(stored), next) {
+		return false, nil
+	}
+	return true, q.UpsertSeries(ctx, next)
 }
 
 // airDateOf is whether a series is named by air date: as stored, or
