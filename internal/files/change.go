@@ -1,6 +1,7 @@
 package files
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -26,14 +27,28 @@ type Impact struct {
 	// Bytes is their size.
 	Unwanted int
 	Bytes    int64
-	// Renamed counts the files that fill a cell after and change name.
+	// Renamed counts the files that change path, Kept files included.
 	Renamed int
+	// Renames lists the first ImpactRows of them, by Work in title order.
+	Renames []Renames
 	// NewlyWanted counts the cells that become Wants.
 	NewlyWanted int
 	// Downloading counts the unfinished Grabs whose every cell goes; their
 	// files follow the Admin's choice.
 	Downloading int
 }
+
+// Renames is the rows of one Work's files an Impact renames, in file id
+// order.
+type Renames struct {
+	Work  works.WorkID
+	Title string
+	Rows  []Row
+}
+
+// ImpactRows is how many renamed files an Impact lists, so that a Target
+// rename across a whole library is still one response.
+const ImpactRows = 500
 
 // Mode is how Change ends. A Preview computes the Impact and rolls the
 // change back; a save commits it. Unwanted is what becomes of the files
@@ -158,6 +173,7 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 		}
 		impact.Downloading += n
 	}
+	impact.Renames = listed(impact.Renames, trees)
 	return impact, ids, nil
 }
 
@@ -191,14 +207,20 @@ func (i *Impact) add(p placed, from, to []Cell) {
 			i.Bytes += g.Size
 		}
 	}
+	var rows []Row
 	for _, g := range p.after.files {
 		nm := p.names[g.ID]
 		if nm.Path != g.Path || nm.Label != g.Label || nm.Extra != g.Extra {
 			changed = true
 		}
-		if is[g.ID] && nm.Path != g.Path {
-			i.Renamed++
+		if nm.Path != g.Path {
+			rows = append(rows, Row{Work: p.after.tree.ID, File: g.ID, From: g.Path, To: nm.Path, root: g.RootID})
 		}
+	}
+	if len(rows) > 0 {
+		group(rows)
+		i.Renamed += len(rows)
+		i.Renames = append(i.Renames, Renames{Work: p.after.tree.ID, Title: p.after.tree.Label, Rows: rows})
 	}
 	type spot struct {
 		item   works.ItemID
@@ -217,6 +239,27 @@ func (i *Impact) add(p placed, from, to []Cell) {
 	if changed {
 		i.Works++
 	}
+}
+
+// listed is the first ImpactRows rows of rs, by Work in the title order
+// of trees.
+func listed(rs []Renames, trees []works.Bare) []Renames {
+	sortLabel := make(map[works.WorkID]string, len(trees))
+	for _, t := range trees {
+		sortLabel[t.ID] = t.SortLabel
+	}
+	slices.SortFunc(rs, func(a, b Renames) int {
+		return cmp.Or(cmp.Compare(sortLabel[a.Work], sortLabel[b.Work]), a.Work.Compare(b.Work.UUID))
+	})
+	left := ImpactRows
+	for i := range rs {
+		if len(rs[i].Rows) >= left {
+			rs[i].Rows = rs[i].Rows[:left]
+			return rs[:i+1]
+		}
+		left -= len(rs[i].Rows)
+	}
+	return rs
 }
 
 // continues reports whether after, a cell at before's Item and Target,

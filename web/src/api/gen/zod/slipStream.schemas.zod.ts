@@ -1855,6 +1855,25 @@ export const FilesChanged = zod.object({
 export type FilesChanged = zod.input<typeof FilesChanged>;
 export type FilesChangedOutput = zod.output<typeof FilesChanged>;
 
+export const filesConfirmedWorkDigestRegExp = new RegExp("^[0-9a-f]{16}$");
+
+export const FilesConfirmedWork = zod.object({
+  digest: zod
+    .string()
+    .regex(filesConfirmedWorkDigestRegExp)
+    .describe("The digest the Work's plan showed"),
+  leave: zod
+    .array(zod.uuid())
+    .nullish()
+    .describe(
+      "Files to leave as they are; a file that trades or chains paths with another leaves both",
+    ),
+  work: zod.uuid(),
+});
+
+export type FilesConfirmedWork = zod.input<typeof FilesConfirmedWork>;
+export type FilesConfirmedWorkOutput = zod.output<typeof FilesConfirmedWork>;
+
 export const filesDolbyVisionCompatibilityMin = 0;
 
 export const filesDolbyVisionLevelMin = 0;
@@ -2035,6 +2054,147 @@ export const FilesMoved = zod.object({
 export type FilesMoved = zod.input<typeof FilesMoved>;
 export type FilesMovedOutput = zod.output<typeof FilesMoved>;
 
+export const FilesRenameDraft = zod.object({
+  contentType: zod.string().describe("The Content Type whose naming settings the draft changes"),
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe("Each naming setting's unsaved value by key, over the stored ones"),
+});
+
+export type FilesRenameDraft = zod.input<typeof FilesRenameDraft>;
+export type FilesRenameDraftOutput = zod.output<typeof FilesRenameDraft>;
+
+export const filesWorkLineBlockedMin = 0;
+
+export const filesWorkLineMovingMin = 0;
+
+export const filesWorkLineRenameMin = 0;
+
+export const FilesWorkLine = zod.object({
+  blocked: zod.int().min(filesWorkLineBlockedMin).describe("Files that can't be renamed now"),
+  contentType: zod.string(),
+  digest: zod.string().describe("A hash of the Work's rows, which a confirm sends back"),
+  moving: zod
+    .int()
+    .min(filesWorkLineMovingMin)
+    .describe("Files the disk queue still moves, which the plan leaves out"),
+  rename: zod.int().min(filesWorkLineRenameMin).describe("Files that can be renamed now"),
+  title: zod.string(),
+  workId: zod.uuid(),
+});
+
+export type FilesWorkLine = zod.input<typeof FilesWorkLine>;
+export type FilesWorkLineOutput = zod.output<typeof FilesWorkLine>;
+
+export const filesRenamePlanBlockedMin = 0;
+
+export const filesRenamePlanFilesMin = 0;
+
+export const FilesRenamePlan = zod.object({
+  blocked: zod
+    .int()
+    .min(filesRenamePlanBlockedMin)
+    .describe("Files that can't be renamed now, in every Work"),
+  files: zod
+    .int()
+    .min(filesRenamePlanFilesMin)
+    .describe("Files that can be renamed now, in every Work"),
+  works: zod
+    .array(FilesWorkLine)
+    .describe("Each Work with a file to rename, a blocked file or a file still moving"),
+});
+
+export type FilesRenamePlan = zod.input<typeof FilesRenamePlan>;
+export type FilesRenamePlanOutput = zod.output<typeof FilesRenamePlan>;
+
+export const filesRenameResultQueuedMin = 0;
+
+export const FilesRenameResult = zod.object({
+  changed: zod
+    .array(zod.uuid())
+    .describe("Works left as they are because their plans differ now; plan them again"),
+  queued: zod
+    .int()
+    .min(filesRenameResultQueuedMin)
+    .describe("Files queued to move to their new paths"),
+});
+
+export type FilesRenameResult = zod.input<typeof FilesRenameResult>;
+export type FilesRenameResultOutput = zod.output<typeof FilesRenameResult>;
+
+export const FilesRowBlock = zod.object({
+  detail: zod.string().describe("Why the file can't be renamed now, then what to do"),
+  otherWorkId: zod
+    .uuid()
+    .exactOptional()
+    .describe("For clash, the Work whose file ends at the same path"),
+  reason: zod.enum(["occupied", "too_long", "clash"]),
+});
+
+export type FilesRowBlock = zod.input<typeof FilesRowBlock>;
+export type FilesRowBlockOutput = zod.output<typeof FilesRowBlock>;
+
+export const filesRenameRowGroupMin = 0;
+
+export const FilesRenameRow = zod.object({
+  blocked: FilesRowBlock.exactOptional().describe(
+    "Why it can't be renamed now; absent when it can",
+  ),
+  companions: zod
+    .array(zod.string())
+    .describe("Files beside it that move with it, such as its subtitles"),
+  fileId: zod.uuid(),
+  from: zod.string().describe("Where the file is now, relative to its root"),
+  group: zod
+    .int()
+    .min(filesRenameRowGroupMin)
+    .describe(
+      "0 for a row joined to no other; rows with one number trade or chain paths, so they are renamed or left together",
+    ),
+  to: zod.string().describe("Where the naming templates put it; empty when its name doesn't fit"),
+});
+
+export type FilesRenameRow = zod.input<typeof FilesRenameRow>;
+export type FilesRenameRowOutput = zod.output<typeof FilesRenameRow>;
+
+export const FilesRenameScope = zod.object({
+  id: zod
+    .string()
+    .exactOptional()
+    .describe("The Work's id for work, the Content Type's id for type; left out for library"),
+  kind: zod.enum(["work", "type", "library"]),
+});
+
+export type FilesRenameScope = zod.input<typeof FilesRenameScope>;
+export type FilesRenameScopeOutput = zod.output<typeof FilesRenameScope>;
+
+export const FilesUnmatchedType = zod.object({
+  contentType: zod.string(),
+  files: zod.int().min(1),
+});
+
+export type FilesUnmatchedType = zod.input<typeof FilesUnmatchedType>;
+export type FilesUnmatchedTypeOutput = zod.output<typeof FilesUnmatchedType>;
+
+export const filesWorkRenamePlanMovingMin = 0;
+
+export const FilesWorkRenamePlan = zod.object({
+  contentType: zod.string(),
+  digest: zod.string().describe("A hash of the Work's rows, which a confirm sends back"),
+  moving: zod
+    .int()
+    .min(filesWorkRenamePlanMovingMin)
+    .describe("Files the disk queue still moves, which the plan leaves out"),
+  rows: zod
+    .array(FilesRenameRow)
+    .describe("Each file whose path differs from what the naming templates make"),
+  title: zod.string(),
+  workId: zod.uuid(),
+});
+
+export type FilesWorkRenamePlan = zod.input<typeof FilesWorkRenamePlan>;
+export type FilesWorkRenamePlanOutput = zod.output<typeof FilesWorkRenamePlan>;
+
 export const FirstRunStepInputBody = zod.object({
   outcome: zod.enum(["done", "skipped"]).describe("done for Continue, skipped for Skip"),
 });
@@ -2212,6 +2372,24 @@ export const FormatsExplained = zod.object({
 export type FormatsExplained = zod.input<typeof FormatsExplained>;
 export type FormatsExplainedOutput = zod.output<typeof FormatsExplained>;
 
+export const TargetsRenamedFile = zod.object({
+  fileId: zod.uuid(),
+  from: zod.string().describe("The file's path in its root now"),
+  to: zod.string().describe("The file's path in its root after the change"),
+});
+
+export type TargetsRenamedFile = zod.input<typeof TargetsRenamedFile>;
+export type TargetsRenamedFileOutput = zod.output<typeof TargetsRenamedFile>;
+
+export const TargetsWorkRenames = zod.object({
+  files: zod.array(TargetsRenamedFile).describe("In the order the files were added"),
+  title: zod.string(),
+  workId: zod.uuid(),
+});
+
+export type TargetsWorkRenames = zod.input<typeof TargetsWorkRenames>;
+export type TargetsWorkRenamesOutput = zod.output<typeof TargetsWorkRenames>;
+
 export const targetsUnwantedFilesBytesMin = 0;
 
 export const targetsUnwantedFilesFilesMin = 0;
@@ -2249,7 +2427,10 @@ export const TargetsImpact = zod.object({
   renamed: zod
     .int()
     .min(targetsImpactRenamedMin)
-    .describe("Files that still fill a cell and change name"),
+    .describe("Files whose path changes, Kept files included"),
+  renames: zod
+    .array(TargetsWorkRenames)
+    .describe("The first 500 of the renamed files, by Work in title order"),
   unwanted: TargetsUnwantedFiles.describe(
     "Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses",
   ),
@@ -2628,6 +2809,8 @@ export const GrabsFailure = zod.object({
     "no_video_file",
     "probe_failed",
     "fills_nothing",
+    "name_taken",
+    "name_too_long",
     "transfer_failed",
     "import_failed",
     "node_written_off",
@@ -5255,6 +5438,145 @@ export const MetadataSettingsChange = zod.object({
 export type MetadataSettingsChange = zod.input<typeof MetadataSettingsChange>;
 export type MetadataSettingsChangeOutput = zod.output<typeof MetadataSettingsChange>;
 
+export const movingOutputBodyFilesMin = 0;
+
+export const MovingOutputBody = zod.object({
+  files: zod.int().min(movingOutputBodyFilesMin),
+});
+
+export type MovingOutputBody = zod.input<typeof MovingOutputBody>;
+export type MovingOutputBodyOutput = zod.output<typeof MovingOutputBody>;
+
+export const namingChangedContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const NamingChanged = zod.object({
+  contentType: zod.string().regex(namingChangedContentTypeRegExp),
+});
+
+export type NamingChanged = zod.input<typeof NamingChanged>;
+export type NamingChangedOutput = zod.output<typeof NamingChanged>;
+
+export const NamingSamplePath = zod.object({
+  label: zod.string().describe("The sample, and for a file template the file it names"),
+  path: zod.string().describe('The path in the root, with "/" between folders'),
+});
+
+export type NamingSamplePath = zod.input<typeof NamingSamplePath>;
+export type NamingSamplePathOutput = zod.output<typeof NamingSamplePath>;
+
+export const NamingFieldPreview = zod.object({
+  key: zod.string(),
+  problems: zod
+    .array(zod.string())
+    .describe("What the save check refuses in the setting, each a sentence; empty when it passes"),
+  samples: zod
+    .array(NamingSamplePath)
+    .describe(
+      "The full paths a folder or file template names for the type's samples, with renaming on; empty for any other setting and for a template that doesn't parse",
+    ),
+});
+
+export type NamingFieldPreview = zod.input<typeof NamingFieldPreview>;
+export type NamingFieldPreviewOutput = zod.output<typeof NamingFieldPreview>;
+
+export const NamingToken = zod.object({
+  about: zod.string().describe("What the token prints, as a sentence"),
+  aliases: zod.array(zod.string()).describe("Other names that match the same token"),
+  example: zod.string().describe("A value the token prints"),
+  group: zod
+    .enum(["work", "level", "item", "target", "release", "media"])
+    .describe("The token builder's heading"),
+  kind: zod.enum(["title", "year", "number", "date", "text", "id", "list"]),
+  modifier: zod
+    .union([
+      zod.literal("pad"),
+      zod.literal("cut"),
+      zod.literal("languages"),
+      zod.literal("formats"),
+      zod.literal("format"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("What it takes after a colon; null when it takes nothing"),
+  name: zod.string(),
+  scope: zod.enum(["work", "level", "item", "file"]).describe("The tier the value comes from"),
+  tags: zod
+    .array(zod.string())
+    .describe("The words of the tags that may wrap it, as in {imdb-{ImdbId}}"),
+});
+
+export type NamingToken = zod.input<typeof NamingToken>;
+export type NamingTokenOutput = zod.output<typeof NamingToken>;
+
+export const NamingFieldTokens = zod.object({
+  key: zod.string().describe("The template setting's key"),
+  tokens: zod
+    .array(NamingToken)
+    .describe("Every token the template may name, the Content Type's own first"),
+});
+
+export type NamingFieldTokens = zod.input<typeof NamingFieldTokens>;
+export type NamingFieldTokensOutput = zod.output<typeof NamingFieldTokens>;
+
+export const NamingProblem = zod.object({
+  key: zod.string().describe("The setting key, such as <type>.naming.file.standard"),
+  sentence: zod.string().describe("What is wrong, then what passes"),
+});
+
+export type NamingProblem = zod.input<typeof NamingProblem>;
+export type NamingProblemOutput = zod.output<typeof NamingProblem>;
+
+export const namingTypeNamingContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const NamingTypeNaming = zod.object({
+  contentType: zod.string().regex(namingTypeNamingContentTypeRegExp),
+  problems: zod
+    .array(NamingProblem)
+    .describe(
+      "What the save check refuses in the stored settings once renaming is on; empty when every file of a Work shows as one item on Plex, Jellyfin and Emby",
+    ),
+  settings: zod
+    .array(SettingField)
+    .describe(
+      "The rename switch, the folder templates outermost first, the file templates, the colon mode and its text, and the multi-episode style when the type's file templates number its Items",
+    ),
+});
+
+export type NamingTypeNaming = zod.input<typeof NamingTypeNaming>;
+export type NamingTypeNamingOutput = zod.output<typeof NamingTypeNaming>;
+
+export const NamingNamingList = zod.object({
+  contentTypes: zod.array(NamingTypeNaming).describe("In id order"),
+});
+
+export type NamingNamingList = zod.input<typeof NamingNamingList>;
+export type NamingNamingListOutput = zod.output<typeof NamingNamingList>;
+
+export const NamingPreview = zod.object({
+  fields: zod.array(NamingFieldPreview).describe("Every setting, in the settings' order"),
+});
+
+export type NamingPreview = zod.input<typeof NamingPreview>;
+export type NamingPreviewOutput = zod.output<typeof NamingPreview>;
+
+export const NamingPreviewInputBody = zod.object({
+  draft: zod
+    .record(zod.string(), zod.unknown())
+    .describe(
+      "Values over the stored settings by key, as a save would send them; null reads a setting's default",
+    ),
+});
+
+export type NamingPreviewInputBody = zod.input<typeof NamingPreviewInputBody>;
+export type NamingPreviewInputBodyOutput = zod.output<typeof NamingPreviewInputBody>;
+
+export const NamingTokenList = zod.object({
+  fields: zod.array(NamingFieldTokens).describe("Each template setting, in the settings' order"),
+});
+
+export type NamingTokenList = zod.input<typeof NamingTokenList>;
+export type NamingTokenListOutput = zod.output<typeof NamingTokenList>;
+
 export const newPINInputBodyPinRegExp = new RegExp("^[0-9]{4}$");
 
 export const NewPINInputBody = zod.object({
@@ -6211,6 +6533,16 @@ export const PendingIDsInputBody = zod.object({
 export type PendingIDsInputBody = zod.input<typeof PendingIDsInputBody>;
 export type PendingIDsInputBodyOutput = zod.output<typeof PendingIDsInputBody>;
 
+export const PlanInputBody = zod.object({
+  draft: FilesRenameDraft.exactOptional().describe(
+    "Unsaved naming settings to plan under instead of the stored ones",
+  ),
+  scope: FilesRenameScope,
+});
+
+export type PlanInputBody = zod.input<typeof PlanInputBody>;
+export type PlanInputBodyOutput = zod.output<typeof PlanInputBody>;
+
 export const Problem = zod.object({
   code: zod.string(),
   detail: zod.string().exactOptional(),
@@ -6247,6 +6579,13 @@ export const RehomeRootInputBody = zod.object({
 
 export type RehomeRootInputBody = zod.input<typeof RehomeRootInputBody>;
 export type RehomeRootInputBodyOutput = zod.output<typeof RehomeRootInputBody>;
+
+export const RenameInputBody = zod.object({
+  works: zod.array(FilesConfirmedWork).min(1).describe("Each Work to rename as its plan showed"),
+});
+
+export type RenameInputBody = zod.input<typeof RenameInputBody>;
+export type RenameInputBodyOutput = zod.output<typeof RenameInputBody>;
 
 export const renameTrackerInputBodyNameMax = 100;
 
@@ -6654,6 +6993,15 @@ export const ServingWorker = zod.object({
 
 export type ServingWorker = zod.input<typeof ServingWorker>;
 export type ServingWorkerOutput = zod.output<typeof ServingWorker>;
+
+export const SetNamingInputBody = zod.object({
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe("Each setting's new value by key, all or none; null resets one to its default"),
+});
+
+export type SetNamingInputBody = zod.input<typeof SetNamingInputBody>;
+export type SetNamingInputBodyOutput = zod.output<typeof SetNamingInputBody>;
 
 export const ShellAlerts = zod.object({
   health: zod
@@ -8318,6 +8666,22 @@ export const TransfersTransferList = zod.object({
 export type TransfersTransferList = zod.input<typeof TransfersTransferList>;
 export type TransfersTransferListOutput = zod.output<typeof TransfersTransferList>;
 
+export const UnmatchedOutputBody = zod.object({
+  contentTypes: zod.array(FilesUnmatchedType).describe("Each Content Type with such a file"),
+});
+
+export type UnmatchedOutputBody = zod.input<typeof UnmatchedOutputBody>;
+export type UnmatchedOutputBodyOutput = zod.output<typeof UnmatchedOutputBody>;
+
+export const WorkPlanInputBody = zod.object({
+  draft: FilesRenameDraft.exactOptional().describe(
+    "Unsaved naming settings to plan under instead of the stored ones",
+  ),
+});
+
+export type WorkPlanInputBody = zod.input<typeof WorkPlanInputBody>;
+export type WorkPlanInputBodyOutput = zod.output<typeof WorkPlanInputBody>;
+
 export const WorksArt = zod.object({
   kind: zod.string().describe("An artwork kind of the Content Type"),
   url: zod.string().describe("The artwork route for the image, without a size"),
@@ -9523,6 +9887,14 @@ export const LiveEventMetadataChanged = zod.object({
 export type LiveEventMetadataChanged = zod.input<typeof LiveEventMetadataChanged>;
 export type LiveEventMetadataChangedOutput = zod.output<typeof LiveEventMetadataChanged>;
 
+export const LiveEventNamingChanged = zod.object({
+  event: zod.enum(["naming.changed"]),
+  data: NamingChanged,
+});
+
+export type LiveEventNamingChanged = zod.input<typeof LiveEventNamingChanged>;
+export type LiveEventNamingChangedOutput = zod.output<typeof LiveEventNamingChanged>;
+
 export const LiveEventNodeSettingsChanged = zod.object({
   event: zod.enum(["node.settings-changed"]),
   data: NodesSettingsChanged,
@@ -9685,6 +10057,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventLiveResync,
   LiveEventLiveSessionEnded,
   LiveEventMetadataChanged,
+  LiveEventNamingChanged,
   LiveEventNodeSettingsChanged,
   LiveEventNodesChanged,
   LiveEventNodesTraffic,

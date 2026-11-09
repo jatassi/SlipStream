@@ -331,7 +331,7 @@ func TestUnderAnyCutAnExtendedReleaseFillsTheOnlyTarget(t *testing.T) {
 func TestRemovingACutWithKeepKeepsItsFileAndAddingItBackRestoresItsName(t *testing.T) {
 	t.Parallel()
 	w, profile, starter := extendedFilled(t)
-	w.put(t, profile+"?unwanted=keep", filmsOf(cuts("standard"), starter), "works=1 ownList=0 unwanted=1 renamed=0 newlyWanted=1 downloading=0")
+	w.put(t, profile+"?unwanted=keep", filmsOf(cuts("standard"), starter), "works=1 ownList=0 unwanted=1 renamed=1 newlyWanted=1 downloading=0")
 	holdsOnly(t, w.m, "movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - {edition-Extended} 1080p (extra 1).mkv")
 	w.cellsAre(t, "under Standard alone", "standard 1080p missing wanted")
 
@@ -346,11 +346,11 @@ func TestTakingTheTargetsAwayKeepsOrDeletesTheFileAsTheSaveChooses(t *testing.T)
 	w.holds(t, release)
 	profile := "/api/v1/profiles/" + w.named(t, "/api/v1/profiles", "profiles", "Films")
 	starter, hd := w.named(t, "/api/v1/targets", "targets", "1080p"), w.named(t, "/api/v1/targets", "targets", "HD")
-	unwanted := "works=1 ownList=0 unwanted=1 renamed=0 newlyWanted=0 downloading=0"
+	kept := "works=1 ownList=0 unwanted=1 renamed=1 newlyWanted=0 downloading=0"
 
-	w.put(t, profile+"?preview=true&unwanted=keep", films(), unwanted)
+	w.put(t, profile+"?preview=true&unwanted=keep", films(), kept)
 	holdsOnly(t, w.m, placed)
-	w.put(t, profile+"?unwanted=keep", films(), unwanted)
+	w.put(t, profile+"?unwanted=keep", films(), kept)
 	holdsOnly(t, w.m, "movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p (extra 1).mkv")
 	if got, _ := w.cells(t).summary(t); len(got) != 0 {
 		t.Fatalf("with no Targets the cells are %q, want none", got)
@@ -363,7 +363,7 @@ func TestTakingTheTargetsAwayKeepsOrDeletesTheFileAsTheSaveChooses(t *testing.T)
 		t.Fatalf("a delete confirming no files = %d %s, want 409 impact_changed", r.Status, r.Body)
 	}
 	w.holds(t, release)
-	w.put(t, profile+"?confirm=1", films(), unwanted)
+	w.put(t, profile+"?confirm=1", films(), "works=1 ownList=0 unwanted=1 renamed=0 newlyWanted=0 downloading=0")
 	holdsOnly(t, w.m)
 }
 

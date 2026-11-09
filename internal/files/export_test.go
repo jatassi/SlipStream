@@ -21,3 +21,22 @@ func (f *Files) ScoresFromScratch(ctx context.Context, r storage.Reader[file], w
 	}
 	return out, nil
 }
+
+// Plans is the plan of each of ids's Works, every Work of the library,
+// before any Node is asked.
+func (f *Files) Plans(ctx context.Context, ids ...works.WorkID) ([]WorkPlan, error) {
+	var out []WorkPlan
+	err := f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		trees := make([]works.Bare, len(ids))
+		for i, id := range ids {
+			var err error
+			if trees[i], err = works.BareIn(ctx, r, id); err != nil {
+				return err
+			}
+		}
+		pl, err := f.plans(ctx, r, trees, works.Every(ids), nil)
+		out = workPlans(pl)
+		return err
+	})
+	return out, err
+}

@@ -99,7 +99,7 @@ func serve(t *testing.T) *server {
 	ctx := t.Context()
 	s := &server{
 		lib: storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(),
-			downloadclients.Schema(), grabs.Schema(), files.Schema(), imports.Schema()),
+			downloadclients.Schema(), grabs.Schema(), files.Schema(), naming.Schema(), imports.Schema()),
 		fx:   contenttypetest.New(),
 		node: role.NodeID{UUID: storage.NewUUID()},
 		nas:  role.NodeID{UUID: storage.NewUUID()},
