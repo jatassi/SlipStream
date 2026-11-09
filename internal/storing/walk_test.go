@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"runtime"
 	"slices"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -129,8 +130,8 @@ func TestAWalkReadsWhatAScanCompares(t *testing.T) {
 		if e.Size != 6 || !e.Seen.Modified.Equal(modified.Truncate(time.Millisecond)) || e.Seen.ID.IsZero() || e.Seen.ID.Volume == "" {
 			t.Errorf("the file reads %+v, want 6 bytes modified %v with an id", e, modified.Truncate(time.Millisecond))
 		}
-		if p.CaseFold {
-			t.Error("a case-sensitive root reads case-insensitive")
+		if want := hostFolds(t, w.folder); p.CaseFold != want {
+			t.Errorf("the root reads CaseFold %v, want the host's %v", p.CaseFold, want)
 		}
 		if err := os.Rename(heat, filepath.Join(w.folder, "Heat (1995)", "Heat.mkv")); err != nil {
 			t.Fatal(err)
@@ -344,4 +345,16 @@ func TestAPlacedFileReadsAsTheNextWalkReadsIt(t *testing.T) {
 			t.Errorf("the walk reads %+v, %v; want the moved file as %+v", page.Entries, err, moved)
 		}
 	})
+}
+
+// hostFolds reports whether folder's own file system finds its marker
+// asked for in upper case, as APFS and NTFS do by default.
+func hostFolds(t *testing.T, folder string) bool {
+	t.Helper()
+	marker, err := os.Stat(filepath.Join(folder, MarkerName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	upper, err := os.Stat(filepath.Join(folder, strings.ToUpper(MarkerName)))
+	return err == nil && os.SameFile(marker, upper)
 }

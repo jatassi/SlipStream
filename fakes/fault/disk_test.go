@@ -313,8 +313,12 @@ func playsHung(t *testing.T) {
 func playsFoldCase(t *testing.T) {
 	c := newCued(t)
 	upper := filepath.Join(c.folder, ".SLIPSTREAM-ROOT")
-	if _, err := c.d.Stat(c.ctx, upper); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatalf("Stat of the marker in upper case before the fault = %v, want not exist", err)
+	// A host that folds case itself, as macOS and Windows do by default,
+	// finds the marker before the fault too.
+	if _, err := os.Stat(upper); errors.Is(err, fs.ErrNotExist) {
+		if _, err := c.d.Stat(c.ctx, upper); !errors.Is(err, fs.ErrNotExist) {
+			t.Fatalf("Stat of the marker in upper case before the fault = %v, want not exist", err)
+		}
 	}
 	c.cue(fault.FoldCase{})
 	marker, err := c.d.Stat(c.ctx, c.marker)
