@@ -149,6 +149,7 @@ func TestAServingWorkerServesTheControllersApp(t *testing.T) {
 			t.Fatalf("after a sign-in at home, the live stream at seedbox's address read %s", got)
 		}
 
+		stopping := time.Now()
 		w.Node("home").Stop()
 		stopped := time.Now()
 		synctest.Wait()
@@ -161,8 +162,17 @@ func TestAServingWorkerServesTheControllersApp(t *testing.T) {
 			t.Fatalf("a navigation at seedbox's address with home stopped = %d %s, want seedbox's own app", r.status, r.body)
 		}
 		r := box.call(http.MethodGet, "/api/v1/serving", "", "")
+		var got struct {
+			Since time.Time `json:"since"`
+		}
+		if err := json.Unmarshal([]byte(r.body), &got); err != nil {
+			t.Fatal(err)
+		}
+		if got.Since.Before(stopping) || got.Since.After(stopped) {
+			t.Errorf("seedbox lost home at %s, want between %s and %s, as home stopped", got.Since, stopping, stopped)
+		}
 		want := `{"name":"seedbox","fingerprint":"` + key(t, w, "seedbox").Fingerprint() + `","controller":"home","since":"` +
-			stopped.UTC().Format(time.RFC3339Nano) + `","holding":["Searching","Downloading"],"seeding":0}` + "\n"
+			got.Since.UTC().Format(time.RFC3339Nano) + `","holding":["Searching","Downloading"],"seeding":0}` + "\n"
 		if r.status != http.StatusOK || r.body != want {
 			t.Fatalf("getServing with home stopped = %d %s, want 200 %s", r.status, r.body, want)
 		}
