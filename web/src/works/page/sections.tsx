@@ -36,7 +36,12 @@ export function WorkSections({
       ) : (
         <MatrixSection type={type} matrix={matrix} shown={shown} wantAnother={wantAnother} />
       )}
-      <FilesSection listing={listing} root={work.root} names={{ cutName, targetName }} />
+      <FilesSection
+        listing={listing}
+        root={work.root}
+        names={{ cutName, targetName }}
+        workId={work.id}
+      />
       <About type={type} work={work} statuses={cells.items} />
       <Grabs workId={work.id} work={work.label} />
       <Searches work={work} />

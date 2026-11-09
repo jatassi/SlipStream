@@ -1,5 +1,6 @@
 import type { FilesFileList, FilesListedFile, WorksWorkRoot } from "../../api/gen/model";
 import { bytes } from "../../format";
+import { RenamingChip } from "../../renames/renaming-chip";
 import { useQualityNames } from "../../targets/quality-names";
 import { Chip } from "../../ui/chip";
 import { Data } from "../../ui/data";
@@ -7,6 +8,7 @@ import { List, ListRow } from "../../ui/list";
 import { Section } from "../../ui/section";
 import { nameOf } from "../paths";
 import { FileMedia, ForgetFile, goneWords } from "./file-media";
+// oxlint-disable-next-line import/max-dependencies -- the section lists the files with their media, qualities and the renames still moving them
 import { anyCut } from "./matrix-model";
 
 type Names = {
@@ -96,13 +98,15 @@ export function FilesSection({
   listing: { folder, files },
   root,
   names,
+  workId,
 }: {
   listing: FilesFileList;
   root: WorksWorkRoot | null;
   names: Names;
+  workId: string;
 }) {
   return (
-    <Section title="Files" count={files.length}>
+    <Section title="Files" count={files.length} chip={<RenamingChip params={{ workId }} />}>
       <dl className="mb-3 flex flex-wrap gap-x-8 gap-y-2">
         <div className="flex min-w-0 flex-col gap-0.5">
           <dt className="text-label text-ink-3">Library root</dt>
