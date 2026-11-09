@@ -388,3 +388,89 @@ func TestNameByAirDateNamesASeriesEpisodesByTheirAirDates(t *testing.T) {
 		"The Tin Signal (2019)/Season 02/The Tin Signal - 2020-02-03 - Dead Air 1080p.mkv",
 		"The Tin Signal (2019)/Season 02/The Tin Signal - 2020-02-10 - Sign Off 1080p.mkv")...)
 }
+
+type renamesImpact struct {
+	Impact struct {
+		Renamed int `json:"renamed"`
+		Renames []struct {
+			Title string `json:"title"`
+			Files []struct {
+				From string `json:"from"`
+				To   string `json:"to"`
+			} `json:"files"`
+		} `json:"renames"`
+	} `json:"impact"`
+}
+
+// lines is "<renamed> renamed", then each listed rename as
+// "<title>: <from> -> <to>".
+func (r renamesImpact) lines() []string {
+	lines := []string{fmt.Sprintf("%d renamed", r.Impact.Renamed)}
+	for _, w := range r.Impact.Renames {
+		for _, f := range w.Files {
+			lines = append(lines, w.Title+": "+f.From+" -> "+f.To)
+		}
+	}
+	return lines
+}
+
+// renameTarget renames the Target id to name, keeping the rest of it,
+// with query on the PUT, and checks the Impact lists want.
+func (w *walked) renameTarget(t *testing.T, id, name, query string, want ...string) {
+	t.Helper()
+	var held map[string]json.RawMessage
+	decode(t, "getTarget", w.a.Admin("home", http.MethodGet, "/api/v1/targets/"+id, ""), &held)
+	body, err := json.Marshal(map[string]any{
+		"name": name, "tiers": held["tiers"], "cutoff": held["cutoff"], "filters": held["filters"], "sizes": held["sizes"],
+		"propers": held["propers"], "scores": held["scores"],
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := decode(t, "PUT target "+query, w.a.Admin("home", http.MethodPut, "/api/v1/targets/"+id+query, string(body)), &renamesImpact{}).lines()
+	if !slices.Equal(got, want) {
+		t.Fatalf("renaming the Target to %s%s answered an Impact of\n%s\nwant\n%s", name, query, strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// The Impact of renaming the 1080p Target lists the file named after it,
+// from its path to its new one, and the save renames it on disk.
+func TestATargetRenamesImpactListsTheFileItRenames(t *testing.T) {
+	t.Parallel()
+	w := grabbedTargets(t)
+	w.holds(t, release)
+	starter := w.named(t, "/api/v1/targets", "targets", "1080p")
+	const renamed = "The Quiet Orchard (2021)/The Quiet Orchard (2021) - Full HD.mkv"
+	listed := []string{"1 renamed", "The Quiet Orchard: The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv -> " + renamed}
+
+	w.renameTarget(t, starter, "Full HD", "?preview=true", listed...)
+	w.holds(t, release)
+	w.renameTarget(t, starter, "Full HD", "", listed...)
+	w.holdsRelease(t, "movies/"+renamed, release)
+}
+
+// With renaming off for movies the import keeps the downloaded file's
+// name in the movie's folder, and renaming the Target it fills renames
+// nothing.
+func TestWithRenamingOffAnImportKeepsTheDownloadedNameAndATargetRenameRenamesNothing(t *testing.T) {
+	t.Parallel()
+	w := launchedTargets(t)
+	saveNaming(t, w.a, "movie", `{"movie.naming.renameFiles":false}`)
+	w.add(t)
+	found := w.searched(t, w.search(t))
+	if found.Outcome == nil || *found.Outcome != "grabbed" || found.GrabID == nil {
+		t.Fatalf("the search ended %+v, want a release grabbed", found)
+	}
+	w.ended(t, *found.GrabID)
+	if w.grab.Stage != "imported" {
+		t.Fatalf("the Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())
+	}
+	kept := "movies/The Quiet Orchard (2021)/" + release + ".mkv"
+	w.holdsRelease(t, kept, release)
+
+	w.renameTarget(t, w.named(t, "/api/v1/targets", "targets", "1080p"), "Full HD", "", "0 renamed")
+	w.holdsRelease(t, kept, release)
+	if got := planRenames(t, w.a, `{"scope":{"kind":"library"}}`).lines(); !slices.Equal(got, []string{"0 to rename, 0 blocked"}) {
+		t.Fatalf("the library's plan reads %q, want nothing to rename", got)
+	}
+}
