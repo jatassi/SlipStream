@@ -12,7 +12,7 @@ import {
 import { getListMetadataProvidersQueryKey } from "../api/gen/query/metadata/metadata";
 import { downloadEffects } from "./download-effects";
 import { indexerEffects } from "./indexer-effects";
-import { libraryEffects } from "./library-effects";
+import { libraryEffects, renameCounts } from "./library-effects";
 import { everyPath } from "./refresh";
 import { systemEffects } from "./system-effects";
 import { targetsEffects } from "./targets-effects";
@@ -58,5 +58,6 @@ export const effects = {
   },
   "naming.changed": (_data, { refresh }) => {
     refresh(everyNaming);
+    refresh(renameCounts);
   },
 } satisfies LiveEffects;
