@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"strconv"
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/contenttypes/music/internal/db"
@@ -17,7 +16,6 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/release"
@@ -253,27 +251,6 @@ func (*Music) Fields(ctx context.Context, r storage.Reader[file], w works.WorkID
 		fs.Items[t.ItemID] = values
 	}
 	return fs, nil
-}
-
-func (*Music) NamingTokens(ctx context.Context, r storage.Reader[file], item works.ItemID) (map[string]string, error) {
-	artist, track, err := works.ItemOf(ctx, r, item)
-	if err != nil {
-		return nil, err
-	}
-	t, err := db.New(r).GetTrack(ctx, item)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]string{
-		"Artist Name": artist.Label,
-		"Track Title": track.Label,
-		"Disc":        strconv.FormatInt(t.Disc, 10),
-		"Track":       fmt.Sprintf("%02d", t.Number),
-	}, nil
-}
-
-func (*Music) DefaultTemplates() naming.Templates {
-	return naming.Templates{Folder: "{Artist Name}", File: "{Artist Name} - {Disc}-{Track} - {Track Title} {Edition} {Target}"}
 }
 
 // Expect answers indexers' empty answer: music isn't searched.

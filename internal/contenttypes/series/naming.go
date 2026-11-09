@@ -110,15 +110,11 @@ func (*Series) NamingValues(ctx context.Context, r storage.Reader[file], ws work
 	out := make(map[works.WorkID]naming.Values, len(rows))
 	variants := make(map[works.WorkID]string, len(rows))
 	for _, row := range rows {
-		year := naming.Value{}
-		if row.FirstAired != nil {
-			first, err := works.ParseDate(*row.FirstAired)
-			if err != nil {
-				return nil, err
-			}
-			year = naming.Number(int64(first.Year))
+		year, err := dateOf(row.FirstAired, func(d works.Date) naming.Value { return naming.Number(int64(d.Year)) })
+		if err != nil {
+			return nil, err
 		}
-		v := naming.Values{
+		out[row.WorkID] = naming.Values{
 			Work: naming.Set{
 				"Series Title": naming.Text(row.EnglishTitle), "Series Year": year, "TvdbId": naming.Text(strconv.FormatInt(int64(row.TvdbID), 10)),
 				"TmdbId": idOr(row.TmdbID), "ImdbId": naming.TextOr(row.ImdbID),
@@ -126,15 +122,7 @@ func (*Series) NamingValues(ctx context.Context, r storage.Reader[file], ws work
 			Levels: map[works.LevelID]naming.Set{},
 			Items:  map[works.ItemID]naming.ItemValues{},
 		}
-		out[row.WorkID] = v
-		switch {
-		case row.NameByAirDate:
-			variants[row.WorkID] = daily
-		case tvdb.Order(row.EpisodeOrder) == tvdb.OrderAbsolute:
-			variants[row.WorkID] = absolute
-		default:
-			variants[row.WorkID] = standard
-		}
+		variants[row.WorkID] = variantOf(row)
 	}
 	labels := map[works.ItemID]works.Item{}
 	for _, its := range items {
@@ -143,13 +131,9 @@ func (*Series) NamingValues(ctx context.Context, r storage.Reader[file], ws work
 		}
 	}
 	for _, e := range episodes {
-		aired := naming.Value{}
-		if e.AirDate != nil {
-			d, err := works.ParseDate(*e.AirDate)
-			if err != nil {
-				return nil, err
-			}
-			aired = naming.Day(d)
+		aired, err := dateOf(e.AirDate, naming.Day)
+		if err != nil {
+			return nil, err
 		}
 		v, it := out[e.WorkID], labels[e.ItemID]
 		v.Levels[it.LevelID] = naming.Set{"season": naming.Number(e.SeasonNumber)}
@@ -161,51 +145,31 @@ func (*Series) NamingValues(ctx context.Context, r storage.Reader[file], ws work
 	return out, nil
 }
 
+func variantOf(row db.ListEveryNameRow) string {
+	switch {
+	case row.NameByAirDate:
+		return daily
+	case tvdb.Order(row.EpisodeOrder) == tvdb.OrderAbsolute:
+		return absolute
+	}
+	return standard
+}
+
+// dateOf is the value of the date s holds, absent when s is nil.
+func dateOf(s *string, value func(works.Date) naming.Value) (naming.Value, error) {
+	if s == nil {
+		return naming.Value{}, nil
+	}
+	d, err := works.ParseDate(*s)
+	if err != nil {
+		return naming.Value{}, err
+	}
+	return value(d), nil
+}
+
 func idOr(id *db.TMDBID) naming.Value {
 	if id == nil {
 		return naming.Value{}
 	}
 	return naming.Text(strconv.FormatInt(int64(*id), 10))
-}
-
-// NamingTokens name an episode's files after its series' English title and
-// first aired year, its numbers in the series' order and its title.
-func (*Series) NamingTokens(ctx context.Context, r storage.Reader[file], item works.ItemID) (map[string]string, error) {
-	work, it, err := works.ItemOf(ctx, r, item)
-	if err != nil {
-		return nil, err
-	}
-	q := db.New(r)
-	row, err := q.GetSeries(ctx, work.ID)
-	if err != nil {
-		return nil, err
-	}
-	e, err := q.GetEpisode(ctx, item)
-	if err != nil {
-		return nil, err
-	}
-	tokens := map[string]string{
-		"Series Title": row.EnglishTitle, "year": "", "Episode Title": it.Label, "absolute": "",
-		"season": strconv.FormatInt(e.SeasonNumber, 10), "episode": strconv.FormatInt(e.EpisodeNumber, 10),
-	}
-	if row.FirstAired != nil {
-		first, err := works.ParseDate(*row.FirstAired)
-		if err != nil {
-			return nil, err
-		}
-		tokens["year"] = strconv.Itoa(first.Year)
-	}
-	if e.AbsoluteNumber != nil {
-		tokens["absolute"] = strconv.FormatInt(*e.AbsoluteNumber, 10)
-	}
-	return tokens, nil
-}
-
-func (*Series) DefaultTemplates() naming.Templates {
-	return naming.Templates{
-		Folder: "{Series Title} ({year})",
-		Levels: []string{"Season {season:00}"},
-		Aside:  "Specials",
-		File:   "{Series Title} - S{season:00}E{episode:00} - {Episode Title} {Edition} {Target}",
-	}
 }

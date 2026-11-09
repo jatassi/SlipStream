@@ -1,3 +1,6 @@
+// Package naming turns a Content Type's templates and values into the
+// folder and file names its files are placed under. One character rule
+// serves every OS, so a library made on Linux opens on Windows.
 package naming
 
 import (
@@ -7,10 +10,9 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// Namer is how a Content Type names its files: what it declares, and the
-// values it reads for any set of its Works. It replaces Facet, and takes
-// that name once no Content Type implements Facet.
-type Namer interface {
+// Facet is how a Content Type names its files: what it declares, and the
+// values it reads for any set of its Works.
+type Facet interface {
 	// Naming is the same Declaration on every call.
 	Naming() Declaration
 	// NamingValues reads the values of each of ws in a few queries: the

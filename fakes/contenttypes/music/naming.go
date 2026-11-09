@@ -22,7 +22,7 @@ var declaration = naming.Declaration{
 	},
 	Samples: []naming.Sample{
 		{Label: "A track", Work: lanterns, Units: []naming.Unit{onDisc(1, 2, "Paper Boats")}},
-		{Label: "Two tracks", Work: lanterns, Units: []naming.Unit{onDisc(1, 1, "Harbour"), onDisc(1, 2, "Paper Boats")}},
+		{Label: "Two tracks", Work: lanterns, Units: []naming.Unit{onDisc(1, 1, "Lighthouse"), onDisc(1, 2, "Paper Boats")}},
 		{Label: "Nothing known", Missing: true, Work: lanterns, Units: []naming.Unit{{Item: naming.ItemValues{Set: naming.Set{"Disc": naming.Number(1), "Track": naming.Number(1)}}}}},
 	},
 }

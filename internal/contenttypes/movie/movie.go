@@ -17,7 +17,6 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/release"
@@ -172,26 +171,6 @@ func (m *Movie) Fields(ctx context.Context, r storage.Reader[file], w works.Work
 		fields = append(fields, works.PeopleField("credits", people))
 	}
 	return works.FieldSet{Work: fields}, nil
-}
-
-func (*Movie) NamingTokens(ctx context.Context, r storage.Reader[file], item works.ItemID) (map[string]string, error) {
-	work, _, err := works.ItemOf(ctx, r, item)
-	if err != nil {
-		return nil, err
-	}
-	mv, err := db.New(r).GetMovie(ctx, work.ID)
-	if err != nil {
-		return nil, err
-	}
-	tokens := map[string]string{"Movie Title": mv.TitleEnglish, "Year": ""}
-	if mv.Year != nil {
-		tokens["Year"] = strconv.FormatInt(*mv.Year, 10)
-	}
-	return tokens, nil
-}
-
-func (*Movie) DefaultTemplates() naming.Templates {
-	return naming.Templates{Folder: "{Movie Title} ({Year})", File: "{Movie Title} ({Year}) - {Edition Tag} {Target}"}
 }
 
 // Expect is the movie's TMDB and IMDb ids, titles, year and original

@@ -354,7 +354,7 @@ func (n *Node) startController(ctx context.Context) error {
 	router := downloadclients.Router{Roster: side, Routes: trackers.Routing{Roster: side}}
 	shelf, err := files.Open(ctx, files.Config{
 		Library: lib.db, Targets: goals, Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}, Transfers: transfers.LiveIn,
-		Naming:  contenttype.Project(opened, func(t contenttype.Library) naming.Facet { return t }),
+		Naming:  naming.New(naming.Config{Facets: contenttype.Project(opened, func(t contenttype.Library) naming.Facet { return t })}),
 		Names:   contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
 		Today:   n.today,
 		Disk:    homes,

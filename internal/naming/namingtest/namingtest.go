@@ -14,7 +14,7 @@ import (
 // aliases unique by key, sample values of their tokens' kinds, sample
 // variants the type declares, defaults that pass the save check and
 // samples that name.
-func Conform(t testing.TB, n naming.Namer) {
+func Conform(t testing.TB, n naming.Facet) {
 	t.Helper()
 	for _, problem := range naming.Conformance(n.Naming()) {
 		t.Error(problem)
@@ -23,10 +23,10 @@ func Conform(t testing.TB, n naming.Namer) {
 
 // Name is the root-relative path n's default templates give a file of
 // sub as an .mkv, with level folders, where the templates say.
-func Name(t testing.TB, n naming.Namer, sub naming.Subject, file naming.FileFacts) string {
+func Name(t testing.TB, n naming.Facet, sub naming.Subject, file naming.FileFacts) string {
 	t.Helper()
 	const typ works.TypeID = "namingtest"
-	s, err := naming.New(naming.Config{Facets: map[works.TypeID]naming.Namer{typ: n}}).SchemeIn(t.Context(), nil, typ)
+	s, err := naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{typ: n}}).SchemeIn(t.Context(), nil, typ)
 	if err != nil {
 		t.Fatal(err)
 	}

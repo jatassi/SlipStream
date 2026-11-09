@@ -722,24 +722,6 @@ func (f *Fixture) NamingValues(ctx context.Context, r storage.Reader[storage.Lib
 	return out, nil
 }
 
-// NamingTokens names an Item's files after its Work's label, as Shelf,
-// its level's, as Box, and its own, as Thing.
-func (f *Fixture) NamingTokens(ctx context.Context, r storage.Reader[storage.Library], item works.ItemID) (map[string]string, error) {
-	work, it, err := works.ItemOf(ctx, r, item)
-	if err != nil {
-		return nil, err
-	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return map[string]string{"Shelf": work.Label, "Box": f.boxes[it.LevelID].label, "Thing": it.Label}, nil
-}
-
-// DefaultTemplates put a file in a folder per box, and one in a spare box
-// in Spare boxes.
-func (*Fixture) DefaultTemplates() naming.Templates {
-	return naming.Templates{Folder: "{Shelf}", Levels: []string{"{Box}"}, Aside: "Spare boxes", File: "{Shelf} - {Thing} - {Edition Tag} {Target}"}
-}
-
 // Expect answers indexers' empty answer: the Fixture can't be searched.
 func (*Fixture) Expect(context.Context, storage.Reader[storage.Library], works.WorkID) (indexers.Expect, error) {
 	return indexers.Expect{}, nil

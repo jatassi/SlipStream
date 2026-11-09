@@ -8,7 +8,7 @@ import (
 )
 
 type Config struct {
-	Facets map[works.TypeID]Namer
+	Facets map[works.TypeID]Facet
 }
 
 // Naming owns each Content Type's naming: the scheme its files are named

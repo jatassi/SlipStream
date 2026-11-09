@@ -3,6 +3,7 @@ package files
 import (
 	"errors"
 	"fmt"
+	"math"
 	"path"
 	"slices"
 	"strings"
@@ -171,9 +172,9 @@ func firstMet(ts []targets.Target, f File) (string, bool) {
 
 // folderOf is f's folder: its own, or for the file being placed the
 // folder of the oldest live file beside it at its Item's level. Without
-// one it is the Work's folder, the first folder of the oldest live file
-// beside it that sits in one or else the template's, then the level
-// folders the template gives its Item when the Work keeps a folder per
+// one it lands in the Work's folder, the first folder of the oldest live
+// file beside it that sits in one or else the template's, under the level
+// folders the templates give its Item when the Work keeps a folder per
 // level.
 func folderOf(w world, f File) (string, error) {
 	if f.ID != w.fresh {
@@ -199,39 +200,44 @@ func folderOf(w world, f File) (string, error) {
 			work = folder
 		}
 	}
-	tokens := w.tokens[f.ItemID]
-	if work == "" {
-		var err error
-		if work, err = naming.Render(w.templates.Folder, tokens, naming.Core{}); err != nil {
-			return "", err
-		}
+	landing := naming.Rendered()
+	if work != "" {
+		landing = naming.InWork(work)
 	}
-	levels, err := naming.Folders(w.templates, tokens, w.tree.Items[i].Aside, w.tree.LevelFolders)
-	if err != nil {
-		return "", err
-	}
-	return path.Join(append([]string{work}, levels...)...), nil
+	return w.scheme.Dir(naming.Placing{Subject: w.subject(f), LevelFolders: w.tree.LevelFolders, Landing: landing})
 }
 
+// unbounded is the path budget while roots report no path limit: only
+// the limit on each name applies.
+const unbounded = math.MaxInt
+
+// pathOf is the path the templates give f, named nm, in its folder.
 func pathOf(w world, f File, nm name) (string, error) {
 	folder, err := folderOf(w, f)
 	if err != nil {
 		return "", err
 	}
-	core := naming.Core{Target: nm.Label}
+	facts := naming.FileFacts{
+		Target: nm.Label, Facts: w.scoring.facts(f), Media: f.Media, Release: f.ReleaseName,
+		Keep: strings.TrimSuffix(path.Base(f.Path), path.Ext(f.Path)),
+	}
 	if nm.Extra > 0 {
-		core.Target += fmt.Sprintf(" (extra %d)", nm.Extra)
+		facts.Target += fmt.Sprintf(" (extra %d)", nm.Extra)
 	}
 	if f.Cut != release.Standard {
 		cut, ok := w.cuts.Get(f.Cut)
 		if !ok {
 			return "", fmt.Errorf("file %s holds cut %s, which no cut has", f.ID, f.Cut)
 		}
-		core.EditionTag, core.Edition = "{edition-"+cut.Name+"}", cut.Name
+		facts.Cut = cut.Name
 	}
-	file, err := naming.Render(w.templates.File, w.tokens[f.ItemID], core)
-	if err != nil {
-		return "", err
-	}
-	return path.Join(folder, file+path.Ext(f.Path)), nil
+	named, err := w.scheme.Name(naming.Placing{
+		Subject: w.subject(f), LevelFolders: w.tree.LevelFolders, Landing: naming.InDir(folder), File: facts, Ext: path.Ext(f.Path), Budget: unbounded,
+	})
+	return named.Rel, err
+}
+
+// subject is what f's name reads of its Work.
+func (w world) subject(f File) naming.Subject {
+	return w.values.Of(w.tree, []works.ItemID{f.ItemID})
 }

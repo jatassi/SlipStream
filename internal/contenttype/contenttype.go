@@ -64,7 +64,6 @@ import (
 type Library interface {
 	works.Catalog
 	naming.Facet
-	naming.Namer
 	indexers.Facet
 	targets.Facet
 	release.Names

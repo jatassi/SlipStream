@@ -1,6 +1,7 @@
 package files
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"testing"
@@ -20,6 +21,40 @@ func newTarget(t *testing.T, name string, tiers ...[]release.Quality) targets.Ta
 	}
 	target.ID = targets.TargetID{UUID: storage.NewUUID()}
 	return target
+}
+
+// shelf names a test Work's files in a folder per Shelf, by its template.
+type shelf string
+
+func (file shelf) Naming() naming.Declaration {
+	return naming.Declaration{
+		Tokens: []naming.Token{{Name: "Shelf", Kind: naming.KindTitle, Scope: naming.WorkScope}, {Name: "Thing", Kind: naming.KindTitle, Scope: naming.ItemScope}},
+		Folder: "{Shelf}",
+		Files:  []naming.Variant{{Key: "standard", Label: "File", File: string(file), Anchor: naming.TokenAnchor("Thing")}},
+	}
+}
+
+func (shelf) NamingValues(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[works.WorkID]naming.Values, error) {
+	return nil, nil
+}
+
+// shelved is the world of a Work on the shelf Attic whose items are each
+// a Scarf, named by file under goals.
+func shelved(t *testing.T, file string, goals targets.Goals, items ...works.Item) world {
+	t.Helper()
+	const typ works.TypeID = "shelf"
+	scheme, err := naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{typ: shelf(file)}}).SchemeIn(t.Context(), nil, typ)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := naming.Values{Work: naming.Set{"Shelf": naming.Text("Attic")}, Items: map[works.ItemID]naming.ItemValues{}}
+	for _, it := range items {
+		values.Items[it.ID] = naming.ItemValues{Set: naming.Set{"Thing": naming.Text("Scarf")}}
+	}
+	return world{
+		tree: works.Bare{Items: items}, goals: goals, scoring: newScoring(nil, goals, release.Fact[release.Language]{}),
+		scheme: scheme, values: values,
+	}
 }
 
 func TestNames(t *testing.T) {
@@ -104,11 +139,8 @@ func TestNames(t *testing.T) {
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			w := world{
-				tree: works.Bare{Items: []works.Item{scarf}}, goals: targets.Goals{Targets: []targets.Target{best, web, uhd}}, fresh: ids["fresh"],
-				templates: naming.Templates{Folder: "{Shelf}", File: "{Shelf} - {Thing} - {Edition Tag} {Target}"},
-				tokens:    map[works.ItemID]map[string]string{scarf.ID: {"Shelf": "Attic", "Thing": "Scarf"}},
-			}
+			w := shelved(t, "{Shelf} - {Thing} - {Edition Tag} {Target}", targets.Goals{Targets: []targets.Target{best, web, uhd}}, scarf)
+			w.fresh = ids["fresh"]
 			for _, s := range c.files {
 				w.files = append(w.files, File{ID: ids[s.id], ItemID: scarf.ID, Cut: release.Standard, Quality: s.quality, Label: s.label, Extra: s.extra, Path: s.path})
 			}
@@ -136,11 +168,8 @@ func TestTwoFilesOnOneNameIsAClash(t *testing.T) {
 	scarf := works.Item{ID: works.ItemID{UUID: storage.NewUUID()}}
 	held := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Path: "Attic/Attic - Scarf.mkv"}
 	fresh := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Path: ".slipstream-incoming/grab.mkv"}
-	w := world{
-		tree: works.Bare{Items: []works.Item{scarf}}, goals: targets.Goals{Targets: []targets.Target{web}}, files: []File{held, fresh}, fresh: fresh.ID,
-		templates: naming.Templates{Folder: "{Shelf}", File: "{Shelf} - {Thing}"},
-		tokens:    map[works.ItemID]map[string]string{scarf.ID: {"Shelf": "Attic", "Thing": "Scarf"}},
-	}
+	w := shelved(t, "{Shelf} - {Thing}", targets.Goals{Targets: []targets.Target{web}}, scarf)
+	w.files, w.fresh = []File{held, fresh}, fresh.ID
 	_, err := names(w, map[CellKey]Fill{{Item: scarf.ID, Edition: targets.AnyEdition, Target: web.ID}: {File: held.ID}})
 	if !errors.Is(err, ErrNameClash) {
 		t.Fatalf("names of a Kept file whose template names no Target = %v, want ErrNameClash", err)
@@ -155,12 +184,8 @@ func TestAGoneFileKeepsItsNameAndHoldsItsN(t *testing.T) {
 		Path: "Attic/Attic - Scarf - Web (extra 1).mkv", GoneAt: storage.Now(),
 	}
 	kept := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.HDTV720p, Label: "Web", Path: "Attic/Scarf.mkv"}
-	w := world{
-		tree: works.Bare{Items: []works.Item{scarf}}, goals: targets.Goals{Targets: []targets.Target{best}}, files: []File{gone, kept},
-		retagged:  map[release.CutKey]bool{release.Standard: true},
-		templates: naming.Templates{Folder: "{Shelf}", File: "{Shelf} - {Thing} - {Edition Tag} {Target}"},
-		tokens:    map[works.ItemID]map[string]string{scarf.ID: {"Shelf": "Attic", "Thing": "Scarf"}},
-	}
+	w := shelved(t, "{Shelf} - {Thing} - {Edition Tag} {Target}", targets.Goals{Targets: []targets.Target{best}}, scarf)
+	w.files, w.retagged = []File{gone, kept}, map[release.CutKey]bool{release.Standard: true}
 	got, err := names(w, nil)
 	if err != nil {
 		t.Fatal(err)
