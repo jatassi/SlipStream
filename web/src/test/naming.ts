@@ -4,6 +4,8 @@ import type {
   NamingFieldPreview,
   NamingFieldTokens,
   NamingProblem,
+  NamingTestName,
+  NamingTestedName,
   NamingToken,
   NamingTypeNaming,
   SettingField,
@@ -144,6 +146,11 @@ export type NamingServerType = {
   readonly tokens: readonly NamingFieldTokens[];
   /** The save check's sentences for a set of values by key. */
   readonly check?: (values: Readonly<Record<string, unknown>>) => NamingProblem[];
+  /** Where a tested file name goes under a set of values by key. */
+  readonly tested?: (
+    name: NamingTestName,
+    values: Readonly<Record<string, unknown>>,
+  ) => NamingTestedName;
 };
 
 /** A naming setting with a value a save sent: null puts back its default. */
@@ -167,10 +174,18 @@ function applied(
 const valuesOf = (settings: readonly SettingField[]): Record<string, unknown> =>
   Object.fromEntries(settings.map((setting) => [setting.key, setting.value]));
 
-/** A template's samples are its text as a path, so a preview shows what was typed. */
-function previewOf(type: NamingServerType, draft: Readonly<Record<string, unknown>>) {
+/**
+ * A template's samples are its text as a path, so a preview shows what was
+ * typed. Tested names go where the type's tested says, unless the check refuses.
+ */
+function previewOf(
+  type: NamingServerType,
+  draft: Readonly<Record<string, unknown>>,
+  names: readonly NamingTestName[],
+) {
   const settings = applied(type.naming.settings, draft);
-  const problems = type.check?.(valuesOf(settings)) ?? [];
+  const values = valuesOf(settings);
+  const problems = type.check?.(values) ?? [];
   const fields: NamingFieldPreview[] = settings.map((setting) => ({
     key: setting.key,
     samples:
@@ -179,7 +194,13 @@ function previewOf(type: NamingServerType, draft: Readonly<Record<string, unknow
         : [],
     problems: problems.filter(({ key }) => key === setting.key).map(({ sentence }) => sentence),
   }));
-  return { fields };
+  const { tested } = type;
+  return {
+    fields,
+    work: [],
+    tested:
+      problems.length > 0 || tested === undefined ? [] : names.map((name) => tested(name, values)),
+  };
 }
 
 const refusal = (problems: readonly NamingProblem[]) =>
@@ -196,9 +217,10 @@ const refusal = (problems: readonly NamingProblem[]) =>
     { status: 422, headers: { "Content-Type": "application/problem+json" } },
   );
 
-/** The naming endpoints over types, keeping what each save sends. */
+/** The naming endpoints over types, keeping what each save sends and each preview of names asks. */
 export function namingServer(types: readonly NamingServerType[]) {
   const sent: Record<string, unknown>[] = [];
+  const tested: { type: string; body: unknown }[] = [];
   const state = new Map(types.map((type) => [type.naming.contentType, type]));
   const typeOf = (id: string) => {
     const type = state.get(id);
@@ -215,8 +237,12 @@ export function namingServer(types: readonly NamingServerType[]) {
       HttpResponse.json({ fields: typeOf(params.type).tokens }),
     ),
     http.post<{ type: string }>("*/api/v1/naming/:type/preview", async ({ params, request }) => {
-      const { draft } = PreviewNamingBody.parse(await request.json());
-      return HttpResponse.json(previewOf(typeOf(params.type), draft));
+      const body = PreviewNamingBody.parse(await request.json());
+      const names = body.names ?? [];
+      if (names.length > 0) {
+        tested.push({ type: params.type, body });
+      }
+      return HttpResponse.json(previewOf(typeOf(params.type), body.draft, names));
     }),
     http.patch<{ type: string }>("*/api/v1/naming/:type", async ({ params, request }) => {
       const type = typeOf(params.type);
@@ -232,5 +258,5 @@ export function namingServer(types: readonly NamingServerType[]) {
       return HttpResponse.json(naming);
     }),
   ];
-  return { handlers, sent };
+  return { handlers, sent, tested };
 }
