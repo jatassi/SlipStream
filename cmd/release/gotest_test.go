@@ -250,6 +250,52 @@ func TestLoadTimingsMergesTheTargetsShards(t *testing.T) {
 	}
 }
 
+func TestLoadTimingsFillsAMissingPackageFromAnotherTarget(t *testing.T) {
+	dir := t.TempDir()
+	writeTimings(t, dir, "linux-amd64-e2e-1.json", `{"target":"linux-amd64","cpus":4,"packages":{"e2e":{"seconds":866},"p":{"seconds":5}}}`)
+	writeTimings(t, dir, "windows-amd64-e2e-1.json", `{"target":"windows-amd64","cpus":2,"packages":{"e2e":{"seconds":999},"p":{"seconds":77},"q":{"seconds":3}}}`)
+	writeTimings(t, dir, "darwin-arm64-e2e-1.json", `{"target":"darwin-arm64","packages":{"p":{"seconds":2}}}`)
+	got, err := loadTimings(dir, "darwin-arm64")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]packageTimings{"e2e": {Seconds: 866}, "p": {Seconds: 2}, "q": {Seconds: 3}}
+	if fmt.Sprint(got.Packages) != fmt.Sprint(want) {
+		t.Errorf("darwin-arm64 timings = %v, want its own p, linux-amd64's e2e and windows-amd64's q: %v", got.Packages, want)
+	}
+	if got.CPUs != 4 {
+		t.Errorf("darwin-arm64 CPUs = %d, want linux-amd64's 4", got.CPUs)
+	}
+}
+
+func TestPartitionSpreadsHeavyPackagesOnATargetWithoutTimings(t *testing.T) {
+	dir := t.TempDir()
+	writeTimings(t, dir, "linux-amd64-e2e-1.json", `{"target":"linux-amd64","cpus":4,"packages":{"e2e":{"seconds":866},"fakes/tracker":{"seconds":338},"fakes/world/sim":{"seconds":650},"a":{"seconds":5},"b":{"seconds":5},"c":{"seconds":5},"d":{"seconds":5}}}`)
+	past, err := loadTimings(dir, "darwin-arm64")
+	if err != nil {
+		t.Fatal(err)
+	}
+	shards := partition(packages("a", "b", "c", "d", "e2e", "fakes/tracker", "fakes/world/sim"), past, 2, true)
+	shardOf := map[string]int{}
+	for i, runs := range shards {
+		for _, r := range runs {
+			for _, p := range r.packages {
+				shardOf[p] = i + 1
+			}
+		}
+	}
+	if shardOf["e2e"] == shardOf["fakes/world/sim"] {
+		t.Errorf("e2e and fakes/world/sim both run on shard %d of %v, want them apart", shardOf["e2e"], shards)
+	}
+}
+
+func writeTimings(t *testing.T, dir, name, content string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestGoTestLogPrintsWhatGoTestPrintsWithoutV(t *testing.T) {
 	events := []string{
 		`{"Action":"start","Package":"ok/pkg"}`,
