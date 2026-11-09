@@ -2,6 +2,7 @@ package targetsapi
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/jatassi/slipstream/internal/api"
@@ -52,7 +53,6 @@ var codes = []struct {
 	err  error
 	code *api.Code
 }{
-	{targets.ErrTargetNameTaken, targetNameTaken},
 	{targets.ErrProfileNameTaken, profileNameTaken},
 	{targets.ErrNoType, contentTypeNotFound},
 	{targets.ErrNoTarget, targetNotFound},
@@ -65,6 +65,13 @@ var codes = []struct {
 func answer(err error) error {
 	if inUse, ok := errors.AsType[*targets.InUseError](err); ok {
 		return targetInUse.Because(inUse.Error())
+	}
+	if taken, ok := errors.AsType[*targets.TargetNameTakenError](err); ok {
+		fix := "Choose another name."
+		if taken.Name != taken.Other {
+			fix = "Use a name that differs by more than case."
+		}
+		return targetNameTaken.Because(fmt.Sprintf("Another Target is named %s. %s", taken.Other, fix))
 	}
 	for _, bad := range []struct {
 		err   error

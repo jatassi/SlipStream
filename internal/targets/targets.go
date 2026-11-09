@@ -9,6 +9,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"slices"
 	"strings"
@@ -54,7 +55,6 @@ type Publisher interface {
 }
 
 var (
-	ErrTargetNameTaken  = errors.New("a Target already has that name")
 	ErrProfileNameTaken = errors.New("a Profile already has that name")
 	ErrNoType           = errors.New("no Content Type has that id")
 	ErrNoTarget         = errors.New("no Target has that id")
@@ -85,6 +85,8 @@ type Config struct {
 	// Types is every Content Type this binary registers, by its facet.
 	Types   map[works.TypeID]Facet
 	Changed Publisher
+	// Log records each Target that Open renames.
+	Log *slog.Logger
 	// Formats is the limit a Custom Format's pattern runs under.
 	Formats formats.Timings
 }
@@ -123,14 +125,12 @@ func (t *Targets) CreateTarget(ctx context.Context, _ identity.Admin, s Spec) (T
 }
 
 func insertTarget(ctx context.Context, q *db.Queries, t Target) error {
-	switch taken, err := q.TargetNameTaken(ctx, t.Name); {
-	case err != nil:
+	folded, err := claimName(ctx, q, t.ID, t.Name)
+	if err != nil {
 		return err
-	case taken:
-		return ErrTargetNameTaken
 	}
-	err := q.InsertTarget(ctx, db.InsertTargetParams{
-		ID: t.ID, Name: t.Name, CreatedAt: t.CreatedAt, CutoffTier: int64(t.Cutoff), MinScore: int64(t.Scores.Minimum),
+	err = q.InsertTarget(ctx, db.InsertTargetParams{
+		ID: t.ID, Name: t.Name, NameFolded: &folded, CreatedAt: t.CreatedAt, CutoffTier: int64(t.Cutoff), MinScore: int64(t.Scores.Minimum),
 		UpgradeUntil: int64(t.Scores.UpgradeUntil), ScoreIncrement: int64(t.Scores.Increment), Propers: t.Propers.String(),
 	})
 	if err != nil {
@@ -225,7 +225,7 @@ func (t *Targets) DuplicateTarget(ctx context.Context, _ identity.Admin, id Targ
 			ID: TargetID{UUID: storage.NewUUID()}, Tiers: all[i].Tiers, Cutoff: all[i].Cutoff, Filters: all[i].Filters,
 			Scores: all[i].Scores, Propers: all[i].Propers, CreatedAt: storage.Now(),
 		}
-		for n := 1; copied.Name == "" || slices.ContainsFunc(all, func(t Target) bool { return t.Name == copied.Name }); n++ {
+		for n := 1; copied.Name == "" || slices.ContainsFunc(all, func(t Target) bool { return foldName(t.Name) == foldName(copied.Name) }); n++ {
 			copied.Name = all[i].Name + " copy"
 			if n > 1 {
 				copied.Name += fmt.Sprintf(" %d", n)

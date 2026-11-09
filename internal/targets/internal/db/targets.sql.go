@@ -187,6 +187,21 @@ func (q *Queries) DeleteWantsCuts(ctx context.Context, workID works.WorkID) erro
 	return err
 }
 
+const foldTargetName = `-- name: FoldTargetName :exec
+UPDATE targets_target SET name = ?1, name_folded = ?2 WHERE id = ?3
+`
+
+type FoldTargetNameParams struct {
+	Name       string
+	NameFolded *string
+	ID         TargetID
+}
+
+func (q *Queries) FoldTargetName(ctx context.Context, arg FoldTargetNameParams) error {
+	_, err := q.db.ExecContext(ctx, foldTargetName, arg.Name, arg.NameFolded, arg.ID)
+	return err
+}
+
 const getProfile = `-- name: GetProfile :one
 SELECT id, name, content_type, is_default, editions FROM targets_profile WHERE id = ?1
 `
@@ -216,7 +231,7 @@ func (q *Queries) GetStarter(ctx context.Context) (TargetsStarter, error) {
 }
 
 const getTarget = `-- name: GetTarget :one
-SELECT id, name, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers FROM targets_target WHERE id = ?1
+SELECT id, name, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers, name_folded FROM targets_target WHERE id = ?1
 `
 
 func (q *Queries) GetTarget(ctx context.Context, id TargetID) (TargetsTarget, error) {
@@ -231,6 +246,7 @@ func (q *Queries) GetTarget(ctx context.Context, id TargetID) (TargetsTarget, er
 		&i.UpgradeUntil,
 		&i.ScoreIncrement,
 		&i.Propers,
+		&i.NameFolded,
 	)
 	return i, err
 }
@@ -445,14 +461,15 @@ func (q *Queries) InsertStarter(ctx context.Context, targetID *TargetID) error {
 }
 
 const insertTarget = `-- name: InsertTarget :exec
-INSERT INTO targets_target (id, name, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6,
-    ?7, ?8)
+INSERT INTO targets_target (id, name, name_folded, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
+    ?8, ?9)
 `
 
 type InsertTargetParams struct {
 	ID             TargetID
 	Name           string
+	NameFolded     *string
 	CreatedAt      storage.Time
 	CutoffTier     int64
 	MinScore       int64
@@ -465,6 +482,7 @@ func (q *Queries) InsertTarget(ctx context.Context, arg InsertTargetParams) erro
 	_, err := q.db.ExecContext(ctx, insertTarget,
 		arg.ID,
 		arg.Name,
+		arg.NameFolded,
 		arg.CreatedAt,
 		arg.CutoffTier,
 		arg.MinScore,
@@ -963,8 +981,41 @@ func (q *Queries) ListSightingsOf(ctx context.Context, itemIds []works.ItemID) (
 	return items, nil
 }
 
+const listTargetNames = `-- name: ListTargetNames :many
+SELECT id, name, name_folded FROM targets_target ORDER BY id
+`
+
+type ListTargetNamesRow struct {
+	ID         TargetID
+	Name       string
+	NameFolded *string
+}
+
+func (q *Queries) ListTargetNames(ctx context.Context) ([]ListTargetNamesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTargetNames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTargetNamesRow
+	for rows.Next() {
+		var i ListTargetNamesRow
+		if err := rows.Scan(&i.ID, &i.Name, &i.NameFolded); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTargets = `-- name: ListTargets :many
-SELECT id, name, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers FROM targets_target ORDER BY name, id
+SELECT id, name, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers, name_folded FROM targets_target ORDER BY name, id
 `
 
 func (q *Queries) ListTargets(ctx context.Context) ([]TargetsTarget, error) {
@@ -985,6 +1036,7 @@ func (q *Queries) ListTargets(ctx context.Context) ([]TargetsTarget, error) {
 			&i.UpgradeUntil,
 			&i.ScoreIncrement,
 			&i.Propers,
+			&i.NameFolded,
 		); err != nil {
 			return nil, err
 		}
@@ -1171,6 +1223,22 @@ func (q *Queries) MoveWants(ctx context.Context, arg MoveWantsParams) error {
 	return err
 }
 
+const otherTargetFoldedAs = `-- name: OtherTargetFoldedAs :one
+SELECT name FROM targets_target WHERE name_folded = ?1 AND id <> ?2
+`
+
+type OtherTargetFoldedAsParams struct {
+	NameFolded *string
+	ID         TargetID
+}
+
+func (q *Queries) OtherTargetFoldedAs(ctx context.Context, arg OtherTargetFoldedAsParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, otherTargetFoldedAs, arg.NameFolded, arg.ID)
+	var name string
+	err := row.Scan(&name)
+	return name, err
+}
+
 const profileNameTaken = `-- name: ProfileNameTaken :one
 SELECT EXISTS (SELECT 1 FROM targets_profile WHERE name = ?1)
 `
@@ -1235,33 +1303,6 @@ func (q *Queries) SetWants(ctx context.Context, arg SetWantsParams) error {
 	return err
 }
 
-const targetNameTaken = `-- name: TargetNameTaken :one
-SELECT EXISTS (SELECT 1 FROM targets_target WHERE name = ?1)
-`
-
-func (q *Queries) TargetNameTaken(ctx context.Context, name string) (bool, error) {
-	row := q.db.QueryRowContext(ctx, targetNameTaken, name)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
-const targetNameTakenByOther = `-- name: TargetNameTakenByOther :one
-SELECT EXISTS (SELECT 1 FROM targets_target WHERE name = ?1 AND id <> ?2)
-`
-
-type TargetNameTakenByOtherParams struct {
-	Name string
-	ID   TargetID
-}
-
-func (q *Queries) TargetNameTakenByOther(ctx context.Context, arg TargetNameTakenByOtherParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, targetNameTakenByOther, arg.Name, arg.ID)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
 const updateProfile = `-- name: UpdateProfile :exec
 UPDATE targets_profile SET name = ?1, editions = ?2 WHERE id = ?3
 `
@@ -1278,13 +1319,14 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) er
 }
 
 const updateTarget = `-- name: UpdateTarget :exec
-UPDATE targets_target SET name = ?1, cutoff_tier = ?2, min_score = ?3,
-    upgrade_until = ?4, score_increment = ?5, propers = ?6
-WHERE id = ?7
+UPDATE targets_target SET name = ?1, name_folded = ?2, cutoff_tier = ?3, min_score = ?4,
+    upgrade_until = ?5, score_increment = ?6, propers = ?7
+WHERE id = ?8
 `
 
 type UpdateTargetParams struct {
 	Name           string
+	NameFolded     *string
 	CutoffTier     int64
 	MinScore       int64
 	UpgradeUntil   int64
@@ -1296,6 +1338,7 @@ type UpdateTargetParams struct {
 func (q *Queries) UpdateTarget(ctx context.Context, arg UpdateTargetParams) error {
 	_, err := q.db.ExecContext(ctx, updateTarget,
 		arg.Name,
+		arg.NameFolded,
 		arg.CutoffTier,
 		arg.MinScore,
 		arg.UpgradeUntil,
