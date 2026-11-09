@@ -37,8 +37,9 @@ type testDisk struct {
 	readOnly   map[string]bool
 	unreadable map[string]bool
 	noLinks    bool
-	// foldCase resolves a name that isn't there ignoring case, as NTFS and
-	// APFS do; noIDs keeps no file ids, as a share does.
+	// foldCase finds a name ignoring case, keeps the case a name was made
+	// with and respells a name renamed onto its own other spelling, as NTFS
+	// and APFS do; noIDs keeps no file ids, as a share does.
 	foldCase, noIDs bool
 	// volumes is the volume of each folder and everything under it; the
 	// longest folder wins.
@@ -120,27 +121,34 @@ func (d *testDisk) Stat(ctx context.Context, path string) (Info, error) {
 		return nil, err
 	}
 	d.mu.Lock()
-	foldCase, noIDs := d.foldCase, d.noIDs
+	noIDs := d.noIDs
 	d.mu.Unlock()
-	info, err := d.os.Stat(ctx, path)
-	if foldCase && errors.Is(err, fs.ErrNotExist) {
-		info, err = d.os.Stat(ctx, unfolded(path))
-	}
+	info, err := d.os.Stat(ctx, d.at(path))
 	if err != nil || !noIDs {
 		return info, err
 	}
 	return idless{info}, nil
 }
 
-// unfolded is path with each segment that isn't there spelled as its
-// folder spells it, ignoring case.
+// at is where the disk finds path: with foldCase, each segment that isn't
+// there spelled as its folder spells it, ignoring case.
+func (d *testDisk) at(path string) string {
+	d.mu.Lock()
+	fold := d.foldCase
+	d.mu.Unlock()
+	if !fold {
+		return path
+	}
+	return unfolded(path)
+}
+
 func unfolded(path string) string {
 	at := filepath.VolumeName(path) + string(filepath.Separator)
 	for _, seg := range strings.Split(strings.TrimPrefix(path, at), string(filepath.Separator)) {
 		next := filepath.Join(at, seg)
 		if _, err := os.Lstat(next); err != nil {
 			des, _ := os.ReadDir(at)
-			if i := slices.IndexFunc(des, func(de os.DirEntry) bool { return strings.EqualFold(de.Name(), seg) }); i >= 0 {
+			if i := slices.IndexFunc(des, func(de os.DirEntry) bool { return Fold(de.Name()) == Fold(seg) }); i >= 0 {
 				next = filepath.Join(at, des[i].Name())
 			}
 		}
@@ -165,6 +173,7 @@ func (d *testDisk) ReadDir(ctx context.Context, dir string) ([]Entry, error) {
 	if err := d.fault(ctx, "readdir", dir); err != nil {
 		return nil, err
 	}
+	dir = d.at(dir)
 	des, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err //nolint:wrapcheck // the OS's own error, as a Disk answers it
@@ -187,28 +196,28 @@ func (d *testDisk) Mkdir(ctx context.Context, path string) error {
 	if err := d.fault(ctx, "mkdir", path); err != nil {
 		return err
 	}
-	return os.Mkdir(path, 0o750) //nolint:wrapcheck // the OS's own error, as a Disk answers it
+	return os.Mkdir(d.at(path), 0o750) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
 
 func (d *testDisk) Open(ctx context.Context, path string) (io.ReadCloser, error) {
 	if err := d.fault(ctx, "open", path); err != nil {
 		return nil, err
 	}
-	return os.Open(path) //nolint:wrapcheck // the OS's own error, as a Disk answers it
+	return os.Open(d.at(path)) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
 
 func (d *testDisk) OpenAt(ctx context.Context, path string) (ReadAtCloser, error) {
 	if err := d.fault(ctx, "open", path); err != nil {
 		return nil, err
 	}
-	return d.os.OpenAt(ctx, path)
+	return d.os.OpenAt(ctx, d.at(path))
 }
 
 func (d *testDisk) OpenWrite(ctx context.Context, path string) (WriteAtFile, error) {
 	if err := d.fault(ctx, "create", path); err != nil {
 		return nil, err
 	}
-	return d.os.OpenWrite(ctx, path)
+	return d.os.OpenWrite(ctx, d.at(path))
 }
 
 func (d *testDisk) Create(ctx context.Context, path string) (File, error) {
@@ -221,28 +230,32 @@ func (d *testDisk) Create(ctx context.Context, path string) (File, error) {
 	if ro {
 		return nil, &fs.PathError{Op: "open", Path: path, Err: errors.New("read-only file system")}
 	}
-	return os.Create(path) //nolint:wrapcheck // the OS's own error, as a Disk answers it
+	return os.Create(d.at(path)) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
 
 func (d *testDisk) Remove(ctx context.Context, path string) error {
 	if err := d.fault(ctx, "remove", path); err != nil {
 		return err
 	}
-	return os.Remove(path) //nolint:wrapcheck // the OS's own error, as a Disk answers it
+	return os.Remove(d.at(path)) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
 
 func (d *testDisk) RemoveAll(ctx context.Context, path string) error {
 	if err := d.fault(ctx, "remove", path); err != nil {
 		return err
 	}
-	return d.os.RemoveAll(ctx, path)
+	return d.os.RemoveAll(ctx, d.at(path))
 }
 
 func (d *testDisk) Rename(ctx context.Context, from, to string) error {
 	if err := d.fault(ctx, "rename", to); err != nil {
 		return err
 	}
-	return os.Rename(from, to) //nolint:wrapcheck // the OS's own error, as a Disk answers it
+	from, at := d.at(from), d.at(to)
+	if at == from {
+		at = filepath.Join(d.at(filepath.Dir(to)), filepath.Base(to))
+	}
+	return os.Rename(from, at) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
 
 func (d *testDisk) Link(ctx context.Context, from, to string) error {
@@ -255,7 +268,7 @@ func (d *testDisk) Link(ctx context.Context, from, to string) error {
 	if refuse {
 		return &os.LinkError{Op: "link", Old: from, New: to, Err: errors.New("operation not permitted")}
 	}
-	return os.Link(from, to) //nolint:wrapcheck // the OS's own error, as a Disk answers it
+	return os.Link(d.at(from), d.at(to)) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
 
 func (d *testDisk) Writable(ctx context.Context, dir string) (bool, error) {
