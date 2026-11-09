@@ -110,12 +110,9 @@ func digest(rows []Row) Digest {
 // in r with the values of each type's Works in one read, with the world
 // and names each was made from. among names trees' Works.
 func (f *Files) plans(ctx context.Context, r storage.Reader[file], trees []works.Bare, among works.Among[works.WorkID], draft *Draft) ([]worldPlan, error) {
-	var scheme *naming.Scheme
-	if draft != nil {
-		var err error
-		if scheme, err = f.cfg.Naming.DraftIn(ctx, r, draft.Type, draft.Patch); err != nil {
-			return nil, err
-		}
+	d, err := f.drafted(ctx, r, draft)
+	if err != nil {
+		return nil, err
 	}
 	ws, err := f.worlds(ctx, r, trees, among, wholeFiles)
 	if err != nil {
@@ -125,7 +122,7 @@ func (f *Files) plans(ctx context.Context, r storage.Reader[file], trees []works
 	for i := range ws {
 		of[i] = &ws[i]
 	}
-	if err := f.withNaming(ctx, r, of, among); err != nil {
+	if err := f.withNaming(ctx, r, of, among, d); err != nil {
 		return nil, err
 	}
 	moving, err := movingIn(ctx, db.New(r), among)
@@ -135,9 +132,6 @@ func (f *Files) plans(ctx context.Context, r storage.Reader[file], trees []works
 	out := make([]worldPlan, len(ws))
 	for i, w := range ws {
 		w.moving = moving
-		if draft != nil && w.tree.ContentType == draft.Type {
-			w.scheme = scheme
-		}
 		out[i].w = w
 		if out[i].WorkPlan, out[i].names, err = plan(w); err != nil {
 			return nil, err
