@@ -16,14 +16,14 @@ const unstorable = `:*?<>|"`
 // token, a token whose scope f doesn't take, a modifier the token's kind
 // doesn't take, and a literal holding a character a name can't hold, each
 // as a *ParseError. It finds the episode blocks and leaves anchorEnd to
-// the anchor code.
+// the scheme.
 func bind(t Template, c *catalog, f field) (bound, error) {
 	b := bound{field: f, parts: make([]part, len(t.parts))}
 	at := 0
 	for i, p := range t.parts {
 		switch p := p.(type) {
 		case literal:
-			if err := checkLiteral(string(p), at); err != nil {
+			if err := checkLiteral(string(p), at, f); err != nil {
 				return bound{}, err
 			}
 			b.parts[i] = p
@@ -33,22 +33,33 @@ func bind(t Template, c *catalog, f field) (bound, error) {
 			if err != nil {
 				return bound{}, err
 			}
-			if br.entry.Scope == ItemScope && br.entry.Kind == KindTitle {
-				b.shrinkable = append(b.shrinkable, i)
-			}
 			b.parts[i] = br
 			at += len(p.text)
 		}
 	}
-	b.block, b.alone = blockSpan(b.parts)
+	b.index()
 	return b, nil
 }
 
-func checkLiteral(s string, at int) error {
+// index finds b's episode blocks and its shrinkable refs from its parts.
+func (b *bound) index() {
+	b.shrinkable = nil
+	for i, p := range b.parts {
+		if r, ok := p.(*boundRef); ok && r.entry.Scope == ItemScope && r.entry.Kind == KindTitle {
+			b.shrinkable = append(b.shrinkable, i)
+		}
+	}
+	b.block, b.alone = blockSpan(b.parts)
+}
+
+// nameOf is what a field's template names, as a sentence starts.
+var nameOf = map[field]string{fileField: "the file name", folderField: "the folder name", levelField: "the folder name"}
+
+func checkLiteral(s string, at int, f field) error {
 	for i, r := range s {
 		switch {
 		case r == ':':
-			return refuse(at+i, "", `a template can't contain ":" outside a token because a name on Windows can't hold it`, `Remove the ":". The colon setting decides how a colon inside a title prints.`)
+			return refuse(at+i, "", nameOf[f]+" can't hold ':'", "Remove it or use a token.")
 		case strings.ContainsRune(unstorable, r):
 			c := quote(string(r))
 			if r == '"' {
@@ -74,6 +85,8 @@ func bindRef(r *ref, c *catalog, f field) (*boundRef, error) {
 	switch {
 	case e == nil:
 		return nil, refuse(r.at, r.text, r.text+" isn't a token", "Use a token from the token list, such as {Target}.")
+	case !slices.Contains(fieldScopes[f], e.Scope) && e.Scope == FileScope:
+		return nil, refuse(r.at, r.text, "folder names can't use "+r.text+", because it changes with each upgrade", "Remove it from the folder template.")
 	case !slices.Contains(fieldScopes[f], e.Scope):
 		return nil, refuse(r.at, r.text, r.text+" can't go in "+fieldNames[f]+" because "+fieldReasons[f], "Use it in the file template.")
 	case r.tag != noTag && e.tag != noTag:

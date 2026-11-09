@@ -15,7 +15,8 @@ func TestBindRefuses(t *testing.T) {
 		want  string
 	}{
 		{"{Movie Title} {Nope}", fileField, 14, "{Nope}", "{Nope} isn't a token. Use a token from the token list, such as {Target}."},
-		{"{Movie Title} {Target}", folderField, 14, "{Target}", "{Target} can't go in a Work folder name because it can differ between the Work's files. Use it in the file template."},
+		{"{Movie Title} {Target}", folderField, 14, "{Target}", "Folder names can't use {Target}, because it changes with each upgrade. Remove it from the folder template."},
+		{"{Movie Title} {Quality Full}", folderField, 14, "{Quality Full}", "Folder names can't use {Quality Full}, because it changes with each upgrade. Remove it from the folder template."},
 		{"Season {season:00}", folderField, 7, "{season:00}", "{season:00} can't go in a Work folder name because it can differ between the Work's files. Use it in the file template."},
 		{"Season {season:00} {Episode Title}", levelField, 19, "{Episode Title}", "{Episode Title} can't go in a level folder name because it can differ between the files in one level folder. Use it in the file template."},
 		{"{Movie Title:00}", fileField, 0, "{Movie Title:00}", `{Movie Title:00} pads a value that isn't a number. Remove the ":00". Only a number can be padded.`},
@@ -28,7 +29,8 @@ func TestBindRefuses(t *testing.T) {
 		{"{Custom Format:-A}", fileField, 0, "{Custom Format:-A}", "{Custom Format:-A} doesn't name exactly one format. Name one format, as in {Custom Format:IMAX}."},
 		{"{Custom Formats:A,,B}", fileField, 0, "{Custom Formats:A,,B}", "{Custom Formats:A,,B} has an empty format name. Name a format between each pair of commas."},
 		{"{edition-{Edition Tag}}", fileField, 0, "{edition-{Edition Tag}}", "{edition-{Edition Tag}} puts a tag inside a tag. Remove the outer tag."},
-		{"Heat: {Target}", fileField, 4, "", `A template can't contain ":" outside a token because a name on Windows can't hold it. Remove the ":". The colon setting decides how a colon inside a title prints.`},
+		{"Heat: {Target}", fileField, 4, "", "The file name can't hold ':'. Remove it or use a token."},
+		{"Heat: {Movie Title}", folderField, 4, "", "The folder name can't hold ':'. Remove it or use a token."},
 		{"{Movie Title} Why? {Target}", fileField, 17, "", `A template can't contain "?" because a name on Windows can't hold it. Remove the "?".`},
 		{"{Movie Title} <{Target}>", fileField, 14, "", `A template can't contain "<" because a name on Windows can't hold it. Remove the "<".`},
 		{"{Movie Title} *", fileField, 14, "", `A template can't contain "*" because a name on Windows can't hold it. Remove the "*".`},

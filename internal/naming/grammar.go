@@ -75,11 +75,11 @@ func KeyOf(name string) Key {
 	}, name))
 }
 
-// refuse makes a *ParseError. cause is the Go error's words, and with its
-// first letter raised it opens the sentence that fix ends.
+// refuse makes a *ParseError whose sentence is cause with its first
+// letter raised, then fix.
 func refuse(pos int, token, cause, fix string) *ParseError {
 	r, n := utf8.DecodeRuneInString(cause)
-	return &ParseError{Pos: pos, Token: token, Sentence: string(unicode.ToUpper(r)) + cause[n:] + ". " + fix, cause: cause}
+	return &ParseError{Pos: pos, Token: token, Sentence: string(unicode.ToUpper(r)) + cause[n:] + ". " + fix}
 }
 
 type parser struct {

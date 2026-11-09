@@ -401,12 +401,11 @@ type ParseError struct {
 	Pos      int
 	Token    string
 	Sentence string
-	cause    string
 }
 
-func (e *ParseError) Error() string {
-	return fmt.Sprintf("template at byte %d: %s", e.Pos, e.cause)
-}
+// Error is the Sentence, because the template setting shows it to the
+// Admin as it is.
+func (e *ParseError) Error() string { return e.Sentence }
 
 // field is which template of a type a template fills, which decides the
 // scopes its tokens may have.
@@ -657,6 +656,10 @@ type Problem struct {
 	// Sentence says what is wrong and then what passes, to WRITING.md.
 	Sentence string
 }
+
+// Error is the Sentence, because the template setting shows it to the
+// Admin as it is.
+func (p Problem) Error() string { return p.Sentence }
 
 // RefusedError is naming settings the check refuses.
 type RefusedError struct{ Problems []Problem }
