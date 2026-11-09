@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/netip"
 	"path"
+	"strconv"
 	"strings"
 
 	"go.yaml.in/yaml/v3"
@@ -57,6 +58,9 @@ func Config(s scenario.Scenario, i int, listen []string, link netip.AddrPort, en
 	set(root, "torrent.loopback_peers", &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "true"})
 	if link.IsValid() {
 		set(root, "link.advertise", &yaml.Node{Kind: yaml.SequenceNode, Content: []*yaml.Node{scalar(link.String())}})
+	}
+	if limit := s.Nodes[i].PathLimit; limit > 0 {
+		set(root, "storage.path_limit", &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!int", Value: strconv.FormatInt(limit, 10)})
 	}
 	if t := scenario.SetTimings(s.Timings); t != nil {
 		root.Content = append(root.Content, scalar("timings"), t)
