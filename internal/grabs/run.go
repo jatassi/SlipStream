@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
@@ -243,7 +244,7 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 	if err != nil {
 		return classify(ctx, err, ProbeFailed)
 	}
-	ext := path.Ext(video.Path)
+	holding := files.HoldingOf(g.ID.UUID, path.Ext(video.Path))
 	var p Plan
 	var placeErr error
 	err = gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
@@ -265,9 +266,9 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 		}
 		quality, _ := facts.Quality.Get()
 		placement, err := gr.cfg.Files.Place(ctx, r, files.Incoming{
-			WorkID: g.WorkID, ItemID: g.ItemID, Cut: facts.Cut, RootID: root.ID, Holding: files.HoldingOf(g.ID.UUID, ext),
-			Size: video.Size, Media: record, Quality: quality, ReleaseName: g.Release.Title, Title: read, GrabID: g.ID.UUID,
-			Meant: g.Targets, Unwanted: unwanted,
+			WorkID: g.WorkID, ItemID: g.ItemID, Cut: facts.Cut, RootID: root.ID, Holding: holding,
+			Size: video.Size, Media: record, Quality: quality, ReleaseName: g.Release.Title, Title: read, SourceName: path.Base(video.Path),
+			GrabID: g.ID.UUID, Meant: g.Targets, Unwanted: unwanted,
 		})
 		p, placeErr = Plan{Root: root, Path: placement.Path, Fills: placement.Fills}, err
 		return nil
@@ -275,17 +276,41 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 	if err != nil {
 		return local(ctx, err)
 	}
-	if _, nothing := errors.AsType[*files.FillsNothingError](placeErr); nothing {
-		return fail{FillsNothing, placeErr.Error()}
+	if f, ok := refused(placeErr); ok {
+		return f
 	}
 	if placeErr != nil {
 		return fail{ImportFailed, placeErr.Error()}
+	}
+	until := gr.cfg.Roots.Watch()
+	if err := gr.cfg.Files.Vacant(ctx, p.Root.ID, holding, p.Path); err != nil {
+		if f, ok := refused(err); ok {
+			return f
+		}
+		return storageOutcome(ctx, err, until)
 	}
 	p.FileIndex, p.Media = video.Index, record
 	if p.Root.Node == g.Node {
 		return advance{to: Importing, plan: &p}
 	}
 	return advance{to: Transferring, plan: &p}
+}
+
+// refused is the failure of a Grab whose file the library refuses: it
+// fills nothing, its name is taken, or its name doesn't fit on its root.
+func refused(err error) (fail, bool) {
+	var nothing *files.FillsNothingError
+	var taken *files.NameTakenError
+	var long *naming.TooLongError
+	switch {
+	case errors.As(err, &nothing):
+		return fail{FillsNothing, nothing.Error()}, true
+	case errors.As(err, &taken):
+		return fail{NameTaken, taken.Error()}, true
+	case errors.As(err, &long):
+		return fail{NameTooLong, long.Error()}, true
+	}
+	return fail{}, false
 }
 
 // largestVideo is the largest file that counts as a video, so a sample
@@ -316,9 +341,10 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 		return fail{ImportFailed, err.Error()}
 	}
 	until := gr.cfg.Roots.Watch()
+	i := slices.IndexFunc(g.Torrent.Files, func(f engine.File) bool { return f.Index == g.Plan.FileIndex })
 	imported := advance{to: Imported, file: &files.Incoming{
 		WorkID: g.WorkID, ItemID: g.ItemID, RootID: root.ID, Holding: holding.String(),
-		Media: g.Plan.Media, GrabID: g.ID.UUID, Meant: g.Targets,
+		Media: g.Plan.Media, SourceName: path.Base(g.Torrent.Files[i].Path), GrabID: g.ID.UUID, Meant: g.Targets,
 	}}
 	if root.Node == g.Node {
 		placed, err := gr.cfg.Roots.Place(ctx, root.ID, holding, storing.Payload{InfoHash: g.Torrent.InfoHash, FileIndex: g.Plan.FileIndex})
@@ -430,9 +456,12 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 		taken, reran, err = gr.left(ctx, tx, g, o, re)
 		return err
 	})
+	f, isRefused := refused(err)
 	switch {
 	case errors.Is(err, files.ErrRootChanged):
 		return gr.commit(ctx, g, fail{RootChanged, err.Error()})
+	case isRefused:
+		return gr.commit(ctx, g, f)
 	case errors.Is(err, errLeft), errors.Is(err, works.ErrNoWork):
 		return nil
 	case err != nil:
