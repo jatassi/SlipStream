@@ -188,8 +188,8 @@ func TestLanesCoverEveryTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	everywhere := []string{"build", "lint", "go", "e2e", "browser"}
-	for _, l := range lanes {
+	everywhere := []string{"build", "go", "e2e", "browser"}
+	for _, l := range slices.DeleteFunc(slices.Clone(lanes), func(l lane) bool { return l.kind == "lint" }) {
 		for name, n := range l.shards {
 			if _, err := in.Target(name); err != nil || n < 1 {
 				t.Errorf("lane %s runs %d shards on %s: %v", l.kind, n, name, err)
@@ -205,6 +205,27 @@ func TestLanesCoverEveryTarget(t *testing.T) {
 			if l.shards[target.Name] == 0 {
 				t.Errorf("lane %s does not run on %s", l.kind, target.Name)
 			}
+		}
+	}
+}
+
+func TestLintRunsOncePerOS(t *testing.T) {
+	root, err := repoRoot(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	in, err := native.LoadInputs(filepath.Join(root, native.InputsPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	i := slices.IndexFunc(lanes, func(l lane) bool { return l.kind == "lint" })
+	jobs := map[string]int{}
+	for _, target := range in.Targets {
+		jobs[target.GOOS] += lanes[i].shards[target.Name]
+	}
+	for goos, n := range jobs {
+		if n != 1 {
+			t.Errorf("lint runs %d jobs on %s, want one per OS", n, goos)
 		}
 	}
 }
