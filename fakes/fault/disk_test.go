@@ -314,11 +314,11 @@ func playsFoldCase(t *testing.T) {
 	c := newCued(t)
 	upper := filepath.Join(c.folder, ".SLIPSTREAM-ROOT")
 	// A host that folds case itself, as macOS and Windows do by default,
-	// finds the marker before the fault too.
-	if _, err := os.Stat(upper); errors.Is(err, fs.ErrNotExist) {
-		if _, err := c.d.Stat(c.ctx, upper); !errors.Is(err, fs.ErrNotExist) {
-			t.Fatalf("Stat of the marker in upper case before the fault = %v, want not exist", err)
-		}
+	// finds names in any case with or without the fault.
+	_, err := os.Stat(upper)
+	sensitive := errors.Is(err, fs.ErrNotExist)
+	if _, err := c.d.Stat(c.ctx, upper); sensitive && !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("Stat of the marker in upper case before the fault = %v, want not exist", err)
 	}
 	c.cue(fault.FoldCase{})
 	marker, err := c.d.Stat(c.ctx, c.marker)
@@ -331,7 +331,7 @@ func playsFoldCase(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(c.sibling, "x"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.d.Stat(c.ctx, filepath.Join(c.sibling, "X")); !errors.Is(err, fs.ErrNotExist) {
+	if _, err := c.d.Stat(c.ctx, filepath.Join(c.sibling, "X")); sensitive && !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("Stat in upper case in a sibling = %v, want not exist", err)
 	}
 }
