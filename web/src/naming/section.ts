@@ -1,3 +1,4 @@
+import { getCountUnmatchedSuspenseQueryOptions } from "../api/gen/query/files/files";
 import {
   getListNamingSuspenseQueryOptions,
   getListNamingTokensSuspenseQueryOptions,
@@ -14,6 +15,7 @@ export const namingSection: SettingsSection = {
     const [{ contentTypes }, naming] = await Promise.all([
       ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
       freshQuery(queryClient, getListNamingSuspenseQueryOptions()),
+      freshQuery(queryClient, getCountUnmatchedSuspenseQueryOptions()),
     ]);
     await Promise.all(
       namedTypes(contentTypes, naming).map(({ type }) =>

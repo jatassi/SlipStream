@@ -7,7 +7,7 @@ import { Details } from "../ui/details";
 import { Refusal } from "../ui/setting-parts";
 import { cardOf } from "./card";
 import { CardFields } from "./card-fields";
-import { type Lead, recommend } from "./recommendation";
+import type { Lead } from "./recommendation";
 import { type Refusal as Refused, useNamingCard } from "./use-naming-card";
 
 /** The lead's button, then a refused save or what the save check refuses in the stored settings. */
@@ -17,12 +17,14 @@ function LeadAction({
   refusal,
   busy,
   onSave,
+  onReview,
 }: {
   lead: Lead;
   naming: NamingTypeNaming;
   refusal: Refused;
   busy: boolean;
   onSave: (values: Readonly<Record<string, unknown>>) => void;
+  onReview: () => void;
 }) {
   const labels = new Map(naming.settings.map((setting) => [setting.key, setting.label]));
   const shown = refusal.length > 0 ? refusal : naming.problems;
@@ -34,7 +36,11 @@ function LeadAction({
           size="small"
           busy={busy}
           onClick={() => {
-            onSave(action.values);
+            if (action.kind === "save") {
+              onSave(action.values);
+            } else {
+              onReview();
+            }
           }}
         >
           {action.label}
@@ -62,9 +68,9 @@ function LeadAction({
  */
 export function TypeCard({ type, naming }: { type: WorksContentType; naming: NamingTypeNaming }) {
   const titleId = useId();
-  const lead = recommend(type, naming);
   const { fields } = useListNamingTokensSuspense(type.id).data;
-  const { draft, preview, refusal, busy, change, save, saveDraft, discard } = useNamingCard(naming);
+  const { draft, preview, refusal, busy, lead, review, sheet, change, save, saveDraft, discard } =
+    useNamingCard(type, naming);
   return (
     <article
       id={type.id}
@@ -84,6 +90,7 @@ export function TypeCard({ type, naming }: { type: WorksContentType; naming: Nam
             refusal={refusal}
             busy={busy}
             onSave={(values) => void save(values)}
+            onReview={review}
           />
         }
       >
@@ -99,6 +106,7 @@ export function TypeCard({ type, naming }: { type: WorksContentType; naming: Nam
           onDiscard={discard}
         />
       </Details>
+      {sheet}
     </article>
   );
 }

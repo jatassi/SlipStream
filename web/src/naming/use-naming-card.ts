@@ -3,9 +3,12 @@ import { useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { isProblem, sentenceOf } from "../api/errors";
-import type { NamingPreview, NamingTypeNaming } from "../api/gen/model";
+import type { NamingPreview, NamingTypeNaming, WorksContentType } from "../api/gen/model";
+import { useCountUnmatchedSuspense } from "../api/gen/query/files/files";
 import { getPreviewNamingUrl, previewNaming, setNaming } from "../api/gen/query/naming/naming";
 import type { Draft } from "./card";
+import { recommend } from "./recommendation";
+import { useRenamePlan } from "./save-flow";
 
 const pause = 300;
 
@@ -34,28 +37,38 @@ export type Refusal = readonly { readonly key?: string; readonly sentence: strin
 function refusalOf(error: unknown): Refusal {
   if (isProblem(error, "naming_template_refused")) {
     return error.errors.map(({ location, message }) => ({
-      key: location.replace(/^body\.values\./u, ""),
+      key: location.replace(/^body\.(draft\.)?values\./u, ""),
       sentence: message,
     }));
   }
   return [{ sentence: sentenceOf(error) }];
 }
 
-/** A card's unsaved values, their preview, and the one save every action on the card goes through. */
-export function useNamingCard(naming: NamingTypeNaming) {
+/**
+ * A card's unsaved values, their preview, what it leads with, and the one
+ * save every action on the card goes through. A save that renames files
+ * first shows the rename plan for the draft.
+ */
+export function useNamingCard(type: WorksContentType, naming: NamingTypeNaming) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft>(new Map());
   const [refusal, setRefusal] = useState<Refusal>([]);
   const [busy, setBusy] = useState(false);
   const preview = usePreview(naming.contentType, draft);
+  const unmatched = useCountUnmatchedSuspense().data.contentTypes.find(
+    ({ contentType }) => contentType === type.id,
+  );
+  const plan = useRenamePlan(type, async (values) => {
+    await setNaming(naming.contentType, { values });
+    await router.invalidate();
+    setDraft((current) => new Map([...current].filter(([key]) => !(key in values))));
+  });
 
   const save = async (values: Readonly<Record<string, unknown>>) => {
     setBusy(true);
     setRefusal([]);
     try {
-      await setNaming(naming.contentType, { values });
-      await router.invalidate();
-      setDraft((current) => new Map([...current].filter(([key]) => !(key in values))));
+      await plan.save(values);
     } catch (error: unknown) {
       setRefusal(refusalOf(error));
     } finally {
@@ -68,6 +81,9 @@ export function useNamingCard(naming: NamingTypeNaming) {
     preview,
     refusal,
     busy,
+    lead: recommend(type, naming, unmatched?.files ?? 0),
+    review: plan.review,
+    sheet: plan.sheet,
     change: (next: Draft) => {
       setDraft(next);
       setRefusal([]);

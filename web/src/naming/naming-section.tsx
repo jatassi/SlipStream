@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import type { NamingNamingList, NamingTypeNaming, WorksContentType } from "../api/gen/model";
 import { useListNamingSuspense } from "../api/gen/query/naming/naming";
 import { useListContentTypesSuspense } from "../api/gen/query/works/works";
+import { ReviewAllRenames } from "../renames/review-all";
 import { TypeCard } from "./type-card";
 
 /** The enabled Content Types SlipStream names files for, each with its naming. */
@@ -33,6 +34,7 @@ export function NamingSection() {
     </p>
   ) : (
     <div className="flex flex-col gap-3">
+      <ReviewAllRenames />
       {cards.map(({ type, naming }) => (
         <TypeCard key={type.id} type={type} naming={naming} />
       ))}
