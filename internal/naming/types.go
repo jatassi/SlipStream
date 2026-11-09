@@ -475,8 +475,6 @@ type bound struct {
 }
 
 // span is a half-open range of part indexes.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type span struct{ from, to int }
 
 // piece is one rendered part. Only literal pieces take part in the
