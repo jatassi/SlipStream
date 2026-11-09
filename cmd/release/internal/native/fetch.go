@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Fetch makes the layer present in the cache and returns its directory. It
@@ -102,6 +103,10 @@ func Published(ctx context.Context, base string, id LayerID) (bool, error) {
 	}
 	return false, fmt.Errorf("HEAD %s: %s", req.URL, resp.Status)
 }
+
+// retryWaits are the pauses between attempts at a GET that failed in
+// transport or with a server error.
+var retryWaits = []time.Duration{2 * time.Second, 4 * time.Second, 8 * time.Second}
 
 func download(ctx context.Context, url string, w io.Writer) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
