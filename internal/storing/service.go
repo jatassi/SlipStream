@@ -636,7 +636,7 @@ func (s *Store) place(ctx context.Context, root storage.UUID, p Payload, to Rel)
 	if err != nil {
 		return nil, false, rpc.Errorf(rpc.CodeUnavailable, "%v", err)
 	}
-	placed, linked, err = placer{s.cfg.Disk, s.host.Style, dir}.place(ctx, from, to)
+	placed, linked, err = placer{s.cfg.Disk, s.host.Style, dir, s.walksOf(root)}.place(ctx, from, to)
 	if err != nil {
 		return nil, false, s.refused(ctx, dir, err)
 	}
@@ -649,7 +649,7 @@ func (s *Store) move(ctx context.Context, root storage.UUID, from, to Rel) (Info
 	if err != nil {
 		return nil, err
 	}
-	moved, err := placer{s.cfg.Disk, s.host.Style, dir}.move(ctx, from, to)
+	moved, err := placer{s.cfg.Disk, s.host.Style, dir, s.walksOf(root)}.move(ctx, from, to)
 	if err != nil {
 		return nil, s.refused(ctx, dir, err)
 	}
