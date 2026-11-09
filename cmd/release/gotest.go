@@ -209,7 +209,8 @@ type weighed struct {
 // once, so it can finish no sooner than its longest package: with
 // splitTests, a package longer than a shard's share spread over the
 // timed runner's CPUs splits by its top-level tests, into a part per
-// such span, on as many shards.
+// such span, on as many shards. The timings may come from other targets,
+// as loadTimings says, which works because only their ratios matter.
 func partition(pkgs []goPackage, past timings, shards int, splitTests bool) [][]goRun {
 	seconds, total := weigh(pkgs, past)
 	span := total / float64(shards*max(past.CPUs, 1))
@@ -368,11 +369,15 @@ type packageTimings struct {
 }
 
 // loadTimings merges the target's timings files in dir; a missing dir
-// holds none. A package split across shards sums its parts.
+// holds none. A package split across shards sums its parts. A package
+// the target has no timings for takes them from the first other target,
+// in name order, that has it, and a target that recorded no CPUs takes
+// the CPUs of the first target that filled a package. Partition uses only
+// how the seconds compare, so another runner's need no scaling.
 func loadTimings(dir, target string) (timings, error) {
-	merged := timings{Target: target, Packages: map[string]packageTimings{}}
+	byTarget := map[string]*timings{target: {Target: target, Packages: map[string]packageTimings{}}}
 	if dir == "" {
-		return merged, nil
+		return *byTarget[target], nil
 	}
 	files, err := filepath.Glob(filepath.Join(dir, "*.json"))
 	if err != nil {
@@ -387,11 +392,26 @@ func loadTimings(dir, target string) (timings, error) {
 		if err := json.Unmarshal(b, &t); err != nil {
 			return timings{}, fmt.Errorf("%s: %w", f, err)
 		}
-		if t.Target == target {
-			merged.add(t)
+		if byTarget[t.Target] == nil {
+			byTarget[t.Target] = &timings{Target: t.Target, Packages: map[string]packageTimings{}}
+		}
+		byTarget[t.Target].add(t)
+	}
+	merged := byTarget[target]
+	for _, name := range slices.Sorted(maps.Keys(byTarget)) {
+		other := byTarget[name]
+		supplied := false
+		for pkg, pt := range other.Packages {
+			if _, ok := merged.Packages[pkg]; !ok {
+				merged.Packages[pkg] = pt
+				supplied = true
+			}
+		}
+		if supplied && merged.CPUs == 0 {
+			merged.CPUs = other.CPUs
 		}
 	}
-	return merged, nil
+	return *merged, nil
 }
 
 func (t *timings) add(o timings) {
