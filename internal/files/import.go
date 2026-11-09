@@ -96,9 +96,9 @@ type rule struct {
 	// doom says whether a file that lost its last fill, or the fresh file
 	// filling none, is deleted; false keeps it as a Kept file.
 	doom func(File) bool
-	// keepPaths records each file's label and N without moving it: a
-	// library scan never renames.
-	keepPaths bool
+	// mode is which files take a path from the templates: a library scan
+	// never renames.
+	mode renaming
 	// forgetGone forgets each gone file that would win back no cell if it
 	// returned.
 	forgetGone bool
@@ -117,7 +117,7 @@ func changing(m Mode) rule { return rule{doom: func(File) bool { return m.Unwant
 
 // scanned is a library scan's rule: it never dooms a file and never
 // renames one.
-var scanned = rule{doom: func(File) bool { return false }, keepPaths: true}
+var scanned = rule{doom: func(File) bool { return false }, mode: keepEvery}
 
 // place converges in's Work with in added, in r.
 func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) (placed, error) {
@@ -154,7 +154,7 @@ func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) 
 func (f *Files) converge(ctx context.Context, r storage.Reader[file], before, after world, fills map[CellKey]Fill, how rule) (placed, error) {
 	p := placed{before: before, after: after, fills: fills}
 	p.after.retagged = retagged(before.cuts, after.cuts)
-	p.after.keepPaths = how.keepPaths
+	p.after.mode = how.mode
 	was, is := filling(before.fills), filling(fills)
 	p.after.files = slices.DeleteFunc(slices.Clone(after.files), func(g File) bool {
 		lost := g.ID == after.fresh || was[g.ID]
@@ -171,7 +171,7 @@ func (f *Files) converge(ctx context.Context, r storage.Reader[file], before, af
 		return placed{}, err
 	}
 	var err error
-	if p.names, err = names(p.after, p.fills); err != nil {
+	if p.names, _, err = names(p.after, p.fills); err != nil {
 		return placed{}, err
 	}
 	taken := map[place]bool{}

@@ -73,6 +73,9 @@ type File struct {
 	// no Grab brought it, and Title is that name's reading.
 	ReleaseName string
 	Title       release.Read
+	// SourceName is its name, extension included, in its download or
+	// where a scan found it, "" when unknown. It never changes.
+	SourceName string
 }
 
 // Gone reports whether a scan found f's bytes absent from its root.
@@ -99,6 +102,9 @@ func fileOf(row db.FilesFile) File {
 	}
 	if row.ProbeError != nil {
 		f.ProbeError = *row.ProbeError
+	}
+	if row.SourceName != nil {
+		f.SourceName = *row.SourceName
 	}
 	return f
 }
