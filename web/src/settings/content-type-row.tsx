@@ -1,4 +1,4 @@
-import { useRouter } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { Suspense } from "react";
 
 import type { SettingField as Field, WorksContentType } from "../api/gen/model";
@@ -57,6 +57,18 @@ export function ContentTypeRow({ type }: { type: WorksContentType }) {
             <TypeSettings type={type} />
           </SettingGroup>
           <RefreshAll type={type} />
+          <p className="text-ink-2">
+            The names of {type.work.one.toLowerCase()} files and folders are set in{" "}
+            <Link
+              to="/settings/$section"
+              params={{ section: "naming" }}
+              hash={type.id}
+              className="rounded-item font-medium text-ink-1 underline-offset-4 hover:underline"
+            >
+              Naming
+            </Link>
+            .
+          </p>
         </Suspense>
       )}
     </article>
