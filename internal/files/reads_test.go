@@ -80,6 +80,8 @@ func TestFilesFromBeforeReleaseNamesReadTheirGrabsTitleOrTheirOwnNameAtStart(t *
 			t.Fatalf("files read after %s = %v\nwant the Grab's title and the file's own name, each read: %v", start, got, want)
 		}
 	}
+	distinct(t, lib, `SELECT coalesce(source_name, 'none') FROM files_file WHERE grab_id IS NOT NULL`, "none")
+	distinct(t, lib, `SELECT source_name FROM files_file WHERE grab_id IS NULL`, "Orchard.2021.2160p.BluRay.x265-GRP.mkv")
 }
 
 // readsOf is each file of work by path: its release name, and the group

@@ -12,6 +12,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// PathLimit is the longest absolute path macOS opens, in bytes: PATH_MAX.
+func PathLimit() int64 { return 1024 }
+
 func readOnly(st *unix.Statfs_t) bool { return st.Flags&unix.MNT_RDONLY != 0 }
 
 // Volume reads statfs on path itself, which names its mount point.

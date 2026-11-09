@@ -1,5 +1,6 @@
 import type { LiveEventDownloadClientsChanged } from "./liveEventDownloadClientsChanged.ts";
 import type { LiveEventFilesChanged } from "./liveEventFilesChanged.ts";
+import type { LiveEventFilesMoved } from "./liveEventFilesMoved.ts";
 import type { LiveEventFirstrunChanged } from "./liveEventFirstrunChanged.ts";
 import type { LiveEventGrabsChanged } from "./liveEventGrabsChanged.ts";
 import type { LiveEventGrabsSearchChanged } from "./liveEventGrabsSearchChanged.ts";
@@ -39,6 +40,7 @@ import type { LiveEventWorksTypeChanged } from "./liveEventWorksTypeChanged.ts";
 export type LiveEvent =
   | LiveEventDownloadClientsChanged
   | LiveEventFilesChanged
+  | LiveEventFilesMoved
   | LiveEventFirstrunChanged
   | LiveEventGrabsChanged
   | LiveEventGrabsSearchChanged

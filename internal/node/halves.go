@@ -359,6 +359,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Today:   n.today,
 		Disk:    homes,
 		Changed: files.ChangedEvent.Bind(n.hub),
+		Moved:   files.MovedEvent.Bind(n.hub),
 		Timings: n.cfg.Timings.Files,
 		Rand:    n.filesRand,
 		Log:     n.rootLog.With("subsystem", "files"),

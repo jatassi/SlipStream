@@ -113,6 +113,19 @@ test("files.changed invalidates only that Work's cells", async () => {
   await expect.poll(invalidated).toEqual({ orchard: true, harvest: false });
 });
 
+test("files.moved invalidates the cells of each Work it names", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/nodes", handlers: server.handlers });
+  await synced(app);
+  const invalidated = seeded(app, {
+    orchard: getGetWorkCellsQueryKey(orchard),
+    harvest: getGetWorkCellsQueryKey(harvest),
+  });
+
+  server.clients[0]?.send({ event: "files.moved", data: { workIds: [harvest] } });
+  await expect.poll(invalidated).toEqual({ orchard: false, harvest: true });
+});
+
 test("live.resync refetches every active query once", async () => {
   const server = liveServer();
   const requests = countRequests();

@@ -2028,6 +2028,13 @@ export const FilesFileList = zod.object({
 export type FilesFileList = zod.input<typeof FilesFileList>;
 export type FilesFileListOutput = zod.output<typeof FilesFileList>;
 
+export const FilesMoved = zod.object({
+  workIds: zod.array(zod.string()),
+});
+
+export type FilesMoved = zod.input<typeof FilesMoved>;
+export type FilesMovedOutput = zod.output<typeof FilesMoved>;
+
 export const FirstRunStepInputBody = zod.object({
   outcome: zod.enum(["done", "skipped"]).describe("done for Continue, skipped for Skip"),
 });
@@ -9350,6 +9357,14 @@ export const LiveEventFilesChanged = zod.object({
 export type LiveEventFilesChanged = zod.input<typeof LiveEventFilesChanged>;
 export type LiveEventFilesChangedOutput = zod.output<typeof LiveEventFilesChanged>;
 
+export const LiveEventFilesMoved = zod.object({
+  event: zod.enum(["files.moved"]),
+  data: FilesMoved,
+});
+
+export type LiveEventFilesMoved = zod.input<typeof LiveEventFilesMoved>;
+export type LiveEventFilesMovedOutput = zod.output<typeof LiveEventFilesMoved>;
+
 export const LiveEventFirstrunChanged = zod.object({
   event: zod.enum(["firstrun.changed"]),
   data: FirstrunChanged,
@@ -9651,6 +9666,7 @@ export type LiveEventWorksTypeChangedOutput = zod.output<typeof LiveEventWorksTy
 export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventDownloadClientsChanged,
   LiveEventFilesChanged,
+  LiveEventFilesMoved,
   LiveEventFirstrunChanged,
   LiveEventGrabsChanged,
   LiveEventGrabsSearchChanged,

@@ -3367,6 +3367,21 @@
         ],
         "type": "object"
       },
+      "FilesMoved": {
+        "additionalProperties": false,
+        "properties": {
+          "workIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "workIds"
+        ],
+        "type": "object"
+      },
       "FilesNeed": {
         "discriminator": {
           "mapping": {
@@ -27302,6 +27317,32 @@
                           "event"
                         ],
                         "title": "Event files.changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/FilesMoved"
+                          },
+                          "event": {
+                            "const": "files.moved",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event files.moved",
                         "type": "object"
                       },
                       {

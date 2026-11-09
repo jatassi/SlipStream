@@ -36,6 +36,10 @@ message Facts {
   // passed_at_unix_ms is when the pass that judged these began, on the
   // Node's clock. It rises with every pass, and Sample's answer names it.
   int64 passed_at_unix_ms = 3;
+  // path_limit is the longest absolute path, in bytes, the Node writes: 259
+  // on Windows unless long paths are enabled, then 32767; 1024 on macOS;
+  // 4096 on Linux; or the Node's storage.path_limit setting.
+  int64 path_limit = 4;
 }
 
 message RootFacts {
@@ -90,8 +94,17 @@ service StorageService {
   rpc Verify(VerifyRequest) returns (VerifyResponse);
   // Place puts a finished download's file at a root-relative holding path.
   rpc Place(PlaceRequest) returns (PlaceResponse);
-  // Move renames within a root and converges on a repeat.
+  // Move renames within a root and converges on a repeat. With carry it
+  // moves the file's companions after it, every call, so a retry finishes
+  // what a crash left.
   rpc Move(MoveRequest) returns (MoveResponse);
+  // Survey answers, for each planned rename under a root, the files at its
+  // target and, when asked, its source's companions, listing each folder
+  // once.
+  rpc Survey(SurveyRequest) returns (SurveyResponse);
+  // Prune removes a folder and each parent below the root while it is
+  // empty, never a held folder, a kept folder or a parent of one.
+  rpc Prune(PruneRequest) returns (PruneResponse);
   // Remove removes a root-relative file; a missing one is
   // FOLDER_ERROR_KIND_NOT_FOUND. A recursive Remove removes a folder and
   // everything in it, and a missing one is already removed.
@@ -291,11 +304,61 @@ message MoveRequest {
   bytes root_id = 1;
   string from = 2;
   string to = 3;
+  // carry moves each companion of from, a file in its folder named from's
+  // stem, ".", and a tail, to to's stem, ".", and the same tail.
+  bool carry = 4;
 }
 
 message MoveResponse {
   int64 size = 1;
   Identity identity = 2;
+  // left are the companions that didn't take their new name because
+  // another file holds it, each where it now lies: still at its old name,
+  // or, moved out of the holding folder, at "<new stem>.<8 hex of the
+  // file id>.<tail>" beside the file.
+  repeated string left = 3;
+}
+
+message SurveyRequest {
+  bytes root_id = 1;
+  // planned is at most 2000 renames.
+  repeated Planned planned = 2;
+  bool companions = 3;
+}
+
+message Planned {
+  string from = 1;
+  string to = 2;
+}
+
+message SurveyResponse {
+  // surveyed is in request order.
+  repeated Surveyed surveyed = 1;
+}
+
+message Surveyed {
+  // occupants are the entries in to's folder whose names equal to's
+  // without case, as the Node spells them; a missing folder holds none.
+  repeated Occupant occupants = 1;
+  // companions are from's companions, when asked.
+  repeated string companions = 2;
+}
+
+message Occupant {
+  string path = 1;
+  Identity identity = 2;
+}
+
+message PruneRequest {
+  bytes root_id = 1;
+  string folder = 2;
+  // keep are folders Prune removes neither of nor any parent of.
+  repeated string keep = 3;
+}
+
+message PruneResponse {
+  // removed are the folders removed, innermost first.
+  repeated string removed = 1;
 }
 
 // Identity is what a walk reads of a file besides its size, so a placed

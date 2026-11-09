@@ -273,9 +273,9 @@ func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], in Incoming) (
 
 // apply writes p: its fills and their scores, its dooms, the gone files
 // it forgets, its found files, every name that changed, and a move for
-// each file whose bytes must reach a new path. A path changes in two
+// each file whose bytes must reach a new path. A row's path changes in two
 // steps, through the file's holding path, so files may trade names in one
-// Write.
+// Write; the disk queue moves the bytes straight unless they trade paths.
 func apply(ctx context.Context, q *db.Queries, p placed) error {
 	if err := unfill(ctx, q, p); err != nil {
 		return err
@@ -340,8 +340,8 @@ func unfill(ctx context.Context, q *db.Queries, p placed) error {
 }
 
 // rename writes g's new label and N, and reports whether its path changes:
-// then g sits at its holding path until apply's last pass names it, and a
-// move takes its bytes there.
+// then g's row holds its holding path until apply's last pass names it,
+// and a move takes its bytes there.
 func rename(ctx context.Context, q *db.Queries, p placed, g File) (bool, error) {
 	nm := p.names[g.ID]
 	switch {
@@ -377,8 +377,8 @@ func queueMove(ctx context.Context, q *db.Queries, g File, to string) error {
 		return q.InsertMove(ctx, db.InsertMoveParams{FileID: g.ID, Sits: g.Path})
 	case err != nil:
 		return err
-	case at == to:
-		_, err := q.DeleteMove(ctx, db.DeleteMoveParams{FileID: g.ID, Sits: at})
+	case at.Sits == to:
+		_, err := q.DeleteMove(ctx, db.DeleteMoveParams{FileID: g.ID, Sits: at.Sits})
 		return err
 	}
 	return nil
@@ -391,7 +391,7 @@ func doom(ctx context.Context, q *db.Queries, d File) error {
 	at, err := q.GetMove(ctx, d.ID)
 	switch {
 	case err == nil:
-		moving = &at
+		moving = &at.Sits
 	case !errors.Is(err, storage.ErrNoRows):
 		return err
 	}

@@ -64,9 +64,23 @@ func (p placer) place(ctx context.Context, from string, rel Rel) (placed Info, l
 // once from is gone, so moving again converges; another file there is
 // ErrOccupied. A to that folds to from and holds the same bytes is from
 // spelled in another case, which a volume that ignores case finds at to:
-// it is renamed through recase, never removed as a copy of itself. It
-// answers the moved file.
-func (p placer) move(ctx context.Context, from, to Rel) (Info, error) {
+// it is renamed through recase, never removed as a copy of itself. With
+// carry, from's companions follow it, after it, so a failed move changes
+// nothing and a retry carries what a crash left. It answers the moved
+// file and the companions carry left.
+func (p placer) move(ctx context.Context, from, to Rel, carry bool) (Info, []Rel, error) {
+	info, err := p.moveFile(ctx, from, to)
+	if err != nil || !carry {
+		return info, nil, err
+	}
+	left, err := p.carry(ctx, from, to)
+	if err != nil {
+		return nil, nil, err
+	}
+	return info, left, nil
+}
+
+func (p placer) moveFile(ctx context.Context, from, to Rel) (Info, error) {
 	src, dst := p.style.Under(p.root, from), p.style.Under(p.root, to)
 	if err := p.folders(ctx, from, to); err != nil {
 		return nil, err

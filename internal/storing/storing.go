@@ -51,6 +51,15 @@ type Timings struct {
 
 func DefaultTimings() Timings { return Timings{Stat: 10 * time.Second} }
 
+type Settings struct {
+	// PathLimit is the longest absolute path, in bytes, the Node writes
+	// into a root. It defaults to this OS's, so a test world can give one
+	// Node Windows' 259.
+	PathLimit int64 `yaml:"path_limit"`
+}
+
+func DefaultSettings() Settings { return Settings{PathLimit: PathLimit()} }
+
 type At struct {
 	Node role.NodeID
 	Root storage.UUID
