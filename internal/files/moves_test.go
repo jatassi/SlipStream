@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -373,5 +374,29 @@ func (l *library) foundWhereRecorded(t *testing.T) {
 			continue
 		}
 		t.Fatalf("a scan reads %+v, whose bytes lie at neither; the root holds %v", r, disk)
+	}
+}
+
+func TestMovingCountsTheFilesTheQueueStillMovesByWorkAndByType(t *testing.T) {
+	l := open(t)
+	w1, w2 := l.work(t, "w1", true, nil), l.work(t, "w2", true, nil)
+	l.stock(t, w1, "w1/a.mkv", "w1/b.mkv")
+	l.stock(t, w2, "w2/c.mkv")
+	l.renames(t, map[string]string{"w1/a.mkv": "w1/x.mkv", "w1/b.mkv": "w1/y.mkv", "w2/c.mkv": "w2/z.mkv"})
+	svc := l.files(files.NoGrabs{})
+	count := func(s files.Scope) int {
+		t.Helper()
+		n, err := svc.Moving(t.Context(), s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	if w, typ, other := count(files.WorkScope(w1.ID)), count(files.TypeScope(contenttypetest.ID)), count(files.TypeScope("other")); w != 2 || typ != 3 || other != 0 {
+		t.Fatalf("Moving = %d of w1, %d of the type and %d of another, want 2, 3 and 0", w, typ, other)
+	}
+	l.settle(t, svc)
+	if n := count(files.TypeScope(contenttypetest.ID)); n != 0 {
+		t.Fatalf("Moving once the queue drained = %d, want 0", n)
 	}
 }
