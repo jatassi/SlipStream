@@ -9,9 +9,11 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 const fakeDigest = "d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1"
@@ -114,6 +116,59 @@ func TestFetchWithWrongSHALeavesNothing(t *testing.T) {
 	if err != nil || len(entries) != 0 {
 		t.Fatalf("cache holds %v (%v) after a bad fetch, want nothing", entries, err)
 	}
+}
+
+func TestFetchRetriesAServerErrorAndACutDownload(t *testing.T) {
+	noRetryWaits(t)
+	_, asset, _ := publish(t)
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		switch requests.Add(1) {
+		case 1:
+			w.WriteHeader(http.StatusGatewayTimeout)
+		case 2:
+			w.Header().Set("Content-Length", strconv.Itoa(len(asset)))
+			_, _ = w.Write(asset[:len(asset)/2])
+			panic(http.ErrAbortHandler)
+		default:
+			_, _ = w.Write(asset)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	id := LayerID{KindLibs, "linux-amd64", fakeDigest}
+	layer := Layer{id, id.AssetName(), srv.URL + "/" + id.AssetName(), sha(asset)}
+
+	dir, err := Fetch(context.Background(), t.TempDir(), layer)
+	if err != nil {
+		t.Fatalf("Fetch after a 504 and a cut download: %v", err)
+	}
+	if _, err := ReadMetadata(dir); err != nil {
+		t.Fatal(err)
+	}
+	if n := requests.Load(); n != 3 {
+		t.Errorf("server got %d requests, want 3", n)
+	}
+}
+
+func TestFetchDoesNotRetryAnUnpublishedLayer(t *testing.T) {
+	noRetryWaits(t)
+	base, _, requests := publish(t)
+	id := LayerID{KindLibs, "linux-arm64", fakeDigest}
+	layer := Layer{id, id.AssetName(), id.URL(base), fakeDigest}
+
+	_, err := Fetch(context.Background(), t.TempDir(), layer)
+	if want := layer.URL + " is not published; " + PublishHint; err == nil || err.Error() != want {
+		t.Fatalf("Fetch err = %v, want %s", err, want)
+	}
+	if n := requests.Load(); n != 1 {
+		t.Errorf("server got %d requests for an unpublished layer, want 1", n)
+	}
+}
+
+func noRetryWaits(t *testing.T) {
+	waits := retryWaits
+	retryWaits = []time.Duration{0, 0, 0}
+	t.Cleanup(func() { retryWaits = waits })
 }
 
 func TestPinHashesPublishedAssets(t *testing.T) {

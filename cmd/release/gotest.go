@@ -122,6 +122,8 @@ type goPackage struct {
 	path string
 	// tests says the package has test files.
 	tests bool
+	// testBytes is the size of the package's test files.
+	testBytes int64
 	// e2e says the package's tests depend on fakes/testbin.
 	e2e bool
 }
@@ -129,7 +131,7 @@ type goPackage struct {
 // listGoPackages lists every package of the module, with the test
 // packages go list -test adds folded into the package they test.
 func listGoPackages(ctx context.Context, root string, env []string) ([]goPackage, error) {
-	const format = "{{.ImportPath}}\t{{len .TestGoFiles}}\t{{len .XTestGoFiles}}\t" +
+	const format = "{{.ImportPath}}\t{{.Dir}}\t{{join .TestGoFiles \",\"}}\t{{join .XTestGoFiles \",\"}}\t" +
 		`{{range .Deps}}{{if eq . "` + testbinPath + `"}}testbin{{end}}{{end}}`
 	cmd := exec.CommandContext(ctx, "go", "list", "-test", "-f", format, "./...")
 	cmd.Dir = root
@@ -144,7 +146,7 @@ func listGoPackages(ctx context.Context, root string, env []string) ([]goPackage
 	testbin := map[string]bool{}
 	for line := range strings.Lines(string(out)) {
 		fields := strings.Split(strings.TrimSuffix(line, "\n"), "\t")
-		if len(fields) != 4 {
+		if len(fields) != 5 {
 			return nil, fmt.Errorf("go list: unexpected line %q", line)
 		}
 		path := fields[0]
@@ -152,9 +154,18 @@ func listGoPackages(ctx context.Context, root string, env []string) ([]goPackage
 		case strings.Contains(path, " "):
 			// A package recompiled for a test, such as "p [p.test]".
 		case strings.HasSuffix(path, ".test"):
-			testbin[strings.TrimSuffix(path, ".test")] = fields[3] != ""
+			testbin[strings.TrimSuffix(path, ".test")] = fields[4] != ""
 		default:
-			pkgs = append(pkgs, goPackage{path: path, tests: fields[1] != "0" || fields[2] != "0"})
+			names := strings.FieldsFunc(fields[2]+","+fields[3], func(r rune) bool { return r == ',' })
+			var size int64
+			for _, n := range names {
+				info, err := os.Stat(filepath.Join(fields[1], n))
+				if err != nil {
+					return nil, fmt.Errorf("go list: %w", err)
+				}
+				size += info.Size()
+			}
+			pkgs = append(pkgs, goPackage{path: path, tests: len(names) > 0, testBytes: size})
 		}
 	}
 	for i := range pkgs {
@@ -203,13 +214,14 @@ type weighed struct {
 
 // partition packs pkgs into shards, longest first by the seconds the past
 // timings give each, so the shards finish close together. A package the
-// timings have not seen weighs as the mean of those they have, or 1
-// without timings, which splits the packages evenly; a package with no
-// test files weighs nothing. A shard runs its packages on every CPU at
-// once, so it can finish no sooner than its longest package: with
-// splitTests, a package longer than a shard's share spread over the
-// timed runner's CPUs splits by its top-level tests, into a part per
-// such span, on as many shards.
+// timings have not seen weighs as the mean of those they have; when they
+// have seen none, every package weighs the bytes of its test files. A
+// package with no test files weighs nothing. A shard runs its packages on
+// every CPU at once, so it can finish no sooner than its longest
+// package: with splitTests, a package longer than a shard's share spread
+// over the timed runner's CPUs splits by its top-level tests, into a part
+// per such span, on as many shards. The timings may come from other targets,
+// as loadTimings says, which works because only their ratios matter.
 func partition(pkgs []goPackage, past timings, shards int, splitTests bool) [][]goRun {
 	seconds, total := weigh(pkgs, past)
 	span := total / float64(shards*max(past.CPUs, 1))
@@ -226,7 +238,8 @@ func partition(pkgs []goPackage, past timings, shards int, splitTests bool) [][]
 	return packShards(items, shards)
 }
 
-// weigh gives each package its seconds and sums them. Each shard
+// weigh gives each package its seconds, or its test-file bytes when the
+// timings have none of the packages, and sums them. Each shard
 // partitions on its own, so every sum runs in package order: float
 // addition in map order could tip a comparison one way in one shard and
 // the other way in the next.
@@ -240,7 +253,7 @@ func weigh(pkgs []goPackage, past timings) (seconds map[string]float64, total fl
 			seen++
 		}
 	}
-	mean := 1.0
+	var mean float64
 	if known > 0 {
 		mean = known / float64(seen)
 	}
@@ -249,6 +262,8 @@ func weigh(pkgs []goPackage, past timings) (seconds map[string]float64, total fl
 		switch {
 		case !p.tests:
 			seconds[p.path] = 0
+		case known == 0:
+			seconds[p.path] = float64(p.testBytes)
 		case ok:
 			seconds[p.path] = t.Seconds
 		default:
@@ -368,11 +383,15 @@ type packageTimings struct {
 }
 
 // loadTimings merges the target's timings files in dir; a missing dir
-// holds none. A package split across shards sums its parts.
+// holds none. A package split across shards sums its parts. A package
+// the target has no timings for takes them from the first other target,
+// in name order, that has it, and a target that recorded no CPUs takes
+// the CPUs of the first target that filled a package. Partition uses only
+// how the seconds compare, so another runner's need no scaling.
 func loadTimings(dir, target string) (timings, error) {
-	merged := timings{Target: target, Packages: map[string]packageTimings{}}
+	byTarget := map[string]*timings{target: {Target: target, Packages: map[string]packageTimings{}}}
 	if dir == "" {
-		return merged, nil
+		return *byTarget[target], nil
 	}
 	files, err := filepath.Glob(filepath.Join(dir, "*.json"))
 	if err != nil {
@@ -387,11 +406,26 @@ func loadTimings(dir, target string) (timings, error) {
 		if err := json.Unmarshal(b, &t); err != nil {
 			return timings{}, fmt.Errorf("%s: %w", f, err)
 		}
-		if t.Target == target {
-			merged.add(t)
+		if byTarget[t.Target] == nil {
+			byTarget[t.Target] = &timings{Target: t.Target, Packages: map[string]packageTimings{}}
+		}
+		byTarget[t.Target].add(t)
+	}
+	merged := byTarget[target]
+	for _, name := range slices.Sorted(maps.Keys(byTarget)) {
+		other := byTarget[name]
+		supplied := false
+		for pkg, pt := range other.Packages {
+			if _, ok := merged.Packages[pkg]; !ok {
+				merged.Packages[pkg] = pt
+				supplied = true
+			}
+		}
+		if supplied && merged.CPUs == 0 {
+			merged.CPUs = other.CPUs
 		}
 	}
-	return merged, nil
+	return *merged, nil
 }
 
 func (t *timings) add(o timings) {
