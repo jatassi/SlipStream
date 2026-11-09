@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/install"
@@ -32,7 +33,7 @@ type volumeList struct {
 
 func volumes(t *testing.T, a *worldtest.API) volumeList {
 	t.Helper()
-	return decode[volumeList](t, "listVolumes", a.Admin("home", http.MethodGet, "/api/v1/volumes", ""))
+	return simtest.Decode[volumeList](t, "listVolumes", a.Admin("home", http.MethodGet, "/api/v1/volumes", ""))
 }
 
 // TestAnOfflineNodesVolumesReadAsOf puts a Movies root on seedbox with
@@ -41,7 +42,7 @@ func volumes(t *testing.T, a *worldtest.API) volumeList {
 func TestAnOfflineNodesVolumesReadAsOf(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		s := home(t)
+		s := simtest.Home(t)
 		s.Nodes[1].Roles = append(s.Nodes[1].Roles, "storage")
 		s.Library.Roots = []scenario.LibraryRoot{{ContentType: "movie", Folder: "movies", Node: "seedbox", Volume: &scenario.LibraryVolume{TotalGiB: 10, FreeGiB: 2.5}}}
 		w := sim.Launch(t, s, sim.WithWalk())
@@ -52,7 +53,7 @@ func TestAnOfflineNodesVolumesReadAsOf(t *testing.T) {
 		if len(before.Nodes) != 1 || before.Nodes[0].NodeID != seedbox || !before.Nodes[0].Live || len(before.Nodes[0].Volumes) != 1 {
 			t.Fatalf("listVolumes with seedbox online = %+v, want its one volume, live", before)
 		}
-		flip(t, w.Path("home", "seedbox"), fault.Stall{})
+		simtest.Flip(t, w.Path("home", "seedbox"), fault.Stall{})
 		link := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link
 		time.Sleep(link.Keepalive + link.WriteTimeout)
 		synctest.Wait()
@@ -72,7 +73,7 @@ func TestAnOfflineNodesVolumesReadAsOf(t *testing.T) {
 func TestCheckStorageEveryReachesTheNode(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t), sim.WithWalk())
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk())
 		synctest.Wait()
 		a := w.API()
 		if r := a.Admin("home", http.MethodPatch, "/api/v1/roots/settings", `{"sampleEvery":60}`); r.Status != http.StatusOK {

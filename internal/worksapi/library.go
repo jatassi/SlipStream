@@ -27,6 +27,8 @@ type libraryRow struct {
 	Bytes       int64                                  `json:"bytes" minimum:"0" doc:"The size of its library files, Kept files included"`
 	Files       int                                    `json:"files" minimum:"0" doc:"Its library files, Kept files included"`
 	Kept        int                                    `json:"kept" minimum:"0" doc:"Its Kept files"`
+	GoneFiles   int                                    `json:"goneFiles" minimum:"0" doc:"Its files a library scan found missing from its root, which the other counts leave out"`
+	AddedBy     string                                 `json:"addedBy" enum:"admin,scan" doc:"Who added it: an Admin, or a library scan that matched a folder on disk"`
 	Status      api.Nullable[api.Enum[filesapi.State]] `json:"status" doc:"The first status its monitored Items hold, in the glossary's order; null while none holds a cell"`
 	Cells       api.Counts[filesapi.State]             `json:"cells" doc:"Its monitored Items' cells by state"`
 	Failed      int                                    `json:"failed" minimum:"0" doc:"Its wanted cells whose download failed"`
@@ -83,7 +85,7 @@ func rowOf(m artwork.Minter, row library.Row) libraryRow {
 	w, r := row.Work, row.Rollup
 	out := libraryRow{
 		Work: workOf(w.Summary), Monitored: w.Monitored.String(), ProfileID: r.Profile.String(), RootID: idOrNull(r.Root.UUID),
-		PosterURL: urlOrNull(m, w.Poster), Bytes: r.Bytes, Files: r.Files, Kept: r.Kept,
+		PosterURL: urlOrNull(m, w.Poster), Bytes: r.Bytes, Files: r.Files, Kept: r.Kept, GoneFiles: row.Gone, AddedBy: string(w.AddedBy),
 		Status: filesapi.StatusOf(r.Status), Cells: filesapi.CountsOf(r.Cells), Failed: r.Failed,
 		Items: r.Items, ItemStatus: filesapi.CountsOf(r.ByItem), NeedsYou: len(r.Needs), Values: valuesOf(w.Values),
 	}

@@ -47,7 +47,13 @@ export const getListTasksResponseTasksRunningStateMock = (
     runId: faker.number.int(),
     since: faker.date.past().toISOString().slice(0, 19) + "Z",
     total: faker.number.int({ min: 0 }),
-    trigger: faker.helpers.arrayElement(["schedule", "catch-up", "run-now", "returned"] as const),
+    trigger: faker.helpers.arrayElement([
+      "schedule",
+      "catch-up",
+      "run-now",
+      "returned",
+      "event",
+    ] as const),
   },
   ...overrideResponse,
 });
@@ -193,6 +199,7 @@ export const getListTasksResponseMock = (
                     "catch-up",
                     "run-now",
                     "returned",
+                    "event",
                   ] as const),
                   units: Array.from(
                     { length: faker.number.int({ min: 1, max: 10 }) },
@@ -534,7 +541,13 @@ export const getListOpenTaskRunsResponseMock = (
     startedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
     taskId: faker.string.alpha({ length: { min: 10, max: 20 } }),
     total: faker.number.int({ min: 0 }),
-    trigger: faker.helpers.arrayElement(["schedule", "catch-up", "run-now", "returned"] as const),
+    trigger: faker.helpers.arrayElement([
+      "schedule",
+      "catch-up",
+      "run-now",
+      "returned",
+      "event",
+    ] as const),
   })),
   ...overrideResponse,
 });
@@ -1034,7 +1047,13 @@ export const getGetTaskResponseTasksRunningStateMock = (
     runId: faker.number.int(),
     since: faker.date.past().toISOString().slice(0, 19) + "Z",
     total: faker.number.int({ min: 0 }),
-    trigger: faker.helpers.arrayElement(["schedule", "catch-up", "run-now", "returned"] as const),
+    trigger: faker.helpers.arrayElement([
+      "schedule",
+      "catch-up",
+      "run-now",
+      "returned",
+      "event",
+    ] as const),
   },
   ...overrideResponse,
 });
@@ -1428,7 +1447,13 @@ export const getGetTaskResponseMock = (
     ]),
     startedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
     summary: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    trigger: faker.helpers.arrayElement(["schedule", "catch-up", "run-now", "returned"] as const),
+    trigger: faker.helpers.arrayElement([
+      "schedule",
+      "catch-up",
+      "run-now",
+      "returned",
+      "event",
+    ] as const),
     units: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         cause: faker.helpers.arrayElement([
@@ -1527,6 +1552,7 @@ export const getGetTaskResponseMock = (
               "catch-up",
               "run-now",
               "returned",
+              "event",
             ] as const),
             units: Array.from(
               { length: faker.number.int({ min: 1, max: 10 }) },
@@ -1655,7 +1681,13 @@ export const getUpdateTaskResponseTasksRunningStateMock = (
     runId: faker.number.int(),
     since: faker.date.past().toISOString().slice(0, 19) + "Z",
     total: faker.number.int({ min: 0 }),
-    trigger: faker.helpers.arrayElement(["schedule", "catch-up", "run-now", "returned"] as const),
+    trigger: faker.helpers.arrayElement([
+      "schedule",
+      "catch-up",
+      "run-now",
+      "returned",
+      "event",
+    ] as const),
   },
   ...overrideResponse,
 });
@@ -1756,6 +1788,7 @@ export const getUpdateTaskResponseMock = (
             "catch-up",
             "run-now",
             "returned",
+            "event",
           ] as const),
           units: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
             () => ({

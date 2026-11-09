@@ -260,7 +260,7 @@ func TestSeasonChangeAndDeleteCuesListTheirSeriesAsUpdated(t *testing.T) {
 
 func TestSearchFindsAnAlternativeTitle(t *testing.T) {
 	inBothTiers(t, load(t), func(t *testing.T, f faketest.Served) {
-		found, err := client(f).Search(t.Context(), ask(""), "nights at the HARBOR")
+		found, err := client(f).Search(t.Context(), ask(""), "nights at the HARBOR", 0)
 		if err != nil || len(found) != 1 || found[0].ID != 1002 || found[0].Name != "Harbor Nights" || found[0].Network != "Harbor TV" || found[0].Year != 2015 {
 			t.Errorf("Search = %+v, %v; want Harbor Nights", found, err)
 		}

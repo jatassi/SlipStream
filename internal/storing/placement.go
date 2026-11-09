@@ -21,71 +21,71 @@ type placer struct {
 // place puts the file at from at rel, making its folders: a hard link,
 // else a copy to rel+".part" renamed into place. A file at rel with from's
 // size and BLAKE3 counts as placed, so placing again converges; another
-// file there is ErrOccupied. It answers the placed file's size and whether
-// it is a link to from.
-func (p placer) place(ctx context.Context, from string, rel Rel) (size int64, linked bool, err error) {
+// file there is ErrOccupied. It answers the placed file and whether it is
+// a link to from.
+func (p placer) place(ctx context.Context, from string, rel Rel) (placed Info, linked bool, err error) {
 	to := p.style.Under(p.root, rel)
 	if err := p.folders(ctx, rel); err != nil {
-		return 0, false, err
+		return nil, false, err
 	}
 	switch same, err := p.identical(ctx, from, to); {
 	case errors.Is(err, fs.ErrNotExist):
 		if p.d.Link(ctx, from, to) != nil {
 			if err := p.copy(ctx, from, to); err != nil {
-				return 0, false, err
+				return nil, false, err
 			}
 		}
 	case err != nil:
-		return 0, false, err
+		return nil, false, err
 	case !same:
-		return 0, false, ErrOccupied
+		return nil, false, ErrOccupied
 	}
 	src, err := p.d.Stat(ctx, from)
 	if err != nil {
-		return 0, false, fmt.Errorf("read the source: %w", err)
+		return nil, false, fmt.Errorf("read the source: %w", err)
 	}
 	dst, err := p.d.Stat(ctx, to)
 	if err != nil {
-		return 0, false, fmt.Errorf("read the placed file: %w", err)
+		return nil, false, fmt.Errorf("read the placed file: %w", err)
 	}
-	return dst.Size(), src.Same(dst), nil
+	return dst, src.Same(dst), nil
 }
 
 // move renames the file at from to to, making to's folders. A file at to
 // with from's size and BLAKE3 counts as moved, and so does any file at to
 // once from is gone, so moving again converges; another file there is
-// ErrOccupied. It answers the moved file's size.
-func (p placer) move(ctx context.Context, from, to Rel) (int64, error) {
+// ErrOccupied. It answers the moved file.
+func (p placer) move(ctx context.Context, from, to Rel) (Info, error) {
 	src, dst := p.style.Under(p.root, from), p.style.Under(p.root, to)
 	if _, err := p.d.Stat(ctx, src); errors.Is(err, fs.ErrNotExist) {
 		info, err := p.d.Stat(ctx, dst)
 		if err != nil {
-			return 0, fmt.Errorf("neither the file nor its target is there: %w", err)
+			return nil, fmt.Errorf("neither the file nor its target is there: %w", err)
 		}
-		return info.Size(), nil
+		return info, nil
 	}
 	if err := p.folders(ctx, to); err != nil {
-		return 0, err
+		return nil, err
 	}
 	switch same, err := p.identical(ctx, src, dst); {
 	case errors.Is(err, fs.ErrNotExist):
 		if err := p.d.Rename(ctx, src, dst); err != nil {
-			return 0, fmt.Errorf("move the file into place: %w", err)
+			return nil, fmt.Errorf("move the file into place: %w", err)
 		}
 	case err != nil:
-		return 0, err
+		return nil, err
 	case !same:
-		return 0, ErrOccupied
+		return nil, ErrOccupied
 	default:
 		if err := p.d.Remove(ctx, src); err != nil {
-			return 0, fmt.Errorf("remove the identical copy: %w", err)
+			return nil, fmt.Errorf("remove the identical copy: %w", err)
 		}
 	}
 	info, err := p.d.Stat(ctx, dst)
 	if err != nil {
-		return 0, fmt.Errorf("read the moved file: %w", err)
+		return nil, fmt.Errorf("read the moved file: %w", err)
 	}
-	return info.Size(), nil
+	return info, nil
 }
 
 func (p placer) folders(ctx context.Context, rel Rel) error {

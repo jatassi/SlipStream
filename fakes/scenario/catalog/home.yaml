@@ -5,6 +5,11 @@ description: >-
   A leecher from outside connects in to the seedbox once it runs the 1080p
   release, so the seedbox's listen port reads reachable.
   Grace joins as a Member by Signup link, and fakes/smtp is the email setting.
+  The media dir holds shelf-movies and shelf-series, a library on disk no
+  root names, for an Admin to add as roots: Work folders tagged with an id,
+  named by title and year, ambiguous and unknown, a sample, bonus features,
+  a loose file, episodes numbered S02E05 and 2x05 in season folders and
+  flat, an episode the series lacks, and every HDR format.
 seed: home
 admin:
   email: ada@example.test
@@ -32,6 +37,55 @@ tmdb:
       title: The Quiet Orchard
       released: 2021-04-16
       runtime: 104m
+    - id: 9000101
+      imdb_id: tt9000101
+      title: Lanterns at Low Tide
+      released: 2016-09-09
+      runtime: 118m
+    - id: 9000102
+      imdb_id: tt9000102
+      title: Saltmarsh Radio
+      released: 2018-05-25
+      runtime: 97m
+    - id: 9000103
+      imdb_id: tt9000103
+      title: Nightfall
+      released: 1998-10-30
+      runtime: 91m
+    - id: 9000104
+      imdb_id: tt9000104
+      title: Nightfall
+      released: 2014-10-17
+      runtime: 109m
+    - id: 9000105
+      imdb_id: tt9000105
+      title: Copper Kettle
+      released: 2012-02-03
+      runtime: 88m
+tvdb:
+  series:
+    - id: 9100201
+      name: The Tin Signal
+      status: continuing
+      seasons:
+        - number: 1
+          episodes:
+            - {id: 9120101, number: 1, name: Static, aired: 2019-01-07}
+            - {id: 9120102, number: 2, name: Carrier Wave, aired: 2019-01-14}
+        - number: 2
+          episodes:
+            - {id: 9120205, number: 5, name: Dead Air, aired: 2020-02-03}
+            - {id: 9120206, number: 6, name: Sign Off, aired: 2020-02-10}
+    - id: 9100202
+      name: Brass Meridian
+      status: ended
+      seasons:
+        - number: 1
+          episodes:
+            - {id: 9220101, number: 1, name: Noon, aired: 2015-03-02}
+        - number: 2
+          episodes:
+            - {id: 9220205, number: 5, name: Longitude, aired: 2016-03-28}
 releases:
   - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
     tmdb_id: 9000001
@@ -54,3 +108,51 @@ library:
   storage_levels: {warn_below: 0B, error_below: 0B}
   roots: [{content_type: movie, folder: movies}]
   indexers: [{name: Fixture Site, kind: torznab, site: torznab}]
+  folders:
+    - folder: shelf-movies
+      files:
+        - path: Lanterns at Low Tide (2016) {tmdb-9000101}/Lanterns at Low Tide (2016).mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: dv8}
+          audio:
+            - {codec: truehd, channels: 6, language: eng, default: true}
+            - {codec: aac, channels: 2, language: eng, title: Commentary}
+          subtitles: [{language: eng}]
+        - path: Saltmarsh Radio (2018)/Saltmarsh Radio (2018).mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: hdr10plus}
+          audio:
+            - {codec: eac3, channels: 6, language: eng, default: true}
+            - {codec: eac3, channels: 6, language: fre}
+          subtitles: [{language: eng}, {language: fre, forced: true}]
+        - path: Saltmarsh Radio (2018)/Saltmarsh Radio (2018)-sample.mkv
+          video: {width: 640, height: 360, seconds: 1, hdr: sdr}
+        - path: Saltmarsh Radio (2018)/Featurettes/Making Saltmarsh Radio.mkv
+          video: {width: 640, height: 360, seconds: 1, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng}]
+        - path: Nightfall/Nightfall.mkv
+          video: {width: 1280, height: 720, seconds: 1, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng}]
+        - path: Grandma's 80th Birthday (2019)/Grandma's 80th Birthday (2019).mkv
+          video: {width: 1280, height: 720, seconds: 1, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng}]
+        - path: Copper Kettle (2012).mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio: [{codec: ac3, channels: 6, language: eng, default: true}]
+    - folder: shelf-series
+      files:
+        - path: The Tin Signal [tvdbid-9100201]/Season 01/The Tin Signal - S01E01.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng}]
+        - path: The Tin Signal [tvdbid-9100201]/Season 02/The Tin Signal - S02E05.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: hdr10}
+          audio: [{codec: eac3, channels: 6, language: eng, default: true}]
+        - path: The Tin Signal [tvdbid-9100201]/Season 02/The Tin Signal - S02E06.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: hlg}
+          audio: [{codec: eac3, channels: 6, language: eng, default: true}]
+        - path: Brass Meridian (2015)/Brass Meridian - 2x05.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: dv5}
+          audio:
+            - {codec: flac, channels: 2, language: eng, default: true}
+            - {codec: aac, channels: 2, language: ger}
+        - path: Brass Meridian (2015)/Brass Meridian - S03E09.mkv
+          video: {width: 1280, height: 720, seconds: 1, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng}]

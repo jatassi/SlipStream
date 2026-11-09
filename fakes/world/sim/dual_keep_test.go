@@ -11,6 +11,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/node"
 )
@@ -50,7 +51,7 @@ func TestDualKeepHoldsOneSession(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		d := &dials{seen: map[string]map[string]int{}}
-		w := sim.Launch(t, home(t), sim.Edit(func(name string, e *node.Env) {
+		w := sim.Launch(t, simtest.Home(t), sim.Edit(func(name string, e *node.Env) {
 			d.mu.Lock()
 			d.seen[name] = map[string]int{}
 			d.mu.Unlock()

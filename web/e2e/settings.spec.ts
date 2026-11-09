@@ -2,7 +2,7 @@ import { expect, expectAccessible, test } from "./fixtures.ts";
 import { isPhone, navigate } from "./shell.ts";
 
 const groups = [
-  ["Library", ["Content Types", "Library roots", "Metadata"]],
+  ["Library", ["Content Types", "Library roots", "Library scan", "Metadata"]],
   ["Files to keep", ["Targets", "Profiles", "Custom Formats", "Editions"]],
   ["Search and download", ["Indexers", "Trackers", "Download Clients"]],
   ["Access", ["Address", "Sign-in", "API key"]],

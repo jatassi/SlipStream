@@ -16,9 +16,10 @@ import { getListContentTypesSuspenseQueryOptions } from "../api/gen/query/works/
 import { ensureQuery, freshQuery } from "../api/query-client";
 import { downloadClientsSection } from "../download-clients/section";
 import { customFormatsSection } from "../formats/section";
+import { libraryScanSection } from "../imports/section";
 import { indexersSection } from "../indexers/section";
-import { libraryRootsSection } from "../roots/section";
 // oxlint-disable-next-line import/max-dependencies -- the table names every section of Settings
+import { libraryRootsSection } from "../roots/section";
 import { EditionsSection } from "../targets/editions-section";
 import { ProfilesSection } from "../targets/profiles-section";
 import { TargetsSection } from "../targets/targets-section";
@@ -112,7 +113,7 @@ export const settingsGroups: readonly [SettingsGroup, ...SettingsGroup[]] = [
   {
     id: "library",
     label: "Library",
-    sections: [contentTypesSection, libraryRootsSection, metadataSection],
+    sections: [contentTypesSection, libraryRootsSection, libraryScanSection, metadataSection],
   },
   {
     id: "files",

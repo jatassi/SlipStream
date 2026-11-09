@@ -129,8 +129,8 @@ func TestBytesGoThroughTheRootsNode(t *testing.T) {
 		t.Fatal(err)
 	}
 	held := rel(storing.HoldingDir + "/g.mkv")
-	if size, err := svc.Move(ctx, root.ID, rel(storing.StagingDir+"/g.part"), held); err != nil || size != 4 {
-		t.Fatalf("Move from staging = %d, %v; want the 4 bytes", size, err)
+	if moved, err := svc.Move(ctx, root.ID, rel(storing.StagingDir+"/g.part"), held); err != nil || moved.Size != 4 {
+		t.Fatalf("Move from staging = %+v, %v; want the 4 bytes", moved, err)
 	}
 	names, err := svc.ListHeld(ctx, root.ID, storing.Holding)
 	if err != nil || !slices.Equal(names, []string{"g.mkv"}) {
@@ -143,8 +143,8 @@ func TestBytesGoThroughTheRootsNode(t *testing.T) {
 		t.Fatalf("Remove of a file already gone = %v, want fs.ErrNotExist", err)
 	}
 	placed := rel("Orchard/Orchard.mkv")
-	if size, err := svc.Place(ctx, root.ID, placed, storing.Payload{}); err != nil || size != 7 {
-		t.Fatalf("Place = %d, %v; want the download's 7 bytes", size, err)
+	if p, err := svc.Place(ctx, root.ID, placed, storing.Payload{}); err != nil || p.Size != 7 {
+		t.Fatalf("Place = %+v, %v; want the download's 7 bytes", p, err)
 	}
 	if b, err := os.ReadFile(filepath.Join(folder, "Orchard", "Orchard.mkv")); err != nil || string(b) != "orchard" {
 		t.Fatalf("the placed file holds %q, %v; want the download", b, err)

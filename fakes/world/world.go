@@ -36,6 +36,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/internal/ca"
 	"github.com/jatassi/slipstream/fakes/internal/clientfake"
 	"github.com/jatassi/slipstream/fakes/internal/front"
+	"github.com/jatassi/slipstream/fakes/internal/mediafix"
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/internal/seeders"
@@ -228,6 +229,7 @@ func launch(ctx context.Context, opts Options, fakes []fake.Spec) (_ *Run, err e
 		r.probeBinary,
 		func(ctx context.Context, undo *unwind) error { return r.bindFronts(ctx, undo, fakes) },
 		r.buildReleases,
+		r.writeFolders,
 		r.serveFakes,
 		r.setFaults,
 		r.startSeeders,
@@ -303,13 +305,30 @@ func (r *Run) copyBinary(source string) error {
 	}
 	r.binary = Binary{Source: src, Path: dst, SHA256: sum}
 	r.log.Info("binary copied", "source", src, "path", dst, "sha256", sum)
-	for _, tool := range []string{"ffmpeg", "ffprobe"} {
+	for _, tool := range []string{"ffmpeg", "ffprobe", "dovi_tool"} {
 		name := tool + filepath.Ext(src)
-		if _, err := CopyExecutable(filepath.Join(filepath.Dir(src), name), filepath.Join(r.runDir, "bin", name)); err != nil {
+		if err := linkTool(filepath.Join(filepath.Dir(src), name), filepath.Join(r.runDir, "bin", name)); err != nil {
 			return fmt.Errorf("%s beside the binary: %w", tool, err)
 		}
 	}
 	return nil
+}
+
+// linkTool places a bundled tool beside the run's binary. A symbolic link
+// spares each run a copy of some 100 MB, which on Windows Defender also
+// scans before the first exec, and unlike a hard link it can be removed
+// while another run's process executes the tool. Where links need a
+// privilege the user lacks, as on Windows outside Developer Mode, the run
+// gets a copy.
+func linkTool(src, dst string) error {
+	if _, err := os.Stat(src); err != nil {
+		return err //nolint:wrapcheck // the caller names the tool
+	}
+	if os.Symlink(src, dst) == nil {
+		return nil
+	}
+	_, err := CopyExecutable(src, dst)
+	return err
 }
 
 // CopyExecutable copies src to dst and returns its hex SHA-256. It holds
@@ -384,6 +403,32 @@ func (r *Run) buildReleases(ctx context.Context, _ *unwind) error {
 	}
 	for _, rel := range r.releases.Releases {
 		r.log.Info("release built", "release", rel.Name, "info_hash", rel.InfoHash.String(), "size", rel.Size)
+	}
+	return nil
+}
+
+// writeFolders encodes the files of the Scenario's library folders with
+// the bundled tools, once per machine, and copies them into the media dir
+// before any root exists.
+func (r *Run) writeFolders(ctx context.Context, _ *unwind) error {
+	if r.scenario.Library == nil || len(r.scenario.Library.Folders) == 0 {
+		return nil
+	}
+	cache, err := releases.CacheDir()
+	if err != nil {
+		return err
+	}
+	b, err := mediafix.NewBuilder(ctx, mediafix.ToolsIn(filepath.Join(r.runDir, "bin"), filepath.Ext(r.binary.Path)), cache)
+	if err != nil {
+		return err
+	}
+	for _, f := range r.scenario.Library.Folders {
+		for _, m := range f.Files {
+			if err := b.Write(ctx, m, filepath.Join(r.mediaDir(), f.Folder, filepath.FromSlash(m.Path))); err != nil {
+				return fmt.Errorf("library folder %s: %w", f.Folder, err)
+			}
+		}
+		r.log.Info("library folder written", "folder", f.Folder, "files", len(f.Files))
 	}
 	return nil
 }

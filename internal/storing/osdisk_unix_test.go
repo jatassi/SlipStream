@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestOSDiskListsLinksToFoldersAsFolders(t *testing.T) {
+func TestOSDiskListsLinksToFoldersAsLinkedFolders(t *testing.T) {
 	ctx, d, dir := t.Context(), newOSDisk(t), t.TempDir()
 	movies := filepath.Join(dir, "Movies")
 	for _, p := range []string{movies, filepath.Join(dir, ".cache"), filepath.Join(dir, "@eaDir")} {
@@ -31,8 +31,8 @@ func TestOSDiskListsLinksToFoldersAsFolders(t *testing.T) {
 		{Name: ".cache", Dir: true, Hidden: true, Readable: true},
 		{Name: "@eaDir", Dir: true, Hidden: true, Readable: true},
 		{Name: "Movies", Dir: true, Readable: true},
-		{Name: "broken", Readable: true},
-		{Name: "films", Dir: true, Readable: true},
+		{Name: "broken", Link: true, Readable: true},
+		{Name: "films", Dir: true, Link: true, Readable: true},
 	}
 	if !slices.Equal(entries, want) {
 		t.Errorf("ReadDir = %+v, want %+v", entries, want)

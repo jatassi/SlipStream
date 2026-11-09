@@ -2,6 +2,7 @@ import { HttpResponse, http, sse } from "msw";
 
 import type {
   FilesCellList,
+  FilesFileList,
   GrabsGrab,
   GrabsSearch,
   GrabsSearchIndexer,
@@ -22,14 +23,15 @@ import {
   getListVolumesMockHandler,
 } from "../api/gen/query/roots/roots.msw";
 import { getGetWorkWantsMockHandler } from "../api/gen/query/targets/targets.msw";
+import { ForgetFilesBody } from "../api/gen/zod/files/files.zod";
 import {
   getGetWorkMockHandler,
   getListContentTypesMockHandler,
 } from "../api/gen/query/works/works.msw";
 import { anthologies } from "./anthology";
 import { grabId, imported, indexerId } from "./grabs";
-import type { LiveMap } from "./handlers";
 // oxlint-disable-next-line import/max-dependencies -- the Work page reads every section's queries, the Nodes', Targets' and roots' included
+import { type LiveMap, problem } from "./handlers";
 import { cinema, orchard, orchardId, orchardItemId } from "./library";
 import { home, nodesAre, seedbox } from "./nodes";
 import { profileHandlers, ultra } from "./profiles";
@@ -186,20 +188,57 @@ function liveStream() {
   return { handler, send };
 }
 
-/** The Work page's reads, of The Quiet Orchard on Ultra unless work names another Work and its cells. */
+/** A Work's files, the ones its cells hold unless files names them, and Forget over them. */
+function filesWorld(
+  files: FilesFileList | undefined,
+  cellsNow: () => FilesCellList,
+  changed: () => void,
+) {
+  let listed = files;
+  const forgot: string[][] = [];
+  const now = () => listed ?? filesOf(cellsNow());
+  return {
+    forgot,
+    handlers: [
+      getListWorkFilesMockHandler(() => now()),
+      http.post("*/api/v1/files/forget", async ({ request }) => {
+        const { fileIds } = ForgetFilesBody.parse(await request.json());
+        forgot.push(fileIds);
+        const known = now();
+        if (!fileIds.every((id) => known.files.some((file) => file.id === id))) {
+          return problem(404, "file_not_found", "No file has that id");
+        }
+        listed = { ...known, files: known.files.filter((file) => !fileIds.includes(file.id)) };
+        changed();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    ],
+  };
+}
+
+/**
+ * The Work page's reads, of The Quiet Orchard on Ultra unless work names
+ * another Work and its cells. Its files are the ones its cells hold, unless
+ * files names them, as for gone files a scan found.
+ */
 export function workServer({
   work = orchardOnUltra,
   startCells = missing,
-}: { work?: WorksWorkView; startCells?: FilesCellList } = {}) {
+  files,
+}: { work?: WorksWorkView; startCells?: FilesCellList; files?: FilesFileList } = {}) {
   let cells = startCells;
   let searches: GrabsSearchList = { searches: [] };
   let grabs: GrabsGrab[] = [otherWork];
   const searched: string[] = [];
   const { handler, send } = liveStream();
+  const changed = () => {
+    send({ event: "files.changed", data: { workId: work.id } });
+  };
+  const filed = filesWorld(files, () => cells, changed);
   const handlers = [
     ...fixedHandlers(work),
     getGetWorkCellsMockHandler(() => cells),
-    getListWorkFilesMockHandler(() => filesOf(cells)),
+    ...filed.handlers,
     getListSearchesMockHandler(() => searches),
     getListGrabsMockHandler(() => ({ grabs })),
     http.post("*/api/v1/works/:workId/search", ({ params }) => {
@@ -211,6 +250,7 @@ export function workServer({
   return {
     handlers,
     searched,
+    forgot: filed.forgot,
     fileArrives(next: FilesCellList) {
       cells = next;
       send({ event: "files.changed", data: { workId: orchardId } });

@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/link"
@@ -40,6 +41,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/tasks"
 	"github.com/jatassi/slipstream/internal/works"
 	"github.com/jatassi/slipstream/internal/worksapi"
 )
@@ -53,13 +55,15 @@ type discard[T any] struct{}
 func (discard[T]) Publish(context.Context, T) {}
 
 type node struct {
-	r *roots.Roots
-	w *works.Works
-	t *targets.Targets
-	l *library.Library
+	r  *roots.Roots
+	w  *works.Works
+	t  *targets.Targets
+	l  *library.Library
+	im *imports.Imports
 }
 
 func (n node) Roots() (*roots.Roots, bool)       { return n.r, true }
+func (n node) Imports() (*imports.Imports, bool) { return n.im, true }
 func (n node) Works() (*works.Works, bool)       { return n.w, true }
 func (n node) Targets() (*targets.Targets, bool) { return n.t, true }
 func (n node) Library() (*library.Library, bool) { return n.l, true }
@@ -122,13 +126,15 @@ type server struct {
 	changed         *published
 	data, downloads string
 	verifying       func()
+	started         []tasks.Start
+	steps           map[tasks.UnitKey]tasks.Step
 }
 
 // serve serves the roots' operations and addWork over a library with two
 // Content Types. self's Storage is a Store on this machine.
 func serve(t *testing.T) *server {
 	t.Helper()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), imports.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library:      lib,
@@ -176,7 +182,17 @@ func serve(t *testing.T) *server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	n := node{svc, w, goals, library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: svc})}
+	im := imports.New(imports.Config{
+		Library: lib, Roots: svc,
+		Start: func(_ context.Context, st tasks.Start) (tasks.Started, error) {
+			s.started = append(s.started, st)
+			return tasks.Started{Run: tasks.RunID(len(s.started)), Added: st.Units}, nil
+		},
+		Steps: func(tasks.TaskID) (tasks.RunID, map[tasks.UnitKey]tasks.Step, bool) {
+			return 7, s.steps, s.steps != nil
+		},
+	})
+	n := node{svc, w, goals, library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: svc}), im}
 	s.Owner = ownertest.Serve(t, lib, func(r *api.Router) {
 		rootsapi.Routes(r, n)
 		worksapi.Routes(r, n)
@@ -251,11 +267,11 @@ func (s *server) works(t *testing.T) string {
 func TestARootIsCreatedOnItsNodeAndListed(t *testing.T) {
 	s := serve(t)
 	dir := t.TempDir()
-	want := `{"id":"id1","contentType":"fixture","nodeId":"id2","path":` + strconv.Quote(dir) + `,"default":true,"state":"checking","works":0,"fileBytes":0}`
+	want := `{"id":"id1","contentType":"fixture","nodeId":"id2","path":` + strconv.Quote(dir) + `,"default":true,"state":"checking","works":0,"fileBytes":0,"scan":` + notScanned + `}`
 	s.Expect(t, http.MethodPost, "/api/v1/roots", body("fixture", dir+string(filepath.Separator)), http.StatusCreated, want)
 	_, list := s.Call(t, http.MethodGet, "/api/v1/roots", "")
 	id := ownertest.FirstID(list)
-	if want := `{"roots":[{"id":"` + id + `","contentType":"fixture","nodeId":"` + self.String() + `","path":` + strconv.Quote(dir) + `,"default":true,"state":"checking","works":0,"fileBytes":0}]}` + "\n"; list != want {
+	if want := `{"roots":[{"id":"` + id + `","contentType":"fixture","nodeId":"` + self.String() + `","path":` + strconv.Quote(dir) + `,"default":true,"state":"checking","works":0,"fileBytes":0,"scan":` + notScanned + `}]}` + "\n"; list != want {
 		t.Fatalf("listRoots = %s, want %s", list, want)
 	}
 	entries, err := os.ReadDir(dir)

@@ -8,8 +8,8 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
-	"github.com/jatassi/slipstream/internal/backoff"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/node"
@@ -37,24 +37,6 @@ func standing(t *testing.T, w *sim.World, name string) role.Standing {
 	return snap.Standing
 }
 
-// redialAt is when the Keep loop of the Node seeded seed lands its first
-// dial at or after heal, its session to the Controller having ended at
-// down: it waits a backoff drawn from the Node's link stream before each
-// attempt, and each attempt before heal blocks on the stalled path for the
-// whole handshake.
-func redialAt(seed string, down, heal time.Time) time.Time {
-	timings := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link
-	r := node.NewStreams(seed).Stream("link")
-	at := down
-	for n := 0; ; n++ {
-		at = at.Add(backoff.Delay(timings.RedialMin, timings.RedialMax, n, r))
-		if !at.Before(heal) {
-			return at
-		}
-		at = at.Add(timings.Handshake)
-	}
-}
-
 // TestPartitionThenRedial stalls the path between home and seedbox past
 // keepalive and write_timeout: seedbox's Probe turns Unreachable and home
 // lists it down since its last Sync frame, which came before the stall.
@@ -63,11 +45,11 @@ func redialAt(seed string, down, heal time.Time) time.Time {
 func TestPartitionThenRedial(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t), sim.WithProbe())
+		w := sim.Launch(t, simtest.Home(t), sim.WithProbe())
 		a := w.API()
 		synctest.Wait()
 		stalled := time.Now().UTC()
-		flip(t, w.Path("home", "seedbox"), fault.Stall{})
+		simtest.Flip(t, w.Path("home", "seedbox"), fault.Stall{})
 		link := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link
 		time.Sleep(link.Keepalive + link.WriteTimeout)
 		synctest.Wait()
@@ -76,8 +58,8 @@ func TestPartitionThenRedial(t *testing.T) {
 			t.Fatalf("seedbox's Probe stands %s after the stall, want unreachable", got)
 		}
 		box := seedbox(t, a)
-		if box.Link.State != "down" || box.Link.Since != stalled.Format(time.RFC3339Nano) {
-			t.Fatalf("listNodes shows seedbox %s since %s, want down since %s", box.Link.State, box.Link.Since, stalled.Format(time.RFC3339Nano))
+		if since, err := time.Parse(time.RFC3339Nano, box.Link.Since); box.Link.State != "down" || err != nil || since.After(stalled) {
+			t.Fatalf("listNodes shows seedbox %s since %s, want down since its last Sync frame, at or before the stall at %s", box.Link.State, box.Link.Since, stalled.Format(time.RFC3339Nano))
 		}
 
 		a.SetRoles("home", box.ID, "searching")
@@ -87,7 +69,7 @@ func TestPartitionThenRedial(t *testing.T) {
 		heal := down.Add(time.Minute)
 		time.Sleep(time.Until(heal))
 		w.Path("home", "seedbox").Clear("")
-		redial := redialAt("home/seedbox", down, heal).UTC()
+		redial := simtest.RedialAt("home/seedbox", down, heal).UTC()
 		if want := "2000-01-01T00:01:38.400755643Z"; redial.Format(time.RFC3339Nano) != want {
 			t.Fatalf("seedbox's link stream re-dials at %s, want %s", redial.Format(time.RFC3339Nano), want)
 		}
@@ -109,12 +91,4 @@ func TestPartitionThenRedial(t *testing.T) {
 			t.Fatalf("seedbox's Probe stands %s after the re-dial, want live", got)
 		}
 	})
-}
-
-// flip plays f on every connection of path from now until it is cleared.
-func flip(t *testing.T, path *fault.Plan, f fault.Fault) {
-	t.Helper()
-	if _, err := path.Set(fault.Rule{Fault: f}); err != nil {
-		t.Fatal(err)
-	}
 }

@@ -34,8 +34,8 @@ type Rollup struct {
 	// counted.
 	ByItem Counts
 	Needs  []Need
-	// Files, Kept and Bytes count the Work's library files, Kept files
-	// included.
+	// Files, Kept and Bytes count the Work's live library files, Kept
+	// files included.
 	Files, Kept int
 	Bytes       int64
 	// Available is the one Item's availability date, or for many Items the
@@ -93,13 +93,13 @@ func rollup(w world, cs []Cell) Rollup {
 			out.Status = s
 		}
 	}
+	var held Held
 	for _, file := range w.files {
-		out.Files++
-		out.Bytes += file.Size
-		if file.Kept() {
-			out.Kept++
+		if !file.Gone() {
+			held.add(file)
 		}
 	}
+	out.Files, out.Kept, out.Bytes = held.Files, held.Kept, held.Bytes
 	return out
 }
 

@@ -199,3 +199,12 @@ var heldFolders = enum[HeldFolder, storagev1.HeldFolder]{
 
 func (f HeldFolder) String() string             { return heldFolders.of(f).word }
 func (f HeldFolder) Wire() storagev1.HeldFolder { return heldFolders.of(f).wire }
+
+var unreadReasons = enum[UnreadReason, storagev1.UnreadReason]{
+	{UnreadNotUTF8, storagev1.UnreadReason_UNREAD_REASON_NOT_UTF8, "not_utf8"},
+	{UnreadRefused, storagev1.UnreadReason_UNREAD_REASON_REFUSED, "refused"},
+	{UnreadDenied, storagev1.UnreadReason_UNREAD_REASON_DENIED, "denied"},
+}
+
+func (r UnreadReason) String() string               { return unreadReasons.of(r).word }
+func (r UnreadReason) Wire() storagev1.UnreadReason { return unreadReasons.of(r).wire }

@@ -1372,6 +1372,7 @@ export const getListLibraryResponseMock = (
 ): WorksLibraryRows => ({
   rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    addedBy: faker.helpers.arrayElement(["admin", "scan"] as const),
     availableOn: faker.helpers.arrayElement([
       faker.helpers.fromRegExp("^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"),
       null,
@@ -1388,6 +1389,7 @@ export const getListLibraryResponseMock = (
     contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
     failed: faker.number.int({ min: 0 }),
     files: faker.number.int({ min: 0 }),
+    goneFiles: faker.number.int({ min: 0 }),
     goneUpstreamAt: faker.helpers.arrayElement([
       faker.date.past().toISOString().slice(0, 19) + "Z",
       null,
@@ -2435,6 +2437,7 @@ export const getSearchWorksResponseMock = (
 ): WorksSearchResult => ({
   rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     addedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    addedBy: faker.helpers.arrayElement(["admin", "scan"] as const),
     availableOn: faker.helpers.arrayElement([
       faker.helpers.fromRegExp("^[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"),
       null,
@@ -2451,6 +2454,7 @@ export const getSearchWorksResponseMock = (
     contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
     failed: faker.number.int({ min: 0 }),
     files: faker.number.int({ min: 0 }),
+    goneFiles: faker.number.int({ min: 0 }),
     goneUpstreamAt: faker.helpers.arrayElement([
       faker.date.past().toISOString().slice(0, 19) + "Z",
       null,

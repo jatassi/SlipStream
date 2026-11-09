@@ -346,7 +346,7 @@ func TestSeriesReadsWhatTMDBAddsInTheMetadataLanguage(t *testing.T) {
 
 func TestSeriesSearchIDsAndTheTVDBLookup(t *testing.T) {
 	inEachTier(t, withSeries(t), func(t *testing.T, c *tmdb.Client, _ faketest.Served) {
-		found, err := c.SearchSeries(t.Context(), english, "harbor")
+		found, err := c.SearchSeries(t.Context(), english, "harbor", 0)
 		want := []tmdb.SeriesFound{{ID: 9000002, Name: "Harbor Lights", OriginalName: "Harbor Lights", Overview: "A ferry town keeps its lights on.", FirstAired: "2019-09-01"}}
 		if err != nil || len(found) != 1 || found[0].PosterPath == "" {
 			t.Fatalf("SearchSeries(harbor) = %+v, %v; want %+v with a poster", found, err, want)

@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/clientfake"
+	"github.com/jatassi/slipstream/fakes/internal/mediafix"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/omdb"
 	"github.com/jatassi/slipstream/fakes/scenario"
@@ -77,7 +78,7 @@ type walk struct {
 	// metadata to a magnet link.
 	served []bencode.Metainfo
 	hashes map[string]bencode.InfoHash
-	probes map[string]media.Probe
+	probes map[string]media.Record
 	// clients is where each Node reaches the fake Download Client of each
 	// kind, and the folder that client downloads into, by Node then kind.
 	clients map[string]map[string]clientAt
@@ -95,7 +96,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 		mediaDir: filepath.Join(base, "media"),
 		payloads: map[bencode.InfoHash][]byte{},
 		hashes:   map[string]bencode.InfoHash{},
-		probes:   map[string]media.Probe{},
+		probes:   map[string]media.Record{},
 		clients:  map[string]map[string]clientAt{},
 		envs:     map[string]fake.Env{},
 	}
@@ -126,8 +127,8 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 			}
 			w.served = append(w.served, m)
 		}
-		w.probes[r.Name+".mkv"] = media.Probe{
-			Duration: time.Duration(r.Video.Seconds) * time.Second, Container: "matroska", Codec: "h264", Width: r.Video.Width, Height: r.Video.Height,
+		w.probes[r.Name+".mkv"] = media.Record{
+			Version: media.Version, Container: "matroska,webm", Duration: time.Duration(r.Video.Seconds) * time.Second, Video: media.Video{Codec: "h264", Width: r.Video.Width, Height: r.Video.Height},
 		}
 		size := int64(PayloadSize)
 		if r.AdvertisedSize > 0 {
@@ -142,6 +143,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 		}
 		listing = append(listing, item)
 	}
+	w.writeFolders(t, s)
 	log := slog.New(slog.NewTextHandler(t.Output(), nil))
 	faults := fault.NewPlan(append([]fault.Front{{Target: fault.Target(site.Fake.Name), Layers: fault.HTTP}}, clientFronts(s)...), nil)
 	w.faults = faults
@@ -156,6 +158,29 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 	site.Fake.Endpoints(endpoints, w.site)
 	w.serveClients(t, s, local, fakes, catalog, filepath.Join(base, "fakes"), log)
 	return w
+}
+
+// writeFolders writes each file of the Scenario's library folders under
+// the media dir as a few bytes of its own, which the Nodes probe as the
+// process world's encode reads, since the simulation tier runs no ffmpeg.
+func (w *walk) writeFolders(t *testing.T, s scenario.Scenario) {
+	t.Helper()
+	if s.Library == nil {
+		return
+	}
+	for _, f := range s.Library.Folders {
+		for _, m := range f.Files {
+			rel := f.Folder + "/" + m.Path
+			file := filepath.Join(w.mediaDir, filepath.FromSlash(rel))
+			if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(file, []byte(rel), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			w.probes[rel] = mediafix.Want(m)
+		}
+	}
 }
 
 // siteAnnounces are each fixture-site site's tracker URL, by label.

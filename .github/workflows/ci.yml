@@ -304,6 +304,13 @@ jobs:
         with:
           path: ${{ runner.temp }}/slipstream-native
           key: native-${{ matrix.target }}-${{ hashFiles('native/lock.json') }}
+      # The worlds encode each catalog Scenario's release payloads and
+      # library files once per machine, into the user cache dir.
+      - name: Restore the fixture cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.os == 'Windows' && '~\AppData\Local\slipstream-fixtures' || runner.os == 'macOS' && '~/Library/Caches/slipstream-fixtures' || '~/.cache/slipstream-fixtures' }}
+          key: fixtures-${{ matrix.target }}-${{ hashFiles('native/lock.json', 'fakes/internal/mediafix/recipe.go', 'fakes/internal/releases/releases.go', 'fakes/scenario/catalog/*.yaml') }}
       - name: Download the test timings the plan job restored
         if: needs.plan.outputs.timings != ''
         uses: actions/download-artifact@v8

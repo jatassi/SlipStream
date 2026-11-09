@@ -5,6 +5,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
@@ -18,6 +19,7 @@ import (
 // in the order health.IDs lists them.
 func healthCategories(h *half) []health.Category {
 	return []health.Category{
+		{About: imports.HealthAbout, Source: h.imports.HealthSource()},
 		{About: nodes.HealthAbout, Source: h.nodes.HealthSource()},
 		{About: downloadclients.HealthAbout, Source: h.clients.HealthSource()},
 		{About: trackers.HealthAbout, Source: health.Join(h.trackers.HealthSource(), h.tasks.HealthSource(health.SeedingID))},

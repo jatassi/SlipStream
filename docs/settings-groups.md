@@ -8,7 +8,7 @@ An Admin comes to Settings with a question, such as "where do my files go?" or "
 
 | Group | The Admin is asking | Sections today | Sections expected later |
 | --- | --- | --- | --- |
-| Library | What do I collect, where does it live, and what is it called? | Content Types, Library roots, Metadata | Naming, Library scan, Subtitles |
+| Library | What do I collect, where does it live, and what is it called? | Content Types, Library roots, Library scan, Metadata | Naming, Subtitles |
 | Files to keep | Which versions of each Work do I want? | Targets, Profiles, Custom Formats, Editions | Conversion |
 | Search and download | How does SlipStream find and fetch releases? | Indexers, Trackers, Download Clients (built-in and external) | Automatic search |
 | Access | Who can reach SlipStream, and how? | Address, Sign-in, API key | Requests, Member portal |

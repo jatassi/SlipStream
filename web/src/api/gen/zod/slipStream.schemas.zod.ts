@@ -1573,6 +1573,26 @@ export const FieldError = zod.object({
 export type FieldError = zod.input<typeof FieldError>;
 export type FieldErrorOutput = zod.output<typeof FieldError>;
 
+export const filesAudioTrackChannelsMin = 0;
+
+export const FilesAudioTrack = zod.object({
+  atmos: zod.boolean(),
+  channels: zod.int().min(filesAudioTrackChannelsMin),
+  codec: zod.string().describe("ffprobe's codec name, such as eac3"),
+  default: zod.boolean(),
+  language: zod.string().nullable().describe("An ISO 639 code; null when the track names none"),
+  layout: zod
+    .string()
+    .describe("ffprobe's channel layout, such as 5.1(side); empty when it names none"),
+  profile: zod
+    .string()
+    .describe("Such as Dolby Digital Plus + Dolby Atmos; empty when ffprobe names none"),
+  title: zod.string().describe("Empty when the track has none"),
+});
+
+export type FilesAudioTrack = zod.input<typeof FilesAudioTrack>;
+export type FilesAudioTrackOutput = zod.output<typeof FilesAudioTrack>;
+
 export const FilesUnreleasedCell = zod.object({
   edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   itemId: zod.uuid(),
@@ -1835,6 +1855,29 @@ export const FilesChanged = zod.object({
 export type FilesChanged = zod.input<typeof FilesChanged>;
 export type FilesChangedOutput = zod.output<typeof FilesChanged>;
 
+export const filesDolbyVisionCompatibilityMin = 0;
+
+export const filesDolbyVisionLevelMin = 0;
+
+export const filesDolbyVisionProfileMin = 0;
+
+export const FilesDolbyVision = zod.object({
+  compatibility: zod
+    .int()
+    .min(filesDolbyVisionCompatibilityMin)
+    .describe("The base layer's signal: 1 HDR10, 2 SDR, 4 HLG, 6 Blu-ray HDR10, 0 none"),
+  level: zod.int().min(filesDolbyVisionLevelMin),
+  profile: zod.int().min(filesDolbyVisionProfileMin),
+});
+
+export type FilesDolbyVision = zod.input<typeof FilesDolbyVision>;
+export type FilesDolbyVisionOutput = zod.output<typeof FilesDolbyVision>;
+
+export const FilesVideoCodec = zod.enum(["x264", "x265", "AV1", "VP9", "XviD", "MPEG2"]);
+
+export type FilesVideoCodec = zod.input<typeof FilesVideoCodec>;
+export type FilesVideoCodecOutput = zod.output<typeof FilesVideoCodec>;
+
 export const FilesFill = zod.object({
   edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   itemId: zod.uuid(),
@@ -1844,15 +1887,105 @@ export const FilesFill = zod.object({
 export type FilesFill = zod.input<typeof FilesFill>;
 export type FilesFillOutput = zod.output<typeof FilesFill>;
 
+export const FilesSubtitleTrack = zod.object({
+  codec: zod.string().describe("ffprobe's codec name, such as subrip"),
+  default: zod.boolean(),
+  forced: zod.boolean(),
+  image: zod.boolean().describe("A bitmap format, such as PGS"),
+  language: zod.string().nullable().describe("An ISO 639 code; null when the track names none"),
+});
+
+export type FilesSubtitleTrack = zod.input<typeof FilesSubtitleTrack>;
+export type FilesSubtitleTrackOutput = zod.output<typeof FilesSubtitleTrack>;
+
+export const FilesHdrFormat = zod.enum(["DV", "HDR10+", "HDR10", "HLG", "SDR"]);
+
+export type FilesHdrFormat = zod.input<typeof FilesHdrFormat>;
+export type FilesHdrFormatOutput = zod.output<typeof FilesHdrFormat>;
+
+export const filesVideoInfoBitDepthMin = 0;
+
+export const filesVideoInfoFrameRateMin = 0;
+
+export const filesVideoInfoHeightMin = 0;
+
+export const filesVideoInfoWidthMin = 0;
+
+export const FilesVideoInfo = zod.object({
+  bitDepth: zod.int().min(filesVideoInfoBitDepthMin).describe("0 when the stream states none"),
+  codec: zod.string().describe("ffprobe's codec name, such as hevc"),
+  dolbyVision: zod
+    .union([FilesDolbyVision, zod.null()])
+    .describe("Null when it carries no Dolby Vision"),
+  frameRate: zod
+    .number()
+    .min(filesVideoInfoFrameRateMin)
+    .describe("Frames per second to three decimals; 0 when the stream states none"),
+  hdr: zod.array(FilesHdrFormat).describe("Every HDR format it carries, or SDR alone"),
+  height: zod.int().min(filesVideoInfoHeightMin),
+  profile: zod.string().describe("Such as Main 10; empty when ffprobe names none"),
+  width: zod.int().min(filesVideoInfoWidthMin),
+});
+
+export type FilesVideoInfo = zod.input<typeof FilesVideoInfo>;
+export type FilesVideoInfoOutput = zod.output<typeof FilesVideoInfo>;
+
+export const filesMediaInfoBitrateMin = 0;
+
+export const filesMediaInfoDurationSecondsMin = 0;
+
+export const FilesMediaInfo = zod.object({
+  audio: zod.array(FilesAudioTrack).describe("In stream order"),
+  bitrate: zod
+    .int()
+    .min(filesMediaInfoBitrateMin)
+    .describe("Bits per second; 0 when the container states none"),
+  container: zod.string().describe("ffprobe's format name, such as matroska,webm"),
+  durationSeconds: zod
+    .int()
+    .min(filesMediaInfoDurationSecondsMin)
+    .describe("0 when the container states none"),
+  subtitles: zod.array(FilesSubtitleTrack).describe("In stream order"),
+  video: FilesVideoInfo.describe("Its first video stream that isn't cover art"),
+});
+
+export type FilesMediaInfo = zod.input<typeof FilesMediaInfo>;
+export type FilesMediaInfoOutput = zod.output<typeof FilesMediaInfo>;
+
 export const filesListedFileSizeMin = 0;
 
 export const FilesListedFile = zod.object({
-  fills: zod.array(FilesFill).describe("The cells it fills; empty for a Kept file"),
+  codec: zod
+    .union([FilesVideoCodec, zod.null()])
+    .describe(
+      "Its video codec in the words a Target filters on; null for a codec they have no word for",
+    ),
+  cut: zod.string().describe("The key of its own cut"),
+  fills: zod.array(FilesFill).describe("The cells it fills; empty for a Kept or gone file"),
   folder: zod.string().describe("The folder it sits in, relative to its root, / separated"),
+  goneAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When a library scan found it missing from its root; null while it is there"),
   id: zod.uuid(),
   kept: zod.boolean().describe("A Kept file, which fills no cell"),
+  label: zod.string().describe("The Target name its file name carries, before any suffix"),
+  media: zod
+    .union([FilesMediaInfo, zod.null()])
+    .describe("What ffprobe read of it; null for a file read before SlipStream kept its tracks"),
+  modifiedAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "Its modification time as a library scan or its import last read it; null until one did",
+    ),
   path: zod.string().describe("Relative to its root, / separated"),
-  probe: FilesProbe,
+  probeError: zod
+    .string()
+    .nullable()
+    .describe(
+      "The first line ffprobe printed when the last library scan couldn't read it, and media is then the read before; null when that read worked",
+    ),
   quality: zod.enum([
     "sdtv",
     "dvd",
@@ -1883,7 +2016,7 @@ export const FilesFileList = zod.object({
   files: zod
     .array(FilesListedFile)
     .describe(
-      "Filling files first, in Profile order of the first Target each fills, then Kept files",
+      "Filling files first, in Profile order of the first Target each fills, then Kept and gone files, oldest first",
     ),
   folder: zod
     .string()
@@ -1935,6 +2068,13 @@ export const FirstrunFirstRun = zod.object({
 
 export type FirstrunFirstRun = zod.input<typeof FirstrunFirstRun>;
 export type FirstrunFirstRunOutput = zod.output<typeof FirstrunFirstRun>;
+
+export const ForgetInputBody = zod.object({
+  fileIds: zod.array(zod.uuid()).min(1),
+});
+
+export type ForgetInputBody = zod.input<typeof ForgetInputBody>;
+export type ForgetInputBodyOutput = zod.output<typeof ForgetInputBody>;
 
 export const FormatsCondition = zod.object({
   fields: zod
@@ -2928,6 +3068,7 @@ export type HealthActionOutput = zod.output<typeof HealthAction>;
 
 export const HealthCategoryID = zod.enum([
   "storage",
+  "library",
   "nodes",
   "download-clients",
   "seeding",
@@ -3577,6 +3718,451 @@ export const IdentitySignupLinkURL = zod.object({
 
 export type IdentitySignupLinkURL = zod.input<typeof IdentitySignupLinkURL>;
 export type IdentitySignupLinkURLOutput = zod.output<typeof IdentitySignupLinkURL>;
+
+export const importsChosenFileItemIdsMax = 1;
+
+export const ImportsChosenFile = zod.object({
+  itemIds: zod
+    .array(zod.string())
+    .min(1)
+    .max(importsChosenFileItemIdsMax)
+    .nullable()
+    .describe(
+      "The Item of the Work the file holds. One for now; S33 (Import pipeline) allows several",
+    ),
+  path: zod.string().min(1).describe("One of the pending import's paths"),
+});
+
+export type ImportsChosenFile = zod.input<typeof ImportsChosenFile>;
+export type ImportsChosenFileOutput = zod.output<typeof ImportsChosenFile>;
+
+export const ImportIntoInputBody = zod.object({
+  files: zod.array(ImportsChosenFile).min(1),
+  workId: zod.uuid().describe("A Work in the pending import's root"),
+});
+
+export type ImportIntoInputBody = zod.input<typeof ImportIntoInputBody>;
+export type ImportIntoInputBodyOutput = zod.output<typeof ImportIntoInputBody>;
+
+export const ImportsAddedOutcome = zod.object({
+  id: zod.uuid(),
+  outcome: zod.enum(["added"]),
+  workId: zod.uuid().describe("The Work its files joined"),
+});
+
+export type ImportsAddedOutcome = zod.input<typeof ImportsAddedOutcome>;
+export type ImportsAddedOutcomeOutput = zod.output<typeof ImportsAddedOutcome>;
+
+export const ImportsOutcomeProblem = zod.object({
+  code: zod
+    .string()
+    .describe("The code a request for this pending import alone would have been refused with"),
+  detail: zod.string().exactOptional(),
+  title: zod.string(),
+});
+
+export type ImportsOutcomeProblem = zod.input<typeof ImportsOutcomeProblem>;
+export type ImportsOutcomeProblemOutput = zod.output<typeof ImportsOutcomeProblem>;
+
+export const ImportsFailedOutcome = zod.object({
+  id: zod.uuid(),
+  outcome: zod.enum(["failed"]),
+  problem: ImportsOutcomeProblem,
+});
+
+export type ImportsFailedOutcome = zod.input<typeof ImportsFailedOutcome>;
+export type ImportsFailedOutcomeOutput = zod.output<typeof ImportsFailedOutcome>;
+
+export const ImportsOutcome = zod.discriminatedUnion("outcome", [
+  ImportsAddedOutcome,
+  ImportsFailedOutcome,
+]);
+
+export type ImportsOutcome = zod.input<typeof ImportsOutcome>;
+export type ImportsOutcomeOutput = zod.output<typeof ImportsOutcome>;
+
+export const ImportsAddedList = zod.object({
+  outcomes: zod.array(ImportsOutcome).describe("One per pending import, in request order"),
+});
+
+export type ImportsAddedList = zod.input<typeof ImportsAddedList>;
+export type ImportsAddedListOutput = zod.output<typeof ImportsAddedList>;
+
+export const ImportsChanged = zod.object({
+  rootIds: zod.array(zod.string()),
+});
+
+export type ImportsChanged = zod.input<typeof ImportsChanged>;
+export type ImportsChangedOutput = zod.output<typeof ImportsChanged>;
+
+export const ImportsRootLabel = zod.object({
+  id: zod.uuid(),
+  label: zod
+    .string()
+    .describe("The root as copy names it, such as Movies library root on Media server"),
+});
+
+export type ImportsRootLabel = zod.input<typeof ImportsRootLabel>;
+export type ImportsRootLabelOutput = zod.output<typeof ImportsRootLabel>;
+
+export const ImportsReason = zod.object({
+  code: zod
+    .enum([
+      "several",
+      "no_match",
+      "no_year",
+      "elsewhere",
+      "unlisted",
+      "no_number",
+      "no_such_item",
+      "several_items",
+      "unreadable",
+      "left",
+      "no_rule",
+    ])
+    .describe("Why the file joins no Work"),
+  count: zod.int().exactOptional().describe("For several: the candidates that match"),
+  line: zod.string().exactOptional().describe("For unreadable: the first line ffprobe printed"),
+  names: zod
+    .string()
+    .exactOptional()
+    .describe("For no_such_item: the Item the file name names, such as S03E14"),
+  root: ImportsRootLabel.exactOptional().describe("For elsewhere: the root the Work lives in"),
+  title: zod
+    .string()
+    .exactOptional()
+    .describe(
+      "For several, no_match, no_year, elsewhere and unlisted: the name's title or the Work's label",
+    ),
+  year: zod.int().exactOptional().describe("The year beside title, when it has one"),
+});
+
+export type ImportsReason = zod.input<typeof ImportsReason>;
+export type ImportsReasonOutput = zod.output<typeof ImportsReason>;
+
+export const importsPendingFileSizeMin = 0;
+
+export const ImportsPendingFile = zod.object({
+  cut: zod.string().describe("The key of the cut its name carries"),
+  itemIds: zod
+    .array(zod.string())
+    .describe("The Items of the suggested Work its path names; empty until a Work places it"),
+  path: zod.string().describe("Relative to the root, / separated"),
+  quality: zod
+    .union([
+      zod.literal("sdtv"),
+      zod.literal("dvd"),
+      zod.literal("webrip-480p"),
+      zod.literal("hdtv-720p"),
+      zod.literal("webrip-720p"),
+      zod.literal("webdl-720p"),
+      zod.literal("bluray-720p"),
+      zod.literal("hdtv-1080p"),
+      zod.literal("webrip-1080p"),
+      zod.literal("webdl-1080p"),
+      zod.literal("bluray-1080p"),
+      zod.literal("remux-1080p"),
+      zod.literal("hdtv-2160p"),
+      zod.literal("webrip-2160p"),
+      zod.literal("webdl-2160p"),
+      zod.literal("bluray-2160p"),
+      zod.literal("remux-2160p"),
+      zod.literal("cam"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("The quality its name and media info read as; null when ffprobe can't read it"),
+  reason: ImportsReason,
+  size: zod.int().min(importsPendingFileSizeMin),
+});
+
+export type ImportsPendingFile = zod.input<typeof ImportsPendingFile>;
+export type ImportsPendingFileOutput = zod.output<typeof ImportsPendingFile>;
+
+export const ImportsHintID = zod.object({
+  provider: zod.enum(["tmdb", "imdb", "tvdb"]),
+  value: zod.string(),
+});
+
+export type ImportsHintID = zod.input<typeof ImportsHintID>;
+export type ImportsHintIDOutput = zod.output<typeof ImportsHintID>;
+
+export const ImportsHint = zod.object({
+  ids: zod.array(ImportsHintID).describe("The provider ids the name's tags carry"),
+  title: zod.string().describe("The title the folder or file name carries, as written"),
+  year: zod.int().nullable().describe("Null when the name carries none"),
+});
+
+export type ImportsHint = zod.input<typeof ImportsHint>;
+export type ImportsHintOutput = zod.output<typeof ImportsHint>;
+
+export const ImportsSuggestion = zod.object({
+  confident: zod
+    .boolean()
+    .describe("It meets the rules that let a library scan add a Work by itself"),
+  key: zod.string().describe("The record's key at its Content Type's source"),
+  label: zod.string(),
+  posterUrl: zod
+    .string()
+    .nullable()
+    .describe("The artwork route for its poster, without a size; null when it has none"),
+  workId: zod.uuid().nullable().describe("The Work, once it is in the library"),
+  year: zod.int().nullable().describe("Null when the record has none"),
+});
+
+export type ImportsSuggestion = zod.input<typeof ImportsSuggestion>;
+export type ImportsSuggestionOutput = zod.output<typeof ImportsSuggestion>;
+
+export const importsEntryContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const ImportsEntry = zod.object({
+  contentType: zod.string().regex(importsEntryContentTypeRegExp),
+  files: zod.array(ImportsPendingFile).describe("In path order"),
+  folder: zod
+    .string()
+    .describe(
+      "Its Work folder relative to the root, or the file's path when it sits loose at the root's top",
+    ),
+  foundAt: zod.iso.datetime({ offset: true }),
+  hint: ImportsHint.describe("What the folder or file name says"),
+  id: zod.uuid(),
+  ignoredAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("Null while it needs the Admin"),
+  root: ImportsRootLabel,
+  suggestion: zod
+    .union([ImportsSuggestion, zod.null()])
+    .describe("The best candidate; null when none matched"),
+});
+
+export type ImportsEntry = zod.input<typeof ImportsEntry>;
+export type ImportsEntryOutput = zod.output<typeof ImportsEntry>;
+
+export const ImportsImported = zod.object({
+  entry: zod
+    .union([ImportsEntry, zod.null()])
+    .describe("The files left waiting; null once none is"),
+});
+
+export type ImportsImported = zod.input<typeof ImportsImported>;
+export type ImportsImportedOutput = zod.output<typeof ImportsImported>;
+
+export const importsLeadAddedMin = 0;
+
+export const importsLeadContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+export const importsLeadNeedsYouMin = 0;
+
+export const ImportsLead = zod.object({
+  added: zod
+    .int()
+    .min(importsLeadAddedMin)
+    .describe("The Works the root's last library scan added"),
+  contentType: zod.string().regex(importsLeadContentTypeRegExp),
+  needsYou: zod
+    .int()
+    .min(importsLeadNeedsYouMin)
+    .describe("The root's pending imports that aren't ignored"),
+  root: ImportsRootLabel,
+});
+
+export type ImportsLead = zod.input<typeof ImportsLead>;
+export type ImportsLeadOutput = zod.output<typeof ImportsLead>;
+
+export const ImportsList = zod.object({
+  entries: zod.array(ImportsEntry).describe("In root and folder order"),
+  leads: zod.array(ImportsLead).describe("One per root a library scan compared, in root order"),
+});
+
+export type ImportsList = zod.input<typeof ImportsList>;
+export type ImportsListOutput = zod.output<typeof ImportsList>;
+
+export const SettingChoiceOption = zod.object({
+  label: zod.string(),
+  value: zod.string(),
+});
+
+export type SettingChoiceOption = zod.input<typeof SettingChoiceOption>;
+export type SettingChoiceOptionOutput = zod.output<typeof SettingChoiceOption>;
+
+export const SettingChoiceField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.string(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["choice"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  options: zod.array(SettingChoiceOption),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.string(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.string(),
+});
+
+export type SettingChoiceField = zod.input<typeof SettingChoiceField>;
+export type SettingChoiceFieldOutput = zod.output<typeof SettingChoiceField>;
+
+export const SettingTimes = zod.object({
+  end: zod.string().describe("HH:MM, before start when the window crosses midnight"),
+  start: zod.string().describe("HH:MM"),
+});
+
+export type SettingTimes = zod.input<typeof SettingTimes>;
+export type SettingTimesOutput = zod.output<typeof SettingTimes>;
+
+export const SettingWindowField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: SettingTimes,
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["window"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: SettingTimes,
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: SettingTimes,
+  zone: zod.string().describe("The time zone's name, such as Europe/London"),
+});
+
+export type SettingWindowField = zod.input<typeof SettingWindowField>;
+export type SettingWindowFieldOutput = zod.output<typeof SettingWindowField>;
+
+export const SettingPortField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.int(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["port"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.int(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.int(),
+});
+
+export type SettingPortField = zod.input<typeof SettingPortField>;
+export type SettingPortFieldOutput = zod.output<typeof SettingPortField>;
+
+export const SettingAddressField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.string(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["address"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.string(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.string(),
+});
+
+export type SettingAddressField = zod.input<typeof SettingAddressField>;
+export type SettingAddressFieldOutput = zod.output<typeof SettingAddressField>;
+
+export const SettingFolderField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.string(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["folder"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  nodeId: zod.uuid().describe("The Node the path is on, which browses and judges it"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  purpose: zod
+    .enum(["downloads"])
+    .describe("The rules the Node judges the folder by, as checkFolder names them"),
+  running: zod.string(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.string(),
+});
+
+export type SettingFolderField = zod.input<typeof SettingFolderField>;
+export type SettingFolderFieldOutput = zod.output<typeof SettingFolderField>;
+
+export const SettingField = zod.discriminatedUnion("kind", [
+  SettingDurationField,
+  SettingCountField,
+  SettingChoiceField,
+  SettingWindowField,
+  SettingPortField,
+  SettingSwitchField,
+  SettingRateField,
+  SettingAddressField,
+  SettingFolderField,
+  SettingSpaceField,
+]);
+
+export type SettingField = zod.input<typeof SettingField>;
+export type SettingFieldOutput = zod.output<typeof SettingField>;
+
+export const ImportsSettings = zod.object({
+  settings: zod
+    .array(SettingField)
+    .describe("The stop share, then the files each Node probes at once"),
+});
+
+export type ImportsSettings = zod.input<typeof ImportsSettings>;
+export type ImportsSettingsOutput = zod.output<typeof ImportsSettings>;
 
 export const indexersCaptchaAnswerAnswerMax = 64;
 
@@ -4304,184 +4890,6 @@ export const IndexersReport = zod.object({
 export type IndexersReport = zod.input<typeof IndexersReport>;
 export type IndexersReportOutput = zod.output<typeof IndexersReport>;
 
-export const SettingChoiceOption = zod.object({
-  label: zod.string(),
-  value: zod.string(),
-});
-
-export type SettingChoiceOption = zod.input<typeof SettingChoiceOption>;
-export type SettingChoiceOptionOutput = zod.output<typeof SettingChoiceOption>;
-
-export const SettingChoiceField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.string(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["choice"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  options: zod.array(SettingChoiceOption),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.string(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.string(),
-});
-
-export type SettingChoiceField = zod.input<typeof SettingChoiceField>;
-export type SettingChoiceFieldOutput = zod.output<typeof SettingChoiceField>;
-
-export const SettingTimes = zod.object({
-  end: zod.string().describe("HH:MM, before start when the window crosses midnight"),
-  start: zod.string().describe("HH:MM"),
-});
-
-export type SettingTimes = zod.input<typeof SettingTimes>;
-export type SettingTimesOutput = zod.output<typeof SettingTimes>;
-
-export const SettingWindowField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: SettingTimes,
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["window"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: SettingTimes,
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: SettingTimes,
-  zone: zod.string().describe("The time zone's name, such as Europe/London"),
-});
-
-export type SettingWindowField = zod.input<typeof SettingWindowField>;
-export type SettingWindowFieldOutput = zod.output<typeof SettingWindowField>;
-
-export const SettingPortField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.int(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["port"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.int(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.int(),
-});
-
-export type SettingPortField = zod.input<typeof SettingPortField>;
-export type SettingPortFieldOutput = zod.output<typeof SettingPortField>;
-
-export const SettingAddressField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.string(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["address"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.string(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.string(),
-});
-
-export type SettingAddressField = zod.input<typeof SettingAddressField>;
-export type SettingAddressFieldOutput = zod.output<typeof SettingAddressField>;
-
-export const SettingFolderField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.string(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["folder"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  nodeId: zod.uuid().describe("The Node the path is on, which browses and judges it"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  purpose: zod
-    .enum(["downloads"])
-    .describe("The rules the Node judges the folder by, as checkFolder names them"),
-  running: zod.string(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.string(),
-});
-
-export type SettingFolderField = zod.input<typeof SettingFolderField>;
-export type SettingFolderFieldOutput = zod.output<typeof SettingFolderField>;
-
-export const SettingField = zod.discriminatedUnion("kind", [
-  SettingDurationField,
-  SettingCountField,
-  SettingChoiceField,
-  SettingWindowField,
-  SettingPortField,
-  SettingSwitchField,
-  SettingRateField,
-  SettingAddressField,
-  SettingFolderField,
-  SettingSpaceField,
-]);
-
-export type SettingField = zod.input<typeof SettingField>;
-export type SettingFieldOutput = zod.output<typeof SettingField>;
-
 export const IndexersSettings = zod.object({
   settings: zod
     .array(SettingField)
@@ -4562,6 +4970,15 @@ export const JoinInputBody = zod.object({
 export type JoinInputBody = zod.input<typeof JoinInputBody>;
 export type JoinInputBodyOutput = zod.output<typeof JoinInputBody>;
 
+export const LibraryScanSettingsInputBody = zod.object({
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe("Each setting's new value by key, all or none; null resets one to its default"),
+});
+
+export type LibraryScanSettingsInputBody = zod.input<typeof LibraryScanSettingsInputBody>;
+export type LibraryScanSettingsInputBodyOutput = zod.output<typeof LibraryScanSettingsInputBody>;
+
 export const LiveAccessChanged = zod.object({});
 
 export type LiveAccessChanged = zod.input<typeof LiveAccessChanged>;
@@ -4634,6 +5051,16 @@ export const MakeFolderInputBody = zod.object({
 
 export type MakeFolderInputBody = zod.input<typeof MakeFolderInputBody>;
 export type MakeFolderInputBodyOutput = zod.output<typeof MakeFolderInputBody>;
+
+export const MatchPendingInputBody = zod.object({
+  key: zod
+    .string()
+    .min(1)
+    .describe("A record's key at the Content Type's source, as searchCatalog lists it"),
+});
+
+export type MatchPendingInputBody = zod.input<typeof MatchPendingInputBody>;
+export type MatchPendingInputBodyOutput = zod.output<typeof MatchPendingInputBody>;
 
 export const MergeTrackerInputBody = zod.object({
   into: zod.uuid().describe("The Tracker it merges into, which is kept"),
@@ -5740,6 +6167,13 @@ export const PasskeyRenameInputBody = zod.object({
 export type PasskeyRenameInputBody = zod.input<typeof PasskeyRenameInputBody>;
 export type PasskeyRenameInputBodyOutput = zod.output<typeof PasskeyRenameInputBody>;
 
+export const PendingIDsInputBody = zod.object({
+  ids: zod.array(zod.uuid()).min(1),
+});
+
+export type PendingIDsInputBody = zod.input<typeof PendingIDsInputBody>;
+export type PendingIDsInputBodyOutput = zod.output<typeof PendingIDsInputBody>;
+
 export const Problem = zod.object({
   code: zod.string(),
   detail: zod.string().exactOptional(),
@@ -6008,6 +6442,57 @@ export const RootsRefusal = zod.object({
 export type RootsRefusal = zod.input<typeof RootsRefusal>;
 export type RootsRefusalOutput = zod.output<typeof RootsRefusal>;
 
+export const rootsRunningDoneMin = 0;
+
+export const rootsRunningTotalMin = 0;
+
+export const RootsRunning = zod.object({
+  done: zod.int().min(rootsRunningDoneMin).describe("The files listed, compared or probed so far"),
+  phase: zod
+    .enum(["listing", "comparing", "probing"])
+    .describe(
+      "listing: reading the folder, total null; comparing: matching the listed files with the records; probing: reading media info",
+    ),
+  runId: zod.int().describe("The run Cancel library scan cancels"),
+  total: zod
+    .int()
+    .min(rootsRunningTotalMin)
+    .nullable()
+    .describe("The files to compare or probe; null while listing"),
+});
+
+export type RootsRunning = zod.input<typeof RootsRunning>;
+export type RootsRunningOutput = zod.output<typeof RootsRunning>;
+
+export const RootsStopped = zod.object({
+  gone: zod.int().min(1).describe("The recorded files the scan didn't find"),
+  of: zod.int().min(1).describe("The files the root records"),
+});
+
+export type RootsStopped = zod.input<typeof RootsStopped>;
+export type RootsStoppedOutput = zod.output<typeof RootsStopped>;
+
+export const RootsScan = zod.object({
+  lastAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the last library scan of its folder finished; null until one has"),
+  running: zod
+    .union([RootsRunning, zod.null()])
+    .describe("Its unit of the open Library scan run while that unit runs; null otherwise"),
+  stopped: zod
+    .union([RootsStopped, zod.null()])
+    .describe(
+      "The gone files that stopped that scan, which Mark them gone confirms; null when it didn't stop",
+    ),
+  summary: zod
+    .string()
+    .describe("What that scan found, or why it stopped, as a sentence; empty until one finished"),
+});
+
+export type RootsScan = zod.input<typeof RootsScan>;
+export type RootsScanOutput = zod.output<typeof RootsScan>;
+
 export const rootsRootContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
 export const RootsRoot = zod.object({
@@ -6020,6 +6505,7 @@ export const RootsRoot = zod.object({
   rehome: RootsProgress.exactOptional().describe(
     "The re-home checking its files at the new place now; absent while none is",
   ),
+  scan: RootsScan.describe("Its library scan at its folder"),
   state: zod
     .enum([
       "ready",
@@ -6058,6 +6544,13 @@ export const RootsRootSettings = zod.object({
 
 export type RootsRootSettings = zod.input<typeof RootsRootSettings>;
 export type RootsRootSettingsOutput = zod.output<typeof RootsRootSettings>;
+
+export const RootsScanStarted = zod.object({
+  runId: zod.int().describe("The Library scan run that scans the root"),
+});
+
+export type RootsScanStarted = zod.input<typeof RootsScanStarted>;
+export type RootsScanStartedOutput = zod.output<typeof RootsScanStarted>;
 
 export const RootsSuggestions = zod.object({
   suggestions: zod
@@ -6149,12 +6642,18 @@ export type ShellAlertsOutput = zod.output<typeof ShellAlerts>;
 
 export const shellCountsActivityMin = 0;
 
+export const shellCountsPendingImportsMin = 0;
+
 export const ShellCounts = zod.object({
   activity: zod.int().min(shellCountsActivityMin).describe("The Grabs neither imported nor failed"),
   alerts: ShellAlerts,
   downloads: DownloadclientsAggregate.describe(
     "Every download at once; torrents.live keeps it current",
   ),
+  pendingImports: zod
+    .int()
+    .min(shellCountsPendingImportsMin)
+    .describe("The pending imports that aren't ignored"),
 });
 
 export type ShellCounts = zod.input<typeof ShellCounts>;
@@ -6835,7 +7334,7 @@ export const TasksRun = zod.object({
     .describe("Null while it runs"),
   startedAt: zod.iso.datetime({ offset: true }),
   summary: zod.string().describe("Such as 5 of 6 steps, seedbox offline; empty while it runs"),
-  trigger: zod.enum(["schedule", "catch-up", "run-now", "returned"]),
+  trigger: zod.enum(["schedule", "catch-up", "run-now", "returned", "event"]),
   units: zod
     .array(TasksRunUnit)
     .describe(
@@ -6877,7 +7376,7 @@ export const TasksRunningState = zod.object({
   runId: zod.int(),
   since: zod.iso.datetime({ offset: true }),
   total: zod.int().min(tasksRunningStateTotalMin),
-  trigger: zod.enum(["schedule", "catch-up", "run-now", "returned"]),
+  trigger: zod.enum(["schedule", "catch-up", "run-now", "returned", "event"]),
 });
 
 export type TasksRunningState = zod.input<typeof TasksRunningState>;
@@ -6996,7 +7495,7 @@ export const TasksOpenRun = zod.object({
   startedAt: zod.iso.datetime({ offset: true }),
   taskId: zod.string(),
   total: zod.int().min(tasksOpenRunTotalMin),
-  trigger: zod.enum(["schedule", "catch-up", "run-now", "returned"]),
+  trigger: zod.enum(["schedule", "catch-up", "run-now", "returned", "event"]),
 });
 
 export type TasksOpenRun = zod.input<typeof TasksOpenRun>;
@@ -7065,11 +7564,28 @@ export const TasksOverview = zod.object({
 export type TasksOverview = zod.input<typeof TasksOverview>;
 export type TasksOverviewOutput = zod.output<typeof TasksOverview>;
 
+export const tasksUnitStepDoneMin = 0;
+
+export const tasksUnitStepTotalMin = 0;
+
+export const TasksUnitStep = zod.object({
+  done: zod.int().min(tasksUnitStepDoneMin),
+  key: zod.string(),
+  phase: zod.string(),
+  total: zod.int().min(tasksUnitStepTotalMin).nullable(),
+});
+
+export type TasksUnitStep = zod.input<typeof TasksUnitStep>;
+export type TasksUnitStepOutput = zod.output<typeof TasksUnitStep>;
+
 export const TasksProgressed = zod.object({
   done: zod.int(),
   runId: zod.int(),
   taskId: zod.string(),
   total: zod.int(),
+  unit: TasksUnitStep.exactOptional().describe(
+    "The unit whose step moved; absent when a unit ended",
+  ),
 });
 
 export type TasksProgressed = zod.input<typeof TasksProgressed>;
@@ -8350,6 +8866,8 @@ export const worksLibraryRowFailedMin = 0;
 
 export const worksLibraryRowFilesMin = 0;
 
+export const worksLibraryRowGoneFilesMin = 0;
+
 export const worksLibraryRowItemsMin = 0;
 
 export const worksLibraryRowKeptMin = 0;
@@ -8358,6 +8876,9 @@ export const worksLibraryRowNeedsYouMin = 0;
 
 export const WorksLibraryRow = zod.object({
   addedAt: zod.iso.datetime({ offset: true }),
+  addedBy: zod
+    .enum(["admin", "scan"])
+    .describe("Who added it: an Admin, or a library scan that matched a folder on disk"),
   availableOn: zod
     .string()
     .regex(worksLibraryRowAvailableOnRegExp)
@@ -8376,6 +8897,12 @@ export const WorksLibraryRow = zod.object({
     .min(worksLibraryRowFailedMin)
     .describe("Its wanted cells whose download failed"),
   files: zod.int().min(worksLibraryRowFilesMin).describe("Its library files, Kept files included"),
+  goneFiles: zod
+    .int()
+    .min(worksLibraryRowGoneFilesMin)
+    .describe(
+      "Its files a library scan found missing from its root, which the other counts leave out",
+    ),
   goneUpstreamAt: zod.iso
     .datetime({ offset: true })
     .nullable()
@@ -8870,6 +9397,14 @@ export type LiveEventIdentitySessionsChangedOutput = zod.output<
   typeof LiveEventIdentitySessionsChanged
 >;
 
+export const LiveEventImportsChanged = zod.object({
+  event: zod.enum(["imports.changed"]),
+  data: ImportsChanged,
+});
+
+export type LiveEventImportsChanged = zod.input<typeof LiveEventImportsChanged>;
+export type LiveEventImportsChangedOutput = zod.output<typeof LiveEventImportsChanged>;
+
 export const LiveEventIndexersCatalogChanged = zod.object({
   event: zod.enum(["indexers.catalog-changed"]),
   data: IndexersCatalogChanged,
@@ -9092,6 +9627,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventIdentityLinksChanged,
   LiveEventIdentityPasskeysChanged,
   LiveEventIdentitySessionsChanged,
+  LiveEventImportsChanged,
   LiveEventIndexersCatalogChanged,
   LiveEventIndexersChanged,
   LiveEventIndexersSettingsChanged,

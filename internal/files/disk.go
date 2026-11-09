@@ -23,7 +23,7 @@ import (
 // Watch is closed at the next change of a root's report, as a re-home off
 // a lost root makes. *roots.Roots is one.
 type Disk interface {
-	Move(ctx context.Context, root roots.ID, from, to storing.Rel) (int64, error)
+	Move(ctx context.Context, root roots.ID, from, to storing.Rel) (storing.Placed, error)
 	Remove(ctx context.Context, root roots.ID, rel storing.Rel) error
 	RemoveAll(ctx context.Context, root roots.ID, rel storing.Rel) error
 	ListHeld(ctx context.Context, root roots.ID, folder storing.HeldFolder) ([]string, error)

@@ -47,13 +47,17 @@ UPDATE tasks_unit SET
     last_node = sqlc.arg(last_node),
     last_ended_at = sqlc.arg(last_ended_at),
     last_success_at = coalesce(sqlc.arg(last_success_at), last_success_at),
-    due_on_return = coalesce(sqlc.narg(due_on_return), due_on_return)
+    due_on_return = coalesce(sqlc.narg(due_on_return), due_on_return),
+    last_owned = sqlc.arg(last_owned)
 WHERE task_id = sqlc.arg(task_id) AND unit_key = sqlc.arg(unit_key);
 
 -- name: InsertRun :one
 INSERT INTO tasks_run (task_id, kind, requested_by, started_at)
 VALUES (sqlc.arg(task_id), sqlc.arg(kind), sqlc.arg(requested_by), sqlc.arg(started_at))
 RETURNING id;
+
+-- name: SetOpenRunUnits :exec
+UPDATE tasks_run SET units = sqlc.arg(units) WHERE id = sqlc.arg(id) AND ended_at IS NULL;
 
 -- name: CloseRun :exec
 UPDATE tasks_run SET

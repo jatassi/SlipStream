@@ -62,3 +62,23 @@ func TestMonitoringCountsLiveItemsAndAsidesOnlyWhenWanted(t *testing.T) {
 		}
 	}
 }
+
+func TestRowsReadWhoAddedEachWork(t *testing.T) {
+	h := newHarness(t)
+	for _, key := range []works.Key{"attic", "cellar"} {
+		h.fx.Put(key, contenttypetest.Record{Tree: works.Fetched{Label: "The " + string(key)}})
+	}
+	if _, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "attic", works.Adding{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "cellar", works.Adding{By: works.AddedByScan}); err != nil {
+		t.Fatal(err)
+	}
+	got := map[works.Key]works.AddedBy{}
+	for _, r := range h.rows(t) {
+		got[r.Key] = r.AddedBy
+	}
+	if got["attic"] != works.AddedByAdmin || got["cellar"] != works.AddedByScan {
+		t.Fatalf("rows read added by %v, want attic by admin and cellar by scan", got)
+	}
+}

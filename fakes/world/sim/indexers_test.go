@@ -9,6 +9,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/internal/indexers"
 )
 
@@ -21,10 +22,10 @@ import (
 func TestAnIndexerFailingForTheLongBackoffWarnsAndTheHealthCheckRunsEverySixHours(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t), sim.WithWalk(), inUTC)
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), inUTC)
 		a := w.API()
 		synctest.Wait()
-		listed := decode[struct{ Indexers []struct{ ID string } }](t, "listIndexers", a.Admin("home", http.MethodGet, "/api/v1/indexers", ""))
+		listed := simtest.Decode[struct{ Indexers []struct{ ID string } }](t, "listIndexers", a.Admin("home", http.MethodGet, "/api/v1/indexers", ""))
 		id := listed.Indexers[0].ID
 		if _, err := w.Faults().Set(fault.Rule{ID: "down", Target: "fixture-site", Route: "torznab.api", Fault: fault.Status{Code: http.StatusInternalServerError}}); err != nil {
 			t.Fatal(err)
@@ -36,24 +37,24 @@ func TestAnIndexerFailingForTheLongBackoffWarnsAndTheHealthCheckRunsEverySixHour
 
 		time.Sleep(time.Until(failed.Add(6*time.Hour - time.Minute)))
 		synctest.Wait()
-		if items := healthItems(t, a, "indexers"); len(items) != 0 {
+		if items := simtest.HealthItems(t, a, "indexers"); len(items) != 0 {
 			t.Fatalf("a minute before the long backoff the Indexers category holds %+v, want nothing", items)
 		}
 		time.Sleep(2 * time.Minute)
 		synctest.Wait()
-		it, ok := healthItems(t, a, "indexers")["failing."+id]
+		it, ok := simtest.HealthItems(t, a, "indexers")["failing."+id]
 		if want := "Every request to Fixture Site has failed since " + failed.UTC().Format("15:04") + "."; !ok || it.Level != "warn" || len(it.Text) < len(want) || it.Text[:len(want)] != want {
 			t.Fatalf("past the long backoff the failing item is %+v, want a warning starting %q", it, want)
 		}
 
 		time.Sleep(time.Until(failed.Add(13 * time.Hour)))
 		synctest.Wait()
-		d := getTask(t, a, indexers.HealthCheckTaskID)
-		expect(t, "the health check's runs over 13 hours", d.runs(), []string{"schedule|succeeded|1 Indexer", "schedule|succeeded|1 Indexer"})
+		d := simtest.GetTask(t, a, indexers.HealthCheckTaskID)
+		expect(t, "the health check's runs over 13 hours", d.RunLines(), []string{"schedule|succeeded|1 Indexer", "schedule|succeeded|1 Indexer"})
 		if gap := d.Runs[0].StartedAt.Sub(d.Runs[1].StartedAt); gap < 6*time.Hour || gap > 6*time.Hour+5*time.Minute {
 			t.Errorf("the health check ran %s after its last run, want 6 hours plus at most its 5-minute jitter", gap)
 		}
-		if _, ok := healthItems(t, a, "indexers")["failing."+id]; !ok {
+		if _, ok := simtest.HealthItems(t, a, "indexers")["failing."+id]; !ok {
 			t.Error("the health check's failed Tests cleared the long-backoff warning")
 		}
 	})
@@ -70,17 +71,17 @@ type limitUse struct {
 func TestASearchLimitFreesAnHourAfterTheSearch(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t), sim.WithWalk(), inUTC)
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), inUTC)
 		a := w.API()
 		synctest.Wait()
-		id := decode[struct{ Indexers []struct{ ID string } }](t, "listIndexers", a.Admin("home", http.MethodGet, "/api/v1/indexers", "")).Indexers[0].ID
+		id := simtest.Decode[struct{ Indexers []struct{ ID string } }](t, "listIndexers", a.Admin("home", http.MethodGet, "/api/v1/indexers", "")).Indexers[0].ID
 		if r := a.Admin("home", http.MethodPatch, "/api/v1/indexers/"+id, `{"searches":{"count":1,"per":"hour"}}`); r.Status != http.StatusOK {
 			t.Fatalf("updateIndexer = %d %s, want 200", r.Status, r.Body)
 		}
 		searches := func() limitUse {
-			return decode[struct{ Searches limitUse }](t, "getIndexer", a.Admin("home", http.MethodGet, "/api/v1/indexers/"+id, "")).Searches
+			return simtest.Decode[struct{ Searches limitUse }](t, "getIndexer", a.Admin("home", http.MethodGet, "/api/v1/indexers/"+id, "")).Searches
 		}
-		search(t, w, addOrchard(t, w))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
 		searched := time.Now()
 		synctest.Wait()
 		used := searches()
@@ -111,24 +112,24 @@ type queryPage struct {
 func TestHousekeepingDeletesIndexerQueriesPastTheirKeep(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		s := home(t)
+		s := simtest.Home(t)
 		s.Timings.Indexers.KeepQueries = 12 * time.Hour
 		w := sim.Launch(t, s, sim.WithWalk(), inUTC)
 		a := w.API()
 		synctest.Wait()
-		id := decode[struct{ Indexers []struct{ ID string } }](t, "listIndexers", a.Admin("home", http.MethodGet, "/api/v1/indexers", "")).Indexers[0].ID
+		id := simtest.Decode[struct{ Indexers []struct{ ID string } }](t, "listIndexers", a.Admin("home", http.MethodGet, "/api/v1/indexers", "")).Indexers[0].ID
 		if r := a.Admin("home", http.MethodPost, "/api/v1/indexers/"+id+"/test", ""); r.Status != http.StatusOK {
 			t.Fatalf("testIndexer = %d %s, want 200", r.Status, r.Body)
 		}
-		first := decode[queryPage](t, "listIndexerQueries", a.Admin("home", http.MethodGet, "/api/v1/indexers/"+id+"/queries", "")).Queries[0].ID
+		first := simtest.Decode[queryPage](t, "listIndexerQueries", a.Admin("home", http.MethodGet, "/api/v1/indexers/"+id+"/queries", "")).Queries[0].ID
 		time.Sleep(18 * time.Hour)
 		synctest.Wait()
-		runNow(t, a, "housekeeping")
+		simtest.RunNow(t, a, "housekeeping")
 		synctest.Wait()
 		cutoff := time.Now().Add(-s.Timings.Indexers.KeepQueries)
 		rows := 0
 		for offset := 0; ; {
-			page := decode[queryPage](t, "listIndexerQueries", a.Admin("home", http.MethodGet, "/api/v1/indexers/"+id+"/queries?offset="+strconv.Itoa(offset), ""))
+			page := simtest.Decode[queryPage](t, "listIndexerQueries", a.Admin("home", http.MethodGet, "/api/v1/indexers/"+id+"/queries?offset="+strconv.Itoa(offset), ""))
 			for _, q := range page.Queries {
 				rows++
 				if q.ID == first || q.ReservedAt.Before(cutoff) {

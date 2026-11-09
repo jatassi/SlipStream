@@ -288,3 +288,12 @@ test("a unit's Node links to the Node, and a removed Node is named as removed", 
     .element(lines.getByRole("link", { name: "home" }))
     .toHaveAttribute("href", `/nodes/${homeId}`);
 });
+
+test("a run another feature started reads Root ready in the task's runs", async () => {
+  const tasks = taskServer({ tasks: [housekeeping] });
+  tasks.state.runs = [{ ...succeededRun, trigger: "event" }];
+  renderApp({ path: "/tasks/housekeeping", handlers: tasks.handlers });
+  await expect
+    .element(page.getByRole("region", { name: "Runs" }))
+    .toMatchTextContent(/Root ready/u);
+});

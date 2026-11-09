@@ -12,3 +12,9 @@ JOIN works_title t ON t.row = i.rowid
 JOIN works_work w ON w.id = t.work_id
 WHERE CAST(sqlc.narg(content_type) AS TEXT) IS NULL OR w.content_type = sqlc.narg(content_type)
 ORDER BY bm25(works_title_index, 4.0, 1.0), w.sort_label, w.id;
+
+-- name: ListTitlesOfType :many
+SELECT t.work_id, t.labels, t.titles FROM works_title t
+JOIN works_work w ON w.id = t.work_id
+WHERE w.content_type = ?
+ORDER BY t.work_id;

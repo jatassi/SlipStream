@@ -1,6 +1,13 @@
 import * as zod from "zod";
 
-import { FilesCellList, FilesFileList } from "../slipStream.schemas.zod.ts";
+import { FilesCellList, FilesFileList, ForgetInputBody } from "../slipStream.schemas.zod.ts";
+
+/**
+ * @summary Delete the records of gone files, all or none
+ */
+export const ForgetFilesBody = ForgetInputBody;
+
+export const ForgetFilesResponse = zod.void();
 
 /**
  * @summary Get each of a Work's cells with its state and the file filling it, and each Item's status

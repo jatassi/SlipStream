@@ -168,7 +168,8 @@ type Verdict struct {
 }
 
 // Contents is what files knows about roots. files.RootContents implements
-// it.
+// it. A gone file, one a library scan found absent, counts for none of
+// Use, HasFiles, Proof and Recorded.
 type Contents interface {
 	Use(ctx context.Context, r storage.Reader[file], ids []ID) (map[ID]Use, error)
 	HasFiles(ctx context.Context, r storage.Reader[file], work works.WorkID) (bool, error)
@@ -182,6 +183,11 @@ type Contents interface {
 	// Forget deletes root's files recorded at paths, so their cells read
 	// missing and wanted. It does no IO.
 	Forget(ctx context.Context, tx *storage.Tx[file], root ID, paths []storing.Rel) error
+	// ForgetGone deletes root's gone files, in the Write that deletes root.
+	ForgetGone(ctx context.Context, tx *storage.Tx[file], root ID) error
+	// ForgetGoneOf deletes work's gone files, in the Write that changes its
+	// root.
+	ForgetGoneOf(ctx context.Context, tx *storage.Tx[file], work works.WorkID) error
 }
 
 // Inflight is what grabs knows about roots. grabs.RootGrabs implements it.

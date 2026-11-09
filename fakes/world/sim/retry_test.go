@@ -8,6 +8,8 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
+
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -37,7 +39,7 @@ type retryRow struct {
 // retryRows is home's Torrents by id, as GET /torrents lists them.
 func retryRows(t *testing.T, w *sim.World) map[string]retryRow {
 	t.Helper()
-	rows := decode[struct {
+	rows := simtest.Decode[struct {
 		Rows []retryRow `json:"rows"`
 	}](t, "listTorrents", w.API().Admin("home", http.MethodGet, "/api/v1/torrents?tab=all", "")).Rows
 	out := map[string]retryRow{}
@@ -87,6 +89,7 @@ func attachRelease(t *testing.T, lib *storage.DB[storage.Library], swarm *engine
 // stays paused. The one that lost pieces stays paused, and its row says
 // its check found two of its five pieces.
 func TestRetryChecksAFailedSeedAgain(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w, swarm := launchSwarm(t, enginetest.TrackerRules{Interval: 30 * time.Minute}, &engines{})
 		u, err := storage.ParseUUID(seedbox(t, w.API()).ID)
@@ -103,7 +106,7 @@ func TestRetryChecksAFailedSeedAgain(t *testing.T) {
 		seeds := []downloadclients.ID{whole, paused, lost}
 		eventuallyIn(t, w, "seeding", seeds...)
 		act(t, w, downloadclients.Action{Kind: downloadclients.Pause, IDs: []downloadclients.ID{paused}})
-		eventually(t, "the paused seed is paused", func() bool { return retryRows(t, w)[paused.String()].Hold == "wanted" })
+		simtest.Eventually(t, "the paused seed is paused", func() bool { return retryRows(t, w)[paused.String()].Hold == "wanted" })
 
 		readError := &engine.Error{Category: engine.CategorySystem, Code: 2, Text: "No such file or directory"}
 		for _, h := range []bencode.InfoHash{wholeHash, pausedHash, lostHash, downloadHash} {
@@ -121,7 +124,7 @@ func TestRetryChecksAFailedSeedAgain(t *testing.T) {
 		}
 
 		retryAll(t, w, whole, paused, lost, download)
-		eventually(t, "every Retry is settled and the seed that was started seeds again", func() bool {
+		simtest.Eventually(t, "every Retry is settled and the seed that was started seeds again", func() bool {
 			rows := retryRows(t, w)
 			return found(rows[whole.String()]) != nil && found(rows[paused.String()]) != nil && found(rows[lost.String()]) != nil &&
 				rows[whole.String()].State == "seeding" && rows[whole.String()].Hold == ""
@@ -160,7 +163,7 @@ func wantSettled(t *testing.T, rows map[string]retryRow, whole, paused, lost, do
 // eventuallyIn waits until each of ids reads state.
 func eventuallyIn(t *testing.T, w *sim.World, state string, ids ...downloadclients.ID) {
 	t.Helper()
-	eventually(t, "the torrents read "+state, func() bool {
+	simtest.Eventually(t, "the torrents read "+state, func() bool {
 		rows := retryRows(t, w)
 		for _, id := range ids {
 			if rows[id.String()].State != state {
@@ -176,7 +179,7 @@ func eventuallyIn(t *testing.T, w *sim.World, state string, ids ...downloadclien
 func retryAll(t *testing.T, w *sim.World, whole, paused, lost, download downloadclients.ID) {
 	t.Helper()
 	body := fmt.Sprintf(`{"action":"retry","ids":[%q,%q,%q,%q]}`, whole, paused, lost, download)
-	got := decode[struct {
+	got := simtest.Decode[struct {
 		Results []struct {
 			Done    bool `json:"done"`
 			Refusal *struct {

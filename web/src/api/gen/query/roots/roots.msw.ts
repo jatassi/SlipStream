@@ -9,6 +9,7 @@ import type {
   RootsRoot,
   RootsRootList,
   RootsRootSettings,
+  RootsScanStarted,
   RootsSuggestions,
   RootsVerdict,
   RootsVolumeList,
@@ -134,6 +135,26 @@ export const getListRootsResponseMock = (
     ...(faker.datatype.boolean()
       ? { rehome: { checked: faker.number.int(), total: faker.number.int() } }
       : {}),
+    scan: {
+      lastAt: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + "Z",
+        null,
+      ]),
+      running: faker.helpers.arrayElement([
+        {
+          done: faker.number.int({ min: 0 }),
+          phase: faker.helpers.arrayElement(["listing", "comparing", "probing"] as const),
+          runId: faker.number.int(),
+          total: faker.helpers.arrayElement([faker.number.int({ min: 0 }), null]),
+        },
+        null,
+      ]),
+      stopped: faker.helpers.arrayElement([
+        { gone: faker.number.int({ min: 1 }), of: faker.number.int({ min: 1 }) },
+        null,
+      ]),
+      summary: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
     state: faker.helpers.arrayElement([
       "ready",
       "missing",
@@ -165,6 +186,23 @@ export const getCreateRootResponseMock = (
   ...(faker.datatype.boolean()
     ? { rehome: { checked: faker.number.int(), total: faker.number.int() } }
     : {}),
+  scan: {
+    lastAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
+    running: faker.helpers.arrayElement([
+      {
+        done: faker.number.int({ min: 0 }),
+        phase: faker.helpers.arrayElement(["listing", "comparing", "probing"] as const),
+        runId: faker.number.int(),
+        total: faker.helpers.arrayElement([faker.number.int({ min: 0 }), null]),
+      },
+      null,
+    ]),
+    stopped: faker.helpers.arrayElement([
+      { gone: faker.number.int({ min: 1 }), of: faker.number.int({ min: 1 }) },
+      null,
+    ]),
+    summary: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
   state: faker.helpers.arrayElement([
     "ready",
     "missing",
@@ -267,6 +305,23 @@ export const getRehomeRootResponseMock = (
   ...(faker.datatype.boolean()
     ? { rehome: { checked: faker.number.int(), total: faker.number.int() } }
     : {}),
+  scan: {
+    lastAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
+    running: faker.helpers.arrayElement([
+      {
+        done: faker.number.int({ min: 0 }),
+        phase: faker.helpers.arrayElement(["listing", "comparing", "probing"] as const),
+        runId: faker.number.int(),
+        total: faker.helpers.arrayElement([faker.number.int({ min: 0 }), null]),
+      },
+      null,
+    ]),
+    stopped: faker.helpers.arrayElement([
+      { gone: faker.number.int({ min: 1 }), of: faker.number.int({ min: 1 }) },
+      null,
+    ]),
+    summary: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
   state: faker.helpers.arrayElement([
     "ready",
     "missing",
@@ -284,6 +339,14 @@ export const getRehomeRootResponseMock = (
   works: faker.number.int(),
   ...overrideResponse,
 });
+
+export const getMarkRootGoneResponseMock = (
+  overrideResponse: Partial<Extract<RootsScanStarted, object>> = {},
+): RootsScanStarted => ({ runId: faker.number.int(), ...overrideResponse });
+
+export const getScanRootResponseMock = (
+  overrideResponse: Partial<Extract<RootsScanStarted, object>> = {},
+): RootsScanStarted => ({ runId: faker.number.int(), ...overrideResponse });
 
 export const getListVolumesResponseMock = (
   overrideResponse: Partial<Extract<RootsVolumeList, object>> = {},
@@ -559,6 +622,54 @@ export const getMakeDefaultRootMockHandler = (
   );
 };
 
+export const getMarkRootGoneMockHandler = (
+  overrideResponse?:
+    | RootsScanStarted
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<RootsScanStarted> | RootsScanStarted),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/roots/:rootId/gone",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getMarkRootGoneResponseMock(),
+        { status: 202 },
+      );
+    },
+    options,
+  );
+};
+
+export const getScanRootMockHandler = (
+  overrideResponse?:
+    | RootsScanStarted
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<RootsScanStarted> | RootsScanStarted),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/roots/:rootId/scan",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getScanRootResponseMock(),
+        { status: 202 },
+      );
+    },
+    options,
+  );
+};
+
 export const getListVolumesMockHandler = (
   overrideResponse?:
     | RootsVolumeList
@@ -594,5 +705,7 @@ export const getRootsMock = () => [
   getDeleteRootMockHandler(),
   getRehomeRootMockHandler(),
   getMakeDefaultRootMockHandler(),
+  getMarkRootGoneMockHandler(),
+  getScanRootMockHandler(),
   getListVolumesMockHandler(),
 ];

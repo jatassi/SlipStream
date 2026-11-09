@@ -54,7 +54,7 @@ type Target struct {
 
 // Run drives the TVDB client through every call SlipStream makes and
 // asserts what holds on both sides: the login and the languages test
-// answer, search finds Known, its record lists specials and the Aired and
+// answer, search finds Known and filters to the year it first aired, its record lists specials and the Aired and
 // DVD orders, its episodes read in both orders with specials in Aired, an
 // unknown id is works.ErrNotFound, the updates list reads the last day,
 // and a wrong key is refused. It then checks every recorded body against
@@ -77,12 +77,19 @@ func Run(t *testing.T, tgt Target) {
 		t.Fatalf("Test: %v", err)
 	}
 
-	found, err := c.Search(ctx, ask(tgt.Key), known.Name)
+	found, err := c.Search(ctx, ask(tgt.Key), known.Name, 0)
 	if err != nil {
 		t.Fatalf("Search(%q): %v", known.Name, err)
 	}
-	if !slices.ContainsFunc(found, func(f provider.Found) bool { return f.ID == known.ID }) {
-		t.Errorf("Search(%q) = %+v, want %d among them", known.Name, found, known.ID)
+	at := slices.IndexFunc(found, func(f provider.Found) bool { return f.ID == known.ID })
+	if at < 0 || found[at].Year == 0 {
+		t.Fatalf("Search(%q) = %+v, want %d among them with a year", known.Name, found, known.ID)
+	}
+	for year, want := range map[int]bool{found[at].Year: true, found[at].Year - 1: false} {
+		inYear, err := c.Search(ctx, ask(tgt.Key), known.Name, year)
+		if got := slices.ContainsFunc(inYear, func(f provider.Found) bool { return f.ID == known.ID }); err != nil || got != want {
+			t.Errorf("Search(%q, %d) holds %d: %t, %v; want %t", known.Name, year, known.ID, got, err, want)
+		}
 	}
 
 	series, err := c.Series(ctx, ask(tgt.Key), known.ID)

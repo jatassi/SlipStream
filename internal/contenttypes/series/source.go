@@ -27,6 +27,7 @@ type Source struct {
 	tvdb *tvdb.Client
 	tmdb *tmdb.Client
 	omdb *omdb.Client
+	now  func() time.Time
 }
 
 // Sources are TMDB's image host and TVDB's artwork host.
@@ -34,33 +35,68 @@ func (s *Source) Sources() []artwork.Source {
 	return []artwork.Source{s.tmdb.Images(), s.tvdb.Artwork()}
 }
 
-// Search asks TVDB. While TVDB can't be reached or refuses the key, it
-// asks TMDB and reads each result's TVDB id from its external ids, one
-// call a result. A result TVDB doesn't list is keyed "tmdb-<id>" and
-// Unlisted. When TMDB fails too, Search answers TVDB's error.
+// maxResults is how many candidates Search answers at most.
+const maxResults = 25
+
+// Search asks TVDB for each of the query's metadata.SearchReads, so a
+// year ending it finds that year's series first. While TVDB can't be
+// reached or refuses the key, it asks TMDB the same reads and reads each
+// result's TVDB id from its external ids, one call a result. A result
+// TVDB doesn't list is keyed "tmdb-<id>" and Unlisted. A series two reads
+// find is answered once. When TMDB fails too, Search answers TVDB's error.
 func (s *Source) Search(ctx context.Context, ask metadata.Ask, query string) ([]works.Candidate, error) {
-	found, err := s.tvdb.Search(ctx, ask, query)
+	reads := metadata.SearchReads(query, s.now())
+	out, err := s.searchTVDB(ctx, ask, reads)
 	if err == nil {
-		out := make([]works.Candidate, len(found))
-		for i, f := range found {
-			out[i] = candidateOf(f)
-		}
 		return out, nil
 	}
 	if !errors.Is(err, works.ErrUnavailable) && !errors.Is(err, works.ErrRefused) {
 		return nil, err
 	}
-	results, terr := s.tmdb.SearchSeries(ctx, ask, query)
+	out, terr := s.searchTMDB(ctx, ask, reads)
 	if terr != nil {
 		return nil, err
 	}
-	out := make([]works.Candidate, len(results))
-	for i, r := range results {
-		ids, terr := s.tmdb.SeriesExternalIDs(ctx, ask, r.ID)
-		if terr != nil {
+	return out, nil
+}
+
+func (s *Source) searchTVDB(ctx context.Context, ask metadata.Ask, reads []metadata.SearchRead) ([]works.Candidate, error) {
+	var out []works.Candidate
+	seen := map[tvdb.SeriesID]bool{}
+	for _, r := range reads {
+		found, err := s.tvdb.Search(ctx, ask, r.Query, r.Year)
+		if err != nil {
 			return nil, err
 		}
-		out[i] = tmdbCandidateOf(r, ids)
+		for _, f := range found {
+			if !seen[f.ID] && len(out) < maxResults {
+				seen[f.ID] = true
+				out = append(out, candidateOf(f))
+			}
+		}
+	}
+	return out, nil
+}
+
+func (s *Source) searchTMDB(ctx context.Context, ask metadata.Ask, reads []metadata.SearchRead) ([]works.Candidate, error) {
+	var out []works.Candidate
+	seen := map[int64]bool{}
+	for _, r := range reads {
+		results, err := s.tmdb.SearchSeries(ctx, ask, r.Query, r.Year)
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range results {
+			if seen[f.ID] || len(out) == maxResults {
+				continue
+			}
+			seen[f.ID] = true
+			ids, err := s.tmdb.SeriesExternalIDs(ctx, ask, f.ID)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, tmdbCandidateOf(f, ids))
+		}
 	}
 	return out, nil
 }

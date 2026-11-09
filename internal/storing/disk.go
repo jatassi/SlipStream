@@ -48,6 +48,11 @@ type Info interface {
 	// FileID is the file's id on its volume, nil where the volume doesn't
 	// keep ids across mounts: vfat, exFAT and network filesystems.
 	FileID() []byte
+	// Volume names the volume FileID is unique on, empty where FileID is
+	// nil: st_dev in hex on Unix, the 64-bit serial in FILE_ID_INFO in hex
+	// on Windows. It is not Volume.ID, which names a volume for its space,
+	// and the two are never compared.
+	Volume() string
 }
 
 type File interface {
@@ -71,7 +76,9 @@ type WriteAtFile interface {
 type Entry struct {
 	Name string
 	// Dir is a folder, or a link or junction to one.
-	Dir    bool
+	Dir bool
+	// Link is a symbolic link, or on Windows a junction or mount point.
+	Link   bool
 	Hidden bool
 	// Readable is a folder SlipStream can list; a file is always Readable.
 	Readable bool

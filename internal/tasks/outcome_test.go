@@ -60,6 +60,11 @@ func TestClassify(t *testing.T) {
 		{"lost, portable", t.Context(), rpc.Errorf(rpc.CodeUnavailable, "session closed"), PortableOn(role.Searching, seedbox),
 			result{outcome: Skipped, cause: "lost seedbox mid-run", node: "seedbox", short: "seedbox offline"}},
 		{"a plain error", t.Context(), errors.New("database is locked"), OnController(), result{outcome: Failed, cause: "database is locked"}},
+		{"the task's skip", t.Context(), fmt.Errorf("scan: %w", Skip("Movies is unmounted.")), TiedTo(seedbox),
+			result{outcome: Skipped, cause: "Movies is unmounted."}},
+		{"the task's owned skip", t.Context(), SkipOwned("Library scan stopped."), TiedTo(seedbox),
+			result{outcome: Skipped, cause: "Library scan stopped.", owned: true}},
+		{"a canceled run, though the task skipped", canceled, Skip("Movies is unmounted."), TiedTo(seedbox), result{outcome: Canceled}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := classify(tc.ctx, tc.err, tc.place, box); !reflect.DeepEqual(got, tc.want) {
@@ -74,6 +79,8 @@ func TestRollUp(t *testing.T) {
 	offline := result{outcome: Skipped, cause: "seedbox is offline", node: "seedbox", short: "seedbox offline", dueOnReturn: true}
 	nasOffline := result{outcome: Skipped, cause: "nas is offline", node: "nas", short: "nas offline", dueOnReturn: true}
 	locked := result{outcome: Failed, cause: "database is locked"}
+	unmounted := result{outcome: Skipped, cause: "Movies is unmounted."}
+	stopped := result{outcome: Skipped, cause: "Library scan stopped.", owned: true}
 	full := result{outcome: Failed, cause: "disk is full"}
 	for _, tc := range []struct {
 		name     string
@@ -88,6 +95,10 @@ func TestRollUp(t *testing.T) {
 		{"none succeeded and one failed", []result{offline, locked, full}, false, [3]string{"failed", "2 of 3 steps failed", "database is locked"}},
 		{"some succeeded and one skipped", []result{ok, ok, ok, offline, ok, ok}, false, [3]string{"partial", "5 of 6 steps, seedbox offline", ""}},
 		{"some succeeded, one failed and one skipped", []result{ok, locked, offline, ok}, false, [3]string{"partial", "2 of 4 steps, 1 failed, seedbox offline", "database is locked"}},
+		{"some succeeded and the task skipped one", []result{ok, ok, ok, stopped}, false, [3]string{"partial", "3 of 4 steps, 1 skipped", ""}},
+		{"the task skipped one and a Node another", []result{ok, unmounted, offline}, false, [3]string{"partial", "1 of 3 steps, 1 skipped, seedbox offline", ""}},
+		{"the task skipped every unit", []result{unmounted, stopped}, false, [3]string{"skipped", "2 of 2 steps skipped", ""}},
+		{"the task skipped one and a Node the other", []result{stopped, offline}, false, [3]string{"skipped", "1 of 2 steps skipped, seedbox offline", ""}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r, summary, cause := rollUp(setting.Noun{One: "step", Many: "steps"}, tc.results, tc.canceled)

@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/grabs"
@@ -27,36 +28,12 @@ import (
 	"github.com/jatassi/slipstream/internal/storing"
 )
 
-type rootRow struct {
-	ID       string `json:"id"`
-	NodeID   string `json:"nodeId"`
-	Path     string `json:"path"`
-	State    string `json:"state"`
-	VolumeID string `json:"volumeId"`
-}
-
-func rootAt(t *testing.T, a *worldtest.API, path string) rootRow {
-	t.Helper()
-	reply := a.Admin("home", http.MethodGet, "/api/v1/roots", "")
-	var list struct{ Roots []rootRow }
-	if err := json.Unmarshal([]byte(reply.Body), &list); reply.Status != http.StatusOK || err != nil {
-		t.Fatalf("listRoots = %d %s, %v", reply.Status, reply.Body, err)
-	}
-	for _, r := range list.Roots {
-		if r.Path == path {
-			return r
-		}
-	}
-	t.Fatalf("listRoots has no root at %s: %s", path, reply.Body)
-	return rootRow{}
-}
-
 // TestAVolumeReportsItsScenarioFigures puts a Movies root on seedbox with
 // 2.5 GiB free of 10, and seedbox reports the root on that volume.
 func TestAVolumeReportsItsScenarioFigures(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		s := home(t)
+		s := simtest.Home(t)
 		s.Nodes[1].Roles = append(s.Nodes[1].Roles, "storage")
 		s.Library.Roots = append(s.Library.Roots, scenario.LibraryRoot{
 			ContentType: "movie", Folder: "films", Node: "seedbox", Volume: &scenario.LibraryVolume{TotalGiB: 10, FreeGiB: 2.5},
@@ -65,7 +42,7 @@ func TestAVolumeReportsItsScenarioFigures(t *testing.T) {
 		synctest.Wait()
 		a := w.API()
 		folder := filepath.Join(w.Manifest().MediaDir, "films")
-		root := rootAt(t, a, folder)
+		root := simtest.RootAt(t, a, folder)
 		if want := "sim:" + folder; root.NodeID != a.Node("seedbox").NodeID || root.State != "ready" || root.VolumeID != want {
 			t.Fatalf("the films root is %+v; want ready on seedbox on volume %s", root, want)
 		}
@@ -91,18 +68,18 @@ func TestAVolumeReportsItsScenarioFigures(t *testing.T) {
 func TestAHungShareReadsUnresponsive(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t), sim.WithWalk())
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk())
 		synctest.Wait()
 		a := w.API()
 		folder := filepath.Join(w.Manifest().MediaDir, "movies")
-		if root := rootAt(t, a, folder); root.State != "ready" {
+		if root := simtest.RootAt(t, a, folder); root.State != "ready" {
 			t.Fatalf("the movies root is %+v before the fault, want ready", root)
 		}
 		sample := roots.SampleEvery.Default + storing.DefaultTimings().Stat + time.Second
 		lift := w.Disk("home", folder, fault.Hung{})
 		time.Sleep(sample)
 		synctest.Wait()
-		root := rootAt(t, a, folder)
+		root := simtest.RootAt(t, a, folder)
 		if root.State != "unresponsive" {
 			t.Fatalf("the movies root is %+v with its share hung, want unresponsive", root)
 		}
@@ -118,7 +95,7 @@ func TestAHungShareReadsUnresponsive(t *testing.T) {
 		lift()
 		time.Sleep(sample)
 		synctest.Wait()
-		if root := rootAt(t, a, folder); root.State != "ready" {
+		if root := simtest.RootAt(t, a, folder); root.State != "ready" {
 			t.Fatalf("the movies root is %+v once its share answers, want ready", root)
 		}
 	})
@@ -133,7 +110,7 @@ func TestAnImportIntoAnUnmountedRootWaitsUntilItIsBack(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		reached, unmounted := make(chan struct{}), make(chan struct{})
 		var held atomic.Bool
-		w := sim.Launch(t, home(t), sim.WithWalk(), sim.Edit(func(_ string, e *node.Env) {
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), sim.Edit(func(_ string, e *node.Env) {
 			e.Test.BeforeStep = func(_ context.Context, s grabs.Stage) {
 				if s == grabs.Importing && held.CompareAndSwap(false, true) {
 					close(reached)
@@ -141,22 +118,22 @@ func TestAnImportIntoAnUnmountedRootWaitsUntilItIsBack(t *testing.T) {
 				}
 			}
 		}))
-		search(t, w, addOrchard(t, w))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
 		<-reached
 		folder := filepath.Join(w.Manifest().MediaDir, "movies")
 		lift := w.Disk("home", folder, fault.Unmounted{})
 		close(unmounted)
 		time.Sleep(time.Minute)
 		synctest.Wait()
-		if gs := grabsListed(t, w); len(gs) != 1 || gs[0].Stage != "importing" || gs[0].Failure != nil {
+		if gs := simtest.GrabsListed(t, w); len(gs) != 1 || gs[0].Stage != "importing" || gs[0].Failure != nil {
 			t.Fatalf("the Grabs with the root unmounted are %+v, want one waiting at importing", gs)
 		}
-		if root := rootAt(t, w.API(), folder); root.State != "unmounted" {
+		if root := simtest.RootAt(t, w.API(), folder); root.State != "unmounted" {
 			t.Fatalf("the movies root is %+v while its disk is away, want unmounted", root)
 		}
 		lift()
 		time.Sleep(5*time.Minute + 10*time.Second + time.Second)
-		expectImported(t, await(t, w))
+		simtest.ExpectImported(t, simtest.Await(t, w))
 		expectPlaced(t, w)
 	})
 }
@@ -167,13 +144,13 @@ func TestAnImportIntoAnUnmountedRootWaitsUntilItIsBack(t *testing.T) {
 func TestAWorkOnAnOfflineNodesRootDoesntSearch(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		s := home(t)
+		s := simtest.Home(t)
 		s.Nodes[1].Roles = append(s.Nodes[1].Roles, "storage")
 		s.Library.Roots = []scenario.LibraryRoot{{ContentType: "movie", Folder: "movies", Node: "seedbox"}}
 		w := sim.Launch(t, s, sim.WithWalk())
 		synctest.Wait()
-		work := addOrchard(t, w)
-		flip(t, w.Path("home", "seedbox"), fault.Stall{})
+		work := simtest.AddOrchard(t, w)
+		simtest.Flip(t, w.Path("home", "seedbox"), fault.Stall{})
 		link := node.Defaults(contenttype.Set{}, install.Dev).Timings.Link
 		time.Sleep(link.Keepalive + link.WriteTimeout)
 		synctest.Wait()
@@ -191,7 +168,7 @@ func TestAWorkOnAnOfflineNodesRootDoesntSearch(t *testing.T) {
 func TestASeedboxWithoutStorageBrowsesItsFolders(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t))
+		w := sim.Launch(t, simtest.Home(t))
 		synctest.Wait()
 		a := w.API()
 		seedbox := a.Node("seedbox").NodeID
@@ -220,7 +197,7 @@ func TestASeedboxWithoutStorageBrowsesItsFolders(t *testing.T) {
 func TestTheDownloadsRowRefusesARootOverlap(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t), sim.WithWalk())
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk())
 		synctest.Wait()
 		a := w.API()
 		self := a.Node("home").NodeID

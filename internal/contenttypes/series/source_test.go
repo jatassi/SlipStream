@@ -81,6 +81,11 @@ func scenarioOf(t *testing.T, name string) scenario.Scenario {
 		},
 		scenario.TMDBSeries{ID: 7999, Name: "The Lantern Road", FirstAired: "2024-05-01"},
 	)
+	s.TVDB.Series = append(s.TVDB.Series,
+		scenario.TVDBSeries{ID: 1901, Name: "Harbor Nights", Status: "ended", Seasons: []scenario.TVDBSeason{{Number: 1, Episodes: []scenario.TVDBEpisode{{ID: 190101, Number: 1, Name: "Pilot", Aired: "1998-04-02"}}}}},
+		scenario.TVDBSeries{ID: 1902, Name: "Signal 1999", Status: "ended", Seasons: []scenario.TVDBSeason{{Number: 1, Episodes: []scenario.TVDBEpisode{{ID: 190201, Number: 1, Name: "Carrier", Aired: "2003-05-06"}}}}},
+		scenario.TVDBSeries{ID: 1903, Name: "Signal Fires", Status: "ended", Seasons: []scenario.TVDBSeason{{Number: 1, Episodes: []scenario.TVDBEpisode{{ID: 190301, Number: 1, Name: "Kindling", Aired: "1999-10-01"}}}}},
+	)
 	long := scenario.OMDbTitle{IMDbID: "tt60000002", Type: "series", IMDbRating: ptr(7.0)}
 	for n := 1; n <= 40; n++ {
 		long.Seasons = append(long.Seasons, scenario.OMDbSeason{Number: n, Episodes: []scenario.OMDbEpisode{{Episode: 1, IMDbID: fmt.Sprintf("tt7%07d", n), Rating: ptr(6.5)}}})
@@ -112,6 +117,7 @@ func serve(t *testing.T, name string, test func(t *testing.T, p *providers), tvd
 			TMDB: tmdb.New(lines, tmdb.Endpoints{API: endpoint.MustParseURL(p.tmdb.Address.URL("/3"))}, tmdb.DefaultTimings()),
 			OMDb: omdb.New(lines, omdb.Endpoints{API: endpoint.MustParseURL(p.omdb.Address.URL(""))}, omdb.DefaultTimings()),
 			Log:  slog.New(slog.DiscardHandler),
+			Now:  func() time.Time { return time.Now().AddDate(26, 0, 0) },
 		}, Def.Endpoints())
 		test(t, p)
 	})
@@ -212,6 +218,37 @@ func TestSearchFallsBackToTMDBAndMarksUnlisted(t *testing.T) {
 			t.Errorf("Search read %d external ids, want one a result", lookups)
 		}
 	}, down)
+}
+
+func TestAYearEndingASearchFindsThatYearsSeriesFirst(t *testing.T) {
+	serve(t, "series", func(t *testing.T, p *providers) {
+		for query, want := range map[string][]works.Key{
+			"Harbor Nights 1998": {"1901"},
+			"Harbor Nights 2015": {"1002"},
+			"Harbor Nights":      {"1002", "1901"},
+			"Signal 1999":        {"1903", "1902"},
+		} {
+			found, err := p.source.Search(t.Context(), askFor(metadata.RatingsNone), query)
+			if got := keysOf(found); err != nil || !slices.Equal(got, want) {
+				t.Errorf("Search(%q) = %v, %v; want %v", query, got, err, want)
+			}
+		}
+	})
+	down := fault.Rule{ID: "down", Target: "tvdb", Route: "search", Fault: fault.Status{Code: http.StatusServiceUnavailable}}
+	serve(t, "series", func(t *testing.T, p *providers) {
+		found, err := p.source.Search(t.Context(), askFor(metadata.RatingsNone), "lantern 2024")
+		if got := keysOf(found); err != nil || !slices.Equal(got, []works.Key{"tmdb-7999"}) {
+			t.Errorf("Search(lantern 2024) with TVDB down = %v, %v; want TMDB's The Lantern Road", got, err)
+		}
+	}, down)
+}
+
+func keysOf(cs []works.Candidate) []works.Key {
+	out := []works.Key{}
+	for _, c := range cs {
+		out = append(out, c.Key)
+	}
+	return out
 }
 
 func TestAddReadsNoSeasonRatings(t *testing.T) {

@@ -15,13 +15,14 @@ import type { LiveEffects } from "./types";
 
 const everyWork = everyPath(/^\/api\/v1\/works\/[^/]+(\/cells)?$/u);
 const everyIndexersGrabs = everyPath(/^\/api\/v1\/indexers\/[^/]+\/grabs$/u);
+const everyPendingImport = everyPath(/^\/api\/v1\/imports\/pending/u);
 
 /**
- * The library's events: Works, their files, Grabs and searches. A row of
- * the Library is read again only for the Works an event names. A fetch or
- * a search also moves the Diagram's machines. A Grab's progress tick
- * leaves the cells alone, since a downloading cell reads its progress
- * from the Grab.
+ * The library's events: Works, their files, pending imports, Grabs and
+ * searches. A row of the Library is read again only for the Works an event
+ * names. A fetch or a search also moves the Diagram's machines. A Grab's
+ * progress tick leaves the cells alone, since a downloading cell reads its
+ * progress from the Grab.
  */
 export const libraryEffects = {
   "works.changed": ({ workIds }, { queryClient, refresh }) => {
@@ -52,6 +53,10 @@ export const libraryEffects = {
     refresh({ queryKey: getListWorkFilesQueryKey(workId) });
     refresh({ queryKey: getListRootsQueryKey() });
   },
+  "imports.changed": (_data, { refresh }) => {
+    refresh(everyPendingImport);
+    refresh({ queryKey: getGetCountsQueryKey() });
+  },
   "grabs.changed": ({ grabId, workId, progress }, { queryClient, refresh }) => {
     if (!progress) {
       queueRows(queryClient, [workId]);
@@ -75,6 +80,7 @@ export const libraryEffects = {
   | "works.content-types-changed"
   | "works.type-changed"
   | "files.changed"
+  | "imports.changed"
   | "grabs.changed"
   | "grabs.search-changed"
 >;

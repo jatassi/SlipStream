@@ -105,6 +105,8 @@ export const orchardRow: WorksLibraryRow = {
   addedAt: orchard.addedAt,
   refreshedAt: orchard.refreshedAt,
   goneUpstreamAt: null,
+  addedBy: "admin",
+  goneFiles: 0,
   monitored: "all",
   profileId: orchard.profile.id,
   rootId: null,

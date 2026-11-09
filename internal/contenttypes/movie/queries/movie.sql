@@ -80,3 +80,9 @@ SELECT counts_as, cinema_delay_seconds, year_slack FROM movie_settings WHERE id 
 
 -- name: SetSettings :exec
 UPDATE movie_settings SET counts_as = sqlc.arg(counts_as), cinema_delay_seconds = sqlc.arg(cinema_delay_seconds), year_slack = sqlc.arg(year_slack) WHERE id = 1;
+
+-- name: ListClaimsOf :many
+SELECT work_id, tmdb_id, imdb_id, year FROM movie_movie WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
+
+-- name: ListEveryClaim :many
+SELECT work_id, tmdb_id, imdb_id, year FROM movie_movie ORDER BY rowid;

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/media"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -105,19 +107,37 @@ func (s *Store) Verify(ctx context.Context, req *storagev1.VerifyRequest) (*stor
 	}
 	files := make([]Recorded, 0, len(req.GetFiles()))
 	for _, f := range req.GetFiles() {
-		sits, err := ParseRel(f.GetPath())
+		sits, err := relOf(f.GetPath())
 		if err != nil {
-			return nil, rpc.Errorf(rpc.CodeInvalidArgument, "%v", err)
+			return nil, err
 		}
 		var next Rel
 		if f.GetNext() != "" {
-			if next, err = ParseRel(f.GetNext()); err != nil {
-				return nil, rpc.Errorf(rpc.CodeInvalidArgument, "%v", err)
+			if next, err = relOf(f.GetNext()); err != nil {
+				return nil, err
 			}
 		}
 		files = append(files, Recorded{Sits: sits, Next: next, Size: f.GetSize()})
 	}
-	missing, err := s.verify(ctx, req.GetPath(), files)
+	var dir string
+	switch at := req.GetAt().(type) {
+	case *storagev1.VerifyRequest_Path:
+		var err error
+		if dir, err = s.clean(at.Path); err != nil {
+			return nil, err
+		}
+	case *storagev1.VerifyRequest_RootId:
+		root, err := rootID(at.RootId)
+		if err != nil {
+			return nil, err
+		}
+		if dir, err = s.resolve(ctx, root, false); err != nil {
+			return nil, wireError(err)
+		}
+	default:
+		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "verify names neither a folder nor a root")
+	}
+	missing, err := s.verify(ctx, dir, files)
 	if err != nil {
 		return nil, wireError(err)
 	}
@@ -142,11 +162,11 @@ func (s *Store) Place(ctx context.Context, req *storagev1.PlaceRequest) (*storag
 	if err != nil {
 		return nil, err
 	}
-	size, linked, err := s.place(ctx, root, Payload{InfoHash: h, FileIndex: int(req.GetFileIndex())}, to)
+	info, linked, err := s.place(ctx, root, Payload{InfoHash: h, FileIndex: int(req.GetFileIndex())}, to)
 	if err != nil {
 		return nil, wireError(err)
 	}
-	return &storagev1.PlaceResponse{Size: size, Linked: linked}, nil
+	return &storagev1.PlaceResponse{Size: info.Size(), Linked: linked, Identity: identityOf(info)}, nil
 }
 
 func (s *Store) Move(ctx context.Context, req *storagev1.MoveRequest) (*storagev1.MoveResponse, error) {
@@ -162,11 +182,11 @@ func (s *Store) Move(ctx context.Context, req *storagev1.MoveRequest) (*storagev
 	if err != nil {
 		return nil, err
 	}
-	size, err := s.move(ctx, root, from, to)
+	info, err := s.move(ctx, root, from, to)
 	if err != nil {
 		return nil, wireError(err)
 	}
-	return &storagev1.MoveResponse{Size: size}, nil
+	return &storagev1.MoveResponse{Size: info.Size(), Identity: identityOf(info)}, nil
 }
 
 func (s *Store) Remove(ctx context.Context, req *storagev1.RemoveRequest) (*storagev1.RemoveResponse, error) {
@@ -198,6 +218,61 @@ func (s *Store) List(ctx context.Context, req *storagev1.ListRequest) (*storagev
 		return nil, wireError(err)
 	}
 	return &storagev1.ListResponse{Names: names}, nil
+}
+
+func (s *Store) Walk(ctx context.Context, req *storagev1.WalkRequest) (*storagev1.WalkResponse, error) {
+	root, err := rootID(req.GetRootId())
+	if err != nil {
+		return nil, err
+	}
+	limit := int(req.GetLimit())
+	if limit < 1 || limit > walkLimit {
+		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "a page lists 1 to %d entries, not %d", walkLimit, limit)
+	}
+	var after []string
+	if len(req.GetAfter()) > 0 {
+		after = strings.Split(string(req.GetAfter()), "\x00")
+	}
+	p, err := s.walk(ctx, root, after, limit)
+	if err != nil {
+		return nil, wireError(err)
+	}
+	res := &storagev1.WalkResponse{Next: []byte(strings.Join(p.next, "\x00")), CaseInsensitive: p.caseFold}
+	for _, f := range p.files {
+		res.Entries = append(res.Entries, &storagev1.Walked{Path: f.rel.String(), Size: f.info.Size(), Identity: identityOf(f.info)})
+	}
+	for _, u := range p.unread {
+		res.Unread = append(res.Unread, &storagev1.Unread{Path: u.Path, Reason: u.Reason.Wire()})
+	}
+	return res, nil
+}
+
+func (s *Store) Probe(ctx context.Context, req *storagev1.ProbeRequest) (*storagev1.ProbeResponse, error) {
+	root, err := rootID(req.GetRootId())
+	if err != nil {
+		return nil, err
+	}
+	rel, err := relOf(req.GetPath())
+	if err != nil {
+		return nil, err
+	}
+	r, err := s.probe(ctx, root, rel)
+	if u, ok := errors.AsType[*media.UnreadableError](err); ok {
+		return nil, rpc.ErrorWith(rpc.CodeFailedPrecondition, &storagev1.Unprobed{Line: u.Line}, u.Error())
+	}
+	if err != nil {
+		return nil, wireError(err)
+	}
+	record, err := json.Marshal(r)
+	if err != nil {
+		return nil, fmt.Errorf("encode the media record: %w", err)
+	}
+	return &storagev1.ProbeResponse{Record: record}, nil
+}
+
+// identityOf is what a scan compares of info besides its size.
+func identityOf(info Info) *storagev1.Identity {
+	return &storagev1.Identity{ModifiedUnixMs: info.ModTime().UnixMilli(), FileId: info.FileID(), VolumeId: info.Volume()}
 }
 
 func rootID(b []byte) (storage.UUID, error) {
@@ -516,13 +591,9 @@ func (s *Store) tryWrite(ctx context.Context, dir string) error {
 	return err
 }
 
-// verify checks each recorded file at the proposed folder, answering the
-// ones missing or of another size.
-func (s *Store) verify(ctx context.Context, path string, files []Recorded) ([]MissingFile, error) {
-	dir, err := s.clean(path)
-	if err != nil {
-		return nil, err
-	}
+// verify checks each recorded file in the folder dir, answering the ones
+// missing or of another size.
+func (s *Store) verify(ctx context.Context, dir string, files []Recorded) ([]MissingFile, error) {
 	var missing []MissingFile
 	for i, f := range files {
 		reason, err := s.sized(ctx, dir, f.Sits, f.Size)
@@ -556,33 +627,33 @@ func (s *Store) sized(ctx context.Context, dir string, rel Rel, size int64) (Mis
 	return 0, nil
 }
 
-func (s *Store) place(ctx context.Context, root storage.UUID, p Payload, to Rel) (size int64, linked bool, err error) {
+func (s *Store) place(ctx context.Context, root storage.UUID, p Payload, to Rel) (placed Info, linked bool, err error) {
 	dir, err := s.resolve(ctx, root, true)
 	if err != nil {
-		return 0, false, err
+		return nil, false, err
 	}
 	from, err := s.cfg.Payloads.Path(p.InfoHash, p.FileIndex)
 	if err != nil {
-		return 0, false, rpc.Errorf(rpc.CodeUnavailable, "%v", err)
+		return nil, false, rpc.Errorf(rpc.CodeUnavailable, "%v", err)
 	}
-	size, linked, err = placer{s.cfg.Disk, s.host.Style, dir}.place(ctx, from, to)
+	placed, linked, err = placer{s.cfg.Disk, s.host.Style, dir}.place(ctx, from, to)
 	if err != nil {
-		return 0, false, s.refused(ctx, dir, err)
+		return nil, false, s.refused(ctx, dir, err)
 	}
 	s.resample(root)
-	return size, linked, nil
+	return placed, linked, nil
 }
 
-func (s *Store) move(ctx context.Context, root storage.UUID, from, to Rel) (int64, error) {
+func (s *Store) move(ctx context.Context, root storage.UUID, from, to Rel) (Info, error) {
 	dir, err := s.resolve(ctx, root, false)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	size, err := placer{s.cfg.Disk, s.host.Style, dir}.move(ctx, from, to)
+	moved, err := placer{s.cfg.Disk, s.host.Style, dir}.move(ctx, from, to)
 	if err != nil {
-		return 0, s.refused(ctx, dir, err)
+		return nil, s.refused(ctx, dir, err)
 	}
-	return size, nil
+	return moved, nil
 }
 
 // refused is a failed write into a root's folder dir as its caller reads
