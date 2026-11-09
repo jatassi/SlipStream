@@ -199,8 +199,8 @@ func TestOrderChoiceListsOnlyTVDBsOrders(t *testing.T) {
 			fields, err = sh.s.OptionFields(ctx, r, tree.ID)
 			return err
 		})
-		if len(fields) != 1 {
-			t.Fatalf("OptionFields = %+v, want the order alone", fields)
+		if len(fields) != 2 {
+			t.Fatalf("OptionFields = %+v, want the order and Name by air date", fields)
 		}
 		c, ok := fields[0].(setting.ChoiceField)
 		if !ok {

@@ -17,24 +17,27 @@ import (
 type Optioning struct {
 	LevelFolders *bool
 	// Type is the type's own options to change, checked by its
-	// PatchOptions.
+	// PatchOptions and StoreOptions.
 	Type setting.Patch
 }
 
-// OptionsChange is a Work's options, and how many of its live Items a
-// change to them withdraws: Items the new options' fetch doesn't list,
-// which keep their files and show as no longer listed.
+// OptionsChange is a Work's options, and what a change to them does:
+// Moves when it fetches the Work again, so its Items may move between
+// levels, and how many live Items it withdraws: Items the new options'
+// fetch doesn't list, which keep their files and show as no longer listed.
 type OptionsChange struct {
 	LevelFolders bool
 	Fields       []setting.Field
+	Moves        bool
 	Withdraws    int
 }
 
-// SetOptions changes Work id's options. Changed type options refetch the
+// SetOptions changes Work id's options. Changed fetch options refetch the
 // Work with them, outside the Write, then converge in one Write with the
-// level folder switch, so Items keep their ids and move between levels.
-// preview rolls the Write back. Unchanged options change nothing and
-// fetch nothing. ErrNoWork, ErrOrderUnavailable, *setting.RangeError, and
+// level folder switch and the non-fetch options, so Items keep their ids
+// and move between levels. preview rolls the Write back. Unchanged
+// options change nothing and fetch nothing. ErrNoWork,
+// ErrOrderUnavailable, *setting.RangeError, *setting.UnknownKeyError, and
 // the fetch's source errors.
 func (w *Works) SetOptions(ctx context.Context, _ identity.Admin, id WorkID, o Optioning, preview bool) (OptionsChange, error) {
 	row, current, next, err := w.patchOptions(ctx, id, o.Type)
@@ -45,26 +48,24 @@ func (w *Works) SetOptions(ctx context.Context, _ identity.Admin, id WorkID, o O
 	if o.LevelFolders != nil {
 		folders = *o.LevelFolders
 	}
-	refetch := !bytes.Equal(next, current)
-	if !refetch && folders == row.LevelFolders {
-		var out OptionsChange
-		err := w.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-			out, err = w.OptionsOf(ctx, r, id)
-			return err
-		})
-		return out, err
-	}
 	reg := w.types[row.ContentType]
 	var p *parsed
-	if refetch {
+	if !bytes.Equal(next, current) {
 		fetched, err := w.fetch(ctx, row.ContentType, reg, row.Key, Fetching{Purpose: ForRefresh, RatingsReadAt: row.RatingsReadAt, Options: next})
 		if err != nil {
 			return OptionsChange{}, err
 		}
 		p = &fetched
 	}
-	var out OptionsChange
+	var (
+		out    OptionsChange
+		stored bool
+	)
 	err = w.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		var err error
+		if stored, err = reg.catalog.StoreOptions(ctx, tx, id, o.Type); err != nil {
+			return err
+		}
 		if err := db.New(tx).SetLevelFolders(ctx, db.SetLevelFoldersParams{LevelFolders: folders, ID: id}); err != nil {
 			return err
 		}
@@ -75,6 +76,7 @@ func (w *Works) SetOptions(ctx context.Context, _ identity.Admin, id WorkID, o O
 		if out, err = w.OptionsOf(ctx, tx, id); err != nil {
 			return err
 		}
+		out.Moves = p != nil
 		out.Withdraws = withdraws
 		if preview {
 			return errPreview
@@ -87,7 +89,9 @@ func (w *Works) SetOptions(ctx context.Context, _ identity.Admin, id WorkID, o O
 	if err != nil {
 		return OptionsChange{}, err
 	}
-	w.cfg.Changed.Publish(ctx, ChangedOf(id))
+	if p != nil || stored || folders != row.LevelFolders {
+		w.cfg.Changed.Publish(ctx, ChangedOf(id))
+	}
 	return out, nil
 }
 

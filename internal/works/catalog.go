@@ -47,9 +47,10 @@ type Catalog interface {
 	Options
 }
 
-// Options is a type's own per-Work options, such as an episode order. A
-// type with none answers no fields, nil options, and a
-// *setting.UnknownKeyError for every key it is asked to patch.
+// Options is a type's own per-Work options. A fetch option, such as an
+// episode order, changes how the Work is fetched; a non-fetch option is
+// stored as it is. A type with none answers no fields, nil options, and a
+// *setting.UnknownKeyError for every key it is asked to patch or store.
 type Options interface {
 	// OptionFields are w's options with their values, in Edit's order. A
 	// choice lists only the values w's source has.
@@ -59,9 +60,14 @@ type Options interface {
 	FetchOptions(ctx context.Context, r storage.Reader[storage.Library], w WorkID) ([]byte, error)
 	// PatchOptions is the fetch options p makes of w's, writing nothing:
 	// ErrOrderUnavailable for an order w's source doesn't list, a
-	// *setting.RangeError for another value it refuses. Store writes the
-	// options from the Detail a fetch with them made.
+	// *setting.RangeError for another value it refuses. It ignores the
+	// keys StoreOptions writes. Store writes the fetch options from the
+	// Detail a fetch with them made.
 	PatchOptions(ctx context.Context, r storage.Reader[storage.Library], w WorkID, p setting.Patch) ([]byte, error)
+	// StoreOptions writes p's non-fetch options of w in tx, answering
+	// whether any changed. It ignores fetch keys and refuses a key that is
+	// neither with *setting.UnknownKeyError.
+	StoreOptions(ctx context.Context, tx *storage.Tx[storage.Library], w WorkID, p setting.Patch) (bool, error)
 }
 
 // Source is the network: a Content Type's metadata source, reached through

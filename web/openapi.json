@@ -18720,6 +18720,10 @@
           "levelFolders": {
             "type": "boolean"
           },
+          "moves": {
+            "description": "The change fetches the Work again, so its Items may move between levels",
+            "type": "boolean"
+          },
           "options": {
             "description": "The Content Type's own options for the Work",
             "items": {
@@ -18736,6 +18740,7 @@
         "required": [
           "levelFolders",
           "options",
+          "moves",
           "withdraws"
         ],
         "type": "object"

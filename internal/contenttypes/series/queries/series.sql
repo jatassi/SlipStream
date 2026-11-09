@@ -2,14 +2,16 @@
 INSERT INTO series_series (
     work_id, tvdb_id, tmdb_id, imdb_id, english_title, original_title, original_language, country, network,
     creators, credits, status, first_aired, last_aired, next_aired, average_runtime_seconds, certification,
-    certification_country, genres, aliases, overview, episode_order, orders, trailer_site, trailer_key, awards
+    certification_country, genres, aliases, overview, episode_order, orders, trailer_site, trailer_key, awards,
+    name_by_air_date
 ) VALUES (
     sqlc.arg(work_id), sqlc.arg(tvdb_id), sqlc.arg(tmdb_id), sqlc.arg(imdb_id), sqlc.arg(english_title),
     sqlc.arg(original_title), sqlc.arg(original_language), sqlc.arg(country), sqlc.arg(network),
     sqlc.arg(creators), sqlc.arg(credits), sqlc.arg(status), sqlc.arg(first_aired), sqlc.arg(last_aired),
     sqlc.arg(next_aired), sqlc.arg(average_runtime_seconds), sqlc.arg(certification),
     sqlc.arg(certification_country), sqlc.arg(genres), sqlc.arg(aliases), sqlc.arg(overview),
-    sqlc.arg(episode_order), sqlc.arg(orders), sqlc.arg(trailer_site), sqlc.arg(trailer_key), sqlc.arg(awards)
+    sqlc.arg(episode_order), sqlc.arg(orders), sqlc.arg(trailer_site), sqlc.arg(trailer_key), sqlc.arg(awards),
+    sqlc.arg(name_by_air_date)
 )
 ON CONFLICT (work_id) DO UPDATE SET tmdb_id = excluded.tmdb_id, imdb_id = excluded.imdb_id,
     english_title = excluded.english_title, original_title = excluded.original_title,
@@ -65,7 +67,11 @@ SELECT * FROM series_episode WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY wo
 SELECT * FROM series_settings WHERE id = 1;
 
 -- name: SetSettings :exec
-UPDATE series_settings SET air_delay_seconds = sqlc.arg(air_delay_seconds), year_slack = sqlc.arg(year_slack) WHERE id = 1;
+UPDATE series_settings SET air_delay_seconds = sqlc.arg(air_delay_seconds), year_slack = sqlc.arg(year_slack),
+    add_name_by_air_date = sqlc.arg(add_name_by_air_date) WHERE id = 1;
+
+-- name: SetNameByAirDate :exec
+UPDATE series_series SET name_by_air_date = sqlc.arg(name_by_air_date) WHERE work_id = sqlc.arg(work_id);
 
 -- name: ListEveryListed :many
 SELECT work_id, network, certification, status, first_aired, genres FROM series_series ORDER BY work_id;
