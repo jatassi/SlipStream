@@ -3,6 +3,7 @@ package files_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -70,8 +71,9 @@ func shelved(t *testing.T) shelf {
 func TestTakingEveryTargetAwayKeepsTheFileAsKeptAndPuttingThemBackRestoresIt(t *testing.T) {
 	s := shelved(t)
 	got := s.change(t, s.svc, holding(s.both), keeping)
-	if want := (files.Impact{Works: 1, Unwanted: 1, Bytes: 5}); got != want {
-		t.Fatalf("taking HD and Web away with Keep = %+v, want %+v", got, want)
+	if want := "works=1 ownList=0 unwanted=1 bytes=5 renamed=1 newlyWanted=0 downloading=0\n" +
+		"Shelf w1: Shelf w1/Shelf w1 - Scarf - HD.mkv -> Shelf w1/Shelf w1 - Scarf - HD (extra 1).mkv"; shown(got) != want {
+		t.Fatalf("taking HD and Web away with Keep =\n%s\nwant the Kept file renamed\n%s", shown(got), want)
 	}
 	kept := map[string]string{"Shelf w1/Shelf w1 - Scarf - HD (extra 1).mkv": "webdl"}
 	if disk := s.onDisk(t); !maps.Equal(disk, kept) {
@@ -79,8 +81,9 @@ func TestTakingEveryTargetAwayKeepsTheFileAsKeptAndPuttingThemBackRestoresIt(t *
 	}
 
 	got = s.change(t, s.svc, holding(s.both, s.web, s.hd), deleting)
-	if want := (files.Impact{Works: 1, Renamed: 1, NewlyWanted: 3}); got != want {
-		t.Fatalf("putting Web and HD back = %+v, want %+v", got, want)
+	if want := "works=1 ownList=0 unwanted=0 bytes=0 renamed=1 newlyWanted=3 downloading=0\n" +
+		"Shelf w1: Shelf w1/Shelf w1 - Scarf - HD (extra 1).mkv -> Shelf w1/Shelf w1 - Scarf - Web.mkv"; shown(got) != want {
+		t.Fatalf("putting Web and HD back =\n%s\nwant\n%s", shown(got), want)
 	}
 	back := map[string]string{"Shelf w1/Shelf w1 - Scarf - Web.mkv": "webdl"}
 	if disk := s.onDisk(t); !maps.Equal(disk, back) {
@@ -114,8 +117,9 @@ func TestAKeptFileMeetingNoTargetKeepsItsLabelAndARenamedTargetRenamesItsFiles(t
 	if disk := s.onDisk(t); !maps.Equal(disk, map[string]string{"Shelf w1/Shelf w1 - Scarf - Stream.mkv": "webdl"}) {
 		t.Fatalf("the root holds %v, want the WEB-DL filling Stream", disk)
 	}
-	if got := s.change(t, s.svc, renamed, keeping); got != (files.Impact{Works: 1, Renamed: 1}) {
-		t.Fatalf("renaming Stream = %+v, want one Work and one file renamed", got)
+	if got, want := shown(s.change(t, s.svc, renamed, keeping)), "works=1 ownList=0 unwanted=0 bytes=0 renamed=1 newlyWanted=0 downloading=0\n"+
+		"Shelf w1: Shelf w1/Shelf w1 - Scarf - Stream.mkv -> Shelf w1/Shelf w1 - Scarf - Streamed.mkv"; got != want {
+		t.Fatalf("renaming Stream =\n%s\nwant\n%s", got, want)
 	}
 	if disk := s.onDisk(t); !maps.Equal(disk, map[string]string{"Shelf w1/Shelf w1 - Scarf - Streamed.mkv": "webdl"}) {
 		t.Fatalf("the root holds %v, want the WEB-DL renamed with its Target", disk)
@@ -124,11 +128,11 @@ func TestAKeptFileMeetingNoTargetKeepsItsLabelAndARenamedTargetRenamesItsFiles(t
 
 func TestDeletingSavesRemoveTheFilesTheyLeaveFillingNothing(t *testing.T) {
 	s := shelved(t)
-	if got := s.change(t, s.svc, holding(s.both, s.hd), deleting); got != (files.Impact{Works: 1}) {
-		t.Fatalf("taking Web away = %+v, want one Work changed and the WEB-DL kept for HD", got)
+	if got := shown(s.change(t, s.svc, holding(s.both, s.hd), deleting)); got != "works=1 ownList=0 unwanted=0 bytes=0 renamed=0 newlyWanted=0 downloading=0" {
+		t.Fatalf("taking Web away = %s, want one Work changed and the WEB-DL kept for HD", got)
 	}
-	if got := s.change(t, s.svc, holding(s.both), deleting); got != (files.Impact{Works: 1, Unwanted: 1, Bytes: 5}) {
-		t.Fatalf("taking HD away = %+v, want the WEB-DL unwanted", got)
+	if got := shown(s.change(t, s.svc, holding(s.both), deleting)); got != "works=1 ownList=0 unwanted=1 bytes=5 renamed=0 newlyWanted=0 downloading=0" {
+		t.Fatalf("taking HD away = %s, want the WEB-DL unwanted", got)
 	}
 	if disk := s.onDisk(t); len(disk) != 0 || fileCount(t, s.library) != 0 {
 		t.Fatalf("the root holds %v and the library %d files, want neither", disk, fileCount(t, s.library))
@@ -167,11 +171,14 @@ func TestAPreviewChangesNothingAndItsImpactIsTheSaves(t *testing.T) {
 	for _, c := range []struct {
 		name   string
 		change targets.Change
-		want   files.Impact
+		want   string
 	}{
-		{"a reordered Profile", holding(s.both, s.web, s.hd), files.Impact{Works: 2, Renamed: 1}},
-		{"a tightened Target", targets.UpdateTarget{ID: s.hd.ID, Spec: targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}}, Cutoff: release.Bluray1080p}}, files.Impact{Works: 1}},
-		{"a Profile of other Targets", holding(s.both, bluray), files.Impact{Works: 2, Unwanted: 1, Bytes: 5, Renamed: 1, NewlyWanted: 3}},
+		{"a reordered Profile", holding(s.both, s.web, s.hd), "works=2 ownList=0 unwanted=0 bytes=0 renamed=1 newlyWanted=0 downloading=0\n" +
+			"Shelf w1: Shelf w1/Shelf w1 - Scarf - HD.mkv -> Shelf w1/Shelf w1 - Scarf - Web.mkv"},
+		{"a tightened Target", targets.UpdateTarget{ID: s.hd.ID, Spec: targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}}, Cutoff: release.Bluray1080p}},
+			"works=1 ownList=0 unwanted=0 bytes=0 renamed=0 newlyWanted=0 downloading=0"},
+		{"a Profile of other Targets", holding(s.both, bluray), "works=2 ownList=0 unwanted=1 bytes=5 renamed=1 newlyWanted=3 downloading=0\n" +
+			"Shelf w2: Shelf w2/Shelf w2 - Mittens - HD.mkv -> Shelf w2/Shelf w2 - Mittens - Bluray.mkv"},
 	} {
 		before := s.snapshot(t, s.svc, s.tree.ID, other.ID)
 		preview, err := s.svc.Change(t.Context(), admin, c.change, files.Mode{Unwanted: files.Delete, Preview: true})
@@ -182,8 +189,8 @@ func TestAPreviewChangesNothingAndItsImpactIsTheSaves(t *testing.T) {
 		if after := s.snapshot(t, s.svc, s.tree.ID, other.ID); after != before {
 			t.Fatalf("previewing %s changed\n%s\nto\n%s", c.name, before, after)
 		}
-		if saved := s.change(t, s.svc, c.change, deleting); preview != c.want || saved != preview {
-			t.Fatalf("%s: preview %+v and save %+v, want both %+v", c.name, preview, saved, c.want)
+		if saved := s.change(t, s.svc, c.change, deleting); shown(preview) != c.want || shown(saved) != c.want {
+			t.Fatalf("%s: preview\n%s\nand save\n%s\nwant both\n%s", c.name, shown(preview), shown(saved), c.want)
 		}
 	}
 }
@@ -193,7 +200,7 @@ func TestASaveThatWouldDeleteMoreThanConfirmedIsRefused(t *testing.T) {
 	before := s.snapshot(t, s.svc, s.tree.ID)
 	_, err := s.svc.Change(t.Context(), admin, holding(s.both), files.Mode{Unwanted: files.Delete, Confirmed: new(0)})
 	changed, ok := errors.AsType[*files.ImpactChangedError](err)
-	if !ok || changed.Impact != (files.Impact{Works: 1, Unwanted: 1, Bytes: 5}) || changed.Confirmed != 0 {
+	if !ok || shown(changed.Impact) != "works=1 ownList=0 unwanted=1 bytes=5 renamed=0 newlyWanted=0 downloading=0" || changed.Confirmed != 0 {
 		t.Fatalf("a save confirming no deletes that deletes one: err = %v, want *ImpactChangedError with the fresh Impact", err)
 	}
 	s.settle(t, s.svc)
@@ -210,13 +217,15 @@ func TestMovingAWorkToAnotherProfileRefillsItAndDeletingAProfileMovesItsWorks(t 
 	bluray := s.target(t, "Bluray", []release.Quality{release.Bluray1080p})
 	discs := s.profile(t, "Discs", bluray)
 	got := s.change(t, s.svc, targets.SetProfiles{Works: []works.WorkID{s.tree.ID}, Profile: discs}, keeping)
-	if want := (files.Impact{Works: 1, Unwanted: 1, Bytes: 5, NewlyWanted: 2}); got != want {
-		t.Fatalf("moving the Work to Discs = %+v, want %+v", got, want)
+	if want := "works=1 ownList=0 unwanted=1 bytes=5 renamed=1 newlyWanted=2 downloading=0\n" +
+		"Shelf w1: Shelf w1/Shelf w1 - Scarf - HD.mkv -> Shelf w1/Shelf w1 - Scarf - HD (extra 1).mkv"; shown(got) != want {
+		t.Fatalf("moving the Work to Discs =\n%s\nwant\n%s", shown(got), want)
 	}
 	hds := s.profile(t, "HDs", s.hd)
 	got = s.change(t, s.svc, targets.DeleteProfile{ID: discs, To: hds}, deleting)
-	if want := (files.Impact{Works: 1, Renamed: 1, NewlyWanted: 2}); got != want {
-		t.Fatalf("deleting Discs into HDs = %+v, want %+v: the Kept WEB-DL fills HD again", got, want)
+	if want := "works=1 ownList=0 unwanted=0 bytes=0 renamed=1 newlyWanted=2 downloading=0\n" +
+		"Shelf w1: Shelf w1/Shelf w1 - Scarf - HD (extra 1).mkv -> Shelf w1/Shelf w1 - Scarf - HD.mkv"; shown(got) != want {
+		t.Fatalf("deleting Discs into HDs =\n%s\nwant\n%s\nthe Kept WEB-DL fills HD again", shown(got), want)
 	}
 	if snap := s.snapshot(t, s.svc, s.tree.ID); snap != "Shelf w1/Shelf w1 - Scarf - HD.mkv=webdl\nHDs\n"+
 		"Scarf any HD upgradable wanted=true Shelf w1/Shelf w1 - Scarf - HD.mkv webdl-1080p 1920x1080\n"+
@@ -301,10 +310,15 @@ func noX264(t *testing.T, id targets.TargetID) targets.UpdateTarget {
 func TestATargetRefusingTheVideoCodecAFileWasProbedAtLetsGoOfIt(t *testing.T) {
 	for _, c := range []struct {
 		choice files.Unwanted
+		impact string
 		disk   map[string]string
 	}{
-		{files.Keep, map[string]string{"Shelf w1/Shelf w1 - Scarf - Web (extra 1).mkv": "h264", "Shelf w1/Shelf w1 - Mittens - Web.mkv": "hevc"}},
-		{files.Delete, map[string]string{"Shelf w1/Shelf w1 - Mittens - Web.mkv": "hevc"}},
+		{
+			files.Keep, "works=1 ownList=0 unwanted=1 bytes=4 renamed=1 newlyWanted=1 downloading=0\n" +
+				"Shelf w1: Shelf w1/Shelf w1 - Scarf - Web.mkv -> Shelf w1/Shelf w1 - Scarf - Web (extra 1).mkv",
+			map[string]string{"Shelf w1/Shelf w1 - Scarf - Web (extra 1).mkv": "h264", "Shelf w1/Shelf w1 - Mittens - Web.mkv": "hevc"},
+		},
+		{files.Delete, "works=1 ownList=0 unwanted=1 bytes=4 renamed=0 newlyWanted=1 downloading=0", map[string]string{"Shelf w1/Shelf w1 - Mittens - Web.mkv": "hevc"}},
 	} {
 		t.Run(string(c.choice), func(t *testing.T) {
 			l := open(t)
@@ -314,8 +328,8 @@ func TestATargetRefusingTheVideoCodecAFileWasProbedAtLetsGoOfIt(t *testing.T) {
 			l.downloadProbed(t, svc, tree, 0, release.WEBDL1080p, "h264", h264)
 			l.downloadProbed(t, svc, tree, 1, release.WEBDL1080p, "hevc", hevc)
 			l.settle(t, svc)
-			if got := l.change(t, svc, noX264(t, web.ID), files.Mode{Unwanted: c.choice}); got != (files.Impact{Works: 1, Unwanted: 1, Bytes: 4, NewlyWanted: 1}) {
-				t.Fatalf("refusing x264 under %s = %+v, want the H.264 file unwanted and its cell wanted", c.choice, got)
+			if got := shown(l.change(t, svc, noX264(t, web.ID), files.Mode{Unwanted: c.choice})); got != c.impact {
+				t.Fatalf("refusing x264 under %s =\n%s\nwant the H.264 file unwanted and its cell wanted\n%s", c.choice, got, c.impact)
 			}
 			if disk := l.onDisk(t); !maps.Equal(disk, c.disk) {
 				t.Fatalf("under %s the root holds %v, want %v", c.choice, disk, c.disk)
@@ -390,4 +404,16 @@ func TestAnImportProbedAtAVideoCodecItsTargetRefusesFillsNothing(t *testing.T) {
 			}
 		})
 	}
+}
+
+// shown is i as its Admin reads it: its counts, then each rename it lists.
+func shown(i files.Impact) string {
+	out := fmt.Sprintf("works=%d ownList=%d unwanted=%d bytes=%d renamed=%d newlyWanted=%d downloading=%d",
+		i.Works, i.OwnList, i.Unwanted, i.Bytes, i.Renamed, i.NewlyWanted, i.Downloading)
+	for _, w := range i.Renames {
+		for _, r := range w.Rows {
+			out += "\n" + w.Title + ": " + r.From + " -> " + r.To
+		}
+	}
+	return out
 }

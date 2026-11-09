@@ -149,8 +149,9 @@ func TestATargetRenameMovesTheFileAndItsCompanionStraightToTheNewName(t *testing
 	full := targets.UpdateTarget{ID: s.hd.ID, Spec: targets.Spec{
 		Scores: targets.Scores{Increment: 1}, Name: "Full HD", Tiers: [][]release.Quality{{release.Bluray1080p}, {release.WEBDL1080p}}, Cutoff: release.Bluray1080p,
 	}}
-	if got := s.change(t, svc, full, keeping); got != (files.Impact{Works: 1, Renamed: 1}) {
-		t.Fatalf("renaming HD = %+v, want one Work and one file renamed", got)
+	if got, want := shown(s.change(t, svc, full, keeping)), "works=1 ownList=0 unwanted=0 bytes=0 renamed=1 newlyWanted=0 downloading=0\n"+
+		"Shelf w1: Shelf w1/Shelf w1 - Scarf - HD.mkv -> Shelf w1/Shelf w1 - Scarf - Full HD.mkv"; got != want {
+		t.Fatalf("renaming HD =\n%s\nwant\n%s", got, want)
 	}
 	want := map[string]string{"Shelf w1/Shelf w1 - Scarf - Full HD.mkv": "webdl", "Shelf w1/Shelf w1 - Scarf - Full HD.en.srt": "subtitles"}
 	if got := s.onDisk(t); !maps.Equal(got, want) {
