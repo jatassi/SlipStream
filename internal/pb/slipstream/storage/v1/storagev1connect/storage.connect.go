@@ -37,6 +37,10 @@ const (
 	StorageServicePlaceProcedure = "/slipstream.storage.v1.StorageService/Place"
 	// StorageServiceMoveProcedure is the procedure name of the StorageService's Move RPC.
 	StorageServiceMoveProcedure = "/slipstream.storage.v1.StorageService/Move"
+	// StorageServiceSurveyProcedure is the procedure name of the StorageService's Survey RPC.
+	StorageServiceSurveyProcedure = "/slipstream.storage.v1.StorageService/Survey"
+	// StorageServicePruneProcedure is the procedure name of the StorageService's Prune RPC.
+	StorageServicePruneProcedure = "/slipstream.storage.v1.StorageService/Prune"
 	// StorageServiceRemoveProcedure is the procedure name of the StorageService's Remove RPC.
 	StorageServiceRemoveProcedure = "/slipstream.storage.v1.StorageService/Remove"
 	// StorageServiceListProcedure is the procedure name of the StorageService's List RPC.
@@ -77,6 +81,20 @@ var (
 			StreamType: connect.StreamTypeUnary,
 			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("StorageService").Methods().ByName("Move"),
 			Procedure:  StorageServiceMoveProcedure,
+		}
+	})
+	storageServiceSurveySpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("StorageService").Methods().ByName("Survey"),
+			Procedure:  StorageServiceSurveyProcedure,
+		}
+	})
+	storageServicePruneSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("StorageService").Methods().ByName("Prune"),
+			Procedure:  StorageServicePruneProcedure,
 		}
 	})
 	storageServiceRemoveSpec = sync.OnceValue(func() connect.Spec {
@@ -123,8 +141,17 @@ type StorageServiceClient interface {
 	Verify(context.Context, *v1.VerifyRequest) (*v1.VerifyResponse, error)
 	// Place puts a finished download's file at a root-relative holding path.
 	Place(context.Context, *v1.PlaceRequest) (*v1.PlaceResponse, error)
-	// Move renames within a root and converges on a repeat.
+	// Move renames within a root and converges on a repeat. With carry it
+	// moves the file's companions after it, every call, so a retry finishes
+	// what a crash left.
 	Move(context.Context, *v1.MoveRequest) (*v1.MoveResponse, error)
+	// Survey answers, for each planned rename under a root, the files at its
+	// target and, when asked, its source's companions, listing each folder
+	// once.
+	Survey(context.Context, *v1.SurveyRequest) (*v1.SurveyResponse, error)
+	// Prune removes a folder and each parent below the root while it is
+	// empty, never a held folder, a kept folder or a parent of one.
+	Prune(context.Context, *v1.PruneRequest) (*v1.PruneResponse, error)
 	// Remove removes a root-relative file; a missing one is
 	// FOLDER_ERROR_KIND_NOT_FOUND. A recursive Remove removes a folder and
 	// everything in it, and a missing one is already removed.
@@ -154,8 +181,17 @@ type StorageServiceHandler interface {
 	Verify(context.Context, *v1.VerifyRequest) (*v1.VerifyResponse, error)
 	// Place puts a finished download's file at a root-relative holding path.
 	Place(context.Context, *v1.PlaceRequest) (*v1.PlaceResponse, error)
-	// Move renames within a root and converges on a repeat.
+	// Move renames within a root and converges on a repeat. With carry it
+	// moves the file's companions after it, every call, so a retry finishes
+	// what a crash left.
 	Move(context.Context, *v1.MoveRequest) (*v1.MoveResponse, error)
+	// Survey answers, for each planned rename under a root, the files at its
+	// target and, when asked, its source's companions, listing each folder
+	// once.
+	Survey(context.Context, *v1.SurveyRequest) (*v1.SurveyResponse, error)
+	// Prune removes a folder and each parent below the root while it is
+	// empty, never a held folder, a kept folder or a parent of one.
+	Prune(context.Context, *v1.PruneRequest) (*v1.PruneResponse, error)
 	// Remove removes a root-relative file; a missing one is
 	// FOLDER_ERROR_KIND_NOT_FOUND. A recursive Remove removes a folder and
 	// everything in it, and a missing one is already removed.
@@ -180,6 +216,8 @@ func RegisterStorageServiceHandler(server *connect.Server, svc StorageServiceHan
 		connect.Method{Spec: storageServiceVerifySpec(), Handler: adapter.verify},
 		connect.Method{Spec: storageServicePlaceSpec(), Handler: adapter.place},
 		connect.Method{Spec: storageServiceMoveSpec(), Handler: adapter.move},
+		connect.Method{Spec: storageServiceSurveySpec(), Handler: adapter.survey},
+		connect.Method{Spec: storageServicePruneSpec(), Handler: adapter.prune},
 		connect.Method{Spec: storageServiceRemoveSpec(), Handler: adapter.remove},
 		connect.Method{Spec: storageServiceListSpec(), Handler: adapter.list},
 		connect.Method{Spec: storageServiceSampleSpec(), Handler: adapter.sample},
@@ -201,6 +239,14 @@ func (UnimplementedStorageServiceHandler) Place(context.Context, *v1.PlaceReques
 
 func (UnimplementedStorageServiceHandler) Move(context.Context, *v1.MoveRequest) (*v1.MoveResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.StorageService.Move is not implemented")
+}
+
+func (UnimplementedStorageServiceHandler) Survey(context.Context, *v1.SurveyRequest) (*v1.SurveyResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.StorageService.Survey is not implemented")
+}
+
+func (UnimplementedStorageServiceHandler) Prune(context.Context, *v1.PruneRequest) (*v1.PruneResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.StorageService.Prune is not implemented")
 }
 
 func (UnimplementedStorageServiceHandler) Remove(context.Context, *v1.RemoveRequest) (*v1.RemoveResponse, error) {
@@ -246,6 +292,22 @@ func (c *storageServiceClient) Place(ctx context.Context, req *v1.PlaceRequest) 
 func (c *storageServiceClient) Move(ctx context.Context, req *v1.MoveRequest) (*v1.MoveResponse, error) {
 	var res v1.MoveResponse
 	if err := c.client.CallUnary(ctx, storageServiceMoveSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *storageServiceClient) Survey(ctx context.Context, req *v1.SurveyRequest) (*v1.SurveyResponse, error) {
+	var res v1.SurveyResponse
+	if err := c.client.CallUnary(ctx, storageServiceSurveySpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *storageServiceClient) Prune(ctx context.Context, req *v1.PruneRequest) (*v1.PruneResponse, error) {
+	var res v1.PruneResponse
+	if err := c.client.CallUnary(ctx, storageServicePruneSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -323,6 +385,30 @@ func (h storageServiceHandler) move(ctx context.Context, _ connect.Spec, stream 
 		return err
 	}
 	res, err := h.svc.Move(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h storageServiceHandler) survey(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.SurveyRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Survey(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h storageServiceHandler) prune(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.PruneRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Prune(ctx, &req)
 	if err != nil {
 		return err
 	}

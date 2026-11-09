@@ -335,7 +335,7 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 	case !verified:
 		return advance{to: Transferring}
 	}
-	moved, err := gr.cfg.Roots.Move(ctx, root.ID, transfers.StagedRel(t, 0), holding)
+	moved, err := gr.cfg.Roots.Move(ctx, root.ID, transfers.StagedRel(t, 0), holding, false)
 	if err != nil {
 		if _, verified, rerr := gr.staged(ctx, g); rerr == nil && !verified {
 			return advance{to: Transferring}

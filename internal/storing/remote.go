@@ -157,6 +157,9 @@ type Placed struct {
 	Size   int64
 	Linked bool
 	Seen   Seen
+	// Left are the companions a carrying Move found another file at the
+	// new name of, where each now lies.
+	Left []Rel
 }
 
 // Place puts payload p at to under the root. Another file there is
@@ -171,14 +174,81 @@ func (r Remote) Place(ctx context.Context, at At, p Payload, to Rel) (Placed, er
 	return Placed{Size: res.GetSize(), Linked: res.GetLinked(), Seen: seenOf(res.GetIdentity())}, nil
 }
 
-// Move renames from to to within the root. Another file at to is
-// ErrOccupied.
-func (r Remote) Move(ctx context.Context, at At, from, to Rel) (Placed, error) {
-	res, err := r(at.Node).Move(ctx, &storagev1.MoveRequest{RootId: at.Root.Bytes(), From: from.String(), To: to.String()})
+// Move renames from to to within the root, and with carry from's
+// companions after it. Another file at to is ErrOccupied.
+func (r Remote) Move(ctx context.Context, at At, from, to Rel, carry bool) (Placed, error) {
+	res, err := r(at.Node).Move(ctx, &storagev1.MoveRequest{RootId: at.Root.Bytes(), From: from.String(), To: to.String(), Carry: carry})
 	if err != nil {
 		return Placed{}, occupied(err)
 	}
-	return Placed{Size: res.GetSize(), Seen: seenOf(res.GetIdentity())}, nil
+	left, err := relsOf(res.GetLeft())
+	if err != nil {
+		return Placed{}, fmt.Errorf("a companion left: %w", err)
+	}
+	return Placed{Size: res.GetSize(), Seen: seenOf(res.GetIdentity()), Left: left}, nil
+}
+
+// Survey answers each planned rename within the root, in batches of 2000:
+// the files at its target, compared without case, and with companions its
+// source's companions. A root that isn't ready is *NotReady.
+func (r Remote) Survey(ctx context.Context, at At, planned []Planned, companions bool) ([]Surveyed, error) {
+	out := make([]Surveyed, 0, len(planned))
+	for i := 0; i < len(planned); i += surveyBatch {
+		req := &storagev1.SurveyRequest{RootId: at.Root.Bytes(), Companions: companions}
+		for _, p := range planned[i:min(i+surveyBatch, len(planned))] {
+			req.Planned = append(req.Planned, &storagev1.Planned{From: p.From.String(), To: p.To.String()})
+		}
+		res, err := r(at.Node).Survey(ctx, req)
+		if err != nil {
+			return nil, answer(err)
+		}
+		for _, w := range res.GetSurveyed() {
+			var s Surveyed
+			for _, o := range w.GetOccupants() {
+				path, err := ParseRel(o.GetPath())
+				if err != nil {
+					return nil, fmt.Errorf("a file at a target: %w", err)
+				}
+				s.Occupants = append(s.Occupants, Occupant{Path: path, Seen: seenOf(o.GetIdentity())})
+			}
+			if s.Companions, err = relsOf(w.GetCompanions()); err != nil {
+				return nil, fmt.Errorf("a companion: %w", err)
+			}
+			out = append(out, s)
+		}
+	}
+	return out, nil
+}
+
+// Prune removes folder and each parent below the root while it is empty,
+// never a held folder, a kept folder or a parent of one, and answers the
+// folders removed, innermost first.
+func (r Remote) Prune(ctx context.Context, at At, folder Rel, keep []Rel) ([]Rel, error) {
+	req := &storagev1.PruneRequest{RootId: at.Root.Bytes(), Folder: folder.String()}
+	for _, k := range keep {
+		req.Keep = append(req.Keep, k.String())
+	}
+	res, err := r(at.Node).Prune(ctx, req)
+	if err != nil {
+		return nil, answer(err)
+	}
+	removed, err := relsOf(res.GetRemoved())
+	if err != nil {
+		return nil, fmt.Errorf("a folder removed: %w", err)
+	}
+	return removed, nil
+}
+
+func relsOf(ss []string) ([]Rel, error) {
+	var out []Rel
+	for _, s := range ss {
+		rel, err := ParseRel(s)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rel)
+	}
+	return out, nil
 }
 
 // Walk lists one page of the root's video files after the cursor, up to

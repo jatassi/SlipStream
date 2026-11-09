@@ -18,15 +18,19 @@ import (
 )
 
 // Disk is the file IO the disk queue does, on the Node that holds each
-// root. Move converges on a repeat; Remove of a missing file is an error
-// wrapping fs.ErrNotExist, and RemoveAll of a missing folder is none.
+// root. Move converges on a repeat, and with carry moves from's companions
+// after it; Remove of a missing file is an error wrapping fs.ErrNotExist,
+// and RemoveAll of a missing folder is none. Survey answers which planned
+// targets other files hold, and Prune removes the folders a move emptied.
 // Watch is closed at the next change of a root's report, as a re-home off
 // a lost root makes. *roots.Roots is one.
 type Disk interface {
-	Move(ctx context.Context, root roots.ID, from, to storing.Rel) (storing.Placed, error)
+	Move(ctx context.Context, root roots.ID, from, to storing.Rel, carry bool) (storing.Placed, error)
 	Remove(ctx context.Context, root roots.ID, rel storing.Rel) error
 	RemoveAll(ctx context.Context, root roots.ID, rel storing.Rel) error
 	ListHeld(ctx context.Context, root roots.ID, folder storing.HeldFolder) ([]string, error)
+	Survey(ctx context.Context, root roots.ID, planned []storing.Planned, companions bool) ([]storing.Surveyed, error)
+	Prune(ctx context.Context, root roots.ID, folder storing.Rel, keep []storing.Rel) ([]storing.Rel, error)
 	Watch() <-chan struct{}
 }
 
@@ -381,7 +385,7 @@ func (f *Files) move(ctx context.Context, root roots.ID, from, to string) error 
 	if err != nil {
 		return err
 	}
-	_, err = f.cfg.Disk.Move(ctx, root, src, dst)
+	_, err = f.cfg.Disk.Move(ctx, root, src, dst, false)
 	return err
 }
 
