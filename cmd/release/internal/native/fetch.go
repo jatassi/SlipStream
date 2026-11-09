@@ -37,14 +37,18 @@ func Fetch(ctx context.Context, cacheRoot string, l Layer) (string, error) {
 	defer func() { _ = os.RemoveAll(tmp) }()
 
 	archive := filepath.Join(tmp, l.Asset)
-	f, err := os.Create(archive)
-	if err != nil {
-		return "", fmt.Errorf("create the layer archive: %w", err)
-	}
-	sum, err := download(ctx, l.URL, f)
-	if closeErr := f.Close(); err == nil {
-		err = closeErr
-	}
+	var sum string
+	err = retry(ctx, func() error {
+		f, err := os.Create(archive)
+		if err != nil {
+			return fmt.Errorf("create the layer archive: %w", err)
+		}
+		sum, err = download(ctx, l.URL, f)
+		if closeErr := f.Close(); err == nil {
+			err = closeErr
+		}
+		return err
+	})
 	if err != nil {
 		return "", err
 	}
@@ -70,7 +74,11 @@ func Pin(ctx context.Context, base string, ids []LayerID) (Lock, error) {
 	lock := Lock{Layers: []Layer{}}
 	for _, id := range ids {
 		url := id.URL(base)
-		sum, err := download(ctx, url, io.Discard)
+		var sum string
+		err := retry(ctx, func() (err error) {
+			sum, err = download(ctx, url, io.Discard)
+			return err
+		})
 		if err != nil {
 			return Lock{}, err
 		}
@@ -108,6 +116,29 @@ func Published(ctx context.Context, base string, id LayerID) (bool, error) {
 // transport or with a server error.
 var retryWaits = []time.Duration{2 * time.Second, 4 * time.Second, 8 * time.Second}
 
+// transientError is a failed GET that a later attempt may get through.
+type transientError struct{ err error }
+
+func (e transientError) Error() string { return e.err.Error() }
+func (e transientError) Unwrap() error { return e.err }
+
+// retry runs attempt until it returns no transientError, up to one more
+// time than there are retryWaits, so attempt must start its output over.
+func retry(ctx context.Context, attempt func() error) error {
+	for _, wait := range retryWaits {
+		err := attempt()
+		if !errors.As(err, new(transientError)) || ctx.Err() != nil {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return err
+		case <-time.After(wait):
+		}
+	}
+	return attempt()
+}
+
 func download(ctx context.Context, url string, w io.Writer) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
@@ -115,19 +146,21 @@ func download(ctx context.Context, url string, w io.Writer) (string, error) {
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("GET %s: %w", url, err)
+		return "", transientError{fmt.Errorf("GET %s: %w", url, err)}
 	}
 	defer func() { _ = resp.Body.Close() }()
-	switch resp.StatusCode {
-	case http.StatusOK:
-	case http.StatusNotFound:
+	switch {
+	case resp.StatusCode == http.StatusOK:
+	case resp.StatusCode == http.StatusNotFound:
 		return "", fmt.Errorf("%s is not published; %s", url, PublishHint)
+	case resp.StatusCode >= 500:
+		return "", transientError{fmt.Errorf("GET %s: %s", url, resp.Status)}
 	default:
 		return "", fmt.Errorf("GET %s: %s", url, resp.Status)
 	}
 	h := sha256.New()
 	if _, err := io.Copy(io.MultiWriter(w, h), resp.Body); err != nil {
-		return "", fmt.Errorf("GET %s: %w", url, err)
+		return "", transientError{fmt.Errorf("GET %s: %w", url, err)}
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
