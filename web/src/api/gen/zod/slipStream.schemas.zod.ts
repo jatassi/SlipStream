@@ -5264,6 +5264,127 @@ export const NamingChanged = zod.object({
 export type NamingChanged = zod.input<typeof NamingChanged>;
 export type NamingChangedOutput = zod.output<typeof NamingChanged>;
 
+export const NamingSamplePath = zod.object({
+  label: zod.string().describe("The sample, and for a file template the file it names"),
+  path: zod.string().describe('The path in the root, with "/" between folders'),
+});
+
+export type NamingSamplePath = zod.input<typeof NamingSamplePath>;
+export type NamingSamplePathOutput = zod.output<typeof NamingSamplePath>;
+
+export const NamingFieldPreview = zod.object({
+  key: zod.string(),
+  problems: zod
+    .array(zod.string())
+    .describe("What the save check refuses in the setting, each a sentence; empty when it passes"),
+  samples: zod
+    .array(NamingSamplePath)
+    .describe(
+      "The full paths a folder or file template names for the type's samples, with renaming on; empty for any other setting and for a template that doesn't parse",
+    ),
+});
+
+export type NamingFieldPreview = zod.input<typeof NamingFieldPreview>;
+export type NamingFieldPreviewOutput = zod.output<typeof NamingFieldPreview>;
+
+export const NamingToken = zod.object({
+  about: zod.string().describe("What the token prints, as a sentence"),
+  aliases: zod.array(zod.string()).describe("Other names that match the same token"),
+  example: zod.string().describe("A value the token prints"),
+  group: zod
+    .enum(["work", "level", "item", "target", "release", "media"])
+    .describe("The token builder's heading"),
+  kind: zod.enum(["title", "year", "number", "date", "text", "id", "list"]),
+  modifier: zod
+    .union([
+      zod.literal("pad"),
+      zod.literal("cut"),
+      zod.literal("languages"),
+      zod.literal("formats"),
+      zod.literal("format"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("What it takes after a colon; null when it takes nothing"),
+  name: zod.string(),
+  scope: zod.enum(["work", "level", "item", "file"]).describe("The tier the value comes from"),
+  tags: zod
+    .array(zod.string())
+    .describe("The words of the tags that may wrap it, as in {imdb-{ImdbId}}"),
+});
+
+export type NamingToken = zod.input<typeof NamingToken>;
+export type NamingTokenOutput = zod.output<typeof NamingToken>;
+
+export const NamingFieldTokens = zod.object({
+  key: zod.string().describe("The template setting's key"),
+  tokens: zod
+    .array(NamingToken)
+    .describe("Every token the template may name, the Content Type's own first"),
+});
+
+export type NamingFieldTokens = zod.input<typeof NamingFieldTokens>;
+export type NamingFieldTokensOutput = zod.output<typeof NamingFieldTokens>;
+
+export const NamingProblem = zod.object({
+  key: zod.string().describe("The setting key, such as <type>.naming.file.standard"),
+  sentence: zod.string().describe("What is wrong, then what passes"),
+});
+
+export type NamingProblem = zod.input<typeof NamingProblem>;
+export type NamingProblemOutput = zod.output<typeof NamingProblem>;
+
+export const namingTypeNamingContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const NamingTypeNaming = zod.object({
+  contentType: zod.string().regex(namingTypeNamingContentTypeRegExp),
+  problems: zod
+    .array(NamingProblem)
+    .describe(
+      "What the save check refuses in the stored settings once renaming is on; empty when every file of a Work shows as one item on Plex, Jellyfin and Emby",
+    ),
+  settings: zod
+    .array(SettingField)
+    .describe(
+      "The rename switch, the folder templates outermost first, the file templates, the colon mode and its text, and the multi-episode style when the type's file templates number its Items",
+    ),
+});
+
+export type NamingTypeNaming = zod.input<typeof NamingTypeNaming>;
+export type NamingTypeNamingOutput = zod.output<typeof NamingTypeNaming>;
+
+export const NamingNamingList = zod.object({
+  contentTypes: zod.array(NamingTypeNaming).describe("In id order"),
+});
+
+export type NamingNamingList = zod.input<typeof NamingNamingList>;
+export type NamingNamingListOutput = zod.output<typeof NamingNamingList>;
+
+export const NamingPreview = zod.object({
+  fields: zod.array(NamingFieldPreview).describe("Every setting, in the settings' order"),
+});
+
+export type NamingPreview = zod.input<typeof NamingPreview>;
+export type NamingPreviewOutput = zod.output<typeof NamingPreview>;
+
+export const NamingPreviewInputBody = zod.object({
+  draft: zod
+    .record(zod.string(), zod.unknown())
+    .describe(
+      "Values over the stored settings by key, as a save would send them; null reads a setting's default",
+    ),
+});
+
+export type NamingPreviewInputBody = zod.input<typeof NamingPreviewInputBody>;
+export type NamingPreviewInputBodyOutput = zod.output<typeof NamingPreviewInputBody>;
+
+export const NamingTokenList = zod.object({
+  fields: zod.array(NamingFieldTokens).describe("Each template setting, in the settings' order"),
+});
+
+export type NamingTokenList = zod.input<typeof NamingTokenList>;
+export type NamingTokenListOutput = zod.output<typeof NamingTokenList>;
+
 export const newPINInputBodyPinRegExp = new RegExp("^[0-9]{4}$");
 
 export const NewPINInputBody = zod.object({
@@ -6663,6 +6784,15 @@ export const ServingWorker = zod.object({
 
 export type ServingWorker = zod.input<typeof ServingWorker>;
 export type ServingWorkerOutput = zod.output<typeof ServingWorker>;
+
+export const SetNamingInputBody = zod.object({
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe("Each setting's new value by key, all or none; null resets one to its default"),
+});
+
+export type SetNamingInputBody = zod.input<typeof SetNamingInputBody>;
+export type SetNamingInputBodyOutput = zod.output<typeof SetNamingInputBody>;
 
 export const ShellAlerts = zod.object({
   health: zod

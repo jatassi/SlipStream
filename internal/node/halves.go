@@ -85,6 +85,7 @@ type half struct {
 	targets  *targets.Targets
 	roots    *roots.Roots
 	files    *files.Files
+	naming   *naming.Naming
 	library  *library.Library
 	imports  *imports.Imports
 	grabs    *grabs.Grabs
@@ -352,12 +353,13 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	router := downloadclients.Router{Roster: side, Routes: trackers.Routing{Roster: side}}
+	names := naming.New(naming.Config{
+		Library: lib.db, Facets: contenttype.Project(opened, func(t contenttype.Library) naming.Facet { return t }),
+		Describe: tree.Describe, Budget: roots.SmallestBudget, Changed: naming.ChangedEvent.Bind(n.hub),
+	})
 	shelf, err := files.Open(ctx, files.Config{
 		Library: lib.db, Targets: goals, Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}, Transfers: transfers.LiveIn,
-		Naming: naming.New(naming.Config{
-			Library: lib.db, Facets: contenttype.Project(opened, func(t contenttype.Library) naming.Facet { return t }),
-			Describe: tree.Describe, Budget: roots.SmallestBudget, Changed: naming.ChangedEvent.Bind(n.hub),
-		}),
+		Naming:  names,
 		Names:   contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
 		Today:   n.today,
 		Disk:    homes,
@@ -458,6 +460,7 @@ func (n *Node) startController(ctx context.Context) error {
 		targets:   goals,
 		roots:     homes,
 		files:     shelf,
+		naming:    names,
 		library:   composer,
 		imports:   found,
 		grabs:     pipeline,
