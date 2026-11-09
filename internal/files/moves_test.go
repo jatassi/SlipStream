@@ -326,7 +326,7 @@ func TestTheQueueRemovesTheFoldersItsMovesEmptied(t *testing.T) {
 	mu.Lock()
 	refused = false
 	mu.Unlock()
-	l.runUntil(t, svc, "every move lands", func() bool { return l.queued(t) == 0 && l.gone("Wait") })
+	l.runUntil(t, svc, "every move lands and its folders go", func() bool { return l.queued(t) == 0 && l.pruning(t) == 0 })
 	want := map[string]string{
 		"New/a.mkv": "Old/Deep/a.mkv", "New/a.en.srt": "a's subtitles", "New/b.mkv": "Kept/b.mkv", "New/c.mkv": "Away/c.mkv",
 		"Away/d.mkv": "Wait/d.mkv", "Kept/notes.txt": "not SlipStream's",
@@ -334,10 +334,19 @@ func TestTheQueueRemovesTheFoldersItsMovesEmptied(t *testing.T) {
 	if got := l.onDisk(t); !maps.Equal(got, want) {
 		t.Fatalf("the root holds %v, want %v", got, want)
 	}
-	var left int
-	if err := l.lib.QueryRowContext(t.Context(), `SELECT count(*) FROM files_prune`).Scan(&left); err != nil || left != 0 {
-		t.Fatalf("%d folders wait to be removed (%v), want none", left, err)
+	if !l.gone("Wait") {
+		t.Fatalf("the root holds %v, want Wait removed", l.onDisk(t))
 	}
+}
+
+// pruning counts the folders the queue still has to remove.
+func (l *library) pruning(t *testing.T) int {
+	t.Helper()
+	var n int
+	if err := l.lib.QueryRowContext(t.Context(), `SELECT count(*) FROM files_prune`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
 }
 
 func TestAMoveQueuedBeforeRenamesWentStraightStillPassesThroughHolding(t *testing.T) {
