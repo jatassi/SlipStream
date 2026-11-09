@@ -141,9 +141,9 @@ func TestParseRefuses(t *testing.T) {
 	}
 }
 
-func TestParseErrorReadsAsAGoError(t *testing.T) {
+func TestParseErrorReadsAsItsSentence(t *testing.T) {
 	_, err := Parse("Heat {Target")
-	if got, want := err.Error(), "template at byte 5: {Target has no closing brace"; got != want {
+	if got, want := err.Error(), `{Target has no closing brace. Add "}" to close it.`; got != want {
 		t.Errorf("Error() = %q; want %q", got, want)
 	}
 }
