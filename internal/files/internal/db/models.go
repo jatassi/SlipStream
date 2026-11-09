@@ -5,6 +5,7 @@
 package db
 
 import (
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -20,20 +21,27 @@ type FilesDoomed struct {
 }
 
 type FilesFile struct {
-	ID          FileID
-	WorkID      works.WorkID
-	ItemID      works.ItemID
-	Cut         release.CutKey
-	RootID      roots.ID
-	Path        string
-	Size        int64
-	Probe       Probe
-	GrabID      storage.UUID
-	Quality     release.Quality
-	Label       string
-	Extra       int64
-	ReleaseName string
-	TitleRead   Reading
+	ID           FileID
+	WorkID       works.WorkID
+	ItemID       works.ItemID
+	Cut          release.CutKey
+	RootID       roots.ID
+	Path         string
+	Size         int64
+	Probe        media.Record
+	GrabID       storage.UUID
+	Quality      release.Quality
+	Label        string
+	Extra        int64
+	ReleaseName  string
+	TitleRead    Reading
+	ModifiedAt   storage.Time
+	NodeFileID   *string
+	NodeVolumeID *string
+	GoneAt       storage.Time
+	ProbeVersion int64
+	ProbedAt     storage.Time
+	ProbeError   *string
 }
 
 type FilesFill struct {

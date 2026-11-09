@@ -35,6 +35,9 @@ const (
 	ByCatchUp  Trigger = "catch-up"
 	ByRunNow   Trigger = "run-now"
 	ByReturn   Trigger = "returned"
+	// ByEvent is a run another feature started, such as a root's first
+	// Ready report.
+	ByEvent Trigger = "event"
 )
 
 const (
@@ -172,8 +175,33 @@ func PortableOn(r role.Name, home role.NodeID) Place {
 // Node is the Node the unit runs on, false on the Controller.
 func (p Place) Node() (role.NodeID, bool) { return p.node, p.kind != onController }
 
+// Progress reports how far one unit is.
 type Progress struct {
-	step func(done, total int)
+	step func(Step)
 }
 
-func (p *Progress) Step(done, total int) { p.step(done, total) }
+// Step is how far a unit is in its current phase. Phase is the task's own
+// key, such as "listing". Total is nil while it is unknown.
+type Step struct {
+	Phase string `json:"phase"`
+	Done  int    `json:"done" minimum:"0"`
+	Total *int   `json:"total" minimum:"0"`
+}
+
+// Step reports the unit's step. Frames are throttled per unit, so a unit
+// that steps often never hides another's.
+func (p *Progress) Step(st Step) { p.step(st) }
+
+// SkipError ends a unit Skipped with Cause. An Owned skip's cause is raised
+// by its feature's own Health category, so it never counts toward the task's
+// Scheduled tasks item.
+type SkipError struct {
+	Cause string
+	Owned bool
+}
+
+func (e *SkipError) Error() string { return e.Cause }
+
+func Skip(cause string) error { return &SkipError{Cause: cause} }
+
+func SkipOwned(cause string) error { return &SkipError{Cause: cause, Owned: true} }

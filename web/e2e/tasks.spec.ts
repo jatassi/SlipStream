@@ -66,6 +66,7 @@ test("Run now shows the run at once, in the capsule or atop Activity, and it end
   world,
 }) => {
   await navigate(page, "Tasks");
+  await expect(page.getByRole("button", { name: /task running/u })).toHaveCount(0);
   const healLink = await slowSeedbox(world);
   await housekeepingRow(page).getByRole("button", { name: "Run now: Housekeeping" }).click();
   await expectRunningShown(page);

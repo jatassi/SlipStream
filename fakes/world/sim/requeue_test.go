@@ -8,13 +8,14 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/node"
 )
 
 func navAlert(t *testing.T, a *worldtest.API) string {
 	t.Helper()
-	c := decode[struct {
+	c := simtest.Decode[struct {
 		Alerts struct {
 			Nodes *string `json:"nodes"`
 		} `json:"alerts"`
@@ -28,7 +29,7 @@ func navAlert(t *testing.T, a *worldtest.API) string {
 // indexerWaits is why the one Indexer's searches wait, or "none".
 func indexerWaits(t *testing.T, a *worldtest.API) string {
 	t.Helper()
-	list := decode[struct {
+	list := simtest.Decode[struct {
 		Indexers []struct {
 			Waits *struct {
 				Kind string `json:"kind"`
@@ -47,7 +48,7 @@ func indexerWaits(t *testing.T, a *worldtest.API) string {
 // searched presses Search on work and waits for the run's outcome.
 func searched(t *testing.T, a *worldtest.API, work string) string {
 	t.Helper()
-	started := decode[struct {
+	started := simtest.Decode[struct {
 		SearchIDs []string `json:"searchIds"`
 	}](t, "searchWork", accepted(a.Admin("home", http.MethodPost, "/api/v1/works/"+work+"/search", "")))
 	if len(started.SearchIDs) != 1 {
@@ -55,8 +56,8 @@ func searched(t *testing.T, a *worldtest.API, work string) string {
 	}
 	run := started.SearchIDs[0]
 	var outcome string
-	eventually(t, "the search finishes", func() bool {
-		runs := decode[struct {
+	simtest.Eventually(t, "the search finishes", func() bool {
+		runs := simtest.Decode[struct {
 			Searches []struct {
 				ID       string  `json:"id"`
 				Outcome  *string `json:"outcome"`
@@ -88,10 +89,10 @@ func accepted(r worldtest.Reply) worldtest.Reply {
 	return r
 }
 
-func grabsOn(t *testing.T, a *worldtest.API) []grabView {
+func grabsOn(t *testing.T, a *worldtest.API) []simtest.GrabView {
 	t.Helper()
-	return decode[struct {
-		Grabs []grabView `json:"grabs"`
+	return simtest.Decode[struct {
+		Grabs []simtest.GrabView `json:"grabs"`
 	}](t, "listGrabs", a.Admin("home", http.MethodGet, "/api/v1/grabs", "")).Grabs
 }
 
@@ -125,7 +126,7 @@ func TestAnOfflineSeedboxsSearchesWaitThenGoHome(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		const blip = 15 * time.Second
-		w := sim.Launch(t, home(t), sim.WithWalk(), sim.Edit(func(name string, e *node.Env) {
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), sim.Edit(func(name string, e *node.Env) {
 			if name == "home" {
 				e.Environ = append(e.Environ, "SLIPSTREAM_TIMINGS_NODES_BLIP="+blip.String())
 			}
@@ -134,7 +135,7 @@ func TestAnOfflineSeedboxsSearchesWaitThenGoHome(t *testing.T) {
 		if r := a.Admin("home", http.MethodPatch, "/api/v1/nodes/settings", `{"offlineGrace":60}`); r.Status != http.StatusOK {
 			t.Fatalf("updateNodeSettings = %d %s, want 200", r.Status, r.Body)
 		}
-		work := addOrchard(t, w)
+		work := simtest.AddOrchard(t, w)
 		synctest.Wait()
 		expectStanding(t, a, "in step", view{"holding", "none", "none"})
 
@@ -163,8 +164,8 @@ func TestAnOfflineSeedboxsSearchesWaitThenGoHome(t *testing.T) {
 
 		w.Node("seedbox").Start()
 		a = w.API()
-		g := await(t, w)
-		expectImported(t, g)
+		g := simtest.Await(t, w)
+		simtest.ExpectImported(t, g)
 		box := seedbox(t, a).ID
 		if g.NodeID != box || g.FetchNodeID != box {
 			t.Fatalf("the Grab was fetched by %s and downloaded by %s, want both seedbox %s", g.FetchNodeID, g.NodeID, box)

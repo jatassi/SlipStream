@@ -58,6 +58,9 @@ sql:
             go_type: bool
           - column: works_work.level_folders
             go_type: bool
+          - column: works_work.added_by
+            go_type:
+              type: AddedBy
           - column: works_rating.work_id
             go_type:
               type: WorkID

@@ -11,26 +11,26 @@ import (
 )
 
 // Place puts payload from at to in root, on the Node that holds root now,
-// answering the file's size. The Node may refuse with a *WaitingError,
+// answering the placed file. The Node may refuse with a *WaitingError,
 // and another file at to is storing.ErrOccupied.
-func (r *Roots) Place(ctx context.Context, root ID, to storing.Rel, from storing.Payload) (int64, error) {
+func (r *Roots) Place(ctx context.Context, root ID, to storing.Rel, from storing.Payload) (storing.Placed, error) {
 	at, err := r.at(ctx, root)
 	if err != nil {
-		return 0, err
+		return storing.Placed{}, err
 	}
-	size, err := r.cfg.Remote.Place(ctx, at, from, to)
-	return size, r.waiting(ctx, at.Node, err)
+	placed, err := r.cfg.Remote.Place(ctx, at, from, to)
+	return placed, r.waiting(ctx, at.Node, err)
 }
 
-// Move renames from to to within root on its Node, answering the file's
-// size; moving again converges. The Node may refuse with a *WaitingError.
-func (r *Roots) Move(ctx context.Context, root ID, from, to storing.Rel) (int64, error) {
+// Move renames from to to within root on its Node, answering the moved
+// file; moving again converges. The Node may refuse with a *WaitingError.
+func (r *Roots) Move(ctx context.Context, root ID, from, to storing.Rel) (storing.Placed, error) {
 	at, err := r.at(ctx, root)
 	if err != nil {
-		return 0, err
+		return storing.Placed{}, err
 	}
-	size, err := r.cfg.Remote.Move(ctx, at, from, to)
-	return size, r.waiting(ctx, at.Node, err)
+	moved, err := r.cfg.Remote.Move(ctx, at, from, to)
+	return moved, r.waiting(ctx, at.Node, err)
 }
 
 // WaitingError is a root whose Node takes no new bytes into it now, so an

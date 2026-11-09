@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/jatassi/slipstream/internal/media"
 	"maps"
 	"math/rand/v2"
 	"slices"
@@ -40,7 +41,7 @@ func (l *library) grabbed(t *testing.T, svc *files.Files, tree works.Tree, item 
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, _, err := svc.Import(ctx, tx, files.Incoming{
 			WorkID: tree.ID, ItemID: tree.Items[item].ID, Cut: release.Standard, RootID: l.root.ID, Holding: holding,
-			Size: int64(len(name)), Probe: files.Probe{Width: 1920, Height: 1080}, Quality: q,
+			Size: int64(len(name)), Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: q,
 			ReleaseName: name, Title: release.Title(name, l.fx, nil),
 		})
 		return err

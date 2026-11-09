@@ -29,6 +29,15 @@ type (
 	// Volume makes the folder a volume of its own, Total bytes with Free
 	// of them free.
 	Volume struct{ Total, Free int64 }
+	// FoldCase makes the folder and everything beneath it resolve a name
+	// ignoring case, as NTFS and APFS do: a Stat of a path that isn't there
+	// matches each segment against its folder's listing, so the root's
+	// marker asked for in upper case is found.
+	FoldCase struct{}
+	// NoIDs makes the folder a volume that keeps no file ids, as a share
+	// or an exFAT disk is: every Stat beneath it reads no FileID and no
+	// Volume.
+	NoIDs struct{}
 )
 
 func (Full) Layer() Layer      { return Disk }
@@ -36,12 +45,16 @@ func (Unmounted) Layer() Layer { return Disk }
 func (Hung) Layer() Layer      { return Disk }
 func (ReadOnly) Layer() Layer  { return Disk }
 func (Volume) Layer() Layer    { return Disk }
+func (FoldCase) Layer() Layer  { return Disk }
+func (NoIDs) Layer() Layer     { return Disk }
 
 func (Full) String() string      { return "full" }
 func (Unmounted) String() string { return "unmounted" }
 func (Hung) String() string      { return "hung" }
 func (ReadOnly) String() string  { return "readonly" }
 func (f Volume) String() string  { return "volume=" + size(f.Total) + ",free=" + size(f.Free) }
+func (FoldCase) String() string  { return "foldcase" }
+func (NoIDs) String() string     { return "noids" }
 
 func volume(v string) (Fault, error) {
 	total, free, ok := strings.Cut(v, ",free=")
@@ -101,6 +114,9 @@ type played struct {
 	// at mount.
 	volume *Volume
 	mount  string
+	// folded is the FoldCase folder holding the path, empty for none.
+	folded string
+	noIDs  bool
 }
 
 func (p *Plan) diskPlay(ctx context.Context, op, path string) (played, error) {
@@ -141,6 +157,10 @@ func (p *Plan) playedLocked(path string) (out played, hung bool) {
 			if out.volume == nil || len(folder) > len(out.mount) {
 				out.volume, out.mount = &f, folder
 			}
+		case FoldCase:
+			out.folded = folder
+		case NoIDs:
+			out.noIDs = true
 		}
 	}
 	return out, hung
@@ -179,10 +199,61 @@ func (d *disk) write(ctx context.Context, op string, paths ...string) (played, e
 }
 
 func (d *disk) Stat(ctx context.Context, path string) (storing.Info, error) {
-	if _, err := d.read(ctx, "stat", path); err != nil {
+	pl, err := d.read(ctx, "stat", path)
+	if err != nil {
 		return nil, err
 	}
-	return d.base.Stat(ctx, path)
+	i, err := d.base.Stat(ctx, path)
+	if pl.folded != "" && errors.Is(err, fs.ErrNotExist) {
+		i, err = d.base.Stat(ctx, d.unfolded(ctx, pl.folded, path))
+	}
+	if err != nil {
+		return nil, err
+	}
+	return info{i, pl.noIDs}, nil
+}
+
+// unfolded is path beneath folder with each segment spelled as its folder
+// lists it, ignoring case; a segment no entry matches stays as it is.
+func (d *disk) unfolded(ctx context.Context, folder, path string) string {
+	style := d.base.Host().Style
+	at := folder
+	for seg := range strings.FieldsFuncSeq(path[len(folder):], func(r rune) bool { return r == '/' || r == '\\' }) {
+		name := seg
+		if es, err := d.base.ReadDir(ctx, at); err == nil {
+			if i := slices.IndexFunc(es, func(e storing.Entry) bool { return strings.EqualFold(e.Name, seg) }); i >= 0 {
+				name = es[i].Name
+			}
+		}
+		at = style.Join(at, name)
+	}
+	return at
+}
+
+// info is a Stat played through the plan. Every Stat answers one, so Same
+// compares the stats beneath.
+type info struct {
+	storing.Info
+	noIDs bool
+}
+
+func (i info) FileID() []byte {
+	if i.noIDs {
+		return nil
+	}
+	return i.Info.FileID()
+}
+
+func (i info) Volume() string {
+	if i.noIDs {
+		return ""
+	}
+	return i.Info.Volume()
+}
+
+func (i info) Same(o storing.Info) bool {
+	other, ok := o.(info)
+	return ok && i.Info.Same(other.Info)
 }
 
 func (d *disk) ReadDir(ctx context.Context, dir string) ([]storing.Entry, error) {

@@ -26,7 +26,7 @@ export function ListRow({
 }: {
   title: ReactNode;
   meta?: ReactNode;
-  /** Lines below the meta line, which wrap instead of truncating. */
+  /** Lines under the row's title and trailing slot, the row's full width, which wrap instead of truncating. */
   detail?: ReactNode;
   leading?: ReactNode;
   trailing?: ReactNode;
@@ -41,18 +41,20 @@ export function ListRow({
           moveBetweenRows(event);
         },
       }),
-      className: `flex w-full items-center gap-3 rounded-[inherit] px-4 py-2 text-left ${meta === undefined ? "min-h-(--row-height)" : "min-h-(--row-height-two)"} ${render ? "transition-colors duration-350 ease-standard hover:bg-(--row-wash) focus-visible:bg-(--row-wash)" : ""}`,
+      className: `flex w-full flex-col justify-center gap-0.5 rounded-[inherit] px-4 py-2 text-left ${meta === undefined ? "min-h-(--row-height)" : "min-h-(--row-height-two)"} ${render ? "transition-colors duration-350 ease-standard hover:bg-(--row-wash) focus-visible:bg-(--row-wash)" : ""}`,
       children: (
         <>
-          {leading}
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="truncate text-(length:--body-size) leading-(--body-line-height) text-ink-1 in-data-[density=touch]:text-card-title">
-              {title}
+          <span className="flex items-center gap-3">
+            {leading}
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="truncate text-(length:--body-size) leading-(--body-line-height) text-ink-1 in-data-[density=touch]:text-card-title">
+                {title}
+              </span>
+              {meta !== undefined && <span className="truncate text-meta text-ink-3">{meta}</span>}
             </span>
-            {meta !== undefined && <span className="truncate text-meta text-ink-3">{meta}</span>}
-            {detail}
+            {trailing !== undefined && <span className="shrink-0 text-ink-3">{trailing}</span>}
           </span>
-          {trailing !== undefined && <span className="shrink-0 text-ink-3">{trailing}</span>}
+          {detail}
         </>
       ),
     },

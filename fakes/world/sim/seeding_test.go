@@ -9,6 +9,8 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
+
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
@@ -123,6 +125,7 @@ func within(t *testing.T, limit time.Duration, what string, ok func() bool) {
 // size, Harbor once the tracker credited 40 minutes. seedbox's engine
 // then removes Orchard with its files and Harbor without.
 func TestSeedingGoalsActOnceTheRuleIsMet(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		box := &engines{}
 		w, swarm := launchSwarm(t, enginetest.TrackerRules{Interval: 5 * time.Minute, MinInterval: 5 * time.Minute}, box)
@@ -139,7 +142,7 @@ func TestSeedingGoalsActOnceTheRuleIsMet(t *testing.T) {
 
 		orchard := seedFor(t, w, swarm, ratiopool, "Orchard")
 		harbor := seedFor(t, w, swarm, timepool, "Harbor")
-		eventually(t, "both torrents seed", func() bool { return seeding(t, w.Node("home").Half()) == 2 })
+		simtest.Eventually(t, "both torrents seed", func() bool { return seeding(t, w.Node("home").Half()) == 2 })
 		swarm.Transfer(orchard.hash, 0, 10)
 
 		within(t, 3*time.Hour, "both goals act", func() bool {
@@ -160,7 +163,7 @@ func TestSeedingGoalsActOnceTheRuleIsMet(t *testing.T) {
 				t.Errorf("%s's goal acted at %d with its window met at %d, want it to act only once its window was met", name, got.actedAt, got.metAt)
 			}
 		}
-		eventually(t, "seedbox's engine removes both", func() bool { return len(box.removals()) == 2 })
+		simtest.Eventually(t, "seedbox's engine removes both", func() bool { return len(box.removals()) == 2 })
 		deletes := map[bool]int{}
 		for _, r := range box.removals() {
 			deletes[r.deleteFiles]++
@@ -176,6 +179,7 @@ func TestSeedingGoalsActOnceTheRuleIsMet(t *testing.T) {
 // pauses it, unticking Downloading on seedbox has the goals remove it
 // keeping its copy, and seedbox's drain then ends with nothing held.
 func TestADrainRemovesATorrentItsGoalPausedKeepingItsCopy(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		box := &engines{}
 		w, swarm := launchSwarm(t, enginetest.TrackerRules{Interval: 5 * time.Minute, MinInterval: 5 * time.Minute}, box)
@@ -183,7 +187,7 @@ func TestADrainRemovesATorrentItsGoalPausedKeepingItsCopy(t *testing.T) {
 		nyaa := addTracker(t, w, "Nyaa", indexers.Public)
 		put(t, a, fmt.Sprintf("/api/v1/trackers/%s/goal", nyaa), `{"combine":"first","ratio":0.5,"seedSeconds":null,"action":"pause"}`)
 		orchard := seedFor(t, w, swarm, nyaa, "Orchard")
-		eventually(t, "Orchard seeds", func() bool { return seeding(t, w.Node("home").Half()) == 1 })
+		simtest.Eventually(t, "Orchard seeds", func() bool { return seeding(t, w.Node("home").Half()) == 1 })
 		swarm.Transfer(orchard.hash, 0, 10)
 
 		within(t, time.Hour, "Orchard's goal pauses it", func() bool { return goalRunOf(t, w, orchard).action == "pause" })
@@ -197,7 +201,7 @@ func TestADrainRemovesATorrentItsGoalPausedKeepingItsCopy(t *testing.T) {
 		if got := goalRunOf(t, w, orchard); got.removed != "goal_met" || got.action != "remove" || got.kept != "draining" {
 			t.Fatalf("on the draining seedbox Orchard reads %+v, want removed by its goal, kept for the drain", got)
 		}
-		eventually(t, "seedbox's drain ends", func() bool {
+		simtest.Eventually(t, "seedbox's drain ends", func() bool {
 			return box.torrents() == 0 && stateOf(seedbox(t, a), "downloading") == "none"
 		})
 		if got := box.removals(); len(got) != 1 || got[0].deleteFiles {

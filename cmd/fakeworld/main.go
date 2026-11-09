@@ -55,6 +55,13 @@ const usageText = `usage: fakeworld <command>
   fs match <run-dir> <path> --release <name>
       exit 0 when the file's size and BLAKE3 are the release's; a path
       outside the run dir and its scratch dir is refused
+  fs rm <run-dir> <path>
+  fs mv <run-dir> <from> <to>
+  fs cp <run-dir> <from> <to>
+      remove, rename or copy a file or folder in the run's media dir, as a
+      person changes a library on disk, and print the path removed or made;
+      a path is relative to the media dir or absolute inside it, mv and cp
+      refuse a <to> that exists, and anything outside the media dir is refused
   site <run-dir> <label> [--node <name>]
       print what an Admin enters to add an Indexer for fixture-site's site
       label: a feed's address and API key, or a catalog site's settings and

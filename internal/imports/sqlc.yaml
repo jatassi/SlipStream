@@ -1,0 +1,46 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        emit_pointers_for_null_types: true
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: imports_pending.id
+            go_type:
+              type: EntryID
+          - column: imports_pending_file.pending_id
+            go_type:
+              type: EntryID
+          - column: "*.root_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/roots
+              type: ID
+          - column: imports_pending.content_type
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: TypeID
+          - column: imports_pending_file.probe
+            go_type:
+              import: github.com/jatassi/slipstream/internal/media
+              type: Record
+              pointer: true
+          - column: imports_pending_file.quality
+            go_type:
+              import: github.com/jatassi/slipstream/internal/release
+              type: Quality
+              pointer: true
+          - column: imports_pending_file.cut
+            go_type:
+              import: github.com/jatassi/slipstream/internal/release
+              type: CutKey
+          - column: imports_settings.id
+            go_type:
+              type: Singleton

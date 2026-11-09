@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 
 import { types, view } from "../test/films";
-import { decodeView, encodeView } from "./view-codec";
+import { decodeView, encodeView, librarySearch } from "./view-codec";
 import { type LibraryView, defaultView } from "./view";
 
 test("a view goes into the address and comes back the same, and the default view adds nothing", () => {
@@ -15,6 +15,8 @@ test("a view goes into the address and comes back the same, and the default view
       status: { kind: "values", values: ["missing", "failed"] },
       root: { kind: "values", values: ["none"] },
       needs: { kind: "flag" },
+      gone: { kind: "flag" },
+      scanned: { kind: "flag" },
       "field.year": { kind: "range", min: 1990, max: undefined },
       "field.genres": { kind: "values", values: ["Crime, Noir", "Drama"] },
     },
@@ -30,6 +32,8 @@ test("a view goes into the address and comes back the same, and the default view
     status: "missing,failed",
     root: "none",
     needs: 1,
+    gone: 1,
+    scanned: 1,
     "f.year": "1990..",
     "f.genres": "Crime, Noir~Drama",
     q: "amelie",
@@ -52,4 +56,12 @@ test("an address naming what its types no longer declare opens on the rest", () 
       filters: { "field.year": { kind: "range", min: 2001, max: 2001 } },
     }),
   );
+});
+
+test("the gone files link in Health opens on that root's Works with gone files", () => {
+  const search = librarySearch({ root: "films", gone: "1" });
+  expect(decodeView(search, types).filters).toEqual({
+    root: { kind: "values", values: ["films"] },
+    gone: { kind: "flag" },
+  });
 });

@@ -13,8 +13,8 @@ import {
 import { getListRootsQueryKey, getListVolumesQueryKey } from "../api/gen/query/roots/roots";
 import { getGetCountsQueryKey } from "../api/gen/query/shell/shell";
 import { getGetNodeConfigQueryKey, getGetNodeSystemQueryKey } from "../api/gen/query/system/system";
-import { getListOpenTaskRunsQueryKey, type listOpenTaskRuns } from "../api/gen/query/tasks/tasks";
 import { everyJoinCodeQuery } from "../nodes/join-codes";
+import { takeProgress } from "./task-progress";
 import { takeTraffic } from "./traffic";
 import type { LiveEffects } from "./types";
 
@@ -54,8 +54,13 @@ export const systemEffects = {
     refresh({ queryKey: getGetNodeConfigQueryKey(data.nodeId) });
     refresh({ queryKey: getGetNodeSystemQueryKey(data.nodeId) });
   },
-  "tasks.changed": (_data, { refresh }) => {
+  "tasks.changed": (data, { refresh }) => {
     refresh(everyTasksQuery);
+    // A Library scan unit that fails or is cancelled ends without
+    // roots.changed, and its root's line still shows its last step.
+    if (data.taskId === "library-scan") {
+      refresh({ queryKey: getListRootsQueryKey() });
+    }
   },
   "health.changed": (data, { refresh }) => {
     refresh({ queryKey: getGetSystemHealthQueryKey() });
@@ -66,16 +71,7 @@ export const systemEffects = {
     }
   },
   "tasks.progress": (data, { queryClient }) => {
-    queryClient.setQueryData<Awaited<ReturnType<typeof listOpenTaskRuns>>>(
-      getListOpenTaskRunsQueryKey(),
-      (open) =>
-        open && {
-          ...open,
-          runs: open.runs.map((run) =>
-            run.runId === data.runId ? { ...run, done: data.done, total: data.total } : run,
-          ),
-        },
-    );
+    takeProgress(queryClient, data);
   },
 } satisfies Pick<
   LiveEffects,

@@ -6,11 +6,15 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 // OSDisk is Disk on this machine, through the OS's own calls: no cgo and
 // no df.
-type OSDisk struct{ host Host }
+type OSDisk struct {
+	host   Host
+	stable *stability
+}
 
 // NewOSDisk is this machine's Disk; data is SlipStream's data folder,
 // which no root may overlap.
@@ -23,35 +27,61 @@ func NewOSDisk(data string) (OSDisk, error) {
 	if err != nil {
 		return OSDisk{}, err
 	}
-	return OSDisk{Host{Style: nativeStyle, Account: account, Service: service, Data: data}}, nil
+	return OSDisk{
+		host:   Host{Style: nativeStyle, Account: account, Service: service, Data: data},
+		stable: &stability{of: map[string]bool{}},
+	}, nil
 }
 
 func (d OSDisk) Host() Host { return d.host }
 
+// stability is whether each volume keeps file ids across mounts, by
+// device, so a walk asks the volume once rather than once per file.
+type stability struct {
+	mu sync.Mutex
+	of map[string]bool
+}
+
+func (s *stability) on(device string, ask func() (bool, error)) (bool, error) {
+	s.mu.Lock()
+	stable, known := s.of[device]
+	s.mu.Unlock()
+	if known {
+		return stable, nil
+	}
+	stable, err := ask()
+	if err != nil {
+		return false, err
+	}
+	s.mu.Lock()
+	s.of[device] = stable
+	s.mu.Unlock()
+	return stable, nil
+}
+
 type osInfo struct {
 	fs.FileInfo
-	id []byte
+	id     []byte
+	volume string
 }
 
 func (i osInfo) Dir() bool { return i.IsDir() }
 
 func (i osInfo) FileID() []byte { return i.id }
 
+func (i osInfo) Volume() string { return i.volume }
+
 func (i osInfo) Same(o Info) bool {
 	other, ok := o.(osInfo)
 	return ok && os.SameFile(i.FileInfo, other.FileInfo)
 }
 
-func (OSDisk) Stat(_ context.Context, path string) (Info, error) {
+func (d OSDisk) Stat(_ context.Context, path string) (Info, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err //nolint:wrapcheck // a PathError names the call and the path; callers classify it with errors.Is
 	}
-	id, err := fileID(path, info)
-	if err != nil {
-		return nil, err
-	}
-	return osInfo{info, id}, nil
+	return d.identify(path, info)
 }
 
 func (OSDisk) ReadDir(_ context.Context, dir string) ([]Entry, error) {
@@ -63,13 +93,15 @@ func (OSDisk) ReadDir(_ context.Context, dir string) ([]Entry, error) {
 	for _, de := range des {
 		path := filepath.Join(dir, de.Name())
 		isDir := de.IsDir()
-		if de.Type()&(fs.ModeSymlink|fs.ModeIrregular) != 0 {
+		link := de.Type()&(fs.ModeSymlink|fs.ModeIrregular) != 0
+		if link {
 			info, err := os.Stat(path)
 			isDir = err == nil && info.IsDir()
 		}
 		entries = append(entries, Entry{
 			Name:     de.Name(),
 			Dir:      isDir,
+			Link:     link,
 			Hidden:   hidden(nativeStyle, de.Name(), attrsOf(de)),
 			Readable: !isDir || listable(path),
 		})

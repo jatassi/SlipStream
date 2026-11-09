@@ -166,7 +166,7 @@ func (q *Queries) InsertTask(ctx context.Context, arg InsertTaskParams) error {
 }
 
 const listDueUnits = `-- name: ListDueUnits :many
-SELECT task_id, unit_key, position, label, tied_to, last_run_id, last_outcome, last_cause, last_node, last_ended_at, last_success_at, first_seen_at, due_on_return FROM tasks_unit WHERE due_on_return = 1 ORDER BY task_id, position
+SELECT task_id, unit_key, position, label, tied_to, last_run_id, last_outcome, last_cause, last_node, last_ended_at, last_success_at, first_seen_at, due_on_return, last_owned FROM tasks_unit WHERE due_on_return = 1 ORDER BY task_id, position
 `
 
 func (q *Queries) ListDueUnits(ctx context.Context) ([]TasksUnit, error) {
@@ -192,6 +192,7 @@ func (q *Queries) ListDueUnits(ctx context.Context) ([]TasksUnit, error) {
 			&i.LastSuccessAt,
 			&i.FirstSeenAt,
 			&i.DueOnReturn,
+			&i.LastOwned,
 		); err != nil {
 			return nil, err
 		}
@@ -362,7 +363,7 @@ func (q *Queries) ListTasks(ctx context.Context) ([]TasksTask, error) {
 }
 
 const listUnits = `-- name: ListUnits :many
-SELECT task_id, unit_key, position, label, tied_to, last_run_id, last_outcome, last_cause, last_node, last_ended_at, last_success_at, first_seen_at, due_on_return FROM tasks_unit WHERE task_id = ?1 ORDER BY position
+SELECT task_id, unit_key, position, label, tied_to, last_run_id, last_outcome, last_cause, last_node, last_ended_at, last_success_at, first_seen_at, due_on_return, last_owned FROM tasks_unit WHERE task_id = ?1 ORDER BY position
 `
 
 func (q *Queries) ListUnits(ctx context.Context, taskID TaskID) ([]TasksUnit, error) {
@@ -388,6 +389,7 @@ func (q *Queries) ListUnits(ctx context.Context, taskID TaskID) ([]TasksUnit, er
 			&i.LastSuccessAt,
 			&i.FirstSeenAt,
 			&i.DueOnReturn,
+			&i.LastOwned,
 		); err != nil {
 			return nil, err
 		}
@@ -437,8 +439,9 @@ UPDATE tasks_unit SET
     last_node = ?4,
     last_ended_at = ?5,
     last_success_at = coalesce(?6, last_success_at),
-    due_on_return = coalesce(?7, due_on_return)
-WHERE task_id = ?8 AND unit_key = ?9
+    due_on_return = coalesce(?7, due_on_return),
+    last_owned = ?8
+WHERE task_id = ?9 AND unit_key = ?10
 `
 
 type RecordUnitParams struct {
@@ -449,6 +452,7 @@ type RecordUnitParams struct {
 	LastEndedAt   storage.Time
 	LastSuccessAt storage.Time
 	DueOnReturn   *int64
+	LastOwned     bool
 	TaskID        TaskID
 	UnitKey       UnitKey
 }
@@ -462,9 +466,24 @@ func (q *Queries) RecordUnit(ctx context.Context, arg RecordUnitParams) error {
 		arg.LastEndedAt,
 		arg.LastSuccessAt,
 		arg.DueOnReturn,
+		arg.LastOwned,
 		arg.TaskID,
 		arg.UnitKey,
 	)
+	return err
+}
+
+const setOpenRunUnits = `-- name: SetOpenRunUnits :exec
+UPDATE tasks_run SET units = ?1 WHERE id = ?2 AND ended_at IS NULL
+`
+
+type SetOpenRunUnitsParams struct {
+	Units *string
+	ID    RunID
+}
+
+func (q *Queries) SetOpenRunUnits(ctx context.Context, arg SetOpenRunUnitsParams) error {
+	_, err := q.db.ExecContext(ctx, setOpenRunUnits, arg.Units, arg.ID)
 	return err
 }
 

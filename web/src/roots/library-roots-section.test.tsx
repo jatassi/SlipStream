@@ -26,8 +26,8 @@ test("Library roots lists each Content Type's roots with the default, the Node, 
   openRoots();
   await expect.element(page.getByRole("heading", { name: "Films 2", level: 2 })).toBeVisible();
   expect(rowTexts("Films roots")).toEqual([
-    "/srv/media/filmsDefaultonlinehome1.2 TB free12 Films, 910 GB",
-    "/mnt/archive/filmsThe folder is there but looks unmountedonlinehomeFree space not read yet3 Films, 0 bytes",
+    "/srv/media/filmsDefaultNot scanned yet.onlinehome1.2 TB free12 Films, 910 GB",
+    "/mnt/archive/filmsThe folder is there but looks unmountedNot scanned yet.onlinehomeFree space not read yet3 Films, 0 bytes",
   ]);
   await expect.element(page.getByRole("heading", { name: "Zines 0", level: 2 })).toBeVisible();
   await expect.element(page.getByText("Add a library root to hold Zines.")).toBeVisible();
@@ -81,7 +81,7 @@ test("Make default makes another root where its type's new Works go", async () =
         .all()
         .map((item) => item.element().textContent),
     )
-    .toEqual(["Edit", "Delete"]);
+    .toEqual(["Scan now", "Edit", "Delete"]);
   await userEvent.keyboard("{Escape}");
   await expect.element(page.getByRole("menu")).not.toBeInTheDocument();
   await act(archiveRoot, "Make default");
@@ -102,7 +102,7 @@ test("a root on a written-off Node says so and leads its menu with Re-home", asy
         .all()
         .map((item) => item.element().textContent),
     )
-    .toEqual(["Re-home", "Make default", "Delete"]);
+    .toEqual(["Re-home", "Make default", "Scan now", "Delete"]);
   await userEvent.click(page.getByRole("menuitem", { name: "Re-home" }));
   await expect.element(page.getByRole("dialog", { name: "Edit the Films root" })).toBeVisible();
 });

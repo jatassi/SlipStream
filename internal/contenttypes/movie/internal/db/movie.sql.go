@@ -190,6 +190,55 @@ func (q *Queries) InsertTitle(ctx context.Context, arg InsertTitleParams) error 
 	return err
 }
 
+const listClaimsOf = `-- name: ListClaimsOf :many
+SELECT work_id, tmdb_id, imdb_id, year FROM movie_movie WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
+`
+
+type ListClaimsOfRow struct {
+	WorkID works.WorkID
+	TmdbID TMDBID
+	ImdbID *IMDbID
+	Year   *int64
+}
+
+func (q *Queries) ListClaimsOf(ctx context.Context, workIds []works.WorkID) ([]ListClaimsOfRow, error) {
+	query := listClaimsOf
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClaimsOfRow
+	for rows.Next() {
+		var i ListClaimsOfRow
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.TmdbID,
+			&i.ImdbID,
+			&i.Year,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCredits = `-- name: ListCredits :many
 SELECT person_id, name, department, role, photo_path FROM movie_credit WHERE work_id = ?1 ORDER BY position
 `
@@ -217,6 +266,45 @@ func (q *Queries) ListCredits(ctx context.Context, workID works.WorkID) ([]ListC
 			&i.Department,
 			&i.Role,
 			&i.PhotoPath,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEveryClaim = `-- name: ListEveryClaim :many
+SELECT work_id, tmdb_id, imdb_id, year FROM movie_movie ORDER BY rowid
+`
+
+type ListEveryClaimRow struct {
+	WorkID works.WorkID
+	TmdbID TMDBID
+	ImdbID *IMDbID
+	Year   *int64
+}
+
+func (q *Queries) ListEveryClaim(ctx context.Context) ([]ListEveryClaimRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryClaim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEveryClaimRow
+	for rows.Next() {
+		var i ListEveryClaimRow
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.TmdbID,
+			&i.ImdbID,
+			&i.Year,
 		); err != nil {
 			return nil, err
 		}

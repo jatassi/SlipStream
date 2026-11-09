@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/node"
 	transferv1 "github.com/jatassi/slipstream/internal/pb/slipstream/transfer/v1"
@@ -85,7 +86,7 @@ func staging(t *testing.T, w *sim.World) []string {
 	return out
 }
 
-func expectFromSeedbox(t *testing.T, w *sim.World, g grabView) {
+func expectFromSeedbox(t *testing.T, w *sim.World, g simtest.GrabView) {
 	t.Helper()
 	if box := w.API().Node("seedbox").NodeID; g.NodeID != box {
 		t.Fatalf("the Grab's Node is %s, want seedbox %s, which downloads", g.NodeID, box)
@@ -99,9 +100,9 @@ func TestAGrabOnSeedboxLandsInNassRootThroughATransfer(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk())
-		search(t, w, addOrchard(t, w))
-		g := await(t, w)
-		expectImported(t, g)
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		g := simtest.Await(t, w)
+		simtest.ExpectImported(t, g)
 		expectFromSeedbox(t, w, g)
 		expectPlaced(t, w)
 		if n := transferRecords(t, w); n != 0 {
@@ -117,8 +118,8 @@ func TestATransferBetweenWorkersSurvivesASeedboxKillAndAControllerRestart(t *tes
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		p := newParked()
-		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
-		search(t, w, addOrchard(t, w))
+		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
 		<-p.reached
 		box := w.Node("seedbox")
 		stopped := make(chan struct{})
@@ -134,8 +135,8 @@ func TestATransferBetweenWorkersSurvivesASeedboxKillAndAControllerRestart(t *tes
 		h.Stop()
 		h.Start(func(e *node.Env) { e.Environ = append(e.Environ, "SLIPSTREAM_LINK_LISTEN="+link.String()) })
 		box.Start()
-		g := await(t, w)
-		expectImported(t, g)
+		g := simtest.Await(t, w)
+		simtest.ExpectImported(t, g)
 		expectFromSeedbox(t, w, g)
 		expectPlaced(t, w)
 	})
@@ -151,7 +152,7 @@ type transferRow struct {
 // zero row while it lists none.
 func theTransfer(t *testing.T, a *worldtest.API) transferRow {
 	t.Helper()
-	listed := decode[struct {
+	listed := simtest.Decode[struct {
 		Transfers []transferRow `json:"transfers"`
 	}](t, "listTransfers", a.Admin("home", http.MethodGet, "/api/v1/transfers", "")).Transfers
 	if len(listed) != 1 {
@@ -167,20 +168,20 @@ func TestATransferNeedingSpaceKeepsTheBytesNasVerified(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		p := newParked()
-		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
-		search(t, w, addOrchard(t, w))
+		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
 		<-p.reached
 		a := w.API()
-		eventually(t, "nas verifies a chunk", func() bool { return theTransfer(t, a).Verified > 0 })
+		simtest.Eventually(t, "nas verifies a chunk", func() bool { return theTransfer(t, a).Verified > 0 })
 		kept := theTransfer(t, a).Verified
 		lift := w.Disk("nas", filepath.Join(w.Manifest().MediaDir, "movies"), fault.Full{})
 		close(p.release)
-		eventually(t, "the Transfer needs space", func() bool { return theTransfer(t, a).State == "needs_space" })
+		simtest.Eventually(t, "the Transfer needs space", func() bool { return theTransfer(t, a).State == "needs_space" })
 		if got := theTransfer(t, a); got.Verified < kept {
 			t.Fatalf("listTransfers = %+v while it needs space, want at least the %d bytes nas verified", got, kept)
 		}
 		lift()
-		expectImported(t, await(t, w))
+		simtest.ExpectImported(t, simtest.Await(t, w))
 	})
 }
 
@@ -192,16 +193,16 @@ func TestATransferWhoseLaneCarriesItsFirstChunkIsTransferring(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		p := parkedAt(1)
-		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
-		search(t, w, addOrchard(t, w))
+		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
 		<-p.reached
 		a := w.API()
-		eventually(t, "the Transfer copies while its first chunk is on the way", func() bool {
+		simtest.Eventually(t, "the Transfer copies while its first chunk is on the way", func() bool {
 			got := theTransfer(t, a)
 			return got.State == "copying" && got.Reason == "" && got.Verified == 0
 		})
 		close(p.release)
-		expectImported(t, await(t, w))
+		simtest.ExpectImported(t, simtest.Await(t, w))
 	})
 }
 
@@ -237,12 +238,12 @@ func TestATransferBetweenWorkersResumesAcrossCutLanes(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		counted := &sends{by: map[int]int{}, flip: -1}
 		cut := &cutLanes{}
-		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), onSeedbox(func(e *node.Env) {
+		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) {
 			e.Test.Transfers = transfers.Hooks{Sent: counted.sent, Lane: cut.wrap}
 		}))
-		flip(t, w.Path("nas", "seedbox"), fault.Cut(6<<20))
-		search(t, w, addOrchard(t, w))
-		expectImported(t, await(t, w))
+		simtest.Flip(t, w.Path("nas", "seedbox"), fault.Cut(6<<20))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		simtest.ExpectImported(t, simtest.Await(t, w))
 		got := counted.counts()
 		if len(got) != 5 {
 			t.Fatalf("seedbox sent chunks %v, want each of the 5", got)
@@ -271,15 +272,15 @@ func TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		p := newParked()
-		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
-		search(t, w, addOrchard(t, w))
+		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
 		<-p.reached
-		eventually(t, "the transferring Grab reads its Transfer's bytes", func() bool {
-			gs := grabsListed(t, w)
+		simtest.Eventually(t, "the transferring Grab reads its Transfer's bytes", func() bool {
+			gs := simtest.GrabsListed(t, w)
 			return len(gs) == 1 && gs[0].Stage == "transferring" && gs[0].Progress != nil &&
 				gs[0].Progress.Total == int64(len(sim.Payload(release)))
 		})
-		listed := decode[struct {
+		listed := simtest.Decode[struct {
 			Transfers []struct {
 				JobName string `json:"jobName"`
 				State   string `json:"state"`
@@ -290,20 +291,20 @@ func TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer(t *testing.T) {
 		}
 		a := w.API()
 		writeOff(t, a, seedbox(t, a).ID)
-		g := await(t, w)
+		g := simtest.Await(t, w)
 		close(p.release)
 		expectFailed(t, g, "transferring", "node_written_off", "The Admin wrote off what this Grab's Node downloads")
 		if n := transferRecords(t, w); n != 0 {
 			t.Fatalf("home keeps %d Transfer records once the Grab failed, want none", n)
 		}
-		eventually(t, "nas deletes the canceled Transfer's staging", func() bool { return len(staging(t, w)) == 0 })
+		simtest.Eventually(t, "nas deletes the canceled Transfer's staging", func() bool { return len(staging(t, w)) == 0 })
 	})
 }
 
-func moviesRoot(t *testing.T, w *sim.World) rootRow {
+func moviesRoot(t *testing.T, w *sim.World) simtest.RootRow {
 	t.Helper()
-	roots := decode[struct {
-		Roots []rootRow `json:"roots"`
+	roots := simtest.Decode[struct {
+		Roots []simtest.RootRow `json:"roots"`
 	}](t, "listRoots", w.API().Admin("home", http.MethodGet, "/api/v1/roots", "")).Roots
 	if len(roots) != 1 {
 		t.Fatalf("listRoots = %+v, want the movies root", roots)
@@ -311,7 +312,7 @@ func moviesRoot(t *testing.T, w *sim.World) rootRow {
 	return roots[0]
 }
 
-func rehome(t *testing.T, w *sim.World, root rootRow, to, path string) {
+func rehome(t *testing.T, w *sim.World, root simtest.RootRow, to, path string) {
 	t.Helper()
 	body := `{"nodeId":"` + w.API().Node(to).NodeID + `","path":` + strconv.Quote(path) + `}`
 	if r := w.API().Admin("home", http.MethodPatch, "/api/v1/roots/"+root.ID, body); r.Status != http.StatusOK {
@@ -332,8 +333,8 @@ func TestARootRehomedMidTransferTakesTheFileWhereItIsNow(t *testing.T) {
 			s := seedboxNAS(t)
 			s.Nodes[0].Roles = append(s.Nodes[0].Roles, "storage")
 			p := newParked()
-			w := sim.Launch(t, s, sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
-			search(t, w, addOrchard(t, w))
+			w := sim.Launch(t, s, sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
+			simtest.Search(t, w, simtest.AddOrchard(t, w))
 			<-p.reached
 			root := moviesRoot(t, w)
 			moved := filepath.Join(t.TempDir(), "movies")
@@ -345,8 +346,8 @@ func TestARootRehomedMidTransferTakesTheFileWhereItIsNow(t *testing.T) {
 			}
 			rehome(t, w, root, "home", moved)
 			close(p.release)
-			g := await(t, w)
-			expectImported(t, g)
+			g := simtest.Await(t, w)
+			simtest.ExpectImported(t, g)
 			rel, err := filepath.Rel("movies", filepath.FromSlash(placed))
 			if err != nil {
 				t.Fatal(err)
@@ -355,7 +356,7 @@ func TestARootRehomedMidTransferTakesTheFileWhereItIsNow(t *testing.T) {
 			if err != nil || blake3.Sum256(data) != blake3.Sum256(sim.Payload(release)) {
 				t.Fatalf("home's root holds %d bytes (%v), want the release payload", len(data), err)
 			}
-			eventually(t, "nas deletes what it staged", func() bool { return len(staging(t, w)) == 0 })
+			simtest.Eventually(t, "nas deletes what it staged", func() bool { return len(staging(t, w)) == 0 })
 		})
 	})
 	t.Run("onto seedbox", func(t *testing.T) {
@@ -364,14 +365,14 @@ func TestARootRehomedMidTransferTakesTheFileWhereItIsNow(t *testing.T) {
 			s := seedboxNAS(t)
 			s.Nodes[1].Roles = append(s.Nodes[1].Roles, "storage")
 			p := newParked()
-			w := sim.Launch(t, s, sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
-			search(t, w, addOrchard(t, w))
+			w := sim.Launch(t, s, sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
+			simtest.Search(t, w, simtest.AddOrchard(t, w))
 			<-p.reached
 			root := moviesRoot(t, w)
 			rehome(t, w, root, "seedbox", root.Path)
-			g := await(t, w)
+			g := simtest.Await(t, w)
 			close(p.release)
-			expectImported(t, g)
+			simtest.ExpectImported(t, g)
 			expectPlaced(t, w)
 			linked, err := os.Stat(filepath.Join(w.Manifest().MediaDir, filepath.FromSlash(placed)))
 			if err != nil {

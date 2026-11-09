@@ -4,3 +4,5 @@
 *.mp4 binary
 **/scripts/bin/** binary
 cmd/release/internal/linkage/testdata/** binary
+# The ffprobe captures' commands are shell, which a drift test compares byte for byte.
+internal/media/testdata/ffprobe/*.cmd text eol=lf

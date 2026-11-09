@@ -70,6 +70,12 @@ import type {
   MakeFolder500,
   MakeFolder503,
   MakeFolderInputBody,
+  MarkRootGone401,
+  MarkRootGone403,
+  MarkRootGone404,
+  MarkRootGone409,
+  MarkRootGone422,
+  MarkRootGone500,
   RehomeRoot401,
   RehomeRoot403,
   RehomeRoot404,
@@ -85,9 +91,16 @@ import type {
   RootsRoot,
   RootsRootList,
   RootsRootSettings,
+  RootsScanStarted,
   RootsSuggestions,
   RootsVerdict,
   RootsVolumeList,
+  ScanRoot401,
+  ScanRoot403,
+  ScanRoot404,
+  ScanRoot409,
+  ScanRoot422,
+  ScanRoot500,
   SuggestFolders401,
   SuggestFolders403,
   SuggestFolders404,
@@ -1568,6 +1581,203 @@ export const useMakeDefaultRoot = <
   TContext
 > => {
   return useMutation(getMakeDefaultRootMutationOptions(options), queryClient);
+};
+export const getMarkRootGoneUrl = (rootId: string) => {
+  return `/api/v1/roots/${rootId}/gone`;
+};
+
+/**
+ * @summary Confirm the gone files that stopped a root's last library scan and scan it again to mark them gone
+ */
+export const markRootGone = async (
+  rootId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<RootsScanStarted> => {
+  return apiFetch<RootsScanStarted>(getMarkRootGoneUrl(rootId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getMarkRootGoneMutationKey = () => ["markRootGone"] as const;
+
+export const getMarkRootGoneMutationOptions = <
+  TError = ErrorType<
+    | MarkRootGone401
+    | MarkRootGone403
+    | MarkRootGone404
+    | MarkRootGone409
+    | MarkRootGone422
+    | MarkRootGone500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markRootGone>>,
+    TError,
+    MarkRootGoneMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markRootGone>>,
+  TError,
+  MarkRootGoneMutationVariables,
+  TContext
+> => {
+  const mutationKey = getMarkRootGoneMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markRootGone>>,
+    MarkRootGoneMutationVariables
+  > = (props) => {
+    const { rootId } = props ?? {};
+
+    return markRootGone(rootId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkRootGoneMutationResult = NonNullable<Awaited<ReturnType<typeof markRootGone>>>;
+
+export type MarkRootGoneMutationError = ErrorType<
+  | MarkRootGone401
+  | MarkRootGone403
+  | MarkRootGone404
+  | MarkRootGone409
+  | MarkRootGone422
+  | MarkRootGone500
+>;
+export type MarkRootGoneMutationVariables = { rootId: string };
+
+/**
+ * @summary Confirm the gone files that stopped a root's last library scan and scan it again to mark them gone
+ */
+export const useMarkRootGone = <
+  TError = ErrorType<
+    | MarkRootGone401
+    | MarkRootGone403
+    | MarkRootGone404
+    | MarkRootGone409
+    | MarkRootGone422
+    | MarkRootGone500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof markRootGone>>,
+      TError,
+      MarkRootGoneMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof markRootGone>>,
+  TError,
+  MarkRootGoneMutationVariables,
+  TContext
+> => {
+  return useMutation(getMarkRootGoneMutationOptions(options), queryClient);
+};
+export const getScanRootUrl = (rootId: string) => {
+  return `/api/v1/roots/${rootId}/scan`;
+};
+
+/**
+ * @summary Scan a root now, in the open Library scan run or a new one
+ */
+export const scanRoot = async (
+  rootId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<RootsScanStarted> => {
+  return apiFetch<RootsScanStarted>(getScanRootUrl(rootId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getScanRootMutationKey = () => ["scanRoot"] as const;
+
+export const getScanRootMutationOptions = <
+  TError = ErrorType<
+    ScanRoot401 | ScanRoot403 | ScanRoot404 | ScanRoot409 | ScanRoot422 | ScanRoot500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof scanRoot>>,
+    TError,
+    ScanRootMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof scanRoot>>,
+  TError,
+  ScanRootMutationVariables,
+  TContext
+> => {
+  const mutationKey = getScanRootMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof scanRoot>>,
+    ScanRootMutationVariables
+  > = (props) => {
+    const { rootId } = props ?? {};
+
+    return scanRoot(rootId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ScanRootMutationResult = NonNullable<Awaited<ReturnType<typeof scanRoot>>>;
+
+export type ScanRootMutationError = ErrorType<
+  ScanRoot401 | ScanRoot403 | ScanRoot404 | ScanRoot409 | ScanRoot422 | ScanRoot500
+>;
+export type ScanRootMutationVariables = { rootId: string };
+
+/**
+ * @summary Scan a root now, in the open Library scan run or a new one
+ */
+export const useScanRoot = <
+  TError = ErrorType<
+    ScanRoot401 | ScanRoot403 | ScanRoot404 | ScanRoot409 | ScanRoot422 | ScanRoot500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof scanRoot>>,
+      TError,
+      ScanRootMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof scanRoot>>,
+  TError,
+  ScanRootMutationVariables,
+  TContext
+> => {
+  return useMutation(getScanRootMutationOptions(options), queryClient);
 };
 export const getListVolumesUrl = () => {
   return `/api/v1/volumes`;

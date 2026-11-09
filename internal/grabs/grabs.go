@@ -175,8 +175,8 @@ type Roots interface {
 	Reachable(ctx context.Context, r storage.Reader[file], root roots.Root) error
 	// Watch is closed at the next change of a root's report.
 	Watch() <-chan struct{}
-	Place(ctx context.Context, root roots.ID, to storing.Rel, from storing.Payload) (int64, error)
-	Move(ctx context.Context, root roots.ID, from, to storing.Rel) (int64, error)
+	Place(ctx context.Context, root roots.ID, to storing.Rel, from storing.Payload) (storing.Placed, error)
+	Move(ctx context.Context, root roots.ID, from, to storing.Rel) (storing.Placed, error)
 }
 
 type Config struct {
@@ -271,11 +271,11 @@ type Torrent struct {
 }
 
 // Plan is placement, decided at probing before any Transfer (ADR 0004):
-// the file and its probe, the root it goes under, its path there, and
+// the file and its media record, the root it goes under, its path there, and
 // the Targets it fills in Profile order, the first naming the file.
 type Plan struct {
 	FileIndex int
-	Probe     media.Probe
+	Media     media.Record
 	// Root is zero once a finished Grab's root is deleted.
 	Root roots.Root
 	// Path is relative to the root, '/' separated.
@@ -410,7 +410,7 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 			}
 			g.Plan.Root = root
 		}
-		if err := json.Unmarshal([]byte(*row.Probe), &g.Plan.Probe); err != nil {
+		if err := json.Unmarshal([]byte(*row.Probe), &g.Plan.Media); err != nil {
 			return Grab{}, fmt.Errorf("grab %s: probe: %w", row.ID, err)
 		}
 	}

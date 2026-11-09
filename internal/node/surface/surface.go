@@ -20,6 +20,8 @@ import (
 	"github.com/jatassi/slipstream/internal/healthapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/identityapi"
+	"github.com/jatassi/slipstream/internal/imports"
+	"github.com/jatassi/slipstream/internal/importsapi"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/indexersapi"
 	"github.com/jatassi/slipstream/internal/live"
@@ -75,6 +77,7 @@ var Events = []live.Event{
 	indexers.TrackersEvent,
 	trackers.SeedingChangedEvent,
 	files.ChangedEvent,
+	imports.ChangedEvent,
 	grabs.ChangedEvent,
 	grabs.SearchChangedEvent,
 	downloadclients.ChangedEvent,
@@ -103,6 +106,7 @@ type Node interface {
 	indexersapi.Registry
 	trackersapi.Registry
 	filesapi.Library
+	importsapi.Pending
 	grabsapi.Pipeline
 	downloadclientsapi.Clients
 	transfersapi.Copies
@@ -139,6 +143,7 @@ func Mount(r *api.Router, s Services) {
 	indexersapi.Routes(r, s.Node)
 	trackersapi.Routes(r, s.Node)
 	filesapi.Routes(r, s.Node)
+	importsapi.Routes(r, s.Node)
 	grabsapi.Routes(r, s.Node)
 	downloadclientsapi.Routes(r, s.Node)
 	transfersapi.Routes(r, s.Node)

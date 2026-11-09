@@ -16,11 +16,15 @@ The Library shows every Work of a Content Type, or of every one on `/library`, a
 - `library-live` a Work added, changed or deleted through the API appears, changes or leaves without a reload (P-242).
 - `library-tv` on `series`, TV's posters read their status and tally over monitored episodes, such as `Missing · 0 of 3 met` for The Lantern Keepers added with First season; its filters add `Network` and `Production status`, `Ended (1)` leaves only Harbor Nights, and the filter is still set after a visit to Movies and back (P-035, P-036).
 
+- `library-pending-link` on `home` with the shelves added as roots ([Pending imports](./pending-imports.md)), the Library reads `3 folders need you` over `A library scan found them and can't match them with confidence.` above the filters, linking to `/library/pending`, and the sidebar's `Library` row carries the count; the row leaves once no folder needs the Admin (P-024).
+- `library-scan-filters` on the same run, `Filter` adds `Files gone (<n>)` and `Added by a library scan (<n>)` beside `Needs you`. `Added by a library scan (3)` keeps Copper Kettle, Lanterns at Low Tide and Saltmarsh Radio as `scanned=1`, and once a scan marks files gone `Files gone (2)` keeps their Works as `gone=1`, which Health's `Show the Works` opens with the root, `?root=<root id>&gone=1`. `GET /api/v1/library` answers `goneFiles` and `addedBy` (`admin` or `scan`) per Work (P-024, P-026).
+
 ## How to get to it (user POV)
 
 - Desktop shell: the sidebar's `Library` row for every type, and the Content Type row under it (`Movies`) for one.
 - Phone shell: the `Library` tab, and `More` > `Movies`.
-- API: `GET /api/v1/library` (the projection), `GET /api/v1/library?workIds=` (named rows), `GET /api/v1/works/search?q=&limit=0&contentType=`.
+- Desktop and phone shells: the `<n> folders need you` row opens Pending imports, and the Pending imports lead's `Show the movies it added` opens the Library filtered to `scanned=1` and its root.
+- API: `GET /api/v1/library` (the projection, with `goneFiles` and `addedBy` per Work), `GET /api/v1/library?workIds=` (named rows), `GET /api/v1/works/search?q=&limit=0&contentType=`.
 - Host CLI: none.
 
 ## Driving it with fakeworld and playwright cli
@@ -132,6 +136,20 @@ Steps:
   ```sh
   $FW exec $RUN --proof library/library-live -- curl -sS -X PUT -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' -d "{\"workIds\":[\"$S\"],\"on\":true}" '{nodes.home.url}/api/v1/works/monitored'
   $FW exec $RUN --proof library/library-live -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByText("Not monitored").waitFor({ state: "detached", timeout: 10000 }); }'
+  ```
+
+- **Library scan's filters.** On a separate `home` run with the shelves added as roots, the Library leads with `3 folders need you`. Choose `Filter`, then `Added by a library scan (3)`. After [Library roots](./library-roots.md)' **A mass vanish stops, and Mark them gone settles it**, `/library/movie` with `Files gone (2)` keeps Copper Kettle and Saltmarsh Radio.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/library'
+  $FW exec $RUN --proof library/library-pending-link -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/library/library-pending-link/library.png
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Filter" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop check 'getByRole("dialog", { name: "Filters" }).getByRole("checkbox", { name: /^Added by a library scan/ })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop press Escape
+  $FW exec $RUN --proof library/library-scan-filters -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/library/library-scan-filters/added-by-scan.aria.yml
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/library/movie?gone=1'
+  $FW exec $RUN --proof library/library-scan-filters -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/library/library-scan-filters/files-gone.aria.yml
+  $FW exec $RUN --proof library/library-scan-filters -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/library'
   ```
 
 ## Gotchas

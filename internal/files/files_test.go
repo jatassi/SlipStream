@@ -16,6 +16,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
@@ -75,7 +76,13 @@ type library struct {
 	published *published
 	// staged is the Transfers with a record.
 	staged map[transfers.ID]bool
+	// changed is each files.changed its files owners published.
+	changed told
 }
+
+type told []files.Changed
+
+func (t *told) Publish(_ context.Context, c files.Changed) { *t = append(*t, c) }
 
 func open(t testing.TB) *library {
 	t.Helper()
@@ -121,8 +128,9 @@ func (l *library) on(cells files.Inflight, disk files.Disk) *files.Files {
 		Transfers: func(context.Context, storage.Reader[storage.Library]) (map[transfers.ID]bool, error) {
 			return l.staged, nil
 		},
-		Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: l.fx}, Today: func() time.Time { return today },
-		Disk: disk, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
+		Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: l.fx}, Names: map[works.TypeID]release.Names{contenttypetest.ID: l.fx},
+		Today: func() time.Time { return today },
+		Disk:  disk, Changed: &l.changed, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
 		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
 	})
 	if err != nil {
@@ -182,7 +190,7 @@ func (l *library) place(t testing.TB, item works.ItemID, work works.WorkID, path
 	t.Helper()
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: work, ItemID: item, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: 1024, Probe: files.Probe{Width: 1920, Height: 1080}, Quality: q,
+			WorkID: work, ItemID: item, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: 1024, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: q,
 		}, fills)
 		return err
 	})
@@ -196,7 +204,7 @@ func lines(cells []files.Cell) string {
 	for _, c := range cells {
 		fmt.Fprintf(&b, "%s %s %s %s wanted=%t", c.Item.Label, c.Edition, c.Target.Name, c.State, c.Wanted())
 		if c.File != nil {
-			fmt.Fprintf(&b, " %s %s %dx%d", c.File.Path, c.File.Quality, c.File.Probe.Width, c.File.Probe.Height)
+			fmt.Fprintf(&b, " %s %s %dx%d", c.File.Path, c.File.Quality, c.File.Media.Width, c.File.Media.Height)
 		}
 		b.WriteString("\n")
 	}

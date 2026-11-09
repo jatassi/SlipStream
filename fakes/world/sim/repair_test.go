@@ -8,6 +8,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/internal/nodeapi"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/pairing"
 )
@@ -19,7 +20,7 @@ import (
 func TestARunningWorkerRepairsOnlyAtStart(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		s := home(t)
+		s := simtest.Home(t)
 		s.Name = "repair-running"
 		s.Nodes = append(s.Nodes, scenario.Node{Name: "office"})
 		w := sim.Launch(t, s)

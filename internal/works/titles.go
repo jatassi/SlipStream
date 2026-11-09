@@ -49,6 +49,22 @@ func (w *Works) catchUpTitles(ctx context.Context) error {
 	})
 }
 
+// TitlesIn is every title each Work of t is known by beside its label:
+// its sort label and the titles its type's Titles reads, in r.
+func TitlesIn(ctx context.Context, r storage.Reader[file], t TypeID) (map[WorkID][]string, error) {
+	rows, err := db.New(r).ListTitlesOfType(ctx, t)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[WorkID][]string, len(rows))
+	for _, row := range rows {
+		labels := strings.Split(row.Labels, "\n")
+		titles := slices.Concat(labels[1:], strings.Split(row.Titles, "\n"))
+		out[row.WorkID] = slices.DeleteFunc(titles, func(t string) bool { return t == "" })
+	}
+	return out, nil
+}
+
 // MatchIn answers the Works of t, or of every type when t is nil, whose
 // titles hold each word of q as a word prefix, case and accents ignored,
 // best first. q with no word matches nothing.

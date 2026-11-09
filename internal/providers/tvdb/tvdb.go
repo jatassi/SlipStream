@@ -159,9 +159,13 @@ type Found struct {
 const searchLimit = 25
 
 // Search is /search?type=series&query=, names and overviews in the Ask's
-// language with English as fallback, at most 25 results.
-func (c *Client) Search(ctx context.Context, ask metadata.Ask, query string) ([]Found, error) {
+// language with English as fallback, at most 25 results. A year above 0
+// keeps the series first aired that year.
+func (c *Client) Search(ctx context.Context, ask metadata.Ask, query string, year int) ([]Found, error) {
 	q := url.Values{"query": {query}, "type": {"series"}, "limit": {strconv.Itoa(searchLimit)}}
+	if year > 0 {
+		q.Set("year", strconv.Itoa(year))
+	}
 	var page envelope[[]searchJSON]
 	if err := c.get(ctx, ask, metadata.Request{URL: c.url(q, "search"), Cache: true}, &page); err != nil {
 		return nil, err

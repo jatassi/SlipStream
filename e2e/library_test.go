@@ -47,17 +47,22 @@ func TestTheWorldSeedsTheScenarioLibrary(t *testing.T) {
 			ID       string `json:"id"`
 			State    string `json:"state"`
 			VolumeID string `json:"volumeId"`
+			Scan     struct {
+				LastAt  *string         `json:"lastAt"`
+				Running json.RawMessage `json:"running"`
+			} `json:"scan"`
 		} `json:"roots"`
 	}
 	var reply worldtest.Reply
-	worldtest.Until(t, "the music root is ready", func() (bool, error) {
+	worldtest.Until(t, "the music root is ready and its first library scan finished", func() (bool, error) {
 		reply = a.Admin("home", http.MethodGet, "/api/v1/roots", "")
 		decode(t, "listRoots", reply, &roots)
-		return len(roots.Roots) == 1 && roots.Roots[0].State == "ready", nil
+		return len(roots.Roots) == 1 && roots.Roots[0].State == "ready" && roots.Roots[0].Scan.LastAt != nil && string(roots.Roots[0].Scan.Running) == "null", nil
 	})
 	root := roots.Roots[0]
 	worldtest.Expect(t, "listRoots", reply, worldtest.Reply{Status: 200, Body: `{"roots":[{"id":"` + root.ID + `","contentType":"music","nodeId":"` + m.Nodes[0].NodeID + `","path":` + strconv.Quote(folder) +
-		`,"default":true,"state":"ready","volumeId":` + strconv.Quote(root.VolumeID) + `,"works":0,"fileBytes":0}]}` + "\n"})
+		`,"default":true,"state":"ready","volumeId":` + strconv.Quote(root.VolumeID) + `,"works":0,"fileBytes":0,` +
+		`"scan":{"lastAt":` + strconv.Quote(*root.Scan.LastAt) + `,"summary":"Nothing changed.","stopped":null,"running":null}}]}` + "\n"})
 	if marker, err := os.ReadFile(filepath.Join(folder, storing.MarkerName)); err != nil || strings.TrimSpace(string(marker)) != root.ID || root.VolumeID == "" {
 		t.Fatalf("the ready root's marker reads %q, %v on volume %q; want its id on a volume", marker, err, root.VolumeID)
 	}

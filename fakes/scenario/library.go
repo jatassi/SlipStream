@@ -29,6 +29,8 @@ type Library struct {
 	Seeding *LibrarySeeding `yaml:"seeding,omitempty"`
 	// Works are added last, after the Indexers.
 	Works *LibraryWorks `yaml:"works,omitempty"`
+	// Folders are written before any root is made.
+	Folders []LibraryFolder `yaml:"folders,omitempty"`
 }
 
 // LibraryWorks adds a Work for every record of its Content Type the fakes
@@ -223,6 +225,7 @@ var folderName = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
 
 func (l Library) check(add func(format string, args ...any)) {
 	l.checkRoots(add)
+	l.checkFolders(add)
 	l.checkTargets(add)
 	l.checkProfiles(add)
 	l.checkIndexers(add)

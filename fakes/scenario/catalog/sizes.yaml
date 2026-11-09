@@ -1,14 +1,13 @@
 # yaml-language-server: $schema=../scenario.schema.json
 description: >-
   One Node set up as the Controller, whose movies want one Target, Sized:
-  1080p WEB-DL at 20 to 100 MiB per minute, TrueHD audio only and no 2.0
-  channels. A second Profile, Encodes, wants Encoded: 1080p WEB-DL of any
+  1080p WEB-DL at 20 to 100 MiB per minute. A second Profile, Encodes, wants Encoded: 1080p WEB-DL of any
   video codec but x264. fixture-site lists The Quiet Orchard (104 minutes)
   as an in-range WEB-DL, a bloated encode above the range and a tiny one
   below it, The Lantern Keeper, whose runtime TMDB doesn't know, as one
   WEB-DL, and The Copper Bell as one WEB-DL whose title doesn't name its
-  video codec, though its payload, like every payload, is H.264. No title
-  names its audio or channels.
+  video codec, though its payload, like every payload, is H.264 with no
+  audio.
 seed: sizes
 admin:
   email: ada@example.test
@@ -75,9 +74,6 @@ library:
     - name: Sized
       tiers: [[webdl-1080p]]
       cutoff: webdl-1080p
-      filters:
-        - {attribute: audio_codec, mode: only, values: [TrueHD]}
-        - {attribute: channels, mode: not, values: ["2.0"]}
       sizes: [{quality: webdl-1080p, min: 20, max: 100}]
     - name: Encoded
       tiers: [[webdl-1080p]]

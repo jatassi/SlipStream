@@ -50,33 +50,38 @@ func (RootContents) Recorded(ctx context.Context, r storage.Reader[file], root r
 	}
 	out := make([]storing.Recorded, len(rows))
 	for i, row := range rows {
-		if out[i], err = recordedOf(row); err != nil {
+		out[i].Size = row.Size
+		if out[i].Path, out[i].Sits, out[i].Next, err = placesOf(row.ID, row.Path, row.Sits); err != nil {
 			return nil, fmt.Errorf("file %s of root %s: %w", row.ID, root, err)
 		}
 	}
 	return out, nil
 }
 
-func recordedOf(row db.RecordedOfRootRow) (storing.Recorded, error) {
-	path, err := storing.ParseRel(row.Path)
-	if err != nil {
-		return storing.Recorded{}, err
+// placesOf is where the bytes of file id, recorded at p, belong, where
+// they sit and, while a move is pending, where the disk queue takes them
+// next: from sits to the holding path, or from there to p.
+func placesOf(id ID, p string, sits *string) (at, now, next storing.Rel, err error) {
+	if at, err = storing.ParseRel(p); err != nil || sits == nil {
+		return at, at, storing.Rel{}, err
 	}
-	f := storing.Recorded{Path: path, Sits: path, Size: row.Size}
-	if row.Sits == nil {
-		return f, nil
+	hop := p
+	if hold := holdingOf(id, p); *sits != hold {
+		hop = hold
 	}
-	next := row.Path
-	if hold := holdingOf(row.ID, row.Path); *row.Sits != hold {
-		next = hold
+	if now, err = storing.ParseRel(*sits); err != nil {
+		return storing.Rel{}, storing.Rel{}, storing.Rel{}, err
 	}
-	if f.Sits, err = storing.ParseRel(*row.Sits); err != nil {
-		return storing.Recorded{}, err
-	}
-	if f.Next, err = storing.ParseRel(next); err != nil {
-		return storing.Recorded{}, err
-	}
-	return f, nil
+	next, err = storing.ParseRel(hop)
+	return at, now, next, err
+}
+
+func (RootContents) ForgetGone(ctx context.Context, tx *storage.Tx[file], root roots.ID) error {
+	return db.New(tx).ForgetGoneOfRoot(ctx, root)
+}
+
+func (RootContents) ForgetGoneOf(ctx context.Context, tx *storage.Tx[file], work works.WorkID) error {
+	return db.New(tx).ForgetGoneOfWork(ctx, work)
 }
 
 func (RootContents) Forget(ctx context.Context, tx *storage.Tx[file], root roots.ID, paths []storing.Rel) error {

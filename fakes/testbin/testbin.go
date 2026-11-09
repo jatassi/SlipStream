@@ -155,21 +155,28 @@ func PlaceTools(t testing.TB, dir string) {
 	}
 }
 
-// placeTools copies the native bundle's tool programs into dir.
+// placeTools links the native bundle's tool programs into dir, or copies
+// them where links need a privilege the user lacks.
 func placeTools(dir string) error {
 	list, ok := os.LookupEnv(toolsVariable)
 	if !ok {
 		return fmt.Errorf("%s is unset: run the tests with go run ./cmd/release test, or eval \"$(go run ./cmd/release deps env)\" first", toolsVariable)
 	}
 	for _, src := range filepath.SplitList(list) {
-		if err := copyProgram(src, filepath.Join(dir, filepath.Base(src))); err != nil {
+		if err := placeProgram(src, filepath.Join(dir, filepath.Base(src))); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func copyProgram(src, dst string) error {
+func placeProgram(src, dst string) error {
+	if _, err := os.Stat(src); err != nil {
+		return fmt.Errorf("%s: %w", toolsVariable, err)
+	}
+	if os.Symlink(src, dst) == nil {
+		return nil
+	}
 	in, err := os.Open(src)
 	if err != nil {
 		return fmt.Errorf("%s: %w", toolsVariable, err)

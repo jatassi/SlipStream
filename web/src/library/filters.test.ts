@@ -24,6 +24,9 @@ test("filters keep Works that pass every group, and any of the values picked ins
   expect(shown({ "field.year": { kind: "range", min: 2000, max: 2010 } })).toBe("ac");
   expect(shown({ "field.year": { kind: "range", min: 2019, max: undefined } })).toBe("de");
   expect(shown({ root: { kind: "values", values: ["none"] } })).toBe("eb");
+  expect(shown({ gone: { kind: "flag" } })).toBe("bc");
+  expect(shown({ scanned: { kind: "flag" } })).toBe("db");
+  expect(shown({ root: { kind: "values", values: ["films"] }, gone: { kind: "flag" } })).toBe("c");
   expect(shown({}, ["c", "b"])).toBe("bc");
   expect(shown({ status: { kind: "values", values: ["failed"] } }, ["b"])).toBe("");
 });
@@ -51,5 +54,7 @@ test("on All, only the fields every type declares alike are offered", () => {
     "profile",
     "root",
     "needs",
+    "gone",
+    "scanned",
   ]);
 });

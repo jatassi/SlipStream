@@ -9,6 +9,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/setting"
@@ -21,6 +22,8 @@ import (
 type Folders interface {
 	// Roots is the library roots, false unless the Node is a Controller.
 	Roots() (*roots.Roots, bool)
+	// Imports is Library scan, false unless the Node is a Controller.
+	Imports() (*imports.Imports, bool)
 }
 
 func open(f Folders) *roots.Roots {
@@ -29,6 +32,14 @@ func open(f Folders) *roots.Roots {
 		panic("rootsapi: an operation ran on a Node that is no Controller")
 	}
 	return r
+}
+
+func scanner(f Folders) *imports.Imports {
+	im, ok := f.Imports()
+	if !ok {
+		panic("rootsapi: an operation ran on a Node that is no Controller")
+	}
+	return im
 }
 
 var (
@@ -46,6 +57,7 @@ var (
 	rootIsDefault       = api.NewCode(http.StatusConflict, "root_is_default", "The root is its Content Type's default while another root exists")
 	worksToRequired     = api.NewCode(http.StatusUnprocessableEntity, "works_to_required", "The root's Works need another root of their Content Type to go to")
 	worksToWrongType    = api.NewCode(http.StatusUnprocessableEntity, "works_to_wrong_type", "The root's Works can go only to a root of their Content Type")
+	scanNotStopped      = api.NewCode(http.StatusConflict, "scan_not_stopped", "The root's last library scan didn't stop")
 )
 
 var codes = []struct {
@@ -61,6 +73,7 @@ var codes = []struct {
 	{roots.ErrWorksTo, worksToRequired},
 	{roots.ErrWorksToType, worksToWrongType},
 	{fs.ErrExist, folderExists},
+	{imports.ErrNotStopped, scanNotStopped},
 }
 
 func answer(err error) error {
@@ -98,6 +111,40 @@ type root struct {
 	Works       int64     `json:"works" doc:"The Works that live in it"`
 	FileBytes   int64     `json:"fileBytes" doc:"The bytes of its files"`
 	Rehome      *progress `json:"rehome,omitempty" doc:"The re-home checking its files at the new place now; absent while none is"`
+	Scan        scan      `json:"scan" doc:"Its library scan at its folder"`
+}
+
+type scan struct {
+	LastAt  *time.Time            `json:"lastAt" doc:"When the last library scan of its folder finished; null until one has"`
+	Summary string                `json:"summary" doc:"What that scan found, or why it stopped, as a sentence; empty until one finished"`
+	Stopped api.Nullable[stopped] `json:"stopped" doc:"The gone files that stopped that scan, which Mark them gone confirms; null when it didn't stop"`
+	Running api.Nullable[running] `json:"running" doc:"Its unit of the open Library scan run while that unit runs; null otherwise"`
+}
+
+type stopped struct {
+	Gone int `json:"gone" minimum:"1" doc:"The recorded files the scan didn't find"`
+	Of   int `json:"of" minimum:"1" doc:"The files the root records"`
+}
+
+type running struct {
+	RunID int64  `json:"runId" doc:"The run Cancel library scan cancels"`
+	Phase string `json:"phase" enum:"listing,comparing,probing" doc:"listing: reading the folder, total null; comparing: matching the listed files with the records; probing: reading media info"`
+	Done  int    `json:"done" minimum:"0" doc:"The files listed, compared or probed so far"`
+	Total *int   `json:"total" minimum:"0" doc:"The files to compare or probe; null while listing"`
+}
+
+func scanOf(l imports.Line) scan {
+	out := scan{Summary: l.Summary}
+	if !l.ComparedAt.IsZero() {
+		out.LastAt = new(l.ComparedAt.Time())
+	}
+	if l.Stopped != nil {
+		out.Stopped = api.Some(stopped{Gone: l.Stopped.Gone, Of: l.Stopped.Of})
+	}
+	if r := l.Running; r != nil {
+		out.Running = api.Some(running{RunID: int64(r.Run), Phase: string(r.Phase), Done: r.Done, Total: r.Total})
+	}
+	return out
 }
 
 type progress struct {
@@ -105,10 +152,10 @@ type progress struct {
 	Total   int64 `json:"total" doc:"The recorded files to check"`
 }
 
-func rootOf(v roots.View) root {
+func rootOf(v roots.View, l imports.Line) root {
 	out := root{
 		ID: v.ID.String(), ContentType: string(v.ContentType), NodeID: v.Node.String(), Path: v.Path,
-		Default: v.Default, State: string(v.State), VolumeID: v.VolumeID, Works: v.Works, FileBytes: v.Use.Bytes,
+		Default: v.Default, State: string(v.State), VolumeID: v.VolumeID, Works: v.Works, FileBytes: v.Use.Bytes, Scan: scanOf(l),
 	}
 	if v.Rehome != nil {
 		out.Rehome = &progress{Checked: v.Rehome.Checked, Total: v.Rehome.Total}
@@ -425,6 +472,24 @@ func Routes(r *api.Router, folders Folders) {
 	}, h.deleteRoot)
 
 	api.Register(o, api.Admin, api.Op{
+		ID:      "scanRoot",
+		Method:  http.MethodPost,
+		Path:    "/roots/{rootId}/scan",
+		Summary: "Scan a root now, in the open Library scan run or a new one",
+		Status:  http.StatusAccepted,
+		Errors:  []*api.Code{rootNotFound},
+	}, h.scanRoot)
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "markRootGone",
+		Method:  http.MethodPost,
+		Path:    "/roots/{rootId}/gone",
+		Summary: "Confirm the gone files that stopped a root's last library scan and scan it again to mark them gone",
+		Status:  http.StatusAccepted,
+		Errors:  []*api.Code{rootNotFound, scanNotStopped},
+	}, h.markRootGone)
+
+	api.Register(o, api.Admin, api.Op{
 		ID:      "browseFolders",
 		Method:  http.MethodGet,
 		Path:    "/nodes/{id}/folders",
@@ -474,7 +539,7 @@ func (h handlers) createRoot(ctx context.Context, by identity.Admin, in *createR
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &rootOutput{Body: rootOf(r)}, nil
+	return &rootOutput{Body: rootOf(r, imports.Line{})}, nil
 }
 
 func (h handlers) checkFolder(ctx context.Context, by identity.Admin, in *checkFolderInput) (*verdictOutput, error) {
@@ -511,9 +576,13 @@ func (h handlers) listRoots(ctx context.Context, by identity.Admin, _ *struct{})
 	if err != nil {
 		return nil, err
 	}
+	lines, err := scanner(h.folders).Lines(ctx)
+	if err != nil {
+		return nil, err
+	}
 	out := rootList{Roots: []root{}}
 	for _, r := range list {
-		out.Roots = append(out.Roots, rootOf(r))
+		out.Roots = append(out.Roots, rootOf(r, lines[r.ID]))
 	}
 	return &rootListOutput{Body: out}, nil
 }
@@ -594,7 +663,11 @@ func (h handlers) rehomeRoot(ctx context.Context, by identity.Admin, in *rehomeR
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &rootOutput{Body: rootOf(v)}, nil
+	lines, err := scanner(h.folders).Lines(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &rootOutput{Body: rootOf(v, lines[v.ID])}, nil
 }
 
 func (h handlers) deleteRoot(ctx context.Context, by identity.Admin, in *deleteRootInput) (*struct{}, error) {
@@ -611,6 +684,36 @@ func (h handlers) deleteRoot(ctx context.Context, by identity.Admin, in *deleteR
 		to = &dest
 	}
 	return nil, answer(open(h.folders).Delete(ctx, by, id, to))
+}
+
+type scanStarted struct {
+	RunID int64 `json:"runId" doc:"The Library scan run that scans the root"`
+}
+
+type scanStartedOutput struct{ Body scanStarted }
+
+func (h handlers) scanRoot(ctx context.Context, by identity.Admin, in *rootInput) (*scanStartedOutput, error) {
+	id, err := rootID(in.RootID)
+	if err != nil {
+		return nil, err
+	}
+	run, err := scanner(h.folders).Scan(ctx, by, id)
+	if err != nil {
+		return nil, answer(err)
+	}
+	return &scanStartedOutput{Body: scanStarted{RunID: int64(run)}}, nil
+}
+
+func (h handlers) markRootGone(ctx context.Context, by identity.Admin, in *rootInput) (*scanStartedOutput, error) {
+	id, err := rootID(in.RootID)
+	if err != nil {
+		return nil, err
+	}
+	run, err := scanner(h.folders).MarkGone(ctx, by, id)
+	if err != nil {
+		return nil, answer(err)
+	}
+	return &scanStartedOutput{Body: scanStarted{RunID: int64(run)}}, nil
 }
 
 func (h handlers) browseFolders(ctx context.Context, by identity.Admin, in *browseInput) (*listingOutput, error) {

@@ -50,7 +50,7 @@ export function NavRows({ rows, collapsed }: { rows: readonly ShownRow[]; collap
   );
 }
 
-type RowCount = { value: number; dot: CountDot };
+type RowCount = { value: number; dot: CountDot | undefined };
 
 // The rail has no room for the count, so the icon carries its dot.
 function RowIcon({ icon, dot }: { icon: IconSvgElement; dot: CountDot | undefined }) {

@@ -14,7 +14,7 @@ import (
 //	refuse | reset | stall | latency=200ms | throttle=256KiB/s | cut=64KiB | tls=untrusted|expired|wrong-name
 //	status=<code>[,retry-after=<dur>][,reset-header=<name>] | hang | malformed | truncate | slow-body=<rate>
 //	content-type=<media type>
-//	full | unmounted | hung | readonly | volume=<total>,free=<free>
+//	full | unmounted | hung | readonly | foldcase | noids | volume=<total>,free=<free>
 func Parse(s string) (Fault, error) {
 	name, value, hasValue := strings.Cut(s, "=")
 	if f, ok := bare[name]; ok {
@@ -41,6 +41,7 @@ var bare = map[string]Fault{
 	"refuse": Refuse{}, "reset": Reset{}, "stall": Stall{},
 	"hang": Hang{}, "malformed": Malformed{}, "truncate": Truncate{},
 	"full": Full{}, "unmounted": Unmounted{}, "hung": Hung{}, "readonly": ReadOnly{},
+	"foldcase": FoldCase{}, "noids": NoIDs{},
 }
 
 var valued = map[string]func(string) (Fault, error){

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -22,17 +23,23 @@ var styleHere = map[bool]PathStyle{false: Unix, true: Windows}[runtime.GOOS == "
 // path and a count of the calls made.
 type testDisk struct {
 	host Host
+	os   OSDisk
 	// downloads is the Node's downloads folders, which no root may overlap.
 	downloads []string
 
 	mu sync.Mutex
 	// hung paths make every call on them wait until the channel closes.
-	hung       map[string]chan struct{}
+	hung map[string]chan struct{}
+	// slow paths make every call on them take this long.
+	slow       map[string]time.Duration
 	denied     map[string]bool
 	broken     map[string]bool
 	readOnly   map[string]bool
 	unreadable map[string]bool
 	noLinks    bool
+	// foldCase resolves a name that isn't there ignoring case, as NTFS and
+	// APFS do; noIDs keeps no file ids, as a share does.
+	foldCase, noIDs bool
 	// volumes is the volume of each folder and everything under it; the
 	// longest folder wins.
 	volumes map[string]Volume
@@ -42,8 +49,14 @@ type testDisk struct {
 
 func newTestDisk(t *testing.T) *testDisk {
 	t.Helper()
+	native, err := NewOSDisk(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	return &testDisk{
 		host:       Host{Style: styleHere, Account: "media", Data: t.TempDir()},
+		os:         native,
+		slow:       map[string]time.Duration{},
 		downloads:  []string{t.TempDir()},
 		hung:       map[string]chan struct{}{},
 		denied:     map[string]bool{},
@@ -83,8 +96,9 @@ func (d *testDisk) count(op, path string) int {
 func (d *testDisk) fault(ctx context.Context, op, path string) error {
 	d.mu.Lock()
 	d.calls[op+" "+path]++
-	hung, denied, broken := d.hung[path], d.denied[path], d.broken[path]
+	hung, slow, denied, broken := d.hung[path], d.slow[path], d.denied[path], d.broken[path]
 	d.mu.Unlock()
+	time.Sleep(slow)
 	if hung != nil {
 		select {
 		case <-hung:
@@ -105,7 +119,46 @@ func (d *testDisk) Stat(ctx context.Context, path string) (Info, error) {
 	if err := d.fault(ctx, "stat", path); err != nil {
 		return nil, err
 	}
-	return OSDisk{}.Stat(ctx, path)
+	d.mu.Lock()
+	foldCase, noIDs := d.foldCase, d.noIDs
+	d.mu.Unlock()
+	info, err := d.os.Stat(ctx, path)
+	if foldCase && errors.Is(err, fs.ErrNotExist) {
+		info, err = d.os.Stat(ctx, unfolded(path))
+	}
+	if err != nil || !noIDs {
+		return info, err
+	}
+	return idless{info}, nil
+}
+
+// unfolded is path with each segment that isn't there spelled as its
+// folder spells it, ignoring case.
+func unfolded(path string) string {
+	at := filepath.VolumeName(path) + string(filepath.Separator)
+	for _, seg := range strings.Split(strings.TrimPrefix(path, at), string(filepath.Separator)) {
+		next := filepath.Join(at, seg)
+		if _, err := os.Lstat(next); err != nil {
+			des, _ := os.ReadDir(at)
+			if i := slices.IndexFunc(des, func(de os.DirEntry) bool { return strings.EqualFold(de.Name(), seg) }); i >= 0 {
+				next = filepath.Join(at, des[i].Name())
+			}
+		}
+		at = next
+	}
+	return at
+}
+
+type idless struct{ Info }
+
+func (idless) FileID() []byte { return nil }
+func (idless) Volume() string { return "" }
+
+func (i idless) Same(o Info) bool {
+	if other, ok := o.(idless); ok {
+		o = other.Info
+	}
+	return i.Info.Same(o)
 }
 
 func (d *testDisk) ReadDir(ctx context.Context, dir string) ([]Entry, error) {
@@ -122,7 +175,10 @@ func (d *testDisk) ReadDir(ctx context.Context, dir string) ([]Entry, error) {
 	for _, de := range des {
 		full := filepath.Join(dir, de.Name())
 		fi, err := os.Stat(full)
-		out = append(out, Entry{Name: de.Name(), Dir: err == nil && fi.IsDir(), Hidden: hidden(d.host.Style, de.Name(), 0), Readable: !d.unreadable[full]})
+		out = append(out, Entry{
+			Name: de.Name(), Dir: err == nil && fi.IsDir(), Link: de.Type()&fs.ModeSymlink != 0,
+			Hidden: hidden(d.host.Style, de.Name(), 0), Readable: !d.unreadable[full],
+		})
 	}
 	return out, nil
 }
@@ -145,14 +201,14 @@ func (d *testDisk) OpenAt(ctx context.Context, path string) (ReadAtCloser, error
 	if err := d.fault(ctx, "open", path); err != nil {
 		return nil, err
 	}
-	return OSDisk{}.OpenAt(ctx, path)
+	return d.os.OpenAt(ctx, path)
 }
 
 func (d *testDisk) OpenWrite(ctx context.Context, path string) (WriteAtFile, error) {
 	if err := d.fault(ctx, "create", path); err != nil {
 		return nil, err
 	}
-	return OSDisk{}.OpenWrite(ctx, path)
+	return d.os.OpenWrite(ctx, path)
 }
 
 func (d *testDisk) Create(ctx context.Context, path string) (File, error) {
@@ -179,7 +235,7 @@ func (d *testDisk) RemoveAll(ctx context.Context, path string) error {
 	if err := d.fault(ctx, "remove", path); err != nil {
 		return err
 	}
-	return OSDisk{}.RemoveAll(ctx, path)
+	return d.os.RemoveAll(ctx, path)
 }
 
 func (d *testDisk) Rename(ctx context.Context, from, to string) error {

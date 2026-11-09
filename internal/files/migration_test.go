@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -59,7 +60,7 @@ var migrated = []struct {
 	{"", [...]string{"hdtv-2160p", "hdtv-2160p", "hdtv-1080p", "hdtv-720p", "sdtv"}},
 }
 
-var frames = [...]files.Probe{{Width: 3840, Height: 2160}, {Width: 3840, Height: 1600}, {Width: 1920, Height: 1080}, {Width: 1280, Height: 720}, {Width: 720, Height: 480}}
+var frames = [...]media.Video{{Width: 3840, Height: 2160}, {Width: 3840, Height: 1600}, {Width: 1920, Height: 1080}, {Width: 1280, Height: 720}, {Width: 720, Height: 480}}
 
 func TestExistingFilesMigrateToTheQualityTheirGrabAndProbeGive(t *testing.T) {
 	ctx := t.Context()
@@ -134,11 +135,11 @@ func TestExistingFilesKeepTheVideoCodecTheirGrabProbed(t *testing.T) {
 	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
 	t.Cleanup(func() { _ = lib.Close() })
 	for path, video := range want {
-		var p files.Probe
+		var p media.Record
 		if err := lib.QueryRowContext(ctx, `SELECT probe FROM files_file WHERE path = ?`, path).Scan(&p); err != nil {
 			t.Fatal(err)
 		}
-		if got := (files.File{Probe: p}).Facts().Video; got != video || p.Width != 1920 || p.Height != 1080 {
+		if got := (files.File{Media: p}).Facts().Video; got != video || p.Version != 0 || p.Width != 1920 || p.Height != 1080 {
 			t.Errorf("file %s migrated with the probe %+v, video %v, want its Grab's 1920x1080 and video %v", path, p, got, video)
 		}
 	}
@@ -178,7 +179,7 @@ func seedProbed(ctx context.Context, tx *storage.Tx[storage.Library]) (map[strin
 
 type seeded struct {
 	title   string // empty for a file no Grab brought
-	probe   files.Probe
+	probe   media.Video
 	quality string
 }
 
@@ -208,7 +209,7 @@ func seedLibrary(ctx context.Context, tx *storage.Tx[storage.Library]) (seeds, e
 // seedFile adds the nth Item of the Work and a file of it probed at probe,
 // brought by a Grab of title unless title is empty, and returns the
 // file's path.
-func seedFile(ctx context.Context, tx *storage.Tx[storage.Library], n int, title string, probe files.Probe, at seeds) (string, error) {
+func seedFile(ctx context.Context, tx *storage.Tx[storage.Library], n int, title string, probe media.Video, at seeds) (string, error) {
 	item, file := storage.NewUUID(), storage.NewUUID()
 	if _, err := tx.ExecContext(ctx, `INSERT INTO works_item (id, work_id, key, label, position) VALUES (?, ?, ?, 'Item', ?)`, item, at.work, strconv.Itoa(n), n); err != nil {
 		return "", err
@@ -361,5 +362,58 @@ func distinct(t *testing.T, lib *storage.DB[storage.Library], query, want string
 	}
 	if len(got) != 1 || got[0] != want {
 		t.Fatalf("%s = %v after the migration, want only %s", query, got, want)
+	}
+}
+
+func TestFilesFromBeforeTheScanReadAsNeverScanned(t *testing.T) {
+	ctx := t.Context()
+	open := opener(t)
+	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema().Through(1), indexers.Schema().Through(2), grabs.Schema().Through(1), files.Schema().Through(1))
+	var at seeds
+	var old, versioned string
+	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		var err error
+		if at, err = seedLibrary(ctx, tx); err != nil {
+			return err
+		}
+		if old, err = seedFile(ctx, tx, 1, "", frames[2], at); err != nil {
+			return err
+		}
+		versioned, err = seedFile(ctx, tx, 2, "", frames[2], at)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := before.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
+	t.Cleanup(func() { _ = lib.Close() })
+	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, `UPDATE files_file SET probe = json_set(probe, '$.version', ?) WHERE path = ?`, media.Version, versioned)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var on files.OnRootFiles
+	err = lib.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		on, err = files.OnRoot(ctx, r, roots.ID{UUID: at.root})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale := map[string]bool{}
+	for _, r := range on.Files {
+		if r.Seen != nil || r.Gone || r.Sits != r.Path {
+			t.Errorf("a file from before reads %+v, want no stamps, live, at its path", r)
+		}
+		stale[r.Path.String()] = r.Stale
+	}
+	if want := map[string]bool{old: true, versioned: false}; !maps.Equal(stale, want) || len(on.Held) != 0 {
+		t.Fatalf("stale by path %v and held %v, want the record without a version stale and the one at media.Version not: %v", stale, on.Held, want)
 	}
 }

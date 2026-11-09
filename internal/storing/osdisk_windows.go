@@ -186,16 +186,17 @@ type fileIDInfo struct {
 	FileID             [16]byte
 }
 
-// fileID is path's volume serial and 128-bit file id where its volume keeps
-// ids stable: not on a network drive, whose ids are the server's, and not
-// on FAT or exFAT, which derive the id from where the file's entry lies.
-func fileID(path string, _ fs.FileInfo) ([]byte, error) {
+// identify is info with its volume serial and 128-bit file id where its
+// volume keeps ids stable: not on a network drive, whose ids are the
+// server's, and not on FAT or exFAT, which derive the id from where the
+// file's entry lies.
+func (d OSDisk) identify(path string, info fs.FileInfo) (Info, error) {
 	root, err := volumeRoot(path)
 	if err != nil {
 		return nil, err
 	}
 	if kindOfRoot(root) == Network {
-		return nil, nil
+		return osInfo{FileInfo: info}, nil
 	}
 	p, err := windows.UTF16PtrFromString(longPath(path))
 	if err != nil {
@@ -207,18 +208,25 @@ func fileID(path string, _ fs.FileInfo) ([]byte, error) {
 		return nil, &fs.PathError{Op: "CreateFile", Path: path, Err: err}
 	}
 	defer func() { _ = windows.CloseHandle(h) }()
-	var name [windows.MAX_PATH + 1]uint16
-	if err := windows.GetVolumeInformationByHandle(h, nil, 0, nil, nil, nil, &name[0], uint32(len(name))); err != nil {
-		return nil, &fs.PathError{Op: "GetVolumeInformationByHandle", Path: path, Err: err}
-	}
-	if !stableFSName(windows.UTF16ToString(name[:])) {
-		return nil, nil
-	}
-	var info fileIDInfo
-	if err := windows.GetFileInformationByHandleEx(h, windows.FileIdInfo, (*byte)(unsafe.Pointer(&info)), uint32(unsafe.Sizeof(info))); err != nil { //nolint:gosec // G103: FILE_ID_INFO for a Win32 call
+	var id fileIDInfo
+	if err := windows.GetFileInformationByHandleEx(h, windows.FileIdInfo, (*byte)(unsafe.Pointer(&id)), uint32(unsafe.Sizeof(id))); err != nil { //nolint:gosec // G103: FILE_ID_INFO for a Win32 call
 		return nil, &fs.PathError{Op: "GetFileInformationByHandleEx", Path: path, Err: err}
 	}
-	return append(binary.BigEndian.AppendUint64(nil, info.VolumeSerialNumber), info.FileID[:]...), nil
+	volume := fmt.Sprintf("%016X", id.VolumeSerialNumber)
+	stable, err := d.stable.on(volume, func() (bool, error) {
+		var name [windows.MAX_PATH + 1]uint16
+		if err := windows.GetVolumeInformationByHandle(h, nil, 0, nil, nil, nil, &name[0], uint32(len(name))); err != nil {
+			return false, &fs.PathError{Op: "GetVolumeInformationByHandle", Path: path, Err: err}
+		}
+		return stableFSName(windows.UTF16ToString(name[:])), nil
+	})
+	switch {
+	case err != nil:
+		return nil, err
+	case !stable:
+		return osInfo{FileInfo: info}, nil
+	}
+	return osInfo{info, append(binary.BigEndian.AppendUint64(nil, id.VolumeSerialNumber), id.FileID[:]...), volume}, nil
 }
 
 // stableFSName is a local filesystem whose file ids survive a remount:

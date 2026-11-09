@@ -26,6 +26,8 @@ export const rowOf = (work: WorksWorkView, year: number): WorksLibraryRow => ({
   addedAt: work.addedAt,
   refreshedAt: work.refreshedAt,
   goneUpstreamAt: null,
+  addedBy: "admin",
+  goneFiles: 0,
   monitored: "all",
   profileId: work.profile.id,
   rootId: null,

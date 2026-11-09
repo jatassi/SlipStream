@@ -210,6 +210,7 @@ func (w *world) open(t *testing.T) *health.Health {
 		Changed: w.changed,
 		Storage: health.StorageParts{Volumes: []health.VolumeSource{{Volumes: w.vols.Volumes, Sample: w.vols.Sample, Events: []live.Event{volumesEvent}, Remedy: w.remedy}}},
 		Categories: []health.Category{
+			{About: health.About{ID: health.LibraryID, Label: "Library", Phrase: "the library"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 			{About: health.About{ID: health.NodesID, Label: "Nodes", Phrase: "Nodes", Events: []live.Event{nodesEvent}}, Source: health.Source{Answer: w.nodes.Answer, Check: w.nodes.Check}},
 			{About: health.About{ID: health.DownloadClientsID, Label: "Download Clients", Phrase: "download clients"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
 			{About: health.About{ID: health.SeedingID, Label: "Seeding", Phrase: "torrents that still owe a Tracker"}, Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}},
@@ -266,13 +267,18 @@ func unsure() health.Unsure {
 
 func items(t *testing.T, r health.Report, id health.ID) []health.Shown {
 	t.Helper()
+	return categoryOf(t, r, id).Items
+}
+
+func categoryOf(t *testing.T, r health.Report, id health.ID) health.CategoryReport {
+	t.Helper()
 	for _, c := range r.Categories {
 		if c.ID == id {
-			return c.Items
+			return c
 		}
 	}
 	t.Fatalf("the report has no category %s", id)
-	return nil
+	return health.CategoryReport{}
 }
 
 func evaluate(t *testing.T, h *health.Health, ids ...health.ID) health.Report {
@@ -333,8 +339,8 @@ func TestAFailingSourceLeavesItsRows(t *testing.T) {
 		w.nodes.set(health.Answer{}, errors.New("the board is closed"))
 		r := evaluate(t, h, health.NodesID)
 		got := items(t, r, health.NodesID)
-		if len(got) != 1 || !got[0].Since.Equal(since) || got[0].Text != "Media server is offline." || r.Categories[1].Unread == "" {
-			t.Fatalf("after a failed answer nodes shows %+v, want the open item in its last words and why it is unread", r.Categories[1])
+		if len(got) != 1 || !got[0].Since.Equal(since) || got[0].Text != "Media server is offline." || categoryOf(t, r, health.NodesID).Unread == "" {
+			t.Fatalf("after a failed answer nodes shows %+v, want the open item in its last words and why it is unread", categoryOf(t, r, health.NodesID))
 		}
 		w.nodes.set(health.Answer{}, nil)
 		evaluate(t, h, health.NodesID)
@@ -358,7 +364,7 @@ func TestAFailedAnswerIsAskedAgainAfterTheRetry(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if c := r.Categories[1]; c.Unread != "" || len(c.Items) != 1 {
+		if c := categoryOf(t, r, health.NodesID); c.Unread != "" || len(c.Items) != 1 {
 			t.Fatalf("a retry after a failed answer shows %+v, want the source read and its item raised", c)
 		}
 	})

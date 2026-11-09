@@ -96,3 +96,9 @@ SELECT aired_season, read_at FROM series_season_rating WHERE work_id = sqlc.arg(
 INSERT INTO series_season_rating (work_id, aired_season, read_at)
 VALUES (sqlc.arg(work_id), sqlc.arg(aired_season), sqlc.arg(read_at))
 ON CONFLICT (work_id, aired_season) DO UPDATE SET read_at = excluded.read_at;
+
+-- name: ListClaimsOf :many
+SELECT work_id, tvdb_id, tmdb_id, imdb_id, first_aired FROM series_series WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
+
+-- name: ListEveryClaim :many
+SELECT work_id, tvdb_id, tmdb_id, imdb_id, first_aired FROM series_series ORDER BY work_id;
