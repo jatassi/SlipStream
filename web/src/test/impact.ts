@@ -8,6 +8,7 @@ export const noImpact: TargetsImpact = {
   ownList: 0,
   unwanted: { files: 0, bytes: 0 },
   renamed: 0,
+  renames: [],
   newlyWanted: 0,
   downloading: 0,
 };

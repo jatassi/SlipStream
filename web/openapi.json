@@ -14308,10 +14308,17 @@
             "type": "integer"
           },
           "renamed": {
-            "description": "Files that still fill a cell and change name",
+            "description": "Files whose path changes, Kept files included",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "renames": {
+            "description": "The first 500 of the renamed files, by Work in title order",
+            "items": {
+              "$ref": "#/components/schemas/TargetsWorkRenames"
+            },
+            "type": "array"
           },
           "unwanted": {
             "$ref": "#/components/schemas/TargetsUnwantedFiles",
@@ -14329,6 +14336,7 @@
           "ownList",
           "unwanted",
           "renamed",
+          "renames",
           "newlyWanted",
           "downloading"
         ],
@@ -14840,6 +14848,29 @@
         ],
         "type": "object"
       },
+      "TargetsRenamedFile": {
+        "additionalProperties": false,
+        "properties": {
+          "fileId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "from": {
+            "description": "The file's path in its root now",
+            "type": "string"
+          },
+          "to": {
+            "description": "The file's path in its root after the change",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileId",
+          "from",
+          "to"
+        ],
+        "type": "object"
+      },
       "TargetsScores": {
         "additionalProperties": false,
         "properties": {
@@ -15108,6 +15139,31 @@
         "required": [
           "impact",
           "wants"
+        ],
+        "type": "object"
+      },
+      "TargetsWorkRenames": {
+        "additionalProperties": false,
+        "properties": {
+          "files": {
+            "description": "In the order the files were added",
+            "items": {
+              "$ref": "#/components/schemas/TargetsRenamedFile"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workId",
+          "title",
+          "files"
         ],
         "type": "object"
       },

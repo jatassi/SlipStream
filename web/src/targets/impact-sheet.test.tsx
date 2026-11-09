@@ -13,6 +13,7 @@ const oneUnwanted: TargetsImpact = {
   ownList: 0,
   unwanted: { files: 1, bytes: 734_003_200 },
   renamed: 3,
+  renames: [],
   newlyWanted: 4,
   downloading: 1,
 };
@@ -66,6 +67,53 @@ test("saving a Target shows its Impact in plain counts, with Delete chosen and t
   ]);
   expect(op.sent[1]?.body).toEqual(op.sent[0]?.body);
   expect(op.sent[1]?.body).toMatchObject({ name: "1080p", cutoff: "bluray-1080p" });
+});
+
+test("the Impact lists the files it renames under Details, Kept files included, and counts the rest", async () => {
+  const op = saving(() => ({
+    ...noImpact,
+    works: 2,
+    renamed: 3,
+    renames: [
+      {
+        workId: "0199e1f2-7a3b-7c4d-8e5f-0000000000a1",
+        title: "Heat",
+        files: [
+          {
+            fileId: "0199e1f2-7a3b-7c4d-8e5f-0000000000b1",
+            from: "Heat (1995)/Heat (1995) - 1080p.mkv",
+            to: "Heat (1995)/Heat (1995) - 1080p web.mkv",
+          },
+          {
+            fileId: "0199e1f2-7a3b-7c4d-8e5f-0000000000b2",
+            from: "Heat (1995)/Heat (1995) - 1080p (extra 1).mkv",
+            to: "Heat (1995)/Heat (1995) - 1080p web (extra 1).mkv",
+          },
+        ],
+      },
+    ],
+  }));
+  renderApp({
+    path: `/settings/targets/${starter.id}`,
+    handlers: [op.handler, ...targetHandlers()],
+  });
+  await editAndSave();
+
+  await expect.element(sheet()).toBeVisible();
+  expect(lines()).toEqual(["2 Works change.", "3 files are renamed."]);
+  await userEvent.click(sheet().getByRole("button", { name: "Details" }));
+  const heat = sheet().getByRole("list", { name: "Heat" });
+  await expect.element(heat).toBeVisible();
+  expect(
+    heat
+      .getByRole("listitem")
+      .elements()
+      .map((row) => row.textContent),
+  ).toEqual([
+    "Heat (1995)/Heat (1995) - 1080p.mkvHeat (1995)/Heat (1995) - 1080p web.mkv",
+    "Heat (1995)/Heat (1995) - 1080p (extra 1).mkvHeat (1995)/Heat (1995) - 1080p web (extra 1).mkv",
+  ]);
+  await expect.element(sheet().getByText("1 more file is renamed.")).toBeVisible();
 });
 
 test("an Impact that shows nothing saves without the sheet", async () => {
