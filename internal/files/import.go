@@ -153,6 +153,8 @@ type rule struct {
 	// forgetGone forgets each gone file that would win back no cell if it
 	// returned.
 	forgetGone bool
+	// draft names its type's files in place of the stored settings.
+	draft *drafted
 }
 
 // importing is an import's rule: it dooms the files the fresh file
@@ -170,8 +172,9 @@ func changing(m Mode) rule { return rule{doom: func(File) bool { return m.Unwant
 // renames one.
 var scanned = rule{doom: func(File) bool { return false }, mode: keepEvery}
 
-// place converges in's Work with in added, in r.
-func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) (placed, error) {
+// place converges in's Work with in added, in r, named under d for d's
+// type.
+func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming, d *drafted) (placed, error) {
 	before, err := f.load(ctx, r, in.WorkID)
 	if err != nil {
 		return placed{}, err
@@ -191,7 +194,9 @@ func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) 
 	if after.meant, err = targets.NameOfFirst(ctx, r, in.Meant); err != nil {
 		return placed{}, err
 	}
-	p, err := f.converge(ctx, r, before, after, refill(after), importing(fresh.ID, in.Unwanted))
+	how := importing(fresh.ID, in.Unwanted)
+	how.draft = d
+	p, err := f.converge(ctx, r, before, after, refill(after), how)
 	p.file = fresh
 	return p, err
 }
@@ -219,7 +224,7 @@ func (f *Files) converge(ctx context.Context, r storage.Reader[file], before, af
 	if how.forgetGone {
 		forget(&p, func(g File) bool { return !winsBack(p.after, fills, g) })
 	}
-	if err := f.named(ctx, r, &p.after, p.fills); err != nil {
+	if err := f.named(ctx, r, &p.after, p.fills, how.draft); err != nil {
 		return placed{}, err
 	}
 	var err error
@@ -278,7 +283,12 @@ func retagged(was, is targets.Cuts) map[release.CutKey]bool {
 // name another file of the Work keeps is a *NameTakenError, and one that
 // doesn't fit on its root a *naming.TooLongError. Import refuses both.
 func (f *Files) Place(ctx context.Context, r storage.Reader[file], in Incoming) (Placement, error) {
-	p, err := f.place(ctx, r, in)
+	return f.placement(ctx, r, in, nil)
+}
+
+// placement is Place with in's Work named under d for d's type.
+func (f *Files) placement(ctx context.Context, r storage.Reader[file], in Incoming, d *drafted) (Placement, error) {
+	p, err := f.place(ctx, r, in, d)
 	if err != nil {
 		return Placement{}, err
 	}
@@ -313,7 +323,7 @@ func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], in Incoming) (
 	case err != nil:
 		return File{}, false, err
 	}
-	p, err := f.place(ctx, tx, in)
+	p, err := f.place(ctx, tx, in, nil)
 	if err != nil {
 		return File{}, false, err
 	}

@@ -217,8 +217,8 @@ func briefFiles(ctx context.Context, q *db.Queries, among works.Among[works.Work
 }
 
 // named adds what names reads to w under fills, when a file of w takes a
-// new path.
-func (f *Files) named(ctx context.Context, r storage.Reader[file], w *world, fills map[CellKey]Fill) error {
+// new path, under d for d's type.
+func (f *Files) named(ctx context.Context, r storage.Reader[file], w *world, fills map[CellKey]Fill, d *drafted) error {
 	if !slices.ContainsFunc(w.files, func(g File) bool { return g.ID == w.fresh }) {
 		next, err := labels(*w, fills)
 		if err != nil {
@@ -228,13 +228,13 @@ func (f *Files) named(ctx context.Context, r storage.Reader[file], w *world, fil
 			return nil
 		}
 	}
-	return f.withNaming(ctx, r, []*world{w}, works.Only([]works.WorkID{w.tree.ID}))
+	return f.withNaming(ctx, r, []*world{w}, works.Only([]works.WorkID{w.tree.ID}), d)
 }
 
 // withNaming adds what names reads to each of ws: its Content Type's
-// scheme, its Work's values, read in one call per type, and each root's
-// path budget. among names ws's Works.
-func (f *Files) withNaming(ctx context.Context, r storage.Reader[file], ws []*world, among works.Among[works.WorkID]) error {
+// scheme, or d's for d's type, its Work's values, read in one call per
+// type, and each root's path budget. among names ws's Works.
+func (f *Files) withNaming(ctx context.Context, r storage.Reader[file], ws []*world, among works.Among[works.WorkID], d *drafted) error {
 	budgets, err := roots.BudgetsIn(ctx, r)
 	if err != nil {
 		return err
@@ -246,7 +246,9 @@ func (f *Files) withNaming(ctx context.Context, r storage.Reader[file], ws []*wo
 	schemes := make(map[works.TypeID]*naming.Scheme, len(byType))
 	values := make(map[works.WorkID]naming.Values, len(ws))
 	for typ, ids := range byType {
-		if schemes[typ], err = f.cfg.Naming.SchemeIn(ctx, r, typ); err != nil {
+		if d != nil && typ == d.typ {
+			schemes[typ] = d.scheme
+		} else if schemes[typ], err = f.cfg.Naming.SchemeIn(ctx, r, typ); err != nil {
 			return err
 		}
 		of, err := f.cfg.Naming.ValuesIn(ctx, r, typ, works.Like(among, ids))

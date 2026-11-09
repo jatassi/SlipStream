@@ -10116,10 +10116,26 @@
               "$ref": "#/components/schemas/NamingFieldPreview"
             },
             "type": "array"
+          },
+          "tested": {
+            "description": "Each of names, in order; empty while a setting has a problem",
+            "items": {
+              "$ref": "#/components/schemas/NamingTestedName"
+            },
+            "type": "array"
+          },
+          "work": {
+            "description": "Each live file of workId's Work, in the order it was added; empty without workId and while a setting has a problem",
+            "items": {
+              "$ref": "#/components/schemas/NamingWorkFile"
+            },
+            "type": "array"
           }
         },
         "required": [
-          "fields"
+          "fields",
+          "work",
+          "tested"
         ],
         "type": "object"
       },
@@ -10130,6 +10146,22 @@
             "additionalProperties": {},
             "description": "Values over the stored settings by key, as a save would send them; null reads a setting's default",
             "type": "object"
+          },
+          "names": {
+            "description": "File names to name under the draft, each in the Work it matches",
+            "items": {
+              "$ref": "#/components/schemas/NamingTestName"
+            },
+            "maxItems": 100,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "workId": {
+            "description": "A Work whose files to name under the draft. A Work of another Content Type is named under its own stored settings.",
+            "format": "uuid",
+            "type": "string"
           }
         },
         "required": [
@@ -10169,6 +10201,51 @@
         },
         "required": [
           "label",
+          "path"
+        ],
+        "type": "object"
+      },
+      "NamingTestName": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "A file name, or a path inside the Work's folder",
+            "minLength": 1,
+            "type": "string"
+          },
+          "workId": {
+            "description": "The Work the name matches, as POST /releases/parse with kind file reads it",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "workId"
+        ],
+        "type": "object"
+      },
+      "NamingTestedName": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "description": "Why it would go nowhere, then what to do, for any other reason",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "description": "Where a file of that name would go if a library scan found it now, relative to the root; empty when it would go nowhere",
+            "type": "string"
+          },
+          "unplaced": {
+            "$ref": "#/components/schemas/NamingUnplaced",
+            "description": "Why it would go nowhere, when no Item of the Work holds the name"
+          }
+        },
+        "required": [
+          "name",
           "path"
         ],
         "type": "object"
@@ -10305,6 +10382,51 @@
           "contentType",
           "settings",
           "problems"
+        ],
+        "type": "object"
+      },
+      "NamingUnplaced": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "Why the Content Type can't tell which Item the name holds",
+            "enum": [
+              "no_number",
+              "no_such_item",
+              "several_items",
+              "no_rule"
+            ],
+            "type": "string"
+          },
+          "names": {
+            "description": "For no_such_item: the Item the name names, such as S03E14",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "type": "object"
+      },
+      "NamingWorkFile": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "description": "Why its name doesn't fit, then what to do",
+            "type": "string"
+          },
+          "from": {
+            "description": "Where the file is now, relative to its root",
+            "type": "string"
+          },
+          "to": {
+            "description": "Where the draft puts it; empty when its name doesn't fit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to"
         ],
         "type": "object"
       },
@@ -40514,7 +40636,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "content_type_not_found"
+                            "content_type_not_found",
+                            "work_not_found"
                           ],
                           "type": "string"
                         }
@@ -40614,7 +40737,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Name a Content Type's samples under a draft of its naming settings, with what the save check refuses. Nothing is stored",
+        "summary": "Name a Content Type's samples, a Work's files and tested file names under a draft of its naming settings, with what the save check refuses. Nothing is stored",
         "tags": [
           "naming"
         ],
