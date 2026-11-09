@@ -156,7 +156,7 @@ func PlaceTools(t testing.TB, dir string) {
 }
 
 // placeTools links the native bundle's tool programs into dir, or copies
-// them when dir is on another volume.
+// them where links need a privilege the user lacks.
 func placeTools(dir string) error {
 	list, ok := os.LookupEnv(toolsVariable)
 	if !ok {
@@ -171,7 +171,7 @@ func placeTools(dir string) error {
 }
 
 func placeProgram(src, dst string) error {
-	if os.Link(src, dst) == nil {
+	if os.Symlink(src, dst) == nil {
 		return nil
 	}
 	in, err := os.Open(src)

@@ -314,11 +314,14 @@ func (r *Run) copyBinary(source string) error {
 	return nil
 }
 
-// linkTool places a bundled tool beside the run's binary. A hard link
+// linkTool places a bundled tool beside the run's binary. A symbolic link
 // spares each run a copy of some 100 MB, which on Windows Defender also
-// scans before the first exec; a run dir on another volume gets a copy.
+// scans before the first exec, and unlike a hard link it can be removed
+// while another run's process executes the tool. Where links need a
+// privilege the user lacks, as on Windows outside Developer Mode, the run
+// gets a copy.
 func linkTool(src, dst string) error {
-	if os.Link(src, dst) == nil {
+	if os.Symlink(src, dst) == nil {
 		return nil
 	}
 	_, err := CopyExecutable(src, dst)
