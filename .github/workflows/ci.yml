@@ -64,7 +64,7 @@ jobs:
       package: ${{ steps.plan.outputs.package }}
       online: ${{ steps.scope.outputs.online }}
       link: ${{ steps.scope.outputs.link }}
-      timings: ${{ steps.timings.outputs.cache-matched-key && 'split-timings' || '' }}
+      timings: ${{ steps.recorded.outputs.run-id && 'split-timings' || '' }}
       record-timings: >-
         ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' &&
           inputs.tier == 'all' && inputs.targets == '' && inputs.filter == '' && inputs.repeat == 1)) }}
@@ -107,19 +107,29 @@ jobs:
           DIAGRAM: ${{ steps.scope.outputs.diagram }}
           TARGETS: ${{ inputs.targets }}
           TIER: ${{ inputs.tier || 'all' }}
-      # Every go, e2e and browser shard splits its tier by the same timings,
-      # so each downloads the set this restores. The artifact lasts the whole
-      # run, and the cache entry can be evicted before a shard starts.
-      - name: Restore the test timings to split by
-        id: timings
-        uses: actions/cache/restore@v6
+      # Every go, e2e and browser shard splits its tier by the same timings:
+      # the go-timings artifact of the last run that recorded them. They are
+      # kept as an artifact because a cache entry was evicted within the hour
+      # by the Go caches. The plan job uploads them again as split-timings,
+      # which the shards download from this run.
+      - name: Find the last run that recorded test timings
+        id: recorded
+        run: |
+          run_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=go-timings&per_page=1" \
+            --jq '.artifacts[] | select(.expired | not) | .workflow_run.id')
+          echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Download the recorded test timings
+        if: steps.recorded.outputs.run-id != ''
+        uses: actions/download-artifact@v8
         with:
+          name: go-timings
+          run-id: ${{ steps.recorded.outputs.run-id }}
+          github-token: ${{ github.token }}
           path: .timings
-          key: go-timings-${{ github.sha }}
-          restore-keys: go-timings-
-          enableCrossOsArchive: true
       - name: Upload the test timings for the shards
-        if: steps.timings.outputs.cache-matched-key != ''
+        if: steps.recorded.outputs.run-id != ''
         uses: actions/upload-artifact@v7
         with:
           name: split-timings
@@ -463,12 +473,14 @@ jobs:
           pattern: timings-*
           merge-multiple: true
           path: .timings
-      - name: Save the merged test timings
-        uses: actions/cache/save@v6
+      - name: Upload the merged test timings
+        uses: actions/upload-artifact@v7
         with:
+          name: go-timings
           path: .timings
-          key: go-timings-${{ github.sha }}
-          enableCrossOsArchive: true
+          include-hidden-files: true
+          retention-days: 90
+          if-no-files-found: error
 
   # One link stream measured between two network namespaces, per spec S07's
   # yamux measurement: nightly, and on pull requests that touch the link.
