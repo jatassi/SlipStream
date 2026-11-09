@@ -1,0 +1,10 @@
+{
+  "upstream": "Sonarr",
+  "commit": "c018578e4b79ee048575c02d7a8aa2b929e4b837",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/TruncatedSeriesTitleFixture.cs",
+  "cases": [
+    {"template":"{Series Title:16}","values":{"Series Title":"The Fantastic Life of Mr. Sisko"},"want":"The Fantastic...","source":"TruncatedSeriesTitleFixture.cs should_truncate_series_title #1"},
+    {"template":"{Series TitleThe:17}","values":{"Series Title":"The Fantastic Life of Mr. Sisko"},"want":"Fantastic Life...","source":"TruncatedSeriesTitleFixture.cs should_truncate_series_title #2"},
+    {"template":"{Series CleanTitle:-13}","values":{"Series Title":"The Fantastic Life of Mr. Sisko"},"want":"...Mr. Sisko","source":"TruncatedSeriesTitleFixture.cs should_truncate_series_title #3"}
+  ]
+}

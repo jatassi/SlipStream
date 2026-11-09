@@ -67,7 +67,7 @@ func generatedRoots(p pins) []string {
 			roots = append(roots, path.Join(noticesDir, key))
 		}
 	}
-	roots = append(roots, p.Dialects.Out, path.Join(p.Trash.Out, "VENDORED.md"), path.Join(p.Fuzz.Out, "VENDORED.md"))
+	roots = append(roots, p.Dialects.Out, p.Organizer.Out, path.Join(p.Trash.Out, "VENDORED.md"), path.Join(p.Trash.NamingOut, "VENDORED.md"), path.Join(p.Fuzz.Out, "VENDORED.md"))
 	slices.Sort(roots)
 	return slices.Compact(roots)
 }

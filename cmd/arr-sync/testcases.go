@@ -1,7 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"path"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -424,4 +428,172 @@ func number(c *cursor, t token, sign string) (any, error) {
 		return nil, c.errorf(t.line, "number %s: %v", t.text, err)
 	}
 	return json.Number(strconv.FormatFloat(f, 'f', -1, 64)), nil
+}
+
+// organizerCases writes <out>/<upstream>/<Fixture>.json for each pinned
+// naming test file: one case per row of each ported method. It refuses a
+// [TestCase] method the pins neither port nor skip, so a resync shows
+// every new upstream case. It returns the cases per written file.
+func organizerCases(t *tree, p pins, cos map[string]checkout) (map[string]int, error) {
+	t.own(p.Organizer.Out)
+	counts := map[string]int{}
+	for _, of := range p.Organizer.Files {
+		co := cos[of.From]
+		s, err := co.source(of.File)
+		if err != nil {
+			return nil, err
+		}
+		f, err := readFixture(s)
+		if err != nil {
+			return nil, err
+		}
+		rows, err := of.cases(f)
+		if err != nil {
+			return nil, fmt.Errorf("%s %s: %w", co.Name, of.File, err)
+		}
+		if len(rows) == 0 {
+			continue
+		}
+		written := path.Join(p.Organizer.Out, of.From, stem(of.File)+".json")
+		var b bytes.Buffer
+		fmt.Fprintf(&b, "{\n  \"upstream\": %s,\n  \"commit\": %s,\n  \"file\": %s,\n  \"cases\": [", quoteJSON(co.Name), quoteJSON(co.Commit), quoteJSON(of.File))
+		for i, r := range rows {
+			line, err := marshal(r)
+			if err != nil {
+				return nil, err
+			}
+			if i > 0 {
+				b.WriteString(",")
+			}
+			b.WriteString("\n    " + line)
+		}
+		b.WriteString("\n  ]\n}\n")
+		t.add(written, b.Bytes())
+		counts[written] = len(rows)
+	}
+	return counts, nil
+}
+
+// namingCase is one row of a ported method as a naming case.
+type namingCase struct {
+	Template string           `json:"template"`
+	Values   map[string]any   `json:"values,omitempty"`
+	Items    []map[string]any `json:"items,omitempty"`
+	Settings map[string]any   `json:"settings,omitempty"`
+	Want     string           `json:"want"`
+	Source   string           `json:"source"`
+}
+
+func (of organizerFile) cases(f fixture) ([]namingCase, error) {
+	seen := map[string]bool{}
+	var rows []namingCase
+	for _, m := range f.Methods {
+		seen[m.Name] = true
+		om, ported := of.Methods[m.Name]
+		if _, skipped := of.Skip[m.Name]; skipped || len(m.Cases) == 0 {
+			continue
+		}
+		if !ported {
+			return nil, fmt.Errorf("[TestCase] method %s is neither ported nor skipped in %s", m.Name, pinsFile)
+		}
+		for i, c := range m.Cases {
+			row, err := om.row(m, c)
+			if err != nil {
+				return nil, fmt.Errorf("%s row %d: %w", m.Name, i+1, err)
+			}
+			row.Source = fmt.Sprintf("%s %s #%d", path.Base(of.File), m.Name, i+1)
+			rows = append(rows, row)
+		}
+	}
+	for name := range of.Methods {
+		if !seen[name] {
+			return nil, fmt.Errorf("%s ports method %s, which the file doesn't have", pinsFile, name)
+		}
+	}
+	for name := range of.Skip {
+		if !seen[name] {
+			return nil, fmt.Errorf("%s skips method %s, which the file doesn't have", pinsFile, name)
+		}
+	}
+	return rows, nil
+}
+
+func (om organizerMethod) row(m method, c testCase) (namingCase, error) {
+	a := args{m: m, c: c}
+	row := namingCase{Template: a.text(om.Template), Want: a.text(om.Want), Values: a.set(om.Values), Settings: a.set(om.Settings)}
+	for _, item := range om.Items {
+		row.Items = append(row.Items, a.set(item))
+	}
+	return row, a.err
+}
+
+// args fills ${name} from one row's arguments, keeping the first error.
+type args struct {
+	m   method
+	c   testCase
+	err error
+}
+
+var (
+	placeholder = regexp.MustCompile(`\$\{(\w+)\}`)
+	only        = regexp.MustCompile(`^\$\{(\w+)\}$`)
+)
+
+func (a *args) arg(name string) any {
+	for i, p := range a.m.Params {
+		if p.Name != name {
+			continue
+		}
+		if i < len(a.c.Args) {
+			return a.c.Args[i]
+		}
+		return p.Default
+	}
+	if a.err == nil {
+		a.err = fmt.Errorf("no parameter is named %s", name)
+	}
+	return nil
+}
+
+func (a *args) text(s string) string {
+	return placeholder.ReplaceAllStringFunc(s, func(m string) string {
+		v := a.value(a.arg(m[2 : len(m)-1]))
+		if v == nil {
+			return ""
+		}
+		return fmt.Sprint(v)
+	})
+}
+
+// value is an argument as a case holds it: an enum member by its name.
+func (a *args) value(v any) any {
+	if r, ok := v.(map[string]any); ok {
+		ref, ok := r["ref"].(string)
+		if !ok && a.err == nil {
+			a.err = fmt.Errorf("an argument written as %v, which a naming case can't hold", r)
+		}
+		return ref[strings.LastIndexByte(ref, '.')+1:]
+	}
+	return v
+}
+
+func (a *args) set(in map[string]any) map[string]any {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		s, ok := v.(string)
+		switch {
+		case !ok:
+			out[k] = v
+		case only.MatchString(s):
+			if v := a.value(a.arg(s[2 : len(s)-1])); v != nil {
+				out[k] = v
+			}
+		default:
+			out[k] = a.text(s)
+		}
+	}
+	return out
 }

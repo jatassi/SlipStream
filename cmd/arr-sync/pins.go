@@ -23,6 +23,7 @@ type pins struct {
 	Dialects  dialectSources    `json:"dialects"`
 	Trash     trashSources      `json:"trash"`
 	Fuzz      fuzzSources       `json:"fuzz"`
+	Organizer organizerSources  `json:"organizer"`
 	// Ports maps each owner's hand-ported Go files to the upstream files
 	// they port, as "upstream:path".
 	Ports map[string]map[string][]string `json:"ports"`
@@ -94,11 +95,49 @@ type trashSources struct {
 	// Snapshot are the directories copied verbatim to Out.
 	Snapshot []string `json:"snapshot"`
 	Out      string   `json:"out"`
-	Titles   string   `json:"titles"`
+	// NamingSnapshot are the naming template directories copied verbatim
+	// to NamingOut.
+	NamingSnapshot []string `json:"naming_snapshot"`
+	NamingOut      string   `json:"naming_out"`
+	Titles         string   `json:"titles"`
 	// Readers are the formats whose conditions the stream readers take,
 	// written as a table into ReadersOwner.
 	Readers      []string `json:"readers"`
 	ReadersOwner string   `json:"readers_owner"`
+}
+
+// organizerSources are Sonarr's and Radarr's file naming tests, whose
+// [TestCase] rows become naming cases in Out.
+type organizerSources struct {
+	Out   string          `json:"out"`
+	Files []organizerFile `json:"files"`
+}
+
+// organizerFile is one upstream naming test file. Every one of its
+// [TestCase] methods is either ported, as a case per row, or skipped with
+// the reason it doesn't apply to SlipStream.
+type organizerFile struct {
+	From    string                     `json:"from"`
+	File    string                     `json:"file"`
+	Methods map[string]organizerMethod `json:"methods,omitempty"`
+	Skip    map[string]string          `json:"skip,omitempty"`
+}
+
+// organizerMethod is how one test method's rows read as naming cases, as
+// its body sets them up. In a string, ${name} is the row's argument for
+// the parameter name. A string that is only ${name} keeps the argument's
+// JSON type, and an argument that is null leaves the value out.
+type organizerMethod struct {
+	Template string `json:"template"`
+	// Values are by upstream token name: the Work's, its level's, and the
+	// one Item's when Items is empty.
+	Values map[string]any `json:"values,omitempty"`
+	// Items are each Item's values for a file that covers several.
+	Items []map[string]any `json:"items,omitempty"`
+	// Settings are the naming settings the method changes: colon,
+	// colonCustom or multiEpisode.
+	Settings map[string]any `json:"settings,omitempty"`
+	Want     string         `json:"want"`
 }
 
 type fuzzSources struct {
@@ -147,6 +186,9 @@ func (p pins) check() error {
 		keys = append(keys, f.From)
 	}
 	for _, f := range p.Fuzz.Sources {
+		keys = append(keys, f.From)
+	}
+	for _, f := range p.Organizer.Files {
 		keys = append(keys, f.From)
 	}
 	for _, files := range p.Ports {
