@@ -197,10 +197,14 @@ func Add(ctx context.Context, tx *storage.Tx[file], f File, fills []targets.Targ
 
 func insertFile(ctx context.Context, q *db.Queries, f File) error {
 	modified, file, volume := seenColumns(f.Seen)
+	var source *string
+	if f.SourceName != "" {
+		source = &f.SourceName
+	}
 	return q.InsertFile(ctx, db.InsertFileParams{
 		ID: f.ID, WorkID: f.WorkID, ItemID: f.ItemID, Cut: f.Cut, RootID: f.RootID, Path: f.Path, Size: f.Size, Probe: f.Media,
 		GrabID: f.GrabID, Quality: f.Quality, Label: f.Label, Extra: f.Extra, ReleaseName: f.ReleaseName, TitleRead: db.Reading{Read: f.Title},
-		ModifiedAt: modified, NodeFileID: file, NodeVolumeID: volume, ProbedAt: f.ProbedAt,
+		ModifiedAt: modified, NodeFileID: file, NodeVolumeID: volume, ProbedAt: f.ProbedAt, SourceName: source,
 	})
 }
 

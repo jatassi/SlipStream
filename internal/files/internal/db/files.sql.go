@@ -378,11 +378,11 @@ func (q *Queries) InsertDoomed(ctx context.Context, arg InsertDoomedParams) erro
 
 const insertFile = `-- name: InsertFile :exec
 INSERT INTO files_file (id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra,
-    release_name, title_read, modified_at, node_file_id, node_volume_id, probed_at)
+    release_name, title_read, modified_at, node_file_id, node_volume_id, probed_at, source_name)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6,
     ?7, ?8, ?9, ?10, ?11, ?12,
     ?13, ?14, ?15, ?16, ?17,
-    ?18)
+    ?18, ?19)
 `
 
 type InsertFileParams struct {
@@ -404,6 +404,7 @@ type InsertFileParams struct {
 	NodeFileID   *string
 	NodeVolumeID *string
 	ProbedAt     storage.Time
+	SourceName   *string
 }
 
 func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
@@ -426,6 +427,7 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
 		arg.NodeFileID,
 		arg.NodeVolumeID,
 		arg.ProbedAt,
+		arg.SourceName,
 	)
 	return err
 }

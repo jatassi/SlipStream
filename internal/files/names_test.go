@@ -163,7 +163,7 @@ func TestNames(t *testing.T) {
 	}
 }
 
-func TestTwoFilesOnOneNameIsAClash(t *testing.T) {
+func TestAFileBeingPlacedOnAnotherFilesNameFindsItTaken(t *testing.T) {
 	web := newTarget(t, "Web", []release.Quality{release.WEBDL1080p})
 	scarf := works.Item{ID: works.ItemID{UUID: storage.NewUUID()}}
 	held := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Path: "Attic/Attic - Scarf.mkv"}
@@ -171,8 +171,48 @@ func TestTwoFilesOnOneNameIsAClash(t *testing.T) {
 	w := shelved(t, "{Shelf} - {Thing}", targets.Goals{Targets: []targets.Target{web}}, scarf)
 	w.files, w.fresh = []File{held, fresh}, fresh.ID
 	_, _, err := names(w, map[CellKey]Fill{{Item: scarf.ID, Edition: targets.AnyEdition, Target: web.ID}: {File: held.ID}})
-	if !errors.Is(err, ErrNameClash) {
-		t.Fatalf("names of a Kept file whose template names no Target = %v, want ErrNameClash", err)
+	if taken, ok := errors.AsType[*NameTakenError](err); !ok || *taken != (NameTakenError{Path: "Attic/Attic - Scarf.mkv"}) {
+		t.Fatalf("names of a Kept file whose template names no Target = %v, want its name taken at Attic/Attic - Scarf.mkv", err)
+	}
+}
+
+// keeping is the world of shelved whose type's renaming is off, holding
+// a file filling Web at held and, being placed, a Kept file downloaded
+// as source.
+func keeping(t *testing.T, held, source string) (w world, fills map[CellKey]Fill, fresh ID) {
+	t.Helper()
+	web := newTarget(t, "Web", []release.Quality{release.WEBDL1080p})
+	scarf := works.Item{ID: works.ItemID{UUID: storage.NewUUID()}}
+	w = shelved(t, "{Shelf} - {Thing} - {Target}", targets.Goals{Targets: []targets.Target{web}}, scarf)
+	off := false
+	scheme, err := naming.SchemeOf(shelf("{Shelf} - {Thing} - {Target}").Naming(), naming.Settings{Rename: &off})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.scheme = scheme
+	filling := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Path: held}
+	placing := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Path: ".slipstream-incoming/grab.mkv", SourceName: source}
+	w.files, w.beside, w.fresh = []File{filling, placing}, []File{filling}, placing.ID
+	return w, map[CellKey]Fill{{Item: scarf.ID, Edition: targets.AnyEdition, Target: web.ID}: {File: filling.ID}}, placing.ID
+}
+
+func TestWithRenamingOffAFileBeingPlacedKeepsItsDownloadedNameInTheWorksFolder(t *testing.T) {
+	w, fills, fresh := keeping(t, "Attic, as found/scarf.mkv", "Scarf.2020.1080p.WEB-DL.mkv")
+	got, _, err := names(w, fills)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[ID]name{w.files[0].ID: {"Web", 0, "Attic, as found/scarf.mkv"}, fresh: {"Web", 1, "Attic, as found/Scarf.2020.1080p.WEB-DL.mkv"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("names =\n%v\nwant the file beside it kept and the new one under its downloaded name in that folder, labeled\n%v", got, want)
+	}
+}
+
+func TestWithRenamingOffADownloadedNameAnotherFileHasIsTaken(t *testing.T) {
+	w, fills, _ := keeping(t, "Attic/scarf.2020.1080p.web-dl.mkv", "Scarf.2020.1080p.WEB-DL.mkv")
+	_, _, err := names(w, fills)
+	if taken, ok := errors.AsType[*NameTakenError](err); !ok || *taken != (NameTakenError{Path: "Attic/Scarf.2020.1080p.WEB-DL.mkv"}) {
+		t.Fatalf("names = %v, want the downloaded name taken in Attic, whatever its case", err)
 	}
 }
 

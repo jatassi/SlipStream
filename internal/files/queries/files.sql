@@ -1,10 +1,10 @@
 -- name: InsertFile :exec
 INSERT INTO files_file (id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra,
-    release_name, title_read, modified_at, node_file_id, node_volume_id, probed_at)
+    release_name, title_read, modified_at, node_file_id, node_volume_id, probed_at, source_name)
 VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(cut), sqlc.arg(root_id), sqlc.arg(path),
     sqlc.arg(size), sqlc.arg(probe), sqlc.arg(grab_id), sqlc.arg(quality), sqlc.arg(label), sqlc.arg(extra),
     sqlc.arg(release_name), sqlc.arg(title_read), sqlc.arg(modified_at), sqlc.arg(node_file_id), sqlc.arg(node_volume_id),
-    sqlc.arg(probed_at));
+    sqlc.arg(probed_at), sqlc.narg(source_name));
 
 -- name: UpdateScanned :exec
 UPDATE files_file SET path = sqlc.arg(path), size = sqlc.arg(size), probe = sqlc.arg(probe), grab_id = sqlc.arg(grab_id),

@@ -2628,6 +2628,8 @@ export const GrabsFailure = zod.object({
     "no_video_file",
     "probe_failed",
     "fills_nothing",
+    "name_taken",
+    "name_too_long",
     "transfer_failed",
     "import_failed",
     "node_written_off",

@@ -75,6 +75,8 @@ const (
 	NoVideoFile        Code = "no_video_file"
 	ProbeFailed        Code = "probe_failed"
 	FillsNothing       Code = "fills_nothing"
+	NameTaken          Code = "name_taken"
+	NameTooLong        Code = "name_too_long"
 	TransferFailed     Code = "transfer_failed"
 	ImportFailed       Code = "import_failed"
 	NodeWrittenOff     Code = "node_written_off"
