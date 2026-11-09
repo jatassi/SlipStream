@@ -19,6 +19,7 @@ import { customFormatsSection } from "../formats/section";
 import { libraryScanSection } from "../imports/section";
 import { indexersSection } from "../indexers/section";
 // oxlint-disable-next-line import/max-dependencies -- the table names every section of Settings
+import { namingSection } from "../naming/section";
 import { libraryRootsSection } from "../roots/section";
 import { EditionsSection } from "../targets/editions-section";
 import { ProfilesSection } from "../targets/profiles-section";
@@ -113,7 +114,13 @@ export const settingsGroups: readonly [SettingsGroup, ...SettingsGroup[]] = [
   {
     id: "library",
     label: "Library",
-    sections: [contentTypesSection, libraryRootsSection, libraryScanSection, metadataSection],
+    sections: [
+      contentTypesSection,
+      libraryRootsSection,
+      libraryScanSection,
+      namingSection,
+      metadataSection,
+    ],
   },
   {
     id: "files",
