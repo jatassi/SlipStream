@@ -257,3 +257,26 @@ func TestTheFieldsListEveryKeyInCardOrderWithItsValue(t *testing.T) {
 		t.Errorf("fields =\n%v\nwant\n%v", got, want)
 	}
 }
+
+func TestTheCustomColonTextNamesFilesAndIsRefusedWhenANameCantHoldIt(t *testing.T) {
+	s := open(t, 1000)
+	err := s.naming.Panel(shelf).Apply(t.Context(), patch(map[string]string{"shelf.naming.colon": `"custom"`, "shelf.naming.colonCustom": `" ?"`}))
+	refusedWith(t, err, naming.Problem{Key: "shelf.naming.colonCustom", Sentence: `The colon text can't contain '?' because a name on Windows can't hold it. Remove it.`})
+	if err := s.naming.Panel(shelf).Apply(t.Context(), patch(map[string]string{"shelf.naming.colon": `"custom"`, "shelf.naming.colonCustom": `" ~"`})); err != nil {
+		t.Fatal(err)
+	}
+	sc, err := s.naming.SchemeIn(t.Context(), s.lib, shelf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := sc.Name(naming.Placing{
+		Subject:      naming.Subject{Work: naming.Set{"Shelf Title": naming.Text("Attic: Loft")}, Units: []naming.Unit{thing(1, "Scarf")}},
+		LevelFolders: true, Landing: naming.Rendered(), File: naming.FileFacts{Target: "1080p"}, Ext: ".mkv", Budget: 1000,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "Attic ~ Loft/Box 01/Attic ~ Loft - B01T01 - Scarf 1080p.mkv"; n.Rel != want {
+		t.Errorf("name = %q, want %q", n.Rel, want)
+	}
+}
