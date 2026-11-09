@@ -474,3 +474,38 @@ func TestWithRenamingOffAnImportKeepsTheDownloadedNameAndATargetRenameRenamesNot
 		t.Fatalf("the library's plan reads %q, want nothing to rename", got)
 	}
 }
+
+// nas writes paths of at most 259 bytes, as a Windows Node without long
+// paths does. The movie's title is long enough that its folder and file
+// name pass that in any root, though each name fits in 255 bytes, so its
+// Grab fails at its probe with both lengths and nothing reaches nas.
+func TestAGrabWhoseNameIsTooLongForAWindowsNodeFailsNameTooLong(t *testing.T) {
+	t.Parallel()
+	const title = "The Quiet Orchard and the Long Road Home Through the Valley of Lanterns Where the Rivers Meet the Sea at the End of Summer"
+	s, err := scenario.Load("seedbox-nas")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Name = "seedbox-nas-long-name"
+	s.TMDB.Movies[0].Title = title
+	s.Releases[0].Name = strings.ReplaceAll(title, " ", ".") + ".2021.1080p.WEB-DL.H264-FKW"
+	run := worldtest.LaunchScenario(t, s)
+	w := walked{s: s, run: run, m: run.Manifest(), a: api(t, run)}
+	w.add(t)
+
+	found := w.searched(t, w.search(t))
+	if found.Outcome == nil || *found.Outcome != "grabbed" || found.GrabID == nil {
+		t.Fatalf("the search ended %+v, want a release grabbed", found)
+	}
+	w.ended(t, *found.GrabID)
+	path := title + " (2021)/" + title + " (2021) - 1080p.mkv"
+	limit := 259 - len(filepath.Join(w.m.MediaDir, "movies")) - 1
+	want := fmt.Sprintf("the path in the root is %d bytes long and the limit there is %d bytes", len(path), limit)
+	if w.grab.Stage != "failed" || w.grab.Failure == nil || w.grab.Failure.Code != "name_too_long" || w.grab.Failure.Message != want {
+		t.Fatalf("the Grab ended %s with %+v after %v, want failed with %q", w.grab.Stage, w.grab.Failure, w.grab.stages(), want)
+	}
+	if got := w.grab.stages(); !slices.Equal(got[len(got)-2:], []string{"probing", "failed"}) {
+		t.Fatalf("the Grab went through %v, want it to fail at its probe", got)
+	}
+	holdsOnly(t, w.m)
+}
