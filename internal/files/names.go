@@ -49,7 +49,8 @@ const (
 // label, N and cut's name are unchanged keeps its path in changedOnly
 // mode; one that changes keeps its folder and takes the template's name,
 // its cut tagging it unless Standard. Two live files ending on one path
-// without case, one of them moving there, is ErrNameClash.
+// without case, one of them moving there, is ErrNameClash, or a
+// *NameTakenError when the file being placed is one that moves.
 //
 // In everyFile mode a file that doesn't fit takes "" and is blocked
 // TooLong, and with renaming off the moving files among those ending on
@@ -81,7 +82,8 @@ func names(w world, fills map[CellKey]Fill) (out map[ID]name, blocked map[ID]Blo
 // clashes finds the live files of w that end on one path without case,
 // at least one of them moving there. In everyFile mode with renaming off
 // they are kept names that meet, and the moving ones are blocked Clash
-// with their own Work. Anywhere else it is ErrNameClash.
+// with their own Work. Anywhere else it is a *NameTakenError when the
+// file being placed moves there, else ErrNameClash.
 func clashes(w world, nm map[ID]name, blocked map[ID]Blocked) error {
 	at := map[place][]File{}
 	for _, f := range w.files {
@@ -96,6 +98,9 @@ func clashes(w world, nm map[ID]name, blocked map[ID]Blocked) error {
 			continue
 		}
 		if w.mode != everyFile || w.scheme.Renames() {
+			if slices.ContainsFunc(moving, func(g File) bool { return g.ID == w.fresh }) {
+				return &NameTakenError{Path: nm[w.fresh].Path}
+			}
 			return fmt.Errorf("%w: %s", ErrNameClash, nm[moving[0].ID].Path)
 		}
 		for _, g := range moving {
