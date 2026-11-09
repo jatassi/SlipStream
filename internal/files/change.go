@@ -143,7 +143,7 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 	})
 	impact := Impact{OwnList: touched.OwnList}
 	for i, was := range before {
-		p, err := f.converge(ctx, tx, was, afters[i], fills[i], func(File) bool { return m.Unwanted == Delete })
+		p, err := f.converge(ctx, tx, was, afters[i], fills[i], changing(m))
 		if err != nil {
 			return Impact{}, nil, err
 		}
@@ -229,10 +229,10 @@ func continues(before, after Cell) bool {
 	case before.Edition != targets.AnyEdition && after.Edition != targets.AnyEdition:
 		return false
 	}
-	return fileOf(before) == fileOf(after)
+	return fileIDOf(before) == fileIDOf(after)
 }
 
-func fileOf(c Cell) ID {
+func fileIDOf(c Cell) ID {
 	if c.File == nil {
 		return ID{}
 	}

@@ -16,6 +16,8 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/housekeeping"
+	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/link"
@@ -44,6 +46,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
+	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -83,6 +86,7 @@ type half struct {
 	roots    *roots.Roots
 	files    *files.Files
 	library  *library.Library
+	imports  *imports.Imports
 	grabs    *grabs.Grabs
 	clients  *downloadclients.Clients
 	tasks    *tasks.Scheduler
@@ -321,14 +325,15 @@ func (n *Node) startController(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	stores := storing.Remote(func(id role.NodeID) storagev1connect.StorageServiceHandler {
+		return storagev1connect.StorageService.On(cluster, id)
+	})
 	homes, err = roots.Open(ctx, roots.Config{
 		Library: lib.db,
 		Types:   types,
 		Roster:  side,
 		Storage: stored,
-		Remote: func(id role.NodeID) storagev1connect.StorageServiceHandler {
-			return storagev1connect.StorageService.On(cluster, id)
-		},
+		Remote:  stores,
 		Folders: func(id role.NodeID) storagev1connect.FolderServiceHandler {
 			return storagev1connect.FolderService.On(cluster, id)
 		},
@@ -352,6 +357,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Names:   contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
 		Today:   n.today,
 		Disk:    homes,
+		Changed: files.ChangedEvent.Bind(n.hub),
 		Timings: n.cfg.Timings.Files,
 		Rand:    n.filesRand,
 		Log:     n.rootLog.With("subsystem", "files"),
@@ -384,9 +390,33 @@ func (n *Node) startController(ctx context.Context) error {
 		BeforeStep:    n.env.Test.BeforeStep,
 		Log:           n.rootLog.With("subsystem", "grabs"),
 	})
-	composer := library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Grabs: pipeline})
+	var composer *library.Library
+	found := imports.New(imports.Config{
+		Library: lib.db,
+		Remote:  stores,
+		Roots:   homes,
+		Files:   shelf,
+		Works:   tree,
+		Targets: goals,
+		Facets:  contenttype.Project(opened, func(t contenttype.Library) scanning.Facet { return t }),
+		Add: func(ctx context.Context, by identity.Admin, a library.Adding) (library.Added, error) {
+			return composer.Add(ctx, by, a)
+		},
+		Start: func(ctx context.Context, st tasks.Start) (tasks.Started, error) {
+			return scheduler.Start(ctx, st)
+		},
+		Steps: func(task tasks.TaskID) (tasks.RunID, map[tasks.UnitKey]tasks.Step, bool) {
+			return scheduler.Steps(task)
+		},
+		Hub:          n.hub,
+		Changed:      imports.ChangedEvent.Bind(n.hub),
+		FilesChanged: files.ChangedEvent.Bind(n.hub),
+		BeforeStep:   n.env.Test.BeforeScanStep,
+		Log:          n.rootLog.With("subsystem", "imports"),
+	})
+	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Grabs: pipeline, Leaver: found})
 
-	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients}
+	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found}
 	scheduler, err = tasks.Open(ctx, tasks.Config{
 		Library: lib.db,
 		Catalog: append(catalog(housekeeping.Config{
@@ -405,7 +435,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Types:    contenttype.Project(opened, func(t contenttype.Library) metadata.Refreshing { return t }),
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
-		}), append(append(registry.Tasks(), seeding.Task()), n.env.Test.tasks(started)...)...),
+		}, found), append(append(registry.Tasks(), seeding.Task()), n.env.Test.tasks(started)...)...),
 		Roster:     side,
 		Zone:       n.zone(),
 		Rand:       n.tasksRand,
@@ -424,6 +454,7 @@ func (n *Node) startController(ctx context.Context) error {
 		roots:     homes,
 		files:     shelf,
 		library:   composer,
+		imports:   found,
 		grabs:     pipeline,
 		clients:   clients,
 		tasks:     scheduler,
@@ -443,6 +474,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("transfers", copies.Run)
 	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("tasks", scheduler.Run)
+	n.claimed.Go("library scan", found.Run)
 	n.claimed.Go("metadata", meta.Run)
 	n.claimed.Go("availability", metadata.NewAvailability(metadata.AvailabilityConfig{
 		Library: lib.db, Local: local, Targets: goals, Hub: n.hub, Changed: works.ChangedEvent.Bind(n.hub),
@@ -547,6 +579,7 @@ func (n *Node) openHolder(client *http.Client) metadata.HolderConfig {
 		TVDB:  tvdb.New(lines, n.cfg.Endpoints.TVDB, n.cfg.Timings.TVDB),
 		OMDb:  omdb.New(lines, n.cfg.Endpoints.OMDb, n.cfg.Timings.OMDb),
 		Lines: lines,
+		Now:   n.today,
 	}
 	sources := map[works.TypeID]metadata.Source{}
 	for _, t := range n.env.Types.All() {

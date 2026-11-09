@@ -146,3 +146,30 @@ func TestTwoFilesOnOneNameIsAClash(t *testing.T) {
 		t.Fatalf("names of a Kept file whose template names no Target = %v, want ErrNameClash", err)
 	}
 }
+
+func TestAGoneFileKeepsItsNameAndHoldsItsN(t *testing.T) {
+	best := newTarget(t, "Best", []release.Quality{release.Bluray1080p}, []release.Quality{release.WEBDL1080p})
+	scarf := works.Item{ID: works.ItemID{UUID: storage.NewUUID()}}
+	gone := File{
+		ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Extra: 1,
+		Path: "Attic/Attic - Scarf - Web (extra 1).mkv", GoneAt: storage.Now(),
+	}
+	kept := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.HDTV720p, Label: "Web", Path: "Attic/Scarf.mkv"}
+	w := world{
+		tree: works.Bare{Items: []works.Item{scarf}}, goals: targets.Goals{Targets: []targets.Target{best}}, files: []File{gone, kept},
+		retagged:  map[release.CutKey]bool{release.Standard: true},
+		templates: naming.Templates{Folder: "{Shelf}", File: "{Shelf} - {Thing} - {Edition Tag} {Target}"},
+		tokens:    map[works.ItemID]map[string]string{scarf.ID: {"Shelf": "Attic", "Thing": "Scarf"}},
+	}
+	got, err := names(w, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[ID]name{
+		gone.ID: {"Web", 1, "Attic/Attic - Scarf - Web (extra 1).mkv"},
+		kept.ID: {"Web", 2, "Attic/Attic - Scarf - Web (extra 2).mkv"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("names =\n%v\nwant the gone file unchanged though it meets Best and its cut retags, and the Kept file past its N\n%v", got, want)
+	}
+}

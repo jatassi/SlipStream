@@ -92,9 +92,12 @@ test("a Work on an offline Node is deleted by leaving its files", async () => {
   await userEvent.click(dialog.getByRole("button", { name: "Leave files" }));
   await expect.element(dialog.getByRole("radio", { name: "Leave files on disk" })).toBeChecked();
   await expect
-    .element(dialog.getByText("Their 4 files (2.1 GB), including 1 Kept file, stay on disk."))
+    .element(
+      dialog.getByText(
+        "Their 4 files (2.1 GB), including 1 Kept file, stay on disk and show under Ignored in Pending imports.",
+      ),
+    )
     .toBeVisible();
-  await expect.element(dialog.getByText("The next library scan finds them again.")).toBeVisible();
   await expect
     .element(dialog.getByText(/can't be deleted with its files/u))
     .not.toBeInTheDocument();
@@ -143,8 +146,13 @@ test("one file is counted as one, whichever is chosen", async () => {
   const dialog = page.getByRole("dialog", { name: "Delete The Quiet Orchard?" });
   await expect.element(dialog.getByText("Its file (700 MB) is deleted from disk.")).toBeVisible();
   await userEvent.click(dialog.getByRole("radio", { name: "Leave files on disk" }));
-  await expect.element(dialog.getByText("Its file (700 MB) stays on disk.")).toBeVisible();
-  await expect.element(dialog.getByText("The next library scan finds it again.")).toBeVisible();
+  await expect
+    .element(
+      dialog.getByText(
+        "Its file (700 MB) stays on disk and shows under Ignored in Pending imports.",
+      ),
+    )
+    .toBeVisible();
 
   await userEvent.click(dialog.getByRole("button", { name: "Delete", exact: true }));
   await expect

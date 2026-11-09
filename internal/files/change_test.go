@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -263,7 +264,7 @@ func TestAnImportWhoseCellsWentFollowsTheSavedChoice(t *testing.T) {
 			l.put(t, holding, "webdl")
 			in := files.Incoming{
 				WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Holding: holding,
-				Size: 5, Probe: files.Probe{Width: 1920, Height: 1080}, Quality: release.WEBDL1080p, Unwanted: &c.choice, Meant: meant,
+				Size: 5, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p, Unwanted: &c.choice, Meant: meant,
 			}
 			var landed bool
 			err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
@@ -283,8 +284,8 @@ func TestAnImportWhoseCellsWentFollowsTheSavedChoice(t *testing.T) {
 }
 
 var (
-	h264 = files.Probe{Width: 1920, Height: 1080, Codec: "h264"}
-	hevc = files.Probe{Width: 1920, Height: 1080, Codec: "hevc"}
+	h264 = media.Record{Video: media.Video{Width: 1920, Height: 1080, Codec: "h264"}}
+	hevc = media.Record{Video: media.Video{Width: 1920, Height: 1080, Codec: "hevc"}}
 )
 
 // noX264 is Web refusing x264: WEB-DL 1080p of any video codec but x264.
@@ -336,7 +337,7 @@ func TestAnImportProbedAtAVideoCodecItsTargetRefusesFillsNothing(t *testing.T) {
 	keep, del := files.Keep, files.Delete
 	for _, c := range []struct {
 		name     string
-		probe    files.Probe
+		probe    media.Record
 		unwanted *files.Unwanted
 		fills    bool
 		disk     map[string]string
@@ -355,7 +356,7 @@ func TestAnImportProbedAtAVideoCodecItsTargetRefusesFillsNothing(t *testing.T) {
 			l.put(t, holding, "payload")
 			in := files.Incoming{
 				WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Holding: holding,
-				Size: 7, Probe: c.probe, Quality: release.WEBDL1080p, Meant: []targets.TargetID{web.ID}, Unwanted: c.unwanted,
+				Size: 7, Media: c.probe, Quality: release.WEBDL1080p, Meant: []targets.TargetID{web.ID}, Unwanted: c.unwanted,
 			}
 			var placed files.Placement
 			err := l.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {

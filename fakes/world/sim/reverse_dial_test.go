@@ -11,6 +11,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/node"
@@ -132,8 +133,8 @@ func TestASetupJoinAwaitsTheDial(t *testing.T) {
 		if box.Link.State != "up" || box.Dial.By != "controller" {
 			t.Fatalf("home lists seedbox %s dialed by %q, want up and dialed by the controller", box.Link.State, box.Dial.By)
 		}
-		topo := decode[topologyView](t, "getTopology", a.Admin("home", http.MethodGet, "/api/v1/nodes/topology", ""))
-		if l := topo.Links; len(l) != 1 || l[0].B != box.ID || l[0].Dialer != topo.Nodes[0].ID || l[0].State != "up" {
+		topo := simtest.Decode[topologyView](t, "getTopology", a.Admin("home", http.MethodGet, "/api/v1/nodes/topology", ""))
+		if l := topo.Links; len(l) != 1 || l[0].B != box.ID || l[0].Dialer != l[0].A || l[0].State != "up" {
 			t.Fatalf("the topology's links are %+v, want seedbox's link up and dialed by home", l)
 		}
 	})

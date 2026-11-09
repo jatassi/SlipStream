@@ -237,9 +237,9 @@ func failOfGone(g downloadclients.Gone) fail {
 func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 	video, ok := largestVideo(g.Torrent.Files)
 	if !ok {
-		return fail{NoVideoFile, "The download holds no mkv, mp4, m4v, avi or ts file"}
+		return fail{NoVideoFile, "The download holds no video file."}
 	}
-	probe, err := gr.cfg.Media.Probe(ctx, g.Node, g.Torrent.InfoHash, video.Index)
+	record, err := gr.cfg.Media.Probe(ctx, g.Node, g.Torrent.InfoHash, video.Index)
 	if err != nil {
 		return classify(ctx, err, ProbeFailed)
 	}
@@ -259,14 +259,14 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 		if err != nil {
 			return err
 		}
-		read, facts, err := gr.facts(ctx, r, g, tree.ContentType, probe)
+		read, facts, err := gr.facts(ctx, r, g, tree.ContentType, record)
 		if err != nil {
 			return err
 		}
 		quality, _ := facts.Quality.Get()
 		placement, err := gr.cfg.Files.Place(ctx, r, files.Incoming{
 			WorkID: g.WorkID, ItemID: g.ItemID, Cut: facts.Cut, RootID: root.ID, Holding: files.HoldingOf(g.ID.UUID, ext),
-			Size: video.Size, Probe: probed(probe), Quality: quality, ReleaseName: g.Release.Title, Title: read, GrabID: g.ID.UUID,
+			Size: video.Size, Media: record, Quality: quality, ReleaseName: g.Release.Title, Title: read, GrabID: g.ID.UUID,
 			Meant: g.Targets, Unwanted: unwanted,
 		})
 		p, placeErr = Plan{Root: root, Path: placement.Path, Fills: placement.Fills}, err
@@ -281,19 +281,20 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 	if placeErr != nil {
 		return fail{ImportFailed, placeErr.Error()}
 	}
-	p.FileIndex, p.Probe = video.Index, probe
+	p.FileIndex, p.Media = video.Index, record
 	if p.Root.Node == g.Node {
 		return advance{to: Importing, plan: &p}
 	}
 	return advance{to: Transferring, plan: &p}
 }
 
-// largestVideo is the largest file with a video extension.
+// largestVideo is the largest file that counts as a video, so a sample
+// or a bonus feature is never the one imported.
 func largestVideo(fs []engine.File) (engine.File, bool) {
 	var best engine.File
 	found := false
 	for _, f := range fs {
-		if media.IsVideo(f.Path) && (!found || f.Size > best.Size) {
+		if media.Counts(f.Path) && (!found || f.Size > best.Size) {
 			best, found = f, true
 		}
 	}
@@ -317,13 +318,14 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 	until := gr.cfg.Roots.Watch()
 	imported := advance{to: Imported, file: &files.Incoming{
 		WorkID: g.WorkID, ItemID: g.ItemID, RootID: root.ID, Holding: holding.String(),
-		Probe: probed(g.Plan.Probe), GrabID: g.ID.UUID, Meant: g.Targets,
+		Media: g.Plan.Media, GrabID: g.ID.UUID, Meant: g.Targets,
 	}}
 	if root.Node == g.Node {
-		imported.file.Size, err = gr.cfg.Roots.Place(ctx, root.ID, holding, storing.Payload{InfoHash: g.Torrent.InfoHash, FileIndex: g.Plan.FileIndex})
+		placed, err := gr.cfg.Roots.Place(ctx, root.ID, holding, storing.Payload{InfoHash: g.Torrent.InfoHash, FileIndex: g.Plan.FileIndex})
 		if err != nil {
 			return storageOutcome(ctx, err, until)
 		}
+		imported.file.Size, imported.file.Seen = placed.Size, placed.Seen
 		return imported
 	}
 	t, verified, err := gr.staged(ctx, g)
@@ -333,13 +335,14 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 	case !verified:
 		return advance{to: Transferring}
 	}
-	imported.file.Size, err = gr.cfg.Roots.Move(ctx, root.ID, transfers.StagedRel(t, 0), holding)
+	moved, err := gr.cfg.Roots.Move(ctx, root.ID, transfers.StagedRel(t, 0), holding)
 	if err != nil {
 		if _, verified, rerr := gr.staged(ctx, g); rerr == nil && !verified {
 			return advance{to: Transferring}
 		}
 		return storageOutcome(ctx, err, until)
 	}
+	imported.file.Size, imported.file.Seen = moved.Size, moved.Seen
 	imported.placed = &t
 	return imported
 }
@@ -382,21 +385,16 @@ func storageOutcome(ctx context.Context, err error, until <-chan struct{}) outco
 	return fail{ImportFailed, err.Error()}
 }
 
-// probed is what a file keeps of its probe.
-func probed(p media.Probe) files.Probe {
-	return files.Probe{Width: p.Width, Height: p.Height, Codec: p.Codec}
-}
-
 // facts is what g's file is, read in r: its release title read by
 // Content Type typ, among the cuts a title of typ can name, and that
-// reading's facts at the resolution its probe measured.
-func (gr *Grabs) facts(ctx context.Context, r storage.Reader[file], g Grab, typ works.TypeID, p media.Probe) (release.Read, release.Facts, error) {
+// reading's facts at the resolution its media record measured.
+func (gr *Grabs) facts(ctx context.Context, r storage.Reader[file], g Grab, typ works.TypeID, m media.Record) (release.Read, release.Facts, error) {
 	known, err := gr.cfg.Targets.CutsIn(ctx, r)
 	if err != nil {
 		return release.Read{}, release.Facts{}, err
 	}
 	read := release.Title(g.Release.Title, gr.cfg.Names[typ], known.For(typ))
-	return read, read.Facts.WithProbe(release.Probed{Resolution: release.Known(p.Resolution())}), nil
+	return read, read.Facts.WithProbe(release.Probed{Resolution: release.Known(m.Resolution())}), nil
 }
 
 // errLeft rolls back a commit whose Grab has left the stage it moves
@@ -571,7 +569,7 @@ func (gr *Grabs) land(ctx context.Context, tx *storage.Tx[file], g Grab, in file
 	if err != nil {
 		return err
 	}
-	read, facts, err := gr.facts(ctx, tx, g, tree.ContentType, g.Plan.Probe)
+	read, facts, err := gr.facts(ctx, tx, g, tree.ContentType, g.Plan.Media)
 	if err != nil {
 		return err
 	}
@@ -610,7 +608,7 @@ func advanceParams(g Grab, o outcome, now storage.Time) (db.AdvanceParams, advan
 			params.FetchNodeID, params.NodeID = o.fetched.by, o.fetched.to
 		}
 		if o.plan != nil {
-			probe, err := json.Marshal(o.plan.Probe)
+			probe, err := json.Marshal(o.plan.Media)
 			if err != nil {
 				return db.AdvanceParams{}, advance{}, fmt.Errorf("encode the probe: %w", err)
 			}

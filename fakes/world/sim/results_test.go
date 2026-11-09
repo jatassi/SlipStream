@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/role/roletest"
@@ -59,10 +60,10 @@ func report(t *testing.T, w *sim.World, name string, results ...uint64) {
 func TestResultsApplyOnce(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t), sim.WithProbe())
+		w := sim.Launch(t, simtest.Home(t), sim.WithProbe())
 		path := w.Path("home", "seedbox")
 		synctest.Wait()
-		flip(t, path, fault.Stall{})
+		simtest.Flip(t, path, fault.Stall{})
 		time.Sleep(partitioned)
 		report(t, w, "seedbox", 1, 2, 3)
 		synctest.Wait()
@@ -74,7 +75,7 @@ func TestResultsApplyOnce(t *testing.T) {
 		path.Clear("")
 		time.Sleep(redialed)
 		synctest.Wait()
-		flip(t, path, fault.Cut(0))
+		simtest.Flip(t, path, fault.Cut(0))
 		resume()
 		synctest.Wait()
 		if got := applied(t, w); !slices.Equal(got, []uint64{1, 2, 3}) {
@@ -118,7 +119,7 @@ func TestResultsApplyOnce(t *testing.T) {
 func TestSupervisorRestarts(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t), sim.WithProbe())
+		w := sim.Launch(t, simtest.Home(t), sim.WithProbe())
 		a := w.API()
 		synctest.Wait()
 		w.Node("seedbox").Probe().Crash()
@@ -143,7 +144,7 @@ func TestSupervisorRestarts(t *testing.T) {
 func TestCheckFreshFindsAProbeChangeWithoutTouch(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t), sim.WithProbe())
+		w := sim.Launch(t, simtest.Home(t), sim.WithProbe())
 		synctest.Wait()
 		home := w.Node("home").Half()
 		box := nodeID(t, w, "seedbox")

@@ -21,7 +21,7 @@ var schemaFiles embed.FS
 
 var Def = contenttype.Define("series", schemaFiles, DefaultEndpoints, contenttype.Halves[Endpoints]{
 	Provider: func(d contenttype.ProviderDeps, _ Endpoints) metadata.Source {
-		return &Source{tvdb: d.TVDB, tmdb: d.TMDB, omdb: d.OMDb}
+		return &Source{tvdb: d.TVDB, tmdb: d.TMDB, omdb: d.OMDb, now: d.Now}
 	},
 	Library: func(d contenttype.LibraryDeps, e Endpoints) contenttype.Library {
 		return &Series{region: d.Region, web: e}

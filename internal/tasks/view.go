@@ -312,10 +312,9 @@ func (s *Scheduler) Running(ctx context.Context) ([]Active, error) {
 	defer s.mu.Unlock()
 	out := make([]Active, 0, len(s.running))
 	for _, a := range s.running {
-		done, total := a.progress.now()
 		out = append(out, Active{
 			Run: a.run.id, Task: a.run.task.ID, Name: a.run.task.Name, Noun: a.run.task.Noun, Trigger: a.run.trigger,
-			Since: a.run.started.Time(), Done: done, Total: total, Nodes: s.names(l, a.run.units),
+			Since: a.run.started.Time(), Done: a.done, Total: a.total, Nodes: s.names(l, a.units()),
 		})
 	}
 	slices.SortFunc(out, func(a, b Active) int { return cmp.Compare(a.Run, b.Run) })
@@ -387,13 +386,10 @@ func (s *Scheduler) views(l look, now time.Time) []View {
 
 func (s *Scheduler) status(l look, t Task, units []Unit, next time.Time) Status {
 	s.mu.Lock()
-	for _, a := range s.running {
-		if a.run.task.ID == t.ID {
-			done, total := a.progress.now()
-			running := Running{Run: a.run.id, Trigger: a.run.trigger, Since: a.run.started.Time(), Done: done, Total: total}
-			s.mu.Unlock()
-			return running
-		}
+	if a := s.openOf(t.ID); a != nil {
+		running := Running{Run: a.run.id, Trigger: a.run.trigger, Since: a.run.started.Time(), Done: a.done, Total: a.total}
+		s.mu.Unlock()
+		return running
 	}
 	s.mu.Unlock()
 	if len(units) == 0 {
@@ -414,7 +410,7 @@ func (l look) runOf(row db.TasksRun) Run {
 	if row.Result != nil {
 		r.Result = *row.Result
 	}
-	if row.Units == nil {
+	if row.EndedAt.IsZero() {
 		return r
 	}
 	var lines []line

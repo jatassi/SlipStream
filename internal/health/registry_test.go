@@ -48,11 +48,11 @@ func TestRegisteredPanicsUnlessTheCategoriesAreIDs(t *testing.T) {
 		return Category{About: About{ID: id, Label: string(id), Phrase: string(id)}, Source: Source{Answer: answer}}
 	}
 	cases := map[string][]Category{
-		"one missing":    {cat(StorageID), cat(NodesID), cat(ScheduledTasksID)},
-		"one unknown":    {cat(StorageID), cat(NodesID), cat(DownloadClientsID), cat(SeedingID), cat(IndexersID), cat(ScheduledTasksID), cat("backups")},
-		"out of order":   {cat(StorageID), cat(DownloadClientsID), cat(NodesID), cat(SeedingID), cat(IndexersID), cat(ScheduledTasksID)},
-		"listed twice":   {cat(StorageID), cat(NodesID), cat(NodesID), cat(DownloadClientsID), cat(SeedingID), cat(IndexersID), cat(ScheduledTasksID)},
-		"with no answer": {cat(StorageID), cat(NodesID), cat(DownloadClientsID), cat(SeedingID), cat(IndexersID), {About: About{ID: ScheduledTasksID, Label: "S", Phrase: "s"}}},
+		"one missing":    {cat(StorageID), cat(LibraryID), cat(NodesID), cat(ScheduledTasksID)},
+		"one unknown":    {cat(StorageID), cat(LibraryID), cat(NodesID), cat(DownloadClientsID), cat(SeedingID), cat(IndexersID), cat(ScheduledTasksID), cat("backups")},
+		"out of order":   {cat(StorageID), cat(NodesID), cat(LibraryID), cat(DownloadClientsID), cat(SeedingID), cat(IndexersID), cat(ScheduledTasksID)},
+		"listed twice":   {cat(StorageID), cat(LibraryID), cat(NodesID), cat(NodesID), cat(DownloadClientsID), cat(SeedingID), cat(IndexersID), cat(ScheduledTasksID)},
+		"with no answer": {cat(StorageID), cat(LibraryID), cat(NodesID), cat(DownloadClientsID), cat(SeedingID), cat(IndexersID), {About: About{ID: ScheduledTasksID, Label: "S", Phrase: "s"}}},
 	}
 	for name, all := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -64,5 +64,5 @@ func TestRegisteredPanicsUnlessTheCategoriesAreIDs(t *testing.T) {
 			registered(all)
 		})
 	}
-	registered([]Category{cat(StorageID), cat(NodesID), cat(DownloadClientsID), cat(SeedingID), cat(IndexersID), cat(ScheduledTasksID)})
+	registered([]Category{cat(StorageID), cat(LibraryID), cat(NodesID), cat(DownloadClientsID), cat(SeedingID), cat(IndexersID), cat(ScheduledTasksID)})
 }

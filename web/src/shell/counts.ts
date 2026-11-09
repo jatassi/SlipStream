@@ -40,7 +40,7 @@ export function useCounts(): ShellCounts | undefined {
   }).data;
 }
 
-export const countDots = { activity: "live" } as const satisfies Record<CountKey, CountDot>;
+export const countDots: Partial<Record<CountKey, CountDot>> = { activity: "live" };
 
 export const alertOf = (
   counts: ShellCounts | undefined,

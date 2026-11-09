@@ -1,11 +1,14 @@
 import type { FilesState } from "./filesState.ts";
 import type { FilesStateCounts } from "./filesStateCounts.ts";
+import type { WorksLibraryRowAddedBy } from "./worksLibraryRowAddedBy.ts";
 import type { WorksLibraryRowMonitored } from "./worksLibraryRowMonitored.ts";
 import type { WorksLibraryRowValues } from "./worksLibraryRowValues.ts";
 import type { WorksRowRating } from "./worksRowRating.ts";
 
 export interface WorksLibraryRow {
   addedAt: string;
+  /** Who added it: an Admin, or a library scan that matched a folder on disk */
+  addedBy: WorksLibraryRowAddedBy;
   /**
    * Its one Item's availability date, or for many Items the earliest not yet out, else the latest out, read over its monitored Items, or over every Item while none is monitored; null while none of those has a date
    * @nullable
@@ -31,6 +34,11 @@ export interface WorksLibraryRow {
    * @minimum 0
    */
   files: number;
+  /**
+   * Its files a library scan found missing from its root, which the other counts leave out
+   * @minimum 0
+   */
+  goneFiles: number;
   /**
    * When the metadata source last reported that it no longer has this Work; null while it has it
    * @nullable

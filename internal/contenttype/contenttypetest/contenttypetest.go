@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -105,8 +106,9 @@ type box struct {
 }
 
 // Fixture is the library half, and each provider half it opens reads its
-// records.
+// records. Its scan facet is scanning's empty answer.
 type Fixture struct {
+	scanning.None
 	// TitleOnly reads a name as one title: the Fixture numbers nothing.
 	release.TitleOnly
 	mu        sync.Mutex

@@ -11,3 +11,5 @@ type (
 type TypeID string
 
 type Key string
+
+type AddedBy string

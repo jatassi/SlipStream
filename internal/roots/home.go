@@ -12,8 +12,8 @@ import (
 )
 
 // Home is the one way a Work changes root: ErrHasFiles while work has a
-// file, ErrWrongType when root is another Content Type's. A Work already
-// in root stays.
+// live file, ErrWrongType when root is another Content Type's. A Work
+// already in root stays. A Work that moves forgets its gone files.
 func (r *Roots) Home(ctx context.Context, tx *storage.Tx[file], work works.WorkID, root ID) error {
 	to, err := Get(ctx, tx, root)
 	if err != nil {
@@ -46,6 +46,9 @@ func (r *Roots) home(ctx context.Context, tx *storage.Tx[file], work works.WorkI
 		return false, ID{}, err
 	case has:
 		return false, ID{}, ErrHasFiles
+	}
+	if err := r.cfg.Contents.ForgetGoneOf(ctx, tx, work); err != nil {
+		return false, ID{}, err
 	}
 	return true, left, db.New(tx).HomeWork(ctx, db.HomeWorkParams{WorkID: work, RootID: to.ID})
 }

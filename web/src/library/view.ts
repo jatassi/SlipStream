@@ -34,7 +34,7 @@ export type CoreColumn =
   | "rating";
 export type ColumnKey = CoreColumn | FieldKey;
 
-export type CoreFilter = "status" | "monitored" | "profile" | "root" | "needs";
+export type CoreFilter = "status" | "monitored" | "profile" | "root" | "needs" | "gone" | "scanned";
 export type FilterKey = CoreFilter | FieldKey;
 
 /** What one filter group keeps: any of some values, a range, or the Works that have a flag. */

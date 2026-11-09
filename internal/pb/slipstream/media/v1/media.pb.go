@@ -78,12 +78,9 @@ func (x *ProbeRequest) GetFileIndex() int32 {
 }
 
 type ProbeResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	DurationMs    int64                  `protobuf:"varint,1,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`
-	Container     string                 `protobuf:"bytes,2,opt,name=container,proto3" json:"container,omitempty"`
-	Codec         string                 `protobuf:"bytes,3,opt,name=codec,proto3" json:"codec,omitempty"`
-	Width         int32                  `protobuf:"varint,4,opt,name=width,proto3" json:"width,omitempty"`
-	Height        int32                  `protobuf:"varint,5,opt,name=height,proto3" json:"height,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// record is media.Record as JSON, the shape files_file.probe keeps.
+	Record        []byte `protobuf:"bytes,1,opt,name=record,proto3" json:"record,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -118,39 +115,11 @@ func (*ProbeResponse) Descriptor() ([]byte, []int) {
 	return file_slipstream_media_v1_media_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *ProbeResponse) GetDurationMs() int64 {
+func (x *ProbeResponse) GetRecord() []byte {
 	if x != nil {
-		return x.DurationMs
+		return x.Record
 	}
-	return 0
-}
-
-func (x *ProbeResponse) GetContainer() string {
-	if x != nil {
-		return x.Container
-	}
-	return ""
-}
-
-func (x *ProbeResponse) GetCodec() string {
-	if x != nil {
-		return x.Codec
-	}
-	return ""
-}
-
-func (x *ProbeResponse) GetWidth() int32 {
-	if x != nil {
-		return x.Width
-	}
-	return 0
-}
-
-func (x *ProbeResponse) GetHeight() int32 {
-	if x != nil {
-		return x.Height
-	}
-	return 0
+	return nil
 }
 
 var File_slipstream_media_v1_media_proto protoreflect.FileDescriptor
@@ -161,14 +130,9 @@ const file_slipstream_media_v1_media_proto_rawDesc = "" +
 	"\fProbeRequest\x12\x1b\n" +
 	"\tinfo_hash\x18\x01 \x01(\fR\binfoHash\x12\x1d\n" +
 	"\n" +
-	"file_index\x18\x02 \x01(\x05R\tfileIndex\"\x92\x01\n" +
-	"\rProbeResponse\x12\x1f\n" +
-	"\vduration_ms\x18\x01 \x01(\x03R\n" +
-	"durationMs\x12\x1c\n" +
-	"\tcontainer\x18\x02 \x01(\tR\tcontainer\x12\x14\n" +
-	"\x05codec\x18\x03 \x01(\tR\x05codec\x12\x14\n" +
-	"\x05width\x18\x04 \x01(\x05R\x05width\x12\x16\n" +
-	"\x06height\x18\x05 \x01(\x05R\x06height2f\n" +
+	"file_index\x18\x02 \x01(\x05R\tfileIndex\"'\n" +
+	"\rProbeResponse\x12\x16\n" +
+	"\x06record\x18\x01 \x01(\fR\x06record2f\n" +
 	"\fMediaService\x12N\n" +
 	"\x05Probe\x12!.slipstream.media.v1.ProbeRequest\x1a\".slipstream.media.v1.ProbeResponse\x1a\x06\xc2\xf3\x18\x02\x10\x01B\xda\x01\n" +
 	"\x17com.slipstream.media.v1B\n" +

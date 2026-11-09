@@ -94,8 +94,7 @@ func (w *walked) holdsRelease(t *testing.T, path, name string) {
 
 // The Quiet Orchard runs 104 minutes, so Sized takes 2080 to 10400 MiB of
 // WEB-DL: the 14GiB encode is above it and the 1.5GiB one below, though
-// both have more seeders than the 8.2GiB one it grabs. No title names its
-// audio or channels, so Sized's filters pass every release.
+// both have more seeders than the 8.2GiB one it grabs.
 func TestASearchRefusesReleasesOutsideTheTargetsSizesAndGrabsTheOneWithin(t *testing.T) {
 	t.Parallel()
 	w, target := sized(t, "9000001", "Films", "Sized")

@@ -68,12 +68,15 @@ type seriesPageJSON struct {
 
 func (s *server) searchSeries(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	query, lang := strings.ToLower(q.Get("query")), q.Get("language")
+	query, year, lang := strings.ToLower(q.Get("query")), q.Get("first_air_date_year"), q.Get("language")
 	var found []seriesResultJSON
 	for _, t := range s.catalog.Series {
 		rev, ok := s.revisionOf(&s.series, t.ID)
 		names := []string{strings.ToLower(t.Name), strings.ToLower(t.OriginalName)}
 		if !ok || query == "" || !slices.ContainsFunc(names, func(n string) bool { return n != "" && strings.Contains(n, query) }) {
+			continue
+		}
+		if year != "" && !strings.HasPrefix(t.FirstAired, year+"-") {
 			continue
 		}
 		found = append(found, seriesResult(t, rev, lang))

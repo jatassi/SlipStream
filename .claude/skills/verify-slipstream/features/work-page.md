@@ -12,6 +12,8 @@ One Work on one scroll. The hero sets the Work's backdrop behind its poster, its
 - `work-matrix` the table `Editions and Targets` has one column per Target of the Work's Profile with its sourcing, `Downloaded`, and one row per wanted Edition reading where its list comes from, `From Profile <name>` or `Set for this Work`; each cell has its state chip and, while it lacks a file, `Search for <Target>, <Edition>`. On phone it is one card per Edition (P-208).
 - `work-editions` `Editions` (desktop) or `Edit Editions` (phone, in the actions sheet) opens `Editions of <title>` with the heading `Editions from Profile <name>`; `Choose cuts` and `Add cut` make `Editions set for this Work`, and `Save` opens the Impact `Save the Editions of <title>`. Saving toasts `Saved the Editions of <title>.`, the rows read `Set for this Work`, and a cut no release has shown yet sits in its own row reading `Not seen yet. It's wanted once a release of it is found.`
 - `work-files` `Files` reads the Work's library root and folder, then each file that fills a cell with its fills, quality, size and dimensions, and `Kept files` apart, each with `Kept file` and `Fills no wanted Target`; with none it reads `No files yet. A Grab that imports puts its file here.` (P-048).
+- `work-files-media` on `home` with the shelves added as roots ([Pending imports](./pending-imports.md)), Lanterns at Low Tide's file row reads `Lanterns at Low Tide (2016) {tmdb-9000101} · Fills 1080p` and `HDTV-1080p · 1920×1080 · 524 KB`, and its `Details` read `Video` `x265 · 1920×1080 · 10-bit · Dolby Vision profile 8, HDR10`, `Audio` `TrueHD · 5.1 · English` and `AAC · 2.0 · English · Commentary`, `Subtitles` `English` and `Duration` `1 s`. `GET /api/v1/works/{id}/files` answers each file's `media` record with its `codec`, `cut`, `label`, `kept`, `modifiedAt`, `goneAt` and `probeError`: Saltmarsh Radio `HDR10+` and `HDR10` with English and French E-AC-3 and a forced French subtitle, The Tin Signal's episodes `SDR`, `HDR10` and `HLG`, and Brass Meridian's `DV` profile 5 (P-029, P-052).
+- `work-files-gone` after `fakeworld fs rm` of The Tin Signal's S01E01 and Scan now, `Gone files` lists `The Tin Signal - S01E01.mkv` with `Gone since <date>` and `Forget`, its cell reads missing, and `Forget The Tin Signal - S01E01.mkv` removes the row with no dialog, leaving `Files 2` and no Library Health item (P-026).
 - `work-about` About shows the tagline, Certification `PG-13 (US)` with its `With` country, Studio `Fennel Films` beside the studio logo, Collection and Awards, one strip of photos per department of Cast and crew, each rating with its votes and fetch time, the TMDB page and trailer as links that open a new tab, the movie Item's `Counts as out on April 4, 2023, Digital release in United States.`, and `TMDB lists this movie as 9000005.` over `Details` (P-048, P-057).
 - `work-edit` `Edit…` opens `Edit <title>` with `Profile` and `Library root`; a new Profile saves through the Impact `Give <title> the Profile <name>` and toasts `Changed the Profile of <title>.` (P-047).
 - `work-refresh` `Refresh metadata` toasts `Refreshed the metadata of <title>.` and the page shows the new record; once TMDB drops the Work it toasts `TMDB no longer lists <title>, so it wasn't refreshed.`, the hero reads `Gone from TMDB`, `Refresh metadata is unavailable` and `TMDB no longer lists this movie. SlipStream keeps it as it is.` with `Delete`, the record stays, and `Refresh metadata` in the menu is disabled (P-047).
@@ -21,8 +23,9 @@ One Work on one scroll. The hero sets the Work's backdrop behind its poster, its
 ## How to get to it (user POV)
 
 - Desktop shell: a Work's poster or row in the Library, a Work in the palette, or `/works/{id}`. The hero's `More actions for <title>` holds `Edit…`, `Refresh metadata` and `Delete…`.
+- Both shells: a gone file's `Forget` sits on its row in `Gone files`, and each file's `Details` hold its media info.
 - Phone shell: the same Work, as a pushed page whose nav bar holds the title. `More actions for <title>` opens an action sheet with `Monitored`, `Edit Editions`, `Edit…`, `Refresh metadata` and `Delete…`.
-- API: `GET /api/v1/works/{id}`, `GET /api/v1/works/{id}/cells` (the summary and Needs you), `GET /api/v1/works/{id}/files`, `GET` and `PUT /api/v1/works/{id}/wants` (`{"editions": ...}` or `{"editions": null}`, with `?preview=true`), `PUT /api/v1/works/profile`, `POST /api/v1/works/refresh` with one id, `POST /api/v1/works/delete`.
+- API: `GET /api/v1/works/{id}`, `GET /api/v1/works/{id}/cells` (the summary and Needs you), `GET /api/v1/works/{id}/files`, `GET` and `PUT /api/v1/works/{id}/wants` (`{"editions": ...}` or `{"editions": null}`, with `?preview=true`), `PUT /api/v1/works/profile`, `POST /api/v1/works/refresh` with one id, `POST /api/v1/works/delete`, `POST /api/v1/files/forget {fileIds}`, which answers 409 `files_not_gone` for a file that isn't gone.
 - Host CLI: none.
 
 ## Driving it with fakeworld and playwright cli
@@ -95,9 +98,28 @@ Steps:
   $FW exec $RUN --proof work-page/work-delete -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/work-page/work-delete/elsewhere.png
   ```
 
+- **Media info and Forget.** On a separate `home` run with the shelves added as roots, open Lanterns at Low Tide and unfold its file's `Details`. Then remove The Tin Signal's S01E01 on disk and Scan now as in [Library roots](./library-roots.md)' **Scan now finds a gone file**, open The Tin Signal and choose `Forget`.
+
+  ```sh
+  LANT=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/library' | jq -r '.rows[] | select(.label == "Lanterns at Low Tide") | .id')
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$LANT"
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("list", { name: "Files" }).getByRole("button", { name: "Details" })'
+  $FW exec $RUN --proof work-page/work-files-media -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/work-page/work-files-media/details.aria.yml
+  $FW exec $RUN --proof work-page/work-files-media -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/work-page/work-files-media/details.png
+  $FW exec $RUN --proof work-page/work-files-media -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$LANT/files"
+  TIN=$($FW exec $RUN -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/library' | jq -r '.rows[] | select(.label == "The Tin Signal") | .id')
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto "{nodes.home.browserUrl}/works/$TIN"
+  $FW exec $RUN --proof work-page/work-files-gone -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/work-page/work-files-gone/gone.aria.yml
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("button", { name: "Forget The Tin Signal - S01E01.mkv" })'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("list", { name: "Gone files" }).waitFor({ state: "detached" }); }'
+  $FW exec $RUN --proof work-page/work-files-gone -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$TIN/files"
+  ```
+
 ## Gotchas
 
 - On phone the nav bar holds the page's `h1`, so the hero's title is not a heading there: find the Work by `getByRole("heading", { name: "<title>", exact: true })`, which matches one element in either shell.
 - The hero's backdrop shows only once the ambient has sampled it, so a screenshot taken at once can lack it. Wait for the `img` inside the backdrop before capturing.
 - `Search` is exact: each cell's own button is named `Search for <Target>, <Edition>`, and the upgrades list has its own `Search` per row inside `Needs you`.
 - `Refresh metadata` while gone upstream is disabled, not hidden; the warning beside the actions says why.
+- `Files`' `Folder` reads the first listed file's folder, so a series with season folders reads one season's folder, such as `The Tin Signal [tvdbid-9100201]/Season 02`.
+- `Gone since` reads the day in the browser's locale, such as `Nov 8` for `en-US` or `8 Nov` for `en-GB`.

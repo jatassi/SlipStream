@@ -14,6 +14,7 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloading"
@@ -30,7 +31,7 @@ import (
 // reads counts how often seedbox's client reads its engine's payload
 // counters: twice a live sample, at the window's start and end.
 func reads(n *atomic.Int64) sim.Option {
-	return onSeedbox(func(e *node.Env) {
+	return simtest.OnSeedbox(func(e *node.Env) {
 		open := e.Engine
 		e.Engine = func(cfg engine.Config) (engine.Engine, error) {
 			eng, err := open(cfg)
@@ -56,7 +57,7 @@ func TestWatchSendsNothingWhileNoAdminListens(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		var n atomic.Int64
-		w := sim.Launch(t, home(t), reads(&n))
+		w := sim.Launch(t, simtest.Home(t), reads(&n))
 		time.Sleep(5 * time.Minute)
 		synctest.Wait()
 		if got := n.Load(); got != 0 {
@@ -105,7 +106,7 @@ func TestAnIdleSeedboxOf3000TorrentsSendsUnder1KBps(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		swarm := enginetest.NewWorld()
 		swarm.Tracker(idleTracker, enginetest.TrackerRules{Interval: 30 * time.Minute, MinInterval: 30 * time.Minute})
-		w := sim.Launch(t, home(t), onSeedbox(func(e *node.Env) { e.Engine = swarm.Open }))
+		w := sim.Launch(t, simtest.Home(t), simtest.OnSeedbox(func(e *node.Env) { e.Engine = swarm.Open }))
 		box := seedbox(t, w.API())
 		id, err := storage.ParseUUID(box.ID)
 		if err != nil {
@@ -114,7 +115,7 @@ func TestAnIdleSeedboxOf3000TorrentsSendsUnder1KBps(t *testing.T) {
 		boxID := role.NodeID{UUID: id}
 		controller := w.Node("home").Half()
 		attachSeeded(t, controller, swarm, boxID, idleTorrents)
-		eventually(t, "every torrent seeds", func() bool { return seeding(t, controller) == idleTorrents })
+		simtest.Eventually(t, "every torrent seeds", func() bool { return seeding(t, controller) == idleTorrents })
 		time.Sleep(35 * time.Minute)
 		synctest.Wait()
 
@@ -202,7 +203,7 @@ func launchSwarm(t *testing.T, rules enginetest.TrackerRules, box *engines) (w *
 	t.Helper()
 	swarm = enginetest.NewWorld()
 	swarm.Tracker(idleTracker, rules)
-	return sim.Launch(t, home(t), onSeedbox(func(e *node.Env) { e.Engine = box.wrap(swarm.Open) })), swarm
+	return sim.Launch(t, simtest.Home(t), simtest.OnSeedbox(func(e *node.Env) { e.Engine = box.wrap(swarm.Open) })), swarm
 }
 
 // act has home's Clients run a, failing the test on any refusal.
@@ -264,19 +265,19 @@ func TestRemoveWaitsForStoppedAndConfirms(t *testing.T) {
 		box := &engines{}
 		w, swarm := launchSwarm(t, enginetest.TrackerRules{Interval: 30 * time.Minute, MinInterval: minInterval}, box)
 		ids := attachSeeded(t, w.Node("home").Half(), swarm, nodeID(t, w, "seedbox"), 1)
-		eventually(t, "the torrent seeds", func() bool { return seeding(t, w.Node("home").Half()) == 1 })
+		simtest.Eventually(t, "the torrent seeds", func() bool { return seeding(t, w.Node("home").Half()) == 1 })
 		time.Sleep(time.Until(announced(swarm, "started")[0].At.Add(20 * time.Second)))
 		act(t, w, downloadclients.Action{Kind: downloadclients.Pause, IDs: ids})
-		eventually(t, "the torrent stops", func() bool { return len(announced(swarm, "stopped")) == 1 })
+		simtest.Eventually(t, "the torrent stops", func() bool { return len(announced(swarm, "stopped")) == 1 })
 		act(t, w, downloadclients.Action{Kind: downloadclients.Resume, IDs: ids})
-		eventually(t, "the torrent starts again", func() bool { return len(announced(swarm, "started")) == 2 })
+		simtest.Eventually(t, "the torrent starts again", func() bool { return len(announced(swarm, "started")) == 2 })
 
 		act(t, w, downloadclients.Action{Kind: downloadclients.Remove, IDs: ids, DeleteFiles: true})
 		synctest.Wait()
 		if at, _ := parted(t, w, ids[0]); at != 0 || box.torrents() != 1 {
 			t.Fatalf("right after the remove the Torrent reads parted at %d with seedbox holding %d torrents, want Removing and still held", at, box.torrents())
 		}
-		eventually(t, "the Node confirms the removal", func() bool { at, _ := parted(t, w, ids[0]); return at != 0 })
+		simtest.Eventually(t, "the Node confirms the removal", func() bool { at, _ := parted(t, w, ids[0]); return at != 0 })
 
 		stops := announced(swarm, "stopped")
 		if len(stops) != 2 || stops[1].At.Sub(stops[0].At) < unit3d.Duplicate {
@@ -303,11 +304,11 @@ func TestPauseAndResumeInsideTheWindowAreAccepted(t *testing.T) {
 		const minInterval = 5 * time.Minute
 		w, swarm := launchSwarm(t, enginetest.TrackerRules{Interval: 30 * time.Minute, MinInterval: minInterval}, &engines{})
 		ids := attachSeeded(t, w.Node("home").Half(), swarm, nodeID(t, w, "seedbox"), 1)
-		eventually(t, "the torrent seeds", func() bool { return seeding(t, w.Node("home").Half()) == 1 })
+		simtest.Eventually(t, "the torrent seeds", func() bool { return seeding(t, w.Node("home").Half()) == 1 })
 		act(t, w, downloadclients.Action{Kind: downloadclients.Pause, IDs: ids})
-		eventually(t, "the torrent stops", func() bool { return len(announced(swarm, "stopped")) == 1 })
+		simtest.Eventually(t, "the torrent stops", func() bool { return len(announced(swarm, "stopped")) == 1 })
 		act(t, w, downloadclients.Action{Kind: downloadclients.Resume, IDs: ids})
-		eventually(t, "the torrent starts again", func() bool { return len(announced(swarm, "started")) == 2 })
+		simtest.Eventually(t, "the torrent starts again", func() bool { return len(announced(swarm, "started")) == 2 })
 
 		starts := announced(swarm, "started")
 		if gap := starts[1].At.Sub(starts[0].At); gap < minInterval {
@@ -333,7 +334,7 @@ func TestSteadyAnnouncesAreJittered(t *testing.T) {
 		jitter := downloading.DefaultTimings().AnnounceJitter
 		w, swarm := launchSwarm(t, enginetest.TrackerRules{Interval: interval, MinInterval: interval}, &engines{})
 		attachSeeded(t, w.Node("home").Half(), swarm, nodeID(t, w, "seedbox"), n)
-		eventually(t, "every torrent seeds", func() bool { return seeding(t, w.Node("home").Half()) == n })
+		simtest.Eventually(t, "every torrent seeds", func() bool { return seeding(t, w.Node("home").Half()) == n })
 		time.Sleep(3 * interval)
 		synctest.Wait()
 
@@ -368,10 +369,10 @@ func TestSteadyAnnouncesAreJittered(t *testing.T) {
 func TestRemoveFailsDownloadingGrabsWithRemoved(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Engine = enginetest.Open }))
-		search(t, w, addOrchard(t, w))
-		eventually(t, "the Grab downloads", func() bool {
-			gs := grabsListed(t, w)
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Engine = enginetest.Open }))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		simtest.Eventually(t, "the Grab downloads", func() bool {
+			gs := simtest.GrabsListed(t, w)
 			return len(gs) == 1 && gs[0].Stage == "downloading"
 		})
 		var id downloadclients.ID
@@ -384,6 +385,6 @@ func TestRemoveFailsDownloadingGrabsWithRemoved(t *testing.T) {
 			t.Fatalf("the remove's preview cancels %+v, want the Grab downloading %s", preview.Cancels, release)
 		}
 		act(t, w, downloadclients.Action{Kind: downloadclients.Remove, IDs: []downloadclients.ID{id}})
-		expectFailed(t, await(t, w), "downloading", "removed", "The Admin removed this Grab's torrent")
+		expectFailed(t, simtest.Await(t, w), "downloading", "removed", "The Admin removed this Grab's torrent")
 	})
 }

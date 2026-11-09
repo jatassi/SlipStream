@@ -6,7 +6,8 @@ import { Data } from "../ui/data";
 import type { Column } from "../ui/table";
 import type { Acting } from "./acting-dialogs";
 import { RootMenu } from "./root-menu";
-import { stateWords } from "./words";
+import { ScanLine } from "./scan-line";
+import { rootWords, stateWords } from "./words";
 
 const counted = new Intl.NumberFormat("en");
 
@@ -29,6 +30,7 @@ function FolderCell({ root, node }: { root: RootsRoot; node: string }) {
           {state.words(node)}
         </span>
       )}
+      <ScanLine scan={root.scan} />
     </span>
   );
 }
@@ -52,12 +54,14 @@ export function freeOf(root: RootsRoot, volumes: readonly RootsNodeVolumes[]): s
 }
 
 export function rootColumns(
-  type: WorksContentType,
+  { type, roots }: { type: WorksContentType; roots: readonly RootsRoot[] },
   nodes: readonly NodesNode[],
   volumes: readonly RootsNodeVolumes[],
   onAct: (acting: Acting) => void,
 ): readonly [Column<RootsRoot>, ...Column<RootsRoot>[]] {
   const nodeOf = (root: RootsRoot) => nodes.find((node) => node.id === root.nodeId);
+  const nameOf = (root: RootsRoot) =>
+    rootWords(root, roots, type, nodeOf(root)?.name ?? "a removed Node");
   return [
     {
       id: "folder",
@@ -75,7 +79,9 @@ export function rootColumns(
       id: "actions",
       header: "Actions",
       align: "end",
-      cell: (root) => <RootMenu root={root} label={type.work.many} onAct={onAct} />,
+      cell: (root) => (
+        <RootMenu root={root} label={type.work.many} name={nameOf(root)} onAct={onAct} />
+      ),
     },
   ];
 }

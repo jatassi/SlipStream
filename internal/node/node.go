@@ -539,7 +539,10 @@ func (n *Node) startStorage(cfg Config) error {
 		return fmt.Errorf("open the disk: %w", err)
 	}
 	n.disk = disk
-	n.store = storing.NewStore(storing.Config{Disk: disk, Payloads: n.downloading, Downloads: n.downloading.Folders, Timings: cfg.Timings.Storing})
+	n.store = storing.NewStore(storing.Config{
+		Disk: disk, Payloads: n.downloading, Downloads: n.downloading.Folders, Timings: cfg.Timings.Storing,
+		Prober: n.env.Media, ProbeTimeout: cfg.Timings.Media.Probe,
+	})
 	return nil
 }
 

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/media"
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/role"
@@ -33,6 +34,10 @@ type Config struct {
 	// which no root may overlap.
 	Downloads func() []string
 	Timings   Timings
+	// Prober reads a root file's media record for Probe.
+	Prober media.Prober
+	// ProbeTimeout bounds one Probe: timings.media.probe.
+	ProbeTimeout time.Duration
 }
 
 // resampleEvery is the least time between two samples a placement asks

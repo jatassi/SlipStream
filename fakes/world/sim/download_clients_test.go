@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/transmission"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/torrent/clients"
@@ -132,7 +133,7 @@ func (c suite) testsImportsSharesAPauseAndRemoves(t *testing.T) {
 	if saved.Reach != "responding" || (saved.ProductVersion != c.version && !strings.HasPrefix(saved.ProductVersion, c.version+".")) {
 		t.Fatalf("the added client reads %s at %q, want responding at %s", saved.Reach, saved.ProductVersion, c.version)
 	}
-	passed := decode[struct {
+	passed := simtest.Decode[struct {
 		Product string `json:"product"`
 		Folder  string `json:"nodeFolder"`
 	}](t, "testDownloadClient", r.test(r.draft(nil)))
@@ -151,28 +152,28 @@ func (c suite) testsImportsSharesAPauseAndRemoves(t *testing.T) {
 		d["clientFolders"] = []map[string]string{{"client": r.client.Folder, "node": root}}
 	}), saved.Name+" saves to "+root+", which overlaps a library root on home. Choose a download folder outside every library root and test again.", "folder")
 
-	search(t, w, addOrchard(t, w))
-	expectImportedFrom(t, await(t, w))
+	simtest.Search(t, w, simtest.AddOrchard(t, w))
+	expectImportedFrom(t, simtest.Await(t, w))
 	expectPlaced(t, w)
 	r.expectLinked()
 
 	w.Cue(c.kind, c.kind+"-pause", map[string]string{"node": "home", "release": release})
-	eventually(t, "the Torrent reads paused", func() bool { return r.torrent().State == "paused" })
+	simtest.Eventually(t, "the Torrent reads paused", func() bool { return r.torrent().State == "paused" })
 	time.Sleep(time.Minute)
 	row := r.torrent()
 	if row.State != "paused" {
 		t.Fatalf("a minute after the pause the Torrent reads %s, want paused", row.State)
 	}
 	r.act(`{"action":"resume","ids":["` + row.ID + `"]}`)
-	eventually(t, "the Torrent seeds again", func() bool { return r.torrent().State == "seeding" })
+	simtest.Eventually(t, "the Torrent seeds again", func() bool { return r.torrent().State == "seeding" })
 	time.Sleep(time.Minute)
 	if got := r.torrent(); got.State != "seeding" || got.Pending != "" {
 		t.Fatalf("a minute after the resume the Torrent reads %s with %q pending, want seeding", got.State, got.Pending)
 	}
 
 	r.act(`{"action":"remove","ids":["` + row.ID + `"],"deleteFiles":true}`)
-	eventually(t, "the Torrent is gone", func() bool { return r.torrent().ID == "" })
-	eventually(t, "its files are gone from the client's folder", func() bool { return r.downloaded() == nil })
+	simtest.Eventually(t, "the Torrent is gone", func() bool { return r.torrent().ID == "" })
+	simtest.Eventually(t, "its files are gone from the client's folder", func() bool { return r.downloaded() == nil })
 	if _, err := os.Stat(filepath.Join(w.Manifest().MediaDir, filepath.FromSlash(placed))); err != nil {
 		t.Fatalf("after the remove the imported file: %v, want it kept", err)
 	}
@@ -184,8 +185,8 @@ func (c suite) testsImportsSharesAPauseAndRemoves(t *testing.T) {
 func (c suite) healsALabelThatNeverArrived(t *testing.T) {
 	w, r := c.launch(t, func(*scenario.DownloadClient) {})
 	w.Cue(c.kind, c.kind+"-late-add", map[string]string{"node": "home", "after": "30s"})
-	search(t, w, addOrchard(t, w))
-	expectImportedFrom(t, await(t, w))
+	simtest.Search(t, w, simtest.AddOrchard(t, w))
+	expectImportedFrom(t, simtest.Await(t, w))
 	if got := r.delugeLabel(w.InfoHash(release)); got != clients.DefaultLabel {
 		t.Fatalf("the torrent's label in Deluge reads %q, want %q", got, clients.DefaultLabel)
 	}
@@ -201,10 +202,10 @@ func (c suite) importsThroughAClientFolderAfterTheDelay(t *testing.T) {
 	})
 	saved := r.saved()
 	r.grabsTo(saved.ID)
-	search(t, w, addOrchard(t, w))
+	simtest.Search(t, w, simtest.AddOrchard(t, w))
 
 	var row torrentRow
-	eventually(t, "the Torrent seeds in "+saved.Name, func() bool {
+	simtest.Eventually(t, "the Torrent seeds in "+saved.Name, func() bool {
 		row = r.torrent()
 		return row.State == "seeding"
 	})
@@ -213,11 +214,11 @@ func (c suite) importsThroughAClientFolderAfterTheDelay(t *testing.T) {
 	}
 	finished := time.Now()
 	time.Sleep(importDelay - time.Minute)
-	if gs := grabsListed(t, w); len(gs) != 1 || gs[0].Stage != "downloading" {
+	if gs := simtest.GrabsListed(t, w); len(gs) != 1 || gs[0].Stage != "downloading" {
 		t.Fatalf("within the Import delay the Grabs are %+v, want one downloading", gs)
 	}
 
-	g := await(t, w)
+	g := simtest.Await(t, w)
 	if waited := time.Since(finished); waited < importDelay-time.Minute {
 		t.Fatalf("the Grab imported %s after the client finished, want the Import delay of %s", waited, importDelay)
 	}
@@ -230,10 +231,10 @@ func (c suite) importsThroughAClientFolderAfterTheDelay(t *testing.T) {
 // imports there.
 var fromClient = []string{"fetching", "downloading", "probing", "importing", "imported"}
 
-func expectImportedFrom(t *testing.T, g grabView) {
+func expectImportedFrom(t *testing.T, g simtest.GrabView) {
 	t.Helper()
-	if g.Stage != "imported" || !slices.Equal(g.stages(), fromClient) {
-		t.Fatalf("the Grab ended %s with %+v after %v, want imported after %v", g.Stage, g.Failure, g.stages(), fromClient)
+	if g.Stage != "imported" || !slices.Equal(g.Stages(), fromClient) {
+		t.Fatalf("the Grab ended %s with %+v after %v, want imported after %v", g.Stage, g.Failure, g.Stages(), fromClient)
 	}
 }
 
@@ -265,7 +266,7 @@ type torrentRow struct {
 // saved is the client as listDownloadClients shows it on home's card.
 func (r *clientRig) saved() savedClient {
 	r.t.Helper()
-	list := decode[struct {
+	list := simtest.Decode[struct {
 		Cards []struct {
 			NodeName  string        `json:"nodeName"`
 			Externals []savedClient `json:"externals"`
@@ -328,7 +329,7 @@ func (r *clientRig) expectFailed(what string, draft map[string]any, detail strin
 // torrent is the world's one Torrent.
 func (r *clientRig) torrent() torrentRow {
 	r.t.Helper()
-	rows := decode[struct {
+	rows := simtest.Decode[struct {
 		Rows []torrentRow `json:"rows"`
 	}](r.t, "listTorrents", r.w.API().Admin("home", http.MethodGet, "/api/v1/torrents", "")).Rows
 	if len(rows) != 1 {
@@ -411,7 +412,7 @@ func TestEveryKindOnOneNode(t *testing.T) {
 		}
 		w := sim.Launch(t, s, sim.WithWalk())
 		time.Sleep(time.Minute)
-		list := decode[struct {
+		list := simtest.Decode[struct {
 			Cards []struct {
 				Externals []savedClient `json:"externals"`
 			} `json:"cards"`
@@ -428,9 +429,9 @@ func TestEveryKindOnOneNode(t *testing.T) {
 			t.Fatalf("home's clients read %q, want %q", got, want)
 		}
 
-		search(t, w, addOrchard(t, w))
-		expectImportedFrom(t, await(t, w))
-		rows := decode[struct {
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		expectImportedFrom(t, simtest.Await(t, w))
+		rows := simtest.Decode[struct {
 			Rows []torrentRow `json:"rows"`
 		}](t, "listTorrents", w.API().Admin("home", http.MethodGet, "/api/v1/torrents", "")).Rows
 		if len(rows) != 1 || rows[0].ClientKind != "qbittorrent" {

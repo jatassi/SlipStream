@@ -447,7 +447,7 @@ type searchJSON struct {
 
 func (s *server) search(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	query := strings.ToLower(cmp.Or(q.Get("query"), q.Get("q")))
+	query, year := strings.ToLower(cmp.Or(q.Get("query"), q.Get("q"))), q.Get("year")
 	limit := cmp.Or(pageParam(q.Get("limit")), searchLimit)
 	found := []searchJSON{}
 	if query != "" && (q.Get("type") == "" || q.Get("type") == "series") {
@@ -456,29 +456,35 @@ func (s *server) search(w http.ResponseWriter, r *http.Request) {
 			if !ok || !matches(series, query) {
 				continue
 			}
-			b := base(series)
-			id := strconv.FormatInt(series.ID, 10)
-			hit := searchJSON{
-				ObjectID: "series-" + id, Aliases: series.Aliases, Companies: []string{}, Country: b.OriginalCountry, ID: "series-" + id,
-				ImageURL: b.Image, Name: series.Name, FirstAirTime: b.FirstAired, Overview: overview(series, rev), PrimaryLanguage: b.OriginalLanguage,
-				Status: b.Status.Name, Type: "series", TVDBID: id, Year: b.Year, Slug: b.Slug,
-				Overviews:    map[string]string{"eng": overview(series, rev)},
-				Translations: map[string]string{"eng": englishName(series)},
-				Network:      series.Network, RemoteIDs: []remoteIDJSON{}, Thumbnail: thumbnail(b.Image),
+			if hit := hitOf(series, rev); year == "" || hit.Year == year {
+				found = append(found, hit)
 			}
-			if hit.Aliases == nil {
-				hit.Aliases = []string{}
-			}
-			if series.Network != "" {
-				hit.Companies = append(hit.Companies, series.Network)
-			}
-			found = append(found, hit)
 			if len(found) == limit {
 				break
 			}
 		}
 	}
 	reply(w, http.StatusOK, envelope{Status: "success", Data: found, Links: pageLinks(r, 0, len(found), limit)})
+}
+
+func hitOf(series scenario.TVDBSeries, rev int) searchJSON {
+	b := base(series)
+	id := strconv.FormatInt(series.ID, 10)
+	hit := searchJSON{
+		ObjectID: "series-" + id, Aliases: series.Aliases, Companies: []string{}, Country: b.OriginalCountry, ID: "series-" + id,
+		ImageURL: b.Image, Name: series.Name, FirstAirTime: b.FirstAired, Overview: overview(series, rev), PrimaryLanguage: b.OriginalLanguage,
+		Status: b.Status.Name, Type: "series", TVDBID: id, Year: b.Year, Slug: b.Slug,
+		Overviews:    map[string]string{"eng": overview(series, rev)},
+		Translations: map[string]string{"eng": englishName(series)},
+		Network:      series.Network, RemoteIDs: []remoteIDJSON{}, Thumbnail: thumbnail(b.Image),
+	}
+	if hit.Aliases == nil {
+		hit.Aliases = []string{}
+	}
+	if series.Network != "" {
+		hit.Companies = append(hit.Companies, series.Network)
+	}
+	return hit
 }
 
 func matches(series scenario.TVDBSeries, query string) bool {

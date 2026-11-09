@@ -23,8 +23,12 @@ type SeriesFound struct {
 }
 
 // SearchSeries reads the first page of a series search in ask's language.
-func (c *Client) SearchSeries(ctx context.Context, ask metadata.Ask, query string) ([]SeriesFound, error) {
+// A year above 0 keeps the series first aired that year.
+func (c *Client) SearchSeries(ctx context.Context, ask metadata.Ask, query string, year int) ([]SeriesFound, error) {
 	q := url.Values{"query": {query}, "include_adult": {"false"}}
+	if year > 0 {
+		q.Set("first_air_date_year", strconv.Itoa(year))
+	}
 	language(q, ask)
 	var p struct {
 		Results []SeriesFound `json:"results"`

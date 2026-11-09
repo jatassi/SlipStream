@@ -109,7 +109,7 @@ type idleState struct {
 type runningState struct {
 	Kind    string    `json:"kind" enum:"running"`
 	RunID   int64     `json:"runId"`
-	Trigger string    `json:"trigger" enum:"schedule,catch-up,run-now,returned"`
+	Trigger string    `json:"trigger" enum:"schedule,catch-up,run-now,returned,event"`
 	Since   time.Time `json:"since"`
 	Done    int       `json:"done" minimum:"0"`
 	Total   int       `json:"total" minimum:"0"`
@@ -181,7 +181,7 @@ func taskOf(v tasks.View) task {
 
 type run struct {
 	ID        int64      `json:"id"`
-	Trigger   string     `json:"trigger" enum:"schedule,catch-up,run-now,returned"`
+	Trigger   string     `json:"trigger" enum:"schedule,catch-up,run-now,returned,event"`
 	StartedAt time.Time  `json:"startedAt"`
 	EndedAt   *time.Time `json:"endedAt" doc:"Null while it runs"`
 	Result    *string    `json:"result" enum:"succeeded,partial,failed,skipped,canceled" doc:"Null while it runs"`
@@ -357,7 +357,7 @@ type openRun struct {
 	TaskID    string       `json:"taskId"`
 	Name      string       `json:"name" doc:"The task's name"`
 	Noun      setting.Noun `json:"noun" doc:"What its progress counts: 3 of 12 steps"`
-	Trigger   string       `json:"trigger" enum:"schedule,catch-up,run-now,returned"`
+	Trigger   string       `json:"trigger" enum:"schedule,catch-up,run-now,returned,event"`
 	StartedAt time.Time    `json:"startedAt"`
 	Nodes     []string     `json:"nodes" nullable:"false" doc:"The Nodes its units run on"`
 	Done      int          `json:"done" minimum:"0"`
@@ -439,7 +439,7 @@ func Routes(r *api.Router, c Clock) {
 		ID:      "runTask",
 		Method:  http.MethodPost,
 		Path:    "/tasks/{taskId}/runs",
-		Summary: "Run a task now over every unit. Its schedule stays as it was",
+		Summary: "Run a task now over every unit, or add each unit its open run lacks. Its schedule stays as it was",
 		Status:  http.StatusAccepted,
 		Errors:  []*api.Code{taskUnknown, taskRunning, taskWaiting},
 	}, h.runTask)

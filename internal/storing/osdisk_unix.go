@@ -50,16 +50,25 @@ func (OSDisk) Writable(_ context.Context, dir string) (bool, error) {
 	return !readOnly(&st), nil
 }
 
-// fileID is info's inode where path's volume keeps inodes stable.
-func fileID(path string, info fs.FileInfo) ([]byte, error) {
-	var st unix.Statfs_t
-	if err := unix.Statfs(path, &st); err != nil {
-		return nil, &fs.PathError{Op: "statfs", Path: path, Err: err}
+// identify is info with its inode and device where path's volume keeps
+// inodes stable.
+func (d OSDisk) identify(path string, info fs.FileInfo) (Info, error) {
+	st := info.Sys().(*syscall.Stat_t) //nolint:errcheck,forcetypeassert // os.Stat answers a *syscall.Stat_t on Unix
+	device := deviceOf(st)
+	stable, err := d.stable.on(device, func() (bool, error) {
+		var fsst unix.Statfs_t
+		if err := unix.Statfs(path, &fsst); err != nil {
+			return false, &fs.PathError{Op: "statfs", Path: path, Err: err}
+		}
+		return stableIDs(&fsst), nil
+	})
+	switch {
+	case err != nil:
+		return nil, err
+	case !stable:
+		return osInfo{FileInfo: info}, nil
 	}
-	if !stableIDs(&st) {
-		return nil, nil
-	}
-	return binary.BigEndian.AppendUint64(nil, info.Sys().(*syscall.Stat_t).Ino), nil //nolint:errcheck,forcetypeassert // os.Stat answers a *syscall.Stat_t on Unix
+	return osInfo{info, binary.BigEndian.AppendUint64(nil, st.Ino), device}, nil
 }
 
 // ErrNoSpace is the error a write on a full volume fails with.

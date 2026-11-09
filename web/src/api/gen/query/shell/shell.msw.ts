@@ -28,6 +28,7 @@ export const getGetCountsResponseMock = (
     done: faker.number.int(),
     wanted: faker.number.int(),
   },
+  pendingImports: faker.number.int({ min: 0 }),
   ...overrideResponse,
 });
 

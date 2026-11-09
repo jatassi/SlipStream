@@ -40,7 +40,7 @@ func TestOSDiskHidesByAttribute(t *testing.T) {
 	}
 }
 
-func TestOSDiskListsJunctionsAsFolders(t *testing.T) {
+func TestOSDiskListsJunctionsAsLinkedFolders(t *testing.T) {
 	ctx, d, dir := t.Context(), newOSDisk(t), t.TempDir()
 	movies, films := filepath.Join(dir, "Movies"), filepath.Join(dir, "films")
 	if err := os.Mkdir(movies, 0o755); err != nil {
@@ -53,7 +53,7 @@ func TestOSDiskListsJunctionsAsFolders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Entry{{Name: "Movies", Dir: true, Readable: true}, {Name: "films", Dir: true, Readable: true}}
+	want := []Entry{{Name: "Movies", Dir: true, Readable: true}, {Name: "films", Dir: true, Link: true, Readable: true}}
 	if !slices.Equal(entries, want) {
 		t.Errorf("ReadDir = %+v, want %+v", entries, want)
 	}

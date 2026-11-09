@@ -1,10 +1,10 @@
 # Library roots
 
-An Admin keeps every place SlipStream stores files in Settings > Library roots. A Content Type has any number of roots on any Node that holds Storage, one of them its default, where new Works go. A root is added through a folder browser that reads the Node's own drives, mounts and folders and judges each folder in words before it can be used. The section lists each root's Node, free space, Works and bytes, and a Storage block shows every volume that holds a root, counted once per volume, with how full it is. A Grab into a root on a Worker that downloads imports there by hard link. Writing off a Storage Node keeps its roots, marked `Node written off`, and their files count as missing until the root is re-homed onto a live Node, which first checks every recorded file at the new place. A root that holds files can't be deleted, and deleting one never touches its folder.
+An Admin keeps every place SlipStream stores files in Settings > Library roots. A Content Type has any number of roots on any Node that holds Storage, one of them its default, where new Works go. A root is added through a folder browser that reads the Node's own drives, mounts and folders and judges each folder in words before it can be used. The section lists each root's Node, free space, Works and bytes, and a Storage block shows every volume that holds a root, counted once per volume, with how full it is. A Grab into a root on a Worker that downloads imports there by hard link. Writing off a Storage Node keeps its roots, marked `Node written off`, and their files count as missing until the root is re-homed onto a live Node, which first checks every recorded file at the new place. A root that holds files can't be deleted, and deleting one never touches its folder. Each root's row carries its Library scan line: what its last scan found, its step and progress while one runs, or why it stopped, with Scan now, Mark them gone and Cancel library scan in its menu.
 
 ## Sub-features
 
-- `roots-section` `/settings/library-roots` groups roots by Content Type: `TV` reads `Add a library root to hold Series.` with `Add a root for TV`, and under `Movies` each row reads its folder, `Default` on the default, its Node with its status dot, `<size> free` and `<n> Movies, <bytes>`, with `Actions for <path>` holding `Make default`, `Edit` and `Delete` (P-021, P-022).
+- `roots-section` `/settings/library-roots` groups roots by Content Type: `TV` reads `Add a library root to hold Series.` with `Add a root for TV`, and under `Movies` each row reads its folder, `Default` on the default, its scan line such as `Scanned just now. Nothing changed.`, its Node with its status dot, `<size> free` and `<n> Movies, <bytes>`, with `Actions for <path>` holding `Make default`, `Edit` and `Delete` (P-021, P-022).
 - `roots-add-browser` `Add a library root` on seedbox, once it holds Storage, opens `Choose a folder on seedbox`, read by seedbox. Its data folder reads `Can't use this folder because it's inside SlipStream's data folder.` with `Use seedbox` disabled; a typed path goes there, `New folder` makes `worker-movies` and opens it, the footer reads `This folder is on /, <size> free.`, and `Use worker-movies` fills the dialog's `Folder`. With `Make this the default for Movies` ticked, `Add` toasts `Added <path>. New Movies go there.` (P-027, P-021, P-022).
 - `roots-import-worker` The Quiet Orchard, added and searched with the seedbox root as the default, downloads on seedbox and imports there with no Transfer: its Grab's history runs fetching, downloading, probing, importing, imported, and the placed file under `worker-movies` matches the release with 2 links, a hard link to seedbox's download.
 - `roots-move-works` `PUT /api/v1/works/root` moves each Work without files into another root of its Content Type in one Write and answers one outcome per Work, in request order. The Quiet Orchard, whose file sits in `worker-movies`, answers `skipped` with `work_has_files` and stays, and an id no Work has answers `failed` with `work_not_found`.
@@ -13,13 +13,18 @@ An Admin keeps every place SlipStream stores files in Settings > Library roots. 
 - `roots-write-off` unticking Storage on seedbox drains it, its Roster chip reading `Storage · Draining, 1 root (<size>) stays`; writing seedbox's Storage off marks the root `Node written off` with `Re-home` first in its menu, the Work's cell reads `missing`, and its search answers 409 `root_unreachable`, `seedbox's Storage was written off, so the library root there takes no new files.`
 - `roots-rehome` `Re-home` onto home at the same folder checks the recorded file, saves with `The Movies root is now <path> on home.`, and the cell reads `upgradable` again with no new download.
 - `roots-delete` deleting the worker root, which holds the file, answers 409 `root_in_use` with its file count; deleting the empty `movies` root toasts `Deleted the <path> root. The folder is still on disk.`, and its `.slipstream-root` marker is still in the folder (P-021).
+- `roots-scan-line` on `home`, adding `{mediaDir}/shelf-series` for TV and `{mediaDir}/shelf-movies` for Movies through `Add a library root` scans each at its first Ready report: each row reads `Scanned just now. It found 5 new files.`, `GET /api/v1/roots` answers its `scan` with `lastAt`, `summary`, `stopped` `null` and `running` `null`, and the task's run reads the trigger `Root ready`. Copy names a root by its type and Node, `Series library root on home`, or with its folder, `Movies library root at <path> on home`, when its Node holds another root of its type (P-023).
+- `roots-scan-now` after `fakeworld fs rm` of `The Tin Signal - S01E01.mkv`, the shelf-series row's menu reads `Scan now`, `Edit` and `Delete`; `Scan now` toasts `Library scan started for the Series library root on home.`, and the row reads `Scanned just now. It found 1 gone file.` (P-025, P-026).
+- `roots-scan-stopped` after `fs rm` of two of shelf-movies' four recorded files, Scan now stops the scan: the row reads `Library scan stopped because 2 of 4 files are gone. Check the disk or share it is on, then scan again.` with `Mark them gone` first in its menu, and the run's unit reads `Skipped` with no Scheduled tasks item, since Library's own Health item owns it (P-026).
+- `roots-mark-gone` `Mark them gone` opens `Mark 2 files gone?`, reading `Library scan didn't find 2 of the 4 files in the <root>. …` and `If the disk or share isn't mounted right, fix that and scan again instead.`; `Mark them gone` toasts `Library scan is marking 2 files gone in the <root>.`, and the row reads `It found 2 gone files.` It marks up to the count confirmed, so a worse vanish stops again with its new count (P-026).
+- `roots-scan-cancel` while a root of 512 new files reads `Reading media info, <n> of 512 files` over a meter, its menu leads with `Cancel library scan`, which toasts `Library scan cancelled for every root in the run. It keeps what it already recorded.`; the run reads `Cancelled` and the row `Not scanned yet.` (P-025).
 
 ## How to get to it (user POV)
 
 - Desktop shell: the sidebar's `Settings`, then `Library roots` in the `Settings` navigation (`/settings/library-roots`). `Add a library root`, `Add a root for Movies` and a row's `Actions for <path>` open the dialogs; the dialog's `Browse` opens the folder browser.
 - Phone shell: More, `Settings`, then `Library roots`, a pushed page. The dialogs and the folder browser are sheets; the browser's `Folder actions` holds `New folder` and `Show hidden`, and its back link, named after the parent folder, goes up.
 - Both shells: `Nodes` with `?view=diagram`, then the Storage machine on a tile, opens `Storage on <Node>`, whose `Library roots` link opens the section.
-- API (Admin): `GET`, `POST /api/v1/roots`, `POST /api/v1/nodes/{nodeId}/folders/check {"purpose": "root"|"downloads", …}`, `PATCH`, `DELETE /api/v1/roots/{rootId}?worksTo=<rootId>`, `POST /api/v1/roots/{rootId}/default`, `GET`, `PATCH /api/v1/roots/settings`, `GET /api/v1/volumes`, `GET /api/v1/nodes/{nodeId}/folders?path=&hidden=`, `GET /api/v1/nodes/{nodeId}/folders/suggest?text=`, `POST /api/v1/nodes/{nodeId}/folders`, `PUT /api/v1/works/root {"workIds": […], "rootId": …}`. Changes publish `roots.changed` and `volumes.changed`.
+- API (Admin): `GET`, `POST /api/v1/roots`, `POST /api/v1/nodes/{nodeId}/folders/check {"purpose": "root"|"downloads", …}`, `PATCH`, `DELETE /api/v1/roots/{rootId}?worksTo=<rootId>`, `POST /api/v1/roots/{rootId}/default`, `GET`, `PATCH /api/v1/roots/settings`, `GET /api/v1/volumes`, `GET /api/v1/nodes/{nodeId}/folders?path=&hidden=`, `GET /api/v1/nodes/{nodeId}/folders/suggest?text=`, `POST /api/v1/nodes/{nodeId}/folders`, `PUT /api/v1/works/root {"workIds": […], "rootId": …}`, `POST /api/v1/roots/{rootId}/scan` (202 `{runId}`) and `POST /api/v1/roots/{rootId}/gone` (409 `scan_not_stopped` unless its last scan stopped). Cancel is `DELETE /api/v1/tasks/runs/{runId}`. Changes publish `roots.changed` and `volumes.changed`.
 - Host CLI: none.
 
 ## Driving it with fakeworld and playwright cli
@@ -28,6 +33,7 @@ Preconditions:
 
 - A fresh `home` run launched, doctor passing and `{runId}-admin-desktop` signed in, as in the skill's Launch and Drive. The library holds no Work.
 - `S='-s={runId}-admin-desktop'`, and `PICK='getByRole("dialog", { name: "Choose a folder on seedbox" })'` and `ADD='getByRole("dialog", { name: "Add a library root" })'` for the long locators.
+- The Library scan steps, from **Add the shelves** to **Cancel a running scan**, run on their own fresh `home` run with The Tin Signal (`9100201`) and Brass Meridian (`9100202`) added first, as in [Pending imports](./pending-imports.md)'s Preconditions, so their folders join them.
 
 Steps:
 
@@ -186,6 +192,68 @@ Steps:
   $FW exec $RUN -- $PW cli $S tracing-stop
   ```
 
+- **Add the shelves.** Add `{mediaDir}/shelf-series` through `Add a library root`, which opens on TV while TV has no root, then `{mediaDir}/shelf-movies` with `Movies` in `Content Type`. Each is scanned at its first Ready report, and each row reads `Scanned just now. It found 5 new files.`
+
+  ```sh
+  $FW exec $RUN -- $PW cli $S goto '{nodes.home.browserUrl}/settings/library-roots'
+  $FW exec $RUN -- $PW cli $S click 'getByRole("button", { name: "Add a library root" })'
+  $FW exec $RUN -- $PW cli $S fill "$ADD"'.getByRole("textbox", { name: "Folder" })' '{mediaDir}/shelf-series'
+  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("dialog", { name: "Add a library root" }).getByText(/^This folder is on/).waitFor(); }'
+  $FW exec $RUN -- $PW cli $S click "$ADD"'.getByRole("button", { name: "Add", exact: true })'
+  $FW exec $RUN -- $PW cli $S click 'getByRole("button", { name: "Add a library root" })'
+  $FW exec $RUN -- $PW cli $S click "$ADD"'.getByRole("combobox", { name: "Content Type" })'
+  $FW exec $RUN -- $PW cli $S click 'getByRole("option", { name: "Movies" })'
+  $FW exec $RUN -- $PW cli $S fill "$ADD"'.getByRole("textbox", { name: "Folder" })' '{mediaDir}/shelf-movies'
+  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("dialog", { name: "Add a library root" }).getByText(/^This folder is on/).waitFor(); }'
+  $FW exec $RUN -- $PW cli $S click "$ADD"'.getByRole("button", { name: "Add", exact: true })'
+  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByText("It found 5 new files.").nth(1).waitFor(); }'
+  $FW exec $RUN --proof library-roots/roots-scan-line -- $PW cli $S snapshot --filename={runDir}/proof/library-roots/roots-scan-line/scanned.aria.yml
+  $FW exec $RUN --proof library-roots/roots-scan-line -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-scan-line/scanned.png
+  $FW exec $RUN --proof library-roots/roots-scan-line -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/roots'
+  ```
+
+- **Scan now finds a gone file.** Remove one episode file on disk, then choose `Scan now` in shelf-series' menu.
+
+  ```sh
+  $FW fs rm $RUN 'shelf-series/The Tin Signal [tvdbid-9100201]/Season 01/The Tin Signal - S01E01.mkv'
+  $FW exec $RUN -- $PW cli $S click 'getByRole("button", { name: "Actions for {mediaDir}/shelf-series" })'
+  $FW exec $RUN -- $PW cli $S click 'getByRole("menuitem", { name: "Scan now" })'
+  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByText("It found 1 gone file.").waitFor(); }'
+  $FW exec $RUN --proof library-roots/roots-scan-now -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-scan-now/gone.png
+  $FW exec $RUN --proof library-roots/roots-scan-now -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/roots'
+  ```
+
+- **A mass vanish stops, and Mark them gone settles it.** Remove two of shelf-movies' four recorded files and choose `Scan now`. The row reads the stopped sentence, Health's Library category holds its Error, and `Mark them gone` marks the two.
+
+  ```sh
+  $FW fs rm $RUN 'shelf-movies/Copper Kettle (2012).mkv'
+  $FW fs rm $RUN 'shelf-movies/Saltmarsh Radio (2018)/Saltmarsh Radio (2018).mkv'
+  $FW exec $RUN -- $PW cli $S click 'getByRole("button", { name: "Actions for {mediaDir}/shelf-movies" })'
+  $FW exec $RUN -- $PW cli $S click 'getByRole("menuitem", { name: "Scan now" })'
+  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByText(/^Library scan stopped/).waitFor(); }'
+  $FW exec $RUN --proof library-roots/roots-scan-stopped -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-scan-stopped/stopped.png
+  $FW exec $RUN --proof library-roots/roots-scan-stopped -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/system/health'
+  $FW exec $RUN -- $PW cli $S click 'getByRole("button", { name: "Actions for {mediaDir}/shelf-movies" })'
+  $FW exec $RUN -- $PW cli $S click 'getByRole("menuitem", { name: "Mark them gone" })'
+  $FW exec $RUN --proof library-roots/roots-mark-gone -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-mark-gone/confirm.png
+  $FW exec $RUN -- $PW cli $S click 'getByRole("dialog", { name: "Mark 2 files gone?" }).getByRole("button", { name: "Mark them gone" })'
+  $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByText("It found 2 gone files.").waitFor(); }'
+  $FW exec $RUN --proof library-roots/roots-mark-gone -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-mark-gone/marked.png
+  $FW exec $RUN --proof library-roots/roots-mark-gone -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/library'
+  ```
+
+- **Cancel a running scan.** A scan of the shelves ends in about a second, so copy one folder into 512 files under `t9` and add it as a Movies root. One `run-code` waits for its probe step and cancels it from the row's menu before it ends.
+
+  ```sh
+  SRC="shelf-movies/Grandma's 80th Birthday (2019)"
+  $FW fs cp $RUN "$SRC" t1/a && $FW fs cp $RUN "$SRC" t1/b
+  for k in 2 3 4 5 6 7 8 9; do $FW fs cp $RUN "t$((k-1))" "t$k/a" && $FW fs cp $RUN "t$((k-1))" "t$k/b"; done
+  $FW exec $RUN --proof library-roots/roots-scan-cancel -- curl -sS -X POST -H 'X-Api-Key: {apiKey}' -H 'Content-Type: application/json' --data-binary '{"contentType":"movie","nodeId":"{nodes.home.nodeId}","path":"{mediaDir}/t9"}' '{nodes.home.url}/api/v1/roots'
+  $FW exec $RUN --proof library-roots/roots-scan-cancel -- $PW cli $S run-code 'async page => { await page.getByText(/^Reading media info, \d+ of 512 files$/).waitFor({ timeout: 60000 }); await page.getByRole("button", { name: "Actions for {mediaDir}/t9" }).click(); await page.getByRole("menuitem", { name: "Cancel library scan" }).click(); await page.getByRole("region", { name: "Notifications" }).getByText(/^Library scan cancelled/).waitFor(); }'
+  $FW exec $RUN --proof library-roots/roots-scan-cancel -- $PW cli $S screenshot --filename={runDir}/proof/library-roots/roots-scan-cancel/cancelled.png
+  $FW exec $RUN --proof library-roots/roots-scan-cancel -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/tasks/library-scan'
+  ```
+
 - **Phone.** Open `{runId}-admin-phone` as in the skill's Drive with `phone` and go to `/settings/library-roots`: one pushed page with the worker root on home and the Storage block.
 
   ```sh
@@ -207,4 +275,9 @@ Steps:
 - A re-home with one file checks it too fast to see `Checked <n> of <m> files at the new place`; the progress line shows only on a large root.
 - The Storage block counts a volume once per Node. home and seedbox share the container's `/`, so each Node lists its own `/`.
 - A move into another root that succeeds needs a Work with no file, and `home`'s catalog holds one movie, so `e2e/library_test.go` drives it: `TestSeveralRootsPerTypeWithOneDefault` moves a Work with no file into `films` and reads the counts.
+- A Library scan on `home`'s shelves ends in about a second, so the row's running step, `Listing files, <n> so far`, `Comparing <n> files` or `Reading media info, <n> of <m> files`, shows only on a root of several hundred new files. `web/src/roots/scan-line.test.tsx` draws each step.
+- Close any open root menu before the next step: an open menu makes the rest of the page inert, so a click on another row's `Actions for` waits out its timeout.
+- A root that reads Checking or Offline is still walked, and its Node judges the folder during the walk, so an unmounted root ends its unit `Skipped` with Storage's words and none of its files read gone. `fakes/world/sim/scan` proves it with the hung walk, a crash mid-scan, renames with and without file ids, a case-only rename and an offline Worker's root.
+- Roots that existed before Library scan wait for the nightly Maintenance window for their first scan, which reads the media info of every file recorded before it. Scan now scans one at once.
+- Scan now on a root whose unit is queued in the open run joins it. On a root whose unit runs or has finished in that run, it queues the root again behind itself, so a scan after copying files in always runs. Run now still answers 409 `task_running` while a run is open.
 - `Re-home` with missing files and `Save anyway, forget <n> files`, deleting a root whose Works move to another, the empty state and the phone sheets are driven by `web/e2e/library-roots.spec.ts` on the browser tier.

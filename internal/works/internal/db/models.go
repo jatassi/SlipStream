@@ -88,4 +88,5 @@ type WorksWork struct {
 	MonitorNew     bool
 	MonitorAsides  bool
 	LevelFolders   bool
+	AddedBy        AddedBy
 }

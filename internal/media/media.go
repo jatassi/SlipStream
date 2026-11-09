@@ -10,90 +10,72 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
-	"path"
-	"slices"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	mediav1 "github.com/jatassi/slipstream/internal/pb/slipstream/media/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/media/v1/mediav1connect"
-	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
 )
 
-// Probe is what probing found: the container and the first video stream.
-type Probe struct {
-	Duration  time.Duration `json:"duration"`
-	Container string        `json:"container"`
-	Codec     string        `json:"codec"`
-	Width     int           `json:"width"`
-	Height    int           `json:"height"`
-}
-
-// Resolution is the probe's resolution class.
-func (p Probe) Resolution() release.Resolution { return release.ResolutionOf(p.Width, p.Height) }
-
 type Prober interface {
-	Probe(ctx context.Context, path string) (Probe, error)
+	Probe(ctx context.Context, path string) (Record, error)
 }
 
 type Timings struct {
-	// Probe bounds one ffprobe run.
+	// Probe bounds one file's probe, both ffprobe runs.
 	Probe time.Duration `yaml:"probe"`
 }
 
 func DefaultTimings() Timings { return Timings{Probe: 30 * time.Second} }
 
-// FFprobe is the bundled ffprobe at Path.
+// waitDelay bounds how long an ffprobe stuck in kernel IO outlives its
+// context, so a hung share can't hold a probe past its timeout or a
+// Cancel.
+const waitDelay = 5 * time.Second
+
+// FFprobe is the bundled ffprobe at Path. It runs twice per file, as
+// Parse reads.
 type FFprobe struct{ Path string }
 
-func (f FFprobe) Probe(ctx context.Context, file string) (Probe, error) {
-	cmd := exec.CommandContext(ctx, f.Path, "-v", "error", "-protocol_whitelist", "file,pipe", "-print_format", "json", "-show_format", "-show_streams", file) //nolint:gosec // the bundled ffprobe on a downloaded file
+func (f FFprobe) Probe(ctx context.Context, file string) (Record, error) {
+	streams, err := f.run(ctx, "-show_format", "-show_streams", file)
+	if err != nil {
+		return Record{}, err
+	}
+	frame, err := f.run(ctx, "-select_streams", "v:0", "-show_frames", "-read_intervals", "%+#1", file)
+	if err != nil {
+		return Record{}, err
+	}
+	return Parse(streams, frame)
+}
+
+func (f FFprobe) run(ctx context.Context, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, f.Path, append([]string{"-v", "error", "-protocol_whitelist", "file,pipe", "-print_format", "json"}, args...)...) //nolint:gosec // the bundled ffprobe on a media file
+	cmd.WaitDelay = waitDelay
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
-	if err != nil {
-		return Probe{}, fmt.Errorf("ffprobe: %w: %s", err, bytes.TrimSpace(stderr.Bytes()))
+	if ctx.Err() != nil {
+		return nil, fmt.Errorf("run ffprobe: %w", ctx.Err())
 	}
-	return ParseFFprobe(out)
+	if _, exited := errors.AsType[*exec.ExitError](err); exited {
+		line, _, _ := strings.Cut(strings.TrimSpace(stderr.String()), "\n")
+		return nil, &UnreadableError{Line: line}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("run ffprobe: %w", err)
+	}
+	return out, nil
 }
 
-type ffprobeOutput struct {
-	Format struct {
-		FormatName string `json:"format_name"`
-		Duration   string `json:"duration"`
-	} `json:"format"`
-	Streams []struct {
-		CodecType string `json:"codec_type"`
-		CodecName string `json:"codec_name"`
-		Width     int    `json:"width"`
-		Height    int    `json:"height"`
-	} `json:"streams"`
-}
+// UnreadableError is a file ffprobe can't read. Line is the first line of
+// ffprobe's error output.
+type UnreadableError struct{ Line string }
 
-// ParseFFprobe reads ffprobe's JSON: the format's duration and name, and
-// the first video stream's codec and size.
-func ParseFFprobe(out []byte) (Probe, error) {
-	var doc ffprobeOutput
-	if err := json.Unmarshal(out, &doc); err != nil {
-		return Probe{}, fmt.Errorf("read ffprobe's output: %w", err)
-	}
-	seconds, err := strconv.ParseFloat(doc.Format.Duration, 64)
-	if err != nil {
-		return Probe{}, fmt.Errorf("read ffprobe's output: duration %q: %w", doc.Format.Duration, err)
-	}
-	p := Probe{Duration: time.Duration(seconds * float64(time.Second)).Round(time.Millisecond), Container: doc.Format.FormatName}
-	for _, s := range doc.Streams {
-		if s.CodecType == "video" {
-			p.Codec, p.Width, p.Height = s.CodecName, s.Width, s.Height
-			return p, nil
-		}
-	}
-	return Probe{}, errors.New("the file has no video stream")
-}
+func (e *UnreadableError) Error() string { return "ffprobe can't read the file: " + e.Line }
 
 // Payloads is where this Node's downloaded torrent files lie.
 type Payloads interface {
@@ -123,17 +105,15 @@ func (s *Service) Probe(ctx context.Context, req *mediav1.ProbeRequest) (*mediav
 	}
 	ctx, cancel := context.WithTimeout(ctx, s.timings.Probe)
 	defer cancel()
-	p, err := s.prober.Probe(ctx, file)
+	r, err := s.prober.Probe(ctx, file)
 	if err != nil {
 		return nil, rpc.Errorf(rpc.CodeFailedPrecondition, "%v", err)
 	}
-	return &mediav1.ProbeResponse{
-		DurationMs: p.Duration.Milliseconds(),
-		Container:  p.Container,
-		Codec:      p.Codec,
-		Width:      int32(p.Width),  //nolint:gosec // a video's width fits
-		Height:     int32(p.Height), //nolint:gosec // a video's height fits
-	}, nil
+	record, err := json.Marshal(r)
+	if err != nil {
+		return nil, fmt.Errorf("encode the media record: %w", err)
+	}
+	return &mediav1.ProbeResponse{Record: record}, nil
 }
 
 // Remote is MediaService as the Controller reaches it on a Node.
@@ -141,26 +121,14 @@ type Remote func(role.NodeID) mediav1connect.MediaServiceHandler
 
 // Probe probes the index'th file of torrent h on node. Its errors are the
 // call's, for rpc.NotSent and rpc.Lost to read.
-func (r Remote) Probe(ctx context.Context, node role.NodeID, h bencode.InfoHash, index int) (Probe, error) {
+func (r Remote) Probe(ctx context.Context, node role.NodeID, h bencode.InfoHash, index int) (Record, error) {
 	res, err := r(node).Probe(ctx, &mediav1.ProbeRequest{InfoHash: h[:], FileIndex: int32(index)}) //nolint:gosec // a torrent's file index fits
 	if err != nil {
-		return Probe{}, err
+		return Record{}, err
 	}
-	return Probe{
-		Duration:  time.Duration(res.GetDurationMs()) * time.Millisecond,
-		Container: res.GetContainer(),
-		Codec:     res.GetCodec(),
-		Width:     int(res.GetWidth()),
-		Height:    int(res.GetHeight()),
-	}, nil
-}
-
-// videoExtensions are the extensions a probed file may have.
-var videoExtensions = []string{"mkv", "mp4", "m4v", "avi", "ts"}
-
-// IsVideo reports whether name, '/' separated, names a video file by its
-// extension.
-func IsVideo(name string) bool {
-	ext := strings.TrimPrefix(path.Ext(name), ".")
-	return slices.Contains(videoExtensions, strings.ToLower(ext))
+	var rec Record
+	if err := json.Unmarshal(res.GetRecord(), &rec); err != nil {
+		return Record{}, fmt.Errorf("read the media record: %w", err)
+	}
+	return rec, nil
 }

@@ -10,6 +10,7 @@ import (
 	"testing/synctest"
 
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/pairing"
 )
@@ -23,9 +24,9 @@ func TestARemovedWorkerJoinsAgainWithoutItsOldTorrents(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		box := &engines{}
-		w := sim.Launch(t, home(t), sim.WithWalk(), onSeedbox(func(e *node.Env) { e.Engine = box.wrap(e.Engine) }))
-		search(t, w, addOrchard(t, w))
-		expectImported(t, await(t, w))
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Engine = box.wrap(e.Engine) }))
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		simtest.ExpectImported(t, simtest.Await(t, w))
 		a := w.API()
 		old := seedbox(t, a).ID
 
@@ -39,7 +40,7 @@ func TestARemovedWorkerJoinsAgainWithoutItsOldTorrents(t *testing.T) {
 		w.Node("seedbox").AwaitRestart()
 		a = w.API()
 
-		status := decode[struct {
+		status := simtest.Decode[struct {
 			Claim   string `json:"claim"`
 			Removed *struct {
 				Controller string `json:"controller"`
@@ -65,9 +66,9 @@ func TestARemovedWorkerJoinsAgainWithoutItsOldTorrents(t *testing.T) {
 		if !slices.Equal(names, []string{"home", "seedbox"}) {
 			t.Fatalf("home lists %v, want home and the new seedbox only", names)
 		}
-		eventually(t, "the new seedbox is up", func() bool { return seedbox(t, a).Link.State == "up" })
+		simtest.Eventually(t, "the new seedbox is up", func() bool { return seedbox(t, a).Link.State == "up" })
 		a.SetRoles("home", joined, "searching", "downloading")
-		eventually(t, "the new seedbox runs Downloading", func() bool {
+		simtest.Eventually(t, "the new seedbox runs Downloading", func() bool {
 			f := seedbox(t, a).Facts
 			return f != nil && slices.Contains(f.Running, "downloading")
 		})

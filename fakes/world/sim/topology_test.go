@@ -10,6 +10,7 @@ import (
 	"testing/synctest"
 
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/bencode"
 )
@@ -41,6 +42,16 @@ type topologyView struct {
 		Dialer string `json:"dialer"`
 		State  string `json:"state"`
 	} `json:"links"`
+}
+
+// at is the index of the Node with id in v.Nodes, or -1.
+func (v topologyView) at(id string) int {
+	for i, n := range v.Nodes {
+		if n.ID == id {
+			return i
+		}
+	}
+	return -1
 }
 
 type torrentTraffic struct {
@@ -96,23 +107,25 @@ func nextTraffic(t *testing.T, r *bufio.Reader, id string) trafficView {
 func TestTheTopologyDrawsSeedboxsTorrentAndTrafficCarriesItsUpload(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t), sim.WithWalk())
-		search(t, w, addOrchard(t, w))
-		g := await(t, w)
-		expectImported(t, g)
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk())
+		simtest.Search(t, w, simtest.AddOrchard(t, w))
+		g := simtest.Await(t, w)
+		simtest.ExpectImported(t, g)
 		a := w.API()
 		box := seedbox(t, a)
 
-		topo := decode[topologyView](t, "getTopology", a.Admin("home", http.MethodGet, "/api/v1/nodes/topology", ""))
-		if topo.Sentence != "Both Nodes are online." || len(topo.Nodes) != 2 || topo.Nodes[1].ID != box.ID || topo.Nodes[1].State != "online" {
+		topo := simtest.Decode[topologyView](t, "getTopology", a.Admin("home", http.MethodGet, "/api/v1/nodes/topology", ""))
+		at := topo.at(box.ID)
+		if topo.Sentence != "Both Nodes are online." || len(topo.Nodes) != 2 || at < 0 || topo.Nodes[at].State != "online" {
 			t.Fatalf("the topology reads %+v, want home and seedbox online", topo)
 		}
-		dl := topo.Nodes[1].Resources.Downloading
+		homeID := topo.Nodes[1-at].ID
+		dl := topo.Nodes[at].Resources.Downloading
 		if dl == nil || len(dl.Torrents) != 1 || dl.Torrents[0].TorrentID == "" || dl.Torrents[0].Title != release ||
 			dl.Torrents[0].Wanted == 0 || dl.Torrents[0].Done != dl.Torrents[0].Wanted {
 			t.Fatalf("seedbox's Downloading reads %+v, want the Grab's torrent, titled %s and done", dl, release)
 		}
-		if l := topo.Links; len(l) != 1 || l[0].A != topo.Nodes[0].ID || l[0].B != box.ID || l[0].Dialer != box.ID || l[0].State != "up" {
+		if l := topo.Links; len(l) != 1 || l[0].A != homeID || l[0].B != box.ID || l[0].Dialer != box.ID || l[0].State != "up" {
 			t.Fatalf("the topology's links are %+v, want home's link to seedbox, up and dialed by seedbox", l)
 		}
 

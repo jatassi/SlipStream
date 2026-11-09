@@ -21,6 +21,7 @@ import (
 type Source struct {
 	tmdb *tmdb.Client
 	omdb *omdb.Client
+	now  func() time.Time
 }
 
 // Sources is TMDB's image host, which every artwork reference of a movie

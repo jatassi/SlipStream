@@ -5,6 +5,7 @@ import type {
   WorksContentType,
   WorksFieldSpecKind,
   WorksLibraryRow,
+  WorksLibraryRowAddedBy,
   WorksLibraryRowMonitored,
   WorksRowRating,
 } from "../api/gen/model";
@@ -40,6 +41,9 @@ export type LibraryWork = {
   readonly bytes: number;
   readonly files: number;
   readonly kept: number;
+  /** Its files a library scan found missing from its root. */
+  readonly goneFiles: number;
+  readonly addedBy: WorksLibraryRowAddedBy;
   /** Undefined for a Work with no cell. */
   readonly status: FilesState | undefined;
   readonly cells: FilesStateCounts;
@@ -135,6 +139,8 @@ export function parseRow(row: WorksLibraryRow, type: WorksContentType): LibraryW
     bytes: row.bytes,
     files: row.files,
     kept: row.kept,
+    goneFiles: row.goneFiles,
+    addedBy: row.addedBy,
     status: row.status ?? undefined,
     cells: row.cells,
     failed: row.failed,

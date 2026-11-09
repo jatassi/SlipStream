@@ -7,6 +7,7 @@ import type {
   RootsNewRoot,
   RootsNodeVolumes,
   RootsRoot,
+  RootsScan,
   RootsVerdict,
   RootsVolume,
   SettingDurationField,
@@ -20,6 +21,12 @@ import {
 import type { liveServer } from "./live-server";
 import { home, seedbox } from "./nodes";
 import { worker } from "./worker";
+
+/** The scan line of a root no library scan has read yet. */
+export const notScanned: RootsScan = { lastAt: null, summary: "", stopped: null, running: null };
+
+/** The Library scan run a root's Scan now or Mark them gone starts. */
+export const scanRun = 41;
 
 /** The Controller, holding Storage as well as its other Roles. */
 export const media: NodesNode = {
@@ -40,6 +47,7 @@ export const filmsRoot: RootsRoot = {
   volumeId: "sda1",
   works: 12,
   fileBytes: 910 * 1024 ** 3,
+  scan: notScanned,
 };
 
 export const archiveRoot: RootsRoot = {
@@ -51,6 +59,7 @@ export const archiveRoot: RootsRoot = {
   state: "unmounted",
   works: 3,
   fileBytes: 0,
+  scan: notScanned,
 };
 
 export const mediaVolume: RootsVolume = {
@@ -100,6 +109,8 @@ export type RootsWorld = {
   check: (body: Checked) => RootsVerdict;
   rehome: (rootId: string, body: RehomeRootInputBody) => Answer;
   remove: (rootId: string, worksTo: string | null) => Answer;
+  /** Answers Mark them gone; 202 with a run unless a test says otherwise. */
+  gone: (rootId: string) => Answer;
   /** Publishes roots.changed, as the Controller does after each change. */
   changed: (rootIds: string[]) => void;
 };
@@ -120,6 +131,9 @@ type Sent = {
   defaulted: string[];
   deleted: { rootId: string; worksTo: string | null }[];
   sampleEvery: (number | null | undefined)[];
+  scanned: string[];
+  marked: string[];
+  cancelled: number[];
 };
 
 function madeFrom(world: RootsWorld, body: RootsNewRoot, count: number): RootsRoot {
@@ -132,6 +146,7 @@ function madeFrom(world: RootsWorld, body: RootsNewRoot, count: number): RootsRo
       body.makeDefault === true ||
       !world.roots.some((root) => root.contentType === body.contentType),
     state: "checking",
+    scan: notScanned,
     works: 0,
     fileBytes: 0,
   };
@@ -176,6 +191,18 @@ const writesOf = (world: RootsWorld, sent: Sent) => [
     sent.rehomed.push(body);
     return world.rehome(String(params["rootId"]), body);
   }),
+  http.post("*/api/v1/roots/:rootId/scan", ({ params }) => {
+    sent.scanned.push(String(params["rootId"]));
+    return HttpResponse.json({ runId: scanRun }, { status: 202 });
+  }),
+  http.post("*/api/v1/roots/:rootId/gone", ({ params }) => {
+    sent.marked.push(String(params["rootId"]));
+    return world.gone(String(params["rootId"]));
+  }),
+  http.delete("*/api/v1/tasks/runs/:runId", ({ params }) => {
+    sent.cancelled.push(Number(params["runId"]));
+    return new HttpResponse(null, { status: 204 });
+  }),
   http.delete("*/api/v1/roots/:rootId", ({ params, request }) => {
     const rootId = String(params["rootId"]);
     const worksTo = new URL(request.url).searchParams.get("worksTo");
@@ -197,6 +224,7 @@ export function serveRoots(start: Partial<RootsWorld> = {}) {
       world.changed([rootId]);
       return new HttpResponse(null, { status: 204 });
     },
+    gone: () => HttpResponse.json({ runId: scanRun }, { status: 202 }),
     changed: () => {},
     ...start,
   };
@@ -207,6 +235,9 @@ export function serveRoots(start: Partial<RootsWorld> = {}) {
     defaulted: [],
     deleted: [],
     sampleEvery: [],
+    scanned: [],
+    marked: [],
+    cancelled: [],
   };
   worker.use(...readsOf(world, sent), ...writesOf(world, sent));
   return { world, sent };

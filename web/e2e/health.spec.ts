@@ -78,11 +78,12 @@ async function calmPage(page: Page): Promise<void> {
   await expect(page.getByText("Everything is working.")).toBeVisible();
   await expect(
     page.getByText(
-      "Checked storage, Nodes, download clients, torrents that still owe a Tracker, Indexers and scheduled tasks",
+      "Checked storage, the library, Nodes, download clients, torrents that still owe a Tracker, Indexers and scheduled tasks",
     ),
   ).toBeVisible();
   for (const [label, phrase] of [
     ["Storage", "storage"],
+    ["Library", "the library"],
     ["Nodes", "Nodes"],
     ["Download Clients", "download clients"],
     ["Seeding", "torrents that still owe a Tracker"],
@@ -92,7 +93,7 @@ async function calmPage(page: Page): Promise<void> {
     // oxlint-disable-next-line no-await-in-loop -- one quiet line per category, in page order
     await expect(category(page, label)).toContainText(`Nothing is wrong with ${phrase}.`);
   }
-  for (const label of ["Seeding", "Indexers", "Scheduled tasks"]) {
+  for (const label of ["Library", "Seeding", "Indexers", "Scheduled tasks"]) {
     // oxlint-disable-next-line no-await-in-loop -- one quiet line per category, in page order
     await expect(category(page, label).getByRole("button", { name: /^Check now/u })).toHaveCount(0);
   }

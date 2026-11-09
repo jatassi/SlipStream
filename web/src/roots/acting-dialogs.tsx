@@ -1,11 +1,13 @@
 import type { RootsRoot } from "../api/gen/model";
 import { DeleteRootDialog } from "./delete-root";
+import { MarkGoneDialog } from "./mark-gone";
 import { LibraryRootDialog } from "./root-dialog";
 
 /** The dialog a root's row, or an Add button, opens. */
 export type Acting =
   | { readonly kind: "add"; readonly contentType: string }
-  | { readonly kind: "edit" | "delete"; readonly rootId: string };
+  | { readonly kind: "edit" | "delete"; readonly rootId: string }
+  | { readonly kind: "gone"; readonly rootId: string; readonly name: string };
 
 export function ActingDialogs({
   acting,
@@ -30,6 +32,9 @@ export function ActingDialogs({
   const root = roots.find((candidate) => candidate.id === acting.rootId);
   if (root === undefined) {
     return null;
+  }
+  if (acting.kind === "gone") {
+    return <MarkGoneDialog root={root} name={acting.name} onOpenChange={close} />;
   }
   return acting.kind === "edit" ? (
     <LibraryRootDialog open onOpenChange={close} root={root} />

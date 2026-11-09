@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/live"
@@ -17,14 +18,16 @@ import (
 const retry = time.Minute
 
 type ask struct {
-	task  TaskID
-	by    storage.UUID
+	start Start
 	reply chan<- asked
 }
 
+// asked is how the clock answered a Start. wait is the close of a sealed
+// run the Start met, after which it asks again.
 type asked struct {
-	run RunID
-	err error
+	started Started
+	wait    <-chan struct{}
+	err     error
 }
 
 // Run is the clock: it plans, opens what is due and sleeps until the next
@@ -102,8 +105,7 @@ func (s *Scheduler) sleep(ctx context.Context, wake time.Time) bool {
 	case <-timer:
 	case <-s.wake:
 	case a := <-s.asks:
-		id, err := s.runNow(ctx, a)
-		a.reply <- asked{run: id, err: err}
+		a.reply <- s.begin(ctx, a.start)
 	}
 	return false
 }
@@ -127,7 +129,7 @@ func (s *Scheduler) tick(ctx context.Context, started time.Time, atStart map[Tas
 		soon := s.soon[o.Task]
 		delete(s.soon, o.Task)
 		s.mu.Unlock()
-		_, err := s.open(ctx, s.byID[o.Task], o.Trigger, storage.UUID{})
+		err := s.planned(ctx, s.byID[o.Task], o.Trigger)
 		if errors.Is(err, errNoUnits) && o.Trigger != ByReturn {
 			// A hidden task's passed slot leaves the window free for the
 			// tasks it held back, so the clock plans again now.
@@ -293,13 +295,32 @@ func (s *Scheduler) peerOf(ctx context.Context, node role.NodeID) peer {
 
 var errNoUnits = errors.New("the task lists no units")
 
-func (s *Scheduler) open(ctx context.Context, t Task, trigger Trigger, by storage.UUID) (RunID, error) {
-	all, units, err := s.units(ctx, t, trigger)
+// planned opens the run the plan asked for: of every unit t lists, or of
+// those due on their Node's return.
+func (s *Scheduler) planned(ctx context.Context, t Task, trigger Trigger) error {
+	all, err := s.list(ctx, t, trigger)
 	if err != nil {
-		return 0, err
+		return err
 	}
+	run := all
+	if trigger == ByReturn && t.Prepare == nil {
+		if run, err = s.returning(ctx, t.ID, all); err != nil {
+			return err
+		}
+		if len(run) == 0 {
+			return errNoUnits
+		}
+	}
+	_, err = s.open(ctx, t, trigger, storage.UUID{}, all, run)
+	return err
+}
+
+// open records a run of units and starts it. all is every unit t lists,
+// which become the task's units. A task with Prepare lists its units once
+// its run is open.
+func (s *Scheduler) open(ctx context.Context, t Task, trigger Trigger, by storage.UUID, all, units []Unit) (RunID, error) {
 	var r openRun
-	err = s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+	err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
 		if run, err := q.GetOpenRun(ctx, t.ID); err == nil {
 			return &ErrRunning{Since: run.StartedAt.Time()}
@@ -313,22 +334,26 @@ func (s *Scheduler) open(ctx context.Context, t Task, trigger Trigger, by storag
 		}
 		started := storage.Now()
 		id, err := q.InsertRun(ctx, db.InsertRunParams{TaskID: t.ID, Kind: trigger, RequestedBy: by, StartedAt: started})
-		r = openRun{id: id, task: t, trigger: trigger, started: started, units: units}
-		return err
+		if err != nil {
+			return err
+		}
+		r = openRun{id: id, task: t, trigger: trigger, started: started}
+		return setQueued(ctx, q, id, units)
 	})
 	if err != nil {
 		return 0, err
 	}
-	s.start(ctx, r)
+	s.start(ctx, r, units)
 	s.changed(ctx, t.ID)
 	return r.id, nil
 }
 
-// units is every unit t lists and those this run acts on, or, for a task
-// with Prepare, none yet: its run lists them once Prepare has run.
-func (s *Scheduler) units(ctx context.Context, t Task, trigger Trigger) (all, run []Unit, err error) {
+// list is every unit t lists, or none for a task with Prepare: its run
+// lists them once Prepare has run. errNoUnits when t isn't shown.
+func (s *Scheduler) list(ctx context.Context, t Task, trigger Trigger) ([]Unit, error) {
+	var all []Unit
 	var shown bool
-	err = s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+	err := s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
 		if t.Prepare == nil {
 			if all, err = t.Units(ctx, r); err != nil {
@@ -340,21 +365,11 @@ func (s *Scheduler) units(ctx context.Context, t Task, trigger Trigger) (all, ru
 	})
 	switch {
 	case err != nil:
-		return nil, nil, err
+		return nil, err
 	case !shown:
-		return nil, nil, s.passHiddenSlot(ctx, t, trigger)
-	case t.Prepare != nil:
-		return nil, nil, nil
-	case trigger == ByReturn:
-		run, err = s.returning(ctx, t.ID, all)
-		if err == nil && len(run) == 0 {
-			err = errNoUnits
-		}
-		return all, run, err
-	case trigger == ByRunNow:
-		return all, all, s.runnable(ctx, t.ID, all)
+		return nil, s.passHiddenSlot(ctx, t, trigger)
 	}
-	return all, all, nil
+	return all, nil
 }
 
 // shownIn reports whether t is shown, given the units it lists.
@@ -425,54 +440,151 @@ func syncUnits(ctx context.Context, q *db.Queries, task TaskID, units []Unit) er
 	return nil
 }
 
-// RunNow opens a run-now run of every unit of id for the Admin by. It
-// never moves the task's slot.
+// Start names a run of a task's units.
+type Start struct {
+	Task TaskID
+	// Units is the keys of the units to run, nil for every unit the task
+	// lists.
+	Units   []UnitKey
+	Trigger Trigger
+	// By is the Admin who asked, for a run-now Start only.
+	By storage.UUID
+}
+
+// Started is the run a Start's units are in and the keys it queued, empty
+// when it queued none. A task with Prepare lists its units once its run is
+// open, so a Start that opens its run queued none yet.
+type Started struct {
+	Run   RunID
+	Added []UnitKey
+}
+
+// Start queues st's units. With no run of the task open it opens one of
+// them. With one open it adds them to it: a whole-task Start adds each unit
+// not in the run yet, and answers *ErrRunning when that is none. A Start
+// naming units skips each one still queued and queues each one running or
+// ended again behind itself on its Node, so a unit never runs twice at
+// once and a scan asked for mid-scan runs once more after. A task with
+// Prepare is never added to: it answers *ErrRunning while it runs. A
+// whole-task run-now Start that opens a run refuses with *ErrWaiting while
+// every unit is tied to a Node that can't start work. A Start naming units
+// queues them all the same, and each is Skipped and due when its Node
+// returns. ErrUnknownTask when the task isn't shown or lists none of the
+// units named.
+func (s *Scheduler) Start(ctx context.Context, st Start) (Started, error) {
+	for {
+		reply := make(chan asked, 1)
+		select {
+		case s.asks <- ask{start: st, reply: reply}:
+		case <-ctx.Done():
+			return Started{}, fmt.Errorf("start %s: %w", st.Task, ctx.Err())
+		}
+		var a asked
+		select {
+		case a = <-reply:
+		case <-ctx.Done():
+			return Started{}, fmt.Errorf("start %s: %w", st.Task, ctx.Err())
+		}
+		if a.wait == nil {
+			return a.started, a.err
+		}
+		select {
+		case <-a.wait:
+		case <-ctx.Done():
+			return Started{}, fmt.Errorf("start %s: %w", st.Task, ctx.Err())
+		}
+	}
+}
+
+// RunNow opens a run-now run of every unit of id for the Admin by, or adds
+// the units not in its open run yet. It never moves the task's slot.
 func (s *Scheduler) RunNow(ctx context.Context, id TaskID, by storage.UUID) (RunID, error) {
-	reply := make(chan asked, 1)
-	select {
-	case s.asks <- ask{task: id, by: by, reply: reply}:
-	case <-ctx.Done():
-		return 0, fmt.Errorf("run now %s: %w", id, ctx.Err())
-	}
-	select {
-	case a := <-reply:
-		return a.run, a.err
-	case <-ctx.Done():
-		return 0, fmt.Errorf("run now %s: %w", id, ctx.Err())
-	}
+	st, err := s.Start(ctx, Start{Task: id, Trigger: ByRunNow, By: by})
+	return st.Run, err
 }
 
-func (s *Scheduler) runNow(ctx context.Context, a ask) (RunID, error) {
-	t, ok := s.byID[a.task]
+// begin answers st on the clock, so it never races the plan's opening.
+func (s *Scheduler) begin(ctx context.Context, st Start) asked {
+	t, ok := s.byID[st.Task]
 	if !ok {
-		return 0, ErrUnknownTask
+		return asked{err: ErrUnknownTask}
 	}
-	id, err := s.open(ctx, t, ByRunNow, a.by)
+	all, err := s.list(ctx, t, st.Trigger)
 	if errors.Is(err, errNoUnits) {
-		return 0, ErrUnknownTask
+		return asked{err: ErrUnknownTask}
 	}
-	return id, err
+	if err != nil {
+		return asked{err: err}
+	}
+	units := all
+	if st.Units != nil {
+		units = slices.DeleteFunc(slices.Clone(all), func(u Unit) bool { return !slices.Contains(st.Units, u.Key) })
+		if len(units) == 0 {
+			return asked{err: ErrUnknownTask}
+		}
+	}
+	if a, ok := s.merge(ctx, t, st, units); ok {
+		return a
+	}
+	if st.Trigger == ByRunNow && st.Units == nil {
+		if err := s.waiting(ctx, units); err != nil {
+			return asked{err: err}
+		}
+	}
+	id, err := s.open(ctx, t, st.Trigger, st.By, all, units)
+	if err != nil {
+		return asked{err: err}
+	}
+	started := Started{Run: id}
+	if t.Prepare == nil {
+		for _, u := range units {
+			started.Added = append(started.Added, u.Key)
+		}
+	}
+	return asked{started: started}
 }
 
-func (s *Scheduler) runnable(ctx context.Context, task TaskID, units []Unit) error {
-	err := s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		run, err := db.New(r).GetOpenRun(ctx, task)
-		if err == nil {
-			return &ErrRunning{Since: run.StartedAt.Time()}
+// merge adds units to t's open run, false when it has none.
+func (s *Scheduler) merge(ctx context.Context, t Task, st Start, units []Unit) (asked, bool) {
+	s.mu.Lock()
+	a := s.openOf(t.ID)
+	switch {
+	case a == nil:
+		s.mu.Unlock()
+		return asked{}, false
+	case a.sealed || a.runCtx.Err() != nil:
+		s.mu.Unlock()
+		return asked{wait: a.closed}, true
+	case t.Prepare != nil:
+		s.mu.Unlock()
+		return asked{err: &ErrRunning{Since: a.run.started.Time()}}, true
+	}
+	added := s.add(a, units, st.Units == nil)
+	queued := a.units()
+	s.mu.Unlock()
+	if len(added) == 0 {
+		if st.Units == nil {
+			return asked{err: &ErrRunning{Since: a.run.started.Time()}}, true
 		}
-		if errors.Is(err, storage.ErrNoRows) {
-			return nil
-		}
-		return err
-	})
-	if err != nil || len(units) == 0 {
-		return err
+		return asked{started: Started{Run: a.run.id}}, true
+	}
+	if err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		return setQueued(ctx, db.New(tx), a.run.id, queued)
+	}); err != nil {
+		s.cfg.Log.Error("record a run's units", "task", t.ID, "run", a.run.id, "err", err)
+	}
+	s.changed(ctx, t.ID)
+	return asked{started: Started{Run: a.run.id, Added: added}}, true
+}
+
+// waiting refuses a run-now run whose every unit is tied to a Node that
+// can't start work.
+func (s *Scheduler) waiting(ctx context.Context, units []Unit) error {
+	if len(units) == 0 {
+		return nil
 	}
 	for _, u := range units {
-		if u.Place.kind != tiedTo {
-			return nil
-		}
-		if s.reaches(u.Place.node) {
+		if u.Place.kind != tiedTo || s.reaches(u.Place.node) {
 			return nil
 		}
 	}

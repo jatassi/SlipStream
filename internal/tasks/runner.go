@@ -2,8 +2,9 @@ package tasks
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"sync"
+	"fmt"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -18,33 +19,240 @@ type openRun struct {
 	task    Task
 	trigger Trigger
 	started storage.Time
-	units   []Unit
 }
 
 var errCanceled = errors.New("an Admin canceled the run")
 
 const progressEvery = 500 * time.Millisecond
 
+// active is an open run this process runs. Each Node with queued units has
+// one worker, which runs them in order and exits once its queue is empty.
+// The last worker to exit seals the run, which then closes, so a Start that
+// meets a sealed run waits for the close and opens another. The fields
+// after closed are guarded by Scheduler.mu.
 type active struct {
-	run      openRun
-	cancel   context.CancelCauseFunc
-	progress *progress
+	run    openRun
+	ctx    context.Context //nolint:containedctx // the clock's, which outlives every worker the run starts
+	runCtx context.Context //nolint:containedctx // canceled by Cancel; each unit's Run gets it
+	cancel context.CancelCauseFunc
+	closed chan struct{}
+
+	// entries is one per unit key, in the order each was first queued.
+	entries []*entry
+	byKey   map[UnitKey]*entry
+	queues  map[role.NodeID][]*entry
+	workers map[role.NodeID]bool
+	sealed  bool
+	// done and total count units: those ended of those queued, a unit
+	// queued again counting again.
+	done, total int
+	sent        time.Time
 }
 
-func (s *Scheduler) start(ctx context.Context, r openRun) {
+// entry is one unit of a run. It is queued, running, or both while it waits
+// to run again behind itself on node.
+type entry struct {
+	unit    Unit
+	node    role.NodeID
+	queued  bool
+	running bool
+	step    *Step
+	sent    time.Time
+	res     result
+}
+
+func (s *Scheduler) start(ctx context.Context, r openRun, units []Unit) {
 	runCtx, cancel := context.WithCancelCause(ctx)
-	p := newProgress(ctx, s, r)
+	a := &active{
+		run: r, ctx: ctx, runCtx: runCtx, cancel: cancel, closed: make(chan struct{}),
+		byKey: map[UnitKey]*entry{}, queues: map[role.NodeID][]*entry{}, workers: map[role.NodeID]bool{},
+	}
 	s.mu.Lock()
-	s.running[r.id] = &active{run: r, cancel: cancel, progress: p}
-	s.mu.Unlock()
-	s.runs.Go(func() {
-		defer cancel(nil)
-		s.run(ctx, runCtx, r, p)
-		s.mu.Lock()
-		delete(s.running, r.id)
+	defer s.mu.Unlock()
+	s.running[r.id] = a
+	if r.task.Prepare != nil {
+		s.runs.Go(func() { s.prepare(a) })
+		return
+	}
+	s.add(a, units, true)
+}
+
+// add queues each of units in a and starts a worker for each Node that has
+// none. A whole-task add skips every unit already in the run. Otherwise a
+// queued unit is skipped and one running or ended is queued again, on the
+// Node it runs on while it runs, so a key never runs twice at once. A run
+// left with no worker is sealed and ends. It answers the keys it queued.
+// The caller holds s.mu.
+func (s *Scheduler) add(a *active, units []Unit, whole bool) []UnitKey {
+	var added []UnitKey
+	for _, u := range units {
+		e := a.byKey[u.Key]
+		if e != nil && (whole || e.queued) {
+			continue
+		}
+		node := s.nodeOf(u.Place)
+		switch {
+		case e == nil:
+			e = &entry{unit: u}
+			a.byKey[u.Key] = e
+			a.entries = append(a.entries, e)
+		case e.running:
+			node = e.node
+		}
+		e.unit, e.queued = u, true
+		a.queues[node] = append(a.queues[node], e)
+		a.total++
+		added = append(added, u.Key)
+		if !a.workers[node] {
+			a.workers[node] = true
+			s.runs.Go(func() { s.work(a, node) })
+		}
+	}
+	if len(a.workers) == 0 {
+		a.sealed = true
+		s.runs.Go(func() { s.end(a) })
+	}
+	return added
+}
+
+// units is each unit of a. The caller holds s.mu.
+func (a *active) units() []Unit {
+	units := make([]Unit, len(a.entries))
+	for i, e := range a.entries {
+		units[i] = e.unit
+	}
+	return units
+}
+
+// queuedLines is units as lines with no outcome yet: what a run cut short by
+// a stop closes as canceled.
+func queuedLines(units []Unit) []line {
+	lines := make([]line, len(units))
+	for i, u := range units {
+		lines[i] = line{Key: u.Key, Label: u.Label}
+	}
+	return lines
+}
+
+func setQueued(ctx context.Context, q *db.Queries, id RunID, units []Unit) error {
+	lines, err := json.Marshal(queuedLines(units))
+	if err != nil {
+		return fmt.Errorf("run %d lines: %w", id, err)
+	}
+	return q.SetOpenRunUnits(ctx, db.SetOpenRunUnitsParams{ID: id, Units: new(string(lines))})
+}
+
+// work runs node's queue of a until it is empty.
+func (s *Scheduler) work(a *active, node role.NodeID) {
+	for {
+		e, ok := s.next(a, node)
+		if !ok {
+			return
+		}
+		res := s.unit(a, e.unit, node)
+		s.ended(a, e, res)
+	}
+}
+
+// next takes node's next unit of a, false once its queue is empty or the
+// clock stopped. The last worker to find none seals the run and ends it.
+func (s *Scheduler) next(a *active, node role.NodeID) (*entry, bool) {
+	s.mu.Lock()
+	q := a.queues[node]
+	if len(q) > 0 && a.ctx.Err() == nil {
+		e := q[0]
+		a.queues[node] = q[1:]
+		e.queued, e.running, e.node = false, true, node
 		s.mu.Unlock()
-		s.Wake()
-	})
+		return e, true
+	}
+	delete(a.queues, node)
+	delete(a.workers, node)
+	a.sealed = len(a.workers) == 0
+	sealed := a.sealed
+	s.mu.Unlock()
+	if sealed {
+		s.end(a)
+	}
+	return nil, false
+}
+
+func (s *Scheduler) ended(a *active, e *entry, res result) {
+	s.mu.Lock()
+	e.running, e.step, e.res = false, nil, res
+	a.done++
+	frame := Progressed{RunID: a.run.id, TaskID: a.run.task.ID, Done: a.done, Total: a.total}
+	now := time.Now()
+	send := now.Sub(a.sent) >= progressEvery
+	if send {
+		a.sent = now
+	}
+	s.mu.Unlock()
+	if send {
+		s.cfg.Progressed.Publish(a.ctx, frame)
+	}
+}
+
+func (s *Scheduler) stepped(a *active, key UnitKey, st Step) {
+	s.mu.Lock()
+	e := a.byKey[key]
+	e.step = &st
+	frame := Progressed{RunID: a.run.id, TaskID: a.run.task.ID, Done: a.done, Total: a.total, Unit: &UnitStep{Key: key, Step: st}}
+	now := time.Now()
+	send := now.Sub(e.sent) >= progressEvery
+	if send {
+		e.sent = now
+	}
+	s.mu.Unlock()
+	if send {
+		s.cfg.Progressed.Publish(a.ctx, frame)
+	}
+}
+
+// Steps is task's open run and the latest step of each of its running units
+// that has reported one, false while the task has no open run.
+func (s *Scheduler) Steps(task TaskID) (run RunID, steps map[UnitKey]Step, open bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a := s.openOf(task)
+	if a == nil {
+		return 0, nil, false
+	}
+	steps = map[UnitKey]Step{}
+	for _, e := range a.entries {
+		if e.step != nil {
+			steps[e.unit.Key] = *e.step
+		}
+	}
+	return a.run.id, steps, true
+}
+
+// openOf is task's open run, nil when it has none. The caller holds s.mu.
+func (s *Scheduler) openOf(task TaskID) *active {
+	for _, a := range s.running {
+		if a.run.task.ID == task {
+			return a
+		}
+	}
+	return nil
+}
+
+// end closes a sealed run, unless the clock stopped: the next Open closes it
+// as cut short.
+func (s *Scheduler) end(a *active) {
+	if a.ctx.Err() == nil {
+		s.close(a)
+	}
+	s.release(a)
+}
+
+func (s *Scheduler) release(a *active) {
+	a.cancel(nil)
+	s.mu.Lock()
+	delete(s.running, a.run.id)
+	s.mu.Unlock()
+	close(a.closed)
+	s.Wake()
 }
 
 // Cancel cancels the open run id. It addresses a run, not a task, so a
@@ -60,87 +268,62 @@ func (s *Scheduler) Cancel(id RunID) error {
 	return nil
 }
 
-func (s *Scheduler) run(nodeCtx, runCtx context.Context, r openRun, p *progress) {
-	if r.task.Prepare != nil {
-		var err error
-		if r, err = s.prepare(nodeCtx, runCtx, r, p); err != nil {
-			if nodeCtx.Err() == nil {
-				s.cfg.Log.Error("list a run's units", "task", r.task.ID, "run", r.id, "err", err)
-				s.finish(nodeCtx, r, RunFailed, "0 "+r.task.Noun.Many, err.Error(), nil)
-			}
-			return
+// prepare runs the task's Prepare, then lists the units the run acts on,
+// records them as the task's units and queues them.
+func (s *Scheduler) prepare(a *active) {
+	units, err := s.prepared(a)
+	if err != nil {
+		if a.ctx.Err() == nil {
+			s.cfg.Log.Error("list a run's units", "task", a.run.task.ID, "run", a.run.id, "err", err)
+			s.finish(a.ctx, a.run, RunFailed, "0 "+a.run.task.Noun.Many, err.Error(), nil)
 		}
-	}
-	results := make([]result, len(r.units))
-	placed := make([]role.NodeID, len(r.units))
-	byNode := map[role.NodeID][]int{}
-	var order []role.NodeID
-	for i, u := range r.units {
-		node := s.nodeOf(u.Place)
-		placed[i] = node
-		if _, seen := byNode[node]; !seen {
-			order = append(order, node)
-		}
-		byNode[node] = append(byNode[node], i)
-	}
-	var wg sync.WaitGroup
-	for _, node := range order {
-		wg.Go(func() {
-			for _, i := range byNode[node] {
-				if nodeCtx.Err() != nil {
-					return
-				}
-				results[i] = s.unit(nodeCtx, runCtx, r, r.units[i], node, p)
-				p.finished()
-			}
-		})
-	}
-	wg.Wait()
-	if nodeCtx.Err() != nil {
+		s.mu.Lock()
+		a.sealed = true
+		s.mu.Unlock()
+		s.release(a)
 		return
 	}
-	s.close(nodeCtx, r, placed, results, errors.Is(context.Cause(runCtx), errCanceled))
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.add(a, units, true)
 }
 
-// prepare runs the task's Prepare, then lists the units the run acts on
-// and records them as the task's units.
-func (s *Scheduler) prepare(ctx, runCtx context.Context, r openRun, p *progress) (openRun, error) {
-	r.task.Prepare(runCtx, r.trigger)
+func (s *Scheduler) prepared(a *active) ([]Unit, error) {
+	r := a.run
+	r.task.Prepare(a.runCtx, r.trigger)
 	var all []Unit
-	err := s.cfg.Library.Read(ctx, func(ctx context.Context, rd storage.Reader[file]) error {
+	err := s.cfg.Library.Read(a.ctx, func(ctx context.Context, rd storage.Reader[file]) error {
 		var err error
 		all, err = r.task.Units(ctx, rd)
 		return err
 	})
 	if err != nil {
-		return r, err
+		return nil, err
 	}
-	if err := s.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		return syncUnits(ctx, db.New(tx), r.task.ID, all)
-	}); err != nil {
-		return r, err
-	}
-	r.units = all
+	run := all
 	if r.trigger == ByReturn {
-		if r.units, err = s.returning(ctx, r.task.ID, all); err != nil {
-			return r, err
+		if run, err = s.returning(a.ctx, r.task.ID, all); err != nil {
+			return nil, err
 		}
 	}
-	s.mu.Lock()
-	s.running[r.id].run = r
-	s.mu.Unlock()
-	p.listed(len(r.units))
-	return r, nil
+	return run, s.cfg.Library.Write(a.ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		q := db.New(tx)
+		if err := syncUnits(ctx, q, r.task.ID, all); err != nil {
+			return err
+		}
+		return setQueued(ctx, q, r.id, run)
+	})
 }
 
-// unit runs u on node, the Node its place routed it to for this run.
-func (s *Scheduler) unit(ctx, runCtx context.Context, r openRun, u Unit, node role.NodeID, p *progress) result {
+// unit runs u of a on node, the Node its place routed it to for this run.
+func (s *Scheduler) unit(a *active, u Unit, node role.NodeID) result {
+	ctx, r := a.ctx, a.run
 	var res result
 	standing, _ := s.cfg.Roster.Standing(node)
 	switch who := s.peerOf(ctx, node); {
 	case node == s.self || standing == nodes.InStep:
-		err := r.task.Run(runCtx, placedOn(u, node), &Progress{step: p.step})
-		res = classify(runCtx, err, u.Place, who)
+		err := r.task.Run(a.runCtx, placedOn(u, node), &Progress{step: func(st Step) { s.stepped(a, u.Key, st) }})
+		res = classify(a.runCtx, err, u.Place, who)
 	case who.name == "":
 		res = unsent(rpc.NotHolder, "", u.Place, peer{name: "the Node"})
 	case standing == nodes.MismatchedNode:
@@ -168,7 +351,7 @@ func (s *Scheduler) record(ctx context.Context, r openRun, u Unit, node role.Nod
 	now := storage.Now()
 	params := db.RecordUnitParams{
 		LastRunID: &r.id, LastOutcome: &res.outcome, LastCause: optional(res.cause), LastNode: node,
-		LastEndedAt: now, TaskID: r.task.ID, UnitKey: u.Key,
+		LastEndedAt: now, LastOwned: res.owned, TaskID: r.task.ID, UnitKey: u.Key,
 	}
 	switch res.outcome {
 	case Succeeded:
@@ -188,13 +371,17 @@ func (s *Scheduler) record(ctx context.Context, r openRun, u Unit, node role.Nod
 	})
 }
 
-func (s *Scheduler) close(ctx context.Context, r openRun, placed []role.NodeID, results []result, canceled bool) {
-	outcome, summary, cause := rollUp(r.task.Noun, results, canceled)
-	lines := make([]line, len(r.units))
-	for i, u := range r.units {
-		lines[i] = lineOf(u.Key, u.Label, placed[i], results[i])
+// close rolls a sealed run's units up. Every unit has ended by then and
+// nothing changes them, so it reads them without s.mu.
+func (s *Scheduler) close(a *active) {
+	results := make([]result, len(a.entries))
+	lines := make([]line, len(a.entries))
+	for i, e := range a.entries {
+		results[i] = e.res
+		lines[i] = lineOf(e.unit.Key, e.unit.Label, e.node, e.res)
 	}
-	s.finish(ctx, r, outcome, summary, cause, lines)
+	outcome, summary, cause := rollUp(a.run.task.Noun, results, errors.Is(context.Cause(a.runCtx), errCanceled))
+	s.finish(a.ctx, a.run, outcome, summary, cause, lines)
 }
 
 func (s *Scheduler) finish(ctx context.Context, r openRun, outcome Result, summary, cause string, lines []line) {
@@ -218,58 +405,4 @@ func (s *Scheduler) drawJitter() *float64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return new(s.cfg.Rand.Float64())
-}
-
-type progress struct {
-	ctx   context.Context
-	s     *Scheduler
-	units int
-	mu    sync.Mutex
-	done  int
-	sent  time.Time
-	frame Progressed
-}
-
-func newProgress(ctx context.Context, s *Scheduler, r openRun) *progress {
-	return &progress{ctx: ctx, s: s, units: len(r.units), frame: Progressed{RunID: r.id, TaskID: r.task.ID, Total: len(r.units)}}
-}
-
-func (p *progress) listed(units int) {
-	p.mu.Lock()
-	p.units, p.frame.Total = units, units
-	p.mu.Unlock()
-}
-
-func (p *progress) finished() {
-	p.mu.Lock()
-	p.done++
-	p.frame.Done, p.frame.Total = p.done, p.units
-	p.mu.Unlock()
-	p.publish()
-}
-
-func (p *progress) step(done, total int) {
-	p.mu.Lock()
-	p.frame.Done, p.frame.Total = p.done*total+done, p.units*total
-	p.mu.Unlock()
-	p.publish()
-}
-
-func (p *progress) now() (done, total int) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.frame.Done, p.frame.Total
-}
-
-func (p *progress) publish() {
-	p.mu.Lock()
-	now := time.Now()
-	if now.Sub(p.sent) < progressEvery {
-		p.mu.Unlock()
-		return
-	}
-	p.sent = now
-	frame := p.frame
-	p.mu.Unlock()
-	p.s.cfg.Progressed.Publish(p.ctx, frame)
 }

@@ -120,6 +120,8 @@ type server struct {
 	goals   *targets.Targets
 	grabs   grabbing
 	homes   *roots.Roots
+	files   *files.Files
+	library *library.Library
 	// targetsChanged and rootsChanged record targets.changed and
 	// roots.changed.
 	targetsChanged *recorder[targets.Changed]
@@ -205,7 +207,7 @@ func serveAt(t *testing.T, today func() time.Time) *server {
 	sh := shelf{lib: lib, w: w, t: goals, f: shelved, l: library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: homes, Files: shelved, Grabs: noGrabs{}})}
 	worksapi.Routes(r, sh)
 	filesapi.Routes(r, sh)
-	return &server{handler: r.Handler(), lib: lib, fx: fx, works: w, goals: goals, grabs: cells, homes: homes, targetsChanged: targetsChanged, rootsChanged: rootsChanged, apiKey: identitytest.APIKey(t, lib), session: admin.Cookie.Value, log: logged}
+	return &server{handler: r.Handler(), lib: lib, fx: fx, works: w, goals: goals, grabs: cells, homes: homes, files: shelved, library: sh.l, targetsChanged: targetsChanged, rootsChanged: rootsChanged, apiKey: identitytest.APIKey(t, lib), session: admin.Cookie.Value, log: logged}
 }
 
 func (s *server) call(t *testing.T, method, path, body string) (status int, reply string) {

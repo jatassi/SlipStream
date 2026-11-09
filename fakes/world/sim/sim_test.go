@@ -5,25 +5,16 @@ import (
 	"testing"
 	"testing/synctest"
 
-	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/sim"
+	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
-
-func home(t *testing.T) scenario.Scenario {
-	t.Helper()
-	s, err := scenario.Load("home")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return s
-}
 
 // TestSimHome makes TestHome's assertions on the simulation tier.
 func TestSimHome(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		w := sim.Launch(t, home(t))
+		w := sim.Launch(t, simtest.Home(t))
 		worldtest.CheckHome(t, w.API())
 	})
 }

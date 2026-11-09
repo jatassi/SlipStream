@@ -1,6 +1,6 @@
 # Tasks
 
-The Controller runs each Scheduled task on its cadence and records every run with a plain result. The Tasks page opens with one sentence about what went wrong, then lists the shown tasks by group with cadence, last result, next run and Run now, and ends with the Schedule settings. Each task has a detail page with its units and its runs. A run an Admin starts, or a scheduled one open past the header delay, shows in a capsule in the desktop top bar and atop Activity on phone. `home` shows one task, Housekeeping, which prunes runs, Join Codes, sessions and old Indexer queries on the Controller and tidies each Node's database, so a stopped seedbox makes a run Partial and its return runs the seedbox's unit again. Once the library holds a Work, Metadata refresh joins it under `Connect` ([Metadata refresh](./metadata-refresh.md)). The Indexer catalog refresh runs on the Controller, and the Indexer health check, every 6 h under `Acquire`, tests each Indexer that is on except one stopped for a rejected sign-in or account ([Health](./health.md)).
+The Controller runs each Scheduled task on its cadence and records every run with a plain result. The Tasks page opens with one sentence about what went wrong, then lists the shown tasks by group with cadence, last result, next run and Run now, and ends with the Schedule settings. Each task has a detail page with its units and its runs. A run an Admin starts, or a scheduled one open past the header delay, shows in a capsule in the desktop top bar and atop Activity on phone. `home` shows one task, Housekeeping, which prunes runs, Join Codes, sessions and old Indexer queries on the Controller and tidies each Node's database, so a stopped seedbox makes a run Partial and its return runs the seedbox's unit again. Once the library holds a Work, Metadata refresh joins it under `Connect` ([Metadata refresh](./metadata-refresh.md)). Library scan runs under `Store` with one unit per library root ([Library roots](./library-roots.md)). The Indexer catalog refresh runs on the Controller, and the Indexer health check, every 6 h under `Acquire`, tests each Indexer that is on except one stopped for a rejected sign-in or account ([Health](./health.md)).
 
 ## Sub-features
 
@@ -13,6 +13,7 @@ The Controller runs each Scheduled task on its cadence and records every run wit
 - `tasks-returned` when seedbox starts again a `Node returned` run of `1 step` runs its unit, which ends `Succeeded` (P-228).
 - `tasks-cadence` the row's `Runs every: Daily in the Maintenance window` opens the cadence; 2 days reads `Every 2 days in the Maintenance window` on the row and the detail page, a cadence outside 1 to 7 days answers 422 with `Between 1 day and 7 days.`, and `Reset to default` brings back daily (P-229).
 - `tasks-schedule` the `Schedule` section edits the `Maintenance window` with the Controller's zone beside it, `Overdue tasks`, `Runs kept per task`, and under `Details` the jitter, the header delay and the Partial rule; a window of 01:00 to 03:00 moves Housekeeping's next run to 01:00 (P-229).
+- `tasks-library-scan` on `home`, Library scan sits under `Store`, `Daily in the Maintenance window`, about `Lists the files in every library root and records what changed. Files in folders no Work has join a Work the scan is sure of, or wait in Pending imports.` `/tasks/library-scan` lists one unit per root by its words, such as `Series library root on home`. A new root's scan reads the trigger `Root ready` and `1 root`, Scan now and Mark them gone read `Run now`, a stopped scan reads `Skipped` and `1 of 1 root skipped`, and a cancelled one `Cancelled` and `0 of 1 root`. Run now over the API answers 202 `{runId}`, and a second while it is open 409 `task_running`; the run ends `Succeeded` with a unit per root. Its cadence is the one Settings > Library scan shows, so 2 days there reads `Every 2 days in the Maintenance window` here (P-025, P-230).
 - `tasks-housekeeping` a Housekeeping run lists its units in order: `Run history`, `Join Codes`, `Sessions`, `Indexer queries and sessions`, `Local database on home`, `Local database on seedbox`, `Library database`.
 
 ## How to get to it (user POV)
@@ -139,6 +140,17 @@ Steps:
   $FW exec $RUN --proof tasks/tasks-returned -- $PW cli -s={runId}-admin-desktop screenshot --filename={runDir}/proof/tasks/tasks-returned/returned.png
   $FW exec $RUN --proof tasks/tasks-returned -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/tasks/housekeeping'
   $FW doctor $RUN
+  ```
+
+- **Library scan.** On a `home` run with the shelves added as roots and the [Library roots](./library-roots.md) Library scan steps driven, open `/tasks/library-scan` and read its units and runs, then Run now twice over the API.
+
+  ```sh
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/tasks/library-scan'
+  $FW exec $RUN --proof tasks/tasks-library-scan -- $PW cli -s={runId}-admin-desktop snapshot --filename={runDir}/proof/tasks/tasks-library-scan/detail.aria.yml
+  $FW exec $RUN --proof tasks/tasks-library-scan -- $PW cli -s={runId}-admin-desktop screenshot --full-page --filename={runDir}/proof/tasks/tasks-library-scan/detail.png
+  $FW exec $RUN --proof tasks/tasks-library-scan -- curl -sS -i -X POST -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/tasks/library-scan/runs'
+  $FW exec $RUN --proof tasks/tasks-library-scan -- curl -sS -i -X POST -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/tasks/library-scan/runs'
+  $FW exec $RUN --proof tasks/tasks-library-scan -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/tasks/library-scan'
   ```
 
 ## Gotchas

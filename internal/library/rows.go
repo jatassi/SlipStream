@@ -13,6 +13,8 @@ import (
 type Row struct {
 	Work   works.Row
 	Rollup files.Rollup
+	// Gone counts its files a library scan found missing.
+	Gone int
 }
 
 // Rows answers s from one snapshot, by sort label then id.
@@ -36,13 +38,18 @@ func (l *Library) rowsIn(ctx context.Context, r storage.Reader[storage.Library],
 	for i, w := range ws {
 		bares[i], ids[i] = w.Bare, w.ID
 	}
-	rolled, err := l.cfg.Files.Rollups(ctx, r, bares, s.Among(ids))
+	among := s.Among(ids)
+	rolled, err := l.cfg.Files.Rollups(ctx, r, bares, among)
+	if err != nil {
+		return nil, err
+	}
+	gone, err := files.GoneOfWorks(ctx, r, among)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]Row, len(ws))
 	for i, w := range ws {
-		out[i] = Row{Work: w, Rollup: rolled[i]}
+		out[i] = Row{Work: w, Rollup: rolled[i], Gone: gone[w.ID]}
 	}
 	return out, nil
 }

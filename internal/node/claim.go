@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/joincode"
 	"github.com/jatassi/slipstream/internal/library"
@@ -267,6 +268,14 @@ func (s surfaceNode) Files() (*files.Files, bool) {
 		return nil, false
 	}
 	return h.files, true
+}
+
+func (s surfaceNode) Imports() (*imports.Imports, bool) {
+	h := s.n.half.Load()
+	if h == nil || h.imports == nil {
+		return nil, false
+	}
+	return h.imports, true
 }
 
 func (s surfaceNode) Library() (*library.Library, bool) {
