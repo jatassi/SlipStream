@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"syscall"
 	"testing"
 	"testing/synctest"
@@ -334,6 +335,35 @@ func playsFoldCase(t *testing.T) {
 	if _, err := c.d.Stat(c.ctx, filepath.Join(c.sibling, "X")); sensitive && !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("Stat in upper case in a sibling = %v, want not exist", err)
 	}
+	if err := os.WriteFile(filepath.Join(c.folder, "heat.mkv"), []byte("film"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.d.Rename(c.ctx, filepath.Join(c.folder, "heat.mkv"), filepath.Join(c.folder, "Heat.mkv")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(c.folder, "heat (1995)"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.d.Mkdir(c.ctx, filepath.Join(c.folder, "Heat (1995)")); !errors.Is(err, fs.ErrExist) {
+		t.Fatalf("Mkdir of a folder there in another case = %v, want exists", err)
+	}
+	if got := names(t, c.folder); !slices.Equal(got, []string{storing.MarkerName, "Heat.mkv", "heat (1995)"}) {
+		t.Fatalf("the folder holds %q, want the file respelled and one folder kept as made", got)
+	}
+}
+
+func names(t *testing.T, dir string) []string {
+	t.Helper()
+	des, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, de := range des {
+		out = append(out, de.Name())
+	}
+	slices.Sort(out)
+	return out
 }
 
 func playsNoIDs(t *testing.T) {
