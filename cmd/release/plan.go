@@ -44,12 +44,14 @@ type touched struct {
 // OS cannot lint another's. Everything else runs once.
 // The browser tier's shard counts follow its runtime on each runner, which
 // is CPU-bound, so it scales out across jobs rather than Playwright workers.
+// The e2e tier runs in two shards: in one job, the e2e package's processes
+// slowed the simulation package past go test's 20 minute limit under -race.
 var lanes = []lane{
 	{kind: "build", savesCaches: true, shards: map[string]int{"linux-amd64": 1, "linux-arm64": 1, "windows-amd64": 1, "darwin-arm64": 1}},
 	{kind: "lint", tier: "lint", savesCaches: true, shards: map[string]int{"linux-amd64": 1, "windows-amd64": 1, "darwin-arm64": 1}},
 	{kind: "lint-repo", tier: "lint", shards: map[string]int{"linux-amd64": 1}},
 	{kind: "go", tier: "go", shards: map[string]int{"linux-amd64": 2, "linux-arm64": 1, "windows-amd64": 2, "darwin-arm64": 2}},
-	{kind: "e2e", tier: "e2e", shards: map[string]int{"linux-amd64": 1, "linux-arm64": 1, "windows-amd64": 1, "darwin-arm64": 1}},
+	{kind: "e2e", tier: "e2e", shards: map[string]int{"linux-amd64": 2, "linux-arm64": 2, "windows-amd64": 2, "darwin-arm64": 2}},
 	{kind: "browser", tier: "browser", shards: map[string]int{"linux-amd64": 4, "linux-arm64": 1, "windows-amd64": 2, "darwin-arm64": 3}},
 	{kind: "component", tier: "component", shards: map[string]int{"linux-amd64": 1}},
 	{kind: "diagram", tier: "component", shards: map[string]int{"linux-amd64": 1}, onlyWhen: func(t touched) bool { return t.diagram }},
