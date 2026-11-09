@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
@@ -283,4 +284,107 @@ func TestSavingAFileTemplateThenConfirmingItsPlanRenamesTheFoundMoviesWithTheirC
 	if got := planRenames(t, sh.a, `{"scope":{"kind":"type","id":"movie"}}`).lines(); !slices.Equal(got, []string{"0 to rename, 1 blocked", "Copper Kettle: rename 0, blocked 1, moving 0"}) {
 		t.Fatalf("the movies' plan after the confirm reads %q, want Copper Kettle blocked alone", got)
 	}
+}
+
+const (
+	tinStatic  = "The Tin Signal (2019)/Season 01/The Tin Signal - S01E01 - Static 1080p.mkv"
+	tinDeadAir = "The Tin Signal (2019)/Season 02/The Tin Signal - S02E05 - Dead Air 1080p.mkv"
+	tinSignOff = "The Tin Signal (2019)/Season 02/The Tin Signal - S02E06 - Sign Off 1080p.mkv"
+)
+
+// brassMeridian is shelf-series' Brass Meridian folder, which no test
+// here renames.
+var brassMeridian = []string{"Brass Meridian (2015)/Brass Meridian - 2x05.mkv", "Brass Meridian (2015)/Brass Meridian - S03E09.mkv"}
+
+// tinRenamed is home, as edit changes it, with its shelves scanned, the
+// series naming values saved, and The Tin Signal's found episodes renamed
+// as its plan says, to names. It answers the shelves and the Work's id.
+func tinRenamed(t *testing.T, name string, edit func(*scenario.Scenario), values string, names ...string) (sh *shelves, tin string) {
+	t.Helper()
+	s, err := scenario.Load("home")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Name = name
+	edit(&s)
+	sh = scannedShelvesOf(t, s)
+	saveNaming(t, sh.a, "series", values)
+	_, works, _ := sh.library()
+	tin = works["The Tin Signal"]
+	found := planWork(t, sh.a, tin, "")
+	if done := renameFiles(t, sh.a, found.confirmed(tin)); done.Queued != 3 {
+		t.Fatalf("the confirm of The Tin Signal's found files answered %+v, want 3 queued", done)
+	}
+	shelfHolds(t, sh.m, "shelf-series", []string{"The Tin Signal [tvdbid-9100201]"}, append(slices.Clone(brassMeridian), names...)...)
+	return sh, tin
+}
+
+// With episode titles left out of the file template, DVD order swaps The
+// Tin Signal's episodes 5 and 6, so their files trade names: the plan
+// joins the two rows, a confirm leaving one renames neither, and a
+// confirm of both trades them on disk.
+func TestAfterAnEpisodeOrderChangeTwoFilesTradeNamesTogether(t *testing.T) {
+	t.Parallel()
+	const e05, e06 = "The Tin Signal (2019)/Season 02/The Tin Signal - S02E05 - 1080p.mkv", "The Tin Signal (2019)/Season 02/The Tin Signal - S02E06 - 1080p.mkv"
+	sh, tin := tinRenamed(t, "home-naming-order", func(s *scenario.Scenario) {
+		s.TVDB.Series[0].DVD = map[int64]scenario.TVDBNumber{
+			9120101: {Season: 1, Episode: 1}, 9120102: {Season: 1, Episode: 2},
+			9120205: {Season: 2, Episode: 6}, 9120206: {Season: 2, Episode: 5},
+		}
+	}, `{"series.naming.file.standard":"{Series Title} - S{season:00}E{episode:00} - {Edition} {Target}"}`,
+		"The Tin Signal (2019)/Season 01/The Tin Signal - S01E01 - 1080p.mkv", e05, e06)
+	shelf := filepath.Join(sh.m.MediaDir, "shelf-series")
+	stat := func(p string) (os.FileInfo, error) { return os.Stat(filepath.Join(shelf, filepath.FromSlash(p))) }
+	deadAir, err := stat(e05)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signOff, err := stat(e06)
+	if err != nil {
+		t.Fatal(err)
+	}
+	holds := func(p string, was os.FileInfo) bool {
+		now, err := stat(p)
+		return err == nil && os.SameFile(was, now)
+	}
+	if r := sh.a.Admin("home", http.MethodPut, "/api/v1/works/"+tin+"/options", `{"type":{"order":"dvd"},"preview":false}`); r.Status != http.StatusOK {
+		t.Fatalf("setWorkOptions to DVD order = %d %s, want 200", r.Status, r.Body)
+	}
+
+	traded := planWork(t, sh.a, tin, "")
+	expectRows(t, "after the order change", traded, e05+" -> "+e06+" in a group", e06+" -> "+e05+" in a group")
+	if done := renameFiles(t, sh.a, traded.confirmed(tin, traded.Rows[0].FileID)); done.Queued != 0 || len(done.Changed) != 0 {
+		t.Fatalf("the confirm leaving Dead Air's file answered %+v, want nothing queued", done)
+	}
+	if done := renameFiles(t, sh.a, traded.confirmed(tin)); done.Queued != 2 || len(done.Changed) != 0 {
+		t.Fatalf("the confirm of both answered %+v, want 2 queued", done)
+	}
+	worldtest.Until(t, "the two files traded names", func() (bool, error) {
+		return holds(e06, deadAir) && holds(e05, signOff), nil
+	})
+	shelfHolds(t, sh.m, "shelf-series", nil, append(slices.Clone(brassMeridian), "The Tin Signal (2019)/Season 01/The Tin Signal - S01E01 - 1080p.mkv", e05, e06)...)
+	expectRows(t, "after the trade", planWork(t, sh.a, tin, ""))
+}
+
+// Turning on Name by air date for The Tin Signal plans each episode's
+// file under its air date, and the confirm names them so on disk.
+func TestNameByAirDateNamesASeriesEpisodesByTheirAirDates(t *testing.T) {
+	t.Parallel()
+	sh, tin := tinRenamed(t, "home-naming-daily", func(*scenario.Scenario) {}, `{}`, tinStatic, tinDeadAir, tinSignOff)
+	if r := sh.a.Admin("home", http.MethodPut, "/api/v1/works/"+tin+"/options", `{"type":{"nameByAirDate":true},"preview":false}`); r.Status != http.StatusOK {
+		t.Fatalf("setWorkOptions naming by air date = %d %s, want 200", r.Status, r.Body)
+	}
+
+	daily := planWork(t, sh.a, tin, "")
+	expectRows(t, "named by air date", daily,
+		tinStatic+" -> The Tin Signal (2019)/Season 01/The Tin Signal - 2019-01-07 - Static 1080p.mkv",
+		tinDeadAir+" -> The Tin Signal (2019)/Season 02/The Tin Signal - 2020-02-03 - Dead Air 1080p.mkv",
+		tinSignOff+" -> The Tin Signal (2019)/Season 02/The Tin Signal - 2020-02-10 - Sign Off 1080p.mkv")
+	if done := renameFiles(t, sh.a, daily.confirmed(tin)); done.Queued != 3 {
+		t.Fatalf("the confirm answered %+v, want 3 queued", done)
+	}
+	shelfHolds(t, sh.m, "shelf-series", nil, append(slices.Clone(brassMeridian),
+		"The Tin Signal (2019)/Season 01/The Tin Signal - 2019-01-07 - Static 1080p.mkv",
+		"The Tin Signal (2019)/Season 02/The Tin Signal - 2020-02-03 - Dead Air 1080p.mkv",
+		"The Tin Signal (2019)/Season 02/The Tin Signal - 2020-02-10 - Sign Off 1080p.mkv")...)
 }
