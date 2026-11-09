@@ -2826,6 +2826,36 @@
         ],
         "type": "object"
       },
+      "FilesConfirmedWork": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "description": "The digest the Work's plan showed",
+            "pattern": "^[0-9a-f]{16}$",
+            "type": "string"
+          },
+          "leave": {
+            "description": "Files to leave as they are; a file that trades or chains paths with another leaves both",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "work": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work",
+          "digest"
+        ],
+        "type": "object"
+      },
       "FilesDolbyVision": {
         "additionalProperties": false,
         "properties": {
@@ -3443,6 +3473,169 @@
         ],
         "type": "object"
       },
+      "FilesRenameDraft": {
+        "additionalProperties": false,
+        "properties": {
+          "contentType": {
+            "description": "The Content Type whose naming settings the draft changes",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {},
+            "description": "Each naming setting's unsaved value by key, over the stored ones",
+            "type": "object"
+          }
+        },
+        "required": [
+          "contentType",
+          "values"
+        ],
+        "type": "object"
+      },
+      "FilesRenamePlan": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked": {
+            "description": "Files that can't be renamed now, in every Work",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "files": {
+            "description": "Files that can be renamed now, in every Work",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "works": {
+            "description": "Each Work with a file to rename, a blocked file or a file still moving",
+            "items": {
+              "$ref": "#/components/schemas/FilesWorkLine"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "files",
+          "blocked",
+          "works"
+        ],
+        "type": "object"
+      },
+      "FilesRenameResult": {
+        "additionalProperties": false,
+        "properties": {
+          "changed": {
+            "description": "Works left as they are because their plans differ now; plan them again",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "queued": {
+            "description": "Files queued to move to their new paths",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "queued",
+          "changed"
+        ],
+        "type": "object"
+      },
+      "FilesRenameRow": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked": {
+            "$ref": "#/components/schemas/FilesRowBlock",
+            "description": "Why it can't be renamed now; absent when it can"
+          },
+          "companions": {
+            "description": "Files beside it that move with it, such as its subtitles",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "fileId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "from": {
+            "description": "Where the file is now, relative to its root",
+            "type": "string"
+          },
+          "group": {
+            "description": "0 for a row joined to no other; rows with one number trade or chain paths, so they are renamed or left together",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "to": {
+            "description": "Where the naming templates put it; empty when its name doesn't fit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileId",
+          "from",
+          "to",
+          "group",
+          "companions"
+        ],
+        "type": "object"
+      },
+      "FilesRenameScope": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "The Work's id for work, the Content Type's id for type; left out for library",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "work",
+              "type",
+              "library"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
+      "FilesRowBlock": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "description": "Why the file can't be renamed now, then what to do",
+            "type": "string"
+          },
+          "otherWorkId": {
+            "description": "For clash, the Work whose file ends at the same path",
+            "format": "uuid",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "occupied",
+              "too_long",
+              "clash"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "detail"
+        ],
+        "type": "object"
+      },
       "FilesState": {
         "enum": [
           "unreleased",
@@ -3552,6 +3745,24 @@
           "cells",
           "items",
           "itemStatus"
+        ],
+        "type": "object"
+      },
+      "FilesUnmatchedType": {
+        "additionalProperties": false,
+        "properties": {
+          "contentType": {
+            "type": "string"
+          },
+          "files": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contentType",
+          "files"
         ],
         "type": "object"
       },
@@ -3776,6 +3987,94 @@
           "kind",
           "grabId",
           "code"
+        ],
+        "type": "object"
+      },
+      "FilesWorkLine": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked": {
+            "description": "Files that can't be renamed now",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "digest": {
+            "description": "A hash of the Work's rows, which a confirm sends back",
+            "type": "string"
+          },
+          "moving": {
+            "description": "Files the disk queue still moves, which the plan leaves out",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rename": {
+            "description": "Files that can be renamed now",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workId",
+          "contentType",
+          "title",
+          "digest",
+          "rename",
+          "blocked",
+          "moving"
+        ],
+        "type": "object"
+      },
+      "FilesWorkRenamePlan": {
+        "additionalProperties": false,
+        "properties": {
+          "contentType": {
+            "type": "string"
+          },
+          "digest": {
+            "description": "A hash of the Work's rows, which a confirm sends back",
+            "type": "string"
+          },
+          "moving": {
+            "description": "Files the disk queue still moves, which the plan leaves out",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rows": {
+            "description": "Each file whose path differs from what the naming templates make",
+            "items": {
+              "$ref": "#/components/schemas/FilesRenameRow"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workId",
+          "contentType",
+          "title",
+          "digest",
+          "moving",
+          "rows"
         ],
         "type": "object"
       },
@@ -9714,6 +10013,20 @@
         ],
         "type": "object"
       },
+      "MovingOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "files": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "type": "object"
+      },
       "NamingChanged": {
         "additionalProperties": false,
         "properties": {
@@ -11720,6 +12033,22 @@
         ],
         "type": "object"
       },
+      "PlanInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/FilesRenameDraft",
+            "description": "Unsaved naming settings to plan under instead of the stored ones"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/FilesRenameScope"
+          }
+        },
+        "required": [
+          "scope"
+        ],
+        "type": "object"
+      },
       "Problem": {
         "additionalProperties": false,
         "properties": {
@@ -11770,6 +12099,23 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "RenameInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "works": {
+            "description": "Each Work to rename as its plan showed",
+            "items": {
+              "$ref": "#/components/schemas/FilesConfirmedWork"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "works"
+        ],
         "type": "object"
       },
       "RenameTrackerInputBody": {
@@ -17420,6 +17766,32 @@
           "kind",
           "nodeId"
         ],
+        "type": "object"
+      },
+      "UnmatchedOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "contentTypes": {
+            "description": "Each Content Type with such a file",
+            "items": {
+              "$ref": "#/components/schemas/FilesUnmatchedType"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "contentTypes"
+        ],
+        "type": "object"
+      },
+      "WorkPlanInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "draft": {
+            "$ref": "#/components/schemas/FilesRenameDraft",
+            "description": "Unsaved naming settings to plan under instead of the stored ones"
+          }
+        },
         "type": "object"
       },
       "WorksAdded": {
@@ -46902,6 +47274,898 @@
         "summary": "Read release or file names as a search would: the facts, the Work each matches, every Custom Format with each condition's result, and the score and verdict at each Target",
         "tags": [
           "formats"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/renames": {
+      "post": {
+        "operationId": "renameFiles",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesRenameResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "root_not_ready",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Rename the files of each Work whose plan still has the digest shown, and list the Works left because their plans differ now",
+        "tags": [
+          "files"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/renames/moving": {
+      "get": {
+        "operationId": "countMoving",
+        "parameters": [
+          {
+            "description": "Count only this Work's files",
+            "explode": false,
+            "in": "query",
+            "name": "workId",
+            "schema": {
+              "description": "Count only this Work's files",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Count only this Content Type's files",
+            "explode": false,
+            "in": "query",
+            "name": "contentType",
+            "schema": {
+              "description": "Count only this Content Type's files",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovingOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Count the files the disk queue still moves, in a Work, a Content Type or the library",
+        "tags": [
+          "files"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/renames/plan": {
+      "post": {
+        "operationId": "planRenames",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesRenamePlan"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "content_type_not_found",
+                            "work_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "root_not_ready",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "naming_template_refused",
+                            "unknown_setting"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Plan the renames of a Work, a Content Type or the library, each Work's counts and digest, under the stored naming settings or a draft",
+        "tags": [
+          "files"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/renames/plan/{workId}": {
+      "post": {
+        "operationId": "planWorkRenames",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkPlanInputBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesWorkRenamePlan"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "content_type_not_found",
+                            "work_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "root_not_ready",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "naming_template_refused",
+                            "unknown_setting"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Plan the renames of one Work, each file's row with its companions, under the stored naming settings or a draft",
+        "tags": [
+          "files"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/renames/unmatched": {
+      "get": {
+        "operationId": "countUnmatched",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnmatchedOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Count, per Content Type, the files whose path differs from what the naming templates make",
+        "tags": [
+          "files"
         ],
         "x-slipstream-access": "admin"
       }

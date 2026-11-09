@@ -167,6 +167,8 @@ func Routes(r *api.Router, lib Library) {
 		Status:  http.StatusNoContent,
 		Errors:  []*api.Code{fileNotFound, filesNotGone},
 	}, h.forgetFiles)
+
+	renameRoutes(o, h)
 }
 
 type handlers struct{ lib Library }

@@ -12,11 +12,88 @@ import type {
   FilesMetCell,
   FilesMissingCell,
   FilesNoRootNeed,
+  FilesRenamePlan,
+  FilesRenameResult,
   FilesUnreleasedCell,
   FilesUpgradableCell,
   FilesUpgradeNeed,
   FilesWaitingNeed,
+  FilesWorkRenamePlan,
+  MovingOutputBody,
+  UnmatchedOutputBody,
 } from "../../model";
+
+export const getRenameFilesResponseMock = (
+  overrideResponse: Partial<Extract<FilesRenameResult, object>> = {},
+): FilesRenameResult => ({
+  changed: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.string.uuid(),
+  ),
+  queued: faker.number.int({ min: 0 }),
+  ...overrideResponse,
+});
+
+export const getCountMovingResponseMock = (
+  overrideResponse: Partial<Extract<MovingOutputBody, object>> = {},
+): MovingOutputBody => ({ files: faker.number.int({ min: 0 }), ...overrideResponse });
+
+export const getPlanRenamesResponseMock = (
+  overrideResponse: Partial<Extract<FilesRenamePlan, object>> = {},
+): FilesRenamePlan => ({
+  blocked: faker.number.int({ min: 0 }),
+  files: faker.number.int({ min: 0 }),
+  works: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    blocked: faker.number.int({ min: 0 }),
+    contentType: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    digest: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    moving: faker.number.int({ min: 0 }),
+    rename: faker.number.int({ min: 0 }),
+    title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    workId: faker.string.uuid(),
+  })),
+  ...overrideResponse,
+});
+
+export const getPlanWorkRenamesResponseMock = (
+  overrideResponse: Partial<Extract<FilesWorkRenamePlan, object>> = {},
+): FilesWorkRenamePlan => ({
+  contentType: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  digest: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  moving: faker.number.int({ min: 0 }),
+  rows: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    ...(faker.datatype.boolean()
+      ? {
+          blocked: {
+            detail: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            ...(faker.datatype.boolean() ? { otherWorkId: faker.string.uuid() } : {}),
+            reason: faker.helpers.arrayElement(["occupied", "too_long", "clash"] as const),
+          },
+        }
+      : {}),
+    companions: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    fileId: faker.string.uuid(),
+    from: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    group: faker.number.int({ min: 0 }),
+    to: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  })),
+  title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  workId: faker.string.uuid(),
+  ...overrideResponse,
+});
+
+export const getCountUnmatchedResponseMock = (
+  overrideResponse: Partial<Extract<UnmatchedOutputBody, object>> = {},
+): UnmatchedOutputBody => ({
+  contentTypes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      contentType: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      files: faker.number.int({ min: 1 }),
+    }),
+  ),
+  ...overrideResponse,
+});
 
 export const getGetWorkCellsResponseFilesUnreleasedCellMock = (
   overrideResponse: Partial<FilesUnreleasedCell> = {},
@@ -402,6 +479,126 @@ export const getForgetFilesMockHandler = (
   );
 };
 
+export const getRenameFilesMockHandler = (
+  overrideResponse?:
+    | FilesRenameResult
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<FilesRenameResult> | FilesRenameResult),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/renames",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getRenameFilesResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getCountMovingMockHandler = (
+  overrideResponse?:
+    | MovingOutputBody
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<MovingOutputBody> | MovingOutputBody),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/renames/moving",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCountMovingResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getPlanRenamesMockHandler = (
+  overrideResponse?:
+    | FilesRenamePlan
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<FilesRenamePlan> | FilesRenamePlan),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/renames/plan",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getPlanRenamesResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getPlanWorkRenamesMockHandler = (
+  overrideResponse?:
+    | FilesWorkRenamePlan
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<FilesWorkRenamePlan> | FilesWorkRenamePlan),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/renames/plan/:workId",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getPlanWorkRenamesResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getCountUnmatchedMockHandler = (
+  overrideResponse?:
+    | UnmatchedOutputBody
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<UnmatchedOutputBody> | UnmatchedOutputBody),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/renames/unmatched",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getCountUnmatchedResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getGetWorkCellsMockHandler = (
   overrideResponse?:
     | FilesCellList
@@ -451,6 +648,11 @@ export const getListWorkFilesMockHandler = (
 };
 export const getFilesMock = () => [
   getForgetFilesMockHandler(),
+  getRenameFilesMockHandler(),
+  getCountMovingMockHandler(),
+  getPlanRenamesMockHandler(),
+  getPlanWorkRenamesMockHandler(),
+  getCountUnmatchedMockHandler(),
   getGetWorkCellsMockHandler(),
   getListWorkFilesMockHandler(),
 ];
