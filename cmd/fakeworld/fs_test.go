@@ -72,6 +72,7 @@ func TestFsChangesTheMediaDir(t *testing.T) {
 	}
 	made := func(rel string) result { return result{0, `{"path":` + jsonText(t, media(rel)) + "}\n", ""} }
 	outside := filepath.Join(t.TempDir(), "outside.mkv")
+	_, missing := os.Lstat(media("copy"))
 	steps := []struct {
 		args []string
 		want result
@@ -81,7 +82,7 @@ func TestFsChangesTheMediaDir(t *testing.T) {
 		{[]string{"mv", "shelf/b.mkv", "Heat (1995)/Heat.mkv"}, made("Heat (1995)/Heat.mkv")},
 		{[]string{"mv", media("shelf/a.mkv"), "copy/a.mkv"}, result{1, "", "fakeworld fs mv: " + media("copy/a.mkv") + " already exists\n"}},
 		{[]string{"rm", "copy"}, made("copy")},
-		{[]string{"rm", "copy"}, result{1, "", "fakeworld fs rm: lstat " + media("copy") + ": no such file or directory\n"}},
+		{[]string{"rm", "copy"}, result{1, "", "fakeworld fs rm: " + missing.Error() + "\n"}},
 		{[]string{"rm", outside}, result{1, "", "fakeworld fs rm: " + outside + " is not inside the media dir " + m.MediaDir + "\n"}},
 		{[]string{"cp", "../ca.pem", "ca.pem"}, result{1, "", "fakeworld fs cp: " + filepath.Join(filepath.Dir(m.MediaDir), "ca.pem") + " is not inside the media dir " + m.MediaDir + "\n"}},
 		{[]string{"rm", "."}, result{1, "", "fakeworld fs rm: " + m.MediaDir + " is not inside the media dir " + m.MediaDir + "\n"}},
