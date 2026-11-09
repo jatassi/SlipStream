@@ -77,7 +77,8 @@ func misplaced(b *testing.B) (*library, *files.Files) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	return l, l.on(files.NoGrabs{}, nowhere{l.held})
+	svc := l.on(files.NoGrabs{}, nowhere{l.held})
+	return l, svc
 }
 
 // misplace puts every file back in the found files' folder, with nothing

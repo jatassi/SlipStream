@@ -30,53 +30,6 @@ var (
 // library the plan is sized for.
 const confirmLimit = 8 << 20
 
-func renameRoutes(o *api.Owner, h handlers) {
-	api.Register(o, api.Admin, api.Op{
-		ID:      "planRenames",
-		Method:  http.MethodPost,
-		Path:    "/renames/plan",
-		Summary: "Plan the renames of a Work, a Content Type or the library, each Work's counts and digest, under the stored naming settings or a draft",
-		Status:  http.StatusOK,
-		Gzip:    true,
-		Errors:  []*api.Code{workNotFound, contentTypeNotFound, templateRefused, settingapi.ErrUnknown, rootNotReady},
-	}, h.planRenames)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "planWorkRenames",
-		Method:  http.MethodPost,
-		Path:    "/renames/plan/{workId}",
-		Summary: "Plan the renames of one Work, each file's row with its companions, under the stored naming settings or a draft",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{workNotFound, contentTypeNotFound, templateRefused, settingapi.ErrUnknown, rootNotReady},
-	}, h.planWorkRenames)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "renameFiles",
-		Method:  http.MethodPost,
-		Path:    "/renames",
-		Summary: "Rename the files of each Work whose plan still has the digest shown, and list the Works left because their plans differ now",
-		Status:  http.StatusOK,
-		MaxBody: confirmLimit,
-		Errors:  []*api.Code{rootNotReady},
-	}, h.renameFiles)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "countUnmatched",
-		Method:  http.MethodGet,
-		Path:    "/renames/unmatched",
-		Summary: "Count, per Content Type, the files whose path differs from what the naming templates make",
-		Status:  http.StatusOK,
-	}, h.countUnmatched)
-
-	api.Register(o, api.Admin, api.Op{
-		ID:      "countMoving",
-		Method:  http.MethodGet,
-		Path:    "/renames/moving",
-		Summary: "Count the files the disk queue still moves, in a Work, a Content Type or the library",
-		Status:  http.StatusOK,
-	}, h.countMoving)
-}
-
 type renameScope struct {
 	Kind string `json:"kind" enum:"work,type,library"`
 	ID   string `json:"id,omitempty" doc:"The Work's id for work, the Content Type's id for type; left out for library"`

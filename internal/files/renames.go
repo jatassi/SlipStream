@@ -93,9 +93,41 @@ func (f *Files) Rename(ctx context.Context, _ identity.Admin, cs []Confirm) (Con
 			ids = append(ids, c.Work)
 		}
 	}
+	owners, found, err := f.beforeRenaming(ctx, ids)
+	if err != nil {
+		return Confirmed{}, err
+	}
+	var out Confirmed
+	var renamed []works.WorkID
+	for chunk := range slices.Chunk(ids, confirmChunk) {
+		var done Confirmed
+		var of []works.WorkID
+		err := f.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+			var err error
+			done, of, err = f.renameChunk(ctx, tx, chunk, asked, owners, found)
+			return err
+		})
+		if err != nil {
+			return Confirmed{}, err
+		}
+		out.Queued += done.Queued
+		out.Changed = append(out.Changed, done.Changed...)
+		renamed = append(renamed, of...)
+	}
+	if len(renamed) > 0 {
+		f.Poke()
+		f.cfg.Moved.Publish(ctx, MovedOf(renamed))
+	}
+	return out, nil
+}
+
+// beforeRenaming reads ids' plans and where the library's files are, and
+// asks each root's Node which files sit at the plans' new paths: the
+// owners of each folded place, the plans' new paths among them, and what
+// the Nodes found, by file.
+func (f *Files) beforeRenaming(ctx context.Context, ids []works.WorkID) (owners map[place][]works.WorkID, found map[ID][]string, err error) {
 	var first []WorkPlan
-	var owners map[place][]works.WorkID
-	err := f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+	err = f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		pl, err := f.plansOf(ctx, r, ids)
 		if err != nil {
 			return err
@@ -105,58 +137,45 @@ func (f *Files) Rename(ctx context.Context, _ identity.Admin, cs []Confirm) (Con
 		return err
 	})
 	if err != nil {
-		return Confirmed{}, err
+		return nil, nil, err
 	}
 	for _, p := range first {
 		aside(owners, p)
 	}
-	found, _, err := f.survey(ctx, first, false)
+	found, _, err = f.survey(ctx, first, false)
+	return owners, found, err
+}
+
+// renameChunk recomputes the plans of chunk's Works in tx and renames
+// each whose digest is the one asked. It answers what it queued, the
+// Works it left, those gone included, and the Works it renamed.
+func (f *Files) renameChunk(ctx context.Context, tx *storage.Tx[file], chunk []works.WorkID, asked map[works.WorkID]Confirm, owners map[place][]works.WorkID, found map[ID][]string) (Confirmed, []works.WorkID, error) {
+	pl, err := f.plansOf(ctx, tx, chunk)
 	if err != nil {
-		return Confirmed{}, err
+		return Confirmed{}, nil, err
 	}
+	ps := workPlans(pl)
+	settle(ps, owners, found)
 	var out Confirmed
 	var renamed []works.WorkID
-	seen := map[works.WorkID]bool{}
-	for chunk := range slices.Chunk(ids, confirmChunk) {
-		err := f.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-			pl, err := f.plansOf(ctx, tx, chunk)
-			if err != nil {
-				return err
-			}
-			q := db.New(tx)
-			ps := workPlans(pl)
-			settle(ps, owners, found)
-			for i, p := range ps {
-				seen[p.Work] = true
-				if p.Digest != asked[p.Work].Digest {
-					out.Changed = append(out.Changed, p.Work)
-					continue
-				}
-				n, err := renameRows(ctx, q, pl[i], ps[i].Rows, asked[p.Work].Leave)
-				if err != nil {
-					return err
-				}
-				if n > 0 {
-					out.Queued += n
-					renamed = append(renamed, p.Work)
-				}
-			}
-			return nil
-		})
+	left := slices.Clone(chunk)
+	for i, p := range ps {
+		left = slices.DeleteFunc(left, func(w works.WorkID) bool { return w == p.Work })
+		if p.Digest != asked[p.Work].Digest {
+			out.Changed = append(out.Changed, p.Work)
+			continue
+		}
+		n, err := renameRows(ctx, db.New(tx), pl[i], p.Rows, asked[p.Work].Leave)
 		if err != nil {
-			return Confirmed{}, err
+			return Confirmed{}, nil, err
+		}
+		out.Queued += n
+		if n > 0 {
+			renamed = append(renamed, p.Work)
 		}
 	}
-	for _, id := range ids {
-		if !seen[id] {
-			out.Changed = append(out.Changed, id)
-		}
-	}
-	if len(renamed) > 0 {
-		f.Poke()
-		f.cfg.Moved.Publish(ctx, MovedOf(renamed))
-	}
-	return out, nil
+	out.Changed = append(out.Changed, left...)
+	return out, renamed, nil
 }
 
 // renameRows renames rows of p's Work, as settled, but for the files of
@@ -352,30 +371,37 @@ func (f *Files) survey(ctx context.Context, ps []WorkPlan, companions bool) (fou
 	}
 	found, beside = map[ID][]string{}, map[ID][]string{}
 	for _, root := range slices.SortedFunc(maps.Keys(byRoot), func(a, b roots.ID) int { return a.Compare(b.UUID) }) {
-		if lost[root] {
-			continue
-		}
-		rows := byRoot[root]
-		planned := make([]storing.Planned, len(rows))
-		for i, r := range rows {
-			if planned[i], err = plannedOf(r); err != nil {
+		if !lost[root] {
+			if err := f.surveyRoot(ctx, root, byRoot[root], companions, found, beside); err != nil {
 				return nil, nil, err
-			}
-		}
-		answers, err := f.cfg.Disk.Survey(ctx, root, planned, companions)
-		if err != nil {
-			return nil, nil, fmt.Errorf("list the files at the new paths in library root %s: %w", root, err)
-		}
-		for i, a := range answers {
-			for _, o := range a.Occupants {
-				found[rows[i].File] = append(found[rows[i].File], o.Path.String())
-			}
-			for _, c := range a.Companions {
-				beside[rows[i].File] = append(beside[rows[i].File], c.String())
 			}
 		}
 	}
 	return found, beside, nil
+}
+
+// surveyRoot is survey of rows, all in root, adding to found and beside.
+func (f *Files) surveyRoot(ctx context.Context, root roots.ID, rows []Row, companions bool, found, beside map[ID][]string) error {
+	planned := make([]storing.Planned, len(rows))
+	for i, r := range rows {
+		var err error
+		if planned[i], err = plannedOf(r); err != nil {
+			return err
+		}
+	}
+	answers, err := f.cfg.Disk.Survey(ctx, root, planned, companions)
+	if err != nil {
+		return fmt.Errorf("list the files at the new paths in library root %s: %w", root, err)
+	}
+	for i, a := range answers {
+		for _, o := range a.Occupants {
+			found[rows[i].File] = append(found[rows[i].File], o.Path.String())
+		}
+		for _, c := range a.Companions {
+			beside[rows[i].File] = append(beside[rows[i].File], c.String())
+		}
+	}
+	return nil
 }
 
 func plannedOf(r Row) (storing.Planned, error) {
