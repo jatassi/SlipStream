@@ -29,6 +29,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mailapi"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadataapi"
+	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodesapi"
 	"github.com/jatassi/slipstream/internal/pairing"
@@ -78,6 +79,7 @@ var Events = []live.Event{
 	trackers.SeedingChangedEvent,
 	files.ChangedEvent,
 	files.MovedEvent,
+	naming.ChangedEvent,
 	imports.ChangedEvent,
 	grabs.ChangedEvent,
 	grabs.SearchChangedEvent,

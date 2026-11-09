@@ -9714,6 +9714,19 @@
         ],
         "type": "object"
       },
+      "NamingChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "contentType": {
+            "pattern": "^[a-z][a-z0-9]{1,15}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contentType"
+        ],
+        "type": "object"
+      },
       "NewPINInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -27811,6 +27824,32 @@
                           "event"
                         ],
                         "title": "Event metadata.changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/NamingChanged"
+                          },
+                          "event": {
+                            "const": "naming.changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event naming.changed",
                         "type": "object"
                       },
                       {

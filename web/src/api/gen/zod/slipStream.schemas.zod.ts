@@ -5255,6 +5255,15 @@ export const MetadataSettingsChange = zod.object({
 export type MetadataSettingsChange = zod.input<typeof MetadataSettingsChange>;
 export type MetadataSettingsChangeOutput = zod.output<typeof MetadataSettingsChange>;
 
+export const namingChangedContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const NamingChanged = zod.object({
+  contentType: zod.string().regex(namingChangedContentTypeRegExp),
+});
+
+export type NamingChanged = zod.input<typeof NamingChanged>;
+export type NamingChangedOutput = zod.output<typeof NamingChanged>;
+
 export const newPINInputBodyPinRegExp = new RegExp("^[0-9]{4}$");
 
 export const NewPINInputBody = zod.object({
@@ -9523,6 +9532,14 @@ export const LiveEventMetadataChanged = zod.object({
 export type LiveEventMetadataChanged = zod.input<typeof LiveEventMetadataChanged>;
 export type LiveEventMetadataChangedOutput = zod.output<typeof LiveEventMetadataChanged>;
 
+export const LiveEventNamingChanged = zod.object({
+  event: zod.enum(["naming.changed"]),
+  data: NamingChanged,
+});
+
+export type LiveEventNamingChanged = zod.input<typeof LiveEventNamingChanged>;
+export type LiveEventNamingChangedOutput = zod.output<typeof LiveEventNamingChanged>;
+
 export const LiveEventNodeSettingsChanged = zod.object({
   event: zod.enum(["node.settings-changed"]),
   data: NodesSettingsChanged,
@@ -9685,6 +9702,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventLiveResync,
   LiveEventLiveSessionEnded,
   LiveEventMetadataChanged,
+  LiveEventNamingChanged,
   LiveEventNodeSettingsChanged,
   LiveEventNodesChanged,
   LiveEventNodesTraffic,

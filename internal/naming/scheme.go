@@ -23,10 +23,10 @@ func newScheme(d Declaration, s Settings) (*Scheme, error) {
 	sc := &Scheme{
 		decl:        d,
 		cat:         cat,
-		rename:      or(s.Rename, true),
-		colon:       or(s.Colon, ColonSmart),
+		rename:      or(s.Rename, defaultRename),
+		colon:       or(s.Colon, defaultColon),
 		colonCustom: or(s.ColonCustom, ""),
-		multi:       or(s.MultiEpisode, PrefixedRange),
+		multi:       or(s.MultiEpisode, defaultMulti),
 	}
 	var problems []Problem
 	bindField := func(key, text string, f field) bound {
