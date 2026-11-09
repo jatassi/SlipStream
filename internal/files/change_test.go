@@ -408,12 +408,12 @@ func TestAnImportProbedAtAVideoCodecItsTargetRefusesFillsNothing(t *testing.T) {
 
 // shown is i as its Admin reads it: its counts, then each rename it lists.
 func shown(i files.Impact) string {
-	out := fmt.Sprintf("works=%d ownList=%d unwanted=%d bytes=%d renamed=%d newlyWanted=%d downloading=%d",
-		i.Works, i.OwnList, i.Unwanted, i.Bytes, i.Renamed, i.NewlyWanted, i.Downloading)
+	out := []string{fmt.Sprintf("works=%d ownList=%d unwanted=%d bytes=%d renamed=%d newlyWanted=%d downloading=%d",
+		i.Works, i.OwnList, i.Unwanted, i.Bytes, i.Renamed, i.NewlyWanted, i.Downloading)}
 	for _, w := range i.Renames {
 		for _, r := range w.Rows {
-			out += "\n" + w.Title + ": " + r.From + " -> " + r.To
+			out = append(out, w.Title+": "+r.From+" -> "+r.To)
 		}
 	}
-	return out
+	return strings.Join(out, "\n")
 }
