@@ -11,7 +11,7 @@ export function Details({
   fields = false,
   children,
 }: {
-  /** The plain sentence above the trigger; left out where the row around it already says it. */
+  /** The plain-language sentence it leads with; left out where the row it sits in already says it. */
   summary?: ReactNode;
   action?: ReactNode;
   open?: boolean;

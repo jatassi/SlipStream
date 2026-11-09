@@ -104,7 +104,10 @@ func seeded(b *testing.B, count int) *library.Library {
 		}
 	}
 	b.Logf("seeded %d Works in %s", count, time.Since(start).Round(time.Millisecond))
-	shelf := files.New(files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Today: time.Now})
+	shelf, err := files.Open(b.Context(), files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Today: time.Now})
+	if err != nil {
+		b.Fatal(err)
+	}
 	return library.New(library.Config{Library: lib, Works: w, Targets: goals, Files: shelf})
 }
 
@@ -117,11 +120,11 @@ type wanted struct {
 // answers the quality that meets each.
 func wantBoth(b *testing.B, goals *targets.Targets) []wanted {
 	ctx := b.Context()
-	hd, err := goals.CreateTarget(ctx, identity.Admin{}, targets.Spec{Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}}, Cutoff: release.Bluray1080p})
+	hd, err := goals.CreateTarget(ctx, identity.Admin{}, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}}, Cutoff: release.Bluray1080p})
 	if err != nil {
 		b.Fatal(err)
 	}
-	uhd, err := goals.CreateTarget(ctx, identity.Admin{}, targets.Spec{Name: "2160p", Tiers: [][]release.Quality{{release.WEBDL2160p}}, Cutoff: release.WEBDL2160p})
+	uhd, err := goals.CreateTarget(ctx, identity.Admin{}, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "2160p", Tiers: [][]release.Quality{{release.WEBDL2160p}}, Cutoff: release.WEBDL2160p})
 	if err != nil {
 		b.Fatal(err)
 	}

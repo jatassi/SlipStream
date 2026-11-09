@@ -1,1 +1,1 @@
-export type UpdateTarget422Code = "invalid" | "quality_not_in_target";
+export type UpdateTarget422Code = "format_not_found" | "invalid" | "quality_not_in_target";

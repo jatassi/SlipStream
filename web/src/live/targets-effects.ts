@@ -1,4 +1,5 @@
 import { getListWorkFilesQueryKey } from "../api/gen/query/files/files";
+import { getListCustomFormatsQueryKey } from "../api/gen/query/formats/formats";
 import {
   getListCutsQueryKey,
   getListProfilesQueryKey,
@@ -12,13 +13,14 @@ import type { LiveEffects } from "./types";
 const everyWorksCells = everyPath(/^\/api\/v1\/works\/[^/]+\/cells$/u);
 const everyTarget = everyPath(/^\/api\/v1\/targets\/[^/]+$/u);
 const everyProfile = everyPath(/^\/api\/v1\/profiles\/[^/]+$/u);
+const everyFormat = everyPath(/^\/api\/v1\/custom-formats\/(?!schema$)[^/]+$/u);
 const everyWorksWants = everyPath(/^\/api\/v1\/works\/[^/]+\/wants$/u);
 
 // Past this many Works a change reads the whole Library once instead of row by row.
 const widestSplice = 1000;
 
 /**
- * A change to Targets, Profiles or cuts. The Works it names may have a new
+ * A change to Targets, Profiles, cuts or Custom Formats. The Works it names may have a new
  * Profile and files that fill other cells, or none.
  */
 export const targetsEffects = {
@@ -37,6 +39,8 @@ export const targetsEffects = {
     refresh({ queryKey: getListProfilesQueryKey() });
     refresh(everyProfile);
     refresh({ queryKey: getListCutsQueryKey() });
+    refresh({ queryKey: getListCustomFormatsQueryKey() });
+    refresh(everyFormat);
     refresh(everyWorksWants);
     refresh(everyWorksCells);
   },

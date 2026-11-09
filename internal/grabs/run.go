@@ -259,14 +259,14 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 		if err != nil {
 			return err
 		}
-		facts, err := gr.facts(ctx, r, g, tree.ContentType, record)
+		read, facts, err := gr.facts(ctx, r, g, tree.ContentType, record)
 		if err != nil {
 			return err
 		}
 		quality, _ := facts.Quality.Get()
 		placement, err := gr.cfg.Files.Place(ctx, r, files.Incoming{
 			WorkID: g.WorkID, ItemID: g.ItemID, Cut: facts.Cut, RootID: root.ID, Holding: files.HoldingOf(g.ID.UUID, ext),
-			Size: video.Size, Media: record, Quality: quality, GrabID: g.ID.UUID,
+			Size: video.Size, Media: record, Quality: quality, ReleaseName: g.Release.Title, Title: read, GrabID: g.ID.UUID,
 			Meant: g.Targets, Unwanted: unwanted,
 		})
 		p, placeErr = Plan{Root: root, Path: placement.Path, Fills: placement.Fills}, err
@@ -385,15 +385,16 @@ func storageOutcome(ctx context.Context, err error, until <-chan struct{}) outco
 	return fail{ImportFailed, err.Error()}
 }
 
-// facts is what g's file is, read in r: its release's source and cut,
-// among the cuts a title of Content Type typ can name, and the resolution
-// its media record measured.
-func (gr *Grabs) facts(ctx context.Context, r storage.Reader[file], g Grab, typ works.TypeID, m media.Record) (release.Facts, error) {
+// facts is what g's file is, read in r: its release title read by
+// Content Type typ, among the cuts a title of typ can name, and that
+// reading's facts at the resolution its media record measured.
+func (gr *Grabs) facts(ctx context.Context, r storage.Reader[file], g Grab, typ works.TypeID, m media.Record) (release.Read, release.Facts, error) {
 	known, err := gr.cfg.Targets.CutsIn(ctx, r)
 	if err != nil {
-		return release.Facts{}, err
+		return release.Read{}, release.Facts{}, err
 	}
-	return release.File(g.Release.Title, known.For(typ), m.Resolution()), nil
+	read := release.Title(g.Release.Title, gr.cfg.Names[typ], known.For(typ))
+	return read, read.Facts.WithProbe(release.Probed{Resolution: release.Known(m.Resolution())}), nil
 }
 
 // errLeft rolls back a commit whose Grab has left the stage it moves
@@ -410,6 +411,13 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	var params db.AdvanceParams
 	var taken *Grab
 	var reran *Search
+	var re *redo
+	if _, drop := o.(dropped); drop && g.Stage == Fetching {
+		var err error
+		if re, err = gr.rerunOf(ctx, g); err != nil {
+			return err
+		}
+	}
 	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		o, err := confirm(ctx, tx, g, o)
 		if err != nil {
@@ -419,7 +427,7 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 		if err != nil || g.Stage != Fetching {
 			return err
 		}
-		taken, reran, err = gr.left(ctx, tx, g, o)
+		taken, reran, err = gr.left(ctx, tx, g, o, re)
 		return err
 	})
 	switch {
@@ -561,11 +569,11 @@ func (gr *Grabs) land(ctx context.Context, tx *storage.Tx[file], g Grab, in file
 	if err != nil {
 		return err
 	}
-	facts, err := gr.facts(ctx, tx, g, tree.ContentType, g.Plan.Media)
+	read, facts, err := gr.facts(ctx, tx, g, tree.ContentType, g.Plan.Media)
 	if err != nil {
 		return err
 	}
-	in.Unwanted, in.Cut = unwanted, facts.Cut
+	in.Unwanted, in.Cut, in.ReleaseName, in.Title = unwanted, facts.Cut, g.Release.Title, read
 	in.Quality, _ = facts.Quality.Get()
 	_, _, err = gr.cfg.Files.Import(ctx, tx, in)
 	return err
@@ -918,7 +926,7 @@ func (gr *Grabs) open(ctx context.Context) ([]Search, []Grab, error) {
 			return err
 		}
 		for _, run := range runs {
-			s, err := searchOf(run, nil, nil)
+			s, err := searchOf(run, nil)
 			if err != nil {
 				return err
 			}

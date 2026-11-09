@@ -39,7 +39,10 @@ type Incoming struct {
 	Seen    storing.Seen
 	Media   media.Record
 	Quality release.Quality
-	GrabID  storage.UUID
+	// ReleaseName is its Grab's Release title, and Title its reading.
+	ReleaseName string
+	Title       release.Read
+	GrabID      storage.UUID
 	// Meant is the Targets its Grab was meant to fill, in Profile order.
 	Meant []targets.TargetID
 	// Unwanted is what its Grab's import does if the file fills nothing,
@@ -81,7 +84,7 @@ type placed struct {
 	before world
 	after  world
 	file   File
-	fills  map[CellKey]ID
+	fills  map[CellKey]Fill
 	doomed []File
 	// forgot are gone files whose rows go: no bytes are left to remove.
 	forgot []File
@@ -124,7 +127,7 @@ func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) 
 	}
 	fresh := File{
 		ID: ID{UUID: storage.NewUUID()}, WorkID: in.WorkID, ItemID: in.ItemID, Cut: in.Cut, RootID: in.RootID, Path: in.Holding,
-		Size: in.Size, Seen: &in.Seen, Media: in.Media, GrabID: in.GrabID, Quality: in.Quality,
+		Size: in.Size, Seen: &in.Seen, Media: in.Media, GrabID: in.GrabID, Quality: in.Quality, ReleaseName: in.ReleaseName, Title: in.Title,
 	}
 	after := before
 	after.files = append(slices.Clone(before.files), fresh)
@@ -148,7 +151,7 @@ func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) 
 // forgotten when the rule forgets those that would win nothing back, and
 // when a live file takes its path, where its bytes could no longer
 // return. Every file is named under fills and after's cut names.
-func (f *Files) converge(ctx context.Context, r storage.Reader[file], before, after world, fills map[CellKey]ID, how rule) (placed, error) {
+func (f *Files) converge(ctx context.Context, r storage.Reader[file], before, after world, fills map[CellKey]Fill, how rule) (placed, error) {
 	p := placed{before: before, after: after, fills: fills}
 	p.after.retagged = retagged(before.cuts, after.cuts)
 	p.after.keepPaths = how.keepPaths
@@ -195,7 +198,7 @@ func forget(p *placed, which func(File) bool) {
 
 // winsBack reports whether g, a gone file of w, would fill a cell were it
 // back, with fills' files holding their cells on a tie.
-func winsBack(w world, fills map[CellKey]ID, g File) bool {
+func winsBack(w world, fills map[CellKey]Fill, g File) bool {
 	w.files = slices.Clone(w.files)
 	for i := range w.files {
 		if w.files[i].ID == g.ID {
@@ -228,7 +231,7 @@ func (f *Files) Place(ctx context.Context, r storage.Reader[file], in Incoming) 
 	var out Placement
 	e := p.after.goals.Editions.Filling(in.Cut)
 	for _, t := range p.after.goals.Targets {
-		if p.fills[CellKey{Item: in.ItemID, Edition: e, Target: t.ID}] == p.file.ID {
+		if p.fills[CellKey{Item: in.ItemID, Edition: e, Target: t.ID}].File == p.file.ID {
 			out.Fills = append(out.Fills, t.ID)
 		}
 	}
@@ -268,10 +271,11 @@ func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], in Incoming) (
 	return p.file, landed, nil
 }
 
-// apply writes p: its fills, its dooms, the gone files it forgets, its
-// found files, every name that changed, and a move for each file whose
-// bytes must reach a new path. A path changes in two steps, through the
-// file's holding path, so files may trade names in one Write.
+// apply writes p: its fills and their scores, its dooms, the gone files
+// it forgets, its found files, every name that changed, and a move for
+// each file whose bytes must reach a new path. A path changes in two
+// steps, through the file's holding path, so files may trade names in one
+// Write.
 func apply(ctx context.Context, q *db.Queries, p placed) error {
 	if err := unfill(ctx, q, p); err != nil {
 		return err
@@ -295,9 +299,10 @@ func apply(ctx context.Context, q *db.Queries, p placed) error {
 			return err
 		}
 	}
-	for key, id := range p.fills {
-		if p.before.fills[key] != id {
-			if err := q.InsertFill(ctx, db.InsertFillParams{FileID: id, TargetID: key.Target, ItemID: key.Item, Edition: key.Edition}); err != nil {
+	for key, fill := range p.fills {
+		if p.before.fills[key] != fill {
+			err := q.InsertFill(ctx, db.InsertFillParams{FileID: fill.File, TargetID: key.Target, ItemID: key.Item, Edition: key.Edition, Score: int64(fill.Score)})
+			if err != nil {
 				return err
 			}
 		}
@@ -321,10 +326,11 @@ func drop(ctx context.Context, q *db.Queries, p placed) error {
 	return nil
 }
 
-// unfill deletes every fill p changes, before any file it held goes.
+// unfill deletes every fill p changes or rescores, before any file it
+// held goes.
 func unfill(ctx context.Context, q *db.Queries, p placed) error {
-	for key, id := range p.before.fills {
-		if p.fills[key] != id {
+	for key, fill := range p.before.fills {
+		if p.fills[key] != fill {
 			if err := q.DeleteFill(ctx, db.DeleteFillParams{ItemID: key.Item, Edition: key.Edition, TargetID: key.Target}); err != nil {
 				return err
 			}

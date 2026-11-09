@@ -98,40 +98,48 @@ WHERE id = sqlc.arg(id) AND finished_at IS NULL;
 UPDATE grabs_search SET outcome = sqlc.arg(outcome), grab_id = sqlc.narg(grab_id), notes = sqlc.narg(notes)
 WHERE id = sqlc.arg(id);
 
+-- name: GetSearch :one
+SELECT * FROM grabs_search WHERE id = sqlc.arg(id);
+
 -- name: GetSearchOfGrab :one
 SELECT * FROM grabs_search WHERE grab_id = sqlc.arg(grab_id);
 
 -- name: InsertRelease :exec
-INSERT INTO grabs_release (search_id, position, indexer_id, release, link_sealed)
-VALUES (sqlc.arg(search_id), sqlc.arg(position), sqlc.arg(indexer_id), sqlc.arg(release), sqlc.arg(link_sealed));
+INSERT INTO grabs_release (search_id, position, title, indexer_id, indexer_name, size, seeders, outcome, rank, reasons, lost_step,
+    lost_target_id, lost_own, lost_ref, scores, formats, covers, copy_of, release, link_sealed)
+VALUES (sqlc.arg(search_id), sqlc.arg(position), sqlc.arg(title), sqlc.narg(indexer_id), sqlc.arg(indexer_name), sqlc.arg(size),
+    sqlc.arg(seeders), sqlc.arg(outcome), sqlc.narg(rank), sqlc.arg(reasons), sqlc.narg(lost_step), sqlc.narg(lost_target_id),
+    sqlc.narg(lost_own), sqlc.narg(lost_ref), sqlc.arg(scores), sqlc.arg(formats), sqlc.arg(covers), sqlc.narg(copy_of),
+    sqlc.narg(release), sqlc.narg(link_sealed));
 
 -- name: ListReleasesOfSearch :many
-SELECT * FROM grabs_release WHERE search_id = sqlc.arg(search_id) ORDER BY position;
+SELECT * FROM grabs_release WHERE search_id = sqlc.arg(search_id) ORDER BY rank IS NULL, rank, position;
 
--- name: DeleteRelease :exec
-DELETE FROM grabs_release WHERE search_id = sqlc.arg(search_id) AND position = sqlc.arg(position);
+-- name: ListKeptReleasesOfSearch :many
+SELECT * FROM grabs_release WHERE search_id = sqlc.arg(search_id) AND release IS NOT NULL ORDER BY position;
 
--- name: DeleteReleasesOfGrab :exec
-DELETE FROM grabs_release WHERE search_id IN (SELECT id FROM grabs_search WHERE grab_id = sqlc.arg(grab_id));
+-- name: EndReleasesOfGrab :exec
+-- No rerun follows once a run's Grab leaves fetching other than by a drop.
+UPDATE grabs_release SET release = NULL, link_sealed = NULL
+WHERE search_id IN (SELECT id FROM grabs_search WHERE grab_id = sqlc.arg(grab_id));
 
 -- name: DeleteReleasesOfSearch :exec
 DELETE FROM grabs_release WHERE search_id = sqlc.arg(search_id);
+
+-- name: DeleteOlderReleasesOfItem :exec
+-- Finishing a run deletes the rows of its Item's other runs but those whose
+-- Grab still fetches, which a rerun reads.
+DELETE FROM grabs_release WHERE search_id IN (
+    SELECT grabs_search.id FROM grabs_search
+    LEFT JOIN grabs_grab ON grabs_grab.id = grabs_search.grab_id
+    WHERE grabs_search.item_id = sqlc.arg(item_id) AND grabs_search.id <> sqlc.arg(search_id)
+        AND (grabs_grab.stage IS NULL OR grabs_grab.stage <> 'fetching'));
 
 -- name: ListOpenSearches :many
 SELECT * FROM grabs_search WHERE finished_at IS NULL ORDER BY started_at, id;
 
 -- name: ListSearchesOfWork :many
 SELECT * FROM grabs_search WHERE work_id = sqlc.arg(work_id) ORDER BY started_at DESC, id DESC;
-
--- name: InsertRefusal :exec
-INSERT INTO grabs_refusal (search_id, position, title, reasons)
-VALUES (sqlc.arg(search_id), sqlc.arg(position), sqlc.arg(title), sqlc.arg(reasons));
-
--- name: ListRefusalsOfWork :many
-SELECT grabs_refusal.* FROM grabs_refusal
-JOIN grabs_search ON grabs_search.id = grabs_refusal.search_id
-WHERE grabs_search.work_id = sqlc.arg(work_id)
-ORDER BY grabs_refusal.search_id, grabs_refusal.position;
 
 -- name: ListTargetsOfWork :many
 SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_target.target_id
@@ -184,6 +192,9 @@ SELECT id, work_id FROM grabs_grab WHERE torrent_id = sqlc.arg(torrent_id) AND s
 -- send-to moves every Grab downloading a Torrent with it.
 UPDATE grabs_grab SET torrent_id = sqlc.arg(to_id), node_id = sqlc.arg(node_id), updated_at = sqlc.arg(updated_at)
 WHERE torrent_id = sqlc.arg(from_id) AND stage = 'downloading';
+
+-- name: ListReleaseTitles :many
+SELECT id, release_title FROM grabs_grab ORDER BY id;
 
 -- name: SetSent :exec
 UPDATE grabs_grab SET sent_built_in_on = sqlc.narg(built_in_on), sent_client_id = sqlc.narg(client_id), updated_at = sqlc.arg(updated_at)

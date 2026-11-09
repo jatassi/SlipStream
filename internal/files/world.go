@@ -1,12 +1,14 @@
 package files
 
 import (
+	"cmp"
 	"context"
 	"maps"
 	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/files/internal/db"
+	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -22,12 +24,14 @@ type world struct {
 	tree  works.Bare
 	goals targets.Goals
 	// root is the root the Work lives in, zero while it has none.
-	root   roots.ID
-	files  []File // oldest first: ids are UUIDv7
-	fills  map[CellKey]ID
-	grabs  map[CellKey]GrabCell
-	lost   map[roots.ID]bool
-	timing map[works.ItemID]targets.Timing
+	root  roots.ID
+	files []File // oldest first: ids are UUIDv7
+	fills map[CellKey]Fill
+	// scoring is what the files match of the formats goals score.
+	scoring *scoring
+	grabs   map[CellKey]GrabCell
+	lost    map[roots.ID]bool
+	timing  map[works.ItemID]targets.Timing
 	// seen is each Item's sighted cuts and its files' cuts; cuts is every
 	// cut, which names files.
 	seen  map[works.ItemID][]release.CutKey
@@ -83,12 +87,22 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 		return nil, err
 	}
 	timing := map[works.ItemID]targets.Timing{}
+	originals := map[works.WorkID]release.Fact[release.Language]{}
 	for _, typ := range slices.Sorted(maps.Keys(byType)) {
 		of, err := f.cfg.Targets.TimingsIn(ctx, r, typ, works.Like(among, byType[typ]))
 		if err != nil {
 			return nil, err
 		}
 		maps.Copy(timing, of)
+		langs, err := f.cfg.Targets.OriginalsIn(ctx, r, typ, works.Like(among, byType[typ]))
+		if err != nil {
+			return nil, err
+		}
+		maps.Copy(originals, langs)
+	}
+	catalog, err := f.cfg.Targets.FormatsIn(ctx, r)
+	if err != nil {
+		return nil, err
 	}
 	var items []works.ItemID
 	for _, t := range trees {
@@ -115,7 +129,10 @@ func (f *Files) worlds(ctx context.Context, r storage.Reader[file], trees []work
 	out := make([]world, len(trees))
 	today := f.cfg.Today()
 	for i, t := range trees {
-		out[i] = world{tree: t, goals: goals[t.ID], root: homes[t.ID], grabs: grabs, lost: lost, timing: timing, seen: seen, cuts: known, today: today}
+		out[i] = world{
+			tree: t, goals: goals[t.ID], root: homes[t.ID], scoring: newScoring(catalog, goals[t.ID], originals[t.ID]),
+			grabs: grabs, lost: lost, timing: timing, seen: seen, cuts: known, today: today,
+		}
 	}
 	if err := shelve(ctx, db.New(r), out, among, read, seen); err != nil {
 		return nil, err
@@ -155,9 +172,9 @@ func shelve(ctx context.Context, q *db.Queries, ws []world, among works.Among[wo
 	for _, fill := range fills {
 		w := of[fill.FileID]
 		if w.fills == nil {
-			w.fills = map[CellKey]ID{}
+			w.fills = map[CellKey]Fill{}
 		}
-		w.fills[CellKey{Item: fill.ItemID, Edition: fill.Edition, Target: fill.TargetID}] = fill.FileID
+		w.fills[CellKey{Item: fill.ItemID, Edition: fill.Edition, Target: fill.TargetID}] = Fill{File: fill.FileID, Score: int(fill.Score)}
 	}
 	return nil
 }
@@ -198,7 +215,7 @@ func briefFiles(ctx context.Context, q *db.Queries, among works.Among[works.Work
 // templates and the tokens of every Item holding a file whose name
 // changes, read Item by Item. The placed file's come first: labels reads
 // them for its folder.
-func (f *Files) named(ctx context.Context, r storage.Reader[file], w *world, fills map[CellKey]ID) error {
+func (f *Files) named(ctx context.Context, r storage.Reader[file], w *world, fills map[CellKey]Fill) error {
 	facet := f.cfg.Naming[w.tree.ContentType]
 	w.templates, w.tokens = facet.DefaultTemplates(), map[works.ItemID]map[string]string{}
 	need := func(item works.ItemID) error {
@@ -255,11 +272,11 @@ func appendCells(out []Cell, w world) []Cell {
 			for _, t := range w.goals.Targets {
 				key := CellKey{Item: it.ID, Edition: e, Target: t.ID}
 				c := Cell{Item: it, Edition: e, Target: t, State: Missing, Timing: timing, Released: released}
-				if id, ok := w.fills[key]; ok && !w.lost[files[id].RootID] {
-					c.File = files[id]
+				if fill, ok := w.fills[key]; ok && !w.lost[files[fill.File].RootID] {
+					c.File, c.Score = files[fill.File], fill.Score
 				}
 				switch {
-				case c.File != nil && final(t, *c.File):
+				case c.File != nil && final(t, *c.File, c.Score):
 					c.State = Met
 				case c.File != nil:
 					c.State = Upgradable
@@ -277,18 +294,81 @@ func appendCells(out []Cell, w world) []Cell {
 	return out
 }
 
-// final reports whether f is at or past t's cutoff. A file whose quality t
-// doesn't rank is not.
-func final(t targets.Target, f File) bool {
+// final reports whether f, scoring score, is final at t. A file whose
+// quality t doesn't rank is not.
+func final(t targets.Target, f File, score int) bool {
 	r, ok := t.RankOf(f.Quality)
-	return ok && t.Final(r)
+	return ok && t.Final(r, score)
 }
 
 // filling is the set of files fills holds.
-func filling(fills map[CellKey]ID) map[ID]bool {
+func filling(fills map[CellKey]Fill) map[ID]bool {
 	out := make(map[ID]bool, len(fills))
-	for _, id := range fills {
-		out[id] = true
+	for _, fill := range fills {
+		out[fill.File] = true
 	}
 	return out
+}
+
+// scoring is how a world's files score at its Targets. A file is matched
+// against the formats the Targets score only when refill first asks, and
+// once for every Target.
+type scoring struct {
+	all      *formats.Catalog
+	goals    targets.Goals
+	original release.Fact[release.Language]
+	scored   *formats.Catalog
+	matched  map[ID]formats.Set
+	// known is each file's score at each Target that a Change narrowed by
+	// its format edits already knows: its stored fill score, moved.
+	known map[ID]map[targets.TargetID]int
+}
+
+func newScoring(all *formats.Catalog, goals targets.Goals, original release.Fact[release.Language]) *scoring {
+	return &scoring{all: all, goals: goals, original: original, matched: map[ID]formats.Set{}}
+}
+
+// facts is f's Facts, under the Work's original language.
+func (s *scoring) facts(f File) release.Facts {
+	facts := f.Facts()
+	facts.Coverage.Original = s.original
+	return facts
+}
+
+// of is f with the formats it matches of those the Targets score.
+func (s *scoring) of(f File) targets.Scored {
+	set, ok := s.matched[f.ID]
+	if !ok {
+		if s.scored == nil {
+			s.scored = s.all.Only(targets.ScoredIn(s.goals))
+		}
+		if s.scored.Len() > 0 {
+			set = s.scored.Match(asNamed(f.Title, f.ReleaseName, s.original)).Matched
+		}
+		s.matched[f.ID] = set
+	}
+	return targets.Scored{Facts: s.facts(f), Formats: set}
+}
+
+// score is f's score at t.
+func (s *scoring) score(t targets.Target, f File) int {
+	if n, ok := s.known[f.ID][t.ID]; ok {
+		return n
+	}
+	return t.Score(s.of(f))
+}
+
+// compare orders a and b at t by its steps, +1 when a is better. They are
+// scored only once the two tie before the score.
+func (s *scoring) compare(t targets.Target, a, b File) int {
+	sa, sb := targets.Scored{Facts: s.facts(a)}, targets.Scored{Facts: s.facts(b)}
+	for _, step := range t.Steps() {
+		if step == targets.ByScore {
+			return cmp.Compare(s.score(t, a), s.score(t, b))
+		}
+		if c := t.CompareBy(step, sa, sb); c != 0 {
+			return c
+		}
+	}
+	return 0
 }

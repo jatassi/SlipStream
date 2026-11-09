@@ -3,7 +3,11 @@ package targets
 import (
 	"context"
 	"errors"
+	"maps"
+	"reflect"
+	"slices"
 
+	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets/internal/db"
@@ -15,7 +19,7 @@ import (
 // applies one (lint: targets-apply-confined), in the Write that refills
 // every Work it touches.
 type Change interface {
-	touches(ctx context.Context, q *db.Queries) (Touched, error)
+	touches(ctx context.Context, q *db.Queries, t formats.Timings) (Touched, error)
 	apply(ctx context.Context, q *db.Queries, known Cuts) error
 }
 
@@ -57,6 +61,27 @@ type UpdateCut struct {
 	Spec CutSpec
 }
 
+// UpdateFormat replaces Custom Format ID's name, renaming flag and
+// conditions with Format's. It keeps its dialect and pasted document, and
+// its timeout count starts again.
+type UpdateFormat struct {
+	ID     formats.ID
+	Format formats.Format
+}
+
+// DeleteFormat deletes Custom Format ID and every Target's score for it.
+type DeleteFormat struct{ ID formats.ID }
+
+// AddFormats adds each of Add and replaces each format of Replace's ids,
+// all in Dialect. Each of Add carries the id NewFormatID minted. "New
+// Custom Format" is an Add of one, in the slipstream dialect. A replaced
+// format's timeout count starts again.
+type AddFormats struct {
+	Dialect formats.Dialect
+	Add     []formats.Format
+	Replace map[formats.ID]formats.Format
+}
+
 // Touched is what a Change may change, read before it applies: the Works
 // whose Goals it changes, the cuts whose files it renames and, for a
 // Profile's Edition change, how many Works keep their own list.
@@ -64,11 +89,49 @@ type Touched struct {
 	Works   []works.WorkID
 	Cuts    []release.CutKey
 	OwnList int
+	// Narrow, when set, is every format edit of a Change that moves only
+	// scores: of Works, only those holding a file whose score at some
+	// Target one of them moves change.
+	Narrow *Narrow
+}
+
+// Narrow is a Change's formats before and after, compiled together, and
+// each one's score at each Target that scores it before and after, in
+// the Edits' order.
+type Narrow struct {
+	Match  formats.Edits
+	Scores []map[TargetID][2]int
+}
+
+// Moves is how far the edits move rd's score at each Target, leaving out
+// the Targets they don't move.
+func (n *Narrow) Moves(rd release.Read) map[TargetID]int {
+	var out map[TargetID]int
+	for i, flip := range n.Match.Match(rd) {
+		for t, s := range n.Scores[i] {
+			move := 0
+			if flip.Before {
+				move -= s[0]
+			}
+			if flip.After {
+				move += s[1]
+			}
+			if move == 0 {
+				continue
+			}
+			if out == nil {
+				out = map[TargetID]int{}
+			}
+			out[t] += move
+		}
+	}
+	maps.DeleteFunc(out, func(_ TargetID, n int) bool { return n == 0 })
+	return out
 }
 
 // Touches reads in r, before c applies, what c may change.
-func Touches(ctx context.Context, r storage.Reader[file], c Change) (Touched, error) {
-	return c.touches(ctx, db.New(r))
+func (t *Targets) Touches(ctx context.Context, r storage.Reader[file], c Change) (Touched, error) {
+	return c.touches(ctx, db.New(r), t.cfg.Formats)
 }
 
 // Apply checks c as a create checks its record, against known, every cut
@@ -79,9 +142,72 @@ func Apply(ctx context.Context, tx *storage.Tx[file], known Cuts, c Change) erro
 	return c.apply(ctx, db.New(tx), known)
 }
 
-func (c UpdateTarget) touches(ctx context.Context, q *db.Queries) (Touched, error) {
+// touches narrows to the formats whose scores c changes when it changes
+// nothing else, and touches nothing when it changes nothing.
+func (c UpdateTarget) touches(ctx context.Context, q *db.Queries, tm formats.Timings) (Touched, error) {
 	ws, err := q.ListWorksOfTarget(ctx, c.ID)
-	return Touched{Works: ws}, err
+	if err != nil {
+		return Touched{}, err
+	}
+	all, err := listTargets(ctx, q)
+	if err != nil {
+		return Touched{}, err
+	}
+	i := slices.IndexFunc(all, func(t Target) bool { return t.ID == c.ID })
+	if i < 0 {
+		return Touched{}, ErrNoTarget
+	}
+	was, err := NewTarget(all[i].Spec())
+	if err != nil {
+		return Touched{}, err
+	}
+	next, err := NewTarget(c.Spec)
+	if err != nil {
+		return Touched{}, err
+	}
+	before, after := was.Scores.Formats, next.Scores.Formats
+	was.Scores.Formats, next.Scores.Formats = nil, nil
+	if !reflect.DeepEqual(was, next) {
+		return Touched{Works: ws}, nil
+	}
+	var moved []formats.ID
+	for id, n := range before {
+		if after[id] != n {
+			moved = append(moved, id)
+		}
+	}
+	for id := range after {
+		if _, ok := before[id]; !ok {
+			moved = append(moved, id)
+		}
+	}
+	slices.SortFunc(moved, byFormatID)
+	var edits []versions
+	for _, id := range moved {
+		f, err := formatIn(ctx, q, id)
+		if err != nil {
+			return Touched{}, err
+		}
+		edits = append(edits, versions{id: id, Versions: formats.Versions{Before: &f.Format, After: &f.Format}})
+	}
+	if edits == nil {
+		return Touched{}, nil
+	}
+	return Touched{Works: ws, Narrow: narrowed(edits, tm, func(e versions) map[TargetID][2]int {
+		return map[TargetID][2]int{c.ID: {before[e.id], after[e.id]}}
+	})}, nil
+}
+
+// narrowed compiles edits together, each scored at each Target as score
+// answers.
+func narrowed(edits []versions, tm formats.Timings, score func(versions) map[TargetID][2]int) *Narrow {
+	n := &Narrow{Scores: make([]map[TargetID][2]int, len(edits))}
+	vs := make([]formats.Versions, len(edits))
+	for i, e := range edits {
+		vs[i], n.Scores[i] = e.Versions, score(e)
+	}
+	n.Match = formats.Diff(vs, tm)
+	return n
 }
 
 func (c UpdateTarget) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
@@ -102,7 +228,11 @@ func (c UpdateTarget) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
 	case taken:
 		return ErrTargetNameTaken
 	}
-	if err := q.UpdateTarget(ctx, db.UpdateTargetParams{ID: t.ID, Name: t.Name, CutoffTier: int64(t.Cutoff)}); err != nil {
+	err = q.UpdateTarget(ctx, db.UpdateTargetParams{
+		ID: t.ID, Name: t.Name, CutoffTier: int64(t.Cutoff), MinScore: int64(t.Scores.Minimum), UpgradeUntil: int64(t.Scores.UpgradeUntil),
+		ScoreIncrement: int64(t.Scores.Increment), Propers: t.Propers.String(),
+	})
+	if err != nil {
 		return err
 	}
 	if err := q.DeleteQualities(ctx, t.ID); err != nil {
@@ -111,10 +241,13 @@ func (c UpdateTarget) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
 	if err := q.DeleteFilters(ctx, t.ID); err != nil {
 		return err
 	}
+	if err := q.DeleteFormatScores(ctx, t.ID); err != nil {
+		return err
+	}
 	return insertRules(ctx, q, t)
 }
 
-func (c UpdateProfile) touches(ctx context.Context, q *db.Queries) (Touched, error) {
+func (c UpdateProfile) touches(ctx context.Context, q *db.Queries, _ formats.Timings) (Touched, error) {
 	p, err := profileIn(ctx, q, c.ID)
 	if err != nil {
 		return Touched{}, err
@@ -164,7 +297,7 @@ func (c UpdateProfile) apply(ctx context.Context, q *db.Queries, known Cuts) err
 	return insertEntries(ctx, q, c.ID, c.Spec.Entries)
 }
 
-func (c DeleteProfile) touches(ctx context.Context, q *db.Queries) (Touched, error) {
+func (c DeleteProfile) touches(ctx context.Context, q *db.Queries, _ formats.Timings) (Touched, error) {
 	ws, err := q.ListWorksOfProfile(ctx, c.ID)
 	return Touched{Works: ws}, err
 }
@@ -191,7 +324,7 @@ func (c DeleteProfile) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
 	return q.DeleteProfile(ctx, c.ID)
 }
 
-func (c SetWants) touches(context.Context, *db.Queries) (Touched, error) { //nolint:unparam // the other kinds read to answer
+func (c SetWants) touches(context.Context, *db.Queries, formats.Timings) (Touched, error) { //nolint:unparam // the other kinds read to answer
 	return Touched{Works: []works.WorkID{c.Work}}, nil
 }
 
@@ -231,7 +364,7 @@ func (c SetWants) apply(ctx context.Context, q *db.Queries, known Cuts) error {
 	return nil
 }
 
-func (c SetProfiles) touches(ctx context.Context, q *db.Queries) (Touched, error) {
+func (c SetProfiles) touches(ctx context.Context, q *db.Queries, _ formats.Timings) (Touched, error) {
 	own, err := q.CountOwnListsOf(ctx, c.Works)
 	return Touched{Works: c.Works, OwnList: int(own)}, err
 }
@@ -250,7 +383,7 @@ func (c SetProfiles) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
 	return q.SetProfileOfWorks(ctx, db.SetProfileOfWorksParams{ProfileID: c.Profile, WorkIds: c.Works})
 }
 
-func (c UpdateCut) touches(context.Context, *db.Queries) (Touched, error) { //nolint:unparam // the other kinds read to answer
+func (c UpdateCut) touches(context.Context, *db.Queries, formats.Timings) (Touched, error) { //nolint:unparam // the other kinds read to answer
 	return Touched{Cuts: []release.CutKey{c.Key}}, nil
 }
 
@@ -298,6 +431,127 @@ func sameType(ctx context.Context, q *db.Queries, id ProfileID, typ works.TypeID
 		return err
 	case p.ContentType != typ:
 		return ErrProfileWrongType
+	}
+	return nil
+}
+
+// edited touches the Works whose Profiles hold a Target that scores one
+// of the formats edits change, narrowed by those edits. A format no
+// Target scores touches none, since no cell reads it.
+func edited(ctx context.Context, q *db.Queries, tm formats.Timings, edits []versions) (Touched, error) {
+	rows, err := q.ListFormatScores(ctx)
+	if err != nil {
+		return Touched{}, err
+	}
+	scores := map[formats.ID]map[TargetID][2]int{}
+	for _, row := range rows {
+		id := formatID(row.FormatID)
+		if scores[id] == nil {
+			scores[id] = map[TargetID][2]int{}
+		}
+		scores[id][row.TargetID] = [2]int{int(row.Score), int(row.Score)}
+	}
+	var (
+		ids    []formats.ID
+		scored []versions
+	)
+	for _, e := range edits {
+		if _, ok := scores[e.id]; ok {
+			ids = append(ids, e.id)
+			scored = append(scored, e)
+		}
+	}
+	if ids == nil {
+		return Touched{}, nil
+	}
+	ws, err := q.ListWorksScoring(ctx, rowIDs(ids))
+	if err != nil {
+		return Touched{}, err
+	}
+	return Touched{Works: ws, Narrow: narrowed(scored, tm, func(e versions) map[TargetID][2]int { return scores[e.id] })}, nil
+}
+
+// versions is format id before and after a change.
+type versions struct {
+	id formats.ID
+	formats.Versions
+}
+
+func (c UpdateFormat) touches(ctx context.Context, q *db.Queries, tm formats.Timings) (Touched, error) {
+	stored, err := formatIn(ctx, q, c.ID)
+	if err != nil {
+		return Touched{}, err
+	}
+	after := c.saved(stored)
+	return edited(ctx, q, tm, []versions{{id: c.ID, Versions: formats.Versions{Before: &stored.Format, After: &after}}})
+}
+
+// saved is the format c saves over stored.
+func (c UpdateFormat) saved(stored StoredFormat) formats.Format {
+	f := c.Format
+	f.ID, f.Dialect, f.Source = c.ID, stored.Dialect, stored.Source
+	return f
+}
+
+func (c UpdateFormat) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
+	stored, err := formatIn(ctx, q, c.ID)
+	if err != nil {
+		return err
+	}
+	return saveFormat(ctx, q, c.saved(stored), true)
+}
+
+func (c DeleteFormat) touches(ctx context.Context, q *db.Queries, tm formats.Timings) (Touched, error) {
+	stored, err := formatIn(ctx, q, c.ID)
+	if err != nil {
+		return Touched{}, err
+	}
+	return edited(ctx, q, tm, []versions{{id: c.ID, Versions: formats.Versions{Before: &stored.Format}}})
+}
+
+func (c DeleteFormat) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
+	switch n, err := q.DeleteFormat(ctx, rowID(c.ID)); {
+	case err != nil:
+		return err
+	case n == 0:
+		return ErrNoFormat
+	}
+	return nil
+}
+
+func (c AddFormats) touches(ctx context.Context, q *db.Queries, tm formats.Timings) (Touched, error) {
+	var edits []versions
+	for _, id := range slices.SortedFunc(maps.Keys(c.Replace), byFormatID) {
+		stored, err := formatIn(ctx, q, id)
+		if err != nil {
+			return Touched{}, err
+		}
+		after := c.replacing(id)
+		edits = append(edits, versions{id: id, Versions: formats.Versions{Before: &stored.Format, After: &after}})
+	}
+	return edited(ctx, q, tm, edits)
+}
+
+// replacing is the format c saves over format id.
+func (c AddFormats) replacing(id formats.ID) formats.Format {
+	f := c.Replace[id]
+	f.ID, f.Dialect = id, c.Dialect
+	return f
+}
+
+// apply replaces before it adds, so an Add may take a name a Replace
+// gives up.
+func (c AddFormats) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
+	for _, id := range slices.SortedFunc(maps.Keys(c.Replace), byFormatID) {
+		if err := saveFormat(ctx, q, c.replacing(id), true); err != nil {
+			return err
+		}
+	}
+	for _, f := range c.Add {
+		f.Dialect = c.Dialect
+		if err := saveFormat(ctx, q, f, false); err != nil {
+			return err
+		}
 	}
 	return nil
 }

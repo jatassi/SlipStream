@@ -1,0 +1,129 @@
+{
+  "radarr": {
+    "commit": "928e8871ccad6a899e9d99781a54fcf17ab7c3d9",
+    "date": "2026-11-07",
+    "files": {
+      "prepare.go": [
+        "src/NzbDrone.Core/Parser/Parser.cs",
+        "src/NzbDrone.Core/Parser/ParserCommon.cs"
+      ],
+      "read_edition.go": [
+        "src/NzbDrone.Core/Parser/Parser.cs"
+      ],
+      "read_group.go": [
+        "src/NzbDrone.Core/Parser/ReleaseGroupParser.cs"
+      ],
+      "read_ids.go": [
+        "src/NzbDrone.Core/Parser/Parser.cs"
+      ],
+      "read_language.go": [
+        "src/NzbDrone.Core/Parser/LanguageParser.cs"
+      ],
+      "read_quality.go": [
+        "src/NzbDrone.Core/Parser/QualityParser.cs",
+        "src/NzbDrone.Core/Qualities/Quality.cs",
+        "src/NzbDrone.Core/MediaFiles/MediaFileExtensions.cs"
+      ],
+      "read_revision.go": [
+        "src/NzbDrone.Core/Parser/QualityParser.cs"
+      ]
+    },
+    "sha256": {
+      "src/NzbDrone.Core.Test/ParserTests/ExtendedQualityParserRegex.cs": "ab9b9e7c37628eed8c3b830e238614cd860211ecc1b0945591dcd91ea3c78116",
+      "src/NzbDrone.Core.Test/ParserTests/QualityParserFixture.cs": "12672cb79ee5eddc242ea11cc6eb0b2ac2a0731aede1a877f6ae77b90e86f0aa",
+      "src/NzbDrone.Core.Test/ParserTests/ReleaseGroupParserFixture.cs": "1ba5515f224c34148449608061361464156fe034fadbf93337e2314a708f88fe",
+      "src/NzbDrone.Core/MediaFiles/MediaFileExtensions.cs": "c8aeca986f835ed22e7ee0009c7ef39c38cbbf831111c266c931ed33a5a10565",
+      "src/NzbDrone.Core/Parser/IsoLanguages.cs": "0126345e80b165af02bac4c81bebff0b9e7331188867371745bb56e4c1e2689f",
+      "src/NzbDrone.Core/Parser/LanguageParser.cs": "8eec30a98aea63446d3d338ec9545084a32651d7cf3f6b2f2c6a6627aeb6a3e5",
+      "src/NzbDrone.Core/Parser/Parser.cs": "276d9fce400bf524856bfacd6d02c428c2538d2e60558baf94f3d79369458b05",
+      "src/NzbDrone.Core/Parser/ParserCommon.cs": "b17b1fc49f7708bcc2b5c03f75176b0094ce276e3031a1493be2741bb700b306",
+      "src/NzbDrone.Core/Parser/QualityParser.cs": "3f844d52b474b103fd22414c8a76ef5bae00ec1d7bd6cedb5e81dba71f680895",
+      "src/NzbDrone.Core/Parser/ReleaseGroupParser.cs": "75db658a79df95ebd74225484b530fad43de77db3c4b75075c630b90de20a88f",
+      "src/NzbDrone.Core/Qualities/Quality.cs": "4a0bcde6cb421d9413da72478b5e1127dec6462069b1fa3132c58c3530b1ae08"
+    }
+  },
+  "sonarr": {
+    "commit": "c018578e4b79ee048575c02d7a8aa2b929e4b837",
+    "date": "2026-11-02",
+    "files": {
+      "prepare.go": [
+        "src/NzbDrone.Core/Parser/Parser.cs",
+        "src/NzbDrone.Core/Parser/ParserCommon.cs",
+        "src/NzbDrone.Core/MediaFiles/FileExtensions.cs",
+        "src/NzbDrone.Core/MediaFiles/MediaFileExtensions.cs"
+      ],
+      "read_group.go": [
+        "src/NzbDrone.Core/Parser/ReleaseGroupParser.cs"
+      ],
+      "read_ids.go": [
+        "src/NzbDrone.Core/Parser/Parser.cs"
+      ],
+      "read_language.go": [
+        "src/NzbDrone.Core/Parser/LanguageParser.cs"
+      ],
+      "read_quality.go": [
+        "src/NzbDrone.Core/Parser/QualityParser.cs",
+        "src/NzbDrone.Core/Qualities/Quality.cs",
+        "src/NzbDrone.Core/MediaFiles/MediaFileExtensions.cs"
+      ],
+      "read_revision.go": [
+        "src/NzbDrone.Core/Parser/QualityParser.cs"
+      ]
+    },
+    "sha256": {
+      "src/NzbDrone.Core.Test/ParserTests/QualityParserFixture.cs": "24e19e34371b4cd3de45008d9cff65284dbe2aa5338a15e40dd9e1c074f1b96c",
+      "src/NzbDrone.Core.Test/ParserTests/ReleaseGroupParserFixture.cs": "fdd2070560646e4228319702f56b696c54bdbaac9e57c3e540b1ca508797f854",
+      "src/NzbDrone.Core/MediaFiles/FileExtensions.cs": "fa2c53f90733e09fa0ef570e538ee0d7d975712260daf5b5dc37eb108646dcb8",
+      "src/NzbDrone.Core/MediaFiles/MediaFileExtensions.cs": "d2a8c9d043bfff36a66c37f49ddf6ccd65868bea23b682a0af7efa42deff553a",
+      "src/NzbDrone.Core/Parser/IsoLanguages.cs": "e8194422fd98f0a0b92b483a02b7ca43648beaf9d54bca9f7535fd7866b6b5f8",
+      "src/NzbDrone.Core/Parser/LanguageParser.cs": "97ce51034fe66311c4352f0fd06d9e18d6cf1575c025d0bb309c3c1660def342",
+      "src/NzbDrone.Core/Parser/Parser.cs": "b599c060112359091235539c31d12a79e4a01b148d8e16cbd573e7b372b547e7",
+      "src/NzbDrone.Core/Parser/ParserCommon.cs": "c9c3cfe813d30d9a479f1ecbd36cd2901df207ff78256f54ba85e4cd42117fc4",
+      "src/NzbDrone.Core/Parser/QualityParser.cs": "14860e24741f163ce9ac1d78fbfb827021d8bffd4242a1f9cec8504b22895051",
+      "src/NzbDrone.Core/Parser/ReleaseGroupParser.cs": "94bd7c94f2b788d3d39a1cf9ee65692fa30d7fa23581d7c1aef4631a87a7b068",
+      "src/NzbDrone.Core/Qualities/Quality.cs": "8ee20b2e04bbb898621a4e7d6786d0fcecf557341b7937ab62c1f0c9896cf621"
+    }
+  },
+  "trash": {
+    "commit": "98853590599f8583c19768fa469cfbf856de2045",
+    "date": "2026-11-06",
+    "sha256": {
+      "docs/json/radarr/cf/10-mono.json": "2c3945ac4200d4c635724bc343701a543b4c07d45f27cbf7495cd6bbab9b1609",
+      "docs/json/radarr/cf/20-stereo.json": "a0e99782cc9ab3160ce567fd1864b5e6fcbad9f0da4b19f550853ac7ec627079",
+      "docs/json/radarr/cf/30-sound.json": "f6a505ffed8785c5e8d72a0ae0085465c2655723a3723112b9c88d94385dcf09",
+      "docs/json/radarr/cf/40-sound.json": "8e85c7728a7a20a4a1dfa37e150057e0a7334036695a8b9495a5284bba829b34",
+      "docs/json/radarr/cf/51-surround.json": "39267ef1d052ed34746e1b20645de27c709af7d375be7ddfbb43f04a24465b7b",
+      "docs/json/radarr/cf/61-surround.json": "4d50f8de7039678f8d2b69dffa2aafe7daf49dc715a45dbcde391d71932e5380",
+      "docs/json/radarr/cf/71-surround.json": "ca62f1ea9e4fb43461ba6b3143fc3a7ca443e0c26383d77ba4431ada851cf6ba",
+      "docs/json/radarr/cf/aac.json": "49eaaf1f1ce10caecd6d205845297b9378c8646395b9e3d99856f9317ef9c1d4",
+      "docs/json/radarr/cf/atmos-undefined.json": "00a1ef67f8be3fdd8211c80b41d9a6a5025156084b53828915a340c1859106cb",
+      "docs/json/radarr/cf/av1.json": "8e531908820fe282a6021d0e73b299e4388a9fb55fe10aed267951347793bcda",
+      "docs/json/radarr/cf/dd.json": "9e1f14f1cfdbbb900279210c8993ee980d64b046ec910422c9cd8ddef5b6d4c4",
+      "docs/json/radarr/cf/ddplus-atmos.json": "53d68c02d5a5f55f5ea6b5b49c61308fa809464a06e4e9a1bef8cf8227c6e641",
+      "docs/json/radarr/cf/ddplus.json": "5f93fdbf74b8144595f7cbd49d3afb6252267ecf109c233b3b77135be11afb50",
+      "docs/json/radarr/cf/dts-es.json": "bb7fff600e9637aead51094f19b7f6f90771315b7dbb66bc8c9a1c85b0c803d4",
+      "docs/json/radarr/cf/dts-hd-hra.json": "649d389a8d6931af9b1287b6c8f3c30164384a2d517c45fc78072619047969e3",
+      "docs/json/radarr/cf/dts-hd-ma.json": "e027b7a66ff83abe8075e62413957b8ad693f81a9c3f78ca46019836af57e790",
+      "docs/json/radarr/cf/dts-x.json": "1ecd4fcd28453f31d1d1ad7a21bf843632577f92687dddb9827e8b47d1c51d5c",
+      "docs/json/radarr/cf/dts.json": "4c8415a82dcf0a7f2f2dfa284d364ba08662cbbb14505c83048e9fe8943803a0",
+      "docs/json/radarr/cf/dv-boost.json": "c9bee628549793296cabbd210ff20101c82a797b745782ba6119b0b4ba6c370a",
+      "docs/json/radarr/cf/dv-wo-hdr-fallback.json": "4240cf5b18dde40d5e4fd180953b75308030cc37e258a57472fa8e2205ecb35e",
+      "docs/json/radarr/cf/flac.json": "afecb883e58d619920346e1b5953ea5e55c47c25a05407856e49afd9bceda8d4",
+      "docs/json/radarr/cf/hdr.json": "81bcbf1312b0d61b637d668480dc8e57289b4f638c699646e139eb0740509333",
+      "docs/json/radarr/cf/hdr10plus-boost.json": "504fb92337603cbd877ef35aece956a0282c1361847093a81d4187ef4bda0aa9",
+      "docs/json/radarr/cf/hlg.json": "def1d5bc9843ac712fe3eed3c9bd0e3be50719e1ff22fda5f3473e36b88d1e40",
+      "docs/json/radarr/cf/mp3.json": "d664b60323178a6b7e9139e2c7f08dabbaccdb03a4cd0b29c2b794163b8c0ad8",
+      "docs/json/radarr/cf/mpeg2.json": "7dce4eb3698f1bd6be486daa797481a92a65f232d435793e00e458ed4a7d0505",
+      "docs/json/radarr/cf/opus.json": "c248cf963b82f748b9543fe09d6969eb2060aa4255064d5c70d43914e205d5e2",
+      "docs/json/radarr/cf/pcm.json": "11ee5381567be9ec4b334d124aca0c7ed1b46f6254c0d4b261302c2e9eaa2cb2",
+      "docs/json/radarr/cf/sdr.json": "8b0d3e24cd35c2380e590d2e9dff17a6e170e6ea508d5d732fc98eadd94e0d9b",
+      "docs/json/radarr/cf/truehd-atmos.json": "1c8022472c8009693cd9a716cee6743829a8bc220ea1931f9afebaf33f9eccc1",
+      "docs/json/radarr/cf/truehd.json": "19c35ff149f5e9f1ac4f1e4b32fdc1c2ff1752809f1006df3047cd31276c1ffe",
+      "docs/json/radarr/cf/vc-1.json": "e18ec5e0eff39691a76cd0f504372c7f0d6e06a2ad13f39ac41c2134b2cb2cc9",
+      "docs/json/radarr/cf/vp9.json": "041f0a192a13d650071f763ed84b8d8db6d37dbffa9eb97cfd9ac19b7eb21270",
+      "docs/json/radarr/cf/x264.json": "5451cab435f679087178be7656279edf370139678103bd203e5dba163ae4021c",
+      "docs/json/radarr/cf/x265.json": "a1e6e849f0787e2d7e94a101b223002862dbfe5fae9a1416b1a8843720e28277",
+      "docs/json/radarr/cf/x266.json": "c5d8c539262f48aee248c44149f92c03d190faec49da69c50100a3d5175dae79"
+    }
+  }
+}

@@ -15,14 +15,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dlclark/regexp2"
-
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/ports/port"
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
 	"github.com/jatassi/slipstream/internal/prowlarr/dom"
 	"github.com/jatassi/slipstream/internal/prowlarr/parseutil"
 	"github.com/jatassi/slipstream/internal/prowlarr/stringutil"
+	"github.com/jatassi/slipstream/internal/regex"
 )
 
 //go:embed upstream.json
@@ -1624,30 +1623,25 @@ func GetPublishDateOfRelease(ix *ix, row *dom.Node) (time.Time, error) {
 }
 
 // RuTrackerTitleParser is RuTracker's title cleanup. Its patterns are
-// .NET's, so they run on regexp2, which reads them as .NET does: balancing
-// groups, and \w, \W, \s, \d and \b over all of Unicode.
-// SlipStream: regexp2 has no \p{IsCyrillic} block, so it is its range,
-// \u0400-\u04FF.
+// .NET's, so they run on internal/regex, which reads them as .NET does:
+// balancing groups, \p{IsCyrillic}, and \w, \W, \s, \d and \b over all
+// of Unicode.
 type RuTrackerTitleParser struct{}
 
 var titleParser RuTrackerTitleParser
 
-func dotnet(pattern string, options regexp2.RegexOptions) *regexp2.Regexp {
-	return regexp2.MustCompile(pattern, options)
-}
-
-// replace is Regex.Replace. regexp2 errs only on a MatchTimeout, which none
-// of these sets, or on a replacement it can't read, which a test would meet.
-func replace(re *regexp2.Regexp, input, replacement string) string {
-	out, err := re.Replace(input, replacement, -1, -1)
+// replace is Regex.Replace. A fixed pattern has no match limit, so it errs
+// only on a replacement it can't read, which a test would meet.
+func replace(re *regex.Regex, input, replacement string) string {
+	out, err := re.Replace(regex.TextOf(input), replacement)
 	if err != nil {
 		panic(err)
 	}
 	return out
 }
 
-func isMatch(re *regexp2.Regexp, input string) bool {
-	ok, err := re.MatchString(input)
+func isMatch(re *regex.Regex, input string) bool {
+	ok, err := re.Match(regex.TextOf(input))
 	if err != nil {
 		panic(err)
 	}
@@ -1655,12 +1649,8 @@ func isMatch(re *regexp2.Regexp, input string) bool {
 }
 
 // matches is Regex.Matches: each match's index, in runes, and value.
-func matches(re *regexp2.Regexp, input string) []*regexp2.Match {
-	var out []*regexp2.Match
-	m, err := re.FindStringMatch(input)
-	for ; m != nil && err == nil; m, err = re.FindNextMatch(m) {
-		out = append(out, m)
-	}
+func matches(re *regex.Regex, input string) []regex.Match {
+	out, err := re.FindAll(regex.TextOf(input))
 	if err != nil {
 		panic(err)
 	}
@@ -1668,46 +1658,46 @@ func matches(re *regexp2.Regexp, input string) []*regexp2.Match {
 }
 
 var (
-	FindTagsInTitlesRegexList = []*regexp2.Regexp{
-		dotnet(`\((?>\((?<c>)|[^()]+|\)(?<-c>))*(?(c)(?!))\)`, regexp2.None),
-		dotnet(`\[(?>\[(?<c>)|[^\[\]]+|\](?<-c>))*(?(c)(?!))\]`, regexp2.None),
+	FindTagsInTitlesRegexList = []*regex.Regex{
+		regex.MustCompile(`\((?>\((?<c>)|[^()]+|\)(?<-c>))*(?(c)(?!))\)`, regex.Options{}),
+		regex.MustCompile(`\[(?>\[(?<c>)|[^\[\]]+|\](?<-c>))*(?(c)(?!))\]`, regex.Options{}),
 	}
 
-	stripCyrillicRegex = dotnet(`(\([\u0400-\u04FF\W]+\))|(^[\u0400-\u04FF\W\d]+\/ )|([\u0400-\u04FF \-]+,+)|([\u0400-\u04FF]+)`, regexp2.IgnoreCase)
+	stripCyrillicRegex = regex.MustCompile(`(\([\p{IsCyrillic}\W]+\))|(^[\p{IsCyrillic}\W\d]+\/ )|([\p{IsCyrillic} \-]+,+)|([\p{IsCyrillic}]+)`, regex.Options{IgnoreCase: true})
 
-	tvTitleCommaRegex     = dotnet(`\s(\d+),(\d+)`, regexp2.None)
-	tvTitleCyrillicXRegex = dotnet(`([\s-])Х+([\s\)\]])`, regexp2.IgnoreCase)
+	tvTitleCommaRegex     = regex.MustCompile(`\s(\d+),(\d+)`, regex.Options{})
+	tvTitleCyrillicXRegex = regex.MustCompile(`([\s-])Х+([\s\)\]])`, regex.Options{IgnoreCase: true})
 
-	tvTitleRusSeasonEpisodeOfRegex = dotnet(`Сезон\s*[:]*\s+(\d+).+(?:Серии|Эпизод|Выпуски)+\s*[:]*\s+(\d+(?:-\d+)?)\s*из\s*([\w?])`, regexp2.IgnoreCase)
-	tvTitleRusSeasonEpisodeRegex   = dotnet(`Сезон\s*[:]*\s+(\d+).+(?:Серии|Эпизод|Выпуски)+\s*[:]*\s+(\d+(?:-\d+)?)`, regexp2.IgnoreCase)
-	tvTitleRusSeasonRegex          = dotnet(`Сезон\s*[:]*\s+(\d+(?:-\d+)?)`, regexp2.IgnoreCase)
-	tvTitleRusEpisodeOfRegex       = dotnet(`(?:Серии|Эпизод|Выпуски)+\s*[:]*\s+(\d+(?:-\d+)?)\s*из\s*([\w?])`, regexp2.IgnoreCase)
-	tvTitleRusEpisodeRegex         = dotnet(`(?:Серии|Эпизод|Выпуски)+\s*[:]*\s+(\d+(?:-\d+)?)`, regexp2.IgnoreCase)
-	tvTitleRusSeasonAnimeRegex     = dotnet(`ТВ[-]*(?:(\d+))`, regexp2.IgnoreCase)
-	tvTitleRusEpisodeAnimeOfRegex  = dotnet(`\[(\d+(\+\d+)?)\s+из\s+(\d+(\+\d+)?)\]`, regexp2.IgnoreCase)
+	tvTitleRusSeasonEpisodeOfRegex = regex.MustCompile(`Сезон\s*[:]*\s+(\d+).+(?:Серии|Эпизод|Выпуски)+\s*[:]*\s+(\d+(?:-\d+)?)\s*из\s*([\w?])`, regex.Options{IgnoreCase: true})
+	tvTitleRusSeasonEpisodeRegex   = regex.MustCompile(`Сезон\s*[:]*\s+(\d+).+(?:Серии|Эпизод|Выпуски)+\s*[:]*\s+(\d+(?:-\d+)?)`, regex.Options{IgnoreCase: true})
+	tvTitleRusSeasonRegex          = regex.MustCompile(`Сезон\s*[:]*\s+(\d+(?:-\d+)?)`, regex.Options{IgnoreCase: true})
+	tvTitleRusEpisodeOfRegex       = regex.MustCompile(`(?:Серии|Эпизод|Выпуски)+\s*[:]*\s+(\d+(?:-\d+)?)\s*из\s*([\w?])`, regex.Options{IgnoreCase: true})
+	tvTitleRusEpisodeRegex         = regex.MustCompile(`(?:Серии|Эпизод|Выпуски)+\s*[:]*\s+(\d+(?:-\d+)?)`, regex.Options{IgnoreCase: true})
+	tvTitleRusSeasonAnimeRegex     = regex.MustCompile(`ТВ[-]*(?:(\d+))`, regex.Options{IgnoreCase: true})
+	tvTitleRusEpisodeAnimeOfRegex  = regex.MustCompile(`\[(\d+(\+\d+)?)\s+из\s+(\d+(\+\d+)?)\]`, regex.Options{IgnoreCase: true})
 
-	dashRegex       = dotnet(`\p{Pd}`, regexp2.IgnoreCase)
-	double4KRegex   = dotnet(`\b(2160p), 4K\b`, regexp2.IgnoreCase)
-	blurayDiscRegex = dotnet(`\bBlu-ray Disc\b`, regexp2.IgnoreCase)
-	directorRegex   = dotnet(`(\([\u0400-\u04FF\W]+)(?:\s/\s(.+?))?\)`, regexp2.IgnoreCase)
-	voRegex         = dotnet(`((?:\dx\s)?(?:[A-Z])?VO\s\(.+?\))`, regexp2.None)
-	r5Regex         = dotnet(`(.*)(.R5.)(.*)`, regexp2.None)
-	subRegex        = dotnet(`(\bSub\b[^+]*\b|\b[\+]*Sub[\+]*\b)`, regexp2.None)
+	dashRegex       = regex.MustCompile(`\p{Pd}`, regex.Options{IgnoreCase: true})
+	double4KRegex   = regex.MustCompile(`\b(2160p), 4K\b`, regex.Options{IgnoreCase: true})
+	blurayDiscRegex = regex.MustCompile(`\bBlu-ray Disc\b`, regex.Options{IgnoreCase: true})
+	directorRegex   = regex.MustCompile(`(\([\p{IsCyrillic}\W]+)(?:\s/\s(.+?))?\)`, regex.Options{IgnoreCase: true})
+	voRegex         = regex.MustCompile(`((?:\dx\s)?(?:[A-Z])?VO\s\(.+?\))`, regex.Options{})
+	r5Regex         = regex.MustCompile(`(.*)(.R5.)(.*)`, regex.Options{})
+	subRegex        = regex.MustCompile(`(\bSub\b[^+]*\b|\b[\+]*Sub[\+]*\b)`, regex.Options{})
 	// The C# writes "\bRUS\b" in a regular string, where \b is a backspace,
 	// so this matches no title and RUS is always added. Go's "\b" is the
 	// same backspace.
-	rusRegex           = dotnet("\bRUS\b", regexp2.IgnoreCase)
-	ripRegex           = dotnet(`\b-Rip\b`, regexp2.IgnoreCase)
-	hdtvRipRegex       = dotnet(`\bHDTVRip\b`, regexp2.IgnoreCase)
-	webDLRipRegex      = dotnet(`\bWEB-DLRip\b`, regexp2.IgnoreCase)
-	webDLRipShortRegex = dotnet(`\bWEBDLRip\b`, regexp2.IgnoreCase)
-	webDLRegex         = dotnet(`\bWEBDL\b`, regexp2.IgnoreCase)
-	kurazhRegex        = dotnet(`\bКураж-Бамбей\b`, regexp2.IgnoreCase)
-	openSlashRegex     = dotnet(`\(\s*\/\s*`, regexp2.None)
-	closeSlashRegex    = dotnet(`\s*\/\s*\)`, regexp2.None)
-	emptyTagRegex      = dotnet(`[\[\(]\s*[\)\]]`, regexp2.None)
-	plusesRegex        = dotnet(`\s+\+(?:\s+\+)+\s+`, regexp2.None)
-	spacesRegex        = dotnet(`\s+`, regexp2.None)
+	rusRegex           = regex.MustCompile("\bRUS\b", regex.Options{IgnoreCase: true})
+	ripRegex           = regex.MustCompile(`\b-Rip\b`, regex.Options{IgnoreCase: true})
+	hdtvRipRegex       = regex.MustCompile(`\bHDTVRip\b`, regex.Options{IgnoreCase: true})
+	webDLRipRegex      = regex.MustCompile(`\bWEB-DLRip\b`, regex.Options{IgnoreCase: true})
+	webDLRipShortRegex = regex.MustCompile(`\bWEBDLRip\b`, regex.Options{IgnoreCase: true})
+	webDLRegex         = regex.MustCompile(`\bWEBDL\b`, regex.Options{IgnoreCase: true})
+	kurazhRegex        = regex.MustCompile(`\bКураж-Бамбей\b`, regex.Options{IgnoreCase: true})
+	openSlashRegex     = regex.MustCompile(`\(\s*\/\s*`, regex.Options{})
+	closeSlashRegex    = regex.MustCompile(`\s*\/\s*\)`, regex.Options{})
+	emptyTagRegex      = regex.MustCompile(`[\[\(]\s*[\)\]]`, regex.Options{})
+	plusesRegex        = regex.MustCompile(`\s+\+(?:\s+\+)+\s+`, regex.Options{})
+	spacesRegex        = regex.MustCompile(`\s+`, regex.Options{})
 )
 
 func (RuTrackerTitleParser) Parse(title string, categories []newznab.Category, stripCyrillicLetters, moveFirstTagsToEndOfReleaseTitle, moveAllTagsToEndOfReleaseTitle, addRussianToTitle bool) string {
@@ -1806,7 +1796,7 @@ func MoveAllTagsToEndOfReleaseTitle(input string) string {
 	output := input
 	for _, findTagsRegex := range FindTagsInTitlesRegexList {
 		for _, match := range matches(findTagsRegex, input) {
-			tag := match.String()
+			tag := match.Value()
 			output = strings.TrimSpace(strings.ReplaceAll(output, tag, "") + " " + tag)
 		}
 	}
@@ -1819,17 +1809,17 @@ func MoveFirstTagsToEndOfReleaseTitle(input string) string {
 	for _, findTagsRegex := range FindTagsInTitlesRegexList {
 		expectedIndex := 0
 		for _, match := range matches(findTagsRegex, output) {
-			if match.Index > expectedIndex {
-				substring := string([]rune(output)[expectedIndex:match.Index])
+			if match.Index() > expectedIndex {
+				substring := string([]rune(output)[expectedIndex:match.Index()])
 				if strings.TrimSpace(substring) != "" {
 					break
 				}
-				expectedIndex = match.Index
+				expectedIndex = match.Index()
 			}
 
-			tag := match.String()
+			tag := match.Value()
 			output = strings.TrimSpace(strings.Replace(output, tag, "", 1) + " " + tag)
-			expectedIndex += match.Length
+			expectedIndex += match.Length()
 		}
 	}
 

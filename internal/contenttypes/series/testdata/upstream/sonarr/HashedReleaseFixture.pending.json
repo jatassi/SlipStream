@@ -1,0 +1,4 @@
+[
+  {"method":"should_properly_parse_hashed_releases","args":[{"call":"AsOsAgnostic","on":"C:\\Test\\Fake.Dir.S01E01-Test\\yrucreM-462.H.0.2CAA.LD-BEW.p027.10E10S.esaeleR.dehsaH.emoS.mkv"},"Some Hashed Release",{"ref":"Quality.WEBDL720p"},"Mercury"]},
+  {"method":"should_properly_parse_hashed_releases","args":[{"call":"AsOsAgnostic","on":"C:\\Test\\Fake.Dir.S01E01-Test\\yrucreM-LN 1.5DD LD-BEW P0801 10E10S esaeleR dehsaH emoS.mkv"},"Some Hashed Release",{"ref":"Quality.WEBDL1080p"},"Mercury"]}
+]

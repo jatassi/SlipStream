@@ -59,19 +59,27 @@ type GrabsGrab struct {
 	SentClientID      *downloadclients.ClientID
 }
 
-type GrabsRefusal struct {
-	SearchID SearchID
-	Position int64
-	Title    string
-	Reasons  string
-}
-
 type GrabsRelease struct {
-	SearchID   SearchID
-	Position   int64
-	IndexerID  indexers.ID
-	Release    string
-	LinkSealed secret.Sealed
+	SearchID     SearchID
+	Position     int64
+	Title        string
+	IndexerID    indexers.ID
+	IndexerName  string
+	Size         int64
+	Seeders      int64
+	Outcome      ReleaseOutcome
+	Rank         *int64
+	Reasons      string
+	LostStep     *Step
+	LostTargetID targets.TargetID
+	LostOwn      *string
+	LostRef      *string
+	Scores       string
+	Formats      string
+	Covers       string
+	CopyOf       *int64
+	Release      *string
+	LinkSealed   secret.Sealed
 }
 
 type GrabsSearch struct {

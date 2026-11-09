@@ -50,26 +50,21 @@ func itemsBody(ids ...string) string {
 	return `{"levelIds":[],"itemIds":["` + strings.Join(ids, `","`) + `"]}`
 }
 
-// episodeRun is a finished search run of one episode and what it refused.
+// episodeRun is a finished search run of one episode.
 type episodeRun struct {
-	ItemID  string  `json:"itemId"`
-	Outcome *string `json:"outcome"`
-	GrabID  *string `json:"grabId"`
-	Refused []struct {
-		Title   string `json:"title"`
-		Reasons []struct {
-			Code  string `json:"code"`
-			Value string `json:"value"`
-		} `json:"reasons"`
-	} `json:"refused"`
+	ID       string     `json:"id"`
+	ItemID   string     `json:"itemId"`
+	Outcome  *string    `json:"outcome"`
+	GrabID   *string    `json:"grabId"`
 	Indexers []lineView `json:"indexers"`
 }
 
-// refusals is each refused title with its first reason and that reason's
-// value.
-func (r episodeRun) refusals() []string {
+// refusals is each Release the run r refused, as its title with its first
+// reason and that reason's value, in the order the Indexers listed them.
+func (w *walked) refusals(t *testing.T, r episodeRun) []string {
+	t.Helper()
 	var out []string
-	for _, f := range r.Refused {
+	for _, f := range w.refused(t, r.ID) {
 		out = append(out, f.Title+" "+f.Reasons[0].Code+" "+f.Reasons[0].Value)
 	}
 	return out
@@ -81,15 +76,12 @@ func (w *walked) finished(t *testing.T, ids []string) map[string]episodeRun {
 	out := map[string]episodeRun{}
 	worldtest.Until(t, "the searches finish", func() (bool, error) {
 		var list struct {
-			Searches []struct {
-				ID string `json:"id"`
-				episodeRun
-			} `json:"searches"`
+			Searches []episodeRun `json:"searches"`
 		}
 		decode(t, "listSearches", w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/searches", ""), &list)
 		for _, s := range list.Searches {
 			if slices.Contains(ids, s.ID) && s.Outcome != nil {
-				out[s.ID] = s.episodeRun
+				out[s.ID] = s
 			}
 		}
 		return len(out) == len(ids), nil
@@ -158,12 +150,13 @@ func TestEpisodeSearchSendsSeasonAndEp(t *testing.T) {
 		want := []string{
 			"The.Lantern.Keepers.S01E02.720p.WEB-DL.H264-FKW wrong_item S01E02",
 			"The.Lantern.Keepers.S01.1080p.WEB-DL.H264-FKW covers_more S01",
+			"The.Lantern.Keepers.S01E02E03.1080p.WEB-DL.H264-FKW covers_more S01E02-E03",
 		}
 		if r.ItemID == special {
 			want = nil
 		}
-		if r.Outcome == nil || *r.Outcome != "grabbed" || !slices.Equal(r.refusals(), want) {
-			t.Fatalf("the search of %s ended %v refusing %q, want grabbed refusing %q", r.ItemID, r.Outcome, r.refusals(), want)
+		if r.Outcome == nil || *r.Outcome != "grabbed" || !slices.Equal(w.refusals(t, r), want) {
+			t.Fatalf("the search of %s ended %v refusing %q, want grabbed refusing %q", r.ItemID, r.Outcome, w.refusals(t, r), want)
 		}
 	}
 	w.imported(t, runs)
@@ -235,8 +228,8 @@ func TestAnotherSeriesTVDBIDIsTheWrongWork(t *testing.T) {
 		t.Fatalf("fixture-site served %q, want the free-text search naming the episode on the site without TV ids", got)
 	}
 	for _, r := range runs {
-		if r.Outcome == nil || *r.Outcome != "grabbed" || !slices.Contains(r.refusals(), "The.Lantern.Keepers.S01E03.Proper.720p.WEB-DL.H264-NTB wrong_work ") {
-			t.Fatalf("the search ended %v refusing %q, want grabbed with Harbor Nights' release named S01E03 refused as wrong_work", r.Outcome, r.refusals())
+		if r.Outcome == nil || *r.Outcome != "grabbed" || !slices.Contains(w.refusals(t, r), "The.Lantern.Keepers.S01E03.Proper.720p.WEB-DL.H264-NTB wrong_work ") {
+			t.Fatalf("the search ended %v refusing %q, want grabbed with Harbor Nights' release named S01E03 refused as wrong_work", r.Outcome, w.refusals(t, r))
 		}
 	}
 }

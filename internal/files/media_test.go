@@ -37,7 +37,7 @@ func TestAnHDRTargetJudgesWhatAFilesMediaRecordReads(t *testing.T) {
 			if err := f.Set(targets.HDR, targets.Only, []string{"HDR10"}); err != nil {
 				t.Fatal(err)
 			}
-			spec := targets.Spec{Name: "HDR", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p, Filters: f}
+			spec := targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "HDR", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p, Filters: f}
 			hdr := must[targets.Target](t)(l.targets.CreateTarget(t.Context(), admin, spec))
 			tree := l.work(t, "w1", true, new(l.profile(t, "Films", hdr)))
 			svc := l.files(files.NoGrabs{})

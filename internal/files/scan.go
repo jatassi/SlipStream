@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"maps"
+	"path"
 	"slices"
 
 	"github.com/jatassi/slipstream/internal/files/internal/db"
@@ -77,7 +78,8 @@ func (f *Files) Scan(ctx context.Context, tx *storage.Tx[file], s Scan) (Scanned
 	if err != nil {
 		return Scanned{}, err
 	}
-	sc := scan{Scan: s, q: db.New(tx), now: storage.Now(), cuts: before.cuts.For(before.tree.ContentType), left: map[ID]bool{}}
+	typ := before.tree.ContentType
+	sc := scan{Scan: s, q: db.New(tx), now: storage.Now(), names: f.cfg.Names[typ], cuts: before.cuts.For(typ), left: map[ID]bool{}}
 	after := before
 	after.files = slices.Clone(before.files)
 	sc.at = make(map[ID]*File, len(after.files))
@@ -100,6 +102,7 @@ func (f *Files) Scan(ctx context.Context, tx *storage.Tx[file], s Scan) (Scanned
 		g := File{
 			ID: ID{UUID: storage.NewUUID()}, WorkID: s.Work, ItemID: fd.Item, Cut: fd.Cut, RootID: s.Root, Path: fd.At.Path.String(),
 			Size: fd.At.Size, Media: fd.Media, ProbedAt: sc.now, Seen: &fd.At.Seen, Quality: fd.Quality,
+			ReleaseName: path.Base(fd.At.Path.String()), Title: release.File(fd.At.Path.String(), sc.names, sc.cuts),
 		}
 		after.files = append(after.files, g)
 		after.found[g.ID] = true
@@ -130,6 +133,7 @@ type scan struct {
 	Scan
 	q       *db.Queries
 	now     storage.Time
+	names   release.Names
 	cuts    []release.Cut
 	at      map[ID]*File
 	changed []ID
@@ -214,7 +218,7 @@ func (sc *scan) same(g *File, s scanning.Same) bool {
 			return false
 		}
 		sc.reprobe(g, p, func(m media.Record) release.Quality {
-			return scanning.Requalified(g.Quality, g.Path, sc.cuts, m.Resolution())
+			return scanning.Requalified(g.Quality, g.Path, sc.names, sc.cuts, m.Resolution())
 		})
 	}
 	g.Seen = &s.At.Seen
@@ -225,14 +229,16 @@ func (sc *scan) same(g *File, s scanning.Same) bool {
 }
 
 // resized records a file at its path at another size: read again, its
-// quality read again from its name and record, and its Grab link dropped.
+// quality read again from its name and record, and its Grab link dropped,
+// so its release name is its own file name.
 func (sc *scan) resized(g *File, s scanning.Same) bool {
 	p, ok := sc.Probes[s.At.Path]
 	if !ok {
 		return false
 	}
 	sc.reprobe(g, p, func(m media.Record) release.Quality {
-		q, _ := scanning.QualityOf(g.Path, sc.cuts, m.Resolution())
+		read, q := scanning.QualityOf(g.Path, sc.names, sc.cuts, m.Resolution())
+		g.ReleaseName, g.Title = path.Base(g.Path), read
 		return q
 	})
 	g.Size, g.Seen, g.GrabID = s.At.Size, &s.At.Seen, storage.UUID{}
@@ -255,9 +261,9 @@ func (sc *scan) reprobe(g *File, p Probe, quality func(media.Record) release.Qua
 }
 
 // taken reports whether a row, a move or a doomed file of the root names
-// path now.
-func (sc *scan) taken(ctx context.Context, path storing.Rel) (bool, error) {
-	return sc.q.PathTaken(ctx, db.PathTakenParams{RootID: sc.Root, Path: path.String()})
+// at now.
+func (sc *scan) taken(ctx context.Context, at storing.Rel) (bool, error) {
+	return sc.q.PathTaken(ctx, db.PathTakenParams{RootID: sc.Root, Path: at.String()})
 }
 
 // write stores g's scanned columns, and drops the pending move of a file
@@ -275,6 +281,6 @@ func (sc *scan) write(ctx context.Context, g File) error {
 	}
 	return sc.q.UpdateScanned(ctx, db.UpdateScannedParams{
 		ID: g.ID, Path: g.Path, Size: g.Size, Probe: g.Media, GrabID: g.GrabID, Quality: g.Quality,
-		ModifiedAt: modified, NodeFileID: file, NodeVolumeID: volume, GoneAt: g.GoneAt, ProbedAt: g.ProbedAt, ProbeError: line,
+		ReleaseName: g.ReleaseName, TitleRead: db.Reading{Read: g.Title}, ModifiedAt: modified, NodeFileID: file, NodeVolumeID: volume, GoneAt: g.GoneAt, ProbedAt: g.ProbedAt, ProbeError: line,
 	})
 }

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/release"
 )
 
 // Kind is how an Indexer is reached: the protocol its driver speaks.
@@ -171,21 +172,7 @@ type Release struct {
 }
 
 // Flag is one of Radarr's indexer flags.
-type Flag string
-
-const (
-	Freeleech    Flag = "freeleech"
-	Halfleech    Flag = "halfleech"
-	Freeleech75  Flag = "freeleech75"
-	Freeleech25  Flag = "freeleech25"
-	DoubleUpload Flag = "doubleupload"
-	Internal     Flag = "internal"
-	Scene        Flag = "scene"
-	Exclusive    Flag = "exclusive"
-	Nuked        Flag = "nuked"
-	Golden       Flag = "golden"
-	Approved     Flag = "approved"
-)
+type Flag = release.Flag
 
 // Factors are the share of a download and an upload the site counts:
 // freeleech is Download 0.

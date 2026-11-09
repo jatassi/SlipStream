@@ -9,6 +9,7 @@ import { renderApp } from "../test/render-app";
 import { keeper, starter, targetHandlers } from "../test/targets";
 
 const sentence = () => page.getByText(/^Grabs /u);
+const reachedCutoff = "Bluray-1080p has reached the cutoff, so no better tier replaces it.";
 
 const newTarget = z.object({
   name: z.string(),
@@ -66,9 +67,7 @@ test("a Target built from a preset says what its order means as the cutoff moves
     .element(sentence())
     .toHaveTextContent("Grabs HDTV-720p or better. Upgrades until Bluray-1080p, then stops.");
   const samples = page.getByRole("list", { name: "Sample moves" });
-  await expect
-    .element(samples.getByText("Bluray-1080p has reached the cutoff, so nothing replaces it."))
-    .toBeVisible();
+  await expect.element(samples.getByText(reachedCutoff)).toBeVisible();
   await expect.element(samples.getByText("This Target doesn't accept Remux-2160p.")).toBeVisible();
 
   await userEvent.click(page.getByRole("button", { name: "Create Target" }));

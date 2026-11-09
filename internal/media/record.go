@@ -100,23 +100,13 @@ func (r *Record) Scan(v any) error {
 	return nil
 }
 
-// Probed is what a Target judges of a file, in the release vocabularies.
-type Probed struct {
-	Resolution release.Fact[release.Resolution]
-	Video      release.Fact[release.VideoCodec]
-	HDR        release.Fact[[]release.HDR]
-	Audio      release.Fact[[]release.AudioCodec]
-	Channels   release.Fact[[]release.Channels]
-	// Languages are the audio tracks' languages, unknown while any track
-	// is untagged. Subtitle languages are never judged.
-	Languages release.Fact[[]release.Language]
-}
-
 // Probed is r in the release vocabularies. A Version 0 record knows only
 // its resolution and video codec. Audio codecs and channel layouts the
-// vocabularies have no word for are left out.
-func (r Record) Probed() Probed {
-	var p Probed
+// vocabularies have no word for are left out. Languages are the audio
+// tracks', unknown while any track is untagged; subtitle languages are
+// never judged.
+func (r Record) Probed() release.Probed {
+	var p release.Probed
 	if r.Width > 0 {
 		p.Resolution = release.Known(r.Resolution())
 	}

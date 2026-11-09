@@ -17,6 +17,10 @@ func (*Series) Titles(ctx context.Context, r storage.Reader[file], w works.WorkI
 	if err != nil {
 		return nil, err
 	}
+	return titlesOf(row)
+}
+
+func titlesOf(row db.SeriesSeries) ([]string, error) {
 	var aliases []string
 	if err := unblob(row.Aliases, &aliases); err != nil {
 		return nil, fmt.Errorf("series %d: %w", row.TvdbID, err)

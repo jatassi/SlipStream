@@ -33,6 +33,8 @@ type FilesFile struct {
 	Quality      release.Quality
 	Label        string
 	Extra        int64
+	ReleaseName  string
+	TitleRead    Reading
 	ModifiedAt   storage.Time
 	NodeFileID   *string
 	NodeVolumeID *string
@@ -47,6 +49,7 @@ type FilesFill struct {
 	TargetID targets.TargetID
 	ItemID   works.ItemID
 	Edition  targets.Edition
+	Score    int64
 }
 
 type FilesMove struct {

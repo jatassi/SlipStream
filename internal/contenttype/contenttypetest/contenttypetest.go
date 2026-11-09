@@ -109,6 +109,8 @@ type box struct {
 // records. Its scan facet is scanning's empty answer.
 type Fixture struct {
 	scanning.None
+	// TitleOnly reads a name as one title: the Fixture numbers nothing.
+	release.TitleOnly
 	mu        sync.Mutex
 	records   map[works.Key]Record
 	fails     map[works.Key]error
@@ -683,6 +685,11 @@ func (*Fixture) DefaultTemplates() naming.Templates {
 	return naming.Templates{Folder: "{Shelf}", Levels: []string{"{Box}"}, Aside: "Spare boxes", File: "{Shelf} - {Thing} - {Edition Tag} {Target}"}
 }
 
+// Expect answers indexers' empty answer: the Fixture can't be searched.
+func (*Fixture) Expect(context.Context, storage.Reader[storage.Library], works.WorkID) (indexers.Expect, error) {
+	return indexers.Expect{}, nil
+}
+
 // SearchTerms answers indexers' empty answer: the Fixture can't be
 // searched.
 func (*Fixture) SearchTerms(context.Context, storage.Reader[storage.Library], works.ItemID) (indexers.Terms, error) {
@@ -722,6 +729,11 @@ func (f *Fixture) Timings(_ context.Context, _ storage.Reader[storage.Library], 
 		}
 	}
 	return out, nil
+}
+
+// Originals answers no Work: every Shelf's original language is unknown.
+func (*Fixture) Originals(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[works.WorkID]release.Fact[release.Language], error) {
+	return nil, nil
 }
 
 func (f *Fixture) Cuts() []release.Cut {

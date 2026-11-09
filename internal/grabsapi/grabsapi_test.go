@@ -60,6 +60,10 @@ func (p pipeline) Grabs() (*grabs.Grabs, bool) { return p.g, true }
 // terms is a Content Type's search terms, empty until set.
 type terms struct{ t indexers.Terms }
 
+func (s *terms) Expect(context.Context, storage.Reader[storage.Library], works.WorkID) (indexers.Expect, error) {
+	return s.t.Expect, nil
+}
+
 func (s *terms) SearchTerms(context.Context, storage.Reader[storage.Library], works.ItemID) (indexers.Terms, error) {
 	return s.t, nil
 }
@@ -96,8 +100,16 @@ type lapsing struct{ lapsed atomic.Bool }
 func (*lapsing) Holds(role.Name, role.NodeID) bool { return true }
 func (l *lapsing) InStep(role.NodeID) bool         { return !l.lapsed.Load() }
 
-// site answers every search with a 1080p and a 720p release, and every
-// .torrent fetch with bytes that aren't bencode.
+// atticIDs are The Attic's ids, which its Releases carry.
+var atticIDs = map[string]string{"tmdbid": "1"}
+
+// atticTerms are The Attic's search terms, item its one Item.
+func atticTerms(item works.ItemID) indexers.Terms {
+	return indexers.Terms{Expect: indexers.Expect{Claim: release.Claim{IDs: atticIDs}, Covers: indexers.CoversOnly(item)}, Mode: "search", Query: "The Attic"}
+}
+
+// site answers every search with a 1080p and a 720p release of The Attic,
+// and every .torrent fetch with bytes that aren't bencode.
 type site struct{}
 
 func (site) ReachSolver(context.Context, searching.Solver) (int, error) {
@@ -109,8 +121,8 @@ func (site) Run(_ context.Context, job searching.Job) (searching.Poll, error) {
 	switch job.Call.(type) {
 	case searching.SearchCall:
 		a.Releases = []searching.Release{
-			{Title: "The.Attic.1080p.WEB", Size: 4096, Link: searching.LinkOf("https://site.test/dl/1"), Seeders: 5},
-			{Title: "The.Attic.720p.WEB", Size: 2048, Link: searching.LinkOf("https://site.test/dl/2"), Seeders: 50},
+			{Title: "The.Attic.1080p.WEB", Size: 4096, Link: searching.LinkOf("https://site.test/dl/1"), Seeders: 5, IDs: atticIDs},
+			{Title: "The.Attic.720p.WEB", Size: 2048, Link: searching.LinkOf("https://site.test/dl/2"), Seeders: 50, IDs: atticIDs},
 		}
 	case searching.FetchCall:
 		a.Got = searching.Torrent{Raw: []byte("not bencode")}
@@ -171,7 +183,7 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{
 		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
 	}))
-	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Name: "HD", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}))
+	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "HD", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}))
 	standard := must[targets.Profile](t)(goals.CreateProfile(ctx, admin, targets.ProfileSpec{
 		Name: "Standard", ContentType: contenttypetest.ID, Entries: []targets.Entry{{Target: hd.ID, Sourcing: targets.Download}},
 	}))
@@ -213,10 +225,15 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{}, Timings: indexers.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
 	})
 	router := downloadclients.Router{Roster: roster, Routes: trackers.Routing{Roster: roster}}
+	shelf, err := files.Open(ctx, files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }, Router: router}, Today: time.Now})
+	if err != nil {
+		t.Fatal(err)
+	}
 	g := grabs.New(grabs.Config{
-		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: files.New(files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }, Router: router}, Today: time.Now}),
+		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: shelf,
 		Indexers: xs,
-		Terms:    map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Roster: roster, Downloads: roster, Roots: library,
+		Terms:    map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Names: map[works.TypeID]release.Names{contenttypetest.ID: fx},
+		Roster: roster, Downloads: roster, Roots: library,
 		Router:    router,
 		Transfers: transfers.New(transfers.ControllerConfig{Library: lib}),
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
@@ -260,7 +277,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		`{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
 	expect(t, s, http.MethodPost, search, http.StatusConflict,
 		`{"status":409,"code":"not_searchable","title":"The Work's Content Type can't be searched"}`)
-	f.terms.t = indexers.Terms{Mode: "search", Query: "The Attic", Covers: indexers.CoversOnly}
+	f.terms.t = atticTerms(f.tree.Items[0].ID)
 	expect(t, s, http.MethodPost, search, http.StatusConflict,
 		`{"status":409,"code":"no_indexer","title":"No Indexer is set up"}`)
 
@@ -291,7 +308,10 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	item := tree.Items[0].ID.String()
 	run1 := `{"id":"` + run + `","itemId":"` + item + `","startedAt":"T","indexers":[{"indexerId":"` + indexer.String() + `","name":"Fixture Site",`
 	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
-		`{"searches":[`+run1+`"outcome":null,"releases":0,"sentence":"Searching"}],"finishedAt":null,"outcome":null,"candidates":0,"refused":[],"grabId":null,"notes":[]}]}`)
+		`{"searches":[`+run1+`"outcome":null,"releases":0,"sentence":"Searching"}],"finishedAt":null,"outcome":null,"candidates":0,"grabId":null,"notes":[]}]}`)
+	expect(t, s, http.MethodGet, "/api/v1/searches/"+run+"/releases", http.StatusOK, `{"releases":[]}`)
+	expect(t, s, http.MethodGet, "/api/v1/searches/"+none+"/releases", http.StatusNotFound,
+		`{"status":404,"code":"search_not_found","title":"No search run has that id"}`)
 	if got := <-searched; got != (grabs.SearchChanged{SearchID: run, WorkID: tree.ID.String()}) {
 		t.Fatalf("grabs.search-changed = %+v, want the run %s", got, run)
 	}
@@ -304,8 +324,15 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	}
 	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
 		`{"searches":[`+run1+`"outcome":"found","releases":2,"sentence":"Found 2 Releases"}],"finishedAt":"T","outcome":"grabbed","candidates":2,`+
-			`"refused":[{"title":"The.Attic.720p.WEB","reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p"}]}],"grabId":"`+grab+`",`+
-			`"notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`"}]}]}`)
+			`"grabId":"`+grab+`","notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`","soft":false}]}]}`)
+	attic := `"indexerId":"` + indexer.String() + `","indexerName":"Fixture Site",`
+	scored := `"covers":["` + item + `"],"scores":[{"targetId":"` + hd.ID.String() + `","score":0}],"formatIds":[],`
+	expect(t, s, http.MethodGet, "/api/v1/searches/"+run+"/releases", http.StatusOK, `{"releases":[`+
+		`{"position":0,"title":"The.Attic.1080p.WEB","words":"WEBDL-1080p · 4.0 KB",`+attic+`"size":4096,"seeders":5,"outcome":"grabbed","rank":1,"copyOf":null,`+
+		scored+`"reasons":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`","soft":false,`+
+		`"words":"Its size isn't checked at HD because the name gives no size or the runtime is unknown."}],"lostAt":null},`+
+		`{"position":1,"title":"The.Attic.720p.WEB","words":"WEBDL-720p · 2.0 KB",`+attic+`"size":2048,"seeders":50,"outcome":"refused","rank":null,"copyOf":null,`+
+		scored+`"reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p","soft":false,"words":"HD doesn't accept WEBDL-720p."}],"lostAt":null}]}`)
 	reached, err := f.xs.Trackers(ctx, admin)
 	if err != nil || len(reached) != 1 || reached[0].Name != "Fixture Site" {
 		t.Fatalf("Trackers = %+v, %v; want the Fixture Site one the Grab reached", reached, err)
@@ -356,9 +383,10 @@ func (f *atticFixture) failed(t *testing.T, n int) map[string]failedGrab {
 	}
 }
 
-// mirrors answers each Indexer's search with its own 1080p Release, a
-// fetch from stopped with a refused account, and any other fetch with
-// bytes that aren't bencode.
+// mirrors answers each Indexer's search with its own 1080p Release, which
+// carries The Attic's ids when its title names The Attic, a fetch from
+// stopped with a refused account, and any other fetch with bytes that
+// aren't bencode.
 type mirrors struct {
 	titles  map[string]string
 	stopped string
@@ -372,7 +400,11 @@ func (m mirrors) Run(_ context.Context, job searching.Job) (searching.Poll, erro
 	var a searching.Answer
 	switch job.Call.(type) {
 	case searching.SearchCall:
-		a.Releases = []searching.Release{{Title: m.titles[job.Indexer], Size: 4096, Link: searching.LinkOf("https://site.test/dl/" + job.Indexer), Seeders: 5}}
+		r := searching.Release{Title: m.titles[job.Indexer], Size: 4096, Link: searching.LinkOf("https://site.test/dl/" + job.Indexer), Seeders: 5}
+		if strings.HasPrefix(r.Title, "The.Attic.") {
+			r.IDs = atticIDs
+		}
+		a.Releases = []searching.Release{r}
 	case searching.FetchCall:
 		if job.Indexer == m.stopped {
 			a.Outcome = &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}
@@ -394,7 +426,7 @@ func mirrored(t *testing.T, betterTitle, otherTitle string, stops bool, edit ind
 		m.stopped = better.String()
 	}
 	f = searchable(t, m)
-	f.terms.t = indexers.Terms{Mode: "search", Query: "The Attic", Covers: indexers.CoversOnly}
+	f.terms.t = atticTerms(f.tree.Items[0].ID)
 	err := f.lib.Write(f.ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		if err := nodestest.Insert(ctx, tx, f.home, "home"); err != nil {
 			return err
@@ -425,6 +457,7 @@ func (f *atticFixture) searchAttic(t *testing.T) {
 }
 
 type searchRun struct {
+	ID         string `json:"id"`
 	Outcome    string `json:"outcome"`
 	Candidates int    `json:"candidates"`
 	GrabID     string `json:"grabId"`
@@ -443,6 +476,40 @@ func (f *atticFixture) onlyRun(t *testing.T) searchRun {
 	return runs.Searches[0]
 }
 
+func (f *atticFixture) onlyRunID(t *testing.T) string {
+	t.Helper()
+	return f.onlyRun(t).ID
+}
+
+type listedRelease struct {
+	Title   string          `json:"title"`
+	Outcome string          `json:"outcome"`
+	Reasons json.RawMessage `json:"reasons"`
+}
+
+// releases is the Releases run lists.
+func (f *atticFixture) releases(t *testing.T, run string) []listedRelease {
+	t.Helper()
+	_, got := f.s.Call(t, http.MethodGet, "/api/v1/searches/"+run+"/releases", "")
+	var list struct {
+		Releases []listedRelease `json:"releases"`
+	}
+	if err := json.Unmarshal([]byte(got), &list); err != nil {
+		t.Fatalf("listSearchReleases = %s, %v", got, err)
+	}
+	return list.Releases
+}
+
+// outcomes is each Release run lists and its outcome, in its order.
+func (f *atticFixture) outcomes(t *testing.T, run string) []string {
+	t.Helper()
+	var out []string
+	for _, r := range f.releases(t, run) {
+		out = append(out, r.Title+" "+r.Outcome)
+	}
+	return out
+}
+
 func TestAGrabDroppedAtFetchingRerunsTheDecisionOverTheKeptReleases(t *testing.T) {
 	f, stopping, other := mirrored(t, "The.Attic.1080p.WEB-STOP", "The.Attic.1080p.WEB-GO", true, indexers.Edit{})
 	f.searchAttic(t)
@@ -455,8 +522,11 @@ func TestAGrabDroppedAtFetchingRerunsTheDecisionOverTheKeptReleases(t *testing.T
 		t.Fatalf("the run is %+v, want grabbed of 2 candidates with the rerun's Grab %s", r, rerun.ID)
 	}
 	var kept int
-	if err := f.lib.QueryRowContext(f.ctx, `SELECT count(*) FROM grabs_release`).Scan(&kept); err != nil || kept != 0 {
-		t.Fatalf("grabs_release holds %d rows (%v) once the rerun's Grab failed, want none", kept, err)
+	if err := f.lib.QueryRowContext(f.ctx, `SELECT count(*) FROM grabs_release WHERE release IS NOT NULL OR link_sealed IS NOT NULL`).Scan(&kept); err != nil || kept != 0 {
+		t.Fatalf("grabs_release keeps %d Releases for a rerun (%v) once the rerun's Grab failed, want none", kept, err)
+	}
+	if got, want := f.outcomes(t, f.onlyRunID(t)), []string{"The.Attic.1080p.WEB-STOP not_taken", "The.Attic.1080p.WEB-GO grabbed"}; !slices.Equal(got, want) {
+		t.Fatalf("the run's Releases are %q, want %q: the dropped Release its Indexer stopped, ranked above the rerun's Grab", got, want)
 	}
 }
 
@@ -482,13 +552,15 @@ func TestASearchTakesTheSameReleaseFromAnotherIndexerWhenTheBetterOneIsAtItsGrab
 	}
 }
 
-// spring covers The Attic's Item with every title but one naming Spring,
-// which is another Item.
-func spring(title string) indexers.Covering {
-	if strings.Contains(title, ".Spring.") {
-		return indexers.Covering{Kind: indexers.CoversOther, Names: "Spring"}
+// spring covers item with every title but one naming Spring, which is
+// another Item.
+func spring(item works.ItemID) func(release.Name) []works.ItemID {
+	return func(n release.Name) []works.ItemID {
+		if strings.Contains(n.Titles[0], ".Spring.") {
+			return nil
+		}
+		return []works.ItemID{item}
 	}
-	return indexers.Covering{Kind: indexers.CoversItem}
 }
 
 func TestASearchWithinLevelsAndItemsSearchesOnlyThem(t *testing.T) {
@@ -515,7 +587,7 @@ func TestASearchWithinLevelsAndItemsSearchesOnlyThem(t *testing.T) {
 
 func TestSightingNeedsCoverage(t *testing.T) {
 	f, _, _ := mirrored(t, "The.Attic.1080p.WEB", "The.Attic.Spring.Extended.1080p.WEB", false, indexers.Edit{})
-	f.terms.t.Covers = spring
+	f.terms.t.Covers = spring(f.tree.Items[0].ID)
 	f.searchAttic(t)
 	f.failed(t, 1)
 	var seen map[works.ItemID][]release.CutKey
@@ -532,9 +604,70 @@ func TestSightingNeedsCoverage(t *testing.T) {
 	}
 }
 
+func TestARefusalSaysWhetherAManualSearchCanGrabPastIt(t *testing.T) {
+	f, _, _ := mirrored(t, "The.Attic.1080p.WEB", "Another.Film.1080p.WEB", false, indexers.Edit{})
+	f.searchAttic(t)
+	f.failed(t, 1)
+	var refused []string
+	for _, r := range f.releases(t, f.onlyRunID(t)) {
+		if r.Outcome == "refused" {
+			refused = append(refused, r.Title+" "+string(r.Reasons))
+		}
+	}
+	want := `Another.Film.1080p.WEB [{"code":"wrong_title","value":"Another.Film.1080p.WEB","soft":true,"words":"Its name gives Another.Film.1080p.WEB, which isn't this Work."},` +
+		`{"code":"size_not_checked","targetId":"` + f.hd.ID.String() + `","soft":false,` +
+		`"words":"Its size isn't checked at HD because the name gives no size or the runtime is unknown."}]`
+	if !slices.Equal(refused, []string{want}) {
+		t.Fatalf("the run refused %q, want another film's release as a soft wrong_title in words, judged at the cell: %s", refused, want)
+	}
+}
+
+// TestARunKeepsItsReleasesUntilALaterRunOfItsItemFinishes searches The
+// Attic twice. Each Grab fails at fetching, so the Item is wanted again.
+func TestARunKeepsItsReleasesUntilALaterRunOfItsItemFinishes(t *testing.T) {
+	f, better, _ := mirrored(t, "The.Attic.1080p.WEB", "The.Attic.720p.WEB", false, indexers.Edit{})
+	f.searchAttic(t)
+	f.failed(t, 1)
+	first := f.onlyRunID(t)
+	want := []string{"The.Attic.1080p.WEB grabbed", "The.Attic.720p.WEB refused"}
+	if got := f.outcomes(t, first); !slices.Equal(got, want) {
+		t.Fatalf("the first run lists %q, want %q", got, want)
+	}
+	if code, body := f.s.Call(t, http.MethodPost, f.search, ""); code != http.StatusAccepted {
+		t.Fatalf("searchWork = %d %s, want 202", code, body)
+	}
+	for {
+		<-f.changed
+		var failed int
+		if err := f.lib.QueryRowContext(f.ctx, `SELECT count(*) FROM grabs_grab WHERE stage = 'failed' AND indexer_id = ?`, better.UUID).Scan(&failed); err != nil {
+			t.Fatal(err)
+		}
+		if failed == 2 {
+			break
+		}
+	}
+	_, got := f.s.Call(t, http.MethodGet, f.search+"es", "")
+	var runs struct {
+		Searches []searchRun `json:"searches"`
+	}
+	if err := json.Unmarshal([]byte(got), &runs); err != nil || len(runs.Searches) != 2 || runs.Searches[1].ID != first {
+		t.Fatalf("listSearches = %s, %v; want the second run then the first", got, err)
+	}
+	if got := f.outcomes(t, runs.Searches[0].ID); !slices.Equal(got, want) {
+		t.Fatalf("the second run lists %q, want %q", got, want)
+	}
+	if got := f.outcomes(t, first); got != nil {
+		t.Fatalf("the first run lists %q once the second finished, want none", got)
+	}
+	var rows int
+	if err := f.lib.QueryRowContext(f.ctx, `SELECT count(*) FROM grabs_release`).Scan(&rows); err != nil || rows != 2 {
+		t.Fatalf("grabs_release holds %d rows (%v), want the latest run's 2", rows, err)
+	}
+}
+
 func TestRerunRedecidesWithCoverage(t *testing.T) {
 	f, stopping, _ := mirrored(t, "The.Attic.1080p.WEB-STOP", "The.Attic.Spring.1080p.WEB", true, indexers.Edit{})
-	f.terms.t.Covers = spring
+	f.terms.t.Covers = spring(f.tree.Items[0].ID)
 	f.searchAttic(t)
 	if g, ok := f.failed(t, 1)[stopping.String()]; !ok || g.Failure.Code != "indexer_stopped" {
 		t.Fatalf("the failed Grab is %+v, want Better Site's dropped indexer_stopped", g)

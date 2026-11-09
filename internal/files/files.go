@@ -62,13 +62,17 @@ type File struct {
 	GoneAt storage.Time
 	// GrabID is the Grab that brought it, zero for none.
 	GrabID storage.UUID
-	// Quality is release.File's over its Grab's release title, or its own
-	// name, and its media record.
+	// Quality is what its import or a scan judged of its Title and its
+	// media record.
 	Quality release.Quality
 	// Label is the Target name its {Target} renders, before any suffix.
 	Label string
 	// Extra is N in " (extra N)", set exactly when the file fills nothing.
 	Extra int64
+	// ReleaseName is its Grab's Release title, or its own file name when
+	// no Grab brought it, and Title is that name's reading.
+	ReleaseName string
+	Title       release.Read
 }
 
 // Gone reports whether a scan found f's bytes absent from its root.
@@ -78,21 +82,20 @@ func (f File) Gone() bool { return !f.GoneAt.IsZero() }
 // is gone, not Kept.
 func (f File) Kept() bool { return f.Extra > 0 && !f.Gone() }
 
-// Facts is what f's row knows about it, for Judge: its quality, cut and
-// size, and what its media record reads.
+// Facts is f as Judge reads it: its Title's facts with what its media
+// record measured winning, at the quality its import or scan judged, its
+// cut and its size.
 func (f File) Facts() release.Facts {
-	p := f.Media.Probed()
-	return release.Facts{
-		Quality: release.Known(f.Quality), Cut: f.Cut, HDR: p.HDR, Video: p.Video, Audio: p.Audio, Channels: p.Channels, Languages: p.Languages,
-		Size: release.Known(f.Size),
-	}
+	facts := f.Title.Facts.WithProbe(f.Media.Probed())
+	facts.Quality, facts.Cut, facts.Size = release.Known(f.Quality), f.Cut, release.Known(f.Size)
+	return facts
 }
 
 func fileOf(row db.FilesFile) File {
 	f := File{
 		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Cut: row.Cut, RootID: row.RootID, Path: row.Path, Size: row.Size, Media: row.Probe,
 		ProbedAt: row.ProbedAt, Seen: seenOf(row.ModifiedAt, row.NodeFileID, row.NodeVolumeID), GoneAt: row.GoneAt,
-		GrabID: row.GrabID, Quality: row.Quality, Label: row.Label, Extra: row.Extra,
+		GrabID: row.GrabID, Quality: row.Quality, Label: row.Label, Extra: row.Extra, ReleaseName: row.ReleaseName, Title: row.TitleRead.Read,
 	}
 	if row.ProbeError != nil {
 		f.ProbeError = *row.ProbeError
@@ -135,9 +138,9 @@ type Publisher interface {
 }
 
 // Add records f, whose bytes are already at its Path, filling each of
-// fills for its Item at the Edition its cut fills, and labels it after
-// the first of them in its Work's Profile order. It trusts fills: an
-// import goes through Import, which decides them.
+// fills for its Item at the Edition its cut fills at score 0, and labels
+// it after the first of them in its Work's Profile order. It trusts fills
+// and their scores: an import goes through Import, which decides them.
 func Add(ctx context.Context, tx *storage.Tx[file], f File, fills []targets.TargetID) (File, error) {
 	goals, err := targets.GoalsIn(ctx, tx, f.WorkID)
 	if err != nil {
@@ -155,7 +158,7 @@ func Add(ctx context.Context, tx *storage.Tx[file], f File, fills []targets.Targ
 		return File{}, err
 	}
 	for _, t := range fills {
-		err := q.InsertFill(ctx, db.InsertFillParams{FileID: f.ID, TargetID: t, ItemID: f.ItemID, Edition: goals.Editions.Filling(f.Cut)})
+		err := q.InsertFill(ctx, db.InsertFillParams{FileID: f.ID, TargetID: t, ItemID: f.ItemID, Edition: goals.Editions.Filling(f.Cut), Score: 0})
 		if err != nil {
 			return File{}, err
 		}
@@ -167,7 +170,7 @@ func insertFile(ctx context.Context, q *db.Queries, f File) error {
 	modified, file, volume := seenColumns(f.Seen)
 	return q.InsertFile(ctx, db.InsertFileParams{
 		ID: f.ID, WorkID: f.WorkID, ItemID: f.ItemID, Cut: f.Cut, RootID: f.RootID, Path: f.Path, Size: f.Size, Probe: f.Media,
-		GrabID: f.GrabID, Quality: f.Quality, Label: f.Label, Extra: f.Extra,
+		GrabID: f.GrabID, Quality: f.Quality, Label: f.Label, Extra: f.Extra, ReleaseName: f.ReleaseName, TitleRead: db.Reading{Read: f.Title},
 		ModifiedAt: modified, NodeFileID: file, NodeVolumeID: volume, ProbedAt: f.ProbedAt,
 	})
 }
@@ -199,17 +202,25 @@ type CellKey struct {
 }
 
 // Cell is one Edition at one Target of one Item, in the State computed on
-// read. File is set when a file fills the cell: Met once the file's
-// quality is at or past the Target's cutoff, Upgradable below it. Timing
-// is the Item's, and Released whether it is out today.
+// read. File is set when a file fills the cell and Score is its score at
+// the Target: Met once the file's quality is at or past the Target's
+// cutoff and Score at or above its upgrade-until, Upgradable otherwise.
+// Timing is the Item's, and Released whether it is out today.
 type Cell struct {
 	Item     works.Item
 	Edition  targets.Edition
 	Target   targets.Target
 	State    State
 	File     *File
+	Score    int
 	Timing   targets.Timing
 	Released bool
+}
+
+// Fill is the file filling a cell and its score at the cell's Target.
+type Fill struct {
+	File  ID
+	Score int
 }
 
 // Wanted is whether a search should try to fill the cell: a missing,
@@ -253,6 +264,8 @@ type Inflight interface {
 	// Unfinished lists the ids of every Grab not yet imported or failed,
 	// whose download may sit in a root's holding folder.
 	Unfinished(ctx context.Context, r storage.Reader[storage.Library]) ([]storage.UUID, error)
+	// ReleaseTitles reads the Release title of every Grab with a record.
+	ReleaseTitles(ctx context.Context, r storage.Reader[storage.Library]) (map[storage.UUID]string, error)
 	// Settle records u on each unfinished Grab of work whose every cell is
 	// in gone, for its probe or import to follow if its file fills
 	// nothing, and counts them.
@@ -270,6 +283,10 @@ func (NoGrabs) Unfinished(context.Context, storage.Reader[storage.Library]) ([]s
 	return nil, nil
 }
 
+func (NoGrabs) ReleaseTitles(context.Context, storage.Reader[storage.Library]) (map[storage.UUID]string, error) {
+	return nil, nil
+}
+
 func (NoGrabs) Settle(context.Context, *storage.Tx[storage.Library], works.WorkID, map[CellKey]bool, Unwanted) (int, error) {
 	return 0, nil
 }
@@ -283,6 +300,8 @@ type Config struct {
 	Transfers func(ctx context.Context, r storage.Reader[storage.Library]) (map[transfers.ID]bool, error)
 	// Naming names each Content Type's files.
 	Naming map[works.TypeID]naming.Facet
+	// Names read each Content Type's release and file names.
+	Names map[works.TypeID]release.Names
 	// Today is the time now in the Controller's zone, whose calendar date
 	// decides which Items are out.
 	Today func() time.Time
@@ -299,8 +318,6 @@ type Files struct {
 	cfg  Config
 	poke chan struct{}
 }
-
-func New(cfg Config) *Files { return &Files{cfg: cfg, poke: make(chan struct{}, 1)} }
 
 // WorkCells reads a Work's Items, its cells and what they add up to,
 // works.ErrNoWork when no Work has the id.

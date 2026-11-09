@@ -136,6 +136,16 @@ func (t *Targets) TimingsIn(ctx context.Context, r storage.Reader[file], typ wor
 	return facet.Timings(ctx, r, ws)
 }
 
+// OriginalsIn answers the original language of each of ws, Works of
+// Content Type typ, that the type knows.
+func (t *Targets) OriginalsIn(ctx context.Context, r storage.Reader[file], typ works.TypeID, ws works.Among[works.WorkID]) (map[works.WorkID]release.Fact[release.Language], error) {
+	facet, ok := t.cfg.Types[typ]
+	if !ok {
+		return nil, ErrNoType
+	}
+	return facet.Originals(ctx, r, ws)
+}
+
 // Timings answers each Item of work, a Work of Content Type typ.
 func (t *Targets) Timings(ctx context.Context, _ identity.Admin, typ works.TypeID, work works.WorkID) (map[works.ItemID]Timing, error) {
 	var out map[works.ItemID]Timing

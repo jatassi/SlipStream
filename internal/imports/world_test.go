@@ -84,7 +84,10 @@ func (noGrabs) TouchTransfers() {}
 
 // shelfFacet hints a folder's name as release names write it and places
 // a file at the Item its name, without extension, labels.
-type shelfFacet struct{ scanning.None }
+type shelfFacet struct {
+	scanning.None
+	release.TitleOnly
+}
 
 func (shelfFacet) Hint(name string) scanning.Hint { return scanning.ReadName(name) }
 
@@ -133,7 +136,7 @@ func newWorld(t *testing.T) *world {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hd, err := goals.CreateTarget(ctx, identity.Admin{}, targets.Spec{Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}}, Cutoff: release.Bluray1080p})
+	hd, err := goals.CreateTarget(ctx, identity.Admin{}, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}}, Cutoff: release.Bluray1080p})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,10 +148,12 @@ func newWorld(t *testing.T) *world {
 	if _, err := goals.MakeDefault(ctx, identity.Admin{}, profile.ID); err != nil {
 		t.Fatal(err)
 	}
-	w.files = files.New(files.Config{
+	if w.files, err = files.Open(ctx, files.Config{
 		Library: w.lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }},
-		Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: w.fx}, Today: time.Now,
-	})
+		Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: w.fx}, Names: map[works.TypeID]release.Names{contenttypetest.ID: w.fx}, Today: time.Now,
+	}); err != nil {
+		t.Fatal(err)
+	}
 	w.im = New(Config{
 		Library: w.lib, Roots: w.roots, Files: w.files, Works: w.works,
 		Facets: map[works.TypeID]scanning.Facet{contenttypetest.ID: shelfFacet{}},

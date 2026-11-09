@@ -74,6 +74,15 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 	return out, nil
 }
 
+func (GrabCells) ReleaseTitles(ctx context.Context, r storage.Reader[storage.Library]) (map[storage.UUID]string, error) {
+	rows, err := db.New(r).ListReleaseTitles(ctx)
+	out := make(map[storage.UUID]string, len(rows))
+	for _, row := range rows {
+		out[row.ID.UUID] = row.ReleaseTitle
+	}
+	return out, err
+}
+
 // waits is what each unfinished Grab waits on while its own Node is in
 // step: a fetching one's route's Node out of step, node_away, or its
 // Torrent's away client, client_away.

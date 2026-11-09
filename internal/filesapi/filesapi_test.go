@@ -63,10 +63,11 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
 	}))
 	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{
-		Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}, {release.WEBDL1080p}}, Cutoff: release.Bluray1080p,
+		Scores: targets.Scores{Increment: 1},
+		Name:   "HD", Tiers: [][]release.Quality{{release.Bluray1080p}, {release.WEBDL1080p}}, Cutoff: release.Bluray1080p,
 	}))
-	uhd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Name: "2160p", Tiers: [][]release.Quality{{release.WEBDL2160p}}, Cutoff: release.WEBDL2160p}))
-	small := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Name: "Small", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}))
+	uhd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "2160p", Tiers: [][]release.Quality{{release.WEBDL2160p}}, Cutoff: release.WEBDL2160p}))
+	small := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "Small", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}))
 	standard := must[targets.Profile](t)(goals.CreateProfile(ctx, admin, targets.ProfileSpec{Name: "Standard", ContentType: contenttypetest.ID, Entries: []targets.Entry{
 		{Target: hd.ID, Sourcing: targets.Download}, {Target: uhd.ID, Sourcing: targets.Download}, {Target: small.ID, Sourcing: targets.Download},
 	}}))
@@ -100,9 +101,11 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := ownertest.Serve(t, lib, func(r *api.Router) {
-		filesapi.Routes(r, library{files.New(files.Config{Library: lib, Targets: goals, Grabs: files.NoGrabs{}, Today: time.Now})})
-	})
+	shelf, err := files.Open(t.Context(), files.Config{Library: lib, Targets: goals, Grabs: files.NoGrabs{}, Today: time.Now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := ownertest.Serve(t, lib, func(r *api.Router) { filesapi.Routes(r, library{shelf}) })
 
 	code, body := s.Call(t, http.MethodGet, "/api/v1/works/"+tree.ID.String()+"/cells", "")
 	file := `"file":{"id":"` + placed.ID.String() + `","path":"The Attic/The Attic - 1080p.mkv","size":4096,"quality":"webdl-1080p","probe":{"width":1920,"height":1080}}`
@@ -155,7 +158,7 @@ func TestForgetFilesForgetsGoneFilesAllOrNone(t *testing.T) {
 	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{
 		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
 	}))
-	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Name: "HD", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}))
+	hd := must[targets.Target](t)(goals.CreateTarget(ctx, admin, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "HD", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}))
 	p := must[targets.Profile](t)(goals.CreateProfile(ctx, admin, targets.ProfileSpec{Name: "HD", ContentType: contenttypetest.ID, Entries: []targets.Entry{{Target: hd.ID, Sourcing: targets.Download}}}))
 	must[targets.Profile](t)(goals.MakeDefault(ctx, admin, p.ID))
 	root := rootstest.Root(t, lib, role.NodeID{UUID: storage.NewUUID()}, contenttypetest.ID, t.TempDir())
@@ -174,9 +177,13 @@ func TestForgetFilesForgetsGoneFilesAllOrNone(t *testing.T) {
 		t.Fatal(err)
 	}
 	var changed told
-	svc := files.New(files.Config{
-		Library: lib, Targets: goals, Grabs: files.NoGrabs{}, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}, Today: time.Now, Changed: &changed,
+	svc, err := files.Open(ctx, files.Config{
+		Library: lib, Targets: goals, Grabs: files.NoGrabs{}, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx},
+		Names: map[works.TypeID]release.Names{contenttypetest.ID: fx}, Today: time.Now, Changed: &changed,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	ids := map[string]string{}
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		for i, name := range []string{"Scarf", "Mittens"} {

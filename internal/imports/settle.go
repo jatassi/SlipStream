@@ -78,7 +78,8 @@ func (im *Imports) found(ctx context.Context, s *scan, ws []storing.Walked) []Pe
 			f.Reason = scanning.Reason{Code: scanning.Unreadable, Line: p.Error}
 		} else {
 			f.Media = &p.Media
-			f.Quality, f.Cut = scanning.QualityOf(f.Path, s.known.cuts, p.Media.Resolution())
+			read, quality := scanning.QualityOf(f.Path, im.cfg.Facets[s.root.ContentType], s.known.cuts, p.Media.Resolution())
+			f.Quality, f.Cut = quality, read.Facts.Cut
 		}
 		out = append(out, f)
 	}

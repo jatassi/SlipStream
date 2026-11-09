@@ -214,14 +214,14 @@ func insertAliases(ctx context.Context, q *db.Queries, k release.CutKey, aliases
 	return nil
 }
 
-// Held counts the library's files of a cut, in r: files' answer, which
-// DeleteCut reads in its own Write.
-type Held func(ctx context.Context, r storage.Reader[storage.Library], cut release.CutKey) (int, error)
+// CutFiles counts the library's files of a cut, in r: files' answer,
+// which DeleteCut reads in its own Write.
+type CutFiles func(ctx context.Context, r storage.Reader[storage.Library], cut release.CutKey) (int, error)
 
 // DeleteCut removes custom cut k and its sightings, or refuses with
 // *InUseError naming each Profile whose list names it, the Works' own
 // lists that do, and the files held counts of it.
-func (t *Targets) DeleteCut(ctx context.Context, _ identity.Admin, k release.CutKey, held Held) error {
+func (t *Targets) DeleteCut(ctx context.Context, _ identity.Admin, k release.CutKey, held CutFiles) error {
 	err := t.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		known, err := t.CutsIn(ctx, tx)
 		if err != nil {

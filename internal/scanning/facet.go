@@ -7,6 +7,7 @@ package scanning
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -20,6 +21,8 @@ import (
 // landed, Hint's body moves onto the type's Names parse and Place's
 // numbering onto S23's Coverage.
 type Facet interface {
+	// Names reads a found file's name, for its quality and its cut.
+	release.Names
 	// Hint reads a Work folder's name, or a loose file's without its
 	// extension.
 	Hint(name string) Hint

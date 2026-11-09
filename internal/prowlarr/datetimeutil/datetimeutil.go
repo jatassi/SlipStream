@@ -16,9 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dlclark/regexp2"
-
 	"github.com/jatassi/slipstream/internal/prowlarr/parseutil"
+	"github.com/jatassi/slipstream/internal/regex"
 )
 
 // Clock is the current time and the zone a date without an offset is read
@@ -75,7 +74,7 @@ func goLayoutToDotNet(layout string) string {
 	return layout
 }
 
-var timeAgoPart = regexp2.MustCompile(`\s*?([\d\.]+)\s*?([^\d\s\.]+)\s*?`, regexp2.None)
+var timeAgoPart = regex.MustCompile(`\s*?([\d\.]+)\s*?([^\d\s\.]+)\s*?`, regex.Options{})
 
 // timeAgoUnits are FromTimeAgo's units, checked in order. A unit matches
 // when it contains one of the words or equals the letter.
@@ -103,16 +102,16 @@ func FromTimeAgo(s string, clock Clock) (time.Time, error) {
 		s = strings.ReplaceAll(s, w, "")
 	}
 	var ago time.Duration
-	m, err := timeAgoPart.FindStringMatch(s)
-	for ; m != nil && err == nil; m, err = timeAgoPart.FindNextMatch(m) {
-		d, err := timeAgoLength(m.GroupByNumber(1).String(), m.GroupByNumber(2).String())
+	parts, err := timeAgoPart.FindAll(regex.TextOf(s))
+	if err != nil {
+		return time.Time{}, fmt.Errorf("read %q as a time ago: %w", s, err)
+	}
+	for _, m := range parts {
+		d, err := timeAgoLength(group(m, "1"), group(m, "2"))
 		if err != nil {
 			return time.Time{}, err
 		}
 		ago += d
-	}
-	if err != nil {
-		return time.Time{}, fmt.Errorf("read %q as a time ago: %w", s, err)
 	}
 	return clock.Local().Add(-ago), nil
 }
@@ -141,13 +140,13 @@ func containsAny(s string, words []string) bool {
 }
 
 var (
-	todayRe     = regexp2.MustCompile(`(?i)\btoday(?:[\s,]+(?:at){0,1}\s*|[\s,]*|$)`, regexp2.None)
-	tomorrowRe  = regexp2.MustCompile(`(?i)\btomorrow(?:[\s,]+(?:at){0,1}\s*|[\s,]*|$)`, regexp2.None)
-	yesterdayRe = regexp2.MustCompile(`(?i)\byesterday(?:[\s,]+(?:at){0,1}\s*|[\s,]*|$)`, regexp2.None)
-	weekdayAtRe = regexp2.MustCompile(`(?i)\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at\s+`, regexp2.None)
-	agoRe       = regexp2.MustCompile(`(?i)\bago`, regexp2.None)
-	noYearRe    = regexp2.MustCompile(`^(\d{1,2}-\d{1,2})(\s|$)`, regexp2.None)
-	noYearRe2   = regexp2.MustCompile(`^(\d{1,2}\s+\w{3})\s+(\d{1,2}\:\d{1,2}.*)$`, regexp2.None)
+	todayRe     = regex.MustCompile(`(?i)\btoday(?:[\s,]+(?:at){0,1}\s*|[\s,]*|$)`, regex.Options{})
+	tomorrowRe  = regex.MustCompile(`(?i)\btomorrow(?:[\s,]+(?:at){0,1}\s*|[\s,]*|$)`, regex.Options{})
+	yesterdayRe = regex.MustCompile(`(?i)\byesterday(?:[\s,]+(?:at){0,1}\s*|[\s,]*|$)`, regex.Options{})
+	weekdayAtRe = regex.MustCompile(`(?i)\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at\s+`, regex.Options{})
+	agoRe       = regex.MustCompile(`(?i)\bago`, regex.Options{})
+	noYearRe    = regex.MustCompile(`^(\d{1,2}-\d{1,2})(\s|$)`, regex.Options{})
+	noYearRe2   = regex.MustCompile(`^(\d{1,2}\s+\w{3})\s+(\d{1,2}\:\d{1,2}.*)$`, regex.Options{})
 )
 
 // FromUnknown reads a date in any form a site writes it: Rfc1123ZPattern,
@@ -166,7 +165,7 @@ func FromUnknown(s string, clock Clock) (time.Time, error) {
 	if strings.Contains(strings.ToLower(s), "now") {
 		return clock.Now.UTC(), nil
 	}
-	if ok, _ := agoRe.MatchString(s); ok {
+	if ok, _ := agoRe.Match(regex.TextOf(s)); ok {
 		return FromTimeAgo(s, clock)
 	}
 	for _, rel := range relativeDays {
@@ -183,21 +182,21 @@ func FromUnknown(s string, clock Clock) (time.Time, error) {
 var relativeDays = []relativeDay{{todayRe, 0}, {yesterdayRe, -1}, {tomorrowRe, 1}}
 
 type relativeDay struct {
-	re   *regexp2.Regexp
+	re   *regex.Regex
 	days int
 }
 
 // parse reads "today 14:22" and the like: the UTC date at the given time,
 // read as local time, as Prowlarr builds it from DateTime.UtcNow.Date.
 func (r relativeDay) parse(s string, clock Clock) (time.Time, bool, error) {
-	m, err := r.re.FindStringMatch(s)
+	m, ok, err := r.re.Find(regex.TextOf(s))
 	if err != nil {
 		return time.Time{}, false, fmt.Errorf("read the date %q: %w", s, err)
 	}
-	if m == nil {
+	if !ok {
 		return time.Time{}, false, nil
 	}
-	t, err := utcDateAt(strings.ReplaceAll(s, m.String(), ""), clock)
+	t, err := utcDateAt(strings.ReplaceAll(s, m.Value(), ""), clock)
 	if err != nil {
 		return time.Time{}, true, err
 	}
@@ -205,18 +204,18 @@ func (r relativeDay) parse(s string, clock Clock) (time.Time, bool, error) {
 }
 
 func parseWeekdayAt(s string, clock Clock) (time.Time, bool, error) {
-	m, err := weekdayAtRe.FindStringMatch(s)
+	m, ok, err := weekdayAtRe.Find(regex.TextOf(s))
 	if err != nil {
 		return time.Time{}, false, fmt.Errorf("read the date %q: %w", s, err)
 	}
-	if m == nil {
+	if !ok {
 		return time.Time{}, false, nil
 	}
-	t, err := utcDateAt(strings.ReplaceAll(s, m.String(), ""), clock)
+	t, err := utcDateAt(strings.ReplaceAll(s, m.Value(), ""), clock)
 	if err != nil {
 		return time.Time{}, true, err
 	}
-	want := strings.ToLower(m.GroupByNumber(1).String())
+	want := strings.ToLower(group(m, "1"))
 	for !strings.HasPrefix(want, strings.ToLower(t.Weekday().String())) {
 		t = t.AddDate(0, 0, -1)
 	}
@@ -236,20 +235,20 @@ func utcDateAt(clockTime string, clock Clock) (time.Time, error) {
 	return day.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute + time.Duration(sec)*time.Second), nil
 }
 
-var timeOfDayRe = regexp2.MustCompile(`^\s*(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?(?:\.\d+)?\s*(?:([AaPp])\.?[Mm]\.?)?\s*$`, regexp2.None)
+var timeOfDayRe = regex.MustCompile(`^\s*(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?(?:\.\d+)?\s*(?:([AaPp])\.?[Mm]\.?)?\s*$`, regex.Options{})
 
 // parseTimeOfDay stands in for .NET's DateTime.Parse(time).TimeOfDay over
 // the times sites write after "today": H:mm, H:mm:ss and either with AM or
 // PM, or an hour with AM or PM.
 func parseTimeOfDay(s string) (h, m, sec int, err error) {
-	match, err := timeOfDayRe.FindStringMatch(s)
-	if err != nil || match == nil || (match.GroupByNumber(2).String() == "" && match.GroupByNumber(4).String() == "") {
+	match, ok, err := timeOfDayRe.Find(regex.TextOf(s))
+	if err != nil || !ok || (group(match, "2") == "" && group(match, "4") == "") {
 		return 0, 0, 0, fmt.Errorf("%q isn't a time of day", s)
 	}
-	h, _ = strconv.Atoi(match.GroupByNumber(1).String())
-	m, _ = strconv.Atoi(match.GroupByNumber(2).String())
-	sec, _ = strconv.Atoi(match.GroupByNumber(3).String())
-	switch strings.ToUpper(match.GroupByNumber(4).String()) {
+	h, _ = strconv.Atoi(group(match, "1"))
+	m, _ = strconv.Atoi(group(match, "2"))
+	sec, _ = strconv.Atoi(group(match, "3"))
+	switch strings.ToUpper(group(match, "4")) {
 	case "P":
 		if h < 12 {
 			h += 12
@@ -267,12 +266,12 @@ func parseTimeOfDay(s string) (h, m, sec int, err error) {
 
 func addMissingYear(s string, clock Clock) string {
 	year := strconv.Itoa(clock.Local().Year())
-	if m, _ := noYearRe.FindStringMatch(s); m != nil {
-		date := m.GroupByNumber(1).String()
+	if m, ok, _ := noYearRe.Find(regex.TextOf(s)); ok {
+		date := group(m, "1")
 		s = strings.ReplaceAll(s, date, year+"-"+date)
 	}
-	if m, _ := noYearRe2.FindStringMatch(s); m != nil {
-		s = m.GroupByNumber(1).String() + " " + year + " " + m.GroupByNumber(2).String()
+	if m, ok, _ := noYearRe2.Find(regex.TextOf(s)); ok {
+		s = group(m, "1") + " " + year + " " + group(m, "2")
 	}
 	return s
 }

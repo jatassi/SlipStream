@@ -76,13 +76,13 @@ func (q *Queries) GetSeries(ctx context.Context, workID works.WorkID) (SeriesSer
 }
 
 const getSettings = `-- name: GetSettings :one
-SELECT id, air_delay_seconds FROM series_settings WHERE id = 1
+SELECT id, air_delay_seconds, year_slack FROM series_settings WHERE id = 1
 `
 
 func (q *Queries) GetSettings(ctx context.Context) (SeriesSetting, error) {
 	row := q.db.QueryRowContext(ctx, getSettings)
 	var i SeriesSetting
-	err := row.Scan(&i.ID, &i.AirDelaySeconds)
+	err := row.Scan(&i.ID, &i.AirDelaySeconds, &i.YearSlack)
 	return i, err
 }
 
@@ -634,12 +634,17 @@ func (q *Queries) MarkSeasonRatingsRead(ctx context.Context, arg MarkSeasonRatin
 	return err
 }
 
-const setAirDelay = `-- name: SetAirDelay :exec
-UPDATE series_settings SET air_delay_seconds = ?1 WHERE id = 1
+const setSettings = `-- name: SetSettings :exec
+UPDATE series_settings SET air_delay_seconds = ?1, year_slack = ?2 WHERE id = 1
 `
 
-func (q *Queries) SetAirDelay(ctx context.Context, airDelaySeconds *int64) error {
-	_, err := q.db.ExecContext(ctx, setAirDelay, airDelaySeconds)
+type SetSettingsParams struct {
+	AirDelaySeconds *int64
+	YearSlack       *int64
+}
+
+func (q *Queries) SetSettings(ctx context.Context, arg SetSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, setSettings, arg.AirDelaySeconds, arg.YearSlack)
 	return err
 }
 

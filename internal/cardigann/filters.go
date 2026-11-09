@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/prowlarr/datetimeutil"
 	"github.com/jatassi/slipstream/internal/prowlarr/encoding"
 	"github.com/jatassi/slipstream/internal/prowlarr/parseutil"
+	"github.com/jatassi/slipstream/internal/regex"
 )
 
 // env is what evaluating a template, a filter or a selector reads besides
@@ -182,16 +184,28 @@ func buildDateParse(a filterArgs) (filterFunc, error) {
 	}), nil
 }
 
+// definitionPattern bounds one match of a definition's pattern to a
+// second, so a pattern that backtracks without end fails its field
+// instead of holding the search.
+var definitionPattern = regex.Options{Timeout: time.Second}
+
 func buildRegexp(a filterArgs) (filterFunc, error) {
 	pattern, ok := a.str()
 	if !ok {
 		return nil, errors.New("takes a pattern")
 	}
-	re, err := compileRegex(pattern)
+	re, err := regex.Compile(pattern, definitionPattern)
 	if err != nil {
 		return nil, err
 	}
-	return textFilter(func(s string, _ env) (string, error) { return re.Group1(s) }), nil
+	return textFilter(func(s string, _ env) (string, error) {
+		m, ok, err := re.Find(regex.TextOf(s))
+		if err != nil || !ok {
+			return "", err
+		}
+		g, _ := m.Group("1")
+		return g, nil
+	}), nil
 }
 
 func buildReReplace(a filterArgs) (filterFunc, error) {
@@ -199,7 +213,7 @@ func buildReReplace(a filterArgs) (filterFunc, error) {
 	if !ok {
 		return nil, errors.New("takes a pattern and a replacement")
 	}
-	re, err := compileRegex(pattern)
+	re, err := regex.Compile(pattern, definitionPattern)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +226,7 @@ func buildReReplace(a filterArgs) (filterFunc, error) {
 		if err != nil {
 			return "", err
 		}
-		return re.Replace(s, repl)
+		return re.Replace(regex.TextOf(s), repl)
 	}), nil
 }
 

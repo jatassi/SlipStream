@@ -86,7 +86,7 @@ func TestLayoutKeepsAPresetToTheChosenQualitiesWithTheCutoffAtTopOrBottom(t *tes
 
 func TestNewTargetRefusesWhatNoTargetCanBe(t *testing.T) {
 	spec := func(edit func(*targets.Spec)) targets.Spec {
-		s := targets.Spec{Name: "1080p", Tiers: [][]release.Quality{{release.WEBDL1080p}, {release.HDTV1080p}}, Cutoff: release.WEBDL1080p}
+		s := targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "1080p", Tiers: [][]release.Quality{{release.WEBDL1080p}, {release.HDTV1080p}}, Cutoff: release.WEBDL1080p}
 		edit(&s)
 		return s
 	}
@@ -147,7 +147,7 @@ func TestFiltersRefuseValuesTheirModeOrAttributeDoesNotTake(t *testing.T) {
 
 func TestContainsAsksEveryFileMeetingTheInnerTargetToMeetTheOuter(t *testing.T) {
 	target := func(tiers [][]release.Quality, sizes map[release.Quality]targets.Size, rules ...any) targets.Target {
-		return must[targets.Target](t)(targets.NewTarget(targets.Spec{Name: "t", Tiers: tiers, Cutoff: tiers[0][0], Sizes: sizes, Filters: filters(t, rules...)}))
+		return must[targets.Target](t)(targets.NewTarget(targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "t", Tiers: tiers, Cutoff: tiers[0][0], Sizes: sizes, Filters: filters(t, rules...)}))
 	}
 	web := [][]release.Quality{{release.WEBDL1080p, release.WEBRip1080p}}
 	wide := [][]release.Quality{{release.Bluray1080p}, {release.WEBDL1080p, release.WEBRip1080p, release.HDTV1080p}}

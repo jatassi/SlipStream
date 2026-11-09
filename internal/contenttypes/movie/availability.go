@@ -26,13 +26,15 @@ const (
 	cinemaRelease db.CountsAs = "cinema"
 )
 
-// The movie settings, stored in movie_settings.
+// The movie settings, stored in movie_settings. YearSlack is how many
+// years a release's year may differ from the movie's.
 var (
 	CountsAs = setting.Choice[db.CountsAs]{Key: "movie.countsAs", Label: "Movies count as released on", Default: homeRelease, Options: []setting.Option[db.CountsAs]{
 		{Value: homeRelease, Label: "Home release"},
 		{Value: cinemaRelease, Label: "Cinema release"},
 	}}
 	CinemaDelay = setting.Duration{Key: "movie.cinemaDelay", Label: "Delay after a cinema release", Default: 90 * day, Max: 365 * day, Step: day}
+	YearSlack   = setting.Count{Key: "movie.yearSlack", Label: "Release year can differ by", Default: 1, Min: 0, Max: 10, Unit: setting.Noun{One: "year", Many: "years"}}
 )
 
 func (*Movie) SettingFields(ctx context.Context, r storage.Reader[file]) ([]setting.Field, error) {
@@ -40,7 +42,7 @@ func (*Movie) SettingFields(ctx context.Context, r storage.Reader[file]) ([]sett
 	if err != nil {
 		return nil, err
 	}
-	return []setting.Field{CountsAs.Field(row.CountsAs), CinemaDelay.Field(row.CinemaDelaySeconds)}, nil
+	return []setting.Field{CountsAs.Field(row.CountsAs), CinemaDelay.Field(row.CinemaDelaySeconds), YearSlack.Field(row.YearSlack)}, nil
 }
 
 func (*Movie) ApplySettings(ctx context.Context, tx *storage.Tx[file], p setting.Patch) (bool, error) {
@@ -65,6 +67,12 @@ func (*Movie) ApplySettings(ctx context.Context, tx *storage.Tx[file], p setting
 				return false, err
 			}
 			next.CinemaDelaySeconds = s.Override()
+		case YearSlack.Key:
+			s, err := YearSlack.ParseJSON(p[key])
+			if err != nil {
+				return false, err
+			}
+			next.YearSlack = s.Override()
 		default:
 			return false, &setting.UnknownKeyError{Key: key}
 		}

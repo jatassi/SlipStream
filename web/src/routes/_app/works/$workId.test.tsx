@@ -133,7 +133,7 @@ test("Search starts a search and says so, and the run and its Grab show without 
   await expect
     .element(searches)
     .toMatchTextContent(
-      /^Grabbed a Release2 Releases foundOct 12.*Fixture MirrorFound 2 ReleasesFixture SiteFound 2 Releases$/u,
+      /^Grabbed a Release2 Releases found · Oct 12.+Fixture MirrorFound 2 ReleasesFixture SiteFound 2 ReleasesDetails$/u,
     );
 
   server.grabMoves(downloading);

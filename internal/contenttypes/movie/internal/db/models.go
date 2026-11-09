@@ -62,6 +62,7 @@ type MovieSetting struct {
 	ID                 Singleton
 	CountsAs           *CountsAs
 	CinemaDelaySeconds *int64
+	YearSlack          *int64
 }
 
 type MovieTitle struct {

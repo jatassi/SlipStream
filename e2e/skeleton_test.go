@@ -117,7 +117,7 @@ func (w *walked) tookTheAdvertised(t *testing.T, search string) {
 	worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + search + `","itemId":"` + r.ItemID +
 		`","startedAt":"` + r.StartedAt + `","indexers":[{"indexerId":"` + r.Indexers[0].IndexerID +
 		`","name":"Fixture Site","outcome":"found","releases":2,"sentence":"Found 2 Releases"}],"finishedAt":"` + r.FinishedAt + `","outcome":"grabbed","candidates":2,` +
-		`"refused":[],"grabId":"` + w.grab.ID + `","notes":[]}]}` + "\n"})
+		`"grabId":"` + w.grab.ID + `","notes":[]}]}` + "\n"})
 }
 
 // begin launches the catalog Scenario name, and its Admin finds the

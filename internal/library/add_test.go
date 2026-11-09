@@ -60,7 +60,7 @@ func newShelf(t *testing.T) shelf {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hd, err := goals.CreateTarget(ctx, identity.Admin{}, targets.Spec{Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}}, Cutoff: release.Bluray1080p})
+	hd, err := goals.CreateTarget(ctx, identity.Admin{}, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}}, Cutoff: release.Bluray1080p})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,10 +71,11 @@ func newShelf(t *testing.T) shelf {
 	if _, err := goals.MakeDefault(ctx, identity.Admin{}, profile.ID); err != nil {
 		t.Fatal(err)
 	}
-	return shelf{
-		lib: lib, fx: fx, works: w, roots: homes, root: root.Root, hd: hd.ID,
-		files: files.New(files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Today: time.Now}),
+	fs, err := files.Open(ctx, files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Today: time.Now})
+	if err != nil {
+		t.Fatal(err)
 	}
+	return shelf{lib: lib, fx: fx, works: w, roots: homes, root: root.Root, hd: hd.ID, files: fs}
 }
 
 func (s shelf) library(leaver library.Leaver) *library.Library {

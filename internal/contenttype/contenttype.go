@@ -51,6 +51,7 @@ import (
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -65,6 +66,7 @@ type Library interface {
 	naming.Facet
 	indexers.Facet
 	targets.Facet
+	release.Names
 	metadata.Refreshing
 	scanning.Facet
 }

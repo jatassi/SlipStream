@@ -1,10 +1,12 @@
+import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
+import { z } from "zod";
 
-import type { TargetsImpact } from "../api/gen/model";
+import type { TargetsImpact, TargetsTarget } from "../api/gen/model";
 import { changeOp, noImpact } from "../test/impact";
 import { renderApp } from "../test/render-app";
-import { starter, targetHandlers } from "../test/targets";
+import { keeper, starter, targetHandlers } from "../test/targets";
 
 const oneUnwanted: TargetsImpact = {
   works: 2,
@@ -127,4 +129,90 @@ test("Cancel on the Impact saves nothing and keeps the edit", async () => {
   await expect.element(sheet()).not.toBeInTheDocument();
   await expect.element(page.getByRole("checkbox", { name: "WEBDL-1080p" })).not.toBeChecked();
   expect(op.sent.map((call) => call.query)).toEqual([{ preview: "true" }]);
+});
+
+async function editScores() {
+  const scores = page.getByRole("region", { name: "Scores" });
+  await expect.element(scores.getByText(/^Scores 1 of 3 Custom Formats\./u)).toBeVisible();
+  await userEvent.click(scores.getByRole("button", { name: "Details" }));
+  await userEvent.fill(scores.getByRole("searchbox", { name: "Filter Custom Formats" }), "tier");
+  await expect
+    .poll(() =>
+      scores
+        .getByRole("list", { name: "Custom Format scores" })
+        .getByRole("listitem")
+        .elements()
+        .map((row) => row.textContent),
+    )
+    .toEqual(["HD Bluray Tier 01Score"]);
+  await userEvent.fill(scores.getByRole("textbox", { name: "HD Bluray Tier 01 score" }), "60");
+  await userEvent.fill(scores.getByRole("textbox", { name: "Increment" }), "0");
+  await userEvent.click(page.getByRole("button", { name: "Save", exact: true }));
+  await expect.element(page.getByText("Fix the scores marked below.")).toBeVisible();
+  await userEvent.fill(scores.getByRole("textbox", { name: "Increment" }), "10");
+}
+
+test("saving a Target sends the scores and propers setting as edited", async () => {
+  const scored: TargetsTarget = {
+    ...keeper,
+    scores: {
+      formats: [{ formatId: "0199e1f2-7a3b-7c4d-8e5f-0000000000f1", score: -100 }],
+      minimum: 10,
+      upgradeUntil: 50,
+      increment: 5,
+    },
+    propers: "dont_prefer",
+  };
+  const op = changeOp("put", `*/api/v1/targets/${scored.id}`, () => noImpact, { target: scored });
+  renderApp({
+    path: `/settings/targets/${scored.id}`,
+    handlers: [op.handler, ...targetHandlers([scored])],
+  });
+  await editScores();
+  await userEvent.click(page.getByRole("radio", { name: "Prefer, don't upgrade" }));
+  await userEvent.click(page.getByRole("button", { name: "Save", exact: true }));
+
+  await expect.element(page.getByText("Saved 2160p HDR.")).toBeVisible();
+  const sent = {
+    scores: {
+      formats: [
+        { formatId: "0199e1f2-7a3b-7c4d-8e5f-0000000000f1", score: -100 },
+        { formatId: "0199e1f2-7a3b-7c4d-8e5f-0000000000f3", score: 60 },
+      ],
+      minimum: 10,
+      upgradeUntil: 50,
+      increment: 10,
+    },
+    propers: "prefer_no_upgrade",
+  };
+  expect(op.sent.map((call) => call.body)).toEqual([
+    expect.objectContaining(sent),
+    expect.objectContaining(sent),
+  ]);
+});
+
+test("a Target reopened right after its save opens as saved", async () => {
+  let saved = starter;
+  const renamed = z.object({ name: z.string() });
+  renderApp({
+    path: `/settings/targets/${starter.id}`,
+    handlers: [
+      http.put(`*/api/v1/targets/${starter.id}`, async ({ request }) => {
+        if (new URL(request.url).searchParams.get("preview") !== "true") {
+          saved = { ...starter, name: renamed.parse(await request.json()).name };
+        }
+        return HttpResponse.json({ impact: noImpact, target: saved });
+      }),
+      http.get(`*/api/v1/targets/${starter.id}`, () => HttpResponse.json(saved)),
+      ...targetHandlers(),
+    ],
+  });
+  await userEvent.fill(page.getByRole("textbox", { name: "Name" }), "1080p web");
+  await userEvent.click(page.getByRole("button", { name: "Save", exact: true }));
+  await expect.element(page.getByText("Saved 1080p web.")).toBeVisible();
+
+  await userEvent.click(
+    page.getByRole("table", { name: "Targets" }).getByRole("link", { name: "1080p", exact: true }),
+  );
+  await expect.element(page.getByRole("textbox", { name: "Name" })).toHaveValue("1080p web");
 });

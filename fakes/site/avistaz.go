@@ -76,15 +76,11 @@ func (s *site) azSearch(w http.ResponseWriter, r *http.Request) {
 		if tmdb := q.Get("tmdb"); tmdb != "" && tmdb != strconv.FormatInt(rel.TMDBID, 10) {
 			continue
 		}
-		download := 1.0
-		if rel.Freeleech {
-			download = 0
-		}
 		rows = append(rows, azRow{
 			URL:      originOf(r) + "/torrent/" + rel.InfoHash,
 			Download: originOf(r) + "/rss/download/" + Key(s.scenario, AvistaZ) + "/" + rel.InfoHash + ".torrent",
 			Type:     "Movie", InfoHash: rel.InfoHash, FileName: rel.Name, FileSize: rel.Size, FileCount: 1,
-			Seed: rel.Seeders, Leech: rel.Leechers, Completed: rel.Grabs, DownloadMultiply: download, UploadMultiply: 1,
+			Seed: rel.Seeders, Leech: rel.Leechers, Completed: rel.Grabs, DownloadMultiply: rel.downloadFactor(), UploadMultiply: 1,
 			VideoQuality: videoQuality(rel.Name), CreatedAtIso: "2026-06-01T12:00:00+00:00",
 			MovieTV: map[string]string{"imdb": rel.IMDbID, "tmdb": strconv.FormatInt(rel.TMDBID, 10)},
 		})

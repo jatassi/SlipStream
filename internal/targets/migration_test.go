@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -37,6 +38,10 @@ func facets(types ...works.TypeID) map[works.TypeID]targets.Facet {
 type noFacet struct{}
 
 func (noFacet) Timings(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[works.ItemID]targets.Timing, error) {
+	return nil, nil
+}
+
+func (noFacet) Originals(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[works.WorkID]release.Fact[release.Language], error) {
 	return nil, nil
 }
 
@@ -197,4 +202,64 @@ func seedWork(ctx context.Context, tx *storage.Tx[storage.Library], typ, key str
 	id := works.WorkID{UUID: storage.NewUUID()}
 	_, err := tx.ExecContext(ctx, `INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, ?, ?, ?, ?, 1, 1)`, id, typ, key, key, key)
 	return id, err
+}
+
+func TestTargetsMigrateUnscoredWithIncrementOneAndPreferringPropers(t *testing.T) {
+	ctx := t.Context()
+	open := opener(t, filepath.Join(t.TempDir(), storage.LibraryFile))
+	before := open(targets.Schema().Through(2))
+	id := targets.TargetID{UUID: storage.NewUUID()}
+	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO targets_target (id, name, created_at, cutoff_tier) VALUES (?, 'HD', 1, 0)`, id); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `INSERT INTO targets_quality (target_id, quality, tier, position, min_mib_per_minute) VALUES (?, 'webdl-1080p', 0, 0, 12.5)`, id)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := before.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	lib := open(targets.Schema())
+	t.Cleanup(func() { _ = lib.Close() })
+	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{Library: lib, Changed: discard{}}))
+	got := must[targets.Target](t)(goals.GetTarget(ctx, identity.Admin{}, id))
+	if want := (targets.Scores{Formats: map[formats.ID]int{}, Increment: 1}); !reflect.DeepEqual(got.Scores, want) || got.Propers != targets.PreferAndUpgrade {
+		t.Fatalf("migrated HD has %+v and %s, want %+v and prefer_and_upgrade", got.Scores, got.Propers, want)
+	}
+	if fs := must[[]targets.StoredFormat](t)(goals.ListFormats(ctx, identity.Admin{})); len(fs) != 0 {
+		t.Fatalf("a migrated library has %d Custom Formats, want none", len(fs))
+	}
+
+	format := storage.NewUUID()
+	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO targets_format (id, name, name_folded, include_when_renaming, dialect, conditions, revision, created_at)
+			VALUES (?, 'HDR', 'hdr', 0, 'radarr', '[]', 1, 1)`, format)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		name string
+		sql  string
+		args []any
+	}{
+		{"an increment of 0", `UPDATE targets_target SET score_increment = 0`, nil},
+		{"a score of 0", `INSERT INTO targets_format_score (target_id, format_id, score) VALUES (?, ?, 0)`, []any{id, format}},
+		{"a propers setting no Target has", `UPDATE targets_target SET propers = 'always'`, nil},
+		{"a name that folds to a taken one", `INSERT INTO targets_format (id, name, name_folded, include_when_renaming, dialect, conditions, revision, created_at)
+			VALUES (?, 'hdr', 'hdr', 0, 'radarr', '[]', 1, 1)`, []any{storage.NewUUID()}},
+	} {
+		err := lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := tx.ExecContext(ctx, c.sql, c.args...)
+			return err
+		})
+		if err == nil {
+			t.Errorf("the schema took %s", c.name)
+		}
+	}
 }

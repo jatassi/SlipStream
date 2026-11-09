@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/searching"
@@ -41,11 +42,13 @@ var schemaFiles embed.FS
 func Schema() storage.Schema[file] { return storage.NewSchema[file]("grabs", schemaFiles) }
 
 type (
-	GrabID   = db.GrabID
-	SearchID = db.SearchID
-	Stage    = db.Stage
-	Code     = db.Code
-	Outcome  = db.Outcome
+	GrabID         = db.GrabID
+	SearchID       = db.SearchID
+	Stage          = db.Stage
+	Code           = db.Code
+	Outcome        = db.Outcome
+	ReleaseOutcome = db.ReleaseOutcome
+	Step           = db.Step
 )
 
 const (
@@ -183,8 +186,10 @@ type Config struct {
 	Files    *files.Files
 	Indexers *indexers.Indexers
 	// Sealer seals each Grab's release link.
-	Sealer    *secret.Sealer
-	Terms     map[works.TypeID]indexers.Facet
+	Sealer *secret.Sealer
+	Terms  map[works.TypeID]indexers.Facet
+	// Names read each Content Type's release titles.
+	Names     map[works.TypeID]release.Names
 	Roster    Roster
 	Downloads Downloads
 	// Router chooses the client each Grab's download goes to.

@@ -539,6 +539,10 @@ func (u unfinished) Unfinished(context.Context, storage.Reader[storage.Library])
 	return u, nil
 }
 
+func (unfinished) ReleaseTitles(context.Context, storage.Reader[storage.Library]) (map[storage.UUID]string, error) {
+	return nil, nil
+}
+
 func (unfinished) Settle(context.Context, *storage.Tx[storage.Library], works.WorkID, map[files.CellKey]bool, files.Unwanted) (int, error) {
 	return 0, nil
 }

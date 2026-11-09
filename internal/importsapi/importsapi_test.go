@@ -51,7 +51,10 @@ func (noGrabs) TouchTransfers() {}
 
 // shelfFacet places a file at the Item its name, without extension,
 // labels.
-type shelfFacet struct{ scanning.None }
+type shelfFacet struct {
+	scanning.None
+	release.TitleOnly
+}
 
 func (shelfFacet) Hint(name string) scanning.Hint { return scanning.ReadName(name) }
 
@@ -121,7 +124,7 @@ func serve(t *testing.T) *server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hd, err := goals.CreateTarget(ctx, identity.Admin{}, targets.Spec{Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}}, Cutoff: release.Bluray1080p})
+	hd, err := goals.CreateTarget(ctx, identity.Admin{}, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}}, Cutoff: release.Bluray1080p})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,10 +135,13 @@ func serve(t *testing.T) *server {
 	if _, err := goals.MakeDefault(ctx, identity.Admin{}, profile.ID); err != nil {
 		t.Fatal(err)
 	}
-	fs := files.New(files.Config{
+	fs, err := files.Open(ctx, files.Config{
 		Library: s.lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }},
-		Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: s.fx}, Today: time.Now,
+		Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: s.fx}, Names: map[works.TypeID]release.Names{contenttypetest.ID: s.fx}, Today: time.Now,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	im := imports.New(imports.Config{
 		Library: s.lib, Roots: s.roots, Files: fs, Works: w,
 		Facets: map[works.TypeID]scanning.Facet{contenttypetest.ID: shelfFacet{}},

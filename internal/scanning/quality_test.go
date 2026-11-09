@@ -25,7 +25,8 @@ func TestQualityOf(t *testing.T) {
 		{"Blade Runner (1982) {edition-Final Cut}/Blade Runner.mkv", release.R1080p, release.HDTV1080p, release.Standard},
 	}
 	for _, tt := range tests {
-		q, cut := scanning.QualityOf(tt.rel, release.BuiltIn(), tt.probed)
+		read, q := scanning.QualityOf(tt.rel, release.TitleOnly{}, release.BuiltIn(), tt.probed)
+		cut := read.Facts.Cut
 		if q != tt.quality || cut != tt.cut {
 			t.Errorf("QualityOf(%q, %s) = %s, %s; want %s, %s", tt.rel, tt.probed, q, cut, tt.quality, tt.cut)
 		}
@@ -47,7 +48,7 @@ func TestRequalified(t *testing.T) {
 		{"a cinema source never changes", release.CAM, "Heat/Heat.mkv", release.R1080p, release.CAM},
 	}
 	for _, tt := range tests {
-		if got := scanning.Requalified(tt.was, tt.rel, release.BuiltIn(), tt.probed); got != tt.want {
+		if got := scanning.Requalified(tt.was, tt.rel, release.TitleOnly{}, release.BuiltIn(), tt.probed); got != tt.want {
 			t.Errorf("%s: Requalified(%s, %q, %s) = %s, want %s", tt.name, tt.was, tt.rel, tt.probed, got, tt.want)
 		}
 	}
