@@ -1,0 +1,11 @@
+{
+  "upstream": "Radarr",
+  "commit": "928e8871ccad6a899e9d99781a54fcf17ab7c3d9",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/ReservedDeviceNameFixture.cs",
+  "cases": [
+    {"template":"{Movie.Title} ({Release Year})","values":{"Movie Title":"Con Game","Release Year":2021},"want":"Con_Game (2021)","source":"ReservedDeviceNameFixture.cs should_replace_reserved_device_name_in_movies_folder #1"},
+    {"template":"{Movie.Title} ({Release Year})","values":{"Movie Title":"Com1 Sat","Release Year":2021},"want":"Com1_Sat (2021)","source":"ReservedDeviceNameFixture.cs should_replace_reserved_device_name_in_movies_folder #2"},
+    {"template":"{Movie.Title} ({Release Year})","values":{"Movie Title":"Con Game","Release Year":2021},"want":"Con_Game (2021)","source":"ReservedDeviceNameFixture.cs should_replace_reserved_device_name_in_file_name #1"},
+    {"template":"{Movie.Title} ({Release Year})","values":{"Movie Title":"Com1 Sat","Release Year":2021},"want":"Com1_Sat (2021)","source":"ReservedDeviceNameFixture.cs should_replace_reserved_device_name_in_file_name #2"}
+  ]
+}

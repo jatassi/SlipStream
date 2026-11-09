@@ -13,6 +13,7 @@ import type {
   SettingRateField,
   SettingSpaceField,
   SettingSwitchField,
+  SettingTemplateField,
   SettingWindowField,
   SystemHealth,
   SystemNodeConfig,
@@ -375,6 +376,37 @@ export const getGetNodeConfigResponseSettingSpaceFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetNodeConfigResponseSettingTemplateFieldMock = (
+  overrideResponse: Partial<SettingTemplateField> = {},
+): SettingTemplateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    field: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["template"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    plain: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetNodeConfigResponseMock = (
   overrideResponse: Partial<Extract<SystemNodeConfig, object>> = {},
 ): SystemNodeConfig => ({
@@ -393,6 +425,7 @@ export const getGetNodeConfigResponseMock = (
             { ...getGetNodeConfigResponseSettingAddressFieldMock() },
             { ...getGetNodeConfigResponseSettingFolderFieldMock() },
             { ...getGetNodeConfigResponseSettingSpaceFieldMock() },
+            { ...getGetNodeConfigResponseSettingTemplateFieldMock() },
           ]),
       ),
       id: faker.helpers.arrayElement(["web", "log", "torrent"] as const),
@@ -751,6 +784,37 @@ export const getUpdateNodeConfigResponseSettingSpaceFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateNodeConfigResponseSettingTemplateFieldMock = (
+  overrideResponse: Partial<SettingTemplateField> = {},
+): SettingTemplateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    field: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["template"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    plain: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateNodeConfigResponseMock = (
   overrideResponse: Partial<Extract<SystemNodeConfig, object>> = {},
 ): SystemNodeConfig => ({
@@ -769,6 +833,7 @@ export const getUpdateNodeConfigResponseMock = (
             { ...getUpdateNodeConfigResponseSettingAddressFieldMock() },
             { ...getUpdateNodeConfigResponseSettingFolderFieldMock() },
             { ...getUpdateNodeConfigResponseSettingSpaceFieldMock() },
+            { ...getUpdateNodeConfigResponseSettingTemplateFieldMock() },
           ]),
       ),
       id: faker.helpers.arrayElement(["web", "log", "torrent"] as const),

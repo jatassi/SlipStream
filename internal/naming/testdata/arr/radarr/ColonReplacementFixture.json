@@ -1,0 +1,17 @@
+{
+  "upstream": "Radarr",
+  "commit": "928e8871ccad6a899e9d99781a54fcf17ab7c3d9",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/ColonReplacementFixture.cs",
+  "cases": [
+    {"template":"{Movie Title}","values":{"Movie Title":"CSI: Vegas"},"settings":{"colon":"Smart"},"want":"CSI - Vegas","source":"ColonReplacementFixture.cs should_replace_colon_followed_by_space_with_expected_result #1"},
+    {"template":"{Movie Title}","values":{"Movie Title":"CSI: Vegas"},"settings":{"colon":"Dash"},"want":"CSI- Vegas","source":"ColonReplacementFixture.cs should_replace_colon_followed_by_space_with_expected_result #2"},
+    {"template":"{Movie Title}","values":{"Movie Title":"CSI: Vegas"},"settings":{"colon":"Delete"},"want":"CSI Vegas","source":"ColonReplacementFixture.cs should_replace_colon_followed_by_space_with_expected_result #3"},
+    {"template":"{Movie Title}","values":{"Movie Title":"CSI: Vegas"},"settings":{"colon":"SpaceDash"},"want":"CSI - Vegas","source":"ColonReplacementFixture.cs should_replace_colon_followed_by_space_with_expected_result #4"},
+    {"template":"{Movie Title}","values":{"Movie Title":"CSI: Vegas"},"settings":{"colon":"SpaceDashSpace"},"want":"CSI - Vegas","source":"ColonReplacementFixture.cs should_replace_colon_followed_by_space_with_expected_result #5"},
+    {"template":"{Movie Title}","values":{"Movie Title":"Movie:Title"},"settings":{"colon":"Smart"},"want":"Movie-Title","source":"ColonReplacementFixture.cs should_replace_colon_with_expected_result #1"},
+    {"template":"{Movie Title}","values":{"Movie Title":"Movie:Title"},"settings":{"colon":"Dash"},"want":"Movie-Title","source":"ColonReplacementFixture.cs should_replace_colon_with_expected_result #2"},
+    {"template":"{Movie Title}","values":{"Movie Title":"Movie:Title"},"settings":{"colon":"Delete"},"want":"MovieTitle","source":"ColonReplacementFixture.cs should_replace_colon_with_expected_result #3"},
+    {"template":"{Movie Title}","values":{"Movie Title":"Movie:Title"},"settings":{"colon":"SpaceDash"},"want":"Movie -Title","source":"ColonReplacementFixture.cs should_replace_colon_with_expected_result #4"},
+    {"template":"{Movie Title}","values":{"Movie Title":"Movie:Title"},"settings":{"colon":"SpaceDashSpace"},"want":"Movie - Title","source":"ColonReplacementFixture.cs should_replace_colon_with_expected_result #5"}
+  ]
+}

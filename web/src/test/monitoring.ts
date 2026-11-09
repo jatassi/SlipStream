@@ -63,21 +63,30 @@ export function monitoringServer(moves: (body: WorksMonitoringChange) => Moves) 
   };
 }
 
-const withValue = (field: SettingField, value: unknown): SettingField =>
-  field.kind === "choice" && typeof value === "string"
-    ? { ...field, value, running: value, isDefault: value === field.default }
-    : field;
+const withValue = (field: SettingField, value: unknown): SettingField => {
+  if (field.kind === "choice" && typeof value === "string") {
+    return { ...field, value, running: value, isDefault: value === field.default };
+  }
+  if (field.kind === "switch" && typeof value === "boolean") {
+    return { ...field, value, running: value, isDefault: value === field.default };
+  }
+  return field;
+};
 
 /**
- * PUT /works/{id}/options for The Long Shelf: a preview withdraws
- * `withdraws` Stories, and an order in `unavailable` is refused.
+ * PUT /works/{id}/options for The Long Shelf: an order change moves
+ * Stories and a preview of one withdraws `withdraws` of them, an order in
+ * `unavailable` is refused, and so is any change to a key `refused` maps
+ * to its sentence.
  */
 export function optionsServer({
   withdraws,
   unavailable = [],
+  refused = {},
 }: {
   withdraws: number;
   unavailable?: readonly string[];
+  refused?: Readonly<Record<string, string>>;
 }) {
   const sent: WorksOptionsChange[] = [];
   return {
@@ -85,7 +94,8 @@ export function optionsServer({
     handler: http.put("*/api/v1/works/:workId/options", async ({ request }) => {
       const body = SetWorkOptionsBody.parse(await request.json());
       sent.push(body);
-      const order = body.type?.["order"];
+      const type = body.type ?? {};
+      const order = type["order"];
       if (typeof order === "string" && unavailable.includes(order)) {
         return problem(
           422,
@@ -93,9 +103,23 @@ export function optionsServer({
           "The metadata source doesn't list this Work in that order",
         );
       }
+      const sentence = Object.keys(type)
+        .map((key) => refused[key])
+        .find((each) => each !== undefined);
+      if (sentence !== undefined) {
+        return problem(
+          422,
+          "setting_out_of_range",
+          "The value is outside the setting's range",
+          sentence,
+        );
+      }
       const changed: WorksOptionsChanged = {
         levelFolders: body.levelFolders ?? longShelf.levelFolders,
-        options: longShelf.options.map((field) => (body.preview ? field : withValue(field, order))),
+        options: longShelf.options.map((field) =>
+          body.preview ? field : withValue(field, type[field.key]),
+        ),
+        moves: order !== undefined,
         withdraws: order === undefined ? 0 : withdraws,
       };
       return HttpResponse.json(changed);

@@ -13,7 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// orderChoice is a series' one option, its episode order. Store writes it
+// orderChoice is a series' episode order, a fetch option. Store writes it
 // from the record a fetch in that order made.
 var orderChoice = setting.Choice[tvdb.Order]{Key: "order", Label: "Episode order", Default: tvdb.OrderAired, Options: []setting.Option[tvdb.Order]{
 	{Value: tvdb.OrderAired, Label: orderWords[tvdb.OrderAired]},
@@ -22,6 +22,11 @@ var orderChoice = setting.Choice[tvdb.Order]{Key: "order", Label: "Episode order
 }}
 
 var orderWords = map[tvdb.Order]string{tvdb.OrderAired: "Aired", tvdb.OrderDVD: "DVD", tvdb.OrderAbsolute: "Absolute"}
+
+// airDateSwitch names a series' episodes by air date, a non-fetch option
+// StoreOptions writes. Absolute order numbers episodes, so the two
+// exclude each other.
+var airDateSwitch = setting.Switch{Key: "nameByAirDate", Label: "Name by air date"}
 
 // options is FetchOptions' encoding, read by the series' Source. Order is
 // empty for Aired. RatedAt is when OMDb last answered for each Aired
@@ -33,63 +38,117 @@ type options struct {
 }
 
 // OptionFields is w's episode order, offering only the orders TVDB lists
-// the series in.
+// the series in, and whether it is named by air date.
 func (*Series) OptionFields(ctx context.Context, r storage.Reader[file], w works.WorkID) ([]setting.Field, error) {
-	order, orders, err := ordersOf(ctx, r, w)
+	o, err := optionsOf(ctx, r, w)
 	if err != nil {
 		return nil, err
 	}
 	c := orderChoice
-	c.Options = slices.DeleteFunc(slices.Clone(c.Options), func(o setting.Option[tvdb.Order]) bool { return !slices.Contains(orders, o.Value) })
-	var override *tvdb.Order
-	if order != orderChoice.Default {
-		override = &order
+	c.Options = slices.DeleteFunc(slices.Clone(c.Options), func(opt setting.Option[tvdb.Order]) bool { return !slices.Contains(o.orders, opt.Value) })
+	var order *tvdb.Order
+	if o.order != orderChoice.Default {
+		order = &o.order
 	}
-	return []setting.Field{c.Field(override)}, nil
+	var byAirDate *bool
+	if o.byAirDate {
+		byAirDate = &o.byAirDate
+	}
+	return []setting.Field{c.Field(order), airDateSwitch.Field(byAirDate)}, nil
 }
 
 // FetchOptions is w's episode order and when each of its seasons' ratings
 // were last read, nil for an Aired series OMDb hasn't rated a season of.
 func (*Series) FetchOptions(ctx context.Context, r storage.Reader[file], w works.WorkID) ([]byte, error) {
-	order, _, err := ordersOf(ctx, r, w)
+	o, err := optionsOf(ctx, r, w)
 	if err != nil {
 		return nil, err
 	}
-	return encodeOptions(ctx, r, w, order)
+	return encodeOptions(ctx, r, w, o.order)
 }
 
 // PatchOptions is the fetch options p's order makes of w's,
 // works.ErrOrderUnavailable for an order TVDB doesn't list the series in.
 func (*Series) PatchOptions(ctx context.Context, r storage.Reader[file], w works.WorkID, p setting.Patch) ([]byte, error) {
-	order, orders, err := ordersOf(ctx, r, w)
+	o, err := patched(ctx, r, w, p)
 	if err != nil {
 		return nil, err
 	}
-	for key, raw := range p {
-		if key != orderChoice.Key {
-			return nil, &setting.UnknownKeyError{Key: key}
-		}
-		v, err := orderChoice.ParseJSON(raw)
-		if err != nil {
-			return nil, err
-		}
-		order = orderChoice.Value(v.Override())
-	}
-	if !slices.Contains(orders, order) {
+	if !slices.Contains(o.orders, o.order) {
 		return nil, works.ErrOrderUnavailable
 	}
-	return encodeOptions(ctx, r, w, order)
+	return encodeOptions(ctx, r, w, o.order)
 }
 
-func ordersOf(ctx context.Context, r storage.Reader[file], w works.WorkID) (order tvdb.Order, orders []tvdb.Order, err error) {
+// StoreOptions writes whether p names w by air date.
+func (*Series) StoreOptions(ctx context.Context, tx *storage.Tx[file], w works.WorkID, p setting.Patch) (bool, error) {
+	was, err := optionsOf(ctx, tx, w)
+	if err != nil {
+		return false, err
+	}
+	o, err := was.with(p)
+	if err != nil || o.byAirDate == was.byAirDate {
+		return false, err
+	}
+	return true, db.New(tx).SetNameByAirDate(ctx, db.SetNameByAirDateParams{NameByAirDate: o.byAirDate, WorkID: w})
+}
+
+// picked is a series' options: its order among the orders TVDB lists it
+// in, and whether it is named by air date.
+type picked struct {
+	order     tvdb.Order
+	orders    []tvdb.Order
+	byAirDate bool
+}
+
+func optionsOf(ctx context.Context, r storage.Reader[file], w works.WorkID) (picked, error) {
 	row, err := db.New(r).GetSeries(ctx, w)
 	if err != nil {
-		return "", nil, err
+		return picked{}, err
 	}
-	if err := json.Unmarshal(row.Orders, &orders); err != nil {
-		return "", nil, fmt.Errorf("series %d: orders: %w", row.TvdbID, err)
+	o := picked{order: tvdb.Order(row.EpisodeOrder), byAirDate: row.NameByAirDate}
+	if err := json.Unmarshal(row.Orders, &o.orders); err != nil {
+		return picked{}, fmt.Errorf("series %d: orders: %w", row.TvdbID, err)
 	}
-	return tvdb.Order(row.EpisodeOrder), orders, nil
+	return o, nil
+}
+
+func patched(ctx context.Context, r storage.Reader[file], w works.WorkID, p setting.Patch) (picked, error) {
+	o, err := optionsOf(ctx, r, w)
+	if err != nil {
+		return picked{}, err
+	}
+	return o.with(p)
+}
+
+// with is o as p changes it. It refuses Absolute order with Name by air
+// date on, on the key p changes.
+func (o picked) with(p setting.Patch) (picked, error) {
+	for key, raw := range p {
+		switch key {
+		case orderChoice.Key:
+			v, err := orderChoice.ParseJSON(raw)
+			if err != nil {
+				return picked{}, err
+			}
+			o.order = orderChoice.Value(v.Override())
+		case airDateSwitch.Key:
+			v, err := airDateSwitch.ParseJSON(raw)
+			if err != nil {
+				return picked{}, err
+			}
+			o.byAirDate = airDateSwitch.Value(v.Override())
+		default:
+			return picked{}, &setting.UnknownKeyError{Key: key}
+		}
+	}
+	if o.order != tvdb.OrderAbsolute || !o.byAirDate {
+		return o, nil
+	}
+	if _, ok := p[orderChoice.Key]; ok {
+		return picked{}, &setting.RangeError{Key: orderChoice.Key, Sentence: "Absolute order names episodes by number. Turn off Name by air date to use it."}
+	}
+	return picked{}, &setting.RangeError{Key: airDateSwitch.Key, Sentence: "Name by air date doesn't work with Absolute order. Change the episode order to Aired or DVD first."}
 }
 
 func encodeOptions(ctx context.Context, r storage.Reader[file], w works.WorkID, order tvdb.Order) ([]byte, error) {

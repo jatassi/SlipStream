@@ -5,6 +5,7 @@ import type { Kind, SettingKind } from "./setting-kind";
 import { choiceKind, switchKind, windowKind } from "./setting-picks";
 import { rateKind } from "./setting-rate";
 import { spaceKind } from "./setting-space";
+import { templateKind } from "./setting-template";
 
 export const kinds: { readonly [K in SettingKind]: Kind<K> } = {
   duration: durationKind,
@@ -17,4 +18,5 @@ export const kinds: { readonly [K in SettingKind]: Kind<K> } = {
   address: addressKind,
   folder: folderKind,
   space: spaceKind,
+  template: templateKind,
 };

@@ -1,0 +1,10 @@
+{
+  "upstream": "Sonarr",
+  "commit": "c018578e4b79ee048575c02d7a8aa2b929e4b837",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/TitleYearFixture.cs",
+  "cases": [
+    {"template":"{Series TitleYear}","values":{"Series Title":"The Mist","Series Year":2018},"want":"The Mist (2018)","source":"TitleYearFixture.cs should_get_expected_title_back #1"},
+    {"template":"{Series TitleYear}","values":{"Series Title":"The Rat Pack (A&E)","Series Year":1999},"want":"The Rat Pack (A&E) (1999)","source":"TitleYearFixture.cs should_get_expected_title_back #2"},
+    {"template":"{Series TitleYear}","values":{"Series Title":"The Climax: I (Almost) Got Away With It (2016)","Series Year":2016},"want":"The Climax - I (Almost) Got Away With It (2016)","source":"TitleYearFixture.cs should_get_expected_title_back #3"}
+  ]
+}

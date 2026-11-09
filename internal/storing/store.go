@@ -70,6 +70,9 @@ type Store struct {
 	stuck map[string]int
 	// resampled is when a placement last asked for a sample, by volume id.
 	resampled map[string]time.Time
+	// walks is each root's walk lock: a Walk page holds it to read, a
+	// case-only rename to write, so no page lists a name mid-rename.
+	walks map[storage.UUID]*sync.RWMutex
 }
 
 type judgment struct {
@@ -98,7 +101,19 @@ func NewStore(cfg Config) *Store {
 		judged:    map[storage.UUID]judgment{},
 		stuck:     map[string]int{},
 		resampled: map[string]time.Time{},
+		walks:     map[storage.UUID]*sync.RWMutex{},
 	}
+}
+
+func (s *Store) walksOf(root storage.UUID) *sync.RWMutex {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	l, ok := s.walks[root]
+	if !ok {
+		l = &sync.RWMutex{}
+		s.walks[root] = l
+	}
+	return l
 }
 
 // Run is the Role's run function. On each snapshot, each tick of the

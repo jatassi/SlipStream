@@ -222,14 +222,12 @@ func (c UpdateTarget) apply(ctx context.Context, q *db.Queries, _ Cuts) error {
 	case !has:
 		return ErrNoTarget
 	}
-	switch taken, err := q.TargetNameTakenByOther(ctx, db.TargetNameTakenByOtherParams{Name: t.Name, ID: t.ID}); {
-	case err != nil:
+	folded, err := claimName(ctx, q, t.ID, t.Name)
+	if err != nil {
 		return err
-	case taken:
-		return ErrTargetNameTaken
 	}
 	err = q.UpdateTarget(ctx, db.UpdateTargetParams{
-		ID: t.ID, Name: t.Name, CutoffTier: int64(t.Cutoff), MinScore: int64(t.Scores.Minimum), UpgradeUntil: int64(t.Scores.UpgradeUntil),
+		ID: t.ID, Name: t.Name, NameFolded: &folded, CutoffTier: int64(t.Cutoff), MinScore: int64(t.Scores.Minimum), UpgradeUntil: int64(t.Scores.UpgradeUntil),
 		ScoreIncrement: int64(t.Scores.Increment), Propers: t.Propers.String(),
 	})
 	if err != nil {

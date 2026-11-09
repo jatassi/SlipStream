@@ -1,0 +1,10 @@
+{
+  "upstream": "Radarr",
+  "commit": "928e8871ccad6a899e9d99781a54fcf17ab7c3d9",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/TruncatedMovieTitleFixture.cs",
+  "cases": [
+    {"template":"{Movie Title:16}","values":{"Movie Title":"The Fantastic Life of Mr. Sisko"},"want":"The Fantastic...","source":"TruncatedMovieTitleFixture.cs should_truncate_series_title #1"},
+    {"template":"{Movie TitleThe:17}","values":{"Movie Title":"The Fantastic Life of Mr. Sisko"},"want":"Fantastic Life...","source":"TruncatedMovieTitleFixture.cs should_truncate_series_title #2"},
+    {"template":"{Movie CleanTitle:-13}","values":{"Movie Title":"The Fantastic Life of Mr. Sisko"},"want":"...Mr. Sisko","source":"TruncatedMovieTitleFixture.cs should_truncate_series_title #3"}
+  ]
+}

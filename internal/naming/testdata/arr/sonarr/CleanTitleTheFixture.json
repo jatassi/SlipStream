@@ -1,0 +1,21 @@
+{
+  "upstream": "Sonarr",
+  "commit": "c018578e4b79ee048575c02d7a8aa2b929e4b837",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CleanTitleTheFixture.cs",
+  "cases": [
+    {"template":"{Series CleanTitleThe}","values":{"Series Title":"The Mist"},"want":"Mist, The","source":"CleanTitleTheFixture.cs should_get_expected_title_back #1"},
+    {"template":"{Series CleanTitleThe}","values":{"Series Title":"A Place to Call Home"},"want":"Place to Call Home, A","source":"CleanTitleTheFixture.cs should_get_expected_title_back #2"},
+    {"template":"{Series CleanTitleThe}","values":{"Series Title":"An Adventure in Space and Time"},"want":"Adventure in Space and Time, An","source":"CleanTitleTheFixture.cs should_get_expected_title_back #3"},
+    {"template":"{Series CleanTitleThe}","values":{"Series Title":"The Flash (2010)"},"want":"Flash, The 2010","source":"CleanTitleTheFixture.cs should_get_expected_title_back #4"},
+    {"template":"{Series CleanTitleThe}","values":{"Series Title":"A League Of Their Own (AU)"},"want":"League Of Their Own, A AU","source":"CleanTitleTheFixture.cs should_get_expected_title_back #5"},
+    {"template":"{Series CleanTitleThe}","values":{"Series Title":"The Fixer (ZH) (2015)"},"want":"Fixer, The ZH 2015","source":"CleanTitleTheFixture.cs should_get_expected_title_back #6"},
+    {"template":"{Series CleanTitleThe}","values":{"Series Title":"The Sixth Sense 2 (Thai)"},"want":"Sixth Sense 2, The Thai","source":"CleanTitleTheFixture.cs should_get_expected_title_back #7"},
+    {"template":"{Series CleanTitleThe}","values":{"Series Title":"The Amazing Race (Latin America)"},"want":"Amazing Race, The Latin America","source":"CleanTitleTheFixture.cs should_get_expected_title_back #8"},
+    {"template":"{Series CleanTitleThe}","values":{"Series Title":"The Rat Pack (A&E)"},"want":"Rat Pack, The AandE","source":"CleanTitleTheFixture.cs should_get_expected_title_back #9"},
+    {"template":"{Series CleanTitleThe}","values":{"Series Title":"The Climax: I (Almost) Got Away With It (2016)"},"want":"Climax I Almost Got Away With It, The 2016","source":"CleanTitleTheFixture.cs should_get_expected_title_back #10"},
+    {"template":"{Series CleanTitleThe}","values":{"Series Title":"A"},"want":"A","source":"CleanTitleTheFixture.cs should_not_change_title #1"},
+    {"template":"{Series CleanTitleThe}","values":{"Series Title":"Anne"},"want":"Anne","source":"CleanTitleTheFixture.cs should_not_change_title #2"},
+    {"template":"{Series CleanTitleThe}","values":{"Series Title":"Theodore"},"want":"Theodore","source":"CleanTitleTheFixture.cs should_not_change_title #3"},
+    {"template":"{Series CleanTitleThe}","values":{"Series Title":"3%"},"want":"3%","source":"CleanTitleTheFixture.cs should_not_change_title #4"}
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "upstream": "Radarr",
+  "commit": "928e8871ccad6a899e9d99781a54fcf17ab7c3d9",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/CleanCollectionTheFixture.cs",
+  "cases": [
+    {"template":"{Movie CleanCollectionThe}","values":{"Movie Collection":"The Badger's Collection","Movie Title":"Movie Title"},"want":"Badgers Collection, The","source":"CleanCollectionTheFixture.cs should_get_expected_title_back #1"},
+    {"template":"{Movie CleanCollectionThe}","values":{"Movie Collection":"@ The Movies Collection","Movie Title":"Movie Title"},"want":"@ The Movies Collection","source":"CleanCollectionTheFixture.cs should_get_expected_title_back #2"},
+    {"template":"{Movie CleanCollectionThe}","values":{"Movie Collection":"A Stupid/Idiotic Collection","Movie Title":"Movie Title"},"want":"Stupid Idiotic Collection, A","source":"CleanCollectionTheFixture.cs should_get_expected_title_back #3"},
+    {"template":"{Movie CleanCollectionThe}","values":{"Movie Collection":"An Astounding & Amazing Collection","Movie Title":"Movie Title"},"want":"Astounding and Amazing Collection, An","source":"CleanCollectionTheFixture.cs should_get_expected_title_back #4"},
+    {"template":"{Movie CleanCollectionThe}","values":{"Movie Collection":"The Amazing Animal-Hero's Collection (2001)","Movie Title":"Movie Title"},"want":"Amazing Animal-Heros Collection, The 2001","source":"CleanCollectionTheFixture.cs should_get_expected_title_back #5"},
+    {"template":"{Movie CleanCollectionThe}","values":{"Movie Collection":"A Different Movië (AU)","Movie Title":"Movie Title"},"want":"Different Movie, A AU","source":"CleanCollectionTheFixture.cs should_get_expected_title_back #6"},
+    {"template":"{Movie CleanCollectionThe}","values":{"Movie Collection":"The Repairër (ZH) (2015)","Movie Title":"Movie Title"},"want":"Repairer, The ZH 2015","source":"CleanCollectionTheFixture.cs should_get_expected_title_back #7"},
+    {"template":"{Movie CleanCollectionThe}","values":{"Movie Collection":"The Eighth Sensë 2 (Thai)","Movie Title":"Movie Title"},"want":"Eighth Sense 2, The Thai","source":"CleanCollectionTheFixture.cs should_get_expected_title_back #8"},
+    {"template":"{Movie CleanCollectionThe}","values":{"Movie Collection":"The Astonishing Jæg (Latin America)","Movie Title":"Movie Title"},"want":"Astonishing Jaeg, The Latin America","source":"CleanCollectionTheFixture.cs should_get_expected_title_back #9"},
+    {"template":"{Movie CleanCollectionThe}","values":{"Movie Collection":"The Hampster Pack (B&F)","Movie Title":"Movie Title"},"want":"Hampster Pack, The BandF","source":"CleanCollectionTheFixture.cs should_get_expected_title_back #10"},
+    {"template":"{Movie CleanCollectionThe}","values":{"Movie Collection":"The Gásm: I (Almost) Got Away With It (1900)","Movie Title":"Movie Title"},"want":"Gasm I Almost Got Away With It, The 1900","source":"CleanCollectionTheFixture.cs should_get_expected_title_back #11"},
+    {"template":"{Movie CleanCollectionThe}","values":{"Movie Title":"Movie Title"},"want":"","source":"CleanCollectionTheFixture.cs should_get_expected_title_back #12"},
+    {"template":"{Movie CleanCollectionThe}","values":{"Movie Collection":"A","Movie Title":"Movie Title"},"want":"A","source":"CleanCollectionTheFixture.cs should_not_change_title #1"},
+    {"template":"{Movie CleanCollectionThe}","values":{"Movie Collection":"Anne","Movie Title":"Movie Title"},"want":"Anne","source":"CleanCollectionTheFixture.cs should_not_change_title #2"},
+    {"template":"{Movie CleanCollectionThe}","values":{"Movie Collection":"Theodore","Movie Title":"Movie Title"},"want":"Theodore","source":"CleanCollectionTheFixture.cs should_not_change_title #3"},
+    {"template":"{Movie CleanCollectionThe}","values":{"Movie Collection":"3%","Movie Title":"Movie Title"},"want":"3%","source":"CleanCollectionTheFixture.cs should_not_change_title #4"}
+  ]
+}

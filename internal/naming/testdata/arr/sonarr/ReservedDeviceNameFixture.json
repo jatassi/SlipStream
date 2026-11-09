@@ -1,0 +1,13 @@
+{
+  "upstream": "Sonarr",
+  "commit": "c018578e4b79ee048575c02d7a8aa2b929e4b837",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/ReservedDeviceNameFixture.cs",
+  "cases": [
+    {"template":"{Series.Title}","values":{"Series Title":"Con Game"},"want":"Con_Game","source":"ReservedDeviceNameFixture.cs should_replace_reserved_device_name_in_series_folder #1"},
+    {"template":"{Series.Title}","values":{"Series Title":"Com1 Sat"},"want":"Com1_Sat","source":"ReservedDeviceNameFixture.cs should_replace_reserved_device_name_in_series_folder #2"},
+    {"template":"{Series.Title} - Season {Season:00}","values":{"Season":1,"Series Title":"Con Game"},"want":"Con_Game - Season 01","source":"ReservedDeviceNameFixture.cs should_replace_reserved_device_name_in_season_folder #1"},
+    {"template":"{Series.Title} - Season {Season:00}","values":{"Season":1,"Series Title":"Com1 Sat"},"want":"Com1_Sat - Season 01","source":"ReservedDeviceNameFixture.cs should_replace_reserved_device_name_in_season_folder #2"},
+    {"template":"{Series.Title} - S{Season:00}E{Episode:00}","values":{"Episode":6,"Episode Title":"City Sushi","Season":15,"Series Title":"Con Game"},"want":"Con_Game - S15E06","source":"ReservedDeviceNameFixture.cs should_replace_reserved_device_name_in_file_name #1"},
+    {"template":"{Series.Title} - S{Season:00}E{Episode:00}","values":{"Episode":6,"Episode Title":"City Sushi","Season":15,"Series Title":"Com1 Sat"},"want":"Com1_Sat - S15E06","source":"ReservedDeviceNameFixture.cs should_replace_reserved_device_name_in_file_name #2"}
+  ]
+}

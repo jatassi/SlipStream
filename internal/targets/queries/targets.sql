@@ -1,12 +1,18 @@
--- name: TargetNameTaken :one
-SELECT EXISTS (SELECT 1 FROM targets_target WHERE name = sqlc.arg(name));
+-- name: OtherTargetFoldedAs :one
+SELECT name FROM targets_target WHERE name_folded = sqlc.arg(name_folded) AND id <> sqlc.arg(id);
+
+-- name: ListTargetNames :many
+SELECT id, name, name_folded FROM targets_target ORDER BY id;
+
+-- name: FoldTargetName :exec
+UPDATE targets_target SET name = sqlc.arg(name), name_folded = sqlc.arg(name_folded) WHERE id = sqlc.arg(id);
 
 -- name: HasTarget :one
 SELECT EXISTS (SELECT 1 FROM targets_target WHERE id = sqlc.arg(id));
 
 -- name: InsertTarget :exec
-INSERT INTO targets_target (id, name, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers)
-VALUES (sqlc.arg(id), sqlc.arg(name), sqlc.arg(created_at), sqlc.arg(cutoff_tier), sqlc.arg(min_score), sqlc.arg(upgrade_until),
+INSERT INTO targets_target (id, name, name_folded, created_at, cutoff_tier, min_score, upgrade_until, score_increment, propers)
+VALUES (sqlc.arg(id), sqlc.arg(name), sqlc.arg(name_folded), sqlc.arg(created_at), sqlc.arg(cutoff_tier), sqlc.arg(min_score), sqlc.arg(upgrade_until),
     sqlc.arg(score_increment), sqlc.arg(propers));
 
 -- name: InsertQuality :exec
@@ -100,11 +106,8 @@ SELECT * FROM targets_wants ORDER BY rowid;
 -- name: ListWorksOfProfile :many
 SELECT work_id FROM targets_wants WHERE profile_id = sqlc.arg(profile_id) ORDER BY work_id;
 
--- name: TargetNameTakenByOther :one
-SELECT EXISTS (SELECT 1 FROM targets_target WHERE name = sqlc.arg(name) AND id <> sqlc.arg(id));
-
 -- name: UpdateTarget :exec
-UPDATE targets_target SET name = sqlc.arg(name), cutoff_tier = sqlc.arg(cutoff_tier), min_score = sqlc.arg(min_score),
+UPDATE targets_target SET name = sqlc.arg(name), name_folded = sqlc.arg(name_folded), cutoff_tier = sqlc.arg(cutoff_tier), min_score = sqlc.arg(min_score),
     upgrade_until = sqlc.arg(upgrade_until), score_increment = sqlc.arg(score_increment), propers = sqlc.arg(propers)
 WHERE id = sqlc.arg(id);
 

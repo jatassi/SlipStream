@@ -4139,6 +4139,35 @@ export const SettingFolderField = zod.object({
 export type SettingFolderField = zod.input<typeof SettingFolderField>;
 export type SettingFolderFieldOutput = zod.output<typeof SettingFolderField>;
 
+export const SettingTemplateField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.string(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  field: zod.string().describe("The template field whose tokens the control offers"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["template"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  plain: zod.boolean().describe("The text holds no tokens"),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.string(),
+});
+
+export type SettingTemplateField = zod.input<typeof SettingTemplateField>;
+export type SettingTemplateFieldOutput = zod.output<typeof SettingTemplateField>;
+
 export const SettingField = zod.discriminatedUnion("kind", [
   SettingDurationField,
   SettingCountField,
@@ -4150,6 +4179,7 @@ export const SettingField = zod.discriminatedUnion("kind", [
   SettingAddressField,
   SettingFolderField,
   SettingSpaceField,
+  SettingTemplateField,
 ]);
 
 export type SettingField = zod.input<typeof SettingField>;
@@ -9127,6 +9157,9 @@ export type WorksOptionsChangeOutput = zod.output<typeof WorksOptionsChange>;
 
 export const WorksOptionsChanged = zod.object({
   levelFolders: zod.boolean(),
+  moves: zod
+    .boolean()
+    .describe("The change fetches the Work again, so its Items may move between levels"),
   options: zod.array(SettingField).describe("The Content Type's own options for the Work"),
   withdraws: zod
     .int()

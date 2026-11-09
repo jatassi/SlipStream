@@ -1,13 +1,14 @@
 import type {
   FilesCellList,
   SettingChoiceField,
+  SettingSwitchField,
   WorksContentType,
   WorksItem,
   WorksLevel,
   WorksWorkView,
 } from "../api/gen/model";
 
-/** A many-Item type with one level, an aside level, a code field and a per-Work option. */
+/** A many-Item type with one level, an aside level, a code field and per-Work options. */
 export const anthologies: WorksContentType = {
   id: "anthology",
   name: "Anthologies",
@@ -136,6 +137,19 @@ const order: SettingChoiceField = {
   ],
 };
 
+const byPrinting: SettingSwitchField = {
+  key: "byPrinting",
+  label: "Name by first printing",
+  kind: "switch",
+  source: "database",
+  applies: "live",
+  isDefault: true,
+  pendingRestart: false,
+  default: false,
+  running: false,
+  value: false,
+};
+
 function tree(): Pick<WorksWorkView, "levels" | "items"> {
   const levels = [
     ...Array.from({ length: volumeCount }, (_, i) => volume(i + 1, false)),
@@ -171,7 +185,7 @@ export const longShelf: WorksWorkView = {
   monitorNew: true,
   monitorAsides: false,
   levelFolders: true,
-  options: [order],
+  options: [order, byPrinting],
 };
 
 /** Every Story of The Long Shelf without a cell. */
