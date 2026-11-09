@@ -1,9 +1,12 @@
 import { Link } from "@tanstack/react-router";
+import { useRef } from "react";
 
 import type { NamingNamingList, NamingTypeNaming, WorksContentType } from "../api/gen/model";
 import { useListNamingSuspense } from "../api/gen/query/naming/naming";
 import { useListContentTypesSuspense } from "../api/gen/query/works/works";
 import { ReviewAllRenames } from "../renames/review-all";
+import type { Draft } from "./card";
+import { TesterSheet } from "./tester-sheet";
 import { TypeCard } from "./type-card";
 
 /** The enabled Content Types SlipStream names files for, each with its naming. */
@@ -20,6 +23,7 @@ export const namedTypes = (
 export function NamingSection() {
   const { contentTypes } = useListContentTypesSuspense().data;
   const cards = namedTypes(contentTypes, useListNamingSuspense().data);
+  const drafts = useRef(new Map<string, Draft>());
   return cards.length === 0 ? (
     <p className="text-ink-2">
       Turn on a Content Type in{" "}
@@ -34,9 +38,22 @@ export function NamingSection() {
     </p>
   ) : (
     <div className="flex flex-col gap-3">
-      <ReviewAllRenames />
+      <div className="flex flex-wrap gap-2">
+        <ReviewAllRenames />
+        <TesterSheet
+          types={contentTypes}
+          draftOf={(type) => drafts.current.get(type) ?? new Map()}
+        />
+      </div>
       {cards.map(({ type, naming }) => (
-        <TypeCard key={type.id} type={type} naming={naming} />
+        <TypeCard
+          key={type.id}
+          type={type}
+          naming={naming}
+          onDraft={(draft) => {
+            drafts.current.set(type.id, draft);
+          }}
+        />
       ))}
     </div>
   );

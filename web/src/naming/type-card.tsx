@@ -1,11 +1,11 @@
-import { useId } from "react";
+import { useEffect, useId } from "react";
 
 import type { NamingTypeNaming, WorksContentType } from "../api/gen/model";
 import { useListNamingTokensSuspense } from "../api/gen/query/naming/naming";
 import { Button } from "../ui/button";
 import { Details } from "../ui/details";
 import { Refusal } from "../ui/setting-parts";
-import { cardOf } from "./card";
+import { type Draft, cardOf } from "./card";
 import { CardFields } from "./card-fields";
 import type { Lead } from "./recommendation";
 import { type Refusal as Refused, useNamingCard } from "./use-naming-card";
@@ -62,15 +62,25 @@ function LeadAction({
   );
 }
 
+type TypeCardProps = {
+  readonly type: WorksContentType;
+  readonly naming: NamingTypeNaming;
+  /** Takes the card's unsaved values after each change, for the file name tester to name under. */
+  readonly onDraft: (draft: Draft) => void;
+};
+
 /**
  * One Content Type's naming. It leads with what to do and its button, and
  * Details holds the settings, edited as one draft and saved together.
  */
-export function TypeCard({ type, naming }: { type: WorksContentType; naming: NamingTypeNaming }) {
+export function TypeCard({ type, naming, onDraft }: TypeCardProps) {
   const titleId = useId();
   const { fields } = useListNamingTokensSuspense(type.id).data;
   const { draft, preview, refusal, busy, lead, review, sheet, change, save, saveDraft, discard } =
     useNamingCard(type, naming);
+  useEffect(() => {
+    onDraft(draft);
+  }, [onDraft, draft]);
   return (
     <article
       id={type.id}
