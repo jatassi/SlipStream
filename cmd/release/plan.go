@@ -37,14 +37,16 @@ type touched struct {
 	diagram  bool
 }
 
-// lanes is the source of truth for what CI runs where. Gofmt, go vet,
-// golangci-lint and the go, e2e and browser tiers run on each target, since
-// cgo and the OS change what they prove; everything else runs once.
+// lanes is the source of truth for what CI runs where. The go, e2e and
+// browser tiers run on each target, since cgo and the OS change what they
+// prove. Gofmt, go vet and golangci-lint run once per OS: no Go file is
+// built for one architecture only, and lint compiles the cgo shim, so one
+// OS cannot lint another's. Everything else runs once.
 // The browser tier's shard counts follow its runtime on each runner, which
 // is CPU-bound, so it scales out across jobs rather than Playwright workers.
 var lanes = []lane{
 	{kind: "build", savesCaches: true, shards: map[string]int{"linux-amd64": 1, "linux-arm64": 1, "windows-amd64": 1, "darwin-arm64": 1}},
-	{kind: "lint", tier: "lint", savesCaches: true, shards: map[string]int{"linux-amd64": 1, "linux-arm64": 1, "windows-amd64": 1, "darwin-arm64": 1}},
+	{kind: "lint", tier: "lint", savesCaches: true, shards: map[string]int{"linux-amd64": 1, "windows-amd64": 1, "darwin-arm64": 1}},
 	{kind: "lint-repo", tier: "lint", shards: map[string]int{"linux-amd64": 1}},
 	{kind: "go", tier: "go", shards: map[string]int{"linux-amd64": 2, "linux-arm64": 1, "windows-amd64": 2, "darwin-arm64": 2}},
 	{kind: "e2e", tier: "e2e", shards: map[string]int{"linux-amd64": 1, "linux-arm64": 1, "windows-amd64": 1, "darwin-arm64": 1}},
