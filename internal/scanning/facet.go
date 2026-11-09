@@ -14,12 +14,8 @@ import (
 
 // Facet is what a library scan asks a Content Type. It joins
 // contenttype.Library, so every type answers it. None is the documented
-// empty answer: a type that embeds it matches only by recorded folder and
-// places no file.
-//
-// When S23 (Release parsing and Custom Formats) and this spec have both
-// landed, Hint's body moves onto the type's Names parse and Place's
-// numbering onto S23's Coverage.
+// empty answer: a type that embeds it beside its Names matches only by
+// recorded folder and places no file.
 type Facet interface {
 	// Names reads a found file's name, for its quality and its cut.
 	release.Names

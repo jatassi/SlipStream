@@ -111,6 +111,7 @@ func TestPlaceReadsEpisodeMarkers(t *testing.T) {
 		{"Severed S01E01-E02.mkv", scanning.Reason{Code: scanning.SeveralItems}},
 		{"Severed S01E01-02.mkv", scanning.Reason{Code: scanning.SeveralItems}},
 		{"Severed 1x01-1x02.mkv", scanning.Reason{Code: scanning.SeveralItems}},
+		{"Severed.S01.1080p.WEB-DL.mkv", scanning.Reason{Code: scanning.SeveralItems}},
 		{"Severed - Pilot.mkv", scanning.Reason{Code: scanning.NoNumber}},
 		{"Season 1/Severed.mkv", scanning.Reason{Code: scanning.NoNumber}},
 		{"Severed S03E14.mkv", scanning.Reason{Code: scanning.NoSuchItem, Names: "S03E14"}},

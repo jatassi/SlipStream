@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"regexp"
 	"strconv"
 
 	"github.com/jatassi/slipstream/internal/contenttypes/series/internal/db"
-	"github.com/jatassi/slipstream/internal/providers/tvdb"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -67,70 +66,25 @@ func (*Series) YearOf(c works.Candidate) int {
 	return 0
 }
 
-var (
-	// sxxeyy is an episode marker in a file name: S02E05, or several
-	// episodes as S02E05E06, S02E05-E06 or S02E05-06.
-	sxxeyy = regexp.MustCompile(`(?i)\bS(\d{1,4})E(\d{1,4})((?:-?E\d{1,4}|-\d{1,4}\b)*)`)
-	// nxnn is the 2x05 marker, or several as 2x05-2x06.
-	nxnn = regexp.MustCompile(`(?i)\b(\d{1,2})x(\d{2,3})((?:-\d{1,2}x\d{2,3})*)\b`)
-)
-
-// Place reads a file's SxxEyy or NxNN marker in the series' episode order,
-// with Aired numbers in Absolute order as releases name them. A live
-// episode wins over a withdrawn one with the same numbers.
-func (*Series) Place(ctx context.Context, r storage.Reader[file], work works.WorkID) (scanning.Placer, error) {
-	q := db.New(r)
-	row, err := q.GetSeries(ctx, work)
+// Place reads a file name's episode numbering as the series' release
+// names read it, and places it at the stored episode its Expect covers.
+func (s *Series) Place(ctx context.Context, r storage.Reader[file], work works.WorkID) (scanning.Placer, error) {
+	ex, err := s.Expect(ctx, r, work)
 	if err != nil {
 		return nil, err
-	}
-	episodes, err := q.ListEpisodes(ctx, work)
-	if err != nil {
-		return nil, err
-	}
-	items, err := works.ItemsOf(ctx, r, works.Only([]works.WorkID{work}))
-	if err != nil {
-		return nil, err
-	}
-	numbered := make(map[works.ItemID]episodeAt, len(episodes))
-	for _, e := range episodes {
-		numbered[e.ItemID] = searchedAs(tvdb.Order(row.EpisodeOrder), e)
-	}
-	at := map[episodeAt]works.ItemID{}
-	for _, it := range items[work] {
-		if n, ok := numbered[it.ID]; ok {
-			if _, taken := at[n]; !taken {
-				at[n] = it.ID
-			}
-		}
 	}
 	return func(rel string) scanning.Placement {
-		n, several, ok := markerOf(path.Base(rel))
+		n := release.Title(path.Base(rel), s, nil).Name
 		switch {
-		case !ok:
+		case len(n.Marks) == 0:
 			return scanning.Unplaced(scanning.Reason{Code: scanning.NoNumber})
-		case several:
+		case n.Span != release.One:
 			return scanning.Unplaced(scanning.Reason{Code: scanning.SeveralItems})
 		}
-		item, ok := at[n]
-		if !ok {
-			return scanning.Unplaced(scanning.Reason{Code: scanning.NoSuchItem, Names: fmt.Sprintf("S%02dE%02d", n.season, n.episode)})
+		covers := ex.Covers(n)
+		if len(covers) == 0 {
+			return scanning.Unplaced(scanning.Reason{Code: scanning.NoSuchItem, Names: n.Marks[0].Words})
 		}
-		return scanning.Placed(item)
+		return scanning.Placed(covers[0])
 	}, nil
-}
-
-// markerOf is the episode a file name's first marker names, and whether it
-// names several.
-func markerOf(name string) (at episodeAt, several, ok bool) {
-	m := sxxeyy.FindStringSubmatch(name)
-	if m == nil {
-		m = nxnn.FindStringSubmatch(name)
-	}
-	if m == nil {
-		return episodeAt{}, false, false
-	}
-	season, _ := strconv.Atoi(m[1])
-	episode, _ := strconv.Atoi(m[2])
-	return episodeAt{season, episode}, m[3] != "", true
 }

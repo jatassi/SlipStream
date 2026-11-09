@@ -29,8 +29,9 @@ const (
 // "Heat (1995) {tmdb-949}", "Heat.1995.1080p.BluRay". The year is the last
 // one in brackets, else the last word that is a year and not the first
 // word, and the title is what comes before it, so "1917 (2019)" and
-// "2001 A Space Odyssey" keep their numbers. Movie and series call it from
-// Hint; it is deleted when Hint moves onto S23's parser.
+// "2001 A Space Odyssey" keep their numbers. The types' release readers
+// can't stand in for it: Radarr's reads no title without a year, and
+// Sonarr's none without an episode number.
 func ReadName(name string) Hint {
 	var h Hint
 	for _, m := range tag.FindAllStringSubmatch(name, -1) {
