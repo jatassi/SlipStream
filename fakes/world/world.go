@@ -307,11 +307,22 @@ func (r *Run) copyBinary(source string) error {
 	r.log.Info("binary copied", "source", src, "path", dst, "sha256", sum)
 	for _, tool := range []string{"ffmpeg", "ffprobe", "dovi_tool"} {
 		name := tool + filepath.Ext(src)
-		if _, err := CopyExecutable(filepath.Join(filepath.Dir(src), name), filepath.Join(r.runDir, "bin", name)); err != nil {
+		if err := linkTool(filepath.Join(filepath.Dir(src), name), filepath.Join(r.runDir, "bin", name)); err != nil {
 			return fmt.Errorf("%s beside the binary: %w", tool, err)
 		}
 	}
 	return nil
+}
+
+// linkTool places a bundled tool beside the run's binary. A hard link
+// spares each run a copy of some 100 MB, which on Windows Defender also
+// scans before the first exec; a run dir on another volume gets a copy.
+func linkTool(src, dst string) error {
+	if os.Link(src, dst) == nil {
+		return nil
+	}
+	_, err := CopyExecutable(src, dst)
+	return err
 }
 
 // CopyExecutable copies src to dst and returns its hex SHA-256. It holds
