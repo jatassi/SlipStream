@@ -208,3 +208,10 @@ DELETE FROM files_file WHERE root_id = sqlc.arg(root_id) AND gone_at IS NOT NULL
 
 -- name: ForgetGoneOfWork :exec
 DELETE FROM files_file WHERE work_id = sqlc.arg(work_id) AND gone_at IS NOT NULL;
+
+-- name: ListTracked :many
+SELECT f.work_id, f.root_id, f.path, m.sits FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
+WHERE f.gone_at IS NULL ORDER BY f.id;
+
+-- name: ForgetGoneAt :exec
+DELETE FROM files_file WHERE root_id = sqlc.arg(root_id) AND path = sqlc.arg(path) AND gone_at IS NOT NULL;

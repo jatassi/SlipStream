@@ -34,8 +34,8 @@ func (f *Files) Plans(ctx context.Context, ids ...works.WorkID) ([]WorkPlan, err
 				return err
 			}
 		}
-		var err error
-		out, err = f.plans(ctx, r, trees, works.Every(ids))
+		pl, err := f.plans(ctx, r, trees, works.Every(ids), nil)
+		out = workPlans(pl)
 		return err
 	})
 	return out, err

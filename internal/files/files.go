@@ -143,8 +143,9 @@ type Publisher interface {
 	Publish(ctx context.Context, c Changed)
 }
 
-// Moved names the Works whose files the disk queue moved to their paths,
-// or put back because another file was at one, in one pass.
+// Moved names the Works whose files a confirmed rename plan queued to
+// move, or the disk queue moved to their paths or put back because
+// another file was at one, in one pass.
 type Moved struct {
 	WorkIDs []string `json:"workIds" nullable:"false"`
 }
@@ -338,8 +339,9 @@ type Config struct {
 	Disk Disk
 	// Changed publishes files.changed for each Work whose files Forget deletes.
 	Changed Publisher
-	// Moved publishes files.moved once per pass of the disk queue that
-	// finished or put back a move.
+	// Moved publishes files.moved once per confirmed rename plan that
+	// queued a move, and once per pass of the disk queue that finished or
+	// put back a move.
 	Moved   MovedPublisher
 	Timings Timings
 	Rand    *rand.Rand

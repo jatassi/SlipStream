@@ -69,7 +69,7 @@ func (a *attic) renamingOff(t *testing.T) *attic {
 // rows is a's plan as "from -> to" with each row's Block and Group.
 func (a *attic) rows(t *testing.T) (map[string]Row, WorkPlan) {
 	t.Helper()
-	p, err := plan(a.w)
+	p, _, err := plan(a.w)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestWithRenamingOnTwoFilesEndingOnOneNameIsAClash(t *testing.T) {
 	a := newAttic(t)
 	a.w.scheme = schemeOf(t, "{Shelf} - {Thing}")
 	a.fill("Loft/scarf.mkv").kept("Attic/Attic - Scarf.mkv", 1)
-	if _, err := plan(a.w); !errors.Is(err, ErrNameClash) {
+	if _, _, err := plan(a.w); !errors.Is(err, ErrNameClash) {
 		t.Fatalf("plan of two files the template names alike = %v, want ErrNameClash", err)
 	}
 }
@@ -224,7 +224,7 @@ func TestSettleBlocksRowsThatCantRenameNow(t *testing.T) {
 		ps[0].Rows[4].File: {"A/q.mkv"},
 		ps[0].Rows[5].File: {"A/p.mkv"},
 	}
-	tracked := map[place]works.WorkID{{root, "B/Held.mkv"}: b, {root, "A/p.mkv"}: a, {root, "A/q.mkv"}: a}
+	tracked := map[place][]works.WorkID{{root, "B/Held.mkv"}: {b}, {root, "A/p.mkv"}: {a}, {root, "A/q.mkv"}: {a}}
 
 	settle(ps, tracked, found)
 
