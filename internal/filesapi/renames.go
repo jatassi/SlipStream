@@ -198,18 +198,11 @@ func blockOf(b files.Blocked) *rowBlock {
 	case files.Occupied:
 		return &rowBlock{Reason: "occupied", Detail: "A file SlipStream doesn't track is at the new path. Move or delete that file, then plan again."}
 	case files.TooLong:
-		return &rowBlock{Reason: "too_long", Detail: tooLong(b.Long)}
+		return &rowBlock{Reason: "too_long", Detail: b.Long.Sentence()}
 	case files.Clash:
 		return &rowBlock{Reason: "clash", OtherWorkID: b.Other.String(), Detail: "Another Work's file has the same new path. Add an id to the folder template so each Work gets its own folder."}
 	}
 	return nil
-}
-
-func tooLong(e *naming.TooLongError) string {
-	if e.Segment == "" {
-		return fmt.Sprintf("The new path is %d bytes long, and paths on this root's Node can be at most %d bytes. Shorten the naming templates.", e.Bytes, e.Limit)
-	}
-	return fmt.Sprintf("The name %q is %d bytes long, and a name can be at most %d bytes. Shorten the naming templates.", e.Segment, e.Bytes, e.Limit)
 }
 
 type confirmedWork struct {
