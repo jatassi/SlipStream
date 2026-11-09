@@ -432,14 +432,11 @@ type catalog struct {
 
 // boundRef is a ref resolved against a catalog. Its mod is never words:
 // bind reads words as langs, formatFilter or oneFormat.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type boundRef struct {
 	ref
 	entry *entry
 }
 
-//nolint:unused // the engine lanes fill the code that reads it
 func (*boundRef) part() {}
 
 // bound is a Template bound to a catalog for one field: the only form
@@ -463,14 +460,10 @@ type bound struct {
 }
 
 // span is a half-open range of part indexes.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type span struct{ from, to int }
 
 // piece is one rendered part. Only literal pieces take part in the
 // collapse, so a value's dots and a cut's "..." survive.
-//
-//nolint:unused // the engine lanes fill the code that reads it
 type piece struct {
 	text    string
 	literal bool
