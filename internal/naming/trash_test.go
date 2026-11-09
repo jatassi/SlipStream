@@ -78,13 +78,13 @@ func TestTrashFilmTemplatesPassOnlyWithTheFolderRewrite(t *testing.T) {
 func TestTrashEpisodeTemplatesPass(t *testing.T) {
 	var trash struct {
 		Season   map[string]string
-		Series   map[string]string `json:"series"`
+		Shows    map[string]string `json:"series"`
 		Episodes map[string]map[string]string
 	}
 	readTrash(t, "testdata/trash/sonarr/naming/sonarr-naming.json", &trash)
 	variants := map[string]string{"standard": "file.standard", "daily": "file.daily", "anime": "file.absolute"}
 	checked := 0
-	for name, folder := range trash.Series {
+	for name, folder := range trash.Shows {
 		imported := Settings{Templates: templates("folder", folder, "levels.1", trash.Season["default"])}
 		for kind, field := range variants {
 			imported.Templates[field] = ptr(trashImport(trash.Episodes[kind]["default"]))
