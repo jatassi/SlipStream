@@ -83,18 +83,19 @@ func (q *Queries) GetMovie(ctx context.Context, workID works.WorkID) (MovieMovie
 }
 
 const getSettings = `-- name: GetSettings :one
-SELECT counts_as, cinema_delay_seconds FROM movie_settings WHERE id = 1
+SELECT counts_as, cinema_delay_seconds, year_slack FROM movie_settings WHERE id = 1
 `
 
 type GetSettingsRow struct {
 	CountsAs           *CountsAs
 	CinemaDelaySeconds *int64
+	YearSlack          *int64
 }
 
 func (q *Queries) GetSettings(ctx context.Context) (GetSettingsRow, error) {
 	row := q.db.QueryRowContext(ctx, getSettings)
 	var i GetSettingsRow
-	err := row.Scan(&i.CountsAs, &i.CinemaDelaySeconds)
+	err := row.Scan(&i.CountsAs, &i.CinemaDelaySeconds, &i.YearSlack)
 	return i, err
 }
 
@@ -512,16 +513,17 @@ func (q *Queries) ListTitles(ctx context.Context, workID works.WorkID) ([]ListTi
 }
 
 const setSettings = `-- name: SetSettings :exec
-UPDATE movie_settings SET counts_as = ?1, cinema_delay_seconds = ?2 WHERE id = 1
+UPDATE movie_settings SET counts_as = ?1, cinema_delay_seconds = ?2, year_slack = ?3 WHERE id = 1
 `
 
 type SetSettingsParams struct {
 	CountsAs           *CountsAs
 	CinemaDelaySeconds *int64
+	YearSlack          *int64
 }
 
 func (q *Queries) SetSettings(ctx context.Context, arg SetSettingsParams) error {
-	_, err := q.db.ExecContext(ctx, setSettings, arg.CountsAs, arg.CinemaDelaySeconds)
+	_, err := q.db.ExecContext(ctx, setSettings, arg.CountsAs, arg.CinemaDelaySeconds, arg.YearSlack)
 	return err
 }
 

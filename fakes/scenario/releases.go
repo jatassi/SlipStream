@@ -27,6 +27,13 @@ type Release struct {
 	// AdvertisedSize is the size fixture-site lists, separate from the
 	// payload's. Zero lists the payload's.
 	AdvertisedSize Bytes `yaml:"advertised_size,omitempty"`
+	// DownloadFactor is the share of a download that fixture-site says the
+	// tracker counts, 0 for freeleech. Unset lists 1.
+	DownloadFactor *float64 `jsonschema:"minimum=0,maximum=1" yaml:"download_factor,omitempty"`
+	// Untagged leaves the tmdbid and imdbid attrs out of fixture-site's
+	// items, as from a site that doesn't tag releases with ids, so only
+	// its name says which film it is.
+	Untagged bool `yaml:"untagged,omitempty"`
 	// Unlisted keeps it out of fixture-site's feeds until the
 	// fixture-site-list cue lists it, as a release posted later.
 	Unlisted bool `yaml:"unlisted,omitempty"`

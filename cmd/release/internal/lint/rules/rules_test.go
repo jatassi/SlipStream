@@ -335,6 +335,14 @@ func TestHumaConfined(t *testing.T) {
 	})
 }
 
+func TestRegexp2Confined(t *testing.T) {
+	const outside = " regexp2 imported outside internal/regex; compile with regex.Compile"
+	assertFindings(t, check(t, "regexp2-confined", fixtureRepo(t, "regexp2-confined")), []string{
+		"cmd/arr-sync/tables.go:6: [regexp2-confined]" + outside,
+		"internal/cardigann/template.go:3: [regexp2-confined]" + outside,
+	})
+}
+
 func TestMailConfined(t *testing.T) {
 	const outside = " go-mail imported outside internal/mail; send through a mail.Sender"
 	assertFindings(t, check(t, "mail-confined", fixtureRepo(t, "mail-confined")), []string{

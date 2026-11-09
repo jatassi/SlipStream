@@ -21,40 +21,45 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// corpus is release titles a library may hold Grabs of, v1's bare ts
-// false matches among them.
-var corpus = []string{
-	"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW",
-	"The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW",
-	"The Quiet Orchard 2021 1080p WEBDL DDP5.1",
-	"The.Quiet.Orchard.2021.2160p.WEB.H265",
-	"The.Quiet.Orchard.2021.1080p.WEBRip.x264",
-	"The Quiet Orchard (2021) [720p] [WEB-Rip]",
-	"The.Quiet.Orchard.2021.1080p.BluRay.x264",
-	"The.Quiet.Orchard.2021.720p.Blu-Ray.DTS",
-	"The.Quiet.Orchard.2021.2160p.UHD.BluRay.REMUX",
-	"The.Quiet.Orchard.2021.1080p.BDREMUX",
-	"The.Quiet.Orchard.2021.720p.HDTV.x264",
-	"The.Quiet.Orchard.S01E01.SDTV.XviD",
-	"The.Quiet.Orchard.2021.DVDRip.XviD",
-	"The.Quiet.Orchard.2021.576p.DVD",
-	"The.Quiet.Orchard.2021.HDCAM.x264",
-	"The.Quiet.Orchard.2021.TS.XviD",
-	"The.Quiet.Orchard.2021.1080p.TELESYNC",
-	"Pirates.of.the.Orchard.2021.1080p.WEB-DL",
-	"Tsunami.Orchard.2021.1080p.WEBRip",
-	"T.S.Orchard.2021.1080p.BluRay",
-	"Its.Always.Orchard.S01E01.720p",
-	"The.Orchard.Tapes.2021.2160p.WEB-DL",
-	"The.Cambridge.Orchard.2021.1080p.WEBRip",
-	"The.Quiet.Orchard.2021.1080p.WEB-DL.TrueHD.Atmos-TSG",
-	"Orchard’s.TS",
-	"Orchard/ts\\cam",
-	"Örchard.WEB-DL",
-	"The Quiet Orchard 2021",
+// migrated are release titles a library may hold Grabs of, v1's bare ts
+// false matches among them, and the quality migration 00002 gives a file
+// of each at each of frames. "" is a file no Grab brought.
+var migrated = []struct {
+	title     string
+	qualities [5]string
+}{
+	{"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW", [...]string{"webdl-2160p", "webdl-2160p", "webdl-1080p", "webdl-720p", "sdtv"}},
+	{"The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW", [...]string{"webdl-2160p", "webdl-2160p", "webdl-1080p", "webdl-720p", "sdtv"}},
+	{"The Quiet Orchard 2021 1080p WEBDL DDP5.1", [...]string{"webdl-2160p", "webdl-2160p", "webdl-1080p", "webdl-720p", "sdtv"}},
+	{"The.Quiet.Orchard.2021.2160p.WEB.H265", [...]string{"webdl-2160p", "webdl-2160p", "webdl-1080p", "webdl-720p", "sdtv"}},
+	{"The.Quiet.Orchard.2021.1080p.WEBRip.x264", [...]string{"webrip-2160p", "webrip-2160p", "webrip-1080p", "webrip-720p", "webrip-480p"}},
+	{"The Quiet Orchard (2021) [720p] [WEB-Rip]", [...]string{"webrip-2160p", "webrip-2160p", "webrip-1080p", "webrip-720p", "webrip-480p"}},
+	{"The.Quiet.Orchard.2021.1080p.BluRay.x264", [...]string{"bluray-2160p", "bluray-2160p", "bluray-1080p", "bluray-720p", "sdtv"}},
+	{"The.Quiet.Orchard.2021.720p.Blu-Ray.DTS", [...]string{"bluray-2160p", "bluray-2160p", "bluray-1080p", "bluray-720p", "sdtv"}},
+	{"The.Quiet.Orchard.2021.2160p.UHD.BluRay.REMUX", [...]string{"remux-2160p", "remux-2160p", "remux-1080p", "hdtv-720p", "sdtv"}},
+	{"The.Quiet.Orchard.2021.1080p.BDREMUX", [...]string{"remux-2160p", "remux-2160p", "remux-1080p", "hdtv-720p", "sdtv"}},
+	{"The.Quiet.Orchard.2021.720p.HDTV.x264", [...]string{"hdtv-2160p", "hdtv-2160p", "hdtv-1080p", "hdtv-720p", "sdtv"}},
+	{"The.Quiet.Orchard.S01E01.SDTV.XviD", [...]string{"hdtv-2160p", "hdtv-2160p", "hdtv-1080p", "hdtv-720p", "sdtv"}},
+	{"The.Quiet.Orchard.2021.DVDRip.XviD", [...]string{"hdtv-2160p", "hdtv-2160p", "hdtv-1080p", "hdtv-720p", "dvd"}},
+	{"The.Quiet.Orchard.2021.576p.DVD", [...]string{"hdtv-2160p", "hdtv-2160p", "hdtv-1080p", "hdtv-720p", "dvd"}},
+	{"The.Quiet.Orchard.2021.HDCAM.x264", [...]string{"cam", "cam", "cam", "cam", "cam"}},
+	{"The.Quiet.Orchard.2021.TS.XviD", [...]string{"cam", "cam", "cam", "cam", "cam"}},
+	{"The.Quiet.Orchard.2021.1080p.TELESYNC", [...]string{"cam", "cam", "cam", "cam", "cam"}},
+	{"Pirates.of.the.Orchard.2021.1080p.WEB-DL", [...]string{"webdl-2160p", "webdl-2160p", "webdl-1080p", "webdl-720p", "sdtv"}},
+	{"Tsunami.Orchard.2021.1080p.WEBRip", [...]string{"webrip-2160p", "webrip-2160p", "webrip-1080p", "webrip-720p", "webrip-480p"}},
+	{"T.S.Orchard.2021.1080p.BluRay", [...]string{"bluray-2160p", "bluray-2160p", "bluray-1080p", "bluray-720p", "sdtv"}},
+	{"Its.Always.Orchard.S01E01.720p", [...]string{"hdtv-2160p", "hdtv-2160p", "hdtv-1080p", "hdtv-720p", "sdtv"}},
+	{"The.Orchard.Tapes.2021.2160p.WEB-DL", [...]string{"webdl-2160p", "webdl-2160p", "webdl-1080p", "webdl-720p", "sdtv"}},
+	{"The.Cambridge.Orchard.2021.1080p.WEBRip", [...]string{"webrip-2160p", "webrip-2160p", "webrip-1080p", "webrip-720p", "webrip-480p"}},
+	{"The.Quiet.Orchard.2021.1080p.WEB-DL.TrueHD.Atmos-TSG", [...]string{"webdl-2160p", "webdl-2160p", "webdl-1080p", "webdl-720p", "sdtv"}},
+	{"Orchard’s.TS", [...]string{"cam", "cam", "cam", "cam", "cam"}},
+	{"Orchard/ts\\cam", [...]string{"cam", "cam", "cam", "cam", "cam"}},
+	{"Örchard.WEB-DL", [...]string{"webdl-2160p", "webdl-2160p", "webdl-1080p", "webdl-720p", "sdtv"}},
+	{"The Quiet Orchard 2021", [...]string{"hdtv-2160p", "hdtv-2160p", "hdtv-1080p", "hdtv-720p", "sdtv"}},
+	{"", [...]string{"hdtv-2160p", "hdtv-2160p", "hdtv-1080p", "hdtv-720p", "sdtv"}},
 }
 
-var frames = []files.Probe{{Width: 3840, Height: 2160}, {Width: 3840, Height: 1600}, {Width: 1920, Height: 1080}, {Width: 1280, Height: 720}, {Width: 720, Height: 480}}
+var frames = [...]files.Probe{{Width: 3840, Height: 2160}, {Width: 3840, Height: 1600}, {Width: 1920, Height: 1080}, {Width: 1280, Height: 720}, {Width: 720, Height: 480}}
 
 func TestExistingFilesMigrateToTheQualityTheirGrabAndProbeGive(t *testing.T) {
 	ctx := t.Context()
@@ -67,14 +72,14 @@ func TestExistingFilesMigrateToTheQualityTheirGrabAndProbeGive(t *testing.T) {
 			return err
 		}
 		n := 0
-		for _, title := range append(corpus, "") {
-			for _, f := range frames {
+		for _, m := range migrated {
+			for i, f := range frames {
 				n++
-				file, err := seedFile(ctx, tx, n, title, f, at)
+				file, err := seedFile(ctx, tx, n, m.title, f, at)
 				if err != nil {
 					return err
 				}
-				want[file] = seeded{title, f}
+				want[file] = seeded{m.title, f, m.qualities[i]}
 			}
 		}
 		return nil
@@ -172,8 +177,9 @@ func seedProbed(ctx context.Context, tx *storage.Tx[storage.Library]) (map[strin
 }
 
 type seeded struct {
-	title string // empty for a file no Grab brought
-	probe files.Probe
+	title   string // empty for a file no Grab brought
+	probe   files.Probe
+	quality string
 }
 
 type seeds struct {
@@ -225,8 +231,8 @@ func seedFile(ctx context.Context, tx *storage.Tx[storage.Library], n int, title
 	return file.String(), nil
 }
 
-// checkQualities checks each migrated file's quality is what release.File
-// reads from its Grab's title and its probe, and returns how many it read.
+// checkQualities checks each migrated file's quality is the one seeded
+// for it, and returns how many it read.
 func checkQualities(t *testing.T, lib *storage.DB[storage.Library], want map[string]seeded) int {
 	t.Helper()
 	checked := 0
@@ -242,9 +248,8 @@ func checkQualities(t *testing.T, lib *storage.DB[storage.Library], want map[str
 				return fmt.Errorf("read a file: %w", err)
 			}
 			s := want[path]
-			q, _ := release.File(s.title, nil, release.ResolutionOf(s.probe.Width, s.probe.Height)).Quality.Get()
-			if got != q.String() {
-				t.Errorf("a %dx%d file of %q migrated as %s, release.File says %s", s.probe.Width, s.probe.Height, s.title, got, q)
+			if got != s.quality {
+				t.Errorf("a %dx%d file of %q migrated as %s, want %s", s.probe.Width, s.probe.Height, s.title, got, s.quality)
 			}
 			checked++
 		}

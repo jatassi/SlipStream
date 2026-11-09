@@ -40,6 +40,7 @@ import (
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
@@ -315,6 +316,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Works:   tree,
 		Types:   contenttype.Project(opened, func(t contenttype.Library) targets.Facet { return t }),
 		Changed: targets.ChangedEvent.Bind(n.hub),
+		Formats: n.cfg.Timings.Formats,
 	})
 	if err != nil {
 		return err
@@ -344,15 +346,19 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	router := downloadclients.Router{Roster: side, Routes: trackers.Routing{Roster: side}}
-	shelf := files.New(files.Config{
+	shelf, err := files.Open(ctx, files.Config{
 		Library: lib.db, Targets: goals, Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}, Transfers: transfers.LiveIn,
 		Naming:  contenttype.Project(opened, func(t contenttype.Library) naming.Facet { return t }),
+		Names:   contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
 		Today:   n.today,
 		Disk:    homes,
 		Timings: n.cfg.Timings.Files,
 		Rand:    n.filesRand,
 		Log:     n.rootLog.With("subsystem", "files"),
 	})
+	if err != nil {
+		return err
+	}
 	pipeline = grabs.New(grabs.Config{
 		Library:   lib.db,
 		Works:     tree,
@@ -361,6 +367,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Indexers:  registry,
 		Sealer:    lib.sealer,
 		Terms:     contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
+		Names:     contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
 		Roster:    side,
 		Downloads: clients,
 		Router:    router,

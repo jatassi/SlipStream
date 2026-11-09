@@ -4,6 +4,7 @@ import {
   GrabsGrab,
   GrabsGrabList,
   GrabsIndexerGrabList,
+  GrabsReleaseList,
   GrabsSearchList,
   GrabsSearchScope,
   GrabsSearchStarted,
@@ -53,6 +54,15 @@ export const ListIndexerGrabsQueryParams = zod.object({
 });
 
 export const ListIndexerGrabsResponse = GrabsIndexerGrabList;
+
+/**
+ * @summary List the Releases a search run saw, with what it did with each and why
+ */
+export const ListSearchReleasesParams = zod.object({
+  searchId: zod.uuid(),
+});
+
+export const ListSearchReleasesResponse = GrabsReleaseList;
 
 /**
  * @summary Search for each wanted Item of a Work, or of some of its levels and Items, and grab the best release

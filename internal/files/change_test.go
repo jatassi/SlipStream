@@ -102,13 +102,13 @@ func TestAKeptFileMeetingNoTargetKeepsItsLabelAndARenamedTargetRenamesItsFiles(t
 	s := shelved(t)
 	bluray := s.target(t, "Bluray", []release.Quality{release.Bluray1080p})
 	s.change(t, s.svc, holding(s.both, bluray, s.hd), keeping)
-	s.change(t, s.svc, targets.UpdateTarget{ID: s.hd.ID, Spec: targets.Spec{Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}}, Cutoff: release.Bluray1080p}}, keeping)
+	s.change(t, s.svc, targets.UpdateTarget{ID: s.hd.ID, Spec: targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}}, Cutoff: release.Bluray1080p}}, keeping)
 	s.change(t, s.svc, holding(s.both, bluray), keeping)
 	if disk := s.onDisk(t); !maps.Equal(disk, map[string]string{"Shelf w1/Shelf w1 - Scarf - HD (extra 1).mkv": "webdl"}) {
 		t.Fatalf("the root holds %v, want the WEB-DL Kept under the label it last filled, meeting no Target", disk)
 	}
 	stream := s.target(t, "Stream", []release.Quality{release.WEBDL1080p})
-	renamed := targets.UpdateTarget{ID: stream.ID, Spec: targets.Spec{Name: "Streamed", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}}
+	renamed := targets.UpdateTarget{ID: stream.ID, Spec: targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "Streamed", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p}}
 	s.change(t, s.svc, holding(s.both, bluray, stream), keeping)
 	if disk := s.onDisk(t); !maps.Equal(disk, map[string]string{"Shelf w1/Shelf w1 - Scarf - Stream.mkv": "webdl"}) {
 		t.Fatalf("the root holds %v, want the WEB-DL filling Stream", disk)
@@ -169,7 +169,7 @@ func TestAPreviewChangesNothingAndItsImpactIsTheSaves(t *testing.T) {
 		want   files.Impact
 	}{
 		{"a reordered Profile", holding(s.both, s.web, s.hd), files.Impact{Works: 2, Renamed: 1}},
-		{"a tightened Target", targets.UpdateTarget{ID: s.hd.ID, Spec: targets.Spec{Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}}, Cutoff: release.Bluray1080p}}, files.Impact{Works: 1}},
+		{"a tightened Target", targets.UpdateTarget{ID: s.hd.ID, Spec: targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "HD", Tiers: [][]release.Quality{{release.Bluray1080p}}, Cutoff: release.Bluray1080p}}, files.Impact{Works: 1}},
 		{"a Profile of other Targets", holding(s.both, bluray), files.Impact{Works: 2, Unwanted: 1, Bytes: 5, Renamed: 1, NewlyWanted: 3}},
 	} {
 		before := s.snapshot(t, s.svc, s.tree.ID, other.ID)
@@ -294,7 +294,7 @@ func noX264(t *testing.T, id targets.TargetID) targets.UpdateTarget {
 	if err := f.Set(targets.VideoCodec, targets.Not, []string{"x264"}); err != nil {
 		t.Fatal(err)
 	}
-	return targets.UpdateTarget{ID: id, Spec: targets.Spec{Name: "Web", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p, Filters: f}}
+	return targets.UpdateTarget{ID: id, Spec: targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "Web", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p, Filters: f}}
 }
 
 func TestATargetRefusingTheVideoCodecAFileWasProbedAtLetsGoOfIt(t *testing.T) {

@@ -58,6 +58,8 @@ import { Route as AppNodesNodeIdSearchingRouteImport } from "./routes/_app/nodes
 import { Route as AppNodesNodeIdTorrentClientRouteImport } from "./routes/_app/nodes/$nodeId/torrent-client";
 import { Route as AppNodesNodeIdTransfersRouteImport } from "./routes/_app/nodes/$nodeId/transfers";
 import { Route as AppNodesNodeIdWebRouteImport } from "./routes/_app/nodes/$nodeId/web";
+import { Route as AppSettingsCustomFormatsFormatIdRouteImport } from "./routes/_app/settings/custom-formats.$formatId";
+import { Route as AppSettingsCustomFormatsNewRouteImport } from "./routes/_app/settings/custom-formats.new";
 import { Route as AppSettingsIndexersIndexerIdRouteImport } from "./routes/_app/settings/indexers.$indexerId";
 import { Route as AppSettingsProfilesProfileIdRouteImport } from "./routes/_app/settings/profiles.$profileId";
 import { Route as AppSettingsProfilesNewRouteImport } from "./routes/_app/settings/profiles.new";
@@ -323,6 +325,18 @@ const AppNodesNodeIdWebRoute = AppNodesNodeIdWebRouteImport.update({
   path: "/web",
   getParentRoute: () => AppNodesNodeIdRouteRoute,
 } as any);
+const AppSettingsCustomFormatsFormatIdRoute =
+  AppSettingsCustomFormatsFormatIdRouteImport.update({
+    id: "/settings/custom-formats/$formatId",
+    path: "/settings/custom-formats/$formatId",
+    getParentRoute: () => AppRoute,
+  } as any);
+const AppSettingsCustomFormatsNewRoute =
+  AppSettingsCustomFormatsNewRouteImport.update({
+    id: "/settings/custom-formats/new",
+    path: "/settings/custom-formats/new",
+    getParentRoute: () => AppRoute,
+  } as any);
 const AppSettingsIndexersIndexerIdRoute =
   AppSettingsIndexersIndexerIdRouteImport.update({
     id: "/settings/indexers/$indexerId",
@@ -472,6 +486,8 @@ export interface FileRoutesByFullPath {
   "/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
   "/nodes/$nodeId/transfers": typeof AppNodesNodeIdTransfersRoute;
   "/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
+  "/settings/custom-formats/$formatId": typeof AppSettingsCustomFormatsFormatIdRoute;
+  "/settings/custom-formats/new": typeof AppSettingsCustomFormatsNewRoute;
   "/settings/indexers/$indexerId": typeof AppSettingsIndexersIndexerIdRoute;
   "/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
   "/settings/profiles/new": typeof AppSettingsProfilesNewRoute;
@@ -532,6 +548,8 @@ export interface FileRoutesByTo {
   "/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
   "/nodes/$nodeId/transfers": typeof AppNodesNodeIdTransfersRoute;
   "/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
+  "/settings/custom-formats/$formatId": typeof AppSettingsCustomFormatsFormatIdRoute;
+  "/settings/custom-formats/new": typeof AppSettingsCustomFormatsNewRoute;
   "/settings/indexers/$indexerId": typeof AppSettingsIndexersIndexerIdRoute;
   "/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
   "/settings/profiles/new": typeof AppSettingsProfilesNewRoute;
@@ -599,6 +617,8 @@ export interface FileRoutesById {
   "/_app/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
   "/_app/nodes/$nodeId/transfers": typeof AppNodesNodeIdTransfersRoute;
   "/_app/nodes/$nodeId/web": typeof AppNodesNodeIdWebRoute;
+  "/_app/settings/custom-formats/$formatId": typeof AppSettingsCustomFormatsFormatIdRoute;
+  "/_app/settings/custom-formats/new": typeof AppSettingsCustomFormatsNewRoute;
   "/_app/settings/indexers/$indexerId": typeof AppSettingsIndexersIndexerIdRoute;
   "/_app/settings/profiles/$profileId": typeof AppSettingsProfilesProfileIdRoute;
   "/_app/settings/profiles/new": typeof AppSettingsProfilesNewRoute;
@@ -668,6 +688,8 @@ export interface FileRouteTypes {
     | "/nodes/$nodeId/torrent-client"
     | "/nodes/$nodeId/transfers"
     | "/nodes/$nodeId/web"
+    | "/settings/custom-formats/$formatId"
+    | "/settings/custom-formats/new"
     | "/settings/indexers/$indexerId"
     | "/settings/profiles/$profileId"
     | "/settings/profiles/new"
@@ -728,6 +750,8 @@ export interface FileRouteTypes {
     | "/nodes/$nodeId/torrent-client"
     | "/nodes/$nodeId/transfers"
     | "/nodes/$nodeId/web"
+    | "/settings/custom-formats/$formatId"
+    | "/settings/custom-formats/new"
     | "/settings/indexers/$indexerId"
     | "/settings/profiles/$profileId"
     | "/settings/profiles/new"
@@ -794,6 +818,8 @@ export interface FileRouteTypes {
     | "/_app/nodes/$nodeId/torrent-client"
     | "/_app/nodes/$nodeId/transfers"
     | "/_app/nodes/$nodeId/web"
+    | "/_app/settings/custom-formats/$formatId"
+    | "/_app/settings/custom-formats/new"
     | "/_app/settings/indexers/$indexerId"
     | "/_app/settings/profiles/$profileId"
     | "/_app/settings/profiles/new"
@@ -1173,6 +1199,20 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppNodesNodeIdWebRouteImport;
       parentRoute: typeof AppNodesNodeIdRouteRoute;
     };
+    "/_app/settings/custom-formats/$formatId": {
+      id: "/_app/settings/custom-formats/$formatId";
+      path: "/settings/custom-formats/$formatId";
+      fullPath: "/settings/custom-formats/$formatId";
+      preLoaderRoute: typeof AppSettingsCustomFormatsFormatIdRouteImport;
+      parentRoute: typeof AppRoute;
+    };
+    "/_app/settings/custom-formats/new": {
+      id: "/_app/settings/custom-formats/new";
+      path: "/settings/custom-formats/new";
+      fullPath: "/settings/custom-formats/new";
+      preLoaderRoute: typeof AppSettingsCustomFormatsNewRouteImport;
+      parentRoute: typeof AppRoute;
+    };
     "/_app/settings/indexers/$indexerId": {
       id: "/_app/settings/indexers/$indexerId";
       path: "/settings/indexers/$indexerId";
@@ -1445,6 +1485,8 @@ interface AppRouteChildren {
   AppAccountsIndexRoute: typeof AppAccountsIndexRoute;
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute;
   AppSettingsTrackersTrackerIdRouteRoute: typeof AppSettingsTrackersTrackerIdRouteRouteWithChildren;
+  AppSettingsCustomFormatsFormatIdRoute: typeof AppSettingsCustomFormatsFormatIdRoute;
+  AppSettingsCustomFormatsNewRoute: typeof AppSettingsCustomFormatsNewRoute;
   AppSettingsIndexersIndexerIdRoute: typeof AppSettingsIndexersIndexerIdRoute;
   AppSettingsProfilesProfileIdRoute: typeof AppSettingsProfilesProfileIdRoute;
   AppSettingsProfilesNewRoute: typeof AppSettingsProfilesNewRoute;
@@ -1475,6 +1517,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsIndexRoute: AppSettingsIndexRoute,
   AppSettingsTrackersTrackerIdRouteRoute:
     AppSettingsTrackersTrackerIdRouteRouteWithChildren,
+  AppSettingsCustomFormatsFormatIdRoute: AppSettingsCustomFormatsFormatIdRoute,
+  AppSettingsCustomFormatsNewRoute: AppSettingsCustomFormatsNewRoute,
   AppSettingsIndexersIndexerIdRoute: AppSettingsIndexersIndexerIdRoute,
   AppSettingsProfilesProfileIdRoute: AppSettingsProfilesProfileIdRoute,
   AppSettingsProfilesNewRoute: AppSettingsProfilesNewRoute,

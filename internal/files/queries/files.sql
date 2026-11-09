@@ -1,7 +1,8 @@
 -- name: InsertFile :exec
-INSERT INTO files_file (id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra)
+INSERT INTO files_file (id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra, release_name, title_read)
 VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(cut), sqlc.arg(root_id), sqlc.arg(path),
-    sqlc.arg(size), sqlc.arg(probe), sqlc.arg(grab_id), sqlc.arg(quality), sqlc.arg(label), sqlc.arg(extra));
+    sqlc.arg(size), sqlc.arg(probe), sqlc.arg(grab_id), sqlc.arg(quality), sqlc.arg(label), sqlc.arg(extra),
+    sqlc.arg(release_name), sqlc.arg(title_read));
 
 -- name: RenameFile :exec
 UPDATE files_file SET path = sqlc.arg(path), label = sqlc.arg(label), extra = sqlc.arg(extra) WHERE id = sqlc.arg(id);
@@ -12,6 +13,12 @@ DELETE FROM files_file WHERE id = sqlc.arg(id);
 -- name: ListFilesOfWorks :many
 SELECT * FROM files_file WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY id;
 
+-- name: ListFileReadsOfWorks :many
+SELECT id, work_id, release_name, CAST(title_read AS TEXT) AS title_json FROM files_file WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
+
+-- name: ListFileNamesOfWorks :many
+SELECT id, work_id, release_name FROM files_file WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
+
 -- name: ListEveryFile :many
 SELECT * FROM files_file ORDER BY rowid;
 
@@ -21,12 +28,19 @@ SELECT id, work_id, item_id, cut, root_id, size, quality, extra FROM files_file 
 -- name: ListEveryBriefFile :many
 SELECT id, work_id, item_id, cut, root_id, size, quality, extra FROM files_file ORDER BY rowid;
 
+-- name: ListUnreadFiles :many
+SELECT id, work_id, grab_id, path FROM files_file WHERE title_read IS NULL ORDER BY id;
+
+-- name: SetFileRead :exec
+UPDATE files_file SET release_name = sqlc.arg(release_name), title_read = sqlc.arg(title_read)
+WHERE id = sqlc.arg(id) AND title_read IS NULL;
+
 -- name: ListFileIDs :many
 SELECT id FROM files_file ORDER BY id;
 
 -- name: InsertFill :exec
-INSERT INTO files_fill (file_id, target_id, item_id, edition)
-VALUES (sqlc.arg(file_id), sqlc.arg(target_id), sqlc.arg(item_id), sqlc.arg(edition));
+INSERT INTO files_fill (file_id, target_id, item_id, edition, score)
+VALUES (sqlc.arg(file_id), sqlc.arg(target_id), sqlc.arg(item_id), sqlc.arg(edition), sqlc.arg(score));
 
 -- name: DeleteFill :exec
 DELETE FROM files_fill WHERE item_id = sqlc.arg(item_id) AND edition = sqlc.arg(edition) AND target_id = sqlc.arg(target_id);

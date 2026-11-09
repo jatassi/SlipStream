@@ -1,0 +1,100 @@
+{
+  "radarr": {
+    "commit": "928e8871ccad6a899e9d99781a54fcf17ab7c3d9",
+    "date": "2026-11-07",
+    "files": {
+      "kinds.go": [
+        "src/NzbDrone.Core/CustomFormats/Specifications/CustomFormatSpecificationBase.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/EditionSpecification.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/IndexerFlagSpecification.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/LanguageSpecification.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/QualityModifierSpecification.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/RegexSpecificationBase.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/ReleaseGroupSpecification.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/ReleaseTitleSpecification.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/ResolutionSpecification.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/SizeSpecification.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/SourceSpecification.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/YearSpecification.cs"
+      ],
+      "match.go": [
+        "src/NzbDrone.Core/CustomFormats/CustomFormatCalculationService.cs",
+        "src/NzbDrone.Core/CustomFormats/SpecificationMatchesGroup.cs"
+      ],
+      "paste.go": [
+        "src/NzbDrone.Core/CustomFormats/CustomFormat.cs",
+        "src/NzbDrone.Core/CustomFormats/CustomFormatInput.cs"
+      ]
+    },
+    "sha256": {
+      "src/NzbDrone.Core/CustomFormats/CustomFormat.cs": "ee4c68a5465de60139392127587cc57f5bee4d0d7ad6887dde035a3b2f76fd57",
+      "src/NzbDrone.Core/CustomFormats/CustomFormatCalculationService.cs": "8f9056fb53051ebc43ec19b07aa1aab0d1f980536296a145329aa2234b2894d0",
+      "src/NzbDrone.Core/CustomFormats/CustomFormatInput.cs": "cfbb9f2c8ecc7f1ed4aeec6ba0cdde9d0daeb99b48c688c2411e764515b609a5",
+      "src/NzbDrone.Core/CustomFormats/SpecificationMatchesGroup.cs": "4154df6ed82d66340a3d149d2eea4314070d13b53aae6f3238d943531e46fa6d",
+      "src/NzbDrone.Core/CustomFormats/Specifications/CustomFormatSpecificationBase.cs": "3b7837bb4299832a119dc1ef69d84976dec9ed91b17503a97301b31a8861ece6",
+      "src/NzbDrone.Core/CustomFormats/Specifications/EditionSpecification.cs": "a0b3d366c1e7b9806ab652f5f23a2cee13e3ab2fb574c912b1aa0ee14fbe2240",
+      "src/NzbDrone.Core/CustomFormats/Specifications/IndexerFlagSpecification.cs": "261449cc0d09c8ada52eb54a2f3fc7b025d6b69bd31ad7a9afbf1a0b008192d2",
+      "src/NzbDrone.Core/CustomFormats/Specifications/LanguageSpecification.cs": "7b61ad64a10766be8a39430dd9fc2d8a14d51435d8c758676701efdb53f2f3da",
+      "src/NzbDrone.Core/CustomFormats/Specifications/QualityModifierSpecification.cs": "dc26b27a58081c461d73bf8bf66df831c21b48971f6caccca2a3d8a6b6914b1c",
+      "src/NzbDrone.Core/CustomFormats/Specifications/RegexSpecificationBase.cs": "e381c2d3b99e00566b45ee39910a36b3508ac84627db7b133a14a1f74f6f5c66",
+      "src/NzbDrone.Core/CustomFormats/Specifications/ReleaseGroupSpecification.cs": "3277ffa8f40481c18530022a9b825b06fef2d140c7ab4e4317119cd9ccb40453",
+      "src/NzbDrone.Core/CustomFormats/Specifications/ReleaseTitleSpecification.cs": "90ace963fb642d675a8932a751a8bdc056c25db0d96edfac406b5d5ce6a6f5aa",
+      "src/NzbDrone.Core/CustomFormats/Specifications/ResolutionSpecification.cs": "ca9acda428b6aa51bae6352bf2c0ae678d3fd6315c7e367a89dd40b20a8eb944",
+      "src/NzbDrone.Core/CustomFormats/Specifications/SizeSpecification.cs": "45a3897399182314c1b380d291161242e4c1504734330ab35154d564c7967770",
+      "src/NzbDrone.Core/CustomFormats/Specifications/SourceSpecification.cs": "fe043608bda53020406cd9ab69558fbaaeb0d864563bbd5726aedda48824233d",
+      "src/NzbDrone.Core/CustomFormats/Specifications/YearSpecification.cs": "40160e2068c34d87e9d0d1a8c92d32701859c043075bb4ae308f6d50855a4bb5",
+      "src/NzbDrone.Core/Languages/Language.cs": "9faabd63512e18b4d4784f3b6967043f40b9f4feb3d6e0bf5929a6c00d5e5d48",
+      "src/NzbDrone.Core/Parser/Model/IndexerFlags.cs": "3d025d165837e6b3381cdeb35d5c6eeea2e46e6cfed658c2e2da30a2da9bd3ae",
+      "src/NzbDrone.Core/Parser/QualityParser.cs": "3f844d52b474b103fd22414c8a76ef5bae00ec1d7bd6cedb5e81dba71f680895",
+      "src/NzbDrone.Core/Qualities/Modifier.cs": "83b3efaf3f14328075e6b2b5e99db75851c01ed3377b3a5e1fcea1806c0453b2",
+      "src/NzbDrone.Core/Qualities/QualitySource.cs": "5a9fa5910b80dae296755e73006cdbd50ed5190d3a82390baee0aee6781020f8"
+    }
+  },
+  "sonarr": {
+    "commit": "c018578e4b79ee048575c02d7a8aa2b929e4b837",
+    "date": "2026-11-02",
+    "files": {
+      "kinds.go": [
+        "src/NzbDrone.Core/CustomFormats/Specifications/CustomFormatSpecificationBase.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/IndexerFlagSpecification.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/LanguageSpecification.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/RegexSpecificationBase.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/ReleaseGroupSpecification.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/ReleaseTitleSpecification.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/ReleaseTypeSpecification.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/ResolutionSpecification.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/SizeSpecification.cs",
+        "src/NzbDrone.Core/CustomFormats/Specifications/SourceSpecification.cs"
+      ],
+      "match.go": [
+        "src/NzbDrone.Core/CustomFormats/CustomFormatCalculationService.cs",
+        "src/NzbDrone.Core/CustomFormats/SpecificationMatchesGroup.cs"
+      ],
+      "paste.go": [
+        "src/NzbDrone.Core/CustomFormats/CustomFormat.cs",
+        "src/NzbDrone.Core/CustomFormats/CustomFormatInput.cs"
+      ]
+    },
+    "sha256": {
+      "src/NzbDrone.Core/CustomFormats/CustomFormat.cs": "ee4c68a5465de60139392127587cc57f5bee4d0d7ad6887dde035a3b2f76fd57",
+      "src/NzbDrone.Core/CustomFormats/CustomFormatCalculationService.cs": "c443c4ee7aad8943849c29096b81f09dca7ab7a77d3a7d6148e1243386f947b4",
+      "src/NzbDrone.Core/CustomFormats/CustomFormatInput.cs": "6be433ea47648d397b246ba964ce9b56b5cb30d46ed0cb0cb78b5fdcc1c53108",
+      "src/NzbDrone.Core/CustomFormats/SpecificationMatchesGroup.cs": "4154df6ed82d66340a3d149d2eea4314070d13b53aae6f3238d943531e46fa6d",
+      "src/NzbDrone.Core/CustomFormats/Specifications/CustomFormatSpecificationBase.cs": "6df0defd913b4d5854a6d1e54df2a9f3aaa115dccac9e958206dafcc310fbe2d",
+      "src/NzbDrone.Core/CustomFormats/Specifications/IndexerFlagSpecification.cs": "261449cc0d09c8ada52eb54a2f3fc7b025d6b69bd31ad7a9afbf1a0b008192d2",
+      "src/NzbDrone.Core/CustomFormats/Specifications/LanguageSpecification.cs": "513be3b50f3943b4346ef1519e1b4f0cd92e0ec6317e48b59a9fa9b50bc996d6",
+      "src/NzbDrone.Core/CustomFormats/Specifications/RegexSpecificationBase.cs": "e381c2d3b99e00566b45ee39910a36b3508ac84627db7b133a14a1f74f6f5c66",
+      "src/NzbDrone.Core/CustomFormats/Specifications/ReleaseGroupSpecification.cs": "4ec0143cec001a13bbfb9e678b2810f6737c5346a31d011506dd06302c89a92c",
+      "src/NzbDrone.Core/CustomFormats/Specifications/ReleaseTitleSpecification.cs": "a41e31f3e56f5563a057cf4841fa7c60fff1f9c7e05d4ee5ba0f20775954134a",
+      "src/NzbDrone.Core/CustomFormats/Specifications/ReleaseTypeSpecification.cs": "a560fef59bd6aaf5e92fb53901026f0b76f30b8f06ba5bd96b2142a7701c1e57",
+      "src/NzbDrone.Core/CustomFormats/Specifications/ResolutionSpecification.cs": "63f4cae5b5e9c5ff7d8e397fab5cb06d1210ab377b15cff56d725c1d9dbdeaf1",
+      "src/NzbDrone.Core/CustomFormats/Specifications/SizeSpecification.cs": "45a3897399182314c1b380d291161242e4c1504734330ab35154d564c7967770",
+      "src/NzbDrone.Core/CustomFormats/Specifications/SourceSpecification.cs": "efac4e90021c95b7ccf86e2ffe3cb7bfd9865963efb6ab8d7ec9dc52011252ad",
+      "src/NzbDrone.Core/Languages/Language.cs": "1cbd8065697fc3bb595291540fe6ae03416c1af3e728c7ab8bccbd107538b672",
+      "src/NzbDrone.Core/Parser/Model/IndexerFlags.cs": "70ddf56977a0612758e9045523398cb303dbb4293b71e9f117c299c81b1cc651",
+      "src/NzbDrone.Core/Parser/Model/ReleaseType.cs": "3f28fc6f0e94dd11785f51ee966db7c473dab77161aae9674e094cf240a98de6",
+      "src/NzbDrone.Core/Parser/QualityParser.cs": "14860e24741f163ce9ac1d78fbfb827021d8bffd4242a1f9cec8504b22895051",
+      "src/NzbDrone.Core/Qualities/QualitySource.cs": "dda16774facd6ce91a8c2da10e8e6bdc72b35ef4a6932bc2bb211c5551f1a48f"
+    }
+  }
+}

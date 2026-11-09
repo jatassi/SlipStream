@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type {
+  FormatsCustomFormat,
   TargetsProfile,
   TargetsQualityList,
   TargetsTarget,
@@ -11,6 +12,7 @@ import {
   useListQualitiesSuspense,
   useListTargetsSuspense,
 } from "../../api/gen/query/targets/targets";
+import { useListCustomFormatsSuspense } from "../../api/gen/query/formats/formats";
 import { useListContentTypesSuspense } from "../../api/gen/query/works/works";
 import { SavedTargetEditor } from "../../targets/target-editor";
 import { Dialog } from "../../ui/dialog";
@@ -58,10 +60,12 @@ function TypeRow({
 function TargetEditorDialog({
   editing,
   qualities,
+  formats,
   onClose,
 }: {
   editing: { readonly target: TargetsTarget; readonly open: boolean } | undefined;
   qualities: TargetsQualityList;
+  formats: FormatsCustomFormat[];
   onClose: () => void;
 }) {
   return (
@@ -80,6 +84,7 @@ function TargetEditorDialog({
           key={editing.target.id}
           target={editing.target}
           qualities={qualities}
+          formats={formats}
           onSaved={onClose}
         />
       )}
@@ -92,6 +97,7 @@ export function TargetsStep({ nav }: StepBodyProps) {
   const { profiles } = useListProfilesSuspense().data;
   const { targets } = useListTargetsSuspense().data;
   const qualities = useListQualitiesSuspense().data;
+  const { formats } = useListCustomFormatsSuspense().data;
   const [editing, setEditing] = useState<{ target: TargetsTarget; open: boolean }>();
   const rows = contentTypes.flatMap((type) => {
     const profile = profiles.find((one) => one.contentType === type.id && one.default);
@@ -120,6 +126,7 @@ export function TargetsStep({ nav }: StepBodyProps) {
       <TargetEditorDialog
         editing={editing}
         qualities={qualities}
+        formats={formats}
         onClose={() => {
           setEditing(editing && { ...editing, open: false });
         }}

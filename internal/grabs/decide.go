@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/files"
@@ -14,20 +13,25 @@ import (
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
-	"github.com/jatassi/slipstream/internal/works"
 )
 
-// candidate is one listed release and its Facts: the title's quality and
-// cut, the Indexer's advertised size, and the searched Item as Coverage.
-// at is its position among the run's Releases.
-type candidate struct {
+// listed is one Release a run's Indexers listed, at its position among
+// the run's Releases. copies are the same Release listed by Indexers of no
+// better priority, best first, which a search takes when this one's
+// Indexer won't fetch it.
+type listed struct {
 	Release indexers.Release
-	Facts   release.Facts
 	at      int
-	// copies are the same Release listed by Indexers of no better
-	// priority, best first, which a search takes when this one's Indexer
-	// won't fetch it.
-	copies []copied
+	copies  []copied
+}
+
+// listedOf is releases at their positions.
+func listedOf(releases []indexers.Release) []listed {
+	out := make([]listed, len(releases))
+	for i, r := range releases {
+		out[i] = listed{Release: r, at: i}
+	}
+	return out
 }
 
 // copied is a copy of a Release and its position among the run's.
@@ -36,19 +40,7 @@ type copied struct {
 	at      int
 }
 
-// candidateOf reads a listed release's Facts with cuts, every cut its
-// Work's titles can name: it covers item, whose runtime its Content Type
-// answers, unknown when it can't.
-func candidateOf(r indexers.Release, cuts []release.Cut, item works.ItemID, runtime release.Fact[time.Duration]) candidate {
-	f := release.Title(r.Title, cuts)
-	if r.Size > 0 {
-		f.Size = release.Known(r.Size)
-	}
-	f.Coverage = release.Coverage{Items: []works.ItemID{item}, Runtime: runtime}
-	return candidate{Release: r, Facts: f}
-}
-
-// Pick is the candidate a search grabs, the Edition its cells want, every
+// Pick is the Release a search grabs, the Edition its cells want, every
 // open cell's Target it is grabbable for, in Profile order, and the notes
 // its Verdicts carry there.
 type Pick struct {
@@ -69,44 +61,22 @@ func (p Pick) offers() []Pick {
 	return out
 }
 
-// WrongWork is a release carrying an id that names another Work,
-// WrongItem one whose title names another Item or none, CoversMore one
-// whose title covers more than the searched Item, and CutNotWanted one
-// whose cut no open cell wants. WrongItem's and CoversMore's Value is what
-// the title names, such as S01E02.
-const (
-	WrongWork    targets.ReasonCode = "wrong_work"
-	WrongItem    targets.ReasonCode = "wrong_item"
-	CoversMore   targets.ReasonCode = "covers_more"
-	CutNotWanted targets.ReasonCode = "cut_not_wanted"
-)
-
-// coverRefusals are the reason each Covering other than the searched
-// Item's is refused with.
-var coverRefusals = map[indexers.CoverKind]targets.ReasonCode{indexers.CoversOther: WrongItem, indexers.CoversMore: CoversMore}
-
-// Reason is one reason or note about a candidate: its own, or one of a
-// Target's Verdict, which Target names.
+// Reason is one reason or note about a Release: its own, or one of a
+// cell's, which Target names.
 type Reason struct {
 	targets.Reason
 	Target targets.TargetID
 }
 
-// Refusal is a candidate a search didn't grab and why.
-type Refusal struct {
-	Title   string
-	Reasons []Reason
-}
-
-// dedupe is candidates with each Release listed twice counted once: the
-// same info hash, or the same title and size when either lacks one. The
-// copy from the Indexer with the better priority stays, the first of a
-// tie, and holds the others as its copies.
-func dedupe(candidates []candidate) []candidate {
-	sorted := slices.Clone(candidates)
-	slices.SortStableFunc(sorted, func(a, b candidate) int { return cmp.Compare(a.Release.Priority, b.Release.Priority) })
+// dedupe is ls with each Release listed twice counted once: the same info
+// hash, or the same title and size when either lacks one. The copy from
+// the Indexer with the better priority stays, the first of a tie, and
+// holds the others as its copies.
+func dedupe(ls []listed) []listed {
+	sorted := slices.Clone(ls)
+	slices.SortStableFunc(sorted, func(a, b listed) int { return cmp.Compare(a.Release.Priority, b.Release.Priority) })
 	hashes, named, unhashed := map[bencode.InfoHash]int{}, map[titleSize]int{}, map[titleSize]int{}
-	var out []candidate
+	var out []listed
 	for _, c := range sorted {
 		r := c.Release
 		name := titleSize{r.Title, r.Size}
@@ -122,11 +92,11 @@ func dedupe(candidates []candidate) []candidate {
 		}
 		out = append(out, c)
 	}
-	slices.SortFunc(out, func(a, b candidate) int { return cmp.Compare(a.at, b.at) })
+	slices.SortFunc(out, func(a, b listed) int { return cmp.Compare(a.at, b.at) })
 	return out
 }
 
-// keptCopy is the position in dedupe's kept candidates of the Release r,
+// keptCopy is the position in dedupe's kept Releases of the Release r,
 // titled and sized name, is a copy of.
 func keptCopy(r indexers.Release, name titleSize, hashes map[bencode.InfoHash]int, named, unhashed map[titleSize]int) (int, bool) {
 	if r.InfoHash == nil {
@@ -145,95 +115,154 @@ type titleSize struct {
 	size  int64
 }
 
-// decide ranks the candidates grabbable for open, one Item's cells a
-// search may fill, in Edition then Profile order. Each candidate is judged
-// against the Target of every open cell its cut can fill, any cell under
-// any cut, and the file filling the cell; one with an id that differs from
-// the same id in terms, whose title terms' Covers doesn't answer as the
-// searched Item alone, whose cut no open cell wants, or grabbable for
-// none, is refused with every reason. The rest rank by the first open cell
-// they are grabbable for, then their tier there, then their Indexer's
-// priority, then seeders and size descending, then title, so ties replay.
-func decide(open []files.Cell, terms indexers.Terms, candidates []candidate) ([]Pick, []Refusal) {
-	var keep []ranked
-	var refused []Refusal
-	for _, c := range candidates {
-		if wrongWork(c.Release, terms) {
-			refused = append(refused, Refusal{c.Release.Title, []Reason{{Reason: targets.Reason{Code: WrongWork}}}})
-			continue
-		}
-		if cov := terms.Covers(c.Release.Title); cov.Kind != indexers.CoversItem {
-			refused = append(refused, Refusal{c.Release.Title, []Reason{{Reason: targets.Reason{Code: coverRefusals[cov.Kind], Value: cov.Names}}}})
-			continue
-		}
-		if !slices.ContainsFunc(open, func(cell files.Cell) bool { return cell.Edition.Takes(c.Facts.Cut) }) {
-			refused = append(refused, Refusal{c.Release.Title, []Reason{{Reason: targets.Reason{Code: CutNotWanted, Value: string(c.Facts.Cut)}}}})
-			continue
-		}
-		r, reasons := judged(open, c)
-		if r.cell < 0 {
-			refused = append(refused, Refusal{c.Release.Title, reasons})
-			continue
-		}
-		keep = append(keep, r)
+// cells are the searched Item's open cells, and the filled ones a Release
+// is judged at only as a proper or repack of their file.
+type cells struct{ open, filled []files.Cell }
+
+// at is cell i, counting open then filled.
+func (c cells) at(i int) files.Cell {
+	if i < len(c.open) {
+		return c.open[i]
 	}
-	slices.SortStableFunc(keep, func(a, b ranked) int {
-		return cmp.Or(
-			cmp.Compare(a.cell, b.cell),
-			cmp.Compare(a.rank, b.rank),
-			cmp.Compare(a.pick.Release.Priority, b.pick.Release.Priority),
-			cmp.Compare(b.pick.Release.Seeders, a.pick.Release.Seeders),
-			cmp.Compare(b.pick.Release.Size, a.pick.Release.Size),
-			strings.Compare(a.pick.Release.Title, b.pick.Release.Title),
-		)
-	})
-	picks := make([]Pick, len(keep))
-	for i, r := range keep {
-		picks[i] = r.pick
-	}
-	return picks, refused
+	return c.filled[i-len(c.open)]
 }
 
-// ranked is a candidate as decide ranks it: the pick it would make, the
-// first open cell it is grabbable for, -1 for none, and its tier there.
-type ranked struct {
-	pick       Pick
-	cell, rank int
+// properRule is Judge's upgrade rule for the same Quality at a higher
+// revision, the one rule a filled cell is judged by.
+const properRule = 2
+
+// verdict is a Release's verdict at cell, counting open then filled.
+// wanted is whether the cell's Edition takes the Release's cut.
+type verdict struct {
+	cell   int
+	target targets.TargetID
+	cut    release.CutKey
+	wanted bool
+	v      targets.Verdict
 }
 
-// judged judges c against the Target of every open cell its cut can fill,
-// and answers every reason given.
-func judged(open []files.Cell, c candidate) (ranked, []Reason) {
-	r := ranked{pick: Pick{Release: c.Release, at: c.at, copies: c.copies}, cell: -1}
-	var reasons []Reason
-	for i, cell := range open {
-		if !cell.Edition.Takes(c.Facts.Cut) {
-			continue
+func (v verdict) grabbable() bool { return v.wanted && v.v.Grabbable() }
+
+// reasons is cut_not_wanted when the cell doesn't take the cut, then the
+// Target's reasons.
+func (v verdict) reasons() []Reason {
+	var out []Reason
+	if !v.wanted {
+		out = append(out, Reason{Reason: targets.Reason{Code: targets.CutNotWanted, Value: string(v.cut)}, Target: v.target})
+	}
+	for _, r := range v.v.Reasons() {
+		out = append(out, Reason{Reason: r, Target: v.target})
+	}
+	return out
+}
+
+// judged is an assessed Release and its verdict at each cell it was
+// judged at. first is the first of them it is grabbable at, -1 for none.
+type judged struct {
+	assessed
+	verdicts []verdict
+	first    int
+}
+
+// reasons is j's own refusals, then each verdict's reasons.
+func (j judged) reasons() []Reason {
+	out := slices.Clone(j.refusals)
+	for _, v := range j.verdicts {
+		out = append(out, v.reasons()...)
+	}
+	return out
+}
+
+// pick is j as a search grabs it: at its first cell's Edition, for every
+// cell's Target it is grabbable at, with their notes.
+func (j judged) pick(c cells) Pick {
+	p := Pick{Release: j.Release, Edition: c.at(j.first).Edition, at: j.at, copies: j.copies}
+	for _, v := range j.verdicts {
+		if v.grabbable() {
+			p.Targets = append(p.Targets, v.target)
+			p.Notes = append(p.Notes, v.reasons()...)
 		}
-		var held *release.Facts
+	}
+	return p
+}
+
+// Decision is decide's answer. Ranked is every Release grabbable at some
+// cell, in rank order, a softly refused one included. Refused is the
+// rest, in the Indexers' order.
+type Decision struct {
+	Ranked  []judged
+	Refused []judged
+}
+
+// decide judges each assessed Release at c's cells. A hard refusal of its
+// own stops judging. A soft one is recorded and the Release is judged at
+// every open cell, under any cut, so a Manual search can show what it
+// would fill, and at each filled cell of its cut only as a proper or
+// repack of the file. Ranked is in chain order.
+func decide(c cells, as []assessed) Decision {
+	var d Decision
+	for _, a := range as {
+		j := judge(c, a)
+		if j.first < 0 {
+			d.Refused = append(d.Refused, j)
+		} else {
+			d.Ranked = append(d.Ranked, j)
+		}
+	}
+	rank(c, d.Ranked)
+	return d
+}
+
+func judge(c cells, a assessed) judged {
+	j := judged{assessed: a, first: -1}
+	if a.hard() {
+		return j
+	}
+	s, cut := a.scored(), a.read.Facts.Cut
+	at := func(i int, cell files.Cell) verdict {
+		var held *targets.Held
 		if cell.File != nil {
-			held = new(cell.File.Facts())
+			held = &targets.Held{Facts: cell.File.Facts(), Score: cell.Score}
 		}
-		v := targets.Judge(cell.Target, c.Facts, held)
-		var said []Reason
-		for _, reason := range v.Reasons() {
-			said = append(said, Reason{Reason: reason, Target: cell.Target.ID})
-		}
-		reasons = append(reasons, said...)
-		if !v.Grabbable() {
-			continue
-		}
-		if r.cell < 0 {
-			rank, _ := v.Rank()
-			r.cell, r.rank, r.pick.Edition = i, int(rank), cell.Edition
-		}
-		r.pick.Targets = append(r.pick.Targets, cell.Target.ID)
-		r.pick.Notes = append(r.pick.Notes, said...)
+		return verdict{cell: i, target: cell.Target.ID, cut: cut, wanted: cell.Edition.Takes(cut), v: targets.Judge(cell.Target, s, held)}
 	}
-	return r, reasons
+	for i, cell := range c.open {
+		j.verdicts = append(j.verdicts, at(i, cell))
+	}
+	for i, cell := range c.filled {
+		v := at(len(c.open)+i, cell)
+		if rule, _ := v.v.Upgrade(); v.wanted && rule == properRule {
+			j.verdicts = append(j.verdicts, v)
+		}
+	}
+	if i := slices.IndexFunc(j.verdicts, verdict.grabbable); i >= 0 {
+		j.first = j.verdicts[i].cell
+	}
+	return j
 }
 
-// storedReason is a Reason as grabs_refusal and grabs_search.notes keep it.
+// picks is d's Ranked an automatic search may take, which have no
+// refusal of their own, in rank order.
+func (d Decision) picks(c cells) []Pick {
+	var out []Pick
+	for _, j := range d.Ranked {
+		if len(j.refusals) == 0 {
+			out = append(out, j.pick(c))
+		}
+	}
+	return out
+}
+
+// marks is what n names, such as S01E02, in words.
+func marks(n release.Name) string {
+	words := make([]string, len(n.Marks))
+	for i, m := range n.Marks {
+		words[i] = m.Words
+	}
+	return strings.Join(words, " ")
+}
+
+// storedReason is a Reason as grabs_release.reasons and grabs_search.notes keep it.
 type storedReason struct {
 	Code      targets.ReasonCode `json:"code"`
 	TargetID  string             `json:"targetId,omitempty"`
@@ -273,13 +302,4 @@ func decodeReasons(s string) ([]Reason, error) {
 		}
 	}
 	return out, nil
-}
-
-func wrongWork(r indexers.Release, terms indexers.Terms) bool {
-	for k, v := range r.IDs {
-		if want, ok := terms.IDs[k]; ok && want != v {
-			return true
-		}
-	}
-	return false
 }

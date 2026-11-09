@@ -28,6 +28,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers/indexerstest"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -260,6 +261,11 @@ func created(t *testing.T) (faketest.Served, *indexers.Indexers, *storage.DB[sto
 }
 
 // search plans one Movies search and asks its one line, the Indexer.
+// claiming is the Expect of a Work with ids.
+func claiming(ids map[string]string) indexers.Expect {
+	return indexers.Expect{Claim: release.Claim{IDs: ids}}
+}
+
 func search(t *testing.T, x *indexers.Indexers, lib *storage.DB[storage.Library], terms indexers.Terms) indexers.Answer {
 	t.Helper()
 	var lines []indexers.Line
@@ -299,7 +305,7 @@ func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 		t.Fatalf("movie caps = %v, want %v", got, want)
 	}
 
-	a := search(t, x, lib, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"})
+	a := search(t, x, lib, indexers.Terms{Expect: claiming(map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}), Mode: "movie", Query: "The Quiet Orchard 2021"})
 	if a.Outcome.Kind != indexers.Found {
 		t.Fatalf("Search = %+v; want found", a.Outcome)
 	}
@@ -320,7 +326,7 @@ func TestTheSearchingServiceReadsTheSite(t *testing.T) {
 	if got, ok := fetched.(indexers.Torrent); err != nil || !ok || string(got.Raw) != rewritten {
 		t.Fatalf("Fetch = %+v, %v, want the .torrent %q", fetched, err, rewritten)
 	}
-	magnets := search(t, x, lib, indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000004"}}).Releases
+	magnets := search(t, x, lib, indexers.Terms{Expect: claiming(map[string]string{"tmdbid": "9000004"}), Mode: "movie"}).Releases
 	if len(magnets) != 2 {
 		t.Fatalf("Search for the magnet releases = %+v; want two", magnets)
 	}
@@ -409,9 +415,10 @@ func TestATorznabSearchPagesAndReadsEveryAttribute(t *testing.T) {
 	for i := range many {
 		many[i] = site.Release{
 			Name: fmt.Sprintf("Orchard.Part.%03d.1080p.WEB-DL", i), Size: 1000, InfoHash: fmt.Sprintf("%040x", i+1), TMDBID: 9000001, IMDbID: "tt9000001",
-			Seeders: 7, Leechers: 3, Grabs: 40, Freeleech: i == 0, Torrent: []byte(torrent),
+			Seeders: 7, Leechers: 3, Grabs: 40, Torrent: []byte(torrent),
 		}
 	}
+	many[0].DownloadFactor, many[1].DownloadFactor = new(0.0), new(0.5)
 	f := faketest.Loopback(t, spec(many), s)
 	a := job(t, f, site.APIKey(s), searching.SearchCall{Query: searching.Query{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001"}}})
 	if a.Outcome != nil || len(a.Releases) != len(many) || a.Started.IsZero() {
@@ -428,6 +435,9 @@ func TestATorznabSearchPagesAndReadsEveryAttribute(t *testing.T) {
 	if s := fmt.Sprintf("%s %d %s %d/%d/%d %s %v %v %v %v %v %s", got.Title, got.Size, got.Published.Format(time.RFC3339), got.Seeders, got.Leechers, got.Grabs,
 		got.InfoHash, got.Categories, got.Magnet.IsZero(), got.IDs, got.Factors, got.Floor, got.Details); s != want {
 		t.Fatalf("the first Release =\n%s\nwant\n%s", s, want)
+	}
+	if got := []float64{a.Releases[1].Factors.Download, a.Releases[2].Factors.Download}; !slices.Equal(got, []float64{0.5, 1}) {
+		t.Fatalf("the halfleech and unstated Releases' download factors = %v, want [0.5 1]", got)
 	}
 }
 

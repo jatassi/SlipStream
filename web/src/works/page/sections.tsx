@@ -39,7 +39,7 @@ export function WorkSections({
       <FilesSection listing={listing} root={work.root} names={{ cutName, targetName }} />
       <About type={type} work={work} statuses={cells.items} />
       <Grabs workId={work.id} work={work.label} />
-      <Searches workId={work.id} />
+      <Searches work={work} />
     </div>
   );
 }

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dlclark/regexp2"
+	"github.com/jatassi/slipstream/internal/regex"
 )
 
 // value is one template variable: null, a string or a list of strings, the
@@ -215,7 +215,7 @@ func (indexNode) eval(st *evalState, b *strings.Builder) error {
 
 type reReplaceNode struct {
 	variable    string
-	re          *regex
+	re          *regex.Regex
 	replacement string
 }
 
@@ -227,7 +227,7 @@ func (n reReplaceNode) eval(st *evalState, b *strings.Builder) error {
 	if v.kind == listKind {
 		return fmt.Errorf("re_replace over %s, which is a list", n.variable)
 	}
-	out, err := n.re.Replace(v.text, n.replacement)
+	out, err := n.re.Replace(regex.TextOf(v.text), n.replacement)
 	if err != nil {
 		return err
 	}
@@ -418,43 +418,49 @@ func (p *tparser) parseAction(rangeDepth int) (tnode, string, error) {
 
 // fixedActions are the two functions whose string arguments are raw text
 // that may hold "}}", so they are read with Prowlarr's own patterns
-// (CardigannBase.cs:371, 396).
+// (CardigannBase.cs:371, 396), anchored where the parser stands.
 var fixedActions = []struct {
-	re    *regexp2.Regexp
-	build func(m *regexp2.Match) (tnode, error)
+	re    *regex.Regex
+	build func(m regex.Match) (tnode, error)
 }{
 	{
-		re: regexp2.MustCompile(`\G{{\s*re_replace\s+(\..+?)\s+"(.*?)"\s+"(.*?)"\s*}}`, regexp2.None),
-		build: func(m *regexp2.Match) (tnode, error) {
-			re, err := compileRegex(m.GroupByNumber(2).String())
+		re: regex.MustCompile(`\A{{\s*re_replace\s+(\..+?)\s+"(.*?)"\s+"(.*?)"\s*}}`, regex.Options{}),
+		build: func(m regex.Match) (tnode, error) {
+			variable, _ := m.Group("1")
+			pattern, _ := m.Group("2")
+			replacement, _ := m.Group("3")
+			re, err := regex.Compile(pattern, definitionPattern)
 			if err != nil {
 				return nil, err
 			}
-			return reReplaceNode{variable: m.GroupByNumber(1).String(), re: re, replacement: m.GroupByNumber(3).String()}, nil
+			return reReplaceNode{variable: variable, re: re, replacement: replacement}, nil
 		},
 	},
 	{
-		re: regexp2.MustCompile(`\G{{\s*join\s+(\..+?)\s+"(.*?)"\s*}}`, regexp2.None),
-		build: func(m *regexp2.Match) (tnode, error) {
-			return joinNode{variable: m.GroupByNumber(1).String(), sep: m.GroupByNumber(2).String()}, nil
+		re: regex.MustCompile(`\A{{\s*join\s+(\..+?)\s+"(.*?)"\s*}}`, regex.Options{}),
+		build: func(m regex.Match) (tnode, error) {
+			variable, _ := m.Group("1")
+			sep, _ := m.Group("2")
+			return joinNode{variable: variable, sep: sep}, nil
 		},
 	},
 }
 
 func (p *tparser) parseFixedAction() (tnode, bool, error) {
+	rest := regex.TextOf(p.src[p.pos:])
 	for _, a := range fixedActions {
-		m, err := a.re.FindStringMatchStartingAt(p.src, p.pos)
+		m, ok, err := a.re.Find(rest)
 		if err != nil {
 			return nil, false, fmt.Errorf("read a template function: %w", err)
 		}
-		if m == nil {
+		if !ok {
 			continue
 		}
 		n, err := a.build(m)
 		if err != nil {
 			return nil, false, err
 		}
-		p.pos += len(m.String())
+		p.pos += len(m.Value())
 		return n, true, nil
 	}
 	return nil, false, nil

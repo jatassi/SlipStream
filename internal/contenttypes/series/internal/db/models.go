@@ -72,4 +72,5 @@ type SeriesSeries struct {
 type SeriesSetting struct {
 	ID              Singleton
 	AirDelaySeconds *int64
+	YearSlack       *int64
 }

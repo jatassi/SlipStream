@@ -100,7 +100,7 @@ func (t LibraryTarget) Spec() (targets.Spec, error) {
 		errs = append(errs, err)
 		return q
 	}
-	s := targets.Spec{Name: t.Name, Cutoff: quality(t.Cutoff), Sizes: map[release.Quality]targets.Size{}}
+	s := targets.Spec{Scores: targets.Scores{Increment: 1}, Name: t.Name, Cutoff: quality(t.Cutoff), Sizes: map[release.Quality]targets.Size{}}
 	for _, tier := range t.Tiers {
 		var qs []release.Quality
 		for _, k := range tier {

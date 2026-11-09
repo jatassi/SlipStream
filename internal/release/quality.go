@@ -101,6 +101,14 @@ func (q Quality) String() string { return q.Info().Key }
 
 func (q Quality) Value() (driver.Value, error) { return q.String(), nil }
 
+func (q Quality) MarshalText() ([]byte, error) { return []byte(q.String()), nil }
+
+func (q *Quality) UnmarshalText(b []byte) error {
+	parsed, err := ParseQuality(string(b))
+	*q = parsed
+	return err
+}
+
 func (q *Quality) Scan(v any) error {
 	s, ok := v.(string)
 	if !ok {
@@ -121,14 +129,15 @@ func ParseQuality(key string) (Quality, error) {
 }
 
 // QualityOf is the quality of a source at a resolution. A cinema source
-// wins over any resolution. A missing source is the lowest quality at the
-// resolution, and a missing resolution the source's lowest. A pair the
-// table lacks is the lowest quality at the resolution, so a fact never
-// ranks above what it is. Neither known is false.
+// wins over any resolution. 576p, 540p and 360p read as 480p. A missing
+// source is the lowest quality at the resolution, and a missing
+// resolution the source's lowest. A pair the table lacks is the lowest
+// quality at the resolution, so a fact never ranks above what it is.
+// Neither known is false.
 func QualityOf(s Fact[Source], r Fact[Resolution]) (Quality, bool) {
 	source, sourceKnown := s.Get()
 	res, resKnown := r.Get()
-	if res == R576p {
+	if res == R576p || res == R540p || res == R360p {
 		res = R480p
 	}
 	first := func(match func(QualityInfo) bool) (Quality, bool) {

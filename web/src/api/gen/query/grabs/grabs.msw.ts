@@ -7,6 +7,7 @@ import type {
   GrabsGrab,
   GrabsGrabList,
   GrabsIndexerGrabList,
+  GrabsReleaseList,
   GrabsSearchList,
   GrabsSearchStarted,
 } from "../../model";
@@ -505,6 +506,96 @@ export const getListIndexerGrabsResponseMock = (
   ...overrideResponse,
 });
 
+export const getListSearchReleasesResponseMock = (
+  overrideResponse: Partial<Extract<GrabsReleaseList, object>> = {},
+): GrabsReleaseList => ({
+  releases: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      copyOf: faker.helpers.arrayElement([faker.number.int({ min: 0 }), null]),
+      covers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.uuid(),
+      ),
+      formatIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.uuid(),
+      ),
+      indexerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+      indexerName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      lostAt: faker.helpers.arrayElement([
+        {
+          own: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          ref: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          step: faker.helpers.arrayElement([
+            "want",
+            "tier",
+            "revision",
+            "score",
+            "priority",
+            "freeleech",
+            "seeders",
+            "size",
+            "title",
+          ] as const),
+          targetId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+        },
+        null,
+      ]),
+      outcome: faker.helpers.arrayElement([
+        "grabbed",
+        "not_taken",
+        "outranked",
+        "kept",
+        "refused",
+      ] as const),
+      position: faker.number.int({ min: 0 }),
+      rank: faker.helpers.arrayElement([faker.number.int({ min: 1 }), null]),
+      reasons: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({
+          ...(faker.datatype.boolean()
+            ? {
+                attribute: faker.helpers.arrayElement([
+                  "hdr",
+                  "video_codec",
+                  "audio_codec",
+                  "channels",
+                  "language",
+                ] as const),
+              }
+            : {}),
+          code: faker.helpers.arrayElement([
+            "wrong_work",
+            "wrong_item",
+            "covers_more",
+            "wrong_title",
+            "cut_not_wanted",
+            "quality_not_in_target",
+            "filter",
+            "size_below",
+            "size_above",
+            "size_not_checked",
+            "score_below_minimum",
+            "not_an_upgrade",
+            "repack_other_group",
+          ] as const),
+          soft: faker.datatype.boolean(),
+          ...(faker.datatype.boolean() ? { targetId: faker.string.uuid() } : {}),
+          ...(faker.datatype.boolean()
+            ? { value: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+            : {}),
+          words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        }),
+      ),
+      scores: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({ score: faker.number.int(), targetId: faker.string.uuid() }),
+      ),
+      seeders: faker.number.int({ min: 0 }),
+      size: faker.number.int({ min: 0 }),
+      title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    }),
+  ),
+  ...overrideResponse,
+});
+
 export const getSearchWorkResponseMock = (
   overrideResponse: Partial<Extract<GrabsSearchStarted, object>> = {},
 ): GrabsSearchStarted => ({
@@ -567,14 +658,18 @@ export const getListSearchesResponseMock = (
             "wrong_work",
             "wrong_item",
             "covers_more",
+            "wrong_title",
             "cut_not_wanted",
             "quality_not_in_target",
             "filter",
             "size_below",
             "size_above",
             "size_not_checked",
+            "score_below_minimum",
             "not_an_upgrade",
+            "repack_other_group",
           ] as const),
+          soft: faker.datatype.boolean(),
           ...(faker.datatype.boolean() ? { targetId: faker.string.uuid() } : {}),
           ...(faker.datatype.boolean()
             ? { value: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -585,43 +680,6 @@ export const getListSearchesResponseMock = (
         faker.helpers.arrayElement(["grabbed", "nothing_acceptable"] as const),
         null,
       ]),
-      refused: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
-        () => ({
-          reasons: Array.from(
-            { length: faker.number.int({ min: 1, max: 10 }) },
-            (_, i) => i + 1,
-          ).map(() => ({
-            ...(faker.datatype.boolean()
-              ? {
-                  attribute: faker.helpers.arrayElement([
-                    "hdr",
-                    "video_codec",
-                    "audio_codec",
-                    "channels",
-                    "language",
-                  ] as const),
-                }
-              : {}),
-            code: faker.helpers.arrayElement([
-              "wrong_work",
-              "wrong_item",
-              "covers_more",
-              "cut_not_wanted",
-              "quality_not_in_target",
-              "filter",
-              "size_below",
-              "size_above",
-              "size_not_checked",
-              "not_an_upgrade",
-            ] as const),
-            ...(faker.datatype.boolean() ? { targetId: faker.string.uuid() } : {}),
-            ...(faker.datatype.boolean()
-              ? { value: faker.string.alpha({ length: { min: 10, max: 20 } }) }
-              : {}),
-          })),
-          title: faker.string.alpha({ length: { min: 10, max: 20 } }),
-        }),
-      ),
       startedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
     }),
   ),
@@ -717,6 +775,30 @@ export const getListIndexerGrabsMockHandler = (
   );
 };
 
+export const getListSearchReleasesMockHandler = (
+  overrideResponse?:
+    | GrabsReleaseList
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<GrabsReleaseList> | GrabsReleaseList),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/searches/:searchId/releases",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getListSearchReleasesResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getSearchWorkMockHandler = (
   overrideResponse?:
     | GrabsSearchStarted
@@ -769,6 +851,7 @@ export const getGrabsMock = () => [
   getGetGrabMockHandler(),
   getSendGrabToMockHandler(),
   getListIndexerGrabsMockHandler(),
+  getListSearchReleasesMockHandler(),
   getSearchWorkMockHandler(),
   getListSearchesMockHandler(),
 ];

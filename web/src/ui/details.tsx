@@ -11,7 +11,8 @@ export function Details({
   fields = false,
   children,
 }: {
-  summary: ReactNode;
+  /** The plain-language sentence it leads with; left out where the row it sits in already says it. */
+  summary?: ReactNode;
   action?: ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -25,7 +26,7 @@ export function Details({
       {...(onOpenChange && { onOpenChange })}
       className="flex flex-col items-start gap-1 text-body text-ink-1 in-data-[density=touch]:text-body-touch"
     >
-      <p>{summary}</p>
+      {summary !== undefined && <p>{summary}</p>}
       {action}
       <Collapsible.Trigger className="group -mx-2 inline-flex h-(--control-height) items-center gap-1 rounded-item px-2 font-medium text-ink-2 hover:text-ink-1">
         <Chevron />

@@ -1,5 +1,4 @@
 import type { GrabsReason } from "./grabsReason.ts";
-import type { GrabsRefusal } from "./grabsRefusal.ts";
 import type { GrabsSearchIndexer } from "./grabsSearchIndexer.ts";
 import type { GrabsSearchOutcome } from "./grabsSearchOutcome.ts";
 
@@ -30,7 +29,5 @@ export interface GrabsSearch {
    * @nullable
    */
   outcome: GrabsSearchOutcome;
-  /** The Releases it didn't grab for a reason, in the Indexers' order; a Release it outranked isn't refused */
-  refused: GrabsRefusal[];
   startedAt: string;
 }

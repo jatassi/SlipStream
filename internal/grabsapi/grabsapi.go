@@ -1,6 +1,6 @@
 // Package grabsapi is the search and Grab operations: start a Work's
-// search, list its search runs, list an Indexer's Grabs, and list and read
-// Grabs with their live progress.
+// search, list its search runs and the Releases a run saw, list an
+// Indexer's Grabs, and list and read Grabs with their live progress.
 package grabsapi
 
 import (
@@ -42,6 +42,7 @@ var (
 	rootUnreachable = api.NewCode(http.StatusConflict, "root_unreachable", "The Work's library root is on a Node that takes no new files now")
 	notSearchable   = api.NewCode(http.StatusConflict, "not_searchable", "The Work's Content Type can't be searched")
 	grabNotFound    = api.NewCode(http.StatusNotFound, "grab_not_found", "No Grab has that id")
+	searchNotFound  = api.NewCode(http.StatusNotFound, "search_not_found", "No search run has that id")
 	indexerNotFound = api.NewCode(http.StatusNotFound, "indexer_not_found", "No Indexer has that id")
 
 	grabNotSendable     = api.NewCode(http.StatusConflict, "grab_not_sendable", "This Grab can't be sent to another client")
@@ -65,6 +66,8 @@ func answer(err error) error {
 		return notSearchable
 	case errors.Is(err, grabs.ErrNoGrab):
 		return grabNotFound
+	case errors.Is(err, grabs.ErrNoSearch):
+		return searchNotFound
 	case errors.Is(err, indexers.ErrNoIndexer):
 		return indexerNotFound
 	}
@@ -95,27 +98,27 @@ type searchStarted struct {
 type searchStartedOutput struct{ Body searchStarted }
 
 type reason struct {
-	Code      string `json:"code" enum:"wrong_work,wrong_item,covers_more,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,not_an_upgrade" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that covers more than one Item, such as a season pack, and SlipStream doesn't grab those yet."`
-	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and cut_not_wanted"`
+	Code      string `json:"code" enum:"wrong_work,wrong_item,covers_more,wrong_title,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,score_below_minimum,not_an_upgrade,repack_other_group" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's."`
+	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title"`
 	Attribute string `json:"attribute,omitempty" enum:"hdr,video_codec,audio_codec,channels,language" doc:"The attribute a failed filter rules on"`
-	Value     string `json:"value,omitempty" doc:"The value a filter failed on, the quality a Target doesn't accept, the cut no open cell wants, or what a wrong_item or covers_more title names, such as S01E02"`
+	Value     string `json:"value,omitempty" doc:"The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)"`
+	Soft      bool   `json:"soft" doc:"Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note."`
+}
+
+func reasonOf(r grabs.Reason) reason {
+	w := reason{Code: string(r.Code), Attribute: string(r.Attribute), Value: r.Value, Soft: r.Code.Soft()}
+	if !r.Target.IsZero() {
+		w.TargetID = r.Target.String()
+	}
+	return w
 }
 
 func reasonsOf(rs []grabs.Reason) []reason {
 	out := []reason{}
 	for _, r := range rs {
-		w := reason{Code: string(r.Code), Attribute: string(r.Attribute), Value: r.Value}
-		if !r.Target.IsZero() {
-			w.TargetID = r.Target.String()
-		}
-		out = append(out, w)
+		out = append(out, reasonOf(r))
 	}
 	return out
-}
-
-type refusal struct {
-	Title   string   `json:"title"`
-	Reasons []reason `json:"reasons" nullable:"false" doc:"Each open cell's Target's failures and notes, in Profile order"`
 }
 
 type searchIndexer struct {
@@ -134,9 +137,74 @@ type search struct {
 	FinishedAt *time.Time      `json:"finishedAt" doc:"Null while the run searches"`
 	Outcome    *string         `json:"outcome" enum:"grabbed,nothing_acceptable" doc:"Null while the run searches"`
 	Candidates int             `json:"candidates" minimum:"0" doc:"The Releases the Indexers found, each Release listed twice counted once"`
-	Refused    []refusal       `json:"refused" nullable:"false" doc:"The Releases it didn't grab for a reason, in the Indexers' order; a Release it outranked isn't refused"`
 	GrabID     *string         `json:"grabId" format:"uuid" doc:"The run's Grab: the decision's, or the rerun's once a dropped Grab reran it; null when none"`
 	Notes      []reason        `json:"notes" nullable:"false" doc:"The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for"`
+}
+
+type lostAt struct {
+	Step     string  `json:"step" enum:"want,tier,revision,score,priority,freeleech,seeders,size,title" doc:"The first step of the ranking where the reference Release ranked above this one"`
+	TargetID *string `json:"targetId" format:"uuid" doc:"The Target the tier, revision and score steps compare at; null at the other steps and once the Target is deleted"`
+	Own      string  `json:"own" doc:"This Release's value at the step: a Target's name for want, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title"`
+	Ref      string  `json:"ref" doc:"The reference Release's value at the step, written as own is. The reference is the grabbed Release, or the first a search could take when the run grabbed none."`
+}
+
+type targetScore struct {
+	TargetID string `json:"targetId" format:"uuid"`
+	Score    int    `json:"score"`
+}
+
+type listedRelease struct {
+	Position int                  `json:"position" minimum:"0" doc:"Its place in the order the Indexers listed the run's Releases"`
+	Title    string               `json:"title"`
+	Words    string               `json:"words" doc:"What SlipStream reads from the title, in words, such as WEBDL-1080p · Dolby Vision · DD+ 5.1 · FLUX · 6.2 GB"`
+	Indexer  *string              `json:"indexerId" format:"uuid" doc:"Null once the Indexer is deleted"`
+	Name     string               `json:"indexerName" doc:"The Indexer's name when the run started"`
+	Size     int64                `json:"size" minimum:"0" doc:"Bytes"`
+	Seeders  int                  `json:"seeders" minimum:"0"`
+	Outcome  string               `json:"outcome" enum:"grabbed,not_taken,outranked,kept,refused" doc:"grabbed is the run's Grab. not_taken ranked above it, and its Indexer stopped, reached its limit or dropped it. outranked ranked below it. kept ranked, and the run grabbed nothing. refused has a refusal of its own or is grabbable at no cell."`
+	Rank     *int                 `json:"rank" minimum:"1" doc:"Its place among the Releases grabbable at some cell, from 1; null for one grabbable at none"`
+	CopyOf   *int                 `json:"copyOf" minimum:"0" doc:"The position of the Release this is a copy of, listed by an Indexer of no better priority; null when it is no copy"`
+	Covers   []string             `json:"covers" format:"uuid" nullable:"false" doc:"The Items of the Work it holds"`
+	Scores   []targetScore        `json:"scores" nullable:"false" doc:"Its score at each Target it was judged at, in Profile order"`
+	Formats  []string             `json:"formatIds" format:"uuid" nullable:"false" doc:"The Custom Formats it matched of those the Work's Targets score, as the run saw them"`
+	Reasons  []wordedReason       `json:"reasons" nullable:"false" doc:"Its own refusals, then each cell's failures and notes, in Profile order"`
+	LostAt   api.Nullable[lostAt] `json:"lostAt" doc:"Where an outranked or kept Release lost to the reference Release; null for the others and for one that ties it at every step"`
+}
+
+type releaseList struct {
+	Releases []listedRelease `json:"releases" nullable:"false" doc:"Ranked ones first, in rank order, then the rest in the order they were listed. Empty once a later run of the Item finished."`
+}
+
+type releaseListOutput struct{ Body releaseList }
+
+type searchInput struct {
+	SearchID string `path:"searchId" format:"uuid"`
+}
+
+func releaseOf(l grabs.Listed) listedRelease {
+	out := listedRelease{
+		Position: l.Position, Title: l.Title, Words: l.Words, Indexer: idOrNil(l.Indexer.UUID), Name: l.IndexerName, Size: l.Size,
+		Seeders: l.Seeders, Outcome: string(l.Outcome), Covers: []string{}, Scores: []targetScore{}, Formats: []string{}, Reasons: WordedOf(l.Reasons),
+	}
+	if l.Rank > 0 {
+		out.Rank = new(l.Rank)
+	}
+	if l.CopyOf >= 0 {
+		out.CopyOf = new(l.CopyOf)
+	}
+	for _, it := range l.Covers {
+		out.Covers = append(out.Covers, it.String())
+	}
+	for _, s := range l.Scores {
+		out.Scores = append(out.Scores, targetScore{TargetID: s.Target.String(), Score: s.Score})
+	}
+	for _, f := range l.Formats {
+		out.Formats = append(out.Formats, f.String())
+	}
+	if lost := l.LostAt; lost != nil {
+		out.LostAt = api.Some(lostAt{Step: string(lost.Step), TargetID: idOrNil(lost.Target.UUID), Own: lost.Own, Ref: lost.Ref})
+	}
+	return out
 }
 
 type searchList struct {
@@ -148,7 +216,7 @@ type searchListOutput struct{ Body searchList }
 func searchOf(s grabs.Search) search {
 	out := search{
 		ID: s.ID.String(), ItemID: s.ItemID.String(), StartedAt: s.Started, Indexers: []searchIndexer{}, Candidates: s.Candidates,
-		Refused: []refusal{}, Notes: reasonsOf(s.Notes),
+		Notes: reasonsOf(s.Notes),
 	}
 	for _, l := range s.Indexers {
 		w := searchIndexer{IndexerID: idOrNil(l.Indexer.UUID), Name: l.Name, Sentence: l.Line}
@@ -156,9 +224,6 @@ func searchOf(s grabs.Search) search {
 			w.Outcome, w.Releases = new(string(l.Outcome.Kind)), l.Outcome.Releases
 		}
 		out.Indexers = append(out.Indexers, w)
-	}
-	for _, r := range s.Refused {
-		out.Refused = append(out.Refused, refusal{Title: r.Title, Reasons: reasonsOf(r.Reasons)})
 	}
 	if !s.Finished.IsZero() {
 		finished, outcome := s.Finished, string(s.Outcome)
@@ -254,7 +319,7 @@ func grabOf(v grabs.View) grab {
 	for _, t := range v.Targets {
 		out.TargetIDs = append(out.TargetIDs, t.String())
 	}
-	if q, ok := release.Title(v.Release.Title, nil).Quality.Get(); ok {
+	if q, ok := release.QualityIn(v.Release.Title).Get(); ok {
 		out.Quality = q.String()
 	}
 	if v.Torrent != nil {
@@ -337,6 +402,14 @@ func Routes(r *api.Router, p Pipeline) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{workNotFound},
 	}, h.listSearches)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listSearchReleases",
+		Method:  http.MethodGet,
+		Path:    "/searches/{searchId}/releases",
+		Summary: "List the Releases a search run saw, with what it did with each and why",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{searchNotFound},
+	}, h.listSearchReleases)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listGrabs",
 		Method:  http.MethodGet,
@@ -440,6 +513,22 @@ func (h handlers) listSearches(ctx context.Context, by identity.Admin, in *workI
 		out.Searches = append(out.Searches, searchOf(s))
 	}
 	return &searchListOutput{Body: out}, nil
+}
+
+func (h handlers) listSearchReleases(ctx context.Context, by identity.Admin, in *searchInput) (*releaseListOutput, error) {
+	u, err := storage.ParseUUID(in.SearchID)
+	if err != nil {
+		return nil, searchNotFound
+	}
+	listed, err := open(h.p).Releases(ctx, by, grabs.SearchID{UUID: u})
+	if err != nil {
+		return nil, answer(err)
+	}
+	out := releaseList{Releases: []listedRelease{}}
+	for _, l := range listed {
+		out.Releases = append(out.Releases, releaseOf(l))
+	}
+	return &releaseListOutput{Body: out}, nil
 }
 
 func (h handlers) listGrabs(ctx context.Context, by identity.Admin, _ *struct{}) (*grabListOutput, error) {

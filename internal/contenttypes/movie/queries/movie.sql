@@ -76,7 +76,7 @@ INSERT INTO movie_credit (work_id, position, person_id, name, department, role, 
 VALUES (sqlc.arg(work_id), sqlc.arg(position), sqlc.arg(person_id), sqlc.arg(name), sqlc.arg(department), sqlc.arg(role), sqlc.arg(photo_path));
 
 -- name: GetSettings :one
-SELECT counts_as, cinema_delay_seconds FROM movie_settings WHERE id = 1;
+SELECT counts_as, cinema_delay_seconds, year_slack FROM movie_settings WHERE id = 1;
 
 -- name: SetSettings :exec
-UPDATE movie_settings SET counts_as = sqlc.arg(counts_as), cinema_delay_seconds = sqlc.arg(cinema_delay_seconds) WHERE id = 1;
+UPDATE movie_settings SET counts_as = sqlc.arg(counts_as), cinema_delay_seconds = sqlc.arg(cinema_delay_seconds), year_slack = sqlc.arg(year_slack) WHERE id = 1;

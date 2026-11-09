@@ -37,7 +37,7 @@ One of the 18 fixed kinds of release or file a Target can accept, such as WEBDL-
 _Avoid_: Resolution (for the whole kind), format, source
 
 **Tier**:
-A set of qualities a Target ranks as equal, so neither replaces the other as an upgrade.
+A set of qualities a Target ranks as equal, so neither replaces the other as an upgrade. Files of one tier upgrade only by Revision or Score.
 _Avoid_: Group, quality group
 
 **Fills**:
@@ -333,7 +333,7 @@ A link that names a Release by its info hash, with an optional name and trackers
 _Avoid_: Magnet URI, magnet (alone, in UI)
 
 **Want**:
-One Edition at one Target of a monitored, released Item, still listed by its source, that no file fills, or whose filling file is below the Target's cutoff. Under any cut, a Want is one Target of the Item, which a file of any Edition can fill. Every search and RSS sync tries to satisfy Wants.
+One Edition at one Target of a monitored, released Item, still listed by its source, that no file fills, or whose filling file is below the Target's cutoff or below its upgrade-until score. Under any cut, a Want is one Target of the Item, which a file of any Edition can fill. Every search and RSS sync tries to satisfy Wants.
 _Avoid_: Missing item, wanted cell, slot
 
 **Grab**:
@@ -349,8 +349,24 @@ The scheduled search that works through Wants nothing has found yet, spacing eac
 _Avoid_: Sweep, scheduled search, auto search
 
 **Custom Format**:
-A named set of conditions on what a release says about itself, such as its title, release group or source, that each Target scores. A release's score for a Target is the sum of the scores of the Custom Formats it matches.
+A named set of conditions on what a release says about itself, such as its title, Release group or source, that each Target scores. Its conditions have Radarr's and Sonarr's shape, so a format from TRaSH Guides, Radarr or Sonarr pastes in and runs as written.
 _Avoid_: Preferred word, release profile, tag
+
+**Score**:
+The sum of a Target's scores for the Custom Formats a Release matches. Each Target also holds a minimum score, below which a Release isn't grabbed automatically, an upgrade-until score, which a file at the cutoff keeps upgrading towards, and a minimum increment, by which a Release must beat the file's score to replace it.
+_Avoid_: Weight, points
+
+**Revision**:
+How many times a Release was re-released to fix it, read from PROPER, REPACK, RERIP, vN and REAL. A higher Revision of the same Quality replaces the file it fixes, even past the cutoff, as each Target's propers and repacks setting allows. A repack replaces only a file from its own Release group.
+_Avoid_: Version (for this)
+
+**Release group**:
+The group a Release names as its maker, such as FLUX in a title ending -FLUX.
+_Avoid_: Uploader
+
+**Refusal**:
+Why a Release can't fill a Want, such as a title that doesn't match the Work or a Score below the Target's minimum. A hard refusal, such as an id that names another Work, ends judging. A soft refusal, such as a title or year that doesn't match, leaves the Release judged at every Target, and Manual search can grab past it.
+_Avoid_: Rejection, block
 
 **TRaSH Guides**:
 The community guide whose Custom Formats, scores, quality sizes and naming SlipStream imports and keeps tracking.

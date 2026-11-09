@@ -185,7 +185,7 @@ func shelve(t *testing.T) *shelves {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.queue = files.New(files.Config{
+	s.queue, err = files.Open(t.Context(), files.Config{
 		Library: lib, Targets: s.goals, Grabs: grabs.GrabCells{}, Transfers: transfers.LiveIn,
 		Naming:  map[works.TypeID]naming.Facet{contenttypetest.ID: s.fx, other: s.fx},
 		Today:   func() time.Time { return time.Date(2030, time.January, 1, 9, 0, 0, 0, time.UTC) },
@@ -194,11 +194,14 @@ func shelve(t *testing.T) *shelves {
 		Rand:    rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Log:     slog.New(slog.DiscardHandler),
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	shelf := node{w: w, t: s.goals, mint: artwork.NewMinter([]byte("actions")), lib: library.New(library.Config{
 		Library: lib, Works: w, Targets: s.goals, Roots: homes, Files: s.queue, Grabs: noGrabs{},
 	})}
 	s.Owner = ownertest.Serve(t, lib, func(r *api.Router) { worksapi.Routes(r, shelf) })
-	s.web, err = s.goals.CreateTarget(t.Context(), identity.Admin{}, targets.Spec{Name: "Web", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p})
+	s.web, err = s.goals.CreateTarget(t.Context(), identity.Admin{}, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "Web", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -517,7 +520,7 @@ func TestSetMonitoringPublishesOnceAndAPreviewNothing(t *testing.T) {
 
 func TestSetProfileGivesEveryWorkOneImpactAndKeepsOwnLists(t *testing.T) {
 	s := shelve(t)
-	uhd, err := s.goals.CreateTarget(t.Context(), identity.Admin{}, targets.Spec{Name: "UHD", Tiers: [][]release.Quality{{release.Remux2160p}}, Cutoff: release.Remux2160p})
+	uhd, err := s.goals.CreateTarget(t.Context(), identity.Admin{}, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "UHD", Tiers: [][]release.Quality{{release.Remux2160p}}, Cutoff: release.Remux2160p})
 	if err != nil {
 		t.Fatal(err)
 	}

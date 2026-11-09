@@ -10,8 +10,9 @@ description: >-
   library has a TV root, a Movies root and the Torznab Indexer, and the
   world sets an Admin TVDB key. The site lists seeded releases of The
   Lantern Keepers' S01E01, S01E03, S00E01 and S00E02, and under S01E03 a
-  720p release whose name says S01E02 and the season 1 pack. A release
-  named S01E03 of The Lantern Keepers is listed under Harbor Nights.
+  720p release whose name says S01E02, the season 1 pack and a release of
+  S01E02 and S01E03 together. A release named S01E03 of The Lantern
+  Keepers is listed under Harbor Nights.
 seed: series
 admin:
   email: ada@example.test
@@ -147,6 +148,11 @@ releases:
     video: {width: 1920, height: 1080, seconds: 6}
     seeders: 40
     advertised_size: 12.2GiB
+  - name: The.Lantern.Keepers.S01E02E03.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 1001, season: 1, episode: 3}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 20
+    advertised_size: 8.1GiB
   - name: The.Lantern.Keepers.S00E01.1080p.WEB-DL.H264-FKW
     tvdb: {series: 1001, season: 0, episode: 1}
     video: {width: 1920, height: 1080, seconds: 6}

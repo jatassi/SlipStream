@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	searchv1 "github.com/jatassi/slipstream/internal/pb/slipstream/search/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/searching/internal/rss"
 )
@@ -349,8 +350,12 @@ func decodeRelease(w *searchv1.Release) (Release, error) {
 		Floor:   Floor{MinRatio: w.GetMinRatio(), MinSeed: time.Duration(w.GetMinSeedSeconds()) * time.Second},
 		Details: w.GetDetails(),
 	}
-	for _, f := range w.GetFlags() {
-		r.Flags = append(r.Flags, Flag(f))
+	for _, name := range w.GetFlags() {
+		f, ok := release.ParseFlag(name)
+		if !ok {
+			return Release{}, fmt.Errorf("release %q has flag %q, which is not an indexer flag", r.Title, name)
+		}
+		r.Flags = append(r.Flags, f)
 	}
 	switch h := w.GetInfoHash(); len(h) {
 	case 0:

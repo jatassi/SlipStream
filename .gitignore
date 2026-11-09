@@ -5,3 +5,4 @@
 /.verify/
 /.dev/
 .env
+/cmd/arr-sync/arr-sync

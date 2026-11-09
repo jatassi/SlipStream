@@ -18,6 +18,7 @@ import {
 import { getGetNodeConfigSuspenseQueryOptions } from "../../api/gen/query/system/system";
 // oxlint-disable-next-line import/max-dependencies -- the table names every step's screen and what it reads
 import { getListContentTypesSuspenseQueryOptions } from "../../api/gen/query/works/works";
+import { getListCustomFormatsSuspenseQueryOptions } from "../../api/gen/query/formats/formats";
 import { ensureQuery, freshQuery } from "../../api/query-client";
 import { AddressStep } from "./address-step";
 import { DownloadsStep } from "./downloads-step";
@@ -134,6 +135,7 @@ export const screens = {
         ensureQuery(queryClient, getListProfilesSuspenseQueryOptions()),
         ensureQuery(queryClient, getListTargetsSuspenseQueryOptions()),
         ensureQuery(queryClient, getListQualitiesSuspenseQueryOptions()),
+        ensureQuery(queryClient, getListCustomFormatsSuspenseQueryOptions()),
       ]);
     },
     Body: TargetsStep,

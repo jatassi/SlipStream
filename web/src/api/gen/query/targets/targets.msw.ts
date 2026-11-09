@@ -449,6 +449,19 @@ export const getListTargetsResponseMock = (
           name: faker.string.alpha({ length: { min: 10, max: 20 } }),
         }),
       ),
+      propers: faker.helpers.arrayElement([
+        "prefer_and_upgrade",
+        "prefer_no_upgrade",
+        "dont_prefer",
+      ] as const),
+      scores: {
+        formats: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => ({ formatId: faker.string.uuid(), score: faker.number.int() }),
+        ),
+        increment: faker.number.int({ min: 1 }),
+        minimum: faker.number.int(),
+        upgradeUntil: faker.number.int(),
+      },
       sizes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
           max: faker.helpers.arrayElement([
@@ -517,6 +530,19 @@ export const getCreateTargetResponseMock = (
   profiles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({ id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) }),
   ),
+  propers: faker.helpers.arrayElement([
+    "prefer_and_upgrade",
+    "prefer_no_upgrade",
+    "dont_prefer",
+  ] as const),
+  scores: {
+    formats: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({ formatId: faker.string.uuid(), score: faker.number.int() }),
+    ),
+    increment: faker.number.int({ min: 1 }),
+    minimum: faker.number.int(),
+    upgradeUntil: faker.number.int(),
+  },
   sizes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     max: faker.helpers.arrayElement([faker.number.float({ min: 0, fractionDigits: 2 }), null]),
     min: faker.number.float({ min: 0, fractionDigits: 2 }),
@@ -577,6 +603,19 @@ export const getGetTargetResponseMock = (
   profiles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({ id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) }),
   ),
+  propers: faker.helpers.arrayElement([
+    "prefer_and_upgrade",
+    "prefer_no_upgrade",
+    "dont_prefer",
+  ] as const),
+  scores: {
+    formats: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({ formatId: faker.string.uuid(), score: faker.number.int() }),
+    ),
+    increment: faker.number.int({ min: 1 }),
+    minimum: faker.number.int(),
+    upgradeUntil: faker.number.int(),
+  },
   sizes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     max: faker.helpers.arrayElement([faker.number.float({ min: 0, fractionDigits: 2 }), null]),
     min: faker.number.float({ min: 0, fractionDigits: 2 }),
@@ -649,6 +688,19 @@ export const getUpdateTargetResponseMock = (
         name: faker.string.alpha({ length: { min: 10, max: 20 } }),
       }),
     ),
+    propers: faker.helpers.arrayElement([
+      "prefer_and_upgrade",
+      "prefer_no_upgrade",
+      "dont_prefer",
+    ] as const),
+    scores: {
+      formats: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => ({ formatId: faker.string.uuid(), score: faker.number.int() }),
+      ),
+      increment: faker.number.int({ min: 1 }),
+      minimum: faker.number.int(),
+      upgradeUntil: faker.number.int(),
+    },
     sizes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         max: faker.helpers.arrayElement([faker.number.float({ min: 0, fractionDigits: 2 }), null]),
@@ -712,6 +764,19 @@ export const getDuplicateTargetResponseMock = (
   profiles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({ id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) }),
   ),
+  propers: faker.helpers.arrayElement([
+    "prefer_and_upgrade",
+    "prefer_no_upgrade",
+    "dont_prefer",
+  ] as const),
+  scores: {
+    formats: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({ formatId: faker.string.uuid(), score: faker.number.int() }),
+    ),
+    increment: faker.number.int({ min: 1 }),
+    minimum: faker.number.int(),
+    upgradeUntil: faker.number.int(),
+  },
   sizes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     max: faker.helpers.arrayElement([faker.number.float({ min: 0, fractionDigits: 2 }), null]),
     min: faker.number.float({ min: 0, fractionDigits: 2 }),

@@ -17,7 +17,11 @@ func (*Movie) Titles(ctx context.Context, r storage.Reader[file], w works.WorkID
 	if err != nil {
 		return nil, err
 	}
-	alternatives, err := q.ListTitles(ctx, w)
+	return titlesOf(ctx, q, mv)
+}
+
+func titlesOf(ctx context.Context, q *db.Queries, mv db.MovieMovie) ([]string, error) {
+	alternatives, err := q.ListTitles(ctx, mv.WorkID)
 	if err != nil {
 		return nil, err
 	}

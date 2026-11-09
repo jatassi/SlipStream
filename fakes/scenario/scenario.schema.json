@@ -505,6 +505,16 @@
           "additionalProperties": false,
           "type": "object"
         },
+        "formats": {
+          "properties": {
+            "match": {
+              "type": "string",
+              "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
         "downloading": {
           "properties": {
             "facts": {
@@ -1780,6 +1790,14 @@
           "advertised_size": {
             "type": "string",
             "pattern": "^\\d+(\\.\\d+)?(TiB|GiB|MiB|KiB|B)$"
+          },
+          "download_factor": {
+            "type": "number",
+            "maximum": 1,
+            "minimum": 0
+          },
+          "untagged": {
+            "type": "boolean"
           },
           "unlisted": {
             "type": "boolean"

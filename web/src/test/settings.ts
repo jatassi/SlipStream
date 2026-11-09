@@ -1,7 +1,7 @@
 /** Settings' groups and their sections, in the order its nav and phone list show them. */
 export const settingsGroupLabels = {
   Library: ["Content Types", "Library roots", "Metadata"],
-  "Files to keep": ["Targets", "Profiles", "Editions"],
+  "Files to keep": ["Targets", "Profiles", "Custom Formats", "Editions"],
   "Search and download": ["Indexers", "Trackers", "Download Clients"],
   Access: ["Address", "Sign-in", "API key"],
   System: ["Nodes", "Email"],

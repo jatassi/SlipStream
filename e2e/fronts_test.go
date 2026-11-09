@@ -64,6 +64,36 @@ func (w *walked) searched(t *testing.T, id string) searchView {
 	return found
 }
 
+// runRelease is one Release a run saw, as listSearchReleases lists it.
+type runRelease struct {
+	Position int    `json:"position"`
+	Title    string `json:"title"`
+	Outcome  string `json:"outcome"`
+	Reasons  []struct {
+		Code     string `json:"code"`
+		TargetID string `json:"targetId"`
+		Value    string `json:"value"`
+	} `json:"reasons"`
+}
+
+// refused is the Releases the run id refused, in the order the Indexers
+// listed them.
+func (w *walked) refused(t *testing.T, id string) []runRelease {
+	t.Helper()
+	var list struct {
+		Releases []runRelease `json:"releases"`
+	}
+	decode(t, "listSearchReleases", w.a.Admin("home", http.MethodGet, "/api/v1/searches/"+id+"/releases", ""), &list)
+	var out []runRelease
+	for _, r := range list.Releases {
+		if r.Outcome == "refused" {
+			out = append(out, r)
+		}
+	}
+	slices.SortFunc(out, func(a, b runRelease) int { return a.Position - b.Position })
+	return out
+}
+
 func (w *walked) setFault(t *testing.T, r fault.Rule, spelled string) {
 	t.Helper()
 	f, err := fault.Parse(spelled)

@@ -21,9 +21,6 @@ sql:
           - column: grabs_search.id
             go_type:
               type: SearchID
-          - column: grabs_refusal.search_id
-            go_type:
-              type: SearchID
           - column: grabs_search_indexer.search_id
             go_type:
               type: SearchID
@@ -178,3 +175,34 @@ sql:
             go_type:
               type: float64
               pointer: true
+          - column: grabs_release.outcome
+            go_type:
+              type: ReleaseOutcome
+          - column: grabs_release.lost_step
+            go_type:
+              type: Step
+              pointer: true
+          - column: grabs_release.rank
+            go_type:
+              type: int64
+              pointer: true
+          - column: grabs_release.copy_of
+            go_type:
+              type: int64
+              pointer: true
+          - column: grabs_release.lost_own
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_release.lost_ref
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_release.release
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_release.lost_target_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/targets
+              type: TargetID

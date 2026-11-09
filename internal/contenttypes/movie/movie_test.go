@@ -34,6 +34,7 @@ import (
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -633,7 +634,14 @@ func TestTheEnglishTitleFeedsSearchTermsAndNaming(t *testing.T) {
 		return err
 	})
 	terms.Covers = nil
-	want := indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000005", "imdbid": "tt9000005"}, Query: "The Salt Road 2022"}
+	want := indexers.Terms{Expect: indexers.Expect{
+		Claim: release.Claim{
+			IDs:    map[string]string{"tmdbid": "9000005", "imdbid": "tt9000005"},
+			Titles: []string{"La Route du Sel", "The Salt Road", "The Salt Way", "Salt Road"},
+			Year:   release.Known(2022), Slack: 1,
+		},
+		Original: release.Known(release.Language("fr")),
+	}, Mode: "movie", Query: "The Salt Road 2022"}
 	if !reflect.DeepEqual(terms, want) {
 		t.Fatalf("terms %+v, want %+v", terms, want)
 	}
@@ -837,21 +845,34 @@ func TestNamingTokensNameTheMovie(t *testing.T) {
 	}
 }
 
-func TestSearchTermsCarryTheIDsAndTitleYear(t *testing.T) {
+func TestSearchTermsAndExpectCarryTheSameClaim(t *testing.T) {
 	sh, tree := added(t, "9000001")
 	var terms indexers.Terms
+	var expect indexers.Expect
 	sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		terms, err = sh.m.SearchTerms(ctx, r, tree.Items[0].ID)
+		if terms, err = sh.m.SearchTerms(ctx, r, tree.Items[0].ID); err != nil {
+			return err
+		}
+		expect, err = sh.m.Expect(ctx, r, tree.ID)
 		return err
 	})
-	if terms.Covers("Anything.At.All").Kind != indexers.CoversItem {
-		t.Fatal("a movie's terms cover only the movie, so every title covers it")
+	name := release.Title("Anything.At.All", sh.m, nil).Name
+	for _, covers := range []func(release.Name) []works.ItemID{terms.Covers, expect.Covers} {
+		if got := covers(name); !slices.Equal(got, []works.ItemID{tree.Items[0].ID}) {
+			t.Fatalf("a title covers %v, want the movie's one Item: every title covers it", got)
+		}
 	}
-	terms.Covers = nil
-	want := indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"}, Query: "The Quiet Orchard 2021"}
-	if !reflect.DeepEqual(terms, want) {
-		t.Fatalf("terms %+v, want %+v", terms, want)
+	terms.Covers, expect.Covers = nil, nil
+	want := indexers.Terms{Expect: indexers.Expect{
+		Claim: release.Claim{
+			IDs:    map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"},
+			Titles: []string{"The Quiet Orchard"}, Year: release.Known(2021), Slack: 1,
+		},
+		Original: release.Known(release.Language("en")),
+	}, Mode: "movie", Query: "The Quiet Orchard 2021"}
+	if !reflect.DeepEqual(terms, want) || !reflect.DeepEqual(expect, want.Expect) {
+		t.Fatalf("terms %+v and the Work's Expect %+v, want %+v", terms, expect, want)
 	}
 }
 
@@ -990,6 +1011,7 @@ func TestATypeSettingChangePublishesOneTypeChanged(t *testing.T) {
 		setting.Switch{Key: "movie.add.monitor", Label: "New movies are monitored", Default: true}.Field(nil),
 		movie.CountsAs.Field(ptr(movie.CountsAs.Options[1].Value)),
 		movie.CinemaDelay.Field(ptr(int64(604800))),
+		movie.YearSlack.Field(nil),
 	}
 	if !reflect.DeepEqual(fields, want) {
 		t.Fatalf("fields = %+v, want %+v", fields, want)

@@ -55,17 +55,24 @@ func (grabbing) Unfinished(context.Context, storage.Reader[storage.Library]) ([]
 	return nil, nil
 }
 
+func (grabbing) ReleaseTitles(context.Context, storage.Reader[storage.Library]) (map[storage.UUID]string, error) {
+	return nil, nil
+}
+
 func (grabbing) Settle(context.Context, *storage.Tx[storage.Library], works.WorkID, map[files.CellKey]bool, files.Unwanted) (int, error) {
 	return 0, nil
 }
 
 type library struct {
+	t       testing.TB
 	lib     *storage.DB[storage.Library]
 	fx      *contenttypetest.Fixture
 	works   *works.Works
 	targets *targets.Targets
 	root    roots.Root
 	held    *roots.Roots
+	// published is every targets.changed a saved Change sent.
+	published *published
 	// staged is the Transfers with a record.
 	staged map[transfers.ID]bool
 }
@@ -87,14 +94,19 @@ func open(t testing.TB) *library {
 	}
 	node := role.NodeID{UUID: storage.NewUUID()}
 	root := rootstest.Root(t, lib, node, contenttypetest.ID, t.TempDir())
+	sent := &published{}
 	goals, err := targets.Open(t.Context(), targets.Config{
-		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{},
+		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: sent,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &library{lib: lib, fx: fx, works: w, targets: goals, root: root, held: rootstest.Held(t, lib, node, nil, contenttypetest.ID)}
+	return &library{t: t, lib: lib, fx: fx, works: w, targets: goals, root: root, held: rootstest.Held(t, lib, node, nil, contenttypetest.ID), published: sent}
 }
+
+type published struct{ events []targets.Changed }
+
+func (p *published) Publish(_ context.Context, v targets.Changed) { p.events = append(p.events, v) }
 
 // files is the files owner over l, whose today is the fixture's release
 // date, with grabs in flight.
@@ -104,7 +116,7 @@ func (l *library) files(cells files.Inflight) *files.Files {
 
 // on is the files owner over l whose disk queue works through disk.
 func (l *library) on(cells files.Inflight, disk files.Disk) *files.Files {
-	return files.New(files.Config{
+	f, err := files.Open(l.t.Context(), files.Config{
 		Library: l.lib, Targets: l.targets, Grabs: cells,
 		Transfers: func(context.Context, storage.Reader[storage.Library]) (map[transfers.ID]bool, error) {
 			return l.staged, nil
@@ -113,6 +125,10 @@ func (l *library) on(cells files.Inflight, disk files.Disk) *files.Files {
 		Disk: disk, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
 		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
 	})
+	if err != nil {
+		l.t.Fatal(err)
+	}
+	return f
 }
 
 var today = time.Date(contenttypetest.Released.Year, time.Month(contenttypetest.Released.Month), contenttypetest.Released.Day, 9, 0, 0, 0, time.UTC)
@@ -155,7 +171,7 @@ func (l *library) profile(t testing.TB, name string, of ...targets.Target) targe
 // target creates a Target whose cutoff is its top tier.
 func (l *library) target(t testing.TB, name string, tiers ...[]release.Quality) targets.Target {
 	t.Helper()
-	target, err := l.targets.CreateTarget(t.Context(), admin, targets.Spec{Name: name, Tiers: tiers, Cutoff: tiers[0][0]})
+	target, err := l.targets.CreateTarget(t.Context(), admin, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: name, Tiers: tiers, Cutoff: tiers[0][0]})
 	if err != nil {
 		t.Fatal(err)
 	}

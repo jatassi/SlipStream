@@ -57,8 +57,8 @@ func (f *Files) WorkFiles(ctx context.Context, _ identity.Admin, work works.Work
 func listing(w world) Listing {
 	fills := map[ID][]CellKey{}
 	for _, c := range cells(w) {
-		if id, ok := w.fills[c.key()]; ok {
-			fills[id] = append(fills[id], c.key())
+		if fill, ok := w.fills[c.key()]; ok {
+			fills[fill.File] = append(fills[fill.File], c.key())
 		}
 	}
 	order := make(map[ID]int, len(w.files))

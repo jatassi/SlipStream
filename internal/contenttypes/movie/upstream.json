@@ -1,0 +1,19 @@
+{
+  "radarr": {
+    "commit": "928e8871ccad6a899e9d99781a54fcf17ab7c3d9",
+    "date": "2026-11-07",
+    "files": {
+      "names.go": [
+        "src/NzbDrone.Core/Parser/Parser.cs"
+      ]
+    },
+    "sha256": {
+      "src/NzbDrone.Core.Test/ParserTests/CrapParserFixture.cs": "c367c68b4bc2b878e70b21b6e28964593f9c42d2676dfb65be26940ee59071cc",
+      "src/NzbDrone.Core.Test/ParserTests/EditionParserFixture.cs": "963ef744e70c2d1127fa91893ad4c01f3d1a879433b8219d1ae103c56f517f01",
+      "src/NzbDrone.Core.Test/ParserTests/LanguageParserFixture.cs": "42d3b970605fc66eaebe56e21e1f6e5dbbce545aee3824f29860400323f3cb8f",
+      "src/NzbDrone.Core.Test/ParserTests/NormalizeTitleFixture.cs": "ff70ccb08db3973d55941bb445d3666a1d7d71cfd5c39b6bc42fc646ee8dd783",
+      "src/NzbDrone.Core.Test/ParserTests/ParserFixture.cs": "70bc969173a59612e45a63a00901d0e95a7008ce396529055309d70c701a5016",
+      "src/NzbDrone.Core/Parser/Parser.cs": "276d9fce400bf524856bfacd6d02c428c2538d2e60558baf94f3d79369458b05"
+    }
+  }
+}

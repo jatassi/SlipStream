@@ -194,6 +194,45 @@ func (*Movie) DefaultTemplates() naming.Templates {
 	return naming.Templates{Folder: "{Movie Title} ({Year})", File: "{Movie Title} ({Year}) - {Edition Tag} {Target}"}
 }
 
+// Expect is the movie's TMDB and IMDb ids, titles, year and original
+// language, with the type's year slack, and covers its one Item.
+func (*Movie) Expect(ctx context.Context, r storage.Reader[file], work works.WorkID) (indexers.Expect, error) {
+	q := db.New(r)
+	mv, err := q.GetMovie(ctx, work)
+	if err != nil {
+		return indexers.Expect{}, err
+	}
+	items, err := works.ItemsOf(ctx, r, works.Only([]works.WorkID{work}))
+	if err != nil {
+		return indexers.Expect{}, err
+	}
+	return expect(ctx, q, mv, items[work][0].ID)
+}
+
+func expect(ctx context.Context, q *db.Queries, mv db.MovieMovie, item works.ItemID) (indexers.Expect, error) {
+	settings, err := q.GetSettings(ctx)
+	if err != nil {
+		return indexers.Expect{}, err
+	}
+	titles, err := titlesOf(ctx, q, mv)
+	if err != nil {
+		return indexers.Expect{}, err
+	}
+	ids := map[string]string{"tmdbid": strconv.FormatInt(int64(mv.TmdbID), 10)}
+	if mv.ImdbID != nil {
+		ids["imdbid"] = string(*mv.ImdbID)
+	}
+	claim := release.Claim{IDs: ids, Titles: titles, Slack: int(YearSlack.Value(settings.YearSlack))}
+	if mv.Year != nil {
+		claim.Year = release.Known(int(*mv.Year))
+	}
+	ex := indexers.Expect{Claim: claim, Covers: indexers.CoversOnly(item)}
+	if l, err := release.ParseLanguage(mv.OriginalLanguage); err == nil {
+		ex.Original = release.Known(l)
+	}
+	return ex, nil
+}
+
 // SearchTerms searches by the movie's TMDB and IMDb ids, else by its
 // English title and year.
 func (*Movie) SearchTerms(ctx context.Context, r storage.Reader[file], item works.ItemID) (indexers.Terms, error) {
@@ -201,14 +240,16 @@ func (*Movie) SearchTerms(ctx context.Context, r storage.Reader[file], item work
 	if err != nil {
 		return indexers.Terms{}, err
 	}
-	mv, err := db.New(r).GetMovie(ctx, work.ID)
+	q := db.New(r)
+	mv, err := q.GetMovie(ctx, work.ID)
 	if err != nil {
 		return indexers.Terms{}, err
 	}
-	t := indexers.Terms{Mode: "movie", IDs: map[string]string{"tmdbid": strconv.FormatInt(int64(mv.TmdbID), 10)}, Query: mv.TitleEnglish, Covers: indexers.CoversOnly}
-	if mv.ImdbID != nil {
-		t.IDs["imdbid"] = string(*mv.ImdbID)
+	ex, err := expect(ctx, q, mv, item)
+	if err != nil {
+		return indexers.Terms{}, err
 	}
+	t := indexers.Terms{Expect: ex, Mode: "movie", Query: mv.TitleEnglish}
 	if mv.Year != nil {
 		t.Query += " " + strconv.FormatInt(*mv.Year, 10)
 	}
@@ -275,6 +316,12 @@ func (m *Movie) Timings(ctx context.Context, r storage.Reader[file], ws works.Am
 		}
 	}
 	return out, nil
+}
+
+// Originals answers no movie yet: every original language reads as
+// unknown.
+func (*Movie) Originals(context.Context, storage.Reader[file], works.Among[works.WorkID]) (map[works.WorkID]release.Fact[release.Language], error) {
+	return nil, nil
 }
 
 // Cuts answers none: every cut a movie names is built in.

@@ -101,9 +101,9 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 			imdb[m.ID] = m.IMDbID
 		}
 	}
-	unlisted := map[string]bool{}
+	unlisted, untagged := map[string]bool{}, map[string]bool{}
 	for _, r := range s.Releases {
-		unlisted[r.Name] = r.Unlisted
+		unlisted[r.Name], untagged[r.Name] = r.Unlisted, r.Untagged
 	}
 	var listed []Release
 	if env.Releases != nil {
@@ -115,7 +115,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 			listed = append(listed, Release{
 				Name: r.Name, Size: size, InfoHash: r.InfoHash.String(),
 				TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], TVDB: r.TVDB, Seeders: int64(r.Seeders), Torrent: r.Metainfo, Unlisted: unlisted[r.Name],
-				Link: r.Link, Trackerless: r.Trackerless, Public: r.Public, Sites: r.Sites,
+				Untagged: untagged[r.Name], Link: r.Link, Trackerless: r.Trackerless, Public: r.Public, Sites: r.Sites, DownloadFactor: r.DownloadFactor,
 			})
 		}
 	}
@@ -164,6 +164,8 @@ type Release struct {
 	Torrent []byte
 	// Unlisted leaves it out of every feed until the List cue lists it.
 	Unlisted bool
+	// Untagged leaves a movie's tmdbid and imdbid attrs out of its item.
+	Untagged bool
 	// Link is how the feeds link it: a magnet or redirect release's item
 	// carries its magnet link as the magneturl attr too.
 	Link scenario.Link
@@ -174,10 +176,18 @@ type Release struct {
 	// Sites are the labels of the sites that list it, every site when
 	// empty.
 	Sites []string
-	// Leechers, Grabs and Freeleech are what an extended feed lists.
-	Leechers  int64
-	Grabs     int64
-	Freeleech bool
+	// Leechers, Grabs and DownloadFactor are what an extended feed lists.
+	// A nil DownloadFactor lists 1.
+	Leechers       int64
+	Grabs          int64
+	DownloadFactor *float64
+}
+
+func (rel Release) downloadFactor() float64 {
+	if rel.DownloadFactor == nil {
+		return 1
+	}
+	return *rel.DownloadFactor
 }
 
 // APIKey is the site's API key in a world with Scenario s.
@@ -618,10 +628,13 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
 }
 
 // idAttrs are the id attributes of rel's item: an episode's tvdbid, else
-// a movie's tmdbid and imdbid.
+// a movie's tmdbid and imdbid unless it is Untagged.
 func idAttrs(rel Release) string {
 	if rel.TVDB != nil {
 		return fmt.Sprintf(`      <torznab:attr name="tvdbid" value="%d" />`+"\n", rel.TVDB.Series)
+	}
+	if rel.Untagged {
+		return ""
 	}
 	return fmt.Sprintf(`      <torznab:attr name="tmdbid" value="%d" />
       <torznab:attr name="imdbid" value="%s" />
@@ -643,10 +656,6 @@ func (s *site) extendedAttrs(label string, rel Release, origin string, extended 
 	if !extended {
 		return ""
 	}
-	download := 1
-	if rel.Freeleech {
-		download = 0
-	}
 	var rule string
 	if r, ok := s.scenario.Tracker.Rule(label); ok {
 		if r.MinRatio > 0 {
@@ -662,9 +671,9 @@ func (s *site) extendedAttrs(label string, rel Release, origin string, extended 
       <torznab:attr name="category" value="%d" />
       <torznab:attr name="peers" value="%d" />
       <torznab:attr name="grabs" value="%d" />
-      <torznab:attr name="downloadvolumefactor" value="%d" />
+      <torznab:attr name="downloadvolumefactor" value="%g" />
       <torznab:attr name="uploadvolumefactor" value="1" />
-%s`, published, esc(origin+"/details/"+rel.InfoHash), rel.family(), rel.family(), rel.Seeders+rel.Leechers, rel.Grabs, download, rule)
+%s`, published, esc(origin+"/details/"+rel.InfoHash), rel.family(), rel.family(), rel.Seeders+rel.Leechers, rel.Grabs, rel.downloadFactor(), rule)
 }
 
 // published is when the site says every release was posted.

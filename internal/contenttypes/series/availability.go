@@ -53,5 +53,11 @@ func (*Series) Timings(ctx context.Context, r storage.Reader[file], ws works.Amo
 	return out, nil
 }
 
+// Originals answers no series yet: every original language reads as
+// unknown.
+func (*Series) Originals(context.Context, storage.Reader[file], works.Among[works.WorkID]) (map[works.WorkID]release.Fact[release.Language], error) {
+	return nil, nil
+}
+
 // Cuts answers none: every cut a series names is built in.
 func (*Series) Cuts() []release.Cut { return nil }

@@ -97,7 +97,7 @@ func (f *Files) Change(ctx context.Context, _ identity.Admin, c targets.Change, 
 
 // change answers the Impact and the Works c touches.
 func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Change, m Mode) (Impact, []works.WorkID, error) {
-	touched, err := targets.Touches(ctx, tx, c)
+	touched, moved, err := f.touches(ctx, tx, c)
 	if err != nil {
 		return Impact{}, nil, err
 	}
@@ -132,29 +132,46 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 	if err := targets.Apply(ctx, tx, known, c); err != nil {
 		return Impact{}, nil, err
 	}
-	afters, err := f.worlds(ctx, tx, trees, works.Only(ids), wholeFiles)
+	afters, err := f.after(ctx, tx, trees, ids, before, moved)
 	if err != nil {
 		return Impact{}, nil, err
 	}
+	fills, from := make([]map[CellKey]Fill, len(before)), make([][]Cell, len(before))
+	inParallel(len(before), func(i int) {
+		afters[i].scoring.known = moved.onto(before[i].fills)
+		fills[i], from[i] = refill(afters[i]), cells(before[i])
+	})
 	impact := Impact{OwnList: touched.OwnList}
 	for i, was := range before {
-		after := afters[i]
-		p, err := f.converge(ctx, tx, was, after, refill(after), func(File) bool { return m.Unwanted == Delete })
+		p, err := f.converge(ctx, tx, was, afters[i], fills[i], func(File) bool { return m.Unwanted == Delete })
 		if err != nil {
 			return Impact{}, nil, err
 		}
-		from, to := cells(was), cells(p.settled())
-		impact.add(p, from, to)
+		to := cells(p.settled())
+		impact.add(p, from[i], to)
 		if err := apply(ctx, q, p); err != nil {
 			return Impact{}, nil, err
 		}
-		n, err := f.cfg.Grabs.Settle(ctx, tx, was.tree.ID, gone(from, to), m.Unwanted)
+		n, err := f.cfg.Grabs.Settle(ctx, tx, was.tree.ID, gone(from[i], to), m.Unwanted)
 		if err != nil {
 			return Impact{}, nil, err
 		}
 		impact.Downloading += n
 	}
 	return impact, ids, nil
+}
+
+// touches is what c may change, narrowed by its format edits to the
+// Works holding a file whose score they move, and those moves, nil for a
+// Change with no format edits.
+func (f *Files) touches(ctx context.Context, tx *storage.Tx[file], c targets.Change) (targets.Touched, moves, error) {
+	touched, err := f.cfg.Targets.Touches(ctx, tx, c)
+	if err != nil || touched.Narrow == nil {
+		return touched, nil, err
+	}
+	var moved moves
+	touched.Works, moved, err = f.flips(ctx, tx, touched.Works, touched.Narrow)
+	return touched, moved, err
 }
 
 // settled is p's world once applied: its files and their new fills.
