@@ -351,6 +351,47 @@ func (q *Queries) ListIntentRoots(ctx context.Context, nodeID role.NodeID) ([]Li
 	return items, nil
 }
 
+const listRootLimits = `-- name: ListRootLimits :many
+SELECT r.id, r.content_type, r.path, l.path_limit
+FROM roots_root r LEFT JOIN roots_limit l ON l.node_id = r.node_id
+ORDER BY r.id
+`
+
+type ListRootLimitsRow struct {
+	ID          RootID
+	ContentType works.TypeID
+	Path        string
+	PathLimit   sql.NullInt64
+}
+
+func (q *Queries) ListRootLimits(ctx context.Context) ([]ListRootLimitsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRootLimits)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRootLimitsRow
+	for rows.Next() {
+		var i ListRootLimitsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ContentType,
+			&i.Path,
+			&i.PathLimit,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRootNodes = `-- name: ListRootNodes :many
 SELECT DISTINCT node_id FROM roots_root ORDER BY node_id
 `
@@ -609,6 +650,21 @@ UPDATE roots_root SET is_default = 1 WHERE id = ?1
 
 func (q *Queries) SetDefaultRoot(ctx context.Context, id RootID) error {
 	_, err := q.db.ExecContext(ctx, setDefaultRoot, id)
+	return err
+}
+
+const setPathLimit = `-- name: SetPathLimit :exec
+INSERT INTO roots_limit (node_id, path_limit) VALUES (?1, ?2)
+ON CONFLICT (node_id) DO UPDATE SET path_limit = excluded.path_limit
+`
+
+type SetPathLimitParams struct {
+	NodeID    role.NodeID
+	PathLimit int64
+}
+
+func (q *Queries) SetPathLimit(ctx context.Context, arg SetPathLimitParams) error {
+	_, err := q.db.ExecContext(ctx, setPathLimit, arg.NodeID, arg.PathLimit)
 	return err
 }
 

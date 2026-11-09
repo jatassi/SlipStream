@@ -39,6 +39,10 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/role
               type: NodeID
+          - column: roots_limit.node_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
           - column: roots_settings.id
             go_type:
               type: Singleton

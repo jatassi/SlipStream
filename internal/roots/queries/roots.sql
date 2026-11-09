@@ -84,3 +84,12 @@ SELECT work_id, root_id FROM roots_work WHERE work_id IN (sqlc.slice(work_ids)) 
 
 -- name: ListEveryHome :many
 SELECT work_id, root_id FROM roots_work ORDER BY rowid;
+
+-- name: SetPathLimit :exec
+INSERT INTO roots_limit (node_id, path_limit) VALUES (sqlc.arg(node_id), sqlc.arg(path_limit))
+ON CONFLICT (node_id) DO UPDATE SET path_limit = excluded.path_limit;
+
+-- name: ListRootLimits :many
+SELECT r.id, r.content_type, r.path, l.path_limit
+FROM roots_root r LEFT JOIN roots_limit l ON l.node_id = r.node_id
+ORDER BY r.id;

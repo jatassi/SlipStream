@@ -10,6 +10,11 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+type RootsLimit struct {
+	NodeID    role.NodeID
+	PathLimit int64
+}
+
 type RootsRoot struct {
 	ID          RootID
 	ContentType works.TypeID
