@@ -23,6 +23,7 @@ import type {
   SettingRateField,
   SettingSpaceField,
   SettingSwitchField,
+  SettingTemplateField,
   SettingWindowField,
 } from "../../model";
 
@@ -557,6 +558,37 @@ export const getGetIndexerSettingsResponseSettingSpaceFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetIndexerSettingsResponseSettingTemplateFieldMock = (
+  overrideResponse: Partial<SettingTemplateField> = {},
+): SettingTemplateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    field: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["template"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    plain: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetIndexerSettingsResponseMock = (
   overrideResponse: Partial<Extract<IndexersSettings, object>> = {},
 ): IndexersSettings => ({
@@ -572,6 +604,7 @@ export const getGetIndexerSettingsResponseMock = (
       { ...getGetIndexerSettingsResponseSettingAddressFieldMock() },
       { ...getGetIndexerSettingsResponseSettingFolderFieldMock() },
       { ...getGetIndexerSettingsResponseSettingSpaceFieldMock() },
+      { ...getGetIndexerSettingsResponseSettingTemplateFieldMock() },
     ]),
   ),
   ...overrideResponse,
@@ -927,6 +960,37 @@ export const getUpdateIndexerSettingsResponseSettingSpaceFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateIndexerSettingsResponseSettingTemplateFieldMock = (
+  overrideResponse: Partial<SettingTemplateField> = {},
+): SettingTemplateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    field: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["template"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    plain: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateIndexerSettingsResponseMock = (
   overrideResponse: Partial<Extract<IndexersSettings, object>> = {},
 ): IndexersSettings => ({
@@ -942,6 +1006,7 @@ export const getUpdateIndexerSettingsResponseMock = (
       { ...getUpdateIndexerSettingsResponseSettingAddressFieldMock() },
       { ...getUpdateIndexerSettingsResponseSettingFolderFieldMock() },
       { ...getUpdateIndexerSettingsResponseSettingSpaceFieldMock() },
+      { ...getUpdateIndexerSettingsResponseSettingTemplateFieldMock() },
     ]),
   ),
   ...overrideResponse,

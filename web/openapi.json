@@ -13007,6 +13007,7 @@
             "rate": "#/components/schemas/SettingRateField",
             "space": "#/components/schemas/SettingSpaceField",
             "switch": "#/components/schemas/SettingSwitchField",
+            "template": "#/components/schemas/SettingTemplateField",
             "window": "#/components/schemas/SettingWindowField"
           },
           "propertyName": "kind"
@@ -13041,6 +13042,9 @@
           },
           {
             "$ref": "#/components/schemas/SettingSpaceField"
+          },
+          {
+            "$ref": "#/components/schemas/SettingTemplateField"
           }
         ]
       },
@@ -13450,6 +13454,84 @@
           "value",
           "running",
           "default",
+          "key",
+          "label",
+          "source",
+          "applies",
+          "isDefault",
+          "pendingRestart"
+        ],
+        "type": "object"
+      },
+      "SettingTemplateField": {
+        "additionalProperties": false,
+        "properties": {
+          "applies": {
+            "enum": [
+              "live",
+              "restart"
+            ],
+            "type": "string"
+          },
+          "default": {
+            "type": "string"
+          },
+          "defaultFrom": {
+            "description": "Where the default comes from, when it is another setting's value",
+            "type": "string"
+          },
+          "field": {
+            "description": "The template field whose tokens the control offers",
+            "type": "string"
+          },
+          "isDefault": {
+            "description": "The setting has no override; Reset to default leaves it unchanged",
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "template"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "lockedBy": {
+            "description": "The environment variable that sets the value; the control is read-only",
+            "type": "string"
+          },
+          "pendingRestart": {
+            "description": "The saved value differs from the running one until the Node restarts",
+            "type": "boolean"
+          },
+          "plain": {
+            "description": "The text holds no tokens",
+            "type": "boolean"
+          },
+          "source": {
+            "enum": [
+              "database",
+              "default",
+              "config.yaml",
+              ".env",
+              "env"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "value",
+          "default",
+          "field",
+          "plain",
           "key",
           "label",
           "source",

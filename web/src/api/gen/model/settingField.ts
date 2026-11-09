@@ -7,6 +7,7 @@ import type { SettingPortField } from "./settingPortField.ts";
 import type { SettingRateField } from "./settingRateField.ts";
 import type { SettingSpaceField } from "./settingSpaceField.ts";
 import type { SettingSwitchField } from "./settingSwitchField.ts";
+import type { SettingTemplateField } from "./settingTemplateField.ts";
 import type { SettingWindowField } from "./settingWindowField.ts";
 
 export type SettingField =
@@ -19,4 +20,5 @@ export type SettingField =
   | SettingRateField
   | SettingAddressField
   | SettingFolderField
-  | SettingSpaceField;
+  | SettingSpaceField
+  | SettingTemplateField;
