@@ -92,3 +92,27 @@ test("deleting a Target a Profile holds is refused with the Profiles named", asy
   await expect.element(page.getByText("Deleted 2160p HDR.")).toBeVisible();
   expect(deleted).toEqual([keeper.id]);
 });
+
+test("a saved Target renamed to another Target's name in other case shows the refusal under Save", async () => {
+  const refusal = "Another Target is named 4K. Use a name that differs by more than case.";
+  renderApp({
+    path: `/settings/targets/${starter.id}`,
+    handlers: [
+      ...targetHandlers(),
+      http.put("*/api/v1/targets/:targetId", () =>
+        HttpResponse.json(
+          {
+            status: 409,
+            code: "target_name_taken",
+            title: "A Target already has that name",
+            detail: refusal,
+          },
+          { status: 409, headers: { "Content-Type": "application/problem+json" } },
+        ),
+      ),
+    ],
+  });
+  await userEvent.fill(page.getByRole("textbox", { name: "Name" }), "4k");
+  await userEvent.click(page.getByRole("button", { name: "Save", exact: true }));
+  await expect.element(page.getByRole("alert")).toHaveTextContent(refusal);
+});
