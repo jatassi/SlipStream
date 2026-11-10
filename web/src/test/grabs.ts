@@ -50,7 +50,7 @@ export const waitingForSeedbox: GrabsGrab = {
   nodeId: seedboxId,
   torrentId: null,
   infoHash: null,
-  waitsFor: { nodeId: seedboxId, client: null },
+  waitsFor: { nodeId: seedboxId, client: null, off: false },
 };
 
 export const downloading: GrabsGrab = {

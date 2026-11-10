@@ -225,6 +225,7 @@ export const getListGrabsResponseMock = (
               null,
             ]),
             nodeId: faker.string.uuid(),
+            off: faker.datatype.boolean(),
           },
         }
       : {}),
@@ -409,6 +410,7 @@ export const getGetGrabResponseMock = (
             null,
           ]),
           nodeId: faker.string.uuid(),
+          off: faker.datatype.boolean(),
         },
       }
     : {}),
@@ -593,6 +595,7 @@ export const getListIndexerGrabsResponseMock = (
               null,
             ]),
             nodeId: faker.string.uuid(),
+            off: faker.datatype.boolean(),
           },
         }
       : {}),

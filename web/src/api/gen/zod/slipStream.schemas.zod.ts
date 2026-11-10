@@ -1797,9 +1797,9 @@ export type FilesUpgradeNeedOutput = zod.output<typeof FilesUpgradeNeed>;
 
 export const FilesWaitingNeed = zod.object({
   code: zod
-    .enum(["node_away", "client_away"])
+    .enum(["node_away", "client_away", "client_off"])
     .describe(
-      "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention",
+      "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't hold Downloading",
     ),
   grabId: zod.uuid(),
   kind: zod.enum(["waiting"]),
@@ -2983,7 +2983,12 @@ export const GrabsClientWait = zod.object({
   client: zod
     .union([GrabsGrabClient, zod.null()])
     .describe("The external client; null for the Node's built-in client"),
-  nodeId: zod.uuid().describe("The client's Node, which is offline"),
+  nodeId: zod.uuid().describe("The client's Node"),
+  off: zod
+    .boolean()
+    .describe(
+      "The Grab is pinned to this client and the client can't take it: it is off or deleted, or its Node doesn't hold Downloading. False while the client's Node is offline",
+    ),
 });
 
 export type GrabsClientWait = zod.input<typeof GrabsClientWait>;
@@ -3221,7 +3226,7 @@ export const GrabsGrab = zod.object({
     .nullable()
     .describe("The Tracker its Release reached, null for a Grab older than Trackers"),
   waitsFor: GrabsClientWait.exactOptional().describe(
-    "The client a fetching Grab goes to, absent unless it waits for that client's Node to be back online",
+    "The client a fetching Grab goes to, absent unless it waits for that client: its Node to be back online, or a pinned client that can't take it",
   ),
   workId: zod.uuid(),
 });
