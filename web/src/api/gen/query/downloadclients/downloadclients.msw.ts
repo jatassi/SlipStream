@@ -1437,6 +1437,7 @@ export const getListTorrentsResponseMock = (
           },
         }
       : {}),
+    held: faker.datatype.boolean(),
     ...(faker.datatype.boolean()
       ? {
           hold: faker.helpers.arrayElement([
@@ -1640,7 +1641,8 @@ export const getActOnTorrentsResponseMock = (
                 "not_found",
                 "removed",
                 "importing",
-                "not_stalled",
+                "not_held",
+                "reconciling",
                 "offline",
                 "client_away",
                 "client_off",
@@ -1737,6 +1739,7 @@ export const getGetTorrentResponseMock = (
     stage: faker.helpers.arrayElement(["downloading", "importing", "imported", "failed"] as const),
     workId: faker.string.uuid(),
   })),
+  held: faker.datatype.boolean(),
   ...(faker.datatype.boolean()
     ? {
         hold: faker.helpers.arrayElement([

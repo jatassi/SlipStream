@@ -36,6 +36,7 @@ const failed: GrabsGrab = {
     stage: "fetching",
     code: "torrent_unreachable",
     message: "the Indexer answered 404 for the .torrent",
+    needsYou: true,
   },
 };
 

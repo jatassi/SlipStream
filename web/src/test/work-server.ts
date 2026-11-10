@@ -259,7 +259,7 @@ export function workServer({
       searches = next;
       send({
         event: "grabs.search-changed",
-        data: { searchId, workId: orchardId },
+        data: { searchId, workId: orchardId, manualSearchId: null },
       });
     },
     grabMoves(next: GrabsGrab, nextCells = cells) {
