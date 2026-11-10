@@ -302,6 +302,7 @@ type grab struct {
 	Edition      string                   `json:"edition" doc:"The Edition it was grabbed to fill: any under any cut, else a cut key"`
 	TargetIDs    []string                 `json:"targetIds" nullable:"false" doc:"The Targets it was grabbed for, in Profile order"`
 	ReleaseTitle string                   `json:"releaseTitle"`
+	ReleaseWords string                   `json:"releaseWords" doc:"Its Release in words, such as Bluray-1080p · FKW · 9.8 GB"`
 	Quality      string                   `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality the release title names, absent when it names none"`
 	ReleaseSize  int64                    `json:"releaseSize" minimum:"0"`
 	IndexerID    *string                  `json:"indexerId" format:"uuid" doc:"The Indexer it was grabbed from, null once the Indexer is deleted"`
@@ -335,7 +336,7 @@ type grabActions struct {
 func grabOf(v grabs.View) grab {
 	out := grab{
 		ID: v.ID.String(), WorkID: v.WorkID.String(), ItemID: v.ItemID.String(), Edition: string(v.Edition), TargetIDs: []string{},
-		ReleaseTitle: v.Release.Title, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
+		ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseWords, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
 		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), History: []entered{}, CreatedAt: v.Created,
 		Source: string(v.Source), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...),
 		Actions: grabActions{Cancel: v.Actions.Cancel, Blocklistable: v.Actions.Blocklist, SendTo: v.Actions.SendTo},

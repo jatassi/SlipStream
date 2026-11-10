@@ -21,6 +21,16 @@ type Standing struct {
 	AtGrabLimit *NotTakenError
 	// Automatic is its Automatic search switch.
 	Automatic bool
+	indexer   Indexer
+}
+
+// Tracker is the name of the Tracker r reaches through this Indexer, ""
+// when none is known.
+func (s Standing) Tracker(r Release) string {
+	if s.indexer.Source == nil {
+		return ""
+	}
+	return reachedBy(s.indexer, r).name
 }
 
 // Take is what Indexers.Take answers r with now, reserving nothing: a
@@ -72,7 +82,7 @@ func (x *Indexers) standing(ctx context.Context, r storage.Reader[file], idx Ind
 	if err != nil {
 		return Standing{}, err
 	}
-	s := Standing{Indexer: idx.ID, Automatic: idx.AutoSearch}
+	s := Standing{Indexer: idx.ID, Automatic: idx.AutoSearch, indexer: idx}
 	if st.State == Stopped {
 		o := Outcome{Kind: IsStopped, Cause: st.Cause, Text: st.Text, Node: st.Node}
 		sentence, _ := x.waitWords(View{Indexer: idx, Status: st}, o)

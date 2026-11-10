@@ -194,6 +194,7 @@ export const getListGrabsResponseMock = (
       : {}),
     releaseSize: faker.number.int({ min: 0 }),
     releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement(["search", "manual"] as const),
     stage: faker.helpers.arrayElement([
       "fetching",
@@ -380,6 +381,7 @@ export const getGetGrabResponseMock = (
     : {}),
   releaseSize: faker.number.int({ min: 0 }),
   releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
   source: faker.helpers.arrayElement(["search", "manual"] as const),
   stage: faker.helpers.arrayElement([
     "fetching",
@@ -566,6 +568,7 @@ export const getListIndexerGrabsResponseMock = (
       : {}),
     releaseSize: faker.number.int({ min: 0 }),
     releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement(["search", "manual"] as const),
     stage: faker.helpers.arrayElement([
       "fetching",

@@ -99,7 +99,7 @@ type planRow struct {
 
 type heldCell struct {
 	GrabID string `json:"grabId" format:"uuid"`
-	Words  string `json:"words" doc:"Such as A Grab is downloading Heat.1995.1080p.WEB for 1080p."`
+	Words  string `json:"words" doc:"Such as A Grab is downloading WEBDL-1080p · FLUX · 6.2 GB for 1080p."`
 	Stage  string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
 }
 

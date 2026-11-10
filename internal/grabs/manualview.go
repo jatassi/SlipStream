@@ -137,7 +137,8 @@ type Choice struct {
 type HeldCell struct {
 	Cell files.CellKey
 	Grab GrabID
-	// Words is "A Grab is downloading Heat.1995.1080p.WEB for 1080p."
+	// Words is "A Grab is downloading WEBDL-1080p · FLUX · 6.2 GB for
+	// 1080p."
 	Words string
 	Stage Stage
 }
@@ -236,7 +237,9 @@ type manualIn struct {
 	cell  *files.CellKey
 	tree  works.Tree
 	nouns works.Description
-	runs  []Search
+	// describe is a Release titled title, of size bytes, in words.
+	describe func(title string, size int64) string
+	runs     []Search
 	// heard is each run's stored Releases, in arrival order.
 	heard   map[SearchID][]heardRelease
 	cells   []files.Cell
@@ -281,6 +284,8 @@ func (gr *Grabs) manualInput(ctx context.Context, r storage.Reader[file], work w
 	}
 	typ := in.tree.ContentType
 	in.nouns, _ = gr.cfg.Works.Describe(typ)
+	names := gr.cfg.Names[typ]
+	in.describe = func(title string, size int64) string { return releaseWordsOf(title, size, names) }
 	in.line = func(o *indexers.Outcome) string { return gr.cfg.Indexers.Line(typ, o) }
 	in.clock = gr.cfg.Indexers.Clock
 	var scope storedScope

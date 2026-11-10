@@ -5563,6 +5563,10 @@
           "releaseTitle": {
             "type": "string"
           },
+          "releaseWords": {
+            "description": "Its Release in words, such as Bluray-1080p · FKW · 9.8 GB",
+            "type": "string"
+          },
           "source": {
             "description": "How it was chosen: by a search's decision, or by an Admin in a Manual search",
             "enum": [
@@ -5622,6 +5626,7 @@
           "edition",
           "targetIds",
           "releaseTitle",
+          "releaseWords",
           "releaseSize",
           "indexerId",
           "trackerId",
@@ -5833,7 +5838,7 @@
             "type": "string"
           },
           "words": {
-            "description": "Such as A Grab is downloading Heat.1995.1080p.WEB for 1080p.",
+            "description": "Such as A Grab is downloading WEBDL-1080p · FLUX · 6.2 GB for 1080p.",
             "type": "string"
           }
         },

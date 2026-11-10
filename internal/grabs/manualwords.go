@@ -336,7 +336,7 @@ func (s sheet) heldIn(rs runSheet) []HeldCell {
 	var out []HeldCell
 	for k, g := range rs.held {
 		if s.in.cell == nil || *s.in.cell == keyOf(rs.item[k]) {
-			out = append(out, heldCell(rs.item[k], g))
+			out = append(out, s.heldCell(rs.item[k], g))
 		}
 	}
 	return out
@@ -406,15 +406,15 @@ func plural(n int, one, many string) string {
 }
 
 // heldCell is cell, which unfinished Grab g holds, in words: "A Grab is
-// downloading Heat.1995.1080p.WEB for 1080p."
-func heldCell(c files.Cell, g db.ListCellGrabsOfWorkRow) HeldCell {
+// downloading WEBDL-1080p · FLUX · 6.2 GB for 1080p."
+func (s sheet) heldCell(c files.Cell, g db.ListCellGrabsOfWorkRow) HeldCell {
 	verb := "downloading"
 	if g.Stage == Fetching {
 		verb = "fetching"
 	}
 	return HeldCell{
 		Cell: keyOf(c), Grab: g.ID, Stage: g.Stage,
-		Words: "A Grab is " + verb + " " + g.ReleaseTitle + " for " + cellName(c) + ".",
+		Words: "A Grab is " + verb + " " + s.in.describe(g.ReleaseTitle, g.ReleaseSize) + " for " + cellName(c) + ".",
 	}
 }
 
@@ -483,8 +483,8 @@ func (s sheet) details(rs runSheet, g int) ReleaseDetails {
 			d.Indexers = append(d.Indexers, n)
 		}
 	}
-	if src := r.Source; src != nil {
-		d.Tracker = src.Name
+	if st, ok := s.in.standings[r.Indexer]; ok {
+		d.Tracker = st.Tracker(r)
 	}
 	if e, ok := s.in.blocks.of(a); ok {
 		d.Blocked = "It's been on the Blocklist since " + s.dayOf(e.Added) + " because " + becauseClause(e)
@@ -912,7 +912,7 @@ func (s sheet) offer(rs runSheet, g, f int) Offer {
 		o.Grab.Cells, o.Grab.Lifts, o.Grab.Edition = rs.keys(cells), rs.worded(st.lifts, g), s.override(rs, g, w, st)
 		for _, k := range cells {
 			if h, ok := rs.held[k]; ok {
-				o.Grab.Cancels = append(o.Grab.Cancels, heldCell(rs.item[k], h))
+				o.Grab.Cancels = append(o.Grab.Cancels, s.heldCell(rs.item[k], h))
 			} else {
 				fills = append(fills, rs.item[k])
 			}
