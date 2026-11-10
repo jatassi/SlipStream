@@ -112,7 +112,7 @@ func (s *site) rss(w http.ResponseWriter, r *http.Request) {
       <description>Seeders: %d</description>
 %s      <torrent:infoHash>%s</torrent:infoHash>
     </item>
-`, esc(rel.Name), guid, published, rel.Seeders, enclosure, rel.InfoHash)
+`, esc(rel.Name), guid, rel.published(), rel.Seeders, enclosure, rel.InfoHash)
 	}
 	b.WriteString("  </channel>\n</rss>\n")
 	reply(w, b.String())

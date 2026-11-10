@@ -296,6 +296,25 @@ func TestCinderTakesAPastedCookieBehindItsChallenge(t *testing.T) {
 	})
 }
 
+func TestCinderRecordsTheKeywordsOfEachSearch(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := newCatalogWorld(t, faketest.InMemory)
+		ix := w.indexer(t, site.Cinder, nil)
+		ix.session = cinderSession(w.s, "seedbox")
+		ix.search(t, "quiet orchard")
+		var searched []site.Search
+		for _, r := range w.f.Records(t) {
+			var s site.Search
+			if r.Kind == site.Searched.Kind && json.Unmarshal(r.Data, &s) == nil {
+				searched = append(searched, s)
+			}
+		}
+		if want := []site.Search{{Site: site.Cinder, T: "search", Q: "quiet orchard"}}; !slices.Equal(searched, want) {
+			t.Fatalf("Cinder's searches = %+v, want %+v", searched, want)
+		}
+	})
+}
+
 func TestMarshSignsInAgainOnceItsSessionExpires(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newCatalogWorld(t, faketest.InMemory)

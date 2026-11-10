@@ -419,6 +419,8 @@ func TestATorznabSearchPagesAndReadsEveryAttribute(t *testing.T) {
 		}
 	}
 	many[0].DownloadFactor, many[1].DownloadFactor = new(0.0), new(0.5)
+	posted := time.Date(2026, 10, 30, 8, 15, 0, 0, time.UTC)
+	many[2].Published = posted
 	f := faketest.Loopback(t, spec(many), s)
 	a := job(t, f, site.APIKey(s), searching.SearchCall{Query: searching.Query{Mode: "movie", IDs: map[string]string{"tmdbid": "9000001"}}})
 	if a.Outcome != nil || len(a.Releases) != len(many) || a.Started.IsZero() {
@@ -438,6 +440,9 @@ func TestATorznabSearchPagesAndReadsEveryAttribute(t *testing.T) {
 	}
 	if got := []float64{a.Releases[1].Factors.Download, a.Releases[2].Factors.Download}; !slices.Equal(got, []float64{0.5, 1}) {
 		t.Fatalf("the halfleech and unstated Releases' download factors = %v, want [0.5 1]", got)
+	}
+	if got := a.Releases[2].Published; !got.Equal(posted) {
+		t.Fatalf("the Release posted at %s reads published %s", posted, got)
 	}
 }
 
