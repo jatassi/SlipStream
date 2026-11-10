@@ -330,8 +330,8 @@ func TestTwinsAutomaticSearchGrabsTheChainsFirstOfferAnIndexerTakes(t *testing.T
 }
 
 // searchedByHand is a Manual search of the Work once every Indexer has
-// responded, worked out around pins.
-func (a atticWorld) searchedByHand(t *testing.T, pins ...grabs.Pin) grabs.ManualView {
+// responded.
+func (a atticWorld) searchedByHand(t *testing.T) grabs.ManualView {
 	t.Helper()
 	ctx := t.Context()
 	if _, _, err := a.g.StartManualSearch(ctx, identity.Admin{}, a.work, grabs.ManualScope{}); err != nil {
@@ -340,7 +340,7 @@ func (a atticWorld) searchedByHand(t *testing.T, pins ...grabs.Pin) grabs.Manual
 	stop := running(t, a.g)
 	synctest.Wait()
 	stop()
-	v, err := a.g.ManualSearch(ctx, identity.Admin{}, a.work, pins)
+	v, err := a.g.ManualSearch(ctx, identity.Admin{}, a.work, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
