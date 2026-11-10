@@ -14,7 +14,7 @@ nodes:
     setup: controller
 timings:
   node:
-    stop_deadline: 5s
+    stop_deadline: 15s
   works:
     fetch: 2s
   metadata:

@@ -20,7 +20,7 @@ func singleMachine() Scenario {
 		Seed:        "single-machine",
 		Admin:       &Admin{Email: "ada@example.test", DisplayName: "Ada Okafor", PIN: "2468"},
 		Nodes:       []Node{{Name: "home", Setup: SetupController}},
-		Timings:     node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}},
+		Timings:     node.TimingsBlock{Node: node.Timings{StopDeadline: 15 * time.Second}},
 		TMDB:        quietOrchard(),
 		Releases:    quietOrchardReleases(),
 		Tracker:     Tracker{Interval: 5 * time.Second},
@@ -73,7 +73,7 @@ func TestLoadReadsTheHomeScenario(t *testing.T) {
 			{Name: "home", Setup: SetupController, Roles: []role.Name{role.Storage, role.Converting, role.Subtitles, role.Metadata, role.MediaServerLink, role.Notifying, role.Serving}},
 			{Name: "seedbox", Setup: SetupJoin, Roles: []role.Name{role.Searching, role.Downloading}},
 		},
-		Timings:  node.TimingsBlock{Node: node.Timings{StopDeadline: 5 * time.Second}},
+		Timings:  node.TimingsBlock{Node: node.Timings{StopDeadline: 15 * time.Second}},
 		TMDB:     &TMDB{Movies: append(quietOrchard().Movies, shelfMovies...)},
 		TVDB:     shelfSeries(),
 		Releases: quietOrchardReleases(),
@@ -396,7 +396,7 @@ nodes:
     setup: controller
 timings:
   node:
-    stop_deadline: 5s
+    stop_deadline: 15s
 tmdb:
   movies:
     - id: 9000001
@@ -472,7 +472,7 @@ func TestYAMLWritesOnlyTheTimingsAScenarioSets(t *testing.T) {
 	if !reflect.DeepEqual(back, s) {
 		t.Fatalf("read back %+v, want %+v", back, s)
 	}
-	want := "timings:\n  node:\n    stop_deadline: 5s\n  live:\n    retry: 2s\n"
+	want := "timings:\n  node:\n    stop_deadline: 15s\n  live:\n    retry: 2s\n"
 	if got := string(s.YAML()); !strings.Contains(got, want+"tmdb:\n") {
 		t.Fatalf("YAML() =\n%s\nwant it to hold\n%s", got, want)
 	}

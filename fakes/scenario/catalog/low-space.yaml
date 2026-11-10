@@ -12,7 +12,7 @@ nodes:
     setup: controller
 timings:
   node:
-    stop_deadline: 5s
+    stop_deadline: 15s
 library:
   storage_levels: {warn_below: 1024TiB, error_below: 1024TiB}
   roots: [{content_type: movie, folder: movies}]

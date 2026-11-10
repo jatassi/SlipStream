@@ -22,7 +22,7 @@ nodes:
     roles: [searching, downloading]
 timings:
   node:
-    stop_deadline: 5s
+    stop_deadline: 15s
 tmdb:
   movies:
     - id: 155
