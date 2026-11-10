@@ -2795,6 +2795,8 @@ export const GrabsLiftKey = zod.object({
 export type GrabsLiftKey = zod.input<typeof GrabsLiftKey>;
 export type GrabsLiftKeyOutput = zod.output<typeof GrabsLiftKey>;
 
+export const grabsGrabPickCellsMax = 100;
+
 export const grabsGrabPickLiftsMax = 100;
 
 export const GrabsGrabPick = zod.object({
@@ -2802,6 +2804,10 @@ export const GrabsGrabPick = zod.object({
     .uuid()
     .exactOptional()
     .describe("The Grab downloading a cell it fills, canceled first"),
+  cells: zod
+    .array(zod.string())
+    .max(grabsGrabPickCellsMax)
+    .describe("The cells the row or the Release showed"),
   client: GrabsClientChoice.exactOptional().describe("Absent to go where Tracker routing sends it"),
   edition: zod.string().min(1).exactOptional().describe("The Edition the row showed"),
   lifts: zod.array(GrabsLiftKey).max(grabsGrabPickLiftsMax).describe("The lifts the row showed"),
@@ -2954,6 +2960,9 @@ export type GrabsReleaseDetails = zod.input<typeof GrabsReleaseDetails>;
 export type GrabsReleaseDetailsOutput = zod.output<typeof GrabsReleaseDetails>;
 
 export const GrabsChoice = zod.object({
+  cells: zod
+    .array(zod.string())
+    .describe("The cells its row fills once it is pinned, the row's first leading"),
   edition: zod
     .string()
     .nullable()
@@ -3252,6 +3261,11 @@ export type GrabsHeldCellOutput = zod.output<typeof GrabsHeldCell>;
 
 export const GrabsGrabOffer = zod.object({
   cancels: zod.array(GrabsHeldCell).describe("The Grabs downloading a cell it would also fill"),
+  cells: zod
+    .array(zod.string())
+    .describe(
+      "The cells a Grab of it alone fills, any a Grab downloads among them. Send them back as the pick's cells.",
+    ),
   edition: zod
     .string()
     .nullable()
@@ -3389,6 +3403,9 @@ export type GrabsPinned = zod.input<typeof GrabsPinned>;
 export type GrabsPinnedOutput = zod.output<typeof GrabsPinned>;
 
 export const GrabsPlanPick = zod.object({
+  cells: zod
+    .array(zod.string())
+    .describe("The cells it fills, its row's first leading. Send them back as the pick's cells."),
   edition: zod
     .string()
     .nullable()

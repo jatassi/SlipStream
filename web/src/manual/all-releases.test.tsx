@@ -68,6 +68,12 @@ test("All Releases grabs one Release on its own with what it gets past, and says
   await userEvent.click(rarbg.getByRole("button", { name: "Grab" }));
   await expect.element(rarbg.getByText("Grabbed.")).toBeVisible();
   expect(server.grabbed).toEqual([
-    [{ releaseId: lowScore.id, lifts: [{ code: "score_below_minimum", targetId: starter.id }] }],
+    [
+      {
+        releaseId: lowScore.id,
+        cells: ["cell-orchard-1080p"],
+        lifts: [{ code: "score_below_minimum", targetId: starter.id }],
+      },
+    ],
   ]);
 });

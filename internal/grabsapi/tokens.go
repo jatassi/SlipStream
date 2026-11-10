@@ -45,6 +45,33 @@ func cellKeyOf(c files.CellKey) string {
 	return base64.RawURLEncoding.EncodeToString(cellBytes(c))
 }
 
+// parseCellKey is the cell key s names, false for one the API never
+// minted.
+func parseCellKey(s string) (files.CellKey, bool) {
+	b, err := base64.RawURLEncoding.DecodeString(s)
+	if err != nil || len(b) < 2*uuidLen {
+		return files.CellKey{}, false
+	}
+	item, err := storage.UUIDFromBytes(b[:uuidLen])
+	if err != nil {
+		return files.CellKey{}, false
+	}
+	target, err := storage.UUIDFromBytes(b[uuidLen : 2*uuidLen])
+	if err != nil {
+		return files.CellKey{}, false
+	}
+	return files.CellKey{Item: works.ItemID{UUID: item}, Target: targets.TargetID{UUID: target}, Edition: targets.Edition(b[2*uuidLen:])}, true
+}
+
+// cellKeysOf is the keys of cs.
+func cellKeysOf(cs []files.CellKey) []string {
+	out := make([]string, len(cs))
+	for i, c := range cs {
+		out[i] = cellKeyOf(c)
+	}
+	return out
+}
+
 func cellBytes(c files.CellKey) []byte {
 	return append(append(c.Item.Bytes(), c.Target.Bytes()...), c.Edition...)
 }

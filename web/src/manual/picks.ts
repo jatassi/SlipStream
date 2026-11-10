@@ -75,6 +75,7 @@ const liftsOf = (lifts: readonly GrabsWordedReason[]): GrabsLiftKey[] =>
 export function pickOf(
   offer: {
     readonly release: { readonly id: string; readonly blocked: string | null };
+    readonly cells: readonly string[];
     readonly lifts: readonly GrabsWordedReason[];
     readonly edition: string | null;
   },
@@ -83,6 +84,7 @@ export function pickOf(
 ): GrabsGrabPick {
   return {
     releaseId: offer.release.id,
+    cells: [...offer.cells],
     lifts: liftsOf(offer.lifts),
     ...(offer.edition !== null && { edition: offer.edition }),
     ...(client !== undefined && { client }),

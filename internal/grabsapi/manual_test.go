@@ -117,6 +117,7 @@ func TestGrabFromManualSearchAnswersEachPick(t *testing.T) {
 					Release struct {
 						ID string `json:"id"`
 					} `json:"release"`
+					Cells []string `json:"cells"`
 				} `json:"pick"`
 			} `json:"rows"`
 		} `json:"plan"`
@@ -127,9 +128,12 @@ func TestGrabFromManualSearchAnswersEachPick(t *testing.T) {
 			t.Fatalf("getManualSearch = %d %s, want 200", code, got)
 		}
 	}
-	release := v.Plan.Rows[0].Pick.Release.ID
+	pick, err := json.Marshal(map[string]any{"releaseId": v.Plan.Rows[0].Pick.Release.ID, "cells": v.Plan.Rows[0].Pick.Cells, "lifts": []string{}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	grab := func(manual string) (int, string) {
-		return f.s.Call(t, http.MethodPost, path+"/grabs", `{"manualSearchId":"`+manual+`","picks":[{"releaseId":"`+release+`","lifts":[]},{"releaseId":"`+release+`","lifts":[]}]}`)
+		return f.s.Call(t, http.MethodPost, path+"/grabs", `{"manualSearchId":"`+manual+`","picks":[`+string(pick)+`,`+string(pick)+`]}`)
 	}
 	code, got = grab(started.ManualSearchID)
 	var out struct {

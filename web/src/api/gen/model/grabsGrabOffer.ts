@@ -4,6 +4,8 @@ import type { GrabsWordedReason } from "./grabsWordedReason.ts";
 export interface GrabsGrabOffer {
   /** The Grabs downloading a cell it would also fill */
   cancels: GrabsHeldCell[];
+  /** The cells a Grab of it alone fills, any a Grab downloads among them. Send them back as the pick's cells. */
+  cells: string[];
   /**
    * The Edition it is grabbed as; null unless that is another Edition than its cut's
    * @nullable

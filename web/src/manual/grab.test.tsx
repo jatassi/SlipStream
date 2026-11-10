@@ -59,7 +59,7 @@ test("after Grab each row says what its pick did, and a held cell offers to canc
   await userEvent.click(sheet.getByRole("button", { name: "Cancel it and grab this one" }));
   await expect.element(rows.nth(1).getByText("Grabbed.")).toBeVisible();
   expect(server.grabbed.at(-1)).toEqual([
-    { releaseId: `${runId}.2`, lifts: [], cancelGrabId: heldGrabId },
+    { releaseId: `${runId}.2`, cells: ["cell-e02"], lifts: [], cancelGrabId: heldGrabId },
   ]);
   await expect.element(sheet.getByRole("button", { name: "Grab 0" })).toBeDisabled();
 });
@@ -102,5 +102,7 @@ test("Other choices reads a blocked Release's since and why, and a lift as an am
   await userEvent.click(sheet.getByRole("button", { name: "Grab 1" }));
   await expect
     .poll(() => server.grabbed)
-    .toEqual([[{ releaseId: blocked.id, lifts: [], unblock: true }]]);
+    .toEqual([
+      [{ releaseId: blocked.id, cells: ["cell-orchard-1080p"], lifts: [], unblock: true }],
+    ]);
 });

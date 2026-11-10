@@ -4,6 +4,11 @@ import type { GrabsLiftKey } from "./grabsLiftKey.ts";
 export interface GrabsGrabPick {
   /** The Grab downloading a cell it fills, canceled first */
   cancelGrabId?: string;
+  /**
+   * The cells the row or the Release showed
+   * @maxItems 100
+   */
+  cells: string[];
   /** Absent to go where Tracker routing sends it */
   client?: GrabsClientChoice;
   /**

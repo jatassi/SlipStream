@@ -60,6 +60,7 @@ export const blocked = release(
 
 export const lowScoreChoice: GrabsChoice = {
   pin: "pin-orchard-1080p-rarbg",
+  cells: ["cell-orchard-1080p"],
   release: lowScore,
   lifts: [
     {
@@ -77,6 +78,7 @@ export const lowScoreChoice: GrabsChoice = {
 /** A blocked choice: Other choices shows since when and why, with "Remove from Blocklist and grab". */
 export const blockedChoice: GrabsChoice = {
   pin: "pin-orchard-1080p-sparks",
+  cells: ["cell-orchard-1080p"],
   release: blocked,
   lifts: [],
   edition: null,
@@ -86,6 +88,7 @@ const orchardRow: GrabsPlanRow = {
   key: "cell-orchard-1080p",
   pick: {
     release: flux,
+    cells: ["cell-orchard-1080p"],
     lifts: [],
     edition: null,
     routed: "Where Tracker routing sends it (qBittorrent on Den)",
@@ -160,6 +163,7 @@ export const pinnedFilmPlan: GrabsManualSearch = {
         pinned: true,
         pick: {
           release: lowScore,
+          cells: [orchardRow.key],
           lifts: lowScoreChoice.lifts,
           edition: null,
           routed: "Where Tracker routing sends it (qBittorrent on Den)",
@@ -214,6 +218,7 @@ export const seasonPlan: GrabsManualSearch = {
         key: `cell-${storyOne?.id}`,
         pick: {
           release: story(0, "The.Long.Shelf.V01S01.1080p.WEB-DL-NTb"),
+          cells: [`cell-${storyOne?.id}`],
           lifts: [],
           edition: null,
           routed: "Where Tracker routing sends it (the built-in client on home)",
@@ -226,6 +231,7 @@ export const seasonPlan: GrabsManualSearch = {
         key: `cell-${storyTwo?.id}`,
         pick: {
           release: story(1, "The.Long.Shelf.V01S02.1080p.WEB-DL-NTb"),
+          cells: [`cell-${storyTwo?.id}`],
           lifts: [],
           edition: null,
           routed: "Where Tracker routing sends it (the built-in client on home)",

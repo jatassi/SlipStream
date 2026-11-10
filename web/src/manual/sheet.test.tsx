@@ -99,7 +99,7 @@ test("a swap reads the plan again with the pin, keeps the other row's untick, an
 
   await userEvent.click(sheet.getByRole("button", { name: "Grab 1" }));
   await expect.element(sheet.getByText("Grabbed.")).toBeVisible();
-  expect(server.grabbed).toEqual([[{ releaseId: swapIn.id, lifts: [] }]]);
+  expect(server.grabbed).toEqual([[{ releaseId: swapIn.id, cells: ["cell-e02"], lifts: [] }]]);
 });
 
 test("a search another Admin replaced says so in place of the Grab button", async () => {

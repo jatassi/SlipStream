@@ -71,6 +71,7 @@ type releaseDetails struct {
 
 type planPick struct {
 	Release releaseDetails `json:"release"`
+	Cells   []string       `json:"cells" nullable:"false" doc:"The cells it fills, its row's first leading. Send them back as the pick's cells."`
 	Lifts   []wordedReason `json:"lifts" nullable:"false" doc:"The soft refusals it is grabbed past; send their codes and Targets back as the pick's lifts"`
 	Edition *string        `json:"edition" doc:"The Edition it is grabbed as; null unless that is another Edition than its cut's"`
 	Routed  string         `json:"routed" doc:"Where Tracker routing sends it, such as Where Tracker routing sends it (qBittorrent on Den)"`
@@ -79,6 +80,7 @@ type planPick struct {
 type choice struct {
 	Pin     string         `json:"pin" doc:"Send it in pins to swap this Release into its row"`
 	Release releaseDetails `json:"release"`
+	Cells   []string       `json:"cells" nullable:"false" doc:"The cells its row fills once it is pinned, the row's first leading"`
 	Lifts   []wordedReason `json:"lifts" nullable:"false"`
 	Edition *string        `json:"edition" doc:"The Edition it is grabbed as; null unless that is another Edition than its cut's"`
 	Note    string         `json:"note,omitempty" doc:"Such as From TorrentLeech, which automatic search doesn't use."`
@@ -148,6 +150,7 @@ type manualSearchOutput struct{ Body manualSearch }
 type grabOffer struct {
 	Grabbable bool           `json:"grabbable" doc:"It fills some cell and its Indexer would take it now. One on the Blocklist is grabbed only with unblock."`
 	Outcome   string         `json:"outcome,omitempty" doc:"What a Grab of it alone gets"`
+	Cells     []string       `json:"cells" nullable:"false" doc:"The cells a Grab of it alone fills, any a Grab downloads among them. Send them back as the pick's cells."`
 	Lifts     []wordedReason `json:"lifts" nullable:"false"`
 	Edition   *string        `json:"edition" doc:"The Edition it is grabbed as; null unless that is another Edition than its cut's"`
 	Cancels   []heldCell     `json:"cancels" nullable:"false" doc:"The Grabs downloading a cell it would also fill"`
@@ -181,6 +184,7 @@ type clientChoice struct {
 
 type grabPick struct {
 	ReleaseID    string        `json:"releaseId"`
+	Cells        []string      `json:"cells" maxItems:"100" nullable:"false" doc:"The cells the row or the Release showed"`
 	Lifts        []liftKey     `json:"lifts" maxItems:"100" nullable:"false" doc:"The lifts the row showed"`
 	Edition      *string       `json:"edition,omitempty" minLength:"1" doc:"The Edition the row showed"`
 	Client       *clientChoice `json:"client,omitempty" doc:"Absent to go where Tracker routing sends it"`
@@ -362,6 +366,13 @@ func manualPickOf(field string, p grabPick) (grabs.ManualPick, error) {
 		return grabs.ManualPick{}, api.Invalid.On(field+".releaseId", "Send a releaseId from this Manual search.")
 	}
 	out := grabs.ManualPick{Release: ref, Unblock: p.Unblock}
+	for _, c := range p.Cells {
+		key, ok := parseCellKey(c)
+		if !ok {
+			return grabs.ManualPick{}, api.Invalid.On(field+".cells", "Send the cells from this Manual search.")
+		}
+		out.Cells = append(out.Cells, key)
+	}
 	for _, l := range p.Lifts {
 		k := grabs.LiftKey{Code: targets.ReasonCode(l.Code)}
 		if l.TargetID != "" {
@@ -434,11 +445,14 @@ func planOf(p grabs.ManualPlan) plan {
 			Choices: []choice{},
 		}
 		if k := r.Pick; k != nil {
-			row.Pick = api.Some(planPick{Release: releaseDetailsOf(k.Release), Lifts: WordedOf(k.Lifts), Edition: editionOrNil(k.Edition), Routed: k.Routed})
+			row.Pick = api.Some(planPick{
+				Release: releaseDetailsOf(k.Release), Cells: cellKeysOf(r.Cells), Lifts: WordedOf(k.Lifts), Edition: editionOrNil(k.Edition), Routed: k.Routed,
+			})
 		}
 		for _, c := range r.Choices {
 			row.Choices = append(row.Choices, choice{
-				Pin: pinOf(c.Pin), Release: releaseDetailsOf(c.Release), Lifts: WordedOf(c.Lifts), Edition: editionOrNil(c.Edition), Note: c.Note,
+				Pin: pinOf(c.Pin), Release: releaseDetailsOf(c.Release), Cells: cellKeysOf(c.Cells), Lifts: WordedOf(c.Lifts),
+				Edition: editionOrNil(c.Edition), Note: c.Note,
 			})
 		}
 		out.Rows = append(out.Rows, row)
@@ -478,7 +492,8 @@ func offerOf(o grabs.Offer) offer {
 	out := offer{
 		Release: releaseDetailsOf(o.Release), Score: o.Score, Quality: o.Quality,
 		Grab: grabOffer{
-			Grabbable: o.Grab.Grabbable, Outcome: o.Grab.Outcome, Lifts: WordedOf(o.Grab.Lifts), Edition: editionOrNil(o.Grab.Edition),
+			Grabbable: o.Grab.Grabbable, Outcome: o.Grab.Outcome, Cells: cellKeysOf(o.Grab.Cells), Lifts: WordedOf(o.Grab.Lifts),
+			Edition: editionOrNil(o.Grab.Edition),
 			Cancels: heldOf(o.Grab.Cancels), Waits: o.Grab.Waits, Refusal: o.Grab.Refusal,
 		},
 	}

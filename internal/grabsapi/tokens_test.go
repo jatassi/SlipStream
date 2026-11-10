@@ -45,3 +45,19 @@ func TestAPinNamesTheCellAndReleaseItWasMintedFor(t *testing.T) {
 		}
 	}
 }
+
+func TestACellKeyNamesTheCellItWasMintedFor(t *testing.T) {
+	for _, cell := range []files.CellKey{
+		{Item: works.ItemID{UUID: storage.NewUUID()}, Edition: "directors-cut", Target: targets.TargetID{UUID: storage.NewUUID()}},
+		{Item: works.ItemID{UUID: storage.NewUUID()}, Edition: targets.AnyEdition, Target: targets.TargetID{UUID: storage.NewUUID()}},
+	} {
+		if got, ok := parseCellKey(cellKeyOf(cell)); !ok || got != cell {
+			t.Fatalf("parseCellKey(cellKeyOf(%v)) = %v, %t", cell, got, ok)
+		}
+	}
+	for _, s := range []string{"", "a", "!" + cellKeyOf(files.CellKey{})} {
+		if got, ok := parseCellKey(s); ok {
+			t.Errorf("parseCellKey(%q) = %v, want no cell", s, got)
+		}
+	}
+}

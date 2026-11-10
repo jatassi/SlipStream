@@ -26,6 +26,7 @@ type manualLift struct {
 
 type manualOffer struct {
 	Release manualRelease `json:"release"`
+	Cells   []string      `json:"cells"`
 	Lifts   []manualLift  `json:"lifts"`
 	Edition *string       `json:"edition"`
 }
@@ -80,7 +81,7 @@ func (v manualSheet) offered(t *testing.T, title string) manualOffer {
 // grabByHand grabs o from Manual search v and returns its Grab.
 func grabByHand(t *testing.T, w *sim.World, work string, v manualSheet, o manualOffer) string {
 	t.Helper()
-	pick := map[string]any{"releaseId": o.Release.ID, "lifts": o.Lifts}
+	pick := map[string]any{"releaseId": o.Release.ID, "cells": o.Cells, "lifts": o.Lifts}
 	if o.Edition != nil {
 		pick["edition"] = *o.Edition
 	}
