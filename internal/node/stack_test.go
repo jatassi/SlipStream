@@ -124,6 +124,34 @@ func TestUnwindPastTheDeadlineNamesTheStopStillRunning(t *testing.T) {
 	}
 }
 
+func TestADeadlineRecordListsTheStopsOfASubThatFinished(t *testing.T) {
+	logged := new(syncBuffer)
+	s := newStack(slog.New(slog.NewJSONHandler(logged, nil)))
+	hung := make(chan struct{})
+	t.Cleanup(func() { close(hung) })
+	s.OnStop("torrent", func(context.Context) error { <-hung; return nil })
+	claimed := s.Sub("claimed")
+	claimed.OnStop("local.db", func(context.Context) error { time.Sleep(20 * time.Millisecond); return nil })
+	claimed.OnStop("role", func(context.Context) error { return nil })
+
+	if err := s.unwind(50 * time.Millisecond); !errors.Is(err, ErrStopDeadline) {
+		t.Fatalf("err = %v, want %v", err, ErrStopDeadline)
+	}
+	took, _ := records(t, logged.String())[0]["took"].([]any)
+	if len(took) != 1 {
+		t.Fatalf("took = %v, want claimed alone", took)
+	}
+	name, subs, ok := strings.Cut(fmt.Sprint(took[0]), " (")
+	parts := strings.Split(strings.TrimSuffix(subs, ")"), ", ")
+	var localTook time.Duration
+	if len(parts) == 2 {
+		localTook, _ = time.ParseDuration(strings.TrimPrefix(parts[1], "local.db "))
+	}
+	if !ok || !strings.HasPrefix(name, "claimed ") || !strings.HasPrefix(parts[0], "role ") || localTook < 20*time.Millisecond {
+		t.Fatalf("took = %v, want claimed's total, then role's and local.db's 20ms or more in brackets", took)
+	}
+}
+
 func TestASubStopsWhereItWasMadeWhateverJoinsItLater(t *testing.T) {
 	s := newStack(slog.New(slog.DiscardHandler))
 	r := new(stopRecorder)
