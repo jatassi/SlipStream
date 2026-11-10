@@ -170,6 +170,7 @@ func (x *Indexers) ask(ctx context.Context, j job) (searching.Answer, error) {
 			}
 			return searching.Answer{}, ErrLate
 		case err != nil:
+			x.cfg.Log.Warn("Couldn't reach the Searching Node for an Indexer's job", "indexer", j.idx.ID.String(), "node", j.node.String(), "job", j.q.String(), "err", err.Error())
 			return searching.Answer{}, unavailable(err)
 		}
 		if !poll.Started.IsZero() {

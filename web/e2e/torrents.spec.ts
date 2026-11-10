@@ -127,7 +127,9 @@ test("a resume inside its tracker's window waits, reading Resumes at, and the tr
   await act(page, "Pause");
   await expect(row(page).getByRole("cell", { name: /^Paused/u })).toBeVisible();
   await act(page, "Resume");
-  await expect(row(page).getByText(/^Resumes at \d{1,2}:\d{2}/u)).toBeVisible();
+  await expect(
+    row(page).getByText(/^Resumes at (?:[A-Z][a-z]{2} \d{1,2}, )?\d{1,2}:\d{2}/u),
+  ).toBeVisible();
   await expect(row(page)).not.toContainText("left");
   await expectAccessible(page);
 

@@ -213,7 +213,10 @@ func payload(ctx context.Context, cfg Config, version []byte, v scenario.Video) 
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("ffmpeg: %w: %s", err, bytes.TrimSpace(stderr.Bytes()))
 	}
-	if err := os.Rename(tmp.Name(), path); err != nil {
+	// A world past the unlocked Stat above may open path while it is
+	// published. Windows refuses that open during a rename onto path, and
+	// a link publishes it with no such window, as mediafix does.
+	if err := os.Link(tmp.Name(), path); err != nil {
 		return "", fmt.Errorf("cache the payload: %w", err)
 	}
 	return path, nil

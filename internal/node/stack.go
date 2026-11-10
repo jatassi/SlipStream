@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"time"
 )
@@ -22,6 +23,8 @@ type Stack struct {
 	// stop deadline limit.
 	unwinding bool
 	limit     time.Duration
+	// took is how long each stop of a finished unwind took.
+	took []string
 }
 
 // failure is shared by a Stack and its Subs: any goroutine failing fails
@@ -35,6 +38,9 @@ type failure struct {
 type stopEntry struct {
 	name string
 	stop func(context.Context) error
+	// sub is the Sub that stop unwinds, whose own stops a deadline record
+	// lists beside its total.
+	sub *Stack
 }
 
 var ErrStopDeadline = errors.New("stop deadline passed")
@@ -56,27 +62,31 @@ func newStack(log *slog.Logger) *Stack {
 // start, so it stops before what was there first and after what came later.
 func (s *Stack) Sub(name string) *Stack {
 	sub := &Stack{log: s.log, fails: s.fails}
-	s.OnStop(name, func(ctx context.Context) error {
+	s.push(stopEntry{name: name, sub: sub, stop: func(ctx context.Context) error {
 		s.mu.Lock()
 		limit := s.limit
 		s.mu.Unlock()
 		return sub.unwindUnder(ctx, limit)
-	})
+	}})
 	return sub
 }
 
 // OnStop pushes stop. Once the Stack began to unwind, it runs stop at once
 // instead, so what started late is not left open.
 func (s *Stack) OnStop(name string, stop func(context.Context) error) {
+	s.push(stopEntry{name: name, stop: stop})
+}
+
+func (s *Stack) push(e stopEntry) {
 	s.mu.Lock()
 	late := s.unwinding
 	if !late {
-		s.entries = append(s.entries, stopEntry{name, stop})
+		s.entries = append(s.entries, e)
 	}
 	s.mu.Unlock()
 	if late {
-		if err := stop(context.Background()); err != nil {
-			s.log.Error("stop failed", "stop", name, "err", err.Error())
+		if err := e.stop(context.Background()); err != nil {
+			s.log.Error("stop failed", "stop", e.name, "err", err.Error())
 		}
 	}
 }
@@ -178,7 +188,7 @@ func (s *Stack) unwindUnder(ctx context.Context, limit time.Duration) error {
 		select {
 		case err := <-res:
 			now := time.Now()
-			took = append(took, e.name+" "+now.Sub(start).String())
+			took = append(took, e.took(now.Sub(start)))
 			start = now
 			if err != nil {
 				s.log.Error("stop failed", "stop", e.name, "err", err.Error())
@@ -193,5 +203,19 @@ func (s *Stack) unwindUnder(ctx context.Context, limit time.Duration) error {
 			return fmt.Errorf("%w after %s, %s still running", ErrStopDeadline, limit, e.name)
 		}
 	}
+	s.mu.Lock()
+	s.took = took
+	s.mu.Unlock()
 	return errors.Join(errs...)
+}
+
+// took is how long e took, followed by how long each stop of its Sub took.
+func (e stopEntry) took(d time.Duration) string {
+	took := e.name + " " + d.String()
+	if e.sub != nil {
+		e.sub.mu.Lock()
+		defer e.sub.mu.Unlock()
+		took += " (" + strings.Join(e.sub.took, ", ") + ")"
+	}
+	return took
 }

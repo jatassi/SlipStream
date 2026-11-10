@@ -321,6 +321,7 @@ jobs:
         with:
           path: ${{ runner.os == 'Windows' && '~\AppData\Local\slipstream-fixtures' || runner.os == 'macOS' && '~/Library/Caches/slipstream-fixtures' || '~/.cache/slipstream-fixtures' }}
           key: fixtures-${{ matrix.target }}-${{ hashFiles('native/lock.json', 'fakes/internal/mediafix/recipe.go', 'fakes/internal/releases/releases.go', 'fakes/scenario/catalog/*.yaml') }}
+          restore-keys: fixtures-${{ matrix.target }}-
       - name: Download the test timings the plan job restored
         if: needs.plan.outputs.timings != ''
         uses: actions/download-artifact@v8

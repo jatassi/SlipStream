@@ -32,7 +32,10 @@ func markedFormats() (*formats.Catalog, []formats.ID) {
 		ids[i] = formats.ID(storage.NewUUID().Bytes())
 		fs[i] = formats.Format{ID: ids[i], Name: m, Dialect: formats.SlipStream, Conditions: []formats.Condition{{Name: m, Kind: formats.ReleaseTitle, Fields: value}}}
 	}
-	return formats.Compile(fs, formats.DefaultTimings()), ids
+	// No match limit: a starved runner can hold one match past any wall
+	// clock limit, and a timed-out match scores the file without that
+	// format, so refill and checkBest would disagree on the same file.
+	return formats.Compile(fs, formats.Timings{}), ids
 }
 
 // randomWorld is a Work of up to three Items wanting from up to four

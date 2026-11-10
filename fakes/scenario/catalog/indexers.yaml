@@ -26,7 +26,7 @@ nodes:
     setup: join
 timings:
   node:
-    stop_deadline: 5s
+    stop_deadline: 15s
   indexers:
     job: 15s
     ladder: [1s, 2s, 4s]

@@ -169,8 +169,19 @@ func TestAControllerRestartMidRunCatchesUpOnce(t *testing.T) {
 		controller.Stop()
 		close(release)
 		controller.Start()
-		synctest.Wait()
-		d := simtest.GetTask(t, w.API(), "held")
+		// On Windows SQLite retries a file lock through time.Sleep, which
+		// synctest counts as durably blocked, so Wait can return before the
+		// catch-up opens or closes.
+		var d simtest.TaskDetail
+		simtest.Eventually(t, "the catch-up run closes", func() bool {
+			d = simtest.GetTask(t, w.API(), "held")
+			for _, r := range d.Runs {
+				if r.Result == "" {
+					return false
+				}
+			}
+			return len(d.Runs) > 1
+		})
 		expect(t, "runs after the restart", d.RunLines(), []string{"catch-up|succeeded|1 step", "schedule|canceled|0 of 1 step"})
 	})
 }
