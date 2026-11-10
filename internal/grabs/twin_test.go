@@ -252,6 +252,7 @@ func newTwinWorld(t *testing.T, tw twin) twinWorld {
 		Transfers: transfers.New(transfers.ControllerConfig{Library: lib}),
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: discard[grabs.Changed]{}, SearchChanged: discard[grabs.SearchChanged]{}, FilesChanged: discard[files.Changed]{},
+		BlocklistChanged: discard[grabs.BlocklistChanged]{},
 		Log: slog.New(slog.DiscardHandler),
 	})
 	return world

@@ -108,9 +108,14 @@ func (gr *Grabs) Unblock(ctx context.Context, _ identity.Admin, hashes []bencode
 	for i := range hashes {
 		keys[i] = hashes[i][:]
 	}
-	return gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		return db.New(tx).DeleteBlocked(ctx, keys)
 	})
+	if err != nil {
+		return err
+	}
+	gr.cfg.BlocklistChanged.Publish(ctx, BlocklistChanged{})
+	return nil
 }
 
 func entryOf(row db.GrabsBlocklist) BlockEntry {

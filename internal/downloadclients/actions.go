@@ -107,8 +107,12 @@ const (
 	RefusedRemoved RefusalCode = "removed"
 	// RefusedImporting is a Torrent a Grab is importing from.
 	RefusedImporting RefusalCode = "importing"
-	// RefusedNotStalled is mark-failed on a Torrent that isn't stalled.
-	RefusedNotStalled RefusalCode = "not_stalled"
+	// RefusedNotHeld is mark-failed on a Torrent no Grab at downloading
+	// holds.
+	RefusedNotHeld RefusalCode = "not_held"
+	// RefusedReconciling is mark-failed while a restored Controller is
+	// Reconciling, which removes no torrent.
+	RefusedReconciling RefusalCode = "reconciling"
 	// RefusedOffline is announce or recheck on a Torrent whose Node is out
 	// of step.
 	RefusedOffline RefusalCode = "offline"
@@ -129,6 +133,12 @@ const (
 	// failed before it completed, or that an external client holds.
 	RefusedNotRetryable RefusalCode = "not_retryable"
 )
+
+// RefusalCodes is every RefusalCode.
+var RefusalCodes = []RefusalCode{
+	RefusedNotFound, RefusedRemoved, RefusedImporting, RefusedNotHeld, RefusedReconciling, RefusedOffline, RefusedClientAway,
+	RefusedClientOff, RefusedWindow, RefusedNotRunning, RefusedFailed, RefusedNotRetryable,
+}
 
 type Refusal struct {
 	Code RefusalCode
@@ -437,7 +447,7 @@ func removable(row db.ListActedRow, uses []Use, reason RemoveReason) (*Refusal, 
 		return nil, fmt.Errorf("torrent %s: %w", row.ID, err)
 	}
 	if StateOf(Facts{Wanted: Wanted(row.Wanted), Report: rep}) != StateStalled {
-		return &Refusal{Code: RefusedNotStalled}, nil
+		return &Refusal{Code: RefusedNotHeld}, nil
 	}
 	return nil, nil
 }

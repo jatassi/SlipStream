@@ -10,7 +10,12 @@ import { failedKey, failedWords, mergedFailures, upgradeWords } from "./need-wor
 const failed: FailedGrab = {
   ...imported,
   stage: "failed",
-  failure: { stage: "importing", code: "import_failed", message: "permission denied" },
+  failure: {
+    stage: "importing",
+    code: "import_failed",
+    message: "permission denied",
+    needsYou: true,
+  },
 };
 
 const names: Record<string, string> = { uhd: "2160p HDR", hd: "1080p", sd: "720p" };

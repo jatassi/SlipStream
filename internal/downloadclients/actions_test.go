@@ -426,7 +426,7 @@ func TestMarkFailedRemovesOnlyAStalledDownloadWithItsFiles(t *testing.T) {
 	c, _ := newClients(s.lib, &roster{}, nil, nil)
 
 	results, _ := act(t, c, dc.Action{Kind: dc.MarkFailed, IDs: []dc.ID{s.orchard, s.attic}})
-	if got := refusals(results); got[0] != nil || got[1] == nil || got[1].Code != dc.RefusedNotStalled {
+	if got := refusals(results); got[0] != nil || got[1] == nil || got[1].Code != dc.RefusedNotHeld {
 		t.Fatalf("marking failed answered %+v, want the stalled one done and the other refused", got)
 	}
 	if got := outcomeOf(t, s.lib, s.orchard).Outcome; got != (dc.Gone{Reason: dc.ByMarkFailed}) {

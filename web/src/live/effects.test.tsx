@@ -4,8 +4,11 @@ import { expect, test } from "vitest";
 import { getGetWorkCellsQueryKey } from "../api/gen/query/files/files";
 import {
   getGetGrabQueryKey,
+  getGetManualSearchQueryKey,
+  getListBlocklistQueryKey,
   getListGrabsQueryKey,
   getListIndexerGrabsQueryKey,
+  getListManualSearchReleasesQueryKey,
   getListSearchesQueryKey,
 } from "../api/gen/query/grabs/grabs";
 import {
@@ -132,9 +135,54 @@ test("grabs.search-changed invalidates only that Work's searches", async () => {
 
   server.clients[0]?.send({
     event: "grabs.search-changed",
-    data: { searchId: grab, workId: orchard },
+    data: { searchId: grab, workId: orchard, manualSearchId: null },
   });
   await expect.poll(invalidated).toEqual({ orchard: true, harvest: false });
+});
+
+test("grabs.search-changed for a Manual search invalidates that Work's Manual search, not its searches", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/nodes", handlers: server.handlers });
+  await synced(app);
+  const invalidated = seeded(app, {
+    searches: getListSearchesQueryKey(orchard),
+    plan: getGetManualSearchQueryKey(orchard),
+    pinned: getGetManualSearchQueryKey(orchard, { pins: ["a"] }),
+    releases: getListManualSearchReleasesQueryKey(orchard),
+    other: getGetManualSearchQueryKey(harvest),
+  });
+
+  server.clients[0]?.send({
+    event: "grabs.search-changed",
+    data: { searchId: grab, workId: orchard, manualSearchId: otherGrab },
+  });
+  await expect.poll(invalidated).toEqual({
+    searches: false,
+    plan: true,
+    pinned: true,
+    releases: true,
+    other: false,
+  });
+});
+
+test("grabs.blocklist-changed invalidates the Blocklist and every Manual search", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/nodes", handlers: server.handlers });
+  await synced(app);
+  const invalidated = seeded(app, {
+    blocklist: getListBlocklistQueryKey({ offset: 50 }),
+    orchard: getGetManualSearchQueryKey(orchard, { pins: ["a"] }),
+    harvest: getListManualSearchReleasesQueryKey(harvest),
+    grabs: getListGrabsQueryKey(),
+  });
+
+  server.clients[0]?.send({ event: "grabs.blocklist-changed", data: {} });
+  await expect.poll(invalidated).toEqual({
+    blocklist: true,
+    orchard: true,
+    harvest: true,
+    grabs: false,
+  });
 });
 
 test("identity.passkeys-changed invalidates your passkey list", async () => {
