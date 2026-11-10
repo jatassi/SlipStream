@@ -248,21 +248,22 @@ func AddWork(ctx context.Context, c *http.Client, baseURL, apiKey, contentType, 
 
 // NewIndexer is an Indexer as an Admin adds it.
 type NewIndexer struct {
-	Kind          string            `json:"kind"`
-	Name          string            `json:"name"`
-	HomeNodeID    string            `json:"homeNodeId,omitempty"`
-	Definition    string            `json:"definition,omitempty"`
-	Port          string            `json:"port,omitempty"`
-	BaseAddress   string            `json:"baseAddress,omitempty"`
-	Values        map[string]string `json:"values,omitempty"`
-	Address       string            `json:"address,omitempty"`
-	APIKey        string            `json:"apiKey,omitempty"`
-	TrackerName   string            `json:"trackerName,omitempty"`
-	Media         []string          `json:"media,omitempty"`
-	Cookie        *PastedCookie     `json:"cookie,omitempty"`
-	AllowFailover bool              `json:"allowFailover,omitempty"`
-	Captcha       *CaptchaAnswer    `json:"captcha,omitempty"`
-	Priority      int               `json:"priority,omitempty"`
+	Kind            string            `json:"kind"`
+	Name            string            `json:"name"`
+	HomeNodeID      string            `json:"homeNodeId,omitempty"`
+	Definition      string            `json:"definition,omitempty"`
+	Port            string            `json:"port,omitempty"`
+	BaseAddress     string            `json:"baseAddress,omitempty"`
+	Values          map[string]string `json:"values,omitempty"`
+	Address         string            `json:"address,omitempty"`
+	APIKey          string            `json:"apiKey,omitempty"`
+	TrackerName     string            `json:"trackerName,omitempty"`
+	Media           []string          `json:"media,omitempty"`
+	Cookie          *PastedCookie     `json:"cookie,omitempty"`
+	AllowFailover   bool              `json:"allowFailover,omitempty"`
+	AutomaticSearch *bool             `json:"automaticSearch,omitempty"`
+	Captcha         *CaptchaAnswer    `json:"captcha,omitempty"`
+	Priority        int               `json:"priority,omitempty"`
 }
 
 type PastedCookie struct {
@@ -285,15 +286,6 @@ func CreateIndexer(ctx context.Context, c *http.Client, baseURL, apiKey string, 
 		header: apiKeyHeader(apiKey), body: ix, want: http.StatusCreated,
 	}, &indexer)
 	return indexer.ID, err
-}
-
-// SetAutomaticSearch turns Indexer id's automatic search on or off, as
-// its row's switch does.
-func SetAutomaticSearch(ctx context.Context, c *http.Client, baseURL, apiKey, id string, on bool) error {
-	return call(ctx, c, request{
-		what: "set Indexer " + id + "'s automatic search", method: http.MethodPatch, url: baseURL + "/api/v1/indexers/" + id,
-		header: apiKeyHeader(apiKey), body: map[string]bool{"automaticSearch": on}, want: http.StatusOK,
-	}, nil)
 }
 
 // IndexerCaptcha loads the captcha of ix's sign-in and returns its attempt

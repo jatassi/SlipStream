@@ -46,4 +46,6 @@ Naming is the one exception. Each Content Type's rename switch, templates, colon
 
 A setting the Controller stores for each Node, such as where that Node's Grabs go, stays in its feature's section on that Node's card. "New Grabs go to" sits on each downloading Node's card in Download Clients, beside that Node's external clients. A setting of one record stays on that record's sheet. Check every and Import delay belong to one external Download Client, so they sit under Details on its sheet.
 
+"Wait for each Indexer up to" sits in Indexers under its own "Searching" heading, above the "Warnings" heading that holds how long an Indexer may fail before Health warns. When S34 (Automatic search, Backlog search and RSS sync) adds the Automatic search section, the wait may move there, since it applies to every search.
+
 A setting can show in more than one place when an Admin would look for it there, such as a task's frequency on the Tasks page and in its feature's section. It still has one stored value.

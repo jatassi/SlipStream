@@ -34,7 +34,8 @@ type Timings struct {
 	Floor time.Duration `yaml:"floor"`
 	// Hold is the longest a Run call waits before it answers Running.
 	Hold time.Duration `yaml:"hold"`
-	// JobCap is the longest a job runs on the Node.
+	// JobCap is the longest a job runs on the Node. It is longer than the
+	// longest search wait, so a search past its wait is late, never failing.
 	JobCap time.Duration `yaml:"job_cap"`
 	// Keep is how long a finished answer stays for a call whose answer was
 	// lost.
@@ -49,7 +50,7 @@ type Timings struct {
 func DefaultTimings() Timings {
 	return Timings{
 		Request: 30 * time.Second, Floor: 2 * time.Second, Hold: 20 * time.Second,
-		JobCap: 10 * time.Minute, Keep: 2 * time.Minute, Results: 1000, Relogins: 1,
+		JobCap: 11 * time.Minute, Keep: 2 * time.Minute, Results: 1000, Relogins: 1,
 	}
 }
 
