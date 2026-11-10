@@ -5,7 +5,7 @@ import type { GrabsGrabPick } from "../api/gen/model";
 import { useGrabFromManualSearch } from "../api/gen/query/grabs/grabs";
 import type { Results } from "./picks";
 
-/** A pick and where its result shows: a row key, or a Release's key in All Releases. */
+/** A pick and where its result shows: a row's pick, or a Release's key in All Releases. */
 export type Sent = { readonly key: string; readonly pick: GrabsGrabPick };
 
 /**

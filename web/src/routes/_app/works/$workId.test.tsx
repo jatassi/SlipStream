@@ -230,6 +230,11 @@ test("a failed Grab shows under Needs you with the cells it holds back and a way
 
   await userEvent.click(card.getByRole("button", { name: "Search again" }));
   await expect.poll(() => server.searched).toEqual([orchardId]);
+
+  await userEvent.click(card.getByRole("button", { name: "Details" }));
+  await expect
+    .element(page.getByRole("dialog", { name: "Grab of The Quiet Orchard" }))
+    .toBeVisible();
 });
 
 test("a Grab's time left and speed show only while its torrent downloads", async () => {

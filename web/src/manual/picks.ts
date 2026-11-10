@@ -26,7 +26,7 @@ export type Choices = {
   readonly sendAll: string;
 };
 
-/** The last grab's result for each row key, and for each Release grabbed from All Releases. */
+/** The last grab's result for each row's pick, and for each Release grabbed from All Releases. */
 export type Results = ReadonlyMap<string, GrabsPickResult>;
 
 export const noChoices: Choices = {
@@ -51,9 +51,16 @@ export type PickRow = GrabsPlanRow & { readonly pick: GrabsPlanPick };
 
 export const hasPick = (row: GrabsPlanRow): row is PickRow => row.pick !== null;
 
+/**
+ * Where a row's grab result is kept: its key with its Release. A grab
+ * changes the cells, so a later plan can offer the same row another
+ * Release, which shows no result and can be grabbed.
+ */
+export const resultKey = (row: PickRow): string => `${row.key}/${row.pick.release.id}`;
+
 /** A row the Grab button sends: ticked, with a pick, and not grabbed already. */
 export const sends = (choices: Choices, results: Results, row: GrabsPlanRow): row is PickRow =>
-  hasPick(row) && !choices.unticked.has(row.key) && !grabbed(results, row.key);
+  hasPick(row) && !choices.unticked.has(row.key) && !grabbed(results, resultKey(row));
 
 const liftable: Record<GrabsLiftKeyCode, true> = {
   wrong_title: true,

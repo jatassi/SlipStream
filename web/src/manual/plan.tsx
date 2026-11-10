@@ -23,6 +23,7 @@ import {
   hasPick,
   noChoices,
   pickOf,
+  resultKey,
   sends,
   swap,
 } from "./picks";
@@ -74,7 +75,7 @@ function useActs(
   const clients = clientsOf(cards ?? []);
   const grabbing = useGrabbing(workId, search.id);
   const sent = (row: PickRow, cancelGrabId?: string) => ({
-    key: row.key,
+    key: resultKey(row),
     pick: pickOf(row.pick, bodyOf(clients, clientOf(choices, row.key)), cancelGrabId),
   });
   const acts: RowActs = {

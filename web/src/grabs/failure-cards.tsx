@@ -37,12 +37,15 @@ function useCardActions(grab: FailedGrab, form: "full" | "compact", onDetails: (
   return form === "full" ? [manual, details, openWork] : [manual, details];
 }
 
+/** `subject` heads the card; `work` names the Work in the Grab's Details and Cancel. */
 export function GrabFailure({
   grab,
+  subject,
   work,
   form,
 }: {
   grab: FailedGrab;
+  subject: string;
   work: string;
   form: "full" | "compact";
 }) {
@@ -58,7 +61,7 @@ export function GrabFailure({
         form={form}
         stage={trackStage[grab.failure.stage]}
         time={failedAt(grab)}
-        work={work}
+        work={subject}
         track={{ skipped: skippedStages }}
         facts={[
           { label: "Cause", value: cause },

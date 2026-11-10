@@ -64,6 +64,21 @@ test("after Grab each row says what its pick did, and a held cell offers to canc
   await expect.element(sheet.getByRole("button", { name: "Grab 0" })).toBeDisabled();
 });
 
+test("a grabbed row that a later plan fills with another Release shows no result and is ticked again", async () => {
+  const server = manualServer({ plan: twoGrabs });
+  openSheet(server);
+  const sheet = sheetNamed("Season 1 of The Long Shelf");
+  await userEvent.click(sheet.getByRole("button", { name: "Grab 2" }));
+  const second = sheet.getByRole("list", { name: "Grabs" }).getByRole("listitem").nth(1);
+  await expect.element(second.getByText("Grabbed.")).toBeVisible();
+
+  await userEvent.click(second.getByRole("button", { name: "Other choices" }));
+  await userEvent.click(second.getByRole("button", { name: "Use this" }));
+  await expect.element(sheet.getByRole("checkbox", { name: "WEBRip-1080p · RARBG" })).toBeChecked();
+  await expect.element(second.getByText("Grabbed.")).not.toBeInTheDocument();
+  await expect.element(sheet.getByRole("button", { name: "Grab 1" })).toBeEnabled();
+});
+
 const pickingBlocked = (row: GrabsPlanRow): GrabsPlanRow =>
   row.pick === null ? row : { ...row, pick: { ...row.pick, release: blocked, lifts: [] } };
 

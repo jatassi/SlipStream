@@ -5,7 +5,15 @@ import { Checkbox } from "../ui/checkbox";
 import { Details } from "../ui/details";
 import { Select } from "../ui/select";
 import { Lifts, ReleaseName, Result } from "./parts";
-import { type Choices, type PickRow, type Results, clientOf, grabbed, routed } from "./picks";
+import {
+  type Choices,
+  type PickRow,
+  type Results,
+  clientOf,
+  grabbed,
+  resultKey,
+  routed,
+} from "./picks";
 import { ReleaseDetails } from "./release-details";
 
 const meta = "text-meta text-ink-3 in-data-[density=touch]:text-body-touch";
@@ -88,8 +96,8 @@ function SendTo({
 /** A Grab of the plan: its tick, the Release in words, what it gets, what it gets past, and where it goes. */
 function Pick({ row, acts }: { row: PickRow; acts: RowActs }) {
   const { pick } = row;
-  const result = acts.results.get(row.key);
-  const done = grabbed(acts.results, row.key);
+  const result = acts.results.get(resultKey(row));
+  const done = grabbed(acts.results, resultKey(row));
   const client = clientOf(acts.choices, row.key);
   const chosen = acts.clients.find(({ key }) => key === client);
   return (
@@ -126,7 +134,10 @@ function Pick({ row, acts }: { row: PickRow; acts: RowActs }) {
         <Details>
           <div className="flex flex-col gap-3">
             <ReleaseDetails release={pick.release} />
-            <SendTo row={row} routedWords={pick.routed} acts={acts} />
+            {/* A client's long name truncates in the row's width rather than widening the row. */}
+            <div className="contain-inline-size">
+              <SendTo row={row} routedWords={pick.routed} acts={acts} />
+            </div>
           </div>
         </Details>
       </div>
