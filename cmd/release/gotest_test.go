@@ -74,6 +74,16 @@ func TestPartitionPacksLongestFirst(t *testing.T) {
 	}
 }
 
+// go test starts a shard's packages in the order it lists them, so a long
+// package listed last starts only when the others free the CPUs.
+func TestPartitionListsAShardsPackagesLongestFirst(t *testing.T) {
+	past := timings{Packages: map[string]packageTimings{"a": {Seconds: 1}, "m": {Seconds: 5}, "z": {Seconds: 10}}}
+	shards := partition(packages("a", "m", "z"), past, 1, true)
+	if got, want := shards[0][0].packages, []string{"z", "m", "a"}; !slices.Equal(got, want) {
+		t.Errorf("shard lists %q, want %q", got, want)
+	}
+}
+
 func TestPartitionWeighsUnseenPackagesAsTheMean(t *testing.T) {
 	past := timings{Packages: map[string]packageTimings{"a": {Seconds: 9}, "b": {Seconds: 3}}}
 	shards := partition(packages("a", "b", "new"), past, 2, true)
