@@ -340,3 +340,25 @@ func TestACellAGrabFetchesReadsItsReleaseInWords(t *testing.T) {
 		}
 	})
 }
+
+// TestAReleaseOnlyAHeldCellTakesFoldsAsHeld grabs the plan's row and reads
+// the Manual search again: both Releases, which only the cell the Grab
+// holds would take, fold as that, with no file there to be better than.
+func TestAReleaseOnlyAHeldCellTakesFoldsAsHeld(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		a := newTwinWorld(t, twin{sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{
+			listing(bluRay, 9, "a"), listing(webDL, 9, "b"),
+		}}}})
+		v := a.searchedByHand(t)
+		made(t, a.grabbed(t, v, rowPick(t, v))[0])
+
+		after, err := a.g.ManualSearch(t.Context(), identity.Admin{}, a.work, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := []grabs.FoldGroup{{Words: "2 would fill cells a Grab is already downloading."}}
+		if !slices.Equal(after.Folded.Groups, want) {
+			t.Fatalf("the folded groups read %+v, want %+v", after.Folded.Groups, want)
+		}
+	})
+}
