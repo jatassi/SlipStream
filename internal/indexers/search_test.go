@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -29,40 +28,13 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// scripted is a Node that answers each job at once: with its Indexer's
-// answer, else no Releases.
-type scripted struct {
-	mu      sync.Mutex
-	answers map[string]searching.Answer
-	jobs    []searching.Job
-}
-
-func (*scripted) ReachSolver(context.Context, searching.Solver) (int, error) {
-	return 0, errors.New("the scripted Node has no Challenge solver")
-}
-
-func (n *scripted) Run(_ context.Context, j searching.Job) (searching.Poll, error) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.jobs = append(n.jobs, j)
-	a := n.answers[j.Indexer]
-	a.Started = time.Now()
-	return searching.Poll{Started: a.Started, Answer: &a}, nil
-}
-
-func (n *scripted) answer(id indexers.ID, a searching.Answer) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.answers[id.String()] = a
-}
-
 // planned is Indexers with saved Torznab Indexers by name, all homed on
 // home and answered by node.
 type planned struct {
 	t    *testing.T
 	lib  *storage.DB[storage.Library]
 	x    *indexers.Indexers
-	node *scripted
+	node *indexerstest.Node
 	ids  map[string]indexers.ID
 	// repointed is each merge's from and into, as the Repoints saw them.
 	repointed [][2]indexers.TrackerID
@@ -80,7 +52,7 @@ func plannedIn(t *testing.T, roster indexerstest.Roster, home role.NodeID, names
 	t.Helper()
 	sealer := secrettest.Sealer(t)
 	lib := storagetest.Library(t, secret.Schema(), nodes.Schema(), works.Schema(), indexers.Schema())
-	p := &planned{t: t, lib: lib, node: &scripted{answers: map[string]searching.Answer{}}, ids: map[string]indexers.ID{}}
+	p := &planned{t: t, lib: lib, node: &indexerstest.Node{}, ids: map[string]indexers.ID{}}
 	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		for _, n := range roster.Holders {
 			if err := nodestest.Insert(ctx, tx, n, roster.Name(n)); err != nil {
@@ -179,8 +151,8 @@ func TestPlanAsksEachIndexerByPriorityAndSaysWhyItSkipsOne(t *testing.T) {
 	p.edit("Dune", indexers.Edit{AutoSearch: &off})
 	p.edit("Elm", indexers.Edit{Categories: &tvOnly})
 	p.edit("Fir", indexers.Edit{Searches: &indexers.Limit{Count: 1, Per: indexers.Hour}})
-	p.node.answer(p.ids["Birch"], searching.Answer{Releases: []searching.Release{{Title: "Orchard.1080p"}}})
-	p.node.answer(p.ids["Gale"], searching.Answer{Outcome: &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}})
+	p.node.Answer(p.ids["Birch"], 0, searching.Answer{Releases: []searching.Release{{Title: "Orchard.1080p"}}})
+	p.node.Answer(p.ids["Gale"], 0, searching.Answer{Outcome: &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}})
 
 	first := p.plan()
 	if got, want := spelled(first), []string{"Birch asked", "Elm no_categories", "Fir asked", "Gale asked", "Alder asked"}; !slices.Equal(got, want) {
@@ -193,7 +165,7 @@ func TestPlanAsksEachIndexerByPriorityAndSaysWhyItSkipsOne(t *testing.T) {
 	if want := []string{"found 1", "no_releases 0", "stopped 0", "no_releases 0"}; !slices.Equal(answered, want) {
 		t.Fatalf("the answers = %q, want %q", answered, want)
 	}
-	for _, j := range p.node.jobs {
+	for _, j := range p.node.Jobs() {
 		if !slices.Equal(j.Categories, []int{2000}) {
 			t.Fatalf("Indexer %s was asked for categories %v, want the categories it has in family 2000, [2000]", j.Indexer, j.Categories)
 		}
@@ -251,7 +223,7 @@ func TestTakeReservesAGrabUnlessTheFetchWouldWaitForTheAdmin(t *testing.T) {
 	if _, err := p.take("Alder", torrent); !notTaken(err, indexers.LimitReached) {
 		t.Fatalf("taking a second .torrent past a grab limit of one an hour = %v, want limit_reached", err)
 	}
-	p.node.answer(p.ids["Birch"], searching.Answer{Outcome: &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}})
+	p.node.Answer(p.ids["Birch"], 0, searching.Answer{Outcome: &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}})
 	p.search(p.plan())
 	if _, err := p.take("Birch", torrent); !notTaken(err, indexers.IsStopped) {
 		t.Fatalf("taking a stopped Indexer's .torrent = %v, want stopped", err)
@@ -276,12 +248,12 @@ func TestAFetchDropsOnceItsIndexerStopsAndWaitsWhileItFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw := "d4:infod4:name1:aee"
-	p.node.answer(p.ids["Alder"], searching.Answer{Got: searching.Torrent{Raw: []byte(raw)}})
+	p.node.Answer(p.ids["Alder"], 0, searching.Answer{Got: searching.Torrent{Raw: []byte(raw)}})
 	if got, err := p.x.Fetch(t.Context(), tk, link); err != nil || !reflect.DeepEqual(got, indexers.Torrent{Raw: []byte(raw), Node: self}) {
 		t.Fatalf("Fetch = %+v, %v; want the .torrent fetched on home", got, err)
 	}
 
-	p.node.answer(p.ids["Alder"], searching.Answer{Outcome: &searching.Failing{Err: errors.New("the Indexer responded with status 500")}})
+	p.node.Answer(p.ids["Alder"], 0, searching.Answer{Outcome: &searching.Failing{Err: errors.New("the Indexer responded with status 500")}})
 	_, err = p.x.Fetch(t.Context(), tk, link)
 	if wait, ok := errors.AsType[*indexers.WaitError](err); !ok || wait.Outcome.Kind != indexers.IsFailing || wait.Outcome.Until.IsZero() {
 		t.Fatalf("a failing fetch = %v, want a wait until its retry", err)
@@ -291,7 +263,7 @@ func TestAFetchDropsOnceItsIndexerStopsAndWaitsWhileItFails(t *testing.T) {
 		t.Fatalf("FetchWaits = %+v, %v; want %q and its time", waits, err, want)
 	}
 
-	p.node.answer(p.ids["Birch"], searching.Answer{Outcome: &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}})
+	p.node.Answer(p.ids["Birch"], 0, searching.Answer{Outcome: &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}})
 	if _, err := p.x.Fetch(t.Context(), birch, link); !isDrop(err, indexers.DropStopped) {
 		t.Fatalf("a fetch the site refused = %v, want a drop", err)
 	}
@@ -318,7 +290,7 @@ func TestAStopMetOnAFailoverNodeWaitsForHome(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p.node.answer(p.ids["Alder"], searching.Answer{Outcome: &searching.Stopped{Cause: searching.ChallengeUnsolved}})
+	p.node.Answer(p.ids["Alder"], 0, searching.Answer{Outcome: &searching.Stopped{Cause: searching.ChallengeUnsolved}})
 	answers := p.search(p.plan())
 	if len(answers) != 1 || answers[0].Outcome != (indexers.Outcome{Kind: indexers.Waiting, Node: box}) {
 		t.Fatalf("a search whose failover Node met a challenge = %+v, want Alder waiting for seedbox", answers)
@@ -409,19 +381,6 @@ func TestPlanNeverAsksAnRSSFeed(t *testing.T) {
 	}
 }
 
-// sent is the query of each search job the Node ran.
-func (n *scripted) sent() []searching.Query {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	var out []searching.Query
-	for _, j := range n.jobs {
-		if c, ok := j.Call.(searching.SearchCall); ok {
-			out = append(out, c.Query)
-		}
-	}
-	return out
-}
-
 // searchEpisode searches Alder, whose caps are caps, for the episode at
 // season and episode of TVDB series 1001.
 func searchEpisode(t *testing.T, caps string, season int, episode string) searching.Query {
@@ -440,7 +399,7 @@ func searchEpisode(t *testing.T, caps string, season int, episode string) search
 	if _, err := p.x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: terms, Asked: p.plan()}); err != nil {
 		t.Fatal(err)
 	}
-	sent := p.node.sent()
+	sent := p.node.Searches()
 	if len(sent) != 1 {
 		t.Fatalf("the Node ran %d searches, want 1", len(sent))
 	}
