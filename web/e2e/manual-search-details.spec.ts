@@ -78,6 +78,9 @@ test("a failed automatic Grab's Details open from its Needs you card", async ({
   await expect(record).toContainText(/Automatic search, .+\./u);
   await expect(record).toContainText("The.Lantern.Keepers.S02E10.1080p.WEB-DL.H264-NTb");
   await expect(record).toContainText("Failed");
+  await expect(record).toContainText("The .torrent file the Indexer sent is damaged.");
+  await expect(record).toContainText("The Indexer sent a .torrent file SlipStream can't read.");
+  await expect(record).not.toContainText("bencode");
   await expectAccessible(page);
   await frame(page, testInfo, "details-needs-you");
 });
