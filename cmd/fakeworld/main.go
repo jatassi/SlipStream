@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/scenario"
+	"github.com/jatassi/slipstream/fakes/world"
 )
 
 const usageText = `usage: fakeworld <command>
@@ -82,6 +83,10 @@ const usageText = `usage: fakeworld <command>
       exit differs from the one recorded; for a run a Go or browser test
       launched, run the test again against the binary and this fakeworld,
       keeping the test's runs in the replay dir
+  fixtures --binary <path>
+      encode every catalog Scenario's release payloads and library files
+      into this machine's fixture cache with the tools beside the binary,
+      so no launch encodes them inside its deadline
   setup-loopback [--remove]
       on macOS, alias 127.0.0.2 to 127.0.0.32 now and at every boot (needs root)`
 
@@ -128,6 +133,13 @@ var verbs = map[string]func(args []string) int{
 	"doctor":  doctor,
 	"summary": summary,
 	"replay":  replay,
+	"fixtures": func(args []string) int {
+		binary, err := parseFixtures(args)
+		if err != nil {
+			return usage(err)
+		}
+		return failed("fixtures", world.EncodeFixtures(context.Background(), binary))
+	},
 	"setup-loopback": func(args []string) int {
 		remove, err := parseSetupLoopback(args)
 		if err != nil {
@@ -273,6 +285,15 @@ func parseStop(args []string) (stopFlags, error) {
 	}
 	f.runDir = positional[0]
 	return f, positiveTimeout(fs, f.timeout)
+}
+
+func parseFixtures(args []string) (string, error) {
+	fs := newFlagSet("fixtures")
+	binary := fs.String("binary", "", "")
+	if err := noArguments(fs, args); err != nil {
+		return "", err
+	}
+	return *binary, required(fs, "binary")
 }
 
 func parseSetupLoopback(args []string) (bool, error) {
