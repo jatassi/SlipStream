@@ -32,12 +32,15 @@ type Ask struct {
 }
 
 // PinnedError is a pinned client that can't take a Grab now: it is off or
-// deleted, or its Node doesn't hold Downloading. Name is the client in
-// words, such as "qBittorrent on Den".
+// deleted, or its Node doesn't hold Downloading. It is Node's built-in
+// client when Client is nil. Name is the client in words, such as
+// "qBittorrent on Den".
 type PinnedError struct {
-	Sent  Choice
-	Name  string
-	Cause error
+	Sent   Choice
+	Node   role.NodeID
+	Client *ClientRef
+	Name   string
+	Cause  error
 }
 
 func (e *PinnedError) Error() string { return e.Name + " can't take the Grab: " + e.Cause.Error() }
@@ -107,15 +110,15 @@ func pinned(ctx context.Context, r storage.Reader[file], c Choice, cause error) 
 	if err != nil {
 		return err
 	}
-	name := names[c.BuiltInOn] + "'s built-in client"
+	e := &PinnedError{Sent: c, Node: c.BuiltInOn, Name: names[c.BuiltInOn] + "'s built-in client", Cause: cause}
 	if c.Client != nil {
 		row, err := db.New(r).GetClientNamed(ctx, *c.Client)
 		if err != nil {
 			return err
 		}
-		name = row.Name + " on " + names[row.NodeID]
+		e.Node, e.Client, e.Name = row.NodeID, refOf(c.Client, row.Kind, row.Name), row.Name+" on "+names[row.NodeID]
 	}
-	return &PinnedError{Sent: c, Name: name, Cause: cause}
+	return e
 }
 
 // downloading reports whether node may take a Grab's download now: it
