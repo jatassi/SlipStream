@@ -433,8 +433,8 @@ func (s sheet) override(rs runSheet, g, k int, st stance) *EditionOverride {
 	if st.edition == "" {
 		return nil
 	}
-	return &EditionOverride{Edition: st.edition, Words: "Its name gives the " + s.cutName(rs.js[g].verdicts[k].cut) + " Edition, which the Work doesn't want. " +
-		"It's grabbed as the " + s.cutName(release.CutKey(st.edition)) + " Edition."}
+	return &EditionOverride{Edition: st.edition, Words: "Its name gives the " + editionWords(s.cutName(rs.js[g].verdicts[k].cut)) + ", which the Work doesn't want. " +
+		"It's grabbed as the " + editionWords(s.cutName(release.CutKey(st.edition))) + "."}
 }
 
 // cutName is the name of the cut keyed k.

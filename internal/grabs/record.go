@@ -97,7 +97,8 @@ func (g Grab) overrideWords() []string {
 		out = append(out, said(name+" grabbed it although "+why+".", "It was grabbed through the API key although "+why+"."))
 	}
 	if e := o.Edition; e != "" {
-		out = append(out, said(name+" grabbed it as the "+e+" Edition.", "It was grabbed through the API key as the "+e+" Edition."))
+		e = editionWords(e)
+		out = append(out, said(name+" grabbed it as the "+e+".", "It was grabbed through the API key as the "+e+"."))
 	}
 	if c := o.Client; c != nil {
 		s := said(name+" sent it to "+c.Sent+".", "It was sent to "+c.Sent+" through the API key.")
@@ -138,4 +139,13 @@ func clientWords(ctx context.Context, r storage.Reader[file], t downloadclients.
 		return "", err
 	}
 	return e.Name + " on " + node, nil
+}
+
+// editionWords names a cut as an Edition, once: "Extended" reads "Extended
+// Edition" and "Special Edition" stays as it is.
+func editionWords(cut string) string {
+	if strings.HasSuffix(cut, "Edition") {
+		return cut
+	}
+	return cut + " Edition"
 }
