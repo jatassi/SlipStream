@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -327,12 +328,13 @@ func (rs runSheet) livePins() []Pin {
 	return out
 }
 
-// heldIn is each cell of rs in scope that an unfinished Grab holds.
+// heldIn is each cell of rs in scope that an unfinished Grab holds, in
+// Want order.
 func (s sheet) heldIn(rs runSheet) []HeldCell {
 	var out []HeldCell
-	for k, g := range rs.held {
+	for _, k := range slices.Sorted(maps.Keys(rs.held)) {
 		if s.in.cell == nil || *s.in.cell == keyOf(rs.item[k]) {
-			out = append(out, s.heldCell(rs.item[k], g))
+			out = append(out, s.heldCell(rs.item[k], rs.held[k]))
 		}
 	}
 	return out
