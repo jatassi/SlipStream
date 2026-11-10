@@ -30,6 +30,7 @@ const Manual = z.object({
         pick: z
           .object({
             release: z.object({ id: z.string(), title: z.string() }),
+            cells: z.array(z.string()),
             lifts: z.array(z.object({ code: z.string(), targetId: z.string().optional() })),
           })
           .nullable(),
@@ -111,6 +112,15 @@ export async function manualSearched(world: World, work: string) {
   return search;
 }
 
+type PlanPick = NonNullable<z.infer<typeof Manual>["plan"]["rows"][number]["pick"]>;
+
+/** The grab body's pick for a plan row's pick, naming the cells and lifts the row showed. */
+export const planPick = (pick: PlanPick) => ({
+  releaseId: pick.release.id,
+  cells: pick.cells,
+  lifts: pick.lifts.map(({ code, targetId }) => ({ code, targetId })),
+});
+
 /**
  * Grabs the plan's pick of that Release through the API while the fake
  * seeders stall, so the Grab holds at downloading until the seeders are freed.
@@ -124,12 +134,7 @@ export async function downloading(world: World, work: string, title: string): Pr
   await world.fw.fault.set({ id: "swarm-stalled", target: "seeders", fault: "stall" });
   const grabbed = await world.api("POST", `/api/v1/works/${work}/manual-search/grabs`, {
     manualSearchId: search.id,
-    picks: [
-      {
-        releaseId: pick.release.id,
-        lifts: pick.lifts.map(({ code, targetId }) => ({ code, targetId })),
-      },
-    ],
+    picks: [planPick(pick)],
   });
   const grabId = grabIdOf(grabbed.body);
   if (grabId === null) {

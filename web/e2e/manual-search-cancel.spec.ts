@@ -8,6 +8,7 @@ import {
   openBlocklist,
   openGrabDetails,
   orchard,
+  planPick,
   workId,
 } from "./manual-search.ts";
 
@@ -75,7 +76,7 @@ test("a fetching Grab cancels from its Details without blocklisting, and its cel
   });
   const grabbed = await world.api("POST", `/api/v1/works/${movie}/manual-search/grabs`, {
     manualSearchId: search.id,
-    picks: [{ releaseId: pick.release.id, lifts: [] }],
+    picks: [planPick(pick)],
   });
   expect(grabbed.status, "the grab is taken").toBe(200);
 
