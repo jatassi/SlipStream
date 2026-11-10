@@ -73,8 +73,7 @@ func plan(in planIn) ([]planned, map[int]int, error) {
 				continue
 			}
 		}
-		left := cells{open: in.left(taken)}
-		p, _, ok, err := choose(decide(left, in.as).picks(left), nil, in.take)
+		p, ok, err := in.next(taken)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -94,15 +93,23 @@ func plan(in planIn) ([]planned, map[int]int, error) {
 	return out, live, nil
 }
 
-// left is the walk's cells no row fills yet.
-func (in planIn) left(taken []bool) []files.Cell {
-	var out []files.Cell
+// next is what decide and choose pick over the walk's cells no row
+// fills yet. It narrows in.js to those cells rather than judging again,
+// which gives the same verdicts.
+func (in planIn) next(taken []bool) (Pick, bool, error) {
+	var ks []int
+	var left cells
 	for _, w := range in.walk {
 		if !taken[w] {
-			out = append(out, in.item[w])
+			ks, left.open = append(ks, w), append(left.open, in.item[w])
 		}
 	}
-	return out
+	js := make([]judged, len(in.js))
+	for g, j := range in.js {
+		js[g] = j.only(ks)
+	}
+	p, _, ok, err := choose(decided(left, js).picks(left), nil, in.take)
+	return p, ok, err
 }
 
 // offer is the offer of as[g], or of a copy, that choose takes for cell

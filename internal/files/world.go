@@ -371,7 +371,8 @@ func (s *scoring) score(t targets.Target, f File) int {
 	if n, ok := s.known[f.ID][t.ID]; ok {
 		return n
 	}
-	return t.Score(s.of(f))
+	scored := s.of(f)
+	return t.Score(&scored)
 }
 
 // compare orders a and b at t by its steps, +1 when a is better. They are
@@ -382,7 +383,7 @@ func (s *scoring) compare(t targets.Target, a, b File) int {
 		if step == targets.ByScore {
 			return cmp.Compare(s.score(t, a), s.score(t, b))
 		}
-		if c := t.CompareBy(step, sa, sb); c != 0 {
+		if c := t.CompareBy(step, &sa, &sb); c != 0 {
 			return c
 		}
 	}

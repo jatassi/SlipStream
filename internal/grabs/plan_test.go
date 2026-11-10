@@ -326,8 +326,8 @@ func walkingAll(g generated) planIn {
 	for k := range in.item {
 		in.walk, in.fill[k] = append(in.walk, k), true
 	}
-	for _, a := range g.as {
-		j := judge(cells{open: in.item}, a)
+	for i := range g.as {
+		j := judge(cells{open: in.item}, &g.as[i])
 		in.js, in.st = append(in.js, j), append(in.st, stances(in.item, j))
 	}
 	return in

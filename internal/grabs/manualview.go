@@ -559,24 +559,24 @@ func judgeRun(rs *runSheet, in manualIn) {
 	j.searched = rs.run.ItemID
 	heard := in.heard[rs.run.ID]
 	rs.heard = make(map[int]string, len(heard))
-	byAt := make(map[int]heardRelease, len(heard))
+	byAt := make(map[int]int, len(heard))
 	ls := make([]listed, len(heard))
 	for i, h := range heard {
 		ls[i] = h.listed
 		rs.heard[h.listed.at] = h.indexer
-		byAt[h.listed.at] = h
+		byAt[h.listed.at] = i
 	}
 	kept := dedupe(ls)
 	as := make([]assessed, len(kept))
 	for i, l := range kept {
-		h := byAt[l.at]
+		h := &heard[byAt[l.at]]
 		as[i] = assessStored(j, l, h.read, h.matched)
 	}
 	rs.as = in.blocks.gate(as)
 	all := cells{open: rs.item}
 	rs.js, rs.st = make([]judged, len(rs.as)), make([][]stance, len(rs.as))
-	for g, a := range rs.as {
-		rs.js[g] = judge(all, a)
+	for g := range rs.as {
+		rs.js[g] = judge(all, &rs.as[g])
 		rs.st[g] = stances(rs.item, rs.js[g])
 	}
 }

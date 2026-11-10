@@ -342,7 +342,7 @@ func (t Target) Final(r Rank, score int) bool {
 
 // Score is s's score at t: the sum of t's scores for the formats s
 // matches.
-func (t Target) Score(s Scored) int {
+func (t Target) Score(s *Scored) int {
 	sum := 0
 	for _, id := range s.Formats {
 		sum += t.Scores.Formats[id]

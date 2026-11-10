@@ -121,11 +121,11 @@ type titleSize struct {
 type cells struct{ open, filled []files.Cell }
 
 // at is cell i, counting open then filled.
-func (c cells) at(i int) files.Cell {
+func (c cells) at(i int) *files.Cell {
 	if i < len(c.open) {
-		return c.open[i]
+		return &c.open[i]
 	}
-	return c.filled[i-len(c.open)]
+	return &c.filled[i-len(c.open)]
 }
 
 // properRule is Judge's upgrade rule for the same Quality at a higher
@@ -160,7 +160,7 @@ func (v verdict) reasons() []Reason {
 // judged is an assessed Release and its verdict at each cell it was
 // judged at. first is the first of them it is grabbable at, -1 for none.
 type judged struct {
-	assessed
+	*assessed
 	verdicts []verdict
 	first    int
 }
@@ -201,9 +201,17 @@ type Decision struct {
 // would fill, and at each filled cell of its cut only as a proper or
 // repack of the file. Ranked is in chain order.
 func decide(c cells, as []assessed) Decision {
+	js := make([]judged, len(as))
+	for i := range as {
+		js[i] = judge(c, &as[i])
+	}
+	return decided(c, js)
+}
+
+// decided is decide's answer over js, each judged at c's cells.
+func decided(c cells, js []judged) Decision {
 	var d Decision
-	for _, a := range as {
-		j := judge(c, a)
+	for _, j := range js {
 		if j.first < 0 {
 			d.Refused = append(d.Refused, j)
 		} else {
@@ -214,18 +222,18 @@ func decide(c cells, as []assessed) Decision {
 	return d
 }
 
-func judge(c cells, a assessed) judged {
+func judge(c cells, a *assessed) judged {
 	j := judged{assessed: a, first: -1}
 	if a.hard() {
 		return j
 	}
-	s, cut := a.scored(), a.read.Facts.Cut
+	cut := a.read.Facts.Cut
 	at := func(i int, cell files.Cell) verdict {
 		var held *targets.Held
 		if cell.File != nil {
 			held = &targets.Held{Facts: cell.File.Facts(), Score: cell.Score}
 		}
-		return verdict{cell: i, target: cell.Target.ID, cut: cut, wanted: cell.Edition.Takes(cut), v: targets.Judge(cell.Target, s, held)}
+		return verdict{cell: i, target: cell.Target.ID, cut: cut, wanted: cell.Edition.Takes(cut), v: targets.Judge(cell.Target, a.scored, held)}
 	}
 	for i, cell := range c.open {
 		j.verdicts = append(j.verdicts, at(i, cell))
@@ -236,10 +244,32 @@ func judge(c cells, a assessed) judged {
 			j.verdicts = append(j.verdicts, v)
 		}
 	}
-	if i := slices.IndexFunc(j.verdicts, verdict.grabbable); i >= 0 {
-		j.first = j.verdicts[i].cell
-	}
+	j.first = firstGrabbable(j.verdicts)
 	return j
+}
+
+// only is j, judged at open cells only, as judge judges it at the cells
+// ks names, in the order judged: its verdicts there, each cell counted by
+// its place in ks.
+func (j judged) only(ks []int) judged {
+	out := judged{assessed: j.assessed}
+	for _, v := range j.verdicts {
+		if i := slices.Index(ks, v.cell); i >= 0 {
+			v.cell = i
+			out.verdicts = append(out.verdicts, v)
+		}
+	}
+	out.first = firstGrabbable(out.verdicts)
+	return out
+}
+
+// firstGrabbable is the cell of the first of vs that is grabbable, -1 for
+// none.
+func firstGrabbable(vs []verdict) int {
+	if i := slices.IndexFunc(vs, verdict.grabbable); i >= 0 {
+		return vs[i].cell
+	}
+	return -1
 }
 
 // picks is d's Ranked an automatic search may take, which have no

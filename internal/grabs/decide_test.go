@@ -605,7 +605,7 @@ func TestDecideRanksByEachStepOfTheChainAndSaysWhereTheOtherLost(t *testing.T) {
 			t.Errorf("%s: decide ranked %d Releases, want 2 with the better one, listed second, first", c.name, len(d.Ranked))
 			continue
 		}
-		if got := lostAt(cs, &d.Ranked[0], &d.Ranked[1]); got == nil || *got != c.want {
+		if got := lostAt(cs, d.Ranked[0], d.Ranked[1]); got == nil || *got != c.want {
 			t.Errorf("%s: the worse Release lost at %+v, want %+v", c.name, got, c.want)
 		}
 	}

@@ -59,8 +59,10 @@ type row struct {
 func (j judged) offers() []judged {
 	out := []judged{j}
 	for _, c := range j.copies {
+		a := *j.assessed
+		a.Release, a.at = c.Release, c.at
 		o := j
-		o.Release, o.at = c.Release, c.at
+		o.assessed = &a
 		out = append(out, o)
 	}
 	return out
@@ -98,7 +100,7 @@ func outcomes(d Decision, c cells, taken int) []row {
 				r.outcome = ReleaseOutranked
 			}
 			if r.outcome == ReleaseKept || r.outcome == ReleaseOutranked {
-				r.loss = lostAt(c, ref, &o)
+				r.loss = lostAt(c, *ref, o)
 			}
 			rows = append(rows, r)
 		}

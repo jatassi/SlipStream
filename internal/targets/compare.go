@@ -26,12 +26,16 @@ func (t Target) Steps() []Step {
 }
 
 // CompareBy compares a and b at one step: +1 when a is better, -1 when b
-// is. A quality t doesn't accept ranks below every tier.
-func (t Target) CompareBy(s Step, a, b Scored) int {
+// is. A quality t doesn't accept ranks below every tier. A step t leaves
+// out of its order, revision under DontPrefer, ties.
+func (t Target) CompareBy(s Step, a, b *Scored) int {
 	switch s {
 	case ByTier:
 		return cmp.Compare(t.rankOf(b), t.rankOf(a))
 	case ByRevision:
+		if t.Propers == DontPrefer {
+			return 0
+		}
 		return a.Facts.Revision.Compare(b.Facts.Revision)
 	case ByScore:
 		return cmp.Compare(t.Score(a), t.Score(b))
@@ -41,7 +45,7 @@ func (t Target) CompareBy(s Step, a, b Scored) int {
 
 // Compare is the first of Steps that a and b differ on, and which is
 // better: +1 for a, -1 for b. Equal at every step is 0, 0.
-func (t Target) Compare(a, b Scored) (step Step, better int) {
+func (t Target) Compare(a, b *Scored) (step Step, better int) {
 	for _, s := range t.Steps() {
 		if c := t.CompareBy(s, a, b); c != 0 {
 			return s, c
@@ -52,7 +56,7 @@ func (t Target) Compare(a, b Scored) (step Step, better int) {
 
 // Value is a's value at s in words: its quality's name, its revision as
 // "v2", "REAL v1" or "v2 REPACK", or its score.
-func (t Target) Value(s Step, a Scored) string {
+func (t Target) Value(s Step, a *Scored) string {
 	switch s {
 	case ByTier:
 		q, _ := a.Facts.Quality.Get()
@@ -65,7 +69,7 @@ func (t Target) Value(s Step, a Scored) string {
 	panic(fmt.Sprintf("targets: no step %d", s))
 }
 
-func (t Target) rankOf(s Scored) Rank {
+func (t Target) rankOf(s *Scored) Rank {
 	if q, known := s.Facts.Quality.Get(); known {
 		if r, ok := t.RankOf(q); ok {
 			return r
