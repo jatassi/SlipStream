@@ -1,13 +1,11 @@
 import { type ReactNode, use } from "react";
 
 import type { GrabsReleaseDetails } from "../api/gen/model";
-import { agoWords, bytes, countWords } from "../format";
+import { agoWords, bytes } from "../format";
 import { lostAtSentence } from "../grabs/lost-at-sentence";
 import { Button } from "../ui/button";
 import { Data } from "../ui/data";
 import { ReadingContext } from "./reading";
-
-const seeders = { one: "seeder", many: "seeders" };
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -54,7 +52,7 @@ export function ReleaseDetails({ release }: { release: GrabsReleaseDetails }) {
           </Fact>
         )}
         <Fact label="Seeders">
-          <Data>{countWords(release.seeders, seeders)}</Data>
+          <Data>{release.seeders}</Data>
         </Fact>
       </dl>
       <Button
