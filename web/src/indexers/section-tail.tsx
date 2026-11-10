@@ -8,8 +8,9 @@ import { getListTasksSuspenseQueryOptions } from "../api/gen/query/tasks/tasks";
 import { ensureQuery, freshQuery } from "../api/query-client";
 import { CatalogSection } from "./catalog/catalog-section";
 import { LongBackoff } from "./long-backoff";
+import { Searching } from "./searching";
 
-/** What the catalog and warning blocks under the Indexers list read. */
+/** What the catalog, searching and warning blocks under the Indexers list read. */
 export async function loadSectionTail(queryClient: QueryClient): Promise<void> {
   await Promise.all([
     freshQuery(queryClient, getGetIndexerSettingsSuspenseQueryOptions()),
@@ -18,11 +19,12 @@ export async function loadSectionTail(queryClient: QueryClient): Promise<void> {
   ]);
 }
 
-/** The catalog and the long-backoff warning, under the Indexers list. */
+/** The catalog, the search wait and the long-backoff warning, under the Indexers list. */
 export function SectionTail() {
   return (
     <>
       <CatalogSection />
+      <Searching />
       <LongBackoff />
     </>
   );

@@ -172,6 +172,22 @@ export const searchingSeedbox: NodesNode = {
   roles: [{ role: "searching", state: "holding" }],
 };
 
+export const searchWait: SettingDurationField = {
+  source: "database",
+  applies: "live",
+  pendingRestart: false,
+  isDefault: true,
+  kind: "duration",
+  key: "indexers.searchWait",
+  label: "Wait for each Indexer up to",
+  value: 120,
+  running: 120,
+  default: 120,
+  min: 10,
+  max: 600,
+  step: 1,
+};
+
 export const longBackoff: SettingDurationField = {
   source: "database",
   applies: "live",
