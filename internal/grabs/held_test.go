@@ -7,6 +7,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // TestHeldCellsReadInWantOrder holds every cell of an Item and reads the
@@ -30,5 +31,30 @@ func TestHeldCellsReadInWantOrder(t *testing.T) {
 		if !slices.Equal(got, want) {
 			t.Fatalf("the held cells read as Grabs %v, want %v in the Item's cell order", got, want)
 		}
+	}
+}
+
+// TestASheetOfOneEpisodeIsTitledWithItsCode titles a sheet scoped to one
+// Item of a Work with levels by the Item's code, as the Work page leads an
+// episode with it, and names its Work once.
+func TestASheetOfOneEpisodeIsTitledWithItsCode(t *testing.T) {
+	season := works.Level{ID: works.LevelID{UUID: storage.NewUUID()}, Label: "Season 2"}
+	episode := works.Item{
+		ID: works.ItemID{UUID: storage.NewUUID()}, LevelID: season.ID,
+		Fields: []works.FieldValue{{Key: "code", Kind: works.KindText, Text: "S02E10"}},
+	}
+	other := works.Item{ID: works.ItemID{UUID: storage.NewUUID()}, LevelID: season.ID}
+	s := sheet{
+		in: manualIn{
+			tree: works.Tree{Summary: works.Summary{Label: "The Lantern Keepers"}, Levels: []works.Level{season}, Items: []works.Item{other, episode}},
+			nouns: works.Description{
+				Item: works.Noun{One: "Episode", Many: "Episodes"}, Items: works.ItemsMany,
+				Fields: []works.FieldSpec{{Key: "code", Tier: works.TierItem, Kind: works.KindText, In: []works.Place{works.PlaceCode}}},
+			},
+		},
+		runs: []runSheet{{run: Search{ItemID: episode.ID}}},
+	}
+	if got := s.title(); got != "S02E10 of The Lantern Keepers" {
+		t.Fatalf("the sheet is titled %q, want S02E10 of The Lantern Keepers", got)
 	}
 }
