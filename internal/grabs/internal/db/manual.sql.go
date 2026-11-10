@@ -19,7 +19,7 @@ import (
 const countKeptOfManual = `-- name: CountKeptOfManual :many
 SELECT grabs_release.search_id, count(*) AS kept FROM grabs_release JOIN grabs_search ON grabs_search.id = grabs_release.search_id
 WHERE grabs_search.manual_id = ?1 AND grabs_release.release IS NOT NULL
-GROUP BY grabs_release.search_id
+GROUP BY grabs_release.search_id ORDER BY grabs_release.search_id
 `
 
 type CountKeptOfManualRow struct {
@@ -27,7 +27,7 @@ type CountKeptOfManualRow struct {
 	Kept     int64
 }
 
-// Each run's count of kept Releases, which say whether the view's decoded
+// Each run's count of kept Releases, which says whether the view's decoded
 // copy of the run is current: a run's rows are only ever appended.
 func (q *Queries) CountKeptOfManual(ctx context.Context, manualID ManualID) ([]CountKeptOfManualRow, error) {
 	rows, err := q.db.QueryContext(ctx, countKeptOfManual, manualID)

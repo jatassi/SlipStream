@@ -51,7 +51,7 @@ ORDER BY grabs_search_indexer.search_id, grabs_search_indexer.position;
 -- copy of the run is current: a run's rows are only ever appended.
 SELECT grabs_release.search_id, count(*) AS kept FROM grabs_release JOIN grabs_search ON grabs_search.id = grabs_release.search_id
 WHERE grabs_search.manual_id = sqlc.arg(manual_id) AND grabs_release.release IS NOT NULL
-GROUP BY grabs_release.search_id;
+GROUP BY grabs_release.search_id ORDER BY grabs_release.search_id;
 
 -- name: ListCellGrabsOfWork :many
 -- Each Grab of the Work at each of its Targets, oldest first, so the
