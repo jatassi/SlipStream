@@ -52,22 +52,9 @@ func routeOf(ctx context.Context, r storage.Reader[file], router Router, g Grab)
 	return router.Route(ctx, r, downloadclients.Ask{Root: root.Node, Indexer: g.Ticket.Indexer, Tracker: g.Ticket.Tracker, Sent: g.Sent, Pinned: g.Source == FromManual})
 }
 
-// awayRoute is the client fetching Grab g's route names while that
-// client's Node is out of step, read in r. It is false while g's fetch may
-// go ahead or no Node may take it.
-func awayRoute(ctx context.Context, r storage.Reader[file], router Router, inStep func(role.NodeID) bool, g Grab) (downloadclients.Target, bool, error) {
-	to, err := routeOf(ctx, r, router, g)
-	if _, unrouted := errors.AsType[*nodes.Unrouted](err); unrouted {
-		return downloadclients.Target{}, false, nil
-	}
-	if err != nil || inStep(to.Node) {
-		return downloadclients.Target{}, false, err
-	}
-	return to, true, nil
-}
-
 // route is the client g goes to now, or the wait until it may go there:
-// while no Node may take it, or while its client's Node is out of step.
+// while no Node may take it, while it is pinned to a client that can't
+// take it, or while its client's Node is out of step.
 func (gr *Grabs) route(ctx context.Context, g Grab) (downloadclients.Target, outcome) {
 	changed := gr.routes.watch()
 	var to downloadclients.Target
@@ -79,6 +66,9 @@ func (gr *Grabs) route(ctx context.Context, g Grab) (downloadclients.Target, out
 	if _, unrouted := errors.AsType[*nodes.Unrouted](err); unrouted {
 		return downloadclients.Target{}, wait{cause: err, roster: true}
 	}
+	if _, off := errors.AsType[*downloadclients.PinnedError](err); off {
+		return downloadclients.Target{}, wait{cause: err, roster: true, rerouted: changed}
+	}
 	if err != nil {
 		return downloadclients.Target{}, local(ctx, err)
 	}
@@ -88,19 +78,30 @@ func (gr *Grabs) route(ctx context.Context, g Grab) (downloadclients.Target, out
 	return to, nil
 }
 
-// ClientWait is the client a fetching Grab goes to while that client's
-// Node is out of step: Node's built-in client when Client is nil.
+// ClientWait is the client a fetching Grab goes to while it can't go
+// there: Node's built-in client when Client is nil.
 type ClientWait struct {
 	Node   role.NodeID
 	Client *downloadclients.ClientRef
+	// Off is a client the Grab is pinned to that can't take it: it is off
+	// or deleted, or its Node doesn't hold Downloading. Otherwise the
+	// client's Node is out of step.
+	Off bool
 }
 
-// waitingFor is the client fetching Grab g waits for, read in r: its route
-// names a client whose Node is out of step. It is nil while g's fetch may
-// go ahead or no Node may take it.
-func (gr *Grabs) waitingFor(ctx context.Context, r storage.Reader[file], g Grab) (*ClientWait, error) {
-	to, away, err := awayRoute(ctx, r, gr.cfg.Router, gr.cfg.Roster.InStep, g)
-	if err != nil || !away {
+// clientWait is the client fetching Grab g waits for, read in r: the
+// client it is pinned to while that client can't take it, or the client
+// its route names while that client's Node is out of step. It is nil while
+// g's fetch may go ahead or no Node may take it.
+func clientWait(ctx context.Context, r storage.Reader[file], router Router, inStep func(role.NodeID) bool, g Grab) (*ClientWait, error) {
+	to, err := routeOf(ctx, r, router, g)
+	if p, off := errors.AsType[*downloadclients.PinnedError](err); off {
+		return &ClientWait{Node: p.Node, Client: p.Client, Off: true}, nil
+	}
+	if _, unrouted := errors.AsType[*nodes.Unrouted](err); unrouted {
+		return nil, nil
+	}
+	if err != nil || inStep(to.Node) {
 		return nil, err
 	}
 	w := &ClientWait{Node: to.Node}
@@ -122,7 +123,7 @@ func (gr *Grabs) clientWaits(ctx context.Context, r storage.Reader[file], grabs 
 		if g.Stage != Fetching {
 			continue
 		}
-		w, err := gr.waitingFor(ctx, r, g)
+		w, err := clientWait(ctx, r, gr.cfg.Router, gr.cfg.Roster.InStep, g)
 		if err != nil {
 			return nil, err
 		}
