@@ -40,8 +40,9 @@ func TestRemovingAnAttachedTorrentOnlyStopsTrackingIt(t *testing.T) {
 		t.Run(string(kind), func(t *testing.T) {
 			s := newMediaServer(t)
 			id := s.send(t, "Orchard")
+			s.uses[id] = []dc.Use{{Work: orchardWork, Stage: dc.UseDownloading}}
 			s.report(t, s.node, s.torrent(t, &dlv1.TorrentReport{
-				Id: id.Bytes(), Engine: dlv1.EngineState_ENGINE_STATE_DOWNLOADING, Origin: dlv1.Origin_ORIGIN_ATTACHED, Stalled: true,
+				Id: id.Bytes(), Engine: dlv1.EngineState_ENGINE_STATE_DOWNLOADING, Origin: dlv1.Origin_ORIGIN_ATTACHED,
 			}))
 			if row := s.row(t, id); !row.Attached || row.DeleteFiles {
 				t.Fatalf("the attached torrent's row is attached %v, delete files %v, want attached with no Delete files", row.Attached, row.DeleteFiles)

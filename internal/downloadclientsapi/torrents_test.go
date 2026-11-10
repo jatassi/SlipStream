@@ -264,6 +264,32 @@ func TestActionsAnswerForEachTorrent(t *testing.T) {
 	}
 }
 
+// TestMarkFailedBlocklistsAHeldTorrentInTheNameOfTheAdminActing marks
+// failed a Torrent a downloading Grab holds as Ada's session and another
+// through the API key: each entry names who acted. A Torrent no Grab holds
+// is refused as not held, and one a Grab imports from as importing.
+func TestMarkFailedBlocklistsAHeldTorrentInTheNameOfTheAdminActing(t *testing.T) {
+	w := serveWorld(t)
+	orchard := w.hold(t, "Orchard", queuedReport())
+	attic := w.hold(t, "Attic", queuedReport())
+	harbor := w.hold(t, "Harbor", queuedReport())
+	cove := w.hold(t, "Cove", queuedReport())
+	work := works.WorkID{UUID: storage.NewUUID()}
+	w.uses[orchard] = []downloadclients.Use{{Grab: storage.NewUUID(), Work: work, Release: orchardRelease, Stage: downloadclients.UseDownloading}}
+	w.uses[attic] = []downloadclients.Use{{Grab: storage.NewUUID(), Work: work, Release: "Attic.2020.1080p.WEB", Stage: downloadclients.UseDownloading}}
+	w.uses[cove] = []downloadclients.Use{{Grab: storage.NewUUID(), Work: work, Release: "Cove.2021.1080p.WEB", Stage: downloadclients.UseImporting}}
+
+	status, reply := w.o.CallSignedIn(t, http.MethodPost, "/api/v1/torrents/actions", `{"action":"mark-failed","ids":["`+orchard.String()+`","`+harbor.String()+`","`+cove.String()+`"]}`)
+	if want := `{"results":[{"id":"id1","done":true},{"id":"id2","done":false,"refusal":{"code":"not_held"}},{"id":"id3","done":false,"refusal":{"code":"importing","workId":"id4"}}]}`; status != http.StatusOK || strings.TrimSpace(ownertest.Masked(reply)) != want {
+		t.Fatalf("Ada marking failed = %d %s, want 200 %s", status, ownertest.Masked(reply), want)
+	}
+	w.o.Expect(t, http.MethodPost, "/api/v1/torrents/actions", `{"action":"mark-failed","ids":["`+attic.String()+`"]}`, http.StatusOK,
+		`{"results":[{"id":"id1","done":true}]}`)
+	if want := []string{"Ada", "the API key"}; !slices.Equal(w.blocklist.by, want) {
+		t.Errorf("the Blocklist entries name %q, want %q", w.blocklist.by, want)
+	}
+}
+
 func TestDownloadClientsListEachDownloadingNodesCardAndTheThresholds(t *testing.T) {
 	w := serveWorld(t)
 	w.hold(t, "Harbor", unregisteredSeeding())

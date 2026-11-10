@@ -132,7 +132,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Sealer:    lib.sealer,
 		Roster:    openedRoster{&side},
 		Uses:      grabs.TorrentUses{},
-		Blocklist: grabs.BlocklistOn{Reconciling: trackers.NotReconciling},
+		Blocklist: grabs.BlocklistOn{Reconciling: trackers.NotReconciling, Changes: grabs.BlocklistChangedEvent.Bind(n.hub)},
 		Seeding:   lateSeeder{&seeding},
 		Live: downloadclients.LiveConfig{
 			Watched: func() []role.NodeID { return side.Who(role.Downloading).InStep() },

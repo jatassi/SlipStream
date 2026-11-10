@@ -226,6 +226,13 @@ type BlocklistOn struct {
 	// Reconciling is whether a restored Controller is Reconciling, read in
 	// the caller's snapshot. Nothing is blocklisted while it is.
 	Reconciling func(ctx context.Context, r storage.Reader[file]) (bool, error)
+	// Changes publishes once a Write that MarkedFailed ran in commits.
+	Changes Publisher[BlocklistChanged]
+}
+
+// Changed tells the Admins the Blocklist changed.
+func (b BlocklistOn) Changed(ctx context.Context) {
+	b.Changes.Publish(ctx, BlocklistChanged{})
 }
 
 // Block adds e in tx. It is the Blocklist's one writer, so it holds the
