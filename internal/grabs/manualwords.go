@@ -17,10 +17,6 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// routedNowhere is where Tracker routing sends a Grab while no Node may
-// take it.
-const routedNowhere = "Where Tracker routing sends it"
-
 // manualView is in worked out around pins and written in words. It is
 // pure: the GET and the grab Write both call it.
 func manualView(in manualIn, pins []Pin) (ManualView, error) {

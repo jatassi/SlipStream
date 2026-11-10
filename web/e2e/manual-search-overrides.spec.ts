@@ -111,7 +111,7 @@ test("a row and the whole plan can be sent to a client Tracker routing wouldn't 
   await sendTo.click();
   await page.getByRole("option", { name: /^Where Tracker routing sends it/u }).click();
   await expect(rows.nth(1)).toContainText(
-    "Where Tracker routing sends it (the built-in client on home)",
+    "Tracker routing sends it to the built-in client on home.",
   );
   await expect(rows.nth(0)).toContainText("SlipStream sends it to the built-in client on home.");
   await expectAccessible(page);

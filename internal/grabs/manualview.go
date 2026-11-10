@@ -107,7 +107,8 @@ type PlanPick struct {
 	// Lifts is the soft refusals it gets past, each a sentence.
 	Lifts   []Worded
 	Edition *EditionOverride
-	// Routed is "Where Tracker routing sends it (qBittorrent on Den)".
+	// Routed is the client Tracker routing sends it to in words,
+	// "qBittorrent on Den", "" while no Node may take it.
 	Routed string
 }
 
@@ -461,7 +462,7 @@ func (gr *Grabs) routedWords(ctx context.Context, r storage.Reader[file], work w
 	for id := range standings {
 		t, err := gr.cfg.Router.Route(ctx, r, downloadclients.Ask{Root: root.Node, Indexer: id})
 		if _, unrouted := errors.AsType[*nodes.Unrouted](err); unrouted {
-			out[id] = routedNowhere
+			out[id] = ""
 			continue
 		}
 		if err != nil {
@@ -475,7 +476,7 @@ func (gr *Grabs) routedWords(ctx context.Context, r storage.Reader[file], work w
 			}
 			client = e.Name + " on " + names[t.Node]
 		}
-		out[id] = "Where Tracker routing sends it (" + client + ")"
+		out[id] = client
 	}
 	return out, nil
 }

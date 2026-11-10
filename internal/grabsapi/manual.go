@@ -74,7 +74,7 @@ type planPick struct {
 	Cells   []string                      `json:"cells" nullable:"false" doc:"The cells it fills, its row's first leading. Send them back as the pick's cells."`
 	Lifts   []wordedReason                `json:"lifts" nullable:"false" doc:"The soft refusals it is grabbed past; send their codes and Targets back as the pick's lifts"`
 	Edition api.Nullable[editionOverride] `json:"edition" doc:"The Edition it is grabbed as; null unless that is another Edition than its cut's"`
-	Routed  string                        `json:"routed" doc:"Where Tracker routing sends it, such as Where Tracker routing sends it (qBittorrent on Den)"`
+	Routed  string                        `json:"routed,omitempty" doc:"The client Tracker routing sends it to, such as qBittorrent on Den; absent while no Node can take it"`
 }
 
 type choice struct {

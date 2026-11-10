@@ -6459,7 +6459,7 @@
             "$ref": "#/components/schemas/GrabsReleaseDetails"
           },
           "routed": {
-            "description": "Where Tracker routing sends it, such as Where Tracker routing sends it (qBittorrent on Den)",
+            "description": "The client Tracker routing sends it to, such as qBittorrent on Den; absent while no Node can take it",
             "type": "string"
           }
         },
@@ -6467,8 +6467,7 @@
           "release",
           "cells",
           "lifts",
-          "edition",
-          "routed"
+          "edition"
         ],
         "type": "object"
       },

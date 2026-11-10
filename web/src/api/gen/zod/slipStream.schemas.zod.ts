@@ -3431,8 +3431,9 @@ export const GrabsPlanPick = zod.object({
   release: GrabsReleaseDetails,
   routed: zod
     .string()
+    .exactOptional()
     .describe(
-      "Where Tracker routing sends it, such as Where Tracker routing sends it (qBittorrent on Den)",
+      "The client Tracker routing sends it to, such as qBittorrent on Den; absent while no Node can take it",
     ),
 });
 

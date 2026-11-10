@@ -968,7 +968,9 @@ export const getGetManualSearchResponseMock = (
               ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
               words: faker.string.alpha({ length: { min: 10, max: 20 } }),
             },
-            routed: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            ...(faker.datatype.boolean()
+              ? { routed: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+              : {}),
           },
           null,
         ]),

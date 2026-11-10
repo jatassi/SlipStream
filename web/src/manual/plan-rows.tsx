@@ -18,6 +18,27 @@ import { ReleaseDetails } from "./release-details";
 
 const meta = "text-meta text-ink-3 in-data-[density=touch]:text-body-touch";
 
+const routedOption = (to: string | undefined) =>
+  to === undefined ? "Where Tracker routing sends it" : `Where Tracker routing sends it (${to})`;
+
+const routedLine = (to: string | undefined) =>
+  to === undefined
+    ? "Tracker routing picks the client once SlipStream fetches it."
+    : `Tracker routing sends it to ${to}.`;
+
+/** Where the row's Grab goes: the client the Admin chose, else where Tracker routing sends it. */
+function ClientLine({ row, acts }: { row: PickRow; acts: RowActs }) {
+  const client = clientOf(acts.choices, row.key);
+  const chosen = acts.clients.find(({ key }) => key === client);
+  return (
+    <p className={meta}>
+      {chosen === undefined
+        ? routedLine(row.pick.routed)
+        : `SlipStream sends it to ${chosen.name}.`}
+    </p>
+  );
+}
+
 /** What the row's sheet-wide choices do to it, and how it reports them back. */
 export type RowActs = {
   readonly choices: Choices;
@@ -71,18 +92,18 @@ function OtherChoices({ row, onPin }: { row: GrabsPlanRow; onPin: RowActs["onPin
 
 function SendTo({
   row,
-  routedWords,
+  routedTo,
   acts,
 }: {
   row: GrabsPlanRow;
-  routedWords: string;
+  routedTo: string | undefined;
   acts: RowActs;
 }) {
   return (
     <Select
       label="Send to"
       options={[
-        { value: routed, label: routedWords },
+        { value: routed, label: routedOption(routedTo) },
         ...acts.clients.map(({ key, label }) => ({ value: key, label })),
       ]}
       value={clientOf(acts.choices, row.key)}
@@ -98,8 +119,6 @@ function Pick({ row, acts }: { row: PickRow; acts: RowActs }) {
   const { pick } = row;
   const result = acts.results.get(resultKey(row));
   const done = grabbed(acts.results, resultKey(row));
-  const client = clientOf(acts.choices, row.key);
-  const chosen = acts.clients.find(({ key }) => key === client);
   return (
     <li className="flex items-start gap-3 py-3">
       <Checkbox
@@ -118,9 +137,7 @@ function Pick({ row, acts }: { row: PickRow; acts: RowActs }) {
           <p>{`${pick.release.blocked} Grabbing it removes it from the Blocklist.`}</p>
         )}
         <Overrides lifts={pick.lifts} edition={pick.edition} />
-        <p className={meta}>
-          {chosen === undefined ? pick.routed : `SlipStream sends it to ${chosen.name}.`}
-        </p>
+        <ClientLine row={row} acts={acts} />
         {result !== undefined && (
           <Result
             result={result}
@@ -136,7 +153,7 @@ function Pick({ row, acts }: { row: PickRow; acts: RowActs }) {
             <ReleaseDetails release={pick.release} />
             {/* A client's long name truncates in the row's width rather than widening the row. */}
             <div className="contain-inline-size">
-              <SendTo row={row} routedWords={pick.routed} acts={acts} />
+              <SendTo row={row} routedTo={pick.routed} acts={acts} />
             </div>
           </div>
         </Details>
