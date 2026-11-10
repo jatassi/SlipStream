@@ -24,8 +24,8 @@ type Route struct {
 // HTTP serves h, the handler of route at target, behind p's HTTP rules,
 // and lets a rule set from now on name route. origin reads a request's
 // dialing Node. A status or a hang answers without calling h, so a
-// faulted request never reaches the fake's state; the body faults take
-// h's answer and spoil it.
+// faulted request never reaches the fake's state; a delay calls h only
+// once it has passed; the body faults take h's answer and spoil it.
 func (p *Plan) HTTP(target Target, route Route, origin func(*http.Request) string, h http.Handler) http.Handler {
 	p.mu.Lock()
 	if !slices.ContainsFunc(p.routes[target], func(r Route) bool { return r.Name == route.Name }) {
@@ -51,6 +51,14 @@ func (p *Plan) HTTP(target Target, route Route, origin func(*http.Request) strin
 		case Hang:
 			<-r.Context().Done()
 			panic(http.ErrAbortHandler)
+		case Delay:
+			t := time.NewTimer(time.Duration(f))
+			defer t.Stop()
+			select {
+			case <-t.C:
+				h.ServeHTTP(w, r)
+			case <-r.Context().Done():
+			}
 		case Malformed:
 			code, _ := head(w, h, r, len(malformed))
 			w.WriteHeader(code)

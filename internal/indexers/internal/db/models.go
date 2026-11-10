@@ -110,6 +110,7 @@ type IndexersSession struct {
 type IndexersSetting struct {
 	ID                 Singleton
 	LongBackoffSeconds *int64
+	SearchWaitSeconds  *int64
 }
 
 type IndexersStatus struct {

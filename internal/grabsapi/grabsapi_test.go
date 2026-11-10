@@ -91,6 +91,12 @@ func (alone) Sample(downloadclients.ID) (downloadclients.Sample, bool) {
 	return downloadclients.Sample{}, false
 }
 
+func (alone) Touched(...downloadclients.Touched) {}
+
+func (alone) RemoveIn(context.Context, *storage.Tx[storage.Library], []downloadclients.ID, downloadclients.RemoveReason, bool) ([]downloadclients.Result, downloadclients.Touched, error) {
+	panic("nothing removes a Torrent in this test")
+}
+
 func (alone) Resolve(context.Context, role.NodeID, magnet.Link, time.Time) (downloadclients.Resolution, error) {
 	panic("a .torrent link needs no metadata search")
 }

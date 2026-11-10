@@ -27,6 +27,9 @@ const (
 	// ReleaseKept ranked, and the run took no Grab.
 	ReleaseKept    ReleaseOutcome = "kept"
 	ReleaseRefused ReleaseOutcome = "refused"
+	// ReleaseListed is a Manual run's Release: stored as heard, judged on
+	// read.
+	ReleaseListed ReleaseOutcome = "listed"
 )
 
 // TargetScore is a Release's score at one Target.

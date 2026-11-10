@@ -81,6 +81,9 @@ type (
 	}
 	// Hang reads the request and never answers it.
 	Hang struct{}
+	// Delay holds the request for the duration, then serves the real
+	// handler. A request whose client gives up first gets nothing.
+	Delay time.Duration
 	// Malformed answers the real status and content type with a body that
 	// doesn't parse.
 	Malformed struct{}
@@ -115,6 +118,7 @@ func (Cut) Layer() Layer         { return Conn }
 func (BadTLS) Layer() Layer      { return TLS }
 func (Status) Layer() Layer      { return HTTP }
 func (Hang) Layer() Layer        { return HTTP }
+func (Delay) Layer() Layer       { return HTTP }
 func (Malformed) Layer() Layer   { return HTTP }
 func (Truncate) Layer() Layer    { return HTTP }
 func (SlowBody) Layer() Layer    { return HTTP }
@@ -128,6 +132,7 @@ func (f Throttle) String() string    { return "throttle=" + Rate(f).String() }
 func (f Cut) String() string         { return "cut=" + size(int64(f)) }
 func (f BadTLS) String() string      { return "tls=" + TLSFailure(f).String() }
 func (Hang) String() string          { return "hang" }
+func (f Delay) String() string       { return "delay=" + time.Duration(f).String() }
 func (Malformed) String() string     { return "malformed" }
 func (Truncate) String() string      { return "truncate" }
 func (f SlowBody) String() string    { return "slow-body=" + Rate(f).String() }

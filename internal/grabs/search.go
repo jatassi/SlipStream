@@ -20,9 +20,12 @@ import (
 // Search is one search run: one Item searched on every Indexer it planned
 // to ask.
 type Search struct {
-	ID      SearchID
-	WorkID  works.WorkID
-	ItemID  works.ItemID
+	ID     SearchID
+	WorkID works.WorkID
+	ItemID works.ItemID
+	// Manual is the Manual search the run lists Releases for, zero for an
+	// automatic run.
+	Manual  ManualID
 	Started time.Time
 	// Indexers are the Indexers the run asked or skipped, by priority.
 	Indexers []SearchIndexer
@@ -50,7 +53,7 @@ type SearchIndexer struct {
 
 func searchOf(row db.GrabsSearch, lines []SearchIndexer) (Search, error) {
 	s := Search{
-		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Started: row.StartedAt.Time(), Indexers: lines,
+		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Manual: row.ManualID, Started: row.StartedAt.Time(), Indexers: lines,
 		Finished: row.FinishedAt.Time(), Candidates: int(row.Candidates), GrabID: row.GrabID,
 	}
 	if row.Outcome != nil {
@@ -87,7 +90,8 @@ func outcomeRow(o indexers.Outcome) db.AnswerSearchIndexerParams {
 		p.Lapsed = &o.Lapsed
 	case indexers.IsStopped:
 		p.Cause, p.Text = &o.Cause, &o.Text
-	case indexers.IsLimited, indexers.IsFailing, indexers.Late, indexers.LimitReached, indexers.NoCategories, indexers.Removed:
+	case indexers.IsLimited, indexers.IsFailing, indexers.Late, indexers.LimitReached, indexers.NoCategories, indexers.Removed,
+		indexers.RSSOnly:
 	}
 	return p
 }
@@ -335,7 +339,7 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, a
 	for i, a := range answers {
 		p := outcomeRow(a.Outcome)
 		p.SearchID, p.Position = run.ID, asked[i].Position
-		if err := q.AnswerSearchIndexer(ctx, p); err != nil {
+		if _, err := q.AnswerSearchIndexer(ctx, p); err != nil {
 			return nil, err
 		}
 		for range a.Releases {
@@ -462,6 +466,7 @@ func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], run Searc
 	g := Grab{
 		ID: GrabID{UUID: storage.NewUUID()}, WorkID: run.WorkID, ItemID: run.ItemID, Edition: pick.Edition, Targets: pick.Targets,
 		Release: Release{Title: r.Title, Size: r.Size, InfoHash: r.InfoHash}, Ticket: t, Stage: Fetching, Created: now.Time(),
+		Source: FromSearch,
 	}
 	idx, err := indexers.Get(ctx, tx, t.Indexer)
 	if err != nil {
@@ -478,7 +483,8 @@ func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], run Searc
 		hint = h[:]
 	}
 	err = q.InsertGrab(ctx, db.InsertGrabParams{
-		ID: g.ID, WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, IndexerID: t.Indexer, TrackerID: t.Tracker, NodeID: g.Node,
+		ID: g.ID, WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, Source: g.Source, Overrides: "{}",
+		IndexerID: t.Indexer, TrackerID: t.Tracker, NodeID: g.Node,
 		ReleaseTitle: g.Release.Title, ReleaseSize: g.Release.Size, ReleaseLinkSealed: g.Release.link, ReleaseMagnet: orNil(g.Release.magnet),
 		ReleaseInfoHash: hint, FetchQueryID: t.Query, CreatedAt: now,
 		MinRatio: orNil(r.Floor.MinRatio), MinSeedSeconds: orNil(int64(r.Floor.MinSeed.Seconds())),

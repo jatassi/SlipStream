@@ -431,6 +431,8 @@ func reasonWords(r Reason, t *targets.Target, f release.Facts) string {
 			return from + ", and the file at " + at + " has no release group."
 		}
 		return from + ", and the file at " + at + " is from " + r.Value + "."
+	case targets.Blocklisted:
+		return "It's on the Blocklist."
 	}
 	panic("grabs: no words for the reason " + string(r.Code))
 }

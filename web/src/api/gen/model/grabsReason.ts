@@ -4,7 +4,7 @@ import type { GrabsReasonCode } from "./grabsReasonCode.ts";
 export interface GrabsReason {
   /** The attribute a failed filter rules on */
   attribute?: GrabsReasonAttribute;
-  /** Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. */
+  /** Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist. */
   code: GrabsReasonCode;
   /** Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note. */
   soft: boolean;

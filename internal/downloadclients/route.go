@@ -25,7 +25,24 @@ type Ask struct {
 	Indexer indexers.ID
 	Tracker indexers.TrackerID
 	Sent    *Choice
+	// Pinned makes a Sent client that can't take the Grab now a
+	// *PinnedError instead of a fall-through to Tracker routing: the
+	// client was an Admin's choice in a Manual search.
+	Pinned bool
 }
+
+// PinnedError is a pinned client that can't take a Grab now: it is off or
+// deleted, or its Node doesn't hold Downloading. Name is the client in
+// words, such as "qBittorrent on Den".
+type PinnedError struct {
+	Sent  Choice
+	Name  string
+	Cause error
+}
+
+func (e *PinnedError) Error() string { return e.Name + " can't take the Grab: " + e.Cause.Error() }
+
+func (e *PinnedError) Unwrap() error { return e.Cause }
 
 // Routes is Tracker routing, as trackers answers it: the client a Grab of
 // tracker that Indexer indexer found goes to, false when it goes by its

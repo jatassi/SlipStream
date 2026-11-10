@@ -21,6 +21,62 @@ sql:
           - column: grabs_search.id
             go_type:
               type: SearchID
+          - column: grabs_manual.id
+            go_type:
+              type: ManualID
+          - column: "*.manual_id"
+            go_type:
+              type: ManualID
+          - column: grabs_grab.source
+            go_type:
+              type: Source
+          - column: grabs_grab.grabbed_by
+            go_type:
+              import: github.com/jatassi/slipstream/internal/identity
+              type: AccountID
+          - column: grabs_manual.started_by
+            go_type:
+              import: github.com/jatassi/slipstream/internal/identity
+              type: AccountID
+          - column: grabs_blocklist.added_by
+            go_type:
+              import: github.com/jatassi/slipstream/internal/identity
+              type: AccountID
+          - column: grabs_blocklist.cause
+            go_type:
+              type: BlockCause
+          - column: grabs_fault_settled.torrent_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/downloadclients
+              type: ID
+          - column: grabs_release.read
+            go_type:
+              type: Reading
+              pointer: true
+          - column: grabs_grab.grabbed_by_name
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_manual.query
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_manual.started_by_name
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_blocklist.indexer_name
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_blocklist.client_name
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_blocklist.added_by_name
+            go_type:
+              type: string
+              pointer: true
           - column: grabs_search_indexer.search_id
             go_type:
               type: SearchID

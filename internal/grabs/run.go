@@ -1,6 +1,7 @@
 package grabs
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -231,8 +232,27 @@ func failOfGone(g downloadclients.Gone) fail {
 		return fail{Removed, "The Admin deleted " + g.Client + " before SlipStream imported this torrent."}
 	case downloadclients.GoalMet:
 		return fail{Removed, "SlipStream removed this Grab's torrent once it met its seeding goal."}
+	case downloadclients.ReleaseFaulted:
+		return failOfFault(g)
+	case downloadclients.Canceled:
+		return fail{Canceled, "This Grab's torrent was removed when another Grab of it was canceled."}
 	}
 	panic("grabs: no failure for removal reason " + string(g.Reason))
+}
+
+// failOfFault is how a downloading Grab fails when its Torrent is removed
+// for a release fault. An engine error keeps failing it download_failed,
+// as it did before the Blocklist.
+func failOfFault(g downloadclients.Gone) fail {
+	switch *g.Fault {
+	case downloadclients.FaultEngineError:
+		return fail{DownloadFailed, cmp.Or(g.Client, "The built-in client") + " couldn't read this Grab's torrent."}
+	case downloadclients.FaultUnregistered:
+		return fail{ReleaseFault, "The tracker reports this Grab's torrent unregistered."}
+	case downloadclients.FaultNoPayload:
+		return fail{ReleaseFault, "This Grab's torrent never downloaded any data."}
+	}
+	panic("grabs: no failure for release fault " + string(*g.Fault))
 }
 
 func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
@@ -460,6 +480,8 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	switch {
 	case errors.Is(err, files.ErrRootChanged):
 		return gr.commit(ctx, g, fail{RootChanged, err.Error()})
+	case errors.Is(err, errBlocked):
+		return gr.commit(ctx, g, dropped{Blocklisted, blockedWords})
 	case isRefused:
 		return gr.commit(ctx, g, f)
 	case errors.Is(err, errLeft), errors.Is(err, works.ErrNoWork):
@@ -481,11 +503,21 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	return nil
 }
 
-// confirm re-reads a Grab's Torrent in tx, so a removal that committed
-// after the step read it fails the Grab by its reason: a downloading Grab
-// rather than advancing it, and a later one rather than failing it for
-// the files the removal took.
+// confirm refuses a fetch whose .torrent the Blocklist holds with
+// errBlocked, before anything reaches a client. It re-reads a Grab's
+// Torrent in tx, so a removal that committed after the step read it fails
+// the Grab by its reason: a downloading Grab rather than advancing it, and
+// a later one rather than failing it for the files the removal took.
 func confirm(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome) (outcome, error) {
+	if a, ok := o.(advance); ok && a.torrent != nil {
+		hit, err := blockedHash(ctx, tx, a.torrent.metainfo.InfoHash)
+		if err != nil {
+			return nil, err
+		}
+		if hit {
+			return nil, errBlocked
+		}
+	}
 	_, failing := o.(fail)
 	if g.Stage == Fetching || g.Stage != Downloading && !failing {
 		return o, nil
@@ -766,7 +798,7 @@ func (gr *Grabs) Run(ctx context.Context) error {
 		if err == nil {
 			s.keep(searches, grabs)
 			for _, run := range searches {
-				gr.start(ctx, &s, now, run.ID.UUID, done, func() result { return gr.search(ctx, run) })
+				gr.start(ctx, &s, now, run.ID.UUID, done, gr.runJob(ctx, run))
 			}
 			for _, g := range grabs {
 				if g.due() {
@@ -795,9 +827,12 @@ func (gr *Grabs) Run(ctx context.Context) error {
 	}
 }
 
-// settled is the open search runs and unfinished Grabs once what the
-// Admin wrote off and what a client removed are settled.
+// settled is the open search runs and unfinished Grabs once the release
+// faults, what the Admin wrote off and what a client removed are settled.
 func (gr *Grabs) settled(ctx context.Context) ([]Search, []Grab, error) {
+	if err := gr.settleFaults(ctx); err != nil {
+		return nil, nil, err
+	}
 	searches, grabs, err := gr.open(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -807,6 +842,15 @@ func (gr *Grabs) settled(ctx context.Context) ([]Search, []Grab, error) {
 		return searches, grabs, err
 	}
 	return gr.open(ctx)
+}
+
+// runJob is run's job: an automatic run searches and decides, and a
+// Manual run listens.
+func (gr *Grabs) runJob(ctx context.Context, run Search) func() result {
+	if run.Manual.IsZero() {
+		return func() result { return gr.search(ctx, run) }
+	}
+	return func() result { return gr.listen(ctx, run) }
 }
 
 func (gr *Grabs) start(ctx context.Context, s *schedule, now time.Time, id storage.UUID, done chan<- report, job func() result) {

@@ -8,6 +8,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
@@ -83,7 +84,7 @@ func newLibrary(t *testing.T) *library {
 	t.Helper()
 	l := &library{
 		t: t, changed: &published{}, trackersChanged: &identities{},
-		lib: storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(),
+		lib: storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(),
 			grabs.Schema(), indexers.Schema(), trackers.Schema(), files.Schema()),
 		node: storage.NewUUID(), work: storage.NewUUID(), item: storage.NewUUID(), board: &board{},
 	}

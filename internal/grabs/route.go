@@ -49,7 +49,7 @@ func routeOf(ctx context.Context, r storage.Reader[file], router Router, g Grab)
 	if err != nil {
 		return downloadclients.Target{}, err
 	}
-	return router.Route(ctx, r, downloadclients.Ask{Root: root.Node, Indexer: g.Ticket.Indexer, Tracker: g.Ticket.Tracker, Sent: g.Sent})
+	return router.Route(ctx, r, downloadclients.Ask{Root: root.Node, Indexer: g.Ticket.Indexer, Tracker: g.Ticket.Tracker, Sent: g.Sent, Pinned: g.Source == FromManual})
 }
 
 // awayRoute is the client fetching Grab g's route names while that

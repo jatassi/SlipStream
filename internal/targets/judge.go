@@ -19,7 +19,8 @@ type ReasonCode string
 // searched Item, and WrongTitle one whose title or year doesn't match the
 // Work. CutNotWanted is a cell whose Edition doesn't take the Release's
 // cut. The rest are Judge's. RepackOtherGroup's value is the held file's
-// release group, empty when the file gives none.
+// release group, empty when the file gives none. Blocklisted is a Release
+// whose info hash is on the Blocklist.
 const (
 	WrongWork          ReasonCode = "wrong_work"
 	WrongItem          ReasonCode = "wrong_item"
@@ -34,6 +35,7 @@ const (
 	ScoreBelowMinimum  ReasonCode = "score_below_minimum"
 	NotAnUpgrade       ReasonCode = "not_an_upgrade"
 	RepackOtherGroup   ReasonCode = "repack_other_group"
+	Blocklisted        ReasonCode = "blocklisted"
 )
 
 type weight uint8
@@ -43,10 +45,14 @@ type weighed struct {
 	weight weight
 }
 
+// block is neither hard nor soft: judging goes on, so a Blocklisted
+// Release's verdicts can say what removing it from the Blocklist and
+// grabbing it gets, and nothing but that removal lifts it.
 const (
 	note weight = iota
 	soft
 	hard
+	block
 )
 
 // weights is every ReasonCode, in the order the API lists them, and how
@@ -54,7 +60,7 @@ const (
 var weights = []weighed{
 	{WrongWork, hard}, {WrongItem, hard}, {CoversMore, soft}, {WrongTitle, soft}, {CutNotWanted, soft},
 	{QualityNotInTarget, hard}, {FilterFailed, hard}, {SizeBelow, soft}, {SizeAbove, soft}, {SizeNotChecked, note},
-	{ScoreBelowMinimum, soft}, {NotAnUpgrade, soft}, {RepackOtherGroup, soft},
+	{ScoreBelowMinimum, soft}, {NotAnUpgrade, soft}, {RepackOtherGroup, soft}, {Blocklisted, block},
 }
 
 // ReasonCodes is every ReasonCode.
