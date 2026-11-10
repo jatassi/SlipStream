@@ -80,6 +80,17 @@ func assess(j judging, l listed) assessed {
 
 // assessRead is assess of l read as rd.
 func assessRead(j judging, l listed, rd release.Read) assessed {
+	return assessMatched(j, l, rd, j.scoring.Match)
+}
+
+// assessStored is assess of a Release a Manual run stored, read as rd
+// and matching matched when it was heard, so reading it back never parses
+// or matches again.
+func assessStored(j judging, l listed, rd release.Read, matched formats.Set) assessed {
+	return assessMatched(j, l, rd, func(release.Read) formats.Result { return formats.Result{Matched: matched} })
+}
+
+func assessMatched(j judging, l listed, rd release.Read, match func(release.Read) formats.Result) assessed {
 	r := l.Release
 	a := assessed{listed: l, read: rd}
 	a.covers = j.expect.Covers(a.read.Name)
@@ -91,7 +102,7 @@ func assessRead(j judging, l listed, rd release.Read) assessed {
 	f.Coverage = release.Coverage{Runtime: j.runtimeOf(a.covers), Original: j.expect.Original}
 	a.refusals = j.refusals(a)
 	if !a.hard() {
-		a.formats = j.scoring.Match(a.read)
+		a.formats = match(a.read)
 	}
 	return a
 }
