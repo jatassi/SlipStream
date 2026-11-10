@@ -46,11 +46,12 @@ The grammar of `<fault>`, one per rule:
 
 ```text
 refuse | reset | stall | latency=200ms | throttle=256KiB/s | cut=64KiB | tls=untrusted|expired|wrong-name
-status=<code>[,retry-after=<dur>][,reset-header=<name>] | hang | malformed | truncate | slow-body=<rate>
+status=<code>[,retry-after=<dur>][,reset-header=<name>] | hang | delay=15s | malformed | truncate | slow-body=<rate>
 content-type=<media type>
 ```
 
 - The first six and `tls=` are connection faults; the rest are HTTP faults and need a fake that speaks HTTP. A rule the front can't play is refused when set, naming the layer.
+- `delay=15s` holds each matching request that long, then answers it as usual: a slow site whose Releases arrive late.
 - `@<node>` limits a rule to the traffic of that Node; without it the rule holds every origin.
 - `--skip 2 --times 1` plays the third match only. `--times 0`, the default, plays until cleared. A rule that has played its times drops out of `fault list` and doctor's active faults. A connection fault other than `reset` stays listed until `fault clear`, because the connections it took keep playing it.
 - `--after <kind>,k=v` arms the rule on the first matching event-log record, never on a timer.
