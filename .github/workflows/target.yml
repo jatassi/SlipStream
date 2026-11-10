@@ -250,6 +250,10 @@ jobs:
         run: |
           echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
           echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+      # A PR reaches no fixture cache another branch saved, and worlds that
+      # launch together on a cold cache encode inside their 2 min limits.
+      - name: Encode the fixtures the cache lacks
+        run: '"dist/fakeworld$EXE" fixtures --binary "dist/slipstream$EXE"'
       - name: Run end-to-end test shard
         id: test
         run: go run ./cmd/release test -tier e2e -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-e2e-${{ matrix.shard }}.json"
@@ -357,6 +361,10 @@ jobs:
         run: |
           echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
           echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+      # A PR reaches no fixture cache another branch saved, and worlds that
+      # launch together on a cold cache encode inside their 2 min limits.
+      - name: Encode the fixtures the cache lacks
+        run: '"dist/fakeworld$EXE" fixtures --binary "dist/slipstream$EXE"'
       - name: Run browser test shard
         id: test
         run: |
