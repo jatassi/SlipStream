@@ -500,7 +500,7 @@ func Routes(r *api.Router, p Pipeline) {
 		Path:    "/works/{workId}/manual-search",
 		Summary: "Get a Work's Manual search with its plan worked out around the pins",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{workNotFound, noManualSearch, notBuilt},
+		Errors:  []*api.Code{workNotFound, noManualSearch},
 	}, h.getManualSearch)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listManualSearchReleases",
@@ -508,7 +508,7 @@ func Routes(r *api.Router, p Pipeline) {
 		Path:    "/works/{workId}/manual-search/releases",
 		Summary: "List every Release of a Work's Manual search with what grabbing it alone does",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{workNotFound, noManualSearch, notBuilt},
+		Errors:  []*api.Code{workNotFound, noManualSearch},
 	}, h.listManualSearchReleases)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "grabFromManualSearch",
