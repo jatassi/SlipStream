@@ -134,7 +134,10 @@ function Pick({ row, acts }: { row: PickRow; acts: RowActs }) {
         <Details>
           <div className="flex flex-col gap-3">
             <ReleaseDetails release={pick.release} />
-            <SendTo row={row} routedWords={pick.routed} acts={acts} />
+            {/* A client's long name truncates in the row's width rather than widening the row. */}
+            <div className="contain-inline-size">
+              <SendTo row={row} routedWords={pick.routed} acts={acts} />
+            </div>
           </div>
         </Details>
       </div>
