@@ -107,6 +107,12 @@ func (noDownloads) Sample(downloadclients.ID) (downloadclients.Sample, bool) {
 	return downloadclients.Sample{}, false
 }
 
+func (noDownloads) Touched(...downloadclients.Touched) {}
+
+func (noDownloads) RemoveIn(context.Context, *storage.Tx[storage.Library], []downloadclients.ID, downloadclients.RemoveReason, bool) ([]downloadclients.Result, downloadclients.Touched, error) {
+	panic("nothing removes a Torrent in this test")
+}
+
 func (noDownloads) Resolve(context.Context, role.NodeID, magnet.Link, time.Time) (downloadclients.Resolution, error) {
 	panic("reading a Grab asks no Node for metadata")
 }

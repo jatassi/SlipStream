@@ -129,10 +129,11 @@ func (n *Node) startController(ctx context.Context) error {
 		Remote: func(id role.NodeID) downloadingv1connect.DownloadingServiceHandler {
 			return downloadingv1connect.DownloadingService.On(cluster, id)
 		},
-		Sealer:  lib.sealer,
-		Roster:  openedRoster{&side},
-		Uses:    grabs.TorrentUses{},
-		Seeding: lateSeeder{&seeding},
+		Sealer:    lib.sealer,
+		Roster:    openedRoster{&side},
+		Uses:      grabs.TorrentUses{},
+		Blocklist: grabs.BlocklistOn{Reconciling: trackers.NotReconciling},
+		Seeding:   lateSeeder{&seeding},
 		Live: downloadclients.LiveConfig{
 			Watched: func() []role.NodeID { return side.Who(role.Downloading).InStep() },
 			Event:   downloadclients.LiveEvent.Bind(n.hub),
@@ -394,6 +395,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Changed:       grabs.ChangedEvent.Bind(n.hub),
 		SearchChanged: grabs.SearchChangedEvent.Bind(n.hub),
 		FilesChanged:  files.ChangedEvent.Bind(n.hub),
+		Reconciling:   trackers.NotReconciling,
 		BeforeStep:    n.env.Test.BeforeStep,
 		Log:           n.rootLog.With("subsystem", "grabs"),
 	})

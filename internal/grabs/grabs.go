@@ -186,6 +186,10 @@ type Downloads interface {
 	Resolve(ctx context.Context, node role.NodeID, link magnet.Link, endsAt time.Time) (downloadclients.Resolution, error)
 	// Retargeted tells the readers once a send-to's Write commits.
 	Retargeted(downloadclients.Retargeted)
+	// RemoveIn removes ids for reason in the caller's Write, and Touched
+	// tells their Nodes once it commits.
+	RemoveIn(ctx context.Context, tx *storage.Tx[file], ids []downloadclients.ID, reason downloadclients.RemoveReason, deleteFiles bool) ([]downloadclients.Result, downloadclients.Touched, error)
+	Touched(ts ...downloadclients.Touched)
 }
 
 // Router chooses the client a Grab's download goes to, as
@@ -230,6 +234,10 @@ type Config struct {
 	Changed       Publisher[Changed]
 	SearchChanged Publisher[SearchChanged]
 	FilesChanged  Publisher[files.Changed]
+	// Reconciling is whether a restored Controller is Reconciling, read in
+	// the caller's snapshot: trackers.NotReconciling until S49 (Backups and
+	// restore).
+	Reconciling func(ctx context.Context, r storage.Reader[file]) (bool, error)
 	// BeforeStep sees each step before it runs: the simulation tier's
 	// hook, nil in production.
 	BeforeStep func(context.Context, Stage)

@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients/internal/db"
+	"github.com/jatassi/slipstream/internal/identity"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -23,6 +24,14 @@ import (
 type Uses interface {
 	// Of is the Grabs of each of ids, newest first, in r's snapshot.
 	Of(ctx context.Context, r storage.Reader[file], ids []ID) (map[ID][]Use, error)
+}
+
+// Blocklist is the Blocklist as grabs keeps it. MarkedFailed adds an entry
+// for each of ids whose Torrent a Grab at downloading holds, by by, in the
+// caller's Write. It refuses while Reconciling. Adding twice keeps the
+// first entry.
+type Blocklist interface {
+	MarkedFailed(ctx context.Context, tx *storage.Tx[file], ids []ID, by identity.Admin) error
 }
 
 // Use is one Grab of a Torrent.

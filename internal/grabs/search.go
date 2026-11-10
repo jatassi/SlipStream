@@ -20,9 +20,12 @@ import (
 // Search is one search run: one Item searched on every Indexer it planned
 // to ask.
 type Search struct {
-	ID      SearchID
-	WorkID  works.WorkID
-	ItemID  works.ItemID
+	ID     SearchID
+	WorkID works.WorkID
+	ItemID works.ItemID
+	// Manual is the Manual search the run lists Releases for, zero for an
+	// automatic run.
+	Manual  ManualID
 	Started time.Time
 	// Indexers are the Indexers the run asked or skipped, by priority.
 	Indexers []SearchIndexer
@@ -50,7 +53,7 @@ type SearchIndexer struct {
 
 func searchOf(row db.GrabsSearch, lines []SearchIndexer) (Search, error) {
 	s := Search{
-		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Started: row.StartedAt.Time(), Indexers: lines,
+		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Manual: row.ManualID, Started: row.StartedAt.Time(), Indexers: lines,
 		Finished: row.FinishedAt.Time(), Candidates: int(row.Candidates), GrabID: row.GrabID,
 	}
 	if row.Outcome != nil {

@@ -45,11 +45,14 @@ type Config struct {
 	// Remote is a Node's client as the Controller calls it.
 	Remote func(role.NodeID) downloadingv1connect.DownloadingServiceHandler
 	// Sealer seals and opens external clients' secrets.
-	Sealer  *secret.Sealer
-	Roster  Roster
-	Uses    Uses
-	Seeding Seeder
-	Live    LiveConfig
+	Sealer *secret.Sealer
+	Roster Roster
+	Uses   Uses
+	// Blocklist adds the Release of a marked-failed Torrent to the
+	// Blocklist, in the removal's Write.
+	Blocklist Blocklist
+	Seeding   Seeder
+	Live      LiveConfig
 	// Hub wakes Run when the storage levels the disk guard follows change.
 	Hub Hub
 	Log *slog.Logger
