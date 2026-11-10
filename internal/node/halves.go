@@ -125,6 +125,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Touch:        func(nodes ...role.NodeID) { downloads.Touch(nodes...) },
 		Changed:      downloadclients.ChangedEvent.Bind(n.hub),
 		CardsChanged: downloadclients.ClientsChangedEvent.Bind(n.hub),
+		Rerouted:     func() { pipeline.Rerouted() },
 		Facts:        func(id role.NodeID) (*dlv1.Facts, bool) { return downloads.Facts(id) },
 		Remote: func(id role.NodeID) downloadingv1connect.DownloadingServiceHandler {
 			return downloadingv1connect.DownloadingService.On(cluster, id)

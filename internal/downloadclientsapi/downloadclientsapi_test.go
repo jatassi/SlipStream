@@ -160,7 +160,7 @@ func serveWorld(t *testing.T) *world {
 	w := &world{lib: lib, self: side.Self(), roster: &downloaders{serving: []role.NodeID{side.Self()}, away: map[role.NodeID]bool{}}, uses: uses{}, node: &node{}, facts: map[role.NodeID]*dlv1.Facts{}, heard: &heard{}, hashes: map[downloadclients.ID]string{}, blocklist: &blocklist{}}
 	clients := downloadclients.New(downloadclients.Config{
 		Library: lib, Touch: func(n ...role.NodeID) { w.heard.touched = append(w.heard.touched, n...) }, Changed: torrentsChanged{},
-		CardsChanged: w.heard, Roster: w.roster, Uses: w.uses, Blocklist: w.blocklist, Seeding: late{&w.trackers},
+		CardsChanged: w.heard, Rerouted: func() {}, Roster: w.roster, Uses: w.uses, Blocklist: w.blocklist, Seeding: late{&w.trackers},
 		Facts:  func(n role.NodeID) (*dlv1.Facts, bool) { f, ok := w.facts[n]; return f, ok },
 		Remote: func(n role.NodeID) downloadingv1connect.DownloadingServiceHandler { return calledOn{w.node, n} },
 		Sealer: sealer,

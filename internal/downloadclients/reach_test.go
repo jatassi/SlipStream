@@ -37,7 +37,7 @@ func newReach(t *testing.T) *reach {
 	w.roster = &roster{serving: []role.NodeID{w.media, w.attic}, away: map[role.NodeID]bool{w.attic: true}}
 	w.node = &checkingNode{w: w, polls: map[dc.ClientID]*dlv1.ClientPoll{}}
 	w.c = dc.New(dc.Config{
-		Library: lib, Touch: func(...role.NodeID) {}, Changed: &heard{}, CardsChanged: &told{}, Uses: uses{}, Roster: w.roster,
+		Library: lib, Touch: func(...role.NodeID) {}, Changed: &heard{}, CardsChanged: &told{}, Rerouted: func() {}, Uses: uses{}, Roster: w.roster,
 		Remote: func(role.NodeID) downloadingv1connect.DownloadingServiceHandler { return w.node },
 		Facts:  func(role.NodeID) (*dlv1.Facts, bool) { return &dlv1.Facts{Bound: "0.0.0.0:6881"}, true },
 		Log:    slog.New(slog.DiscardHandler),

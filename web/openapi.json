@@ -3989,10 +3989,11 @@
         "additionalProperties": false,
         "properties": {
           "code": {
-            "description": "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention",
+            "description": "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't hold Downloading",
             "enum": [
               "node_away",
-              "client_away"
+              "client_away",
+              "client_off"
             ],
             "type": "string"
           },
@@ -5231,14 +5232,19 @@
             "description": "The external client; null for the Node's built-in client"
           },
           "nodeId": {
-            "description": "The client's Node, which is offline",
+            "description": "The client's Node",
             "format": "uuid",
             "type": "string"
+          },
+          "off": {
+            "description": "The Grab is pinned to this client and the client can't take it: it is off or deleted, or its Node doesn't hold Downloading. False while the client's Node is offline",
+            "type": "boolean"
           }
         },
         "required": [
           "nodeId",
-          "client"
+          "client",
+          "off"
         ],
         "type": "object"
       },
@@ -5570,7 +5576,7 @@
           },
           "waitsFor": {
             "$ref": "#/components/schemas/GrabsClientWait",
-            "description": "The client a fetching Grab goes to, absent unless it waits for that client's Node to be back online"
+            "description": "The client a fetching Grab goes to, absent unless it waits for that client: its Node to be back online, or a pinned client that can't take it"
           },
           "workId": {
             "format": "uuid",

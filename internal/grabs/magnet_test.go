@@ -106,6 +106,7 @@ func (*roster) Away(role.Name, role.NodeID) (nodes.Absence, bool)    { return no
 func (*roster) WrittenOff(role.Name, role.NodeID) bool               { return false }
 func (*roster) Holds(role.Name, role.NodeID) bool                    { return true }
 func (r *roster) Holding(role.Name) []role.NodeID                    { return []role.NodeID{r.node} }
+func (r *roster) Serving(role.Name) []role.NodeID                    { return []role.NodeID{r.node} }
 func (*roster) Name(role.NodeID) string                              { return "home" }
 func (*roster) PickOther(role.Name, role.NodeID) (role.NodeID, bool) { return role.NodeID{}, false }
 
@@ -217,7 +218,8 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 	p.work = tree.ID
 	p.copies = transfers.New(transfers.ControllerConfig{Library: lib})
 	p.swarm.clients = downloadclients.New(downloadclients.Config{
-		Library: lib, Touch: func(...role.NodeID) {}, Changed: discard[downloadclients.Changed]{}, Uses: grabs.TorrentUses{}, Log: slog.New(slog.DiscardHandler),
+		Library: lib, Touch: func(...role.NodeID) {}, Changed: discard[downloadclients.Changed]{}, CardsChanged: discard[downloadclients.ClientsChanged]{},
+		Rerouted: func() { p.g.Rerouted() }, Sealer: sealer, Roster: p.roster, Uses: grabs.TorrentUses{}, Log: slog.New(slog.DiscardHandler),
 	})
 	p.cfg = grabs.Config{
 		Library: lib, Works: w, Sealer: sealer,

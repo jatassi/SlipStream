@@ -296,8 +296,9 @@ type grabClient struct {
 }
 
 type clientWait struct {
-	NodeID string                   `json:"nodeId" format:"uuid" doc:"The client's Node, which is offline"`
+	NodeID string                   `json:"nodeId" format:"uuid" doc:"The client's Node"`
 	Client api.Nullable[grabClient] `json:"client" doc:"The external client; null for the Node's built-in client"`
+	Off    bool                     `json:"off" doc:"The Grab is pinned to this client and the client can't take it: it is off or deleted, or its Node doesn't hold Downloading. False while the client's Node is offline"`
 }
 
 type grab struct {
@@ -322,7 +323,7 @@ type grab struct {
 	Progress     *progress                `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
 	Metadata     *metadataSearch          `json:"metadata,omitempty" doc:"The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node"`
 	FetchWait    *fetchWait               `json:"fetchWait,omitempty" doc:"Why fetching the .torrent waits on its Indexer, absent unless it does"`
-	WaitsFor     *clientWait              `json:"waitsFor,omitempty" doc:"The client a fetching Grab goes to, absent unless it waits for that client's Node to be back online"`
+	WaitsFor     *clientWait              `json:"waitsFor,omitempty" doc:"The client a fetching Grab goes to, absent unless it waits for that client: its Node to be back online, or a pinned client that can't take it"`
 	CreatedAt    time.Time                `json:"createdAt"`
 	Source       string                   `json:"source" enum:"search,manual" doc:"How it was chosen: by a search's decision, or by an Admin in a Manual search"`
 	GrabbedBy    *string                  `json:"grabbedBy" doc:"A name, or the API key; null for a search's Grab"`
@@ -384,7 +385,7 @@ func grabOf(v grabs.View) grab {
 		}
 	}
 	if w := v.WaitsFor; w != nil {
-		out.WaitsFor = &clientWait{NodeID: w.Node.String()}
+		out.WaitsFor = &clientWait{NodeID: w.Node.String(), Off: w.Off}
 		if c := w.Client; c != nil {
 			out.WaitsFor.Client = api.Some(grabClient{ID: c.ID.String(), Name: c.Name, Kind: string(c.Kind)})
 		}
