@@ -75,8 +75,6 @@ export * from "./cancelGrab422.ts";
 export * from "./cancelGrab422Code.ts";
 export * from "./cancelGrab500.ts";
 export * from "./cancelGrab500Code.ts";
-export * from "./cancelGrab501.ts";
-export * from "./cancelGrab501Code.ts";
 export * from "./cancelInputBody.ts";
 export * from "./cancelTaskRun401.ts";
 export * from "./cancelTaskRun401Code.ts";

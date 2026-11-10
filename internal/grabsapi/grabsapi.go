@@ -483,7 +483,7 @@ func Routes(r *api.Router, p Pipeline) {
 		Path:    "/grabs/{grabId}/cancel",
 		Summary: "Cancel a Grab that is fetching, downloading or transferring. Canceling a canceled Grab changes nothing",
 		Status:  http.StatusNoContent,
-		Errors:  []*api.Code{grabNotFound, grabBusy, grabFinished, reconciling, notBuilt},
+		Errors:  []*api.Code{grabNotFound, grabBusy, grabFinished, reconciling},
 	}, h.cancelGrab)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "startManualSearch",

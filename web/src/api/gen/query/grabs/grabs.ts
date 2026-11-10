@@ -22,7 +22,6 @@ import type {
   CancelGrab409,
   CancelGrab422,
   CancelGrab500,
-  CancelGrab501,
   CancelInputBody,
   GetGrab401,
   GetGrab403,
@@ -673,13 +672,7 @@ export const getCancelGrabMutationKey = () => ["cancelGrab"] as const;
 
 export const getCancelGrabMutationOptions = <
   TError = ErrorType<
-    | CancelGrab401
-    | CancelGrab403
-    | CancelGrab404
-    | CancelGrab409
-    | CancelGrab422
-    | CancelGrab500
-    | CancelGrab501
+    CancelGrab401 | CancelGrab403 | CancelGrab404 | CancelGrab409 | CancelGrab422 | CancelGrab500
   >,
   TContext = unknown,
 >(options?: {
@@ -718,13 +711,7 @@ export const getCancelGrabMutationOptions = <
 export type CancelGrabMutationResult = NonNullable<Awaited<ReturnType<typeof cancelGrab>>>;
 export type CancelGrabMutationBody = CancelInputBody;
 export type CancelGrabMutationError = ErrorType<
-  | CancelGrab401
-  | CancelGrab403
-  | CancelGrab404
-  | CancelGrab409
-  | CancelGrab422
-  | CancelGrab500
-  | CancelGrab501
+  CancelGrab401 | CancelGrab403 | CancelGrab404 | CancelGrab409 | CancelGrab422 | CancelGrab500
 >;
 export type CancelGrabMutationVariables = { grabId: string; data: CancelInputBody };
 
@@ -733,13 +720,7 @@ export type CancelGrabMutationVariables = { grabId: string; data: CancelInputBod
  */
 export const useCancelGrab = <
   TError = ErrorType<
-    | CancelGrab401
-    | CancelGrab403
-    | CancelGrab404
-    | CancelGrab409
-    | CancelGrab422
-    | CancelGrab500
-    | CancelGrab501
+    CancelGrab401 | CancelGrab403 | CancelGrab404 | CancelGrab409 | CancelGrab422 | CancelGrab500
   >,
   TContext = unknown,
 >(
