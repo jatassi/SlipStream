@@ -201,6 +201,7 @@ const failedImport: GrabsGrab = {
     stage: "importing",
     code: "import_failed",
     message: "place movies/The Quiet Orchard (2021): permission denied",
+    needsYou: true,
   },
 };
 

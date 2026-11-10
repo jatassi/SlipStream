@@ -23,6 +23,19 @@ type View struct {
 	Metadata  *MetadataSearch
 	FetchWait *indexers.FetchWait
 	WaitsFor  *ClientWait
+	// Overrides is each choice the Admin made past the decision, as a
+	// sentence: "Jackson grabbed it as the Director's Cut."
+	Overrides []string
+	Actions   Actions
+}
+
+// Actions is what an Admin can do to a Grab now.
+type Actions struct {
+	Cancel bool
+	// Blocklist is true when a cancel can also blocklist its Release: its
+	// info hash is known.
+	Blocklist bool
+	SendTo    bool
 }
 
 // reads is what a Grab's view reads beside the Grab, in the same snapshot.
