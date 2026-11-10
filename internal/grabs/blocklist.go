@@ -282,14 +282,3 @@ func (b BlocklistOn) MarkedFailed(ctx context.Context, tx *storage.Tx[file], ids
 	}
 	return nil
 }
-
-// actorOf is by as an Actor: its account and name, or the API key's
-// empty Actor.
-func actorOf(by identity.Admin) Actor {
-	a, ok := by.Account()
-	if !ok {
-		return Actor{}
-	}
-	p := a.Profile()
-	return Actor{Account: &p.ID, Name: p.DisplayName}
-}

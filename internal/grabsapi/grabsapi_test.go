@@ -245,7 +245,8 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Transfers: transfers.New(transfers.ControllerConfig{Library: lib}),
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, BlocklistChanged: blocklisted,
-		Log: slog.New(slog.DiscardHandler),
+		Reconciling: trackers.NotReconciling,
+		Log:         slog.New(slog.DiscardHandler),
 	})
 	return &atticFixture{
 		ctx: ctx, lib: lib, sealer: sealer, home: role.NodeID{UUID: home}, tree: tree, unmonitored: unmonitored, hd: hd, terms: terms,

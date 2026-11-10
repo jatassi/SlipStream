@@ -119,7 +119,6 @@ import type {
   StartManualSearch409,
   StartManualSearch422,
   StartManualSearch500,
-  StartManualSearch501,
   UnblockInputBody,
 } from "../../model";
 
@@ -1458,7 +1457,6 @@ export const getStartManualSearchMutationOptions = <
     | StartManualSearch409
     | StartManualSearch422
     | StartManualSearch500
-    | StartManualSearch501
   >,
   TContext = unknown,
 >(options?: {
@@ -1505,7 +1503,6 @@ export type StartManualSearchMutationError = ErrorType<
   | StartManualSearch409
   | StartManualSearch422
   | StartManualSearch500
-  | StartManualSearch501
 >;
 export type StartManualSearchMutationVariables = { workId: string; data?: GrabsStartManual };
 
@@ -1520,7 +1517,6 @@ export const useStartManualSearch = <
     | StartManualSearch409
     | StartManualSearch422
     | StartManualSearch500
-    | StartManualSearch501
   >,
   TContext = unknown,
 >(

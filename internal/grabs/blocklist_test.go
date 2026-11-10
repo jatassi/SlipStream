@@ -39,13 +39,13 @@ func reconciling(yes bool) grabs.BlocklistOn {
 
 // runReleases is each Release the Work's one run lists, as "<title>
 // <outcome>", and the words of its reasons.
-func (tw twinWorld) runReleases(t *testing.T) []string {
+func (a atticWorld) runReleases(t *testing.T) []string {
 	t.Helper()
-	runs, err := tw.g.Searches(t.Context(), identity.Admin{}, tw.work)
+	runs, err := a.g.Searches(t.Context(), identity.Admin{}, a.work)
 	if err != nil {
 		t.Fatal(err)
 	}
-	listed, err := tw.g.Releases(t.Context(), identity.Admin{}, runs[0].ID)
+	listed, err := a.g.Releases(t.Context(), identity.Admin{}, runs[0].ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,9 +60,9 @@ func (tw twinWorld) runReleases(t *testing.T) []string {
 	return out
 }
 
-func (tw twinWorld) page(t *testing.T, q grabs.BlocklistQuery) grabs.BlocklistPage {
+func (a atticWorld) page(t *testing.T, q grabs.BlocklistQuery) grabs.BlocklistPage {
 	t.Helper()
-	page, err := tw.g.Blocklist(t.Context(), identity.Admin{}, q)
+	page, err := a.g.Blocklist(t.Context(), identity.Admin{}, q)
 	if err != nil {
 		t.Fatal(err)
 	}

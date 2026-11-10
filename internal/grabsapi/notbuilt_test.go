@@ -15,7 +15,6 @@ func TestTheseOperationsAreNotBuiltYet(t *testing.T) {
 	work, other := "/api/v1/works/"+f.tree.ID.String(), storage.NewUUID().String()
 	notBuilt := `{"status":501,"code":"not_built","title":"This operation isn't built yet"}` + "\n"
 	for _, op := range []struct{ id, method, path, body string }{
-		{"startManualSearch", http.MethodPost, work + "/manual-search", ""},
 		{"getManualSearch", http.MethodGet, work + "/manual-search?pins=a,b", ""},
 		{"listManualSearchReleases", http.MethodGet, work + "/manual-search/releases", ""},
 		{"grabFromManualSearch", http.MethodPost, work + "/manual-search/grabs", `{"manualSearchId":"` + other + `","picks":[{"releaseId":"` + other + `.0","lifts":[]}]}`},

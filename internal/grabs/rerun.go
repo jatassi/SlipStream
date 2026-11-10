@@ -38,6 +38,9 @@ type keptRelease struct {
 	MinSeedSeconds int64             `json:"minSeedSeconds,omitempty"`
 	Source         *keptSource       `json:"source,omitempty"`
 	Flags          []searching.Flag  `json:"flags,omitempty"`
+	// Published is when its Indexer published it, zero when it sent no
+	// date.
+	Published time.Time `json:"published,omitzero"`
 }
 
 // keptSource is the site a Torznab feed said the Release came from, which
@@ -54,7 +57,7 @@ func encodeKept(r indexers.Release) (string, error) {
 	k := keptRelease{
 		Priority: r.Priority, Title: r.Title, Size: r.Size, Seeders: r.Seeders, IDs: r.IDs,
 		DownloadFactor: r.Factors.Download, UploadFactor: r.Factors.Upload, MinRatio: r.Floor.MinRatio, MinSeedSeconds: int64(r.Floor.MinSeed.Seconds()),
-		Flags: r.Flags,
+		Flags: r.Flags, Published: r.Published,
 	}
 	if r.InfoHash != nil {
 		k.InfoHash = r.InfoHash.String()
@@ -79,7 +82,7 @@ func (gr *Grabs) kept(row db.GrabsRelease) (indexers.Release, error) {
 		Title: k.Title, Size: k.Size, Seeders: k.Seeders, IDs: k.IDs,
 		Factors: searching.Factors{Download: k.DownloadFactor, Upload: k.UploadFactor},
 		Floor:   searching.Floor{MinRatio: k.MinRatio, MinSeed: time.Duration(k.MinSeedSeconds) * time.Second},
-		Flags:   k.Flags,
+		Flags:   k.Flags, Published: k.Published,
 	}}
 	if k.InfoHash != "" {
 		h, err := bencode.ParseInfoHash(k.InfoHash)
