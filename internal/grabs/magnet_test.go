@@ -168,6 +168,7 @@ type pipeline struct {
 	root       roots.ID
 	indexer    indexers.ID
 	copies     *transfers.Transfers
+	cfg        grabs.Config
 	beforeStep func(context.Context, grabs.Stage)
 }
 
@@ -207,7 +208,7 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 	}
 	p.work = tree.ID
 	p.copies = transfers.New(transfers.ControllerConfig{Library: lib})
-	p.g = grabs.New(grabs.Config{
+	p.cfg = grabs.Config{
 		Library: lib, Works: w, Sealer: sealer,
 		Indexers: indexers.New(indexers.Config{
 			Library: lib, Sealer: sealer, Roster: p.roster, Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
@@ -216,13 +217,15 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 		Router:    downloadclients.Router{Roster: p.roster, Routes: trackers.Routing{Roster: p.roster}},
 		Transfers: p.copies,
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
-		Changed: p.changed, Log: slog.New(slog.DiscardHandler),
+		Changed: p.changed, BlocklistChanged: discard[grabs.BlocklistChanged]{}, Reconciling: trackers.NotReconciling,
+		Log: slog.New(slog.DiscardHandler),
 		BeforeStep: func(ctx context.Context, s grabs.Stage) {
 			if p.beforeStep != nil {
 				p.beforeStep(ctx, s)
 			}
 		},
-	})
+	}
+	p.g = grabs.New(p.cfg)
 	return p
 }
 
