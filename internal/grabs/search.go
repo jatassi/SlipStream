@@ -2,7 +2,6 @@ package grabs
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -416,29 +415,23 @@ func (gr *Grabs) decision(ctx context.Context, r storage.Reader[file], run Searc
 	return decide(c, as), c, nil
 }
 
-// take grabs the first of picks, or of its copies, whose Indexer takes
-// it, and returns the Grab and the pick at the position taken. With none
-// taken the Grab is nil and the position -1: an Indexer that is stopped,
-// at its grab limit or deleted would make the Grab wait for the Admin. It
-// skips the positions gone, which an earlier Grab of the run took.
+// take grabs what choose takes of picks with Indexers.Take, and returns
+// the Grab and the pick at the position taken. With none taken the Grab is
+// nil and the position -1: an Indexer that is stopped, at its grab limit
+// or deleted would make the Grab wait for the Admin. It skips the
+// positions gone, which an earlier Grab of the run took.
 func (gr *Grabs) take(ctx context.Context, tx *storage.Tx[file], run Search, picks []Pick, gone map[int]bool, now storage.Time) (*Grab, Pick, error) {
-	for _, pick := range picks {
-		for _, p := range pick.offers() {
-			if gone[p.at] {
-				continue
-			}
-			t, err := gr.cfg.Indexers.Take(ctx, tx, p.Release)
-			if errors.As(err, new(*indexers.NotTakenError)) {
-				continue
-			}
-			if err != nil {
-				return nil, Pick{}, err
-			}
-			g, err := gr.insertGrab(ctx, tx, run, p, t, now)
-			return &g, p, err
-		}
+	p, t, ok, err := choose(picks, gone, func(r indexers.Release) (indexers.Ticket, error) {
+		return gr.cfg.Indexers.Take(ctx, tx, r)
+	})
+	if err != nil {
+		return nil, Pick{}, err
 	}
-	return nil, Pick{at: -1}, nil
+	if !ok {
+		return nil, Pick{at: -1}, nil
+	}
+	g, err := gr.insertGrab(ctx, tx, run, p, t, now)
+	return &g, p, err
 }
 
 // releaseKey is what a sighting keys it by: its info hash in hex, else its
