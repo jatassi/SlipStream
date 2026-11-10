@@ -1441,8 +1441,6 @@ export * from "./grabFromManualSearch422.ts";
 export * from "./grabFromManualSearch422Code.ts";
 export * from "./grabFromManualSearch500.ts";
 export * from "./grabFromManualSearch500Code.ts";
-export * from "./grabFromManualSearch501.ts";
-export * from "./grabFromManualSearch501Code.ts";
 export * from "./grabManualInputBody.ts";
 export * from "./grabsBlockEntry.ts";
 export * from "./grabsBlockEntryCause.ts";

@@ -2,7 +2,6 @@ package grabs
 
 import (
 	"context"
-	"errors"
 	"slices"
 	"time"
 
@@ -134,18 +133,8 @@ func (gr *Grabs) Get(ctx context.Context, _ identity.Admin, id GrabID) (View, er
 	var g Grab
 	var rd reads
 	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		row, err := db.New(r).GetGrab(ctx, id)
-		if errors.Is(err, storage.ErrNoRows) {
-			return ErrNoGrab
-		}
-		if err != nil {
-			return err
-		}
-		rel, err := readRelated(ctx, r, []db.GrabsGrab{row})
-		if err != nil {
-			return err
-		}
-		if g, err = load(ctx, r, row, rel); err != nil {
+		var err error
+		if g, err = grabIn(ctx, r, id); err != nil {
 			return err
 		}
 		rd, err = gr.readsIn(ctx, r, []Grab{g})
@@ -179,6 +168,7 @@ func (gr *Grabs) views(ctx context.Context, grabs []Grab, rd reads) ([]View, err
 			Cancel: g.cancellable(), Blocklist: g.cancellable() && g.infoHash() != nil,
 			SendTo: g.waitsOnTorrent() || out[i].WaitsFor != nil,
 		}
+		out[i].Overrides = g.overrideWords()
 	}
 	return out, nil
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/storage"
 )
 
 func TestStartManualSearchAnswersTheWorksSearchUntilSearchAgain(t *testing.T) {
@@ -94,5 +95,54 @@ func TestGetManualSearchPlansTheWorksManualSearch(t *testing.T) {
 	if err := json.Unmarshal([]byte(got), &list); err != nil || code != http.StatusOK || len(list.Releases) != 2 ||
 		list.Releases[0].Rank == nil || !list.Releases[0].Grab.Grabbable || list.Releases[1].Rank != nil || list.Releases[1].Grab.Refusal == "" {
 		t.Fatalf("listManualSearchReleases = %d %s, want the 1080p ranked and grabbable, then the 720p refused", code, got)
+	}
+}
+
+func TestGrabFromManualSearchAnswersEachPick(t *testing.T) {
+	f, _, _ := mirrored(t, "The.Attic.1080p.WEB", "The.Attic.720p.WEB", false, indexers.Edit{})
+	path := "/api/v1/works/" + f.tree.ID.String() + "/manual-search"
+	code, got := f.s.Call(t, http.MethodPost, path, "")
+	var started struct {
+		ManualSearchID string `json:"manualSearchId"`
+	}
+	if err := json.Unmarshal([]byte(got), &started); err != nil || code != http.StatusAccepted {
+		t.Fatalf("startManualSearch = %d %s, want 202", code, got)
+	}
+	f.running(t)
+	var v struct {
+		Searching bool `json:"searching"`
+		Plan      struct {
+			Rows []struct {
+				Pick *struct {
+					Release struct {
+						ID string `json:"id"`
+					} `json:"release"`
+				} `json:"pick"`
+			} `json:"rows"`
+		} `json:"plan"`
+	}
+	for v.Plan.Rows == nil || v.Searching {
+		<-f.searched
+		if code, got := f.s.Call(t, http.MethodGet, path, ""); code != http.StatusOK || json.Unmarshal([]byte(got), &v) != nil {
+			t.Fatalf("getManualSearch = %d %s, want 200", code, got)
+		}
+	}
+	release := v.Plan.Rows[0].Pick.Release.ID
+	grab := func(manual string) (int, string) {
+		return f.s.Call(t, http.MethodPost, path+"/grabs", `{"manualSearchId":"`+manual+`","picks":[{"releaseId":"`+release+`","lifts":[]},{"releaseId":"`+release+`","lifts":[]}]}`)
+	}
+	code, got = grab(started.ManualSearchID)
+	var out struct {
+		Results []struct {
+			GrabID  *string         `json:"grabId"`
+			Problem json.RawMessage `json:"problem"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal([]byte(got), &out); err != nil || code != http.StatusOK || len(out.Results) != 2 || out.Results[0].GrabID == nil ||
+		out.Results[1].GrabID == nil || *out.Results[0].GrabID != *out.Results[1].GrabID || string(out.Results[0].Problem) != "null" {
+		t.Fatalf("grabFromManualSearch = %d %s, want one Grab answering both picks", code, got)
+	}
+	if code, got := grab(storage.NewUUID().String()); code != http.StatusConflict || !strings.Contains(got, `"code":"manual_search_replaced"`) {
+		t.Fatalf("grabFromManualSearch of another search = %d %s, want 409 manual_search_replaced", code, got)
 	}
 }

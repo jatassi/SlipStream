@@ -42,7 +42,6 @@ import type {
   GrabFromManualSearch409,
   GrabFromManualSearch422,
   GrabFromManualSearch500,
-  GrabFromManualSearch501,
   GrabManualInputBody,
   GrabsBlocklist,
   GrabsGrab,
@@ -1560,7 +1559,6 @@ export const getGrabFromManualSearchMutationOptions = <
     | GrabFromManualSearch409
     | GrabFromManualSearch422
     | GrabFromManualSearch500
-    | GrabFromManualSearch501
   >,
   TContext = unknown,
 >(options?: {
@@ -1607,7 +1605,6 @@ export type GrabFromManualSearchMutationError = ErrorType<
   | GrabFromManualSearch409
   | GrabFromManualSearch422
   | GrabFromManualSearch500
-  | GrabFromManualSearch501
 >;
 export type GrabFromManualSearchMutationVariables = { workId: string; data: GrabManualInputBody };
 
@@ -1622,7 +1619,6 @@ export const useGrabFromManualSearch = <
     | GrabFromManualSearch409
     | GrabFromManualSearch422
     | GrabFromManualSearch500
-    | GrabFromManualSearch501
   >,
   TContext = unknown,
 >(
