@@ -1,5 +1,6 @@
 import type {
   GrabsClientChoice,
+  GrabsEditionOverride,
   GrabsGrabPick,
   GrabsLiftKey,
   GrabsLiftKeyCode,
@@ -84,7 +85,7 @@ export function pickOf(
     readonly release: { readonly id: string; readonly blocked: string | null };
     readonly cells: readonly string[];
     readonly lifts: readonly GrabsWordedReason[];
-    readonly edition: string | null;
+    readonly edition: GrabsEditionOverride | null;
   },
   client: GrabsClientChoice | undefined,
   cancelGrabId?: string,
@@ -93,7 +94,7 @@ export function pickOf(
     releaseId: offer.release.id,
     cells: [...offer.cells],
     lifts: liftsOf(offer.lifts),
-    ...(offer.edition !== null && { edition: offer.edition }),
+    ...(offer.edition !== null && { edition: offer.edition.edition }),
     ...(client !== undefined && { client }),
     ...(offer.release.blocked !== null && { unblock: true }),
     ...(cancelGrabId !== undefined && { cancelGrabId }),

@@ -24,11 +24,16 @@ type manualLift struct {
 	TargetID string `json:"targetId,omitempty"`
 }
 
+type manualEdition struct {
+	Edition string `json:"edition"`
+	Words   string `json:"words"`
+}
+
 type manualOffer struct {
-	Release manualRelease `json:"release"`
-	Cells   []string      `json:"cells"`
-	Lifts   []manualLift  `json:"lifts"`
-	Edition *string       `json:"edition"`
+	Release manualRelease  `json:"release"`
+	Cells   []string       `json:"cells"`
+	Lifts   []manualLift   `json:"lifts"`
+	Edition *manualEdition `json:"edition"`
 }
 
 type manualSheet struct {
@@ -83,7 +88,7 @@ func grabByHand(t *testing.T, w *sim.World, work string, v manualSheet, o manual
 	t.Helper()
 	pick := map[string]any{"releaseId": o.Release.ID, "cells": o.Cells, "lifts": o.Lifts}
 	if o.Edition != nil {
-		pick["edition"] = *o.Edition
+		pick["edition"] = o.Edition.Edition
 	}
 	body, err := json.Marshal(map[string]any{"manualSearchId": v.ID, "picks": []any{pick}})
 	if err != nil {
@@ -256,8 +261,8 @@ func TestAGrabAsAnotherEditionKeepsItsFillAfterARefill(t *testing.T) {
 		}
 		v := searchByHand(t, w, work, "")
 		o := v.offered(t, fkw)
-		if o.Edition == nil || *o.Edition != "directors-cut" {
-			t.Fatalf("the plan grabs it as %v, want the Director's Cut", o.Edition)
+		if want := "Its name gives the Standard Edition, which the Work doesn't want. It's grabbed as the Director's Cut Edition."; o.Edition == nil || o.Edition.Edition != "directors-cut" || o.Edition.Words != want {
+			t.Fatalf("the plan grabs it as %+v, want the Director's Cut saying %q", o.Edition, want)
 		}
 		g := awaitGrab(t, w, grabByHand(t, w, work, v, o))
 		simtest.ExpectImported(t, g.GrabView)

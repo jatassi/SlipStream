@@ -5176,11 +5176,15 @@
             "type": "array"
           },
           "edition": {
-            "description": "The Edition it is grabbed as; null unless that is another Edition than its cut's",
-            "type": [
-              "string",
-              "null"
-            ]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrabsEditionOverride"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Edition it is grabbed as; null unless that is another Edition than its cut's"
           },
           "lifts": {
             "items": {
@@ -5253,6 +5257,25 @@
           "nodeId",
           "client",
           "off"
+        ],
+        "type": "object"
+      },
+      "GrabsEditionOverride": {
+        "additionalProperties": false,
+        "properties": {
+          "edition": {
+            "description": "Send it back as the pick's edition",
+            "minLength": 1,
+            "type": "string"
+          },
+          "words": {
+            "description": "Such as Its name gives the Extended Edition, which the Work doesn't want. It's grabbed as the Standard Edition.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "edition",
+          "words"
         ],
         "type": "object"
       },
@@ -5701,11 +5724,15 @@
             "type": "array"
           },
           "edition": {
-            "description": "The Edition it is grabbed as; null unless that is another Edition than its cut's",
-            "type": [
-              "string",
-              "null"
-            ]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrabsEditionOverride"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Edition it is grabbed as; null unless that is another Edition than its cut's"
           },
           "grabbable": {
             "description": "It fills some cell and its Indexer would take it now. One on the Blocklist is grabbed only with unblock.",
@@ -6405,11 +6432,15 @@
             "type": "array"
           },
           "edition": {
-            "description": "The Edition it is grabbed as; null unless that is another Edition than its cut's",
-            "type": [
-              "string",
-              "null"
-            ]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrabsEditionOverride"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Edition it is grabbed as; null unless that is another Edition than its cut's"
           },
           "lifts": {
             "description": "The soft refusals it is grabbed past; send their codes and Targets back as the pick's lifts",

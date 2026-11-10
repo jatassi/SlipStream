@@ -2,7 +2,7 @@ import type { GrabsOffer } from "../api/gen/model";
 import { Button } from "../ui/button";
 import { Details } from "../ui/details";
 import type { Grabbing } from "./grabbing";
-import { Lifts, ReleaseName, Result } from "./parts";
+import { Overrides, ReleaseName, Result } from "./parts";
 import { pickOf } from "./picks";
 import { ReleaseDetails } from "./release-details";
 
@@ -27,7 +27,7 @@ export function Offer({ offer, grab }: { offer: GrabsOffer; grab: Grabbing }) {
       {offer.grab.cancels.map((held) => (
         <p key={held.grabId}>{held.words}</p>
       ))}
-      <Lifts lifts={offer.grab.lifts} />
+      <Overrides lifts={offer.grab.lifts} edition={offer.grab.edition} />
       {result === undefined ? (
         offer.grab.grabbable && (
           <Button

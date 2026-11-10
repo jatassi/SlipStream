@@ -92,7 +92,8 @@ func TestEachRefusalIsGrabbableOrNotAsTheSpecsTableSays(t *testing.T) {
 		cells     []files.Cell
 		l         listed
 		grabbable bool
-		// says is in the offer's lifts, its Refusal or its Blocked words.
+		// says is in the offer's lifts, its Edition override, its Refusal or
+		// its Blocked words.
 		says string
 	}{
 		{targets.WrongWork, orchard, open, offered("Orchard.2021.1080p.WEB-DL", 5, 10, map[string]string{"tmdbid": "9000002"}), false, "An id in the name belongs to another Work."},
@@ -105,7 +106,7 @@ func TestEachRefusalIsGrabbableOrNotAsTheSpecsTableSays(t *testing.T) {
 		{targets.SizeAbove, long, open, offered("Orchard.2021.1080p.WEB-DL", 5, 10000<<20, nil), true, "It's larger than 1080p allows."},
 		{targets.ScoreBelowMinimum, orchard, []files.Cell{cell(targetOf(minimum), files.Missing)}, offered("Orchard.2021.1080p.WEB-DL", 5, 10, nil), true, "is below the minimum of 10 at Minimum."},
 		{targets.RepackOtherGroup, orchard, []files.Cell{upgradable}, offered("Orchard.2021.1080p.WEB-DL.REPACK-OTHER", 5, 10, nil), true, "It's a repack from OTHER"},
-		{targets.CutNotWanted, orchard, []files.Cell{cellOf(targets.Edition("extended"), hd, files.Missing)}, offered("Orchard.2021.1080p.WEB-DL", 5, 10, nil), true, "extended"},
+		{targets.CutNotWanted, orchard, []files.Cell{cellOf(targets.Edition("extended"), hd, files.Missing)}, offered("Orchard.2021.1080p.WEB-DL", 5, 10, nil), true, "Its name gives the Standard Edition, which the Work doesn't want. It's grabbed as the Extended Edition."},
 		{targets.NotAnUpgrade, orchard, []files.Cell{upgradable}, offered("Orchard.2021.1080p.WEB-DL-GRP2", 5, 10, nil), false, "It isn't better than the file you have."},
 		{targets.Blocklisted, orchard, open, blocked, true, "It's been on the Blocklist since"},
 	} {
@@ -119,8 +120,8 @@ func TestEachRefusalIsGrabbableOrNotAsTheSpecsTableSays(t *testing.T) {
 		}
 		o := offers[0]
 		said := slices.Concat([]string{o.Grab.Refusal, o.Release.Blocked}, wordsOfAll(o.Grab.Lifts))
-		if c.code == targets.CutNotWanted {
-			said = append(said, string(o.Grab.Edition))
+		if e := o.Grab.Edition; e != nil {
+			said = append(said, e.Words)
 		}
 		if o.Grab.Grabbable != c.grabbable || !slices.ContainsFunc(said, func(s string) bool { return strings.Contains(s, c.says) }) {
 			t.Errorf("%s: grabbable %v saying %q, want %v saying %q", c.code, o.Grab.Grabbable, said, c.grabbable, c.says)

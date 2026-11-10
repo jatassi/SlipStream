@@ -105,12 +105,19 @@ type Row struct {
 type PlanPick struct {
 	Release ReleaseDetails
 	// Lifts is the soft refusals it gets past, each a sentence.
-	Lifts []Worded
-	// Edition is the Edition it is grabbed as, zero unless that is another
-	// Edition than its cut's.
-	Edition targets.Edition
+	Lifts   []Worded
+	Edition *EditionOverride
 	// Routed is "Where Tracker routing sends it (qBittorrent on Den)".
 	Routed string
+}
+
+// EditionOverride is the Edition a Release is grabbed as when the cell
+// leading its cells doesn't take its cut, nil when it does.
+type EditionOverride struct {
+	Edition targets.Edition
+	// Words is "Its name gives the Extended Edition, which the Work
+	// doesn't want. It's grabbed as the Standard Edition."
+	Words string
 }
 
 // Choice is one other Release that could fill a row's first cell.
@@ -121,7 +128,7 @@ type Choice struct {
 	// leading.
 	Cells   []files.CellKey
 	Lifts   []Worded
-	Edition targets.Edition
+	Edition *EditionOverride
 	// Note is "From TorrentLeech, which automatic search doesn't use."
 	Note string
 }
@@ -212,7 +219,7 @@ type GrabOffer struct {
 	// downloads among them.
 	Cells   []files.CellKey
 	Lifts   []Worded
-	Edition targets.Edition
+	Edition *EditionOverride
 	// Cancels is each Grab downloading a cell it would also fill.
 	Cancels []HeldCell
 	// Waits is "TorrentLeech is at its grab limit until 14:05."

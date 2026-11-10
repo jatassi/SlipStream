@@ -2886,6 +2886,18 @@ export const GrabsChanged = zod.object({
 export type GrabsChanged = zod.input<typeof GrabsChanged>;
 export type GrabsChangedOutput = zod.output<typeof GrabsChanged>;
 
+export const GrabsEditionOverride = zod.object({
+  edition: zod.string().min(1).describe("Send it back as the pick's edition"),
+  words: zod
+    .string()
+    .describe(
+      "Such as Its name gives the Extended Edition, which the Work doesn't want. It's grabbed as the Standard Edition.",
+    ),
+});
+
+export type GrabsEditionOverride = zod.input<typeof GrabsEditionOverride>;
+export type GrabsEditionOverrideOutput = zod.output<typeof GrabsEditionOverride>;
+
 export const GrabsLostAt = zod.object({
   own: zod
     .string()
@@ -2964,8 +2976,7 @@ export const GrabsChoice = zod.object({
     .array(zod.string())
     .describe("The cells its row fills once it is pinned, the row's first leading"),
   edition: zod
-    .string()
-    .nullable()
+    .union([GrabsEditionOverride, zod.null()])
     .describe("The Edition it is grabbed as; null unless that is another Edition than its cut's"),
   lifts: zod.array(GrabsWordedReason),
   note: zod
@@ -3267,8 +3278,7 @@ export const GrabsGrabOffer = zod.object({
       "The cells a Grab of it alone fills, any a Grab downloads among them. Send them back as the pick's cells.",
     ),
   edition: zod
-    .string()
-    .nullable()
+    .union([GrabsEditionOverride, zod.null()])
     .describe("The Edition it is grabbed as; null unless that is another Edition than its cut's"),
   grabbable: zod
     .boolean()
@@ -3407,8 +3417,7 @@ export const GrabsPlanPick = zod.object({
     .array(zod.string())
     .describe("The cells it fills, its row's first leading. Send them back as the pick's cells."),
   edition: zod
-    .string()
-    .nullable()
+    .union([GrabsEditionOverride, zod.null()])
     .describe("The Edition it is grabbed as; null unless that is another Edition than its cut's"),
   lifts: zod
     .array(GrabsWordedReason)

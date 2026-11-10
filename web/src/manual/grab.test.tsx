@@ -7,6 +7,7 @@ import {
   blocked,
   blockedChoice,
   filmPlan,
+  flux,
   heldGrabId,
   pinnedFilmPlan,
   runId,
@@ -119,5 +120,35 @@ test("Other choices reads a blocked Release's since and why, and a lift as an am
     .poll(() => server.grabbed)
     .toEqual([
       [{ releaseId: blocked.id, cells: ["cell-orchard-1080p"], lifts: [], unblock: true }],
+    ]);
+});
+
+test("a pick grabbed as another Edition says so as an amber override, and Grab posts that Edition", async () => {
+  const words =
+    "Its name gives the Extended Edition, which the Work doesn't want. It's grabbed as the Standard Edition.";
+  const server = manualServer({
+    plan: () => ({
+      ...filmPlan,
+      plan: {
+        ...filmPlan.plan,
+        rows: filmPlan.plan.rows.map((row) =>
+          row.pick === null
+            ? row
+            : { ...row, pick: { ...row.pick, edition: { edition: "standard", words } } },
+        ),
+      },
+    }),
+  });
+  openSheet(server);
+  const sheet = sheetNamed("The Quiet Orchard (2021)");
+  const row = sheet.getByRole("list", { name: "Grabs" }).getByRole("listitem").first();
+  await expect.element(row.getByText("Override")).toBeVisible();
+  await expect.element(row.getByText(words)).toBeVisible();
+
+  await userEvent.click(sheet.getByRole("button", { name: "Grab 1" }));
+  await expect
+    .poll(() => server.grabbed)
+    .toEqual([
+      [{ releaseId: flux.id, cells: ["cell-orchard-1080p"], lifts: [], edition: "standard" }],
     ]);
 });

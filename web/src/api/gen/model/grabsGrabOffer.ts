@@ -1,3 +1,4 @@
+import type { GrabsEditionOverride } from "./grabsEditionOverride.ts";
 import type { GrabsHeldCell } from "./grabsHeldCell.ts";
 import type { GrabsWordedReason } from "./grabsWordedReason.ts";
 
@@ -6,11 +7,8 @@ export interface GrabsGrabOffer {
   cancels: GrabsHeldCell[];
   /** The cells a Grab of it alone fills, any a Grab downloads among them. Send them back as the pick's cells. */
   cells: string[];
-  /**
-   * The Edition it is grabbed as; null unless that is another Edition than its cut's
-   * @nullable
-   */
-  edition: string | null;
+  /** The Edition it is grabbed as; null unless that is another Edition than its cut's */
+  edition: GrabsEditionOverride | null;
   /** It fills some cell and its Indexer would take it now. One on the Blocklist is grabbed only with unblock. */
   grabbable: boolean;
   lifts: GrabsWordedReason[];

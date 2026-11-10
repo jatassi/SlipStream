@@ -355,7 +355,7 @@ func (s sheet) row(rs runSheet, r planned, cause string, free func(int) bool) (R
 	if r.group >= 0 {
 		row.Outcome = s.gets(cs)
 		row.Pick = &PlanPick{
-			Release: s.details(rs, r.group), Lifts: rs.worded(r.stance.lifts, r.group), Edition: r.stance.edition,
+			Release: s.details(rs, r.group), Lifts: rs.worded(r.stance.lifts, r.group), Edition: s.override(rs, r.group, lead, r.stance),
 			Routed: s.in.routed[r.pick.Release.Indexer],
 		}
 	}
@@ -427,6 +427,22 @@ func (rs runSheet) worded(reasons []Reason, g int) []Worded {
 	return out
 }
 
+// override is the Edition override of as[g] standing st at cell k, nil
+// when k's Edition takes its cut.
+func (s sheet) override(rs runSheet, g, k int, st stance) *EditionOverride {
+	if st.edition == "" {
+		return nil
+	}
+	return &EditionOverride{Edition: st.edition, Words: "Its name gives the " + s.cutName(rs.js[g].verdicts[k].cut) + " Edition, which the Work doesn't want. " +
+		"It's grabbed as the " + s.cutName(release.CutKey(st.edition)) + " Edition."}
+}
+
+// cutName is the name of the cut keyed k.
+func (s sheet) cutName(k release.CutKey) string {
+	i := slices.IndexFunc(s.in.judging.cuts, func(c release.Cut) bool { return c.Key == k })
+	return s.in.judging.cuts[i].Name
+}
+
 // targetOf is the Target of id among the run's cells, nil for an own
 // reason or a Target the Item has no cell of.
 func (rs runSheet) targetOf(id targets.TargetID) *targets.Target {
@@ -444,7 +460,7 @@ func (s sheet) choice(rs runSheet, w, g int, free func(int) bool) Choice {
 	cells, st := rs.fills(g, w, free)
 	c := Choice{
 		Pin:     Pin{Cell: keyOf(rs.item[w]), Release: ReleaseRef{Run: rs.run.ID, Position: rs.as[g].at}},
-		Release: s.details(rs, g), Cells: rs.keys(cells), Lifts: rs.worded(st.lifts, g), Edition: st.edition,
+		Release: s.details(rs, g), Cells: rs.keys(cells), Lifts: rs.worded(st.lifts, g), Edition: s.override(rs, g, w, st),
 	}
 	p, _, _ := rs.offer(g, w)
 	if st, ok := s.in.standings[p.Release.Indexer]; ok && !st.Automatic {
@@ -893,7 +909,7 @@ func (s sheet) offer(rs runSheet, g, f int) Offer {
 	var fills []files.Cell
 	if w := rs.standsOpen(g); w >= 0 {
 		cells, st := rs.fills(g, w, rs.open)
-		o.Grab.Cells, o.Grab.Lifts, o.Grab.Edition = rs.keys(cells), rs.worded(st.lifts, g), st.edition
+		o.Grab.Cells, o.Grab.Lifts, o.Grab.Edition = rs.keys(cells), rs.worded(st.lifts, g), s.override(rs, g, w, st)
 		for _, k := range cells {
 			if h, ok := rs.held[k]; ok {
 				o.Grab.Cancels = append(o.Grab.Cancels, heldCell(rs.item[k], h))

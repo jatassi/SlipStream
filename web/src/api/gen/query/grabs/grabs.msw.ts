@@ -751,7 +751,10 @@ export const getGetManualSearchResponseMock = (
               (_, i) => i + 1,
             ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
             edition: faker.helpers.arrayElement([
-              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              {
+                edition: faker.string.alpha({ length: { min: 1, max: 20 } }),
+                words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              },
               null,
             ]),
             lifts: Array.from(
@@ -865,7 +868,10 @@ export const getGetManualSearchResponseMock = (
               (_, i) => i + 1,
             ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
             edition: faker.helpers.arrayElement([
-              faker.string.alpha({ length: { min: 10, max: 20 } }),
+              {
+                edition: faker.string.alpha({ length: { min: 1, max: 20 } }),
+                words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              },
               null,
             ]),
             lifts: Array.from(
@@ -1033,7 +1039,10 @@ export const getListManualSearchReleasesResponseMock = (
           () => faker.string.alpha({ length: { min: 10, max: 20 } }),
         ),
         edition: faker.helpers.arrayElement([
-          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          {
+            edition: faker.string.alpha({ length: { min: 1, max: 20 } }),
+            words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          },
           null,
         ]),
         grabbable: faker.datatype.boolean(),

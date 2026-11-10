@@ -78,6 +78,9 @@ test("a Release of a cut the Work doesn't want is grabbed as its Standard Editio
   const manual = await opened(page, world);
   const row = grabRows(manual).first();
   await useChoice(row, "WEBDL-1080p · FKW · 8.9 GB");
+  await expect(row).toContainText(
+    "Its name gives the Extended Edition, which the Work doesn't want. It's grabbed as the Standard Edition.",
+  );
   await row.getByRole("button", { name: "Details" }).last().click();
   await expect(row).toContainText("The.Quiet.Orchard.2021.EXTENDED.1080p.WEB-DL.H264-FKW");
   await expect(row).toContainText(

@@ -4,7 +4,7 @@ import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Details } from "../ui/details";
 import { Select } from "../ui/select";
-import { Lifts, ReleaseName, Result } from "./parts";
+import { Overrides, ReleaseName, Result } from "./parts";
 import {
   type Choices,
   type PickRow,
@@ -36,7 +36,7 @@ function Choice({ choice, onUse }: { choice: GrabsChoice; onUse: () => void }) {
       <ReleaseName release={choice.release} />
       {choice.note !== undefined && <p className={meta}>{choice.note}</p>}
       {choice.release.blocked !== null && <p>{choice.release.blocked}</p>}
-      <Lifts lifts={choice.lifts} />
+      <Overrides lifts={choice.lifts} edition={choice.edition} />
       <Details>
         <ReleaseDetails release={choice.release} />
       </Details>
@@ -117,7 +117,7 @@ function Pick({ row, acts }: { row: PickRow; acts: RowActs }) {
         {pick.release.blocked !== null && (
           <p>{`${pick.release.blocked} Grabbing it removes it from the Blocklist.`}</p>
         )}
-        <Lifts lifts={pick.lifts} />
+        <Overrides lifts={pick.lifts} edition={pick.edition} />
         <p className={meta}>
           {chosen === undefined ? pick.routed : `SlipStream sends it to ${chosen.name}.`}
         </p>
