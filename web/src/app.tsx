@@ -53,7 +53,7 @@ function end({ queryClient, router, live }: Parts, reason: SessionEndReason): bo
 // the tab where the Account may now go, whose layout reconnects the stream.
 // Resetting rather than clearing the cache refetches what stays on screen,
 // whose observers clear() would leave on the removed queries. A session read
-// already in flight began before the change, so it is cancelled, not joined.
+// already in flight began before the change, so it is canceled, not joined.
 async function regate({ queryClient, router }: Parts) {
   await queryClient.cancelQueries({ queryKey: sessionQuery.queryKey });
   await refreshSession(queryClient);

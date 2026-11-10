@@ -176,8 +176,8 @@ func (g Grab) infoHash() *bencode.InfoHash {
 	return nil
 }
 
-// cancellable reports whether a cancel stops g now.
-func (g Grab) cancellable() bool {
+// cancelable reports whether a cancel stops g now.
+func (g Grab) cancelable() bool {
 	return g.Stage == Fetching || g.Stage == Downloading || g.Stage == Transferring
 }
 

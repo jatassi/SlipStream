@@ -1,7 +1,7 @@
 /**
  * The browser's half of a passkey ceremony. The Node's options are the W3C
  * JSON forms, and what goes back is the credential's toJSON(). Each call
- * answers null when the person cancelled or the call was aborted. Tests
+ * answers null when the person canceled or the call was aborted. Tests
  * replace these functions, since a browser without an authenticator can't
  * run them.
  */

@@ -56,7 +56,7 @@ export const systemEffects = {
   },
   "tasks.changed": (data, { refresh }) => {
     refresh(everyTasksQuery);
-    // A Library scan unit that fails or is cancelled ends without
+    // A Library scan unit that fails or is canceled ends without
     // roots.changed, and its root's line still shows its last step.
     if (data.taskId === "library-scan") {
       refresh({ queryKey: getListRootsQueryKey() });

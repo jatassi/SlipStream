@@ -133,7 +133,7 @@ type Sent = {
   sampleEvery: (number | null | undefined)[];
   scanned: string[];
   marked: string[];
-  cancelled: number[];
+  canceled: number[];
 };
 
 function madeFrom(world: RootsWorld, body: RootsNewRoot, count: number): RootsRoot {
@@ -200,7 +200,7 @@ const writesOf = (world: RootsWorld, sent: Sent) => [
     return world.gone(String(params["rootId"]));
   }),
   http.delete("*/api/v1/tasks/runs/:runId", ({ params }) => {
-    sent.cancelled.push(Number(params["runId"]));
+    sent.canceled.push(Number(params["runId"]));
     return new HttpResponse(null, { status: 204 });
   }),
   http.delete("*/api/v1/roots/:rootId", ({ params, request }) => {
@@ -237,7 +237,7 @@ export function serveRoots(start: Partial<RootsWorld> = {}) {
     sampleEvery: [],
     scanned: [],
     marked: [],
-    cancelled: [],
+    canceled: [],
   };
   worker.use(...readsOf(world, sent), ...writesOf(world, sent));
   return { world, sent };

@@ -107,7 +107,7 @@ test("an order change previews what it withdraws and saves once confirmed", asyn
   ]);
 });
 
-test("cancelling the confirmation saves nothing and keeps the order", async () => {
+test("canceling the confirmation saves nothing and keeps the order", async () => {
   const server = await openEdit({ withdraws: 0 });
   await userEvent.click(order.getByRole("radio", { name: "Reading order" }));
   await expect.element(confirm.getByText(/aren't in Reading order/u)).not.toBeInTheDocument();

@@ -165,7 +165,7 @@ func (gr *Grabs) views(ctx context.Context, grabs []Grab, rd reads) ([]View, err
 			out[i].WaitsFor = &w
 		}
 		out[i].Actions = Actions{
-			Cancel: g.cancellable(), Blocklist: g.cancellable() && g.infoHash() != nil,
+			Cancel: g.cancelable(), Blocklist: g.cancelable() && g.infoHash() != nil,
 			SendTo: g.waitsOnTorrent() || out[i].WaitsFor != nil,
 		}
 		out[i].Overrides = g.overrideWords()
