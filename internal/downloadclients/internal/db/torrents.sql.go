@@ -644,6 +644,59 @@ func (q *Queries) ListExternalAdds(ctx context.Context, infoHashes [][]byte) ([]
 	return items, nil
 }
 
+const listFaulted = `-- name: ListFaulted :many
+SELECT t.id, t.node_id, t.info_hash, t.fault, t.fault_at, t.removed_at, t.client_id,
+       coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name
+FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
+WHERE t.fault IS NOT NULL
+ORDER BY t.fault_at, t.id
+`
+
+type ListFaultedRow struct {
+	ID         TorrentID
+	NodeID     role.NodeID
+	InfoHash   []byte
+	Fault      *string
+	FaultAt    storage.Time
+	RemovedAt  storage.Time
+	ClientID   *ClientID
+	ClientKind clients.Kind
+	ClientName string
+}
+
+func (q *Queries) ListFaulted(ctx context.Context) ([]ListFaultedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFaulted)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFaultedRow
+	for rows.Next() {
+		var i ListFaultedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.NodeID,
+			&i.InfoHash,
+			&i.Fault,
+			&i.FaultAt,
+			&i.RemovedAt,
+			&i.ClientID,
+			&i.ClientKind,
+			&i.ClientName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listHashFacts = `-- name: ListHashFacts :many
 SELECT t.id, t.node_id, t.info_hash, t.name, t.size, t.private, t.trackers, t.content_type, t.tracker_id, t.wanted,
        t.added_order, t.added_at, t.removed_at, t.removed_reason, t.parted_at, t.uploaded, t.downloaded, t.active_seconds,
