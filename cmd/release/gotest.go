@@ -275,7 +275,10 @@ func weigh(pkgs []goPackage, past timings) (seconds map[string]float64, total fl
 }
 
 // packShards gives each item, longest first, to the shard with the least so
-// far, keeping a package's parts on different shards.
+// far, keeping a package's parts on different shards. A shard lists its
+// whole packages longest first too, since go test starts them in that
+// order: listed by name, a long package could start last and end the shard
+// long after the rest.
 func packShards(items []weighed, shards int) [][]goRun {
 	slices.SortStableFunc(items, func(a, b weighed) int {
 		return cmp.Or(cmp.Compare(b.seconds, a.seconds), cmp.Compare(a.pkg, b.pkg))
@@ -301,7 +304,6 @@ func packShards(items []weighed, shards int) [][]goRun {
 	out := make([][]goRun, shards)
 	for i := range shards {
 		if len(whole[i]) > 0 {
-			slices.Sort(whole[i])
 			out[i] = append(out[i], goRun{packages: whole[i]})
 		}
 		for _, part := range parts[i] {

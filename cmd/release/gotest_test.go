@@ -88,7 +88,7 @@ func TestPartitionWeighsUnseenPackagesAsTheMean(t *testing.T) {
 	past := timings{Packages: map[string]packageTimings{"a": {Seconds: 9}, "b": {Seconds: 3}}}
 	shards := partition(packages("a", "b", "new"), past, 2, true)
 	got := []string{strings.Join(shards[0][0].packages, " "), strings.Join(shards[1][0].packages, " ")}
-	if want := []string{"a", "b new"}; !slices.Equal(got, want) {
+	if want := []string{"a", "new b"}; !slices.Equal(got, want) {
 		t.Errorf("shards = %q, want %q", got, want)
 	}
 }
