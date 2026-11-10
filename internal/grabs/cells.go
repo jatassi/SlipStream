@@ -12,7 +12,9 @@ import (
 )
 
 // GrabCells is files.Inflight over the Grabs: each cell takes its latest
-// Grab, downloading once past fetching and failed once failed. An
+// Grab, downloading once past fetching and failed once failed. A failure
+// that doesn't need the Admin, such as a cancel, leaves the cell as no
+// Grab would, as an import does. An
 // unfinished Grab whose Node is out of step waits on it, node_away, as
 // does a fetching one whose route names a client on a Node out of step.
 // One whose Torrent's client is away while its Node is in step waits on
@@ -57,6 +59,10 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 			delete(out, key)
 			continue
 		case Failed:
+			if !(Grab{Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}).NeedsYou() {
+				delete(out, key)
+				continue
+			}
 			cell.State = files.GrabFailed
 		case Downloading, Probing, Transferring, Importing:
 			cell.State = files.GrabDownloading
