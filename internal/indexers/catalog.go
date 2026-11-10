@@ -142,7 +142,7 @@ func (x *Indexers) notDownloaded(next time.Time) string {
 	if next.IsZero() {
 		return "SlipStream hasn't downloaded the Indexer catalog yet. SlipStream retries automatically."
 	}
-	return "SlipStream hasn't downloaded the Indexer catalog yet. SlipStream retries at " + x.clock(next) + "."
+	return "SlipStream hasn't downloaded the Indexer catalog yet. SlipStream retries at " + x.Clock(next) + "."
 }
 
 func customEntries(ctx context.Context, q *db.Queries) ([]Entry, error) {

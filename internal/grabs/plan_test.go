@@ -305,3 +305,29 @@ func walkingAll(g generated) planIn {
 	}
 	return in
 }
+
+func TestAnIndexerThatSkippedSomeItemsSaysWhy(t *testing.T) {
+	until := time.Date(2026, 11, 10, 14, 5, 0, 0, time.UTC)
+	lines := map[indexers.OutcomeKind]string{
+		indexers.Found: "Found 1 Release", indexers.LimitReached: "Limit reached", indexers.IsFailing: "Isn't responding. SlipStream retries at 14:05.",
+	}
+	for _, c := range []struct {
+		skipped indexers.Outcome
+		want    string
+	}{
+		{indexers.Outcome{Kind: indexers.LimitReached, Until: until}, "Better Site searched 1 of 2 items. Its limit resets at 14:05."},
+		{indexers.Outcome{Kind: indexers.LimitReached}, "Better Site searched 1 of 2 items. It reached its search limit."},
+		{indexers.Outcome{Kind: indexers.IsFailing, Until: until}, "Better Site searched 1 of 2 items. Isn't responding. SlipStream retries at 14:05."},
+	} {
+		in := manualOf(orchard, nil)
+		in.clock = func(t time.Time) string { return t.Format("15:04") }
+		in.line = func(o *indexers.Outcome) string { return lines[o.Kind] }
+		skipped := in.runs[0]
+		skipped.ID, skipped.ItemID = SearchID{UUID: storage.NewUUID()}, works.ItemID{UUID: storage.NewUUID()}
+		skipped.Indexers = []SearchIndexer{{Indexer: betterSite, Name: "Better Site", Outcome: &c.skipped}}
+		in.runs = append(in.runs, skipped)
+		if got := viewOf(t, in).Indexers[0].Sentence; got != c.want {
+			t.Errorf("skipped with %s, the line reads %q, want %q", c.skipped.Kind, got, c.want)
+		}
+	}
+}

@@ -87,7 +87,7 @@ func (x *Indexers) standing(ctx context.Context, r storage.Reader[file], idx Ind
 		if until := free(l, reserved, now); !until.IsZero() {
 			s.AtGrabLimit = &NotTakenError{
 				Outcome:  Outcome{Kind: LimitReached, Until: until},
-				Sentence: fmt.Sprintf("%s is at its grab limit until %s.", idx.Name, x.clock(until)),
+				Sentence: fmt.Sprintf("%s is at its grab limit until %s.", idx.Name, x.Clock(until)),
 			}
 		}
 	}

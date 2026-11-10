@@ -237,7 +237,9 @@ type manualIn struct {
 	// words.
 	routed map[indexers.ID]string
 	line   func(*indexers.Outcome) string
-	now    time.Time
+	// clock is a time of day in sentences, "14:05".
+	clock func(time.Time) string
+	now   time.Time
 }
 
 // heardRelease is one Release a Manual run stored as it was heard: the
@@ -267,6 +269,7 @@ func (gr *Grabs) manualInput(ctx context.Context, r storage.Reader[file], work w
 	typ := in.tree.ContentType
 	in.nouns, _ = gr.cfg.Works.Describe(typ)
 	in.line = func(o *indexers.Outcome) string { return gr.cfg.Indexers.Line(typ, o) }
+	in.clock = gr.cfg.Indexers.Clock
 	var scope storedScope
 	if err := json.Unmarshal([]byte(m.Scope), &scope); err != nil {
 		return manualIn{}, fmt.Errorf("decode Manual search %s's scope: %w", m.ID, err)

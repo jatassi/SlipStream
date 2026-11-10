@@ -738,23 +738,43 @@ func searchingWords(lines []IndexerLine, searching bool, responded, late int) st
 }
 
 // acrossWords is an Indexer's outcomes across the runs in words: its one
-// outcome's line, or "TorrentLeech searched 6 of 10 episodes. Limit
-// reached until 14:05."
+// outcome's line, or "TorrentLeech searched 6 of 10 episodes. Its limit
+// resets at 14:05."
 func (s sheet) acrossWords(name string, os []*indexers.Outcome) string {
 	first := s.in.line(os[0])
 	if !slices.ContainsFunc(os, func(o *indexers.Outcome) bool { return s.in.line(o) != first }) {
 		return first
 	}
 	searched := 0
-	other := ""
+	var skipped *indexers.Outcome
 	for _, o := range os {
-		if o != nil && (o.Kind == indexers.Found || o.Kind == indexers.NoReleases) {
+		switch {
+		case o != nil && (o.Kind == indexers.Found || o.Kind == indexers.NoReleases):
 			searched++
-		} else if other == "" {
-			other = s.in.line(o)
+		case skipped == nil:
+			skipped = o
 		}
 	}
-	return fmt.Sprintf("%s searched %d of %d %s. %s.", name, searched, len(os), strings.ToLower(s.in.nouns.Item.Many), other)
+	return fmt.Sprintf("%s searched %d of %d %s. %s", name, searched, len(os), strings.ToLower(s.in.nouns.Item.Many), s.skippedWords(skipped))
+}
+
+// skippedWords is why an Indexer didn't search a run, o being its
+// outcome there, as a sentence: "Its limit resets at 14:05." S26
+// (Indexers and Trackers)'s line says it otherwise, and some of its lines
+// are fragments.
+func (s sheet) skippedWords(o *indexers.Outcome) string {
+	limited := o != nil && (o.Kind == indexers.IsLimited || o.Kind == indexers.LimitReached)
+	switch {
+	case limited && o.Until.IsZero():
+		return "It reached its search limit."
+	case limited:
+		return "Its limit resets at " + s.in.clock(o.Until) + "."
+	}
+	line := s.in.line(o)
+	if strings.HasSuffix(line, ".") {
+		return line
+	}
+	return line + "."
 }
 
 // offers is every Release of the sheet, one per group of copies: each
