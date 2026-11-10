@@ -3,6 +3,7 @@ package grabs
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -12,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -150,6 +152,54 @@ func (e BlockEntry) because() string {
 		return e.By.Name + " blocklisted it when canceling its Grab."
 	}
 	panic("grabs: no words for the Blocklist cause " + string(e.Cause))
+}
+
+// blocks is Blocklist entries by info hash.
+type blocks map[bencode.InfoHash]BlockEntry
+
+// blocksOf is the entries, read in r, of every info hash as were listed
+// with, their copies' included. A search reads only these, in the Write
+// that decides, so an entry added while its Indexers answered still
+// counts.
+func blocksOf(ctx context.Context, r storage.Reader[file], as []assessed) (blocks, error) {
+	var keys [][]byte
+	for _, a := range as {
+		for _, h := range a.hashes() {
+			keys = append(keys, h[:])
+		}
+	}
+	rows, err := db.New(r).ListBlocksOf(ctx, keys)
+	if err != nil {
+		return nil, err
+	}
+	out := blocks{}
+	for _, row := range rows {
+		e := entryOf(row)
+		out[e.InfoHash] = e
+	}
+	return out, nil
+}
+
+// of is the entry b holds for a's Release, by its info hash or a copy's.
+func (b blocks) of(a assessed) (BlockEntry, bool) {
+	for _, h := range a.hashes() {
+		if e, ok := b[h]; ok {
+			return e, true
+		}
+	}
+	return BlockEntry{}, false
+}
+
+// gate is as with the own refusal blocklisted on each Release b holds. It
+// isn't hard, so the Release keeps every verdict, and picks skip it.
+func (b blocks) gate(as []assessed) []assessed {
+	out := slices.Clone(as)
+	for i, a := range out {
+		if _, ok := b.of(a); ok {
+			out[i].refusals = append(slices.Clip(a.refusals), own(targets.Blocklisted, ""))
+		}
+	}
+	return out
 }
 
 // errBlocked rolls back a fetch's commit whose .torrent the Blocklist

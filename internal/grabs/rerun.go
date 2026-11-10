@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -123,12 +124,35 @@ var dropOf = map[indexers.DropWhy]dropped{
 
 // redo is what a dropped Grab's rerun reads before its Write: the run,
 // the Releases it kept, assessed, the positions of those gone, taken by a
-// Grab of the run, and each one's Indexer's name by position.
+// Grab of the run, each one's Indexer's name by position, and the
+// position the run's Grab took.
 type redo struct {
 	run      Search
 	assessed []assessed
 	gone     map[int]bool
 	names    map[int]string
+	taken    int
+}
+
+// goneGroup marks gone every copy of the Release listed at position, so
+// a rerun takes none of them.
+func (re *redo) goneGroup(position int) {
+	for _, a := range re.assessed {
+		group := append([]int{a.at}, atOf(a.copies)...)
+		if slices.Contains(group, position) {
+			for _, at := range group {
+				re.gone[at] = true
+			}
+		}
+	}
+}
+
+func atOf(cs []copied) []int {
+	out := make([]int, len(cs))
+	for i, c := range cs {
+		out[i] = c.at
+	}
+	return out
 }
 
 // rerunOf reads, in one Read, the rerun of g's run, nil when no run
@@ -153,13 +177,16 @@ func (gr *Grabs) rerunOf(ctx context.Context, g Grab) (*redo, error) {
 			return err
 		}
 		ls := make([]listed, len(rows))
-		gone, names := map[int]bool{}, map[int]string{}
+		gone, names, taken := map[int]bool{}, map[int]string{}, -1
 		for i, row := range rows {
 			if ls[i].Release, err = gr.kept(row); err != nil {
 				return err
 			}
 			ls[i].at = int(row.Position)
 			gone[ls[i].at], names[ls[i].at] = !row.LinkSealed.Set(), row.IndexerName
+			if row.Outcome == ReleaseGrabbed {
+				taken = ls[i].at
+			}
 		}
 		tree, err := gr.cfg.Works.TreeIn(ctx, r, run.WorkID)
 		if err != nil {
@@ -173,7 +200,7 @@ func (gr *Grabs) rerunOf(ctx context.Context, g Grab) (*redo, error) {
 		if err != nil {
 			return err
 		}
-		out = &redo{run: run, assessed: assessAll(j, dedupe(ls)), gone: gone, names: names}
+		out = &redo{run: run, assessed: assessAll(j, dedupe(ls)), gone: gone, names: names, taken: taken}
 		return nil
 	})
 	return out, err
@@ -182,13 +209,19 @@ func (gr *Grabs) rerunOf(ctx context.Context, g Grab) (*redo, error) {
 // left settles the run of g, a Grab leaving fetching by o: a drop reruns
 // its decision over re, returning the rerun's Grab and run, and any other
 // way out ends what the run's Releases keep for a rerun, since none
-// follows.
+// follows. A drop for the Blocklist reruns with every copy of g's Release
+// gone, since a copy listed without an info hash passes the Blocklist
+// until its fetch.
 func (gr *Grabs) left(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome, re *redo) (*Grab, *Search, error) {
-	if _, drop := o.(dropped); !drop {
+	d, drop := o.(dropped)
+	if !drop {
 		return nil, nil, db.New(tx).EndReleasesOfGrab(ctx, g.ID)
 	}
 	if re == nil {
 		return nil, nil, nil
+	}
+	if d.code == Blocklisted {
+		re.goneGroup(re.taken)
 	}
 	grab, err := gr.redecide(ctx, tx, *re)
 	return grab, &re.run, err
@@ -201,7 +234,11 @@ func (gr *Grabs) left(ctx context.Context, tx *storage.Tx[file], g Grab, o outco
 func (gr *Grabs) redecide(ctx context.Context, tx *storage.Tx[file], re redo) (*Grab, error) {
 	q := db.New(tx)
 	run := re.run
-	d, c, err := gr.decision(ctx, tx, run, re.assessed)
+	bl, err := blocksOf(ctx, tx, re.assessed)
+	if err != nil {
+		return nil, err
+	}
+	d, c, err := gr.decision(ctx, tx, run, bl.gate(re.assessed))
 	if err != nil {
 		return nil, err
 	}

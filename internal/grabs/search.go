@@ -345,6 +345,11 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, a
 			names[len(names)] = asked[i].IndexerName
 		}
 	}
+	bl, err := blocksOf(ctx, tx, as)
+	if err != nil {
+		return nil, err
+	}
+	as = bl.gate(as)
 	if err := sight(ctx, tx, as); err != nil {
 		return nil, err
 	}
@@ -383,11 +388,11 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, a
 }
 
 // sight records a sighting of the cut of every listed Release whose name
-// names its Work, for each Item it covers, so a cut seen now is wanted
-// now.
+// names its Work and the Blocklist doesn't hold, for each Item it covers,
+// so a cut seen now is wanted now.
 func sight(ctx context.Context, tx *storage.Tx[file], as []assessed) error {
 	for _, a := range as {
-		if !a.namesTheWork() {
+		if !a.namesTheWork() || a.blocked() {
 			continue
 		}
 		for _, item := range a.covers {

@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/release"
@@ -167,6 +168,26 @@ func (a assessed) hard() bool {
 // another Work and its title and year match the Work.
 func (a assessed) namesTheWork() bool {
 	return !slices.ContainsFunc(a.refusals, func(r Reason) bool { return r.Code == targets.WrongWork || r.Code == targets.WrongTitle })
+}
+
+// blocked reports blocklisted among a's own refusals.
+func (a assessed) blocked() bool {
+	return slices.ContainsFunc(a.refusals, func(r Reason) bool { return r.Code == targets.Blocklisted })
+}
+
+// hashes is the info hash of a's Release and of each of its copies, of
+// those listed with one.
+func (a assessed) hashes() []bencode.InfoHash {
+	var out []bencode.InfoHash
+	if h := a.Release.InfoHash; h != nil {
+		out = append(out, *h)
+	}
+	for _, c := range a.copies {
+		if h := c.Release.InfoHash; h != nil {
+			out = append(out, *h)
+		}
+	}
+	return out
 }
 
 func (a assessed) scored() targets.Scored {

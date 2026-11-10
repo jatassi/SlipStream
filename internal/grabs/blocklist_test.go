@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -14,12 +15,14 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/grabs/grabstest"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
 const (
 	bluRay = "The.Attic.2020.1080p.BluRay.x264-GRP"
 	webDL  = "The.Attic.2020.1080p.WEB-DL-GRP"
+	noSize = " Its size isn't checked at HD because the name gives no size or the runtime is unknown."
 )
 
 func hashed(letter string) bencode.InfoHash {
@@ -34,6 +37,29 @@ func reconciling(yes bool) grabs.BlocklistOn {
 	return grabs.BlocklistOn{Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return yes, nil }}
 }
 
+// runReleases is each Release the Work's one run lists, as "<title>
+// <outcome>", and the words of its reasons.
+func (tw twinWorld) runReleases(t *testing.T) []string {
+	t.Helper()
+	runs, err := tw.g.Searches(t.Context(), identity.Admin{}, tw.work)
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed, err := tw.g.Releases(t.Context(), identity.Admin{}, runs[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, l := range listed {
+		s := l.Title + " " + string(l.Outcome)
+		for _, r := range l.Reasons {
+			s += " " + r.Words
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
 func (tw twinWorld) page(t *testing.T, q grabs.BlocklistQuery) grabs.BlocklistPage {
 	t.Helper()
 	page, err := tw.g.Blocklist(t.Context(), identity.Admin{}, q)
@@ -41,6 +67,81 @@ func (tw twinWorld) page(t *testing.T, q grabs.BlocklistQuery) grabs.BlocklistPa
 		t.Fatal(err)
 	}
 	return page
+}
+
+func TestAnAutomaticSearchNeverTakesABlocklistedReleaseAndDecidesAsIfItWereAbsent(t *testing.T) {
+	unhashed := listing(bluRay, 90, "")
+	for _, c := range []struct {
+		name  string
+		sites []twinSite
+		want  []string
+	}{
+		{
+			name: "listed with its info hash",
+			sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{listing(bluRay, 90, "a"), listing(webDL, 5, "b")}}},
+			want:  []string{bluRay + " refused It's on the Blocklist." + noSize, webDL + " grabbed" + noSize},
+		},
+		{
+			name: "a copy listed with its info hash",
+			sites: []twinSite{
+				{name: "Better Site", priority: 10, releases: []searching.Release{unhashed, listing(webDL, 5, "b")}},
+				{name: "Other Site", priority: 25, releases: []searching.Release{listing(bluRay, 90, "a")}},
+			},
+			want: []string{bluRay + " refused It's on the Blocklist." + noSize, bluRay + " refused It's on the Blocklist." + noSize, webDL + " grabbed" + noSize},
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				absent := newTwinWorld(t, twin{sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{listing(webDL, 5, "b")}}}})
+				want := absent.searchedAutomatically(t)
+
+				tw := newTwinWorld(t, twin{sites: c.sites})
+				grabstest.Blocked(t, tw.lib, entry(hashed("a"), bluRay))
+				if got := tw.searchedAutomatically(t); got != want || want != "Better Site "+webDL {
+					t.Fatalf("automatic search grabbed %q, want %q, as with the blocklisted Release absent", got, want)
+				}
+				if got := tw.runReleases(t); !slices.Equal(got, c.want) {
+					t.Fatalf("the run lists %q, want %q", got, c.want)
+				}
+			})
+		})
+	}
+}
+
+// TestABlocklistedHashFoundAfterTheFetchMakesAnAutomaticGrabDecideAgainWithoutAnyCopy
+// lists the better Release with no info hash on both Indexers. Better
+// Site's fetch is a blocklisted torrent: its Grab fails blocklisted and
+// the run grabs the next Release rather than Other Site's copy.
+func TestABlocklistedHashFoundAfterTheFetchMakesAnAutomaticGrabDecideAgainWithoutAnyCopy(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		bad := newRelease(t)
+		raw, err := bad.link.Torrent(bad.info)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tw := newTwinWorld(t, twin{sites: []twinSite{
+			{name: "Better Site", priority: 10, torrent: raw, releases: []searching.Release{listing(bluRay, 90, "")}},
+			{name: "Other Site", priority: 25, releases: []searching.Release{listing(bluRay, 90, ""), listing(webDL, 5, "")}},
+		}})
+		grabstest.Blocked(t, tw.lib, entry(bad.link.InfoHash, bluRay))
+
+		if got, want := tw.searchedAutomatically(t), "Other Site "+webDL; got != want {
+			t.Fatalf("the run's Grab is %q, want %q", got, want)
+		}
+		views, err := tw.g.List(t.Context(), identity.Admin{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var failed []string
+		for _, v := range views {
+			if v.Stage == grabs.Failed {
+				failed = append(failed, fmt.Sprintf("%s %s %s %s", tw.names[v.Ticket.Indexer], v.Release.Title, v.Failed.Code, v.Failed.Message))
+			}
+		}
+		if want := "Better Site " + bluRay + " blocklisted The Release's torrent is on the Blocklist."; !slices.Contains(failed, want) || slices.ContainsFunc(failed, func(f string) bool { return strings.HasPrefix(f, "Other Site "+bluRay) }) {
+			t.Fatalf("the failed Grabs are %q, want %q and none of Other Site's copy", failed, want)
+		}
+	})
 }
 
 func TestMarkFailedBlocklistsTheReleaseOfADownloadingGrab(t *testing.T) {
