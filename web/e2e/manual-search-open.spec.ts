@@ -74,7 +74,7 @@ test("Manual search opens from a cell, a season, an episode and a Needs you card
   await page.goto(`/works/${series}`);
   const needsYou = page.getByRole("region", { name: "Needs you" });
   await needsYou.getByRole("button", { name: "Manual search" }).click();
-  await expect(sheet(page, "E10 of Season 2 of The Lantern Keepers")).toContainText(
+  await expect(sheet(page, "S02E10 of The Lantern Keepers")).toContainText(
     "It gets you 1080p for E10.",
   );
   await expectAccessible(page);
@@ -96,7 +96,7 @@ test("Manual search opens from a cell, a season, an episode and a Needs you card
   await openLevel(page, "Season 2");
   await (await reveal(page, page.getByRole("button", { name: "More actions for S02E06" }))).click();
   await page.getByRole("menuitem", { name: "Manual search" }).click();
-  const episode = sheet(page, "E06 of Season 2 of The Lantern Keepers");
+  const episode = sheet(page, "S02E06 of The Lantern Keepers");
   await expect(episode.getByRole("searchbox", { name: "Query" })).toBeVisible();
   await expect(episode).toContainText("It gets you 1080p for E06.");
   await expect(episode).not.toContainText("for E05");

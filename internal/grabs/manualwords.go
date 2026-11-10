@@ -61,7 +61,8 @@ func (s sheet) itemNames() map[works.ItemID]string {
 	return out
 }
 
-// title is the scope in words: "Heat (1995)", "Season 2 of Severance".
+// title is the scope in words: "Heat (1995)", "Season 2 of Severance",
+// "S02E10 of Severance".
 func (s sheet) title() string {
 	t := s.in.tree
 	if s.in.nouns.Items == works.ItemsOne || len(s.runs) == len(liveItems(t)) {
@@ -71,7 +72,26 @@ func (s sheet) title() string {
 	for _, rs := range s.runs {
 		items = append(items, rs.run.ItemID)
 	}
+	if code := s.codeOf(items[0]); len(items) == 1 && code != "" {
+		return code + " of " + t.Label
+	}
 	return s.itemsWords(items, true) + " of " + t.Label
+}
+
+// codeOf is the code the Work page leads item with, "S02E10", "" when its
+// type places none.
+func (s sheet) codeOf(item works.ItemID) string {
+	i := slices.IndexFunc(s.in.nouns.Fields, func(f works.FieldSpec) bool { return slices.Contains(f.In, works.PlaceCode) })
+	if i < 0 {
+		return ""
+	}
+	j := slices.IndexFunc(s.in.tree.Items, func(it works.Item) bool { return it.ID == item })
+	for _, v := range s.in.tree.Items[j].Fields {
+		if v.Key == s.in.nouns.Fields[i].Key && v.Kind == works.KindText {
+			return v.Text
+		}
+	}
+	return ""
 }
 
 func liveItems(t works.Tree) []works.Item {

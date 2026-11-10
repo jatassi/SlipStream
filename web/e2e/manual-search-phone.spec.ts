@@ -32,7 +32,7 @@ async function grabFromEpisodeSheet(page: Page, world: World, testInfo: TestInfo
     .getByRole("dialog", { name: "S02E06 Shoal Water" })
     .getByRole("button", { name: "Manual search" })
     .click();
-  const manual = sheet(page, "E06 of Season 2 of The Lantern Keepers");
+  const manual = sheet(page, "S02E06 of The Lantern Keepers");
   await expect(page.getByRole("dialog")).toHaveCount(1);
   await searched(manual);
   const row = grabRows(manual).first();
