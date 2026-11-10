@@ -75,6 +75,8 @@ const (
 	NoVideoFile        Code = "no_video_file"
 	ProbeFailed        Code = "probe_failed"
 	FillsNothing       Code = "fills_nothing"
+	NameTaken          Code = "name_taken"
+	NameTooLong        Code = "name_too_long"
 	TransferFailed     Code = "transfer_failed"
 	ImportFailed       Code = "import_failed"
 	NodeWrittenOff     Code = "node_written_off"
@@ -176,7 +178,7 @@ type Roots interface {
 	// Watch is closed at the next change of a root's report.
 	Watch() <-chan struct{}
 	Place(ctx context.Context, root roots.ID, to storing.Rel, from storing.Payload) (storing.Placed, error)
-	Move(ctx context.Context, root roots.ID, from, to storing.Rel) (storing.Placed, error)
+	Move(ctx context.Context, root roots.ID, from, to storing.Rel, carry bool) (storing.Placed, error)
 }
 
 type Config struct {

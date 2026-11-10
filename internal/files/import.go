@@ -3,6 +3,7 @@ package files
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"path"
 	"slices"
@@ -42,7 +43,10 @@ type Incoming struct {
 	// ReleaseName is its Grab's Release title, and Title its reading.
 	ReleaseName string
 	Title       release.Read
-	GrabID      storage.UUID
+	// SourceName is the file's name in its download, extension included:
+	// the name it keeps with renaming off.
+	SourceName string
+	GrabID     storage.UUID
 	// Meant is the Targets its Grab was meant to fill, in Profile order.
 	Meant []targets.TargetID
 	// Unwanted is what its Grab's import does if the file fills nothing,
@@ -77,6 +81,53 @@ func (e *FillsNothingError) Error() string {
 	return "a " + e.Quality.Info().Name + " file fills no Target the Work still wants"
 }
 
+// NameTakenError is a path in its Work's folder a file would take that
+// another file is already at: a file of the Work, or with Foreign one
+// SlipStream doesn't track.
+type NameTakenError struct {
+	Path    string
+	Foreign bool
+}
+
+func (e *NameTakenError) Error() string {
+	if e.Foreign {
+		return fmt.Sprintf("a file SlipStream doesn't track is already at %q", e.Path)
+	}
+	return fmt.Sprintf("another file of the Work is already at %q", e.Path)
+}
+
+// Vacant is nil when every file root's Node lists at to, compared without
+// case, is one the library tracks, which the disk queue moves or removes
+// before a file whose bytes sit at from takes to. A file SlipStream
+// doesn't track there is a *NameTakenError. A root its Node can't read now
+// is *storing.NotReady.
+func (f *Files) Vacant(ctx context.Context, root roots.ID, from, to string) error {
+	var planned storing.Planned
+	var err error
+	if planned.From, err = storing.ParseRel(from); err != nil {
+		return err
+	}
+	if planned.To, err = storing.ParseRel(to); err != nil {
+		return err
+	}
+	surveyed, err := f.cfg.Disk.Survey(ctx, root, []storing.Planned{planned}, false)
+	if err != nil {
+		return err
+	}
+	return f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		for _, o := range surveyed[0].Occupants {
+			tracked, err := db.New(r).PathTaken(ctx, db.PathTakenParams{RootID: root, Path: o.Path.String()})
+			if err != nil {
+				return err
+			}
+			if !tracked {
+				return &NameTakenError{Path: o.Path.String(), Foreign: true}
+			}
+		}
+		return nil
+	})
+}
+
 // placed is a Work converged: the world with its new files and without
 // the files it dooms or forgets, and the fills and names refill and names
 // give that world.
@@ -96,12 +147,14 @@ type rule struct {
 	// doom says whether a file that lost its last fill, or the fresh file
 	// filling none, is deleted; false keeps it as a Kept file.
 	doom func(File) bool
-	// keepPaths records each file's label and N without moving it: a
-	// library scan never renames.
-	keepPaths bool
+	// mode is which files take a path from the templates: a library scan
+	// never renames.
+	mode renaming
 	// forgetGone forgets each gone file that would win back no cell if it
 	// returned.
 	forgetGone bool
+	// draft names its type's files in place of the stored settings.
+	draft *drafted
 }
 
 // importing is an import's rule: it dooms the files the fresh file
@@ -117,10 +170,11 @@ func changing(m Mode) rule { return rule{doom: func(File) bool { return m.Unwant
 
 // scanned is a library scan's rule: it never dooms a file and never
 // renames one.
-var scanned = rule{doom: func(File) bool { return false }, keepPaths: true}
+var scanned = rule{doom: func(File) bool { return false }, mode: keepEvery}
 
-// place converges in's Work with in added, in r.
-func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) (placed, error) {
+// place converges in's Work with in added, in r, named under d for d's
+// type.
+func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming, d *drafted) (placed, error) {
 	before, err := f.load(ctx, r, in.WorkID)
 	if err != nil {
 		return placed{}, err
@@ -128,6 +182,7 @@ func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) 
 	fresh := File{
 		ID: ID{UUID: storage.NewUUID()}, WorkID: in.WorkID, ItemID: in.ItemID, Cut: in.Cut, RootID: in.RootID, Path: in.Holding,
 		Size: in.Size, Seen: &in.Seen, Media: in.Media, GrabID: in.GrabID, Quality: in.Quality, ReleaseName: in.ReleaseName, Title: in.Title,
+		SourceName: in.SourceName,
 	}
 	after := before
 	after.files = append(slices.Clone(before.files), fresh)
@@ -139,7 +194,9 @@ func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) 
 	if after.meant, err = targets.NameOfFirst(ctx, r, in.Meant); err != nil {
 		return placed{}, err
 	}
-	p, err := f.converge(ctx, r, before, after, refill(after), importing(fresh.ID, in.Unwanted))
+	how := importing(fresh.ID, in.Unwanted)
+	how.draft = d
+	p, err := f.converge(ctx, r, before, after, refill(after), how)
 	p.file = fresh
 	return p, err
 }
@@ -154,7 +211,7 @@ func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming) 
 func (f *Files) converge(ctx context.Context, r storage.Reader[file], before, after world, fills map[CellKey]Fill, how rule) (placed, error) {
 	p := placed{before: before, after: after, fills: fills}
 	p.after.retagged = retagged(before.cuts, after.cuts)
-	p.after.keepPaths = how.keepPaths
+	p.after.mode = how.mode
 	was, is := filling(before.fills), filling(fills)
 	p.after.files = slices.DeleteFunc(slices.Clone(after.files), func(g File) bool {
 		lost := g.ID == after.fresh || was[g.ID]
@@ -167,11 +224,11 @@ func (f *Files) converge(ctx context.Context, r storage.Reader[file], before, af
 	if how.forgetGone {
 		forget(&p, func(g File) bool { return !winsBack(p.after, fills, g) })
 	}
-	if err := f.named(ctx, r, &p.after, p.fills); err != nil {
+	if err := f.named(ctx, r, &p.after, p.fills, how.draft); err != nil {
 		return placed{}, err
 	}
 	var err error
-	if p.names, err = names(p.after, p.fills); err != nil {
+	if p.names, _, err = names(p.after, p.fills); err != nil {
 		return placed{}, err
 	}
 	taken := map[place]bool{}
@@ -222,9 +279,16 @@ func retagged(was, is targets.Cuts) map[release.CutKey]bool {
 
 // Place answers, in r, where in would go and what it would fill, as
 // Import would decide now. A file that fills nothing is a
-// *FillsNothingError unless its Grab's choice keeps it as a Kept file.
+// *FillsNothingError unless its Grab's choice keeps it as a Kept file. A
+// name another file of the Work keeps is a *NameTakenError, and one that
+// doesn't fit on its root a *naming.TooLongError. Import refuses both.
 func (f *Files) Place(ctx context.Context, r storage.Reader[file], in Incoming) (Placement, error) {
-	p, err := f.place(ctx, r, in)
+	return f.placement(ctx, r, in, nil)
+}
+
+// placement is Place with in's Work named under d for d's type.
+func (f *Files) placement(ctx context.Context, r storage.Reader[file], in Incoming, d *drafted) (Placement, error) {
+	p, err := f.place(ctx, r, in, d)
 	if err != nil {
 		return Placement{}, err
 	}
@@ -259,7 +323,7 @@ func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], in Incoming) (
 	case err != nil:
 		return File{}, false, err
 	}
-	p, err := f.place(ctx, tx, in)
+	p, err := f.place(ctx, tx, in, nil)
 	if err != nil {
 		return File{}, false, err
 	}
@@ -273,9 +337,9 @@ func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], in Incoming) (
 
 // apply writes p: its fills and their scores, its dooms, the gone files
 // it forgets, its found files, every name that changed, and a move for
-// each file whose bytes must reach a new path. A path changes in two
+// each file whose bytes must reach a new path. A row's path changes in two
 // steps, through the file's holding path, so files may trade names in one
-// Write.
+// Write; the disk queue moves the bytes straight unless they trade paths.
 func apply(ctx context.Context, q *db.Queries, p placed) error {
 	if err := unfill(ctx, q, p); err != nil {
 		return err
@@ -340,8 +404,8 @@ func unfill(ctx context.Context, q *db.Queries, p placed) error {
 }
 
 // rename writes g's new label and N, and reports whether its path changes:
-// then g sits at its holding path until apply's last pass names it, and a
-// move takes its bytes there.
+// then g's row holds its holding path until apply's last pass names it,
+// and a move takes its bytes there.
 func rename(ctx context.Context, q *db.Queries, p placed, g File) (bool, error) {
 	nm := p.names[g.ID]
 	switch {
@@ -377,8 +441,8 @@ func queueMove(ctx context.Context, q *db.Queries, g File, to string) error {
 		return q.InsertMove(ctx, db.InsertMoveParams{FileID: g.ID, Sits: g.Path})
 	case err != nil:
 		return err
-	case at == to:
-		_, err := q.DeleteMove(ctx, db.DeleteMoveParams{FileID: g.ID, Sits: at})
+	case at.Sits == to:
+		_, err := q.DeleteMove(ctx, db.DeleteMoveParams{FileID: g.ID, Sits: at.Sits})
 		return err
 	}
 	return nil
@@ -391,7 +455,7 @@ func doom(ctx context.Context, q *db.Queries, d File) error {
 	at, err := q.GetMove(ctx, d.ID)
 	switch {
 	case err == nil:
-		moving = &at
+		moving = &at.Sits
 	case !errors.Is(err, storage.ErrNoRows):
 		return err
 	}

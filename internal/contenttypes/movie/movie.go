@@ -17,7 +17,6 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/release"
@@ -174,26 +173,6 @@ func (m *Movie) Fields(ctx context.Context, r storage.Reader[file], w works.Work
 	return works.FieldSet{Work: fields}, nil
 }
 
-func (*Movie) NamingTokens(ctx context.Context, r storage.Reader[file], item works.ItemID) (map[string]string, error) {
-	work, _, err := works.ItemOf(ctx, r, item)
-	if err != nil {
-		return nil, err
-	}
-	mv, err := db.New(r).GetMovie(ctx, work.ID)
-	if err != nil {
-		return nil, err
-	}
-	tokens := map[string]string{"Movie Title": mv.TitleEnglish, "Year": ""}
-	if mv.Year != nil {
-		tokens["Year"] = strconv.FormatInt(*mv.Year, 10)
-	}
-	return tokens, nil
-}
-
-func (*Movie) DefaultTemplates() naming.Templates {
-	return naming.Templates{Folder: "{Movie Title} ({Year})", File: "{Movie Title} ({Year}) - {Edition Tag} {Target}"}
-}
-
 // Expect is the movie's TMDB and IMDb ids, titles, year and original
 // language, with the type's year slack, and covers its one Item.
 func (*Movie) Expect(ctx context.Context, r storage.Reader[file], work works.WorkID) (indexers.Expect, error) {
@@ -342,6 +321,13 @@ func (*Movie) PatchOptions(_ context.Context, _ storage.Reader[file], _ works.Wo
 		return nil, &setting.UnknownKeyError{Key: slices.Min(slices.Collect(maps.Keys(p)))}
 	}
 	return nil, nil
+}
+
+func (*Movie) StoreOptions(_ context.Context, _ *storage.Tx[file], _ works.WorkID, p setting.Patch) (bool, error) {
+	if len(p) > 0 {
+		return false, &setting.UnknownKeyError{Key: slices.Min(slices.Collect(maps.Keys(p)))}
+	}
+	return false, nil
 }
 
 // KeysOf maps none: a movie is known by its TMDB id alone.

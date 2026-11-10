@@ -147,27 +147,6 @@ func TestLinksOpenEachHostTheSeriesNames(t *testing.T) {
 	}
 }
 
-func TestNamingTokensNameTheEpisode(t *testing.T) {
-	sh := open(t)
-	r := severance()
-	tree := sh.add(t, r)
-	ep := itemOf(t, tree, keyOf(371980*100000+2*1000+1))
-	var got map[string]string
-	sh.read(t, func(ctx context.Context, rd storage.Reader[storage.Library]) error {
-		var err error
-		got, err = sh.s.NamingTokens(ctx, rd, ep.ID)
-		return err
-	})
-	want := map[string]string{"Series Title": "Severance", "year": "2022", "season": "2", "episode": "1", "absolute": "", "Episode Title": "Episode 1"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("NamingTokens = %v, want %v", got, want)
-	}
-	templates := sh.s.DefaultTemplates()
-	if templates.Folder != "{Series Title} ({year})" || templates.File != "{Series Title} - S{season:00}E{episode:00} - {Episode Title} {Edition} {Target}" {
-		t.Fatalf("DefaultTemplates = %+v", templates)
-	}
-}
-
 func TestCodeInAbsoluteOrder(t *testing.T) {
 	sh := open(t)
 	aired := newShow(7501, "Long Saga", 1, 2, 2)
@@ -199,8 +178,8 @@ func TestOrderChoiceListsOnlyTVDBsOrders(t *testing.T) {
 			fields, err = sh.s.OptionFields(ctx, r, tree.ID)
 			return err
 		})
-		if len(fields) != 1 {
-			t.Fatalf("OptionFields = %+v, want the order alone", fields)
+		if len(fields) != 2 {
+			t.Fatalf("OptionFields = %+v, want the order and Name by air date", fields)
 		}
 		c, ok := fields[0].(setting.ChoiceField)
 		if !ok {

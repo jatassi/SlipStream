@@ -89,6 +89,10 @@ type Node struct {
 	// DownloadClients are the external clients the world adds to the Node
 	// with the library, before its Works.
 	DownloadClients []DownloadClient `yaml:"download_clients,omitempty"`
+	// PathLimit is the Node's storage.path_limit, the longest absolute path
+	// it writes in bytes, so a world can give one Node Windows' 259. Zero
+	// leaves the OS's.
+	PathLimit int64 `jsonschema:"minimum=0" yaml:"path_limit,omitempty"`
 }
 
 const MaxNodes = 31

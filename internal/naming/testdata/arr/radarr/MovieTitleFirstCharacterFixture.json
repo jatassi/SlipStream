@@ -1,0 +1,16 @@
+{
+  "upstream": "Radarr",
+  "commit": "928e8871ccad6a899e9d99781a54fcf17ab7c3d9",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/MovieTitleFirstCharacterFixture.cs",
+  "cases": [
+    {"template":"{Movie TitleFirstCharacter}","values":{"Movie Title":"The Mist"},"want":"M","source":"MovieTitleFirstCharacterFixture.cs should_get_expected_folder_name_back #1"},
+    {"template":"{Movie TitleFirstCharacter}","values":{"Movie Title":"A"},"want":"A","source":"MovieTitleFirstCharacterFixture.cs should_get_expected_folder_name_back #2"},
+    {"template":"{Movie TitleFirstCharacter}","values":{"Movie Title":"30 Rock"},"want":"3","source":"MovieTitleFirstCharacterFixture.cs should_get_expected_folder_name_back #3"},
+    {"template":"{Movie TitleFirstCharacter}","values":{"Movie Title":"The '80s Greatest"},"want":"8","source":"MovieTitleFirstCharacterFixture.cs should_get_expected_folder_name_back #4"},
+    {"template":"{Movie TitleFirstCharacter}","values":{"Movie Title":"좀비버스"},"want":"좀","source":"MovieTitleFirstCharacterFixture.cs should_get_expected_folder_name_back #5"},
+    {"template":"{Movie TitleFirstCharacter}","values":{"Movie Title":"¡Mucha Lucha!"},"want":"M","source":"MovieTitleFirstCharacterFixture.cs should_get_expected_folder_name_back #6"},
+    {"template":"{Movie TitleFirstCharacter}","values":{"Movie Title":".hack"},"want":"H","source":"MovieTitleFirstCharacterFixture.cs should_get_expected_folder_name_back #7"},
+    {"template":"{Movie TitleFirstCharacter}","values":{"Movie Title":"Ütopya"},"want":"U","source":"MovieTitleFirstCharacterFixture.cs should_get_expected_folder_name_back #8"},
+    {"template":"{Movie TitleFirstCharacter}","values":{"Movie Title":"Æon Flux"},"want":"A","source":"MovieTitleFirstCharacterFixture.cs should_get_expected_folder_name_back #9"}
+  ]
+}

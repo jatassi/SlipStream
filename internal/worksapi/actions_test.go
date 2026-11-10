@@ -149,7 +149,7 @@ type shelves struct {
 func shelve(t *testing.T) *shelves {
 	t.Helper()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), health.Schema(), roots.Schema(),
-		indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), transfers.LibrarySchema())
+		indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), naming.Schema(), transfers.LibrarySchema())
 	s := &shelves{lib: lib, fx: contenttypetest.New(), roster: &roster{offline: map[role.NodeID]bool{}}, events: &events{names: map[string]string{}}, byKey: map[string]string{}}
 	s.exec(t, `INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0), (?, randomblob(32), 'seedbox', 0)`, home, seedbox)
 	byWorks := func(v works.Changed) []string { return v.WorkIDs }
@@ -188,9 +188,10 @@ func shelve(t *testing.T) *shelves {
 	}
 	s.queue, err = files.Open(t.Context(), files.Config{
 		Library: lib, Targets: s.goals, Grabs: grabs.GrabCells{}, Transfers: transfers.LiveIn,
-		Naming:  map[works.TypeID]naming.Facet{contenttypetest.ID: s.fx, other: s.fx},
+		Naming:  naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: s.fx, other: s.fx}}),
 		Today:   func() time.Time { return time.Date(2030, time.January, 1, 9, 0, 0, 0, time.UTC) },
 		Disk:    rootstest.Held(t, lib, home, nil, contenttypetest.ID, other),
+		Moved:   discard[files.Moved]{},
 		Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
 		Rand:    rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Log:     slog.New(slog.DiscardHandler),

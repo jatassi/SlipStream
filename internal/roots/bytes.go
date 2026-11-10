@@ -22,15 +22,38 @@ func (r *Roots) Place(ctx context.Context, root ID, to storing.Rel, from storing
 	return placed, r.waiting(ctx, at.Node, err)
 }
 
-// Move renames from to to within root on its Node, answering the moved
-// file; moving again converges. The Node may refuse with a *WaitingError.
-func (r *Roots) Move(ctx context.Context, root ID, from, to storing.Rel) (storing.Placed, error) {
+// Move renames from to to within root on its Node, and with carry from's
+// companions after it, answering the moved file and the companions left;
+// moving again converges. The Node may refuse with a *WaitingError.
+func (r *Roots) Move(ctx context.Context, root ID, from, to storing.Rel, carry bool) (storing.Placed, error) {
 	at, err := r.at(ctx, root)
 	if err != nil {
 		return storing.Placed{}, err
 	}
-	moved, err := r.cfg.Remote.Move(ctx, at, from, to)
+	moved, err := r.cfg.Remote.Move(ctx, at, from, to, carry)
 	return moved, r.waiting(ctx, at.Node, err)
+}
+
+// Survey answers each planned rename within root on its Node: the files
+// at its target, compared without case, and with companions its source's
+// companions. A root its Node can't read now is *storing.NotReady.
+func (r *Roots) Survey(ctx context.Context, root ID, planned []storing.Planned, companions bool) ([]storing.Surveyed, error) {
+	at, err := r.at(ctx, root)
+	if err != nil {
+		return nil, err
+	}
+	return r.cfg.Remote.Survey(ctx, at, planned, companions)
+}
+
+// Prune removes folder from root on its Node, and each parent while it is
+// empty, never a held folder, a kept folder or a parent of one. It
+// answers the folders removed, innermost first.
+func (r *Roots) Prune(ctx context.Context, root ID, folder storing.Rel, keep []storing.Rel) ([]storing.Rel, error) {
+	at, err := r.at(ctx, root)
+	if err != nil {
+		return nil, err
+	}
+	return r.cfg.Remote.Prune(ctx, at, folder, keep)
 }
 
 // WaitingError is a root whose Node takes no new bytes into it now, so an

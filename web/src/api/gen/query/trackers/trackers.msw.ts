@@ -13,6 +13,7 @@ import type {
   SettingRateField,
   SettingSpaceField,
   SettingSwitchField,
+  SettingTemplateField,
   SettingWindowField,
   TrackersGoal,
   TrackersGoalsPreview,
@@ -503,6 +504,37 @@ export const getGetSeedingSettingsResponseSettingSpaceFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetSeedingSettingsResponseSettingTemplateFieldMock = (
+  overrideResponse: Partial<SettingTemplateField> = {},
+): SettingTemplateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    field: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["template"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    plain: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetSeedingSettingsResponseMock = (
   overrideResponse: Partial<Extract<TrackersSettings, object>> = {},
 ): TrackersSettings => ({
@@ -518,6 +550,7 @@ export const getGetSeedingSettingsResponseMock = (
       { ...getGetSeedingSettingsResponseSettingAddressFieldMock() },
       { ...getGetSeedingSettingsResponseSettingFolderFieldMock() },
       { ...getGetSeedingSettingsResponseSettingSpaceFieldMock() },
+      { ...getGetSeedingSettingsResponseSettingTemplateFieldMock() },
     ]),
   ),
   ...overrideResponse,
@@ -873,6 +906,37 @@ export const getUpdateSeedingSettingsResponseSettingSpaceFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateSeedingSettingsResponseSettingTemplateFieldMock = (
+  overrideResponse: Partial<SettingTemplateField> = {},
+): SettingTemplateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    field: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["template"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    plain: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateSeedingSettingsResponseMock = (
   overrideResponse: Partial<Extract<TrackersSettings, object>> = {},
 ): TrackersSettings => ({
@@ -888,6 +952,7 @@ export const getUpdateSeedingSettingsResponseMock = (
       { ...getUpdateSeedingSettingsResponseSettingAddressFieldMock() },
       { ...getUpdateSeedingSettingsResponseSettingFolderFieldMock() },
       { ...getUpdateSeedingSettingsResponseSettingSpaceFieldMock() },
+      { ...getUpdateSeedingSettingsResponseSettingTemplateFieldMock() },
     ]),
   ),
   ...overrideResponse,

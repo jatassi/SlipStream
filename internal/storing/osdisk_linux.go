@@ -15,6 +15,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// PathLimit is the longest absolute path Linux opens, in bytes: PATH_MAX.
+func PathLimit() int64 { return 4096 }
+
 func readOnly(st *unix.Statfs_t) bool { return st.Flags&unix.ST_RDONLY != 0 }
 
 // Volume reads statfs on path itself and names the volume by the mount

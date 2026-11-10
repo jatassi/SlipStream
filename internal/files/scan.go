@@ -102,7 +102,7 @@ func (f *Files) Scan(ctx context.Context, tx *storage.Tx[file], s Scan) (Scanned
 		g := File{
 			ID: ID{UUID: storage.NewUUID()}, WorkID: s.Work, ItemID: fd.Item, Cut: fd.Cut, RootID: s.Root, Path: fd.At.Path.String(),
 			Size: fd.At.Size, Media: fd.Media, ProbedAt: sc.now, Seen: &fd.At.Seen, Quality: fd.Quality,
-			ReleaseName: path.Base(fd.At.Path.String()), Title: release.File(fd.At.Path.String(), sc.names, sc.cuts),
+			ReleaseName: path.Base(fd.At.Path.String()), Title: release.File(fd.At.Path.String(), sc.names, sc.cuts), SourceName: path.Base(fd.At.Path.String()),
 		}
 		after.files = append(after.files, g)
 		after.found[g.ID] = true
@@ -192,14 +192,14 @@ func (sc *scan) transition(ctx context.Context, rec scanning.Recorded, change fu
 		sc.dropped++
 		return nil
 	}
-	sits, err := sc.q.GetMove(ctx, g.ID)
-	switch {
-	case errors.Is(err, storage.ErrNoRows):
-		sits = g.Path
-	case err != nil:
+	sits, next := g.Path, ""
+	switch m, err := sc.q.GetMove(ctx, g.ID); {
+	case err == nil:
+		sits, next = m.Sits, move{file: g.ID, path: g.Path, sits: m.Sits, ring: m.Ring}.next()
+	case !errors.Is(err, storage.ErrNoRows):
 		return err
 	}
-	if g.Path != rec.Path.String() || sits != rec.Sits.String() || g.Size != rec.Size || g.Gone() != rec.Gone {
+	if g.Path != rec.Path.String() || sits != rec.Sits.String() || next != rec.Next.String() || g.Size != rec.Size || g.Gone() != rec.Gone {
 		sc.dropped++
 		return nil
 	}

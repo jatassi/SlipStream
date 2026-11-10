@@ -99,7 +99,7 @@ func serve(t *testing.T) *server {
 	ctx := t.Context()
 	s := &server{
 		lib: storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(),
-			downloadclients.Schema(), grabs.Schema(), files.Schema(), imports.Schema()),
+			downloadclients.Schema(), grabs.Schema(), files.Schema(), naming.Schema(), imports.Schema()),
 		fx:   contenttypetest.New(),
 		node: role.NodeID{UUID: storage.NewUUID()},
 		nas:  role.NodeID{UUID: storage.NewUUID()},
@@ -137,7 +137,7 @@ func serve(t *testing.T) *server {
 	}
 	fs, err := files.Open(ctx, files.Config{
 		Library: s.lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }},
-		Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: s.fx}, Names: map[works.TypeID]release.Names{contenttypetest.ID: s.fx}, Today: time.Now,
+		Naming: naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: s.fx}}), Names: map[works.TypeID]release.Names{contenttypetest.ID: s.fx}, Today: time.Now,
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -38,7 +38,7 @@ func (q *Queries) GetEpisode(ctx context.Context, itemID works.ItemID) (SeriesEp
 }
 
 const getSeries = `-- name: GetSeries :one
-SELECT work_id, tvdb_id, tmdb_id, imdb_id, english_title, original_title, original_language, country, network, creators, credits, status, first_aired, last_aired, next_aired, average_runtime_seconds, certification, certification_country, genres, aliases, overview, episode_order, orders, trailer_site, trailer_key, awards FROM series_series WHERE work_id = ?1
+SELECT work_id, tvdb_id, tmdb_id, imdb_id, english_title, original_title, original_language, country, network, creators, credits, status, first_aired, last_aired, next_aired, average_runtime_seconds, certification, certification_country, genres, aliases, overview, episode_order, orders, trailer_site, trailer_key, awards, name_by_air_date FROM series_series WHERE work_id = ?1
 `
 
 func (q *Queries) GetSeries(ctx context.Context, workID works.WorkID) (SeriesSeries, error) {
@@ -71,18 +71,24 @@ func (q *Queries) GetSeries(ctx context.Context, workID works.WorkID) (SeriesSer
 		&i.TrailerSite,
 		&i.TrailerKey,
 		&i.Awards,
+		&i.NameByAirDate,
 	)
 	return i, err
 }
 
 const getSettings = `-- name: GetSettings :one
-SELECT id, air_delay_seconds, year_slack FROM series_settings WHERE id = 1
+SELECT id, air_delay_seconds, year_slack, add_name_by_air_date FROM series_settings WHERE id = 1
 `
 
 func (q *Queries) GetSettings(ctx context.Context) (SeriesSetting, error) {
 	row := q.db.QueryRowContext(ctx, getSettings)
 	var i SeriesSetting
-	err := row.Scan(&i.ID, &i.AirDelaySeconds, &i.YearSlack)
+	err := row.Scan(
+		&i.ID,
+		&i.AirDelaySeconds,
+		&i.YearSlack,
+		&i.AddNameByAirDate,
+	)
 	return i, err
 }
 
@@ -123,6 +129,59 @@ func (q *Queries) ListClaimsOf(ctx context.Context, workIds []works.WorkID) ([]L
 			&i.TmdbID,
 			&i.ImdbID,
 			&i.FirstAired,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEpisodeNamesOf = `-- name: ListEpisodeNamesOf :many
+SELECT item_id, work_id, season_number, episode_number, absolute_number, air_date FROM series_episode WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id, season_number, episode_number
+`
+
+type ListEpisodeNamesOfRow struct {
+	ItemID         works.ItemID
+	WorkID         works.WorkID
+	SeasonNumber   int64
+	EpisodeNumber  int64
+	AbsoluteNumber *int64
+	AirDate        *string
+}
+
+func (q *Queries) ListEpisodeNamesOf(ctx context.Context, workIds []works.WorkID) ([]ListEpisodeNamesOfRow, error) {
+	query := listEpisodeNamesOf
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEpisodeNamesOfRow
+	for rows.Next() {
+		var i ListEpisodeNamesOfRow
+		if err := rows.Scan(
+			&i.ItemID,
+			&i.WorkID,
+			&i.SeasonNumber,
+			&i.EpisodeNumber,
+			&i.AbsoluteNumber,
+			&i.AirDate,
 		); err != nil {
 			return nil, err
 		}
@@ -268,6 +327,49 @@ func (q *Queries) ListEveryClaim(ctx context.Context) ([]ListEveryClaimRow, erro
 	return items, nil
 }
 
+const listEveryEpisodeName = `-- name: ListEveryEpisodeName :many
+SELECT item_id, work_id, season_number, episode_number, absolute_number, air_date FROM series_episode ORDER BY work_id, season_number, episode_number
+`
+
+type ListEveryEpisodeNameRow struct {
+	ItemID         works.ItemID
+	WorkID         works.WorkID
+	SeasonNumber   int64
+	EpisodeNumber  int64
+	AbsoluteNumber *int64
+	AirDate        *string
+}
+
+func (q *Queries) ListEveryEpisodeName(ctx context.Context) ([]ListEveryEpisodeNameRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryEpisodeName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEveryEpisodeNameRow
+	for rows.Next() {
+		var i ListEveryEpisodeNameRow
+		if err := rows.Scan(
+			&i.ItemID,
+			&i.WorkID,
+			&i.SeasonNumber,
+			&i.EpisodeNumber,
+			&i.AbsoluteNumber,
+			&i.AirDate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEveryListed = `-- name: ListEveryListed :many
 SELECT work_id, network, certification, status, first_aired, genres FROM series_series ORDER BY work_id
 `
@@ -297,6 +399,53 @@ func (q *Queries) ListEveryListed(ctx context.Context) ([]ListEveryListedRow, er
 			&i.Status,
 			&i.FirstAired,
 			&i.Genres,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEveryName = `-- name: ListEveryName :many
+SELECT work_id, tvdb_id, tmdb_id, imdb_id, english_title, first_aired, episode_order, name_by_air_date FROM series_series ORDER BY work_id
+`
+
+type ListEveryNameRow struct {
+	WorkID        works.WorkID
+	TvdbID        TVDBID
+	TmdbID        *TMDBID
+	ImdbID        *string
+	EnglishTitle  string
+	FirstAired    *string
+	EpisodeOrder  string
+	NameByAirDate bool
+}
+
+func (q *Queries) ListEveryName(ctx context.Context) ([]ListEveryNameRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEveryName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEveryNameRow
+	for rows.Next() {
+		var i ListEveryNameRow
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.TvdbID,
+			&i.TmdbID,
+			&i.ImdbID,
+			&i.EnglishTitle,
+			&i.FirstAired,
+			&i.EpisodeOrder,
+			&i.NameByAirDate,
 		); err != nil {
 			return nil, err
 		}
@@ -399,6 +548,63 @@ func (q *Queries) ListListedOf(ctx context.Context, workIds []works.WorkID) ([]L
 	return items, nil
 }
 
+const listNamesOf = `-- name: ListNamesOf :many
+SELECT work_id, tvdb_id, tmdb_id, imdb_id, english_title, first_aired, episode_order, name_by_air_date FROM series_series WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
+`
+
+type ListNamesOfRow struct {
+	WorkID        works.WorkID
+	TvdbID        TVDBID
+	TmdbID        *TMDBID
+	ImdbID        *string
+	EnglishTitle  string
+	FirstAired    *string
+	EpisodeOrder  string
+	NameByAirDate bool
+}
+
+func (q *Queries) ListNamesOf(ctx context.Context, workIds []works.WorkID) ([]ListNamesOfRow, error) {
+	query := listNamesOf
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListNamesOfRow
+	for rows.Next() {
+		var i ListNamesOfRow
+		if err := rows.Scan(
+			&i.WorkID,
+			&i.TvdbID,
+			&i.TmdbID,
+			&i.ImdbID,
+			&i.EnglishTitle,
+			&i.FirstAired,
+			&i.EpisodeOrder,
+			&i.NameByAirDate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSeasonRatingsRead = `-- name: ListSeasonRatingsRead :many
 SELECT aired_season, read_at FROM series_season_rating WHERE work_id = ?1 ORDER BY aired_season
 `
@@ -467,7 +673,7 @@ func (q *Queries) ListSeasons(ctx context.Context, workID works.WorkID) ([]Serie
 }
 
 const listSeriesOf = `-- name: ListSeriesOf :many
-SELECT work_id, tvdb_id, tmdb_id, imdb_id, english_title, original_title, original_language, country, network, creators, credits, status, first_aired, last_aired, next_aired, average_runtime_seconds, certification, certification_country, genres, aliases, overview, episode_order, orders, trailer_site, trailer_key, awards FROM series_series WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
+SELECT work_id, tvdb_id, tmdb_id, imdb_id, english_title, original_title, original_language, country, network, creators, credits, status, first_aired, last_aired, next_aired, average_runtime_seconds, certification, certification_country, genres, aliases, overview, episode_order, orders, trailer_site, trailer_key, awards, name_by_air_date FROM series_series WHERE work_id IN (/*SLICE:work_ids*/?) ORDER BY work_id
 `
 
 func (q *Queries) ListSeriesOf(ctx context.Context, workIds []works.WorkID) ([]SeriesSeries, error) {
@@ -516,6 +722,7 @@ func (q *Queries) ListSeriesOf(ctx context.Context, workIds []works.WorkID) ([]S
 			&i.TrailerSite,
 			&i.TrailerKey,
 			&i.Awards,
+			&i.NameByAirDate,
 		); err != nil {
 			return nil, err
 		}
@@ -634,17 +841,33 @@ func (q *Queries) MarkSeasonRatingsRead(ctx context.Context, arg MarkSeasonRatin
 	return err
 }
 
+const setNameByAirDate = `-- name: SetNameByAirDate :exec
+UPDATE series_series SET name_by_air_date = ?1 WHERE work_id = ?2
+`
+
+type SetNameByAirDateParams struct {
+	NameByAirDate bool
+	WorkID        works.WorkID
+}
+
+func (q *Queries) SetNameByAirDate(ctx context.Context, arg SetNameByAirDateParams) error {
+	_, err := q.db.ExecContext(ctx, setNameByAirDate, arg.NameByAirDate, arg.WorkID)
+	return err
+}
+
 const setSettings = `-- name: SetSettings :exec
-UPDATE series_settings SET air_delay_seconds = ?1, year_slack = ?2 WHERE id = 1
+UPDATE series_settings SET air_delay_seconds = ?1, year_slack = ?2,
+    add_name_by_air_date = ?3 WHERE id = 1
 `
 
 type SetSettingsParams struct {
-	AirDelaySeconds *int64
-	YearSlack       *int64
+	AirDelaySeconds  *int64
+	YearSlack        *int64
+	AddNameByAirDate *bool
 }
 
 func (q *Queries) SetSettings(ctx context.Context, arg SetSettingsParams) error {
-	_, err := q.db.ExecContext(ctx, setSettings, arg.AirDelaySeconds, arg.YearSlack)
+	_, err := q.db.ExecContext(ctx, setSettings, arg.AirDelaySeconds, arg.YearSlack, arg.AddNameByAirDate)
 	return err
 }
 
@@ -732,14 +955,16 @@ const upsertSeries = `-- name: UpsertSeries :exec
 INSERT INTO series_series (
     work_id, tvdb_id, tmdb_id, imdb_id, english_title, original_title, original_language, country, network,
     creators, credits, status, first_aired, last_aired, next_aired, average_runtime_seconds, certification,
-    certification_country, genres, aliases, overview, episode_order, orders, trailer_site, trailer_key, awards
+    certification_country, genres, aliases, overview, episode_order, orders, trailer_site, trailer_key, awards,
+    name_by_air_date
 ) VALUES (
     ?1, ?2, ?3, ?4, ?5,
     ?6, ?7, ?8, ?9,
     ?10, ?11, ?12, ?13, ?14,
     ?15, ?16, ?17,
     ?18, ?19, ?20, ?21,
-    ?22, ?23, ?24, ?25, ?26
+    ?22, ?23, ?24, ?25, ?26,
+    ?27
 )
 ON CONFLICT (work_id) DO UPDATE SET tmdb_id = excluded.tmdb_id, imdb_id = excluded.imdb_id,
     english_title = excluded.english_title, original_title = excluded.original_title,
@@ -779,6 +1004,7 @@ type UpsertSeriesParams struct {
 	TrailerSite           *string
 	TrailerKey            *string
 	Awards                *string
+	NameByAirDate         bool
 }
 
 func (q *Queries) UpsertSeries(ctx context.Context, arg UpsertSeriesParams) error {
@@ -809,6 +1035,7 @@ func (q *Queries) UpsertSeries(ctx context.Context, arg UpsertSeriesParams) erro
 		arg.TrailerSite,
 		arg.TrailerKey,
 		arg.Awards,
+		arg.NameByAirDate,
 	)
 	return err
 }

@@ -424,3 +424,15 @@ func TestSampleWithoutStorage(t *testing.T) {
 	}
 	refused(t, s)
 }
+
+func TestTheFactsReportThePathLimit(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		d := newTestDisk(t)
+		id := storage.NewUUID()
+		s := NewStore(Config{Disk: d, Timings: Timings{Stat: 10 * time.Second}, PathLimit: 259})
+		h := running(t, s, intentOf(rootAt(id, marked(t, id), false)))
+		if f := h.next(t); f.GetPathLimit() != 259 {
+			t.Errorf("the facts report a path limit of %d, want 259", f.GetPathLimit())
+		}
+	})
+}

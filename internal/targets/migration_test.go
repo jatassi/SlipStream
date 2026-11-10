@@ -1,10 +1,13 @@
 package targets_test
 
 import (
+	"bytes"
 	"context"
 	"log/slog"
 	"path/filepath"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/formats"
@@ -261,5 +264,57 @@ func TestTargetsMigrateUnscoredWithIncrementOneAndPreferringPropers(t *testing.T
 		if err == nil {
 			t.Errorf("the schema took %s", c.name)
 		}
+	}
+}
+
+func TestTargetNamesTwinnedByCaseAreRenamedOnceAtStartUntilEachFoldsApart(t *testing.T) {
+	ctx := t.Context()
+	open := opener(t, filepath.Join(t.TempDir(), storage.LibraryFile))
+	before := open(targets.Schema().Through(3))
+	names := []string{"4K", "4k", "4k 2", "Straße"}
+	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		for _, name := range names {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO targets_target (id, name, created_at, cutoff_tier) VALUES (?, ?, 1, 0)`, storage.NewUUID(), name); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := before.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	lib := open(targets.Schema())
+	t.Cleanup(func() { _ = lib.Close() })
+	var logged bytes.Buffer
+	cfg := targets.Config{Library: lib, Changed: discard{}, Log: slog.New(slog.NewTextHandler(&logged, nil))}
+	listed := func() []string {
+		goals := must[*targets.Targets](t)(targets.Open(ctx, cfg))
+		var got []string
+		for _, target := range must[[]targets.Target](t)(goals.ListTargets(ctx, identity.Admin{})) {
+			got = append(got, target.Name)
+		}
+		slices.Sort(got)
+		return got
+	}
+	want := []string{"1080p", "4K", "4k 2", "4k 3", "Straße"}
+	if got := listed(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("the Targets after start are %q, want %q", got, want)
+	}
+	if got := listed(); !reflect.DeepEqual(got, want) || strings.Count(logged.String(), "renamed a Target") != 1 {
+		t.Fatalf("a second start leaves %q and logged\n%s\nwant %q and one rename", got, logged.String(), want)
+	}
+	if !strings.Contains(logged.String(), "from=4k to=\"4k 3\"") {
+		t.Fatalf("the log is\n%s\nwant the rename of 4k to 4k 3", logged.String())
+	}
+	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO targets_target (id, name, name_folded, created_at, cutoff_tier) VALUES (?, 'STRASSE', 'strasse', 1, 0)`, storage.NewUUID())
+		return err
+	})
+	if err == nil {
+		t.Fatal("the schema took a second Target folded as strasse")
 	}
 }

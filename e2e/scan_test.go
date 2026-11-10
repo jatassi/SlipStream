@@ -34,6 +34,12 @@ func scannedShelves(t *testing.T, name string) *shelves {
 		t.Fatal(err)
 	}
 	s.Name = name
+	return scannedShelvesOf(t, s)
+}
+
+// scannedShelvesOf is scannedShelves of s, a variant of home.
+func scannedShelvesOf(t *testing.T, s scenario.Scenario) *shelves {
+	t.Helper()
 	run := worldtest.LaunchScenario(t, s)
 	sh := &shelves{t: t, a: api(t, run), m: run.Manifest()}
 	for _, key := range []string{"9100201", "9100202"} {

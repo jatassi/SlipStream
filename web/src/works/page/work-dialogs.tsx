@@ -1,4 +1,5 @@
 import type { WorksWorkView } from "../../api/gen/model";
+import { PlanSheet } from "../../renames/plan-sheet";
 import type { ImpactChange } from "../../targets/use-impact-save";
 import type { Subject } from "../actions/actions";
 import { DeleteDialog } from "../actions/delete-dialog";
@@ -6,16 +7,26 @@ import { MonitoringDialog } from "../monitoring/monitoring-dialog";
 import { EditDialog } from "./edit-dialog";
 
 type WorkDialogsProps = {
-  open: "edit" | "delete" | "monitoring" | undefined;
+  open: "edit" | "delete" | "monitoring" | "rename" | undefined;
   subject: Subject;
   work: WorksWorkView;
   files: number;
   save: (change: ImpactChange) => Promise<void>;
   onClose: () => void;
+  onRename: () => void;
   onDeleting: () => void;
 };
 
-/** The Work's Edit, Delete or Monitoring dialog while it is open, each mounted fresh as it opens. */
+function WorkPlan({ work, onClose }: { work: WorksWorkView; onClose: () => void }) {
+  return (
+    <PlanSheet
+      opening={{ title: `Rename files of ${work.label}`, scope: { kind: "work", id: work.id } }}
+      onClose={onClose}
+    />
+  );
+}
+
+/** The Work's Edit, Delete or Monitoring dialog or its rename plan while it is open, each mounted fresh as it opens. */
 export function WorkDialogs({
   open,
   subject,
@@ -23,6 +34,7 @@ export function WorkDialogs({
   files,
   save,
   onClose,
+  onRename,
   onDeleting,
 }: WorkDialogsProps) {
   const changes = (next: boolean) => {
@@ -39,8 +51,12 @@ export function WorkDialogs({
         save={save}
         open
         onOpenChange={changes}
+        onRename={onRename}
       />
     );
+  }
+  if (open === "rename") {
+    return <WorkPlan work={work} onClose={onClose} />;
   }
   if (open === "monitoring") {
     return (

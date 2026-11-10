@@ -236,8 +236,13 @@ func (r *Roots) record(ctx context.Context, node role.NodeID) error {
 		if adopted, err = see(ctx, q, on, reports); err != nil {
 			return err
 		}
-		volumes, err = replaceVolumes(ctx, q, node, f.GetVolumes())
-		return err
+		if volumes, err = replaceVolumes(ctx, q, node, f.GetVolumes()); err != nil {
+			return err
+		}
+		if f.GetPathLimit() == 0 { // a Store given no limit, as tests build one, reports none
+			return nil
+		}
+		return q.SetPathLimit(ctx, db.SetPathLimitParams{NodeID: node, PathLimit: f.GetPathLimit()})
 	})
 	if err != nil {
 		return err

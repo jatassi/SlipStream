@@ -1,12 +1,14 @@
 package files
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -20,6 +22,39 @@ func newTarget(t *testing.T, name string, tiers ...[]release.Quality) targets.Ta
 	}
 	target.ID = targets.TargetID{UUID: storage.NewUUID()}
 	return target
+}
+
+// shelf names a test Work's files in a folder per Shelf, by its template.
+type shelf string
+
+func (file shelf) Naming() naming.Declaration {
+	return naming.Declaration{
+		Tokens: []naming.Token{{Name: "Shelf", Kind: naming.KindTitle, Scope: naming.WorkScope}, {Name: "Thing", Kind: naming.KindTitle, Scope: naming.ItemScope}},
+		Folder: "{Shelf}",
+		Files:  []naming.Variant{{Key: "standard", Label: "File", File: string(file), Anchor: naming.TokenAnchor("Thing")}},
+	}
+}
+
+func (shelf) NamingValues(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[works.WorkID]naming.Values, error) {
+	return nil, nil
+}
+
+// shelved is the world of a Work on the shelf Attic whose items are each
+// a Scarf, named by file under goals.
+func shelved(t *testing.T, file string, goals targets.Goals, items ...works.Item) world {
+	t.Helper()
+	scheme, err := naming.DefaultScheme(shelf(file).Naming())
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := naming.Values{Work: naming.Set{"Shelf": naming.Text("Attic")}, Items: map[works.ItemID]naming.ItemValues{}}
+	for _, it := range items {
+		values.Items[it.ID] = naming.ItemValues{Set: naming.Set{"Thing": naming.Text("Scarf")}}
+	}
+	return world{
+		tree: works.Bare{Items: items}, goals: goals, scoring: newScoring(nil, goals, release.Fact[release.Language]{}),
+		scheme: scheme, values: values, budgets: map[roots.ID]int{{}: 250},
+	}
 }
 
 func TestNames(t *testing.T) {
@@ -104,11 +139,8 @@ func TestNames(t *testing.T) {
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			w := world{
-				tree: works.Bare{Items: []works.Item{scarf}}, goals: targets.Goals{Targets: []targets.Target{best, web, uhd}}, fresh: ids["fresh"],
-				templates: naming.Templates{Folder: "{Shelf}", File: "{Shelf} - {Thing} - {Edition Tag} {Target}"},
-				tokens:    map[works.ItemID]map[string]string{scarf.ID: {"Shelf": "Attic", "Thing": "Scarf"}},
-			}
+			w := shelved(t, "{Shelf} - {Thing} - {Edition Tag} {Target}", targets.Goals{Targets: []targets.Target{best, web, uhd}}, scarf)
+			w.fresh = ids["fresh"]
 			for _, s := range c.files {
 				w.files = append(w.files, File{ID: ids[s.id], ItemID: scarf.ID, Cut: release.Standard, Quality: s.quality, Label: s.label, Extra: s.extra, Path: s.path})
 			}
@@ -116,7 +148,7 @@ func TestNames(t *testing.T) {
 			for target, id := range c.fills {
 				fills[CellKey{Item: scarf.ID, Edition: targets.AnyEdition, Target: target.ID}] = Fill{File: ids[id]}
 			}
-			got, err := names(w, fills)
+			got, _, err := names(w, fills)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -131,19 +163,56 @@ func TestNames(t *testing.T) {
 	}
 }
 
-func TestTwoFilesOnOneNameIsAClash(t *testing.T) {
+func TestAFileBeingPlacedOnAnotherFilesNameFindsItTaken(t *testing.T) {
 	web := newTarget(t, "Web", []release.Quality{release.WEBDL1080p})
 	scarf := works.Item{ID: works.ItemID{UUID: storage.NewUUID()}}
 	held := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Path: "Attic/Attic - Scarf.mkv"}
 	fresh := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Path: ".slipstream-incoming/grab.mkv"}
-	w := world{
-		tree: works.Bare{Items: []works.Item{scarf}}, goals: targets.Goals{Targets: []targets.Target{web}}, files: []File{held, fresh}, fresh: fresh.ID,
-		templates: naming.Templates{Folder: "{Shelf}", File: "{Shelf} - {Thing}"},
-		tokens:    map[works.ItemID]map[string]string{scarf.ID: {"Shelf": "Attic", "Thing": "Scarf"}},
+	w := shelved(t, "{Shelf} - {Thing}", targets.Goals{Targets: []targets.Target{web}}, scarf)
+	w.files, w.fresh = []File{held, fresh}, fresh.ID
+	_, _, err := names(w, map[CellKey]Fill{{Item: scarf.ID, Edition: targets.AnyEdition, Target: web.ID}: {File: held.ID}})
+	if taken, ok := errors.AsType[*NameTakenError](err); !ok || *taken != (NameTakenError{Path: "Attic/Attic - Scarf.mkv"}) {
+		t.Fatalf("names of a Kept file whose template names no Target = %v, want its name taken at Attic/Attic - Scarf.mkv", err)
 	}
-	_, err := names(w, map[CellKey]Fill{{Item: scarf.ID, Edition: targets.AnyEdition, Target: web.ID}: {File: held.ID}})
-	if !errors.Is(err, ErrNameClash) {
-		t.Fatalf("names of a Kept file whose template names no Target = %v, want ErrNameClash", err)
+}
+
+// keeping is the world of shelved whose type's renaming is off, holding
+// a file filling Web at held and, being placed, a Kept file downloaded
+// as source.
+func keeping(t *testing.T, held, source string) (w world, fills map[CellKey]Fill, fresh ID) {
+	t.Helper()
+	web := newTarget(t, "Web", []release.Quality{release.WEBDL1080p})
+	scarf := works.Item{ID: works.ItemID{UUID: storage.NewUUID()}}
+	w = shelved(t, "{Shelf} - {Thing} - {Target}", targets.Goals{Targets: []targets.Target{web}}, scarf)
+	off := false
+	scheme, err := naming.SchemeOf(shelf("{Shelf} - {Thing} - {Target}").Naming(), naming.Settings{Rename: &off})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.scheme = scheme
+	filling := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Path: held}
+	placing := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Path: ".slipstream-incoming/grab.mkv", SourceName: source}
+	w.files, w.beside, w.fresh = []File{filling, placing}, []File{filling}, placing.ID
+	return w, map[CellKey]Fill{{Item: scarf.ID, Edition: targets.AnyEdition, Target: web.ID}: {File: filling.ID}}, placing.ID
+}
+
+func TestWithRenamingOffAFileBeingPlacedKeepsItsDownloadedNameInTheWorksFolder(t *testing.T) {
+	w, fills, fresh := keeping(t, "Attic, as found/scarf.mkv", "Scarf.2020.1080p.WEB-DL.mkv")
+	got, _, err := names(w, fills)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[ID]name{w.files[0].ID: {"Web", 0, "Attic, as found/scarf.mkv"}, fresh: {"Web", 1, "Attic, as found/Scarf.2020.1080p.WEB-DL.mkv"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("names =\n%v\nwant the file beside it kept and the new one under its downloaded name in that folder, labeled\n%v", got, want)
+	}
+}
+
+func TestWithRenamingOffADownloadedNameAnotherFileHasIsTaken(t *testing.T) {
+	w, fills, _ := keeping(t, "Attic/scarf.2020.1080p.web-dl.mkv", "Scarf.2020.1080p.WEB-DL.mkv")
+	_, _, err := names(w, fills)
+	if taken, ok := errors.AsType[*NameTakenError](err); !ok || *taken != (NameTakenError{Path: "Attic/Scarf.2020.1080p.WEB-DL.mkv"}) {
+		t.Fatalf("names = %v, want the downloaded name taken in Attic, whatever its case", err)
 	}
 }
 
@@ -155,13 +224,9 @@ func TestAGoneFileKeepsItsNameAndHoldsItsN(t *testing.T) {
 		Path: "Attic/Attic - Scarf - Web (extra 1).mkv", GoneAt: storage.Now(),
 	}
 	kept := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.HDTV720p, Label: "Web", Path: "Attic/Scarf.mkv"}
-	w := world{
-		tree: works.Bare{Items: []works.Item{scarf}}, goals: targets.Goals{Targets: []targets.Target{best}}, files: []File{gone, kept},
-		retagged:  map[release.CutKey]bool{release.Standard: true},
-		templates: naming.Templates{Folder: "{Shelf}", File: "{Shelf} - {Thing} - {Edition Tag} {Target}"},
-		tokens:    map[works.ItemID]map[string]string{scarf.ID: {"Shelf": "Attic", "Thing": "Scarf"}},
-	}
-	got, err := names(w, nil)
+	w := shelved(t, "{Shelf} - {Thing} - {Edition Tag} {Target}", targets.Goals{Targets: []targets.Target{best}}, scarf)
+	w.files, w.retagged = []File{gone, kept}, map[release.CutKey]bool{release.Standard: true}
+	got, _, err := names(w, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

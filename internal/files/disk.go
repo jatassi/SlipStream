@@ -15,18 +15,23 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // Disk is the file IO the disk queue does, on the Node that holds each
-// root. Move converges on a repeat; Remove of a missing file is an error
-// wrapping fs.ErrNotExist, and RemoveAll of a missing folder is none.
+// root. Move converges on a repeat, and with carry moves from's companions
+// after it; Remove of a missing file is an error wrapping fs.ErrNotExist,
+// and RemoveAll of a missing folder is none. Survey answers which planned
+// targets other files hold, and Prune removes the folders a move emptied.
 // Watch is closed at the next change of a root's report, as a re-home off
 // a lost root makes. *roots.Roots is one.
 type Disk interface {
-	Move(ctx context.Context, root roots.ID, from, to storing.Rel) (storing.Placed, error)
+	Move(ctx context.Context, root roots.ID, from, to storing.Rel, carry bool) (storing.Placed, error)
 	Remove(ctx context.Context, root roots.ID, rel storing.Rel) error
 	RemoveAll(ctx context.Context, root roots.ID, rel storing.Rel) error
 	ListHeld(ctx context.Context, root roots.ID, folder storing.HeldFolder) ([]string, error)
+	Survey(ctx context.Context, root roots.ID, planned []storing.Planned, companions bool) ([]storing.Surveyed, error)
+	Prune(ctx context.Context, root roots.ID, folder storing.Rel, keep []storing.Rel) ([]storing.Rel, error)
 	Watch() <-chan struct{}
 }
 
@@ -50,13 +55,14 @@ func (f *Files) Poke() {
 
 // Run drains the disk queue until ctx ends. Each pass first sweeps the
 // held folders of each root not swept since start, then removes every
-// doomed file, then moves every queued file to its holding path, then
-// from there to its path. Every step is a Move or a Remove that converges
-// on a repeat, and a row goes only after its step, so a crash anywhere
-// converges on the next pass. A pass that leaves work behind, a root to
-// sweep among it, runs again after a backoff. Each step runs on the Node
-// that holds the file's root. Work in a lost root waits, without a
-// backoff, until a root's report changes.
+// doomed file, then moves every file of a cycle of renames to its holding
+// path, then every queued file to its path once no other file's bytes sit
+// there, then removes the folders those moves left empty. Every step is a
+// Move, a Remove or a Prune that converges on a repeat, and a row goes
+// only after its step, so a crash anywhere converges on the next pass. A
+// pass that leaves work behind, a root to sweep among it, runs again after
+// a backoff. Each step runs on the Node that holds the file's root. Work
+// in a lost root waits, without a backoff, until a root's report changes.
 func (f *Files) Run(ctx context.Context) error {
 	unswept, err := f.rootIDs(ctx)
 	if err != nil {
@@ -99,7 +105,8 @@ func (f *Files) Run(ctx context.Context) error {
 
 type queue struct {
 	doomed []db.FilesDoomed
-	moves  []db.ListMovesRow
+	moves  []move
+	prunes []db.FilesPrune
 	lost   map[roots.ID]bool
 }
 
@@ -111,7 +118,15 @@ func (f *Files) read(ctx context.Context) (queue, error) {
 		if out.doomed, err = q.ListDoomed(ctx); err != nil {
 			return err
 		}
-		if out.moves, err = q.ListMoves(ctx); err != nil {
+		rows, err := q.ListMoves(ctx)
+		if err != nil {
+			return err
+		}
+		out.moves = make([]move, len(rows))
+		for i, row := range rows {
+			out.moves[i] = moveOf(row)
+		}
+		if out.prunes, err = q.ListPrune(ctx); err != nil {
 			return err
 		}
 		out.lost, err = roots.LostIn(ctx, r)
@@ -127,27 +142,31 @@ func (q queue) waits() bool {
 		}
 	}
 	for _, m := range q.moves {
-		if q.lost[m.RootID] {
+		if q.lost[m.root] {
+			return true
+		}
+	}
+	for _, p := range q.prunes {
+		if q.lost[p.RootID] {
 			return true
 		}
 	}
 	return false
 }
 
-// pending is every place bytes the queue has yet to remove or move on
-// sit: no move may take it yet.
-func (q queue) pending() map[place]bool {
-	out := map[place]bool{}
+// pending is every place, folded, where bytes the queue has yet to remove
+// or move on sit, by the file whose bytes they are, zero for a doomed
+// file's: no other move may take it yet.
+func (q queue) pending() map[place]ID {
+	out := map[place]ID{}
 	for _, d := range q.doomed {
-		out[place{d.RootID, d.Path}] = true
+		out[folded(d.RootID, d.Path)] = ID{}
 		if d.Sits != nil {
-			out[place{d.RootID, *d.Sits}] = true
+			out[folded(d.RootID, *d.Sits)] = ID{}
 		}
 	}
 	for _, m := range q.moves {
-		if m.Sits != holdingOf(m.FileID, m.Path) {
-			out[place{m.RootID, m.Sits}] = true
-		}
+		out[folded(m.root, m.sits)] = m.file
 	}
 	return out
 }
@@ -157,10 +176,10 @@ type place struct {
 	path string
 }
 
-func holdingOf(id ID, p string) string { return HoldingOf(id.UUID, path.Ext(p)) }
-
 // drain runs one pass of the queue, skipping the rows of lost roots, and
-// reports what else it left undone.
+// reports what else it left undone. A pass removes the doomed files, sends
+// each ring member to its holding path, then moves every file whose bytes
+// may take its path there, and last removes the folders moves left empty.
 func (f *Files) drain(ctx context.Context) (skippedLost bool, err error) {
 	q, err := f.read(ctx)
 	if err != nil {
@@ -172,9 +191,12 @@ func (f *Files) drain(ctx context.Context) (skippedLost bool, err error) {
 			errs = append(errs, f.remove(ctx, q, d))
 		}
 	}
-	for _, m := range q.moves {
-		if hold := holdingOf(m.FileID, m.Path); m.Sits != hold && !q.lost[m.RootID] {
-			errs = append(errs, f.step(ctx, m, hold))
+	moves, err := f.ring(ctx, q.moves)
+	errs = append(errs, err)
+	for _, m := range moves {
+		if hop := m.next(); hop != m.path && !q.lost[m.root] {
+			_, err := f.step(ctx, m, hop)
+			errs = append(errs, err)
 		}
 	}
 	if err := ctx.Err(); err != nil {
@@ -183,40 +205,175 @@ func (f *Files) drain(ctx context.Context) (skippedLost bool, err error) {
 	if q, err = f.read(ctx); err != nil {
 		return false, err
 	}
-	pending := q.pending()
-	for _, m := range q.moves {
-		switch {
-		case m.Sits != holdingOf(m.FileID, m.Path), q.lost[m.RootID]:
-		case pending[place{m.RootID, m.Path}]:
-			errs = append(errs, fmt.Errorf("%s waits for the bytes at its path to go", m.Path))
-		default:
-			errs = append(errs, f.step(ctx, m, m.Path))
-		}
+	errs = append(errs, f.land(ctx, q))
+	if q, err = f.read(ctx); err != nil {
+		return false, errors.Join(append(errs, err)...)
 	}
+	errs = append(errs, f.prune(ctx, q))
 	return q.waits(), errors.Join(errs...)
 }
 
-// step moves m's bytes from m.Sits to to, then records that they reached
-// it: the move is done when to is the file's path still, else they sit at
-// to until the next pass.
-func (f *Files) step(ctx context.Context, m db.ListMovesRow, to string) error {
+// land moves every file of q whose next hop is its path there, unless
+// another file's bytes still sit there, and puts back each whose path
+// another file holds. It publishes files.moved for the Works whose moves
+// it finished or put back.
+func (f *Files) land(ctx context.Context, q queue) error {
+	var errs []error
+	var touched []works.WorkID
+	pending := q.pending()
+	for _, m := range q.moves {
+		if m.next() != m.path || q.lost[m.root] {
+			continue
+		}
+		if at, ok := pending[folded(m.root, m.path)]; ok && at != m.file {
+			errs = append(errs, fmt.Errorf("%s waits for the bytes at its path to go", m.path))
+			continue
+		}
+		done, err := f.step(ctx, m, m.path)
+		switch {
+		case errors.Is(err, storing.ErrOccupied):
+			put, err := f.putBack(ctx, m)
+			touched = append(touched, put...)
+			errs = append(errs, err)
+		case done:
+			touched = append(touched, m.work)
+		default:
+			errs = append(errs, err)
+		}
+	}
+	if len(touched) > 0 {
+		f.cfg.Moved.Publish(ctx, MovedOf(touched))
+	}
+	return errors.Join(errs...)
+}
+
+// ring records the ring of every move that rings finds in a cycle, and
+// answers moves with their rings.
+func (f *Files) ring(ctx context.Context, moves []move) ([]move, error) {
+	found := rings(moves)
+	if len(found) == 0 {
+		return moves, nil
+	}
+	out := slices.Clone(moves)
+	err := f.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		q := db.New(tx)
+		for i, m := range moves {
+			ring, ok := found[m.file]
+			if !ok {
+				continue
+			}
+			n, err := q.SetRing(ctx, db.SetRingParams{FileID: m.file, Sits: m.sits, Ring: ring})
+			if err != nil {
+				return err
+			}
+			if n == 1 {
+				out[i].ring = ring
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return moves, err
+	}
+	return out, nil
+}
+
+// step moves m's bytes and their companions from m.sits to to, then
+// records that they reached it, and that m.sits's folder may be empty
+// now. The move is done when to is the file's path still, and a rename
+// from m's origin is recorded; else the bytes sit at to until the next
+// pass. A target another file holds is storing.ErrOccupied.
+func (f *Files) step(ctx context.Context, m move, to string) (done bool, err error) {
+	if err := ctx.Err(); err != nil {
+		return false, err //nolint:wrapcheck // Run's own cancel
+	}
+	placed, err := f.move(ctx, m.root, m.sits, to)
+	if err != nil {
+		return false, fmt.Errorf("move %s to %s: %w", m.sits, to, err)
+	}
+	for _, left := range placed.Left {
+		f.cfg.Log.Warn("another file has a companion's new name", "root", m.root.String(), "file", to, "companion", left.String())
+	}
+	err = f.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		var err error
+		done, err = reached(ctx, db.New(tx), m, to)
+		return err
+	})
+	return done, err
+}
+
+// reached records that m's bytes reached to, and whether that finished m.
+func reached(ctx context.Context, q *db.Queries, m move, to string) (bool, error) {
+	if from := path.Dir(m.sits); from != "." && !isHeld(m.sits) && from != path.Dir(to) {
+		if err := q.InsertPrune(ctx, db.InsertPruneParams{RootID: m.root, Folder: from}); err != nil {
+			return false, err
+		}
+	}
+	if to == m.path {
+		n, err := q.FinishMove(ctx, db.FinishMoveParams{FileID: m.file, Sits: m.sits, Path: to})
+		switch {
+		case err != nil:
+			return false, err
+		case n == 1 && (isHeld(m.origin) || m.origin == to):
+			return true, nil
+		case n == 1:
+			return true, q.InsertRenamed(ctx, db.InsertRenamedParams{FileID: m.file, RootID: m.root, FromPath: m.origin, ToPath: to, RenamedAt: storage.Now()})
+		}
+	}
+	_, err := q.MoveReached(ctx, db.MoveReachedParams{FileID: m.file, Sits: m.sits, Reached: to})
+	return false, err
+}
+
+// prune removes each folder a finished move left, with its empty parents,
+// unless a queued move's path, sits or next hop lies under it.
+func (f *Files) prune(ctx context.Context, q queue) error {
+	keep := map[place][]storing.Rel{}
+	for _, m := range q.moves {
+		for _, p := range []string{m.path, m.sits, m.next()} {
+			dir := path.Dir(p)
+			if dir == "." || isHeld(p) {
+				continue
+			}
+			rel, err := storing.ParseRel(dir)
+			if err != nil {
+				return err
+			}
+			top := folded(m.root, topOf(dir))
+			keep[top] = append(keep[top], rel)
+		}
+	}
+	var errs []error
+	for _, p := range q.prunes {
+		if q.lost[p.RootID] {
+			continue
+		}
+		if err := f.pruneOne(ctx, p, keep[folded(p.RootID, topOf(p.Folder))]); err != nil {
+			errs = append(errs, fmt.Errorf("remove the emptied folder %s: %w", p.Folder, err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func (f *Files) pruneOne(ctx context.Context, p db.FilesPrune, keep []storing.Rel) error {
 	if err := ctx.Err(); err != nil {
 		return err //nolint:wrapcheck // Run's own cancel
 	}
-	if err := f.move(ctx, m.RootID, m.Sits, to); err != nil {
-		return fmt.Errorf("move %s to %s: %w", m.Sits, to, err)
+	folder, err := storing.ParseRel(p.Folder)
+	if err != nil {
+		return err
+	}
+	if _, err := f.cfg.Disk.Prune(ctx, p.RootID, folder, keep); err != nil {
+		return err
 	}
 	return f.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		dq := db.New(tx)
-		if to == m.Path {
-			done, err := dq.FinishMove(ctx, db.FinishMoveParams{FileID: m.FileID, Sits: m.Sits, Path: to})
-			if err != nil || done == 1 {
-				return err
-			}
-		}
-		_, err := dq.MoveReached(ctx, db.MoveReachedParams{FileID: m.FileID, Sits: m.Sits, Reached: to})
-		return err
+		return db.New(tx).DeletePrune(ctx, db.DeletePruneParams(p))
 	})
+}
+
+// topOf is p's first segment.
+func topOf(p string) string {
+	top, _, _ := strings.Cut(p, "/")
+	return top
 }
 
 // remove removes a doomed file's bytes, then its row. Bytes that were
@@ -372,17 +529,16 @@ func (f *Files) heldIn(ctx context.Context, root roots.ID) ([]held, error) {
 	return entries, nil
 }
 
-func (f *Files) move(ctx context.Context, root roots.ID, from, to string) error {
+func (f *Files) move(ctx context.Context, root roots.ID, from, to string) (storing.Placed, error) {
 	src, err := storing.ParseRel(from)
 	if err != nil {
-		return err
+		return storing.Placed{}, err
 	}
 	dst, err := storing.ParseRel(to)
 	if err != nil {
-		return err
+		return storing.Placed{}, err
 	}
-	_, err = f.cfg.Disk.Move(ctx, root, src, dst)
-	return err
+	return f.cfg.Disk.Move(ctx, root, src, dst, true)
 }
 
 func (f *Files) removeAt(ctx context.Context, root roots.ID, p string) error {
@@ -452,7 +608,7 @@ func (f *Files) claimed(ctx context.Context) (claims, error) {
 // holds reports whether a live file's bytes are recorded at p in root.
 func (q queue) holds(root roots.ID, p string) bool {
 	for _, m := range q.moves {
-		if m.RootID == root && m.Sits == p {
+		if m.root == root && m.sits == p {
 			return true
 		}
 	}

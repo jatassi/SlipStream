@@ -33,6 +33,7 @@ type catalog struct {
 	mu      sync.Mutex
 	records map[works.Key]map[tvdb.Order]record
 	latest  map[works.Key]tvdb.Order
+	fetches int
 }
 
 func (c *catalog) put(rs ...record) {
@@ -48,6 +49,12 @@ func (c *catalog) put(rs ...record) {
 	}
 }
 
+func (c *catalog) fetched() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.fetches
+}
+
 func (*catalog) Search(context.Context, works.TypeID, string) ([]works.Candidate, error) {
 	return nil, nil
 }
@@ -55,6 +62,7 @@ func (*catalog) Search(context.Context, works.TypeID, string) ([]works.Candidate
 func (c *catalog) Fetch(_ context.Context, _ works.TypeID, key works.Key, f works.Fetching) (works.Fetched, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.fetches++
 	o := options{Order: c.latest[key]}
 	if f.Options != nil {
 		if err := json.Unmarshal(f.Options, &o); err != nil {

@@ -67,10 +67,12 @@ type SeriesSeries struct {
 	TrailerSite           *string
 	TrailerKey            *string
 	Awards                *string
+	NameByAirDate         bool
 }
 
 type SeriesSetting struct {
-	ID              Singleton
-	AirDelaySeconds *int64
-	YearSlack       *int64
+	ID               Singleton
+	AirDelaySeconds  *int64
+	YearSlack        *int64
+	AddNameByAirDate *bool
 }

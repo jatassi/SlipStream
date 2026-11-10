@@ -29,10 +29,12 @@ type (
 	// Volume makes the folder a volume of its own, Total bytes with Free
 	// of them free.
 	Volume struct{ Total, Free int64 }
-	// FoldCase makes the folder and everything beneath it resolve a name
-	// ignoring case, as NTFS and APFS do: a Stat of a path that isn't there
-	// matches each segment against its folder's listing, so the root's
-	// marker asked for in upper case is found.
+	// FoldCase makes the folder and everything beneath it find a name
+	// ignoring case and keep the case a name was made with, as NTFS and
+	// APFS do: each segment that isn't there matches against its folder's
+	// listing, so the root's marker asked for in upper case is found, a
+	// folder made in another case exists already, and a rename onto a
+	// name's own other spelling respells it.
 	FoldCase struct{}
 	// NoIDs makes the folder a volume that keeps no file ids, as a share
 	// or an exFAT disk is: every Stat beneath it reads no FileID and no
@@ -166,6 +168,14 @@ func (p *Plan) playedLocked(path string) (out played, hung bool) {
 	return out, hung
 }
 
+// folded is the FoldCase folder holding path, empty for none.
+func (p *Plan) folded(path string) string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	out, _ := p.playedLocked(path)
+	return out.folded
+}
+
 func (p *Plan) Disk(base storing.Disk) storing.Disk { return &disk{base: base, plan: p} }
 
 type disk struct {
@@ -205,7 +215,7 @@ func (d *disk) Stat(ctx context.Context, path string) (storing.Info, error) {
 	}
 	i, err := d.base.Stat(ctx, path)
 	if pl.folded != "" && errors.Is(err, fs.ErrNotExist) {
-		i, err = d.base.Stat(ctx, d.unfolded(ctx, pl.folded, path))
+		i, err = d.base.Stat(ctx, d.unfolded(ctx, pl.folded, path, true))
 	}
 	if err != nil {
 		return nil, err
@@ -213,22 +223,40 @@ func (d *disk) Stat(ctx context.Context, path string) (storing.Info, error) {
 	return info{i, pl.noIDs}, nil
 }
 
-// unfolded is path beneath folder with each segment spelled as its folder
-// lists it, ignoring case; a segment no entry matches stays as it is.
-func (d *disk) unfolded(ctx context.Context, folder, path string) string {
+// at is where the base disk finds path: beneath a FoldCase folder, path
+// unfolded unless it is there as spelled.
+func (d *disk) at(ctx context.Context, path string) string {
+	folder := d.plan.folded(path)
+	if folder == "" {
+		return path
+	}
+	if _, err := d.base.Stat(ctx, path); err == nil {
+		return path
+	}
+	return d.unfolded(ctx, folder, path, true)
+}
+
+// unfolded is path beneath folder with each segment that isn't there
+// spelled as its folder lists it, ignoring case, the last too when last; a
+// segment no entry matches stays as it is.
+func (d *disk) unfolded(ctx context.Context, folder, path string, last bool) string {
 	style := d.base.Host().Style
+	segs := slices.Collect(strings.FieldsFuncSeq(path[len(folder):], isSepRune))
 	at := folder
-	for seg := range strings.FieldsFuncSeq(path[len(folder):], func(r rune) bool { return r == '/' || r == '\\' }) {
+	for i, seg := range segs {
 		name := seg
-		if es, err := d.base.ReadDir(ctx, at); err == nil {
-			if i := slices.IndexFunc(es, func(e storing.Entry) bool { return strings.EqualFold(e.Name, seg) }); i >= 0 {
-				name = es[i].Name
+		es, err := d.base.ReadDir(ctx, at)
+		if err == nil && (last || i < len(segs)-1) && !slices.ContainsFunc(es, func(e storing.Entry) bool { return e.Name == seg }) {
+			if j := slices.IndexFunc(es, func(e storing.Entry) bool { return storing.Fold(e.Name) == storing.Fold(seg) }); j >= 0 {
+				name = es[j].Name
 			}
 		}
 		at = style.Join(at, name)
 	}
 	return at
 }
+
+func isSepRune(r rune) bool { return r == '/' || r == '\\' }
 
 // info is a Stat played through the plan. Every Stat answers one, so Same
 // compares the stats beneath.
@@ -261,7 +289,7 @@ func (d *disk) ReadDir(ctx context.Context, dir string) ([]storing.Entry, error)
 	if err != nil || pl.empty {
 		return nil, err
 	}
-	return d.base.ReadDir(ctx, dir)
+	return d.base.ReadDir(ctx, d.at(ctx, dir))
 }
 
 func (d *disk) Mkdir(ctx context.Context, path string) error {
@@ -272,14 +300,14 @@ func (d *disk) Mkdir(ctx context.Context, path string) error {
 	if err != nil {
 		return err
 	}
-	return d.base.Mkdir(ctx, path)
+	return d.base.Mkdir(ctx, d.at(ctx, path))
 }
 
 func (d *disk) Open(ctx context.Context, path string) (io.ReadCloser, error) {
 	if _, err := d.read(ctx, "open", path); err != nil {
 		return nil, err
 	}
-	return d.base.Open(ctx, path)
+	return d.base.Open(ctx, d.at(ctx, path))
 }
 
 // OpenAt plays the plan on each read as well as on the open, so a folder
@@ -289,7 +317,7 @@ func (d *disk) OpenAt(ctx context.Context, path string) (storing.ReadAtCloser, e
 	if _, err := d.read(ctx, "open", path); err != nil {
 		return nil, err
 	}
-	f, err := d.base.OpenAt(ctx, path)
+	f, err := d.base.OpenAt(ctx, d.at(ctx, path))
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +343,7 @@ func (d *disk) Create(ctx context.Context, path string) (storing.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	f, err := d.base.Create(ctx, path)
+	f, err := d.base.Create(ctx, d.at(ctx, path))
 	if err != nil || !pl.full {
 		return f, err
 	}
@@ -337,7 +365,7 @@ func (d *disk) OpenWrite(ctx context.Context, path string) (storing.WriteAtFile,
 	if _, err := d.write(ctx, "open", path); err != nil {
 		return nil, err
 	}
-	f, err := d.base.OpenWrite(ctx, path)
+	f, err := d.base.OpenWrite(ctx, d.at(ctx, path))
 	if err != nil {
 		return nil, err
 	}
@@ -380,28 +408,32 @@ func (d *disk) Remove(ctx context.Context, path string) error {
 	if _, err := d.write(ctx, "remove", path); err != nil {
 		return err
 	}
-	return d.base.Remove(ctx, path)
+	return d.base.Remove(ctx, d.at(ctx, path))
 }
 
 func (d *disk) RemoveAll(ctx context.Context, path string) error {
 	if _, err := d.write(ctx, "remove", path); err != nil {
 		return err
 	}
-	return d.base.RemoveAll(ctx, path)
+	return d.base.RemoveAll(ctx, d.at(ctx, path))
 }
 
 func (d *disk) Rename(ctx context.Context, from, to string) error {
 	if _, err := d.write(ctx, "rename", from, to); err != nil {
 		return err
 	}
-	return d.base.Rename(ctx, from, to)
+	src, dst := d.at(ctx, from), d.at(ctx, to)
+	if folder := d.plan.folded(to); folder != "" && dst == src {
+		dst = d.unfolded(ctx, folder, to, false)
+	}
+	return d.base.Rename(ctx, src, dst)
 }
 
 func (d *disk) Link(ctx context.Context, from, to string) error {
 	if _, err := d.write(ctx, "link", from, to); err != nil {
 		return err
 	}
-	return d.base.Link(ctx, from, to)
+	return d.base.Link(ctx, d.at(ctx, from), d.at(ctx, to))
 }
 
 func (d *disk) Writable(ctx context.Context, dir string) (bool, error) {

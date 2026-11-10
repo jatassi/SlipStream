@@ -109,7 +109,7 @@ func newWorld(t *testing.T) *world {
 	t.Helper()
 	ctx := t.Context()
 	w := &world{
-		lib:     storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), Schema()),
+		lib:     storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), naming.Schema(), Schema()),
 		fx:      contenttypetest.New(),
 		node:    role.NodeID{UUID: storage.NewUUID()},
 		changed: &heard[Changed]{},
@@ -150,12 +150,17 @@ func newWorld(t *testing.T) *world {
 	}
 	if w.files, err = files.Open(ctx, files.Config{
 		Library: w.lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }},
-		Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: w.fx}, Names: map[works.TypeID]release.Names{contenttypetest.ID: w.fx}, Today: time.Now,
+		Naming: naming.New(naming.Config{
+			Facets:   map[works.TypeID]naming.Facet{contenttypetest.ID: w.fx},
+			Describe: func(works.TypeID) (works.Description, bool) { return contenttypetest.Description, true },
+			Budget:   func(context.Context, storage.Reader[storage.Library], works.TypeID) (int, error) { return 1000, nil },
+		}),
+		Names: map[works.TypeID]release.Names{contenttypetest.ID: w.fx}, Today: time.Now,
 	}); err != nil {
 		t.Fatal(err)
 	}
 	w.im = New(Config{
-		Library: w.lib, Roots: w.roots, Files: w.files, Works: w.works,
+		Library: w.lib, Roots: w.roots, Files: w.files, Works: w.works, Targets: goals,
 		Facets: map[works.TypeID]scanning.Facet{contenttypetest.ID: shelfFacet{}},
 		Add: func(ctx context.Context, by identity.Admin, a library.Adding) (library.Added, error) {
 			return w.library.Add(ctx, by, a)

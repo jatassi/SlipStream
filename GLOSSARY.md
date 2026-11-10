@@ -45,12 +45,16 @@ A file fills a Target for an Edition when it is the one file that Target holds f
 _Avoid_: Holds, occupies, assigned to
 
 **Kept file**:
-A library video file that fills no wanted Target and stays, flagged, such as one whose Edition stopped being wanted or one a Library scan found. It is named with the label of the first Target it meets, or its current label when it meets none, plus ` (extra N)`, a counter, so two Kept files never clash. A Library scan records the label and counter without renaming the file.
+A library video file that fills no wanted Target and stays, flagged, such as one whose Edition stopped being wanted or one a Library scan found. It is named with the label of the first Target it meets, or the label last recorded for it when it meets none, plus ` (extra N)`, a counter, so two Kept files never clash. A Library scan records the label and counter without renaming the file.
 _Avoid_: Extra, extras
 
 **Gone file**:
 A library file a Library scan didn't find on its Ready root. Its record stays and its cells read missing until it returns or the Admin forgets it on its Work's page. A gone file never starts a search by itself.
 _Avoid_: Missing file (missing is a cell state), vanished, deleted
+
+**Companion**:
+A file in a video's folder named after the video, as the video's name without its extension, then `.` and a tail, such as `Heat (1995) - 4K HDR.en.srt` or `Heat (1995) - 4K HDR.nfo`. It is never a video or a file SlipStream tracks, and it renames and moves with its video.
+_Avoid_: Related file, extra file
 
 **Media info**:
 What the bundled ffprobe read from a file's streams: the video codec, resolution, bit depth and HDR format, each audio track's codec, channels and language, the subtitle languages and the duration. Targets judge a library file by it.
@@ -59,6 +63,10 @@ _Avoid_: MediaInfo, probe data
 **Impact**:
 What a change to a Target, a Profile, a cut or one Work's Profile or Editions would do, shown before it saves: the Works it changes, the files it leaves filling nothing, the files it renames and the cells it makes wanted. The Admin chooses whether the files that fill nothing are deleted or stay as Kept files.
 _Avoid_: Dry run, conflict check, impact check
+
+**Rename plan**:
+The list of library files whose path differs from what the naming templates render, each with its old and new path, and the step that renames them when the Admin confirms. It covers one Work, one Content Type or the whole library, and every Impact shows one in place of a count of renames.
+_Avoid_: Mass rename, rename preview
 
 **Cell**:
 One Edition at one Target of one Item. Under any cut, an Item has one cell per Target. A cell's state is unreleased, held, missing, downloading, converting, failed, upgradable or met, and a missing cell is either Not found or waiting on its source Target.

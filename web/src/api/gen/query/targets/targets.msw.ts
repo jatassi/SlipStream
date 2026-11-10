@@ -72,6 +72,19 @@ export const getUpdateCutResponseMock = (
     newlyWanted: faker.number.int({ min: 0 }),
     ownList: faker.number.int({ min: 0 }),
     renamed: faker.number.int({ min: 0 }),
+    renames: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        files: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => ({
+            fileId: faker.string.uuid(),
+            from: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            to: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          }),
+        ),
+        title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        workId: faker.string.uuid(),
+      }),
+    ),
     unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
     works: faker.number.int({ min: 0 }),
   },
@@ -189,6 +202,19 @@ export const getDeleteProfileResponseMock = (
     newlyWanted: faker.number.int({ min: 0 }),
     ownList: faker.number.int({ min: 0 }),
     renamed: faker.number.int({ min: 0 }),
+    renames: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        files: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => ({
+            fileId: faker.string.uuid(),
+            from: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            to: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          }),
+        ),
+        title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        workId: faker.string.uuid(),
+      }),
+    ),
     unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
     works: faker.number.int({ min: 0 }),
   },
@@ -289,6 +315,19 @@ export const getUpdateProfileResponseMock = (
     newlyWanted: faker.number.int({ min: 0 }),
     ownList: faker.number.int({ min: 0 }),
     renamed: faker.number.int({ min: 0 }),
+    renames: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        files: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => ({
+            fileId: faker.string.uuid(),
+            from: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            to: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          }),
+        ),
+        title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        workId: faker.string.uuid(),
+      }),
+    ),
     unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
     works: faker.number.int({ min: 0 }),
   },
@@ -656,6 +695,19 @@ export const getUpdateTargetResponseMock = (
     newlyWanted: faker.number.int({ min: 0 }),
     ownList: faker.number.int({ min: 0 }),
     renamed: faker.number.int({ min: 0 }),
+    renames: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        files: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => ({
+            fileId: faker.string.uuid(),
+            from: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            to: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          }),
+        ),
+        title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        workId: faker.string.uuid(),
+      }),
+    ),
     unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
     works: faker.number.int({ min: 0 }),
   },
@@ -868,6 +920,19 @@ export const getSetWorkWantsResponseMock = (
     newlyWanted: faker.number.int({ min: 0 }),
     ownList: faker.number.int({ min: 0 }),
     renamed: faker.number.int({ min: 0 }),
+    renames: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        files: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => ({
+            fileId: faker.string.uuid(),
+            from: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            to: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          }),
+        ),
+        title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        workId: faker.string.uuid(),
+      }),
+    ),
     unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
     works: faker.number.int({ min: 0 }),
   },

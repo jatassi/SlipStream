@@ -89,6 +89,7 @@ type optionsChange struct {
 type optionsChanged struct {
 	LevelFolders bool                          `json:"levelFolders"`
 	Options      []api.OneOf[settingapi.Field] `json:"options" nullable:"false" doc:"The Content Type's own options for the Work"`
+	Moves        bool                          `json:"moves" doc:"The change fetches the Work again, so its Items may move between levels"`
 	Withdraws    int                           `json:"withdraws" doc:"Live Items the change withdraws: the source doesn't list them under the new options, and they keep their files"`
 }
 
@@ -183,5 +184,5 @@ func (h handlers) setWorkOptions(ctx context.Context, by identity.Admin, in *opt
 	if err != nil {
 		return nil, settingapi.Refused(answer(err))
 	}
-	return &optionsChangedOutput{Body: optionsChanged{LevelFolders: c.LevelFolders, Options: settingapi.FieldsOf(c.Fields), Withdraws: c.Withdraws}}, nil
+	return &optionsChangedOutput{Body: optionsChanged{LevelFolders: c.LevelFolders, Options: settingapi.FieldsOf(c.Fields), Moves: c.Moves, Withdraws: c.Withdraws}}, nil
 }

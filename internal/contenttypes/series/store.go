@@ -18,31 +18,18 @@ import (
 // season and episode row at's levels and Items hold, by their ids. A
 // withdrawn season's or episode's row stays as last stored, and a 10,000-
 // episode series whose title changed writes one row. A detail OMDb wasn't
-// read for keeps the stored awards line. The seasons OMDb rated are
-// stamped with when, which counts as no change.
+// read for keeps the stored awards line. A new series is named by air
+// date as the add default says, and a stored one as it was. The seasons
+// OMDb rated are stamped with when, which counts as no change.
 func (*Series) Store(ctx context.Context, tx *storage.Tx[file], at works.Placed, detail []byte) (bool, error) {
 	r, err := decode(detail)
 	if err != nil {
 		return false, fmt.Errorf("work %s: %w", at.Work, err)
 	}
 	q := db.New(tx)
-	next, err := showRow(at.Work, r)
+	changed, err := storeShow(ctx, q, at.Work, r)
 	if err != nil {
 		return false, err
-	}
-	stored, err := q.GetSeries(ctx, at.Work)
-	found := !errors.Is(err, storage.ErrNoRows)
-	if err != nil && found {
-		return false, err
-	}
-	if r.Show.Awards == nil {
-		next.Awards = stored.Awards
-	}
-	changed := !found || !reflect.DeepEqual(db.UpsertSeriesParams(stored), next)
-	if changed {
-		if err := q.UpsertSeries(ctx, next); err != nil {
-			return false, err
-		}
 	}
 	seasons, err := seasonRows(at, r)
 	if err != nil {
@@ -80,6 +67,42 @@ func (*Series) Store(ctx context.Context, tx *storage.Tx[file], at works.Placed,
 		}
 	}
 	return changed || wrote, nil
+}
+
+// storeShow writes w's series row when r changes it.
+func storeShow(ctx context.Context, q *db.Queries, w works.WorkID, r record) (bool, error) {
+	next, err := showRow(w, r)
+	if err != nil {
+		return false, err
+	}
+	stored, err := q.GetSeries(ctx, w)
+	found := !errors.Is(err, storage.ErrNoRows)
+	if err != nil && found {
+		return false, err
+	}
+	if r.Show.Awards == nil {
+		next.Awards = stored.Awards
+	}
+	if next.NameByAirDate, err = airDateOf(ctx, q, stored, found); err != nil {
+		return false, err
+	}
+	if found && reflect.DeepEqual(db.UpsertSeriesParams(stored), next) {
+		return false, nil
+	}
+	return true, q.UpsertSeries(ctx, next)
+}
+
+// airDateOf is whether a series is named by air date: as stored, or
+// as the add default says for a new one.
+func airDateOf(ctx context.Context, q *db.Queries, stored db.SeriesSeries, found bool) (bool, error) {
+	if found {
+		return stored.NameByAirDate, nil
+	}
+	settings, err := q.GetSettings(ctx)
+	if err != nil {
+		return false, err
+	}
+	return AddNameByAirDate.Value(settings.AddNameByAirDate), nil
 }
 
 func byID[ID comparable, Stored, Row any](rows []Stored, of func(Stored) (ID, Row)) map[ID]Row {

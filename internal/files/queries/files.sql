@@ -1,10 +1,10 @@
 -- name: InsertFile :exec
 INSERT INTO files_file (id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra,
-    release_name, title_read, modified_at, node_file_id, node_volume_id, probed_at)
+    release_name, title_read, modified_at, node_file_id, node_volume_id, probed_at, source_name)
 VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(cut), sqlc.arg(root_id), sqlc.arg(path),
     sqlc.arg(size), sqlc.arg(probe), sqlc.arg(grab_id), sqlc.arg(quality), sqlc.arg(label), sqlc.arg(extra),
     sqlc.arg(release_name), sqlc.arg(title_read), sqlc.arg(modified_at), sqlc.arg(node_file_id), sqlc.arg(node_volume_id),
-    sqlc.arg(probed_at));
+    sqlc.arg(probed_at), sqlc.narg(source_name));
 
 -- name: UpdateScanned :exec
 UPDATE files_file SET path = sqlc.arg(path), size = sqlc.arg(size), probe = sqlc.arg(probe), grab_id = sqlc.arg(grab_id),
@@ -41,7 +41,8 @@ SELECT id, work_id, item_id, cut, root_id, size, quality, extra, gone_at FROM fi
 SELECT id, work_id, grab_id, path FROM files_file WHERE title_read IS NULL ORDER BY id;
 
 -- name: SetFileRead :exec
-UPDATE files_file SET release_name = sqlc.arg(release_name), title_read = sqlc.arg(title_read)
+UPDATE files_file SET release_name = sqlc.arg(release_name), title_read = sqlc.arg(title_read),
+    source_name = CASE WHEN grab_id IS NULL THEN sqlc.arg(release_name) END
 WHERE id = sqlc.arg(id) AND title_read IS NULL;
 
 -- name: ListFileIDs :many
@@ -70,10 +71,20 @@ WHERE files_fill.target_id IN (sqlc.slice(target_ids))
 ORDER BY files_fill.target_id, files_fill.file_id;
 
 -- name: GetMove :one
-SELECT sits FROM files_move WHERE file_id = sqlc.arg(file_id);
+SELECT * FROM files_move WHERE file_id = sqlc.arg(file_id);
 
 -- name: InsertMove :exec
-INSERT INTO files_move (file_id, sits) VALUES (sqlc.arg(file_id), sqlc.arg(sits));
+INSERT INTO files_move (file_id, sits, origin) VALUES (sqlc.arg(file_id), sqlc.arg(sits), sqlc.arg(sits));
+
+-- name: SetRing :execrows
+UPDATE files_move SET ring = sqlc.arg(ring) WHERE file_id = sqlc.arg(file_id) AND sits = sqlc.arg(sits) AND ring IS NULL;
+
+-- name: SetPath :exec
+UPDATE files_file SET path = sqlc.arg(path) WHERE id = sqlc.arg(id);
+
+-- name: PathSettled :one
+SELECT EXISTS (SELECT 1 FROM files_file f WHERE f.root_id = sqlc.arg(root_id) AND f.path = sqlc.arg(path)
+    AND NOT EXISTS (SELECT 1 FROM files_move m WHERE m.file_id = f.id));
 
 -- name: MoveReached :execrows
 UPDATE files_move SET sits = sqlc.arg(reached) WHERE file_id = sqlc.arg(file_id) AND sits = sqlc.arg(sits);
@@ -89,9 +100,34 @@ DELETE FROM files_move WHERE file_id = sqlc.arg(file_id) AND sits = sqlc.arg(sit
     AND EXISTS (SELECT 1 FROM files_file WHERE files_file.id = files_move.file_id AND files_file.path = sqlc.arg(path));
 
 -- name: ListMoves :many
-SELECT files_move.file_id, files_move.sits, files_file.root_id, files_file.path FROM files_move
-JOIN files_file ON files_file.id = files_move.file_id
+SELECT files_move.file_id, files_move.sits, files_move.origin, files_move.ring, files_file.work_id, files_file.root_id, files_file.path
+FROM files_move JOIN files_file ON files_file.id = files_move.file_id
 ORDER BY files_move.file_id;
+
+-- name: InsertRenamed :exec
+INSERT INTO files_renamed (file_id, root_id, from_path, to_path, renamed_at)
+VALUES (sqlc.arg(file_id), sqlc.arg(root_id), sqlc.arg(from_path), sqlc.arg(to_path), sqlc.arg(renamed_at));
+
+-- name: InsertPrune :exec
+INSERT INTO files_prune (root_id, folder) VALUES (sqlc.arg(root_id), sqlc.arg(folder)) ON CONFLICT DO NOTHING;
+
+-- name: ListPrune :many
+SELECT * FROM files_prune ORDER BY root_id, folder;
+
+-- name: DeletePrune :exec
+DELETE FROM files_prune WHERE root_id = sqlc.arg(root_id) AND folder = sqlc.arg(folder);
+
+-- name: ListMovingFiles :many
+SELECT file_id FROM files_move ORDER BY file_id;
+
+-- name: ListMovingFilesOfWorks :many
+SELECT m.file_id FROM files_move m JOIN files_file f ON f.id = m.file_id WHERE f.work_id IN (sqlc.slice(work_ids)) ORDER BY m.file_id;
+
+-- name: CountMovingOfWork :one
+SELECT count(*) FROM files_move m JOIN files_file f ON f.id = m.file_id WHERE f.work_id = sqlc.arg(work_id);
+
+-- name: CountMovingByWork :many
+SELECT f.work_id, count(*) AS files FROM files_move m JOIN files_file f ON f.id = m.file_id GROUP BY f.work_id ORDER BY f.work_id;
 
 -- name: InsertDoomed :exec
 INSERT INTO files_doomed (file_id, root_id, path, sits) VALUES (sqlc.arg(file_id), sqlc.arg(root_id), sqlc.arg(path), sqlc.arg(sits));
@@ -125,12 +161,12 @@ FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
 WHERE f.root_id = sqlc.arg(root_id) AND f.gone_at IS NULL ORDER BY f.id LIMIT 3;
 
 -- name: RecordedOfRoot :many
-SELECT f.id, f.path, m.sits, f.size
+SELECT f.id, f.path, m.sits, m.ring, f.size
 FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
 WHERE f.root_id = sqlc.arg(root_id) AND f.gone_at IS NULL ORDER BY f.id;
 
 -- name: ScannedOfRoot :many
-SELECT f.id, f.work_id, f.path, m.sits, f.size, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version
+SELECT f.id, f.work_id, f.path, m.sits, m.ring, f.size, f.modified_at, f.node_file_id, f.node_volume_id, f.gone_at, f.probe_version
 FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
 WHERE f.root_id = sqlc.arg(root_id) ORDER BY f.id;
 
@@ -172,3 +208,10 @@ DELETE FROM files_file WHERE root_id = sqlc.arg(root_id) AND gone_at IS NOT NULL
 
 -- name: ForgetGoneOfWork :exec
 DELETE FROM files_file WHERE work_id = sqlc.arg(work_id) AND gone_at IS NOT NULL;
+
+-- name: ListTracked :many
+SELECT f.work_id, f.root_id, f.path, m.sits FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
+WHERE f.gone_at IS NULL ORDER BY f.id;
+
+-- name: ForgetGoneAt :exec
+DELETE FROM files_file WHERE root_id = sqlc.arg(root_id) AND path = sqlc.arg(path) AND gone_at IS NOT NULL;

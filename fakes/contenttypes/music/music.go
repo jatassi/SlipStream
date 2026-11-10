@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"strconv"
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/contenttypes/music/internal/db"
@@ -17,7 +16,6 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
-	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/release"
@@ -255,27 +253,6 @@ func (*Music) Fields(ctx context.Context, r storage.Reader[file], w works.WorkID
 	return fs, nil
 }
 
-func (*Music) NamingTokens(ctx context.Context, r storage.Reader[file], item works.ItemID) (map[string]string, error) {
-	artist, track, err := works.ItemOf(ctx, r, item)
-	if err != nil {
-		return nil, err
-	}
-	t, err := db.New(r).GetTrack(ctx, item)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]string{
-		"Artist Name": artist.Label,
-		"Track Title": track.Label,
-		"Disc":        strconv.FormatInt(t.Disc, 10),
-		"Track":       fmt.Sprintf("%02d", t.Number),
-	}, nil
-}
-
-func (*Music) DefaultTemplates() naming.Templates {
-	return naming.Templates{Folder: "{Artist Name}", File: "{Artist Name} - {Disc}-{Track} - {Track Title} {Edition} {Target}"}
-}
-
 // Expect answers indexers' empty answer: music isn't searched.
 func (*Music) Expect(context.Context, storage.Reader[file], works.WorkID) (indexers.Expect, error) {
 	return indexers.Expect{}, nil
@@ -352,6 +329,13 @@ func (*Music) PatchOptions(_ context.Context, _ storage.Reader[file], _ works.Wo
 		return nil, &setting.UnknownKeyError{Key: slices.Min(slices.Collect(maps.Keys(p)))}
 	}
 	return nil, nil
+}
+
+func (*Music) StoreOptions(_ context.Context, _ *storage.Tx[file], _ works.WorkID, p setting.Patch) (bool, error) {
+	if len(p) > 0 {
+		return false, &setting.UnknownKeyError{Key: slices.Min(slices.Collect(maps.Keys(p)))}
+	}
+	return false, nil
 }
 
 // KeysOf maps none: an artist is known by its MusicBrainz id alone.

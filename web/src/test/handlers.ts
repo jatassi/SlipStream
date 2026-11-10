@@ -2,7 +2,12 @@ import { HttpResponse, type RequestHandler, http, sse } from "msw";
 import { onTestFinished } from "vitest";
 
 import type { IdentityAccount, SystemPasskeys } from "../api/gen/model";
-import { getListWorkFilesMockHandler } from "../api/gen/query/files/files.msw";
+import {
+  getCountMovingMockHandler,
+  getCountUnmatchedMockHandler,
+  getListWorkFilesMockHandler,
+  getPlanRenamesMockHandler,
+} from "../api/gen/query/files/files.msw";
 import { getGetSessionMockHandler } from "../api/gen/query/identity/identity.msw";
 import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
@@ -52,9 +57,9 @@ export const signedInAsGrace = getGetSessionMockHandler({
   keyPrompt: "ask",
 });
 
-export function problem(status: number, code: string, title: string) {
+export function problem(status: number, code: string, title: string, detail?: string) {
   return HttpResponse.json(
-    { status, code, title },
+    { status, code, title, detail },
     { status, headers: { "Content-Type": "application/problem+json" } },
   );
 }
@@ -83,6 +88,12 @@ const emptyLibrary = getListLibraryMockHandler({ rows: [] });
 
 // The generated files mock names random language codes, which Intl refuses.
 const noFiles = getListWorkFilesMockHandler({ folder: "", files: [] });
+// A library whose files all match the naming templates, with none moving.
+const noRenames = [
+  getCountUnmatchedMockHandler({ contentTypes: [] }),
+  getCountMovingMockHandler({ files: 0 }),
+  getPlanRenamesMockHandler({ works: [], files: 0, blocked: 0 }),
+];
 const resyncStream = sse<LiveMap>("*/api/v1/events", ({ client }) => {
   client.send({ event: "live.resync", data: {} });
 });
@@ -98,6 +109,7 @@ export const baseHandlers: RequestHandler[] = [
   noTaskRunning,
   emptyLibrary,
   noFiles,
+  ...noRenames,
   ...quietHealth,
   ...tagMocks,
 ];

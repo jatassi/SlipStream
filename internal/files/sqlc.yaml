@@ -32,10 +32,6 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/targets
               type: Edition
-          - column: files_file.root_id
-            go_type:
-              import: github.com/jatassi/slipstream/internal/roots
-              type: ID
           - column: files_file.quality
             go_type:
               import: github.com/jatassi/slipstream/internal/release
@@ -64,10 +60,20 @@ sql:
           - column: files_move.file_id
             go_type:
               type: FileID
-          - column: files_doomed.file_id
+          - column: files_renamed.id
+            go_type:
+              type: RenameID
+          - column: files_renamed.file_id
             go_type:
               type: FileID
-          - column: files_doomed.root_id
+          - column: files_move.ring
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: "*.root_id"
             go_type:
               import: github.com/jatassi/slipstream/internal/roots
               type: ID
+          - column: files_doomed.file_id
+            go_type:
+              type: FileID

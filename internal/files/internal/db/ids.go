@@ -11,6 +11,9 @@ import (
 
 type FileID struct{ storage.UUID }
 
+// RenameID orders the finished renames: a later rename has a greater one.
+type RenameID int64
+
 // Reading is a file's release name as release.Read read it, kept as JSON.
 type Reading struct{ release.Read }
 

@@ -23,6 +23,7 @@ import (
 const (
 	suggestions = 25
 	verifyBatch = 500
+	surveyBatch = 2000
 )
 
 func (s *Store) Browse(ctx context.Context, req *storagev1.BrowseRequest) (*storagev1.BrowseResponse, error) {
@@ -182,11 +183,81 @@ func (s *Store) Move(ctx context.Context, req *storagev1.MoveRequest) (*storagev
 	if err != nil {
 		return nil, err
 	}
-	info, err := s.move(ctx, root, from, to)
+	info, left, err := s.move(ctx, root, from, to, req.GetCarry())
 	if err != nil {
 		return nil, wireError(err)
 	}
-	return &storagev1.MoveResponse{Size: info.Size(), Identity: identityOf(info)}, nil
+	res := &storagev1.MoveResponse{Size: info.Size(), Identity: identityOf(info)}
+	for _, l := range left {
+		res.Left = append(res.Left, l.String())
+	}
+	return res, nil
+}
+
+func (s *Store) Survey(ctx context.Context, req *storagev1.SurveyRequest) (*storagev1.SurveyResponse, error) {
+	if len(req.GetPlanned()) > surveyBatch {
+		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "%d renames is more than one batch of %d", len(req.GetPlanned()), surveyBatch)
+	}
+	root, err := rootID(req.GetRootId())
+	if err != nil {
+		return nil, err
+	}
+	planned := make([]Planned, 0, len(req.GetPlanned()))
+	for _, p := range req.GetPlanned() {
+		from, err := relOf(p.GetFrom())
+		if err != nil {
+			return nil, err
+		}
+		to, err := relOf(p.GetTo())
+		if err != nil {
+			return nil, err
+		}
+		planned = append(planned, Planned{From: from, To: to})
+	}
+	found, err := s.survey(ctx, root, planned, req.GetCompanions())
+	if err != nil {
+		return nil, wireError(err)
+	}
+	res := &storagev1.SurveyResponse{}
+	for _, f := range found {
+		w := &storagev1.Surveyed{}
+		for _, o := range f.occupants {
+			w.Occupants = append(w.Occupants, &storagev1.Occupant{Path: o.path.String(), Identity: identityOf(o.info)})
+		}
+		for _, c := range f.companions {
+			w.Companions = append(w.Companions, c.String())
+		}
+		res.Surveyed = append(res.Surveyed, w)
+	}
+	return res, nil
+}
+
+func (s *Store) Prune(ctx context.Context, req *storagev1.PruneRequest) (*storagev1.PruneResponse, error) {
+	root, err := rootID(req.GetRootId())
+	if err != nil {
+		return nil, err
+	}
+	folder, err := relOf(req.GetFolder())
+	if err != nil {
+		return nil, err
+	}
+	keep := make([]Rel, 0, len(req.GetKeep()))
+	for _, k := range req.GetKeep() {
+		rel, err := relOf(k)
+		if err != nil {
+			return nil, err
+		}
+		keep = append(keep, rel)
+	}
+	removed, err := s.prune(ctx, root, folder, keep)
+	if err != nil {
+		return nil, wireError(err)
+	}
+	res := &storagev1.PruneResponse{}
+	for _, r := range removed {
+		res.Removed = append(res.Removed, r.String())
+	}
+	return res, nil
 }
 
 func (s *Store) Remove(ctx context.Context, req *storagev1.RemoveRequest) (*storagev1.RemoveResponse, error) {
@@ -636,7 +707,7 @@ func (s *Store) place(ctx context.Context, root storage.UUID, p Payload, to Rel)
 	if err != nil {
 		return nil, false, rpc.Errorf(rpc.CodeUnavailable, "%v", err)
 	}
-	placed, linked, err = placer{s.cfg.Disk, s.host.Style, dir}.place(ctx, from, to)
+	placed, linked, err = placer{s.cfg.Disk, s.host.Style, dir, s.walksOf(root)}.place(ctx, from, to)
 	if err != nil {
 		return nil, false, s.refused(ctx, dir, err)
 	}
@@ -644,16 +715,16 @@ func (s *Store) place(ctx context.Context, root storage.UUID, p Payload, to Rel)
 	return placed, linked, nil
 }
 
-func (s *Store) move(ctx context.Context, root storage.UUID, from, to Rel) (Info, error) {
+func (s *Store) move(ctx context.Context, root storage.UUID, from, to Rel, carry bool) (Info, []Rel, error) {
 	dir, err := s.resolve(ctx, root, false)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	moved, err := placer{s.cfg.Disk, s.host.Style, dir}.move(ctx, from, to)
+	moved, left, err := placer{s.cfg.Disk, s.host.Style, dir, s.walksOf(root)}.move(ctx, from, to, carry)
 	if err != nil {
-		return nil, s.refused(ctx, dir, err)
+		return nil, nil, s.refused(ctx, dir, err)
 	}
-	return moved, nil
+	return moved, left, nil
 }
 
 // refused is a failed write into a root's folder dir as its caller reads

@@ -15,9 +15,22 @@ import (
 // trashSnapshot copies the pinned TRaSH formats verbatim, with TRaSH's
 // license beside them, and returns how many it copied.
 func trashSnapshot(t *tree, p pins, co checkout) (int, error) {
-	t.own(p.Trash.Out)
+	return snapshot(t, p.Trash.Root, co, p.Trash.Snapshot, p.Trash.Out, "The Custom Formats below are TRaSH Guides' JSON at the commit above, copied verbatim. The formats snapshot test compiles and runs every one of them.")
+}
+
+// trashNaming copies the pinned TRaSH naming templates verbatim, with
+// TRaSH's license beside them, and returns how many files it copied.
+func trashNaming(t *tree, p pins, co checkout) (int, error) {
+	return snapshot(t, p.Trash.Root, co, p.Trash.NamingSnapshot, p.Trash.NamingOut, "The naming templates below are TRaSH Guides' JSON at the commit above, copied verbatim. The naming tests parse every one of them.")
+}
+
+// snapshot copies the JSON files of dirs to out, keyed by their path
+// under root, with the upstream's license and a VENDORED.md that says
+// about.
+func snapshot(t *tree, root string, co checkout, dirs []string, out, about string) (int, error) {
+	t.own(out)
 	n := 0
-	for _, dir := range p.Trash.Snapshot {
+	for _, dir := range dirs {
 		entries, err := os.ReadDir(filepath.Join(co.dir, filepath.FromSlash(dir)))
 		if err != nil {
 			return 0, fmt.Errorf("%s %s: %w", co.Name, dir, err)
@@ -31,7 +44,7 @@ func trashSnapshot(t *tree, p pins, co checkout) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			t.add(path.Join(p.Trash.Out, strings.TrimPrefix(file, p.Trash.Root+"/")), b)
+			t.add(path.Join(out, strings.TrimPrefix(file, root+"/")), b)
 			n++
 		}
 	}
@@ -39,8 +52,8 @@ func trashSnapshot(t *tree, p pins, co checkout) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	t.add(path.Join(p.Trash.Out, "LICENSE"), license)
-	t.add(path.Join(p.Trash.Out, "VENDORED.md"), vendored(co, "The Custom Formats below are TRaSH Guides' JSON at the commit above, copied verbatim. The formats snapshot test compiles and runs every one of them."))
+	t.add(path.Join(out, "LICENSE"), license)
+	t.add(path.Join(out, "VENDORED.md"), vendored(co, about))
 	return n, nil
 }
 

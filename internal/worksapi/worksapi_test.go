@@ -146,7 +146,7 @@ func serveAt(t *testing.T, today func() time.Time) *server {
 		}
 		return a
 	}}))
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), naming.Schema())
 	keys, err := secret.Open(t.Context(), lib, filepath.Join(t.TempDir(), secret.KeyFile))
 	if err != nil {
 		t.Fatal(err)
@@ -200,7 +200,7 @@ func serveAt(t *testing.T, today func() time.Time) *server {
 	}
 	r := api.NewRouter(api.Services{Node: identitytest.Controller{Node: identitytest.Node{Service: svc}}, Gate: gate, Web: fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, Log: log})
 	cells := grabbing{}
-	shelved, err := files.Open(t.Context(), files.Config{Library: lib, Targets: goals, Grabs: cells, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}, Today: today})
+	shelved, err := files.Open(t.Context(), files.Config{Library: lib, Targets: goals, Grabs: cells, Naming: naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}}), Today: today})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,4 +1,5 @@
 import type { TargetsUnwantedFiles } from "./targetsUnwantedFiles.ts";
+import type { TargetsWorkRenames } from "./targetsWorkRenames.ts";
 
 export interface TargetsImpact {
   /**
@@ -17,10 +18,12 @@ export interface TargetsImpact {
    */
   ownList: number;
   /**
-   * Files that still fill a cell and change name
+   * Files whose path changes, Kept files included
    * @minimum 0
    */
   renamed: number;
+  /** The first 500 of the renamed files, by Work in title order */
+  renames: TargetsWorkRenames[];
   /** Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses */
   unwanted: TargetsUnwantedFiles;
   /**

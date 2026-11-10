@@ -224,8 +224,9 @@ func TestAFileRecordedWhileARehomeChecksIsCheckedToo(t *testing.T) {
 	}
 }
 
-// moving records a move of the file at rel whose bytes the disk queue
-// last recorded at sits, and answers the file's holding path.
+// moving records a move of the file at rel, as one of a ring of renames
+// that pass through holding, whose bytes the disk queue last recorded at
+// sits, and answers the file's holding path.
 func (s *server) moving(t *testing.T, rel, sits string) string {
 	t.Helper()
 	var holding string
@@ -238,7 +239,7 @@ func (s *server) moving(t *testing.T, rel, sits string) string {
 		if sits == "" {
 			sits = holding
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO files_move (file_id, sits) VALUES (?, ?)`, id, sits)
+		_, err := tx.ExecContext(ctx, `INSERT INTO files_move (file_id, sits, origin, ring) VALUES (?, ?, ?, ?)`, id, sits, sits, id)
 		return err
 	})
 	if err != nil {

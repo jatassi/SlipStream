@@ -49,13 +49,18 @@ type world struct {
 	meant string
 	// found are a scan's new files, inserted where the scan found them.
 	found map[ID]bool
-	// keepPaths is a scan's: every file keeps its path.
-	keepPaths bool
+	// mode is which files names gives a path from the templates.
+	mode renaming
 	// retagged is each cut whose name changes, so its files take new names.
 	retagged map[release.CutKey]bool
-	// templates and tokens are loaded by named, for names alone.
-	templates naming.Templates
-	tokens    map[works.ItemID]map[string]string
+	// scheme, values and budgets are loaded by withNaming, for names
+	// alone. budgets is each root's path budget.
+	scheme  *naming.Scheme
+	values  naming.Values
+	budgets map[roots.ID]int
+	// moving are the files the disk queue still moves, which a plan leaves
+	// where they go.
+	moving map[ID]bool
 }
 
 func (f *Files) load(ctx context.Context, r storage.Reader[file], work works.WorkID) (world, error) {
@@ -211,38 +216,49 @@ func briefFiles(ctx context.Context, q *db.Queries, among works.Among[works.Work
 	return out, err
 }
 
-// named adds what names reads to w under fills: the Content Type's
-// templates and the tokens of every Item holding a file whose name
-// changes, read Item by Item. The placed file's come first: labels reads
-// them for its folder.
-func (f *Files) named(ctx context.Context, r storage.Reader[file], w *world, fills map[CellKey]Fill) error {
-	facet := f.cfg.Naming[w.tree.ContentType]
-	w.templates, w.tokens = facet.DefaultTemplates(), map[works.ItemID]map[string]string{}
-	need := func(item works.ItemID) error {
-		if _, ok := w.tokens[item]; ok {
+// named adds what names reads to w under fills, when a file of w takes a
+// new path, under d for d's type.
+func (f *Files) named(ctx context.Context, r storage.Reader[file], w *world, fills map[CellKey]Fill, d *drafted) error {
+	if !slices.ContainsFunc(w.files, func(g File) bool { return g.ID == w.fresh }) {
+		next, err := labels(*w, fills)
+		if err != nil {
+			return err
+		}
+		if !slices.ContainsFunc(w.files, func(g File) bool { return renamed(*w, g, next[g.ID]) }) {
 			return nil
 		}
-		tokens, err := facet.NamingTokens(ctx, r, item)
-		w.tokens[item] = tokens
-		return err
 	}
-	for _, file := range w.files {
-		if file.ID == w.fresh {
-			if err := need(file.ItemID); err != nil {
-				return err
-			}
-		}
-	}
-	next, err := labels(*w, fills)
+	return f.withNaming(ctx, r, []*world{w}, works.Only([]works.WorkID{w.tree.ID}), d)
+}
+
+// withNaming adds what names reads to each of ws: its Content Type's
+// scheme, or d's for d's type, its Work's values, read in one call per
+// type, and each root's path budget. among names ws's Works.
+func (f *Files) withNaming(ctx context.Context, r storage.Reader[file], ws []*world, among works.Among[works.WorkID], d *drafted) error {
+	budgets, err := roots.BudgetsIn(ctx, r)
 	if err != nil {
 		return err
 	}
-	for _, file := range w.files {
-		if renamed(*w, file, next[file.ID]) {
-			if err := need(file.ItemID); err != nil {
-				return err
-			}
+	byType := map[works.TypeID][]works.WorkID{}
+	for _, w := range ws {
+		byType[w.tree.ContentType] = append(byType[w.tree.ContentType], w.tree.ID)
+	}
+	schemes := make(map[works.TypeID]*naming.Scheme, len(byType))
+	values := make(map[works.WorkID]naming.Values, len(ws))
+	for typ, ids := range byType {
+		if d != nil && typ == d.typ {
+			schemes[typ] = d.scheme
+		} else if schemes[typ], err = f.cfg.Naming.SchemeIn(ctx, r, typ); err != nil {
+			return err
 		}
+		of, err := f.cfg.Naming.ValuesIn(ctx, r, typ, works.Like(among, ids))
+		if err != nil {
+			return err
+		}
+		maps.Copy(values, of)
+	}
+	for _, w := range ws {
+		w.scheme, w.values, w.budgets = schemes[w.tree.ContentType], values[w.tree.ID], budgets
 	}
 	return nil
 }

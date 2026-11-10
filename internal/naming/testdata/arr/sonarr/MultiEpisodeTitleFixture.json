@@ -1,0 +1,10 @@
+{
+  "upstream": "Sonarr",
+  "commit": "c018578e4b79ee048575c02d7a8aa2b929e4b837",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/MultiEpisodeTitleFixture.cs",
+  "cases": [
+    {"template":"{Episode Title} {Quality Full}","values":{"Quality Full":"HDTV-720p","Series Title":"South Park"},"items":[{"Episode":6,"Episode Title":"Episode Title (1)","Season":15},{"Episode":7,"Episode Title":"Episode Title (2)","Season":15}],"want":"Episode Title HDTV-720p","source":"MultiEpisodeTitleFixture.cs should_replace_Series_space_Title #1"},
+    {"template":"{Episode Title} {Quality Full}","values":{"Quality Full":"HDTV-720p","Series Title":"South Park"},"items":[{"Episode":6,"Episode Title":"Episode Title Part 1","Season":15},{"Episode":7,"Episode Title":"Episode Title Part 2","Season":15}],"want":"Episode Title HDTV-720p","source":"MultiEpisodeTitleFixture.cs should_replace_Series_space_Title #2"},
+    {"template":"{Episode Title} {Quality Full}","values":{"Quality Full":"HDTV-720p","Series Title":"South Park"},"items":[{"Episode":6,"Episode Title":"Episode Title","Season":15},{"Episode":7,"Episode Title":"Episode Title: Part 2","Season":15}],"want":"Episode Title HDTV-720p","source":"MultiEpisodeTitleFixture.cs should_replace_Series_space_Title #3"}
+  ]
+}

@@ -47,6 +47,9 @@ func (s *Store) walk(ctx context.Context, root storage.UUID, after []string, lim
 	if err != nil {
 		return walkPage{}, err
 	}
+	walks := s.walksOf(root)
+	walks.RLock()
+	defer walks.RUnlock()
 	fold, err := s.caseFold(ctx, dir)
 	if err != nil {
 		return walkPage{}, s.folderError(err)

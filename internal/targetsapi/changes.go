@@ -30,15 +30,35 @@ type Impact struct {
 	Works       int           `json:"works" minimum:"0" doc:"Works whose cells, fills or file names change"`
 	OwnList     int           `json:"ownList" minimum:"0" doc:"Works that keep their own Edition list through a change to their Profile's"`
 	Unwanted    unwantedFiles `json:"unwanted" doc:"Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses"`
-	Renamed     int           `json:"renamed" minimum:"0" doc:"Files that still fill a cell and change name"`
+	Renamed     int           `json:"renamed" minimum:"0" doc:"Files whose path changes, Kept files included"`
+	Renames     []workRenames `json:"renames" nullable:"false" doc:"The first 500 of the renamed files, by Work in title order"`
 	NewlyWanted int           `json:"newlyWanted" minimum:"0" doc:"Cells that become wanted"`
 	Downloading int           `json:"downloading" minimum:"0" doc:"Downloads in progress for cells that are no longer wanted. The save's choice decides whether their files are deleted or kept"`
 }
 
+type workRenames struct {
+	WorkID string        `json:"workId" format:"uuid"`
+	Title  string        `json:"title"`
+	Files  []renamedFile `json:"files" nullable:"false" doc:"In the order the files were added"`
+}
+
+type renamedFile struct {
+	FileID string `json:"fileId" format:"uuid"`
+	From   string `json:"from" doc:"The file's path in its root now"`
+	To     string `json:"to" doc:"The file's path in its root after the change"`
+}
+
 func ImpactOf(i files.Impact) Impact {
+	renames := make([]workRenames, len(i.Renames))
+	for n, w := range i.Renames {
+		renames[n] = workRenames{WorkID: w.Work.String(), Title: w.Title, Files: make([]renamedFile, len(w.Rows))}
+		for k, r := range w.Rows {
+			renames[n].Files[k] = renamedFile{FileID: r.File.String(), From: r.From, To: r.To}
+		}
+	}
 	return Impact{
 		Works: i.Works, OwnList: i.OwnList, Unwanted: unwantedFiles{Files: i.Unwanted, Bytes: i.Bytes},
-		Renamed: i.Renamed, NewlyWanted: i.NewlyWanted, Downloading: i.Downloading,
+		Renamed: i.Renamed, Renames: renames, NewlyWanted: i.NewlyWanted, Downloading: i.Downloading,
 	}
 }
 

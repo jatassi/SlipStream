@@ -1,0 +1,10 @@
+{
+  "upstream": "Sonarr",
+  "commit": "c018578e4b79ee048575c02d7a8aa2b929e4b837",
+  "file": "src/NzbDrone.Core.Test/OrganizerTests/FileNameBuilderTests/SeriesYearFixture.cs",
+  "cases": [
+    {"template":"{Series Year}\\{Series Title}","values":{"Series Title":"The Mist","Series Year":2017},"want":"2017\\The Mist","source":"SeriesYearFixture.cs should_get_expected_folder_name_back #1"},
+    {"template":"{Series Year}\\{Series Title}","values":{"Series Title":"A","Series Year":2021},"want":"2021\\A","source":"SeriesYearFixture.cs should_get_expected_folder_name_back #2"},
+    {"template":"{Series Year}\\{Series Title}","values":{"Series Title":"30 Rock","Series Year":2006},"want":"2006\\30 Rock","source":"SeriesYearFixture.cs should_get_expected_folder_name_back #3"}
+  ]
+}

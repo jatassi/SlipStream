@@ -63,7 +63,7 @@ func (discard[T]) Publish(context.Context, T) {}
 
 func serve(t *testing.T) *served {
 	t.Helper()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), naming.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -82,7 +82,7 @@ func serve(t *testing.T) *served {
 	}
 	changed.n = 0
 	shelf, err := files.Open(t.Context(), files.Config{
-		Library: lib, Targets: svc, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}, Today: time.Now,
+		Library: lib, Targets: svc, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Naming: naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}}), Today: time.Now,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -211,7 +211,7 @@ func TestEachTargetsErrorAnswersItsProblem(t *testing.T) {
 		status             int
 		want               string
 	}{
-		{http.MethodPost, "/api/v1/targets", webBody, http.StatusConflict, `{"status":409,"code":"target_name_taken","title":"A Target already has that name"}`},
+		{http.MethodPost, "/api/v1/targets", webBody, http.StatusConflict, `{"status":409,"code":"target_name_taken","title":"A Target already has that name","detail":"Another Target is named Web. Choose another name."}`},
 		{
 			http.MethodPost, "/api/v1/targets", `{"name":"X","tiers":[["webdl-1080p"]],"cutoff":"bluray-1080p"}`, http.StatusUnprocessableEntity,
 			`{"status":422,"code":"quality_not_in_target","title":"The Target doesn't accept that quality","detail":"the Target doesn't accept that quality: the cutoff bluray-1080p"}`,

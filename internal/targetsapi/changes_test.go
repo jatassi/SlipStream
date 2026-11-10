@@ -44,8 +44,10 @@ func shelved(t *testing.T) (s *served, ids map[string]string) {
 		t.Fatal(err)
 	}
 	root := rootstest.Root(t, s.lib, role.NodeID{UUID: storage.NewUUID()}, contenttypetest.ID, t.TempDir())
+	var held files.File
 	err = s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := files.Add(ctx, tx, files.File{
+		var err error
+		held, err = files.Add(ctx, tx, files.File{
 			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: root.ID, Path: "The Attic/The Attic - Scarf - 1080p.mkv",
 			Size: 2000 << 20, Quality: release.WEBDL1080p,
 		}, []targets.TargetID{{UUID: must[storage.UUID](t)(storage.ParseUUID(s.starter))}})
@@ -54,7 +56,7 @@ func shelved(t *testing.T) (s *served, ids map[string]string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ids = map[string]string{"starter": s.starter, "fixture": s.fixture, "work": tree.ID.String()}
+	ids = map[string]string{"starter": s.starter, "fixture": s.fixture, "work": tree.ID.String(), "file": held.ID.String()}
 	_, body := s.Call(t, http.MethodPost, "/api/v1/targets", webBody)
 	ids["web"] = ownertest.FirstID(body)
 	_, body = s.Call(t, http.MethodPost, "/api/v1/profiles", profileBody("Small", ids["web"]))
@@ -113,26 +115,29 @@ func impactOf(t *testing.T, what string, code int, body string) string {
 func TestEveryChangePreviewsWithoutSavingThenSavesWhatItPreviewed(t *testing.T) {
 	s, ids := shelved(t)
 	starterAs := func(name string) string { return `{"name":"` + name + `",` + starterRules + `}` }
-	impact := func(works, renamed, newlyWanted int) string {
-		return `{"works":` + strconv.Itoa(works) + `,"ownList":0,"unwanted":{"files":0,"bytes":0},"renamed":` + strconv.Itoa(renamed) +
-			`,"newlyWanted":` + strconv.Itoa(newlyWanted) + `,"downloading":0}`
+	impact := func(works int, from, to string) string {
+		renamed, renames := "0", "[]"
+		if to != "" {
+			renamed, renames = "1", `[{"workId":"@work","title":"The Attic","files":[{"fileId":"@file","from":"The Attic/The Attic - Scarf - `+from+`.mkv","to":"The Attic/The Attic - Scarf - `+to+`.mkv"}]}]`
+		}
+		return `{"works":` + strconv.Itoa(works) + `,"ownList":0,"unwanted":{"files":0,"bytes":0},"renamed":` + renamed + `,"renames":` + renames + `,"newlyWanted":0,"downloading":0}`
 	}
 	for _, c := range []struct {
 		name, method, path, body, impact, after string
 	}{
-		{"renaming the starter", http.MethodPut, "/api/v1/targets/@starter", starterAs("Starter"), impact(1, 1, 0), `"name":"Starter"`},
+		{"renaming the starter", http.MethodPut, "/api/v1/targets/@starter", starterAs("Starter"), impact(1, "1080p", "Starter"), `"name":"Starter"`},
 		{
 			"putting Web first in the default Profile", http.MethodPut, "/api/v1/profiles/@fixture", profileBody("Fixture", ids["web"], ids["starter"]),
-			impact(1, 1, 0), `"targets":[{"targetId":"@web","sourcing":"download"},{"targetId":"@starter","sourcing":"download"}]`,
+			impact(1, "Starter", "Web"), `"targets":[{"targetId":"@web","sourcing":"download"},{"targetId":"@starter","sourcing":"download"}]`,
 		},
 		{
 			"giving the Work its own list", http.MethodPut, "/api/v1/works/@work/wants", `{"editions":{"kind":"any"}}`,
-			impact(0, 0, 0), `"profileId":"@fixture","profileName":"Fixture","editions":{"kind":"any"},"from":"work"`,
+			impact(0, "", ""), `"profileId":"@fixture","profileName":"Fixture","editions":{"kind":"any"},"from":"work"`,
 		},
-		{"deleting Small into the default", http.MethodDelete, "/api/v1/profiles/@small?moveTo=@fixture", "", impact(0, 0, 0), `"name":"Fixture"`},
+		{"deleting Small into the default", http.MethodDelete, "/api/v1/profiles/@small?moveTo=@fixture", "", impact(0, "", ""), `"name":"Fixture"`},
 		{
 			"resetting the Work's list", http.MethodPut, "/api/v1/works/@work/wants", `{"editions":null}`,
-			impact(0, 0, 0), `"from":"profile"`,
+			impact(0, "", ""), `"from":"profile"`,
 		},
 	} {
 		path, body := fill(c.path, ids), fill(c.body, ids)
@@ -147,8 +152,8 @@ func TestEveryChangePreviewsWithoutSavingThenSavesWhatItPreviewed(t *testing.T) 
 			t.Fatalf("previewing %s published %d times and changed\n%s\nto\n%s", c.name, s.changed.n, before, after)
 		}
 		code, reply = s.Call(t, c.method, path, body)
-		if saved := impactOf(t, c.name, code, reply); preview != c.impact || saved != preview {
-			t.Fatalf("%s: preview %s, save %s, want both %s", c.name, preview, saved, c.impact)
+		if saved, want := impactOf(t, c.name, code, reply), fill(c.impact, ids); preview != want || saved != preview {
+			t.Fatalf("%s: preview %s, save %s, want both %s", c.name, preview, saved, want)
 		}
 		if !strings.Contains(reply, fill(c.after, ids)) || s.changed.n != 1 {
 			t.Fatalf("%s answered %s and published %d times, want %s once", c.name, reply, s.changed.n, fill(c.after, ids))
@@ -162,7 +167,8 @@ func TestASaveDeletingMoreThanItsPreviewConfirmedIsRefused(t *testing.T) {
 	s, ids := shelved(t)
 	empty := fill(profileBody("Fixture"), ids)
 	path := "/api/v1/profiles/" + ids["fixture"]
-	unwanted := `{"works":1,"ownList":0,"unwanted":{"files":1,"bytes":2097152000},"renamed":0,"newlyWanted":0,"downloading":0}`
+	unwanted := fill(`{"works":1,"ownList":0,"unwanted":{"files":1,"bytes":2097152000},"renamed":1,"renames":[{"workId":"@work","title":"The Attic","files":[`+
+		`{"fileId":"@file","from":"The Attic/The Attic - Scarf - 1080p.mkv","to":"The Attic/The Attic - Scarf - 1080p (extra 1).mkv"}]}],"newlyWanted":0,"downloading":0}`, ids)
 	code, reply := s.Call(t, http.MethodPut, path+"?preview=true&unwanted=keep", empty)
 	if got := impactOf(t, "emptying the default Profile previewed", code, reply); got != unwanted {
 		t.Fatalf("the preview = %s, want %s", got, unwanted)
@@ -201,7 +207,7 @@ func TestEachChangesErrorAnswersItsProblem(t *testing.T) {
 		want               string
 	}{
 		{http.MethodPut, "/api/v1/targets/@none", webBody, http.StatusNotFound, notFound("target")},
-		{http.MethodPut, "/api/v1/targets/@starter", webBody, http.StatusConflict, `{"status":409,"code":"target_name_taken","title":"A Target already has that name"}`},
+		{http.MethodPut, "/api/v1/targets/@starter", webBody, http.StatusConflict, `{"status":409,"code":"target_name_taken","title":"A Target already has that name","detail":"Another Target is named Web. Choose another name."}`},
 		{
 			http.MethodPut, "/api/v1/targets/@starter", `{"name":"1080p","tiers":[["webdl-1080p"]],"cutoff":"bluray-1080p"}`, http.StatusUnprocessableEntity,
 			`{"status":422,"code":"quality_not_in_target","title":"The Target doesn't accept that quality","detail":"the Target doesn't accept that quality: the cutoff bluray-1080p"}`,

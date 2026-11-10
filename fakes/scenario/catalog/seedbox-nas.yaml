@@ -4,9 +4,10 @@ description: >-
   The Worker seedbox pairs by Join Code and holds Searching and Downloading.
   The Worker nas pairs by Join Code and holds Storage with the Movies root,
   so a Grab downloaded on seedbox reaches nas's root through a Transfer
-  between the two Workers. The release is a 60 second video of about
-  36 MB, so its Transfer spans nine chunks and reads copying between
-  them.
+  between the two Workers. nas writes paths of at most 259 bytes, as a
+  Windows Node without long paths does. The release is a 60 second video
+  of about 36 MB, so its Transfer spans nine chunks and reads copying
+  between them.
 seed: seedbox-nas
 admin:
   email: ada@example.test
@@ -22,6 +23,7 @@ nodes:
   - name: nas
     setup: join
     roles: [storage]
+    path_limit: 259
 timings:
   node:
     stop_deadline: 15s

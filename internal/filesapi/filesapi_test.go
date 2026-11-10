@@ -53,7 +53,7 @@ func must[T any](t *testing.T) func(T, error) T {
 
 func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	ctx := t.Context()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), naming.Schema())
 	fx := contenttypetest.New()
 	w := must[*works.Works](t)(works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -149,7 +149,7 @@ func (t *told) Publish(_ context.Context, c files.Changed) { *t = append(*t, c) 
 
 func TestForgetFilesForgetsGoneFilesAllOrNone(t *testing.T) {
 	ctx := t.Context()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), naming.Schema())
 	fx := contenttypetest.New()
 	w := must[*works.Works](t)(works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -178,7 +178,7 @@ func TestForgetFilesForgetsGoneFilesAllOrNone(t *testing.T) {
 	}
 	var changed told
 	svc, err := files.Open(ctx, files.Config{
-		Library: lib, Targets: goals, Grabs: files.NoGrabs{}, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx},
+		Library: lib, Targets: goals, Grabs: files.NoGrabs{}, Naming: naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}}),
 		Names: map[works.TypeID]release.Names{contenttypetest.ID: fx}, Today: time.Now, Changed: &changed,
 	})
 	if err != nil {

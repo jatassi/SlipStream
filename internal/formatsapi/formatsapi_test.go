@@ -67,7 +67,7 @@ func serve(t *testing.T) *served {
 	t.Helper()
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(),
-		downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), transfers.LibrarySchema())
+		downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), naming.Schema(), transfers.LibrarySchema())
 	fx := contenttypetest.New()
 	w, err := works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -83,7 +83,7 @@ func serve(t *testing.T) *served {
 		t.Fatal(err)
 	}
 	shelf, err := files.Open(ctx, files.Config{
-		Library: lib, Targets: svc, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Naming: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}, Today: time.Now,
+		Library: lib, Targets: svc, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Naming: naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}}), Today: time.Now,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -181,7 +181,7 @@ const (
 		`{"name":"Bluray","kind":"SourceSpecification","negate":false,"required":true,"fields":{"value":"bluray"}}]`
 	hdr       = `{"id":"ID","name":"HDR","includeWhenRenaming":true,"dialect":"slipstream",` + hdrConditions + `,"scoredBy":[],"slowReleases":0}`
 	hdrScored = `{"id":"ID","name":"HDR","includeWhenRenaming":true,"dialect":"slipstream",` + hdrConditions + `,"scoredBy":[{"id":"ID","name":"1080p"}],"slowReleases":0}`
-	noImpact  = `{"works":0,"ownList":0,"unwanted":{"files":0,"bytes":0},"renamed":0,"newlyWanted":0,"downloading":0}`
+	noImpact  = `{"works":0,"ownList":0,"unwanted":{"files":0,"bytes":0},"renamed":0,"renames":[],"newlyWanted":0,"downloading":0}`
 )
 
 func TestCustomFormatsAreMadeReadChangedAndDeletedWithTheTargetsThatScoreThem(t *testing.T) {

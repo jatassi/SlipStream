@@ -73,6 +73,9 @@ type File struct {
 	// no Grab brought it, and Title is that name's reading.
 	ReleaseName string
 	Title       release.Read
+	// SourceName is its name, extension included, in its download or
+	// where a scan found it, "" when unknown. It never changes.
+	SourceName string
 }
 
 // Gone reports whether a scan found f's bytes absent from its root.
@@ -99,6 +102,9 @@ func fileOf(row db.FilesFile) File {
 	}
 	if row.ProbeError != nil {
 		f.ProbeError = *row.ProbeError
+	}
+	if row.SourceName != nil {
+		f.SourceName = *row.SourceName
 	}
 	return f
 }
@@ -137,6 +143,30 @@ type Publisher interface {
 	Publish(ctx context.Context, c Changed)
 }
 
+// Moved names the Works whose files a confirmed rename plan queued to
+// move, or the disk queue moved to their paths or put back because
+// another file was at one, in one pass.
+type Moved struct {
+	WorkIDs []string `json:"workIds" nullable:"false"`
+}
+
+var MovedEvent = live.AdminEvent[Moved]("files.moved")
+
+type MovedPublisher interface {
+	Publish(ctx context.Context, m Moved)
+}
+
+// MovedOf is Moved of ws, each named once.
+func MovedOf(ws []works.WorkID) Moved {
+	out := Moved{WorkIDs: []string{}}
+	for _, w := range ws {
+		if s := w.String(); !slices.Contains(out.WorkIDs, s) {
+			out.WorkIDs = append(out.WorkIDs, s)
+		}
+	}
+	return out
+}
+
 // Add records f, whose bytes are already at its Path, filling each of
 // fills for its Item at the Edition its cut fills at score 0, and labels
 // it after the first of them in its Work's Profile order. It trusts fills
@@ -168,10 +198,14 @@ func Add(ctx context.Context, tx *storage.Tx[file], f File, fills []targets.Targ
 
 func insertFile(ctx context.Context, q *db.Queries, f File) error {
 	modified, file, volume := seenColumns(f.Seen)
+	var source *string
+	if f.SourceName != "" {
+		source = &f.SourceName
+	}
 	return q.InsertFile(ctx, db.InsertFileParams{
 		ID: f.ID, WorkID: f.WorkID, ItemID: f.ItemID, Cut: f.Cut, RootID: f.RootID, Path: f.Path, Size: f.Size, Probe: f.Media,
 		GrabID: f.GrabID, Quality: f.Quality, Label: f.Label, Extra: f.Extra, ReleaseName: f.ReleaseName, TitleRead: db.Reading{Read: f.Title},
-		ModifiedAt: modified, NodeFileID: file, NodeVolumeID: volume, ProbedAt: f.ProbedAt,
+		ModifiedAt: modified, NodeFileID: file, NodeVolumeID: volume, ProbedAt: f.ProbedAt, SourceName: source,
 	})
 }
 
@@ -299,7 +333,7 @@ type Config struct {
 	// folders the sweep keeps. transfers.LiveIn is it.
 	Transfers func(ctx context.Context, r storage.Reader[storage.Library]) (map[transfers.ID]bool, error)
 	// Naming names each Content Type's files.
-	Naming map[works.TypeID]naming.Facet
+	Naming *naming.Naming
 	// Names read each Content Type's release and file names.
 	Names map[works.TypeID]release.Names
 	// Today is the time now in the Controller's zone, whose calendar date
@@ -309,6 +343,10 @@ type Config struct {
 	Disk Disk
 	// Changed publishes files.changed for each Work whose files Forget deletes.
 	Changed Publisher
+	// Moved publishes files.moved once per confirmed rename plan that
+	// queued a move, and once per pass of the disk queue that finished or
+	// put back a move.
+	Moved   MovedPublisher
 	Timings Timings
 	Rand    *rand.Rand
 	Log     *slog.Logger

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"strings"
 
-	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/jatassi/slipstream/internal/storage"
@@ -195,13 +194,12 @@ func reprobeOf(r Recorded, e storing.Walked) Reprobe {
 
 type comparison struct {
 	l       Listing
-	fold    cases.Caser
 	byKey   map[string]int
 	claimed []bool
 }
 
 func newComparison(l Listing) *comparison {
-	c := &comparison{l: l, fold: cases.Fold(), byKey: make(map[string]int, len(l.entries)), claimed: make([]bool, len(l.entries))}
+	c := &comparison{l: l, byKey: make(map[string]int, len(l.entries)), claimed: make([]bool, len(l.entries))}
 	for i, e := range l.entries {
 		k := c.key(e.Path.String())
 		if _, dup := c.byKey[k]; !dup {
@@ -212,11 +210,10 @@ func newComparison(l Listing) *comparison {
 }
 
 func (c *comparison) key(path string) string {
-	s := norm.NFC.String(path)
 	if c.l.caseFold {
-		s = c.fold.String(s)
+		return storing.Fold(path)
 	}
-	return s
+	return norm.NFC.String(path)
 }
 
 // find is the unclaimed entry where r's bytes are, looked for where they
@@ -312,7 +309,7 @@ func (c *comparison) movesBySizeAndName(absent []Recorded) ([]Moved, []Recorded)
 
 func (c *comparison) baseKey(p storing.Rel) string {
 	s := p.String()
-	return c.fold.String(norm.NFC.String(s[strings.LastIndexByte(s, '/')+1:]))
+	return storing.Fold(s[strings.LastIndexByte(s, '/')+1:])
 }
 
 // unreadHolds reports whether r's bytes may lie under a folder the walk

@@ -13,6 +13,7 @@ import type {
   SettingRateField,
   SettingSpaceField,
   SettingSwitchField,
+  SettingTemplateField,
   SettingWindowField,
   WorksAdded,
   WorksCandidateList,
@@ -977,6 +978,37 @@ export const getGetContentTypeSettingsResponseSettingSpaceFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetContentTypeSettingsResponseSettingTemplateFieldMock = (
+  overrideResponse: Partial<SettingTemplateField> = {},
+): SettingTemplateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    field: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["template"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    plain: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetContentTypeSettingsResponseMock = (
   overrideResponse: Partial<Extract<WorksTypeSettings, object>> = {},
 ): WorksTypeSettings => ({
@@ -992,6 +1024,7 @@ export const getGetContentTypeSettingsResponseMock = (
       { ...getGetContentTypeSettingsResponseSettingAddressFieldMock() },
       { ...getGetContentTypeSettingsResponseSettingFolderFieldMock() },
       { ...getGetContentTypeSettingsResponseSettingSpaceFieldMock() },
+      { ...getGetContentTypeSettingsResponseSettingTemplateFieldMock() },
     ]),
   ),
   ...overrideResponse,
@@ -1347,6 +1380,37 @@ export const getUpdateContentTypeSettingsResponseSettingSpaceFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateContentTypeSettingsResponseSettingTemplateFieldMock = (
+  overrideResponse: Partial<SettingTemplateField> = {},
+): SettingTemplateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    field: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["template"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    plain: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateContentTypeSettingsResponseMock = (
   overrideResponse: Partial<Extract<WorksTypeSettings, object>> = {},
 ): WorksTypeSettings => ({
@@ -1362,6 +1426,7 @@ export const getUpdateContentTypeSettingsResponseMock = (
       { ...getUpdateContentTypeSettingsResponseSettingAddressFieldMock() },
       { ...getUpdateContentTypeSettingsResponseSettingFolderFieldMock() },
       { ...getUpdateContentTypeSettingsResponseSettingSpaceFieldMock() },
+      { ...getUpdateContentTypeSettingsResponseSettingTemplateFieldMock() },
     ]),
   ),
   ...overrideResponse,
@@ -1889,6 +1954,37 @@ export const getAddWorkResponseSettingSpaceFieldMock = (
   ...overrideResponse,
 });
 
+export const getAddWorkResponseSettingTemplateFieldMock = (
+  overrideResponse: Partial<SettingTemplateField> = {},
+): SettingTemplateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    field: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["template"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    plain: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getAddWorkResponseMock = (
   overrideResponse: Partial<Extract<WorksAdded, object>> = {},
 ): WorksAdded => ({
@@ -2027,6 +2123,7 @@ export const getAddWorkResponseMock = (
           { ...getAddWorkResponseSettingAddressFieldMock() },
           { ...getAddWorkResponseSettingFolderFieldMock() },
           { ...getAddWorkResponseSettingSpaceFieldMock() },
+          { ...getAddWorkResponseSettingTemplateFieldMock() },
         ]),
     ),
     profile: {
@@ -2313,6 +2410,19 @@ export const getSetWorksProfileResponseMock = (
     newlyWanted: faker.number.int({ min: 0 }),
     ownList: faker.number.int({ min: 0 }),
     renamed: faker.number.int({ min: 0 }),
+    renames: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        files: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+          () => ({
+            fileId: faker.string.uuid(),
+            from: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            to: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          }),
+        ),
+        title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        workId: faker.string.uuid(),
+      }),
+    ),
     unwanted: { bytes: faker.number.int({ min: 0 }), files: faker.number.int({ min: 0 }) },
     works: faker.number.int({ min: 0 }),
   },
@@ -2957,6 +3067,37 @@ export const getGetWorkResponseSettingSpaceFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetWorkResponseSettingTemplateFieldMock = (
+  overrideResponse: Partial<SettingTemplateField> = {},
+): SettingTemplateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    field: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["template"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    plain: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getGetWorkResponseMock = (
   overrideResponse: Partial<Extract<WorksWorkView, object>> = {},
 ): WorksWorkView => ({
@@ -3087,6 +3228,7 @@ export const getGetWorkResponseMock = (
       { ...getGetWorkResponseSettingAddressFieldMock() },
       { ...getGetWorkResponseSettingFolderFieldMock() },
       { ...getGetWorkResponseSettingSpaceFieldMock() },
+      { ...getGetWorkResponseSettingTemplateFieldMock() },
     ]),
   ),
   profile: { id: faker.string.uuid(), name: faker.string.alpha({ length: { min: 10, max: 20 } }) },
@@ -3463,10 +3605,42 @@ export const getSetWorkOptionsResponseSettingSpaceFieldMock = (
   ...overrideResponse,
 });
 
+export const getSetWorkOptionsResponseSettingTemplateFieldMock = (
+  overrideResponse: Partial<SettingTemplateField> = {},
+): SettingTemplateField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    field: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["template"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    pendingRestart: faker.datatype.boolean(),
+    plain: faker.datatype.boolean(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  ...overrideResponse,
+});
+
 export const getSetWorkOptionsResponseMock = (
   overrideResponse: Partial<Extract<WorksOptionsChanged, object>> = {},
 ): WorksOptionsChanged => ({
   levelFolders: faker.datatype.boolean(),
+  moves: faker.datatype.boolean(),
   options: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.helpers.arrayElement([
       { ...getSetWorkOptionsResponseSettingDurationFieldMock() },
@@ -3479,6 +3653,7 @@ export const getSetWorkOptionsResponseMock = (
       { ...getSetWorkOptionsResponseSettingAddressFieldMock() },
       { ...getSetWorkOptionsResponseSettingFolderFieldMock() },
       { ...getSetWorkOptionsResponseSettingSpaceFieldMock() },
+      { ...getSetWorkOptionsResponseSettingTemplateFieldMock() },
     ]),
   ),
   withdraws: faker.number.int(),
