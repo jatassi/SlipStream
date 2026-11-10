@@ -44,7 +44,10 @@ type Row struct {
 	ContentType works.TypeID
 	AddedAt     time.Time
 	// Uses are its Grabs, newest first.
-	Uses     []Use
+	Uses []Use
+	// Held is true while a Grab at downloading holds it, so Mark failed
+	// can blocklist its Release.
+	Held     bool
 	State    State
 	Hold     Hold
 	Until    time.Time
