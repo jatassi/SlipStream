@@ -3,6 +3,7 @@ package grabs
 import (
 	"cmp"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -251,6 +252,32 @@ func (d Decision) picks(c cells) []Pick {
 		}
 	}
 	return out
+}
+
+// taker readies r's fetch: its Ticket, or *indexers.NotTakenError while
+// r's Indexer wouldn't fetch it now. Automatic search takes with
+// Indexers.Take in its Write, which reserves a grab; Manual search's plan
+// takes by reading the Indexers' standings, which reserves nothing.
+type taker func(r indexers.Release) (indexers.Ticket, error)
+
+// choose is the first of picks, or of its copies, that take takes,
+// skipping the positions gone, and the Ticket take readied it with. ok is
+// false when take takes none. Automatic search and Manual search's plan
+// both choose with it, so the two never walk the offers apart.
+func choose(picks []Pick, gone map[int]bool, take taker) (Pick, indexers.Ticket, bool, error) {
+	for _, pick := range picks {
+		for _, p := range pick.offers() {
+			if gone[p.at] {
+				continue
+			}
+			t, err := take(p.Release)
+			if errors.As(err, new(*indexers.NotTakenError)) {
+				continue
+			}
+			return p, t, err == nil, err
+		}
+	}
+	return Pick{}, indexers.Ticket{}, false, nil
 }
 
 // marks is what n names, such as S01E02, in words.
