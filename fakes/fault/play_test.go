@@ -354,6 +354,32 @@ func TestHangNeverAnswers(t *testing.T) {
 	})
 }
 
+func TestDelayAnswersAfterTheDelay(t *testing.T) {
+	h := &genuine{}
+	httpTiers(t, faulted(t, fault.Delay(300*time.Millisecond), h), func(t *testing.T, get func() (reply, error)) {
+		r, err := get()
+		if err != nil || r.status != "200 OK" || r.body != genuineBody || r.bodyErr != nil {
+			t.Fatalf("answered %q with %d bytes, %v, %v; want the real answer", r.status, len(r.body), err, r.bodyErr)
+		}
+		if r.headersAfter < 300*time.Millisecond {
+			t.Fatalf("answered after %v, want at least the 300ms delay", r.headersAfter)
+		}
+	})
+}
+
+func TestDelayLongerThanTheClientWaitsNeverReachesTheHandler(t *testing.T) {
+	h := &genuine{}
+	httpTiers(t, faulted(t, fault.Delay(time.Minute), h), func(t *testing.T, get func() (reply, error)) {
+		start := time.Now()
+		if _, err := get(); !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("a request delayed past its deadline ended with %v, want the client's deadline", err)
+		}
+		if d := time.Since(start); d > 30*time.Second || h.served.Load() != 0 {
+			t.Fatalf("the client gave up after %v and the handler served %d times, want an early end and none", d, h.served.Load())
+		}
+	})
+}
+
 func TestTruncateSendsHalfTheDeclaredBody(t *testing.T) {
 	httpTiers(t, faulted(t, fault.Truncate{}, &genuine{}), func(t *testing.T, get func() (reply, error)) {
 		r, err := get()
