@@ -26,7 +26,7 @@ nodes:
     path_limit: 259
 timings:
   node:
-    stop_deadline: 5s
+    stop_deadline: 15s
 tmdb:
   movies:
     - id: 9000001

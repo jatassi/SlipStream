@@ -17,4 +17,4 @@ nodes:
     roles: [searching, downloading, serving]
 timings:
   node:
-    stop_deadline: 5s
+    stop_deadline: 15s

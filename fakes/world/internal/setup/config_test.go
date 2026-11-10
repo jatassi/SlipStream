@@ -33,7 +33,7 @@ link:
     - 127.0.0.1:40123
 timings:
   node:
-    stop_deadline: 5s
+    stop_deadline: 15s
 `
 	if string(got) != want {
 		t.Fatalf("config.yaml =\n%s\nwant\n%s", got, want)

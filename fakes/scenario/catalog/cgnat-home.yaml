@@ -18,4 +18,4 @@ faults:
   - {id: home-behind-cgnat, target: link/home, fault: refuse}
 timings:
   node:
-    stop_deadline: 5s
+    stop_deadline: 15s

@@ -104,12 +104,16 @@ func Origin(t *testing.T) world.Origin {
 }
 
 // RunDir is a run dir that does not exist yet: under TEST_FAKEWORLD_RUNS,
-// removed when the test passes, or else under the test's temp dir.
+// removed when the test passes, or else under the test's temp dir. A
+// failed test shows the tail of its world.log, which names the launch
+// steps the run finished, since a launch that times out reports none.
 func RunDir(t *testing.T) string {
 	t.Helper()
 	runs, ok := os.LookupEnv("TEST_FAKEWORLD_RUNS")
 	if !ok {
-		return filepath.Join(t.TempDir(), "run")
+		run := filepath.Join(t.TempDir(), "run")
+		logWorldOnFailure(t, run)
+		return run
 	}
 	if err := os.MkdirAll(runs, 0o755); err != nil {
 		t.Fatal(err)
@@ -126,7 +130,18 @@ func RunDir(t *testing.T) string {
 			}
 		}
 	})
-	return filepath.Join(dir, "run")
+	run := filepath.Join(dir, "run")
+	logWorldOnFailure(t, run)
+	return run
+}
+
+func logWorldOnFailure(t *testing.T, runDir string) {
+	t.Helper()
+	t.Cleanup(func() {
+		if t.Failed() {
+			logTail(t, filepath.Join(runDir, "world.log"))
+		}
+	})
 }
 
 func stopBudget(s scenario.Scenario) time.Duration {
@@ -168,16 +183,20 @@ func checkStop(t *testing.T, run *world.Run) {
 func logNodeLogs(t *testing.T, runDir string, s scenario.Scenario) {
 	t.Helper()
 	for _, spec := range s.Nodes {
-		path := filepath.Join(runDir, "nodes", spec.Name+".log")
-		data, err := os.ReadFile(path)
-		if err != nil {
-			t.Logf("node %s has no log to show: %v", spec.Name, err)
-			continue
-		}
-		lines := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
-		lines = lines[max(0, len(lines)-logLinesOnFailure):]
-		t.Logf("last %d lines of %s:\n%s", len(lines), path, strings.Join(lines, "\n"))
+		logTail(t, filepath.Join(runDir, "nodes", spec.Name+".log"))
 	}
+}
+
+func logTail(t *testing.T, path string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Logf("%s has no log to show: %v", path, err)
+		return
+	}
+	lines := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
+	lines = lines[max(0, len(lines)-logLinesOnFailure):]
+	t.Logf("last %d lines of %s:\n%s", len(lines), path, strings.Join(lines, "\n"))
 }
 
 var setupCodeShape = regexp.MustCompile(`^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$`)
