@@ -175,6 +175,10 @@ func (gr *Grabs) views(ctx context.Context, grabs []Grab, rd reads) ([]View, err
 		if w, ok := rd.clientWaits[g.ID]; ok {
 			out[i].WaitsFor = &w
 		}
+		out[i].Actions = Actions{
+			Cancel: g.cancellable(), Blocklist: g.cancellable() && g.infoHash() != nil,
+			SendTo: g.waitsOnTorrent() || out[i].WaitsFor != nil,
+		}
 	}
 	return out, nil
 }

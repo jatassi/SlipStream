@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -51,6 +52,7 @@ type asked struct {
 
 type swarm struct {
 	noDownloads
+	clients *downloadclients.Clients
 	mu      sync.Mutex
 	answers []answer
 	calls   []asked
@@ -75,6 +77,10 @@ func (s *swarm) Resolve(ctx context.Context, node role.NodeID, link magnet.Link,
 		}
 	}
 	return a.res, a.err
+}
+
+func (s *swarm) RemoveIn(ctx context.Context, tx *storage.Tx[storage.Library], ids []downloadclients.ID, reason downloadclients.RemoveReason, deleteFiles bool) ([]downloadclients.Result, downloadclients.Touched, error) {
+	return s.clients.RemoveIn(ctx, tx, ids, reason, deleteFiles)
 }
 
 func (s *swarm) asked() []asked {
@@ -169,6 +175,8 @@ type pipeline struct {
 	indexer    indexers.ID
 	copies     *transfers.Transfers
 	beforeStep func(context.Context, grabs.Stage)
+	// reconciling is whether the Controller is Reconciling after a restore.
+	reconciling atomic.Bool
 }
 
 func newPipeline(t *testing.T, answers ...answer) *pipeline {
@@ -207,6 +215,9 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 	}
 	p.work = tree.ID
 	p.copies = transfers.New(transfers.ControllerConfig{Library: lib})
+	p.swarm.clients = downloadclients.New(downloadclients.Config{
+		Library: lib, Touch: func(...role.NodeID) {}, Changed: discard[downloadclients.Changed]{}, Uses: grabs.TorrentUses{}, Log: slog.New(slog.DiscardHandler),
+	})
 	p.g = grabs.New(grabs.Config{
 		Library: lib, Works: w, Sealer: sealer,
 		Indexers: indexers.New(indexers.Config{
@@ -216,7 +227,8 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 		Router:    downloadclients.Router{Roster: p.roster, Routes: trackers.Routing{Roster: p.roster}},
 		Transfers: p.copies,
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
-		Changed: p.changed, Log: slog.New(slog.DiscardHandler),
+		Changed: p.changed, BlocklistChanged: discard[grabs.BlocklistChanged]{}, Log: slog.New(slog.DiscardHandler),
+		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return p.reconciling.Load(), nil },
 		BeforeStep: func(ctx context.Context, s grabs.Stage) {
 			if p.beforeStep != nil {
 				p.beforeStep(ctx, s)
