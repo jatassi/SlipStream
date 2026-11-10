@@ -669,16 +669,16 @@ The Work page's grid of wanted cuts and versions. Every cell is in one of seven 
 - **Unreleased:** A hairline ring.
 
 There are three layouts.
-- **One Item.** A full table with a 168px first column. Each cell shows its state chip, its facts and its one action. Each Target header names its sourcing.
-- **Many Items.** One collapsible glass section per level. The header holds the level name, a stacked state bar (180 × 8px), a tally and a level search. A section opens when anything in it is not Met or unreleased. Rows are 36px, with 16px squares in 42 × 30 buttons grouped by Edition. Runs of unreleased Items fold into one line.
-- **Needs you.** A list above the matrix with compact failure cards first, then upgrades and Not found rows. Consecutive identical Items merge into ranges.
+- **One Item.** A full table with a 168px first column. Each cell shows its state chip, its facts, Search while it lacks a file and Manual search, both ghost buttons. A filled cell's Details also holds Manual search. Each Target header names its sourcing.
+- **Many Items.** One collapsible glass section per level. The header holds the level name, a stacked state bar (180 × 8px), a tally, a level search and "…" for Manual search. A section opens when anything in it is not Met or unreleased. Rows are 36px, with 16px squares in 42 × 30 buttons grouped by Edition. Runs of unreleased Items fold into one line.
+- **Needs you.** A list above the matrix with compact failure cards first, then upgrades and Not found rows. A failure card has Manual search beside Search again, and an upgrade row beside its Search. Consecutive identical Items merge into ranges.
 
-Hovering or focusing a square opens a Popover with its detail, and clicking pins it. On phone, one Item becomes one card per Edition, and many Items keep their rows, with each row opening a sheet.
+Hovering or focusing a square opens a Popover with its detail, and clicking pins it. On phone, one Item becomes one card per Edition, each cell's button opening a menu with Search and Manual search, and many Items keep their rows, with each row opening a sheet that holds Manual search after Search.
 
 - **State square:** 16px with a 4px radius, centred in a 42 × 30 plain button that washes on hover like a list row. The button's name is the cell's label and its state's word ("S01E02 Archive, Missing"). A quiet square dims to 55%.
 - **State bar:** 180 × 8 with a 2px radius and 2px gaps, one segment per state in display rank, each as wide as its count. Met is solid white, upgrade a white ring, missing the hatch, live a glow fill, failed solid `fail` and unreleased a hairline ring. A screen reader hears its counts ("1 Failed, 3 Missing, 6 Met").
 - **Cell popover:** A page holds one detail Popover for all its squares, anchored to the square that is hovered, focused or pinned. Hover or focus opens it after 120ms, and once it is open it moves to the next square at once. It hides 160ms after the pointer leaves, unless the pointer moves into it. A click pins it and moves focus into it. A second click on the same square, a press outside or Esc closes it, and Esc returns focus to the square. Rows never mount a Popover of their own.
-- **Many-Items row:** 36px. The `code` field, the label, the availability date, the squares grouped by Edition with Targets in Profile order, then the row switch, Search and "…" for the Item's Details.
+- **Many-Items row:** 36px. The `code` field, the label, the availability date, the squares grouped by Edition with Targets in Profile order, then the row switch, Search and "…" for the Item's Details and Manual search.
 - **Quiet row:** An Item nobody monitors reads "Not monitored" in `ink-3`, and its squares dim.
 - **No longer listed row:** An Item its source withdrew that still has files sits at the end of its level, reading "No longer listed by" and the Work's source ("No longer listed by TVDB"). A withdrawn Item without files doesn't show. Items whose level was withdrawn too, as when the episode order changes, trail every level in one section named the same way, whose header has no switch or Search, a state bar of the cells it holds and a count of its Items ("1 episode").
 

@@ -3,7 +3,8 @@ import { Search01Icon } from "@hugeicons/core-free-icons";
 import type { GrabsSearchScope, WorksContentType } from "../api/gen/model";
 import { useSearchWork } from "../api/gen/query/grabs/grabs";
 import { type Noun, countWords } from "../format";
-import { Button } from "../ui/button";
+import { type ManualScope, openManualSearch } from "../manual/sheet-state";
+import { Button, type ButtonLook, type ButtonSize } from "../ui/button";
 import { toast } from "../ui/toast";
 import { lowered } from "../works/monitoring/labels";
 
@@ -44,6 +45,36 @@ export function SearchAction({ workId, type }: { workId: string; type: WorksCont
       }}
     >
       Search
+    </Button>
+  );
+}
+
+const wholeWork: ManualScope = {};
+
+/** Opens Manual search on a Work, or on the part of it a scope names. */
+export function ManualSearchButton({
+  workId,
+  scope = wholeWork,
+  label,
+  size = "default",
+  look = "default",
+}: {
+  workId: string;
+  scope?: ManualScope;
+  label?: string;
+  size?: ButtonSize;
+  look?: ButtonLook;
+}) {
+  return (
+    <Button
+      size={size}
+      look={look}
+      aria-label={label}
+      onClick={() => {
+        openManualSearch({ workId, scope });
+      }}
+    >
+      Manual search
     </Button>
   );
 }

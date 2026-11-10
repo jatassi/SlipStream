@@ -7,6 +7,7 @@ import type {
   TargetsTarget,
   TargetsWants,
 } from "../../api/gen/model";
+import type { ManualScope } from "../../manual/sheet-state";
 import type { ImpactChange } from "../../targets/use-impact-save";
 
 /** What the matrix's cells read besides their own state, and how it saves. */
@@ -61,6 +62,11 @@ const sourcingWords: {
 };
 
 export const anyCut = "any";
+
+/** A Manual search of one cell alone. */
+export const cellScope = ({ itemId, edition, targetId }: FilesCell): ManualScope => ({
+  cell: { itemId, edition, targetId },
+});
 
 export const cutNameOf =
   (cuts: readonly TargetsCut[]) =>
