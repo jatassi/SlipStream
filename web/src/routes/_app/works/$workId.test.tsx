@@ -20,7 +20,7 @@ const cutRow = () =>
   page.getByRole("table", { name: "Editions and Targets" }).getByRole("row", { name: /^Any cut/u });
 const searchButton = () => page.getByRole("button", { name: "Search", exact: true });
 const notifications = () => page.getByRole("region", { name: "Notifications" });
-const missingRow = "Any cutFrom Profile UltraMissingSearchMissingSearch";
+const missingRow = "Any cutFrom Profile UltraMissingSearchManual searchMissingSearchManual search";
 
 test("the Work page shows its facts, its cells and one column per Target", async () => {
   renderApp({ path: `/works/${orchardId}`, handlers: workServer().handlers });
@@ -99,7 +99,7 @@ test("a cell below its Target's cutoff shows upgradable with its file", async ()
   await expect
     .element(cutRow())
     .toHaveTextContent(
-      "Any cutFrom Profile UltraMissingSearchUpgrade availableHDTV-1080p · 1920×1080 · 500 MBSearch",
+      "Any cutFrom Profile UltraMissingSearchManual searchUpgrade availableHDTV-1080p · 1920×1080 · 500 MBSearchManual search",
     );
 });
 

@@ -2,7 +2,8 @@ import { MoreHorizontalIcon } from "@hugeicons/core-free-icons";
 import type { ReactElement, ReactNode } from "react";
 
 import type { WorksContentType, WorksWorkView } from "../../api/gen/model";
-import { SearchAction } from "../../grabs/search";
+import { ManualSearchButton, SearchAction } from "../../grabs/search";
+import { openManualSearch } from "../../manual/sheet-state";
 import { Button } from "../../ui/button";
 import { IconButton } from "../../ui/icon-button";
 import { Menu, type MenuEntry } from "../../ui/menu";
@@ -37,7 +38,43 @@ const monitoringEntry = (monitoring: HeroActions["monitoring"]): MenuEntry =>
       }
     : { label: "Set monitoring…", onSelect: monitoring.open };
 
-// On phone the actions past Search sit in one action sheet, with Editions as "Edit Editions".
+// On phone the actions past Search sit in one action sheet, Manual search first and Editions as "Edit Editions".
+function PhoneActions({
+  type,
+  work,
+  actions,
+  more,
+}: {
+  type: WorksContentType;
+  work: WorksWorkView;
+  actions: HeroActions;
+  more: ReactElement;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <SearchAction workId={work.id} type={type} />
+      <Menu
+        label={`Actions for ${work.label}`}
+        trigger={more}
+        items={[
+          {
+            label: "Manual search",
+            onSelect: () => {
+              openManualSearch({ workId: work.id });
+            },
+          },
+          "separator",
+          monitoringEntry(actions.monitoring),
+          { label: "Edit Editions", onSelect: actions.openEditions },
+          "separator",
+          ...actions.menu,
+        ]}
+      />
+      {actions.editions(undefined)}
+    </div>
+  );
+}
+
 export function Actions({
   type,
   work,
@@ -49,26 +86,12 @@ export function Actions({
 }) {
   const more = <IconButton icon={MoreHorizontalIcon} label={`More actions for ${work.label}`} />;
   if (useShell() === "phone") {
-    return (
-      <div className="flex items-center gap-2">
-        <SearchAction workId={work.id} type={type} />
-        <Menu
-          label={`Actions for ${work.label}`}
-          trigger={more}
-          items={[
-            monitoringEntry(actions.monitoring),
-            { label: "Edit Editions", onSelect: actions.openEditions },
-            "separator",
-            ...actions.menu,
-          ]}
-        />
-        {actions.editions(undefined)}
-      </div>
-    );
+    return <PhoneActions type={type} work={work} actions={actions} more={more} />;
   }
   return (
     <div className="flex flex-wrap items-center gap-3">
       <SearchAction workId={work.id} type={type} />
+      <ManualSearchButton workId={work.id} />
       {actions.editions(
         <Button>
           Editions <span className="font-normal text-ink-3">{actions.editionsFrom}</span>

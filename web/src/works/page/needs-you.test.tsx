@@ -111,7 +111,9 @@ test("an upgrade names its Targets with a way to search", async () => {
   const upgrades = needsYou.getByRole("list", { name: "Upgrades available" });
   await expect
     .element(upgrades)
-    .toHaveTextContent("Upgrade available for 1080pA better release would replace the file.Search");
+    .toHaveTextContent(
+      "Upgrade available for 1080pA better release would replace the file.SearchManual search",
+    );
 });
 
 test("nothing needing the Admin shows no Needs you", async () => {

@@ -2,14 +2,15 @@ import { useMemo, useState } from "react";
 
 import type { WorksContentType, WorksWorkView } from "../../api/gen/model";
 import { useStartSearch } from "../../grabs/search";
-import { CellPopover, useCellPopover } from "../../ui/cell-popover";
+import { openManualSearch } from "../../manual/sheet-state";
+import { CellPopover, type CellPopoverState, useCellPopover } from "../../ui/cell-popover";
 import { Section } from "../../ui/section";
 import { useShell } from "../../ui/shell-context";
-import type { MatrixShown } from "../page/matrix-model";
+import { type MatrixShown, cellScope } from "../page/matrix-model";
 import type { WorkReads } from "../page/reads";
 import { CellDetail, type PoppedCell, cellLabel } from "./cell-detail";
-import { ItemDetails } from "./item-details";
 // oxlint-disable-next-line import/max-dependencies -- the section composes its rows, cell popover, Item Details and phone sheet
+import { ItemDetails } from "./item-details";
 import { ItemSheet } from "./item-sheet";
 import { type ItemView, type LevelView, levelContext, levelsOf } from "./model";
 import { levelRows } from "./rows";
@@ -91,6 +92,9 @@ function useActions(type: WorksContentType, workId: string, toggle: (level: Leve
     details: (view) => {
       setPicked({ id: view.item.id, as: "details" });
     },
+    manual: (view) => {
+      openManualSearch({ workId, scope: { itemIds: [view.item.id] } });
+    },
     open: (view) => {
       setPicked({ id: view.item.id, as: "sheet" });
     },
@@ -103,12 +107,39 @@ function useActions(type: WorksContentType, workId: string, toggle: (level: Leve
     search: (level) => {
       search.start(workId, { levelIds: [level.id], itemIds: [] });
     },
+    manual: (level) => {
+      openManualSearch({ workId, scope: { levelIds: [level.id] } });
+    },
   };
   // The sheet's Details closes the sheet after it opens Details, so each closes only itself.
   const close = (as: Picked["as"]) => () => {
     setPicked((prev) => (prev?.as === as ? undefined : prev));
   };
   return { picked, close, rowActions, headerActions };
+}
+
+/** The squares' one popover, whose Manual search closes it as the sheet opens. */
+function SquarePopover({
+  popover,
+  shown,
+}: {
+  popover: CellPopoverState<PoppedCell>;
+  shown: MatrixShown;
+}) {
+  return (
+    <CellPopover state={popover} label={cellLabel}>
+      {(popped) => (
+        <CellDetail
+          popped={popped}
+          shown={shown}
+          onManualSearch={() => {
+            popover.controls.close();
+            openManualSearch({ workId: shown.work.id, scope: cellScope(popped.cell) });
+          }}
+        />
+      )}
+    </CellPopover>
+  );
 }
 
 /**
@@ -138,9 +169,7 @@ export function LevelsSection({
         rows={rows}
         drawn={{ phone, context, controls: popover.controls, rowActions, headerActions }}
       />
-      <CellPopover state={popover} label={cellLabel}>
-        {(popped) => <CellDetail popped={popped} shown={shown} />}
-      </CellPopover>
+      <SquarePopover popover={popover} shown={shown} />
       <ItemDetails
         type={type}
         view={picked?.as === "details" ? found?.view : undefined}
