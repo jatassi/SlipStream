@@ -117,6 +117,9 @@ type PlanPick struct {
 type Choice struct {
 	Pin     Pin
 	Release ReleaseDetails
+	// Cells is the cells its row fills once it is pinned, the first
+	// leading.
+	Cells   []files.CellKey
 	Lifts   []Worded
 	Edition targets.Edition
 	// Note is "From TorrentLeech, which automatic search doesn't use."
@@ -205,8 +208,11 @@ type GrabOffer struct {
 	// it now. A Release on the Blocklist is grabbable only with Unblock.
 	Grabbable bool
 	Outcome   string
-	Lifts     []Worded
-	Edition   targets.Edition
+	// Cells is the cells it fills, the first leading, any a Grab
+	// downloads among them.
+	Cells   []files.CellKey
+	Lifts   []Worded
+	Edition targets.Edition
 	// Cancels is each Grab downloading a cell it would also fill.
 	Cancels []HeldCell
 	// Waits is "TorrentLeech is at its grab limit until 14:05."

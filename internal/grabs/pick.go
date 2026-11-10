@@ -26,6 +26,9 @@ var Liftable = []targets.ReasonCode{targets.WrongTitle, targets.SizeBelow, targe
 // it.
 type ManualPick struct {
 	Release ReleaseRef
+	// Cells is the cells the row or the Release said it fills, the first
+	// leading.
+	Cells []files.CellKey
 	// Lifts is the soft refusals the row said it gets past, by code and
 	// Target.
 	Lifts []LiftKey
@@ -130,8 +133,8 @@ type grabbing struct {
 }
 
 // chosen is a pick judged again: the Release as[group] of runs[run], the
-// cells it fills, the first leading, and how it stands there: its kind
-// and Edition at the first cell, and every lift across them.
+// cells it fills in Want order, and how it stands there: its kind and
+// Edition at the cell leading them, and every lift across them.
 type chosen struct {
 	run, group int
 	cells      []int
@@ -228,9 +231,9 @@ func (g *grabbing) refuse(c chosen, e *PickError) {
 	}
 }
 
-// choose is pick judged again in the sheet: the cells it fills now, led
-// by the first cell of its Edition its Release stands at, auto or lifted
-// or on the Blocklist, that the plan walks or an unfinished Grab holds.
+// choose is pick judged again in the sheet: the cells it named, which
+// it must fill now as the plan fills them, its first leading at its
+// Edition. Each is one the plan walks or an unfinished Grab holds.
 func (s sheet) choose(p ManualPick) (chosen, *PickError) {
 	r := slices.IndexFunc(s.runs, func(rs runSheet) bool { return rs.run.ID == p.Release.Run })
 	if r < 0 {
@@ -241,50 +244,44 @@ func (s sheet) choose(p ManualPick) (chosen, *PickError) {
 	if grp < 0 {
 		return chosen{}, changedPick
 	}
-	lead, e := s.lead(rs, grp, p.Edition)
-	if e != nil {
-		return chosen{}, e
+	if rs.refusedAtEach(grp) {
+		return chosen{}, &PickError{Code: NotGrabbable, Words: s.refusal(rs, grp)}
 	}
-	at := rs.st[grp][lead]
-	c := chosen{run: r, group: grp, stance: stance{kind: at.kind, edition: at.edition}}
-	for k, cell := range rs.item {
-		st := rs.st[grp][k]
-		if !rs.open(k) || cell.Edition != rs.item[lead].Edition || st.kind != standsAuto && (st.kind != at.kind || at.kind == standsAuto) {
-			continue
-		}
-		c.cells = append(c.cells, k)
-		for _, l := range st.lifts {
-			if !slices.Contains(c.stance.lifts, l) {
-				c.stance.lifts = append(c.stance.lifts, l)
-			}
+	named := make([]int, len(p.Cells))
+	for i, key := range p.Cells {
+		named[i] = slices.IndexFunc(rs.item, func(c files.Cell) bool { return keyOf(c) == key })
+		if named[i] < 0 || !rs.open(named[i]) {
+			return chosen{}, changedPick
 		}
 	}
-	return c, nil
+	if len(named) == 0 {
+		return chosen{}, changedPick
+	}
+	if at := rs.st[grp][named[0]]; at.kind == standsRefused || at.edition != p.Edition {
+		return chosen{}, changedPick
+	}
+	cells, st := rs.fills(grp, named[0], func(k int) bool { return slices.Contains(named, k) })
+	if len(cells) != len(named) {
+		return chosen{}, changedPick
+	}
+	slices.Sort(cells)
+	return chosen{run: r, group: grp, cells: cells, stance: st}, nil
 }
 
-// lead is the first cell rs.as[grp] stands at as edition, of those open:
-// not_grabbable when it stands refused at each, pick_changed when it
-// stands at none.
-func (s sheet) lead(rs runSheet, grp int, edition targets.Edition) (int, *PickError) {
-	opened, stands := false, false
+// refusedAtEach reports whether as[g] stands refused at each cell of rs
+// a pick may fill, when there is one.
+func (rs runSheet) refusedAtEach(g int) bool {
+	opened := false
 	for k := range rs.item {
 		if !rs.open(k) {
 			continue
 		}
+		if rs.st[g][k].kind != standsRefused {
+			return false
+		}
 		opened = true
-		st := rs.st[grp][k]
-		if st.kind == standsRefused {
-			continue
-		}
-		if st.edition == edition {
-			return k, nil
-		}
-		stands = true
 	}
-	if opened && !stands {
-		return -1, &PickError{Code: NotGrabbable, Words: s.refusal(rs, grp)}
-	}
-	return -1, changedPick
+	return opened
 }
 
 // open reports whether a pick may fill cell k: the plan walks it or an

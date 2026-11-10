@@ -266,7 +266,7 @@ func (s sheet) plan() (ManualPlan, []Pin, error) {
 		walked += len(rs.walk)
 		pins = append(pins, rs.livePins()...)
 		p.Held = append(p.Held, s.heldIn(rs)...)
-		for _, r := range rs.rows {
+		for i, r := range rs.rows {
 			cause := ""
 			if r.group < 0 {
 				lead := rs.item[r.cells[0]]
@@ -281,7 +281,7 @@ func (s sheet) plan() (ManualPlan, []Pin, error) {
 				grabs++
 				filled += len(r.cells)
 			}
-			row, err := s.row(rs, r, cause)
+			row, err := s.row(rs, r, cause, rs.freeBefore(i))
 			if err != nil {
 				return ManualPlan{}, nil, err
 			}
@@ -310,6 +310,18 @@ type gapKey struct {
 	cause string
 }
 
+// freeBefore is whether each cell is one a row may fill that no row of
+// rs before row i fills.
+func (rs runSheet) freeBefore(i int) func(int) bool {
+	taken := make([]bool, len(rs.item))
+	for _, r := range rs.rows[:i] {
+		for _, k := range r.cells {
+			taken[k] = true
+		}
+	}
+	return func(k int) bool { return !taken[k] && rs.fill[k] }
+}
+
 // livePins is the pins of rs the plan kept.
 func (rs runSheet) livePins() []Pin {
 	var out []Pin
@@ -330,8 +342,9 @@ func (s sheet) heldIn(rs runSheet) []HeldCell {
 	return out
 }
 
-// row is r of rs in words, cause the plain cause of a gap.
-func (s sheet) row(rs runSheet, r planned, cause string) (Row, error) {
+// row is r of rs in words, cause the plain cause of a gap and free the
+// cells no row before it fills.
+func (s sheet) row(rs runSheet, r planned, cause string, free func(int) bool) (Row, error) {
 	lead := r.cells[0]
 	row := Row{Pinned: r.pinned, Failure: rs.failure[lead], Cause: cause}
 	cs := make([]files.Cell, len(r.cells))
@@ -351,7 +364,7 @@ func (s sheet) row(rs runSheet, r planned, cause string) (Row, error) {
 		return Row{}, err
 	}
 	for _, g := range choices {
-		row.Choices = append(row.Choices, s.choice(rs, lead, g))
+		row.Choices = append(row.Choices, s.choice(rs, lead, g, free))
 	}
 	return row, nil
 }
@@ -425,12 +438,13 @@ func (rs runSheet) targetOf(id targets.TargetID) *targets.Target {
 	return nil
 }
 
-// choice is as[g] offered at cell w of rs.
-func (s sheet) choice(rs runSheet, w, g int) Choice {
-	st := rs.st[g][w]
+// choice is as[g] offered at cell w of rs, pinned there filling what it
+// fills of the cells free.
+func (s sheet) choice(rs runSheet, w, g int, free func(int) bool) Choice {
+	cells, st := rs.fills(g, w, free)
 	c := Choice{
 		Pin:     Pin{Cell: keyOf(rs.item[w]), Release: ReleaseRef{Run: rs.run.ID, Position: rs.as[g].at}},
-		Release: s.details(rs, g), Lifts: rs.worded(st.lifts, g), Edition: st.edition,
+		Release: s.details(rs, g), Cells: rs.keys(cells), Lifts: rs.worded(st.lifts, g), Edition: st.edition,
 	}
 	p, _, _ := rs.offer(g, w)
 	if st, ok := s.in.standings[p.Release.Indexer]; ok && !st.Automatic {
@@ -554,6 +568,26 @@ func wordsOf(ws []Worded) string {
 		out[i] = w.Words
 	}
 	return strings.Join(out, " ")
+}
+
+// standsOpen is the first cell of rs a pick may fill that as[g] stands
+// at, -1 for none.
+func (rs runSheet) standsOpen(g int) int {
+	for k := range rs.item {
+		if rs.open(k) && rs.st[g][k].kind != standsRefused {
+			return k
+		}
+	}
+	return -1
+}
+
+// keys is the keys of rs's cells cs.
+func (rs runSheet) keys(cs []int) []files.CellKey {
+	out := make([]files.CellKey, len(cs))
+	for i, k := range cs {
+		out[i] = keyOf(rs.item[k])
+	}
+	return out
 }
 
 // standsFirst is the first cell of rs as[g] stands at, -1 for none.
@@ -856,18 +890,16 @@ func (s sheet) offer(rs runSheet, g, f int) Offer {
 	if rank, ok := v.v.Rank(); ok {
 		o.Quality = len(rs.item[f].Target.Tiers) - int(rank)
 	}
-	lead := rs.st[g][f]
-	o.Grab.Lifts, o.Grab.Edition = rs.worded(lead.lifts, g), lead.edition
 	var fills []files.Cell
-	for k, c := range rs.item {
-		st := rs.st[g][k]
-		if c.Edition != rs.item[f].Edition || st.kind == standsRefused || st.kind != standsAuto && st.kind != lead.kind {
-			continue
-		}
-		if h, ok := rs.held[k]; ok {
-			o.Grab.Cancels = append(o.Grab.Cancels, heldCell(c, h))
-		} else if slices.Contains(walked, c.State) {
-			fills = append(fills, c)
+	if w := rs.standsOpen(g); w >= 0 {
+		cells, st := rs.fills(g, w, rs.open)
+		o.Grab.Cells, o.Grab.Lifts, o.Grab.Edition = rs.keys(cells), rs.worded(st.lifts, g), st.edition
+		for _, k := range cells {
+			if h, ok := rs.held[k]; ok {
+				o.Grab.Cancels = append(o.Grab.Cancels, heldCell(rs.item[k], h))
+			} else {
+				fills = append(fills, rs.item[k])
+			}
 		}
 	}
 	if len(fills) > 0 {
@@ -880,7 +912,7 @@ func (s sheet) offer(rs runSheet, g, f int) Offer {
 			o.Grab.Waits = e.Sentence
 		}
 	}
-	o.Grab.Grabbable = ok && (len(fills) > 0 || len(o.Grab.Cancels) > 0)
+	o.Grab.Grabbable = ok && len(o.Grab.Cells) > 0
 	return o
 }
 

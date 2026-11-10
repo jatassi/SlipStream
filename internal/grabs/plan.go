@@ -117,33 +117,40 @@ func (in planIn) offer(g, w int) (Pick, bool, error) {
 	return p, ok, err
 }
 
-// row is the row of as[g], offered as p, led by cell w: every cell it
-// may fill no row fills yet, of w's Edition, where it stands as it does
-// at w or auto. It marks those cells taken.
+// row is the row of as[g], offered as p, led by cell w: what it fills
+// of the cells it may fill that no row fills yet. It marks them taken.
 func (in planIn) row(w, g int, p Pick, taken []bool) planned {
-	lead := in.st[g][w]
-	r := planned{group: g, pick: p, stance: stance{kind: lead.kind, edition: lead.edition}}
-	for k, cell := range in.item {
-		if taken[k] || k != w && (!in.fill[k] || cell.Edition != in.item[w].Edition) {
-			continue
-		}
-		s := in.st[g][k]
-		if s.kind != standsAuto && (s.kind != lead.kind || lead.kind == standsAuto) {
-			continue
-		}
-		if k == w {
-			r.cells = append([]int{k}, r.cells...)
-		} else {
-			r.cells = append(r.cells, k)
-		}
-		for _, l := range s.lifts {
-			if !slices.Contains(r.stance.lifts, l) {
-				r.stance.lifts = append(r.stance.lifts, l)
-			}
-		}
+	r := planned{group: g, pick: p}
+	r.cells, r.stance = in.fills(g, w, func(k int) bool { return !taken[k] && in.fill[k] })
+	for _, k := range r.cells {
 		taken[k] = true
 	}
 	return r
+}
+
+// fills is the cells as[g] fills led by cell w, of those free: w first,
+// then each other free cell of w's Edition where it stands auto, or as it
+// stands at w when that isn't auto. Its stance is its kind and Edition at
+// w with every lift across those cells. A row, a pick and an offer all
+// read it, so a Grab fills and gets past what the sheet showed.
+func (in planIn) fills(g, w int, free func(k int) bool) ([]int, stance) {
+	lead := in.st[g][w]
+	out, s := []int{w}, stance{kind: lead.kind, edition: lead.edition}
+	for k, cell := range in.item {
+		st := in.st[g][k]
+		if k != w && (!free(k) || cell.Edition != in.item[w].Edition || st.kind != standsAuto && (st.kind != lead.kind || lead.kind == standsAuto)) {
+			continue
+		}
+		if k != w {
+			out = append(out, k)
+		}
+		for _, l := range st.lifts {
+			if !slices.Contains(s.lifts, l) {
+				s.lifts = append(s.lifts, l)
+			}
+		}
+	}
+	return out, s
 }
 
 // waitsAt is the refusal of the Indexer of the best Release standing

@@ -17,7 +17,7 @@ func rowPicks(v grabs.ManualView) []grabs.ManualPick {
 	var out []grabs.ManualPick
 	for _, r := range v.Plan.Rows {
 		if p := r.Pick; p != nil {
-			out = append(out, picked(p.Release, p.Lifts))
+			out = append(out, picked(p.Release, r.Cells, p.Lifts))
 		}
 	}
 	return out
@@ -94,7 +94,7 @@ func TestAReleaseShowsEveryLiftItsGrabNeeds(t *testing.T) {
 		if got := liftsOf(c.Lifts); !slices.Equal(got, want) {
 			t.Fatalf("Other choices offers %s getting past %q, want %q", lq, got, want)
 		}
-		made(t, a.grabbed(t, v, picked(o.Release, o.Grab.Lifts))[0])
+		made(t, a.grabbed(t, v, picked(o.Release, o.Grab.Cells, o.Grab.Lifts))[0])
 	})
 }
 

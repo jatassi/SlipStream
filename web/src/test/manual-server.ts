@@ -26,6 +26,7 @@ export const filmReleases: GrabsOffer[] = [
     grab: {
       grabbable: true,
       outcome: "It gets you 1080p for The Quiet Orchard (2021).",
+      cells: ["cell-orchard-1080p"],
       lifts: [],
       edition: null,
       cancels: [],
@@ -39,6 +40,7 @@ export const filmReleases: GrabsOffer[] = [
     grab: {
       grabbable: true,
       outcome: "It gets you 1080p for The Quiet Orchard (2021).",
+      cells: ["cell-orchard-1080p"],
       lifts: lowScoreChoice.lifts,
       edition: null,
       cancels: [],
@@ -52,6 +54,7 @@ export const filmReleases: GrabsOffer[] = [
     grab: {
       grabbable: true,
       outcome: "It gets you 1080p for The Quiet Orchard (2021).",
+      cells: ["cell-orchard-1080p"],
       lifts: [],
       edition: null,
       cancels: [],
@@ -69,6 +72,7 @@ export const filmReleases: GrabsOffer[] = [
     quality: 0,
     grab: {
       grabbable: false,
+      cells: [],
       lifts: [],
       edition: null,
       cancels: [],

@@ -5168,6 +5168,13 @@
       "GrabsChoice": {
         "additionalProperties": false,
         "properties": {
+          "cells": {
+            "description": "The cells its row fills once it is pinned, the row's first leading",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "edition": {
             "description": "The Edition it is grabbed as; null unless that is another Edition than its cut's",
             "type": [
@@ -5196,6 +5203,7 @@
         "required": [
           "pin",
           "release",
+          "cells",
           "lifts",
           "edition"
         ],
@@ -5685,6 +5693,13 @@
             },
             "type": "array"
           },
+          "cells": {
+            "description": "The cells a Grab of it alone fills, any a Grab downloads among them. Send them back as the pick's cells.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "edition": {
             "description": "The Edition it is grabbed as; null unless that is another Edition than its cut's",
             "type": [
@@ -5717,6 +5732,7 @@
         },
         "required": [
           "grabbable",
+          "cells",
           "lifts",
           "edition",
           "cancels"
@@ -5730,6 +5746,14 @@
             "description": "The Grab downloading a cell it fills, canceled first",
             "format": "uuid",
             "type": "string"
+          },
+          "cells": {
+            "description": "The cells the row or the Release showed",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "type": "array"
           },
           "client": {
             "$ref": "#/components/schemas/GrabsClientChoice",
@@ -5758,6 +5782,7 @@
         },
         "required": [
           "releaseId",
+          "cells",
           "lifts"
         ],
         "type": "object"
@@ -6372,6 +6397,13 @@
       "GrabsPlanPick": {
         "additionalProperties": false,
         "properties": {
+          "cells": {
+            "description": "The cells it fills, its row's first leading. Send them back as the pick's cells.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "edition": {
             "description": "The Edition it is grabbed as; null unless that is another Edition than its cut's",
             "type": [
@@ -6396,6 +6428,7 @@
         },
         "required": [
           "release",
+          "cells",
           "lifts",
           "edition",
           "routed"

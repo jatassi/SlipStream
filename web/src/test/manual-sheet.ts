@@ -20,6 +20,7 @@ export const rowOf = (
 ) => ({
   key,
   pick: {
+    cells: [key],
     release: release(
       `${runId}.${n}`,
       `Shelf.S01E0${n}.1080p.WEB-DL-${words}`,
@@ -44,7 +45,7 @@ export const swapIn = release(
 export const twoGrabs = (pins: readonly string[]): GrabsManualSearch => {
   const swapped = pins.includes("pin-e02-rarbg");
   const second = rowOf("cell-e02", "FLUX", 2, [
-    { pin: "pin-e02-rarbg", release: swapIn, lifts: [], edition: null },
+    { pin: "pin-e02-rarbg", release: swapIn, cells: ["cell-e02"], lifts: [], edition: null },
   ]);
   return {
     ...filmPlan,

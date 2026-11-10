@@ -8,6 +8,7 @@ import (
 	"testing/synctest"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/grabs/grabstest"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -16,9 +17,10 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// picked is the pick of r, getting past lifts, as the sheet sends it.
-func picked(r grabs.ReleaseDetails, lifts []grabs.Worded) grabs.ManualPick {
-	p := grabs.ManualPick{Release: r.Ref}
+// picked is the pick of r, filling cells and getting past lifts, as the
+// sheet sends it.
+func picked(r grabs.ReleaseDetails, cells []files.CellKey, lifts []grabs.Worded) grabs.ManualPick {
+	p := grabs.ManualPick{Release: r.Ref, Cells: cells}
 	for _, l := range lifts {
 		p.Lifts = append(p.Lifts, grabs.LiftKey{Code: l.Code, Target: l.Target})
 	}
@@ -28,11 +30,11 @@ func picked(r grabs.ReleaseDetails, lifts []grabs.Worded) grabs.ManualPick {
 // rowPick is the pick of the plan's first row.
 func rowPick(t *testing.T, v grabs.ManualView) grabs.ManualPick {
 	t.Helper()
-	p := v.Plan.Rows[0].Pick
-	if p == nil {
-		t.Fatalf("the plan's first row grabs nothing: %+v", v.Plan.Rows[0])
+	r := v.Plan.Rows[0]
+	if r.Pick == nil {
+		t.Fatalf("the plan's first row grabs nothing: %+v", r)
 	}
-	return picked(p.Release, p.Lifts)
+	return picked(r.Pick.Release, r.Cells, r.Pick.Lifts)
 }
 
 // choice is the pick of the first row's other choice titled title.
@@ -40,7 +42,7 @@ func choice(t *testing.T, v grabs.ManualView, title string) (grabs.ManualPick, g
 	t.Helper()
 	for _, c := range v.Plan.Rows[0].Choices {
 		if c.Release.Title == title {
-			return picked(c.Release, c.Lifts), c
+			return picked(c.Release, c.Cells, c.Lifts), c
 		}
 	}
 	t.Fatalf("the first row has no choice %s: %+v", title, v.Plan.Rows[0].Choices)
@@ -244,7 +246,7 @@ func TestAHardRefusedPickIsNotGrabbable(t *testing.T) {
 			t.Fatal(err)
 		}
 		i := slices.IndexFunc(offers, func(o grabs.Offer) bool { return o.Release.Title == hd720 })
-		refusedWith(t, a.grabbed(t, v, picked(offers[i].Release, nil))[0], grabs.NotGrabbable, "HD doesn't accept WEBDL-720p.")
+		refusedWith(t, a.grabbed(t, v, picked(offers[i].Release, offers[i].Grab.Cells, nil))[0], grabs.NotGrabbable, "HD doesn't accept WEBDL-720p.")
 	})
 }
 
