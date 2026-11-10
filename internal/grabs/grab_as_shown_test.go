@@ -124,3 +124,35 @@ func TestARowPinnedAfterACellNothingFillsGrabsTheCellsItShows(t *testing.T) {
 		made(t, a.grabbed(t, v, rowPicks(v)...)[0])
 	})
 }
+
+func TestALaterRowPinnedToAReleaseThatAlsoFillsAnEarlierCellGrabsBothRows(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		const other = "The.Attic.2020.1080p.WEB-DL-OTHER"
+		a := newTwinWorld(t, twin{
+			goals: []targets.Spec{
+				{Name: "Disc", Scores: targets.Scores{Increment: 1}, Cutoff: rel.Bluray1080p, Tiers: [][]rel.Quality{{rel.Bluray1080p}, {rel.WEBDL1080p}}},
+				{Name: "Web", Scores: targets.Scores{Increment: 1}, Cutoff: rel.WEBDL1080p, Tiers: [][]rel.Quality{{rel.WEBDL1080p}}},
+			},
+			sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{listing(bluRay, 9, "a"), listing(webDL, 9, "b"), listing(other, 3, "c")}}},
+		})
+		v := a.searchedByHand(t)
+		i := slices.IndexFunc(v.Plan.Rows[1].Choices, func(c grabs.Choice) bool { return c.Release.Title == other })
+		if len(v.Plan.Rows) != 2 || i < 0 {
+			t.Fatalf("the plan is %+v, want the Web row offering %s", v.Plan.Rows, other)
+		}
+		v, err := a.g.ManualSearch(t.Context(), identity.Admin{}, a.work, []grabs.Pin{v.Plan.Rows[1].Choices[i].Pin})
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := v.Plan.Rows[1]
+		if r.Pick == nil || r.Pick.Release.Title != other || r.Outcome != "It gets you Web for T01." {
+			t.Fatalf("the pinned row is %+v, want %s for Web alone", r, other)
+		}
+		for _, r := range a.grabbed(t, v, rowPicks(v)...) {
+			made(t, r)
+		}
+		if n := a.grabRows(t); n != 2 {
+			t.Fatalf("grabbing the plan made %d Grabs, want 2", n)
+		}
+	})
+}
