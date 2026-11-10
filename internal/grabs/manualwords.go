@@ -662,10 +662,12 @@ func (s sheet) folded() Folded {
 }
 
 // foldKey is what folded Releases group by: the refusal, and for
-// quality_not_in_target the Quality's name, "" when none was read.
+// quality_not_in_target the Quality's name, "" when none was read. held
+// is a Release only cells a Grab holds would take, with no refusal.
 type foldKey struct {
 	code    targets.ReasonCode
 	quality string
+	held    bool
 }
 
 // foldedWhy is why the plan's cells take as[g] neither auto nor lifted.
@@ -684,25 +686,33 @@ func (rs runSheet) foldedWhy(g int) (foldKey, bool) {
 	if i := slices.IndexFunc(a.refusals, func(r Reason) bool { return r.Code.Hard() || r.Code == targets.CoversMore }); i >= 0 {
 		return foldKey{code: a.refusals[i].Code}, true
 	}
-	return foldedAt(a, sts), true
+	return rs.foldedAt(a, sts), true
 }
 
 // foldedAt is why no cell takes a, sts being how it stands at each:
 // quality_not_in_target when no cell's Target accepts its Quality, else
-// the first reason of the first cell whose Target does.
-func foldedAt(a assessed, sts []stance) foldKey {
-	accepted := len(sts) == 0
-	for _, st := range sts {
+// the first reason of the first cell whose Target does. A Release only
+// cells a Grab holds would take folds as held.
+func (rs runSheet) foldedAt(a assessed, sts []stance) foldKey {
+	accepted, held := len(sts) == 0, false
+	for k, st := range sts {
 		if slices.ContainsFunc(st.why, func(r Reason) bool { return r.Code == targets.QualityNotInTarget }) {
 			continue
 		}
 		if len(st.why) > 0 {
 			return foldKey{code: st.why[0].Code}
 		}
-		accepted = true
+		if _, ok := rs.held[k]; ok {
+			held = true
+		} else {
+			accepted = true
+		}
 	}
-	if accepted {
+	switch {
+	case accepted:
 		return foldKey{code: targets.NotAnUpgrade}
+	case held:
+		return foldKey{held: true}
 	}
 	key := foldKey{code: targets.QualityNotInTarget}
 	if q, ok := a.read.Facts.Quality.Get(); ok {
@@ -729,6 +739,9 @@ func sameOf(r indexers.Release) listingKey {
 // foldWords is n Releases folded for key in a sentence.
 func (s sheet) foldWords(key foldKey, n int) string {
 	item := strings.ToLower(s.in.nouns.Item.One)
+	if key.held {
+		return plural(n, "1 would fill a cell", "%d would fill cells") + " a Grab is already downloading."
+	}
 	switch key.code {
 	case targets.QualityNotInTarget:
 		if key.quality == "" {
