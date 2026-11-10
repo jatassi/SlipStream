@@ -93,7 +93,7 @@ var (
 func newStreaming(t *testing.T, sites ...twinSite) streaming {
 	t.Helper()
 	s := streaming{node: &counted{Node: &indexerstest.Node{}, calls: map[string]int{}}, log: &errorLog{}}
-	s.atticWorld = newAttic(t, s.node, sites, slog.New(s.log))
+	s.atticWorld = newAttic(t, s.node, sites, nil, slog.New(s.log))
 	for _, site := range sites {
 		after := 5 * time.Second
 		if site.manualOnly {

@@ -41,6 +41,8 @@ import (
 type twin struct {
 	name  string
 	sites []twinSite
+	// goals is the Work's Targets in Profile order, HD alone when nil.
+	goals []targets.Spec
 	// grabbed is the Release automatic search grabs, as "<site>
 	// <title>", empty when it grabs none.
 	grabbed string
@@ -151,7 +153,7 @@ func (*attic) Categories() []newznab.ID { return newznab.Family(2000) }
 func newTwinWorld(t *testing.T, tw twin) atticWorld {
 	t.Helper()
 	answers := scripted{}
-	a := newAttic(t, answers, tw.sites, slog.New(slog.DiscardHandler))
+	a := newAttic(t, answers, tw.sites, tw.goals, slog.New(slog.DiscardHandler))
 	for _, site := range tw.sites {
 		answers[a.ids[site.name].String()] = site
 	}
@@ -159,9 +161,9 @@ func newTwinWorld(t *testing.T, tw twin) atticWorld {
 }
 
 // atticWorld is a library holding The Attic, monitored, rooted and
-// wanting HD: Bluray-1080p over WEB-DL 1080p, with an Indexer for each
-// site, whose searches remote answers. g is the first Grabs opened over
-// it.
+// wanting its goals, or HD (Bluray-1080p over WEB-DL 1080p) when none
+// are given, with an Indexer for each site, whose searches remote
+// answers. g is the first Grabs opened over it.
 type atticWorld struct {
 	g     *grabs.Grabs
 	lib   library
@@ -171,7 +173,13 @@ type atticWorld struct {
 	names map[indexers.ID]string
 }
 
-func newAttic(t *testing.T, remote searching.Remote, sites []twinSite, log *slog.Logger) atticWorld {
+// hdOnly is The Attic's Target when a world names none.
+var hdOnly = []targets.Spec{{
+	Scores: targets.Scores{Increment: 1}, Name: "HD", Cutoff: rel.Bluray1080p,
+	Tiers: [][]rel.Quality{{rel.Bluray1080p}, {rel.WEBDL1080p}},
+}}
+
+func newAttic(t *testing.T, remote searching.Remote, sites []twinSite, goals []targets.Spec, log *slog.Logger) atticWorld {
 	t.Helper()
 	ctx := t.Context()
 	lib := storagetest.Library(t, schemas()...)
@@ -185,26 +193,30 @@ func newAttic(t *testing.T, remote searching.Remote, sites []twinSite, log *slog
 	if err != nil {
 		t.Fatal(err)
 	}
-	goals, err := targets.Open(ctx, targets.Config{
+	wanted, err := targets.Open(ctx, targets.Config{
 		Library: lib, Works: w, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: fx}, Changed: discard[targets.Changed]{}, Formats: formats.DefaultTimings(),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	hd, err := goals.CreateTarget(ctx, identity.Admin{}, targets.Spec{
-		Scores: targets.Scores{Increment: 1}, Name: "HD", Cutoff: rel.Bluray1080p,
-		Tiers: [][]rel.Quality{{rel.Bluray1080p}, {rel.WEBDL1080p}},
+	if goals == nil {
+		goals = hdOnly
+	}
+	var entries []targets.Entry
+	for _, spec := range goals {
+		made, err := wanted.CreateTarget(ctx, identity.Admin{}, spec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		entries = append(entries, targets.Entry{Target: made.ID, Sourcing: targets.Download})
+	}
+	profile, err := wanted.CreateProfile(ctx, identity.Admin{}, targets.ProfileSpec{
+		Name: "Standard", ContentType: contenttypetest.ID, Entries: entries,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	profile, err := goals.CreateProfile(ctx, identity.Admin{}, targets.ProfileSpec{
-		Name: "Standard", ContentType: contenttypetest.ID, Entries: []targets.Entry{{Target: hd.ID, Sourcing: targets.Download}},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := goals.MakeDefault(ctx, identity.Admin{}, profile.ID); err != nil {
+	if _, err := wanted.MakeDefault(ctx, identity.Admin{}, profile.ID); err != nil {
 		t.Fatal(err)
 	}
 	fx.Put("w1", contenttypetest.Record{Tree: works.Fetched{Label: "The Attic", Children: []works.Entry{
@@ -228,7 +240,7 @@ func newAttic(t *testing.T, remote searching.Remote, sites []twinSite, log *slog
 	}
 	r := &roster{node: home, changed: make(chan struct{})}
 	router := downloadclients.Router{Roster: r, Routes: trackers.Routing{Roster: r}}
-	shelf, err := files.Open(ctx, files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: r.InStep, Router: router}, Today: time.Now})
+	shelf, err := files.Open(ctx, files.Config{Library: lib, Targets: wanted, Grabs: grabs.GrabCells{InStep: r.InStep, Router: router}, Today: time.Now})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +277,7 @@ func newAttic(t *testing.T, remote searching.Remote, sites []twinSite, log *slog
 	}
 	rootstest.Root(t, lib, home, contenttypetest.ID, t.TempDir())
 	world.cfg = grabs.Config{
-		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: shelf, Indexers: xs,
+		Library: lib, Sealer: sealer, Works: w, Targets: wanted, Files: shelf, Indexers: xs,
 		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Names: map[works.TypeID]rel.Names{contenttypetest.ID: dated{}},
 		Roster: r, Downloads: &swarm{}, Roots: library, Router: router,
 		Timings: grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
