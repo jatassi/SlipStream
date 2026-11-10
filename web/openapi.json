@@ -5106,7 +5106,10 @@
               "transfer_failed",
               "import_failed",
               "node_written_off",
-              "root_changed"
+              "root_changed",
+              "canceled",
+              "blocklisted",
+              "release_fault"
             ],
             "type": "string"
           },
@@ -5629,7 +5632,7 @@
             "type": "string"
           },
           "code": {
-            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's.",
+            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
             "enum": [
               "wrong_work",
               "wrong_item",
@@ -5643,7 +5646,8 @@
               "size_not_checked",
               "score_below_minimum",
               "not_an_upgrade",
-              "repack_other_group"
+              "repack_other_group",
+              "blocklisted"
             ],
             "type": "string"
           },
@@ -5731,10 +5735,11 @@
             "type": "array"
           },
           "outcome": {
-            "description": "Null while the run searches",
+            "description": "Null while the run searches. listed is a Manual search's run, which takes nothing.",
             "enum": [
               "grabbed",
-              "nothing_acceptable"
+              "nothing_acceptable",
+              "listed"
             ],
             "type": [
               "string",
@@ -5804,7 +5809,8 @@
               "late",
               "limit_reached",
               "no_categories",
-              "removed"
+              "removed",
+              "rss_only"
             ],
             "type": [
               "string",
@@ -5923,7 +5929,7 @@
             "type": "string"
           },
           "code": {
-            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's.",
+            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
             "enum": [
               "wrong_work",
               "wrong_item",
@@ -5937,7 +5943,8 @@
               "size_not_checked",
               "score_below_minimum",
               "not_an_upgrade",
-              "repack_other_group"
+              "repack_other_group",
+              "blocklisted"
             ],
             "type": "string"
           },

@@ -2591,9 +2591,10 @@ export const GrabsWordedReason = zod.object({
       "score_below_minimum",
       "not_an_upgrade",
       "repack_other_group",
+      "blocklisted",
     ])
     .describe(
-      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's.",
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
     ),
   soft: zod
     .boolean()
@@ -2815,6 +2816,9 @@ export const GrabsFailure = zod.object({
     "import_failed",
     "node_written_off",
     "root_changed",
+    "canceled",
+    "blocklisted",
+    "release_fault",
   ]),
   message: zod.string(),
   stage: zod.enum(["fetching", "downloading", "probing", "transferring", "importing"]),
@@ -3108,9 +3112,10 @@ export const GrabsReason = zod.object({
       "score_below_minimum",
       "not_an_upgrade",
       "repack_other_group",
+      "blocklisted",
     ])
     .describe(
-      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's.",
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
     ),
   soft: zod
     .boolean()
@@ -3162,6 +3167,7 @@ export const GrabsSearchIndexer = zod.object({
       zod.literal("limit_reached"),
       zod.literal("no_categories"),
       zod.literal("removed"),
+      zod.literal("rss_only"),
       zod.literal(null),
     ])
     .nullable()
@@ -3198,9 +3204,14 @@ export const GrabsSearch = zod.object({
       "The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for",
     ),
   outcome: zod
-    .union([zod.literal("grabbed"), zod.literal("nothing_acceptable"), zod.literal(null)])
+    .union([
+      zod.literal("grabbed"),
+      zod.literal("nothing_acceptable"),
+      zod.literal("listed"),
+      zod.literal(null),
+    ])
     .nullable()
-    .describe("Null while the run searches"),
+    .describe("Null while the run searches. listed is a Manual search's run, which takes nothing."),
   startedAt: zod.iso.datetime({ offset: true }),
 });
 

@@ -404,6 +404,7 @@ export const getParseReleasesResponseMock = (
               "score_below_minimum",
               "not_an_upgrade",
               "repack_other_group",
+              "blocklisted",
             ] as const),
             soft: faker.datatype.boolean(),
             ...(faker.datatype.boolean() ? { targetId: faker.string.uuid() } : {}),

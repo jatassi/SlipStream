@@ -153,4 +153,17 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     cause: "The Work moved to another library root after this download was planned.",
     recovery: searchAgain,
   },
+  canceled: {
+    cause: "An Admin canceled this Grab.",
+    recovery: searchAgain,
+  },
+  blocklisted: {
+    cause: "The Release's torrent is on the Blocklist.",
+    recovery: nextRelease,
+  },
+  release_fault: {
+    cause:
+      "The tracker reported the torrent unregistered, or it never downloaded any data. SlipStream added the Release to the Blocklist.",
+    recovery: searchAgain,
+  },
 };

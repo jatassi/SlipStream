@@ -87,7 +87,8 @@ func outcomeRow(o indexers.Outcome) db.AnswerSearchIndexerParams {
 		p.Lapsed = &o.Lapsed
 	case indexers.IsStopped:
 		p.Cause, p.Text = &o.Cause, &o.Text
-	case indexers.IsLimited, indexers.IsFailing, indexers.Late, indexers.LimitReached, indexers.NoCategories, indexers.Removed:
+	case indexers.IsLimited, indexers.IsFailing, indexers.Late, indexers.LimitReached, indexers.NoCategories, indexers.Removed,
+		indexers.RSSOnly:
 	}
 	return p
 }

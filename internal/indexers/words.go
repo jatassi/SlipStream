@@ -337,7 +337,7 @@ func (x *Indexers) waitWords(v View, w Outcome) (sentence, fix string) {
 			return fmt.Sprintf("%s is waiting for %s.", name, home), fix
 		}
 		return fmt.Sprintf("%s is waiting for %s, which has been offline since %s.", name, home, x.clock(w.Since)), fix
-	case Found, NoReleases, Late, NoCategories, Removed:
+	case Found, NoReleases, Late, NoCategories, Removed, RSSOnly:
 	}
 	return name + " is working.", ""
 }
@@ -382,6 +382,8 @@ func (x *Indexers) Line(typ works.TypeID, o *Outcome) string {
 		return "Didn't finish in time"
 	case Removed:
 		return "Deleted since this search"
+	case RSSOnly:
+		return "Skipped because it's an RSS feed and can't search"
 	}
 	return string(o.Kind)
 }

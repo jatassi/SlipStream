@@ -13,4 +13,5 @@ export type GrabsSearchIndexerOutcome =
   | "limit_reached"
   | "no_categories"
   | "removed"
+  | "rss_only"
   | null;

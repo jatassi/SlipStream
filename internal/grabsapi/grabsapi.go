@@ -98,7 +98,7 @@ type searchStarted struct {
 type searchStartedOutput struct{ Body searchStarted }
 
 type reason struct {
-	Code      string `json:"code" enum:"wrong_work,wrong_item,covers_more,wrong_title,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,score_below_minimum,not_an_upgrade,repack_other_group" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's."`
+	Code      string `json:"code" enum:"wrong_work,wrong_item,covers_more,wrong_title,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,score_below_minimum,not_an_upgrade,repack_other_group,blocklisted" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist."`
 	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title"`
 	Attribute string `json:"attribute,omitempty" enum:"hdr,video_codec,audio_codec,channels,language" doc:"The attribute a failed filter rules on"`
 	Value     string `json:"value,omitempty" doc:"The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)"`
@@ -124,7 +124,7 @@ func reasonsOf(rs []grabs.Reason) []reason {
 type searchIndexer struct {
 	IndexerID *string `json:"indexerId" format:"uuid" doc:"Null once the Indexer is deleted"`
 	Name      string  `json:"name" doc:"The Indexer's name when the run started"`
-	Outcome   *string `json:"outcome" enum:"found,no_releases,limited,failing,stopped,waiting,late,limit_reached,no_categories,removed" doc:"Null while its search runs"`
+	Outcome   *string `json:"outcome" enum:"found,no_releases,limited,failing,stopped,waiting,late,limit_reached,no_categories,removed,rss_only" doc:"Null while its search runs"`
 	Releases  int     `json:"releases" minimum:"0" doc:"The Releases it found"`
 	Sentence  string  `json:"sentence" doc:"The outcome in words, such as Limit reached until 14:05"`
 }
@@ -135,7 +135,7 @@ type search struct {
 	StartedAt  time.Time       `json:"startedAt"`
 	Indexers   []searchIndexer `json:"indexers" nullable:"false" doc:"Each Indexer the run asked or skipped, by priority"`
 	FinishedAt *time.Time      `json:"finishedAt" doc:"Null while the run searches"`
-	Outcome    *string         `json:"outcome" enum:"grabbed,nothing_acceptable" doc:"Null while the run searches"`
+	Outcome    *string         `json:"outcome" enum:"grabbed,nothing_acceptable,listed" doc:"Null while the run searches. listed is a Manual search's run, which takes nothing."`
 	Candidates int             `json:"candidates" minimum:"0" doc:"The Releases the Indexers found, each Release listed twice counted once"`
 	GrabID     *string         `json:"grabId" format:"uuid" doc:"The run's Grab: the decision's, or the rerun's once a dropped Grab reran it; null when none"`
 	Notes      []reason        `json:"notes" nullable:"false" doc:"The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for"`
@@ -245,7 +245,7 @@ func idOrNil(id storage.UUID) *string {
 
 type failure struct {
 	Stage   string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
-	Code    string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,removed,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed"`
+	Code    string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,removed,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault"`
 	Message string `json:"message"`
 }
 
