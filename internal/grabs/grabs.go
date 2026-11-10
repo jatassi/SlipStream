@@ -261,6 +261,8 @@ type Grabs struct {
 	// runs cancels each Manual run's goroutine, so a Search again stops
 	// the runs it replaced.
 	runs runs
+	// decoded is the decoded Releases of the Manual search read last.
+	decoded decodedRuns
 
 	mu sync.Mutex
 	// moved is each Grab a transfers hook moved, for grabs.changed once

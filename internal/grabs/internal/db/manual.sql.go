@@ -16,6 +16,42 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+const countKeptOfManual = `-- name: CountKeptOfManual :many
+SELECT grabs_release.search_id, count(*) AS kept FROM grabs_release JOIN grabs_search ON grabs_search.id = grabs_release.search_id
+WHERE grabs_search.manual_id = ?1 AND grabs_release.release IS NOT NULL
+GROUP BY grabs_release.search_id
+`
+
+type CountKeptOfManualRow struct {
+	SearchID SearchID
+	Kept     int64
+}
+
+// Each run's count of kept Releases, which say whether the view's decoded
+// copy of the run is current: a run's rows are only ever appended.
+func (q *Queries) CountKeptOfManual(ctx context.Context, manualID ManualID) ([]CountKeptOfManualRow, error) {
+	rows, err := q.db.QueryContext(ctx, countKeptOfManual, manualID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountKeptOfManualRow
+	for rows.Next() {
+		var i CountKeptOfManualRow
+		if err := rows.Scan(&i.SearchID, &i.Kept); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteManual = `-- name: DeleteManual :exec
 DELETE FROM grabs_manual WHERE id = ?1
 `
@@ -259,57 +295,6 @@ func (q *Queries) ListLinesOfManual(ctx context.Context, manualID ManualID) ([]G
 			&i.Lapsed,
 			&i.Cause,
 			&i.Text,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listListedOfManual = `-- name: ListListedOfManual :many
-SELECT grabs_release.search_id, grabs_release.position, grabs_release.title, grabs_release.indexer_id, grabs_release.indexer_name, grabs_release.size, grabs_release.seeders, grabs_release.outcome, grabs_release.rank, grabs_release.reasons, grabs_release.lost_step, grabs_release.lost_target_id, grabs_release.lost_own, grabs_release.lost_ref, grabs_release.scores, grabs_release.formats, grabs_release.covers, grabs_release.copy_of, grabs_release."release", grabs_release.link_sealed, grabs_release.read FROM grabs_release JOIN grabs_search ON grabs_search.id = grabs_release.search_id
-WHERE grabs_search.manual_id = ?1
-ORDER BY grabs_release.search_id, grabs_release.position
-`
-
-func (q *Queries) ListListedOfManual(ctx context.Context, manualID ManualID) ([]GrabsRelease, error) {
-	rows, err := q.db.QueryContext(ctx, listListedOfManual, manualID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GrabsRelease
-	for rows.Next() {
-		var i GrabsRelease
-		if err := rows.Scan(
-			&i.SearchID,
-			&i.Position,
-			&i.Title,
-			&i.IndexerID,
-			&i.IndexerName,
-			&i.Size,
-			&i.Seeders,
-			&i.Outcome,
-			&i.Rank,
-			&i.Reasons,
-			&i.LostStep,
-			&i.LostTargetID,
-			&i.LostOwn,
-			&i.LostRef,
-			&i.Scores,
-			&i.Formats,
-			&i.Covers,
-			&i.CopyOf,
-			&i.Release,
-			&i.LinkSealed,
-			&i.Read,
 		); err != nil {
 			return nil, err
 		}

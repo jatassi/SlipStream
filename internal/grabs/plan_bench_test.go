@@ -140,18 +140,27 @@ func (s *stored) readAll(b *testing.B, j judging) {
 
 // view decodes s's rows as manualInput does and works out the view.
 func (gr *Grabs) view(b *testing.B, s stored) ManualView {
-	in := s.in
-	in.heard = map[SearchID][]heardRelease{}
+	kept := map[SearchID]int{}
+	byRun := map[SearchID][]int{}
 	for i, row := range s.rows {
-		row.Read = &db.Reading{}
-		if err := row.Read.Scan(string(s.read[i])); err != nil {
-			b.Fatal(err)
+		kept[row.SearchID]++
+		byRun[row.SearchID] = append(byRun[row.SearchID], i)
+	}
+	in := s.in
+	var err error
+	in.heard, err = gr.heardIn(s.in.manual.ID, kept, func(run SearchID) ([]db.GrabsRelease, error) {
+		rows := make([]db.GrabsRelease, len(byRun[run]))
+		for k, i := range byRun[run] {
+			rows[k] = s.rows[i]
+			rows[k].Read = &db.Reading{}
+			if err := rows[k].Read.Scan(string(s.read[i])); err != nil {
+				return nil, err
+			}
 		}
-		h, err := gr.heardOf(row)
-		if err != nil {
-			b.Fatal(err)
-		}
-		in.heard[row.SearchID] = append(in.heard[row.SearchID], h)
+		return rows, nil
+	})
+	if err != nil {
+		b.Fatal(err)
 	}
 	v, err := manualView(in, nil)
 	if err != nil {
@@ -162,8 +171,9 @@ func (gr *Grabs) view(b *testing.B, s stored) ManualView {
 
 // BenchmarkManualView is the view a GET works out, from the rows a store
 // hands over: a season of 10 Items and a Work of 20 seasons, six Indexers
-// listing 100 Releases each per Item. The design's budgets are 150 ms and
-// 1.5 s.
+// listing 100 Releases each per Item. Cold decodes every run, as the
+// first read does. Warm decodes none, as a read does when no Indexer has
+// answered since the last. The design's budgets are 150 ms and 1.5 s.
 func BenchmarkManualView(b *testing.B) {
 	for _, c := range []struct {
 		name    string
@@ -171,12 +181,23 @@ func BenchmarkManualView(b *testing.B) {
 	}{{"season", 1}, {"twenty seasons", 20}} {
 		b.Run(c.name, func(b *testing.B) {
 			gr, s := storedSeasons(b, c.seasons)
-			for b.Loop() {
-				v := gr.view(b, s)
-				if len(v.Plan.Rows) != 20*c.seasons || v.Releases != 600*10*c.seasons {
-					b.Fatalf("the view plans %d rows over %d Releases, want %d over %d", len(v.Plan.Rows), v.Releases, 20*c.seasons, 6000*c.seasons)
-				}
-			}
+			b.Run("cold", func(b *testing.B) { gr.viewEach(b, s, c.seasons, true) })
+			b.Run("warm", func(b *testing.B) { gr.viewEach(b, s, c.seasons, false) })
 		})
+	}
+}
+
+// viewEach works out the view of s, seasons seasons, each loop, decoding
+// every run first when cold is set.
+func (gr *Grabs) viewEach(b *testing.B, s stored, seasons int, cold bool) {
+	gr.view(b, s)
+	for b.Loop() {
+		if cold {
+			gr.decoded = decodedRuns{}
+		}
+		v := gr.view(b, s)
+		if len(v.Plan.Rows) != 20*seasons || v.Releases != 6000*seasons {
+			b.Fatalf("the view plans %d rows over %d Releases, want %d over %d", len(v.Plan.Rows), v.Releases, 20*seasons, 6000*seasons)
+		}
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
@@ -259,7 +260,7 @@ func (gr *Grabs) manualInput(ctx context.Context, r storage.Reader[file], work w
 	if err != nil {
 		return manualIn{}, err
 	}
-	in := manualIn{manual: m, heard: map[SearchID][]heardRelease{}, now: storage.Now().Time()}
+	in := manualIn{manual: m, now: storage.Now().Time()}
 	if in.tree, err = gr.cfg.Works.TreeIn(ctx, r, work); err != nil {
 		return manualIn{}, err
 	}
@@ -278,18 +279,23 @@ func (gr *Grabs) manualInput(ctx context.Context, r storage.Reader[file], work w
 	if in.runs, err = manualRuns(ctx, q, m.ID); err != nil {
 		return manualIn{}, err
 	}
-	rows, err := q.ListListedOfManual(ctx, m.ID)
+	counts, err := q.CountKeptOfManual(ctx, m.ID)
+	if err != nil {
+		return manualIn{}, err
+	}
+	kept := make(map[SearchID]int, len(counts))
+	for _, c := range counts {
+		kept[c.SearchID] = int(c.Kept)
+	}
+	in.heard, err = gr.heardIn(m.ID, kept, func(run SearchID) ([]db.GrabsRelease, error) { return q.ListKeptReleasesOfSearch(ctx, run) })
 	if err != nil {
 		return manualIn{}, err
 	}
 	var all []assessed
-	for _, row := range rows {
-		h, err := gr.heardOf(row)
-		if err != nil {
-			return manualIn{}, err
+	for _, hs := range in.heard {
+		for _, h := range hs {
+			all = append(all, assessed{listed: h.listed})
 		}
-		in.heard[row.SearchID] = append(in.heard[row.SearchID], h)
-		all = append(all, assessed{listed: h.listed})
 	}
 	if in.blocks, err = blocksOf(ctx, r, all); err != nil {
 		return manualIn{}, err
@@ -346,6 +352,51 @@ func manualRuns(ctx context.Context, q *db.Queries, id ManualID) ([]Search, erro
 			return nil, err
 		}
 	}
+	return out, nil
+}
+
+// decodedRuns is the decoded Releases of each run of the Manual search
+// read last. A run's rows are only ever appended, so a run whose count of
+// kept rows is unchanged is current, and a read decodes only the runs an
+// Indexer answered since. Decoding is most of a view's cost.
+type decodedRuns struct {
+	mu     sync.Mutex
+	manual ManualID
+	runs   map[SearchID][]heardRelease
+}
+
+// heardIn is each run of manual's stored Releases, in arrival order, kept
+// being each run's count of kept rows and rowsOf a run's rows. It decodes
+// only the runs whose count changed since the last read.
+func (gr *Grabs) heardIn(manual ManualID, kept map[SearchID]int, rowsOf func(SearchID) ([]db.GrabsRelease, error)) (map[SearchID][]heardRelease, error) {
+	d := &gr.decoded
+	d.mu.Lock()
+	held := d.runs
+	if d.manual != manual {
+		held = nil
+	}
+	d.mu.Unlock()
+	out := make(map[SearchID][]heardRelease, len(kept))
+	for run, n := range kept {
+		if hs := held[run]; len(hs) == n {
+			out[run] = hs
+			continue
+		}
+		rows, err := rowsOf(run)
+		if err != nil {
+			return nil, err
+		}
+		hs := make([]heardRelease, len(rows))
+		for i, row := range rows {
+			if hs[i], err = gr.heardOf(row); err != nil {
+				return nil, err
+			}
+		}
+		out[run] = hs
+	}
+	d.mu.Lock()
+	d.manual, d.runs = manual, out
+	d.mu.Unlock()
 	return out, nil
 }
 
