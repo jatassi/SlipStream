@@ -836,15 +836,14 @@ func (s sheet) offer(rs runSheet, g, f int) Offer {
 	if len(fills) > 0 {
 		o.Grab.Outcome = s.gets(fills)
 	}
-	_, ok, err := rs.offer(g, f)
+	_, ok, _ := rs.offer(g, f)
 	if !ok {
-		if _, err := rs.take(rs.as[g].Release); err != nil {
-			if e, isNotTaken := errors.AsType[*indexers.NotTakenError](err); isNotTaken {
-				o.Grab.Waits = e.Sentence
-			}
+		_, refused := rs.take(rs.as[g].Release)
+		if e, waits := errors.AsType[*indexers.NotTakenError](refused); waits {
+			o.Grab.Waits = e.Sentence
 		}
 	}
-	o.Grab.Grabbable = err == nil && ok && (len(fills) > 0 || len(o.Grab.Cancels) > 0)
+	o.Grab.Grabbable = ok && (len(fills) > 0 || len(o.Grab.Cancels) > 0)
 	return o
 }
 

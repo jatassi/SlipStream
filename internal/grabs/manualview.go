@@ -139,8 +139,8 @@ type Folded struct {
 }
 
 // FoldGroup is one group of the Releases SlipStream wouldn't grab: "8 are
-// 4K, which no Target here takes." Fault is a real fault, which the sheet
-// shows red.
+// Bluray-2160p, which no Target here takes." Fault is a real fault, which
+// the sheet shows red.
 type FoldGroup struct {
 	Words string
 	Fault bool
@@ -211,8 +211,8 @@ type GrabOffer struct {
 	Cancels []HeldCell
 	// Waits is "TorrentLeech is at its grab limit until 14:05."
 	Waits string
-	// Refusal is "It's a season pack, and SlipStream can't import packs
-	// yet."
+	// Refusal is "It's a pack of more than one episode, and SlipStream
+	// can't import packs yet."
 	Refusal string
 }
 
@@ -361,7 +361,7 @@ func manualRuns(ctx context.Context, q *db.Queries, id ManualID) ([]Search, erro
 // decodedRuns is the decoded Releases of each run of the Manual search
 // read last. A run's rows are only ever appended, so a run whose count of
 // kept rows is unchanged is current, and a read decodes only the runs an
-// Indexer answered since. Decoding is most of a view's cost.
+// Indexer answered since. Decoding is a third of a view's cost.
 type decodedRuns struct {
 	mu     sync.Mutex
 	manual ManualID
