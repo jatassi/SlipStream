@@ -20,8 +20,6 @@ func TestTheseOperationsAreNotBuiltYet(t *testing.T) {
 		{"listManualSearchReleases", http.MethodGet, work + "/manual-search/releases", ""},
 		{"grabFromManualSearch", http.MethodPost, work + "/manual-search/grabs", `{"manualSearchId":"` + other + `","picks":[{"releaseId":"` + other + `.0","lifts":[]}]}`},
 		{"cancelGrab", http.MethodPost, "/api/v1/grabs/" + other + "/cancel", `{"blocklist":true}`},
-		{"listBlocklist", http.MethodGet, "/api/v1/blocklist?q=Attic", ""},
-		{"removeFromBlocklist", http.MethodPost, "/api/v1/blocklist/remove", `{"infoHashes":["0102030405060708090a0b0c0d0e0f1011121314"]}`},
 	} {
 		if code, got := f.s.Call(t, op.method, op.path, op.body); code != http.StatusNotImplemented || got != notBuilt {
 			t.Errorf("%s = %d %s, want 501 %s", op.id, code, got, notBuilt)

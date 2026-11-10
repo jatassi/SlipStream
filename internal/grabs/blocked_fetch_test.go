@@ -7,18 +7,19 @@ import (
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/grabs/grabstest"
 )
 
-// TestAFetchedTorrentOnTheBlocklistFailsItsGrabBeforeAnyClient grabs a
-// magnet link listed without an info hash whose metadata names a
-// blocklisted torrent: the Grab fails blocklisted and no client gets it.
-func TestAFetchedTorrentOnTheBlocklistFailsItsGrabBeforeAnyClient(t *testing.T) {
+// TestAFetchedTorrentOnTheBlocklistFailsAManualGrabBeforeAnyClient grabs
+// by hand a magnet link listed without an info hash whose metadata names
+// a blocklisted torrent: the Grab fails blocklisted and no client gets it.
+func TestAFetchedTorrentOnTheBlocklistFailsAManualGrabBeforeAnyClient(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		rel := newRelease(t)
 		p := newPipeline(t, answer{res: downloadclients.Resolved{Info: rel.info}})
 		id := p.grab(rel.link.String(), nil)
-		run(t, p.lib, sql(`INSERT INTO grabs_blocklist (info_hash, release_title, release_size, cause, added_by_name, added_at)
-			VALUES (?, 'The.Attic.1080p.WEB', 4096, 'by_hand', 'Jackson', 0)`, rel.link.InfoHash[:]))
+		run(t, p.lib, sql(`UPDATE grabs_grab SET source = 'manual', grabbed_by_name = 'Jackson'`))
+		grabstest.Blocked(t, p.lib, entry(rel.link.InfoHash, "The.Attic.1080p.WEB"))
 
 		p.running()
 		time.Sleep(2 * hold)

@@ -172,6 +172,7 @@ type atticFixture struct {
 	g                 *grabs.Grabs
 	changed           sent[grabs.Changed]
 	searched          sent[grabs.SearchChanged]
+	blocklisted       sent[grabs.BlocklistChanged]
 	s                 *ownertest.Owner
 	search            string
 }
@@ -214,7 +215,7 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		t.Fatal(err)
 	}
 	terms := &terms{}
-	changed, searched := make(sent[grabs.Changed], 4), make(sent[grabs.SearchChanged], 4)
+	changed, searched, blocklisted := make(sent[grabs.Changed], 4), make(sent[grabs.SearchChanged], 4), make(sent[grabs.BlocklistChanged], 4)
 	sealer := secrettest.Sealer(t)
 	home := storage.NewUUID()
 	roster := alone{role.NodeID{UUID: home}}
@@ -243,11 +244,12 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Router:    router,
 		Transfers: transfers.New(transfers.ControllerConfig{Library: lib}),
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
-		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, Log: slog.New(slog.DiscardHandler),
+		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, BlocklistChanged: blocklisted,
+		Log: slog.New(slog.DiscardHandler),
 	})
 	return &atticFixture{
 		ctx: ctx, lib: lib, sealer: sealer, home: role.NodeID{UUID: home}, tree: tree, unmonitored: unmonitored, hd: hd, terms: terms,
-		storageNodes: storageNodes, xs: xs, g: g, changed: changed, searched: searched,
+		storageNodes: storageNodes, xs: xs, g: g, changed: changed, searched: searched, blocklisted: blocklisted,
 		s: ownertest.Serve(t, lib, func(r *api.Router) { grabsapi.Routes(r, pipeline{g}) }), search: "/api/v1/works/" + tree.ID.String() + "/search",
 	}
 }

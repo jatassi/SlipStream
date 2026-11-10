@@ -524,7 +524,6 @@ func Routes(r *api.Router, p Pipeline) {
 		Path:    "/blocklist",
 		Summary: "List the Blocklist, 50 entries at a time, newest first",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{notBuilt},
 	}, h.listBlocklist)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "removeFromBlocklist",
@@ -532,7 +531,6 @@ func Routes(r *api.Router, p Pipeline) {
 		Path:    "/blocklist/remove",
 		Summary: "Remove Releases from the Blocklist by info hash. Removing one that isn't listed changes nothing",
 		Status:  http.StatusNoContent,
-		Errors:  []*api.Code{notBuilt},
 	}, h.removeFromBlocklist)
 }
 

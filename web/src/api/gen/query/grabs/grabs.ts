@@ -64,7 +64,6 @@ import type {
   ListBlocklist409,
   ListBlocklist422,
   ListBlocklist500,
-  ListBlocklist501,
   ListBlocklistParams,
   ListGrabs401,
   ListGrabs403,
@@ -101,7 +100,6 @@ import type {
   RemoveFromBlocklist409,
   RemoveFromBlocklist422,
   RemoveFromBlocklist500,
-  RemoveFromBlocklist501,
   SearchWork401,
   SearchWork403,
   SearchWork404,
@@ -181,12 +179,7 @@ export const getListBlocklistQueryKey = (params?: ListBlocklistParams) => {
 export const getListBlocklistSuspenseQueryOptions = <
   TData = Awaited<ReturnType<typeof listBlocklist>>,
   TError = ErrorType<
-    | ListBlocklist401
-    | ListBlocklist403
-    | ListBlocklist409
-    | ListBlocklist422
-    | ListBlocklist500
-    | ListBlocklist501
+    ListBlocklist401 | ListBlocklist403 | ListBlocklist409 | ListBlocklist422 | ListBlocklist500
   >,
 >(
   params?: ListBlocklistParams,
@@ -219,23 +212,13 @@ export type ListBlocklistSuspenseQueryResult = NonNullable<
   Awaited<ReturnType<typeof listBlocklist>>
 >;
 export type ListBlocklistSuspenseQueryError = ErrorType<
-  | ListBlocklist401
-  | ListBlocklist403
-  | ListBlocklist409
-  | ListBlocklist422
-  | ListBlocklist500
-  | ListBlocklist501
+  ListBlocklist401 | ListBlocklist403 | ListBlocklist409 | ListBlocklist422 | ListBlocklist500
 >;
 
 export function useListBlocklistSuspense<
   TData = Awaited<ReturnType<typeof listBlocklist>>,
   TError = ErrorType<
-    | ListBlocklist401
-    | ListBlocklist403
-    | ListBlocklist409
-    | ListBlocklist422
-    | ListBlocklist500
-    | ListBlocklist501
+    ListBlocklist401 | ListBlocklist403 | ListBlocklist409 | ListBlocklist422 | ListBlocklist500
   >,
 >(
   params: undefined | ListBlocklistParams,
@@ -250,12 +233,7 @@ export function useListBlocklistSuspense<
 export function useListBlocklistSuspense<
   TData = Awaited<ReturnType<typeof listBlocklist>>,
   TError = ErrorType<
-    | ListBlocklist401
-    | ListBlocklist403
-    | ListBlocklist409
-    | ListBlocklist422
-    | ListBlocklist500
-    | ListBlocklist501
+    ListBlocklist401 | ListBlocklist403 | ListBlocklist409 | ListBlocklist422 | ListBlocklist500
   >,
 >(
   params?: ListBlocklistParams,
@@ -270,12 +248,7 @@ export function useListBlocklistSuspense<
 export function useListBlocklistSuspense<
   TData = Awaited<ReturnType<typeof listBlocklist>>,
   TError = ErrorType<
-    | ListBlocklist401
-    | ListBlocklist403
-    | ListBlocklist409
-    | ListBlocklist422
-    | ListBlocklist500
-    | ListBlocklist501
+    ListBlocklist401 | ListBlocklist403 | ListBlocklist409 | ListBlocklist422 | ListBlocklist500
   >,
 >(
   params?: ListBlocklistParams,
@@ -294,12 +267,7 @@ export function useListBlocklistSuspense<
 export function useListBlocklistSuspense<
   TData = Awaited<ReturnType<typeof listBlocklist>>,
   TError = ErrorType<
-    | ListBlocklist401
-    | ListBlocklist403
-    | ListBlocklist409
-    | ListBlocklist422
-    | ListBlocklist500
-    | ListBlocklist501
+    ListBlocklist401 | ListBlocklist403 | ListBlocklist409 | ListBlocklist422 | ListBlocklist500
   >,
 >(
   params?: ListBlocklistParams,
@@ -368,7 +336,6 @@ export const getRemoveFromBlocklistMutationOptions = <
     | RemoveFromBlocklist409
     | RemoveFromBlocklist422
     | RemoveFromBlocklist500
-    | RemoveFromBlocklist501
   >,
   TContext = unknown,
 >(options?: {
@@ -414,7 +381,6 @@ export type RemoveFromBlocklistMutationError = ErrorType<
   | RemoveFromBlocklist409
   | RemoveFromBlocklist422
   | RemoveFromBlocklist500
-  | RemoveFromBlocklist501
 >;
 export type RemoveFromBlocklistMutationVariables = { data: UnblockInputBody };
 
@@ -428,7 +394,6 @@ export const useRemoveFromBlocklist = <
     | RemoveFromBlocklist409
     | RemoveFromBlocklist422
     | RemoveFromBlocklist500
-    | RemoveFromBlocklist501
   >,
   TContext = unknown,
 >(
