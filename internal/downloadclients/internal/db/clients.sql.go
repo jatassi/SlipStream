@@ -139,6 +139,23 @@ func (q *Queries) GetClient(ctx context.Context, id ClientID) (DownloadclientsCl
 	return i, err
 }
 
+const getClientNamed = `-- name: GetClientNamed :one
+SELECT name, node_id FROM downloadclients_client WHERE id = ?1
+`
+
+type GetClientNamedRow struct {
+	Name   string
+	NodeID role.NodeID
+}
+
+// A deleted client keeps its name and Node.
+func (q *Queries) GetClientNamed(ctx context.Context, id ClientID) (GetClientNamedRow, error) {
+	row := q.db.QueryRowContext(ctx, getClientNamed, id)
+	var i GetClientNamedRow
+	err := row.Scan(&i.Name, &i.NodeID)
+	return i, err
+}
+
 const getClientSealed = `-- name: GetClientSealed :one
 SELECT secrets_sealed FROM downloadclients_client WHERE id = ?1 AND deleted_at IS NULL
 `
