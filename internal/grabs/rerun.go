@@ -177,16 +177,13 @@ func (gr *Grabs) rerunOf(ctx context.Context, g Grab) (*redo, error) {
 			return err
 		}
 		ls := make([]listed, len(rows))
-		gone, names, taken := map[int]bool{}, map[int]string{}, -1
+		gone, names := map[int]bool{}, map[int]string{}
 		for i, row := range rows {
 			if ls[i].Release, err = gr.kept(row); err != nil {
 				return err
 			}
 			ls[i].at = int(row.Position)
 			gone[ls[i].at], names[ls[i].at] = !row.LinkSealed.Set(), row.IndexerName
-			if row.Outcome == ReleaseGrabbed {
-				taken = ls[i].at
-			}
 		}
 		tree, err := gr.cfg.Works.TreeIn(ctx, r, run.WorkID)
 		if err != nil {
@@ -200,10 +197,21 @@ func (gr *Grabs) rerunOf(ctx context.Context, g Grab) (*redo, error) {
 		if err != nil {
 			return err
 		}
-		out = &redo{run: run, assessed: assessAll(j, dedupe(ls)), gone: gone, names: names, taken: taken}
+		out = &redo{run: run, assessed: assessAll(j, dedupe(ls)), gone: gone, names: names, taken: grabbedAt(rows)}
 		return nil
 	})
 	return out, err
+}
+
+// grabbedAt is the position of the Release a run's kept rows say its
+// Grab took, -1 for none.
+func grabbedAt(rows []db.GrabsRelease) int {
+	for _, row := range rows {
+		if row.Outcome == ReleaseGrabbed {
+			return int(row.Position)
+		}
+	}
+	return -1
 }
 
 // left settles the run of g, a Grab leaving fetching by o: a drop reruns

@@ -51,11 +51,11 @@ func (tw twinWorld) runReleases(t *testing.T) []string {
 	}
 	var out []string
 	for _, l := range listed {
-		s := l.Title + " " + string(l.Outcome)
+		words := []string{l.Title, string(l.Outcome)}
 		for _, r := range l.Reasons {
-			s += " " + r.Words
+			words = append(words, r.Words)
 		}
-		out = append(out, s)
+		out = append(out, strings.Join(words, " "))
 	}
 	return out
 }
@@ -77,7 +77,7 @@ func TestAnAutomaticSearchNeverTakesABlocklistedReleaseAndDecidesAsIfItWereAbsen
 		want  []string
 	}{
 		{
-			name: "listed with its info hash",
+			name:  "listed with its info hash",
 			sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{listing(bluRay, 90, "a"), listing(webDL, 5, "b")}}},
 			want:  []string{bluRay + " refused It's on the Blocklist." + noSize, webDL + " grabbed" + noSize},
 		},
