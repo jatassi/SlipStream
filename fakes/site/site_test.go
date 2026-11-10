@@ -271,13 +271,13 @@ func search(t *testing.T, x *indexers.Indexers, lib *storage.DB[storage.Library]
 	var lines []indexers.Line
 	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
-		lines, err = x.Plan(ctx, tx, indexerstest.Type)
+		lines, err = x.Plan(ctx, tx, indexerstest.Type, indexers.AutoSearch)
 		return err
 	})
 	if err != nil || len(lines) != 1 || lines[0].Skipped != nil {
 		t.Fatalf("Plan = %+v, %v; want the Indexer asked", lines, err)
 	}
-	answers, err := x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: terms, Asked: lines})
+	answers, err := x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: terms, Asked: lines}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

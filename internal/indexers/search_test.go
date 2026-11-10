@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
@@ -103,10 +104,15 @@ func (p *planned) edit(name string, e indexers.Edit) {
 
 func (p *planned) plan() []indexers.Line {
 	p.t.Helper()
+	return p.planOf(indexers.AutoSearch)
+}
+
+func (p *planned) planOf(k indexers.SearchKind) []indexers.Line {
+	p.t.Helper()
 	var lines []indexers.Line
 	err := p.lib.Write(p.t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
-		lines, err = p.x.Plan(ctx, tx, indexerstest.Type)
+		lines, err = p.x.Plan(ctx, tx, indexerstest.Type, k)
 		return err
 	})
 	if err != nil {
@@ -119,7 +125,7 @@ func (p *planned) plan() []indexers.Line {
 func (p *planned) search(lines []indexers.Line) []indexers.Answer {
 	p.t.Helper()
 	asked := slices.DeleteFunc(slices.Clone(lines), func(l indexers.Line) bool { return l.Skipped != nil })
-	answers, err := p.x.Search(p.t.Context(), indexers.Search{Type: indexerstest.Type, Terms: indexers.Terms{Mode: "search", Query: "orchard"}, Asked: asked})
+	answers, err := p.x.Search(p.t.Context(), indexers.Search{Type: indexerstest.Type, Terms: indexers.Terms{Mode: "search", Query: "orchard"}, Asked: asked}, nil)
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -347,6 +353,7 @@ func TestEachOutcomeLineSaysItInWords(t *testing.T) {
 		{&indexers.Outcome{Kind: indexers.NoCategories}, "Skipped because it has no shelf categories"},
 		{&indexers.Outcome{Kind: indexers.Late}, "Didn't finish in time"},
 		{&indexers.Outcome{Kind: indexers.Removed}, "Deleted since this search"},
+		{&indexers.Outcome{Kind: indexers.RSSOnly}, "Skipped because it's an RSS feed and can't search"},
 	} {
 		if got := p.x.Line(contenttypetest.ID, tc.o); got != tc.want {
 			t.Errorf("Line(%+v) = %q, want %q", tc.o, got, tc.want)
@@ -396,7 +403,7 @@ func searchEpisode(t *testing.T, caps string, season int, episode string) search
 		Expect: indexers.Expect{Claim: release.Claim{IDs: map[string]string{"tvdbid": "1001"}}},
 		Mode:   "tvsearch", Query: "The Lantern Keepers", Season: &season, Episode: episode,
 	}
-	if _, err := p.x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: terms, Asked: p.plan()}); err != nil {
+	if _, err := p.x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: terms, Asked: p.plan()}, nil); err != nil {
 		t.Fatal(err)
 	}
 	sent := p.node.Searches()
@@ -431,5 +438,126 @@ func TestQueryFallbackNamesTheEpisode(t *testing.T) {
 				t.Fatalf("the query = %+v, want the free-text search %+v", got, want)
 			}
 		})
+	}
+}
+
+// heard is an each that notes every Answer as its Indexer's name, outcome
+// and when it landed after began, and fails once it has noted stopAfter.
+func (p *planned) heard(began time.Time, stopAfter int) (each func(indexers.Answer) error, got *[]string) {
+	got = new([]string)
+	return func(a indexers.Answer) error {
+		for name, id := range p.ids {
+			if id == a.Indexer {
+				*got = append(*got, fmt.Sprintf("%s %s at %s", name, a.Outcome.Kind, time.Since(began)))
+			}
+		}
+		if len(*got) == stopAfter {
+			return errHeardEnough
+		}
+		return nil
+	}, got
+}
+
+var errHeardEnough = errors.New("heard enough")
+
+func TestEachAnswerLandsAsItsIndexerAnswers(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := plannedWith(t, "Alder", "Birch")
+		p.node.Answer(p.ids["Alder"], 90*time.Second, searching.Answer{Releases: []searching.Release{{Title: "Orchard.2160p"}}})
+		p.node.Answer(p.ids["Birch"], 5*time.Second, searching.Answer{Releases: []searching.Release{{Title: "Orchard.1080p"}}})
+		began := time.Now()
+		each, heard := p.heard(began, 0)
+
+		answers, err := p.x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: indexers.Terms{Mode: "search", Query: "orchard"}, Asked: p.plan()}, each)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := []string{"Birch found at 5s", "Alder found at 1m30s"}; !slices.Equal(*heard, want) {
+			t.Fatalf("each heard %q, want Birch's answer at 5s before Alder's at 90s", *heard)
+		}
+		if len(answers) != 2 || answers[0].Indexer != p.ids["Alder"] || answers[1].Indexer != p.ids["Birch"] {
+			t.Fatalf("Search returned %+v, want every answer in line order, Alder then Birch", answers)
+		}
+	})
+}
+
+func TestAnErrorFromEachStopsTheJobsStillOut(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := plannedWith(t, "Alder", "Birch")
+		p.node.Answer(p.ids["Alder"], 90*time.Second, searching.Answer{Releases: []searching.Release{{Title: "Orchard.2160p"}}})
+		p.node.Answer(p.ids["Birch"], 5*time.Second, searching.Answer{Releases: []searching.Release{{Title: "Orchard.1080p"}}})
+		began := time.Now()
+		each, heard := p.heard(began, 1)
+
+		answers, err := p.x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: indexers.Terms{Mode: "search", Query: "orchard"}, Asked: p.plan()}, each)
+		if !errors.Is(err, errHeardEnough) || answers != nil {
+			t.Fatalf("Search = %+v, %v; want each's error", answers, err)
+		}
+		if took := time.Since(began); took != 5*time.Second {
+			t.Fatalf("Search returned after %s, want 5s, when Birch answered", took)
+		}
+		if want := []string{"Birch found at 5s"}; !slices.Equal(*heard, want) {
+			t.Fatalf("each heard %q, want only Birch's answer", *heard)
+		}
+		if got := p.node.Canceled(); !slices.Equal(got, []string{p.ids["Alder"].String()}) {
+			t.Fatalf("the Node saw %q canceled, want Alder's job", got)
+		}
+	})
+}
+
+func TestManualSearchAsksIndexersAutomaticSearchSkipsAndListsAnRSSFeed(t *testing.T) {
+	p := plannedWith(t, "Alder", "Cedar", "Dune")
+	off := false
+	p.edit("Cedar", indexers.Edit{On: &off})
+	p.edit("Dune", indexers.Edit{AutoSearch: &off})
+	for _, f := range []struct {
+		name  string
+		media works.TypeID
+	}{{"Brook", indexerstest.Type}, {"Creek", contenttypetest.ID}} {
+		_, err := p.x.Create(t.Context(), identity.Admin{}, indexers.Draft{
+			Kind: indexers.RSS, Name: f.name, Address: "https://" + strings.ToLower(f.name) + ".test/rss", Tracker: f.name, Media: []works.TypeID{f.media},
+			On: true, AutoSearch: true, RSS: true,
+		}, indexers.Typed{})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if got, want := spelled(p.planOf(indexers.AutoSearch)), []string{"Alder asked"}; !slices.Equal(got, want) {
+		t.Fatalf("the automatic plan = %q, want %q", got, want)
+	}
+	manual := p.planOf(indexers.ManualSearch)
+	if got, want := spelled(manual), []string{"Alder asked", "Brook rss_only", "Dune asked"}; !slices.Equal(got, want) {
+		t.Fatalf("the Manual plan = %q, want %q: Dune though its Automatic search is off, Brook skipped as an RSS feed of the type, and neither Cedar, which is off, nor Creek, a feed of another type", got, want)
+	}
+	answers := p.search(manual)
+	if len(answers) != 2 || answers[1].Indexer != p.ids["Dune"] || answers[1].Outcome.Kind != indexers.NoReleases {
+		t.Fatalf("the Manual search's answers = %+v, want Alder's and Dune's", answers)
+	}
+}
+
+func TestATypedQueryIsSearchedAsTextInPlaceOfTheIDs(t *testing.T) {
+	p := plannedWith(t, "Alder")
+	err := p.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return indexerstest.SetCaps(ctx, tx, p.ids["Alder"], indexerstest.TVCaps)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	terms := indexers.Terms{
+		Expect: indexers.Expect{Claim: release.Claim{IDs: map[string]string{"tvdbid": "1001"}}},
+		Mode:   "tvsearch", Query: "The Lantern Keepers", Season: new(1), Episode: "3",
+	}
+	for _, text := range []string{"", "Lantern Keepers 1x03 extended"} {
+		if _, err := p.x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: terms, Asked: p.plan(), Text: text}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := []searching.Query{
+		{Mode: "tvsearch", IDs: map[string]string{"tvdbid": "1001"}, Season: new(1), Episode: "3"},
+		{Mode: "search", Text: "Lantern Keepers 1x03 extended"},
+	}
+	if got := p.node.Searches(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("the Node was sent %+v, want the ids, then the typed text alone", got)
 	}
 }

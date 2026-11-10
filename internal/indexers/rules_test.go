@@ -435,7 +435,7 @@ func TestQueryTakesEveryIDTheModeListsElseText(t *testing.T) {
 		{"a mode the caps lack", Terms{Expect: Expect{Claim: release.Claim{IDs: ids}}, Mode: "book", Query: "Lantern Coast"}, searching.Query{Mode: "search", Text: "Lantern Coast"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := query(caps, tc.terms); !reflect.DeepEqual(got, tc.want) {
+			if got := (Search{Terms: tc.terms}).query(caps); !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("query = %+v, want %+v", got, tc.want)
 			}
 		})

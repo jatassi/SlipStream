@@ -326,7 +326,7 @@ func TestACatalogIndexerOnAnIDAPortNowReplacesKeepsRunning(t *testing.T) {
 		t.Errorf("its Test ran %+v, want its definition", j)
 	}
 	err := w.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		lines, err := x.Plan(ctx, tx, indexerstest.Type)
+		lines, err := x.Plan(ctx, tx, indexerstest.Type, indexers.AutoSearch)
 		if err == nil && (len(lines) != 1 || lines[0].Skipped != nil) {
 			t.Errorf("Plan = %+v, want Larkspur asked", lines)
 		}
