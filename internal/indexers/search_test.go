@@ -582,10 +582,23 @@ func (p *planned) agreed(name string, r searching.Release) error {
 	p.t.Helper()
 	read, readErr := p.standings().Take(indexers.Release{Indexer: p.ids[name], Release: r})
 	took, err := p.take(name, r)
-	if !reflect.DeepEqual(readErr, err) || (err == nil && read.Indexer != took.Indexer) {
+	if !reflect.DeepEqual(p.refusal(readErr), p.refusal(err)) || (err == nil && read.Indexer != took.Indexer) {
 		p.t.Fatalf("for %s's %s, Standings answered %+v, %v and Take %+v, %v; want the same", name, r.Title, read, readErr, took, err)
 	}
 	return err
+}
+
+// refusal is err's NotTakenError, zero when err is nil.
+func (p *planned) refusal(err error) indexers.NotTakenError {
+	p.t.Helper()
+	if err == nil {
+		return indexers.NotTakenError{}
+	}
+	e, ok := errors.AsType[*indexers.NotTakenError](err)
+	if !ok {
+		p.t.Fatal(err)
+	}
+	return *e
 }
 
 func sentenceOf(err error) string {
