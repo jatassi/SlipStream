@@ -59,10 +59,6 @@ var (
 	queryNeedsOneItem    = api.NewCode(http.StatusUnprocessableEntity, "query_needs_one_item", "A typed query searches one Item. Open Manual search on one Item to type a query.")
 	grabBusy             = api.NewCode(http.StatusConflict, "grab_busy", "This Grab is placing its file in the library. It can't be canceled until that finishes.")
 	grabFinished         = api.NewCode(http.StatusConflict, "grab_finished", "This Grab already finished, so there's nothing to cancel")
-	// notBuilt is an operation of S32 (Manual search and grab) whose domain
-	// body a later change of that build writes. It goes with
-	// grabs.ErrNotBuilt.
-	notBuilt = api.NewCode(http.StatusNotImplemented, "not_built", "This operation isn't built yet")
 )
 
 func answer(err error) error {
@@ -87,8 +83,6 @@ func answer(err error) error {
 		return noManualSearch
 	case errors.Is(err, grabs.ErrQueryNeedsOneItem):
 		return queryNeedsOneItem
-	case errors.Is(err, grabs.ErrNotBuilt):
-		return notBuilt
 	}
 	if e, ok := errors.AsType[*grabs.RootUnreachableError](err); ok {
 		return rootUnreachable.Because(e.Why)
@@ -296,8 +290,9 @@ type grabClient struct {
 }
 
 type clientWait struct {
-	NodeID string                   `json:"nodeId" format:"uuid" doc:"The client's Node, which is offline"`
+	NodeID string                   `json:"nodeId" format:"uuid" doc:"The client's Node"`
 	Client api.Nullable[grabClient] `json:"client" doc:"The external client; null for the Node's built-in client"`
+	Off    bool                     `json:"off" doc:"The Grab is pinned to this client and the client can't take it: it is off or deleted, or its Node doesn't hold Downloading. False while the client's Node is offline"`
 }
 
 type grab struct {
@@ -322,7 +317,7 @@ type grab struct {
 	Progress     *progress                `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
 	Metadata     *metadataSearch          `json:"metadata,omitempty" doc:"The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node"`
 	FetchWait    *fetchWait               `json:"fetchWait,omitempty" doc:"Why fetching the .torrent waits on its Indexer, absent unless it does"`
-	WaitsFor     *clientWait              `json:"waitsFor,omitempty" doc:"The client a fetching Grab goes to, absent unless it waits for that client's Node to be back online"`
+	WaitsFor     *clientWait              `json:"waitsFor,omitempty" doc:"The client a fetching Grab goes to, absent unless it waits for that client: its Node to be back online, or a pinned client that can't take it"`
 	CreatedAt    time.Time                `json:"createdAt"`
 	Source       string                   `json:"source" enum:"search,manual" doc:"How it was chosen: by a search's decision, or by an Admin in a Manual search"`
 	GrabbedBy    *string                  `json:"grabbedBy" doc:"A name, or the API key; null for a search's Grab"`
@@ -384,7 +379,7 @@ func grabOf(v grabs.View) grab {
 		}
 	}
 	if w := v.WaitsFor; w != nil {
-		out.WaitsFor = &clientWait{NodeID: w.Node.String()}
+		out.WaitsFor = &clientWait{NodeID: w.Node.String(), Off: w.Off}
 		if c := w.Client; c != nil {
 			out.WaitsFor.Client = api.Some(grabClient{ID: c.ID.String(), Name: c.Name, Kind: string(c.Kind)})
 		}
@@ -483,7 +478,7 @@ func Routes(r *api.Router, p Pipeline) {
 		Path:    "/grabs/{grabId}/cancel",
 		Summary: "Cancel a Grab that is fetching, downloading or transferring. Canceling a canceled Grab changes nothing",
 		Status:  http.StatusNoContent,
-		Errors:  []*api.Code{grabNotFound, grabBusy, grabFinished, reconciling, notBuilt},
+		Errors:  []*api.Code{grabNotFound, grabBusy, grabFinished, reconciling},
 	}, h.cancelGrab)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "startManualSearch",
@@ -500,7 +495,7 @@ func Routes(r *api.Router, p Pipeline) {
 		Path:    "/works/{workId}/manual-search",
 		Summary: "Get a Work's Manual search with its plan worked out around the pins",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{workNotFound, noManualSearch, notBuilt},
+		Errors:  []*api.Code{workNotFound, noManualSearch},
 	}, h.getManualSearch)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listManualSearchReleases",
@@ -508,7 +503,7 @@ func Routes(r *api.Router, p Pipeline) {
 		Path:    "/works/{workId}/manual-search/releases",
 		Summary: "List every Release of a Work's Manual search with what grabbing it alone does",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{workNotFound, noManualSearch, notBuilt},
+		Errors:  []*api.Code{workNotFound, noManualSearch},
 	}, h.listManualSearchReleases)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "grabFromManualSearch",
@@ -516,7 +511,7 @@ func Routes(r *api.Router, p Pipeline) {
 		Path:    "/works/{workId}/manual-search/grabs",
 		Summary: "Grab the picked Releases of a Work's Manual search in one go, each judged again and refused alone",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{workNotFound, manualSearchReplaced, reconciling, notBuilt},
+		Errors:  []*api.Code{workNotFound, manualSearchReplaced, reconciling},
 	}, h.grabFromManualSearch)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listBlocklist",

@@ -71,8 +71,8 @@ SELECT node_id FROM downloadclients_node WHERE grabs_to = sqlc.arg(client_id);
 SELECT * FROM downloadclients_client WHERE id = sqlc.arg(id) AND deleted_at IS NULL;
 
 -- name: GetClientNamed :one
--- A deleted client keeps its name and Node.
-SELECT name, node_id FROM downloadclients_client WHERE id = sqlc.arg(id);
+-- A deleted client keeps its kind, name and Node.
+SELECT kind, name, node_id FROM downloadclients_client WHERE id = sqlc.arg(id);
 
 -- name: GetGrabsTo :one
 -- The on client a Node's new Grabs go to. No row is its built-in client.

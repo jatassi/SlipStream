@@ -38,6 +38,7 @@ import { Route as SetupStepRouteImport } from "./routes/setup_.$step";
 import { Route as AppAccountsIndexRouteImport } from "./routes/_app/accounts/index";
 import { Route as AppAccountsAccountIdRouteImport } from "./routes/_app/accounts/$accountId";
 import { Route as AppActivityIndexRouteImport } from "./routes/_app/activity/index";
+import { Route as AppActivityBlocklistRouteImport } from "./routes/_app/activity/blocklist";
 import { Route as AppActivityTorrentsRouteImport } from "./routes/_app/activity/torrents";
 import { Route as AppLibraryIndexRouteImport } from "./routes/_app/library/index";
 import { Route as AppLibraryContentTypeRouteImport } from "./routes/_app/library/$contentType";
@@ -221,6 +222,11 @@ const AppAccountsAccountIdRoute = AppAccountsAccountIdRouteImport.update({
 const AppActivityIndexRoute = AppActivityIndexRouteImport.update({
   id: "/",
   path: "/",
+  getParentRoute: () => AppActivityRouteRoute,
+} as any);
+const AppActivityBlocklistRoute = AppActivityBlocklistRouteImport.update({
+  id: "/blocklist",
+  path: "/blocklist",
   getParentRoute: () => AppActivityRouteRoute,
 } as any);
 const AppActivityTorrentsRoute = AppActivityTorrentsRouteImport.update({
@@ -471,6 +477,7 @@ export interface FileRoutesByFullPath {
   "/portal/": typeof PortalIndexRoute;
   "/nodes/$nodeId": typeof AppNodesNodeIdRouteRouteWithChildren;
   "/accounts/$accountId": typeof AppAccountsAccountIdRoute;
+  "/activity/blocklist": typeof AppActivityBlocklistRoute;
   "/activity/torrents": typeof AppActivityTorrentsRouteWithChildren;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/library/pending": typeof AppLibraryPendingRoute;
@@ -534,6 +541,7 @@ export interface FileRoutesByTo {
   "/": typeof AppIndexRoute;
   "/portal": typeof PortalIndexRoute;
   "/accounts/$accountId": typeof AppAccountsAccountIdRoute;
+  "/activity/blocklist": typeof AppActivityBlocklistRoute;
   "/activity/torrents": typeof AppActivityTorrentsRouteWithChildren;
   "/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/library/pending": typeof AppLibraryPendingRoute;
@@ -604,6 +612,7 @@ export interface FileRoutesById {
   "/portal/": typeof PortalIndexRoute;
   "/_app/nodes/$nodeId": typeof AppNodesNodeIdRouteRouteWithChildren;
   "/_app/accounts/$accountId": typeof AppAccountsAccountIdRoute;
+  "/_app/activity/blocklist": typeof AppActivityBlocklistRoute;
   "/_app/activity/torrents": typeof AppActivityTorrentsRouteWithChildren;
   "/_app/library/$contentType": typeof AppLibraryContentTypeRoute;
   "/_app/library/pending": typeof AppLibraryPendingRoute;
@@ -676,6 +685,7 @@ export interface FileRouteTypes {
     | "/portal/"
     | "/nodes/$nodeId"
     | "/accounts/$accountId"
+    | "/activity/blocklist"
     | "/activity/torrents"
     | "/library/$contentType"
     | "/library/pending"
@@ -739,6 +749,7 @@ export interface FileRouteTypes {
     | "/"
     | "/portal"
     | "/accounts/$accountId"
+    | "/activity/blocklist"
     | "/activity/torrents"
     | "/library/$contentType"
     | "/library/pending"
@@ -808,6 +819,7 @@ export interface FileRouteTypes {
     | "/portal/"
     | "/_app/nodes/$nodeId"
     | "/_app/accounts/$accountId"
+    | "/_app/activity/blocklist"
     | "/_app/activity/torrents"
     | "/_app/library/$contentType"
     | "/_app/library/pending"
@@ -1069,6 +1081,13 @@ declare module "@tanstack/react-router" {
       path: "/";
       fullPath: "/activity/";
       preLoaderRoute: typeof AppActivityIndexRouteImport;
+      parentRoute: typeof AppActivityRouteRoute;
+    };
+    "/_app/activity/blocklist": {
+      id: "/_app/activity/blocklist";
+      path: "/blocklist";
+      fullPath: "/activity/blocklist";
+      preLoaderRoute: typeof AppActivityBlocklistRouteImport;
       parentRoute: typeof AppActivityRouteRoute;
     };
     "/_app/activity/torrents": {
@@ -1366,11 +1385,13 @@ const AppActivityTorrentsRouteWithChildren =
   AppActivityTorrentsRoute._addFileChildren(AppActivityTorrentsRouteChildren);
 
 interface AppActivityRouteRouteChildren {
+  AppActivityBlocklistRoute: typeof AppActivityBlocklistRoute;
   AppActivityTorrentsRoute: typeof AppActivityTorrentsRouteWithChildren;
   AppActivityIndexRoute: typeof AppActivityIndexRoute;
 }
 
 const AppActivityRouteRouteChildren: AppActivityRouteRouteChildren = {
+  AppActivityBlocklistRoute: AppActivityBlocklistRoute,
   AppActivityTorrentsRoute: AppActivityTorrentsRouteWithChildren,
   AppActivityIndexRoute: AppActivityIndexRoute,
 };

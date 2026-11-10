@@ -86,14 +86,23 @@ function SendableWait({
 
 type Words = { readonly subject: string; readonly detail: string };
 
-const routeWaitWords = ({ client }: GrabsClientWait, node: string): Words => ({
-  subject: `Waiting to send to ${client === null ? "the built-in client" : client.name} on ${node}`,
-  detail: `${node} is offline. This download goes there once ${node} is back online.`,
-});
+const routeWaitWords = ({ client, off }: GrabsClientWait, node: string): Words => {
+  if (off) {
+    return {
+      subject: `Waiting for ${client === null ? "the built-in client" : client.name} on ${node}`,
+      detail: `${client === null ? "The built-in client" : client.name} on ${node} is off. Turn it on or send this Grab to another client.`,
+    };
+  }
+  return {
+    subject: `Waiting to send to ${client === null ? "the built-in client" : client.name} on ${node}`,
+    detail: `${node} is offline. This download goes there once ${node} is back online.`,
+  };
+};
 
 /**
  * The words of a wait the Admin can end by sending the Grab elsewhere: to
- * fetch for its routed client's offline Node, or on its away client.
+ * fetch for its routed client's offline Node or its pinned client that is
+ * off, or on its away client.
  */
 function sendableWords(
   grab: GrabsGrab,

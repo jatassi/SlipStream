@@ -52,7 +52,8 @@ const announcing = new Set<State>(["downloading", "seeding", "stalled", "tracker
 /**
  * The actions a Torrent offers, in menu order. Announce now needs the
  * Inspector's word that every announce URL accepts one now; a row has none.
- * A failed torrent offers Retry when it failed after it completed.
+ * A failed torrent offers Retry when it failed after it completed. Mark
+ * failed needs an unfinished Grab holding it, whose Release it blocklists.
  */
 export function menuFor(row: Row, trackersAccept = false): TorrentAction[] {
   if (row.state === "removing") {
@@ -68,7 +69,7 @@ export function menuFor(row: Row, trackersAccept = false): TorrentAction[] {
     wantedOf(row) === "started" ? "pause" : "resume",
     ...(announces ? (["announce"] as const) : []),
     ...(online && row.state !== "checking" ? (["recheck"] as const) : []),
-    ...(row.state === "stalled" ? (["mark-failed"] as const) : []),
+    ...(row.held ? (["mark-failed"] as const) : []),
     "remove",
   ];
 }

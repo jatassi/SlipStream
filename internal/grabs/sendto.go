@@ -12,14 +12,14 @@ import (
 )
 
 // ErrNotSendable is a send-to of a Grab that neither downloads nor waits
-// for its client's Node: its fetch can go ahead, or its Torrent is past or
-// short of downloading, or its download finished, failed or was removed.
+// for its client: its fetch can go ahead, or its Torrent is past or short
+// of downloading, or its download finished, failed or was removed.
 var ErrNotSendable = errors.New("the Grab can't be sent to another client")
 
 // SendTo sends Grab id to the client c names, in one Write that checks the
 // client can take it. A downloading Grab's Torrent is retargeted, and every
 // Grab downloading it points at the Torrent and Node that answers. A Grab
-// that waits to fetch for its client's Node goes to c once fetched, and
+// that waits to fetch for its client goes to c once fetched, and
 // fetches at once. It tells the Nodes whose intents changed once it
 // commits. It fails with ErrNoGrab, ErrNotSendable, and Usable's and
 // Retarget's errors.
@@ -30,18 +30,7 @@ func (gr *Grabs) SendTo(ctx context.Context, _ identity.Admin, id GrabID, c down
 		fetching *Grab
 	)
 	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		row, err := db.New(tx).GetGrab(ctx, id)
-		if errors.Is(err, storage.ErrNoRows) {
-			return ErrNoGrab
-		}
-		if err != nil {
-			return err
-		}
-		rel, err := readRelated(ctx, tx, []db.GrabsGrab{row})
-		if err != nil {
-			return err
-		}
-		g, err := load(ctx, tx, row, rel)
+		g, err := grabIn(ctx, tx, id)
 		if err != nil {
 			return err
 		}
@@ -93,9 +82,10 @@ func (gr *Grabs) sendDownloading(ctx context.Context, tx *storage.Tx[file], g Gr
 }
 
 // sendFetching records c as the client fetching Grab g goes to, in tx,
-// while g waits for its client's Node.
+// while g waits for its client: one it is pinned to that can't take it,
+// or one on a Node out of step.
 func (gr *Grabs) sendFetching(ctx context.Context, tx *storage.Tx[file], g Grab, c downloadclients.Choice) error {
-	waits, err := gr.waitingFor(ctx, tx, g)
+	waits, err := clientWait(ctx, tx, gr.cfg.Router, gr.cfg.Roster.InStep, g)
 	if err != nil {
 		return err
 	}

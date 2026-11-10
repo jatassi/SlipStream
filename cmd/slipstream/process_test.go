@@ -600,7 +600,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.searching.request", Value: "30s", Default: "30s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_REQUEST"},
 			{Key: "timings.searching.floor", Value: "2s", Default: "2s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_FLOOR"},
 			{Key: "timings.searching.hold", Value: "20s", Default: "20s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_HOLD"},
-			{Key: "timings.searching.job_cap", Value: "10m0s", Default: "10m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_JOB_CAP"},
+			{Key: "timings.searching.job_cap", Value: "11m0s", Default: "11m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_JOB_CAP"},
 			{Key: "timings.searching.keep", Value: "2m0s", Default: "2m0s", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_KEEP"},
 			{Key: "timings.searching.results", Value: "1000", Default: "1000", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_RESULTS"},
 			{Key: "timings.searching.relogins", Value: "1", Default: "1", Source: "default", Env: "SLIPSTREAM_TIMINGS_SEARCHING_RELOGINS"},

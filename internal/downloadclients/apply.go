@@ -40,6 +40,9 @@ type Config struct {
 	// CardsChanged tells the Admins a Node's client card or settings
 	// moved.
 	CardsChanged Publisher[ClientsChanged]
+	// Rerouted tells the Grabs a client was added, edited or deleted, so
+	// a Grab pinned to a client that turned on or off routes again.
+	Rerouted func()
 	// Facts is a Node's latest client facts, false while it has none.
 	Facts func(role.NodeID) (*dlv1.Facts, bool)
 	// Remote is a Node's client as the Controller calls it.

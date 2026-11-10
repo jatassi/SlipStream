@@ -12,8 +12,45 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
+
+const countKeptOfManual = `-- name: CountKeptOfManual :many
+SELECT grabs_release.search_id, count(*) AS kept FROM grabs_release JOIN grabs_search ON grabs_search.id = grabs_release.search_id
+WHERE grabs_search.manual_id = ?1 AND grabs_release.release IS NOT NULL
+GROUP BY grabs_release.search_id ORDER BY grabs_release.search_id
+`
+
+type CountKeptOfManualRow struct {
+	SearchID SearchID
+	Kept     int64
+}
+
+// Each run's count of kept Releases, which says whether the view's decoded
+// copy of the run is current: a run's rows are only ever appended.
+func (q *Queries) CountKeptOfManual(ctx context.Context, manualID ManualID) ([]CountKeptOfManualRow, error) {
+	rows, err := q.db.QueryContext(ctx, countKeptOfManual, manualID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountKeptOfManualRow
+	for rows.Next() {
+		var i CountKeptOfManualRow
+		if err := rows.Scan(&i.SearchID, &i.Kept); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
 
 const deleteManual = `-- name: DeleteManual :exec
 DELETE FROM grabs_manual WHERE id = ?1
@@ -172,6 +209,142 @@ func (q *Queries) InsertManualRun(ctx context.Context, arg InsertManualRunParams
 		arg.StartedAt,
 	)
 	return err
+}
+
+const listCellGrabsOfWork = `-- name: ListCellGrabsOfWork :many
+SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_target.target_id, grabs_grab.stage, grabs_grab.source,
+    grabs_grab.release_title, grabs_grab.failure_code, grabs_grab.failure_message
+FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
+WHERE grabs_grab.work_id = ?1
+ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position
+`
+
+type ListCellGrabsOfWorkRow struct {
+	ID             GrabID
+	ItemID         works.ItemID
+	Edition        targets.Edition
+	TargetID       targets.TargetID
+	Stage          Stage
+	Source         Source
+	ReleaseTitle   string
+	FailureCode    *Code
+	FailureMessage *string
+}
+
+// Each Grab of the Work at each of its Targets, oldest first, so the
+// last of a cell is its latest.
+func (q *Queries) ListCellGrabsOfWork(ctx context.Context, workID works.WorkID) ([]ListCellGrabsOfWorkRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCellGrabsOfWork, workID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCellGrabsOfWorkRow
+	for rows.Next() {
+		var i ListCellGrabsOfWorkRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ItemID,
+			&i.Edition,
+			&i.TargetID,
+			&i.Stage,
+			&i.Source,
+			&i.ReleaseTitle,
+			&i.FailureCode,
+			&i.FailureMessage,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLinesOfManual = `-- name: ListLinesOfManual :many
+SELECT grabs_search_indexer.search_id, grabs_search_indexer.position, grabs_search_indexer.indexer_id, grabs_search_indexer.indexer_name, grabs_search_indexer.query_id, grabs_search_indexer.outcome, grabs_search_indexer.releases, grabs_search_indexer.until_at, grabs_search_indexer.since_at, grabs_search_indexer.node_id, grabs_search_indexer.lapsed, grabs_search_indexer.cause, grabs_search_indexer.text FROM grabs_search_indexer JOIN grabs_search ON grabs_search.id = grabs_search_indexer.search_id
+WHERE grabs_search.manual_id = ?1
+ORDER BY grabs_search_indexer.search_id, grabs_search_indexer.position
+`
+
+func (q *Queries) ListLinesOfManual(ctx context.Context, manualID ManualID) ([]GrabsSearchIndexer, error) {
+	rows, err := q.db.QueryContext(ctx, listLinesOfManual, manualID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrabsSearchIndexer
+	for rows.Next() {
+		var i GrabsSearchIndexer
+		if err := rows.Scan(
+			&i.SearchID,
+			&i.Position,
+			&i.IndexerID,
+			&i.IndexerName,
+			&i.QueryID,
+			&i.Outcome,
+			&i.Releases,
+			&i.UntilAt,
+			&i.SinceAt,
+			&i.NodeID,
+			&i.Lapsed,
+			&i.Cause,
+			&i.Text,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listManualRuns = `-- name: ListManualRuns :many
+SELECT id, work_id, item_id, manual_id, started_at, finished_at, outcome, candidates, grab_id, notes FROM grabs_search WHERE manual_id = ?1 ORDER BY started_at, id
+`
+
+func (q *Queries) ListManualRuns(ctx context.Context, manualID ManualID) ([]GrabsSearch, error) {
+	rows, err := q.db.QueryContext(ctx, listManualRuns, manualID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrabsSearch
+	for rows.Next() {
+		var i GrabsSearch
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkID,
+			&i.ItemID,
+			&i.ManualID,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.Outcome,
+			&i.Candidates,
+			&i.GrabID,
+			&i.Notes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listRunsOfManual = `-- name: ListRunsOfManual :many

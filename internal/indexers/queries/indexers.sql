@@ -194,8 +194,9 @@ LIMIT 1;
 -- name: GetSettings :one
 SELECT * FROM indexers_settings;
 
--- name: SetLongBackoff :exec
-UPDATE indexers_settings SET long_backoff_seconds = sqlc.narg(long_backoff_seconds);
+-- name: SetSettings :exec
+UPDATE indexers_settings
+SET long_backoff_seconds = sqlc.narg(long_backoff_seconds), search_wait_seconds = sqlc.narg(search_wait_seconds);
 
 -- name: ListTrackers :many
 SELECT * FROM indexers_tracker ORDER BY name COLLATE NOCASE, id;

@@ -56,8 +56,20 @@ test.each<[string, Shape, boolean, string[]]>([
     ["pause", "recheck", "remove"],
   ],
   [
-    "a stalled download can be marked failed",
+    "a download a Grab holds can be marked failed",
+    { state: "downloading", held: true },
+    reject,
+    ["pause", "recheck", "mark-failed", "remove"],
+  ],
+  [
+    "a stalled download no Grab holds can't be marked failed",
     { state: "stalled" },
+    reject,
+    ["pause", "recheck", "remove"],
+  ],
+  [
+    "a seed a Grab holds can be marked failed",
+    { state: "seeding", held: true },
     reject,
     ["pause", "recheck", "mark-failed", "remove"],
   ],
