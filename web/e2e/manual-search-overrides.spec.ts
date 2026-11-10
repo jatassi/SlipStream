@@ -120,9 +120,8 @@ test("a row and the whole plan can be sent to a client Tracker routing wouldn't 
   await rows.nth(1).getByRole("checkbox").uncheck();
   await manual.getByRole("button", { name: "Grab 1" }).click();
   const record = await recordOf(page, "The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW");
-  await expect(record).toContainText(
-    "Ada Okafor sent it to the built-in client on home. Tracker routing would have sent it to the built-in client on home.",
-  );
+  await expect(record).toContainText("Ada Okafor sent it to the built-in client on home.");
+  await expect(record).not.toContainText("Tracker routing would have sent it");
 });
 
 test("a blocklisted Release says since when and why, and Remove from Blocklist and grab takes it back", async ({
