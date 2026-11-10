@@ -1,6 +1,7 @@
 package indexers
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -24,6 +25,9 @@ type job struct {
 	// untracked is a job with no query row, whose answer is never
 	// recorded.
 	untracked bool
+	// wait is a search job's SearchWait, zero for every other use, which
+	// keeps Timings.Job.
+	wait time.Duration
 }
 
 // answer is a as record reads it.
@@ -144,15 +148,21 @@ func (x *Indexers) lose(ctx context.Context, q QueryID) {
 }
 
 // ask runs j on its Node. It polls Run until the answer or the job's
-// deadline, Timings.Job from when the Node started it, and never waits
-// past the deadline once the start is known. A job past it is ErrLate, as
-// is one whose call the deadline ended, which the Node may end a moment
-// before this clock reads the deadline, since the call's timeout reaches
-// it in whole milliseconds. settle polls a late job on in the background
-// and records it.
+// deadline and never waits past the deadline once it is known. A search
+// job's deadline is its wait from the first ask, or from when the Node
+// started it when that is earlier, since the Node says it started only
+// after Hold. Any other job's is Timings.Job from when the Node started it.
+// A job past it is ErrLate, as is one whose call the deadline ended, which
+// the Node may end a moment before this clock reads the deadline, since
+// the call's timeout reaches it in whole milliseconds. settle polls a late
+// job on in the background and records it.
 func (x *Indexers) ask(ctx context.Context, j job) (searching.Answer, error) {
 	remote := x.cfg.Searching(j.node)
+	limit := cmp.Or(j.wait, x.cfg.Timings.Job)
 	var deadline time.Time
+	if j.wait > 0 {
+		deadline = time.Now().Add(j.wait)
+	}
 	for {
 		asked := time.Now()
 		poll, err := runUntil(ctx, remote, j.wire, deadline)
@@ -173,8 +183,8 @@ func (x *Indexers) ask(ctx context.Context, j job) (searching.Answer, error) {
 			x.cfg.Log.Warn("Couldn't reach the Searching Node for an Indexer's job", "indexer", j.idx.ID.String(), "node", j.node.String(), "job", j.q.String(), "err", err.Error())
 			return searching.Answer{}, unavailable(err)
 		}
-		if !poll.Started.IsZero() {
-			deadline = poll.Started.Add(x.cfg.Timings.Job)
+		if end := poll.Started.Add(limit); !poll.Started.IsZero() && (deadline.IsZero() || end.Before(deadline)) {
+			deadline = end
 		}
 		if err := pause(ctx, asked.Add(x.cfg.Timings.Poll), deadline); err != nil {
 			return searching.Answer{}, err
