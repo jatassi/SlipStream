@@ -38,7 +38,8 @@ function TorrentGoes({
       <p>
         {subject.keptIn === undefined
           ? `SlipStream removes its torrent and deletes the download copy${freesWords(preview.data?.preview?.frees)}. Files in your library stay.`
-          : `SlipStream stops tracking its torrent and leaves it in ${subject.keptIn}. Files in your library stay.`}
+          : `SlipStream stops tracking its torrent and leaves it in ${subject.keptIn}. Files in your library stay.`}{" "}
+        Its Item goes back to wanted.
       </p>
       {preview.isPending && <Spinner label="Checking what this changes" />}
       {preview.isError && <p className="text-fail-ink">{sentenceOf(preview.error)}</p>}
@@ -48,6 +49,7 @@ function TorrentGoes({
           acted={preview.data}
           subjects={[subject]}
           work={(id) => works.get(id)?.label}
+          besides={grab.id}
         />
       )}
     </>
