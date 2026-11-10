@@ -9,11 +9,12 @@ import {
   filmPlan,
   flux,
   heldGrabId,
+  manualSearchId,
   pinnedFilmPlan,
   runId,
 } from "../test/manual";
 import { manualServer } from "../test/manual-server";
-import { openSheet, sheetNamed, twoGrabs } from "../test/manual-sheet";
+import { openSheet, sheetNamed, twoGrabs, workId } from "../test/manual-sheet";
 
 test("Send all to sets every row without its own client, and a row's Send to keeps its own", async () => {
   const server = manualServer({ plan: twoGrabs });
@@ -65,19 +66,64 @@ test("after Grab each row says what its pick did, and a held cell offers to canc
   await expect.element(sheet.getByRole("button", { name: "Grab 0" })).toBeDisabled();
 });
 
-test("a grabbed row that a later plan fills with another Release shows no result and is ticked again", async () => {
+test("a grabbed row that a later plan fills with another Release keeps its result, and the new Release shows none and is ticked", async () => {
   const server = manualServer({ plan: twoGrabs });
   openSheet(server);
   const sheet = sheetNamed("Season 1 of The Long Shelf");
   await userEvent.click(sheet.getByRole("button", { name: "Grab 2" }));
-  const second = sheet.getByRole("list", { name: "Grabs" }).getByRole("listitem").nth(1);
-  await expect.element(second.getByText("Grabbed.")).toBeVisible();
+  const rows = sheet.getByRole("list", { name: "Grabs" }).getByRole("listitem");
+  await expect.element(rows.nth(1).getByText("Grabbed.")).toBeVisible();
 
-  await userEvent.click(second.getByRole("button", { name: "Other choices" }));
-  await userEvent.click(second.getByRole("button", { name: "Use this" }));
+  await userEvent.click(rows.nth(1).getByRole("button", { name: "Other choices" }));
+  await userEvent.click(rows.nth(1).getByRole("button", { name: "Use this" }));
   await expect.element(sheet.getByRole("checkbox", { name: "WEBRip-1080p · RARBG" })).toBeChecked();
-  await expect.element(second.getByText("Grabbed.")).not.toBeInTheDocument();
+  await expect.element(rows.nth(1).getByText("Grabbed.")).toBeVisible();
+  await expect.element(rows.nth(2).getByText("Grabbed.")).not.toBeInTheDocument();
   await expect.element(sheet.getByRole("button", { name: "Grab 1" })).toBeEnabled();
+});
+
+test("each grabbed row still says Grabbed. after the plan read again leaves its cell out as held", async () => {
+  let grabbed = false;
+  const server = manualServer({
+    plan: (pins) => {
+      const plan = twoGrabs(pins);
+      return grabbed
+        ? {
+            ...plan,
+            plan: {
+              headline: "Every Target here has its file or a Grab downloading one.",
+              held: plan.plan.rows.map((row, at) => ({
+                grabId: `0199f3a1-5c2e-7d4f-8a6b-${String(at).padStart(12, "0")}`,
+                stage: "downloading" as const,
+                words: `A Grab is downloading ${row.pick?.release.words ?? ""} for 1080p.`,
+              })),
+              rows: [],
+            },
+          }
+        : plan;
+    },
+  });
+  const live = openSheet(server);
+  const sheet = sheetNamed("Season 1 of The Long Shelf");
+  await userEvent.click(sheet.getByRole("button", { name: "Grab 2" }));
+  await expect.poll(() => server.grabbed).toHaveLength(1);
+  grabbed = true;
+  live.clients[0]?.send({
+    event: "grabs.search-changed",
+    data: { workId, manualSearchId, searchId: runId },
+  });
+  await expect
+    .element(sheet.getByText("Every Target here has its file or a Grab downloading one."))
+    .toBeVisible();
+  const rows = sheet.getByRole("list", { name: "Grabs" }).getByRole("listitem");
+  await expect.element(rows.first().getByText("WEBDL-1080p · NTb")).toBeVisible();
+  await expect.element(rows.first().getByText("Grabbed.")).toBeVisible();
+  await expect.element(rows.nth(1).getByText("WEBDL-1080p · FLUX")).toBeVisible();
+  await expect.element(rows.nth(1).getByText("Grabbed.")).toBeVisible();
+  await expect
+    .element(sheet.getByRole("list", { name: "Cells a Grab is downloading" }))
+    .not.toBeInTheDocument();
+  await expect.element(sheet.getByRole("button", { name: "Grab 0" })).toBeDisabled();
 });
 
 const pickingBlocked = (row: GrabsPlanRow): GrabsPlanRow =>
