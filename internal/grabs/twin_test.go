@@ -45,12 +45,14 @@ type twin struct {
 }
 
 // twinSite is an Indexer of a twin, at priority, listing releases. spent
-// has a grab limit of one a day and its one grab taken.
+// has a grab limit of one a day and its one grab taken, and manualOnly
+// has Automatic search off.
 type twinSite struct {
-	name     string
-	priority int
-	spent    bool
-	releases []searching.Release
+	name       string
+	priority   int
+	spent      bool
+	manualOnly bool
+	releases   []searching.Release
 }
 
 func listing(title string, seeders int, hash string) searching.Release {
@@ -138,8 +140,7 @@ func (a *attic) SearchTerms(ctx context.Context, r storage.Reader[storage.Librar
 
 func (*attic) Categories() []newznab.ID { return newznab.Family(2000) }
 
-// twinWorld is a Grabs whose Indexers answer as tw's sites, over a
-// library holding The Attic, monitored, rooted and wanting HD: Bluray-1080p over WEB-DL 1080p.
+// twinWorld is a Grabs whose Indexers answer as tw's sites.
 type twinWorld struct {
 	g     *grabs.Grabs
 	work  works.WorkID
@@ -148,6 +149,27 @@ type twinWorld struct {
 
 func newTwinWorld(t *testing.T, tw twin) twinWorld {
 	t.Helper()
+	answers := scripted{}
+	a := newAttic(t, answers, tw.sites, slog.New(slog.DiscardHandler))
+	for _, site := range tw.sites {
+		answers[a.ids[site.name].String()] = site.releases
+	}
+	return twinWorld{g: a.open(), work: a.work, names: a.names}
+}
+
+// atticWorld is a library holding The Attic, monitored, rooted and
+// wanting HD: Bluray-1080p over WEB-DL 1080p, with an Indexer for each
+// site, whose searches remote answers.
+type atticWorld struct {
+	lib   library
+	cfg   grabs.Config
+	work  works.WorkID
+	ids   map[string]indexers.ID
+	names map[indexers.ID]string
+}
+
+func newAttic(t *testing.T, remote searching.Remote, sites []twinSite, log *slog.Logger) atticWorld {
+	t.Helper()
 	ctx := t.Context()
 	lib := storagetest.Library(t, schemas()...)
 	home := role.NodeID{UUID: storage.NewUUID()}
@@ -155,7 +177,7 @@ func newTwinWorld(t *testing.T, tw twin) twinWorld {
 	fx := contenttypetest.New()
 	w, err := works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
-		Changed: discard[works.Changed]{}, TypesChanged: discard[works.ContentTypesChanged]{},
+		Changed: discard[works.Changed]{}, TypesChanged: discard[works.ContentTypesChanged]{}, Removed: discard[works.Removed]{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -207,24 +229,24 @@ func newTwinWorld(t *testing.T, tw twin) twinWorld {
 	if err != nil {
 		t.Fatal(err)
 	}
-	answers, terms := scripted{}, &attic{item: tree.Items[0].ID}
+	terms := &attic{item: tree.Items[0].ID}
 	xs := indexers.New(indexers.Config{
-		Library: lib, Sealer: sealer, Roster: indexerstest.Alone(home), Searching: func(role.NodeID) searching.Remote { return answers },
+		Library: lib, Sealer: sealer, Roster: indexerstest.Alone(home), Searching: func(role.NodeID) searching.Remote { return remote },
 		Types: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Works: w,
 		Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
 		Timings: indexers.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
 	})
-	world := twinWorld{work: tree.ID, names: map[indexers.ID]string{}}
+	world := atticWorld{lib: lib, work: tree.ID, ids: map[string]indexers.ID{}, names: map[indexers.ID]string{}}
 	run(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		return nodestest.Insert(ctx, tx, home, "home")
 	})
-	for _, site := range tw.sites {
+	for _, site := range sites {
 		id := indexers.ID{UUID: storage.NewUUID()}
-		world.names[id], answers[id.String()] = site.name, site.releases
+		world.names[id], world.ids[site.name] = site.name, id
 		run(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 			return indexerstest.Torznab(ctx, tx, sealer, id, site.name, home, "https://site.test/api", "k")
 		})
-		edit := indexers.Edit{Priority: new(site.priority)}
+		edit := indexers.Edit{Priority: new(site.priority), AutoSearch: new(!site.manualOnly)}
 		if site.spent {
 			edit.Grabs = &indexers.Limit{Count: 1, Per: indexers.Day}
 		}
@@ -239,16 +261,23 @@ func newTwinWorld(t *testing.T, tw twin) twinWorld {
 		}
 	}
 	rootstest.Root(t, lib, home, contenttypetest.ID, t.TempDir())
-	world.g = grabs.New(grabs.Config{
+	world.cfg = grabs.Config{
 		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: shelf, Indexers: xs,
 		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Names: map[works.TypeID]rel.Names{contenttypetest.ID: dated{}},
 		Roster: r, Downloads: &swarm{}, Roots: library, Router: router,
-		Transfers: transfers.New(transfers.ControllerConfig{Library: lib}),
-		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
+		Timings: grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: discard[grabs.Changed]{}, SearchChanged: discard[grabs.SearchChanged]{}, FilesChanged: discard[files.Changed]{},
-		Log: slog.New(slog.DiscardHandler),
-	})
+		BlocklistChanged: discard[grabs.BlocklistChanged]{}, Reconciling: trackers.NotReconciling, Log: log,
+	}
 	return world
+}
+
+// open is a new Grabs over the world's library, as a Controller that
+// starts again opens one.
+func (a atticWorld) open() *grabs.Grabs {
+	cfg := a.cfg
+	cfg.Transfers = transfers.New(transfers.ControllerConfig{Library: a.lib})
+	return grabs.New(cfg)
 }
 
 // searchedAutomatically is what an automatic search of the Work grabs, as
