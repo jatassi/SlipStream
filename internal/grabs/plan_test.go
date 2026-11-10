@@ -1,6 +1,7 @@
 package grabs
 
 import (
+	"fmt"
 	"math/rand/v2"
 	"slices"
 	"strings"
@@ -218,6 +219,32 @@ func TestTheReleasesSlipStreamWouldntGrabFoldIntoGroups(t *testing.T) {
 	}
 }
 
+func TestAReleaseATargetAcceptsFoldsForWhyThatTargetRefusesIt(t *testing.T) {
+	met := cell(small, files.Met)
+	met.File = &files.File{Quality: release.WEBDL720p, Title: release.Title("Orchard.2021.720p.WEB-DL-GRP", episodic{}, release.BuiltIn())}
+	in := manualOf(orchard, []files.Cell{cell(hd, files.Missing), met}, offered("Orchard.2021.720p.WEB-DL-OTHER", 5, 10, nil))
+	f := viewOf(t, in).Folded
+	want := []FoldGroup{{Words: "1 isn't better than the files you have."}}
+	if !slices.Equal(f.Groups, want) {
+		t.Fatalf("a 720p WEB-DL that Small accepts folds as %+v, want %+v", f.Groups, want)
+	}
+}
+
+func TestASeasonPackFoldsOnceAcrossItsItems(t *testing.T) {
+	pack := hashed(offered("Lantern.Keepers.S01.1080p.WEB-DL", 5, 10, nil), 'p')
+	in := manualOf(lanternS01E03, []files.Cell{cell(hd, files.Missing)}, pack)
+	other := in.runs[0]
+	other.ID, other.ItemID = SearchID{UUID: storage.NewUUID()}, s01e02
+	in.runs = append(in.runs, other)
+	in.heard[other.ID] = in.heard[in.runs[0].ID]
+	in.cells = append(in.cells, files.Cell{Item: works.Item{ID: s01e02, Monitored: true}, Edition: targets.AnyEdition, Target: hd, State: files.Missing})
+	f := viewOf(t, in).Folded
+	want := Folded{Line: "SlipStream wouldn't grab 1 more Release.", Groups: []FoldGroup{{Words: "1 is a pack of more than one item, and SlipStream can't import packs yet."}}}
+	if f.Line != want.Line || !slices.Equal(f.Groups, want.Groups) {
+		t.Fatalf("a pack both runs listed folds as %+v, want %+v", f, want)
+	}
+}
+
 func TestAPinSwapsItsRowAndADeadPinIsDropped(t *testing.T) {
 	ls := []listed{
 		offered("Orchard.2021.1080p.BluRay-GRP", 50, 10, nil),
@@ -306,10 +333,11 @@ func walkingAll(g generated) planIn {
 	return in
 }
 
-func TestAnIndexerThatSkippedSomeItemsSaysWhy(t *testing.T) {
+func TestAnIndexersLineAcrossItemsSaysWhatItSearched(t *testing.T) {
 	until := time.Date(2026, 11, 10, 14, 5, 0, 0, time.UTC)
 	lines := map[indexers.OutcomeKind]string{
-		indexers.Found: "Found 1 Release", indexers.LimitReached: "Limit reached", indexers.IsFailing: "Isn't responding. SlipStream retries at 14:05.",
+		indexers.NoReleases: "No Releases", indexers.LimitReached: "Limit reached",
+		indexers.IsFailing: "Isn't responding. SlipStream retries at 14:05.",
 	}
 	for _, c := range []struct {
 		skipped indexers.Outcome
@@ -318,10 +346,18 @@ func TestAnIndexerThatSkippedSomeItemsSaysWhy(t *testing.T) {
 		{indexers.Outcome{Kind: indexers.LimitReached, Until: until}, "Better Site searched 1 of 2 items. Its limit resets at 14:05."},
 		{indexers.Outcome{Kind: indexers.LimitReached}, "Better Site searched 1 of 2 items. It reached its search limit."},
 		{indexers.Outcome{Kind: indexers.IsFailing, Until: until}, "Better Site searched 1 of 2 items. Isn't responding. SlipStream retries at 14:05."},
+		{indexers.Outcome{Kind: indexers.NoReleases}, "Found 3 Releases"},
+		{indexers.Outcome{Kind: indexers.Found, Releases: 2}, "Found 5 Releases"},
 	} {
 		in := manualOf(orchard, nil)
 		in.clock = func(t time.Time) string { return t.Format("15:04") }
-		in.line = func(o *indexers.Outcome) string { return lines[o.Kind] }
+		in.runs[0].Indexers[0].Outcome = &indexers.Outcome{Kind: indexers.Found, Releases: 3}
+		in.line = func(o *indexers.Outcome) string {
+			if o.Kind == indexers.Found {
+				return fmt.Sprintf("Found %d Releases", o.Releases)
+			}
+			return lines[o.Kind]
+		}
 		skipped := in.runs[0]
 		skipped.ID, skipped.ItemID = SearchID{UUID: storage.NewUUID()}, works.ItemID{UUID: storage.NewUUID()}
 		skipped.Indexers = []SearchIndexer{{Indexer: betterSite, Name: "Better Site", Outcome: &c.skipped}}

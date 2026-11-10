@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -583,12 +584,15 @@ func (s sheet) folded() Folded {
 	counts := map[foldKey]int{}
 	var order []foldKey
 	n := 0
+	seen := map[sameRelease]bool{}
 	for _, rs := range s.runs {
 		for g := range rs.as {
 			key, ok := rs.foldedWhy(g)
-			if !ok {
+			same := sameOf(rs.as[g].Release)
+			if !ok || seen[same] {
 				continue
 			}
+			seen[same] = true
 			if counts[key] == 0 {
 				order = append(order, key)
 			}
@@ -630,25 +634,46 @@ func (rs runSheet) foldedWhy(g int) (foldKey, bool) {
 	if i := slices.IndexFunc(a.refusals, func(r Reason) bool { return r.Code.Hard() || r.Code == targets.CoversMore }); i >= 0 {
 		return foldKey{code: a.refusals[i].Code}, true
 	}
-	if len(rs.item) == 0 {
-		return foldKey{code: targets.NotAnUpgrade}, true
-	}
-	lead := 0
-	if len(rs.walk) > 0 {
-		lead = rs.walk[0]
-	}
-	why := sts[lead].why
-	if slices.ContainsFunc(why, func(r Reason) bool { return r.Code == targets.QualityNotInTarget }) {
-		key := foldKey{code: targets.QualityNotInTarget}
-		if q, ok := a.read.Facts.Quality.Get(); ok {
-			key.quality = q.Info().Name
+	return foldedAt(a, sts), true
+}
+
+// foldedAt is why no cell takes a, sts being how it stands at each:
+// quality_not_in_target when no cell's Target accepts its Quality, else
+// the first reason of the first cell whose Target does.
+func foldedAt(a assessed, sts []stance) foldKey {
+	accepted := len(sts) == 0
+	for _, st := range sts {
+		if slices.ContainsFunc(st.why, func(r Reason) bool { return r.Code == targets.QualityNotInTarget }) {
+			continue
 		}
-		return key, true
+		if len(st.why) > 0 {
+			return foldKey{code: st.why[0].Code}
+		}
+		accepted = true
 	}
-	if len(why) > 0 {
-		return foldKey{code: why[0].Code}, true
+	if accepted {
+		return foldKey{code: targets.NotAnUpgrade}
 	}
-	return foldKey{code: targets.NotAnUpgrade}, true
+	key := foldKey{code: targets.QualityNotInTarget}
+	if q, ok := a.read.Facts.Quality.Get(); ok {
+		key.quality = q.Info().Name
+	}
+	return key
+}
+
+// sameRelease is what makes listings in two runs one Release, as dedupe
+// tells copies: its info hash, or its title and size when it has none. A
+// season pack is listed in the run of each of its Items.
+type sameRelease struct {
+	hash bencode.InfoHash
+	titleSize
+}
+
+func sameOf(r indexers.Release) sameRelease {
+	if r.InfoHash != nil {
+		return sameRelease{hash: *r.InfoHash}
+	}
+	return sameRelease{titleSize: titleSize{r.Title, r.Size}}
 }
 
 // foldWords is n Releases folded for key in a sentence.
@@ -737,23 +762,35 @@ func searchingWords(lines []IndexerLine, searching bool, responded, late int) st
 	return fmt.Sprintf("SlipStream searched %d Indexers.", len(lines))
 }
 
-// acrossWords is an Indexer's outcomes across the runs in words: its one
-// outcome's line, or "TorrentLeech searched 6 of 10 episodes. Its limit
-// resets at 14:05."
+// acrossWords is an Indexer's outcomes across the runs in words: their
+// one line when every run went alike, "Searching" while a run waits on
+// it, the Releases it found when it searched every run, or "TorrentLeech
+// searched 6 of 10 episodes. Its limit resets at 14:05."
 func (s sheet) acrossWords(name string, os []*indexers.Outcome) string {
+	if slices.Contains(os, nil) {
+		return s.in.line(nil)
+	}
 	first := s.in.line(os[0])
 	if !slices.ContainsFunc(os, func(o *indexers.Outcome) bool { return s.in.line(o) != first }) {
 		return first
 	}
-	searched := 0
+	searched, found := 0, 0
 	var skipped *indexers.Outcome
 	for _, o := range os {
 		switch {
-		case o != nil && (o.Kind == indexers.Found || o.Kind == indexers.NoReleases):
+		case o.Kind == indexers.Found || o.Kind == indexers.NoReleases:
 			searched++
+			found += o.Releases
 		case skipped == nil:
 			skipped = o
 		}
+	}
+	if skipped == nil {
+		all := indexers.Outcome{Kind: indexers.NoReleases}
+		if found > 0 {
+			all = indexers.Outcome{Kind: indexers.Found, Releases: found}
+		}
+		return s.in.line(&all)
 	}
 	return fmt.Sprintf("%s searched %d of %d %s. %s", name, searched, len(os), strings.ToLower(s.in.nouns.Item.Many), s.skippedWords(skipped))
 }
@@ -763,7 +800,7 @@ func (s sheet) acrossWords(name string, os []*indexers.Outcome) string {
 // (Indexers and Trackers)'s line says it otherwise, and some of its lines
 // are fragments.
 func (s sheet) skippedWords(o *indexers.Outcome) string {
-	limited := o != nil && (o.Kind == indexers.IsLimited || o.Kind == indexers.LimitReached)
+	limited := o.Kind == indexers.IsLimited || o.Kind == indexers.LimitReached
 	switch {
 	case limited && o.Until.IsZero():
 		return "It reached its search limit."
