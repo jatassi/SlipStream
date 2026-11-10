@@ -45,12 +45,14 @@ type twin struct {
 }
 
 // twinSite is an Indexer of a twin, at priority, listing releases. spent
-// has a grab limit of one a day and its one grab taken.
+// has a grab limit of one a day and its one grab taken. A fetch from it
+// answers torrent, else bytes that aren't bencode.
 type twinSite struct {
 	name     string
 	priority int
 	spent    bool
 	releases []searching.Release
+	torrent  []byte
 }
 
 func listing(title string, seeders int, hash string) searching.Release {
@@ -106,9 +108,8 @@ var twins = []twin{
 	},
 }
 
-// scripted answers each Indexer's search with its twin site's releases,
-// and every fetch with bytes that aren't bencode.
-type scripted map[string][]searching.Release
+// scripted answers each Indexer as its twin site.
+type scripted map[string]twinSite
 
 func (scripted) ReachSolver(context.Context, searching.Solver) (int, error) { return 0, nil }
 
@@ -116,9 +117,13 @@ func (s scripted) Run(_ context.Context, job searching.Job) (searching.Poll, err
 	var a searching.Answer
 	switch job.Call.(type) {
 	case searching.SearchCall:
-		a.Releases = s[job.Indexer]
+		a.Releases = s[job.Indexer].releases
 	case searching.FetchCall:
-		a.Got = searching.Torrent{Raw: []byte("not bencode")}
+		raw := s[job.Indexer].torrent
+		if raw == nil {
+			raw = []byte("not bencode")
+		}
+		a.Got = searching.Torrent{Raw: raw}
 	}
 	return searching.Poll{Answer: &a}, nil
 }
@@ -142,6 +147,7 @@ func (*attic) Categories() []newznab.ID { return newznab.Family(2000) }
 // library holding The Attic, monitored, rooted and wanting HD: Bluray-1080p over WEB-DL 1080p.
 type twinWorld struct {
 	g     *grabs.Grabs
+	lib   *storage.DB[storage.Library]
 	work  works.WorkID
 	names map[indexers.ID]string
 }
@@ -214,13 +220,13 @@ func newTwinWorld(t *testing.T, tw twin) twinWorld {
 		Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
 		Timings: indexers.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
 	})
-	world := twinWorld{work: tree.ID, names: map[indexers.ID]string{}}
+	world := twinWorld{lib: lib, work: tree.ID, names: map[indexers.ID]string{}}
 	run(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		return nodestest.Insert(ctx, tx, home, "home")
 	})
 	for _, site := range tw.sites {
 		id := indexers.ID{UUID: storage.NewUUID()}
-		world.names[id], answers[id.String()] = site.name, site.releases
+		world.names[id], answers[id.String()] = site.name, site
 		run(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 			return indexerstest.Torznab(ctx, tx, sealer, id, site.name, home, "https://site.test/api", "k")
 		})
