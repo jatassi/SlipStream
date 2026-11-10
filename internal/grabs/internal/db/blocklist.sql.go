@@ -259,3 +259,106 @@ func (q *Queries) ListDownloadingGrabsOfTorrents(ctx context.Context, torrentIds
 	}
 	return items, nil
 }
+
+const listGrabsOfTorrent = `-- name: ListGrabsOfTorrent :many
+SELECT id, stage, work_id, indexer_id, tracker_id, release_title, release_size FROM grabs_grab
+WHERE torrent_id = ?1
+ORDER BY created_at DESC, id DESC
+`
+
+type ListGrabsOfTorrentRow struct {
+	ID           GrabID
+	Stage        Stage
+	WorkID       works.WorkID
+	IndexerID    indexers.ID
+	TrackerID    indexers.TrackerID
+	ReleaseTitle string
+	ReleaseSize  int64
+}
+
+func (q *Queries) ListGrabsOfTorrent(ctx context.Context, torrentID downloadclients.ID) ([]ListGrabsOfTorrentRow, error) {
+	rows, err := q.db.QueryContext(ctx, listGrabsOfTorrent, torrentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGrabsOfTorrentRow
+	for rows.Next() {
+		var i ListGrabsOfTorrentRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Stage,
+			&i.WorkID,
+			&i.IndexerID,
+			&i.TrackerID,
+			&i.ReleaseTitle,
+			&i.ReleaseSize,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnsettledFaultTorrents = `-- name: ListUnsettledFaultTorrents :many
+SELECT DISTINCT g.torrent_id FROM grabs_grab g
+WHERE g.torrent_id IN (/*SLICE:torrent_ids*/?)
+    AND NOT EXISTS (SELECT 1 FROM grabs_fault_settled s WHERE s.torrent_id = g.torrent_id)
+ORDER BY g.torrent_id
+`
+
+// The Torrents among torrent_ids that a Grab used and whose release fault
+// grabs hasn't settled.
+func (q *Queries) ListUnsettledFaultTorrents(ctx context.Context, torrentIds []downloadclients.ID) ([]downloadclients.ID, error) {
+	query := listUnsettledFaultTorrents
+	var queryParams []interface{}
+	if len(torrentIds) > 0 {
+		for _, v := range torrentIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:torrent_ids*/?", strings.Repeat(",?", len(torrentIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:torrent_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []downloadclients.ID
+	for rows.Next() {
+		var torrent_id downloadclients.ID
+		if err := rows.Scan(&torrent_id); err != nil {
+			return nil, err
+		}
+		items = append(items, torrent_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const settleFault = `-- name: SettleFault :exec
+INSERT INTO grabs_fault_settled (torrent_id, settled_at) VALUES (?1, ?2)
+`
+
+type SettleFaultParams struct {
+	TorrentID downloadclients.ID
+	SettledAt storage.Time
+}
+
+func (q *Queries) SettleFault(ctx context.Context, arg SettleFaultParams) error {
+	_, err := q.db.ExecContext(ctx, settleFault, arg.TorrentID, arg.SettledAt)
+	return err
+}

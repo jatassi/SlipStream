@@ -174,6 +174,7 @@ type pipeline struct {
 	root       roots.ID
 	indexer    indexers.ID
 	copies     *transfers.Transfers
+	cfg        grabs.Config
 	beforeStep func(context.Context, grabs.Stage)
 	// reconciling is whether the Controller is Reconciling after a restore.
 	reconciling atomic.Bool
@@ -218,7 +219,7 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 	p.swarm.clients = downloadclients.New(downloadclients.Config{
 		Library: lib, Touch: func(...role.NodeID) {}, Changed: discard[downloadclients.Changed]{}, Uses: grabs.TorrentUses{}, Log: slog.New(slog.DiscardHandler),
 	})
-	p.g = grabs.New(grabs.Config{
+	p.cfg = grabs.Config{
 		Library: lib, Works: w, Sealer: sealer,
 		Indexers: indexers.New(indexers.Config{
 			Library: lib, Sealer: sealer, Roster: p.roster, Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
@@ -234,7 +235,8 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 				p.beforeStep(ctx, s)
 			}
 		},
-	})
+	}
+	p.g = grabs.New(p.cfg)
 	return p
 }
 
