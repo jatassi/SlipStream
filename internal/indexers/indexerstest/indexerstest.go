@@ -1,19 +1,24 @@
 // Package indexerstest is fixtures for the tests of the indexers' callers:
-// a roster and a saved Torznab, catalog or native Indexer.
+// a roster, a saved Torznab, catalog or native Indexer, and a scripted
+// Searching Node.
 package indexerstest
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"slices"
+	"sync"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -175,4 +180,102 @@ func SetCaps(ctx context.Context, tx *storage.Tx[storage.Library], id indexers.I
 		return fmt.Errorf("set the caps of Indexer %s: %w", id, err)
 	}
 	return nil
+}
+
+// Node is a searching.Remote whose Indexers answer each job a set time
+// after its first Run: inside a testing/synctest bubble, at that virtual
+// time. An Indexer with no answer set has none, which reads as no
+// Releases, at once. A Run holds up to hold, as a Node's does, so a caller
+// learns when the job started and its deadline can pass.
+type Node struct {
+	mu       sync.Mutex
+	answers  map[string]timed
+	started  map[string]time.Time
+	jobs     []searching.Job
+	canceled []string
+}
+
+// hold is a Node's default hold: the longest a Run waits before it answers
+// how the job stands.
+const hold = 20 * time.Second
+
+type timed struct {
+	after  time.Duration
+	answer searching.Answer
+}
+
+// Answer has Indexer id answer every later job with a, after the job's
+// first Run.
+func (n *Node) Answer(id indexers.ID, after time.Duration, a searching.Answer) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.answers == nil {
+		n.answers = map[string]timed{}
+	}
+	n.answers[id.String()] = timed{after: after, answer: a}
+}
+
+func (*Node) ReachSolver(context.Context, searching.Solver) (int, error) {
+	return 0, errors.New("the scripted Node has no Challenge solver")
+}
+
+func (n *Node) Run(ctx context.Context, j searching.Job) (searching.Poll, error) {
+	n.mu.Lock()
+	if n.started == nil {
+		n.started = map[string]time.Time{}
+	}
+	started, ok := n.started[j.ID]
+	if !ok {
+		started = time.Now()
+		n.started[j.ID] = started
+		n.jobs = append(n.jobs, j)
+	}
+	script := n.answers[j.Indexer]
+	n.mu.Unlock()
+	at := started.Add(script.after)
+	held := time.NewTimer(min(time.Until(at), hold))
+	defer held.Stop()
+	select {
+	case <-held.C:
+	case <-ctx.Done():
+		if errors.Is(ctx.Err(), context.Canceled) {
+			n.mu.Lock()
+			n.canceled = append(n.canceled, j.Indexer)
+			n.mu.Unlock()
+		}
+		return searching.Poll{}, fmt.Errorf("hold the call: %w", ctx.Err())
+	}
+	if time.Now().Before(at) {
+		return searching.Poll{Started: started}, nil
+	}
+	a := script.answer
+	a.Started = started
+	return searching.Poll{Started: started, Answer: &a}, nil
+}
+
+// Jobs is every job the Node ran, in the order each first reached it.
+func (n *Node) Jobs() []searching.Job {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return slices.Clone(n.jobs)
+}
+
+// Searches is the query of each search job the Node ran, in the order
+// each first reached it.
+func (n *Node) Searches() []searching.Query {
+	var out []searching.Query
+	for _, j := range n.Jobs() {
+		if c, ok := j.Call.(searching.SearchCall); ok {
+			out = append(out, c.Query)
+		}
+	}
+	return out
+}
+
+// Canceled is the Indexer of each Run its caller canceled before the job
+// answered, as the job names it, in order.
+func (n *Node) Canceled() []string {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return slices.Clone(n.canceled)
 }

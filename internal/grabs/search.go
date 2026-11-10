@@ -198,7 +198,7 @@ func (gr *Grabs) plan(ctx context.Context, tx *storage.Tx[file], tree works.Tree
 	if err := q.InsertSearch(ctx, db.InsertSearchParams{ID: id, WorkID: tree.ID, ItemID: item, StartedAt: started}); err != nil {
 		return SearchID{}, err
 	}
-	lines, err := gr.cfg.Indexers.Plan(ctx, tx, tree.ContentType)
+	lines, err := gr.cfg.Indexers.Plan(ctx, tx, tree.ContentType, indexers.AutoSearch)
 	if err != nil {
 		return SearchID{}, err
 	}
@@ -298,7 +298,7 @@ func (gr *Grabs) search(ctx context.Context, run Search) result {
 	if err != nil {
 		return gr.searchWaits(ctx, run, err)
 	}
-	answers, err := gr.cfg.Indexers.Search(ctx, s)
+	answers, err := gr.cfg.Indexers.Search(ctx, s, nil)
 	if ctx.Err() != nil {
 		return halted
 	}
