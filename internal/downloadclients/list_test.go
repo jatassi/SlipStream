@@ -416,3 +416,24 @@ func TestRowsReadOnlyATrackersTorrentsTheTrackerlessOnesOrSomeHashes(t *testing.
 		t.Errorf("seedpool's list = %v counting %d, want Harbor and Orchard counting all 3", got, listed.Counts.Tabs[dc.TabAll])
 	}
 }
+
+func TestARowIsHeldWhileAGrabOfItIsUnfinished(t *testing.T) {
+	for _, c := range []struct {
+		stages []dc.UseStage
+		want   bool
+	}{
+		{nil, false},
+		{[]dc.UseStage{dc.UseDownloading}, true},
+		{[]dc.UseStage{dc.UseImporting, dc.UseFailed}, true},
+		{[]dc.UseStage{dc.UseImported, dc.UseFailed}, false},
+	} {
+		l := newListed(t)
+		id := l.add(t, l.seedbox, "Orchard", queued())
+		for _, s := range c.stages {
+			l.u[id] = append(l.u[id], dc.Use{Grab: storage.NewUUID(), Work: l.work, Stage: s})
+		}
+		if got := list(t, l.clients(), dc.Filter{}).Rows[0].Held; got != c.want {
+			t.Errorf("held with Grabs at %v = %t, want %t", c.stages, got, c.want)
+		}
+	}
+}

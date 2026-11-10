@@ -56,7 +56,7 @@ type TorrentRow struct {
 	Error       string                    `json:"error,omitempty" doc:"The engine's error message for the failure, or an external client's own words for its error"`
 	Fault       *fault                    `json:"fault,omitempty" doc:"The fault found in the release itself, once there is one"`
 	Retryable   bool                      `json:"retryable" doc:"It failed in its Node's built-in client after it completed, so retry can check its files again"`
-	Held        bool                      `json:"held" doc:"A Grab at downloading holds it, so Mark failed can put its Release on the Blocklist"`
+	Held        bool                      `json:"held" doc:"A Grab that hasn't finished holds it, so Mark failed can put its Release on the Blocklist"`
 	Retry       *retried                  `json:"retry,omitempty" doc:"Its last Retry, absent before one"`
 	LastKnown   *time.Time                `json:"lastKnown,omitempty" doc:"When its Node last reported it, set while the row is stale for lastKnownCause"`
 	Stale       string                    `json:"lastKnownCause,omitempty" enum:"node,client,off" doc:"Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off"`
