@@ -9788,7 +9788,7 @@
             "type": "string"
           },
           "automaticSearch": {
-            "default": true,
+            "description": "Absent for on",
             "type": "boolean"
           },
           "baseAddress": {
@@ -9858,7 +9858,7 @@
             "type": "string"
           },
           "on": {
-            "default": true,
+            "description": "Absent for on",
             "type": "boolean"
           },
           "port": {
@@ -9874,7 +9874,7 @@
             "type": "integer"
           },
           "rss": {
-            "default": true,
+            "description": "Absent for on",
             "type": "boolean"
           },
           "searches": {
@@ -10316,7 +10316,7 @@
         "additionalProperties": false,
         "properties": {
           "settings": {
-            "description": "How long every request to an Indexer may fail before Health warns",
+            "description": "How long a search waits for each Indexer, and how long every request to an Indexer may fail before Health warns",
             "items": {
               "$ref": "#/components/schemas/SettingField"
             },
