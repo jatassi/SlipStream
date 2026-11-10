@@ -35,7 +35,7 @@ function Failed({
 }) {
   const subject = failedWords(naming, need, grab);
   if (card) {
-    return <GrabFailure grab={grab} work={subject} form="compact" />;
+    return <GrabFailure grab={grab} subject={subject} work={naming.work.label} form="compact" />;
   }
   const { cause, recovery } = failureWords[grab.failure.code];
   return (
