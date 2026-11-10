@@ -5446,7 +5446,6 @@ export const indexersNewIndexerAddressRegExp = new RegExp(
 );
 export const indexersNewIndexerApiKeyMax = 256;
 
-export const indexersNewIndexerAutomaticSearchDefault = true;
 export const indexersNewIndexerBaseAddressMax = 2048;
 
 export const indexersNewIndexerCodeMax = 16;
@@ -5455,13 +5454,11 @@ export const indexersNewIndexerDefinitionMax = 200;
 
 export const indexersNewIndexerNameMax = 100;
 
-export const indexersNewIndexerOnDefault = true;
 export const indexersNewIndexerPortMax = 200;
 
 export const indexersNewIndexerPriorityDefault = 25;
 export const indexersNewIndexerPriorityMax = 50;
 
-export const indexersNewIndexerRssDefault = true;
 export const indexersNewIndexerTrackerNameMax = 100;
 
 export const IndexersNewIndexer = zod.object({
@@ -5480,7 +5477,7 @@ export const IndexersNewIndexer = zod.object({
     .max(indexersNewIndexerApiKeyMax)
     .exactOptional()
     .describe("A Torznab feed's. Write-only"),
-  automaticSearch: zod.boolean().default(indexersNewIndexerAutomaticSearchDefault),
+  automaticSearch: zod.boolean().exactOptional().describe("Absent for on"),
   baseAddress: zod
     .string()
     .max(indexersNewIndexerBaseAddressMax)
@@ -5521,7 +5518,7 @@ export const IndexersNewIndexer = zod.object({
       "The Content Types an RSS feed carries, in place of categories; required for an RSS feed",
     ),
   name: zod.string().min(1).max(indexersNewIndexerNameMax),
-  on: zod.boolean().default(indexersNewIndexerOnDefault),
+  on: zod.boolean().exactOptional().describe("Absent for on"),
   port: zod
     .string()
     .max(indexersNewIndexerPortMax)
@@ -5532,7 +5529,7 @@ export const IndexersNewIndexer = zod.object({
     .min(1)
     .max(indexersNewIndexerPriorityMax)
     .default(indexersNewIndexerPriorityDefault),
-  rss: zod.boolean().default(indexersNewIndexerRssDefault),
+  rss: zod.boolean().exactOptional().describe("Absent for on"),
   searches: IndexersLimit.exactOptional(),
   trackerName: zod
     .string()
@@ -5606,7 +5603,9 @@ export type IndexersReportOutput = zod.output<typeof IndexersReport>;
 export const IndexersSettings = zod.object({
   settings: zod
     .array(SettingField)
-    .describe("How long every request to an Indexer may fail before Health warns"),
+    .describe(
+      "How long a search waits for each Indexer, and how long every request to an Indexer may fail before Health warns",
+    ),
 });
 
 export type IndexersSettings = zod.input<typeof IndexersSettings>;

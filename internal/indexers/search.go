@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/newznab"
@@ -163,8 +164,8 @@ type Answer struct {
 }
 
 // Search sends one job per asked line at once and returns their answers in
-// line order once each answered or passed its deadline, Timings.Job from
-// when its Node started it. A late job keeps being polled and is recorded
+// line order once each answered or passed the stored SearchWait, counted
+// from when it was first asked. A late job keeps being polled and is recorded
 // when it answers. Every way an Indexer couldn't answer is its Answer's
 // Outcome: removed, waiting, late or the site's own. It fails only when
 // the library, ctx or each does.
@@ -173,6 +174,15 @@ type Answer struct {
 // a slow Indexer never holds back a fast one's. An error from each stops
 // the jobs still out, and Search returns it.
 func (x *Indexers) Search(ctx context.Context, s Search, each func(Answer) error) ([]Answer, error) {
+	var wait time.Duration
+	err := x.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		wait, err = searchWait(ctx, r)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
 	jobs, stop := context.WithCancelCause(ctx)
 	defer stop(nil)
 	answers := make([]Answer, len(s.Asked))
@@ -181,7 +191,7 @@ func (x *Indexers) Search(ctx context.Context, s Search, each func(Answer) error
 	var wg sync.WaitGroup
 	for i, l := range s.Asked {
 		wg.Go(func() {
-			answers[i], errs[i] = x.searchOne(jobs, l, s)
+			answers[i], errs[i] = x.searchOne(jobs, l, s, wait)
 			if each == nil || errs[i] != nil {
 				return
 			}
@@ -205,7 +215,7 @@ func (x *Indexers) Search(ctx context.Context, s Search, each func(Answer) error
 	return answers, errors.Join(errs...)
 }
 
-func (x *Indexers) searchOne(ctx context.Context, l Line, s Search) (Answer, error) {
+func (x *Indexers) searchOne(ctx context.Context, l Line, s Search, wait time.Duration) (Answer, error) {
 	out := Answer{Indexer: l.Indexer}
 	idx, err := x.get(ctx, x.cfg.Library, l.Indexer)
 	if errors.Is(err, ErrNoIndexer) {
@@ -225,6 +235,7 @@ func (x *Indexers) searchOne(ctx context.Context, l Line, s Search) (Answer, err
 		x.lose(ctx, l.Query)
 		return Answer{}, err
 	}
+	j.wait = wait
 	for _, c := range served(idx, x.categories(s.Type)) {
 		j.wire.Categories = append(j.wire.Categories, int(c))
 	}

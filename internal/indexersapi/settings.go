@@ -11,7 +11,7 @@ import (
 )
 
 type settings struct {
-	Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"How long every request to an Indexer may fail before Health warns"`
+	Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"How long a search waits for each Indexer, and how long every request to an Indexer may fail before Health warns"`
 }
 
 type settingsOutput struct{ Body settings }

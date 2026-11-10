@@ -267,8 +267,10 @@ func loadConfig(fsys fs.FS, environ []string, types contenttype.Set, kind instal
 
 // CheckConfig holds the rules no leaf type carries: the Node settings
 // table's ranges, a web or torrent port the Node binds for something
-// else, and a Run call's hold shorter than a job's deadline, since the
-// Controller learns when a job started only from a poll's answer.
+// else, a Run call's hold shorter than a job's deadline, since the
+// Controller learns when a job started only from a poll's answer, and a
+// job cap longer than the longest search wait, so a search past its wait
+// is late, never failing.
 func (c *Config) CheckConfig(fail func(key string, err error)) {
 	if len(c.Link.Advertise) > 0 {
 		if _, err := link.ParseAddresses(c.Link.Advertise); err != nil {
@@ -283,6 +285,9 @@ func (c *Config) CheckConfig(fail func(key string, err error)) {
 	c.portsUsed(fail)
 	if hold, job := c.Timings.Searching.Hold, c.Timings.Indexers.Job; hold >= job {
 		fail("timings.searching.hold", fmt.Errorf("%s isn't shorter than timings.indexers.job, %s, so a job's first poll can outlast its deadline", hold, job))
+	}
+	if limit := c.Timings.Searching.JobCap; limit <= indexers.SearchWait.Max {
+		fail("timings.searching.job_cap", fmt.Errorf("%s isn't longer than the longest search wait, %s, so the Node can end a slow search before it reads as late", limit, indexers.SearchWait.Max))
 	}
 }
 

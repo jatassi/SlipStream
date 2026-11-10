@@ -253,3 +253,20 @@ func TestARunCallsHoldIsShorterThanAJobsDeadline(t *testing.T) {
 		t.Fatalf("err = %v, want %q with exit %d", err, want, ExitUsage)
 	}
 }
+
+func TestAJobCapNoLongerThanTheLongestSearchWaitIsRefused(t *testing.T) {
+	dir := testDataDir(t)
+	if err := os.WriteFile(filepath.Join(dir.Path(), "config.yaml"), []byte("timings:\n  searching:\n    job_cap: 10m\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := LoadConfig(dir, nil, noTypes, install.Dev)
+	if want := "config.yaml:3: timings.searching.job_cap: 10m0s isn't longer than the longest search wait, 10m0s, so the Node can end a slow search before it reads as late"; err == nil || err.Error() != want || ExitCode(err) != ExitUsage {
+		t.Fatalf("err = %v, want %q with exit %d", err, want, ExitUsage)
+	}
+	if err := os.WriteFile(filepath.Join(dir.Path(), "config.yaml"), []byte("timings:\n  searching:\n    job_cap: 10m1s\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := LoadConfig(dir, nil, noTypes, install.Dev); err != nil {
+		t.Fatalf("a job cap of 10m1s = %v, want it taken", err)
+	}
+}

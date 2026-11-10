@@ -337,15 +337,18 @@ type newIndexer struct {
 	AllowNoSize     bool              `json:"allowNoSize,omitempty" doc:"Use an RSS feed whose items have no size"`
 	Cookie          *pastedCookie     `json:"cookie,omitempty" doc:"A browser cookie for an RSS feed that needs one, or for a catalog or native Indexer whose site signs in with one. Write-only"`
 	HomeNodeID      string            `json:"homeNodeId,omitempty" format:"uuid" doc:"A Node that holds Searching; absent for the default home"`
-	On              bool              `json:"on,omitempty" default:"true"`
-	AutomaticSearch bool              `json:"automaticSearch,omitempty" default:"true"`
-	RSS             bool              `json:"rss,omitempty" default:"true"`
+	On              *bool             `json:"on,omitempty" doc:"Absent for on"`
+	AutomaticSearch *bool             `json:"automaticSearch,omitempty" doc:"Absent for on"`
+	RSS             *bool             `json:"rss,omitempty" doc:"Absent for on"`
 	AllowFailover   bool              `json:"allowFailover,omitempty"`
 	Priority        int               `json:"priority,omitempty" minimum:"1" maximum:"50" default:"25"`
 	Categories      []int             `json:"categories,omitempty" doc:"Newznab category ids; absent for every category it advertises"`
 	Searches        *limit            `json:"searches,omitempty"`
 	Grabs           *limit            `json:"grabs,omitempty"`
 }
+
+// onUnlessOff is a new Indexer's switch: on unless sent false.
+func onUnlessOff(b *bool) bool { return b == nil || *b }
 
 func (n newIndexer) draft() (indexers.Draft, error) {
 	if err := n.fitsKind(); err != nil {
@@ -354,7 +357,7 @@ func (n newIndexer) draft() (indexers.Draft, error) {
 	d := indexers.Draft{
 		Kind: indexers.Kind(n.Kind), Name: n.Name, Definition: n.Definition, Port: port.ID(n.Port), BaseAddress: n.BaseAddress, Values: n.Values,
 		Address: n.Address, APIKey: n.APIKey, Tracker: n.TrackerName, Media: media(n.Media),
-		AllowNoSize: n.AllowNoSize, Cookie: cookieIn(n.Cookie), On: n.On, AutoSearch: n.AutomaticSearch, RSS: n.RSS,
+		AllowNoSize: n.AllowNoSize, Cookie: cookieIn(n.Cookie), On: onUnlessOff(n.On), AutoSearch: onUnlessOff(n.AutomaticSearch), RSS: onUnlessOff(n.RSS),
 		AllowFailover: n.AllowFailover, Priority: n.Priority, Categories: indexers.CategoriesOf(n.Categories),
 	}
 	if n.Searches != nil {
