@@ -79,6 +79,19 @@
           }
         ]
       },
+      "CancelInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "blocklist": {
+            "description": "Also put its Release on the Blocklist; only when the Grab's actions.blocklistable is true",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "blocklist"
+        ],
+        "type": "object"
+      },
       "CheckFolderInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1382,7 +1395,8 @@
               "not_found",
               "removed",
               "importing",
-              "not_stalled",
+              "not_held",
+              "reconciling",
               "offline",
               "client_away",
               "client_off",
@@ -1932,6 +1946,10 @@
             },
             "type": "array"
           },
+          "held": {
+            "description": "A Grab that hasn't finished holds it, so Mark failed can put its Release on the Blocklist",
+            "type": "boolean"
+          },
           "hold": {
             "description": "Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error",
             "enum": [
@@ -2175,6 +2193,7 @@
           "tracker",
           "seeding",
           "retryable",
+          "held",
           "addedAt"
         ],
         "type": "object"
@@ -2296,6 +2315,10 @@
           "fault": {
             "$ref": "#/components/schemas/DownloadclientsFault",
             "description": "The fault found in the release itself, once there is one"
+          },
+          "held": {
+            "description": "A Grab that hasn't finished holds it, so Mark failed can put its Release on the Blocklist",
+            "type": "boolean"
           },
           "hold": {
             "description": "Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error",
@@ -2503,6 +2526,7 @@
           "tracker",
           "seeding",
           "retryable",
+          "held",
           "addedAt"
         ],
         "type": "object"
@@ -5005,6 +5029,118 @@
         ],
         "type": "object"
       },
+      "GrabManualInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "manualSearchId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "picks": {
+            "items": {
+              "$ref": "#/components/schemas/GrabsGrabPick"
+            },
+            "maxItems": 2000,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "manualSearchId",
+          "picks"
+        ],
+        "type": "object"
+      },
+      "GrabsBlockEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "addedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "because": {
+            "description": "The cause in a sentence, such as TorrentLeech reported it unregistered.",
+            "type": "string"
+          },
+          "cause": {
+            "enum": [
+              "unregistered",
+              "no_payload",
+              "engine_error",
+              "marked_failed",
+              "by_hand"
+            ],
+            "type": "string"
+          },
+          "indexer": {
+            "description": "The name of the Indexer that listed it; null when none is known",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "infoHash": {
+            "pattern": "^[0-9a-f]{40}$",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "words": {
+            "description": "What SlipStream reads from the title, in words",
+            "type": "string"
+          },
+          "work": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrabsWorkRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Work it was grabbed for; null once the Work is deleted"
+          }
+        },
+        "required": [
+          "infoHash",
+          "title",
+          "words",
+          "cause",
+          "because",
+          "indexer",
+          "work",
+          "addedAt"
+        ],
+        "type": "object"
+      },
+      "GrabsBlocklist": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "description": "Up to 50, newest first",
+            "items": {
+              "$ref": "#/components/schemas/GrabsBlockEntry"
+            },
+            "type": "array"
+          },
+          "total": {
+            "description": "How many entries match in all",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entries",
+          "total"
+        ],
+        "type": "object"
+      },
+      "GrabsBlocklistChanged": {
+        "additionalProperties": false,
+        "type": "object"
+      },
       "GrabsChanged": {
         "additionalProperties": false,
         "properties": {
@@ -5026,6 +5162,58 @@
           "workId",
           "progress"
         ],
+        "type": "object"
+      },
+      "GrabsChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "edition": {
+            "description": "The Edition it is grabbed as; null unless that is another Edition than its cut's",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lifts": {
+            "items": {
+              "$ref": "#/components/schemas/GrabsWordedReason"
+            },
+            "type": "array"
+          },
+          "note": {
+            "description": "Such as From TorrentLeech, which automatic search doesn't use.",
+            "type": "string"
+          },
+          "pin": {
+            "description": "Send it in pins to swap this Release into its row",
+            "type": "string"
+          },
+          "release": {
+            "$ref": "#/components/schemas/GrabsReleaseDetails"
+          }
+        },
+        "required": [
+          "pin",
+          "release",
+          "lifts",
+          "edition"
+        ],
+        "type": "object"
+      },
+      "GrabsClientChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "builtInOn": {
+            "description": "A downloading Node, for its built-in client; send this or clientId",
+            "format": "uuid",
+            "type": "string"
+          },
+          "clientId": {
+            "description": "An external client; send this or builtInOn",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "GrabsClientWait": {
@@ -5116,6 +5304,10 @@
           "message": {
             "type": "string"
           },
+          "needsYou": {
+            "description": "It goes under Needs you. False for a cancel and for a Manual Grab whose Release the Blocklist held after its fetch, which its sheet already said.",
+            "type": "boolean"
+          },
           "stage": {
             "enum": [
               "fetching",
@@ -5130,7 +5322,8 @@
         "required": [
           "stage",
           "code",
-          "message"
+          "message",
+          "needsYou"
         ],
         "type": "object"
       },
@@ -5156,9 +5349,50 @@
         ],
         "type": "object"
       },
+      "GrabsFoldGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "fault": {
+            "description": "A fault in the Releases, as opposed to a refusal",
+            "type": "boolean"
+          },
+          "words": {
+            "description": "Such as 8 are 4K, which no Target here takes.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "words",
+          "fault"
+        ],
+        "type": "object"
+      },
+      "GrabsFolded": {
+        "additionalProperties": false,
+        "properties": {
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/GrabsFoldGroup"
+            },
+            "type": "array"
+          },
+          "line": {
+            "description": "Such as SlipStream wouldn't grab 14 more Releases.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "line",
+          "groups"
+        ],
+        "type": "object"
+      },
       "GrabsGrab": {
         "additionalProperties": false,
         "properties": {
+          "actions": {
+            "$ref": "#/components/schemas/GrabsGrabActions"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -5194,6 +5428,13 @@
             "$ref": "#/components/schemas/GrabsFetchWait",
             "description": "Why fetching the .torrent waits on its Indexer, absent unless it does"
           },
+          "grabbedBy": {
+            "description": "A name, or the API key; null for a search's Grab",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "history": {
             "description": "Each stage it entered, when it last entered it, oldest first",
             "items": {
@@ -5224,6 +5465,14 @@
             "format": "uuid",
             "type": "string"
           },
+          "manualSearchId": {
+            "description": "The Manual search it came from; null for a search's Grab and once a later Manual search of the Work replaced it",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "metadata": {
             "$ref": "#/components/schemas/GrabsMetadataSearch",
             "description": "The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node"
@@ -5232,6 +5481,13 @@
             "description": "The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to",
             "format": "uuid",
             "type": "string"
+          },
+          "overrides": {
+            "description": "Each choice the Admin made past the decision, as a sentence",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "progress": {
             "$ref": "#/components/schemas/GrabsProgress",
@@ -5267,6 +5523,14 @@
             "type": "integer"
           },
           "releaseTitle": {
+            "type": "string"
+          },
+          "source": {
+            "description": "How it was chosen: by a search's decision, or by an Admin in a Manual search",
+            "enum": [
+              "search",
+              "manual"
+            ],
             "type": "string"
           },
           "stage": {
@@ -5330,7 +5594,35 @@
           "infoHash",
           "stage",
           "history",
-          "createdAt"
+          "createdAt",
+          "source",
+          "grabbedBy",
+          "manualSearchId",
+          "overrides",
+          "actions"
+        ],
+        "type": "object"
+      },
+      "GrabsGrabActions": {
+        "additionalProperties": false,
+        "properties": {
+          "blocklistable": {
+            "description": "A cancel can also put its Release on the Blocklist: its info hash is known",
+            "type": "boolean"
+          },
+          "cancel": {
+            "description": "cancelGrab can cancel it",
+            "type": "boolean"
+          },
+          "sendTo": {
+            "description": "sendGrabTo can send it to another client",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cancel",
+          "blocklistable",
+          "sendTo"
         ],
         "type": "object"
       },
@@ -5377,6 +5669,122 @@
         ],
         "type": "object"
       },
+      "GrabsGrabOffer": {
+        "additionalProperties": false,
+        "properties": {
+          "cancels": {
+            "description": "The Grabs downloading a cell it would also fill",
+            "items": {
+              "$ref": "#/components/schemas/GrabsHeldCell"
+            },
+            "type": "array"
+          },
+          "edition": {
+            "description": "The Edition it is grabbed as; null unless that is another Edition than its cut's",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "grabbable": {
+            "description": "It fills some cell and its Indexer would take it now. One on the Blocklist is grabbed only with unblock.",
+            "type": "boolean"
+          },
+          "lifts": {
+            "items": {
+              "$ref": "#/components/schemas/GrabsWordedReason"
+            },
+            "type": "array"
+          },
+          "outcome": {
+            "description": "What a Grab of it alone gets",
+            "type": "string"
+          },
+          "refusal": {
+            "description": "Why it can't be grabbed",
+            "type": "string"
+          },
+          "waits": {
+            "description": "Why its Indexer won't take it now, such as TorrentLeech is at its grab limit until 14:05.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grabbable",
+          "lifts",
+          "edition",
+          "cancels"
+        ],
+        "type": "object"
+      },
+      "GrabsGrabPick": {
+        "additionalProperties": false,
+        "properties": {
+          "cancelGrabId": {
+            "description": "The Grab downloading a cell it fills, canceled first",
+            "format": "uuid",
+            "type": "string"
+          },
+          "client": {
+            "$ref": "#/components/schemas/GrabsClientChoice",
+            "description": "Absent to go where Tracker routing sends it"
+          },
+          "edition": {
+            "description": "The Edition the row showed",
+            "minLength": 1,
+            "type": "string"
+          },
+          "lifts": {
+            "description": "The lifts the row showed",
+            "items": {
+              "$ref": "#/components/schemas/GrabsLiftKey"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "releaseId": {
+            "type": "string"
+          },
+          "unblock": {
+            "description": "Remove the Release from the Blocklist and grab it",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "releaseId",
+          "lifts"
+        ],
+        "type": "object"
+      },
+      "GrabsHeldCell": {
+        "additionalProperties": false,
+        "properties": {
+          "grabId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "fetching",
+              "downloading",
+              "probing",
+              "transferring",
+              "importing"
+            ],
+            "type": "string"
+          },
+          "words": {
+            "description": "Such as A Grab is downloading Heat.1995.1080p.WEB for 1080p.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grabId",
+          "words",
+          "stage"
+        ],
+        "type": "object"
+      },
       "GrabsIndexerGrabList": {
         "additionalProperties": false,
         "properties": {
@@ -5399,6 +5807,71 @@
         "required": [
           "grabs",
           "nextOffset"
+        ],
+        "type": "object"
+      },
+      "GrabsIndexerLine": {
+        "additionalProperties": false,
+        "properties": {
+          "automatic": {
+            "description": "Automatic search uses it",
+            "type": "boolean"
+          },
+          "done": {
+            "description": "It has an outcome for every Item it was asked about",
+            "type": "boolean"
+          },
+          "failed": {
+            "description": "A fault at the site, as opposed to a limit or no Releases",
+            "type": "boolean"
+          },
+          "indexerId": {
+            "description": "Null once the Indexer is deleted",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "sentence": {
+            "description": "Its outcome in words, such as Limit reached until 14:05, or TorrentLeech searched 6 of 10 episodes. Its limit resets at 14:05.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indexerId",
+          "name",
+          "sentence",
+          "done",
+          "automatic",
+          "failed"
+        ],
+        "type": "object"
+      },
+      "GrabsLiftKey": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": [
+              "wrong_title",
+              "size_below",
+              "size_above",
+              "score_below_minimum",
+              "repack_other_group"
+            ],
+            "type": "string"
+          },
+          "targetId": {
+            "description": "Absent for wrong_title",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
         ],
         "type": "object"
       },
@@ -5574,6 +6047,125 @@
         ],
         "type": "object"
       },
+      "GrabsManualCell": {
+        "additionalProperties": false,
+        "properties": {
+          "edition": {
+            "description": "The cell's Edition: any, or a cut key",
+            "minLength": 1,
+            "type": "string"
+          },
+          "itemId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "itemId",
+          "edition",
+          "targetId"
+        ],
+        "type": "object"
+      },
+      "GrabsManualSearch": {
+        "additionalProperties": false,
+        "properties": {
+          "folded": {
+            "$ref": "#/components/schemas/GrabsFolded",
+            "description": "The Releases SlipStream wouldn't grab, in groups"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "indexers": {
+            "items": {
+              "$ref": "#/components/schemas/GrabsIndexerLine"
+            },
+            "type": "array"
+          },
+          "line": {
+            "description": "Such as Searching 6 Indexers. 4 have responded.",
+            "type": "string"
+          },
+          "pins": {
+            "description": "The pins still in effect; send these next",
+            "items": {
+              "$ref": "#/components/schemas/GrabsPinned"
+            },
+            "type": "array"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/GrabsPlan"
+          },
+          "query": {
+            "description": "The typed query; null when each run sent its Item's terms",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "queryable": {
+            "description": "The scope is one Item, so a typed query can search it",
+            "type": "boolean"
+          },
+          "releaseCount": {
+            "description": "How many Releases listManualSearchReleases lists",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "searching": {
+            "description": "An Indexer asked hasn't responded yet",
+            "type": "boolean"
+          },
+          "startedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "startedBy": {
+            "description": "A name, or the API key",
+            "type": "string"
+          },
+          "title": {
+            "description": "The scope in words",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "query",
+          "startedAt",
+          "startedBy",
+          "searching",
+          "queryable",
+          "line",
+          "indexers",
+          "plan",
+          "folded",
+          "releaseCount",
+          "pins"
+        ],
+        "type": "object"
+      },
+      "GrabsManualStarted": {
+        "additionalProperties": false,
+        "properties": {
+          "manualSearchId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manualSearchId"
+        ],
+        "type": "object"
+      },
       "GrabsMetadataSearch": {
         "additionalProperties": false,
         "properties": {
@@ -5592,6 +6184,269 @@
         "required": [
           "peers",
           "endsAt"
+        ],
+        "type": "object"
+      },
+      "GrabsOffer": {
+        "additionalProperties": false,
+        "properties": {
+          "grab": {
+            "$ref": "#/components/schemas/GrabsGrabOffer"
+          },
+          "quality": {
+            "description": "Its quality's place in its best Target's tiers, for sorting; higher is better",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rank": {
+            "description": "Its place in the ranking from 1; null when no cell's Target takes it",
+            "format": "int64",
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "release": {
+            "$ref": "#/components/schemas/GrabsReleaseDetails"
+          },
+          "score": {
+            "description": "Its score at its best Target",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "release",
+          "rank",
+          "score",
+          "quality",
+          "grab"
+        ],
+        "type": "object"
+      },
+      "GrabsOfferList": {
+        "additionalProperties": false,
+        "properties": {
+          "releases": {
+            "description": "One per group of copies, in rank order",
+            "items": {
+              "$ref": "#/components/schemas/GrabsOffer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "releases"
+        ],
+        "type": "object"
+      },
+      "GrabsPickProblem": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": [
+              "pick_conflict",
+              "cell_held",
+              "pick_changed",
+              "not_taken",
+              "not_grabbable",
+              "grab_busy",
+              "download_client_field_refused",
+              "node_not_downloading"
+            ],
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "grabId": {
+            "description": "cell_held: the Grab downloading the cell",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "GrabsPickResult": {
+        "additionalProperties": false,
+        "properties": {
+          "grabId": {
+            "description": "Null when the pick was refused",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrabsPickProblem"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when the pick made a Grab"
+          }
+        },
+        "required": [
+          "grabId",
+          "problem"
+        ],
+        "type": "object"
+      },
+      "GrabsPickResults": {
+        "additionalProperties": false,
+        "properties": {
+          "results": {
+            "description": "One for each pick, in the order sent",
+            "items": {
+              "$ref": "#/components/schemas/GrabsPickResult"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "type": "object"
+      },
+      "GrabsPinned": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "description": "The key of the row it fills",
+            "type": "string"
+          },
+          "pin": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "pin"
+        ],
+        "type": "object"
+      },
+      "GrabsPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "headline": {
+            "type": "string"
+          },
+          "held": {
+            "description": "The cells a Grab downloads, which the plan leaves out",
+            "items": {
+              "$ref": "#/components/schemas/GrabsHeldCell"
+            },
+            "type": "array"
+          },
+          "rows": {
+            "description": "Each Grab and each cell nothing fills, in Want order",
+            "items": {
+              "$ref": "#/components/schemas/GrabsPlanRow"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "headline",
+          "rows",
+          "held"
+        ],
+        "type": "object"
+      },
+      "GrabsPlanPick": {
+        "additionalProperties": false,
+        "properties": {
+          "edition": {
+            "description": "The Edition it is grabbed as; null unless that is another Edition than its cut's",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lifts": {
+            "description": "The soft refusals it is grabbed past; send their codes and Targets back as the pick's lifts",
+            "items": {
+              "$ref": "#/components/schemas/GrabsWordedReason"
+            },
+            "type": "array"
+          },
+          "release": {
+            "$ref": "#/components/schemas/GrabsReleaseDetails"
+          },
+          "routed": {
+            "description": "Where Tracker routing sends it, such as Where Tracker routing sends it (qBittorrent on Den)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "release",
+          "lifts",
+          "edition",
+          "routed"
+        ],
+        "type": "object"
+      },
+      "GrabsPlanRow": {
+        "additionalProperties": false,
+        "properties": {
+          "cause": {
+            "description": "For a cell nothing fills, its plain cause, such as No Indexer listed a 720p Release.",
+            "type": "string"
+          },
+          "choices": {
+            "description": "Every other Release that could fill its first cell, ranked",
+            "items": {
+              "$ref": "#/components/schemas/GrabsChoice"
+            },
+            "type": "array"
+          },
+          "failure": {
+            "description": "For a failed cell, its last Grab's failure",
+            "type": "string"
+          },
+          "key": {
+            "description": "The row's first cell, stable while that cell leads it. A pin chosen from its choices replaces the pin with this key.",
+            "type": "string"
+          },
+          "missing": {
+            "description": "For a cell nothing fills, such as Missing: 720p for E05.",
+            "type": "string"
+          },
+          "outcome": {
+            "description": "What a Grab of it gets, such as It gets you 1080p and 720p for E05.",
+            "type": "string"
+          },
+          "pick": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrabsPlanPick"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null for a cell nothing fills"
+          },
+          "pinned": {
+            "description": "Its Release was swapped in by a pin",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "pick",
+          "pinned",
+          "choices"
         ],
         "type": "object"
       },
@@ -5668,6 +6523,103 @@
         "required": [
           "code",
           "soft"
+        ],
+        "type": "object"
+      },
+      "GrabsReleaseDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked": {
+            "description": "Since when and why it is on the Blocklist; null when it isn't",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "formatIds": {
+            "description": "The Custom Formats it matched of those the Work's Targets score",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "freeleech": {
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Send it back as a pick's releaseId",
+            "type": "string"
+          },
+          "indexers": {
+            "description": "The Indexers that listed it, by priority",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "lostAt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrabsLostAt"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where it lost to the Release that fills its first cell; null when it didn't"
+          },
+          "publishedAt": {
+            "description": "Null when the Indexer sent no date",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "seeders": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "size": {
+            "description": "Bytes",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "tracker": {
+            "description": "The Tracker its link reaches, absent when none is known",
+            "type": "string"
+          },
+          "verdicts": {
+            "description": "Its verdict at each Target of its Item, such as It would fill 1080p.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "words": {
+            "description": "What SlipStream reads from the title, in words",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "words",
+          "indexers",
+          "size",
+          "publishedAt",
+          "seeders",
+          "freeleech",
+          "formatIds",
+          "verdicts",
+          "lostAt",
+          "blocked"
         ],
         "type": "object"
       },
@@ -5767,6 +6719,14 @@
       "GrabsSearchChanged": {
         "additionalProperties": false,
         "properties": {
+          "manualSearchId": {
+            "description": "The Manual search the run belongs to; null for an automatic run",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "searchId": {
             "format": "uuid",
             "type": "string"
@@ -5778,7 +6738,8 @@
         },
         "required": [
           "searchId",
-          "workId"
+          "workId",
+          "manualSearchId"
         ],
         "type": "object"
       },
@@ -5896,6 +6857,42 @@
         ],
         "type": "object"
       },
+      "GrabsStartManual": {
+        "additionalProperties": false,
+        "properties": {
+          "again": {
+            "description": "Start a new search even when the Work's Manual search has this scope and query",
+            "type": "boolean"
+          },
+          "cell": {
+            "$ref": "#/components/schemas/GrabsManualCell",
+            "description": "One cell to plan for; send it without levelIds and itemIds"
+          },
+          "itemIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20000,
+            "type": "array"
+          },
+          "levelIds": {
+            "description": "Each level stands for every Item under it",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20000,
+            "type": "array"
+          },
+          "query": {
+            "description": "Text every Indexer searches for in place of the Item's terms; only for a scope of one Item",
+            "maxLength": 200,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "GrabsTargetScore": {
         "additionalProperties": false,
         "properties": {
@@ -5970,6 +6967,23 @@
           "words",
           "code",
           "soft"
+        ],
+        "type": "object"
+      },
+      "GrabsWorkRef": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
         ],
         "type": "object"
       },
@@ -18235,6 +19249,24 @@
         ],
         "type": "object"
       },
+      "UnblockInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "infoHashes": {
+            "items": {
+              "pattern": "^[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "infoHashes"
+        ],
+        "type": "object"
+      },
       "UnmatchedOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -23101,6 +24133,352 @@
           "metadata"
         ],
         "x-slipstream-access": "account"
+      }
+    },
+    "/blocklist": {
+      "get": {
+        "operationId": "listBlocklist",
+        "parameters": [
+          {
+            "description": "How many of the newest to skip",
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "description": "How many of the newest to skip",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only entries whose title holds this text",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Only entries whose title holds this text",
+              "maxLength": 200,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrabsBlocklist"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the Blocklist, 50 entries at a time, newest first",
+        "tags": [
+          "grabs"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/blocklist/remove": {
+      "post": {
+        "operationId": "removeFromBlocklist",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnblockInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Remove Releases from the Blocklist by info hash. Removing one that isn't listed changes nothing",
+        "tags": [
+          "grabs"
+        ],
+        "x-slipstream-access": "admin"
       }
     },
     "/content-types": {
@@ -28226,6 +29604,32 @@
                       {
                         "properties": {
                           "data": {
+                            "$ref": "#/components/schemas/GrabsBlocklistChanged"
+                          },
+                          "event": {
+                            "const": "grabs.blocklist-changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event grabs.blocklist-changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
                             "$ref": "#/components/schemas/GrabsChanged"
                           },
                           "event": {
@@ -31403,6 +32807,232 @@
           }
         ],
         "summary": "Get a Grab with its stage and progress",
+        "tags": [
+          "grabs"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/grabs/{grabId}/cancel": {
+      "post": {
+        "operationId": "cancelGrab",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grabId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "grab_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "grab_busy",
+                            "grab_finished",
+                            "reconciling",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_built"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Cancel a Grab that is fetching, downloading or transferring. Canceling a canceled Grab changes nothing",
         "tags": [
           "grabs"
         ],
@@ -65985,6 +67615,914 @@
         "summary": "List a Work's library files with the cells each fills, and the folder they sit in",
         "tags": [
           "files"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/works/{workId}/manual-search": {
+      "get": {
+        "operationId": "getManualSearch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The pins from the last response, with any swap applied. A pin that no longer applies is dropped.",
+            "explode": false,
+            "in": "query",
+            "name": "pins",
+            "schema": {
+              "description": "The pins from the last response, with any swap applied. A pin that no longer applies is dropped.",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 2000,
+              "type": [
+                "array",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrabsManualSearch"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "no_manual_search",
+                            "work_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_built"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a Work's Manual search with its plan worked out around the pins",
+        "tags": [
+          "grabs"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "post": {
+        "operationId": "startManualSearch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrabsStartManual"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrabsManualStarted"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrabsManualStarted"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "work_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "no_indexer",
+                            "no_root",
+                            "not_searchable",
+                            "reconciling",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "query_needs_one_item"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Start a Manual search of a Work, or of some of its levels and Items or one cell. 200 answers the Work's Manual search when it already has this scope and query",
+        "tags": [
+          "grabs"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/works/{workId}/manual-search/grabs": {
+      "post": {
+        "operationId": "grabFromManualSearch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrabManualInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrabsPickResults"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "work_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "manual_search_replaced",
+                            "reconciling",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_built"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Grab the picked Releases of a Work's Manual search in one go, each judged again and refused alone",
+        "tags": [
+          "grabs"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/works/{workId}/manual-search/releases": {
+      "get": {
+        "operationId": "listManualSearchReleases",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrabsOfferList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "no_manual_search",
+                            "work_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_built"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List every Release of a Work's Manual search with what grabbing it alone does",
+        "tags": [
+          "grabs"
         ],
         "x-slipstream-access": "admin"
       }

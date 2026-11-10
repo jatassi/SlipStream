@@ -56,6 +56,7 @@ type TorrentRow struct {
 	Error       string                    `json:"error,omitempty" doc:"The engine's error message for the failure, or an external client's own words for its error"`
 	Fault       *fault                    `json:"fault,omitempty" doc:"The fault found in the release itself, once there is one"`
 	Retryable   bool                      `json:"retryable" doc:"It failed in its Node's built-in client after it completed, so retry can check its files again"`
+	Held        bool                      `json:"held" doc:"A Grab that hasn't finished holds it, so Mark failed can put its Release on the Blocklist"`
 	Retry       *retried                  `json:"retry,omitempty" doc:"Its last Retry, absent before one"`
 	LastKnown   *time.Time                `json:"lastKnown,omitempty" doc:"When its Node last reported it, set while the row is stale for lastKnownCause"`
 	Stale       string                    `json:"lastKnownCause,omitempty" enum:"node,client,off" doc:"Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off"`
@@ -215,7 +216,7 @@ func rowOf(r downloadclients.Row) TorrentRow {
 	if f := r.Fault; f != nil {
 		out.Fault = &fault{Kind: string(f.Kind), At: f.At, Sentence: faultWords[f.Kind]}
 	}
-	out.Retryable = r.Retryable
+	out.Retryable, out.Held = r.Retryable, r.Held
 	if rt := r.Retry; rt != nil {
 		out.Retry = &retried{At: rt.At, Found: rt.Found}
 	}
@@ -470,7 +471,7 @@ type actResult struct {
 }
 
 type refusal struct {
-	Code      string     `json:"code" enum:"not_found,removed,importing,not_stalled,offline,client_away,client_off,window,not_running,failed,not_retryable"`
+	Code      string     `json:"code" enum:"not_found,removed,importing,not_held,reconciling,offline,client_away,client_off,window,not_running,failed,not_retryable"`
 	WorkID    *string    `json:"workId,omitempty" format:"uuid" doc:"importing: the Work whose import holds it"`
 	AcceptsAt *time.Time `json:"acceptsAt,omitempty" doc:"window: when every announce URL accepts an announce"`
 	Client    string     `json:"client,omitempty" doc:"client_away and client_off: the external client's name"`

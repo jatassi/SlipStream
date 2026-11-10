@@ -24,6 +24,11 @@ const fetched: GrabsGrab = {
   stage: "fetching",
   history: [{ stage: "fetching", at: "2026-10-12T09:01:00Z" }],
   createdAt: "2026-10-12T09:01:00Z",
+  source: "search",
+  grabbedBy: null,
+  manualSearchId: null,
+  overrides: [],
+  actions: { cancel: false, blocklistable: false, sendTo: false },
 };
 
 export const waitingToFetch: GrabsGrab = {

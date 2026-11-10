@@ -7,7 +7,89 @@ package db
 
 import (
 	"context"
+	"strings"
+
+	"github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
+
+const countBlocked = `-- name: CountBlocked :one
+SELECT count(*) FROM grabs_blocklist WHERE instr(lower(release_title), lower(?1)) > 0
+`
+
+func (q *Queries) CountBlocked(ctx context.Context, title string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countBlocked, title)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const deleteBlocked = `-- name: DeleteBlocked :exec
+DELETE FROM grabs_blocklist WHERE info_hash IN (/*SLICE:info_hashes*/?)
+`
+
+func (q *Queries) DeleteBlocked(ctx context.Context, infoHashes [][]byte) error {
+	query := deleteBlocked
+	var queryParams []interface{}
+	if len(infoHashes) > 0 {
+		for _, v := range infoHashes {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:info_hashes*/?", strings.Repeat(",?", len(infoHashes))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:info_hashes*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
+}
+
+const insertBlocked = `-- name: InsertBlocked :exec
+INSERT INTO grabs_blocklist (info_hash, release_title, release_size, indexer_id, indexer_name, tracker_id, work_id, grab_id, cause,
+    client_name, added_by, added_by_name, added_at)
+VALUES (?1, ?2, ?3, ?4, ?5,
+    ?6, ?7, ?8, ?9, ?10, ?11,
+    ?12, ?13)
+ON CONFLICT (info_hash) DO NOTHING
+`
+
+type InsertBlockedParams struct {
+	InfoHash     []byte
+	ReleaseTitle string
+	ReleaseSize  int64
+	IndexerID    indexers.ID
+	IndexerName  *string
+	TrackerID    indexers.TrackerID
+	WorkID       works.WorkID
+	GrabID       GrabID
+	Cause        BlockCause
+	ClientName   *string
+	AddedBy      identity.AccountID
+	AddedByName  *string
+	AddedAt      storage.Time
+}
+
+// A hash already listed keeps its first entry.
+func (q *Queries) InsertBlocked(ctx context.Context, arg InsertBlockedParams) error {
+	_, err := q.db.ExecContext(ctx, insertBlocked,
+		arg.InfoHash,
+		arg.ReleaseTitle,
+		arg.ReleaseSize,
+		arg.IndexerID,
+		arg.IndexerName,
+		arg.TrackerID,
+		arg.WorkID,
+		arg.GrabID,
+		arg.Cause,
+		arg.ClientName,
+		arg.AddedBy,
+		arg.AddedByName,
+		arg.AddedAt,
+	)
+	return err
+}
 
 const isBlocked = `-- name: IsBlocked :one
 SELECT EXISTS (SELECT 1 FROM grabs_blocklist WHERE info_hash = ?1)
@@ -18,4 +100,162 @@ func (q *Queries) IsBlocked(ctx context.Context, infoHash []byte) (bool, error) 
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const listBlocked = `-- name: ListBlocked :many
+SELECT info_hash, release_title, release_size, indexer_id, indexer_name, tracker_id, work_id, grab_id, cause, client_name, added_by, added_by_name, added_at FROM grabs_blocklist
+WHERE instr(lower(release_title), lower(?1)) > 0
+ORDER BY added_at DESC, info_hash DESC
+LIMIT ?3 OFFSET ?2
+`
+
+type ListBlockedParams struct {
+	Title    string
+	Skip     int64
+	PageSize int64
+}
+
+func (q *Queries) ListBlocked(ctx context.Context, arg ListBlockedParams) ([]GrabsBlocklist, error) {
+	rows, err := q.db.QueryContext(ctx, listBlocked, arg.Title, arg.Skip, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrabsBlocklist
+	for rows.Next() {
+		var i GrabsBlocklist
+		if err := rows.Scan(
+			&i.InfoHash,
+			&i.ReleaseTitle,
+			&i.ReleaseSize,
+			&i.IndexerID,
+			&i.IndexerName,
+			&i.TrackerID,
+			&i.WorkID,
+			&i.GrabID,
+			&i.Cause,
+			&i.ClientName,
+			&i.AddedBy,
+			&i.AddedByName,
+			&i.AddedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBlocksOf = `-- name: ListBlocksOf :many
+SELECT info_hash, release_title, release_size, indexer_id, indexer_name, tracker_id, work_id, grab_id, cause, client_name, added_by, added_by_name, added_at FROM grabs_blocklist WHERE info_hash IN (/*SLICE:info_hashes*/?) ORDER BY info_hash
+`
+
+func (q *Queries) ListBlocksOf(ctx context.Context, infoHashes [][]byte) ([]GrabsBlocklist, error) {
+	query := listBlocksOf
+	var queryParams []interface{}
+	if len(infoHashes) > 0 {
+		for _, v := range infoHashes {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:info_hashes*/?", strings.Repeat(",?", len(infoHashes))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:info_hashes*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrabsBlocklist
+	for rows.Next() {
+		var i GrabsBlocklist
+		if err := rows.Scan(
+			&i.InfoHash,
+			&i.ReleaseTitle,
+			&i.ReleaseSize,
+			&i.IndexerID,
+			&i.IndexerName,
+			&i.TrackerID,
+			&i.WorkID,
+			&i.GrabID,
+			&i.Cause,
+			&i.ClientName,
+			&i.AddedBy,
+			&i.AddedByName,
+			&i.AddedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDownloadingGrabsOfTorrents = `-- name: ListDownloadingGrabsOfTorrents :many
+SELECT id, torrent_id, work_id, indexer_id, tracker_id, release_title, release_size FROM grabs_grab
+WHERE stage = 'downloading' AND torrent_id IN (/*SLICE:torrent_ids*/?)
+ORDER BY created_at, id
+`
+
+type ListDownloadingGrabsOfTorrentsRow struct {
+	ID           GrabID
+	TorrentID    downloadclients.ID
+	WorkID       works.WorkID
+	IndexerID    indexers.ID
+	TrackerID    indexers.TrackerID
+	ReleaseTitle string
+	ReleaseSize  int64
+}
+
+func (q *Queries) ListDownloadingGrabsOfTorrents(ctx context.Context, torrentIds []downloadclients.ID) ([]ListDownloadingGrabsOfTorrentsRow, error) {
+	query := listDownloadingGrabsOfTorrents
+	var queryParams []interface{}
+	if len(torrentIds) > 0 {
+		for _, v := range torrentIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:torrent_ids*/?", strings.Repeat(",?", len(torrentIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:torrent_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDownloadingGrabsOfTorrentsRow
+	for rows.Next() {
+		var i ListDownloadingGrabsOfTorrentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TorrentID,
+			&i.WorkID,
+			&i.IndexerID,
+			&i.TrackerID,
+			&i.ReleaseTitle,
+			&i.ReleaseSize,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

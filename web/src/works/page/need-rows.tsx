@@ -8,7 +8,7 @@ import type {
   GrabsGrab,
 } from "../../api/gen/model";
 import { useListNodesSuspense } from "../../api/gen/query/nodes/nodes";
-import { useStartSearch } from "../../grabs/search";
+import { ManualSearchButton, useStartSearch } from "../../grabs/search";
 import { SendToSheet } from "../../grabs/send-to-sheet";
 import { Button } from "../../ui/button";
 import { List, ListRow } from "../../ui/list";
@@ -31,15 +31,22 @@ export function Upgrades({
           title={upgradeWords(naming, need)}
           meta="A better release would replace the file."
           trailing={
-            <Button
-              size="small"
-              busy={search.isPending}
-              onClick={() => {
-                search.start(naming.work.id, { levelIds: [], itemIds: need.itemIds });
-              }}
-            >
-              Search
-            </Button>
+            <span className="flex gap-2">
+              <Button
+                size="small"
+                busy={search.isPending}
+                onClick={() => {
+                  search.start(naming.work.id, { levelIds: [], itemIds: need.itemIds });
+                }}
+              >
+                Search
+              </Button>
+              <ManualSearchButton
+                workId={naming.work.id}
+                scope={{ itemIds: need.itemIds }}
+                size="small"
+              />
+            </span>
           }
         />
       ))}

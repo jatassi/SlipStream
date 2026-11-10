@@ -17,4 +17,5 @@ export type Scenario =
   | "seedbox-nas"
   | "seeding"
   | "seeding-routing"
-  | "external-clients";
+  | "external-clients"
+  | "manual-search";

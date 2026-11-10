@@ -1,6 +1,8 @@
 // Package grabsapi is the search and Grab operations: start a Work's
 // search, list its search runs and the Releases a run saw, list an
-// Indexer's Grabs, and list and read Grabs with their live progress.
+// Indexer's Grabs, list and read Grabs with their live progress, cancel
+// one, search a Work by hand and grab from what it lists, and the
+// Blocklist.
 package grabsapi
 
 import (
@@ -50,6 +52,17 @@ var (
 	clientNotFound      = api.NewCode(http.StatusNotFound, "download_client_not_found", "No Download Client has this id")
 	clientRefused       = api.NewCode(http.StatusUnprocessableEntity, "download_client_field_refused", "SlipStream can't use a value in this client's settings")
 	nodeNotDownloading  = api.NewCode(http.StatusConflict, "node_not_downloading", "That Node doesn't hold Downloading")
+
+	reconciling          = api.NewCode(http.StatusConflict, "reconciling", "SlipStream is Reconciling after a restore")
+	noManualSearch       = api.NewCode(http.StatusNotFound, "no_manual_search", "The Work has no Manual search")
+	manualSearchReplaced = api.NewCode(http.StatusConflict, "manual_search_replaced", "Someone searched this Work again, so this list is gone. Open Manual search again to see the new one.")
+	queryNeedsOneItem    = api.NewCode(http.StatusUnprocessableEntity, "query_needs_one_item", "A typed query searches one Item. Open Manual search on one Item to type a query.")
+	grabBusy             = api.NewCode(http.StatusConflict, "grab_busy", "This Grab is placing its file in the library. It can't be canceled until that finishes.")
+	grabFinished         = api.NewCode(http.StatusConflict, "grab_finished", "This Grab already finished, so there's nothing to cancel")
+	// notBuilt is an operation of S32 (Manual search and grab) whose domain
+	// body a later change of that build writes. It goes with
+	// grabs.ErrNotBuilt.
+	notBuilt = api.NewCode(http.StatusNotImplemented, "not_built", "This operation isn't built yet")
 )
 
 func answer(err error) error {
@@ -70,6 +83,12 @@ func answer(err error) error {
 		return searchNotFound
 	case errors.Is(err, indexers.ErrNoIndexer):
 		return indexerNotFound
+	case errors.Is(err, grabs.ErrNoManualSearch):
+		return noManualSearch
+	case errors.Is(err, grabs.ErrQueryNeedsOneItem):
+		return queryNeedsOneItem
+	case errors.Is(err, grabs.ErrNotBuilt):
+		return notBuilt
 	}
 	if e, ok := errors.AsType[*grabs.RootUnreachableError](err); ok {
 		return rootUnreachable.Because(e.Why)
@@ -244,9 +263,10 @@ func idOrNil(id storage.UUID) *string {
 }
 
 type failure struct {
-	Stage   string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
-	Code    string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,removed,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault"`
-	Message string `json:"message"`
+	Stage    string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
+	Code     string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,removed,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault"`
+	Message  string `json:"message"`
+	NeedsYou bool   `json:"needsYou" doc:"It goes under Needs you. False for a cancel and for a Manual Grab whose Release the Blocklist held after its fetch, which its sheet already said."`
 }
 
 type entered struct {
@@ -304,6 +324,17 @@ type grab struct {
 	FetchWait    *fetchWait               `json:"fetchWait,omitempty" doc:"Why fetching the .torrent waits on its Indexer, absent unless it does"`
 	WaitsFor     *clientWait              `json:"waitsFor,omitempty" doc:"The client a fetching Grab goes to, absent unless it waits for that client's Node to be back online"`
 	CreatedAt    time.Time                `json:"createdAt"`
+	Source       string                   `json:"source" enum:"search,manual" doc:"How it was chosen: by a search's decision, or by an Admin in a Manual search"`
+	GrabbedBy    *string                  `json:"grabbedBy" doc:"A name, or the API key; null for a search's Grab"`
+	ManualSearch *string                  `json:"manualSearchId" format:"uuid" doc:"The Manual search it came from; null for a search's Grab and once a later Manual search of the Work replaced it"`
+	Overrides    []string                 `json:"overrides" nullable:"false" doc:"Each choice the Admin made past the decision, as a sentence"`
+	Actions      grabActions              `json:"actions"`
+}
+
+type grabActions struct {
+	Cancel        bool `json:"cancel" doc:"cancelGrab can cancel it"`
+	Blocklistable bool `json:"blocklistable" doc:"A cancel can also put its Release on the Blocklist: its info hash is known"`
+	SendTo        bool `json:"sendTo" doc:"sendGrabTo can send it to another client"`
 }
 
 func grabOf(v grabs.View) grab {
@@ -311,6 +342,11 @@ func grabOf(v grabs.View) grab {
 		ID: v.ID.String(), WorkID: v.WorkID.String(), ItemID: v.ItemID.String(), Edition: string(v.Edition), TargetIDs: []string{},
 		ReleaseTitle: v.Release.Title, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
 		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), History: []entered{}, CreatedAt: v.Created,
+		Source: string(v.Source), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...),
+		Actions: grabActions{Cancel: v.Actions.Cancel, Blocklistable: v.Actions.Blocklist, SendTo: v.Actions.SendTo},
+	}
+	if v.By != nil {
+		out.GrabbedBy = new(v.By.Words())
 	}
 	if !v.FetchNode.IsZero() {
 		id := v.FetchNode.String()
@@ -330,7 +366,7 @@ func grabOf(v grabs.View) grab {
 		}
 	}
 	if v.Failed != nil {
-		out.Failure = &failure{Stage: string(v.Failed.Stage), Code: string(v.Failed.Code), Message: v.Failed.Message}
+		out.Failure = &failure{Stage: string(v.Failed.Stage), Code: string(v.Failed.Code), Message: v.Failed.Message, NeedsYou: v.NeedsYou()}
 	}
 	for _, e := range v.History {
 		out.History = append(out.History, entered{Stage: string(e.Stage), At: e.At})
@@ -441,6 +477,61 @@ func Routes(r *api.Router, p Pipeline) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{indexerNotFound},
 	}, h.listIndexerGrabs)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "cancelGrab",
+		Method:  http.MethodPost,
+		Path:    "/grabs/{grabId}/cancel",
+		Summary: "Cancel a Grab that is fetching, downloading or transferring. Canceling a canceled Grab changes nothing",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{grabNotFound, grabBusy, grabFinished, reconciling, notBuilt},
+	}, h.cancelGrab)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "startManualSearch",
+		Method:  http.MethodPost,
+		Path:    "/works/{workId}/manual-search",
+		Summary: "Start a Manual search of a Work, or of some of its levels and Items or one cell. 200 answers the Work's Manual search when it already has this scope and query",
+		Status:  http.StatusAccepted,
+		Also:    []int{http.StatusOK},
+		Errors:  []*api.Code{workNotFound, reconciling, notSearchable, noIndexer, noRoot, queryNeedsOneItem},
+	}, h.startManualSearch)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getManualSearch",
+		Method:  http.MethodGet,
+		Path:    "/works/{workId}/manual-search",
+		Summary: "Get a Work's Manual search with its plan worked out around the pins",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{workNotFound, noManualSearch, notBuilt},
+	}, h.getManualSearch)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listManualSearchReleases",
+		Method:  http.MethodGet,
+		Path:    "/works/{workId}/manual-search/releases",
+		Summary: "List every Release of a Work's Manual search with what grabbing it alone does",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{workNotFound, noManualSearch, notBuilt},
+	}, h.listManualSearchReleases)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "grabFromManualSearch",
+		Method:  http.MethodPost,
+		Path:    "/works/{workId}/manual-search/grabs",
+		Summary: "Grab the picked Releases of a Work's Manual search in one go, each judged again and refused alone",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{workNotFound, manualSearchReplaced, reconciling, notBuilt},
+	}, h.grabFromManualSearch)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listBlocklist",
+		Method:  http.MethodGet,
+		Path:    "/blocklist",
+		Summary: "List the Blocklist, 50 entries at a time, newest first",
+		Status:  http.StatusOK,
+	}, h.listBlocklist)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "removeFromBlocklist",
+		Method:  http.MethodPost,
+		Path:    "/blocklist/remove",
+		Summary: "Remove Releases from the Blocklist by info hash. Removing one that isn't listed changes nothing",
+		Status:  http.StatusNoContent,
+	}, h.removeFromBlocklist)
 }
 
 type handlers struct{ p Pipeline }
@@ -456,11 +547,7 @@ func (h handlers) searchWork(ctx context.Context, by identity.Admin, in *searchW
 	}
 	ids, err := open(h.p).SearchWork(ctx, by, works.WorkID{UUID: u}, scope)
 	if e, ok := errors.AsType[*works.NotInWorkError](err); ok {
-		field, noun := "itemIds", "Item"
-		if e.Level {
-			field, noun = "levelIds", "level"
-		}
-		return nil, api.Invalid.On(fmt.Sprintf("%s[%d]", field, e.Index), "The Work has no "+noun+" with that id.")
+		return nil, notInWork(e)
 	}
 	if err != nil {
 		return nil, answer(err)
@@ -481,22 +568,39 @@ func scopeOf(body *searchScope) (grabs.Scope, error) {
 	if len(body.LevelIDs) == 0 && len(body.ItemIDs) == 0 {
 		return grabs.Scope{}, api.Invalid.On("levelIds", "Send at least one level or Item id, or leave the body out to search the whole Work.")
 	}
+	part, err := withinOf(body.LevelIDs, body.ItemIDs)
+	if err != nil {
+		return grabs.Scope{}, err
+	}
+	return grabs.Within(part), nil
+}
+
+func withinOf(levels, items []string) (works.Within, error) {
 	var part works.Within
-	for _, s := range body.LevelIDs {
+	for _, s := range levels {
 		u, err := storage.ParseUUID(s)
 		if err != nil {
-			return grabs.Scope{}, api.Invalid
+			return works.Within{}, api.Invalid
 		}
 		part.Levels = append(part.Levels, works.LevelID{UUID: u})
 	}
-	for _, s := range body.ItemIDs {
+	for _, s := range items {
 		u, err := storage.ParseUUID(s)
 		if err != nil {
-			return grabs.Scope{}, api.Invalid
+			return works.Within{}, api.Invalid
 		}
 		part.Items = append(part.Items, works.ItemID{UUID: u})
 	}
-	return grabs.Within(part), nil
+	return part, nil
+}
+
+// notInWork is e as the field it names.
+func notInWork(e *works.NotInWorkError) error {
+	field, noun := "itemIds", "Item"
+	if e.Level {
+		field, noun = "levelIds", "level"
+	}
+	return api.Invalid.On(fmt.Sprintf("%s[%d]", field, e.Index), "The Work has no "+noun+" with that id.")
 }
 
 func (h handlers) listSearches(ctx context.Context, by identity.Admin, in *workInput) (*searchListOutput, error) {

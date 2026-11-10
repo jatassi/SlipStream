@@ -2,7 +2,6 @@ package grabs
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -146,7 +145,11 @@ func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.Wo
 		if err != nil {
 			return err
 		}
-		if err := gr.searchable(ctx, tx, tree); err != nil {
+		root, err := gr.searchable(ctx, tx, tree)
+		if err != nil {
+			return err
+		}
+		if err := gr.cfg.Roots.Reachable(ctx, tx, root); err != nil {
 			return err
 		}
 		open, err := gr.openCells(ctx, tx, work)
@@ -199,7 +202,7 @@ func (gr *Grabs) plan(ctx context.Context, tx *storage.Tx[file], tree works.Tree
 	if err := q.InsertSearch(ctx, db.InsertSearchParams{ID: id, WorkID: tree.ID, ItemID: item, StartedAt: started}); err != nil {
 		return SearchID{}, err
 	}
-	lines, err := gr.cfg.Indexers.Plan(ctx, tx, tree.ContentType)
+	lines, err := gr.cfg.Indexers.Plan(ctx, tx, tree.ContentType, indexers.AutoSearch)
 	if err != nil {
 		return SearchID{}, err
 	}
@@ -211,31 +214,27 @@ func (gr *Grabs) plan(ctx context.Context, tx *storage.Tx[file], tree works.Tree
 	return id, nil
 }
 
-// searchable is why tree can't be searched, nil when it can: no Indexer
-// exists at all, or the Work is rootless, or its root's Node is offline or
-// written off.
-func (gr *Grabs) searchable(ctx context.Context, r storage.Reader[file], tree works.Tree) error {
+// searchable is why tree can't be searched, nil when it can, and its
+// root: its Content Type can't cover it, no Indexer exists at all, or the
+// Work is rootless.
+func (gr *Grabs) searchable(ctx context.Context, r storage.Reader[file], tree works.Tree) (roots.Root, error) {
 	if len(tree.Items) > 0 {
 		terms, err := gr.cfg.Terms[tree.ContentType].SearchTerms(ctx, r, tree.Items[0].ID)
 		if err != nil {
-			return err
+			return roots.Root{}, err
 		}
 		if terms.Covers == nil {
-			return ErrNotSearchable
+			return roots.Root{}, ErrNotSearchable
 		}
 	}
 	all, err := indexers.All(ctx, r)
 	if err != nil {
-		return err
+		return roots.Root{}, err
 	}
 	if len(all) == 0 {
-		return ErrNoIndexer
+		return roots.Root{}, ErrNoIndexer
 	}
-	root, err := roots.OfWork(ctx, r, tree.ID)
-	if err != nil {
-		return err
-	}
-	return gr.cfg.Roots.Reachable(ctx, r, root)
+	return roots.OfWork(ctx, r, tree.ID)
 }
 
 // openCells is work's wanted cells that no unfinished Grab holds, in tree
@@ -299,7 +298,7 @@ func (gr *Grabs) search(ctx context.Context, run Search) result {
 	if err != nil {
 		return gr.searchWaits(ctx, run, err)
 	}
-	answers, err := gr.cfg.Indexers.Search(ctx, s)
+	answers, err := gr.cfg.Indexers.Search(ctx, s, nil)
 	if ctx.Err() != nil {
 		return halted
 	}
@@ -346,6 +345,11 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, a
 			names[len(names)] = asked[i].IndexerName
 		}
 	}
+	bl, err := blocksOf(ctx, tx, as)
+	if err != nil {
+		return nil, err
+	}
+	as = bl.gate(as)
 	if err := sight(ctx, tx, as); err != nil {
 		return nil, err
 	}
@@ -384,11 +388,11 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, a
 }
 
 // sight records a sighting of the cut of every listed Release whose name
-// names its Work, for each Item it covers, so a cut seen now is wanted
-// now.
+// names its Work and the Blocklist doesn't hold, for each Item it covers,
+// so a cut seen now is wanted now.
 func sight(ctx context.Context, tx *storage.Tx[file], as []assessed) error {
 	for _, a := range as {
-		if !a.namesTheWork() {
+		if !a.namesTheWork() || a.blocked() {
 			continue
 		}
 		for _, item := range a.covers {
@@ -416,29 +420,23 @@ func (gr *Grabs) decision(ctx context.Context, r storage.Reader[file], run Searc
 	return decide(c, as), c, nil
 }
 
-// take grabs the first of picks, or of its copies, whose Indexer takes
-// it, and returns the Grab and the pick at the position taken. With none
-// taken the Grab is nil and the position -1: an Indexer that is stopped,
-// at its grab limit or deleted would make the Grab wait for the Admin. It
-// skips the positions gone, which an earlier Grab of the run took.
+// take grabs what choose takes of picks with Indexers.Take, and returns
+// the Grab and the pick at the position taken. With none taken the Grab is
+// nil and the position -1: an Indexer that is stopped, at its grab limit
+// or deleted would make the Grab wait for the Admin. It skips the
+// positions gone, which an earlier Grab of the run took.
 func (gr *Grabs) take(ctx context.Context, tx *storage.Tx[file], run Search, picks []Pick, gone map[int]bool, now storage.Time) (*Grab, Pick, error) {
-	for _, pick := range picks {
-		for _, p := range pick.offers() {
-			if gone[p.at] {
-				continue
-			}
-			t, err := gr.cfg.Indexers.Take(ctx, tx, p.Release)
-			if errors.As(err, new(*indexers.NotTakenError)) {
-				continue
-			}
-			if err != nil {
-				return nil, Pick{}, err
-			}
-			g, err := gr.insertGrab(ctx, tx, run, p, t, now)
-			return &g, p, err
-		}
+	p, t, ok, err := choose(picks, gone, func(r indexers.Release) (indexers.Ticket, error) {
+		return gr.cfg.Indexers.Take(ctx, tx, r)
+	})
+	if err != nil {
+		return nil, Pick{}, err
 	}
-	return nil, Pick{at: -1}, nil
+	if !ok {
+		return nil, Pick{at: -1}, nil
+	}
+	g, err := gr.insertGrab(ctx, tx, run, p, t, now)
+	return &g, p, err
 }
 
 // releaseKey is what a sighting keys it by: its info hash in hex, else its

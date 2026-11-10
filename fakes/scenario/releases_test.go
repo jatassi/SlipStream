@@ -47,6 +47,7 @@ func TestValidateChecksTheReleases(t *testing.T) {
 		{Name: "A.2021.480p", TMDBID: 1, Video: Video{Width: 640, Height: 480, Seconds: 6}, Link: MagnetLink, Trackerless: true},
 		{Name: "A.2021.576p", TMDBID: 1, Video: Video{Width: 720, Height: 576, Seconds: 6}, Link: RedirectLink, Trackerless: true, Public: true},
 		{Name: "A.2021.360p", TMDBID: 1, Video: Video{Width: 640, Height: 360, Seconds: 6}, Sites: []string{"heron", "osprey"}},
+		{Name: "A.2021.240p", TMDBID: 1, Video: Video{Width: 426, Height: 240, Seconds: 6}, Seeded: true, Unregistered: true},
 	}}
 	want := []string{
 		"scenario x: release A.2021.1080p is listed twice",
@@ -62,6 +63,7 @@ func TestValidateChecksTheReleases(t *testing.T) {
 		"scenario x: release A.2021.2160p is trackerless and private; a trackerless release is public",
 		"scenario x: release A.2021.480p is trackerless and private; a trackerless release is public",
 		`scenario x: release A.2021.360p names site "osprey", which fixture-site doesn't serve`,
+		"scenario x: release A.2021.240p is seeded and unregistered; fake-tracker refuses its seeder's announces",
 		"scenario x: tracker interval -1s is negative",
 	}
 	err := s.Validate()

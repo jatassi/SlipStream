@@ -1,6 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 
 import { clock } from "../format";
+import { openManualSearch } from "../manual/sheet-state";
 import { Data } from "../ui/data";
 import { FailureCard } from "../ui/failure-card";
 import { useStartSearch } from "./search";
@@ -28,6 +29,18 @@ export function GrabFailure({
   const navigate = useNavigate();
   const search = useStartSearch();
   const { cause, recovery } = failureWords[grab.failure.code];
+  const manual = {
+    label: "Manual search",
+    onClick: () => {
+      openManualSearch({ workId: grab.workId, scope: { itemIds: [grab.itemId] } });
+    },
+  };
+  const openWork = {
+    label: "Open Work",
+    onClick: () => {
+      void navigate({ to: "/works/$workId", params: { workId: grab.workId } });
+    },
+  };
   return (
     <div id={failureAnchor(grab)} className="scroll-mt-20">
       <FailureCard
@@ -48,16 +61,7 @@ export function GrabFailure({
             search.start(grab.workId, { levelIds: [], itemIds: [grab.itemId] });
           },
         }}
-        {...(form === "full" && {
-          actions: [
-            {
-              label: "Open Work",
-              onClick: () => {
-                void navigate({ to: "/works/$workId", params: { workId: grab.workId } });
-              },
-            },
-          ],
-        })}
+        actions={form === "full" ? [manual, openWork] : [manual]}
       />
     </div>
   );

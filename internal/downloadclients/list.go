@@ -44,7 +44,10 @@ type Row struct {
 	ContentType works.TypeID
 	AddedAt     time.Time
 	// Uses are its Grabs, newest first.
-	Uses     []Use
+	Uses []Use
+	// Held is true while an unfinished Grab holds it, so Mark failed can
+	// blocklist its Release.
+	Held     bool
 	State    State
 	Hold     Hold
 	Until    time.Time
@@ -337,7 +340,7 @@ func (c *Clients) rowOf(h db.ListHeldRow, uses []Use) (Row, error) {
 	state := StateOf(facts)
 	row := Row{
 		ID: h.ID, Node: h.NodeID, InfoHash: bencode.InfoHash(h.InfoHash), Private: h.Private == 1, Name: h.Name, Size: h.Size, ContentType: h.ContentType, AddedAt: h.AddedAt.Time(),
-		Uses: uses, State: state, Severity: SeverityOf(facts, state), Tabs: TabsOf(facts, state),
+		Uses: uses, Held: held(uses), State: state, Severity: SeverityOf(facts, state), Tabs: TabsOf(facts, state),
 		Client: refOf(h.ClientID, h.ClientKind, h.ClientName), Attached: h.Attached != nil && *h.Attached,
 		DeleteFiles: removalOf(h.ClientID, h.Attached, h.ClientOn) == removedByNode,
 		Done:        rep.done(h.Size), Announce: cellOf(hosts, rep), report: rep,
@@ -365,6 +368,11 @@ func (c *Clients) rowOf(h db.ListHeldRow, uses []Use) (Row, error) {
 		row.Error = rep.Error
 	}
 	return row, nil
+}
+
+// held reports whether a Grab of uses is unfinished.
+func held(uses []Use) bool {
+	return slices.ContainsFunc(uses, func(u Use) bool { return u.Stage == UseDownloading || u.Stage == UseImporting })
 }
 
 // refOf is a Torrent's client as a row names it, nil for the built-in

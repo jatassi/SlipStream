@@ -1,4 +1,4 @@
-import { InformationCircleIcon, Search01Icon } from "@hugeicons/core-free-icons";
+import { InformationCircleIcon, Search01Icon, SearchList01Icon } from "@hugeicons/core-free-icons";
 
 import type { FilesCell } from "../../api/gen/model";
 import { Sheet, SheetCancel, SheetGroup, SheetItem, SheetToggle } from "../../ui/sheet";
@@ -81,6 +81,16 @@ function Actions({ view, actions }: { view: ItemView; actions: RowActions }) {
           Search
         </SheetItem>
       )}
+      {!view.withdrawn && (
+        <SheetItem
+          icon={SearchList01Icon}
+          onClick={() => {
+            actions.manual(view);
+          }}
+        >
+          Manual search
+        </SheetItem>
+      )}
       <SheetItem
         icon={InformationCircleIcon}
         onClick={() => {
@@ -93,7 +103,7 @@ function Actions({ view, actions }: { view: ItemView; actions: RowActions }) {
   );
 }
 
-/** Phone: an Item's cells, its Monitor switch, Search and Details, in a bottom sheet. */
+/** Phone: an Item's cells, its Monitor switch, Search, Manual search and Details, in a bottom sheet. */
 export function ItemSheet({
   open,
   context,

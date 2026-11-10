@@ -136,7 +136,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 		}
 		item := site.Release{
 			Name: r.Name, Size: size, InfoHash: hash.String(), TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], TVDB: r.TVDB, Seeders: int64(r.Seeders), Torrent: meta,
-			Link: r.Link, Trackerless: r.Trackerless, Sites: r.Sites, DownloadFactor: r.DownloadFactor, Untagged: r.Untagged,
+			Link: r.Link, Trackerless: r.Trackerless, Sites: r.Sites, DownloadFactor: r.DownloadFactor, Untagged: r.Untagged, Published: r.Published,
 		}
 		if listed != nil {
 			listed(&item)

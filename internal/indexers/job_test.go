@@ -105,13 +105,13 @@ func searchOn(t *testing.T, n *slowNode) (indexers.Answer, *storage.DB[storage.L
 	})
 	var lines []indexers.Line
 	err = lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		lines, err = x.Plan(ctx, tx, indexerstest.Type)
+		lines, err = x.Plan(ctx, tx, indexerstest.Type, indexers.AutoSearch)
 		return err
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	answers, err := x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: indexers.Terms{Mode: "search", Query: "orchard"}, Asked: lines})
+	answers, err := x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: indexers.Terms{Mode: "search", Query: "orchard"}, Asked: lines}, nil)
 	if err != nil || len(answers) != 1 {
 		t.Fatalf("search = %+v, %v; want one answer", answers, err)
 	}

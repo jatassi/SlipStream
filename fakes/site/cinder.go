@@ -56,8 +56,10 @@ func (s *site) cinderSearch(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/index.php", http.StatusFound)
 		return
 	}
+	q := r.URL.Query().Get("q")
+	s.searched(r.Context(), Search{Site: Cinder, T: "search", Q: q})
 	var rows strings.Builder
-	for _, rel := range s.found(r, r.URL.Query().Get("q")) {
+	for _, rel := range s.found(r, q) {
 		fmt.Fprintf(&rows, `<div class="torrent"><span class="cat">1</span><a class="name" href="details.php?id=%[1]s">%[2]s</a>`+
 			`<span class="hash">%[1]s</span><span class="size">%[3]d B</span><span class="seeders">%[4]d</span><span class="leechers">%[5]d</span></div>`,
 			rel.InfoHash, html.EscapeString(rel.Name), rel.Size, rel.Seeders, rel.Leechers)
