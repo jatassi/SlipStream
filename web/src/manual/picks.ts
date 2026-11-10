@@ -59,6 +59,28 @@ export const hasPick = (row: GrabsPlanRow): row is PickRow => row.pick !== null;
  */
 export const resultKey = (row: PickRow): string => `${row.key}/${row.pick.release.id}`;
 
+/**
+ * The plan's picks with each row the Admin grabbed or tried to grab kept in
+ * place: a grab leaves its cells out of the next plan, and its result stays
+ * on screen until the sheet closes or searches again. A kept row sits before
+ * the row that now fills its cells, or first when none does.
+ */
+export function shownRows(
+  picks: readonly PickRow[],
+  sent: ReadonlyMap<string, PickRow>,
+  results: Results,
+): PickRow[] {
+  const current = new Set(picks.map((row) => resultKey(row)));
+  const kept = [...sent.values()].filter(
+    (row) => results.has(resultKey(row)) && !current.has(resultKey(row)),
+  );
+  const keys = new Set(picks.map(({ key }) => key));
+  return [
+    ...kept.filter(({ key }) => !keys.has(key)),
+    ...picks.flatMap((row) => [...kept.filter(({ key }) => key === row.key), row]),
+  ];
+}
+
 /** A row the Grab button sends: ticked, with a pick, and not grabbed already. */
 export const sends = (choices: Choices, results: Results, row: GrabsPlanRow): row is PickRow =>
   hasPick(row) && !choices.unticked.has(row.key) && !grabbed(results, resultKey(row));

@@ -165,7 +165,7 @@ export function PickRows({ rows, acts }: { rows: readonly PickRow[]; acts: RowAc
   return (
     <ul aria-label="Grabs" className={list}>
       {rows.map((row) => (
-        <Pick key={row.key} row={row} acts={acts} />
+        <Pick key={resultKey(row)} row={row} acts={acts} />
       ))}
     </ul>
   );
