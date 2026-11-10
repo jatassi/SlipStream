@@ -33,12 +33,17 @@ type manualRelease struct {
 	Blocked  *string  `json:"blocked"`
 }
 
+type manualEdition struct {
+	Edition string `json:"edition"`
+	Words   string `json:"words"`
+}
+
 // manualPick is a plan row's pick or one of its choices.
 type manualPick struct {
-	Release manualRelease `json:"release"`
-	Cells   []string      `json:"cells"`
-	Lifts   []liftKey     `json:"lifts"`
-	Edition *string       `json:"edition"`
+	Release manualRelease  `json:"release"`
+	Cells   []string       `json:"cells"`
+	Lifts   []liftKey      `json:"lifts"`
+	Edition *manualEdition `json:"edition"`
 }
 
 type manualLine struct {
@@ -88,10 +93,10 @@ func (v manualSheet) picks() []manualPick {
 type manualOffer struct {
 	Release manualRelease `json:"release"`
 	Grab    struct {
-		Grabbable bool      `json:"grabbable"`
-		Cells     []string  `json:"cells"`
-		Lifts     []liftKey `json:"lifts"`
-		Edition   *string   `json:"edition"`
+		Grabbable bool           `json:"grabbable"`
+		Cells     []string       `json:"cells"`
+		Lifts     []liftKey      `json:"lifts"`
+		Edition   *manualEdition `json:"edition"`
 	} `json:"grab"`
 }
 
@@ -211,7 +216,7 @@ func (w *manualWorld) grabManual(t *testing.T, work, id string, unblock bool, pi
 	for _, p := range picks {
 		pick := map[string]any{"releaseId": p.Release.ID, "cells": p.Cells, "lifts": append([]liftKey{}, p.Lifts...), "unblock": unblock}
 		if p.Edition != nil {
-			pick["edition"] = *p.Edition
+			pick["edition"] = p.Edition.Edition
 		}
 		sent = append(sent, pick)
 	}
