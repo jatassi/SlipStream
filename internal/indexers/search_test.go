@@ -561,3 +561,83 @@ func TestATypedQueryIsSearchedAsTextInPlaceOfTheIDs(t *testing.T) {
 		t.Fatalf("the Node was sent %+v, want the ids, then the typed text alone", got)
 	}
 }
+
+func (p *planned) standings() indexers.Standings {
+	p.t.Helper()
+	var s indexers.Standings
+	err := p.lib.Read(p.t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		s, err = p.x.Standings(ctx, r)
+		return err
+	})
+	if err != nil {
+		p.t.Fatal(err)
+	}
+	return s
+}
+
+// agreed is what Take answers name's r with, once Standings, read just
+// before, answered the same.
+func (p *planned) agreed(name string, r searching.Release) error {
+	p.t.Helper()
+	read, readErr := p.standings().Take(indexers.Release{Indexer: p.ids[name], Release: r})
+	took, err := p.take(name, r)
+	if !reflect.DeepEqual(readErr, err) || (err == nil && read.Indexer != took.Indexer) {
+		p.t.Fatalf("for %s's %s, Standings answered %+v, %v and Take %+v, %v; want the same", name, r.Title, read, readErr, took, err)
+	}
+	return err
+}
+
+func sentenceOf(err error) string {
+	if e, ok := errors.AsType[*indexers.NotTakenError](err); ok {
+		return e.Sentence
+	}
+	return ""
+}
+
+func TestStandingsAnswerAsTakeDoesAndSpendNothing(t *testing.T) {
+	p := plannedWith(t, "Alder", "Birch", "Cedar", "Dogwood")
+	p.edit("Alder", indexers.Edit{Grabs: &indexers.Limit{Count: 1, Per: indexers.Hour}})
+	p.edit("Dogwood", indexers.Edit{AutoSearch: new(false)})
+	torrent := searching.Release{Title: "Orchard.1080p", Link: searching.LinkOf("https://site.test/a.torrent")}
+	magnet := searching.Release{Title: "Orchard.720p", Magnet: searching.LinkOf("magnet:?xt=urn:btih:" + strings.Repeat("a", 40))}
+
+	for range 3 {
+		if _, err := p.standings().Take(indexers.Release{Indexer: p.ids["Alder"], Release: torrent}); err != nil {
+			t.Fatalf("Alder's .torrent with its one grab left = %v, want it taken", err)
+		}
+	}
+	if err := p.agreed("Alder", torrent); err != nil {
+		t.Fatalf("taking Alder's .torrent after three reads of its standing = %v, want its one grab still left", err)
+	}
+	err := p.agreed("Alder", torrent)
+	if want := "Alder is at its grab limit until "; !notTaken(err, indexers.LimitReached) || !strings.HasPrefix(sentenceOf(err), want) {
+		t.Fatalf("Alder's .torrent at its grab limit = %v %q, want limit_reached saying %q and when", err, sentenceOf(err), want)
+	}
+	if err := p.agreed("Alder", magnet); err != nil {
+		t.Fatalf("Alder's magnet link at its grab limit = %v, want it taken, since it reserves no grab", err)
+	}
+
+	p.node.Answer(p.ids["Birch"], 0, searching.Answer{Outcome: &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}})
+	p.search(p.plan())
+	for _, r := range []searching.Release{torrent, magnet} {
+		err := p.agreed("Birch", r)
+		if want := "Stopped because Birch refused the API key with 'Account suspended'."; !notTaken(err, indexers.IsStopped) || sentenceOf(err) != want {
+			t.Fatalf("stopped Birch's %s = %v %q, want stopped saying %q", r.Title, err, sentenceOf(err), want)
+		}
+	}
+
+	if err := p.x.Delete(t.Context(), identity.Admin{}, p.ids["Cedar"]); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range []searching.Release{torrent, magnet} {
+		err := p.agreed("Cedar", r)
+		if want := "The Indexer that listed it was deleted."; !notTaken(err, indexers.Removed) || sentenceOf(err) != want {
+			t.Fatalf("deleted Cedar's %s = %v %q, want removed saying %q", r.Title, err, sentenceOf(err), want)
+		}
+	}
+
+	if s := p.standings()[p.ids["Dogwood"]]; s.Automatic || p.agreed("Dogwood", torrent) != nil {
+		t.Fatalf("Dogwood with Automatic search off stands %+v, want it taking with Automatic false", s)
+	}
+}
