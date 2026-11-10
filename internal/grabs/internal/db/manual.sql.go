@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -172,6 +173,193 @@ func (q *Queries) InsertManualRun(ctx context.Context, arg InsertManualRunParams
 		arg.StartedAt,
 	)
 	return err
+}
+
+const listCellGrabsOfWork = `-- name: ListCellGrabsOfWork :many
+SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_target.target_id, grabs_grab.stage, grabs_grab.source,
+    grabs_grab.release_title, grabs_grab.failure_code, grabs_grab.failure_message
+FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
+WHERE grabs_grab.work_id = ?1
+ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position
+`
+
+type ListCellGrabsOfWorkRow struct {
+	ID             GrabID
+	ItemID         works.ItemID
+	Edition        targets.Edition
+	TargetID       targets.TargetID
+	Stage          Stage
+	Source         Source
+	ReleaseTitle   string
+	FailureCode    *Code
+	FailureMessage *string
+}
+
+// Each Grab of the Work at each of its Targets, oldest first, so the
+// last of a cell is its latest.
+func (q *Queries) ListCellGrabsOfWork(ctx context.Context, workID works.WorkID) ([]ListCellGrabsOfWorkRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCellGrabsOfWork, workID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCellGrabsOfWorkRow
+	for rows.Next() {
+		var i ListCellGrabsOfWorkRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ItemID,
+			&i.Edition,
+			&i.TargetID,
+			&i.Stage,
+			&i.Source,
+			&i.ReleaseTitle,
+			&i.FailureCode,
+			&i.FailureMessage,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLinesOfManual = `-- name: ListLinesOfManual :many
+SELECT grabs_search_indexer.search_id, grabs_search_indexer.position, grabs_search_indexer.indexer_id, grabs_search_indexer.indexer_name, grabs_search_indexer.query_id, grabs_search_indexer.outcome, grabs_search_indexer.releases, grabs_search_indexer.until_at, grabs_search_indexer.since_at, grabs_search_indexer.node_id, grabs_search_indexer.lapsed, grabs_search_indexer.cause, grabs_search_indexer.text FROM grabs_search_indexer JOIN grabs_search ON grabs_search.id = grabs_search_indexer.search_id
+WHERE grabs_search.manual_id = ?1
+ORDER BY grabs_search_indexer.search_id, grabs_search_indexer.position
+`
+
+func (q *Queries) ListLinesOfManual(ctx context.Context, manualID ManualID) ([]GrabsSearchIndexer, error) {
+	rows, err := q.db.QueryContext(ctx, listLinesOfManual, manualID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrabsSearchIndexer
+	for rows.Next() {
+		var i GrabsSearchIndexer
+		if err := rows.Scan(
+			&i.SearchID,
+			&i.Position,
+			&i.IndexerID,
+			&i.IndexerName,
+			&i.QueryID,
+			&i.Outcome,
+			&i.Releases,
+			&i.UntilAt,
+			&i.SinceAt,
+			&i.NodeID,
+			&i.Lapsed,
+			&i.Cause,
+			&i.Text,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listListedOfManual = `-- name: ListListedOfManual :many
+SELECT grabs_release.search_id, grabs_release.position, grabs_release.title, grabs_release.indexer_id, grabs_release.indexer_name, grabs_release.size, grabs_release.seeders, grabs_release.outcome, grabs_release.rank, grabs_release.reasons, grabs_release.lost_step, grabs_release.lost_target_id, grabs_release.lost_own, grabs_release.lost_ref, grabs_release.scores, grabs_release.formats, grabs_release.covers, grabs_release.copy_of, grabs_release."release", grabs_release.link_sealed, grabs_release.read FROM grabs_release JOIN grabs_search ON grabs_search.id = grabs_release.search_id
+WHERE grabs_search.manual_id = ?1
+ORDER BY grabs_release.search_id, grabs_release.position
+`
+
+func (q *Queries) ListListedOfManual(ctx context.Context, manualID ManualID) ([]GrabsRelease, error) {
+	rows, err := q.db.QueryContext(ctx, listListedOfManual, manualID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrabsRelease
+	for rows.Next() {
+		var i GrabsRelease
+		if err := rows.Scan(
+			&i.SearchID,
+			&i.Position,
+			&i.Title,
+			&i.IndexerID,
+			&i.IndexerName,
+			&i.Size,
+			&i.Seeders,
+			&i.Outcome,
+			&i.Rank,
+			&i.Reasons,
+			&i.LostStep,
+			&i.LostTargetID,
+			&i.LostOwn,
+			&i.LostRef,
+			&i.Scores,
+			&i.Formats,
+			&i.Covers,
+			&i.CopyOf,
+			&i.Release,
+			&i.LinkSealed,
+			&i.Read,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listManualRuns = `-- name: ListManualRuns :many
+SELECT id, work_id, item_id, manual_id, started_at, finished_at, outcome, candidates, grab_id, notes FROM grabs_search WHERE manual_id = ?1 ORDER BY started_at, id
+`
+
+func (q *Queries) ListManualRuns(ctx context.Context, manualID ManualID) ([]GrabsSearch, error) {
+	rows, err := q.db.QueryContext(ctx, listManualRuns, manualID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrabsSearch
+	for rows.Next() {
+		var i GrabsSearch
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkID,
+			&i.ItemID,
+			&i.ManualID,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.Outcome,
+			&i.Candidates,
+			&i.GrabID,
+			&i.Notes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listRunsOfManual = `-- name: ListRunsOfManual :many

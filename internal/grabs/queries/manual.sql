@@ -37,3 +37,25 @@ UPDATE grabs_search SET finished_at = sqlc.arg(finished_at), outcome = 'listed',
 WHERE id = sqlc.arg(id) AND finished_at IS NULL
     AND NOT EXISTS (SELECT 1 FROM grabs_search_indexer
         WHERE grabs_search_indexer.search_id = grabs_search.id AND grabs_search_indexer.outcome IS NULL);
+
+-- name: ListManualRuns :many
+SELECT * FROM grabs_search WHERE manual_id = sqlc.arg(manual_id) ORDER BY started_at, id;
+
+-- name: ListLinesOfManual :many
+SELECT grabs_search_indexer.* FROM grabs_search_indexer JOIN grabs_search ON grabs_search.id = grabs_search_indexer.search_id
+WHERE grabs_search.manual_id = sqlc.arg(manual_id)
+ORDER BY grabs_search_indexer.search_id, grabs_search_indexer.position;
+
+-- name: ListListedOfManual :many
+SELECT grabs_release.* FROM grabs_release JOIN grabs_search ON grabs_search.id = grabs_release.search_id
+WHERE grabs_search.manual_id = sqlc.arg(manual_id)
+ORDER BY grabs_release.search_id, grabs_release.position;
+
+-- name: ListCellGrabsOfWork :many
+-- Each Grab of the Work at each of its Targets, oldest first, so the
+-- last of a cell is its latest.
+SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_target.target_id, grabs_grab.stage, grabs_grab.source,
+    grabs_grab.release_title, grabs_grab.failure_code, grabs_grab.failure_message
+FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
+WHERE grabs_grab.work_id = sqlc.arg(work_id)
+ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
