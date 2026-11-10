@@ -20,7 +20,7 @@ const titles: { readonly [P in Parting]: (subjects: readonly Subject[]) => strin
 const partingWords: { readonly [P in Parting]: (frees: string) => string } = {
   remove: () => "Files in your library stay.",
   "mark-failed": (frees) =>
-    `It is removed and its download copy deleted${frees}. Files in your library stay.`,
+    `It is removed and its download copy deleted${frees}. Its Release goes on the Blocklist. Files in your library stay.`,
 };
 
 const stopsTrackingWords = (client: string) =>

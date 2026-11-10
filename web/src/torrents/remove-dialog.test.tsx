@@ -25,6 +25,7 @@ const stalled = torrent({
   severity: "warning",
   tabs: ["downloading", "problems", "all"],
   name: "Dead.Release.2020.1080p",
+  held: true,
 });
 
 const table = () => page.getByRole("table", { name: "Torrents" });
@@ -184,7 +185,7 @@ test("picked rows pause together and a bulk remove names the count", async () =>
   await expect.element(bar).not.toBeInTheDocument();
 });
 
-test("mark failed on a stalled download deletes its copy after asking", async () => {
+test("mark failed on a held download deletes its copy and blocklists its Release after asking", async () => {
   const actions = actionsServer({ preview: { ...shared, stopSeeding: [], frees: 1024 * 1024 } });
   open([stalled], actions);
   await userEvent.click(table().getByRole("button", { name: "Dead.Release.2020.1080p actions" }));
@@ -193,7 +194,7 @@ test("mark failed on a stalled download deletes its copy after asking", async ()
   await expect
     .element(dialog)
     .toMatchTextContent(
-      "It is removed and its download copy deleted (frees 1.0 MB). Files in your library stay.",
+      "It is removed and its download copy deleted (frees 1.0 MB). Its Release goes on the Blocklist. Files in your library stay.",
     );
   await expect.element(dialog.getByRole("checkbox")).not.toBeInTheDocument();
   await userEvent.click(dialog.getByRole("button", { name: "Mark failed" }));
