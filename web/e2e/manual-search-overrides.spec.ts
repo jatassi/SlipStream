@@ -52,6 +52,9 @@ test("a Release under a Target's minimum score is grabbed past it, the row sayin
     "Score -5 is below the minimum of 0 at HD.",
   ]);
   await expectAccessible(page);
+  await row.evaluate((element) => {
+    element.scrollIntoView({ block: "start" });
+  });
   await frame(page, testInfo, "overrides-soft-refusal");
 
   await manual.getByRole("button", { name: "Grab 1" }).click();

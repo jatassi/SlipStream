@@ -2,7 +2,8 @@ import type { Locator, Page, TestInfo } from "@playwright/test";
 import { z } from "zod";
 
 import { type World, expect } from "./fixtures.ts";
-import { isPhone } from "./shell.ts";
+import { workAction } from "./cells.ts";
+import { isPhone, navigate } from "./shell.ts";
 
 export const orchard = "The Quiet Orchard";
 export const lanternKeepers = "The Lantern Keepers";
@@ -181,8 +182,7 @@ export async function useChoice(row: Locator, words: string): Promise<void> {
 /** The hero's Manual search, from the phone's action sheet or beside Search. */
 export async function openFromHero(page: Page, title: string): Promise<void> {
   if (isPhone(page)) {
-    await page.getByRole("button", { name: `More actions for ${title}` }).click();
-    await page.getByRole("menuitem", { name: "Manual search" }).click();
+    await workAction(page, "Manual search", title);
     return;
   }
   await page
@@ -214,6 +214,16 @@ export async function grabAction(
 export async function openGrabDetails(page: Page, rows: Locator, title: string): Promise<Locator> {
   await grabAction(page, rows, title, "Details");
   return page.getByRole("dialog", { name: /^Grab of /u });
+}
+
+/** Activity's Blocklist view: a tab on desktop, a choice of View on phone. */
+export async function openBlocklist(page: Page): Promise<void> {
+  await navigate(page, "Activity");
+  await (
+    isPhone(page)
+      ? page.getByRole("radio", { name: "Blocklist" })
+      : page.getByRole("navigation", { name: "Activity" }).getByRole("link", { name: "Blocklist" })
+  ).click();
 }
 
 export async function closeSheet(page: Page): Promise<void> {

@@ -5,11 +5,11 @@ import {
   grabAction,
   grabStage,
   manualSearched,
+  openBlocklist,
   openGrabDetails,
   orchard,
   workId,
 } from "./manual-search.ts";
-import { navigate } from "./shell.ts";
 
 test.use({ scenario: "manual-search" });
 test.describe.configure({ timeout: 180_000 });
@@ -37,10 +37,7 @@ test("a downloading Grab canceled with Also blocklist lists its Release on Activ
   await expect.poll(() => grabStage(world, grabId)).toBe("failed");
   await world.fw.fault.clear("swarm-stalled");
 
-  await page
-    .getByRole("navigation", { name: "Activity" })
-    .getByRole("link", { name: "Blocklist" })
-    .click();
+  await openBlocklist(page);
   const blocklist = page.getByRole("table", { name: "Blocklist" });
   const entry = blocklist.getByRole("row").filter({ hasText: webdlTitle });
   await expect(entry).toContainText(byHand);
@@ -82,7 +79,6 @@ test("a fetching Grab cancels from its Details without blocklisting, and its cel
   });
   expect(grabbed.status, "the grab is taken").toBe(200);
 
-  await navigate(page, "Library");
   await page.goto(`/works/${movie}`);
   const record = await openGrabDetails(
     page,
