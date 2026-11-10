@@ -150,3 +150,22 @@ func TestGrabFromManualSearchAnswersEachPick(t *testing.T) {
 		t.Fatalf("grabFromManualSearch of another search = %d %s, want 409 manual_search_replaced", code, got)
 	}
 }
+
+func TestGetManualSearchAnswersTheScopeItWasStartedFor(t *testing.T) {
+	f, _, _ := mirrored(t, "The.Attic.1080p.WEB", "The.Attic.720p.WEB", false, indexers.Edit{})
+	path := "/api/v1/works/" + f.tree.ID.String() + "/manual-search"
+	item := f.tree.Items[0].ID.String()
+	if code, got := f.s.Call(t, http.MethodPost, path, `{"itemIds":["`+item+`"]}`); code != http.StatusAccepted {
+		t.Fatalf("startManualSearch = %d %s, want 202", code, got)
+	}
+	code, got := f.s.Call(t, http.MethodGet, path, "")
+	var v struct {
+		Scope struct {
+			LevelIDs []string `json:"levelIds"`
+			ItemIDs  []string `json:"itemIds"`
+		} `json:"scope"`
+	}
+	if err := json.Unmarshal([]byte(got), &v); err != nil || code != http.StatusOK || len(v.Scope.LevelIDs) != 0 || len(v.Scope.ItemIDs) != 1 || v.Scope.ItemIDs[0] != item {
+		t.Fatalf("getManualSearch = %d %s, want the scope of Item %s", code, got, item)
+	}
+}
