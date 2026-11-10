@@ -1,3 +1,4 @@
+import { ManualSearchHost } from "../manual/sheet";
 import { AddSheet } from "../works/add/add-sheet";
 import { Palette } from "./palette/palette";
 import { Restart } from "./restart/restart-overlay";
@@ -8,6 +9,7 @@ export function Overlays() {
     <>
       <Palette />
       <AddSheet />
+      <ManualSearchHost />
       <Restart />
       <SessionDialogs />
     </>

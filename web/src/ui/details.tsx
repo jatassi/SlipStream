@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Chevron } from "./chevron";
 
 export function Details({
+  label = "Details",
   summary,
   action,
   open,
@@ -11,6 +12,8 @@ export function Details({
   fields = false,
   children,
 }: {
+  /** The disclosure's own words, such as Other choices; Details when it holds the machinery. */
+  label?: string;
   /** The plain-language sentence it leads with; left out where the row it sits in already says it. */
   summary?: ReactNode;
   action?: ReactNode;
@@ -30,7 +33,7 @@ export function Details({
       {action}
       <Collapsible.Trigger className="group -mx-2 inline-flex h-(--control-height) items-center gap-1 rounded-item px-2 font-medium text-ink-2 hover:text-ink-1">
         <Chevron />
-        Details
+        {label}
       </Collapsible.Trigger>
       <Collapsible.Panel
         keepMounted={fields}
