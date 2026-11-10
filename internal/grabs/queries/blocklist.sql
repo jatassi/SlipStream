@@ -29,3 +29,19 @@ DELETE FROM grabs_blocklist WHERE info_hash IN (sqlc.slice(info_hashes));
 SELECT id, torrent_id, work_id, indexer_id, tracker_id, release_title, release_size FROM grabs_grab
 WHERE stage = 'downloading' AND torrent_id IN (sqlc.slice(torrent_ids))
 ORDER BY created_at, id;
+
+-- name: ListUnsettledFaultTorrents :many
+-- The Torrents among torrent_ids that a Grab used and whose release fault
+-- grabs hasn't settled.
+SELECT DISTINCT g.torrent_id FROM grabs_grab g
+WHERE g.torrent_id IN (sqlc.slice(torrent_ids))
+    AND NOT EXISTS (SELECT 1 FROM grabs_fault_settled s WHERE s.torrent_id = g.torrent_id)
+ORDER BY g.torrent_id;
+
+-- name: ListGrabsOfTorrent :many
+SELECT id, stage, work_id, indexer_id, tracker_id, release_title, release_size FROM grabs_grab
+WHERE torrent_id = sqlc.arg(torrent_id)
+ORDER BY created_at DESC, id DESC;
+
+-- name: SettleFault :exec
+INSERT INTO grabs_fault_settled (torrent_id, settled_at) VALUES (sqlc.arg(torrent_id), sqlc.arg(settled_at));

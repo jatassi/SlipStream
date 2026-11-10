@@ -9,6 +9,8 @@ import { useShell } from "./shell-context";
 export type ConfirmDialogProps = {
   title: string;
   confirmLabel: string;
+  /** The button that closes it unchanged; its own words where Cancel would name the confirm. */
+  dismissLabel?: string;
   look?: "primary" | "fail";
   confirmDisabled?: boolean;
   open: boolean;
@@ -46,6 +48,7 @@ function useConfirm({
 export function ConfirmDialog({
   title,
   confirmLabel,
+  dismissLabel = "Cancel",
   look = "primary",
   confirmDisabled = false,
   open,
@@ -72,7 +75,7 @@ export function ConfirmDialog({
             close(false);
           }}
         >
-          Cancel
+          {dismissLabel}
         </Button>
         <Button look={look} busy={busy} disabled={confirmDisabled} onClick={() => void confirm()}>
           {confirmLabel}

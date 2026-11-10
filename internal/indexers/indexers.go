@@ -219,7 +219,8 @@ type Caps struct {
 }
 
 type Timings struct {
-	// Job is a job's deadline from when its Node started it.
+	// Job is a fetch, Test or captcha job's deadline from when its Node
+	// started it. A search job waits SearchWait, a stored setting.
 	Job time.Duration `yaml:"job"`
 	// Poll is the least gap between two Run calls of one job.
 	Poll time.Duration `yaml:"poll"`

@@ -2,9 +2,11 @@ package grabs
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
@@ -435,7 +437,7 @@ func (gr *Grabs) take(ctx context.Context, tx *storage.Tx[file], run Search, pic
 	if !ok {
 		return nil, Pick{at: -1}, nil
 	}
-	g, err := gr.insertGrab(ctx, tx, run, p, t, now)
+	g, err := gr.insertGrab(ctx, tx, newGrab{work: run.WorkID, item: run.ItemID, pick: p, ticket: t, source: FromSearch}, now)
 	return &g, p, err
 }
 
@@ -456,15 +458,30 @@ func (gr *Grabs) searchWaits(ctx context.Context, run Search, err error) result 
 	return waited
 }
 
-// insertGrab inserts the Grab of pick that t readied, at fetching on the
-// Indexer's home Node.
-func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], run Search, pick Pick, t indexers.Ticket, now storage.Time) (Grab, error) {
+// newGrab is what insertGrab writes: a search's pick, or an Admin's from
+// a Manual search with its record.
+type newGrab struct {
+	work      works.WorkID
+	item      works.ItemID
+	pick      Pick
+	ticket    indexers.Ticket
+	source    Source
+	manual    ManualID
+	by        *Actor
+	overrides Overrides
+	// sent is the client the Admin chose, nil for where Tracker routing
+	// sends it.
+	sent *downloadclients.Choice
+}
+
+// insertGrab inserts n's Grab, at fetching on its Indexer's home Node.
+func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], n newGrab, now storage.Time) (Grab, error) {
 	q := db.New(tx)
-	r := pick.Release
+	r, t := n.pick.Release, n.ticket
 	g := Grab{
-		ID: GrabID{UUID: storage.NewUUID()}, WorkID: run.WorkID, ItemID: run.ItemID, Edition: pick.Edition, Targets: pick.Targets,
+		ID: GrabID{UUID: storage.NewUUID()}, WorkID: n.work, ItemID: n.item, Edition: n.pick.Edition, Targets: n.pick.Targets,
 		Release: Release{Title: r.Title, Size: r.Size, InfoHash: r.InfoHash}, Ticket: t, Stage: Fetching, Created: now.Time(),
-		Source: FromSearch,
+		Source: n.source, Manual: n.manual, By: n.by, Overrides: n.overrides, Sent: n.sent,
 	}
 	idx, err := indexers.Get(ctx, tx, t.Indexer)
 	if err != nil {
@@ -480,16 +497,35 @@ func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], run Searc
 	if h := g.Release.InfoHash; h != nil {
 		hint = h[:]
 	}
-	err = q.InsertGrab(ctx, db.InsertGrabParams{
-		ID: g.ID, WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, Source: g.Source, Overrides: "{}",
+	overrides, err := json.Marshal(g.Overrides)
+	if err != nil {
+		return Grab{}, fmt.Errorf("grab %s: encode the overrides: %w", g.ID, err)
+	}
+	p := db.InsertGrabParams{
+		ID: g.ID, WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, Source: g.Source, ManualID: g.Manual, Overrides: string(overrides),
 		IndexerID: t.Indexer, TrackerID: t.Tracker, NodeID: g.Node,
 		ReleaseTitle: g.Release.Title, ReleaseSize: g.Release.Size, ReleaseLinkSealed: g.Release.link, ReleaseMagnet: orNil(g.Release.magnet),
 		ReleaseInfoHash: hint, FetchQueryID: t.Query, CreatedAt: now,
 		MinRatio: orNil(r.Floor.MinRatio), MinSeedSeconds: orNil(int64(r.Floor.MinSeed.Seconds())),
 		DownloadFactor: new(r.Factors.Download), UploadFactor: new(r.Factors.Upload),
-	})
-	if err != nil {
+	}
+	if b := g.By; b != nil {
+		p.GrabbedByName = orNil(b.Name)
+		if b.Account != nil {
+			p.GrabbedBy = *b.Account
+		}
+	}
+	if err := q.InsertGrab(ctx, p); err != nil {
 		return Grab{}, err
+	}
+	if c := g.Sent; c != nil {
+		s := db.SetSentParams{ID: g.ID, ClientID: c.Client, UpdatedAt: now}
+		if c.Client == nil {
+			s.BuiltInOn = &c.BuiltInOn
+		}
+		if err := q.SetSent(ctx, s); err != nil {
+			return Grab{}, err
+		}
 	}
 	for i, target := range g.Targets {
 		if err := q.InsertTarget(ctx, db.InsertTargetParams{GrabID: g.ID, Position: int64(i), TargetID: target}); err != nil {

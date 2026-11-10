@@ -22,7 +22,6 @@ import type {
   CancelGrab409,
   CancelGrab422,
   CancelGrab500,
-  CancelGrab501,
   CancelInputBody,
   GetGrab401,
   GetGrab403,
@@ -36,7 +35,6 @@ import type {
   GetManualSearch409,
   GetManualSearch422,
   GetManualSearch500,
-  GetManualSearch501,
   GetManualSearchParams,
   GrabFromManualSearch401,
   GrabFromManualSearch403,
@@ -44,7 +42,6 @@ import type {
   GrabFromManualSearch409,
   GrabFromManualSearch422,
   GrabFromManualSearch500,
-  GrabFromManualSearch501,
   GrabManualInputBody,
   GrabsBlocklist,
   GrabsGrab,
@@ -82,7 +79,6 @@ import type {
   ListManualSearchReleases409,
   ListManualSearchReleases422,
   ListManualSearchReleases500,
-  ListManualSearchReleases501,
   ListSearchReleases401,
   ListSearchReleases403,
   ListSearchReleases404,
@@ -673,13 +669,7 @@ export const getCancelGrabMutationKey = () => ["cancelGrab"] as const;
 
 export const getCancelGrabMutationOptions = <
   TError = ErrorType<
-    | CancelGrab401
-    | CancelGrab403
-    | CancelGrab404
-    | CancelGrab409
-    | CancelGrab422
-    | CancelGrab500
-    | CancelGrab501
+    CancelGrab401 | CancelGrab403 | CancelGrab404 | CancelGrab409 | CancelGrab422 | CancelGrab500
   >,
   TContext = unknown,
 >(options?: {
@@ -718,13 +708,7 @@ export const getCancelGrabMutationOptions = <
 export type CancelGrabMutationResult = NonNullable<Awaited<ReturnType<typeof cancelGrab>>>;
 export type CancelGrabMutationBody = CancelInputBody;
 export type CancelGrabMutationError = ErrorType<
-  | CancelGrab401
-  | CancelGrab403
-  | CancelGrab404
-  | CancelGrab409
-  | CancelGrab422
-  | CancelGrab500
-  | CancelGrab501
+  CancelGrab401 | CancelGrab403 | CancelGrab404 | CancelGrab409 | CancelGrab422 | CancelGrab500
 >;
 export type CancelGrabMutationVariables = { grabId: string; data: CancelInputBody };
 
@@ -733,13 +717,7 @@ export type CancelGrabMutationVariables = { grabId: string; data: CancelInputBod
  */
 export const useCancelGrab = <
   TError = ErrorType<
-    | CancelGrab401
-    | CancelGrab403
-    | CancelGrab404
-    | CancelGrab409
-    | CancelGrab422
-    | CancelGrab500
-    | CancelGrab501
+    CancelGrab401 | CancelGrab403 | CancelGrab404 | CancelGrab409 | CancelGrab422 | CancelGrab500
   >,
   TContext = unknown,
 >(
@@ -1263,7 +1241,6 @@ export const getGetManualSearchSuspenseQueryOptions = <
     | GetManualSearch409
     | GetManualSearch422
     | GetManualSearch500
-    | GetManualSearch501
   >,
 >(
   workId: string,
@@ -1303,7 +1280,6 @@ export type GetManualSearchSuspenseQueryError = ErrorType<
   | GetManualSearch409
   | GetManualSearch422
   | GetManualSearch500
-  | GetManualSearch501
 >;
 
 export function useGetManualSearchSuspense<
@@ -1315,7 +1291,6 @@ export function useGetManualSearchSuspense<
     | GetManualSearch409
     | GetManualSearch422
     | GetManualSearch500
-    | GetManualSearch501
   >,
 >(
   workId: string,
@@ -1337,7 +1312,6 @@ export function useGetManualSearchSuspense<
     | GetManualSearch409
     | GetManualSearch422
     | GetManualSearch500
-    | GetManualSearch501
   >,
 >(
   workId: string,
@@ -1359,7 +1333,6 @@ export function useGetManualSearchSuspense<
     | GetManualSearch409
     | GetManualSearch422
     | GetManualSearch500
-    | GetManualSearch501
   >,
 >(
   workId: string,
@@ -1385,7 +1358,6 @@ export function useGetManualSearchSuspense<
     | GetManualSearch409
     | GetManualSearch422
     | GetManualSearch500
-    | GetManualSearch501
   >,
 >(
   workId: string,
@@ -1587,7 +1559,6 @@ export const getGrabFromManualSearchMutationOptions = <
     | GrabFromManualSearch409
     | GrabFromManualSearch422
     | GrabFromManualSearch500
-    | GrabFromManualSearch501
   >,
   TContext = unknown,
 >(options?: {
@@ -1634,7 +1605,6 @@ export type GrabFromManualSearchMutationError = ErrorType<
   | GrabFromManualSearch409
   | GrabFromManualSearch422
   | GrabFromManualSearch500
-  | GrabFromManualSearch501
 >;
 export type GrabFromManualSearchMutationVariables = { workId: string; data: GrabManualInputBody };
 
@@ -1649,7 +1619,6 @@ export const useGrabFromManualSearch = <
     | GrabFromManualSearch409
     | GrabFromManualSearch422
     | GrabFromManualSearch500
-    | GrabFromManualSearch501
   >,
   TContext = unknown,
 >(
@@ -1701,7 +1670,6 @@ export const getListManualSearchReleasesSuspenseQueryOptions = <
     | ListManualSearchReleases409
     | ListManualSearchReleases422
     | ListManualSearchReleases500
-    | ListManualSearchReleases501
   >,
 >(
   workId: string,
@@ -1743,7 +1711,6 @@ export type ListManualSearchReleasesSuspenseQueryError = ErrorType<
   | ListManualSearchReleases409
   | ListManualSearchReleases422
   | ListManualSearchReleases500
-  | ListManualSearchReleases501
 >;
 
 export function useListManualSearchReleasesSuspense<
@@ -1755,7 +1722,6 @@ export function useListManualSearchReleasesSuspense<
     | ListManualSearchReleases409
     | ListManualSearchReleases422
     | ListManualSearchReleases500
-    | ListManualSearchReleases501
   >,
 >(
   workId: string,
@@ -1776,7 +1742,6 @@ export function useListManualSearchReleasesSuspense<
     | ListManualSearchReleases409
     | ListManualSearchReleases422
     | ListManualSearchReleases500
-    | ListManualSearchReleases501
   >,
 >(
   workId: string,
@@ -1797,7 +1762,6 @@ export function useListManualSearchReleasesSuspense<
     | ListManualSearchReleases409
     | ListManualSearchReleases422
     | ListManualSearchReleases500
-    | ListManualSearchReleases501
   >,
 >(
   workId: string,
@@ -1822,7 +1786,6 @@ export function useListManualSearchReleasesSuspense<
     | ListManualSearchReleases409
     | ListManualSearchReleases422
     | ListManualSearchReleases500
-    | ListManualSearchReleases501
   >,
 >(
   workId: string,

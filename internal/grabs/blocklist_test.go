@@ -147,7 +147,7 @@ func TestABlocklistedHashFoundAfterTheFetchMakesAnAutomaticGrabDecideAgainWithou
 func TestMarkFailedBlocklistsTheReleaseOfADownloadingGrab(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := newPipeline(t)
-		downloadingGrab(t, p, stalledReport)
+		downloadingGrab(t, p, seedingReport)
 		torrent := torrentOf(t, p)
 		run(t, p.lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 			return reconciling(false).MarkedFailed(ctx, tx, []downloadclients.ID{torrent}, identity.Admin{})

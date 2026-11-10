@@ -24,8 +24,12 @@ type Ticket struct {
 }
 
 // NotTakenError is a Release whose fetch would wait for the Admin: its
-// Indexer stopped, at its grab limit, or deleted.
-type NotTakenError struct{ Outcome Outcome }
+// Indexer stopped, at its grab limit, or deleted. Sentence says so, such
+// as "TorrentLeech is at its grab limit until 14:05."
+type NotTakenError struct {
+	Outcome  Outcome
+	Sentence string
+}
 
 func (e *NotTakenError) Error() string {
 	return "the Indexer can't fetch the Release now: " + string(e.Outcome.Kind)
@@ -38,25 +42,23 @@ func (e *NotTakenError) Error() string {
 func (x *Indexers) Take(ctx context.Context, tx *storage.Tx[file], r Release) (Ticket, error) {
 	idx, err := x.get(ctx, tx, r.Indexer)
 	if errors.Is(err, ErrNoIndexer) {
-		return Ticket{}, &NotTakenError{Outcome: Outcome{Kind: Removed}}
+		return removed(r.Indexer).Take(r)
 	}
 	if err != nil {
 		return Ticket{}, err
 	}
-	st, err := status(ctx, tx, idx.ID)
+	now := storage.Now()
+	s, err := x.standing(ctx, tx, idx, now.Time())
 	if err != nil {
 		return Ticket{}, err
 	}
-	if st.State == Stopped {
-		return Ticket{}, &NotTakenError{Outcome: Outcome{Kind: IsStopped, Cause: st.Cause, Text: st.Text, Node: st.Node}}
+	t, err := s.Take(r)
+	if err != nil {
+		return Ticket{}, err
 	}
-	t := Ticket{Indexer: idx.ID}
 	if !r.Offered().IsMagnet() {
-		t.Query, err = reserve(ctx, tx, idx, UseFetch, storage.Now())
-		if limit, ok := errors.AsType[*LimitError](err); ok {
-			return Ticket{}, &NotTakenError{Outcome: Outcome{Kind: LimitReached, Until: limit.Until}}
-		}
-		if err != nil {
+		t.Query = QueryID{UUID: storage.NewUUID()}
+		if err := insertQuery(ctx, tx, t.Query, idx, UseFetch, now); err != nil {
 			return Ticket{}, err
 		}
 	}

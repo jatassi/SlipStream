@@ -1,0 +1,204 @@
+package grabs
+
+import (
+	"errors"
+	"slices"
+
+	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/indexers"
+)
+
+// planIn is one Manual run's plan inputs. Cells are counted by their
+// position in item, every cell of the run's Item in Want order.
+type planIn struct {
+	item []files.Cell
+	// walk is the cells the plan walks, in Want order: the missing,
+	// failed, upgradable and unreleased cells in scope that no unfinished
+	// Grab holds.
+	walk []int
+	// fill is whether a row may fill each cell: walk, or every such cell
+	// of the Item for a cell scope, since a Grab fills every Target it
+	// can (#87 Q15).
+	fill []bool
+	// as is the run's Releases, deduped, with their own refusals worked
+	// out now, js each judged at every cell of item and st how each
+	// stands at each.
+	as []assessed
+	js []judged
+	st [][]stance
+	// pins is the Release, by its index in as, pinned at a cell.
+	pins map[int]int
+	take taker
+}
+
+// planned is one row of a plan: a Grab of as[group], or a gap when group
+// is -1. cells is the cells it fills, first the one that leads it.
+type planned struct {
+	cells  []int
+	group  int
+	pick   Pick
+	stance stance
+	pinned bool
+	// waits is why the Indexers won't take the best Release that stands
+	// at a gap's cell, nil when none stands auto there.
+	waits *indexers.NotTakenError
+}
+
+// plan walks in.walk. At each cell no earlier row fills, a live pin takes
+// it. Otherwise it calls decide over the cells left and choose over its
+// picks, as finish and take do, and keeps the pick when its first cell is
+// this one. A cell nothing takes is a gap. On a monitored, released Item
+// with no pin at its first cell, the first call's cells are openCells
+// narrowed to the Item, so the first row is automatic search's take. A
+// pin whose Release doesn't stand at its cell, or whose Indexers won't
+// take it, is dropped.
+func plan(in planIn) ([]planned, map[int]int, error) {
+	taken := make([]bool, len(in.item))
+	live := map[int]int{}
+	var out []planned
+	for _, w := range in.walk {
+		if taken[w] {
+			continue
+		}
+		if g, ok := in.pins[w]; ok {
+			p, ok, err := in.offer(g, w)
+			if err != nil {
+				return nil, nil, err
+			}
+			if ok {
+				r := in.row(w, g, p, taken)
+				r.pinned = true
+				live[w] = g
+				out = append(out, r)
+				continue
+			}
+		}
+		left := cells{open: in.left(taken)}
+		p, _, ok, err := choose(decide(left, in.as).picks(left), nil, in.take)
+		if err != nil {
+			return nil, nil, err
+		}
+		cell := in.item[w]
+		if ok && p.Edition == cell.Edition && p.Targets[0] == cell.Target.ID {
+			out = append(out, in.row(w, groupOf(in.as, p.at), p, taken))
+			continue
+		}
+		taken[w] = true
+		gap := planned{cells: []int{w}, group: -1}
+		gap.waits, err = in.waitsAt(w)
+		if err != nil {
+			return nil, nil, err
+		}
+		out = append(out, gap)
+	}
+	return out, live, nil
+}
+
+// left is the walk's cells no row fills yet.
+func (in planIn) left(taken []bool) []files.Cell {
+	var out []files.Cell
+	for _, w := range in.walk {
+		if !taken[w] {
+			out = append(out, in.item[w])
+		}
+	}
+	return out
+}
+
+// offer is the offer of as[g], or of a copy, that choose takes for cell
+// w, false when g doesn't stand at w or no Indexer of it takes it now.
+func (in planIn) offer(g, w int) (Pick, bool, error) {
+	if in.st[g][w].kind == standsRefused {
+		return Pick{}, false, nil
+	}
+	j := in.js[g]
+	p := Pick{Release: j.Release, Edition: in.item[w].Edition, at: j.at, copies: j.copies}
+	p, _, ok, err := choose([]Pick{p}, nil, in.take)
+	return p, ok, err
+}
+
+// row is the row of as[g], offered as p, led by cell w: every cell it
+// may fill no row fills yet, of w's Edition, where it stands as it does
+// at w or auto. It marks those cells taken.
+func (in planIn) row(w, g int, p Pick, taken []bool) planned {
+	lead := in.st[g][w]
+	r := planned{group: g, pick: p, stance: stance{kind: lead.kind, edition: lead.edition}}
+	for k, cell := range in.item {
+		if taken[k] || k != w && (!in.fill[k] || cell.Edition != in.item[w].Edition) {
+			continue
+		}
+		s := in.st[g][k]
+		if s.kind != standsAuto && (s.kind != lead.kind || lead.kind == standsAuto) {
+			continue
+		}
+		if k == w {
+			r.cells = append([]int{k}, r.cells...)
+		} else {
+			r.cells = append(r.cells, k)
+		}
+		for _, l := range s.lifts {
+			if !slices.Contains(r.stance.lifts, l) {
+				r.stance.lifts = append(r.stance.lifts, l)
+			}
+		}
+		taken[k] = true
+	}
+	return r
+}
+
+// waitsAt is the refusal of the Indexer of the best Release standing
+// auto at cell w, which choose passed over, nil when none stands auto.
+func (in planIn) waitsAt(w int) (*indexers.NotTakenError, error) {
+	var auto []judged
+	for g, st := range in.st {
+		if st[w].kind == standsAuto {
+			auto = append(auto, in.js[g])
+		}
+	}
+	if len(auto) == 0 {
+		return nil, nil
+	}
+	best := rankAt(cells{open: in.item}, w, auto)[0]
+	_, err := in.take(best.Release)
+	if e, ok := errors.AsType[*indexers.NotTakenError](err); ok {
+		return e, nil
+	}
+	return nil, err
+}
+
+// choicesAt is every Release but as[except] that could fill cell w,
+// ranked at w: those standing auto first, then lifted, then on the
+// Blocklist. A Release none of whose Indexers take it now is left out.
+func (in planIn) choicesAt(w, except int) ([]int, error) {
+	var groups [3][]judged
+	at := map[int]int{}
+	for g, st := range in.st {
+		k := st[w].kind
+		if g == except || k == standsRefused {
+			continue
+		}
+		if _, ok, err := in.offer(g, w); err != nil || !ok {
+			if err != nil {
+				return nil, err
+			}
+			continue
+		}
+		at[in.js[g].at] = g
+		groups[k-standsAuto] = append(groups[k-standsAuto], in.js[g])
+	}
+	var out []int
+	for _, js := range groups {
+		for _, j := range rankAt(cells{open: in.item}, w, js) {
+			out = append(out, at[j.at])
+		}
+	}
+	return out, nil
+}
+
+// groupOf is the index in as of the Release listed at position, or of
+// the Release it is a copy of, -1 for none.
+func groupOf(as []assessed, position int) int {
+	return slices.IndexFunc(as, func(a assessed) bool {
+		return a.at == position || slices.ContainsFunc(a.copies, func(c copied) bool { return c.at == position })
+	})
+}

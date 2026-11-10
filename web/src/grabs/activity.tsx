@@ -8,7 +8,7 @@ import { Section } from "../ui/section";
 import { GrabFailure } from "./failure-cards";
 import { GrabTable } from "./grab-table";
 import { JobsStatus } from "./jobs-status";
-import { isFailed, withoutRetriedFailures } from "./stages";
+import { needsYou, withoutRetriedFailures } from "./stages";
 
 export function ActivityBody({
   grabs: all,
@@ -34,8 +34,8 @@ export function ActivityBody({
     );
   }
   const work = (grab: GrabsGrab) => labels.get(grab.workId) ?? grab.releaseTitle;
-  const failed = grabs.filter((grab) => isFailed(grab));
-  const jobs = grabs.filter((grab) => !isFailed(grab));
+  const failed = grabs.filter((grab) => needsYou(grab));
+  const jobs = grabs.filter((grab) => !needsYou(grab));
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">

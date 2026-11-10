@@ -131,7 +131,7 @@ func addIndexers(ctx context.Context, c *http.Client, s scenario.Scenario, claim
 		}
 	}
 	for _, ix := range s.Library.Indexers {
-		body := nodeapi.NewIndexer{Kind: ix.Kind, Name: ix.Name, AllowFailover: ix.AllowFailover, Priority: ix.Priority}
+		body := nodeapi.NewIndexer{Kind: ix.Kind, Name: ix.Name, AllowFailover: ix.AllowFailover, Priority: ix.Priority, AutomaticSearch: ix.AutomaticSearch}
 		if ix.Home != "" {
 			body.HomeNodeID = claims.Members[slices.IndexFunc(s.Nodes, func(n scenario.Node) bool { return n.Name == ix.Home })].ID
 		}
@@ -149,22 +149,11 @@ func addIndexers(ctx context.Context, c *http.Client, s scenario.Scenario, claim
 				return err
 			}
 		}
-		if err := createIndexer(ctx, c, controller, claims.APIKey, body, ix.AutomaticSearch); err != nil {
+		if _, err := nodeapi.CreateIndexer(ctx, c, controller, claims.APIKey, body); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-// createIndexer creates body's Indexer, then turns its automatic search
-// as automatic says when it says, since createIndexer reads
-// automaticSearch false as left out and takes the default, on.
-func createIndexer(ctx context.Context, c *http.Client, controller, apiKey string, body nodeapi.NewIndexer, automatic *bool) error {
-	id, err := nodeapi.CreateIndexer(ctx, c, controller, apiKey, body)
-	if err != nil || automatic == nil {
-		return err
-	}
-	return nodeapi.SetAutomaticSearch(ctx, c, controller, apiKey, id, *automatic)
 }
 
 // catalogBody fills in body what an Admin enters for catalog Indexer ix:

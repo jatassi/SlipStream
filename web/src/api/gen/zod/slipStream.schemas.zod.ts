@@ -1797,9 +1797,9 @@ export type FilesUpgradeNeedOutput = zod.output<typeof FilesUpgradeNeed>;
 
 export const FilesWaitingNeed = zod.object({
   code: zod
-    .enum(["node_away", "client_away"])
+    .enum(["node_away", "client_away", "client_off"])
     .describe(
-      "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention",
+      "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't hold Downloading",
     ),
   grabId: zod.uuid(),
   kind: zod.enum(["waiting"]),
@@ -2983,7 +2983,12 @@ export const GrabsClientWait = zod.object({
   client: zod
     .union([GrabsGrabClient, zod.null()])
     .describe("The external client; null for the Node's built-in client"),
-  nodeId: zod.uuid().describe("The client's Node, which is offline"),
+  nodeId: zod.uuid().describe("The client's Node"),
+  off: zod
+    .boolean()
+    .describe(
+      "The Grab is pinned to this client and the client can't take it: it is off or deleted, or its Node doesn't hold Downloading. False while the client's Node is offline",
+    ),
 });
 
 export type GrabsClientWait = zod.input<typeof GrabsClientWait>;
@@ -3221,7 +3226,7 @@ export const GrabsGrab = zod.object({
     .nullable()
     .describe("The Tracker its Release reached, null for a Grab older than Trackers"),
   waitsFor: GrabsClientWait.exactOptional().describe(
-    "The client a fetching Grab goes to, absent unless it waits for that client's Node to be back online",
+    "The client a fetching Grab goes to, absent unless it waits for that client: its Node to be back online, or a pinned client that can't take it",
   ),
   workId: zod.uuid(),
 });
@@ -5446,7 +5451,6 @@ export const indexersNewIndexerAddressRegExp = new RegExp(
 );
 export const indexersNewIndexerApiKeyMax = 256;
 
-export const indexersNewIndexerAutomaticSearchDefault = true;
 export const indexersNewIndexerBaseAddressMax = 2048;
 
 export const indexersNewIndexerCodeMax = 16;
@@ -5455,13 +5459,11 @@ export const indexersNewIndexerDefinitionMax = 200;
 
 export const indexersNewIndexerNameMax = 100;
 
-export const indexersNewIndexerOnDefault = true;
 export const indexersNewIndexerPortMax = 200;
 
 export const indexersNewIndexerPriorityDefault = 25;
 export const indexersNewIndexerPriorityMax = 50;
 
-export const indexersNewIndexerRssDefault = true;
 export const indexersNewIndexerTrackerNameMax = 100;
 
 export const IndexersNewIndexer = zod.object({
@@ -5480,7 +5482,7 @@ export const IndexersNewIndexer = zod.object({
     .max(indexersNewIndexerApiKeyMax)
     .exactOptional()
     .describe("A Torznab feed's. Write-only"),
-  automaticSearch: zod.boolean().default(indexersNewIndexerAutomaticSearchDefault),
+  automaticSearch: zod.boolean().exactOptional().describe("Absent for on"),
   baseAddress: zod
     .string()
     .max(indexersNewIndexerBaseAddressMax)
@@ -5521,7 +5523,7 @@ export const IndexersNewIndexer = zod.object({
       "The Content Types an RSS feed carries, in place of categories; required for an RSS feed",
     ),
   name: zod.string().min(1).max(indexersNewIndexerNameMax),
-  on: zod.boolean().default(indexersNewIndexerOnDefault),
+  on: zod.boolean().exactOptional().describe("Absent for on"),
   port: zod
     .string()
     .max(indexersNewIndexerPortMax)
@@ -5532,7 +5534,7 @@ export const IndexersNewIndexer = zod.object({
     .min(1)
     .max(indexersNewIndexerPriorityMax)
     .default(indexersNewIndexerPriorityDefault),
-  rss: zod.boolean().default(indexersNewIndexerRssDefault),
+  rss: zod.boolean().exactOptional().describe("Absent for on"),
   searches: IndexersLimit.exactOptional(),
   trackerName: zod
     .string()
@@ -5606,7 +5608,9 @@ export type IndexersReportOutput = zod.output<typeof IndexersReport>;
 export const IndexersSettings = zod.object({
   settings: zod
     .array(SettingField)
-    .describe("How long every request to an Indexer may fail before Health warns"),
+    .describe(
+      "How long a search waits for each Indexer, and how long every request to an Indexer may fail before Health warns",
+    ),
 });
 
 export type IndexersSettings = zod.input<typeof IndexersSettings>;

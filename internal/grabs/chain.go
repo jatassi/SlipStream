@@ -106,12 +106,23 @@ func differ(c cells, a, b *judged) (rung, int, bool) {
 	return rung{}, 0, false
 }
 
-// rank sorts rs, each grabbable at some cell, by the chain.
+// rank sorts rs, each grabbable at some cell, by the chain. It sorts
+// their positions and moves each Release once, since a judged Release is
+// large to copy.
 func rank(c cells, rs []judged) {
-	slices.SortStableFunc(rs, func(a, b judged) int {
-		_, d, _ := differ(c, &a, &b)
+	order := make([]int, len(rs))
+	for i := range order {
+		order[i] = i
+	}
+	slices.SortStableFunc(order, func(a, b int) int {
+		_, d, _ := differ(c, &rs[a], &rs[b])
 		return -d
 	})
+	sorted := make([]judged, len(rs))
+	for i, k := range order {
+		sorted[i] = rs[k]
+	}
+	copy(rs, sorted)
 }
 
 // Loss is the first step of the chain where the reference Release ranked

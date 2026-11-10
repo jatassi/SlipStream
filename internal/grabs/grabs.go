@@ -158,7 +158,7 @@ var (
 	ErrNoRoot        = roots.ErrNoRoot
 	ErrNotSearchable = errors.New("the Work's Content Type can't be searched")
 	ErrNoGrab        = errors.New("no Grab has that id")
-	ErrReconciling   = errors.New("the Controller is Reconciling after a restore")
+	ErrReconciling   = downloadclients.ErrReconciling
 )
 
 type RootUnreachableError = roots.UnreachableError
@@ -261,6 +261,8 @@ type Grabs struct {
 	// runs cancels each Manual run's goroutine, so a Search again stops
 	// the runs it replaced.
 	runs runs
+	// decoded is the decoded Releases of the Manual search read last.
+	decoded decodedRuns
 
 	mu sync.Mutex
 	// moved is each Grab a transfers hook moved, for grabs.changed once
@@ -380,7 +382,8 @@ type Grab struct {
 	// and once that search is replaced.
 	Manual ManualID
 	// By is the Admin who grabbed it, nil for an automatic Grab.
-	By *Actor
+	By        *Actor
+	Overrides Overrides
 }
 
 // Done reports whether the Grab has no step left.
@@ -457,6 +460,9 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 		if !row.GrabbedBy.IsZero() {
 			g.By.Account = &row.GrabbedBy
 		}
+		if err := json.Unmarshal([]byte(row.Overrides), &g.Overrides); err != nil {
+			return Grab{}, fmt.Errorf("grab %s: overrides: %w", row.ID, err)
+		}
 	}
 	switch {
 	case row.SentClientID != nil:
@@ -488,6 +494,22 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 		g.Failed = &Failure{Stage: *row.FailedStage, Code: *row.FailureCode, Message: *row.FailureMessage}
 	}
 	return g, nil
+}
+
+// grabIn reads Grab id in r, ErrNoGrab when none has it.
+func grabIn(ctx context.Context, r storage.Reader[file], id GrabID) (Grab, error) {
+	row, err := db.New(r).GetGrab(ctx, id)
+	if errors.Is(err, storage.ErrNoRows) {
+		return Grab{}, ErrNoGrab
+	}
+	if err != nil {
+		return Grab{}, err
+	}
+	rel, err := readRelated(ctx, r, []db.GrabsGrab{row})
+	if err != nil {
+		return Grab{}, err
+	}
+	return load(ctx, r, row, rel)
 }
 
 func loadAll(ctx context.Context, r storage.Reader[file], rows []db.GrabsGrab) ([]Grab, error) {

@@ -78,7 +78,7 @@ export interface GrabsGrab {
    * @nullable
    */
   trackerId: string | null;
-  /** The client a fetching Grab goes to, absent unless it waits for that client's Node to be back online */
+  /** The client a fetching Grab goes to, absent unless it waits for that client: its Node to be back online, or a pinned client that can't take it */
   waitsFor?: GrabsClientWait;
   workId: string;
 }

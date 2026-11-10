@@ -82,6 +82,13 @@ func (o *Owner) Call(t *testing.T, method, path, body string) (status int, reply
 	return w.Code, w.Body.String()
 }
 
+// CallSignedIn calls as the Admin's signed-in session, Ada's.
+func (o *Owner) CallSignedIn(t *testing.T, method, path, body string) (status int, reply string) {
+	t.Helper()
+	w := o.serve(t, method, path, body, func(r *http.Request) { r.AddCookie(o.session) })
+	return w.Code, w.Body.String()
+}
+
 // Browse GETs path as the Admin's signed-in browser does, answering the
 // whole response.
 func (o *Owner) Browse(t *testing.T, path string) *http.Response {

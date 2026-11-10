@@ -543,6 +543,7 @@ func (c *Clients) saveDone(id ClientID, nodes ...role.NodeID) {
 	nodes = slices.Compact(nodes)
 	c.cfg.Touch(nodes...)
 	c.clientsChanged([]ClientID{id}, nodes...)
+	c.cfg.Rerouted()
 }
 
 // passed records a passing Test of e as its poll at e's settings version.

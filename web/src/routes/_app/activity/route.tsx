@@ -15,9 +15,16 @@ import { useShell } from "../../../ui/shell-context";
 const activityViews = [
   { id: "jobs", label: "Jobs", to: "/activity", route: "/_app/activity/" },
   { id: "torrents", label: "Torrents", to: "/activity/torrents", route: "/_app/activity/torrents" },
+  {
+    id: "blocklist",
+    label: "Blocklist",
+    to: "/activity/blocklist",
+    route: "/_app/activity/blocklist",
+  },
 ] as const;
 
-// Shared by both views, so a Node, Content Type or search survives a switch.
+// Shared by every view, so a Node, Content Type or search survives a switch.
+// The Blocklist reads only q.
 const activitySearch = z.object({
   node: z.uuid().optional().catch(undefined),
   type: z.string().optional().catch(undefined),

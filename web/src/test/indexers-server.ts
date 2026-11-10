@@ -14,6 +14,7 @@ import { type Server, find, missing, testHandlers, tested, trackerHandlers } fro
 import {
   larkspur,
   longBackoff,
+  searchWait,
   prowlarr,
   queries,
   searchingSeedbox,
@@ -102,10 +103,11 @@ function writeHandlers(server: Server) {
     http.patch("*/api/v1/indexer-settings", async ({ request }) => {
       const body = UpdateIndexerSettingsBody.parse(await request.json());
       server.writes.push({ method: "PATCH", id: "settings", body });
-      const value = Number(body.values["indexers.longBackoff"] ?? longBackoff.default);
-      server.state.settings = [
-        { ...longBackoff, value, running: value, isDefault: value === longBackoff.default },
-      ];
+      server.state.settings = server.state.settings.map((field) => {
+        const sent = body.values[field.key];
+        const value = sent === undefined ? field.value : Number(sent ?? field.default);
+        return { ...field, value, running: value, isDefault: value === field.default };
+      });
       return HttpResponse.json({ settings: server.state.settings });
     }),
     http.patch("*/api/v1/indexers/:id", async ({ request, params }) => {
@@ -156,7 +158,7 @@ export function indexersServer({
     state: {
       indexers: [...indexers],
       trackers: [...trackerList],
-      settings: [longBackoff],
+      settings: [searchWait, longBackoff],
     },
     writes: [],
     failTest,

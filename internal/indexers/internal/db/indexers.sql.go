@@ -1515,12 +1515,18 @@ func (q *Queries) SetCatalogRefreshed(ctx context.Context, arg SetCatalogRefresh
 	return err
 }
 
-const setLongBackoff = `-- name: SetLongBackoff :exec
-UPDATE indexers_settings SET long_backoff_seconds = ?1
+const setSettings = `-- name: SetSettings :exec
+UPDATE indexers_settings
+SET long_backoff_seconds = ?1, search_wait_seconds = ?2
 `
 
-func (q *Queries) SetLongBackoff(ctx context.Context, longBackoffSeconds *int64) error {
-	_, err := q.db.ExecContext(ctx, setLongBackoff, longBackoffSeconds)
+type SetSettingsParams struct {
+	LongBackoffSeconds *int64
+	SearchWaitSeconds  *int64
+}
+
+func (q *Queries) SetSettings(ctx context.Context, arg SetSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, setSettings, arg.LongBackoffSeconds, arg.SearchWaitSeconds)
 	return err
 }
 
