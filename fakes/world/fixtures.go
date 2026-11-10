@@ -20,6 +20,11 @@ import (
 // binary as a launch does. A launch on a cold cache encodes them inside its
 // deadline, beside every other world starting at once.
 func EncodeFixtures(ctx context.Context, binary string) error {
+	// The library recipes run their tools from a work folder.
+	binary, err := filepath.Abs(binary)
+	if err != nil {
+		return fmt.Errorf("find the binary: %w", err)
+	}
 	cache, err := releases.CacheDir()
 	if err != nil {
 		return err
