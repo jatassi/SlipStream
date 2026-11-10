@@ -28,7 +28,7 @@ var removals = []struct {
 
 const seedingReport = `{"at":"2026-01-01T00:00:00Z","engine":"seeding","complete":true,"done":4096}`
 
-func downloadingGrab(t *testing.T, p *pipeline) grabs.GrabID {
+func downloadingGrab(t *testing.T, p *pipeline, report string) grabs.GrabID {
 	t.Helper()
 	rel := newRelease(t)
 	id := p.grab(rel.link.String(), &rel.link.InfoHash)
@@ -40,7 +40,7 @@ func downloadingGrab(t *testing.T, p *pipeline) grabs.GrabID {
 	now := storage.Now()
 	run(t, p.lib,
 		sql(`UPDATE downloadclients_torrent SET report = ?, reported_at = ?, completed_at = ?,
-			completion = '{"files":[{"Index":0,"Path":"The.Attic.1080p.WEB.nfo","Size":4096}]}'`, seedingReport, now, now),
+			completion = '{"files":[{"Index":0,"Path":"The.Attic.1080p.WEB.nfo","Size":4096}]}'`, report, now, now),
 		sql(`UPDATE grabs_grab SET stage = 'downloading', torrent_id = (SELECT id FROM downloadclients_torrent)`),
 	)
 	return id
@@ -67,7 +67,7 @@ func TestADownloadingGrabFailsOnceItsTorrentIsParted(t *testing.T) {
 		t.Run(string(r.reason), func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				p := newPipeline(t)
-				id := downloadingGrab(t, p)
+				id := downloadingGrab(t, p, seedingReport)
 				now := storage.Now()
 				run(t, p.lib, sql(`UPDATE downloadclients_torrent SET removed_at = ?, removed_reason = ?, parted_at = ?, freed = 0`, now, string(r.reason), now))
 
@@ -101,7 +101,7 @@ func TestAReleaseFaultOrACancelFailsADownloadingGrabByItsCause(t *testing.T) {
 		t.Run(c.message, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				p := newPipeline(t)
-				id := downloadingGrab(t, p)
+				id := downloadingGrab(t, p, seedingReport)
 				now := storage.Now()
 				run(t, p.lib, sql(`UPDATE downloadclients_torrent SET removed_at = ?, removed_reason = ?, parted_at = ?, freed = 0,
 					fault = ?, fault_at = CASE WHEN ? IS NULL THEN NULL ELSE ? END`, now, string(c.reason), now, c.fault, c.fault, now))
@@ -129,7 +129,7 @@ var actions = map[downloadclients.ActionKind]grabs.Code{
 func actAsTheGrabSteps(t *testing.T, kind downloadclients.ActionKind, at grabs.Stage) (grabs.View, *downloadclients.Refusal) {
 	t.Helper()
 	p := newPipeline(t)
-	id := downloadingGrab(t, p)
+	id := downloadingGrab(t, p, seedingReport)
 	torrent := torrentOf(t, p)
 	clients := clientsOf(p, grabs.BlocklistOn{Reconciling: trackers.NotReconciling, Changes: discard[grabs.BlocklistChanged]{}})
 	var refusal *downloadclients.Refusal
@@ -224,7 +224,7 @@ func (b *blocklistChanges) Publish(context.Context, grabs.BlocklistChanged) { b.
 func TestMarkFailedOnAHeldTorrentBlocklistsItsRelease(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := newPipeline(t)
-		id := downloadingGrab(t, p)
+		id := downloadingGrab(t, p, seedingReport)
 		changes := &blocklistChanges{}
 		clients := clientsOf(p, grabs.BlocklistOn{Reconciling: trackers.NotReconciling, Changes: changes})
 
@@ -253,7 +253,7 @@ func TestMarkFailedOnAHeldTorrentBlocklistsItsRelease(t *testing.T) {
 func TestMarkFailedWhileReconcilingRefusesAndRemovesNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := newPipeline(t)
-		downloadingGrab(t, p)
+		downloadingGrab(t, p, seedingReport)
 		torrent := torrentOf(t, p)
 		changes := &blocklistChanges{}
 		clients := clientsOf(p, grabs.BlocklistOn{Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return true, nil }, Changes: changes})
