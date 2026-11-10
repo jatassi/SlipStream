@@ -110,6 +110,7 @@ const orchardGap: GrabsPlanRow = {
 /** A film's plan: one Grab, a 2160p HDR cell nothing fills, two other choices and the folded line. */
 export const filmPlan: GrabsManualSearch = {
   id: manualSearchId,
+  scope: { levelIds: [], itemIds: [] },
   title: "The Quiet Orchard (2021)",
   query: null,
   startedAt: "2026-11-10T14:02:00Z",
@@ -185,6 +186,7 @@ const story = (position: number, title: string): GrabsReleaseDetails =>
 /** A season's plan, still searching: two Grabs, a cell nothing fills and a cell a Grab downloads. */
 export const seasonPlan: GrabsManualSearch = {
   id: manualSearchId,
+  scope: { levelIds: ["0199f3a1-5c2e-7d4f-8a6b-1c3e5a7c9eb0"], itemIds: [] },
   title: "Volume 1 of The Long Shelf",
   query: null,
   startedAt: "2026-11-10T14:05:00Z",

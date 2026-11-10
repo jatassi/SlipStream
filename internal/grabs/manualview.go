@@ -28,6 +28,9 @@ import (
 // sentence written.
 type ManualView struct {
 	ID ManualID
+	// Scope is what it was started for: its levels and Items, or its one
+	// cell, all empty for the whole Work.
+	Scope ShownScope
 	// Title is the scope in words: "Heat (1995)", "Season 2 of Severance".
 	Title string
 	// Query is the typed query, "" when each run sent its Item's terms.
@@ -50,6 +53,13 @@ type ManualView struct {
 	// Pins is the pins still in effect, for the sheet to keep. A pin that
 	// names no Release, or that no longer fills its cell, is dropped.
 	Pins []Pin
+}
+
+// ShownScope is a Manual search's scope as it was started.
+type ShownScope struct {
+	Levels []works.LevelID
+	Items  []works.ItemID
+	Cell   *files.CellKey
 }
 
 // IndexerLine is one Indexer across the search's runs.
@@ -234,6 +244,7 @@ type GrabOffer struct {
 // manualIn is everything the view reads, in one snapshot.
 type manualIn struct {
 	manual db.GrabsManual
+	scope  ShownScope
 	// cell is the one cell a cell scope plans for, nil for any other scope.
 	cell  *files.CellKey
 	tree  works.Tree
@@ -293,11 +304,10 @@ func (gr *Grabs) manualInput(ctx context.Context, r storage.Reader[file], work w
 	if err := json.Unmarshal([]byte(m.Scope), &scope); err != nil {
 		return manualIn{}, fmt.Errorf("decode Manual search %s's scope: %w", m.ID, err)
 	}
-	if c := scope.Cell; c != nil {
-		if in.cell, err = c.key(); err != nil {
-			return manualIn{}, err
-		}
+	if in.scope, err = scope.shown(); err != nil {
+		return manualIn{}, err
 	}
+	in.cell = in.scope.Cell
 	if in.runs, err = manualRuns(ctx, q, m.ID); err != nil {
 		return manualIn{}, err
 	}
@@ -340,6 +350,32 @@ func (gr *Grabs) manualInput(ctx context.Context, r storage.Reader[file], work w
 	}
 	in.routed, err = gr.routedWords(ctx, r, work, in.standings)
 	return in, err
+}
+
+// shown is s as its ids.
+func (s storedScope) shown() (ShownScope, error) {
+	var out ShownScope
+	for _, l := range s.Levels {
+		id, err := storage.ParseUUID(l)
+		if err != nil {
+			return ShownScope{}, fmt.Errorf("decode a Manual search's level: %w", err)
+		}
+		out.Levels = append(out.Levels, works.LevelID{UUID: id})
+	}
+	for _, it := range s.Items {
+		id, err := storage.ParseUUID(it)
+		if err != nil {
+			return ShownScope{}, fmt.Errorf("decode a Manual search's Item: %w", err)
+		}
+		out.Items = append(out.Items, works.ItemID{UUID: id})
+	}
+	if c := s.Cell; c != nil {
+		var err error
+		if out.Cell, err = c.key(); err != nil {
+			return ShownScope{}, err
+		}
+	}
+	return out, nil
 }
 
 func (c storedCell) key() (*files.CellKey, error) {

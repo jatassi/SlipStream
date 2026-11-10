@@ -3408,6 +3408,17 @@ export const GrabsManualCell = zod.object({
 export type GrabsManualCell = zod.input<typeof GrabsManualCell>;
 export type GrabsManualCellOutput = zod.output<typeof GrabsManualCell>;
 
+export const GrabsManualScope = zod.object({
+  cell: GrabsManualCell.exactOptional().describe(
+    "The one cell it plans for, absent for a wider scope",
+  ),
+  itemIds: zod.array(zod.uuid()),
+  levelIds: zod.array(zod.uuid()).describe("Each level stands for every Item under it"),
+});
+
+export type GrabsManualScope = zod.input<typeof GrabsManualScope>;
+export type GrabsManualScopeOutput = zod.output<typeof GrabsManualScope>;
+
 export const GrabsPinned = zod.object({
   key: zod.string().describe("The key of the row it fills"),
   pin: zod.string(),
@@ -3498,6 +3509,9 @@ export const GrabsManualSearch = zod.object({
     .int()
     .min(grabsManualSearchReleaseCountMin)
     .describe("How many Releases listManualSearchReleases lists"),
+  scope: GrabsManualScope.describe(
+    "What it was started for; no levels, Items or cell for the whole Work",
+  ),
   searching: zod.boolean().describe("An Indexer asked hasn't responded yet"),
   startedAt: zod.iso.datetime({ offset: true }),
   startedBy: zod.string().describe("A name, or the API key"),

@@ -6135,6 +6135,35 @@
         ],
         "type": "object"
       },
+      "GrabsManualScope": {
+        "additionalProperties": false,
+        "properties": {
+          "cell": {
+            "$ref": "#/components/schemas/GrabsManualCell",
+            "description": "The one cell it plans for, absent for a wider scope"
+          },
+          "itemIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "levelIds": {
+            "description": "Each level stands for every Item under it",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "levelIds",
+          "itemIds"
+        ],
+        "type": "object"
+      },
       "GrabsManualSearch": {
         "additionalProperties": false,
         "properties": {
@@ -6183,6 +6212,10 @@
             "minimum": 0,
             "type": "integer"
           },
+          "scope": {
+            "$ref": "#/components/schemas/GrabsManualScope",
+            "description": "What it was started for; no levels, Items or cell for the whole Work"
+          },
           "searching": {
             "description": "An Indexer asked hasn't responded yet",
             "type": "boolean"
@@ -6202,6 +6235,7 @@
         },
         "required": [
           "id",
+          "scope",
           "title",
           "query",
           "startedAt",

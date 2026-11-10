@@ -27,7 +27,7 @@ func manualView(in manualIn, pins []Pin) (ManualView, error) {
 	}
 	m := in.manual
 	v := ManualView{
-		ID: m.ID, Title: s.title(), Query: deref(m.Query), Started: m.StartedAt.Time(), StartedBy: Actor{Name: deref(m.StartedByName)},
+		ID: m.ID, Scope: in.scope, Title: s.title(), Query: deref(m.Query), Started: m.StartedAt.Time(), StartedBy: Actor{Name: deref(m.StartedByName)},
 		Queryable: len(in.runs) == 1, Folded: s.folded(),
 	}
 	if !m.StartedBy.IsZero() {
