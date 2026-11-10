@@ -57,6 +57,14 @@ func testGoPackages(ctx context.Context, root string, o testOptions, tier string
 	}
 	s := cmp.Or(o.shard, shard{1, 1})
 	runs := partition(pkgs, past, s.count, o.filter == "")[s.index-1]
+	if tier == "e2e" {
+		// An e2e part runs beside the whole packages, and its budget tests
+		// miss under the two heaviest packages started first, so the whole
+		// packages start by name.
+		for _, r := range runs {
+			slices.Sort(r.packages)
+		}
+	}
 	fmt.Printf("%s tier, shard %s on %s:\n", tier, &s, target.Name)
 	for _, r := range runs {
 		fmt.Print(r.listing())
