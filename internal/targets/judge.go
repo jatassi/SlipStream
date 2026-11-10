@@ -168,7 +168,7 @@ func (v Verdict) Reasons() []Reason { return v.reasons }
 //     file's plus the increment, else not_an_upgrade.
 func Judge(t Target, s Scored, held *Held) Verdict {
 	f := s.Facts
-	v := Verdict{score: t.Score(s)}
+	v := Verdict{score: t.Score(&s)}
 	var accepted Accepted
 	var ok bool
 	q, known := f.Quality.Get()

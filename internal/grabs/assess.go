@@ -71,6 +71,7 @@ type assessed struct {
 	covers   []works.ItemID
 	formats  formats.Result
 	refusals []Reason
+	scored   targets.Scored
 }
 
 // assess reads l against j. It is pure and deterministic.
@@ -104,6 +105,7 @@ func assessMatched(j judging, l listed, rd release.Read, match func(release.Read
 	if !a.hard() {
 		a.formats = match(a.read)
 	}
+	a.scored = targets.Scored{Facts: a.read.Facts, Formats: a.formats.Matched}
 	return a
 }
 
@@ -199,8 +201,4 @@ func (a assessed) hashes() []bencode.InfoHash {
 		}
 	}
 	return out
-}
-
-func (a assessed) scored() targets.Scored {
-	return targets.Scored{Facts: a.read.Facts, Formats: a.formats.Matched}
 }

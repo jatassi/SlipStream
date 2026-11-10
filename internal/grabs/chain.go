@@ -27,8 +27,8 @@ const (
 type rung struct {
 	step    Step
 	at      targets.Step
-	compare func(c cells, a, b *judged) int
-	value   func(c cells, a *judged) string
+	compare func(c cells, a, b judged) int
+	value   func(c cells, a judged) string
 }
 
 // chain is the ranking order, which both sorts and says where a Release
@@ -49,11 +49,11 @@ var chain = [...]rung{
 	onRelease(StepTitle, lowerFirst, func(r indexers.Release) string { return r.Title }, func(t string) string { return t }),
 }
 
-func byFirstCell(_ cells, a, b *judged) int { return cmp.Compare(b.first, a.first) }
+func byFirstCell(_ cells, a, b judged) int { return cmp.Compare(b.first, a.first) }
 
 // firstCell is the cell r is first grabbable at in words: its Target's
 // name, and the Edition's cut unless it takes any.
-func firstCell(c cells, r *judged) string {
+func firstCell(c cells, r judged) string {
 	cell := c.at(r.first)
 	if cell.Edition == targets.AnyEdition {
 		return cell.Target.Name
@@ -62,19 +62,14 @@ func firstCell(c cells, r *judged) string {
 }
 
 // atTarget compares at s of the Target of a's first cell, which is b's
-// too. A step the Target leaves out of its order, revision under "Don't
-// prefer", ties.
+// too.
 func atTarget(step Step, s targets.Step) rung {
 	return rung{
 		step: step, at: s,
-		compare: func(c cells, a, b *judged) int {
-			t := c.at(a.first).Target
-			if !slices.Contains(t.Steps(), s) {
-				return 0
-			}
-			return t.CompareBy(s, a.scored(), b.scored())
+		compare: func(c cells, a, b judged) int {
+			return c.at(a.first).Target.CompareBy(s, &a.scored, &b.scored)
 		},
-		value: func(c cells, r *judged) string { return c.at(r.first).Target.Value(s, r.scored()) },
+		value: func(c cells, r judged) string { return c.at(r.first).Target.Value(s, &r.scored) },
 	}
 }
 
@@ -90,14 +85,14 @@ const (
 func onRelease[V cmp.Ordered](step Step, o order, of func(indexers.Release) V, words func(V) string) rung {
 	return rung{
 		step:    step,
-		compare: func(_ cells, a, b *judged) int { return int(o) * cmp.Compare(of(a.Release), of(b.Release)) },
-		value:   func(_ cells, r *judged) string { return words(of(r.Release)) },
+		compare: func(_ cells, a, b judged) int { return int(o) * cmp.Compare(of(a.Release), of(b.Release)) },
+		value:   func(_ cells, r judged) string { return words(of(r.Release)) },
 	}
 }
 
 // differ is the first rung a and b differ at and +1 when a ranks first,
 // false when they tie at every step.
-func differ(c cells, a, b *judged) (rung, int, bool) {
+func differ(c cells, a, b judged) (rung, int, bool) {
 	for _, l := range chain {
 		if d := l.compare(c, a, b); d != 0 {
 			return l, d, true
@@ -106,23 +101,12 @@ func differ(c cells, a, b *judged) (rung, int, bool) {
 	return rung{}, 0, false
 }
 
-// rank sorts rs, each grabbable at some cell, by the chain. It sorts
-// their positions and moves each Release once, since a judged Release is
-// large to copy.
+// rank sorts rs, each grabbable at some cell, by the chain.
 func rank(c cells, rs []judged) {
-	order := make([]int, len(rs))
-	for i := range order {
-		order[i] = i
-	}
-	slices.SortStableFunc(order, func(a, b int) int {
-		_, d, _ := differ(c, &rs[a], &rs[b])
+	slices.SortStableFunc(rs, func(a, b judged) int {
+		_, d, _ := differ(c, a, b)
 		return -d
 	})
-	sorted := make([]judged, len(rs))
-	for i, k := range order {
-		sorted[i] = rs[k]
-	}
-	copy(rs, sorted)
 }
 
 // Loss is the first step of the chain where the reference Release ranked
@@ -137,7 +121,7 @@ type Loss struct {
 
 // lostAt is where ref ranked above r, nil when it didn't: when they tie
 // at every step, or r ranks first, as a copy of ref offered after it can.
-func lostAt(c cells, ref, r *judged) *Loss {
+func lostAt(c cells, ref, r judged) *Loss {
 	l, d, ok := differ(c, ref, r)
 	if !ok || d < 0 {
 		return nil

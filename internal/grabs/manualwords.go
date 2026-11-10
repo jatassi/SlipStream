@@ -572,7 +572,7 @@ func (rs runSheet) lostAt(g int) *Loss {
 		if r.group >= 0 && r.group != g && slices.Contains(r.cells, f) {
 			ref, own := rs.js[r.group], rs.js[g]
 			ref.first, own.first = f, f
-			return lostAt(cells{open: rs.item}, &ref, &own)
+			return lostAt(cells{open: rs.item}, ref, own)
 		}
 	}
 	return nil
