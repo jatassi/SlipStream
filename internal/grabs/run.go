@@ -160,7 +160,7 @@ func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 	}
 	got, err := gr.cfg.Indexers.Fetch(ctx, g.Ticket, link)
 	if errors.Is(err, bencode.ErrV2Only) {
-		return fail{TorrentV2Only, err.Error()}
+		return fail{TorrentV2Only, v2OnlyWords}
 	}
 	if _, invalid := errors.AsType[*magnet.InvalidError](err); invalid {
 		return fail{MagnetInvalid, err.Error()}
@@ -187,15 +187,17 @@ func (gr *Grabs) fetch(ctx context.Context, g Grab) outcome {
 	panic("grabs: unknown fetch result")
 }
 
+const v2OnlyWords = "The .torrent file has no BitTorrent v1 info hash."
+
 // decoded is the advance to Downloading with the .torrent raw, or the
 // failure that keeps raw from being g's.
 func decoded(g Grab, raw []byte, f fetched) outcome {
 	m, err := bencode.DecodeMetainfo(raw)
 	switch {
 	case errors.Is(err, bencode.ErrV2Only):
-		return fail{TorrentV2Only, err.Error()}
+		return fail{TorrentV2Only, v2OnlyWords}
 	case err != nil:
-		return fail{TorrentInvalid, err.Error()}
+		return fail{TorrentInvalid, "The Indexer sent a .torrent file SlipStream can't read."}
 	case g.Release.InfoHash != nil && *g.Release.InfoHash != m.InfoHash:
 		return fail{InfohashMismatch, fmt.Sprintf("The .torrent's info hash is %s and the Indexer's is %s", m.InfoHash, g.Release.InfoHash)}
 	}
