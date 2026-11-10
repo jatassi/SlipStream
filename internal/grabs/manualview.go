@@ -2,12 +2,23 @@ package grabs
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"slices"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/formats"
+	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -204,14 +215,341 @@ type GrabOffer struct {
 	Refusal string
 }
 
+// manualIn is everything the view reads, in one snapshot.
+type manualIn struct {
+	manual db.GrabsManual
+	// cell is the one cell a cell scope plans for, nil for any other scope.
+	cell  *files.CellKey
+	tree  works.Tree
+	nouns works.Description
+	runs  []Search
+	// heard is each run's stored Releases, in arrival order.
+	heard   map[SearchID][]heardRelease
+	cells   []files.Cell
+	grabs   []db.ListCellGrabsOfWorkRow
+	judging judging
+	blocks  blocks
+	// standings is how each Indexer stands now, which the plan chooses by
+	// as automatic search takes.
+	standings indexers.Standings
+	// routed is where Tracker routing sends a Grab of each Indexer, in
+	// words.
+	routed map[indexers.ID]string
+	line   func(*indexers.Outcome) string
+	now    time.Time
+}
+
+// heardRelease is one Release a Manual run stored as it was heard: the
+// Release, its title's reading, the formats it matched and its Indexer's
+// name then.
+type heardRelease struct {
+	listed  listed
+	read    release.Read
+	matched formats.Set
+	indexer string
+}
+
+// manualInput reads, in r, the view of work's Manual search.
+func (gr *Grabs) manualInput(ctx context.Context, r storage.Reader[file], work works.WorkID) (manualIn, error) {
+	q := db.New(r)
+	m, err := q.GetManualOfWork(ctx, work)
+	if errors.Is(err, storage.ErrNoRows) {
+		return manualIn{}, ErrNoManualSearch
+	}
+	if err != nil {
+		return manualIn{}, err
+	}
+	in := manualIn{manual: m, heard: map[SearchID][]heardRelease{}, now: storage.Now().Time()}
+	if in.tree, err = gr.cfg.Works.TreeIn(ctx, r, work); err != nil {
+		return manualIn{}, err
+	}
+	typ := in.tree.ContentType
+	in.nouns, _ = gr.cfg.Works.Describe(typ)
+	in.line = func(o *indexers.Outcome) string { return gr.cfg.Indexers.Line(typ, o) }
+	var scope storedScope
+	if err := json.Unmarshal([]byte(m.Scope), &scope); err != nil {
+		return manualIn{}, fmt.Errorf("decode Manual search %s's scope: %w", m.ID, err)
+	}
+	if c := scope.Cell; c != nil {
+		if in.cell, err = c.key(); err != nil {
+			return manualIn{}, err
+		}
+	}
+	if in.runs, err = manualRuns(ctx, q, m.ID); err != nil {
+		return manualIn{}, err
+	}
+	rows, err := q.ListListedOfManual(ctx, m.ID)
+	if err != nil {
+		return manualIn{}, err
+	}
+	var all []assessed
+	for _, row := range rows {
+		h, err := gr.heardOf(row)
+		if err != nil {
+			return manualIn{}, err
+		}
+		in.heard[row.SearchID] = append(in.heard[row.SearchID], h)
+		all = append(all, assessed{listed: h.listed})
+	}
+	if in.blocks, err = blocksOf(ctx, r, all); err != nil {
+		return manualIn{}, err
+	}
+	if in.cells, err = gr.cfg.Files.Cells(ctx, r, work); err != nil {
+		return manualIn{}, err
+	}
+	if in.grabs, err = q.ListCellGrabsOfWork(ctx, work); err != nil {
+		return manualIn{}, err
+	}
+	expect, err := gr.cfg.Terms[typ].Expect(ctx, r, work)
+	if err != nil {
+		return manualIn{}, err
+	}
+	if in.judging, err = gr.judgingOf(ctx, r, typ, Search{WorkID: work}, expect); err != nil {
+		return manualIn{}, err
+	}
+	if in.standings, err = gr.cfg.Indexers.Standings(ctx, r); err != nil {
+		return manualIn{}, err
+	}
+	in.routed, err = gr.routedWords(ctx, r, work, in.standings)
+	return in, err
+}
+
+func (c storedCell) key() (*files.CellKey, error) {
+	item, err := storage.ParseUUID(c.Item)
+	if err != nil {
+		return nil, fmt.Errorf("decode a Manual search's cell: %w", err)
+	}
+	target, err := storage.ParseUUID(c.Target)
+	if err != nil {
+		return nil, fmt.Errorf("decode a Manual search's cell: %w", err)
+	}
+	return &files.CellKey{Item: works.ItemID{UUID: item}, Edition: targets.Edition(c.Edition), Target: targets.TargetID{UUID: target}}, nil
+}
+
+// manualRuns is Manual search id's runs, each with its lines.
+func manualRuns(ctx context.Context, q *db.Queries, id ManualID) ([]Search, error) {
+	rows, err := q.ListManualRuns(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	lines, err := q.ListLinesOfManual(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	of := map[SearchID][]SearchIndexer{}
+	for _, l := range lines {
+		of[l.SearchID] = append(of[l.SearchID], SearchIndexer{Indexer: l.IndexerID, Name: l.IndexerName, Outcome: outcomeOf(l)})
+	}
+	out := make([]Search, len(rows))
+	for i, row := range rows {
+		if out[i], err = searchOf(row, of[row.ID]); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// heardOf is row, a Release a Manual run stored, decoded.
+func (gr *Grabs) heardOf(row db.GrabsRelease) (heardRelease, error) {
+	r, err := gr.kept(row)
+	if err != nil {
+		return heardRelease{}, err
+	}
+	var ids []string
+	if err := json.Unmarshal([]byte(row.Formats), &ids); err != nil {
+		return heardRelease{}, fmt.Errorf("search %s: decode the formats of Release %d: %w", row.SearchID, row.Position, err)
+	}
+	h := heardRelease{listed: listed{Release: r, at: int(row.Position)}, read: row.Read.Read, indexer: row.IndexerName}
+	for _, s := range ids {
+		id, err := targets.ParseFormatID(s)
+		if err != nil {
+			return heardRelease{}, fmt.Errorf("search %s: Release %d: %w", row.SearchID, row.Position, err)
+		}
+		h.matched = append(h.matched, id)
+	}
+	return h, nil
+}
+
+// routedWords is where Tracker routing sends a Grab of each Indexer of
+// standings now, in words, read in r.
+func (gr *Grabs) routedWords(ctx context.Context, r storage.Reader[file], work works.WorkID, standings indexers.Standings) (map[indexers.ID]string, error) {
+	root, err := roots.OfWork(ctx, r, work)
+	if err != nil {
+		return nil, err
+	}
+	named, err := nodes.Names(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	names := map[role.NodeID]string{}
+	for _, n := range named {
+		names[n.ID] = n.Name
+	}
+	out := map[indexers.ID]string{}
+	for id := range standings {
+		t, err := gr.cfg.Router.Route(ctx, r, downloadclients.Ask{Root: root.Node, Indexer: id})
+		if _, unrouted := errors.AsType[*nodes.Unrouted](err); unrouted {
+			out[id] = routedNowhere
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		client := "the built-in client on " + names[t.Node]
+		if t.Client != nil {
+			e, err := downloadclients.ExternalOf(ctx, r, *t.Client)
+			if err != nil {
+				return nil, err
+			}
+			client = e.Name + " on " + names[t.Node]
+		}
+		out[id] = "Where Tracker routing sends it (" + client + ")"
+	}
+	return out, nil
+}
+
+// sheet is a Manual search worked out: each run's plan, and what its
+// words are written from.
+type sheet struct {
+	in   manualIn
+	runs []runSheet
+}
+
+// runSheet is one run worked out.
+type runSheet struct {
+	run Search
+	planIn
+	// held is the unfinished Grab of each of item's cells it holds.
+	held map[int]db.ListCellGrabsOfWorkRow
+	// failure is the failure of the latest Grab of each failed cell.
+	failure map[int]string
+	// heard is each Release's Indexer's name, by position.
+	heard map[int]string
+	rows  []planned
+	live  map[int]int
+}
+
+// walked is the states a Manual plan walks: Unreleased reads as missing,
+// since a Manual search ignores release dates.
+var walked = []files.State{files.Unreleased, files.Missing, files.Failed, files.Upgradable}
+
+// worked is in worked out around pins, which drops each pin that names no
+// Release of a run or no cell of its Item.
+func worked(in manualIn, pins []Pin) (sheet, error) {
+	s := sheet{in: in}
+	latest := map[files.CellKey]db.ListCellGrabsOfWorkRow{}
+	for _, g := range in.grabs {
+		latest[files.CellKey{Item: g.ItemID, Edition: g.Edition, Target: g.TargetID}] = g
+	}
+	unfinished := map[files.CellKey]db.ListCellGrabsOfWorkRow{}
+	for _, g := range in.grabs {
+		if g.Stage != Imported && g.Stage != Failed {
+			unfinished[files.CellKey{Item: g.ItemID, Edition: g.Edition, Target: g.TargetID}] = g
+		}
+	}
+	for _, run := range in.runs {
+		rs := runSheet{run: run, held: map[int]db.ListCellGrabsOfWorkRow{}, failure: map[int]string{}, heard: map[int]string{}}
+		for _, c := range in.cells {
+			if c.Item.ID == run.ItemID {
+				rs.item = append(rs.item, c)
+			}
+		}
+		rs.fill = make([]bool, len(rs.item))
+		for k, c := range rs.item {
+			key := keyOf(c)
+			if g, ok := unfinished[key]; ok {
+				rs.held[k] = g
+				continue
+			}
+			if g := latest[key]; c.State == files.Failed && g.FailureMessage != nil {
+				rs.failure[k] = *g.FailureMessage
+			}
+			if !slices.Contains(walked, c.State) {
+				continue
+			}
+			rs.fill[k] = in.cell == nil || in.cell.Item == key.Item
+			if in.cell == nil || *in.cell == key {
+				rs.walk = append(rs.walk, k)
+			}
+		}
+		j := in.judging
+		j.searched = run.ItemID
+		ls := make([]listed, len(in.heard[run.ID]))
+		for i, h := range in.heard[run.ID] {
+			ls[i] = h.listed
+			rs.heard[h.listed.at] = h.indexer
+		}
+		byAt := map[int]heardRelease{}
+		for _, h := range in.heard[run.ID] {
+			byAt[h.listed.at] = h
+		}
+		kept := dedupe(ls)
+		as := make([]assessed, len(kept))
+		for i, l := range kept {
+			h := byAt[l.at]
+			as[i] = assessStored(j, l, h.read, h.matched)
+		}
+		rs.as = in.blocks.gate(as)
+		all := cells{open: rs.item}
+		rs.js, rs.st = make([]judged, len(rs.as)), make([][]stance, len(rs.as))
+		for g, a := range rs.as {
+			rs.js[g] = judge(all, a)
+			rs.st[g] = stances(rs.item, rs.js[g])
+		}
+		rs.pins = map[int]int{}
+		for _, p := range pins {
+			if p.Release.Run != run.ID {
+				continue
+			}
+			k := slices.IndexFunc(rs.item, func(c files.Cell) bool { return keyOf(c) == p.Cell })
+			if g := groupOf(rs.as, p.Release.Position); k >= 0 && g >= 0 {
+				rs.pins[k] = g
+			}
+		}
+		rs.take = in.standings.Take
+		var err error
+		if rs.rows, rs.live, err = plan(rs.planIn); err != nil {
+			return sheet{}, err
+		}
+		s.runs = append(s.runs, rs)
+	}
+	return s, nil
+}
+
+func keyOf(c files.Cell) files.CellKey {
+	return files.CellKey{Item: c.Item.ID, Edition: c.Edition, Target: c.Target.ID}
+}
+
 // ManualSearch is work's Manual search with its plan worked out around
 // pins. It fails with ErrNoManualSearch and ErrNoWork.
-func (gr *Grabs) ManualSearch(context.Context, identity.Admin, works.WorkID, []Pin) (ManualView, error) {
-	return ManualView{}, ErrNotBuilt
+func (gr *Grabs) ManualSearch(ctx context.Context, _ identity.Admin, work works.WorkID, pins []Pin) (ManualView, error) {
+	var v ManualView
+	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		in, err := gr.manualInput(ctx, r, work)
+		if err != nil {
+			return err
+		}
+		v, err = manualView(in, pins)
+		return err
+	})
+	return v, err
 }
 
 // ManualReleases is every Release of work's Manual search, one per group
 // of copies, in rank order. It fails with ErrNoManualSearch and ErrNoWork.
-func (gr *Grabs) ManualReleases(context.Context, identity.Admin, works.WorkID) ([]Offer, error) {
-	return nil, ErrNotBuilt
+func (gr *Grabs) ManualReleases(ctx context.Context, _ identity.Admin, work works.WorkID) ([]Offer, error) {
+	var out []Offer
+	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		in, err := gr.manualInput(ctx, r, work)
+		if err != nil {
+			return err
+		}
+		s, err := worked(in, nil)
+		if err != nil {
+			return err
+		}
+		out = s.offers()
+		return nil
+	})
+	return out, err
 }

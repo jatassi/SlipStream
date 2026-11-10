@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"math/rand/v2"
+	"slices"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -325,4 +327,73 @@ func TestTwinsAutomaticSearchGrabsTheChainsFirstOfferAnIndexerTakes(t *testing.T
 			})
 		})
 	}
+}
+
+// searchedByHand is a Manual search of the Work once every Indexer has
+// responded, worked out around pins.
+func (a atticWorld) searchedByHand(t *testing.T, pins ...grabs.Pin) grabs.ManualView {
+	t.Helper()
+	ctx := t.Context()
+	if _, _, err := a.g.StartManualSearch(ctx, identity.Admin{}, a.work, grabs.ManualScope{}); err != nil {
+		t.Fatal(err)
+	}
+	stop := running(t, a.g)
+	synctest.Wait()
+	stop()
+	v, err := a.g.ManualSearch(ctx, identity.Admin{}, a.work, pins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Searching {
+		t.Fatalf("the Manual search is still searching: %s", v.Line)
+	}
+	return v
+}
+
+func TestTwinsManualSearchsFirstRowIsAutomaticSearchsGrab(t *testing.T) {
+	for _, tw := range twins {
+		t.Run(tw.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				v := newTwinWorld(t, tw).searchedByHand(t)
+				got := ""
+				if p := v.Plan.Rows[0].Pick; p != nil {
+					got = p.Release.Title
+				}
+				_, want, _ := strings.Cut(tw.grabbed, "Site ")
+				if got != want {
+					t.Fatalf("the plan's first row is %q, want automatic search's Grab %q", got, want)
+				}
+			})
+		})
+	}
+}
+
+func TestAManualOnlyIndexersBetterReleaseLeadsThePlan(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		tw := twin{sites: []twinSite{
+			{name: "Better Site", priority: 10, releases: []searching.Release{listing("The.Attic.2020.1080p.WEB-DL-GRP", 90, "a")}},
+			{name: "Hidden Site", priority: 25, manualOnly: true, releases: []searching.Release{
+				listing("The.Attic.2020.1080p.BluRay.x264-HID", 50, "b"),
+				listing("The.Attic.2020.1080p.BluRay.x264-HID2", 5, "c"),
+			}},
+		}}
+		if got := newTwinWorld(t, tw).searchedAutomatically(t); got != "Better Site The.Attic.2020.1080p.WEB-DL-GRP" {
+			t.Fatalf("automatic search grabbed %q, want Better Site's WEB-DL", got)
+		}
+		row := newTwinWorld(t, tw).searchedByHand(t).Plan.Rows[0]
+		if row.Pick == nil || row.Pick.Release.Title != "The.Attic.2020.1080p.BluRay.x264-HID" {
+			t.Fatalf("the plan's first row is %+v, want Hidden Site's BluRay", row.Pick)
+		}
+		var choices []string
+		for _, c := range row.Choices {
+			choices = append(choices, c.Release.Title+": "+c.Note)
+		}
+		want := []string{
+			"The.Attic.2020.1080p.BluRay.x264-HID2: From Hidden Site, which automatic search doesn't use.",
+			"The.Attic.2020.1080p.WEB-DL-GRP: ",
+		}
+		if !slices.Equal(choices, want) {
+			t.Fatalf("Other choices are %q, want %q", choices, want)
+		}
+	})
 }

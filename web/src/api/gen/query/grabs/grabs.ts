@@ -35,7 +35,6 @@ import type {
   GetManualSearch409,
   GetManualSearch422,
   GetManualSearch500,
-  GetManualSearch501,
   GetManualSearchParams,
   GrabFromManualSearch401,
   GrabFromManualSearch403,
@@ -81,7 +80,6 @@ import type {
   ListManualSearchReleases409,
   ListManualSearchReleases422,
   ListManualSearchReleases500,
-  ListManualSearchReleases501,
   ListSearchReleases401,
   ListSearchReleases403,
   ListSearchReleases404,
@@ -1244,7 +1242,6 @@ export const getGetManualSearchSuspenseQueryOptions = <
     | GetManualSearch409
     | GetManualSearch422
     | GetManualSearch500
-    | GetManualSearch501
   >,
 >(
   workId: string,
@@ -1284,7 +1281,6 @@ export type GetManualSearchSuspenseQueryError = ErrorType<
   | GetManualSearch409
   | GetManualSearch422
   | GetManualSearch500
-  | GetManualSearch501
 >;
 
 export function useGetManualSearchSuspense<
@@ -1296,7 +1292,6 @@ export function useGetManualSearchSuspense<
     | GetManualSearch409
     | GetManualSearch422
     | GetManualSearch500
-    | GetManualSearch501
   >,
 >(
   workId: string,
@@ -1318,7 +1313,6 @@ export function useGetManualSearchSuspense<
     | GetManualSearch409
     | GetManualSearch422
     | GetManualSearch500
-    | GetManualSearch501
   >,
 >(
   workId: string,
@@ -1340,7 +1334,6 @@ export function useGetManualSearchSuspense<
     | GetManualSearch409
     | GetManualSearch422
     | GetManualSearch500
-    | GetManualSearch501
   >,
 >(
   workId: string,
@@ -1366,7 +1359,6 @@ export function useGetManualSearchSuspense<
     | GetManualSearch409
     | GetManualSearch422
     | GetManualSearch500
-    | GetManualSearch501
   >,
 >(
   workId: string,
@@ -1682,7 +1674,6 @@ export const getListManualSearchReleasesSuspenseQueryOptions = <
     | ListManualSearchReleases409
     | ListManualSearchReleases422
     | ListManualSearchReleases500
-    | ListManualSearchReleases501
   >,
 >(
   workId: string,
@@ -1724,7 +1715,6 @@ export type ListManualSearchReleasesSuspenseQueryError = ErrorType<
   | ListManualSearchReleases409
   | ListManualSearchReleases422
   | ListManualSearchReleases500
-  | ListManualSearchReleases501
 >;
 
 export function useListManualSearchReleasesSuspense<
@@ -1736,7 +1726,6 @@ export function useListManualSearchReleasesSuspense<
     | ListManualSearchReleases409
     | ListManualSearchReleases422
     | ListManualSearchReleases500
-    | ListManualSearchReleases501
   >,
 >(
   workId: string,
@@ -1757,7 +1746,6 @@ export function useListManualSearchReleasesSuspense<
     | ListManualSearchReleases409
     | ListManualSearchReleases422
     | ListManualSearchReleases500
-    | ListManualSearchReleases501
   >,
 >(
   workId: string,
@@ -1778,7 +1766,6 @@ export function useListManualSearchReleasesSuspense<
     | ListManualSearchReleases409
     | ListManualSearchReleases422
     | ListManualSearchReleases500
-    | ListManualSearchReleases501
   >,
 >(
   workId: string,
@@ -1803,7 +1790,6 @@ export function useListManualSearchReleasesSuspense<
     | ListManualSearchReleases409
     | ListManualSearchReleases422
     | ListManualSearchReleases500
-    | ListManualSearchReleases501
   >,
 >(
   workId: string,

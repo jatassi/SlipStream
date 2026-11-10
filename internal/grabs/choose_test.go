@@ -82,11 +82,13 @@ var pool = []poolTitle{
 	{"Orchards.1080p.WEB-DL.G", nil},
 }
 
-// generated is one generated search: the open cells, every pick its
+// generated is one generated search: the open cells, its Releases
+// assessed, every pick its
 // decision makes over the Releases its Indexers listed, the positions
 // gone and each Indexer's standing.
 type generated struct {
 	c     cells
+	as    []assessed
 	picks []Pick
 	gone  map[int]bool
 	sts   map[indexers.ID]standing
@@ -125,12 +127,11 @@ func generate(rng *rand.Rand, reads []release.Read, ids []indexers.ID) generated
 			g.gone[i] = true
 		}
 	}
-	var as []assessed
 	for _, l := range dedupe(ls) {
 		k := slices.IndexFunc(pool, func(p poolTitle) bool { return p.title == l.Release.Title })
-		as = append(as, assessRead(orchard, l, reads[k]))
+		g.as = append(g.as, assessRead(orchard, l, reads[k]))
 	}
-	g.picks = decide(g.c, as).picks(g.c)
+	g.picks = decide(g.c, g.as).picks(g.c)
 	return g
 }
 
