@@ -35,6 +35,9 @@ function TransferWords({ grab }: { grab: GrabsGrab }) {
 }
 
 function StageCell({ grab, work }: GrabRow) {
+  if (grab.failure !== undefined) {
+    return <span>{grab.failure.message}</span>;
+  }
   return (
     <span className="flex max-w-[220px] flex-col gap-1.5">
       <span>

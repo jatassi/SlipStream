@@ -31,6 +31,9 @@ export type FailedGrab = GrabsGrab & { readonly failure: GrabsFailure };
 
 export const isFailed = (grab: GrabsGrab): grab is FailedGrab => grab.failure !== undefined;
 
+/** A failure an Admin must act on. A cancel and a Manual Grab the Blocklist held are not. */
+export const needsYou = (grab: GrabsGrab): grab is FailedGrab => grab.failure?.needsYou === true;
+
 export function progressOf(grab: GrabsGrab): TrackProgress {
   if (isFailed(grab)) {
     return { kind: "failed", stage: trackStage[grab.failure.stage] };
@@ -47,7 +50,7 @@ export function progressOf(grab: GrabsGrab): TrackProgress {
 export function withoutRetriedFailures(grabs: readonly GrabsGrab[]): GrabsGrab[] {
   return grabs.filter(
     (grab) =>
-      !isFailed(grab) ||
+      !needsYou(grab) ||
       !grabs.some((later) => later.itemId === grab.itemId && later.createdAt > grab.createdAt),
   );
 }
