@@ -1,6 +1,7 @@
 package grabs
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -231,8 +232,27 @@ func failOfGone(g downloadclients.Gone) fail {
 		return fail{Removed, "The Admin deleted " + g.Client + " before SlipStream imported this torrent."}
 	case downloadclients.GoalMet:
 		return fail{Removed, "SlipStream removed this Grab's torrent once it met its seeding goal."}
+	case downloadclients.ReleaseFaulted:
+		return failOfFault(g)
+	case downloadclients.Canceled:
+		return fail{Canceled, "This Grab's torrent was removed when another Grab of it was canceled."}
 	}
 	panic("grabs: no failure for removal reason " + string(g.Reason))
+}
+
+// failOfFault is how a downloading Grab fails when its Torrent is removed
+// for a release fault. An engine error keeps failing it download_failed,
+// as it did before the Blocklist.
+func failOfFault(g downloadclients.Gone) fail {
+	switch *g.Fault {
+	case downloadclients.FaultEngineError:
+		return fail{DownloadFailed, cmp.Or(g.Client, "The built-in client") + " couldn't read this Grab's torrent."}
+	case downloadclients.FaultUnregistered:
+		return fail{ReleaseFault, "The tracker reports this Grab's torrent unregistered."}
+	case downloadclients.FaultNoPayload:
+		return fail{ReleaseFault, "This Grab's torrent never downloaded any data."}
+	}
+	panic("grabs: no failure for release fault " + string(*g.Fault))
 }
 
 func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {

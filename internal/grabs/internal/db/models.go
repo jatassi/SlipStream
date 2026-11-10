@@ -7,6 +7,7 @@ package db
 import (
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -15,6 +16,27 @@ import (
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
+
+type GrabsBlocklist struct {
+	InfoHash     []byte
+	ReleaseTitle string
+	ReleaseSize  int64
+	IndexerID    indexers.ID
+	IndexerName  *string
+	TrackerID    indexers.TrackerID
+	WorkID       works.WorkID
+	GrabID       GrabID
+	Cause        BlockCause
+	ClientName   *string
+	AddedBy      identity.AccountID
+	AddedByName  *string
+	AddedAt      storage.Time
+}
+
+type GrabsFaultSettled struct {
+	TorrentID downloadclients.ID
+	SettledAt storage.Time
+}
 
 type GrabsFill struct {
 	GrabID   GrabID
@@ -27,7 +49,11 @@ type GrabsGrab struct {
 	WorkID            works.WorkID
 	ItemID            works.ItemID
 	Edition           targets.Edition
-	Source            string
+	Source            Source
+	ManualID          ManualID
+	GrabbedBy         identity.AccountID
+	GrabbedByName     *string
+	Overrides         string
 	IndexerID         indexers.ID
 	TrackerID         indexers.TrackerID
 	NodeID            role.NodeID
@@ -59,6 +85,16 @@ type GrabsGrab struct {
 	SentClientID      *downloadclients.ClientID
 }
 
+type GrabsManual struct {
+	ID            ManualID
+	WorkID        works.WorkID
+	Scope         string
+	Query         *string
+	StartedBy     identity.AccountID
+	StartedByName *string
+	StartedAt     storage.Time
+}
+
 type GrabsRelease struct {
 	SearchID     SearchID
 	Position     int64
@@ -80,12 +116,14 @@ type GrabsRelease struct {
 	CopyOf       *int64
 	Release      *string
 	LinkSealed   secret.Sealed
+	Read         *Reading
 }
 
 type GrabsSearch struct {
 	ID         SearchID
 	WorkID     works.WorkID
 	ItemID     works.ItemID
+	ManualID   ManualID
 	StartedAt  storage.Time
 	FinishedAt storage.Time
 	Outcome    *Outcome

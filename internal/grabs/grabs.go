@@ -49,6 +49,24 @@ type (
 	Outcome        = db.Outcome
 	ReleaseOutcome = db.ReleaseOutcome
 	Step           = db.Step
+	ManualID       = db.ManualID
+	Source         = db.Source
+	BlockCause     = db.BlockCause
+)
+
+const (
+	// FromSearch is a Grab a search's decision took.
+	FromSearch Source = "search"
+	// FromManual is a Grab an Admin picked in a Manual search.
+	FromManual Source = "manual"
+)
+
+const (
+	CauseUnregistered BlockCause = "unregistered"
+	CauseNoPayload    BlockCause = "no_payload"
+	CauseEngineError  BlockCause = "engine_error"
+	CauseMarkedFailed BlockCause = "marked_failed"
+	CauseByHand       BlockCause = "by_hand"
 )
 
 const (
@@ -81,11 +99,17 @@ const (
 	ImportFailed       Code = "import_failed"
 	NodeWrittenOff     Code = "node_written_off"
 	RootChanged        Code = "root_changed"
+	Canceled           Code = "canceled"
+	Blocklisted        Code = "blocklisted"
+	ReleaseFault       Code = "release_fault"
 )
 
 const (
 	Grabbed           Outcome = "grabbed"
 	NothingAcceptable Outcome = "nothing_acceptable"
+	// ManualListed is a Manual run's outcome: it finished and took nothing
+	// by design.
+	ManualListed Outcome = "listed"
 )
 
 type Timings struct {
@@ -329,10 +353,23 @@ type Grab struct {
 	Failed  *Failure
 	History []Entered
 	Created time.Time
+	// Source is how it was chosen: by a search's decision, or by an Admin
+	// in a Manual search.
+	Source Source
 }
 
 // Done reports whether the Grab has no step left.
 func (g Grab) Done() bool { return g.Stage == Imported || g.Stage == Failed }
+
+// NeedsYou reports whether g failed in a way the Admin didn't choose. A
+// cancel was the Admin's choice, and so is a Manual Grab whose Release the
+// Blocklist held after its fetch, which its sheet already said.
+func (g Grab) NeedsYou() bool {
+	if g.Failed == nil || g.Failed.Code == Canceled {
+		return false
+	}
+	return g.Failed.Code != Blocklisted || g.Source != FromManual
+}
 
 // related is every Grab's targets, fills and history, by Grab, and the
 // Torrents of the Grabs read.
@@ -388,7 +425,7 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, link: row.ReleaseLinkSealed, magnet: deref(row.ReleaseMagnet)},
 		Ticket:  indexers.Ticket{Indexer: row.IndexerID, Query: row.FetchQueryID, Tracker: row.TrackerID},
 		Node:    row.NodeID, FetchNode: row.FetchNodeID, MetadataSince: row.MetadataStartedAt.Time(), Stage: row.Stage,
-		History: rel.history[row.ID], Created: row.CreatedAt.Time(),
+		History: rel.history[row.ID], Created: row.CreatedAt.Time(), Source: row.Source,
 	}
 	switch {
 	case row.SentClientID != nil:

@@ -84,6 +84,41 @@ func TestADownloadingGrabFailsOnceItsTorrentIsParted(t *testing.T) {
 	}
 }
 
+// TestAReleaseFaultOrACancelFailsADownloadingGrabByItsCause parts a
+// downloading Grab's Torrent for a release fault or another Grab's cancel,
+// and fails the Grab by that cause. An engine error keeps download_failed.
+func TestAReleaseFaultOrACancelFailsADownloadingGrabByItsCause(t *testing.T) {
+	for _, c := range []struct {
+		reason  downloadclients.RemoveReason
+		fault   *string
+		code    grabs.Code
+		message string
+	}{
+		{downloadclients.ReleaseFaulted, new("unregistered"), grabs.ReleaseFault, "The tracker reports this Grab's torrent unregistered."},
+		{downloadclients.ReleaseFaulted, new("no_payload"), grabs.ReleaseFault, "This Grab's torrent never downloaded any data."},
+		{downloadclients.ReleaseFaulted, new("engine_error"), grabs.DownloadFailed, "The built-in client couldn't read this Grab's torrent."},
+		{downloadclients.Canceled, nil, grabs.Canceled, "This Grab's torrent was removed when another Grab of it was canceled."},
+	} {
+		t.Run(c.message, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				p := newPipeline(t)
+				id := downloadingGrab(t, p, seedingReport)
+				now := storage.Now()
+				run(t, p.lib, sql(`UPDATE downloadclients_torrent SET removed_at = ?, removed_reason = ?, parted_at = ?, freed = 0,
+					fault = ?, fault_at = CASE WHEN ? IS NULL THEN NULL ELSE ? END`, now, string(c.reason), now, c.fault, c.fault, now))
+
+				p.running()
+				time.Sleep(time.Second)
+
+				v := p.view(id)
+				if v.Stage != grabs.Failed || v.Failed.Code != c.code || v.Failed.Message != c.message {
+					t.Fatalf("the Grab is %s with %+v, want failed with %s: %q", v.Stage, v.Failed, c.code, c.message)
+				}
+			})
+		})
+	}
+}
+
 var actions = map[downloadclients.ActionKind]struct {
 	code   grabs.Code
 	report string

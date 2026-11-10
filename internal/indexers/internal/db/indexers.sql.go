@@ -335,13 +335,13 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (Indexer
 }
 
 const getSettings = `-- name: GetSettings :one
-SELECT id, long_backoff_seconds FROM indexers_settings
+SELECT id, long_backoff_seconds, search_wait_seconds FROM indexers_settings
 `
 
 func (q *Queries) GetSettings(ctx context.Context) (IndexersSetting, error) {
 	row := q.db.QueryRowContext(ctx, getSettings)
 	var i IndexersSetting
-	err := row.Scan(&i.ID, &i.LongBackoffSeconds)
+	err := row.Scan(&i.ID, &i.LongBackoffSeconds, &i.SearchWaitSeconds)
 	return i, err
 }
 
