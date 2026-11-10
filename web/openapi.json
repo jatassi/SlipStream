@@ -1947,7 +1947,7 @@
             "type": "array"
           },
           "held": {
-            "description": "A Grab at downloading holds it, so Mark failed can put its Release on the Blocklist",
+            "description": "A Grab that hasn't finished holds it, so Mark failed can put its Release on the Blocklist",
             "type": "boolean"
           },
           "hold": {
@@ -2317,7 +2317,7 @@
             "description": "The fault found in the release itself, once there is one"
           },
           "held": {
-            "description": "A Grab at downloading holds it, so Mark failed can put its Release on the Blocklist",
+            "description": "A Grab that hasn't finished holds it, so Mark failed can put its Release on the Blocklist",
             "type": "boolean"
           },
           "hold": {

@@ -58,7 +58,7 @@ export interface DownloadclientsTorrentDetail {
   files: DownloadclientsFileDetail[];
   /** The Grabs that used it, newest first */
   grabs: DownloadclientsTorrentGrab[];
-  /** A Grab at downloading holds it, so Mark failed can put its Release on the Blocklist */
+  /** A Grab that hasn't finished holds it, so Mark failed can put its Release on the Blocklist */
   held: boolean;
   /** Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error */
   hold?: DownloadclientsTorrentDetailHold;

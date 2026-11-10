@@ -1245,7 +1245,7 @@ export const DownloadclientsTorrentDetail = zod.object({
   held: zod
     .boolean()
     .describe(
-      "A Grab at downloading holds it, so Mark failed can put its Release on the Blocklist",
+      "A Grab that hasn't finished holds it, so Mark failed can put its Release on the Blocklist",
     ),
   hold: zod
     .enum([
@@ -1443,7 +1443,7 @@ export const DownloadclientsTorrentRow = zod.object({
   held: zod
     .boolean()
     .describe(
-      "A Grab at downloading holds it, so Mark failed can put its Release on the Blocklist",
+      "A Grab that hasn't finished holds it, so Mark failed can put its Release on the Blocklist",
     ),
   hold: zod
     .enum([

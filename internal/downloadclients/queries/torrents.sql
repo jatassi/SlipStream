@@ -289,3 +289,10 @@ WHERE id = sqlc.arg(id);
 -- place: no client holds it yet.
 UPDATE downloadclients_torrent SET node_id = sqlc.arg(node_id), client_id = sqlc.narg(client_id)
 WHERE id = sqlc.arg(id) AND removed_at IS NULL AND reported_at IS NULL;
+
+-- name: ListFaulted :many
+SELECT t.id, t.node_id, t.info_hash, t.fault, t.fault_at, t.removed_at, t.client_id,
+       coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name
+FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
+WHERE t.fault IS NOT NULL
+ORDER BY t.fault_at, t.id;

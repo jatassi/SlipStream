@@ -67,9 +67,9 @@ type Router struct {
 }
 
 // Route is the client a Grab goes to now: the one an Admin sent it to
-// while that client may take it, else its Tracker's route, else the
-// client where New Grabs go on the Downloading Node its Work's root
-// routes to, the built-in client by default and never an off one. A
+// while that client may take it, a *PinnedError while a pinned one can't,
+// else its Tracker's route, else the client where New Grabs go on the
+// Downloading Node its Work's root routes to, the built-in client by default and never an off one. A
 // Tracker's route may name a Node out of step, which the Grab waits for.
 // It reads in the caller's tx, and fails with *nodes.Unrouted while no
 // Node may take a Grab that goes by its root.
@@ -78,6 +78,9 @@ func (rt Router) Route(ctx context.Context, r storage.Reader[file], a Ask) (Targ
 		t, err := Usable(ctx, r, *a.Sent, rt.downloading)
 		if err == nil || !Unusable(err) {
 			return t, err
+		}
+		if a.Pinned {
+			return Target{}, pinned(ctx, r, *a.Sent, err)
 		}
 	}
 	if t, ok, err := rt.Routes.Route(ctx, r, a.Tracker, a.Indexer); err != nil || ok {
@@ -95,6 +98,24 @@ func (rt Router) Route(ctx context.Context, r storage.Reader[file], a Ask) (Targ
 		return Target{}, err
 	}
 	return Target{Node: node, Client: &id}, nil
+}
+
+// pinned is the *PinnedError of pinned client c, which Usable refused
+// with cause.
+func pinned(ctx context.Context, r storage.Reader[file], c Choice, cause error) error {
+	names, err := namesIn(ctx, r)
+	if err != nil {
+		return err
+	}
+	name := names[c.BuiltInOn] + "'s built-in client"
+	if c.Client != nil {
+		row, err := db.New(r).GetClientNamed(ctx, *c.Client)
+		if err != nil {
+			return err
+		}
+		name = row.Name + " on " + names[row.NodeID]
+	}
+	return &PinnedError{Sent: c, Name: name, Cause: cause}
 }
 
 // downloading reports whether node may take a Grab's download now: it
