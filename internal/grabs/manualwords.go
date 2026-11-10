@@ -91,14 +91,19 @@ func liveItems(t works.Tree) []works.Item {
 // which level they are in when the sheet spans more than one, or when
 // named is set. A level whose every live Item is among them is its label.
 func (s sheet) itemsWords(items []works.ItemID, named bool) string {
-	names := s.itemNames()
-	t := s.in.tree
-	levels := map[works.LevelID]string{}
-	for _, l := range t.Levels {
-		levels[l.ID] = l.Label
+	order, byLevel := levelsOf(s.in.tree, items)
+	spans := named || len(order) > 1
+	parts := make([]string, len(order))
+	for i, l := range order {
+		parts[i] = s.levelWords(l, byLevel[l], named, spans)
 	}
-	var order []works.LevelID
-	byLevel := map[works.LevelID][]int{}
+	return joinWords(parts)
+}
+
+// levelsOf is the positions in t.Items of items, by level, and their
+// levels in tree order.
+func levelsOf(t works.Tree, items []works.ItemID) (order []works.LevelID, byLevel map[works.LevelID][]int) {
+	byLevel = map[works.LevelID][]int{}
 	for i, it := range t.Items {
 		if !slices.Contains(items, it.ID) {
 			continue
@@ -108,36 +113,48 @@ func (s sheet) itemsWords(items []works.ItemID, named bool) string {
 		}
 		byLevel[it.LevelID] = append(byLevel[it.LevelID], i)
 	}
-	spans := named || len(order) > 1
-	var parts []string
-	for _, l := range order {
-		at := byLevel[l]
-		if named && levels[l] != "" && len(at) == s.liveIn(l) {
-			parts = append(parts, levels[l])
-			continue
-		}
-		var words []string
-		for i := 0; i < len(at); {
-			k := i
-			for k+1 < len(at) && at[k+1] == at[k]+1 {
-				k++
-			}
-			if k-i >= 2 {
-				words = append(words, names[t.Items[at[i]].ID]+" to "+names[t.Items[at[k]].ID])
-			} else {
-				for _, a := range at[i : k+1] {
-					words = append(words, names[t.Items[a].ID])
-				}
-			}
-			i = k + 1
-		}
-		part := joinWords(words)
-		if spans && levels[l] != "" {
-			part += " of " + levels[l]
-		}
-		parts = append(parts, part)
+	return order, byLevel
+}
+
+// levelWords is the Items at positions at of level l in words, with the
+// level's label when spans is set, or the label alone when named is set
+// and they are every live Item of l.
+func (s sheet) levelWords(l works.LevelID, at []int, named, spans bool) string {
+	t := s.in.tree
+	label := ""
+	if i := slices.IndexFunc(t.Levels, func(v works.Level) bool { return v.ID == l }); i >= 0 {
+		label = t.Levels[i].Label
 	}
-	return joinWords(parts)
+	if named && label != "" && len(at) == s.liveIn(l) {
+		return label
+	}
+	names := s.itemNames()
+	words := joinWords(runsWords(at, func(i int) string { return names[t.Items[i].ID] }))
+	if spans && label != "" {
+		words += " of " + label
+	}
+	return words
+}
+
+// runsWords is positions at in words, a run of three or more in a row
+// written "E08 to E10".
+func runsWords(at []int, name func(int) string) []string {
+	var out []string
+	for i := 0; i < len(at); {
+		k := i
+		for k+1 < len(at) && at[k+1] == at[k]+1 {
+			k++
+		}
+		if k-i >= 2 {
+			out = append(out, name(at[i])+" to "+name(at[k]))
+		} else {
+			for _, a := range at[i : k+1] {
+				out = append(out, name(a))
+			}
+		}
+		i = k + 1
+	}
+	return out
 }
 
 func (s sheet) liveIn(l works.LevelID) int {
@@ -243,74 +260,107 @@ func (s sheet) plan() (ManualPlan, []Pin, error) {
 	var pins []Pin
 	walked, filled, grabs := 0, 0, 0
 	var unfound []string
-	gaps := map[string]int{}
+	gaps := map[gapKey]int{}
 	for _, rs := range s.runs {
 		walked += len(rs.walk)
-		for k, g := range rs.live {
-			pins = append(pins, Pin{Cell: keyOf(rs.item[k]), Release: ReleaseRef{Run: rs.run.ID, Position: rs.as[g].at}})
-		}
-		for k, g := range rs.held {
-			if s.in.cell == nil || *s.in.cell == keyOf(rs.item[k]) {
-				p.Held = append(p.Held, heldCell(rs.item[k], g))
-			}
-		}
+		pins = append(pins, rs.livePins()...)
+		p.Held = append(p.Held, s.heldIn(rs)...)
 		for _, r := range rs.rows {
-			lead := r.cells[0]
-			row := Row{Pinned: r.pinned, Failure: rs.failure[lead]}
-			for _, k := range r.cells {
-				row.Cells = append(row.Cells, keyOf(rs.item[k]))
-			}
-			except := r.group
+			cause := ""
 			if r.group < 0 {
-				cause := rs.causeAt(lead, r)
-				key := rs.item[lead].State.String() + "/" + cellName(rs.item[lead]) + "/" + cause
+				lead := rs.item[r.cells[0]]
+				cause = rs.causeAt(r.cells[0], r)
+				key := gapKey{state: lead.State, cell: cellName(lead), cause: cause}
 				if i, ok := gaps[key]; ok {
-					p.Rows[i].Cells = append(p.Rows[i].Cells, row.Cells...)
+					p.Rows[i].Cells = append(p.Rows[i].Cells, keyOf(lead))
 					continue
 				}
 				gaps[key] = len(p.Rows)
-				row.Cause = cause
-				if n := cellName(rs.item[lead]); !slices.Contains(unfound, n) {
-					unfound = append(unfound, n)
-				}
 			} else {
 				grabs++
 				filled += len(r.cells)
-				cs := make([]files.Cell, len(r.cells))
-				for i, k := range r.cells {
-					cs[i] = rs.item[k]
-				}
-				row.Outcome = s.gets(cs)
-				row.Pick = &PlanPick{
-					Release: s.details(rs, r.group), Lifts: rs.worded(r.stance.lifts, r.group), Edition: r.stance.edition,
-					Routed: s.in.routed[r.pick.Release.Indexer],
-				}
 			}
-			choices, err := rs.choicesAt(lead, except)
+			row, err := s.row(rs, r, cause)
 			if err != nil {
 				return ManualPlan{}, nil, err
-			}
-			for _, g := range choices {
-				row.Choices = append(row.Choices, s.choice(rs, lead, g))
 			}
 			p.Rows = append(p.Rows, row)
 		}
 	}
 	for i, r := range p.Rows {
-		if r.Pick == nil {
-			cs := make([]files.Cell, len(r.Cells))
-			for k, key := range r.Cells {
-				cs[k] = s.cellOf(key)
-			}
-			p.Rows[i].Missing = s.gapWords(cs)
+		if r.Pick != nil {
+			continue
+		}
+		cs := s.cellsOf(r.Cells)
+		p.Rows[i].Missing = s.gapWords(cs)
+		if n := cellName(cs[0]); !slices.Contains(unfound, n) {
+			unfound = append(unfound, n)
 		}
 	}
 	p.Headline = headline(walked, filled, grabs, len(p.Held), unfound)
 	return p, pins, nil
 }
 
-func (s sheet) cellOf(key files.CellKey) files.Cell {
-	return s.in.cells[slices.IndexFunc(s.in.cells, func(c files.Cell) bool { return keyOf(c) == key })]
+// gapKey is what the plan merges gaps by: cells of one state and one
+// Target, nothing fills for one cause.
+type gapKey struct {
+	state files.State
+	cell  string
+	cause string
+}
+
+// livePins is the pins of rs the plan kept.
+func (rs runSheet) livePins() []Pin {
+	var out []Pin
+	for k, g := range rs.live {
+		out = append(out, Pin{Cell: keyOf(rs.item[k]), Release: ReleaseRef{Run: rs.run.ID, Position: rs.as[g].at}})
+	}
+	return out
+}
+
+// heldIn is each cell of rs in scope that an unfinished Grab holds.
+func (s sheet) heldIn(rs runSheet) []HeldCell {
+	var out []HeldCell
+	for k, g := range rs.held {
+		if s.in.cell == nil || *s.in.cell == keyOf(rs.item[k]) {
+			out = append(out, heldCell(rs.item[k], g))
+		}
+	}
+	return out
+}
+
+// row is r of rs in words, cause the plain cause of a gap.
+func (s sheet) row(rs runSheet, r planned, cause string) (Row, error) {
+	lead := r.cells[0]
+	row := Row{Pinned: r.pinned, Failure: rs.failure[lead], Cause: cause}
+	cs := make([]files.Cell, len(r.cells))
+	for i, k := range r.cells {
+		cs[i] = rs.item[k]
+		row.Cells = append(row.Cells, keyOf(cs[i]))
+	}
+	if r.group >= 0 {
+		row.Outcome = s.gets(cs)
+		row.Pick = &PlanPick{
+			Release: s.details(rs, r.group), Lifts: rs.worded(r.stance.lifts, r.group), Edition: r.stance.edition,
+			Routed: s.in.routed[r.pick.Release.Indexer],
+		}
+	}
+	choices, err := rs.choicesAt(lead, r.group)
+	if err != nil {
+		return Row{}, err
+	}
+	for _, g := range choices {
+		row.Choices = append(row.Choices, s.choice(rs, lead, g))
+	}
+	return row, nil
+}
+
+func (s sheet) cellsOf(keys []files.CellKey) []files.Cell {
+	out := make([]files.Cell, len(keys))
+	for i, key := range keys {
+		out[i] = s.in.cells[slices.IndexFunc(s.in.cells, func(c files.Cell) bool { return keyOf(c) == key })]
+	}
+	return out
 }
 
 // headline counts a plan's Grabs and cells: "2 Grabs get you
@@ -530,92 +580,86 @@ func (rs runSheet) lostAt(g int) *Loss {
 // folded is the Releases no cell in scope takes, auto or lifted, in
 // groups by why: "8 are Bluray-2160p, which no Target here takes."
 func (s sheet) folded() Folded {
-	counts := map[string]int{}
-	fault := map[string]bool{}
-	var order []string
-	add := func(key string, isFault bool) {
-		if _, ok := counts[key]; !ok {
-			order = append(order, key)
-		}
-		counts[key]++
-		fault[key] = isFault
-	}
+	counts := map[foldKey]int{}
+	var order []foldKey
 	n := 0
 	for _, rs := range s.runs {
 		for g := range rs.as {
-			why, blocked, ok := rs.foldedWhy(g)
+			key, ok := rs.foldedWhy(g)
 			if !ok {
 				continue
 			}
+			if counts[key] == 0 {
+				order = append(order, key)
+			}
+			counts[key]++
 			n++
-			add(why, blocked)
 		}
 	}
 	if n == 0 {
 		return Folded{}
 	}
-	slices.SortStableFunc(order, func(a, b string) int { return cmp.Compare(counts[b], counts[a]) })
+	slices.SortStableFunc(order, func(a, b foldKey) int { return cmp.Compare(counts[b], counts[a]) })
 	f := Folded{Line: "SlipStream wouldn't grab " + plural(n, "1 more Release.", "%d more Releases.")}
 	for _, key := range order {
-		f.Groups = append(f.Groups, FoldGroup{Words: s.foldWords(key, counts[key]), Fault: fault[key]})
+		f.Groups = append(f.Groups, FoldGroup{Words: s.foldWords(key, counts[key]), Fault: key.code == targets.Blocklisted})
 	}
 	return f
 }
 
-// foldedWhy is why the plan's cells take as[g] neither auto nor lifted,
-// as a fold key, and whether the Blocklist holds it. ok is false when a
-// cell in scope takes it.
-func (rs runSheet) foldedWhy(g int) (why string, blocked bool, ok bool) {
-	a := rs.as[g]
-	cellsIn := rs.walk
-	if len(cellsIn) == 0 {
-		cellsIn = make([]int, len(rs.item))
-		for k := range cellsIn {
-			cellsIn[k] = k
-		}
-	}
-	for k, st := range rs.st[g] {
+// foldKey is what folded Releases group by: the refusal, and for
+// quality_not_in_target the Quality's name, "" when none was read.
+type foldKey struct {
+	code    targets.ReasonCode
+	quality string
+}
+
+// foldedWhy is why the plan's cells take as[g] neither auto nor lifted.
+// ok is false when a cell in scope takes it.
+func (rs runSheet) foldedWhy(g int) (foldKey, bool) {
+	sts := rs.st[g]
+	for k, st := range sts {
 		if rs.fill[k] && st.grabbable() {
-			return "", false, false
-		}
-		blocked = blocked || st.kind == standsBlocked
-	}
-	if blocked || a.blocked() {
-		return string(targets.Blocklisted), true, true
-	}
-	for _, r := range a.refusals {
-		if r.Code.Hard() || r.Code == targets.CoversMore {
-			return string(r.Code), false, true
+			return foldKey{}, false
 		}
 	}
-	if len(cellsIn) == 0 {
-		return string(targets.NotAnUpgrade), false, true
+	a := rs.as[g]
+	if a.blocked() || slices.ContainsFunc(sts, func(st stance) bool { return st.kind == standsBlocked }) {
+		return foldKey{code: targets.Blocklisted}, true
 	}
-	st := rs.st[g][cellsIn[0]]
-	for _, r := range st.why {
-		if r.Code == targets.QualityNotInTarget {
-			if q, ok := a.read.Facts.Quality.Get(); ok {
-				return "quality:" + q.Info().Name, false, true
-			}
-			return "quality:", false, true
+	if i := slices.IndexFunc(a.refusals, func(r Reason) bool { return r.Code.Hard() || r.Code == targets.CoversMore }); i >= 0 {
+		return foldKey{code: a.refusals[i].Code}, true
+	}
+	if len(rs.item) == 0 {
+		return foldKey{code: targets.NotAnUpgrade}, true
+	}
+	lead := 0
+	if len(rs.walk) > 0 {
+		lead = rs.walk[0]
+	}
+	why := sts[lead].why
+	if slices.ContainsFunc(why, func(r Reason) bool { return r.Code == targets.QualityNotInTarget }) {
+		key := foldKey{code: targets.QualityNotInTarget}
+		if q, ok := a.read.Facts.Quality.Get(); ok {
+			key.quality = q.Info().Name
 		}
+		return key, true
 	}
-	if len(st.why) > 0 {
-		return string(st.why[0].Code), false, true
+	if len(why) > 0 {
+		return foldKey{code: why[0].Code}, true
 	}
-	return string(targets.NotAnUpgrade), false, true
+	return foldKey{code: targets.NotAnUpgrade}, true
 }
 
 // foldWords is n Releases folded for key in a sentence.
-func (s sheet) foldWords(key string, n int) string {
+func (s sheet) foldWords(key foldKey, n int) string {
 	item := strings.ToLower(s.in.nouns.Item.One)
-	if q, ok := strings.CutPrefix(key, "quality:"); ok {
-		if q == "" {
+	switch key.code {
+	case targets.QualityNotInTarget:
+		if key.quality == "" {
 			return plural(n, "1 has", "%d have") + " no Quality SlipStream can read."
 		}
-		return plural(n, "1 is", "%d are") + " " + q + ", which no Target here takes."
-	}
-	switch targets.ReasonCode(key) {
+		return plural(n, "1 is", "%d are") + " " + key.quality + ", which no Target here takes."
 	case targets.Blocklisted:
 		return plural(n, "1 is", "%d are") + " on the Blocklist."
 	case targets.WrongWork:
@@ -628,6 +672,8 @@ func (s sheet) foldWords(key string, n int) string {
 		return plural(n, "1 fails", "%d fail") + " a filter of every Target here."
 	case targets.NotAnUpgrade:
 		return plural(n, "1 isn't", "%d aren't") + " better than the files you have."
+	case targets.WrongTitle, targets.CutNotWanted, targets.SizeBelow, targets.SizeAbove, targets.SizeNotChecked,
+		targets.ScoreBelowMinimum, targets.RepackOtherGroup:
 	}
 	return plural(n, "1 is", "%d are") + " refused at every Target here."
 }
@@ -635,7 +681,7 @@ func (s sheet) foldWords(key string, n int) string {
 // indexerLines is each Indexer across the runs, whether one hasn't
 // responded yet, and the Searching line: "Searching 6 Indexers. 4 have
 // responded.", "SlipStream searched 6 Indexers. 2 didn't respond."
-func (s sheet) indexerLines() ([]IndexerLine, bool, string) {
+func (s sheet) indexerLines() (lines []IndexerLine, searching bool, line string) {
 	type across struct {
 		line     IndexerLine
 		outcomes []*indexers.Outcome
@@ -654,8 +700,7 @@ func (s sheet) indexerLines() ([]IndexerLine, bool, string) {
 			a.outcomes = append(a.outcomes, l.Outcome)
 		}
 	}
-	var out []IndexerLine
-	searching, responded, late := false, 0, 0
+	responded, late := 0, 0
 	for _, key := range order {
 		a := by[key]
 		a.line.Done = !slices.Contains(a.outcomes, nil)
@@ -671,9 +716,9 @@ func (s sheet) indexerLines() ([]IndexerLine, bool, string) {
 		if slices.ContainsFunc(a.outcomes, func(o *indexers.Outcome) bool { return o != nil && o.Kind == indexers.Late }) {
 			late++
 		}
-		out = append(out, a.line)
+		lines = append(lines, a.line)
 	}
-	return out, searching, searchingWords(out, searching, responded, late)
+	return lines, searching, searchingWords(lines, searching, responded, late)
 }
 
 func searchingWords(lines []IndexerLine, searching bool, responded, late int) string {

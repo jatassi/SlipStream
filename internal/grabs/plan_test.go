@@ -266,14 +266,7 @@ func TestThePlansFirstRowIsAutomaticSearchsTakeOverGeneratedSearches(t *testing.
 		if len(g.c.open) == 0 {
 			continue
 		}
-		in := planIn{item: g.c.open, fill: make([]bool, len(g.c.open)), as: g.as, take: reading(g.sts)}
-		for k := range in.item {
-			in.walk, in.fill[k] = append(in.walk, k), true
-		}
-		for _, a := range g.as {
-			j := judge(cells{open: in.item}, a)
-			in.js, in.st = append(in.js, j), append(in.st, stances(in.item, j))
-		}
+		in := walkingAll(g)
 		planned, _, err := plan(in)
 		if err != nil {
 			t.Fatal(err)
@@ -298,4 +291,17 @@ func TestThePlansFirstRowIsAutomaticSearchsTakeOverGeneratedSearches(t *testing.
 	if rows < 200 || gaps < 200 {
 		t.Fatalf("the generator led with a Grab in %d cases and a gap in %d, want both often", rows, gaps)
 	}
+}
+
+// walkingAll is the plan input of g walking every cell, with no pin.
+func walkingAll(g generated) planIn {
+	in := planIn{item: g.c.open, fill: make([]bool, len(g.c.open)), as: g.as, take: reading(g.sts)}
+	for k := range in.item {
+		in.walk, in.fill[k] = append(in.walk, k), true
+	}
+	for _, a := range g.as {
+		j := judge(cells{open: in.item}, a)
+		in.js, in.st = append(in.js, j), append(in.st, stances(in.item, j))
+	}
+	return in
 }

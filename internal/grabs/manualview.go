@@ -437,76 +437,12 @@ var walked = []files.State{files.Unreleased, files.Missing, files.Failed, files.
 // Release of a run or no cell of its Item.
 func worked(in manualIn, pins []Pin) (sheet, error) {
 	s := sheet{in: in}
-	latest := map[files.CellKey]db.ListCellGrabsOfWorkRow{}
-	for _, g := range in.grabs {
-		latest[files.CellKey{Item: g.ItemID, Edition: g.Edition, Target: g.TargetID}] = g
-	}
-	unfinished := map[files.CellKey]db.ListCellGrabsOfWorkRow{}
-	for _, g := range in.grabs {
-		if g.Stage != Imported && g.Stage != Failed {
-			unfinished[files.CellKey{Item: g.ItemID, Edition: g.Edition, Target: g.TargetID}] = g
-		}
-	}
+	gs := grabsByCell(in.grabs)
 	for _, run := range in.runs {
-		rs := runSheet{run: run, held: map[int]db.ListCellGrabsOfWorkRow{}, failure: map[int]string{}, heard: map[int]string{}}
-		for _, c := range in.cells {
-			if c.Item.ID == run.ItemID {
-				rs.item = append(rs.item, c)
-			}
-		}
-		rs.fill = make([]bool, len(rs.item))
-		for k, c := range rs.item {
-			key := keyOf(c)
-			if g, ok := unfinished[key]; ok {
-				rs.held[k] = g
-				continue
-			}
-			if g := latest[key]; c.State == files.Failed && g.FailureMessage != nil {
-				rs.failure[k] = *g.FailureMessage
-			}
-			if !slices.Contains(walked, c.State) {
-				continue
-			}
-			rs.fill[k] = in.cell == nil || in.cell.Item == key.Item
-			if in.cell == nil || *in.cell == key {
-				rs.walk = append(rs.walk, k)
-			}
-		}
-		j := in.judging
-		j.searched = run.ItemID
-		ls := make([]listed, len(in.heard[run.ID]))
-		for i, h := range in.heard[run.ID] {
-			ls[i] = h.listed
-			rs.heard[h.listed.at] = h.indexer
-		}
-		byAt := map[int]heardRelease{}
-		for _, h := range in.heard[run.ID] {
-			byAt[h.listed.at] = h
-		}
-		kept := dedupe(ls)
-		as := make([]assessed, len(kept))
-		for i, l := range kept {
-			h := byAt[l.at]
-			as[i] = assessStored(j, l, h.read, h.matched)
-		}
-		rs.as = in.blocks.gate(as)
-		all := cells{open: rs.item}
-		rs.js, rs.st = make([]judged, len(rs.as)), make([][]stance, len(rs.as))
-		for g, a := range rs.as {
-			rs.js[g] = judge(all, a)
-			rs.st[g] = stances(rs.item, rs.js[g])
-		}
-		rs.pins = map[int]int{}
-		for _, p := range pins {
-			if p.Release.Run != run.ID {
-				continue
-			}
-			k := slices.IndexFunc(rs.item, func(c files.Cell) bool { return keyOf(c) == p.Cell })
-			if g := groupOf(rs.as, p.Release.Position); k >= 0 && g >= 0 {
-				rs.pins[k] = g
-			}
-		}
-		rs.take = in.standings.Take
+		rs := runSheet{run: run, planIn: planIn{take: in.standings.Take}}
+		place(&rs, in, gs)
+		judgeRun(&rs, in)
+		pin(&rs, pins)
 		var err error
 		if rs.rows, rs.live, err = plan(rs.planIn); err != nil {
 			return sheet{}, err
@@ -514,6 +450,96 @@ func worked(in manualIn, pins []Pin) (sheet, error) {
 		s.runs = append(s.runs, rs)
 	}
 	return s, nil
+}
+
+// cellGrabs is the latest Grab of each cell, and its unfinished one.
+type cellGrabs struct {
+	latest, unfinished map[files.CellKey]db.ListCellGrabsOfWorkRow
+}
+
+func grabsByCell(grabs []db.ListCellGrabsOfWorkRow) cellGrabs {
+	out := cellGrabs{latest: map[files.CellKey]db.ListCellGrabsOfWorkRow{}, unfinished: map[files.CellKey]db.ListCellGrabsOfWorkRow{}}
+	for _, g := range grabs {
+		key := files.CellKey{Item: g.ItemID, Edition: g.Edition, Target: g.TargetID}
+		out.latest[key] = g
+		if g.Stage != Imported && g.Stage != Failed {
+			out.unfinished[key] = g
+		}
+	}
+	return out
+}
+
+// place sets rs's cells: what each holds, which the plan walks and
+// which a row may fill.
+func place(rs *runSheet, in manualIn, gs cellGrabs) {
+	rs.held, rs.failure = map[int]db.ListCellGrabsOfWorkRow{}, map[int]string{}
+	for _, c := range in.cells {
+		if c.Item.ID == rs.run.ItemID {
+			rs.item = append(rs.item, c)
+		}
+	}
+	rs.fill = make([]bool, len(rs.item))
+	for k, c := range rs.item {
+		key := keyOf(c)
+		if g, ok := gs.unfinished[key]; ok {
+			rs.held[k] = g
+			continue
+		}
+		if g := gs.latest[key]; c.State == files.Failed && g.FailureMessage != nil {
+			rs.failure[k] = *g.FailureMessage
+		}
+		if !slices.Contains(walked, c.State) {
+			continue
+		}
+		rs.fill[k] = in.cell == nil || in.cell.Item == key.Item
+		if in.cell == nil || *in.cell == key {
+			rs.walk = append(rs.walk, k)
+		}
+	}
+}
+
+// judgeRun dedupes rs's stored Releases, gates them by the Blocklist
+// and judges each at every cell of its Item.
+func judgeRun(rs *runSheet, in manualIn) {
+	j := in.judging
+	j.searched = rs.run.ItemID
+	heard := in.heard[rs.run.ID]
+	rs.heard = make(map[int]string, len(heard))
+	byAt := make(map[int]heardRelease, len(heard))
+	ls := make([]listed, len(heard))
+	for i, h := range heard {
+		ls[i] = h.listed
+		rs.heard[h.listed.at] = h.indexer
+		byAt[h.listed.at] = h
+	}
+	kept := dedupe(ls)
+	as := make([]assessed, len(kept))
+	for i, l := range kept {
+		h := byAt[l.at]
+		as[i] = assessStored(j, l, h.read, h.matched)
+	}
+	rs.as = in.blocks.gate(as)
+	all := cells{open: rs.item}
+	rs.js, rs.st = make([]judged, len(rs.as)), make([][]stance, len(rs.as))
+	for g, a := range rs.as {
+		rs.js[g] = judge(all, a)
+		rs.st[g] = stances(rs.item, rs.js[g])
+	}
+}
+
+// pin keeps each of pins that names a Release of rs's run and a cell of
+// its Item.
+func pin(rs *runSheet, pins []Pin) {
+	rs.pins = map[int]int{}
+	for _, p := range pins {
+		if p.Release.Run != rs.run.ID {
+			continue
+		}
+		k := slices.IndexFunc(rs.item, func(c files.Cell) bool { return keyOf(c) == p.Cell })
+		if g := groupOf(rs.as, p.Release.Position); k >= 0 && g >= 0 {
+			rs.pins[k] = g
+		}
+	}
 }
 
 func keyOf(c files.Cell) files.CellKey {
