@@ -1,3 +1,5 @@
+import type { Locator } from "@playwright/test";
+
 import { expect, expectAccessible, test } from "./fixtures.ts";
 import {
   frame,
@@ -18,14 +20,8 @@ const webdl = "WEBDL-1080p · FKW · 8.2 GB";
 const webdlTitle = "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW";
 const both = "It gets you 1080p (standard) for The Quiet Orchard, and HD (standard) as an upgrade.";
 
-test("the plan reads as automatic search would grab, a swapped row holds while Indexers answer, and Grab takes the ticked rows", async ({
-  adminPage: page,
-  world,
-}, testInfo) => {
-  const movie = await workId(world, orchard);
-  await page.goto(`/works/${movie}`);
-  await openFromHero(page, orchard);
-  const opened = sheet(page);
+/** Tamarack's Bluray for 1080p, and the WEB-DL every automatic Indexer lists for HD. */
+async function readsTwoGrabs(opened: Locator): Promise<void> {
   await expect(opened).toContainText("2 Grabs get you everything.");
   const rows = grabRows(opened);
   await expect(rows).toHaveCount(2);
@@ -35,6 +31,18 @@ test("the plan reads as automatic search would grab, a swapped row holds while I
   await expect(rows.nth(1)).toContainText(
     "It gets you HD (standard) for The Quiet Orchard as an upgrade.",
   );
+}
+
+test("the plan reads as automatic search would grab, a swapped row holds while Indexers answer, and Grab takes the ticked rows", async ({
+  adminPage: page,
+  world,
+}, testInfo) => {
+  const movie = await workId(world, orchard);
+  await page.goto(`/works/${movie}`);
+  await openFromHero(page, orchard);
+  const opened = sheet(page);
+  const rows = grabRows(opened);
+  await readsTwoGrabs(opened);
   await expect(opened.getByRole("button", { name: "Grab 2" })).toBeEnabled();
   await rows.nth(1).getByRole("checkbox", { name: webdl }).uncheck();
   await expect(opened.getByRole("button", { name: "Grab 1" })).toBeEnabled();

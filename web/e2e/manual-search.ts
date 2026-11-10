@@ -20,6 +20,22 @@ const Grabs = z.object({
   results: z.array(z.object({ grabId: z.string().nullable(), problem: z.unknown() })),
 });
 const Grab = z.object({ stage: z.string() });
+const Manual = z.object({
+  id: z.string(),
+  searching: z.boolean(),
+  plan: z.object({
+    rows: z.array(
+      z.object({
+        pick: z
+          .object({
+            release: z.object({ id: z.string(), title: z.string() }),
+            lifts: z.array(z.object({ code: z.string(), targetId: z.string().optional() })),
+          })
+          .nullable(),
+      }),
+    ),
+  }),
+});
 const Search = z.object({ searches: z.array(z.object({ outcome: z.string().nullable() })) });
 
 /** The scanned Work of that title. */
@@ -77,6 +93,61 @@ export async function grabStage(world: World, grabId: string): Promise<string> {
   return Grab.parse((await world.api("GET", `/api/v1/grabs/${grabId}`)).body).stage;
 }
 
+/** A Manual search of the whole Work through the API, once every Indexer has responded. */
+export async function manualSearched(world: World, work: string) {
+  const started = await world.api("POST", `/api/v1/works/${work}/manual-search`, { again: true });
+  expect(started.status, "the Manual search starts").toBe(202);
+  let search = Manual.parse((await world.api("GET", `/api/v1/works/${work}/manual-search`)).body);
+  await expect
+    .poll(
+      async () => {
+        search = Manual.parse((await world.api("GET", `/api/v1/works/${work}/manual-search`)).body);
+        return search.searching;
+      },
+      { message: "every Indexer responds", timeout: 60_000 },
+    )
+    .toBe(false);
+  return search;
+}
+
+/**
+ * Grabs the plan's pick of that Release through the API while the fake
+ * seeders stall, so the Grab holds at downloading until the seeders are freed.
+ */
+export async function downloading(world: World, work: string, title: string): Promise<string> {
+  const search = await manualSearched(world, work);
+  const pick = search.plan.rows.find((row) => row.pick?.release.title === title)?.pick;
+  if (pick === undefined || pick === null) {
+    throw new Error(`the plan doesn't pick ${title}`);
+  }
+  await world.fw.fault.set({ id: "swarm-stalled", target: "seeders", fault: "stall" });
+  const grabbed = await world.api("POST", `/api/v1/works/${work}/manual-search/grabs`, {
+    manualSearchId: search.id,
+    picks: [
+      {
+        releaseId: pick.release.id,
+        lifts: pick.lifts.map(({ code, targetId }) => ({ code, targetId })),
+      },
+    ],
+  });
+  const grabId = grabIdOf(grabbed.body);
+  if (grabId === null) {
+    throw new Error(`the grab of ${title} was refused: ${JSON.stringify(grabbed.body)}`);
+  }
+  await expect
+    .poll(() => grabStage(world, grabId), { message: "the Grab downloads", timeout: 30_000 })
+    .toBe("downloading");
+  return grabId;
+}
+
+/** A Release on the Blocklist the way an Admin puts it there: Cancel with Also blocklist. */
+export async function blocklisted(world: World, work: string, title: string): Promise<void> {
+  const grabId = await downloading(world, work, title);
+  const canceled = await world.api("POST", `/api/v1/grabs/${grabId}/cancel`, { blocklist: true });
+  expect(canceled.status, "the Grab is canceled").toBe(204);
+  await world.fw.fault.clear("swarm-stalled");
+}
+
 export const grabIdOf = (body: unknown): string | null =>
   Grabs.parse(body).results[0]?.grabId ?? null;
 
@@ -119,6 +190,30 @@ export async function openFromHero(page: Page, title: string): Promise<void> {
     .locator("header")
     .getByRole("button", { name: "Manual search", exact: true })
     .click();
+}
+
+/**
+ * Chooses an action from the menu of the newest Grab row that names the
+ * Release, as on Activity or the Work page.
+ */
+export async function grabAction(
+  page: Page,
+  rows: Locator,
+  title: string,
+  action: "Details" | "Cancel Grab",
+): Promise<void> {
+  await rows
+    .getByRole("row")
+    .filter({ hasText: title })
+    .first()
+    .getByRole("button", { name: /actions$/u })
+    .click();
+  await page.getByRole("menuitem", { name: action }).click();
+}
+
+export async function openGrabDetails(page: Page, rows: Locator, title: string): Promise<Locator> {
+  await grabAction(page, rows, title, "Details");
+  return page.getByRole("dialog", { name: /^Grab of /u });
 }
 
 export async function closeSheet(page: Page): Promise<void> {
