@@ -103,6 +103,21 @@ func (h *heard) Publish(_ context.Context, c downloadclients.ClientsChanged) {
 	h.cards = append(h.cards, c.NodeIDs)
 }
 
+// blocklist records who each mark-failed's entries name, by name or
+// "the API key".
+type blocklist struct{ by []string }
+
+func (b *blocklist) MarkedFailed(_ context.Context, _ *storage.Tx[storage.Library], _ []downloadclients.ID, by identity.Admin) error {
+	name := "the API key"
+	if a, ok := by.Account(); ok {
+		name = a.Profile().DisplayName
+	}
+	b.by = append(b.by, name)
+	return nil
+}
+
+func (*blocklist) Changed(context.Context) {}
+
 type torrentsChanged struct{}
 
 func (torrentsChanged) Publish(context.Context, downloadclients.Changed) {}
@@ -110,16 +125,17 @@ func (torrentsChanged) Publish(context.Context, downloadclients.Changed) {}
 // world is a Controller whose only Node is itself, serving Downloading
 // with a client that answers Inspect, Act and Frees as the test sets it.
 type world struct {
-	o        *ownertest.Owner
-	lib      *storage.DB[storage.Library]
-	self     role.NodeID
-	roster   *downloaders
-	uses     uses
-	node     *node
-	facts    map[role.NodeID]*dlv1.Facts
-	heard    *heard
-	hashes   map[downloadclients.ID]string
-	trackers *trackers.Trackers
+	o         *ownertest.Owner
+	lib       *storage.DB[storage.Library]
+	self      role.NodeID
+	roster    *downloaders
+	uses      uses
+	node      *node
+	facts     map[role.NodeID]*dlv1.Facts
+	heard     *heard
+	hashes    map[downloadclients.ID]string
+	trackers  *trackers.Trackers
+	blocklist *blocklist
 }
 
 // late is the Trackers' seeder once they are made, after the clients.
@@ -141,10 +157,10 @@ func serveWorld(t *testing.T) *world {
 		t.Fatal(err)
 	}
 	sealer := secrettest.Sealer(t)
-	w := &world{lib: lib, self: side.Self(), roster: &downloaders{serving: []role.NodeID{side.Self()}, away: map[role.NodeID]bool{}}, uses: uses{}, node: &node{}, facts: map[role.NodeID]*dlv1.Facts{}, heard: &heard{}, hashes: map[downloadclients.ID]string{}}
+	w := &world{lib: lib, self: side.Self(), roster: &downloaders{serving: []role.NodeID{side.Self()}, away: map[role.NodeID]bool{}}, uses: uses{}, node: &node{}, facts: map[role.NodeID]*dlv1.Facts{}, heard: &heard{}, hashes: map[downloadclients.ID]string{}, blocklist: &blocklist{}}
 	clients := downloadclients.New(downloadclients.Config{
 		Library: lib, Touch: func(n ...role.NodeID) { w.heard.touched = append(w.heard.touched, n...) }, Changed: torrentsChanged{},
-		CardsChanged: w.heard, Roster: w.roster, Uses: w.uses, Seeding: late{&w.trackers},
+		CardsChanged: w.heard, Roster: w.roster, Uses: w.uses, Blocklist: w.blocklist, Seeding: late{&w.trackers},
 		Facts:  func(n role.NodeID) (*dlv1.Facts, bool) { f, ok := w.facts[n]; return f, ok },
 		Remote: func(n role.NodeID) downloadingv1connect.DownloadingServiceHandler { return calledOn{w.node, n} },
 		Sealer: sealer,

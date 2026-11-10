@@ -158,7 +158,7 @@ var (
 	ErrNoRoot        = roots.ErrNoRoot
 	ErrNotSearchable = errors.New("the Work's Content Type can't be searched")
 	ErrNoGrab        = errors.New("no Grab has that id")
-	ErrReconciling   = errors.New("the Controller is Reconciling after a restore")
+	ErrReconciling   = downloadclients.ErrReconciling
 )
 
 type RootUnreachableError = roots.UnreachableError

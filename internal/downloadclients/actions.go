@@ -26,13 +26,21 @@ type Uses interface {
 	Of(ctx context.Context, r storage.Reader[file], ids []ID) (map[ID][]Use, error)
 }
 
-// Blocklist is the Blocklist as grabs keeps it. MarkedFailed adds an entry
-// for each of ids whose Torrent a Grab at downloading holds, by by, in the
-// caller's Write. It refuses while Reconciling. Adding twice keeps the
-// first entry.
+// Blocklist is the Blocklist as grabs keeps it.
 type Blocklist interface {
+	// MarkedFailed adds an entry for each of ids whose Torrent a Grab at
+	// downloading holds, by by, in the caller's Write. It refuses with
+	// ErrReconciling while a restored Controller is Reconciling. Adding
+	// twice keeps the first entry.
 	MarkedFailed(ctx context.Context, tx *storage.Tx[file], ids []ID, by identity.Admin) error
+	// Changed tells the Admins the Blocklist changed. It is called once the
+	// Write MarkedFailed ran in has committed.
+	Changed(ctx context.Context)
 }
+
+// ErrReconciling is a restored Controller Reconciling, which blocklists
+// nothing.
+var ErrReconciling = errors.New("the Controller is Reconciling after a restore")
 
 // Use is one Grab of a Torrent.
 type Use struct {
@@ -71,8 +79,9 @@ const (
 	// Retry checks the files of a failed Torrent that had completed: it
 	// seeds again once all its data is there, and stays paused otherwise.
 	Retry ActionKind = "retry"
-	// MarkFailed removes a stalled download with its download copy, and
-	// fails its downloading Grabs as download_failed.
+	// MarkFailed removes a download a Grab at downloading holds, with its
+	// download copy, puts its Release on the Blocklist, and fails its
+	// downloading Grabs as download_failed.
 	MarkFailed ActionKind = "mark-failed"
 	Remove     ActionKind = "remove"
 )
@@ -88,6 +97,8 @@ type Action struct {
 	// DryRun answers what remove, mark-failed or recheck would do, and
 	// changes nothing.
 	DryRun bool
+	// By is the Admin acting, whom a mark-failed's Blocklist entry names.
+	By identity.Admin
 }
 
 // ErrNoPreview is a dry run of an action that has nothing to preview.
@@ -289,7 +300,9 @@ func (c *Clients) WantIn(ctx context.Context, tx *storage.Tx[file], ids []ID, wa
 }
 
 // remove removes each Torrent no Grab is importing from, as RemoveIn
-// does. A dry run reads the same and writes nothing.
+// does, and for mark-failed blocklists their Releases in the same Write.
+// While Reconciling a mark-failed refuses each Torrent it would remove and
+// removes nothing. A dry run reads the same and writes nothing.
 func (c *Clients) remove(ctx context.Context, a Action) ([]Result, *Preview, error) {
 	reason, deleteFiles := ByAdmin, a.DeleteFiles
 	if a.Kind == MarkFailed {
@@ -317,20 +330,34 @@ func (c *Clients) remove(ctx context.Context, a Action) ([]Result, *Preview, err
 	err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		var err error
 		results, touched, err = c.RemoveIn(ctx, tx, a.IDs, reason, deleteFiles)
-		return err
+		if err != nil || a.Kind != MarkFailed || len(touched.ids) == 0 {
+			return err
+		}
+		return c.cfg.Blocklist.MarkedFailed(ctx, tx, touched.ids, a.By)
 	})
+	if errors.Is(err, ErrReconciling) {
+		for i := range results {
+			if results[i].Refusal == nil {
+				results[i].Refusal = &Refusal{Code: RefusedReconciling}
+			}
+		}
+		return results, nil, nil
+	}
 	if err != nil {
 		return nil, nil, err
 	}
 	c.Touched(touched)
+	if a.Kind == MarkFailed && len(touched.ids) > 0 {
+		c.cfg.Blocklist.Changed(ctx)
+	}
 	return results, nil, nil
 }
 
 // RemoveIn removes each of ids for reason in tx, with its download copy
 // when deleteFiles says so. It reads the Grabs in tx, so it refuses a
 // Torrent a Grab is importing from, and an import that starts after it
-// finds the Torrent removed. For ByMarkFailed it also refuses a download
-// that isn't stalled.
+// finds the Torrent removed. For ByMarkFailed it also refuses a Torrent no
+// Grab at downloading holds.
 func (c *Clients) RemoveIn(ctx context.Context, tx *storage.Tx[file], ids []ID, reason RemoveReason, deleteFiles bool) ([]Result, Touched, error) {
 	plan, err := c.planRemoval(ctx, tx, ids, reason)
 	if err != nil {
@@ -420,9 +447,7 @@ func (c *Clients) planRemoval(ctx context.Context, r storage.Reader[file], ids [
 	for _, id := range ids {
 		res := Result{ID: id, Refusal: rows.refusal(id)}
 		if res.Refusal == nil {
-			if res.Refusal, err = removable(rows[id], uses[id], reason); err != nil {
-				return removal{}, err
-			}
+			res.Refusal = removable(uses[id], reason)
 		}
 		plan.results = append(plan.results, res)
 		if res.Refusal == nil {
@@ -433,23 +458,18 @@ func (c *Clients) planRemoval(ctx context.Context, r storage.Reader[file], ids [
 	return plan, nil
 }
 
-// removable is why a Torrent may not be removed for reason: a Grab
-// importing from it, or for ByMarkFailed, a download that isn't stalled.
-func removable(row db.ListActedRow, uses []Use, reason RemoveReason) (*Refusal, error) {
+// removable is why a Torrent its Grabs uses may not be removed for
+// reason: a Grab importing from it, or for ByMarkFailed, no Grab at
+// downloading holding it. An import reads the files a removal deletes, so
+// it refuses mark-failed too, though its Grab is unfinished.
+func removable(uses []Use, reason RemoveReason) *Refusal {
 	if i := slices.IndexFunc(uses, func(u Use) bool { return u.Stage == UseImporting }); i >= 0 {
-		return &Refusal{Code: RefusedImporting, Work: uses[i].Work}, nil
+		return &Refusal{Code: RefusedImporting, Work: uses[i].Work}
 	}
-	if reason != ByMarkFailed {
-		return nil, nil
+	if reason == ByMarkFailed && !slices.ContainsFunc(uses, func(u Use) bool { return u.Stage == UseDownloading }) {
+		return &Refusal{Code: RefusedNotHeld}
 	}
-	rep, err := reportOf(row.Report)
-	if err != nil {
-		return nil, fmt.Errorf("torrent %s: %w", row.ID, err)
-	}
-	if StateOf(Facts{Wanted: Wanted(row.Wanted), Report: rep}) != StateStalled {
-		return &Refusal{Code: RefusedNotHeld}, nil
-	}
-	return nil, nil
+	return nil
 }
 
 // hitsAndRuns is each Torrent plan removes that leaves its info hash with

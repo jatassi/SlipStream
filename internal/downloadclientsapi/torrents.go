@@ -501,9 +501,9 @@ type canceled struct {
 
 type actOutput struct{ Body acted }
 
-func (h handlers) actOnTorrents(ctx context.Context, _ identity.Admin, in *actInput) (*actOutput, error) {
+func (h handlers) actOnTorrents(ctx context.Context, by identity.Admin, in *actInput) (*actOutput, error) {
 	clients, _ := open(h.clients)
-	a := downloadclients.Action{Kind: downloadclients.ActionKind(in.Body.Action), DeleteFiles: in.Body.DeleteFiles, DryRun: in.Body.DryRun}
+	a := downloadclients.Action{Kind: downloadclients.ActionKind(in.Body.Action), DeleteFiles: in.Body.DeleteFiles, DryRun: in.Body.DryRun, By: by}
 	for _, s := range in.Body.IDs {
 		id, err := torrentID(s)
 		if err != nil {
