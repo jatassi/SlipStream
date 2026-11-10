@@ -274,7 +274,10 @@ func TestRemoveFromBlocklistAndGrab(t *testing.T) {
 	})
 }
 
-func TestAPickSentToAClientRecordsItAndTrackerRouting(t *testing.T) {
+// TestAPickSentToTheRoutedClientRecordsNoRouting sends a pick to the
+// client Tracker routing would pick: the record says where it went, and
+// names no other client routing would have sent it to.
+func TestAPickSentToTheRoutedClientRecordsNoRouting(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		a := newTwinWorld(t, twin{sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{listing(bluRay, 9, "a")}}}})
 		v := a.searchedByHand(t)
@@ -285,7 +288,7 @@ func TestAPickSentToAClientRecordsItAndTrackerRouting(t *testing.T) {
 		if g.Sent == nil || g.Sent.BuiltInOn != home {
 			t.Fatalf("the Grab is sent to %+v, want home's built-in client", g.Sent)
 		}
-		want := "It was sent to the built-in client on home through the API key. Tracker routing would have sent it to the built-in client on home."
+		want := "It was sent to the built-in client on home through the API key."
 		if !slices.Equal(g.Overrides, []string{want}) {
 			t.Fatalf("the Grab's overrides are %q, want %q", g.Overrides, want)
 		}
