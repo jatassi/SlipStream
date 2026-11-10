@@ -258,6 +258,9 @@ type Grabs struct {
 	poke      chan struct{}
 	searching metadataPeers
 	routes    routes
+	// runs cancels each Manual run's goroutine, so a Search again stops
+	// the runs it replaced.
+	runs runs
 
 	mu sync.Mutex
 	// moved is each Grab a transfers hook moved, for grabs.changed once
@@ -269,7 +272,7 @@ type Grabs struct {
 func New(cfg Config) *Grabs {
 	gr := &Grabs{
 		cfg: cfg, poke: make(chan struct{}, 1), moved: map[string]Changed{}, searching: metadataPeers{peers: map[GrabID]int{}},
-		routes: routes{changed: make(chan struct{})},
+		routes: routes{changed: make(chan struct{})}, runs: runs{cancel: map[SearchID]context.CancelFunc{}},
 	}
 	cfg.Transfers.Register(transfers.Purpose{
 		Kind:     transfers.Grab,

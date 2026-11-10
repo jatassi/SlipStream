@@ -145,7 +145,11 @@ func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.Wo
 		if err != nil {
 			return err
 		}
-		if err := gr.searchable(ctx, tx, tree); err != nil {
+		root, err := gr.searchable(ctx, tx, tree)
+		if err != nil {
+			return err
+		}
+		if err := gr.cfg.Roots.Reachable(ctx, tx, root); err != nil {
 			return err
 		}
 		open, err := gr.openCells(ctx, tx, work)
@@ -210,31 +214,27 @@ func (gr *Grabs) plan(ctx context.Context, tx *storage.Tx[file], tree works.Tree
 	return id, nil
 }
 
-// searchable is why tree can't be searched, nil when it can: no Indexer
-// exists at all, or the Work is rootless, or its root's Node is offline or
-// written off.
-func (gr *Grabs) searchable(ctx context.Context, r storage.Reader[file], tree works.Tree) error {
+// searchable is why tree can't be searched, nil when it can, and its
+// root: its Content Type can't cover it, no Indexer exists at all, or the
+// Work is rootless.
+func (gr *Grabs) searchable(ctx context.Context, r storage.Reader[file], tree works.Tree) (roots.Root, error) {
 	if len(tree.Items) > 0 {
 		terms, err := gr.cfg.Terms[tree.ContentType].SearchTerms(ctx, r, tree.Items[0].ID)
 		if err != nil {
-			return err
+			return roots.Root{}, err
 		}
 		if terms.Covers == nil {
-			return ErrNotSearchable
+			return roots.Root{}, ErrNotSearchable
 		}
 	}
 	all, err := indexers.All(ctx, r)
 	if err != nil {
-		return err
+		return roots.Root{}, err
 	}
 	if len(all) == 0 {
-		return ErrNoIndexer
+		return roots.Root{}, ErrNoIndexer
 	}
-	root, err := roots.OfWork(ctx, r, tree.ID)
-	if err != nil {
-		return err
-	}
-	return gr.cfg.Roots.Reachable(ctx, r, root)
+	return roots.OfWork(ctx, r, tree.ID)
 }
 
 // openCells is work's wanted cells that no unfinished Grab holds, in tree
