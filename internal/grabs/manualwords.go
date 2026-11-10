@@ -584,7 +584,7 @@ func (s sheet) folded() Folded {
 	counts := map[foldKey]int{}
 	var order []foldKey
 	n := 0
-	seen := map[sameRelease]bool{}
+	seen := map[listingKey]bool{}
 	for _, rs := range s.runs {
 		for g := range rs.as {
 			key, ok := rs.foldedWhy(g)
@@ -661,19 +661,19 @@ func foldedAt(a assessed, sts []stance) foldKey {
 	return key
 }
 
-// sameRelease is what makes listings in two runs one Release, as dedupe
+// listingKey is what makes listings in two runs one Release, as dedupe
 // tells copies: its info hash, or its title and size when it has none. A
 // season pack is listed in the run of each of its Items.
-type sameRelease struct {
+type listingKey struct {
 	hash bencode.InfoHash
 	titleSize
 }
 
-func sameOf(r indexers.Release) sameRelease {
+func sameOf(r indexers.Release) listingKey {
 	if r.InfoHash != nil {
-		return sameRelease{hash: *r.InfoHash}
+		return listingKey{hash: *r.InfoHash}
 	}
-	return sameRelease{titleSize: titleSize{r.Title, r.Size}}
+	return listingKey{titleSize: titleSize{r.Title, r.Size}}
 }
 
 // foldWords is n Releases folded for key in a sentence.
