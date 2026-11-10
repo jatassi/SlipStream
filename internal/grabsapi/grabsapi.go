@@ -492,7 +492,7 @@ func Routes(r *api.Router, p Pipeline) {
 		Summary: "Start a Manual search of a Work, or of some of its levels and Items or one cell. 200 answers the Work's Manual search when it already has this scope and query",
 		Status:  http.StatusAccepted,
 		Also:    []int{http.StatusOK},
-		Errors:  []*api.Code{workNotFound, reconciling, notSearchable, noIndexer, noRoot, queryNeedsOneItem, notBuilt},
+		Errors:  []*api.Code{workNotFound, reconciling, notSearchable, noIndexer, noRoot, queryNeedsOneItem},
 	}, h.startManualSearch)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "getManualSearch",
