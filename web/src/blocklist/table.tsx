@@ -41,7 +41,7 @@ const columns: readonly [Column<Row>, ...Column<Row>[]] = [
   },
   { id: "release", header: "Release", cell: (row) => <ReleaseCell {...row} /> },
   { id: "cause", header: "Cause", cell: ({ entry }) => entry.because },
-  { id: "indexer", header: "Indexer", cell: ({ entry }) => entry.indexer, hideBelow: 980 },
+  { id: "indexer", header: "Indexer", cell: ({ entry }) => entry.indexer },
   {
     id: "work",
     header: "Work",
