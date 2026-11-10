@@ -37,6 +37,7 @@ func TestTheWireEnumsNameEveryDomainValueInOrder(t *testing.T) {
 		{"TorrentRow.Tabs", enumOf[TorrentRow](t, "Tabs"), tabs},
 		{"tabCount.Tab", enumOf[tabCount](t, "Tab"), tabs},
 		{"listInput.Tab", enumOf[listInput](t, "Tab"), tabs},
+		{"refusal.Code", enumOf[refusal](t, "Code"), joined(downloadclients.RefusalCodes)},
 	} {
 		if c.got != c.want {
 			t.Errorf("%s enum = %q, want %q", c.name, c.got, c.want)

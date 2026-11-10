@@ -127,8 +127,10 @@ const refusalWords: {
       : `${torrents(names.length)} are already being removed.`,
   importing: ({ names, refusal }, { work }) =>
     `SlipStream is finishing the import of ${(refusal.workId === undefined ? undefined : work(refusal.workId)) ?? names[0]}. Try again once it's done.`,
-  not_stalled: ({ names }) =>
-    `${names.join(", ")} ${names.length === 1 ? "is" : "are"} moving again, so nothing was marked failed.`,
+  not_held: ({ names }) =>
+    `No Grab is downloading ${names.join(", ")}, so nothing was marked failed.`,
+  reconciling: () =>
+    "SlipStream is Reconciling after a restore, so nothing was marked failed. Try again once it finishes.",
   offline: ({ names }) =>
     `The Node holding ${names.join(", ")} is offline. Try again once it reconnects.`,
   client_away: ({ refusal }) =>

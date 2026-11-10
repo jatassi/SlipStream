@@ -133,13 +133,18 @@ type Changed struct {
 }
 
 type SearchChanged struct {
-	SearchID string `json:"searchId" format:"uuid"`
-	WorkID   string `json:"workId" format:"uuid"`
+	SearchID       string  `json:"searchId" format:"uuid"`
+	WorkID         string  `json:"workId" format:"uuid"`
+	ManualSearchID *string `json:"manualSearchId" format:"uuid" doc:"The Manual search the run belongs to; null for an automatic run"`
 }
 
+// BlocklistChanged is the Blocklist gaining or losing entries.
+type BlocklistChanged struct{}
+
 var (
-	ChangedEvent       = live.AdminEvent[Changed]("grabs.changed")
-	SearchChangedEvent = live.AdminEvent[SearchChanged]("grabs.search-changed")
+	ChangedEvent          = live.AdminEvent[Changed]("grabs.changed")
+	SearchChangedEvent    = live.AdminEvent[SearchChanged]("grabs.search-changed")
+	BlocklistChangedEvent = live.AdminEvent[BlocklistChanged]("grabs.blocklist-changed")
 )
 
 type Publisher[T any] interface {
@@ -153,6 +158,7 @@ var (
 	ErrNoRoot        = roots.ErrNoRoot
 	ErrNotSearchable = errors.New("the Work's Content Type can't be searched")
 	ErrNoGrab        = errors.New("no Grab has that id")
+	ErrReconciling   = errors.New("the Controller is Reconciling after a restore")
 )
 
 type RootUnreachableError = roots.UnreachableError
@@ -234,6 +240,9 @@ type Config struct {
 	Changed       Publisher[Changed]
 	SearchChanged Publisher[SearchChanged]
 	FilesChanged  Publisher[files.Changed]
+	// BlocklistChanged publishes once a Write that adds or removes
+	// Blocklist entries commits.
+	BlocklistChanged Publisher[BlocklistChanged]
 	// Reconciling is whether a restored Controller is Reconciling, read in
 	// the caller's snapshot: trackers.NotReconciling until S49 (Backups and
 	// restore).
@@ -364,6 +373,11 @@ type Grab struct {
 	// Source is how it was chosen: by a search's decision, or by an Admin
 	// in a Manual search.
 	Source Source
+	// Manual is the Manual search it came from, zero for an automatic Grab
+	// and once that search is replaced.
+	Manual ManualID
+	// By is the Admin who grabbed it, nil for an automatic Grab.
+	By *Actor
 }
 
 // Done reports whether the Grab has no step left.
@@ -433,7 +447,13 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, link: row.ReleaseLinkSealed, magnet: deref(row.ReleaseMagnet)},
 		Ticket:  indexers.Ticket{Indexer: row.IndexerID, Query: row.FetchQueryID, Tracker: row.TrackerID},
 		Node:    row.NodeID, FetchNode: row.FetchNodeID, MetadataSince: row.MetadataStartedAt.Time(), Stage: row.Stage,
-		History: rel.history[row.ID], Created: row.CreatedAt.Time(), Source: row.Source,
+		History: rel.history[row.ID], Created: row.CreatedAt.Time(), Source: row.Source, Manual: row.ManualID,
+	}
+	if row.Source == FromManual {
+		g.By = &Actor{Name: deref(row.GrabbedByName)}
+		if !row.GrabbedBy.IsZero() {
+			g.By.Account = &row.GrabbedBy
+		}
 	}
 	switch {
 	case row.SentClientID != nil:
