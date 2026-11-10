@@ -1,0 +1,281 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller, with a Challenge solver, for Manual
+  search. Films want 1080p, a Target of only the 1080p qualities, and HD,
+  1080p down to 720p, in the Standard cut alone; both Targets refuse x265,
+  take a 1080p WEB-DL of 10 to 150 MiB a minute and score the LQ group -5
+  under a minimum of 0. The movies root's first scan adds The Quiet
+  Orchard with a 720p WEB-DL, so its 1080p cell is missing and its HD cell
+  can upgrade, and the tv root's adds The Lantern Keepers with S02E01 to
+  S02E04, so E05 to E10 of season 2 are missing. Fixture Site lists most
+  Releases, at priority 10. Heron answers each search 20 seconds late, with
+  a freeleech WEB-DL, a copy of Fixture Site's 1080p WEB-DL and S02E08.
+  Tamarack is off for automatic search and lists a 1080p Bluray. Cinder, a
+  Cardigann site behind a challenge, lists FLUX's WEB-DL. The Orchard's
+  Releases hit each refusal: another film's IMDb id, a title of 1987, a
+  2160p, an x265, a size under and over, the LQ group, a repack of the
+  720p from another group, a 720p WEBRip no better than the file, and the
+  Extended cut. One is magnet only, one is unregistered at the tracker,
+  and a repack of the 1080p WEB-DL waits for the fixture-site-list cue.
+  The series' season pack covers more than one episode, a Release named
+  S02E07 is listed under S02E05, and S02E10's is unregistered, so its Grab
+  fails. A Blocklist entry needs a Grab first, so the Scenario has none.
+seed: manual-search
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    challenge_solver: true
+timings:
+  node:
+    stop_deadline: 15s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+tvdb:
+  series:
+    - id: 1001
+      name: The Lantern Keepers
+      status: continuing
+      network: Lantern One
+      imdb: tt1001001
+      tmdb: 7001
+      seasons:
+        - number: 2
+          episodes:
+            - {id: 100121, number: 1, name: The Northern Lamp, aired: 2021-01-08, runtime: 49}
+            - {id: 100122, number: 2, name: Fog Signal, aired: 2021-01-15, runtime: 47}
+            - {id: 100123, number: 3, name: Keeper's Log, aired: 2021-01-22, runtime: 53}
+            - {id: 100124, number: 4, name: Low Tide Bell, aired: 2021-01-29, runtime: 50}
+            - {id: 100125, number: 5, name: The Wick and the Wind, aired: 2021-02-05, runtime: 48}
+            - {id: 100126, number: 6, name: Shoal Water, aired: 2021-02-12, runtime: 51}
+            - {id: 100127, number: 7, name: A Lamp for the Drowned, aired: 2021-02-19, runtime: 49}
+            - {id: 100128, number: 8, name: Second Watch, aired: 2021-02-26, runtime: 50}
+            - {id: 100129, number: 9, name: The Breakwater, aired: 2021-03-05, runtime: 52}
+            - {id: 100130, number: 10, name: Last Light, aired: 2021-03-12, runtime: 58}
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 8.2GiB
+    published: 2026-11-08T09:30:00Z
+    sites: [torznab, heron]
+  - name: The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 7}
+    seeders: 30
+    seeded: true
+    advertised_size: 9.8GiB
+    published: 2026-10-02T18:00:00Z
+    sites: [tamarack]
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-CMRG
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 4
+    seeded: true
+    advertised_size: 8.1GiB
+    download_factor: 0
+    published: 2026-11-09T21:10:00Z
+    sites: [heron]
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.DDP5.1.H264-FLUX
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 9
+    seeded: true
+    advertised_size: 8.3GiB
+    sites: [cinder]
+  - name: The.Quiet.Orchard.2021.1080p.WEBRip.x264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 6
+    seeded: true
+    advertised_size: 7.9GiB
+    link: magnet
+    sites: [torznab]
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-NTb
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 3
+    advertised_size: 8.2GiB
+    unregistered: true
+    sites: [torznab]
+  - name: The.Salt.Road.2023.tt9000005.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 20
+    advertised_size: 8.0GiB
+    untagged: true
+    sites: [torznab]
+  - name: The.Quiet.Orchard.1987.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 40
+    seeded: true
+    advertised_size: 9.9GiB
+    untagged: true
+    sites: [torznab]
+  - name: The.Quiet.Orchard.2021.2160p.WEB-DL.DDP5.1.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 3840, height: 2160, seconds: 2}
+    seeders: 25
+    advertised_size: 19.6GiB
+    sites: [torznab]
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.x265-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 18
+    advertised_size: 4.6GiB
+    sites: [torznab]
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-TINY
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 7
+    seeded: true
+    advertised_size: 700MiB
+    sites: [torznab]
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-BLOAT
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 5
+    seeded: true
+    advertised_size: 30GiB
+    sites: [torznab]
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-LQ
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 50
+    seeded: true
+    advertised_size: 8.0GiB
+    sites: [torznab]
+  - name: The.Quiet.Orchard.2021.REPACK.720p.WEB-DL.H264-NTb
+    tmdb_id: 9000001
+    video: {width: 1280, height: 720, seconds: 6}
+    seeders: 8
+    seeded: true
+    advertised_size: 4.3GiB
+    sites: [torznab]
+  - name: The.Quiet.Orchard.2021.720p.WEBRip.x264-FKW
+    tmdb_id: 9000001
+    video: {width: 1280, height: 720, seconds: 6}
+    seeders: 15
+    advertised_size: 4.1GiB
+    sites: [torznab]
+  - name: The.Quiet.Orchard.2021.EXTENDED.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 8}
+    seeders: 20
+    seeded: true
+    advertised_size: 8.9GiB
+    sites: [torznab]
+  - name: The.Quiet.Orchard.2021.REPACK.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 5
+    seeded: true
+    advertised_size: 8.2GiB
+    unlisted: true
+    sites: [torznab]
+  - name: The.Lantern.Keepers.S02E05.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 1001, season: 2, episode: 5}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 9
+    seeded: true
+    advertised_size: 2.4GiB
+    sites: [torznab]
+  - name: The.Lantern.Keepers.S02E07.1080p.WEB-DL.H264-NTb
+    tvdb: {series: 1001, season: 2, episode: 5}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 14
+    advertised_size: 2.5GiB
+    sites: [torznab]
+  - name: The.Lantern.Keepers.S02E06.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 1001, season: 2, episode: 6}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 8
+    seeded: true
+    advertised_size: 2.4GiB
+    sites: [torznab, heron]
+  - name: The.Lantern.Keepers.S02E07.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 1001, season: 2, episode: 7}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 7
+    seeded: true
+    advertised_size: 2.3GiB
+    sites: [torznab]
+  - name: The.Lantern.Keepers.S02E08.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 1001, season: 2, episode: 8}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 6
+    seeded: true
+    advertised_size: 2.4GiB
+    sites: [heron]
+  - name: The.Lantern.Keepers.S02E10.1080p.WEB-DL.H264-NTb
+    tvdb: {series: 1001, season: 2, episode: 10}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 11
+    advertised_size: 2.8GiB
+    unregistered: true
+    sites: [torznab]
+  - name: The.Lantern.Keepers.S02.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 1001, season: 2}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 40
+    advertised_size: 24.0GiB
+    sites: [torznab]
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  folders:
+    - folder: movies
+      files:
+        - path: The Quiet Orchard (2021) {tmdb-9000001}/The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW.mkv
+          video: {width: 1280, height: 720, seconds: 2, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+    - folder: tv
+      files:
+        - path: The Lantern Keepers [tvdbid-1001]/Season 02/The.Lantern.Keepers.S02E01.1080p.WEB-DL.H264-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+        - path: The Lantern Keepers [tvdbid-1001]/Season 02/The.Lantern.Keepers.S02E02.1080p.WEB-DL.H264-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+        - path: The Lantern Keepers [tvdbid-1001]/Season 02/The.Lantern.Keepers.S02E03.1080p.WEB-DL.H264-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+        - path: The Lantern Keepers [tvdbid-1001]/Season 02/The.Lantern.Keepers.S02E04.1080p.WEB-DL.H264-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 1, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+  roots: [{content_type: movie, folder: movies}, {content_type: series, folder: tv}]
+  formats:
+    - {name: LQ, group: ^LQ$}
+  targets:
+    - name: 1080p
+      tiers: [[bluray-1080p, remux-1080p], [webdl-1080p, webrip-1080p, hdtv-1080p]]
+      cutoff: webdl-1080p
+      filters: [{attribute: video_codec, mode: not, values: [x265]}]
+      sizes: [{quality: webdl-1080p, min: 10, max: 150}]
+      scores: {formats: {LQ: -5}}
+    - name: HD
+      tiers: [[webdl-1080p, webrip-1080p, hdtv-1080p], [webdl-720p, webrip-720p, hdtv-720p]]
+      cutoff: webdl-1080p
+      filters: [{attribute: video_codec, mode: not, values: [x265]}]
+      sizes: [{quality: webdl-1080p, min: 10, max: 150}]
+      scores: {formats: {LQ: -5}}
+  profiles: [{name: Films, content_type: movie, targets: [1080p, HD], default: true, cuts: [standard]}]
+  indexers:
+    - {name: Fixture Site, kind: torznab, site: torznab, priority: 10}
+    - {name: Heron, kind: torznab, site: heron}
+    - {name: Tamarack, kind: torznab, site: tamarack, automatic_search: false}
+    - {name: Cinder, kind: catalog, site: cinder}
+faults:
+  - {id: heron-answers-late, target: fixture-site, route: heron.api, fault: delay=20s}

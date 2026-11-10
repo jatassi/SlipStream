@@ -55,6 +55,9 @@ type Release struct {
 	// Sites are the labels of the fixture-site sites that list the
 	// release. Empty lists it on every site.
 	Sites []string `yaml:"sites,omitempty"`
+	// Published is when the Torznab and RSS feeds say it was posted, which gives
+	// it an age. Unset gives the sites' one date, 1 June 2026.
+	Published time.Time `yaml:"published,omitempty"`
 }
 
 // ReleaseEpisode is the series a release is of, by TVDB id, and the
@@ -280,13 +283,22 @@ func checkReleases(add func(format string, args ...any), releases []Release, mov
 		if r.AdvertisedSize < 0 {
 			add("release %s advertises %d bytes", r.Name, r.AdvertisedSize)
 		}
-		r.BadPeer.check(add, r.Name)
+		r.checkPeers(add)
 		r.checkLink(add)
 		for _, site := range r.Sites {
 			if !isFixtureSite(site) {
 				add("release %s names site %q, which fixture-site doesn't serve", r.Name, site)
 			}
 		}
+	}
+}
+
+// checkPeers holds r to peers fake-tracker can serve: a bad peer it
+// knows, and no seeder for an unregistered release.
+func (r Release) checkPeers(add func(format string, args ...any)) {
+	r.BadPeer.check(add, r.Name)
+	if r.Seeded && r.Unregistered {
+		add("release %s is seeded and unregistered; fake-tracker refuses its seeder's announces", r.Name)
 	}
 }
 

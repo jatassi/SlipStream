@@ -1837,6 +1837,10 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "published": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "additionalProperties": false,
@@ -1987,6 +1991,27 @@
           },
           "type": "array"
         },
+        "formats": {
+          "items": {
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "group": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "name",
+              "group"
+            ]
+          },
+          "type": "array"
+        },
         "targets": {
           "items": {
             "properties": {
@@ -2127,6 +2152,21 @@
                   ]
                 },
                 "type": "array"
+              },
+              "scores": {
+                "properties": {
+                  "minimum": {
+                    "type": "integer"
+                  },
+                  "formats": {
+                    "additionalProperties": {
+                      "type": "integer"
+                    },
+                    "type": "object"
+                  }
+                },
+                "additionalProperties": false,
+                "type": "object"
               }
             },
             "additionalProperties": false,
@@ -2158,6 +2198,13 @@
               },
               "default": {
                 "type": "boolean"
+              },
+              "cuts": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
               }
             },
             "additionalProperties": false,
@@ -2214,6 +2261,14 @@
               },
               "allow_failover": {
                 "type": "boolean"
+              },
+              "automatic_search": {
+                "type": "boolean"
+              },
+              "priority": {
+                "type": "integer",
+                "maximum": 50,
+                "minimum": 0
               }
             },
             "additionalProperties": false,

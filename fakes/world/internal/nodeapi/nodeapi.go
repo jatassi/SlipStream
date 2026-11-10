@@ -14,7 +14,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -260,6 +262,7 @@ type NewIndexer struct {
 	Cookie        *PastedCookie     `json:"cookie,omitempty"`
 	AllowFailover bool              `json:"allowFailover,omitempty"`
 	Captcha       *CaptchaAnswer    `json:"captcha,omitempty"`
+	Priority      int               `json:"priority,omitempty"`
 }
 
 type PastedCookie struct {
@@ -282,6 +285,15 @@ func CreateIndexer(ctx context.Context, c *http.Client, baseURL, apiKey string, 
 		header: apiKeyHeader(apiKey), body: ix, want: http.StatusCreated,
 	}, &indexer)
 	return indexer.ID, err
+}
+
+// SetAutomaticSearch turns Indexer id's automatic search on or off, as
+// its row's switch does.
+func SetAutomaticSearch(ctx context.Context, c *http.Client, baseURL, apiKey, id string, on bool) error {
+	return call(ctx, c, request{
+		what: "set Indexer " + id + "'s automatic search", method: http.MethodPatch, url: baseURL + "/api/v1/indexers/" + id,
+		header: apiKeyHeader(apiKey), body: map[string]bool{"automaticSearch": on}, want: http.StatusOK,
+	}, nil)
 }
 
 // IndexerCaptcha loads the captcha of ix's sign-in and returns its attempt
@@ -391,23 +403,23 @@ func SignIn(ctx context.Context, c *http.Client, baseURL, email, pin string) (*h
 }
 
 // CreateTarget creates the Scenario Target t and returns its id.
-func CreateTarget(ctx context.Context, c *http.Client, baseURL, apiKey string, t scenario.LibraryTarget) (string, error) {
+func CreateTarget(ctx context.Context, c *http.Client, baseURL, apiKey string, t scenario.LibraryTarget, formats map[string]string) (string, error) {
 	var target struct {
 		ID string `json:"id"`
 	}
 	err := call(ctx, c, request{
 		what: "create Target " + t.Name, method: http.MethodPost, url: baseURL + "/api/v1/targets",
-		header: apiKeyHeader(apiKey), body: targetBody(t), want: http.StatusCreated,
+		header: apiKeyHeader(apiKey), body: targetBody(t, formats), want: http.StatusCreated,
 	}, &target)
 	return target.ID, err
 }
 
 // UpdateTarget replaces Target id's rules with the Scenario Target t's,
 // deleting any file they leave filling nothing.
-func UpdateTarget(ctx context.Context, c *http.Client, baseURL, apiKey, id string, t scenario.LibraryTarget) error {
+func UpdateTarget(ctx context.Context, c *http.Client, baseURL, apiKey, id string, t scenario.LibraryTarget, formats map[string]string) error {
 	err := call(ctx, c, request{
 		what: "update Target " + t.Name, method: http.MethodPut, url: baseURL + "/api/v1/targets/" + id,
-		header: apiKeyHeader(apiKey), body: targetBody(t), want: http.StatusOK,
+		header: apiKeyHeader(apiKey), body: targetBody(t, formats), want: http.StatusOK,
 	}, nil)
 	return err
 }
@@ -424,16 +436,35 @@ type targetSize struct {
 	Max     *float64            `json:"max,omitempty"`
 }
 
+type formatScore struct {
+	FormatID string `json:"formatId"`
+	Score    int    `json:"score"`
+}
+
+type targetScores struct {
+	Formats []formatScore `json:"formats,omitempty"`
+	Minimum int           `json:"minimum,omitempty"`
+}
+
 type newTarget struct {
 	Name    string                  `json:"name"`
 	Tiers   [][]scenario.QualityKey `json:"tiers"`
 	Cutoff  scenario.QualityKey     `json:"cutoff"`
 	Filters []targetFilter          `json:"filters,omitempty"`
 	Sizes   []targetSize            `json:"sizes,omitempty"`
+	Scores  *targetScores           `json:"scores,omitempty"`
 }
 
-func targetBody(t scenario.LibraryTarget) newTarget {
+// targetBody is t's body, its scores naming each Custom Format by its id
+// in formats.
+func targetBody(t scenario.LibraryTarget, formats map[string]string) newTarget {
 	body := newTarget{Name: t.Name, Tiers: t.Tiers, Cutoff: t.Cutoff}
+	if t.Scores != nil {
+		body.Scores = &targetScores{Minimum: t.Scores.Minimum}
+		for _, name := range slices.Sorted(maps.Keys(t.Scores.Formats)) {
+			body.Scores.Formats = append(body.Scores.Formats, formatScore{formats[name], t.Scores.Formats[name]})
+		}
+	}
 	for _, f := range t.Filters {
 		body.Filters = append(body.Filters, targetFilter(f))
 	}
@@ -441,6 +472,29 @@ func targetBody(t scenario.LibraryTarget) newTarget {
 		body.Sizes = append(body.Sizes, targetSize(z))
 	}
 	return body
+}
+
+// CreateFormat creates a Custom Format that matches a Release whose
+// release group matches f's pattern, and returns its id.
+func CreateFormat(ctx context.Context, c *http.Client, baseURL, apiKey string, f scenario.LibraryFormat) (string, error) {
+	type condition struct {
+		Name     string            `json:"name"`
+		Kind     string            `json:"kind"`
+		Negate   bool              `json:"negate"`
+		Required bool              `json:"required"`
+		Fields   map[string]string `json:"fields"`
+	}
+	var format struct {
+		ID string `json:"id"`
+	}
+	err := call(ctx, c, request{
+		what: "create Custom Format " + f.Name, method: http.MethodPost, url: baseURL + "/api/v1/custom-formats",
+		header: apiKeyHeader(apiKey), want: http.StatusCreated, body: struct {
+			Name       string      `json:"name"`
+			Conditions []condition `json:"conditions"`
+		}{f.Name, []condition{{Name: f.Name, Kind: "ReleaseGroupSpecification", Fields: map[string]string{"value": f.Group}}}},
+	}, &format)
+	return format.ID, err
 }
 
 // ListTargets lists the Targets' ids by name.
@@ -462,14 +516,20 @@ func ListTargets(ctx context.Context, c *http.Client, baseURL, apiKey string) (m
 }
 
 // CreateProfile creates a Profile of the Targets with ids targetIDs, in
-// Profile order, downloaded, of any cut, and returns its id.
-func CreateProfile(ctx context.Context, c *http.Client, baseURL, apiKey, name, contentType string, targetIDs []string) (string, error) {
+// Profile order, downloaded, of the cuts listed, any cut when none is,
+// and returns its id.
+func CreateProfile(ctx context.Context, c *http.Client, baseURL, apiKey, name, contentType string, targetIDs, cuts []string) (string, error) {
 	type entry struct {
 		TargetID string `json:"targetId"`
 		Sourcing string `json:"sourcing"`
 	}
 	type editions struct {
-		Kind string `json:"kind"`
+		Kind string   `json:"kind"`
+		Cuts []string `json:"cuts,omitempty"`
+	}
+	listed := editions{Kind: "any"}
+	if len(cuts) > 0 {
+		listed = editions{Kind: "cuts", Cuts: cuts}
 	}
 	entries := []entry{}
 	for _, id := range targetIDs {
@@ -485,7 +545,7 @@ func CreateProfile(ctx context.Context, c *http.Client, baseURL, apiKey, name, c
 			ContentType string   `json:"contentType"`
 			Targets     []entry  `json:"targets"`
 			Editions    editions `json:"editions"`
-		}{name, contentType, entries, editions{"any"}}, want: http.StatusCreated,
+		}{name, contentType, entries, listed}, want: http.StatusCreated,
 	}, &profile)
 	return profile.ID, err
 }
