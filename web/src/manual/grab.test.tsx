@@ -123,27 +123,26 @@ test("Other choices reads a blocked Release's since and why, and a lift as an am
     ]);
 });
 
+const editionWords =
+  "Its name gives the Extended Edition, which the Work doesn't want. It's grabbed as the Standard Edition.";
+
+const asStandard = (row: GrabsPlanRow): GrabsPlanRow =>
+  row.pick === null
+    ? row
+    : { ...row, pick: { ...row.pick, edition: { edition: "standard", words: editionWords } } };
+
 test("a pick grabbed as another Edition says so as an amber override, and Grab posts that Edition", async () => {
-  const words =
-    "Its name gives the Extended Edition, which the Work doesn't want. It's grabbed as the Standard Edition.";
   const server = manualServer({
     plan: () => ({
       ...filmPlan,
-      plan: {
-        ...filmPlan.plan,
-        rows: filmPlan.plan.rows.map((row) =>
-          row.pick === null
-            ? row
-            : { ...row, pick: { ...row.pick, edition: { edition: "standard", words } } },
-        ),
-      },
+      plan: { ...filmPlan.plan, rows: filmPlan.plan.rows.map(asStandard) },
     }),
   });
   openSheet(server);
   const sheet = sheetNamed("The Quiet Orchard (2021)");
   const row = sheet.getByRole("list", { name: "Grabs" }).getByRole("listitem").first();
   await expect.element(row.getByText("Override")).toBeVisible();
-  await expect.element(row.getByText(words)).toBeVisible();
+  await expect.element(row.getByText(editionWords)).toBeVisible();
 
   await userEvent.click(sheet.getByRole("button", { name: "Grab 1" }));
   await expect
