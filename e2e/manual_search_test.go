@@ -17,6 +17,7 @@ const (
 	orchardBluray = "The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW"
 	orchardCMRG   = "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-CMRG"
 	orchard1987   = "The.Quiet.Orchard.1987.1080p.WEB-DL.H264-FKW"
+	orchardLQ     = "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-LQ"
 	keepersE10    = "The.Lantern.Keepers.S02E10.1080p.WEB-DL.H264-NTb"
 )
 
@@ -35,6 +36,7 @@ type manualRelease struct {
 // manualPick is a plan row's pick or one of its choices.
 type manualPick struct {
 	Release manualRelease `json:"release"`
+	Cells   []string      `json:"cells"`
 	Lifts   []liftKey     `json:"lifts"`
 	Edition *string       `json:"edition"`
 }
@@ -87,13 +89,14 @@ type manualOffer struct {
 	Release manualRelease `json:"release"`
 	Grab    struct {
 		Grabbable bool      `json:"grabbable"`
+		Cells     []string  `json:"cells"`
 		Lifts     []liftKey `json:"lifts"`
 		Edition   *string   `json:"edition"`
 	} `json:"grab"`
 }
 
 func (o manualOffer) pick() manualPick {
-	return manualPick{Release: o.Release, Lifts: o.Grab.Lifts, Edition: o.Grab.Edition}
+	return manualPick{Release: o.Release, Cells: o.Grab.Cells, Lifts: o.Grab.Lifts, Edition: o.Grab.Edition}
 }
 
 type manualGrab struct {
@@ -206,7 +209,7 @@ func (w *manualWorld) grabManual(t *testing.T, work, id string, unblock bool, pi
 	t.Helper()
 	var sent []map[string]any
 	for _, p := range picks {
-		pick := map[string]any{"releaseId": p.Release.ID, "lifts": append([]liftKey{}, p.Lifts...), "unblock": unblock}
+		pick := map[string]any{"releaseId": p.Release.ID, "cells": p.Cells, "lifts": append([]liftKey{}, p.Lifts...), "unblock": unblock}
 		if p.Edition != nil {
 			pick["edition"] = *p.Edition
 		}
@@ -223,10 +226,14 @@ func (w *manualWorld) grabManual(t *testing.T, work, id string, unblock bool, pi
 		} `json:"results"`
 	}
 	decode(t, "grabFromManualSearch", w.a.Admin("home", http.MethodPost, "/api/v1/works/"+work+"/manual-search/grabs", string(body)), &out)
+	if len(out.Results) != len(picks) {
+		t.Fatalf("grabFromManualSearch answered %d picks with %d results", len(picks), len(out.Results))
+	}
 	var grabs []string
-	for i, r := range out.Results {
+	for i, p := range picks {
+		r := out.Results[i]
 		if r.GrabID == nil {
-			t.Fatalf("grabFromManualSearch refused %s: %s", picks[i].Release.Title, r.Problem)
+			t.Fatalf("grabFromManualSearch refused %s: %s", p.Release.Title, r.Problem)
 		}
 		grabs = append(grabs, *r.GrabID)
 	}
@@ -423,6 +430,28 @@ func TestGrabbingTheManualPlanImportsEachRow(t *testing.T) {
 			t.Fatalf("the Grab of row %d is %+v, want %s from Manual search %s through the API key with no overrides", i+1, g, picks[i].Release.Title, id)
 		}
 	}
+
+	id = w.open(t, w.work, "")
+	v = w.settled(t, w.work)
+	rows = nil
+	for _, r := range v.Plan.Rows {
+		if r.Pick != nil {
+			rows = append(rows, r.Pick.Release.Title+": "+r.Outcome)
+		}
+	}
+	want = []string{
+		orchardBluray + ": It gets you 1080p (standard) for The Quiet Orchard.",
+		"The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW: It gets you HD (standard) for The Quiet Orchard as an upgrade.",
+	}
+	if v.Plan.Headline != "2 Grabs get you everything." || !slices.Equal(rows, want) {
+		t.Fatalf("the Orchard's plan reads %q with rows\n%s\nwant\n%s", v.Plan.Headline, strings.Join(rows, "\n"), strings.Join(want, "\n"))
+	}
+	picks = v.picks()
+	for i, grab := range w.grabManual(t, w.work, id, false, picks...) {
+		if g := w.imported(t, grab); g.ReleaseTitle != picks[i].Release.Title {
+			t.Fatalf("the Orchard's Grab of row %d imported %s, want %s", i+1, g.ReleaseTitle, picks[i].Release.Title)
+		}
+	}
 }
 
 // TestAManualGrabPastASoftRefusalRecordsItsOverride grabs a Release
@@ -430,17 +459,36 @@ func TestGrabbingTheManualPlanImportsEachRow(t *testing.T) {
 // refusal. It imports, and its Grab says what it was grabbed past.
 func TestAManualGrabPastASoftRefusalRecordsItsOverride(t *testing.T) {
 	t.Parallel()
-	w := launchManual(t)
-	id := w.open(t, w.work, "")
-	w.settled(t, w.work)
-	misnamed := w.offer(t, w.work, orchard1987)
-	if !misnamed.Grab.Grabbable || len(misnamed.Grab.Lifts) != 1 || misnamed.Grab.Lifts[0].Code != "wrong_title" {
-		t.Fatalf("%s is grabbable %t past %+v, want grabbable past wrong_title", orchard1987, misnamed.Grab.Grabbable, misnamed.Grab.Lifts)
-	}
-	g := w.imported(t, w.grabManual(t, w.work, id, false, misnamed.pick())[0])
-	want := []string{"It was grabbed through the API key although its name gives The Quiet Orchard (1987), which isn't this Work."}
-	if !slices.Equal(g.Overrides, want) {
-		t.Fatalf("the Grab's overrides are %q, want %q", g.Overrides, want)
+	for _, c := range []struct {
+		title string
+		cells int
+		lifts []string
+		want  []string
+	}{
+		{orchard1987, 2, []string{"wrong_title"}, []string{"It was grabbed through the API key although its name gives The Quiet Orchard (1987), which isn't this Work."}},
+		{orchardLQ, 2, []string{"score_below_minimum", "score_below_minimum"}, []string{
+			"It was grabbed through the API key although score -5 is below the minimum of 0 at 1080p.",
+			"It was grabbed through the API key although score -5 is below the minimum of 0 at HD.",
+		}},
+	} {
+		t.Run(c.title, func(t *testing.T) {
+			t.Parallel()
+			w := launchManual(t)
+			id := w.open(t, w.work, "")
+			w.settled(t, w.work)
+			o := w.offer(t, w.work, c.title)
+			var codes []string
+			for _, l := range o.Grab.Lifts {
+				codes = append(codes, l.Code)
+			}
+			if !o.Grab.Grabbable || len(o.Grab.Cells) != c.cells || !slices.Equal(codes, c.lifts) {
+				t.Fatalf("%s is grabbable %t for %d cells past %q, want grabbable for %d past %q", c.title, o.Grab.Grabbable, len(o.Grab.Cells), codes, c.cells, c.lifts)
+			}
+			g := w.imported(t, w.grabManual(t, w.work, id, false, o.pick())[0])
+			if !slices.Equal(g.Overrides, c.want) {
+				t.Fatalf("the Grab's overrides are %q, want %q", g.Overrides, c.want)
+			}
+		})
 	}
 }
 
@@ -533,7 +581,7 @@ func TestAReleaseFaultBlocklistsTheReleaseAndFailsItsGrab(t *testing.T) {
 		t.Fatalf("the new Manual search shows %s blocked %v, want since when and why", keepersE10, o.Release.Blocked)
 	}
 	worldtest.Expect(t, "grabFromManualSearch without unblock", w.a.Admin("home", http.MethodPost, "/api/v1/works/"+w.series+"/manual-search/grabs",
-		`{"manualSearchId":"`+again+`","picks":[{"releaseId":"`+o.Release.ID+`","lifts":[]}]}`), worldtest.Reply{Status: 200,
+		`{"manualSearchId":"`+again+`","picks":[{"releaseId":"`+o.Release.ID+`","cells":["`+strings.Join(o.Grab.Cells, `","`)+`"],"lifts":[]}]}`), worldtest.Reply{Status: 200,
 		Body: `{"results":[{"grabId":null,"problem":{"code":"pick_changed","detail":"This Release is on the Blocklist now. Remove it from the Blocklist to grab it."}}]}` + "\n"})
 	if r := w.a.Admin("home", http.MethodPost, "/api/v1/blocklist/remove", `{"infoHashes":["`+g.InfoHash+`"]}`); r.Status != http.StatusNoContent {
 		t.Fatalf("removeFromBlocklist = %d %s, want 204", r.Status, r.Body)
