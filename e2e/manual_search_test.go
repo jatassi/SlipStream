@@ -18,6 +18,8 @@ const (
 	orchardCMRG   = "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-CMRG"
 	orchard1987   = "The.Quiet.Orchard.1987.1080p.WEB-DL.H264-FKW"
 	orchardLQ     = "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-LQ"
+	orchardTiny   = "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-TINY"
+	orchardBloat  = "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-BLOAT"
 	keepersE10    = "The.Lantern.Keepers.S02E10.1080p.WEB-DL.H264-NTb"
 )
 
@@ -460,8 +462,10 @@ func TestGrabbingTheManualPlanImportsEachRow(t *testing.T) {
 }
 
 // TestAManualGrabPastASoftRefusalRecordsItsOverride grabs a Release
-// whose name gives the film's title with another year, past that
-// refusal. It imports, and its Grab says what it was grabbed past.
+// past each soft refusal it has at every cell it fills: a name giving
+// the film's title with another year, a score under the minimum, and a
+// size under and over what each Target allows. It imports, and its Grab
+// says what it was grabbed past.
 func TestAManualGrabPastASoftRefusalRecordsItsOverride(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {
@@ -474,6 +478,14 @@ func TestAManualGrabPastASoftRefusalRecordsItsOverride(t *testing.T) {
 		{orchardLQ, 2, []string{"score_below_minimum", "score_below_minimum"}, []string{
 			"It was grabbed through the API key although score -5 is below the minimum of 0 at 1080p.",
 			"It was grabbed through the API key although score -5 is below the minimum of 0 at HD.",
+		}},
+		{orchardTiny, 2, []string{"size_below", "size_below"}, []string{
+			"It was grabbed through the API key although it's smaller than 1080p allows.",
+			"It was grabbed through the API key although it's smaller than HD allows.",
+		}},
+		{orchardBloat, 2, []string{"size_above", "size_above"}, []string{
+			"It was grabbed through the API key although it's larger than 1080p allows.",
+			"It was grabbed through the API key although it's larger than HD allows.",
 		}},
 	} {
 		t.Run(c.title, func(t *testing.T) {
