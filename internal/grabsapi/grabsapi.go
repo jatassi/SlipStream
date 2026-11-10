@@ -59,10 +59,6 @@ var (
 	queryNeedsOneItem    = api.NewCode(http.StatusUnprocessableEntity, "query_needs_one_item", "A typed query searches one Item. Open Manual search on one Item to type a query.")
 	grabBusy             = api.NewCode(http.StatusConflict, "grab_busy", "This Grab is placing its file in the library. It can't be canceled until that finishes.")
 	grabFinished         = api.NewCode(http.StatusConflict, "grab_finished", "This Grab already finished, so there's nothing to cancel")
-	// notBuilt is an operation of S32 (Manual search and grab) whose domain
-	// body a later change of that build writes. It goes with
-	// grabs.ErrNotBuilt.
-	notBuilt = api.NewCode(http.StatusNotImplemented, "not_built", "This operation isn't built yet")
 )
 
 func answer(err error) error {
@@ -87,8 +83,6 @@ func answer(err error) error {
 		return noManualSearch
 	case errors.Is(err, grabs.ErrQueryNeedsOneItem):
 		return queryNeedsOneItem
-	case errors.Is(err, grabs.ErrNotBuilt):
-		return notBuilt
 	}
 	if e, ok := errors.AsType[*grabs.RootUnreachableError](err); ok {
 		return rootUnreachable.Because(e.Why)
@@ -517,7 +511,7 @@ func Routes(r *api.Router, p Pipeline) {
 		Path:    "/works/{workId}/manual-search/grabs",
 		Summary: "Grab the picked Releases of a Work's Manual search in one go, each judged again and refused alone",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{workNotFound, manualSearchReplaced, reconciling, notBuilt},
+		Errors:  []*api.Code{workNotFound, manualSearchReplaced, reconciling},
 	}, h.grabFromManualSearch)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listBlocklist",
