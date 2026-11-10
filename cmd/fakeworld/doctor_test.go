@@ -60,7 +60,7 @@ func TestDoctorPassesThenFailsOnAnEditedWorktree(t *testing.T) {
 	binary := stampedBuild(t, repo)
 
 	runDir := worldtest.RunDir(t)
-	if got := fakeworld(t, "start", "--binary", binary, "--scenario", "home", "--run-dir", runDir); got.code != 0 {
+	if got := fakeworld(t, "start", "--binary", binary, "--scenario", "home", "--run-dir", runDir, "--timeout", launchTimeout); got.code != 0 {
 		t.Fatalf("start = %+v", got)
 	}
 	t.Cleanup(func() { fakeworld(t, "stop", runDir) })

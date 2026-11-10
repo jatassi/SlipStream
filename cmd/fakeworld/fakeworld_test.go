@@ -36,9 +36,15 @@ func fakeworld(t *testing.T, args ...string) result {
 	return result{cmd.ProcessState.ExitCode(), stdout.String(), stderr.String()}
 }
 
+// launchTimeout bounds these tests' launches, which each copy two
+// executables and run them fresh while other test packages load the
+// machine. On a Windows runner that alone took over a minute, and the 2 min
+// default is a budget for a person's launch, which these tests don't check.
+const launchTimeout = "10m"
+
 func start(t *testing.T, runDir string, flags ...string) result {
 	t.Helper()
-	args := append([]string{"start", "--binary", testbin.Slipstream(t), "--scenario", "single-machine", "--run-dir", runDir}, flags...)
+	args := append([]string{"start", "--binary", testbin.Slipstream(t), "--scenario", "single-machine", "--run-dir", runDir, "--timeout", launchTimeout}, flags...)
 	return fakeworld(t, args...)
 }
 
