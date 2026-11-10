@@ -433,14 +433,20 @@ func storageOutcome(ctx context.Context, err error, until <-chan struct{}) outco
 
 // facts is what g's file is, read in r: its release title read by
 // Content Type typ, among the cuts a title of typ can name, and that
-// reading's facts at the resolution its media record measured.
+// reading's facts at the resolution its media record measured. A Grab an
+// Admin grabbed as another Edition has that Edition's cut, so its file is
+// stored under it and every later refill keeps the fill.
 func (gr *Grabs) facts(ctx context.Context, r storage.Reader[file], g Grab, typ works.TypeID, m media.Record) (release.Read, release.Facts, error) {
 	known, err := gr.cfg.Targets.CutsIn(ctx, r)
 	if err != nil {
 		return release.Read{}, release.Facts{}, err
 	}
 	read := release.Title(g.Release.Title, gr.cfg.Names[typ], known.For(typ))
-	return read, read.Facts.WithProbe(release.Probed{Resolution: release.Known(m.Resolution())}), nil
+	facts := read.Facts.WithProbe(release.Probed{Resolution: release.Known(m.Resolution())})
+	if g.Overrides.Edition != "" {
+		facts.Cut = release.CutKey(g.Edition)
+	}
+	return read, facts, nil
 }
 
 // errLeft rolls back a commit whose Grab has left the stage it moves

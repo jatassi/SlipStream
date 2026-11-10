@@ -6,7 +6,6 @@ import (
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients"
-	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/magnet"
@@ -34,18 +33,7 @@ func (e *GrabBusyError) Error() string { return "the Grab is " + string(e.Stage)
 func (gr *Grabs) Cancel(ctx context.Context, by identity.Admin, id GrabID, blocklist bool) error {
 	var c canceledGrab
 	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		row, err := db.New(tx).GetGrab(ctx, id)
-		if errors.Is(err, storage.ErrNoRows) {
-			return ErrNoGrab
-		}
-		if err != nil {
-			return err
-		}
-		rel, err := readRelated(ctx, tx, []db.GrabsGrab{row})
-		if err != nil {
-			return err
-		}
-		g, err := load(ctx, tx, row, rel)
+		g, err := grabIn(ctx, tx, id)
 		if err != nil {
 			return err
 		}
