@@ -1,9 +1,11 @@
 import { useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 
 import { clock } from "../format";
 import { openManualSearch } from "../manual/sheet-state";
 import { Data } from "../ui/data";
 import { FailureCard } from "../ui/failure-card";
+import { type GrabView, GrabDialogs } from "./grab-details";
 import { useStartSearch } from "./search";
 import { type FailedGrab, failureWords, skippedStages, trackStage } from "./stages";
 
@@ -17,6 +19,24 @@ function failedAt(grab: FailedGrab): string {
   return clock(entered.at);
 }
 
+function useCardActions(grab: FailedGrab, form: "full" | "compact", onDetails: () => void) {
+  const navigate = useNavigate();
+  const manual = {
+    label: "Manual search",
+    onClick: () => {
+      openManualSearch({ workId: grab.workId, scope: { itemIds: [grab.itemId] } });
+    },
+  };
+  const details = { label: "Details", onClick: onDetails };
+  const openWork = {
+    label: "Open Work",
+    onClick: () => {
+      void navigate({ to: "/works/$workId", params: { workId: grab.workId } });
+    },
+  };
+  return form === "full" ? [manual, details, openWork] : [manual, details];
+}
+
 export function GrabFailure({
   grab,
   work,
@@ -26,21 +46,12 @@ export function GrabFailure({
   work: string;
   form: "full" | "compact";
 }) {
-  const navigate = useNavigate();
   const search = useStartSearch();
+  const [view, setView] = useState<GrabView>();
   const { cause, recovery } = failureWords[grab.failure.code];
-  const manual = {
-    label: "Manual search",
-    onClick: () => {
-      openManualSearch({ workId: grab.workId, scope: { itemIds: [grab.itemId] } });
-    },
-  };
-  const openWork = {
-    label: "Open Work",
-    onClick: () => {
-      void navigate({ to: "/works/$workId", params: { workId: grab.workId } });
-    },
-  };
+  const actions = useCardActions(grab, form, () => {
+    setView("details");
+  });
   return (
     <div id={failureAnchor(grab)} className="scroll-mt-20">
       <FailureCard
@@ -61,8 +72,9 @@ export function GrabFailure({
             search.start(grab.workId, { levelIds: [], itemIds: [grab.itemId] });
           },
         }}
-        actions={form === "full" ? [manual, openWork] : [manual]}
+        actions={actions}
       />
+      <GrabDialogs grab={grab} work={work} view={view} onView={setView} />
     </div>
   );
 }
