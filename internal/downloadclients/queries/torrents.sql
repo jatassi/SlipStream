@@ -70,7 +70,7 @@ INSERT INTO downloadclients_torrent (
 );
 
 -- name: ListAttached :many
-SELECT t.id, t.info_hash, t.size, t.removed_reason, t.report, t.completion, t.fault, t.fault_at,
+SELECT t.id, t.info_hash, t.size, t.removed_reason, t.removed_by_name, t.report, t.completion, t.fault, t.fault_at,
        t.client_id, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.id IN (sqlc.slice(ids))
@@ -166,6 +166,9 @@ WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 UPDATE downloadclients_torrent SET
     removed_at = sqlc.arg(removed_at), removed_reason = sqlc.arg(removed_reason), delete_files = sqlc.arg(delete_files)
 WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+
+-- name: SetRemovedBy :exec
+UPDATE downloadclients_torrent SET removed_by_name = sqlc.arg(name) WHERE id IN (sqlc.slice(ids));
 
 -- name: RemoveParted :exec
 -- A removal its client takes no part in parts at once and frees nothing.

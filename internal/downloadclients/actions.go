@@ -2,6 +2,7 @@ package downloadclients
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"maps"
@@ -330,8 +331,17 @@ func (c *Clients) remove(ctx context.Context, a Action) ([]Result, *Preview, err
 	err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		var err error
 		results, touched, err = c.RemoveIn(ctx, tx, a.IDs, reason, deleteFiles)
-		if err != nil || a.Kind != MarkFailed || len(touched.ids) == 0 {
+		if err != nil || len(touched.ids) == 0 {
 			return err
+		}
+		if account, ok := a.By.Account(); ok {
+			name := account.Profile().DisplayName
+			if err := db.New(tx).SetRemovedBy(ctx, db.SetRemovedByParams{Name: sql.NullString{String: name, Valid: true}, Ids: touched.ids}); err != nil {
+				return err
+			}
+		}
+		if a.Kind != MarkFailed {
+			return nil
 		}
 		return c.cfg.Blocklist.MarkedFailed(ctx, tx, touched.ids, a.By)
 	})

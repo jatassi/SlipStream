@@ -11,6 +11,7 @@ export type GrabsFailureCode =
   | "infohash_mismatch"
   | "torrent_v2_only"
   | "download_failed"
+  | "marked_failed"
   | "removed"
   | "no_video_file"
   | "probe_failed"

@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -491,7 +492,7 @@ func (q *Queries) ListActed(ctx context.Context, ids []TorrentID) ([]ListActedRo
 }
 
 const listAttached = `-- name: ListAttached :many
-SELECT t.id, t.info_hash, t.size, t.removed_reason, t.report, t.completion, t.fault, t.fault_at,
+SELECT t.id, t.info_hash, t.size, t.removed_reason, t.removed_by_name, t.report, t.completion, t.fault, t.fault_at,
        t.client_id, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.id IN (/*SLICE:ids*/?)
@@ -503,6 +504,7 @@ type ListAttachedRow struct {
 	InfoHash      []byte
 	Size          int64
 	RemovedReason *string
+	RemovedByName sql.NullString
 	Report        *string
 	Completion    *string
 	Fault         *string
@@ -536,6 +538,7 @@ func (q *Queries) ListAttached(ctx context.Context, ids []TorrentID) ([]ListAtta
 			&i.InfoHash,
 			&i.Size,
 			&i.RemovedReason,
+			&i.RemovedByName,
 			&i.Report,
 			&i.Completion,
 			&i.Fault,
@@ -1549,6 +1552,31 @@ func (q *Queries) SetParted(ctx context.Context, arg SetPartedParams) (int64, er
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const setRemovedBy = `-- name: SetRemovedBy :exec
+UPDATE downloadclients_torrent SET removed_by_name = ?1 WHERE id IN (/*SLICE:ids*/?)
+`
+
+type SetRemovedByParams struct {
+	Name sql.NullString
+	Ids  []TorrentID
+}
+
+func (q *Queries) SetRemovedBy(ctx context.Context, arg SetRemovedByParams) error {
+	query := setRemovedBy
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Name)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
 }
 
 const setReport = `-- name: SetReport :execrows
