@@ -83,7 +83,6 @@ type DownloadclientsTorrent struct {
 	AddedAt           storage.Time
 	RemovedAt         storage.Time
 	RemovedReason     *string
-	RemovedByName     sql.NullString
 	DeleteFiles       int64
 	PartedAt          storage.Time
 	Freed             *int64
@@ -104,6 +103,7 @@ type DownloadclientsTorrent struct {
 	Fault             *string
 	FaultAt           storage.Time
 	Retry             *string
+	RemovedByName     sql.NullString
 }
 
 type DownloadclientsVolume struct {

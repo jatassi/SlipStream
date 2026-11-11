@@ -1,9 +1,8 @@
 -- +goose Up
 -- S32 (Manual search and grab) removes a Torrent with reason release_fault
 -- when its Release is blocklisted for a release fault, and with reason
--- canceled when an Admin cancels its downloading Grab, and names the Admin
--- who removed or marked it failed. downloadclients_torrent is rebuilt as
--- 00006 did, keeping its ids and every column.
+-- canceled when an Admin cancels its downloading Grab. downloadclients_torrent
+-- is rebuilt as 00006 did, keeping its ids and every column.
 CREATE TABLE downloadclients_torrent_next (
     id BLOB PRIMARY KEY NOT NULL,
     node_id BLOB NOT NULL REFERENCES nodes_node (id),
@@ -26,9 +25,6 @@ CREATE TABLE downloadclients_torrent_next (
     added_at INTEGER NOT NULL,
     removed_at INTEGER,
     removed_reason TEXT CHECK (removed_reason IN ('admin', 'mark_failed', 'node_written_off', 'client', 'client_deleted', 'goal_met', 'release_fault', 'canceled')),
-    -- removed_by_name is the name of the Admin who removed or marked it
-    -- failed, NULL for the API key and every other reason.
-    removed_by_name TEXT CHECK (removed_by_name <> ''),
     delete_files INTEGER NOT NULL DEFAULT 0 CHECK (delete_files IN (0, 1)),
     parted_at INTEGER,
     freed INTEGER CHECK (freed >= 0),
