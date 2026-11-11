@@ -1,7 +1,7 @@
 import { InformationCircleIcon } from "@hugeicons/core-free-icons";
 import { useState } from "react";
 
-import type { FilesCell } from "../../api/gen/model";
+import type { FilesCell, FilesLibraryFile } from "../../api/gen/model";
 import { openManualSearch } from "../../manual/sheet-state";
 import { Button } from "../../ui/button";
 import { Data } from "../../ui/data";
@@ -36,14 +36,16 @@ function Facts({ path, others }: { path: string; others: readonly string[] }) {
 export function CellDetails({
   view,
   cell,
+  file,
   shown,
 }: {
   view: CellView;
-  cell: FilesCell & { file: { id: string; path: string } };
+  cell: FilesCell;
+  file: FilesLibraryFile;
   shown: MatrixShown;
 }) {
   const [open, setOpen] = useState(false);
-  const others = (shown.files.find(({ id }) => id === cell.file.id)?.fills ?? [])
+  const others = (shown.files.find(({ id }) => id === file.id)?.fills ?? [])
     .filter((fill) => fill.targetId !== cell.targetId || fill.edition !== cell.edition)
     .map((fill) => `${shown.targetName(fill.targetId)}, ${shown.cutName(fill.edition)}`);
   return (
@@ -53,7 +55,7 @@ export function CellDetails({
       onOpenChange={setOpen}
       trigger={<IconButton icon={InformationCircleIcon} label={`Details of ${view.target.name}`} />}
     >
-      <Facts path={cell.file.path} others={others} />
+      <Facts path={file.path} others={others} />
       <Button
         size="small"
         className="mt-3"

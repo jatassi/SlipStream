@@ -4,7 +4,6 @@ import type { FilesCell } from "../../api/gen/model";
 import { Sheet, SheetCancel, SheetGroup, SheetItem, SheetToggle } from "../../ui/sheet";
 import { StateSquare, stateWords } from "../../ui/state-square";
 import { CellFacts } from "../page/cell-facts";
-import { grabOf } from "../page/cell";
 import type { MatrixShown } from "../page/matrix-model";
 import { cellLabel } from "./cell-detail";
 import type { RowActions } from "./item-row";
@@ -50,7 +49,7 @@ function Cells({
             <span className="text-ink-1">
               {cell === undefined ? label : `${label}, ${stateWords[cell.state]}`}
             </span>
-            {cell !== undefined && <CellFacts cell={cell} grab={grabOf(shown.grabs, cell)} />}
+            {cell !== undefined && <CellFacts cell={cell} grabs={shown.grabs} />}
           </span>
         </li>
       ))}

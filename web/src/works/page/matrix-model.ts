@@ -1,5 +1,6 @@
 import type {
   FilesCell,
+  FilesLibraryFile,
   FilesListedFile,
   GrabsGrab,
   TargetsCut,
@@ -9,6 +10,10 @@ import type {
 } from "../../api/gen/model";
 import type { ManualScope } from "../../manual/sheet-state";
 import type { ImpactChange } from "../../targets/use-impact-save";
+
+/** The file filling the cell, or the one its Grab would replace; null for none. */
+export const fileOf = (cell: FilesCell): FilesLibraryFile | null =>
+  "file" in cell ? cell.file : null;
 
 /** What the matrix's cells read besides their own state, and how it saves. */
 export type MatrixShown = {

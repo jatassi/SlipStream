@@ -15,7 +15,7 @@ import type {
 } from "../../api/gen/model";
 import type { SwitchChecked } from "../../ui/switch";
 import { codeOf } from "../fields-by-tier";
-import { anyCut, cutNameOf } from "../page/matrix-model";
+import { anyCut, cutNameOf, fileOf } from "../page/matrix-model";
 import { type Entry, foldsOf } from "./fold";
 
 export type LevelTarget = { readonly id: string; readonly name: string };
@@ -100,7 +100,6 @@ export function levelContext({
   };
 }
 
-const hasFile = (cell: FilesCell) => cell.state === "met" || cell.state === "upgradable";
 const settled = (state: FilesState) => state === "met" || state === "unreleased";
 
 function monitorOf(items: readonly WorksItem[]): SwitchChecked {
@@ -206,7 +205,7 @@ function sectionView(
   const cellsOf = (item: WorksItem) => read.cells.get(item.id) ?? [];
   const live = items.filter(({ withdrawnAt }) => withdrawnAt === null);
   const gone = items.filter(
-    (item) => item.withdrawnAt !== null && cellsOf(item).some((cell) => hasFile(cell)),
+    (item) => item.withdrawnAt !== null && cellsOf(item).some((cell) => fileOf(cell) !== null),
   );
   const shown = [...live, ...gone];
   if (shown.length === 0) {

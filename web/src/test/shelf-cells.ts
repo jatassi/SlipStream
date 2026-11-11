@@ -16,7 +16,7 @@ function cellOf(item: WorksItem, state: FilesState, edition: string): FilesCell 
     edition,
     targetId: starter.id,
     targetName: starter.name,
-    wanted: counted(item) && (state === "missing" || state === "failed"),
+    wanted: counted(item) && (state === "missing" || state === "failed" || state === "upgradable"),
   };
   if (state === "met" || state === "upgradable") {
     return {
@@ -30,6 +30,9 @@ function cellOf(item: WorksItem, state: FilesState, edition: string): FilesCell 
         probe: { width: 1920, height: 1080 },
       },
     };
+  }
+  if (state === "downloading" || state === "failed") {
+    return { ...base, state, grabId: item.id.replace(/^.{8}/u, "96ab0000"), file: null };
   }
   return { ...base, state };
 }

@@ -272,11 +272,12 @@ func (w world) byID() map[ID]*File {
 }
 
 // cells crosses each Item with each Edition it wants, in list order, and
-// the Profile's Targets in order. A filled cell is met at or past the
-// Target's cutoff, else upgradable. An empty one is downloading or failed
-// from its latest Grab, unreleased until the Item is out, else missing; a
-// file in a lost root leaves its cell empty. A cut not seen for the Item
-// makes no cell, so it never counts.
+// the Profile's Targets in order. A cell filled with a final file is met.
+// Else a Grab in flight makes it downloading and a failed one failed,
+// keeping the file it would replace. Else a filled cell is upgradable, an
+// empty one unreleased until the Item is out, else missing. A file in a
+// lost root leaves its cell empty. A cut not seen for the Item makes no
+// cell, so it never counts.
 func cells(w world) []Cell { return appendCells(nil, w) }
 
 func appendCells(out []Cell, w world) []Cell {
@@ -291,15 +292,16 @@ func appendCells(out []Cell, w world) []Cell {
 				if fill, ok := w.fills[key]; ok && !w.lost[files[fill.File].RootID] {
 					c.File, c.Score = files[fill.File], fill.Score
 				}
+				g := w.grabs[key]
 				switch {
 				case c.File != nil && final(t, *c.File, c.Score):
 					c.State = Met
+				case g.InFlight():
+					c.State, c.Grab = Downloading, g.Grab
+				case g.State == GrabFailed:
+					c.State, c.Grab = Failed, g.Grab
 				case c.File != nil:
 					c.State = Upgradable
-				case w.grabs[key].InFlight():
-					c.State = Downloading
-				case w.grabs[key].State == GrabFailed:
-					c.State = Failed
 				case !released:
 					c.State = Unreleased
 				}

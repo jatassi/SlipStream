@@ -238,8 +238,11 @@ type CellKey struct {
 // Cell is one Edition at one Target of one Item, in the State computed on
 // read. File is set when a file fills the cell and Score is its score at
 // the Target: Met once the file's quality is at or past the Target's
-// cutoff and Score at or above its upgrade-until, Upgradable otherwise.
-// Timing is the Item's, and Released whether it is out today.
+// cutoff and Score at or above its upgrade-until. Short of that, a
+// Downloading or Failed cell keeps the file its Grab would replace, and
+// is Upgradable with no such Grab. Grab is the Grab a Downloading or
+// Failed cell reads from. Timing is the Item's, and Released whether it
+// is out today.
 type Cell struct {
 	Item     works.Item
 	Edition  targets.Edition
@@ -247,6 +250,7 @@ type Cell struct {
 	State    State
 	File     *File
 	Score    int
+	Grab     storage.UUID
 	Timing   targets.Timing
 	Released bool
 }
@@ -258,7 +262,8 @@ type Fill struct {
 }
 
 // Wanted is whether a search should try to fill the cell: a missing,
-// failed or upgradable cell of a counted, released Item.
+// failed or upgradable cell of a counted, released Item. A cell a Grab is
+// in flight for reads Downloading, so it is never wanted.
 func (c Cell) Wanted() bool {
 	return c.Item.Counts() && c.Released && (c.State == Missing || c.State == Failed || c.State == Upgradable)
 }

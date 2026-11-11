@@ -211,7 +211,7 @@ func namesOf(cs []files.Cell) []string {
 func (s sheet) gets(cs []files.Cell) string {
 	var fresh, better []files.Cell
 	for _, c := range cs {
-		if c.State == files.Upgradable {
+		if c.File != nil {
 			better = append(better, c)
 		} else {
 			fresh = append(fresh, c)
@@ -575,7 +575,7 @@ func (rs runSheet) verdictAt(g, k int) string {
 	name := cellName(c)
 	switch {
 	case st.kind == standsAuto || st.kind == standsBlocked && len(st.lifts) == 0 && st.edition == "":
-		if c.State == files.Upgradable {
+		if c.File != nil {
 			return "It would fill " + name + " as an upgrade."
 		}
 		return "It would fill " + name + "."

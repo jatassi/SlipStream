@@ -7,6 +7,6 @@ export interface FilesMissingCell {
   state: FilesMissingCellState;
   targetId: string;
   targetName: string;
-  /** Missing or failed, and its Item monitored and released */
+  /** Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released */
   wanted: boolean;
 }

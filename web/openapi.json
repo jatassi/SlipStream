@@ -2914,11 +2914,28 @@
             "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
           },
+          "file": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesLibraryFile"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The file the Grab would replace; null when it fills no file"
+          },
+          "grabId": {
+            "description": "The latest Grab in flight for it",
+            "format": "uuid",
+            "type": "string"
+          },
           "itemId": {
             "format": "uuid",
             "type": "string"
           },
           "state": {
+            "description": "A Grab is in flight for it, fetching included",
             "enum": [
               "downloading"
             ],
@@ -2932,12 +2949,14 @@
             "type": "string"
           },
           "wanted": {
-            "description": "Missing or failed, and its Item monitored and released",
+            "description": "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
             "type": "boolean"
           }
         },
         "required": [
           "state",
+          "grabId",
+          "file",
           "itemId",
           "edition",
           "targetId",
@@ -2951,6 +2970,22 @@
         "properties": {
           "edition": {
             "description": "any under any cut, else the key of the cut the cell wants",
+            "type": "string"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesLibraryFile"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The file the Grab would have replaced; null when it fills no file"
+          },
+          "grabId": {
+            "description": "The Grab that failed",
+            "format": "uuid",
             "type": "string"
           },
           "itemId": {
@@ -2971,12 +3006,14 @@
             "type": "string"
           },
           "wanted": {
-            "description": "Missing or failed, and its Item monitored and released",
+            "description": "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
             "type": "boolean"
           }
         },
         "required": [
           "state",
+          "grabId",
+          "file",
           "itemId",
           "edition",
           "targetId",
@@ -3367,7 +3404,7 @@
             "type": "string"
           },
           "wanted": {
-            "description": "Missing or failed, and its Item monitored and released",
+            "description": "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
             "type": "boolean"
           }
         },
@@ -3407,7 +3444,7 @@
             "type": "string"
           },
           "wanted": {
-            "description": "Missing or failed, and its Item monitored and released",
+            "description": "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
             "type": "boolean"
           }
         },
@@ -3816,7 +3853,7 @@
             "type": "string"
           },
           "wanted": {
-            "description": "Missing or failed, and its Item monitored and released",
+            "description": "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
             "type": "boolean"
           }
         },
@@ -3839,7 +3876,7 @@
           },
           "file": {
             "$ref": "#/components/schemas/FilesLibraryFile",
-            "description": "The file filling it, below its Target's cutoff"
+            "description": "The file filling it, short of its Target's cutoff or upgrade-until score"
           },
           "itemId": {
             "format": "uuid",
@@ -3859,7 +3896,7 @@
             "type": "string"
           },
           "wanted": {
-            "description": "Missing or failed, and its Item monitored and released",
+            "description": "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
             "type": "boolean"
           }
         },

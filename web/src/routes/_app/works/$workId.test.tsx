@@ -2,15 +2,14 @@ import { HttpResponse, http } from "msw";
 import { expect, onTestFinished, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { GrabsGrab } from "../../../api/gen/model";
 import { getListTorrentsMockHandler } from "../../../api/gen/query/downloadclients/downloadclients.msw";
 import { getListGrabsMockHandler } from "../../../api/gen/query/grabs/grabs.msw";
 import { anthologyId, longShelf, longShelfCells } from "../../../test/anthology";
-import { downloading, imported } from "../../../test/grabs";
+import { downloading, failedImport, imported } from "../../../test/grabs";
 import { problem } from "../../../test/handlers";
 import { orchardId } from "../../../test/library";
-// oxlint-disable-next-line import/max-dependencies -- the Work page's Grabs read the Torrents and the live stream too
 import { liveServer } from "../../../test/live-server";
+// oxlint-disable-next-line import/max-dependencies -- the Work page's Grabs read the Torrents and the live stream too
 import { renderApp } from "../../../test/render-app";
 import { listOf, torrent } from "../../../test/torrents";
 import { failedCells, filled, filledTwice, upgradable } from "../../../test/work-cells";
@@ -192,18 +191,6 @@ test("a refused Search says the server's reason in a toast", async () => {
     .toHaveTextContent("FailedAdd an Indexer before searching");
   await expect.element(searchButton()).not.toHaveAttribute("aria-busy");
 });
-
-const failedImport: GrabsGrab = {
-  ...imported,
-  stage: "failed",
-  history: [...imported.history.slice(0, -1), { stage: "failed", at: "2026-10-12T09:03:02Z" }],
-  failure: {
-    stage: "importing",
-    code: "import_failed",
-    message: "place movies/The Quiet Orchard (2021): permission denied",
-    needsYou: true,
-  },
-};
 
 test("a failed Grab shows under Needs you with the cells it holds back and a way to search again", async () => {
   const server = workServer();

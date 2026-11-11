@@ -148,6 +148,40 @@ func TestRollupCountsMonitoredLiveItems(t *testing.T) {
 	}
 }
 
+func TestAnUpgradeGrabMakesItsFilledCellDownloadingOrFailed(t *testing.T) {
+	l := open(t)
+	hd := l.target(t, "HD", []release.Quality{release.WEBDL1080p}, []release.Quality{release.WEBRip1080p})
+	profile := l.profile(t, "Standard", hd)
+	tree := l.work(t, "w1", true, &profile)
+	scarf, mittens := tree.Items[0].ID, tree.Items[1].ID
+	l.place(t, scarf, tree.ID, "Shelf w1/Scarf - HD.mkv", release.WEBRip1080p, hd.ID)
+	l.place(t, mittens, tree.ID, "Shelf w1/Mittens - HD.mkv", release.WEBRip1080p, hd.ID)
+	upgrading, failedUpgrade := storage.NewUUID(), storage.NewUUID()
+	svc := l.files(grabbing{
+		{Item: scarf, Edition: targets.AnyEdition, Target: hd.ID}:   {State: files.GrabInFlight, Grab: upgrading, Waiting: "node_away"},
+		{Item: mittens, Edition: targets.AnyEdition, Target: hd.ID}: {State: files.GrabFailed, Grab: failedUpgrade},
+	})
+	_, cells, rollup, err := svc.WorkCells(t.Context(), admin, tree.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "Scarf any HD downloading wanted=false Shelf w1/Scarf - HD.mkv webrip-1080p 1920x1080\n" +
+		"Mittens any HD failed wanted=true Shelf w1/Mittens - HD.mkv webrip-1080p 1920x1080\n"
+	if got := lines(cells); got != want {
+		t.Fatalf("cells =\n%swant each upgrade Grab's state, the file it replaces kept\n%s", got, want)
+	}
+	if cells[0].Grab != upgrading || cells[1].Grab != failedUpgrade {
+		t.Fatalf("the cells read Grabs %s and %s, want %s and %s", cells[0].Grab, cells[1].Grab, upgrading, failedUpgrade)
+	}
+	grabs := map[storage.UUID]string{upgrading: "scarf", failedUpgrade: "mittens"}
+	want = "status=downloading items=2 cells={downloading:1 failed:1} byItem={downloading:1 failed:1} failed=1 available=2000-01-01\n" +
+		"failed any Mittens grab=mittens\n" +
+		"waiting any Scarf grab=scarf\n"
+	if got := summary(tree, rollup, grabs); got != want {
+		t.Fatalf("the rollup is\n%swant the failed upgrade counted as a failure, and no upgrade need\n%s", got, want)
+	}
+}
+
 func TestWithdrawnItemsAreNotWanted(t *testing.T) {
 	l := open(t)
 	tree := l.stocked(t, "w1", true, box("b1", false, "Scarf", "Mittens"))
