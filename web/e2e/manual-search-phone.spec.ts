@@ -7,12 +7,12 @@ import {
   grabRows,
   lanternKeepers,
   openBlocklist,
-  openFromHero,
   orchard,
   searched,
   sheet,
   workId,
 } from "./manual-search.ts";
+import { openFromHero } from "./manual-search-entries.ts";
 import { episodeRow, openLevel, reveal } from "./series.ts";
 import { clickWhenStill } from "./still.ts";
 

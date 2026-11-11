@@ -5,12 +5,18 @@ import {
   frame,
   itemId,
   lanternKeepers,
-  openFromHero,
   orchard,
   searched,
   sheet,
   workId,
 } from "./manual-search.ts";
+import {
+  menuAction,
+  needsYouAction,
+  openFromCell,
+  openFromEpisode,
+  openFromHero,
+} from "./manual-search-entries.ts";
 import { openLevel, reveal, seasons } from "./series.ts";
 
 test.use({ scenario: "manual-search" });
@@ -62,7 +68,7 @@ test("Manual search opens from a cell, a season, an episode and a Needs you card
 }, testInfo) => {
   const movie = await workId(world, orchard);
   await page.goto(`/works/${movie}`);
-  await page.getByRole("button", { name: /^Manual search for 1080p, /u }).click();
+  await openFromCell(page, "1080p");
   await expect(sheet(page)).toContainText("It gets you 1080p (standard) for The Quiet Orchard.");
   await expect(sheet(page)).not.toContainText("as an upgrade");
   await closeSheet(page);
@@ -72,8 +78,7 @@ test("Manual search opens from a cell, a season, an episode and a Needs you card
   await failedGrab(world, series, e10);
 
   await page.goto(`/works/${series}`);
-  const needsYou = page.getByRole("region", { name: "Needs you" });
-  await needsYou.getByRole("button", { name: "Manual search" }).click();
+  await needsYouAction(page, "Manual search");
   await expect(sheet(page, "S02E10 of The Lantern Keepers")).toContainText(
     "It gets you 1080p for E10.",
   );
@@ -83,7 +88,7 @@ test("Manual search opens from a cell, a season, an episode and a Needs you card
 
   await reveal(page, seasons(page));
   await page.getByRole("button", { name: "More actions for Season 2" }).click();
-  await page.getByRole("menuitem", { name: "Manual search" }).click();
+  await menuAction(page, "Actions for Season 2", "Manual search");
   const season = sheet(page, lanternKeepers);
   await searched(season);
   await expect(season).toContainText("It gets you 1080p for E05.");
@@ -94,8 +99,7 @@ test("Manual search opens from a cell, a season, an episode and a Needs you card
   await closeSheet(page);
 
   await openLevel(page, "Season 2");
-  await (await reveal(page, page.getByRole("button", { name: "More actions for S02E06" }))).click();
-  await page.getByRole("menuitem", { name: "Manual search" }).click();
+  await openFromEpisode(page, "S02E06");
   const episode = sheet(page, "S02E06 of The Lantern Keepers");
   await expect(episode.getByRole("searchbox", { name: "Query" })).toBeVisible();
   await expect(episode).toContainText("It gets you 1080p for E06.");

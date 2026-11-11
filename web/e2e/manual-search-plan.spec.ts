@@ -1,16 +1,8 @@
 import type { Locator, Page } from "@playwright/test";
 
 import { expect, expectAccessible, test } from "./fixtures.ts";
-import {
-  frame,
-  grabRows,
-  openFromHero,
-  orchard,
-  searched,
-  sheet,
-  useChoice,
-  workId,
-} from "./manual-search.ts";
+import { frame, grabRows, orchard, searched, sheet, useChoice, workId } from "./manual-search.ts";
+import { openFromHero } from "./manual-search-entries.ts";
 
 test.use({ scenario: "manual-search" });
 test.describe.configure({ timeout: 180_000 });

@@ -2,7 +2,7 @@ import type { Locator, Page, TestInfo } from "@playwright/test";
 import { z } from "zod";
 
 import { type World, expect } from "./fixtures.ts";
-import { workAction } from "./cells.ts";
+import { menuAction } from "./manual-search-entries.ts";
 import { isPhone, navigate } from "./shell.ts";
 
 export const orchard = "The Quiet Orchard";
@@ -184,19 +184,6 @@ export async function useChoice(row: Locator, words: string): Promise<void> {
     .click();
 }
 
-/** The hero's Manual search, from the phone's action sheet or beside Search. */
-export async function openFromHero(page: Page, title: string): Promise<void> {
-  if (isPhone(page)) {
-    await workAction(page, "Manual search", title);
-    return;
-  }
-  await page
-    .getByRole("main")
-    .locator("header")
-    .getByRole("button", { name: "Manual search", exact: true })
-    .click();
-}
-
 /**
  * Chooses an action from the menu of the newest Grab row that names the
  * Release, as on Activity or the Work page.
@@ -207,13 +194,28 @@ export async function grabAction(
   title: string,
   action: "Details" | "Cancel Grab",
 ): Promise<void> {
+  const menu = /actions$/u;
   await rows
     .getByRole("row")
     .filter({ hasText: title })
     .first()
-    .getByRole("button", { name: /actions$/u })
+    .getByRole("button", { name: menu })
     .click();
-  await page.getByRole("menuitem", { name: action }).click();
+  await menuAction(page, menu, action);
+}
+
+/** Sends every row without its own client to that client: a list on desktop, choices in place on phone. */
+export async function sendAllTo(page: Page, sheetLocator: Locator, client: string): Promise<void> {
+  if (isPhone(page)) {
+    await sheetLocator.getByRole("button", { name: "Send all to" }).click();
+    await sheetLocator
+      .getByRole("radiogroup", { name: "Send all to" })
+      .getByRole("radio", { name: client })
+      .click();
+    return;
+  }
+  await sheetLocator.getByRole("combobox", { name: "Send all to" }).click();
+  await page.getByRole("option", { name: client }).click();
 }
 
 export async function openGrabDetails(page: Page, rows: Locator, title: string): Promise<Locator> {

@@ -5,7 +5,6 @@ import {
   grabRows,
   itemId,
   lanternKeepers,
-  openFromHero,
   openGrabDetails,
   orchard,
   searched,
@@ -13,6 +12,7 @@ import {
   useChoice,
   workId,
 } from "./manual-search.ts";
+import { needsYouAction, openFromHero } from "./manual-search-entries.ts";
 import { navigate } from "./shell.ts";
 
 test.use({ scenario: "manual-search" });
@@ -70,10 +70,7 @@ test("a failed automatic Grab's Details open from its Needs you card", async ({
   const series = await workId(world, lanternKeepers);
   await failedGrab(world, series, await itemId(world, series, "S02E10"));
   await page.goto(`/works/${series}`);
-  await page
-    .getByRole("region", { name: "Needs you" })
-    .getByRole("button", { name: "Details" })
-    .click();
+  await needsYouAction(page, "Details");
   const record = page.getByRole("dialog", { name: "Grab of The Lantern Keepers" });
   await expect(record).toContainText(/Automatic search, .+\./u);
   await expect(record).toContainText("The.Lantern.Keepers.S02E10.1080p.WEB-DL.H264-NTb");

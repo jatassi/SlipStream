@@ -5,14 +5,15 @@ import {
   blocklisted,
   frame,
   grabRows,
-  openFromHero,
   openGrabDetails,
   orchard,
   searched,
+  sendAllTo,
   sheet,
   useChoice,
   workId,
 } from "./manual-search.ts";
+import { openFromHero } from "./manual-search-entries.ts";
 
 test.use({ scenario: "manual-search" });
 test.describe.configure({ timeout: 180_000 });
@@ -103,8 +104,7 @@ test("a row and the whole plan can be sent to a client Tracker routing wouldn't 
 }, testInfo) => {
   const manual = await opened(page, world);
   const rows = grabRows(manual);
-  await manual.getByRole("combobox", { name: "Send all to" }).click();
-  await page.getByRole("option", { name: "Built-in client on home" }).click();
+  await sendAllTo(page, manual, "Built-in client on home");
   await expect(rows.nth(0)).toContainText("SlipStream sends it to the built-in client on home.");
   await expect(rows.nth(1)).toContainText("SlipStream sends it to the built-in client on home.");
 
