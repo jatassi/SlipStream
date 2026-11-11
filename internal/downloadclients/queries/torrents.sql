@@ -168,7 +168,7 @@ UPDATE downloadclients_torrent SET
 WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: SetRemovedBy :exec
-UPDATE downloadclients_torrent SET removed_by_name = sqlc.arg(name) WHERE id IN (sqlc.slice(ids));
+UPDATE downloadclients_torrent SET removed_by_name = CAST(sqlc.arg(name) AS TEXT) WHERE id IN (sqlc.slice(ids));
 
 -- name: RemoveParted :exec
 -- A removal its client takes no part in parts at once and frees nothing.

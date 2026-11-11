@@ -2,7 +2,6 @@ package downloadclients
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"maps"
@@ -300,6 +299,34 @@ func (c *Clients) WantIn(ctx context.Context, tx *storage.Tx[file], ids []ID, wa
 	return results, touched, nil
 }
 
+func (c *Clients) previewRemoval(ctx context.Context, torrents []ID, reason RemoveReason) ([]Result, *Preview, error) {
+	var plan removal
+	err := c.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		if plan, err = c.planRemoval(ctx, r, torrents, reason); err != nil {
+			return err
+		}
+		plan.preview.HitAndRun, err = c.hitsAndRuns(ctx, r, plan)
+		return err
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	nodes, ids := plan.deleting()
+	plan.preview.Frees, plan.preview.Linked = c.frees(ctx, nodes, ids)
+	return plan.results, plan.preview, nil
+}
+
+// removedBy names the Admin who removed the Torrents, for the Grab they fed;
+// an API key has no name to give.
+func removedBy(ctx context.Context, tx *storage.Tx[file], by identity.Admin, torrents []ID) error {
+	account, ok := by.Account()
+	if !ok {
+		return nil
+	}
+	return db.New(tx).SetRemovedBy(ctx, db.SetRemovedByParams{Name: account.Profile().DisplayName, Ids: torrents})
+}
+
 // remove removes each Torrent no Grab is importing from, as RemoveIn
 // does, and for mark-failed blocklists their Releases in the same Write.
 // While Reconciling a mark-failed refuses each Torrent it would remove and
@@ -310,21 +337,7 @@ func (c *Clients) remove(ctx context.Context, a Action) ([]Result, *Preview, err
 		reason, deleteFiles = ByMarkFailed, true
 	}
 	if a.DryRun {
-		var plan removal
-		err := c.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-			var err error
-			if plan, err = c.planRemoval(ctx, r, a.IDs, reason); err != nil {
-				return err
-			}
-			plan.preview.HitAndRun, err = c.hitsAndRuns(ctx, r, plan)
-			return err
-		})
-		if err != nil {
-			return nil, nil, err
-		}
-		nodes, ids := plan.deleting()
-		plan.preview.Frees, plan.preview.Linked = c.frees(ctx, nodes, ids)
-		return plan.results, plan.preview, nil
+		return c.previewRemoval(ctx, a.IDs, reason)
 	}
 	var results []Result
 	var touched Touched
@@ -334,11 +347,8 @@ func (c *Clients) remove(ctx context.Context, a Action) ([]Result, *Preview, err
 		if err != nil || len(touched.ids) == 0 {
 			return err
 		}
-		if account, ok := a.By.Account(); ok {
-			name := account.Profile().DisplayName
-			if err := db.New(tx).SetRemovedBy(ctx, db.SetRemovedByParams{Name: sql.NullString{String: name, Valid: true}, Ids: touched.ids}); err != nil {
-				return err
-			}
+		if err := removedBy(ctx, tx, a.By, touched.ids); err != nil {
+			return err
 		}
 		if a.Kind != MarkFailed {
 			return nil

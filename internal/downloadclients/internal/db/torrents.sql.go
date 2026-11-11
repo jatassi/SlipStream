@@ -1555,11 +1555,11 @@ func (q *Queries) SetParted(ctx context.Context, arg SetPartedParams) (int64, er
 }
 
 const setRemovedBy = `-- name: SetRemovedBy :exec
-UPDATE downloadclients_torrent SET removed_by_name = ?1 WHERE id IN (/*SLICE:ids*/?)
+UPDATE downloadclients_torrent SET removed_by_name = CAST(?1 AS TEXT) WHERE id IN (/*SLICE:ids*/?)
 `
 
 type SetRemovedByParams struct {
-	Name sql.NullString
+	Name string
 	Ids  []TorrentID
 }
 
