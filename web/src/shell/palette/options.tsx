@@ -7,7 +7,7 @@ import type {
   WorksFieldSpec,
   WorksLibraryRow,
 } from "../../api/gen/model";
-import { statusMarks } from "../../library/status";
+import { statusMarks } from "../../ui/state-marks";
 import type { PaletteGroup, PaletteOption } from "../../ui/command-palette";
 import { Poster } from "../../ui/poster";
 import { factTexts } from "../../works/page/facts";

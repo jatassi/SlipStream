@@ -1,18 +1,9 @@
 import { expect, test } from "vitest";
 import { page } from "vitest/browser";
 
-import type { FilesState } from "../api/gen/model";
 import { renderKit } from "../test/render-kit";
-import { StateBar, StateButton, stateWords } from "./state-square";
-
-const states: FilesState[] = [
-  "failed",
-  "upgradable",
-  "missing",
-  "downloading",
-  "met",
-  "unreleased",
-];
+import { stateOrder as states, statusMarks } from "./state-marks";
+import { StateBar, StateButton } from "./state-square";
 
 function squareOf(name: string) {
   const square = page.getByRole("button", { name }).element().firstElementChild;
@@ -42,7 +33,7 @@ test("each state has its own look", async () => {
   );
   await expect.element(page.getByRole("button", { name: "met, Met" })).toBeVisible();
   const looks = states.map((state) => {
-    const square = squareOf(`${state}, ${stateWords[state]}`);
+    const square = squareOf(`${state}, ${statusMarks[state].word}`);
     const style = getComputedStyle(square);
     const dot = getComputedStyle(square, "::after");
     return [style.backgroundColor, style.backgroundImage, style.boxShadow, dot.content].join("|");
@@ -62,17 +53,17 @@ test("a quiet square is dimmed", async () => {
   expect(getComputedStyle(squareOf("Quiet, Met")).opacity).toBe("0.55");
 });
 
-test("a state bar is 180 × 8, names its counts failed first, and sizes each segment by its count", async () => {
-  renderKit(<StateBar counts={{ met: 6, missing: 3, failed: 1 }} />);
-  const bar = page.getByRole("img", { name: "1 Failed, 3 Missing, 6 Met" });
+test("a state bar is 180 × 8, names its counts in the state order, and sizes each segment by its count", async () => {
+  renderKit(<StateBar counts={{ met: 6, unreleased: 2, missing: 3, failed: 1 }} />);
+  const bar = page.getByRole("img", { name: "1 Failed, 3 Missing, 2 Unreleased, 6 Met" });
   await expect.element(bar).toBeVisible();
   const box = bar.element().getBoundingClientRect();
   expect([box.width, box.height]).toEqual([180, 8]);
   const widths = [...bar.element().children].map(
     (segment) => segment.getBoundingClientRect().width,
   );
-  expect(widths).toHaveLength(3);
-  const [failed = 0, missing = 0, met = 0] = widths;
+  expect(widths).toHaveLength(4);
+  const [failed = 0, missing = 0, , met = 0] = widths;
   expect(missing / failed).toBeCloseTo(3, 1);
   expect(met / failed).toBeCloseTo(6, 1);
 });

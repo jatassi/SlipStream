@@ -1,6 +1,6 @@
 import type { FilesState, WorksContentType, WorksLibraryRowMonitored } from "../api/gen/model";
 import type { LibraryWork } from "./rows";
-import { stateOrder, statusMarks } from "./status";
+import { stateOrder, statusMarks } from "../ui/state-marks";
 import {
   type ArrangeContext,
   type FilterKey,

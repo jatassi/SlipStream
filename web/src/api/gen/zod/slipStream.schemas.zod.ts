@@ -9924,8 +9924,6 @@ export const worksLibraryRowAvailableOnRegExp = new RegExp("^[0-9]{4}(-[0-9]{2}(
 export const worksLibraryRowBytesMin = 0;
 
 export const worksLibraryRowContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
-export const worksLibraryRowFailedMin = 0;
-
 export const worksLibraryRowFilesMin = 0;
 
 export const worksLibraryRowGoneFilesMin = 0;
@@ -9954,10 +9952,6 @@ export const WorksLibraryRow = zod.object({
     .describe("The size of its library files, Kept files included"),
   cells: FilesStateCounts.describe("Its monitored Items' cells by state"),
   contentType: zod.string().regex(worksLibraryRowContentTypeRegExp),
-  failed: zod
-    .int()
-    .min(worksLibraryRowFailedMin)
-    .describe("Its wanted cells whose download failed"),
   files: zod.int().min(worksLibraryRowFilesMin).describe("Its library files, Kept files included"),
   goneFiles: zod
     .int()

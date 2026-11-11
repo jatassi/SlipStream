@@ -33,7 +33,7 @@ export const ember = libraryRow({
   addedAt: "2025-01-05T09:00:00Z",
   availableOn: "2024-03-01",
   status: "failed",
-  failed: 1,
+  cells: { failed: 1 },
   monitored: "none",
   values: { year: 2024, runtime: 7_800_000 },
 });

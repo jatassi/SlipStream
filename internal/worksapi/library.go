@@ -31,7 +31,6 @@ type libraryRow struct {
 	AddedBy     string                                 `json:"addedBy" enum:"admin,scan" doc:"Who added it: an Admin, or a library scan that matched a folder on disk"`
 	Status      api.Nullable[api.Enum[filesapi.State]] `json:"status" doc:"The first status its monitored Items hold, in the glossary's order; null while none holds a cell"`
 	Cells       api.Counts[filesapi.State]             `json:"cells" doc:"Its monitored Items' cells by state"`
-	Failed      int                                    `json:"failed" minimum:"0" doc:"Its wanted cells whose download failed"`
 	Items       int                                    `json:"items" minimum:"0" doc:"Its monitored Items that its source still lists, the only Items the status and counts read"`
 	ItemStatus  api.Counts[filesapi.State]             `json:"itemStatus" doc:"Its monitored Items by status; an Item with no cell isn't counted"`
 	NeedsYou    int                                    `json:"needsYou" minimum:"0" doc:"The entries of its Needs you"`
@@ -86,7 +85,7 @@ func rowOf(m artwork.Minter, row library.Row) libraryRow {
 	out := libraryRow{
 		Work: workOf(w.Summary), Monitored: w.Monitored.String(), ProfileID: r.Profile.String(), RootID: idOrNull(r.Root.UUID),
 		PosterURL: urlOrNull(m, w.Poster), Bytes: r.Bytes, Files: r.Files, Kept: r.Kept, GoneFiles: row.Gone, AddedBy: string(w.AddedBy),
-		Status: filesapi.StatusOf(r.Status), Cells: filesapi.CountsOf(r.Cells), Failed: r.Failed,
+		Status: filesapi.StatusOf(r.Status), Cells: filesapi.CountsOf(r.Cells),
 		Items: r.Items, ItemStatus: filesapi.CountsOf(r.ByItem), NeedsYou: len(r.Needs), Values: valuesOf(w.Values),
 	}
 	if rt := w.Rating; rt != nil {

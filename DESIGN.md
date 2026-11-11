@@ -656,7 +656,7 @@ A Work's status is a mark of a word and an icon, so colour never carries it alon
 - **Not monitored:** A silenced bell in `ink-3`, after the status.
 - **Gone from TMDB:** The warn signal chip, naming the Work's metadata source.
 
-A Work of many Items adds its tally to the status, such as "Missing · 12 of 40 met". Whenever any wanted cell failed, a fail chip with the count of failed cells leads, whatever the status, and the status mark never repeats it. The status is the first state any of the Work's Items holds in the glossary's order, what needs attention first: failed, missing, downloading, upgradable, unreleased, met. The web maps every status the API names to a mark, so a state added later fails the build until it has one.
+A Work of many Items adds its tally to the status, such as "Missing · 12 of 40 met". Failed carries the count of failed cells, such as "Failed 3 · 12 of 40 met". Any failed cell makes the status Failed. The status is the first state any of the Work's Items holds in the glossary's order, what needs attention first: failed, missing, downloading, upgradable, unreleased, met. The web maps every status the API names to a mark, so a state added later fails the build until it has one.
 
 ### Edition × Target matrix and state squares
 

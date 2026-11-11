@@ -3,7 +3,8 @@ import { expect, test } from "vitest";
 import type { FilesState } from "../api/gen/model";
 import { cinema, libraryRow, orchardRow } from "../test/library";
 import { parseRow } from "./rows";
-import { type MarksFor, marksOf, stateOrder, statusMarks } from "./status";
+import { type MarksFor, stateOrder, statusMarks } from "../ui/state-marks";
+import { marksOf } from "./status";
 
 test("a state the API adds fails the status record until it has a mark", () => {
   // @ts-expect-error held has no mark, so the record doesn't cover the grown enum

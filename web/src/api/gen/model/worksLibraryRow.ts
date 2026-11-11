@@ -25,11 +25,6 @@ export interface WorksLibraryRow {
   /** @pattern ^[a-z][a-z0-9]{1,15}$ */
   contentType: string;
   /**
-   * Its wanted cells whose download failed
-   * @minimum 0
-   */
-  failed: number;
-  /**
    * Its library files, Kept files included
    * @minimum 0
    */

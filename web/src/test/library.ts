@@ -118,7 +118,6 @@ export const orchardRow: WorksLibraryRow = {
   kept: 0,
   status: "missing",
   cells: { missing: 2 },
-  failed: 0,
   items: 1,
   itemStatus: { missing: 1 },
   needsYou: 0,

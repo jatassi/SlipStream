@@ -10,7 +10,7 @@ import type { Stage, TrackProgress } from "../ui/stage-track";
 export const stageWord = {
   fetching: "Fetching",
   downloading: "Downloading",
-  probing: "Checking",
+  probing: "Verifying",
   transferring: "Transferring",
   importing: "Importing",
   imported: "Imported",

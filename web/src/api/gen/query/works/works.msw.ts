@@ -1452,7 +1452,6 @@ export const getListLibraryResponseMock = (
       ...(faker.datatype.boolean() ? { upgradable: faker.number.int({ min: 1 }) } : {}),
     },
     contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
-    failed: faker.number.int({ min: 0 }),
     files: faker.number.int({ min: 0 }),
     goneFiles: faker.number.int({ min: 0 }),
     goneUpstreamAt: faker.helpers.arrayElement([
@@ -2562,7 +2561,6 @@ export const getSearchWorksResponseMock = (
       ...(faker.datatype.boolean() ? { upgradable: faker.number.int({ min: 1 }) } : {}),
     },
     contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
-    failed: faker.number.int({ min: 0 }),
     files: faker.number.int({ min: 0 }),
     goneFiles: faker.number.int({ min: 0 }),
     goneUpstreamAt: faker.helpers.arrayElement([

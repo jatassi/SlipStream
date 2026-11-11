@@ -88,8 +88,8 @@ func summary(tree works.Tree, r files.Rollup, grabs map[storage.UUID]string) str
 	}
 	available, _ := r.Available.Get()
 	var b strings.Builder
-	fmt.Fprintf(&b, "status=%s items=%d cells=%s byItem=%s failed=%d available=%d-%02d-%02d\n",
-		status, r.Items, tally(r.Cells), tally(r.ByItem), r.Failed, available.Year, available.Month, available.Day)
+	fmt.Fprintf(&b, "status=%s items=%d cells=%s byItem=%s available=%d-%02d-%02d\n",
+		status, r.Items, tally(r.Cells), tally(r.ByItem), available.Year, available.Month, available.Day)
 	kinds := map[files.NeedKind]string{files.NeedFailed: "failed", files.NeedUpgrade: "upgrade", files.NeedWaiting: "waiting", files.NeedNoRoot: "no root"}
 	for _, n := range r.Needs {
 		var its []string
@@ -130,7 +130,7 @@ func TestRollupCountsMonitoredLiveItems(t *testing.T) {
 		t.Fatalf("cells =\n%swant every Item's cells, withdrawn Gloves' and unmonitored Button's unwanted\n%s", got, want)
 	}
 	grabs := map[storage.UUID]string{failedScarf: "scarf", failedGloves: "gloves", waitsButton: "button"}
-	want = "status=failed items=2 cells={failed:1 missing:1} byItem={failed:1 missing:1} failed=1 available=2000-01-01\n" +
+	want = "status=failed items=2 cells={failed:1 missing:1} byItem={failed:1 missing:1} available=2000-01-01\n" +
 		"failed any Scarf grab=scarf\n"
 	if got := summary(tree, rollup, grabs); got != want {
 		t.Fatalf("the rollup is\n%swant Scarf and Mittens alone counted\n%s", got, want)
@@ -142,7 +142,7 @@ func TestRollupCountsMonitoredLiveItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want = "status=none items=0 cells={} byItem={} failed=0 available=2000-06-01\n"
+	want = "status=none items=0 cells={} byItem={} available=2000-06-01\n"
 	if got := summary(quiet, rollup, nil); got != want {
 		t.Fatalf("an unmonitored Work's rollup is\n%swant nothing counted, available read from its live Items\n%s", got, want)
 	}
@@ -160,7 +160,7 @@ func TestAWorkWithAFailedAndAnUnreleasedItemReadsFailed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "status=failed items=2 cells={failed:1 unreleased:1} byItem={failed:1 unreleased:1} failed=1 available=2000-01-01\n" +
+	want := "status=failed items=2 cells={failed:1 unreleased:1} byItem={failed:1 unreleased:1} available=2000-01-01\n" +
 		"failed any Mittens grab=mittens\n"
 	if got := summary(tree, rollup, map[storage.UUID]string{failed: "mittens"}); got != want {
 		t.Fatalf("the rollup is\n%swant the failure ahead of the unreleased Item\n%s", got, want)
@@ -193,7 +193,7 @@ func TestAnUpgradeGrabMakesItsFilledCellDownloadingOrFailed(t *testing.T) {
 		t.Fatalf("the cells read Grabs %s and %s, want %s and %s", cells[0].Grab, cells[1].Grab, upgrading, failedUpgrade)
 	}
 	grabs := map[storage.UUID]string{upgrading: "scarf", failedUpgrade: "mittens"}
-	want = "status=failed items=2 cells={failed:1 downloading:1} byItem={failed:1 downloading:1} failed=1 available=2000-01-01\n" +
+	want = "status=failed items=2 cells={failed:1 downloading:1} byItem={failed:1 downloading:1} available=2000-01-01\n" +
 		"failed any Mittens grab=mittens\n" +
 		"waiting any Scarf grab=scarf\n"
 	if got := summary(tree, rollup, grabs); got != want {
@@ -254,7 +254,7 @@ func TestNeedsKeepsConsecutiveItemsSideBySide(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "status=failed items=3 cells={failed:6} byItem={failed:3} failed=6 available=2000-01-01\n" +
+	want := "status=failed items=3 cells={failed:6} byItem={failed:3} available=2000-01-01\n" +
 		"failed standard Scarf grab=scarf\n" +
 		"failed standard Mittens grab=mittens\n" +
 		"failed standard Gloves grab=gloves\n" +

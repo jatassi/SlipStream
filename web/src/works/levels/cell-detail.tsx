@@ -1,7 +1,7 @@
 import type { FilesCell } from "../../api/gen/model";
 import { Button } from "../../ui/button";
 import { Data } from "../../ui/data";
-import { stateChips } from "../cell-state";
+import { StateChip } from "../cell-state";
 import { anyCut, fileOf } from "../page/matrix-model";
 import { CellFacts } from "../page/cell-facts";
 import type { MatrixShown } from "../page/matrix-model";
@@ -38,7 +38,7 @@ export function CellDetail({
   return (
     <div className="flex flex-col items-start gap-2">
       <span className="font-semibold text-ink-1">{cellLabel(popped)}</span>
-      {stateChips[cell.state]}
+      <StateChip state={cell.state} />
       <CellFacts cell={cell} grabs={shown.grabs} />
       {file !== null && (
         <span className="break-all text-meta text-ink-2">

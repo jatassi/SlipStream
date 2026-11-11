@@ -38,7 +38,6 @@ export const rowOf = (work: WorksWorkView, year: number): WorksLibraryRow => ({
   kept: 0,
   status: "missing",
   cells: { missing: 1 },
-  failed: 0,
   items: 1,
   itemStatus: { missing: 1 },
   needsYou: 0,

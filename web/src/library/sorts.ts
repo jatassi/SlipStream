@@ -10,7 +10,7 @@ import {
   namedSections,
   ratingSection,
 } from "./sections";
-import { stateOrder, statusMarks } from "./status";
+import { stateOrder, statusMarks } from "../ui/state-marks";
 import {
   type ArrangeContext,
   type CoreSort,

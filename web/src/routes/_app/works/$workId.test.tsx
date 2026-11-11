@@ -68,7 +68,7 @@ test("files.changed shows the new file without a reload", async () => {
   await expect.element(cutRow()).toMatchTextContent(/^Any cutFrom Profile UltraDownloading.*Met/u);
   await expect
     .element(page.getByRole("list", { name: "Cells" }))
-    .toHaveTextContent("1 of 2 met1 in flight");
+    .toHaveTextContent("1 of 2 met1 downloading");
   await expect
     .element(page.getByRole("list", { name: "Files" }).getByRole("listitem"))
     .toHaveTextContent(

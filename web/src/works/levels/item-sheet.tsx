@@ -2,7 +2,8 @@ import { InformationCircleIcon, Search01Icon, SearchList01Icon } from "@hugeicon
 
 import type { FilesCell } from "../../api/gen/model";
 import { Sheet, SheetCancel, SheetGroup, SheetItem, SheetToggle } from "../../ui/sheet";
-import { StateSquare, stateWords } from "../../ui/state-square";
+import { statusMarks } from "../../ui/state-marks";
+import { StateSquare } from "../../ui/state-square";
 import { CellFacts } from "../page/cell-facts";
 import type { MatrixShown } from "../page/matrix-model";
 import { cellLabel } from "./cell-detail";
@@ -47,7 +48,7 @@ function Cells({
           {cell !== undefined && <StateSquare state={cell.state} quiet={view.quiet} />}
           <span className="flex min-w-0 flex-col gap-1">
             <span className="text-ink-1">
-              {cell === undefined ? label : `${label}, ${stateWords[cell.state]}`}
+              {cell === undefined ? label : `${label}, ${statusMarks[cell.state].word}`}
             </span>
             {cell !== undefined && <CellFacts cell={cell} grabs={shown.grabs} />}
           </span>

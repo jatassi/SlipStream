@@ -25,9 +25,6 @@ type Rollup struct {
 	// Edition it wants at each Target of each. A listed cut not seen for
 	// an Item makes no cell, so it never counts.
 	Cells Counts
-	// Failed counts the wanted cells whose download failed, which the
-	// Library's Failed chip shows.
-	Failed int
 	// Items counts the Work's counted Items.
 	Items int
 	// ByItem counts counted Items by status. An Item with no cell isn't
@@ -80,9 +77,6 @@ func rollup(w world, cs []Cell) Rollup {
 			continue
 		}
 		out.Cells[c.State]++
-		if c.State == Failed && c.Wanted() {
-			out.Failed++
-		}
 		if s, ok := of[c.Item.ID]; !ok || c.State < s {
 			of[c.Item.ID] = c.State
 		}

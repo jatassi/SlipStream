@@ -20313,12 +20313,6 @@
             "pattern": "^[a-z][a-z0-9]{1,15}$",
             "type": "string"
           },
-          "failed": {
-            "description": "Its wanted cells whose download failed",
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
           "files": {
             "description": "Its library files, Kept files included",
             "format": "int64",
@@ -20450,7 +20444,6 @@
           "addedBy",
           "status",
           "cells",
-          "failed",
           "items",
           "itemStatus",
           "needsYou",

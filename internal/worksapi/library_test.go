@@ -159,7 +159,6 @@ type row struct {
 	AddedBy     string          `json:"addedBy"`
 	Status      *string         `json:"status"`
 	Cells       map[string]int  `json:"cells"`
-	Failed      int             `json:"failed"`
 	Items       int             `json:"items"`
 	ItemStatus  map[string]int  `json:"itemStatus"`
 	NeedsYou    int             `json:"needsYou"`
@@ -223,21 +222,21 @@ func TestEachLibraryRowRollsUpItsCellsAndFiles(t *testing.T) {
 	}
 	for i, c := range []struct {
 		label, status, monitored string
-		failed, needsYou         int
+		needsYou                 int
 		available                string
 	}{
-		{"Arrival", "missing", "all", 0, 0, "2000-01-01"},
-		{"Brazil", "downloading", "all", 0, 0, "2000-01-01"},
-		{"Contact", "failed", "all", 1, 1, "2000-01-01"},
-		{"Dune", "unreleased", "all", 0, 0, "2026-12"},
-		{"Eraser", "upgradable", "all", 0, 1, "2000-01-01"},
+		{"Arrival", "missing", "all", 0, "2000-01-01"},
+		{"Brazil", "downloading", "all", 0, "2000-01-01"},
+		{"Contact", "failed", "all", 1, "2000-01-01"},
+		{"Dune", "unreleased", "all", 0, "2026-12"},
+		{"Eraser", "upgradable", "all", 1, "2000-01-01"},
 	} {
 		r := got[i]
 		if r.Label != c.label || *r.Status != c.status || !reflect.DeepEqual(r.Cells, map[string]int{c.status: 1}) || r.Monitored != c.monitored ||
-			r.Failed != c.failed || r.NeedsYou != c.needsYou || *r.AvailableOn != c.available || r.ProfileID != s.one.ID.String() ||
+			r.NeedsYou != c.needsYou || *r.AvailableOn != c.available || r.ProfileID != s.one.ID.String() ||
 			*r.RootID != *root || r.PosterURL != nil || string(r.Rating) != "null" || string(r.Values) != "{}" {
-			t.Fatalf("row %d is %+v, want %s %s, %s monitored, %d failed, %d Needs you, available %s, from One, in the root, with no poster, rating or values",
-				i, r, c.label, c.status, c.monitored, c.failed, c.needsYou, c.available)
+			t.Fatalf("row %d is %+v, want %s %s, %s monitored, %d Needs you, available %s, from One, in the root, with no poster, rating or values",
+				i, r, c.label, c.status, c.monitored, c.needsYou, c.available)
 		}
 	}
 
@@ -285,8 +284,8 @@ func TestNeedsYouIsOneEntryPerItemAndEditionInRankOrder(t *testing.T) {
 		t.Fatalf("Needs you is\n%s\nwant\n%s", got, want)
 	}
 	r := s.rows(t, "?workIds="+w.ID.String())
-	if len(r) != 1 || r[0].NeedsYou != 5 || r[0].Failed != 2 || *r[0].Status != "failed" {
-		t.Fatalf("the row is %+v, want 5 Needs you, 2 failed, failed", r)
+	if len(r) != 1 || r[0].NeedsYou != 5 || r[0].Cells["failed"] != 2 || *r[0].Status != "failed" {
+		t.Fatalf("the row is %+v, want 5 Needs you and 2 failed cells, reading failed", r)
 	}
 	if all := s.rows(t, ""); !reflect.DeepEqual(all, r) {
 		t.Fatalf("the whole Library is %+v, want the one row read by id, %+v", all, r)
