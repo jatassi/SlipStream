@@ -69,7 +69,7 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 				delete(out, key)
 				continue
 			}
-			cell.State = files.GrabFailed
+			cell.State, cell.FailedAt = files.GrabFailed, string(*row.FailedStage)
 		case Fetching, Downloading, Probing, Transferring, Importing:
 			cell.State = files.GrabInFlight
 			if g.InStep(row.NodeID) {

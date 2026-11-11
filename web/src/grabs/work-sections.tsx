@@ -10,7 +10,7 @@ import { getListTransfersSuspenseQueryOptions } from "../api/gen/query/transfers
 import { ensureQuery } from "../api/query-client";
 import { Section } from "../ui/section";
 import { GrabTable } from "./grab-table";
-import { needsYou, withoutRetriedFailures } from "./stages";
+import { needsYou, withoutReplacedFailures } from "./stages";
 
 /** What a Work's searches and Grabs sections read. */
 export async function loadWorkGrabs(queryClient: QueryClient, workId: string): Promise<void> {
@@ -23,7 +23,7 @@ export async function loadWorkGrabs(queryClient: QueryClient, workId: string): P
 }
 
 function useWorkGrabs(workId: string) {
-  return withoutRetriedFailures(
+  return withoutReplacedFailures(
     useListGrabsSuspense().data.grabs.filter((grab) => grab.workId === workId),
   );
 }

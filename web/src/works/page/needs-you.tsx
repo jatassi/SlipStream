@@ -12,13 +12,7 @@ import { Section } from "../../ui/section";
 import { SignalRow } from "../../ui/signal-row";
 import { stageLabel } from "../../ui/stage-track";
 import { NoRoot, Upgrades, Waiting } from "./need-rows";
-import {
-  type FailedEntry,
-  type Naming,
-  failedKey,
-  failedWords,
-  mergedFailures,
-} from "./need-words";
+import { type FailedEntry, type Naming, failedKey, failedWords } from "./need-words";
 
 const cardsShown = 3;
 
@@ -59,11 +53,7 @@ type Grouped = {
 };
 
 // The server lists failures, then upgrades, then waiting jobs, then no_root.
-function grouped(
-  naming: Naming,
-  needs: readonly FilesNeed[],
-  grabs: readonly GrabsGrab[],
-): Grouped {
+function grouped(needs: readonly FilesNeed[], grabs: readonly GrabsGrab[]): Grouped {
   const grabOf = (id: string) => grabs.find((grab) => grab.id === id);
   const failed = needs.flatMap((need) => {
     if (need.kind !== "failed") {
@@ -73,7 +63,7 @@ function grouped(
     return grab !== undefined && isFailed(grab) ? [{ need, grab }] : [];
   });
   return {
-    failed: mergedFailures(naming.work.items, failed),
+    failed,
     upgrades: needs.filter((need) => need.kind === "upgrade"),
     waiting: needs.filter((need) => need.kind === "waiting"),
     noRoot: needs.some((need) => need.kind === "no_root"),
@@ -94,7 +84,7 @@ export function NeedsYou({
   needs: readonly FilesNeed[];
   grabs: readonly GrabsGrab[];
 }) {
-  const { failed, upgrades, waiting, noRoot } = grouped(naming, needs, grabs);
+  const { failed, upgrades, waiting, noRoot } = grouped(needs, grabs);
   const count = failed.length + upgrades.length + waiting.length + (noRoot ? 1 : 0);
   if (count === 0) {
     return null;

@@ -47,13 +47,9 @@ export function progressOf(grab: GrabsGrab): TrackProgress {
   return { kind: "running", stage: trackStage[grab.stage] };
 }
 
-export function withoutRetriedFailures(grabs: readonly GrabsGrab[]): GrabsGrab[] {
-  return grabs.filter(
-    (grab) =>
-      !needsYou(grab) ||
-      !grabs.some((later) => later.itemId === grab.itemId && later.createdAt > grab.createdAt),
-  );
-}
+/** Drops each failure a later Grab of one of its cells replaced, as the Work's Needs you does. */
+export const withoutReplacedFailures = (grabs: readonly GrabsGrab[]): GrabsGrab[] =>
+  grabs.filter((grab) => !needsYou(grab) || grab.failure.current);
 
 const byteStages = new Set<GrabsGrabStage>(["downloading", "transferring"]);
 

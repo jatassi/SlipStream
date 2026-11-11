@@ -7,11 +7,12 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
 )
 
-// grabAt inserts a Grab of the Attic's Item for HD at stage, fetching a
-// magnet link, and returns its id.
-func (f *atticFixture) grabAt(t *testing.T, stage, failure string) string {
+// grabAt inserts a Grab of the Attic's Item for target at stage, fetching
+// a magnet link, and returns its id.
+func (f *atticFixture) grabAt(t *testing.T, stage, failure string, target targets.TargetID) string {
 	t.Helper()
 	id := storage.NewUUID()
 	now := storage.Now()
@@ -29,7 +30,7 @@ func (f *atticFixture) grabAt(t *testing.T, stage, failure string) string {
 			id, f.tree.ID, f.tree.Items[0].ID, f.home, stage, at, code, msg, now, now); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO grabs_target VALUES (?, 0, ?)`, id, f.hd.ID)
+		_, err := tx.ExecContext(ctx, `INSERT INTO grabs_target VALUES (?, 0, ?)`, id, target)
 		return err
 	})
 	if err != nil {
@@ -40,7 +41,7 @@ func (f *atticFixture) grabAt(t *testing.T, stage, failure string) string {
 
 func TestCancelThroughTheAPIKeyFailsTheGrabAndBlocklistsItsReleaseWithNoAccount(t *testing.T) {
 	f := searchable(t, site{})
-	id := f.grabAt(t, "fetching", "")
+	id := f.grabAt(t, "fetching", "", f.hd.ID)
 
 	for range 2 {
 		if code, got := f.s.Call(t, http.MethodPost, "/api/v1/grabs/"+id+"/cancel", `{"blocklist":true}`); code != http.StatusNoContent {
@@ -51,7 +52,7 @@ func TestCancelThroughTheAPIKeyFailsTheGrabAndBlocklistsItsReleaseWithNoAccount(
 
 	_, got := f.s.Call(t, http.MethodGet, "/api/v1/grabs/"+id, "")
 	for _, want := range []string{
-		`"failure":{"stage":"fetching","code":"canceled","message":"This Grab was canceled through the API key.","needsYou":false}`,
+		`"failure":{"stage":"fetching","code":"canceled","message":"This Grab was canceled through the API key.","needsYou":false,"current":true}`,
 		`"actions":{"cancel":false,"blocklistable":false,"sendTo":false}`,
 	} {
 		if !strings.Contains(got, want) {
@@ -68,7 +69,7 @@ func TestCancelThroughTheAPIKeyFailsTheGrabAndBlocklistsItsReleaseWithNoAccount(
 
 func TestCancelAnswersEachProblem(t *testing.T) {
 	f := searchable(t, site{})
-	failed := f.grabAt(t, "failed", "magnet_invalid")
+	failed := f.grabAt(t, "failed", "magnet_invalid", f.hd.ID)
 
 	f.s.Expect(t, http.MethodPost, "/api/v1/grabs/"+failed+"/cancel", `{"blocklist":false}`, http.StatusConflict,
 		`{"status":409,"code":"grab_finished","title":"This Grab already finished, so there's nothing to cancel"}`)

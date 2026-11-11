@@ -276,29 +276,28 @@ func TestNeedsKeepsConsecutiveItemsSideBySide(t *testing.T) {
 	}
 	grabs := map[storage.UUID]string{}
 	in := grabbing{}
-	fail := func(item works.ItemID, edition targets.Edition, name string, grab storage.UUID) {
-		in[files.CellKey{Item: item, Edition: edition, Target: hd.ID}] = files.GrabCell{State: files.GrabFailed, Grab: grab}
+	fail := func(item works.ItemID, edition targets.Edition, name string, grab storage.UUID, at string) {
+		in[files.CellKey{Item: item, Edition: edition, Target: hd.ID}] = files.GrabCell{State: files.GrabFailed, Grab: grab, FailedAt: at}
 		grabs[grab] = name
 	}
 	pack := storage.NewUUID()
-	for _, it := range tree.Items {
-		fail(it.ID, targets.Edition(release.Standard), strings.ToLower(it.Label), storage.NewUUID())
-	}
 	scarf, mittens, gloves := itemOf(t, tree, "Scarf"), itemOf(t, tree, "Mittens"), itemOf(t, tree, "Gloves")
-	fail(scarf, "extended", "pack", pack)
-	fail(mittens, "extended", "pack", pack)
-	fail(gloves, "extended", "gloves extended", storage.NewUUID())
+	fail(scarf, targets.Edition(release.Standard), "scarf", storage.NewUUID(), "importing")
+	fail(mittens, targets.Edition(release.Standard), "mittens", storage.NewUUID(), "importing")
+	fail(gloves, targets.Edition(release.Standard), "gloves", storage.NewUUID(), "downloading")
+	fail(scarf, "extended", "pack", pack, "downloading")
+	fail(mittens, "extended", "pack", pack, "downloading")
+	fail(gloves, "extended", "gloves extended", storage.NewUUID(), "importing")
 	_, _, rollup, err := l.files(in).WorkCells(t.Context(), admin, tree.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := "status=failed items=3 cells={failed:6} byItem={failed:3} available=2000-01-01\n" +
-		"failed standard Scarf grab=scarf\n" +
-		"failed standard Mittens grab=mittens\n" +
+		"failed standard Scarf,Mittens grab=scarf\n" +
 		"failed standard Gloves grab=gloves\n" +
 		"failed extended Scarf,Mittens grab=pack\n" +
 		"failed extended Gloves grab=gloves extended\n"
 	if got := summary(tree, rollup, grabs); got != want {
-		t.Fatalf("Needs you is\n%swant each Edition's failures in tree order, side by side, one Grab's joined\n%s", got, want)
+		t.Fatalf("Needs you is\n%swant each Edition's failures in tree order, side by side, those at one stage joined\n%s", got, want)
 	}
 }

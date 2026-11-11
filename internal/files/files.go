@@ -292,11 +292,13 @@ const (
 // GrabCell is the Grab a cell reads from: its latest unfinished Grab, else
 // its latest. Waiting is the code of what an unfinished Grab waits on that
 // only an Admin resolves, such as node_away, empty while it waits on
-// nothing.
+// nothing. FailedAt is the stage a failed Grab failed at, such as
+// importing.
 type GrabCell struct {
-	State   GrabState
-	Grab    storage.UUID
-	Waiting string
+	State    GrabState
+	Grab     storage.UUID
+	Waiting  string
+	FailedAt string
 }
 
 func (g GrabCell) InFlight() bool { return g.State == GrabInFlight }

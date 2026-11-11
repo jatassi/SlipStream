@@ -153,6 +153,7 @@ test("a canceled Grab sits under Jobs with who canceled it, never under Needs yo
       code: "canceled",
       message: "Ada Okafor canceled this Grab.",
       needsYou: false,
+      current: true,
     },
     actions: { cancel: false, blocklistable: false, sendTo: false },
   };
@@ -187,6 +188,7 @@ test("Details on a Needs you card opens its Grab's record", async () => {
       code: "torrent_unreachable",
       message: "the Indexer answered 404 for the .torrent",
       needsYou: true,
+      current: true,
     },
     actions: { cancel: false, blocklistable: false, sendTo: false },
   };

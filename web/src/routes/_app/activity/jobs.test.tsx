@@ -2,7 +2,7 @@ import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import type { GrabsGrab, GrabsGrabList } from "../../../api/gen/model";
+import type { GrabsFailure, GrabsGrab, GrabsGrabList } from "../../../api/gen/model";
 import { getListGrabsMockHandler } from "../../../api/gen/query/grabs/grabs.msw";
 import { getListLibraryMockHandler } from "../../../api/gen/query/works/works.msw";
 import { downloading, imported } from "../../../test/grabs";
@@ -24,6 +24,14 @@ const harvest = libraryRow({
   label: "Orchard Harvest",
 });
 
+const failure: GrabsFailure = {
+  stage: "fetching",
+  code: "torrent_unreachable",
+  message: "the Indexer answered 404 for the .torrent",
+  needsYou: true,
+  current: true,
+};
+
 const failed: GrabsGrab = {
   ...downloading,
   id: "9e1b3d5f-7a9c-4e1b-8d3f-5a7c9e1b3d5f",
@@ -34,12 +42,7 @@ const failed: GrabsGrab = {
     { stage: "fetching", at: "2026-10-11T09:01:00Z" },
     { stage: "failed", at: "2026-10-11T09:01:01Z" },
   ],
-  failure: {
-    stage: "fetching",
-    code: "torrent_unreachable",
-    message: "the Indexer answered 404 for the .torrent",
-    needsYou: true,
-  },
+  failure,
 };
 
 const orchardTorrent = torrent({
@@ -211,18 +214,15 @@ test("Activity with no Grabs says what to do next", async () => {
     .toHaveAttribute("href", "/library");
 });
 
-test("a failure that a later Grab for its Item replaced no longer needs you", async () => {
-  const retried: GrabsGrab = { ...downloading, createdAt: "2026-10-12T10:00:00Z" };
-  const replaced: GrabsGrab = { ...failed, workId: orchardId, createdAt: "2026-10-12T09:00:00Z" };
-  renderApp({
-    path: "/activity",
-    handlers: [
-      getListGrabsMockHandler({ grabs: [retried, replaced] }),
-      ...activityServer().handlers,
-    ],
-  });
-  await expect.element(sentence()).toHaveTextContent("1 job moving");
-  await expect.element(page.getByRole("article")).not.toBeInTheDocument();
+test("a failure needs you until a later Grab holds its cell, not merely its Item", async () => {
+  const grabs = [
+    { ...downloading, createdAt: "2026-10-12T10:00:00Z" },
+    { ...failed, workId: orchardId, failure: { ...failure, current: false } },
+    { ...failed, id: "1c3e5a7c-9e1b-4d3f-8a5c-7e9b1d3f5a7c", workId: orchardId },
+  ];
+  const handlers = [getListGrabsMockHandler({ grabs }), ...activityServer().handlers];
+  renderApp({ path: "/activity", handlers });
+  await expect.element(page.getByRole("article")).toBeVisible();
 });
 
 test("a downloading Job reads its speed and time left from its torrent's live samples while it downloads", async () => {

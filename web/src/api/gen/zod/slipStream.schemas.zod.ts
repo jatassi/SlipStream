@@ -3122,6 +3122,11 @@ export const GrabsFailure = zod.object({
     "blocklisted",
     "release_fault",
   ]),
+  current: zod
+    .boolean()
+    .describe(
+      "No later Grab holds any of its cells. Needs you lists a failure only while it is current.",
+    ),
   message: zod.string(),
   needsYou: zod
     .boolean()

@@ -5427,6 +5427,10 @@
             ],
             "type": "string"
           },
+          "current": {
+            "description": "No later Grab holds any of its cells. Needs you lists a failure only while it is current.",
+            "type": "boolean"
+          },
           "message": {
             "type": "string"
           },
@@ -5449,7 +5453,8 @@
           "stage",
           "code",
           "message",
-          "needsYou"
+          "needsYou",
+          "current"
         ],
         "type": "object"
       },

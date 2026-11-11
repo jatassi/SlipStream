@@ -106,6 +106,7 @@ export const getListGrabsResponseMock = (
               "blocklisted",
               "release_fault",
             ] as const),
+            current: faker.datatype.boolean(),
             message: faker.string.alpha({ length: { min: 10, max: 20 } }),
             needsYou: faker.datatype.boolean(),
             stage: faker.helpers.arrayElement([
@@ -296,6 +297,7 @@ export const getGetGrabResponseMock = (
             "blocklisted",
             "release_fault",
           ] as const),
+          current: faker.datatype.boolean(),
           message: faker.string.alpha({ length: { min: 10, max: 20 } }),
           needsYou: faker.datatype.boolean(),
           stage: faker.helpers.arrayElement([
@@ -486,6 +488,7 @@ export const getListIndexerGrabsResponseMock = (
               "blocklisted",
               "release_fault",
             ] as const),
+            current: faker.datatype.boolean(),
             message: faker.string.alpha({ length: { min: 10, max: 20 } }),
             needsYou: faker.datatype.boolean(),
             stage: faker.helpers.arrayElement([

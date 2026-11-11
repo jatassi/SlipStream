@@ -349,7 +349,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	want := `{"id":"` + grab + `","workId":"` + tree.ID.String() + `","itemId":"` + item + `","edition":"any","targetIds":["` + hd.ID.String() + `"],` +
 		`"releaseTitle":"The.Attic.1080p.WEB","releaseWords":"WEBDL-1080p · 4.0 KB","quality":"webdl-1080p","releaseSize":4096,"indexerId":"` + indexer.String() + `",` +
 		`"trackerId":"` + reached[0].ID.String() + `","nodeId":"` + home.String() + `","fetchNodeId":null,"torrentId":null,"downloadClient":null,"infoHash":null,` +
-		`"stage":"failed","failure":{"stage":"fetching","code":"torrent_invalid","message":"The Indexer sent a .torrent file SlipStream can't read.","needsYou":true},` +
+		`"stage":"failed","failure":{"stage":"fetching","code":"torrent_invalid","message":"The Indexer sent a .torrent file SlipStream can't read.","needsYou":true,"current":true},` +
 		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"createdAt":"T","source":"search","grabbedBy":null,"manualSearchId":null,` +
 		`"overrides":[],"actions":{"cancel":false,"blocklistable":false,"sendTo":false}}`
 	expect(t, s, http.MethodGet, "/api/v1/grabs/"+grab, http.StatusOK, want)

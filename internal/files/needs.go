@@ -24,10 +24,12 @@ type Need struct {
 	// Upgrades is every upgradable Target of a NeedUpgrade's Items and
 	// Edition.
 	Upgrades []targets.TargetID
-	// Grab is the Grab that failed, or the one that waits; Code is what it
-	// waits on.
-	Grab storage.UUID
-	Code string
+	// Grab is the Grab that failed, the first of a run's, or the one that
+	// waits; Code is what it waits on. FailedAt is the stage a NeedFailed's
+	// Grab failed at: a run's Grabs all failed at one stage.
+	Grab     storage.UUID
+	Code     string
+	FailedAt string
 }
 
 // NeedKind is a Need's kind, in the order Needs you lists them.
@@ -81,8 +83,8 @@ func needs(items []works.Item, cells []Cell, grabs map[CellKey]GrabCell, rooted 
 		at := []works.ItemID{head.Item.ID}
 		switch {
 		case len(failed) > 0:
-			grab := grabs[CellKey{Item: head.Item.ID, Edition: head.Edition, Target: failed[0]}].Grab
-			out = append(out, Need{Kind: NeedFailed, Items: at, Edition: head.Edition, Target: failed[0], Waiting: missing, Grab: grab})
+			g := grabs[CellKey{Item: head.Item.ID, Edition: head.Edition, Target: failed[0]}]
+			out = append(out, Need{Kind: NeedFailed, Items: at, Edition: head.Edition, Target: failed[0], Waiting: missing, Grab: g.Grab, FailedAt: g.FailedAt})
 		case len(upgrades) > 0:
 			out = append(out, Need{Kind: NeedUpgrade, Items: at, Edition: head.Edition, Upgrades: upgrades})
 		}
@@ -145,9 +147,11 @@ func runs(items []works.Item, ns []Need) []Need {
 	return out
 }
 
+// same reports whether b joins a's run. Failures of different Grabs join
+// while they failed at the same stage, and the run keeps a's Grab.
 func same(a, b Need) bool {
-	return a.Kind == b.Kind && a.Edition == b.Edition && a.Target == b.Target && a.Grab == b.Grab && a.Code == b.Code &&
-		slices.Equal(a.Waiting, b.Waiting) && slices.Equal(a.Upgrades, b.Upgrades)
+	return a.Kind == b.Kind && a.Edition == b.Edition && a.Target == b.Target && (a.Kind == NeedFailed || a.Grab == b.Grab) &&
+		a.Code == b.Code && a.FailedAt == b.FailedAt && slices.Equal(a.Waiting, b.Waiting) && slices.Equal(a.Upgrades, b.Upgrades)
 }
 
 func (c Cell) key() CellKey { return CellKey{Item: c.Item.ID, Edition: c.Edition, Target: c.Target.ID} }
