@@ -1,4 +1,4 @@
-import type { Locator } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import { expect, expectAccessible, test } from "./fixtures.ts";
 import {
@@ -17,10 +17,7 @@ test.describe.configure({ timeout: 180_000 });
 
 const bluray = "Bluray-1080p · FKW · 9.8 GB";
 const webdl = "WEBDL-1080p · FKW · 8.2 GB";
-const webdlTitle = "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW";
-const blurayTitle = "The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW";
 const cmrg = "WEBDL-1080p · CMRG · 8.1 GB";
-const cmrgTitle = "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-CMRG";
 const both = "It gets you 1080p (standard) for The Quiet Orchard, and HD (standard) as an upgrade.";
 
 /** Tamarack's Bluray for 1080p, and the WEB-DL every automatic Indexer lists for HD. */
@@ -34,6 +31,24 @@ async function readsTwoGrabs(opened: Locator): Promise<void> {
   await expect(rows.nth(1)).toContainText(
     "It gets you HD (standard) for The Quiet Orchard as an upgrade.",
   );
+}
+
+/** Once the grab's cells leave the plan, each row grabbed stays on the sheet saying so. */
+async function keepsGrabbed(opened: Locator, words: readonly string[]): Promise<void> {
+  await expect(opened).toContainText("Every Target here has its file or a Grab downloading one.");
+  const rows = grabRows(opened);
+  await expect(rows).toHaveCount(words.length);
+  await expect(rows).toContainText([...words]);
+  await expect(rows.getByText("Grabbed.")).toHaveCount(words.length);
+}
+
+/** Opened again, the sheet keeps no row it grabbed, and each cell its Grabs hold names their Release. */
+async function reopensHeld(page: Page, opened: Locator, lines: readonly string[]): Promise<void> {
+  await page.keyboard.press("Escape");
+  await openFromHero(page, orchard);
+  const held = opened.getByRole("list", { name: "Cells a Grab is downloading" });
+  await expect(held.getByRole("listitem")).toHaveText([...lines]);
+  await expect(grabRows(opened)).toHaveCount(0);
 }
 
 test("the plan reads as automatic search would grab, a swapped row holds while Indexers answer, and Grab takes the ticked rows", async ({
@@ -61,7 +76,7 @@ test("the plan reads as automatic search would grab, a swapped row holds while I
   await expect(rows.nth(0)).toContainText(both);
   await expect(
     rows.nth(0).getByRole("list", { name: "Other choices" }).locator(":scope > li").first(),
-  ).toContainText(`${bluray}From Tamarack, which automatic search doesn't use.`);
+  ).toContainText(`${bluray}Use thisFrom Tamarack, which automatic search doesn't use.`);
 
   await searched(opened);
   await expect(rows).toHaveCount(1);
@@ -70,14 +85,15 @@ test("the plan reads as automatic search would grab, a swapped row holds while I
 
   await world.fw.fault.set({ id: "swarm-stalled", target: "seeders", fault: "stall" });
   await opened.getByRole("button", { name: "Grab 1" }).click();
-  const held = opened.getByRole("list", { name: "Cells a Grab is downloading" });
-  await expect(held.getByRole("listitem")).toHaveText([
-    `A Grab is downloading ${webdlTitle} for 1080p (standard).`,
-    `A Grab is downloading ${webdlTitle} for HD (standard).`,
-  ]);
-  await expect(rows).toHaveCount(0);
+  await keepsGrabbed(opened, [webdl]);
+  await expect(opened.getByRole("list", { name: "Cells a Grab is downloading" })).toHaveCount(0);
   await expectAccessible(page);
   await frame(page, testInfo, "plan-grabbed");
+
+  await reopensHeld(page, opened, [
+    `A Grab is downloading ${webdl} for 1080p (standard).`,
+    `A Grab is downloading ${webdl} for HD (standard).`,
+  ]);
 
   await world.fw.fault.clear("swarm-stalled");
   await expect(opened).toContainText("Every Target here already has its file.", {
@@ -107,12 +123,12 @@ test("a Release pinned in the HD row that also fills 1080p gets the HD row alone
 
   await world.fw.fault.set({ id: "swarm-stalled", target: "seeders", fault: "stall" });
   await opened.getByRole("button", { name: "Grab 2" }).click();
-  const held = opened.getByRole("list", { name: "Cells a Grab is downloading" });
-  await expect(held.getByRole("listitem")).toHaveText([
-    `A Grab is downloading ${blurayTitle} for 1080p (standard).`,
-    `A Grab is downloading ${cmrgTitle} for HD (standard).`,
-  ]);
-  await expect(rows).toHaveCount(0);
+  await keepsGrabbed(opened, [bluray, cmrg]);
   await frame(page, testInfo, "plan-pinned-grabbed");
+
+  await reopensHeld(page, opened, [
+    `A Grab is downloading ${bluray} for 1080p (standard).`,
+    `A Grab is downloading ${cmrg} for HD (standard).`,
+  ]);
   await world.fw.fault.clear("swarm-stalled");
 });

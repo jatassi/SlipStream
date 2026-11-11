@@ -58,12 +58,14 @@ test("a Release under a Target's minimum score is grabbed past it, the row sayin
   await frame(page, testInfo, "overrides-soft-refusal");
 
   await manual.getByRole("button", { name: "Grab 1" }).click();
-  const upgrade = grabRows(manual).first();
+  const fkw = "WEBDL-1080p · FKW · 8.2 GB";
+  const upgrade = grabRows(manual).filter({ has: page.getByRole("checkbox", { name: fkw }) });
   await expect(upgrade).toContainText(
     "It gets you 1080p (standard) and HD (standard) for The Quiet Orchard as an upgrade.",
     { timeout: 60_000 },
   );
-  await expect(upgrade.getByRole("checkbox", { name: "WEBDL-1080p · FKW · 8.2 GB" })).toBeChecked();
+  await expect(upgrade.getByRole("checkbox", { name: fkw })).toBeChecked();
+  await expect(row).toContainText("Grabbed.");
   await expect(manual.getByRole("button", { name: "Grab 1" })).toBeEnabled();
   const record = await recordOf(page, "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-LQ");
   await expect(record).toContainText(
