@@ -180,7 +180,6 @@ function countsAsOut({ date, basis }: WorksAvailability): string {
 
 type Dated = { readonly item: WorksItem; readonly date: string };
 
-// The next Item to come out and the latest out, of the main run, by the server's released flags.
 function nextAndLatest(
   work: WorksWorkView,
   statuses: readonly FilesItemStatus[],

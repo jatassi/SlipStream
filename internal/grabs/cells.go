@@ -74,11 +74,9 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 	return out, nil
 }
 
-// readFrom is the Grab each cell reads from among rows, oldest first: its
-// latest unfinished Grab, whatever finished after it, else its latest.
-func readFrom(rows []db.ListTargetsOfWorksRow) map[files.CellKey]db.ListTargetsOfWorksRow {
+func readFrom(oldestFirst []db.ListTargetsOfWorksRow) map[files.CellKey]db.ListTargetsOfWorksRow {
 	out := map[files.CellKey]db.ListTargetsOfWorksRow{}
-	for _, row := range rows {
+	for _, row := range oldestFirst {
 		key := files.CellKey{Item: row.ItemID, Edition: row.Edition, Target: row.TargetID}
 		if held, ok := out[key]; ok && unfinished(held.Stage) && !unfinished(row.Stage) {
 			continue

@@ -67,15 +67,14 @@ func (gr *Grabs) readsIn(ctx context.Context, r storage.Reader[file], grabs []Gr
 	if out.releaseWords, err = gr.releaseWords(ctx, r, grabs); err != nil {
 		return reads{}, err
 	}
-	if out.current, err = currents(ctx, r, grabs); err != nil {
+	if out.current, err = grabsCellsReadFrom(ctx, r, grabs); err != nil {
 		return reads{}, err
 	}
 	out.metadataWait, err = metadataWaitIn(ctx, r)
 	return out, err
 }
 
-// currents is each Grab of grabs' Works that a cell reads from.
-func currents(ctx context.Context, r storage.Reader[file], grabs []Grab) (map[GrabID]bool, error) {
+func grabsCellsReadFrom(ctx context.Context, r storage.Reader[file], grabs []Grab) (map[GrabID]bool, error) {
 	seen := map[works.WorkID]bool{}
 	var ids []works.WorkID
 	for _, g := range grabs {

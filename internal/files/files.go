@@ -210,8 +210,7 @@ func insertFile(ctx context.Context, q *db.Queries, f File) error {
 }
 
 // State is a cell's state, in the glossary's order: what needs attention
-// first, so an Item or a Work reads unreleased only when nothing else
-// applies.
+// first.
 type State uint8
 
 const (

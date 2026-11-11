@@ -11,7 +11,6 @@ export type Pills = {
   readonly rest: readonly string[];
 };
 
-/** The states that stand out as pills. The rest read as tertiary text. */
 const pillTones: { readonly [S in FilesState]?: PillTone } = {
   failed: "fail",
   downloading: "live",

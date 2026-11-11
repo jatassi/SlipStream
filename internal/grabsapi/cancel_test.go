@@ -10,8 +10,6 @@ import (
 	"github.com/jatassi/slipstream/internal/targets"
 )
 
-// grabAt inserts a Grab of the Attic's Item for target at stage, fetching
-// a magnet link, and returns its id.
 func (f *atticFixture) grabAt(t *testing.T, stage, failure string, target targets.TargetID) string {
 	t.Helper()
 	id := storage.NewUUID()

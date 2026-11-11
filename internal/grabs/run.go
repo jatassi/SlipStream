@@ -218,8 +218,6 @@ func (gr *Grabs) downloaded(_ context.Context, g Grab) outcome {
 
 const writtenOffWords = "The Admin wrote off what this Grab's Node downloads"
 
-// failOfGone is how a Grab fails when its Torrent is removed, a code for
-// each why. The two client reasons name the client.
 func failOfGone(g downloadclients.Gone) fail {
 	switch g.Reason {
 	case downloadclients.ByAdmin:

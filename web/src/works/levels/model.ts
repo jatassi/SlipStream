@@ -102,7 +102,6 @@ export function levelContext({
   };
 }
 
-/** A cell a search would try to fill, or one a download fills now. */
 const opening = (cell: FilesCell) => cell.wanted || cell.state === "downloading";
 
 function monitorOf(items: readonly WorksItem[]): SwitchChecked {
@@ -116,7 +115,6 @@ type Read = {
   readonly levels: ReadonlyMap<string, FilesLevelRollup>;
 };
 
-/** values grouped by their key, in order, leaving out those with none. */
 function groupOf<T>(values: readonly T[], keyOf: (value: T) => string | null): Map<string, T[]> {
   const groups = new Map<string, T[]>();
   for (const value of values) {
@@ -182,7 +180,6 @@ function itemView(
   return view;
 }
 
-/** The withdrawn section's cells: those of each withdrawn level's Items that still hold a file. */
 function withdrawnCounts(rollups: readonly (FilesLevelRollup | undefined)[]): FilesStateCounts {
   const counts: Partial<Record<FilesState, number>> = {};
   for (const state of stateOrder) {

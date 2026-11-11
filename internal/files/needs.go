@@ -147,10 +147,9 @@ func runs(items []works.Item, ns []Need) []Need {
 	return out
 }
 
-// same reports whether b joins a's run. Failures of different Grabs join
-// while they failed at the same stage, and the run keeps a's Grab.
 func same(a, b Need) bool {
-	return a.Kind == b.Kind && a.Edition == b.Edition && a.Target == b.Target && (a.Kind == NeedFailed || a.Grab == b.Grab) &&
+	failuresOfAnyGrabJoin := a.Kind == NeedFailed
+	return a.Kind == b.Kind && a.Edition == b.Edition && a.Target == b.Target && (failuresOfAnyGrabJoin || a.Grab == b.Grab) &&
 		a.Code == b.Code && a.FailedAt == b.FailedAt && slices.Equal(a.Waiting, b.Waiting) && slices.Equal(a.Upgrades, b.Upgrades)
 }
 

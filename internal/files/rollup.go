@@ -21,13 +21,11 @@ type Counted struct {
 	// each Target. A listed cut not seen for an Item makes no cell, so it
 	// never counts.
 	Cells Counts
-	// Items counts them.
 	Items int
 	// ByItem counts them by status. An Item with no cell isn't counted.
 	ByItem Counts
 }
 
-// add counts one Item and its cells, and answers its status.
 func (t *Counted) add(cells []Cell) (State, bool) {
 	t.Items++
 	for _, c := range cells {
@@ -115,8 +113,6 @@ func rollup(w world, cs []Cell) Rollup {
 	return out
 }
 
-// levelsOf rolls up the level of each of items, in the order its first
-// Item comes, from cs, the Items' cells.
 func levelsOf(items []works.Item, cs []Cell) []LevelRollup {
 	var out []LevelRollup
 	at := map[works.LevelID]int{}
@@ -142,8 +138,6 @@ func levelsOf(items []works.Item, cs []Cell) []LevelRollup {
 	return out
 }
 
-// eachItem calls f with each of items in order and its cells in cs, which
-// hold each Item's cells side by side in the same order.
 func eachItem(items []works.Item, cs []Cell, f func(works.Item, []Cell)) {
 	i := 0
 	for _, it := range items {

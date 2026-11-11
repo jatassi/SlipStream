@@ -13,7 +13,6 @@ import { FilesState as wireStates } from "../api/gen/zod/slipStream.schemas.zod"
 
 export type Tone = "quiet" | "neutral" | "live" | "fail" | "warn" | "met";
 
-/** A mark always carries its word beside its icon, so it never relies on colour. */
 export type StatusMark = {
   readonly word: string;
   readonly icon: IconSvgElement;
@@ -23,7 +22,6 @@ export type StatusMark = {
 /** A state's mark with its 16px square and its state bar segment, as DESIGN.md draws them. */
 export type StateMark = StatusMark & { readonly square: string; readonly bar: string };
 
-/** One mark for every state, so a state the API adds fails the build until it has one. */
 export type MarksFor<S extends string> = { readonly [K in S]: StateMark };
 
 const hatch =
@@ -33,7 +31,6 @@ const hairline = "ring-1 ring-hairline-strong ring-inset";
 /** Every state in the wire's order, what needs attention first, which the bar, sort, filter and hero follow. */
 export const stateOrder: readonly FilesState[] = wireStates.options;
 
-/** Each state's word, icon, tone, square and bar: the one record every view of a state reads. */
 export const statusMarks = {
   failed: { word: "Failed", icon: Alert02Icon, tone: "fail", square: "bg-fail", bar: "bg-fail" },
   missing: {

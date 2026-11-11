@@ -45,7 +45,6 @@ function latestRuns(searches: readonly GrabsSearch[]): ReadonlySet<string> {
 
 type Run = {
   search: GrabsSearch;
-  /** The run's Grab, which reads its stage now, undefined when it grabbed none. */
   grab: GrabsGrab | undefined;
   releases: boolean;
   onTest: (title: string) => void;
