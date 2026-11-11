@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
-	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -31,8 +30,8 @@ type View struct {
 	// sentence: "Jackson grabbed it as the Director's Cut."
 	Overrides []string
 	Actions   Actions
-	// Current is whether it is the latest Grab of any of its cells. A
-	// failure stays under Needs you only while it is.
+	// Current is whether a cell reads from it. A failure stays under
+	// Needs you only while it is.
 	Current bool
 }
 
@@ -75,8 +74,7 @@ func (gr *Grabs) readsIn(ctx context.Context, r storage.Reader[file], grabs []Gr
 	return out, err
 }
 
-// currents is each Grab of grabs' Works that is the latest Grab of any of
-// its cells, by when it was made.
+// currents is each Grab of grabs' Works that a cell reads from.
 func currents(ctx context.Context, r storage.Reader[file], grabs []Grab) (map[GrabID]bool, error) {
 	seen := map[works.WorkID]bool{}
 	var ids []works.WorkID
@@ -93,13 +91,9 @@ func currents(ctx context.Context, r storage.Reader[file], grabs []Grab) (map[Gr
 	if err != nil {
 		return nil, err
 	}
-	latest := map[files.CellKey]GrabID{}
-	for _, row := range rows {
-		latest[files.CellKey{Item: row.ItemID, Edition: row.Edition, Target: row.TargetID}] = row.ID
-	}
-	out := make(map[GrabID]bool, len(latest))
-	for _, id := range latest {
-		out[id] = true
+	out := map[GrabID]bool{}
+	for _, row := range readFrom(rows) {
+		out[row.ID] = true
 	}
 	return out, nil
 }

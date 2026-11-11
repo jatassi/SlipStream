@@ -57,31 +57,38 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 		return nil, err
 	}
 	out := map[files.CellKey]files.GrabCell{}
-	for _, row := range rows {
-		key := files.CellKey{Item: row.ItemID, Edition: row.Edition, Target: row.TargetID}
+	for key, row := range readFrom(rows) {
 		cell := files.GrabCell{Grab: row.ID.UUID}
-		switch row.Stage {
-		case Imported, Failed:
-			if out[key].InFlight() {
-				continue
-			}
-			if row.Stage == Imported || !(Grab{Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}).NeedsYou() {
-				delete(out, key)
-				continue
-			}
+		switch {
+		case row.Stage == Imported, row.Stage == Failed && !(Grab{Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}).NeedsYou():
+			continue
+		case row.Stage == Failed:
 			cell.State, cell.FailedAt = files.GrabFailed, string(*row.FailedStage)
-		case Fetching, Downloading, Probing, Transferring, Importing:
-			cell.State = files.GrabInFlight
-			if g.InStep(row.NodeID) {
-				cell.Waiting = waits[row.ID]
-			} else {
-				cell.Waiting = NodeAway
-			}
+		case !g.InStep(row.NodeID):
+			cell.State, cell.Waiting = files.GrabInFlight, NodeAway
+		default:
+			cell.State, cell.Waiting = files.GrabInFlight, waits[row.ID]
 		}
 		out[key] = cell
 	}
 	return out, nil
 }
+
+// readFrom is the Grab each cell reads from among rows, oldest first: its
+// latest unfinished Grab, whatever finished after it, else its latest.
+func readFrom(rows []db.ListTargetsOfWorksRow) map[files.CellKey]db.ListTargetsOfWorksRow {
+	out := map[files.CellKey]db.ListTargetsOfWorksRow{}
+	for _, row := range rows {
+		key := files.CellKey{Item: row.ItemID, Edition: row.Edition, Target: row.TargetID}
+		if held, ok := out[key]; ok && unfinished(held.Stage) && !unfinished(row.Stage) {
+			continue
+		}
+		out[key] = row
+	}
+	return out
+}
+
+func unfinished(s Stage) bool { return s != Imported && s != Failed }
 
 func (GrabCells) ReleaseTitles(ctx context.Context, r storage.Reader[storage.Library]) (map[storage.UUID]string, error) {
 	rows, err := db.New(r).ListReleaseTitles(ctx)
