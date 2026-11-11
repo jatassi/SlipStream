@@ -96,33 +96,15 @@ func rollup(w world, cs []Cell) Rollup {
 		Needs:     needs(w.tree.Items, cs, w.grabs, !w.root.IsZero()),
 		Available: available(w.tree.Items, w.timing, w.today), Profile: w.goals.Profile.ID, Root: w.root,
 	}
-	at := map[works.LevelID]int{}
 	eachItem(w.tree.Items, cs, func(it works.Item, its []Cell) {
-		var level *LevelRollup
-		if !it.LevelID.IsZero() {
-			i, ok := at[it.LevelID]
-			if !ok {
-				i = len(out.Levels)
-				at[it.LevelID] = i
-				out.Levels = append(out.Levels, LevelRollup{Level: it.LevelID})
-			}
-			level = &out.Levels[i]
-		}
 		if !it.Counts() {
-			if level != nil && !it.Live() && slices.ContainsFunc(its, func(c Cell) bool { return c.File != nil }) {
-				for _, c := range its {
-					level.Withdrawn[c.State]++
-				}
-			}
 			return
 		}
 		if s, ok := out.add(its); ok && (out.Status == 0 || s < out.Status) {
 			out.Status = s
 		}
-		if level != nil {
-			level.add(its)
-		}
 	})
+	out.Levels = levelsOf(w.tree.Items, cs)
 	var held Held
 	for _, file := range w.files {
 		if !file.Gone() {
@@ -130,6 +112,33 @@ func rollup(w world, cs []Cell) Rollup {
 		}
 	}
 	out.Files, out.Kept, out.Bytes = held.Files, held.Kept, held.Bytes
+	return out
+}
+
+// levelsOf rolls up the level of each of items, in the order its first
+// Item comes, from cs, the Items' cells.
+func levelsOf(items []works.Item, cs []Cell) []LevelRollup {
+	var out []LevelRollup
+	at := map[works.LevelID]int{}
+	eachItem(items, cs, func(it works.Item, its []Cell) {
+		if it.LevelID.IsZero() {
+			return
+		}
+		i, ok := at[it.LevelID]
+		if !ok {
+			i = len(out)
+			at[it.LevelID] = i
+			out = append(out, LevelRollup{Level: it.LevelID})
+		}
+		switch {
+		case it.Counts():
+			out[i].add(its)
+		case !it.Live() && slices.ContainsFunc(its, func(c Cell) bool { return c.File != nil }):
+			for _, c := range its {
+				out[i].Withdrawn[c.State]++
+			}
+		}
+	})
 	return out
 }
 
