@@ -19,6 +19,7 @@ import {
   type Choices,
   type PickRow,
   type Results,
+  type ShownRow,
   bodyOf,
   clientOf,
   hasPick,
@@ -61,10 +62,10 @@ function HeldCells({
   results,
 }: {
   held: readonly GrabsHeldCell[];
-  rows: readonly PickRow[];
+  rows: readonly ShownRow[];
   results: Results;
 }) {
-  const shown = new Set(rows.map((row) => results.get(resultKey(row))?.grabId));
+  const shown = new Set(rows.map(({ row }) => results.get(resultKey(row))?.grabId));
   const left = held.filter(({ grabId }) => !shown.has(grabId));
   return (
     left.length > 0 && (

@@ -9,6 +9,7 @@ import {
   type Choices,
   type PickRow,
   type Results,
+  type ShownRow,
   clientOf,
   grabbed,
   resultKey,
@@ -178,11 +179,11 @@ const list =
   "flex flex-col divide-y divide-hairline rounded-card bg-glass px-4 ring-1 ring-hairline ring-inset";
 
 /** The plan's Grabs in Want order, each ticked. */
-export function PickRows({ rows, acts }: { rows: readonly PickRow[]; acts: RowActs }) {
+export function PickRows({ rows, acts }: { rows: readonly ShownRow[]; acts: RowActs }) {
   return (
     <ul aria-label="Grabs" className={list}>
-      {rows.map((row) => (
-        <Pick key={resultKey(row)} row={row} acts={acts} />
+      {rows.map(({ id, row }) => (
+        <Pick key={id} row={row} acts={acts} />
       ))}
     </ul>
   );

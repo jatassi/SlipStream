@@ -57,7 +57,20 @@ export const twoGrabs = (pins: readonly string[]): GrabsManualSearch => {
       rows: [
         rowOf("cell-e01", "NTb", 1),
         swapped
-          ? { ...second, pinned: true, pick: { ...second.pick, release: swapIn }, choices: [] }
+          ? {
+              ...second,
+              pinned: true,
+              pick: { ...second.pick, release: swapIn },
+              choices: [
+                {
+                  pin: "pin-e02-flux",
+                  release: second.pick.release,
+                  cells: ["cell-e02"],
+                  lifts: [],
+                  edition: null,
+                },
+              ],
+            }
           : second,
       ],
     },

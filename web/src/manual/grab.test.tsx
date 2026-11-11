@@ -82,6 +82,16 @@ test("a grabbed row that a later plan fills with another Release keeps its resul
   await expect.element(sheet.getByRole("button", { name: "Grab 1" })).toBeEnabled();
 });
 
+test("Use this swaps the row's Release and leaves its Other choices open", async () => {
+  openSheet(manualServer({ plan: twoGrabs }));
+  const sheet = sheetNamed("Season 1 of The Long Shelf");
+  const row = sheet.getByRole("list", { name: "Grabs" }).getByRole("listitem").nth(1);
+  await userEvent.click(row.getByRole("button", { name: "Other choices" }));
+  await userEvent.click(row.getByRole("button", { name: "Use this" }));
+  await expect.element(sheet.getByRole("checkbox", { name: "WEBRip-1080p · RARBG" })).toBeChecked();
+  await expect.element(row.getByRole("list", { name: "Other choices" })).toBeVisible();
+});
+
 test("each grabbed row still says Grabbed. after the plan read again leaves its cell out as held", async () => {
   let grabbed = false;
   const server = manualServer({
