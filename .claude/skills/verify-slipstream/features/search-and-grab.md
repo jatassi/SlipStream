@@ -5,7 +5,7 @@ An Admin searches a Work's Indexers from the Work page. SlipStream asks every In
 ## Sub-features
 
 - `grab-indexer-429` a search whose Indexer answers 429 ends `Found nothing acceptable`, its Fixture Site line reading `Limit reached until HH:MM`, with no Grab.
-- `grab-search` a search that reaches the fake Indexer ends `Grabbed a Release` with `2 Releases found` and the line `Fixture Site` `Found 2 Releases`, and starts a Grab on the seedbox, through the Fake world's fake Indexer, tracker and seeders (P-256).
+- `grab-search` a search that reaches the fake Indexer ends `Grabbed a Release` with `2 Releases found`, the stage its Grab is at now, such as `Downloading`, `Imported` or `Failed`, and the line `Fixture Site` `Found 2 Releases`, and starts a Grab on the seedbox, through the Fake world's fake Indexer, tracker and seeders (P-256).
 - `grab-held` a throttled swarm holds the Grab at `Downloading` with a progress bar, and the seedbox's `started` announce reaches the tracker.
 - `grab-complete-now` clearing the throttle completes the torrent at once while the seedbox's libtorrent still hashes every piece (P-257).
 - `grab-transfer-import` the Grab moves through probing, transferring and importing to `Imported`, and the Admin's live stream carries `grabs.changed`.

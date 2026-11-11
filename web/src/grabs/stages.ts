@@ -73,7 +73,7 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
   },
   indexer_removed: {
     cause: "The Indexer was removed before SlipStream fetched the Release's .torrent file.",
-    recovery: searchAgain,
+    recovery: nextRelease,
   },
   indexer_stopped: {
     cause: "The Indexer stopped before SlipStream fetched the Release's .torrent file.",
@@ -103,7 +103,8 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
       "Turn on DHT for public torrents in that Node's torrent client settings, or search again.",
   },
   torrent_invalid: {
-    cause: "The .torrent file the Indexer sent is damaged.",
+    cause:
+      "SlipStream can't read the Release's .torrent file, or the metadata peers sent for its magnet link.",
     recovery: searchAgain,
   },
   infohash_mismatch: {
@@ -123,7 +124,19 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     recovery: searchAgain,
   },
   removed: {
-    cause: "An Admin removed the torrent before it finished downloading.",
+    cause: "An Admin removed the torrent before SlipStream imported it.",
+    recovery: searchAgain,
+  },
+  client_removed: {
+    cause: "The download client removed the torrent before SlipStream imported it.",
+    recovery: searchAgain,
+  },
+  client_deleted: {
+    cause: "An Admin deleted the download client before SlipStream imported the torrent.",
+    recovery: searchAgain,
+  },
+  goal_met: {
+    cause: "The torrent met its seeding goal and was removed before SlipStream imported it.",
     recovery: searchAgain,
   },
   no_video_file: {

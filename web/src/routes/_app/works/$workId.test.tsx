@@ -140,6 +140,7 @@ test("Search starts a search and says so, and the run and its Grab show without 
   await expect
     .element(grabs)
     .toMatchTextContent("The.Quiet.Orchard.2021.1080p.WEB-DLDownloading25%175 MB of 700 MB");
+  await expect.element(searches).toMatchTextContent(/2 Releases found · Downloading · Oct 12/u);
   await expect
     .element(
       page.getByRole("progressbar", {
@@ -150,6 +151,7 @@ test("Search starts a search and says so, and the run and its Grab show without 
 
   server.grabMoves(imported, filled);
   await expect.element(grabs).toMatchTextContent("The.Quiet.Orchard.2021.1080p.WEB-DLImported");
+  await expect.element(searches).toMatchTextContent(/2 Releases found · Imported · Oct 12/u);
   await expect.element(cutRow()).toMatchTextContent(/Met/u);
 });
 
@@ -192,12 +194,16 @@ test("a refused Search says the server's reason in a toast", async () => {
   await expect.element(searchButton()).not.toHaveAttribute("aria-busy");
 });
 
-test("a failed Grab shows under Needs you with the cells it holds back and a way to search again", async () => {
+test("a failed Grab shows under Needs you with the cells it holds back and a way to search again, and its search reads Failed", async () => {
   const server = workServer();
   renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
   await expect.element(cutRow()).toHaveTextContent(missingRow);
 
+  server.searchRuns(grabbed);
   server.grabMoves(failedImport, failedCells(failedImport.id));
+  await expect
+    .element(page.getByRole("list", { name: "Searches" }))
+    .toMatchTextContent(/^Grabbed a Release2 Releases found · Failed · Oct 12/u);
 
   const needsYou = page.getByRole("region", { name: "Needs you" });
   const card = needsYou.getByRole("article", {

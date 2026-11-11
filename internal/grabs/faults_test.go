@@ -321,8 +321,8 @@ func TestSetupFaultsAndNoMetadataNeverBlocklist(t *testing.T) {
 		reason downloadclients.RemoveReason
 		code   grabs.Code
 	}{
-		{downloadclients.ByClient, grabs.Removed},
-		{downloadclients.ClientDeleted, grabs.Removed},
+		{downloadclients.ByClient, grabs.ClientRemoved},
+		{downloadclients.ClientDeleted, grabs.ClientDeleted},
 		{downloadclients.NodeWrittenOff, grabs.NodeWrittenOff},
 	} {
 		t.Run(string(r.reason), func(t *testing.T) {

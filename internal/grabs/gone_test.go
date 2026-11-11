@@ -20,8 +20,8 @@ var goneAtAnyStage = []struct {
 	msg    string
 }{
 	{downloadclients.NodeWrittenOff, grabs.NodeWrittenOff, "The Admin wrote off what this Grab's Node downloads"},
-	{downloadclients.ByClient, grabs.Removed, "Transmission removed the torrent before SlipStream imported it."},
-	{downloadclients.ClientDeleted, grabs.Removed, "The Admin deleted Transmission before SlipStream imported this torrent."},
+	{downloadclients.ByClient, grabs.ClientRemoved, "Transmission removed the torrent before SlipStream imported it."},
+	{downloadclients.ClientDeleted, grabs.ClientDeleted, "The Admin deleted Transmission before SlipStream imported this torrent."},
 }
 
 // inTransmission is a Grab at stage whose Torrent is in Transmission on
@@ -95,8 +95,8 @@ func TestAnExternalTorrentsGoneSourceWaitsForItsVanishedReport(t *testing.T) {
 		s.running()
 		time.Sleep(time.Second)
 		v := s.view(s.grab)
-		if v.Stage != grabs.Failed || v.Failed.Stage != grabs.Transferring || v.Failed.Code != grabs.Removed {
-			t.Errorf("once the Vanished report applied the Grab is %s with %+v, want failed at transferring as removed", v.Stage, v.Failed)
+		if v.Stage != grabs.Failed || v.Failed.Stage != grabs.Transferring || v.Failed.Code != grabs.ClientRemoved {
+			t.Errorf("once the Vanished report applied the Grab is %s with %+v, want failed at transferring as client_removed", v.Stage, v.Failed)
 		}
 	})
 }

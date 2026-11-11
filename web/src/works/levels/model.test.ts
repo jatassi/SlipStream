@@ -53,6 +53,24 @@ test("each level counts the Items that count and opens while one is wanted and n
   expect(named(levels, "Volume 3").opens).toBe(false);
 });
 
+test("a level opens on a downloading cell, and stays closed on a failed cell no search would fill", () => {
+  const cells = shelfCells(longShelf, (item) => {
+    if (item.position !== 1 || volumeOf(item) === 0) {
+      return "met";
+    }
+    return volumeOf(item) === 1 ? "downloading" : "failed";
+  });
+  for (const cell of cells.cells) {
+    if (cell.state === "failed") {
+      cell.wanted = false;
+    }
+  }
+  const levels = levelsOf(context(), longShelf, cells);
+  expect(named(levels, "Volume 1").opens).toBe(false);
+  expect(named(levels, "Volume 2").opens).toBe(true);
+  expect(named(levels, "Volume 3").opens).toBe(false);
+});
+
 test("levels run in tree order with the aside level last, and nobody monitoring the aside counts nothing there", () => {
   const levels = levelsOf(
     context(),

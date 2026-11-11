@@ -68,7 +68,9 @@ test("a failed download shows under Needs you, and Search again retries it", asy
   await expect(card).toHaveCount(1);
   await expect(card).toContainText("Failed at");
   await expect(card).toHaveAccessibleName("1080p failed at Downloading");
-  await expect(card).toContainText("The .torrent file the Indexer sent is damaged.");
+  await expect(card).toContainText(
+    "SlipStream can't read the Release's .torrent file, or the metadata peers sent for its magnet link.",
+  );
   await expect(card).not.toContainText("unavailable:");
   await expect(page.getByRole("list", { name: "Cells" })).toContainText("failed");
   await expectAccessible(page);

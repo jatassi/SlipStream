@@ -1,5 +1,5 @@
-import type { GrabsSearch } from "../api/gen/model";
-import { useListSearchesSuspense } from "../api/gen/query/grabs/grabs";
+import type { GrabsGrab, GrabsSearch } from "../api/gen/model";
+import { useListGrabsSuspense, useListSearchesSuspense } from "../api/gen/query/grabs/grabs";
 import { clock } from "../format";
 import { useTester } from "../formats/tester-dialog";
 import type { WorkRef } from "../formats/testing";
@@ -8,6 +8,8 @@ import { List, ListRow } from "../ui/list";
 import { Section } from "../ui/section";
 import { Spinner } from "../ui/spinner";
 import { RunReleases } from "./search-releases";
+// oxlint-disable-next-line import/max-dependencies -- a grabbed run reads its Grab's stage
+import { stageWord } from "./stages";
 
 const outcomeText: Record<NonNullable<GrabsSearch["outcome"]>, string> = {
   grabbed: "Grabbed a Release",
@@ -41,9 +43,15 @@ function latestRuns(searches: readonly GrabsSearch[]): ReadonlySet<string> {
   return new Set(latest.values());
 }
 
-type Run = { search: GrabsSearch; releases: boolean; onTest: (title: string) => void };
+type Run = {
+  search: GrabsSearch;
+  /** The run's Grab, which reads its stage now, undefined when it grabbed none. */
+  grab: GrabsGrab | undefined;
+  releases: boolean;
+  onTest: (title: string) => void;
+};
 
-function RunDetails({ search, releases, onTest }: Run) {
+function RunDetails({ search, releases, onTest }: Omit<Run, "grab">) {
   return (
     <>
       {search.indexers.length > 0 && <IndexerLines search={search} />}
@@ -52,11 +60,19 @@ function RunDetails({ search, releases, onTest }: Run) {
   );
 }
 
-function SearchRow({ search, releases, onTest }: Run) {
+function SearchRow({ search, grab, releases, onTest }: Run) {
   const time = (
     <span className="text-meta">
       <Data>{clock(search.startedAt)}</Data>
     </span>
+  );
+  const stage = grab !== undefined && (
+    <>
+      <span className={grab.stage === "failed" ? "text-fail-ink" : undefined}>
+        {stageWord[grab.stage]}
+      </span>
+      {" · "}
+    </>
   );
   // A finished run's time sits in its meta line, so a run's opened Releases
   // take the row's full width.
@@ -66,7 +82,8 @@ function SearchRow({ search, releases, onTest }: Run) {
       meta={
         search.outcome === null ? undefined : (
           <>
-            {found(search.candidates)} · {time}
+            {found(search.candidates)} · {stage}
+            {time}
           </>
         )
       }
@@ -90,6 +107,7 @@ function SearchRow({ search, releases, onTest }: Run) {
 /** The Work's search runs; a Release of one opens the tester over this page, judged against the Work. */
 export function Searches({ work }: { work: WorkRef }) {
   const { searches } = useListSearchesSuspense(work.id).data;
+  const { grabs } = useListGrabsSuspense().data;
   const latest = latestRuns(searches);
   const tester = useTester();
   const onTest = (title: string) => {
@@ -105,6 +123,7 @@ export function Searches({ work }: { work: WorkRef }) {
             <SearchRow
               key={search.id}
               search={search}
+              grab={grabs.find(({ id }) => id === search.grabId)}
               releases={latest.has(search.id) && search.candidates > 0}
               onTest={onTest}
             />

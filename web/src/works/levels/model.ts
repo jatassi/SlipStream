@@ -68,7 +68,7 @@ export type LevelView = {
   /** Items that count and are met, of those that count; null while none counts. */
   readonly tally: Tally | null;
   readonly monitor: SwitchChecked;
-  /** Something in it that counts is wanted and not met. */
+  /** Something in it that counts is wanted, or downloading. */
   readonly opens: boolean;
   readonly entries: readonly Entry<ItemView>[];
   /** Withdrawn Items with files, after the live ones. */
@@ -100,7 +100,8 @@ export function levelContext({
   };
 }
 
-const settled = (state: FilesState) => state === "met" || state === "unreleased";
+/** A cell a search would try to fill, or one a download fills now. */
+const opening = (cell: FilesCell) => cell.wanted || cell.state === "downloading";
 
 function monitorOf(items: readonly WorksItem[]): SwitchChecked {
   const on = items.filter(({ monitored }) => monitored).length;
@@ -234,7 +235,7 @@ function sectionView(
     counts: countsOf(section.withdrawn ? gone.flatMap((item) => cellsOf(item)) : counted),
     tally: tallyOf(counting, read),
     monitor: monitorOf(live),
-    opens: counted.some(({ state }) => !settled(state)),
+    opens: counted.some((cell) => opening(cell)),
     entries: foldsOf(context.type, views(live)),
     gone: views(gone),
   };
