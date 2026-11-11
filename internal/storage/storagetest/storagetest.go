@@ -3,7 +3,11 @@ package storagetest
 import (
 	"context"
 	"log/slog"
+	"os"
 	"path/filepath"
+	"reflect"
+	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,21 +20,25 @@ var timings = storage.Timings{BusyTimeout: 5 * time.Second}
 // closes it when t ends.
 func Library(t testing.TB, schemas ...storage.Schema[storage.Library]) *storage.DB[storage.Library] {
 	t.Helper()
-	return opened(t, func(ctx context.Context, dir string) (*storage.DB[storage.Library], error) {
-		return openLibrary(ctx, filepath.Join(dir, storage.LibraryFile), schemas, logger(t))
-	})
+	return opened(t, storage.LibraryFile, schemas, openLibrary)
 }
 
 func Local(t testing.TB, schemas ...storage.Schema[storage.Local]) *storage.DB[storage.Local] {
 	t.Helper()
-	return opened(t, func(ctx context.Context, dir string) (*storage.DB[storage.Local], error) {
-		return openLocal(ctx, filepath.Join(dir, storage.LocalFile), schemas, logger(t))
-	})
+	return opened(t, storage.LocalFile, schemas, openLocal)
 }
 
-func opened[F storage.File](t testing.TB, open func(ctx context.Context, dir string) (*storage.DB[F], error)) *storage.DB[F] {
+func opened[F storage.File](t testing.TB, name string, schemas []storage.Schema[F], open opener[F]) *storage.DB[F] {
 	t.Helper()
-	db, err := open(t.Context(), t.TempDir())
+	file, err := imageOf(name, schemas, open)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(path, file, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	db, err := open(t.Context(), path, schemas, logger(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,6 +48,49 @@ func opened[F storage.File](t testing.TB, open func(ctx context.Context, dir str
 		}
 	})
 	return db
+}
+
+// image is a file freshly migrated with schemas. Migrating costs seconds
+// under -race, so each schema list migrates once per test binary and every
+// later open starts from a copy of the file already at its target. A clean
+// close checkpoints the WAL, so the main file holds everything.
+type image struct {
+	schemas any
+	file    []byte
+}
+
+var images struct {
+	mu   sync.Mutex
+	list []image
+}
+
+func imageOf[F storage.File](name string, schemas []storage.Schema[F], open opener[F]) ([]byte, error) {
+	images.mu.Lock()
+	defer images.mu.Unlock()
+	for _, img := range images.list {
+		if reflect.DeepEqual(img.schemas, schemas) {
+			return img.file, nil
+		}
+	}
+	dir, err := os.MkdirTemp("", "storagetest")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(dir)
+	path := filepath.Join(dir, name)
+	db, err := open(context.Background(), path, schemas, slog.New(slog.DiscardHandler))
+	if err != nil {
+		return nil, err
+	}
+	if err := db.Close(); err != nil {
+		return nil, err
+	}
+	file, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	images.list = append(images.list, image{schemas: slices.Clone(schemas), file: file})
+	return file, nil
 }
 
 func openLibrary(ctx context.Context, path string, schemas []storage.Schema[storage.Library], log *slog.Logger) (*storage.DB[storage.Library], error) {
