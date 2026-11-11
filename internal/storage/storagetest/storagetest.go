@@ -30,10 +30,7 @@ func Local(t testing.TB, schemas ...storage.Schema[storage.Local]) *storage.DB[s
 
 func opened[F storage.File](t testing.TB, name string, schemas []storage.Schema[F], open opener[F]) *storage.DB[F] {
 	t.Helper()
-	file, err := imageOf(name, schemas, open)
-	if err != nil {
-		t.Fatal(err)
-	}
+	file := imageOf(t, name, schemas, open)
 	path := filepath.Join(t.TempDir(), name)
 	if err := os.WriteFile(path, file, 0o600); err != nil {
 		t.Fatal(err)
@@ -64,33 +61,29 @@ var images struct {
 	list []image
 }
 
-func imageOf[F storage.File](name string, schemas []storage.Schema[F], open opener[F]) ([]byte, error) {
+func imageOf[F storage.File](t testing.TB, name string, schemas []storage.Schema[F], open opener[F]) []byte {
+	t.Helper()
 	images.mu.Lock()
 	defer images.mu.Unlock()
 	for _, img := range images.list {
 		if reflect.DeepEqual(img.schemas, schemas) {
-			return img.file, nil
+			return img.file
 		}
 	}
-	dir, err := os.MkdirTemp("", "storagetest")
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(dir)
-	path := filepath.Join(dir, name)
+	path := filepath.Join(t.TempDir(), name)
 	db, err := open(context.Background(), path, schemas, slog.New(slog.DiscardHandler))
 	if err != nil {
-		return nil, err
+		t.Fatal(err)
 	}
 	if err := db.Close(); err != nil {
-		return nil, err
+		t.Fatal(err)
 	}
-	file, err := os.ReadFile(path)
+	file, err := os.ReadFile(path) //nolint:gosec // G304: a file in the test's own temporary directory
 	if err != nil {
-		return nil, err
+		t.Fatal(err)
 	}
 	images.list = append(images.list, image{schemas: slices.Clone(schemas), file: file})
-	return file, nil
+	return file
 }
 
 func openLibrary(ctx context.Context, path string, schemas []storage.Schema[storage.Library], log *slog.Logger) (*storage.DB[storage.Library], error) {
