@@ -25,34 +25,65 @@ function IndexerLine({
   onLeave: () => void;
 }) {
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
-      <span className="font-semibold text-ink-1">{line.name}</span>
-      {line.failed && <SignalChip kind="fail">Failed</SignalChip>}
-      <span className={`min-w-0 flex-[1_1_24ch] ${line.failed ? "text-fail-ink" : ""}`}>
-        {line.sentence}
+    <li className="col-span-3 grid grid-cols-subgrid items-center gap-y-1 py-2">
+      <span className="flex items-center gap-2">
+        <span className="font-semibold text-ink-1">{line.name}</span>
+        {line.failed && <SignalChip kind="fail">Failed</SignalChip>}
       </span>
-      {line.indexerId !== null && (
-        <Button
-          look="ghost"
-          size="small"
-          nativeButton={false}
-          render={
-            <Link
-              to="/settings/indexers/$indexerId"
-              params={{ indexerId: line.indexerId }}
-              onClick={onLeave}
-            />
-          }
-        >
-          Open Indexer
-        </Button>
-      )}
-      {line.done && (
-        <Button size="small" busy={busy} onClick={onRetry}>
-          Retry
-        </Button>
-      )}
+      <span className={`min-w-0 ${line.failed ? "text-fail-ink" : ""}`}>{line.sentence}</span>
+      <span className="flex items-center justify-end gap-2">
+        {line.indexerId !== null && (
+          <Button
+            look="ghost"
+            size="small"
+            nativeButton={false}
+            render={
+              <Link
+                to="/settings/indexers/$indexerId"
+                params={{ indexerId: line.indexerId }}
+                onClick={onLeave}
+              />
+            }
+          >
+            Open Indexer
+          </Button>
+        )}
+        {line.done && (
+          <Button size="small" busy={busy} onClick={onRetry}>
+            Retry
+          </Button>
+        )}
+      </span>
     </li>
+  );
+}
+
+function IndexerLines({
+  search,
+  busy,
+  onRetry,
+  onLeave,
+}: {
+  search: GrabsManualSearch;
+  busy: boolean;
+  onRetry: () => void;
+  onLeave: () => void;
+}) {
+  return (
+    <ul
+      aria-label="Indexers"
+      className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-4 divide-y divide-hairline"
+    >
+      {search.indexers.map((line) => (
+        <IndexerLine
+          key={line.indexerId ?? line.name}
+          line={line}
+          busy={busy}
+          onRetry={onRetry}
+          onLeave={onLeave}
+        />
+      ))}
+    </ul>
   );
 }
 
@@ -95,17 +126,7 @@ export function SearchingLine({
         </Button>
       }
     >
-      <ul aria-label="Indexers" className="flex flex-col divide-y divide-hairline">
-        {search.indexers.map((line) => (
-          <IndexerLine
-            key={line.indexerId ?? line.name}
-            line={line}
-            busy={busy}
-            onRetry={again}
-            onLeave={onLeave}
-          />
-        ))}
-      </ul>
+      <IndexerLines search={search} busy={busy} onRetry={again} onLeave={onLeave} />
     </Details>
   );
 }
