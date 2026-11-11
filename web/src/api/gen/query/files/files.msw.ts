@@ -360,11 +360,11 @@ export const getGetWorkCellsResponseMock = (
     itemId: faker.string.uuid(),
     status: faker.helpers.arrayElement([
       faker.helpers.arrayElement([
-        "unreleased",
+        "failed",
         "missing",
         "downloading",
-        "failed",
         "upgradable",
+        "unreleased",
         "met",
       ] as const),
       null,
@@ -398,11 +398,11 @@ export const getGetWorkCellsResponseMock = (
     items: faker.number.int({ min: 0 }),
     status: faker.helpers.arrayElement([
       faker.helpers.arrayElement([
-        "unreleased",
+        "failed",
         "missing",
         "downloading",
-        "failed",
         "upgradable",
+        "unreleased",
         "met",
       ] as const),
       null,

@@ -1,4 +1,5 @@
 import type { FilesState, FilesSummary, WorksContentTypeItems } from "../../api/gen/model";
+import { stateOrder } from "../../library/status";
 
 export type PillTone = "met" | "fail" | "live" | "plain";
 
@@ -33,16 +34,10 @@ const counted: { readonly [S in Exclude<FilesState, "met">]: Counted } = {
   unreleased: { place: "rest", words: (count) => `${count} unreleased` },
 };
 
-const order = [
-  "failed",
-  "downloading",
-  "upgradable",
-  "missing",
-  "unreleased",
-] as const satisfies readonly (keyof typeof counted)[];
+const order = stateOrder.filter((state): state is keyof typeof counted => state !== "met");
 
 /**
- * "3 of 9 met", "1 failed" and "2 in flight", then "1 upgrade available · 2 missing".
+ * "3 of 9 met", "1 failed" and "2 in flight", then "2 missing · 1 upgrade available".
  * One Item counts cells. Many Items count the Items that count, as the poster does.
  */
 export function pillsOf(

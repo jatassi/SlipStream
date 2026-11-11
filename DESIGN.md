@@ -647,26 +647,26 @@ Posters fill the width in equal columns at least 120px (small), 160px (medium, t
 ### Status marks
 
 A Work's status is a mark of a word and an icon, so colour never carries it alone. Marks are Meta with 14px icons.
-- **Unreleased:** A calendar, in `ink-3`.
+- **Failed:** The fail signal chip.
 - **Missing:** A dashed circle, in `ink-2`.
 - **Downloading:** A download arrow in `glow`, with the word in `ink-1`.
-- **Failed:** The fail signal chip.
 - **Upgrade available:** An up arrow, in `ink-2`.
+- **Unreleased:** A calendar, in `ink-3`.
 - **Met:** A check, in `ink-1`.
 - **Not monitored:** A silenced bell in `ink-3`, after the status.
 - **Gone from TMDB:** The warn signal chip, naming the Work's metadata source.
 
-A Work of many Items adds its tally to the status, such as "Missing · 12 of 40 met". Whenever any wanted cell failed, a fail chip with the count of failed cells leads, whatever the status, and the status mark never repeats it. The status is the first state any of the Work's Items holds in the glossary's rollup order: unreleased, missing, downloading, failed, upgradable, met. The web maps every status the API names to a mark, so a state added later fails the build until it has one.
+A Work of many Items adds its tally to the status, such as "Missing · 12 of 40 met". Whenever any wanted cell failed, a fail chip with the count of failed cells leads, whatever the status, and the status mark never repeats it. The status is the first state any of the Work's Items holds in the glossary's order, what needs attention first: failed, missing, downloading, upgradable, unreleased, met. The web maps every status the API names to a mark, so a state added later fails the build until it has one.
 
 ### Edition × Target matrix and state squares
 
-The Work page's grid of wanted cuts and versions. Every cell is in one of six states, ranked failed, upgrade, missing, downloading, Met and unreleased. Each state has a chip and a square. This display rank, failed first, orders the state bar and the Status sort. The matrix orders its cells by Edition and Target, and Needs you by kind, failures first. A Work's status uses the glossary's rollup order instead (see Status marks). A cell is downloading while any unfinished Grab holds it, and failed when its latest Grab failed, even when a file fills it. A final file reads Met whatever its Grabs.
-- **Met:** Solid white.
-- **Upgrade:** A white ring with a centre dot.
+The Work page's grid of wanted cuts and versions. Every cell is in one of six states, in the glossary's order: failed, missing, downloading, upgrade, unreleased and Met. Each state has a chip and a square. The same order rolls up an Item's and a Work's status and orders the state bar, the hero's counts, the Status sort and the Status filter. The matrix orders its cells by Edition and Target, and Needs you by kind, failures first. A cell is downloading while any unfinished Grab holds it, and failed when its latest Grab failed, even when a file fills it. A final file reads Met whatever its Grabs.
+- **Failed:** Solid `fail`.
 - **Missing:** A hatch.
 - **Live:** A fill rising from the bottom with the glow.
-- **Failed:** Solid `fail`.
+- **Upgrade:** A white ring with a centre dot.
 - **Unreleased:** A hairline ring.
+- **Met:** Solid white.
 
 There are three layouts.
 - **One Item.** A full table with a 168px first column. Each cell shows its state chip, its facts, Search while it is wanted and Manual search, both ghost buttons. A downloading cell's facts are its download and the quality it replaces, and a failed cell's are the cause and the file it kept. A filled cell's Details also holds Manual search. Each Target header names its sourcing.
@@ -676,7 +676,7 @@ There are three layouts.
 Hovering or focusing a square opens a Popover with its detail, and clicking pins it. On phone, one Item becomes one card per Edition, each cell's button opening a menu with Search and Manual search, and many Items keep their rows, with each row opening a sheet that holds Manual search after Search.
 
 - **State square:** 16px with a 4px radius, centred in a 42 × 30 plain button that washes on hover like a list row. The button's name is the cell's label and its state's word ("S01E02 Archive, Missing"). A quiet square dims to 55%.
-- **State bar:** 180 × 8 with a 2px radius and 2px gaps, one segment per state in display rank, each as wide as its count. Met is solid white, upgrade a white ring, missing the hatch, live a glow fill, failed solid `fail` and unreleased a hairline ring. A screen reader hears its counts ("1 Failed, 3 Missing, 6 Met").
+- **State bar:** 180 × 8 with a 2px radius and 2px gaps, one segment per state in the glossary's order, each as wide as its count. Met is solid white, upgrade a white ring, missing the hatch, live a glow fill, failed solid `fail` and unreleased a hairline ring. A screen reader hears its counts ("1 Failed, 3 Missing, 6 Met").
 - **Cell popover:** A page holds one detail Popover for all its squares, anchored to the square that is hovered, focused or pinned. Hover or focus opens it after 120ms, and once it is open it moves to the next square at once. It hides 160ms after the pointer leaves, unless the pointer moves into it. A click pins it and moves focus into it. A second click on the same square, a press outside or Esc closes it, and Esc returns focus to the square. Rows never mount a Popover of their own.
 - **Many-Items row:** 36px. The `code` field, the label, the availability date, the squares grouped by Edition with Targets in Profile order, then the row switch, Search and "…" for the Item's Details and Manual search.
 - **Quiet row:** An Item nobody monitors reads "Not monitored" in `ink-3`, and its squares dim.

@@ -11,6 +11,7 @@ import {
 import type { IconSvgElement } from "@hugeicons/react";
 
 import type { FilesState } from "../api/gen/model";
+import { FilesState as wireStates } from "../api/gen/zod/slipStream.schemas.zod";
 import type { LibraryWork } from "./rows";
 
 export type Tone = "quiet" | "neutral" | "live" | "fail" | "warn" | "met";
@@ -25,12 +26,15 @@ export type StatusMark = {
 /** One mark for every state, so a state the API adds fails the build until it has one. */
 export type MarksFor<S extends string> = { readonly [K in S]: StatusMark };
 
+/** Every state in the wire's order, what needs attention first, which the bar, sort, filter and hero follow. */
+export const stateOrder: readonly FilesState[] = wireStates.options;
+
 export const statusMarks = {
-  unreleased: { word: "Unreleased", icon: Calendar03Icon, tone: "quiet" },
+  failed: { word: "Failed", icon: Alert02Icon, tone: "fail" },
   missing: { word: "Missing", icon: DashedLineCircleIcon, tone: "neutral" },
   downloading: { word: "Downloading", icon: Download04Icon, tone: "live" },
-  failed: { word: "Failed", icon: Alert02Icon, tone: "fail" },
   upgradable: { word: "Upgrade available", icon: CircleArrowUp01Icon, tone: "neutral" },
+  unreleased: { word: "Unreleased", icon: Calendar03Icon, tone: "quiet" },
   met: { word: "Met", icon: Tick02Icon, tone: "met" },
 } as const satisfies MarksFor<FilesState>;
 

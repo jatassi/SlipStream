@@ -4,6 +4,7 @@ import type { WorksContentType } from "../api/gen/model";
 import { cinema } from "../test/library";
 import { ctx, films, listed, scope, view, works } from "../test/films";
 import { arrange, scopeOf } from "./arrange";
+import { optionsOf } from "./filters";
 import type { LibraryView } from "./view";
 
 const shown = (filters: LibraryView["filters"], matched?: readonly string[]) =>
@@ -29,6 +30,20 @@ test("filters keep Works that pass every group, and any of the values picked ins
   expect(shown({ root: { kind: "values", values: ["films"] }, gone: { kind: "flag" } })).toBe("c");
   expect(shown({}, ["c", "b"])).toBe("bc");
   expect(shown({ status: { kind: "values", values: ["failed"] } }, ["b"])).toBe("");
+});
+
+test("the status filter offers each status with what needs attention first", () => {
+  const status = scope.groups.find(({ key }) => key === "status");
+  if (status?.kind !== "values") {
+    throw new Error("the Library has no status filter");
+  }
+  expect(optionsOf(status, works, ctx).map(({ label }) => label)).toEqual([
+    "Failed",
+    "Missing",
+    "Upgrade available",
+    "Unreleased",
+    "Met",
+  ]);
 });
 
 test("on All, only the fields every type declares alike are offered", () => {

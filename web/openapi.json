@@ -3699,11 +3699,11 @@
       },
       "FilesState": {
         "enum": [
-          "unreleased",
+          "failed",
           "missing",
           "downloading",
-          "failed",
           "upgradable",
+          "unreleased",
           "met"
         ],
         "type": "string"

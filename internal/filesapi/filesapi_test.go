@@ -120,7 +120,7 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":false,"state":"unreleased"},` +
 		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"state":"unreleased"}],` +
 		`"items":[{"itemId":"` + scarf + `","status":"missing"},{"itemId":"` + mittens + `","status":"unreleased"}],` +
-		`"summary":{"status":"unreleased","cells":{"met":1,"missing":1,"unreleased":3,"upgradable":1},"items":2,"itemStatus":{"missing":1,"unreleased":1}},` +
+		`"summary":{"status":"missing","cells":{"met":1,"missing":1,"unreleased":3,"upgradable":1},"items":2,"itemStatus":{"missing":1,"unreleased":1}},` +
 		`"needsYou":[{"kind":"upgrade","itemIds":["` + scarf + `"],"edition":"any","upgrades":["` + hd.ID.String() + `"]}]}` + "\n"
 	if code != http.StatusOK || body != want {
 		t.Fatalf("getWorkCells = %d\n%s\nwant\n%s", code, body, want)

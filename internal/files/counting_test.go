@@ -130,7 +130,7 @@ func TestRollupCountsMonitoredLiveItems(t *testing.T) {
 		t.Fatalf("cells =\n%swant every Item's cells, withdrawn Gloves' and unmonitored Button's unwanted\n%s", got, want)
 	}
 	grabs := map[storage.UUID]string{failedScarf: "scarf", failedGloves: "gloves", waitsButton: "button"}
-	want = "status=missing items=2 cells={missing:1 failed:1} byItem={missing:1 failed:1} failed=1 available=2000-01-01\n" +
+	want = "status=failed items=2 cells={failed:1 missing:1} byItem={failed:1 missing:1} failed=1 available=2000-01-01\n" +
 		"failed any Scarf grab=scarf\n"
 	if got := summary(tree, rollup, grabs); got != want {
 		t.Fatalf("the rollup is\n%swant Scarf and Mittens alone counted\n%s", got, want)
@@ -145,6 +145,25 @@ func TestRollupCountsMonitoredLiveItems(t *testing.T) {
 	want = "status=none items=0 cells={} byItem={} failed=0 available=2000-06-01\n"
 	if got := summary(quiet, rollup, nil); got != want {
 		t.Fatalf("an unmonitored Work's rollup is\n%swant nothing counted, available read from its live Items\n%s", got, want)
+	}
+}
+
+func TestAWorkWithAFailedAndAnUnreleasedItemReadsFailed(t *testing.T) {
+	l := open(t)
+	tree := l.stocked(t, "w1", true, box("b1", false, "Scarf", "Mittens"))
+	scarf, mittens := itemOf(t, tree, "Scarf"), itemOf(t, tree, "Mittens")
+	l.fx.SetTiming(scarf, targets.Timing{})
+	starter := must[[]targets.Target](t)(l.targets.ListTargets(t.Context(), admin))[0]
+	failed := storage.NewUUID()
+	svc := l.files(grabbing{{Item: mittens, Edition: targets.AnyEdition, Target: starter.ID}: {State: files.GrabFailed, Grab: failed}})
+	_, _, rollup, err := svc.WorkCells(t.Context(), admin, tree.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "status=failed items=2 cells={failed:1 unreleased:1} byItem={failed:1 unreleased:1} failed=1 available=2000-01-01\n" +
+		"failed any Mittens grab=mittens\n"
+	if got := summary(tree, rollup, map[storage.UUID]string{failed: "mittens"}); got != want {
+		t.Fatalf("the rollup is\n%swant the failure ahead of the unreleased Item\n%s", got, want)
 	}
 }
 
@@ -174,7 +193,7 @@ func TestAnUpgradeGrabMakesItsFilledCellDownloadingOrFailed(t *testing.T) {
 		t.Fatalf("the cells read Grabs %s and %s, want %s and %s", cells[0].Grab, cells[1].Grab, upgrading, failedUpgrade)
 	}
 	grabs := map[storage.UUID]string{upgrading: "scarf", failedUpgrade: "mittens"}
-	want = "status=downloading items=2 cells={downloading:1 failed:1} byItem={downloading:1 failed:1} failed=1 available=2000-01-01\n" +
+	want = "status=failed items=2 cells={failed:1 downloading:1} byItem={failed:1 downloading:1} failed=1 available=2000-01-01\n" +
 		"failed any Mittens grab=mittens\n" +
 		"waiting any Scarf grab=scarf\n"
 	if got := summary(tree, rollup, grabs); got != want {

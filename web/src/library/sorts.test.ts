@@ -41,10 +41,10 @@ const expected: Record<SortKey, (readonly [string, string])[]> = {
   ],
   status: [
     ["Failed", "c"],
-    ["Upgrade available", "b"],
     ["Missing", "d"],
-    ["Met", "a"],
+    ["Upgrade available", "b"],
     ["Unreleased", "e"],
+    ["Met", "a"],
   ],
   profile: [
     ["Archive", "ac"],

@@ -1492,11 +1492,11 @@ export const getListLibraryResponseMock = (
     sortLabel: faker.string.alpha({ length: { min: 10, max: 20 } }),
     status: faker.helpers.arrayElement([
       faker.helpers.arrayElement([
-        "unreleased",
+        "failed",
         "missing",
         "downloading",
-        "failed",
         "upgradable",
+        "unreleased",
         "met",
       ] as const),
       null,
@@ -2602,11 +2602,11 @@ export const getSearchWorksResponseMock = (
     sortLabel: faker.string.alpha({ length: { min: 10, max: 20 } }),
     status: faker.helpers.arrayElement([
       faker.helpers.arrayElement([
-        "unreleased",
+        "failed",
         "missing",
         "downloading",
-        "failed",
         "upgradable",
+        "unreleased",
         "met",
       ] as const),
       null,

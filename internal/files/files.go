@@ -209,24 +209,26 @@ func insertFile(ctx context.Context, q *db.Queries, f File) error {
 	})
 }
 
-// State is a cell's state, in the glossary's order.
+// State is a cell's state, in the glossary's order: what needs attention
+// first, so an Item or a Work reads unreleased only when nothing else
+// applies.
 type State uint8
 
 const (
-	Unreleased State = iota + 1
+	Failed State = iota + 1
 	Missing
 	Downloading
-	Failed
 	Upgradable
+	Unreleased
 	Met
 )
 
-var stateNames = [...]string{Unreleased: "unreleased", Missing: "missing", Downloading: "downloading", Failed: "failed", Upgradable: "upgradable", Met: "met"}
+var stateNames = [...]string{Failed: "failed", Missing: "missing", Downloading: "downloading", Upgradable: "upgradable", Unreleased: "unreleased", Met: "met"}
 
 func (s State) String() string { return stateNames[s] }
 
 // States names every State, in the glossary's order.
-func States() []string { return slices.Clone(stateNames[Unreleased:]) }
+func States() []string { return slices.Clone(stateNames[Failed:]) }
 
 // CellKey names one cell: an Edition at a Target of an Item.
 type CellKey struct {

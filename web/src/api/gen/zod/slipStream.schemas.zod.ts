@@ -1780,11 +1780,11 @@ export type FilesCell = zod.input<typeof FilesCell>;
 export type FilesCellOutput = zod.output<typeof FilesCell>;
 
 export const FilesState = zod.enum([
-  "unreleased",
+  "failed",
   "missing",
   "downloading",
-  "failed",
   "upgradable",
+  "unreleased",
   "met",
 ]);
 

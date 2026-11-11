@@ -1,16 +1,7 @@
 import type { ComponentProps } from "react";
 
 import type { FilesState, FilesStateCounts } from "../api/gen/model";
-
-/** The matrix's display rank, failed first, as DESIGN.md orders cells. */
-export const displayRank: readonly FilesState[] = [
-  "failed",
-  "upgradable",
-  "missing",
-  "downloading",
-  "met",
-  "unreleased",
-];
+import { stateOrder } from "../library/status";
 
 export const stateWords: { readonly [S in FilesState]: string } = {
   failed: "Failed",
@@ -80,9 +71,9 @@ export function StateButton({
   );
 }
 
-/** A level's cells as one 180 × 8 bar, a segment per state in display rank. */
+/** A level's cells as one 180 × 8 bar, a segment per state in the one state order. */
 export function StateBar({ counts }: { counts: FilesStateCounts }) {
-  const shown = displayRank.flatMap((state) => {
+  const shown = stateOrder.flatMap((state) => {
     const count = counts[state] ?? 0;
     return count > 0 ? [{ state, count }] : [];
   });

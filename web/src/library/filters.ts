@@ -1,6 +1,6 @@
 import type { FilesState, WorksContentType, WorksLibraryRowMonitored } from "../api/gen/model";
 import type { LibraryWork } from "./rows";
-import { statusMarks } from "./status";
+import { stateOrder, statusMarks } from "./status";
 import {
   type ArrangeContext,
   type FilterKey,
@@ -43,8 +43,6 @@ export type FlagGroup = {
 
 export type FilterGroup = ValuesGroup | RangeGroup | FlagGroup;
 
-const statuses = Object.keys(statusMarks);
-
 const isStatus = (value: string): value is FilesState => Object.hasOwn(statusMarks, value);
 
 const isMonitored = (value: string): value is WorksLibraryRowMonitored =>
@@ -60,7 +58,7 @@ const coreGroups: readonly FilterGroup[] = [
     label: "Status",
     valuesOf: (work) => (work.status === undefined ? [] : [work.status]),
     labelOf: (value) => (isStatus(value) ? statusMarks[value].word : value),
-    order: statuses,
+    order: stateOrder,
   },
   {
     kind: "values",
