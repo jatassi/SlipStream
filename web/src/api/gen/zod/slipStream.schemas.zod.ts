@@ -1793,6 +1793,7 @@ export type FilesStateOutput = zod.output<typeof FilesState>;
 
 export const FilesItemStatus = zod.object({
   itemId: zod.uuid(),
+  released: zod.boolean().describe("Its availability date is today or earlier"),
   status: zod
     .union([FilesState, zod.null()])
     .describe(
@@ -1802,6 +1803,38 @@ export const FilesItemStatus = zod.object({
 
 export type FilesItemStatus = zod.input<typeof FilesItemStatus>;
 export type FilesItemStatusOutput = zod.output<typeof FilesItemStatus>;
+
+export const FilesStateCounts = zod.object({
+  downloading: zod.int().min(1).exactOptional(),
+  failed: zod.int().min(1).exactOptional(),
+  met: zod.int().min(1).exactOptional(),
+  missing: zod.int().min(1).exactOptional(),
+  unreleased: zod.int().min(1).exactOptional(),
+  upgradable: zod.int().min(1).exactOptional(),
+});
+
+export type FilesStateCounts = zod.input<typeof FilesStateCounts>;
+export type FilesStateCountsOutput = zod.output<typeof FilesStateCounts>;
+
+export const filesLevelRollupItemsMin = 0;
+
+export const FilesLevelRollup = zod.object({
+  cells: FilesStateCounts.describe("Its monitored Items' cells by state"),
+  itemStatus: FilesStateCounts.describe(
+    "Its monitored Items by status; an Item with no cell isn't counted",
+  ),
+  items: zod
+    .int()
+    .min(filesLevelRollupItemsMin)
+    .describe("Its monitored Items that its source still lists"),
+  levelId: zod.uuid(),
+  withdrawn: FilesStateCounts.describe(
+    "The cells of its Items its source no longer lists that a file still fills, by state",
+  ),
+});
+
+export type FilesLevelRollup = zod.input<typeof FilesLevelRollup>;
+export type FilesLevelRollupOutput = zod.output<typeof FilesLevelRollup>;
 
 export const FilesFailedNeed = zod.object({
   edition: zod.string().describe("any under any cut, else the key of the cut the cells want"),
@@ -1859,18 +1892,6 @@ export const FilesNeed = zod.discriminatedUnion("kind", [
 export type FilesNeed = zod.input<typeof FilesNeed>;
 export type FilesNeedOutput = zod.output<typeof FilesNeed>;
 
-export const FilesStateCounts = zod.object({
-  downloading: zod.int().min(1).exactOptional(),
-  failed: zod.int().min(1).exactOptional(),
-  met: zod.int().min(1).exactOptional(),
-  missing: zod.int().min(1).exactOptional(),
-  unreleased: zod.int().min(1).exactOptional(),
-  upgradable: zod.int().min(1).exactOptional(),
-});
-
-export type FilesStateCounts = zod.input<typeof FilesStateCounts>;
-export type FilesStateCountsOutput = zod.output<typeof FilesStateCounts>;
-
 export const filesSummaryItemsMin = 0;
 
 export const FilesSummary = zod.object({
@@ -1897,6 +1918,11 @@ export type FilesSummaryOutput = zod.output<typeof FilesSummary>;
 export const FilesCellList = zod.object({
   cells: zod.array(FilesCell).describe("By Item in tree order, then Target in Profile order"),
   items: zod.array(FilesItemStatus).describe("Every Item in tree order"),
+  levels: zod
+    .array(FilesLevelRollup)
+    .describe(
+      "What each level's cells add up to, in the order its first Item comes; empty for a type with no levels",
+    ),
   needsYou: zod.array(FilesNeed).describe("What the Work needs from an Admin, failures first"),
   summary: FilesSummary.describe("What the cells add up to for the Work"),
 });

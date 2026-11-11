@@ -2,6 +2,7 @@ import type {
   FilesCell,
   FilesCellList,
   FilesItemStatus,
+  FilesLevelRollup,
   FilesState,
   FilesStateCounts,
   TargetsCut,
@@ -14,6 +15,7 @@ import type {
   WorksWorkView,
 } from "../../api/gen/model";
 import type { SwitchChecked } from "../../ui/switch";
+import { stateOrder } from "../../ui/state-marks";
 import { codeOf } from "../fields-by-tier";
 import { anyCut, cutNameOf, fileOf } from "../page/matrix-model";
 import { type Entry, foldsOf } from "./fold";
@@ -111,19 +113,30 @@ function monitorOf(items: readonly WorksItem[]): SwitchChecked {
 type Read = {
   readonly cells: ReadonlyMap<string, readonly FilesCell[]>;
   readonly statuses: ReadonlyMap<string, FilesItemStatus>;
+  readonly levels: ReadonlyMap<string, FilesLevelRollup>;
 };
 
-function readOf(cells: FilesCellList): Read {
-  const byItem = new Map<string, FilesCell[]>();
-  for (const cell of cells.cells) {
-    const held = byItem.get(cell.itemId);
-    if (held === undefined) {
-      byItem.set(cell.itemId, [cell]);
-    } else {
-      held.push(cell);
+/** values grouped by their key, in order, leaving out those with none. */
+function groupOf<T>(values: readonly T[], keyOf: (value: T) => string | null): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const value of values) {
+    const key = keyOf(value);
+    const held = key === null ? undefined : groups.get(key);
+    if (held !== undefined) {
+      held.push(value);
+    } else if (key !== null) {
+      groups.set(key, [value]);
     }
   }
-  return { cells: byItem, statuses: new Map(cells.items.map((s) => [s.itemId, s])) };
+  return groups;
+}
+
+function readOf(cells: FilesCellList): Read {
+  return {
+    cells: groupOf(cells.cells, (cell) => cell.itemId),
+    statuses: new Map(cells.items.map((s) => [s.itemId, s])),
+    levels: new Map(cells.levels.map((level) => [level.levelId, level])),
+  };
 }
 
 const sameInputs = (a: readonly unknown[], b: readonly unknown[]) =>
@@ -169,10 +182,14 @@ function itemView(
   return view;
 }
 
-function countsOf(cells: readonly FilesCell[]): FilesStateCounts {
+/** The withdrawn section's cells: those of each withdrawn level's Items that still hold a file. */
+function withdrawnCounts(rollups: readonly (FilesLevelRollup | undefined)[]): FilesStateCounts {
   const counts: Partial<Record<FilesState, number>> = {};
-  for (const { state } of cells) {
-    counts[state] = (counts[state] ?? 0) + 1;
+  for (const state of stateOrder) {
+    const count = rollups.reduce((sum, rollup) => sum + (rollup?.withdrawn[state] ?? 0), 0);
+    if (count > 0) {
+      counts[state] = count;
+    }
   }
   return counts;
 }
@@ -184,13 +201,10 @@ function posterOf(type: WorksContentType, level: WorksLevel): string | undefined
   return level.artwork.find(({ kind }) => kind === art?.key)?.url;
 }
 
-const tallyOf = (counting: readonly WorksItem[], read: Read): Tally | null =>
-  counting.length === 0
+const tallyOf = (rollup: FilesLevelRollup | undefined): Tally | null =>
+  rollup === undefined || rollup.items === 0
     ? null
-    : {
-        met: counting.filter((item) => read.statuses.get(item.id)?.status === "met").length,
-        of: counting.length,
-      };
+    : { met: rollup.itemStatus.met ?? 0, of: rollup.items };
 
 type Section = Pick<LevelView, "id" | "name" | "withdrawn" | "poster">;
 
@@ -201,6 +215,7 @@ function sectionView(
   anchor: WorksLevel,
   section: Section,
   items: readonly WorksItem[],
+  rollups: readonly (FilesLevelRollup | undefined)[],
   read: Read,
 ): LevelView | undefined {
   const cellsOf = (item: WorksItem) => read.cells.get(item.id) ?? [];
@@ -214,6 +229,7 @@ function sectionView(
   }
   const inputs = [
     context,
+    ...rollups,
     ...shown.flatMap((item) => [item, read.statuses.get(item.id), ...cellsOf(item)]),
   ];
   const known = levelViews.get(anchor);
@@ -227,36 +243,19 @@ function sectionView(
   }));
   const views = (of: readonly WorksItem[]) =>
     of.map((item) => itemView(context, columns, item, cellsOf(item), read.statuses.get(item.id)));
-  const counting = live.filter(({ monitored }) => monitored);
-  const counted = counting.flatMap((item) => cellsOf(item));
+  const [rollup] = rollups;
   const view: LevelView = {
     ...section,
     columns,
-    counts: countsOf(section.withdrawn ? gone.flatMap((item) => cellsOf(item)) : counted),
-    tally: tallyOf(counting, read),
+    counts: section.withdrawn ? withdrawnCounts(rollups) : (rollup?.cells ?? {}),
+    tally: section.withdrawn ? null : tallyOf(rollup),
     monitor: monitorOf(live),
-    opens: counted.some((cell) => opening(cell)),
+    opens: live.some((item) => item.monitored && cellsOf(item).some((cell) => opening(cell))),
     entries: foldsOf(context.type, views(live)),
     gone: views(gone),
   };
   levelViews.set(anchor, { inputs, view });
   return view;
-}
-
-function byLevelOf(items: readonly WorksItem[]): Map<string, WorksItem[]> {
-  const byLevel = new Map<string, WorksItem[]>();
-  for (const item of items) {
-    if (item.levelId === null) {
-      continue;
-    }
-    const held = byLevel.get(item.levelId);
-    if (held === undefined) {
-      byLevel.set(item.levelId, [item]);
-    } else {
-      held.push(item);
-    }
-  }
-  return byLevel;
 }
 
 /**
@@ -270,7 +269,7 @@ export function levelsOf(
   cells: FilesCellList,
 ): LevelView[] {
   const read = readOf(cells);
-  const byLevel = byLevelOf(work.items);
+  const byLevel = groupOf(work.items, (item) => item.levelId);
   const holding = work.levels.filter(({ id }) => byLevel.has(id));
   const itemsOf = (levels: readonly WorksLevel[]) =>
     levels.flatMap(({ id }) => byLevel.get(id) ?? []);
@@ -280,7 +279,8 @@ export function levelsOf(
     .flatMap((level) => {
       const poster = posterOf(context.type, level);
       const section = { id: level.id, name: level.label, withdrawn: false, poster };
-      return sectionView(context, level, section, itemsOf([level]), read) ?? [];
+      const rollups = [read.levels.get(level.id)];
+      return sectionView(context, level, section, itemsOf([level]), rollups, read) ?? [];
     });
   const withdrawn = holding.filter(({ withdrawnAt }) => withdrawnAt !== null);
   const [anchor] = withdrawn;
@@ -293,6 +293,7 @@ export function levelsOf(
     withdrawn: true,
     poster: undefined,
   };
-  const trailing = sectionView(context, anchor, section, itemsOf(withdrawn), read);
+  const rollups = withdrawn.map(({ id }) => read.levels.get(id));
+  const trailing = sectionView(context, anchor, section, itemsOf(withdrawn), rollups, read);
   return trailing === undefined ? live : [...live, trailing];
 }

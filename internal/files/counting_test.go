@@ -3,6 +3,7 @@ package files_test
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -164,6 +165,43 @@ func TestAWorkWithAFailedAndAnUnreleasedItemReadsFailed(t *testing.T) {
 		"failed any Mittens grab=mittens\n"
 	if got := summary(tree, rollup, map[storage.UUID]string{failed: "mittens"}); got != want {
 		t.Fatalf("the rollup is\n%swant the failure ahead of the unreleased Item\n%s", got, want)
+	}
+}
+
+func TestEachLevelRollsUpItsCountedItemsAndItsWithdrawnFiles(t *testing.T) {
+	l := open(t)
+	tree := l.stocked(t, "w1", true, box("b1", false, "Scarf", "Mittens"), box("b2", false, "Gloves", "Hat"), box("b9", true, "Button"))
+	starter := must[[]targets.Target](t)(l.targets.ListTargets(t.Context(), admin))[0]
+	gloves, hat := itemOf(t, tree, "Gloves"), itemOf(t, tree, "Hat")
+	l.place(t, gloves, tree.ID, "Shelf w1/Gloves.mkv", release.WEBDL1080p, starter.ID)
+	l.place(t, hat, tree.ID, "Shelf w1/Hat.mkv", release.WEBDL1080p, starter.ID)
+	tree = l.restock(t, tree, box("b1", false, "Scarf", "Mittens"), box("b2", false, "Gloves"), box("b9", true, "Button"))
+	l.fx.SetTiming(itemOf(t, tree, "Button"), targets.Timing{})
+	svc := l.files(grabbing{{Item: itemOf(t, tree, "Scarf"), Edition: targets.AnyEdition, Target: starter.ID}: {State: files.GrabFailed, Grab: storage.NewUUID()}})
+	items, cells, rollup, err := svc.WorkCells(t.Context(), admin, tree.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	labels := map[works.LevelID]string{}
+	for _, it := range slices.Backward(tree.Items) {
+		labels[it.LevelID] = it.Label
+	}
+	var got strings.Builder
+	for _, lv := range rollup.Levels {
+		fmt.Fprintf(&got, "%s items=%d cells=%s byItem=%s withdrawn=%s\n", labels[lv.Level], lv.Items, tally(lv.Cells), tally(lv.ByItem), tally(lv.Withdrawn))
+	}
+	want := "Scarf items=2 cells={failed:1 missing:1} byItem={failed:1 missing:1} withdrawn={}\n" +
+		"Gloves items=1 cells={upgradable:1} byItem={upgradable:1} withdrawn={upgradable:1}\n" +
+		"Button items=0 cells={} byItem={} withdrawn={}\n"
+	if got.String() != want {
+		t.Fatalf("the cells are\n%sand the levels roll up as\n%swant each level's counted Items, and Hat's file under withdrawn\n%s", lines(cells), got.String(), want)
+	}
+	var states []string
+	for _, it := range items {
+		states = append(states, fmt.Sprintf("%s %s released=%t", it.Item.Label, it.Status, it.Released))
+	}
+	if want := "Scarf failed released=true,Mittens missing released=true,Gloves upgradable released=true,Hat upgradable released=true,Button unreleased released=false"; strings.Join(states, ",") != want {
+		t.Fatalf("the Items are %s, want %s", strings.Join(states, ","), want)
 	}
 }
 

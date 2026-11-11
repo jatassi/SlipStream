@@ -358,6 +358,7 @@ export const getGetWorkCellsResponseMock = (
   ),
   items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     itemId: faker.string.uuid(),
+    released: faker.datatype.boolean(),
     status: faker.helpers.arrayElement([
       faker.helpers.arrayElement([
         "failed",
@@ -370,6 +371,36 @@ export const getGetWorkCellsResponseMock = (
       null,
     ]),
   })),
+  levels: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      cells: {
+        ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
+        ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
+        ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
+        ...(faker.datatype.boolean() ? { missing: faker.number.int({ min: 1 }) } : {}),
+        ...(faker.datatype.boolean() ? { unreleased: faker.number.int({ min: 1 }) } : {}),
+        ...(faker.datatype.boolean() ? { upgradable: faker.number.int({ min: 1 }) } : {}),
+      },
+      itemStatus: {
+        ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
+        ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
+        ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
+        ...(faker.datatype.boolean() ? { missing: faker.number.int({ min: 1 }) } : {}),
+        ...(faker.datatype.boolean() ? { unreleased: faker.number.int({ min: 1 }) } : {}),
+        ...(faker.datatype.boolean() ? { upgradable: faker.number.int({ min: 1 }) } : {}),
+      },
+      items: faker.number.int({ min: 0 }),
+      levelId: faker.string.uuid(),
+      withdrawn: {
+        ...(faker.datatype.boolean() ? { downloading: faker.number.int({ min: 1 }) } : {}),
+        ...(faker.datatype.boolean() ? { failed: faker.number.int({ min: 1 }) } : {}),
+        ...(faker.datatype.boolean() ? { met: faker.number.int({ min: 1 }) } : {}),
+        ...(faker.datatype.boolean() ? { missing: faker.number.int({ min: 1 }) } : {}),
+        ...(faker.datatype.boolean() ? { unreleased: faker.number.int({ min: 1 }) } : {}),
+        ...(faker.datatype.boolean() ? { upgradable: faker.number.int({ min: 1 }) } : {}),
+      },
+    }),
+  ),
   needsYou: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.helpers.arrayElement([
       { ...getGetWorkCellsResponseFilesFailedNeedMock() },

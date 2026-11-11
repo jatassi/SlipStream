@@ -136,14 +136,24 @@ type cellsInput struct {
 }
 
 type itemStatus struct {
-	ItemID string                        `json:"itemId" format:"uuid"`
-	Status api.Nullable[api.Enum[State]] `json:"status" doc:"The first state its cells hold, in the glossary's order; null for an Item with no cell"`
+	ItemID   string                        `json:"itemId" format:"uuid"`
+	Status   api.Nullable[api.Enum[State]] `json:"status" doc:"The first state its cells hold, in the glossary's order; null for an Item with no cell"`
+	Released bool                          `json:"released" doc:"Its availability date is today or earlier"`
+}
+
+type levelRollup struct {
+	LevelID    string            `json:"levelId" format:"uuid"`
+	Cells      api.Counts[State] `json:"cells" doc:"Its monitored Items' cells by state"`
+	Items      int               `json:"items" minimum:"0" doc:"Its monitored Items that its source still lists"`
+	ItemStatus api.Counts[State] `json:"itemStatus" doc:"Its monitored Items by status; an Item with no cell isn't counted"`
+	Withdrawn  api.Counts[State] `json:"withdrawn" doc:"The cells of its Items its source no longer lists that a file still fills, by state"`
 }
 
 type cellList struct {
 	Cells    []api.OneOf[cell] `json:"cells" nullable:"false" doc:"By Item in tree order, then Target in Profile order"`
 	Items    []itemStatus      `json:"items" nullable:"false" doc:"Every Item in tree order"`
 	Summary  summary           `json:"summary" doc:"What the cells add up to for the Work"`
+	Levels   []levelRollup     `json:"levels" nullable:"false" doc:"What each level's cells add up to, in the order its first Item comes; empty for a type with no levels"`
 	NeedsYou []api.OneOf[need] `json:"needsYou" nullable:"false" doc:"What the Work needs from an Admin, failures first"`
 }
 
@@ -241,15 +251,17 @@ func (h handlers) getWorkCells(ctx context.Context, by identity.Admin, in *cells
 	if err != nil {
 		return nil, err
 	}
-	out := cellList{Cells: []api.OneOf[cell]{}, Items: []itemStatus{}, Summary: summaryOf(rollup), NeedsYou: needsOf(rollup.Needs)}
-	of := map[works.ItemID][]files.Cell{}
+	out := cellList{Cells: []api.OneOf[cell]{}, Items: []itemStatus{}, Summary: summaryOf(rollup), Levels: []levelRollup{}, NeedsYou: needsOf(rollup.Needs)}
 	for _, c := range cells {
 		out.Cells = append(out.Cells, variantOf(c))
-		of[c.Item.ID] = append(of[c.Item.ID], c)
 	}
 	for _, it := range items {
-		s, _ := files.Status(of[it.ID])
-		out.Items = append(out.Items, itemStatus{ItemID: it.ID.String(), Status: StatusOf(s)})
+		out.Items = append(out.Items, itemStatus{ItemID: it.Item.ID.String(), Status: StatusOf(it.Status), Released: it.Released})
+	}
+	for _, l := range rollup.Levels {
+		out.Levels = append(out.Levels, levelRollup{
+			LevelID: l.Level.String(), Cells: CountsOf(l.Cells), Items: l.Items, ItemStatus: CountsOf(l.ByItem), Withdrawn: CountsOf(l.Withdrawn),
+		})
 	}
 	return &cellListOutput{Body: out}, nil
 }

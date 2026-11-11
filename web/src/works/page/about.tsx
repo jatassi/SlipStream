@@ -180,22 +180,24 @@ function countsAsOut({ date, basis }: WorksAvailability): string {
 
 type Dated = { readonly item: WorksItem; readonly date: string };
 
-// The next Item to come out and the latest out, of the main run, by the server's release states.
+// The next Item to come out and the latest out, of the main run, by the server's released flags.
 function nextAndLatest(
   work: WorksWorkView,
   statuses: readonly FilesItemStatus[],
 ): { next: Dated | undefined; latest: Dated | undefined } {
-  const status = new Map(statuses.map((s) => [s.itemId, s.status]));
+  const released = new Map(statuses.map((s) => [s.itemId, s.released]));
   const dated = work.items.flatMap((item) =>
     item.withdrawnAt === null && !item.aside && item.availability !== null
       ? [{ item, date: item.availability.date }]
       : [],
   );
-  const unreleased = (at: Dated) => status.get(at.item.id) === "unreleased";
-  const out = dated.filter((at) => !unreleased(at) && status.get(at.item.id) !== null);
   return {
-    next: dated.filter((at) => unreleased(at)).toSorted((a, b) => a.date.localeCompare(b.date))[0],
-    latest: out.toSorted((a, b) => b.date.localeCompare(a.date))[0],
+    next: dated
+      .filter((at) => released.get(at.item.id) === false)
+      .toSorted((a, b) => a.date.localeCompare(b.date))[0],
+    latest: dated
+      .filter((at) => released.get(at.item.id) === true)
+      .toSorted((a, b) => b.date.localeCompare(a.date))[0],
   };
 }
 

@@ -23,7 +23,8 @@ export const upgrading: FilesCellList = {
     },
     { ...base, targetId: uhd, targetName: "2160p HDR", wanted: true, state: "missing" },
   ],
-  items: [{ itemId: orchardItemId, status: "missing" }],
+  items: [{ itemId: orchardItemId, status: "missing", released: true }],
+  levels: [],
   summary: {
     status: "missing",
     cells: { downloading: 1, missing: 1 },
@@ -46,7 +47,8 @@ export const failedUpgrade = (failed: string): FilesCellList => ({
     },
     { ...base, targetId: uhd, targetName: "2160p HDR", wanted: true, state: "missing" },
   ],
-  items: [{ itemId: orchardItemId, status: "missing" }],
+  items: [{ itemId: orchardItemId, status: "missing", released: true }],
+  levels: [],
   summary: {
     status: "missing",
     cells: { failed: 1, missing: 1 },
