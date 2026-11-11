@@ -63,6 +63,8 @@ export interface GrabsGrab {
   /** @minimum 0 */
   releaseSize: number;
   releaseTitle: string;
+  /** Its Release in words, such as Bluray-1080p · FKW · 9.8 GB */
+  releaseWords: string;
   /** How it was chosen: by a search's decision, or by an Admin in a Manual search */
   source: GrabsGrabSource;
   stage: GrabsGrabStage;

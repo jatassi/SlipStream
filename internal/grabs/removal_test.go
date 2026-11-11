@@ -22,7 +22,7 @@ var removals = []struct {
 	code   grabs.Code
 }{
 	{downloadclients.ByAdmin, grabs.Removed},
-	{downloadclients.ByMarkFailed, grabs.DownloadFailed},
+	{downloadclients.ByMarkFailed, grabs.MarkedFailed},
 	{downloadclients.NodeWrittenOff, grabs.NodeWrittenOff},
 }
 
@@ -83,6 +83,27 @@ func TestADownloadingGrabFailsOnceItsTorrentIsParted(t *testing.T) {
 	}
 }
 
+// TestAGrabWhoseTorrentAnAdminMarkedFailedNamesThem parts a downloading
+// Grab's Torrent as Ada Okafor marked it failed, and fails the Grab
+// marked_failed in her name.
+func TestAGrabWhoseTorrentAnAdminMarkedFailedNamesThem(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := newPipeline(t)
+		id := downloadingGrab(t, p, seedingReport)
+		now := storage.Now()
+		run(t, p.lib, sql(`UPDATE downloadclients_torrent SET removed_at = ?, removed_reason = 'mark_failed', removed_by_name = 'Ada Okafor',
+			parted_at = ?, freed = 0`, now, now))
+
+		p.running()
+		time.Sleep(time.Second)
+
+		v := p.view(id)
+		if v.Stage != grabs.Failed || v.Failed.Code != grabs.MarkedFailed || v.Failed.Message != "Ada Okafor marked its download failed." {
+			t.Fatalf("the Grab is %s with %+v, want failed marked_failed by Ada Okafor", v.Stage, v.Failed)
+		}
+	})
+}
+
 // TestAReleaseFaultOrACancelFailsADownloadingGrabByItsCause parts a
 // downloading Grab's Torrent for a release fault or another Grab's cancel,
 // and fails the Grab by that cause. An engine error keeps download_failed.
@@ -120,7 +141,7 @@ func TestAReleaseFaultOrACancelFailsADownloadingGrabByItsCause(t *testing.T) {
 
 var actions = map[downloadclients.ActionKind]grabs.Code{
 	downloadclients.Remove:     grabs.Removed,
-	downloadclients.MarkFailed: grabs.DownloadFailed,
+	downloadclients.MarkFailed: grabs.MarkedFailed,
 }
 
 // actAsTheGrabSteps runs kind on a downloading Grab's Torrent just before
@@ -220,7 +241,7 @@ func (b *blocklistChanges) Publish(context.Context, grabs.BlocklistChanged) { b.
 // TestMarkFailedOnAHeldTorrentBlocklistsItsRelease marks failed, through
 // the API key, the complete Torrent a downloading Grab holds: the removal
 // puts the Grab's Release on the Blocklist, tells the Admins once, and the
-// Grab fails as download_failed.
+// Grab fails as marked_failed through the API key.
 func TestMarkFailedOnAHeldTorrentBlocklistsItsRelease(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := newPipeline(t)
@@ -241,8 +262,8 @@ func TestMarkFailedOnAHeldTorrentBlocklistsItsRelease(t *testing.T) {
 
 		p.running()
 		time.Sleep(time.Second)
-		if v := p.view(id); v.Stage != grabs.Failed || v.Failed.Code != grabs.DownloadFailed {
-			t.Fatalf("the Grab is %s with %+v, want failed with download_failed", v.Stage, v.Failed)
+		if v := p.view(id); v.Stage != grabs.Failed || v.Failed.Code != grabs.MarkedFailed || v.Failed.Message != "Marked failed through the API key." {
+			t.Fatalf("the Grab is %s with %+v, want failed with marked_failed through the API key", v.Stage, v.Failed)
 		}
 	})
 }

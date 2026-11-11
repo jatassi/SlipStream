@@ -40,7 +40,13 @@ function clientWords(grab: GrabsGrab, node: (id: string) => string): string {
 export function GrabFacts({ grab }: { grab: GrabsGrab }) {
   const names = useNamesOf(grab);
   const facts: Facts = [
-    ["Release", <Data key="r">{grab.releaseTitle}</Data>],
+    [
+      "Release",
+      <span key="r" className="flex flex-col">
+        {grab.releaseWords}
+        <Data className="break-all text-ink-3">{grab.releaseTitle}</Data>
+      </span>,
+    ],
     ...(names.quality === undefined ? [] : [["Quality", names.quality] as const]),
     ["For", names.targets],
     ["Indexer", names.indexer],

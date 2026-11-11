@@ -26,6 +26,7 @@ import (
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
+	releases "github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
@@ -222,7 +223,7 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 		Rerouted: func() { p.g.Rerouted() }, Sealer: sealer, Roster: p.roster, Uses: grabs.TorrentUses{}, Log: slog.New(slog.DiscardHandler),
 	})
 	p.cfg = grabs.Config{
-		Library: lib, Works: w, Sealer: sealer,
+		Library: lib, Works: w, Sealer: sealer, Names: map[works.TypeID]releases.Names{contenttypetest.ID: dated{}},
 		Indexers: indexers.New(indexers.Config{
 			Library: lib, Sealer: sealer, Roster: p.roster, Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
 		}),

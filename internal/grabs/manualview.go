@@ -28,6 +28,9 @@ import (
 // sentence written.
 type ManualView struct {
 	ID ManualID
+	// Scope is what it was started for: its levels and Items, or its one
+	// cell, all empty for the whole Work.
+	Scope ShownScope
 	// Title is the scope in words: "Heat (1995)", "Season 2 of Severance".
 	Title string
 	// Query is the typed query, "" when each run sent its Item's terms.
@@ -50,6 +53,13 @@ type ManualView struct {
 	// Pins is the pins still in effect, for the sheet to keep. A pin that
 	// names no Release, or that no longer fills its cell, is dropped.
 	Pins []Pin
+}
+
+// ShownScope is a Manual search's scope as it was started.
+type ShownScope struct {
+	Levels []works.LevelID
+	Items  []works.ItemID
+	Cell   *files.CellKey
 }
 
 // IndexerLine is one Indexer across the search's runs.
@@ -107,7 +117,8 @@ type PlanPick struct {
 	// Lifts is the soft refusals it gets past, each a sentence.
 	Lifts   []Worded
 	Edition *EditionOverride
-	// Routed is "Where Tracker routing sends it (qBittorrent on Den)".
+	// Routed is the client Tracker routing sends it to in words,
+	// "qBittorrent on Den", "" while no Node may take it.
 	Routed string
 }
 
@@ -137,7 +148,8 @@ type Choice struct {
 type HeldCell struct {
 	Cell files.CellKey
 	Grab GrabID
-	// Words is "A Grab is downloading Heat.1995.1080p.WEB for 1080p."
+	// Words is "A Grab is downloading WEBDL-1080p · FLUX · 6.2 GB for
+	// 1080p."
 	Words string
 	Stage Stage
 }
@@ -232,11 +244,14 @@ type GrabOffer struct {
 // manualIn is everything the view reads, in one snapshot.
 type manualIn struct {
 	manual db.GrabsManual
+	scope  ShownScope
 	// cell is the one cell a cell scope plans for, nil for any other scope.
 	cell  *files.CellKey
 	tree  works.Tree
 	nouns works.Description
-	runs  []Search
+	// describe is a Release titled title, of size bytes, in words.
+	describe func(title string, size int64) string
+	runs     []Search
 	// heard is each run's stored Releases, in arrival order.
 	heard   map[SearchID][]heardRelease
 	cells   []files.Cell
@@ -281,17 +296,18 @@ func (gr *Grabs) manualInput(ctx context.Context, r storage.Reader[file], work w
 	}
 	typ := in.tree.ContentType
 	in.nouns, _ = gr.cfg.Works.Describe(typ)
+	names := gr.cfg.Names[typ]
+	in.describe = func(title string, size int64) string { return releaseWordsOf(title, size, names) }
 	in.line = func(o *indexers.Outcome) string { return gr.cfg.Indexers.Line(typ, o) }
 	in.clock = gr.cfg.Indexers.Clock
 	var scope storedScope
 	if err := json.Unmarshal([]byte(m.Scope), &scope); err != nil {
 		return manualIn{}, fmt.Errorf("decode Manual search %s's scope: %w", m.ID, err)
 	}
-	if c := scope.Cell; c != nil {
-		if in.cell, err = c.key(); err != nil {
-			return manualIn{}, err
-		}
+	if in.scope, err = scope.shown(); err != nil {
+		return manualIn{}, err
 	}
+	in.cell = in.scope.Cell
 	if in.runs, err = manualRuns(ctx, q, m.ID); err != nil {
 		return manualIn{}, err
 	}
@@ -334,6 +350,32 @@ func (gr *Grabs) manualInput(ctx context.Context, r storage.Reader[file], work w
 	}
 	in.routed, err = gr.routedWords(ctx, r, work, in.standings)
 	return in, err
+}
+
+// shown is s as its ids.
+func (s storedScope) shown() (ShownScope, error) {
+	var out ShownScope
+	for _, l := range s.Levels {
+		id, err := storage.ParseUUID(l)
+		if err != nil {
+			return ShownScope{}, fmt.Errorf("decode a Manual search's level: %w", err)
+		}
+		out.Levels = append(out.Levels, works.LevelID{UUID: id})
+	}
+	for _, it := range s.Items {
+		id, err := storage.ParseUUID(it)
+		if err != nil {
+			return ShownScope{}, fmt.Errorf("decode a Manual search's Item: %w", err)
+		}
+		out.Items = append(out.Items, works.ItemID{UUID: id})
+	}
+	if c := s.Cell; c != nil {
+		var err error
+		if out.Cell, err = c.key(); err != nil {
+			return ShownScope{}, err
+		}
+	}
+	return out, nil
 }
 
 func (c storedCell) key() (*files.CellKey, error) {
@@ -456,7 +498,7 @@ func (gr *Grabs) routedWords(ctx context.Context, r storage.Reader[file], work w
 	for id := range standings {
 		t, err := gr.cfg.Router.Route(ctx, r, downloadclients.Ask{Root: root.Node, Indexer: id})
 		if _, unrouted := errors.AsType[*nodes.Unrouted](err); unrouted {
-			out[id] = routedNowhere
+			out[id] = ""
 			continue
 		}
 		if err != nil {
@@ -470,7 +512,7 @@ func (gr *Grabs) routedWords(ctx context.Context, r storage.Reader[file], work w
 			}
 			client = e.Name + " on " + names[t.Node]
 		}
-		out[id] = "Where Tracker routing sends it (" + client + ")"
+		out[id] = client
 	}
 	return out, nil
 }

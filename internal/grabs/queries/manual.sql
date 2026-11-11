@@ -57,7 +57,7 @@ GROUP BY grabs_release.search_id ORDER BY grabs_release.search_id;
 -- Each Grab of the Work at each of its Targets, oldest first, so the
 -- last of a cell is its latest.
 SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_target.target_id, grabs_grab.stage, grabs_grab.source,
-    grabs_grab.release_title, grabs_grab.failure_code, grabs_grab.failure_message
+    grabs_grab.release_title, grabs_grab.release_size, grabs_grab.failure_code, grabs_grab.failure_message
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
 WHERE grabs_grab.work_id = sqlc.arg(work_id)
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;

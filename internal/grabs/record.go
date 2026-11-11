@@ -62,8 +62,8 @@ type Lifted struct {
 }
 
 // ClientOverride is the client chosen and the one Tracker routing would
-// have sent the Grab to, "" when no Node took downloads then, both in
-// words.
+// have sent the Grab to, "" when that is the same client or no Node took
+// downloads then, both in words.
 type ClientOverride struct {
 	Sent   string `json:"sent"`
 	Routed string `json:"routed,omitempty"`

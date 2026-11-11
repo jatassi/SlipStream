@@ -9,6 +9,7 @@ import {
   type Choices,
   type PickRow,
   type Results,
+  type ShownRow,
   clientOf,
   grabbed,
   resultKey,
@@ -17,6 +18,27 @@ import {
 import { ReleaseDetails } from "./release-details";
 
 const meta = "text-meta text-ink-3 in-data-[density=touch]:text-body-touch";
+
+const routedOption = (to: string | undefined) =>
+  to === undefined ? "Where Tracker routing sends it" : `Where Tracker routing sends it (${to})`;
+
+const routedLine = (to: string | undefined) =>
+  to === undefined
+    ? "Tracker routing picks the client once SlipStream fetches it."
+    : `Tracker routing sends it to ${to}.`;
+
+/** Where the row's Grab goes: the client the Admin chose, else where Tracker routing sends it. */
+function ClientLine({ row, acts }: { row: PickRow; acts: RowActs }) {
+  const client = clientOf(acts.choices, row.key);
+  const chosen = acts.clients.find(({ key }) => key === client);
+  return (
+    <p className={meta}>
+      {chosen === undefined
+        ? routedLine(row.pick.routed)
+        : `SlipStream sends it to ${chosen.name}.`}
+    </p>
+  );
+}
 
 /** What the row's sheet-wide choices do to it, and how it reports them back. */
 export type RowActs = {
@@ -32,17 +54,21 @@ export type RowActs = {
 
 function Choice({ choice, onUse }: { choice: GrabsChoice; onUse: () => void }) {
   return (
-    <li className="flex flex-col items-start gap-1.5 py-2.5">
-      <ReleaseName release={choice.release} />
+    <li className="flex flex-col items-start gap-1 py-2">
+      <div className="flex w-full items-center gap-3">
+        <span className="min-w-0 flex-1">
+          <ReleaseName release={choice.release} />
+        </span>
+        <Button size="small" onClick={onUse}>
+          {choice.release.blocked === null ? "Use this" : "Remove from Blocklist and grab"}
+        </Button>
+      </div>
       {choice.note !== undefined && <p className={meta}>{choice.note}</p>}
       {choice.release.blocked !== null && <p>{choice.release.blocked}</p>}
       <Overrides lifts={choice.lifts} edition={choice.edition} />
       <Details>
         <ReleaseDetails release={choice.release} />
       </Details>
-      <Button size="small" onClick={onUse}>
-        {choice.release.blocked === null ? "Use this" : "Remove from Blocklist and grab"}
-      </Button>
     </li>
   );
 }
@@ -71,18 +97,18 @@ function OtherChoices({ row, onPin }: { row: GrabsPlanRow; onPin: RowActs["onPin
 
 function SendTo({
   row,
-  routedWords,
+  routedTo,
   acts,
 }: {
   row: GrabsPlanRow;
-  routedWords: string;
+  routedTo: string | undefined;
   acts: RowActs;
 }) {
   return (
     <Select
       label="Send to"
       options={[
-        { value: routed, label: routedWords },
+        { value: routed, label: routedOption(routedTo) },
         ...acts.clients.map(({ key, label }) => ({ value: key, label })),
       ]}
       value={clientOf(acts.choices, row.key)}
@@ -98,8 +124,6 @@ function Pick({ row, acts }: { row: PickRow; acts: RowActs }) {
   const { pick } = row;
   const result = acts.results.get(resultKey(row));
   const done = grabbed(acts.results, resultKey(row));
-  const client = clientOf(acts.choices, row.key);
-  const chosen = acts.clients.find(({ key }) => key === client);
   return (
     <li className="flex items-start gap-3 py-3">
       <Checkbox
@@ -118,9 +142,7 @@ function Pick({ row, acts }: { row: PickRow; acts: RowActs }) {
           <p>{`${pick.release.blocked} Grabbing it removes it from the Blocklist.`}</p>
         )}
         <Overrides lifts={pick.lifts} edition={pick.edition} />
-        <p className={meta}>
-          {chosen === undefined ? pick.routed : `SlipStream sends it to ${chosen.name}.`}
-        </p>
+        <ClientLine row={row} acts={acts} />
         {result !== undefined && (
           <Result
             result={result}
@@ -136,7 +158,7 @@ function Pick({ row, acts }: { row: PickRow; acts: RowActs }) {
             <ReleaseDetails release={pick.release} />
             {/* A client's long name truncates in the row's width rather than widening the row. */}
             <div className="contain-inline-size">
-              <SendTo row={row} routedWords={pick.routed} acts={acts} />
+              <SendTo row={row} routedTo={pick.routed} acts={acts} />
             </div>
           </div>
         </Details>
@@ -161,11 +183,11 @@ const list =
   "flex flex-col divide-y divide-hairline rounded-card bg-glass px-4 ring-1 ring-hairline ring-inset";
 
 /** The plan's Grabs in Want order, each ticked. */
-export function PickRows({ rows, acts }: { rows: readonly PickRow[]; acts: RowActs }) {
+export function PickRows({ rows, acts }: { rows: readonly ShownRow[]; acts: RowActs }) {
   return (
     <ul aria-label="Grabs" className={list}>
-      {rows.map((row) => (
-        <Pick key={row.key} row={row} acts={acts} />
+      {rows.map(({ id, row }) => (
+        <Pick key={id} row={row} acts={acts} />
       ))}
     </ul>
   );

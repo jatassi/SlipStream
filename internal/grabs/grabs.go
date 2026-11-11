@@ -89,6 +89,7 @@ const (
 	InfohashMismatch   Code = "infohash_mismatch"
 	TorrentV2Only      Code = "torrent_v2_only"
 	DownloadFailed     Code = "download_failed"
+	MarkedFailed       Code = "marked_failed"
 	Removed            Code = "removed"
 	NoVideoFile        Code = "no_video_file"
 	ProbeFailed        Code = "probe_failed"

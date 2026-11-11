@@ -1480,6 +1480,7 @@ export * from "./grabsListedReleaseOutcome.ts";
 export * from "./grabsLostAt.ts";
 export * from "./grabsLostAtStep.ts";
 export * from "./grabsManualCell.ts";
+export * from "./grabsManualScope.ts";
 export * from "./grabsManualSearch.ts";
 export * from "./grabsManualStarted.ts";
 export * from "./grabsMetadataSearch.ts";

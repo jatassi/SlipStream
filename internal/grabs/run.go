@@ -225,7 +225,10 @@ func failOfGone(g downloadclients.Gone) fail {
 	case downloadclients.ByAdmin:
 		return fail{Removed, "The Admin removed this Grab's torrent"}
 	case downloadclients.ByMarkFailed:
-		return fail{DownloadFailed, "The Admin marked this Grab's download failed"}
+		if g.By == "" {
+			return fail{MarkedFailed, "Marked failed through the API key."}
+		}
+		return fail{MarkedFailed, g.By + " marked its download failed."}
 	case downloadclients.NodeWrittenOff:
 		return fail{NodeWrittenOff, writtenOffWords}
 	case downloadclients.ByClient:

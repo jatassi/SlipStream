@@ -3044,6 +3044,7 @@ export const GrabsFailure = zod.object({
     "infohash_mismatch",
     "torrent_v2_only",
     "download_failed",
+    "marked_failed",
     "removed",
     "no_video_file",
     "probe_failed",
@@ -3224,6 +3225,7 @@ export const GrabsGrab = zod.object({
     .describe("The quality the release title names, absent when it names none"),
   releaseSize: zod.int().min(grabsGrabReleaseSizeMin),
   releaseTitle: zod.string(),
+  releaseWords: zod.string().describe("Its Release in words, such as Bluray-1080p · FKW · 9.8 GB"),
   source: zod
     .enum(["search", "manual"])
     .describe("How it was chosen: by a search's decision, or by an Admin in a Manual search"),
@@ -3264,7 +3266,9 @@ export type GrabsGrabListOutput = zod.output<typeof GrabsGrabList>;
 export const GrabsHeldCell = zod.object({
   grabId: zod.uuid(),
   stage: zod.enum(["fetching", "downloading", "probing", "transferring", "importing"]),
-  words: zod.string().describe("Such as A Grab is downloading Heat.1995.1080p.WEB for 1080p."),
+  words: zod
+    .string()
+    .describe("Such as A Grab is downloading WEBDL-1080p · FLUX · 6.2 GB for 1080p."),
 });
 
 export type GrabsHeldCell = zod.input<typeof GrabsHeldCell>;
@@ -3404,6 +3408,17 @@ export const GrabsManualCell = zod.object({
 export type GrabsManualCell = zod.input<typeof GrabsManualCell>;
 export type GrabsManualCellOutput = zod.output<typeof GrabsManualCell>;
 
+export const GrabsManualScope = zod.object({
+  cell: GrabsManualCell.exactOptional().describe(
+    "The one cell it plans for, absent for a wider scope",
+  ),
+  itemIds: zod.array(zod.uuid()),
+  levelIds: zod.array(zod.uuid()).describe("Each level stands for every Item under it"),
+});
+
+export type GrabsManualScope = zod.input<typeof GrabsManualScope>;
+export type GrabsManualScopeOutput = zod.output<typeof GrabsManualScope>;
+
 export const GrabsPinned = zod.object({
   key: zod.string().describe("The key of the row it fills"),
   pin: zod.string(),
@@ -3427,8 +3442,9 @@ export const GrabsPlanPick = zod.object({
   release: GrabsReleaseDetails,
   routed: zod
     .string()
+    .exactOptional()
     .describe(
-      "Where Tracker routing sends it, such as Where Tracker routing sends it (qBittorrent on Den)",
+      "The client Tracker routing sends it to, such as qBittorrent on Den; absent while no Node can take it",
     ),
 });
 
@@ -3493,6 +3509,9 @@ export const GrabsManualSearch = zod.object({
     .int()
     .min(grabsManualSearchReleaseCountMin)
     .describe("How many Releases listManualSearchReleases lists"),
+  scope: GrabsManualScope.describe(
+    "What it was started for; no levels, Items or cell for the whole Work",
+  ),
   searching: zod.boolean().describe("An Indexer asked hasn't responded yet"),
   startedAt: zod.iso.datetime({ offset: true }),
   startedBy: zod.string().describe("A name, or the API key"),

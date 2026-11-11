@@ -4,7 +4,7 @@ An Admin opens Manual search from any Search button to see the Releases for part
 
 ## Sub-features
 
-- `manual-open` Manual search opens from the hero's `Manual search`, a cell's `Manual search for <Target>, <Edition>`, a season header's and an episode row's `More actions for <name>` menu, a Needs you failure card, and on phone from the hero's action sheet, a cell's `Actions for <Target>, <Edition>` menu and the episode sheet. The sheet is a dialog titled with the scope in words, such as `The Quiet Orchard` or `Season 2 of The Lantern Keepers`, and a full-height sheet on phone (P-123).
+- `manual-open` Manual search opens from the hero's `Manual search`, a cell's `Manual search for <Target>, <Edition>`, a season header's and an episode row's `More actions for <name>` menu, a Needs you failure card, and on phone from the hero's action sheet, a cell's `Actions for <Target>, <Edition>` menu and the episode sheet. The sheet is a dialog titled with the scope in words, such as `The Quiet Orchard` or `E10 of Season 2 of The Lantern Keepers`, with the Work's title alone when the scope covers every Item of the Work, as Season 2 does here, and a full-height sheet on phone (P-123).
 - `manual-reopen` closing the sheet and opening it again on the same scope shows the same Manual search, with `Started <age> by Ada Okafor` and `Search again`, and starts no new one (P-123).
 - `manual-streaming` while Heron answers 20 seconds late, the Searching line reads `Searching 4 Indexers. 3 have responded.` and the plan already lists Fixture Site's Releases. Once Heron responds it reads `SlipStream searched 4 Indexers.`, and its Details lists each Indexer's outcome with `Open Indexer` and `Retry` (P-126).
 - `manual-plan` the Quiet Orchard's plan reads `2 Grabs get you everything.`: Tamarack's Bluray for `1080p (standard)` (Tamarack's automatic search is off, so an automatic Search would grab Fixture Site's WEB-DL instead), and FKW's 1080p WEB-DL for `HD (standard)` as an upgrade. `SlipStream wouldn't grab N more Releases.` folds the rest into sentences, such as `1 names another Work.` and `1 fails a filter of every Target here.` (P-127).
@@ -54,7 +54,7 @@ Steps:
 
   ```sh
   $FW exec $RUN -- $PW cli $D goto "{nodes.home.browserUrl}/works/$ORCHARD"
-  $FW exec $RUN -- $PW cli $D click 'getByRole("main").getByRole("button", { name: "Manual search", exact: true })'
+  $FW exec $RUN -- $PW cli $D click 'getByRole("main").getByRole("button", { name: "Manual search", exact: true }).first()'
   $FW exec $RUN -- $PW cli $D run-code 'async page => { await page.getByRole("dialog", { name: "The Quiet Orchard" }).getByText("Searching 4 Indexers. 3 have responded.").waitFor({ timeout: 15000 }); }'
   $FW exec $RUN --proof manual-search/manual-streaming -- $PW cli $D snapshot "$SHEET" --filename={runDir}/proof/manual-search/manual-streaming/searching.aria.yml
   $FW exec $RUN --proof manual-search/manual-streaming -- $PW cli $D screenshot --filename={runDir}/proof/manual-search/manual-streaming/searching.png
@@ -68,7 +68,7 @@ Steps:
 - **Read the plan.** The headline reads `2 Grabs get you everything.` The first row is `Bluray-1080p · FKW · 9.8 GB` with `It gets you 1080p (standard) for The Quiet Orchard.`, the second FKW's 1080p WEB-DL with `It gets you HD (standard) for The Quiet Orchard as an upgrade.` Open the folded line's `Details` for its groups.
 
   ```sh
-  $FW exec $RUN -- $PW cli $D click "$SHEET"'.getByRole("button", { name: /^SlipStream wouldn.t grab/ })'
+  $FW exec $RUN -- $PW cli $D click "$SHEET"'.getByText(/^SlipStream wouldn.t grab/).locator("..").getByRole("button", { name: "Details" })'
   $FW exec $RUN --proof manual-search/manual-plan -- $PW cli $D snapshot "$SHEET" --filename={runDir}/proof/manual-search/manual-plan/plan.aria.yml
   $FW exec $RUN --proof manual-search/manual-plan -- $PW cli $D screenshot --filename={runDir}/proof/manual-search/manual-plan/plan.png
   ```
@@ -90,7 +90,7 @@ Steps:
 
   ```sh
   $FW exec $RUN -- $PW cli $D press Escape
-  $FW exec $RUN -- $PW cli $D click 'getByRole("main").getByRole("button", { name: "Manual search", exact: true })'
+  $FW exec $RUN -- $PW cli $D click 'getByRole("main").getByRole("button", { name: "Manual search", exact: true }).first()'
   $FW exec $RUN --proof manual-search/manual-reopen -- $PW cli $D snapshot "$SHEET" --filename={runDir}/proof/manual-search/manual-reopen/sheet.aria.yml
   $FW exec $RUN --proof manual-search/manual-reopen -- curl -sS -H "$KEY" "{nodes.home.url}/api/v1/works/$ORCHARD/manual-search"
   ```
@@ -107,7 +107,7 @@ Steps:
   $FW exec $RUN --proof manual-search/manual-swap-override -- $PW cli $D snapshot "$ROW2" --filename={runDir}/proof/manual-search/manual-swap-override/row.aria.yml
   $FW exec $RUN -- $PW cli $D click "$ROW1"'.getByRole("button", { name: "Details", exact: true })'
   $FW exec $RUN -- $PW cli $D click "$ROW1"'.getByRole("combobox", { name: "Send to" })'
-  $FW exec $RUN -- $PW cli $D click 'getByRole("option", { name: "Built-in client on home" })'
+  $FW exec $RUN -- $PW cli $D click 'getByRole("option", { name: "Built-in client on home", exact: true })'
   $FW exec $RUN --proof manual-search/manual-client -- $PW cli $D snapshot "$ROW1" --filename={runDir}/proof/manual-search/manual-client/row.aria.yml
   $FW exec $RUN -- $PW cli $D click "$SHEET"'.getByRole("button", { name: "Grab 2", exact: true })'
   $FW exec $RUN -- $PW cli $D run-code 'async page => { await page.getByRole("dialog", { name: "The Quiet Orchard" }).getByText("Grabbed.").nth(1).waitFor({ timeout: 15000 }); }'
@@ -143,24 +143,27 @@ Steps:
   $FW exec $RUN --proof manual-search/manual-cancel -- curl -sS -H "$KEY" '{nodes.home.url}/api/v1/blocklist'
   ```
 
-- **Mark the Bluray failed.** On Torrents pick `The Quiet Orchard`, choose the toolbar's `Mark failed` and confirm `Mark The Quiet Orchard failed?`. The Blocklist gains `Ada Okafor marked its download failed.`, and the Work page's Needs you shows the failed 1080p cell.
+- **Mark the Bluray failed.** On Torrents open the row's `The Quiet Orchard actions` menu, choose `Mark failed` and confirm `Mark The Quiet Orchard failed?`. The Blocklist gains `Ada Okafor marked its download failed.`, and the Work page's Needs you shows the failed 1080p cell.
 
   ```sh
   $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/activity/torrents?tab=all'
-  $FW exec $RUN -- $PW cli $D click 'getByRole("checkbox", { name: "Pick The Quiet Orchard" })'
-  $FW exec $RUN -- $PW cli $D click 'getByRole("toolbar", { name: "Picked torrents" }).getByRole("button", { name: "Mark failed" })'
+  $FW exec $RUN -- $PW cli $D click 'getByRole("table", { name: "Torrents" }).getByRole("button", { name: "The Quiet Orchard actions" })'
+  $FW exec $RUN -- $PW cli $D click 'getByRole("menuitem", { name: "Mark failed" })'
   $FW exec $RUN -- $PW cli $D click 'getByRole("dialog", { name: "Mark The Quiet Orchard failed?" }).getByRole("button", { name: "Mark failed" })'
   $FW exec $RUN --proof manual-search/manual-mark-failed -- curl -sS -H "$KEY" '{nodes.home.url}/api/v1/blocklist'
   ```
 
-- **Plan a season and fault a Release.** Open The Lantern Keepers, open `More actions for Season 2` and `Manual search`, and capture the season's plan. Then open `More actions for S02E10` and `Manual search`, and choose `Grab 1`. Clear the hold. The tracker answers the Grab's announce `Unregistered torrent`, the Grab fails `release_fault`, and the Blocklist gains `Fixture Site reported it unregistered.`
+- **Plan a season and fault a Release.** Shorten `Unregistered twice, this far apart` to 1 min on Settings > Download Clients, or the default 30 minutes passes before the release fault. Open The Lantern Keepers, open `More actions for Season 2` and `Manual search`, and capture the season's plan. Season 2 is every Item of the Work, so the sheet is titled `The Lantern Keepers`. Then open `More actions for S02E10` and `Manual search`, and choose `Grab 1`. Clear the hold. The tracker answers the Grab's announce `Unregistered torrent`, the Grab fails `release_fault`, and the Blocklist gains `Fixture Site reported it unregistered.`
 
   ```sh
+  $FW exec $RUN -- $PW cli $D goto '{nodes.home.browserUrl}/settings/download-clients'
+  $FW exec $RUN -- $PW cli $D fill 'getByRole("textbox", { name: "Unregistered twice, this far apart" })' 1
+  $FW exec $RUN -- $PW cli $D click 'getByRole("main").getByRole("button", { name: "Save" })'
   $FW exec $RUN -- $PW cli $D goto "{nodes.home.browserUrl}/works/$KEEPERS"
   $FW exec $RUN -- $PW cli $D click 'getByRole("button", { name: "More actions for Season 2" })'
   $FW exec $RUN -- $PW cli $D click 'getByRole("menuitem", { name: "Manual search" })'
-  $FW exec $RUN -- $PW cli $D run-code 'async page => { await page.getByRole("dialog", { name: "Season 2 of The Lantern Keepers" }).getByText(/^SlipStream searched/).waitFor({ timeout: 60000 }); }'
-  $FW exec $RUN --proof manual-search/manual-series-plan -- $PW cli $D snapshot 'getByRole("dialog", { name: "Season 2 of The Lantern Keepers" })' --filename={runDir}/proof/manual-search/manual-series-plan/plan.aria.yml
+  $FW exec $RUN -- $PW cli $D run-code 'async page => { await page.getByRole("dialog", { name: "The Lantern Keepers" }).getByText(/^SlipStream searched/).waitFor({ timeout: 60000 }); }'
+  $FW exec $RUN --proof manual-search/manual-series-plan -- $PW cli $D snapshot 'getByRole("dialog", { name: "The Lantern Keepers" })' --filename={runDir}/proof/manual-search/manual-series-plan/plan.aria.yml
   $FW exec $RUN --proof manual-search/manual-series-plan -- $PW cli $D screenshot --filename={runDir}/proof/manual-search/manual-series-plan/plan.png
   $FW exec $RUN -- $PW cli $D press Escape
   $FW exec $RUN -- $PW cli $D click 'getByRole("button", { name: "More actions for S02E10" })'
@@ -219,13 +222,15 @@ Steps:
   $FW exec $RUN -- $PW cli $D tracing-stop
   ```
 
-- **Phone.** Open `{runId}-admin-phone` as in the skill's Drive with `phone`. On The Quiet Orchard open `More actions for The Quiet Orchard` and `Manual search`: the sheet fills the screen. Open a row's `Other choices` and `Details`, which open in place. Close it, then open the cell's `Actions for 1080p, Standard` menu, which lists `Search` and `Manual search`. On The Lantern Keepers, tap `S02E05` for its episode sheet and choose its `Manual search`.
+- **Phone.** Open `{runId}-admin-phone` as in the skill's Drive with `phone`. On The Quiet Orchard open `More actions for The Quiet Orchard` and `Manual search`: the sheet fills the screen. Both cells are filled by now, so the plan has no rows. Open `All Releases` and CMRG's `Details`, which opens in place. Close it, then open the cell's `Actions for 1080p, Standard` menu, which lists `Manual search` (and `Search` too while the cell is missing). On The Lantern Keepers, tap `S02E05` for its episode sheet and choose its `Manual search`, then open its row's `Details` in place.
 
   ```sh
   $FW exec $RUN -- $PW cli $P goto "{nodes.home.browserUrl}/works/$ORCHARD"
   $FW exec $RUN -- $PW cli $P click 'getByRole("button", { name: "More actions for The Quiet Orchard" })'
   $FW exec $RUN -- $PW cli $P click 'getByRole("dialog", { name: "Actions for The Quiet Orchard" }).getByRole("button", { name: "Manual search" })'
-  $FW exec $RUN -- $PW cli $P click "$SHEET"'.getByRole("button", { name: "Other choices" }).first()'
+  $FW exec $RUN -- $PW cli $P run-code 'async page => { await page.getByRole("dialog", { name: "The Quiet Orchard" }).getByText(/^SlipStream searched/).waitFor({ timeout: 60000 }); }'
+  $FW exec $RUN -- $PW cli $P click "$SHEET"'.getByRole("button", { name: /^All Releases \(\d+\)$/ })'
+  $FW exec $RUN -- $PW cli $P click "$SHEET"'.getByRole("list", { name: "All Releases" }).getByRole("listitem").filter({ hasText: "Freeleech" }).getByRole("button", { name: "Details" })'
   $FW exec $RUN --proof manual-search/manual-open -- $PW cli $P screenshot --filename={runDir}/proof/manual-search/manual-open/sheet-phone.png
   $FW exec $RUN -- $PW cli $P press Escape
   $FW exec $RUN -- $PW cli $P click 'getByRole("button", { name: "Search for 1080p, Standard" })'
@@ -234,6 +239,8 @@ Steps:
   $FW exec $RUN -- $PW cli $P goto "{nodes.home.browserUrl}/works/$KEEPERS"
   $FW exec $RUN -- $PW cli $P click 'getByRole("region", { name: "Seasons" }).getByRole("button", { name: /^S02E05 / })'
   $FW exec $RUN -- $PW cli $P click 'getByRole("dialog", { name: /^S02E05 / }).getByRole("button", { name: "Manual search" })'
+  $FW exec $RUN -- $PW cli $P run-code 'async page => { await page.getByRole("dialog").getByRole("button", { name: "Grab 1", exact: true }).waitFor({ timeout: 60000 }); }'
+  $FW exec $RUN -- $PW cli $P click 'getByRole("dialog").getByRole("list", { name: "Grabs" }).getByRole("button", { name: "Details" })'
   $FW exec $RUN --proof manual-search/manual-open -- $PW cli $P screenshot --filename={runDir}/proof/manual-search/manual-open/episode-phone.png
   ```
 
@@ -244,6 +251,7 @@ Steps:
 - Heron's delay is a Scenario fault that holds every Heron search 20 seconds. Clear `heron-answers-late` once the streaming proof is captured, or every later search waits for it.
 - The sheet's list of Grabs and Activity's table are both named `Grabs`. Scope the sheet's to its dialog and Activity's to `getByRole("table")`.
 - `Grab 2` and `Grab 1` need `exact: true`, since each Release under All Releases has its own `Grab`.
+- The hero's `Manual search` shares its name with the Needs you card's, so take the hero's with `.first()`. The folded line's and each row's disclosure are all named `Details`, so reach the folded line's through its sentence.
 - After the Needs you search, LQ's WEB-DL is on the Blocklist too, so the 1080p row's Other choices has two `Remove from Blocklist and grab` buttons. Filter the list item by `Bluray-1080p`.
 - `Remove from Blocklist and grab` under a row's Other choices pins the Release. The `Grab N` button grabs it. The same button under All Releases grabs at once.
 - Torrents names each row by its Work, so two held torrents of The Quiet Orchard share `Pick The Quiet Orchard`. Cancel the LQ Grab before you mark the Bluray failed.

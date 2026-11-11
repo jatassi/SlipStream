@@ -274,7 +274,10 @@ func TestRemoveFromBlocklistAndGrab(t *testing.T) {
 	})
 }
 
-func TestAPickSentToAClientRecordsItAndTrackerRouting(t *testing.T) {
+// TestAPickSentToTheRoutedClientRecordsNoRouting sends a pick to the
+// client Tracker routing would pick: the record says where it went, and
+// names no other client routing would have sent it to.
+func TestAPickSentToTheRoutedClientRecordsNoRouting(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		a := newTwinWorld(t, twin{sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{listing(bluRay, 9, "a")}}}})
 		v := a.searchedByHand(t)
@@ -285,7 +288,7 @@ func TestAPickSentToAClientRecordsItAndTrackerRouting(t *testing.T) {
 		if g.Sent == nil || g.Sent.BuiltInOn != home {
 			t.Fatalf("the Grab is sent to %+v, want home's built-in client", g.Sent)
 		}
-		want := "It was sent to the built-in client on home through the API key. Tracker routing would have sent it to the built-in client on home."
+		want := "It was sent to the built-in client on home through the API key."
 		if !slices.Equal(g.Overrides, []string{want}) {
 			t.Fatalf("the Grab's overrides are %q, want %q", g.Overrides, want)
 		}
@@ -300,4 +303,62 @@ func (a atticWorld) home(t *testing.T) role.NodeID {
 		t.Fatalf("the world's roster is %T", a.cfg.Roster)
 	}
 	return r.node
+}
+
+// TestAReleasesDetailsNameTheTrackerItsIndexerReaches reads a plan row's
+// Release from a Torznab feed whose items name no source: its Details name
+// the Tracker the feed reaches.
+func TestAReleasesDetailsNameTheTrackerItsIndexerReaches(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		a := newTwinWorld(t, twin{sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{listing(bluRay, 9, "a")}}}})
+		v := a.searchedByHand(t)
+		if got := v.Plan.Rows[0].Pick.Release.Tracker; got != "Better Site" {
+			t.Fatalf("the row's Release names the Tracker %q, want Better Site", got)
+		}
+	})
+}
+
+// TestACellAGrabFetchesReadsItsReleaseInWords grabs the plan's row and
+// reads the Manual search again: the cell is left out of the plan and
+// names the Grab's Release in the words its row used, as does the Grab.
+func TestACellAGrabFetchesReadsItsReleaseInWords(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		a := newTwinWorld(t, twin{sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{listing(bluRay, 9, "a")}}}})
+		v := a.searchedByHand(t)
+		words := v.Plan.Rows[0].Pick.Release.Words
+		id := made(t, a.grabbed(t, v, rowPick(t, v))[0])
+
+		after, err := a.g.ManualSearch(t.Context(), identity.Admin{}, a.work, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := "A Grab is fetching " + words + " for HD."; len(after.Plan.Held) != 1 || after.Plan.Held[0].Words != want {
+			t.Fatalf("the held cells read %+v, want one reading %q", after.Plan.Held, want)
+		}
+		if g := a.view(t, id); g.ReleaseWords != words {
+			t.Fatalf("the Grab's Release reads %q, want %q", g.ReleaseWords, words)
+		}
+	})
+}
+
+// TestAReleaseOnlyAHeldCellTakesFoldsAsHeld grabs the plan's row and reads
+// the Manual search again: both Releases, which only the cell the Grab
+// holds would take, fold as that, with no file there to be better than.
+func TestAReleaseOnlyAHeldCellTakesFoldsAsHeld(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		a := newTwinWorld(t, twin{sites: []twinSite{{name: "Better Site", priority: 10, releases: []searching.Release{
+			listing(bluRay, 9, "a"), listing(webDL, 9, "b"),
+		}}}})
+		v := a.searchedByHand(t)
+		made(t, a.grabbed(t, v, rowPick(t, v))[0])
+
+		after, err := a.g.ManualSearch(t.Context(), identity.Admin{}, a.work, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := []grabs.FoldGroup{{Words: "2 would fill cells a Grab is already downloading."}}
+		if !slices.Equal(after.Folded.Groups, want) {
+			t.Fatalf("the folded groups read %+v, want %+v", after.Folded.Groups, want)
+		}
+	})
 }

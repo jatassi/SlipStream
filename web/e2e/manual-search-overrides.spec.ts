@@ -58,12 +58,14 @@ test("a Release under a Target's minimum score is grabbed past it, the row sayin
   await frame(page, testInfo, "overrides-soft-refusal");
 
   await manual.getByRole("button", { name: "Grab 1" }).click();
-  const upgrade = grabRows(manual).first();
+  const fkw = "WEBDL-1080p · FKW · 8.2 GB";
+  const upgrade = grabRows(manual).filter({ has: page.getByRole("checkbox", { name: fkw }) });
   await expect(upgrade).toContainText(
     "It gets you 1080p (standard) and HD (standard) for The Quiet Orchard as an upgrade.",
     { timeout: 60_000 },
   );
-  await expect(upgrade.getByRole("checkbox", { name: "WEBDL-1080p · FKW · 8.2 GB" })).toBeChecked();
+  await expect(upgrade.getByRole("checkbox", { name: fkw })).toBeChecked();
+  await expect(row).toContainText("Grabbed.");
   await expect(manual.getByRole("button", { name: "Grab 1" })).toBeEnabled();
   const record = await recordOf(page, "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-LQ");
   await expect(record).toContainText(
@@ -111,7 +113,7 @@ test("a row and the whole plan can be sent to a client Tracker routing wouldn't 
   await sendTo.click();
   await page.getByRole("option", { name: /^Where Tracker routing sends it/u }).click();
   await expect(rows.nth(1)).toContainText(
-    "Where Tracker routing sends it (the built-in client on home)",
+    "Tracker routing sends it to the built-in client on home.",
   );
   await expect(rows.nth(0)).toContainText("SlipStream sends it to the built-in client on home.");
   await expectAccessible(page);
@@ -120,9 +122,8 @@ test("a row and the whole plan can be sent to a client Tracker routing wouldn't 
   await rows.nth(1).getByRole("checkbox").uncheck();
   await manual.getByRole("button", { name: "Grab 1" }).click();
   const record = await recordOf(page, "The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW");
-  await expect(record).toContainText(
-    "Ada Okafor sent it to the built-in client on home. Tracker routing would have sent it to the built-in client on home.",
-  );
+  await expect(record).toContainText("Ada Okafor sent it to the built-in client on home.");
+  await expect(record).not.toContainText("Tracker routing would have sent it");
 });
 
 test("a blocklisted Release says since when and why, and Remove from Blocklist and grab takes it back", async ({

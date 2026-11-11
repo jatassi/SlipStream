@@ -118,6 +118,10 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     cause: "The download stopped with an error.",
     recovery: searchAgain,
   },
+  marked_failed: {
+    cause: "An Admin marked the download failed. SlipStream added the Release to the Blocklist.",
+    recovery: searchAgain,
+  },
   removed: {
     cause: "An Admin removed the torrent before it finished downloading.",
     recovery: searchAgain,

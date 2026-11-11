@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/nodes"
+	rel "github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -119,7 +120,7 @@ func (noDownloads) Resolve(context.Context, role.NodeID, magnet.Link, time.Time)
 
 func grabOf(t *testing.T, lib library, id storage.UUID) grabs.View {
 	t.Helper()
-	v, err := grabs.New(grabs.Config{Library: lib, Downloads: noDownloads{}, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}).Get(t.Context(), identity.Admin{}, grabs.GrabID{UUID: id})
+	v, err := grabs.New(grabs.Config{Library: lib, Names: map[works.TypeID]rel.Names{contenttypetest.ID: dated{}}, Downloads: noDownloads{}, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}).Get(t.Context(), identity.Admin{}, grabs.GrabID{UUID: id})
 	if err != nil {
 		t.Fatal(err)
 	}

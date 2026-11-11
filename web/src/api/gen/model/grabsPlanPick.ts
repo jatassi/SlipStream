@@ -10,6 +10,6 @@ export interface GrabsPlanPick {
   /** The soft refusals it is grabbed past; send their codes and Targets back as the pick's lifts */
   lifts: GrabsWordedReason[];
   release: GrabsReleaseDetails;
-  /** Where Tracker routing sends it, such as Where Tracker routing sends it (qBittorrent on Den) */
-  routed: string;
+  /** The client Tracker routing sends it to, such as qBittorrent on Den; absent while no Node can take it */
+  routed?: string;
 }

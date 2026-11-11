@@ -5322,6 +5322,7 @@
               "infohash_mismatch",
               "torrent_v2_only",
               "download_failed",
+              "marked_failed",
               "removed",
               "no_video_file",
               "probe_failed",
@@ -5562,6 +5563,10 @@
           "releaseTitle": {
             "type": "string"
           },
+          "releaseWords": {
+            "description": "Its Release in words, such as Bluray-1080p · FKW · 9.8 GB",
+            "type": "string"
+          },
           "source": {
             "description": "How it was chosen: by a search's decision, or by an Admin in a Manual search",
             "enum": [
@@ -5621,6 +5626,7 @@
           "edition",
           "targetIds",
           "releaseTitle",
+          "releaseWords",
           "releaseSize",
           "indexerId",
           "trackerId",
@@ -5832,7 +5838,7 @@
             "type": "string"
           },
           "words": {
-            "description": "Such as A Grab is downloading Heat.1995.1080p.WEB for 1080p.",
+            "description": "Such as A Grab is downloading WEBDL-1080p · FLUX · 6.2 GB for 1080p.",
             "type": "string"
           }
         },
@@ -6129,6 +6135,35 @@
         ],
         "type": "object"
       },
+      "GrabsManualScope": {
+        "additionalProperties": false,
+        "properties": {
+          "cell": {
+            "$ref": "#/components/schemas/GrabsManualCell",
+            "description": "The one cell it plans for, absent for a wider scope"
+          },
+          "itemIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "levelIds": {
+            "description": "Each level stands for every Item under it",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "levelIds",
+          "itemIds"
+        ],
+        "type": "object"
+      },
       "GrabsManualSearch": {
         "additionalProperties": false,
         "properties": {
@@ -6177,6 +6212,10 @@
             "minimum": 0,
             "type": "integer"
           },
+          "scope": {
+            "$ref": "#/components/schemas/GrabsManualScope",
+            "description": "What it was started for; no levels, Items or cell for the whole Work"
+          },
           "searching": {
             "description": "An Indexer asked hasn't responded yet",
             "type": "boolean"
@@ -6196,6 +6235,7 @@
         },
         "required": [
           "id",
+          "scope",
           "title",
           "query",
           "startedAt",
@@ -6453,7 +6493,7 @@
             "$ref": "#/components/schemas/GrabsReleaseDetails"
           },
           "routed": {
-            "description": "Where Tracker routing sends it, such as Where Tracker routing sends it (qBittorrent on Den)",
+            "description": "The client Tracker routing sends it to, such as qBittorrent on Den; absent while no Node can take it",
             "type": "string"
           }
         },
@@ -6461,8 +6501,7 @@
           "release",
           "cells",
           "lifts",
-          "edition",
-          "routed"
+          "edition"
         ],
         "type": "object"
       },

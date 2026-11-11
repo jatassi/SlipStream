@@ -10,7 +10,7 @@ import { targetHandlers } from "./targets";
 
 export const workId = "0199f3a1-5c2e-7d4f-8a6b-1c3e5a7c9eaa";
 
-export const routedWords = "Where Tracker routing sends it (qBittorrent on Den)";
+export const routedWords = "Tracker routing sends it to qBittorrent on Den.";
 
 export const rowOf = (
   key: string,
@@ -28,7 +28,7 @@ export const rowOf = (
     ),
     lifts: [],
     edition: null,
-    routed: routedWords,
+    routed: "qBittorrent on Den",
   },
   pinned: false,
   outcome: `It gets you 1080p for E0${n}.`,
@@ -57,7 +57,20 @@ export const twoGrabs = (pins: readonly string[]): GrabsManualSearch => {
       rows: [
         rowOf("cell-e01", "NTb", 1),
         swapped
-          ? { ...second, pinned: true, pick: { ...second.pick, release: swapIn }, choices: [] }
+          ? {
+              ...second,
+              pinned: true,
+              pick: { ...second.pick, release: swapIn },
+              choices: [
+                {
+                  pin: "pin-e02-flux",
+                  release: second.pick.release,
+                  cells: ["cell-e02"],
+                  lifts: [],
+                  edition: null,
+                },
+              ],
+            }
           : second,
       ],
     },

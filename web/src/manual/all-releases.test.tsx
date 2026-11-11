@@ -77,3 +77,11 @@ test("All Releases grabs one Release on its own with what it gets past, and says
     ],
   ]);
 });
+
+test("a Release's Details list its facts under their labels, the seeders as a number", async () => {
+  const { sheet, all } = openAllReleases();
+  await userEvent.click(sheet.getByRole("button", { name: "All Releases (9)" }));
+  const first = all.getByRole("listitem").first();
+  await userEvent.click(first.getByRole("button", { name: "Details" }));
+  await expect.element(first).toMatchTextContent(/Seeders40Open in tester/u);
+});

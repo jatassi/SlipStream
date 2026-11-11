@@ -16,7 +16,7 @@ import { orchardRow } from "../test/library";
 import { homeId } from "../test/nodes";
 import { renderApp } from "../test/render-app";
 import { starter, targetHandlers } from "../test/targets";
-import { torrentsServer } from "../test/torrents";
+import { actionsServer, torrentsServer } from "../test/torrents";
 
 const override = "Ada Okafor grabbed it although its score of 5 is under 1080p's minimum of 10.";
 
@@ -68,7 +68,7 @@ test("a Grab's Details say who grabbed it and how, each override, where it went 
   await expect
     .element(details)
     .toMatchTextContent(
-      /ReleaseThe\.Quiet\.Orchard\.2021\.1080p\.WEB-DL.*IndexerTorrentLeechTrackerTorrentLeechClientChosen once SlipStream fetches the Release/u,
+      /ReleaseWEBDL-1080p · 700 MBThe\.Quiet\.Orchard\.2021\.1080p\.WEB-DL.*IndexerTorrentLeechTrackerTorrentLeechClientChosen once SlipStream fetches the Release/u,
     );
   await expect
     .element(details.getByRole("region", { name: "Stages" }))
@@ -201,4 +201,38 @@ test("Details on a Needs you card opens its Grab's record", async () => {
     .toMatchTextContent(
       /^Grab of The Quiet OrchardSlipStream couldn't download the Release's \.torrent file or magnet link from the Indexer\./u,
     );
+});
+
+test("Cancel on a downloading Grab names it once and lists only the other Grabs its torrent's removal cancels", async () => {
+  const other = {
+    grabId: "7d9f1b3c-5e7a-4c9b-8d2f-6a8c0e2f4a6b",
+    workId: orchardRow.id,
+    release: "The.Quiet.Orchard.2021.720p.WEB-DL",
+  };
+  const actions = actionsServer({
+    preview: {
+      cancels: [
+        { grabId: downloading.id, workId: orchardRow.id, release: downloading.releaseTitle },
+        other,
+      ],
+      stopSeeding: [],
+      frees: 0,
+      linked: false,
+      hitAndRun: [],
+    },
+  });
+  const grab: GrabsGrab = {
+    ...downloading,
+    actions: { cancel: true, blocklistable: true, sendTo: false },
+  };
+  renderApp({ path: "/activity", handlers: [actions.handler, ...grabServer(grab).handlers] });
+  await open("Cancel Grab");
+  const cancel = page.getByRole("dialog", { name: "Cancel this Grab?" });
+  await expect
+    .element(cancel)
+    .toMatchTextContent(
+      "It also cancels another Grab still downloading this torrent, and its Item goes back to wanted:",
+    );
+  expect(cancel.getByText(downloading.releaseTitle).elements()).toHaveLength(1);
+  await expect.element(cancel.getByText(other.release)).toBeVisible();
 });

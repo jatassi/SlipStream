@@ -213,7 +213,7 @@ func (q *Queries) InsertManualRun(ctx context.Context, arg InsertManualRunParams
 
 const listCellGrabsOfWork = `-- name: ListCellGrabsOfWork :many
 SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_target.target_id, grabs_grab.stage, grabs_grab.source,
-    grabs_grab.release_title, grabs_grab.failure_code, grabs_grab.failure_message
+    grabs_grab.release_title, grabs_grab.release_size, grabs_grab.failure_code, grabs_grab.failure_message
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
 WHERE grabs_grab.work_id = ?1
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position
@@ -227,6 +227,7 @@ type ListCellGrabsOfWorkRow struct {
 	Stage          Stage
 	Source         Source
 	ReleaseTitle   string
+	ReleaseSize    int64
 	FailureCode    *Code
 	FailureMessage *string
 }
@@ -250,6 +251,7 @@ func (q *Queries) ListCellGrabsOfWork(ctx context.Context, workID works.WorkID) 
 			&i.Stage,
 			&i.Source,
 			&i.ReleaseTitle,
+			&i.ReleaseSize,
 			&i.FailureCode,
 			&i.FailureMessage,
 		); err != nil {

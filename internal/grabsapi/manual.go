@@ -22,6 +22,12 @@ type manualCell struct {
 	TargetID string `json:"targetId" format:"uuid"`
 }
 
+type manualScope struct {
+	LevelIDs []string    `json:"levelIds" format:"uuid" nullable:"false" doc:"Each level stands for every Item under it"`
+	ItemIDs  []string    `json:"itemIds" format:"uuid" nullable:"false"`
+	Cell     *manualCell `json:"cell,omitempty" doc:"The one cell it plans for, absent for a wider scope"`
+}
+
 type startManual struct {
 	LevelIDs []string    `json:"levelIds,omitempty" format:"uuid" maxItems:"20000" nullable:"false" doc:"Each level stands for every Item under it"`
 	ItemIDs  []string    `json:"itemIds,omitempty" format:"uuid" maxItems:"20000" nullable:"false"`
@@ -74,7 +80,7 @@ type planPick struct {
 	Cells   []string                      `json:"cells" nullable:"false" doc:"The cells it fills, its row's first leading. Send them back as the pick's cells."`
 	Lifts   []wordedReason                `json:"lifts" nullable:"false" doc:"The soft refusals it is grabbed past; send their codes and Targets back as the pick's lifts"`
 	Edition api.Nullable[editionOverride] `json:"edition" doc:"The Edition it is grabbed as; null unless that is another Edition than its cut's"`
-	Routed  string                        `json:"routed" doc:"Where Tracker routing sends it, such as Where Tracker routing sends it (qBittorrent on Den)"`
+	Routed  string                        `json:"routed,omitempty" doc:"The client Tracker routing sends it to, such as qBittorrent on Den; absent while no Node can take it"`
 }
 
 type choice struct {
@@ -99,7 +105,7 @@ type planRow struct {
 
 type heldCell struct {
 	GrabID string `json:"grabId" format:"uuid"`
-	Words  string `json:"words" doc:"Such as A Grab is downloading Heat.1995.1080p.WEB for 1080p."`
+	Words  string `json:"words" doc:"Such as A Grab is downloading WEBDL-1080p · FLUX · 6.2 GB for 1080p."`
 	Stage  string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
 }
 
@@ -126,6 +132,7 @@ type pinned struct {
 
 type manualSearch struct {
 	ID           string        `json:"id" format:"uuid"`
+	Scope        manualScope   `json:"scope" doc:"What it was started for; no levels, Items or cell for the whole Work"`
 	Title        string        `json:"title" doc:"The scope in words"`
 	Query        *string       `json:"query" doc:"The typed query; null when each run sent its Item's terms"`
 	StartedAt    time.Time     `json:"startedAt"`
@@ -419,9 +426,23 @@ func editionOf(e *grabs.EditionOverride) api.Nullable[editionOverride] {
 	return api.Some(editionOverride{Edition: string(e.Edition), Words: e.Words})
 }
 
+func shownScopeOf(s grabs.ShownScope) manualScope {
+	out := manualScope{LevelIDs: []string{}, ItemIDs: []string{}}
+	for _, l := range s.Levels {
+		out.LevelIDs = append(out.LevelIDs, l.String())
+	}
+	for _, it := range s.Items {
+		out.ItemIDs = append(out.ItemIDs, it.String())
+	}
+	if c := s.Cell; c != nil {
+		out.Cell = &manualCell{ItemID: c.Item.String(), Edition: string(c.Edition), TargetID: c.Target.String()}
+	}
+	return out
+}
+
 func manualSearchOf(v grabs.ManualView) manualSearch {
 	out := manualSearch{
-		ID: v.ID.String(), Title: v.Title, StartedAt: v.Started, StartedBy: v.StartedBy.Words(), Searching: v.Searching,
+		ID: v.ID.String(), Scope: shownScopeOf(v.Scope), Title: v.Title, StartedAt: v.Started, StartedBy: v.StartedBy.Words(), Searching: v.Searching,
 		Queryable: v.Queryable, Line: v.Line, Indexers: []indexerLine{}, Plan: planOf(v.Plan), ReleaseCount: v.Releases,
 		Folded: folded{Line: v.Folded.Line, Groups: []foldGroup{}}, Pins: []pinned{},
 	}

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -17,10 +18,6 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// routedNowhere is where Tracker routing sends a Grab while no Node may
-// take it.
-const routedNowhere = "Where Tracker routing sends it"
-
 // manualView is in worked out around pins and written in words. It is
 // pure: the GET and the grab Write both call it.
 func manualView(in manualIn, pins []Pin) (ManualView, error) {
@@ -30,7 +27,7 @@ func manualView(in manualIn, pins []Pin) (ManualView, error) {
 	}
 	m := in.manual
 	v := ManualView{
-		ID: m.ID, Title: s.title(), Query: deref(m.Query), Started: m.StartedAt.Time(), StartedBy: Actor{Name: deref(m.StartedByName)},
+		ID: m.ID, Scope: in.scope, Title: s.title(), Query: deref(m.Query), Started: m.StartedAt.Time(), StartedBy: Actor{Name: deref(m.StartedByName)},
 		Queryable: len(in.runs) == 1, Folded: s.folded(),
 	}
 	if !m.StartedBy.IsZero() {
@@ -64,7 +61,8 @@ func (s sheet) itemNames() map[works.ItemID]string {
 	return out
 }
 
-// title is the scope in words: "Heat (1995)", "Season 2 of Severance".
+// title is the scope in words: "Heat (1995)", "Season 2 of Severance",
+// "S02E10 of Severance".
 func (s sheet) title() string {
 	t := s.in.tree
 	if s.in.nouns.Items == works.ItemsOne || len(s.runs) == len(liveItems(t)) {
@@ -74,7 +72,26 @@ func (s sheet) title() string {
 	for _, rs := range s.runs {
 		items = append(items, rs.run.ItemID)
 	}
+	if code := s.codeOf(items[0]); len(items) == 1 && code != "" {
+		return code + " of " + t.Label
+	}
 	return s.itemsWords(items, true) + " of " + t.Label
+}
+
+// codeOf is the code the Work page leads item with, "S02E10", "" when its
+// type places none.
+func (s sheet) codeOf(item works.ItemID) string {
+	i := slices.IndexFunc(s.in.nouns.Fields, func(f works.FieldSpec) bool { return slices.Contains(f.In, works.PlaceCode) })
+	if i < 0 {
+		return ""
+	}
+	j := slices.IndexFunc(s.in.tree.Items, func(it works.Item) bool { return it.ID == item })
+	for _, v := range s.in.tree.Items[j].Fields {
+		if v.Key == s.in.nouns.Fields[i].Key && v.Kind == works.KindText {
+			return v.Text
+		}
+	}
+	return ""
 }
 
 func liveItems(t works.Tree) []works.Item {
@@ -331,12 +348,13 @@ func (rs runSheet) livePins() []Pin {
 	return out
 }
 
-// heldIn is each cell of rs in scope that an unfinished Grab holds.
+// heldIn is each cell of rs in scope that an unfinished Grab holds, in
+// Want order.
 func (s sheet) heldIn(rs runSheet) []HeldCell {
 	var out []HeldCell
-	for k, g := range rs.held {
+	for _, k := range slices.Sorted(maps.Keys(rs.held)) {
 		if s.in.cell == nil || *s.in.cell == keyOf(rs.item[k]) {
-			out = append(out, heldCell(rs.item[k], g))
+			out = append(out, s.heldCell(rs.item[k], rs.held[k]))
 		}
 	}
 	return out
@@ -406,15 +424,15 @@ func plural(n int, one, many string) string {
 }
 
 // heldCell is cell, which unfinished Grab g holds, in words: "A Grab is
-// downloading Heat.1995.1080p.WEB for 1080p."
-func heldCell(c files.Cell, g db.ListCellGrabsOfWorkRow) HeldCell {
+// downloading WEBDL-1080p · FLUX · 6.2 GB for 1080p."
+func (s sheet) heldCell(c files.Cell, g db.ListCellGrabsOfWorkRow) HeldCell {
 	verb := "downloading"
 	if g.Stage == Fetching {
 		verb = "fetching"
 	}
 	return HeldCell{
 		Cell: keyOf(c), Grab: g.ID, Stage: g.Stage,
-		Words: "A Grab is " + verb + " " + g.ReleaseTitle + " for " + cellName(c) + ".",
+		Words: "A Grab is " + verb + " " + s.in.describe(g.ReleaseTitle, g.ReleaseSize) + " for " + cellName(c) + ".",
 	}
 }
 
@@ -483,8 +501,8 @@ func (s sheet) details(rs runSheet, g int) ReleaseDetails {
 			d.Indexers = append(d.Indexers, n)
 		}
 	}
-	if src := r.Source; src != nil {
-		d.Tracker = src.Name
+	if st, ok := s.in.standings[r.Indexer]; ok {
+		d.Tracker = st.Tracker(r)
 	}
 	if e, ok := s.in.blocks.of(a); ok {
 		d.Blocked = "It's been on the Blocklist since " + s.dayOf(e.Added) + " because " + becauseClause(e)
@@ -662,10 +680,12 @@ func (s sheet) folded() Folded {
 }
 
 // foldKey is what folded Releases group by: the refusal, and for
-// quality_not_in_target the Quality's name, "" when none was read.
+// quality_not_in_target the Quality's name, "" when none was read. held
+// is a Release only cells a Grab holds would take, with no refusal.
 type foldKey struct {
 	code    targets.ReasonCode
 	quality string
+	held    bool
 }
 
 // foldedWhy is why the plan's cells take as[g] neither auto nor lifted.
@@ -684,25 +704,33 @@ func (rs runSheet) foldedWhy(g int) (foldKey, bool) {
 	if i := slices.IndexFunc(a.refusals, func(r Reason) bool { return r.Code.Hard() || r.Code == targets.CoversMore }); i >= 0 {
 		return foldKey{code: a.refusals[i].Code}, true
 	}
-	return foldedAt(a, sts), true
+	return rs.foldedAt(a, sts), true
 }
 
 // foldedAt is why no cell takes a, sts being how it stands at each:
 // quality_not_in_target when no cell's Target accepts its Quality, else
-// the first reason of the first cell whose Target does.
-func foldedAt(a assessed, sts []stance) foldKey {
-	accepted := len(sts) == 0
-	for _, st := range sts {
+// the first reason of the first cell whose Target does. A Release only
+// cells a Grab holds would take folds as held.
+func (rs runSheet) foldedAt(a assessed, sts []stance) foldKey {
+	accepted, held := len(sts) == 0, false
+	for k, st := range sts {
 		if slices.ContainsFunc(st.why, func(r Reason) bool { return r.Code == targets.QualityNotInTarget }) {
 			continue
 		}
 		if len(st.why) > 0 {
 			return foldKey{code: st.why[0].Code}
 		}
-		accepted = true
+		if _, ok := rs.held[k]; ok {
+			held = true
+		} else {
+			accepted = true
+		}
 	}
-	if accepted {
+	switch {
+	case accepted:
 		return foldKey{code: targets.NotAnUpgrade}
+	case held:
+		return foldKey{held: true}
 	}
 	key := foldKey{code: targets.QualityNotInTarget}
 	if q, ok := a.read.Facts.Quality.Get(); ok {
@@ -729,6 +757,9 @@ func sameOf(r indexers.Release) listingKey {
 // foldWords is n Releases folded for key in a sentence.
 func (s sheet) foldWords(key foldKey, n int) string {
 	item := strings.ToLower(s.in.nouns.Item.One)
+	if key.held {
+		return plural(n, "1 would fill a cell", "%d would fill cells") + " a Grab is already downloading."
+	}
 	switch key.code {
 	case targets.QualityNotInTarget:
 		if key.quality == "" {
@@ -912,7 +943,7 @@ func (s sheet) offer(rs runSheet, g, f int) Offer {
 		o.Grab.Cells, o.Grab.Lifts, o.Grab.Edition = rs.keys(cells), rs.worded(st.lifts, g), s.override(rs, g, w, st)
 		for _, k := range cells {
 			if h, ok := rs.held[k]; ok {
-				o.Grab.Cancels = append(o.Grab.Cancels, heldCell(rs.item[k], h))
+				o.Grab.Cancels = append(o.Grab.Cancels, s.heldCell(rs.item[k], h))
 			} else {
 				fills = append(fills, rs.item[k])
 			}

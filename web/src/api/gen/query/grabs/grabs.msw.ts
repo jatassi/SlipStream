@@ -88,6 +88,7 @@ export const getListGrabsResponseMock = (
               "infohash_mismatch",
               "torrent_v2_only",
               "download_failed",
+              "marked_failed",
               "removed",
               "no_video_file",
               "probe_failed",
@@ -193,6 +194,7 @@ export const getListGrabsResponseMock = (
       : {}),
     releaseSize: faker.number.int({ min: 0 }),
     releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement(["search", "manual"] as const),
     stage: faker.helpers.arrayElement([
       "fetching",
@@ -273,6 +275,7 @@ export const getGetGrabResponseMock = (
             "infohash_mismatch",
             "torrent_v2_only",
             "download_failed",
+            "marked_failed",
             "removed",
             "no_video_file",
             "probe_failed",
@@ -378,6 +381,7 @@ export const getGetGrabResponseMock = (
     : {}),
   releaseSize: faker.number.int({ min: 0 }),
   releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
   source: faker.helpers.arrayElement(["search", "manual"] as const),
   stage: faker.helpers.arrayElement([
     "fetching",
@@ -458,6 +462,7 @@ export const getListIndexerGrabsResponseMock = (
               "infohash_mismatch",
               "torrent_v2_only",
               "download_failed",
+              "marked_failed",
               "removed",
               "no_video_file",
               "probe_failed",
@@ -563,6 +568,7 @@ export const getListIndexerGrabsResponseMock = (
       : {}),
     releaseSize: faker.number.int({ min: 0 }),
     releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
     source: faker.helpers.arrayElement(["search", "manual"] as const),
     stage: faker.helpers.arrayElement([
       "fetching",
@@ -962,7 +968,9 @@ export const getGetManualSearchResponseMock = (
               ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
               words: faker.string.alpha({ length: { min: 10, max: 20 } }),
             },
-            routed: faker.string.alpha({ length: { min: 10, max: 20 } }),
+            ...(faker.datatype.boolean()
+              ? { routed: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+              : {}),
           },
           null,
         ]),
@@ -973,6 +981,23 @@ export const getGetManualSearchResponseMock = (
   query: faker.helpers.arrayElement([faker.string.alpha({ length: { min: 10, max: 20 } }), null]),
   queryable: faker.datatype.boolean(),
   releaseCount: faker.number.int({ min: 0 }),
+  scope: {
+    ...(faker.datatype.boolean()
+      ? {
+          cell: {
+            edition: faker.string.alpha({ length: { min: 1, max: 20 } }),
+            itemId: faker.string.uuid(),
+            targetId: faker.string.uuid(),
+          },
+        }
+      : {}),
+    itemIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.uuid(),
+    ),
+    levelIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.uuid(),
+    ),
+  },
   searching: faker.datatype.boolean(),
   startedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
   startedBy: faker.string.alpha({ length: { min: 10, max: 20 } }),

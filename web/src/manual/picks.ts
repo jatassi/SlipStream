@@ -59,6 +59,35 @@ export const hasPick = (row: GrabsPlanRow): row is PickRow => row.pick !== null;
  */
 export const resultKey = (row: PickRow): string => `${row.key}/${row.pick.release.id}`;
 
+/** A row on screen and its React key: a kept row's never matches a row of the plan, so a swap keeps the row it swaps open. */
+export type ShownRow = { readonly id: string; readonly row: PickRow };
+
+/**
+ * The plan's picks with each row the Admin grabbed or tried to grab kept in
+ * place: a grab leaves its cells out of the next plan, and its result stays
+ * on screen until the sheet closes or searches again. A kept row sits before
+ * the row that now fills its cells, or first when none does.
+ */
+export function shownRows(
+  picks: readonly PickRow[],
+  sent: ReadonlyMap<string, PickRow>,
+  results: Results,
+): ShownRow[] {
+  const current = new Set(picks.map((row) => resultKey(row)));
+  const kept = [...sent.values()].filter(
+    (row) => results.has(resultKey(row)) && !current.has(resultKey(row)),
+  );
+  const keys = new Set(picks.map(({ key }) => key));
+  const keptRow = (row: PickRow): ShownRow => ({ id: `kept/${resultKey(row)}`, row });
+  return [
+    ...kept.filter(({ key }) => !keys.has(key)).map((it) => keptRow(it)),
+    ...picks.flatMap((row) => [
+      ...kept.filter(({ key }) => key === row.key).map((it) => keptRow(it)),
+      { id: row.key, row },
+    ]),
+  ];
+}
+
 /** A row the Grab button sends: ticked, with a pick, and not grabbed already. */
 export const sends = (choices: Choices, results: Results, row: GrabsPlanRow): row is PickRow =>
   hasPick(row) && !choices.unticked.has(row.key) && !grabbed(results, resultKey(row));

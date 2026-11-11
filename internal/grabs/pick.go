@@ -493,7 +493,10 @@ func (g *grabbing) overridden(ctx context.Context, n newGrab, c chosen, sent *do
 	if err != nil {
 		return Overrides{}, err
 	}
-	o.Client.Routed, err = clientWords(ctx, g.tx, routed)
+	routedWords, err := clientWords(ctx, g.tx, routed)
+	if routedWords != words {
+		o.Client.Routed = routedWords
+	}
 	return o, err
 }
 
