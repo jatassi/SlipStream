@@ -1,4 +1,5 @@
 import type { FilesCellList, FilesFileList, FilesListedFile, GrabsGrab } from "../api/gen/model";
+import { fileOf } from "../works/page/matrix-model";
 import { downloading } from "./grabs";
 import { orchardItemId } from "./library";
 import { seedboxId } from "./nodes";
@@ -53,8 +54,10 @@ export const filled: FilesCellList = {
       ...base,
       targetId: uhd,
       targetName: "2160p HDR",
-      wanted: true,
+      wanted: false,
       state: "downloading",
+      grabId: downloading.id,
+      file: null,
     },
   ],
   items: [{ itemId: orchardItemId, status: "downloading" }],
@@ -85,22 +88,17 @@ export const filledTwice: FilesCellList = {
   items: [{ itemId: orchardItemId, status: "met" }],
 };
 
+export const hdtv = {
+  id: "4c6e8a0b-2d4f-4a6c-8e0b-2d4f6a8c0e1f",
+  path: "movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv",
+  size: 524_288_000,
+  quality: "hdtv-1080p",
+  probe: { width: 1920, height: 1080 },
+} as const;
+
 export const upgradable: FilesCellList = {
   cells: [
-    {
-      ...base,
-      targetId: hd,
-      targetName: "1080p",
-      wanted: false,
-      state: "upgradable",
-      file: {
-        id: "4c6e8a0b-2d4f-4a6c-8e0b-2d4f6a8c0e1f",
-        path: "movies/The Quiet Orchard (2021)/The Quiet Orchard (2021) - 1080p.mkv",
-        size: 524_288_000,
-        quality: "hdtv-1080p",
-        probe: { width: 1920, height: 1080 },
-      },
-    },
+    { ...base, targetId: hd, targetName: "1080p", wanted: true, state: "upgradable", file: hdtv },
     {
       ...base,
       targetId: uhd,
@@ -123,7 +121,15 @@ export const upgradable: FilesCellList = {
 export const failedCells = (failed: string): FilesCellList => ({
   cells: [
     { ...base, targetId: hd, targetName: "1080p", wanted: true, state: "missing" },
-    { ...base, targetId: uhd, targetName: "2160p HDR", wanted: true, state: "failed" },
+    {
+      ...base,
+      targetId: uhd,
+      targetName: "2160p HDR",
+      wanted: true,
+      state: "failed",
+      grabId: failed,
+      file: null,
+    },
   ],
   items: [{ itemId: orchardItemId, status: "failed" }],
   summary: {
@@ -148,11 +154,12 @@ export const failedCells = (failed: string): FilesCellList => ({
 export function filesOf({ cells }: FilesCellList): FilesFileList {
   const files = new Map<string, FilesListedFile>();
   for (const cell of cells) {
-    if ("file" in cell) {
+    const filling = fileOf(cell);
+    if (filling !== null) {
       const fill = { itemId: cell.itemId, edition: cell.edition, targetId: cell.targetId };
-      const known = files.get(cell.file.id);
-      const { probe, ...file } = cell.file;
-      files.set(cell.file.id, {
+      const known = files.get(filling.id);
+      const { probe, ...file } = filling;
+      files.set(filling.id, {
         ...file,
         folder: "movies/The Quiet Orchard (2021)",
         codec: "x264",

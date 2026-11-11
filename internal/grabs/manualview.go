@@ -546,7 +546,7 @@ var walked = []files.State{files.Unreleased, files.Missing, files.Failed, files.
 // Release of a run or no cell of its Item.
 func worked(in manualIn, pins []Pin) (sheet, error) {
 	s := sheet{in: in}
-	gs := grabsByCell(in.grabs)
+	gs := grabsByID(in.grabs)
 	for _, run := range in.runs {
 		rs := runSheet{run: run, planIn: planIn{take: in.standings.Take}}
 		place(&rs, in, gs)
@@ -561,26 +561,17 @@ func worked(in manualIn, pins []Pin) (sheet, error) {
 	return s, nil
 }
 
-// cellGrabs is the latest Grab of each cell, and its unfinished one.
-type cellGrabs struct {
-	latest, unfinished map[files.CellKey]db.ListCellGrabsOfWorkRow
-}
-
-func grabsByCell(grabs []db.ListCellGrabsOfWorkRow) cellGrabs {
-	out := cellGrabs{latest: map[files.CellKey]db.ListCellGrabsOfWorkRow{}, unfinished: map[files.CellKey]db.ListCellGrabsOfWorkRow{}}
+func grabsByID(grabs []db.ListCellGrabsOfWorkRow) map[GrabID]db.ListCellGrabsOfWorkRow {
+	out := make(map[GrabID]db.ListCellGrabsOfWorkRow, len(grabs))
 	for _, g := range grabs {
-		key := files.CellKey{Item: g.ItemID, Edition: g.Edition, Target: g.TargetID}
-		out.latest[key] = g
-		if g.Stage != Imported && g.Stage != Failed {
-			out.unfinished[key] = g
-		}
+		out[g.ID] = g
 	}
 	return out
 }
 
-// place sets rs's cells: what each holds, which the plan walks and
-// which a row may fill.
-func place(rs *runSheet, in manualIn, gs cellGrabs) {
+// place sets rs's cells: the Grab in flight that holds each downloading
+// one, which the plan walks and which a row may fill.
+func place(rs *runSheet, in manualIn, gs map[GrabID]db.ListCellGrabsOfWorkRow) {
 	rs.held, rs.failure = map[int]db.ListCellGrabsOfWorkRow{}, map[int]string{}
 	for _, c := range in.cells {
 		if c.Item.ID == rs.run.ItemID {
@@ -590,11 +581,12 @@ func place(rs *runSheet, in manualIn, gs cellGrabs) {
 	rs.fill = make([]bool, len(rs.item))
 	for k, c := range rs.item {
 		key := keyOf(c)
-		if g, ok := gs.unfinished[key]; ok {
+		g := gs[GrabID{UUID: c.Grab}]
+		if c.State == files.Downloading {
 			rs.held[k] = g
 			continue
 		}
-		if g := gs.latest[key]; c.State == files.Failed && g.FailureMessage != nil {
+		if c.State == files.Failed && g.FailureMessage != nil {
 			rs.failure[k] = *g.FailureMessage
 		}
 		if !slices.Contains(walked, c.State) {

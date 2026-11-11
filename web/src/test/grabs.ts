@@ -72,3 +72,16 @@ export const imported: GrabsGrab = {
     { stage: "imported", at: "2026-10-12T09:03:02Z" },
   ],
 };
+
+/** An import that failed on a permission error, which needs an Admin. */
+export const failedImport: GrabsGrab = {
+  ...imported,
+  stage: "failed",
+  history: [...imported.history.slice(0, -1), { stage: "failed", at: "2026-10-12T09:03:02Z" }],
+  failure: {
+    stage: "importing",
+    code: "import_failed",
+    message: "place movies/The Quiet Orchard (2021): permission denied",
+    needsYou: true,
+  },
+};

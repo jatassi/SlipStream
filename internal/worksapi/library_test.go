@@ -196,7 +196,7 @@ func TestEachLibraryRowRollsUpItsCellsAndFiles(t *testing.T) {
 	one := `,"preset":"all","profileId":"` + s.one.ID.String() + `"`
 	s.add(t, "arrival", "Arrival", one, "Arrival")
 	brazil := s.add(t, "brazil", "Brazil", one, "Brazil")
-	s.grab(brazil.Items[0], s.hd.ID, files.GrabCell{State: files.GrabDownloading})
+	s.grab(brazil.Items[0], s.hd.ID, files.GrabCell{State: files.GrabInFlight})
 	contact := s.add(t, "contact", "Contact", one, "Contact")
 	s.grab(contact.Items[0], s.hd.ID, files.GrabCell{State: files.GrabFailed})
 	dune := s.add(t, "dune", "Dune", one, "Dune")
@@ -271,7 +271,7 @@ func TestNeedsYouIsOneEntryPerItemAndEditionInRankOrder(t *testing.T) {
 	}
 	s.placeAt(t, d, w, "Mixed/d - HD.mkv", release.Bluray1080p, 1, s.hd.ID)
 	s.placeAt(t, d, w, "Mixed/d - 2160p.mkv", release.WEBDL2160p, 1, s.uhd.ID)
-	waits := s.grab(f, s.hd.ID, files.GrabCell{State: files.GrabDownloading, Waiting: "node_away"})
+	waits := s.grab(f, s.hd.ID, files.GrabCell{State: files.GrabInFlight, Waiting: "node_away"})
 	failedG := s.grab(g, s.uhd.ID, files.GrabCell{State: files.GrabFailed})
 
 	hd, uhd := s.hd.ID.String(), s.uhd.ID.String()

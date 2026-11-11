@@ -69,7 +69,7 @@ The list of library files whose path differs from what the naming templates rend
 _Avoid_: Mass rename, rename preview
 
 **Cell**:
-One Edition at one Target of one Item. Under any cut, an Item has one cell per Target. A cell's state is unreleased, held, missing, downloading, converting, failed, upgradable or met, and a missing cell is either Not found or waiting on its source Target.
+One Edition at one Target of one Item. Under any cut, an Item has one cell per Target. A cell's state is unreleased, missing, downloading, failed, upgradable or met. A final file makes it met. Otherwise it is downloading from the moment a Grab for it exists until no unfinished Grab holds it, fetching included, and failed when its latest Grab failed in a way only an Admin can resolve. A downloading or failed cell keeps the file its Grab would replace.
 _Avoid_: Slot, square
 
 **Availability date**:
@@ -77,11 +77,11 @@ The day an Item counts as released, chosen by its Content Type's rule from the r
 _Avoid_: Release date (for the deciding day), available date, out date
 
 **Item status**:
-An Item's state, rolled up from its cells in this order: unreleased, held, missing, downloading, converting, failed, upgradable, met. Cells of a listed cut not yet seen for the Item stay out of it.
+An Item's state, rolled up from its cells in this order: unreleased, missing, downloading, failed, upgradable, met. Cells of a listed cut not yet seen for the Item stay out of it.
 _Avoid_: Available (for an Item or cell), complete
 
 **Needs you**:
-The list of what only a person can resolve, such as failed cells, upgrades available, Not found cells, pending and Delayed Requests, and jobs left waiting, each with its cause and recovery.
+The list of what only a person can resolve, such as failed cells, upgrades available, pending and Delayed Requests, and jobs left waiting, each with its cause and recovery.
 _Avoid_: Alerts, attention, inbox
 
 **Monitoring preset**:
@@ -357,7 +357,7 @@ A link that names a Release by its info hash, with an optional name and trackers
 _Avoid_: Magnet URI, magnet (alone, in UI)
 
 **Want**:
-One Edition at one Target of a monitored, released Item, still listed by its source, that no file fills, or whose filling file is below the Target's cutoff or below its upgrade-until score. Under any cut, a Want is one Target of the Item, which a file of any Edition can fill. Every search and RSS sync tries to satisfy Wants.
+One Edition at one Target of a monitored, released Item, still listed by its source, that no file fills, or whose filling file is below the Target's cutoff or below its upgrade-until score, and that no unfinished Grab holds. Under any cut, a Want is one Target of the Item, which a file of any Edition can fill. Every search and RSS sync tries to satisfy Wants.
 _Avoid_: Missing item, wanted cell, slot
 
 **Grab**:

@@ -1,4 +1,4 @@
-import type { FilesCell, GrabsGrab } from "../../api/gen/model";
+import type { FilesCell } from "../../api/gen/model";
 import { ManualSearchButton, useStartSearch } from "../../grabs/search";
 import { openManualSearch } from "../../manual/sheet-state";
 import { Button } from "../../ui/button";
@@ -7,24 +7,9 @@ import { useShell } from "../../ui/shell-context";
 import { stateChips } from "../cell-state";
 import { CellDetails } from "./cell-details";
 import { CellFacts } from "./cell-facts";
-import { type CellView, type MatrixShown, cellScope } from "./matrix-model";
+import { type CellView, type MatrixShown, cellScope, fileOf } from "./matrix-model";
 
-// The latest Grab for the cell: the one its state reads from.
-export function grabOf(grabs: readonly GrabsGrab[], cell: FilesCell): GrabsGrab | undefined {
-  return grabs
-    .filter(
-      (grab) =>
-        grab.itemId === cell.itemId &&
-        grab.edition === cell.edition &&
-        grab.targetIds.includes(cell.targetId),
-    )
-    .toSorted((a, b) => a.createdAt.localeCompare(b.createdAt))
-    .at(-1);
-}
-
-const searchable = new Set<FilesCell["state"]>(["missing", "failed", "upgradable"]);
-
-/** Search while the cell lacks a file, and Manual search; on phone, one menu with both. */
+/** Search while the cell is wanted, and Manual search; on phone, one menu with both. */
 function CellActions({ cell, name, workId }: { cell: FilesCell; name: string; workId: string }) {
   const search = useStartSearch();
   const startSearch = () => {
@@ -47,7 +32,7 @@ function CellActions({ cell, name, workId }: { cell: FilesCell; name: string; wo
         label={`Actions for ${name}`}
         trigger={searchButton()}
         items={[
-          ...(searchable.has(cell.state) ? [{ label: "Search", onSelect: startSearch }] : []),
+          ...(cell.wanted ? [{ label: "Search", onSelect: startSearch }] : []),
           {
             label: "Manual search",
             onSelect: () => {
@@ -60,7 +45,7 @@ function CellActions({ cell, name, workId }: { cell: FilesCell; name: string; wo
   }
   return (
     <span className="flex flex-wrap items-center gap-1">
-      {searchable.has(cell.state) && searchButton(startSearch)}
+      {cell.wanted && searchButton(startSearch)}
       <ManualSearchButton
         workId={workId}
         scope={cellScope(cell)}
@@ -86,13 +71,14 @@ export function CellBlock({
   if (cell === undefined) {
     return null;
   }
+  const file = fileOf(cell);
   return (
     <div className="flex min-w-0 flex-col items-start gap-1.5">
       <span className="flex items-center gap-1">
         {stateChips[cell.state]}
-        {"file" in cell && <CellDetails view={view} cell={cell} shown={shown} />}
+        {file !== null && <CellDetails view={view} cell={cell} file={file} shown={shown} />}
       </span>
-      <CellFacts cell={cell} grab={grabOf(shown.grabs, cell)} />
+      <CellFacts cell={cell} grabs={shown.grabs} />
       <CellActions cell={cell} name={`${view.target.name}, ${row}`} workId={shown.work.id} />
     </div>
   );

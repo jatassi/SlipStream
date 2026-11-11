@@ -18,7 +18,7 @@ test.use({ scenario: "series" });
 test.describe.configure({ timeout: 180_000 });
 
 const Cells = z.object({
-  cells: z.array(z.object({ itemId: z.string(), file: z.object({ id: z.string() }).optional() })),
+  cells: z.array(z.object({ itemId: z.string(), file: z.object({ id: z.string() }).nullish() })),
 });
 const Items = z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })) });
 
@@ -30,7 +30,7 @@ const grabbed = (page: Page) =>
 async function filed(world: World, workId: string): Promise<string[]> {
   const { items } = Items.parse((await world.api("GET", `/api/v1/works/${workId}`)).body);
   const { cells } = Cells.parse((await world.api("GET", `/api/v1/works/${workId}/cells`)).body);
-  const held = new Set(cells.filter(({ file }) => file !== undefined).map(({ itemId }) => itemId));
+  const held = new Set(cells.filter(({ file }) => file).map(({ itemId }) => itemId));
   return items.filter(({ id }) => held.has(id)).map(({ label }) => label);
 }
 

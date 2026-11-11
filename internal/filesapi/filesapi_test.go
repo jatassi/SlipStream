@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -101,7 +102,8 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	shelf, err := files.Open(t.Context(), files.Config{Library: lib, Targets: goals, Grabs: files.NoGrabs{}, Today: time.Now})
+	inflight := grabbing{cells: map[files.CellKey]files.GrabCell{}}
+	shelf, err := files.Open(t.Context(), files.Config{Library: lib, Targets: goals, Grabs: inflight, Today: time.Now})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,6 +125,15 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	if code != http.StatusOK || body != want {
 		t.Fatalf("getWorkCells = %d\n%s\nwant\n%s", code, body, want)
 	}
+	upgrade, failed := storage.NewUUID(), storage.NewUUID()
+	inflight.cells[files.CellKey{Item: tree.Items[0].ID, Edition: targets.AnyEdition, Target: hd.ID}] = files.GrabCell{State: files.GrabInFlight, Grab: upgrade}
+	inflight.cells[files.CellKey{Item: tree.Items[0].ID, Edition: targets.AnyEdition, Target: uhd.ID}] = files.GrabCell{State: files.GrabFailed, Grab: failed}
+	code, body = s.Call(t, http.MethodGet, "/api/v1/works/"+tree.ID.String()+"/cells", "")
+	want = `{"itemId":"` + scarf + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"downloading","grabId":"` + upgrade.String() + `",` + file + `},` +
+		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"state":"failed","grabId":"` + failed.String() + `","file":null},`
+	if code != http.StatusOK || !strings.Contains(body, want) {
+		t.Fatalf("getWorkCells with an upgrade in flight and a failed Grab = %d\n%s\nwant it to hold\n%s", code, body, want)
+	}
 	empty := must[targets.Profile](t)(goals.CreateProfile(ctx, admin, targets.ProfileSpec{Name: "Empty", ContentType: contenttypetest.ID}))
 	fx.Put("w2", contenttypetest.Record{Tree: works.Fetched{Label: "The Cellar", Children: []works.Entry{{Key: "b1", Label: "Top", Children: []works.Entry{{Key: "c1", Label: "Jar"}}}}}})
 	bare, _, err := w.Add(ctx, admin, contenttypetest.ID, "w2", works.Adding{
@@ -141,6 +152,15 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		`{"cells":[],"items":[{"itemId":"id1","status":null}],"summary":{"status":null,"cells":{},"items":1,"itemStatus":{}},"needsYou":[]}`)
 	s.Expect(t, http.MethodGet, "/api/v1/works/"+storage.NewUUID().String()+"/cells", "", http.StatusNotFound,
 		`{"status":404,"code":"work_not_found","title":"No Work has that id"}`)
+}
+
+type grabbing struct {
+	files.NoGrabs
+	cells map[files.CellKey]files.GrabCell
+}
+
+func (g grabbing) GrabCells(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
+	return g.cells, nil
 }
 
 type told []files.Changed

@@ -64,7 +64,7 @@ type CellBase struct {
 	Edition    string `json:"edition" doc:"any under any cut, else the key of the cut the cell wants"`
 	TargetID   string `json:"targetId" format:"uuid"`
 	TargetName string `json:"targetName"`
-	Wanted     bool   `json:"wanted" doc:"Missing or failed, and its Item monitored and released"`
+	Wanted     bool   `json:"wanted" doc:"Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released"`
 }
 
 type unreleasedCell struct {
@@ -79,18 +79,22 @@ type missingCell struct {
 
 type downloadingCell struct {
 	CellBase
-	State string `json:"state" enum:"downloading"`
+	State  string                    `json:"state" enum:"downloading" doc:"A Grab is in flight for it, fetching included"`
+	GrabID string                    `json:"grabId" format:"uuid" doc:"The latest Grab in flight for it"`
+	File   api.Nullable[LibraryFile] `json:"file" doc:"The file the Grab would replace; null when it fills no file"`
 }
 
 type failedCell struct {
 	CellBase
-	State string `json:"state" enum:"failed"`
+	State  string                    `json:"state" enum:"failed"`
+	GrabID string                    `json:"grabId" format:"uuid" doc:"The Grab that failed"`
+	File   api.Nullable[LibraryFile] `json:"file" doc:"The file the Grab would have replaced; null when it fills no file"`
 }
 
 type upgradableCell struct {
 	CellBase
 	State string      `json:"state" enum:"upgradable"`
-	File  LibraryFile `json:"file" doc:"The file filling it, below its Target's cutoff"`
+	File  LibraryFile `json:"file" doc:"The file filling it, short of its Target's cutoff or upgrade-until score"`
 }
 
 type metCell struct {
@@ -108,15 +112,23 @@ func variantOf(c files.Cell) api.OneOf[cell] {
 	case files.Missing:
 		return api.NewOneOf[cell](missingCell{base, state})
 	case files.Downloading:
-		return api.NewOneOf[cell](downloadingCell{base, state})
+		return api.NewOneOf[cell](downloadingCell{base, state, c.Grab.String(), replaced(c)})
 	case files.Failed:
-		return api.NewOneOf[cell](failedCell{base, state})
+		return api.NewOneOf[cell](failedCell{base, state, c.Grab.String(), replaced(c)})
 	case files.Upgradable:
 		return api.NewOneOf[cell](upgradableCell{base, state, fileOf(*c.File)})
 	case files.Met:
 		return api.NewOneOf[cell](metCell{base, state, fileOf(*c.File)})
 	}
 	panic(fmt.Sprintf("filesapi: a cell in state %d", c.State))
+}
+
+// replaced is the file a Grab of c would replace.
+func replaced(c files.Cell) api.Nullable[LibraryFile] {
+	if c.File == nil {
+		return api.Nullable[LibraryFile]{}
+	}
+	return api.Some(fileOf(*c.File))
 }
 
 type cellsInput struct {

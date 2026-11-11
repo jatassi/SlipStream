@@ -368,3 +368,13 @@ func TestAnIndexersLineAcrossItemsSaysWhatItSearched(t *testing.T) {
 		}
 	}
 }
+
+func TestACellsManualSearchCountsOnlyThatCellAsFilled(t *testing.T) {
+	both := target("Both", release.Bluray1080p, nil, []release.Quality{release.Bluray1080p})
+	in := manualOf(orchard, []files.Cell{cell(hd, files.Missing), cell(both, files.Missing)}, offered("Orchard.2021.1080p.BluRay-GRP", 5, 10, nil))
+	key := keyOf(in.cells[0])
+	in.cell = &key
+	if v := viewOf(t, in); v.Plan.Headline != "1 Grab gets you everything." {
+		t.Fatalf("the plan for one cell says %q, want 1 Grab gets you everything", v.Plan.Headline)
+	}
+}

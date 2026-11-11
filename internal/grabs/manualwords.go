@@ -211,7 +211,7 @@ func namesOf(cs []files.Cell) []string {
 func (s sheet) gets(cs []files.Cell) string {
 	var fresh, better []files.Cell
 	for _, c := range cs {
-		if c.State == files.Upgradable {
+		if c.File != nil {
 			better = append(better, c)
 		} else {
 			fresh = append(fresh, c)
@@ -296,7 +296,7 @@ func (s sheet) plan() (ManualPlan, []Pin, error) {
 				gaps[key] = len(p.Rows)
 			} else {
 				grabs++
-				filled += len(r.cells)
+				filled += rs.walked(r.cells)
 			}
 			row, err := s.row(rs, r, cause, rs.freeBefore(i))
 			if err != nil {
@@ -413,6 +413,18 @@ func headline(walked, filled, grabs, held int, unfound []string) string {
 		return n + " you everything."
 	}
 	return fmt.Sprintf("%s you %d of the %d files you're missing. %s", n, filled, walked, missing())
+}
+
+// walked counts the cells of cs the plan walks. A row may fill more cells
+// of its Item than a cell's Manual search walks.
+func (rs runSheet) walked(cs []int) int {
+	n := 0
+	for _, k := range cs {
+		if slices.Contains(rs.walk, k) {
+			n++
+		}
+	}
+	return n
 }
 
 // plural is one when n is 1, else many with n.
@@ -575,7 +587,7 @@ func (rs runSheet) verdictAt(g, k int) string {
 	name := cellName(c)
 	switch {
 	case st.kind == standsAuto || st.kind == standsBlocked && len(st.lifts) == 0 && st.edition == "":
-		if c.State == files.Upgradable {
+		if c.File != nil {
 			return "It would fill " + name + " as an upgrade."
 		}
 		return "It would fill " + name + "."

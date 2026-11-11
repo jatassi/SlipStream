@@ -1621,7 +1621,11 @@ export const FilesUnreleasedCell = zod.object({
   state: zod.enum(["unreleased"]).describe("Its Item has no release date, or a later one"),
   targetId: zod.uuid(),
   targetName: zod.string(),
-  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
+  wanted: zod
+    .boolean()
+    .describe(
+      "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
+    ),
 });
 
 export type FilesUnreleasedCell = zod.input<typeof FilesUnreleasedCell>;
@@ -1633,35 +1637,15 @@ export const FilesMissingCell = zod.object({
   state: zod.enum(["missing"]),
   targetId: zod.uuid(),
   targetName: zod.string(),
-  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
+  wanted: zod
+    .boolean()
+    .describe(
+      "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
+    ),
 });
 
 export type FilesMissingCell = zod.input<typeof FilesMissingCell>;
 export type FilesMissingCellOutput = zod.output<typeof FilesMissingCell>;
-
-export const FilesDownloadingCell = zod.object({
-  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
-  itemId: zod.uuid(),
-  state: zod.enum(["downloading"]),
-  targetId: zod.uuid(),
-  targetName: zod.string(),
-  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
-});
-
-export type FilesDownloadingCell = zod.input<typeof FilesDownloadingCell>;
-export type FilesDownloadingCellOutput = zod.output<typeof FilesDownloadingCell>;
-
-export const FilesFailedCell = zod.object({
-  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
-  itemId: zod.uuid(),
-  state: zod.enum(["failed"]),
-  targetId: zod.uuid(),
-  targetName: zod.string(),
-  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
-});
-
-export type FilesFailedCell = zod.input<typeof FilesFailedCell>;
-export type FilesFailedCellOutput = zod.output<typeof FilesFailedCell>;
 
 export const filesProbeHeightMin = 0;
 
@@ -1707,14 +1691,60 @@ export const FilesLibraryFile = zod.object({
 export type FilesLibraryFile = zod.input<typeof FilesLibraryFile>;
 export type FilesLibraryFileOutput = zod.output<typeof FilesLibraryFile>;
 
+export const FilesDownloadingCell = zod.object({
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
+  file: zod
+    .union([FilesLibraryFile, zod.null()])
+    .describe("The file the Grab would replace; null when it fills no file"),
+  grabId: zod.uuid().describe("The latest Grab in flight for it"),
+  itemId: zod.uuid(),
+  state: zod.enum(["downloading"]).describe("A Grab is in flight for it, fetching included"),
+  targetId: zod.uuid(),
+  targetName: zod.string(),
+  wanted: zod
+    .boolean()
+    .describe(
+      "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
+    ),
+});
+
+export type FilesDownloadingCell = zod.input<typeof FilesDownloadingCell>;
+export type FilesDownloadingCellOutput = zod.output<typeof FilesDownloadingCell>;
+
+export const FilesFailedCell = zod.object({
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
+  file: zod
+    .union([FilesLibraryFile, zod.null()])
+    .describe("The file the Grab would have replaced; null when it fills no file"),
+  grabId: zod.uuid().describe("The Grab that failed"),
+  itemId: zod.uuid(),
+  state: zod.enum(["failed"]),
+  targetId: zod.uuid(),
+  targetName: zod.string(),
+  wanted: zod
+    .boolean()
+    .describe(
+      "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
+    ),
+});
+
+export type FilesFailedCell = zod.input<typeof FilesFailedCell>;
+export type FilesFailedCellOutput = zod.output<typeof FilesFailedCell>;
+
 export const FilesUpgradableCell = zod.object({
   edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
-  file: FilesLibraryFile.describe("The file filling it, below its Target's cutoff"),
+  file: FilesLibraryFile.describe(
+    "The file filling it, short of its Target's cutoff or upgrade-until score",
+  ),
   itemId: zod.uuid(),
   state: zod.enum(["upgradable"]),
   targetId: zod.uuid(),
   targetName: zod.string(),
-  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
+  wanted: zod
+    .boolean()
+    .describe(
+      "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
+    ),
 });
 
 export type FilesUpgradableCell = zod.input<typeof FilesUpgradableCell>;
@@ -1727,7 +1757,11 @@ export const FilesMetCell = zod.object({
   state: zod.enum(["met"]),
   targetId: zod.uuid(),
   targetName: zod.string(),
-  wanted: zod.boolean().describe("Missing or failed, and its Item monitored and released"),
+  wanted: zod
+    .boolean()
+    .describe(
+      "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
+    ),
 });
 
 export type FilesMetCell = zod.input<typeof FilesMetCell>;

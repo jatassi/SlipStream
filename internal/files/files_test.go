@@ -252,9 +252,9 @@ func TestCellsAreComputedFromFillsGrabsAndTheWorksOwnProfile(t *testing.T) {
 	l.place(t, scarf, watched.ID, "Shelf w1/Scarf - HD.mkv", release.WEBRip1080p, hd.ID)
 	l.place(t, scarf, watched.ID, "Shelf w1/Scarf - UHD.mkv", release.WEBDL2160p, uhd.ID)
 	svc := l.files(grabbing{
-		{Item: mittens, Edition: targets.AnyEdition, Target: uhd.ID}: {State: files.GrabDownloading},
+		{Item: mittens, Edition: targets.AnyEdition, Target: uhd.ID}: {State: files.GrabInFlight},
 		{Item: mittens, Edition: targets.AnyEdition, Target: hd.ID}:  {State: files.GrabFailed},
-		{Item: scarf, Edition: targets.AnyEdition, Target: hd.ID}:    {State: files.GrabDownloading},
+		{Item: scarf, Edition: targets.AnyEdition, Target: hd.ID}:    {State: files.GrabInFlight},
 	})
 	_, cells, _, err := svc.WorkCells(t.Context(), admin, watched.ID)
 	if err != nil {

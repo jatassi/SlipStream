@@ -238,8 +238,11 @@ type CellKey struct {
 // Cell is one Edition at one Target of one Item, in the State computed on
 // read. File is set when a file fills the cell and Score is its score at
 // the Target: Met once the file's quality is at or past the Target's
-// cutoff and Score at or above its upgrade-until, Upgradable otherwise.
-// Timing is the Item's, and Released whether it is out today.
+// cutoff and Score at or above its upgrade-until. Short of that, a
+// Downloading or Failed cell keeps the file its Grab would replace, and
+// is Upgradable with no such Grab. Grab is the Grab a Downloading or
+// Failed cell reads from. Timing is the Item's, and Released whether it
+// is out today.
 type Cell struct {
 	Item     works.Item
 	Edition  targets.Edition
@@ -247,6 +250,7 @@ type Cell struct {
 	State    State
 	File     *File
 	Score    int
+	Grab     storage.UUID
 	Timing   targets.Timing
 	Released bool
 }
@@ -272,28 +276,33 @@ func Status(cells []Cell) (State, bool) {
 	return slices.MinFunc(cells, func(a, b Cell) int { return cmp.Compare(a.State, b.State) }).State, true
 }
 
-// GrabState is what the latest Grab for a cell makes of it, zero while
-// the Grab fetches.
+// GrabState is what a cell's Grabs make of it: in flight while any
+// unfinished Grab holds it, fetching included, else failed when its latest
+// Grab failed, else none.
 type GrabState uint8
 
 const (
-	GrabDownloading GrabState = iota + 1
+	GrabNone GrabState = iota
+	GrabInFlight
 	GrabFailed
 )
 
-// GrabCell is the latest Grab of a cell. Waiting is the code of what an
-// unfinished Grab waits on that only an Admin resolves, such as
-// node_away, empty while it waits on nothing.
+// GrabCell is the Grab a cell reads from: its latest unfinished Grab, else
+// its latest. Waiting is the code of what an unfinished Grab waits on that
+// only an Admin resolves, such as node_away, empty while it waits on
+// nothing.
 type GrabCell struct {
 	State   GrabState
 	Grab    storage.UUID
 	Waiting string
 }
 
+func (g GrabCell) InFlight() bool { return g.State == GrabInFlight }
+
 // Inflight is files' view of the Grabs, which grabs implements.
 type Inflight interface {
-	// GrabCells reads the latest Grab of each cell of ws that a Grab
-	// fetches, is in flight for or failed.
+	// GrabCells reads the Grab each cell of ws reads from, for each cell a
+	// Grab is in flight for or failed.
 	GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[CellKey]GrabCell, error)
 	// Unfinished lists the ids of every Grab not yet imported or failed,
 	// whose download may sit in a root's holding folder.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
@@ -131,8 +132,8 @@ func (s Scope) items(t works.Tree) ([]works.Item, error) {
 }
 
 // SearchWork records a search run for each Item of work within scope with
-// a wanted cell no unfinished Grab holds, each with the Indexers it asks
-// and skips and a query reserved on each it asks, and returns their ids.
+// a wanted cell, each with the Indexers it asks and skips and a query
+// reserved on each it asks, and returns their ids.
 // Each run reserves its own queries, so an Indexer's search limit skips it
 // for the runs past the limit. Run searches them. An id scope names that
 // work doesn't have is a *works.NotInWorkError.
@@ -239,30 +240,14 @@ func (gr *Grabs) searchable(ctx context.Context, r storage.Reader[file], tree wo
 	return roots.OfWork(ctx, r, tree.ID)
 }
 
-// openCells is work's wanted cells that no unfinished Grab holds, in tree
-// and rank order: the cells a search may fill.
+// openCells is work's wanted cells, in tree and rank order: the cells a
+// search may fill.
 func (gr *Grabs) openCells(ctx context.Context, r storage.Reader[file], work works.WorkID) ([]files.Cell, error) {
 	cells, err := gr.cfg.Files.Cells(ctx, r, work)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := db.New(r).ListTargetsOfWork(ctx, work)
-	if err != nil {
-		return nil, err
-	}
-	held := map[files.CellKey]bool{}
-	for _, row := range rows {
-		if row.Stage != Imported && row.Stage != Failed {
-			held[files.CellKey{Item: row.ItemID, Edition: row.Edition, Target: row.TargetID}] = true
-		}
-	}
-	var open []files.Cell
-	for _, c := range cells {
-		if c.Wanted() && !held[files.CellKey{Item: c.Item.ID, Edition: c.Edition, Target: c.Target.ID}] {
-			open = append(open, c)
-		}
-	}
-	return open, nil
+	return slices.DeleteFunc(cells, func(c files.Cell) bool { return !c.Wanted() }), nil
 }
 
 // search asks every Indexer run planned to ask, assesses every Release

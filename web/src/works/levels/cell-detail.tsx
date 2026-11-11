@@ -2,9 +2,8 @@ import type { FilesCell } from "../../api/gen/model";
 import { Button } from "../../ui/button";
 import { Data } from "../../ui/data";
 import { stateChips } from "../cell-state";
-import { anyCut } from "../page/matrix-model";
+import { anyCut, fileOf } from "../page/matrix-model";
 import { CellFacts } from "../page/cell-facts";
-import { grabOf } from "../page/cell";
 import type { MatrixShown } from "../page/matrix-model";
 import { nameOf } from "../paths";
 import type { Column, LevelTarget } from "./model";
@@ -35,14 +34,15 @@ export function CellDetail({
   onManualSearch: () => void;
 }) {
   const { cell } = popped;
+  const file = fileOf(cell);
   return (
     <div className="flex flex-col items-start gap-2">
       <span className="font-semibold text-ink-1">{cellLabel(popped)}</span>
       {stateChips[cell.state]}
-      <CellFacts cell={cell} grab={grabOf(shown.grabs, cell)} />
-      {"file" in cell && (
+      <CellFacts cell={cell} grabs={shown.grabs} />
+      {file !== null && (
         <span className="break-all text-meta text-ink-2">
-          <Data>{nameOf(cell.file.path)}</Data>
+          <Data>{nameOf(file.path)}</Data>
         </span>
       )}
       <Button size="small" onClick={onManualSearch}>
