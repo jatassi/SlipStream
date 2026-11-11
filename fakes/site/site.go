@@ -116,6 +116,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 				Name: r.Name, Size: size, InfoHash: r.InfoHash.String(),
 				TMDBID: r.TMDBID, IMDbID: imdb[r.TMDBID], TVDB: r.TVDB, Seeders: int64(r.Seeders), Torrent: r.Metainfo, Unlisted: unlisted[r.Name],
 				Untagged: untagged[r.Name], Link: r.Link, Trackerless: r.Trackerless, Public: r.Public, Sites: r.Sites, DownloadFactor: r.DownloadFactor,
+				Published: r.Published,
 			})
 		}
 	}
@@ -181,6 +182,9 @@ type Release struct {
 	Leechers       int64
 	Grabs          int64
 	DownloadFactor *float64
+	// Published is when an extended feed says it was posted, the site's
+	// one date for every release when zero.
+	Published time.Time
 }
 
 func (rel Release) downloadFactor() float64 {
@@ -396,7 +400,8 @@ func (s *site) refuse(_ context.Context, a RefuseArgs) (any, error) {
 }
 
 // Search is a Searched record's data: the site and the parameters of one
-// search it served, each empty when the search left it out.
+// search it served, each empty when the search left it out. A Cardigann
+// site's search is t=search with its keywords as q.
 type Search struct {
 	Site   string `json:"site"`
 	T      string `json:"t"`
@@ -673,11 +678,19 @@ func (s *site) extendedAttrs(label string, rel Release, origin string, extended 
       <torznab:attr name="grabs" value="%d" />
       <torznab:attr name="downloadvolumefactor" value="%g" />
       <torznab:attr name="uploadvolumefactor" value="1" />
-%s`, published, esc(origin+"/details/"+rel.InfoHash), rel.family(), rel.family(), rel.Seeders+rel.Leechers, rel.Grabs, rel.downloadFactor(), rule)
+%s`, rel.published(), esc(origin+"/details/"+rel.InfoHash), rel.family(), rel.family(), rel.Seeders+rel.Leechers, rel.Grabs, rel.downloadFactor(), rule)
 }
 
-// published is when the site says every release was posted.
+// published is when the site says a release with no date of its own was
+// posted.
 const published = "Mon, 01 Jun 2026 12:00:00 +0000"
+
+func (rel Release) published() string {
+	if rel.Published.IsZero() {
+		return published
+	}
+	return rel.Published.Format(time.RFC1123Z)
+}
 
 func esc(s string) string {
 	var b strings.Builder

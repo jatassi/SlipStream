@@ -18,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/nodes"
+	rel "github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -107,13 +108,19 @@ func (noDownloads) Sample(downloadclients.ID) (downloadclients.Sample, bool) {
 	return downloadclients.Sample{}, false
 }
 
+func (noDownloads) Touched(...downloadclients.Touched) {}
+
+func (noDownloads) RemoveIn(context.Context, *storage.Tx[storage.Library], []downloadclients.ID, downloadclients.RemoveReason, bool) ([]downloadclients.Result, downloadclients.Touched, error) {
+	panic("nothing removes a Torrent in this test")
+}
+
 func (noDownloads) Resolve(context.Context, role.NodeID, magnet.Link, time.Time) (downloadclients.Resolution, error) {
 	panic("reading a Grab asks no Node for metadata")
 }
 
 func grabOf(t *testing.T, lib library, id storage.UUID) grabs.View {
 	t.Helper()
-	v, err := grabs.New(grabs.Config{Library: lib, Downloads: noDownloads{}, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}).Get(t.Context(), identity.Admin{}, grabs.GrabID{UUID: id})
+	v, err := grabs.New(grabs.Config{Library: lib, Names: map[works.TypeID]rel.Names{contenttypetest.ID: dated{}}, Downloads: noDownloads{}, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}).Get(t.Context(), identity.Admin{}, grabs.GrabID{UUID: id})
 	if err != nil {
 		t.Fatal(err)
 	}

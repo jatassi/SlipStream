@@ -75,6 +75,7 @@ export function torrent(row: Partial<Row> & Pick<Row, "state">): Row {
     name: `Release.${serial}.1080p.WEB-DL`,
     contentType: "cinema",
     severity: "none",
+    held: false,
     tabs: ["all"],
     size: 1_000_000_000,
     done: 0,

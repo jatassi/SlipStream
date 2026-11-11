@@ -163,9 +163,10 @@ test("hovering a square shows its cell, and Details shows the Item's own fields"
   await userEvent.hover(levels().getByRole("button", { name: "V01S02 1080p, Missing" }));
   await expect
     .element(page.getByRole("dialog", { name: "V01S02 1080p" }))
-    .toHaveTextContent("V01S02 1080pMissing");
+    .toHaveTextContent("V01S02 1080pMissingManual search");
 
-  await userEvent.click(levels().getByRole("button", { name: "Details of V01S02" }));
+  await userEvent.click(levels().getByRole("button", { name: "More actions for V01S02" }));
+  await userEvent.click(page.getByRole("menuitem", { name: "Details" }));
   await expect
     .element(page.getByRole("dialog", { name: "V01S02 Story V01S02" }))
     .toHaveTextContent(

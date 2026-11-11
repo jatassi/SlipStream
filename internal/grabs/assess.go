@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/release"
@@ -70,6 +71,7 @@ type assessed struct {
 	covers   []works.ItemID
 	formats  formats.Result
 	refusals []Reason
+	scored   targets.Scored
 }
 
 // assess reads l against j. It is pure and deterministic.
@@ -79,6 +81,17 @@ func assess(j judging, l listed) assessed {
 
 // assessRead is assess of l read as rd.
 func assessRead(j judging, l listed, rd release.Read) assessed {
+	return assessMatched(j, l, rd, j.scoring.Match)
+}
+
+// assessStored is assess of a Release a Manual run stored, read as rd
+// and matching matched when it was heard, so reading it back never parses
+// or matches again.
+func assessStored(j judging, l listed, rd release.Read, matched formats.Set) assessed {
+	return assessMatched(j, l, rd, func(release.Read) formats.Result { return formats.Result{Matched: matched} })
+}
+
+func assessMatched(j judging, l listed, rd release.Read, match func(release.Read) formats.Result) assessed {
 	r := l.Release
 	a := assessed{listed: l, read: rd}
 	a.covers = j.expect.Covers(a.read.Name)
@@ -90,8 +103,9 @@ func assessRead(j judging, l listed, rd release.Read) assessed {
 	f.Coverage = release.Coverage{Runtime: j.runtimeOf(a.covers), Original: j.expect.Original}
 	a.refusals = j.refusals(a)
 	if !a.hard() {
-		a.formats = j.scoring.Match(a.read)
+		a.formats = match(a.read)
 	}
+	a.scored = targets.Scored{Facts: a.read.Facts, Formats: a.formats.Matched}
 	return a
 }
 
@@ -169,6 +183,22 @@ func (a assessed) namesTheWork() bool {
 	return !slices.ContainsFunc(a.refusals, func(r Reason) bool { return r.Code == targets.WrongWork || r.Code == targets.WrongTitle })
 }
 
-func (a assessed) scored() targets.Scored {
-	return targets.Scored{Facts: a.read.Facts, Formats: a.formats.Matched}
+// blocked reports blocklisted among a's own refusals.
+func (a assessed) blocked() bool {
+	return slices.ContainsFunc(a.refusals, func(r Reason) bool { return r.Code == targets.Blocklisted })
+}
+
+// hashes is the info hash of a's Release and of each of its copies, of
+// those listed with one.
+func (a assessed) hashes() []bencode.InfoHash {
+	var out []bencode.InfoHash
+	if h := a.Release.InfoHash; h != nil {
+		out = append(out, *h)
+	}
+	for _, c := range a.copies {
+		if h := c.Release.InfoHash; h != nil {
+			out = append(out, *h)
+		}
+	}
+	return out
 }

@@ -1,4 +1,5 @@
 import type { FilesCell } from "../../api/gen/model";
+import { Button } from "../../ui/button";
 import { Data } from "../../ui/data";
 import { stateChips } from "../cell-state";
 import { anyCut } from "../page/matrix-model";
@@ -20,8 +21,19 @@ export type PoppedCell = {
 export const cellLabel = ({ code, column, target }: Omit<PoppedCell, "cell">) =>
   column.edition === anyCut ? `${code} ${target.name}` : `${code} ${column.name} ${target.name}`;
 
-/** What the cell popover shows of a square: its state, its file or download, or why it failed. */
-export function CellDetail({ popped, shown }: { popped: PoppedCell; shown: MatrixShown }) {
+/**
+ * What the cell popover shows of a square: its state, its file or download,
+ * or why it failed, and Manual search for the cell.
+ */
+export function CellDetail({
+  popped,
+  shown,
+  onManualSearch,
+}: {
+  popped: PoppedCell;
+  shown: MatrixShown;
+  onManualSearch: () => void;
+}) {
   const { cell } = popped;
   return (
     <div className="flex flex-col items-start gap-2">
@@ -33,6 +45,9 @@ export function CellDetail({ popped, shown }: { popped: PoppedCell; shown: Matri
           <Data>{nameOf(cell.file.path)}</Data>
         </span>
       )}
+      <Button size="small" onClick={onManualSearch}>
+        Manual search
+      </Button>
     </div>
   );
 }

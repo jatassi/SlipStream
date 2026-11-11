@@ -25,7 +25,7 @@ export interface GrabsSearch {
   /** The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for */
   notes: GrabsReason[];
   /**
-   * Null while the run searches
+   * Null while the run searches. listed is a Manual search's run, which takes nothing.
    * @nullable
    */
   outcome: GrabsSearchOutcome;

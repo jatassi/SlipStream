@@ -1,6 +1,8 @@
 // Package grabsapi is the search and Grab operations: start a Work's
 // search, list its search runs and the Releases a run saw, list an
-// Indexer's Grabs, and list and read Grabs with their live progress.
+// Indexer's Grabs, list and read Grabs with their live progress, cancel
+// one, search a Work by hand and grab from what it lists, and the
+// Blocklist.
 package grabsapi
 
 import (
@@ -50,6 +52,13 @@ var (
 	clientNotFound      = api.NewCode(http.StatusNotFound, "download_client_not_found", "No Download Client has this id")
 	clientRefused       = api.NewCode(http.StatusUnprocessableEntity, "download_client_field_refused", "SlipStream can't use a value in this client's settings")
 	nodeNotDownloading  = api.NewCode(http.StatusConflict, "node_not_downloading", "That Node doesn't hold Downloading")
+
+	reconciling          = api.NewCode(http.StatusConflict, "reconciling", "SlipStream is Reconciling after a restore")
+	noManualSearch       = api.NewCode(http.StatusNotFound, "no_manual_search", "The Work has no Manual search")
+	manualSearchReplaced = api.NewCode(http.StatusConflict, "manual_search_replaced", "Someone searched this Work again, so this list is gone. Open Manual search again to see the new one.")
+	queryNeedsOneItem    = api.NewCode(http.StatusUnprocessableEntity, "query_needs_one_item", "A typed query searches one Item. Open Manual search on one Item to type a query.")
+	grabBusy             = api.NewCode(http.StatusConflict, "grab_busy", "This Grab is placing its file in the library. It can't be canceled until that finishes.")
+	grabFinished         = api.NewCode(http.StatusConflict, "grab_finished", "This Grab already finished, so there's nothing to cancel")
 )
 
 func answer(err error) error {
@@ -70,6 +79,10 @@ func answer(err error) error {
 		return searchNotFound
 	case errors.Is(err, indexers.ErrNoIndexer):
 		return indexerNotFound
+	case errors.Is(err, grabs.ErrNoManualSearch):
+		return noManualSearch
+	case errors.Is(err, grabs.ErrQueryNeedsOneItem):
+		return queryNeedsOneItem
 	}
 	if e, ok := errors.AsType[*grabs.RootUnreachableError](err); ok {
 		return rootUnreachable.Because(e.Why)
@@ -98,7 +111,7 @@ type searchStarted struct {
 type searchStartedOutput struct{ Body searchStarted }
 
 type reason struct {
-	Code      string `json:"code" enum:"wrong_work,wrong_item,covers_more,wrong_title,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,score_below_minimum,not_an_upgrade,repack_other_group" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's."`
+	Code      string `json:"code" enum:"wrong_work,wrong_item,covers_more,wrong_title,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,score_below_minimum,not_an_upgrade,repack_other_group,blocklisted" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist."`
 	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title"`
 	Attribute string `json:"attribute,omitempty" enum:"hdr,video_codec,audio_codec,channels,language" doc:"The attribute a failed filter rules on"`
 	Value     string `json:"value,omitempty" doc:"The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)"`
@@ -124,7 +137,7 @@ func reasonsOf(rs []grabs.Reason) []reason {
 type searchIndexer struct {
 	IndexerID *string `json:"indexerId" format:"uuid" doc:"Null once the Indexer is deleted"`
 	Name      string  `json:"name" doc:"The Indexer's name when the run started"`
-	Outcome   *string `json:"outcome" enum:"found,no_releases,limited,failing,stopped,waiting,late,limit_reached,no_categories,removed" doc:"Null while its search runs"`
+	Outcome   *string `json:"outcome" enum:"found,no_releases,limited,failing,stopped,waiting,late,limit_reached,no_categories,removed,rss_only" doc:"Null while its search runs"`
 	Releases  int     `json:"releases" minimum:"0" doc:"The Releases it found"`
 	Sentence  string  `json:"sentence" doc:"The outcome in words, such as Limit reached until 14:05"`
 }
@@ -135,7 +148,7 @@ type search struct {
 	StartedAt  time.Time       `json:"startedAt"`
 	Indexers   []searchIndexer `json:"indexers" nullable:"false" doc:"Each Indexer the run asked or skipped, by priority"`
 	FinishedAt *time.Time      `json:"finishedAt" doc:"Null while the run searches"`
-	Outcome    *string         `json:"outcome" enum:"grabbed,nothing_acceptable" doc:"Null while the run searches"`
+	Outcome    *string         `json:"outcome" enum:"grabbed,nothing_acceptable,listed" doc:"Null while the run searches. listed is a Manual search's run, which takes nothing."`
 	Candidates int             `json:"candidates" minimum:"0" doc:"The Releases the Indexers found, each Release listed twice counted once"`
 	GrabID     *string         `json:"grabId" format:"uuid" doc:"The run's Grab: the decision's, or the rerun's once a dropped Grab reran it; null when none"`
 	Notes      []reason        `json:"notes" nullable:"false" doc:"The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for"`
@@ -244,9 +257,10 @@ func idOrNil(id storage.UUID) *string {
 }
 
 type failure struct {
-	Stage   string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
-	Code    string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,removed,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed"`
-	Message string `json:"message"`
+	Stage    string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
+	Code     string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,marked_failed,removed,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault"`
+	Message  string `json:"message"`
+	NeedsYou bool   `json:"needsYou" doc:"It goes under Needs you. False for a cancel and for a Manual Grab whose Release the Blocklist held after its fetch, which its sheet already said."`
 }
 
 type entered struct {
@@ -276,8 +290,9 @@ type grabClient struct {
 }
 
 type clientWait struct {
-	NodeID string                   `json:"nodeId" format:"uuid" doc:"The client's Node, which is offline"`
+	NodeID string                   `json:"nodeId" format:"uuid" doc:"The client's Node"`
 	Client api.Nullable[grabClient] `json:"client" doc:"The external client; null for the Node's built-in client"`
+	Off    bool                     `json:"off" doc:"The Grab is pinned to this client and the client can't take it: it is off or deleted, or its Node doesn't hold Downloading. False while the client's Node is offline"`
 }
 
 type grab struct {
@@ -287,6 +302,7 @@ type grab struct {
 	Edition      string                   `json:"edition" doc:"The Edition it was grabbed to fill: any under any cut, else a cut key"`
 	TargetIDs    []string                 `json:"targetIds" nullable:"false" doc:"The Targets it was grabbed for, in Profile order"`
 	ReleaseTitle string                   `json:"releaseTitle"`
+	ReleaseWords string                   `json:"releaseWords" doc:"Its Release in words, such as Bluray-1080p · FKW · 9.8 GB"`
 	Quality      string                   `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality the release title names, absent when it names none"`
 	ReleaseSize  int64                    `json:"releaseSize" minimum:"0"`
 	IndexerID    *string                  `json:"indexerId" format:"uuid" doc:"The Indexer it was grabbed from, null once the Indexer is deleted"`
@@ -302,15 +318,31 @@ type grab struct {
 	Progress     *progress                `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
 	Metadata     *metadataSearch          `json:"metadata,omitempty" doc:"The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node"`
 	FetchWait    *fetchWait               `json:"fetchWait,omitempty" doc:"Why fetching the .torrent waits on its Indexer, absent unless it does"`
-	WaitsFor     *clientWait              `json:"waitsFor,omitempty" doc:"The client a fetching Grab goes to, absent unless it waits for that client's Node to be back online"`
+	WaitsFor     *clientWait              `json:"waitsFor,omitempty" doc:"The client a fetching Grab goes to, absent unless it waits for that client: its Node to be back online, or a pinned client that can't take it"`
 	CreatedAt    time.Time                `json:"createdAt"`
+	Source       string                   `json:"source" enum:"search,manual" doc:"How it was chosen: by a search's decision, or by an Admin in a Manual search"`
+	GrabbedBy    *string                  `json:"grabbedBy" doc:"A name, or the API key; null for a search's Grab"`
+	ManualSearch *string                  `json:"manualSearchId" format:"uuid" doc:"The Manual search it came from; null for a search's Grab and once a later Manual search of the Work replaced it"`
+	Overrides    []string                 `json:"overrides" nullable:"false" doc:"Each choice the Admin made past the decision, as a sentence"`
+	Actions      grabActions              `json:"actions"`
+}
+
+type grabActions struct {
+	Cancel        bool `json:"cancel" doc:"cancelGrab can cancel it"`
+	Blocklistable bool `json:"blocklistable" doc:"A cancel can also put its Release on the Blocklist: its info hash is known"`
+	SendTo        bool `json:"sendTo" doc:"sendGrabTo can send it to another client"`
 }
 
 func grabOf(v grabs.View) grab {
 	out := grab{
 		ID: v.ID.String(), WorkID: v.WorkID.String(), ItemID: v.ItemID.String(), Edition: string(v.Edition), TargetIDs: []string{},
-		ReleaseTitle: v.Release.Title, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
+		ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseWords, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
 		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), History: []entered{}, CreatedAt: v.Created,
+		Source: string(v.Source), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...),
+		Actions: grabActions{Cancel: v.Actions.Cancel, Blocklistable: v.Actions.Blocklist, SendTo: v.Actions.SendTo},
+	}
+	if v.By != nil {
+		out.GrabbedBy = new(v.By.Words())
 	}
 	if !v.FetchNode.IsZero() {
 		id := v.FetchNode.String()
@@ -330,7 +362,7 @@ func grabOf(v grabs.View) grab {
 		}
 	}
 	if v.Failed != nil {
-		out.Failure = &failure{Stage: string(v.Failed.Stage), Code: string(v.Failed.Code), Message: v.Failed.Message}
+		out.Failure = &failure{Stage: string(v.Failed.Stage), Code: string(v.Failed.Code), Message: v.Failed.Message, NeedsYou: v.NeedsYou()}
 	}
 	for _, e := range v.History {
 		out.History = append(out.History, entered{Stage: string(e.Stage), At: e.At})
@@ -348,7 +380,7 @@ func grabOf(v grabs.View) grab {
 		}
 	}
 	if w := v.WaitsFor; w != nil {
-		out.WaitsFor = &clientWait{NodeID: w.Node.String()}
+		out.WaitsFor = &clientWait{NodeID: w.Node.String(), Off: w.Off}
 		if c := w.Client; c != nil {
 			out.WaitsFor.Client = api.Some(grabClient{ID: c.ID.String(), Name: c.Name, Kind: string(c.Kind)})
 		}
@@ -441,6 +473,61 @@ func Routes(r *api.Router, p Pipeline) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{indexerNotFound},
 	}, h.listIndexerGrabs)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "cancelGrab",
+		Method:  http.MethodPost,
+		Path:    "/grabs/{grabId}/cancel",
+		Summary: "Cancel a Grab that is fetching, downloading or transferring. Canceling a canceled Grab changes nothing",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{grabNotFound, grabBusy, grabFinished, reconciling},
+	}, h.cancelGrab)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "startManualSearch",
+		Method:  http.MethodPost,
+		Path:    "/works/{workId}/manual-search",
+		Summary: "Start a Manual search of a Work, or of some of its levels and Items or one cell. 200 answers the Work's Manual search when it already has this scope and query",
+		Status:  http.StatusAccepted,
+		Also:    []int{http.StatusOK},
+		Errors:  []*api.Code{workNotFound, reconciling, notSearchable, noIndexer, noRoot, queryNeedsOneItem},
+	}, h.startManualSearch)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getManualSearch",
+		Method:  http.MethodGet,
+		Path:    "/works/{workId}/manual-search",
+		Summary: "Get a Work's Manual search with its plan worked out around the pins",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{workNotFound, noManualSearch},
+	}, h.getManualSearch)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listManualSearchReleases",
+		Method:  http.MethodGet,
+		Path:    "/works/{workId}/manual-search/releases",
+		Summary: "List every Release of a Work's Manual search with what grabbing it alone does",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{workNotFound, noManualSearch},
+	}, h.listManualSearchReleases)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "grabFromManualSearch",
+		Method:  http.MethodPost,
+		Path:    "/works/{workId}/manual-search/grabs",
+		Summary: "Grab the picked Releases of a Work's Manual search in one go, each judged again and refused alone",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{workNotFound, manualSearchReplaced, reconciling},
+	}, h.grabFromManualSearch)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "listBlocklist",
+		Method:  http.MethodGet,
+		Path:    "/blocklist",
+		Summary: "List the Blocklist, 50 entries at a time, newest first",
+		Status:  http.StatusOK,
+	}, h.listBlocklist)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "removeFromBlocklist",
+		Method:  http.MethodPost,
+		Path:    "/blocklist/remove",
+		Summary: "Remove Releases from the Blocklist by info hash. Removing one that isn't listed changes nothing",
+		Status:  http.StatusNoContent,
+	}, h.removeFromBlocklist)
 }
 
 type handlers struct{ p Pipeline }
@@ -456,11 +543,7 @@ func (h handlers) searchWork(ctx context.Context, by identity.Admin, in *searchW
 	}
 	ids, err := open(h.p).SearchWork(ctx, by, works.WorkID{UUID: u}, scope)
 	if e, ok := errors.AsType[*works.NotInWorkError](err); ok {
-		field, noun := "itemIds", "Item"
-		if e.Level {
-			field, noun = "levelIds", "level"
-		}
-		return nil, api.Invalid.On(fmt.Sprintf("%s[%d]", field, e.Index), "The Work has no "+noun+" with that id.")
+		return nil, notInWork(e)
 	}
 	if err != nil {
 		return nil, answer(err)
@@ -481,22 +564,39 @@ func scopeOf(body *searchScope) (grabs.Scope, error) {
 	if len(body.LevelIDs) == 0 && len(body.ItemIDs) == 0 {
 		return grabs.Scope{}, api.Invalid.On("levelIds", "Send at least one level or Item id, or leave the body out to search the whole Work.")
 	}
+	part, err := withinOf(body.LevelIDs, body.ItemIDs)
+	if err != nil {
+		return grabs.Scope{}, err
+	}
+	return grabs.Within(part), nil
+}
+
+func withinOf(levels, items []string) (works.Within, error) {
 	var part works.Within
-	for _, s := range body.LevelIDs {
+	for _, s := range levels {
 		u, err := storage.ParseUUID(s)
 		if err != nil {
-			return grabs.Scope{}, api.Invalid
+			return works.Within{}, api.Invalid
 		}
 		part.Levels = append(part.Levels, works.LevelID{UUID: u})
 	}
-	for _, s := range body.ItemIDs {
+	for _, s := range items {
 		u, err := storage.ParseUUID(s)
 		if err != nil {
-			return grabs.Scope{}, api.Invalid
+			return works.Within{}, api.Invalid
 		}
 		part.Items = append(part.Items, works.ItemID{UUID: u})
 	}
-	return grabs.Within(part), nil
+	return part, nil
+}
+
+// notInWork is e as the field it names.
+func notInWork(e *works.NotInWorkError) error {
+	field, noun := "itemIds", "Item"
+	if e.Level {
+		field, noun = "levelIds", "level"
+	}
+	return api.Invalid.On(fmt.Sprintf("%s[%d]", field, e.Index), "The Work has no "+noun+" with that id.")
 }
 
 func (h handlers) listSearches(ctx context.Context, by identity.Admin, in *workInput) (*searchListOutput, error) {

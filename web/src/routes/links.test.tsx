@@ -41,7 +41,7 @@ test.each<[string, string, IdentityLinkView, string]>([
       issuedAt: sent,
       expiresAt: expired,
     },
-    "This confirm link was replaced or cancelled. Ask Ada Okafor whether they sent a new one.",
+    "This confirm link was replaced or canceled. Ask Ada Okafor whether they sent a new one.",
   ],
   [
     "a made-up link",

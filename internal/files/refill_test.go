@@ -146,12 +146,14 @@ func checkFill(t *testing.T, target targets.Target, meeting []File, f *File, sco
 	if !slices.ContainsFunc(meeting, func(m File) bool { return m.ID == f.ID }) {
 		t.Fatalf("cell %s holds %s, which doesn't meet it", target.Name, f.ReleaseName)
 	}
+	held := scoredOf(*f)
 	for _, m := range meeting {
-		if step, better := target.Compare(scoredOf(m), scoredOf(*f)); better > 0 {
+		other := scoredOf(m)
+		if step, better := target.Compare(&other, &held); better > 0 {
 			t.Fatalf("cell %s holds %s (%s), but %s (%s) is better by step %d", target.Name, f.ReleaseName, f.Quality, m.ReleaseName, m.Quality, step)
 		}
 	}
-	if want := target.Score(scoredOf(*f)); score != want {
+	if want := target.Score(&held); score != want {
 		t.Fatalf("cell %s holds %s at score %d, want %d", target.Name, f.ReleaseName, score, want)
 	}
 }

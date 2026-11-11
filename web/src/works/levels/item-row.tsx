@@ -1,12 +1,10 @@
-import { MoreHorizontalIcon, Search01Icon } from "@hugeicons/core-free-icons";
 import { memo } from "react";
 
 import type { CellPopoverControls } from "../../ui/cell-popover";
-import { IconButton } from "../../ui/icon-button";
-import { RowSwitch } from "../../ui/row-switch";
 import { dayWords } from "../page/fields-format";
 import type { PoppedCell } from "./cell-detail";
 import { Squares } from "./columns";
+import { RowControls, RowMenu } from "./controls";
 import type { Fold } from "./fold";
 import type { Column, ItemView, LevelTarget } from "./model";
 
@@ -15,6 +13,7 @@ export type RowActions = {
   readonly monitor: (view: ItemView, on: boolean) => void;
   readonly search: (view: ItemView) => void;
   readonly details: (view: ItemView) => void;
+  readonly manual: (view: ItemView) => void;
   /** Phone: open the row's sheet. */
   readonly open: (view: ItemView) => void;
 };
@@ -38,39 +37,7 @@ export function Says({ view, source }: { view: ItemView; source: string }) {
   );
 }
 
-/** A withdrawn Item has no Monitor switch or Search, only their places. */
-function RowControls({ view, actions }: { view: ItemView; actions: RowActions }) {
-  if (view.withdrawn) {
-    return (
-      <>
-        <span className="w-8.5 shrink-0" />
-        <span aria-hidden="true" className="size-(--icon-button-size) shrink-0" />
-      </>
-    );
-  }
-  return (
-    <>
-      <span className="flex w-8.5 shrink-0">
-        <RowSwitch
-          label={`Monitor ${view.code}`}
-          checked={view.item.monitored}
-          onCheckedChange={(on) => {
-            actions.monitor(view, on);
-          }}
-        />
-      </span>
-      <IconButton
-        icon={Search01Icon}
-        label={`Search ${view.code}`}
-        onClick={() => {
-          actions.search(view);
-        }}
-      />
-    </>
-  );
-}
-
-/** A 36px Item row: code, label, date, squares, then its Monitor switch, Search and Details. */
+/** A 36px Item row: code, label, date, squares, then its Monitor switch, Search and a menu with Details and Manual search. */
 export const ItemRow = memo(function ItemRow({
   view,
   columns,
@@ -95,13 +62,7 @@ export const ItemRow = memo(function ItemRow({
       </span>
       <Squares view={view} columns={columns} targets={targets} controls={controls} />
       <RowControls view={view} actions={actions} />
-      <IconButton
-        icon={MoreHorizontalIcon}
-        label={`Details of ${view.code}`}
-        onClick={() => {
-          actions.details(view);
-        }}
-      />
+      <RowMenu view={view} actions={actions} />
     </div>
   );
 });

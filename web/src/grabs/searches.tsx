@@ -12,6 +12,7 @@ import { RunReleases } from "./search-releases";
 const outcomeText: Record<NonNullable<GrabsSearch["outcome"]>, string> = {
   grabbed: "Grabbed a Release",
   nothing_acceptable: "Found nothing acceptable",
+  listed: "Listed Releases",
 };
 
 const found = (count: number) => (count === 1 ? "1 Release found" : `${count} Releases found`);

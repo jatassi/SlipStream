@@ -1,19 +1,19 @@
-import { ArrowDown01Icon, Search01Icon } from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import { memo } from "react";
 
 import { type Noun, countWords } from "../../format";
 import { Icon } from "../../ui/icon";
-import { IconButton } from "../../ui/icon-button";
-import { RowSwitch } from "../../ui/row-switch";
 import { StateBar } from "../../ui/state-square";
 import { lowered } from "../monitoring/labels";
 import { ColumnNames } from "./columns";
+import { LevelControls } from "./controls";
 import type { LevelTarget, LevelView } from "./model";
 
 export type HeaderActions = {
   readonly toggle: (level: LevelView) => void;
   readonly monitor: (level: LevelView, on: boolean) => void;
   readonly search: (level: LevelView) => void;
+  readonly manual: (level: LevelView) => void;
 };
 
 /** "6 of 10 met", "Not monitored", or what the withdrawn section holds, "2 episodes". */
@@ -69,40 +69,10 @@ function Title({
   );
 }
 
-/** The withdrawn section has no switch or Search, only their places. */
-function LevelControls({ level, actions }: { level: LevelView; actions: HeaderActions }) {
-  if (level.withdrawn) {
-    return (
-      <>
-        <span className="w-8.5 shrink-0" />
-        <span aria-hidden="true" className="size-(--icon-button-size) shrink-0" />
-      </>
-    );
-  }
-  return (
-    <>
-      <RowSwitch
-        label={`Monitor ${level.name}`}
-        checked={level.monitor}
-        onCheckedChange={(on) => {
-          actions.monitor(level, on);
-        }}
-      />
-      <IconButton
-        icon={Search01Icon}
-        label={`Search ${level.name}`}
-        onClick={() => {
-          actions.search(level);
-        }}
-      />
-    </>
-  );
-}
-
 /**
  * A level's header, its card's top or the whole closed card: poster, name,
- * state bar and tally, the column names while open, then its Monitor switch
- * and Search.
+ * state bar and tally, the column names while open, then its Monitor switch,
+ * Search and a menu with Manual search.
  */
 export const LevelHeader = memo(function LevelHeader({
   level,
@@ -137,8 +107,7 @@ export const LevelHeader = memo(function LevelHeader({
           }}
         />
         {open && !phone && <ColumnNames columns={level.columns} targets={targets} />}
-        <LevelControls level={level} actions={actions} />
-        {!phone && <span aria-hidden="true" className="size-(--icon-button-size) shrink-0" />}
+        <LevelControls level={level} phone={phone} actions={actions} />
       </div>
     </div>
   );

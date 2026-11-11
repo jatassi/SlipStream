@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	dc "github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/nodes"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
@@ -181,6 +182,31 @@ type heard struct {
 	mu      sync.Mutex
 	touched []role.NodeID
 	changed []string
+	// reconciling refuses every Blocklist entry.
+	reconciling      bool
+	blocklisted      []markedFailed
+	blocklistChanged int
+}
+
+type markedFailed struct {
+	ids []dc.ID
+	by  identity.Admin
+}
+
+func (h *heard) MarkedFailed(_ context.Context, _ *storage.Tx[storage.Library], ids []dc.ID, by identity.Admin) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.reconciling {
+		return dc.ErrReconciling
+	}
+	h.blocklisted = append(h.blocklisted, markedFailed{slices.Clone(ids), by})
+	return nil
+}
+
+func (h *heard) Changed(context.Context) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.blocklistChanged++
 }
 
 func (h *heard) Publish(_ context.Context, c dc.Changed) {
@@ -213,7 +239,7 @@ func newClients(lib library, r *roster, u uses, node *client) (*dc.Clients, *hea
 		node = &client{}
 	}
 	return dc.New(dc.Config{
-		Library: lib, Touch: h.touch, Changed: h, Roster: r, Uses: u, Seeding: seeder{}, Log: slog.New(slog.DiscardHandler),
+		Library: lib, Touch: h.touch, Changed: h, Roster: r, Uses: u, Blocklist: h, Seeding: seeder{}, Log: slog.New(slog.DiscardHandler),
 		Remote: func(role.NodeID) downloadingv1connect.DownloadingServiceHandler { return node },
 		Live:   dc.LiveConfig{Watched: func() []role.NodeID { return nil }, Event: &admin{}, Sample: liveSample},
 		Hub:    levels{},
@@ -416,24 +442,53 @@ func TestARemovePreviewNamesWhatItCancelsStopsAndFrees(t *testing.T) {
 	}
 }
 
-// TestMarkFailedRemovesOnlyAStalledDownloadWithItsFiles marks a stalled
-// and a running download failed: the stalled one is removed with its
-// download copy for mark-failed, the other refused.
-func TestMarkFailedRemovesOnlyAStalledDownloadWithItsFiles(t *testing.T) {
+// TestMarkFailedRemovesAHeldDownloadWithItsFilesAndBlocklistsIt marks
+// failed a running download a Grab at downloading holds, the Harbor a
+// Grab imported, and the Attic no Grab holds: the held one is removed
+// with its download copy for mark-failed and its Release blocklisted in
+// the same action, the Harbor and the Attic refused as not held.
+func TestMarkFailedRemovesAHeldDownloadWithItsFilesAndBlocklistsIt(t *testing.T) {
 	s := newShelf(t)
-	apply(t, s.lib, s.box, s.orchard, &dlv1.TorrentReport{AtUnixMs: reportedAt.UnixMilli(), Engine: dlv1.EngineState_ENGINE_STATE_DOWNLOADING, Stalled: true})
-	apply(t, s.lib, s.box, s.attic, &dlv1.TorrentReport{AtUnixMs: reportedAt.UnixMilli(), Engine: dlv1.EngineState_ENGINE_STATE_DOWNLOADING})
-	c, _ := newClients(s.lib, &roster{}, nil, nil)
+	apply(t, s.lib, s.box, s.orchard, &dlv1.TorrentReport{AtUnixMs: reportedAt.UnixMilli(), Engine: dlv1.EngineState_ENGINE_STATE_DOWNLOADING})
+	u := uses{s.orchard: {{Work: orchardWork, Stage: dc.UseDownloading}}, s.harbor: {{Work: harborWork, Stage: dc.UseImported}}}
+	c, h := newClients(s.lib, &roster{}, u, nil)
 
-	results, _ := act(t, c, dc.Action{Kind: dc.MarkFailed, IDs: []dc.ID{s.orchard, s.attic}})
-	if got := refusals(results); got[0] != nil || got[1] == nil || got[1].Code != dc.RefusedNotStalled {
-		t.Fatalf("marking failed answered %+v, want the stalled one done and the other refused", got)
+	results, _ := act(t, c, dc.Action{Kind: dc.MarkFailed, IDs: []dc.ID{s.orchard, s.harbor, s.attic}})
+	got := refusals(results)
+	if got[0] != nil || got[1] == nil || got[1].Code != dc.RefusedNotHeld || got[2] == nil || got[2].Code != dc.RefusedNotHeld {
+		t.Fatalf("marking failed answered %+v, want the held one done and the others refused as not held", got)
 	}
 	if got := outcomeOf(t, s.lib, s.orchard).Outcome; got != (dc.Gone{Reason: dc.ByMarkFailed}) {
 		t.Errorf("the marked download reads %#v, want Gone by mark-failed", got)
 	}
 	if d := intentWithDiscards(t, s.lib, s.box).GetDiscards(); len(d) != 1 || !d[0].GetDeleteFiles() {
 		t.Errorf("seedbox's discards are %v, want the marked download with its files", d)
+	}
+	if len(h.blocklisted) != 1 || !slices.Equal(h.blocklisted[0].ids, []dc.ID{s.orchard}) || h.blocklistChanged != 1 {
+		t.Errorf("the Blocklist was given %+v and told of %d changes, want the marked download once", h.blocklisted, h.blocklistChanged)
+	}
+}
+
+// TestMarkFailedWhileReconcilingRemovesNothing marks a held download
+// failed while a restored Controller is Reconciling: it is refused as
+// reconciling and stays, with nothing for its Node to discard.
+func TestMarkFailedWhileReconcilingRemovesNothing(t *testing.T) {
+	s := newShelf(t)
+	c, h := newClients(s.lib, &roster{}, uses{s.orchard: {{Work: orchardWork, Stage: dc.UseDownloading}}}, nil)
+	h.reconciling = true
+
+	results, _ := act(t, c, dc.Action{Kind: dc.MarkFailed, IDs: []dc.ID{s.orchard, s.attic}})
+	if got := refusals(results); got[0] == nil || got[0].Code != dc.RefusedReconciling || got[1] == nil || got[1].Code != dc.RefusedNotHeld {
+		t.Fatalf("marking failed while Reconciling answered %+v, want reconciling and not held", got)
+	}
+	if got := outcomeOf(t, s.lib, s.orchard).Outcome; got != (dc.Pending{}) {
+		t.Errorf("the held download reads %#v, want it still pending", got)
+	}
+	if d := intentWithDiscards(t, s.lib, s.box).GetDiscards(); len(d) != 0 {
+		t.Errorf("seedbox's discards are %v, want none", d)
+	}
+	if h.blocklistChanged != 0 || len(h.touchedNodes()) != 0 {
+		t.Errorf("Reconciling told the Blocklist of %d changes and touched %v, want nothing", h.blocklistChanged, h.touchedNodes())
 	}
 }
 

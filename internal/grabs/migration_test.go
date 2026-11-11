@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/nodes"
+	rel "github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -73,7 +74,7 @@ func TestAGrabsTargetsSurviveTheMigrationAndGoWithTheirTarget(t *testing.T) {
 
 	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
 	t.Cleanup(func() { _ = lib.Close() })
-	g := grabs.New(grabs.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})})
+	g := grabs.New(grabs.Config{Library: lib, Names: map[works.TypeID]rel.Names{contenttypetest.ID: dated{}}, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})})
 	held := func() []targets.TargetID {
 		t.Helper()
 		v, err := g.Get(ctx, identity.Admin{}, grabs.GrabID{UUID: grab})

@@ -125,11 +125,11 @@ test("Cancel library scan cancels the whole run the root's unit is in", async ()
   await expect
     .element(
       page.getByText(
-        "Library scan cancelled for every root in the run. It keeps what it already recorded.",
+        "Library scan canceled for every root in the run. It keeps what it already recorded.",
       ),
     )
     .toBeVisible();
-  expect(sent.cancelled).toEqual([scanRun]);
+  expect(sent.canceled).toEqual([scanRun]);
 });
 
 test("a stopped scan shows why, and Mark them gone states the count before it marks them", async () => {

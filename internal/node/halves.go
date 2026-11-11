@@ -125,14 +125,16 @@ func (n *Node) startController(ctx context.Context) error {
 		Touch:        func(nodes ...role.NodeID) { downloads.Touch(nodes...) },
 		Changed:      downloadclients.ChangedEvent.Bind(n.hub),
 		CardsChanged: downloadclients.ClientsChangedEvent.Bind(n.hub),
+		Rerouted:     func() { pipeline.Rerouted() },
 		Facts:        func(id role.NodeID) (*dlv1.Facts, bool) { return downloads.Facts(id) },
 		Remote: func(id role.NodeID) downloadingv1connect.DownloadingServiceHandler {
 			return downloadingv1connect.DownloadingService.On(cluster, id)
 		},
-		Sealer:  lib.sealer,
-		Roster:  openedRoster{&side},
-		Uses:    grabs.TorrentUses{},
-		Seeding: lateSeeder{&seeding},
+		Sealer:    lib.sealer,
+		Roster:    openedRoster{&side},
+		Uses:      grabs.TorrentUses{},
+		Blocklist: grabs.BlocklistOn{Reconciling: trackers.NotReconciling, Changes: grabs.BlocklistChangedEvent.Bind(n.hub)},
+		Seeding:   lateSeeder{&seeding},
 		Live: downloadclients.LiveConfig{
 			Watched: func() []role.NodeID { return side.Who(role.Downloading).InStep() },
 			Event:   downloadclients.LiveEvent.Bind(n.hub),
@@ -387,15 +389,17 @@ func (n *Node) startController(ctx context.Context) error {
 		Media: func(node role.NodeID) mediav1connect.MediaServiceHandler {
 			return mediav1connect.MediaService.On(cluster, node)
 		},
-		Roots:         homes,
-		Transfers:     copies,
-		Timings:       n.cfg.Timings.Grabs,
-		Rand:          n.grabsRand,
-		Changed:       grabs.ChangedEvent.Bind(n.hub),
-		SearchChanged: grabs.SearchChangedEvent.Bind(n.hub),
-		FilesChanged:  files.ChangedEvent.Bind(n.hub),
-		BeforeStep:    n.env.Test.BeforeStep,
-		Log:           n.rootLog.With("subsystem", "grabs"),
+		Roots:            homes,
+		Transfers:        copies,
+		Timings:          n.cfg.Timings.Grabs,
+		Rand:             n.grabsRand,
+		Changed:          grabs.ChangedEvent.Bind(n.hub),
+		SearchChanged:    grabs.SearchChangedEvent.Bind(n.hub),
+		FilesChanged:     files.ChangedEvent.Bind(n.hub),
+		BlocklistChanged: grabs.BlocklistChangedEvent.Bind(n.hub),
+		Reconciling:      trackers.NotReconciling,
+		BeforeStep:       n.env.Test.BeforeStep,
+		Log:              n.rootLog.With("subsystem", "grabs"),
 	})
 	var composer *library.Library
 	found := imports.New(imports.Config{

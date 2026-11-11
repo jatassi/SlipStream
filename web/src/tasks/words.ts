@@ -29,7 +29,7 @@ export const outcomes: {
   partial: { word: "Partial", signal: "warn" },
   failed: { word: "Failed", signal: "fail" },
   skipped: { word: "Skipped", signal: undefined },
-  canceled: { word: "Cancelled", signal: undefined },
+  canceled: { word: "Canceled", signal: undefined },
 };
 
 export const waitingWords = (state: TasksWaitingState, clock: Clock): string =>

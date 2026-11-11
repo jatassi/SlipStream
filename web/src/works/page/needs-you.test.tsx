@@ -64,6 +64,7 @@ test("a download waiting to fetch for an external client on an offline Node name
         kind: "qbittorrent",
         name: "qBittorrent",
       },
+      off: false,
     },
   } as const;
   const needsYou = openWith(
@@ -83,13 +84,38 @@ test("a download fetched on an online Node that waits for its routed client's of
     nodeId: homeId,
     stage: "fetching",
     torrentId: null,
-    waitsFor: { nodeId: seedboxId, client: null },
+    waitsFor: { nodeId: seedboxId, client: null, off: false },
   } as const;
   const needsYou = openWith([{ kind: "waiting", grabId: routed.id, code: "node_away" }], [routed]);
   await expect
     .element(needsYou)
     .toHaveTextContent(
       "Needs you1WaitingWaiting to send to the built-in client on seedboxseedbox is offline. This download goes there once seedbox is back online.Send to another client",
+    );
+});
+
+test("a Manual Grab pinned to a client that is off names it and offers another", async () => {
+  const pinned = {
+    ...stuck,
+    nodeId: homeId,
+    stage: "fetching",
+    torrentId: null,
+    source: "manual",
+    waitsFor: {
+      nodeId: seedboxId,
+      client: {
+        id: "2b4d6f8a-0c1e-4a3b-9d5f-7e9a1c3b5d7f",
+        kind: "qbittorrent",
+        name: "qBittorrent",
+      },
+      off: true,
+    },
+  } as const;
+  const needsYou = openWith([{ kind: "waiting", grabId: pinned.id, code: "client_off" }], [pinned]);
+  await expect
+    .element(needsYou)
+    .toHaveTextContent(
+      "Needs you1WaitingWaiting for qBittorrent on seedboxqBittorrent on seedbox is off. Turn it on or send this Grab to another client.Send to another client",
     );
 });
 
@@ -111,7 +137,9 @@ test("an upgrade names its Targets with a way to search", async () => {
   const upgrades = needsYou.getByRole("list", { name: "Upgrades available" });
   await expect
     .element(upgrades)
-    .toHaveTextContent("Upgrade available for 1080pA better release would replace the file.Search");
+    .toHaveTextContent(
+      "Upgrade available for 1080pA better release would replace the file.SearchManual search",
+    );
 });
 
 test("nothing needing the Admin shows no Needs you", async () => {

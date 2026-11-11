@@ -113,7 +113,7 @@ What a Target's file should come out as when SlipStream makes or adjusts it: vid
 _Avoid_: Recipe, encode settings, preset, transcode profile
 
 **Blocklist**:
-Releases known to be bad, keyed by torrent info hash, that no Item ever grabs again until removed by hand.
+Releases known to be bad, keyed by torrent info hash, that no search grabs again for any Work until an Admin removes them. A release fault, Mark failed and a canceled Grab the Admin chose to blocklist each add one.
 _Avoid_: Blacklist, ignore list
 
 ## Topology
@@ -371,6 +371,14 @@ _Avoid_: Delay, delay profile
 **Backlog search**:
 The scheduled search that works through Wants nothing has found yet, spacing each Want's searches further apart while it stays unfound. At its longest gap, it also looks for listed cuts not yet seen for an Item.
 _Avoid_: Sweep, scheduled search, auto search
+
+**Manual search**:
+A search an Admin opens to see the Releases for part of a Work and choose what to grab. It asks every Indexer that is on, leads with a Plan and grabs nothing until the Admin presses Grab.
+_Avoid_: Interactive search, search by hand
+
+**Plan**:
+In Manual search, the fewest Grabs that fill the missing, failed and upgradable cells in scope, one Release per row, chosen as automatic search would choose them.
+_Avoid_: Bulk grab, cover, suggestion
 
 **Custom Format**:
 A named set of conditions on what a release says about itself, such as its title, Release group or source, that each Target scores. Its conditions have Radarr's and Sonarr's shape, so a format from TRaSH Guides, Radarr or Sonarr pastes in and runs as written.

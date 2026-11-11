@@ -51,12 +51,23 @@ func TestCompareFindsTheFirstStepTwoReleasesDifferOn(t *testing.T) {
 		},
 	} {
 		target := must[targets.Target](t)(targets.NewTarget(scoredSpec(discsOverWeb, release.Remux1080p, 0, 0, 1, c.propers)))
-		step, better := target.Compare(c.a, c.b)
+		step, better := target.Compare(&c.a, &c.b)
 		if step != c.step || better != c.better {
 			t.Errorf("%s: Compare = %d, %d; want %d, %d", name, step, better, c.step, c.better)
 		}
-		if back, worse := target.Compare(c.b, c.a); back != c.step || worse != -c.better {
+		if back, worse := target.Compare(&c.b, &c.a); back != c.step || worse != -c.better {
 			t.Errorf("%s: Compare the other way = %d, %d", name, back, worse)
+		}
+	}
+}
+
+func TestCompareByTiesAtRevisionUnderDontPrefer(t *testing.T) {
+	v1 := targets.Scored{Facts: release.Facts{Quality: release.Known(release.WEBDL1080p), Revision: release.Revision{Version: 1}}}
+	proper := targets.Scored{Facts: release.Facts{Quality: release.Known(release.WEBDL1080p), Revision: release.Revision{Version: 2}}}
+	for p, want := range map[targets.Propers]int{targets.PreferAndUpgrade: 1, targets.PreferNoUpgrade: 1, targets.DontPrefer: 0} {
+		target := must[targets.Target](t)(targets.NewTarget(scoredSpec(discsOverWeb, release.Remux1080p, 0, 0, 1, p)))
+		if got := target.CompareBy(targets.ByRevision, &proper, &v1); got != want {
+			t.Errorf("%s: CompareBy(ByRevision) = %d, want %d", p, got, want)
 		}
 	}
 }
@@ -78,7 +89,7 @@ func TestValueSaysEachStepInWords(t *testing.T) {
 		{targets.ByRevision, reals, "REAL REAL v1"},
 		{targets.ByScore, a, "35"},
 	} {
-		if got := target.Value(c.step, c.of); got != c.want {
+		if got := target.Value(c.step, &c.of); got != c.want {
 			t.Errorf("Value(%d) = %q, want %q", c.step, got, c.want)
 		}
 	}

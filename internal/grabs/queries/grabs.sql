@@ -1,8 +1,9 @@
 -- name: InsertGrab :exec
-INSERT INTO grabs_grab (id, work_id, item_id, edition, source, indexer_id, tracker_id, node_id, release_title, release_size,
-    release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor,
-    upload_factor, stage, created_at, updated_at)
-VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(edition), 'search', sqlc.arg(indexer_id), sqlc.arg(tracker_id),
+INSERT INTO grabs_grab (id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id,
+    tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id,
+    min_ratio, min_seed_seconds, download_factor, upload_factor, stage, created_at, updated_at)
+VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(edition), sqlc.arg(source), sqlc.arg(manual_id),
+    sqlc.arg(grabbed_by), sqlc.narg(grabbed_by_name), sqlc.arg(overrides), sqlc.arg(indexer_id), sqlc.arg(tracker_id),
     sqlc.arg(node_id),
     sqlc.arg(release_title), sqlc.arg(release_size), sqlc.arg(release_link_sealed), sqlc.narg(release_magnet),
     sqlc.narg(release_info_hash), sqlc.narg(fetch_query_id), sqlc.arg(min_ratio), sqlc.arg(min_seed_seconds),
@@ -77,7 +78,7 @@ VALUES (sqlc.arg(search_id), sqlc.arg(position), sqlc.arg(indexer_id), sqlc.arg(
 -- name: ListSearchIndexersOfSearch :many
 SELECT * FROM grabs_search_indexer WHERE search_id = sqlc.arg(search_id) ORDER BY position;
 
--- name: AnswerSearchIndexer :exec
+-- name: AnswerSearchIndexer :execrows
 UPDATE grabs_search_indexer SET outcome = sqlc.arg(outcome), releases = sqlc.narg(releases), until_at = sqlc.narg(until_at),
     since_at = sqlc.narg(since_at), node_id = sqlc.narg(node_id), lapsed = sqlc.narg(lapsed), cause = sqlc.narg(cause),
     text = sqlc.narg(text)
@@ -86,7 +87,7 @@ WHERE search_id = sqlc.arg(search_id) AND position = sqlc.arg(position) AND outc
 -- name: ListSearchIndexersOfWork :many
 SELECT grabs_search_indexer.* FROM grabs_search_indexer
 JOIN grabs_search ON grabs_search.id = grabs_search_indexer.search_id
-WHERE grabs_search.work_id = sqlc.arg(work_id)
+WHERE grabs_search.work_id = sqlc.arg(work_id) AND grabs_search.manual_id IS NULL
 ORDER BY grabs_search_indexer.search_id, grabs_search_indexer.position;
 
 -- name: FinishSearch :exec
@@ -132,14 +133,14 @@ DELETE FROM grabs_release WHERE search_id = sqlc.arg(search_id);
 DELETE FROM grabs_release WHERE search_id IN (
     SELECT grabs_search.id FROM grabs_search
     LEFT JOIN grabs_grab ON grabs_grab.id = grabs_search.grab_id
-    WHERE grabs_search.item_id = sqlc.arg(item_id) AND grabs_search.id <> sqlc.arg(search_id)
+    WHERE grabs_search.item_id = sqlc.arg(item_id) AND grabs_search.id <> sqlc.arg(search_id) AND grabs_search.manual_id IS NULL
         AND (grabs_grab.stage IS NULL OR grabs_grab.stage <> 'fetching'));
 
 -- name: ListOpenSearches :many
 SELECT * FROM grabs_search WHERE finished_at IS NULL ORDER BY started_at, id;
 
 -- name: ListSearchesOfWork :many
-SELECT * FROM grabs_search WHERE work_id = sqlc.arg(work_id) ORDER BY started_at DESC, id DESC;
+SELECT * FROM grabs_search WHERE work_id = sqlc.arg(work_id) AND manual_id IS NULL ORDER BY started_at DESC, id DESC;
 
 -- name: ListTargetsOfWork :many
 SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_target.target_id
@@ -148,13 +149,15 @@ WHERE grabs_grab.work_id = sqlc.arg(work_id)
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
 
 -- name: ListTargetsOfWorks :many
-SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_target.target_id
+SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
+    grabs_grab.source, grabs_target.target_id
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
 WHERE grabs_grab.work_id IN (sqlc.slice(work_ids))
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
 
 -- name: ListEveryGrabTarget :many
-SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_target.target_id
+SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
+    grabs_grab.source, grabs_target.target_id
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
 

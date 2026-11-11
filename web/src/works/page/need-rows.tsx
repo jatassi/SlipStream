@@ -8,7 +8,7 @@ import type {
   GrabsGrab,
 } from "../../api/gen/model";
 import { useListNodesSuspense } from "../../api/gen/query/nodes/nodes";
-import { useStartSearch } from "../../grabs/search";
+import { ManualSearchButton, useStartSearch } from "../../grabs/search";
 import { SendToSheet } from "../../grabs/send-to-sheet";
 import { Button } from "../../ui/button";
 import { List, ListRow } from "../../ui/list";
@@ -31,15 +31,22 @@ export function Upgrades({
           title={upgradeWords(naming, need)}
           meta="A better release would replace the file."
           trailing={
-            <Button
-              size="small"
-              busy={search.isPending}
-              onClick={() => {
-                search.start(naming.work.id, { levelIds: [], itemIds: need.itemIds });
-              }}
-            >
-              Search
-            </Button>
+            <span className="flex gap-2">
+              <Button
+                size="small"
+                busy={search.isPending}
+                onClick={() => {
+                  search.start(naming.work.id, { levelIds: [], itemIds: need.itemIds });
+                }}
+              >
+                Search
+              </Button>
+              <ManualSearchButton
+                workId={naming.work.id}
+                scope={{ itemIds: need.itemIds }}
+                size="small"
+              />
+            </span>
           }
         />
       ))}
@@ -79,14 +86,23 @@ function SendableWait({
 
 type Words = { readonly subject: string; readonly detail: string };
 
-const routeWaitWords = ({ client }: GrabsClientWait, node: string): Words => ({
-  subject: `Waiting to send to ${client === null ? "the built-in client" : client.name} on ${node}`,
-  detail: `${node} is offline. This download goes there once ${node} is back online.`,
-});
+const routeWaitWords = ({ client, off }: GrabsClientWait, node: string): Words => {
+  if (off) {
+    return {
+      subject: `Waiting for ${client === null ? "the built-in client" : client.name} on ${node}`,
+      detail: `${client === null ? "The built-in client" : client.name} on ${node} is off. Turn it on or send this Grab to another client.`,
+    };
+  }
+  return {
+    subject: `Waiting to send to ${client === null ? "the built-in client" : client.name} on ${node}`,
+    detail: `${node} is offline. This download goes there once ${node} is back online.`,
+  };
+};
 
 /**
  * The words of a wait the Admin can end by sending the Grab elsewhere: to
- * fetch for its routed client's offline Node, or on its away client.
+ * fetch for its routed client's offline Node or its pinned client that is
+ * off, or on its away client.
  */
 function sendableWords(
   grab: GrabsGrab,

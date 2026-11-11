@@ -12,6 +12,7 @@ const fetched: GrabsGrab = {
   edition: "standard",
   targetIds: ["1f3e5a7c-9b2d-4f6e-8a0c-2e4f6a8c0b1d"],
   releaseTitle: "The.Quiet.Orchard.2021.1080p.WEB-DL",
+  releaseWords: "WEBDL-1080p · 700 MB",
   quality: "webdl-1080p",
   releaseSize: 734_003_200,
   indexerId,
@@ -24,6 +25,11 @@ const fetched: GrabsGrab = {
   stage: "fetching",
   history: [{ stage: "fetching", at: "2026-10-12T09:01:00Z" }],
   createdAt: "2026-10-12T09:01:00Z",
+  source: "search",
+  grabbedBy: null,
+  manualSearchId: null,
+  overrides: [],
+  actions: { cancel: false, blocklistable: false, sendTo: false },
 };
 
 export const waitingToFetch: GrabsGrab = {
@@ -45,7 +51,7 @@ export const waitingForSeedbox: GrabsGrab = {
   nodeId: seedboxId,
   torrentId: null,
   infoHash: null,
-  waitsFor: { nodeId: seedboxId, client: null },
+  waitsFor: { nodeId: seedboxId, client: null, off: false },
 };
 
 export const downloading: GrabsGrab = {

@@ -5,10 +5,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/jatassi/slipstream/fakes/fault"
-	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/site"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
@@ -113,21 +111,18 @@ func TestAnIndexerTheSiteLimitsLeavesTheOtherToAnswer(t *testing.T) {
 	}
 }
 
-// TestAnIndexerPastTheJobDeadlineIsLateAndItsAnswerStillLands slows the
-// first of the two Indexers' feeds past a 3s job deadline, with the Node
-// answering each poll within a second: the search grabs from the other,
-// and the late one's query still completes.
-func TestAnIndexerPastTheJobDeadlineIsLateAndItsAnswerStillLands(t *testing.T) {
+// TestAnIndexerPastTheSearchWaitIsLateAndItsAnswerStillLands sets the
+// search wait to 10s through the API and delays the first of the two
+// Indexers' feeds 15s: the search grabs from the other, and the late one's
+// query still completes.
+func TestAnIndexerPastTheSearchWaitIsLateAndItsAnswerStillLands(t *testing.T) {
 	t.Parallel()
-	s, err := scenario.Load("home")
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.Timings.Indexers.Job = 3 * time.Second
-	s.Timings.Searching.Hold = time.Second
-	w := beginIn(t, s, worldtest.LaunchScenario(t, s))
+	w := begin(t, "home")
 	w.addMirror(t, "")
-	w.setFault(t, fault.Rule{ID: "slow-feed", Target: "fixture-site", Origin: "seedbox", Route: "torznab.api", Times: 1}, "slow-body=256B/s")
+	if r := w.a.Admin("home", http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.searchWait":10}}`); r.Status != http.StatusOK {
+		t.Fatalf("updateIndexerSettings = %d %s, want 200", r.Status, r.Body)
+	}
+	w.setFault(t, fault.Rule{ID: "slow-feed", Target: "fixture-site", Origin: "seedbox", Route: "torznab.api", Times: 1}, "delay=15s")
 
 	run := w.searched(t, w.search(t))
 	lines := run.lines()

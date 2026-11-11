@@ -2,10 +2,11 @@ package grabs
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
@@ -20,9 +21,12 @@ import (
 // Search is one search run: one Item searched on every Indexer it planned
 // to ask.
 type Search struct {
-	ID      SearchID
-	WorkID  works.WorkID
-	ItemID  works.ItemID
+	ID     SearchID
+	WorkID works.WorkID
+	ItemID works.ItemID
+	// Manual is the Manual search the run lists Releases for, zero for an
+	// automatic run.
+	Manual  ManualID
 	Started time.Time
 	// Indexers are the Indexers the run asked or skipped, by priority.
 	Indexers []SearchIndexer
@@ -50,7 +54,7 @@ type SearchIndexer struct {
 
 func searchOf(row db.GrabsSearch, lines []SearchIndexer) (Search, error) {
 	s := Search{
-		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Started: row.StartedAt.Time(), Indexers: lines,
+		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Manual: row.ManualID, Started: row.StartedAt.Time(), Indexers: lines,
 		Finished: row.FinishedAt.Time(), Candidates: int(row.Candidates), GrabID: row.GrabID,
 	}
 	if row.Outcome != nil {
@@ -87,7 +91,8 @@ func outcomeRow(o indexers.Outcome) db.AnswerSearchIndexerParams {
 		p.Lapsed = &o.Lapsed
 	case indexers.IsStopped:
 		p.Cause, p.Text = &o.Cause, &o.Text
-	case indexers.IsLimited, indexers.IsFailing, indexers.Late, indexers.LimitReached, indexers.NoCategories, indexers.Removed:
+	case indexers.IsLimited, indexers.IsFailing, indexers.Late, indexers.LimitReached, indexers.NoCategories, indexers.Removed,
+		indexers.RSSOnly:
 	}
 	return p
 }
@@ -142,7 +147,11 @@ func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.Wo
 		if err != nil {
 			return err
 		}
-		if err := gr.searchable(ctx, tx, tree); err != nil {
+		root, err := gr.searchable(ctx, tx, tree)
+		if err != nil {
+			return err
+		}
+		if err := gr.cfg.Roots.Reachable(ctx, tx, root); err != nil {
 			return err
 		}
 		open, err := gr.openCells(ctx, tx, work)
@@ -195,7 +204,7 @@ func (gr *Grabs) plan(ctx context.Context, tx *storage.Tx[file], tree works.Tree
 	if err := q.InsertSearch(ctx, db.InsertSearchParams{ID: id, WorkID: tree.ID, ItemID: item, StartedAt: started}); err != nil {
 		return SearchID{}, err
 	}
-	lines, err := gr.cfg.Indexers.Plan(ctx, tx, tree.ContentType)
+	lines, err := gr.cfg.Indexers.Plan(ctx, tx, tree.ContentType, indexers.AutoSearch)
 	if err != nil {
 		return SearchID{}, err
 	}
@@ -207,31 +216,27 @@ func (gr *Grabs) plan(ctx context.Context, tx *storage.Tx[file], tree works.Tree
 	return id, nil
 }
 
-// searchable is why tree can't be searched, nil when it can: no Indexer
-// exists at all, or the Work is rootless, or its root's Node is offline or
-// written off.
-func (gr *Grabs) searchable(ctx context.Context, r storage.Reader[file], tree works.Tree) error {
+// searchable is why tree can't be searched, nil when it can, and its
+// root: its Content Type can't cover it, no Indexer exists at all, or the
+// Work is rootless.
+func (gr *Grabs) searchable(ctx context.Context, r storage.Reader[file], tree works.Tree) (roots.Root, error) {
 	if len(tree.Items) > 0 {
 		terms, err := gr.cfg.Terms[tree.ContentType].SearchTerms(ctx, r, tree.Items[0].ID)
 		if err != nil {
-			return err
+			return roots.Root{}, err
 		}
 		if terms.Covers == nil {
-			return ErrNotSearchable
+			return roots.Root{}, ErrNotSearchable
 		}
 	}
 	all, err := indexers.All(ctx, r)
 	if err != nil {
-		return err
+		return roots.Root{}, err
 	}
 	if len(all) == 0 {
-		return ErrNoIndexer
+		return roots.Root{}, ErrNoIndexer
 	}
-	root, err := roots.OfWork(ctx, r, tree.ID)
-	if err != nil {
-		return err
-	}
-	return gr.cfg.Roots.Reachable(ctx, r, root)
+	return roots.OfWork(ctx, r, tree.ID)
 }
 
 // openCells is work's wanted cells that no unfinished Grab holds, in tree
@@ -295,7 +300,7 @@ func (gr *Grabs) search(ctx context.Context, run Search) result {
 	if err != nil {
 		return gr.searchWaits(ctx, run, err)
 	}
-	answers, err := gr.cfg.Indexers.Search(ctx, s)
+	answers, err := gr.cfg.Indexers.Search(ctx, s, nil)
 	if ctx.Err() != nil {
 		return halted
 	}
@@ -335,13 +340,18 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, a
 	for i, a := range answers {
 		p := outcomeRow(a.Outcome)
 		p.SearchID, p.Position = run.ID, asked[i].Position
-		if err := q.AnswerSearchIndexer(ctx, p); err != nil {
+		if _, err := q.AnswerSearchIndexer(ctx, p); err != nil {
 			return nil, err
 		}
 		for range a.Releases {
 			names[len(names)] = asked[i].IndexerName
 		}
 	}
+	bl, err := blocksOf(ctx, tx, as)
+	if err != nil {
+		return nil, err
+	}
+	as = bl.gate(as)
 	if err := sight(ctx, tx, as); err != nil {
 		return nil, err
 	}
@@ -380,11 +390,11 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, a
 }
 
 // sight records a sighting of the cut of every listed Release whose name
-// names its Work, for each Item it covers, so a cut seen now is wanted
-// now.
+// names its Work and the Blocklist doesn't hold, for each Item it covers,
+// so a cut seen now is wanted now.
 func sight(ctx context.Context, tx *storage.Tx[file], as []assessed) error {
 	for _, a := range as {
-		if !a.namesTheWork() {
+		if !a.namesTheWork() || a.blocked() {
 			continue
 		}
 		for _, item := range a.covers {
@@ -412,29 +422,23 @@ func (gr *Grabs) decision(ctx context.Context, r storage.Reader[file], run Searc
 	return decide(c, as), c, nil
 }
 
-// take grabs the first of picks, or of its copies, whose Indexer takes
-// it, and returns the Grab and the pick at the position taken. With none
-// taken the Grab is nil and the position -1: an Indexer that is stopped,
-// at its grab limit or deleted would make the Grab wait for the Admin. It
-// skips the positions gone, which an earlier Grab of the run took.
+// take grabs what choose takes of picks with Indexers.Take, and returns
+// the Grab and the pick at the position taken. With none taken the Grab is
+// nil and the position -1: an Indexer that is stopped, at its grab limit
+// or deleted would make the Grab wait for the Admin. It skips the
+// positions gone, which an earlier Grab of the run took.
 func (gr *Grabs) take(ctx context.Context, tx *storage.Tx[file], run Search, picks []Pick, gone map[int]bool, now storage.Time) (*Grab, Pick, error) {
-	for _, pick := range picks {
-		for _, p := range pick.offers() {
-			if gone[p.at] {
-				continue
-			}
-			t, err := gr.cfg.Indexers.Take(ctx, tx, p.Release)
-			if errors.As(err, new(*indexers.NotTakenError)) {
-				continue
-			}
-			if err != nil {
-				return nil, Pick{}, err
-			}
-			g, err := gr.insertGrab(ctx, tx, run, p, t, now)
-			return &g, p, err
-		}
+	p, t, ok, err := choose(picks, gone, func(r indexers.Release) (indexers.Ticket, error) {
+		return gr.cfg.Indexers.Take(ctx, tx, r)
+	})
+	if err != nil {
+		return nil, Pick{}, err
 	}
-	return nil, Pick{at: -1}, nil
+	if !ok {
+		return nil, Pick{at: -1}, nil
+	}
+	g, err := gr.insertGrab(ctx, tx, newGrab{work: run.WorkID, item: run.ItemID, pick: p, ticket: t, source: FromSearch}, now)
+	return &g, p, err
 }
 
 // releaseKey is what a sighting keys it by: its info hash in hex, else its
@@ -454,14 +458,30 @@ func (gr *Grabs) searchWaits(ctx context.Context, run Search, err error) result 
 	return waited
 }
 
-// insertGrab inserts the Grab of pick that t readied, at fetching on the
-// Indexer's home Node.
-func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], run Search, pick Pick, t indexers.Ticket, now storage.Time) (Grab, error) {
+// newGrab is what insertGrab writes: a search's pick, or an Admin's from
+// a Manual search with its record.
+type newGrab struct {
+	work      works.WorkID
+	item      works.ItemID
+	pick      Pick
+	ticket    indexers.Ticket
+	source    Source
+	manual    ManualID
+	by        *Actor
+	overrides Overrides
+	// sent is the client the Admin chose, nil for where Tracker routing
+	// sends it.
+	sent *downloadclients.Choice
+}
+
+// insertGrab inserts n's Grab, at fetching on its Indexer's home Node.
+func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], n newGrab, now storage.Time) (Grab, error) {
 	q := db.New(tx)
-	r := pick.Release
+	r, t := n.pick.Release, n.ticket
 	g := Grab{
-		ID: GrabID{UUID: storage.NewUUID()}, WorkID: run.WorkID, ItemID: run.ItemID, Edition: pick.Edition, Targets: pick.Targets,
+		ID: GrabID{UUID: storage.NewUUID()}, WorkID: n.work, ItemID: n.item, Edition: n.pick.Edition, Targets: n.pick.Targets,
 		Release: Release{Title: r.Title, Size: r.Size, InfoHash: r.InfoHash}, Ticket: t, Stage: Fetching, Created: now.Time(),
+		Source: n.source, Manual: n.manual, By: n.by, Overrides: n.overrides, Sent: n.sent,
 	}
 	idx, err := indexers.Get(ctx, tx, t.Indexer)
 	if err != nil {
@@ -477,15 +497,35 @@ func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], run Searc
 	if h := g.Release.InfoHash; h != nil {
 		hint = h[:]
 	}
-	err = q.InsertGrab(ctx, db.InsertGrabParams{
-		ID: g.ID, WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, IndexerID: t.Indexer, TrackerID: t.Tracker, NodeID: g.Node,
+	overrides, err := json.Marshal(g.Overrides)
+	if err != nil {
+		return Grab{}, fmt.Errorf("grab %s: encode the overrides: %w", g.ID, err)
+	}
+	p := db.InsertGrabParams{
+		ID: g.ID, WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, Source: g.Source, ManualID: g.Manual, Overrides: string(overrides),
+		IndexerID: t.Indexer, TrackerID: t.Tracker, NodeID: g.Node,
 		ReleaseTitle: g.Release.Title, ReleaseSize: g.Release.Size, ReleaseLinkSealed: g.Release.link, ReleaseMagnet: orNil(g.Release.magnet),
 		ReleaseInfoHash: hint, FetchQueryID: t.Query, CreatedAt: now,
 		MinRatio: orNil(r.Floor.MinRatio), MinSeedSeconds: orNil(int64(r.Floor.MinSeed.Seconds())),
 		DownloadFactor: new(r.Factors.Download), UploadFactor: new(r.Factors.Upload),
-	})
-	if err != nil {
+	}
+	if b := g.By; b != nil {
+		p.GrabbedByName = orNil(b.Name)
+		if b.Account != nil {
+			p.GrabbedBy = *b.Account
+		}
+	}
+	if err := q.InsertGrab(ctx, p); err != nil {
 		return Grab{}, err
+	}
+	if c := g.Sent; c != nil {
+		s := db.SetSentParams{ID: g.ID, ClientID: c.Client, UpdatedAt: now}
+		if c.Client == nil {
+			s.BuiltInOn = &c.BuiltInOn
+		}
+		if err := q.SetSent(ctx, s); err != nil {
+			return Grab{}, err
+		}
 	}
 	for i, target := range g.Targets {
 		if err := q.InsertTarget(ctx, db.InsertTargetParams{GrabID: g.ID, Position: int64(i), TargetID: target}); err != nil {

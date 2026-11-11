@@ -14,8 +14,8 @@ An Admin searches a Work's Indexers from the Work page. SlipStream asks every In
 
 ## How to get to it (user POV)
 
-- Desktop shell: the sidebar's `Library`, a Work's link, then `Search`, the Work page's action in the top bar; or the palette (Ctrl+K, ⌘K on macOS) with part of the Work's name.
-- Phone shell: the `Library` tab, a Work's link (a pushed page with the back link `Movies`), then `Search` under the nav bar; or the `Search` tab's palette.
+- Desktop shell: the sidebar's `Library`, a Work's link, then `Search` in the Work page's hero; or the palette (Ctrl+K, ⌘K on macOS) with part of the Work's name. `Manual search` beside it opens the sheet in [manual-search.md](manual-search.md).
+- Phone shell: the `Library` tab, a Work's link (a pushed page with the back link `Movies`), then `Search` in the hero; or the `Search` tab's palette.
 - Desktop shell: the sidebar's `Activity`, which reads `Activity 1 live` while a Grab moves. Phone shell: the `Activity` tab, badged with the same count.
 - API: `POST /api/v1/works/{workId}/search`, `GET /api/v1/works/{workId}/searches`, `GET /api/v1/grabs`, and `POST /api/v1/grabs/{grabId}/send-to` with `{clientId}` or `{builtInOn}` for a downloading Grab.
 
@@ -109,7 +109,7 @@ Steps:
 ## Gotchas
 
 - `announces wait` and `sse wait` default `--after` to the previous step's start. The `started` announce arrives while the second search's click or wait step runs, so pass `--after $FIRED`, the seq of the 429's `fault.fired`.
-- The Work page's `Search` is the desktop top bar's page action and shares its name with the capsule `Search Works or run a command`; scope it to `getByRole("banner")` with `exact: true` on desktop and to `getByRole("main")` on phone. The Add page's catalog `Search` stays in `getByRole("main")`.
+- The Work page's `Search` sits in the hero inside `getByRole("main")` on both shells. Use `exact: true`, which keeps it apart from `Manual search` beside it and from the top bar's capsule `Search Works or run a command`. The Add page's catalog `Search` is in `getByRole("main")` too.
 - Search outcomes arrive after the click returns. Wait for the Searches text with `run-code`; a snapshot taken at once may read `Searching`.
 - A 429 limits the Indexer until its `Retry-After` passes, and a search before then skips it with `Limit reached until …` without asking the site. Keep the fault's `retry-after` short and wait it out before searching again.
 - A Grab whose Indexer stops, is deleted or whose home Node lapses before the .torrent is fetched fails with `indexer_stopped`, `indexer_removed` or `home_offline`, and the search's decision reruns over the Releases it kept: the run's `grabId` moves to the rerun's Grab. The Work page then hides the dropped Grab under Needs you, because a later Grab for the Item exists. Read it from `GET /api/v1/grabs`.

@@ -91,6 +91,12 @@ func (alone) Sample(downloadclients.ID) (downloadclients.Sample, bool) {
 	return downloadclients.Sample{}, false
 }
 
+func (alone) Touched(...downloadclients.Touched) {}
+
+func (alone) RemoveIn(context.Context, *storage.Tx[storage.Library], []downloadclients.ID, downloadclients.RemoveReason, bool) ([]downloadclients.Result, downloadclients.Touched, error) {
+	panic("nothing removes a Torrent in this test")
+}
+
 func (alone) Resolve(context.Context, role.NodeID, magnet.Link, time.Time) (downloadclients.Resolution, error) {
 	panic("a .torrent link needs no metadata search")
 }
@@ -166,6 +172,7 @@ type atticFixture struct {
 	g                 *grabs.Grabs
 	changed           sent[grabs.Changed]
 	searched          sent[grabs.SearchChanged]
+	blocklisted       sent[grabs.BlocklistChanged]
 	s                 *ownertest.Owner
 	search            string
 }
@@ -208,7 +215,7 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		t.Fatal(err)
 	}
 	terms := &terms{}
-	changed, searched := make(sent[grabs.Changed], 4), make(sent[grabs.SearchChanged], 4)
+	changed, searched, blocklisted := make(sent[grabs.Changed], 4), make(sent[grabs.SearchChanged], 4), make(sent[grabs.BlocklistChanged], 4)
 	sealer := secrettest.Sealer(t)
 	home := storage.NewUUID()
 	roster := alone{role.NodeID{UUID: home}}
@@ -237,11 +244,13 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Router:    router,
 		Transfers: transfers.New(transfers.ControllerConfig{Library: lib}),
 		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
-		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, Log: slog.New(slog.DiscardHandler),
+		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, BlocklistChanged: blocklisted,
+		Reconciling: trackers.NotReconciling,
+		Log:         slog.New(slog.DiscardHandler),
 	})
 	return &atticFixture{
 		ctx: ctx, lib: lib, sealer: sealer, home: role.NodeID{UUID: home}, tree: tree, unmonitored: unmonitored, hd: hd, terms: terms,
-		storageNodes: storageNodes, xs: xs, g: g, changed: changed, searched: searched,
+		storageNodes: storageNodes, xs: xs, g: g, changed: changed, searched: searched, blocklisted: blocklisted,
 		s: ownertest.Serve(t, lib, func(r *api.Router) { grabsapi.Routes(r, pipeline{g}) }), search: "/api/v1/works/" + tree.ID.String() + "/search",
 	}
 }
@@ -338,10 +347,11 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		t.Fatalf("Trackers = %+v, %v; want the Fixture Site one the Grab reached", reached, err)
 	}
 	want := `{"id":"` + grab + `","workId":"` + tree.ID.String() + `","itemId":"` + item + `","edition":"any","targetIds":["` + hd.ID.String() + `"],` +
-		`"releaseTitle":"The.Attic.1080p.WEB","quality":"webdl-1080p","releaseSize":4096,"indexerId":"` + indexer.String() + `",` +
+		`"releaseTitle":"The.Attic.1080p.WEB","releaseWords":"WEBDL-1080p · 4.0 KB","quality":"webdl-1080p","releaseSize":4096,"indexerId":"` + indexer.String() + `",` +
 		`"trackerId":"` + reached[0].ID.String() + `","nodeId":"` + home.String() + `","fetchNodeId":null,"torrentId":null,"downloadClient":null,"infoHash":null,` +
-		`"stage":"failed","failure":{"stage":"fetching","code":"torrent_invalid","message":"bencode: the metainfo is not a dictionary"},` +
-		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"createdAt":"T"}`
+		`"stage":"failed","failure":{"stage":"fetching","code":"torrent_invalid","message":"The Indexer sent a .torrent file SlipStream can't read.","needsYou":true},` +
+		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"createdAt":"T","source":"search","grabbedBy":null,"manualSearchId":null,` +
+		`"overrides":[],"actions":{"cancel":false,"blocklistable":false,"sendTo":false}}`
 	expect(t, s, http.MethodGet, "/api/v1/grabs/"+grab, http.StatusOK, want)
 	expect(t, s, http.MethodGet, "/api/v1/grabs", http.StatusOK, `{"grabs":[`+want+`]}`)
 	expect(t, s, http.MethodGet, ofIndexer, http.StatusOK, `{"grabs":[`+want+`],"nextOffset":null}`)

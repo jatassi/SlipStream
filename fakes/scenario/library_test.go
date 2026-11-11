@@ -21,11 +21,13 @@ func TestValidateChecksTheLibrary(t *testing.T) {
 			{Name: "none", Cutoff: "webdl-1080p"},
 			{Name: "filtered", Tiers: [][]QualityKey{{"webdl-1080p"}}, Cutoff: "webdl-1080p", Filters: []LibraryFilter{{Attribute: "hdr", Mode: "only", Values: []string{"sepia"}}}},
 			{Name: "sized", Tiers: [][]QualityKey{{"webdl-1080p"}}, Cutoff: "webdl-1080p", Sizes: []LibrarySize{{Quality: "bluray-1080p", Min: 1}}},
+			{Name: "scored", Tiers: [][]QualityKey{{"webdl-1080p"}}, Cutoff: "webdl-1080p", Scores: &LibraryScores{Formats: map[string]int{"LQ": -5, "Remux": 10}}},
 		},
+		Formats: []LibraryFormat{{Name: "LQ", Group: "^LQ$"}, {Name: "lq", Group: "^lq$"}},
 		Profiles: []LibraryProfile{
 			{Name: "Standard", ContentType: "music", Targets: []string{"1080p", "4k"}, Default: true},
 			{Name: "Standard", ContentType: "music", Default: true},
-			{Name: "Starter", ContentType: "music", Targets: []string{"1080p"}},
+			{Name: "Starter", ContentType: "music", Targets: []string{"1080p"}, Cuts: []string{"standard", "superfan"}},
 		},
 		Indexers: []LibraryIndexer{
 			{Name: "Site", Kind: "torznab", Site: "torznab"},
@@ -33,20 +35,24 @@ func TestValidateChecksTheLibrary(t *testing.T) {
 			{Name: "Ported", Kind: "native", Site: "torznab"},
 			{Name: "Feed", Kind: "torznab", Site: "torznab", Port: "norbits"},
 			{Name: "Elsewhere", Kind: "native", Site: "norbits", Port: "avistaz"},
+			{Name: "Last", Kind: "torznab", Site: "heron", Priority: 51},
 		},
 	}}
 	want := []string{
 		"scenario x: library is set, but no node is controller",
 		`scenario x: library root folder "Music" does not match ^[a-z0-9][a-z0-9._-]*$`,
 		"scenario x: library has two roots in folder music",
+		"scenario x: library has two formats named lq",
 		"scenario x: library has two targets named 1080p",
 		`scenario x: library target 1080p: "webdl-1440p" is not a quality`,
 		"scenario x: library target none: tiers are missing, empty or repeat a quality",
 		`scenario x: library target filtered: a filter is Any with values, Only or Not with none, or names a value twice: "sepia" is not an HDR format`,
 		"scenario x: library target sized: the Target doesn't accept that quality: a size for bluray-1080p",
+		"scenario x: library target scored scores format Remux, which library.formats does not list",
 		"scenario x: library profile Standard names target 4k, which library.targets does not list and isn't the starter",
 		"scenario x: library has two profiles named Standard",
 		"scenario x: library has two default profiles for content type music",
+		"scenario x: library profile Starter lists cut superfan, which is no built-in cut's key",
 		"scenario x: library has two indexers named Site",
 		`scenario x: library indexer Site is a rss Indexer on site "torznab", which fixture-site doesn't serve as one`,
 		"scenario x: library indexer Site is an RSS feed with no tracker or media",
@@ -54,6 +60,7 @@ func TestValidateChecksTheLibrary(t *testing.T) {
 		"scenario x: library indexer Ported is native and names no port",
 		"scenario x: library indexer Feed names a port, which only a native Indexer has",
 		`scenario x: library indexer Elsewhere is on site "norbits", and port avistaz runs only on its own site`,
+		"scenario x: library indexer Last has priority 51; it is 1 to 50, or 0 for the default",
 		"scenario x: library has indexers, and no node holds searching",
 	}
 	err := s.Validate()

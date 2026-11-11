@@ -30,9 +30,10 @@ const tvdbKey = "fake-world-tvdb-key"
 
 // Library creates the Scenario's library on its controller Node, over c
 // with the Controller's API key: its Storage levels, the TVDB key when it
-// has a tvdb catalog, each root's folder under mediaDir and the root on
-// its Node, which shares the machine and so the media dir, then the
-// Targets and Profiles as goals makes them, then its seeding settings,
+// has a tvdb catalog, the Custom Formats, Targets and Profiles as goals
+// makes them, so a root's first scan adds Works under them, then each
+// root's folder under mediaDir and the root on its Node, which shares the
+// machine and so the media dir, then its seeding settings,
 // then each Node's Challenge solver at the address solvers names for it,
 // and each Node's Download Clients where clients says, and the Indexers on
 // the site fakes at sites, as an Admin would.
@@ -47,6 +48,9 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 			return err
 		}
 	}
+	if err := goals(ctx, c, s.Library, controller, apiKey); err != nil {
+		return err
+	}
 	for _, r := range s.Library.Roots {
 		folder := filepath.Join(mediaDir, r.Folder)
 		if err := os.MkdirAll(folder, 0o700); err != nil {
@@ -56,9 +60,6 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 		if _, err := nodeapi.CreateRoot(ctx, c, controller, apiKey, r.ContentType, claims.Members[on].ID, folder); err != nil {
 			return err
 		}
-	}
-	if err := goals(ctx, c, s.Library, controller, apiKey); err != nil {
-		return err
 	}
 	if sd := s.Library.Seeding; sd != nil {
 		if err := nodeapi.SetSeeding(ctx, c, controller, apiKey, *sd); err != nil {
@@ -130,7 +131,7 @@ func addIndexers(ctx context.Context, c *http.Client, s scenario.Scenario, claim
 		}
 	}
 	for _, ix := range s.Library.Indexers {
-		body := nodeapi.NewIndexer{Kind: ix.Kind, Name: ix.Name, AllowFailover: ix.AllowFailover}
+		body := nodeapi.NewIndexer{Kind: ix.Kind, Name: ix.Name, AllowFailover: ix.AllowFailover, Priority: ix.Priority, AutomaticSearch: ix.AutomaticSearch}
 		if ix.Home != "" {
 			body.HomeNodeID = claims.Members[slices.IndexFunc(s.Nodes, func(n scenario.Node) bool { return n.Name == ix.Home })].ID
 		}
@@ -230,22 +231,26 @@ func answered(ctx context.Context, c *http.Client, controller, apiKey string, ix
 	return &nodeapi.CaptchaAnswer{Attempt: attempt, Answer: code}, nil
 }
 
-// goals creates lib's Targets, replacing the rules of one whose name a
-// Target has, such as the starter, and its Profiles, making each Profile
-// that says so its Content Type's default.
+// goals creates lib's Custom Formats, then its Targets, replacing the
+// rules of one whose name a Target has, such as the starter, and its
+// Profiles, making each Profile that says so its Content Type's default.
 func goals(ctx context.Context, c *http.Client, lib *scenario.Library, controller, apiKey string) error {
+	formats, err := createFormats(ctx, c, lib.Formats, controller, apiKey)
+	if err != nil {
+		return err
+	}
 	targets, err := nodeapi.ListTargets(ctx, c, controller, apiKey)
 	if err != nil {
 		return err
 	}
 	for _, t := range lib.Targets {
 		if id, made := targets[t.Name]; made {
-			if err := nodeapi.UpdateTarget(ctx, c, controller, apiKey, id, t); err != nil {
+			if err := nodeapi.UpdateTarget(ctx, c, controller, apiKey, id, t, formats); err != nil {
 				return err
 			}
 			continue
 		}
-		id, err := nodeapi.CreateTarget(ctx, c, controller, apiKey, t)
+		id, err := nodeapi.CreateTarget(ctx, c, controller, apiKey, t, formats)
 		if err != nil {
 			return err
 		}
@@ -256,7 +261,7 @@ func goals(ctx context.Context, c *http.Client, lib *scenario.Library, controlle
 		for i, name := range p.Targets {
 			ids[i] = targets[name]
 		}
-		id, err := nodeapi.CreateProfile(ctx, c, controller, apiKey, p.Name, p.ContentType, ids)
+		id, err := nodeapi.CreateProfile(ctx, c, controller, apiKey, p.Name, p.ContentType, ids, p.Cuts)
 		if err != nil {
 			return err
 		}
@@ -267,6 +272,19 @@ func goals(ctx context.Context, c *http.Client, lib *scenario.Library, controlle
 		}
 	}
 	return nil
+}
+
+// createFormats creates formats and returns their ids by name.
+func createFormats(ctx context.Context, c *http.Client, formats []scenario.LibraryFormat, controller, apiKey string) (map[string]string, error) {
+	ids := map[string]string{}
+	for _, f := range formats {
+		id, err := nodeapi.CreateFormat(ctx, c, controller, apiKey, f)
+		if err != nil {
+			return nil, err
+		}
+		ids[f.Name] = id
+	}
+	return ids, nil
 }
 
 // StorageLevels sets the Scenario's Storage levels on its controller Node,

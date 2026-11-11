@@ -3,6 +3,7 @@ package scenario
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 	"strings"
@@ -19,11 +20,14 @@ type Library struct {
 	// StorageLevels are the Health levels the world sets before it makes
 	// the roots. A process world's Nodes report the host's own disk, so a
 	// Scenario whose Storage verdict must not depend on the host sets them.
-	StorageLevels *LibraryLevels   `yaml:"storage_levels,omitempty"`
-	Roots         []LibraryRoot    `yaml:"roots,omitempty"`
-	Targets       []LibraryTarget  `yaml:"targets,omitempty"`
-	Profiles      []LibraryProfile `yaml:"profiles,omitempty"`
-	Indexers      []LibraryIndexer `yaml:"indexers,omitempty"`
+	StorageLevels *LibraryLevels `yaml:"storage_levels,omitempty"`
+	Roots         []LibraryRoot  `yaml:"roots,omitempty"`
+	// Formats are the Custom Formats the world makes before the Targets
+	// that score them.
+	Formats  []LibraryFormat  `yaml:"formats,omitempty"`
+	Targets  []LibraryTarget  `yaml:"targets,omitempty"`
+	Profiles []LibraryProfile `yaml:"profiles,omitempty"`
+	Indexers []LibraryIndexer `yaml:"indexers,omitempty"`
 	// Seeding is the seeding settings and the Seeding goals task's cadence
 	// the world sets, so a Scenario's windows and Health move in minutes.
 	Seeding *LibrarySeeding `yaml:"seeding,omitempty"`
@@ -76,6 +80,21 @@ type LibraryTarget struct {
 	Cutoff  QualityKey      `jsonschema:"required"            yaml:"cutoff"`
 	Filters []LibraryFilter `yaml:"filters,omitempty"`
 	Sizes   []LibrarySize   `yaml:"sizes,omitempty"`
+	Scores  *LibraryScores  `yaml:"scores,omitempty"`
+}
+
+// LibraryScores are a Target's scores: the lowest score a Release may
+// have, and what each library format by name adds to it.
+type LibraryScores struct {
+	Minimum int            `yaml:"minimum,omitempty"`
+	Formats map[string]int `yaml:"formats,omitempty"`
+}
+
+// LibraryFormat is a Custom Format that matches a Release whose release
+// group matches the pattern Group.
+type LibraryFormat struct {
+	Name  string `jsonschema:"required,minLength=1" yaml:"name"`
+	Group string `jsonschema:"required,minLength=1" yaml:"group"`
 }
 
 // QualityKey is a release.Quality's key, such as webdl-1080p.
@@ -103,6 +122,9 @@ func (t LibraryTarget) Spec() (targets.Spec, error) {
 		return q
 	}
 	s := targets.Spec{Scores: targets.Scores{Increment: 1}, Name: t.Name, Cutoff: quality(t.Cutoff), Sizes: map[release.Quality]targets.Size{}}
+	if t.Scores != nil {
+		s.Scores.Minimum = t.Scores.Minimum
+	}
 	for _, tier := range t.Tiers {
 		var qs []release.Quality
 		for _, k := range tier {
@@ -135,12 +157,14 @@ func (t LibraryTarget) Spec() (targets.Spec, error) {
 
 // LibraryProfile is a Profile of Targets in Profile order, each a
 // library target or the starter, made its Content Type's default when
-// Default is set.
+// Default is set. Cuts are the built-in cuts it lists by key, in order;
+// none takes any cut.
 type LibraryProfile struct {
 	Name        string   `jsonschema:"required"                                 yaml:"name"`
 	ContentType string   `jsonschema:"required,pattern=^[a-z][a-z0-9]{1\\,15}$" yaml:"content_type"`
 	Targets     []string `jsonschema:"required,uniqueItems=true"                yaml:"targets"`
 	Default     bool     `yaml:"default,omitempty"`
+	Cuts        []string `jsonschema:"uniqueItems=true" yaml:"cuts,omitempty"`
 }
 
 // LibraryIndexer is one Indexer an Admin adds, on a site of fixture-site.
@@ -168,6 +192,11 @@ type LibraryIndexer struct {
 	Tracker       string   `yaml:"tracker,omitempty"`
 	Media         []string `yaml:"media,omitempty"`
 	AllowFailover bool     `yaml:"allow_failover,omitempty"`
+	// AutomaticSearch false leaves the Indexer to Manual search. Unset is
+	// on.
+	AutomaticSearch *bool `yaml:"automatic_search,omitempty"`
+	// Priority is from 1, first, to 50. Zero keeps the API's default.
+	Priority int `jsonschema:"minimum=0,maximum=50" yaml:"priority,omitempty"`
 }
 
 // FixtureSites are the labels of fixture-site's sites by the kind of
@@ -226,6 +255,7 @@ var folderName = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
 func (l Library) check(add func(format string, args ...any)) {
 	l.checkRoots(add)
 	l.checkFolders(add)
+	l.checkFormats(add)
 	l.checkTargets(add)
 	l.checkProfiles(add)
 	l.checkIndexers(add)
@@ -264,6 +294,22 @@ func (l Library) checkTargets(add func(format string, args ...any)) {
 		if err != nil {
 			add("library target %s: %v", t.Name, strings.ReplaceAll(err.Error(), "\n", "; "))
 		}
+		if t.Scores == nil {
+			continue
+		}
+		for _, name := range slices.Sorted(maps.Keys(t.Scores.Formats)) {
+			if !slices.ContainsFunc(l.Formats, func(f LibraryFormat) bool { return f.Name == name }) {
+				add("library target %s scores format %s, which library.formats does not list", t.Name, name)
+			}
+		}
+	}
+}
+
+func (l Library) checkFormats(add func(format string, args ...any)) {
+	for i, f := range l.Formats {
+		if slices.ContainsFunc(l.Formats[:i], func(o LibraryFormat) bool { return strings.EqualFold(o.Name, f.Name) }) {
+			add("library has two formats named %s", f.Name)
+		}
 	}
 }
 
@@ -279,6 +325,11 @@ func (l Library) checkProfiles(add func(format string, args ...any)) {
 		}
 		if p.Default {
 			defaults = append(defaults, p.ContentType)
+		}
+		for _, c := range p.Cuts {
+			if !slices.ContainsFunc(release.BuiltIn(), func(b release.Cut) bool { return string(b.Key) == c }) {
+				add("library profile %s lists cut %s, which is no built-in cut's key", p.Name, c)
+			}
 		}
 		for _, t := range p.Targets {
 			if t != targets.StarterName && !slices.ContainsFunc(l.Targets, func(lt LibraryTarget) bool { return lt.Name == t }) {
@@ -307,14 +358,21 @@ func (l Library) checkIndexers(add func(format string, args ...any)) {
 		if ix.Kind != "catalog" && ix.Kind != "native" && ix.Settings != nil {
 			add("library indexer %s takes settings, which only a catalog or native Indexer has", ix.Name)
 		}
-		switch {
-		case ix.Kind == "native" && ix.Port == "":
-			add("library indexer %s is native and names no port", ix.Name)
-		case ix.Kind != "native" && ix.Port != "":
-			add("library indexer %s names a port, which only a native Indexer has", ix.Name)
-		case ix.Kind == "native" && ix.Port != ix.Site:
-			add("library indexer %s is on site %q, and port %s runs only on its own site", ix.Name, ix.Site, ix.Port)
+		ix.checkPort(add)
+		if ix.Priority < 0 || ix.Priority > 50 {
+			add("library indexer %s has priority %d; it is 1 to 50, or 0 for the default", ix.Name, ix.Priority)
 		}
+	}
+}
+
+func (ix LibraryIndexer) checkPort(add func(format string, args ...any)) {
+	switch {
+	case ix.Kind == "native" && ix.Port == "":
+		add("library indexer %s is native and names no port", ix.Name)
+	case ix.Kind != "native" && ix.Port != "":
+		add("library indexer %s names a port, which only a native Indexer has", ix.Name)
+	case ix.Kind == "native" && ix.Port != ix.Site:
+		add("library indexer %s is on site %q, and port %s runs only on its own site", ix.Name, ix.Site, ix.Port)
 	}
 }
 

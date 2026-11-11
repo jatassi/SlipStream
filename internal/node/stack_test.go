@@ -67,7 +67,7 @@ func TestPanickingGoroutineFailsTheNodeAndUnwindsInReverse(t *testing.T) {
 	}
 }
 
-func TestGoroutineErrorFailsAndCancelledOneDoesNot(t *testing.T) {
+func TestGoroutineErrorFailsAndCanceledOneDoesNot(t *testing.T) {
 	s := newStack(slog.New(slog.DiscardHandler))
 	s.Go("worker", func(ctx context.Context) error {
 		<-ctx.Done()

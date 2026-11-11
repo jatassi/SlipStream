@@ -40,16 +40,22 @@ type Config struct {
 	// CardsChanged tells the Admins a Node's client card or settings
 	// moved.
 	CardsChanged Publisher[ClientsChanged]
+	// Rerouted tells the Grabs a client was added, edited or deleted, so
+	// a Grab pinned to a client that turned on or off routes again.
+	Rerouted func()
 	// Facts is a Node's latest client facts, false while it has none.
 	Facts func(role.NodeID) (*dlv1.Facts, bool)
 	// Remote is a Node's client as the Controller calls it.
 	Remote func(role.NodeID) downloadingv1connect.DownloadingServiceHandler
 	// Sealer seals and opens external clients' secrets.
-	Sealer  *secret.Sealer
-	Roster  Roster
-	Uses    Uses
-	Seeding Seeder
-	Live    LiveConfig
+	Sealer *secret.Sealer
+	Roster Roster
+	Uses   Uses
+	// Blocklist adds the Release of a marked-failed Torrent to the
+	// Blocklist, in the removal's Write.
+	Blocklist Blocklist
+	Seeding   Seeder
+	Live      LiveConfig
 	// Hub wakes Run when the storage levels the disk guard follows change.
 	Hub Hub
 	Log *slog.Logger

@@ -49,6 +49,24 @@ type (
 	Outcome        = db.Outcome
 	ReleaseOutcome = db.ReleaseOutcome
 	Step           = db.Step
+	ManualID       = db.ManualID
+	Source         = db.Source
+	BlockCause     = db.BlockCause
+)
+
+const (
+	// FromSearch is a Grab a search's decision took.
+	FromSearch Source = "search"
+	// FromManual is a Grab an Admin picked in a Manual search.
+	FromManual Source = "manual"
+)
+
+const (
+	CauseUnregistered BlockCause = "unregistered"
+	CauseNoPayload    BlockCause = "no_payload"
+	CauseEngineError  BlockCause = "engine_error"
+	CauseMarkedFailed BlockCause = "marked_failed"
+	CauseByHand       BlockCause = "by_hand"
 )
 
 const (
@@ -71,6 +89,7 @@ const (
 	InfohashMismatch   Code = "infohash_mismatch"
 	TorrentV2Only      Code = "torrent_v2_only"
 	DownloadFailed     Code = "download_failed"
+	MarkedFailed       Code = "marked_failed"
 	Removed            Code = "removed"
 	NoVideoFile        Code = "no_video_file"
 	ProbeFailed        Code = "probe_failed"
@@ -81,11 +100,17 @@ const (
 	ImportFailed       Code = "import_failed"
 	NodeWrittenOff     Code = "node_written_off"
 	RootChanged        Code = "root_changed"
+	Canceled           Code = "canceled"
+	Blocklisted        Code = "blocklisted"
+	ReleaseFault       Code = "release_fault"
 )
 
 const (
 	Grabbed           Outcome = "grabbed"
 	NothingAcceptable Outcome = "nothing_acceptable"
+	// ManualListed is a Manual run's outcome: it finished and took nothing
+	// by design.
+	ManualListed Outcome = "listed"
 )
 
 type Timings struct {
@@ -109,13 +134,18 @@ type Changed struct {
 }
 
 type SearchChanged struct {
-	SearchID string `json:"searchId" format:"uuid"`
-	WorkID   string `json:"workId" format:"uuid"`
+	SearchID       string  `json:"searchId" format:"uuid"`
+	WorkID         string  `json:"workId" format:"uuid"`
+	ManualSearchID *string `json:"manualSearchId" format:"uuid" doc:"The Manual search the run belongs to; null for an automatic run"`
 }
 
+// BlocklistChanged is the Blocklist gaining or losing entries.
+type BlocklistChanged struct{}
+
 var (
-	ChangedEvent       = live.AdminEvent[Changed]("grabs.changed")
-	SearchChangedEvent = live.AdminEvent[SearchChanged]("grabs.search-changed")
+	ChangedEvent          = live.AdminEvent[Changed]("grabs.changed")
+	SearchChangedEvent    = live.AdminEvent[SearchChanged]("grabs.search-changed")
+	BlocklistChangedEvent = live.AdminEvent[BlocklistChanged]("grabs.blocklist-changed")
 )
 
 type Publisher[T any] interface {
@@ -129,6 +159,7 @@ var (
 	ErrNoRoot        = roots.ErrNoRoot
 	ErrNotSearchable = errors.New("the Work's Content Type can't be searched")
 	ErrNoGrab        = errors.New("no Grab has that id")
+	ErrReconciling   = downloadclients.ErrReconciling
 )
 
 type RootUnreachableError = roots.UnreachableError
@@ -162,6 +193,10 @@ type Downloads interface {
 	Resolve(ctx context.Context, node role.NodeID, link magnet.Link, endsAt time.Time) (downloadclients.Resolution, error)
 	// Retargeted tells the readers once a send-to's Write commits.
 	Retargeted(downloadclients.Retargeted)
+	// RemoveIn removes ids for reason in the caller's Write, and Touched
+	// tells their Nodes once it commits.
+	RemoveIn(ctx context.Context, tx *storage.Tx[file], ids []downloadclients.ID, reason downloadclients.RemoveReason, deleteFiles bool) ([]downloadclients.Result, downloadclients.Touched, error)
+	Touched(ts ...downloadclients.Touched)
 }
 
 // Router chooses the client a Grab's download goes to, as
@@ -206,6 +241,13 @@ type Config struct {
 	Changed       Publisher[Changed]
 	SearchChanged Publisher[SearchChanged]
 	FilesChanged  Publisher[files.Changed]
+	// BlocklistChanged publishes once a Write that adds or removes
+	// Blocklist entries commits.
+	BlocklistChanged Publisher[BlocklistChanged]
+	// Reconciling is whether a restored Controller is Reconciling, read in
+	// the caller's snapshot: trackers.NotReconciling until S49 (Backups and
+	// restore).
+	Reconciling func(ctx context.Context, r storage.Reader[file]) (bool, error)
 	// BeforeStep sees each step before it runs: the simulation tier's
 	// hook, nil in production.
 	BeforeStep func(context.Context, Stage)
@@ -217,6 +259,11 @@ type Grabs struct {
 	poke      chan struct{}
 	searching metadataPeers
 	routes    routes
+	// runs cancels each Manual run's goroutine, so a Search again stops
+	// the runs it replaced.
+	runs runs
+	// decoded is the decoded Releases of the Manual search read last.
+	decoded decodedRuns
 
 	mu sync.Mutex
 	// moved is each Grab a transfers hook moved, for grabs.changed once
@@ -228,7 +275,7 @@ type Grabs struct {
 func New(cfg Config) *Grabs {
 	gr := &Grabs{
 		cfg: cfg, poke: make(chan struct{}, 1), moved: map[string]Changed{}, searching: metadataPeers{peers: map[GrabID]int{}},
-		routes: routes{changed: make(chan struct{})},
+		routes: routes{changed: make(chan struct{})}, runs: runs{cancel: map[SearchID]context.CancelFunc{}},
 	}
 	cfg.Transfers.Register(transfers.Purpose{
 		Kind:     transfers.Grab,
@@ -329,10 +376,29 @@ type Grab struct {
 	Failed  *Failure
 	History []Entered
 	Created time.Time
+	// Source is how it was chosen: by a search's decision, or by an Admin
+	// in a Manual search.
+	Source Source
+	// Manual is the Manual search it came from, zero for an automatic Grab
+	// and once that search is replaced.
+	Manual ManualID
+	// By is the Admin who grabbed it, nil for an automatic Grab.
+	By        *Actor
+	Overrides Overrides
 }
 
 // Done reports whether the Grab has no step left.
 func (g Grab) Done() bool { return g.Stage == Imported || g.Stage == Failed }
+
+// NeedsYou reports whether g failed in a way the Admin didn't choose. A
+// cancel was the Admin's choice, and so is a Manual Grab whose Release the
+// Blocklist held after its fetch, which its sheet already said.
+func (g Grab) NeedsYou() bool {
+	if g.Failed == nil || g.Failed.Code == Canceled {
+		return false
+	}
+	return g.Failed.Code != Blocklisted || g.Source != FromManual
+}
 
 // related is every Grab's targets, fills and history, by Grab, and the
 // Torrents of the Grabs read.
@@ -388,7 +454,16 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, link: row.ReleaseLinkSealed, magnet: deref(row.ReleaseMagnet)},
 		Ticket:  indexers.Ticket{Indexer: row.IndexerID, Query: row.FetchQueryID, Tracker: row.TrackerID},
 		Node:    row.NodeID, FetchNode: row.FetchNodeID, MetadataSince: row.MetadataStartedAt.Time(), Stage: row.Stage,
-		History: rel.history[row.ID], Created: row.CreatedAt.Time(),
+		History: rel.history[row.ID], Created: row.CreatedAt.Time(), Source: row.Source, Manual: row.ManualID,
+	}
+	if row.Source == FromManual {
+		g.By = &Actor{Name: deref(row.GrabbedByName)}
+		if !row.GrabbedBy.IsZero() {
+			g.By.Account = &row.GrabbedBy
+		}
+		if err := json.Unmarshal([]byte(row.Overrides), &g.Overrides); err != nil {
+			return Grab{}, fmt.Errorf("grab %s: overrides: %w", row.ID, err)
+		}
 	}
 	switch {
 	case row.SentClientID != nil:
@@ -420,6 +495,22 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 		g.Failed = &Failure{Stage: *row.FailedStage, Code: *row.FailureCode, Message: *row.FailureMessage}
 	}
 	return g, nil
+}
+
+// grabIn reads Grab id in r, ErrNoGrab when none has it.
+func grabIn(ctx context.Context, r storage.Reader[file], id GrabID) (Grab, error) {
+	row, err := db.New(r).GetGrab(ctx, id)
+	if errors.Is(err, storage.ErrNoRows) {
+		return Grab{}, ErrNoGrab
+	}
+	if err != nil {
+		return Grab{}, err
+	}
+	rel, err := readRelated(ctx, r, []db.GrabsGrab{row})
+	if err != nil {
+		return Grab{}, err
+	}
+	return load(ctx, r, row, rel)
 }
 
 func loadAll(ctx context.Context, r storage.Reader[file], rows []db.GrabsGrab) ([]Grab, error) {

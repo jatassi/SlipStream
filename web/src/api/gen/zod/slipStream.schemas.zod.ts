@@ -36,6 +36,17 @@ export const Bare = zod.union([zod.number(), zod.string(), zod.array(zod.string(
 export type Bare = zod.input<typeof Bare>;
 export type BareOutput = zod.output<typeof Bare>;
 
+export const CancelInputBody = zod.object({
+  blocklist: zod
+    .boolean()
+    .describe(
+      "Also put its Release on the Blocklist; only when the Grab's actions.blocklistable is true",
+    ),
+});
+
+export type CancelInputBody = zod.input<typeof CancelInputBody>;
+export type CancelInputBodyOutput = zod.output<typeof CancelInputBody>;
+
 export const checkFolderInputBodyPathMax = 4096;
 
 export const CheckFolderInputBody = zod.object({
@@ -74,7 +85,8 @@ export const DownloadclientsRefusal = zod.object({
     "not_found",
     "removed",
     "importing",
-    "not_stalled",
+    "not_held",
+    "reconciling",
     "offline",
     "client_away",
     "client_off",
@@ -1230,6 +1242,11 @@ export const DownloadclientsTorrentDetail = zod.object({
   ),
   files: zod.array(DownloadclientsFileDetail).describe("In its metainfo's order"),
   grabs: zod.array(DownloadclientsTorrentGrab).describe("The Grabs that used it, newest first"),
+  held: zod
+    .boolean()
+    .describe(
+      "A Grab that hasn't finished holds it, so Mark failed can put its Release on the Blocklist",
+    ),
   hold: zod
     .enum([
       "wanted",
@@ -1423,6 +1440,11 @@ export const DownloadclientsTorrentRow = zod.object({
   fault: DownloadclientsFault.exactOptional().describe(
     "The fault found in the release itself, once there is one",
   ),
+  held: zod
+    .boolean()
+    .describe(
+      "A Grab that hasn't finished holds it, so Mark failed can put its Release on the Blocklist",
+    ),
   hold: zod
     .enum([
       "wanted",
@@ -1775,9 +1797,9 @@ export type FilesUpgradeNeedOutput = zod.output<typeof FilesUpgradeNeed>;
 
 export const FilesWaitingNeed = zod.object({
   code: zod
-    .enum(["node_away", "client_away"])
+    .enum(["node_away", "client_away", "client_off"])
     .describe(
-      "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention",
+      "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't hold Downloading",
     ),
   grabId: zod.uuid(),
   kind: zod.enum(["waiting"]),
@@ -2591,9 +2613,10 @@ export const GrabsWordedReason = zod.object({
       "score_below_minimum",
       "not_an_upgrade",
       "repack_other_group",
+      "blocklisted",
     ])
     .describe(
-      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's.",
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
     ),
   soft: zod
     .boolean()
@@ -2747,6 +2770,113 @@ export const FormatsSchema = zod.object({
 export type FormatsSchema = zod.input<typeof FormatsSchema>;
 export type FormatsSchemaOutput = zod.output<typeof FormatsSchema>;
 
+export const GrabsClientChoice = zod.object({
+  builtInOn: zod
+    .uuid()
+    .exactOptional()
+    .describe("A downloading Node, for its built-in client; send this or clientId"),
+  clientId: zod.uuid().exactOptional().describe("An external client; send this or builtInOn"),
+});
+
+export type GrabsClientChoice = zod.input<typeof GrabsClientChoice>;
+export type GrabsClientChoiceOutput = zod.output<typeof GrabsClientChoice>;
+
+export const GrabsLiftKey = zod.object({
+  code: zod.enum([
+    "wrong_title",
+    "size_below",
+    "size_above",
+    "score_below_minimum",
+    "repack_other_group",
+  ]),
+  targetId: zod.uuid().exactOptional().describe("Absent for wrong_title"),
+});
+
+export type GrabsLiftKey = zod.input<typeof GrabsLiftKey>;
+export type GrabsLiftKeyOutput = zod.output<typeof GrabsLiftKey>;
+
+export const grabsGrabPickCellsMax = 100;
+
+export const grabsGrabPickLiftsMax = 100;
+
+export const GrabsGrabPick = zod.object({
+  cancelGrabId: zod
+    .uuid()
+    .exactOptional()
+    .describe("The Grab downloading a cell it fills, canceled first"),
+  cells: zod
+    .array(zod.string())
+    .max(grabsGrabPickCellsMax)
+    .describe("The cells the row or the Release showed"),
+  client: GrabsClientChoice.exactOptional().describe("Absent to go where Tracker routing sends it"),
+  edition: zod.string().min(1).exactOptional().describe("The Edition the row showed"),
+  lifts: zod.array(GrabsLiftKey).max(grabsGrabPickLiftsMax).describe("The lifts the row showed"),
+  releaseId: zod.string(),
+  unblock: zod
+    .boolean()
+    .exactOptional()
+    .describe("Remove the Release from the Blocklist and grab it"),
+});
+
+export type GrabsGrabPick = zod.input<typeof GrabsGrabPick>;
+export type GrabsGrabPickOutput = zod.output<typeof GrabsGrabPick>;
+
+export const grabManualInputBodyPicksMax = 2000;
+
+export const GrabManualInputBody = zod.object({
+  manualSearchId: zod.uuid(),
+  picks: zod.array(GrabsGrabPick).min(1).max(grabManualInputBodyPicksMax),
+});
+
+export type GrabManualInputBody = zod.input<typeof GrabManualInputBody>;
+export type GrabManualInputBodyOutput = zod.output<typeof GrabManualInputBody>;
+
+export const GrabsWorkRef = zod.object({
+  id: zod.uuid(),
+  title: zod.string(),
+});
+
+export type GrabsWorkRef = zod.input<typeof GrabsWorkRef>;
+export type GrabsWorkRefOutput = zod.output<typeof GrabsWorkRef>;
+
+export const grabsBlockEntryInfoHashRegExp = new RegExp("^[0-9a-f]{40}$");
+
+export const GrabsBlockEntry = zod.object({
+  addedAt: zod.iso.datetime({ offset: true }),
+  because: zod
+    .string()
+    .describe("The cause in a sentence, such as TorrentLeech reported it unregistered."),
+  cause: zod.enum(["unregistered", "no_payload", "engine_error", "marked_failed", "by_hand"]),
+  indexer: zod
+    .string()
+    .nullable()
+    .describe("The name of the Indexer that listed it; null when none is known"),
+  infoHash: zod.string().regex(grabsBlockEntryInfoHashRegExp),
+  title: zod.string(),
+  words: zod.string().describe("What SlipStream reads from the title, in words"),
+  work: zod
+    .union([GrabsWorkRef, zod.null()])
+    .describe("The Work it was grabbed for; null once the Work is deleted"),
+});
+
+export type GrabsBlockEntry = zod.input<typeof GrabsBlockEntry>;
+export type GrabsBlockEntryOutput = zod.output<typeof GrabsBlockEntry>;
+
+export const grabsBlocklistTotalMin = 0;
+
+export const GrabsBlocklist = zod.object({
+  entries: zod.array(GrabsBlockEntry).describe("Up to 50, newest first"),
+  total: zod.int().min(grabsBlocklistTotalMin).describe("How many entries match in all"),
+});
+
+export type GrabsBlocklist = zod.input<typeof GrabsBlocklist>;
+export type GrabsBlocklistOutput = zod.output<typeof GrabsBlocklist>;
+
+export const GrabsBlocklistChanged = zod.object({});
+
+export type GrabsBlocklistChanged = zod.input<typeof GrabsBlocklistChanged>;
+export type GrabsBlocklistChangedOutput = zod.output<typeof GrabsBlocklistChanged>;
+
 export const GrabsChanged = zod.object({
   grabId: zod.uuid(),
   progress: zod.boolean().describe("True when only the download's progress moved"),
@@ -2756,230 +2886,17 @@ export const GrabsChanged = zod.object({
 export type GrabsChanged = zod.input<typeof GrabsChanged>;
 export type GrabsChangedOutput = zod.output<typeof GrabsChanged>;
 
-export const GrabsGrabClient = zod.object({
-  id: zod.uuid(),
-  kind: zod.enum(["qbittorrent", "transmission", "deluge", "rtorrent"]),
-  name: zod.string(),
-});
-
-export type GrabsGrabClient = zod.input<typeof GrabsGrabClient>;
-export type GrabsGrabClientOutput = zod.output<typeof GrabsGrabClient>;
-
-export const GrabsClientWait = zod.object({
-  client: zod
-    .union([GrabsGrabClient, zod.null()])
-    .describe("The external client; null for the Node's built-in client"),
-  nodeId: zod.uuid().describe("The client's Node, which is offline"),
-});
-
-export type GrabsClientWait = zod.input<typeof GrabsClientWait>;
-export type GrabsClientWaitOutput = zod.output<typeof GrabsClientWait>;
-
-export const GrabsEntered = zod.object({
-  at: zod.iso.datetime({ offset: true }),
-  stage: zod.enum([
-    "fetching",
-    "downloading",
-    "probing",
-    "transferring",
-    "importing",
-    "imported",
-    "failed",
-  ]),
-});
-
-export type GrabsEntered = zod.input<typeof GrabsEntered>;
-export type GrabsEnteredOutput = zod.output<typeof GrabsEntered>;
-
-export const GrabsFailure = zod.object({
-  code: zod.enum([
-    "indexer_unavailable",
-    "indexer_removed",
-    "indexer_stopped",
-    "home_offline",
-    "torrent_unreachable",
-    "magnet_invalid",
-    "no_metadata",
-    "no_peer_source",
-    "torrent_invalid",
-    "infohash_mismatch",
-    "torrent_v2_only",
-    "download_failed",
-    "removed",
-    "no_video_file",
-    "probe_failed",
-    "fills_nothing",
-    "name_taken",
-    "name_too_long",
-    "transfer_failed",
-    "import_failed",
-    "node_written_off",
-    "root_changed",
-  ]),
-  message: zod.string(),
-  stage: zod.enum(["fetching", "downloading", "probing", "transferring", "importing"]),
-});
-
-export type GrabsFailure = zod.input<typeof GrabsFailure>;
-export type GrabsFailureOutput = zod.output<typeof GrabsFailure>;
-
-export const GrabsFetchWait = zod.object({
-  sentence: zod
+export const GrabsEditionOverride = zod.object({
+  edition: zod.string().min(1).describe("Send it back as the pick's edition"),
+  words: zod
     .string()
     .describe(
-      "Why the fetch waits, such as Waiting to fetch the .torrent from TorrentLeech. SlipStream retries at 14:20.",
+      "Such as Its name gives the Extended Edition, which the Work doesn't want. It's grabbed as the Standard Edition.",
     ),
-  until: zod.iso
-    .datetime({ offset: true })
-    .nullable()
-    .describe("When SlipStream retries; null while it waits for the Indexer's home Node"),
 });
 
-export type GrabsFetchWait = zod.input<typeof GrabsFetchWait>;
-export type GrabsFetchWaitOutput = zod.output<typeof GrabsFetchWait>;
-
-export const grabsMetadataSearchPeersMin = 0;
-
-export const GrabsMetadataSearch = zod.object({
-  endsAt: zod.iso
-    .datetime({ offset: true })
-    .describe("When the Grab fails unless a peer has sent the metadata"),
-  peers: zod
-    .int()
-    .min(grabsMetadataSearchPeersMin)
-    .describe("Peers connected at the Downloading Node's last response"),
-});
-
-export type GrabsMetadataSearch = zod.input<typeof GrabsMetadataSearch>;
-export type GrabsMetadataSearchOutput = zod.output<typeof GrabsMetadataSearch>;
-
-export const grabsProgressDoneMin = 0;
-
-export const grabsProgressTotalMin = 0;
-
-export const GrabsProgress = zod.object({
-  done: zod
-    .int()
-    .min(grabsProgressDoneMin)
-    .describe("Bytes downloaded, or received and verified while transferring"),
-  total: zod.int().min(grabsProgressTotalMin).describe("Bytes wanted"),
-});
-
-export type GrabsProgress = zod.input<typeof GrabsProgress>;
-export type GrabsProgressOutput = zod.output<typeof GrabsProgress>;
-
-export const grabsGrabReleaseSizeMin = 0;
-
-export const GrabsGrab = zod.object({
-  createdAt: zod.iso.datetime({ offset: true }),
-  downloadClient: zod
-    .union([GrabsGrabClient, zod.null()])
-    .describe(
-      "Its Torrent's external Download Client, null for its Node's built-in client or until the .torrent is fetched",
-    ),
-  edition: zod
-    .string()
-    .describe("The Edition it was grabbed to fill: any under any cut, else a cut key"),
-  failure: GrabsFailure.exactOptional().describe("Why it failed, absent unless it did"),
-  fetchNodeId: zod
-    .uuid()
-    .nullable()
-    .describe(
-      "The Node that fetched the .torrent: the Indexer's Searching Node, or the Downloading Node that got a magnet link's metadata from peers. Null until one did",
-    ),
-  fetchWait: GrabsFetchWait.exactOptional().describe(
-    "Why fetching the .torrent waits on its Indexer, absent unless it does",
-  ),
-  history: zod
-    .array(GrabsEntered)
-    .describe("Each stage it entered, when it last entered it, oldest first"),
-  id: zod.uuid(),
-  indexerId: zod
-    .uuid()
-    .nullable()
-    .describe("The Indexer it was grabbed from, null once the Indexer is deleted"),
-  infoHash: zod
-    .string()
-    .nullable()
-    .describe("The v1 info hash in hex, null until the .torrent is fetched"),
-  itemId: zod.uuid(),
-  metadata: GrabsMetadataSearch.exactOptional().describe(
-    "The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node",
-  ),
-  nodeId: zod
-    .uuid()
-    .describe(
-      "The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to",
-    ),
-  progress: GrabsProgress.exactOptional().describe(
-    "The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring",
-  ),
-  quality: zod
-    .enum([
-      "sdtv",
-      "dvd",
-      "webrip-480p",
-      "hdtv-720p",
-      "webrip-720p",
-      "webdl-720p",
-      "bluray-720p",
-      "hdtv-1080p",
-      "webrip-1080p",
-      "webdl-1080p",
-      "bluray-1080p",
-      "remux-1080p",
-      "hdtv-2160p",
-      "webrip-2160p",
-      "webdl-2160p",
-      "bluray-2160p",
-      "remux-2160p",
-      "cam",
-    ])
-    .exactOptional()
-    .describe("The quality the release title names, absent when it names none"),
-  releaseSize: zod.int().min(grabsGrabReleaseSizeMin),
-  releaseTitle: zod.string(),
-  stage: zod.enum([
-    "fetching",
-    "downloading",
-    "probing",
-    "transferring",
-    "importing",
-    "imported",
-    "failed",
-  ]),
-  targetIds: zod.array(zod.string()).describe("The Targets it was grabbed for, in Profile order"),
-  torrentId: zod
-    .uuid()
-    .nullable()
-    .describe("The Torrent it downloads, null until the .torrent is fetched"),
-  trackerId: zod
-    .uuid()
-    .nullable()
-    .describe("The Tracker its Release reached, null for a Grab older than Trackers"),
-  waitsFor: GrabsClientWait.exactOptional().describe(
-    "The client a fetching Grab goes to, absent unless it waits for that client's Node to be back online",
-  ),
-  workId: zod.uuid(),
-});
-
-export type GrabsGrab = zod.input<typeof GrabsGrab>;
-export type GrabsGrabOutput = zod.output<typeof GrabsGrab>;
-
-export const GrabsGrabList = zod.object({
-  grabs: zod.array(GrabsGrab).describe("Newest first"),
-});
-
-export type GrabsGrabList = zod.input<typeof GrabsGrabList>;
-export type GrabsGrabListOutput = zod.output<typeof GrabsGrabList>;
-
-export const GrabsIndexerGrabList = zod.object({
-  grabs: zod.array(GrabsGrab).describe("Newest first"),
-  nextOffset: zod.int().nullable().describe("The offset of the next page; null on the last"),
-});
-
-export type GrabsIndexerGrabList = zod.input<typeof GrabsIndexerGrabList>;
-export type GrabsIndexerGrabListOutput = zod.output<typeof GrabsIndexerGrabList>;
+export type GrabsEditionOverride = zod.input<typeof GrabsEditionOverride>;
+export type GrabsEditionOverrideOutput = zod.output<typeof GrabsEditionOverride>;
 
 export const GrabsLostAt = zod.object({
   own: zod
@@ -3015,6 +2932,400 @@ export const GrabsLostAt = zod.object({
 
 export type GrabsLostAt = zod.input<typeof GrabsLostAt>;
 export type GrabsLostAtOutput = zod.output<typeof GrabsLostAt>;
+
+export const grabsReleaseDetailsSeedersMin = 0;
+
+export const grabsReleaseDetailsSizeMin = 0;
+
+export const GrabsReleaseDetails = zod.object({
+  blocked: zod
+    .string()
+    .nullable()
+    .describe("Since when and why it is on the Blocklist; null when it isn't"),
+  formatIds: zod
+    .array(zod.uuid())
+    .describe("The Custom Formats it matched of those the Work's Targets score"),
+  freeleech: zod.boolean(),
+  id: zod.string().describe("Send it back as a pick's releaseId"),
+  indexers: zod.array(zod.string()).describe("The Indexers that listed it, by priority"),
+  lostAt: zod
+    .union([GrabsLostAt, zod.null()])
+    .describe("Where it lost to the Release that fills its first cell; null when it didn't"),
+  publishedAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("Null when the Indexer sent no date"),
+  seeders: zod.int().min(grabsReleaseDetailsSeedersMin),
+  size: zod.int().min(grabsReleaseDetailsSizeMin).describe("Bytes"),
+  title: zod.string(),
+  tracker: zod
+    .string()
+    .exactOptional()
+    .describe("The Tracker its link reaches, absent when none is known"),
+  verdicts: zod
+    .array(zod.string())
+    .describe("Its verdict at each Target of its Item, such as It would fill 1080p."),
+  words: zod.string().describe("What SlipStream reads from the title, in words"),
+});
+
+export type GrabsReleaseDetails = zod.input<typeof GrabsReleaseDetails>;
+export type GrabsReleaseDetailsOutput = zod.output<typeof GrabsReleaseDetails>;
+
+export const GrabsChoice = zod.object({
+  cells: zod
+    .array(zod.string())
+    .describe("The cells its row fills once it is pinned, the row's first leading"),
+  edition: zod
+    .union([GrabsEditionOverride, zod.null()])
+    .describe("The Edition it is grabbed as; null unless that is another Edition than its cut's"),
+  lifts: zod.array(GrabsWordedReason),
+  note: zod
+    .string()
+    .exactOptional()
+    .describe("Such as From TorrentLeech, which automatic search doesn't use."),
+  pin: zod.string().describe("Send it in pins to swap this Release into its row"),
+  release: GrabsReleaseDetails,
+});
+
+export type GrabsChoice = zod.input<typeof GrabsChoice>;
+export type GrabsChoiceOutput = zod.output<typeof GrabsChoice>;
+
+export const GrabsGrabClient = zod.object({
+  id: zod.uuid(),
+  kind: zod.enum(["qbittorrent", "transmission", "deluge", "rtorrent"]),
+  name: zod.string(),
+});
+
+export type GrabsGrabClient = zod.input<typeof GrabsGrabClient>;
+export type GrabsGrabClientOutput = zod.output<typeof GrabsGrabClient>;
+
+export const GrabsClientWait = zod.object({
+  client: zod
+    .union([GrabsGrabClient, zod.null()])
+    .describe("The external client; null for the Node's built-in client"),
+  nodeId: zod.uuid().describe("The client's Node"),
+  off: zod
+    .boolean()
+    .describe(
+      "The Grab is pinned to this client and the client can't take it: it is off or deleted, or its Node doesn't hold Downloading. False while the client's Node is offline",
+    ),
+});
+
+export type GrabsClientWait = zod.input<typeof GrabsClientWait>;
+export type GrabsClientWaitOutput = zod.output<typeof GrabsClientWait>;
+
+export const GrabsEntered = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  stage: zod.enum([
+    "fetching",
+    "downloading",
+    "probing",
+    "transferring",
+    "importing",
+    "imported",
+    "failed",
+  ]),
+});
+
+export type GrabsEntered = zod.input<typeof GrabsEntered>;
+export type GrabsEnteredOutput = zod.output<typeof GrabsEntered>;
+
+export const GrabsFailure = zod.object({
+  code: zod.enum([
+    "indexer_unavailable",
+    "indexer_removed",
+    "indexer_stopped",
+    "home_offline",
+    "torrent_unreachable",
+    "magnet_invalid",
+    "no_metadata",
+    "no_peer_source",
+    "torrent_invalid",
+    "infohash_mismatch",
+    "torrent_v2_only",
+    "download_failed",
+    "marked_failed",
+    "removed",
+    "no_video_file",
+    "probe_failed",
+    "fills_nothing",
+    "name_taken",
+    "name_too_long",
+    "transfer_failed",
+    "import_failed",
+    "node_written_off",
+    "root_changed",
+    "canceled",
+    "blocklisted",
+    "release_fault",
+  ]),
+  message: zod.string(),
+  needsYou: zod
+    .boolean()
+    .describe(
+      "It goes under Needs you. False for a cancel and for a Manual Grab whose Release the Blocklist held after its fetch, which its sheet already said.",
+    ),
+  stage: zod.enum(["fetching", "downloading", "probing", "transferring", "importing"]),
+});
+
+export type GrabsFailure = zod.input<typeof GrabsFailure>;
+export type GrabsFailureOutput = zod.output<typeof GrabsFailure>;
+
+export const GrabsFetchWait = zod.object({
+  sentence: zod
+    .string()
+    .describe(
+      "Why the fetch waits, such as Waiting to fetch the .torrent from TorrentLeech. SlipStream retries at 14:20.",
+    ),
+  until: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When SlipStream retries; null while it waits for the Indexer's home Node"),
+});
+
+export type GrabsFetchWait = zod.input<typeof GrabsFetchWait>;
+export type GrabsFetchWaitOutput = zod.output<typeof GrabsFetchWait>;
+
+export const GrabsFoldGroup = zod.object({
+  fault: zod.boolean().describe("A fault in the Releases, as opposed to a refusal"),
+  words: zod.string().describe("Such as 8 are 4K, which no Target here takes."),
+});
+
+export type GrabsFoldGroup = zod.input<typeof GrabsFoldGroup>;
+export type GrabsFoldGroupOutput = zod.output<typeof GrabsFoldGroup>;
+
+export const GrabsFolded = zod.object({
+  groups: zod.array(GrabsFoldGroup),
+  line: zod.string().describe("Such as SlipStream wouldn't grab 14 more Releases."),
+});
+
+export type GrabsFolded = zod.input<typeof GrabsFolded>;
+export type GrabsFoldedOutput = zod.output<typeof GrabsFolded>;
+
+export const GrabsGrabActions = zod.object({
+  blocklistable: zod
+    .boolean()
+    .describe("A cancel can also put its Release on the Blocklist: its info hash is known"),
+  cancel: zod.boolean().describe("cancelGrab can cancel it"),
+  sendTo: zod.boolean().describe("sendGrabTo can send it to another client"),
+});
+
+export type GrabsGrabActions = zod.input<typeof GrabsGrabActions>;
+export type GrabsGrabActionsOutput = zod.output<typeof GrabsGrabActions>;
+
+export const grabsMetadataSearchPeersMin = 0;
+
+export const GrabsMetadataSearch = zod.object({
+  endsAt: zod.iso
+    .datetime({ offset: true })
+    .describe("When the Grab fails unless a peer has sent the metadata"),
+  peers: zod
+    .int()
+    .min(grabsMetadataSearchPeersMin)
+    .describe("Peers connected at the Downloading Node's last response"),
+});
+
+export type GrabsMetadataSearch = zod.input<typeof GrabsMetadataSearch>;
+export type GrabsMetadataSearchOutput = zod.output<typeof GrabsMetadataSearch>;
+
+export const grabsProgressDoneMin = 0;
+
+export const grabsProgressTotalMin = 0;
+
+export const GrabsProgress = zod.object({
+  done: zod
+    .int()
+    .min(grabsProgressDoneMin)
+    .describe("Bytes downloaded, or received and verified while transferring"),
+  total: zod.int().min(grabsProgressTotalMin).describe("Bytes wanted"),
+});
+
+export type GrabsProgress = zod.input<typeof GrabsProgress>;
+export type GrabsProgressOutput = zod.output<typeof GrabsProgress>;
+
+export const grabsGrabReleaseSizeMin = 0;
+
+export const GrabsGrab = zod.object({
+  actions: GrabsGrabActions,
+  createdAt: zod.iso.datetime({ offset: true }),
+  downloadClient: zod
+    .union([GrabsGrabClient, zod.null()])
+    .describe(
+      "Its Torrent's external Download Client, null for its Node's built-in client or until the .torrent is fetched",
+    ),
+  edition: zod
+    .string()
+    .describe("The Edition it was grabbed to fill: any under any cut, else a cut key"),
+  failure: GrabsFailure.exactOptional().describe("Why it failed, absent unless it did"),
+  fetchNodeId: zod
+    .uuid()
+    .nullable()
+    .describe(
+      "The Node that fetched the .torrent: the Indexer's Searching Node, or the Downloading Node that got a magnet link's metadata from peers. Null until one did",
+    ),
+  fetchWait: GrabsFetchWait.exactOptional().describe(
+    "Why fetching the .torrent waits on its Indexer, absent unless it does",
+  ),
+  grabbedBy: zod.string().nullable().describe("A name, or the API key; null for a search's Grab"),
+  history: zod
+    .array(GrabsEntered)
+    .describe("Each stage it entered, when it last entered it, oldest first"),
+  id: zod.uuid(),
+  indexerId: zod
+    .uuid()
+    .nullable()
+    .describe("The Indexer it was grabbed from, null once the Indexer is deleted"),
+  infoHash: zod
+    .string()
+    .nullable()
+    .describe("The v1 info hash in hex, null until the .torrent is fetched"),
+  itemId: zod.uuid(),
+  manualSearchId: zod
+    .uuid()
+    .nullable()
+    .describe(
+      "The Manual search it came from; null for a search's Grab and once a later Manual search of the Work replaced it",
+    ),
+  metadata: GrabsMetadataSearch.exactOptional().describe(
+    "The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node",
+  ),
+  nodeId: zod
+    .uuid()
+    .describe(
+      "The Node that downloads it: the Indexer's home Node until the fetch, then the Downloading Node the fetch handed the .torrent to",
+    ),
+  overrides: zod
+    .array(zod.string())
+    .describe("Each choice the Admin made past the decision, as a sentence"),
+  progress: GrabsProgress.exactOptional().describe(
+    "The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring",
+  ),
+  quality: zod
+    .enum([
+      "sdtv",
+      "dvd",
+      "webrip-480p",
+      "hdtv-720p",
+      "webrip-720p",
+      "webdl-720p",
+      "bluray-720p",
+      "hdtv-1080p",
+      "webrip-1080p",
+      "webdl-1080p",
+      "bluray-1080p",
+      "remux-1080p",
+      "hdtv-2160p",
+      "webrip-2160p",
+      "webdl-2160p",
+      "bluray-2160p",
+      "remux-2160p",
+      "cam",
+    ])
+    .exactOptional()
+    .describe("The quality the release title names, absent when it names none"),
+  releaseSize: zod.int().min(grabsGrabReleaseSizeMin),
+  releaseTitle: zod.string(),
+  releaseWords: zod.string().describe("Its Release in words, such as Bluray-1080p · FKW · 9.8 GB"),
+  source: zod
+    .enum(["search", "manual"])
+    .describe("How it was chosen: by a search's decision, or by an Admin in a Manual search"),
+  stage: zod.enum([
+    "fetching",
+    "downloading",
+    "probing",
+    "transferring",
+    "importing",
+    "imported",
+    "failed",
+  ]),
+  targetIds: zod.array(zod.string()).describe("The Targets it was grabbed for, in Profile order"),
+  torrentId: zod
+    .uuid()
+    .nullable()
+    .describe("The Torrent it downloads, null until the .torrent is fetched"),
+  trackerId: zod
+    .uuid()
+    .nullable()
+    .describe("The Tracker its Release reached, null for a Grab older than Trackers"),
+  waitsFor: GrabsClientWait.exactOptional().describe(
+    "The client a fetching Grab goes to, absent unless it waits for that client: its Node to be back online, or a pinned client that can't take it",
+  ),
+  workId: zod.uuid(),
+});
+
+export type GrabsGrab = zod.input<typeof GrabsGrab>;
+export type GrabsGrabOutput = zod.output<typeof GrabsGrab>;
+
+export const GrabsGrabList = zod.object({
+  grabs: zod.array(GrabsGrab).describe("Newest first"),
+});
+
+export type GrabsGrabList = zod.input<typeof GrabsGrabList>;
+export type GrabsGrabListOutput = zod.output<typeof GrabsGrabList>;
+
+export const GrabsHeldCell = zod.object({
+  grabId: zod.uuid(),
+  stage: zod.enum(["fetching", "downloading", "probing", "transferring", "importing"]),
+  words: zod
+    .string()
+    .describe("Such as A Grab is downloading WEBDL-1080p · FLUX · 6.2 GB for 1080p."),
+});
+
+export type GrabsHeldCell = zod.input<typeof GrabsHeldCell>;
+export type GrabsHeldCellOutput = zod.output<typeof GrabsHeldCell>;
+
+export const GrabsGrabOffer = zod.object({
+  cancels: zod.array(GrabsHeldCell).describe("The Grabs downloading a cell it would also fill"),
+  cells: zod
+    .array(zod.string())
+    .describe(
+      "The cells a Grab of it alone fills, any a Grab downloads among them. Send them back as the pick's cells.",
+    ),
+  edition: zod
+    .union([GrabsEditionOverride, zod.null()])
+    .describe("The Edition it is grabbed as; null unless that is another Edition than its cut's"),
+  grabbable: zod
+    .boolean()
+    .describe(
+      "It fills some cell and its Indexer would take it now. One on the Blocklist is grabbed only with unblock.",
+    ),
+  lifts: zod.array(GrabsWordedReason),
+  outcome: zod.string().exactOptional().describe("What a Grab of it alone gets"),
+  refusal: zod.string().exactOptional().describe("Why it can't be grabbed"),
+  waits: zod
+    .string()
+    .exactOptional()
+    .describe(
+      "Why its Indexer won't take it now, such as TorrentLeech is at its grab limit until 14:05.",
+    ),
+});
+
+export type GrabsGrabOffer = zod.input<typeof GrabsGrabOffer>;
+export type GrabsGrabOfferOutput = zod.output<typeof GrabsGrabOffer>;
+
+export const GrabsIndexerGrabList = zod.object({
+  grabs: zod.array(GrabsGrab).describe("Newest first"),
+  nextOffset: zod.int().nullable().describe("The offset of the next page; null on the last"),
+});
+
+export type GrabsIndexerGrabList = zod.input<typeof GrabsIndexerGrabList>;
+export type GrabsIndexerGrabListOutput = zod.output<typeof GrabsIndexerGrabList>;
+
+export const GrabsIndexerLine = zod.object({
+  automatic: zod.boolean().describe("Automatic search uses it"),
+  done: zod.boolean().describe("It has an outcome for every Item it was asked about"),
+  failed: zod.boolean().describe("A fault at the site, as opposed to a limit or no Releases"),
+  indexerId: zod.uuid().nullable().describe("Null once the Indexer is deleted"),
+  name: zod.string(),
+  sentence: zod
+    .string()
+    .describe(
+      "Its outcome in words, such as Limit reached until 14:05, or TorrentLeech searched 6 of 10 episodes. Its limit resets at 14:05.",
+    ),
+});
+
+export type GrabsIndexerLine = zod.input<typeof GrabsIndexerLine>;
+export type GrabsIndexerLineOutput = zod.output<typeof GrabsIndexerLine>;
 
 export const GrabsTargetScore = zod.object({
   score: zod.int(),
@@ -3088,6 +3399,195 @@ export const GrabsListedRelease = zod.object({
 export type GrabsListedRelease = zod.input<typeof GrabsListedRelease>;
 export type GrabsListedReleaseOutput = zod.output<typeof GrabsListedRelease>;
 
+export const GrabsManualCell = zod.object({
+  edition: zod.string().min(1).describe("The cell's Edition: any, or a cut key"),
+  itemId: zod.uuid(),
+  targetId: zod.uuid(),
+});
+
+export type GrabsManualCell = zod.input<typeof GrabsManualCell>;
+export type GrabsManualCellOutput = zod.output<typeof GrabsManualCell>;
+
+export const GrabsManualScope = zod.object({
+  cell: GrabsManualCell.exactOptional().describe(
+    "The one cell it plans for, absent for a wider scope",
+  ),
+  itemIds: zod.array(zod.uuid()),
+  levelIds: zod.array(zod.uuid()).describe("Each level stands for every Item under it"),
+});
+
+export type GrabsManualScope = zod.input<typeof GrabsManualScope>;
+export type GrabsManualScopeOutput = zod.output<typeof GrabsManualScope>;
+
+export const GrabsPinned = zod.object({
+  key: zod.string().describe("The key of the row it fills"),
+  pin: zod.string(),
+});
+
+export type GrabsPinned = zod.input<typeof GrabsPinned>;
+export type GrabsPinnedOutput = zod.output<typeof GrabsPinned>;
+
+export const GrabsPlanPick = zod.object({
+  cells: zod
+    .array(zod.string())
+    .describe("The cells it fills, its row's first leading. Send them back as the pick's cells."),
+  edition: zod
+    .union([GrabsEditionOverride, zod.null()])
+    .describe("The Edition it is grabbed as; null unless that is another Edition than its cut's"),
+  lifts: zod
+    .array(GrabsWordedReason)
+    .describe(
+      "The soft refusals it is grabbed past; send their codes and Targets back as the pick's lifts",
+    ),
+  release: GrabsReleaseDetails,
+  routed: zod
+    .string()
+    .exactOptional()
+    .describe(
+      "The client Tracker routing sends it to, such as qBittorrent on Den; absent while no Node can take it",
+    ),
+});
+
+export type GrabsPlanPick = zod.input<typeof GrabsPlanPick>;
+export type GrabsPlanPickOutput = zod.output<typeof GrabsPlanPick>;
+
+export const GrabsPlanRow = zod.object({
+  cause: zod
+    .string()
+    .exactOptional()
+    .describe(
+      "For a cell nothing fills, its plain cause, such as No Indexer listed a 720p Release.",
+    ),
+  choices: zod
+    .array(GrabsChoice)
+    .describe("Every other Release that could fill its first cell, ranked"),
+  failure: zod.string().exactOptional().describe("For a failed cell, its last Grab's failure"),
+  key: zod
+    .string()
+    .describe(
+      "The row's first cell, stable while that cell leads it. A pin chosen from its choices replaces the pin with this key.",
+    ),
+  missing: zod
+    .string()
+    .exactOptional()
+    .describe("For a cell nothing fills, such as Missing: 720p for E05."),
+  outcome: zod
+    .string()
+    .exactOptional()
+    .describe("What a Grab of it gets, such as It gets you 1080p and 720p for E05."),
+  pick: zod.union([GrabsPlanPick, zod.null()]).describe("Null for a cell nothing fills"),
+  pinned: zod.boolean().describe("Its Release was swapped in by a pin"),
+});
+
+export type GrabsPlanRow = zod.input<typeof GrabsPlanRow>;
+export type GrabsPlanRowOutput = zod.output<typeof GrabsPlanRow>;
+
+export const GrabsPlan = zod.object({
+  headline: zod.string(),
+  held: zod.array(GrabsHeldCell).describe("The cells a Grab downloads, which the plan leaves out"),
+  rows: zod.array(GrabsPlanRow).describe("Each Grab and each cell nothing fills, in Want order"),
+});
+
+export type GrabsPlan = zod.input<typeof GrabsPlan>;
+export type GrabsPlanOutput = zod.output<typeof GrabsPlan>;
+
+export const grabsManualSearchReleaseCountMin = 0;
+
+export const GrabsManualSearch = zod.object({
+  folded: GrabsFolded.describe("The Releases SlipStream wouldn't grab, in groups"),
+  id: zod.uuid(),
+  indexers: zod.array(GrabsIndexerLine),
+  line: zod.string().describe("Such as Searching 6 Indexers. 4 have responded."),
+  pins: zod.array(GrabsPinned).describe("The pins still in effect; send these next"),
+  plan: GrabsPlan,
+  query: zod
+    .string()
+    .nullable()
+    .describe("The typed query; null when each run sent its Item's terms"),
+  queryable: zod.boolean().describe("The scope is one Item, so a typed query can search it"),
+  releaseCount: zod
+    .int()
+    .min(grabsManualSearchReleaseCountMin)
+    .describe("How many Releases listManualSearchReleases lists"),
+  scope: GrabsManualScope.describe(
+    "What it was started for; no levels, Items or cell for the whole Work",
+  ),
+  searching: zod.boolean().describe("An Indexer asked hasn't responded yet"),
+  startedAt: zod.iso.datetime({ offset: true }),
+  startedBy: zod.string().describe("A name, or the API key"),
+  title: zod.string().describe("The scope in words"),
+});
+
+export type GrabsManualSearch = zod.input<typeof GrabsManualSearch>;
+export type GrabsManualSearchOutput = zod.output<typeof GrabsManualSearch>;
+
+export const GrabsManualStarted = zod.object({
+  manualSearchId: zod.uuid(),
+});
+
+export type GrabsManualStarted = zod.input<typeof GrabsManualStarted>;
+export type GrabsManualStartedOutput = zod.output<typeof GrabsManualStarted>;
+
+export const grabsOfferQualityMin = 0;
+
+export const GrabsOffer = zod.object({
+  grab: GrabsGrabOffer,
+  quality: zod
+    .int()
+    .min(grabsOfferQualityMin)
+    .describe("Its quality's place in its best Target's tiers, for sorting; higher is better"),
+  rank: zod
+    .int()
+    .min(1)
+    .nullable()
+    .describe("Its place in the ranking from 1; null when no cell's Target takes it"),
+  release: GrabsReleaseDetails,
+  score: zod.int().describe("Its score at its best Target"),
+});
+
+export type GrabsOffer = zod.input<typeof GrabsOffer>;
+export type GrabsOfferOutput = zod.output<typeof GrabsOffer>;
+
+export const GrabsOfferList = zod.object({
+  releases: zod.array(GrabsOffer).describe("One per group of copies, in rank order"),
+});
+
+export type GrabsOfferList = zod.input<typeof GrabsOfferList>;
+export type GrabsOfferListOutput = zod.output<typeof GrabsOfferList>;
+
+export const GrabsPickProblem = zod.object({
+  code: zod.enum([
+    "pick_conflict",
+    "cell_held",
+    "pick_changed",
+    "not_taken",
+    "not_grabbable",
+    "grab_busy",
+    "download_client_field_refused",
+    "node_not_downloading",
+  ]),
+  detail: zod.string(),
+  grabId: zod.uuid().exactOptional().describe("cell_held: the Grab downloading the cell"),
+});
+
+export type GrabsPickProblem = zod.input<typeof GrabsPickProblem>;
+export type GrabsPickProblemOutput = zod.output<typeof GrabsPickProblem>;
+
+export const GrabsPickResult = zod.object({
+  grabId: zod.uuid().nullable().describe("Null when the pick was refused"),
+  problem: zod.union([GrabsPickProblem, zod.null()]).describe("Null when the pick made a Grab"),
+});
+
+export type GrabsPickResult = zod.input<typeof GrabsPickResult>;
+export type GrabsPickResultOutput = zod.output<typeof GrabsPickResult>;
+
+export const GrabsPickResults = zod.object({
+  results: zod.array(GrabsPickResult).describe("One for each pick, in the order sent"),
+});
+
+export type GrabsPickResults = zod.input<typeof GrabsPickResults>;
+export type GrabsPickResultsOutput = zod.output<typeof GrabsPickResults>;
+
 export const GrabsReason = zod.object({
   attribute: zod
     .enum(["hdr", "video_codec", "audio_codec", "channels", "language"])
@@ -3108,9 +3608,10 @@ export const GrabsReason = zod.object({
       "score_below_minimum",
       "not_an_upgrade",
       "repack_other_group",
+      "blocklisted",
     ])
     .describe(
-      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's.",
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
     ),
   soft: zod
     .boolean()
@@ -3162,6 +3663,7 @@ export const GrabsSearchIndexer = zod.object({
       zod.literal("limit_reached"),
       zod.literal("no_categories"),
       zod.literal("removed"),
+      zod.literal("rss_only"),
       zod.literal(null),
     ])
     .nullable()
@@ -3198,9 +3700,14 @@ export const GrabsSearch = zod.object({
       "The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for",
     ),
   outcome: zod
-    .union([zod.literal("grabbed"), zod.literal("nothing_acceptable"), zod.literal(null)])
+    .union([
+      zod.literal("grabbed"),
+      zod.literal("nothing_acceptable"),
+      zod.literal("listed"),
+      zod.literal(null),
+    ])
     .nullable()
-    .describe("Null while the run searches"),
+    .describe("Null while the run searches. listed is a Manual search's run, which takes nothing."),
   startedAt: zod.iso.datetime({ offset: true }),
 });
 
@@ -3208,6 +3715,10 @@ export type GrabsSearch = zod.input<typeof GrabsSearch>;
 export type GrabsSearchOutput = zod.output<typeof GrabsSearch>;
 
 export const GrabsSearchChanged = zod.object({
+  manualSearchId: zod
+    .uuid()
+    .nullable()
+    .describe("The Manual search the run belongs to; null for an automatic run"),
   searchId: zod.uuid(),
   workId: zod.uuid(),
 });
@@ -3243,6 +3754,38 @@ export const GrabsSearchStarted = zod.object({
 
 export type GrabsSearchStarted = zod.input<typeof GrabsSearchStarted>;
 export type GrabsSearchStartedOutput = zod.output<typeof GrabsSearchStarted>;
+
+export const grabsStartManualItemIdsMax = 20000;
+
+export const grabsStartManualLevelIdsMax = 20000;
+
+export const grabsStartManualQueryMax = 200;
+
+export const GrabsStartManual = zod.object({
+  again: zod
+    .boolean()
+    .exactOptional()
+    .describe("Start a new search even when the Work's Manual search has this scope and query"),
+  cell: GrabsManualCell.exactOptional().describe(
+    "One cell to plan for; send it without levelIds and itemIds",
+  ),
+  itemIds: zod.array(zod.uuid()).max(grabsStartManualItemIdsMax).exactOptional(),
+  levelIds: zod
+    .array(zod.uuid())
+    .max(grabsStartManualLevelIdsMax)
+    .exactOptional()
+    .describe("Each level stands for every Item under it"),
+  query: zod
+    .string()
+    .max(grabsStartManualQueryMax)
+    .exactOptional()
+    .describe(
+      "Text every Indexer searches for in place of the Item's terms; only for a scope of one Item",
+    ),
+});
+
+export type GrabsStartManual = zod.input<typeof GrabsStartManual>;
+export type GrabsStartManualOutput = zod.output<typeof GrabsStartManual>;
 
 export const HealthAction = zod.object({
   href: zod.string().exactOptional(),
@@ -4953,7 +5496,6 @@ export const indexersNewIndexerAddressRegExp = new RegExp(
 );
 export const indexersNewIndexerApiKeyMax = 256;
 
-export const indexersNewIndexerAutomaticSearchDefault = true;
 export const indexersNewIndexerBaseAddressMax = 2048;
 
 export const indexersNewIndexerCodeMax = 16;
@@ -4962,13 +5504,11 @@ export const indexersNewIndexerDefinitionMax = 200;
 
 export const indexersNewIndexerNameMax = 100;
 
-export const indexersNewIndexerOnDefault = true;
 export const indexersNewIndexerPortMax = 200;
 
 export const indexersNewIndexerPriorityDefault = 25;
 export const indexersNewIndexerPriorityMax = 50;
 
-export const indexersNewIndexerRssDefault = true;
 export const indexersNewIndexerTrackerNameMax = 100;
 
 export const IndexersNewIndexer = zod.object({
@@ -4987,7 +5527,7 @@ export const IndexersNewIndexer = zod.object({
     .max(indexersNewIndexerApiKeyMax)
     .exactOptional()
     .describe("A Torznab feed's. Write-only"),
-  automaticSearch: zod.boolean().default(indexersNewIndexerAutomaticSearchDefault),
+  automaticSearch: zod.boolean().exactOptional().describe("Absent for on"),
   baseAddress: zod
     .string()
     .max(indexersNewIndexerBaseAddressMax)
@@ -5028,7 +5568,7 @@ export const IndexersNewIndexer = zod.object({
       "The Content Types an RSS feed carries, in place of categories; required for an RSS feed",
     ),
   name: zod.string().min(1).max(indexersNewIndexerNameMax),
-  on: zod.boolean().default(indexersNewIndexerOnDefault),
+  on: zod.boolean().exactOptional().describe("Absent for on"),
   port: zod
     .string()
     .max(indexersNewIndexerPortMax)
@@ -5039,7 +5579,7 @@ export const IndexersNewIndexer = zod.object({
     .min(1)
     .max(indexersNewIndexerPriorityMax)
     .default(indexersNewIndexerPriorityDefault),
-  rss: zod.boolean().default(indexersNewIndexerRssDefault),
+  rss: zod.boolean().exactOptional().describe("Absent for on"),
   searches: IndexersLimit.exactOptional(),
   trackerName: zod
     .string()
@@ -5113,7 +5653,9 @@ export type IndexersReportOutput = zod.output<typeof IndexersReport>;
 export const IndexersSettings = zod.object({
   settings: zod
     .array(SettingField)
-    .describe("How long every request to an Indexer may fail before Health warns"),
+    .describe(
+      "How long a search waits for each Indexer, and how long every request to an Indexer may fail before Health warns",
+    ),
 });
 
 export type IndexersSettings = zod.input<typeof IndexersSettings>;
@@ -8738,6 +9280,19 @@ export const TransfersTransferList = zod.object({
 export type TransfersTransferList = zod.input<typeof TransfersTransferList>;
 export type TransfersTransferListOutput = zod.output<typeof TransfersTransferList>;
 
+export const unblockInputBodyInfoHashesItemRegExp = new RegExp("^[0-9a-f]{40}$");
+export const unblockInputBodyInfoHashesMax = 1000;
+
+export const UnblockInputBody = zod.object({
+  infoHashes: zod
+    .array(zod.string().regex(unblockInputBodyInfoHashesItemRegExp))
+    .min(1)
+    .max(unblockInputBodyInfoHashesMax),
+});
+
+export type UnblockInputBody = zod.input<typeof UnblockInputBody>;
+export type UnblockInputBodyOutput = zod.output<typeof UnblockInputBody>;
+
 export const UnmatchedOutputBody = zod.object({
   contentTypes: zod.array(FilesUnmatchedType).describe("Each Content Type with such a file"),
 });
@@ -9809,6 +10364,16 @@ export const LiveEventFirstrunChanged = zod.object({
 export type LiveEventFirstrunChanged = zod.input<typeof LiveEventFirstrunChanged>;
 export type LiveEventFirstrunChangedOutput = zod.output<typeof LiveEventFirstrunChanged>;
 
+export const LiveEventGrabsBlocklistChanged = zod.object({
+  event: zod.enum(["grabs.blocklist-changed"]),
+  data: GrabsBlocklistChanged,
+});
+
+export type LiveEventGrabsBlocklistChanged = zod.input<typeof LiveEventGrabsBlocklistChanged>;
+export type LiveEventGrabsBlocklistChangedOutput = zod.output<
+  typeof LiveEventGrabsBlocklistChanged
+>;
+
 export const LiveEventGrabsChanged = zod.object({
   event: zod.enum(["grabs.changed"]),
   data: GrabsChanged,
@@ -10112,6 +10677,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventFilesChanged,
   LiveEventFilesMoved,
   LiveEventFirstrunChanged,
+  LiveEventGrabsBlocklistChanged,
   LiveEventGrabsChanged,
   LiveEventGrabsSearchChanged,
   LiveEventHealthChanged,

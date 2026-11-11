@@ -2,7 +2,6 @@ package grabs
 
 import (
 	"context"
-	"errors"
 	"slices"
 	"time"
 
@@ -10,7 +9,9 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // View is a Grab with its live download or Transfer progress, nil when
@@ -23,6 +24,21 @@ type View struct {
 	Metadata  *MetadataSearch
 	FetchWait *indexers.FetchWait
 	WaitsFor  *ClientWait
+	// ReleaseWords is its Release in words: "Bluray-1080p · FKW · 9.8 GB".
+	ReleaseWords string
+	// Overrides is each choice the Admin made past the decision, as a
+	// sentence: "Jackson grabbed it as the Director's Cut."
+	Overrides []string
+	Actions   Actions
+}
+
+// Actions is what an Admin can do to a Grab now.
+type Actions struct {
+	Cancel bool
+	// Blocklist is true when a cancel can also blocklist its Release: its
+	// info hash is known.
+	Blocklist bool
+	SendTo    bool
 }
 
 // reads is what a Grab's view reads beside the Grab, in the same snapshot.
@@ -30,6 +46,7 @@ type reads struct {
 	metadataWait time.Duration
 	fetchWaits   map[indexers.ID]indexers.FetchWait
 	clientWaits  map[GrabID]ClientWait
+	releaseWords map[GrabID]string
 }
 
 func (gr *Grabs) readsIn(ctx context.Context, r storage.Reader[file], grabs []Grab) (reads, error) {
@@ -43,8 +60,40 @@ func (gr *Grabs) readsIn(ctx context.Context, r storage.Reader[file], grabs []Gr
 	if out.clientWaits, err = gr.clientWaits(ctx, r, grabs); err != nil {
 		return reads{}, err
 	}
+	if out.releaseWords, err = gr.releaseWords(ctx, r, grabs); err != nil {
+		return reads{}, err
+	}
 	out.metadataWait, err = metadataWaitIn(ctx, r)
 	return out, err
+}
+
+// releaseWords is each Grab's Release in words, read as its Work's
+// Content Type reads a title.
+func (gr *Grabs) releaseWords(ctx context.Context, r storage.Reader[file], grabs []Grab) (map[GrabID]string, error) {
+	ids := make([]works.WorkID, len(grabs))
+	for i, g := range grabs {
+		ids[i] = g.WorkID
+	}
+	summaries, err := works.SummariesOf(ctx, r, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[GrabID]string, len(grabs))
+	for _, g := range grabs {
+		out[g.ID] = releaseWordsOf(g.Release.Title, g.Release.Size, gr.cfg.Names[summaries[g.WorkID].ContentType])
+	}
+	return out, nil
+}
+
+// releaseWordsOf is a Release titled title, of size bytes, in the words a
+// Manual search's rows read it in, as names read its title. The words
+// name no cut, so the title is read without the known cuts.
+func releaseWordsOf(title string, size int64, names release.Names) string {
+	rd := release.Title(title, names, nil)
+	if size > 0 {
+		rd.Facts.Size = release.Known(size)
+	}
+	return release.Describe(rd)
 }
 
 // List lists every Grab, newest first.
@@ -121,18 +170,8 @@ func (gr *Grabs) Get(ctx context.Context, _ identity.Admin, id GrabID) (View, er
 	var g Grab
 	var rd reads
 	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		row, err := db.New(r).GetGrab(ctx, id)
-		if errors.Is(err, storage.ErrNoRows) {
-			return ErrNoGrab
-		}
-		if err != nil {
-			return err
-		}
-		rel, err := readRelated(ctx, r, []db.GrabsGrab{row})
-		if err != nil {
-			return err
-		}
-		if g, err = load(ctx, r, row, rel); err != nil {
+		var err error
+		if g, err = grabIn(ctx, r, id); err != nil {
 			return err
 		}
 		rd, err = gr.readsIn(ctx, r, []Grab{g})
@@ -162,6 +201,12 @@ func (gr *Grabs) views(ctx context.Context, grabs []Grab, rd reads) ([]View, err
 		if w, ok := rd.clientWaits[g.ID]; ok {
 			out[i].WaitsFor = &w
 		}
+		out[i].Actions = Actions{
+			Cancel: g.cancelable(), Blocklist: g.cancelable() && g.infoHash() != nil,
+			SendTo: g.waitsOnTorrent() || out[i].WaitsFor != nil,
+		}
+		out[i].ReleaseWords = rd.releaseWords[g.ID]
+		out[i].Overrides = g.overrideWords()
 	}
 	return out, nil
 }

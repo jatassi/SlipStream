@@ -56,8 +56,20 @@ test.each<[string, Shape, boolean, string[]]>([
     ["pause", "recheck", "remove"],
   ],
   [
-    "a stalled download can be marked failed",
+    "a download a Grab holds can be marked failed",
+    { state: "downloading", held: true },
+    reject,
+    ["pause", "recheck", "mark-failed", "remove"],
+  ],
+  [
+    "a stalled download no Grab holds can't be marked failed",
     { state: "stalled" },
+    reject,
+    ["pause", "recheck", "remove"],
+  ],
+  [
+    "a seed a Grab holds can be marked failed",
+    { state: "seeding", held: true },
     reject,
     ["pause", "recheck", "mark-failed", "remove"],
   ],
@@ -187,10 +199,16 @@ test.each<[string, DownloadclientsRefusal, TorrentAction, string]>([
     "The Quiet Orchard failed in the torrent client and can't recheck. Remove it instead.",
   ],
   [
-    "a stall that cleared stays",
-    { code: "not_stalled" },
+    "a torrent no Grab downloads stays",
+    { code: "not_held" },
     "mark-failed",
-    "The Quiet Orchard is moving again, so nothing was marked failed.",
+    "No Grab is downloading The Quiet Orchard, so nothing was marked failed.",
+  ],
+  [
+    "nothing is marked failed while Reconciling",
+    { code: "reconciling" },
+    "mark-failed",
+    "SlipStream is Reconciling after a restore, so nothing was marked failed. Try again once it finishes.",
   ],
 ])("%s", (_, refusal, action, sentence) => {
   expect(outcomeWords([{ id: "a", done: false, refusal }], [orchard], context(action))).toEqual({

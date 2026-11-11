@@ -112,11 +112,11 @@ func composed(g Grab, link magnet.Link, info []byte, to role.NodeID) outcome {
 	raw, err := link.Torrent(info)
 	switch {
 	case errors.Is(err, magnet.ErrWrongInfo):
-		return fail{InfohashMismatch, err.Error()}
+		return fail{InfohashMismatch, "The metadata peers sent doesn't match the magnet link's info hash."}
 	case errors.Is(err, bencode.ErrV2Only):
-		return fail{TorrentV2Only, err.Error()}
+		return fail{TorrentV2Only, "The magnet link's metadata has no BitTorrent v1 info hash."}
 	case err != nil:
-		return fail{TorrentInvalid, err.Error()}
+		return fail{TorrentInvalid, "Peers sent metadata for the magnet link that SlipStream can't read."}
 	}
 	return decoded(g, raw, fetched{by: to, to: to})
 }

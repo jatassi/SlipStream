@@ -8,6 +8,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
@@ -27,7 +28,7 @@ func (byRoot) Route(_ context.Context, _ storage.Reader[storage.Library], a down
 }
 
 func TestAnUnfinishedGrabOnANodeOutOfStepWaitsOnIt(t *testing.T) {
-	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
+	lib := storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
 	work, item := storage.NewUUID(), storage.NewUUID()
 	home, away := storage.NewUUID(), storage.NewUUID()
 	hd, uhd, sd := storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
@@ -74,7 +75,7 @@ func TestAnUnfinishedGrabOnANodeOutOfStepWaitsOnIt(t *testing.T) {
 }
 
 func TestAnUnfinishedGrabWhoseClientIsAwayWaitsOnTheClient(t *testing.T) {
-	lib := storagetest.Library(t, nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
+	lib := storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
 	work, item := storage.NewUUID(), storage.NewUUID()
 	media, away := storage.NewUUID(), storage.NewUUID()
 	down, fine, off, offline := storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID()

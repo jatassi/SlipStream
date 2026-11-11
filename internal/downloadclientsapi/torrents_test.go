@@ -148,13 +148,13 @@ func TestTheTorrentsListAnswersEachRowsWordsAndCountsEveryTorrent(t *testing.T) 
 	orchardRow := `{"id":"id1","nodeId":"id2","deleteFiles":true,"name":"Orchard","contentType":"fixture","workId":"id3","edition":"any","quality":"webdl-1080p",` +
 		`"state":"queued","hold":"slot","queuePosition":1,"severity":"none","tabs":["downloading","all"],"size":1000,"done":250,"uploaded":0,` +
 		`"ratio":0,"seedingSeconds":0,"announce":{"host":"beacon.test","status":"not_contacted"},` +
-		unjudged + `,"retryable":false,"addedAt":"T"}`
+		unjudged + `,"retryable":false,"held":true,"addedAt":"T"}`
 	w.o.Expect(t, http.MethodGet, "/api/v1/torrents?tab=downloading", "", http.StatusOK, `{"rows":[`+orchardRow+`],`+counts("id2"))
 
 	harborRow := `{"id":"id1","nodeId":"id2","deleteFiles":true,"name":"Harbor","contentType":"fixture","state":"tracker-error","severity":"failure",` +
 		`"tabs":["problems","all"],"size":1000,"done":1000,"uploaded":0,"ratio":0,"seedingSeconds":0,` +
 		`"announce":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` + unjudged + `,` +
-		`"fault":{"kind":"unregistered","at":"T","sentence":"An announce URL responded that the torrent is no longer registered."},"retryable":false,"addedAt":"T"}`
+		`"fault":{"kind":"unregistered","at":"T","sentence":"An announce URL responded that the torrent is no longer registered."},"retryable":false,"held":false,"addedAt":"T"}`
 	w.o.Expect(t, http.MethodGet, "/api/v1/torrents?ids="+harbor.String(), "", http.StatusOK, `{"rows":[`+harborRow+`],`+counts("id2"))
 
 	var got struct {
@@ -191,7 +191,7 @@ func TestATorrentReadsLiveFromItsNodeAndRefusesAnUnknownID(t *testing.T) {
 	want := `{"id":"id1","nodeId":"id2","deleteFiles":true,"name":"Harbor","contentType":"fixture","workId":"id3","quality":"hdtv-720p","state":"tracker-error","severity":"failure",` +
 		`"tabs":["problems","all"],"size":1000,"done":1000,"uploaded":0,"ratio":0,"seedingSeconds":0,` +
 		`"announce":{"host":"beacon.test","status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` + unjudged + `,` +
-		`"fault":{"kind":"unregistered","at":"T","sentence":"An announce URL responded that the torrent is no longer registered."},"retryable":false,"addedAt":"T",` +
+		`"fault":{"kind":"unregistered","at":"T","sentence":"An announce URL responded that the torrent is no longer registered."},"retryable":false,"held":false,"addedAt":"T",` +
 		`"downloaded":0,"activeSeconds":0,"infoHash":"` + w.hashes[harbor] + `","pieceSize":16384,"private":true,` +
 		`"trackers":[{"url":"https://beacon.test/announce/•••","tier":0,"status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` +
 		`{"url":"udp://backup.test:6969/announce","tier":1,"status":"working","answeredAt":"T","minIntervalSeconds":1800}],` +
@@ -261,6 +261,32 @@ func TestActionsAnswerForEachTorrent(t *testing.T) {
 	decodeReply(t, w, "/api/v1/torrents?ids="+orchard.String(), &got)
 	if len(got.Rows) != 1 || got.Rows[0].State != "paused" || got.Rows[0].Pending != "pause" || got.Rows[0].LastKnown == nil {
 		t.Errorf("the paused Torrent on its offline Node = %+v, want paused, the pause pending and its last known time", got.Rows)
+	}
+}
+
+// TestMarkFailedBlocklistsAHeldTorrentInTheNameOfTheAdminActing marks
+// failed a Torrent a downloading Grab holds as Ada's session and another
+// through the API key: each entry names who acted. A Torrent no Grab holds
+// is refused as not held, and one a Grab imports from as importing.
+func TestMarkFailedBlocklistsAHeldTorrentInTheNameOfTheAdminActing(t *testing.T) {
+	w := serveWorld(t)
+	orchard := w.hold(t, "Orchard", queuedReport())
+	attic := w.hold(t, "Attic", queuedReport())
+	harbor := w.hold(t, "Harbor", queuedReport())
+	cove := w.hold(t, "Cove", queuedReport())
+	work := works.WorkID{UUID: storage.NewUUID()}
+	w.uses[orchard] = []downloadclients.Use{{Grab: storage.NewUUID(), Work: work, Release: orchardRelease, Stage: downloadclients.UseDownloading}}
+	w.uses[attic] = []downloadclients.Use{{Grab: storage.NewUUID(), Work: work, Release: "Attic.2020.1080p.WEB", Stage: downloadclients.UseDownloading}}
+	w.uses[cove] = []downloadclients.Use{{Grab: storage.NewUUID(), Work: work, Release: "Cove.2021.1080p.WEB", Stage: downloadclients.UseImporting}}
+
+	status, reply := w.o.CallSignedIn(t, http.MethodPost, "/api/v1/torrents/actions", `{"action":"mark-failed","ids":["`+orchard.String()+`","`+harbor.String()+`","`+cove.String()+`"]}`)
+	if want := `{"results":[{"id":"id1","done":true},{"id":"id2","done":false,"refusal":{"code":"not_held"}},{"id":"id3","done":false,"refusal":{"code":"importing","workId":"id4"}}]}`; status != http.StatusOK || strings.TrimSpace(ownertest.Masked(reply)) != want {
+		t.Fatalf("Ada marking failed = %d %s, want 200 %s", status, ownertest.Masked(reply), want)
+	}
+	w.o.Expect(t, http.MethodPost, "/api/v1/torrents/actions", `{"action":"mark-failed","ids":["`+attic.String()+`"]}`, http.StatusOK,
+		`{"results":[{"id":"id1","done":true}]}`)
+	if want := []string{"Ada", "the API key"}; !slices.Equal(w.blocklist.by, want) {
+		t.Errorf("the Blocklist entries name %q, want %q", w.blocklist.by, want)
 	}
 }
 

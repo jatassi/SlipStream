@@ -19,6 +19,7 @@ export interface IndexersNewIndexer {
    * @maxLength 256
    */
   apiKey?: string;
+  /** Absent for on */
   automaticSearch?: boolean;
   /**
    * One of the definition's addresses, absent for its first; or a native Indexer's address, one the port knows or a typed http or https one
@@ -58,6 +59,7 @@ export interface IndexersNewIndexer {
    * @maxLength 100
    */
   name: string;
+  /** Absent for on */
   on?: boolean;
   /**
    * A native Indexer's port id; required for one
@@ -69,6 +71,7 @@ export interface IndexersNewIndexer {
    * @maximum 50
    */
   priority?: number;
+  /** Absent for on */
   rss?: boolean;
   searches?: IndexersLimit;
   /**

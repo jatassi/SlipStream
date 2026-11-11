@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -37,6 +38,9 @@ type keptRelease struct {
 	MinSeedSeconds int64             `json:"minSeedSeconds,omitempty"`
 	Source         *keptSource       `json:"source,omitempty"`
 	Flags          []searching.Flag  `json:"flags,omitempty"`
+	// Published is when its Indexer published it, zero when it sent no
+	// date.
+	Published time.Time `json:"published,omitzero"`
 }
 
 // keptSource is the site a Torznab feed said the Release came from, which
@@ -53,7 +57,7 @@ func encodeKept(r indexers.Release) (string, error) {
 	k := keptRelease{
 		Priority: r.Priority, Title: r.Title, Size: r.Size, Seeders: r.Seeders, IDs: r.IDs,
 		DownloadFactor: r.Factors.Download, UploadFactor: r.Factors.Upload, MinRatio: r.Floor.MinRatio, MinSeedSeconds: int64(r.Floor.MinSeed.Seconds()),
-		Flags: r.Flags,
+		Flags: r.Flags, Published: r.Published,
 	}
 	if r.InfoHash != nil {
 		k.InfoHash = r.InfoHash.String()
@@ -78,7 +82,7 @@ func (gr *Grabs) kept(row db.GrabsRelease) (indexers.Release, error) {
 		Title: k.Title, Size: k.Size, Seeders: k.Seeders, IDs: k.IDs,
 		Factors: searching.Factors{Download: k.DownloadFactor, Upload: k.UploadFactor},
 		Floor:   searching.Floor{MinRatio: k.MinRatio, MinSeed: time.Duration(k.MinSeedSeconds) * time.Second},
-		Flags:   k.Flags,
+		Flags:   k.Flags, Published: k.Published,
 	}}
 	if k.InfoHash != "" {
 		h, err := bencode.ParseInfoHash(k.InfoHash)
@@ -123,12 +127,35 @@ var dropOf = map[indexers.DropWhy]dropped{
 
 // redo is what a dropped Grab's rerun reads before its Write: the run,
 // the Releases it kept, assessed, the positions of those gone, taken by a
-// Grab of the run, and each one's Indexer's name by position.
+// Grab of the run, each one's Indexer's name by position, and the
+// position the run's Grab took.
 type redo struct {
 	run      Search
 	assessed []assessed
 	gone     map[int]bool
 	names    map[int]string
+	taken    int
+}
+
+// goneGroup marks gone every copy of the Release listed at position, so
+// a rerun takes none of them.
+func (re *redo) goneGroup(position int) {
+	for _, a := range re.assessed {
+		group := append([]int{a.at}, atOf(a.copies)...)
+		if slices.Contains(group, position) {
+			for _, at := range group {
+				re.gone[at] = true
+			}
+		}
+	}
+}
+
+func atOf(cs []copied) []int {
+	out := make([]int, len(cs))
+	for i, c := range cs {
+		out[i] = c.at
+	}
+	return out
 }
 
 // rerunOf reads, in one Read, the rerun of g's run, nil when no run
@@ -173,22 +200,39 @@ func (gr *Grabs) rerunOf(ctx context.Context, g Grab) (*redo, error) {
 		if err != nil {
 			return err
 		}
-		out = &redo{run: run, assessed: assessAll(j, dedupe(ls)), gone: gone, names: names}
+		out = &redo{run: run, assessed: assessAll(j, dedupe(ls)), gone: gone, names: names, taken: grabbedAt(rows)}
 		return nil
 	})
 	return out, err
 }
 
+// grabbedAt is the position of the Release a run's kept rows say its
+// Grab took, -1 for none.
+func grabbedAt(rows []db.GrabsRelease) int {
+	for _, row := range rows {
+		if row.Outcome == ReleaseGrabbed {
+			return int(row.Position)
+		}
+	}
+	return -1
+}
+
 // left settles the run of g, a Grab leaving fetching by o: a drop reruns
 // its decision over re, returning the rerun's Grab and run, and any other
 // way out ends what the run's Releases keep for a rerun, since none
-// follows.
+// follows. A drop for the Blocklist reruns with every copy of g's Release
+// gone, since a copy listed without an info hash passes the Blocklist
+// until its fetch.
 func (gr *Grabs) left(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome, re *redo) (*Grab, *Search, error) {
-	if _, drop := o.(dropped); !drop {
+	d, drop := o.(dropped)
+	if !drop {
 		return nil, nil, db.New(tx).EndReleasesOfGrab(ctx, g.ID)
 	}
 	if re == nil {
 		return nil, nil, nil
+	}
+	if d.code == Blocklisted {
+		re.goneGroup(re.taken)
 	}
 	grab, err := gr.redecide(ctx, tx, *re)
 	return grab, &re.run, err
@@ -201,7 +245,11 @@ func (gr *Grabs) left(ctx context.Context, tx *storage.Tx[file], g Grab, o outco
 func (gr *Grabs) redecide(ctx context.Context, tx *storage.Tx[file], re redo) (*Grab, error) {
 	q := db.New(tx)
 	run := re.run
-	d, c, err := gr.decision(ctx, tx, run, re.assessed)
+	bl, err := blocksOf(ctx, tx, re.assessed)
+	if err != nil {
+		return nil, err
+	}
+	d, c, err := gr.decision(ctx, tx, run, bl.gate(re.assessed))
 	if err != nil {
 		return nil, err
 	}

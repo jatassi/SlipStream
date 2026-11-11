@@ -175,7 +175,7 @@ func (x *Indexers) testFailed(idx Indexer, node role.NodeID, a searching.Answer,
 		if until.IsZero() {
 			until = time.Now().Add(cmp.Or(limited.RetryAfter, x.cfg.Timings.Limited))
 		}
-		sentence = fmt.Sprintf("%s is limiting requests. Test again after %s.", idx.Name, x.clock(until))
+		sentence = fmt.Sprintf("%s is limiting requests. Test again after %s.", idx.Name, x.Clock(until))
 	default:
 		sentence = fmt.Sprintf("%s failed the Test with '%s'. Check the address and test again.", idx.Name, a.Outcome.Error())
 	}
@@ -193,7 +193,7 @@ func (x *Indexers) Unreached(err error) string {
 		if wait.Outcome.Since.IsZero() {
 			return name + " can't search now. Test again once it holds Searching."
 		}
-		return fmt.Sprintf("%s has been offline since %s. Test again once it's back.", name, x.clock(wait.Outcome.Since))
+		return fmt.Sprintf("%s has been offline since %s. Test again once it's back.", name, x.Clock(wait.Outcome.Since))
 	case errors.Is(err, ErrLate):
 		return fmt.Sprintf("The Test didn't finish within %d seconds. Test again.", int(x.cfg.Timings.Job.Seconds()))
 	case errors.As(err, &unavailable):
@@ -202,7 +202,8 @@ func (x *Indexers) Unreached(err error) string {
 	return err.Error()
 }
 
-func (x *Indexers) clock(t time.Time) string { return x.inZone(t).Format("15:04") }
+// Clock is t's time of day in sentences, such as "14:05".
+func (x *Indexers) Clock(t time.Time) string { return x.inZone(t).Format("15:04") }
 
 // day is t's date in sentences, such as "3 Oct".
 func (x *Indexers) day(t time.Time) string { return x.inZone(t).Format("2 Jan") }
@@ -322,11 +323,11 @@ func (x *Indexers) waitWords(v View, w Outcome) (sentence, fix string) {
 		}
 		return fmt.Sprintf(stopped, name, w.Text, node, c.key, c.signIn), strings.NewReplacer("{node}", node, "{signin}", c.signIn).Replace(fix)
 	case IsLimited:
-		return fmt.Sprintf("%s is limiting requests until %s.", name, x.clock(w.Until)), ""
+		return fmt.Sprintf("%s is limiting requests until %s.", name, x.Clock(w.Until)), ""
 	case IsFailing:
-		return fmt.Sprintf("%s isn't responding. SlipStream retries at %s.", name, x.clock(w.Until)), ""
+		return fmt.Sprintf("%s isn't responding. SlipStream retries at %s.", name, x.Clock(w.Until)), ""
 	case LimitReached:
-		return fmt.Sprintf("%s reached its search limit. SlipStream searches it again at %s.", name, x.clock(w.Until)), ""
+		return fmt.Sprintf("%s reached its search limit. SlipStream searches it again at %s.", name, x.Clock(w.Until)), ""
 	case Waiting:
 		home := x.cfg.Roster.Name(w.Node)
 		var fix string
@@ -336,8 +337,8 @@ func (x *Indexers) waitWords(v View, w Outcome) (sentence, fix string) {
 		if w.Since.IsZero() {
 			return fmt.Sprintf("%s is waiting for %s.", name, home), fix
 		}
-		return fmt.Sprintf("%s is waiting for %s, which has been offline since %s.", name, home, x.clock(w.Since)), fix
-	case Found, NoReleases, Late, NoCategories, Removed:
+		return fmt.Sprintf("%s is waiting for %s, which has been offline since %s.", name, home, x.Clock(w.Since)), fix
+	case Found, NoReleases, Late, NoCategories, Removed, RSSOnly:
 	}
 	return name + " is working.", ""
 }
@@ -361,7 +362,7 @@ func (x *Indexers) Line(typ works.TypeID, o *Outcome) string {
 		if o.Until.IsZero() {
 			return "Limit reached"
 		}
-		return "Limit reached until " + x.clock(o.Until)
+		return "Limit reached until " + x.Clock(o.Until)
 	case Waiting:
 		return "Waiting for " + x.cfg.Roster.Name(o.Node)
 	case IsFailing:
@@ -382,6 +383,8 @@ func (x *Indexers) Line(typ works.TypeID, o *Outcome) string {
 		return "Didn't finish in time"
 	case Removed:
 		return "Deleted since this search"
+	case RSSOnly:
+		return "Skipped because it's an RSS feed and can't search"
 	}
 	return string(o.Kind)
 }
@@ -400,7 +403,7 @@ func (x *Indexers) retries(sentence string, until time.Time) string {
 	if until.IsZero() {
 		return sentence + " SlipStream retries automatically."
 	}
-	return sentence + " SlipStream retries at " + x.clock(until) + "."
+	return sentence + " SlipStream retries at " + x.Clock(until) + "."
 }
 
 // stopItemFixes is how the Admin clears a stop, said in its Health item
@@ -441,7 +444,7 @@ func (x *Indexers) failingItemWords(name string, st Status, now time.Time) strin
 	if !now.Before(until) {
 		until = time.Time{}
 	}
-	return x.retries(fmt.Sprintf("Every request to %s has failed since %s.", name, x.clock(st.Since)), until)
+	return x.retries(fmt.Sprintf("Every request to %s has failed since %s.", name, x.Clock(st.Since)), until)
 }
 
 // Sentence is the Challenge solver Test's failure, for the form.

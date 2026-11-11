@@ -31,6 +31,9 @@ export type FailedGrab = GrabsGrab & { readonly failure: GrabsFailure };
 
 export const isFailed = (grab: GrabsGrab): grab is FailedGrab => grab.failure !== undefined;
 
+/** A failure an Admin must act on. A cancel and a Manual Grab the Blocklist held are not. */
+export const needsYou = (grab: GrabsGrab): grab is FailedGrab => grab.failure?.needsYou === true;
+
 export function progressOf(grab: GrabsGrab): TrackProgress {
   if (isFailed(grab)) {
     return { kind: "failed", stage: trackStage[grab.failure.stage] };
@@ -47,7 +50,7 @@ export function progressOf(grab: GrabsGrab): TrackProgress {
 export function withoutRetriedFailures(grabs: readonly GrabsGrab[]): GrabsGrab[] {
   return grabs.filter(
     (grab) =>
-      !isFailed(grab) ||
+      !needsYou(grab) ||
       !grabs.some((later) => later.itemId === grab.itemId && later.createdAt > grab.createdAt),
   );
 }
@@ -115,6 +118,10 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     cause: "The download stopped with an error.",
     recovery: searchAgain,
   },
+  marked_failed: {
+    cause: "An Admin marked the download failed. SlipStream added the Release to the Blocklist.",
+    recovery: searchAgain,
+  },
   removed: {
     cause: "An Admin removed the torrent before it finished downloading.",
     recovery: searchAgain,
@@ -151,6 +158,19 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
   },
   root_changed: {
     cause: "The Work moved to another library root after this download was planned.",
+    recovery: searchAgain,
+  },
+  canceled: {
+    cause: "An Admin canceled this Grab.",
+    recovery: searchAgain,
+  },
+  blocklisted: {
+    cause: "The Release's torrent is on the Blocklist.",
+    recovery: nextRelease,
+  },
+  release_fault: {
+    cause:
+      "The tracker reported the torrent unregistered, or it never downloaded any data. SlipStream added the Release to the Blocklist.",
     recovery: searchAgain,
   },
 };

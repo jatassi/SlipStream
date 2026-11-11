@@ -35,6 +35,9 @@ function TransferWords({ grab }: { grab: GrabsGrab }) {
 }
 
 function StageCell({ grab, work }: GrabRow) {
+  if (grab.failure !== undefined) {
+    return <span>{grab.failure.message}</span>;
+  }
   return (
     <span className="flex max-w-[220px] flex-col gap-1.5">
       <span>
@@ -57,13 +60,20 @@ const progress: Column<GrabRow> = {
   cell: (row) => <ProgressCell {...row} />,
 };
 
+const menu: Column<GrabRow> = {
+  id: "menu",
+  header: "",
+  cell: (row) => <JobMenu {...row} />,
+  align: "end",
+};
+
 const layouts = {
   activity: [
     { id: "work", header: "Work", cell: (row) => <WorkCell {...row} /> },
     { id: "for", header: "For", cell: (row) => <ForCell {...row} /> },
     stage,
     progress,
-    { id: "menu", header: "", cell: (row) => <JobMenu {...row} />, align: "end" },
+    menu,
   ],
   work: [
     {
@@ -73,6 +83,7 @@ const layouts = {
     },
     stage,
     progress,
+    menu,
   ],
 } as const satisfies Record<string, readonly [Column<GrabRow>, ...Column<GrabRow>[]]>;
 

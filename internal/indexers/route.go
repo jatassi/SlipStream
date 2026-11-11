@@ -90,6 +90,8 @@ const (
 	LimitReached OutcomeKind = "limit_reached"
 	NoCategories OutcomeKind = "no_categories"
 	Removed      OutcomeKind = "removed"
+	// RSSOnly skips an RSS feed in a Manual search: it can't search.
+	RSSOnly OutcomeKind = "rss_only"
 )
 
 // Outcome is one Indexer's line in a search, a skip, or why a call waits.

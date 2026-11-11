@@ -21,10 +21,16 @@ type (
 	// Failed is the latest report saying the engine failed the Torrent.
 	Failed struct{ Error string }
 	// Gone is a removed Torrent, Removing or Parted. Client is its
-	// client's name for ByClient and ClientDeleted, "" otherwise.
+	// client's name for ByClient, ClientDeleted and ReleaseFaulted, "" for
+	// the built-in client and the other reasons. By is the name of the
+	// Admin who removed it for ByAdmin and ByMarkFailed, "" for the API key
+	// and the other reasons. Fault is its release fault for
+	// ReleaseFaulted, nil otherwise.
 	Gone struct {
 		Reason RemoveReason
 		Client string
+		By     string
+		Fault  *FaultKind
 	}
 )
 
@@ -92,8 +98,12 @@ func attachedOf(row db.ListAttachedRow) (Attached, error) {
 	}
 	if row.RemovedReason != nil {
 		gone := Gone{Reason: RemoveReason(*row.RemovedReason)}
-		if gone.Reason == ByClient || gone.Reason == ClientDeleted {
+		if gone.Reason == ByClient || gone.Reason == ClientDeleted || gone.Reason == ReleaseFaulted {
 			gone.Client = row.ClientName
+		}
+		gone.By = row.RemovedByName.String
+		if gone.Reason == ReleaseFaulted {
+			gone.Fault = (*FaultKind)(row.Fault)
 		}
 		a.Outcome = gone
 	}

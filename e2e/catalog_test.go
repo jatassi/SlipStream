@@ -106,7 +106,7 @@ func TestAnAdminAddsLarkspurByItsCaptchaAndGrabsFromIt(t *testing.T) {
 
 	stream := worldtest.NewMessages(t, w.m, world.AdminIdentity)
 	search := w.search(t)
-	event(t, stream, "grabs.search-changed", `{"searchId":"`+search+`","workId":"`+w.work+`"}`)
+	event(t, stream, "grabs.search-changed", `{"searchId":"`+search+`","workId":"`+w.work+`","manualSearchId":null}`)
 	w.ended(t, grabChanged(t, stream, w.work))
 	if w.grab.Stage != "imported" {
 		t.Fatalf("the Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())

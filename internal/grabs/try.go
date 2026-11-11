@@ -217,14 +217,14 @@ func (tr trier) againstWork(ctx context.Context, r storage.Reader[file], name st
 			c.open = append(c.open, cell)
 		}
 	}
-	judged := judge(c, a)
+	judged := judge(c, &a)
 	t := Tried{Name: name, Read: a.read, Work: &w, Covers: a.covers, Formats: tr.catalog.Explain(a.read)}
 	if a.namesTheWork() {
 		t.Works = []works.Summary{w}
 	}
 	s := scoredOf(a.read, t.Formats)
 	for _, target := range goals.Targets {
-		tt := TriedTarget{Target: target, Score: target.Score(s)}
+		tt := TriedTarget{Target: target, Score: target.Score(&s)}
 		reasons := slices.Clone(a.refusals)
 		var at []verdict
 		for _, v := range judged.verdicts {
@@ -431,6 +431,8 @@ func reasonWords(r Reason, t *targets.Target, f release.Facts) string {
 			return from + ", and the file at " + at + " has no release group."
 		}
 		return from + ", and the file at " + at + " is from " + r.Value + "."
+	case targets.Blocklisted:
+		return "It's on the Blocklist."
 	}
 	panic("grabs: no words for the reason " + string(r.Code))
 }

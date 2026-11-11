@@ -37,7 +37,7 @@ function scanItems(root: RootsRoot, name: string, onAct: (acting: Acting) => voi
         onSelect: () =>
           void calling(
             () => cancelTaskRun(running.runId),
-            "Library scan cancelled for every root in the run. It keeps what it already recorded.",
+            "Library scan canceled for every root in the run. It keeps what it already recorded.",
           ),
       },
     ];

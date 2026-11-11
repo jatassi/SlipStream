@@ -1,4 +1,8 @@
-import type { DownloadclientsActed, DownloadclientsHitAndRun } from "../api/gen/model";
+import type {
+  DownloadclientsActed,
+  DownloadclientsCanceled,
+  DownloadclientsHitAndRun,
+} from "../api/gen/model";
 import { bytes } from "../format";
 import { useNow } from "../tasks/use-now";
 import { Data } from "../ui/data";
@@ -19,6 +23,11 @@ const cancelsLead: { readonly [P in Parting]: (count: number) => string } = {
       ? "This Grab fails, and its Item goes back to wanted:"
       : `These ${count} Grabs fail, and their Items go back to wanted:`,
 };
+
+const othersLead = (count: number) =>
+  count === 1
+    ? "It also cancels another Grab still downloading this torrent, and its Item goes back to wanted:"
+    : `It also cancels ${count} other Grabs still downloading this torrent, and their Items go back to wanted:`;
 
 const parted: { readonly [P in Parting]: (who: string) => string } = {
   remove: (who) => `Removing ${who}`,
@@ -77,18 +86,41 @@ function HitsAndRuns({
 export const freesWords = (frees: number | null | undefined) =>
   frees === null || frees === undefined ? "" : ` (frees ${bytes(frees)})`;
 
+function CanceledList({
+  cancels,
+  work,
+}: {
+  cancels: readonly DownloadclientsCanceled[];
+  work: (id: string) => string | undefined;
+}) {
+  return (
+    <ul className="mt-2 flex flex-col gap-1">
+      {cancels.map((cancel) => (
+        <li key={cancel.grabId} className="flex min-w-0 flex-col">
+          <span className="text-ink-1">{work(cancel.workId) ?? "A deleted Work"}</span>
+          <Data className="truncate text-meta text-ink-3">{cancel.release}</Data>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** `besides` is the Grab whose cancel removes the torrent, which the dialog already names. */
 export function Preview({
   parting,
   acted,
   subjects,
   work,
+  besides,
 }: {
   parting: Parting;
   acted: DownloadclientsActed;
   subjects: readonly Subject[];
   work: (id: string) => string | undefined;
+  besides?: string;
 }) {
   const preview = acted.preview;
+  const cancels = (preview?.cancels ?? []).filter(({ grabId }) => grabId !== besides);
   const refused = outcomeWords(acted.results, subjects, {
     action: parting,
     work,
@@ -102,17 +134,14 @@ export function Preview({
           {sentence}
         </p>
       ))}
-      {preview !== undefined && preview.cancels.length > 0 && (
+      {cancels.length > 0 && (
         <div>
-          <p>{cancelsLead[parting](preview.cancels.length)}</p>
-          <ul className="mt-2 flex flex-col gap-1">
-            {preview.cancels.map((cancel) => (
-              <li key={cancel.grabId} className="flex min-w-0 flex-col">
-                <span className="text-ink-1">{work(cancel.workId) ?? "A deleted Work"}</span>
-                <Data className="truncate text-meta text-ink-3">{cancel.release}</Data>
-              </li>
-            ))}
-          </ul>
+          <p>
+            {besides === undefined
+              ? cancelsLead[parting](cancels.length)
+              : othersLead(cancels.length)}
+          </p>
+          <CanceledList cancels={cancels} work={work} />
         </div>
       )}
       {preview !== undefined && (

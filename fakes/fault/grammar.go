@@ -12,7 +12,7 @@ import (
 // Parse reads a fault in the one grammar:
 //
 //	refuse | reset | stall | latency=200ms | throttle=256KiB/s | cut=64KiB | tls=untrusted|expired|wrong-name
-//	status=<code>[,retry-after=<dur>][,reset-header=<name>] | hang | malformed | truncate | slow-body=<rate>
+//	status=<code>[,retry-after=<dur>][,reset-header=<name>] | hang | delay=15s | malformed | truncate | slow-body=<rate>
 //	content-type=<media type>
 //	full | unmounted | hung | readonly | foldcase | noids | volume=<total>,free=<free>
 func Parse(s string) (Fault, error) {
@@ -52,6 +52,10 @@ var valued = map[string]func(string) (Fault, error){
 	"throttle": func(v string) (Fault, error) {
 		r, err := rate(v)
 		return Throttle(r), err
+	},
+	"delay": func(v string) (Fault, error) {
+		d, err := duration(v)
+		return Delay(d), err
 	},
 	"cut": func(v string) (Fault, error) {
 		n, err := byteCount(v)

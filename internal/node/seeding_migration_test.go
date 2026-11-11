@@ -107,7 +107,7 @@ func TestTheSeedingRebuildKeepsEveryTorrent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lib := openAt(t, path, LibrarySchemas(noTypes))
+	lib := openAt(t, path, with(LibrarySchemas(noTypes), downloadclients.Schema().Through(6)))
 	t.Cleanup(func() { _ = lib.Close() })
 	if after := externalRows(t, lib); !slices.Equal(after, rows) {
 		t.Errorf("the rebuild changed the Torrents:\nbefore %v\nafter  %v", rows, after)

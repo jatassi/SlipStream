@@ -27,6 +27,9 @@ const (
 	// ReleaseKept ranked, and the run took no Grab.
 	ReleaseKept    ReleaseOutcome = "kept"
 	ReleaseRefused ReleaseOutcome = "refused"
+	// ReleaseListed is a Manual run's Release: stored as heard, judged on
+	// read.
+	ReleaseListed ReleaseOutcome = "listed"
 )
 
 // TargetScore is a Release's score at one Target.
@@ -56,8 +59,10 @@ type row struct {
 func (j judged) offers() []judged {
 	out := []judged{j}
 	for _, c := range j.copies {
+		a := *j.assessed
+		a.Release, a.at = c.Release, c.at
 		o := j
-		o.Release, o.at = c.Release, c.at
+		o.assessed = &a
 		out = append(out, o)
 	}
 	return out
@@ -95,7 +100,7 @@ func outcomes(d Decision, c cells, taken int) []row {
 				r.outcome = ReleaseOutranked
 			}
 			if r.outcome == ReleaseKept || r.outcome == ReleaseOutranked {
-				r.loss = lostAt(c, ref, &o)
+				r.loss = lostAt(c, *ref, o)
 			}
 			rows = append(rows, r)
 		}
@@ -233,7 +238,8 @@ var ErrNoSearch = errors.New("no search run has that id")
 
 // Releases is run's Releases, ranked first in rank order, then the rest
 // by position. A run keeps them while it is its Item's latest finished
-// run, or its Grab still fetches, and lists none after.
+// run, or its Grab still fetches, and lists none after. A Manual run's
+// Releases are its Manual search's to show, so it answers ErrNoSearch.
 func (gr *Grabs) Releases(ctx context.Context, by identity.Admin, run SearchID) ([]Listed, error) {
 	all, err := gr.cfg.Targets.ListTargets(ctx, by)
 	if err != nil {
@@ -247,7 +253,7 @@ func (gr *Grabs) Releases(ctx context.Context, by identity.Admin, run SearchID) 
 	err = gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		q := db.New(r)
 		s, err := q.GetSearch(ctx, run)
-		if errors.Is(err, storage.ErrNoRows) {
+		if errors.Is(err, storage.ErrNoRows) || err == nil && !s.ManualID.IsZero() {
 			return ErrNoSearch
 		}
 		if err != nil {

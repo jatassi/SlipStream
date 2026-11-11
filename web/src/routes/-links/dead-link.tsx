@@ -37,7 +37,7 @@ function cardOf(dead: Dead, noun: string): Card {
     }
     case "withdrawn": {
       return {
-        sentence: `This ${noun} was replaced or cancelled. Ask ${admin} whether they sent a new one.`,
+        sentence: `This ${noun} was replaced or canceled. Ask ${admin} whether they sent a new one.`,
       };
     }
     case "expired": {

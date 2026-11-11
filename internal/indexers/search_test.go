@@ -8,8 +8,8 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
@@ -29,40 +29,13 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// scripted is a Node that answers each job at once: with its Indexer's
-// answer, else no Releases.
-type scripted struct {
-	mu      sync.Mutex
-	answers map[string]searching.Answer
-	jobs    []searching.Job
-}
-
-func (*scripted) ReachSolver(context.Context, searching.Solver) (int, error) {
-	return 0, errors.New("the scripted Node has no Challenge solver")
-}
-
-func (n *scripted) Run(_ context.Context, j searching.Job) (searching.Poll, error) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.jobs = append(n.jobs, j)
-	a := n.answers[j.Indexer]
-	a.Started = time.Now()
-	return searching.Poll{Started: a.Started, Answer: &a}, nil
-}
-
-func (n *scripted) answer(id indexers.ID, a searching.Answer) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.answers[id.String()] = a
-}
-
 // planned is Indexers with saved Torznab Indexers by name, all homed on
 // home and answered by node.
 type planned struct {
 	t    *testing.T
 	lib  *storage.DB[storage.Library]
 	x    *indexers.Indexers
-	node *scripted
+	node *indexerstest.Node
 	ids  map[string]indexers.ID
 	// repointed is each merge's from and into, as the Repoints saw them.
 	repointed [][2]indexers.TrackerID
@@ -80,7 +53,7 @@ func plannedIn(t *testing.T, roster indexerstest.Roster, home role.NodeID, names
 	t.Helper()
 	sealer := secrettest.Sealer(t)
 	lib := storagetest.Library(t, secret.Schema(), nodes.Schema(), works.Schema(), indexers.Schema())
-	p := &planned{t: t, lib: lib, node: &scripted{answers: map[string]searching.Answer{}}, ids: map[string]indexers.ID{}}
+	p := &planned{t: t, lib: lib, node: &indexerstest.Node{}, ids: map[string]indexers.ID{}}
 	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		for _, n := range roster.Holders {
 			if err := nodestest.Insert(ctx, tx, n, roster.Name(n)); err != nil {
@@ -131,10 +104,15 @@ func (p *planned) edit(name string, e indexers.Edit) {
 
 func (p *planned) plan() []indexers.Line {
 	p.t.Helper()
+	return p.planOf(indexers.AutoSearch)
+}
+
+func (p *planned) planOf(k indexers.SearchKind) []indexers.Line {
+	p.t.Helper()
 	var lines []indexers.Line
 	err := p.lib.Write(p.t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
-		lines, err = p.x.Plan(ctx, tx, indexerstest.Type)
+		lines, err = p.x.Plan(ctx, tx, indexerstest.Type, k)
 		return err
 	})
 	if err != nil {
@@ -147,7 +125,7 @@ func (p *planned) plan() []indexers.Line {
 func (p *planned) search(lines []indexers.Line) []indexers.Answer {
 	p.t.Helper()
 	asked := slices.DeleteFunc(slices.Clone(lines), func(l indexers.Line) bool { return l.Skipped != nil })
-	answers, err := p.x.Search(p.t.Context(), indexers.Search{Type: indexerstest.Type, Terms: indexers.Terms{Mode: "search", Query: "orchard"}, Asked: asked})
+	answers, err := p.x.Search(p.t.Context(), indexers.Search{Type: indexerstest.Type, Terms: indexers.Terms{Mode: "search", Query: "orchard"}, Asked: asked}, nil)
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -179,8 +157,8 @@ func TestPlanAsksEachIndexerByPriorityAndSaysWhyItSkipsOne(t *testing.T) {
 	p.edit("Dune", indexers.Edit{AutoSearch: &off})
 	p.edit("Elm", indexers.Edit{Categories: &tvOnly})
 	p.edit("Fir", indexers.Edit{Searches: &indexers.Limit{Count: 1, Per: indexers.Hour}})
-	p.node.answer(p.ids["Birch"], searching.Answer{Releases: []searching.Release{{Title: "Orchard.1080p"}}})
-	p.node.answer(p.ids["Gale"], searching.Answer{Outcome: &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}})
+	p.node.Answer(p.ids["Birch"], 0, searching.Answer{Releases: []searching.Release{{Title: "Orchard.1080p"}}})
+	p.node.Answer(p.ids["Gale"], 0, searching.Answer{Outcome: &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}})
 
 	first := p.plan()
 	if got, want := spelled(first), []string{"Birch asked", "Elm no_categories", "Fir asked", "Gale asked", "Alder asked"}; !slices.Equal(got, want) {
@@ -193,7 +171,7 @@ func TestPlanAsksEachIndexerByPriorityAndSaysWhyItSkipsOne(t *testing.T) {
 	if want := []string{"found 1", "no_releases 0", "stopped 0", "no_releases 0"}; !slices.Equal(answered, want) {
 		t.Fatalf("the answers = %q, want %q", answered, want)
 	}
-	for _, j := range p.node.jobs {
+	for _, j := range p.node.Jobs() {
 		if !slices.Equal(j.Categories, []int{2000}) {
 			t.Fatalf("Indexer %s was asked for categories %v, want the categories it has in family 2000, [2000]", j.Indexer, j.Categories)
 		}
@@ -251,7 +229,7 @@ func TestTakeReservesAGrabUnlessTheFetchWouldWaitForTheAdmin(t *testing.T) {
 	if _, err := p.take("Alder", torrent); !notTaken(err, indexers.LimitReached) {
 		t.Fatalf("taking a second .torrent past a grab limit of one an hour = %v, want limit_reached", err)
 	}
-	p.node.answer(p.ids["Birch"], searching.Answer{Outcome: &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}})
+	p.node.Answer(p.ids["Birch"], 0, searching.Answer{Outcome: &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}})
 	p.search(p.plan())
 	if _, err := p.take("Birch", torrent); !notTaken(err, indexers.IsStopped) {
 		t.Fatalf("taking a stopped Indexer's .torrent = %v, want stopped", err)
@@ -276,12 +254,12 @@ func TestAFetchDropsOnceItsIndexerStopsAndWaitsWhileItFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw := "d4:infod4:name1:aee"
-	p.node.answer(p.ids["Alder"], searching.Answer{Got: searching.Torrent{Raw: []byte(raw)}})
+	p.node.Answer(p.ids["Alder"], 0, searching.Answer{Got: searching.Torrent{Raw: []byte(raw)}})
 	if got, err := p.x.Fetch(t.Context(), tk, link); err != nil || !reflect.DeepEqual(got, indexers.Torrent{Raw: []byte(raw), Node: self}) {
 		t.Fatalf("Fetch = %+v, %v; want the .torrent fetched on home", got, err)
 	}
 
-	p.node.answer(p.ids["Alder"], searching.Answer{Outcome: &searching.Failing{Err: errors.New("the Indexer responded with status 500")}})
+	p.node.Answer(p.ids["Alder"], 0, searching.Answer{Outcome: &searching.Failing{Err: errors.New("the Indexer responded with status 500")}})
 	_, err = p.x.Fetch(t.Context(), tk, link)
 	if wait, ok := errors.AsType[*indexers.WaitError](err); !ok || wait.Outcome.Kind != indexers.IsFailing || wait.Outcome.Until.IsZero() {
 		t.Fatalf("a failing fetch = %v, want a wait until its retry", err)
@@ -291,7 +269,7 @@ func TestAFetchDropsOnceItsIndexerStopsAndWaitsWhileItFails(t *testing.T) {
 		t.Fatalf("FetchWaits = %+v, %v; want %q and its time", waits, err, want)
 	}
 
-	p.node.answer(p.ids["Birch"], searching.Answer{Outcome: &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}})
+	p.node.Answer(p.ids["Birch"], 0, searching.Answer{Outcome: &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}})
 	if _, err := p.x.Fetch(t.Context(), birch, link); !isDrop(err, indexers.DropStopped) {
 		t.Fatalf("a fetch the site refused = %v, want a drop", err)
 	}
@@ -318,7 +296,7 @@ func TestAStopMetOnAFailoverNodeWaitsForHome(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p.node.answer(p.ids["Alder"], searching.Answer{Outcome: &searching.Stopped{Cause: searching.ChallengeUnsolved}})
+	p.node.Answer(p.ids["Alder"], 0, searching.Answer{Outcome: &searching.Stopped{Cause: searching.ChallengeUnsolved}})
 	answers := p.search(p.plan())
 	if len(answers) != 1 || answers[0].Outcome != (indexers.Outcome{Kind: indexers.Waiting, Node: box}) {
 		t.Fatalf("a search whose failover Node met a challenge = %+v, want Alder waiting for seedbox", answers)
@@ -375,6 +353,7 @@ func TestEachOutcomeLineSaysItInWords(t *testing.T) {
 		{&indexers.Outcome{Kind: indexers.NoCategories}, "Skipped because it has no shelf categories"},
 		{&indexers.Outcome{Kind: indexers.Late}, "Didn't finish in time"},
 		{&indexers.Outcome{Kind: indexers.Removed}, "Deleted since this search"},
+		{&indexers.Outcome{Kind: indexers.RSSOnly}, "Skipped because it's an RSS feed and can't search"},
 	} {
 		if got := p.x.Line(contenttypetest.ID, tc.o); got != tc.want {
 			t.Errorf("Line(%+v) = %q, want %q", tc.o, got, tc.want)
@@ -409,19 +388,6 @@ func TestPlanNeverAsksAnRSSFeed(t *testing.T) {
 	}
 }
 
-// sent is the query of each search job the Node ran.
-func (n *scripted) sent() []searching.Query {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	var out []searching.Query
-	for _, j := range n.jobs {
-		if c, ok := j.Call.(searching.SearchCall); ok {
-			out = append(out, c.Query)
-		}
-	}
-	return out
-}
-
 // searchEpisode searches Alder, whose caps are caps, for the episode at
 // season and episode of TVDB series 1001.
 func searchEpisode(t *testing.T, caps string, season int, episode string) searching.Query {
@@ -437,10 +403,10 @@ func searchEpisode(t *testing.T, caps string, season int, episode string) search
 		Expect: indexers.Expect{Claim: release.Claim{IDs: map[string]string{"tvdbid": "1001"}}},
 		Mode:   "tvsearch", Query: "The Lantern Keepers", Season: &season, Episode: episode,
 	}
-	if _, err := p.x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: terms, Asked: p.plan()}); err != nil {
+	if _, err := p.x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: terms, Asked: p.plan()}, nil); err != nil {
 		t.Fatal(err)
 	}
-	sent := p.node.sent()
+	sent := p.node.Searches()
 	if len(sent) != 1 {
 		t.Fatalf("the Node ran %d searches, want 1", len(sent))
 	}
@@ -472,5 +438,219 @@ func TestQueryFallbackNamesTheEpisode(t *testing.T) {
 				t.Fatalf("the query = %+v, want the free-text search %+v", got, want)
 			}
 		})
+	}
+}
+
+// heard is an each that notes every Answer as its Indexer's name, outcome
+// and when it landed after began, and fails once it has noted stopAfter.
+func (p *planned) heard(began time.Time, stopAfter int) (each func(indexers.Answer) error, got *[]string) {
+	got = new([]string)
+	return func(a indexers.Answer) error {
+		for name, id := range p.ids {
+			if id == a.Indexer {
+				*got = append(*got, fmt.Sprintf("%s %s at %s", name, a.Outcome.Kind, time.Since(began)))
+			}
+		}
+		if len(*got) == stopAfter {
+			return errHeardEnough
+		}
+		return nil
+	}, got
+}
+
+var errHeardEnough = errors.New("heard enough")
+
+func TestEachAnswerLandsAsItsIndexerAnswers(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := plannedWith(t, "Alder", "Birch")
+		p.node.Answer(p.ids["Alder"], 90*time.Second, searching.Answer{Releases: []searching.Release{{Title: "Orchard.2160p"}}})
+		p.node.Answer(p.ids["Birch"], 5*time.Second, searching.Answer{Releases: []searching.Release{{Title: "Orchard.1080p"}}})
+		began := time.Now()
+		each, heard := p.heard(began, 0)
+
+		answers, err := p.x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: indexers.Terms{Mode: "search", Query: "orchard"}, Asked: p.plan()}, each)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := []string{"Birch found at 5s", "Alder found at 1m30s"}; !slices.Equal(*heard, want) {
+			t.Fatalf("each heard %q, want Birch's answer at 5s before Alder's at 90s", *heard)
+		}
+		if len(answers) != 2 || answers[0].Indexer != p.ids["Alder"] || answers[1].Indexer != p.ids["Birch"] {
+			t.Fatalf("Search returned %+v, want every answer in line order, Alder then Birch", answers)
+		}
+	})
+}
+
+func TestAnErrorFromEachStopsTheJobsStillOut(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := plannedWith(t, "Alder", "Birch")
+		p.node.Answer(p.ids["Alder"], 90*time.Second, searching.Answer{Releases: []searching.Release{{Title: "Orchard.2160p"}}})
+		p.node.Answer(p.ids["Birch"], 5*time.Second, searching.Answer{Releases: []searching.Release{{Title: "Orchard.1080p"}}})
+		began := time.Now()
+		each, heard := p.heard(began, 1)
+
+		answers, err := p.x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: indexers.Terms{Mode: "search", Query: "orchard"}, Asked: p.plan()}, each)
+		if !errors.Is(err, errHeardEnough) || answers != nil {
+			t.Fatalf("Search = %+v, %v; want each's error", answers, err)
+		}
+		if took := time.Since(began); took != 5*time.Second {
+			t.Fatalf("Search returned after %s, want 5s, when Birch answered", took)
+		}
+		if want := []string{"Birch found at 5s"}; !slices.Equal(*heard, want) {
+			t.Fatalf("each heard %q, want only Birch's answer", *heard)
+		}
+		if got := p.node.Canceled(); !slices.Equal(got, []string{p.ids["Alder"].String()}) {
+			t.Fatalf("the Node saw %q canceled, want Alder's job", got)
+		}
+	})
+}
+
+func TestManualSearchAsksIndexersAutomaticSearchSkipsAndListsAnRSSFeed(t *testing.T) {
+	p := plannedWith(t, "Alder", "Cedar", "Dune")
+	off := false
+	p.edit("Cedar", indexers.Edit{On: &off})
+	p.edit("Dune", indexers.Edit{AutoSearch: &off})
+	for _, f := range []struct {
+		name  string
+		media works.TypeID
+	}{{"Brook", indexerstest.Type}, {"Creek", contenttypetest.ID}} {
+		_, err := p.x.Create(t.Context(), identity.Admin{}, indexers.Draft{
+			Kind: indexers.RSS, Name: f.name, Address: "https://" + strings.ToLower(f.name) + ".test/rss", Tracker: f.name, Media: []works.TypeID{f.media},
+			On: true, AutoSearch: true, RSS: true,
+		}, indexers.Typed{})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if got, want := spelled(p.planOf(indexers.AutoSearch)), []string{"Alder asked"}; !slices.Equal(got, want) {
+		t.Fatalf("the automatic plan = %q, want %q", got, want)
+	}
+	manual := p.planOf(indexers.ManualSearch)
+	if got, want := spelled(manual), []string{"Alder asked", "Brook rss_only", "Dune asked"}; !slices.Equal(got, want) {
+		t.Fatalf("the Manual plan = %q, want %q: Dune though its Automatic search is off, Brook skipped as an RSS feed of the type, and neither Cedar, which is off, nor Creek, a feed of another type", got, want)
+	}
+	answers := p.search(manual)
+	if len(answers) != 2 || answers[1].Indexer != p.ids["Dune"] || answers[1].Outcome.Kind != indexers.NoReleases {
+		t.Fatalf("the Manual search's answers = %+v, want Alder's and Dune's", answers)
+	}
+}
+
+func TestATypedQueryIsSearchedAsTextInPlaceOfTheIDs(t *testing.T) {
+	p := plannedWith(t, "Alder")
+	err := p.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return indexerstest.SetCaps(ctx, tx, p.ids["Alder"], indexerstest.TVCaps)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	terms := indexers.Terms{
+		Expect: indexers.Expect{Claim: release.Claim{IDs: map[string]string{"tvdbid": "1001"}}},
+		Mode:   "tvsearch", Query: "The Lantern Keepers", Season: new(1), Episode: "3",
+	}
+	for _, text := range []string{"", "Lantern Keepers 1x03 extended"} {
+		if _, err := p.x.Search(t.Context(), indexers.Search{Type: indexerstest.Type, Terms: terms, Asked: p.plan(), Text: text}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := []searching.Query{
+		{Mode: "tvsearch", IDs: map[string]string{"tvdbid": "1001"}, Season: new(1), Episode: "3"},
+		{Mode: "search", Text: "Lantern Keepers 1x03 extended"},
+	}
+	if got := p.node.Searches(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("the Node was sent %+v, want the ids, then the typed text alone", got)
+	}
+}
+
+func (p *planned) standings() indexers.Standings {
+	p.t.Helper()
+	var s indexers.Standings
+	err := p.lib.Read(p.t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		s, err = p.x.Standings(ctx, r)
+		return err
+	})
+	if err != nil {
+		p.t.Fatal(err)
+	}
+	return s
+}
+
+// agreed is what Take answers name's r with, once Standings, read just
+// before, answered the same.
+func (p *planned) agreed(name string, r searching.Release) error {
+	p.t.Helper()
+	read, readErr := p.standings().Take(indexers.Release{Indexer: p.ids[name], Release: r})
+	took, err := p.take(name, r)
+	if !reflect.DeepEqual(p.refusal(readErr), p.refusal(err)) || (err == nil && read.Indexer != took.Indexer) {
+		p.t.Fatalf("for %s's %s, Standings answered %+v, %v and Take %+v, %v; want the same", name, r.Title, read, readErr, took, err)
+	}
+	return err
+}
+
+// refusal is err's NotTakenError, zero when err is nil.
+func (p *planned) refusal(err error) indexers.NotTakenError {
+	p.t.Helper()
+	if err == nil {
+		return indexers.NotTakenError{}
+	}
+	e, ok := errors.AsType[*indexers.NotTakenError](err)
+	if !ok {
+		p.t.Fatal(err)
+	}
+	return *e
+}
+
+func sentenceOf(err error) string {
+	if e, ok := errors.AsType[*indexers.NotTakenError](err); ok {
+		return e.Sentence
+	}
+	return ""
+}
+
+func TestStandingsAnswerAsTakeDoesAndSpendNothing(t *testing.T) {
+	p := plannedWith(t, "Alder", "Birch", "Cedar", "Dogwood")
+	p.edit("Alder", indexers.Edit{Grabs: &indexers.Limit{Count: 1, Per: indexers.Hour}})
+	p.edit("Dogwood", indexers.Edit{AutoSearch: new(false)})
+	torrent := searching.Release{Title: "Orchard.1080p", Link: searching.LinkOf("https://site.test/a.torrent")}
+	magnet := searching.Release{Title: "Orchard.720p", Magnet: searching.LinkOf("magnet:?xt=urn:btih:" + strings.Repeat("a", 40))}
+
+	for range 3 {
+		if _, err := p.standings().Take(indexers.Release{Indexer: p.ids["Alder"], Release: torrent}); err != nil {
+			t.Fatalf("Alder's .torrent with its one grab left = %v, want it taken", err)
+		}
+	}
+	if err := p.agreed("Alder", torrent); err != nil {
+		t.Fatalf("taking Alder's .torrent after three reads of its standing = %v, want its one grab still left", err)
+	}
+	err := p.agreed("Alder", torrent)
+	if want := "Alder is at its grab limit until "; !notTaken(err, indexers.LimitReached) || !strings.HasPrefix(sentenceOf(err), want) {
+		t.Fatalf("Alder's .torrent at its grab limit = %v %q, want limit_reached saying %q and when", err, sentenceOf(err), want)
+	}
+	if err := p.agreed("Alder", magnet); err != nil {
+		t.Fatalf("Alder's magnet link at its grab limit = %v, want it taken, since it reserves no grab", err)
+	}
+
+	p.node.Answer(p.ids["Birch"], 0, searching.Answer{Outcome: &searching.Stopped{Cause: searching.AccountRefused, Text: "Account suspended"}})
+	p.search(p.plan())
+	for _, r := range []searching.Release{torrent, magnet} {
+		err := p.agreed("Birch", r)
+		if want := "Stopped because Birch refused the API key with 'Account suspended'."; !notTaken(err, indexers.IsStopped) || sentenceOf(err) != want {
+			t.Fatalf("stopped Birch's %s = %v %q, want stopped saying %q", r.Title, err, sentenceOf(err), want)
+		}
+	}
+
+	if err := p.x.Delete(t.Context(), identity.Admin{}, p.ids["Cedar"]); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range []searching.Release{torrent, magnet} {
+		err := p.agreed("Cedar", r)
+		if want := "The Indexer that listed it was deleted."; !notTaken(err, indexers.Removed) || sentenceOf(err) != want {
+			t.Fatalf("deleted Cedar's %s = %v %q, want removed saying %q", r.Title, err, sentenceOf(err), want)
+		}
+	}
+
+	if s := p.standings()[p.ids["Dogwood"]]; s.Automatic || p.agreed("Dogwood", torrent) != nil {
+		t.Fatalf("Dogwood with Automatic search off stands %+v, want it taking with Automatic false", s)
 	}
 }

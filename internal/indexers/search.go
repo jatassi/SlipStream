@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/indexers/internal/db"
 	"github.com/jatassi/slipstream/internal/newznab"
@@ -45,13 +46,25 @@ type Line struct {
 	Skipped *Outcome
 }
 
-// Plan is the lines of one search of an Item of Content Type typ, read
-// and reserved in tx: every Indexer that is on, has Automatic search on
-// and isn't an RSS feed, by priority then name. One that doesn't serve
-// typ, or that the gate or its search limit holds back, is skipped with
-// why. Each asked line reserves its query, so concurrent searches never
-// pass a limit.
-func (x *Indexers) Plan(ctx context.Context, tx *storage.Tx[file], typ works.TypeID) ([]Line, error) {
+// SearchKind is who a search is for.
+type SearchKind uint8
+
+const (
+	// AutoSearch asks the Indexers whose Automatic search is on.
+	AutoSearch SearchKind = iota + 1
+	// ManualSearch asks every Indexer that can search, whatever its
+	// Automatic search.
+	ManualSearch
+)
+
+// Plan is the lines of one search of kind k of an Item of Content Type
+// typ, read and reserved in tx, by priority then name: for AutoSearch,
+// every Indexer that is on, has Automatic search on and isn't an RSS feed;
+// for ManualSearch, every one that is on, an RSS feed of typ skipped as
+// RSSOnly. One that doesn't serve typ, or that the gate or its search
+// limit holds back, is skipped with why. Each asked line reserves its
+// query, so concurrent searches never pass a limit.
+func (x *Indexers) Plan(ctx context.Context, tx *storage.Tx[file], typ works.TypeID, k SearchKind) ([]Line, error) {
 	all, err := x.all(ctx, tx)
 	if err != nil {
 		return nil, err
@@ -65,10 +78,17 @@ func (x *Indexers) Plan(ctx context.Context, tx *storage.Tx[file], typ works.Typ
 	now := storage.Now()
 	var lines []Line
 	for _, idx := range all {
-		if !idx.On || !idx.AutoSearch || idx.Kind == RSS {
+		if !idx.On || (k == AutoSearch && (!idx.AutoSearch || idx.Kind == RSS)) {
 			continue
 		}
 		l := Line{Indexer: idx.ID, Name: idx.Name}
+		if idx.Kind == RSS {
+			if slices.Contains(idx.Media, typ) {
+				l.Skipped = &Outcome{Kind: RSSOnly}
+				lines = append(lines, l)
+			}
+			continue
+		}
 		if len(served(idx, cats)) == 0 {
 			l.Skipped = &Outcome{Kind: NoCategories}
 			lines = append(lines, l)
@@ -131,6 +151,9 @@ type Search struct {
 	Type  works.TypeID
 	Terms Terms
 	Asked []Line
+	// Text, when set, is the Admin's typed query, sent as free text in
+	// place of Terms: Torznab's q and Cardigann's Keywords.
+	Text string
 }
 
 // Answer is one asked Indexer's outcome and Releases.
@@ -141,26 +164,58 @@ type Answer struct {
 }
 
 // Search sends one job per asked line at once and returns their answers in
-// line order once each answered or passed its deadline, Timings.Job from
-// when its Node started it. A late job keeps being polled and is recorded
+// line order once each answered or passed the stored SearchWait, counted
+// from when it was first asked. A late job keeps being polled and is recorded
 // when it answers. Every way an Indexer couldn't answer is its Answer's
 // Outcome: removed, waiting, late or the site's own. It fails only when
-// the library or ctx does.
-func (x *Indexers) Search(ctx context.Context, s Search) ([]Answer, error) {
+// the library, ctx or each does.
+//
+// each, when not nil, sees each Answer as it lands, one call at a time, so
+// a slow Indexer never holds back a fast one's. An error from each stops
+// the jobs still out, and Search returns it.
+func (x *Indexers) Search(ctx context.Context, s Search, each func(Answer) error) ([]Answer, error) {
+	var wait time.Duration
+	err := x.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		wait, err = searchWait(ctx, r)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	jobs, stop := context.WithCancelCause(ctx)
+	defer stop(nil)
 	answers := make([]Answer, len(s.Asked))
 	errs := make([]error, len(s.Asked))
+	var heard sync.Mutex
 	var wg sync.WaitGroup
 	for i, l := range s.Asked {
-		wg.Go(func() { answers[i], errs[i] = x.searchOne(ctx, l, s) })
+		wg.Go(func() {
+			answers[i], errs[i] = x.searchOne(jobs, l, s, wait)
+			if each == nil || errs[i] != nil {
+				return
+			}
+			heard.Lock()
+			defer heard.Unlock()
+			if jobs.Err() != nil {
+				return
+			}
+			if err := each(answers[i]); err != nil {
+				stop(err)
+			}
+		})
 	}
 	wg.Wait()
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
+	if err := context.Cause(jobs); err != nil {
+		return nil, fmt.Errorf("hear an answer: %w", err)
+	}
 	return answers, errors.Join(errs...)
 }
 
-func (x *Indexers) searchOne(ctx context.Context, l Line, s Search) (Answer, error) {
+func (x *Indexers) searchOne(ctx context.Context, l Line, s Search, wait time.Duration) (Answer, error) {
 	out := Answer{Indexer: l.Indexer}
 	idx, err := x.get(ctx, x.cfg.Library, l.Indexer)
 	if errors.Is(err, ErrNoIndexer) {
@@ -170,7 +225,7 @@ func (x *Indexers) searchOne(ctx context.Context, l Line, s Search) (Answer, err
 	if err != nil {
 		return Answer{}, err
 	}
-	j, err := x.routed(ctx, l.Query, idx, UseSearch, searching.SearchCall{Query: query(idx.Caps, s.Terms)})
+	j, err := x.routed(ctx, l.Query, idx, UseSearch, searching.SearchCall{Query: s.query(idx.Caps)})
 	if wait, ok := errors.AsType[*WaitError](err); ok {
 		x.lose(ctx, l.Query)
 		out.Outcome = wait.Outcome
@@ -180,6 +235,7 @@ func (x *Indexers) searchOne(ctx context.Context, l Line, s Search) (Answer, err
 		x.lose(ctx, l.Query)
 		return Answer{}, err
 	}
+	j.wait = wait
 	for _, c := range served(idx, x.categories(s.Type)) {
 		j.wire.Categories = append(j.wire.Categories, int(c))
 	}
@@ -222,12 +278,16 @@ func outcomeOf(a searching.Answer, st Status, home role.NodeID) Outcome {
 	return Outcome{Kind: IsFailing, Until: st.Until}
 }
 
-// query is the query for terms under caps: terms' mode with every id
-// parameter caps list for it, and its season and episode where caps list
-// season and ep, else a free-text search that names the episode, such as
-// "The Lantern Keepers S01E03". It chooses by declared capability, so it
-// never retries.
-func query(c Caps, terms Terms) searching.Query {
+// query is s's query under caps: the typed Text as a free-text search,
+// else terms' mode with every id parameter caps list for it, and its
+// season and episode where caps list season and ep, else a free-text
+// search that names the episode, such as "The Lantern Keepers S01E03". It
+// chooses by declared capability, so it never retries.
+func (s Search) query(c Caps) searching.Query {
+	if s.Text != "" {
+		return searching.Query{Mode: "search", Text: s.Text}
+	}
+	terms := s.Terms
 	params := c.Modes[terms.Mode]
 	ids := map[string]string{}
 	for _, p := range params {

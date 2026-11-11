@@ -8,7 +8,31 @@ import { Section } from "../ui/section";
 import { GrabFailure } from "./failure-cards";
 import { GrabTable } from "./grab-table";
 import { JobsStatus } from "./jobs-status";
-import { isFailed, withoutRetriedFailures } from "./stages";
+import { type FailedGrab, needsYou, withoutRetriedFailures } from "./stages";
+
+function Failed({
+  grabs,
+  work,
+}: {
+  grabs: readonly FailedGrab[];
+  work: (grab: GrabsGrab) => string;
+}) {
+  return (
+    <Section title="Needs you" count={grabs.length}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(360px,100%),1fr))] gap-3">
+        {grabs.map((grab) => (
+          <GrabFailure
+            key={grab.id}
+            grab={grab}
+            subject={work(grab)}
+            work={work(grab)}
+            form="full"
+          />
+        ))}
+      </div>
+    </Section>
+  );
+}
 
 export function ActivityBody({
   grabs: all,
@@ -34,23 +58,15 @@ export function ActivityBody({
     );
   }
   const work = (grab: GrabsGrab) => labels.get(grab.workId) ?? grab.releaseTitle;
-  const failed = grabs.filter((grab) => isFailed(grab));
-  const jobs = grabs.filter((grab) => !isFailed(grab));
+  const failed = grabs.filter((grab) => needsYou(grab));
+  const jobs = grabs.filter((grab) => !needsYou(grab));
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <JobsStatus grabs={grabs} failed={failed} />
         {filter}
       </div>
-      {failed.length > 0 && (
-        <Section title="Needs you" count={failed.length}>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(360px,100%),1fr))] gap-3">
-            {failed.map((grab) => (
-              <GrabFailure key={grab.id} grab={grab} work={work(grab)} form="full" />
-            ))}
-          </div>
-        </Section>
-      )}
+      {failed.length > 0 && <Failed grabs={failed} work={work} />}
       {jobs.length > 0 && (
         <Section title="Jobs" count={jobs.length}>
           <GrabTable layout="activity" rows={jobs.map((grab) => ({ grab, work: work(grab) }))} />

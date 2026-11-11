@@ -107,7 +107,7 @@ function ReconfirmForm({ passkey }: ReconfirmDialogProps) {
 /**
  * The one re-confirm dialog. The API client opens it when an action answers
  * needs_reconfirm, and each signed-in frame mounts it, so a question left open
- * is cancelled with the session that asked it.
+ * is canceled with the session that asked it.
  */
 export function ReconfirmDialog({ passkey }: ReconfirmDialogProps) {
   const ask = useReconfirmAsk();
