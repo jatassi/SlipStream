@@ -296,7 +296,7 @@ func (s sheet) plan() (ManualPlan, []Pin, error) {
 				gaps[key] = len(p.Rows)
 			} else {
 				grabs++
-				filled += len(r.cells)
+				filled += rs.walked(r.cells)
 			}
 			row, err := s.row(rs, r, cause, rs.freeBefore(i))
 			if err != nil {
@@ -413,6 +413,18 @@ func headline(walked, filled, grabs, held int, unfound []string) string {
 		return n + " you everything."
 	}
 	return fmt.Sprintf("%s you %d of the %d files you're missing. %s", n, filled, walked, missing())
+}
+
+// walked counts the cells of cs the plan walks. A row may fill more cells
+// of its Item than a cell's Manual search walks.
+func (rs runSheet) walked(cs []int) int {
+	n := 0
+	for _, k := range cs {
+		if slices.Contains(rs.walk, k) {
+			n++
+		}
+	}
+	return n
 }
 
 // plural is one when n is 1, else many with n.
