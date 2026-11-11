@@ -116,7 +116,7 @@ func TestRollupCountsMonitoredLiveItems(t *testing.T) {
 	svc := l.files(grabbing{
 		{Item: scarf, Edition: targets.AnyEdition, Target: starter.ID}:  {State: files.GrabFailed, Grab: failedScarf},
 		{Item: gloves, Edition: targets.AnyEdition, Target: starter.ID}: {State: files.GrabFailed, Grab: failedGloves},
-		{Item: button, Edition: targets.AnyEdition, Target: starter.ID}: {State: files.GrabDownloading, Grab: waitsButton, Waiting: "node_away"},
+		{Item: button, Edition: targets.AnyEdition, Target: starter.ID}: {State: files.GrabInFlight, Grab: waitsButton, Waiting: "node_away"},
 	})
 	_, cells, rollup, err := svc.WorkCells(t.Context(), admin, tree.ID)
 	if err != nil {

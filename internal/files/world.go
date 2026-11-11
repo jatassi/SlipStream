@@ -296,7 +296,7 @@ func appendCells(out []Cell, w world) []Cell {
 					c.State = Met
 				case c.File != nil:
 					c.State = Upgradable
-				case w.grabs[key].State == GrabDownloading:
+				case w.grabs[key].InFlight():
 					c.State = Downloading
 				case w.grabs[key].State == GrabFailed:
 					c.State = Failed

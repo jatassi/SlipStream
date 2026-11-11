@@ -11,11 +11,12 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// GrabCells is files.Inflight over the Grabs: each cell takes its latest
-// Grab, downloading once past fetching and failed once failed. A failure
-// that doesn't need the Admin, such as a cancel, leaves the cell as no
-// Grab would, as an import does. An
-// unfinished Grab whose Node is out of step waits on it, node_away, as
+// GrabCells is files.Inflight over the Grabs: each cell is in flight while
+// any unfinished Grab holds it, fetching included, and reads from the
+// latest such Grab, whatever finished after it. Else it reads from its
+// latest Grab, failed once failed. A failure that doesn't need the Admin,
+// such as a cancel, leaves the cell as no Grab would, as an import does.
+// An unfinished Grab whose Node is out of step waits on it, node_away, as
 // does a fetching one whose route names a client on a Node out of step.
 // A fetching one pinned to a client that can't take it waits on that
 // client, client_off. One whose Torrent's client is away while its Node is
@@ -60,25 +61,22 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 		key := files.CellKey{Item: row.ItemID, Edition: row.Edition, Target: row.TargetID}
 		cell := files.GrabCell{Grab: row.ID.UUID}
 		switch row.Stage {
-		case Imported:
-			delete(out, key)
-			continue
-		case Failed:
-			if !(Grab{Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}).NeedsYou() {
+		case Imported, Failed:
+			if out[key].InFlight() {
+				continue
+			}
+			if row.Stage == Imported || !(Grab{Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}).NeedsYou() {
 				delete(out, key)
 				continue
 			}
 			cell.State = files.GrabFailed
-		case Downloading, Probing, Transferring, Importing:
-			cell.State = files.GrabDownloading
-		case Fetching:
-		}
-		switch {
-		case row.Stage == Failed:
-		case !g.InStep(row.NodeID):
-			cell.Waiting = NodeAway
-		default:
-			cell.Waiting = waits[row.ID]
+		case Fetching, Downloading, Probing, Transferring, Importing:
+			cell.State = files.GrabInFlight
+			if g.InStep(row.NodeID) {
+				cell.Waiting = waits[row.ID]
+			} else {
+				cell.Waiting = NodeAway
+			}
 		}
 		out[key] = cell
 	}
