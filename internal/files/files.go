@@ -262,8 +262,7 @@ type Fill struct {
 }
 
 // Wanted is whether a search should try to fill the cell: a missing,
-// failed or upgradable cell of a counted, released Item. A cell a Grab is
-// in flight for reads Downloading, so it is never wanted.
+// failed or upgradable cell of a counted, released Item.
 func (c Cell) Wanted() bool {
 	return c.Item.Counts() && c.Released && (c.State == Missing || c.State == Failed || c.State == Upgradable)
 }
@@ -298,7 +297,6 @@ type GrabCell struct {
 	Waiting string
 }
 
-// InFlight reports whether an unfinished Grab holds the cell.
 func (g GrabCell) InFlight() bool { return g.State == GrabInFlight }
 
 // Inflight is files' view of the Grabs, which grabs implements.

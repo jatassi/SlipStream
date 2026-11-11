@@ -132,8 +132,8 @@ func (s Scope) items(t works.Tree) ([]works.Item, error) {
 }
 
 // SearchWork records a search run for each Item of work within scope with
-// a wanted cell, each with the Indexers it asks
-// and skips and a query reserved on each it asks, and returns their ids.
+// a wanted cell, each with the Indexers it asks and skips and a query
+// reserved on each it asks, and returns their ids.
 // Each run reserves its own queries, so an Indexer's search limit skips it
 // for the runs past the limit. Run searches them. An id scope names that
 // work doesn't have is a *works.NotInWorkError.
