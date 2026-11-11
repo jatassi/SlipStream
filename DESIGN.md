@@ -656,11 +656,11 @@ A Work's status is a mark of a word and an icon, so colour never carries it alon
 - **Not monitored:** A silenced bell in `ink-3`, after the status.
 - **Gone from TMDB:** The warn signal chip, naming the Work's metadata source.
 
-A Work of many Items adds its tally to the status, such as "Missing · 12 of 40 met". Whenever any wanted cell failed, a fail chip with the count of failed cells leads, whatever the status, and the status mark never repeats it. The status is the first state any of the Work's Items holds in the glossary's rollup order: unreleased, held, missing, downloading, converting, failed, upgradable, met. Needs you and the matrix use the display rank instead, failed first, because they lead with what a person must fix. The web maps every status the API names to a mark, so a state added later fails the build until it has one.
+A Work of many Items adds its tally to the status, such as "Missing · 12 of 40 met". Whenever any wanted cell failed, a fail chip with the count of failed cells leads, whatever the status, and the status mark never repeats it. The status is the first state any of the Work's Items holds in the glossary's rollup order: unreleased, missing, downloading, failed, upgradable, met. The web maps every status the API names to a mark, so a state added later fails the build until it has one.
 
 ### Edition × Target matrix and state squares
 
-The Work page's grid of wanted cuts and versions. Every cell is in one of seven states, ranked failed, upgrade, missing, downloading, converting, Met and unreleased. Each state has a chip and a square. This display rank, failed first, orders the matrix and Needs you. A Work's status uses the glossary's rollup order instead (see Status marks).
+The Work page's grid of wanted cuts and versions. Every cell is in one of six states, ranked failed, upgrade, missing, downloading, Met and unreleased. Each state has a chip and a square. This display rank, failed first, orders the state bar and the Status sort. The matrix orders its cells by Edition and Target, and Needs you by kind, failures first. A Work's status uses the glossary's rollup order instead (see Status marks). A cell is downloading while any unfinished Grab holds it, and failed when its latest Grab failed, even when a file fills it. A final file reads Met whatever its Grabs.
 - **Met:** Solid white.
 - **Upgrade:** A white ring with a centre dot.
 - **Missing:** A hatch.
@@ -669,9 +669,9 @@ The Work page's grid of wanted cuts and versions. Every cell is in one of seven 
 - **Unreleased:** A hairline ring.
 
 There are three layouts.
-- **One Item.** A full table with a 168px first column. Each cell shows its state chip, its facts, Search while it lacks a file and Manual search, both ghost buttons. A filled cell's Details also holds Manual search. Each Target header names its sourcing.
+- **One Item.** A full table with a 168px first column. Each cell shows its state chip, its facts, Search while it is wanted and Manual search, both ghost buttons. A downloading cell's facts are its download and the quality it replaces, and a failed cell's are the cause and the file it kept. A filled cell's Details also holds Manual search. Each Target header names its sourcing.
 - **Many Items.** One collapsible glass section per level. The header holds the level name, a stacked state bar (180 × 8px), a tally, a level search and "…" for Manual search. A section opens when anything in it is not Met or unreleased. Rows are 36px, with 16px squares in 42 × 30 buttons grouped by Edition. Runs of unreleased Items fold into one line.
-- **Needs you.** A list above the matrix with compact failure cards first, then upgrades and Not found rows. A failure card has Manual search beside Search again, and an upgrade row beside its Search. Consecutive identical Items merge into ranges.
+- **Needs you.** A list above the matrix with compact failure cards first, then upgrades and the Grabs that wait on an Admin. A failure card has Manual search beside Search again, and an upgrade row beside its Search. Consecutive identical Items merge into ranges.
 
 Hovering or focusing a square opens a Popover with its detail, and clicking pins it. On phone, one Item becomes one card per Edition, each cell's button opening a menu with Search and Manual search, and many Items keep their rows, with each row opening a sheet that holds Manual search after Search.
 
