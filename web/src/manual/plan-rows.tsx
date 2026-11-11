@@ -54,17 +54,21 @@ export type RowActs = {
 
 function Choice({ choice, onUse }: { choice: GrabsChoice; onUse: () => void }) {
   return (
-    <li className="flex flex-col items-start gap-1.5 py-2.5">
-      <ReleaseName release={choice.release} />
+    <li className="flex flex-col items-start gap-1 py-2">
+      <div className="flex w-full items-center gap-3">
+        <span className="min-w-0 flex-1">
+          <ReleaseName release={choice.release} />
+        </span>
+        <Button size="small" onClick={onUse}>
+          {choice.release.blocked === null ? "Use this" : "Remove from Blocklist and grab"}
+        </Button>
+      </div>
       {choice.note !== undefined && <p className={meta}>{choice.note}</p>}
       {choice.release.blocked !== null && <p>{choice.release.blocked}</p>}
       <Overrides lifts={choice.lifts} edition={choice.edition} />
       <Details>
         <ReleaseDetails release={choice.release} />
       </Details>
-      <Button size="small" onClick={onUse}>
-        {choice.release.blocked === null ? "Use this" : "Remove from Blocklist and grab"}
-      </Button>
     </li>
   );
 }
