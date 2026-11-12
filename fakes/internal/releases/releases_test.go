@@ -29,7 +29,7 @@ func ffmpeg(t *testing.T) string {
 
 func TestBuildMakesTheSameBytesFromOneInput(t *testing.T) {
 	s := scenario.Scenario{Seed: "catalog", Releases: []scenario.Release{
-		{Name: "The.Quiet.Orchard.2021.360p", TMDBID: 9000001, Video: scenario.Video{Width: 640, Height: 360, Seconds: 2}, Seeded: true},
+		{Name: "The.Quiet.Orchard.2021.360p", TMDBID: 9000001, Video: &scenario.Video{Width: 640, Height: 360, Seconds: 2}, Seeded: true},
 	}}
 	tracker := netip.MustParseAddrPort("127.0.0.1:8443")
 	build := func(cache string) releases.Release {
@@ -76,7 +76,7 @@ func TestBuildMakesTheSameBytesFromOneInput(t *testing.T) {
 // payload, and none may fail to read the one another published.
 func TestWorldsSharingACacheAllPlaceTheirPayload(t *testing.T) {
 	s := scenario.Scenario{Seed: "shared", Releases: []scenario.Release{
-		{Name: "The.Quiet.Orchard.2021.360p", TMDBID: 9000001, Video: scenario.Video{Width: 320, Height: 180, Seconds: 1}, Seeded: true},
+		{Name: "The.Quiet.Orchard.2021.360p", TMDBID: 9000001, Video: &scenario.Video{Width: 320, Height: 180, Seconds: 1}, Seeded: true},
 	}}
 	tracker := netip.MustParseAddrPort("127.0.0.1:8443")
 	for range 4 {
@@ -97,14 +97,14 @@ func TestEachReleaseHoldsItsOwnVideo(t *testing.T) {
 	short := scenario.Video{Width: 320, Height: 180, Seconds: 1}
 	long := scenario.Video{Width: 320, Height: 180, Seconds: 2}
 	s := scenario.Scenario{Seed: "videos", Releases: []scenario.Release{
-		{Name: "The.Quiet.Orchard.2021.WEB-DL", TMDBID: 9000001, Video: short, Seeded: true},
-		{Name: "The.Quiet.Orchard.2021.BluRay", TMDBID: 9000001, Video: long, Seeded: true},
-		{Name: "The.Quiet.Orchard.2021.REPACK.WEB-DL", TMDBID: 9000001, Video: short, Seeded: true},
+		{Name: "The.Quiet.Orchard.2021.WEB-DL", TMDBID: 9000001, Video: &short, Seeded: true},
+		{Name: "The.Quiet.Orchard.2021.BluRay", TMDBID: 9000001, Video: &long, Seeded: true},
+		{Name: "The.Quiet.Orchard.2021.REPACK.WEB-DL", TMDBID: 9000001, Video: &short, Seeded: true},
 	}}
 	tracker := netip.MustParseAddrPort("127.0.0.1:8443")
 	alone := func(v scenario.Video) [32]byte {
 		t.Helper()
-		one := scenario.Scenario{Seed: "videos", Releases: []scenario.Release{{Name: "alone", TMDBID: 9000001, Video: v, Seeded: true}}}
+		one := scenario.Scenario{Seed: "videos", Releases: []scenario.Release{{Name: "alone", TMDBID: 9000001, Video: &v, Seeded: true}}}
 		c, err := releases.Build(t.Context(), one, releases.Config{FFmpeg: ffmpeg(t), Cache: t.TempDir(), Dir: t.TempDir(), Tracker: tracker})
 		if err != nil {
 			t.Fatal(err)
@@ -120,8 +120,8 @@ func TestEachReleaseHoldsItsOwnVideo(t *testing.T) {
 		t.Fatal("a 1 second and a 2 second video have one payload")
 	}
 	for i, r := range c.Releases {
-		if r.Name != s.Releases[i].Name || r.BLAKE3 != want[r.Video] {
-			t.Errorf("release %d is %s with BLAKE3 %x, want %s with its %v video's %x", i, r.Name, r.BLAKE3, s.Releases[i].Name, r.Video, want[r.Video])
+		if r.Name != s.Releases[i].Name || r.BLAKE3 != want[*r.Video] {
+			t.Errorf("release %d is %s with BLAKE3 %x, want %s with its %v video's %x", i, r.Name, r.BLAKE3, s.Releases[i].Name, r.Video, want[*r.Video])
 		}
 	}
 }

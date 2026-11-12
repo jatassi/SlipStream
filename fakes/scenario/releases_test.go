@@ -15,12 +15,12 @@ func TestValidateChecksTheEpisodeReleases(t *testing.T) {
 		ID: 1001, Name: "The Lantern Keepers", Status: "continuing",
 		Seasons: []TVDBSeason{{Number: 0, Episodes: []TVDBEpisode{{ID: 100101, Number: 1, Name: "Before"}}}, {Number: 1, Episodes: []TVDBEpisode{{ID: 100111, Number: 1, Name: "First"}}}},
 	}}}, Releases: []Release{
-		{Name: "Lantern.S01E01", TVDB: &ReleaseEpisode{Series: 1001, Season: 1, Episode: 1}, Video: video},
-		{Name: "Lantern.S00E01", TVDB: &ReleaseEpisode{Series: 1001, Season: 0, Episode: 1}, Video: video},
-		{Name: "Lantern.S01", TVDB: &ReleaseEpisode{Series: 1001, Season: 1}, Video: video},
-		{Name: "Lantern.S01E02", TVDB: &ReleaseEpisode{Series: 1001, Season: 1, Episode: 2}, Video: video},
-		{Name: "Lantern.S02", TVDB: &ReleaseEpisode{Series: 1001, Season: 2}, Video: video},
-		{Name: "Harbor.S01E01", TVDB: &ReleaseEpisode{Series: 1002, Season: 1, Episode: 1}, Video: video},
+		{Name: "Lantern.S01E01", TVDB: &ReleaseEpisode{Series: 1001, Season: 1, Episode: 1}, Video: &video},
+		{Name: "Lantern.S00E01", TVDB: &ReleaseEpisode{Series: 1001, Season: 0, Episode: 1}, Video: &video},
+		{Name: "Lantern.S01", TVDB: &ReleaseEpisode{Series: 1001, Season: 1}, Video: &video},
+		{Name: "Lantern.S01E02", TVDB: &ReleaseEpisode{Series: 1001, Season: 1, Episode: 2}, Video: &video},
+		{Name: "Lantern.S02", TVDB: &ReleaseEpisode{Series: 1001, Season: 2}, Video: &video},
+		{Name: "Harbor.S01E01", TVDB: &ReleaseEpisode{Series: 1002, Season: 1, Episode: 1}, Video: &video},
 	}}
 	want := []string{
 		"scenario x: release Lantern.S01E02 names episode 2 of season 1 of tvdb series 1001, which it does not list",
@@ -37,17 +37,17 @@ func TestValidateChecksTheEpisodeReleases(t *testing.T) {
 }
 
 func TestValidateChecksTheReleases(t *testing.T) {
-	good := Release{Name: "A.2021.1080p", TMDBID: 1, Video: Video{Width: 1920, Height: 1080, Seconds: 6}}
+	good := Release{Name: "A.2021.1080p", TMDBID: 1, Video: &Video{Width: 1920, Height: 1080, Seconds: 6}}
 	s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}}, TMDB: &TMDB{Movies: []TMDBMovie{{ID: 1, IMDbID: "tt0000001", Title: "A", Released: "2021-01-01"}}}, Tracker: Tracker{Interval: -time.Second}, Releases: []Release{
 		good,
 		good,
-		{Name: "a b.mkv", TMDBID: 0, Video: Video{Width: 1919, Height: 1080, Seconds: 0}, Seeders: -1, BadPeer: "evil"},
-		{Name: "B.2021.720p", TMDBID: 2, Video: Video{Width: 1280, Height: 720, Seconds: 6}},
-		{Name: "A.2021.2160p", TMDBID: 1, Video: Video{Width: 3840, Height: 2160, Seconds: 6}, Link: "ftp", Trackerless: true},
-		{Name: "A.2021.480p", TMDBID: 1, Video: Video{Width: 640, Height: 480, Seconds: 6}, Link: MagnetLink, Trackerless: true},
-		{Name: "A.2021.576p", TMDBID: 1, Video: Video{Width: 720, Height: 576, Seconds: 6}, Link: RedirectLink, Trackerless: true, Public: true},
-		{Name: "A.2021.360p", TMDBID: 1, Video: Video{Width: 640, Height: 360, Seconds: 6}, Sites: []string{"heron", "osprey"}},
-		{Name: "A.2021.240p", TMDBID: 1, Video: Video{Width: 426, Height: 240, Seconds: 6}, Seeded: true, Unregistered: true},
+		{Name: "a b.mkv", TMDBID: 0, Video: &Video{Width: 1919, Height: 1080, Seconds: 0}, Seeders: -1, BadPeer: "evil"},
+		{Name: "B.2021.720p", TMDBID: 2, Video: &Video{Width: 1280, Height: 720, Seconds: 6}},
+		{Name: "A.2021.2160p", TMDBID: 1, Video: &Video{Width: 3840, Height: 2160, Seconds: 6}, Link: "ftp", Trackerless: true},
+		{Name: "A.2021.480p", TMDBID: 1, Video: &Video{Width: 640, Height: 480, Seconds: 6}, Link: MagnetLink, Trackerless: true},
+		{Name: "A.2021.576p", TMDBID: 1, Video: &Video{Width: 720, Height: 576, Seconds: 6}, Link: RedirectLink, Trackerless: true, Public: true},
+		{Name: "A.2021.360p", TMDBID: 1, Video: &Video{Width: 640, Height: 360, Seconds: 6}, Sites: []string{"heron", "osprey"}},
+		{Name: "A.2021.240p", TMDBID: 1, Video: &Video{Width: 426, Height: 240, Seconds: 6}, Seeded: true, Unregistered: true},
 	}}
 	want := []string{
 		"scenario x: release A.2021.1080p is listed twice",
@@ -72,6 +72,58 @@ func TestValidateChecksTheReleases(t *testing.T) {
 	}
 	if got := strings.Split(err.Error(), "\n"); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Validate =\n%s\nwant\n%s", err, strings.Join(want, "\n"))
+	}
+}
+
+func TestValidateChecksTheReleaseFiles(t *testing.T) {
+	ep := &MediaVideo{Width: 1280, Height: 720, Seconds: 8, HDR: "sdr"}
+	s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}},
+		TMDB: &TMDB{Movies: []TMDBMovie{{ID: 1, IMDbID: "tt0000001", Title: "A", Released: "2021-01-01"}}},
+		TVDB: &TVDB{Series: []TVDBSeries{{ID: 1001, Name: "The Lantern Keepers", Status: "continuing", Seasons: []TVDBSeason{
+			{Number: 1, Episodes: []TVDBEpisode{{ID: 100111, Number: 1, Name: "First"}, {ID: 100112, Number: 2, Name: "Second"}}},
+		}}}},
+		Releases: []Release{
+			{Name: "Lantern.S01", TVDB: &ReleaseEpisode{Series: 1001, Season: 1}, Files: []ReleaseFile{
+				{Path: "Lantern.S01E01.mkv", Items: []TVDBNumber{{Season: 1, Episode: 1}}, Video: ep, Size: 1 << 20},
+				{Path: "lantern.s01e01.MKV", Items: []TVDBNumber{{Season: 1, Episode: 2}}, Video: ep, Size: 1 << 20},
+				{Path: "../Lantern.S01E03.mkv", Items: []TVDBNumber{{Season: 1, Episode: 3}}, Size: 1 << 20},
+				{Path: "Lantern.S01E02.mp4", Video: ep, Unreadable: true},
+				{Path: "Lantern.S01E02.avi", Video: ep, Size: 1 << 20},
+				{Path: "Extras/Long.mkv", Video: &MediaVideo{Width: 1280, Height: 720, Seconds: 30, HDR: "sdr"}, Size: 1 << 20},
+				{Path: "Lantern.nfo", Size: 512},
+			}},
+			{Name: "A.2021.1080p", TMDBID: 1, Video: &Video{Width: 1920, Height: 1080, Seconds: 6}, Files: []ReleaseFile{{Path: "A.mkv", Size: 1}}},
+			{Name: "A.2021.720p", TMDBID: 1},
+			{Name: "A.2021.2160p", TMDBID: 1, Files: []ReleaseFile{{Path: "A.mkv", Items: []TVDBNumber{{Season: 1, Episode: 1}}, Unreadable: true, Size: 1}}},
+		},
+	}
+	want := []string{
+		"scenario x: release Lantern.S01 file lantern.s01e01.MKV is listed twice",
+		"scenario x: release Lantern.S01 file lantern.s01e01.MKV is a video and not a .mkv file",
+		"scenario x: release Lantern.S01 file ../Lantern.S01E03.mkv is not a relative path of '/' separated names without " + unportable,
+		"scenario x: release Lantern.S01 file ../Lantern.S01E03.mkv holds season 1 episode 3, which tvdb series 1001 does not list",
+		"scenario x: release Lantern.S01 file Lantern.S01E02.mp4 has no size; the simulation tier writes its bytes",
+		"scenario x: release Lantern.S01 file Lantern.S01E02.mp4 is a video and unreadable; it is one",
+		"scenario x: release Lantern.S01 file Lantern.S01E02.avi is a video and not a .mkv file",
+		"scenario x: release Lantern.S01 file Extras/Long.mkv video lasts 30 seconds; it lasts 1 to 10",
+		"scenario x: release A.2021.1080p has a video and files, or neither; it has one",
+		"scenario x: release A.2021.720p has a video and files, or neither; it has one",
+		"scenario x: release A.2021.2160p file A.mkv holds episodes, and its release is a movie's",
+	}
+	err := s.Validate()
+	if err == nil {
+		t.Fatal("Validate passed")
+	}
+	if got := strings.Split(err.Error(), "\n"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Validate =\n%s\nwant\n%s", err, strings.Join(want, "\n"))
+	}
+}
+
+func TestValidateChecksTheImportingSettings(t *testing.T) {
+	s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}}, Library: &Library{Importing: LibraryImporting{SampleShorterThan: 91}}}
+	err := s.Validate()
+	if err == nil || !strings.Contains(err.Error(), "library importing sample_shorter_than is 91%; it is 0 to 90") {
+		t.Fatalf("Validate = %v", err)
 	}
 }
 
@@ -127,8 +179,8 @@ func TestBytesReadBackAsWritten(t *testing.T) {
 func TestValidateChecksTheLeecher(t *testing.T) {
 	movies := &TMDB{Movies: []TMDBMovie{{ID: 1, IMDbID: "tt0000001", Title: "A", Released: "2021-01-01"}}}
 	releases := []Release{
-		{Name: "A.2021.1080p", TMDBID: 1, Video: Video{Width: 1920, Height: 1080, Seconds: 6}, Seeded: true},
-		{Name: "A.2021.720p", TMDBID: 1, Video: Video{Width: 1280, Height: 720, Seconds: 6}},
+		{Name: "A.2021.1080p", TMDBID: 1, Video: &Video{Width: 1920, Height: 1080, Seconds: 6}, Seeded: true},
+		{Name: "A.2021.720p", TMDBID: 1, Video: &Video{Width: 1280, Height: 720, Seconds: 6}},
 	}
 	for leecher, want := range map[Leecher]string{
 		{Node: "home", Release: "A.2021.1080p"}:     "",

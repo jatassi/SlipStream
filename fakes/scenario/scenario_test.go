@@ -30,8 +30,8 @@ func singleMachine() Scenario {
 
 func quietOrchardReleases() []Release {
 	return []Release{
-		{Name: "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW", TMDBID: 9000001, Video: Video{Width: 1920, Height: 1080, Seconds: 6}, Seeders: 12, Seeded: true, AdvertisedSize: 8804682957},
-		{Name: "The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW", TMDBID: 9000001, Video: Video{Width: 1280, Height: 720, Seconds: 6}, Seeders: 40, AdvertisedSize: 4724464026},
+		{Name: "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW", TMDBID: 9000001, Video: &Video{Width: 1920, Height: 1080, Seconds: 6}, Seeders: 12, Seeded: true, AdvertisedSize: 8804682957},
+		{Name: "The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW", TMDBID: 9000001, Video: &Video{Width: 1280, Height: 720, Seconds: 6}, Seeders: 40, AdvertisedSize: 4724464026},
 	}
 }
 

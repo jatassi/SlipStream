@@ -112,7 +112,7 @@ func Build(ctx context.Context, s scenario.Scenario, cfg Config) (*Catalog, erro
 	}
 	announce := "https://" + cfg.Tracker.String() + "/announce/" + Passkey(s, Seeders)
 	for _, r := range s.Releases {
-		release, err := place(cached[r.Video], cfg.Dir, r, announce)
+		release, err := place(cached[*r.Video], cfg.Dir, r, announce)
 		if err != nil {
 			return nil, fmt.Errorf("release %s: %w", r.Name, err)
 		}
@@ -134,8 +134,8 @@ func payloads(ctx context.Context, cfg Config, version []byte, releases []scenar
 	}
 	var encodes []encode
 	for _, r := range releases {
-		if !slices.ContainsFunc(encodes, func(e encode) bool { return e.video == r.Video }) {
-			encodes = append(encodes, encode{video: r.Video, release: r.Name})
+		if !slices.ContainsFunc(encodes, func(e encode) bool { return e.video == *r.Video }) {
+			encodes = append(encodes, encode{video: *r.Video, release: r.Name})
 		}
 	}
 	slots := make(chan struct{}, runtime.NumCPU())

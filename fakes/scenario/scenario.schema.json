@@ -1784,6 +1784,86 @@
               "seconds"
             ]
           },
+          "files": {
+            "items": {
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "items": {
+                  "items": {
+                    "properties": {
+                      "season": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "episode": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "additionalProperties": false,
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "video": {
+                  "properties": {
+                    "width": {
+                      "type": "integer",
+                      "multipleOf": 2,
+                      "maximum": 7680,
+                      "minimum": 64
+                    },
+                    "height": {
+                      "type": "integer",
+                      "multipleOf": 2,
+                      "maximum": 4320,
+                      "minimum": 64
+                    },
+                    "seconds": {
+                      "type": "integer",
+                      "maximum": 10,
+                      "minimum": 1
+                    },
+                    "hdr": {
+                      "type": "string",
+                      "enum": [
+                        "sdr",
+                        "hdr10",
+                        "hdr10plus",
+                        "hlg",
+                        "dv5",
+                        "dv8"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "width",
+                    "height",
+                    "seconds",
+                    "hdr"
+                  ]
+                },
+                "unreadable": {
+                  "type": "boolean"
+                },
+                "size": {
+                  "type": "string",
+                  "pattern": "^\\d+(\\.\\d+)?(TiB|GiB|MiB|KiB|B)$"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "path",
+                "size"
+              ]
+            },
+            "type": "array"
+          },
           "seeders": {
             "type": "integer",
             "minimum": 0
@@ -1846,8 +1926,7 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "name",
-          "video"
+          "name"
         ]
       },
       "type": "array"
@@ -2294,6 +2373,21 @@
             "cadence": {
               "type": "string",
               "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "importing": {
+          "properties": {
+            "smallest_video_file": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?(TiB|GiB|MiB|KiB|B)$"
+            },
+            "sample_shorter_than": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 0
             }
           },
           "additionalProperties": false,
