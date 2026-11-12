@@ -181,6 +181,7 @@ func TestBuildLaysAReleaseOfFilesOutUnderItsFolder(t *testing.T) {
 	s := scenario.Scenario{Seed: "pack", Releases: []scenario.Release{{
 		Name: "Lantern.S01", TVDB: &scenario.ReleaseEpisode{Series: 1001, Season: 1}, Seeded: true, Files: []scenario.ReleaseFile{
 			{Path: "Lantern.S01E01.mkv", Items: []scenario.TVDBNumber{{Season: 1, Episode: 1}}, Video: episode, Size: 1 << 20},
+			{Path: "Lantern.S01E02.mkv", Items: []scenario.TVDBNumber{{Season: 1, Episode: 2}}, Video: episode, Size: 1 << 20},
 			{Path: "Sample/lantern.sample.mkv", Unreadable: true, Size: 2048},
 			{Path: "Lantern.nfo", Size: 120},
 		},
@@ -195,7 +196,7 @@ func TestBuildLaysAReleaseOfFilesOutUnderItsFolder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m.Info.Name != "Lantern.S01" || len(m.Info.Files) != 3 || len(r.Files) != 3 {
+	if m.Info.Name != "Lantern.S01" || len(m.Info.Files) != 4 || len(r.Files) != 4 {
 		t.Fatalf("metainfo %s lists %+v, and the release %+v", m.Info.Name, m.Info.Files, r.Files)
 	}
 	var payload []byte
@@ -213,7 +214,10 @@ func TestBuildLaysAReleaseOfFilesOutUnderItsFolder(t *testing.T) {
 	if string(payload[:4]) != "\x1a\x45\xdf\xa3" {
 		t.Errorf("the episode starts %x, want Matroska", payload[:4])
 	}
-	if want := slices.Concat(releases.Filler("Lantern.S01/Sample/lantern.sample.mkv", 2048), releases.Filler("Lantern.S01/Lantern.nfo", 120)); !bytes.Equal(payload[r.Files[0].Size:], want) {
+	if r.Files[0].BLAKE3 == r.Files[1].BLAKE3 {
+		t.Error("two episodes of one video are byte for byte the same file")
+	}
+	if want := slices.Concat(releases.Filler("Lantern.S01/Sample/lantern.sample.mkv", 2048), releases.Filler("Lantern.S01/Lantern.nfo", 120)); !bytes.Equal(payload[r.Files[0].Size+r.Files[1].Size:], want) {
 		t.Error("the unreadable sample and the nfo aren't Filler's bytes")
 	}
 	if r.Size != int64(len(payload)) || r.BLAKE3 != blake3.Sum256(payload) {

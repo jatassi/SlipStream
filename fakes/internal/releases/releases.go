@@ -285,12 +285,12 @@ func place(ctx context.Context, dir string, media *mediafix.Builder, cached map[
 }
 
 // fileBytes are the bytes of the file f, at in its torrent: media's
-// encode of a video, else Filler's.
+// encode of a video, distinct by at, else Filler's.
 func fileBytes(ctx context.Context, media *mediafix.Builder, at string, f scenario.ReleaseFile) (io.ReadCloser, error) {
 	if f.Video == nil {
 		return io.NopCloser(bytes.NewReader(Filler(at, int64(f.Size)))), nil
 	}
-	built, err := media.Build(ctx, f.Media())
+	built, err := media.BuildDistinct(ctx, f.Media(), at)
 	if err != nil {
 		return nil, err
 	}
