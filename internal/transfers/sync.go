@@ -112,7 +112,7 @@ func (t *Transfers) failed(ctx context.Context, tx *storage.Tx[storage.Library],
 		return err
 	}
 	position := -1
-	if p := int(f.GetPosition()); p < len(tr.Files) {
+	if p := int(f.GetPosition()); slices.ContainsFunc(tr.Files, func(f File) bool { return f.Position == p }) {
 		position = p
 	}
 	if err := t.fail(ctx, tx, tr, root.Node, code, position, f.GetDetail()); err != nil {

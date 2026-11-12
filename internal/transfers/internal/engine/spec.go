@@ -106,12 +106,18 @@ func parseAddresses(in []string) (link.Addresses, error) {
 }
 
 func parseSource(s *tv1.Source) (source.Ref, error) {
-	t := s.GetTorrent()
-	if t == nil {
-		return nil, errors.New("a source of no kind this build reads")
+	switch r := s.GetRef().(type) {
+	case *tv1.Source_Torrent:
+		t := r.Torrent
+		if len(t.GetInfoHash()) != len(bencode.InfoHash{}) {
+			return nil, fmt.Errorf("an info hash of %d bytes", len(t.GetInfoHash()))
+		}
+		return source.Torrent{Hash: bencode.InfoHash(t.GetInfoHash()), File: int(t.GetFileIndex())}, nil
+	case *tv1.Source_Path:
+		if r.Path.GetAbs() == "" {
+			return nil, errors.New("an empty source path")
+		}
+		return source.Path{Abs: r.Path.GetAbs()}, nil
 	}
-	if len(t.GetInfoHash()) != len(bencode.InfoHash{}) {
-		return nil, fmt.Errorf("an info hash of %d bytes", len(t.GetInfoHash()))
-	}
-	return source.Torrent{Hash: bencode.InfoHash(t.GetInfoHash()), File: int(t.GetFileIndex())}, nil
+	return nil, errors.New("a source of no kind this build reads")
 }

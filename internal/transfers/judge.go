@@ -385,9 +385,11 @@ func (s snapshot) peer(node role.NodeID) *tv1.Peer {
 }
 
 func sourceOf(ref source.Ref) *tv1.Source {
-	r, ok := ref.(source.Torrent)
-	if !ok {
-		panic("transfers: a source of no known kind")
+	switch r := ref.(type) {
+	case source.Torrent:
+		return &tv1.Source{Ref: &tv1.Source_Torrent{Torrent: &tv1.TorrentPayload{InfoHash: r.Hash[:], FileIndex: uint32(r.File)}}} //nolint:gosec // G115: a torrent's file index fits libtorrent's int
+	case source.Path:
+		return &tv1.Source{Ref: &tv1.Source_Path{Path: &tv1.PathSource{Abs: r.Abs}}}
 	}
-	return &tv1.Source{Ref: &tv1.Source_Torrent{Torrent: &tv1.TorrentPayload{InfoHash: r.Hash[:], FileIndex: uint32(r.File)}}} //nolint:gosec // G115: a torrent's file index fits libtorrent's int
+	panic("transfers: a source of no known kind")
 }

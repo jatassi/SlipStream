@@ -257,6 +257,20 @@ func TestATransferArrivesWholeOnEachRoute(t *testing.T) {
 	}
 }
 
+func TestAFileFromAPathArrivesWhole(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		_, w, _ := trio(t)
+		tr := newTransfer(t, w[0], w[1])
+		at := w[0].source(1)
+		w[0].sources.put(source.Path{Abs: at}, at, nil)
+		tr.files[1].Source = &tv1.Source{Ref: &tv1.Source_Path{Path: &tv1.PathSource{Abs: at}}}
+		w[0].start()
+		w[1].start()
+		tr.route(tv1.Route_ROUTE_RECEIVER_DIALS, 0)
+		tr.expectArrived()
+	})
+}
+
 func TestACutLaneResumesFromTheVerifiedChunks(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		_, w, nw := trio(t)

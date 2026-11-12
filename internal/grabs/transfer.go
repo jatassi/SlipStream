@@ -14,9 +14,9 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// startTransfer starts g's Transfer in tx: its planned file, from the Node
-// that downloaded it into its root. A Transfer that failed goes and a new
-// one starts, as when a re-home takes the root off the Node a Transfer
+// startTransfer makes g's Transfer want its planned file in tx, from the
+// Node that downloaded it into its root. A Transfer that failed goes and a
+// new one starts, as when a re-home takes the root off the Node a Transfer
 // was rerouted to.
 func (gr *Grabs) startTransfer(ctx context.Context, tx *storage.Tx[file], g Grab) error {
 	t, ok, err := gr.cfg.Transfers.Find(ctx, tx, transfers.Grab, g.ID.String())
@@ -24,7 +24,7 @@ func (gr *Grabs) startTransfer(ctx context.Context, tx *storage.Tx[file], g Grab
 		return err
 	}
 	if ok && t.Failure != nil {
-		if err := gr.cfg.Transfers.Cancel(ctx, tx, t.ID); err != nil {
+		if err := gr.cancelTransfer(ctx, tx, g.ID); err != nil {
 			return err
 		}
 	}
@@ -33,7 +33,7 @@ func (gr *Grabs) startTransfer(ctx context.Context, tx *storage.Tx[file], g Grab
 		return fmt.Errorf("grab %s: its torrent has no file %d", g.ID, g.Plan.FileIndex)
 	}
 	video := g.Torrent.Files[i]
-	_, err = gr.cfg.Transfers.Start(ctx, tx, transfers.Request{
+	_, err = gr.cfg.Transfers.Want(ctx, tx, transfers.Request{
 		Purpose:     transfers.Grab,
 		Job:         g.ID.String(),
 		Source:      g.Node,
@@ -48,13 +48,10 @@ func (gr *Grabs) startTransfer(ctx context.Context, tx *storage.Tx[file], g Grab
 	return err
 }
 
-// cancelTransfer cancels Grab id's Transfer in tx, if it has one.
+// cancelTransfer ends Grab id's Transfer in tx, if it has one.
 func (gr *Grabs) cancelTransfer(ctx context.Context, tx *storage.Tx[file], id GrabID) error {
-	t, ok, err := gr.cfg.Transfers.Find(ctx, tx, transfers.Grab, id.String())
-	if err != nil || !ok {
-		return err
-	}
-	return gr.cfg.Transfers.Cancel(ctx, tx, t.ID)
+	_, err := gr.cfg.Transfers.Want(ctx, tx, transfers.Request{Purpose: transfers.Grab, Job: id.String()})
+	return err
 }
 
 // transferVerified is the Verified hook: a transferring Grab whose file

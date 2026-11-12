@@ -83,7 +83,14 @@ message File {
 message Source {
   oneof ref {
     TorrentPayload torrent = 1;
+    PathSource path = 2;
   }
+}
+
+// PathSource is a file at an absolute path on the sender, which it opens
+// only inside its library roots and download folders.
+message PathSource {
+  string abs = 1;
 }
 
 message TorrentPayload {
