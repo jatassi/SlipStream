@@ -322,13 +322,20 @@ func (d *disk) ReadDir(ctx context.Context, dir string) ([]storing.Entry, error)
 
 func (d *disk) Mkdir(ctx context.Context, path string) error {
 	pl, err := d.write(ctx, "mkdir", path)
-	if err == nil && pl.full {
+	if err == nil && pl.full && !d.exists(ctx, path) {
 		err = failed("mkdir", path, storing.ErrNoSpace)
 	}
 	if err != nil {
 		return err
 	}
 	return d.base.Mkdir(ctx, d.at(ctx, path))
+}
+
+// exists reports whether path is there, as a mkdir on a full volume
+// fails with exists before it needs any space.
+func (d *disk) exists(ctx context.Context, path string) bool {
+	_, err := d.base.Stat(ctx, d.at(ctx, path))
+	return err == nil
 }
 
 func (d *disk) Open(ctx context.Context, path string) (io.ReadCloser, error) {

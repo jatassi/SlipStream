@@ -281,6 +281,9 @@ func playsVolumeAndFull(t *testing.T) {
 	if err := c.d.Mkdir(c.ctx, filepath.Join(c.folder, "season")); !storing.NoSpace(err) {
 		t.Fatalf("Mkdir on a full volume = %v, want no space", err)
 	}
+	if err := c.d.Mkdir(c.ctx, c.folder); !errors.Is(err, fs.ErrExist) {
+		t.Fatalf("Mkdir of a folder there on a full volume = %v, want exists", err)
+	}
 	lift()
 	if err := c.d.Mkdir(c.ctx, filepath.Join(c.folder, "season")); err != nil {
 		t.Fatalf("Mkdir once the volume has room = %v", err)
