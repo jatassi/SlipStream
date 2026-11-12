@@ -2951,6 +2951,7 @@ export const GrabsLiftKey = zod.object({
     "size_below",
     "size_above",
     "score_below_minimum",
+    "not_an_upgrade",
     "repack_other_group",
   ]),
   targetId: zod.uuid().exactOptional().describe("Absent for wrong_title"),

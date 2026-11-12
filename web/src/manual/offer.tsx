@@ -1,10 +1,23 @@
-import type { GrabsOffer } from "../api/gen/model";
+import { use } from "react";
+
+import type { GrabsOffer, GrabsWordedReason } from "../api/gen/model";
 import { Button } from "../ui/button";
 import { Details } from "../ui/details";
 import type { Grabbing } from "./grabbing";
 import { Overrides, ReleaseName, Result } from "./parts";
 import { pickOf } from "./picks";
+import { ReadingContext } from "./reading";
 import { ReleaseDetails } from "./release-details";
+
+/** "Grab for 1080p" when the Grab replaces a file it isn't better than, else "Grab". */
+function grabWords(
+  lifts: readonly GrabsWordedReason[],
+  targets: ReadonlyMap<string, string>,
+): string {
+  const forced = lifts.find(({ code }) => code === "not_an_upgrade");
+  const name = forced?.targetId === undefined ? undefined : targets.get(forced.targetId);
+  return name === undefined ? "Grab" : `Grab for ${name}`;
+}
 
 /**
  * One Release of All Releases: what a Grab of it alone gets, or why it
@@ -12,6 +25,7 @@ import { ReleaseDetails } from "./release-details";
  */
 export function Offer({ offer, grab }: { offer: GrabsOffer; grab: Grabbing }) {
   const { release } = offer;
+  const { targets } = use(ReadingContext);
   const key = `release:${release.id}`;
   const result = grab.results.get(key);
   const send = (cancelGrabId?: string) => {
@@ -37,7 +51,9 @@ export function Offer({ offer, grab }: { offer: GrabsOffer; grab: Grabbing }) {
               send();
             }}
           >
-            {release.blocked === null ? "Grab" : "Remove from Blocklist and grab"}
+            {release.blocked === null
+              ? grabWords(offer.grab.lifts, targets)
+              : "Remove from Blocklist and grab"}
           </Button>
         )
       ) : (
