@@ -191,12 +191,13 @@ type Contents interface {
 	ForgetGoneOf(ctx context.Context, tx *storage.Tx[file], work works.WorkID) error
 }
 
-// Inflight is what grabs knows about roots. grabs.RootGrabs implements it.
+// Inflight is what imports knows about roots. imports.RootImports
+// implements it.
 type Inflight interface {
-	// Into counts the unfinished Grabs of ws, or planned into root.
+	// Into counts the unfinished Imports of ws, or into root.
 	Into(ctx context.Context, r storage.Reader[file], root ID, ws []works.WorkID) (int64, error)
-	// Release unties root's finished Grabs from it, so it can go and they
-	// stay.
+	// Release unties root's finished Imports from it, so it can go and
+	// they stay.
 	Release(ctx context.Context, tx *storage.Tx[file], root ID) error
 }
 

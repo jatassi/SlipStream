@@ -94,19 +94,20 @@ func (q *Queries) CountNeedsYouByRoot(ctx context.Context) ([]CountNeedsYouByRoo
 const countUnfinishedInto = `-- name: CountUnfinishedInto :one
 SELECT count(*) FROM imports_import i
 WHERE i.finished_at IS NULL AND (
-    i.source <> 'root' AND (i.work_id IN (/*SLICE:work_ids*/?) OR EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.root_id = ?2))
-    OR i.source = 'root' AND i.root_id = ?2 AND EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.outcome IN ('pending', 'placing'))
+    i.source = 'root' AND i.root_id = ?1 AND EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.outcome IN ('pending', 'placing'))
+    OR i.source <> 'root' AND (EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.root_id = ?1) OR i.work_id IN (/*SLICE:work_ids*/?))
 )
 `
 
 type CountUnfinishedIntoParams struct {
-	WorkIds []works.WorkID
 	RootID  roots.ID
+	WorkIds []works.WorkID
 }
 
 func (q *Queries) CountUnfinishedInto(ctx context.Context, arg CountUnfinishedIntoParams) (int64, error) {
 	query := countUnfinishedInto
 	var queryParams []interface{}
+	queryParams = append(queryParams, arg.RootID)
 	if len(arg.WorkIds) > 0 {
 		for _, v := range arg.WorkIds {
 			queryParams = append(queryParams, v)
@@ -115,7 +116,6 @@ func (q *Queries) CountUnfinishedInto(ctx context.Context, arg CountUnfinishedIn
 	} else {
 		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
 	}
-	queryParams = append(queryParams, arg.RootID)
 	row := q.db.QueryRowContext(ctx, query, queryParams...)
 	var count int64
 	err := row.Scan(&count)
@@ -534,15 +534,15 @@ const listBusy = `-- name: ListBusy :many
 SELECT DISTINCT fi.item_id, f.import_id FROM imports_file_item fi
 JOIN imports_file f ON f.import_id = fi.import_id AND f.position = fi.position
 JOIN imports_import i ON i.id = f.import_id
-WHERE i.finished_at IS NULL AND i.work_id IS NOT NULL AND fi.item_id IN (/*SLICE:item_ids*/?) AND f.import_id <> ?2
-  AND (f.outcome IN ('sending', 'placing') OR (f.outcome = 'pending' AND i.created_at < ?3))
+WHERE i.finished_at IS NULL AND i.work_id IS NOT NULL AND f.import_id <> ?1
+  AND (f.outcome IN ('sending', 'placing') OR (f.outcome = 'pending' AND i.created_at < ?2)) AND fi.item_id IN (/*SLICE:item_ids*/?)
 ORDER BY fi.item_id, f.import_id
 `
 
 type ListBusyParams struct {
-	ItemIds []works.ItemID
 	Except  ImportID
 	Created storage.Time
+	ItemIds []works.ItemID
 }
 
 type ListBusyRow struct {
@@ -553,6 +553,8 @@ type ListBusyRow struct {
 func (q *Queries) ListBusy(ctx context.Context, arg ListBusyParams) ([]ListBusyRow, error) {
 	query := listBusy
 	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Except)
+	queryParams = append(queryParams, arg.Created)
 	if len(arg.ItemIds) > 0 {
 		for _, v := range arg.ItemIds {
 			queryParams = append(queryParams, v)
@@ -561,8 +563,6 @@ func (q *Queries) ListBusy(ctx context.Context, arg ListBusyParams) ([]ListBusyR
 	} else {
 		query = strings.Replace(query, "/*SLICE:item_ids*/?", "NULL", 1)
 	}
-	queryParams = append(queryParams, arg.Except)
-	queryParams = append(queryParams, arg.Created)
 	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err

@@ -129,8 +129,8 @@ DELETE FROM imports_file_fill WHERE import_id = ? AND position = ?;
 SELECT DISTINCT fi.item_id, f.import_id FROM imports_file_item fi
 JOIN imports_file f ON f.import_id = fi.import_id AND f.position = fi.position
 JOIN imports_import i ON i.id = f.import_id
-WHERE i.finished_at IS NULL AND i.work_id IS NOT NULL AND fi.item_id IN (sqlc.slice(item_ids)) AND f.import_id <> sqlc.arg(except)
-  AND (f.outcome IN ('sending', 'placing') OR (f.outcome = 'pending' AND i.created_at < sqlc.arg(created)))
+WHERE i.finished_at IS NULL AND i.work_id IS NOT NULL AND f.import_id <> sqlc.arg(except)
+  AND (f.outcome IN ('sending', 'placing') OR (f.outcome = 'pending' AND i.created_at < sqlc.arg(created))) AND fi.item_id IN (sqlc.slice(item_ids))
 ORDER BY fi.item_id, f.import_id;
 
 -- name: ListImporting :many
@@ -162,8 +162,8 @@ SELECT id FROM imports_import WHERE finished_at IS NULL AND work_id IN (sqlc.sli
 -- name: CountUnfinishedInto :one
 SELECT count(*) FROM imports_import i
 WHERE i.finished_at IS NULL AND (
-    i.source <> 'root' AND (i.work_id IN (sqlc.slice(work_ids)) OR EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.root_id = sqlc.arg(root_id)))
-    OR i.source = 'root' AND i.root_id = sqlc.arg(root_id) AND EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.outcome IN ('pending', 'placing'))
+    i.source = 'root' AND i.root_id = sqlc.arg(root_id) AND EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.outcome IN ('pending', 'placing'))
+    OR i.source <> 'root' AND (EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.root_id = sqlc.arg(root_id)) OR i.work_id IN (sqlc.slice(work_ids)))
 );
 
 -- name: ForgetRoot :exec
