@@ -33,6 +33,8 @@ const (
 	Settings         ReasonCode = "settings"
 	Busy             ReasonCode = "busy"
 	Confirm          ReasonCode = "confirm"
+	NoMatch          ReasonCode = "no_match"
+	NoRule           ReasonCode = "no_rule"
 	Unreadable       ReasonCode = "unreadable"
 	ImportFail       ReasonCode = "import_failed"
 	RootChanged      ReasonCode = "root_changed"

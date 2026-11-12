@@ -127,7 +127,7 @@ func (im *Imports) plan(ctx context.Context, r storage.Reader[file], imp Import,
 }
 
 // step is f's next IO: its probe while pending unread, its place while
-// placing. A hold the Admin must answer has none.
+// placing, and its source's removal once it is placed by a move. A hold the Admin must answer has none.
 func (im *Imports) step(imp Import, f File) func(context.Context) error {
 	switch {
 	case f.Hold != nil && f.Hold.offered():
@@ -136,6 +136,8 @@ func (im *Imports) step(imp Import, f File) func(context.Context) error {
 		return func(ctx context.Context) error { return im.probeFile(ctx, imp, f) }
 	case f.Outcome == Placing:
 		return func(ctx context.Context) error { return im.place(ctx, imp, f) }
+	case f.sourceDue():
+		return func(ctx context.Context) error { return im.removeSource(ctx, imp, f) }
 	}
 	return nil
 }
@@ -162,6 +164,11 @@ func busyFreed(ctx context.Context, r storage.Reader[file], imp Import) (bool, e
 		}
 	}
 	return false, nil
+}
+
+// sourceDue reports a file placed by a move whose source is still there.
+func (f *File) sourceDue() bool {
+	return f.Outcome == Placed && f.PlacedBy == ByMove && f.SourceRemoved.IsZero()
 }
 
 func (f *File) busy() bool { return f.Outcome == Waiting && f.Reason != nil && f.Reason.Code == Busy }

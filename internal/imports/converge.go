@@ -77,7 +77,7 @@ func (im *Imports) writeIn(ctx context.Context, tx *storage.Tx[file], id ImportI
 
 // converge brings everything derived from imp's rows into line in tx: a
 // busy file back to pending once its Items are free, the decision once the
-// barrier is met, the release faults and finished_at.
+// barrier is met, a download's release faults and finished_at.
 // Running it twice changes nothing.
 func (im *Imports) converge(ctx context.Context, tx *storage.Tx[file], imp *Import) error {
 	if err := unbusy(ctx, tx, imp); err != nil {
@@ -88,7 +88,7 @@ func (im *Imports) converge(ctx context.Context, tx *storage.Tx[file], imp *Impo
 			return err
 		}
 	}
-	if imp.Source != FromRoot {
+	if imp.Source == FromGrab {
 		rules, err := RulesIn(ctx, tx)
 		if err != nil {
 			return err
@@ -143,14 +143,15 @@ func (im Import) othersFill(batch []int) bool {
 	return false
 }
 
-// finishIfFinal finishes im once a fault failed it or each file is final.
+// finishIfFinal finishes im once a fault failed it or each file is final
+// and each moved file's source is gone.
 // A root Import left with no files has no history to keep, and save
 // deletes it.
 func finishIfFinal(im *Import, now storage.Time) {
 	if !im.Finished.IsZero() || len(im.Files) == 0 {
 		return
 	}
-	if im.Failure != nil || !slices.ContainsFunc(im.Files, func(f File) bool { return !f.Outcome.Final() }) {
+	if im.Failure != nil || !slices.ContainsFunc(im.Files, func(f File) bool { return !f.Outcome.Final() || f.sourceDue() }) {
 		im.Finished = now
 	}
 }

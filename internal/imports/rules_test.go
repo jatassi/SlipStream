@@ -154,7 +154,7 @@ func TestNotThisReleaseIsOfferedOnlyOnAGrabsImport(t *testing.T) {
 	f := File{Outcome: Waiting, Reason: &Reason{Code: NotAnUpgrade}}
 	for src, want := range map[Source][]ActionKind{
 		FromGrab:   {ActForce, ActNotThisRelease},
-		FromFolder: {ActForce},
+		FromFolder: {ActForce, ActMatch},
 		FromRoot:   {ActForce},
 	} {
 		if _, also := f.Actions(Import{Source: src}); !slices.Equal(also, want) {

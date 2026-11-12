@@ -1,6 +1,13 @@
 -- name: GetImport :one
 SELECT * FROM imports_import WHERE id = ?;
 
+-- name: ListOpenFolderImports :many
+SELECT * FROM imports_import WHERE source = 'folder' AND node_id = ? AND folder = ? AND finished_at IS NULL ORDER BY id;
+
+-- name: GetOpenFolderImport :one
+SELECT * FROM imports_import
+WHERE source = 'folder' AND node_id = ? AND folder = ? AND finished_at IS NULL AND work_id IS ? AND edition IS ?;
+
 -- name: GetRootImportAt :one
 SELECT * FROM imports_import WHERE source = 'root' AND root_id = ? AND folder = ? AND finished_at IS NULL;
 
@@ -35,8 +42,8 @@ DELETE FROM imports_import WHERE id = ?;
 -- name: InsertFile :exec
 INSERT INTO imports_file (import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut,
                           release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order,
-                          placed_by, file_id, source_removed_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                          placed_by, file_id, source_removed_at, seeded)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: SetFile :execrows
 UPDATE imports_file SET outcome = sqlc.arg(outcome), reason = sqlc.arg(reason), hold = sqlc.arg(hold), confirmed = sqlc.arg(confirmed),

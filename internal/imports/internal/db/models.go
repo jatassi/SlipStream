@@ -42,6 +42,7 @@ type ImportsFile struct {
 	PlacedBy        *string
 	FileID          files.ID
 	SourceRemovedAt storage.Time
+	Seeded          int64
 }
 
 type ImportsFileFill struct {

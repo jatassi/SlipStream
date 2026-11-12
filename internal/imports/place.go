@@ -72,7 +72,11 @@ func (im *Imports) place(ctx context.Context, imp Import, f File) error {
 		})
 		return werr
 	}
-	return im.land(ctx, imp, f, placed.Seen, PlacedBy(placed.Step.String()))
+	by := PlacedBy(placed.Step.String())
+	if imp.MoveFiles {
+		by = ByMove
+	}
+	return im.land(ctx, imp, f, placed.Seen, by)
 }
 
 // holdOrFail makes a place's error an import wait, which retries, or for

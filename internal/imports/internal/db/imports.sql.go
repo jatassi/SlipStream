@@ -235,6 +235,49 @@ func (q *Queries) GetImport(ctx context.Context, id ImportID) (ImportsImport, er
 	return i, err
 }
 
+const getOpenFolderImport = `-- name: GetOpenFolderImport :one
+SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import
+WHERE source = 'folder' AND node_id = ? AND folder = ? AND finished_at IS NULL AND work_id IS ? AND edition IS ?
+`
+
+type GetOpenFolderImportParams struct {
+	NodeID  role.NodeID
+	Folder  *string
+	WorkID  works.WorkID
+	Edition *release.CutKey
+}
+
+func (q *Queries) GetOpenFolderImport(ctx context.Context, arg GetOpenFolderImportParams) (ImportsImport, error) {
+	row := q.db.QueryRowContext(ctx, getOpenFolderImport,
+		arg.NodeID,
+		arg.Folder,
+		arg.WorkID,
+		arg.Edition,
+	)
+	var i ImportsImport
+	err := row.Scan(
+		&i.ID,
+		&i.Source,
+		&i.GrabID,
+		&i.NodeID,
+		&i.InfoHash,
+		&i.RootID,
+		&i.Folder,
+		&i.ContentType,
+		&i.Hint,
+		&i.Suggestion,
+		&i.WorkID,
+		&i.Edition,
+		&i.MoveFiles,
+		&i.FailureCode,
+		&i.Ended,
+		&i.CreatedAt,
+		&i.IgnoredAt,
+		&i.FinishedAt,
+	)
+	return i, err
+}
+
 const getRootImportAt = `-- name: GetRootImportAt :one
 SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import WHERE source = 'root' AND root_id = ? AND folder = ? AND finished_at IS NULL
 `
@@ -316,8 +359,8 @@ func (q *Queries) Ignore(ctx context.Context, arg IgnoreParams) error {
 const insertFile = `-- name: InsertFile :exec
 INSERT INTO imports_file (import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut,
                           release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order,
-                          placed_by, file_id, source_removed_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                          placed_by, file_id, source_removed_at, seeded)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertFileParams struct {
@@ -345,6 +388,7 @@ type InsertFileParams struct {
 	PlacedBy        *string
 	FileID          files.ID
 	SourceRemovedAt storage.Time
+	Seeded          int64
 }
 
 func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
@@ -373,6 +417,7 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
 		arg.PlacedBy,
 		arg.FileID,
 		arg.SourceRemovedAt,
+		arg.Seeded,
 	)
 	return err
 }
@@ -673,7 +718,7 @@ func (q *Queries) ListFileItemsOf(ctx context.Context, importID ImportID) ([]Imp
 }
 
 const listFiles = `-- name: ListFiles :many
-SELECT import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut, release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order, placed_by, file_id, source_removed_at FROM imports_file ORDER BY import_id, position
+SELECT import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut, release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order, placed_by, file_id, source_removed_at, seeded FROM imports_file ORDER BY import_id, position
 `
 
 func (q *Queries) ListFiles(ctx context.Context) ([]ImportsFile, error) {
@@ -710,6 +755,7 @@ func (q *Queries) ListFiles(ctx context.Context) ([]ImportsFile, error) {
 			&i.PlacedBy,
 			&i.FileID,
 			&i.SourceRemovedAt,
+			&i.Seeded,
 		); err != nil {
 			return nil, err
 		}
@@ -725,7 +771,7 @@ func (q *Queries) ListFiles(ctx context.Context) ([]ImportsFile, error) {
 }
 
 const listFilesOf = `-- name: ListFilesOf :many
-SELECT import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut, release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order, placed_by, file_id, source_removed_at FROM imports_file WHERE import_id = ? ORDER BY position
+SELECT import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut, release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order, placed_by, file_id, source_removed_at, seeded FROM imports_file WHERE import_id = ? ORDER BY position
 `
 
 func (q *Queries) ListFilesOf(ctx context.Context, importID ImportID) ([]ImportsFile, error) {
@@ -762,6 +808,7 @@ func (q *Queries) ListFilesOf(ctx context.Context, importID ImportID) ([]Imports
 			&i.PlacedBy,
 			&i.FileID,
 			&i.SourceRemovedAt,
+			&i.Seeded,
 		); err != nil {
 			return nil, err
 		}
@@ -913,6 +960,57 @@ func (q *Queries) ListImporting(ctx context.Context, itemIds []works.ItemID) ([]
 	for rows.Next() {
 		var i ListImportingRow
 		if err := rows.Scan(&i.ItemID, &i.ImportID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOpenFolderImports = `-- name: ListOpenFolderImports :many
+SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import WHERE source = 'folder' AND node_id = ? AND folder = ? AND finished_at IS NULL ORDER BY id
+`
+
+type ListOpenFolderImportsParams struct {
+	NodeID role.NodeID
+	Folder *string
+}
+
+func (q *Queries) ListOpenFolderImports(ctx context.Context, arg ListOpenFolderImportsParams) ([]ImportsImport, error) {
+	rows, err := q.db.QueryContext(ctx, listOpenFolderImports, arg.NodeID, arg.Folder)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportsImport
+	for rows.Next() {
+		var i ImportsImport
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.GrabID,
+			&i.NodeID,
+			&i.InfoHash,
+			&i.RootID,
+			&i.Folder,
+			&i.ContentType,
+			&i.Hint,
+			&i.Suggestion,
+			&i.WorkID,
+			&i.Edition,
+			&i.MoveFiles,
+			&i.FailureCode,
+			&i.Ended,
+			&i.CreatedAt,
+			&i.IgnoredAt,
+			&i.FinishedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

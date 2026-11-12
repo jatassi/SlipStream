@@ -3,6 +3,7 @@ package importsapi_test
 import (
 	"encoding/json"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -13,10 +14,7 @@ func TestUnbuiltOperationsAnswer501(t *testing.T) {
 	s := serve(t)
 	id := storage.NewUUID().String()
 	for _, op := range []struct{ method, path, body string }{
-		{http.MethodPost, "/imports", `{"nodeId":"` + id + `","folder":"/downloads/Heat"}`},
-		{http.MethodPost, "/imports/" + id + "/files/0", `{"action":"confirm"}`},
-		{http.MethodPost, "/imports/confirm", `{"importIds":["` + id + `"]}`},
-		{http.MethodPost, "/imports/move-files", `{"importIds":["` + id + `"],"on":true}`},
+		{http.MethodPost, "/imports/" + id + "/files/0", `{"action":"notThisRelease"}`},
 	} {
 		code, reply := s.Call(t, op.method, "/api/v1"+op.path, op.body)
 		if code != http.StatusNotImplemented || !strings.Contains(reply, `"code":"import_not_built"`) {
@@ -60,4 +58,17 @@ func TestListImportsPagesThroughTheWaitingImports(t *testing.T) {
 	}
 	s.Expect(t, http.MethodGet, "/api/v1/imports?after="+storage.NewUUID().String(), "", http.StatusConflict,
 		`{"status":409,"code":"import_list_moved","title":"The Import the last page ended at is no longer listed. List again from the first page."}`)
+}
+
+func TestImportFolderRefusesAFolderOutsideTheNodesRootsAndDownloadFolders(t *testing.T) {
+	s := serve(t)
+	s.Expect(t, http.MethodPost, "/api/v1/imports", `{"nodeId":"`+s.node.String()+`","folder":"`+filepath.ToSlash(t.TempDir())+`"}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"import_outside","title":"The folder isn't in one of the Node's library roots or download folders"}`)
+}
+
+func TestAFileActionItsRowDoesntOfferIsRefused(t *testing.T) {
+	s := serve(t)
+	id := s.pend(t, "Heat (1995)", nil, false, noMatch("Heat (1995)/a.mkv"))
+	s.Expect(t, http.MethodPost, "/api/v1/imports/"+id+"/files/0", `{"action":"confirm"}`, http.StatusConflict,
+		`{"status":409,"code":"import_not_offered","title":"The file doesn't offer that action now. Get the Import again to see what it offers."}`)
 }

@@ -104,25 +104,50 @@ func Root(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, t w
 // as lib records them now and has adopted each. Make the roots first.
 func Held(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, payloads storing.Payloads, types ...works.TypeID) *roots.Roots {
 	tb.Helper()
-	return held(tb, lib, node, payloads, false, types)
+	return held(tb, lib, node, On{Payloads: payloads}, false, types)
 }
 
 // Draining is Held while node drains Storage.
 func Draining(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, payloads storing.Payloads, types ...works.TypeID) *roots.Roots {
 	tb.Helper()
-	return held(tb, lib, node, payloads, true, types)
+	return held(tb, lib, node, On{Payloads: payloads}, true, types)
 }
 
-func held(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, payloads storing.Payloads, draining bool, types []works.TypeID) *roots.Roots {
+// On is what HeldOn's Store runs on: its disk, the OS disk when nil, its
+// download folders, a fresh one when nil, and where each file of its
+// clients' torrents lies.
+type On struct {
+	Disk      storing.Disk
+	Payloads  storing.Payloads
+	Downloads []string
+	Torrents  []string
+}
+
+// HeldOn is Held on a Store set up as on says.
+func HeldOn(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, on On, types ...works.TypeID) *roots.Roots {
 	tb.Helper()
-	disk, err := storing.NewOSDisk(tb.TempDir())
-	if err != nil {
-		tb.Fatal(err)
+	return held(tb, lib, node, on, false, types)
+}
+
+func held(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, on On, draining bool, types []works.TypeID) *roots.Roots {
+	tb.Helper()
+	if on.Disk == nil {
+		disk, err := storing.NewOSDisk(tb.TempDir())
+		if err != nil {
+			tb.Fatal(err)
+		}
+		on.Disk = disk
 	}
-	downloads := []string{tb.TempDir()}
-	store := storing.NewStore(storing.Config{Disk: disk, Payloads: payloads, Downloads: func() []string { return downloads }, Timings: storing.Timings{Stat: 10 * time.Second}})
+	if on.Downloads == nil {
+		on.Downloads = []string{tb.TempDir()}
+	}
+	store := storing.NewStore(storing.Config{
+		Disk: on.Disk, Payloads: on.Payloads, Downloads: func() []string { return on.Downloads }, Torrents: func() []string { return on.Torrents },
+		Timings: storing.Timings{Stat: 10 * time.Second},
+	})
 	var intent *storagev1.Intent
-	err = lib.Read(tb.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+	err := lib.Read(tb.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
 		intent, err = roots.StorageIntent(files.RootContents{})(ctx, r, node)
 		return err
 	})

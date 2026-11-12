@@ -41,7 +41,7 @@ func (t Time) MarshalText() ([]byte, error) {
 	if t.IsZero() {
 		return []byte{}, nil
 	}
-	return t.t.MarshalText()
+	return []byte(t.t.Format(time.RFC3339Nano)), nil
 }
 
 func (t *Time) UnmarshalText(b []byte) error {
