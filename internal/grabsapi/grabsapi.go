@@ -340,6 +340,13 @@ type grabImport struct {
 	Words   string `json:"words" doc:"Its progress in words, such as Importing 6 of 10 episodes"`
 }
 
+func importOf(im *grabs.ImportView) api.Nullable[grabImport] {
+	if im == nil {
+		return api.Nullable[grabImport]{}
+	}
+	return api.Some(grabImport{ID: im.ID.String(), Placed: im.Placed, Planned: im.Planned, Sending: im.Sending, Waiting: im.Waiting, Words: im.Words})
+}
+
 type grabTarget struct {
 	TargetID string               `json:"targetId" format:"uuid"`
 	ItemID   string               `json:"itemId" format:"uuid"`
@@ -358,7 +365,7 @@ func grabOf(v grabs.View) grab {
 		ID: v.ID.String(), WorkID: v.WorkID.String(), Edition: string(v.Edition), TargetIDs: []string{},
 		Items: []string{}, Targets: []grabTarget{}, ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseWords, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
 		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), InFlight: v.Stage.InFlight(), History: []entered{}, CreatedAt: v.Created,
-		Source: string(v.Source), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...),
+		Source: string(v.Source), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...), Import: importOf(v.Import),
 		Actions: grabActions{Cancel: v.Actions.Cancel, Blocklistable: v.Actions.Blocklist, SendTo: v.Actions.SendTo},
 	}
 	if v.By != nil {
