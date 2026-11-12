@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/fault"
+	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
@@ -21,6 +22,7 @@ const (
 	orchardTiny   = "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-TINY"
 	orchardBloat  = "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-BLOAT"
 	keepersE10    = "The.Lantern.Keepers.S02E10.1080p.WEB-DL.H264-NTb"
+	keepersPack   = "The.Lantern.Keepers.S02.1080p.WEB-DL.H264-FKW"
 )
 
 type liftKey struct {
@@ -113,7 +115,11 @@ type manualGrab struct {
 	ManualSearch *string  `json:"manualSearchId"`
 	Overrides    []string `json:"overrides"`
 	ReleaseTitle string   `json:"releaseTitle"`
-	Actions      struct {
+	Import       *struct {
+		Placed  int `json:"placed"`
+		Waiting int `json:"waiting"`
+	} `json:"import"`
+	Actions struct {
 		Blocklistable bool `json:"blocklistable"`
 	} `json:"actions"`
 }
@@ -272,6 +278,20 @@ func (w *manualWorld) imported(t *testing.T, id string) manualGrab {
 	return g
 }
 
+// rowImported waits for grab, the Grab of pick from Manual search id, to
+// import, placing a file for each of pick's cells with none left waiting.
+func (w *manualWorld) rowImported(t *testing.T, id, grab string, pick manualPick) {
+	t.Helper()
+	g := w.imported(t, grab)
+	if g.ReleaseTitle != pick.Release.Title || g.Source != "manual" || g.ManualSearch == nil || *g.ManualSearch != id ||
+		g.GrabbedBy == nil || *g.GrabbedBy != "the API key" || len(g.Overrides) != 0 {
+		t.Fatalf("the Grab %s is %+v, want %s from Manual search %s through the API key with no overrides", grab, g, pick.Release.Title, id)
+	}
+	if g.Import == nil || g.Import.Placed != len(pick.Cells) || g.Import.Waiting != 0 {
+		t.Fatalf("the Grab of %s imported %+v, want its %d cells placed and no file waiting", pick.Release.Title, g.Import, len(pick.Cells))
+	}
+}
+
 func (w *manualWorld) blocklist(t *testing.T) []blockRow {
 	t.Helper()
 	var page struct {
@@ -400,11 +420,14 @@ func TestTheManualPlanLeadsWithWhatAutomaticSearchGrabs(t *testing.T) {
 
 // TestGrabbingTheManualPlanImportsEachRow opens Manual search on E05 to
 // E09 of The Lantern Keepers and grabs every row of the plan in one press.
-// Only the season pack lists E09, so its row gets E09 and E10, and each
-// Grab imports and records the Manual search it came from.
+// Only the season pack lists E09, so its row gets E09 and E10. The pack's
+// swarm is held until the four episodes import, so its files for E01 to
+// E08 keep their files and only E09 and E10 land. Each Grab imports its
+// row's cells and records the Manual search it came from.
 func TestGrabbingTheManualPlanImportsEachRow(t *testing.T) {
 	t.Parallel()
 	w := launchManual(t)
+	w.setFault(t, fault.Rule{ID: "pack-hold", Target: tracker.SeedersTarget(keepersPack), Origin: "home"}, "stall")
 	var items []string
 	for _, key := range []string{"100125", "100126", "100127", "100128", "100129"} {
 		items = append(items, `"`+w.item(t, w.series, key)+`"`)
@@ -424,19 +447,20 @@ func TestGrabbingTheManualPlanImportsEachRow(t *testing.T) {
 		"The.Lantern.Keepers.S02E06.1080p.WEB-DL.H264-FKW: It gets you 1080p for E06.",
 		"The.Lantern.Keepers.S02E07.1080p.WEB-DL.H264-FKW: It gets you 1080p for E07.",
 		"The.Lantern.Keepers.S02E08.1080p.WEB-DL.H264-FKW: It gets you 1080p for E08.",
-		"The.Lantern.Keepers.S02.1080p.WEB-DL.H264-FKW: It gets you 1080p for E09 and E10. E01 to E04 keep their files.",
+		keepersPack + ": It gets you 1080p for E09 and E10. E01 to E04 keep their files.",
 	}
 	if v.Plan.Headline != "5 Grabs get you everything." || !slices.Equal(rows, want) {
 		t.Fatalf("the plan reads %q with rows\n%s\nwant\n%s", v.Plan.Headline, strings.Join(rows, "\n"), strings.Join(want, "\n"))
 	}
 	picks := v.picks()
-	for i, grab := range w.grabManual(t, w.series, id, false, picks...) {
-		g := w.imported(t, grab)
-		if g.ReleaseTitle != picks[i].Release.Title || g.Source != "manual" || g.ManualSearch == nil || *g.ManualSearch != id ||
-			g.GrabbedBy == nil || *g.GrabbedBy != "the API key" || len(g.Overrides) != 0 {
-			t.Fatalf("the Grab of row %d is %+v, want %s from Manual search %s through the API key with no overrides", i+1, g, picks[i].Release.Title, id)
-		}
+	grabs := w.grabManual(t, w.series, id, false, picks...)
+	for i, grab := range grabs[:4] {
+		w.rowImported(t, id, grab, picks[i])
 	}
+	if _, err := w.run.ClearFault(worldtest.Context(t), "pack-hold"); err != nil {
+		t.Fatal(err)
+	}
+	w.rowImported(t, id, grabs[4], picks[4])
 
 	id = w.open(t, w.work, "")
 	v = w.settled(t, w.work)
