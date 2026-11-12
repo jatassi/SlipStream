@@ -33,7 +33,7 @@ const tvdbKey = "fake-world-tvdb-key"
 // has a tvdb catalog, the Custom Formats, Targets and Profiles as goals
 // makes them, so a root's first scan adds Works under them, then each
 // root's folder under mediaDir and the root on its Node, which shares the
-// machine and so the media dir, then its seeding settings,
+// machine and so the media dir, then its seeding and Importing settings,
 // then each Node's Challenge solver at the address solvers names for it,
 // and each Node's Download Clients where clients says, and the Indexers on
 // the site fakes at sites, as an Admin would.
@@ -66,6 +66,9 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 			return err
 		}
 	}
+	if err := setImporting(ctx, c, controller, apiKey, s.Library.Importing); err != nil {
+		return err
+	}
 	for i, n := range s.Nodes {
 		if n.ChallengeSolver {
 			if err := nodeapi.SetChallengeSolver(ctx, c, controller, apiKey, claims.Members[i].ID, solvers[n.Name]); err != nil {
@@ -77,6 +80,13 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 		return err
 	}
 	return addIndexers(ctx, c, s, claims, controller, sites[site.Fake.Name])
+}
+
+// setImporting sets the Scenario's Importing settings on the Controller.
+// It sets nothing until S33 (Import pipeline) adds the Importing settings
+// route, whose PR sends them here.
+func setImporting(context.Context, *http.Client, string, string, scenario.LibraryImporting) error {
+	return nil
 }
 
 // Clients is where the Node named node reaches the fake Download Client of

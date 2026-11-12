@@ -143,7 +143,7 @@ func shelfSeries() *TVDB {
 
 func TestLoadRefusesANameOutsideTheCatalog(t *testing.T) {
 	_, err := Load("office")
-	if want := "scenario office is not in the catalog (catalog-sites, cgnat-home, external-clients, external-kinds, first-run, home, indexers, low-space, magnets, manual-search, movies, music, ported-sites, scale, seedbox-nas, seeding-routing, seeding, series-scale, series, serving, showcase, single-machine, sizes, targets, torrents)"; err == nil || err.Error() != want {
+	if want := "scenario office is not in the catalog (catalog-sites, cgnat-home, external-clients, external-kinds, first-run, home, indexers, low-space, magnets, manual-search, movies, music, packs, ported-sites, scale, seedbox-nas, seeding-routing, seeding, series-scale, series, serving, showcase, single-machine, sizes, targets, torrents)"; err == nil || err.Error() != want {
 		t.Fatalf("err = %v, want %s", err, want)
 	}
 }
