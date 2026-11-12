@@ -21,7 +21,7 @@ func TestAProbeTimesOutThenFailsThenReads(t *testing.T) {
 		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), probes.Option())
 		work := simtest.AddOrchard(t, w)
 		seen := map[string]bool{}
-		for _, want := range []string{"run ffprobe: context deadline exceeded", "ffprobe can't read the file: Invalid data found when processing input"} {
+		for _, want := range []string{"reading the file timed out", "ffprobe can't read the file: Invalid data found when processing input"} {
 			simtest.Search(t, w, work)
 			g := awaitNew(t, w, seen)
 			expectFailed(t, g, "probing", "probe_failed", want)
