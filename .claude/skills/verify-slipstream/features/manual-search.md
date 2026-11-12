@@ -255,7 +255,7 @@ Steps:
 - After the Needs you search, LQ's WEB-DL is on the Blocklist too, so the 1080p row's Other choices has two `Remove from Blocklist and grab` buttons. Filter the list item by `Bluray-1080p`.
 - `Remove from Blocklist and grab` under a row's Other choices pins the Release. The `Grab N` button grabs it. The same button under All Releases grabs at once.
 - Torrents names each row by its Work, so two held torrents of The Quiet Orchard share `Pick The Quiet Orchard`. Cancel the LQ Grab before you mark the Bluray failed.
-- `manual-search` has one Node, so no Grab transfers. Cancel during a Transfer needs `seedbox-nas` ([transfers.md](transfers.md)). Cancel at probing or importing answers `grab_busy`.
+- `manual-search` has one Node, so no Grab transfers. Cancel during a Transfer needs `seedbox-nas` ([transfers.md](transfers.md)). Cancel at importing answers `grab_busy` while a file of its Import is placing.
 - Grabbing doesn't monitor an Item, and Manual search ignores monitoring and release dates, so an unmonitored Item still plans.
 - A Release on the Blocklist stays out of every plan and every automatic search until removed, whatever Work lists it.
 - The code says `canceled`, with one l, in the failure code, the toast and the Blocklist sentence.
