@@ -92,20 +92,21 @@ func (q *Queries) CountNeedsYouByRoot(ctx context.Context) ([]CountNeedsYouByRoo
 }
 
 const countUnfinishedInto = `-- name: CountUnfinishedInto :one
-SELECT count(DISTINCT i.id) FROM imports_import i
-WHERE i.finished_at IS NULL AND (i.root_id = ?1 OR i.work_id IN (/*SLICE:work_ids*/?)
-   OR EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.root_id = ?1))
+SELECT count(*) FROM imports_import i
+WHERE i.finished_at IS NULL AND (
+    i.source <> 'root' AND (i.work_id IN (/*SLICE:work_ids*/?) OR EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.root_id = ?2))
+    OR i.source = 'root' AND i.root_id = ?2 AND EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.outcome IN ('pending', 'placing'))
+)
 `
 
 type CountUnfinishedIntoParams struct {
-	RootID  roots.ID
 	WorkIds []works.WorkID
+	RootID  roots.ID
 }
 
 func (q *Queries) CountUnfinishedInto(ctx context.Context, arg CountUnfinishedIntoParams) (int64, error) {
 	query := countUnfinishedInto
 	var queryParams []interface{}
-	queryParams = append(queryParams, arg.RootID)
 	if len(arg.WorkIds) > 0 {
 		for _, v := range arg.WorkIds {
 			queryParams = append(queryParams, v)
@@ -114,6 +115,7 @@ func (q *Queries) CountUnfinishedInto(ctx context.Context, arg CountUnfinishedIn
 	} else {
 		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
 	}
+	queryParams = append(queryParams, arg.RootID)
 	row := q.db.QueryRowContext(ctx, query, queryParams...)
 	var count int64
 	err := row.Scan(&count)

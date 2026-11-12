@@ -170,7 +170,7 @@ func newWorld(t *testing.T) *world {
 		},
 		Changed: w.changed, FilesChanged: w.moved,
 	})
-	w.library = library.New(library.Config{Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Grabs: noGrabs{}, Leaver: w.im})
+	w.library = library.New(library.Config{Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Grabs: noGrabs{}, Imports: w.im, Leaver: w.im})
 	return w
 }
 

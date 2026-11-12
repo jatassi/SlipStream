@@ -150,9 +150,11 @@ ORDER BY f.root_id, f.dest;
 SELECT id FROM imports_import WHERE finished_at IS NULL AND work_id IN (sqlc.slice(work_ids)) ORDER BY id;
 
 -- name: CountUnfinishedInto :one
-SELECT count(DISTINCT i.id) FROM imports_import i
-WHERE i.finished_at IS NULL AND (i.root_id = sqlc.arg(root_id) OR i.work_id IN (sqlc.slice(work_ids))
-   OR EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.root_id = sqlc.arg(root_id)));
+SELECT count(*) FROM imports_import i
+WHERE i.finished_at IS NULL AND (
+    i.source <> 'root' AND (i.work_id IN (sqlc.slice(work_ids)) OR EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.root_id = sqlc.arg(root_id)))
+    OR i.source = 'root' AND i.root_id = sqlc.arg(root_id) AND EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.outcome IN ('pending', 'placing'))
+);
 
 -- name: ForgetRoot :exec
 UPDATE imports_file SET root_id = NULL, dest = NULL WHERE imports_file.root_id = ? AND import_id IN (SELECT id FROM imports_import WHERE finished_at IS NOT NULL);

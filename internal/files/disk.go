@@ -440,7 +440,7 @@ func (f *Files) sweep(ctx context.Context, ids []roots.ID) (unanswered, lost []r
 	for root, entries := range found {
 		removed := true
 		for _, e := range entries {
-			if live.keeps(e) || moving.holds(root, e.path()) {
+			if live.keeps(root, e) || moving.holds(root, e.path()) {
 				continue
 			}
 			if err := f.removeHeld(ctx, root, e); err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -563,12 +563,17 @@ func (f *Files) removeHeld(ctx context.Context, root roots.ID, e held) error {
 }
 
 // claims is what the held folders may keep: every live file's id and
-// unfinished Grab's in holding, and every live Transfer's in staging.
+// every path an unfinished import claims in holding, with the .part a
+// copy to it writes first, and every live Transfer's id in staging.
 type claims struct {
 	holding, staging map[storage.UUID]bool
+	paths            map[roots.ID]map[string]bool
 }
 
-func (c claims) keeps(e held) bool {
+func (c claims) keeps(root roots.ID, e held) bool {
+	if e.folder == storing.Holding && (c.paths[root][e.path()] || c.paths[root][strings.TrimSuffix(e.path(), ".part")]) {
+		return true
+	}
 	id, ok := e.owner()
 	if !ok {
 		return false
@@ -589,12 +594,8 @@ func (f *Files) claimed(ctx context.Context) (claims, error) {
 		for _, id := range ids {
 			c.holding[id.UUID] = true
 		}
-		grabs, err := f.cfg.Grabs.Unfinished(ctx, r)
-		if err != nil {
+		if c.paths, err = f.cfg.Grabs.Holding(ctx, r); err != nil {
 			return err
-		}
-		for _, id := range grabs {
-			c.holding[id] = true
 		}
 		live, err := f.cfg.Transfers(ctx, r)
 		for id := range live {

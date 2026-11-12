@@ -434,25 +434,30 @@ func TestTheDiskQueueConvergesFromACrashAtEveryStep(t *testing.T) {
 	}
 }
 
-func TestTheQueueSweepsHeldEntriesNoFileGrabOrTransferNames(t *testing.T) {
+func TestTheQueueSweepsHeldEntriesNoFileImportOrTransferClaims(t *testing.T) {
 	l := open(t)
 	tree := l.work(t, "w1", true, nil)
 	svc := l.files(files.NoGrabs{})
 	live := l.download(t, svc, tree, 0, release.WEBDL1080p, "live")
-	grab := storage.NewUUID()
+	grab, placing := files.HoldingOf(storage.NewUUID(), ".mkv"), storing.HoldingDir+"/"+storage.NewUUID().String()+"-3.mkv"
 	copying, canceled := transfers.ID{UUID: storage.NewUUID()}, transfers.ID{UUID: storage.NewUUID()}
 	l.staged = map[transfers.ID]bool{copying: true}
 	staged := transfers.StagedRel(copying, 0).String()
-	l.put(t, files.HoldingOf(grab, ".mkv"), "a Grab's download")
+	l.put(t, grab, "a Grab's download")
+	l.put(t, placing, "an Import's placed file")
+	l.put(t, placing+".part", "an Import's copy so far")
 	l.put(t, staged, "a Transfer's file")
-	failed, stray := files.HoldingOf(storage.NewUUID(), ".mkv.part"), storing.HoldingDir+"/stray.txt"
+	failed, gone, stray := files.HoldingOf(storage.NewUUID(), ".mkv.part"), storing.HoldingDir+"/"+storage.NewUUID().String()+"-0.mkv", storing.HoldingDir+"/stray.txt"
 	l.put(t, failed, "a failed Grab's copy")
+	l.put(t, gone, "a finished Import's file")
 	l.put(t, transfers.StagedRel(canceled, 0).String(), "a canceled Transfer's file")
 	l.put(t, transfers.StagedRel(canceled, 1).String(), "a canceled Transfer's second file")
 	l.put(t, stray, "not SlipStream's")
-	want := map[string]string{live.Path: "live", files.HoldingOf(grab, ".mkv"): "a Grab's download", staged: "a Transfer's file"}
-	unclaimed := []string{failed, stray, transfers.StagedRel(canceled, 0).String(), transfers.StagedRel(canceled, 1).String(), storing.StagingDir + "/" + canceled.String()}
-	l.runUntil(t, l.on(unfinished{grab}, l.held), "the sweep leaves only claimed entries", func() bool { return l.queued(t) == 0 && l.gone(unclaimed...) })
+	want := map[string]string{
+		live.Path: "live", grab: "a Grab's download", placing: "an Import's placed file", placing + ".part": "an Import's copy so far", staged: "a Transfer's file",
+	}
+	unclaimed := []string{failed, gone, stray, transfers.StagedRel(canceled, 0).String(), transfers.StagedRel(canceled, 1).String(), storing.StagingDir + "/" + canceled.String()}
+	l.runUntil(t, l.on(claiming{l.root.ID, []string{grab, placing}}, l.held), "the sweep leaves only claimed entries", func() bool { return l.queued(t) == 0 && l.gone(unclaimed...) })
 	if got := l.onDisk(t); !maps.Equal(got, want) {
 		t.Fatalf("after the sweep the root holds %v, want %v", got, want)
 	}
@@ -543,17 +548,25 @@ func (l *library) runUntil(t *testing.T, svc *files.Files, what string, done fun
 	}
 }
 
-type unfinished []storage.UUID
+// claiming is files.Inflight with the holding paths of one root claimed.
+type claiming struct {
+	root  roots.ID
+	paths []string
+}
 
-func (unfinished) GrabCells(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
+func (claiming) GrabCells(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
 	return nil, nil
 }
 
-func (u unfinished) Unfinished(context.Context, storage.Reader[storage.Library]) ([]storage.UUID, error) {
-	return u, nil
+func (c claiming) Holding(context.Context, storage.Reader[storage.Library]) (map[roots.ID]map[string]bool, error) {
+	out := map[string]bool{}
+	for _, p := range c.paths {
+		out[p] = true
+	}
+	return map[roots.ID]map[string]bool{c.root: out}, nil
 }
 
-func (unfinished) ReleaseTitles(context.Context, storage.Reader[storage.Library]) (map[storage.UUID]string, error) {
+func (claiming) ReleaseTitles(context.Context, storage.Reader[storage.Library]) (map[storage.UUID]string, error) {
 	return nil, nil
 }
 

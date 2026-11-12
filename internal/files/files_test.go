@@ -53,7 +53,7 @@ func (g grabbing) GrabCells(context.Context, storage.Reader[storage.Library], wo
 	return g, nil
 }
 
-func (grabbing) Unfinished(context.Context, storage.Reader[storage.Library]) ([]storage.UUID, error) {
+func (grabbing) Holding(context.Context, storage.Reader[storage.Library]) (map[roots.ID]map[string]bool, error) {
 	return nil, nil
 }
 

@@ -49,7 +49,7 @@ func (g grabbing) GrabCells(context.Context, storage.Reader[storage.Library], wo
 	return g, nil
 }
 
-func (grabbing) Unfinished(context.Context, storage.Reader[storage.Library]) ([]storage.UUID, error) {
+func (grabbing) Holding(context.Context, storage.Reader[storage.Library]) (map[roots.ID]map[string]bool, error) {
 	return nil, nil
 }
 
@@ -200,7 +200,7 @@ func serveAt(t *testing.T, today func() time.Time) *server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sh := shelf{lib: lib, w: w, t: goals, f: shelved, l: library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: homes, Files: shelved, Grabs: noGrabs{}})}
+	sh := shelf{lib: lib, w: w, t: goals, f: shelved, l: library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: homes, Files: shelved, Grabs: noGrabs{}, Imports: noGrabs{}})}
 	worksapi.Routes(r, sh)
 	filesapi.Routes(r, sh)
 	return &server{handler: r.Handler(), lib: lib, fx: fx, works: w, goals: goals, grabs: cells, homes: homes, files: shelved, library: sh.l, targetsChanged: targetsChanged, rootsChanged: rootsChanged, apiKey: identitytest.APIKey(t, lib), session: admin.Cookie.Value, log: logged}
@@ -580,3 +580,7 @@ func (noGrabs) CancelTransfersIn(context.Context, *storage.Tx[storage.Library], 
 }
 
 func (noGrabs) TouchTransfers() {}
+
+func (noGrabs) EndOf(context.Context, *storage.Tx[storage.Library], []works.WorkID) error { return nil }
+
+func (noGrabs) Touch() {}

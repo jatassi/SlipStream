@@ -35,37 +35,44 @@ func (im *Imports) publish(ctx context.Context, a after) {
 	}
 }
 
-// write is imports' one Write over one Import: it loads id in tx, runs
-// change, converges and saves, then publishes what changed once tx
-// commits. ErrNoImport when the Import went.
+// write is imports' one Write over one Import: writeIn, then it publishes
+// what changed once the Write commits. ErrNoImport when the Import went.
 func (im *Imports) write(ctx context.Context, id ImportID, change func(context.Context, *storage.Tx[file], *Import, *after) error) (Import, error) {
 	var (
 		out Import
 		a   after
 	)
 	err := im.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		var err error
 		a = after{}
-		imp, err := importOf(ctx, tx, id)
-		if err != nil {
-			return err
-		}
-		if err := change(ctx, tx, &imp, &a); err != nil {
-			return err
-		}
-		if err := im.converge(ctx, tx, &imp); err != nil {
-			return err
-		}
-		out = imp
-		return save(ctx, tx, &imp)
+		out, err = im.writeIn(ctx, tx, id, &a, change)
+		return err
 	})
 	if err != nil {
 		return Import{}, err
 	}
-	if !out.Root.IsZero() {
-		a.roots = append(a.roots, out.Root)
-	}
 	im.publish(ctx, a)
 	return out, nil
+}
+
+// writeIn loads id in tx, runs change, converges and saves, noting in a
+// what to publish.
+func (im *Imports) writeIn(ctx context.Context, tx *storage.Tx[file], id ImportID, a *after, change func(context.Context, *storage.Tx[file], *Import, *after) error) (Import, error) {
+	imp, err := importOf(ctx, tx, id)
+	if err != nil {
+		return Import{}, err
+	}
+	if err := change(ctx, tx, &imp, a); err != nil {
+		return Import{}, err
+	}
+	if err := im.converge(ctx, tx, &imp); err != nil {
+		return Import{}, err
+	}
+	if !imp.Root.IsZero() {
+		a.roots = append(a.roots, imp.Root)
+	}
+	err = save(ctx, tx, &imp)
+	return imp, err
 }
 
 // converge brings everything derived from imp's rows into line in tx: a

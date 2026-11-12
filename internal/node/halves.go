@@ -433,7 +433,7 @@ func (n *Node) startController(ctx context.Context) error {
 		BeforeImport: n.env.Test.BeforeImport,
 		Log:          n.rootLog.With("subsystem", "imports"),
 	})
-	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Grabs: pipeline, Leaver: found})
+	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Grabs: pipeline, Imports: found, Leaver: found})
 
 	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found}
 	scheduler, err = tasks.Open(ctx, tasks.Config{
