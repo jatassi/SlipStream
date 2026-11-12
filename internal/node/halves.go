@@ -388,6 +388,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Downloads:        clients,
 		Router:           router,
 		Roots:            homes,
+		Imports:          imports.GrabImports{},
 		Timings:          n.cfg.Timings.Grabs,
 		Rand:             n.grabsRand,
 		Changed:          grabs.ChangedEvent.Bind(n.hub),

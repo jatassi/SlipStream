@@ -159,7 +159,7 @@ export const ActOnRootImportBody = ImportsRootAction;
 export const ActOnRootImportResponse = ImportsImportEntry;
 
 /**
- * @summary Confirm, retry, decline, force or match one file of an Import
+ * @summary Confirm, retry, decline, force or match one file of an Import, or put its download's Release on the Blocklist
  */
 export const actOnImportFilePathPositionMin = 0;
 

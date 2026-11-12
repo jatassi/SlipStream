@@ -110,7 +110,7 @@ type purpose struct {
 
 func (p *purpose) register(tr *transfers.Transfers) {
 	tr.Register(transfers.Purpose{
-		Kind: transfers.Grab,
+		Kind: transfers.Import,
 		Verified: func(_ context.Context, _ *storage.Tx[storage.Library], t transfers.Transfer, group string) error {
 			p.mu.Lock()
 			defer p.mu.Unlock()
@@ -366,7 +366,7 @@ func (r *cluster) hold(t *testing.T, e *nodeEnd, upstream role.Upstream) {
 // home's root, as a purpose does: Want in its Write, Touch after.
 func (r *cluster) start(t *testing.T, job string, groups ...string) transfers.ID {
 	t.Helper()
-	req := transfers.Request{Purpose: transfers.Grab, Job: job, Source: r.seedbox, Destination: transfers.Root{ID: r.root}}
+	req := transfers.Request{Purpose: transfers.Import, Job: job, Source: r.seedbox, Destination: transfers.Root{ID: r.root}}
 	for i, g := range groups {
 		var h bencode.InfoHash
 		h[0] = byte(i + 1)
@@ -383,7 +383,7 @@ func (r *cluster) start(t *testing.T, job string, groups ...string) transfers.ID
 
 // end asks for none of job's files, which ends its Transfer.
 func (r *cluster) end(ctx context.Context, tx *storage.Tx[storage.Library], job string) error {
-	_, err := r.tr.Want(ctx, tx, transfers.Request{Purpose: transfers.Grab, Job: job})
+	_, err := r.tr.Want(ctx, tx, transfers.Request{Purpose: transfers.Import, Job: job})
 	return err
 }
 
@@ -453,7 +453,7 @@ func TestWantIsIdempotentOnPurposeAndJob(t *testing.T) {
 		var ok bool
 		err := r.lib.Read(t.Context(), func(ctx context.Context, rd storage.Reader[storage.Library]) error {
 			var err error
-			found, ok, err = r.tr.Find(ctx, rd, transfers.Grab, "heat")
+			found, ok, err = r.tr.Find(ctx, rd, transfers.Import, "heat")
 			return err
 		})
 		if err != nil || !ok || found.ID != first || found.Source != r.seedbox || found.Destination != (transfers.Root{ID: r.root}) {
@@ -562,7 +562,7 @@ func TestANodeThatDerivesBetweenPassesLetsGo(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		r := newCluster(t)
 		resume := r.pause()
-		req := transfers.Request{Purpose: transfers.Grab, Job: "heat", Source: r.seedbox, Destination: transfers.Root{ID: r.root}, Files: []transfers.FileRequest{{Name: "heat.mkv", Source: source.Torrent{Hash: bencode.InfoHash{1}}, Size: 1 << 20}}}
+		req := transfers.Request{Purpose: transfers.Import, Job: "heat", Source: r.seedbox, Destination: transfers.Root{ID: r.root}, Files: []transfers.FileRequest{{Name: "heat.mkv", Source: source.Torrent{Hash: bencode.InfoHash{1}}, Size: 1 << 20}}}
 		if err := r.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 			_, err := r.tr.Want(ctx, tx, req)
 			return err

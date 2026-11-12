@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import { isProblem, sentenceOf } from "../api/errors";
-import type { GrabsGrabPick } from "../api/gen/model";
+import type { GrabsGrabPick, GrabsPickResult } from "../api/gen/model";
 import { useGrabFromManualSearch } from "../api/gen/query/grabs/grabs";
 import type { Results } from "./picks";
 
@@ -21,7 +21,7 @@ export function useGrabbing(workId: string, manualSearchId: string) {
     failure: grab.error === null ? undefined : sentenceOf(grab.error),
     replaced: isProblem(grab.error, "manual_search_replaced"),
     reset: grab.reset,
-    post: (sent: readonly Sent[]) => {
+    post: (sent: readonly Sent[], onAnswer?: (results: readonly GrabsPickResult[]) => void) => {
       grab.mutate(
         { workId, data: { manualSearchId, picks: sent.map(({ pick }) => pick) } },
         {
@@ -36,6 +36,7 @@ export function useGrabbing(workId: string, manualSearchId: string) {
                   }),
                 ]),
             );
+            onAnswer?.(answer.results);
           },
         },
       );

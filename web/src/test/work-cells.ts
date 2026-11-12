@@ -106,7 +106,7 @@ export const hdtv = {
 
 export const upgradable: FilesCellList = {
   cells: [
-    { ...unheld, targetId: hd, targetName: "1080p", wanted: true, state: "upgradable", file: hdtv },
+    { ...base, targetId: hd, targetName: "1080p", wanted: true, state: "upgradable", file: hdtv },
     {
       ...base,
       targetId: uhd,

@@ -8,10 +8,13 @@ import { Skeleton } from "../ui/skeleton";
 import { CancelGrab } from "./cancel-grab";
 import { GrabFacts } from "./grab-facts";
 import { GrabOutcome, GrabRecord, GrabStages } from "./grab-record";
+import { ImportByHand, ImportLines } from "./import-lines";
+// oxlint-disable-next-line import/max-dependencies -- Details shows the Grab, its download's files and each sheet acting on it
 import { SendToSheet } from "./send-to-sheet";
+import { byHand } from "./stages";
 
 /** Which of a Grab's dialogs is open. One at a time, so a phone never stacks two sheets. */
-export type GrabView = "details" | "cancel" | "send-to";
+export type GrabView = "details" | "cancel" | "send-to" | "import";
 
 type OnView = (view: GrabView | undefined) => void;
 
@@ -33,6 +36,15 @@ function GrabActions({ grab, onView }: { grab: GrabsGrab; onView: OnView }) {
           }}
         >
           Send to another client
+        </Button>
+      )}
+      {byHand(grab) && (
+        <Button
+          onClick={() => {
+            onView("import");
+          }}
+        >
+          Import by hand
         </Button>
       )}
       {grab.actions.cancel && (
@@ -78,6 +90,7 @@ export function GrabDialogs({
           <GrabStages grab={grab} />
           <Suspense fallback={<Skeleton label="Loading the Grab" />}>
             <GrabFacts grab={grab} />
+            {grab.import !== null && <ImportLines importId={grab.import.id} />}
           </Suspense>
         </div>
         <GrabActions grab={grab} onView={onView} />
@@ -85,6 +98,14 @@ export function GrabDialogs({
       <CancelGrab grab={grab} work={work} open={view === "cancel"} onOpenChange={close} />
       {grab.actions.sendTo && (
         <SendToSheet grab={grab} open={view === "send-to"} onOpenChange={close} />
+      )}
+      {view === "import" && grab.import !== null && (
+        <ImportByHand
+          importId={grab.import.id}
+          onClose={() => {
+            onView(undefined);
+          }}
+        />
       )}
     </>
   );

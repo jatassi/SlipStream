@@ -389,8 +389,6 @@ func reasonWords(r Reason, t *targets.Target, f release.Facts) string {
 			return "It names none of the Work's Items."
 		}
 		return "The Work has no Item " + r.Value + "."
-	case targets.CoversMore:
-		return "It holds more than one Item."
 	case targets.WrongTitle:
 		if r.Value == "" {
 			return "Its name gives no title."

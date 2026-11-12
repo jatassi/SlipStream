@@ -36,7 +36,7 @@ function Failed({
   return (
     <SignalRow
       signal="fail"
-      chip={`Failed at ${stageLabel[trackStage[grab.failure.stage]]}`}
+      chip={`Failed at ${stageLabel[trackStage(grab)]}`}
       subject={subject}
       verdict={recovery === undefined ? cause : `${cause} ${recovery}`}
       time={clock(grab.history.at(-1)?.at ?? grab.createdAt)}
@@ -106,6 +106,7 @@ export function NeedsYou({
         {waiting.map((need) => (
           <Waiting
             key={need.grabId}
+            type={naming.type}
             grab={grabs.find(({ id }) => id === need.grabId)}
             need={need}
           />

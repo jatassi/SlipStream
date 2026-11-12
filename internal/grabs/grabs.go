@@ -252,8 +252,10 @@ type Config struct {
 	Roster    Roster
 	Downloads Downloads
 	// Router chooses the client each Grab's download goes to.
-	Router        Router
-	Roots         Roots
+	Router Router
+	Roots  Roots
+	// Imports reads each Grab's Import for its view.
+	Imports       Imports
 	Timings       Timings
 	Rand          *rand.Rand
 	Changed       Publisher[Changed]

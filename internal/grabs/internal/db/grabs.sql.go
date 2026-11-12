@@ -289,9 +289,10 @@ func (q *Queries) GetSearch(ctx context.Context, id SearchID) (GrabsSearch, erro
 }
 
 const getSearchOfGrab = `-- name: GetSearchOfGrab :one
-SELECT id, work_id, item_id, manual_id, started_at, finished_at, outcome, candidates, grab_id, notes FROM grabs_search WHERE grab_id = ?1
+SELECT id, work_id, item_id, manual_id, started_at, finished_at, outcome, candidates, grab_id, notes FROM grabs_search WHERE grab_id = ?1 ORDER BY started_at, id LIMIT 1
 `
 
+// The run that made the Grab: a later run that picked its Release joined it.
 func (q *Queries) GetSearchOfGrab(ctx context.Context, grabID GrabID) (GrabsSearch, error) {
 	row := q.db.QueryRowContext(ctx, getSearchOfGrab, grabID)
 	var i GrabsSearch
@@ -623,8 +624,10 @@ func (q *Queries) ListDownloading(ctx context.Context, torrentID downloadclients
 
 const listEveryGrabTarget = `-- name: ListEveryGrabTarget :many
 SELECT grabs_grab.id, grabs_target.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
-    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled
+    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled,
+    coalesce(grabs_stage.entered_at, grabs_grab.updated_at) AS entered_at
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
+LEFT JOIN grabs_stage ON grabs_stage.grab_id = grabs_grab.id AND grabs_stage.stage = grabs_grab.stage
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position
 `
 
@@ -639,6 +642,7 @@ type ListEveryGrabTargetRow struct {
 	Source      Source
 	TargetID    targets.TargetID
 	Settled     *Settled
+	EnteredAt   storage.Time
 }
 
 func (q *Queries) ListEveryGrabTarget(ctx context.Context) ([]ListEveryGrabTargetRow, error) {
@@ -661,6 +665,7 @@ func (q *Queries) ListEveryGrabTarget(ctx context.Context) ([]ListEveryGrabTarge
 			&i.Source,
 			&i.TargetID,
 			&i.Settled,
+			&i.EnteredAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1051,6 +1056,68 @@ func (q *Queries) ListOpenGrabs(ctx context.Context) ([]GrabsGrab, error) {
 	return items, nil
 }
 
+const listOpenGrabsOfWork = `-- name: ListOpenGrabsOfWork :many
+SELECT id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, probe, failed_stage, failure_code, failure_message, created_at, updated_at, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id FROM grabs_grab WHERE work_id = ?1 AND stage NOT IN ('imported', 'failed') ORDER BY created_at, id
+`
+
+func (q *Queries) ListOpenGrabsOfWork(ctx context.Context, workID works.WorkID) ([]GrabsGrab, error) {
+	rows, err := q.db.QueryContext(ctx, listOpenGrabsOfWork, workID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrabsGrab
+	for rows.Next() {
+		var i GrabsGrab
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkID,
+			&i.ItemID,
+			&i.Edition,
+			&i.Source,
+			&i.ManualID,
+			&i.GrabbedBy,
+			&i.GrabbedByName,
+			&i.Overrides,
+			&i.IndexerID,
+			&i.TrackerID,
+			&i.NodeID,
+			&i.ReleaseTitle,
+			&i.ReleaseSize,
+			&i.ReleaseLinkSealed,
+			&i.ReleaseMagnet,
+			&i.ReleaseInfoHash,
+			&i.FetchQueryID,
+			&i.MinRatio,
+			&i.MinSeedSeconds,
+			&i.DownloadFactor,
+			&i.UploadFactor,
+			&i.Stage,
+			&i.TorrentID,
+			&i.Probe,
+			&i.FailedStage,
+			&i.FailureCode,
+			&i.FailureMessage,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.FetchNodeID,
+			&i.MetadataStartedAt,
+			&i.SentBuiltInOn,
+			&i.SentClientID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOpenSearches = `-- name: ListOpenSearches :many
 SELECT id, work_id, item_id, manual_id, started_at, finished_at, outcome, candidates, grab_id, notes FROM grabs_search WHERE finished_at IS NULL ORDER BY started_at, id
 `
@@ -1357,8 +1424,10 @@ func (q *Queries) ListTargets(ctx context.Context) ([]GrabsTarget, error) {
 
 const listTargetsOfWorks = `-- name: ListTargetsOfWorks :many
 SELECT grabs_grab.id, grabs_target.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
-    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled
+    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled,
+    coalesce(grabs_stage.entered_at, grabs_grab.updated_at) AS entered_at
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
+LEFT JOIN grabs_stage ON grabs_stage.grab_id = grabs_grab.id AND grabs_stage.stage = grabs_grab.stage
 WHERE grabs_grab.work_id IN (/*SLICE:work_ids*/?)
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position
 `
@@ -1374,6 +1443,7 @@ type ListTargetsOfWorksRow struct {
 	Source      Source
 	TargetID    targets.TargetID
 	Settled     *Settled
+	EnteredAt   storage.Time
 }
 
 func (q *Queries) ListTargetsOfWorks(ctx context.Context, workIds []works.WorkID) ([]ListTargetsOfWorksRow, error) {
@@ -1406,6 +1476,7 @@ func (q *Queries) ListTargetsOfWorks(ctx context.Context, workIds []works.WorkID
 			&i.Source,
 			&i.TargetID,
 			&i.Settled,
+			&i.EnteredAt,
 		); err != nil {
 			return nil, err
 		}

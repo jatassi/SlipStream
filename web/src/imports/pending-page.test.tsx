@@ -195,7 +195,7 @@ test("with nothing waiting, each view says so", async () => {
   await expect.element(page.getByText("No folders are ignored.")).toBeVisible();
 });
 
-test("the Library counts the folders that need you and links to Pending imports, a pushed page on a phone", async () => {
+test("the Library counts the pending imports that need you and links to Pending imports, a pushed page on a phone", async () => {
   await asPhone();
   const { app } = openPending({
     path: "/library",
@@ -211,7 +211,7 @@ test("the Library counts the folders that need you and links to Pending imports,
   await expect
     .element(page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: /Library/u }))
     .toHaveTextContent("Library4");
-  await userEvent.click(page.getByRole("link", { name: /4 folders need you/u }));
+  await userEvent.click(page.getByRole("link", { name: /4 pending imports need you/u }));
   await expect.poll(() => app.router.state.location.pathname).toBe("/library/pending");
   await expect
     .element(page.getByRole("banner").getByRole("link", { name: "Library" }))

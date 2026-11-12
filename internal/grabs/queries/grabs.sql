@@ -42,6 +42,9 @@ LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
 -- name: ListOpenGrabs :many
 SELECT * FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id;
 
+-- name: ListOpenGrabsOfWork :many
+SELECT * FROM grabs_grab WHERE work_id = sqlc.arg(work_id) AND stage NOT IN ('imported', 'failed') ORDER BY created_at, id;
+
 -- name: CountMoving :one
 SELECT COUNT(*) FROM grabs_grab WHERE stage IN (sqlc.slice(stages));
 
@@ -105,7 +108,8 @@ WHERE id = sqlc.arg(id);
 SELECT * FROM grabs_search WHERE id = sqlc.arg(id);
 
 -- name: GetSearchOfGrab :one
-SELECT * FROM grabs_search WHERE grab_id = sqlc.arg(grab_id);
+-- The run that made the Grab: a later run that picked its Release joined it.
+SELECT * FROM grabs_search WHERE grab_id = sqlc.arg(grab_id) ORDER BY started_at, id LIMIT 1;
 
 -- name: InsertRelease :exec
 INSERT INTO grabs_release (search_id, position, title, indexer_id, indexer_name, size, seeders, outcome, rank, reasons, lost_step,
@@ -146,15 +150,19 @@ SELECT * FROM grabs_search WHERE work_id = sqlc.arg(work_id) AND manual_id IS NU
 
 -- name: ListTargetsOfWorks :many
 SELECT grabs_grab.id, grabs_target.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
-    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled
+    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled,
+    coalesce(grabs_stage.entered_at, grabs_grab.updated_at) AS entered_at
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
+LEFT JOIN grabs_stage ON grabs_stage.grab_id = grabs_grab.id AND grabs_stage.stage = grabs_grab.stage
 WHERE grabs_grab.work_id IN (sqlc.slice(work_ids))
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
 
 -- name: ListEveryGrabTarget :many
 SELECT grabs_grab.id, grabs_target.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
-    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled
+    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled,
+    coalesce(grabs_stage.entered_at, grabs_grab.updated_at) AS entered_at
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
+LEFT JOIN grabs_stage ON grabs_stage.grab_id = grabs_grab.id AND grabs_stage.stage = grabs_grab.stage
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
 
 -- name: StartMetadataSearch :one

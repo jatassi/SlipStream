@@ -149,8 +149,6 @@ func TestEpisodeSearchSendsSeasonAndEp(t *testing.T) {
 	for _, r := range runs {
 		want := []string{
 			"The.Lantern.Keepers.S01E02.720p.WEB-DL.H264-FKW wrong_item S01E02",
-			"The.Lantern.Keepers.S01.1080p.WEB-DL.H264-FKW covers_more S01",
-			"The.Lantern.Keepers.S01E02E03.1080p.WEB-DL.H264-FKW covers_more S01E02-E03",
 		}
 		if r.ItemID == special {
 			want = nil
@@ -159,9 +157,20 @@ func TestEpisodeSearchSendsSeasonAndEp(t *testing.T) {
 			t.Fatalf("the search of %s ended %v refusing %q, want grabbed refusing %q", r.ItemID, r.Outcome, w.refusals(t, r), want)
 		}
 	}
+	var pack episodeRun
+	for id, r := range runs {
+		if r.ItemID == s01e03 {
+			pack = r
+			delete(runs, id)
+		}
+	}
+	g := decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+*pack.GrabID, ""), &grabView{})
+	if g.ReleaseTitle != "The.Lantern.Keepers.S01.1080p.WEB-DL.H264-FKW" {
+		t.Fatalf("the search of S01E03 grabbed %s, want the season pack, which has the most seeders", g.ReleaseTitle)
+	}
 	w.imported(t, runs)
-	if got := filed(t, w); len(got) != 2 || !got[s01e03] || !got[special] {
-		t.Fatalf("the episodes with files are %v, want S01E03 %s and S00E01 %s", got, s01e03, special)
+	if got := filed(t, w); len(got) != 1 || !got[special] {
+		t.Fatalf("the episodes with files are %v, want only S00E01 %s while the unseeded pack downloads", got, special)
 	}
 }
 
@@ -238,11 +247,15 @@ func TestAnotherSeriesTVDBIDIsTheWrongWork(t *testing.T) {
 // and Salt and Oil, S01E03, then moves the special into season 3 and
 // changes the order to DVD, which renumbers Salt and Oil S01E02 and
 // doesn't list the special: each keeps its file, and deleting the series
-// counts both.
+// counts both. S01E01 and S01E02 aren't monitored, so the unseeded season
+// pack covers unwanted Items and S01E03's own Release ranks first.
 func TestEpisodeFilesStayWithTheirEpisodes(t *testing.T) {
 	t.Parallel()
 	w, v := searchingSeries(t)
 	special, salt := v.item(t, "100102").ID, v.item(t, "100113").ID
+	if r := w.a.Admin("home", http.MethodPut, "/api/v1/works/"+v.ID+"/monitored", `{"levelIds":[],"itemIds":["`+v.item(t, "100111").ID+`","`+v.item(t, "100112").ID+`"],"on":false}`); r.Status != http.StatusNoContent {
+		t.Fatalf("setWorkMonitored S01E01 and S01E02 off = %d %s, want 204", r.Status, r.Body)
+	}
 	w.imported(t, w.finished(t, w.searchWithin(t, itemsBody(special, salt), 2)))
 	both := func(when string) {
 		t.Helper()

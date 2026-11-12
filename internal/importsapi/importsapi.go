@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
@@ -224,6 +225,7 @@ type converter struct {
 	m         artwork.Minter
 	roots     map[roots.ID]string
 	sentences map[imports.ImportID]map[int]string
+	grabs     map[grabs.GrabID]grabs.Handoff
 }
 
 func (c converter) label(id roots.ID) rootLabel {
@@ -237,6 +239,9 @@ func (c converter) entry(e imports.Import) importEntry {
 	}
 	if !e.Root.IsZero() {
 		out.Root = api.Some(c.label(e.Root))
+	}
+	if g, ok := c.grabs[e.Grab]; ok {
+		out.Grab = api.Some(importGrab{ID: g.Grab.String(), Release: g.Release, Stage: string(g.Stage)})
 	}
 	if !e.Node.IsZero() {
 		out.NodeID = new(e.Node.String())
@@ -532,9 +537,9 @@ func Routes(r *api.Router, p Pending) {
 		ID:      "actOnImportFile",
 		Method:  http.MethodPost,
 		Path:    "/imports/{id}/files/{position}",
-		Summary: "Confirm, retry, decline, force or match one file of an Import",
+		Summary: "Confirm, retry, decline, force or match one file of an Import, or put its download's Release on the Blocklist",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{notBuilt, importNotFound, importNotOffered, importItems},
+		Errors:  []*api.Code{importNotFound, importNotOffered, importItems, reconciling},
 	}, h.actOnFile)
 
 	api.Register(o, api.Admin, api.Op{
@@ -609,7 +614,11 @@ func (h handlers) list(ctx context.Context, by identity.Admin, in *listInput) (*
 	if err != nil {
 		return nil, answer(err)
 	}
-	c := converter{m: minter(h.pending), roots: l.Roots, sentences: map[imports.ImportID]map[int]string{}}
+	gs, err := open(h.pending).GrabsOf(ctx, by, l.Imports)
+	if err != nil {
+		return nil, err
+	}
+	c := converter{m: minter(h.pending), roots: l.Roots, sentences: map[imports.ImportID]map[int]string{}, grabs: gs}
 	for _, e := range l.Imports {
 		if c.sentences[e.ID], err = open(h.pending).Sentences(ctx, by, e); err != nil {
 			return nil, err
@@ -641,7 +650,11 @@ func (h handlers) get(ctx context.Context, by identity.Admin, in *importIDInput)
 	if err != nil {
 		return nil, err
 	}
-	c := converter{m: minter(h.pending), roots: words, sentences: map[imports.ImportID]map[int]string{e.ID: said}}
+	gs, err := open(h.pending).GrabsOf(ctx, by, []imports.Import{e})
+	if err != nil {
+		return nil, err
+	}
+	c := converter{m: minter(h.pending), roots: words, sentences: map[imports.ImportID]map[int]string{e.ID: said}, grabs: gs}
 	return &entryOutput{Body: c.entry(e)}, nil
 }
 

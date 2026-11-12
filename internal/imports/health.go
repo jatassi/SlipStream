@@ -19,12 +19,22 @@ var HealthAbout = health.About{
 }
 
 // HealthSource answers, per root, a Warn item for its gone files, a Fail
-// item while its last comparison stopped, and a Warn item for the files
-// ffprobe can't read, each named by the root's words. A root's own state
+// item while its last comparison stopped, a Warn item for the files
+// ffprobe can't read, and a Warn item for each fresh import put back in
+// its holding folder, each named by the root's words. A root's own state
 // stays in Storage, and a scan that fails or skips for another reason in
 // Scheduled tasks.
 func (im *Imports) HealthSource() health.Source {
 	return health.Source{Answer: im.healthAnswer}
+}
+
+// healthRead is what Library Health reads of every root.
+type healthRead struct {
+	all        []roots.Root
+	gone       map[roots.ID]files.Tally
+	unreadable map[roots.ID]files.Tally
+	putBack    []files.PutBack
+	compared   []db.ImportsRoot
 }
 
 func (im *Imports) healthAnswer(ctx context.Context) (health.Answer, error) {
@@ -32,45 +42,68 @@ func (im *Imports) healthAnswer(ctx context.Context) (health.Answer, error) {
 	if err != nil {
 		return health.Answer{}, err
 	}
-	var (
-		all        []roots.Root
-		gone       map[roots.ID]files.Tally
-		unreadable map[roots.ID]files.Tally
-		compared   []db.ImportsRoot
-	)
+	var h healthRead
 	err = im.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
-		if all, err = roots.All(ctx, r); err != nil {
+		if h.all, err = roots.All(ctx, r); err != nil {
 			return err
 		}
-		if gone, err = files.GoneOf(ctx, r); err != nil {
+		if h.gone, err = files.GoneOf(ctx, r); err != nil {
 			return err
 		}
-		if unreadable, err = files.UnreadableOf(ctx, r); err != nil {
+		if h.unreadable, err = files.UnreadableOf(ctx, r); err != nil {
 			return err
 		}
-		compared, err = db.New(r).ListCompared(ctx)
+		if h.putBack, err = im.cfg.Files.PutBacks(ctx, r); err != nil {
+			return err
+		}
+		h.compared, err = db.New(r).ListCompared(ctx)
 		return err
 	})
 	if err != nil {
 		return health.Answer{}, err
 	}
 	var a health.Answer
-	for _, root := range all {
-		subject := words[root.ID]
-		for _, c := range compared {
-			if c.RootID == root.ID && c.Place == root.Place && c.StoppedGone != nil {
-				a.Items = append(a.Items, stoppedItem(root, subject, scanning.Stopped{Gone: int(*c.StoppedGone), Of: int(*c.StoppedOf)}))
-			}
-		}
-		if t, ok := gone[root.ID]; ok {
-			a.Items = append(a.Items, goneItem(root, subject, t))
-		}
-		if t, ok := unreadable[root.ID]; ok {
-			a.Items = append(a.Items, unreadableItem(root, subject, t))
-		}
+	for _, root := range h.all {
+		d, _ := im.cfg.Works.Describe(root.ContentType)
+		a.Items = append(a.Items, h.itemsOf(root, words[root.ID], d.Work.Many)...)
 	}
 	return a, nil
+}
+
+// itemsOf is root's items, its subject its words and works what its
+// library holds.
+func (h healthRead) itemsOf(root roots.Root, subject, works string) []health.Item {
+	var out []health.Item
+	for _, c := range h.compared {
+		if c.RootID == root.ID && c.Place == root.Place && c.StoppedGone != nil {
+			out = append(out, stoppedItem(root, subject, scanning.Stopped{Gone: int(*c.StoppedGone), Of: int(*c.StoppedOf)}))
+		}
+	}
+	if t, ok := h.gone[root.ID]; ok {
+		out = append(out, goneItem(root, subject, t))
+	}
+	if t, ok := h.unreadable[root.ID]; ok {
+		out = append(out, unreadableItem(root, subject, t))
+	}
+	for _, p := range h.putBack {
+		if p.Root == root.ID {
+			out = append(out, putBackItem(subject, works, p))
+		}
+	}
+	return out
+}
+
+// putBackItem is the Warn item of p, imported into a library of works:
+// "A file imported into Movies went back to its holding folder because
+// another file already has its name, Heat (1995).mkv. Rename or remove
+// that file." It opens the Work, whose files list it.
+func putBackItem(subject, works string, p files.PutBack) health.Item {
+	return health.Item{Key: health.KeyOf("put_back", p.File.String()), Level: health.Warn, Says: health.Says{
+		Subject: subject,
+		Text:    "A file imported into " + works + " went back to its holding folder because another file already has its name, " + p.Name + ". Rename or remove that file.",
+		Action:  health.LinkAction("/works/"+p.Work.String(), "Open the Work"),
+	}}
 }
 
 func stoppedItem(root roots.Root, subject string, s scanning.Stopped) health.Item {

@@ -2,19 +2,20 @@ import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import type { GrabsOffer } from "../api/gen/model";
 import { filmPlan, lowScore } from "../test/manual";
 import { filmReleases, manualServer } from "../test/manual-server";
 import { openSheet, sheetNamed } from "../test/manual-sheet";
 import { starter } from "../test/targets";
 
-function openAllReleases() {
+function openAllReleases(releases: readonly GrabsOffer[] = filmReleases) {
   const listed: number[] = [];
-  const server = manualServer({ plan: () => filmPlan });
+  const server = manualServer({ plan: () => filmPlan, releases });
   openSheet(server, {
     handlers: [
       http.get("*/api/v1/works/:workId/manual-search/releases", () => {
         listed.push(1);
-        return HttpResponse.json({ releases: filmReleases });
+        return HttpResponse.json({ releases });
       }),
     ],
   });
@@ -84,4 +85,47 @@ test("a Release's Details list its facts under their labels, the seeders as a nu
   const first = all.getByRole("listitem").first();
   await userEvent.click(first.getByRole("button", { name: "Details" }));
   await expect.element(first).toMatchTextContent(/Seeders40Open in tester/u);
+});
+
+test("a Release that isn't better than the file grabs for its Target, forcing it in", async () => {
+  const [, base] = filmReleases;
+  if (base === undefined) {
+    throw new Error("the fixture has a second Release");
+  }
+  const notBetter: GrabsOffer = {
+    ...base,
+    grab: {
+      ...base.grab,
+      lifts: [
+        {
+          code: "not_an_upgrade",
+          targetId: starter.id,
+          soft: true,
+          words:
+            "It isn't better than The Quiet Orchard (2021).mkv, the file at 1080p. Grabbing it replaces that file.",
+        },
+      ],
+    },
+  };
+  const { server, sheet, all } = openAllReleases([notBetter]);
+  await userEvent.click(sheet.getByRole("button", { name: "All Releases (9)" }));
+  const row = all.getByRole("listitem").first();
+  await expect
+    .element(
+      row.getByText(
+        "It isn't better than The Quiet Orchard (2021).mkv, the file at 1080p. Grabbing it replaces that file.",
+      ),
+    )
+    .toBeVisible();
+  await userEvent.click(row.getByRole("button", { name: "Grab for 1080p" }));
+  await expect.element(row.getByText("Grabbed.")).toBeVisible();
+  expect(server.grabbed).toEqual([
+    [
+      {
+        releaseId: lowScore.id,
+        cells: ["cell-orchard-1080p"],
+        lifts: [{ code: "not_an_upgrade", targetId: starter.id }],
+      },
+    ],
+  ]);
 });

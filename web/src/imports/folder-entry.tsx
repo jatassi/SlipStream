@@ -72,7 +72,7 @@ export function FolderEntry({ group }: { group: FolderGroup }) {
       </Button>
       {open && (
         <ImportFilesSheet
-          start={{ importIds: group.entries.map(({ id }) => id) }}
+          start={{ importIds: group.entries.map(({ id }) => id), source: "folder" }}
           onClose={() => {
             setOpen(false);
           }}

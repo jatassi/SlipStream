@@ -80,7 +80,7 @@ var lanternS01E03 = judging{
 			switch marks(n) {
 			case "S01E02":
 				return []works.ItemID{s01e02}
-			case "S01":
+			case "S01", "S01E02-E03":
 				return []works.ItemID{s01e02, item.ID}
 			case "S01E03":
 				return []works.ItemID{item.ID}
@@ -230,24 +230,91 @@ func TestDecideRefusesWithEveryReasonPerTarget(t *testing.T) {
 	}
 }
 
-func TestDecideRefusesAnotherEpisodeAndAPack(t *testing.T) {
+func TestDecideRefusesAnotherEpisode(t *testing.T) {
 	ls := []listed{
 		offered("Lantern.Keepers.S01E02.1080p.WEB-DL", 90, 10, nil),
-		offered("Lantern.Keepers.S01.1080p.WEB-DL", 90, 10, nil),
 		offered("Lantern.Keepers.S01E03.1080p.WEB-DL", 5, 10, map[string]string{"tvdbid": "1001"}),
 		offered("Lantern.Keepers.S01E03.Extended.1080p.WEB-DL", 5, 10, map[string]string{"tvdbid": "1002"}),
 	}
 	pick, refused := best(searched([]files.Cell{cell(hd, files.Missing)}, assessedBy(lanternS01E03, ls...)))
 	if pick == nil || pick.Release.Title != "Lantern.Keepers.S01E03.1080p.WEB-DL" {
-		t.Fatalf("decide picked %+v, want the release of S01E03 alone over better-seeded ones of S01E02 and S01", pick)
+		t.Fatalf("decide picked %+v, want the release of S01E03 over a better-seeded one of S01E02", pick)
 	}
 	want := []refusal{
 		{"Lantern.Keepers.S01E02.1080p.WEB-DL", []Reason{own(targets.WrongItem, "S01E02")}},
-		{"Lantern.Keepers.S01.1080p.WEB-DL", []Reason{own(targets.CoversMore, "S01"), notChecked(hd)}},
 		{"Lantern.Keepers.S01E03.Extended.1080p.WEB-DL", []Reason{own(targets.WrongWork, "")}},
 	}
 	if !reflect.DeepEqual(refused, want) {
-		t.Fatalf("refused = %+v\nwant another episode as wrong_item and another series as wrong_work, judged no further, and the pack as covers_more, judged at the cell: %+v", refused, want)
+		t.Fatalf("refused = %+v\nwant another episode as wrong_item and another series as wrong_work, judged no further: %+v", refused, want)
+	}
+}
+
+// packCells is S01E02's open cell at 1080p, which a pack of season 1 may
+// hold beside S01E03's.
+var packCell = files.Cell{Item: works.Item{ID: s01e02, Monitored: true}, Edition: targets.AnyEdition, Target: hd, State: files.Missing}
+
+// packRun is a run of S01E03 at its 1080p cell, with S01E02's open too
+// when both, over ls.
+func packRun(both bool, ls ...listed) (Decision, cells) {
+	c := cells{open: []files.Cell{cell(hd, files.Missing)}, wanted: map[works.ItemID]bool{item.ID: true}}
+	if both {
+		c.others, c.wanted[s01e02] = []files.Cell{packCell}, true
+	}
+	return decide(c, assessedBy(lanternS01E03, ls...)), c
+}
+
+func TestAPackIsJudgedLikeAnyRelease(t *testing.T) {
+	d, c := packRun(true,
+		offered("Lantern.Keepers.S01E03.1080p.WEB-DL", 5, 10, nil),
+		offered("Lantern.Keepers.S01.1080p.WEB-DL", 90, 10, nil),
+	)
+	picks := d.picks(c)
+	if len(picks) != 2 || picks[0].Release.Title != "Lantern.Keepers.S01.1080p.WEB-DL" {
+		t.Fatalf("an automatic search may take %+v, want the better-seeded season pack first, then the episode", picks)
+	}
+	if got := packCells(c, d.Ranked, picks[0]); !reflect.DeepEqual(got, []files.CellKey{{Item: s01e02, Edition: targets.AnyEdition, Target: hd.ID}}) {
+		t.Errorf("the pack holds %v beyond S01E03, want S01E02's 1080p cell, where it ranks first", got)
+	}
+}
+
+func TestAPackIsJudgedAgainstEachItemsOwnFile(t *testing.T) {
+	d, c := packRun(true, offered("Lantern.Keepers.S01.1080p.WEB-DL", 90, 10, nil))
+	c.others[0].State = files.Upgradable
+	c.others[0].File = &files.File{Quality: release.Bluray1080p, Title: release.Title("Lantern.Keepers.S01E02.1080p.BluRay-GRP", episodic{}, release.BuiltIn())}
+	picks := d.picks(c)
+	if len(picks) != 1 {
+		t.Fatalf("an automatic search may take %+v, want the pack for S01E03", picks)
+	}
+	if got := packCells(c, d.Ranked, picks[0]); len(got) != 0 {
+		t.Errorf("the pack holds %v beyond S01E03, want nothing at S01E02, whose BluRay it doesn't beat", got)
+	}
+}
+
+func TestEqualUpToScoreTheReleaseCoveringFewerUnwantedItemsWins(t *testing.T) {
+	d, c := packRun(false,
+		offered("Lantern.Keepers.S01.1080p.WEB-DL", 90, 10, nil),
+		offered("Lantern.Keepers.S01E03.1080p.WEB-DL", 5, 10, nil),
+	)
+	picks := d.picks(c)
+	if len(picks) != 2 || picks[0].Release.Title != "Lantern.Keepers.S01E03.1080p.WEB-DL" {
+		t.Fatalf("an automatic search may take %+v, want the episode before the better-seeded pack, which covers S01E02 that has no Want", picks)
+	}
+	if l := lostAt(c, d.Ranked[0], d.Ranked[1]); l == nil || *l != (Loss{Step: StepFewerUnwanted, Own: "1", Ref: "0"}) {
+		t.Errorf("the pack lost at %+v, want fewer_unwanted, 1 against 0", l)
+	}
+}
+
+func TestEqualUpToScoreTheReleaseAnotherWantChoseWins(t *testing.T) {
+	pack := hashed(offered("Lantern.Keepers.S01.1080p.WEB-DL", 5, 10, nil), 'p')
+	d, c := packRun(true, offered("Lantern.Keepers.S01E03.1080p.WEB-DL", 90, 10, nil), pack)
+	c.chosen.hashes = map[bencode.InfoHash]bool{*pack.Release.InfoHash: true}
+	d = decided(c, append(d.Ranked, d.Refused...))
+	picks := d.picks(c)
+	if len(picks) != 2 || picks[0].Release.Title != "Lantern.Keepers.S01.1080p.WEB-DL" {
+		t.Fatalf("an automatic search may take %+v, want the pack a Grab of the Work downloads before the better-seeded episode", picks)
+	}
+	if l := lostAt(c, d.Ranked[0], d.Ranked[1]); l == nil || *l != (Loss{Step: StepChosenByAnother, Own: "false", Ref: "true"}) {
+		t.Errorf("the episode lost at %+v, want chosen_by_another", l)
 	}
 }
 
@@ -264,7 +331,6 @@ func TestASoftRefusedReleaseIsStillScoredAndRanked(t *testing.T) {
 	c := cells{open: []files.Cell{cell(scored, files.Missing)}}
 	d := decide(c, assessedBy(j,
 		offered("Lantern.Keepers.S01E03.1080p.WEB-DL", 5, 10, nil),
-		offered("Lantern.Keepers.S01.1080p.WEB-DL.x265", 90, 10, nil),
 		offered("Lantern.Watchers.S01E03.1080p.WEB-DL.x265", 50, 10, nil),
 	))
 	var ranked []string
@@ -276,12 +342,11 @@ func TestASoftRefusedReleaseIsStillScoredAndRanked(t *testing.T) {
 		ranked = append(ranked, fmt.Sprintf("%s %d %v", r.Release.Title, r.verdicts[0].v.Score(), codes))
 	}
 	want := []string{
-		"Lantern.Keepers.S01.1080p.WEB-DL.x265 50 [covers_more]",
 		"Lantern.Watchers.S01E03.1080p.WEB-DL.x265 50 [wrong_title]",
 		"Lantern.Keepers.S01E03.1080p.WEB-DL 0 []",
 	}
 	if !slices.Equal(ranked, want) {
-		t.Fatalf("ranked %q\nwant %q: a pack and another title, softly refused, still scored at the Target and ranked", ranked, want)
+		t.Fatalf("ranked %q\nwant %q: another title, softly refused, still scored at the Target and ranked", ranked, want)
 	}
 	if picks := d.picks(c); len(picks) != 1 || picks[0].Release.Title != "Lantern.Keepers.S01E03.1080p.WEB-DL" {
 		t.Fatalf("an automatic search may take %+v, want only the release with no refusal of its own", picks)
@@ -309,7 +374,6 @@ func TestDecideRefusesForEachReason(t *testing.T) {
 		{orchard, open, "Another.Film.2021.1080p.WEB-DL", 10, nil, []targets.ReasonCode{targets.WrongTitle, targets.SizeNotChecked}},
 		{orchard, open, "Orchard.2019.1080p.WEB-DL", 10, nil, []targets.ReasonCode{targets.WrongTitle, targets.SizeNotChecked}},
 		{lanternS01E03, open, "Lantern.Keepers.S01E02.1080p.WEB-DL", 10, nil, []targets.ReasonCode{targets.WrongItem}},
-		{lanternS01E03, open, "Lantern.Keepers.S01.1080p.WEB-DL", 10, nil, []targets.ReasonCode{targets.CoversMore, targets.SizeNotChecked}},
 		{orchard, extended, "Orchard.2021.1080p.WEB-DL", 10, nil, []targets.ReasonCode{targets.CutNotWanted, targets.SizeNotChecked}},
 		{orchard, open, "Orchard.2021.1080p.TS.x264", 10, nil, []targets.ReasonCode{targets.QualityNotInTarget}},
 		{orchard, []files.Cell{cell(targetOf(notX265), files.Missing)}, "Orchard.2021.1080p.WEB-DL.x265", 10, nil, []targets.ReasonCode{targets.FilterFailed, targets.SizeNotChecked}},

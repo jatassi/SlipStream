@@ -117,9 +117,16 @@ func (noDownloads) Resolve(context.Context, role.NodeID, magnet.Link, time.Time)
 	panic("reading a Grab asks no Node for metadata")
 }
 
+// noImports is grabs.Imports in a library with no Imports.
+type noImports struct{}
+
+func (noImports) Of(context.Context, storage.Reader[storage.Library], []grabs.GrabID) (map[grabs.GrabID]grabs.ImportOf, error) {
+	return nil, nil
+}
+
 func grabOf(t *testing.T, lib library, id storage.UUID) grabs.View {
 	t.Helper()
-	v, err := grabs.New(grabs.Config{Library: lib, Names: map[works.TypeID]rel.Names{contenttypetest.ID: dated{}}, Downloads: noDownloads{}}).Get(t.Context(), identity.Admin{}, grabs.GrabID{UUID: id})
+	v, err := grabs.New(grabs.Config{Library: lib, Names: map[works.TypeID]rel.Names{contenttypetest.ID: dated{}}, Downloads: noDownloads{}, Imports: noImports{}}).Get(t.Context(), identity.Admin{}, grabs.GrabID{UUID: id})
 	if err != nil {
 		t.Fatal(err)
 	}

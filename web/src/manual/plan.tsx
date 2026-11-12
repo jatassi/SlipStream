@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { CancelCircleIcon } from "@hugeicons/core-free-icons";
-import { useState } from "react";
+import { type Dispatch, type SetStateAction, useState } from "react";
 
 import type { GrabsFolded, GrabsHeldCell, GrabsManualSearch, GrabsPinned } from "../api/gen/model";
 import {
@@ -88,8 +88,19 @@ const toggled = (keys: ReadonlySet<string>, key: string, on: boolean) => {
   return next;
 };
 
-/** Grabs rows with their clients, and keeps each row sent so its result outlives the plan that offered it. */
-function useSend(grabbing: Grabbing, clients: readonly ClientPick[], choices: Choices) {
+export type OnPins = Dispatch<SetStateAction<readonly GrabsPinned[]>>;
+
+/**
+ * Grabs rows with their clients, and keeps each row sent so its result
+ * outlives the plan that offered it. A grabbed row's pin is spent, so the
+ * next plan offers what beats the file it brings.
+ */
+function useSend(
+  grabbing: Grabbing,
+  clients: readonly ClientPick[],
+  choices: Choices,
+  onPins: OnPins,
+) {
   const [sentRows, setSentRows] = useState<ReadonlyMap<string, PickRow>>(new Map());
   const send = (rows: readonly PickRow[], cancelGrabId?: string) => {
     setSentRows(
@@ -100,16 +111,18 @@ function useSend(grabbing: Grabbing, clients: readonly ClientPick[], choices: Ch
         key: resultKey(row),
         pick: pickOf(row.pick, bodyOf(clients, clientOf(choices, row.key)), cancelGrabId),
       })),
+      (results) => {
+        const spent = new Set(
+          rows.filter((_, at) => (results[at]?.grabId ?? null) !== null).map(({ key }) => key),
+        );
+        onPins((pins) => pins.filter(({ key }) => !spent.has(key)));
+      },
     );
   };
   return { sentRows, send };
 }
 
-function useActs(
-  workId: string,
-  search: GrabsManualSearch,
-  onPins: (pins: readonly GrabsPinned[]) => void,
-) {
+function useActs(workId: string, search: GrabsManualSearch, onPins: OnPins) {
   const [choices, setChoices] = useState<Choices>(noChoices);
   const cards = useQuery({
     queryKey: getListDownloadClientsQueryKey(),
@@ -117,7 +130,7 @@ function useActs(
   }).data?.cards;
   const clients = clientsOf(cards ?? []);
   const grabbing = useGrabbing(workId, search.id);
-  const { sentRows, send } = useSend(grabbing, clients, choices);
+  const { sentRows, send } = useSend(grabbing, clients, choices, onPins);
   const acts: RowActs = {
     choices,
     results: grabbing.results,
@@ -164,7 +177,7 @@ export function Plan({
 }: {
   workId: string;
   search: GrabsManualSearch;
-  onPins: (pins: readonly GrabsPinned[]) => void;
+  onPins: OnPins;
   onReopen: () => void;
 }) {
   const { acts, grabbing, picks, ticked, setSendAll, grabTicked } = useActs(workId, search, onPins);

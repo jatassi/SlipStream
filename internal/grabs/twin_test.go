@@ -279,7 +279,7 @@ func newAttic(t *testing.T, remote searching.Remote, sites []twinSite, goals []t
 	world.cfg = grabs.Config{
 		Library: lib, Sealer: sealer, Works: w, Targets: wanted, Files: shelf, Indexers: xs,
 		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Names: map[works.TypeID]rel.Names{contenttypetest.ID: dated{}},
-		Roster: r, Downloads: &swarm{}, Roots: library, Router: router,
+		Roster: r, Downloads: &swarm{}, Roots: library, Router: router, Imports: imports.GrabImports{},
 		Timings: grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: discard[grabs.Changed]{}, SearchChanged: discard[grabs.SearchChanged]{}, FilesChanged: discard[files.Changed]{},
 		BlocklistChanged: discard[grabs.BlocklistChanged]{}, Reconciling: trackers.NotReconciling, Log: log,

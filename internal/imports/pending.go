@@ -236,9 +236,10 @@ func leads(ctx context.Context, r storage.Reader[file], root *roots.ID) ([]Lead,
 	return out, nil
 }
 
-// Count is how many root Imports need the Admin, for the shell's count.
+// Count is how many Imports of any source have a file waiting for the
+// Admin, ignored ones aside, for the shell's count.
 func (im *Imports) Count(ctx context.Context) (int, error) {
-	n, err := db.New(im.cfg.Library).CountNeedsYou(ctx)
+	n, err := db.New(im.cfg.Library).CountWaiting(ctx)
 	return int(n), err
 }
 

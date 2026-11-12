@@ -1,4 +1,4 @@
 /**
  * The kind of job that asked for it
  */
-export type TransfersTransferPurpose = "grab" | "import";
+export type TransfersTransferPurpose = "import";

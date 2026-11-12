@@ -91,9 +91,11 @@ test("Manual search opens from a cell, a season, an episode and a Needs you card
   await menuAction(page, "Actions for Season 2", "Manual search");
   const season = sheet(page, lanternKeepers);
   await searched(season);
+  await expect(season).toContainText("5 Grabs get you everything.");
   await expect(season).toContainText("It gets you 1080p for E05.");
-  await expect(season).toContainText("Missing: 1080p for E09.");
-  await expect(season).toContainText("No Indexer listed a 1080p Release.");
+  await expect(season).toContainText(
+    "It gets you 1080p for E09 and E10. E01 to E04 keep their files.",
+  );
   await expectAccessible(page);
   await frame(page, testInfo, "open-season");
   await closeSheet(page);

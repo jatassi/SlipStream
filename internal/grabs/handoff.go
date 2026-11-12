@@ -57,6 +57,7 @@ type Handoff struct {
 	// Cells is its cells in plan order, each with how it settled.
 	Cells    []Cell
 	Release  string
+	Stage    Stage
 	Node     role.NodeID
 	InfoHash bencode.InfoHash
 	Torrent  downloadclients.ID
@@ -71,7 +72,7 @@ func Handed(ctx context.Context, r storage.Reader[storage.Library], id GrabID) (
 		return Handoff{}, err
 	}
 	h := Handoff{
-		Grab: g.ID, Work: g.WorkID, Items: g.Items, Cells: g.Targets, Release: g.Release.Title, Node: g.Node,
+		Grab: g.ID, Work: g.WorkID, Items: g.Items, Cells: g.Targets, Release: g.Release.Title, Stage: g.Stage, Node: g.Node,
 		InfoHash: g.Torrent.InfoHash, Torrent: g.Torrent.ID, Files: g.Torrent.Files,
 	}
 	if g.Overrides.Edition != "" {
@@ -142,6 +143,8 @@ func (gr *Grabs) Follow(ctx context.Context, tx *storage.Tx[storage.Library], id
 }
 
 // Followed publishes what each Follow changed, once its Write committed.
+// A Follow that neither moved nor settled its Grab still changed the
+// Import its view reads.
 func (gr *Grabs) Followed(ctx context.Context, fs ...Followed) {
 	woken := false
 	for _, f := range fs {
@@ -150,6 +153,9 @@ func (gr *Grabs) Followed(ctx context.Context, fs ...Followed) {
 			gr.entered(ctx, f.grab, f.next)
 		case f.settled:
 			gr.cfg.Changed.Publish(ctx, Changed{GrabID: f.grab.ID.String(), WorkID: f.grab.WorkID.String()})
+		case !f.grab.ID.IsZero():
+			gr.cfg.Changed.Publish(ctx, Changed{GrabID: f.grab.ID.String(), WorkID: f.grab.WorkID.String()})
+			continue
 		default:
 			continue
 		}

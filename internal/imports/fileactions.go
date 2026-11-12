@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports/internal/db"
 	"github.com/jatassi/slipstream/internal/release"
@@ -22,13 +23,16 @@ type FileRef struct {
 }
 
 // Action is what an Admin does with one file: ConfirmFile, RetryFile,
-// DeclineFile, ForceFile or MatchFile.
+// DeclineFile, NotThisReleaseFile, ForceFile or MatchFile.
 type Action interface{ Kind() ActionKind }
 
 type (
 	ConfirmFile struct{}
 	RetryFile   struct{}
 	DeclineFile struct{}
+	// NotThisReleaseFile puts a download's Release on the Blocklist and
+	// ends its Import: the Grab fails blocklisted when nothing was placed.
+	NotThisReleaseFile struct{}
 	// ForceFile puts the file into Cell even ranked lower, once it meets the
 	// cell's Target.
 	ForceFile struct{ Cell files.CellKey }
@@ -42,18 +46,19 @@ type (
 	}
 )
 
-func (ConfirmFile) Kind() ActionKind { return ActConfirm }
-func (RetryFile) Kind() ActionKind   { return ActRetry }
-func (DeclineFile) Kind() ActionKind { return ActDecline }
-func (ForceFile) Kind() ActionKind   { return ActForce }
-func (MatchFile) Kind() ActionKind   { return ActMatch }
+func (ConfirmFile) Kind() ActionKind        { return ActConfirm }
+func (RetryFile) Kind() ActionKind          { return ActRetry }
+func (DeclineFile) Kind() ActionKind        { return ActDecline }
+func (NotThisReleaseFile) Kind() ActionKind { return ActNotThisRelease }
+func (ForceFile) Kind() ActionKind          { return ActForce }
+func (MatchFile) Kind() ActionKind          { return ActMatch }
 
 // Act does a on the file ref names, in one Write, and answers the Import
 // the file is in after it: a MatchFile to another Work or Edition moves the
 // file into the folder's Import of that Work and Edition. ErrNoImport when
 // no Import has the file, ErrNotOffered when its row doesn't offer a, and
 // ErrNotOfWork when a Match names an Item its Work doesn't hold.
-func (im *Imports) Act(ctx context.Context, _ identity.Admin, ref FileRef, a Action) (Import, error) {
+func (im *Imports) Act(ctx context.Context, by identity.Admin, ref FileRef, a Action) (Import, error) {
 	var (
 		out  Import
 		done after
@@ -61,36 +66,14 @@ func (im *Imports) Act(ctx context.Context, _ identity.Admin, ref FileRef, a Act
 	err := im.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		done = after{}
 		var moved *moving
-		cur, err := im.writeIn(ctx, tx, ref.Import, &done, func(ctx context.Context, tx *storage.Tx[file], cur *Import, _ *after) error {
+		cur, err := im.writeIn(ctx, tx, ref.Import, &done, func(ctx context.Context, tx *storage.Tx[file], cur *Import, done *after) error {
 			i := slices.IndexFunc(cur.Files, func(f File) bool { return f.Position == ref.Position })
 			if i < 0 {
 				return ErrNoImport
 			}
-			f := &cur.Files[i]
-			recommended, also := f.Actions(*cur)
-			if a.Kind() != recommended && !slices.Contains(also, a.Kind()) {
-				return ErrNotOffered
-			}
-			switch a := a.(type) {
-			case ConfirmFile:
-				f.Confirmed = true
-				f.reopen()
-			case RetryFile:
-				if f.Outcome == FailedOut && f.Reason.Code == Unreadable {
-					f.Probe = nil
-				}
-				f.reopen()
-			case DeclineFile:
-				f.Outcome, f.Reason, f.Hold, f.Fills = Declined, &Reason{Code: ByAdmin}, nil, nil
-			case ForceFile:
-				f.reopen()
-				f.Fills = append(f.Fills, Fill{Cell: a.Cell, Forced: true})
-			case MatchFile:
-				var err error
-				moved, err = im.match(ctx, tx, cur, i, a)
-				return err
-			}
-			return nil
+			var err error
+			moved, err = im.act(ctx, tx, by, cur, i, a, done)
+			return err
 		})
 		if err != nil || moved == nil {
 			out = cur
@@ -107,6 +90,43 @@ func (im *Imports) Act(ctx context.Context, _ identity.Admin, ref FileRef, a Act
 	im.Touch()
 	return out, nil
 }
+
+// act does a on cur's file i, which must offer it, noting in done what
+// to publish. A MatchFile out of cur answers the file it moves.
+func (im *Imports) act(ctx context.Context, tx *storage.Tx[file], by identity.Admin, cur *Import, i int, a Action, done *after) (*moving, error) {
+	f := &cur.Files[i]
+	recommended, also := f.Actions(*cur)
+	if a.Kind() != recommended && !slices.Contains(also, a.Kind()) {
+		return nil, ErrNotOffered
+	}
+	switch a := a.(type) {
+	case ConfirmFile:
+		f.Confirmed = true
+		f.reopen()
+	case RetryFile:
+		if f.Outcome == FailedOut && f.Reason.Code == Unreadable {
+			f.Probe = nil
+		}
+		f.reopen()
+	case DeclineFile:
+		f.Outcome, f.Reason, f.Hold, f.Fills = Declined, &Reason{Code: ByAdmin}, nil, nil
+	case NotThisReleaseFile:
+		added, err := im.cfg.Grabs.Block(ctx, tx, cur.Grab, grabs.CauseByHand, &by)
+		if err != nil {
+			return nil, err
+		}
+		done.blocked = added
+		endImport(cur, Ending{Reason: Blocklisted, Code: string(grabs.Blocklisted), Message: notThisReleaseWords})
+	case ForceFile:
+		f.reopen()
+		f.Fills = append(f.Fills, Fill{Cell: a.Cell, Forced: true})
+	case MatchFile:
+		return im.match(ctx, tx, cur, i, a)
+	}
+	return nil, nil
+}
+
+const notThisReleaseWords = "You chose Not this Release, which put the Release on the Blocklist."
 
 // reopen makes f pending again for converge to decide, past its confirm
 // once confirmed, keeping its probe and the cells it is forced into.

@@ -74,8 +74,10 @@ UPDATE imports_import SET ignored_at = coalesce(ignored_at, sqlc.arg(ignored_at)
 -- name: Unignore :exec
 UPDATE imports_import SET ignored_at = NULL WHERE id IN (sqlc.slice(ids));
 
--- name: CountNeedsYou :one
-SELECT count(*) FROM imports_import WHERE source = 'root' AND finished_at IS NULL AND ignored_at IS NULL;
+-- name: CountWaiting :one
+SELECT count(*) FROM imports_import i
+WHERE i.finished_at IS NULL AND i.ignored_at IS NULL
+  AND EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.outcome = 'waiting');
 
 -- name: CountNeedsYouByRoot :many
 SELECT root_id, count(*) AS entries FROM imports_import WHERE source = 'root' AND finished_at IS NULL AND ignored_at IS NULL
