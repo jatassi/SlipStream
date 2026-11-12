@@ -42,9 +42,9 @@ func TestThePacksMigrationGivesEveryGrabItsItemAndSettlesOnlyImportedCells(t *te
 
 	lib := openAt(t, path)
 	t.Cleanup(func() { _ = lib.Close() })
-	for _, stage := range grabs.Stages {
+	for _, stage := range oldStages {
 		want := "0 1 1 0 null"
-		if stage == grabs.Imported {
+		if stage == "imported" {
 			want = "0 1 1 0 placed 105"
 		}
 		var got string
@@ -59,7 +59,7 @@ func TestThePacksMigrationGivesEveryGrabItsItemAndSettlesOnlyImportedCells(t *te
 		}
 	}
 
-	eachNewRuleRefusesItsRow(t, lib, work, item, byStage[grabs.Downloading])
+	eachNewRuleRefusesItsRow(t, lib, work, item, byStage["downloading"])
 }
 
 // eachNewRuleRefusesItsRow writes one row per rule grabs 00011 adds to lib:
@@ -135,27 +135,32 @@ func eachNewRuleRefusesItsRow(t *testing.T, lib library, work, item, grab storag
 	}
 }
 
-// grabAtEveryStage is one Grab of item at each Stage, for target, as main's
-// schema holds them, each updated at 100 plus its Stage's place.
-func grabAtEveryStage(work, item, node, torrent, target storage.UUID) (map[grabs.Stage]storage.UUID, []tableRow) {
-	byStage := map[grabs.Stage]storage.UUID{}
+// oldStages are the Stages main's schema holds, before grabs 00012 moves
+// probing and transferring into the Import.
+var oldStages = []string{"fetching", "downloading", "probing", "transferring", "importing", "imported", "failed"}
+
+// grabAtEveryStage is one Grab of item at each of oldStages, for target,
+// as main's schema holds them, each updated at 100 plus its Stage's place.
+// The failed one failed at probing.
+func grabAtEveryStage(work, item, node, torrent, target storage.UUID) (map[string]storage.UUID, []tableRow) {
+	byStage := map[string]storage.UUID{}
 	var rows []tableRow
-	for i, stage := range grabs.Stages {
+	for i, stage := range oldStages {
 		id := storage.NewUUID()
 		byStage[stage] = id
 		g := row{
 			"id": id, "work_id": work, "item_id": item, "edition": "any", "source": "search", "node_id": node,
 			"release_title": "Heat.1995.1080p.BluRay", "release_size": 1 << 30, "release_magnet": "magnet:?xt=urn:btih:00",
-			"stage": string(stage), "created_at": i, "updated_at": 100 + i,
+			"stage": stage, "created_at": i, "updated_at": 100 + i,
 		}
-		if stage != grabs.Fetching {
+		if stage != "fetching" {
 			g["torrent_id"] = torrent
 		}
-		if stage == grabs.Transferring || stage == grabs.Importing || stage == grabs.Imported {
+		if stage == "transferring" || stage == "importing" || stage == "imported" {
 			g["path"], g["file_index"], g["probe"] = "Heat (1995)/Heat (1995).mkv", 0, "{}"
 		}
-		if stage == grabs.Failed {
-			g["failed_stage"], g["failure_code"], g["failure_message"] = "downloading", "download_failed", "The client stopped it."
+		if stage == "failed" {
+			g["failed_stage"], g["failure_code"], g["failure_message"] = "probing", "fills_nothing", "a Bluray-1080p file fills no Target the Work still wants"
 		}
 		rows = append(rows, tableRow{"grabs_grab", g}, tableRow{"grabs_target", row{"grab_id": id, "position": 0, "target_id": target}})
 	}

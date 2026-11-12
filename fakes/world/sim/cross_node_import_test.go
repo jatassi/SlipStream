@@ -67,6 +67,14 @@ func (v importView) count(outcome string) int {
 	return n
 }
 
+// grabImports is the world's unfinished Imports of Grabs.
+func grabImports(t *testing.T, w *sim.World) []importView {
+	t.Helper()
+	return simtest.Decode[struct {
+		Imports []importView `json:"imports"`
+	}](t, "listImports", w.API().Admin("home", http.MethodGet, "/api/v1/imports?source=grab", "")).Imports
+}
+
 // crossNode is the packs world, where home holds the TV root and seedbox
 // a download folder, with The Copper Coast in the library.
 type crossNode struct {
@@ -99,9 +107,6 @@ func launchCrossNode(t *testing.T, edit func(e *node.Env), opts ...sim.Option) c
 			ID string `json:"id"`
 		} `json:"work"`
 	}](t, "addWork", w.API().Admin("home", http.MethodPost, "/api/v1/works", `{"contentType":"series","key":"1101","preset":"all"}`))
-	if r := w.API().Admin("home", http.MethodPatch, "/api/v1/imports/importing-settings", `{"values":{"library.importing.smallestVideo":0}}`); r.Status != http.StatusOK {
-		t.Fatalf("updateImportingSettings = %d %s, want 200", r.Status, r.Body)
-	}
 	return crossNode{w: w, work: added.Work.ID, downloads: w.Node("seedbox").DataDir().Resolve("downloads")}
 }
 

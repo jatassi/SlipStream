@@ -61,7 +61,12 @@ type world struct {
 	// stop, when set, sees each Import file's IO before it runs.
 	stop  atomic.Pointer[func(context.Context, Step)]
 	probe media.Record
+	// disk is files' Disk, the roots its Imports place through.
+	disk *heldDisk
 }
+
+// heldDisk is a files.Disk that follows the roots a test moves w onto.
+type heldDisk struct{ files.Disk }
 
 type heard[T any] struct {
 	mu   sync.Mutex
@@ -85,14 +90,6 @@ func (h *heard[T]) take() []T {
 type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
-
-type noGrabs struct{}
-
-func (noGrabs) CancelTransfersIn(context.Context, *storage.Tx[storage.Library], []works.WorkID) error {
-	return nil
-}
-
-func (noGrabs) TouchTransfers() {}
 
 // shelfFacet hints a folder's name as release names write it and places
 // a file at the Item its name, without extension, labels.
@@ -142,6 +139,7 @@ func newWorld(t *testing.T) *world {
 		t.Fatal(err)
 	}
 	w.root = w.newRoot(t)
+	w.disk = &heldDisk{Disk: w.roots}
 	goals, err := targets.Open(ctx, targets.Config{Library: w.lib, Works: w.works, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: w.fx}, Changed: discard[targets.Changed]{}})
 	if err != nil {
 		t.Fatal(err)
@@ -159,13 +157,13 @@ func newWorld(t *testing.T) *world {
 		t.Fatal(err)
 	}
 	if w.files, err = files.Open(ctx, files.Config{
-		Library: w.lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }},
+		Library: w.lib, Targets: goals, Grabs: Cells{Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}},
 		Naming: naming.New(naming.Config{
 			Facets:   map[works.TypeID]naming.Facet{contenttypetest.ID: w.fx},
 			Describe: func(works.TypeID) (works.Description, bool) { return contenttypetest.Description, true },
 			Budget:   func(context.Context, storage.Reader[storage.Library], works.TypeID) (int, error) { return 1000, nil },
 		}),
-		Names: map[works.TypeID]release.Names{contenttypetest.ID: w.fx}, Today: time.Now,
+		Names: map[works.TypeID]release.Names{contenttypetest.ID: w.fx}, Today: time.Now, Disk: w.disk,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +187,7 @@ func newWorld(t *testing.T) *world {
 		Log: slog.New(slog.DiscardHandler),
 	}
 	w.im = w.newImports(w.cfg)
-	w.library = library.New(library.Config{Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Grabs: noGrabs{}, Imports: w.im, Leaver: w.im})
+	w.library = library.New(library.Config{Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Imports: w.im, Leaver: w.im})
 	return w
 }
 

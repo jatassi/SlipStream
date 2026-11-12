@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -21,6 +22,8 @@ type after struct {
 	landed []works.WorkID
 	// sent is a Write that may have changed what a Transfer wants.
 	sent bool
+	// followed is what each Grab's Follow changed.
+	followed []grabs.Followed
 }
 
 // publish tells the readers what a committed Write changed.
@@ -37,6 +40,10 @@ func (im *Imports) publish(ctx context.Context, a after) {
 	}
 	if a.sent {
 		im.cfg.Transfers.Touch()
+		im.cfg.Changed.Publish(ctx, changedOf())
+	}
+	if len(a.followed) > 0 {
+		im.cfg.Grabs.Followed(ctx, a.followed...)
 	}
 }
 
@@ -70,7 +77,7 @@ func (im *Imports) writeIn(ctx context.Context, tx *storage.Tx[file], id ImportI
 	if err := change(ctx, tx, &imp, a); err != nil {
 		return Import{}, err
 	}
-	if err := im.converge(ctx, tx, &imp); err != nil {
+	if err := im.converge(ctx, tx, &imp, a); err != nil {
 		return Import{}, err
 	}
 	if !imp.Root.IsZero() {
@@ -83,10 +90,11 @@ func (im *Imports) writeIn(ctx context.Context, tx *storage.Tx[file], id ImportI
 
 // converge brings everything derived from imp's rows into line in tx: a
 // busy file back to pending once its Items are free, the decision once the
-// barrier is met, a download's release faults, the files its Transfer
-// wants and finished_at. A root Import's files sit in their root and send
-// nothing. Running it twice changes nothing.
-func (im *Imports) converge(ctx context.Context, tx *storage.Tx[file], imp *Import) error {
+// barrier is met, a download's release faults and its report to its
+// Grab, the files its Transfer wants and finished_at. A root Import's
+// files sit in their root and send nothing. Running it twice changes
+// nothing.
+func (im *Imports) converge(ctx context.Context, tx *storage.Tx[file], imp *Import, a *after) error {
 	if err := unbusy(ctx, tx, imp); err != nil {
 		return err
 	}
@@ -101,6 +109,11 @@ func (im *Imports) converge(ctx context.Context, tx *storage.Tx[file], imp *Impo
 			return err
 		}
 		faults(imp, rules)
+		if !imp.Grab.IsZero() {
+			if err := im.follow(ctx, tx, imp, a); err != nil {
+				return err
+			}
+		}
 	}
 	if imp.Source != FromRoot {
 		if _, err := im.cfg.Transfers.Want(ctx, tx, imp.transferRequest()); err != nil {

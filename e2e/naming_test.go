@@ -19,9 +19,9 @@ import (
 )
 
 // A file SlipStream doesn't track sits where the templates name The
-// Lantern Keeper's Sized file, so its Grab fails at its probe with the
-// path, before any bytes move, and the file stays as it was.
-func TestAGrabWhoseNameAFileSlipStreamDoesntTrackHoldsFailsNameTaken(t *testing.T) {
+// Lantern Keeper's Sized file, so its Grab's file waits name_taken for the
+// Admin before any bytes move, and the file stays as it was.
+func TestAGrabWhoseNameAFileSlipStreamDoesntTrackHoldsWaitsNameTaken(t *testing.T) {
 	t.Parallel()
 	w, _ := sized(t, "9000002", "Films", "Sized")
 	const theirs = "movies/The Lantern Keeper (2019)/The Lantern Keeper (2019) - Sized.mkv"
@@ -37,14 +37,7 @@ func TestAGrabWhoseNameAFileSlipStreamDoesntTrackHoldsFailsNameTaken(t *testing.
 	if found.Outcome == nil || *found.Outcome != "grabbed" || found.GrabID == nil {
 		t.Fatalf("the search ended %+v, want a release grabbed", found)
 	}
-	w.ended(t, *found.GrabID)
-	if w.grab.Stage != "failed" || w.grab.Failure == nil || w.grab.Failure.Code != "name_taken" ||
-		w.grab.Failure.Message != `a file SlipStream doesn't track is already at "The Lantern Keeper (2019)/The Lantern Keeper (2019) - Sized.mkv"` {
-		t.Fatalf("the Grab ended %s with %+v after %v, want failed with its name taken", w.grab.Stage, w.grab.Failure, w.grab.stages())
-	}
-	if got := w.grab.stages(); !slices.Equal(got[len(got)-2:], []string{"probing", "failed"}) {
-		t.Fatalf("the Grab went through %v, want it to fail at its probe", got)
-	}
+	w.waits(t, *found.GrabID, "The.Lantern.Keeper.2019.1080p.WEB-DL.H264-FKW.mkv: waiting name_taken")
 	holdsOnly(t, w.m, theirs)
 	if data, err := os.ReadFile(at); err != nil || string(data) != "theirs" {
 		t.Fatalf("the file at the name holds %q, %v, want what it held before", data, err)
@@ -481,8 +474,8 @@ func TestWithRenamingOffAnImportKeepsTheDownloadedNameAndATargetRenameRenamesNot
 // nas writes paths of at most 259 bytes, as a Windows Node without long
 // paths does. The movie's title is long enough that its folder and file
 // name pass that in any root, though each name fits in 255 bytes, so its
-// Grab fails at its probe with both lengths and nothing reaches nas.
-func TestAGrabWhoseNameIsTooLongForAWindowsNodeFailsNameTooLong(t *testing.T) {
+// Grab's file waits name_too_long for the Admin and nothing reaches nas.
+func TestAGrabWhoseNameIsTooLongForAWindowsNodeWaitsNameTooLong(t *testing.T) {
 	t.Parallel()
 	const title = "The Quiet Orchard and the Long Road Home Through the Valley of Lanterns Where the Rivers Meet the Sea at the End of Summer"
 	s, err := scenario.Load("seedbox-nas")
@@ -500,15 +493,6 @@ func TestAGrabWhoseNameIsTooLongForAWindowsNodeFailsNameTooLong(t *testing.T) {
 	if found.Outcome == nil || *found.Outcome != "grabbed" || found.GrabID == nil {
 		t.Fatalf("the search ended %+v, want a release grabbed", found)
 	}
-	w.ended(t, *found.GrabID)
-	path := title + " (2021)/" + title + " (2021) - 1080p.mkv"
-	limit := 259 - len(filepath.Join(w.m.MediaDir, "movies")) - 1
-	want := fmt.Sprintf("the path in the root is %d bytes long and the limit there is %d bytes", len(path), limit)
-	if w.grab.Stage != "failed" || w.grab.Failure == nil || w.grab.Failure.Code != "name_too_long" || w.grab.Failure.Message != want {
-		t.Fatalf("the Grab ended %s with %+v after %v, want failed with %q", w.grab.Stage, w.grab.Failure, w.grab.stages(), want)
-	}
-	if got := w.grab.stages(); !slices.Equal(got[len(got)-2:], []string{"probing", "failed"}) {
-		t.Fatalf("the Grab went through %v, want it to fail at its probe", got)
-	}
+	w.waits(t, *found.GrabID, s.Releases[0].Name+".mkv: waiting name_too_long")
 	holdsOnly(t, w.m)
 }

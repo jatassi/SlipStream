@@ -159,7 +159,7 @@ func serve(t *testing.T) *server {
 	s := &server{lib: lib, fx: fx, changed: &published{}, data: t.TempDir(), downloads: t.TempDir()}
 	cfg := rootstest.Config(t, lib, contenttypetest.ID, "other")
 	local := rootstest.Store(t, s.data, s.downloads)
-	cfg.Roster, cfg.Changed = roster{}, s.changed
+	cfg.Roster, cfg.Changed, cfg.Inflight = roster{}, s.changed, imports.RootImports{}
 	offline := unreached{err: fmt.Errorf("call: %w", link.ErrDisconnected)}
 	cfg.Remote = func(n role.NodeID) storagev1connect.StorageServiceHandler {
 		switch n {

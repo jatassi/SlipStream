@@ -26,6 +26,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/media"
@@ -187,7 +188,7 @@ func shelve(t *testing.T) *shelves {
 		t.Fatal(err)
 	}
 	s.queue, err = files.Open(t.Context(), files.Config{
-		Library: lib, Targets: s.goals, Grabs: grabs.GrabCells{}, Transfers: transfers.LiveIn,
+		Library: lib, Targets: s.goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{}}, Transfers: transfers.LiveIn,
 		Naming:  naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: s.fx, other: s.fx}}),
 		Today:   func() time.Time { return time.Date(2030, time.January, 1, 9, 0, 0, 0, time.UTC) },
 		Disk:    rootstest.Held(t, lib, home, nil, contenttypetest.ID, other),
@@ -200,7 +201,7 @@ func shelve(t *testing.T) *shelves {
 		t.Fatal(err)
 	}
 	shelf := node{w: w, t: s.goals, mint: artwork.NewMinter([]byte("actions")), lib: library.New(library.Config{
-		Library: lib, Works: w, Targets: s.goals, Roots: homes, Files: s.queue, Grabs: noGrabs{}, Imports: noGrabs{},
+		Library: lib, Works: w, Targets: s.goals, Roots: homes, Files: s.queue, Imports: noImports{},
 	})}
 	s.Owner = ownertest.Serve(t, lib, func(r *api.Router) { worksapi.Routes(r, shelf) })
 	s.web, err = s.goals.CreateTarget(t.Context(), identity.Admin{}, targets.Spec{Scores: targets.Scores{Increment: 1}, Name: "Web", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p})

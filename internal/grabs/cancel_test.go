@@ -15,8 +15,6 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
-	"github.com/jatassi/slipstream/internal/transfers"
-	"github.com/jatassi/slipstream/internal/transfers/source"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -165,42 +163,25 @@ func TestCancelAtDownloadingKeepsTheFilesOfATorrentSlipStreamAttached(t *testing
 	})
 }
 
-// TestCancelAtTransferringCancelsATransferThatWaits cancels a
-// transferring Grab whose Transfer waits for its source Node.
-func TestCancelAtTransferringCancelsATransferThatWaits(t *testing.T) {
+// TestCancelAtImportingEndsItsImportAndFailsTheGrabWithNothingPlaced
+// cancels an importing Grab whose Import placed nothing: its Import ends
+// as canceled, and the Grab fails canceled at importing.
+func TestCancelAtImportingEndsItsImportAndFailsTheGrabWithNothingPlaced(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		s := inTransmission(t, grabs.Transferring)
-		run(t, s.lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-			_, err := s.copies.Want(ctx, tx, transfers.Request{
-				Purpose: transfers.Grab, Job: s.grab.String(), Source: s.node, Destination: transfers.Root{ID: s.root},
-				Files: []transfers.FileRequest{{Name: "The Attic.mkv", Source: source.Torrent{Hash: s.hash}, Size: 4096}},
-			})
-			return err
-		})
-		s.roster.takeAway(s.node, s.media)
+		s := inTransmission(t, grabs.Importing)
 
 		if err := s.cancel(s.grab, false); err != nil {
 			t.Fatal(err)
 		}
 
-		s.canceled(s.grab, grabs.Transferring)
-		err := s.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-			_, ok, err := s.copies.Find(ctx, r, transfers.Grab, s.grab.String())
-			if ok {
-				t.Error("the Grab's Transfer is still there after the cancel")
-			}
-			return err
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
+		s.canceled(s.grab, grabs.Importing)
 	})
 }
 
 // TestCancelRefusesAGrabPlacingItsFileOrFinished cancels a Grab at each
-// stage a cancel can't stop: probing and importing are busy, saying which
-// Node they wait for while it is away, and imported and failed are
-// finished. Each is left as it was.
+// stage a cancel can't stop: an importing one whose Import places a file
+// is busy, saying which Node it waits for while that Node is away, and
+// imported and failed are finished. Each is left as it was.
 func TestCancelRefusesAGrabPlacingItsFileOrFinished(t *testing.T) {
 	const waits = "This Grab is waiting for home to come back. It can't be canceled until it places its file."
 	for _, c := range []struct {
@@ -208,8 +189,6 @@ func TestCancelRefusesAGrabPlacingItsFileOrFinished(t *testing.T) {
 		away  bool
 		busy  *grabs.GrabBusyError
 	}{
-		{grabs.Probing, false, &grabs.GrabBusyError{Stage: grabs.Probing}},
-		{grabs.Probing, true, &grabs.GrabBusyError{Stage: grabs.Probing, Words: waits}},
 		{grabs.Importing, false, &grabs.GrabBusyError{Stage: grabs.Importing}},
 		{grabs.Importing, true, &grabs.GrabBusyError{Stage: grabs.Importing, Words: waits}},
 		{grabs.Imported, false, nil},
@@ -218,6 +197,7 @@ func TestCancelRefusesAGrabPlacingItsFileOrFinished(t *testing.T) {
 		t.Run(fmt.Sprintf("%s away %v", c.stage, c.away), func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				s := inTransmission(t, grabs.Importing)
+				s.imports.busy = true
 				run(t, s.lib, sql(`UPDATE grabs_grab SET stage = ?, failed_stage = CASE WHEN ? = 'failed' THEN 'importing' END,
 					failure_code = CASE WHEN ? = 'failed' THEN 'import_failed' END, failure_message = CASE WHEN ? = 'failed' THEN 'The disk is full.' END`,
 					string(c.stage), string(c.stage), string(c.stage), string(c.stage)))
@@ -340,15 +320,15 @@ func TestACanceledGrabLeavesItsCellMissingWithNothingNeedingTheAdmin(t *testing.
 	})
 }
 
-func TestADownloadingGrabOffersCancelBlocklistAndSendTo(t *testing.T) {
+func TestADownloadingGrabOffersCancelBlocklistAndSendToAndAnImportingOneCancelAndBlocklist(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s := newSending(t, downloadingReport)
 		if a := s.view(s.grab).Actions; a != (grabs.Actions{Cancel: true, Blocklist: true, SendTo: true}) {
 			t.Fatalf("a downloading Grab offers %+v, want all three", a)
 		}
-		run(t, s.lib, sql(`UPDATE grabs_grab SET stage = 'probing'`))
-		if a := s.view(s.grab).Actions; a != (grabs.Actions{}) {
-			t.Fatalf("a probing Grab offers %+v, want nothing", a)
+		run(t, s.lib, sql(`UPDATE grabs_grab SET stage = 'importing'`))
+		if a := s.view(s.grab).Actions; a != (grabs.Actions{Cancel: true, Blocklist: true}) {
+			t.Fatalf("an importing Grab offers %+v, want a cancel and Blocklist", a)
 		}
 	})
 }

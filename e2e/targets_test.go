@@ -390,7 +390,7 @@ func TestMovingTheWorkToAnotherProfileRenamesItsFileAfterTheTargetItFills(t *tes
 	})
 }
 
-func TestAnUpgradeInFlightWhenTheTargetsGoEndsWithNoFile(t *testing.T) {
+func TestAnUpgradeInFlightWhenTheTargetsGoWaitsWithNoFile(t *testing.T) {
 	t.Parallel()
 	w := grabbedTargets(t)
 	w.holds(t, release)
@@ -416,9 +416,6 @@ func TestAnUpgradeInFlightWhenTheTargetsGoEndsWithNoFile(t *testing.T) {
 	if _, err := w.run.ClearFault(worldtest.Context(t), "bluray-hold"); err != nil {
 		t.Fatal(err)
 	}
-	w.ended(t, *found.GrabID)
-	if w.grab.Stage != "failed" || w.grab.Failure == nil || w.grab.Failure.Code != "fills_nothing" {
-		t.Fatalf("the Bluray Grab ended %s with %+v after %v, want failed fills_nothing", w.grab.Stage, w.grab.Failure, w.grab.stages())
-	}
+	w.waits(t, *found.GrabID, bluray+".mkv: waiting meets_nothing")
 	holdsOnly(t, w.m)
 }

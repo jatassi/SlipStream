@@ -264,10 +264,10 @@ func TestATransferBetweenWorkersResumesAcrossCutLanes(t *testing.T) {
 }
 
 // TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer writes off
-// Downloading on seedbox while it sends, the Grab reads its Transfer
-// copying and the Transfer is named for its Work: the Grab fails
-// node_written_off at transferring, the Transfer's record goes in the
-// same Write, and nas deletes what it staged.
+// Downloading on seedbox while it sends its Import's Transfer, copying and
+// named for its Work: the Grab fails node_written_off at importing, the
+// Transfer's record goes in the same Write, and nas deletes what it
+// staged.
 func TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
@@ -275,11 +275,9 @@ func TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer(t *testing.T) {
 		w := sim.Launch(t, seedboxNAS(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Test.Transfers.Sent = p.sent }))
 		simtest.Search(t, w, simtest.AddOrchard(t, w))
 		<-p.reached
-		simtest.Eventually(t, "the transferring Grab reads its Transfer's bytes", func() bool {
-			gs := simtest.GrabsListed(t, w)
-			return len(gs) == 1 && gs[0].Stage == "transferring" && gs[0].Progress != nil &&
-				gs[0].Progress.Total == int64(len(sim.Payload(release)))
-		})
+		if gs := simtest.GrabsListed(t, w); len(gs) != 1 || gs[0].Stage != "importing" {
+			t.Fatalf("the Grabs are %+v while seedbox sends, want one importing", gs)
+		}
 		listed := simtest.Decode[struct {
 			Transfers []struct {
 				JobName string `json:"jobName"`
@@ -293,7 +291,7 @@ func TestAWriteOffMidTransferFailsTheGrabAndCancelsTheTransfer(t *testing.T) {
 		writeOff(t, a, seedbox(t, a).ID)
 		g := simtest.Await(t, w)
 		close(p.release)
-		expectFailed(t, g, "transferring", "node_written_off", "The Admin wrote off what this Grab's Node downloads")
+		expectFailed(t, g, "importing", "node_written_off", "The Admin wrote off what this Grab's Node downloads")
 		if n := transferRecords(t, w); n != 0 {
 			t.Fatalf("home keeps %d Transfer records once the Grab failed, want none", n)
 		}

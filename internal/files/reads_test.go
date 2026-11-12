@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/release"
@@ -130,7 +131,7 @@ func openOver(t *testing.T, lib *storage.DB[storage.Library]) *files.Files {
 		t.Fatal(err)
 	}
 	f, err := files.Open(t.Context(), files.Config{
-		Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }},
+		Library: lib, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}},
 		Names: map[works.TypeID]release.Names{contenttypetest.ID: fx}, Today: time.Now,
 	})
 	if err != nil {

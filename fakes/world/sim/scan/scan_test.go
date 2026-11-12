@@ -23,7 +23,6 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
-	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/media"
@@ -784,8 +783,8 @@ func TestAScanDuringAnImportChangesNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		grab, scan := newGate(), newGate()
 		s := shelve(t, nil, sim.Edit(func(_ string, e *node.Env) {
-			e.Test.BeforeStep = func(_ context.Context, st grabs.Stage) {
-				if st == grabs.Importing {
+			e.Test.BeforeImport = func(_ context.Context, st imports.Step) {
+				if st.At == imports.AtProbe {
 					grab.pass()
 				}
 			}

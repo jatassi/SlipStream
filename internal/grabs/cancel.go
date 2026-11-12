@@ -1,6 +1,7 @@
 package grabs
 
 import (
+	"cmp"
 	"context"
 	"errors"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/magnet"
 	"github.com/jatassi/slipstream/internal/nodes"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -25,8 +27,9 @@ type GrabBusyError struct {
 func (e *GrabBusyError) Error() string { return "the Grab is " + string(e.Stage) }
 
 // Cancel stops Grab id: at fetching it fails; at downloading its Torrent
-// goes with reason canceled and it fails; at transferring it fails and
-// the Transfer is canceled. With blocklist and an info hash known, its
+// goes with reason canceled and it fails; at importing its Import declines
+// each file not yet placed, and it fails with nothing placed, else it is
+// imported. With blocklist and an info hash known, its
 // Release gets a by_hand entry. Canceling a canceled Grab changes nothing.
 // It fails with ErrNoGrab, ErrGrabFinished, *GrabBusyError and
 // ErrReconciling.
@@ -51,6 +54,7 @@ func (gr *Grabs) Cancel(ctx context.Context, by identity.Admin, id GrabID, block
 // when the Grab was canceled already.
 type canceledGrab struct {
 	grab    *Grab
+	next    Stage
 	touched *downloadclients.Touched
 	blocked bool
 }
@@ -59,7 +63,7 @@ func (c canceledGrab) publish(ctx context.Context, gr *Grabs) {
 	if c.grab == nil {
 		return
 	}
-	gr.entered(ctx, *c.grab, Failed)
+	gr.entered(ctx, *c.grab, cmp.Or(c.next, Failed))
 	if c.touched != nil {
 		gr.cfg.Downloads.Touched(*c.touched)
 	}
@@ -83,19 +87,15 @@ func (gr *Grabs) cancelIn(ctx context.Context, tx *storage.Tx[file], g Grab, by 
 		return canceledGrab{}, ErrGrabFinished
 	case Imported:
 		return canceledGrab{}, ErrGrabFinished
-	case Probing, Importing:
-		words, err := gr.waitWords(ctx, tx, g)
-		if err != nil {
-			return canceledGrab{}, err
-		}
-		return canceledGrab{}, &GrabBusyError{Stage: g.Stage, Words: words}
+	case Importing:
+		return gr.cancelImport(ctx, tx, g, by, blocklist)
 	case Downloading:
 		t, err := gr.removeCanceled(ctx, tx, g)
 		if err != nil {
 			return canceledGrab{}, err
 		}
 		c.touched = &t
-	case Fetching, Transferring:
+	case Fetching:
 	}
 	if h := g.infoHash(); blocklist && h != nil {
 		if err := gr.blockByHand(ctx, tx, g, *h, by); err != nil {
@@ -139,13 +139,43 @@ func (gr *Grabs) removeCanceled(ctx context.Context, tx *storage.Tx[file], g Gra
 	return t, nil
 }
 
-// waitWords is what probing or importing Grab g waits for, read in r: the
-// Node its step runs on while that Node is out of step, else "".
-func (gr *Grabs) waitWords(ctx context.Context, r storage.Reader[file], g Grab) (string, error) {
-	node := g.Node
-	if g.Stage == Importing {
-		node = g.Plan.Root.Node
+// cancelImport cancels importing Grab g through its Import, which
+// declines each file not yet placed. The Import's Follow moves g: failed
+// canceled with nothing placed, else imported. A file placing refuses it.
+func (gr *Grabs) cancelImport(ctx context.Context, tx *storage.Tx[file], g Grab, by Actor, blocklist bool) (canceledGrab, error) {
+	var c canceledGrab
+	if h := g.infoHash(); blocklist && h != nil {
+		if err := gr.blockByHand(ctx, tx, g, *h, by); err != nil {
+			return canceledGrab{}, err
+		}
+		c.blocked = true
 	}
+	err := gr.importer.End(ctx, tx, g.ID, Failure{Stage: Importing, Code: Canceled, Message: canceledWords(by)}, true)
+	if busy, ok := errors.AsType[*GrabBusyError](err); ok {
+		if busy.Words, err = gr.waitWords(ctx, tx, g); err != nil {
+			return canceledGrab{}, err
+		}
+		return canceledGrab{}, busy
+	}
+	if err != nil {
+		return canceledGrab{}, err
+	}
+	now, err := grabIn(ctx, tx, g.ID)
+	if err != nil {
+		return canceledGrab{}, err
+	}
+	c.grab, c.next = &now, now.Stage
+	return c, nil
+}
+
+// waitWords is what importing Grab g waits for, read in r: the Node that
+// holds its Work's root while that Node is out of step, else "".
+func (gr *Grabs) waitWords(ctx context.Context, r storage.Reader[file], g Grab) (string, error) {
+	root, err := roots.OfWork(ctx, r, g.WorkID)
+	if err != nil {
+		return "", err
+	}
+	node := root.Node
 	if gr.cfg.Roster.InStep(node) {
 		return "", nil
 	}
@@ -178,7 +208,7 @@ func (g Grab) infoHash() *bencode.InfoHash {
 
 // cancelable reports whether a cancel stops g now.
 func (g Grab) cancelable() bool {
-	return g.Stage == Fetching || g.Stage == Downloading || g.Stage == Transferring
+	return g.Stage == Fetching || g.Stage == Downloading || g.Stage == Importing
 }
 
 // blockByHand puts g's Release, by its info hash h, on the Blocklist as

@@ -17,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/indexers/indexerstest"
 	"github.com/jatassi/slipstream/internal/newznab"
@@ -31,7 +32,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/trackers"
-	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -240,7 +240,7 @@ func newAttic(t *testing.T, remote searching.Remote, sites []twinSite, goals []t
 	}
 	r := &roster{node: home, changed: make(chan struct{})}
 	router := downloadclients.Router{Roster: r, Routes: trackers.Routing{Roster: r}}
-	shelf, err := files.Open(ctx, files.Config{Library: lib, Targets: wanted, Grabs: grabs.GrabCells{InStep: r.InStep, Router: router}, Today: time.Now})
+	shelf, err := files.Open(ctx, files.Config{Library: lib, Targets: wanted, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: r.InStep, Router: router}}, Today: time.Now})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,9 +291,7 @@ func newAttic(t *testing.T, remote searching.Remote, sites []twinSite, goals []t
 // open is a new Grabs over the world's library, as a Controller that
 // starts again opens one.
 func (a atticWorld) open() *grabs.Grabs {
-	cfg := a.cfg
-	cfg.Transfers = transfers.New(transfers.ControllerConfig{Library: a.lib})
-	return grabs.New(cfg)
+	return grabs.New(a.cfg)
 }
 
 // searchedAutomatically is what an automatic search of the Work grabs, as

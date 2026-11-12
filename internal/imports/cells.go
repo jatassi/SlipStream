@@ -11,27 +11,83 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// Cells is files.Inflight: grabs' cells, and every holding path an
-// unfinished Import's file or Grab claims. Stateless, so the composition
-// root builds it before grabs.New and imports.Open.
+// Cells is files.Inflight: grabs' cells, each of an importing Grab waiting
+// on what its Import's file for it waits on, and every holding path an
+// unfinished Import's file claims. Stateless, so the composition root
+// builds it before grabs.New and imports.New.
 type Cells struct{ Grabs grabs.GrabCells }
 
 func (c Cells) GrabCells(ctx context.Context, r storage.Reader[file], ws works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
-	return c.Grabs.GrabCells(ctx, r, ws)
+	cells, err := c.Grabs.GrabCells(ctx, r, ws)
+	if err != nil || len(cells) == 0 {
+		return cells, err
+	}
+	var ids []grabs.GrabID
+	for _, cell := range cells {
+		if cell.InFlight() {
+			ids = append(ids, grabs.GrabID{UUID: cell.Grab})
+		}
+	}
+	imps, err := importsOfGrabs(ctx, r, ids)
+	if err != nil {
+		return nil, err
+	}
+	for key, cell := range cells {
+		imp, ok := imps[cell.Grab]
+		if !ok || !cell.InFlight() {
+			continue
+		}
+		if hold := imp.holdOn(key); hold != "" {
+			cell.Waiting = string(hold)
+			cells[key] = cell
+		}
+	}
+	return cells, nil
+}
+
+// holdOn is the import wait of a file of im that holds cell k, "" for
+// none.
+func (im Import) holdOn(k files.CellKey) HoldCode {
+	for _, f := range im.Files {
+		if f.Hold != nil && f.holds(k) {
+			return f.Hold.Code
+		}
+	}
+	return ""
+}
+
+// importsOfGrabs is the Import of each of ids that has one, by its Grab,
+// its unfinished one first, read in r.
+func importsOfGrabs(ctx context.Context, r storage.Reader[file], ids []grabs.GrabID) (map[storage.UUID]Import, error) {
+	out := map[storage.UUID]Import{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := db.New(r).ListImportsOfGrabs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	imps, err := allImports(ctx, r, rows)
+	if err != nil {
+		return nil, err
+	}
+	for _, imp := range imps {
+		if imp.Finished.IsZero() || out[imp.Grab.UUID].ID.IsZero() {
+			out[imp.Grab.UUID] = imp
+		}
+	}
+	return out, nil
 }
 
 // Holding is every path in a root's holding folder an unfinished Import's
 // file claims, its Dest from the decision on while it isn't final or
-// failed for the Admin to retry, and each open Grab's.
+// failed for the Admin to retry.
 func (c Cells) Holding(ctx context.Context, r storage.Reader[file]) (map[roots.ID]map[string]bool, error) {
-	out, err := c.Grabs.Holding(ctx, r)
-	if err != nil {
-		return nil, err
-	}
 	rows, err := db.New(r).ListHolding(ctx)
 	if err != nil {
 		return nil, err
 	}
+	out := map[roots.ID]map[string]bool{}
 	for _, row := range rows {
 		if out[row.RootID] == nil {
 			out[row.RootID] = map[string]bool{}

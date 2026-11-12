@@ -2,7 +2,7 @@
 description: >-
   home's two Nodes with releases that are folders of files, for importing
   packs. The Copper Coast's episodes and both movies run a minute, so the
-  library's Importing settings, a 256KiB smallest video file and samples
+  library's Importing settings, a 1MiB smallest video file and samples
   under 5% of the runtime, leave out the 2-second samples and keep the
   8-second videos in both worlds. The site lists a season 1 pack with a
   sample and an nfo, a pack of episodes 1 to 6, a pack of both seasons in
@@ -183,4 +183,4 @@ library:
   storage_levels: {warn_below: 0B, error_below: 0B}
   roots: [{content_type: series, folder: tv}, {content_type: movie, folder: movies}]
   indexers: [{name: Fixture Site, kind: torznab, site: torznab}]
-  importing: {smallest_video_file: 256KiB, sample_shorter_than: 5}
+  importing: {smallest_video_file: 1MiB, sample_shorter_than: 5}

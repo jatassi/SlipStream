@@ -16,9 +16,6 @@ INSERT INTO grabs_grab_item (grab_id, item_id, position) VALUES (sqlc.arg(grab_i
 INSERT INTO grabs_target (grab_id, position, item_id, target_id, forced)
 VALUES (sqlc.arg(grab_id), sqlc.arg(position), sqlc.arg(item_id), sqlc.arg(target_id), sqlc.arg(forced));
 
--- name: InsertFill :exec
-INSERT INTO grabs_fill (grab_id, position, target_id) VALUES (sqlc.arg(grab_id), sqlc.arg(position), sqlc.arg(target_id));
-
 -- name: InsertStage :exec
 INSERT INTO grabs_stage (grab_id, stage, entered_at) VALUES (sqlc.arg(grab_id), sqlc.arg(stage), sqlc.arg(entered_at))
 ON CONFLICT (grab_id, stage) DO UPDATE SET entered_at = excluded.entered_at;
@@ -29,10 +26,6 @@ UPDATE grabs_grab SET
     torrent_id = coalesce(sqlc.narg(torrent_id), torrent_id),
     fetch_node_id = coalesce(sqlc.narg(fetch_node_id), fetch_node_id),
     node_id = coalesce(sqlc.narg(node_id), node_id),
-    file_index = coalesce(sqlc.narg(file_index), file_index),
-    probe = coalesce(sqlc.narg(probe), probe),
-    root_id = coalesce(sqlc.narg(root_id), root_id),
-    path = coalesce(sqlc.narg(path), path),
     failed_stage = sqlc.narg(failed_stage),
     failure_code = sqlc.narg(failure_code),
     failure_message = sqlc.narg(failure_message),
@@ -61,14 +54,11 @@ SELECT * FROM grabs_target ORDER BY grab_id, position;
 -- name: ListGrabItems :many
 SELECT * FROM grabs_grab_item ORDER BY grab_id, position;
 
--- name: ListFills :many
-SELECT * FROM grabs_fill ORDER BY grab_id, position;
-
 -- name: ListStages :many
 SELECT * FROM grabs_stage ORDER BY grab_id, entered_at, rowid;
 
 -- name: ListGrabsOfTorrents :many
-SELECT id, torrent_id, work_id, item_id, edition, release_title, stage, file_index, min_ratio, min_seed_seconds, created_at FROM grabs_grab
+SELECT id, torrent_id, work_id, item_id, edition, release_title, stage, min_ratio, min_seed_seconds, created_at FROM grabs_grab
 WHERE torrent_id IN (sqlc.slice(torrent_ids))
 ORDER BY created_at, id;
 
@@ -167,13 +157,6 @@ SELECT grabs_grab.id, grabs_target.item_id, grabs_grab.edition, grabs_grab.stage
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
 
--- name: CountGrabsInto :one
-SELECT COUNT(*) FROM grabs_grab WHERE stage NOT IN ('imported', 'failed')
-    AND (root_id = sqlc.arg(root_id) OR work_id IN (sqlc.slice(work_ids)));
-
--- name: ReleaseRoot :exec
-UPDATE grabs_grab SET root_id = NULL WHERE root_id = sqlc.arg(root_id) AND stage IN ('imported', 'failed');
-
 -- name: StartMetadataSearch :one
 UPDATE grabs_grab SET metadata_started_at = coalesce(metadata_started_at, sqlc.arg(at))
 WHERE id = sqlc.arg(id) AND stage = 'fetching'
@@ -202,3 +185,13 @@ SELECT id, release_title FROM grabs_grab ORDER BY id;
 -- name: SetSent :exec
 UPDATE grabs_grab SET sent_built_in_on = sqlc.narg(built_in_on), sent_client_id = sqlc.narg(client_id), updated_at = sqlc.arg(updated_at)
 WHERE id = sqlc.arg(id);
+
+-- name: SettleTarget :execrows
+UPDATE grabs_target SET settled = sqlc.arg(settled), settled_at = sqlc.arg(settled_at)
+WHERE grab_id = sqlc.arg(grab_id) AND item_id = sqlc.arg(item_id) AND target_id = sqlc.arg(target_id) AND settled IS NULL;
+
+-- name: ListCarried :many
+SELECT * FROM grabs_carry ORDER BY grab_id;
+
+-- name: DeleteCarried :exec
+DELETE FROM grabs_carry WHERE grab_id = sqlc.arg(grab_id);

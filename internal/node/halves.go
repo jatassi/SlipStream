@@ -376,22 +376,18 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	pipeline = grabs.New(grabs.Config{
-		Library:   lib.db,
-		Works:     tree,
-		Targets:   goals,
-		Files:     shelf,
-		Indexers:  registry,
-		Sealer:    lib.sealer,
-		Terms:     contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
-		Names:     contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
-		Roster:    side,
-		Downloads: clients,
-		Router:    router,
-		Media: func(node role.NodeID) mediav1connect.MediaServiceHandler {
-			return mediav1connect.MediaService.On(cluster, node)
-		},
+		Library:          lib.db,
+		Works:            tree,
+		Targets:          goals,
+		Files:            shelf,
+		Indexers:         registry,
+		Sealer:           lib.sealer,
+		Terms:            contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
+		Names:            contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
+		Roster:           side,
+		Downloads:        clients,
+		Router:           router,
 		Roots:            homes,
-		Transfers:        copies,
 		Timings:          n.cfg.Timings.Grabs,
 		Rand:             n.grabsRand,
 		Changed:          grabs.ChangedEvent.Bind(n.hub),
@@ -427,13 +423,18 @@ func (n *Node) startController(ctx context.Context) error {
 			return mediav1connect.MediaService.On(cluster, node)
 		},
 		Transfers:    copies,
+		Grabs:        pipeline,
 		Timings:      imports.Timings{RetryMin: n.cfg.Timings.Grabs.RetryMin, RetryMax: n.cfg.Timings.Grabs.RetryMax},
 		Rand:         n.importsRand,
 		BeforeStep:   n.env.Test.BeforeScanStep,
 		BeforeImport: n.env.Test.BeforeImport,
 		Log:          n.rootLog.With("subsystem", "imports"),
 	})
-	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Grabs: pipeline, Imports: found, Leaver: found})
+	pipeline.Register(found.Importer())
+	if err := found.Carry(ctx); err != nil {
+		return err
+	}
+	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found})
 
 	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found}
 	scheduler, err = tasks.Open(ctx, tasks.Config{

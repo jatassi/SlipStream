@@ -81,8 +81,8 @@ func TestAnUnfinishedGrabHoldsItsCellWhateverFinishedAfterIt(t *testing.T) {
 	lib := storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
 	work, item, home, client, torrent := storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
 	const grab = `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, node_id, release_title, release_size, release_magnet,
-		stage, failure_code, failed_stage, torrent_id, path, file_index, probe, created_at, updated_at)
-		VALUES (?, ?, ?, 'any', 'search', ?, 'Orchard.WEB-DL', 1, 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567', ?, ?, iif(? IS NULL, NULL, 'downloading'), ?, ?, 0, '{}', ?, ?)`
+		stage, failure_code, failed_stage, torrent_id, created_at, updated_at)
+		VALUES (?, ?, ?, 'any', 'search', ?, 'Orchard.WEB-DL', 1, 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567', ?, ?, iif(? IS NULL, NULL, 'downloading'), ?, ?, ?)`
 	run(t, lib,
 		sql(`INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, home),
 		sql(`INSERT INTO downloadclients_client (id, node_id, kind, name, address, address_key, label, is_on, settings_version,
@@ -94,9 +94,9 @@ func TestAnUnfinishedGrabHoldsItsCellWhateverFinishedAfterIt(t *testing.T) {
 		sql(`INSERT INTO works_item (id, work_id, key, label, position) VALUES (?, ?, 'i1', 'Orchard', 1)`, item, work),
 	)
 	rootstest.Root(t, lib, role.NodeID{UUID: home}, contenttypetest.ID, t.TempDir())
-	type step struct{ stage, failure, path any }
-	fetching, downloading := step{"fetching", nil, nil}, step{"downloading", nil, nil}
-	imported, failed, canceled := step{"imported", nil, "Orchard.mkv"}, step{"failed", "fetch_failed", nil}, step{"failed", "canceled", nil}
+	type step struct{ stage, failure any }
+	fetching, downloading := step{"fetching", nil}, step{"downloading", nil}
+	imported, failed, canceled := step{"imported", nil}, step{"failed", "fetch_failed"}, step{"failed", "canceled"}
 	cases := []struct {
 		what  string
 		steps []step
@@ -122,7 +122,7 @@ func TestAnUnfinishedGrabHoldsItsCellWhateverFinishedAfterIt(t *testing.T) {
 			ids[i] = append(ids[i], id)
 			at++
 			run(t, lib,
-				sql(grab, id, work, item, home, st.stage, st.failure, st.failure, torrent, st.path, at, at),
+				sql(grab, id, work, item, home, st.stage, st.failure, st.failure, torrent, at, at),
 				sql(`INSERT INTO grabs_target (grab_id, position, item_id, target_id) SELECT id, 0, item_id, ? FROM grabs_grab WHERE id = ?`, cellTargets[i], id),
 			)
 		}

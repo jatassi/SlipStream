@@ -35,9 +35,9 @@ func torrentsOf(t *testing.T, w *sim.World, hash string) int64 {
 	return n
 }
 
-// TestAttachFollowsTheTorrentsState fails seedbox's first Grab at probing,
-// so its Torrent stays complete and seeding, sets that Torrent's state,
-// and searches again: the second Grab attaches to the Torrent, and the
+// TestAttachFollowsTheTorrentsState fails seedbox's first Grab's Import
+// unreadable, so its Torrent stays complete and seeding, sets that
+// Torrent's state, and searches again: the second Grab attaches to the Torrent, and the
 // Torrent's state alone decides what it does.
 func TestAttachFollowsTheTorrentsState(t *testing.T) {
 	t.Parallel()
@@ -83,13 +83,11 @@ func TestAttachFollowsTheTorrentsState(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			synctest.Test(t, func(t *testing.T) {
-				w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) { e.Media = &failsOnce{Prober: e.Media} }))
+				w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), unreadableFirst())
 				work := simtest.AddOrchard(t, w)
 				simtest.Search(t, w, work)
 				first := simtest.Await(t, w)
-				if first.Stage != "failed" || first.Failure == nil || first.Failure.Stage != "probing" {
-					t.Fatalf("the first Grab ended %s with %+v, want failed at probing", first.Stage, first.Failure)
-				}
+				expectFailed(t, first, "importing", "unreadable", "SlipStream can't read any video file in the download.")
 				if c.set != "" {
 					onTorrents(t, w, c.set)
 				}
@@ -117,7 +115,7 @@ func awaitSecond(t *testing.T, w *sim.World) simtest.GrabView {
 
 // TestARemoveBetweenTheReadAndTheCommitFailsTheGrab removes the Torrent
 // after the reconciler read it complete and before it commits the move to
-// probing: the commit sees the removal and fails the Grab with removed.
+// importing: the commit sees the removal and fails the Grab with removed.
 func TestARemoveBetweenTheReadAndTheCommitFailsTheGrab(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {

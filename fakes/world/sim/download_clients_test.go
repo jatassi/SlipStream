@@ -154,7 +154,7 @@ func (c suite) testsImportsSharesAPauseAndRemoves(t *testing.T) {
 	}), saved.Name+" saves to "+root+", which overlaps a library root on home. Choose a download folder outside every library root and test again.", "folder")
 
 	simtest.Search(t, w, simtest.AddOrchard(t, w))
-	expectImportedFrom(t, simtest.Await(t, w))
+	simtest.ExpectImported(t, simtest.Await(t, w))
 	expectPlaced(t, w)
 	r.expectLinked()
 
@@ -187,7 +187,7 @@ func (c suite) healsALabelThatNeverArrived(t *testing.T) {
 	w, r := c.launch(t, func(*scenario.DownloadClient) {})
 	w.Cue(c.kind, c.kind+"-late-add", map[string]string{"node": "home", "after": "30s"})
 	simtest.Search(t, w, simtest.AddOrchard(t, w))
-	expectImportedFrom(t, simtest.Await(t, w))
+	simtest.ExpectImported(t, simtest.Await(t, w))
 	if got := r.delugeLabel(w.InfoHash(release)); got != clients.DefaultLabel {
 		t.Fatalf("the torrent's label in Deluge reads %q, want %q", got, clients.DefaultLabel)
 	}
@@ -223,7 +223,7 @@ func (c suite) importsThroughAClientFolderAfterTheDelay(t *testing.T) {
 	if waited := time.Since(finished); waited < importDelay-time.Minute {
 		t.Fatalf("the Grab imported %s after the client finished, want the Import delay of %s", waited, importDelay)
 	}
-	expectImportedFrom(t, g)
+	simtest.ExpectImported(t, g)
 	expectPlaced(t, w)
 	r.expectLinked()
 }
@@ -235,7 +235,7 @@ func (c suite) importsThroughAClientFolderAfterTheDelay(t *testing.T) {
 func (c suite) anErrorStopsTheTorrentUntilCleared(t *testing.T) {
 	w, r := c.launch(t, func(*scenario.DownloadClient) {})
 	simtest.Search(t, w, simtest.AddOrchard(t, w))
-	expectImportedFrom(t, simtest.Await(t, w))
+	simtest.ExpectImported(t, simtest.Await(t, w))
 	simtest.Eventually(t, "the Torrent seeds", func() bool { return r.torrent().State == "seeding" })
 
 	w.Cue(c.kind, c.kind+"-error", map[string]string{"node": "home", "release": release, "message": "No space left on device"})
@@ -275,17 +275,6 @@ func (c suite) failsAClientErrorPastTheSetting(t *testing.T) {
 	}
 	if got := w.API().Admin("home", http.MethodGet, "/api/v1/blocklist", ""); got.Status != http.StatusOK || !strings.Contains(got.Body, `"total":0`) {
 		t.Errorf("listBlocklist = %d %s, want no entry", got.Status, got.Body)
-	}
-}
-
-// fromClient is a Grab's walk on one Node that downloads, probes and
-// imports there.
-var fromClient = []string{"fetching", "downloading", "probing", "importing", "imported"}
-
-func expectImportedFrom(t *testing.T, g simtest.GrabView) {
-	t.Helper()
-	if g.Stage != "imported" || !slices.Equal(g.Stages(), fromClient) {
-		t.Fatalf("the Grab ended %s with %+v after %v, want imported after %v", g.Stage, g.Failure, g.Stages(), fromClient)
 	}
 }
 
@@ -482,7 +471,7 @@ func TestEveryKindOnOneNode(t *testing.T) {
 		}
 
 		simtest.Search(t, w, simtest.AddOrchard(t, w))
-		expectImportedFrom(t, simtest.Await(t, w))
+		simtest.ExpectImported(t, simtest.Await(t, w))
 		rows := simtest.Decode[struct {
 			Rows []torrentRow `json:"rows"`
 		}](t, "listTorrents", w.API().Admin("home", http.MethodGet, "/api/v1/torrents", "")).Rows

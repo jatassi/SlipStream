@@ -67,9 +67,13 @@ const (
 	UnreadableFile FailureCode = "unreadable"
 )
 
+// Ending is why an Import ended before its files did: the reason its
+// unplaced files were declined, and the code and words its Grab fails
+// with when nothing was placed.
 type Ending struct {
-	Reason ReasonCode `json:"reason"`
-	Code   string     `json:"code"`
+	Reason  ReasonCode `json:"reason"`
+	Code    string     `json:"code"`
+	Message string     `json:"message"`
 }
 
 type Outcome string
