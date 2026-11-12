@@ -1,7 +1,6 @@
 import { HttpResponse, http } from "msw";
 
 import type {
-  ImportsEntry,
   ImportsLead,
   ImportsOutcome,
   WorksCandidate,
@@ -10,11 +9,11 @@ import type {
   WorksWorkView,
 } from "../api/gen/model";
 import {
-  AddPendingImportsBody,
-  IgnorePendingImportsBody,
-  ImportPendingIntoBody,
-  MatchPendingImportBody,
+  ActOnRootImportBody,
+  AddRootImportsBody,
+  IgnoreImportsBody,
 } from "../api/gen/zod/imports/imports.zod";
+import type { RootEntry } from "../imports/root-entry";
 import type { liveServer } from "./live-server";
 import { libraryRow, orchard } from "./library";
 import {
@@ -115,7 +114,7 @@ export const brazilWork: WorksWorkView = {
 };
 
 export type ImportsWorld = {
-  entries: ImportsEntry[];
+  entries: RootEntry[];
   leads: ImportsLead[];
   candidates: WorksCandidate[];
   rows: WorksLibraryRow[];
@@ -127,7 +126,7 @@ export type ImportsWorld = {
 type Sent = {
   added: string[][];
   matched: { id: string; key: string }[];
-  imported: { id: string; workId: string; files: { path: string; itemIds: string[] | null }[] }[];
+  imported: { id: string; workId: string; files: { position: number; itemIds: string[] }[] }[];
   ignored: string[][];
   restored: string[][];
   searched: string[];
@@ -138,7 +137,7 @@ const problemType = { "Content-Type": "application/problem+json" };
 const refused = (status: number, code: string, title: string) =>
   HttpResponse.json({ status, code, title }, { status, headers: problemType });
 
-const needsYou = (entry: ImportsEntry) => entry.ignoredAt === null;
+const needsYou = (entry: RootEntry) => entry.ignoredAt === null;
 
 const failed = (id: string, code: string, title: string): ImportsOutcome => ({
   id,
@@ -146,13 +145,13 @@ const failed = (id: string, code: string, title: string): ImportsOutcome => ({
   problem: { code, title },
 });
 
-function outcomeOf(world: ImportsWorld, entry: ImportsEntry): ImportsOutcome {
+function outcomeOf(world: ImportsWorld, entry: RootEntry): ImportsOutcome {
   const { id, suggestion } = entry;
   if (suggestion === null) {
-    return failed(id, "pending_no_suggestion", "The pending import has no suggested Work");
+    return failed(id, "import_no_suggestion", "The Import has no suggested Work");
   }
   if (entry.files.some(({ reason }) => reason.code === "elsewhere")) {
-    return failed(id, "pending_elsewhere", "The Work lives in another library root");
+    return failed(id, "import_elsewhere", "The Work lives in another library root");
   }
   world.entries = world.entries.filter((candidate) => candidate.id !== id);
   return {
@@ -162,7 +161,7 @@ function outcomeOf(world: ImportsWorld, entry: ImportsEntry): ImportsOutcome {
   };
 }
 
-function matchedOf(entry: ImportsEntry, candidate: WorksCandidate): ImportsEntry {
+function matchedOf(entry: RootEntry, candidate: WorksCandidate): RootEntry {
   const year = candidate.fields.find((field) => field.key === "year");
   return {
     ...entry,
@@ -178,11 +177,11 @@ function matchedOf(entry: ImportsEntry, candidate: WorksCandidate): ImportsEntry
 }
 
 const readsOf = (world: ImportsWorld, sent: Sent) => [
-  http.get("*/api/v1/imports/pending", ({ request }) => {
+  http.get("*/api/v1/imports", ({ request }) => {
     const ignored = new URL(request.url).searchParams.get("ignored") === "true";
     return HttpResponse.json({
       leads: world.leads,
-      entries: world.entries.filter((entry) => needsYou(entry) !== ignored),
+      imports: world.entries.filter((entry) => needsYou(entry) !== ignored),
     });
   }),
   http.get("*/api/v1/content-types/:id/catalog", ({ request }) => {
@@ -199,57 +198,59 @@ const readsOf = (world: ImportsWorld, sent: Sent) => [
 ];
 
 const marksOf = (world: ImportsWorld, sent: Sent) => [
-  http.post("*/api/v1/imports/pending/ignore", async ({ request }) => {
-    const { ids } = IgnorePendingImportsBody.parse(await request.json());
-    sent.ignored.push(ids);
-    return marked(world, ids, "2026-11-08T10:00:00Z");
+  http.post("*/api/v1/imports/ignore", async ({ request }) => {
+    const { importIds } = IgnoreImportsBody.parse(await request.json());
+    sent.ignored.push(importIds);
+    return marked(world, importIds, "2026-11-08T10:00:00Z");
   }),
-  http.post("*/api/v1/imports/pending/unignore", async ({ request }) => {
-    const { ids } = IgnorePendingImportsBody.parse(await request.json());
-    sent.restored.push(ids);
-    return marked(world, ids, null);
+  http.post("*/api/v1/imports/unignore", async ({ request }) => {
+    const { importIds } = IgnoreImportsBody.parse(await request.json());
+    sent.restored.push(importIds);
+    return marked(world, importIds, null);
   }),
 ];
 
 const writesOf = (world: ImportsWorld, sent: Sent) => [
-  http.post("*/api/v1/imports/pending/add", async ({ request }) => {
-    const { ids } = AddPendingImportsBody.parse(await request.json());
-    sent.added.push(ids);
-    const named = world.entries.filter(({ id }) => ids.includes(id));
+  http.post("*/api/v1/imports/add", async ({ request }) => {
+    const { importIds } = AddRootImportsBody.parse(await request.json());
+    sent.added.push(importIds);
+    const named = world.entries.filter(({ id }) => importIds.includes(id));
     const outcomes = named.map((entry) => outcomeOf(world, entry));
     world.changed(named.map(({ root }) => root.id));
     return HttpResponse.json({ outcomes });
   }),
-  http.post("*/api/v1/imports/pending/:id/match", async ({ params, request }) => {
+  http.post("*/api/v1/imports/:id", async ({ params, request }) => {
     const id = String(params["id"]);
-    const { key } = MatchPendingImportBody.parse(await request.json());
-    sent.matched.push({ id, key });
-    const candidate = world.candidates.find((found) => found.key === key);
+    const body = ActOnRootImportBody.parse(await request.json());
     const entry = world.entries.find((found) => found.id === id);
-    if (candidate === undefined || entry === undefined) {
-      return refused(404, "metadata_not_found", "The metadata source has no record with that key");
+    if (body.action === "match") {
+      sent.matched.push({ id, key: body.key });
+      const candidate = world.candidates.find((found) => found.key === body.key);
+      if (candidate === undefined || entry === undefined) {
+        return refused(
+          404,
+          "metadata_not_found",
+          "The metadata source has no record with that key",
+        );
+      }
+      const matched = matchedOf(entry, candidate);
+      world.entries = world.entries.map((found) => (found.id === id ? matched : found));
+      world.changed([entry.root.id]);
+      return HttpResponse.json(matched);
     }
-    const matched = matchedOf(entry, candidate);
-    world.entries = world.entries.map((found) => (found.id === id ? matched : found));
-    world.changed([entry.root.id]);
-    return HttpResponse.json(matched);
-  }),
-  http.post("*/api/v1/imports/pending/:id/import", async ({ params, request }) => {
-    const id = String(params["id"]);
-    const body = ImportPendingIntoBody.parse(await request.json());
-    sent.imported.push({ id, ...body });
-    const entry = world.entries.find((found) => found.id === id);
+    sent.imported.push({ id, workId: body.workId, files: body.files });
     if (entry === undefined) {
-      return refused(404, "pending_not_found", "No pending import has that id");
+      return refused(404, "import_not_found", "No Import has that id");
     }
-    const chosen = new Set(body.files.map(({ path }) => path));
-    const left = { ...entry, files: entry.files.filter(({ path }) => !chosen.has(path)) };
+    const chosen = new Set(body.files.map(({ position }) => position));
+    const files = entry.files.filter(({ position }) => !chosen.has(position));
+    const left: RootEntry = { ...entry, stage: files.length === 0 ? "done" : "waiting", files };
     world.entries =
-      left.files.length === 0
+      files.length === 0
         ? world.entries.filter((found) => found.id !== id)
         : world.entries.map((found) => (found.id === id ? left : found));
     world.changed([entry.root.id]);
-    return HttpResponse.json({ entry: left.files.length === 0 ? null : left });
+    return HttpResponse.json(left);
   }),
 ];
 

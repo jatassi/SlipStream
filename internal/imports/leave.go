@@ -11,7 +11,7 @@ import (
 )
 
 // Leave is library.Leaver: in a Leave files delete's Write, it lists ws's
-// files on disk in an ignored entry per root and Work folder, with their
+// files on disk in an ignored root Import per root and Work folder, with their
 // records, so the next scan doesn't add the Works back and the Admin can
 // still import them. Bytes still moving into place are left out: the disk
 // queue's holding sweep removes them.
@@ -40,10 +40,9 @@ func (im *Imports) Leave(ctx context.Context, tx *storage.Tx[file], ws []works.W
 			by[k] = p
 			order = append(order, k)
 		}
-		p.Files = append(p.Files, PendingFile{
-			Path: f.Path, Size: f.Size, Seen: f.Seen, Media: &f.Media, Quality: f.Quality, Cut: f.Cut,
-			Reason: scanning.Reason{Code: scanning.Left},
-		})
+		lf := File{Path: f.Path, Size: f.Size, Seen: f.Seen, Probe: &f.Media, Quality: f.Quality, Cut: f.Cut}
+		lf.waitFor(scanning.Reason{Code: scanning.Left})
+		p.Files = append(p.Files, lf)
 	}
 	now := storage.Now()
 	for _, k := range order {

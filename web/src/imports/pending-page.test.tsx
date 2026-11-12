@@ -88,7 +88,7 @@ test("Add says which folder wasn't added and why", async () => {
   );
   await userEvent.click(entry(halloween.folder).getByRole("button", { name: "Add" }));
   await expect
-    .element(page.getByText("Halloween wasn't added. The pending import has no suggested Work."))
+    .element(page.getByText("Halloween wasn't added. The Import has no suggested Work."))
     .toBeVisible();
 });
 
@@ -130,7 +130,7 @@ test("Import into attaches a series folder's files at the episodes picked, leavi
     {
       id: severanceEntry.id,
       workId: severanceEntry.suggestion?.workId,
-      files: [{ path: "Severance (2022)/Season 1/Severance.mkv", itemIds: [halfLoop.id] }],
+      files: [{ position: 0, itemIds: [halfLoop.id] }],
     },
   ]);
   await expect

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-import type { ImportsEntry, ImportsLead, WorksContentType } from "../api/gen/model";
-import { useListPendingImportsSuspense } from "../api/gen/query/imports/imports";
+import type { ImportsLead, WorksContentType } from "../api/gen/model";
+import { type RootEntry, useRootImports } from "./root-entry";
 import { useListContentTypesSuspense } from "../api/gen/query/works/works";
 import { Empty } from "../shell/empty";
 import { Page } from "../shell/page";
@@ -12,12 +12,13 @@ import { isAddable } from "./words";
 
 export type PendingView = "needs-you" | "ignored";
 
-export const pendingParams = (view: PendingView) => (view === "ignored" ? { ignored: true } : {});
+export const pendingParams = (view: PendingView) =>
+  view === "ignored" ? { source: "root" as const, ignored: true } : { source: "root" as const };
 
 function groupsOf(
   view: PendingView,
   leads: readonly ImportsLead[],
-  entries: readonly ImportsEntry[],
+  entries: readonly RootEntry[],
   types: readonly WorksContentType[],
 ): Group[] {
   const shown = view === "ignored" ? [] : leads;
@@ -41,7 +42,7 @@ function groupsOf(
   );
 }
 
-function AddAll({ entries }: { entries: readonly ImportsEntry[] }) {
+function AddAll({ entries }: { entries: readonly RootEntry[] }) {
   const { add, busy } = useAdding();
   const addable = entries.filter((entry) => isAddable(entry));
   if (addable.length < 2) {
@@ -71,7 +72,7 @@ const empties: { readonly [V in PendingView]: string } = {
  * suggestion. The Ignored view lists the folders the Admin set aside.
  */
 export function PendingPage({ view, beside }: { view: PendingView; beside: ReactNode }) {
-  const { leads, entries } = useListPendingImportsSuspense(pendingParams(view)).data;
+  const { leads, entries } = useRootImports(pendingParams(view));
   const { contentTypes } = useListContentTypesSuspense().data;
   const groups = groupsOf(view, leads, entries, contentTypes);
   return (

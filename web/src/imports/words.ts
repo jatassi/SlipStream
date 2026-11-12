@@ -1,10 +1,10 @@
 import type {
-  ImportsEntry,
   ImportsLead,
   ImportsReason,
   ImportsReasonCode,
   WorksContentType,
 } from "../api/gen/model";
+import type { RootEntry } from "./root-entry";
 import type { Noun } from "../format";
 
 const counted = new Intl.NumberFormat("en");
@@ -66,7 +66,7 @@ export const reasonOf = (reason: ImportsReason, type: WorksContentType): string 
   reasonWords[reason.code](reason, type, 1);
 
 /** Why an entry waits: one sentence per reason its files share, in file order. */
-export function reasonsOf(entry: ImportsEntry, type: WorksContentType): string[] {
+export function reasonsOf(entry: RootEntry, type: WorksContentType): string[] {
   const shared = new Map<string, { reason: ImportsReason; files: number }>();
   for (const { reason } of entry.files) {
     const key = JSON.stringify(reason);
@@ -83,11 +83,11 @@ export function reasonsOf(entry: ImportsEntry, type: WorksContentType): string[]
 }
 
 /** An entry waits on a Work in another root, so it offers only Ignore. */
-export const isElsewhere = (entry: ImportsEntry): boolean =>
+export const isElsewhere = (entry: RootEntry): boolean =>
   entry.files.some(({ reason }) => reason.code === "elsewhere");
 
 /** Its suggestion can be added, or take its files, from here. */
-export const isAddable = (entry: ImportsEntry): boolean =>
+export const isAddable = (entry: RootEntry): boolean =>
   entry.suggestion !== null && !isElsewhere(entry);
 
 /** "14 folders need you", the Library's link to Pending imports. */

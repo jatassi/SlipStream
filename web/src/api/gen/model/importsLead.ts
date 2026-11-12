@@ -9,7 +9,7 @@ export interface ImportsLead {
   /** @pattern ^[a-z][a-z0-9]{1,15}$ */
   contentType: string;
   /**
-   * The root's pending imports that aren't ignored
+   * The root's unfinished root Imports that aren't ignored
    * @minimum 0
    */
   needsYou: number;

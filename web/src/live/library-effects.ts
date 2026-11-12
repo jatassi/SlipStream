@@ -18,7 +18,7 @@ import type { LiveEffects } from "./types";
 
 const everyWork = everyPath(/^\/api\/v1\/works\/[^/]+(\/cells)?$/u);
 const everyIndexersGrabs = everyPath(/^\/api\/v1\/indexers\/[^/]+\/grabs$/u);
-const everyPendingImport = everyPath(/^\/api\/v1\/imports\/pending/u);
+const everyImport = everyPath(/^\/api\/v1\/imports(\/(?!scan-settings$)[^/]+)?$/u);
 const everyManualSearch = everyPath(/^\/api\/v1\/works\/[^/]+\/manual-search(\/releases)?$/u);
 
 /** A Work's Manual search with every pins variant, and its All Releases. */
@@ -82,7 +82,7 @@ export const libraryEffects = {
     refresh(renameCounts);
   },
   "imports.changed": (_data, { refresh }) => {
-    refresh(everyPendingImport);
+    refresh(everyImport);
     refresh({ queryKey: getGetCountsQueryKey() });
   },
   "grabs.changed": ({ grabId, workId, progress }, { queryClient, refresh }) => {

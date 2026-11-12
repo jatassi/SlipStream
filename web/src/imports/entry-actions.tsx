@@ -1,6 +1,7 @@
 import { useState } from "react";
 
-import type { ImportsEntry, WorksContentType } from "../api/gen/model";
+import type { WorksContentType } from "../api/gen/model";
+import type { RootEntry } from "./root-entry";
 import { Button } from "../ui/button";
 import { ignoring, restoring, useAdding } from "./adding";
 import { ImportIntoSheet } from "./import-into-sheet";
@@ -9,7 +10,7 @@ import { isAddable, isElsewhere } from "./words";
 
 type Open = "match" | "into";
 
-type ButtonsProps = { entry: ImportsEntry; onOpen: (open: Open) => void };
+type ButtonsProps = { entry: RootEntry; onOpen: (open: Open) => void };
 
 function OpenButton({
   open,
@@ -82,7 +83,7 @@ function IgnoredButtons({ entry, onOpen }: ButtonsProps) {
  * Add, Change, Import into and Ignore; an ignored entry offers Restore and
  * Import into, and one whose Work lives in another root only Ignore.
  */
-export function EntryActions({ entry, type }: { entry: ImportsEntry; type: WorksContentType }) {
+export function EntryActions({ entry, type }: { entry: RootEntry; type: WorksContentType }) {
   const [open, setOpen] = useState<Open>();
   const close = () => {
     setOpen(undefined);

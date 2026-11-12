@@ -4555,30 +4555,12 @@ export const IdentitySignupLinkURL = zod.object({
 export type IdentitySignupLinkURL = zod.input<typeof IdentitySignupLinkURL>;
 export type IdentitySignupLinkURLOutput = zod.output<typeof IdentitySignupLinkURL>;
 
-export const importsChosenFileItemIdsMax = 1;
-
-export const ImportsChosenFile = zod.object({
-  itemIds: zod
-    .array(zod.string())
-    .min(1)
-    .max(importsChosenFileItemIdsMax)
-    .nullable()
-    .describe(
-      "The Item of the Work the file holds. One for now; S33 (Import pipeline) allows several",
-    ),
-  path: zod.string().min(1).describe("One of the pending import's paths"),
+export const ImportIDsInputBody = zod.object({
+  importIds: zod.array(zod.uuid()).min(1),
 });
 
-export type ImportsChosenFile = zod.input<typeof ImportsChosenFile>;
-export type ImportsChosenFileOutput = zod.output<typeof ImportsChosenFile>;
-
-export const ImportIntoInputBody = zod.object({
-  files: zod.array(ImportsChosenFile).min(1),
-  workId: zod.uuid().describe("A Work in the pending import's root"),
-});
-
-export type ImportIntoInputBody = zod.input<typeof ImportIntoInputBody>;
-export type ImportIntoInputBodyOutput = zod.output<typeof ImportIntoInputBody>;
+export type ImportIDsInputBody = zod.input<typeof ImportIDsInputBody>;
+export type ImportIDsInputBodyOutput = zod.output<typeof ImportIDsInputBody>;
 
 export const ImportsAddedOutcome = zod.object({
   id: zod.uuid(),
@@ -4592,7 +4574,7 @@ export type ImportsAddedOutcomeOutput = zod.output<typeof ImportsAddedOutcome>;
 export const ImportsOutcomeProblem = zod.object({
   code: zod
     .string()
-    .describe("The code a request for this pending import alone would have been refused with"),
+    .describe("The code a request for this Import alone would have been refused with"),
   detail: zod.string().exactOptional(),
   title: zod.string(),
 });
@@ -4618,7 +4600,7 @@ export type ImportsOutcome = zod.input<typeof ImportsOutcome>;
 export type ImportsOutcomeOutput = zod.output<typeof ImportsOutcome>;
 
 export const ImportsAddedList = zod.object({
-  outcomes: zod.array(ImportsOutcome).describe("One per pending import, in request order"),
+  outcomes: zod.array(ImportsOutcome).describe("One per Import, in request order"),
 });
 
 export type ImportsAddedList = zod.input<typeof ImportsAddedList>;
@@ -4630,6 +4612,36 @@ export const ImportsChanged = zod.object({
 
 export type ImportsChanged = zod.input<typeof ImportsChanged>;
 export type ImportsChangedOutput = zod.output<typeof ImportsChanged>;
+
+export const importsChosenFilePositionMin = 0;
+
+export const ImportsChosenFile = zod.object({
+  itemIds: zod
+    .array(zod.string())
+    .min(1)
+    .describe("The Items of the Work the file holds, in any order"),
+  position: zod.int().min(importsChosenFilePositionMin).describe("A waiting file of the Import"),
+});
+
+export type ImportsChosenFile = zod.input<typeof ImportsChosenFile>;
+export type ImportsChosenFileOutput = zod.output<typeof ImportsChosenFile>;
+
+export const ImportsHintID = zod.object({
+  provider: zod.enum(["tmdb", "imdb", "tvdb"]),
+  value: zod.string(),
+});
+
+export type ImportsHintID = zod.input<typeof ImportsHintID>;
+export type ImportsHintIDOutput = zod.output<typeof ImportsHintID>;
+
+export const ImportsHint = zod.object({
+  ids: zod.array(ImportsHintID).describe("The provider ids the name's tags carry"),
+  title: zod.string().describe("The title the folder or file name carries, as written"),
+  year: zod.int().nullable().describe("Null when the name carries none"),
+});
+
+export type ImportsHint = zod.input<typeof ImportsHint>;
+export type ImportsHintOutput = zod.output<typeof ImportsHint>;
 
 export const ImportsRootLabel = zod.object({
   id: zod.uuid(),
@@ -4676,14 +4688,31 @@ export const ImportsReason = zod.object({
 export type ImportsReason = zod.input<typeof ImportsReason>;
 export type ImportsReasonOutput = zod.output<typeof ImportsReason>;
 
-export const importsPendingFileSizeMin = 0;
+export const importsImportFilePositionMin = 0;
 
-export const ImportsPendingFile = zod.object({
+export const importsImportFileSizeMin = 0;
+
+export const ImportsImportFile = zod.object({
   cut: zod.string().describe("The key of the cut its name carries"),
   itemIds: zod
     .array(zod.string())
-    .describe("The Items of the suggested Work its path names; empty until a Work places it"),
-  path: zod.string().describe("Relative to the root, / separated"),
+    .describe("The Items of the Work it holds, in tree order; empty until a Work places it"),
+  outcome: zod.enum([
+    "pending",
+    "left_out",
+    "not_better",
+    "waiting",
+    "sending",
+    "placing",
+    "placed",
+    "declined",
+    "failed",
+  ]),
+  path: zod.string().describe("For a root Import relative to the root, / separated"),
+  position: zod
+    .int()
+    .min(importsImportFilePositionMin)
+    .describe("The file's place in its Import, which names it in actions"),
   quality: zod
     .union([
       zod.literal("sdtv"),
@@ -4708,29 +4737,12 @@ export const ImportsPendingFile = zod.object({
     ])
     .nullable()
     .describe("The quality its name and media info read as; null when ffprobe can't read it"),
-  reason: ImportsReason,
-  size: zod.int().min(importsPendingFileSizeMin),
+  reason: zod.union([ImportsReason, zod.null()]).describe("Why it waits; null once it's placed"),
+  size: zod.int().min(importsImportFileSizeMin),
 });
 
-export type ImportsPendingFile = zod.input<typeof ImportsPendingFile>;
-export type ImportsPendingFileOutput = zod.output<typeof ImportsPendingFile>;
-
-export const ImportsHintID = zod.object({
-  provider: zod.enum(["tmdb", "imdb", "tvdb"]),
-  value: zod.string(),
-});
-
-export type ImportsHintID = zod.input<typeof ImportsHintID>;
-export type ImportsHintIDOutput = zod.output<typeof ImportsHintID>;
-
-export const ImportsHint = zod.object({
-  ids: zod.array(ImportsHintID).describe("The provider ids the name's tags carry"),
-  title: zod.string().describe("The title the folder or file name carries, as written"),
-  year: zod.int().nullable().describe("Null when the name carries none"),
-});
-
-export type ImportsHint = zod.input<typeof ImportsHint>;
-export type ImportsHintOutput = zod.output<typeof ImportsHint>;
+export type ImportsImportFile = zod.input<typeof ImportsImportFile>;
+export type ImportsImportFileOutput = zod.output<typeof ImportsImportFile>;
 
 export const ImportsSuggestion = zod.object({
   confident: zod
@@ -4749,40 +4761,50 @@ export const ImportsSuggestion = zod.object({
 export type ImportsSuggestion = zod.input<typeof ImportsSuggestion>;
 export type ImportsSuggestionOutput = zod.output<typeof ImportsSuggestion>;
 
-export const importsEntryContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+export const importsImportEntryContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
-export const ImportsEntry = zod.object({
-  contentType: zod.string().regex(importsEntryContentTypeRegExp),
-  files: zod.array(ImportsPendingFile).describe("In path order"),
+export const ImportsImportEntry = zod.object({
+  contentType: zod.string().regex(importsImportEntryContentTypeRegExp),
+  createdAt: zod.iso.datetime({ offset: true }),
+  files: zod.array(ImportsImportFile).describe("For a root Import in path order, else by position"),
+  finishedAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("Null until every file is placed or settled"),
   folder: zod
     .string()
     .describe(
-      "Its Work folder relative to the root, or the file's path when it sits loose at the root's top",
+      "For a root Import, its Work folder relative to the root, or the file's path when it sits loose at the root's top",
     ),
-  foundAt: zod.iso.datetime({ offset: true }),
   hint: ImportsHint.describe("What the folder or file name says"),
   id: zod.uuid(),
   ignoredAt: zod.iso
     .datetime({ offset: true })
     .nullable()
     .describe("Null while it needs the Admin"),
-  root: ImportsRootLabel,
+  root: zod
+    .union([ImportsRootLabel, zod.null()])
+    .describe("The library root the folder is in; null outside a root Import"),
+  source: zod
+    .enum(["grab", "root", "folder"])
+    .describe("root: a folder a library scan found in a root and couldn't place"),
+  stage: zod.enum(["probing", "waiting", "placing", "done", "failed"]),
   suggestion: zod
     .union([ImportsSuggestion, zod.null()])
     .describe("The best candidate; null when none matched"),
 });
 
-export type ImportsEntry = zod.input<typeof ImportsEntry>;
-export type ImportsEntryOutput = zod.output<typeof ImportsEntry>;
+export type ImportsImportEntry = zod.input<typeof ImportsImportEntry>;
+export type ImportsImportEntryOutput = zod.output<typeof ImportsImportEntry>;
 
-export const ImportsImported = zod.object({
-  entry: zod
-    .union([ImportsEntry, zod.null()])
-    .describe("The files left waiting; null once none is"),
+export const ImportsIntoAction = zod.object({
+  action: zod.enum(["into"]),
+  files: zod.array(ImportsChosenFile).min(1),
+  workId: zod.uuid().describe("A Work in the Import's root"),
 });
 
-export type ImportsImported = zod.input<typeof ImportsImported>;
-export type ImportsImportedOutput = zod.output<typeof ImportsImported>;
+export type ImportsIntoAction = zod.input<typeof ImportsIntoAction>;
+export type ImportsIntoActionOutput = zod.output<typeof ImportsIntoAction>;
 
 export const importsLeadAddedMin = 0;
 
@@ -4798,7 +4820,7 @@ export const ImportsLead = zod.object({
   needsYou: zod
     .int()
     .min(importsLeadNeedsYouMin)
-    .describe("The root's pending imports that aren't ignored"),
+    .describe("The root's unfinished root Imports that aren't ignored"),
   root: ImportsRootLabel,
 });
 
@@ -4806,12 +4828,39 @@ export type ImportsLead = zod.input<typeof ImportsLead>;
 export type ImportsLeadOutput = zod.output<typeof ImportsLead>;
 
 export const ImportsList = zod.object({
-  entries: zod.array(ImportsEntry).describe("In root and folder order"),
-  leads: zod.array(ImportsLead).describe("One per root a library scan compared, in root order"),
+  imports: zod
+    .array(ImportsImportEntry)
+    .describe("The unfinished Imports, in root and folder order"),
+  leads: zod
+    .array(ImportsLead)
+    .describe(
+      "One per root a library scan compared, in root order; empty when source leaves out root",
+    ),
 });
 
 export type ImportsList = zod.input<typeof ImportsList>;
 export type ImportsListOutput = zod.output<typeof ImportsList>;
+
+export const ImportsMatchAction = zod.object({
+  action: zod.enum(["match"]),
+  key: zod
+    .string()
+    .min(1)
+    .describe(
+      "A record's key at the Content Type's source, as searchCatalog lists it; it becomes the suggestion",
+    ),
+});
+
+export type ImportsMatchAction = zod.input<typeof ImportsMatchAction>;
+export type ImportsMatchActionOutput = zod.output<typeof ImportsMatchAction>;
+
+export const ImportsRootAction = zod.discriminatedUnion("action", [
+  ImportsMatchAction,
+  ImportsIntoAction,
+]);
+
+export type ImportsRootAction = zod.input<typeof ImportsRootAction>;
+export type ImportsRootActionOutput = zod.output<typeof ImportsRootAction>;
 
 export const SettingChoiceOption = zod.object({
   label: zod.string(),
@@ -5984,16 +6033,6 @@ export const MakeFolderInputBody = zod.object({
 
 export type MakeFolderInputBody = zod.input<typeof MakeFolderInputBody>;
 export type MakeFolderInputBodyOutput = zod.output<typeof MakeFolderInputBody>;
-
-export const MatchPendingInputBody = zod.object({
-  key: zod
-    .string()
-    .min(1)
-    .describe("A record's key at the Content Type's source, as searchCatalog lists it"),
-});
-
-export type MatchPendingInputBody = zod.input<typeof MatchPendingInputBody>;
-export type MatchPendingInputBodyOutput = zod.output<typeof MatchPendingInputBody>;
 
 export const MergeTrackerInputBody = zod.object({
   into: zod.uuid().describe("The Tracker it merges into, which is kept"),
@@ -7310,13 +7349,6 @@ export const PasskeyRenameInputBody = zod.object({
 
 export type PasskeyRenameInputBody = zod.input<typeof PasskeyRenameInputBody>;
 export type PasskeyRenameInputBodyOutput = zod.output<typeof PasskeyRenameInputBody>;
-
-export const PendingIDsInputBody = zod.object({
-  ids: zod.array(zod.uuid()).min(1),
-});
-
-export type PendingIDsInputBody = zod.input<typeof PendingIDsInputBody>;
-export type PendingIDsInputBodyOutput = zod.output<typeof PendingIDsInputBody>;
 
 export const PlanInputBody = zod.object({
   draft: FilesRenameDraft.exactOptional().describe(
