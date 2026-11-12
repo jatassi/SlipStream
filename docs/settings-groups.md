@@ -48,6 +48,8 @@ A setting the Controller stores for each Node, such as where that Node's Grabs g
 
 "Wait for each Indexer up to" sits in Indexers under its own "Searching" heading, above the "Warnings" heading that holds how long an Indexer may fail before Health warns. When S34 (Automatic search, Backlog search and RSS sync) adds the Automatic search section, the wait may move there, since it applies to every search.
 
+"A client error fails its Grab after" sits in Download Clients under its own "Client errors" heading, after "When a Release counts as bad" and "Magnet links". It applies to every external Download Client, so it sits in the section and not on each client's sheet.
+
 Importing sits after Library scan, which links to it, because a scan reads its Video file extensions. A download and a manual import read all three of its settings.
 
 A setting can show in more than one place when an Admin would look for it there, such as a task's frequency on the Tasks page and in its feature's section. It still has one stored value.
