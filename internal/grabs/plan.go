@@ -9,17 +9,21 @@ import (
 )
 
 // planIn is one Manual run's plan inputs. Cells are counted by their
-// position in item, every cell of the run's Item in Want order.
+// position in item, every cell of the Work in Want order, so a pack's row
+// fills cells of every Item it covers.
 type planIn struct {
 	item []files.Cell
 	// walk is the cells the plan walks, in Want order: the missing,
-	// failed, upgradable and unreleased cells in scope that no unfinished
-	// Grab holds.
+	// failed, upgradable and unreleased cells of the run's Item in scope
+	// that no unfinished Grab holds.
 	walk []int
-	// fill is whether a row may fill each cell: walk, or every such cell
-	// of the Item for a cell scope, since a Grab fills every Target it
-	// can (#87 Q15).
+	// fill is whether a row may fill each cell: every missing, failed,
+	// upgradable or unreleased cell of the Work, since a Grab fills every
+	// Target it can (#87 Q15).
 	fill []bool
+	// before is the cells taken before the walk starts: those a row of an
+	// earlier run fills, and those a pin of another run holds.
+	before []bool
 	// as is the run's Releases, deduped, with their own refusals worked
 	// out now, js each judged at every cell of item and st how each
 	// stands at each.
@@ -54,6 +58,7 @@ type planned struct {
 // take it, is dropped.
 func plan(in planIn) ([]planned, map[int]int, error) {
 	taken := make([]bool, len(in.item))
+	copy(taken, in.before)
 	live := map[int]int{}
 	var out []planned
 	for _, w := range in.walk {
@@ -73,13 +78,12 @@ func plan(in planIn) ([]planned, map[int]int, error) {
 				continue
 			}
 		}
-		p, ok, err := in.next(taken)
+		p, g, ok, err := in.next(taken)
 		if err != nil {
 			return nil, nil, err
 		}
-		cell := in.item[w]
-		if ok && p.Edition == cell.Edition && p.Targets[0] == cell.Target.ID {
-			out = append(out, in.row(w, groupOf(in.as, p.at), p, taken))
+		if ok && g.lead == w {
+			out = append(out, in.row(w, g.group, p, taken))
 			continue
 		}
 		taken[w] = true
@@ -93,10 +97,14 @@ func plan(in planIn) ([]planned, map[int]int, error) {
 	return out, live, nil
 }
 
+// led is the Release choose picked, by its index in as, and the cell
+// leading what it fills.
+type led struct{ group, lead int }
+
 // next is what decide and choose pick over the walk's cells no row
-// fills yet. It narrows in.js to those cells rather than judging again,
-// which gives the same verdicts.
-func (in planIn) next(taken []bool) (Pick, bool, error) {
+// fills yet, and the cell it leads at. It narrows in.js to those cells
+// rather than judging again, which gives the same verdicts.
+func (in planIn) next(taken []bool) (Pick, led, bool, error) {
 	var ks []int
 	var left cells
 	for _, w := range in.walk {
@@ -109,7 +117,11 @@ func (in planIn) next(taken []bool) (Pick, bool, error) {
 		js[g] = j.only(ks)
 	}
 	p, _, ok, err := choose(decided(left, js).picks(left), nil, in.take)
-	return p, ok, err
+	if !ok || err != nil {
+		return p, led{}, ok, err
+	}
+	g := groupOf(in.as, p.at)
+	return p, led{group: g, lead: ks[js[g].first]}, true, nil
 }
 
 // offer is the offer of as[g], or of a copy, that choose takes for cell
@@ -215,4 +227,9 @@ func groupOf(as []assessed, position int) int {
 	return slices.IndexFunc(as, func(a assessed) bool {
 		return a.at == position || slices.ContainsFunc(a.copies, func(c copied) bool { return c.at == position })
 	})
+}
+
+// verdictOf is j's verdict at cell k, one of the cells it was judged at.
+func (j judged) verdictOf(k int) verdict {
+	return j.verdicts[slices.IndexFunc(j.verdicts, func(v verdict) bool { return v.cell == k })]
 }

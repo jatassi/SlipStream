@@ -109,6 +109,7 @@ func (im *Imports) grabImport(ctx context.Context, r storage.Reader[file], h gra
 			SourceName: path.Base(rel), Outcome: Pending,
 		}
 		f.check(rel, rules, h.Items, place)
+		f.force(h.Cells)
 		imp.Files = append(imp.Files, f)
 	}
 	return imp, nil
@@ -132,6 +133,17 @@ func (f *File) check(rel string, rules Rules, grabbed []works.ItemID, place scan
 		f.Outcome, f.Reason = Waiting, &Reason{Code: OtherItems, Reading: items, Of: grabbed}
 	default:
 		f.Items = items
+	}
+}
+
+// force gives f, when it is pending, each of cells of its Items that a
+// Manual search grabbed as forced: the Admin chose the Release over the
+// file it replaces, so the file takes the cell by Force.
+func (f *File) force(cells []grabs.Cell) {
+	for _, c := range cells {
+		if c.Forced && f.Outcome == Pending && slices.Contains(f.Items, c.Key.Item) {
+			f.Fills = append(f.Fills, Fill{Cell: c.Key, Forced: true})
+		}
 	}
 }
 
