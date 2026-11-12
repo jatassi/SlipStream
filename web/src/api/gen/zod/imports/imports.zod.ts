@@ -7,6 +7,7 @@ import {
   ImportsExtensionImpact,
   ImportsFileAction,
   ImportsImportEntry,
+  ImportsImportingSettings,
   ImportsImportsList,
   ImportsList,
   ImportsRootAction,
@@ -86,14 +87,14 @@ export const IgnoreImportsResponse = zod.void();
 /**
  * @summary Get the Importing settings
  */
-export const GetImportingSettingsResponse = ImportsSettings;
+export const GetImportingSettingsResponse = ImportsImportingSettings;
 
 /**
  * @summary Change the Importing settings
  */
 export const UpdateImportingSettingsBody = LibraryScanSettingsInputBody;
 
-export const UpdateImportingSettingsResponse = ImportsSettings;
+export const UpdateImportingSettingsResponse = ImportsImportingSettings;
 
 /**
  * @summary Count the library and pending files a video extension list stops counting as video

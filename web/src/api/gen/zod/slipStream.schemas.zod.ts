@@ -5194,79 +5194,6 @@ export const ImportsImportEntry = zod.object({
 export type ImportsImportEntry = zod.input<typeof ImportsImportEntry>;
 export type ImportsImportEntryOutput = zod.output<typeof ImportsImportEntry>;
 
-export const ImportsImportsList = zod.object({
-  imports: zod.array(ImportsImportEntry),
-});
-
-export type ImportsImportsList = zod.input<typeof ImportsImportsList>;
-export type ImportsImportsListOutput = zod.output<typeof ImportsImportsList>;
-
-export const ImportsIntoAction = zod.object({
-  action: zod.enum(["into"]),
-  files: zod.array(ImportsChosenFile).min(1),
-  workId: zod.uuid().describe("A Work in the Import's root"),
-});
-
-export type ImportsIntoAction = zod.input<typeof ImportsIntoAction>;
-export type ImportsIntoActionOutput = zod.output<typeof ImportsIntoAction>;
-
-export const importsLeadAddedMin = 0;
-
-export const importsLeadContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
-export const importsLeadNeedsYouMin = 0;
-
-export const ImportsLead = zod.object({
-  added: zod
-    .int()
-    .min(importsLeadAddedMin)
-    .describe("The Works the root's last library scan added"),
-  contentType: zod.string().regex(importsLeadContentTypeRegExp),
-  needsYou: zod
-    .int()
-    .min(importsLeadNeedsYouMin)
-    .describe("The root's unfinished root Imports that aren't ignored"),
-  root: ImportsRootLabel,
-});
-
-export type ImportsLead = zod.input<typeof ImportsLead>;
-export type ImportsLeadOutput = zod.output<typeof ImportsLead>;
-
-export const ImportsList = zod.object({
-  imports: zod
-    .array(ImportsImportEntry)
-    .describe("The unfinished Imports, in root and folder order"),
-  leads: zod
-    .array(ImportsLead)
-    .describe(
-      "One per root a library scan compared, in root order; empty when source leaves out root",
-    ),
-  next: zod.uuid().nullable().describe("Pass it as after for the next page; null on the last page"),
-});
-
-export type ImportsList = zod.input<typeof ImportsList>;
-export type ImportsListOutput = zod.output<typeof ImportsList>;
-
-export const ImportsMatchAction = zod.object({
-  action: zod.enum(["match"]),
-  key: zod
-    .string()
-    .min(1)
-    .describe(
-      "A record's key at the Content Type's source, as searchCatalog lists it; it becomes the suggestion",
-    ),
-});
-
-export type ImportsMatchAction = zod.input<typeof ImportsMatchAction>;
-export type ImportsMatchActionOutput = zod.output<typeof ImportsMatchAction>;
-
-export const ImportsRootAction = zod.discriminatedUnion("action", [
-  ImportsMatchAction,
-  ImportsIntoAction,
-]);
-
-export type ImportsRootAction = zod.input<typeof ImportsRootAction>;
-export type ImportsRootActionOutput = zod.output<typeof ImportsRootAction>;
-
 export const SettingChoiceOption = zod.object({
   label: zod.string(),
   value: zod.string(),
@@ -5542,6 +5469,90 @@ export const SettingField = zod.discriminatedUnion("kind", [
 
 export type SettingField = zod.input<typeof SettingField>;
 export type SettingFieldOutput = zod.output<typeof SettingField>;
+
+export const ImportsImportingSettings = zod.object({
+  settings: zod
+    .array(SettingField)
+    .describe(
+      "The video file extensions, the smallest video file, then the runtime under which a video is a sample",
+    ),
+});
+
+export type ImportsImportingSettings = zod.input<typeof ImportsImportingSettings>;
+export type ImportsImportingSettingsOutput = zod.output<typeof ImportsImportingSettings>;
+
+export const ImportsImportsList = zod.object({
+  imports: zod.array(ImportsImportEntry),
+});
+
+export type ImportsImportsList = zod.input<typeof ImportsImportsList>;
+export type ImportsImportsListOutput = zod.output<typeof ImportsImportsList>;
+
+export const ImportsIntoAction = zod.object({
+  action: zod.enum(["into"]),
+  files: zod.array(ImportsChosenFile).min(1),
+  workId: zod.uuid().describe("A Work in the Import's root"),
+});
+
+export type ImportsIntoAction = zod.input<typeof ImportsIntoAction>;
+export type ImportsIntoActionOutput = zod.output<typeof ImportsIntoAction>;
+
+export const importsLeadAddedMin = 0;
+
+export const importsLeadContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+export const importsLeadNeedsYouMin = 0;
+
+export const ImportsLead = zod.object({
+  added: zod
+    .int()
+    .min(importsLeadAddedMin)
+    .describe("The Works the root's last library scan added"),
+  contentType: zod.string().regex(importsLeadContentTypeRegExp),
+  needsYou: zod
+    .int()
+    .min(importsLeadNeedsYouMin)
+    .describe("The root's unfinished root Imports that aren't ignored"),
+  root: ImportsRootLabel,
+});
+
+export type ImportsLead = zod.input<typeof ImportsLead>;
+export type ImportsLeadOutput = zod.output<typeof ImportsLead>;
+
+export const ImportsList = zod.object({
+  imports: zod
+    .array(ImportsImportEntry)
+    .describe("The unfinished Imports, in root and folder order"),
+  leads: zod
+    .array(ImportsLead)
+    .describe(
+      "One per root a library scan compared, in root order; empty when source leaves out root",
+    ),
+  next: zod.uuid().nullable().describe("Pass it as after for the next page; null on the last page"),
+});
+
+export type ImportsList = zod.input<typeof ImportsList>;
+export type ImportsListOutput = zod.output<typeof ImportsList>;
+
+export const ImportsMatchAction = zod.object({
+  action: zod.enum(["match"]),
+  key: zod
+    .string()
+    .min(1)
+    .describe(
+      "A record's key at the Content Type's source, as searchCatalog lists it; it becomes the suggestion",
+    ),
+});
+
+export type ImportsMatchAction = zod.input<typeof ImportsMatchAction>;
+export type ImportsMatchActionOutput = zod.output<typeof ImportsMatchAction>;
+
+export const ImportsRootAction = zod.discriminatedUnion("action", [
+  ImportsMatchAction,
+  ImportsIntoAction,
+]);
+
+export type ImportsRootAction = zod.input<typeof ImportsRootAction>;
+export type ImportsRootActionOutput = zod.output<typeof ImportsRootAction>;
 
 export const ImportsSettings = zod.object({
   settings: zod

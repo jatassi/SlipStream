@@ -16,7 +16,9 @@ function Cadence() {
   const shown = useListTasksSuspense({
     query: {
       select: ({ groups }) =>
-        groups.some((group) => group.tasks.some((task) => task.id === libraryScanTask)),
+        groups.some((group) =>
+          group.tasks.some((task) => task.id === libraryScanTask),
+        ),
     },
   }).data;
   return shown ? (
@@ -27,6 +29,36 @@ function Cadence() {
     </div>
   ) : (
     <p className="text-ink-2">Add a library root to scan it.</p>
+  );
+}
+
+function Elsewhere() {
+  return (
+    <>
+      <p className="text-ink-2">
+        Each root&apos;s last scan and Scan now are in{" "}
+        <Link
+          to="/settings/$section"
+          params={{ section: "library-roots" }}
+          className="rounded-item font-medium text-ink-1 underline-offset-4 hover:underline"
+        >
+          Library roots
+        </Link>
+        .
+      </p>
+      <p className="text-ink-2">
+        A scan counts the files whose extension is in Video file extensions,
+        which is in{" "}
+        <Link
+          to="/settings/$section"
+          params={{ section: "importing" }}
+          className="rounded-item font-medium text-ink-1 underline-offset-4 hover:underline"
+        >
+          Importing
+        </Link>
+        .
+      </p>
+    </>
   );
 }
 
@@ -48,7 +80,9 @@ export function LibraryScanSection() {
                   key={field.key}
                   field={field}
                   onSave={async (value) => {
-                    await updateLibraryScanSettings({ values: { [field.key]: value } });
+                    await updateLibraryScanSettings({
+                      values: { [field.key]: value },
+                    });
                     await router.invalidate();
                   }}
                 />
@@ -57,17 +91,7 @@ export function LibraryScanSection() {
           </div>
         </Details>
       </Section>
-      <p className="text-ink-2">
-        Each root&apos;s last scan and Scan now are in{" "}
-        <Link
-          to="/settings/$section"
-          params={{ section: "library-roots" }}
-          className="rounded-item font-medium text-ink-1 underline-offset-4 hover:underline"
-        >
-          Library roots
-        </Link>
-        .
-      </p>
+      <Elsewhere />
     </div>
   );
 }

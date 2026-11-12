@@ -1,7 +1,11 @@
-import { getGetLibraryScanSettingsSuspenseQueryOptions } from "../api/gen/query/imports/imports";
+import {
+  getGetImportingSettingsSuspenseQueryOptions,
+  getGetLibraryScanSettingsSuspenseQueryOptions,
+} from "../api/gen/query/imports/imports";
 import { getListTasksSuspenseQueryOptions } from "../api/gen/query/tasks/tasks";
 import { ensureQuery, freshQuery } from "../api/query-client";
 import type { SettingsSection } from "../settings/section";
+import { ImportingSection } from "./importing-section";
 import { LibraryScanSection } from "./library-scan-section";
 
 export const libraryScanSection: SettingsSection = {
@@ -15,4 +19,16 @@ export const libraryScanSection: SettingsSection = {
   },
   component: LibraryScanSection,
   health: ["library"],
+};
+
+export const importingSection: SettingsSection = {
+  id: "importing",
+  label: "Importing",
+  load: async (queryClient) => {
+    await freshQuery(
+      queryClient,
+      getGetImportingSettingsSuspenseQueryOptions(),
+    );
+  },
+  component: ImportingSection,
 };
