@@ -624,8 +624,10 @@ func (q *Queries) ListDownloading(ctx context.Context, torrentID downloadclients
 
 const listEveryGrabTarget = `-- name: ListEveryGrabTarget :many
 SELECT grabs_grab.id, grabs_target.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
-    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled
+    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled,
+    coalesce(grabs_stage.entered_at, grabs_grab.updated_at) AS entered_at
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
+LEFT JOIN grabs_stage ON grabs_stage.grab_id = grabs_grab.id AND grabs_stage.stage = grabs_grab.stage
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position
 `
 
@@ -640,6 +642,7 @@ type ListEveryGrabTargetRow struct {
 	Source      Source
 	TargetID    targets.TargetID
 	Settled     *Settled
+	EnteredAt   storage.Time
 }
 
 func (q *Queries) ListEveryGrabTarget(ctx context.Context) ([]ListEveryGrabTargetRow, error) {
@@ -662,6 +665,7 @@ func (q *Queries) ListEveryGrabTarget(ctx context.Context) ([]ListEveryGrabTarge
 			&i.Source,
 			&i.TargetID,
 			&i.Settled,
+			&i.EnteredAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1420,8 +1424,10 @@ func (q *Queries) ListTargets(ctx context.Context) ([]GrabsTarget, error) {
 
 const listTargetsOfWorks = `-- name: ListTargetsOfWorks :many
 SELECT grabs_grab.id, grabs_target.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
-    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled
+    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled,
+    coalesce(grabs_stage.entered_at, grabs_grab.updated_at) AS entered_at
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
+LEFT JOIN grabs_stage ON grabs_stage.grab_id = grabs_grab.id AND grabs_stage.stage = grabs_grab.stage
 WHERE grabs_grab.work_id IN (/*SLICE:work_ids*/?)
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position
 `
@@ -1437,6 +1443,7 @@ type ListTargetsOfWorksRow struct {
 	Source      Source
 	TargetID    targets.TargetID
 	Settled     *Settled
+	EnteredAt   storage.Time
 }
 
 func (q *Queries) ListTargetsOfWorks(ctx context.Context, workIds []works.WorkID) ([]ListTargetsOfWorksRow, error) {
@@ -1469,6 +1476,7 @@ func (q *Queries) ListTargetsOfWorks(ctx context.Context, workIds []works.WorkID
 			&i.Source,
 			&i.TargetID,
 			&i.Settled,
+			&i.EnteredAt,
 		); err != nil {
 			return nil, err
 		}

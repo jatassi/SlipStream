@@ -2978,7 +2978,7 @@
             "description": "The file the Grab would replace; null when it fills no file"
           },
           "from": {
-            "description": "When the step began; null with step",
+            "description": "When the Grab entered its stage; null with step",
             "format": "date-time",
             "type": [
               "string",
@@ -3228,7 +3228,7 @@
         "additionalProperties": false,
         "properties": {
           "from": {
-            "description": "When the step began",
+            "description": "When the Grab entered its stage",
             "format": "date-time",
             "type": "string"
           },
@@ -4149,22 +4149,12 @@
             "$ref": "#/components/schemas/FilesLibraryFile",
             "description": "The file filling it, short of its Target's cutoff or upgrade-until score"
           },
-          "held": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FilesHeldCell"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "The Grab in flight for it; null while none is"
-          },
           "itemId": {
             "format": "uuid",
             "type": "string"
           },
           "state": {
+            "description": "No Grab is in flight for it. A Grab in flight makes it downloading",
             "enum": [
               "upgradable"
             ],
@@ -4185,7 +4175,6 @@
         "required": [
           "state",
           "file",
-          "held",
           "itemId",
           "edition",
           "targetId",
@@ -20582,7 +20571,6 @@
           "purpose": {
             "description": "The kind of job that asked for it",
             "enum": [
-              "grab",
               "import"
             ],
             "type": "string"

@@ -25,7 +25,7 @@ func (r *cluster) want(t *testing.T, job string, files ...transfers.FileRequest)
 	var id transfers.ID
 	r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
-		id, err = r.tr.Want(ctx, tx, transfers.Request{Purpose: transfers.Grab, Job: job, Source: r.seedbox, Destination: transfers.Root{ID: r.root}, Files: files})
+		id, err = r.tr.Want(ctx, tx, transfers.Request{Purpose: transfers.Import, Job: job, Source: r.seedbox, Destination: transfers.Root{ID: r.root}, Files: files})
 		return err
 	})
 	return id

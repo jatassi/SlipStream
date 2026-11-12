@@ -1,4 +1,3 @@
-import type { FilesHeldCell } from "./filesHeldCell.ts";
 import type { FilesLibraryFile } from "./filesLibraryFile.ts";
 import type { FilesUpgradableCellState } from "./filesUpgradableCellState.ts";
 
@@ -7,9 +6,8 @@ export interface FilesUpgradableCell {
   edition: string;
   /** The file filling it, short of its Target's cutoff or upgrade-until score */
   file: FilesLibraryFile;
-  /** The Grab in flight for it; null while none is */
-  held: FilesHeldCell | null;
   itemId: string;
+  /** No Grab is in flight for it. A Grab in flight makes it downloading */
   state: FilesUpgradableCellState;
   targetId: string;
   targetName: string;

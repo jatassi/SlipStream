@@ -331,24 +331,32 @@ func appendCells(out []Cell, w world) []Cell {
 				if fill, ok := w.fills[key]; ok && !w.lost[files[fill.File].RootID] {
 					c.File, c.Score = files[fill.File], fill.Score
 				}
-				g := w.grabs[key]
-				switch {
-				case c.File != nil && final(t, *c.File, c.Score):
-					c.State = Met
-				case g.InFlight():
-					c.State, c.Grab = Downloading, g.Grab
-				case g.State == GrabFailed:
-					c.State, c.Grab = Failed, g.Grab
-				case c.File != nil:
-					c.State = Upgradable
-				case !released:
-					c.State = Unreleased
-				}
-				out = append(out, c)
+				out = append(out, stated(c, w.grabs[key]))
 			}
 		}
 	}
 	return out
+}
+
+// stated is c in the state its file and g, the Grab it reads from, give
+// it. A Met cell keeps the Grab in flight for it, if any.
+func stated(c Cell, g GrabCell) Cell {
+	switch {
+	case c.File != nil && final(c.Target, *c.File, c.Score):
+		c.State = Met
+		if g.InFlight() {
+			c.Grab, c.Doing = g.Grab, g.Doing
+		}
+	case g.InFlight():
+		c.State, c.Grab, c.Doing = Downloading, g.Grab, g.Doing
+	case g.State == GrabFailed:
+		c.State, c.Grab = Failed, g.Grab
+	case c.File != nil:
+		c.State = Upgradable
+	case !c.Released:
+		c.State = Unreleased
+	}
+	return c
 }
 
 // final reports whether f, scoring score, is final at t. A file whose

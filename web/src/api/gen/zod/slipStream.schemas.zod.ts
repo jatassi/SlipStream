@@ -1727,7 +1727,7 @@ export const FilesDownloadingCell = zod.object({
   from: zod.iso
     .datetime({ offset: true })
     .nullable()
-    .describe("When the step began; null with step"),
+    .describe("When the Grab entered its stage; null with step"),
   grabId: zod.uuid().describe("The latest Grab in flight for it"),
   itemId: zod.uuid(),
   state: zod.enum(["downloading"]).describe("A Grab is in flight for it, fetching included"),
@@ -1770,29 +1770,15 @@ export const FilesFailedCell = zod.object({
 export type FilesFailedCell = zod.input<typeof FilesFailedCell>;
 export type FilesFailedCellOutput = zod.output<typeof FilesFailedCell>;
 
-export const FilesHeldCell = zod.object({
-  from: zod.iso.datetime({ offset: true }).describe("When the step began"),
-  grabId: zod.uuid().describe("The Grab in flight for the cell"),
-  step: FilesStep,
-  until: zod.iso
-    .datetime({ offset: true })
-    .nullable()
-    .describe("When the Import delay ends, for a download that waits for it; null otherwise"),
-});
-
-export type FilesHeldCell = zod.input<typeof FilesHeldCell>;
-export type FilesHeldCellOutput = zod.output<typeof FilesHeldCell>;
-
 export const FilesUpgradableCell = zod.object({
   edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   file: FilesLibraryFile.describe(
     "The file filling it, short of its Target's cutoff or upgrade-until score",
   ),
-  held: zod
-    .union([FilesHeldCell, zod.null()])
-    .describe("The Grab in flight for it; null while none is"),
   itemId: zod.uuid(),
-  state: zod.enum(["upgradable"]),
+  state: zod
+    .enum(["upgradable"])
+    .describe("No Grab is in flight for it. A Grab in flight makes it downloading"),
   targetId: zod.uuid(),
   targetName: zod.string(),
   wanted: zod
@@ -1804,6 +1790,19 @@ export const FilesUpgradableCell = zod.object({
 
 export type FilesUpgradableCell = zod.input<typeof FilesUpgradableCell>;
 export type FilesUpgradableCellOutput = zod.output<typeof FilesUpgradableCell>;
+
+export const FilesHeldCell = zod.object({
+  from: zod.iso.datetime({ offset: true }).describe("When the Grab entered its stage"),
+  grabId: zod.uuid().describe("The Grab in flight for the cell"),
+  step: FilesStep,
+  until: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the Import delay ends, for a download that waits for it; null otherwise"),
+});
+
+export type FilesHeldCell = zod.input<typeof FilesHeldCell>;
+export type FilesHeldCellOutput = zod.output<typeof FilesHeldCell>;
 
 export const FilesMetCell = zod.object({
   edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
@@ -9867,7 +9866,7 @@ export const TransfersTransfer = zod.object({
   id: zod.uuid(),
   job: zod.string().describe("The id of the job that asked for it, such as its Grab's"),
   jobName: zod.string().describe("The job's name, such as a Work's title and year"),
-  purpose: zod.enum(["grab", "import"]).describe("The kind of job that asked for it"),
+  purpose: zod.enum(["import"]).describe("The kind of job that asked for it"),
   rate: zod
     .int()
     .min(transfersTransferRateMin)

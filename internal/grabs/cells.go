@@ -2,6 +2,7 @@ package grabs
 
 import (
 	"context"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
@@ -70,10 +71,10 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 		case row.Stage == Failed:
 			cell.State, cell.FailedAt = files.GrabFailed, string(*row.FailedStage)
 		case !g.InStep(row.NodeID):
-			cell.State, cell.Waiting = files.GrabInFlight, NodeAway
+			cell.State, cell.Waiting, cell.Doing = files.GrabInFlight, NodeAway, doingOf(row, waiting{})
 		default:
 			w := waits[row.ID]
-			cell.State, cell.Waiting, cell.ClientError = files.GrabInFlight, w.code, w.clientError
+			cell.State, cell.Waiting, cell.ClientError, cell.Doing = files.GrabInFlight, w.code, w.clientError, doingOf(row, w)
 		}
 		out[key] = cell
 	}
@@ -121,6 +122,23 @@ func (GrabCells) ReleaseTitles(ctx context.Context, r storage.Reader[storage.Lib
 type waiting struct {
 	code        string
 	clientError *files.ClientError
+	// until is when a downloading Grab's client's Import delay ends, zero
+	// unless it waits for it.
+	until time.Time
+}
+
+// doingOf is the step in flight row's Grab is at, w what it waits on. An
+// importing Grab's step is its Import's, which imports reads.
+func doingOf(row db.ListTargetsOfWorksRow, w waiting) files.Doing {
+	h := files.Doing{From: row.EnteredAt.Time(), Until: w.until}
+	switch row.Stage {
+	case Fetching:
+		h.Step = files.StepFetching
+	case Downloading:
+		h.Step = files.StepDownloading
+	case Importing, Imported, Failed:
+	}
+	return h
 }
 
 // waits is what each unfinished Grab waits on while its own Node is in
@@ -165,11 +183,14 @@ func (g GrabCells) waits(ctx context.Context, r storage.Reader[storage.Library])
 			}
 		}
 		t := torrents[row.TorrentID]
+		if row.Stage == Downloading && !t.ImportDelayUntil.IsZero() {
+			out[row.ID] = waiting{until: t.ImportDelayUntil}
+		}
 		switch {
 		case away[row.TorrentID]:
-			out[row.ID] = waiting{code: ClientAway}
+			out[row.ID] = waiting{code: ClientAway, until: out[row.ID].until}
 		case row.Stage == Downloading && t.ClientError != nil:
-			out[row.ID] = waiting{code: ClientErrorWait, clientError: &files.ClientError{
+			out[row.ID] = waiting{code: ClientErrorWait, until: out[row.ID].until, clientError: &files.ClientError{
 				Client: t.Client.Name, Node: t.ClientError.Node, Message: t.ClientError.Message, FailsAt: t.ClientError.FailsAt,
 			}}
 		}

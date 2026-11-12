@@ -255,8 +255,9 @@ type CellKey struct {
 // cutoff and Score at or above its upgrade-until. Short of that, a
 // Downloading or Failed cell keeps the file its Grab would replace, and
 // is Upgradable with no such Grab. Grab is the Grab a Downloading or
-// Failed cell reads from. Timing is the Item's, and Released whether it
-// is out today.
+// Failed cell reads from, or a Met cell's Grab in flight. Doing is what
+// that Grab in flight does for a Downloading or Met cell. Timing is the
+// Item's, and Released whether it is out today.
 type Cell struct {
 	Item     works.Item
 	Edition  targets.Edition
@@ -265,8 +266,30 @@ type Cell struct {
 	File     *File
 	Score    int
 	Grab     storage.UUID
+	Doing    Doing
 	Timing   targets.Timing
 	Released bool
+}
+
+// Step is what a Grab in flight, or its Import, does for a cell, in the
+// order a download walks it.
+type Step string
+
+const (
+	StepFetching    Step = "fetching"
+	StepDownloading Step = "downloading"
+	StepReading     Step = "reading"
+	StepSending     Step = "sending"
+	StepPlacing     Step = "placing"
+	StepWaiting     Step = "waiting"
+)
+
+// Doing is the step a Grab in flight is at for a cell, empty until it is
+// known. From is when the Grab entered its stage. Until is when its
+// client's Import delay ends, zero unless it waits for it.
+type Doing struct {
+	Step        Step
+	From, Until time.Time
 }
 
 // Fill is the file filling a cell and its score at the cell's Target.
@@ -310,7 +333,7 @@ const (
 // nothing. FailedAt is the stage a failed Grab failed at, such as
 // importing. ClientError is the error a Grab waiting client_error waits
 // on, and Hold the root a Grab waiting no_space or root_not_ready waits
-// on, nil for any other wait.
+// on, nil for any other wait. Doing is the step an unfinished Grab is at.
 type GrabCell struct {
 	State       GrabState
 	Grab        storage.UUID
@@ -318,6 +341,7 @@ type GrabCell struct {
 	ClientError *ClientError
 	Hold        *ImportHold
 	FailedAt    string
+	Doing       Doing
 }
 
 // ImportHold is the root an importing Grab's file waits on, and for

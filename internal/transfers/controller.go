@@ -29,10 +29,7 @@ var Def = role.WideDef[*tv1.Intent, *tv1.Facts, *tv1.Result]{Name: role.Transfer
 // Transfers.
 type PurposeKind string
 
-const (
-	Grab   PurposeKind = "grab"
-	Import PurposeKind = "import"
-)
+const Import PurposeKind = "import"
 
 // Destination is where a Transfer's files go. Its Node is never stored:
 // judge reads it from the destination each time, so a re-home moves it.

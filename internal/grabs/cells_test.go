@@ -1,6 +1,8 @@
 package grabs_test
 
 import (
+	"time"
+
 	"context"
 	"fmt"
 	"testing"
@@ -67,11 +69,11 @@ func TestAnUnfinishedGrabOnANodeOutOfStepWaitsOnIt(t *testing.T) {
 		target storage.UUID
 		want   files.GrabCell
 	}{
-		{"fetching on home", hd, files.GrabCell{State: files.GrabInFlight, Grab: fetching}},
-		{"fetching on the seedbox out of step", uhd, files.GrabCell{State: files.GrabInFlight, Grab: waiting, Waiting: grabs.NodeAway}},
+		{"fetching on home", hd, files.GrabCell{State: files.GrabInFlight, Grab: fetching, Doing: files.Doing{Step: files.StepFetching}}},
+		{"fetching on the seedbox out of step", uhd, files.GrabCell{State: files.GrabInFlight, Grab: waiting, Waiting: grabs.NodeAway, Doing: files.Doing{Step: files.StepFetching}}},
 		{"failed on the seedbox", sd, files.GrabCell{State: files.GrabFailed, Grab: failed, FailedAt: "fetching"}},
 	} {
-		if g := cell(c.target); g != c.want {
+		if g := cell(c.target); stepOnly(g) != c.want {
 			t.Errorf("the Grab %s reads %+v, want %+v", c.what, g, c.want)
 		}
 	}
@@ -145,7 +147,7 @@ func TestAnUnfinishedGrabHoldsItsCellWhateverFinishedAfterIt(t *testing.T) {
 		if c.from >= 0 {
 			want.Grab = ids[i][c.from]
 		}
-		if ok != (c.from >= 0) || cell != want {
+		if ok != (c.from >= 0) || readFromOnly(cell) != want {
 			t.Errorf("%s: the cell reads %+v (present %t), want %+v", c.what, cell, ok, want)
 		}
 	}
@@ -256,8 +258,20 @@ func TestACellReadsFromEachUnsettledRowOfAGrabAndASettledOneNeverReadsFailed(t *
 		t.Errorf("the Work's cells read %+v, want only %+v: a settled cell reads from no Grab", got, want)
 	}
 	for k, w := range want {
-		if got[k] != w {
+		if readFromOnly(got[k]) != w {
 			t.Errorf("the cell %+v reads %+v, want %+v", k, got[k], w)
 		}
 	}
+}
+
+// stepOnly is c with its step but not when its Grab entered its stage.
+func stepOnly(c files.GrabCell) files.GrabCell {
+	c.Doing.From = time.Time{}
+	return c
+}
+
+// readFromOnly is c without the step its Grab is at.
+func readFromOnly(c files.GrabCell) files.GrabCell {
+	c.Doing = files.Doing{}
+	return c
 }

@@ -53,7 +53,7 @@ export const failedKey = ({ need }: FailedEntry) =>
 
 /** "2160p HDR failed at Import · 1080p and 720p wait on it" */
 export function failedWords(naming: Naming, need: FilesFailedNeed, grab: FailedGrab): string {
-  const failed = `${cellsOf(naming, need, [need.targetId])} failed at ${stageLabel[trackStage[grab.failure.stage]]}`;
+  const failed = `${cellsOf(naming, need, [need.targetId])} failed at ${stageLabel[trackStage(grab)]}`;
   if (need.waiting.length === 0) {
     return failed;
   }
