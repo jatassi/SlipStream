@@ -2,6 +2,7 @@ package imports
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/release"
@@ -93,8 +94,20 @@ var rules = map[ReasonCode]rule{
 		return "Another import is placing " + w.items(r.Reading) + ". This one continues after it."
 	}, also: []ActionKind{ActDecline}},
 	Confirm: {sentence: func(r Reason, w wording) string { return "Fills " + w.targets(r.Targets) + " for " + w.label() + "." }, recommended: ActConfirm, also: []ActionKind{ActMatch, ActDecline}},
-	Sample:  {sentence: fixed("This is a sample.")},
-	Bonus:   {sentence: fixed("This is a bonus feature.")},
+	NoMatch: {
+		sentence: func(_ Reason, w wording) string {
+			return "No " + w.work() + " in the library matches this file's name."
+		},
+		recommended: ActMatch, also: []ActionKind{ActDecline},
+	},
+	NoRule: {
+		sentence: func(_ Reason, w wording) string {
+			return "This file's name doesn't name " + article(w.item()) + " of " + w.label() + "."
+		},
+		recommended: ActMatch, also: []ActionKind{ActDecline},
+	},
+	Sample: {sentence: fixed("This is a sample.")},
+	Bonus:  {sentence: fixed("This is a bonus feature.")},
 	TooSmall: {sentence: func(r Reason, _ wording) string {
 		return "This is smaller than " + sizeWords(r.Value) + ", the smallest video file to import."
 	}},
@@ -165,7 +178,8 @@ func (r Reason) sentence(w wording) string {
 
 // Actions is what f offers now, recommended first, empty for none: its
 // reason's rule while it waits, Retry and Don't import on an offered hold,
-// and Not this Release only on a grab Import.
+// Not this Release only on a grab Import, and Change the match on every
+// waiting file of a folder Import.
 func (f *File) Actions(im Import) (recommended ActionKind, also []ActionKind) {
 	switch {
 	case f.Hold != nil && f.Hold.offered():
@@ -179,7 +193,18 @@ func (f *File) Actions(im Import) (recommended ActionKind, also []ActionKind) {
 			also = append(also, a)
 		}
 	}
+	if im.Source == FromFolder && f.Outcome == Waiting && rl.recommended != ActMatch && !slices.Contains(also, ActMatch) {
+		also = append(also, ActMatch)
+	}
 	return rl.recommended, also
+}
+
+// article is noun with its indefinite article.
+func article(noun string) string {
+	if noun != "" && strings.ContainsRune("aeiou", rune(noun[0])) {
+		return "an " + noun
+	}
+	return "a " + noun
 }
 
 // joinWords is words in a list: "a", "a and b", "a, b and c".

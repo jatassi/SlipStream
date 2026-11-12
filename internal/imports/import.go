@@ -120,6 +120,9 @@ type File struct {
 	Reason      *Reason
 	Hold        *Hold
 	Confirmed   bool
+	// Seeded is a folder file a torrent held when its folder was opened,
+	// which Move files can't take.
+	Seeded bool
 	// Fills are the cells it fills: decided, or as it landed, or for a
 	// confirm wait the ones it would.
 	Fills []Fill

@@ -93,8 +93,8 @@ type Lead struct {
 	NeedsYou    int
 }
 
-// List lists the unfinished Imports f picks, folder order within each
-// root.
+// List lists the unfinished Imports f picks: the root Imports in folder
+// order within each root, then the rest by folder.
 func (im *Imports) List(ctx context.Context, _ identity.Admin, f Filter) (List, error) {
 	words, err := im.cfg.Roots.Words(ctx)
 	if err != nil {
@@ -102,7 +102,11 @@ func (im *Imports) List(ctx context.Context, _ identity.Admin, f Filter) (List, 
 	}
 	var out List
 	err = im.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		all, err := unfinishedRootImports(ctx, r)
+		rows, err := db.New(r).ListUnfinishedImports(ctx)
+		if err != nil {
+			return err
+		}
+		all, err := allImports(ctx, r, rows)
 		if err != nil {
 			return err
 		}

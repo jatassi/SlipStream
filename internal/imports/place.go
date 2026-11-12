@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
+	"github.com/jatassi/slipstream/internal/transfers"
 )
 
 // Step is a point in a file's IO where tests hold: before its probe,
@@ -44,9 +45,10 @@ func (f *File) sourceOf(imp Import) storing.Source {
 }
 
 // place puts f's bytes at its Dest on the root's Node and lands it. A
-// root Import's file already sits in its root and lands where it is. A
-// link or a clone needs no room. A copy asks for it first, in a Write, so
-// the grant is a row the next file's check reads.
+// root Import's file already sits in its root and lands where it is, and
+// a file sent from another Node moves there from its staged copy. A link
+// or a clone needs no room. A copy asks for it first, in a Write, so the
+// grant is a row the next file's check reads.
 func (im *Imports) place(ctx context.Context, imp Import, f File) error {
 	im.hold(ctx, imp, f, AtPlace)
 	if imp.Source == FromRoot {
@@ -56,7 +58,15 @@ func (im *Imports) place(ctx context.Context, imp Import, f File) error {
 		}
 		return im.land(ctx, imp, f, seen, InPlace)
 	}
-	placed, err := im.cfg.Roots.Place(ctx, f.Dest.Root, f.Dest.Holding, f.sourceOf(imp), f.PlacedBy == ByCopy)
+	var (
+		placed storing.Placed
+		err    error
+	)
+	if f.Sent != nil {
+		placed, err = im.cfg.Roots.Move(ctx, f.Dest.Root, transfers.StagedRel(f.Sent.Transfer, f.Sent.Order), f.Dest.Holding, false)
+	} else {
+		placed, err = im.cfg.Roots.Place(ctx, f.Dest.Root, f.Dest.Holding, f.sourceOf(imp), f.PlacedBy == ByCopy)
+	}
 	if needs, ok := errors.AsType[*storing.NeedsCopyError](err); ok {
 		_, err := im.write(ctx, imp.ID, func(ctx context.Context, tx *storage.Tx[file], cur *Import, _ *after) error {
 			return im.grantCopy(ctx, tx, cur, f.Position, needs.Size)
@@ -72,7 +82,14 @@ func (im *Imports) place(ctx context.Context, imp Import, f File) error {
 		})
 		return werr
 	}
-	return im.land(ctx, imp, f, placed.Seen, PlacedBy(placed.Step.String()))
+	by := PlacedBy(placed.Step.String())
+	if f.Sent != nil {
+		by = ByTransfer
+	}
+	if imp.MoveFiles {
+		by = ByMove
+	}
+	return im.land(ctx, imp, f, placed.Seen, by)
 }
 
 // holdOrFail makes a place's error an import wait, which retries, or for
@@ -198,6 +215,9 @@ func (im *Imports) land(ctx context.Context, imp Import, f File, seen storing.Se
 		g.Outcome, g.Reason, g.Hold, g.PlacedBy, g.FileID = Placed, nil, nil, by, landed.File.ID
 		g.Fills = fillsOf(landed.Fills, g.forced())
 		a.landed = append(a.landed, cur.Work)
+		if g.Sent != nil {
+			return im.cfg.Transfers.Placed(ctx, tx, g.Sent.Transfer, g.Sent.Order)
+		}
 		return nil
 	})
 	return err

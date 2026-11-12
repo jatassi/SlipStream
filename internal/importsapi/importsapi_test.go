@@ -35,6 +35,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -100,7 +101,7 @@ func serve(t *testing.T) *server {
 	ctx := t.Context()
 	s := &server{
 		lib: storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(),
-			downloadclients.Schema(), grabs.Schema(), files.Schema(), naming.Schema(), imports.Schema()),
+			downloadclients.Schema(), grabs.Schema(), files.Schema(), naming.Schema(), transfers.LibrarySchema(), imports.Schema()),
 		fx:   contenttypetest.New(),
 		node: role.NodeID{UUID: storage.NewUUID()},
 		nas:  role.NodeID{UUID: storage.NewUUID()},
@@ -144,7 +145,7 @@ func serve(t *testing.T) *server {
 		t.Fatal(err)
 	}
 	im := imports.New(imports.Config{
-		Library: s.lib, Roots: s.roots, Files: fs, Works: w, Targets: goals,
+		Library: s.lib, Roots: s.roots, Files: fs, Works: w, Targets: goals, Transfers: transfers.New(transfers.ControllerConfig{Library: s.lib}),
 		Facets: map[works.TypeID]scanning.Facet{contenttypetest.ID: shelfFacet{}},
 		Add: func(ctx context.Context, by identity.Admin, a library.Adding) (library.Added, error) {
 			return s.library.Add(ctx, by, a)

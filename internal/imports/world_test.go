@@ -36,6 +36,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -120,7 +121,7 @@ func newWorld(t *testing.T) *world {
 	t.Helper()
 	ctx := t.Context()
 	w := &world{
-		lib:     storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), naming.Schema(), Schema()),
+		lib:     storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), naming.Schema(), transfers.LibrarySchema(), Schema()),
 		fx:      contenttypetest.New(),
 		node:    role.NodeID{UUID: storage.NewUUID()},
 		changed: &heard[Changed]{},
@@ -135,9 +136,7 @@ func newWorld(t *testing.T) *world {
 		t.Fatal(err)
 	}
 	cfg := rootstest.Config(t, w.lib, contenttypetest.ID)
-	cfg.Names = func(context.Context) (map[role.NodeID]nodes.Named, error) {
-		return map[role.NodeID]nodes.Named{w.node: {Name: "Media server"}}, nil
-	}
+	cfg.Names = w.names
 	cfg.Describe = w.works.Describe
 	if w.roots, err = roots.Open(ctx, cfg); err != nil {
 		t.Fatal(err)
@@ -189,9 +188,20 @@ func newWorld(t *testing.T) *world {
 		},
 		Log: slog.New(slog.DiscardHandler),
 	}
-	w.im = New(w.cfg)
+	w.im = w.newImports(w.cfg)
 	w.library = library.New(library.Config{Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Grabs: noGrabs{}, Imports: w.im, Leaver: w.im})
 	return w
+}
+
+// newImports is New over cfg with Transfers of its own, as each Controller
+// start registers the purpose once.
+func (w *world) newImports(cfg Config) *Imports {
+	cfg.Transfers = transfers.New(transfers.ControllerConfig{Library: w.lib})
+	return New(cfg)
+}
+
+func (w *world) names(context.Context) (map[role.NodeID]nodes.Named, error) {
+	return map[role.NodeID]nodes.Named{w.node: {Name: "Media server"}}, nil
 }
 
 func (w *world) newRoot(t *testing.T) roots.Root {

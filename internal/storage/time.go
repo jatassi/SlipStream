@@ -35,6 +35,28 @@ func (t Time) Compare(u Time) int { return t.t.Compare(u.t) }
 
 func (t Time) String() string { return t.t.Format(time.RFC3339Nano) }
 
+// MarshalText is t in RFC 3339 at its microseconds, empty for the zero
+// Time.
+func (t Time) MarshalText() ([]byte, error) {
+	if t.IsZero() {
+		return []byte{}, nil
+	}
+	return []byte(t.t.Format(time.RFC3339Nano)), nil
+}
+
+func (t *Time) UnmarshalText(b []byte) error {
+	if len(b) == 0 {
+		*t = Time{}
+		return nil
+	}
+	var v time.Time
+	if err := v.UnmarshalText(b); err != nil {
+		return fmt.Errorf("storage.Time: %w", err)
+	}
+	*t = FromTime(v)
+	return nil
+}
+
 func (t Time) Value() (driver.Value, error) {
 	if t.IsZero() {
 		return nil, nil

@@ -29,6 +29,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -98,7 +99,7 @@ func attic(t *testing.T) (o *ownertest.Owner, work string) {
 		Library: lib, Targets: goals, Grabs: files.NoGrabs{}, Naming: nm,
 		Names: map[works.TypeID]release.Names{contenttypetest.ID: fx}, Today: time.Now, Moved: ignore[files.Moved]{},
 	}))
-	im := imports.New(imports.Config{Library: lib, Files: svc, Targets: goals, Facets: map[works.TypeID]scanning.Facet{contenttypetest.ID: fx}})
+	im := imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib}), Files: svc, Targets: goals, Facets: map[works.TypeID]scanning.Facet{contenttypetest.ID: fx}})
 	return ownertest.Serve(t, lib, func(r *api.Router) { namingapi.Routes(r, node{n: nm, f: svc, im: im}) }), tree.ID.String()
 }
 

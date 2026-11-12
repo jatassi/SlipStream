@@ -32,3 +32,20 @@ func (r *Roots) MakeFolder(ctx context.Context, _ identity.Admin, node role.Node
 	p, err := r.cfg.Folders.MakeFolder(ctx, node, parent, name)
 	return p, reached(err)
 }
+
+// ListVideos lists the video files under path on node by the Admin's video
+// extensions. A path outside node's library roots and download folders is
+// *storing.OutsideError.
+func (r *Roots) ListVideos(ctx context.Context, node role.NodeID, path string) (storing.Listed, error) {
+	videos, err := r.cfg.Videos(ctx, r.cfg.Library)
+	if err != nil {
+		return storing.Listed{}, err
+	}
+	l, err := r.cfg.Folders.ListVideos(ctx, node, path, videos)
+	return l, reached(err)
+}
+
+// RemoveSource removes the file at path on node once a Move placed it.
+func (r *Roots) RemoveSource(ctx context.Context, node role.NodeID, path string) error {
+	return reached(r.cfg.Folders.RemoveSource(ctx, node, path))
+}

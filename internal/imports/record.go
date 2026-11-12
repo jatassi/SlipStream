@@ -136,7 +136,7 @@ func fileOf(row db.ImportsFile, items []works.ItemID) (File, error) {
 	f := File{
 		Position: int(row.Position), Path: row.Path, Size: row.Size, Probe: row.Probe, Cut: row.Cut, ReleaseName: row.ReleaseName,
 		SourceName: row.SourceName, Items: items, Outcome: Outcome(row.Outcome), Confirmed: row.Confirmed == 1, FileID: row.FileID,
-		SourceRemoved: row.SourceRemovedAt,
+		SourceRemoved: row.SourceRemovedAt, Seeded: row.Seeded == 1,
 	}
 	if row.SourceIndex != nil {
 		f.SourceIndex = new(int(*row.SourceIndex))
@@ -193,6 +193,9 @@ func fileRow(id ImportID, f File) (db.ImportsFile, error) {
 	if f.Confirmed {
 		row.Confirmed = 1
 	}
+	if f.Seeded {
+		row.Seeded = 1
+	}
 	var err error
 	if row.Reason, err = jsonOf(f.Reason); err != nil {
 		return db.ImportsFile{}, fmt.Errorf("the reason of %s: %w", f.Path, err)
@@ -222,7 +225,7 @@ func insertFile(ctx context.Context, q *db.Queries, id ImportID, f File) error {
 		NodeFileID: row.NodeFileID, NodeVolumeID: row.NodeVolumeID, Probe: row.Probe, Quality: row.Quality, Cut: row.Cut,
 		ReleaseName: row.ReleaseName, SourceName: row.SourceName, Outcome: row.Outcome, Reason: row.Reason, Hold: row.Hold,
 		Confirmed: row.Confirmed, RootID: row.RootID, Dest: row.Dest, SentTransfer: row.SentTransfer, SentOrder: row.SentOrder,
-		PlacedBy: row.PlacedBy, FileID: row.FileID, SourceRemovedAt: row.SourceRemovedAt,
+		PlacedBy: row.PlacedBy, FileID: row.FileID, SourceRemovedAt: row.SourceRemovedAt, Seeded: row.Seeded,
 	})
 	if err != nil {
 		return err
@@ -305,15 +308,15 @@ func columnsOf(im Import) (hint string, suggestion, failure, ended *string, err 
 
 // save writes im over what tx holds for its id: each file through setFile
 // from its stored outcome, a new position inserted, a position im no
-// longer lists deleted. A root Import left with no files is deleted, and
-// one whose files are all final is finished.
+// longer lists deleted. A root or folder Import left with no files is
+// deleted, and a root Import whose files are all final is finished.
 func save(ctx context.Context, tx *storage.Tx[file], im *Import) error {
 	q := db.New(tx)
 	stored, err := importOf(ctx, tx, im.ID)
 	if err != nil {
 		return err
 	}
-	if im.Source == FromRoot && len(im.Files) == 0 {
+	if im.Source != FromGrab && len(im.Files) == 0 {
 		return q.DeleteImport(ctx, im.ID)
 	}
 	if im.Source == FromRoot && im.Finished.IsZero() && !slices.ContainsFunc(im.Files, func(f File) bool { return !f.Outcome.Final() }) {

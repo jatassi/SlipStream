@@ -8,12 +8,13 @@ import (
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/transfers"
 )
 
 func TestTheCatalogListsEachTaskOnceInItsWindowOrder(t *testing.T) {
 	seen := map[tasks.TaskID]bool{}
 	var window []tasks.TaskID
-	for _, task := range catalog(housekeeping.Config{}, metadata.RefreshConfig{}, imports.New(imports.Config{})) {
+	for _, task := range catalog(housekeeping.Config{}, metadata.RefreshConfig{}, imports.New(imports.Config{Transfers: transfers.New(transfers.ControllerConfig{})})) {
 		if seen[task.ID] {
 			t.Fatalf("the catalog lists %q twice", task.ID)
 		}
