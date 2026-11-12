@@ -247,11 +247,15 @@ func TestAnotherSeriesTVDBIDIsTheWrongWork(t *testing.T) {
 // and Salt and Oil, S01E03, then moves the special into season 3 and
 // changes the order to DVD, which renumbers Salt and Oil S01E02 and
 // doesn't list the special: each keeps its file, and deleting the series
-// counts both.
+// counts both. S01E01 and S01E02 aren't monitored, so the unseeded season
+// pack covers unwanted Items and S01E03's own Release ranks first.
 func TestEpisodeFilesStayWithTheirEpisodes(t *testing.T) {
 	t.Parallel()
 	w, v := searchingSeries(t)
 	special, salt := v.item(t, "100102").ID, v.item(t, "100113").ID
+	if r := w.a.Admin("home", http.MethodPut, "/api/v1/works/"+v.ID+"/monitored", `{"levelIds":[],"itemIds":["`+v.item(t, "100111").ID+`","`+v.item(t, "100112").ID+`"],"on":false}`); r.Status != http.StatusNoContent {
+		t.Fatalf("setWorkMonitored S01E01 and S01E02 off = %d %s, want 204", r.Status, r.Body)
+	}
 	w.imported(t, w.finished(t, w.searchWithin(t, itemsBody(special, salt), 2)))
 	both := func(when string) {
 		t.Helper()
