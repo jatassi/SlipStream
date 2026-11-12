@@ -372,6 +372,36 @@ export const getListDownloadClientsResponseMock = (
     }),
   ),
   thresholds: {
+    clientErrorFail: {
+      applies: faker.helpers.arrayElement(["live", "restart"] as const),
+      default: faker.number.int(),
+      ...(faker.datatype.boolean()
+        ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      isDefault: faker.datatype.boolean(),
+      key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      kind: faker.helpers.arrayElement(["duration"] as const),
+      label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      max: faker.number.int(),
+      min: faker.number.int(),
+      pendingRestart: faker.datatype.boolean(),
+      running: faker.number.int(),
+      source: faker.helpers.arrayElement([
+        "database",
+        "default",
+        "config.yaml",
+        ".env",
+        "env",
+      ] as const),
+      step: faker.number.int(),
+      value: faker.number.int(),
+    },
     faultStall: {
       applies: faker.helpers.arrayElement(["live", "restart"] as const),
       default: faker.number.int(),
@@ -469,6 +499,36 @@ export const getListDownloadClientsResponseMock = (
 export const getSetDownloadClientThresholdsResponseMock = (
   overrideResponse: Partial<Extract<DownloadclientsThresholds, object>> = {},
 ): DownloadclientsThresholds => ({
+  clientErrorFail: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
   faultStall: {
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
     default: faker.number.int(),
@@ -1736,7 +1796,13 @@ export const getGetTorrentResponseMock = (
     id: faker.string.uuid(),
     itemId: faker.string.uuid(),
     release: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    stage: faker.helpers.arrayElement(["downloading", "importing", "imported", "failed"] as const),
+    stage: faker.helpers.arrayElement([
+      "downloading",
+      "importing",
+      "waiting",
+      "imported",
+      "failed",
+    ] as const),
     workId: faker.string.uuid(),
   })),
   held: faker.datatype.boolean(),

@@ -180,6 +180,13 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/targets
               type: TargetID
+          - column: grabs_target.forced
+            go_type:
+              type: bool
+          - column: grabs_target.settled
+            go_type:
+              type: Settled
+              pointer: true
           - column: "*.stage"
             go_type:
               type: Stage

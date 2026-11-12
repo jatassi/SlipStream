@@ -85,6 +85,12 @@ type GrabsGrab struct {
 	SentClientID      *downloadclients.ClientID
 }
 
+type GrabsGrabItem struct {
+	GrabID   GrabID
+	ItemID   works.ItemID
+	Position int64
+}
+
 type GrabsManual struct {
 	ID            ManualID
 	WorkID        works.WorkID
@@ -155,7 +161,11 @@ type GrabsStage struct {
 }
 
 type GrabsTarget struct {
-	GrabID   GrabID
-	Position int64
-	TargetID targets.TargetID
+	GrabID    GrabID
+	Position  int64
+	ItemID    works.ItemID
+	TargetID  targets.TargetID
+	Forced    bool
+	Settled   *Settled
+	SettledAt storage.Time
 }

@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
-import { halfLoop } from "../test/imports";
+import { halfLoop } from "../test/import-entries";
 import { brazil, halloween, heat, orchardLeft, severanceEntry } from "../test/pending-imports";
 import { openPending } from "../test/pending-page";
 import { asPhone } from "../test/viewport";
@@ -88,7 +88,7 @@ test("Add says which folder wasn't added and why", async () => {
   );
   await userEvent.click(entry(halloween.folder).getByRole("button", { name: "Add" }));
   await expect
-    .element(page.getByText("Halloween wasn't added. The pending import has no suggested Work."))
+    .element(page.getByText("Halloween wasn't added. The Import has no suggested Work."))
     .toBeVisible();
 });
 
@@ -130,7 +130,7 @@ test("Import into attaches a series folder's files at the episodes picked, leavi
     {
       id: severanceEntry.id,
       workId: severanceEntry.suggestion?.workId,
-      files: [{ path: "Severance (2022)/Season 1/Severance.mkv", itemIds: [halfLoop.id] }],
+      files: [{ position: 0, itemIds: [halfLoop.id] }],
     },
   ]);
   await expect

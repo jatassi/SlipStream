@@ -1,5 +1,5 @@
 export interface ImportsOutcomeProblem {
-  /** The code a request for this pending import alone would have been refused with */
+  /** The code a request for this Import alone would have been refused with */
   code: string;
   detail?: string;
   title: string;

@@ -168,19 +168,15 @@ type pendingList struct {
 		Added    int `json:"added"`
 		NeedsYou int `json:"needsYou"`
 	} `json:"leads"`
-	Entries []struct {
-		ID         string `json:"id"`
-		Folder     string `json:"folder"`
-		Suggestion *struct {
-			Label     string  `json:"label"`
-			Year      *int    `json:"year"`
-			WorkID    *string `json:"workId"`
-			Confident bool    `json:"confident"`
-		} `json:"suggestion"`
-		IgnoredAt *time.Time `json:"ignoredAt"`
-		Files     []struct {
-			Path   string `json:"path"`
-			Reason struct {
+	Imports []struct {
+		ID         string             `json:"id"`
+		Folder     string             `json:"folder"`
+		Suggestion *pendingSuggestion `json:"suggestion"`
+		IgnoredAt  *time.Time         `json:"ignoredAt"`
+		Files      []struct {
+			Path    string `json:"path"`
+			Outcome string `json:"outcome"`
+			Reason  struct {
 				Code  string `json:"code"`
 				Title string `json:"title"`
 				Year  int    `json:"year"`
@@ -188,7 +184,32 @@ type pendingList struct {
 				Names string `json:"names"`
 			} `json:"reason"`
 		} `json:"files"`
-	} `json:"entries"`
+	} `json:"imports"`
+}
+
+type pendingSuggestion struct {
+	Label     string  `json:"label"`
+	Year      *int    `json:"year"`
+	WorkID    *string `json:"workId"`
+	Confident bool    `json:"confident"`
+}
+
+// words is "<label (year)>[ in the library][, confident]", or nothing.
+func (s *pendingSuggestion) words() string {
+	if s == nil {
+		return "nothing"
+	}
+	out := s.Label
+	if s.Year != nil {
+		out += " (" + strconv.Itoa(*s.Year) + ")"
+	}
+	if s.WorkID != nil {
+		out += " in the library"
+	}
+	if s.Confident {
+		out += ", confident"
+	}
+	return out
 }
 
 // pending is Pending imports, or its Ignored view, as lines: each shelf's
@@ -197,31 +218,22 @@ type pendingList struct {
 func (sh *shelves) pending(ignored bool) []string {
 	sh.t.Helper()
 	var l pendingList
-	decode(sh.t, "listPendingImports", sh.a.Admin("home", http.MethodGet, "/api/v1/imports/pending?ignored="+strconv.FormatBool(ignored), ""), &l)
+	decode(sh.t, "listImports", sh.a.Admin("home", http.MethodGet, "/api/v1/imports?source=root&ignored="+strconv.FormatBool(ignored), ""), &l)
 	var lines []string
 	for _, ld := range l.Leads {
 		if f := sh.folder(ld.Root.ID); f != ld.Root.ID {
 			lines = append(lines, fmt.Sprintf("%s added %d, %d need you", f, ld.Added, ld.NeedsYou))
 		}
 	}
-	for _, e := range l.Entries {
-		suggests := "nothing"
-		if s := e.Suggestion; s != nil {
-			suggests = s.Label
-			if s.Year != nil {
-				suggests += " (" + strconv.Itoa(*s.Year) + ")"
-			}
-			if s.WorkID != nil {
-				suggests += " in the library"
-			}
-			if s.Confident {
-				suggests += ", confident"
-			}
-		}
+	for _, e := range l.Imports {
+		suggests := e.Suggestion.words()
 		if (e.IgnoredAt != nil) != ignored {
 			sh.t.Fatalf("Pending imports with ignored=%t list %s with ignoredAt %v", ignored, e.Folder, e.IgnoredAt)
 		}
 		for _, f := range e.Files {
+			if f.Outcome != "waiting" {
+				continue
+			}
 			r := f.Reason
 			reason := strings.Join(slices.DeleteFunc([]string{r.Code, r.Title, yearWord(r.Year), countWord(r.Count), r.Names}, func(s string) bool { return s == "" }), " ")
 			lines = append(lines, e.Folder+" suggests "+suggests+": "+f.Path+": "+reason)

@@ -1,121 +1,41 @@
 import { HttpResponse, http } from "msw";
 
 import type {
-  ImportsEntry,
+  ImportsImportEntry,
   ImportsLead,
   ImportsOutcome,
   WorksCandidate,
-  WorksItem,
   WorksLibraryRow,
   WorksWorkView,
 } from "../api/gen/model";
 import {
-  AddPendingImportsBody,
-  IgnorePendingImportsBody,
-  ImportPendingIntoBody,
-  MatchPendingImportBody,
+  ActOnRootImportBody,
+  AddRootImportsBody,
+  IgnoreImportsBody,
 } from "../api/gen/zod/imports/imports.zod";
+import type { RootEntry } from "../imports/root-entry";
+import { filesOf, refused } from "./import-actions";
+import { brazilRow, brazilWork, severance, severanceRow, vaultRow } from "./import-entries";
 import type { liveServer } from "./live-server";
-import { libraryRow, orchard } from "./library";
 import {
   brazil,
   filmsLead,
-  filmsShelf,
-  filmsVault,
   halloween,
   halloween1978,
   halloween2018,
   heat,
   orchardLeft,
   severanceEntry,
-  severanceId,
-  shows,
   showsLead,
-  showsShelf,
 } from "./pending-imports";
 import { worker } from "./worker";
 
-export const severanceRow: WorksLibraryRow = libraryRow({
-  id: severanceId,
-  key: "371980",
-  label: "Severance",
-  contentType: shows.id,
-  rootId: showsShelf.id,
-});
-
-export const brazilRow: WorksLibraryRow = libraryRow({
-  id: "0199f0c3-0000-7000-8000-000000001985",
-  key: "68",
-  label: "Brazil",
-  rootId: filmsShelf.id,
-});
-
-export const vaultRow: WorksLibraryRow = libraryRow({
-  id: "0199f0c3-0000-7000-8000-000000000949",
-  key: "949",
-  label: "Heat",
-  rootId: filmsVault.id,
-});
-
-const episodeId = (season: number, episode: number) =>
-  `0199f0d4-0000-7000-8000-0000000${String(season).padStart(2, "0")}${String(episode).padStart(3, "0")}`;
-
-const brazilItem: WorksItem = {
-  id: "0199f0d4-0000-7000-8000-000000001985",
-  levelId: null,
-  key: "film",
-  label: "Brazil",
-  position: 1,
-  withdrawnAt: null,
-  monitored: true,
-  aside: false,
-  fields: [],
-  ratings: [],
-  artwork: [],
-  availability: null,
-};
-
-const episode = (season: number, number: number, label: string) => ({
-  ...brazilItem,
-  id: episodeId(season, number),
-  levelId: `season-${season}`,
-  key: `${season}x${number}`,
-  label,
-  position: number,
-  fields: [
-    {
-      key: "code",
-      kind: "text" as const,
-      text: `S${String(season).padStart(2, "0")}E${String(number).padStart(2, "0")}`,
-    },
-  ],
-});
-
-export const goodNews = episode(1, 1, "Good News About Hell");
-export const halfLoop = episode(1, 2, "Half Loop");
-
-export const severance: WorksWorkView = {
-  ...orchard,
-  id: severanceId,
-  contentType: shows.id,
-  key: "371980",
-  label: "Severance",
-  sortLabel: "Severance",
-  fields: [],
-  items: [goodNews, halfLoop],
-};
-
-export const brazilWork: WorksWorkView = {
-  ...orchard,
-  id: brazilRow.id,
-  key: brazilRow.key,
-  label: "Brazil",
-  sortLabel: "Brazil",
-  items: [brazilItem],
-};
-
 export type ImportsWorld = {
-  entries: ImportsEntry[];
+  entries: RootEntry[];
+  /** The download and folder Imports, beside the root entries. */
+  imports: ImportsImportEntry[];
+  /** What importFolder opens. */
+  folder: ImportsImportEntry[];
   leads: ImportsLead[];
   candidates: WorksCandidate[];
   rows: WorksLibraryRow[];
@@ -124,21 +44,20 @@ export type ImportsWorld = {
   changed: (rootIds: string[]) => void;
 };
 
-type Sent = {
+export type Sent = {
   added: string[][];
   matched: { id: string; key: string }[];
-  imported: { id: string; workId: string; files: { path: string; itemIds: string[] | null }[] }[];
+  imported: { id: string; workId: string; files: { position: number; itemIds: string[] }[] }[];
   ignored: string[][];
   restored: string[][];
   searched: string[];
+  acted: { id: string; position: number; action: string }[];
+  confirmed: string[][];
+  moved: { importIds: string[]; on: boolean }[];
+  opened: { nodeId: string; folder: string }[];
 };
 
-const problemType = { "Content-Type": "application/problem+json" };
-
-const refused = (status: number, code: string, title: string) =>
-  HttpResponse.json({ status, code, title }, { status, headers: problemType });
-
-const needsYou = (entry: ImportsEntry) => entry.ignoredAt === null;
+const needsYou = (entry: RootEntry) => entry.ignoredAt === null;
 
 const failed = (id: string, code: string, title: string): ImportsOutcome => ({
   id,
@@ -146,13 +65,13 @@ const failed = (id: string, code: string, title: string): ImportsOutcome => ({
   problem: { code, title },
 });
 
-function outcomeOf(world: ImportsWorld, entry: ImportsEntry): ImportsOutcome {
+function outcomeOf(world: ImportsWorld, entry: RootEntry): ImportsOutcome {
   const { id, suggestion } = entry;
   if (suggestion === null) {
-    return failed(id, "pending_no_suggestion", "The pending import has no suggested Work");
+    return failed(id, "import_no_suggestion", "The Import has no suggested Work");
   }
   if (entry.files.some(({ reason }) => reason.code === "elsewhere")) {
-    return failed(id, "pending_elsewhere", "The Work lives in another library root");
+    return failed(id, "import_elsewhere", "The Work lives in another library root");
   }
   world.entries = world.entries.filter((candidate) => candidate.id !== id);
   return {
@@ -162,7 +81,7 @@ function outcomeOf(world: ImportsWorld, entry: ImportsEntry): ImportsOutcome {
   };
 }
 
-function matchedOf(entry: ImportsEntry, candidate: WorksCandidate): ImportsEntry {
+function matchedOf(entry: RootEntry, candidate: WorksCandidate): RootEntry {
   const year = candidate.fields.find((field) => field.key === "year");
   return {
     ...entry,
@@ -178,12 +97,23 @@ function matchedOf(entry: ImportsEntry, candidate: WorksCandidate): ImportsEntry
 }
 
 const readsOf = (world: ImportsWorld, sent: Sent) => [
-  http.get("*/api/v1/imports/pending", ({ request }) => {
-    const ignored = new URL(request.url).searchParams.get("ignored") === "true";
+  http.get("*/api/v1/imports", ({ request }) => {
+    const query = new URL(request.url).searchParams;
+    const ignored = query.get("ignored") === "true";
+    const source = query.get("source");
+    const roots = world.entries.filter((entry) => needsYou(entry) !== ignored);
+    const others = ignored ? [] : world.imports;
     return HttpResponse.json({
-      leads: world.leads,
-      entries: world.entries.filter((entry) => needsYou(entry) !== ignored),
+      leads: source === null || source === "root" ? world.leads : [],
+      imports: [...roots, ...others].filter((entry) => source === null || entry.source === source),
+      next: null,
     });
+  }),
+  http.get("*/api/v1/imports/:id", ({ params }) => {
+    const entry = [...world.entries, ...world.imports].find(({ id }) => id === params["id"]);
+    return entry === undefined
+      ? refused(404, "import_not_found", "No Import has that id")
+      : HttpResponse.json(entry);
   }),
   http.get("*/api/v1/content-types/:id/catalog", ({ request }) => {
     sent.searched.push(new URL(request.url).searchParams.get("query") ?? "");
@@ -199,57 +129,59 @@ const readsOf = (world: ImportsWorld, sent: Sent) => [
 ];
 
 const marksOf = (world: ImportsWorld, sent: Sent) => [
-  http.post("*/api/v1/imports/pending/ignore", async ({ request }) => {
-    const { ids } = IgnorePendingImportsBody.parse(await request.json());
-    sent.ignored.push(ids);
-    return marked(world, ids, "2026-11-08T10:00:00Z");
+  http.post("*/api/v1/imports/ignore", async ({ request }) => {
+    const { importIds } = IgnoreImportsBody.parse(await request.json());
+    sent.ignored.push(importIds);
+    return marked(world, importIds, "2026-11-08T10:00:00Z");
   }),
-  http.post("*/api/v1/imports/pending/unignore", async ({ request }) => {
-    const { ids } = IgnorePendingImportsBody.parse(await request.json());
-    sent.restored.push(ids);
-    return marked(world, ids, null);
+  http.post("*/api/v1/imports/unignore", async ({ request }) => {
+    const { importIds } = IgnoreImportsBody.parse(await request.json());
+    sent.restored.push(importIds);
+    return marked(world, importIds, null);
   }),
 ];
 
 const writesOf = (world: ImportsWorld, sent: Sent) => [
-  http.post("*/api/v1/imports/pending/add", async ({ request }) => {
-    const { ids } = AddPendingImportsBody.parse(await request.json());
-    sent.added.push(ids);
-    const named = world.entries.filter(({ id }) => ids.includes(id));
+  http.post("*/api/v1/imports/add", async ({ request }) => {
+    const { importIds } = AddRootImportsBody.parse(await request.json());
+    sent.added.push(importIds);
+    const named = world.entries.filter(({ id }) => importIds.includes(id));
     const outcomes = named.map((entry) => outcomeOf(world, entry));
     world.changed(named.map(({ root }) => root.id));
     return HttpResponse.json({ outcomes });
   }),
-  http.post("*/api/v1/imports/pending/:id/match", async ({ params, request }) => {
+  http.post("*/api/v1/imports/:id", async ({ params, request }) => {
     const id = String(params["id"]);
-    const { key } = MatchPendingImportBody.parse(await request.json());
-    sent.matched.push({ id, key });
-    const candidate = world.candidates.find((found) => found.key === key);
+    const body = ActOnRootImportBody.parse(await request.json());
     const entry = world.entries.find((found) => found.id === id);
-    if (candidate === undefined || entry === undefined) {
-      return refused(404, "metadata_not_found", "The metadata source has no record with that key");
+    if (body.action === "match") {
+      sent.matched.push({ id, key: body.key });
+      const candidate = world.candidates.find((found) => found.key === body.key);
+      if (candidate === undefined || entry === undefined) {
+        return refused(
+          404,
+          "metadata_not_found",
+          "The metadata source has no record with that key",
+        );
+      }
+      const matched = matchedOf(entry, candidate);
+      world.entries = world.entries.map((found) => (found.id === id ? matched : found));
+      world.changed([entry.root.id]);
+      return HttpResponse.json(matched);
     }
-    const matched = matchedOf(entry, candidate);
-    world.entries = world.entries.map((found) => (found.id === id ? matched : found));
-    world.changed([entry.root.id]);
-    return HttpResponse.json(matched);
-  }),
-  http.post("*/api/v1/imports/pending/:id/import", async ({ params, request }) => {
-    const id = String(params["id"]);
-    const body = ImportPendingIntoBody.parse(await request.json());
-    sent.imported.push({ id, ...body });
-    const entry = world.entries.find((found) => found.id === id);
+    sent.imported.push({ id, workId: body.workId, files: body.files });
     if (entry === undefined) {
-      return refused(404, "pending_not_found", "No pending import has that id");
+      return refused(404, "import_not_found", "No Import has that id");
     }
-    const chosen = new Set(body.files.map(({ path }) => path));
-    const left = { ...entry, files: entry.files.filter(({ path }) => !chosen.has(path)) };
+    const chosen = new Set(body.files.map(({ position }) => position));
+    const files = entry.files.filter(({ position }) => !chosen.has(position));
+    const left: RootEntry = { ...entry, stage: files.length === 0 ? "done" : "waiting", files };
     world.entries =
-      left.files.length === 0
+      files.length === 0
         ? world.entries.filter((found) => found.id !== id)
         : world.entries.map((found) => (found.id === id ? left : found));
     world.changed([entry.root.id]);
-    return HttpResponse.json({ entry: left.files.length === 0 ? null : left });
+    return HttpResponse.json(left);
   }),
 ];
 
@@ -266,6 +198,8 @@ function marked(world: ImportsWorld, ids: readonly string[], ignoredAt: string |
 export function serveImports(start: Partial<ImportsWorld> = {}) {
   const world: ImportsWorld = {
     entries: [halloween, brazil, heat, severanceEntry, orchardLeft],
+    imports: [],
+    folder: [],
     leads: [filmsLead, showsLead],
     candidates: [halloween1978, halloween2018],
     rows: [brazilRow, vaultRow, severanceRow],
@@ -280,8 +214,17 @@ export function serveImports(start: Partial<ImportsWorld> = {}) {
     ignored: [],
     restored: [],
     searched: [],
+    acted: [],
+    confirmed: [],
+    moved: [],
+    opened: [],
   };
-  worker.use(...readsOf(world, sent), ...marksOf(world, sent), ...writesOf(world, sent));
+  worker.use(
+    ...readsOf(world, sent),
+    ...marksOf(world, sent),
+    ...filesOf(world, sent),
+    ...writesOf(world, sent),
+  );
   return { world, sent };
 }
 

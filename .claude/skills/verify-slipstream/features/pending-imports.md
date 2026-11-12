@@ -15,7 +15,7 @@ Pending imports lists each folder a Library scan found that joins no Work with c
 
 - Desktop shell: the Library's `<n> folders need you` row, above the filters, opens `/library/pending`; the `Needs you` and `Ignored` switch beside the title swaps the views.
 - Phone shell: the `Library` tab, then the same row, which pushes `Pending imports` with a back link `Library`. Change and Import into open as sheets.
-- API (Admin): `GET /api/v1/imports/pending?rootId=&ignored=`, `POST /api/v1/imports/pending/add {ids}`, `POST /api/v1/imports/pending/{id}/match {key}`, `POST /api/v1/imports/pending/{id}/import {workId, files}` answering `{entry}` with `null` once every file is imported, `POST /api/v1/imports/pending/ignore {ids}` and `/unignore {ids}`, and `pendingImports` in `GET /api/v1/counts`. Each entry carries `root {id, label}`. Changes publish `imports.changed {rootIds}`.
+- API (Admin): `GET /api/v1/imports?source=root&rootId=&ignored=` answering `{leads, imports}`, `GET /api/v1/imports/{id}`, `POST /api/v1/imports/add {importIds}`, `POST /api/v1/imports/{id}` with `{action: "match", key}` or `{action: "into", workId, files: [{position, itemIds}]}` answering the Import (`stage` reads `done` once every file is placed), `POST /api/v1/imports/ignore {importIds}` and `/unignore {importIds}`, and `pendingImports` in `GET /api/v1/counts`. Each Import carries `source`, `stage`, nullable `root {id, label}`, and each file its `position` and `outcome`. Changes publish `imports.changed {rootIds}`.
 - Host CLI: none.
 
 ## Driving it with fakeworld, curl and playwright cli
@@ -42,7 +42,7 @@ Steps:
   $FW exec $RUN -- $PW cli $S run-code 'async page => { await page.getByRole("list", { name: /^Pending imports in the/ }).first().waitFor(); }'
   $FW exec $RUN --proof pending-imports/pending-list -- $PW cli $S snapshot --filename={runDir}/proof/pending-imports/pending-list/page.aria.yml
   $FW exec $RUN --proof pending-imports/pending-list -- $PW cli $S screenshot --full-page --filename={runDir}/proof/pending-imports/pending-list/page.png
-  $FW exec $RUN --proof pending-imports/pending-list -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/imports/pending'
+  $FW exec $RUN --proof pending-imports/pending-list -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/imports?source=root'
   ```
 
 - **Change, then Add.** Change Nightfall's match to the 2014 film, then Add it.

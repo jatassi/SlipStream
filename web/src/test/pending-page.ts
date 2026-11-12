@@ -1,4 +1,5 @@
 import { getListContentTypesMockHandler } from "../api/gen/query/works/works.msw";
+import { folderEntries, packEntry, takenEntry } from "./import-entries";
 import { type ImportsWorld, changedOver, serveImports } from "./imports";
 import { cinema } from "./library";
 import { liveServer } from "./live-server";
@@ -13,7 +14,12 @@ export function openPending({
   handlers = [],
 }: { start?: Partial<ImportsWorld> } & Parameters<typeof renderApp>[0] = {}) {
   const live = liveServer();
-  const served = serveImports({ changed: changedOver(live), ...start });
+  const served = serveImports({
+    changed: changedOver(live),
+    imports: [packEntry, takenEntry],
+    folder: folderEntries,
+    ...start,
+  });
   const app = renderApp({
     path,
     handlers: [

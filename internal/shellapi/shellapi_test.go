@@ -205,7 +205,7 @@ func TestPendingImportsCountsTheEntriesThatNeedTheAdmin(t *testing.T) {
 			return err
 		}
 		for folder, ignoredAt := range map[string]*int64{"Brazil (1985)": nil, "Halloween": nil, "Heat (1995)": new(int64(1))} {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO imports_pending (id, root_id, folder, content_type, hint, found_at, ignored_at) VALUES (?, ?, ?, 'fixture', '{}', 0, ?)`,
+			if _, err := tx.ExecContext(ctx, `INSERT INTO imports_import (id, source, root_id, folder, content_type, hint, created_at, ignored_at) VALUES (?, 'root', ?, ?, 'fixture', '{}', 0, ?)`,
 				storage.NewUUID(), root, folder, ignoredAt); err != nil {
 				return err
 			}

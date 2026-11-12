@@ -81,7 +81,11 @@ func TestAGrabsTargetsSurviveTheMigrationAndGoWithTheirTarget(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return v.Targets
+		var out []targets.TargetID
+		for _, c := range v.Targets {
+			out = append(out, c.Key.Target)
+		}
+		return out
 	}
 	if got := held(); len(got) != 1 || got[0].UUID != target {
 		t.Fatalf("after the migration the Grab is for %v, want the Target %s", got, target)

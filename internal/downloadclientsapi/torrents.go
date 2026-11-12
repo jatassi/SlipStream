@@ -396,7 +396,7 @@ type torrentGrab struct {
 	WorkID  string `json:"workId" format:"uuid"`
 	ItemID  string `json:"itemId" format:"uuid"`
 	Release string `json:"release"`
-	Stage   string `json:"stage" enum:"downloading,importing,imported,failed"`
+	Stage   string `json:"stage" enum:"downloading,importing,waiting,imported,failed" doc:"waiting: a file of its Import waits for the Admin and none is sending or placing"`
 }
 
 func detailOf(d downloadclients.Detail) TorrentDetail {

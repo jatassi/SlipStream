@@ -1,7 +1,7 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
-import { getListPendingImportsSuspenseQueryOptions } from "../../../api/gen/query/imports/imports";
+import { getListImportsSuspenseQueryOptions } from "../../../api/gen/query/imports/imports";
 import { getListQualitiesSuspenseQueryOptions } from "../../../api/gen/query/targets/targets";
 import { getListContentTypesSuspenseQueryOptions } from "../../../api/gen/query/works/works";
 import { ensureQuery } from "../../../api/query-client";
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_app/library/pending")({
   loaderDeps: ({ search: { view } }): { view: PendingView } => ({ view: view ?? "needs-you" }),
   loader: async ({ context: { queryClient }, deps: { view } }) => {
     await Promise.all([
-      ensureQuery(queryClient, getListPendingImportsSuspenseQueryOptions(pendingParams(view))),
+      ensureQuery(queryClient, getListImportsSuspenseQueryOptions(pendingParams(view))),
       ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
       ensureQuery(queryClient, getListQualitiesSuspenseQueryOptions()),
     ]);

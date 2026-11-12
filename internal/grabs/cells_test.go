@@ -44,7 +44,9 @@ func TestAnUnfinishedGrabOnANodeOutOfStepWaitsOnIt(t *testing.T) {
 		sql(grab, fetching, work, item, home, "fetching", nil, nil, 1, 1),
 		sql(grab, waiting, work, item, away, "fetching", nil, nil, 2, 2),
 		sql(grab, failed, work, item, away, "failed", "fetch_failed", "fetching", 3, 3),
-		sql(`INSERT INTO grabs_target VALUES (?, 0, ?), (?, 0, ?), (?, 0, ?)`, fetching, hd, waiting, uhd, failed, sd),
+		sql(`INSERT INTO grabs_target (grab_id, position, item_id, target_id) SELECT id, 0, item_id, ? FROM grabs_grab WHERE id = ?`, hd, fetching),
+		sql(`INSERT INTO grabs_target (grab_id, position, item_id, target_id) SELECT id, 0, item_id, ? FROM grabs_grab WHERE id = ?`, uhd, waiting),
+		sql(`INSERT INTO grabs_target (grab_id, position, item_id, target_id) SELECT id, 0, item_id, ? FROM grabs_grab WHERE id = ?`, sd, failed),
 	)
 	rootstest.Root(t, lib, role.NodeID{UUID: home}, contenttypetest.ID, t.TempDir())
 	inStep := func(n role.NodeID) bool { return n.UUID == home }
@@ -121,7 +123,7 @@ func TestAnUnfinishedGrabHoldsItsCellWhateverFinishedAfterIt(t *testing.T) {
 			at++
 			run(t, lib,
 				sql(grab, id, work, item, home, st.stage, st.failure, st.failure, torrent, st.path, at, at),
-				sql(`INSERT INTO grabs_target VALUES (?, 0, ?)`, id, cellTargets[i]),
+				sql(`INSERT INTO grabs_target (grab_id, position, item_id, target_id) SELECT id, 0, item_id, ? FROM grabs_grab WHERE id = ?`, cellTargets[i], id),
 			)
 		}
 	}
@@ -180,7 +182,7 @@ func TestAnUnfinishedGrabWhoseClientIsAwayWaitsOnTheClient(t *testing.T) {
 		run(t, lib,
 			sql(torrent, tid, c.node, c.client, i+1),
 			sql(grab, gid, work, item, c.node, tid, i+1, i+1),
-			sql(`INSERT INTO grabs_target VALUES (?, 0, ?)`, gid, c.target),
+			sql(`INSERT INTO grabs_target (grab_id, position, item_id, target_id) SELECT id, 0, item_id, ? FROM grabs_grab WHERE id = ?`, c.target, gid),
 		)
 	}
 	inStep := func(n role.NodeID) bool { return n.UUID == media }
@@ -206,6 +208,56 @@ func TestAnUnfinishedGrabWhoseClientIsAwayWaitsOnTheClient(t *testing.T) {
 		cell := got[files.CellKey{Item: works.ItemID{UUID: item}, Edition: targets.AnyEdition, Target: targets.TargetID{UUID: c.target}}]
 		if cell.Grab != grabsIn[c.target] || cell.State != files.GrabInFlight || cell.Waiting != c.want {
 			t.Errorf("the Grab %s reads %+v, want downloading waiting on %q", c.what, cell, c.want)
+		}
+	}
+}
+
+func TestACellReadsFromEachUnsettledRowOfAGrabAndASettledOneNeverReadsFailed(t *testing.T) {
+	lib := storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema())
+	work, one, two, home := storage.NewUUID(), storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
+	hd, uhd, sd := storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
+	older, pack, failed := storage.NewUUID(), storage.NewUUID(), storage.NewUUID()
+	const grab = `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, node_id, release_title, release_size, release_magnet,
+		stage, failure_code, failed_stage, created_at, updated_at) VALUES (?, ?, ?, 'any', 'search', ?, 'Orchard.S01.WEB-DL', 1, 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567', ?, ?, ?, ?, ?)`
+	const cell = `INSERT INTO grabs_target (grab_id, position, item_id, target_id, settled, settled_at) VALUES (?, ?, ?, ?, ?, iif(? IS NULL, NULL, 1))`
+	run(t, lib,
+		sql(`INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), 'home', 0)`, home),
+		sql(`INSERT INTO targets_target (id, name, created_at) VALUES (?, 'HD', 0), (?, '2160p', 0), (?, 'SD', 0)`, hd, uhd, sd),
+		sql(`INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, 'fixture', 'w1', 'Orchard', 'Orchard', 0, 0)`, work),
+		sql(`INSERT INTO works_item (id, work_id, key, label, position) VALUES (?, ?, 'e1', 'Episode 1', 1), (?, ?, 'e2', 'Episode 2', 2)`, one, work, two, work),
+		sql(grab, older, work, two, home, "failed", "fetch_failed", "fetching", 1, 1),
+		sql(cell, older, 0, two, uhd, nil, nil),
+		sql(grab, pack, work, one, home, "fetching", nil, nil, 2, 2),
+		sql(cell, pack, 0, one, hd, nil, nil),
+		sql(cell, pack, 1, two, hd, "placed", "placed"),
+		sql(cell, pack, 2, two, uhd, "none", "none"),
+		sql(grab, failed, work, one, home, "failed", "fetch_failed", "fetching", 3, 3),
+		sql(cell, failed, 0, one, sd, nil, nil),
+		sql(cell, failed, 1, two, sd, "placed", "placed"),
+	)
+	rootstest.Root(t, lib, role.NodeID{UUID: home}, contenttypetest.ID, t.TempDir())
+	var got map[files.CellKey]files.GrabCell
+	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		got, err = grabs.GrabCells{InStep: func(role.NodeID) bool { return true }, Router: byRoot{}}.GrabCells(ctx, r, works.Only([]works.WorkID{{UUID: work}}))
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := func(item, target storage.UUID) files.CellKey {
+		return files.CellKey{Item: works.ItemID{UUID: item}, Edition: targets.AnyEdition, Target: targets.TargetID{UUID: target}}
+	}
+	want := map[files.CellKey]files.GrabCell{
+		key(one, hd): {State: files.GrabInFlight, Grab: pack},
+		key(one, sd): {State: files.GrabFailed, Grab: failed, FailedAt: "fetching"},
+	}
+	if len(got) != len(want) {
+		t.Errorf("the Work's cells read %+v, want only %+v: a settled cell reads from no Grab", got, want)
+	}
+	for k, w := range want {
+		if got[k] != w {
+			t.Errorf("the cell %+v reads %+v, want %+v", k, got[k], w)
 		}
 	}
 }

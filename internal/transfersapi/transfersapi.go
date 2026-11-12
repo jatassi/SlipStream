@@ -47,7 +47,7 @@ var (
 
 type transfer struct {
 	ID              string      `json:"id" format:"uuid"`
-	Purpose         string      `json:"purpose" enum:"grab" doc:"The kind of job that asked for it"`
+	Purpose         string      `json:"purpose" enum:"grab,import" doc:"The kind of job that asked for it"`
 	Job             string      `json:"job" doc:"The id of the job that asked for it, such as its Grab's"`
 	JobName         string      `json:"jobName" doc:"The job's name, such as a Work's title and year"`
 	Source          end         `json:"source" doc:"The Node it copies from"`

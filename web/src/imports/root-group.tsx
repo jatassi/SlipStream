@@ -1,11 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
-import type {
-  ImportsEntry,
-  ImportsLead,
-  ImportsRootLabel,
-  WorksContentType,
-} from "../api/gen/model";
+import type { ImportsLead, ImportsRootLabel, WorksContentType } from "../api/gen/model";
+import type { RootEntry } from "./root-entry";
 import { Section } from "../ui/section";
 import { EntryRow } from "./entry-row";
 import { leadWords } from "./words";
@@ -15,7 +11,7 @@ export type Group = {
   readonly root: ImportsRootLabel;
   readonly type: WorksContentType;
   readonly lead: ImportsLead | undefined;
-  readonly entries: readonly ImportsEntry[];
+  readonly entries: readonly RootEntry[];
 };
 
 function Lead({ lead, type }: { lead: ImportsLead; type: WorksContentType }) {

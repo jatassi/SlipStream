@@ -307,7 +307,7 @@ func TestACanceledGrabLeavesItsCellMissingWithNothingNeedingTheAdmin(t *testing.
 		target := storage.NewUUID()
 		run(t, p.lib,
 			sql(`INSERT INTO targets_target (id, name, created_at) VALUES (?, 'HD', 0)`, target),
-			sql(`INSERT INTO grabs_target SELECT id, 0, ? FROM grabs_grab`, target),
+			sql(`INSERT INTO grabs_target (grab_id, position, item_id, target_id) SELECT id, 0, item_id, ? FROM grabs_grab`, target),
 			sql(`UPDATE grabs_grab SET stage = 'failed', failed_stage = 'fetching', failure_code = 'magnet_invalid', failure_message = 'The link names no info hash.',
 				created_at = created_at - 10 WHERE id = ?`, earlier),
 		)
