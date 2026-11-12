@@ -232,6 +232,9 @@ func lines(cells []files.Cell) string {
 		if c.File != nil {
 			fmt.Fprintf(&b, " %s %s %dx%d", c.File.Path, c.File.Quality, c.File.Media.Width, c.File.Media.Height)
 		}
+		if c.Doing.Step != "" {
+			fmt.Fprintf(&b, " %s", c.Doing.Step)
+		}
 		b.WriteString("\n")
 	}
 	return b.String()
@@ -248,17 +251,17 @@ func TestCellsAreComputedFromFillsGrabsAndTheWorksOwnProfile(t *testing.T) {
 	l.place(t, scarf, watched.ID, "Shelf w1/Scarf - HD.mkv", release.WEBRip1080p, hd.ID)
 	l.place(t, scarf, watched.ID, "Shelf w1/Scarf - UHD.mkv", release.WEBDL2160p, uhd.ID)
 	svc := l.files(grabbing{
-		{Item: mittens, Edition: targets.AnyEdition, Target: uhd.ID}: {State: files.GrabInFlight},
+		{Item: mittens, Edition: targets.AnyEdition, Target: uhd.ID}: {State: files.GrabInFlight, Doing: files.Doing{Step: files.StepDownloading}},
 		{Item: mittens, Edition: targets.AnyEdition, Target: hd.ID}:  {State: files.GrabFailed},
-		{Item: scarf, Edition: targets.AnyEdition, Target: hd.ID}:    {State: files.GrabInFlight},
+		{Item: scarf, Edition: targets.AnyEdition, Target: hd.ID}:    {State: files.GrabInFlight, Doing: files.Doing{Step: files.StepPlacing}},
 	})
 	_, cells, _, err := svc.WorkCells(t.Context(), admin, watched.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := "Scarf any UHD upgradable wanted=true Shelf w1/Scarf - UHD.mkv webdl-2160p 1920x1080\n" +
-		"Scarf any HD met wanted=false Shelf w1/Scarf - HD.mkv webrip-1080p 1920x1080\n" +
-		"Mittens any UHD downloading wanted=false\n" +
+		"Scarf any HD met wanted=false Shelf w1/Scarf - HD.mkv webrip-1080p 1920x1080 placing\n" +
+		"Mittens any UHD downloading wanted=false downloading\n" +
 		"Mittens any HD failed wanted=true\n"
 	if got := lines(cells); got != want {
 		t.Fatalf("cells =\n%swant\n%s", got, want)

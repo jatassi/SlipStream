@@ -146,15 +146,19 @@ SELECT * FROM grabs_search WHERE work_id = sqlc.arg(work_id) AND manual_id IS NU
 
 -- name: ListTargetsOfWorks :many
 SELECT grabs_grab.id, grabs_target.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
-    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled
+    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled,
+    coalesce(grabs_stage.entered_at, grabs_grab.updated_at) AS entered_at
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
+LEFT JOIN grabs_stage ON grabs_stage.grab_id = grabs_grab.id AND grabs_stage.stage = grabs_grab.stage
 WHERE grabs_grab.work_id IN (sqlc.slice(work_ids))
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
 
 -- name: ListEveryGrabTarget :many
 SELECT grabs_grab.id, grabs_target.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
-    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled
+    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled,
+    coalesce(grabs_stage.entered_at, grabs_grab.updated_at) AS entered_at
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
+LEFT JOIN grabs_stage ON grabs_stage.grab_id = grabs_grab.id AND grabs_stage.stage = grabs_grab.stage
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
 
 -- name: StartMetadataSearch :one

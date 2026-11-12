@@ -203,7 +203,8 @@ func (c suite) importsThroughAClientFolderAfterTheDelay(t *testing.T) {
 	})
 	saved := r.saved()
 	r.grabsTo(saved.ID)
-	simtest.Search(t, w, simtest.AddOrchard(t, w))
+	work := simtest.AddOrchard(t, w)
+	simtest.Search(t, w, work)
 
 	var row torrentRow
 	simtest.Eventually(t, "the Torrent seeds in "+saved.Name, func() bool {
@@ -218,6 +219,10 @@ func (c suite) importsThroughAClientFolderAfterTheDelay(t *testing.T) {
 	if gs := simtest.GrabsListed(t, w); len(gs) != 1 || gs[0].Stage != "downloading" {
 		t.Fatalf("within the Import delay the Grabs are %+v, want one downloading", gs)
 	}
+	cell := downloadingCell(t, w, work)
+	if cell.Step != "downloading" || cell.Until == nil || cell.Until.Before(finished.Add(importDelay-time.Minute)) || cell.Until.After(finished.Add(importDelay+time.Minute)) {
+		t.Fatalf("within the Import delay the cell reads %+v, want downloading until about %s", cell, finished.Add(importDelay))
+	}
 
 	g := simtest.Await(t, w)
 	if waited := time.Since(finished); waited < importDelay-time.Minute {
@@ -226,6 +231,32 @@ func (c suite) importsThroughAClientFolderAfterTheDelay(t *testing.T) {
 	simtest.ExpectImported(t, g)
 	expectPlaced(t, w)
 	r.expectLinked()
+	expectImportOf(t, w, g.ID)
+}
+
+// expectImportOf sees imported Grab id name its Import in words, and the
+// Import name the Grab back.
+func expectImportOf(t *testing.T, w *sim.World, id string) {
+	t.Helper()
+	got := simtest.Decode[struct {
+		Import struct {
+			ID    string `json:"id"`
+			Words string `json:"words"`
+		} `json:"import"`
+	}](t, "getGrab", w.API().Admin("home", http.MethodGet, "/api/v1/grabs/"+id, ""))
+	if got.Import.Words != "Imported 1 of 1 movie" {
+		t.Fatalf("the imported Grab's Import reads %q, want Imported 1 of 1 movie", got.Import.Words)
+	}
+	entry := simtest.Decode[struct {
+		Grab struct {
+			ID      string `json:"id"`
+			Release string `json:"release"`
+			Stage   string `json:"stage"`
+		} `json:"grab"`
+	}](t, "getImport", w.API().Admin("home", http.MethodGet, "/api/v1/imports/"+got.Import.ID, ""))
+	if entry.Grab.ID != id || entry.Grab.Release != release || entry.Grab.Stage != "imported" {
+		t.Fatalf("the Grab's Import names the Grab %+v, want %s %s imported", entry.Grab, id, release)
+	}
 }
 
 // anErrorStopsTheTorrentUntilCleared imports a Grab, has the client stop
@@ -479,4 +510,25 @@ func TestEveryKindOnOneNode(t *testing.T) {
 			t.Fatalf("the Torrents are %+v, want one in qBittorrent", rows)
 		}
 	})
+}
+
+type heldCell struct {
+	State string     `json:"state"`
+	Step  string     `json:"step"`
+	Until *time.Time `json:"until"`
+}
+
+// downloadingCell is work's one downloading cell.
+func downloadingCell(t *testing.T, w *sim.World, work string) heldCell {
+	t.Helper()
+	cells := simtest.Decode[struct {
+		Cells []heldCell `json:"cells"`
+	}](t, "listCells", w.API().Admin("home", http.MethodGet, "/api/v1/works/"+work+"/cells", ""))
+	for _, c := range cells.Cells {
+		if c.State == "downloading" {
+			return c
+		}
+	}
+	t.Fatalf("the Work's cells are %+v, want one downloading", cells.Cells)
+	return heldCell{}
 }
