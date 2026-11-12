@@ -8,7 +8,7 @@ An Admin comes to Settings with a question, such as "where do my files go?" or "
 
 | Group | The Admin is asking | Sections today | Sections expected later |
 | --- | --- | --- | --- |
-| Library | What do I collect, where does it live, and what is it called? | Content Types, Library roots, Library scan, Naming, Metadata | Subtitles |
+| Library | What do I collect, where does it live, and what is it called? | Content Types, Library roots, Library scan, Importing, Naming, Metadata | Subtitles, which makes seven and splits the group |
 | Files to keep | Which versions of each Work do I want? | Targets, Profiles, Custom Formats, Editions | Conversion |
 | Search and download | How does SlipStream find and fetch releases? | Indexers, Trackers, Download Clients (built-in and external) | Automatic search |
 | Access | Who can reach SlipStream, and how? | Address, Sign-in, API key | Requests, Member portal |
@@ -47,5 +47,7 @@ Naming is the one exception. Each Content Type's rename switch, templates, colon
 A setting the Controller stores for each Node, such as where that Node's Grabs go, stays in its feature's section on that Node's card. "New Grabs go to" sits on each downloading Node's card in Download Clients, beside that Node's external clients. A setting of one record stays on that record's sheet. Check every and Import delay belong to one external Download Client, so they sit under Details on its sheet.
 
 "Wait for each Indexer up to" sits in Indexers under its own "Searching" heading, above the "Warnings" heading that holds how long an Indexer may fail before Health warns. When S34 (Automatic search, Backlog search and RSS sync) adds the Automatic search section, the wait may move there, since it applies to every search.
+
+Importing sits after Library scan, which links to it, because a scan reads its Video file extensions. A download and a manual import read all three of its settings.
 
 A setting can show in more than one place when an Admin would look for it there, such as a task's frequency on the Tasks page and in its feature's section. It still has one stored value.

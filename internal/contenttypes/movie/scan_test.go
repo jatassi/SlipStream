@@ -3,6 +3,7 @@ package movie_test
 import (
 	"context"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/scanning"
@@ -64,8 +65,8 @@ func TestPlaceAnswersTheMoviesOneItem(t *testing.T) {
 		return err
 	})
 	for _, rel := range []string{"The Salt Road (2022).mkv", "Extras Folder/The Salt Road.mkv"} {
-		if item, ok := place(rel).Item(); !ok || item != tree.Items[0].ID {
-			t.Errorf("Place(%q) = %v, %t; want the movie's Item %v", rel, item, ok, tree.Items[0].ID)
+		if items, ok := place(rel).Items(); !ok || !slices.Equal(items, []works.ItemID{tree.Items[0].ID}) {
+			t.Errorf("Place(%q) = %v, %t; want the movie's Item %v", rel, items, ok, tree.Items[0].ID)
 		}
 	}
 }

@@ -20,6 +20,7 @@ type Config struct {
 	Roots   *roots.Roots
 	Files   *files.Files
 	Grabs   Grabs
+	Imports Imports
 	Leaver  Leaver
 }
 
@@ -35,6 +36,13 @@ type Leaver interface {
 type Grabs interface {
 	CancelTransfersIn(ctx context.Context, tx *storage.Tx[storage.Library], ws []works.WorkID) error
 	TouchTransfers()
+}
+
+// Imports ends the unfinished Imports of a deleted Work: in the delete's
+// Write, before the cascade, then a touch once it commits.
+type Imports interface {
+	EndOf(ctx context.Context, tx *storage.Tx[storage.Library], ws []works.WorkID) error
+	Touch()
 }
 
 type Library struct {

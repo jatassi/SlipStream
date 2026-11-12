@@ -50,10 +50,6 @@ const reasonWords: { readonly [C in ImportsReasonCode]: Wording } = {
       : `${counted.format(files)} file names have no ${lower(type.item).one} number.`,
   no_such_item: ({ names }, type) =>
     `This ${lower(type.work).one} has no ${lower(type.item).one} ${given(names, "names")}.`,
-  several_items: (_reason, type, files) =>
-    files === 1
-      ? `The file holds several ${lower(type.item).many}.`
-      : `${counted.format(files)} files each hold several ${lower(type.item).many}.`,
   unreadable: (_reason, _type, files) =>
     files === 1
       ? "ffprobe can't read this file. Replace it, then scan again."

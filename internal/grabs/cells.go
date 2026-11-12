@@ -2,11 +2,13 @@ package grabs
 
 import (
 	"context"
+	"path"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -177,15 +179,23 @@ func (g GrabCells) waits(ctx context.Context, r storage.Reader[storage.Library])
 	return out, nil
 }
 
-// Unfinished lists every Grab not yet imported or failed.
-func (GrabCells) Unfinished(ctx context.Context, r storage.Reader[storage.Library]) ([]storage.UUID, error) {
+// Holding is the holding path of every Grab not yet imported or failed
+// that has planned its root and name, by root: its download's bytes wait
+// there.
+func (GrabCells) Holding(ctx context.Context, r storage.Reader[storage.Library]) (map[roots.ID]map[string]bool, error) {
 	rows, err := db.New(r).ListOpenGrabs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]storage.UUID, len(rows))
-	for i, row := range rows {
-		out[i] = row.ID.UUID
+	out := map[roots.ID]map[string]bool{}
+	for _, row := range rows {
+		if row.RootID.IsZero() || row.Path == nil {
+			continue
+		}
+		if out[row.RootID] == nil {
+			out[row.RootID] = map[string]bool{}
+		}
+		out[row.RootID][files.HoldingOf(row.ID.UUID, path.Ext(*row.Path))] = true
 	}
 	return out, nil
 }

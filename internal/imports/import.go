@@ -120,6 +120,9 @@ type File struct {
 	Reason      *Reason
 	Hold        *Hold
 	Confirmed   bool
+	// Fills are the cells it fills: decided, or as it landed, or for a
+	// confirm wait the ones it would.
+	Fills []Fill
 	// Dest is the root and holding path its bytes go to, or for a root
 	// Import the path they already sit at.
 	Dest          *Dest

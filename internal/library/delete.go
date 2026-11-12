@@ -37,7 +37,8 @@ type DeletePlan struct {
 }
 
 // Delete removes each of ws, with everything SlipStream records about it,
-// in one Write, which also cancels its Grabs' Transfers. Under DeleteFiles that Write also queues the Works' files
+// in one Write, which also ends its Imports and cancels its Grabs'
+// Transfers. Under DeleteFiles that Write also queues the Works' files
 // for the disk queue, which removes the bytes on each Node once it
 // commits. A Work with a file in a root whose Node is offline or written
 // off then fails with the *roots.UnreachableError and stays whole: the
@@ -66,12 +67,16 @@ func (l *Library) Delete(ctx context.Context, by identity.Admin, ws []works.Work
 				return nil, err
 			}
 		}
+		if err := l.cfg.Imports.EndOf(ctx, tx, c.removed); err != nil {
+			return nil, err
+		}
 		return c.removed, l.cfg.Grabs.CancelTransfersIn(ctx, tx, c.removed)
 	})
 	if err != nil {
 		return DeletePlan{}, nil, err
 	}
 	l.cfg.Grabs.TouchTransfers()
+	l.cfg.Imports.Touch()
 	l.cfg.Roots.Publish(ctx, c.roots)
 	if d.Files == DeleteFiles {
 		l.cfg.Files.Poke()

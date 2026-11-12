@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -32,7 +31,11 @@ func (r *Roots) Move(ctx context.Context, root ID, from, to storing.Rel, carry b
 	if err != nil {
 		return storing.Placed{}, err
 	}
-	moved, err := r.cfg.Remote.Move(ctx, at, from, to, carry, media.DefaultVideos)
+	videos, err := r.cfg.Videos(ctx, r.cfg.Library)
+	if err != nil {
+		return storing.Placed{}, err
+	}
+	moved, err := r.cfg.Remote.Move(ctx, at, from, to, carry, videos)
 	return moved, r.waiting(ctx, at.Node, err)
 }
 
@@ -44,7 +47,11 @@ func (r *Roots) Survey(ctx context.Context, root ID, planned []storing.Planned, 
 	if err != nil {
 		return nil, err
 	}
-	return r.cfg.Remote.Survey(ctx, at, planned, companions, media.DefaultVideos)
+	videos, err := r.cfg.Videos(ctx, r.cfg.Library)
+	if err != nil {
+		return nil, err
+	}
+	return r.cfg.Remote.Survey(ctx, at, planned, companions, videos)
 }
 
 // Prune removes folder from root on its Node, and each parent while it is

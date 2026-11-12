@@ -46,7 +46,6 @@ import type {
   GetExtensionImpact409,
   GetExtensionImpact422,
   GetExtensionImpact500,
-  GetExtensionImpact501,
   GetExtensionImpactParams,
   GetImport401,
   GetImport403,
@@ -58,7 +57,6 @@ import type {
   GetImportingSettings403,
   GetImportingSettings409,
   GetImportingSettings500,
-  GetImportingSettings501,
   GetLibraryScanSettings401,
   GetLibraryScanSettings403,
   GetLibraryScanSettings409,
@@ -80,6 +78,7 @@ import type {
   ImportsExtensionImpact,
   ImportsFileAction,
   ImportsImportEntry,
+  ImportsImportingSettings,
   ImportsImportsList,
   ImportsList,
   ImportsRootAction,
@@ -108,7 +107,6 @@ import type {
   UpdateImportingSettings409,
   UpdateImportingSettings422,
   UpdateImportingSettings500,
-  UpdateImportingSettings501,
   UpdateLibraryScanSettings401,
   UpdateLibraryScanSettings403,
   UpdateLibraryScanSettings409,
@@ -771,8 +769,8 @@ export const getGetImportingSettingsUrl = () => {
  */
 export const getImportingSettings = async (
   options?: Parameters<typeof apiFetch>[1],
-): Promise<ImportsSettings> => {
-  return apiFetch<ImportsSettings>(getGetImportingSettingsUrl(), {
+): Promise<ImportsImportingSettings> => {
+  return apiFetch<ImportsImportingSettings>(getGetImportingSettingsUrl(), {
     ...options,
     method: "GET",
   });
@@ -789,7 +787,6 @@ export const getGetImportingSettingsSuspenseQueryOptions = <
     | GetImportingSettings403
     | GetImportingSettings409
     | GetImportingSettings500
-    | GetImportingSettings501
   >,
 >(options?: {
   query?: Partial<
@@ -823,7 +820,6 @@ export type GetImportingSettingsSuspenseQueryError = ErrorType<
   | GetImportingSettings403
   | GetImportingSettings409
   | GetImportingSettings500
-  | GetImportingSettings501
 >;
 
 export function useGetImportingSettingsSuspense<
@@ -833,7 +829,6 @@ export function useGetImportingSettingsSuspense<
     | GetImportingSettings403
     | GetImportingSettings409
     | GetImportingSettings500
-    | GetImportingSettings501
   >,
 >(
   options: {
@@ -851,7 +846,6 @@ export function useGetImportingSettingsSuspense<
     | GetImportingSettings403
     | GetImportingSettings409
     | GetImportingSettings500
-    | GetImportingSettings501
   >,
 >(
   options?: {
@@ -869,7 +863,6 @@ export function useGetImportingSettingsSuspense<
     | GetImportingSettings403
     | GetImportingSettings409
     | GetImportingSettings500
-    | GetImportingSettings501
   >,
 >(
   options?: {
@@ -891,7 +884,6 @@ export function useGetImportingSettingsSuspense<
     | GetImportingSettings403
     | GetImportingSettings409
     | GetImportingSettings500
-    | GetImportingSettings501
   >,
 >(
   options?: {
@@ -922,7 +914,7 @@ export const getUpdateImportingSettingsUrl = () => {
 export const updateImportingSettings = async (
   libraryScanSettingsInputBody: LibraryScanSettingsInputBody,
   options?: Parameters<typeof apiFetch>[1],
-): Promise<ImportsSettings> => {
+): Promise<ImportsImportingSettings> => {
   const getHeaders = (
     h?: NonNullable<RequestInit["headers"]>,
   ): Record<string, string | readonly string[]> => {
@@ -942,7 +934,7 @@ export const updateImportingSettings = async (
     }
     return headers;
   };
-  return apiFetch<ImportsSettings>(getUpdateImportingSettingsUrl(), {
+  return apiFetch<ImportsImportingSettings>(getUpdateImportingSettingsUrl(), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -959,7 +951,6 @@ export const getUpdateImportingSettingsMutationOptions = <
     | UpdateImportingSettings409
     | UpdateImportingSettings422
     | UpdateImportingSettings500
-    | UpdateImportingSettings501
   >,
   TContext = unknown,
 >(options?: {
@@ -1005,7 +996,6 @@ export type UpdateImportingSettingsMutationError = ErrorType<
   | UpdateImportingSettings409
   | UpdateImportingSettings422
   | UpdateImportingSettings500
-  | UpdateImportingSettings501
 >;
 export type UpdateImportingSettingsMutationVariables = { data: LibraryScanSettingsInputBody };
 
@@ -1019,7 +1009,6 @@ export const useUpdateImportingSettings = <
     | UpdateImportingSettings409
     | UpdateImportingSettings422
     | UpdateImportingSettings500
-    | UpdateImportingSettings501
   >,
   TContext = unknown,
 >(
@@ -1085,7 +1074,6 @@ export const getGetExtensionImpactSuspenseQueryOptions = <
     | GetExtensionImpact409
     | GetExtensionImpact422
     | GetExtensionImpact500
-    | GetExtensionImpact501
   >,
 >(
   params?: GetExtensionImpactParams,
@@ -1123,7 +1111,6 @@ export type GetExtensionImpactSuspenseQueryError = ErrorType<
   | GetExtensionImpact409
   | GetExtensionImpact422
   | GetExtensionImpact500
-  | GetExtensionImpact501
 >;
 
 export function useGetExtensionImpactSuspense<
@@ -1134,7 +1121,6 @@ export function useGetExtensionImpactSuspense<
     | GetExtensionImpact409
     | GetExtensionImpact422
     | GetExtensionImpact500
-    | GetExtensionImpact501
   >,
 >(
   params: undefined | GetExtensionImpactParams,
@@ -1154,7 +1140,6 @@ export function useGetExtensionImpactSuspense<
     | GetExtensionImpact409
     | GetExtensionImpact422
     | GetExtensionImpact500
-    | GetExtensionImpact501
   >,
 >(
   params?: GetExtensionImpactParams,
@@ -1174,7 +1159,6 @@ export function useGetExtensionImpactSuspense<
     | GetExtensionImpact409
     | GetExtensionImpact422
     | GetExtensionImpact500
-    | GetExtensionImpact501
   >,
 >(
   params?: GetExtensionImpactParams,
@@ -1198,7 +1182,6 @@ export function useGetExtensionImpactSuspense<
     | GetExtensionImpact409
     | GetExtensionImpact422
     | GetExtensionImpact500
-    | GetExtensionImpact501
   >,
 >(
   params?: GetExtensionImpactParams,

@@ -54,7 +54,7 @@ func (im *Imports) Imagine(ctx context.Context, _ identity.Admin, work works.Wor
 			return err
 		}
 		placed := place(rel)
-		item, ok := placed.Item()
+		items, ok := placed.Items()
 		if !ok {
 			return &UnplacedError{Reason: placed.Reason()}
 		}
@@ -68,7 +68,7 @@ func (im *Imports) Imagine(ctx context.Context, _ identity.Admin, work works.Wor
 			return ErrNoQuality
 		}
 		out, err = im.cfg.Files.Imagine(ctx, r, files.Batch{Work: work, Root: root.ID, Candidates: []files.Candidate{{
-			Items: []works.ItemID{item}, Cut: read.Facts.Cut, Holding: files.HoldingOf(storage.NewUUID(), path.Ext(rel)),
+			Items: items, Cut: read.Facts.Cut, Holding: files.HoldingOf(storage.NewUUID(), path.Ext(rel)),
 			Quality: quality, ReleaseName: path.Base(rel), Title: read, SourceName: path.Base(rel),
 		}}}, draft)
 		return err

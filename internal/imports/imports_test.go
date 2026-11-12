@@ -144,7 +144,10 @@ func TestIntoAttachesTheChosenFilesAndRefusesAWrongRootItemOrPath(t *testing.T) 
 	if !slices.Equal(paths(&left), []string{"Odd/b.mkv"}) || left.Stage() != StageWaiting {
 		t.Fatalf("Into of one file answers %+v, want the Import waiting with the other file", left)
 	}
-	if got := w.filesOf(t, target.ID); !slices.Equal(got, []string{"Odd/a.mkv"}) {
+	if g := fileAt(w.stored(t, id), a); g.Outcome != Placed || g.PlacedBy != InPlace || g.FileID.IsZero() {
+		t.Errorf("the chosen file is %s by %q as file %s, want placed in_place as a library file", g.Outcome, g.PlacedBy, g.FileID)
+	}
+	if got := w.filesOf(t, target.ID); len(got) != 1 {
 		t.Errorf("the Work's files = %v, want the chosen file", got)
 	}
 	left, err = w.im.Into(ctx, identity.Admin{}, id, target.ID, []Chosen{{Position: b, Items: []works.ItemID{target.Items[2].ID, target.Items[0].ID}}})
@@ -154,7 +157,7 @@ func TestIntoAttachesTheChosenFilesAndRefusesAWrongRootItemOrPath(t *testing.T) 
 	if w.at(t, "Odd") != nil {
 		t.Errorf("Pending imports still lists the Import whose files all joined a Work")
 	}
-	if got := w.itemsOf(t, target.ID, "Odd/b.mkv"); !slices.Equal(got, []works.ItemID{target.Items[0].ID, target.Items[2].ID}) {
+	if got := w.itemsOfFile(t, target.ID, fileAt(w.stored(t, id), b).FileID); !slices.Equal(got, []works.ItemID{target.Items[0].ID, target.Items[2].ID}) {
 		t.Errorf("the file chosen for two Items holds %v, want both in tree order", got)
 	}
 	if _, err := w.im.Into(ctx, identity.Admin{}, id, target.ID, []Chosen{{Position: b, Items: []works.ItemID{target.Items[2].ID}}}); !errors.Is(err, ErrChanged) {

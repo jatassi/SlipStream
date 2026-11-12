@@ -333,9 +333,9 @@ type Inflight interface {
 	// GrabCells reads the Grab each cell of ws reads from, for each cell a
 	// Grab is in flight for or failed.
 	GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[CellKey]GrabCell, error)
-	// Unfinished lists the ids of every Grab not yet imported or failed,
-	// whose download may sit in a root's holding folder.
-	Unfinished(ctx context.Context, r storage.Reader[storage.Library]) ([]storage.UUID, error)
+	// Holding is every path in a root's holding folder an unfinished
+	// import claims, by root.
+	Holding(ctx context.Context, r storage.Reader[storage.Library]) (map[roots.ID]map[string]bool, error)
 	// ReleaseTitles reads the Release title of every Grab with a record.
 	ReleaseTitles(ctx context.Context, r storage.Reader[storage.Library]) (map[storage.UUID]string, error)
 }
@@ -347,7 +347,7 @@ func (NoGrabs) GrabCells(context.Context, storage.Reader[storage.Library], works
 	return nil, nil
 }
 
-func (NoGrabs) Unfinished(context.Context, storage.Reader[storage.Library]) ([]storage.UUID, error) {
+func (NoGrabs) Holding(context.Context, storage.Reader[storage.Library]) (map[roots.ID]map[string]bool, error) {
 	return nil, nil
 }
 

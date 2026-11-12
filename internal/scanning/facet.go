@@ -79,18 +79,19 @@ type Claim struct {
 	IDs  []ID
 }
 
-// Placement is one Item, or why a file has none. Only Placed and Unplaced
-// make one, so it never holds both.
+// Placement is the Items a file holds, or why it has none. Only Placed
+// and Unplaced make one, so it never holds both.
 type Placement struct {
-	item   works.ItemID
+	items  []works.ItemID
 	reason Reason
 }
 
-func Placed(item works.ItemID) Placement { return Placement{item: item} }
+// Placed is a file holding items, at least one, in tree order.
+func Placed(items ...works.ItemID) Placement { return Placement{items: items} }
 
 func Unplaced(r Reason) Placement { return Placement{reason: r} }
 
-func (p Placement) Item() (works.ItemID, bool) { return p.item, !p.item.IsZero() }
+func (p Placement) Items() ([]works.ItemID, bool) { return p.items, len(p.items) > 0 }
 
 func (p Placement) Reason() Reason { return p.reason }
 

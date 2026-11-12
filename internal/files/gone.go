@@ -219,3 +219,18 @@ func forgetGone(ctx context.Context, q *db.Queries, ids []ID) ([]works.WorkID, e
 	}
 	return touched, nil
 }
+
+// CountPaths is how many library files counts reports true for, in r.
+func CountPaths(ctx context.Context, r storage.Reader[file], counts func(path string) bool) (int64, error) {
+	paths, err := db.New(r).ListPaths(ctx)
+	if err != nil {
+		return 0, err
+	}
+	var n int64
+	for _, p := range paths {
+		if counts(p) {
+			n++
+		}
+	}
+	return n, nil
+}

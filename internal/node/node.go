@@ -204,13 +204,14 @@ type Node struct {
 	linkBound netip.AddrPort
 	// served is the Controller's end of the Serve streams Serving Workers
 	// open.
-	served    *serving.Listener
-	pairing   *pairing.Pairing
-	lockstep  *http.ServeMux
-	roleRand  *rand.Rand
-	grabsRand *rand.Rand
-	filesRand *rand.Rand
-	tasksRand *rand.Rand
+	served      *serving.Listener
+	pairing     *pairing.Pairing
+	lockstep    *http.ServeMux
+	roleRand    *rand.Rand
+	grabsRand   *rand.Rand
+	importsRand *rand.Rand
+	filesRand   *rand.Rand
+	tasksRand   *rand.Rand
 	// metadataRand draws the metadata call layer's retry jitter.
 	metadataRand *rand.Rand
 	// cacheRand draws the Controller's metadata cache generation.
@@ -416,6 +417,7 @@ func (n *Node) startSubsystems(ctx context.Context, cfg Config, l *Listeners) (s
 	n.roleRand = streams.Stream("role")
 	n.hub = live.NewHub(surface.Events)
 	n.grabsRand = streams.Stream("grabs")
+	n.importsRand = streams.Stream("imports")
 	n.filesRand = streams.Stream("files")
 	n.systemRand = streams.Stream("system")
 	n.host = &nodeHost{n: n}

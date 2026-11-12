@@ -15,6 +15,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/nodes"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/role"
@@ -212,11 +213,14 @@ type Storage interface {
 type Config struct {
 	Library *storage.DB[file]
 	// Types is every Content Type this binary registers.
-	Types    []works.TypeID
-	Roster   Roster
-	Storage  Storage
-	Remote   storing.Remote
-	Folders  storing.Folders
+	Types   []works.TypeID
+	Roster  Roster
+	Storage Storage
+	Remote  storing.Remote
+	Folders storing.Folders
+	// Videos is the Admin's video extensions, which each move and survey
+	// sends, so the companion rule reads them: imports.Videos.
+	Videos   func(ctx context.Context, r storage.Reader[file]) (media.Videos, error)
 	Arrivals *Arrivals
 	Contents Contents
 	Inflight Inflight

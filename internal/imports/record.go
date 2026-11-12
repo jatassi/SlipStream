@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/imports/internal/db"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
@@ -34,7 +35,11 @@ func importOf(ctx context.Context, r storage.Reader[file], id ImportID) (Import,
 	if err != nil {
 		return Import{}, err
 	}
-	return recordOf(row, fs, items)
+	fills, err := q.ListFillsOf(ctx, id)
+	if err != nil {
+		return Import{}, err
+	}
+	return recordOf(row, fs, items, fills)
 }
 
 // rootImportAt reads the unfinished root Import of root's folder,
@@ -58,6 +63,14 @@ func allImports(ctx context.Context, r storage.Reader[file], rows []db.ImportsIm
 	if err != nil {
 		return nil, err
 	}
+	fillRows, err := q.ListFills(ctx)
+	if err != nil {
+		return nil, err
+	}
+	fills := map[ImportID][]db.ImportsFileFill{}
+	for _, f := range fillRows {
+		fills[f.ImportID] = append(fills[f.ImportID], f)
+	}
 	fs := map[ImportID][]db.ImportsFile{}
 	for _, f := range fileRows {
 		fs[f.ImportID] = append(fs[f.ImportID], f)
@@ -68,14 +81,14 @@ func allImports(ctx context.Context, r storage.Reader[file], rows []db.ImportsIm
 	}
 	out := make([]Import, len(rows))
 	for i, row := range rows {
-		if out[i], err = recordOf(row, fs[row.ID], items[row.ID]); err != nil {
+		if out[i], err = recordOf(row, fs[row.ID], items[row.ID], fills[row.ID]); err != nil {
 			return nil, err
 		}
 	}
 	return out, nil
 }
 
-func recordOf(row db.ImportsImport, fs []db.ImportsFile, items []db.ImportsFileItem) (Import, error) {
+func recordOf(row db.ImportsImport, fs []db.ImportsFile, items []db.ImportsFileItem, fills []db.ImportsFileFill) (Import, error) {
 	im := Import{
 		ID: row.ID, Source: Source(row.Source), Grab: row.GrabID, Node: row.NodeID, Root: row.RootID, ContentType: row.ContentType,
 		Work: row.WorkID, Edition: row.Edition, MoveFiles: row.MoveFiles == 1, Created: row.CreatedAt, Ignored: row.IgnoredAt,
@@ -105,11 +118,16 @@ func recordOf(row db.ImportsImport, fs []db.ImportsFile, items []db.ImportsFileI
 	for _, it := range items {
 		of[it.Position] = append(of[it.Position], it.ItemID)
 	}
+	filled := map[int64][]Fill{}
+	for _, f := range fills {
+		filled[f.Position] = append(filled[f.Position], Fill{Cell: files.CellKey{Item: f.ItemID, Edition: f.Edition, Target: f.TargetID}, Forced: f.Forced == 1})
+	}
 	im.Files = make([]File, len(fs))
 	for i, f := range fs {
 		if im.Files[i], err = fileOf(f, of[f.Position]); err != nil {
 			return Import{}, fmt.Errorf("import %s: %w", row.ID, err)
 		}
+		im.Files[i].Fills = filled[f.Position]
 	}
 	return im, nil
 }
@@ -209,7 +227,23 @@ func insertFile(ctx context.Context, q *db.Queries, id ImportID, f File) error {
 	if err != nil {
 		return err
 	}
+	if err := insertFills(ctx, q, id, f); err != nil {
+		return err
+	}
 	return insertItems(ctx, q, id, f)
+}
+
+func insertFills(ctx context.Context, q *db.Queries, id ImportID, f File) error {
+	for _, fl := range f.Fills {
+		p := db.InsertFillParams{ImportID: id, Position: int64(f.Position), ItemID: fl.Cell.Item, Edition: fl.Cell.Edition, TargetID: fl.Cell.Target}
+		if fl.Forced {
+			p.Forced = 1
+		}
+		if err := q.InsertFill(ctx, p); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func insertItems(ctx context.Context, q *db.Queries, id ImportID, f File) error {
@@ -316,13 +350,7 @@ func saveFiles(ctx context.Context, q *db.Queries, id ImportID, stored, fs []Fil
 		if err := setFile(ctx, q, id, was.Outcome, f); err != nil {
 			return err
 		}
-		if slices.Equal(was.Items, f.Items) {
-			continue
-		}
-		if err := q.DeleteFileItems(ctx, db.DeleteFileItemsParams{ImportID: id, Position: int64(f.Position)}); err != nil {
-			return err
-		}
-		if err := insertItems(ctx, q, id, f); err != nil {
+		if err := saveLinks(ctx, q, id, was, f); err != nil {
 			return err
 		}
 	}
@@ -359,4 +387,24 @@ func (im Import) waiting() []File {
 		}
 	}
 	return out
+}
+
+// saveLinks rewrites f's fills and Items where they changed from was.
+func saveLinks(ctx context.Context, q *db.Queries, id ImportID, was, f File) error {
+	at := int64(f.Position)
+	if !slices.Equal(was.Fills, f.Fills) {
+		if err := q.DeleteFills(ctx, db.DeleteFillsParams{ImportID: id, Position: at}); err != nil {
+			return err
+		}
+		if err := insertFills(ctx, q, id, f); err != nil {
+			return err
+		}
+	}
+	if slices.Equal(was.Items, f.Items) {
+		return nil
+	}
+	if err := q.DeleteFileItems(ctx, db.DeleteFileItemsParams{ImportID: id, Position: at}); err != nil {
+		return err
+	}
+	return insertItems(ctx, q, id, f)
 }
