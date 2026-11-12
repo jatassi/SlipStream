@@ -42,27 +42,20 @@ function openSection() {
   renderApp({
     path: "/settings/importing",
     handlers: [
-      http.get(
-        "*/api/v1/imports/importing-settings/extension-impact",
-        ({ request }) => {
-          const listed = new URL(request.url).searchParams
-            .getAll("extensions")
-            .flatMap((part) => part.split(","));
-          asked.push(listed);
-          return HttpResponse.json(
-            listed.includes("avi")
-              ? { files: 0, pending: 0 }
-              : { files: 3, pending: 1 },
-          );
-        },
-      ),
+      http.get("*/api/v1/imports/importing-settings/extension-impact", ({ request }) => {
+        const listed = new URL(request.url).searchParams
+          .getAll("extensions")
+          .flatMap((part) => part.split(","));
+        asked.push(listed);
+        return HttpResponse.json(
+          listed.includes("avi") ? { files: 0, pending: 0 } : { files: 3, pending: 1 },
+        );
+      }),
       http.get("*/api/v1/imports/importing-settings", () =>
         HttpResponse.json({ settings: [extensions, smallest] }),
       ),
       http.patch("*/api/v1/imports/importing-settings", async ({ request }) => {
-        const { values } = UpdateImportingSettingsBody.parse(
-          await request.json(),
-        );
+        const { values } = UpdateImportingSettingsBody.parse(await request.json());
         sent.push(values);
         return HttpResponse.json({ settings: [extensions, smallest] });
       }),
@@ -84,18 +77,13 @@ test("dropping an extension names the files it stops counting before it saves", 
   expect(asked).toEqual([["mkv"]]);
   expect(sent).toEqual([]);
   await userEvent.click(page.getByRole("button", { name: "Save anyway" }));
-  await expect
-    .poll(() => sent)
-    .toEqual([{ "library.importing.videoExtensions": ["mkv"] }]);
+  await expect.poll(() => sent).toEqual([{ "library.importing.videoExtensions": ["mkv"] }]);
 });
 
 test("adding an extension saves at once, and Library scan is a link away", async () => {
   const { sent } = openSection();
   await userEvent.click(page.getByRole("button", { name: "Details" }));
-  await userEvent.type(
-    page.getByRole("textbox", { name: "Video file extensions" }),
-    "webm",
-  );
+  await userEvent.type(page.getByRole("textbox", { name: "Video file extensions" }), "webm");
   await userEvent.click(page.getByRole("button", { name: "Save" }));
   await expect
     .poll(() => sent)

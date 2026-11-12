@@ -8,25 +8,14 @@ import {
 import { countWords } from "../format";
 import { Details } from "../ui/details";
 import { Section } from "../ui/section";
-import {
-  SettingField,
-  SettingGroup,
-  type SettingWarn,
-} from "../ui/setting-field";
+import { SettingField, SettingGroup, type SettingWarn } from "../ui/setting-field";
 
 const videoExtensions = "library.importing.videoExtensions";
 
 /** What a new extension list stops counting, in words, or undefined when it stops counting nothing. */
-export const impactWords = ({
-  files,
-  pending,
-}: {
-  files: number;
-  pending: number;
-}) => {
+export const impactWords = ({ files, pending }: { files: number; pending: number }) => {
   const counted = [
-    files > 0 &&
-      countWords(files, { one: "library file", many: "library files" }),
+    files > 0 && countWords(files, { one: "library file", many: "library files" }),
     pending > 0 &&
       countWords(pending, {
         one: "file in Pending imports",
@@ -58,14 +47,8 @@ export function ImportingSection() {
                   });
                   await router.invalidate();
                 };
-                return field.kind === "list" &&
-                  field.key === videoExtensions ? (
-                  <SettingField
-                    key={field.key}
-                    field={field}
-                    onSave={save}
-                    onWarn={warnOfList}
-                  />
+                return field.kind === "list" && field.key === videoExtensions ? (
+                  <SettingField key={field.key} field={field} onSave={save} onWarn={warnOfList} />
                 ) : (
                   <SettingField key={field.key} field={field} onSave={save} />
                 );
