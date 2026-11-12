@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { type ReactNode, Suspense } from "react";
+import { type ReactNode, Suspense, useState } from "react";
 
 import type {
   ImportsImportEntry,
@@ -20,6 +20,8 @@ import { useShell } from "../ui/shell-context";
 import { Skeleton } from "../ui/skeleton";
 import { useAdding } from "./adding";
 import { DownloadEntry, waitingFiles } from "./download-entry";
+import { type FolderGroup, FolderEntry, foldersOf } from "./folder-entry";
+import { ImportFilesSheet } from "./import-files-sheet";
 import { type Group, RootGroup } from "./root-group";
 import { filesWords, isAddable } from "./words";
 
@@ -30,10 +32,11 @@ export const pendingParams = (view: PendingView): ListImportsParams =>
 
 type Download = { readonly entry: ImportsImportEntry; readonly type: WorksContentType };
 
-/** Pending imports' groups in their fixed order: downloads, then each root. */
+/** Pending imports' groups in their fixed order: downloads, then each root, then folders imported by hand. */
 export type PendingGroup =
   | { readonly kind: "downloads"; readonly downloads: readonly Download[] }
-  | { readonly kind: "root"; readonly group: Group };
+  | { readonly kind: "root"; readonly group: Group }
+  | { readonly kind: "folders"; readonly folders: readonly FolderGroup[] };
 
 function rootGroupsOf(
   leads: readonly ImportsLead[],
@@ -70,11 +73,13 @@ export function groupsOf(
       ? types.filter(({ id }) => id === entry.contentType).map((type) => ({ entry, type }))
       : [],
   );
+  const folders = foldersOf(imports.filter(({ source }) => source === "folder"));
   return [
     ...(downloads.length === 0 ? [] : [{ kind: "downloads", downloads } as const]),
     ...rootGroupsOf(view === "ignored" ? [] : leads, entries, types).map(
       (group) => ({ kind: "root", group }) as const,
     ),
+    ...(folders.length === 0 ? [] : [{ kind: "folders", folders } as const]),
   ];
 }
 
@@ -93,6 +98,28 @@ function AddAll({ entries }: { entries: readonly RootEntry[] }) {
     >
       Add all {addable.length}
     </Button>
+  );
+}
+
+function ImportFiles() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button
+        onClick={() => {
+          setOpen(true);
+        }}
+      >
+        Import files
+      </Button>
+      {open && (
+        <ImportFilesSheet
+          onClose={() => {
+            setOpen(false);
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -129,12 +156,26 @@ function Downloads({ downloads }: { downloads: readonly Download[] }) {
   );
 }
 
+function Folders({ folders }: { folders: readonly FolderGroup[] }) {
+  return (
+    <Section title="Imported by hand">
+      <ul aria-label="Pending imports by hand" className="flex flex-col gap-2">
+        {folders.map((group) => (
+          <FolderEntry key={JSON.stringify([group.nodeId, group.folder])} group={group} />
+        ))}
+      </ul>
+    </Section>
+  );
+}
+
 function PendingGroupOf({ group }: { group: PendingGroup }) {
   switch (group.kind) {
     case "downloads":
       return <Downloads downloads={group.downloads} />;
     case "root":
       return <RootGroup group={group.group} />;
+    case "folders":
+      return <Folders folders={group.folders} />;
     default:
       return group satisfies never;
   }
@@ -150,8 +191,9 @@ const empties: { readonly [V in PendingView]: string } = {
 
 /**
  * Pending imports: the downloads that wait for the Admin, then what each
- * root's last library scan added and the folders it couldn't match. The
- * Ignored view lists the folders the Admin set aside.
+ * root's last library scan added and the folders it couldn't match, then the
+ * folders the Admin opened with Import files. The Ignored view lists the
+ * folders the Admin set aside.
  */
 export function PendingPage({ view, beside }: { view: PendingView; beside: ReactNode }) {
   const pending = usePendingImports(pendingParams(view));
@@ -160,7 +202,14 @@ export function PendingPage({ view, beside }: { view: PendingView; beside: React
   return (
     <Page
       beside={beside}
-      action={view === "ignored" ? undefined : <AddAll entries={pending.entries} />}
+      action={
+        view === "ignored" ? undefined : (
+          <div className="flex gap-2">
+            <AddAll entries={pending.entries} />
+            <ImportFiles />
+          </div>
+        )
+      }
     >
       {groups.length === 0 ? (
         <Empty>{empties[view]}</Empty>

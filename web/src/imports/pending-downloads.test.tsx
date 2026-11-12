@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
-import { packEntry, takenEntry } from "../test/import-entries";
+import { folderEntries, packEntry, takenEntry } from "../test/import-entries";
 import { openPending } from "../test/pending-page";
 import { asPhone } from "../test/viewport";
 
@@ -10,8 +10,8 @@ const episodeOne = () =>
   pack().getByRole("listitem", { name: "Severance.S01E01.1080p.WEB-DL.mkv" });
 const brazil = () => page.getByRole("listitem", { name: "Brazil.1985.1080p.BluRay" });
 
-test("Pending imports lists downloads first, then each root", async () => {
-  openPending();
+test("Pending imports lists downloads first, then each root, then the folders imported by hand", async () => {
+  openPending({ start: { imports: [packEntry, takenEntry, ...folderEntries] } });
   await expect.element(pack()).toBeVisible();
   expect(
     page
@@ -22,6 +22,7 @@ test("Pending imports lists downloads first, then each root", async () => {
     "From downloads",
     "Films library root on home",
     "Shows library root on home",
+    "Imported by hand",
   ]);
 });
 

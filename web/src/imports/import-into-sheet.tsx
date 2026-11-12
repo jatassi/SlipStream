@@ -7,7 +7,7 @@ import { Dialog } from "../ui/dialog";
 import { List, ListRow } from "../ui/list";
 import { SearchField } from "../ui/search-field";
 import { Skeleton } from "../ui/skeleton";
-import { ImportFiles } from "./import-files";
+import { IntoFiles } from "./into-files";
 
 const shown = 25;
 
@@ -87,7 +87,7 @@ function Steps({
   }
   return (
     <Suspense fallback={<Skeleton label={`Loading ${picked.label}`} />}>
-      <ImportFiles
+      <IntoFiles
         entry={entry}
         type={type}
         row={picked}
