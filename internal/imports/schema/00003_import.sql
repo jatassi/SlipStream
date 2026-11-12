@@ -36,9 +36,7 @@ CREATE INDEX imports_import_work ON imports_import (work_id) WHERE finished_at I
 
 -- An Import's files by position. path is torrent-relative for a grab,
 -- root-relative for a root and absolute on the Node for a folder.
--- source_index is the torrent's file index. seeded is a folder file a
--- torrent held when the folder was opened, which Move files can't take.
--- dest is the holding path in
+-- source_index is the torrent's file index. dest is the holding path in
 -- root_id the bytes go to, or for a root Import the path they sit at.
 CREATE TABLE imports_file (
     import_id BLOB NOT NULL REFERENCES imports_import (id) ON DELETE CASCADE,
@@ -65,7 +63,6 @@ CREATE TABLE imports_file (
     placed_by TEXT CHECK (placed_by IN ('link', 'clone', 'copy', 'transfer', 'move', 'in_place')),
     file_id BLOB REFERENCES files_file (id) ON DELETE SET NULL,
     source_removed_at INTEGER,
-    seeded INTEGER NOT NULL DEFAULT 0 CHECK (seeded IN (0, 1)),
     CHECK (outcome NOT IN ('left_out', 'not_better', 'waiting', 'failed', 'declined') OR reason IS NOT NULL),
     CHECK (outcome NOT IN ('sending', 'placing', 'placed') OR reason IS NULL),
     CHECK (outcome <> 'placed' OR placed_by IS NOT NULL),
