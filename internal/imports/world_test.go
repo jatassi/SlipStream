@@ -2,10 +2,15 @@ package imports
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"math/rand/v2"
 	"path"
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -19,6 +24,8 @@ import (
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
+	mediav1 "github.com/jatassi/slipstream/internal/pb/slipstream/media/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/media/v1/mediav1connect"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -43,12 +50,16 @@ type world struct {
 	files   *files.Files
 	library *library.Library
 	im      *Imports
+	cfg     Config
 	root    roots.Root
 	node    role.NodeID
 	hd      targets.TargetID
 	changed *heard[Changed]
 	moved   *heard[files.Changed]
 	steps   map[tasks.UnitKey]tasks.Step
+	// stop, when set, sees each Import file's IO before it runs.
+	stop  atomic.Pointer[func(context.Context, Step)]
+	probe media.Record
 }
 
 type heard[T any] struct {
@@ -159,8 +170,9 @@ func newWorld(t *testing.T) *world {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	w.im = New(Config{
-		Library: w.lib, Roots: w.roots, Files: w.files, Works: w.works, Targets: goals,
+	w.probe = media.Record{Version: media.Version, Container: "matroska,webm", Video: media.Video{Codec: "hevc", Width: 1920, Height: 1080}}
+	w.cfg = Config{
+		Library: w.lib, Roots: w.roots, Files: w.files, Works: w.works, Targets: goals, Probes: w.probes,
 		Facets: map[works.TypeID]scanning.Facet{contenttypetest.ID: shelfFacet{}},
 		Add: func(ctx context.Context, by identity.Admin, a library.Adding) (library.Added, error) {
 			return w.library.Add(ctx, by, a)
@@ -169,7 +181,15 @@ func newWorld(t *testing.T) *world {
 			return 7, w.steps, w.steps != nil
 		},
 		Changed: w.changed, FilesChanged: w.moved,
-	})
+		Timings: Timings{RetryMin: time.Millisecond, RetryMax: 20 * time.Millisecond}, Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // a fixed draw the test replays
+		BeforeImport: func(ctx context.Context, s Step) {
+			if stop := w.stop.Load(); stop != nil {
+				(*stop)(ctx, s)
+			}
+		},
+		Log: slog.New(slog.DiscardHandler),
+	}
+	w.im = New(w.cfg)
 	w.library = library.New(library.Config{Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Grabs: noGrabs{}, Imports: w.im, Leaver: w.im})
 	return w
 }
@@ -344,4 +364,17 @@ func (w *world) stored(t *testing.T, id ImportID) *Import {
 		t.Fatal(err)
 	}
 	return &imp
+}
+
+// probes is MediaService on every Node, answering w.probe for any file.
+func (w *world) probes(role.NodeID) mediav1connect.MediaServiceHandler { return prober{w} }
+
+type prober struct{ w *world }
+
+func (p prober) Probe(context.Context, *mediav1.ProbeRequest) (*mediav1.ProbeResponse, error) {
+	b, err := json.Marshal(p.w.probe)
+	if err != nil {
+		return nil, fmt.Errorf("encode the probe: %w", err)
+	}
+	return &mediav1.ProbeResponse{Record: b}, nil
 }
