@@ -13,14 +13,10 @@ import { useShell } from "./shell-context";
 export type { Setting, SettingKind } from "./setting-kind";
 
 /** Saves a value, or null to reset to the default; rejects with the server's refusal. */
-export type SettingSave<K extends SettingKind> = (
-  value: Values[K] | null,
-) => Promise<unknown>;
+export type SettingSave<K extends SettingKind> = (value: Values[K] | null) => Promise<unknown>;
 
 /** Answers what saving a value would change that the Admin should see first, or undefined for nothing. */
-export type SettingWarn<K extends SettingKind> = (
-  value: Values[K],
-) => Promise<string | undefined>;
+export type SettingWarn<K extends SettingKind> = (value: Values[K]) => Promise<string | undefined>;
 
 type BodyProps<K extends SettingKind> = {
   kind: K;
@@ -30,13 +26,7 @@ type BodyProps<K extends SettingKind> = {
   onSaved: () => void;
 };
 
-function ResetButton({
-  busy,
-  send,
-}: {
-  busy: boolean;
-  send: (value: null) => Promise<void>;
-}) {
+function ResetButton({ busy, send }: { busy: boolean; send: (value: null) => Promise<void> }) {
   return (
     <Button
       look="ghost"
@@ -51,15 +41,7 @@ function ResetButton({
   );
 }
 
-function Warned({
-  words,
-  busy,
-  onSave,
-}: {
-  words: string;
-  busy: boolean;
-  onSave: () => void;
-}) {
+function Warned({ words, busy, onSave }: { words: string; busy: boolean; onSave: () => void }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <output className="text-meta text-ink-2 in-data-[density=touch]:text-body-touch">
@@ -102,13 +84,7 @@ function useWarned<V>(
   return { save, notice, clear };
 }
 
-function Body<K extends SettingKind>({
-  kind,
-  field,
-  onSave,
-  onWarn,
-  onSaved,
-}: BodyProps<K>) {
+function Body<K extends SettingKind>({ kind, field, onSave, onWarn, onSaved }: BodyProps<K>) {
   const { error, setError, busy, send } = useSave(onSave, onSaved);
   const { save, notice, clear } = useWarned(onWarn, send, busy);
   const { Control, hints } = kinds[kind];
@@ -139,10 +115,7 @@ function Body<K extends SettingKind>({
       {locked !== undefined && <Lock variable={locked} />}
       <Hints
         hints={[...hints(field), ...appliesHint[field.applies]]}
-        reset={
-          !field.isDefault &&
-          locked === undefined && <ResetButton busy={busy} send={send} />
-        }
+        reset={!field.isDefault && locked === undefined && <ResetButton busy={busy} send={send} />}
       />
     </div>
   );
@@ -151,8 +124,7 @@ function Body<K extends SettingKind>({
 const rowLook =
   "-mx-2 inline-flex min-h-(--control-height) max-w-[calc(100%+1rem)] items-center gap-1.5 rounded-item px-2 py-1 text-left text-pretty text-ink-1 transition-colors duration-(--duration-control) ease-standard hover:bg-fill data-popup-open:bg-fill";
 
-const withUnitsKept = (words: string): string =>
-  words.replaceAll(/(?<=\d) (?=\S)/gu, "\u00A0");
+const withUnitsKept = (words: string): string => words.replaceAll(/(?<=\d) (?=\S)/gu, "\u00A0");
 
 function Row<K extends SettingKind>({
   words,
@@ -160,11 +132,7 @@ function Row<K extends SettingKind>({
 }: Omit<BodyProps<K>, "onSaved"> & { words: string }) {
   const [open, setOpen] = useState(false);
   const trigger = (
-    <button
-      type="button"
-      aria-label={`${body.field.label}: ${words}`}
-      className={rowLook}
-    >
+    <button type="button" aria-label={`${body.field.label}: ${words}`} className={rowLook}>
       <span>{withUnitsKept(words)}</span>
       <Icon icon={ArrowDown01Icon} className="size-3.5 shrink-0 text-ink-3" />
     </button>
@@ -178,22 +146,12 @@ function Row<K extends SettingKind>({
     />
   );
   return useShell() === "phone" ? (
-    <Sheet
-      trigger={trigger}
-      title={body.field.label}
-      open={open}
-      onOpenChange={setOpen}
-    >
+    <Sheet trigger={trigger} title={body.field.label} open={open} onOpenChange={setOpen}>
       <div className="rounded-card bg-fill p-4">{full}</div>
       <SheetCancel />
     </Sheet>
   ) : (
-    <Popover
-      trigger={trigger}
-      label={body.field.label}
-      open={open}
-      onOpenChange={setOpen}
-    >
+    <Popover trigger={trigger} label={body.field.label} open={open} onOpenChange={setOpen}>
       {full}
     </Popover>
   );
@@ -212,9 +170,7 @@ export type SettingFieldProps<K extends SettingKind> = {
  * place; `row` shows the value in words and opens the full field. Each
  * owner passes its own save, so the field never knows where it is stored.
  */
-export function SettingField<K extends SettingKind>(
-  props: SettingFieldProps<K>,
-) {
+export function SettingField<K extends SettingKind>(props: SettingFieldProps<K>) {
   const kind: K = props.field.kind;
   if (props.variant === "row") {
     return (

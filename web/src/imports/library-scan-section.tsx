@@ -16,9 +16,7 @@ function Cadence() {
   const shown = useListTasksSuspense({
     query: {
       select: ({ groups }) =>
-        groups.some((group) =>
-          group.tasks.some((task) => task.id === libraryScanTask),
-        ),
+        groups.some((group) => group.tasks.some((task) => task.id === libraryScanTask)),
     },
   }).data;
   return shown ? (
@@ -47,8 +45,7 @@ function Elsewhere() {
         .
       </p>
       <p className="text-ink-2">
-        A scan counts the files whose extension is in Video file extensions,
-        which is in{" "}
+        A scan counts the files whose extension is in Video file extensions, which is in{" "}
         <Link
           to="/settings/$section"
           params={{ section: "importing" }}

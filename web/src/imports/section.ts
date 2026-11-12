@@ -25,10 +25,7 @@ export const importingSection: SettingsSection = {
   id: "importing",
   label: "Importing",
   load: async (queryClient) => {
-    await freshQuery(
-      queryClient,
-      getGetImportingSettingsSuspenseQueryOptions(),
-    );
+    await freshQuery(queryClient, getGetImportingSettingsSuspenseQueryOptions());
   },
   component: ImportingSection,
 };
