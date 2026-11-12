@@ -83,13 +83,17 @@ func (w *walked) searchedOnce(t *testing.T, candidates int, refused []string, no
 }
 
 // holdsRelease checks the media dir comes to hold only the file at path,
-// the payload of release name.
+// the payload of release name, then waits until the library moves no
+// file. The disk queue records a move in a Write after its bytes land.
 func (w *walked) holdsRelease(t *testing.T, path, name string) {
 	t.Helper()
 	holdsOnly(t, w.m, path)
 	if _, err := world.MatchRelease(w.m, filepath.Join(w.m.MediaDir, filepath.FromSlash(path)), name); err != nil {
 		t.Fatal(err)
 	}
+	worldtest.Until(t, "the library moves no file", func() (bool, error) {
+		return planRenames(t, w.a, `{"scope":{"kind":"library"}}`).moving() == 0, nil
+	})
 }
 
 // The Quiet Orchard runs 104 minutes, so Sized takes 2080 to 10400 MiB of
