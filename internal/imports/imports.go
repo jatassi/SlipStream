@@ -1,7 +1,8 @@
-// Package imports owns what a library scan finds and can't place: Pending
-// imports and their actions, each root's last comparison, the Library
-// Health category and the scan's settings. S33 (Import pipeline) adds
-// downloads as a second source of pending entries.
+// Package imports owns the Import: a set of video files from one source
+// brought into one Work. A library scan's root Imports hold what it finds
+// and can't place, which wait in Pending imports for the Admin's actions.
+// It also owns each root's last comparison, the Library Health category
+// and the scan's settings.
 package imports
 
 import (
@@ -12,7 +13,6 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/identity"
-	"github.com/jatassi/slipstream/internal/imports/internal/db"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -30,8 +30,6 @@ type file = storage.Library
 var schemaFiles embed.FS
 
 func Schema() storage.Schema[file] { return storage.NewSchema[file]("imports", schemaFiles) }
-
-type EntryID = db.EntryID
 
 const TaskID tasks.TaskID = "library-scan"
 

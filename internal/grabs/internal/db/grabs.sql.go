@@ -145,11 +145,21 @@ func (q *Queries) CountGrabsInto(ctx context.Context, arg CountGrabsIntoParams) 
 }
 
 const countMoving = `-- name: CountMoving :one
-SELECT COUNT(*) FROM grabs_grab WHERE stage NOT IN ('imported', 'failed')
+SELECT COUNT(*) FROM grabs_grab WHERE stage IN (/*SLICE:stages*/?)
 `
 
-func (q *Queries) CountMoving(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countMoving)
+func (q *Queries) CountMoving(ctx context.Context, stages []Stage) (int64, error) {
+	query := countMoving
+	var queryParams []interface{}
+	if len(stages) > 0 {
+		for _, v := range stages {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:stages*/?", strings.Repeat(",?", len(stages))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:stages*/?", "NULL", 1)
+	}
+	row := q.db.QueryRowContext(ctx, query, queryParams...)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -418,6 +428,21 @@ func (q *Queries) InsertGrab(ctx context.Context, arg InsertGrabParams) error {
 	return err
 }
 
+const insertGrabItem = `-- name: InsertGrabItem :exec
+INSERT INTO grabs_grab_item (grab_id, item_id, position) VALUES (?1, ?2, ?3)
+`
+
+type InsertGrabItemParams struct {
+	GrabID   GrabID
+	ItemID   works.ItemID
+	Position int64
+}
+
+func (q *Queries) InsertGrabItem(ctx context.Context, arg InsertGrabItemParams) error {
+	_, err := q.db.ExecContext(ctx, insertGrabItem, arg.GrabID, arg.ItemID, arg.Position)
+	return err
+}
+
 const insertRelease = `-- name: InsertRelease :exec
 INSERT INTO grabs_release (search_id, position, title, indexer_id, indexer_name, size, seeders, outcome, rank, reasons, lost_step,
     lost_target_id, lost_own, lost_ref, scores, formats, covers, copy_of, release, link_sealed)
@@ -557,17 +582,26 @@ func (q *Queries) InsertStage(ctx context.Context, arg InsertStageParams) error 
 }
 
 const insertTarget = `-- name: InsertTarget :exec
-INSERT INTO grabs_target (grab_id, position, target_id) VALUES (?1, ?2, ?3)
+INSERT INTO grabs_target (grab_id, position, item_id, target_id, forced)
+VALUES (?1, ?2, ?3, ?4, ?5)
 `
 
 type InsertTargetParams struct {
 	GrabID   GrabID
 	Position int64
+	ItemID   works.ItemID
 	TargetID targets.TargetID
+	Forced   bool
 }
 
 func (q *Queries) InsertTarget(ctx context.Context, arg InsertTargetParams) error {
-	_, err := q.db.ExecContext(ctx, insertTarget, arg.GrabID, arg.Position, arg.TargetID)
+	_, err := q.db.ExecContext(ctx, insertTarget,
+		arg.GrabID,
+		arg.Position,
+		arg.ItemID,
+		arg.TargetID,
+		arg.Forced,
+	)
 	return err
 }
 
@@ -604,8 +638,8 @@ func (q *Queries) ListDownloading(ctx context.Context, torrentID downloadclients
 }
 
 const listEveryGrabTarget = `-- name: ListEveryGrabTarget :many
-SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
-    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id
+SELECT grabs_grab.id, grabs_target.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
+    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position
 `
@@ -620,6 +654,7 @@ type ListEveryGrabTargetRow struct {
 	FailedStage *Stage
 	Source      Source
 	TargetID    targets.TargetID
+	Settled     *Settled
 }
 
 func (q *Queries) ListEveryGrabTarget(ctx context.Context) ([]ListEveryGrabTargetRow, error) {
@@ -641,6 +676,7 @@ func (q *Queries) ListEveryGrabTarget(ctx context.Context) ([]ListEveryGrabTarge
 			&i.FailedStage,
 			&i.Source,
 			&i.TargetID,
+			&i.Settled,
 		); err != nil {
 			return nil, err
 		}
@@ -669,6 +705,33 @@ func (q *Queries) ListFills(ctx context.Context) ([]GrabsFill, error) {
 	for rows.Next() {
 		var i GrabsFill
 		if err := rows.Scan(&i.GrabID, &i.Position, &i.TargetID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGrabItems = `-- name: ListGrabItems :many
+SELECT grab_id, item_id, position FROM grabs_grab_item ORDER BY grab_id, position
+`
+
+func (q *Queries) ListGrabItems(ctx context.Context) ([]GrabsGrabItem, error) {
+	rows, err := q.db.QueryContext(ctx, listGrabItems)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrabsGrabItem
+	for rows.Next() {
+		var i GrabsGrabItem
+		if err := rows.Scan(&i.GrabID, &i.ItemID, &i.Position); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1271,7 +1334,7 @@ func (q *Queries) ListStages(ctx context.Context) ([]GrabsStage, error) {
 }
 
 const listTargets = `-- name: ListTargets :many
-SELECT grab_id, position, target_id FROM grabs_target ORDER BY grab_id, position
+SELECT grab_id, position, item_id, target_id, forced, settled, settled_at FROM grabs_target ORDER BY grab_id, position
 `
 
 func (q *Queries) ListTargets(ctx context.Context) ([]GrabsTarget, error) {
@@ -1283,7 +1346,15 @@ func (q *Queries) ListTargets(ctx context.Context) ([]GrabsTarget, error) {
 	var items []GrabsTarget
 	for rows.Next() {
 		var i GrabsTarget
-		if err := rows.Scan(&i.GrabID, &i.Position, &i.TargetID); err != nil {
+		if err := rows.Scan(
+			&i.GrabID,
+			&i.Position,
+			&i.ItemID,
+			&i.TargetID,
+			&i.Forced,
+			&i.Settled,
+			&i.SettledAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1298,8 +1369,8 @@ func (q *Queries) ListTargets(ctx context.Context) ([]GrabsTarget, error) {
 }
 
 const listTargetsOfWorks = `-- name: ListTargetsOfWorks :many
-SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
-    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id
+SELECT grabs_grab.id, grabs_target.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
+    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
 WHERE grabs_grab.work_id IN (/*SLICE:work_ids*/?)
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position
@@ -1315,6 +1386,7 @@ type ListTargetsOfWorksRow struct {
 	FailedStage *Stage
 	Source      Source
 	TargetID    targets.TargetID
+	Settled     *Settled
 }
 
 func (q *Queries) ListTargetsOfWorks(ctx context.Context, workIds []works.WorkID) ([]ListTargetsOfWorksRow, error) {
@@ -1346,6 +1418,7 @@ func (q *Queries) ListTargetsOfWorks(ctx context.Context, workIds []works.WorkID
 			&i.FailedStage,
 			&i.Source,
 			&i.TargetID,
+			&i.Settled,
 		); err != nil {
 			return nil, err
 		}

@@ -48,6 +48,10 @@ const waitWords: {
     words: "Its goal waits until its Grab finishes downloading.",
   },
   "grab-importing": { group: waiting, words: "Its goal waits until its Grab finishes importing." },
+  "import-waiting": {
+    group: waiting,
+    words: "Its goal waits until you decide on its Pending import.",
+  },
   reconciling: {
     group: waiting,
     words: "Its goal waits until SlipStream finishes reconciling the library after a restore.",

@@ -113,9 +113,9 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	file := `"file":{"id":"` + placed.ID.String() + `","path":"The Attic/The Attic - 1080p.mkv","size":4096,"quality":"webdl-1080p","probe":{"width":1920,"height":1080}}`
 	scarf, mittens := tree.Items[0].ID.String(), tree.Items[1].ID.String()
 	want := `{"cells":[` +
-		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":true,"state":"upgradable",` + file + `},` +
+		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":true,"state":"upgradable",` + file + `,"held":null},` +
 		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"state":"missing"},` +
-		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"state":"met",` + file + `},` +
+		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"state":"met",` + file + `,"held":null},` +
 		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"unreleased"},` +
 		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":false,"state":"unreleased"},` +
 		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"state":"unreleased"}],` +
@@ -130,7 +130,7 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	inflight.cells[files.CellKey{Item: tree.Items[0].ID, Edition: targets.AnyEdition, Target: hd.ID}] = files.GrabCell{State: files.GrabInFlight, Grab: upgrade}
 	inflight.cells[files.CellKey{Item: tree.Items[0].ID, Edition: targets.AnyEdition, Target: uhd.ID}] = files.GrabCell{State: files.GrabFailed, Grab: failed}
 	code, body = s.Call(t, http.MethodGet, "/api/v1/works/"+tree.ID.String()+"/cells", "")
-	want = `{"itemId":"` + scarf + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"downloading","grabId":"` + upgrade.String() + `",` + file + `},` +
+	want = `{"itemId":"` + scarf + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"downloading","grabId":"` + upgrade.String() + `",` + file + `,"step":null,"from":null,"until":null},` +
 		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"state":"failed","grabId":"` + failed.String() + `","file":null},`
 	if code != http.StatusOK || !strings.Contains(body, want) {
 		t.Fatalf("getWorkCells with an upgrade in flight and a failed Grab = %d\n%s\nwant it to hold\n%s", code, body, want)

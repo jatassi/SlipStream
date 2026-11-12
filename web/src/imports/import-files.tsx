@@ -1,19 +1,13 @@
 import { useState } from "react";
 
 import { sentenceOf } from "../api/errors";
-import type {
-  ImportsChosenFile,
-  ImportsEntry,
-  WorksContentType,
-  WorksItem,
-  WorksLibraryRow,
-} from "../api/gen/model";
-import { useImportPendingInto } from "../api/gen/query/imports/imports";
+import type { WorksContentType, WorksItem, WorksLibraryRow } from "../api/gen/model";
+import type { RootEntry } from "./root-entry";
 import { useGetWorkSuspense } from "../api/gen/query/works/works";
 import { Button } from "../ui/button";
 import { Select } from "../ui/select";
-import { toast } from "../ui/toast";
 import { codeOf } from "../works/fields-by-tier";
+import { useImporting } from "./adding";
 import { filesWords } from "./words";
 
 /** The choice that leaves a file in the entry. */
@@ -23,16 +17,8 @@ type Chosen = Readonly<Record<string, string>>;
 
 const nameOf = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
-function importedWords(count: number, work: string, left: ImportsEntry | null): string {
-  const still =
-    left === null
-      ? ""
-      : ` ${filesWords(left.files.length)} still ${left.files.length === 1 ? "waits" : "wait"}.`;
-  return `Imported ${filesWords(count)} into ${work}.${still}`;
-}
-
 function startOf(
-  entry: ImportsEntry,
+  entry: RootEntry,
   type: WorksContentType,
   row: WorksLibraryRow,
   items: readonly WorksItem[],
@@ -56,7 +42,7 @@ function FileChoices({
   chosen,
   onChosen,
 }: {
-  entry: ImportsEntry;
+  entry: RootEntry;
   type: WorksContentType;
   row: WorksLibraryRow;
   items: readonly WorksItem[];
@@ -89,26 +75,6 @@ function FileChoices({
   ));
 }
 
-function useImporting(entry: ImportsEntry, row: WorksLibraryRow, onDone: () => void) {
-  const importing = useImportPendingInto();
-  const mutate = (files: ImportsChosenFile[]) => {
-    importing.mutate(
-      { id: entry.id, data: { workId: row.id, files } },
-      {
-        onSuccess: ({ entry: left }) => {
-          toast(importedWords(files.length, row.label, left));
-          onDone();
-        },
-      },
-    );
-  };
-  return {
-    mutate,
-    isPending: importing.isPending,
-    error: importing.isError ? importing.error : null,
-  };
-}
-
 function Picked({
   row,
   type,
@@ -136,7 +102,7 @@ export function ImportFiles({
   onBack,
   onDone,
 }: {
-  entry: ImportsEntry;
+  entry: RootEntry;
   type: WorksContentType;
   row: WorksLibraryRow;
   onBack: () => void;
@@ -144,9 +110,10 @@ export function ImportFiles({
 }) {
   const { items } = useGetWorkSuspense(row.id).data;
   const [chosen, setChosen] = useState(() => startOf(entry, type, row, items));
-  const files = Object.entries(chosen)
-    .filter(([, itemId]) => itemId !== waiting)
-    .map(([path, itemId]) => ({ path, itemIds: [itemId] }));
+  const files = entry.files.flatMap(({ path, position }) => {
+    const itemId = chosen[path] ?? waiting;
+    return itemId === waiting ? [] : [{ position, itemIds: [itemId] }];
+  });
   const importing = useImporting(entry, row, onDone);
   return (
     <div className="flex flex-col gap-4">

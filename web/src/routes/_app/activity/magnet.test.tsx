@@ -9,6 +9,7 @@ import { renderApp } from "../../../test/render-app";
 const searching = (peers: number): GrabsGrab => ({
   ...imported,
   stage: "fetching",
+  inFlight: true,
   torrentId: null,
   infoHash: null,
   history: [{ stage: "fetching", at: imported.createdAt }],

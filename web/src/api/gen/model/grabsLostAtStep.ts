@@ -6,6 +6,8 @@ export type GrabsLostAtStep =
   | "tier"
   | "revision"
   | "score"
+  | "chosen_by_another"
+  | "fewer_unwanted"
   | "priority"
   | "freeleech"
   | "seeders"

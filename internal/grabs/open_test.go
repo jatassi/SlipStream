@@ -24,7 +24,7 @@ func TestAFetchingGrabsCellReadsDownloadingAndIsNotOpenToSearch(t *testing.T) {
 			sql(`INSERT INTO grabs_grab (id, work_id, item_id, edition, source, node_id, release_title, release_size, release_magnet, stage, created_at, updated_at)
 				SELECT ?, work_id, id, 'any', 'search', (SELECT id FROM nodes_node), 'The.Attic.2020.1080p.WEB-DL', 1,
 				'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567', 'fetching', 1, 1 FROM works_item WHERE work_id = ?`, grab, a.work),
-			sql(`INSERT INTO grabs_target VALUES (?, 0, ?)`, grab, cells[0].Target.ID),
+			sql(`INSERT INTO grabs_target (grab_id, position, item_id, target_id) SELECT id, 0, item_id, ? FROM grabs_grab WHERE id = ?`, cells[0].Target.ID, grab),
 		)
 		_, cells, _, err = a.cfg.Files.WorkCells(t.Context(), identity.Admin{}, a.work)
 		if err != nil {

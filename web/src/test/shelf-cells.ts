@@ -30,10 +30,14 @@ function cellOf(item: WorksItem, state: FilesState, edition: string): FilesCell 
         quality: "webdl-1080p",
         probe: { width: 1920, height: 1080 },
       },
+      held: null,
     };
   }
   if (state === "downloading" || state === "failed") {
-    return { ...base, state, grabId: item.id.replace(/^.{8}/u, "96ab0000"), file: null };
+    const grabId = item.id.replace(/^.{8}/u, "96ab0000");
+    return state === "downloading"
+      ? { ...base, state, grabId, file: null, step: null, from: null, until: null }
+      : { ...base, state, grabId, file: null };
   }
   return { ...base, state };
 }

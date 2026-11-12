@@ -81,6 +81,7 @@ import type {
   SetDownloadClientThresholds409,
   SetDownloadClientThresholds422,
   SetDownloadClientThresholds500,
+  SetDownloadClientThresholds501,
   TestDownloadClient401,
   TestDownloadClient403,
   TestDownloadClient404,
@@ -312,6 +313,7 @@ export const getSetDownloadClientThresholdsMutationOptions = <
     | SetDownloadClientThresholds409
     | SetDownloadClientThresholds422
     | SetDownloadClientThresholds500
+    | SetDownloadClientThresholds501
   >,
   TContext = unknown,
 >(options?: {
@@ -357,6 +359,7 @@ export type SetDownloadClientThresholdsMutationError = ErrorType<
   | SetDownloadClientThresholds409
   | SetDownloadClientThresholds422
   | SetDownloadClientThresholds500
+  | SetDownloadClientThresholds501
 >;
 export type SetDownloadClientThresholdsMutationVariables = { data: DownloadclientsThresholdsPatch };
 
@@ -370,6 +373,7 @@ export const useSetDownloadClientThresholds = <
     | SetDownloadClientThresholds409
     | SetDownloadClientThresholds422
     | SetDownloadClientThresholds500
+    | SetDownloadClientThresholds501
   >,
   TContext = unknown,
 >(

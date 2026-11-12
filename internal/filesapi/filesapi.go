@@ -1,6 +1,8 @@
 package filesapi
 
 import (
+	"time"
+
 	"context"
 	"errors"
 	"fmt"
@@ -79,9 +81,26 @@ type missingCell struct {
 
 type downloadingCell struct {
 	CellBase
-	State  string                    `json:"state" enum:"downloading" doc:"A Grab is in flight for it, fetching included"`
-	GrabID string                    `json:"grabId" format:"uuid" doc:"The latest Grab in flight for it"`
-	File   api.Nullable[LibraryFile] `json:"file" doc:"The file the Grab would replace; null when it fills no file"`
+	State  string                       `json:"state" enum:"downloading" doc:"A Grab is in flight for it, fetching included"`
+	GrabID string                       `json:"grabId" format:"uuid" doc:"The latest Grab in flight for it"`
+	File   api.Nullable[LibraryFile]    `json:"file" doc:"The file the Grab would replace; null when it fills no file"`
+	Step   api.Nullable[api.Enum[step]] `json:"step" doc:"What the Grab or its Import is doing for the cell; null until SlipStream reads it"`
+	From   *time.Time                   `json:"from" doc:"When the step began; null with step"`
+	Until  *time.Time                   `json:"until" doc:"When the Import delay ends, for a download that waits for it; null otherwise"`
+}
+
+// step is what holds a cell, in the order a download walks it.
+type step struct{}
+
+func (step) Values() []string {
+	return []string{"fetching", "downloading", "reading", "sending", "placing", "waiting"}
+}
+
+type heldCell struct {
+	GrabID string         `json:"grabId" format:"uuid" doc:"The Grab in flight for the cell"`
+	Step   api.Enum[step] `json:"step"`
+	From   time.Time      `json:"from" doc:"When the step began"`
+	Until  *time.Time     `json:"until" doc:"When the Import delay ends, for a download that waits for it; null otherwise"`
 }
 
 type failedCell struct {
@@ -93,14 +112,16 @@ type failedCell struct {
 
 type upgradableCell struct {
 	CellBase
-	State string      `json:"state" enum:"upgradable"`
-	File  LibraryFile `json:"file" doc:"The file filling it, short of its Target's cutoff or upgrade-until score"`
+	State string                 `json:"state" enum:"upgradable"`
+	File  LibraryFile            `json:"file" doc:"The file filling it, short of its Target's cutoff or upgrade-until score"`
+	Held  api.Nullable[heldCell] `json:"held" doc:"The Grab in flight for it; null while none is"`
 }
 
 type metCell struct {
 	CellBase
-	State string      `json:"state" enum:"met"`
-	File  LibraryFile `json:"file" doc:"The file filling it"`
+	State string                 `json:"state" enum:"met"`
+	File  LibraryFile            `json:"file" doc:"The file filling it"`
+	Held  api.Nullable[heldCell] `json:"held" doc:"The Grab in flight for it; null while none is"`
 }
 
 func variantOf(c files.Cell) api.OneOf[cell] {
@@ -112,13 +133,13 @@ func variantOf(c files.Cell) api.OneOf[cell] {
 	case files.Missing:
 		return api.NewOneOf[cell](missingCell{base, state})
 	case files.Downloading:
-		return api.NewOneOf[cell](downloadingCell{base, state, c.Grab.String(), replaced(c)})
+		return api.NewOneOf[cell](downloadingCell{CellBase: base, State: state, GrabID: c.Grab.String(), File: replaced(c)})
 	case files.Failed:
 		return api.NewOneOf[cell](failedCell{base, state, c.Grab.String(), replaced(c)})
 	case files.Upgradable:
-		return api.NewOneOf[cell](upgradableCell{base, state, fileOf(*c.File)})
+		return api.NewOneOf[cell](upgradableCell{CellBase: base, State: state, File: fileOf(*c.File)})
 	case files.Met:
-		return api.NewOneOf[cell](metCell{base, state, fileOf(*c.File)})
+		return api.NewOneOf[cell](metCell{CellBase: base, State: state, File: fileOf(*c.File)})
 	}
 	panic(fmt.Sprintf("filesapi: a cell in state %d", c.State))
 }

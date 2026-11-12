@@ -202,12 +202,14 @@ func (w *world) add(t *testing.T, key works.Key, root roots.ID) works.Tree {
 }
 
 // found is a file a scan read whole.
-func found(p string) PendingFile {
-	return PendingFile{
+func found(p string) File {
+	f := File{
 		Path: p, Size: 1 << 30, Seen: &storing.Seen{Modified: time.UnixMilli(1_700_000_000_000)},
-		Media:   &media.Record{Version: media.Version, Container: "matroska,webm", Video: media.Video{Codec: "hevc", Width: 1920, Height: 1080}},
-		Quality: release.Bluray1080p, Cut: release.Standard, Reason: scanning.Reason{Code: scanning.NoMatch},
+		Probe:   &media.Record{Version: media.Version, Container: "matroska,webm", Video: media.Video{Codec: "hevc", Width: 1920, Height: 1080}},
+		Quality: release.Bluray1080p, Cut: release.Standard, Position: -1,
 	}
+	f.waitFor(scanning.Reason{Code: scanning.NoMatch})
+	return f
 }
 
 // pend writes what a scan of the world's root found in folder.
@@ -230,18 +232,18 @@ func (w *world) pend(t *testing.T, p pend) {
 
 // entries is what Pending imports lists, the ones that need the Admin or
 // the ignored ones.
-func (w *world) entries(t *testing.T, ignored bool) []Entry {
+func (w *world) entries(t *testing.T, ignored bool) []Import {
 	t.Helper()
-	l, err := w.im.Pending(t.Context(), identity.Admin{}, Filter{Ignored: ignored})
+	l, err := w.im.List(t.Context(), identity.Admin{}, Filter{Ignored: ignored})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return l.Entries
+	return l.Imports
 }
 
 // at is the entry of folder Pending imports lists, needing the Admin or
 // ignored, nil when it lists none.
-func (w *world) at(t *testing.T, folder string) *Entry {
+func (w *world) at(t *testing.T, folder string) *Import {
 	t.Helper()
 	for _, ignored := range []bool{false, true} {
 		for _, e := range w.entries(t, ignored) {
@@ -253,15 +255,28 @@ func (w *world) at(t *testing.T, folder string) *Entry {
 	return nil
 }
 
-func paths(e *Entry) []string {
+// paths is the paths of e's waiting files, the ones Pending imports
+// lists, in path order.
+func paths(e *Import) []string {
 	if e == nil {
 		return nil
 	}
-	out := make([]string, len(e.Files))
-	for i, f := range e.Files {
-		out[i] = f.Path
+	var out []string
+	for _, f := range e.waiting() {
+		out = append(out, f.Path)
 	}
+	slices.Sort(out)
 	return out
+}
+
+// position is the position of e's waiting file at p, -1 for none.
+func position(e *Import, p string) int {
+	for _, f := range e.waiting() {
+		if f.Path == p {
+			return f.Position
+		}
+	}
+	return -1
 }
 
 // filesOf is the paths work's file rows record.
@@ -304,4 +319,19 @@ func (w *world) place(t *testing.T, work works.Tree, p string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+// itemsOf is the Items of work's library file at p.
+func (w *world) itemsOf(t *testing.T, work works.WorkID, p string) []works.ItemID {
+	t.Helper()
+	l, err := w.files.WorkFiles(t.Context(), identity.Admin{}, work)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range l.Files {
+		if f.Path == p {
+			return f.Items
+		}
+	}
+	return nil
 }

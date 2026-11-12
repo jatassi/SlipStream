@@ -464,9 +464,12 @@ func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], n newGrab
 	q := db.New(tx)
 	r, t := n.pick.Release, n.ticket
 	g := Grab{
-		ID: GrabID{UUID: storage.NewUUID()}, WorkID: n.work, ItemID: n.item, Edition: n.pick.Edition, Targets: n.pick.Targets,
+		ID: GrabID{UUID: storage.NewUUID()}, WorkID: n.work, ItemID: n.item, Items: []works.ItemID{n.item}, Edition: n.pick.Edition,
 		Release: Release{Title: r.Title, Size: r.Size, InfoHash: r.InfoHash}, Ticket: t, Stage: Fetching, Created: now.Time(),
 		Source: n.source, Manual: n.manual, By: n.by, Overrides: n.overrides, Sent: n.sent,
+	}
+	for _, target := range n.pick.Targets {
+		g.Targets = append(g.Targets, Cell{Key: files.CellKey{Item: n.item, Edition: n.pick.Edition, Target: target}})
 	}
 	idx, err := indexers.Get(ctx, tx, t.Indexer)
 	if err != nil {
@@ -512,12 +515,26 @@ func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], n newGrab
 			return Grab{}, err
 		}
 	}
-	for i, target := range g.Targets {
-		if err := q.InsertTarget(ctx, db.InsertTargetParams{GrabID: g.ID, Position: int64(i), TargetID: target}); err != nil {
-			return Grab{}, err
-		}
+	if err := insertCells(ctx, q, g); err != nil {
+		return Grab{}, err
 	}
 	return g, q.InsertStage(ctx, db.InsertStageParams{GrabID: g.ID, Stage: Fetching, EnteredAt: now})
+}
+
+// insertCells inserts g's Items and the cells it holds.
+func insertCells(ctx context.Context, q *db.Queries, g Grab) error {
+	for i, item := range g.Items {
+		if err := q.InsertGrabItem(ctx, db.InsertGrabItemParams{GrabID: g.ID, ItemID: item, Position: int64(i)}); err != nil {
+			return err
+		}
+	}
+	for i, c := range g.Targets {
+		p := db.InsertTargetParams{GrabID: g.ID, Position: int64(i), ItemID: c.Key.Item, TargetID: c.Key.Target, Forced: c.Forced}
+		if err := q.InsertTarget(ctx, p); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Searches lists work's search runs, newest first.

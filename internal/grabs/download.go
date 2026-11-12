@@ -25,7 +25,7 @@ func (TorrentUses) Of(ctx context.Context, r storage.Reader[file], ids []downloa
 	for _, row := range slices.Backward(rows) {
 		u := downloadclients.Use{
 			Grab: row.ID.UUID, Work: row.WorkID, Item: row.ItemID, Edition: string(row.Edition), Release: row.ReleaseTitle,
-			Stage: useStages[row.Stage], Created: row.CreatedAt.Time(),
+			Stage: row.Stage.Use(), Created: row.CreatedAt.Time(),
 		}
 		if row.FileIndex != nil {
 			u.File = new(int(*row.FileIndex))
@@ -34,15 +34,6 @@ func (TorrentUses) Of(ctx context.Context, r storage.Reader[file], ids []downloa
 		out[row.TorrentID] = append(out[row.TorrentID], u)
 	}
 	return out, nil
-}
-
-var useStages = map[Stage]downloadclients.UseStage{
-	Downloading:  downloadclients.UseDownloading,
-	Probing:      downloadclients.UseImporting,
-	Transferring: downloadclients.UseImporting,
-	Importing:    downloadclients.UseImporting,
-	Imported:     downloadclients.UseImported,
-	Failed:       downloadclients.UseFailed,
 }
 
 // Kept is every Torrent node's client keeps, in its intent's order,

@@ -52,8 +52,8 @@ function openSection(tasks: TasksTask[]) {
     path: "/settings/library-scan",
     handlers: [
       ...taskServer({ tasks }).handlers,
-      http.get("*/api/v1/imports/settings", () => HttpResponse.json({ settings })),
-      http.patch("*/api/v1/imports/settings", async ({ request }) => {
+      http.get("*/api/v1/imports/scan-settings", () => HttpResponse.json({ settings })),
+      http.patch("*/api/v1/imports/scan-settings", async ({ request }) => {
         const { values } = UpdateLibraryScanSettingsBody.parse(await request.json());
         sent.push(values);
         settings = settings.map((field) => {

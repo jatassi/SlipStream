@@ -182,4 +182,17 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
       "The tracker reported the torrent unregistered, or it never downloaded any data. SlipStream added the Release to the Blocklist.",
     recovery: searchAgain,
   },
+  client_error: {
+    cause:
+      "The download client reported an error on the torrent for longer than the client error setting allows.",
+    recovery: nextRelease,
+  },
+  declined: {
+    cause: "You chose not to import this download.",
+  },
+  unreadable: {
+    cause:
+      "ffprobe can't read the downloaded video. SlipStream added the Release to the Blocklist.",
+    recovery: nextRelease,
+  },
 };

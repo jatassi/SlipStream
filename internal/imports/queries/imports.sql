@@ -1,49 +1,75 @@
--- name: GetEntry :one
-SELECT * FROM imports_pending WHERE id = ?;
+-- name: GetImport :one
+SELECT * FROM imports_import WHERE id = ?;
 
--- name: GetEntryAt :one
-SELECT * FROM imports_pending WHERE root_id = ? AND folder = ?;
+-- name: GetRootImportAt :one
+SELECT * FROM imports_import WHERE source = 'root' AND root_id = ? AND folder = ? AND finished_at IS NULL;
 
--- name: ListEntries :many
-SELECT * FROM imports_pending ORDER BY root_id, folder;
+-- name: ListUnfinishedRootImports :many
+SELECT * FROM imports_import WHERE source = 'root' AND finished_at IS NULL ORDER BY root_id, folder;
 
 -- name: ListFiles :many
-SELECT * FROM imports_pending_file ORDER BY pending_id, path;
+SELECT * FROM imports_file ORDER BY import_id, position;
 
 -- name: ListFilesOf :many
-SELECT * FROM imports_pending_file WHERE pending_id = ? ORDER BY path;
+SELECT * FROM imports_file WHERE import_id = ? ORDER BY position;
 
--- name: InsertEntry :exec
-INSERT INTO imports_pending (id, root_id, folder, content_type, hint, suggestion, found_at, ignored_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+-- name: ListFileItems :many
+SELECT * FROM imports_file_item ORDER BY import_id, position, "order";
 
--- name: UpdateEntry :exec
-UPDATE imports_pending SET hint = ?, suggestion = ?, ignored_at = ? WHERE id = ?;
+-- name: ListFileItemsOf :many
+SELECT * FROM imports_file_item WHERE import_id = ? ORDER BY position, "order";
 
--- name: DeleteEntry :exec
-DELETE FROM imports_pending WHERE id = ?;
+-- name: InsertImport :exec
+INSERT INTO imports_import (id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition,
+                            move_files, failure_code, ended, created_at, ignored_at, finished_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
--- name: InsertEntryFile :exec
-INSERT INTO imports_pending_file (pending_id, path, size, modified_at, node_file_id, node_volume_id, probe, quality, cut, items, reason)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+-- name: UpdateImport :exec
+UPDATE imports_import SET hint = ?, suggestion = ?, work_id = ?, edition = ?, move_files = ?, failure_code = ?, ended = ?,
+                          ignored_at = ?, finished_at = ?
+WHERE id = ?;
 
--- name: DeleteEntryFiles :exec
-DELETE FROM imports_pending_file WHERE pending_id = ?;
+-- name: DeleteImport :exec
+DELETE FROM imports_import WHERE id = ?;
+
+-- name: InsertFile :exec
+INSERT INTO imports_file (import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut,
+                          release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order,
+                          placed_by, file_id, source_removed_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: SetFile :execrows
+UPDATE imports_file SET outcome = sqlc.arg(outcome), reason = sqlc.arg(reason), hold = sqlc.arg(hold), confirmed = sqlc.arg(confirmed),
+                        probe = sqlc.arg(probe), quality = sqlc.arg(quality), cut = sqlc.arg(cut), release_name = sqlc.arg(release_name),
+                        root_id = sqlc.arg(root_id), dest = sqlc.arg(dest), sent_transfer = sqlc.arg(sent_transfer),
+                        sent_order = sqlc.arg(sent_order), placed_by = sqlc.arg(placed_by), file_id = sqlc.arg(file_id),
+                        source_removed_at = sqlc.arg(source_removed_at)
+WHERE import_id = sqlc.arg(import_id) AND position = sqlc.arg(position) AND outcome = sqlc.arg(was);
+
+-- name: DeleteFile :exec
+DELETE FROM imports_file WHERE import_id = ? AND position = ?;
+
+-- name: InsertFileItem :exec
+INSERT INTO imports_file_item (import_id, position, item_id, "order") VALUES (?, ?, ?, ?);
+
+-- name: DeleteFileItems :exec
+DELETE FROM imports_file_item WHERE import_id = ? AND position = ?;
 
 -- name: ListRootsOf :many
-SELECT DISTINCT root_id FROM imports_pending WHERE id IN (sqlc.slice(ids)) ORDER BY root_id;
+SELECT DISTINCT root_id FROM imports_import WHERE id IN (sqlc.slice(ids)) AND root_id IS NOT NULL ORDER BY root_id;
 
 -- name: Ignore :exec
-UPDATE imports_pending SET ignored_at = coalesce(ignored_at, sqlc.arg(ignored_at)) WHERE id IN (sqlc.slice(ids));
+UPDATE imports_import SET ignored_at = coalesce(ignored_at, sqlc.arg(ignored_at)) WHERE id IN (sqlc.slice(ids)) AND finished_at IS NULL;
 
 -- name: Unignore :exec
-UPDATE imports_pending SET ignored_at = NULL WHERE id IN (sqlc.slice(ids));
+UPDATE imports_import SET ignored_at = NULL WHERE id IN (sqlc.slice(ids));
 
 -- name: CountNeedsYou :one
-SELECT count(*) FROM imports_pending WHERE ignored_at IS NULL;
+SELECT count(*) FROM imports_import WHERE source = 'root' AND finished_at IS NULL AND ignored_at IS NULL;
 
 -- name: CountNeedsYouByRoot :many
-SELECT root_id, count(*) AS entries FROM imports_pending WHERE ignored_at IS NULL GROUP BY root_id ORDER BY root_id;
+SELECT root_id, count(*) AS entries FROM imports_import WHERE source = 'root' AND finished_at IS NULL AND ignored_at IS NULL
+GROUP BY root_id ORDER BY root_id;
 
 -- name: ListCompared :many
 SELECT * FROM imports_root ORDER BY root_id;

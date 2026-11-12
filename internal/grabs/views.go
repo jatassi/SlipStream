@@ -92,7 +92,9 @@ func grabsCellsReadFrom(ctx context.Context, r storage.Reader[file], grabs []Gra
 	}
 	out := map[GrabID]bool{}
 	for _, row := range readFrom(rows) {
-		out[row.ID] = true
+		if row.Settled == nil {
+			out[row.ID] = true
+		}
 	}
 	return out, nil
 }
@@ -184,12 +186,12 @@ func fromIndexer(g Grab) bool {
 	return g.Stage == Fetching && g.Release.link.Set() && !g.Ticket.Indexer.IsZero()
 }
 
-// Moving counts the Grabs not yet imported or failed.
+// Moving counts the Grabs in flight.
 func (gr *Grabs) Moving(ctx context.Context, _ identity.Admin) (int, error) {
 	var n int64
 	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
-		n, err = db.New(r).CountMoving(ctx)
+		n, err = db.New(r).CountMoving(ctx, inFlightStages)
 		return err
 	})
 	return int(n), err

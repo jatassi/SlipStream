@@ -32,6 +32,13 @@ type ListedFile struct {
 	GoneAt     *time.Time                         `json:"goneAt" doc:"When a library scan found it missing from its root; null while it is there"`
 	ProbeError *string                            `json:"probeError" doc:"The first line ffprobe printed when the last library scan couldn't read it, and media is then the read before; null when that read worked"`
 	Media      api.Nullable[mediaInfo]            `json:"media" doc:"What ffprobe read of it; null for a file read before SlipStream kept its tracks"`
+	PlacedBy   api.Nullable[string]               `json:"placedBy" enum:"link,clone,copy,transfer,move,in_place" doc:"How its import put it into the library; null for a file no import recorded"`
+	Grab       api.Nullable[fileGrab]             `json:"grab" doc:"The Grab whose download it came from; null for a file no Grab brought"`
+}
+
+type fileGrab struct {
+	ID      string `json:"id" format:"uuid"`
+	Release string `json:"release" doc:"The Release's title"`
 }
 
 type fill struct {

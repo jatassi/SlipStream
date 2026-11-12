@@ -68,6 +68,7 @@ export const getPreviewSeedingGoalsResponseMock = (
       "incomplete",
       "grab-downloading",
       "grab-importing",
+      "import-waiting",
       "reconciling",
     ] as const),
   })),

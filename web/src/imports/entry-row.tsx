@@ -1,4 +1,5 @@
-import type { ImportsEntry, ImportsHint, WorksContentType } from "../api/gen/model";
+import type { ImportsHint, WorksContentType } from "../api/gen/model";
+import type { RootEntry } from "./root-entry";
 import { bytes } from "../format";
 import { useQualityNames } from "../targets/quality-names";
 import { Chip } from "../ui/chip";
@@ -15,7 +16,7 @@ const hintWords = ({ title, year, ids }: ImportsHint) =>
     " · ",
   );
 
-function Suggestion({ entry }: { entry: ImportsEntry }) {
+function Suggestion({ entry }: { entry: RootEntry }) {
   const { suggestion } = entry;
   if (suggestion === null) {
     return <p className="text-ink-2">No match yet.</p>;
@@ -29,7 +30,7 @@ function Suggestion({ entry }: { entry: ImportsEntry }) {
   );
 }
 
-function EntryDetails({ entry, type }: { entry: ImportsEntry; type: WorksContentType }) {
+function EntryDetails({ entry, type }: { entry: RootEntry; type: WorksContentType }) {
   const quality = useQualityNames();
   return (
     <Details>
@@ -61,7 +62,7 @@ function EntryDetails({ entry, type }: { entry: ImportsEntry; type: WorksContent
 }
 
 /** One folder that waits: why, its suggested match, what to do, and the files under Details. */
-export function EntryRow({ entry, type }: { entry: ImportsEntry; type: WorksContentType }) {
+export function EntryRow({ entry, type }: { entry: RootEntry; type: WorksContentType }) {
   const quality = useQualityNames();
   const size = entry.files.reduce((total, file) => total + file.size, 0);
   const qualities = [

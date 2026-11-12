@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/jatassi/slipstream/internal/imports/internal/db"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -16,7 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// pend is one folder's pending files as a scan or a Leave files delete
+// pend is one folder's waiting files as a scan or a Leave files delete
 // leaves them.
 type pend struct {
 	Root        roots.ID
@@ -24,28 +23,25 @@ type pend struct {
 	ContentType works.TypeID
 	Hint        scanning.Hint
 	Suggestion  *Suggestion
-	// Files are the files found new or changed since the entry listed
-	// them. Listed are the paths it lists that stay as they are. Every
-	// other path it lists is gone from disk or joined a Work.
-	Files  []PendingFile
+	// Files are the files found new or changed since the Import listed
+	// them, each with its reason. Listed are the paths it lists that stay
+	// as they are. Every other path it lists is gone from disk or joined a
+	// Work.
+	Files  []File
 	Listed []string
-	// Ignore ignores the entry whatever its files: a Leave files delete.
+	// Ignore ignores the Import whatever its files: a Leave files delete.
 	Ignore bool
 }
 
-// upsertPending merges p into its folder's entry in tx. The entry keeps
-// its suggestion, which may be an Admin's Match, unless the hint changed,
-// and stays ignored unless its set of files changed. An entry left with no
-// files is deleted.
+// upsertPending merges p into its folder's unfinished root Import in tx.
+// The Import keeps its suggestion, which may be an Admin's Match, unless
+// the hint changed, and stays ignored unless its set of waiting files
+// changed. One left with no files is deleted.
 func upsertPending(ctx context.Context, tx *storage.Tx[file], p pend, now storage.Time) error {
-	row, err := db.New(tx).GetEntryAt(ctx, db.GetEntryAtParams{RootID: p.Root, Folder: p.Folder})
+	e, err := rootImportAt(ctx, tx, db.GetRootImportAtParams{RootID: p.Root, Folder: &p.Folder})
 	if errors.Is(err, storage.ErrNoRows) {
-		return insertEntry(ctx, tx, p, now)
+		return insertPending(ctx, tx, p, now)
 	}
-	if err != nil {
-		return err
-	}
-	e, err := entry(ctx, tx, row.ID)
 	if err != nil {
 		return err
 	}
@@ -53,10 +49,12 @@ func upsertPending(ctx context.Context, tx *storage.Tx[file], p pend, now storag
 	for _, f := range p.Files {
 		fresh[f.Path] = true
 	}
-	kept := slices.DeleteFunc(slices.Clone(e.Files), func(f PendingFile) bool { return fresh[f.Path] || !slices.Contains(p.Listed, f.Path) })
-	changed := len(p.Files) > 0 || len(kept) < len(e.Files)
-	e.Files = slices.Concat(kept, p.Files)
-	slices.SortFunc(e.Files, func(a, b PendingFile) int { return strings.Compare(a.Path, b.Path) })
+	before := len(e.Files)
+	e.Files = slices.DeleteFunc(e.Files, func(f File) bool {
+		return f.Outcome == Waiting && (fresh[f.Path] || !slices.Contains(p.Listed, f.Path))
+	})
+	changed := len(p.Files) > 0 || len(e.Files) < before
+	appendWaiting(&e, p.Files...)
 	same, err := sameHint(e.Hint, p.Hint)
 	if err != nil {
 		return err
@@ -65,30 +63,27 @@ func upsertPending(ctx context.Context, tx *storage.Tx[file], p pend, now storag
 		e.Hint, e.Suggestion = p.Hint, p.Suggestion
 	}
 	switch {
-	case p.Ignore && !e.Ignored():
-		e.IgnoredAt = now
+	case p.Ignore && !e.IsIgnored():
+		e.Ignored = now
 	case changed && !p.Ignore:
-		e.IgnoredAt = storage.Time{}
+		e.Ignored = storage.Time{}
 	}
-	return write(ctx, tx, e)
+	return save(ctx, tx, &e)
 }
 
-func insertEntry(ctx context.Context, tx *storage.Tx[file], p pend, now storage.Time) error {
+func insertPending(ctx context.Context, tx *storage.Tx[file], p pend, now storage.Time) error {
 	if len(p.Files) == 0 {
 		return nil
 	}
-	hint, err := json.Marshal(p.Hint)
-	if err != nil {
-		return fmt.Errorf("the hint of %s: %w", p.Folder, err)
+	e := Import{
+		ID: ImportID{UUID: storage.NewUUID()}, Source: FromRoot, Root: p.Root, Folder: p.Folder, ContentType: p.ContentType,
+		Hint: p.Hint, Suggestion: p.Suggestion, Created: now,
 	}
-	e := db.InsertEntryParams{ID: EntryID{UUID: storage.NewUUID()}, RootID: p.Root, Folder: p.Folder, ContentType: p.ContentType, Hint: string(hint), FoundAt: now}
 	if p.Ignore {
-		e.IgnoredAt = now
+		e.Ignored = now
 	}
-	if err := db.New(tx).InsertEntry(ctx, e); err != nil {
-		return err
-	}
-	return write(ctx, tx, Entry{ID: e.ID, Hint: p.Hint, Suggestion: p.Suggestion, IgnoredAt: e.IgnoredAt, Files: p.Files})
+	appendWaiting(&e, p.Files...)
+	return insertImport(ctx, tx, e)
 }
 
 // sameHint compares two hints as they are stored.
@@ -104,24 +99,19 @@ func sameHint(a, b scanning.Hint) (bool, error) {
 	return bytes.Equal(ja, jb), nil
 }
 
-// listedAt is the paths the entry of root's folder lists, none when it
-// has no entry.
+// listedAt is the paths of the waiting files of root's folder's
+// unfinished Import, none when it has none.
 func listedAt(ctx context.Context, r storage.Reader[file], root roots.ID, folder string) ([]string, error) {
-	q := db.New(r)
-	row, err := q.GetEntryAt(ctx, db.GetEntryAtParams{RootID: root, Folder: folder})
+	e, err := rootImportAt(ctx, r, db.GetRootImportAtParams{RootID: root, Folder: &folder})
 	if errors.Is(err, storage.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	fs, err := q.ListFilesOf(ctx, row.ID)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]string, len(fs))
-	for i, f := range fs {
-		out[i] = f.Path
+	var out []string
+	for _, f := range e.waiting() {
+		out = append(out, f.Path)
 	}
 	return out, nil
 }

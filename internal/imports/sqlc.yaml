@@ -13,31 +13,68 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/storage
               type: Time
-          - column: imports_pending.id
+          - column: imports_import.id
             go_type:
-              type: EntryID
-          - column: imports_pending_file.pending_id
+              type: ImportID
+          - column: "*.import_id"
             go_type:
-              type: EntryID
+              type: ImportID
+          - column: imports_import.grab_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/grabs
+              type: GrabID
+          - column: imports_import.node_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: "*.work_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: WorkID
+          - column: "*.item_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/works
+              type: ItemID
+          - column: imports_file_fill.target_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/targets
+              type: TargetID
+          - column: imports_file_fill.edition
+            go_type:
+              import: github.com/jatassi/slipstream/internal/targets
+              type: Edition
+          - column: imports_import.edition
+            go_type:
+              import: github.com/jatassi/slipstream/internal/release
+              type: CutKey
+              pointer: true
+          - column: imports_file.file_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/files
+              type: ID
+          - column: imports_file.sent_transfer
+            go_type:
+              import: github.com/jatassi/slipstream/internal/transfers
+              type: ID
           - column: "*.root_id"
             go_type:
               import: github.com/jatassi/slipstream/internal/roots
               type: ID
-          - column: imports_pending.content_type
+          - column: imports_import.content_type
             go_type:
               import: github.com/jatassi/slipstream/internal/works
               type: TypeID
-          - column: imports_pending_file.probe
+          - column: imports_file.probe
             go_type:
               import: github.com/jatassi/slipstream/internal/media
               type: Record
               pointer: true
-          - column: imports_pending_file.quality
+          - column: imports_file.quality
             go_type:
               import: github.com/jatassi/slipstream/internal/release
               type: Quality
               pointer: true
-          - column: imports_pending_file.cut
+          - column: imports_file.cut
             go_type:
               import: github.com/jatassi/slipstream/internal/release
               type: CutKey

@@ -45,6 +45,14 @@ export const copying: TransfersTransfer = {
   details: { lanes: 3, rttMs: 42, retried: 1 },
 };
 
+/** The same copy, asked for by the Import of the Grab whose download it is. */
+export const importCopying: TransfersTransfer = {
+  ...copying,
+  id: "7d3f1a9c-2b4e-4c6a-8e0f-1a3c5e7b9d30",
+  purpose: "import",
+  job: "6c8e0a2b-4d6f-4b8a-9c1e-5f7a9b1d3e60",
+};
+
 const at = (
   state: Exclude<TransfersTransferState, "copying">,
   id: string,
