@@ -28,6 +28,7 @@ test("Send all to sets every row without its own client, and a row's Send to kee
   await expect
     .element(first.getByText("SlipStream sends it to the built-in client on seedbox."))
     .toBeVisible();
+  await expect.element(page.getByRole("listbox")).not.toBeInTheDocument();
 
   await userEvent.click(sheet.getByRole("combobox", { name: "Send all to" }));
   await userEvent.click(page.getByRole("option", { name: "Built-in client on home" }));
