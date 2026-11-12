@@ -61,15 +61,6 @@ func (q *Queries) DeleteCellsOfGrab(ctx context.Context, grabID GrabID) error {
 	return err
 }
 
-const deleteItemsOfGrab = `-- name: DeleteItemsOfGrab :exec
-DELETE FROM grabs_grab_item WHERE grab_id = ?1
-`
-
-func (q *Queries) DeleteItemsOfGrab(ctx context.Context, grabID GrabID) error {
-	_, err := q.db.ExecContext(ctx, deleteItemsOfGrab, grabID)
-	return err
-}
-
 const deleteManual = `-- name: DeleteManual :exec
 DELETE FROM grabs_manual WHERE id = ?1
 `

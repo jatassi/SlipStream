@@ -64,6 +64,3 @@ ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
 
 -- name: DeleteCellsOfGrab :exec
 DELETE FROM grabs_target WHERE grab_id = sqlc.arg(grab_id);
-
--- name: DeleteItemsOfGrab :exec
-DELETE FROM grabs_grab_item WHERE grab_id = sqlc.arg(grab_id);
