@@ -2499,7 +2499,7 @@ export const TargetsImpact = zod.object({
     .int()
     .min(targetsImpactDownloadingMin)
     .describe(
-      "Downloads in progress for cells that are no longer wanted. The save's choice decides whether their files are deleted or kept",
+      "Downloads in progress for cells that are no longer wanted. Each waits in Pending imports once it finishes",
     ),
   newlyWanted: zod.int().min(targetsImpactNewlyWantedMin).describe("Cells that become wanted"),
   ownList: zod

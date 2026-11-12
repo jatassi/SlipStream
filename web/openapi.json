@@ -16261,7 +16261,7 @@
         "additionalProperties": false,
         "properties": {
           "downloading": {
-            "description": "Downloads in progress for cells that are no longer wanted. The save's choice decides whether their files are deleted or kept",
+            "description": "Downloads in progress for cells that are no longer wanted. Each waits in Pending imports once it finishes",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -26747,13 +26747,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "description": "What becomes of the files the change leaves filling nothing",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "description": "What becomes of the files the change leaves filling nothing",
               "enum": [
                 "delete",
                 "keep"
@@ -27128,13 +27128,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "description": "What becomes of the files the change leaves filling nothing",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "description": "What becomes of the files the change leaves filling nothing",
               "enum": [
                 "delete",
                 "keep"
@@ -27552,13 +27552,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "description": "What becomes of the files the change leaves filling nothing",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "description": "What becomes of the files the change leaves filling nothing",
               "enum": [
                 "delete",
                 "keep"
@@ -28507,13 +28507,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "description": "What becomes of the files the change leaves filling nothing",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "description": "What becomes of the files the change leaves filling nothing",
               "enum": [
                 "delete",
                 "keep"
@@ -49087,13 +49087,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "description": "What becomes of the files the change leaves filling nothing",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "description": "What becomes of the files the change leaves filling nothing",
               "enum": [
                 "delete",
                 "keep"
@@ -49514,13 +49514,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "description": "What becomes of the files the change leaves filling nothing",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "description": "What becomes of the files the change leaves filling nothing",
               "enum": [
                 "delete",
                 "keep"
@@ -58916,13 +58916,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "description": "What becomes of the files the change leaves filling nothing",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "description": "What becomes of the files the change leaves filling nothing",
               "enum": [
                 "delete",
                 "keep"
@@ -66422,13 +66422,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "description": "What becomes of the files the change leaves filling nothing",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "description": "What becomes of the files the change leaves filling nothing",
               "enum": [
                 "delete",
                 "keep"
@@ -69676,13 +69676,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+            "description": "What becomes of the files the change leaves filling nothing",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
+              "description": "What becomes of the files the change leaves filling nothing",
               "enum": [
                 "delete",
                 "keep"

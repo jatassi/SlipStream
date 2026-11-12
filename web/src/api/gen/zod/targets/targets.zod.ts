@@ -56,9 +56,7 @@ export const UpdateCutQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(updateCutQueryUnwantedDefault)
-    .describe(
-      "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
-    ),
+    .describe("What becomes of the files the change leaves filling nothing"),
   confirm: zod
     .int()
     .min(updateCutQueryConfirmMin)
@@ -100,9 +98,7 @@ export const DeleteProfileQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(deleteProfileQueryUnwantedDefault)
-    .describe(
-      "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
-    ),
+    .describe("What becomes of the files the change leaves filling nothing"),
   confirm: zod
     .int()
     .min(deleteProfileQueryConfirmMin)
@@ -138,9 +134,7 @@ export const UpdateProfileQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(updateProfileQueryUnwantedDefault)
-    .describe(
-      "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
-    ),
+    .describe("What becomes of the files the change leaves filling nothing"),
   confirm: zod
     .int()
     .min(updateProfileQueryConfirmMin)
@@ -213,9 +207,7 @@ export const UpdateTargetQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(updateTargetQueryUnwantedDefault)
-    .describe(
-      "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
-    ),
+    .describe("What becomes of the files the change leaves filling nothing"),
   confirm: zod
     .int()
     .min(updateTargetQueryConfirmMin)
@@ -262,9 +254,7 @@ export const SetWorkWantsQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(setWorkWantsQueryUnwantedDefault)
-    .describe(
-      "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
-    ),
+    .describe("What becomes of the files the change leaves filling nothing"),
   confirm: zod
     .int()
     .min(setWorkWantsQueryConfirmMin)

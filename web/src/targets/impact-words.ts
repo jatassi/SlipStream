@@ -19,8 +19,8 @@ export function impactLines(impact: TargetsImpact): string[] {
     newlyWanted > 0 && `${counted(newlyWanted, "cell becomes wanted", "cells become wanted")}.`,
     downloading > 0 &&
       (downloading === 1
-        ? "1 download in progress is for a cell that is no longer wanted. Its file is deleted or kept, as chosen below."
-        : `${String(downloading)} downloads in progress are for cells that are no longer wanted. Their files are deleted or kept, as chosen below.`),
+        ? "1 download in progress is for cells that are no longer wanted. It waits in Pending imports once it finishes."
+        : `${String(downloading)} downloads in progress are for cells that are no longer wanted. They wait in Pending imports once they finish.`),
   ].filter((line) => line !== false);
 }
 
