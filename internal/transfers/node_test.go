@@ -174,7 +174,16 @@ func newTransferOf(t *testing.T, sender, receiver *end, sizes []int) *transfer {
 // sendLimit on the sender.
 func (tr *transfer) route(r tv1.Route, sendLimit int64) {
 	tr.sender.h.set(&tv1.Intent{SendLimit: sendLimit, Active: []*tv1.Active{tr.active(tv1.Side_SIDE_SEND, r)}}, role.Live)
-	tr.receiver.h.set(&tv1.Intent{Active: []*tv1.Active{tr.active(tv1.Side_SIDE_RECEIVE, r)}, Keep: [][]byte{tr.id.Bytes()}}, role.Live)
+	tr.receiver.h.set(&tv1.Intent{Active: []*tv1.Active{tr.active(tv1.Side_SIDE_RECEIVE, r)}, Keep: []*tv1.Kept{tr.kept()}}, role.Live)
+}
+
+// kept is the receiver's keep of every file of tr.
+func (tr *transfer) kept() *tv1.Kept {
+	k := &tv1.Kept{TransferId: tr.id.Bytes()}
+	for _, f := range tr.files {
+		k.Positions = append(k.Positions, f.GetPosition())
+	}
+	return k
 }
 
 func (tr *transfer) active(side tv1.Side, r tv1.Route) *tv1.Active {
@@ -623,7 +632,7 @@ func TestATransferLeavingIntentTakesItsStaging(t *testing.T) {
 		tr.route(tv1.Route_ROUTE_RECEIVER_DIALS, 0)
 		tr.expectArrived()
 		folder := filepath.Dir(w[1].staged(tr.id, 0))
-		w[1].h.set(&tv1.Intent{Keep: [][]byte{tr.id.Bytes()}}, role.Live)
+		w[1].h.set(&tv1.Intent{Keep: []*tv1.Kept{tr.kept()}}, role.Live)
 		synctest.Wait()
 		if _, err := os.Stat(folder); err != nil {
 			t.Fatalf("a kept Transfer's staging folder: %v", err)
@@ -632,6 +641,62 @@ func TestATransferLeavingIntentTakesItsStaging(t *testing.T) {
 		synctest.Wait()
 		if _, err := os.Stat(folder); !errors.Is(err, os.ErrNotExist) {
 			t.Fatalf("the staging folder of a Transfer the intent dropped: %v", err)
+		}
+	})
+}
+
+func TestADroppedPositionsStagedFileGoesWhileTheOthersStay(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		_, w, _ := trio(t)
+		tr := newTransfer(t, w[0], w[1])
+		w[0].start()
+		w[1].start()
+		tr.route(tv1.Route_ROUTE_RECEIVER_DIALS, 0)
+		tr.expectArrived()
+		w[1].h.set(&tv1.Intent{Keep: []*tv1.Kept{{TransferId: tr.id.Bytes(), Positions: []uint32{0}}}}, role.Live)
+		synctest.Wait()
+		if _, err := os.Stat(w[1].staged(tr.id, 1)); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("the dropped position's staged file: %v, want it gone", err)
+		}
+		if got, want := sum(t, w[1].staged(tr.id, 0)), sum(t, w[0].source(0)); got != want {
+			t.Errorf("the kept position's staged file's BLAKE3 is %x, want its source's %x", got, want)
+		}
+	})
+}
+
+func TestAReceiverLetsAFileDroppedMidTransferGoAndFinishesTheRest(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		_, w, _ := trio(t)
+		tr := newTransfer(t, w[0], w[1])
+		tr.files = append(tr.files, w[0].payload(2, chunk+7, 3))
+		hold := make(chan struct{})
+		tr.sent.setHold(func(position, _ int) {
+			if position == 1 {
+				<-hold
+			}
+		})
+		w[0].start()
+		w[1].start()
+		tr.route(tv1.Route_ROUTE_RECEIVER_DIALS, 0)
+		w[1].h.await(t, "file 0 verified", func(rs []*tv1.Result, _ []*tv1.Facts) bool { return slices.Contains(verified(rs, tr.id), 0) })
+		tr.files = []*tv1.File{tr.files[2]}
+		w[1].h.set(&tv1.Intent{
+			Active: []*tv1.Active{tr.active(tv1.Side_SIDE_RECEIVE, tv1.Route_ROUTE_RECEIVER_DIALS)},
+			Keep:   []*tv1.Kept{{TransferId: tr.id.Bytes(), Positions: []uint32{0, 2}}},
+		}, role.Live)
+		close(hold)
+		w[1].h.await(t, "file 2 verified", func(rs []*tv1.Result, _ []*tv1.Facts) bool { return slices.Contains(verified(rs, tr.id), 2) })
+		synctest.Wait()
+		if got := verified(w[1].h.results(), tr.id); slices.Contains(got, 1) {
+			t.Errorf("FileVerified named positions %v, want none for the dropped file", got)
+		}
+		if _, err := os.Stat(w[1].staged(tr.id, 1)); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("the dropped file's staged bytes: %v, want them gone", err)
+		}
+		for _, p := range []int{0, 2} {
+			if got, want := sum(t, w[1].staged(tr.id, p)), sum(t, w[0].source(p)); got != want {
+				t.Errorf("staged file %d's BLAKE3 is %x, want its source's %x", p, got, want)
+			}
 		}
 	})
 }

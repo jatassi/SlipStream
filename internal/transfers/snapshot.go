@@ -191,3 +191,31 @@ func (t *Transfers) judgeNow(ctx context.Context, board Board) (judgment, error)
 	})
 	return j, err
 }
+
+// ReservedIn is the bytes live Transfers still expect on volume of node,
+// read in rd: of each unfailed Transfer into a root on it, every file
+// neither verified, placed nor dropped, less what its receiver verified
+// of them.
+func (t *Transfers) ReservedIn(ctx context.Context, rd storage.Reader[storage.Library], node role.NodeID, volume string) (int64, error) {
+	var s snapshot
+	if err := t.records(ctx, rd, &s); err != nil {
+		return 0, err
+	}
+	facts, _ := t.cfg.Facts(node)
+	s.facts = map[role.NodeID]*tv1.Facts{node: facts}
+	var out int64
+	for _, tr := range s.transfers {
+		d := s.dests[rootOf(tr.Destination)]
+		if tr.Failure != nil || d.Node != node || d.Volume == nil || d.Volume.ID != volume {
+			continue
+		}
+		var need int64
+		for _, f := range tr.Files {
+			if missing(f) {
+				need += f.Size
+			}
+		}
+		out += max(need-s.receiving(tr, d).GetVerifiedBytes(), 0)
+	}
+	return out, nil
+}

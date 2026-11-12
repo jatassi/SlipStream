@@ -114,3 +114,32 @@ func TestAPathSourceIsSentByItsPath(t *testing.T) {
 		check(t, "Failed", f, []string{"folder: seedbox can't read Heat.mkv: permission denied."})
 	})
 }
+
+func TestReservedInCountsWhatLiveTransfersStillSend(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := newCluster(t)
+		id := r.want(t, "pack", episode(1, "a"), episode(2, "b"), episode(3, "c"))
+		r.homeEnd.report(t, verifiedResult(id, 0, 1))
+		r.want(t, "pack", episode(1, "a"), episode(2, "b"))
+		r.homeEnd.facts(&tv1.Facts{Receiving: []*tv1.Receiving{{TransferId: id.Bytes(), VerifiedBytes: 1 << 18}}})
+		reserved := func(volume string) int64 {
+			t.Helper()
+			var n int64
+			err := r.lib.Read(t.Context(), func(ctx context.Context, rd storage.Reader[storage.Library]) error {
+				var err error
+				n, err = r.tr.ReservedIn(ctx, rd, r.home, volume)
+				return err
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			return n
+		}
+		if got, want := reserved("v1"), int64(1<<20-1<<18); got != want {
+			t.Errorf("ReservedIn = %d, want %d: episode 2 less what home verified of it", got, want)
+		}
+		if got := reserved("v2"); got != 0 {
+			t.Errorf("ReservedIn on another volume = %d, want 0", got)
+		}
+	})
+}
