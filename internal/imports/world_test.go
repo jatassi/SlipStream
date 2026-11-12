@@ -61,7 +61,12 @@ type world struct {
 	// stop, when set, sees each Import file's IO before it runs.
 	stop  atomic.Pointer[func(context.Context, Step)]
 	probe media.Record
+	// disk is files' Disk, the roots its Imports place through.
+	disk *heldDisk
 }
+
+// heldDisk is a files.Disk that follows the roots a test moves w onto.
+type heldDisk struct{ files.Disk }
 
 type heard[T any] struct {
 	mu   sync.Mutex
@@ -134,6 +139,7 @@ func newWorld(t *testing.T) *world {
 		t.Fatal(err)
 	}
 	w.root = w.newRoot(t)
+	w.disk = &heldDisk{Disk: w.roots}
 	goals, err := targets.Open(ctx, targets.Config{Library: w.lib, Works: w.works, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: w.fx}, Changed: discard[targets.Changed]{}})
 	if err != nil {
 		t.Fatal(err)
@@ -157,7 +163,7 @@ func newWorld(t *testing.T) *world {
 			Describe: func(works.TypeID) (works.Description, bool) { return contenttypetest.Description, true },
 			Budget:   func(context.Context, storage.Reader[storage.Library], works.TypeID) (int, error) { return 1000, nil },
 		}),
-		Names: map[works.TypeID]release.Names{contenttypetest.ID: w.fx}, Today: time.Now,
+		Names: map[works.TypeID]release.Names{contenttypetest.ID: w.fx}, Today: time.Now, Disk: w.disk,
 	}); err != nil {
 		t.Fatal(err)
 	}
