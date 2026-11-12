@@ -2,6 +2,7 @@ package transfers
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/setting"
@@ -51,28 +52,32 @@ func (w Wait) words(names map[role.NodeID]string, source, dest string) string {
 
 // sentence is a failure's words, with names naming each Node.
 func sentence(t Transfer, dest role.NodeID, code Code, position int, detail string, names map[role.NodeID]string) string {
-	source := names[t.Source]
-	file := "the files"
-	if position >= 0 {
-		file = t.Files[position].Name
+	from := names[t.Source]
+	file, path := "the files", false
+	if at := slices.IndexFunc(t.Files, func(f File) bool { return f.Position == position }); at >= 0 {
+		file = t.Files[at].Name
+		path = t.Files[at].fromPath()
 	}
 	switch code {
 	case SourceGone:
-		return fmt.Sprintf("%s no longer has %s.", source, file)
+		return fmt.Sprintf("%s no longer has %s.", from, file)
 	case SourceFailed:
-		if detail == "" {
-			return fmt.Sprintf("%s's torrent client failed %s.", source, file)
+		if path {
+			return fmt.Sprintf("%s can't read %s: %s.", from, file, detail)
 		}
-		return fmt.Sprintf("%s's torrent client failed %s: %s.", source, file, detail)
+		if detail == "" {
+			return fmt.Sprintf("%s's torrent client failed %s.", from, file)
+		}
+		return fmt.Sprintf("%s's torrent client failed %s: %s.", from, file, detail)
 	case Damaged:
 		if detail == readBack {
 			return fmt.Sprintf("%s kept reading back damaged on %s. Check %s's disk.", file, names[dest], names[dest])
 		}
-		return fmt.Sprintf("%s kept arriving damaged from %s. Check %s's memory.", file, source, source)
+		return fmt.Sprintf("%s kept arriving damaged from %s. Check %s's memory.", file, from, from)
 	case SourceWrittenOff:
-		return fmt.Sprintf("%s was written off before %s was copied.", source, file)
+		return fmt.Sprintf("%s was written off before %s was copied.", from, file)
 	case Rerouted:
-		return fmt.Sprintf("The library root is on %s now, which already has the files.", source)
+		return fmt.Sprintf("The library root is on %s now, which already has the files.", from)
 	}
 	panic("transfers: a failure of no known code")
 }

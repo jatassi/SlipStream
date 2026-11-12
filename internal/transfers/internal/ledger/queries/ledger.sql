@@ -3,8 +3,8 @@ INSERT INTO transfers_record (id, purpose, job, source_node, destination_kind, d
 VALUES (sqlc.arg(id), sqlc.arg(purpose), sqlc.arg(job), sqlc.arg(source_node), sqlc.arg(destination_kind), sqlc.arg(destination_root), sqlc.arg(created_at));
 
 -- name: InsertFile :exec
-INSERT INTO transfers_file (transfer_id, position, item, name, source_kind, info_hash, file_index, size)
-VALUES (sqlc.arg(transfer_id), sqlc.arg(position), sqlc.arg(item), sqlc.arg(name), sqlc.arg(source_kind), sqlc.arg(info_hash), sqlc.arg(file_index), sqlc.arg(size));
+INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, size)
+VALUES (sqlc.arg(transfer_id), sqlc.arg(position), sqlc.arg(group_key), sqlc.arg(name), sqlc.arg(source_kind), sqlc.arg(info_hash), sqlc.arg(file_index), sqlc.arg(path), sqlc.arg(size));
 
 -- name: TransferOfJob :one
 SELECT id FROM transfers_record WHERE purpose = sqlc.arg(purpose) AND job = sqlc.arg(job);
@@ -31,8 +31,11 @@ WHERE transfer_id = sqlc.arg(transfer_id) AND position = sqlc.arg(position);
 -- name: SetPlaced :exec
 UPDATE transfers_file SET placed = 1 WHERE transfer_id = sqlc.arg(transfer_id) AND position = sqlc.arg(position);
 
+-- name: SetDropped :exec
+UPDATE transfers_file SET dropped = 1 WHERE transfer_id = sqlc.arg(transfer_id) AND position = sqlc.arg(position) AND placed = 0;
+
 -- name: CountUnplaced :one
-SELECT count(*) FROM transfers_file WHERE transfer_id = sqlc.arg(transfer_id) AND placed = 0;
+SELECT count(*) FROM transfers_file WHERE transfer_id = sqlc.arg(transfer_id) AND placed = 0 AND dropped = 0;
 
 -- name: SetFailure :exec
 UPDATE transfers_record

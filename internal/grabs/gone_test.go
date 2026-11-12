@@ -74,7 +74,7 @@ func TestAnExternalTorrentsGoneSourceWaitsForItsVanishedReport(t *testing.T) {
 		var transfer transfers.ID
 		run(t, s.lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 			var err error
-			transfer, err = s.copies.Start(ctx, tx, transfers.Request{
+			transfer, err = s.copies.Want(ctx, tx, transfers.Request{
 				Purpose: transfers.Grab, Job: s.grab.String(), Source: s.node, Destination: transfers.Root{ID: s.root},
 				Files: []transfers.FileRequest{{Name: "The Attic.mkv", Source: source.Torrent{Hash: s.hash}, Size: 4096}},
 			})

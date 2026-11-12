@@ -106,6 +106,30 @@ func TestReadinessOfAHashTheNodeNeverHeldIsUnknown(t *testing.T) {
 	}
 }
 
+func TestReadinessOfAPathIsUnknownBesideATorrent(t *testing.T) {
+	lib := open(t)
+	node := addNode(t, lib, "seedbox")
+	m, raw := dotTorrent(t, "Orchard")
+	id, _ := mustAttach(t, lib, dc.Want{Target: dc.Target{Node: node}, Metainfo: m, Raw: raw, ContentType: contenttypetest.ID, WrittenOff: noneWrittenOff})
+	apply(t, lib, node, id, seeded)
+	path, torrent := source.Path{Abs: "/downloads/Orchard/Orchard.mkv"}, source.Torrent{Hash: m.InfoHash}
+	var got map[source.Ref]source.Readiness
+	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		got, err = clients().ReadinessIn(ctx, r, node, []source.Ref{path, torrent})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p, ok := got[path]; !ok || p != (source.Readiness{}) {
+		t.Errorf("ReadinessIn of a path = %+v, %v, want Unknown", p, ok)
+	}
+	if got[torrent].State != source.Ready {
+		t.Errorf("ReadinessIn of the Torrent beside it = %+v, want Ready", got[torrent])
+	}
+}
+
 // TestMovedClosesWhenAReportChangesReadiness applies the reports a
 // check that ends and a download that completes send, each through
 // Applied: Moved closes for each, so a reader of ReadinessIn reads again.

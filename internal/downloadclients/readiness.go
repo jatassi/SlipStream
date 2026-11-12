@@ -14,18 +14,21 @@ import (
 // ReadinessIn is each of refs' readiness on node, read in rd's snapshot
 // from node's latest Torrent of the ref's hash: WrittenOff from its
 // removal, then FailedSource with the report's error, Checking,
-// Incomplete and Ready from its latest report. A ref with no Torrent or
-// no report, or one removed other than by a write-off, is Unknown. Moved
-// closes when a report or removal changes what this reads.
+// Incomplete and Ready from its latest report. A Torrent ref with no
+// Torrent or no report, or one removed other than by a write-off, is
+// Unknown, and so is every Path ref. Moved closes when a report or
+// removal changes what this reads.
 func (c *Clients) ReadinessIn(ctx context.Context, rd storage.Reader[file], node role.NodeID, refs []source.Ref) (map[source.Ref]source.Readiness, error) {
-	torrents := make([]source.Torrent, len(refs))
-	hashes := make([][]byte, len(refs))
-	for i, ref := range refs {
-		t, ok := ref.(source.Torrent)
-		if !ok {
-			return nil, fmt.Errorf("a %s source isn't a Torrent", ref.Kind())
+	out := make(map[source.Ref]source.Readiness, len(refs))
+	var torrents []source.Torrent
+	var hashes [][]byte
+	for _, ref := range refs {
+		switch r := ref.(type) {
+		case source.Torrent:
+			torrents, hashes = append(torrents, r), append(hashes, r.Hash[:])
+		case source.Path:
+			out[r] = source.Readiness{}
 		}
-		torrents[i], hashes[i] = t, t.Hash[:]
 	}
 	rows, err := db.New(rd).ListSources(ctx, db.ListSourcesParams{NodeID: node, Hashes: hashes})
 	if err != nil {
@@ -39,7 +42,6 @@ func (c *Clients) ReadinessIn(ctx context.Context, rd storage.Reader[file], node
 		}
 		latest[bencode.InfoHash(row.InfoHash)] = r
 	}
-	out := make(map[source.Ref]source.Readiness, len(refs))
 	for _, t := range torrents {
 		out[t] = latest[t.Hash]
 	}
