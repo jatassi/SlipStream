@@ -399,6 +399,16 @@ export const getGetWorkCellsResponseFilesWaitingNeedMock = (
       "client_error",
     ] as const),
     grabId: faker.string.uuid(),
+    importWait: faker.helpers.arrayElement([
+      {
+        rootId: faker.string.uuid(),
+        space: faker.helpers.arrayElement([
+          { free: faker.number.int({ min: 0 }), needs: faker.number.int({ min: 1 }) },
+          null,
+        ]),
+      },
+      null,
+    ]),
     kind: faker.helpers.arrayElement(["waiting"] as const),
   },
   ...overrideResponse,

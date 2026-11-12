@@ -33,6 +33,7 @@ export function sendingServer(
         grabId: grab.id,
         code: grab.waitsFor === undefined ? "client_away" : "node_away",
         clientError: null,
+        importWait: null,
       },
     ],
   };

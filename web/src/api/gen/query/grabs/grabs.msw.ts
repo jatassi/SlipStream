@@ -740,7 +740,6 @@ export const getListSearchReleasesResponseMock = (
           code: faker.helpers.arrayElement([
             "wrong_work",
             "wrong_item",
-            "covers_more",
             "wrong_title",
             "cut_not_wanted",
             "quality_not_in_target",
@@ -846,7 +845,6 @@ export const getGetManualSearchResponseMock = (
               code: faker.helpers.arrayElement([
                 "wrong_work",
                 "wrong_item",
-                "covers_more",
                 "wrong_title",
                 "cut_not_wanted",
                 "quality_not_in_target",
@@ -965,7 +963,6 @@ export const getGetManualSearchResponseMock = (
               code: faker.helpers.arrayElement([
                 "wrong_work",
                 "wrong_item",
-                "covers_more",
                 "wrong_title",
                 "cut_not_wanted",
                 "quality_not_in_target",
@@ -1150,7 +1147,6 @@ export const getListManualSearchReleasesResponseMock = (
             code: faker.helpers.arrayElement([
               "wrong_work",
               "wrong_item",
-              "covers_more",
               "wrong_title",
               "cut_not_wanted",
               "quality_not_in_target",
@@ -1303,7 +1299,6 @@ export const getListSearchesResponseMock = (
           code: faker.helpers.arrayElement([
             "wrong_work",
             "wrong_item",
-            "covers_more",
             "wrong_title",
             "cut_not_wanted",
             "quality_not_in_target",

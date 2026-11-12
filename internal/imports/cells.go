@@ -37,23 +37,32 @@ func (c Cells) GrabCells(ctx context.Context, r storage.Reader[file], ws works.A
 		if !ok || !cell.InFlight() {
 			continue
 		}
-		if hold := imp.holdOn(key); hold != "" {
-			cell.Waiting = string(hold)
+		if f := imp.holdOn(key); f != nil {
+			cell.Waiting, cell.Hold = string(f.Hold.Code), f.rootHold()
 			cells[key] = cell
 		}
 	}
 	return cells, nil
 }
 
-// holdOn is the import wait of a file of im that holds cell k, "" for
-// none.
-func (im Import) holdOn(k files.CellKey) HoldCode {
-	for _, f := range im.Files {
+// holdOn is the file of im with an import wait that holds cell k, nil
+// for none.
+func (im Import) holdOn(k files.CellKey) *File {
+	for i, f := range im.Files {
 		if f.Hold != nil && f.holds(k) {
-			return f.Hold.Code
+			return &im.Files[i]
 		}
 	}
-	return ""
+	return nil
+}
+
+// rootHold is the root f's no_space or root_not_ready wait waits on, nil
+// for another wait. A place wait has its destination.
+func (f *File) rootHold() *files.ImportHold {
+	if f.Hold.Code != NoSpace && f.Hold.Code != RootNotReady {
+		return nil
+	}
+	return &files.ImportHold{Root: f.Dest.Root, Free: f.Hold.Free, Needs: f.Hold.Needs}
 }
 
 // importsOfGrabs is the Import of each of ids that has one, by its Grab,

@@ -3,15 +3,18 @@ import { useState } from "react";
 
 import type {
   FilesClientError,
+  FilesImportWait,
   FilesWaitingNeed,
   FilesWaitingNeedCode,
   GrabsClientWait,
   GrabsGrab,
 } from "../../api/gen/model";
 import { useListNodesSuspense } from "../../api/gen/query/nodes/nodes";
+import { useListRootsSuspense } from "../../api/gen/query/roots/roots";
 import { SendToSheet } from "../../grabs/send-to-sheet";
+import { rootWords } from "../../roots/words";
 import { WarningLine } from "../../ui/warning-line";
-import { type ImportWait, clientErrorWords, importWaitWords } from "./need-words";
+import { type ImportWait, type Naming, clientErrorWords, importWaitWords } from "./need-words";
 
 /** A waiting Grab that the Admin can send to another client. */
 function SendableWait({
@@ -120,14 +123,32 @@ function ClientErrorWait({
 }
 
 /** A Grab whose Import waits on space, its root or reading a file. */
-function ImportWaitLine({ release, code }: { release: string; code: ImportWait }) {
+function ImportWaitLine({
+  release,
+  code,
+  type,
+  hold,
+  nodeName,
+}: {
+  release: string;
+  code: ImportWait;
+  type: Naming["type"];
+  hold: FilesImportWait | null;
+  nodeName: (id: string) => string | undefined;
+}) {
   const navigate = useNavigate();
+  const { roots } = useListRootsSuspense().data;
+  const root = roots.find(({ id }) => id === hold?.rootId);
+  const named =
+    root === undefined
+      ? "library root"
+      : rootWords(root, roots, type, nodeName(root.nodeId) ?? "a removed Node");
   return (
     <WarningLine
       signal="warn"
       chip="Waiting"
       subject={release}
-      detail={importWaitWords[code]}
+      detail={importWaitWords(code, named, hold?.space ?? null)}
       action={{
         label: "Open Pending imports",
         onClick: () => void navigate({ to: "/library/pending" }),
@@ -145,17 +166,19 @@ const isImportWait = (code: FilesWaitingNeedCode): code is ImportWait =>
  * is offline, or on its Import.
  */
 export function Waiting({
+  type,
   grab,
-  need: { code, clientError },
+  need: { code, clientError, importWait },
 }: {
+  type: Naming["type"];
   grab: GrabsGrab | undefined;
   need: FilesWaitingNeed;
 }) {
   const { nodes } = useListNodesSuspense().data;
   const node = nodes.find(({ id }) => id === grab?.nodeId);
   const release = grab?.releaseTitle ?? "This Work's download";
-  const sendable =
-    grab && sendableWords(grab, code, (nodeId) => nodes.find(({ id }) => id === nodeId)?.name);
+  const nodeName = (nodeId: string) => nodes.find(({ id }) => id === nodeId)?.name;
+  const sendable = grab && sendableWords(grab, code, nodeName);
   if (grab !== undefined && sendable !== undefined) {
     return <SendableWait grab={grab} {...sendable} />;
   }
@@ -163,7 +186,15 @@ export function Waiting({
     return <ClientErrorWait grab={grab} release={release} error={clientError} />;
   }
   if (isImportWait(code)) {
-    return <ImportWaitLine release={release} code={code} />;
+    return (
+      <ImportWaitLine
+        release={release}
+        code={code}
+        type={type}
+        hold={importWait}
+        nodeName={nodeName}
+      />
+    );
   }
   return <NodeWait node={node} release={release} />;
 }

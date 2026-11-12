@@ -3257,6 +3257,31 @@
         ],
         "type": "object"
       },
+      "FilesImportWait": {
+        "additionalProperties": false,
+        "properties": {
+          "rootId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "space": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesSpace"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For no_space, the bytes free and the bytes the file needs; null when a clone found the volume full or for root_not_ready"
+          }
+        },
+        "required": [
+          "rootId",
+          "space"
+        ],
+        "type": "object"
+      },
       "FilesItemStatus": {
         "additionalProperties": false,
         "properties": {
@@ -3910,6 +3935,28 @@
         ],
         "type": "object"
       },
+      "FilesSpace": {
+        "additionalProperties": false,
+        "properties": {
+          "free": {
+            "description": "Bytes free on the root's volume above its Storage error level",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "needs": {
+            "description": "Bytes the file needs",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "free",
+          "needs"
+        ],
+        "type": "object"
+      },
       "FilesState": {
         "enum": [
           "failed",
@@ -4289,6 +4336,17 @@
             "format": "uuid",
             "type": "string"
           },
+          "importWait": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesImportWait"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The root the Import waits on, for no_space and root_not_ready; null otherwise"
+          },
           "kind": {
             "enum": [
               "waiting"
@@ -4300,7 +4358,8 @@
           "kind",
           "grabId",
           "code",
-          "clientError"
+          "clientError",
+          "importWait"
         ],
         "type": "object"
       },
@@ -6329,6 +6388,7 @@
               "size_below",
               "size_above",
               "score_below_minimum",
+              "not_an_upgrade",
               "repack_other_group"
             ],
             "type": "string"
@@ -7003,11 +7063,10 @@
             "type": "string"
           },
           "code": {
-            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
+            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
             "enum": [
               "wrong_work",
               "wrong_item",
-              "covers_more",
               "wrong_title",
               "cut_not_wanted",
               "quality_not_in_target",
@@ -7027,12 +7086,12 @@
             "type": "boolean"
           },
           "targetId": {
-            "description": "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
+            "description": "The Target whose verdict it is, absent for wrong_work, wrong_item and wrong_title",
             "format": "uuid",
             "type": "string"
           },
           "value": {
-            "description": "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
+            "description": "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
             "type": "string"
           }
         },
@@ -7442,11 +7501,10 @@
             "type": "string"
           },
           "code": {
-            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
+            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
             "enum": [
               "wrong_work",
               "wrong_item",
-              "covers_more",
               "wrong_title",
               "cut_not_wanted",
               "quality_not_in_target",
@@ -7466,12 +7524,12 @@
             "type": "boolean"
           },
           "targetId": {
-            "description": "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
+            "description": "The Target whose verdict it is, absent for wrong_work, wrong_item and wrong_title",
             "format": "uuid",
             "type": "string"
           },
           "value": {
-            "description": "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
+            "description": "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
             "type": "string"
           },
           "words": {
@@ -16886,7 +16944,7 @@
             "description": "Every download at once; torrents.live keeps it current"
           },
           "pendingImports": {
-            "description": "The pending imports that aren't ignored",
+            "description": "The Imports, of any source, with a file waiting for the Admin, ignored ones aside",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -37906,6 +37964,7 @@
                         "code": {
                           "enum": [
                             "import_not_offered",
+                            "reconciling",
                             "worker_node"
                           ],
                           "type": "string"
@@ -37969,31 +38028,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "import_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -38006,7 +38040,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Confirm, retry, decline, force or match one file of an Import",
+        "summary": "Confirm, retry, decline, force or match one file of an Import, or put its download's Release on the Blocklist",
         "tags": [
           "imports"
         ],

@@ -234,16 +234,30 @@ func TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns(t *testing.T) {
 	})
 }
 
-// unreadableFirst fails the first Grab's Import unreadable: ffprobe
-// can't read the release's file twice, then reads it.
-func unreadableFirst() sim.Option {
+// heldFirst holds the first Grab's file for the Admin: its probe times out
+// three times, then reads.
+func heldFirst() sim.Option {
 	probes := simtest.NewProbes()
-	probes.Play(release+".mkv", simtest.ProbeUnreadable, simtest.ProbeUnreadable)
+	probes.Play(release+".mkv", simtest.ProbeTimeout, simtest.ProbeTimeout, simtest.ProbeTimeout)
 	return probes.Option()
 }
 
+// declineFirst answers Don't import on the first Grab's held file once its
+// hold offers it, so the Grab fails declined, nothing is blocklisted and
+// its torrent keeps seeding, and returns the Grab.
+func declineFirst(t *testing.T, w *sim.World) simtest.GrabView {
+	t.Helper()
+	simtest.Eventually(t, "the first Grab's file offers Don't import", func() bool {
+		ims := grabImports(t, w)
+		return len(ims) == 1 && w.API().Admin("home", http.MethodPost, "/api/v1/imports/"+ims[0].ID+"/files/0", `{"action":"decline"}`).Status == http.StatusOK
+	})
+	first := simtest.Await(t, w)
+	expectFailed(t, first, "importing", "declined", "The Admin declined every file of the download.")
+	return first
+}
+
 // TestANewGrabAttachesToTheTorrentADrainingSeedboxSeeds fails seedbox's
-// first Grab's Import unreadable, so its torrent keeps seeding, then unticks
+// first Grab's Import declined, so its torrent keeps seeding, then unticks
 // Downloading on seedbox: seedbox drains. The next search's Grab is
 // fetched through seedbox, which still searches, and though the router
 // picks home, it attaches to the Torrent seedbox already holds instead of
@@ -252,11 +266,10 @@ func TestANewGrabAttachesToTheTorrentADrainingSeedboxSeeds(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		box := &engines{}
-		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), unreadableFirst(), simtest.OnSeedbox(func(e *node.Env) { e.Engine = box.wrap(e.Engine) }))
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), heldFirst(), simtest.OnSeedbox(func(e *node.Env) { e.Engine = box.wrap(e.Engine) }))
 		work := simtest.AddOrchard(t, w)
 		simtest.Search(t, w, work)
-		first := simtest.Await(t, w)
-		expectFailed(t, first, "importing", "unreadable", "SlipStream can't read any video file in the download.")
+		first := declineFirst(t, w)
 		a := w.API()
 		box1 := seedbox(t, a)
 		var home string

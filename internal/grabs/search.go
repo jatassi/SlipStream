@@ -7,6 +7,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/formats"
@@ -352,7 +353,7 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, a
 		return nil, err
 	}
 	finished := storage.Now()
-	grab, pick, err := gr.take(ctx, tx, run, d.picks(c), nil, finished)
+	grab, pick, err := gr.take(ctx, tx, run, d, c, nil, finished)
 	if err != nil {
 		return nil, err
 	}
@@ -391,30 +392,84 @@ func sight(ctx context.Context, tx *storage.Tx[file], as []assessed) error {
 	return nil
 }
 
-// decision judges as at run's Item's open cells: the Decision, and the
-// cells it judged them at.
+// decision judges as at run's Item's open cells, each against its
+// Item's own files: the Decision, and the cells it judged them at, with
+// the open cells of the Work's other Items a pick may hold.
 func (gr *Grabs) decision(ctx context.Context, r storage.Reader[file], run Search, as []assessed) (Decision, cells, error) {
 	open, err := gr.openCells(ctx, r, run.WorkID)
 	if err != nil {
 		return Decision{}, cells{}, err
 	}
-	var c cells
+	unfinished, err := unfinishedOf(ctx, r, run.WorkID)
+	if err != nil {
+		return Decision{}, cells{}, err
+	}
+	c := cells{wanted: map[works.ItemID]bool{}, chosen: takenBy{hashes: map[bencode.InfoHash]bool{}}}
 	for _, cell := range open {
+		c.wanted[cell.Item.ID] = true
 		if cell.Item.ID == run.ItemID {
 			c.open = append(c.open, cell)
+		} else {
+			c.others = append(c.others, cell)
+		}
+	}
+	for _, g := range unfinished {
+		if h := g.infoHash(); h != nil && g.joinable() {
+			c.chosen.hashes[*h] = true
 		}
 	}
 	return decide(c, as), c, nil
 }
 
-// take grabs what choose takes of picks with Indexers.Take, and returns
-// the Grab and the pick at the position taken. With none taken the Grab is
-// nil and the position -1: an Indexer that is stopped, at its grab limit
-// or deleted would make the Grab wait for the Admin. It skips the
-// positions gone, which an earlier Grab of the run took.
-func (gr *Grabs) take(ctx context.Context, tx *storage.Tx[file], run Search, picks []Pick, gone map[int]bool, now storage.Time) (*Grab, Pick, error) {
-	p, t, ok, err := choose(picks, gone, func(r indexers.Release) (indexers.Ticket, error) {
-		return gr.cfg.Indexers.Take(ctx, tx, r)
+// unfinishedOf is work's unfinished Grabs, read in r, oldest first.
+func unfinishedOf(ctx context.Context, r storage.Reader[file], work works.WorkID) ([]Grab, error) {
+	rows, err := db.New(r).ListOpenGrabsOfWork(ctx, work)
+	if err != nil {
+		return nil, err
+	}
+	return loadAll(ctx, r, rows)
+}
+
+// joinable reports whether a decision that picks g's Release adds its
+// cells to g: while g fetches or downloads. Past downloading its Import
+// has decided.
+func (g Grab) joinable() bool { return g.Stage == Fetching || g.Stage == Downloading }
+
+// take grabs what choose takes of d's picks with Indexers.Take, and
+// returns the Grab and the pick at the position taken. The Grab holds
+// the pick's cells and every open cell of the other Items it covers where
+// it ranks first. A pick whose info hash an unfinished Grab of the Work
+// holds joins that Grab while it fetches or downloads, and is passed over
+// after. With none taken the Grab is nil and the position -1: an Indexer
+// that is stopped, at its grab limit or deleted would make the Grab wait
+// for the Admin. It skips the positions gone, which an earlier Grab of
+// the run took.
+func (gr *Grabs) take(ctx context.Context, tx *storage.Tx[file], run Search, d Decision, c cells, gone map[int]bool, now storage.Time) (*Grab, Pick, error) {
+	unfinished, err := unfinishedOf(ctx, tx, run.WorkID)
+	if err != nil {
+		return nil, Pick{}, err
+	}
+	held := map[bencode.InfoHash]Grab{}
+	for _, g := range unfinished {
+		if h := g.infoHash(); h != nil {
+			held[*h] = g
+		}
+	}
+	var joined *Grab
+	p, t, ok, err := choose(d.picks(c), gone, func(r indexers.Release) (indexers.Ticket, error) {
+		joined = nil
+		if r.InfoHash == nil {
+			return gr.cfg.Indexers.Take(ctx, tx, r)
+		}
+		g, ok := held[*r.InfoHash]
+		if !ok {
+			return gr.cfg.Indexers.Take(ctx, tx, r)
+		}
+		if !g.joinable() {
+			return indexers.Ticket{}, &indexers.NotTakenError{}
+		}
+		joined = &g
+		return g.Ticket, nil
 	})
 	if err != nil {
 		return nil, Pick{}, err
@@ -422,8 +477,49 @@ func (gr *Grabs) take(ctx context.Context, tx *storage.Tx[file], run Search, pic
 	if !ok {
 		return nil, Pick{at: -1}, nil
 	}
-	g, err := gr.insertGrab(ctx, tx, newGrab{work: run.WorkID, item: run.ItemID, pick: p, ticket: t, source: FromSearch}, now)
+	j := d.Ranked[slices.IndexFunc(d.Ranked, func(j judged) bool {
+		return slices.ContainsFunc(j.offers(), func(o judged) bool { return o.at == p.at })
+	})]
+	also := packCells(c, slices.Concat(d.Ranked, d.Refused), p)
+	if joined != nil {
+		g, err := gr.join(ctx, tx, *joined, p, run.ItemID, also)
+		return &g, p, err
+	}
+	n := newGrab{work: run.WorkID, item: run.ItemID, items: j.covers, also: also, pick: p, ticket: t, source: FromSearch}
+	g, err := gr.insertGrab(ctx, tx, n, now)
 	return &g, p, err
+}
+
+// join adds p's cells at item and the cells also to g, a Grab of p's
+// Release, as the Grab of the run that picked it.
+func (gr *Grabs) join(ctx context.Context, tx *storage.Tx[file], g Grab, p Pick, item works.ItemID, also []files.CellKey) (Grab, error) {
+	q := db.New(tx)
+	for _, k := range slices.Concat(cellsOf(item, p), also) {
+		if slices.ContainsFunc(g.Targets, func(c Cell) bool { return c.Key.Item == k.Item && c.Key.Target == k.Target }) {
+			continue
+		}
+		if !slices.Contains(g.Items, k.Item) {
+			if err := q.InsertGrabItem(ctx, db.InsertGrabItemParams{GrabID: g.ID, ItemID: k.Item, Position: int64(len(g.Items))}); err != nil {
+				return Grab{}, err
+			}
+			g.Items = append(g.Items, k.Item)
+		}
+		c := Cell{Key: files.CellKey{Item: k.Item, Edition: g.Edition, Target: k.Target}}
+		if err := q.InsertTarget(ctx, db.InsertTargetParams{GrabID: g.ID, Position: int64(len(g.Targets)), ItemID: k.Item, TargetID: k.Target}); err != nil {
+			return Grab{}, err
+		}
+		g.Targets = append(g.Targets, c)
+	}
+	return g, nil
+}
+
+// cellsOf is p's cells at item.
+func cellsOf(item works.ItemID, p Pick) []files.CellKey {
+	out := make([]files.CellKey, len(p.Targets))
+	for i, t := range p.Targets {
+		out[i] = files.CellKey{Item: item, Edition: p.Edition, Target: t}
+	}
+	return out
 }
 
 // releaseKey is what a sighting keys it by: its info hash in hex, else its
@@ -446,8 +542,13 @@ func (gr *Grabs) searchWaits(ctx context.Context, run Search, err error) result 
 // newGrab is what insertGrab writes: a search's pick, or an Admin's from
 // a Manual search with its record.
 type newGrab struct {
-	work      works.WorkID
-	item      works.ItemID
+	work works.WorkID
+	item works.ItemID
+	// items is every Item the pick's Release covers, and also the cells of
+	// the other Items it holds, for an automatic run's pick. A Manual pick
+	// holds its searched Item alone.
+	items     []works.ItemID
+	also      []files.CellKey
 	pick      Pick
 	ticket    indexers.Ticket
 	source    Source
@@ -464,12 +565,15 @@ func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], n newGrab
 	q := db.New(tx)
 	r, t := n.pick.Release, n.ticket
 	g := Grab{
-		ID: GrabID{UUID: storage.NewUUID()}, WorkID: n.work, ItemID: n.item, Items: []works.ItemID{n.item}, Edition: n.pick.Edition,
+		ID: GrabID{UUID: storage.NewUUID()}, WorkID: n.work, ItemID: n.item, Items: n.items, Edition: n.pick.Edition,
 		Release: Release{Title: r.Title, Size: r.Size, InfoHash: r.InfoHash}, Ticket: t, Stage: Fetching, Created: now.Time(),
 		Source: n.source, Manual: n.manual, By: n.by, Overrides: n.overrides, Sent: n.sent,
 	}
-	for _, target := range n.pick.Targets {
-		g.Targets = append(g.Targets, Cell{Key: files.CellKey{Item: n.item, Edition: n.pick.Edition, Target: target}})
+	if len(g.Items) == 0 {
+		g.Items = []works.ItemID{n.item}
+	}
+	for _, k := range slices.Concat(cellsOf(n.item, n.pick), n.also) {
+		g.Targets = append(g.Targets, Cell{Key: k})
 	}
 	idx, err := indexers.Get(ctx, tx, t.Indexer)
 	if err != nil {

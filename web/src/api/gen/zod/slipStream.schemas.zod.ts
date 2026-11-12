@@ -1932,6 +1932,31 @@ export const FilesClientError = zod.object({
 export type FilesClientError = zod.input<typeof FilesClientError>;
 export type FilesClientErrorOutput = zod.output<typeof FilesClientError>;
 
+export const filesSpaceFreeMin = 0;
+
+export const FilesSpace = zod.object({
+  free: zod
+    .int()
+    .min(filesSpaceFreeMin)
+    .describe("Bytes free on the root's volume above its Storage error level"),
+  needs: zod.int().min(1).describe("Bytes the file needs"),
+});
+
+export type FilesSpace = zod.input<typeof FilesSpace>;
+export type FilesSpaceOutput = zod.output<typeof FilesSpace>;
+
+export const FilesImportWait = zod.object({
+  rootId: zod.uuid(),
+  space: zod
+    .union([FilesSpace, zod.null()])
+    .describe(
+      "For no_space, the bytes free and the bytes the file needs; null when a clone found the volume full or for root_not_ready",
+    ),
+});
+
+export type FilesImportWait = zod.input<typeof FilesImportWait>;
+export type FilesImportWaitOutput = zod.output<typeof FilesImportWait>;
+
 export const FilesWaitingNeed = zod.object({
   clientError: zod
     .union([FilesClientError, zod.null()])
@@ -1950,6 +1975,9 @@ export const FilesWaitingNeed = zod.object({
       "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't hold Downloading. no_space while its root has too little free space for a file, root_not_ready while its root isn't ready, probe_timeout while reading a file timed out three times, and client_error while its external client reports an error",
     ),
   grabId: zod.uuid(),
+  importWait: zod
+    .union([FilesImportWait, zod.null()])
+    .describe("The root the Import waits on, for no_space and root_not_ready; null otherwise"),
   kind: zod.enum(["waiting"]),
 });
 
@@ -2766,7 +2794,6 @@ export const GrabsWordedReason = zod.object({
     .enum([
       "wrong_work",
       "wrong_item",
-      "covers_more",
       "wrong_title",
       "cut_not_wanted",
       "quality_not_in_target",
@@ -2780,7 +2807,7 @@ export const GrabsWordedReason = zod.object({
       "blocklisted",
     ])
     .describe(
-      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
     ),
   soft: zod
     .boolean()
@@ -2790,14 +2817,12 @@ export const GrabsWordedReason = zod.object({
   targetId: zod
     .uuid()
     .exactOptional()
-    .describe(
-      "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
-    ),
+    .describe("The Target whose verdict it is, absent for wrong_work, wrong_item and wrong_title"),
   value: zod
     .string()
     .exactOptional()
     .describe(
-      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
+      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
     ),
   words: zod.string().describe("The reason as a sentence"),
 });
@@ -2951,6 +2976,7 @@ export const GrabsLiftKey = zod.object({
     "size_below",
     "size_above",
     "score_below_minimum",
+    "not_an_upgrade",
     "repack_other_group",
   ]),
   targetId: zod.uuid().exactOptional().describe("Absent for wrong_title"),
@@ -3813,7 +3839,6 @@ export const GrabsReason = zod.object({
     .enum([
       "wrong_work",
       "wrong_item",
-      "covers_more",
       "wrong_title",
       "cut_not_wanted",
       "quality_not_in_target",
@@ -3827,7 +3852,7 @@ export const GrabsReason = zod.object({
       "blocklisted",
     ])
     .describe(
-      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
     ),
   soft: zod
     .boolean()
@@ -3837,14 +3862,12 @@ export const GrabsReason = zod.object({
   targetId: zod
     .uuid()
     .exactOptional()
-    .describe(
-      "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
-    ),
+    .describe("The Target whose verdict it is, absent for wrong_work, wrong_item and wrong_title"),
   value: zod
     .string()
     .exactOptional()
     .describe(
-      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
+      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
     ),
 });
 
@@ -8258,7 +8281,7 @@ export const ShellCounts = zod.object({
   pendingImports: zod
     .int()
     .min(shellCountsPendingImportsMin)
-    .describe("The pending imports that aren't ignored"),
+    .describe("The Imports, of any source, with a file waiting for the Admin, ignored ones aside"),
 });
 
 export type ShellCounts = zod.input<typeof ShellCounts>;

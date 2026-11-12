@@ -15,7 +15,7 @@ import (
 // time, as the plan's rows do.
 func TestHeldCellsReadInWantOrder(t *testing.T) {
 	cells := []files.Cell{cell(hd, files.Missing), cell(small, files.Missing), cell(hd, files.Missing), cell(small, files.Missing)}
-	rs := runSheet{planIn: planIn{item: cells}, held: map[int]db.ListCellGrabsOfWorkRow{}}
+	rs := runSheet{run: Search{ItemID: item.ID}, planIn: planIn{item: cells}, held: map[int]db.ListCellGrabsOfWorkRow{}}
 	var want []GrabID
 	for k := range cells {
 		id := GrabID{UUID: storage.NewUUID()}

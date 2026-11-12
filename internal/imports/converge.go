@@ -22,8 +22,10 @@ type after struct {
 	landed []works.WorkID
 	// sent is a Write that may have changed what a Transfer wants.
 	sent bool
-	// followed is what each Grab's Follow changed.
+	// followed is what each Grab's Follow changed, and blocked whether a
+	// Write added to the Blocklist.
 	followed []grabs.Followed
+	blocked  bool
 }
 
 // publish tells the readers what a committed Write changed.
@@ -44,6 +46,9 @@ func (im *Imports) publish(ctx context.Context, a after) {
 	}
 	if len(a.followed) > 0 {
 		im.cfg.Grabs.Followed(ctx, a.followed...)
+	}
+	if a.blocked {
+		im.cfg.Grabs.Blocked(ctx)
 	}
 }
 
@@ -98,21 +103,13 @@ func (im *Imports) converge(ctx context.Context, tx *storage.Tx[file], imp *Impo
 	if err := unbusy(ctx, tx, imp); err != nil {
 		return err
 	}
-	if imp.barrierMet() {
-		if err := im.decide(ctx, tx, imp); err != nil {
-			return err
-		}
+	causes, err := im.decideIfReady(ctx, tx, imp)
+	if err != nil {
+		return err
 	}
 	if imp.Source == FromGrab {
-		rules, err := RulesIn(ctx, tx)
-		if err != nil {
+		if err := im.reportFaults(ctx, tx, imp, causes, a); err != nil {
 			return err
-		}
-		faults(imp, rules)
-		if !imp.Grab.IsZero() {
-			if err := im.follow(ctx, tx, imp, a); err != nil {
-				return err
-			}
 		}
 	}
 	if imp.Source != FromRoot {
@@ -122,6 +119,46 @@ func (im *Imports) converge(ctx context.Context, tx *storage.Tx[file], imp *Impo
 	}
 	finishIfFinal(imp, storage.Now())
 	return nil
+}
+
+// decideIfReady runs the decision once the barrier is met, and answers
+// misdescribed then when a download's probes contradict its title.
+func (im *Imports) decideIfReady(ctx context.Context, tx *storage.Tx[file], imp *Import) ([]grabs.BlockCause, error) {
+	if !imp.barrierMet() {
+		return nil, nil
+	}
+	var causes []grabs.BlockCause
+	if imp.Source == FromGrab {
+		mis, err := im.misdescribed(ctx, tx, *imp)
+		if err != nil {
+			return nil, err
+		}
+		if mis {
+			causes = append(causes, grabs.CauseMisdescribed)
+		}
+	}
+	return causes, im.decide(ctx, tx, imp)
+}
+
+// reportFaults applies a download's release faults, blocklists its Release for
+// causes and a fault that failed it now, and reports to its Grab.
+func (im *Imports) reportFaults(ctx context.Context, tx *storage.Tx[file], imp *Import, causes []grabs.BlockCause, a *after) error {
+	rules, err := RulesIn(ctx, tx)
+	if err != nil {
+		return err
+	}
+	failed := imp.Failure != nil
+	faults(imp, rules)
+	if !failed && imp.Failure != nil {
+		causes = append(causes, faultCauses[*imp.Failure])
+	}
+	if imp.Grab.IsZero() {
+		return nil
+	}
+	if err := im.block(ctx, tx, imp.Grab, causes, a); err != nil {
+		return err
+	}
+	return im.follow(ctx, tx, imp, a)
 }
 
 // barrierMet reports whether the decision may run: the Import has a Work

@@ -106,6 +106,7 @@ export function NeedsYou({
         {waiting.map((need) => (
           <Waiting
             key={need.grabId}
+            type={naming.type}
             grab={grabs.find(({ id }) => id === need.grabId)}
             need={need}
           />

@@ -532,9 +532,9 @@ func Routes(r *api.Router, p Pending) {
 		ID:      "actOnImportFile",
 		Method:  http.MethodPost,
 		Path:    "/imports/{id}/files/{position}",
-		Summary: "Confirm, retry, decline, force or match one file of an Import",
+		Summary: "Confirm, retry, decline, force or match one file of an Import, or put its download's Release on the Blocklist",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{notBuilt, importNotFound, importNotOffered, importItems},
+		Errors:  []*api.Code{importNotFound, importNotOffered, importItems, reconciling},
 	}, h.actOnFile)
 
 	api.Register(o, api.Admin, api.Op{

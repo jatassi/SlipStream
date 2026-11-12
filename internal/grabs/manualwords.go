@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"path"
 	"slices"
 	"strings"
 	"time"
@@ -205,26 +206,104 @@ func namesOf(cs []files.Cell) []string {
 	return out
 }
 
-// gets is what a Grab filling cs, cells of one Item, gets: "It gets you
-// 1080p and 720p for E05.", "It gets you 1080p for Heat (1995) as an
-// upgrade.", "It gets you 1080p for E05, and 720p as an upgrade."
+// gets is what a Grab filling cs gets, its Items' cells alike written
+// together: "It gets you 1080p and 720p for E05.", "It gets you 1080p for
+// Heat (1995) as an upgrade.", "It gets you 1080p for E05, and 720p as an
+// upgrade.", "It gets you 1080p for E01 to E08."
 func (s sheet) gets(cs []files.Cell) string {
-	var fresh, better []files.Cell
+	var items []works.ItemID
+	fresh, better := map[works.ItemID][]files.Cell{}, map[works.ItemID][]files.Cell{}
 	for _, c := range cs {
+		if !slices.Contains(items, c.Item.ID) {
+			items = append(items, c.Item.ID)
+		}
 		if c.File != nil {
-			better = append(better, c)
+			better[c.Item.ID] = append(better[c.Item.ID], c)
 		} else {
-			fresh = append(fresh, c)
+			fresh[c.Item.ID] = append(fresh[c.Item.ID], c)
 		}
 	}
-	item := s.itemsWords([]works.ItemID{cs[0].Item.ID}, false)
-	switch {
-	case len(fresh) == 0:
-		return "It gets you " + joinWords(namesOf(better)) + " for " + item + " as an upgrade."
-	case len(better) == 0:
-		return "It gets you " + joinWords(namesOf(fresh)) + " for " + item + "."
+	freshParts, betterParts := alike(items, fresh), alike(items, better)
+	if len(freshParts) == 1 && len(betterParts) == 1 && slices.Equal(freshParts[0].items, betterParts[0].items) {
+		return "It gets you " + freshParts[0].names + " for " + s.itemsWords(freshParts[0].items, false) + ", and " + betterParts[0].names + " as an upgrade."
 	}
-	return "It gets you " + joinWords(namesOf(fresh)) + " for " + item + ", and " + joinWords(namesOf(better)) + " as an upgrade."
+	var clauses []string
+	for _, p := range freshParts {
+		clauses = append(clauses, p.names+" for "+s.itemsWords(p.items, false))
+	}
+	for _, p := range betterParts {
+		clauses = append(clauses, p.names+" for "+s.itemsWords(p.items, false)+" as an upgrade")
+	}
+	if len(clauses) == 1 {
+		return "It gets you " + clauses[0] + "."
+	}
+	return "It gets you " + strings.Join(clauses[:len(clauses)-1], ", ") + ", and " + clauses[len(clauses)-1] + "."
+}
+
+// namedItems is the Items whose cells a Grab fills by the same names.
+type namedItems struct {
+	names string
+	items []works.ItemID
+}
+
+// alike groups items, in order, by the names of their cells in of,
+// leaving out those with none.
+func alike(items []works.ItemID, of map[works.ItemID][]files.Cell) []namedItems {
+	var out []namedItems
+	for _, it := range items {
+		cs := of[it]
+		if len(cs) == 0 {
+			continue
+		}
+		names := joinWords(namesOf(cs))
+		if i := slices.IndexFunc(out, func(n namedItems) bool { return n.names == names }); i >= 0 {
+			out[i].items = append(out[i].items, it)
+			continue
+		}
+		out = append(out, namedItems{names: names, items: []works.ItemID{it}})
+	}
+	return out
+}
+
+// keeps is what a Grab of as[g] of rs filling cells cs leaves alone,
+// when its Release covers more than one Item: the Items it covers that
+// it fills no cell of and that have a file, "E09 and E10 keep their
+// files." It is "" when there are none.
+func (s sheet) keeps(rs runSheet, g int, cs []int) string {
+	covers := rs.as[g].covers
+	if len(covers) < 2 {
+		return ""
+	}
+	var kept []works.ItemID
+	for _, c := range rs.item {
+		it := c.Item.ID
+		if c.File == nil || !slices.Contains(covers, it) || slices.Contains(kept, it) ||
+			slices.ContainsFunc(cs, func(k int) bool { return rs.item[k].Item.ID == it }) {
+			continue
+		}
+		kept = append(kept, it)
+	}
+	if len(kept) == 0 {
+		return ""
+	}
+	words := s.itemsWords(kept, false)
+	if len(kept) == 1 {
+		return words + " keeps its file."
+	}
+	return words + " keep their files."
+}
+
+// outcome is what a Grab of as[g] of rs filling cells cs gets, and what
+// it leaves alone.
+func (s sheet) outcome(rs runSheet, g int, cs []int) string {
+	fills := make([]files.Cell, len(cs))
+	for i, k := range cs {
+		fills[i] = rs.item[k]
+	}
+	if keeps := s.keeps(rs, g, cs); keeps != "" {
+		return s.gets(fills) + " " + keeps
+	}
+	return s.gets(fills)
 }
 
 // gapWords is a gap's cells in words, all of one state and one Target:
@@ -276,11 +355,11 @@ func (rs runSheet) causeAt(w int, gap planned) string {
 func (s sheet) plan() (ManualPlan, []Pin, error) {
 	var p ManualPlan
 	var pins []Pin
-	walked, filled, grabs := 0, 0, 0
+	filled, grabs := 0, 0
 	var unfound []string
 	gaps := map[gapKey]int{}
+	walks := s.walks()
 	for _, rs := range s.runs {
-		walked += len(rs.walk)
 		pins = append(pins, rs.livePins()...)
 		p.Held = append(p.Held, s.heldIn(rs)...)
 		for i, r := range rs.rows {
@@ -296,7 +375,7 @@ func (s sheet) plan() (ManualPlan, []Pin, error) {
 				gaps[key] = len(p.Rows)
 			} else {
 				grabs++
-				filled += rs.walked(r.cells)
+				filled += rs.walked(r.cells, walks)
 			}
 			row, err := s.row(rs, r, cause, rs.freeBefore(i))
 			if err != nil {
@@ -315,8 +394,32 @@ func (s sheet) plan() (ManualPlan, []Pin, error) {
 			unfound = append(unfound, n)
 		}
 	}
-	p.Headline = headline(walked, filled, grabs, len(p.Held), unfound)
+	p.Headline = headline(len(walks), filled, grabs, len(p.Held), unfound)
 	return p, pins, nil
+}
+
+// walks is every cell a run's plan walks.
+func (s sheet) walks() map[files.CellKey]bool {
+	out := map[files.CellKey]bool{}
+	for _, rs := range s.runs {
+		for _, k := range rs.walk {
+			out[keyOf(rs.item[k])] = true
+		}
+	}
+	return out
+}
+
+// walked counts the cells of cs that walks holds. A row may fill more
+// cells than the plan walks: other Targets of a cell's Manual search,
+// and a pack's cells outside the scope.
+func (rs runSheet) walked(cs []int, walks map[files.CellKey]bool) int {
+	n := 0
+	for _, k := range cs {
+		if walks[keyOf(rs.item[k])] {
+			n++
+		}
+	}
+	return n
 }
 
 // gapKey is what the plan merges gaps by: cells of one state and one
@@ -328,9 +431,9 @@ type gapKey struct {
 }
 
 // freeBefore is whether each cell is one a row may fill that no row of
-// rs before row i fills.
+// rs before row i fills, nor any row of an earlier run.
 func (rs runSheet) freeBefore(i int) func(int) bool {
-	taken := make([]bool, len(rs.item))
+	taken := slices.Clone(rs.before)
 	for _, r := range rs.rows[:i] {
 		for _, k := range r.cells {
 			taken[k] = true
@@ -348,13 +451,14 @@ func (rs runSheet) livePins() []Pin {
 	return out
 }
 
-// heldIn is each cell of rs in scope that an unfinished Grab holds, in
-// Want order.
+// heldIn is each cell of rs's Item in scope that an unfinished Grab
+// holds, in Want order.
 func (s sheet) heldIn(rs runSheet) []HeldCell {
 	var out []HeldCell
 	for _, k := range slices.Sorted(maps.Keys(rs.held)) {
-		if s.in.cell == nil || *s.in.cell == keyOf(rs.item[k]) {
-			out = append(out, s.heldCell(rs.item[k], rs.held[k]))
+		c := rs.item[k]
+		if c.Item.ID == rs.run.ItemID && (s.in.cell == nil || *s.in.cell == keyOf(c)) {
+			out = append(out, s.heldCell(c, rs.held[k]))
 		}
 	}
 	return out
@@ -371,7 +475,7 @@ func (s sheet) row(rs runSheet, r planned, cause string, free func(int) bool) (R
 		row.Cells = append(row.Cells, keyOf(cs[i]))
 	}
 	if r.group >= 0 {
-		row.Outcome = s.gets(cs)
+		row.Outcome = s.outcome(rs, r.group, r.cells)
 		row.Pick = &PlanPick{
 			Release: s.details(rs, r.group), Lifts: rs.worded(r.stance.lifts, r.group), Edition: s.override(rs, r.group, lead, r.stance),
 			Routed: s.in.routed[r.pick.Release.Indexer],
@@ -415,18 +519,6 @@ func headline(walked, filled, grabs, held int, unfound []string) string {
 	return fmt.Sprintf("%s you %d of the %d files you're missing. %s", n, filled, walked, missing())
 }
 
-// walked counts the cells of cs the plan walks. A row may fill more cells
-// of its Item than a cell's Manual search walks.
-func (rs runSheet) walked(cs []int) int {
-	n := 0
-	for _, k := range cs {
-		if slices.Contains(rs.walk, k) {
-			n++
-		}
-	}
-	return n
-}
-
 // plural is one when n is 1, else many with n.
 func plural(n int, one, many string) string {
 	if n == 1 {
@@ -453,8 +545,28 @@ func (rs runSheet) worded(reasons []Reason, g int) []Worded {
 	out := make([]Worded, len(reasons))
 	for i, r := range reasons {
 		out[i] = Worded{Reason: r, Words: reasonWords(r, rs.targetOf(r.Target), rs.as[g].read.Facts)}
+		if r.Code == targets.NotAnUpgrade {
+			out[i].Words = rs.replaces(r, g)
+		}
 	}
 	return out
+}
+
+// replaces is a not_an_upgrade lift of as[g] in words, naming the file
+// a Grab of it replaces: "It isn't better than Heat (1995).mkv, the file
+// at 1080p. Grabbing it replaces that file."
+func (rs runSheet) replaces(r Reason, g int) string {
+	var held []files.Cell
+	for k, c := range rs.item {
+		if c.File != nil && slices.Contains(rs.st[g][k].lifts, r) {
+			held = append(held, c)
+		}
+	}
+	name := cellName(held[0])
+	if len(held) == 1 {
+		return "It isn't better than " + path.Base(held[0].File.Path) + ", the file at " + name + ". Grabbing it replaces that file."
+	}
+	return "It isn't better than the files at " + name + " it would fill. Grabbing it replaces them."
 }
 
 // override is the Edition override of as[g] standing st at cell k, nil
@@ -463,7 +575,7 @@ func (s sheet) override(rs runSheet, g, k int, st stance) *EditionOverride {
 	if st.edition == "" {
 		return nil
 	}
-	return &EditionOverride{Edition: st.edition, Words: "Its name gives the " + editionWords(s.cutName(rs.js[g].verdicts[k].cut)) + ", which the Work doesn't want. " +
+	return &EditionOverride{Edition: st.edition, Words: "Its name gives the " + editionWords(s.cutName(rs.js[g].verdictOf(k).cut)) + ", which the Work doesn't want. " +
 		"It's grabbed as the " + editionWords(s.cutName(release.CutKey(st.edition))) + "."}
 }
 
@@ -561,15 +673,25 @@ func (rs runSheet) verdicts(g int) []string {
 		}
 		return []string{wordsOf(rs.worded(hard, g))}
 	}
+	var own []int
+	for k, c := range rs.item {
+		if c.Item.ID == rs.run.ItemID {
+			own = append(own, k)
+		}
+	}
 	var seen []targets.TargetID
 	var out []string
-	for k, c := range rs.item {
+	for _, k := range own {
+		c := rs.item[k]
 		if slices.Contains(seen, c.Target.ID) {
 			continue
 		}
-		at := slices.IndexFunc(rs.item, func(o files.Cell) bool { return o.Target.ID == c.Target.ID && j.verdicts[keyIndex(rs.item, o)].wanted })
-		if at < 0 {
-			at = k
+		at := k
+		for _, o := range own {
+			if rs.item[o].Target.ID == c.Target.ID && j.verdictOf(o).wanted {
+				at = o
+				break
+			}
 		}
 		seen = append(seen, c.Target.ID)
 		out = append(out, rs.verdictAt(g, at))
@@ -577,13 +699,9 @@ func (rs runSheet) verdicts(g int) []string {
 	return out
 }
 
-func keyIndex(cs []files.Cell, c files.Cell) int {
-	return slices.IndexFunc(cs, func(o files.Cell) bool { return keyOf(o) == keyOf(c) })
-}
-
 // verdictAt is as[g]'s verdict at cell k in a sentence.
 func (rs runSheet) verdictAt(g, k int) string {
-	c, st, v := rs.item[k], rs.st[g][k], rs.js[g].verdicts[k]
+	c, st, v := rs.item[k], rs.st[g][k], rs.js[g].verdictOf(k)
 	name := cellName(c)
 	switch {
 	case st.kind == standsAuto || st.kind == standsBlocked && len(st.lifts) == 0 && st.edition == "":
@@ -713,7 +831,7 @@ func (rs runSheet) foldedWhy(g int) (foldKey, bool) {
 	if a.blocked() || slices.ContainsFunc(sts, func(st stance) bool { return st.kind == standsBlocked }) {
 		return foldKey{code: targets.Blocklisted}, true
 	}
-	if i := slices.IndexFunc(a.refusals, func(r Reason) bool { return r.Code.Hard() || r.Code == targets.CoversMore }); i >= 0 {
+	if i := slices.IndexFunc(a.refusals, func(r Reason) bool { return r.Code.Hard() }); i >= 0 {
 		return foldKey{code: a.refusals[i].Code}, true
 	}
 	return rs.foldedAt(a, sts), true
@@ -726,7 +844,7 @@ func (rs runSheet) foldedWhy(g int) (foldKey, bool) {
 func (rs runSheet) foldedAt(a assessed, sts []stance) foldKey {
 	accepted, held := len(sts) == 0, false
 	for k, st := range sts {
-		if slices.ContainsFunc(st.why, func(r Reason) bool { return r.Code == targets.QualityNotInTarget }) {
+		if st.kind == standsRefused && len(st.why) == 0 || slices.ContainsFunc(st.why, func(r Reason) bool { return r.Code == targets.QualityNotInTarget }) {
 			continue
 		}
 		if len(st.why) > 0 {
@@ -784,8 +902,6 @@ func (s sheet) foldWords(key foldKey, n int) string {
 		return plural(n, "1 names", "%d name") + " another Work."
 	case targets.WrongItem:
 		return plural(n, "1 names", "%d name") + " another " + item + "."
-	case targets.CoversMore:
-		return plural(n, "1 is a pack", "%d are packs") + " of more than one " + item + ", and SlipStream can't import packs yet."
 	case targets.FilterFailed:
 		return plural(n, "1 fails", "%d fail") + " a filter of every Target here."
 	case targets.NotAnUpgrade:
@@ -907,15 +1023,22 @@ func (s sheet) skippedWords(o *indexers.Outcome) string {
 	return line + "."
 }
 
-// offers is every Release of the sheet, one per group of copies: each
+// offers is every Release of the sheet, one per group of copies and once
+// across runs, as a pack is listed in the run of each of its Items: each
 // run's in rank order at the first cell it stands at, then those that
 // stand at none, run by run.
 func (s sheet) offers() []Offer {
 	var ranked, rest []Offer
+	seen := map[listingKey]bool{}
 	for _, rs := range s.runs {
 		var js []judged
 		at := map[int]int{}
 		for g := range rs.as {
+			same := sameOf(rs.as[g].Release)
+			if seen[same] {
+				continue
+			}
+			seen[same] = true
 			f := rs.standsFirst(g)
 			if f < 0 {
 				rest = append(rest, s.offer(rs, g, -1))
@@ -944,12 +1067,12 @@ func (s sheet) offer(rs runSheet, g, f int) Offer {
 		o.Grab.Refusal = s.refusal(rs, g)
 		return o
 	}
-	v := rs.js[g].verdicts[f]
+	v := rs.js[g].verdictOf(f)
 	o.Score = v.v.Score()
 	if rank, ok := v.v.Rank(); ok {
 		o.Quality = len(rs.item[f].Target.Tiers) - int(rank)
 	}
-	var fills []files.Cell
+	var fills []int
 	if w := rs.standsOpen(g); w >= 0 {
 		cells, st := rs.fills(g, w, rs.open)
 		o.Grab.Cells, o.Grab.Lifts, o.Grab.Edition = rs.keys(cells), rs.worded(st.lifts, g), s.override(rs, g, w, st)
@@ -957,12 +1080,12 @@ func (s sheet) offer(rs runSheet, g, f int) Offer {
 			if h, ok := rs.held[k]; ok {
 				o.Grab.Cancels = append(o.Grab.Cancels, s.heldCell(rs.item[k], h))
 			} else {
-				fills = append(fills, rs.item[k])
+				fills = append(fills, k)
 			}
 		}
 	}
 	if len(fills) > 0 {
-		o.Grab.Outcome = s.gets(fills)
+		o.Grab.Outcome = s.outcome(rs, g, fills)
 	}
 	_, ok, _ := rs.offer(g, f)
 	if !ok {
@@ -975,13 +1098,10 @@ func (s sheet) offer(rs runSheet, g, f int) Offer {
 	return o
 }
 
-// refusal is why as[g] can't be grabbed at any cell of its Item: "It's a
-// pack of more than one episode, and SlipStream can't import packs yet."
+// refusal is why as[g] can't be grabbed at any cell of its Item: "It
+// isn't better than the file you have."
 func (s sheet) refusal(rs runSheet, g int) string {
 	for _, r := range rs.as[g].refusals {
-		if r.Code == targets.CoversMore {
-			return "It's a pack of more than one " + strings.ToLower(s.in.nouns.Item.One) + ", and SlipStream can't import packs yet."
-		}
 		if r.Code.Hard() {
 			return wordsOf(rs.worded([]Reason{r}, g))
 		}

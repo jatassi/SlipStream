@@ -52,6 +52,15 @@ func (q *Queries) CountKeptOfManual(ctx context.Context, manualID ManualID) ([]C
 	return items, nil
 }
 
+const deleteCellsOfGrab = `-- name: DeleteCellsOfGrab :exec
+DELETE FROM grabs_target WHERE grab_id = ?1
+`
+
+func (q *Queries) DeleteCellsOfGrab(ctx context.Context, grabID GrabID) error {
+	_, err := q.db.ExecContext(ctx, deleteCellsOfGrab, grabID)
+	return err
+}
+
 const deleteManual = `-- name: DeleteManual :exec
 DELETE FROM grabs_manual WHERE id = ?1
 `

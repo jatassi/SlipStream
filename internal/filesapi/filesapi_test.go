@@ -133,6 +133,10 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		ClientError: &files.ClientError{Client: "Transmission", Node: "Seedbox", Message: "No data found!", FailsAt: failsAt},
 	}
 	inflight.cells[files.CellKey{Item: tree.Items[0].ID, Edition: targets.AnyEdition, Target: uhd.ID}] = files.GrabCell{State: files.GrabFailed, Grab: failed}
+	full, held := storage.NewUUID(), roots.ID{UUID: storage.NewUUID()}
+	inflight.cells[files.CellKey{Item: tree.Items[0].ID, Edition: targets.AnyEdition, Target: small.ID}] = files.GrabCell{
+		State: files.GrabInFlight, Grab: full, Waiting: "no_space", Hold: &files.ImportHold{Root: held, Free: 12 << 30, Needs: 48 << 30},
+	}
 	code, body = s.Call(t, http.MethodGet, "/api/v1/works/"+tree.ID.String()+"/cells", "")
 	want = `{"itemId":"` + scarf + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"downloading","grabId":"` + upgrade.String() + `",` + file + `,"step":null,"from":null,"until":null},` +
 		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"state":"failed","grabId":"` + failed.String() + `","file":null},`
@@ -140,9 +144,14 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		t.Fatalf("getWorkCells with an upgrade in flight and a failed Grab = %d\n%s\nwant it to hold\n%s", code, body, want)
 	}
 	waiting := `{"kind":"waiting","grabId":"` + upgrade.String() + `","code":"client_error",` +
-		`"clientError":{"client":"Transmission","node":"Seedbox","message":"No data found!","failsAt":"2026-11-12T16:10:00Z"}}`
+		`"clientError":{"client":"Transmission","node":"Seedbox","message":"No data found!","failsAt":"2026-11-12T16:10:00Z"},"importWait":null}`
 	if !strings.Contains(body, waiting) {
 		t.Errorf("getWorkCells with a Grab waiting on its client's error = %s\nwant its Needs you to hold\n%s", body, waiting)
+	}
+	noSpace := `{"kind":"waiting","grabId":"` + full.String() + `","code":"no_space","clientError":null,` +
+		`"importWait":{"rootId":"` + held.String() + `","space":{"free":12884901888,"needs":51539607552}}}`
+	if !strings.Contains(body, noSpace) {
+		t.Errorf("getWorkCells with an Import waiting for space = %s\nwant its Needs you to hold\n%s", body, noSpace)
 	}
 	empty := must[targets.Profile](t)(goals.CreateProfile(ctx, admin, targets.ProfileSpec{Name: "Empty", ContentType: contenttypetest.ID}))
 	fx.Put("w2", contenttypetest.Record{Tree: works.Fetched{Label: "The Cellar", Children: []works.Entry{{Key: "b1", Label: "Top", Children: []works.Entry{{Key: "c1", Label: "Jar"}}}}}})

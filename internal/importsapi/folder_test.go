@@ -10,19 +10,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-func TestUnbuiltOperationsAnswer501(t *testing.T) {
-	s := serve(t)
-	id := storage.NewUUID().String()
-	for _, op := range []struct{ method, path, body string }{
-		{http.MethodPost, "/imports/" + id + "/files/0", `{"action":"notThisRelease"}`},
-	} {
-		code, reply := s.Call(t, op.method, "/api/v1"+op.path, op.body)
-		if code != http.StatusNotImplemented || !strings.Contains(reply, `"code":"import_not_built"`) {
-			t.Errorf("%s %s = %d %s, want 501 import_not_built until its lane builds it", op.method, op.path, code, reply)
-		}
-	}
-}
-
 func TestListImportsPagesThroughTheWaitingImports(t *testing.T) {
 	s := serve(t)
 	for _, folder := range []string{"Alien (1979)", "Brazil (1985)", "Heat (1995)"} {

@@ -240,3 +240,11 @@ DELETE FROM files_file WHERE root_id = sqlc.arg(root_id) AND path = sqlc.arg(pat
 
 -- name: ListPaths :many
 SELECT path FROM files_file ORDER BY id;
+
+-- name: ListPutBack :many
+-- Each live file that sits in its root's holding folder with no move
+-- queued: a fresh import the disk queue put back.
+SELECT f.id, f.work_id, f.root_id, f.path FROM files_file f
+WHERE f.gone_at IS NULL AND substr(f.path, 1, length(sqlc.arg(holding))) = sqlc.arg(holding)
+  AND NOT EXISTS (SELECT 1 FROM files_move m WHERE m.file_id = f.id)
+ORDER BY f.root_id, f.id;

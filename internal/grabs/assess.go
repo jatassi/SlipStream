@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/release"
@@ -144,7 +145,7 @@ func (j judging) runtimeOf(items []works.ItemID) release.Fact[time.Duration] {
 
 // refusals is a's own refusals: an id that names another Work alone, else
 // a title or year that doesn't match the Work, then a name that covers
-// none of the Work's Items or not the searched one, or more than one.
+// none of the Work's Items or not the searched one.
 // With no searched Item, as the tester judges, any of the Work's Items
 // passes. Its ids are the Indexer's, over the id tags its name carries.
 func (j judging) refusals(a assessed) []Reason {
@@ -159,11 +160,8 @@ func (j judging) refusals(a assessed) []Reason {
 	if m == release.WrongTitle {
 		out = append(out, own(targets.WrongTitle, given))
 	}
-	switch {
-	case len(a.covers) == 0, !j.searched.IsZero() && !slices.Contains(a.covers, j.searched):
+	if len(a.covers) == 0 || !j.searched.IsZero() && !slices.Contains(a.covers, j.searched) {
 		out = append(out, own(targets.WrongItem, marks(a.read.Name)))
-	case len(a.covers) > 1:
-		out = append(out, own(targets.CoversMore, marks(a.read.Name)))
 	}
 	return out
 }
@@ -171,6 +169,9 @@ func (j judging) refusals(a assessed) []Reason {
 func own(code targets.ReasonCode, value string) Reason {
 	return Reason{Reason: targets.Reason{Code: code, Value: value}}
 }
+
+// coversItem reports whether a's name covers cell's Item.
+func (a assessed) coversItem(cell files.Cell) bool { return slices.Contains(a.covers, cell.Item.ID) }
 
 // hard reports a hard refusal of a's own, which stops judging.
 func (a assessed) hard() bool {

@@ -25,7 +25,7 @@ function openWith(needsYou: FilesNeed[], grabs: GrabsGrab[] = []) {
 
 test("a download waiting on an away Node names it and opens it", async () => {
   const needsYou = openWith(
-    [{ kind: "waiting", grabId: stuck.id, code: "node_away", clientError: null }],
+    [{ kind: "waiting", grabId: stuck.id, code: "node_away", clientError: null, importWait: null }],
     [stuck],
   );
   await expect
@@ -45,7 +45,15 @@ test("a download waiting on a client that isn't responding names the client and 
     },
   } as const;
   const needsYou = openWith(
-    [{ kind: "waiting", grabId: inTransmission.id, code: "client_away", clientError: null }],
+    [
+      {
+        kind: "waiting",
+        grabId: inTransmission.id,
+        code: "client_away",
+        clientError: null,
+        importWait: null,
+      },
+    ],
     [inTransmission],
   );
   await expect
@@ -71,7 +79,15 @@ test("a download waiting to fetch for an external client on an offline Node name
     },
   } as const;
   const needsYou = openWith(
-    [{ kind: "waiting", grabId: toQbittorrent.id, code: "node_away", clientError: null }],
+    [
+      {
+        kind: "waiting",
+        grabId: toQbittorrent.id,
+        code: "node_away",
+        clientError: null,
+        importWait: null,
+      },
+    ],
     [toQbittorrent],
   );
   await expect
@@ -90,7 +106,15 @@ test("a download fetched on an online Node that waits for its routed client's of
     waitsFor: { nodeId: seedboxId, client: null, off: false },
   } as const;
   const needsYou = openWith(
-    [{ kind: "waiting", grabId: routed.id, code: "node_away", clientError: null }],
+    [
+      {
+        kind: "waiting",
+        grabId: routed.id,
+        code: "node_away",
+        clientError: null,
+        importWait: null,
+      },
+    ],
     [routed],
   );
   await expect
@@ -118,7 +142,15 @@ test("a Manual Grab pinned to a client that is off names it and offers another",
     },
   } as const;
   const needsYou = openWith(
-    [{ kind: "waiting", grabId: pinned.id, code: "client_off", clientError: null }],
+    [
+      {
+        kind: "waiting",
+        grabId: pinned.id,
+        code: "client_off",
+        clientError: null,
+        importWait: null,
+      },
+    ],
     [pinned],
   );
   await expect
