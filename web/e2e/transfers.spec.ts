@@ -10,6 +10,10 @@ test.use({ scenario: "home" });
 const Nodes = z.object({ nodes: z.array(z.object({ id: z.string(), name: z.string() })) });
 const Settings = z.object({ sendLimit: z.object({ value: z.number() }) });
 const Added = z.object({ work: z.object({ id: z.string() }) });
+const Imports = z.object({ imports: z.tuple([z.object({ id: z.string() })]) });
+const Transfers = z.object({
+  transfers: z.array(z.object({ purpose: z.string(), job: z.string() })),
+});
 
 const pace = / of 36 MB · [\d.]+ [KM]B\/s/u;
 
@@ -33,7 +37,7 @@ async function openTransfers(page: Page, id: string, name: string): Promise<void
 
 // The Quiet Orchard, added and searched the way a script would, with
 // seedbox's send limit holding its Transfer to about a minute.
-async function grabOnSeedbox(world: World): Promise<void> {
+async function grabOnSeedbox(world: World): Promise<string> {
   const settings = `/api/v1/transfers/nodes/${await nodeId(world, "seedbox")}/settings` as const;
   const limited = await world.api("PATCH", settings, { sendLimit: 512 * 1024 });
   expect(limited.status, "seedbox's send limit is saved").toBe(200);
@@ -46,6 +50,18 @@ async function grabOnSeedbox(world: World): Promise<void> {
   const workId = Added.parse(added.body).work.id;
   const search = await world.api("POST", `/api/v1/works/${workId}/search`);
   expect(search.status, "its search starts").toBe(202);
+  return workId;
+}
+
+async function importOf(world: World, workId: string): Promise<string> {
+  const listed = await world.api("GET", `/api/v1/imports?source=grab&work=${workId}`);
+  const [only] = Imports.parse(listed.body).imports;
+  return only.id;
+}
+
+async function purposeOf(world: World, job: string): Promise<string | undefined> {
+  const { transfers } = Transfers.parse((await world.api("GET", "/api/v1/transfers")).body);
+  return transfers.find((transfer) => transfer.job === job)?.purpose;
 }
 
 test("seedbox's Transfers say nothing moves and save a send limit the Node reads back", async ({
@@ -71,11 +87,11 @@ test.describe("between two Workers", () => {
   test.use({ scenario: "seedbox-nas" });
   test.describe.configure({ timeout: 180_000 });
 
-  test("a Grab on seedbox reads Transferring from seedbox on nas and in Activity, then imports", async ({
+  test("a Grab on seedbox reads Transferring from seedbox on nas, its Import's Transfer, then imports", async ({
     adminPage: page,
     world,
   }, testInfo) => {
-    await grabOnSeedbox(world);
+    const workId = await grabOnSeedbox(world);
     const nas = await nodeId(world, "nas");
     await openTransfers(page, nas, "nas");
     const row = page
@@ -89,10 +105,12 @@ test.describe("between two Workers", () => {
     await expectAccessible(page);
     await screenshotWholePage(page, testInfo.outputPath("nas-transfers.png"));
 
+    const importId = await importOf(world, workId);
+    expect(await purposeOf(world, importId), "the Import asked for the Transfer").toBe("import");
+
     await navigate(page, "Activity");
     const job = page.getByRole("table", { name: "Grabs" }).getByRole("row", { name: /Quiet/u });
-    await expect(job.getByText("Transferring from seedbox", { exact: true })).toBeVisible();
-    await expect(job.getByText(pace)).toBeVisible();
+    await expect(job.getByText("Importing", { exact: true })).toBeVisible();
     await expectAccessible(page);
     await screenshotWholePage(page, testInfo.outputPath("activity.png"));
 
