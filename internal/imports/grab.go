@@ -3,6 +3,7 @@ package imports
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path"
 	"slices"
 	"strings"
@@ -99,6 +100,7 @@ func (im *Imports) grabImport(ctx context.Context, r storage.Reader[file], h gra
 		ID: id, Source: FromGrab, Grab: h.Grab, Node: h.Node, InfoHash: &h.InfoHash, ContentType: tree.ContentType,
 		Work: h.Work, Edition: h.Edition, Created: storage.Now(),
 	}
+	var parts []int
 	for _, tf := range h.Files {
 		rel := strings.ReplaceAll(tf.Path, `\`, "/")
 		if !media.DefaultVideos.Video(rel) && !rules.Videos.Video(rel) {
@@ -108,21 +110,22 @@ func (im *Imports) grabImport(ctx context.Context, r storage.Reader[file], h gra
 			Position: len(imp.Files), Path: tf.Path, SourceIndex: new(tf.Index), Size: tf.Size, ReleaseName: h.Release,
 			SourceName: path.Base(rel), Outcome: Pending,
 		}
-		f.check(rel, rules, h.Items, place)
+		parts = append(parts, f.check(rel, rules, h.Items, place))
 		f.force(h.Cells)
 		imp.Files = append(imp.Files, f)
 	}
+	waitParts(imp.Files, parts)
 	return imp, nil
 }
 
 // check applies the fixed check to f, a download's file at rel: left out
 // by its extension, folder, name or size, else waiting when its name
 // reads as no Item or Items the Grab doesn't cover, else pending with its
-// Items.
-func (f *File) check(rel string, rules Rules, grabbed []works.ItemID, place scanning.Placer) {
+// Items. It answers the part of them the name reads as.
+func (f *File) check(rel string, rules Rules, grabbed []works.ItemID, place scanning.Placer) (part int) {
 	if why, out := leftOutOf(rel, f.Size, rules); out {
 		f.Outcome, f.Reason = LeftOut, &why
-		return
+		return 0
 	}
 	read := place(f.SourceName)
 	items, ok := read.Items()
@@ -133,6 +136,33 @@ func (f *File) check(rel string, rules Rules, grabbed []works.ItemID, place scan
 		f.Outcome, f.Reason = Waiting, &Reason{Code: OtherItems, Reading: items, Of: grabbed}
 	default:
 		f.Items = items
+	}
+	return read.Part()
+}
+
+// waitParts has the pending ones of fs that read as parts of the same
+// Items, parts[i] being fs[i]'s, wait parts together once they read as
+// two parts or more: those Items are split across files, and a file holds
+// its Items whole.
+func waitParts(fs []File, parts []int) {
+	of, read := map[string][]int{}, map[string]map[int]bool{}
+	for i, f := range fs {
+		if f.Outcome != Pending || parts[i] == 0 {
+			continue
+		}
+		k := fmt.Sprint(f.Items)
+		of[k] = append(of[k], i)
+		if read[k] == nil {
+			read[k] = map[int]bool{}
+		}
+		read[k][parts[i]] = true
+	}
+	for k, at := range of {
+		if n := len(read[k]); n >= 2 {
+			for _, i := range at {
+				fs[i].Outcome, fs[i].Reason = Waiting, &Reason{Code: Parts, Parts: n}
+			}
+		}
 	}
 }
 

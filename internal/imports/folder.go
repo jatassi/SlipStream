@@ -126,9 +126,10 @@ func (im *Imports) opened(ctx context.Context, tx *storage.Tx[file], node role.N
 	if err != nil {
 		return nil, err
 	}
-	byWork := map[works.WorkID]*Import{}
+	byWork, parts := map[works.WorkID]*Import{}, map[works.WorkID][]int{}
 	var order []works.WorkID
 	for _, lf := range listed.Files {
+		var part int
 		base := path.Base(strings.ReplaceAll(lf.Path, `\`, "/"))
 		f := File{
 			Path: lf.Path, Size: lf.Size, Seen: &lf.Seen, Seeded: lf.Seeded, ReleaseName: strings.TrimSuffix(base, path.Ext(base)), SourceName: base,
@@ -141,11 +142,13 @@ func (im *Imports) opened(ctx context.Context, tx *storage.Tx[file], node role.N
 		case lf.Size < rules.Smallest:
 			f.Outcome, f.Reason = LeftOut, &Reason{Code: TooSmall, Value: rules.Smallest}
 		default:
-			items, ok, err := im.placeIn(ctx, tx, t, work, base)
+			place, err := im.cfg.Facets[t].Place(ctx, tx, work)
 			if err != nil {
 				return nil, err
 			}
-			f.Items = items
+			read := place(base)
+			items, ok := read.Items()
+			f.Items, part = items, read.Part()
 			if !ok {
 				f.Outcome, f.Reason = Waiting, &Reason{Code: NoRule}
 			}
@@ -164,9 +167,11 @@ func (im *Imports) opened(ctx context.Context, tx *storage.Tx[file], node role.N
 		}
 		f.Position = len(imp.Files)
 		imp.Files = append(imp.Files, f)
+		parts[work] = append(parts[work], part)
 	}
 	out := make([]Import, len(order))
 	for i, w := range order {
+		waitParts(byWork[w].Files, parts[w])
 		out[i] = *byWork[w]
 	}
 	return out, nil
@@ -216,17 +221,6 @@ func (m matcher) match(names ...string) (t works.TypeID, work works.WorkID) {
 		}
 	}
 	return "", works.WorkID{}
-}
-
-// placeIn is the Items of work t's Placer reads name as, false when it
-// reads none.
-func (im *Imports) placeIn(ctx context.Context, r storage.Reader[file], t works.TypeID, work works.WorkID, name string) (items []works.ItemID, ok bool, err error) {
-	place, err := im.cfg.Facets[t].Place(ctx, r, work)
-	if err != nil {
-		return nil, false, err
-	}
-	items, ok = place(name).Items()
-	return items, ok, nil
 }
 
 // SetMoveFiles turns Move files on or off for the folder Imports ids. On
