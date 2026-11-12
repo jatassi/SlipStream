@@ -162,9 +162,7 @@ export const SetWorksProfileQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(setWorksProfileQueryUnwantedDefault)
-    .describe(
-      "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
-    ),
+    .describe("What becomes of the files the change leaves filling nothing"),
   confirm: zod
     .int()
     .min(setWorksProfileQueryConfirmMin)

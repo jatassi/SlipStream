@@ -517,8 +517,9 @@ func (n *Node) startTorrent(cfg Config, l *Listeners, torrentRand, clientsRand *
 		Folder: func(ctx context.Context, path string, write bool) (storing.CheckResult, error) {
 			return n.store.JudgeClientFolder(ctx, path, write)
 		},
-		Rand: clientsRand,
-		Log:  n.rootLog.With("subsystem", "download clients"),
+		Holds: func(path string) bool { return n.store.Holds(context.Background(), path) },
+		Rand:  clientsRand,
+		Log:   n.rootLog.With("subsystem", "download clients"),
 	})
 	n.stack.Go("torrent client", n.downloads.Loop)
 	n.stack.OnStop("torrent", func(context.Context) error { return torrent.Close() })
@@ -540,7 +541,7 @@ func (n *Node) startStorage(cfg Config) error {
 	}
 	n.disk = disk
 	n.store = storing.NewStore(storing.Config{
-		Disk: disk, Payloads: n.downloading, Downloads: n.downloading.Folders, Timings: cfg.Timings.Storing,
+		Disk: disk, Payloads: n.downloading, Downloads: n.downloading.Folders, Torrents: n.downloading.Torrents, Timings: cfg.Timings.Storing,
 		Prober: n.env.Media, ProbeTimeout: cfg.Timings.Media.Probe, PathLimit: cfg.Storage.PathLimit,
 	})
 	return nil

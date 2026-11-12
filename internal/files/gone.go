@@ -132,13 +132,24 @@ func GoneOfWorks(ctx context.Context, r storage.Reader[file], ws works.Among[wor
 // a Leave files delete leaves on disk, read before the rows go. A file
 // still moving is left out.
 func LeftIn(ctx context.Context, r storage.Reader[file], ws []works.WorkID) ([]File, error) {
-	rows, err := db.New(r).ListLeftIn(ctx, ws)
+	q := db.New(r)
+	rows, err := q.ListLeftIn(ctx, ws)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]File, len(rows))
+	ids := make([]ID, len(rows))
+	at := make(map[ID]*File, len(rows))
 	for i, row := range rows {
-		out[i] = fileOf(row)
+		out[i], ids[i] = fileOf(row), row.ID
+		at[row.ID] = &out[i]
+	}
+	items, err := q.ListItemsOfFiles(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	for _, it := range items {
+		at[it.FileID].Items = append(at[it.FileID].Items, it.ItemID)
 	}
 	return out, nil
 }

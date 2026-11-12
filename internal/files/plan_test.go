@@ -48,7 +48,7 @@ func (a *attic) kept(at string, extra int64) *attic {
 }
 
 func (a *attic) add(at string, extra int64) File {
-	f := File{ID: ID{UUID: storage.NewUUID()}, WorkID: a.w.tree.ID, ItemID: a.scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Extra: extra, Path: at}
+	f := File{ID: ID{UUID: storage.NewUUID()}, WorkID: a.w.tree.ID, Items: []works.ItemID{a.scarf.ID}, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Extra: extra, Path: at}
 	a.w.files = append(a.w.files, f)
 	a.ids[at] = f.ID
 	return f

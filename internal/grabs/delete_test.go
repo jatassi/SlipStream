@@ -14,7 +14,7 @@ func TestADeletedWorksGrabLosesItsTransfer(t *testing.T) {
 	p := newPipeline(t)
 	id := p.grab("https://site.test/attic.torrent", nil)
 	run(t, p.lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := p.copies.Start(ctx, tx, transfers.Request{
+		_, err := p.copies.Want(ctx, tx, transfers.Request{
 			Purpose: transfers.Grab, Job: id.String(), Source: p.node, Destination: transfers.Root{ID: p.root},
 			Files: []transfers.FileRequest{{Name: "The.Attic.1080p.WEB.mkv", Source: source.Torrent{File: 0}, Size: 4096}},
 		})

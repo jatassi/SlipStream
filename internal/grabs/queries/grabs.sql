@@ -142,12 +142,6 @@ SELECT * FROM grabs_search WHERE finished_at IS NULL ORDER BY started_at, id;
 -- name: ListSearchesOfWork :many
 SELECT * FROM grabs_search WHERE work_id = sqlc.arg(work_id) AND manual_id IS NULL ORDER BY started_at DESC, id DESC;
 
--- name: ListTargetsOfWork :many
-SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_target.target_id
-FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
-WHERE grabs_grab.work_id = sqlc.arg(work_id)
-ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
-
 -- name: ListTargetsOfWorks :many
 SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
     grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id
@@ -160,12 +154,6 @@ SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, 
     grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
-
--- name: SettleGrab :exec
-UPDATE grabs_grab SET unwanted = sqlc.arg(unwanted) WHERE id = sqlc.arg(id);
-
--- name: GetUnwanted :one
-SELECT unwanted FROM grabs_grab WHERE id = sqlc.arg(id);
 
 -- name: CountGrabsInto :one
 SELECT COUNT(*) FROM grabs_grab WHERE stage NOT IN ('imported', 'failed')

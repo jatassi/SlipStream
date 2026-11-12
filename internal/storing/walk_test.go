@@ -52,7 +52,7 @@ func (w walking) pages(t *testing.T, limit int) []Page {
 	var pages []Page
 	var after Cursor
 	for {
-		p, err := w.remote.Walk(t.Context(), w.at, after, limit)
+		p, err := w.remote.Walk(t.Context(), w.at, after, limit, media.DefaultVideos)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -100,14 +100,14 @@ func TestAWalkResumesPastAnEntryGoneSinceItsPage(t *testing.T) {
 		for _, rel := range []string{"A/Season 1/e1.mkv", "A/Season 1/e2.mkv", "A/z.mkv", "B/b.mkv"} {
 			w.file(t, rel, "film")
 		}
-		first, err := w.remote.Walk(t.Context(), w.at, Cursor{}, 1)
+		first, err := w.remote.Walk(t.Context(), w.at, Cursor{}, 1, media.DefaultVideos)
 		if err != nil || !slices.Equal(paths(first), []string{"A/Season 1/e1.mkv"}) {
 			t.Fatalf("first page = %q, %v", paths(first), err)
 		}
 		if err := os.RemoveAll(filepath.Join(w.folder, "A", "Season 1")); err != nil {
 			t.Fatal(err)
 		}
-		rest, err := w.remote.Walk(t.Context(), w.at, first.Next, 1000)
+		rest, err := w.remote.Walk(t.Context(), w.at, first.Next, 1000, media.DefaultVideos)
 		if err != nil || !rest.Done || !slices.Equal(paths(rest), []string{"A/z.mkv", "B/b.mkv"}) {
 			t.Errorf("the page after a removed folder = %q, done %v, %v; want the files after it", paths(rest), rest.Done, err)
 		}
@@ -224,11 +224,11 @@ func TestAWalkPagesASlowShare(t *testing.T) {
 		w.disk.slow[filepath.Join(w.folder, "A")] = 6 * time.Second
 		w.disk.slow[filepath.Join(w.folder, "B")] = 6 * time.Second
 		start := time.Now()
-		first, err := w.remote.Walk(t.Context(), w.at, Cursor{}, 1000)
+		first, err := w.remote.Walk(t.Context(), w.at, Cursor{}, 1000, media.DefaultVideos)
 		if err != nil || first.Done || !slices.Equal(paths(first), []string{"A/a.mkv", "B/b.mkv"}) || time.Since(start) != 12*time.Second {
 			t.Fatalf("a page past the stat deadline = %q, done %v, %v after %v; want it to end after B at 12s", paths(first), first.Done, err, time.Since(start))
 		}
-		rest, err := w.remote.Walk(t.Context(), w.at, first.Next, 1000)
+		rest, err := w.remote.Walk(t.Context(), w.at, first.Next, 1000, media.DefaultVideos)
 		if err != nil || !rest.Done || !slices.Equal(paths(rest), []string{"C/c.mkv"}) {
 			t.Errorf("the next page = %q, done %v, %v; want C", paths(rest), rest.Done, err)
 		}
@@ -243,12 +243,12 @@ func TestAHungFolderFailsTheWalkFast(t *testing.T) {
 		answer := w.disk.hang(filepath.Join(w.folder, "Hung"))
 		defer answer()
 		start := time.Now()
-		_, err := w.remote.Walk(t.Context(), w.at, Cursor{}, 1000)
+		_, err := w.remote.Walk(t.Context(), w.at, Cursor{}, 1000, media.DefaultVideos)
 		if fe := folderErr(t, err); fe.Kind != FolderUnresponsive || time.Since(start) != 10*time.Second {
 			t.Errorf("a walk into a hung folder = %+v after %v, want unresponsive after 10s", fe, time.Since(start))
 		}
 		start = time.Now()
-		_, err = w.remote.Walk(t.Context(), w.at, Cursor{}, 1000)
+		_, err = w.remote.Walk(t.Context(), w.at, Cursor{}, 1000, media.DefaultVideos)
 		if nr := notReady(t, err); nr.State != Unresponsive || time.Since(start) != 0 {
 			t.Errorf("the next walk = %+v after %v, want unresponsive at once", nr, time.Since(start))
 		}
@@ -260,18 +260,18 @@ func TestAWalkReResolvesItsRootEachPage(t *testing.T) {
 		w := newWalking(t, nil)
 		w.file(t, "A/a.mkv", "film")
 		w.file(t, "B/b.mkv", "film")
-		first, err := w.remote.Walk(t.Context(), w.at, Cursor{}, 1)
+		first, err := w.remote.Walk(t.Context(), w.at, Cursor{}, 1, media.DefaultVideos)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if err := os.Remove(filepath.Join(w.folder, MarkerName)); err != nil {
 			t.Fatal(err)
 		}
-		_, err = w.remote.Walk(t.Context(), w.at, first.Next, 1)
+		_, err = w.remote.Walk(t.Context(), w.at, first.Next, 1, media.DefaultVideos)
 		if nr := notReady(t, err); nr.State != Unmounted {
 			t.Errorf("a page after the marker went = %+v, want unmounted", nr)
 		}
-		_, err = w.remote.Walk(t.Context(), At{Node: node, Root: storage.NewUUID()}, Cursor{}, 1)
+		_, err = w.remote.Walk(t.Context(), At{Node: node, Root: storage.NewUUID()}, Cursor{}, 1, media.DefaultVideos)
 		if nr := notReady(t, err); !nr.Unknown {
 			t.Errorf("a walk of a root not in the intent = %+v, want unknown", nr)
 		}
@@ -333,14 +333,14 @@ func TestAPlacedFileReadsAsTheNextWalkReadsIt(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := newPlacing(t, false)
 		holding := mustRel(t, HoldingDir+"/0190.mkv")
-		if _, err := p.remote.Place(t.Context(), p.at, p.payload(), holding); err != nil {
+		if _, err := p.remote.Place(t.Context(), p.at, p.payload(), holding, true); err != nil {
 			t.Fatal(err)
 		}
-		moved, err := p.remote.Move(t.Context(), p.at, holding, mustRel(t, "Heat (1995)/Heat (1995).mkv"), false)
+		moved, err := p.remote.Move(t.Context(), p.at, holding, mustRel(t, "Heat (1995)/Heat (1995).mkv"), false, media.DefaultVideos)
 		if err != nil {
 			t.Fatal(err)
 		}
-		page, err := p.remote.Walk(t.Context(), p.at, Cursor{}, 1000)
+		page, err := p.remote.Walk(t.Context(), p.at, Cursor{}, 1000, media.DefaultVideos)
 		if err != nil || len(page.Entries) != 1 || !page.Entries[0].Seen.Same(moved.Seen) || page.Entries[0].Size != moved.Size {
 			t.Errorf("the walk reads %+v, %v; want the moved file as %+v", page.Entries, err, moved)
 		}

@@ -274,6 +274,25 @@ func (c *Client) Path(h bencode.InfoHash, index int) (string, error) {
 	return c.pathOf(h, t, index)
 }
 
+// Torrents is where each file of every torrent the engine holds lies on
+// this Node, finished or not.
+func (c *Client) Torrents() []string {
+	var out []string
+	for _, t := range c.held.Load().torrents {
+		if t.handle == 0 {
+			continue
+		}
+		files, err := c.cfg.Engine.Files(t.handle)
+		if err != nil {
+			continue
+		}
+		for _, f := range files {
+			out = append(out, filepath.Join(t.folder, filepath.FromSlash(f.Path)))
+		}
+	}
+	return out
+}
+
 // Open is where the file ref names lies on this Node, once the torrent is
 // complete and the file opens, or why it can't be read now:
 //   - *source.Absent{Gone}: the torrent is in neither the intent's live

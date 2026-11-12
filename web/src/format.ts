@@ -77,7 +77,7 @@ export type Noun = { readonly one: string; readonly many: string };
 export const nounOf = (count: number, noun: Noun): string => (count === 1 ? noun.one : noun.many);
 
 export const countWords = (count: number, unit: Noun): string =>
-  unit.many === "%" ? `${count}%` : `${count} ${nounOf(count, unit)}`;
+  unit.many.startsWith("%") ? `${count}${unit.many}` : `${count} ${nounOf(count, unit)}`;
 
 export function lengthWords(milliseconds: number): string {
   const seconds = Math.floor(milliseconds / 1000);

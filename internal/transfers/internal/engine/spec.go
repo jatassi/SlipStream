@@ -43,6 +43,12 @@ func (s spec) sameRun(o spec) bool {
 	return s.id == o.id && s.side == o.side && s.peer == o.peer && s.addrs == o.addrs && s.root == o.root && s.place == o.place
 }
 
+// receivesDropped reports whether s receives a file live doesn't list: a
+// file its purpose dropped, whose staged bytes go.
+func (s spec) receivesDropped(live map[int]bool) bool {
+	return s.side == tv1.Side_SIDE_RECEIVE && slices.ContainsFunc(s.files, func(f file) bool { return !live[f.position] })
+}
+
 func (s spec) file(position int, src *tv1.Source) (file, bool) {
 	i := slices.IndexFunc(s.files, func(f file) bool { return f.position == position })
 	if i < 0 || !proto.Equal(s.files[i].wire, src) {
@@ -106,12 +112,18 @@ func parseAddresses(in []string) (link.Addresses, error) {
 }
 
 func parseSource(s *tv1.Source) (source.Ref, error) {
-	t := s.GetTorrent()
-	if t == nil {
-		return nil, errors.New("a source of no kind this build reads")
+	switch r := s.GetRef().(type) {
+	case *tv1.Source_Torrent:
+		t := r.Torrent
+		if len(t.GetInfoHash()) != len(bencode.InfoHash{}) {
+			return nil, fmt.Errorf("an info hash of %d bytes", len(t.GetInfoHash()))
+		}
+		return source.Torrent{Hash: bencode.InfoHash(t.GetInfoHash()), File: int(t.GetFileIndex())}, nil
+	case *tv1.Source_Path:
+		if r.Path.GetAbs() == "" {
+			return nil, errors.New("an empty source path")
+		}
+		return source.Path{Abs: r.Path.GetAbs()}, nil
 	}
-	if len(t.GetInfoHash()) != len(bencode.InfoHash{}) {
-		return nil, fmt.Errorf("an info hash of %d bytes", len(t.GetInfoHash()))
-	}
-	return source.Torrent{Hash: bencode.InfoHash(t.GetInfoHash()), File: int(t.GetFileIndex())}, nil
+	return nil, errors.New("a source of no kind this build reads")
 }

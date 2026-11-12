@@ -4,13 +4,11 @@ package faketest
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/netip"
@@ -92,18 +90,17 @@ func Catalog(t testing.TB, size int, names ...string) *releases.Catalog {
 	dir := t.TempDir()
 	c := &releases.Catalog{}
 	for _, name := range names {
-		payload := make([]byte, size)
-		_, _ = rand.NewChaCha8(sha256.Sum256([]byte(name))).Read(payload)
+		payload := releases.Filler(name, int64(size))
 		file := filepath.Join(dir, name+".mkv")
 		if err := os.WriteFile(file, payload, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		meta, hash, err := releases.Metainfo(name+".mkv", payload, "https://127.0.0.1/announce/faketest", false)
+		meta, hash, err := releases.Metainfo(name+".mkv", nil, payload, "https://127.0.0.1/announce/faketest", false)
 		if err != nil {
 			t.Fatal(err)
 		}
 		c.Releases = append(c.Releases, releases.Release{
-			Release: scenario.Release{Name: name}, Dir: dir, File: file, Size: int64(size), Metainfo: meta, InfoHash: hash,
+			Release: scenario.Release{Name: name}, Dir: dir, Files: []releases.File{{Path: name + ".mkv", Size: int64(size)}}, Size: int64(size), Metainfo: meta, InfoHash: hash,
 		})
 	}
 	return c

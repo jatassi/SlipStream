@@ -16,10 +16,18 @@ message Intent {
   // sends or receives, oldest first. Queued and stepped-aside Transfers
   // stay out, so nobody dials for them.
   repeated Active active = 2;
-  // keep is every Transfer id whose staging this Node holds, active or
-  // not, failed included, sorted. A staging folder neither list names
-  // goes.
-  repeated bytes keep = 3;
+  reserved 3;
+  // keep is every Transfer whose staging this Node holds, active or not,
+  // failed included, sorted by id. A staging folder neither list names
+  // goes, and so does a staged file of a position keep doesn't list.
+  repeated Kept keep = 4;
+}
+
+// Kept is a Transfer whose staging a receiver keeps, with the positions
+// of every file its purpose still wants, sorted.
+message Kept {
+  bytes transfer_id = 1;
+  repeated uint32 positions = 2;
 }
 
 message Active {
@@ -83,7 +91,14 @@ message File {
 message Source {
   oneof ref {
     TorrentPayload torrent = 1;
+    PathSource path = 2;
   }
+}
+
+// PathSource is a file at an absolute path on the sender, which it opens
+// only inside its library roots and download folders.
+message PathSource {
+  string abs = 1;
 }
 
 message TorrentPayload {

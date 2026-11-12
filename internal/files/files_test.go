@@ -61,10 +61,6 @@ func (grabbing) ReleaseTitles(context.Context, storage.Reader[storage.Library]) 
 	return nil, nil
 }
 
-func (grabbing) Settle(context.Context, *storage.Tx[storage.Library], works.WorkID, map[files.CellKey]bool, files.Unwanted) (int, error) {
-	return 0, nil
-}
-
 type library struct {
 	t       testing.TB
 	lib     *storage.DB[storage.Library]
@@ -220,7 +216,7 @@ func (l *library) place(t testing.TB, item works.ItemID, work works.WorkID, path
 	t.Helper()
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: work, ItemID: item, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: 1024, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: q,
+			WorkID: work, Items: []works.ItemID{item}, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: 1024, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: q,
 		}, fills)
 		return err
 	})
@@ -362,7 +358,7 @@ func TestACellIsFilledOnce(t *testing.T) {
 	tree := l.work(t, "w1", true, nil)
 	l.place(t, tree.Items[0].ID, tree.ID, "a.mkv", release.WEBDL1080p, hd.ID)
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := files.Add(ctx, tx, files.File{WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Path: "b.mkv", Quality: release.WEBDL1080p}, []targets.TargetID{hd.ID})
+		_, err := files.Add(ctx, tx, files.File{WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID}, Cut: release.Standard, RootID: l.root.ID, Path: "b.mkv", Quality: release.WEBDL1080p}, []targets.TargetID{hd.ID})
 		return err
 	})
 	if err == nil || !strings.Contains(err.Error(), "UNIQUE constraint failed: files_fill.item_id, files_fill.edition, files_fill.target_id") {
@@ -383,7 +379,7 @@ func TestATargetsEstimateIsItsFilesRateOverTheProfilesRuntime(t *testing.T) {
 		t.Helper()
 		err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 			_, err := files.Add(ctx, tx, files.File{
-				WorkID: work, ItemID: item, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: mib << 20, Quality: release.WEBDL1080p,
+				WorkID: work, Items: []works.ItemID{item}, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: mib << 20, Quality: release.WEBDL1080p,
 			}, fills)
 			return err
 		})
@@ -407,6 +403,29 @@ func TestATargetsEstimateIsItsFilesRateOverTheProfilesRuntime(t *testing.T) {
 	want := map[targets.TargetID]files.Estimate{hd.ID: {MiBPerMinute: rate, Bytes: int64(rate * 160 * (1 << 20))}}
 	if len(got) != 1 || got[hd.ID] != want[hd.ID] {
 		t.Fatalf("Estimates = %+v, want %+v: HD's files of known runtime over Standard's 160 known minutes, and no estimate for UHD", got, want)
+	}
+}
+
+func TestAFileOfTwoItemsCountsOnceTowardItsTargetsEstimate(t *testing.T) {
+	l := open(t)
+	hd := l.target(t, "HD", []release.Quality{release.WEBDL1080p})
+	p := l.profile(t, "HD", hd)
+	tree := l.work(t, "w1", true, &p)
+	for _, it := range tree.Items {
+		l.fx.SetTiming(it.ID, targets.Timing{Released: release.Known(contenttypetest.Released), Runtime: release.Known(time.Hour)})
+	}
+	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := files.Add(ctx, tx, files.File{
+			WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID, tree.Items[1].ID}, Cut: release.Standard, RootID: l.root.ID, Path: "both.mkv", Size: 1200 << 20, Quality: release.WEBDL1080p,
+		}, []targets.TargetID{hd.ID})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := must[map[targets.TargetID]files.Estimate](t)(l.files(files.NoGrabs{}).Estimates(t.Context(), admin, must[targets.Profile](t)(l.targets.GetProfile(t.Context(), admin, p))))
+	if want := (files.Estimate{MiBPerMinute: 10, Bytes: 1200 << 20}); got[hd.ID] != want {
+		t.Fatalf("HD's estimate = %+v, want %+v: the file's 1,200 MiB once over its two Items' 120 minutes", got[hd.ID], want)
 	}
 }
 
@@ -445,7 +464,7 @@ func TestANamedListWantsStandardAndEachOtherCutOnceSeen(t *testing.T) {
 			return err
 		}
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: tree.ID, ItemID: mittens, Cut: "extended", RootID: l.root.ID, Path: "Shelf w1/Mittens.mkv", Size: 1024, Quality: release.WEBDL1080p,
+			WorkID: tree.ID, Items: []works.ItemID{mittens}, Cut: "extended", RootID: l.root.ID, Path: "Shelf w1/Mittens.mkv", Size: 1024, Quality: release.WEBDL1080p,
 		}, []targets.TargetID{hd.ID})
 		return err
 	})
@@ -462,4 +481,39 @@ func TestANamedListWantsStandardAndEachOtherCutOnceSeen(t *testing.T) {
 	if got := cells(other.ID); got != want {
 		t.Fatalf("cells of a list without Standard =\n%swant every cut it names outright\n%s", got, want)
 	}
+}
+
+// holdingOf is a file of tree's Item at item, read at q and as probe, whose
+// size bytes sit at holding.
+func holdingOf(tree works.Tree, item int, holding string, size int64, probe media.Record, q release.Quality) files.Candidate {
+	return files.Candidate{Items: []works.ItemID{tree.Items[item].ID}, Cut: release.Standard, Holding: holding, Size: size, Media: probe, Quality: q}
+}
+
+// land imports c into work in tx, at l's root, as a Grab's import does.
+func (l *library) land(ctx context.Context, tx *storage.Tx[storage.Library], svc *files.Files, work works.WorkID, c files.Candidate) (files.Landed, error) {
+	return svc.Import(ctx, tx, files.Landing{Batch: files.Batch{Work: work, Root: l.root.ID, Candidates: []files.Candidate{c}}, PlacedBy: "copy"})
+}
+
+// judge is what svc's judge answers of c, landing in work at l's root.
+func (l *library) judge(t testing.TB, svc *files.Files, work works.WorkID, c files.Candidate) files.Verdict {
+	t.Helper()
+	var v []files.Verdict
+	err := l.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		v, err = svc.Judge(ctx, r, files.Batch{Work: work, Root: l.root.ID, Candidates: []files.Candidate{c}})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v[0]
+}
+
+// targetsOf is the Targets of cells, in order.
+func targetsOf(cells []files.CellKey) []targets.TargetID {
+	out := make([]targets.TargetID, len(cells))
+	for i, k := range cells {
+		out[i] = k.Target
+	}
+	return out
 }

@@ -65,7 +65,7 @@ func misplaced(b *testing.B) (*library, *files.Files) {
 	err := l.lib.Write(b.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		for i, t := range trees {
 			_, err := files.Add(ctx, tx, files.File{
-				WorkID: t.ID, ItemID: t.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Path: fmt.Sprintf("Found/%d.mkv", i),
+				WorkID: t.ID, Items: []works.ItemID{t.Items[0].ID}, Cut: release.Standard, RootID: l.root.ID, Path: fmt.Sprintf("Found/%d.mkv", i),
 				Size: 4 << 30, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p,
 			}, []targets.TargetID{web.ID})
 			if err != nil {

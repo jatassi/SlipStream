@@ -52,9 +52,9 @@ export const checkFolderInputBodyPathMax = 4096;
 export const CheckFolderInputBody = zod.object({
   path: zod.string().min(1).max(checkFolderInputBodyPathMax),
   purpose: zod
-    .enum(["root", "downloads"])
+    .enum(["root", "downloads", "import"])
     .describe(
-      "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node",
+      "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node; import: a folder to import from, inside one of the Node's library roots or download folders",
     ),
   rootId: zod
     .uuid()
@@ -2499,7 +2499,7 @@ export const TargetsImpact = zod.object({
     .int()
     .min(targetsImpactDownloadingMin)
     .describe(
-      "Downloads in progress for cells that are no longer wanted. The save's choice decides whether their files are deleted or kept",
+      "Downloads in progress for cells that are no longer wanted. Each waits in Pending imports once it finishes",
     ),
   newlyWanted: zod.int().min(targetsImpactNewlyWantedMin).describe("Cells that become wanted"),
   ownList: zod
@@ -4969,6 +4969,72 @@ export const SettingTemplateField = zod.object({
 export type SettingTemplateField = zod.input<typeof SettingTemplateField>;
 export type SettingTemplateFieldOutput = zod.output<typeof SettingTemplateField>;
 
+export const settingListFieldMinMin = 0;
+
+export const SettingListField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.array(zod.string()),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  item: zod
+    .enum(["extension"])
+    .describe(
+      "What each entry is: an extension is lowercase letters and digits with no leading dot, such as mkv",
+    ),
+  key: zod.string(),
+  kind: zod.enum(["list"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  min: zod.int().min(settingListFieldMinMin).describe("The fewest entries the list takes"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.array(zod.string()),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.array(zod.string()),
+});
+
+export type SettingListField = zod.input<typeof SettingListField>;
+export type SettingListFieldOutput = zod.output<typeof SettingListField>;
+
+export const SettingSizeField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.int().describe("Bytes"),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["size"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  max: zod.int().describe("Bytes"),
+  min: zod.int().describe("Bytes"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.int().describe("Bytes"),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.int().describe("Bytes"),
+});
+
+export type SettingSizeField = zod.input<typeof SettingSizeField>;
+export type SettingSizeFieldOutput = zod.output<typeof SettingSizeField>;
+
 export const SettingField = zod.discriminatedUnion("kind", [
   SettingDurationField,
   SettingCountField,
@@ -4981,6 +5047,8 @@ export const SettingField = zod.discriminatedUnion("kind", [
   SettingFolderField,
   SettingSpaceField,
   SettingTemplateField,
+  SettingListField,
+  SettingSizeField,
 ]);
 
 export type SettingField = zod.input<typeof SettingField>;
@@ -7488,6 +7556,7 @@ export const RootsRefusal = zod.object({
       "contains_downloads",
       "unresponsive",
       "network_share",
+      "outside",
       "node_offline",
     ])
     .describe("Why the folder can't serve its purpose"),

@@ -166,7 +166,7 @@ func (w *world) start(t *testing.T, job string, hash bencode.InfoHash, sizes ...
 	var id transfers.ID
 	if err := w.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
-		id, err = w.tr.Start(ctx, tx, req)
+		id, err = w.tr.Want(ctx, tx, req)
 		return err
 	}); err != nil {
 		t.Fatal(err)

@@ -312,7 +312,7 @@ func TestAPlacementResamplesAtMostOnceInTenSeconds(t *testing.T) {
 		h.next(t)
 		place := func(name string) {
 			t.Helper()
-			if _, _, err := s.place(t.Context(), id, Payload{InfoHash: hash}, mustRel(t, HoldingDir+"/"+name)); err != nil {
+			if _, _, err := s.place(t.Context(), id, Payload{InfoHash: hash}, mustRel(t, HoldingDir+"/"+name), true); err != nil {
 				t.Fatal(err)
 			}
 		}

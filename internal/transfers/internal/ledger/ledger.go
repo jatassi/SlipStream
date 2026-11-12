@@ -31,6 +31,7 @@ type (
 	TransferOfJobParams  = db.TransferOfJobParams
 	SetVerifiedParams    = db.SetVerifiedParams
 	SetPlacedParams      = db.SetPlacedParams
+	SetDroppedParams     = db.SetDroppedParams
 	SetFailureParams     = db.SetFailureParams
 	PutPairParams        = db.PutPairParams
 	SetNodeParams        = db.SetNodeSettingsParams

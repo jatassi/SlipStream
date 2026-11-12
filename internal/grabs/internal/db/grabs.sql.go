@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
-	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/role"
@@ -335,17 +334,6 @@ func (q *Queries) GetSearchOfGrab(ctx context.Context, grabID GrabID) (GrabsSear
 		&i.Notes,
 	)
 	return i, err
-}
-
-const getUnwanted = `-- name: GetUnwanted :one
-SELECT unwanted FROM grabs_grab WHERE id = ?1
-`
-
-func (q *Queries) GetUnwanted(ctx context.Context, id GrabID) (*files.Unwanted, error) {
-	row := q.db.QueryRowContext(ctx, getUnwanted, id)
-	var unwanted *files.Unwanted
-	err := row.Scan(&unwanted)
-	return unwanted, err
 }
 
 const insertFill = `-- name: InsertFill :exec
@@ -1309,50 +1297,6 @@ func (q *Queries) ListTargets(ctx context.Context) ([]GrabsTarget, error) {
 	return items, nil
 }
 
-const listTargetsOfWork = `-- name: ListTargetsOfWork :many
-SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_target.target_id
-FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
-WHERE grabs_grab.work_id = ?1
-ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position
-`
-
-type ListTargetsOfWorkRow struct {
-	ID       GrabID
-	ItemID   works.ItemID
-	Edition  targets.Edition
-	Stage    Stage
-	TargetID targets.TargetID
-}
-
-func (q *Queries) ListTargetsOfWork(ctx context.Context, workID works.WorkID) ([]ListTargetsOfWorkRow, error) {
-	rows, err := q.db.QueryContext(ctx, listTargetsOfWork, workID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListTargetsOfWorkRow
-	for rows.Next() {
-		var i ListTargetsOfWorkRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ItemID,
-			&i.Edition,
-			&i.Stage,
-			&i.TargetID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listTargetsOfWorks = `-- name: ListTargetsOfWorks :many
 SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
     grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id
@@ -1503,20 +1447,6 @@ func (q *Queries) SetSent(ctx context.Context, arg SetSentParams) error {
 		arg.UpdatedAt,
 		arg.ID,
 	)
-	return err
-}
-
-const settleGrab = `-- name: SettleGrab :exec
-UPDATE grabs_grab SET unwanted = ?1 WHERE id = ?2
-`
-
-type SettleGrabParams struct {
-	Unwanted *files.Unwanted
-	ID       GrabID
-}
-
-func (q *Queries) SettleGrab(ctx context.Context, arg SettleGrabParams) error {
-	_, err := q.db.ExecContext(ctx, settleGrab, arg.Unwanted, arg.ID)
 	return err
 }
 

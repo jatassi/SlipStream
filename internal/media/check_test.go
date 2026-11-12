@@ -30,7 +30,7 @@ func TestCounts(t *testing.T) {
 		"Heat (1995)/Heat.mkv.part":                                  false,
 		"Heat.mkv/readme.txt":                                        false,
 	} {
-		if got := media.Counts(rel); got != want {
+		if got := media.Counts(rel, media.DefaultVideos); got != want {
 			t.Errorf("Counts(%q) = %v, want %v", rel, got, want)
 		}
 	}

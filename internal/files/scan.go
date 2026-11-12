@@ -38,10 +38,10 @@ type Probe struct {
 	Error string
 }
 
-// Found is a file the walk found that no record names, matched to an Item
-// of the Work, with what reading it gave.
+// Found is a file the walk found that no record names, matched to Items of
+// the Work, with what reading it gave.
 type Found struct {
-	Item    works.ItemID
+	Items   []works.ItemID
 	Cut     release.CutKey
 	At      storing.Walked
 	Media   media.Record
@@ -99,16 +99,18 @@ func (f *Files) Scan(ctx context.Context, tx *storage.Tx[file], s Scan) (Scanned
 			sc.dropped++
 			continue
 		}
+		items, err := inTreeOrder(before.tree, fd.Items)
+		if err != nil {
+			return Scanned{}, err
+		}
 		g := File{
-			ID: ID{UUID: storage.NewUUID()}, WorkID: s.Work, ItemID: fd.Item, Cut: fd.Cut, RootID: s.Root, Path: fd.At.Path.String(),
+			ID: ID{UUID: storage.NewUUID()}, WorkID: s.Work, Items: items, Cut: fd.Cut, RootID: s.Root, Path: fd.At.Path.String(),
 			Size: fd.At.Size, Media: fd.Media, ProbedAt: sc.now, Seen: &fd.At.Seen, Quality: fd.Quality,
 			ReleaseName: path.Base(fd.At.Path.String()), Title: release.File(fd.At.Path.String(), sc.names, sc.cuts), SourceName: path.Base(fd.At.Path.String()),
 		}
 		after.files = append(after.files, g)
 		after.found[g.ID] = true
-		if !slices.Contains(after.seen[fd.Item], fd.Cut) {
-			after.seen[fd.Item] = append(slices.Clone(after.seen[fd.Item]), fd.Cut)
-		}
+		after.see(items, fd.Cut)
 	}
 	if len(sc.changed) == 0 && len(after.found) == 0 {
 		return Scanned{Dropped: sc.dropped}, nil

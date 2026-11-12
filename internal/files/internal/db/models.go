@@ -23,7 +23,6 @@ type FilesDoomed struct {
 type FilesFile struct {
 	ID           FileID
 	WorkID       works.WorkID
-	ItemID       works.ItemID
 	Cut          release.CutKey
 	RootID       roots.ID
 	Path         string
@@ -45,12 +44,32 @@ type FilesFile struct {
 	SourceName   *string
 }
 
+type FilesFileItem struct {
+	FileID   FileID
+	ItemID   works.ItemID
+	Position int64
+}
+
 type FilesFill struct {
 	FileID   FileID
 	TargetID targets.TargetID
 	ItemID   works.ItemID
 	Edition  targets.Edition
 	Score    int64
+	ForcedAt storage.Time
+}
+
+type FilesImported struct {
+	ID       storage.UUID
+	FileID   FileID
+	ImportID storage.UUID
+	GrabID   storage.UUID
+	WorkID   works.WorkID
+	PlacedBy string
+	Items    string
+	Cells    string
+	Replaced string
+	At       storage.Time
 }
 
 type FilesMove struct {

@@ -37,7 +37,7 @@ var cueNames = []string{remove, pause, stall, failCue, tracker, empty, dropAdd, 
 //     client's own web UI.
 //   - stall {node, release, on}: no more data arrives, or it arrives again.
 //   - error {node, release, message}: a local error such as a full disk
-//     stops the torrent; "" clears it.
+//     stops the torrent; "" clears it and starts the torrent again.
 //   - tracker {node, release, message, error}: the tracker's message, a
 //     warning or with error an error; "" clears it.
 //   - empty {node}: the client lists no torrent, keeping their files.

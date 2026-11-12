@@ -42,7 +42,7 @@ func walked(t *testing.T, p string, size int64, n int) storing.Walked {
 
 // found is a found file of item read at 1080p, whose name reads q.
 func found(item works.ItemID, q release.Quality, at storing.Walked) files.Found {
-	return files.Found{Item: item, Cut: release.Standard, At: at, Media: read1080, Quality: q}
+	return files.Found{Items: []works.ItemID{item}, Cut: release.Standard, At: at, Media: read1080, Quality: q}
 }
 
 // onRoot is l's root's files and held paths as a scan reads them now.

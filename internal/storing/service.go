@@ -27,7 +27,15 @@ const (
 )
 
 func (s *Store) Browse(ctx context.Context, req *storagev1.BrowseRequest) (*storagev1.BrowseResponse, error) {
-	l, err := s.browse(ctx, req.GetPath(), req.GetShowHidden())
+	var purpose Purpose
+	if req.GetPurpose() != storagev1.Purpose_PURPOSE_UNSPECIFIED {
+		p, err := purposes.parse(req.GetPurpose())
+		if err != nil {
+			return nil, rpc.Errorf(rpc.CodeInvalidArgument, "%v", err)
+		}
+		purpose = p
+	}
+	l, err := s.browse(ctx, req.GetPath(), req.GetShowHidden(), purpose)
 	if err != nil {
 		return nil, wireError(err)
 	}
@@ -82,7 +90,7 @@ func (s *Store) Check(ctx context.Context, req *storagev1.CheckRequest) (*storag
 		}
 		others = append(others, Other{ID: id, Path: o.GetPath()})
 	}
-	c, err := s.check(ctx, req.GetPath(), purpose, others, purpose != PurposeClientFolder)
+	c, err := s.check(ctx, req.GetPath(), purpose, others, purpose.writes())
 	if err != nil {
 		return nil, wireError(err)
 	}
@@ -154,20 +162,29 @@ func (s *Store) Place(ctx context.Context, req *storagev1.PlaceRequest) (*storag
 	if err != nil {
 		return nil, err
 	}
-	var h bencode.InfoHash
-	if len(req.GetInfoHash()) != len(h) {
-		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "an info hash is %d bytes, not %d", len(h), len(req.GetInfoHash()))
+	var from Source
+	switch src := req.GetSource().(type) {
+	case *storagev1.PlaceRequest_Payload:
+		var h bencode.InfoHash
+		if len(src.Payload.GetInfoHash()) != len(h) {
+			return nil, rpc.Errorf(rpc.CodeInvalidArgument, "an info hash is %d bytes, not %d", len(h), len(src.Payload.GetInfoHash()))
+		}
+		copy(h[:], src.Payload.GetInfoHash())
+		from = Payload{InfoHash: h, FileIndex: int(src.Payload.GetFileIndex())}
+	case *storagev1.PlaceRequest_Path:
+		from = NodePath{Abs: src.Path}
+	default:
+		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "a place names no source")
 	}
-	copy(h[:], req.GetInfoHash())
 	to, err := relOf(req.GetTo())
 	if err != nil {
 		return nil, err
 	}
-	info, linked, err := s.place(ctx, root, Payload{InfoHash: h, FileIndex: int(req.GetFileIndex())}, to)
+	info, step, err := s.place(ctx, root, from, to, req.GetAllowCopy())
 	if err != nil {
 		return nil, wireError(err)
 	}
-	return &storagev1.PlaceResponse{Size: info.Size(), Linked: linked, Identity: identityOf(info)}, nil
+	return &storagev1.PlaceResponse{Size: info.Size(), Step: step.Wire(), Identity: identityOf(info)}, nil
 }
 
 func (s *Store) Move(ctx context.Context, req *storagev1.MoveRequest) (*storagev1.MoveResponse, error) {
@@ -183,7 +200,11 @@ func (s *Store) Move(ctx context.Context, req *storagev1.MoveRequest) (*storagev
 	if err != nil {
 		return nil, err
 	}
-	info, left, err := s.move(ctx, root, from, to, req.GetCarry())
+	videos, err := videosOf(req.GetVideoExtensions())
+	if err != nil {
+		return nil, err
+	}
+	info, left, err := s.move(ctx, root, from, to, req.GetCarry(), videos)
 	if err != nil {
 		return nil, wireError(err)
 	}
@@ -214,7 +235,11 @@ func (s *Store) Survey(ctx context.Context, req *storagev1.SurveyRequest) (*stor
 		}
 		planned = append(planned, Planned{From: from, To: to})
 	}
-	found, err := s.survey(ctx, root, planned, req.GetCompanions())
+	videos, err := videosOf(req.GetVideoExtensions())
+	if err != nil {
+		return nil, err
+	}
+	found, err := s.survey(ctx, root, planned, req.GetCompanions(), videos)
 	if err != nil {
 		return nil, wireError(err)
 	}
@@ -304,7 +329,11 @@ func (s *Store) Walk(ctx context.Context, req *storagev1.WalkRequest) (*storagev
 	if len(req.GetAfter()) > 0 {
 		after = strings.Split(string(req.GetAfter()), "\x00")
 	}
-	p, err := s.walk(ctx, root, after, limit)
+	videos, err := videosOf(req.GetVideoExtensions())
+	if err != nil {
+		return nil, err
+	}
+	p, err := s.walk(ctx, root, after, limit, videos)
 	if err != nil {
 		return nil, wireError(err)
 	}
@@ -354,6 +383,15 @@ func rootID(b []byte) (storage.UUID, error) {
 	return id, nil
 }
 
+// videosOf is a request's video extensions, which may not be none.
+func videosOf(exts []string) (media.Videos, error) {
+	v := media.NewVideos(exts...)
+	if v.Empty() {
+		return v, rpc.Errorf(rpc.CodeInvalidArgument, "no video file extensions")
+	}
+	return v, nil
+}
+
 func relOf(s string) (Rel, error) {
 	rel, err := ParseRel(s)
 	if err != nil {
@@ -362,10 +400,13 @@ func relOf(s string) (Rel, error) {
 	return rel, nil
 }
 
-// wireError is err as a handler answers it: a *FolderError, *NotReady or
-// ErrOccupied keeps its meaning across the wire, and any other error is
-// the call's as it is.
+// wireError is err as a handler answers it: a *FolderError, *NotReady,
+// *OutsideError or ErrOccupied keeps its meaning across the wire, and any
+// other error is the call's as it is.
 func wireError(err error) error {
+	if oe, ok := errors.AsType[*OutsideError](err); ok {
+		return rpc.ErrorWith(rpc.CodeFailedPrecondition, &storagev1.Outside{Path: oe.Path}, oe.Error())
+	}
 	if fe, ok := errors.AsType[*FolderError](err); ok {
 		return rpc.ErrorWith(folderCodes[fe.Kind], &storagev1.FolderError{Kind: fe.Kind.Wire(), OsText: fe.Text, Account: fe.Account}, fe.Error())
 	}
@@ -378,6 +419,12 @@ func wireError(err error) error {
 	}
 	if errors.Is(err, ErrOccupied) {
 		return rpc.Errorf(rpc.CodeAlreadyExists, "%v", err)
+	}
+	if nc, ok := errors.AsType[*NeedsCopyError](err); ok {
+		return rpc.ErrorWith(rpc.CodeFailedPrecondition, &storagev1.NeedsCopy{Size: nc.Size}, nc.Error())
+	}
+	if ns, ok := errors.AsType[*NeedsSpaceError](err); ok {
+		return rpc.ErrorWith(rpc.CodeResourceExhausted, &storagev1.NeedsSpace{}, ns.Error())
 	}
 	return err
 }
@@ -422,13 +469,25 @@ func (s *Store) entries(ctx context.Context, dir string) ([]Entry, error) {
 
 // browse lists a folder's subfolders, or the Node's places for an empty
 // path: its roots first, then its drives or mounts.
-func (s *Store) browse(ctx context.Context, path string, showHidden bool) (Listing, error) {
-	if path == "" {
+// browse lists path, or the Node's places for an empty one. For
+// PurposeImport the places are the Node's library roots and download
+// folders, a path outside them is *OutsideError, and a parent outside
+// them is none.
+func (s *Store) browse(ctx context.Context, path string, showHidden bool, purpose Purpose) (Listing, error) {
+	switch {
+	case path == "" && purpose == PurposeImport:
+		return s.importPlaces(ctx), nil
+	case path == "":
 		return s.places(ctx)
 	}
 	dir, err := s.clean(path)
 	if err != nil {
 		return Listing{}, err
+	}
+	if purpose == PurposeImport {
+		if dir, err = s.fence(ctx, dir); err != nil {
+			return Listing{}, err
+		}
 	}
 	es, err := s.entries(ctx, dir)
 	if err != nil {
@@ -436,6 +495,9 @@ func (s *Store) browse(ctx context.Context, path string, showHidden bool) (Listi
 	}
 	l := Listing{Path: dir, Segments: s.host.Style.Segments(dir)}
 	l.Parent, _ = s.host.Style.Parent(dir)
+	if purpose == PurposeImport && l.Parent != "" && !s.Holds(ctx, l.Parent) {
+		l.Parent = ""
+	}
 	for _, e := range es {
 		switch {
 		case !e.Dir:
@@ -548,8 +610,11 @@ var reasonOf = map[FolderErrorKind]Reason{
 // Judge is the FolderService's Check on this Node, apart from no roots
 // but the ones it holds.
 func (s *Store) Judge(ctx context.Context, path string, purpose Purpose) (CheckResult, error) {
-	return s.check(ctx, path, purpose, nil, purpose != PurposeClientFolder)
+	return s.check(ctx, path, purpose, nil, purpose.writes())
 }
+
+// writes is whether Check tries a write in a folder for p.
+func (p Purpose) writes() bool { return p != PurposeClientFolder && p != PurposeImport }
 
 // JudgeClientFolder is Judge for an external client's download folder,
 // writable too when write is set: the Node deletes the files of a kind
@@ -582,6 +647,12 @@ func (s *Store) check(ctx context.Context, path string, purpose Purpose, others 
 	c.Marker = m.id
 	if v, err := timed(ctx, s, dir, func(ctx context.Context) (Volume, error) { return s.cfg.Disk.Volume(ctx, dir) }); err == nil {
 		c.Volume = &v
+	}
+	if purpose == PurposeImport {
+		if _, err := s.fence(ctx, dir); err != nil {
+			c.Refusal = &Refusal{Reason: ReasonOutside}
+		}
+		return c, nil
 	}
 	if r := judge(s.host.Style, dir, s.reserved(purpose, others), s.identity(ctx)); r != nil {
 		c.Refusal = r
@@ -619,6 +690,7 @@ func (s *Store) reserved(purpose Purpose, others []Other) []reserved {
 		}
 		s.mu.Unlock()
 		return apartFrom(held)
+	case PurposeImport:
 	}
 	panic(fmt.Sprintf("storing: purpose %d has no rules", purpose))
 }
@@ -698,29 +770,29 @@ func (s *Store) sized(ctx context.Context, dir string, rel Rel, size int64) (Mis
 	return 0, nil
 }
 
-func (s *Store) place(ctx context.Context, root storage.UUID, p Payload, to Rel) (placed Info, linked bool, err error) {
+func (s *Store) place(ctx context.Context, root storage.UUID, src Source, to Rel, allowCopy bool) (Info, Step, error) {
 	dir, err := s.resolve(ctx, root, true)
 	if err != nil {
-		return nil, false, err
+		return nil, 0, err
 	}
-	from, err := s.cfg.Payloads.Path(p.InfoHash, p.FileIndex)
+	from, err := s.sourcePath(ctx, src)
 	if err != nil {
-		return nil, false, rpc.Errorf(rpc.CodeUnavailable, "%v", err)
+		return nil, 0, err
 	}
-	placed, linked, err = placer{s.cfg.Disk, s.host.Style, dir, s.walksOf(root)}.place(ctx, from, to)
+	placed, step, err := placer{s.cfg.Disk, s.host.Style, dir, s.walksOf(root)}.place(ctx, from, to, allowCopy)
 	if err != nil {
-		return nil, false, s.refused(ctx, dir, err)
+		return nil, 0, s.refused(ctx, dir, err)
 	}
 	s.resample(root)
-	return placed, linked, nil
+	return placed, step, nil
 }
 
-func (s *Store) move(ctx context.Context, root storage.UUID, from, to Rel, carry bool) (Info, []Rel, error) {
+func (s *Store) move(ctx context.Context, root storage.UUID, from, to Rel, carry bool, videos media.Videos) (Info, []Rel, error) {
 	dir, err := s.resolve(ctx, root, false)
 	if err != nil {
 		return nil, nil, err
 	}
-	moved, left, err := placer{s.cfg.Disk, s.host.Style, dir, s.walksOf(root)}.move(ctx, from, to, carry)
+	moved, left, err := placer{s.cfg.Disk, s.host.Style, dir, s.walksOf(root)}.move(ctx, from, to, carry, videos)
 	if err != nil {
 		return nil, nil, s.refused(ctx, dir, err)
 	}
@@ -731,7 +803,7 @@ func (s *Store) move(ctx context.Context, root storage.UUID, from, to Rel, carry
 // it: a folder that stopped taking writes, or answering, is *NotReady, so
 // the write waits for the root. The facts follow at once.
 func (s *Store) refused(ctx context.Context, dir string, err error) error {
-	if errors.Is(err, ErrOccupied) {
+	if _, needsCopy := errors.AsType[*NeedsCopyError](err); needsCopy || errors.Is(err, ErrOccupied) {
 		return err
 	}
 	s.wake()

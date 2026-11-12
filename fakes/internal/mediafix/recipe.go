@@ -42,8 +42,10 @@ const fps = 24
 var bitexact = []string{"-fflags", "+bitexact", "-flags:v", "+bitexact", "-flags:a", "+bitexact", "-map_metadata", "-1"}
 
 // recipeOf is the recipe that makes f, naming every file it writes after
-// stem. The bytes it makes don't depend on stem.
-func recipeOf(stem string, f scenario.MediaFile) recipe {
+// stem. The bytes it makes don't depend on stem. A salt other than ""
+// goes in the container's comment tag, so files of one description made
+// with two salts differ in their bytes and read alike.
+func recipeOf(stem string, f scenario.MediaFile, salt string) recipe {
 	v := f.Video
 	ext := path.Ext(f.Path)
 	r := recipe{out: stem + ext}
@@ -93,6 +95,9 @@ func recipeOf(stem string, f scenario.MediaFile) recipe {
 		tracks = append(tracks, "-c:s", "srt")
 	}
 	args = slices.Concat(args, maps, codec, tracks, bitexact)
+	if salt != "" {
+		args = append(args, "-metadata", "comment="+salt)
+	}
 	if ext == ".h264" {
 		args = append(args, "-f", "h264")
 	}

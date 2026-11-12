@@ -133,11 +133,23 @@ service FolderService {
   rpc MakeFolder(MakeFolderRequest) returns (MakeFolderResponse);
   // Check judges a folder for a purpose on this Node.
   rpc Check(CheckRequest) returns (CheckResponse);
+  // ListVideos lists the video files under a folder in one of the Node's
+  // library roots or download folders. Any other is FAILED_PRECONDITION
+  // with an Outside detail.
+  rpc ListVideos(ListVideosRequest) returns (ListVideosResponse);
+  // RemoveSource removes a file in one of the Node's library roots or
+  // download folders once a Move placed it. A file already gone is
+  // removed, and any other place is refused as ListVideos refuses it.
+  rpc RemoveSource(RemoveSourceRequest) returns (RemoveSourceResponse);
 }
 
 message BrowseRequest {
   string path = 1;
   bool show_hidden = 2;
+  // purpose IMPORT browses only the Node's library roots and download
+  // folders: its places are those folders, and a path outside them is
+  // refused with an Outside detail.
+  Purpose purpose = 3;
 }
 
 message BrowseResponse {
@@ -218,6 +230,9 @@ enum Purpose {
   // Node sees it: readable, on any volume, and apart from every root the
   // Node holds. It is never written.
   PURPOSE_CLIENT_FOLDER = 3;
+  // IMPORT: a folder to import from, readable and inside one of the
+  // Node's library roots or download folders once its links are followed.
+  PURPOSE_IMPORT = 4;
 }
 
 message Other {
@@ -250,6 +265,7 @@ enum Reason {
   REASON_CONTAINS_DOWNLOADS = 10;
   REASON_UNRESPONSIVE = 11;
   REASON_NETWORK_SHARE = 12;
+  REASON_OUTSIDE = 13;
 }
 
 message VerifyRequest {
@@ -289,16 +305,89 @@ enum MissingReason {
 
 message PlaceRequest {
   bytes root_id = 1;
-  bytes info_hash = 2;
-  int64 file_index = 3;
+  reserved 2, 3;
+  // source is where the file's bytes are.
+  oneof source {
+    Payload payload = 6;
+    // path is an absolute path in one of the Node's library roots or
+    // download folders. Any other is refused with an Outside detail.
+    string path = 7;
+  }
   string to = 4;
+  // allow_copy lets a place copy the file when link and clone both refuse.
+  // Without it the place fails with a NeedsCopy detail.
+  bool allow_copy = 5;
 }
 
 message PlaceResponse {
   int64 size = 1;
-  bool linked = 2;
+  PlaceStep step = 2;
   Identity identity = 3;
 }
+
+// PlaceStep is how a file came to be at its target.
+enum PlaceStep {
+  PLACE_STEP_UNSPECIFIED = 0;
+  PLACE_STEP_LINK = 1;
+  PLACE_STEP_CLONE = 2;
+  PLACE_STEP_COPY = 3;
+  PLACE_STEP_RENAME = 4;
+  PLACE_STEP_IN_PLACE = 5;
+}
+
+// NeedsCopy is a place asked without allow_copy whose link and clone both
+// refused. size is the bytes a copy writes.
+message NeedsCopy {
+  int64 size = 1;
+}
+
+// NeedsSpace is a clone or copy the target volume has no room for.
+message NeedsSpace {}
+
+// Payload is file file_index of a torrent this Node finished.
+message Payload {
+  bytes info_hash = 1;
+  int64 file_index = 2;
+}
+
+// Outside details a path the Node refuses to read or change: outside its
+// library roots and download folders once its links are followed.
+message Outside {
+  string path = 1;
+}
+
+message ListVideosRequest {
+  string path = 1;
+  // video_extensions are as on MoveRequest.
+  repeated string video_extensions = 2;
+}
+
+message ListVideosResponse {
+  // path is cleaned.
+  string path = 1;
+  // root_id is set when path is in a library root the Node holds, and rel
+  // is path under it, "" for the root itself.
+  bytes root_id = 2;
+  string rel = 3;
+  // files are in walk order: depth first, each folder's names in byte
+  // order.
+  repeated Listed files = 4;
+}
+
+message Listed {
+  // path is absolute.
+  string path = 1;
+  int64 size = 2;
+  Identity identity = 3;
+  // seeded: a torrent one of the Node's clients holds lies at path.
+  bool seeded = 4;
+}
+
+message RemoveSourceRequest {
+  string path = 1;
+}
+
+message RemoveSourceResponse {}
 
 message MoveRequest {
   bytes root_id = 1;
@@ -307,6 +396,9 @@ message MoveRequest {
   // carry moves each companion of from, a file in its folder named from's
   // stem, ".", and a tail, to to's stem, ".", and the same tail.
   bool carry = 4;
+  // video_extensions are the Admin's video file extensions, lower case
+  // without the dot. A file with one is never another's companion.
+  repeated string video_extensions = 5;
 }
 
 message MoveResponse {
@@ -324,6 +416,8 @@ message SurveyRequest {
   // planned is at most 2000 renames.
   repeated Planned planned = 2;
   bool companions = 3;
+  // video_extensions are as on MoveRequest.
+  repeated string video_extensions = 4;
 }
 
 message Planned {
@@ -406,6 +500,9 @@ message WalkRequest {
   bytes after = 2;
   // limit is at most 1000 entries.
   int32 limit = 3;
+  // video_extensions are as on MoveRequest: the walk lists only files
+  // with one of them.
+  repeated string video_extensions = 4;
 }
 
 message WalkResponse {

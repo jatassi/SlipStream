@@ -122,7 +122,7 @@ func (s *shelved) place(t *testing.T, w works.Tree, path string, q release.Quali
 
 func (s *shelved) placeAt(t *testing.T, it works.Item, w works.Tree, path string, q release.Quality, size int64, fills ...targets.TargetID) files.ID {
 	t.Helper()
-	f := files.File{WorkID: w.ID, ItemID: it.ID, Cut: release.Standard, RootID: s.root.ID, Path: path, Size: size, Quality: q}
+	f := files.File{WorkID: w.ID, Items: []works.ItemID{it.ID}, Cut: release.Standard, RootID: s.root.ID, Path: path, Size: size, Quality: q}
 	if len(fills) == 0 {
 		f.Label, f.Extra = "HD", 1
 	}

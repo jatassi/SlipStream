@@ -57,10 +57,6 @@ func (grabbing) ReleaseTitles(context.Context, storage.Reader[storage.Library]) 
 	return nil, nil
 }
 
-func (grabbing) Settle(context.Context, *storage.Tx[storage.Library], works.WorkID, map[files.CellKey]bool, files.Unwanted) (int, error) {
-	return 0, nil
-}
-
 type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}

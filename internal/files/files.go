@@ -35,13 +35,15 @@ func Schema() storage.Schema[file] { return storage.NewSchema[file]("files", sch
 
 type ID = db.FileID
 
-// File is one library file of an Item. Path is where it belongs under its
-// root, '/' separated; until the disk queue moves it there, its bytes sit
-// where only the queue looks.
+// File is one library file of one or more Items of a Work. Path is where
+// it belongs under its root, '/' separated; until the disk queue moves it
+// there, its bytes sit where only the queue looks.
 type File struct {
 	ID     ID
 	WorkID works.WorkID
-	ItemID works.ItemID
+	// Items are the Items it holds, never none, in tree order: the first
+	// names its folder.
+	Items []works.ItemID
 	// Cut is the file's own cut, which its name tags; the cells it can
 	// fill are its Work's list's.
 	Cut    release.CutKey
@@ -96,7 +98,7 @@ func (f File) Facts() release.Facts {
 
 func fileOf(row db.FilesFile) File {
 	f := File{
-		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Cut: row.Cut, RootID: row.RootID, Path: row.Path, Size: row.Size, Media: row.Probe,
+		ID: row.ID, WorkID: row.WorkID, Cut: row.Cut, RootID: row.RootID, Path: row.Path, Size: row.Size, Media: row.Probe,
 		ProbedAt: row.ProbedAt, Seen: seenOf(row.ModifiedAt, row.NodeFileID, row.NodeVolumeID), GoneAt: row.GoneAt,
 		GrabID: row.GrabID, Quality: row.Quality, Label: row.Label, Extra: row.Extra, ReleaseName: row.ReleaseName, Title: row.TitleRead.Read,
 	}
@@ -168,7 +170,7 @@ func MovedOf(ws []works.WorkID) Moved {
 }
 
 // Add records f, whose bytes are already at its Path, filling each of
-// fills for its Item at the Edition its cut fills at score 0, and labels
+// fills for each of its Items at the Edition its cut fills at score 0, and labels
 // it after the first of them in its Work's Profile order. It trusts fills
 // and their scores: an import goes through Import, which decides them.
 func Add(ctx context.Context, tx *storage.Tx[file], f File, fills []targets.TargetID) (File, error) {
@@ -187,10 +189,12 @@ func Add(ctx context.Context, tx *storage.Tx[file], f File, fills []targets.Targ
 	if err := insertFile(ctx, q, f); err != nil {
 		return File{}, err
 	}
-	for _, t := range fills {
-		err := q.InsertFill(ctx, db.InsertFillParams{FileID: f.ID, TargetID: t, ItemID: f.ItemID, Edition: goals.Editions.Filling(f.Cut), Score: 0})
-		if err != nil {
-			return File{}, err
+	for _, it := range f.Items {
+		for _, t := range fills {
+			err := q.InsertFill(ctx, db.InsertFillParams{FileID: f.ID, TargetID: t, ItemID: it, Edition: goals.Editions.Filling(f.Cut), Score: 0})
+			if err != nil {
+				return File{}, err
+			}
 		}
 	}
 	return f, nil
@@ -202,11 +206,20 @@ func insertFile(ctx context.Context, q *db.Queries, f File) error {
 	if f.SourceName != "" {
 		source = &f.SourceName
 	}
-	return q.InsertFile(ctx, db.InsertFileParams{
-		ID: f.ID, WorkID: f.WorkID, ItemID: f.ItemID, Cut: f.Cut, RootID: f.RootID, Path: f.Path, Size: f.Size, Probe: f.Media,
+	err := q.InsertFile(ctx, db.InsertFileParams{
+		ID: f.ID, WorkID: f.WorkID, Cut: f.Cut, RootID: f.RootID, Path: f.Path, Size: f.Size, Probe: f.Media,
 		GrabID: f.GrabID, Quality: f.Quality, Label: f.Label, Extra: f.Extra, ReleaseName: f.ReleaseName, TitleRead: db.Reading{Read: f.Title},
 		ModifiedAt: modified, NodeFileID: file, NodeVolumeID: volume, ProbedAt: f.ProbedAt, SourceName: source,
 	})
+	if err != nil {
+		return err
+	}
+	for i, it := range f.Items {
+		if err := q.InsertFileItem(ctx, db.InsertFileItemParams{FileID: f.ID, ItemID: it, Position: int64(i)}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // State is a cell's state, in the glossary's order: what needs attention
@@ -257,9 +270,12 @@ type Cell struct {
 }
 
 // Fill is the file filling a cell and its score at the cell's Target.
+// Forced is when an Admin's Force gave the cell its file, zero when
+// refill chose it.
 type Fill struct {
-	File  ID
-	Score int
+	File   ID
+	Score  int
+	Forced storage.Time
 }
 
 // Wanted is whether a search should try to fill the cell: a missing,
@@ -312,10 +328,6 @@ type Inflight interface {
 	Unfinished(ctx context.Context, r storage.Reader[storage.Library]) ([]storage.UUID, error)
 	// ReleaseTitles reads the Release title of every Grab with a record.
 	ReleaseTitles(ctx context.Context, r storage.Reader[storage.Library]) (map[storage.UUID]string, error)
-	// Settle records u on each unfinished Grab of work whose every cell is
-	// in gone, for its probe or import to follow if its file fills
-	// nothing, and counts them.
-	Settle(ctx context.Context, tx *storage.Tx[storage.Library], work works.WorkID, gone map[CellKey]bool, u Unwanted) (int, error)
 }
 
 // NoGrabs is Inflight while nothing grabs.
@@ -331,10 +343,6 @@ func (NoGrabs) Unfinished(context.Context, storage.Reader[storage.Library]) ([]s
 
 func (NoGrabs) ReleaseTitles(context.Context, storage.Reader[storage.Library]) (map[storage.UUID]string, error) {
 	return nil, nil
-}
-
-func (NoGrabs) Settle(context.Context, *storage.Tx[storage.Library], works.WorkID, map[CellKey]bool, Unwanted) (int, error) {
-	return 0, nil
 }
 
 type Config struct {

@@ -171,3 +171,31 @@ func names(t *testing.T, dir string) []string {
 	}
 	return out
 }
+
+func TestBuildDistinctMakesFilesOfTheirOwnThatReadAlike(t *testing.T) {
+	b, tools := builder(t)
+	f := file("episode", scenario.MediaVideo{Width: 320, Height: 180, Seconds: 1, HDR: "sdr"})
+	var sums [][sha256.Size]byte
+	for _, key := range []string{"Pack/E01.mkv", "Pack/E02.mkv", "Pack/E01.mkv"} {
+		built, err := b.BuildDistinct(t.Context(), f, key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(built)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sums = append(sums, sha256.Sum256(data))
+		got, err := media.FFprobe{Path: tools.FFprobe}.Probe(t.Context(), built)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got.Bitrate, got.Duration = 0, got.Duration.Round(time.Second)
+		if want := mediafix.Want(f); !reflect.DeepEqual(got, want) {
+			t.Fatalf("Probe of %s = %+v\nwant %+v", key, got, want)
+		}
+	}
+	if sums[0] == sums[1] || sums[0] != sums[2] {
+		t.Fatalf("the files' sums are %x, want two keys' files to differ and one key's to match", sums)
+	}
+}

@@ -83,7 +83,7 @@ func attic(t *testing.T) (o *ownertest.Owner, work string) {
 	}
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: root.ID, Path: "Loft/scarf.mkv", Size: 5,
+			WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID}, Cut: release.Standard, RootID: root.ID, Path: "Loft/scarf.mkv", Size: 5,
 			Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p,
 		}, []targets.TargetID{hd.ID})
 		return err

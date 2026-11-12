@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"strings"
 
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -40,7 +41,7 @@ type onDisk struct {
 
 // survey answers each planned rename under root, listing each folder
 // once. A target folder that isn't there holds nothing.
-func (s *Store) survey(ctx context.Context, root storage.UUID, planned []Planned, withCompanions bool) ([]surveyed, error) {
+func (s *Store) survey(ctx context.Context, root storage.UUID, planned []Planned, withCompanions bool, videos media.Videos) ([]surveyed, error) {
 	dir, err := s.resolve(ctx, root, false)
 	if err != nil {
 		return nil, err
@@ -74,7 +75,7 @@ func (s *Store) survey(ctx context.Context, root storage.UUID, planned []Planned
 		if es, err = list(from); err != nil {
 			return nil, err
 		}
-		for _, c := range companions(es, video) {
+		for _, c := range companions(es, video, videos) {
 			out[i].companions = append(out[i].companions, from.join(c))
 		}
 	}

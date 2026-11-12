@@ -33,7 +33,7 @@ type Impact struct {
 	Renamed     int           `json:"renamed" minimum:"0" doc:"Files whose path changes, Kept files included"`
 	Renames     []workRenames `json:"renames" nullable:"false" doc:"The first 500 of the renamed files, by Work in title order"`
 	NewlyWanted int           `json:"newlyWanted" minimum:"0" doc:"Cells that become wanted"`
-	Downloading int           `json:"downloading" minimum:"0" doc:"Downloads in progress for cells that are no longer wanted. The save's choice decides whether their files are deleted or kept"`
+	Downloading int           `json:"downloading" minimum:"0" doc:"Downloads in progress for cells that are no longer wanted. Each waits in Pending imports once it finishes"`
 }
 
 type workRenames struct {
@@ -66,7 +66,7 @@ func ImpactOf(i files.Impact) Impact {
 // It is exported so the document carries the parameters it embeds.
 type Changing struct {
 	Preview  bool                `query:"preview" doc:"Return the change's Impact and save nothing"`
-	Unwanted string              `query:"unwanted" enum:"delete,keep" default:"delete" doc:"What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes"`
+	Unwanted string              `query:"unwanted" enum:"delete,keep" default:"delete" doc:"What becomes of the files the change leaves filling nothing"`
 	Confirm  api.Optional[int64] `query:"confirm" minimum:"0" doc:"The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed"`
 }
 

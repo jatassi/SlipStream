@@ -48,7 +48,7 @@ func addTracker(t *testing.T, w *sim.World, name string, privacy indexers.Privac
 func seedFor(t *testing.T, w *sim.World, swarm *enginetest.World, tracker indexers.TrackerID, name string) seeded {
 	t.Helper()
 	box := nodeID(t, w, "seedbox")
-	raw, hash, err := releases.Metainfo(name+".mkv", goalPayload, idleTracker, false)
+	raw, hash, err := releases.Metainfo(name+".mkv", nil, goalPayload, idleTracker, false)
 	if err != nil {
 		t.Fatal(err)
 	}

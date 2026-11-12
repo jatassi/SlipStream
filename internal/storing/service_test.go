@@ -9,11 +9,13 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
 	"testing/synctest"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/media"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
 	"github.com/jatassi/slipstream/internal/role"
@@ -71,7 +73,7 @@ func TestBrowseTypesEveryError(t *testing.T) {
 			{hung, FolderUnresponsive, "hasn't responded within 10s", ""},
 			{broken, FolderIO, "input/output error", ""},
 		} {
-			_, err := remote.Browse(t.Context(), node, c.path, false)
+			_, err := remote.Browse(t.Context(), node, c.path, false, 0)
 			fe := folderErr(t, err)
 			if fe.Kind != c.kind || !strings.Contains(fe.Text, c.text) || fe.Account != c.account {
 				t.Errorf("Browse %s = %+v, want %v with %q and account %q", c.path, fe, c.kind, c.text, c.account)
@@ -107,7 +109,7 @@ func TestBrowseShowsLinksAndUnreadableFolders(t *testing.T) {
 	}
 	remote := foldersOf(newStore(d))
 
-	l, err := remote.Browse(t.Context(), node, base, false)
+	l, err := remote.Browse(t.Context(), node, base, false, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +129,7 @@ func TestBrowseShowsLinksAndUnreadableFolders(t *testing.T) {
 		t.Errorf("segments = %v, want them to end at %s", segs, base)
 	}
 
-	shown, err := remote.Browse(t.Context(), node, base, true)
+	shown, err := remote.Browse(t.Context(), node, base, true, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +149,7 @@ func TestBrowsePlacesListTheRootsFirst(t *testing.T) {
 		s := newStore(d)
 		running(t, s, intentOf(rootAt(id, folder, false))).next(t)
 
-		l, err := foldersOf(s).Browse(t.Context(), node, "", false)
+		l, err := foldersOf(s).Browse(t.Context(), node, "", false, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -265,7 +267,7 @@ func TestMakeFolderMakesOneNamedFolder(t *testing.T) {
 			t.Errorf("MakeFolder(%q) = %v, want invalid", name, err)
 		}
 	}
-	if _, err := remote.Browse(t.Context(), node, "Movies", false); !errors.Is(err, ErrInvalid) {
+	if _, err := remote.Browse(t.Context(), node, "Movies", false, 0); !errors.Is(err, ErrInvalid) {
 		t.Errorf("Browse of a relative path = %v, want invalid", err)
 	}
 	_, err = remote.MakeFolder(t.Context(), node, filepath.Join(parent, "gone"), "Movies")
@@ -555,30 +557,106 @@ func newPlacing(t *testing.T, draining bool) placing {
 func (p placing) payload() Payload { return Payload{InfoHash: p.hash} }
 
 func TestPlaceConvergesOnRepeat(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		for _, links := range []bool{true, false} {
-			p := newPlacing(t, false)
-			p.disk.noLinks = !links
-			to := mustRel(t, HoldingDir+"/0190.mkv")
-			for range 2 {
-				placed, err := p.remote.Place(t.Context(), p.at, p.payload(), to)
-				if err != nil || placed.Size != 4 || placed.Linked != links {
-					t.Fatalf("links %v: Place = %+v, %v; want 4 bytes", links, placed, err)
+	for _, c := range []struct {
+		name              string
+		linkErr, cloneErr error
+		first, again      Step
+	}{
+		{"link", nil, nil, Link, Link},
+		{"clone", ErrCrossDevice, nil, Clone, Copy},
+		{"copy", ErrCrossDevice, errors.ErrUnsupported, Copy, Copy},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				p := newPlacing(t, false)
+				p.disk.linkErr, p.disk.cloneErr = c.linkErr, c.cloneErr
+				for i, want := range []Step{c.first, c.again} {
+					placed, err := p.remote.Place(t.Context(), p.at, p.payload(), mustRel(t, HoldingDir+"/0190.mkv"), true)
+					if err != nil || placed.Size != 4 || placed.Step != want {
+						t.Fatalf("Place %d = %+v, %v; want 4 bytes by %s", i+1, placed, err, want)
+					}
 				}
-			}
-			placed := filepath.Join(p.folder, HoldingDir, "0190.mkv")
-			if b, err := os.ReadFile(placed); err != nil || string(b) != "film" {
-				t.Errorf("links %v: the placed file holds %q, %v", links, b, err)
-			}
-			if _, err := os.Stat(placed + ".part"); !errors.Is(err, os.ErrNotExist) {
-				t.Errorf("links %v: a .part file stayed: %v", links, err)
-			}
-		}
+				placed := filepath.Join(p.folder, HoldingDir, "0190.mkv")
+				if b, err := os.ReadFile(placed); err != nil || string(b) != "film" {
+					t.Errorf("the placed file holds %q, %v", b, err)
+				}
+				if _, err := os.Stat(placed + ".part"); !errors.Is(err, os.ErrNotExist) {
+					t.Errorf("a .part file stayed: %v", err)
+				}
+			})
+		})
+	}
+}
 
+func TestPlaceLeavesAnotherFileAtTheTarget(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
 		p := newPlacing(t, false)
 		write(t, filepath.Join(p.folder, HoldingDir, "taken.mkv"), "another film")
-		if _, err := p.remote.Place(t.Context(), p.at, p.payload(), mustRel(t, HoldingDir+"/taken.mkv")); !errors.Is(err, ErrOccupied) {
+		if _, err := p.remote.Place(t.Context(), p.at, p.payload(), mustRel(t, HoldingDir+"/taken.mkv"), true); !errors.Is(err, ErrOccupied) {
 			t.Errorf("Place onto another file = %v, want ErrOccupied", err)
+		}
+		if b, err := os.ReadFile(filepath.Join(p.folder, HoldingDir, "taken.mkv")); err != nil || string(b) != "another film" {
+			t.Errorf("the file Place found there holds %q, %v; want it untouched", b, err)
+		}
+	})
+}
+
+func TestALinkRefusedOnOneVolumeStopsTheLadder(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		for _, refusal := range []error{syscall.EACCES, syscall.EROFS, ErrNoSpace} {
+			p := newPlacing(t, false)
+			p.disk.linkErr = refusal
+			to := filepath.Join(p.folder, HoldingDir, "0190.mkv")
+			_, err := p.remote.Place(t.Context(), p.at, p.payload(), mustRel(t, HoldingDir+"/0190.mkv"), true)
+			if err == nil || !strings.Contains(err.Error(), refusal.Error()) {
+				t.Errorf("Place whose link fails with %v = %v, want that error", refusal, err)
+			}
+			if n := p.disk.count("clone", to) + p.disk.count("create", to+".part"); n != 0 {
+				t.Errorf("link failed with %v: %d clones or copies tried, want none", refusal, n)
+			}
+			if _, err := os.Stat(to); !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("link failed with %v: a file is at the target: %v", refusal, err)
+			}
+		}
+	})
+}
+
+func TestAnUnsupportedCloneCopiesOnlyWithAllowCopy(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := newPlacing(t, false)
+		p.disk.linkErr, p.disk.cloneErr = ErrCrossDevice, errors.ErrUnsupported
+		rel, to := mustRel(t, HoldingDir+"/0190.mkv"), filepath.Join(p.folder, HoldingDir, "0190.mkv")
+		_, err := p.remote.Place(t.Context(), p.at, p.payload(), rel, false)
+		if nc, ok := errors.AsType[*NeedsCopyError](err); !ok || nc.Size != 4 {
+			t.Fatalf("Place without allowCopy = %v, want NeedsCopy of 4 bytes", err)
+		}
+		if n := p.disk.count("create", to+".part"); n != 0 {
+			t.Errorf("Place without allowCopy wrote %d copies, want none", n)
+		}
+		if _, err := os.Stat(to); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("Place without allowCopy left a file at the target: %v", err)
+		}
+		placed, err := p.remote.Place(t.Context(), p.at, p.payload(), rel, true)
+		if err != nil || placed.Step != Copy {
+			t.Fatalf("Place with allowCopy = %+v, %v; want a copy", placed, err)
+		}
+		if p.disk.count("create", to+".part") != 1 || p.disk.count("rename", to) != 1 || p.disk.count("create", to) != 0 {
+			t.Errorf("the copy wrote %d .part files and renamed %d onto the target, writing %d there directly; want one .part renamed",
+				p.disk.count("create", to+".part"), p.disk.count("rename", to), p.disk.count("create", to))
+		}
+	})
+}
+
+func TestACloneOnAFullVolumeNeedsSpace(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := newPlacing(t, false)
+		p.disk.linkErr, p.disk.cloneErr = ErrCrossDevice, ErrNoSpace
+		_, err := p.remote.Place(t.Context(), p.at, p.payload(), mustRel(t, HoldingDir+"/0190.mkv"), true)
+		if _, ok := errors.AsType[*NeedsSpaceError](err); !ok {
+			t.Fatalf("Place whose clone fills the volume = %v, want NeedsSpace", err)
+		}
+		if n := p.disk.count("create", filepath.Join(p.folder, HoldingDir, "0190.mkv.part")); n != 0 {
+			t.Errorf("a full clone fell through to %d copies, want none", n)
 		}
 	})
 }
@@ -587,7 +665,7 @@ func TestMoveRemoveAndListActOnTheRoot(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := newPlacing(t, false)
 		holding := mustRel(t, HoldingDir+"/0190.mkv")
-		placed, err := p.remote.Place(t.Context(), p.at, p.payload(), holding)
+		placed, err := p.remote.Place(t.Context(), p.at, p.payload(), holding, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -600,7 +678,7 @@ func TestMoveRemoveAndListActOnTheRoot(t *testing.T) {
 		}
 		final := mustRel(t, "Heat (1995)/Heat (1995).mkv")
 		for range 2 {
-			if moved, err := p.remote.Move(t.Context(), p.at, holding, final, false); err != nil || moved.Size != 4 || moved.Seen.ID.IsZero() || !moved.Seen.Same(placed.Seen) {
+			if moved, err := p.remote.Move(t.Context(), p.at, holding, final, false, media.DefaultVideos); err != nil || moved.Size != 4 || moved.Seen.ID.IsZero() || !moved.Seen.Same(placed.Seen) {
 				t.Fatalf("Move = %+v, %v; want the placed file %+v, 4 bytes", moved, err, placed)
 			}
 		}
@@ -632,12 +710,12 @@ func TestRemoveAllRemovesAStagingFolderOnRepeat(t *testing.T) {
 func TestAPlacementIntoAFolderThatStoppedTakingWritesIsNotReady(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := newPlacing(t, false)
-		p.disk.noLinks = true
+		p.disk.linkErr = ErrCrossDevice
 		holding := dir(t, p.folder, HoldingDir)
 		p.disk.mu.Lock()
 		p.disk.readOnly[p.folder], p.disk.readOnly[holding] = true, true
 		p.disk.mu.Unlock()
-		_, err := p.remote.Place(t.Context(), p.at, p.payload(), mustRel(t, HoldingDir+"/0190.mkv"))
+		_, err := p.remote.Place(t.Context(), p.at, p.payload(), mustRel(t, HoldingDir+"/0190.mkv"), true)
 		if nr := notReady(t, err); nr.State != Unwritable {
 			t.Errorf("Place into a read-only root = %+v, want unwritable", nr)
 		}
@@ -647,7 +725,7 @@ func TestAPlacementIntoAFolderThatStoppedTakingWritesIsNotReady(t *testing.T) {
 func TestPlaceRefusesWhileDraining(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := newPlacing(t, true)
-		_, err := p.remote.Place(t.Context(), p.at, p.payload(), mustRel(t, HoldingDir+"/0190.mkv"))
+		_, err := p.remote.Place(t.Context(), p.at, p.payload(), mustRel(t, HoldingDir+"/0190.mkv"), true)
 		if nr := notReady(t, err); !nr.Draining {
 			t.Errorf("Place while draining = %+v, want draining", nr)
 		}
@@ -655,7 +733,7 @@ func TestPlaceRefusesWhileDraining(t *testing.T) {
 			t.Error("staging for a Transfer while draining was allowed")
 		}
 		write(t, filepath.Join(p.folder, HoldingDir, "0180.mkv"), "film")
-		if _, err := p.remote.Move(t.Context(), p.at, mustRel(t, HoldingDir+"/0180.mkv"), mustRel(t, "Heat/Heat.mkv"), false); err != nil {
+		if _, err := p.remote.Move(t.Context(), p.at, mustRel(t, HoldingDir+"/0180.mkv"), mustRel(t, "Heat/Heat.mkv"), false, media.DefaultVideos); err != nil {
 			t.Errorf("Move while draining = %v, want the existing file moved", err)
 		}
 	})
@@ -667,7 +745,7 @@ func TestAWriteReReadsTheMarker(t *testing.T) {
 		if err := os.Remove(filepath.Join(p.folder, MarkerName)); err != nil {
 			t.Fatal(err)
 		}
-		_, err := p.remote.Place(t.Context(), p.at, p.payload(), mustRel(t, HoldingDir+"/0190.mkv"))
+		_, err := p.remote.Place(t.Context(), p.at, p.payload(), mustRel(t, HoldingDir+"/0190.mkv"), true)
 		if nr := notReady(t, err); nr.State != Unmounted {
 			t.Errorf("Place into a folder that lost its marker = %+v, want unmounted", nr)
 		}
@@ -676,7 +754,7 @@ func TestAWriteReReadsTheMarker(t *testing.T) {
 		}
 		checkStates(t, p.holder.next(t), map[storage.UUID]RootState{p.at.Root: Unmounted})
 
-		_, err = p.remote.Place(t.Context(), At{Node: node, Root: storage.NewUUID()}, p.payload(), mustRel(t, HoldingDir+"/0190.mkv"))
+		_, err = p.remote.Place(t.Context(), At{Node: node, Root: storage.NewUUID()}, p.payload(), mustRel(t, HoldingDir+"/0190.mkv"), true)
 		if nr := notReady(t, err); !nr.Unknown {
 			t.Errorf("Place into a root not in the intent = %+v, want unknown", nr)
 		}

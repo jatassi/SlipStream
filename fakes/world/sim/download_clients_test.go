@@ -82,6 +82,7 @@ func clientSuite(t *testing.T, spec fake.Spec, version string, own ...scenarioTe
 	for _, sc := range append([]scenarioTest{
 		{"tests, imports, shares a pause and removes with its files", suite.testsImportsSharesAPauseAndRemoves},
 		{"imports through a Client folder after the Import delay", suite.importsThroughAClientFolderAfterTheDelay},
+		{"an error stops the torrent and its clear starts it again", suite.anErrorStopsTheTorrentUntilCleared},
 	}, own...) {
 		t.Run(sc.name, func(t *testing.T) {
 			t.Parallel()
@@ -227,6 +228,25 @@ func (c suite) importsThroughAClientFolderAfterTheDelay(t *testing.T) {
 	r.expectLinked()
 }
 
+// anErrorStopsTheTorrentUntilCleared imports a Grab, has the client stop
+// its torrent with a local error, then clears the error: the Torrent reads
+// held by the client's error, then seeds again with no hold, as a clean
+// report from the client reads.
+func (c suite) anErrorStopsTheTorrentUntilCleared(t *testing.T) {
+	w, r := c.launch(t, func(*scenario.DownloadClient) {})
+	simtest.Search(t, w, simtest.AddOrchard(t, w))
+	expectImportedFrom(t, simtest.Await(t, w))
+	simtest.Eventually(t, "the Torrent seeds", func() bool { return r.torrent().State == "seeding" })
+
+	w.Cue(c.kind, c.kind+"-error", map[string]string{"node": "home", "release": release, "message": "No space left on device"})
+	simtest.Eventually(t, "the Torrent reads the client's error", func() bool { return r.torrent().Hold == "client_error" })
+	w.Cue(c.kind, c.kind+"-error", map[string]string{"node": "home", "release": release, "message": ""})
+	simtest.Eventually(t, "the Torrent seeds again", func() bool {
+		row := r.torrent()
+		return row.State == "seeding" && row.Hold == ""
+	})
+}
+
 // fromClient is a Grab's walk on one Node that downloads, probes and
 // imports there.
 var fromClient = []string{"fetching", "downloading", "probing", "importing", "imported"}
@@ -260,6 +280,7 @@ type torrentRow struct {
 	ClientName string `json:"clientName"`
 	ClientKind string `json:"clientKind"`
 	State      string `json:"state"`
+	Hold       string `json:"hold"`
 	Pending    string `json:"pending"`
 }
 

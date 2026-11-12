@@ -59,6 +59,10 @@ const (
 	FolderServiceMakeFolderProcedure = "/slipstream.storage.v1.FolderService/MakeFolder"
 	// FolderServiceCheckProcedure is the procedure name of the FolderService's Check RPC.
 	FolderServiceCheckProcedure = "/slipstream.storage.v1.FolderService/Check"
+	// FolderServiceListVideosProcedure is the procedure name of the FolderService's ListVideos RPC.
+	FolderServiceListVideosProcedure = "/slipstream.storage.v1.FolderService/ListVideos"
+	// FolderServiceRemoveSourceProcedure is the procedure name of the FolderService's RemoveSource RPC.
+	FolderServiceRemoveSourceProcedure = "/slipstream.storage.v1.FolderService/RemoveSource"
 )
 
 var (
@@ -504,6 +508,20 @@ var (
 			Procedure:  FolderServiceCheckProcedure,
 		}
 	})
+	folderServiceListVideosSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("FolderService").Methods().ByName("ListVideos"),
+			Procedure:  FolderServiceListVideosProcedure,
+		}
+	})
+	folderServiceRemoveSourceSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_slipstream_storage_v1_storage_proto.Services().ByName("FolderService").Methods().ByName("RemoveSource"),
+			Procedure:  FolderServiceRemoveSourceProcedure,
+		}
+	})
 )
 
 // FolderServiceClient is a client for the slipstream.storage.v1.FolderService service.
@@ -516,6 +534,14 @@ type FolderServiceClient interface {
 	MakeFolder(context.Context, *v1.MakeFolderRequest) (*v1.MakeFolderResponse, error)
 	// Check judges a folder for a purpose on this Node.
 	Check(context.Context, *v1.CheckRequest) (*v1.CheckResponse, error)
+	// ListVideos lists the video files under a folder in one of the Node's
+	// library roots or download folders. Any other is FAILED_PRECONDITION
+	// with an Outside detail.
+	ListVideos(context.Context, *v1.ListVideosRequest) (*v1.ListVideosResponse, error)
+	// RemoveSource removes a file in one of the Node's library roots or
+	// download folders once a Move placed it. A file already gone is
+	// removed, and any other place is refused as ListVideos refuses it.
+	RemoveSource(context.Context, *v1.RemoveSourceRequest) (*v1.RemoveSourceResponse, error)
 }
 
 // NewFolderServiceClient constructs a client for the slipstream.storage.v1.FolderService service.
@@ -534,6 +560,14 @@ type FolderServiceHandler interface {
 	MakeFolder(context.Context, *v1.MakeFolderRequest) (*v1.MakeFolderResponse, error)
 	// Check judges a folder for a purpose on this Node.
 	Check(context.Context, *v1.CheckRequest) (*v1.CheckResponse, error)
+	// ListVideos lists the video files under a folder in one of the Node's
+	// library roots or download folders. Any other is FAILED_PRECONDITION
+	// with an Outside detail.
+	ListVideos(context.Context, *v1.ListVideosRequest) (*v1.ListVideosResponse, error)
+	// RemoveSource removes a file in one of the Node's library roots or
+	// download folders once a Move placed it. A file already gone is
+	// removed, and any other place is refused as ListVideos refuses it.
+	RemoveSource(context.Context, *v1.RemoveSourceRequest) (*v1.RemoveSourceResponse, error)
 }
 
 // RegisterFolderServiceHandler registers svc as the slipstream.storage.v1.FolderService
@@ -545,6 +579,8 @@ func RegisterFolderServiceHandler(server *connect.Server, svc FolderServiceHandl
 		connect.Method{Spec: folderServiceSuggestSpec(), Handler: adapter.suggest},
 		connect.Method{Spec: folderServiceMakeFolderSpec(), Handler: adapter.makeFolder},
 		connect.Method{Spec: folderServiceCheckSpec(), Handler: adapter.check},
+		connect.Method{Spec: folderServiceListVideosSpec(), Handler: adapter.listVideos},
+		connect.Method{Spec: folderServiceRemoveSourceSpec(), Handler: adapter.removeSource},
 	)
 }
 
@@ -565,6 +601,14 @@ func (UnimplementedFolderServiceHandler) MakeFolder(context.Context, *v1.MakeFol
 
 func (UnimplementedFolderServiceHandler) Check(context.Context, *v1.CheckRequest) (*v1.CheckResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.FolderService.Check is not implemented")
+}
+
+func (UnimplementedFolderServiceHandler) ListVideos(context.Context, *v1.ListVideosRequest) (*v1.ListVideosResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.FolderService.ListVideos is not implemented")
+}
+
+func (UnimplementedFolderServiceHandler) RemoveSource(context.Context, *v1.RemoveSourceRequest) (*v1.RemoveSourceResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "slipstream.storage.v1.FolderService.RemoveSource is not implemented")
 }
 
 type folderServiceClient struct {
@@ -598,6 +642,22 @@ func (c *folderServiceClient) MakeFolder(ctx context.Context, req *v1.MakeFolder
 func (c *folderServiceClient) Check(ctx context.Context, req *v1.CheckRequest) (*v1.CheckResponse, error) {
 	var res v1.CheckResponse
 	if err := c.client.CallUnary(ctx, folderServiceCheckSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *folderServiceClient) ListVideos(ctx context.Context, req *v1.ListVideosRequest) (*v1.ListVideosResponse, error) {
+	var res v1.ListVideosResponse
+	if err := c.client.CallUnary(ctx, folderServiceListVideosSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *folderServiceClient) RemoveSource(ctx context.Context, req *v1.RemoveSourceRequest) (*v1.RemoveSourceResponse, error) {
+	var res v1.RemoveSourceResponse
+	if err := c.client.CallUnary(ctx, folderServiceRemoveSourceSpec(), req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
@@ -647,6 +707,30 @@ func (h folderServiceHandler) check(ctx context.Context, _ connect.Spec, stream 
 		return err
 	}
 	res, err := h.svc.Check(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h folderServiceHandler) listVideos(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.ListVideosRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.ListVideos(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h folderServiceHandler) removeSource(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.RemoveSourceRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.RemoveSource(ctx, &req)
 	if err != nil {
 		return err
 	}

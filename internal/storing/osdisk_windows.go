@@ -282,3 +282,11 @@ var ErrNoSpace error = windows.ERROR_DISK_FULL
 func NoSpace(err error) bool {
 	return errors.Is(err, windows.ERROR_DISK_FULL) || errors.Is(err, windows.ERROR_HANDLE_DISK_FULL)
 }
+
+// ErrCrossDevice is the error a hard link across two volumes fails with.
+var ErrCrossDevice error = windows.ERROR_NOT_SAME_DEVICE
+
+// Clone is unsupported: Windows clones only within ReFS, by block ranges.
+func (OSDisk) Clone(_ context.Context, _, to string) error {
+	return &fs.PathError{Op: "clone", Path: to + ".part", Err: errors.ErrUnsupported}
+}

@@ -170,7 +170,7 @@ func TestTwoGrabsOfOneMagnetLinkMakeOneSearch(t *testing.T) {
 		second := s.Releases[0]
 		second.Name, second.TMDBID = "Harbor.Lights.2019.1080p.WEB-DL.H264-FKW", 9000002
 		s.Releases = append(s.Releases, second)
-		_, orchard, err := releases.Metainfo(release+".mkv", sim.Payload(release), "https://127.0.0.1/announce/"+releases.Passkey(s, releases.Seeders), true)
+		_, orchard, err := releases.Metainfo(release+".mkv", nil, sim.Payload(release), "https://127.0.0.1/announce/"+releases.Passkey(s, releases.Seeders), true)
 		if err != nil {
 			t.Fatal(err)
 		}
