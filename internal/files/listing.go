@@ -6,6 +6,7 @@ import (
 	"path"
 	"slices"
 
+	"github.com/jatassi/slipstream/internal/files/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -13,10 +14,12 @@ import (
 )
 
 // Listed is one library file of a Work with the cells it fills, in cell
-// order, none for a Kept file.
+// order, none for a Kept file, and how its last import placed it, "" for
+// a file no import recorded.
 type Listed struct {
 	File
-	Fills []CellKey
+	Fills    []CellKey
+	PlacedBy string
 }
 
 // Listing is a Work's library files and the folder under its root they
@@ -40,7 +43,7 @@ func (f *Files) WorkFiles(ctx context.Context, _ identity.Admin, work works.Work
 		}
 		out = listing(w)
 		if len(out.Files) > 0 {
-			return nil
+			return placedBy(ctx, db.New(r), out.Files)
 		}
 		scheme, err := f.cfg.Naming.SchemeIn(ctx, r, w.tree.ContentType)
 		if err != nil {
@@ -79,4 +82,24 @@ func listing(w world) Listing {
 		out.Folder = path.Dir(out.Files[0].Path)
 	}
 	return out
+}
+
+// placedBy sets each of fs's PlacedBy from its last import.
+func placedBy(ctx context.Context, q *db.Queries, fs []Listed) error {
+	ids := make([]ID, len(fs))
+	for i, f := range fs {
+		ids[i] = f.ID
+	}
+	rows, err := q.ListPlacedByOfFiles(ctx, ids)
+	if err != nil {
+		return err
+	}
+	by := make(map[ID]string, len(rows))
+	for _, row := range rows {
+		by[row.FileID] = row.PlacedBy
+	}
+	for i := range fs {
+		fs[i].PlacedBy = by[fs[i].ID]
+	}
+	return nil
 }
