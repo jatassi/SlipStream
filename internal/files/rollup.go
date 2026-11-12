@@ -49,8 +49,8 @@ type Rollup struct {
 	// first Item comes. A Work of a type with no levels has none.
 	Levels []LevelRollup
 	Needs  []Need
-	// Files, Kept and Bytes count the Work's live library files, Kept
-	// files included.
+	// Files, Kept and Bytes count the Work's live library files outside
+	// lost roots, Kept files included.
 	Files, Kept int
 	Bytes       int64
 	// Available is the one Item's availability date, or for many Items the
@@ -105,7 +105,7 @@ func rollup(w world, cs []Cell) Rollup {
 	out.Levels = levelsOf(w.tree.Items, cs)
 	var held Held
 	for _, file := range w.files {
-		if !file.Gone() {
+		if !file.Gone() && !w.lost[file.RootID] {
 			held.add(file)
 		}
 	}

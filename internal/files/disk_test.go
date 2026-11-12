@@ -54,19 +54,16 @@ func (l *library) downloadProbed(t *testing.T, svc *files.Files, tree works.Tree
 	grab := storage.NewUUID()
 	holding := files.HoldingOf(grab, ".mkv")
 	l.put(t, holding, content)
-	var f files.File
+	var landed files.Landed
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
-		f, _, err = svc.Import(ctx, tx, files.Incoming{
-			WorkID: tree.ID, ItemID: tree.Items[item].ID, Cut: release.Standard, RootID: l.root.ID, Holding: holding,
-			Size: int64(len(content)), Media: probe, Quality: q,
-		})
+		landed, err = l.land(ctx, tx, svc, tree.ID, holdingOf(tree, item, holding, int64(len(content)), probe, q))
 		return err
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return f
+	return landed.File
 }
 
 // queued counts the disk queue's rows.
@@ -211,22 +208,14 @@ func TestAnUpgradeTakesThePathOfTheFileItLeavesFillingNothing(t *testing.T) {
 	l.download(t, svc, tree, 0, release.WEBDL1080p, "webdl")
 	l.settle(t, svc)
 
-	var placement files.Placement
-	err := l.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		incoming := files.Incoming{WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Holding: ".slipstream-incoming/g.mkv", Quality: release.WEBRip1080p}
-		_, err := svc.Place(ctx, r, incoming)
-		if _, nothing := errors.AsType[*files.FillsNothingError](err); !nothing {
-			return fmt.Errorf("placing a WEBRip beside the tied WEB-DL: err = %w, want it fills nothing", err)
-		}
-		incoming.Quality = release.Bluray1080p
-		placement, err = svc.Place(ctx, r, incoming)
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
+	incoming := holdingOf(tree, 0, ".slipstream-incoming/g.mkv", 0, media.Record{}, release.WEBRip1080p)
+	if v := l.judge(t, svc, tree.ID, incoming); len(v.Fills) != 0 || len(v.Meets) != 0 {
+		t.Fatalf("a WEBRip, a quality Best doesn't take, fills %v and meets %v, want neither", v.Fills, v.Meets)
 	}
-	if want := (files.Placement{Fills: []targets.TargetID{best.ID}, Path: "Shelf w1/Shelf w1 - Scarf - Best.mkv"}); placement.Path != want.Path || len(placement.Fills) != 1 || placement.Fills[0] != best.ID || placement.Kept {
-		t.Fatalf("Place of a Bluray = %+v, want %+v", placement, want)
+	incoming.Quality = release.Bluray1080p
+	v := l.judge(t, svc, tree.ID, incoming)
+	if !slices.Equal(targetsOf(v.Fills), []targets.TargetID{best.ID}) || v.Path != "Shelf w1/Shelf w1 - Scarf - Best.mkv" || len(v.Replaces) != 1 {
+		t.Fatalf("a Bluray fills %v at %q replacing %v, want Best at Shelf w1/Shelf w1 - Scarf - Best.mkv replacing the WEB-DL", v.Fills, v.Path, v.Replaces)
 	}
 
 	bluray := l.download(t, svc, tree, 0, release.Bluray1080p, "bluray")
@@ -246,10 +235,9 @@ func TestAFilePlannedIntoARootItsWorkLeftIsRefused(t *testing.T) {
 	other := rootstest.Root(t, l.lib, l.root.Node, contenttypetest.ID, t.TempDir())
 	svc := l.files(files.NoGrabs{})
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, _, err := svc.Import(ctx, tx, files.Incoming{
-			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: other.ID, Holding: files.HoldingOf(storage.NewUUID(), ".mkv"),
-			Size: 5, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p,
-		})
+		_, err := svc.Import(ctx, tx, files.Landing{Batch: files.Batch{Work: tree.ID, Root: other.ID, Candidates: []files.Candidate{
+			holdingOf(tree, 0, files.HoldingOf(storage.NewUUID(), ".mkv"), 5, media.Record{Video: media.Video{Width: 1920, Height: 1080}}, release.WEBDL1080p),
+		}}, PlacedBy: "copy"})
 		return err
 	})
 	if !errors.Is(err, files.ErrRootChanged) {
@@ -261,21 +249,23 @@ func TestAFilePlannedIntoARootItsWorkLeftIsRefused(t *testing.T) {
 	l.download(t, svc, tree, 0, release.WEBDL1080p, "webdl")
 }
 
-func TestAFileThatFillsNothingLandsKept(t *testing.T) {
+func TestAFileThatFillsNothingIsRefusedAndWritesNothing(t *testing.T) {
 	l := open(t)
 	web := l.target(t, "Web", []release.Quality{release.WEBDL1080p, release.WEBRip1080p})
 	p := l.profile(t, "Web", web)
 	tree := l.work(t, "w1", true, &p)
 	svc := l.files(files.NoGrabs{})
 	l.download(t, svc, tree, 0, release.WEBDL1080p, "webdl")
-	kept := l.download(t, svc, tree, 0, release.WEBRip1080p, "webrip")
 	l.settle(t, svc)
-	if !kept.Kept() || kept.Label != "Web" || kept.Extra != 1 {
-		t.Fatalf("a tied second file imported as %+v, want Kept as Web (extra 1)", kept)
+	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := l.land(ctx, tx, svc, tree.ID, holdingOf(tree, 0, files.HoldingOf(storage.NewUUID(), ".mkv"), 6, media.Record{}, release.WEBRip1080p))
+		return err
+	})
+	if refused, ok := errors.AsType[*files.Refused](err); !ok || len(refused.Verdict.Fills) != 0 || refused.Verdict.Lost[refused.Verdict.Meets[0]] != files.HeldByLive {
+		t.Fatalf("importing a tied second file = %v, want it refused for losing its cell to the live file", err)
 	}
-	want := map[string]string{"Shelf w1/Shelf w1 - Scarf - Web.mkv": "webdl", "Shelf w1/Shelf w1 - Scarf - Web (extra 1).mkv": "webrip"}
-	if got := l.onDisk(t); !maps.Equal(got, want) {
-		t.Fatalf("the root holds %v, want %v", got, want)
+	if n, moves := fileCount(t, l), l.queued(t); n != 1 || moves != 0 {
+		t.Fatalf("after the refusal the library holds %d files and queues %d moves, want the one file and nothing queued", n, moves)
 	}
 }
 
@@ -565,10 +555,6 @@ func (u unfinished) Unfinished(context.Context, storage.Reader[storage.Library])
 
 func (unfinished) ReleaseTitles(context.Context, storage.Reader[storage.Library]) (map[storage.UUID]string, error) {
 	return nil, nil
-}
-
-func (unfinished) Settle(context.Context, *storage.Tx[storage.Library], works.WorkID, map[files.CellKey]bool, files.Unwanted) (int, error) {
-	return 0, nil
 }
 
 type watching struct {

@@ -22,11 +22,11 @@ func TestAnImportedFileScansUnchangedFromWhatPlacingItRead(t *testing.T) {
 	placed := walked(t, holding, 5, 7).Seen
 	var f files.File
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		var err error
-		f, _, err = svc.Import(ctx, tx, files.Incoming{
-			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Holding: holding,
-			Size: 5, Seen: placed, Media: read1080, Quality: release.WEBDL1080p,
+		landed, err := svc.Import(ctx, tx, files.Landing{
+			Batch: files.Batch{Work: tree.ID, Root: l.root.ID, Candidates: []files.Candidate{holdingOf(tree, 0, holding, 5, read1080, release.WEBDL1080p)}},
+			Seen:  placed, PlacedBy: "copy",
 		})
+		f = landed.File
 		return err
 	})
 	if err != nil {
@@ -50,10 +50,9 @@ func TestAnImportAndAFoundFileRecordTheNamesTheyCameWith(t *testing.T) {
 	tree := l.work(t, "w1", true, &p)
 	svc := l.files(files.NoGrabs{})
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, _, err := svc.Import(ctx, tx, files.Incoming{
-			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Holding: files.HoldingOf(storage.NewUUID(), ".mkv"),
-			Size: 5, Media: read1080, Quality: release.WEBDL1080p, SourceName: "Scarf.2020.1080p.WEB-DL.mkv",
-		})
+		c := holdingOf(tree, 0, files.HoldingOf(storage.NewUUID(), ".mkv"), 5, read1080, release.WEBDL1080p)
+		c.SourceName = "Scarf.2020.1080p.WEB-DL.mkv"
+		_, err := l.land(ctx, tx, svc, tree.ID, c)
 		return err
 	})
 	if err != nil {

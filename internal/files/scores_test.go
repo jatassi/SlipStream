@@ -3,6 +3,7 @@ package files_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/jatassi/slipstream/internal/media"
 	"maps"
@@ -33,20 +34,18 @@ func titled(word string) formats.Format {
 }
 
 // grabbed imports a file of tree's item at q whose Grab's Release was
-// named name.
+// named name, which lands nowhere when it fills nothing.
 func (l *library) grabbed(t *testing.T, svc *files.Files, tree works.Tree, item int, q release.Quality, name string) {
 	t.Helper()
 	holding := files.HoldingOf(storage.NewUUID(), ".mkv")
 	l.put(t, holding, name)
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, _, err := svc.Import(ctx, tx, files.Incoming{
-			WorkID: tree.ID, ItemID: tree.Items[item].ID, Cut: release.Standard, RootID: l.root.ID, Holding: holding,
-			Size: int64(len(name)), Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: q,
-			ReleaseName: name, Title: release.Title(name, l.fx, nil),
-		})
+		c := holdingOf(tree, item, holding, int64(len(name)), media.Record{Video: media.Video{Width: 1920, Height: 1080}}, q)
+		c.ReleaseName, c.Title = name, release.Title(name, l.fx, nil)
+		_, err := l.land(ctx, tx, svc, tree.ID, c)
 		return err
 	})
-	if err != nil {
+	if _, refused := errors.AsType[*files.Refused](err); err != nil && !refused {
 		t.Fatal(err)
 	}
 }

@@ -2,6 +2,7 @@ package files
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -25,61 +26,7 @@ func HoldingOf(id storage.UUID, ext string) string {
 	return storing.HoldingDir + "/" + id.String() + ext
 }
 
-// Incoming is a downloaded file whose bytes sit at Holding under its root,
-// placed there before the Write that imports it.
-type Incoming struct {
-	WorkID works.WorkID
-	ItemID works.ItemID
-	// Cut is the file's own, its Grab's release's.
-	Cut    release.CutKey
-	RootID roots.ID
-	// Holding is root-relative, '/' separated; its extension is the file's.
-	Holding string
-	Size    int64
-	// Seen is what placing the bytes at Holding read of them.
-	Seen    storing.Seen
-	Media   media.Record
-	Quality release.Quality
-	// ReleaseName is its Grab's Release title, and Title its reading.
-	ReleaseName string
-	Title       release.Read
-	// SourceName is the file's name in its download, extension included:
-	// the name it keeps with renaming off.
-	SourceName string
-	GrabID     storage.UUID
-	// Meant is the Targets its Grab was meant to fill, in Profile order.
-	Meant []targets.TargetID
-	// Unwanted is what its Grab's import does if the file fills nothing,
-	// as an Admin chose when a save left its cells unwanted; nil when no
-	// save did.
-	Unwanted *Unwanted
-}
-
-// Unwanted is what becomes of a file a change leaves filling nothing: it
-// is deleted, or it stays as a Kept file.
-type Unwanted string
-
-const (
-	Delete Unwanted = "delete"
-	Keep   Unwanted = "keep"
-)
-
-// Placement is where a probed file would go and the Targets it would
-// fill, in Profile order. Kept is a file that would fill none.
-type Placement struct {
-	Fills []targets.TargetID
-	Path  string
-	Kept  bool
-}
-
 var ErrRootChanged = errors.New("the Work moved to another library root after the file was planned")
-
-// FillsNothingError is a probed file no cell would take.
-type FillsNothingError struct{ Quality release.Quality }
-
-func (e *FillsNothingError) Error() string {
-	return "a " + e.Quality.Info().Name + " file fills no Target the Work still wants"
-}
 
 // NameTakenError is a path in its Work's folder a file would take that
 // another file is already at: a file of the Work, or with Foreign one
@@ -128,13 +75,370 @@ func (f *Files) Vacant(ctx context.Context, root roots.ID, from, to string) erro
 	})
 }
 
+// Candidate is one probed file a Batch judges. Key is the caller's, such
+// as an Import file's position. Items are the Items of the Batch's Work it
+// holds, in any order. Holding is root-relative and '/' separated: where
+// its bytes sit, which names it until it has a name. SourceName is its name
+// in its download, extension included, the name it keeps with renaming
+// off. Force is the cells it takes whatever it ranks, as an Admin forced
+// them, when it meets their Targets.
+type Candidate struct {
+	Key         int
+	Items       []works.ItemID
+	Cut         release.CutKey
+	Size        int64
+	Media       media.Record
+	Quality     release.Quality
+	ReleaseName string
+	Title       release.Read
+	SourceName  string
+	Holding     string
+	Force       []CellKey
+}
+
+// Batch is a Work's candidates, of one Import, zero for none, judged
+// together against the Work's live files and one another, as if each
+// landed now in Root.
+type Batch struct {
+	Work       works.WorkID
+	Root       roots.ID
+	Import     storage.UUID
+	Candidates []Candidate
+}
+
+// Holder is what holds a cell a candidate meets and doesn't fill.
+type Holder uint8
+
+const (
+	HeldByLive Holder = iota + 1
+	HeldBySibling
+)
+
+// Verdict is one candidate's answer. Fills are the cells it fills, in tree
+// order then Profile order, and Meets the cells of its Items, in wanted
+// Editions, whose Target it meets; Lost holds each cell it meets and
+// doesn't fill. EditionGone is a cut no wanted Edition takes. Refusal is a
+// *NameTakenError or a *naming.TooLongError of its name, which keeps it
+// from filling anything. Path is its name under its root, and Replaces the
+// files its landing deletes, while it fills a cell. Reasons is each
+// Target's verdict on it.
+type Verdict struct {
+	Fills       []CellKey
+	Meets       []CellKey
+	Lost        map[CellKey]Holder
+	EditionGone bool
+	Refusal     error
+	Path        string
+	Replaces    []File
+	Reasons     map[targets.TargetID]targets.Verdict
+}
+
+// lands reports whether v's candidate lands: it fills a cell.
+func (v Verdict) lands() bool { return len(v.Fills) > 0 }
+
+// Judge answers, in r, what each of b's candidates would fill if all
+// landed now, in candidates' order: refill and names over the Work with
+// every candidate a fresh file. A candidate whose name is refused is
+// judged out, and the rest again without it. It writes nothing.
+func (f *Files) Judge(ctx context.Context, r storage.Reader[file], b Batch) ([]Verdict, error) {
+	j, err := f.judge(ctx, r, b, importing, nil)
+	return j.verdicts, err
+}
+
+// Landing is a Batch of one candidate to land: Seen is what placing its
+// bytes at Holding read of them, Grab the Grab that brought it, zero for
+// none, and PlacedBy how they got there: link, clone, copy, transfer, move
+// or in_place. A candidate whose Holding is already its name lands with no
+// move.
+type Landing struct {
+	Batch    Batch
+	Seen     storing.Seen
+	Grab     storage.UUID
+	PlacedBy string
+}
+
+// Landed is a landed file, named, and the cells it fills.
+type Landed struct {
+	File  File
+	Fills []CellKey
+}
+
+// Refused is a Landing its judge refuses: it fills nothing, its Edition is
+// gone or its name is refused. Import wrote nothing.
+type Refused struct{ Verdict Verdict }
+
+func (e *Refused) Error() string {
+	switch {
+	case e.Verdict.Refusal != nil:
+		return e.Verdict.Refusal.Error()
+	case e.Verdict.EditionGone:
+		return "the file's cut is in no Edition the Work wants"
+	}
+	return "the file fills no Target the Work still wants"
+}
+
+// Import judges l again in tx and lands it: the file and its Items, its
+// fills, with forced_at on each cell it takes by Force, the files it
+// dooms (the one delete that never asks, ADR 0002), the renames it causes,
+// the move from Holding to its name and a files_imported row with a
+// snapshot of each file it replaced. The disk queue does the IO once tx
+// commits; the caller pokes it. A Work no longer in the Batch's Root is
+// ErrRootChanged, and a file its judge refuses *Refused.
+func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], l Landing) (Landed, error) {
+	root, err := roots.OfWork(ctx, tx, l.Batch.Work)
+	switch {
+	case errors.Is(err, roots.ErrNoRoot) || err == nil && root.ID != l.Batch.Root:
+		return Landed{}, ErrRootChanged
+	case err != nil:
+		return Landed{}, err
+	}
+	j, err := f.judge(ctx, tx, l.Batch, importing, func(g *File) { g.Seen, g.GrabID = &l.Seen, l.Grab })
+	if err != nil {
+		return Landed{}, err
+	}
+	v := j.verdicts[0]
+	if !v.lands() {
+		return Landed{}, &Refused{Verdict: v}
+	}
+	q := db.New(tx)
+	if err := apply(ctx, q, j.placed); err != nil {
+		return Landed{}, err
+	}
+	g := j.fresh[0]
+	nm := j.names[g.ID]
+	g.Path, g.Label, g.Extra = nm.Path, nm.Label, nm.Extra
+	if err := imported(ctx, q, l, g, v); err != nil {
+		return Landed{}, err
+	}
+	return Landed{File: g, Fills: v.Fills}, nil
+}
+
+// importedCell and replacedFile are a files_imported row's JSON.
+type importedCell struct {
+	Item    works.ItemID     `json:"item"`
+	Edition targets.Edition  `json:"edition"`
+	Target  targets.TargetID `json:"target"`
+}
+
+type replacedFile struct {
+	Quality release.Quality `json:"quality"`
+	Label   string          `json:"label"`
+	Items   []works.ItemID  `json:"items"`
+	Path    string          `json:"path"`
+}
+
+// imported records l's landing of g, which v judged.
+func imported(ctx context.Context, q *db.Queries, l Landing, g File, v Verdict) error {
+	cells := make([]importedCell, len(v.Fills))
+	for i, k := range v.Fills {
+		cells[i] = importedCell(k)
+	}
+	replaced := make([]replacedFile, len(v.Replaces))
+	for i, d := range v.Replaces {
+		replaced[i] = replacedFile{Quality: d.Quality, Label: d.Label, Items: d.Items, Path: d.Path}
+	}
+	var cols [3][]byte
+	for i, v := range []any{g.Items, cells, replaced} {
+		var err error
+		if cols[i], err = json.Marshal(v); err != nil {
+			return fmt.Errorf("file %s: encode its import record: %w", g.ID, err)
+		}
+	}
+	return q.InsertImported(ctx, db.InsertImportedParams{
+		ID: storage.NewUUID(), FileID: g.ID, ImportID: l.Batch.Import, GrabID: l.Grab, WorkID: l.Batch.Work, PlacedBy: l.PlacedBy,
+		Items: string(cols[0]), Cells: string(cols[1]), Replaced: string(cols[2]), At: storage.Now(),
+	})
+}
+
+// judged is a Batch judged: its Work converged with every candidate that
+// lands, each candidate as a fresh file, in candidates' order, and their
+// verdicts.
+type judged struct {
+	placed
+	fresh    []File
+	verdicts []Verdict
+}
+
+// judge judges b in r under how. landing, when set, completes each fresh
+// file with what only a landing knows.
+func (f *Files) judge(ctx context.Context, r storage.Reader[file], b Batch, how rule, landing func(*File)) (judged, error) {
+	before, err := f.load(ctx, r, b.Work)
+	if err != nil {
+		return judged{}, err
+	}
+	if before.imports, err = importsOf(ctx, db.New(r), before.fills); err != nil {
+		return judged{}, err
+	}
+	j := judged{fresh: make([]File, len(b.Candidates))}
+	for i, c := range b.Candidates {
+		items, err := inTreeOrder(before.tree, c.Items)
+		if err != nil {
+			return judged{}, err
+		}
+		j.fresh[i] = File{
+			ID: ID{UUID: storage.NewUUID()}, WorkID: b.Work, Items: items, Cut: c.Cut, RootID: b.Root, Path: c.Holding, Size: c.Size, Media: c.Media,
+			Quality: c.Quality, ReleaseName: c.ReleaseName, Title: c.Title, SourceName: c.SourceName,
+		}
+		if landing != nil {
+			landing(&j.fresh[i])
+		}
+	}
+	refusals := map[ID]error{}
+	for {
+		after := arriving(before, b, j.fresh, refusals)
+		j.placed, err = f.converge(ctx, r, before, after, refill(after), how)
+		var out *refusal
+		if !errors.As(err, &out) {
+			break
+		}
+		refusals[out.file] = out.err
+	}
+	if err != nil {
+		return judged{}, err
+	}
+	j.verdicts = make([]Verdict, len(j.fresh))
+	for i, g := range j.fresh {
+		j.verdicts[i] = j.verdictOf(g, refusals[g.ID])
+	}
+	return j, nil
+}
+
+// refusal is a fresh file's name that names refuses: a *NameTakenError or
+// a *naming.TooLongError.
+type refusal struct {
+	file ID
+	err  error
+}
+
+func (e *refusal) Error() string { return e.err.Error() }
+func (e *refusal) Unwrap() error { return e.err }
+
+// arriving is before with b's fresh files arriving, those refusals names
+// left out.
+func arriving(before world, b Batch, fresh []File, refusals map[ID]error) world {
+	after := before
+	after.files, after.beside = slices.Clone(before.files), before.files
+	after.seen = maps.Clone(before.seen)
+	after.fresh, after.force, after.importing, after.forcedAt = map[ID]bool{}, map[CellKey]ID{}, b.Import, storage.Now()
+	for i, g := range fresh {
+		if _, out := refusals[g.ID]; out {
+			continue
+		}
+		after.files = append(after.files, g)
+		after.fresh[g.ID] = true
+		after.see(g.Items, g.Cut)
+		for _, key := range b.Candidates[i].Force {
+			if _, taken := after.force[key]; !taken {
+				after.force[key] = g.ID
+			}
+		}
+	}
+	return after
+}
+
+// verdictOf is g's verdict in j, with refused the refusal of its name.
+func (j judged) verdictOf(g File, refused error) Verdict {
+	w := j.after
+	v := Verdict{Lost: map[CellKey]Holder{}, EditionGone: true, Refusal: refused, Reasons: make(map[targets.TargetID]targets.Verdict, len(w.goals.Targets))}
+	scored := w.scoring.of(g)
+	var met []targets.TargetID
+	for _, t := range w.goals.Targets {
+		v.Reasons[t.ID] = targets.Judge(t, scored, nil)
+		if targets.Judge(t, targets.Scored{Facts: w.scoring.facts(g)}, nil).Meets() {
+			met = append(met, t.ID)
+		}
+	}
+	for _, it := range g.Items {
+		for _, e := range targets.Wanted(w.goals.Editions, seenWith(w.seen[it], g.Cut)) {
+			if !e.Takes(g.Cut) {
+				continue
+			}
+			v.EditionGone = false
+			for _, t := range met {
+				j.judgeCell(&v, g, CellKey{Item: it, Edition: e, Target: t})
+			}
+		}
+	}
+	if v.lands() {
+		v.Path = j.names[g.ID].Path
+		v.Replaces = j.replaced(v.Fills)
+	}
+	return v
+}
+
+// judgeCell adds key, a cell g meets, to v: to its Fills when g fills it,
+// else to Lost with what holds it.
+func (j judged) judgeCell(v *Verdict, g File, key CellKey) {
+	v.Meets = append(v.Meets, key)
+	switch by := j.fills[key].File; {
+	case by == g.ID:
+		v.Fills = append(v.Fills, key)
+	case j.after.fresh[by]:
+		v.Lost[key] = HeldBySibling
+	case !by.IsZero():
+		v.Lost[key] = HeldByLive
+	}
+}
+
+// replaced is the doomed files that filled one of cells before.
+func (j judged) replaced(cells []CellKey) []File {
+	var out []File
+	for _, d := range j.doomed {
+		if slices.ContainsFunc(cells, func(k CellKey) bool { return j.before.fills[k].File == d.ID }) {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// inTreeOrder is items in tree's order, an error when tree doesn't hold
+// one or there is none.
+func inTreeOrder(tree works.Bare, items []works.ItemID) ([]works.ItemID, error) {
+	if len(items) == 0 {
+		return nil, fmt.Errorf("a file of work %s holds no item", tree.ID)
+	}
+	var out []works.ItemID
+	for _, it := range tree.Items {
+		if slices.Contains(items, it.ID) {
+			out = append(out, it.ID)
+		}
+	}
+	for _, it := range items {
+		if !slices.Contains(out, it) {
+			return nil, fmt.Errorf("a file names item %s, which work %s doesn't hold", it, tree.ID)
+		}
+	}
+	return out, nil
+}
+
+// importsOf is the Import that landed each file holding a forced fill.
+func importsOf(ctx context.Context, q *db.Queries, fills map[CellKey]Fill) (map[ID]storage.UUID, error) {
+	var ids []ID
+	for _, fill := range fills {
+		if !fill.Forced.IsZero() && !slices.Contains(ids, fill.File) {
+			ids = append(ids, fill.File)
+		}
+	}
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := q.ListImportsOfFiles(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[ID]storage.UUID, len(rows))
+	for _, row := range rows {
+		out[row.FileID] = row.ImportID
+	}
+	return out, nil
+}
+
 // placed is a Work converged: the world with its new files and without
 // the files it dooms or forgets, and the fills and names refill and names
 // give that world.
 type placed struct {
 	before world
 	after  world
-	file   File
 	fills  map[CellKey]Fill
 	doomed []File
 	// forgot are gone files whose rows go: no bytes are left to remove.
@@ -144,9 +448,12 @@ type placed struct {
 
 // rule is how a converge treats the files a refill leaves behind.
 type rule struct {
-	// doom says whether a file that lost its last fill, or the fresh file
-	// filling none, is deleted; false keeps it as a Kept file.
+	// doom says whether a file that lost its last fill is deleted; false
+	// keeps it as a Kept file.
 	doom func(File) bool
+	// keepFresh lands a fresh file filling nothing as a Kept file; else it
+	// lands nowhere.
+	keepFresh bool
 	// mode is which files take a path from the templates: a library scan
 	// never renames.
 	mode renaming
@@ -157,12 +464,9 @@ type rule struct {
 	draft *drafted
 }
 
-// importing is an import's rule: it dooms the files the fresh file
-// displaces, and the fresh file itself when it fills nothing and its
-// Grab's choice is Delete.
-func importing(fresh ID, u *Unwanted) rule {
-	return rule{doom: func(g File) bool { return g.ID != fresh || u != nil && *u == Delete }, forgetGone: true}
-}
+// importing is an import's rule: it dooms the files the fresh files
+// displace.
+var importing = rule{doom: func(File) bool { return true }, forgetGone: true}
 
 // changing is a Targets change's rule: the files it leaves filling
 // nothing go as m chose.
@@ -172,50 +476,26 @@ func changing(m Mode) rule { return rule{doom: func(File) bool { return m.Unwant
 // renames one.
 var scanned = rule{doom: func(File) bool { return false }, mode: keepEvery}
 
-// place converges in's Work with in added, in r, named under d for d's
-// type.
-func (f *Files) place(ctx context.Context, r storage.Reader[file], in Incoming, d *drafted) (placed, error) {
-	before, err := f.load(ctx, r, in.WorkID)
-	if err != nil {
-		return placed{}, err
-	}
-	fresh := File{
-		ID: ID{UUID: storage.NewUUID()}, WorkID: in.WorkID, ItemID: in.ItemID, Cut: in.Cut, RootID: in.RootID, Path: in.Holding,
-		Size: in.Size, Seen: &in.Seen, Media: in.Media, GrabID: in.GrabID, Quality: in.Quality, ReleaseName: in.ReleaseName, Title: in.Title,
-		SourceName: in.SourceName,
-	}
-	after := before
-	after.files = append(slices.Clone(before.files), fresh)
-	after.fresh, after.beside = fresh.ID, before.files
-	after.seen = maps.Clone(before.seen)
-	if !slices.Contains(after.seen[in.ItemID], in.Cut) {
-		after.seen[in.ItemID] = append(slices.Clone(after.seen[in.ItemID]), in.Cut)
-	}
-	if after.meant, err = targets.NameOfFirst(ctx, r, in.Meant); err != nil {
-		return placed{}, err
-	}
-	how := importing(fresh.ID, in.Unwanted)
-	how.draft = d
-	p, err := f.converge(ctx, r, before, after, refill(after), how)
-	p.file = fresh
-	return p, err
-}
-
 // converge is a Work going from before to after, whose files are before's
 // and any fresh or found ones, refilled as fills: a file that filled a
-// cell before and fills none after, or the fresh file filling none, goes
-// when the rule dooms it and is named Kept otherwise. A gone file is
-// forgotten when the rule forgets those that would win nothing back, and
-// when a live file takes its path, where its bytes could no longer
-// return. Every file is named under fills and after's cut names.
+// cell before and fills none after goes when the rule dooms it and is
+// named Kept otherwise, and a fresh file filling none lands nowhere unless
+// the rule keeps it. A gone file is forgotten when the rule forgets those
+// that would win nothing back, and when a live file takes its path, where
+// its bytes could no longer return. Every file is named under fills and
+// after's cut names.
 func (f *Files) converge(ctx context.Context, r storage.Reader[file], before, after world, fills map[CellKey]Fill, how rule) (placed, error) {
 	p := placed{before: before, after: after, fills: fills}
 	p.after.retagged = retagged(before.cuts, after.cuts)
 	p.after.mode = how.mode
 	was, is := filling(before.fills), filling(fills)
 	p.after.files = slices.DeleteFunc(slices.Clone(after.files), func(g File) bool {
-		lost := g.ID == after.fresh || was[g.ID]
-		if !lost || is[g.ID] || !how.doom(g) {
+		switch {
+		case is[g.ID]:
+			return false
+		case after.fresh[g.ID]:
+			return !how.keepFresh
+		case !was[g.ID] || !how.doom(g):
 			return false
 		}
 		p.doomed = append(p.doomed, g)
@@ -277,64 +557,6 @@ func retagged(was, is targets.Cuts) map[release.CutKey]bool {
 	return out
 }
 
-// Place answers, in r, where in would go and what it would fill, as
-// Import would decide now. A file that fills nothing is a
-// *FillsNothingError unless its Grab's choice keeps it as a Kept file. A
-// name another file of the Work keeps is a *NameTakenError, and one that
-// doesn't fit on its root a *naming.TooLongError. Import refuses both.
-func (f *Files) Place(ctx context.Context, r storage.Reader[file], in Incoming) (Placement, error) {
-	return f.placement(ctx, r, in, nil)
-}
-
-// placement is Place with in's Work named under d for d's type.
-func (f *Files) placement(ctx context.Context, r storage.Reader[file], in Incoming, d *drafted) (Placement, error) {
-	p, err := f.place(ctx, r, in, d)
-	if err != nil {
-		return Placement{}, err
-	}
-	var out Placement
-	e := p.after.goals.Editions.Filling(in.Cut)
-	for _, t := range p.after.goals.Targets {
-		if p.fills[CellKey{Item: in.ItemID, Edition: e, Target: t.ID}].File == p.file.ID {
-			out.Fills = append(out.Fills, t.ID)
-		}
-	}
-	out.Kept = len(out.Fills) == 0
-	if out.Kept && (in.Unwanted == nil || *in.Unwanted != Keep) {
-		return Placement{}, &FillsNothingError{Quality: in.Quality}
-	}
-	out.Path = p.names[p.file.ID].Path
-	return out, nil
-}
-
-// Import records in and converges its Work in tx: fills follow refill, a
-// file that loses its last fill to in is doomed (the one delete that
-// never asks, ADR 0002), files whose names change are renamed, and in is
-// queued to move from Holding to its name. A file that fills nothing is
-// doomed when its Grab's choice is Delete and lands Kept otherwise, as a
-// race leaves it; Import answers false for a doomed one. The disk queue
-// does the IO once tx commits; the caller pokes it. A file planned into a
-// root its Work has since left is ErrRootChanged.
-func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], in Incoming) (File, bool, error) {
-	root, err := roots.OfWork(ctx, tx, in.WorkID)
-	switch {
-	case errors.Is(err, roots.ErrNoRoot) || err == nil && root.ID != in.RootID:
-		return File{}, false, ErrRootChanged
-	case err != nil:
-		return File{}, false, err
-	}
-	p, err := f.place(ctx, tx, in, nil)
-	if err != nil {
-		return File{}, false, err
-	}
-	if err := apply(ctx, db.New(tx), p); err != nil {
-		return File{}, false, err
-	}
-	nm, landed := p.names[p.file.ID]
-	p.file.Path, p.file.Label, p.file.Extra = nm.Path, nm.Label, nm.Extra
-	return p.file, landed, nil
-}
-
 // apply writes p: its fills and their scores, its dooms, the gone files
 // it forgets, its found files, every name that changed, and a move for
 // each file whose bytes must reach a new path. A row's path changes in two
@@ -365,7 +587,9 @@ func apply(ctx context.Context, q *db.Queries, p placed) error {
 	}
 	for key, fill := range p.fills {
 		if p.before.fills[key] != fill {
-			err := q.InsertFill(ctx, db.InsertFillParams{FileID: fill.File, TargetID: key.Target, ItemID: key.Item, Edition: key.Edition, Score: int64(fill.Score)})
+			err := q.InsertFill(ctx, db.InsertFillParams{
+				FileID: fill.File, TargetID: key.Target, ItemID: key.Item, Edition: key.Edition, Score: int64(fill.Score), ForcedAt: fill.Forced,
+			})
 			if err != nil {
 				return err
 			}
@@ -409,12 +633,16 @@ func unfill(ctx context.Context, q *db.Queries, p placed) error {
 func rename(ctx context.Context, q *db.Queries, p placed, g File) (bool, error) {
 	nm := p.names[g.ID]
 	switch {
-	case g.ID == p.after.fresh:
+	case p.after.fresh[g.ID] && nm.Path == g.Path:
+		g.Label, g.Extra = nm.Label, nm.Extra
+		return false, insertFile(ctx, q, g)
+	case p.after.fresh[g.ID]:
+		sits := g.Path
 		g.Path, g.Label, g.Extra = holding(g), nm.Label, nm.Extra
 		if err := insertFile(ctx, q, g); err != nil {
 			return false, err
 		}
-		return true, q.InsertMove(ctx, db.InsertMoveParams{FileID: g.ID, Sits: p.file.Path})
+		return true, q.InsertMove(ctx, db.InsertMoveParams{FileID: g.ID, Sits: sits})
 	case p.after.found[g.ID]:
 		g.Label, g.Extra = nm.Label, nm.Extra
 		return false, insertFile(ctx, q, g)

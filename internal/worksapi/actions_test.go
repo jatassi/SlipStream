@@ -305,10 +305,10 @@ func (s *shelves) download(t *testing.T, work string, root roots.Root, content s
 		t.Fatal(err)
 	}
 	err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, _, err := s.queue.Import(ctx, tx, files.Incoming{
-			WorkID: workID(t, work), ItemID: s.item(t, work), Cut: release.Standard, RootID: root.ID,
-			Holding: holding, Size: int64(len(content)), Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p,
-		})
+		_, err := s.queue.Import(ctx, tx, files.Landing{Batch: files.Batch{Work: workID(t, work), Root: root.ID, Candidates: []files.Candidate{{
+			Items: []works.ItemID{s.item(t, work)}, Cut: release.Standard, Holding: holding, Size: int64(len(content)),
+			Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p,
+		}}}, PlacedBy: "copy"})
 		return err
 	})
 	if err != nil {
@@ -326,6 +326,28 @@ func (s *shelves) record(t *testing.T, work string, root roots.Root, path string
 		_, err := files.Add(ctx, tx, files.File{
 			WorkID: workID(t, work), Items: []works.ItemID{s.item(t, work)}, Cut: release.Standard, RootID: root.ID,
 			Path: path, Size: 2048, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p,
+		}, nil)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// kept adds a Kept file of work's Item at path in root holding content.
+func (s *shelves) kept(t *testing.T, work string, root roots.Root, path, content string) {
+	t.Helper()
+	at := filepath.Join(root.Path, filepath.FromSlash(path))
+	if err := os.MkdirAll(filepath.Dir(at), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(at, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := files.Add(ctx, tx, files.File{
+			WorkID: workID(t, work), Items: []works.ItemID{s.item(t, work)}, Cut: release.Standard, RootID: root.ID, Path: path,
+			Size: int64(len(content)), Quality: release.WEBRip1080p, Label: "Web", Extra: 1,
 		}, nil)
 		return err
 	})
@@ -636,7 +658,7 @@ func TestDeleteWithFilesRemovesTheBytesThroughTheDiskQueue(t *testing.T) {
 	w1 := s.add(t, contenttypetest.ID, "w1", nil, &web)
 	w2 := s.add(t, contenttypetest.ID, "w2", nil, &web)
 	s.download(t, w1, s.movies, "w1 web")
-	s.download(t, w1, s.movies, "w1 kept")
+	s.kept(t, w1, s.movies, "Shelf w1/Winter/Shelf w1 - Scarf - Web (extra 1).mkv", "w1 kept")
 	s.download(t, w2, s.movies, "w2 web")
 	nobody := storage.NewUUID().String()
 

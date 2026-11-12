@@ -41,16 +41,17 @@ const (
 // Target in Profile order it fills. A Kept file takes the first Target it
 // meets, else its current label, plus " (extra N)": its N when no other
 // Kept file in its folder holds it, else the lowest free there. A Kept
-// file that never had a label and meets no Target takes the Target its
-// Grab was meant to fill, else its quality's name. A gone file, and a file
-// the disk queue still moves, keeps its label, N and path.
+// file that never had a label and meets no Target takes its quality's
+// name. A gone file, and a file the disk queue still moves, keeps its
+// label, N and path.
 //
 // Which other files take a path from the templates is w.mode's. One whose
 // label, N and cut's name are unchanged keeps its path in changedOnly
 // mode; one that changes keeps its folder and takes the template's name,
 // its cut tagging it unless Standard. Two live files ending on one path
-// without case, one of them moving there, is ErrNameClash, or a
-// *NameTakenError when the file being placed is one that moves.
+// without case, one of them moving there, is ErrNameClash, or a *refusal
+// of a fresh file that moves there, as is a fresh file's name that
+// doesn't fit.
 //
 // In everyFile mode a file that doesn't fit takes "" and is blocked
 // TooLong, and with renaming off the moving files among those ending on
@@ -70,6 +71,8 @@ func names(w world, fills map[CellKey]Fill) (out map[ID]name, blocked map[ID]Blo
 			switch {
 			case w.mode == everyFile && errors.As(err, &long):
 				blocked[f.ID] = Blocked{Reason: TooLong, Long: long}
+			case w.fresh[f.ID] && errors.As(err, &long):
+				return nil, nil, &refusal{file: f.ID, err: err}
 			case err != nil:
 				return nil, nil, err
 			}
@@ -82,8 +85,8 @@ func names(w world, fills map[CellKey]Fill) (out map[ID]name, blocked map[ID]Blo
 // clashes finds the live files of w that end on one path without case,
 // at least one of them moving there. In everyFile mode with renaming off
 // they are kept names that meet, and the moving ones are blocked Clash
-// with their own Work. Anywhere else it is a *NameTakenError when the
-// file being placed moves there, else ErrNameClash.
+// with their own Work. Anywhere else it is a *refusal of a
+// fresh file that moves there, else ErrNameClash.
 func clashes(w world, nm map[ID]name, blocked map[ID]Blocked) error {
 	at := map[place][]File{}
 	for _, f := range w.files {
@@ -98,8 +101,8 @@ func clashes(w world, nm map[ID]name, blocked map[ID]Blocked) error {
 			continue
 		}
 		if w.mode != everyFile || w.scheme.Renames() {
-			if slices.ContainsFunc(moving, func(g File) bool { return g.ID == w.fresh }) {
-				return &NameTakenError{Path: nm[w.fresh].Path}
+			if i := slices.IndexFunc(moving, func(g File) bool { return w.fresh[g.ID] }); i >= 0 {
+				return &refusal{file: moving[i].ID, err: &NameTakenError{Path: nm[moving[i].ID].Path}}
 			}
 			return fmt.Errorf("%w: %s", ErrNameClash, nm[moving[0].ID].Path)
 		}
@@ -191,22 +194,16 @@ func (c counters) lowest(folder string) int64 {
 func (w world) fixed(f File) bool { return f.Gone() || w.moving[f.ID] }
 
 // unlabeled is the label of f, a Kept file that never had one and meets
-// no Target: the Target its Grab was meant to fill, else its quality's
-// name.
-func (w world) unlabeled(f File) string {
-	if f.ID == w.fresh && w.meant != "" {
-		return w.meant
-	}
-	return f.Quality.Info().Name
-}
+// no Target: its quality's name.
+func (w world) unlabeled(f File) string { return f.Quality.Info().Name }
 
 // renamed reports whether f takes a path from the templates as nm, by
-// w.mode: in changedOnly mode the file being placed does, and so does one
-// whose label, N or cut's name changes.
+// w.mode: in changedOnly mode a fresh file does, and so does one whose
+// label, N or cut's name changes.
 func renamed(w world, f File, nm name) bool {
 	switch w.mode {
 	case changedOnly:
-		return f.ID == w.fresh || nm.Label != f.Label || nm.Extra != f.Extra || w.retagged[f.Cut]
+		return w.fresh[f.ID] || nm.Label != f.Label || nm.Extra != f.Extra || w.retagged[f.Cut]
 	case keepEvery:
 		return false
 	case everyFile:
@@ -215,12 +212,15 @@ func renamed(w world, f File, nm name) bool {
 	panic(fmt.Sprintf("files: renaming mode %d", w.mode))
 }
 
-// filledBy is the first Target in Profile order f fills.
+// filledBy is the first Target in Profile order f fills a cell of, of
+// any of its Items.
 func filledBy(g targets.Goals, fills map[CellKey]Fill, f File) (string, bool) {
 	e := g.Editions.Filling(f.Cut)
 	for _, t := range g.Targets {
-		if fills[CellKey{Item: f.ItemID, Edition: e, Target: t.ID}].File == f.ID {
-			return t.Name, true
+		for _, it := range f.Items {
+			if fills[CellKey{Item: it, Edition: e, Target: t.ID}].File == f.ID {
+				return t.Name, true
+			}
 		}
 	}
 	return "", false
@@ -237,8 +237,9 @@ func firstMet(ts []targets.Target, f File) (string, bool) {
 }
 
 // folderOf is the folder f ends in. In everyFile mode it is the one the
-// templates give it. Otherwise it is its own, or for the file being placed
-// the folder of the oldest live file beside it at its Item's level.
+// templates give it. Otherwise it is its own, or for a fresh file the
+// folder of the oldest live file beside it whose first Item is at the
+// level of f's first.
 // Without one it lands in the Work's folder, the first folder of the
 // oldest live file beside it that sits in one or else the template's,
 // under the level folders the templates give its Item when the Work keeps
@@ -247,12 +248,8 @@ func folderOf(w world, f File) (string, error) {
 	if w.mode == everyFile {
 		return w.scheme.Dir(naming.Placing{Subject: w.subject(f), LevelFolders: w.tree.LevelFolders, Landing: naming.Rendered()})
 	}
-	if f.ID != w.fresh {
+	if !w.fresh[f.ID] {
 		return path.Dir(f.Path), nil
-	}
-	i := slices.IndexFunc(w.tree.Items, func(it works.Item) bool { return it.ID == f.ItemID })
-	if i < 0 {
-		return "", fmt.Errorf("file %s names item %s, which work %s doesn't hold", f.ID, f.ItemID, w.tree.ID)
 	}
 	level := map[works.ItemID]works.LevelID{}
 	for _, it := range w.tree.Items {
@@ -263,7 +260,7 @@ func folderOf(w world, f File) (string, error) {
 		if g.Gone() {
 			continue
 		}
-		if level[g.ItemID] == w.tree.Items[i].LevelID {
+		if level[g.Items[0]] == level[f.Items[0]] {
 			return path.Dir(g.Path), nil
 		}
 		if folder, _, ok := strings.Cut(g.Path, "/"); ok && work == "" {
@@ -302,11 +299,11 @@ func pathOf(w world, f File, nm name) (string, error) {
 	return named.Rel, err
 }
 
-// kept is the name without extension f keeps with renaming off: for the
-// file being placed the name it had in its download, else its own.
+// kept is the name without extension f keeps with renaming off: for a
+// fresh file the name it had in its download, else its own.
 func (w world) kept(f File) string {
 	name := path.Base(f.Path)
-	if f.ID == w.fresh {
+	if w.fresh[f.ID] {
 		name = f.SourceName
 	}
 	return strings.TrimSuffix(name, path.Ext(name))
@@ -314,5 +311,5 @@ func (w world) kept(f File) string {
 
 // subject is what f's name reads of its Work.
 func (w world) subject(f File) naming.Subject {
-	return w.values.Of(w.tree, []works.ItemID{f.ItemID})
+	return w.values.Of(w.tree, f.Items)
 }

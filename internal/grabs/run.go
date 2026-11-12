@@ -47,8 +47,19 @@ type advance struct {
 	torrent *dotTorrent
 	fetched *fetched
 	plan    *Plan
-	file    *files.Incoming
+	file    *landing
 	placed  *transfers.ID
+}
+
+// landing is where a Grab's file sits in its root's holding folder, what
+// placing it there read and how it got there, for the import.
+type landing struct {
+	root       roots.ID
+	holding    string
+	size       int64
+	seen       storing.Seen
+	sourceName string
+	placedBy   string
 }
 
 // dotTorrent is a fetched .torrent, decoded and as the Indexer sent it.
@@ -269,41 +280,37 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 	}
 	holding := files.HoldingOf(g.ID.UUID, path.Ext(video.Path))
 	var p Plan
-	var placeErr error
+	var v files.Verdict
+	var quality release.Quality
+	var judgeErr error
 	err = gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		tree, err := gr.cfg.Works.TreeIn(ctx, r, g.WorkID)
-		if err != nil {
-			return err
-		}
 		root, err := roots.OfWork(ctx, r, g.WorkID)
 		if err != nil {
 			return err
 		}
-		unwanted, err := db.New(r).GetUnwanted(ctx, g.ID)
+		c, err := gr.candidate(ctx, r, g, record)
 		if err != nil {
 			return err
 		}
-		read, facts, err := gr.facts(ctx, r, g, tree.ContentType, record)
-		if err != nil {
-			return err
+		c.Size, c.SourceName, c.Holding, quality = video.Size, path.Base(video.Path), holding, c.Quality
+		var verdicts []files.Verdict
+		if verdicts, judgeErr = gr.cfg.Files.Judge(ctx, r, files.Batch{Work: g.WorkID, Root: root.ID, Candidates: []files.Candidate{c}}); judgeErr == nil {
+			v = verdicts[0]
+			p = Plan{Root: root, Path: v.Path, Fills: targetsOf(v.Fills)}
 		}
-		quality, _ := facts.Quality.Get()
-		placement, err := gr.cfg.Files.Place(ctx, r, files.Incoming{
-			WorkID: g.WorkID, ItemID: g.ItemID, Cut: facts.Cut, RootID: root.ID, Holding: holding,
-			Size: video.Size, Media: record, Quality: quality, ReleaseName: g.Release.Title, Title: read, SourceName: path.Base(video.Path),
-			GrabID: g.ID.UUID, Meant: g.Targets, Unwanted: unwanted,
-		})
-		p, placeErr = Plan{Root: root, Path: placement.Path, Fills: placement.Fills}, err
 		return nil
 	})
 	if err != nil {
 		return local(ctx, err)
 	}
-	if f, ok := refused(placeErr); ok {
+	if f, ok := refused(judgeErr); ok {
 		return f
 	}
-	if placeErr != nil {
-		return fail{ImportFailed, placeErr.Error()}
+	if judgeErr != nil {
+		return fail{ImportFailed, judgeErr.Error()}
+	}
+	if f, ok := libraryRefused(v, quality); ok {
+		return f
 	}
 	until := gr.cfg.Roots.Watch()
 	if err := gr.cfg.Files.Vacant(ctx, p.Root.ID, holding, p.Path); err != nil {
@@ -319,21 +326,68 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 	return advance{to: Transferring, plan: &p}
 }
 
-// refused is the failure of a Grab whose file the library refuses: it
-// fills nothing, its name is taken, or its name doesn't fit on its root.
+// refused is the failure of a Grab whose file the library refuses: its
+// landing is refused, its name is taken, or its name doesn't fit on its
+// root.
 func refused(err error) (fail, bool) {
-	var nothing *files.FillsNothingError
+	var landed *landRefused
 	var taken *files.NameTakenError
 	var long *naming.TooLongError
 	switch {
-	case errors.As(err, &nothing):
-		return fail{FillsNothing, nothing.Error()}, true
+	case errors.As(err, &landed):
+		return landed.fail, true
 	case errors.As(err, &taken):
 		return fail{NameTaken, taken.Error()}, true
 	case errors.As(err, &long):
 		return fail{NameTooLong, long.Error()}, true
 	}
 	return fail{}, false
+}
+
+// libraryRefused is the failure of a Grab whose file of quality q the library's
+// judge v refuses: its name is refused, or it fills nothing, its Edition
+// gone included.
+func libraryRefused(v files.Verdict, q release.Quality) (fail, bool) {
+	if f, ok := refused(v.Refusal); ok {
+		return f, true
+	}
+	if len(v.Fills) == 0 {
+		return fail{FillsNothing, "a " + q.Info().Name + " file fills no Target the Work still wants"}, true
+	}
+	return fail{}, false
+}
+
+// landRefused is a landing whose judge refused the Grab's file, failing the
+// Grab.
+type landRefused struct{ fail }
+
+func (e *landRefused) Error() string { return e.msg }
+
+// targetsOf is the Targets of cells, one Item's, in order.
+func targetsOf(cells []files.CellKey) []targets.TargetID {
+	out := make([]targets.TargetID, len(cells))
+	for i, k := range cells {
+		out[i] = k.Target
+	}
+	return out
+}
+
+// candidate is g's file with its media record m, as the library judges
+// it, read in r: its Item, the facts its title and record give, and its
+// release's names. Where it sits is the caller's.
+func (gr *Grabs) candidate(ctx context.Context, r storage.Reader[file], g Grab, m media.Record) (files.Candidate, error) {
+	tree, err := gr.cfg.Works.TreeIn(ctx, r, g.WorkID)
+	if err != nil {
+		return files.Candidate{}, err
+	}
+	read, facts, err := gr.facts(ctx, r, g, tree.ContentType, m)
+	if err != nil {
+		return files.Candidate{}, err
+	}
+	quality, _ := facts.Quality.Get()
+	return files.Candidate{
+		Items: []works.ItemID{g.ItemID}, Cut: facts.Cut, Media: m, Quality: quality, ReleaseName: g.Release.Title, Title: read,
+	}, nil
 }
 
 // largestVideo is the largest file that counts as a video, so a sample
@@ -365,16 +419,16 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 	}
 	until := gr.cfg.Roots.Watch()
 	i := slices.IndexFunc(g.Torrent.Files, func(f engine.File) bool { return f.Index == g.Plan.FileIndex })
-	imported := advance{to: Imported, file: &files.Incoming{
-		WorkID: g.WorkID, ItemID: g.ItemID, RootID: root.ID, Holding: holding.String(),
-		Media: g.Plan.Media, SourceName: path.Base(g.Torrent.Files[i].Path), GrabID: g.ID.UUID, Meant: g.Targets,
-	}}
+	imported := advance{to: Imported, file: &landing{root: root.ID, holding: holding.String(), sourceName: path.Base(g.Torrent.Files[i].Path)}}
 	if root.Node == g.Node {
 		placed, err := gr.cfg.Roots.Place(ctx, root.ID, holding, storing.Payload{InfoHash: g.Torrent.InfoHash, FileIndex: g.Plan.FileIndex})
 		if err != nil {
 			return storageOutcome(ctx, err, until)
 		}
-		imported.file.Size, imported.file.Seen = placed.Size, placed.Seen
+		imported.file.size, imported.file.seen, imported.file.placedBy = placed.Size, placed.Seen, "copy"
+		if placed.Linked {
+			imported.file.placedBy = "link"
+		}
 		return imported
 	}
 	t, verified, err := gr.staged(ctx, g)
@@ -391,7 +445,7 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 		}
 		return storageOutcome(ctx, err, until)
 	}
-	imported.file.Size, imported.file.Seen = moved.Size, moved.Seen
+	imported.file.size, imported.file.seen, imported.file.placedBy = moved.Size, moved.Seen, "transfer"
 	imported.placed = &t
 	return imported
 }
@@ -628,24 +682,21 @@ func (gr *Grabs) move(ctx context.Context, tx *storage.Tx[file], g Grab, o outco
 	return params, nil
 }
 
-// land imports g's file in tx, with its facts, under the choice a change
-// that took its cells saved, if one did.
-func (gr *Grabs) land(ctx context.Context, tx *storage.Tx[file], g Grab, in files.Incoming) error {
-	unwanted, err := db.New(tx).GetUnwanted(ctx, g.ID)
+// land imports g's file, at l, in tx with its facts. A file the library's
+// judge refuses now is a *landRefused.
+func (gr *Grabs) land(ctx context.Context, tx *storage.Tx[file], g Grab, l landing) error {
+	c, err := gr.candidate(ctx, tx, g, g.Plan.Media)
 	if err != nil {
 		return err
 	}
-	tree, err := gr.cfg.Works.TreeIn(ctx, tx, g.WorkID)
-	if err != nil {
-		return err
+	c.Size, c.SourceName, c.Holding = l.size, l.sourceName, l.holding
+	_, err = gr.cfg.Files.Import(ctx, tx, files.Landing{
+		Batch: files.Batch{Work: g.WorkID, Root: l.root, Candidates: []files.Candidate{c}}, Seen: l.seen, Grab: g.ID.UUID, PlacedBy: l.placedBy,
+	})
+	if r, ok := errors.AsType[*files.Refused](err); ok {
+		f, _ := libraryRefused(r.Verdict, c.Quality)
+		return &landRefused{f}
 	}
-	read, facts, err := gr.facts(ctx, tx, g, tree.ContentType, g.Plan.Media)
-	if err != nil {
-		return err
-	}
-	in.Unwanted, in.Cut, in.ReleaseName, in.Title = unwanted, facts.Cut, g.Release.Title, read
-	in.Quality, _ = facts.Quality.Get()
-	_, _, err = gr.cfg.Files.Import(ctx, tx, in)
 	return err
 }
 

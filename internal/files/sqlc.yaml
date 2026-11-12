@@ -77,3 +77,25 @@ sql:
           - column: files_doomed.file_id
             go_type:
               type: FileID
+          - column: files_file_item.file_id
+            go_type:
+              type: FileID
+          - column: files_imported.id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: files_imported.file_id
+            go_type:
+              type: FileID
+          - column: files_imported.import_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: files_imported.grab_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: UUID
+          - column: files_imported.at
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time

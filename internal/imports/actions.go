@@ -59,7 +59,7 @@ func (im *Imports) attach(ctx context.Context, tx *storage.Tx[file], work works.
 		if err != nil {
 			return files.Scanned{}, nil, err
 		}
-		found = append(found, files.Found{Item: item, Cut: f.Cut, At: at, Media: *f.Media, Quality: f.Quality})
+		found = append(found, files.Found{Items: []works.ItemID{item}, Cut: f.Cut, At: at, Media: *f.Media, Quality: f.Quality})
 	}
 	if len(found) == 0 {
 		return files.Scanned{}, rest, nil

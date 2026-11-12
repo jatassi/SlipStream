@@ -78,14 +78,24 @@ func (f *Files) NamesOf(ctx context.Context, _ identity.Admin, w works.WorkID, d
 	return out, nil
 }
 
-// Imagine is Place for a file that isn't there, with in's Work named
-// under the stored settings or draft over its type's: where a file read
-// as in would go. A draft the save check refuses is its
-// *naming.RefusedError.
-func (f *Files) Imagine(ctx context.Context, r storage.Reader[file], in Incoming, draft *Draft) (Placement, error) {
+// Imagine is the path b's one candidate, a file that isn't there, would
+// take in its Work under the stored settings or draft over its type's,
+// named as a Kept file when it fills nothing. A name its judge refuses is
+// that *NameTakenError or *naming.TooLongError, and a draft the save
+// check refuses is its *naming.RefusedError.
+func (f *Files) Imagine(ctx context.Context, r storage.Reader[file], b Batch, draft *Draft) (string, error) {
 	d, err := f.drafted(ctx, r, draft)
 	if err != nil {
-		return Placement{}, err
+		return "", err
 	}
-	return f.placement(ctx, r, in, d)
+	how := importing
+	how.keepFresh, how.draft = true, d
+	j, err := f.judge(ctx, r, b, how, nil)
+	if err != nil {
+		return "", err
+	}
+	if refused := j.verdicts[0].Refusal; refused != nil {
+		return "", refused
+	}
+	return j.names[j.fresh[0].ID].Path, nil
 }

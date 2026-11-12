@@ -63,22 +63,19 @@ func longWork(b *testing.B) (*library, works.Tree) {
 var errRolledBack = errors.New("rolled back")
 
 // BenchmarkPlacingOneFileInALongWork measures one file placed in a Work of
-// 1,200 Items, each holding a file filling three Targets: Place is the
+// 1,200 Items, each holding a file filling three Targets: Judge is the
 // Read that loads the Work, refills all 3,600 cells and names all 1,201
 // files; Import is that and its writes, in a Write rolled back each time.
 func BenchmarkPlacingOneFileInALongWork(b *testing.B) {
 	l, tree := longWork(b)
 	svc := l.files(files.NoGrabs{})
-	in := files.Incoming{
-		WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID,
-		Holding: files.HoldingOf(storage.NewUUID(), ".mkv"), Size: 1024, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.Bluray1080p,
-	}
-	b.Run("Place", func(b *testing.B) {
+	in := holdingOf(tree, 0, files.HoldingOf(storage.NewUUID(), ".mkv"), 1024, media.Record{Video: media.Video{Width: 1920, Height: 1080}}, release.Bluray1080p)
+	b.Run("Judge", func(b *testing.B) {
 		for b.Loop() {
 			err := l.lib.Read(b.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-				p, err := svc.Place(ctx, r, in)
-				if err == nil && len(p.Fills) != 3 {
-					b.Fatalf("the Bluray fills %d Targets, want 3", len(p.Fills))
+				v, err := svc.Judge(ctx, r, files.Batch{Work: tree.ID, Root: l.root.ID, Candidates: []files.Candidate{in}})
+				if err == nil && len(v[0].Fills) != 3 {
+					b.Fatalf("the Bluray fills %d Targets, want 3", len(v[0].Fills))
 				}
 				return err
 			})
@@ -90,7 +87,7 @@ func BenchmarkPlacingOneFileInALongWork(b *testing.B) {
 	b.Run("Import", func(b *testing.B) {
 		for b.Loop() {
 			err := l.lib.Write(b.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-				if _, _, err := svc.Import(ctx, tx, in); err != nil {
+				if _, err := l.land(ctx, tx, svc, tree.ID, in); err != nil {
 					return err
 				}
 				return errRolledBack

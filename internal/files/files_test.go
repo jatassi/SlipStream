@@ -61,10 +61,6 @@ func (grabbing) ReleaseTitles(context.Context, storage.Reader[storage.Library]) 
 	return nil, nil
 }
 
-func (grabbing) Settle(context.Context, *storage.Tx[storage.Library], works.WorkID, map[files.CellKey]bool, files.Unwanted) (int, error) {
-	return 0, nil
-}
-
 type library struct {
 	t       testing.TB
 	lib     *storage.DB[storage.Library]
@@ -462,4 +458,39 @@ func TestANamedListWantsStandardAndEachOtherCutOnceSeen(t *testing.T) {
 	if got := cells(other.ID); got != want {
 		t.Fatalf("cells of a list without Standard =\n%swant every cut it names outright\n%s", got, want)
 	}
+}
+
+// holdingOf is a file of tree's Item at item, read at q and as probe, whose
+// size bytes sit at holding.
+func holdingOf(tree works.Tree, item int, holding string, size int64, probe media.Record, q release.Quality) files.Candidate {
+	return files.Candidate{Items: []works.ItemID{tree.Items[item].ID}, Cut: release.Standard, Holding: holding, Size: size, Media: probe, Quality: q}
+}
+
+// land imports c into work in tx, at l's root, as a Grab's import does.
+func (l *library) land(ctx context.Context, tx *storage.Tx[storage.Library], svc *files.Files, work works.WorkID, c files.Candidate) (files.Landed, error) {
+	return svc.Import(ctx, tx, files.Landing{Batch: files.Batch{Work: work, Root: l.root.ID, Candidates: []files.Candidate{c}}, PlacedBy: "copy"})
+}
+
+// judge is what svc's judge answers of c, landing in work at l's root.
+func (l *library) judge(t testing.TB, svc *files.Files, work works.WorkID, c files.Candidate) files.Verdict {
+	t.Helper()
+	var v []files.Verdict
+	err := l.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		v, err = svc.Judge(ctx, r, files.Batch{Work: work, Root: l.root.ID, Candidates: []files.Candidate{c}})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v[0]
+}
+
+// targetsOf is the Targets of cells, in order.
+func targetsOf(cells []files.CellKey) []targets.TargetID {
+	out := make([]targets.TargetID, len(cells))
+	for i, k := range cells {
+		out[i] = k.Target
+	}
+	return out
 }

@@ -109,14 +109,28 @@ func runtimeOf(ctx context.Context, r storage.Reader[file], ws []works.WorkID, r
 	return minutes, nil
 }
 
+// estimates sums each Target's fills of an Item of known runtime: a file's
+// size once, and the runtime of each Item it fills there.
 func estimates(fills []db.ListFillsOfTargetsRow, runtime map[works.ItemID]time.Duration, minutes float64) map[targets.TargetID]Estimate {
 	type sum struct{ mib, minutes float64 }
+	type spot struct {
+		target targets.TargetID
+		file   ID
+	}
 	sums := map[targets.TargetID]sum{}
+	sized := map[spot]bool{}
 	for _, fill := range fills {
-		if d, ok := runtime[fill.ItemID]; ok {
-			s := sums[fill.TargetID]
-			sums[fill.TargetID] = sum{s.mib + float64(fill.Size)/(1<<20), s.minutes + d.Minutes()}
+		d, ok := runtime[fill.ItemID]
+		if !ok {
+			continue
 		}
+		s := sums[fill.TargetID]
+		s.minutes += d.Minutes()
+		if at := (spot{fill.TargetID, fill.FileID}); !sized[at] {
+			sized[at] = true
+			s.mib += float64(fill.Size) / (1 << 20)
+		}
+		sums[fill.TargetID] = s
 	}
 	out := make(map[targets.TargetID]Estimate, len(sums))
 	for id, s := range sums {
