@@ -490,34 +490,13 @@ func (g *grabbing) make(ctx context.Context, c chosen, cl cleared) (GrabID, erro
 	if n.overrides, err = g.overridden(ctx, n, c, cl.sent); err != nil {
 		return GrabID{}, err
 	}
-	var cells []Cell
-	n.items, cells = rs.grabbed(c)
+	n.items, n.cells = rs.grabbed(c)
 	made, err := g.gr.insertGrab(ctx, g.tx, n, storage.Now())
 	if err != nil {
 		return GrabID{}, err
 	}
-	if err := g.recell(ctx, &made, cells); err != nil {
-		return GrabID{}, err
-	}
 	g.grabbed = append(g.grabbed, made)
 	return made.ID, nil
-}
-
-// recell rewrites made's cells as cells, which insertGrab keyed all by its
-// searched Item.
-func (g *grabbing) recell(ctx context.Context, made *Grab, cells []Cell) error {
-	q := db.New(g.tx)
-	if err := q.DeleteCellsOfGrab(ctx, made.ID); err != nil {
-		return err
-	}
-	made.Targets = cells
-	for i, c := range cells {
-		p := db.InsertTargetParams{GrabID: made.ID, Position: int64(i), ItemID: c.Key.Item, TargetID: c.Key.Target, Forced: c.Forced}
-		if err := q.InsertTarget(ctx, p); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // grabbed is what a Grab of c holds: every Item its Release covers, in

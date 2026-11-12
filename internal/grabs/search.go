@@ -545,10 +545,11 @@ type newGrab struct {
 	work works.WorkID
 	item works.ItemID
 	// items is every Item the pick's Release covers, and also the cells of
-	// the other Items it holds, for an automatic run's pick. A Manual pick
-	// holds its searched Item alone.
+	// the other Items it holds, for an automatic run's pick. cells, when
+	// set, are a Manual pick's cells across its Items in place of both.
 	items     []works.ItemID
 	also      []files.CellKey
+	cells     []Cell
 	pick      Pick
 	ticket    indexers.Ticket
 	source    Source
@@ -572,8 +573,11 @@ func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], n newGrab
 	if len(g.Items) == 0 {
 		g.Items = []works.ItemID{n.item}
 	}
-	for _, k := range slices.Concat(cellsOf(n.item, n.pick), n.also) {
-		g.Targets = append(g.Targets, Cell{Key: k})
+	g.Targets = n.cells
+	if g.Targets == nil {
+		for _, k := range slices.Concat(cellsOf(n.item, n.pick), n.also) {
+			g.Targets = append(g.Targets, Cell{Key: k})
+		}
 	}
 	idx, err := indexers.Get(ctx, tx, t.Indexer)
 	if err != nil {

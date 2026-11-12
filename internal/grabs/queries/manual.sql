@@ -61,6 +61,3 @@ SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_target.targe
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
 WHERE grabs_grab.work_id = sqlc.arg(work_id)
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
-
--- name: DeleteCellsOfGrab :exec
-DELETE FROM grabs_target WHERE grab_id = sqlc.arg(grab_id);

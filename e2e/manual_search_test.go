@@ -400,8 +400,8 @@ func TestTheManualPlanLeadsWithWhatAutomaticSearchGrabs(t *testing.T) {
 
 // TestGrabbingTheManualPlanImportsEachRow opens Manual search on E05 to
 // E09 of The Lantern Keepers and grabs every row of the plan in one press.
-// Nothing lists E09, so its row says so, and each other Grab imports and
-// records the Manual search it came from.
+// Only the season pack lists E09, so its row gets E09 and E10, and each
+// Grab imports and records the Manual search it came from.
 func TestGrabbingTheManualPlanImportsEachRow(t *testing.T) {
 	t.Parallel()
 	w := launchManual(t)
@@ -424,9 +424,9 @@ func TestGrabbingTheManualPlanImportsEachRow(t *testing.T) {
 		"The.Lantern.Keepers.S02E06.1080p.WEB-DL.H264-FKW: It gets you 1080p for E06.",
 		"The.Lantern.Keepers.S02E07.1080p.WEB-DL.H264-FKW: It gets you 1080p for E07.",
 		"The.Lantern.Keepers.S02E08.1080p.WEB-DL.H264-FKW: It gets you 1080p for E08.",
-		"Missing: 1080p for E09.",
+		"The.Lantern.Keepers.S02.1080p.WEB-DL.H264-FKW: It gets you 1080p for E09 and E10. E01 to E04 keep their files.",
 	}
-	if v.Plan.Headline != "4 Grabs get you 4 of the 5 files you're missing. SlipStream hasn't found a Release for 1080p yet." || !slices.Equal(rows, want) {
+	if v.Plan.Headline != "5 Grabs get you everything." || !slices.Equal(rows, want) {
 		t.Fatalf("the plan reads %q with rows\n%s\nwant\n%s", v.Plan.Headline, strings.Join(rows, "\n"), strings.Join(want, "\n"))
 	}
 	picks := v.picks()
