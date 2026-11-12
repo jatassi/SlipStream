@@ -156,7 +156,7 @@ func TestAFolderInADownloadFolderImportsIntoTwoWorksByHandAndStartsNoSearch(t *t
 	read("Import all placed both and finished their Imports", func(lines []string) bool {
 		return slices.Equal(lines, []string{clientOrchard.name + ".mkv: waiting not_an_upgrade"})
 	})
-	holdsOnly(t, m, clientOrchard.placed, harborMagnet.placed, meadowRedirect.placed)
+	holdsOnly(t, m, harborMagnet.placed, meadowRedirect.placed, clientOrchard.placed)
 	var grabs struct {
 		Grabs []struct {
 			WorkID string `json:"workId"`
