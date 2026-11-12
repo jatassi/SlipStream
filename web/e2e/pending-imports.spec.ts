@@ -175,11 +175,13 @@ test("a folder imports by hand, and a download that isn't an upgrade forces into
   ).toBeVisible();
   await expectAccessible(page);
   await confirm.getByRole("button", { name: "Force into 1080p", exact: true }).click();
-  await expect(
-    page.getByText(
-      isPhone(page) ? "Nothing in this download waits for you now." : /^Nothing needs you\./u,
-    ),
-  ).toBeVisible({ timeout: 60_000 });
+  if (isPhone(page)) {
+    await expect(page.getByText("Nothing in this download waits for you now.")).toBeVisible({
+      timeout: 60_000,
+    });
+  } else {
+    await expect(download).toBeHidden({ timeout: 60_000 });
+  }
   await expect
     .poll(async () => filesOf(world, await orchardId(world)), {
       message: "the forced file replaced the better one",
