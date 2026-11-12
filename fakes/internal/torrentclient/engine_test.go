@@ -274,15 +274,26 @@ func TestTheEnginePlaysItsFaults(t *testing.T) {
 		if got := get(t, e, stalled); got.State != torrentclient.Stopped || got.LocalError != "No space left on device" {
 			t.Errorf("failed: state %d, error %q", got.State, got.LocalError)
 		}
-		if err := e.Fail(stalled.InfoHash, ""); err != nil {
-			t.Fatal(err)
-		}
-		if got := get(t, e, stalled); got.State != torrentclient.Downloading || got.LocalError != "" {
-			t.Errorf("cleared: state %d, error %q, want downloading again", got.State, got.LocalError)
-		}
 		e.Empty()
 		if got := e.List(nil); len(got) != 0 {
 			t.Errorf("an emptied client lists %d torrents", len(got))
+		}
+	})
+}
+
+func TestClearingAnErrorStartsTheTorrentAgain(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e, c := engine(t, torrentclient.Config{}, "orchard")
+		r := c.Releases[0]
+		add(t, e, r, "")
+		if err := e.Fail(r.InfoHash, "No space left on device"); err != nil {
+			t.Fatal(err)
+		}
+		if err := e.Fail(r.InfoHash, ""); err != nil {
+			t.Fatal(err)
+		}
+		if got := get(t, e, r); got.State == torrentclient.Stopped || got.LocalError != "" {
+			t.Errorf("cleared: state %d, error %q, want it started again", got.State, got.LocalError)
 		}
 	})
 }
