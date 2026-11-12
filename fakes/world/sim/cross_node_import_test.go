@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -388,4 +389,77 @@ func TestADeclineMidSendDeletesThatPart(t *testing.T) {
 			t.Fatalf("home keeps %d Transfer records once the file is declined, want none", n)
 		}
 	})
+}
+
+// placeGate holds the places of one Import on home until it opens.
+type placeGate struct {
+	armed atomic.Value
+	open  chan struct{}
+	once  sync.Once
+}
+
+func newPlaceGate() *placeGate { return &placeGate{open: make(chan struct{})} }
+
+func (g *placeGate) before(ctx context.Context, s imports.Step) {
+	if s.At != imports.AtPlace || g.armed.Load() != s.Import.String() {
+		return
+	}
+	select {
+	case <-g.open:
+	case <-ctx.Done():
+	}
+}
+
+func (g *placeGate) let() { g.once.Do(func() { close(g.open) }) }
+
+// TestARehomeOfAStagedFileSendsItAgain re-homes home's TV root onto a
+// copy of its folder while an episode sent from seedbox waits to move
+// from its staged copy. The re-home unverifies that copy, so the episode
+// is sent again into the new folder and lands there, not failing.
+func TestARehomeOfAStagedFileSendsItAgain(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		g := newPlaceGate()
+		c := launchCrossNode(t, func(*node.Env) {}, sim.Edit(func(name string, e *node.Env) {
+			if name == "home" {
+				e.Test.BeforeImport = g.before
+			}
+		}))
+		t.Cleanup(g.let)
+		c.write(t, "pack/"+copperFolder+"/"+episodeName(1), 1<<20)
+		id := c.open(t, "pack")
+		g.armed.Store(id)
+		c.await(t, id, "the episode waits confirm", func(v importView) bool { return v.count("waiting") == 1 })
+		c.confirm(t, id)
+		c.await(t, id, "the episode arrives", func(v importView) bool { return v.count("placing") == 1 })
+
+		root := tvRoot(t, c.w)
+		moved := filepath.Join(t.TempDir(), "tv")
+		if err := os.CopyFS(moved, os.DirFS(root.Path)); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.RemoveAll(filepath.Join(moved, storing.StagingDir)); err != nil {
+			t.Fatal(err)
+		}
+		rehome(t, c.w, root, "home", moved)
+		g.let()
+
+		v := c.await(t, id, "the episode lands", func(v importView) bool { return v.count("placed") == 1 || v.count("failed") == 1 })
+		if got := v.outcomes(); !slices.Equal(got, []string{episodeName(1) + ": placed"}) {
+			t.Fatalf("after the re-home the episode reads %q, want it sent again and placed", got)
+		}
+	})
+}
+
+// tvRoot is home's TV root.
+func tvRoot(t *testing.T, w *sim.World) simtest.RootRow {
+	t.Helper()
+	roots := simtest.Decode[struct {
+		Roots []simtest.RootRow `json:"roots"`
+	}](t, "listRoots", w.API().Admin("home", http.MethodGet, "/api/v1/roots", "")).Roots
+	i := slices.IndexFunc(roots, func(r simtest.RootRow) bool { return filepath.Base(r.Path) == "tv" })
+	if i < 0 {
+		t.Fatalf("listRoots = %+v, want the TV root", roots)
+	}
+	return roots[i]
 }
