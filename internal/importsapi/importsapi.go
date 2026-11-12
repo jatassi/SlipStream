@@ -55,6 +55,7 @@ var (
 	importElsewhere     = api.NewCode(http.StatusConflict, "import_elsewhere", "The Work lives in another library root")
 	importChanged       = api.NewCode(http.StatusConflict, "import_changed", "The Import no longer has a chosen file waiting")
 	importItems         = api.NewCode(http.StatusUnprocessableEntity, "import_items", "A chosen Item isn't in the Work")
+	importListMoved     = api.NewCode(http.StatusConflict, "import_list_moved", "The Import the last page ended at is no longer listed. List again from the first page.")
 	contentTypeDisabled = api.NewCode(http.StatusConflict, "content_type_disabled", "That Content Type is turned off")
 	metadataNotFound    = api.NewCode(http.StatusNotFound, "metadata_not_found", "The metadata source has no record with that key")
 	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't respond. Try again later.")
@@ -72,6 +73,7 @@ var codes = []struct {
 	{imports.ErrElsewhere, importElsewhere},
 	{imports.ErrChanged, importChanged},
 	{imports.ErrNotOfWork, importItems},
+	{imports.ErrListMoved, importListMoved},
 	{works.ErrTypeOff, contentTypeDisabled},
 	{works.ErrNotFound, metadataNotFound},
 	{works.ErrUnavailable, metadataUnavailable},
@@ -122,39 +124,96 @@ type suggestion struct {
 }
 
 type reason struct {
-	Code  string     `json:"code" enum:"several,no_match,no_year,elsewhere,unlisted,no_number,no_such_item,several_items,unreadable,left,no_rule" doc:"Why the file joins no Work"`
-	Title string     `json:"title,omitempty" doc:"For several, no_match, no_year, elsewhere and unlisted: the name's title or the Work's label"`
-	Year  int        `json:"year,omitempty" doc:"The year beside title, when it has one"`
-	Count int        `json:"count,omitempty" doc:"For several: the candidates that match"`
-	Names string     `json:"names,omitempty" doc:"For no_such_item: the Item the file name names, such as S03E14"`
-	Root  *rootLabel `json:"root,omitempty" doc:"For elsewhere: the root the Work lives in"`
-	Line  string     `json:"line,omitempty" doc:"For unreadable: the first line ffprobe printed"`
+	Code     string               `json:"code" enum:"sample,bonus,hidden_folder,too_small,extension,runtime_sample,sibling_better,kept_better,meets_nothing,not_an_upgrade,edition_not_wanted,other_items,no_number,parts,name_taken,name_too_long,settings,busy,confirm,several,no_match,no_year,elsewhere,unlisted,no_such_item,several_items,unreadable,left,no_rule,import_failed,root_changed,by_admin,removed,canceled,blocklisted,work_deleted" doc:"Why the file is left out, waits, isn't better or failed"`
+	Sentence api.Nullable[string] `json:"sentence" doc:"The one sentence the row leads with; null for a root Import's reason, which its other fields word"`
+	Title    string               `json:"title,omitempty" doc:"For several, no_match, no_year, elsewhere and unlisted: the name's title or the Work's label"`
+	Year     int                  `json:"year,omitempty" doc:"The year beside title, when it has one"`
+	Count    int                  `json:"count,omitempty" doc:"For several: the candidates that match"`
+	Names    string               `json:"names,omitempty" doc:"For no_such_item: the Item the file name names, such as S03E14"`
+	Root     *rootLabel           `json:"root,omitempty" doc:"For elsewhere: the root the Work lives in"`
+	Line     string               `json:"line,omitempty" doc:"For unreadable: the first line ffprobe printed"`
 }
 
 type importFile struct {
-	Position int                  `json:"position" minimum:"0" doc:"The file's place in its Import, which names it in actions"`
-	Path     string               `json:"path" doc:"For a root Import relative to the root, / separated"`
-	Size     int64                `json:"size" minimum:"0"`
-	Quality  *string              `json:"quality" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality its name and media info read as; null when ffprobe can't read it"`
-	Cut      string               `json:"cut" doc:"The key of the cut its name carries"`
-	ItemIDs  []string             `json:"itemIds" nullable:"false" doc:"The Items of the Work it holds, in tree order; empty until a Work places it"`
-	Outcome  string               `json:"outcome" enum:"pending,left_out,not_better,waiting,sending,placing,placed,declined,failed"`
-	Reason   api.Nullable[reason] `json:"reason" doc:"Why it waits; null once it's placed"`
+	Position    int                            `json:"position" minimum:"0" doc:"The file's place in its Import, which names it in actions"`
+	Path        string                         `json:"path" doc:"For a root Import relative to the root, / separated"`
+	Size        int64                          `json:"size" minimum:"0"`
+	Quality     *string                        `json:"quality" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality its name and media info read as; null when ffprobe can't read it"`
+	Cut         string                         `json:"cut" doc:"The key of the cut its name carries"`
+	ItemIDs     []string                       `json:"itemIds" nullable:"false" doc:"The Items of the Work it holds, in tree order; empty until a Work places it"`
+	Outcome     string                         `json:"outcome" enum:"pending,left_out,not_better,waiting,sending,placing,placed,declined,failed"`
+	Reason      api.Nullable[reason]           `json:"reason" doc:"Why it is left out, waits, isn't better or failed; null otherwise"`
+	Hold        api.Nullable[fileHold]         `json:"hold" doc:"What it waits on that SlipStream retries automatically; null while nothing holds it"`
+	Fills       []cellRef                      `json:"fills" nullable:"false" doc:"The cells it fills, or would fill once confirmed"`
+	Verdicts    []targetVerdict                `json:"verdicts" nullable:"false" doc:"Each Target's verdict on it, for its Details"`
+	Recommended api.Nullable[api.Enum[action]] `json:"recommended" doc:"The action its row offers first; null when it offers none"`
+	Actions     []api.Enum[action]             `json:"actions" nullable:"false" doc:"The other actions its row offers"`
+	Forces      []forceOption                  `json:"forces" nullable:"false" doc:"Each Target it can be forced into, with the files that deletes"`
+	PlacedBy    api.Nullable[string]           `json:"placedBy" enum:"link,clone,copy,transfer,move,in_place" doc:"How it went into the library; null until it is placing"`
+	FileID      api.Nullable[string]           `json:"fileId" format:"uuid" doc:"The library file it became; null until it is placed"`
+	Staged      int64                          `json:"staged" minimum:"0" doc:"Bytes its holding or staged copy uses while it waits"`
+	Movable     bool                           `json:"movable" doc:"Move files may take it: no tracked torrent seeds it"`
+}
+
+type action struct{}
+
+func (action) Values() []string {
+	return []string{"confirm", "retry", "decline", "force", "match", "notThisRelease", "changeEditions", "turnOnRenaming", "changeSetting"}
+}
+
+type fileHold struct {
+	Code     string `json:"code" enum:"no_space,root_not_ready,node_away,probe_timeout,probe_error"`
+	Sentence string `json:"sentence" doc:"What it waits on and when SlipStream retries"`
+	Attempts int    `json:"attempts" minimum:"0" doc:"The tries that ran into the hold"`
+}
+
+type cellRef struct {
+	ItemID   string `json:"itemId" format:"uuid"`
+	Edition  string `json:"edition" doc:"any under any cut, else the key of the cut the cell wants"`
+	TargetID string `json:"targetId" format:"uuid"`
+}
+
+type targetVerdict struct {
+	TargetID string `json:"targetId" format:"uuid"`
+	Sentence string `json:"sentence" doc:"How the Target judges the file, such as Fills 2160p for Heat (1995)."`
+}
+
+type forceOption struct {
+	Cell    cellRef  `json:"cell"`
+	Deletes []string `json:"deletes" nullable:"false" doc:"The paths of the library files the force deletes, relative to their root"`
 }
 
 type importEntry struct {
-	ID          string                   `json:"id" format:"uuid"`
-	Source      string                   `json:"source" enum:"grab,root,folder" doc:"root: a folder a library scan found in a root and couldn't place"`
-	Stage       string                   `json:"stage" enum:"probing,waiting,placing,done,failed"`
-	Root        api.Nullable[rootLabel]  `json:"root" doc:"The library root the folder is in; null outside a root Import"`
-	Folder      string                   `json:"folder" doc:"For a root Import, its Work folder relative to the root, or the file's path when it sits loose at the root's top"`
-	ContentType string                   `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
-	Hint        hint                     `json:"hint" doc:"What the folder or file name says"`
-	Suggestion  api.Nullable[suggestion] `json:"suggestion" doc:"The best candidate; null when none matched"`
-	CreatedAt   time.Time                `json:"createdAt"`
-	IgnoredAt   *time.Time               `json:"ignoredAt" doc:"Null while it needs the Admin"`
-	FinishedAt  *time.Time               `json:"finishedAt" doc:"Null until every file is placed or settled"`
-	Files       []importFile             `json:"files" nullable:"false" doc:"For a root Import in path order, else by position"`
+	ID          string                      `json:"id" format:"uuid"`
+	Source      string                      `json:"source" enum:"grab,root,folder" doc:"root: a folder a library scan found in a root and couldn't place"`
+	Stage       string                      `json:"stage" enum:"probing,waiting,placing,done,failed"`
+	Grab        api.Nullable[importGrab]    `json:"grab" doc:"The Grab whose download this is; null for a folder or a root"`
+	NodeID      *string                     `json:"nodeId" format:"uuid" doc:"The Node the files are on, for a download or a folder; null for a root"`
+	Root        api.Nullable[rootLabel]     `json:"root" doc:"The library root the folder is in; null outside a root Import"`
+	Folder      string                      `json:"folder" doc:"For a root Import, its Work folder relative to the root, or the file's path when it sits loose at the root's top. The folder on its Node for a folder Import, and empty for a download, whose file paths are relative to its torrent"`
+	WorkID      *string                     `json:"workId" format:"uuid" doc:"The Work its files go into; null for a root Import, whose suggestion names one"`
+	Edition     *string                     `json:"edition" doc:"The key of the cut its files fill; null for any under any cut"`
+	MoveFiles   bool                        `json:"moveFiles" doc:"A folder Import moves its files into the library and deletes the folder once it is empty"`
+	Seeding     bool                        `json:"seeding" doc:"The download keeps seeding while a file waits"`
+	Failure     api.Nullable[importFailure] `json:"failure" doc:"Why the whole Import failed; null unless it did"`
+	ContentType string                      `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
+	Hint        hint                        `json:"hint" doc:"What the folder or file name says"`
+	Suggestion  api.Nullable[suggestion]    `json:"suggestion" doc:"The best candidate; null when none matched"`
+	CreatedAt   time.Time                   `json:"createdAt"`
+	IgnoredAt   *time.Time                  `json:"ignoredAt" doc:"Null while it needs the Admin"`
+	FinishedAt  *time.Time                  `json:"finishedAt" doc:"Null until every file is placed or settled"`
+	Files       []importFile                `json:"files" nullable:"false" doc:"For a root Import in path order, else by position"`
+}
+
+type importGrab struct {
+	ID      string `json:"id" format:"uuid"`
+	Release string `json:"release" doc:"The Release's title"`
+	Stage   string `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
+}
+
+type importFailure struct {
+	Code     string `json:"code" enum:"no_video_file,unreadable"`
+	Sentence string `json:"sentence"`
 }
 
 type converter struct {
@@ -174,6 +233,16 @@ func (c converter) entry(e imports.Import) importEntry {
 	if !e.Root.IsZero() {
 		out.Root = api.Some(c.label(e.Root))
 	}
+	if !e.Node.IsZero() {
+		out.NodeID = new(e.Node.String())
+	}
+	if !e.Work.IsZero() {
+		out.WorkID = new(e.Work.String())
+	}
+	if e.Edition != nil {
+		out.Edition = new(string(*e.Edition))
+	}
+	out.MoveFiles = e.MoveFiles
 	if e.Suggestion != nil {
 		out.Suggestion = api.Some(c.suggestion(*e.Suggestion))
 	}
@@ -219,7 +288,16 @@ func (c converter) suggestion(s imports.Suggestion) suggestion {
 }
 
 func (c converter) file(f imports.File) importFile {
-	out := importFile{Position: f.Position, Path: f.Path, Size: f.Size, Cut: string(f.Cut), Outcome: string(f.Outcome), ItemIDs: make([]string, len(f.Items))}
+	out := importFile{
+		Position: f.Position, Path: f.Path, Size: f.Size, Cut: string(f.Cut), Outcome: string(f.Outcome), ItemIDs: make([]string, len(f.Items)),
+		Fills: []cellRef{}, Verdicts: []targetVerdict{}, Actions: []api.Enum[action]{}, Forces: []forceOption{},
+	}
+	if f.PlacedBy != "" {
+		out.PlacedBy = api.Some(string(f.PlacedBy))
+	}
+	if !f.FileID.IsZero() {
+		out.FileID = api.Some(f.FileID.String())
+	}
 	if f.Probe != nil {
 		out.Quality = new(f.Quality.String())
 	}
@@ -241,12 +319,17 @@ func (c converter) file(f imports.File) importFile {
 type listInput struct {
 	Source  string `query:"source" enum:"grab,root,folder" doc:"Only Imports from this source; every source's when left out"`
 	RootID  string `query:"rootId" format:"uuid" doc:"Only this root's Imports and lead; every root's when left out"`
+	WorkID  string `query:"work" format:"uuid" doc:"Only the Imports into this Work; every Work's when left out"`
 	Ignored bool   `query:"ignored" doc:"List the ignored Imports instead of the ones that need the Admin"`
+	Waiting bool   `query:"waiting" doc:"Only the Imports with a file that waits for the Admin"`
+	After   string `query:"after" format:"uuid" doc:"The next value of the page before; the first page when left out"`
+	Limit   int    `query:"limit" minimum:"1" maximum:"500" doc:"The most Imports a page holds; every one when left out"`
 }
 
 type list struct {
 	Leads   []lead        `json:"leads" nullable:"false" doc:"One per root a library scan compared, in root order; empty when source leaves out root"`
 	Imports []importEntry `json:"imports" nullable:"false" doc:"The unfinished Imports, in root and folder order"`
+	Next    *string       `json:"next" format:"uuid" doc:"Pass it as after for the next page; null on the last page"`
 }
 
 type listOutput struct{ Body list }
@@ -342,6 +425,7 @@ func Routes(r *api.Router, p Pending) {
 		Path:    "/imports",
 		Summary: "List the unfinished Imports, with what each root's last library scan added",
 		Status:  http.StatusOK,
+		Errors:  []*api.Code{importListMoved},
 	}, h.list)
 
 	api.Register(o, api.Admin, api.Op{
@@ -405,25 +489,37 @@ func Routes(r *api.Router, p Pending) {
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown},
 	}, h.updateSettings)
+
+	unbuiltRoutes(o)
 }
 
 type handlers struct{ pending Pending }
 
 func (h handlers) list(ctx context.Context, by identity.Admin, in *listInput) (*listOutput, error) {
-	f := imports.Filter{Ignored: in.Ignored}
+	f := imports.Filter{Ignored: in.Ignored, Waiting: in.Waiting, Limit: in.Limit}
 	if in.Source != "" {
 		f.Source = new(imports.Source(in.Source))
 	}
-	if in.RootID != "" {
-		id, err := storage.ParseUUID(in.RootID)
+	for _, q := range []struct {
+		value string
+		set   func(storage.UUID)
+	}{
+		{in.RootID, func(id storage.UUID) { f.Root = &roots.ID{UUID: id} }},
+		{in.WorkID, func(id storage.UUID) { f.Work = &works.WorkID{UUID: id} }},
+		{in.After, func(id storage.UUID) { f.After = &imports.ImportID{UUID: id} }},
+	} {
+		if q.value == "" {
+			continue
+		}
+		id, err := storage.ParseUUID(q.value)
 		if err != nil {
 			return nil, err
 		}
-		f.Root = &roots.ID{UUID: id}
+		q.set(id)
 	}
 	l, err := open(h.pending).List(ctx, by, f)
 	if err != nil {
-		return nil, err
+		return nil, answer(err)
 	}
 	c := converter{m: minter(h.pending), roots: l.Roots}
 	out := list{Leads: make([]lead, len(l.Leads)), Imports: make([]importEntry, len(l.Imports))}
@@ -432,6 +528,9 @@ func (h handlers) list(ctx context.Context, by identity.Admin, in *listInput) (*
 	}
 	for i, e := range l.Imports {
 		out.Imports[i] = c.entry(e)
+	}
+	if l.Next != nil {
+		out.Next = new(l.Next.String())
 	}
 	return &listOutput{Body: out}, nil
 }

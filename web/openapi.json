@@ -1776,6 +1776,9 @@
       "DownloadclientsThresholds": {
         "additionalProperties": false,
         "properties": {
+          "clientErrorFail": {
+            "$ref": "#/components/schemas/SettingDurationField"
+          },
           "faultStall": {
             "$ref": "#/components/schemas/SettingDurationField"
           },
@@ -1789,13 +1792,22 @@
         "required": [
           "faultStall",
           "unregisteredGap",
-          "metadataWait"
+          "metadataWait",
+          "clientErrorFail"
         ],
         "type": "object"
       },
       "DownloadclientsThresholdsPatch": {
         "additionalProperties": false,
         "properties": {
+          "clientErrorFail": {
+            "description": "Seconds an external client reports an error on a Torrent before its Grab fails; null resets it to its default",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "faultStall": {
             "description": "Seconds; null resets it to its default",
             "format": "int64",
@@ -2214,9 +2226,11 @@
             "type": "string"
           },
           "stage": {
+            "description": "waiting: a file of its Import waits for the Admin and none is sending or placing",
             "enum": [
               "downloading",
               "importing",
+              "waiting",
               "imported",
               "failed"
             ],
@@ -2859,6 +2873,35 @@
         ],
         "type": "object"
       },
+      "FilesClientError": {
+        "additionalProperties": false,
+        "properties": {
+          "client": {
+            "description": "The external Download Client's name",
+            "type": "string"
+          },
+          "failsAt": {
+            "description": "When the Grab fails unless the error clears",
+            "format": "date-time",
+            "type": "string"
+          },
+          "message": {
+            "description": "The error as the client words it",
+            "type": "string"
+          },
+          "node": {
+            "description": "The client's Node's name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client",
+          "node",
+          "message",
+          "failsAt"
+        ],
+        "type": "object"
+      },
       "FilesConfirmedWork": {
         "additionalProperties": false,
         "properties": {
@@ -2934,6 +2977,14 @@
             ],
             "description": "The file the Grab would replace; null when it fills no file"
           },
+          "from": {
+            "description": "When the step began; null with step",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "grabId": {
             "description": "The latest Grab in flight for it",
             "format": "uuid",
@@ -2950,12 +3001,31 @@
             ],
             "type": "string"
           },
+          "step": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesStep"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the Grab or its Import is doing for the cell; null until SlipStream reads it"
+          },
           "targetId": {
             "format": "uuid",
             "type": "string"
           },
           "targetName": {
             "type": "string"
+          },
+          "until": {
+            "description": "When the Import delay ends, for a download that waits for it; null otherwise",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "wanted": {
             "description": "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
@@ -2966,6 +3036,9 @@
           "state",
           "grabId",
           "file",
+          "step",
+          "from",
+          "until",
           "itemId",
           "edition",
           "targetId",
@@ -3079,6 +3152,24 @@
         ],
         "type": "object"
       },
+      "FilesFileGrab": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "release": {
+            "description": "The Release's title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "release"
+        ],
+        "type": "object"
+      },
       "FilesFileList": {
         "additionalProperties": false,
         "properties": {
@@ -3132,6 +3223,39 @@
           "SDR"
         ],
         "type": "string"
+      },
+      "FilesHeldCell": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "description": "When the step began",
+            "format": "date-time",
+            "type": "string"
+          },
+          "grabId": {
+            "description": "The Grab in flight for the cell",
+            "format": "uuid",
+            "type": "string"
+          },
+          "step": {
+            "$ref": "#/components/schemas/FilesStep"
+          },
+          "until": {
+            "description": "When the Import delay ends, for a download that waits for it; null otherwise",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "grabId",
+          "step",
+          "from",
+          "until"
+        ],
+        "type": "object"
       },
       "FilesItemStatus": {
         "additionalProperties": false,
@@ -3287,6 +3411,17 @@
               "null"
             ]
           },
+          "grab": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesFileGrab"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Grab whose download it came from; null for a file no Grab brought"
+          },
           "id": {
             "format": "uuid",
             "type": "string"
@@ -3321,6 +3456,21 @@
           "path": {
             "description": "Relative to its root, / separated",
             "type": "string"
+          },
+          "placedBy": {
+            "description": "How its import put it into the library; null for a file no import recorded",
+            "enum": [
+              "link",
+              "clone",
+              "copy",
+              "transfer",
+              "move",
+              "in_place"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "probeError": {
             "description": "The first line ffprobe printed when the last library scan couldn't read it, and media is then the read before; null when that read worked",
@@ -3372,7 +3522,9 @@
           "modifiedAt",
           "goneAt",
           "probeError",
-          "media"
+          "media",
+          "placedBy",
+          "grab"
         ],
         "type": "object"
       },
@@ -3435,6 +3587,17 @@
             "$ref": "#/components/schemas/FilesLibraryFile",
             "description": "The file filling it"
           },
+          "held": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesHeldCell"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Grab in flight for it; null while none is"
+          },
           "itemId": {
             "format": "uuid",
             "type": "string"
@@ -3460,6 +3623,7 @@
         "required": [
           "state",
           "file",
+          "held",
           "itemId",
           "edition",
           "targetId",
@@ -3787,6 +3951,17 @@
         },
         "type": "object"
       },
+      "FilesStep": {
+        "enum": [
+          "fetching",
+          "downloading",
+          "reading",
+          "sending",
+          "placing",
+          "waiting"
+        ],
+        "type": "string"
+      },
       "FilesSubtitleTrack": {
         "additionalProperties": false,
         "properties": {
@@ -3927,6 +4102,17 @@
             "$ref": "#/components/schemas/FilesLibraryFile",
             "description": "The file filling it, short of its Target's cutoff or upgrade-until score"
           },
+          "held": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesHeldCell"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Grab in flight for it; null while none is"
+          },
           "itemId": {
             "format": "uuid",
             "type": "string"
@@ -3952,6 +4138,7 @@
         "required": [
           "state",
           "file",
+          "held",
           "itemId",
           "edition",
           "targetId",
@@ -4074,12 +4261,27 @@
       "FilesWaitingNeed": {
         "additionalProperties": false,
         "properties": {
+          "clientError": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesClientError"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The client's error, for client_error; null otherwise"
+          },
           "code": {
-            "description": "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't hold Downloading",
+            "description": "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't hold Downloading. no_space while its root has too little free space for a file, root_not_ready while its root isn't ready, probe_timeout while reading a file timed out three times, and client_error while its external client reports an error",
             "enum": [
               "node_away",
               "client_away",
-              "client_off"
+              "client_off",
+              "no_space",
+              "root_not_ready",
+              "probe_timeout",
+              "client_error"
             ],
             "type": "string"
           },
@@ -4097,7 +4299,8 @@
         "required": [
           "kind",
           "grabId",
-          "code"
+          "code",
+          "clientError"
         ],
         "type": "object"
       },
@@ -5427,7 +5630,10 @@
               "root_changed",
               "canceled",
               "blocklisted",
-              "release_fault"
+              "release_fault",
+              "client_error",
+              "declined",
+              "unreadable"
             ],
             "type": "string"
           },
@@ -5580,6 +5786,17 @@
           "id": {
             "format": "uuid",
             "type": "string"
+          },
+          "import": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrabsGrabImport"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its download's Import, from importing on; null before"
           },
           "inFlight": {
             "description": "It holds its cells and counts in Activity: it is neither imported nor failed",
@@ -5754,6 +5971,7 @@
           "infoHash",
           "stage",
           "inFlight",
+          "import",
           "history",
           "createdAt",
           "source",
@@ -5811,6 +6029,52 @@
           "id",
           "name",
           "kind"
+        ],
+        "type": "object"
+      },
+      "GrabsGrabImport": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "placed": {
+            "description": "Its files placed into the library",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "planned": {
+            "description": "Its files that are or were sending, placing, placed or waiting",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sending": {
+            "description": "Its files a Transfer is sending",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "waiting": {
+            "description": "Its files that wait for the Admin",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "words": {
+            "description": "Its progress in words, such as Importing 6 of 10 episodes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "placed",
+          "planned",
+          "sending",
+          "waiting",
+          "words"
         ],
         "type": "object"
       },
@@ -8630,6 +8894,25 @@
         ],
         "type": "object"
       },
+      "ImportFolderInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "folder": {
+            "description": "Absolute on the Node, inside one of its library roots or download folders",
+            "minLength": 1,
+            "type": "string"
+          },
+          "nodeId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeId",
+          "folder"
+        ],
+        "type": "object"
+      },
       "ImportIDsInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -8646,6 +8929,20 @@
           "importIds"
         ],
         "type": "object"
+      },
+      "ImportsAction": {
+        "enum": [
+          "confirm",
+          "retry",
+          "decline",
+          "force",
+          "match",
+          "notThisRelease",
+          "changeEditions",
+          "turnOnRenaming",
+          "changeSetting"
+        ],
+        "type": "string"
       },
       "ImportsAddedList": {
         "additionalProperties": false,
@@ -8689,6 +8986,29 @@
         ],
         "type": "object"
       },
+      "ImportsCellRef": {
+        "additionalProperties": false,
+        "properties": {
+          "edition": {
+            "description": "any under any cut, else the key of the cut the cell wants",
+            "type": "string"
+          },
+          "itemId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "itemId",
+          "edition",
+          "targetId"
+        ],
+        "type": "object"
+      },
       "ImportsChanged": {
         "additionalProperties": false,
         "properties": {
@@ -8728,6 +9048,60 @@
         ],
         "type": "object"
       },
+      "ImportsConfirmFile": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "description": "Import the file with its current reading",
+            "enum": [
+              "confirm"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "type": "object"
+      },
+      "ImportsDeclineFile": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "description": "Don't import the file",
+            "enum": [
+              "decline"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "type": "object"
+      },
+      "ImportsExtensionImpact": {
+        "additionalProperties": false,
+        "properties": {
+          "files": {
+            "description": "The library files that stop counting as video",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "pending": {
+            "description": "The files of unfinished Imports that stop counting as video",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "files",
+          "pending"
+        ],
+        "type": "object"
+      },
       "ImportsFailedOutcome": {
         "additionalProperties": false,
         "properties": {
@@ -8749,6 +9123,110 @@
           "id",
           "outcome",
           "problem"
+        ],
+        "type": "object"
+      },
+      "ImportsFileAction": {
+        "discriminator": {
+          "mapping": {
+            "confirm": "#/components/schemas/ImportsConfirmFile",
+            "decline": "#/components/schemas/ImportsDeclineFile",
+            "force": "#/components/schemas/ImportsForceFile",
+            "match": "#/components/schemas/ImportsMatchFile",
+            "notThisRelease": "#/components/schemas/ImportsNotThisReleaseFile",
+            "retry": "#/components/schemas/ImportsRetryFile"
+          },
+          "propertyName": "action"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ImportsConfirmFile"
+          },
+          {
+            "$ref": "#/components/schemas/ImportsRetryFile"
+          },
+          {
+            "$ref": "#/components/schemas/ImportsDeclineFile"
+          },
+          {
+            "$ref": "#/components/schemas/ImportsNotThisReleaseFile"
+          },
+          {
+            "$ref": "#/components/schemas/ImportsForceFile"
+          },
+          {
+            "$ref": "#/components/schemas/ImportsMatchFile"
+          }
+        ]
+      },
+      "ImportsFileHold": {
+        "additionalProperties": false,
+        "properties": {
+          "attempts": {
+            "description": "The tries that ran into the hold",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "code": {
+            "enum": [
+              "no_space",
+              "root_not_ready",
+              "node_away",
+              "probe_timeout",
+              "probe_error"
+            ],
+            "type": "string"
+          },
+          "sentence": {
+            "description": "What it waits on and when SlipStream retries",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "sentence",
+          "attempts"
+        ],
+        "type": "object"
+      },
+      "ImportsForceFile": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "description": "Put the file into a Target even though it isn't an upgrade there",
+            "enum": [
+              "force"
+            ],
+            "type": "string"
+          },
+          "cell": {
+            "$ref": "#/components/schemas/ImportsCellRef"
+          }
+        },
+        "required": [
+          "action",
+          "cell"
+        ],
+        "type": "object"
+      },
+      "ImportsForceOption": {
+        "additionalProperties": false,
+        "properties": {
+          "cell": {
+            "$ref": "#/components/schemas/ImportsCellRef"
+          },
+          "deletes": {
+            "description": "The paths of the library files the force deletes, relative to their root",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "cell",
+          "deletes"
         ],
         "type": "object"
       },
@@ -8814,6 +9292,24 @@
             "format": "date-time",
             "type": "string"
           },
+          "edition": {
+            "description": "The key of the cut its files fill; null for any under any cut",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportsImportFailure"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the whole Import failed; null unless it did"
+          },
           "files": {
             "description": "For a root Import in path order, else by position",
             "items": {
@@ -8830,8 +9326,19 @@
             ]
           },
           "folder": {
-            "description": "For a root Import, its Work folder relative to the root, or the file's path when it sits loose at the root's top",
+            "description": "For a root Import, its Work folder relative to the root, or the file's path when it sits loose at the root's top. The folder on its Node for a folder Import, and empty for a download, whose file paths are relative to its torrent",
             "type": "string"
+          },
+          "grab": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportsImportGrab"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Grab whose download this is; null for a folder or a root"
           },
           "hint": {
             "$ref": "#/components/schemas/ImportsHint",
@@ -8849,6 +9356,18 @@
               "null"
             ]
           },
+          "moveFiles": {
+            "description": "A folder Import moves its files into the library and deletes the folder once it is empty",
+            "type": "boolean"
+          },
+          "nodeId": {
+            "description": "The Node the files are on, for a download or a folder; null for a root",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "root": {
             "anyOf": [
               {
@@ -8859,6 +9378,10 @@
               }
             ],
             "description": "The library root the folder is in; null outside a root Import"
+          },
+          "seeding": {
+            "description": "The download keeps seeding while a file waits",
+            "type": "boolean"
           },
           "source": {
             "description": "root: a folder a library scan found in a root and couldn't place",
@@ -8889,14 +9412,29 @@
               }
             ],
             "description": "The best candidate; null when none matched"
+          },
+          "workId": {
+            "description": "The Work its files go into; null for a root Import, whose suggestion names one",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "id",
           "source",
           "stage",
+          "grab",
+          "nodeId",
           "root",
           "folder",
+          "workId",
+          "edition",
+          "moveFiles",
+          "seeding",
+          "failure",
           "contentType",
           "hint",
           "suggestion",
@@ -8907,12 +9445,72 @@
         ],
         "type": "object"
       },
+      "ImportsImportFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": [
+              "no_video_file",
+              "unreadable"
+            ],
+            "type": "string"
+          },
+          "sentence": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "sentence"
+        ],
+        "type": "object"
+      },
       "ImportsImportFile": {
         "additionalProperties": false,
         "properties": {
+          "actions": {
+            "description": "The other actions its row offers",
+            "items": {
+              "$ref": "#/components/schemas/ImportsAction"
+            },
+            "type": "array"
+          },
           "cut": {
             "description": "The key of the cut its name carries",
             "type": "string"
+          },
+          "fileId": {
+            "description": "The library file it became; null until it is placed",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fills": {
+            "description": "The cells it fills, or would fill once confirmed",
+            "items": {
+              "$ref": "#/components/schemas/ImportsCellRef"
+            },
+            "type": "array"
+          },
+          "forces": {
+            "description": "Each Target it can be forced into, with the files that deletes",
+            "items": {
+              "$ref": "#/components/schemas/ImportsForceOption"
+            },
+            "type": "array"
+          },
+          "hold": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportsFileHold"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What it waits on that SlipStream retries automatically; null while nothing holds it"
           },
           "itemIds": {
             "description": "The Items of the Work it holds, in tree order; empty until a Work places it",
@@ -8920,6 +9518,10 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "movable": {
+            "description": "Move files may take it: no tracked torrent seeds it",
+            "type": "boolean"
           },
           "outcome": {
             "enum": [
@@ -8938,6 +9540,21 @@
           "path": {
             "description": "For a root Import relative to the root, / separated",
             "type": "string"
+          },
+          "placedBy": {
+            "description": "How it went into the library; null until it is placing",
+            "enum": [
+              "link",
+              "clone",
+              "copy",
+              "transfer",
+              "move",
+              "in_place"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "position": {
             "description": "The file's place in its Import, which names it in actions",
@@ -8981,12 +9598,36 @@
                 "type": "null"
               }
             ],
-            "description": "Why it waits; null once it's placed"
+            "description": "Why it is left out, waits, isn't better or failed; null otherwise"
+          },
+          "recommended": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportsAction"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The action its row offers first; null when it offers none"
           },
           "size": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "staged": {
+            "description": "Bytes its holding or staged copy uses while it waits",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "verdicts": {
+            "description": "Each Target's verdict on it, for its Details",
+            "items": {
+              "$ref": "#/components/schemas/ImportsTargetVerdict"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -8997,7 +9638,63 @@
           "cut",
           "itemIds",
           "outcome",
-          "reason"
+          "reason",
+          "hold",
+          "fills",
+          "verdicts",
+          "recommended",
+          "actions",
+          "forces",
+          "placedBy",
+          "fileId",
+          "staged",
+          "movable"
+        ],
+        "type": "object"
+      },
+      "ImportsImportGrab": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "release": {
+            "description": "The Release's title",
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "fetching",
+              "downloading",
+              "probing",
+              "transferring",
+              "importing",
+              "imported",
+              "failed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "release",
+          "stage"
+        ],
+        "type": "object"
+      },
+      "ImportsImportsList": {
+        "additionalProperties": false,
+        "properties": {
+          "imports": {
+            "items": {
+              "$ref": "#/components/schemas/ImportsImportEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "imports"
         ],
         "type": "object"
       },
@@ -9077,11 +9774,20 @@
               "$ref": "#/components/schemas/ImportsLead"
             },
             "type": "array"
+          },
+          "next": {
+            "description": "Pass it as after for the next page; null on the last page",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "leads",
-          "imports"
+          "imports",
+          "next"
         ],
         "type": "object"
       },
@@ -9103,6 +9809,67 @@
         "required": [
           "action",
           "key"
+        ],
+        "type": "object"
+      },
+      "ImportsMatchFile": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "description": "Change what the file is",
+            "enum": [
+              "match"
+            ],
+            "type": "string"
+          },
+          "edition": {
+            "description": "The key of the cut it is; null for the one its name carries",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "itemIds": {
+            "description": "The Items of the Work the file holds, in any order",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "releaseName": {
+            "description": "The name SlipStream reads its quality and cut from",
+            "minLength": 1,
+            "type": "string"
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "workId",
+          "itemIds",
+          "edition",
+          "releaseName"
+        ],
+        "type": "object"
+      },
+      "ImportsNotThisReleaseFile": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "description": "Put the download's Release on the Blocklist and search again; a Grab's Import only",
+            "enum": [
+              "notThisRelease"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
         ],
         "type": "object"
       },
@@ -9147,19 +9914,44 @@
         "additionalProperties": false,
         "properties": {
           "code": {
-            "description": "Why the file joins no Work",
+            "description": "Why the file is left out, waits, isn't better or failed",
             "enum": [
+              "sample",
+              "bonus",
+              "hidden_folder",
+              "too_small",
+              "extension",
+              "runtime_sample",
+              "sibling_better",
+              "kept_better",
+              "meets_nothing",
+              "not_an_upgrade",
+              "edition_not_wanted",
+              "other_items",
+              "no_number",
+              "parts",
+              "name_taken",
+              "name_too_long",
+              "settings",
+              "busy",
+              "confirm",
               "several",
               "no_match",
               "no_year",
               "elsewhere",
               "unlisted",
-              "no_number",
               "no_such_item",
               "several_items",
               "unreadable",
               "left",
-              "no_rule"
+              "no_rule",
+              "import_failed",
+              "root_changed",
+              "by_admin",
+              "removed",
+              "canceled",
+              "blocklisted",
+              "work_deleted"
             ],
             "type": "string"
           },
@@ -9180,6 +9972,13 @@
             "$ref": "#/components/schemas/ImportsRootLabel",
             "description": "For elsewhere: the root the Work lives in"
           },
+          "sentence": {
+            "description": "The one sentence the row leads with; null for a root Import's reason, which its other fields word",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "title": {
             "description": "For several, no_match, no_year, elsewhere and unlisted: the name's title or the Work's label",
             "type": "string"
@@ -9191,7 +9990,24 @@
           }
         },
         "required": [
-          "code"
+          "code",
+          "sentence"
+        ],
+        "type": "object"
+      },
+      "ImportsRetryFile": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "description": "Try the file again",
+            "enum": [
+              "retry"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
         ],
         "type": "object"
       },
@@ -9291,6 +10107,24 @@
           "posterUrl",
           "workId",
           "confident"
+        ],
+        "type": "object"
+      },
+      "ImportsTargetVerdict": {
+        "additionalProperties": false,
+        "properties": {
+          "sentence": {
+            "description": "How the Target judges the file, such as Fills 2160p for Heat (1995).",
+            "type": "string"
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "targetId",
+          "sentence"
         ],
         "type": "object"
       },
@@ -11391,6 +12225,27 @@
         },
         "required": [
           "values"
+        ],
+        "type": "object"
+      },
+      "MoveFilesInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "importIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "on": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "importIds",
+          "on"
         ],
         "type": "object"
       },
@@ -19245,7 +20100,7 @@
             "$ref": "#/components/schemas/TrackersPlannedTorrent"
           },
           "why": {
-            "description": "What holds its met goal back: removing, it is being removed; resumed, an Admin resumed it after its goal paused it, so it seeds with no end; ran, its goal already acted on it; incomplete, its selected files aren't all there; grab-downloading or grab-importing, a Grab on it is still downloading or importing; reconciling, SlipStream is reconciling the library after a restore",
+            "description": "What holds its met goal back: removing, it is being removed; resumed, an Admin resumed it after its goal paused it, so it seeds with no end; ran, its goal already acted on it; incomplete, its selected files aren't all there; grab-downloading or grab-importing, a Grab on it is still downloading or importing; import-waiting, a file of its Import waits for the Admin; reconciling, SlipStream is reconciling the library after a restore",
             "enum": [
               "removing",
               "resumed",
@@ -19253,6 +20108,7 @@
               "incomplete",
               "grab-downloading",
               "grab-importing",
+              "import-waiting",
               "reconciling"
             ],
             "type": "string"
@@ -19669,7 +20525,8 @@
           "purpose": {
             "description": "The kind of job that asked for it",
             "enum": [
-              "grab"
+              "grab",
+              "import"
             ],
             "type": "string"
           },
@@ -29348,6 +30205,31 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "client_error_fail_not_built"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
           }
         },
         "security": [
@@ -34433,6 +35315,17 @@
             }
           },
           {
+            "description": "Only the Imports into this Work; every Work's when left out",
+            "explode": false,
+            "in": "query",
+            "name": "work",
+            "schema": {
+              "description": "Only the Imports into this Work; every Work's when left out",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
             "description": "List the ignored Imports instead of the ones that need the Admin",
             "explode": false,
             "in": "query",
@@ -34440,6 +35333,40 @@
             "schema": {
               "description": "List the ignored Imports instead of the ones that need the Admin",
               "type": "boolean"
+            }
+          },
+          {
+            "description": "Only the Imports with a file that waits for the Admin",
+            "explode": false,
+            "in": "query",
+            "name": "waiting",
+            "schema": {
+              "description": "Only the Imports with a file that waits for the Admin",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "The next value of the page before; the first page when left out",
+            "explode": false,
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "description": "The next value of the page before; the first page when left out",
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The most Imports a page holds; every one when left out",
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "description": "The most Imports a page holds; every one when left out",
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
             }
           }
         ],
@@ -34453,6 +35380,184 @@
               }
             },
             "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "import_list_moved",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the unfinished Imports, with what each root's last library scan added",
+        "tags": [
+          "imports"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "post": {
+        "operationId": "importFolder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportFolderInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportsImportsList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportsImportsList"
+                }
+              }
+            },
+            "description": "Created"
           },
           "401": {
             "content": {
@@ -34543,6 +35648,7 @@
                       "properties": {
                         "code": {
                           "enum": [
+                            "import_outside",
                             "invalid"
                           ],
                           "type": "string"
@@ -34580,6 +35686,31 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "import_not_built"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
           }
         },
         "security": [
@@ -34592,7 +35723,7 @@
             "apiKey": []
           }
         ],
-        "summary": "List the unfinished Imports, with what each root's last library scan added",
+        "summary": "Open the Imports of a folder on a Node, one per Work and Edition its files match",
         "tags": [
           "imports"
         ],
@@ -34768,6 +35899,200 @@
         "x-slipstream-access": "admin"
       }
     },
+    "/imports/confirm": {
+      "post": {
+        "operationId": "confirmImports",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportIDsInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportsImportsList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "import_not_built"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Import every file of these Imports that waits for confirmation",
+        "tags": [
+          "imports"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
     "/imports/ignore": {
       "post": {
         "operationId": "ignoreImports",
@@ -34924,6 +36249,751 @@
           }
         ],
         "summary": "Ignore Imports until their files change",
+        "tags": [
+          "imports"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/imports/importing-settings": {
+      "get": {
+        "operationId": "getImportingSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportsSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "import_not_built"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get the Importing settings",
+        "tags": [
+          "imports"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "updateImportingSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LibraryScanSettingsInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportsSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "setting_out_of_range",
+                            "unknown_setting"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "import_not_built"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change the Importing settings",
+        "tags": [
+          "imports"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/imports/importing-settings/extension-impact": {
+      "get": {
+        "operationId": "getExtensionImpact",
+        "parameters": [
+          {
+            "description": "The video file extensions to judge, such as mkv, without the dot",
+            "explode": false,
+            "in": "query",
+            "name": "extensions",
+            "schema": {
+              "description": "The video file extensions to judge, such as mkv, without the dot",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 100,
+              "minItems": 1,
+              "type": [
+                "array",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportsExtensionImpact"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "import_not_built"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Count the library and pending files a video extension list stops counting as video",
+        "tags": [
+          "imports"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/imports/move-files": {
+      "post": {
+        "operationId": "setImportMoveFiles",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveFilesInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "import_move_seeding",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "import_not_built"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Turn Move files on or off for folder Imports",
         "tags": [
           "imports"
         ],
@@ -35820,6 +37890,248 @@
           }
         ],
         "summary": "Match a root Import to a record at the Content Type's source, or import its chosen files into a Work in its root",
+        "tags": [
+          "imports"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/imports/{id}/files/{position}": {
+      "post": {
+        "operationId": "actOnImportFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "position",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportsFileAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportsImportEntry"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "import_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "import_changed",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "import_items",
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "import_not_built"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Confirm, retry, decline, force or match one file of an Import",
         "tags": [
           "imports"
         ],

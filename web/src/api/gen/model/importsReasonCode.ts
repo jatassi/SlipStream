@@ -1,15 +1,40 @@
 /**
- * Why the file joins no Work
+ * Why the file is left out, waits, isn't better or failed
  */
 export type ImportsReasonCode =
+  | "sample"
+  | "bonus"
+  | "hidden_folder"
+  | "too_small"
+  | "extension"
+  | "runtime_sample"
+  | "sibling_better"
+  | "kept_better"
+  | "meets_nothing"
+  | "not_an_upgrade"
+  | "edition_not_wanted"
+  | "other_items"
+  | "no_number"
+  | "parts"
+  | "name_taken"
+  | "name_too_long"
+  | "settings"
+  | "busy"
+  | "confirm"
   | "several"
   | "no_match"
   | "no_year"
   | "elsewhere"
   | "unlisted"
-  | "no_number"
   | "no_such_item"
   | "several_items"
   | "unreadable"
   | "left"
-  | "no_rule";
+  | "no_rule"
+  | "import_failed"
+  | "root_changed"
+  | "by_admin"
+  | "removed"
+  | "canceled"
+  | "blocklisted"
+  | "work_deleted";

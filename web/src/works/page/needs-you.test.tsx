@@ -24,7 +24,10 @@ function openWith(needsYou: FilesNeed[], grabs: GrabsGrab[] = []) {
 }
 
 test("a download waiting on an away Node names it and opens it", async () => {
-  const needsYou = openWith([{ kind: "waiting", grabId: stuck.id, code: "node_away" }], [stuck]);
+  const needsYou = openWith(
+    [{ kind: "waiting", grabId: stuck.id, code: "node_away", clientError: null }],
+    [stuck],
+  );
   await expect
     .element(needsYou)
     .toHaveTextContent(
@@ -42,7 +45,7 @@ test("a download waiting on a client that isn't responding names the client and 
     },
   } as const;
   const needsYou = openWith(
-    [{ kind: "waiting", grabId: inTransmission.id, code: "client_away" }],
+    [{ kind: "waiting", grabId: inTransmission.id, code: "client_away", clientError: null }],
     [inTransmission],
   );
   await expect
@@ -68,7 +71,7 @@ test("a download waiting to fetch for an external client on an offline Node name
     },
   } as const;
   const needsYou = openWith(
-    [{ kind: "waiting", grabId: toQbittorrent.id, code: "node_away" }],
+    [{ kind: "waiting", grabId: toQbittorrent.id, code: "node_away", clientError: null }],
     [toQbittorrent],
   );
   await expect
@@ -86,7 +89,10 @@ test("a download fetched on an online Node that waits for its routed client's of
     torrentId: null,
     waitsFor: { nodeId: seedboxId, client: null, off: false },
   } as const;
-  const needsYou = openWith([{ kind: "waiting", grabId: routed.id, code: "node_away" }], [routed]);
+  const needsYou = openWith(
+    [{ kind: "waiting", grabId: routed.id, code: "node_away", clientError: null }],
+    [routed],
+  );
   await expect
     .element(needsYou)
     .toHaveTextContent(
@@ -111,7 +117,10 @@ test("a Manual Grab pinned to a client that is off names it and offers another",
       off: true,
     },
   } as const;
-  const needsYou = openWith([{ kind: "waiting", grabId: pinned.id, code: "client_off" }], [pinned]);
+  const needsYou = openWith(
+    [{ kind: "waiting", grabId: pinned.id, code: "client_off", clientError: null }],
+    [pinned],
+  );
   await expect
     .element(needsYou)
     .toHaveTextContent(

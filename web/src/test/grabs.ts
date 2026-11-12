@@ -28,6 +28,7 @@ const fetched: GrabsGrab = {
   infoHash: "0102030405060708090a0b0c0d0e0f1011121314",
   stage: "fetching",
   inFlight: true,
+  import: null,
   history: [{ stage: "fetching", at: "2026-10-12T09:01:00Z" }],
   createdAt: "2026-10-12T09:01:00Z",
   source: "search",
@@ -92,5 +93,22 @@ export const failedImport: GrabsGrab = {
     message: "place movies/The Quiet Orchard (2021): permission denied",
     needsYou: true,
     current: true,
+  },
+};
+
+/** A season pack at importing: 6 of its 10 episodes placed, one waiting for the Admin. */
+export const importingPack: GrabsGrab = {
+  ...downloading,
+  id: "6c8e0a2b-4d6f-4b8a-9c1e-5f7a9b1d3e60",
+  releaseTitle: "Severance.S01.1080p.WEB-DL",
+  stage: "importing",
+  history: [...downloading.history, { stage: "importing", at: "2026-10-12T09:30:00Z" }],
+  import: {
+    id: "6c8e0a2b-4d6f-4b8a-9c1e-5f7a9b1d3e60",
+    placed: 6,
+    planned: 10,
+    sending: 0,
+    waiting: 1,
+    words: "Importing 6 of 10 episodes",
   },
 };

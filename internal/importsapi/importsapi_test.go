@@ -274,22 +274,22 @@ func TestPendingImportsLeadWithEachScannedRootThenListTheEntries(t *testing.T) {
 	}
 
 	want := `{"leads":[{"root":{"id":"id1","label":"Shelves library root on Media server"},"contentType":"fixture","added":398,"needsYou":2}],"imports":[` +
-		`{"id":"id2","source":"root","stage":"waiting","root":{"id":"id1","label":"Shelves library root on Media server"},"folder":"Halloween","contentType":"fixture","hint":{"title":"Halloween","year":null,"ids":[]},"suggestion":null,"createdAt":"T","ignoredAt":null,"finishedAt":null,"files":[` +
-		`{"position":0,"path":"Halloween/Halloween.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"elsewhere","title":"Halloween","year":1978,"root":{"id":"id3","label":"Shelves library root on NAS"}}}]},` +
-		`{"id":"id4","source":"root","stage":"waiting","root":{"id":"id1","label":"Shelves library root on Media server"},"folder":"Heat (1995)","contentType":"fixture","hint":{"title":"Heat","year":1995,"ids":[]},` +
+		`{"id":"id2","source":"root","stage":"waiting","grab":null,"nodeId":null,"root":{"id":"id1","label":"Shelves library root on Media server"},"folder":"Halloween","workId":null,"edition":null,"moveFiles":false,"seeding":false,"failure":null,"contentType":"fixture","hint":{"title":"Halloween","year":null,"ids":[]},"suggestion":null,"createdAt":"T","ignoredAt":null,"finishedAt":null,"files":[` +
+		`{"position":0,"path":"Halloween/Halloween.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"elsewhere","sentence":null,"title":"Halloween","year":1978,"root":{"id":"id3","label":"Shelves library root on NAS"}},"hold":null,"fills":[],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":null,"fileId":null,"staged":0,"movable":false}]},` +
+		`{"id":"id4","source":"root","stage":"waiting","grab":null,"nodeId":null,"root":{"id":"id1","label":"Shelves library root on Media server"},"folder":"Heat (1995)","workId":null,"edition":null,"moveFiles":false,"seeding":false,"failure":null,"contentType":"fixture","hint":{"title":"Heat","year":1995,"ids":[]},` +
 		`"suggestion":{"key":"w1","label":"Heat","year":1995,"posterUrl":null,"workId":null,"confident":true},"createdAt":"T","ignoredAt":null,"finishedAt":null,"files":[` +
-		`{"position":0,"path":"Heat (1995)/Heat.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"no_match"}},` +
-		`{"position":1,"path":"Heat (1995)/Heat.sample.mkv","size":1073741824,"quality":null,"cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"unreadable","line":"Invalid data found when processing input"}}]}]}` + "\n"
+		`{"position":0,"path":"Heat (1995)/Heat.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"no_match","sentence":null},"hold":null,"fills":[],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":null,"fileId":null,"staged":0,"movable":false},` +
+		`{"position":1,"path":"Heat (1995)/Heat.sample.mkv","size":1073741824,"quality":null,"cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"unreadable","sentence":null,"line":"Invalid data found when processing input"},"hold":null,"fills":[],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":null,"fileId":null,"staged":0,"movable":false}]}],"next":null}` + "\n"
 	if got := s.entries(t, ""); got != want {
 		t.Errorf("listImports = %s\nwant %s", got, want)
 	}
 	ignored := `{"leads":[{"root":{"id":"id1","label":"Shelves library root on Media server"},"contentType":"fixture","added":398,"needsYou":2}],"imports":[` +
-		`{"id":"id2","source":"root","stage":"waiting","root":{"id":"id1","label":"Shelves library root on Media server"},"folder":"Brazil (1985)","contentType":"fixture","hint":{"title":"Brazil","year":1985,"ids":[]},"suggestion":null,"createdAt":"T","ignoredAt":"T","finishedAt":null,"files":[` +
-		`{"position":0,"path":"Brazil (1985)/Brazil.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"no_match"}}]}]}` + "\n"
+		`{"id":"id2","source":"root","stage":"waiting","grab":null,"nodeId":null,"root":{"id":"id1","label":"Shelves library root on Media server"},"folder":"Brazil (1985)","workId":null,"edition":null,"moveFiles":false,"seeding":false,"failure":null,"contentType":"fixture","hint":{"title":"Brazil","year":1985,"ids":[]},"suggestion":null,"createdAt":"T","ignoredAt":"T","finishedAt":null,"files":[` +
+		`{"position":0,"path":"Brazil (1985)/Brazil.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"no_match","sentence":null},"hold":null,"fills":[],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":null,"fileId":null,"staged":0,"movable":false}]}],"next":null}` + "\n"
 	if got := s.entries(t, "?ignored=true"); got != ignored {
 		t.Errorf("listImports?ignored=true = %s\nwant %s", got, ignored)
 	}
-	if got, want := s.entries(t, "?rootId="+other.ID.String()), `{"leads":[],"imports":[]}`+"\n"; got != want {
+	if got, want := s.entries(t, "?rootId="+other.ID.String()), `{"leads":[],"imports":[],"next":null}`+"\n"; got != want {
 		t.Errorf("listImports of a root with none = %s, want %s", got, want)
 	}
 }
@@ -334,9 +334,9 @@ func TestMatchMakesARecordTheSuggestion(t *testing.T) {
 	s.stock("w2", "Heat")
 	id := s.pend(t, "Heat (1995)", nil, false, noMatch("Heat (1995)/Heat.mkv"))
 	s.Expect(t, http.MethodPost, "/api/v1/imports/"+id, `{"action":"match","key":"w2"}`, http.StatusOK,
-		`{"id":"id1","source":"root","stage":"waiting","root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Heat (1995)","contentType":"fixture","hint":{"title":"Heat","year":1995,"ids":[]},`+
+		`{"id":"id1","source":"root","stage":"waiting","grab":null,"nodeId":null,"root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Heat (1995)","workId":null,"edition":null,"moveFiles":false,"seeding":false,"failure":null,"contentType":"fixture","hint":{"title":"Heat","year":1995,"ids":[]},`+
 			`"suggestion":{"key":"w2","label":"Heat","year":null,"posterUrl":null,"workId":null,"confident":false},"createdAt":"T","ignoredAt":null,"finishedAt":null,"files":[`+
-			`{"position":0,"path":"Heat (1995)/Heat.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"no_match"}}]}`)
+			`{"position":0,"path":"Heat (1995)/Heat.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"no_match","sentence":null},"hold":null,"fills":[],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":null,"fileId":null,"staged":0,"movable":false}]}`)
 	s.Expect(t, http.MethodPost, "/api/v1/imports/"+id, `{"action":"match","key":"nowhere"}`, http.StatusNotFound,
 		`{"status":404,"code":"metadata_not_found","title":"The metadata source has no record with that key"}`)
 	s.Expect(t, http.MethodPost, "/api/v1/imports/"+storage.NewUUID().String(), `{"action":"match","key":"w2"}`, http.StatusNotFound,
@@ -347,9 +347,9 @@ func TestGetImportAnswersOneImportWithItsFiles(t *testing.T) {
 	s := serve(t)
 	id := s.pend(t, "Heat (1995)", nil, false, noMatch("Heat (1995)/Heat.mkv"))
 	s.Expect(t, http.MethodGet, "/api/v1/imports/"+id, "", http.StatusOK,
-		`{"id":"id1","source":"root","stage":"waiting","root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Heat (1995)","contentType":"fixture","hint":{"title":"Heat","year":1995,"ids":[]},`+
+		`{"id":"id1","source":"root","stage":"waiting","grab":null,"nodeId":null,"root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Heat (1995)","workId":null,"edition":null,"moveFiles":false,"seeding":false,"failure":null,"contentType":"fixture","hint":{"title":"Heat","year":1995,"ids":[]},`+
 			`"suggestion":null,"createdAt":"T","ignoredAt":null,"finishedAt":null,"files":[`+
-			`{"position":0,"path":"Heat (1995)/Heat.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"no_match"}}]}`)
+			`{"position":0,"path":"Heat (1995)/Heat.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"no_match","sentence":null},"hold":null,"fills":[],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":null,"fileId":null,"staged":0,"movable":false}]}`)
 	s.Expect(t, http.MethodGet, "/api/v1/imports/"+storage.NewUUID().String(), "", http.StatusNotFound,
 		`{"status":404,"code":"import_not_found","title":"No Import has that id"}`)
 }
@@ -376,18 +376,18 @@ func TestImportIntoAttachesTheChosenFilesToAWorkInTheImportsRoot(t *testing.T) {
 		`{"status":409,"code":"import_elsewhere","title":"The Work lives in another library root"}`)
 
 	s.Expect(t, http.MethodPost, url, into(0, work.ID, work.Items[0].ID), http.StatusOK,
-		`{"id":"id1","source":"root","stage":"waiting","root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Shelf","contentType":"fixture","hint":{"title":"Shelf","year":null,"ids":[]},`+
+		`{"id":"id1","source":"root","stage":"waiting","grab":null,"nodeId":null,"root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Shelf","workId":null,"edition":null,"moveFiles":false,"seeding":false,"failure":null,"contentType":"fixture","hint":{"title":"Shelf","year":null,"ids":[]},`+
 			`"suggestion":{"key":"w1","label":"Shelf w1","year":null,"posterUrl":null,"workId":"id3","confident":false},"createdAt":"T","ignoredAt":null,"finishedAt":null,"files":[`+
-			`{"position":0,"path":"Shelf/a.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":["id4"],"outcome":"placed","reason":null},`+
-			`{"position":1,"path":"Shelf/b.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"no_match"}}]}`)
+			`{"position":0,"path":"Shelf/a.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":["id4"],"outcome":"placed","reason":null,"hold":null,"fills":[],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":"in_place","fileId":null,"staged":0,"movable":false},`+
+			`{"position":1,"path":"Shelf/b.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"no_match","sentence":null},"hold":null,"fills":[],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":null,"fileId":null,"staged":0,"movable":false}]}`)
 	s.Expect(t, http.MethodPost, url, into(1, work.ID, work.Items[2].ID, work.Items[1].ID), http.StatusOK,
-		`{"id":"id1","source":"root","stage":"done","root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Shelf","contentType":"fixture","hint":{"title":"Shelf","year":null,"ids":[]},`+
+		`{"id":"id1","source":"root","stage":"done","grab":null,"nodeId":null,"root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Shelf","workId":null,"edition":null,"moveFiles":false,"seeding":false,"failure":null,"contentType":"fixture","hint":{"title":"Shelf","year":null,"ids":[]},`+
 			`"suggestion":{"key":"w1","label":"Shelf w1","year":null,"posterUrl":null,"workId":"id3","confident":false},"createdAt":"T","ignoredAt":null,"finishedAt":"T","files":[`+
-			`{"position":0,"path":"Shelf/a.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":["id4"],"outcome":"placed","reason":null},`+
-			`{"position":1,"path":"Shelf/b.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":["id5","id6"],"outcome":"placed","reason":null}]}`)
+			`{"position":0,"path":"Shelf/a.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":["id4"],"outcome":"placed","reason":null,"hold":null,"fills":[],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":"in_place","fileId":null,"staged":0,"movable":false},`+
+			`{"position":1,"path":"Shelf/b.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":["id5","id6"],"outcome":"placed","reason":null,"hold":null,"fills":[],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":"in_place","fileId":null,"staged":0,"movable":false}]}`)
 	s.Expect(t, http.MethodPost, url, into(1, work.ID, work.Items[1].ID), http.StatusConflict,
 		`{"status":409,"code":"import_changed","title":"The Import no longer has a chosen file waiting"}`)
-	if got := s.entries(t, ""); got != `{"leads":[],"imports":[]}`+"\n" {
+	if got := s.entries(t, ""); got != `{"leads":[],"imports":[],"next":null}`+"\n" {
 		t.Errorf("after Into placed every file Pending imports lists %s, want nothing", got)
 	}
 	var recorded []string
@@ -415,14 +415,14 @@ func TestIgnoreMovesEntriesToIgnoredUntilUnignored(t *testing.T) {
 	id := s.pend(t, "Halloween", nil, false, noMatch("Halloween/Halloween.mkv"))
 	body := `{"importIds":["` + id + `"]}`
 	s.noContent(t, "/api/v1/imports/ignore", body)
-	if got := s.entries(t, ""); got != `{"leads":[],"imports":[]}`+"\n" {
+	if got := s.entries(t, ""); got != `{"leads":[],"imports":[],"next":null}`+"\n" {
 		t.Errorf("after Ignore the entries that need the Admin are %s, want none", got)
 	}
 	if got := s.entries(t, "?ignored=true"); !strings.Contains(got, `"folder":"Halloween"`) {
 		t.Errorf("after Ignore the ignored entries are %s, want Halloween", got)
 	}
 	s.noContent(t, "/api/v1/imports/unignore", body)
-	if got := s.entries(t, ""); !strings.Contains(got, `"folder":"Halloween","contentType":"fixture","hint":{"title":"Halloween","year":null,"ids":[]},"suggestion":null,"createdAt":"T","ignoredAt":null`) {
+	if got := s.entries(t, ""); !strings.Contains(got, `"folder":"Halloween","workId":null,"edition":null,"moveFiles":false,"seeding":false,"failure":null,"contentType":"fixture","hint":{"title":"Halloween","year":null,"ids":[]},"suggestion":null,"createdAt":"T","ignoredAt":null`) {
 		t.Errorf("after Unignore the entries that need the Admin are %s, want Halloween", got)
 	}
 }

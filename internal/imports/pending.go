@@ -31,19 +31,45 @@ var (
 	ErrElsewhere    = errors.New("the Work lives in another library root")
 	ErrNotOfWork    = errors.New("a file names an Item the Work doesn't hold")
 	ErrChanged      = errors.New("the Import no longer lists a chosen file")
+	ErrListMoved    = errors.New("the Import a page ended at is no longer listed")
 )
 
 // Filter picks unfinished Imports: of one source or every source, one
-// root's or every root's, and the ones that need the Admin or the ignored
-// ones.
+// root's or every root's, one Work's or every Work's, the ones that need
+// the Admin or the ignored ones, and with Waiting only those with a file
+// waiting. A page starts past After and holds at most Limit, every one
+// when Limit is 0.
 type Filter struct {
 	Source  *Source
 	Root    *roots.ID
+	Work    *works.WorkID
 	Ignored bool
+	Waiting bool
+	After   *ImportID
+	Limit   int
 }
 
 func (f Filter) picks(im Import) bool {
-	return im.IsIgnored() == f.Ignored && (f.Source == nil || im.Source == *f.Source) && (f.Root == nil || im.Root == *f.Root)
+	return im.IsIgnored() == f.Ignored && (f.Source == nil || im.Source == *f.Source) && (f.Root == nil || im.Root == *f.Root) &&
+		(f.Work == nil || im.Work == *f.Work) && (!f.Waiting || slices.ContainsFunc(im.Files, func(f File) bool { return f.Outcome == Waiting }))
+}
+
+// page cuts ims to f's page, and names the Import the next page starts
+// after, nil on the last page. ErrListMoved when After is no longer
+// listed.
+func (f Filter) page(ims []Import) ([]Import, *ImportID, error) {
+	if f.After != nil {
+		i := slices.IndexFunc(ims, func(im Import) bool { return im.ID == *f.After })
+		if i < 0 {
+			return nil, nil, ErrListMoved
+		}
+		ims = ims[i+1:]
+	}
+	if f.Limit == 0 || len(ims) <= f.Limit {
+		return ims, nil, nil
+	}
+	ims = ims[:f.Limit]
+	return ims, &ims[len(ims)-1].ID, nil
 }
 
 // List is Pending imports: what each root's last comparison added and
@@ -51,6 +77,8 @@ func (f Filter) picks(im Import) bool {
 type List struct {
 	Leads   []Lead
 	Imports []Import
+	// Next is the Import the next page starts after, nil on the last page.
+	Next *ImportID
 	// Roots is the words of every root the listing names, its leads' and
 	// its reasons' alike.
 	Roots map[roots.ID]string
@@ -86,6 +114,9 @@ func (im *Imports) List(ctx context.Context, _ identity.Admin, f Filter) (List, 
 			if f.picks(e) {
 				out.Imports = append(out.Imports, withWork(e, inLibrary))
 			}
+		}
+		if out.Imports, out.Next, err = f.page(out.Imports); err != nil {
+			return err
 		}
 		if f.Source == nil || *f.Source == FromRoot {
 			out.Leads, err = leads(ctx, r, f.Root)

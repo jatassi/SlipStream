@@ -1,4 +1,6 @@
+import type { FilesFileGrab } from "./filesFileGrab.ts";
 import type { FilesFill } from "./filesFill.ts";
+import type { FilesListedFilePlacedBy } from "./filesListedFilePlacedBy.ts";
 import type { FilesListedFileQuality } from "./filesListedFileQuality.ts";
 import type { FilesMediaInfo } from "./filesMediaInfo.ts";
 import type { FilesVideoCodec } from "./filesVideoCodec.ts";
@@ -17,6 +19,8 @@ export interface FilesListedFile {
    * @nullable
    */
   goneAt: string | null;
+  /** The Grab whose download it came from; null for a file no Grab brought */
+  grab: FilesFileGrab | null;
   id: string;
   /** A Kept file, which fills no cell */
   kept: boolean;
@@ -31,6 +35,11 @@ export interface FilesListedFile {
   modifiedAt: string | null;
   /** Relative to its root, / separated */
   path: string;
+  /**
+   * How its import put it into the library; null for a file no import recorded
+   * @nullable
+   */
+  placedBy: FilesListedFilePlacedBy;
   /**
    * The first line ffprobe printed when the last library scan couldn't read it, and media is then the read before; null when that read worked
    * @nullable

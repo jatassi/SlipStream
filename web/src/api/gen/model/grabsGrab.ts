@@ -4,6 +4,7 @@ import type { GrabsFailure } from "./grabsFailure.ts";
 import type { GrabsFetchWait } from "./grabsFetchWait.ts";
 import type { GrabsGrabActions } from "./grabsGrabActions.ts";
 import type { GrabsGrabClient } from "./grabsGrabClient.ts";
+import type { GrabsGrabImport } from "./grabsGrabImport.ts";
 import type { GrabsGrabQuality } from "./grabsGrabQuality.ts";
 import type { GrabsGrabSource } from "./grabsGrabSource.ts";
 import type { GrabsGrabStage } from "./grabsGrabStage.ts";
@@ -35,6 +36,8 @@ export interface GrabsGrab {
   /** Each stage it entered, when it last entered it, oldest first */
   history: GrabsEntered[];
   id: string;
+  /** Its download's Import, from importing on; null before */
+  import: GrabsGrabImport | null;
   /** It holds its cells and counts in Activity: it is neither imported nor failed */
   inFlight: boolean;
   /**

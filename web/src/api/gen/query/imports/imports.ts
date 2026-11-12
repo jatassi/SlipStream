@@ -16,6 +16,13 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  ActOnImportFile401,
+  ActOnImportFile403,
+  ActOnImportFile404,
+  ActOnImportFile409,
+  ActOnImportFile422,
+  ActOnImportFile500,
+  ActOnImportFile501,
   ActOnRootImport401,
   ActOnRootImport403,
   ActOnRootImport404,
@@ -28,12 +35,30 @@ import type {
   AddRootImports409,
   AddRootImports422,
   AddRootImports500,
+  ConfirmImports401,
+  ConfirmImports403,
+  ConfirmImports409,
+  ConfirmImports422,
+  ConfirmImports500,
+  ConfirmImports501,
+  GetExtensionImpact401,
+  GetExtensionImpact403,
+  GetExtensionImpact409,
+  GetExtensionImpact422,
+  GetExtensionImpact500,
+  GetExtensionImpact501,
+  GetExtensionImpactParams,
   GetImport401,
   GetImport403,
   GetImport404,
   GetImport409,
   GetImport422,
   GetImport500,
+  GetImportingSettings401,
+  GetImportingSettings403,
+  GetImportingSettings409,
+  GetImportingSettings500,
+  GetImportingSettings501,
   GetLibraryScanSettings401,
   GetLibraryScanSettings403,
   GetLibraryScanSettings409,
@@ -43,9 +68,19 @@ import type {
   IgnoreImports409,
   IgnoreImports422,
   IgnoreImports500,
+  ImportFolder401,
+  ImportFolder403,
+  ImportFolder409,
+  ImportFolder422,
+  ImportFolder500,
+  ImportFolder501,
+  ImportFolderInputBody,
   ImportIDsInputBody,
   ImportsAddedList,
+  ImportsExtensionImpact,
+  ImportsFileAction,
   ImportsImportEntry,
+  ImportsImportsList,
   ImportsList,
   ImportsRootAction,
   ImportsSettings,
@@ -56,11 +91,24 @@ import type {
   ListImports422,
   ListImports500,
   ListImportsParams,
+  MoveFilesInputBody,
+  SetImportMoveFiles401,
+  SetImportMoveFiles403,
+  SetImportMoveFiles409,
+  SetImportMoveFiles422,
+  SetImportMoveFiles500,
+  SetImportMoveFiles501,
   UnignoreImports401,
   UnignoreImports403,
   UnignoreImports409,
   UnignoreImports422,
   UnignoreImports500,
+  UpdateImportingSettings401,
+  UpdateImportingSettings403,
+  UpdateImportingSettings409,
+  UpdateImportingSettings422,
+  UpdateImportingSettings500,
+  UpdateImportingSettings501,
   UpdateLibraryScanSettings401,
   UpdateLibraryScanSettings403,
   UpdateLibraryScanSettings409,
@@ -228,6 +276,133 @@ export function useListImportsSuspense<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getImportFolderUrl = () => {
+  return `/api/v1/imports`;
+};
+
+/**
+ * @summary Open the Imports of a folder on a Node, one per Work and Edition its files match
+ */
+export const importFolder = async (
+  importFolderInputBody: ImportFolderInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ImportsImportsList> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<ImportsImportsList>(getImportFolderUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(importFolderInputBody),
+  });
+};
+
+export const getImportFolderMutationKey = () => ["importFolder"] as const;
+
+export const getImportFolderMutationOptions = <
+  TError = ErrorType<
+    | ImportFolder401
+    | ImportFolder403
+    | ImportFolder409
+    | ImportFolder422
+    | ImportFolder500
+    | ImportFolder501
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importFolder>>,
+    TError,
+    ImportFolderMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importFolder>>,
+  TError,
+  ImportFolderMutationVariables,
+  TContext
+> => {
+  const mutationKey = getImportFolderMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importFolder>>,
+    ImportFolderMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return importFolder(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportFolderMutationResult = NonNullable<Awaited<ReturnType<typeof importFolder>>>;
+export type ImportFolderMutationBody = ImportFolderInputBody;
+export type ImportFolderMutationError = ErrorType<
+  | ImportFolder401
+  | ImportFolder403
+  | ImportFolder409
+  | ImportFolder422
+  | ImportFolder500
+  | ImportFolder501
+>;
+export type ImportFolderMutationVariables = { data: ImportFolderInputBody };
+
+/**
+ * @summary Open the Imports of a folder on a Node, one per Work and Edition its files match
+ */
+export const useImportFolder = <
+  TError = ErrorType<
+    | ImportFolder401
+    | ImportFolder403
+    | ImportFolder409
+    | ImportFolder422
+    | ImportFolder500
+    | ImportFolder501
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof importFolder>>,
+      TError,
+      ImportFolderMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof importFolder>>,
+  TError,
+  ImportFolderMutationVariables,
+  TContext
+> => {
+  return useMutation(getImportFolderMutationOptions(options), queryClient);
+};
 export const getAddRootImportsUrl = () => {
   return `/api/v1/imports/add`;
 };
@@ -348,6 +523,133 @@ export const useAddRootImports = <
 > => {
   return useMutation(getAddRootImportsMutationOptions(options), queryClient);
 };
+export const getConfirmImportsUrl = () => {
+  return `/api/v1/imports/confirm`;
+};
+
+/**
+ * @summary Import every file of these Imports that waits for confirmation
+ */
+export const confirmImports = async (
+  importIDsInputBody: ImportIDsInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ImportsImportsList> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<ImportsImportsList>(getConfirmImportsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(importIDsInputBody),
+  });
+};
+
+export const getConfirmImportsMutationKey = () => ["confirmImports"] as const;
+
+export const getConfirmImportsMutationOptions = <
+  TError = ErrorType<
+    | ConfirmImports401
+    | ConfirmImports403
+    | ConfirmImports409
+    | ConfirmImports422
+    | ConfirmImports500
+    | ConfirmImports501
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmImports>>,
+    TError,
+    ConfirmImportsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof confirmImports>>,
+  TError,
+  ConfirmImportsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getConfirmImportsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof confirmImports>>,
+    ConfirmImportsMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return confirmImports(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConfirmImportsMutationResult = NonNullable<Awaited<ReturnType<typeof confirmImports>>>;
+export type ConfirmImportsMutationBody = ImportIDsInputBody;
+export type ConfirmImportsMutationError = ErrorType<
+  | ConfirmImports401
+  | ConfirmImports403
+  | ConfirmImports409
+  | ConfirmImports422
+  | ConfirmImports500
+  | ConfirmImports501
+>;
+export type ConfirmImportsMutationVariables = { data: ImportIDsInputBody };
+
+/**
+ * @summary Import every file of these Imports that waits for confirmation
+ */
+export const useConfirmImports = <
+  TError = ErrorType<
+    | ConfirmImports401
+    | ConfirmImports403
+    | ConfirmImports409
+    | ConfirmImports422
+    | ConfirmImports500
+    | ConfirmImports501
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof confirmImports>>,
+      TError,
+      ConfirmImportsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof confirmImports>>,
+  TError,
+  ConfirmImportsMutationVariables,
+  TContext
+> => {
+  return useMutation(getConfirmImportsMutationOptions(options), queryClient);
+};
 export const getIgnoreImportsUrl = () => {
   return `/api/v1/imports/ignore`;
 };
@@ -459,6 +761,593 @@ export const useIgnoreImports = <
   TContext
 > => {
   return useMutation(getIgnoreImportsMutationOptions(options), queryClient);
+};
+export const getGetImportingSettingsUrl = () => {
+  return `/api/v1/imports/importing-settings`;
+};
+
+/**
+ * @summary Get the Importing settings
+ */
+export const getImportingSettings = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ImportsSettings> => {
+  return apiFetch<ImportsSettings>(getGetImportingSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetImportingSettingsQueryKey = () => {
+  return [`/api/v1/imports/importing-settings`] as const;
+};
+
+export const getGetImportingSettingsSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getImportingSettings>>,
+  TError = ErrorType<
+    | GetImportingSettings401
+    | GetImportingSettings403
+    | GetImportingSettings409
+    | GetImportingSettings500
+    | GetImportingSettings501
+  >,
+>(options?: {
+  query?: Partial<
+    UseSuspenseQueryOptions<Awaited<ReturnType<typeof getImportingSettings>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetImportingSettingsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getImportingSettings>>> = ({ signal }) =>
+    getImportingSettings({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getImportingSettings>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetImportingSettingsSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getImportingSettings>>
+>;
+export type GetImportingSettingsSuspenseQueryError = ErrorType<
+  | GetImportingSettings401
+  | GetImportingSettings403
+  | GetImportingSettings409
+  | GetImportingSettings500
+  | GetImportingSettings501
+>;
+
+export function useGetImportingSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getImportingSettings>>,
+  TError = ErrorType<
+    | GetImportingSettings401
+    | GetImportingSettings403
+    | GetImportingSettings409
+    | GetImportingSettings500
+    | GetImportingSettings501
+  >,
+>(
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getImportingSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetImportingSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getImportingSettings>>,
+  TError = ErrorType<
+    | GetImportingSettings401
+    | GetImportingSettings403
+    | GetImportingSettings409
+    | GetImportingSettings500
+    | GetImportingSettings501
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getImportingSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetImportingSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getImportingSettings>>,
+  TError = ErrorType<
+    | GetImportingSettings401
+    | GetImportingSettings403
+    | GetImportingSettings409
+    | GetImportingSettings500
+    | GetImportingSettings501
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getImportingSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get the Importing settings
+ */
+
+export function useGetImportingSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getImportingSettings>>,
+  TError = ErrorType<
+    | GetImportingSettings401
+    | GetImportingSettings403
+    | GetImportingSettings409
+    | GetImportingSettings500
+    | GetImportingSettings501
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getImportingSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetImportingSettingsSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getUpdateImportingSettingsUrl = () => {
+  return `/api/v1/imports/importing-settings`;
+};
+
+/**
+ * @summary Change the Importing settings
+ */
+export const updateImportingSettings = async (
+  libraryScanSettingsInputBody: LibraryScanSettingsInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ImportsSettings> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<ImportsSettings>(getUpdateImportingSettingsUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(libraryScanSettingsInputBody),
+  });
+};
+
+export const getUpdateImportingSettingsMutationKey = () => ["updateImportingSettings"] as const;
+
+export const getUpdateImportingSettingsMutationOptions = <
+  TError = ErrorType<
+    | UpdateImportingSettings401
+    | UpdateImportingSettings403
+    | UpdateImportingSettings409
+    | UpdateImportingSettings422
+    | UpdateImportingSettings500
+    | UpdateImportingSettings501
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateImportingSettings>>,
+    TError,
+    UpdateImportingSettingsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateImportingSettings>>,
+  TError,
+  UpdateImportingSettingsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUpdateImportingSettingsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateImportingSettings>>,
+    UpdateImportingSettingsMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateImportingSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateImportingSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateImportingSettings>>
+>;
+export type UpdateImportingSettingsMutationBody = LibraryScanSettingsInputBody;
+export type UpdateImportingSettingsMutationError = ErrorType<
+  | UpdateImportingSettings401
+  | UpdateImportingSettings403
+  | UpdateImportingSettings409
+  | UpdateImportingSettings422
+  | UpdateImportingSettings500
+  | UpdateImportingSettings501
+>;
+export type UpdateImportingSettingsMutationVariables = { data: LibraryScanSettingsInputBody };
+
+/**
+ * @summary Change the Importing settings
+ */
+export const useUpdateImportingSettings = <
+  TError = ErrorType<
+    | UpdateImportingSettings401
+    | UpdateImportingSettings403
+    | UpdateImportingSettings409
+    | UpdateImportingSettings422
+    | UpdateImportingSettings500
+    | UpdateImportingSettings501
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updateImportingSettings>>,
+      TError,
+      UpdateImportingSettingsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updateImportingSettings>>,
+  TError,
+  UpdateImportingSettingsMutationVariables,
+  TContext
+> => {
+  return useMutation(getUpdateImportingSettingsMutationOptions(options), queryClient);
+};
+export const getGetExtensionImpactUrl = (params?: GetExtensionImpactParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/imports/importing-settings/extension-impact?${stringifiedParams}`
+    : `/api/v1/imports/importing-settings/extension-impact`;
+};
+
+/**
+ * @summary Count the library and pending files a video extension list stops counting as video
+ */
+export const getExtensionImpact = async (
+  params?: GetExtensionImpactParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ImportsExtensionImpact> => {
+  return apiFetch<ImportsExtensionImpact>(getGetExtensionImpactUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetExtensionImpactQueryKey = (params?: GetExtensionImpactParams) => {
+  return [
+    `/api/v1/imports/importing-settings/extension-impact`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetExtensionImpactSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getExtensionImpact>>,
+  TError = ErrorType<
+    | GetExtensionImpact401
+    | GetExtensionImpact403
+    | GetExtensionImpact409
+    | GetExtensionImpact422
+    | GetExtensionImpact500
+    | GetExtensionImpact501
+  >,
+>(
+  params?: GetExtensionImpactParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getExtensionImpact>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetExtensionImpactQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getExtensionImpact>>> = ({ signal }) =>
+    getExtensionImpact(params, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getExtensionImpact>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetExtensionImpactSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getExtensionImpact>>
+>;
+export type GetExtensionImpactSuspenseQueryError = ErrorType<
+  | GetExtensionImpact401
+  | GetExtensionImpact403
+  | GetExtensionImpact409
+  | GetExtensionImpact422
+  | GetExtensionImpact500
+  | GetExtensionImpact501
+>;
+
+export function useGetExtensionImpactSuspense<
+  TData = Awaited<ReturnType<typeof getExtensionImpact>>,
+  TError = ErrorType<
+    | GetExtensionImpact401
+    | GetExtensionImpact403
+    | GetExtensionImpact409
+    | GetExtensionImpact422
+    | GetExtensionImpact500
+    | GetExtensionImpact501
+  >,
+>(
+  params: undefined | GetExtensionImpactParams,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getExtensionImpact>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetExtensionImpactSuspense<
+  TData = Awaited<ReturnType<typeof getExtensionImpact>>,
+  TError = ErrorType<
+    | GetExtensionImpact401
+    | GetExtensionImpact403
+    | GetExtensionImpact409
+    | GetExtensionImpact422
+    | GetExtensionImpact500
+    | GetExtensionImpact501
+  >,
+>(
+  params?: GetExtensionImpactParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getExtensionImpact>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetExtensionImpactSuspense<
+  TData = Awaited<ReturnType<typeof getExtensionImpact>>,
+  TError = ErrorType<
+    | GetExtensionImpact401
+    | GetExtensionImpact403
+    | GetExtensionImpact409
+    | GetExtensionImpact422
+    | GetExtensionImpact500
+    | GetExtensionImpact501
+  >,
+>(
+  params?: GetExtensionImpactParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getExtensionImpact>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Count the library and pending files a video extension list stops counting as video
+ */
+
+export function useGetExtensionImpactSuspense<
+  TData = Awaited<ReturnType<typeof getExtensionImpact>>,
+  TError = ErrorType<
+    | GetExtensionImpact401
+    | GetExtensionImpact403
+    | GetExtensionImpact409
+    | GetExtensionImpact422
+    | GetExtensionImpact500
+    | GetExtensionImpact501
+  >,
+>(
+  params?: GetExtensionImpactParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getExtensionImpact>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetExtensionImpactSuspenseQueryOptions(params, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getSetImportMoveFilesUrl = () => {
+  return `/api/v1/imports/move-files`;
+};
+
+/**
+ * @summary Turn Move files on or off for folder Imports
+ */
+export const setImportMoveFiles = async (
+  moveFilesInputBody: MoveFilesInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<void>(getSetImportMoveFilesUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(moveFilesInputBody),
+  });
+};
+
+export const getSetImportMoveFilesMutationKey = () => ["setImportMoveFiles"] as const;
+
+export const getSetImportMoveFilesMutationOptions = <
+  TError = ErrorType<
+    | SetImportMoveFiles401
+    | SetImportMoveFiles403
+    | SetImportMoveFiles409
+    | SetImportMoveFiles422
+    | SetImportMoveFiles500
+    | SetImportMoveFiles501
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setImportMoveFiles>>,
+    TError,
+    SetImportMoveFilesMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setImportMoveFiles>>,
+  TError,
+  SetImportMoveFilesMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSetImportMoveFilesMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setImportMoveFiles>>,
+    SetImportMoveFilesMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setImportMoveFiles(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetImportMoveFilesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setImportMoveFiles>>
+>;
+export type SetImportMoveFilesMutationBody = MoveFilesInputBody;
+export type SetImportMoveFilesMutationError = ErrorType<
+  | SetImportMoveFiles401
+  | SetImportMoveFiles403
+  | SetImportMoveFiles409
+  | SetImportMoveFiles422
+  | SetImportMoveFiles500
+  | SetImportMoveFiles501
+>;
+export type SetImportMoveFilesMutationVariables = { data: MoveFilesInputBody };
+
+/**
+ * @summary Turn Move files on or off for folder Imports
+ */
+export const useSetImportMoveFiles = <
+  TError = ErrorType<
+    | SetImportMoveFiles401
+    | SetImportMoveFiles403
+    | SetImportMoveFiles409
+    | SetImportMoveFiles422
+    | SetImportMoveFiles500
+    | SetImportMoveFiles501
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof setImportMoveFiles>>,
+      TError,
+      SetImportMoveFilesMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof setImportMoveFiles>>,
+  TError,
+  SetImportMoveFilesMutationVariables,
+  TContext
+> => {
+  return useMutation(getSetImportMoveFilesMutationOptions(options), queryClient);
 };
 export const getGetLibraryScanSettingsUrl = () => {
   return `/api/v1/imports/scan-settings`;
@@ -1112,4 +2001,142 @@ export const useActOnRootImport = <
   TContext
 > => {
   return useMutation(getActOnRootImportMutationOptions(options), queryClient);
+};
+export const getActOnImportFileUrl = (id: string, position: number) => {
+  return `/api/v1/imports/${id}/files/${position}`;
+};
+
+/**
+ * @summary Confirm, retry, decline, force or match one file of an Import
+ */
+export const actOnImportFile = async (
+  id: string,
+  position: number,
+  importsFileAction: ImportsFileAction,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ImportsImportEntry> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<ImportsImportEntry>(getActOnImportFileUrl(id, position), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(importsFileAction),
+  });
+};
+
+export const getActOnImportFileMutationKey = () => ["actOnImportFile"] as const;
+
+export const getActOnImportFileMutationOptions = <
+  TError = ErrorType<
+    | ActOnImportFile401
+    | ActOnImportFile403
+    | ActOnImportFile404
+    | ActOnImportFile409
+    | ActOnImportFile422
+    | ActOnImportFile500
+    | ActOnImportFile501
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof actOnImportFile>>,
+    TError,
+    ActOnImportFileMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof actOnImportFile>>,
+  TError,
+  ActOnImportFileMutationVariables,
+  TContext
+> => {
+  const mutationKey = getActOnImportFileMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof actOnImportFile>>,
+    ActOnImportFileMutationVariables
+  > = (props) => {
+    const { id, position, data } = props ?? {};
+
+    return actOnImportFile(id, position, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ActOnImportFileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof actOnImportFile>>
+>;
+export type ActOnImportFileMutationBody = ImportsFileAction;
+export type ActOnImportFileMutationError = ErrorType<
+  | ActOnImportFile401
+  | ActOnImportFile403
+  | ActOnImportFile404
+  | ActOnImportFile409
+  | ActOnImportFile422
+  | ActOnImportFile500
+  | ActOnImportFile501
+>;
+export type ActOnImportFileMutationVariables = {
+  id: string;
+  position: number;
+  data: ImportsFileAction;
+};
+
+/**
+ * @summary Confirm, retry, decline, force or match one file of an Import
+ */
+export const useActOnImportFile = <
+  TError = ErrorType<
+    | ActOnImportFile401
+    | ActOnImportFile403
+    | ActOnImportFile404
+    | ActOnImportFile409
+    | ActOnImportFile422
+    | ActOnImportFile500
+    | ActOnImportFile501
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof actOnImportFile>>,
+      TError,
+      ActOnImportFileMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof actOnImportFile>>,
+  TError,
+  ActOnImportFileMutationVariables,
+  TContext
+> => {
+  return useMutation(getActOnImportFileMutationOptions(options), queryClient);
 };

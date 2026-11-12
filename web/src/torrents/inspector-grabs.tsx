@@ -14,6 +14,7 @@ import type { Names } from "./names";
 const grabStageWords: { readonly [S in DownloadclientsTorrentGrabStage]: string } = {
   downloading: "Downloading",
   importing: "Importing",
+  waiting: "Waiting for you",
   imported: "Imported",
   failed: "Failed",
 };

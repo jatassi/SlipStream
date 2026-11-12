@@ -6,7 +6,7 @@ import { orchardId } from "../../test/library";
 import { optionsServer } from "../../test/monitoring";
 import { renamesServer, row } from "../../test/renames";
 import { renderApp } from "../../test/render-app";
-import { scannedFiles } from "../../test/work-cells";
+import { scannedFiles } from "../../test/scanned-files";
 import { workServer } from "../../test/work-server";
 
 const edit = page.getByRole("dialog", { name: "Edit The Long Shelf" });

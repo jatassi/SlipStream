@@ -258,7 +258,7 @@ func idOrNil(id storage.UUID) *string {
 
 type failure struct {
 	Stage    string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
-	Code     string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,marked_failed,removed,client_removed,client_deleted,goal_met,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault"`
+	Code     string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,marked_failed,removed,client_removed,client_deleted,goal_met,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault,client_error,declined,unreadable"`
 	Message  string `json:"message"`
 	NeedsYou bool   `json:"needsYou" doc:"It goes under Needs you. False for a cancel and for a Manual Grab whose Release the Blocklist held after its fetch, which its sheet already said."`
 	Current  bool   `json:"current" doc:"No later Grab holds any of its cells. Needs you lists a failure only while it is current."`
@@ -318,6 +318,7 @@ type grab struct {
 	Stage        string                   `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
 	InFlight     bool                     `json:"inFlight" doc:"It holds its cells and counts in Activity: it is neither imported nor failed"`
 	Failure      *failure                 `json:"failure,omitempty" doc:"Why it failed, absent unless it did"`
+	Import       api.Nullable[grabImport] `json:"import" doc:"Its download's Import, from importing on; null before"`
 	History      []entered                `json:"history" nullable:"false" doc:"Each stage it entered, when it last entered it, oldest first"`
 	Progress     *progress                `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
 	Metadata     *metadataSearch          `json:"metadata,omitempty" doc:"The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node"`
@@ -329,6 +330,15 @@ type grab struct {
 	ManualSearch *string                  `json:"manualSearchId" format:"uuid" doc:"The Manual search it came from; null for a search's Grab and once a later Manual search of the Work replaced it"`
 	Overrides    []string                 `json:"overrides" nullable:"false" doc:"Each choice the Admin made past the decision, as a sentence"`
 	Actions      grabActions              `json:"actions"`
+}
+
+type grabImport struct {
+	ID      string `json:"id" format:"uuid"`
+	Placed  int    `json:"placed" minimum:"0" doc:"Its files placed into the library"`
+	Planned int    `json:"planned" minimum:"0" doc:"Its files that are or were sending, placing, placed or waiting"`
+	Sending int    `json:"sending" minimum:"0" doc:"Its files a Transfer is sending"`
+	Waiting int    `json:"waiting" minimum:"0" doc:"Its files that wait for the Admin"`
+	Words   string `json:"words" doc:"Its progress in words, such as Importing 6 of 10 episodes"`
 }
 
 type grabTarget struct {

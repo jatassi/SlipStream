@@ -119,6 +119,9 @@ const (
 	Canceled           Code = "canceled"
 	Blocklisted        Code = "blocklisted"
 	ReleaseFault       Code = "release_fault"
+	ClientError        Code = "client_error"
+	Declined           Code = "declined"
+	Unreadable         Code = "unreadable"
 )
 
 // Codes is every Code, in the order the wire lists them.
@@ -126,7 +129,7 @@ var Codes = []Code{
 	IndexerUnavailable, IndexerRemoved, IndexerStopped, HomeOffline, TorrentUnreachable, MagnetInvalid, NoMetadata, NoPeerSource,
 	TorrentInvalid, InfohashMismatch, TorrentV2Only, DownloadFailed, MarkedFailed, Removed, ClientRemoved, ClientDeleted, GoalMet,
 	NoVideoFile, ProbeFailed, FillsNothing, NameTaken, NameTooLong, TransferFailed, ImportFailed, NodeWrittenOff, RootChanged,
-	Canceled, Blocklisted, ReleaseFault,
+	Canceled, Blocklisted, ReleaseFault, ClientError, Declined, Unreadable,
 }
 
 const (

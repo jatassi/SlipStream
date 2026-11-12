@@ -302,7 +302,9 @@ func TestDownloadClientsListEachDownloadingNodesCardAndTheThresholds(t *testing.
 		`"unregisteredGap":{"key":"downloading.unregisteredGap","label":"Unregistered twice, this far apart","source":"database","applies":"live",` +
 		`"isDefault":true,"pendingRestart":false,"kind":"duration","value":1800,"running":1800,"default":1800,"min":60,"max":604800,"step":60},` +
 		`"metadataWait":{"key":"downloading.metadataWait","label":"A magnet link with no metadata fails after","source":"database","applies":"live",` +
-		`"isDefault":true,"pendingRestart":false,"kind":"duration","value":1800,"running":1800,"default":1800,"min":60,"max":604800,"step":60}}`
+		`"isDefault":true,"pendingRestart":false,"kind":"duration","value":1800,"running":1800,"default":1800,"min":60,"max":604800,"step":60},` +
+		`"clientErrorFail":{"key":"downloading.clientErrorFail","label":"A client error fails its Grab after","source":"database","applies":"live",` +
+		`"isDefault":true,"pendingRestart":false,"kind":"duration","value":3600,"running":3600,"default":3600,"min":300,"max":604800,"step":60}}`
 	acts := `"actions":["pause","resume","recheck","announce"]`
 	kinds := `"kinds":[` +
 		`{"kind":"qbittorrent","name":"qBittorrent","path":"","username":"optional","password":"optional","apiKey":true,"daemon":false,"label":"any","floor":"4.6",` + acts + `,"deletesData":true},` +
@@ -324,6 +326,8 @@ func TestDownloadClientsListEachDownloadingNodesCardAndTheThresholds(t *testing.
 	}
 	w.o.Expect(t, http.MethodPatch, "/api/v1/download-clients/thresholds", `{"faultStall":60}`, http.StatusUnprocessableEntity,
 		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Between 1 h and 30 days."}`)
+	w.o.Expect(t, http.MethodPatch, "/api/v1/download-clients/thresholds", `{"clientErrorFail":600}`, http.StatusNotImplemented,
+		`{"status":501,"code":"client_error_fail_not_built","title":"This SlipStream build can't store the client error setting yet"}`)
 
 	delete(w.facts, w.self)
 	w.roster.away[w.self] = true

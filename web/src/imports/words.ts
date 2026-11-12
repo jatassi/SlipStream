@@ -25,8 +25,13 @@ function given<T>(value: T | undefined, what: string): T {
   return value;
 }
 
+/** A reason as a library scan or the name tester gives it, whose sentence the server may word. */
+type Reason = Omit<ImportsReason, "sentence"> & { readonly sentence?: string | null };
+
 /** How one reason reads for `files` of an entry's files that share it. */
-type Wording = (reason: ImportsReason, type: WorksContentType, files: number) => string;
+type Wording = (reason: Reason, type: WorksContentType, files: number) => string;
+
+const worded: Wording = ({ sentence }) => given(sentence ?? undefined, "sentence");
 
 const reasonWords: { readonly [C in ImportsReasonCode]: Wording } = {
   several: ({ title, year, count }, type) =>
@@ -59,15 +64,40 @@ const reasonWords: { readonly [C in ImportsReasonCode]: Wording } = {
     files === 1
       ? `SlipStream can't tell which ${lower(type.item).one} this file holds.`
       : `SlipStream can't tell which ${lower(type.item).one} each of ${counted.format(files)} files holds.`,
+  sample: worded,
+  bonus: worded,
+  hidden_folder: worded,
+  too_small: worded,
+  extension: worded,
+  runtime_sample: worded,
+  sibling_better: worded,
+  kept_better: worded,
+  meets_nothing: worded,
+  not_an_upgrade: worded,
+  edition_not_wanted: worded,
+  other_items: worded,
+  parts: worded,
+  name_taken: worded,
+  name_too_long: worded,
+  settings: worded,
+  busy: worded,
+  confirm: worded,
+  import_failed: worded,
+  root_changed: worded,
+  by_admin: worded,
+  removed: worded,
+  canceled: worded,
+  blocklisted: worded,
+  work_deleted: worded,
 };
 
 /** Why one file waits, in plain words. */
-export const reasonOf = (reason: ImportsReason, type: WorksContentType): string =>
+export const reasonOf = (reason: Reason, type: WorksContentType): string =>
   reasonWords[reason.code](reason, type, 1);
 
 /** Why an entry waits: one sentence per reason its files share, in file order. */
 export function reasonsOf(entry: RootEntry, type: WorksContentType): string[] {
-  const shared = new Map<string, { reason: ImportsReason; files: number }>();
+  const shared = new Map<string, { reason: Reason; files: number }>();
   for (const { reason } of entry.files) {
     const key = JSON.stringify(reason);
     const seen = shared.get(key);

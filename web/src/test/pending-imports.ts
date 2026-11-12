@@ -47,7 +47,21 @@ export const showsShelf: ImportsRootLabel = {
 
 const gib = 1024 ** 3;
 
-type FixtureFile = Omit<RootFile, "position" | "outcome">;
+type FixtureFile = Omit<RootFile, "position" | "outcome" | keyof typeof unplacedFile>;
+
+/** What a waiting root file carries that only a download or a folder sets. */
+const unplacedFile = {
+  hold: null,
+  fills: [],
+  verdicts: [],
+  recommended: null,
+  actions: [],
+  forces: [],
+  placedBy: null,
+  fileId: null,
+  staged: 0,
+  movable: false,
+} as const satisfies Partial<RootFile>;
 
 /** A root Import whose files wait at positions in the order given. */
 const entryOf = ({
@@ -57,13 +71,25 @@ const entryOf = ({
   Partial<Omit<RootEntry, "files">> & { files: FixtureFile[] }): RootEntry => ({
   source: "root",
   stage: "waiting",
+  grab: null,
+  nodeId: null,
+  workId: null,
+  edition: null,
+  moveFiles: false,
+  seeding: false,
+  failure: null,
   contentType: cinema.id,
   suggestion: null,
   createdAt: "2026-11-07T03:12:00Z",
   ignoredAt: null,
   finishedAt: null,
   ...entry,
-  files: files.map((file, position) => ({ ...file, position, outcome: "waiting" })),
+  files: files.map((file, position) => ({
+    ...unplacedFile,
+    ...file,
+    position,
+    outcome: "waiting",
+  })),
 });
 
 export const halloween = entryOf({
@@ -86,7 +112,7 @@ export const halloween = entryOf({
       quality: "bluray-1080p",
       cut: "standard",
       itemIds: [],
-      reason: { code: "several", title: "Halloween", count: 3 },
+      reason: { code: "several", sentence: null, title: "Halloween", count: 3 },
     },
   ],
 });
@@ -103,7 +129,7 @@ export const brazil = entryOf({
       quality: "webdl-1080p",
       cut: "standard",
       itemIds: [],
-      reason: { code: "no_match", title: "Brazil", year: 1985 },
+      reason: { code: "no_match", sentence: null, title: "Brazil", year: 1985 },
     },
     {
       path: "Brazil (1985)/Brazil.1985.sample.mkv",
@@ -111,7 +137,11 @@ export const brazil = entryOf({
       quality: null,
       cut: "standard",
       itemIds: [],
-      reason: { code: "unreadable", line: "Invalid data found when processing input" },
+      reason: {
+        code: "unreadable",
+        sentence: null,
+        line: "Invalid data found when processing input",
+      },
     },
   ],
 });
@@ -136,7 +166,7 @@ export const heat = entryOf({
       quality: "remux-1080p",
       cut: "standard",
       itemIds: [],
-      reason: { code: "elsewhere", title: "Heat", year: 1995, root: filmsVault },
+      reason: { code: "elsewhere", sentence: null, title: "Heat", year: 1995, root: filmsVault },
     },
   ],
 });
@@ -164,7 +194,7 @@ export const severanceEntry = entryOf({
       quality: "webdl-2160p",
       cut: "standard",
       itemIds: [],
-      reason: { code: "no_number" },
+      reason: { code: "no_number", sentence: null },
     },
     {
       path: "Severance (2022)/Season 3/Severance.S03E14.mkv",
@@ -172,7 +202,7 @@ export const severanceEntry = entryOf({
       quality: "webdl-2160p",
       cut: "standard",
       itemIds: [],
-      reason: { code: "no_such_item", names: "S03E14" },
+      reason: { code: "no_such_item", sentence: null, names: "S03E14" },
     },
   ],
 });
@@ -198,7 +228,7 @@ export const orchardLeft = entryOf({
       quality: "bluray-1080p",
       cut: "standard",
       itemIds: [],
-      reason: { code: "left" },
+      reason: { code: "left", sentence: null },
     },
   ],
 });
