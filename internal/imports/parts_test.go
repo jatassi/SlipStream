@@ -50,7 +50,7 @@ func TestAWorkSplitIntoPartsWaitsPartsTogether(t *testing.T) {
 	imp := w.until(t, "the whole file and the lone part are decided", byWork[one.ID].ID, func(imp *Import) bool {
 		return imp.Files[positionOf(imp, "Clip 2.mkv")].Outcome == Waiting && imp.Files[positionOf(imp, "Clip 3 - cd1.mkv")].Outcome == Waiting
 	})
-	said, err := w.im.Sentences(t.Context(), identity.Admin{}, *imp)
+	said, err := w.im.Words(t.Context(), identity.Admin{}, *imp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,8 +59,8 @@ func TestAWorkSplitIntoPartsWaitsPartsTogether(t *testing.T) {
 		if f := imp.Files[p]; f.Reason.Code != Parts || f.Reason.Parts != 2 {
 			t.Errorf("%s waits %+v, want parts of 2", base, f.Reason)
 		}
-		if want := "This shelf is split into 2 files. SlipStream imports a shelf as one file."; said[p] != want {
-			t.Errorf("%s reads %q, want %q", base, said[p], want)
+		if want := "This shelf is split into 2 files. SlipStream imports a shelf as one file."; said[p].Sentence != want {
+			t.Errorf("%s reads %q, want %q", base, said[p].Sentence, want)
 		}
 	}
 	for _, base := range []string{"Clip 2.mkv", "Clip 3 - cd1.mkv"} {
