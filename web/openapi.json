@@ -15006,8 +15006,10 @@
             "count": "#/components/schemas/SettingCountField",
             "duration": "#/components/schemas/SettingDurationField",
             "folder": "#/components/schemas/SettingFolderField",
+            "list": "#/components/schemas/SettingListField",
             "port": "#/components/schemas/SettingPortField",
             "rate": "#/components/schemas/SettingRateField",
+            "size": "#/components/schemas/SettingSizeField",
             "space": "#/components/schemas/SettingSpaceField",
             "switch": "#/components/schemas/SettingSwitchField",
             "template": "#/components/schemas/SettingTemplateField",
@@ -15048,6 +15050,12 @@
           },
           {
             "$ref": "#/components/schemas/SettingTemplateField"
+          },
+          {
+            "$ref": "#/components/schemas/SettingListField"
+          },
+          {
+            "$ref": "#/components/schemas/SettingSizeField"
           }
         ]
       },
@@ -15128,6 +15136,102 @@
           "default",
           "nodeId",
           "purpose",
+          "key",
+          "label",
+          "source",
+          "applies",
+          "isDefault",
+          "pendingRestart"
+        ],
+        "type": "object"
+      },
+      "SettingListField": {
+        "additionalProperties": false,
+        "properties": {
+          "applies": {
+            "enum": [
+              "live",
+              "restart"
+            ],
+            "type": "string"
+          },
+          "default": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "defaultFrom": {
+            "description": "Where the default comes from, when it is another setting's value",
+            "type": "string"
+          },
+          "isDefault": {
+            "description": "The setting has no override; Reset to default leaves it unchanged",
+            "type": "boolean"
+          },
+          "item": {
+            "description": "What each entry is: an extension is lowercase letters and digits with no leading dot, such as mkv",
+            "enum": [
+              "extension"
+            ],
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "list"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "lockedBy": {
+            "description": "The environment variable that sets the value; the control is read-only",
+            "type": "string"
+          },
+          "min": {
+            "description": "The fewest entries the list takes",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "pendingRestart": {
+            "description": "The saved value differs from the running one until the Node restarts",
+            "type": "boolean"
+          },
+          "running": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "source": {
+            "enum": [
+              "database",
+              "default",
+              "config.yaml",
+              ".env",
+              "env"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "value",
+          "running",
+          "default",
+          "min",
+          "item",
           "key",
           "label",
           "source",
@@ -15306,6 +15410,96 @@
           "value",
           "running",
           "default",
+          "max",
+          "key",
+          "label",
+          "source",
+          "applies",
+          "isDefault",
+          "pendingRestart"
+        ],
+        "type": "object"
+      },
+      "SettingSizeField": {
+        "additionalProperties": false,
+        "properties": {
+          "applies": {
+            "enum": [
+              "live",
+              "restart"
+            ],
+            "type": "string"
+          },
+          "default": {
+            "description": "Bytes",
+            "format": "int64",
+            "type": "integer"
+          },
+          "defaultFrom": {
+            "description": "Where the default comes from, when it is another setting's value",
+            "type": "string"
+          },
+          "isDefault": {
+            "description": "The setting has no override; Reset to default leaves it unchanged",
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "size"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "lockedBy": {
+            "description": "The environment variable that sets the value; the control is read-only",
+            "type": "string"
+          },
+          "max": {
+            "description": "Bytes",
+            "format": "int64",
+            "type": "integer"
+          },
+          "min": {
+            "description": "Bytes",
+            "format": "int64",
+            "type": "integer"
+          },
+          "pendingRestart": {
+            "description": "The saved value differs from the running one until the Node restarts",
+            "type": "boolean"
+          },
+          "running": {
+            "description": "Bytes",
+            "format": "int64",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "database",
+              "default",
+              "config.yaml",
+              ".env",
+              "env"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "description": "Bytes",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "value",
+          "running",
+          "default",
+          "min",
           "max",
           "key",
           "label",

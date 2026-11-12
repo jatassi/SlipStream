@@ -136,6 +136,8 @@ func (u Noun) Of(n int64) string {
 	return u.Many
 }
 
+// Count is a whole number from Min to Max. A Unit that starts with % follows
+// the number with no space, such as 25% of its runtime.
 type Count struct {
 	Key, Label        string
 	Default, Min, Max int64
@@ -166,8 +168,8 @@ func (c Count) Parse(n *int64) (Stored[int64], error) {
 }
 
 func (c Count) words(n int64) string {
-	if c.Unit.Many == "%" {
-		return fmt.Sprintf("%d%%", n)
+	if strings.HasPrefix(c.Unit.Many, "%") {
+		return fmt.Sprintf("%d%s", n, c.Unit.Many)
 	}
 	return fmt.Sprintf("%d %s", n, c.Unit.Of(n))
 }

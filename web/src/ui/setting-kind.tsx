@@ -9,8 +9,10 @@ import type {
   SettingCountField,
   SettingDurationField,
   SettingFolderField,
+  SettingListField,
   SettingPortField,
   SettingRateField,
+  SettingSizeField,
   SettingSpaceField,
   SettingSwitchField,
   SettingTemplateField,
@@ -31,6 +33,8 @@ export type Fields = {
   folder: SettingFolderField;
   space: SettingSpaceField;
   template: SettingTemplateField;
+  list: SettingListField;
+  size: SettingSizeField;
 };
 
 export type Values = {
@@ -45,6 +49,8 @@ export type Values = {
   folder: string;
   space: SettingAmount;
   template: string;
+  list: string[];
+  size: number;
 };
 
 export type SettingKind = keyof Fields;
