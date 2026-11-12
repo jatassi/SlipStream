@@ -2,8 +2,15 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { getListImportsSuspenseQueryOptions } from "../../../api/gen/query/imports/imports";
-import { getListQualitiesSuspenseQueryOptions } from "../../../api/gen/query/targets/targets";
-import { getListContentTypesSuspenseQueryOptions } from "../../../api/gen/query/works/works";
+import { getListNodesSuspenseQueryOptions } from "../../../api/gen/query/nodes/nodes";
+import {
+  getListQualitiesSuspenseQueryOptions,
+  getListTargetsSuspenseQueryOptions,
+} from "../../../api/gen/query/targets/targets";
+import {
+  getListContentTypesSuspenseQueryOptions,
+  getListLibrarySuspenseQueryOptions,
+} from "../../../api/gen/query/works/works";
 import { ensureQuery } from "../../../api/query-client";
 import { PendingPage, type PendingView, pendingParams } from "../../../imports/pending-page";
 import { SegmentedLinks, segmentedLink } from "../../../ui/segmented-links";
@@ -18,6 +25,9 @@ export const Route = createFileRoute("/_app/library/pending")({
       ensureQuery(queryClient, getListImportsSuspenseQueryOptions(pendingParams(view))),
       ensureQuery(queryClient, getListContentTypesSuspenseQueryOptions()),
       ensureQuery(queryClient, getListQualitiesSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListTargetsSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
+      ensureQuery(queryClient, getListLibrarySuspenseQueryOptions()),
     ]);
   },
   pendingComponent: () => <Skeleton label="Loading Pending imports" />,

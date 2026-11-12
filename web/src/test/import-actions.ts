@@ -41,6 +41,7 @@ const actedOn = (file: ImportsImportFile, action: string): ImportsImportFile => 
 
 function replaced(world: ImportsWorld, next: ImportsImportEntry) {
   world.imports = world.imports.map((found) => (found.id === next.id ? next : found));
+  world.changed([]);
 }
 
 /** An Import once Import all confirmed each file that waited for it. */
@@ -58,6 +59,7 @@ const openingOf = (world: ImportsWorld, sent: Sent) => [
     sent.opened.push({ nodeId, folder });
     const open = world.folder.filter((entry) => !world.imports.some(({ id }) => id === entry.id));
     world.imports = [...world.imports, ...open];
+    world.changed([]);
     return HttpResponse.json({ imports: world.folder }, { status: open.length === 0 ? 200 : 201 });
   }),
   http.post("*/api/v1/imports/confirm", async ({ request }) => {
@@ -93,8 +95,12 @@ const actingOf = (world: ImportsWorld, sent: Sent) => [
   http.post("*/api/v1/imports/:id/files/:position", async ({ params, request }) => {
     const id = String(params["id"]);
     const position = Number(params["position"]);
-    const { action } = ActOnImportFileBody.parse(await request.json());
+    const body = ActOnImportFileBody.parse(await request.json());
+    const { action } = body;
     sent.acted.push({ id, position, action });
+    if (body.action === "match") {
+      sent.fileMatches.push(body);
+    }
     const entry = world.imports.find((found) => found.id === id);
     if (entry === undefined || !entry.files.some((file) => file.position === position)) {
       return refused(404, "import_not_found", "No Import has that id");
