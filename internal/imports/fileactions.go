@@ -111,7 +111,7 @@ func (im *Imports) Act(ctx context.Context, _ identity.Admin, ref FileRef, a Act
 // reopen makes f pending again for converge to decide, past its confirm
 // once confirmed, keeping its probe and the cells it is forced into.
 func (f *File) reopen() {
-	f.Outcome, f.Reason, f.Hold, f.Dest, f.Fills = Pending, nil, nil, nil, fillsOf(f.forced(), f.forced())
+	f.Outcome, f.Reason, f.Hold, f.Dest, f.Sent, f.Fills = Pending, nil, nil, nil, nil, fillsOf(f.forced(), f.forced())
 }
 
 // moving is a file a Match takes out of its Import, into the folder's

@@ -97,7 +97,7 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 	}
 	watch := openHealth(t, lib, roster)
 	s := ownertest.Serve(t, lib, func(r *api.Router) {
-		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch, imports.New(imports.Config{Library: lib})})
+		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch, imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})})})
 	})
 
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null},"pendingImports":0}`)
@@ -187,7 +187,7 @@ func TestTheAlertsCarryHealthsWorstLevels(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := ownertest.Serve(t, lib, func(r *api.Router) {
-		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch, imports.New(imports.Config{Library: lib})})
+		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch, imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})})})
 	})
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":"warn","tasks":"warn"},"pendingImports":0}`)
 }
@@ -216,7 +216,7 @@ func TestPendingImportsCountsTheEntriesThatNeedTheAdmin(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := ownertest.Serve(t, lib, func(r *api.Router) {
-		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), roster, downloadclients.New(downloadclients.Config{Library: lib}), openHealth(t, lib, roster), imports.New(imports.Config{Library: lib})})
+		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), roster, downloadclients.New(downloadclients.Config{Library: lib}), openHealth(t, lib, roster), imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})})})
 	})
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null},"pendingImports":2}`)
 }

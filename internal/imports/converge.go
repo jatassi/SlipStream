@@ -19,6 +19,8 @@ import (
 type after struct {
 	roots  []roots.ID
 	landed []works.WorkID
+	// sent is a Write that may have changed what a Transfer wants.
+	sent bool
 }
 
 // publish tells the readers what a committed Write changed.
@@ -32,6 +34,9 @@ func (im *Imports) publish(ctx context.Context, a after) {
 	}
 	if len(a.landed) > 0 {
 		im.cfg.Files.Poke()
+	}
+	if a.sent {
+		im.cfg.Transfers.Touch()
 	}
 }
 
@@ -71,14 +76,16 @@ func (im *Imports) writeIn(ctx context.Context, tx *storage.Tx[file], id ImportI
 	if !imp.Root.IsZero() {
 		a.roots = append(a.roots, imp.Root)
 	}
+	a.sent = a.sent || imp.Source != FromRoot
 	err = save(ctx, tx, &imp)
 	return imp, err
 }
 
 // converge brings everything derived from imp's rows into line in tx: a
 // busy file back to pending once its Items are free, the decision once the
-// barrier is met, a download's release faults and finished_at.
-// Running it twice changes nothing.
+// barrier is met, a download's release faults, the files its Transfer
+// wants and finished_at. A root Import's files sit in their root and send
+// nothing. Running it twice changes nothing.
 func (im *Imports) converge(ctx context.Context, tx *storage.Tx[file], imp *Import) error {
 	if err := unbusy(ctx, tx, imp); err != nil {
 		return err
@@ -94,6 +101,11 @@ func (im *Imports) converge(ctx context.Context, tx *storage.Tx[file], imp *Impo
 			return err
 		}
 		faults(imp, rules)
+	}
+	if imp.Source != FromRoot {
+		if _, err := im.cfg.Transfers.Want(ctx, tx, imp.transferRequest()); err != nil {
+			return err
+		}
 	}
 	finishIfFinal(imp, storage.Now())
 	return nil
@@ -182,9 +194,10 @@ func (im Import) destOf(root roots.ID, f File) (*Dest, error) {
 	return &Dest{Root: root, Holding: rel}, err
 }
 
-// take moves f to o, keeping its Dest from the decision on.
+// take moves f to o, keeping its Dest from the decision on. It lets go
+// of any staged copy it placed from.
 func (f *File) take(o outcome, dest *Dest) {
-	f.Outcome, f.Reason, f.Fills, f.Hold = o.To, o.Reason, o.Fills, nil
+	f.Outcome, f.Reason, f.Fills, f.Hold, f.Sent = o.To, o.Reason, o.Fills, nil, nil
 	if o.To == Sending || o.To == Placing {
 		f.Dest = dest
 	}

@@ -98,7 +98,7 @@ func (w *world) stopAt(id ImportID, at StepAt) <-chan struct{} {
 func (w *world) reconcile(t *testing.T) {
 	cfg := w.cfg
 	cfg.BeforeImport = nil
-	im := New(cfg)
+	im := w.newImports(cfg)
 	ctx, cancel := context.WithCancel(context.WithoutCancel(t.Context()))
 	done := make(chan struct{})
 	go func() {
