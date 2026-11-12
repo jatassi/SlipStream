@@ -101,6 +101,7 @@ func (im *Imports) grabImport(ctx context.Context, r storage.Reader[file], h gra
 		Work: h.Work, Edition: h.Edition, Created: storage.Now(),
 	}
 	var parts []int
+	level := levelOf(tree, h.Items)
 	for _, tf := range h.Files {
 		rel := strings.ReplaceAll(tf.Path, `\`, "/")
 		if !media.DefaultVideos.Video(rel) && !rules.Videos.Video(rel) {
@@ -110,7 +111,7 @@ func (im *Imports) grabImport(ctx context.Context, r storage.Reader[file], h gra
 			Position: len(imp.Files), Path: tf.Path, SourceIndex: new(tf.Index), Size: tf.Size, ReleaseName: h.Release,
 			SourceName: path.Base(rel), Outcome: Pending,
 		}
-		parts = append(parts, f.check(rel, rules, h.Items, place))
+		parts = append(parts, f.check(rel, rules, h.Items, level, place))
 		f.force(h.Cells)
 		imp.Files = append(imp.Files, f)
 	}
@@ -121,8 +122,9 @@ func (im *Imports) grabImport(ctx context.Context, r storage.Reader[file], h gra
 // check applies the fixed check to f, a download's file at rel: left out
 // by its extension, folder, name or size, else waiting when its name
 // reads as no Item or Items the Grab doesn't cover, else pending with its
-// Items. It answers the part of them the name reads as.
-func (f *File) check(rel string, rules Rules, grabbed []works.ItemID, place scanning.Placer) (part int) {
+// Items. A name with no number waits with level, the one the grabbed
+// Items lie in. It answers the part of them the name reads as.
+func (f *File) check(rel string, rules Rules, grabbed []works.ItemID, level works.LevelID, place scanning.Placer) (part int) {
 	if why, out := leftOutOf(rel, f.Size, rules); out {
 		f.Outcome, f.Reason = LeftOut, &why
 		return 0
@@ -130,14 +132,31 @@ func (f *File) check(rel string, rules Rules, grabbed []works.ItemID, place scan
 	read := place(f.SourceName)
 	items, ok := read.Items()
 	switch {
+	case !ok && read.Reason().Code == scanning.NoNumber:
+		f.Outcome, f.Reason = Waiting, &Reason{Code: NoNumber, Level: level}
 	case !ok:
-		f.waitFor(read.Reason())
+		f.Outcome, f.Reason = Waiting, &Reason{Code: NoRule}
 	case slices.ContainsFunc(items, func(it works.ItemID) bool { return !slices.Contains(grabbed, it) }):
 		f.Outcome, f.Reason = Waiting, &Reason{Code: OtherItems, Reading: items, Of: grabbed}
 	default:
 		f.Items = items
 	}
 	return read.Part()
+}
+
+// levelOf is the level every one of ids lies in, zero when they lie in
+// several.
+func levelOf(tree works.Tree, ids []works.ItemID) works.LevelID {
+	var levels []works.LevelID
+	for _, it := range tree.Items {
+		if slices.Contains(ids, it.ID) && !slices.Contains(levels, it.LevelID) {
+			levels = append(levels, it.LevelID)
+		}
+	}
+	if len(levels) != 1 {
+		return works.LevelID{}
+	}
+	return levels[0]
 }
 
 // waitParts has the pending ones of fs that read as parts of the same
