@@ -52,6 +52,7 @@ import { Route as AppTasksTaskIdRouteImport } from "./routes/_app/tasks/$taskId"
 import { Route as AppWorksWorkIdRouteImport } from "./routes/_app/works/$workId";
 import { Route as AccountPasskeysNewRouteImport } from "./routes/account.passkeys.new";
 import { Route as AppActivityTorrentsTorrentIdRouteImport } from "./routes/_app/activity/torrents.$torrentId";
+import { Route as AppLibraryPendingImportIdRouteImport } from "./routes/_app/library/pending_.$importId";
 import { Route as AppNodesNodeIdIndexRouteImport } from "./routes/_app/nodes/$nodeId/index";
 import { Route as AppNodesNodeIdLogSettingsRouteImport } from "./routes/_app/nodes/$nodeId/log-settings";
 import { Route as AppNodesNodeIdLogsRouteImport } from "./routes/_app/nodes/$nodeId/logs";
@@ -295,6 +296,12 @@ const AppActivityTorrentsTorrentIdRoute =
     path: "/$torrentId",
     getParentRoute: () => AppActivityTorrentsRoute,
   } as any);
+const AppLibraryPendingImportIdRoute =
+  AppLibraryPendingImportIdRouteImport.update({
+    id: "/pending_/$importId",
+    path: "/pending/$importId",
+    getParentRoute: () => AppLibraryRouteRoute,
+  } as any);
 const AppNodesNodeIdIndexRoute = AppNodesNodeIdIndexRouteImport.update({
   id: "/",
   path: "/",
@@ -493,6 +500,7 @@ export interface FileRoutesByFullPath {
   "/tasks/": typeof AppTasksIndexRoute;
   "/settings/trackers/$trackerId": typeof AppSettingsTrackersTrackerIdRouteRouteWithChildren;
   "/activity/torrents/$torrentId": typeof AppActivityTorrentsTorrentIdRoute;
+  "/library/pending/$importId": typeof AppLibraryPendingImportIdRoute;
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
@@ -557,6 +565,7 @@ export interface FileRoutesByTo {
   "/tasks": typeof AppTasksIndexRoute;
   "/settings/trackers/$trackerId": typeof AppSettingsTrackersTrackerIdTorrentsIndexRoute;
   "/activity/torrents/$torrentId": typeof AppActivityTorrentsTorrentIdRoute;
+  "/library/pending/$importId": typeof AppLibraryPendingImportIdRoute;
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
@@ -628,6 +637,7 @@ export interface FileRoutesById {
   "/_app/tasks/": typeof AppTasksIndexRoute;
   "/_app/settings/trackers/$trackerId": typeof AppSettingsTrackersTrackerIdRouteRouteWithChildren;
   "/_app/activity/torrents/$torrentId": typeof AppActivityTorrentsTorrentIdRoute;
+  "/_app/library/pending_/$importId": typeof AppLibraryPendingImportIdRoute;
   "/_app/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/_app/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
   "/_app/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
@@ -701,6 +711,7 @@ export interface FileRouteTypes {
     | "/tasks/"
     | "/settings/trackers/$trackerId"
     | "/activity/torrents/$torrentId"
+    | "/library/pending/$importId"
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
     | "/nodes/$nodeId/roles"
@@ -765,6 +776,7 @@ export interface FileRouteTypes {
     | "/tasks"
     | "/settings/trackers/$trackerId"
     | "/activity/torrents/$torrentId"
+    | "/library/pending/$importId"
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
     | "/nodes/$nodeId/roles"
@@ -835,6 +847,7 @@ export interface FileRouteTypes {
     | "/_app/tasks/"
     | "/_app/settings/trackers/$trackerId"
     | "/_app/activity/torrents/$torrentId"
+    | "/_app/library/pending_/$importId"
     | "/_app/nodes/$nodeId/log-settings"
     | "/_app/nodes/$nodeId/logs"
     | "/_app/nodes/$nodeId/roles"
@@ -1181,6 +1194,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppActivityTorrentsTorrentIdRouteImport;
       parentRoute: typeof AppActivityTorrentsRoute;
     };
+    "/_app/library/pending_/$importId": {
+      id: "/_app/library/pending_/$importId";
+      path: "/pending/$importId";
+      fullPath: "/library/pending/$importId";
+      preLoaderRoute: typeof AppLibraryPendingImportIdRouteImport;
+      parentRoute: typeof AppLibraryRouteRoute;
+    };
     "/_app/nodes/$nodeId/": {
       id: "/_app/nodes/$nodeId/";
       path: "/";
@@ -1403,12 +1423,14 @@ interface AppLibraryRouteRouteChildren {
   AppLibraryContentTypeRoute: typeof AppLibraryContentTypeRoute;
   AppLibraryPendingRoute: typeof AppLibraryPendingRoute;
   AppLibraryIndexRoute: typeof AppLibraryIndexRoute;
+  AppLibraryPendingImportIdRoute: typeof AppLibraryPendingImportIdRoute;
 }
 
 const AppLibraryRouteRouteChildren: AppLibraryRouteRouteChildren = {
   AppLibraryContentTypeRoute: AppLibraryContentTypeRoute,
   AppLibraryPendingRoute: AppLibraryPendingRoute,
   AppLibraryIndexRoute: AppLibraryIndexRoute,
+  AppLibraryPendingImportIdRoute: AppLibraryPendingImportIdRoute,
 };
 
 const AppLibraryRouteRouteWithChildren = AppLibraryRouteRoute._addFileChildren(

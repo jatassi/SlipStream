@@ -1,5 +1,6 @@
 import type {
   ImportsImportEntry,
+  TargetsTarget,
   ImportsImportFile,
   WorksItem,
   WorksLibraryRow,
@@ -9,6 +10,7 @@ import { importingPack } from "./grabs";
 import { cinema, libraryRow, orchard } from "./library";
 import { homeId, seedboxId } from "./nodes";
 import { filmsShelf, filmsVault, severanceId, shows, showsShelf } from "./pending-imports";
+import { starter } from "./targets";
 
 export const severanceRow: WorksLibraryRow = libraryRow({
   id: severanceId,
@@ -251,3 +253,16 @@ export const folderEntries: ImportsImportEntry[] = [
     ],
   }),
 ];
+
+/** The 1080p Target the download and folder Imports' cells are of. */
+export const hdTarget: TargetsTarget = { ...starter, id: hd, name: "1080p" };
+
+/** The Heat a folder's file names, in the Films root on vault. */
+export const vaultWork: WorksWorkView = {
+  ...orchard,
+  id: vaultRow.id,
+  key: vaultRow.key,
+  label: "Heat",
+  sortLabel: "Heat",
+  items: [{ ...brazilItem, id: "0199f0d4-0000-7000-8000-000000000949", label: "Heat" }],
+};
