@@ -127,7 +127,7 @@ func serve(t *testing.T) *world {
 		Log:     slog.New(slog.DiscardHandler),
 	})
 	w.tr.Register(transfers.Purpose{
-		Kind:     transfers.Grab,
+		Kind:     transfers.Import,
 		Verified: func(context.Context, *storage.Tx[storage.Library], transfers.Transfer, string) error { return nil },
 		Failed: func(context.Context, *storage.Tx[storage.Library], transfers.Transfer, transfers.Failure) error {
 			return nil
@@ -159,7 +159,7 @@ func (w *world) exec(t *testing.T, query string, args ...any) {
 // of size from torrent hash for each size.
 func (w *world) start(t *testing.T, job string, hash bencode.InfoHash, sizes ...int64) transfers.ID {
 	t.Helper()
-	req := transfers.Request{Purpose: transfers.Grab, Job: job, Source: w.seedbox, Destination: transfers.Root{ID: w.root}}
+	req := transfers.Request{Purpose: transfers.Import, Job: job, Source: w.seedbox, Destination: transfers.Root{ID: w.root}}
 	for i, size := range sizes {
 		req.Files = append(req.Files, transfers.FileRequest{Name: []string{"Heat (1995).mkv", "Heat (1995).en.srt"}[i], Source: source.Torrent{Hash: hash, File: i}, Size: size})
 	}
@@ -202,7 +202,7 @@ func TestATransferReadsWhatItWaitsForThenItsPace(t *testing.T) {
 
 	files := `"files":[{"position":0,"name":"Heat (1995).mkv","size":3000000000,"verified":false,"placed":false},` +
 		`{"position":1,"name":"Heat (1995).en.srt","size":1000000000,"verified":false,"placed":false}]`
-	head := `{"id":"id1","purpose":"grab","job":"heat","jobName":"Heat (1995)","source":{"nodeId":"id2","nodeName":"seedbox"},` +
+	head := `{"id":"id1","purpose":"import","job":"heat","jobName":"Heat (1995)","source":{"nodeId":"id2","nodeName":"seedbox"},` +
 		`"destination":{"kind":"root","rootId":"id3","nodeId":"id4","nodeName":"home"},`
 	w.o.Expect(t, http.MethodGet, path, "", http.StatusOK, head+
 		`"state":"waiting","reason":"Connecting to seedbox.","wait":{"kind":"connecting","nodeId":"id2"},`+
