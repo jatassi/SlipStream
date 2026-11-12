@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/files"
@@ -72,8 +73,9 @@ type Config struct {
 	Hub          *live.Hub
 	Changed      Publisher[Changed]
 	FilesChanged Publisher[files.Changed]
-	// Probes reads a file's media record where its bytes are, and
-	// Transfers is asked what live Transfers still send to a volume.
+	// Probes reads a file's media record where its bytes are. Transfers
+	// sends a file to another Node's root, and is asked what live
+	// Transfers still send to a volume.
 	Probes    storing.Probes
 	Transfers *transfers.Transfers
 	Timings   Timings
@@ -96,10 +98,18 @@ type Imports struct {
 	cfg    Config
 	probes *slots
 	wake   chan struct{}
+
+	mu sync.Mutex
+	// hooked is what each job's Transfers hooks changed, published once
+	// their Write commits.
+	hooked map[string]after
 }
 
+// New builds the pipeline and registers its Transfers purpose.
 func New(cfg Config) *Imports {
-	return &Imports{cfg: cfg, probes: newSlots(), wake: make(chan struct{}, 1)}
+	im := &Imports{cfg: cfg, probes: newSlots(), wake: make(chan struct{}, 1), hooked: map[string]after{}}
+	cfg.Transfers.Register(im.purpose())
+	return im
 }
 
 // Touch has the reconciler pass soon.

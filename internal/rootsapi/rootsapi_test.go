@@ -42,6 +42,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 	"github.com/jatassi/slipstream/internal/worksapi"
 )
@@ -183,7 +184,7 @@ func serve(t *testing.T) *server {
 		t.Fatal(err)
 	}
 	im := imports.New(imports.Config{
-		Library: lib, Roots: svc,
+		Library: lib, Roots: svc, Transfers: transfers.New(transfers.ControllerConfig{Library: lib}),
 		Start: func(_ context.Context, st tasks.Start) (tasks.Started, error) {
 			s.started = append(s.started, st)
 			return tasks.Started{Run: tasks.RunID(len(s.started)), Added: st.Units}, nil

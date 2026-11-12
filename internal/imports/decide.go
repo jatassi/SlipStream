@@ -40,7 +40,9 @@ type outcomeContext struct {
 }
 
 // outcomes turns the Verdicts of one batch into outcomes, at the decision
-// and at landing alike: the spec's decision table, first match wins. Pure.
+// and at landing alike: the spec's decision table, first match wins. A
+// folder's files aren't one Release, so each that fills nothing waits
+// with its reason for the Admin. Pure.
 func outcomes(vs []files.Verdict, c outcomeContext) []outcome {
 	anyFills := c.othersFill || slices.ContainsFunc(vs, func(v files.Verdict) bool { return len(v.Fills) > 0 })
 	out := make([]outcome, len(vs))
@@ -61,7 +63,7 @@ func outcomeOf(i int, v files.Verdict, vs []files.Verdict, anyFills bool, c outc
 	switch {
 	case v.EditionGone:
 		return waits(Reason{Code: EditionNotWanted, Edition: c.cut(i)})
-	case len(v.Meets) == 0 && len(vs) == 1 && !c.othersFill:
+	case len(v.Meets) == 0 && (c.source == FromFolder || len(vs) == 1 && !c.othersFill):
 		return waits(Reason{Code: MeetsNothing, Targets: targetsOf(reasonTargets(v))})
 	case len(v.Meets) == 0:
 		return outcome{To: LeftOut, Reason: &Reason{Code: MeetsNothing, Targets: targetsOf(reasonTargets(v))}}
@@ -73,7 +75,7 @@ func outcomeOf(i int, v files.Verdict, vs []files.Verdict, anyFills bool, c outc
 		return outcome{To: Placing, Fills: fillsOf(v.Fills, c.forced(i))}
 	case lostToSiblings(v):
 		return outcome{To: LeftOut, Reason: &Reason{Code: SiblingBetter}}
-	case anyFills:
+	case anyFills && c.source != FromFolder:
 		return outcome{To: NotBetter, Reason: &Reason{Code: KeptBetter}}
 	}
 	return waits(Reason{Code: NotAnUpgrade, Targets: targetsOf(v.Meets)})

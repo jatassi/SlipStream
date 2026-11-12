@@ -55,6 +55,7 @@ var (
 	importElsewhere     = api.NewCode(http.StatusConflict, "import_elsewhere", "The Work lives in another library root")
 	importChanged       = api.NewCode(http.StatusConflict, "import_changed", "The Import no longer has a chosen file waiting")
 	importItems         = api.NewCode(http.StatusUnprocessableEntity, "import_items", "A chosen Item isn't in the Work")
+	importNotOffered    = api.NewCode(http.StatusConflict, "import_not_offered", "The file doesn't offer that action now. Get the Import again to see what it offers.")
 	importListMoved     = api.NewCode(http.StatusConflict, "import_list_moved", "The Import the last page ended at is no longer listed. List again from the first page.")
 	contentTypeDisabled = api.NewCode(http.StatusConflict, "content_type_disabled", "That Content Type is turned off")
 	metadataNotFound    = api.NewCode(http.StatusNotFound, "metadata_not_found", "The metadata source has no record with that key")
@@ -74,6 +75,9 @@ var codes = []struct {
 	{imports.ErrChanged, importChanged},
 	{imports.ErrNotOfWork, importItems},
 	{imports.ErrListMoved, importListMoved},
+	{imports.ErrOutside, importOutside},
+	{imports.ErrNotOffered, importNotOffered},
+	{imports.ErrMoveSeeding, importMoveSeeding},
 	{works.ErrTypeOff, contentTypeDisabled},
 	{works.ErrNotFound, metadataNotFound},
 	{works.ErrUnavailable, metadataUnavailable},
@@ -293,6 +297,7 @@ func (c converter) file(e imports.Import, f imports.File) importFile {
 		Position: f.Position, Path: f.Path, Size: f.Size, Cut: string(f.Cut), Outcome: string(f.Outcome), ItemIDs: make([]string, len(f.Items)),
 		Fills: []cellRef{}, Verdicts: []targetVerdict{}, Actions: []api.Enum[action]{}, Forces: []forceOption{},
 	}
+	out.Movable = e.Source == imports.FromFolder && !f.Seeded
 	if f.PlacedBy != "" {
 		out.PlacedBy = api.Some(string(f.PlacedBy))
 	}
@@ -520,8 +525,8 @@ func Routes(r *api.Router, p Pending) {
 		Summary: "Open the Imports of a folder on a Node, one per Work and Edition its files match",
 		Status:  http.StatusCreated,
 		Also:    []int{http.StatusOK},
-		Errors:  []*api.Code{notBuilt, importOutside},
-	}, unbuilt[importFolderInput, importsOutput])
+		Errors:  []*api.Code{importOutside},
+	}, h.importFolder)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "actOnImportFile",
@@ -529,8 +534,8 @@ func Routes(r *api.Router, p Pending) {
 		Path:    "/imports/{id}/files/{position}",
 		Summary: "Confirm, retry, decline, force or match one file of an Import",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{notBuilt, importNotFound, importChanged, importItems},
-	}, unbuilt[fileActionInput, entryOutput])
+		Errors:  []*api.Code{notBuilt, importNotFound, importNotOffered, importItems},
+	}, h.actOnFile)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "confirmImports",
@@ -538,8 +543,8 @@ func Routes(r *api.Router, p Pending) {
 		Path:    "/imports/confirm",
 		Summary: "Import every file of these Imports that waits for confirmation",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{notBuilt},
-	}, unbuilt[importIDsInput, importsOutput])
+		Errors:  []*api.Code{importNotFound},
+	}, h.confirm)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "setImportMoveFiles",
@@ -547,8 +552,8 @@ func Routes(r *api.Router, p Pending) {
 		Path:    "/imports/move-files",
 		Summary: "Turn Move files on or off for folder Imports",
 		Status:  http.StatusNoContent,
-		Errors:  []*api.Code{notBuilt, importMoveSeeding},
-	}, unbuilt[moveFilesInput, struct{}])
+		Errors:  []*api.Code{importNotFound, importNotOffered, importMoveSeeding},
+	}, h.moveFiles)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "getImportingSettings",

@@ -37,10 +37,10 @@ import type {
   AddRootImports500,
   ConfirmImports401,
   ConfirmImports403,
+  ConfirmImports404,
   ConfirmImports409,
   ConfirmImports422,
   ConfirmImports500,
-  ConfirmImports501,
   GetExtensionImpact401,
   GetExtensionImpact403,
   GetExtensionImpact409,
@@ -71,7 +71,6 @@ import type {
   ImportFolder409,
   ImportFolder422,
   ImportFolder500,
-  ImportFolder501,
   ImportFolderInputBody,
   ImportIDsInputBody,
   ImportsAddedList,
@@ -93,10 +92,10 @@ import type {
   MoveFilesInputBody,
   SetImportMoveFiles401,
   SetImportMoveFiles403,
+  SetImportMoveFiles404,
   SetImportMoveFiles409,
   SetImportMoveFiles422,
   SetImportMoveFiles500,
-  SetImportMoveFiles501,
   UnignoreImports401,
   UnignoreImports403,
   UnignoreImports409,
@@ -316,12 +315,7 @@ export const getImportFolderMutationKey = () => ["importFolder"] as const;
 
 export const getImportFolderMutationOptions = <
   TError = ErrorType<
-    | ImportFolder401
-    | ImportFolder403
-    | ImportFolder409
-    | ImportFolder422
-    | ImportFolder500
-    | ImportFolder501
+    ImportFolder401 | ImportFolder403 | ImportFolder409 | ImportFolder422 | ImportFolder500
   >,
   TContext = unknown,
 >(options?: {
@@ -360,12 +354,7 @@ export const getImportFolderMutationOptions = <
 export type ImportFolderMutationResult = NonNullable<Awaited<ReturnType<typeof importFolder>>>;
 export type ImportFolderMutationBody = ImportFolderInputBody;
 export type ImportFolderMutationError = ErrorType<
-  | ImportFolder401
-  | ImportFolder403
-  | ImportFolder409
-  | ImportFolder422
-  | ImportFolder500
-  | ImportFolder501
+  ImportFolder401 | ImportFolder403 | ImportFolder409 | ImportFolder422 | ImportFolder500
 >;
 export type ImportFolderMutationVariables = { data: ImportFolderInputBody };
 
@@ -374,12 +363,7 @@ export type ImportFolderMutationVariables = { data: ImportFolderInputBody };
  */
 export const useImportFolder = <
   TError = ErrorType<
-    | ImportFolder401
-    | ImportFolder403
-    | ImportFolder409
-    | ImportFolder422
-    | ImportFolder500
-    | ImportFolder501
+    ImportFolder401 | ImportFolder403 | ImportFolder409 | ImportFolder422 | ImportFolder500
   >,
   TContext = unknown,
 >(
@@ -565,10 +549,10 @@ export const getConfirmImportsMutationOptions = <
   TError = ErrorType<
     | ConfirmImports401
     | ConfirmImports403
+    | ConfirmImports404
     | ConfirmImports409
     | ConfirmImports422
     | ConfirmImports500
-    | ConfirmImports501
   >,
   TContext = unknown,
 >(options?: {
@@ -609,10 +593,10 @@ export type ConfirmImportsMutationBody = ImportIDsInputBody;
 export type ConfirmImportsMutationError = ErrorType<
   | ConfirmImports401
   | ConfirmImports403
+  | ConfirmImports404
   | ConfirmImports409
   | ConfirmImports422
   | ConfirmImports500
-  | ConfirmImports501
 >;
 export type ConfirmImportsMutationVariables = { data: ImportIDsInputBody };
 
@@ -623,10 +607,10 @@ export const useConfirmImports = <
   TError = ErrorType<
     | ConfirmImports401
     | ConfirmImports403
+    | ConfirmImports404
     | ConfirmImports409
     | ConfirmImports422
     | ConfirmImports500
-    | ConfirmImports501
   >,
   TContext = unknown,
 >(
@@ -1247,10 +1231,10 @@ export const getSetImportMoveFilesMutationOptions = <
   TError = ErrorType<
     | SetImportMoveFiles401
     | SetImportMoveFiles403
+    | SetImportMoveFiles404
     | SetImportMoveFiles409
     | SetImportMoveFiles422
     | SetImportMoveFiles500
-    | SetImportMoveFiles501
   >,
   TContext = unknown,
 >(options?: {
@@ -1293,10 +1277,10 @@ export type SetImportMoveFilesMutationBody = MoveFilesInputBody;
 export type SetImportMoveFilesMutationError = ErrorType<
   | SetImportMoveFiles401
   | SetImportMoveFiles403
+  | SetImportMoveFiles404
   | SetImportMoveFiles409
   | SetImportMoveFiles422
   | SetImportMoveFiles500
-  | SetImportMoveFiles501
 >;
 export type SetImportMoveFilesMutationVariables = { data: MoveFilesInputBody };
 
@@ -1307,10 +1291,10 @@ export const useSetImportMoveFiles = <
   TError = ErrorType<
     | SetImportMoveFiles401
     | SetImportMoveFiles403
+    | SetImportMoveFiles404
     | SetImportMoveFiles409
     | SetImportMoveFiles422
     | SetImportMoveFiles500
-    | SetImportMoveFiles501
   >,
   TContext = unknown,
 >(
