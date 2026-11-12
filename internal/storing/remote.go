@@ -154,24 +154,41 @@ func (r Remote) verify(ctx context.Context, node role.NodeID, where *storagev1.V
 
 // Placed is a file the Node put in a root, and what a scan compares of it.
 type Placed struct {
-	Size   int64
-	Linked bool
-	Seen   Seen
+	Size int64
+	// Step is how the file came to be there: Rename for a Move.
+	Step Step
+	Seen Seen
 	// Left are the companions a carrying Move found another file at the
 	// new name of, where each now lies.
 	Left []Rel
 }
 
-// Place puts payload p at to under the root. Another file there is
-// ErrOccupied.
-func (r Remote) Place(ctx context.Context, at At, p Payload, to Rel) (Placed, error) {
+// Place puts payload p at to under the root by a link, a clone or, with
+// allowCopy, a copy. Another file there is ErrOccupied. A place that
+// needs a copy without allowCopy is *NeedsCopyError, and a clone or copy
+// the volume has no room for *NeedsSpaceError.
+func (r Remote) Place(ctx context.Context, at At, p Payload, to Rel, allowCopy bool) (Placed, error) {
 	res, err := r(at.Node).Place(ctx, &storagev1.PlaceRequest{
-		RootId: at.Root.Bytes(), InfoHash: p.InfoHash[:], FileIndex: int64(p.FileIndex), To: to.String(),
+		RootId: at.Root.Bytes(), InfoHash: p.InfoHash[:], FileIndex: int64(p.FileIndex), To: to.String(), AllowCopy: allowCopy,
 	})
 	if err != nil {
-		return Placed{}, occupied(err)
+		return Placed{}, placeAnswer(err)
 	}
-	return Placed{Size: res.GetSize(), Linked: res.GetLinked(), Seen: seenOf(res.GetIdentity())}, nil
+	step, err := steps.parse(res.GetStep())
+	if err != nil {
+		return Placed{}, err
+	}
+	return Placed{Size: res.GetSize(), Step: step, Seen: seenOf(res.GetIdentity())}, nil
+}
+
+func placeAnswer(err error) error {
+	if d, ok := rpc.DetailOf[*storagev1.NeedsCopy](err); ok {
+		return &NeedsCopyError{Size: d.GetSize()}
+	}
+	if _, ok := rpc.DetailOf[*storagev1.NeedsSpace](err); ok {
+		return &NeedsSpaceError{}
+	}
+	return occupied(err)
 }
 
 // Move renames from to to within the root, and with carry from's
@@ -185,7 +202,7 @@ func (r Remote) Move(ctx context.Context, at At, from, to Rel, carry bool) (Plac
 	if err != nil {
 		return Placed{}, fmt.Errorf("a companion left: %w", err)
 	}
-	return Placed{Size: res.GetSize(), Seen: seenOf(res.GetIdentity()), Left: left}, nil
+	return Placed{Size: res.GetSize(), Step: Rename, Seen: seenOf(res.GetIdentity()), Left: left}, nil
 }
 
 // Survey answers each planned rename within the root, in batches of 2000:

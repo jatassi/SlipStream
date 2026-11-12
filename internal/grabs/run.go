@@ -421,7 +421,7 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 	i := slices.IndexFunc(g.Torrent.Files, func(f engine.File) bool { return f.Index == g.Plan.FileIndex })
 	imported := advance{to: Imported, file: &landing{root: root.ID, holding: holding.String(), sourceName: path.Base(g.Torrent.Files[i].Path)}}
 	if root.Node == g.Node {
-		placed, err := gr.cfg.Roots.Place(ctx, root.ID, holding, storing.Payload{InfoHash: g.Torrent.InfoHash, FileIndex: g.Plan.FileIndex})
+		placed, err := gr.cfg.Roots.Place(ctx, root.ID, holding, storing.Payload{InfoHash: g.Torrent.InfoHash, FileIndex: g.Plan.FileIndex}, true)
 		if err != nil {
 			return storageOutcome(ctx, err, until)
 		}

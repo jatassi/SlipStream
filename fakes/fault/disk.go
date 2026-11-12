@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 	"slices"
 	"strings"
 	"syscall"
@@ -40,6 +41,15 @@ type (
 	// or an exFAT disk is: every Stat beneath it reads no FileID and no
 	// Volume.
 	NoIDs struct{}
+	// NoLinks makes the folder a volume of its own for links: a hard link
+	// into or out of it fails with the OS's cross-device error.
+	NoLinks struct{}
+	// NoClones makes the folder a volume that can't clone: a clone into
+	// it fails with errors.ErrUnsupported.
+	NoClones struct{}
+	// CloneFull fails a clone into the folder with the OS's disk-full
+	// error.
+	CloneFull struct{}
 )
 
 func (Full) Layer() Layer      { return Disk }
@@ -49,6 +59,9 @@ func (ReadOnly) Layer() Layer  { return Disk }
 func (Volume) Layer() Layer    { return Disk }
 func (FoldCase) Layer() Layer  { return Disk }
 func (NoIDs) Layer() Layer     { return Disk }
+func (NoLinks) Layer() Layer   { return Disk }
+func (NoClones) Layer() Layer  { return Disk }
+func (CloneFull) Layer() Layer { return Disk }
 
 func (Full) String() string      { return "full" }
 func (Unmounted) String() string { return "unmounted" }
@@ -57,6 +70,9 @@ func (ReadOnly) String() string  { return "readonly" }
 func (f Volume) String() string  { return "volume=" + size(f.Total) + ",free=" + size(f.Free) }
 func (FoldCase) String() string  { return "foldcase" }
 func (NoIDs) String() string     { return "noids" }
+func (NoLinks) String() string   { return "nolinks" }
+func (NoClones) String() string  { return "noclones" }
+func (CloneFull) String() string { return "clonefull" }
 
 func volume(v string) (Fault, error) {
 	total, free, ok := strings.Cut(v, ",free=")
@@ -117,8 +133,11 @@ type played struct {
 	volume *Volume
 	mount  string
 	// folded is the FoldCase folder holding the path, empty for none.
-	folded string
-	noIDs  bool
+	folded    string
+	noIDs     bool
+	noLinks   bool
+	noClones  bool
+	cloneFull bool
 }
 
 func (p *Plan) diskPlay(ctx context.Context, op, path string) (played, error) {
@@ -163,6 +182,12 @@ func (p *Plan) playedLocked(path string) (out played, hung bool) {
 			out.folded = folder
 		case NoIDs:
 			out.noIDs = true
+		case NoLinks:
+			out.noLinks = true
+		case NoClones:
+			out.noClones = true
+		case CloneFull:
+			out.cloneFull = true
 		}
 	}
 	return out, hung
@@ -204,6 +229,9 @@ func (d *disk) write(ctx context.Context, op string, paths ...string) (played, e
 			return played{}, failed(op, path, syscall.EROFS)
 		}
 		all.full = all.full || pl.full
+		all.noLinks = all.noLinks || pl.noLinks
+		all.noClones = all.noClones || pl.noClones
+		all.cloneFull = all.cloneFull || pl.cloneFull
 	}
 	return all, nil
 }
@@ -294,13 +322,20 @@ func (d *disk) ReadDir(ctx context.Context, dir string) ([]storing.Entry, error)
 
 func (d *disk) Mkdir(ctx context.Context, path string) error {
 	pl, err := d.write(ctx, "mkdir", path)
-	if err == nil && pl.full {
+	if err == nil && pl.full && !d.exists(ctx, path) {
 		err = failed("mkdir", path, storing.ErrNoSpace)
 	}
 	if err != nil {
 		return err
 	}
 	return d.base.Mkdir(ctx, d.at(ctx, path))
+}
+
+// exists reports whether path is there, as a mkdir on a full volume
+// fails with exists before it needs any space.
+func (d *disk) exists(ctx context.Context, path string) bool {
+	_, err := d.base.Stat(ctx, d.at(ctx, path))
+	return err == nil
 }
 
 func (d *disk) Open(ctx context.Context, path string) (io.ReadCloser, error) {
@@ -430,10 +465,30 @@ func (d *disk) Rename(ctx context.Context, from, to string) error {
 }
 
 func (d *disk) Link(ctx context.Context, from, to string) error {
-	if _, err := d.write(ctx, "link", from, to); err != nil {
+	pl, err := d.write(ctx, "link", from, to)
+	if err == nil && pl.noLinks {
+		err = &os.LinkError{Op: "link", Old: from, New: to, Err: storing.ErrCrossDevice}
+	}
+	if err != nil {
 		return err
 	}
 	return d.base.Link(ctx, d.at(ctx, from), d.at(ctx, to))
+}
+
+func (d *disk) Clone(ctx context.Context, from, to string) error {
+	if _, err := d.read(ctx, "clone", from); err != nil {
+		return err
+	}
+	pl, err := d.write(ctx, "clone", to)
+	switch {
+	case err != nil:
+		return err
+	case pl.noClones:
+		return failed("clone", to+".part", errors.ErrUnsupported)
+	case pl.cloneFull, pl.full:
+		return failed("clone", to+".part", storing.ErrNoSpace)
+	}
+	return d.base.Clone(ctx, d.at(ctx, from), d.at(ctx, to))
 }
 
 func (d *disk) Writable(ctx context.Context, dir string) (bool, error) {

@@ -208,3 +208,27 @@ var unreadReasons = enum[UnreadReason, storagev1.UnreadReason]{
 
 func (r UnreadReason) String() string               { return unreadReasons.of(r).word }
 func (r UnreadReason) Wire() storagev1.UnreadReason { return unreadReasons.of(r).wire }
+
+// Step is how a file came to be at its target: a hard link to its source,
+// a clone sharing its extents, a copy of its bytes, a rename of its source,
+// or the source itself, left where it lies.
+type Step uint8
+
+const (
+	Link Step = iota + 1
+	Clone
+	Copy
+	Rename
+	InPlace
+)
+
+var steps = enum[Step, storagev1.PlaceStep]{
+	{Link, storagev1.PlaceStep_PLACE_STEP_LINK, "link"},
+	{Clone, storagev1.PlaceStep_PLACE_STEP_CLONE, "clone"},
+	{Copy, storagev1.PlaceStep_PLACE_STEP_COPY, "copy"},
+	{Rename, storagev1.PlaceStep_PLACE_STEP_RENAME, "rename"},
+	{InPlace, storagev1.PlaceStep_PLACE_STEP_IN_PLACE, "in_place"},
+}
+
+func (s Step) String() string            { return steps.of(s).word }
+func (s Step) Wire() storagev1.PlaceStep { return steps.of(s).wire }

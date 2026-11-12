@@ -48,7 +48,7 @@ func get(t *testing.T, e *torrentclient.Engine, r releases.Release) torrentclien
 
 func payload(t *testing.T, r releases.Release) []byte {
 	t.Helper()
-	b, err := os.ReadFile(r.File)
+	b, err := os.ReadFile(r.Disk(r.Files[0]))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,6 +92,47 @@ func TestTheEngineWritesThePayloadOnTheClock(t *testing.T) {
 		}
 		if got.Folder != "/downloads/Movies" || got.Files[0] != (torrentclient.File{Path: "orchard.mkv", Size: size, Done: size}) {
 			t.Fatalf("folder %q, files %+v", got.Folder, got.Files)
+		}
+	})
+}
+
+func TestTheEngineWritesEachFileOfAPackFromItsOwnPayload(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		src := t.TempDir()
+		pack := releases.Release{Dir: src}
+		pack.Name = "Lantern.S01"
+		var payload []byte
+		var files []releases.TorrentFile
+		for _, f := range []releases.TorrentFile{{Path: "Lantern.S01E01.mkv", Size: 600}, {Path: "Extras/Lantern.nfo", Size: 400}} {
+			data := releases.Filler(f.Path, f.Size)
+			file := releases.File{Path: pack.Name + "/" + f.Path, Size: f.Size}
+			if err := os.MkdirAll(filepath.Dir(pack.Disk(file)), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(pack.Disk(file), data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			pack.Files, payload, files = append(pack.Files, file), append(payload, data...), append(files, f)
+		}
+		var err error
+		if pack.Metainfo, pack.InfoHash, err = releases.Metainfo(pack.Name, files, payload, "https://127.0.0.1/announce/faketest", false); err != nil {
+			t.Fatal(err)
+		}
+		dir := t.TempDir()
+		e := torrentclient.New(torrentclient.Config{Dir: dir, Name: "/downloads", Rate: 100, Releases: &releases.Catalog{Releases: []releases.Release{pack}}})
+		add(t, e, pack, "/downloads")
+
+		time.Sleep(7 * time.Second)
+		if got := get(t, e, pack); got.Done != 700 {
+			t.Fatalf("after 7s: done %d, want 700", got.Done)
+		}
+		episode, nfo := filepath.Join(dir, "Lantern.S01", "Lantern.S01E01.mkv"), filepath.Join(dir, "Lantern.S01", "Extras", "Lantern.nfo")
+		if !bytes.Equal(onDisk(t, episode), payload[:600]) || !bytes.Equal(onDisk(t, nfo), payload[600:700]) {
+			t.Fatal("after 7s the episode isn't its payload or the nfo doesn't hold its first 100 bytes")
+		}
+		time.Sleep(3 * time.Second)
+		if got := get(t, e, pack); got.State != torrentclient.Seeding || !bytes.Equal(onDisk(t, nfo), payload[600:]) {
+			t.Fatalf("after 10s: state %d, want seeding with the nfo whole", got.State)
 		}
 	})
 }
@@ -236,6 +277,23 @@ func TestTheEnginePlaysItsFaults(t *testing.T) {
 		e.Empty()
 		if got := e.List(nil); len(got) != 0 {
 			t.Errorf("an emptied client lists %d torrents", len(got))
+		}
+	})
+}
+
+func TestClearingAnErrorStartsTheTorrentAgain(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		e, c := engine(t, torrentclient.Config{}, "orchard")
+		r := c.Releases[0]
+		add(t, e, r, "")
+		if err := e.Fail(r.InfoHash, "No space left on device"); err != nil {
+			t.Fatal(err)
+		}
+		if err := e.Fail(r.InfoHash, ""); err != nil {
+			t.Fatal(err)
+		}
+		if got := get(t, e, r); got.State == torrentclient.Stopped || got.LocalError != "" {
+			t.Errorf("cleared: state %d, error %q, want it started again", got.State, got.LocalError)
 		}
 	})
 }

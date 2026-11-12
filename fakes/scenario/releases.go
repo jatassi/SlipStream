@@ -2,8 +2,10 @@ package scenario
 
 import (
 	"fmt"
+	"io/fs"
 	"maps"
 	"math"
+	"path"
 	"regexp"
 	"slices"
 	"strconv"
@@ -19,11 +21,14 @@ type Release struct {
 	Name string `jsonschema:"required,pattern=^[A-Za-z0-9][A-Za-z0-9._-]*$" yaml:"name"`
 	// TMDBID names a movie and TVDB an episode; a release names exactly
 	// one.
-	TMDBID  int64           `jsonschema:"minimum=1" yaml:"tmdb_id,omitempty"`
-	TVDB    *ReleaseEpisode `yaml:"tvdb,omitempty"`
-	Video   Video           `jsonschema:"required"                                     yaml:"video"`
-	Seeders int             `jsonschema:"minimum=0"                                    yaml:"seeders,omitempty"`
-	Seeded  bool            `yaml:"seeded,omitempty"`
+	TMDBID int64           `jsonschema:"minimum=1" yaml:"tmdb_id,omitempty"`
+	TVDB   *ReleaseEpisode `yaml:"tvdb,omitempty"`
+	// Video makes the release one file, <name>.mkv, and Files a folder
+	// named after it holding them in torrent order. A release has one.
+	Video   *Video        `yaml:"video,omitempty"`
+	Files   []ReleaseFile `yaml:"files,omitempty"`
+	Seeders int           `jsonschema:"minimum=0" yaml:"seeders,omitempty"`
+	Seeded  bool          `yaml:"seeded,omitempty"`
 	// AdvertisedSize is the size fixture-site lists, separate from the
 	// payload's. Zero lists the payload's.
 	AdvertisedSize Bytes `yaml:"advertised_size,omitempty"`
@@ -59,6 +64,29 @@ type Release struct {
 	// it an age. Unset gives the sites' one date, 1 June 2026.
 	Published time.Time `yaml:"published,omitempty"`
 }
+
+// ReleaseFile is one file of a release that is a folder. A file with a
+// Video is Matroska, which the process world encodes as it does a library
+// folder's file and the simulation tier probes as that encode reads. An
+// Unreadable file is bytes no probe reads, and any other file, such as an
+// nfo or a rar part, is bytes of its own that no one probes.
+type ReleaseFile struct {
+	// Path is the file's under the release's folder, '/' separated.
+	Path string `jsonschema:"required" yaml:"path"`
+	// Items are the Aired season and episode of each episode the file
+	// holds, as an import of it should read them. A movie's file and a
+	// file that isn't a video hold none.
+	Items      []TVDBNumber `yaml:"items,omitempty"`
+	Video      *MediaVideo  `yaml:"video,omitempty"`
+	Unreadable bool         `yaml:"unreadable,omitempty"`
+	// Size is how many bytes the simulation tier writes for the file, as
+	// it runs no encode. The process world writes them for a file it
+	// doesn't encode, and a video's encode has its own size.
+	Size Bytes `jsonschema:"required" yaml:"size"`
+}
+
+// Media is the video f is, which only a file with a Video has.
+func (f ReleaseFile) Media() MediaFile { return MediaFile{Path: f.Path, Video: *f.Video} }
 
 // ReleaseEpisode is the series a release is of, by TVDB id, and the
 // Aired season and episode fixture-site lists it under, which its name
@@ -270,12 +298,13 @@ func checkReleases(add func(format string, args ...any), releases []Release, mov
 			add("release %s is listed twice", r.Name)
 		}
 		r.checkSubject(add, movies, series)
-		v := r.Video
-		if v.Width < 2 || v.Width > 7680 || v.Height < 2 || v.Height > 4320 || v.Width%2 != 0 || v.Height%2 != 0 {
-			add("release %s video is %dx%d; width and height are even, up to 7680x4320", r.Name, v.Width, v.Height)
-		}
-		if v.Seconds < 1 || v.Seconds > 60 {
-			add("release %s video lasts %d seconds; it lasts 1 to 60", r.Name, v.Seconds)
+		switch {
+		case (r.Video == nil) == (len(r.Files) == 0):
+			add("release %s has a video and files, or neither; it has one", r.Name)
+		case r.Video != nil:
+			r.Video.check(add, r.Name)
+		default:
+			r.checkFiles(add, series)
 		}
 		if r.Seeders < 0 {
 			add("release %s has %d seeders", r.Name, r.Seeders)
@@ -291,6 +320,69 @@ func checkReleases(add func(format string, args ...any), releases []Release, mov
 			}
 		}
 	}
+}
+
+func (v Video) check(add func(format string, args ...any), release string) {
+	if v.Width < 2 || v.Width > 7680 || v.Height < 2 || v.Height > 4320 || v.Width%2 != 0 || v.Height%2 != 0 {
+		add("release %s video is %dx%d; width and height are even, up to 7680x4320", release, v.Width, v.Height)
+	}
+	if v.Seconds < 1 || v.Seconds > 60 {
+		add("release %s video lasts %d seconds; it lasts 1 to 60", release, v.Seconds)
+	}
+}
+
+// checkFiles holds r's files to distinct portable paths, each a video, an
+// unreadable file or neither, holding episodes only of r's series that
+// its series lists.
+func (r Release) checkFiles(add func(format string, args ...any), series *TVDB) {
+	var paths []string
+	for _, f := range r.Files {
+		at := "release " + r.Name + " file " + f.Path
+		switch {
+		case !fs.ValidPath(f.Path) || f.Path == "." || strings.ContainsAny(f.Path, unportable):
+			add("%s is not a relative path of '/' separated names without %s", at, unportable)
+		case slices.Contains(paths, strings.ToLower(f.Path)):
+			add("%s is listed twice", at)
+		}
+		paths = append(paths, strings.ToLower(f.Path))
+		if f.Size < 1 {
+			add("%s has no size; the simulation tier writes its bytes", at)
+		}
+		switch {
+		case f.Video != nil && f.Unreadable:
+			add("%s is a video and unreadable; it is one", at)
+		case f.Video != nil && path.Ext(f.Path) != ".mkv":
+			add("%s is a video and not a .mkv file", at)
+		case f.Video != nil:
+			f.Media().check(add, at)
+		}
+		r.checkItems(add, at, f.Items, series)
+	}
+}
+
+func (r Release) checkItems(add func(format string, args ...any), at string, items []TVDBNumber, series *TVDB) {
+	if len(items) > 0 && r.TVDB == nil {
+		add("%s holds episodes, and its release is a movie's", at)
+		return
+	}
+	if len(items) == 0 || series == nil {
+		return
+	}
+	i := slices.IndexFunc(series.Series, func(s TVDBSeries) bool { return s.ID == r.TVDB.Series })
+	if i < 0 {
+		return
+	}
+	for _, it := range items {
+		if !series.Series[i].airs(it) {
+			add("%s holds season %d episode %d, which tvdb series %d does not list", at, it.Season, it.Episode, r.TVDB.Series)
+		}
+	}
+}
+
+func (s TVDBSeries) airs(n TVDBNumber) bool {
+	return slices.ContainsFunc(s.Seasons, func(season TVDBSeason) bool {
+		return season.Number == n.Season && slices.ContainsFunc(season.Episodes, func(e TVDBEpisode) bool { return e.Number == n.Episode })
+	})
 }
 
 // checkPeers holds r to peers fake-tracker can serve: a bad peer it

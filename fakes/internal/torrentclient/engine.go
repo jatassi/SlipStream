@@ -125,7 +125,8 @@ type Engine struct {
 
 type torrent struct {
 	Torrent
-	payload string
+	// payload is the catalog's file of each of its Files.
+	payload []string
 	written int64
 	stalled bool
 	hidden  time.Time
@@ -171,7 +172,9 @@ func (e *Engine) Add(metainfo []byte, folder string, labels []string, paused boo
 		added.Size += f.Length
 	}
 	if r, ok := e.cfg.Releases.ByInfoHash(m.InfoHash); ok {
-		added.payload = r.File
+		for _, f := range r.Files {
+			added.payload = append(added.payload, r.Disk(f))
+		}
 	}
 	if paused {
 		added.State = Stopped
@@ -293,12 +296,15 @@ func (e *Engine) Stall(h bencode.InfoHash, on bool) error {
 }
 
 // Fail gives a torrent a local error, such as a full disk, and stops it.
-// "" clears the error and leaves the torrent stopped.
+// "" clears the error and starts the torrent again, as a client does once
+// its disk has room.
 func (e *Engine) Fail(h bencode.InfoHash, message string) error {
 	return e.change(h, func(t *torrent) {
-		t.LocalError = message
-		if message != "" {
-			t.State = Stopped
+		switch {
+		case message != "":
+			t.LocalError, t.State = message, Stopped
+		case t.LocalError != "":
+			t.LocalError, t.State = "", Downloading
 		}
 	})
 }
@@ -391,7 +397,7 @@ func (e *Engine) checking(t *torrent) bool { return t.checked.After(e.at) }
 
 // moving is a torrent whose data flows: one with a payload that isn't
 // stalled.
-func (e *Engine) moving(t *torrent) bool { return t.payload != "" && !t.stalled }
+func (e *Engine) moving(t *torrent) bool { return t.payload != nil && !t.stalled }
 
 // settle puts each started torrent in its state: seeding once complete,
 // downloading in the first Slots of the incomplete ones, queued after.
@@ -527,16 +533,11 @@ func (e *Engine) write(t *torrent) error {
 	if !ok {
 		return fmt.Errorf("no such file or directory (%s)", t.Folder)
 	}
-	src, err := os.Open(t.payload)
-	if err != nil {
-		return fmt.Errorf("open the payload: %w", err)
-	}
-	defer func() { _ = src.Close() }()
 	at := int64(0)
-	for _, f := range t.Files {
+	for i, f := range t.Files {
 		from, to := max(t.written, at), min(t.Done, at+f.Size)
 		if from < to {
-			if err := copyRange(src, filepath.Join(dir, filepath.FromSlash(f.Path)), from, at, to-from); err != nil {
+			if err := copyRange(t.payload[i], filepath.Join(dir, filepath.FromSlash(f.Path)), from-at, to-from); err != nil {
 				return err
 			}
 		}
@@ -546,9 +547,14 @@ func (e *Engine) write(t *torrent) error {
 	return nil
 }
 
-// copyRange copies n bytes of src from offset into the file at name,
-// whose first byte is src's byte start.
-func copyRange(src io.ReaderAt, name string, offset, start, n int64) error {
+// copyRange copies n bytes from offset of the file at from into the file
+// at name, at the same offset.
+func copyRange(from, name string, offset, n int64) error {
+	src, err := os.Open(from)
+	if err != nil {
+		return fmt.Errorf("open the payload: %w", err)
+	}
+	defer func() { _ = src.Close() }()
 	if err := os.MkdirAll(filepath.Dir(name), 0o750); err != nil {
 		return fmt.Errorf("make the folder: %w", err)
 	}
@@ -556,7 +562,7 @@ func copyRange(src io.ReaderAt, name string, offset, start, n int64) error {
 	if err != nil {
 		return fmt.Errorf("open the file: %w", err)
 	}
-	_, err = io.Copy(io.NewOffsetWriter(dst, offset-start), io.NewSectionReader(src, offset, n))
+	_, err = io.Copy(io.NewOffsetWriter(dst, offset), io.NewSectionReader(src, offset, n))
 	if closeErr := dst.Close(); err == nil {
 		err = closeErr
 	}

@@ -329,6 +329,29 @@
           },
           "blake3": {
             "type": "string"
+          },
+          "files": {
+            "items": {
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "size": {
+                  "type": "integer"
+                },
+                "blake3": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "path",
+                "size",
+                "blake3"
+              ]
+            },
+            "type": "array"
           }
         },
         "additionalProperties": false,
@@ -337,7 +360,8 @@
           "name",
           "infoHash",
           "size",
-          "blake3"
+          "blake3",
+          "files"
         ]
       },
       "type": "array"

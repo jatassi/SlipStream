@@ -143,7 +143,7 @@ func TestBytesGoThroughTheRootsNode(t *testing.T) {
 		t.Fatalf("Remove of a file already gone = %v, want fs.ErrNotExist", err)
 	}
 	placed := rel("Orchard/Orchard.mkv")
-	if p, err := svc.Place(ctx, root.ID, placed, storing.Payload{}); err != nil || p.Size != 7 {
+	if p, err := svc.Place(ctx, root.ID, placed, storing.Payload{}, true); err != nil || p.Size != 7 {
 		t.Fatalf("Place = %+v, %v; want the download's 7 bytes", p, err)
 	}
 	if b, err := os.ReadFile(filepath.Join(folder, "Orchard", "Orchard.mkv")); err != nil || string(b) != "orchard" {

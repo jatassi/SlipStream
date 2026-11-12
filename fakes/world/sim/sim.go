@@ -218,6 +218,9 @@ func (w *World) Manifest() world.Manifest {
 	}
 	if w.walk != nil {
 		m.MediaDir = w.walk.mediaDir
+		for _, rel := range w.walk.catalog.Releases {
+			m.Releases = append(m.Releases, setup.ReleaseEntry(rel))
+		}
 	}
 	if a := w.scenario.Admin; a != nil {
 		m.Admin = &world.Admin{Email: a.Email, DisplayName: a.DisplayName, PIN: a.PIN}

@@ -142,3 +142,32 @@ func readMountinfo() ([]Mount, error) {
 	}
 	return parseMountinfo(bytes.NewReader(b))
 }
+
+// Clone clones from into to+".part" with FICLONE, syncs it and renames it
+// to to.
+func (OSDisk) Clone(_ context.Context, from, to string) error {
+	src, err := os.Open(from) //nolint:gosec // a payload or library path the Store resolved
+	if err != nil {
+		return err //nolint:wrapcheck // a PathError names the call and the path
+	}
+	defer func() { _ = src.Close() }()
+	part := to + ".part"
+	dst, err := os.Create(part) //nolint:gosec // beside a target the Store resolved
+	if err != nil {
+		return err //nolint:wrapcheck // a PathError names the call and the path
+	}
+	err = unix.IoctlFileClone(int(dst.Fd()), int(src.Fd()))
+	if err != nil {
+		err = cloneError("ficlone", part, err)
+	} else {
+		err = dst.Sync()
+	}
+	if closeErr := dst.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		_ = os.Remove(part)
+		return err
+	}
+	return os.Rename(part, to) //nolint:wrapcheck // a LinkError names the call and both paths
+}

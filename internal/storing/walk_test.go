@@ -333,7 +333,7 @@ func TestAPlacedFileReadsAsTheNextWalkReadsIt(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		p := newPlacing(t, false)
 		holding := mustRel(t, HoldingDir+"/0190.mkv")
-		if _, err := p.remote.Place(t.Context(), p.at, p.payload(), holding); err != nil {
+		if _, err := p.remote.Place(t.Context(), p.at, p.payload(), holding, true); err != nil {
 			t.Fatal(err)
 		}
 		moved, err := p.remote.Move(t.Context(), p.at, holding, mustRel(t, "Heat (1995)/Heat (1995).mkv"), false)

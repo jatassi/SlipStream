@@ -127,7 +127,7 @@ func (b *Builder) commands(c Capture) []byte {
 		fmt.Fprintf(&s, "# has only streams[1].profile set by hand to %q, the string the bundled ffprobe prints for it:\n", c.Atmos)
 		s.WriteString("# strings ffprobe | grep Atmos  ->  Dolby Digital Plus + Dolby Atmos, Dolby TrueHD + Dolby Atmos\n")
 	}
-	r := recipeOf(c.Name, c.File)
+	r := recipeOf(c.Name, c.File, "")
 	for _, f := range r.files {
 		fmt.Fprintf(&s, "cat > %s <<'EOF'\n%sEOF\n", f.name, f.text)
 	}

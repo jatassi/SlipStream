@@ -58,7 +58,7 @@ func attachRelease(t *testing.T, lib *storage.DB[storage.Library], swarm *engine
 	for i := len(name); i < len(payload); i++ {
 		payload[i] = byte(i % 251)
 	}
-	raw, hash, err := releases.Metainfo(name, payload, idleTracker, false)
+	raw, hash, err := releases.Metainfo(name, nil, payload, idleTracker, false)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -26,6 +26,9 @@ func TestDiskFaultGrammarRoundTrips(t *testing.T) {
 		{fault.ReadOnly{}, "readonly"},
 		{fault.FoldCase{}, "foldcase"},
 		{fault.NoIDs{}, "noids"},
+		{fault.NoLinks{}, "nolinks"},
+		{fault.NoClones{}, "noclones"},
+		{fault.CloneFull{}, "clonefull"},
 		{fault.Volume{Total: 10 << 30, Free: 1536 << 20}, "volume=10GiB,free=1536MiB"},
 		{fault.Volume{Total: 1 << 40, Free: 0}, "volume=1024GiB,free=0B"},
 	} {
@@ -113,6 +116,7 @@ func TestDiskFaultsPlayOnCue(t *testing.T) {
 	t.Run("volume and full", playsVolumeAndFull)
 	t.Run("foldcase", playsFoldCase)
 	t.Run("noids", playsNoIDs)
+	t.Run("nolinks, noclones and clonefull", playsTheLadderFaults)
 	t.Run("hung", func(t *testing.T) { synctest.Test(t, playsHung) })
 	t.Run("on an open writer", playsOnAnOpenWriter)
 	t.Run("on an open reader", playsOnAnOpenReader)
@@ -277,6 +281,9 @@ func playsVolumeAndFull(t *testing.T) {
 	if err := c.d.Mkdir(c.ctx, filepath.Join(c.folder, "season")); !storing.NoSpace(err) {
 		t.Fatalf("Mkdir on a full volume = %v, want no space", err)
 	}
+	if err := c.d.Mkdir(c.ctx, c.folder); !errors.Is(err, fs.ErrExist) {
+		t.Fatalf("Mkdir of a folder there on a full volume = %v, want exists", err)
+	}
 	lift()
 	if err := c.d.Mkdir(c.ctx, filepath.Join(c.folder, "season")); err != nil {
 		t.Fatalf("Mkdir once the volume has room = %v", err)
@@ -379,5 +386,35 @@ func playsNoIDs(t *testing.T) {
 	}
 	if info, err := c.d.Stat(c.ctx, c.sibling); err != nil || info.FileID() == nil {
 		t.Fatalf("Stat of a sibling = %v, %v; want its id", info, err)
+	}
+}
+
+func playsTheLadderFaults(t *testing.T) {
+	c := newCued(t)
+	from := filepath.Join(c.sibling, "download.mkv")
+	if err := os.WriteFile(from, []byte("film"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	into := func(name string) string { return filepath.Join(c.folder, name) }
+	c.cue(fault.NoLinks{})
+	if err := c.d.Link(c.ctx, from, into("linked.mkv")); !errors.Is(err, storing.ErrCrossDevice) {
+		t.Fatalf("Link into a nolinks folder = %v, want the cross-device errno", err)
+	}
+	if err := c.d.Link(c.ctx, from, filepath.Join(c.sibling, "linked.mkv")); err != nil {
+		t.Fatalf("Link beside it = %v, want a link", err)
+	}
+	lift := c.cue(fault.NoClones{})
+	if err := c.d.Clone(c.ctx, from, into("cloned.mkv")); !errors.Is(err, errors.ErrUnsupported) {
+		t.Fatalf("Clone into a noclones folder = %v, want ErrUnsupported", err)
+	}
+	lift()
+	c.cue(fault.CloneFull{})
+	if err := c.d.Clone(c.ctx, from, into("cloned.mkv")); !storing.NoSpace(err) {
+		t.Fatalf("Clone into a clonefull folder = %v, want the disk-full errno", err)
+	}
+	for _, name := range []string{"linked.mkv", "cloned.mkv", "cloned.mkv.part"} {
+		if _, err := os.Stat(into(name)); !errors.Is(err, fs.ErrNotExist) {
+			t.Errorf("%s is in the folder after its fault: %v", name, err)
+		}
 	}
 }

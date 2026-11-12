@@ -1,15 +1,17 @@
 package sim
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"log/slog"
-	"math/rand/v2"
+	"maps"
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/zeebo/blake3"
 
 	"github.com/jatassi/slipstream/fakes/events"
 	"github.com/jatassi/slipstream/fakes/fake"
@@ -36,8 +38,8 @@ import (
 	"github.com/jatassi/slipstream/internal/transfers"
 )
 
-// PayloadSize is each release payload's size in the walk: five Transfer
-// chunks, the last one short.
+// PayloadSize is the payload's size of a release of one video in the
+// walk: five Transfer chunks, the last one short.
 const PayloadSize = 4*transfers.ChunkSize + transfers.ChunkSize/2
 
 // WithWalk runs the skeleton's walk on a Scenario with releases and a
@@ -59,13 +61,9 @@ func Edit(edit func(name string, e *node.Env)) Option {
 	return func(o *options) { o.edits = append(o.edits, edit) }
 }
 
-// Payload is the release's payload in the walk: PayloadSize bytes that
-// depend only on its name.
-func Payload(release string) []byte {
-	b := make([]byte, PayloadSize)
-	_, _ = rand.NewChaCha8(sha256.Sum256([]byte(release))).Read(b)
-	return b
-}
+// Payload is the payload of a release of one video in the walk:
+// PayloadSize bytes that depend only on its name.
+func Payload(release string) []byte { return releases.Filler(release, PayloadSize) }
 
 type walk struct {
 	faults   *fault.Plan
@@ -78,7 +76,11 @@ type walk struct {
 	// metadata to a magnet link.
 	served []bencode.Metainfo
 	hashes map[string]bencode.InfoHash
-	probes map[string]media.Record
+	// catalog is the releases the fake Download Clients serve.
+	catalog *releases.Catalog
+	probes  map[string]media.Record
+	// fails are the probes that answer unreadable, by the same keys.
+	fails map[string]string
 	// clients is where each Node reaches the fake Download Client of each
 	// kind, and the folder that client downloads into, by Node then kind.
 	clients map[string]map[string]clientAt
@@ -97,26 +99,24 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 		payloads: map[bencode.InfoHash][]byte{},
 		hashes:   map[string]bencode.InfoHash{},
 		probes:   map[string]media.Record{},
+		fails:    map[string]string{},
 		clients:  map[string]map[string]clientAt{},
 		envs:     map[string]fake.Env{},
 	}
 	imdb := imdbIDs(s)
 	w.announce = siteAnnounces(s)
-	announce := "https://127.0.0.1/announce/" + releases.Passkey(s, releases.Seeders)
 	var listing []site.Release
 	catalog := &releases.Catalog{}
+	w.catalog = catalog
 	for _, r := range s.Releases {
-		payload := Payload(r.Name)
-		meta, hash, err := releases.Metainfo(r.Name+".mkv", payload, announce, r.Public)
+		payload, meta, hash, err := torrent(s, r)
 		if err != nil {
 			t.Fatal(err)
 		}
 		w.hashes[r.Name] = hash
-		file := filepath.Join(base, r.Name+".mkv")
-		if err := os.WriteFile(file, payload, 0o600); err != nil {
-			t.Fatal(err)
-		}
-		catalog.Releases = append(catalog.Releases, releases.Release{Release: r, Dir: base, File: file, Size: int64(len(payload)), Metainfo: meta, InfoHash: hash})
+		rel := releases.Release{Release: r, Dir: base, Size: int64(len(payload)), BLAKE3: blake3.Sum256(payload), Metainfo: meta, InfoHash: hash}
+		writePayload(t, &rel)
+		catalog.Releases = append(catalog.Releases, rel)
 		if r.Seeded {
 			w.payloads[hash] = payload
 		}
@@ -127,10 +127,10 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 			}
 			w.served = append(w.served, m)
 		}
-		w.probes[r.Name+".mkv"] = media.Record{
-			Version: media.Version, Container: "matroska,webm", Duration: time.Duration(r.Video.Seconds) * time.Second, Video: media.Video{Codec: "h264", Width: r.Video.Width, Height: r.Video.Height},
-		}
-		size := int64(PayloadSize)
+		probes := releaseProbes(r)
+		maps.Copy(w.probes, probes.Of)
+		maps.Copy(w.fails, probes.Fail)
+		size := int64(len(payload))
 		if r.AdvertisedSize > 0 {
 			size = int64(r.AdvertisedSize)
 		}
@@ -158,6 +158,86 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 	site.Fake.Endpoints(endpoints, w.site)
 	w.serveClients(t, s, local, fakes, catalog, filepath.Join(base, "fakes"), log)
 	return w
+}
+
+// torrent is r's payload in the walk, its files back to back, and its
+// torrent, which announces as fixture-seeders.
+func torrent(s scenario.Scenario, r scenario.Release) (payload, meta []byte, hash bencode.InfoHash, err error) {
+	name, files := r.Name, []releases.TorrentFile(nil)
+	if r.Video != nil {
+		name += ".mkv"
+	}
+	for _, f := range payloadFiles(r) {
+		payload = append(payload, f.data...)
+		if r.Video == nil {
+			files = append(files, releases.TorrentFile{Path: strings.TrimPrefix(f.path, r.Name+"/"), Size: int64(len(f.data))})
+		}
+	}
+	meta, hash, err = releases.Metainfo(name, files, payload, "https://127.0.0.1/announce/"+releases.Passkey(s, releases.Seeders), r.Public)
+	return payload, meta, hash, err
+}
+
+// writePayload writes rel's payload files under its Dir, as a seeder's
+// save path holds them, and lists them in rel.
+func writePayload(t *testing.T, rel *releases.Release) {
+	t.Helper()
+	for _, f := range payloadFiles(rel.Release) {
+		file := releases.File{Path: f.path, Size: int64(len(f.data)), BLAKE3: blake3.Sum256(f.data)}
+		if err := os.MkdirAll(filepath.Dir(rel.Disk(file)), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(rel.Disk(file), f.data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		rel.Files = append(rel.Files, file)
+	}
+}
+
+type payloadFile struct {
+	// path is the file's in the torrent, '/' separated.
+	path string
+	data []byte
+}
+
+// payloadFiles are r's payload files in the walk: Payload as <name>.mkv
+// for a release of one video, else each file's Size bytes of its own
+// under a <name> folder.
+func payloadFiles(r scenario.Release) []payloadFile {
+	if r.Video != nil {
+		return []payloadFile{{r.Name + ".mkv", Payload(r.Name)}}
+	}
+	out := make([]payloadFile, len(r.Files))
+	for i, f := range r.Files {
+		at := r.Name + "/" + f.Path
+		out[i] = payloadFile{at, releases.Filler(at, int64(f.Size))}
+	}
+	return out
+}
+
+// unreadableLine is what ffprobe says of bytes that are no media file.
+const unreadableLine = "Invalid data found when processing input"
+
+// releaseProbes is how a Node probes r's videos in the walk, keyed by
+// their paths in its torrent, as the process world's encodes read: a
+// release of one video at its size, and each video of a release of files
+// as the library folder file it is. An unreadable file fails.
+func releaseProbes(r scenario.Release) mediatest.Prober {
+	p := mediatest.Prober{Of: map[string]media.Record{}, Fail: map[string]string{}}
+	if r.Video != nil {
+		p.Of[r.Name+".mkv"] = media.Record{
+			Version: media.Version, Container: "matroska,webm", Duration: time.Duration(r.Video.Seconds) * time.Second, Video: media.Video{Codec: "h264", Width: r.Video.Width, Height: r.Video.Height},
+		}
+	}
+	for _, f := range r.Files {
+		at := r.Name + "/" + f.Path
+		switch {
+		case f.Video != nil:
+			p.Of[at] = mediafix.Want(f.Media())
+		case f.Unreadable:
+			p.Fail[at] = unreadableLine
+		}
+	}
+	return p
 }
 
 // writeFolders writes each file of the Scenario's library folders under
@@ -327,5 +407,5 @@ func (w *walk) env(n *Node, e *node.Env) {
 		n.mu.Unlock()
 		return swarm.Open(cfg)
 	}
-	e.Media = mediatest.Prober{Of: w.probes}
+	e.Media = mediatest.Prober{Of: w.probes, Fail: w.fails}
 }

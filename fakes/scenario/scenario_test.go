@@ -30,8 +30,8 @@ func singleMachine() Scenario {
 
 func quietOrchardReleases() []Release {
 	return []Release{
-		{Name: "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW", TMDBID: 9000001, Video: Video{Width: 1920, Height: 1080, Seconds: 6}, Seeders: 12, Seeded: true, AdvertisedSize: 8804682957},
-		{Name: "The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW", TMDBID: 9000001, Video: Video{Width: 1280, Height: 720, Seconds: 6}, Seeders: 40, AdvertisedSize: 4724464026},
+		{Name: "The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW", TMDBID: 9000001, Video: &Video{Width: 1920, Height: 1080, Seconds: 6}, Seeders: 12, Seeded: true, AdvertisedSize: 8804682957},
+		{Name: "The.Quiet.Orchard.2021.720p.WEB-DL.H264-FKW", TMDBID: 9000001, Video: &Video{Width: 1280, Height: 720, Seconds: 6}, Seeders: 40, AdvertisedSize: 4724464026},
 	}
 }
 
@@ -143,7 +143,7 @@ func shelfSeries() *TVDB {
 
 func TestLoadRefusesANameOutsideTheCatalog(t *testing.T) {
 	_, err := Load("office")
-	if want := "scenario office is not in the catalog (catalog-sites, cgnat-home, external-clients, external-kinds, first-run, home, indexers, low-space, magnets, manual-search, movies, music, ported-sites, scale, seedbox-nas, seeding-routing, seeding, series-scale, series, serving, showcase, single-machine, sizes, targets, torrents)"; err == nil || err.Error() != want {
+	if want := "scenario office is not in the catalog (catalog-sites, cgnat-home, external-clients, external-kinds, first-run, home, indexers, low-space, magnets, manual-search, movies, music, packs, ported-sites, scale, seedbox-nas, seeding-routing, seeding, series-scale, series, serving, showcase, single-machine, sizes, targets, torrents)"; err == nil || err.Error() != want {
 		t.Fatalf("err = %v, want %s", err, want)
 	}
 }
