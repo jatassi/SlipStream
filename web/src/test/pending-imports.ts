@@ -1,10 +1,10 @@
 import type {
-  ImportsEntry,
   ImportsLead,
   ImportsRootLabel,
   WorksCandidate,
   WorksContentType,
 } from "../api/gen/model";
+import type { RootEntry, RootFile } from "../imports/root-entry";
 import { cinema, orchard } from "./library";
 
 /** A many-Item type with seasons and an episode code, as a series type reads. */
@@ -47,14 +47,23 @@ export const showsShelf: ImportsRootLabel = {
 
 const gib = 1024 ** 3;
 
-const entryOf = (
-  entry: Pick<ImportsEntry, "id" | "root" | "folder" | "hint" | "files"> & Partial<ImportsEntry>,
-): ImportsEntry => ({
+type FixtureFile = Omit<RootFile, "position" | "outcome">;
+
+/** A root Import whose files wait at positions in the order given. */
+const entryOf = ({
+  files,
+  ...entry
+}: Pick<RootEntry, "id" | "root" | "folder" | "hint"> &
+  Partial<Omit<RootEntry, "files">> & { files: FixtureFile[] }): RootEntry => ({
+  source: "root",
+  stage: "waiting",
   contentType: cinema.id,
   suggestion: null,
-  foundAt: "2026-11-07T03:12:00Z",
+  createdAt: "2026-11-07T03:12:00Z",
   ignoredAt: null,
+  finishedAt: null,
   ...entry,
+  files: files.map((file, position) => ({ ...file, position, outcome: "waiting" })),
 });
 
 export const halloween = entryOf({

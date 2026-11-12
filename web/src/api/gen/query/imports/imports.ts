@@ -16,53 +16,51 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
-  AddPendingImports401,
-  AddPendingImports403,
-  AddPendingImports409,
-  AddPendingImports422,
-  AddPendingImports500,
+  ActOnRootImport401,
+  ActOnRootImport403,
+  ActOnRootImport404,
+  ActOnRootImport409,
+  ActOnRootImport422,
+  ActOnRootImport500,
+  ActOnRootImport502,
+  AddRootImports401,
+  AddRootImports403,
+  AddRootImports409,
+  AddRootImports422,
+  AddRootImports500,
+  GetImport401,
+  GetImport403,
+  GetImport404,
+  GetImport409,
+  GetImport422,
+  GetImport500,
   GetLibraryScanSettings401,
   GetLibraryScanSettings403,
   GetLibraryScanSettings409,
   GetLibraryScanSettings500,
-  IgnorePendingImports401,
-  IgnorePendingImports403,
-  IgnorePendingImports409,
-  IgnorePendingImports422,
-  IgnorePendingImports500,
-  ImportIntoInputBody,
-  ImportPendingInto401,
-  ImportPendingInto403,
-  ImportPendingInto404,
-  ImportPendingInto409,
-  ImportPendingInto422,
-  ImportPendingInto500,
+  IgnoreImports401,
+  IgnoreImports403,
+  IgnoreImports409,
+  IgnoreImports422,
+  IgnoreImports500,
+  ImportIDsInputBody,
   ImportsAddedList,
-  ImportsEntry,
-  ImportsImported,
+  ImportsImportEntry,
   ImportsList,
+  ImportsRootAction,
   ImportsSettings,
   LibraryScanSettingsInputBody,
-  ListPendingImports401,
-  ListPendingImports403,
-  ListPendingImports409,
-  ListPendingImports422,
-  ListPendingImports500,
-  ListPendingImportsParams,
-  MatchPendingImport401,
-  MatchPendingImport403,
-  MatchPendingImport404,
-  MatchPendingImport409,
-  MatchPendingImport422,
-  MatchPendingImport500,
-  MatchPendingImport502,
-  MatchPendingInputBody,
-  PendingIDsInputBody,
-  UnignorePendingImports401,
-  UnignorePendingImports403,
-  UnignorePendingImports409,
-  UnignorePendingImports422,
-  UnignorePendingImports500,
+  ListImports401,
+  ListImports403,
+  ListImports409,
+  ListImports422,
+  ListImports500,
+  ListImportsParams,
+  UnignoreImports401,
+  UnignoreImports403,
+  UnignoreImports409,
+  UnignoreImports422,
+  UnignoreImports500,
   UpdateLibraryScanSettings401,
   UpdateLibraryScanSettings403,
   UpdateLibraryScanSettings409,
@@ -90,7 +88,7 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
-export const getListPendingImportsUrl = (params?: ListPendingImportsParams) => {
+export const getListImportsUrl = (params?: ListImportsParams) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -101,156 +99,126 @@ export const getListPendingImportsUrl = (params?: ListPendingImportsParams) => {
 
   const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0
-    ? `/api/v1/imports/pending?${stringifiedParams}`
-    : `/api/v1/imports/pending`;
+  return stringifiedParams.length > 0 ? `/api/v1/imports?${stringifiedParams}` : `/api/v1/imports`;
 };
 
 /**
- * @summary List the pending imports, with what each root's last library scan added
+ * @summary List the unfinished Imports, with what each root's last library scan added
  */
-export const listPendingImports = async (
-  params?: ListPendingImportsParams,
+export const listImports = async (
+  params?: ListImportsParams,
   options?: Parameters<typeof apiFetch>[1],
 ): Promise<ImportsList> => {
-  return apiFetch<ImportsList>(getListPendingImportsUrl(params), {
+  return apiFetch<ImportsList>(getListImportsUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getListPendingImportsQueryKey = (params?: ListPendingImportsParams) => {
-  return [`/api/v1/imports/pending`, ...(params ? [params] : [])] as const;
+export const getListImportsQueryKey = (params?: ListImportsParams) => {
+  return [`/api/v1/imports`, ...(params ? [params] : [])] as const;
 };
 
-export const getListPendingImportsSuspenseQueryOptions = <
-  TData = Awaited<ReturnType<typeof listPendingImports>>,
+export const getListImportsSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listImports>>,
   TError = ErrorType<
-    | ListPendingImports401
-    | ListPendingImports403
-    | ListPendingImports409
-    | ListPendingImports422
-    | ListPendingImports500
+    ListImports401 | ListImports403 | ListImports409 | ListImports422 | ListImports500
   >,
 >(
-  params?: ListPendingImportsParams,
+  params?: ListImportsParams,
   options?: {
     query?: Partial<
-      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listPendingImports>>, TError, TData>
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listImports>>, TError, TData>
     >;
     request?: SecondParameter<typeof apiFetch>;
   },
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListPendingImportsQueryKey(params);
+  const queryKey = queryOptions?.queryKey ?? getListImportsQueryKey(params);
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listPendingImports>>> = ({ signal }) =>
-    listPendingImports(params, { signal, ...requestOptions });
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listImports>>> = ({ signal }) =>
+    listImports(params, { signal, ...requestOptions });
 
   return queryOptionsBuilder({
     queryKey,
     ...queryOptions,
     queryFn: queryOptions?.queryFn ?? queryFn,
-  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listPendingImports>>, TError, TData> & {
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listImports>>, TError, TData> & {
     queryKey: DataTag<QueryKey, TData, TError>;
   } & {
     throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
   };
 };
 
-export type ListPendingImportsSuspenseQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listPendingImports>>
->;
-export type ListPendingImportsSuspenseQueryError = ErrorType<
-  | ListPendingImports401
-  | ListPendingImports403
-  | ListPendingImports409
-  | ListPendingImports422
-  | ListPendingImports500
+export type ListImportsSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof listImports>>>;
+export type ListImportsSuspenseQueryError = ErrorType<
+  ListImports401 | ListImports403 | ListImports409 | ListImports422 | ListImports500
 >;
 
-export function useListPendingImportsSuspense<
-  TData = Awaited<ReturnType<typeof listPendingImports>>,
+export function useListImportsSuspense<
+  TData = Awaited<ReturnType<typeof listImports>>,
   TError = ErrorType<
-    | ListPendingImports401
-    | ListPendingImports403
-    | ListPendingImports409
-    | ListPendingImports422
-    | ListPendingImports500
+    ListImports401 | ListImports403 | ListImports409 | ListImports422 | ListImports500
   >,
 >(
-  params: undefined | ListPendingImportsParams,
+  params: undefined | ListImportsParams,
   options: {
-    query: Partial<
-      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listPendingImports>>, TError, TData>
+    query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listImports>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListImportsSuspense<
+  TData = Awaited<ReturnType<typeof listImports>>,
+  TError = ErrorType<
+    ListImports401 | ListImports403 | ListImports409 | ListImports422 | ListImports500
+  >,
+>(
+  params?: ListImportsParams,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listImports>>, TError, TData>
     >;
     request?: SecondParameter<typeof apiFetch>;
   },
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-export function useListPendingImportsSuspense<
-  TData = Awaited<ReturnType<typeof listPendingImports>>,
+export function useListImportsSuspense<
+  TData = Awaited<ReturnType<typeof listImports>>,
   TError = ErrorType<
-    | ListPendingImports401
-    | ListPendingImports403
-    | ListPendingImports409
-    | ListPendingImports422
-    | ListPendingImports500
+    ListImports401 | ListImports403 | ListImports409 | ListImports422 | ListImports500
   >,
 >(
-  params?: ListPendingImportsParams,
+  params?: ListImportsParams,
   options?: {
     query?: Partial<
-      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listPendingImports>>, TError, TData>
-    >;
-    request?: SecondParameter<typeof apiFetch>;
-  },
-  queryClient?: QueryClient,
-): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-export function useListPendingImportsSuspense<
-  TData = Awaited<ReturnType<typeof listPendingImports>>,
-  TError = ErrorType<
-    | ListPendingImports401
-    | ListPendingImports403
-    | ListPendingImports409
-    | ListPendingImports422
-    | ListPendingImports500
-  >,
->(
-  params?: ListPendingImportsParams,
-  options?: {
-    query?: Partial<
-      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listPendingImports>>, TError, TData>
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listImports>>, TError, TData>
     >;
     request?: SecondParameter<typeof apiFetch>;
   },
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary List the pending imports, with what each root's last library scan added
+ * @summary List the unfinished Imports, with what each root's last library scan added
  */
 
-export function useListPendingImportsSuspense<
-  TData = Awaited<ReturnType<typeof listPendingImports>>,
+export function useListImportsSuspense<
+  TData = Awaited<ReturnType<typeof listImports>>,
   TError = ErrorType<
-    | ListPendingImports401
-    | ListPendingImports403
-    | ListPendingImports409
-    | ListPendingImports422
-    | ListPendingImports500
+    ListImports401 | ListImports403 | ListImports409 | ListImports422 | ListImports500
   >,
 >(
-  params?: ListPendingImportsParams,
+  params?: ListImportsParams,
   options?: {
     query?: Partial<
-      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listPendingImports>>, TError, TData>
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof listImports>>, TError, TData>
     >;
     request?: SecondParameter<typeof apiFetch>;
   },
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-  const queryOptions = getListPendingImportsSuspenseQueryOptions(params, options);
+  const queryOptions = getListImportsSuspenseQueryOptions(params, options);
 
   const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
     TData,
@@ -260,15 +228,15 @@ export function useListPendingImportsSuspense<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
-export const getAddPendingImportsUrl = () => {
-  return `/api/v1/imports/pending/add`;
+export const getAddRootImportsUrl = () => {
+  return `/api/v1/imports/add`;
 };
 
 /**
- * @summary Add each pending import's suggested Work to its root and attach its files
+ * @summary Add each root Import's suggested Work to its root and attach its files
  */
-export const addPendingImports = async (
-  pendingIDsInputBody: PendingIDsInputBody,
+export const addRootImports = async (
+  importIDsInputBody: ImportIDsInputBody,
   options?: Parameters<typeof apiFetch>[1],
 ): Promise<ImportsAddedList> => {
   const getHeaders = (
@@ -290,40 +258,40 @@ export const addPendingImports = async (
     }
     return headers;
   };
-  return apiFetch<ImportsAddedList>(getAddPendingImportsUrl(), {
+  return apiFetch<ImportsAddedList>(getAddRootImportsUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(pendingIDsInputBody),
+    body: JSON.stringify(importIDsInputBody),
   });
 };
 
-export const getAddPendingImportsMutationKey = () => ["addPendingImports"] as const;
+export const getAddRootImportsMutationKey = () => ["addRootImports"] as const;
 
-export const getAddPendingImportsMutationOptions = <
+export const getAddRootImportsMutationOptions = <
   TError = ErrorType<
-    | AddPendingImports401
-    | AddPendingImports403
-    | AddPendingImports409
-    | AddPendingImports422
-    | AddPendingImports500
+    | AddRootImports401
+    | AddRootImports403
+    | AddRootImports409
+    | AddRootImports422
+    | AddRootImports500
   >,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof addPendingImports>>,
+    Awaited<ReturnType<typeof addRootImports>>,
     TError,
-    AddPendingImportsMutationVariables,
+    AddRootImportsMutationVariables,
     TContext
   >;
   request?: SecondParameter<typeof apiFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof addPendingImports>>,
+  Awaited<ReturnType<typeof addRootImports>>,
   TError,
-  AddPendingImportsMutationVariables,
+  AddRootImportsMutationVariables,
   TContext
 > => {
-  const mutationKey = getAddPendingImportsMutationKey();
+  const mutationKey = getAddRootImportsMutationKey();
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
       ? options
@@ -331,70 +299,64 @@ export const getAddPendingImportsMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof addPendingImports>>,
-    AddPendingImportsMutationVariables
+    Awaited<ReturnType<typeof addRootImports>>,
+    AddRootImportsMutationVariables
   > = (props) => {
     const { data } = props ?? {};
 
-    return addPendingImports(data, requestOptions);
+    return addRootImports(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type AddPendingImportsMutationResult = NonNullable<
-  Awaited<ReturnType<typeof addPendingImports>>
+export type AddRootImportsMutationResult = NonNullable<Awaited<ReturnType<typeof addRootImports>>>;
+export type AddRootImportsMutationBody = ImportIDsInputBody;
+export type AddRootImportsMutationError = ErrorType<
+  AddRootImports401 | AddRootImports403 | AddRootImports409 | AddRootImports422 | AddRootImports500
 >;
-export type AddPendingImportsMutationBody = PendingIDsInputBody;
-export type AddPendingImportsMutationError = ErrorType<
-  | AddPendingImports401
-  | AddPendingImports403
-  | AddPendingImports409
-  | AddPendingImports422
-  | AddPendingImports500
->;
-export type AddPendingImportsMutationVariables = { data: PendingIDsInputBody };
+export type AddRootImportsMutationVariables = { data: ImportIDsInputBody };
 
 /**
- * @summary Add each pending import's suggested Work to its root and attach its files
+ * @summary Add each root Import's suggested Work to its root and attach its files
  */
-export const useAddPendingImports = <
+export const useAddRootImports = <
   TError = ErrorType<
-    | AddPendingImports401
-    | AddPendingImports403
-    | AddPendingImports409
-    | AddPendingImports422
-    | AddPendingImports500
+    | AddRootImports401
+    | AddRootImports403
+    | AddRootImports409
+    | AddRootImports422
+    | AddRootImports500
   >,
   TContext = unknown,
 >(
   options?: {
     mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof addPendingImports>>,
+      Awaited<ReturnType<typeof addRootImports>>,
       TError,
-      AddPendingImportsMutationVariables,
+      AddRootImportsMutationVariables,
       TContext
     >;
     request?: SecondParameter<typeof apiFetch>;
   },
   queryClient?: QueryClient,
 ): UseMutationResult<
-  Awaited<ReturnType<typeof addPendingImports>>,
+  Awaited<ReturnType<typeof addRootImports>>,
   TError,
-  AddPendingImportsMutationVariables,
+  AddRootImportsMutationVariables,
   TContext
 > => {
-  return useMutation(getAddPendingImportsMutationOptions(options), queryClient);
+  return useMutation(getAddRootImportsMutationOptions(options), queryClient);
 };
-export const getIgnorePendingImportsUrl = () => {
-  return `/api/v1/imports/pending/ignore`;
+export const getIgnoreImportsUrl = () => {
+  return `/api/v1/imports/ignore`;
 };
 
 /**
- * @summary Ignore pending imports until their files change
+ * @summary Ignore Imports until their files change
  */
-export const ignorePendingImports = async (
-  pendingIDsInputBody: PendingIDsInputBody,
+export const ignoreImports = async (
+  importIDsInputBody: ImportIDsInputBody,
   options?: Parameters<typeof apiFetch>[1],
 ): Promise<void> => {
   const getHeaders = (
@@ -416,40 +378,36 @@ export const ignorePendingImports = async (
     }
     return headers;
   };
-  return apiFetch<void>(getIgnorePendingImportsUrl(), {
+  return apiFetch<void>(getIgnoreImportsUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(pendingIDsInputBody),
+    body: JSON.stringify(importIDsInputBody),
   });
 };
 
-export const getIgnorePendingImportsMutationKey = () => ["ignorePendingImports"] as const;
+export const getIgnoreImportsMutationKey = () => ["ignoreImports"] as const;
 
-export const getIgnorePendingImportsMutationOptions = <
+export const getIgnoreImportsMutationOptions = <
   TError = ErrorType<
-    | IgnorePendingImports401
-    | IgnorePendingImports403
-    | IgnorePendingImports409
-    | IgnorePendingImports422
-    | IgnorePendingImports500
+    IgnoreImports401 | IgnoreImports403 | IgnoreImports409 | IgnoreImports422 | IgnoreImports500
   >,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof ignorePendingImports>>,
+    Awaited<ReturnType<typeof ignoreImports>>,
     TError,
-    IgnorePendingImportsMutationVariables,
+    IgnoreImportsMutationVariables,
     TContext
   >;
   request?: SecondParameter<typeof apiFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof ignorePendingImports>>,
+  Awaited<ReturnType<typeof ignoreImports>>,
   TError,
-  IgnorePendingImportsMutationVariables,
+  IgnoreImportsMutationVariables,
   TContext
 > => {
-  const mutationKey = getIgnorePendingImportsMutationKey();
+  const mutationKey = getIgnoreImportsMutationKey();
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
       ? options
@@ -457,452 +415,53 @@ export const getIgnorePendingImportsMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof ignorePendingImports>>,
-    IgnorePendingImportsMutationVariables
+    Awaited<ReturnType<typeof ignoreImports>>,
+    IgnoreImportsMutationVariables
   > = (props) => {
     const { data } = props ?? {};
 
-    return ignorePendingImports(data, requestOptions);
+    return ignoreImports(data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type IgnorePendingImportsMutationResult = NonNullable<
-  Awaited<ReturnType<typeof ignorePendingImports>>
+export type IgnoreImportsMutationResult = NonNullable<Awaited<ReturnType<typeof ignoreImports>>>;
+export type IgnoreImportsMutationBody = ImportIDsInputBody;
+export type IgnoreImportsMutationError = ErrorType<
+  IgnoreImports401 | IgnoreImports403 | IgnoreImports409 | IgnoreImports422 | IgnoreImports500
 >;
-export type IgnorePendingImportsMutationBody = PendingIDsInputBody;
-export type IgnorePendingImportsMutationError = ErrorType<
-  | IgnorePendingImports401
-  | IgnorePendingImports403
-  | IgnorePendingImports409
-  | IgnorePendingImports422
-  | IgnorePendingImports500
->;
-export type IgnorePendingImportsMutationVariables = { data: PendingIDsInputBody };
+export type IgnoreImportsMutationVariables = { data: ImportIDsInputBody };
 
 /**
- * @summary Ignore pending imports until their files change
+ * @summary Ignore Imports until their files change
  */
-export const useIgnorePendingImports = <
+export const useIgnoreImports = <
   TError = ErrorType<
-    | IgnorePendingImports401
-    | IgnorePendingImports403
-    | IgnorePendingImports409
-    | IgnorePendingImports422
-    | IgnorePendingImports500
+    IgnoreImports401 | IgnoreImports403 | IgnoreImports409 | IgnoreImports422 | IgnoreImports500
   >,
   TContext = unknown,
 >(
   options?: {
     mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof ignorePendingImports>>,
+      Awaited<ReturnType<typeof ignoreImports>>,
       TError,
-      IgnorePendingImportsMutationVariables,
+      IgnoreImportsMutationVariables,
       TContext
     >;
     request?: SecondParameter<typeof apiFetch>;
   },
   queryClient?: QueryClient,
 ): UseMutationResult<
-  Awaited<ReturnType<typeof ignorePendingImports>>,
+  Awaited<ReturnType<typeof ignoreImports>>,
   TError,
-  IgnorePendingImportsMutationVariables,
+  IgnoreImportsMutationVariables,
   TContext
 > => {
-  return useMutation(getIgnorePendingImportsMutationOptions(options), queryClient);
-};
-export const getUnignorePendingImportsUrl = () => {
-  return `/api/v1/imports/pending/unignore`;
-};
-
-/**
- * @summary Bring ignored pending imports back to the ones that need the Admin
- */
-export const unignorePendingImports = async (
-  pendingIDsInputBody: PendingIDsInputBody,
-  options?: Parameters<typeof apiFetch>[1],
-): Promise<void> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return apiFetch<void>(getUnignorePendingImportsUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(pendingIDsInputBody),
-  });
-};
-
-export const getUnignorePendingImportsMutationKey = () => ["unignorePendingImports"] as const;
-
-export const getUnignorePendingImportsMutationOptions = <
-  TError = ErrorType<
-    | UnignorePendingImports401
-    | UnignorePendingImports403
-    | UnignorePendingImports409
-    | UnignorePendingImports422
-    | UnignorePendingImports500
-  >,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof unignorePendingImports>>,
-    TError,
-    UnignorePendingImportsMutationVariables,
-    TContext
-  >;
-  request?: SecondParameter<typeof apiFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof unignorePendingImports>>,
-  TError,
-  UnignorePendingImportsMutationVariables,
-  TContext
-> => {
-  const mutationKey = getUnignorePendingImportsMutationKey();
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof unignorePendingImports>>,
-    UnignorePendingImportsMutationVariables
-  > = (props) => {
-    const { data } = props ?? {};
-
-    return unignorePendingImports(data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type UnignorePendingImportsMutationResult = NonNullable<
-  Awaited<ReturnType<typeof unignorePendingImports>>
->;
-export type UnignorePendingImportsMutationBody = PendingIDsInputBody;
-export type UnignorePendingImportsMutationError = ErrorType<
-  | UnignorePendingImports401
-  | UnignorePendingImports403
-  | UnignorePendingImports409
-  | UnignorePendingImports422
-  | UnignorePendingImports500
->;
-export type UnignorePendingImportsMutationVariables = { data: PendingIDsInputBody };
-
-/**
- * @summary Bring ignored pending imports back to the ones that need the Admin
- */
-export const useUnignorePendingImports = <
-  TError = ErrorType<
-    | UnignorePendingImports401
-    | UnignorePendingImports403
-    | UnignorePendingImports409
-    | UnignorePendingImports422
-    | UnignorePendingImports500
-  >,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof unignorePendingImports>>,
-      TError,
-      UnignorePendingImportsMutationVariables,
-      TContext
-    >;
-    request?: SecondParameter<typeof apiFetch>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof unignorePendingImports>>,
-  TError,
-  UnignorePendingImportsMutationVariables,
-  TContext
-> => {
-  return useMutation(getUnignorePendingImportsMutationOptions(options), queryClient);
-};
-export const getImportPendingIntoUrl = (id: string) => {
-  return `/api/v1/imports/pending/${id}/import`;
-};
-
-/**
- * @summary Attach a pending import's chosen files to a Work in its root, at the Items chosen
- */
-export const importPendingInto = async (
-  id: string,
-  importIntoInputBody: ImportIntoInputBody,
-  options?: Parameters<typeof apiFetch>[1],
-): Promise<ImportsImported> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return apiFetch<ImportsImported>(getImportPendingIntoUrl(id), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(importIntoInputBody),
-  });
-};
-
-export const getImportPendingIntoMutationKey = () => ["importPendingInto"] as const;
-
-export const getImportPendingIntoMutationOptions = <
-  TError = ErrorType<
-    | ImportPendingInto401
-    | ImportPendingInto403
-    | ImportPendingInto404
-    | ImportPendingInto409
-    | ImportPendingInto422
-    | ImportPendingInto500
-  >,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof importPendingInto>>,
-    TError,
-    ImportPendingIntoMutationVariables,
-    TContext
-  >;
-  request?: SecondParameter<typeof apiFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof importPendingInto>>,
-  TError,
-  ImportPendingIntoMutationVariables,
-  TContext
-> => {
-  const mutationKey = getImportPendingIntoMutationKey();
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof importPendingInto>>,
-    ImportPendingIntoMutationVariables
-  > = (props) => {
-    const { id, data } = props ?? {};
-
-    return importPendingInto(id, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type ImportPendingIntoMutationResult = NonNullable<
-  Awaited<ReturnType<typeof importPendingInto>>
->;
-export type ImportPendingIntoMutationBody = ImportIntoInputBody;
-export type ImportPendingIntoMutationError = ErrorType<
-  | ImportPendingInto401
-  | ImportPendingInto403
-  | ImportPendingInto404
-  | ImportPendingInto409
-  | ImportPendingInto422
-  | ImportPendingInto500
->;
-export type ImportPendingIntoMutationVariables = { id: string; data: ImportIntoInputBody };
-
-/**
- * @summary Attach a pending import's chosen files to a Work in its root, at the Items chosen
- */
-export const useImportPendingInto = <
-  TError = ErrorType<
-    | ImportPendingInto401
-    | ImportPendingInto403
-    | ImportPendingInto404
-    | ImportPendingInto409
-    | ImportPendingInto422
-    | ImportPendingInto500
-  >,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof importPendingInto>>,
-      TError,
-      ImportPendingIntoMutationVariables,
-      TContext
-    >;
-    request?: SecondParameter<typeof apiFetch>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof importPendingInto>>,
-  TError,
-  ImportPendingIntoMutationVariables,
-  TContext
-> => {
-  return useMutation(getImportPendingIntoMutationOptions(options), queryClient);
-};
-export const getMatchPendingImportUrl = (id: string) => {
-  return `/api/v1/imports/pending/${id}/match`;
-};
-
-/**
- * @summary Make a record at the Content Type's source a pending import's suggestion
- */
-export const matchPendingImport = async (
-  id: string,
-  matchPendingInputBody: MatchPendingInputBody,
-  options?: Parameters<typeof apiFetch>[1],
-): Promise<ImportsEntry> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return apiFetch<ImportsEntry>(getMatchPendingImportUrl(id), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(matchPendingInputBody),
-  });
-};
-
-export const getMatchPendingImportMutationKey = () => ["matchPendingImport"] as const;
-
-export const getMatchPendingImportMutationOptions = <
-  TError = ErrorType<
-    | MatchPendingImport401
-    | MatchPendingImport403
-    | MatchPendingImport404
-    | MatchPendingImport409
-    | MatchPendingImport422
-    | MatchPendingImport500
-    | MatchPendingImport502
-  >,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof matchPendingImport>>,
-    TError,
-    MatchPendingImportMutationVariables,
-    TContext
-  >;
-  request?: SecondParameter<typeof apiFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof matchPendingImport>>,
-  TError,
-  MatchPendingImportMutationVariables,
-  TContext
-> => {
-  const mutationKey = getMatchPendingImportMutationKey();
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof matchPendingImport>>,
-    MatchPendingImportMutationVariables
-  > = (props) => {
-    const { id, data } = props ?? {};
-
-    return matchPendingImport(id, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type MatchPendingImportMutationResult = NonNullable<
-  Awaited<ReturnType<typeof matchPendingImport>>
->;
-export type MatchPendingImportMutationBody = MatchPendingInputBody;
-export type MatchPendingImportMutationError = ErrorType<
-  | MatchPendingImport401
-  | MatchPendingImport403
-  | MatchPendingImport404
-  | MatchPendingImport409
-  | MatchPendingImport422
-  | MatchPendingImport500
-  | MatchPendingImport502
->;
-export type MatchPendingImportMutationVariables = { id: string; data: MatchPendingInputBody };
-
-/**
- * @summary Make a record at the Content Type's source a pending import's suggestion
- */
-export const useMatchPendingImport = <
-  TError = ErrorType<
-    | MatchPendingImport401
-    | MatchPendingImport403
-    | MatchPendingImport404
-    | MatchPendingImport409
-    | MatchPendingImport422
-    | MatchPendingImport500
-    | MatchPendingImport502
-  >,
-  TContext = unknown,
->(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof matchPendingImport>>,
-      TError,
-      MatchPendingImportMutationVariables,
-      TContext
-    >;
-    request?: SecondParameter<typeof apiFetch>;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof matchPendingImport>>,
-  TError,
-  MatchPendingImportMutationVariables,
-  TContext
-> => {
-  return useMutation(getMatchPendingImportMutationOptions(options), queryClient);
+  return useMutation(getIgnoreImportsMutationOptions(options), queryClient);
 };
 export const getGetLibraryScanSettingsUrl = () => {
-  return `/api/v1/imports/settings`;
+  return `/api/v1/imports/scan-settings`;
 };
 
 /**
@@ -918,7 +477,7 @@ export const getLibraryScanSettings = async (
 };
 
 export const getGetLibraryScanSettingsQueryKey = () => {
-  return [`/api/v1/imports/settings`] as const;
+  return [`/api/v1/imports/scan-settings`] as const;
 };
 
 export const getGetLibraryScanSettingsSuspenseQueryOptions = <
@@ -1048,7 +607,7 @@ export function useGetLibraryScanSettingsSuspense<
 }
 
 export const getUpdateLibraryScanSettingsUrl = () => {
-  return `/api/v1/imports/settings`;
+  return `/api/v1/imports/scan-settings`;
 };
 
 /**
@@ -1172,4 +731,385 @@ export const useUpdateLibraryScanSettings = <
   TContext
 > => {
   return useMutation(getUpdateLibraryScanSettingsMutationOptions(options), queryClient);
+};
+export const getUnignoreImportsUrl = () => {
+  return `/api/v1/imports/unignore`;
+};
+
+/**
+ * @summary Bring ignored Imports back to the ones that need the Admin
+ */
+export const unignoreImports = async (
+  importIDsInputBody: ImportIDsInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<void> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<void>(getUnignoreImportsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(importIDsInputBody),
+  });
+};
+
+export const getUnignoreImportsMutationKey = () => ["unignoreImports"] as const;
+
+export const getUnignoreImportsMutationOptions = <
+  TError = ErrorType<
+    | UnignoreImports401
+    | UnignoreImports403
+    | UnignoreImports409
+    | UnignoreImports422
+    | UnignoreImports500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unignoreImports>>,
+    TError,
+    UnignoreImportsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unignoreImports>>,
+  TError,
+  UnignoreImportsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUnignoreImportsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unignoreImports>>,
+    UnignoreImportsMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return unignoreImports(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnignoreImportsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unignoreImports>>
+>;
+export type UnignoreImportsMutationBody = ImportIDsInputBody;
+export type UnignoreImportsMutationError = ErrorType<
+  | UnignoreImports401
+  | UnignoreImports403
+  | UnignoreImports409
+  | UnignoreImports422
+  | UnignoreImports500
+>;
+export type UnignoreImportsMutationVariables = { data: ImportIDsInputBody };
+
+/**
+ * @summary Bring ignored Imports back to the ones that need the Admin
+ */
+export const useUnignoreImports = <
+  TError = ErrorType<
+    | UnignoreImports401
+    | UnignoreImports403
+    | UnignoreImports409
+    | UnignoreImports422
+    | UnignoreImports500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof unignoreImports>>,
+      TError,
+      UnignoreImportsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof unignoreImports>>,
+  TError,
+  UnignoreImportsMutationVariables,
+  TContext
+> => {
+  return useMutation(getUnignoreImportsMutationOptions(options), queryClient);
+};
+export const getGetImportUrl = (id: string) => {
+  return `/api/v1/imports/${id}`;
+};
+
+/**
+ * @summary Get an Import with its files
+ */
+export const getImport = async (
+  id: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ImportsImportEntry> => {
+  return apiFetch<ImportsImportEntry>(getGetImportUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetImportQueryKey = (id: string) => {
+  return [`/api/v1/imports/${id}`] as const;
+};
+
+export const getGetImportSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getImport>>,
+  TError = ErrorType<
+    GetImport401 | GetImport403 | GetImport404 | GetImport409 | GetImport422 | GetImport500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getImport>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetImportQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getImport>>> = ({ signal }) =>
+    getImport(id, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getImport>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetImportSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof getImport>>>;
+export type GetImportSuspenseQueryError = ErrorType<
+  GetImport401 | GetImport403 | GetImport404 | GetImport409 | GetImport422 | GetImport500
+>;
+
+export function useGetImportSuspense<
+  TData = Awaited<ReturnType<typeof getImport>>,
+  TError = ErrorType<
+    GetImport401 | GetImport403 | GetImport404 | GetImport409 | GetImport422 | GetImport500
+  >,
+>(
+  id: string,
+  options: {
+    query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getImport>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetImportSuspense<
+  TData = Awaited<ReturnType<typeof getImport>>,
+  TError = ErrorType<
+    GetImport401 | GetImport403 | GetImport404 | GetImport409 | GetImport422 | GetImport500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getImport>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetImportSuspense<
+  TData = Awaited<ReturnType<typeof getImport>>,
+  TError = ErrorType<
+    GetImport401 | GetImport403 | GetImport404 | GetImport409 | GetImport422 | GetImport500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getImport>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get an Import with its files
+ */
+
+export function useGetImportSuspense<
+  TData = Awaited<ReturnType<typeof getImport>>,
+  TError = ErrorType<
+    GetImport401 | GetImport403 | GetImport404 | GetImport409 | GetImport422 | GetImport500
+  >,
+>(
+  id: string,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof getImport>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetImportSuspenseQueryOptions(id, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getActOnRootImportUrl = (id: string) => {
+  return `/api/v1/imports/${id}`;
+};
+
+/**
+ * @summary Match a root Import to a record at the Content Type's source, or import its chosen files into a Work in its root
+ */
+export const actOnRootImport = async (
+  id: string,
+  importsRootAction: ImportsRootAction,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<ImportsImportEntry> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<ImportsImportEntry>(getActOnRootImportUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(importsRootAction),
+  });
+};
+
+export const getActOnRootImportMutationKey = () => ["actOnRootImport"] as const;
+
+export const getActOnRootImportMutationOptions = <
+  TError = ErrorType<
+    | ActOnRootImport401
+    | ActOnRootImport403
+    | ActOnRootImport404
+    | ActOnRootImport409
+    | ActOnRootImport422
+    | ActOnRootImport500
+    | ActOnRootImport502
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof actOnRootImport>>,
+    TError,
+    ActOnRootImportMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof actOnRootImport>>,
+  TError,
+  ActOnRootImportMutationVariables,
+  TContext
+> => {
+  const mutationKey = getActOnRootImportMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof actOnRootImport>>,
+    ActOnRootImportMutationVariables
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return actOnRootImport(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ActOnRootImportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof actOnRootImport>>
+>;
+export type ActOnRootImportMutationBody = ImportsRootAction;
+export type ActOnRootImportMutationError = ErrorType<
+  | ActOnRootImport401
+  | ActOnRootImport403
+  | ActOnRootImport404
+  | ActOnRootImport409
+  | ActOnRootImport422
+  | ActOnRootImport500
+  | ActOnRootImport502
+>;
+export type ActOnRootImportMutationVariables = { id: string; data: ImportsRootAction };
+
+/**
+ * @summary Match a root Import to a record at the Content Type's source, or import its chosen files into a Work in its root
+ */
+export const useActOnRootImport = <
+  TError = ErrorType<
+    | ActOnRootImport401
+    | ActOnRootImport403
+    | ActOnRootImport404
+    | ActOnRootImport409
+    | ActOnRootImport422
+    | ActOnRootImport500
+    | ActOnRootImport502
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof actOnRootImport>>,
+      TError,
+      ActOnRootImportMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof actOnRootImport>>,
+  TError,
+  ActOnRootImportMutationVariables,
+  TContext
+> => {
+  return useMutation(getActOnRootImportMutationOptions(options), queryClient);
 };

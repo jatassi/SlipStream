@@ -6,9 +6,8 @@ import type { RequestHandlerOptions } from "msw";
 import type {
   ImportsAddedList,
   ImportsAddedOutcome,
-  ImportsEntry,
   ImportsFailedOutcome,
-  ImportsImported,
+  ImportsImportEntry,
   ImportsList,
   ImportsSettings,
   SettingAddressField,
@@ -24,12 +23,13 @@ import type {
   SettingWindowField,
 } from "../../model";
 
-export const getListPendingImportsResponseMock = (
+export const getListImportsResponseMock = (
   overrideResponse: Partial<Extract<ImportsList, object>> = {},
 ): ImportsList => ({
-  entries: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+  imports: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+      createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
       files: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
           cut: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -37,7 +37,19 @@ export const getListPendingImportsResponseMock = (
             { length: faker.number.int({ min: 1, max: 10 }) },
             (_, i) => i + 1,
           ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
+          outcome: faker.helpers.arrayElement([
+            "pending",
+            "left_out",
+            "not_better",
+            "waiting",
+            "sending",
+            "placing",
+            "placed",
+            "declined",
+            "failed",
+          ] as const),
           path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+          position: faker.number.int({ min: 0 }),
           quality: faker.helpers.arrayElement([
             faker.helpers.arrayElement([
               "sdtv",
@@ -61,45 +73,51 @@ export const getListPendingImportsResponseMock = (
             ] as const),
             null,
           ]),
-          reason: {
-            code: faker.helpers.arrayElement([
-              "several",
-              "no_match",
-              "no_year",
-              "elsewhere",
-              "unlisted",
-              "no_number",
-              "no_such_item",
-              "several_items",
-              "unreadable",
-              "left",
-              "no_rule",
-            ] as const),
-            ...(faker.datatype.boolean() ? { count: faker.number.int() } : {}),
-            ...(faker.datatype.boolean()
-              ? { line: faker.string.alpha({ length: { min: 10, max: 20 } }) }
-              : {}),
-            ...(faker.datatype.boolean()
-              ? { names: faker.string.alpha({ length: { min: 10, max: 20 } }) }
-              : {}),
-            ...(faker.datatype.boolean()
-              ? {
-                  root: {
-                    id: faker.string.uuid(),
-                    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
-                  },
-                }
-              : {}),
-            ...(faker.datatype.boolean()
-              ? { title: faker.string.alpha({ length: { min: 10, max: 20 } }) }
-              : {}),
-            ...(faker.datatype.boolean() ? { year: faker.number.int() } : {}),
-          },
+          reason: faker.helpers.arrayElement([
+            {
+              code: faker.helpers.arrayElement([
+                "several",
+                "no_match",
+                "no_year",
+                "elsewhere",
+                "unlisted",
+                "no_number",
+                "no_such_item",
+                "several_items",
+                "unreadable",
+                "left",
+                "no_rule",
+              ] as const),
+              ...(faker.datatype.boolean() ? { count: faker.number.int() } : {}),
+              ...(faker.datatype.boolean()
+                ? { line: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                : {}),
+              ...(faker.datatype.boolean()
+                ? { names: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                : {}),
+              ...(faker.datatype.boolean()
+                ? {
+                    root: {
+                      id: faker.string.uuid(),
+                      label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+                    },
+                  }
+                : {}),
+              ...(faker.datatype.boolean()
+                ? { title: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+                : {}),
+              ...(faker.datatype.boolean() ? { year: faker.number.int() } : {}),
+            },
+            null,
+          ]),
           size: faker.number.int({ min: 0 }),
         }),
       ),
+      finishedAt: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + "Z",
+        null,
+      ]),
       folder: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      foundAt: faker.date.past().toISOString().slice(0, 19) + "Z",
       hint: {
         ids: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
           () => ({
@@ -115,10 +133,18 @@ export const getListPendingImportsResponseMock = (
         faker.date.past().toISOString().slice(0, 19) + "Z",
         null,
       ]),
-      root: {
-        id: faker.string.uuid(),
-        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      },
+      root: faker.helpers.arrayElement([
+        { id: faker.string.uuid(), label: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+        null,
+      ]),
+      source: faker.helpers.arrayElement(["grab", "root", "folder"] as const),
+      stage: faker.helpers.arrayElement([
+        "probing",
+        "waiting",
+        "placing",
+        "done",
+        "failed",
+      ] as const),
       suggestion: faker.helpers.arrayElement([
         {
           confident: faker.datatype.boolean(),
@@ -144,7 +170,7 @@ export const getListPendingImportsResponseMock = (
   ...overrideResponse,
 });
 
-export const getAddPendingImportsResponseImportsAddedOutcomeMock = (
+export const getAddRootImportsResponseImportsAddedOutcomeMock = (
   overrideResponse: Partial<ImportsAddedOutcome> = {},
 ): ImportsAddedOutcome => ({
   ...{
@@ -155,7 +181,7 @@ export const getAddPendingImportsResponseImportsAddedOutcomeMock = (
   ...overrideResponse,
 });
 
-export const getAddPendingImportsResponseImportsFailedOutcomeMock = (
+export const getAddRootImportsResponseImportsFailedOutcomeMock = (
   overrideResponse: Partial<ImportsFailedOutcome> = {},
 ): ImportsFailedOutcome => ({
   ...{
@@ -172,229 +198,15 @@ export const getAddPendingImportsResponseImportsFailedOutcomeMock = (
   ...overrideResponse,
 });
 
-export const getAddPendingImportsResponseMock = (
+export const getAddRootImportsResponseMock = (
   overrideResponse: Partial<Extract<ImportsAddedList, object>> = {},
 ): ImportsAddedList => ({
   outcomes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.helpers.arrayElement([
-      { ...getAddPendingImportsResponseImportsAddedOutcomeMock() },
-      { ...getAddPendingImportsResponseImportsFailedOutcomeMock() },
+      { ...getAddRootImportsResponseImportsAddedOutcomeMock() },
+      { ...getAddRootImportsResponseImportsFailedOutcomeMock() },
     ]),
   ),
-  ...overrideResponse,
-});
-
-export const getImportPendingIntoResponseMock = (
-  overrideResponse: Partial<Extract<ImportsImported, object>> = {},
-): ImportsImported => ({
-  entry: faker.helpers.arrayElement([
-    {
-      contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
-      files: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
-        () => ({
-          cut: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          itemIds: Array.from(
-            { length: faker.number.int({ min: 1, max: 10 }) },
-            (_, i) => i + 1,
-          ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
-          path: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          quality: faker.helpers.arrayElement([
-            faker.helpers.arrayElement([
-              "sdtv",
-              "dvd",
-              "webrip-480p",
-              "hdtv-720p",
-              "webrip-720p",
-              "webdl-720p",
-              "bluray-720p",
-              "hdtv-1080p",
-              "webrip-1080p",
-              "webdl-1080p",
-              "bluray-1080p",
-              "remux-1080p",
-              "hdtv-2160p",
-              "webrip-2160p",
-              "webdl-2160p",
-              "bluray-2160p",
-              "remux-2160p",
-              "cam",
-            ] as const),
-            null,
-          ]),
-          reason: {
-            code: faker.helpers.arrayElement([
-              "several",
-              "no_match",
-              "no_year",
-              "elsewhere",
-              "unlisted",
-              "no_number",
-              "no_such_item",
-              "several_items",
-              "unreadable",
-              "left",
-              "no_rule",
-            ] as const),
-            ...(faker.datatype.boolean() ? { count: faker.number.int() } : {}),
-            ...(faker.datatype.boolean()
-              ? { line: faker.string.alpha({ length: { min: 10, max: 20 } }) }
-              : {}),
-            ...(faker.datatype.boolean()
-              ? { names: faker.string.alpha({ length: { min: 10, max: 20 } }) }
-              : {}),
-            ...(faker.datatype.boolean()
-              ? {
-                  root: {
-                    id: faker.string.uuid(),
-                    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
-                  },
-                }
-              : {}),
-            ...(faker.datatype.boolean()
-              ? { title: faker.string.alpha({ length: { min: 10, max: 20 } }) }
-              : {}),
-            ...(faker.datatype.boolean() ? { year: faker.number.int() } : {}),
-          },
-          size: faker.number.int({ min: 0 }),
-        }),
-      ),
-      folder: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      foundAt: faker.date.past().toISOString().slice(0, 19) + "Z",
-      hint: {
-        ids: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
-          () => ({
-            provider: faker.helpers.arrayElement(["tmdb", "imdb", "tvdb"] as const),
-            value: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          }),
-        ),
-        title: faker.string.alpha({ length: { min: 10, max: 20 } }),
-        year: faker.helpers.arrayElement([faker.number.int(), null]),
-      },
-      id: faker.string.uuid(),
-      ignoredAt: faker.helpers.arrayElement([
-        faker.date.past().toISOString().slice(0, 19) + "Z",
-        null,
-      ]),
-      root: {
-        id: faker.string.uuid(),
-        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      },
-      suggestion: faker.helpers.arrayElement([
-        {
-          confident: faker.datatype.boolean(),
-          key: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          label: faker.string.alpha({ length: { min: 10, max: 20 } }),
-          posterUrl: faker.helpers.arrayElement([
-            faker.string.alpha({ length: { min: 10, max: 20 } }),
-            null,
-          ]),
-          workId: faker.helpers.arrayElement([faker.string.uuid(), null]),
-          year: faker.helpers.arrayElement([faker.number.int(), null]),
-        },
-        null,
-      ]),
-    },
-    null,
-  ]),
-  ...overrideResponse,
-});
-
-export const getMatchPendingImportResponseMock = (
-  overrideResponse: Partial<Extract<ImportsEntry, object>> = {},
-): ImportsEntry => ({
-  contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
-  files: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
-    cut: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    itemIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
-      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
-    ),
-    path: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    quality: faker.helpers.arrayElement([
-      faker.helpers.arrayElement([
-        "sdtv",
-        "dvd",
-        "webrip-480p",
-        "hdtv-720p",
-        "webrip-720p",
-        "webdl-720p",
-        "bluray-720p",
-        "hdtv-1080p",
-        "webrip-1080p",
-        "webdl-1080p",
-        "bluray-1080p",
-        "remux-1080p",
-        "hdtv-2160p",
-        "webrip-2160p",
-        "webdl-2160p",
-        "bluray-2160p",
-        "remux-2160p",
-        "cam",
-      ] as const),
-      null,
-    ]),
-    reason: {
-      code: faker.helpers.arrayElement([
-        "several",
-        "no_match",
-        "no_year",
-        "elsewhere",
-        "unlisted",
-        "no_number",
-        "no_such_item",
-        "several_items",
-        "unreadable",
-        "left",
-        "no_rule",
-      ] as const),
-      ...(faker.datatype.boolean() ? { count: faker.number.int() } : {}),
-      ...(faker.datatype.boolean()
-        ? { line: faker.string.alpha({ length: { min: 10, max: 20 } }) }
-        : {}),
-      ...(faker.datatype.boolean()
-        ? { names: faker.string.alpha({ length: { min: 10, max: 20 } }) }
-        : {}),
-      ...(faker.datatype.boolean()
-        ? {
-            root: {
-              id: faker.string.uuid(),
-              label: faker.string.alpha({ length: { min: 10, max: 20 } }),
-            },
-          }
-        : {}),
-      ...(faker.datatype.boolean()
-        ? { title: faker.string.alpha({ length: { min: 10, max: 20 } }) }
-        : {}),
-      ...(faker.datatype.boolean() ? { year: faker.number.int() } : {}),
-    },
-    size: faker.number.int({ min: 0 }),
-  })),
-  folder: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  foundAt: faker.date.past().toISOString().slice(0, 19) + "Z",
-  hint: {
-    ids: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
-      provider: faker.helpers.arrayElement(["tmdb", "imdb", "tvdb"] as const),
-      value: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    })),
-    title: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    year: faker.helpers.arrayElement([faker.number.int(), null]),
-  },
-  id: faker.string.uuid(),
-  ignoredAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
-  root: { id: faker.string.uuid(), label: faker.string.alpha({ length: { min: 10, max: 20 } }) },
-  suggestion: faker.helpers.arrayElement([
-    {
-      confident: faker.datatype.boolean(),
-      key: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      label: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      posterUrl: faker.helpers.arrayElement([
-        faker.string.alpha({ length: { min: 10, max: 20 } }),
-        null,
-      ]),
-      workId: faker.helpers.arrayElement([faker.string.uuid(), null]),
-      year: faker.helpers.arrayElement([faker.number.int(), null]),
-    },
-    null,
-  ]),
   ...overrideResponse,
 });
 
@@ -1202,21 +1014,267 @@ export const getUpdateLibraryScanSettingsResponseMock = (
   ...overrideResponse,
 });
 
-export const getListPendingImportsMockHandler = (
+export const getGetImportResponseMock = (
+  overrideResponse: Partial<Extract<ImportsImportEntry, object>> = {},
+): ImportsImportEntry => ({
+  contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+  createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  files: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    cut: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    itemIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    outcome: faker.helpers.arrayElement([
+      "pending",
+      "left_out",
+      "not_better",
+      "waiting",
+      "sending",
+      "placing",
+      "placed",
+      "declined",
+      "failed",
+    ] as const),
+    path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    position: faker.number.int({ min: 0 }),
+    quality: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        "sdtv",
+        "dvd",
+        "webrip-480p",
+        "hdtv-720p",
+        "webrip-720p",
+        "webdl-720p",
+        "bluray-720p",
+        "hdtv-1080p",
+        "webrip-1080p",
+        "webdl-1080p",
+        "bluray-1080p",
+        "remux-1080p",
+        "hdtv-2160p",
+        "webrip-2160p",
+        "webdl-2160p",
+        "bluray-2160p",
+        "remux-2160p",
+        "cam",
+      ] as const),
+      null,
+    ]),
+    reason: faker.helpers.arrayElement([
+      {
+        code: faker.helpers.arrayElement([
+          "several",
+          "no_match",
+          "no_year",
+          "elsewhere",
+          "unlisted",
+          "no_number",
+          "no_such_item",
+          "several_items",
+          "unreadable",
+          "left",
+          "no_rule",
+        ] as const),
+        ...(faker.datatype.boolean() ? { count: faker.number.int() } : {}),
+        ...(faker.datatype.boolean()
+          ? { line: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? { names: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? {
+              root: {
+                id: faker.string.uuid(),
+                label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              },
+            }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? { title: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean() ? { year: faker.number.int() } : {}),
+      },
+      null,
+    ]),
+    size: faker.number.int({ min: 0 }),
+  })),
+  finishedAt: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + "Z",
+    null,
+  ]),
+  folder: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  hint: {
+    ids: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+      provider: faker.helpers.arrayElement(["tmdb", "imdb", "tvdb"] as const),
+      value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    })),
+    title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    year: faker.helpers.arrayElement([faker.number.int(), null]),
+  },
+  id: faker.string.uuid(),
+  ignoredAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
+  root: faker.helpers.arrayElement([
+    { id: faker.string.uuid(), label: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    null,
+  ]),
+  source: faker.helpers.arrayElement(["grab", "root", "folder"] as const),
+  stage: faker.helpers.arrayElement(["probing", "waiting", "placing", "done", "failed"] as const),
+  suggestion: faker.helpers.arrayElement([
+    {
+      confident: faker.datatype.boolean(),
+      key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      posterUrl: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      workId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+      year: faker.helpers.arrayElement([faker.number.int(), null]),
+    },
+    null,
+  ]),
+  ...overrideResponse,
+});
+
+export const getActOnRootImportResponseMock = (
+  overrideResponse: Partial<Extract<ImportsImportEntry, object>> = {},
+): ImportsImportEntry => ({
+  contentType: faker.helpers.fromRegExp("^[a-z][a-z0-9]{1,15}$"),
+  createdAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+  files: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+    cut: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    itemIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    outcome: faker.helpers.arrayElement([
+      "pending",
+      "left_out",
+      "not_better",
+      "waiting",
+      "sending",
+      "placing",
+      "placed",
+      "declined",
+      "failed",
+    ] as const),
+    path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    position: faker.number.int({ min: 0 }),
+    quality: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        "sdtv",
+        "dvd",
+        "webrip-480p",
+        "hdtv-720p",
+        "webrip-720p",
+        "webdl-720p",
+        "bluray-720p",
+        "hdtv-1080p",
+        "webrip-1080p",
+        "webdl-1080p",
+        "bluray-1080p",
+        "remux-1080p",
+        "hdtv-2160p",
+        "webrip-2160p",
+        "webdl-2160p",
+        "bluray-2160p",
+        "remux-2160p",
+        "cam",
+      ] as const),
+      null,
+    ]),
+    reason: faker.helpers.arrayElement([
+      {
+        code: faker.helpers.arrayElement([
+          "several",
+          "no_match",
+          "no_year",
+          "elsewhere",
+          "unlisted",
+          "no_number",
+          "no_such_item",
+          "several_items",
+          "unreadable",
+          "left",
+          "no_rule",
+        ] as const),
+        ...(faker.datatype.boolean() ? { count: faker.number.int() } : {}),
+        ...(faker.datatype.boolean()
+          ? { line: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? { names: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? {
+              root: {
+                id: faker.string.uuid(),
+                label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+              },
+            }
+          : {}),
+        ...(faker.datatype.boolean()
+          ? { title: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+          : {}),
+        ...(faker.datatype.boolean() ? { year: faker.number.int() } : {}),
+      },
+      null,
+    ]),
+    size: faker.number.int({ min: 0 }),
+  })),
+  finishedAt: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + "Z",
+    null,
+  ]),
+  folder: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  hint: {
+    ids: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
+      provider: faker.helpers.arrayElement(["tmdb", "imdb", "tvdb"] as const),
+      value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    })),
+    title: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    year: faker.helpers.arrayElement([faker.number.int(), null]),
+  },
+  id: faker.string.uuid(),
+  ignoredAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
+  root: faker.helpers.arrayElement([
+    { id: faker.string.uuid(), label: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+    null,
+  ]),
+  source: faker.helpers.arrayElement(["grab", "root", "folder"] as const),
+  stage: faker.helpers.arrayElement(["probing", "waiting", "placing", "done", "failed"] as const),
+  suggestion: faker.helpers.arrayElement([
+    {
+      confident: faker.datatype.boolean(),
+      key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      posterUrl: faker.helpers.arrayElement([
+        faker.string.alpha({ length: { min: 10, max: 20 } }),
+        null,
+      ]),
+      workId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+      year: faker.helpers.arrayElement([faker.number.int(), null]),
+    },
+    null,
+  ]),
+  ...overrideResponse,
+});
+
+export const getListImportsMockHandler = (
   overrideResponse?:
     | ImportsList
     | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<ImportsList> | ImportsList),
   options?: RequestHandlerOptions,
 ) => {
   return http.get(
-    "*/api/v1/imports/pending",
+    "*/api/v1/imports",
     async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
       return HttpResponse.json(
         overrideResponse !== undefined
           ? typeof overrideResponse === "function"
             ? await overrideResponse(info)
             : overrideResponse
-          : getListPendingImportsResponseMock(),
+          : getListImportsResponseMock(),
         { status: 200 },
       );
     },
@@ -1224,7 +1282,7 @@ export const getListPendingImportsMockHandler = (
   );
 };
 
-export const getAddPendingImportsMockHandler = (
+export const getAddRootImportsMockHandler = (
   overrideResponse?:
     | ImportsAddedList
     | ((
@@ -1233,14 +1291,14 @@ export const getAddPendingImportsMockHandler = (
   options?: RequestHandlerOptions,
 ) => {
   return http.post(
-    "*/api/v1/imports/pending/add",
+    "*/api/v1/imports/add",
     async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
       return HttpResponse.json(
         overrideResponse !== undefined
           ? typeof overrideResponse === "function"
             ? await overrideResponse(info)
             : overrideResponse
-          : getAddPendingImportsResponseMock(),
+          : getAddRootImportsResponseMock(),
         { status: 200 },
       );
     },
@@ -1248,87 +1306,20 @@ export const getAddPendingImportsMockHandler = (
   );
 };
 
-export const getIgnorePendingImportsMockHandler = (
+export const getIgnoreImportsMockHandler = (
   overrideResponse?:
     | void
     | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<void> | void),
   options?: RequestHandlerOptions,
 ) => {
   return http.post(
-    "*/api/v1/imports/pending/ignore",
+    "*/api/v1/imports/ignore",
     async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
       if (typeof overrideResponse === "function") {
         await overrideResponse(info);
       }
 
       return new HttpResponse(null, { status: 204 });
-    },
-    options,
-  );
-};
-
-export const getUnignorePendingImportsMockHandler = (
-  overrideResponse?:
-    | void
-    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<void> | void),
-  options?: RequestHandlerOptions,
-) => {
-  return http.post(
-    "*/api/v1/imports/pending/unignore",
-    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
-      if (typeof overrideResponse === "function") {
-        await overrideResponse(info);
-      }
-
-      return new HttpResponse(null, { status: 204 });
-    },
-    options,
-  );
-};
-
-export const getImportPendingIntoMockHandler = (
-  overrideResponse?:
-    | ImportsImported
-    | ((
-        info: Parameters<Parameters<typeof http.post>[1]>[0],
-      ) => Promise<ImportsImported> | ImportsImported),
-  options?: RequestHandlerOptions,
-) => {
-  return http.post(
-    "*/api/v1/imports/pending/:id/import",
-    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
-      return HttpResponse.json(
-        overrideResponse !== undefined
-          ? typeof overrideResponse === "function"
-            ? await overrideResponse(info)
-            : overrideResponse
-          : getImportPendingIntoResponseMock(),
-        { status: 200 },
-      );
-    },
-    options,
-  );
-};
-
-export const getMatchPendingImportMockHandler = (
-  overrideResponse?:
-    | ImportsEntry
-    | ((
-        info: Parameters<Parameters<typeof http.post>[1]>[0],
-      ) => Promise<ImportsEntry> | ImportsEntry),
-  options?: RequestHandlerOptions,
-) => {
-  return http.post(
-    "*/api/v1/imports/pending/:id/match",
-    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
-      return HttpResponse.json(
-        overrideResponse !== undefined
-          ? typeof overrideResponse === "function"
-            ? await overrideResponse(info)
-            : overrideResponse
-          : getMatchPendingImportResponseMock(),
-        { status: 200 },
-      );
     },
     options,
   );
@@ -1343,7 +1334,7 @@ export const getGetLibraryScanSettingsMockHandler = (
   options?: RequestHandlerOptions,
 ) => {
   return http.get(
-    "*/api/v1/imports/settings",
+    "*/api/v1/imports/scan-settings",
     async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
       return HttpResponse.json(
         overrideResponse !== undefined
@@ -1367,7 +1358,7 @@ export const getUpdateLibraryScanSettingsMockHandler = (
   options?: RequestHandlerOptions,
 ) => {
   return http.patch(
-    "*/api/v1/imports/settings",
+    "*/api/v1/imports/scan-settings",
     async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
       return HttpResponse.json(
         overrideResponse !== undefined
@@ -1381,13 +1372,80 @@ export const getUpdateLibraryScanSettingsMockHandler = (
     options,
   );
 };
+
+export const getUnignoreImportsMockHandler = (
+  overrideResponse?:
+    | void
+    | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<void> | void),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/imports/unignore",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      if (typeof overrideResponse === "function") {
+        await overrideResponse(info);
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    },
+    options,
+  );
+};
+
+export const getGetImportMockHandler = (
+  overrideResponse?:
+    | ImportsImportEntry
+    | ((
+        info: Parameters<Parameters<typeof http.get>[1]>[0],
+      ) => Promise<ImportsImportEntry> | ImportsImportEntry),
+  options?: RequestHandlerOptions,
+) => {
+  return http.get(
+    "*/api/v1/imports/:id",
+    async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getGetImportResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
+export const getActOnRootImportMockHandler = (
+  overrideResponse?:
+    | ImportsImportEntry
+    | ((
+        info: Parameters<Parameters<typeof http.post>[1]>[0],
+      ) => Promise<ImportsImportEntry> | ImportsImportEntry),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    "*/api/v1/imports/:id",
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === "function"
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getActOnRootImportResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
 export const getImportsMock = () => [
-  getListPendingImportsMockHandler(),
-  getAddPendingImportsMockHandler(),
-  getIgnorePendingImportsMockHandler(),
-  getUnignorePendingImportsMockHandler(),
-  getImportPendingIntoMockHandler(),
-  getMatchPendingImportMockHandler(),
+  getListImportsMockHandler(),
+  getAddRootImportsMockHandler(),
+  getIgnoreImportsMockHandler(),
   getGetLibraryScanSettingsMockHandler(),
   getUpdateLibraryScanSettingsMockHandler(),
+  getUnignoreImportsMockHandler(),
+  getGetImportMockHandler(),
+  getActOnRootImportMockHandler(),
 ];
