@@ -299,6 +299,27 @@ func (c crossNode) landInTurn(t *testing.T, id string, l *lands, order []int) im
 	return v
 }
 
+// laterParked lets each Transfer's first file go and parks every chunk of
+// a later one until release. A receiver reports its files in position
+// order, so parking by count could free a later file that then waits on
+// the parked first.
+type laterParked struct {
+	reached, release chan struct{}
+	once             sync.Once
+}
+
+func newLaterParked() *laterParked {
+	return &laterParked{reached: make(chan struct{}), release: make(chan struct{})}
+}
+
+func (p *laterParked) sent(_ transfers.ID, position, _ int, _ []byte) {
+	if position == 0 {
+		return
+	}
+	p.once.Do(func() { close(p.reached) })
+	<-p.release
+}
+
 // TestPackLandsInAnyOrder opens a season pack of ten episodes on seedbox
 // by hand, with episode 4 already in home's TV root. Only the nine files
 // with cells are sent. The first to arrive lands while the rest still
@@ -307,8 +328,7 @@ func (c crossNode) landInTurn(t *testing.T, id string, l *lands, order []int) im
 func TestPackLandsInAnyOrder(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		// Episode 4's one chunk and the pack's first go free.
-		p, l := parkedAt(3), newLands()
+		p, l := newLaterParked(), newLands()
 		c := launchCrossNode(t, func(e *node.Env) { e.Test.Transfers.Sent = p.sent }, sim.Edit(func(name string, e *node.Env) {
 			if name == "home" {
 				e.Test.BeforeImport = l.before
