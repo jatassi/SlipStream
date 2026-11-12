@@ -102,12 +102,10 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 	}
 	imdb := imdbIDs(s)
 	w.announce = siteAnnounces(s)
-	announce := "https://127.0.0.1/announce/" + releases.Passkey(s, releases.Seeders)
 	var listing []site.Release
 	catalog := &releases.Catalog{}
 	for _, r := range s.Releases {
-		payload := Payload(r.Name)
-		meta, hash, err := releases.Metainfo(r.Name+".mkv", payload, announce, r.Public)
+		payload, meta, hash, err := torrent(s, r)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -158,6 +156,14 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 	site.Fake.Endpoints(endpoints, w.site)
 	w.serveClients(t, s, local, fakes, catalog, filepath.Join(base, "fakes"), log)
 	return w
+}
+
+// torrent is r's payload in the walk and its torrent, which announces as
+// fixture-seeders.
+func torrent(s scenario.Scenario, r scenario.Release) (payload, meta []byte, hash bencode.InfoHash, err error) {
+	payload = Payload(r.Name)
+	meta, hash, err = releases.Metainfo(r.Name+".mkv", payload, "https://127.0.0.1/announce/"+releases.Passkey(s, releases.Seeders), r.Public)
+	return payload, meta, hash, err
 }
 
 // writeFolders writes each file of the Scenario's library folders under
