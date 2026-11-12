@@ -74,11 +74,11 @@ func seasonID(series int64, t seasonType, number int) int64 {
 	return series*1000 + int64(t.ID-1)*300 + int64(number)
 }
 
-// dates are series' first and last aired days and its next airing, from
-// its Aired episodes outside the specials.
-func dates(series scenario.TVDBSeries) (first, last, next string) {
+// dates are a series' first and last aired days and its next airing,
+// from its episodes in Aired order outside the specials.
+func dates(airedOrder []placed) (first, last, next string) {
 	today := time.Now().UTC().Format(time.DateOnly)
-	for _, e := range episodesIn(series, aired) {
+	for _, e := range airedOrder {
 		if e.season == 0 || e.Aired == "" {
 			continue
 		}
@@ -261,8 +261,8 @@ type translationJSON struct {
 	IsPrimary bool   `json:"isPrimary"`
 }
 
-func base(series scenario.TVDBSeries) baseJSON {
-	first, last, next := dates(series)
+func base(series scenario.TVDBSeries, airedOrder []placed) baseJSON {
+	first, last, next := dates(airedOrder)
 	langs := []string{"eng"}
 	if l := originalLanguage(series); l != "eng" {
 		langs = append(langs, l)
@@ -303,7 +303,7 @@ func (s *server) series(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := extendedJSON{
-		baseJSON: base(series), Overview: overview(series, rev), OriginalNetwork: network(series), LatestNetwork: network(series),
+		baseJSON: base(series, episodesIn(series, aired)), Overview: overview(series, rev), OriginalNetwork: network(series), LatestNetwork: network(series),
 		Companies: []companyJSON{}, Genres: genres(series), RemoteIDs: []remoteIDJSON{}, Seasons: []seasonJSON{}, SeasonTypes: typesOf(series),
 	}
 	if n := out.OriginalNetwork; n != nil {
@@ -396,7 +396,7 @@ func (s *server) episodes(w http.ResponseWriter, r *http.Request) {
 		failure(w, http.StatusNotFound, notFoundWords)
 		return
 	}
-	all := episodesIn(series, t)
+	all := s.ordered(series, t)
 	page := pageParam(r.URL.Query().Get("page"))
 	episodes := []episodeJSON{}
 	if from := page * episodesPage; from < len(all) {
@@ -419,7 +419,7 @@ func (s *server) episodes(w http.ResponseWriter, r *http.Request) {
 	reply(w, http.StatusOK, envelope{Status: "success", Data: struct {
 		Series   baseJSON      `json:"series"`
 		Episodes []episodeJSON `json:"episodes"`
-	}{base(series), episodes}, Links: pageLinks(r, page, len(all), episodesPage)})
+	}{base(series, s.ordered(series, aired)), episodes}, Links: pageLinks(r, page, len(all), episodesPage)})
 }
 
 type searchJSON struct {
@@ -468,7 +468,7 @@ func (s *server) search(w http.ResponseWriter, r *http.Request) {
 }
 
 func hitOf(series scenario.TVDBSeries, rev int) searchJSON {
-	b := base(series)
+	b := base(series, episodesIn(series, aired))
 	id := strconv.FormatInt(series.ID, 10)
 	hit := searchJSON{
 		ObjectID: "series-" + id, Aliases: series.Aliases, Companies: []string{}, Country: b.OriginalCountry, ID: "series-" + id,
