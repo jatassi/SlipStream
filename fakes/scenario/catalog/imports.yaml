@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller, for the Admin's side of importing. The
+  movies root holds The Quiet Orchard at 1080p WEB-DL, below the starter
+  Target's cutoff, so a search grabs the site's 1080p BluRay release, whose
+  video is 720p: its file isn't better than the one the library has, and
+  its download waits for the Admin. The media dir's shelf, a folder no root
+  names, holds a Harbor Lights video for a test to copy into a download
+  folder and import by hand.
+seed: imports
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 15s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+    - id: 9000002
+      imdb_id: tt9000002
+      title: Harbor Lights
+      released: 2019-09-06
+      runtime: 98m
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.BluRay.x264-FKW
+    tmdb_id: 9000001
+    video: {width: 1280, height: 720, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 9.8GiB
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]
+  indexers: [{name: Fixture Site, kind: torznab, site: torznab}]
+  folders:
+    - folder: movies
+      files:
+        - path: The Quiet Orchard (2021) {tmdb-9000001}/The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 2, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
+    - folder: shelf
+      files:
+        - path: Harbor.Lights.2019.1080p.WEB-DL.H264-FKW.mkv
+          video: {width: 1920, height: 1080, seconds: 2, hdr: sdr}
+          audio: [{codec: aac, channels: 2, language: eng, default: true}]
