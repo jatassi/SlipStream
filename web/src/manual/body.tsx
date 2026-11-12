@@ -1,8 +1,8 @@
-import type { GrabsManualSearch, GrabsPinned } from "../api/gen/model";
+import type { GrabsManualSearch } from "../api/gen/model";
 import { useStartManualSearch } from "../api/gen/query/grabs/grabs";
 import { sentenceOf } from "../api/errors";
 import { AlertLine } from "../ui/alert-line";
-import { Plan } from "./plan";
+import { type OnPins, Plan } from "./plan";
 import { ReadingProvider } from "./reading";
 import { QueryField, SearchingLine } from "./searching-line";
 import type { ManualScope } from "./sheet-state";
@@ -24,7 +24,7 @@ export function ManualBody({
   workId: string;
   scope: ManualScope;
   search: GrabsManualSearch;
-  onPins: (pins: readonly GrabsPinned[]) => void;
+  onPins: OnPins;
   onReopen: () => void;
   onClose: () => void;
 }) {
