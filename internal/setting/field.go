@@ -27,7 +27,7 @@ type Field interface {
 func (a About) about() About { return a }
 
 // Kinds is every kind of Field, once each.
-var Kinds = []Field{DurationField{}, CountField{}, ChoiceField{}, WindowField{}, PortField{}, SwitchField{}, RateField{}, AddressField{}, FolderField{}, SpaceField{}, TemplateField{}}
+var Kinds = []Field{DurationField{}, CountField{}, ChoiceField{}, WindowField{}, PortField{}, SwitchField{}, RateField{}, AddressField{}, FolderField{}, SpaceField{}, TemplateField{}, ListField{}, SizeField{}}
 
 // DurationField is a Duration on the wire, in seconds.
 type DurationField struct {

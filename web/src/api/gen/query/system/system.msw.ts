@@ -9,8 +9,10 @@ import type {
   SettingCountField,
   SettingDurationField,
   SettingFolderField,
+  SettingListField,
   SettingPortField,
   SettingRateField,
+  SettingSizeField,
   SettingSpaceField,
   SettingSwitchField,
   SettingTemplateField,
@@ -407,6 +409,76 @@ export const getGetNodeConfigResponseSettingTemplateFieldMock = (
   ...overrideResponse,
 });
 
+export const getGetNodeConfigResponseSettingListFieldMock = (
+  overrideResponse: Partial<SettingListField> = {},
+): SettingListField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    item: faker.helpers.arrayElement(["extension"] as const),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["list"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    min: faker.number.int({ min: 0 }),
+    pendingRestart: faker.datatype.boolean(),
+    running: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+  },
+  ...overrideResponse,
+});
+
+export const getGetNodeConfigResponseSettingSizeFieldMock = (
+  overrideResponse: Partial<SettingSizeField> = {},
+): SettingSizeField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["size"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.number.int(),
+  },
+  ...overrideResponse,
+});
+
 export const getGetNodeConfigResponseMock = (
   overrideResponse: Partial<Extract<SystemNodeConfig, object>> = {},
 ): SystemNodeConfig => ({
@@ -426,6 +498,8 @@ export const getGetNodeConfigResponseMock = (
             { ...getGetNodeConfigResponseSettingFolderFieldMock() },
             { ...getGetNodeConfigResponseSettingSpaceFieldMock() },
             { ...getGetNodeConfigResponseSettingTemplateFieldMock() },
+            { ...getGetNodeConfigResponseSettingListFieldMock() },
+            { ...getGetNodeConfigResponseSettingSizeFieldMock() },
           ]),
       ),
       id: faker.helpers.arrayElement(["web", "log", "torrent"] as const),
@@ -815,6 +889,76 @@ export const getUpdateNodeConfigResponseSettingTemplateFieldMock = (
   ...overrideResponse,
 });
 
+export const getUpdateNodeConfigResponseSettingListFieldMock = (
+  overrideResponse: Partial<SettingListField> = {},
+): SettingListField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    item: faker.helpers.arrayElement(["extension"] as const),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["list"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    min: faker.number.int({ min: 0 }),
+    pendingRestart: faker.datatype.boolean(),
+    running: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+  },
+  ...overrideResponse,
+});
+
+export const getUpdateNodeConfigResponseSettingSizeFieldMock = (
+  overrideResponse: Partial<SettingSizeField> = {},
+): SettingSizeField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["size"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.number.int(),
+  },
+  ...overrideResponse,
+});
+
 export const getUpdateNodeConfigResponseMock = (
   overrideResponse: Partial<Extract<SystemNodeConfig, object>> = {},
 ): SystemNodeConfig => ({
@@ -834,6 +978,8 @@ export const getUpdateNodeConfigResponseMock = (
             { ...getUpdateNodeConfigResponseSettingFolderFieldMock() },
             { ...getUpdateNodeConfigResponseSettingSpaceFieldMock() },
             { ...getUpdateNodeConfigResponseSettingTemplateFieldMock() },
+            { ...getUpdateNodeConfigResponseSettingListFieldMock() },
+            { ...getUpdateNodeConfigResponseSettingSizeFieldMock() },
           ]),
       ),
       id: faker.helpers.arrayElement(["web", "log", "torrent"] as const),
