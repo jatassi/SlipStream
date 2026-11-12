@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/imports/internal/db"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -69,13 +70,13 @@ func TestTheUpgradeCarriesEveryPendingImportIntoARootImport(t *testing.T) {
 		`{"code":"no_rule"}`,
 	}
 	stmts := [][]any{
-		{`INSERT INTO roots_root (id, content_type, node_id, path, is_default, place) VALUES (?, 'movie', ?, '/media/movies', 1, 1)`, root, storage.NewUUID()},
-		{`INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, 'movie', 'w1', 'Brazil', 'Brazil', 1, 1)`, work},
+		{`INSERT INTO roots_root (id, content_type, node_id, path, is_default, place) VALUES (?, 'fixture', ?, '/media/movies', 1, 1)`, root, storage.NewUUID()},
+		{`INSERT INTO works_work (id, content_type, key, label, sort_label, added_at, refreshed_at) VALUES (?, 'fixture', 'w1', 'Brazil', 'Brazil', 1, 1)`, work},
 		{`INSERT INTO works_item (id, work_id, key, label, position) VALUES (?, ?, 'i1', 'One', 1)`, first, work},
 		{`INSERT INTO works_item (id, work_id, key, label, position) VALUES (?, ?, 'i2', 'Two', 2)`, second, work},
-		{`INSERT INTO imports_pending (id, root_id, folder, content_type, hint, suggestion, found_at, ignored_at) VALUES (?, ?, 'Brazil (1985)', 'movie', '{"Title":"Brazil","Year":1985}', '{"key":"w1","label":"Brazil","year":1985,"poster":{}}', 1700000000000, 1700000100000)`, brazil, root},
-		{`INSERT INTO imports_pending (id, root_id, folder, content_type, hint, found_at) VALUES (?, ?, 'Severance', 'movie', '{"Title":"Severance"}', 1700000000000)`, severance, root},
-		{`INSERT INTO imports_pending (id, root_id, folder, content_type, hint, found_at) VALUES (?, ?, 'Mixed', 'movie', '{"Title":"Mixed"}', 1700000000000)`, mixed, root},
+		{`INSERT INTO imports_pending (id, root_id, folder, content_type, hint, suggestion, found_at, ignored_at) VALUES (?, ?, 'Brazil (1985)', 'fixture', '{"Title":"Brazil","Year":1985}', '{"key":"w1","label":"Brazil","year":1985,"poster":{}}', 1700000000000, 1700000100000)`, brazil, root},
+		{`INSERT INTO imports_pending (id, root_id, folder, content_type, hint, found_at) VALUES (?, ?, 'Severance', 'fixture', '{"Title":"Severance"}', 1700000000000)`, severance, root},
+		{`INSERT INTO imports_pending (id, root_id, folder, content_type, hint, found_at) VALUES (?, ?, 'Mixed', 'fixture', '{"Title":"Mixed"}', 1700000000000)`, mixed, root},
 		{pendingFile, severance, "Severance/S01E01E02.mkv", 10, nil, nil, nil, probe, "bluray-1080p", "[]", `{"code":"several_items"}`},
 		{pendingFile, mixed, "Mixed/b.mkv", 10, nil, nil, nil, probe, "bluray-1080p", "[]", `{"code":"several_items"}`},
 		{pendingFile, mixed, "Mixed/c.mkv", 10, nil, nil, nil, probe, "bluray-1080p", "[]", `{"code":"no_number"}`},
@@ -112,7 +113,7 @@ func TestTheUpgradeCarriesEveryPendingImportIntoARootImport(t *testing.T) {
 	}
 	b := got[slices.IndexFunc(got, func(im Import) bool { return im.ID.UUID == brazil })]
 	m := got[slices.IndexFunc(got, func(im Import) bool { return im.ID.UUID == mixed })]
-	if b.Source != FromRoot || b.Root != (roots.ID{UUID: root}) || b.Folder != "Brazil (1985)" || b.ContentType != "movie" ||
+	if b.Source != FromRoot || b.Root != (roots.ID{UUID: root}) || b.Folder != "Brazil (1985)" || b.ContentType != contenttypetest.ID ||
 		b.Hint.Title != "Brazil" || b.Hint.Year != 1985 || b.Suggestion == nil || b.Suggestion.Key != "w1" ||
 		!b.Created.Time().Equal(time.UnixMicro(1700000000000)) || !b.Ignored.Time().Equal(time.UnixMicro(1700000100000)) || !b.Finished.IsZero() || b.Stage() != StageWaiting {
 		t.Errorf("Brazil's root Import = %+v, want its entry's root, folder, hint, suggestion, times, unfinished and waiting", b)
@@ -174,7 +175,7 @@ func TestTheUpgradeLeavesRootsAlreadySeenReadyForTheNightlyScan(t *testing.T) {
 			sql  string
 			args []any
 		}{
-			{`INSERT INTO roots_root (id, content_type, node_id, path, is_default, place) VALUES (?, 'movie', ?, '/media/movies', 1, 2)`, []any{seen, node}},
+			{`INSERT INTO roots_root (id, content_type, node_id, path, is_default, place) VALUES (?, 'fixture', ?, '/media/movies', 1, 2)`, []any{seen, node}},
 			{`INSERT INTO roots_root (id, content_type, node_id, path, is_default, place) VALUES (?, 'series', ?, '/media/series', 1, 1)`, []any{unseen, node}},
 			{`INSERT INTO roots_seen (root_id, place, volume_id) VALUES (?, 2, 'vol')`, []any{seen}},
 		} {
