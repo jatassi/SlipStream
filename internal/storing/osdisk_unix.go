@@ -76,3 +76,17 @@ var ErrNoSpace error = syscall.ENOSPC
 
 // NoSpace reports whether err is a write that ran out of space.
 func NoSpace(err error) bool { return errors.Is(err, syscall.ENOSPC) }
+
+// ErrCrossDevice is the error a hard link across two volumes fails with.
+var ErrCrossDevice error = syscall.EXDEV
+
+// cloneError is err from cloning into part. EXDEV is two filesystems,
+// and EINVAL or ENOTTY a filesystem that shares no extents: each is an
+// unsupported clone, as EOPNOTSUPP already reads.
+func cloneError(op, part string, err error) error {
+	pe := &fs.PathError{Op: op, Path: part, Err: err}
+	if errors.Is(err, unix.EXDEV) || errors.Is(err, unix.EINVAL) || errors.Is(err, unix.ENOTTY) {
+		return fmt.Errorf("%w: %w", errors.ErrUnsupported, pe)
+	}
+	return pe
+}

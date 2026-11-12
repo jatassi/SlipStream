@@ -2,6 +2,7 @@ package storing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -87,4 +88,18 @@ func stableIDs(st *unix.Statfs_t) bool { return stableFSName(unix.ByteSliceToStr
 // filesystem's numbers are the server's to change.
 func stableFSName(name string) bool {
 	return !networkFSName(name) && name != "msdos" && name != "exfat"
+}
+
+// Clone clones from to to+".part" with clonefile, which makes it whole or
+// not at all, and renames it to to. A .part a crash left is removed first,
+// because clonefile won't write over a file.
+func (OSDisk) Clone(_ context.Context, from, to string) error {
+	part := to + ".part"
+	if err := os.Remove(part); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err //nolint:wrapcheck // a PathError names the call and the path
+	}
+	if err := unix.Clonefile(from, part, 0); err != nil {
+		return cloneError("clonefile", part, err)
+	}
+	return os.Rename(part, to) //nolint:wrapcheck // a LinkError names the call and both paths
 }
