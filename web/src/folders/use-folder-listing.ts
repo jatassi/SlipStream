@@ -17,6 +17,7 @@ import { useSettled } from "./use-settled";
 export type FolderProblem =
   | { readonly kind: "unreadable"; readonly problem: RootsFolderProblem }
   | { readonly kind: "offline" }
+  | { readonly kind: "outside" }
   /** Any other refusal, in the Node's own words. */
   | { readonly kind: "refused"; readonly sentence: string };
 
@@ -28,6 +29,9 @@ export function problemOf(error: unknown): FolderProblem {
   }
   if (isProblem(error, "node_offline")) {
     return { kind: "offline" };
+  }
+  if (isProblem(error, "folder_outside")) {
+    return { kind: "outside" };
   }
   return { kind: "refused", sentence: sentenceOf(error) };
 }
