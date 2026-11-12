@@ -103,3 +103,19 @@ test("a many-Item Work's About names the latest Item out and the next one to com
     .element(about.getByText("The next story, V01S03, counts as out on January 4, 2020."))
     .toBeVisible();
 });
+
+test("an Item not out yet is the next one whatever its cells hold, such as a download", async () => {
+  const [, , next] = longShelf.items;
+  const cells = shelfCells(longShelf, (item) => (item === next ? "downloading" : "met"));
+  for (const status of cells.items) {
+    status.released = status.itemId !== next?.id;
+  }
+  renderKit(<About type={anthologies} work={longShelf} statuses={cells.items} />);
+  await expect
+    .element(
+      page
+        .getByRole("region", { name: "About" })
+        .getByText("The next story, V01S03, counts as out on January 4, 2020."),
+    )
+    .toBeVisible();
+});

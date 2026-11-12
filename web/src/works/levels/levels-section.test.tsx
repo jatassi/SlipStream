@@ -87,7 +87,7 @@ test("a level's header shows its bar and tally, and Items nobody monitors read N
     return volumeOf(item) === 0 && item.position <= 6 ? "met" : "unreleased";
   });
   await expect
-    .element(levels().getByRole("heading", { name: "Volume 1 6 Met, 43 Unreleased 6 of 49 met" }))
+    .element(levels().getByRole("heading", { name: "Volume 1 43 Unreleased, 6 Met 6 of 49 met" }))
     .toBeVisible();
   const extras = levels().getByRole("heading", { name: "Extras No cells Not monitored" });
   await scrollTo(extras);

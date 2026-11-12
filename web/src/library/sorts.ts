@@ -1,4 +1,4 @@
-import type { FilesState, WorksContentType, WorksLibraryRowMonitored } from "../api/gen/model";
+import type { WorksContentType, WorksLibraryRowMonitored } from "../api/gen/model";
 import type { LibraryWork } from "./rows";
 import {
   type Comparable,
@@ -10,7 +10,7 @@ import {
   namedSections,
   ratingSection,
 } from "./sections";
-import { statusMarks } from "./status";
+import { stateOrder, statusMarks } from "../ui/state-marks";
 import {
   type ArrangeContext,
   type CoreSort,
@@ -35,16 +35,6 @@ export type SortDef = {
   readonly section: (value: Comparable | undefined, ctx: ArrangeContext) => Section;
 };
 
-/** Failures first, then what SlipStream can still act on, as Needs you ranks them. */
-const statusOrder: readonly FilesState[] = [
-  "failed",
-  "upgradable",
-  "missing",
-  "downloading",
-  "met",
-  "unreleased",
-];
-
 const monitoredOrder: readonly WorksLibraryRowMonitored[] = ["all", "some", "none"];
 
 /** Sorts by a word's place in `order` and sections by the word. */
@@ -59,7 +49,7 @@ function ranked<W extends string>(order: readonly W[], words: (word: W) => strin
   };
 }
 
-const byStatus = ranked(statusOrder, (status) => statusMarks[status].word, "No status");
+const byStatus = ranked(stateOrder, (status) => statusMarks[status].word, "No status");
 const byMonitored = ranked(monitoredOrder, (monitored) => monitoredWords[monitored], "");
 
 const two = (part: number) => String(part).padStart(2, "0");

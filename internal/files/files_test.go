@@ -313,7 +313,7 @@ func TestAnItemNotOutYetIsUnreleasedAndUnwanted(t *testing.T) {
 	}
 }
 
-func TestAnItemsStatusIsItsCellsFirstStateInGlossaryOrder(t *testing.T) {
+func TestAnItemsStatusIsItsCellsStateThatNeedsAttentionFirst(t *testing.T) {
 	cells := func(states ...files.State) []files.Cell {
 		var out []files.Cell
 		for _, s := range states {
@@ -326,8 +326,11 @@ func TestAnItemsStatusIsItsCellsFirstStateInGlossaryOrder(t *testing.T) {
 		want  files.State
 	}{
 		{cells(files.Met, files.Upgradable), files.Upgradable},
-		{cells(files.Met, files.Failed, files.Downloading), files.Downloading},
-		{cells(files.Met, files.Missing, files.Unreleased), files.Unreleased},
+		{cells(files.Met, files.Downloading, files.Failed), files.Failed},
+		{cells(files.Unreleased, files.Missing, files.Met), files.Missing},
+		{cells(files.Unreleased, files.Downloading), files.Downloading},
+		{cells(files.Unreleased, files.Upgradable), files.Upgradable},
+		{cells(files.Met, files.Unreleased), files.Unreleased},
 		{cells(files.Met), files.Met},
 	} {
 		if got, ok := files.Status(c.cells); !ok || got != c.want {

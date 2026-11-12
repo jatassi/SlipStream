@@ -209,24 +209,25 @@ func insertFile(ctx context.Context, q *db.Queries, f File) error {
 	})
 }
 
-// State is a cell's state, in the glossary's order.
+// State is a cell's state, in the glossary's order: what needs attention
+// first.
 type State uint8
 
 const (
-	Unreleased State = iota + 1
+	Failed State = iota + 1
 	Missing
 	Downloading
-	Failed
 	Upgradable
+	Unreleased
 	Met
 )
 
-var stateNames = [...]string{Unreleased: "unreleased", Missing: "missing", Downloading: "downloading", Failed: "failed", Upgradable: "upgradable", Met: "met"}
+var stateNames = [...]string{Failed: "failed", Missing: "missing", Downloading: "downloading", Upgradable: "upgradable", Unreleased: "unreleased", Met: "met"}
 
 func (s State) String() string { return stateNames[s] }
 
 // States names every State, in the glossary's order.
-func States() []string { return slices.Clone(stateNames[Unreleased:]) }
+func States() []string { return slices.Clone(stateNames[Failed:]) }
 
 // CellKey names one cell: an Edition at a Target of an Item.
 type CellKey struct {
@@ -290,11 +291,13 @@ const (
 // GrabCell is the Grab a cell reads from: its latest unfinished Grab, else
 // its latest. Waiting is the code of what an unfinished Grab waits on that
 // only an Admin resolves, such as node_away, empty while it waits on
-// nothing.
+// nothing. FailedAt is the stage a failed Grab failed at, such as
+// importing.
 type GrabCell struct {
-	State   GrabState
-	Grab    storage.UUID
-	Waiting string
+	State    GrabState
+	Grab     storage.UUID
+	Waiting  string
+	FailedAt string
 }
 
 func (g GrabCell) InFlight() bool { return g.State == GrabInFlight }
@@ -366,9 +369,17 @@ type Files struct {
 	poke chan struct{}
 }
 
-// WorkCells reads a Work's Items, its cells and what they add up to,
-// works.ErrNoWork when no Work has the id.
-func (f *Files) WorkCells(ctx context.Context, _ identity.Admin, work works.WorkID) ([]works.Item, []Cell, Rollup, error) {
+// ItemState is an Item's status, zero for an Item with no cell, and
+// whether it is out today.
+type ItemState struct {
+	Item     works.Item
+	Status   State
+	Released bool
+}
+
+// WorkCells reads each of a Work's Items with its state, its cells and
+// what they add up to, works.ErrNoWork when no Work has the id.
+func (f *Files) WorkCells(ctx context.Context, _ identity.Admin, work works.WorkID) ([]ItemState, []Cell, Rollup, error) {
 	var w world
 	err := f.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
@@ -379,7 +390,12 @@ func (f *Files) WorkCells(ctx context.Context, _ identity.Admin, work works.Work
 		return nil, nil, Rollup{}, err
 	}
 	cs := cells(w)
-	return w.tree.Items, cs, rollup(w, cs), nil
+	items := make([]ItemState, 0, len(w.tree.Items))
+	eachItem(w.tree.Items, cs, func(it works.Item, its []Cell) {
+		s, _ := Status(its)
+		items = append(items, ItemState{Item: it, Status: s, Released: w.timing[it.ID].ReleasedBy(w.today)})
+	})
+	return items, cs, rollup(w, cs), nil
 }
 
 // Cells computes a Work's cells in r: each Item in tree order, at each

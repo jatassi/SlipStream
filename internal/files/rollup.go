@@ -15,24 +15,39 @@ import (
 // Counts is a count for each State, indexed by it.
 type Counts [Met + 1]int
 
+// Counted is what a Work's or a level's counted Items add up to.
+type Counted struct {
+	// Cells counts their cells by State: each Edition an Item wants at
+	// each Target. A listed cut not seen for an Item makes no cell, so it
+	// never counts.
+	Cells Counts
+	Items int
+	// ByItem counts them by status. An Item with no cell isn't counted.
+	ByItem Counts
+}
+
+func (t *Counted) add(cells []Cell) (State, bool) {
+	t.Items++
+	for _, c := range cells {
+		t.Cells[c.State]++
+	}
+	s, ok := Status(cells)
+	if ok {
+		t.ByItem[s]++
+	}
+	return s, ok
+}
+
 // Rollup is what one Work's cells and files add up to. The Library's row
 // and the Work page read the same one.
 type Rollup struct {
 	// Status is the first State any of the Work's counted Items holds, in
 	// the glossary's order, zero while none holds a cell.
 	Status State
-	// Cells counts the cells of the Work's counted Items by State: each
-	// Edition it wants at each Target of each. A listed cut not seen for
-	// an Item makes no cell, so it never counts.
-	Cells Counts
-	// Failed counts the wanted cells whose download failed, which the
-	// Library's Failed chip shows.
-	Failed int
-	// Items counts the Work's counted Items.
-	Items int
-	// ByItem counts counted Items by status. An Item with no cell isn't
-	// counted.
-	ByItem Counts
+	Counted
+	// Levels rolls up each level the Work's Items sit in, in the order its
+	// first Item comes. A Work of a type with no levels has none.
+	Levels []LevelRollup
 	Needs  []Need
 	// Files, Kept and Bytes count the Work's live library files, Kept
 	// files included.
@@ -46,6 +61,16 @@ type Rollup struct {
 	Profile   targets.ProfileID
 	// Root is zero while the Work has none.
 	Root roots.ID
+}
+
+// LevelRollup is what one level's Items add up to, counted as the Work's
+// Rollup counts them.
+type LevelRollup struct {
+	Level works.LevelID
+	Counted
+	// Withdrawn counts the cells of the level's Items its source no longer
+	// lists that a file still fills, by State.
+	Withdrawn Counts
 }
 
 // Rollups reads the Rollup of each of ws, the Works among names, in r and
@@ -69,30 +94,15 @@ func rollup(w world, cs []Cell) Rollup {
 		Needs:     needs(w.tree.Items, cs, w.grabs, !w.root.IsZero()),
 		Available: available(w.tree.Items, w.timing, w.today), Profile: w.goals.Profile.ID, Root: w.root,
 	}
-	for _, it := range w.tree.Items {
-		if it.Counts() {
-			out.Items++
+	eachItem(w.tree.Items, cs, func(it works.Item, its []Cell) {
+		if !it.Counts() {
+			return
 		}
-	}
-	of := map[works.ItemID]State{}
-	for _, c := range cs {
-		if !c.Item.Counts() {
-			continue
-		}
-		out.Cells[c.State]++
-		if c.State == Failed && c.Wanted() {
-			out.Failed++
-		}
-		if s, ok := of[c.Item.ID]; !ok || c.State < s {
-			of[c.Item.ID] = c.State
-		}
-	}
-	for _, s := range of {
-		out.ByItem[s]++
-		if out.Status == 0 || s < out.Status {
+		if s, ok := out.add(its); ok && (out.Status == 0 || s < out.Status) {
 			out.Status = s
 		}
-	}
+	})
+	out.Levels = levelsOf(w.tree.Items, cs)
 	var held Held
 	for _, file := range w.files {
 		if !file.Gone() {
@@ -101,6 +111,43 @@ func rollup(w world, cs []Cell) Rollup {
 	}
 	out.Files, out.Kept, out.Bytes = held.Files, held.Kept, held.Bytes
 	return out
+}
+
+func levelsOf(items []works.Item, cs []Cell) []LevelRollup {
+	var out []LevelRollup
+	at := map[works.LevelID]int{}
+	eachItem(items, cs, func(it works.Item, its []Cell) {
+		if it.LevelID.IsZero() {
+			return
+		}
+		i, ok := at[it.LevelID]
+		if !ok {
+			i = len(out)
+			at[it.LevelID] = i
+			out = append(out, LevelRollup{Level: it.LevelID})
+		}
+		switch {
+		case it.Counts():
+			out[i].add(its)
+		case !it.Live() && slices.ContainsFunc(its, func(c Cell) bool { return c.File != nil }):
+			for _, c := range its {
+				out[i].Withdrawn[c.State]++
+			}
+		}
+	})
+	return out
+}
+
+func eachItem(items []works.Item, cs []Cell, f func(works.Item, []Cell)) {
+	i := 0
+	for _, it := range items {
+		j := i
+		for j < len(cs) && cs[j].Item.ID == it.ID {
+			j++
+		}
+		f(it, cs[i:j])
+		i = j
+	}
 }
 
 func available(items []works.Item, timing map[works.ItemID]targets.Timing, today time.Time) release.Fact[works.Date] {

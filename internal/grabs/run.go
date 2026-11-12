@@ -218,8 +218,6 @@ func (gr *Grabs) downloaded(_ context.Context, g Grab) outcome {
 
 const writtenOffWords = "The Admin wrote off what this Grab's Node downloads"
 
-// failOfGone is how a Grab fails when its Torrent is removed, by why. The
-// two client reasons name the client.
 func failOfGone(g downloadclients.Gone) fail {
 	switch g.Reason {
 	case downloadclients.ByAdmin:
@@ -232,11 +230,11 @@ func failOfGone(g downloadclients.Gone) fail {
 	case downloadclients.NodeWrittenOff:
 		return fail{NodeWrittenOff, writtenOffWords}
 	case downloadclients.ByClient:
-		return fail{Removed, g.Client + " removed the torrent before SlipStream imported it."}
+		return fail{ClientRemoved, g.Client + " removed the torrent before SlipStream imported it."}
 	case downloadclients.ClientDeleted:
-		return fail{Removed, "The Admin deleted " + g.Client + " before SlipStream imported this torrent."}
+		return fail{ClientDeleted, "The Admin deleted " + g.Client + " before SlipStream imported this torrent."}
 	case downloadclients.GoalMet:
-		return fail{Removed, "SlipStream removed this Grab's torrent once it met its seeding goal."}
+		return fail{GoalMet, "SlipStream removed this Grab's torrent once it met its seeding goal."}
 	case downloadclients.ReleaseFaulted:
 		return failOfFault(g)
 	case downloadclients.Canceled:

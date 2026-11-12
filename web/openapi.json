@@ -2817,6 +2817,13 @@
             },
             "type": "array"
           },
+          "levels": {
+            "description": "What each level's cells add up to, in the order its first Item comes; empty for a type with no levels",
+            "items": {
+              "$ref": "#/components/schemas/FilesLevelRollup"
+            },
+            "type": "array"
+          },
           "needsYou": {
             "description": "What the Work needs from an Admin, failures first",
             "items": {
@@ -2833,6 +2840,7 @@
           "cells",
           "items",
           "summary",
+          "levels",
           "needsYou"
         ],
         "type": "object"
@@ -3131,6 +3139,10 @@
             "format": "uuid",
             "type": "string"
           },
+          "released": {
+            "description": "Its availability date is today or earlier",
+            "type": "boolean"
+          },
           "status": {
             "anyOf": [
               {
@@ -3145,7 +3157,43 @@
         },
         "required": [
           "itemId",
-          "status"
+          "status",
+          "released"
+        ],
+        "type": "object"
+      },
+      "FilesLevelRollup": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "$ref": "#/components/schemas/FilesStateCounts",
+            "description": "Its monitored Items' cells by state"
+          },
+          "itemStatus": {
+            "$ref": "#/components/schemas/FilesStateCounts",
+            "description": "Its monitored Items by status; an Item with no cell isn't counted"
+          },
+          "items": {
+            "description": "Its monitored Items that its source still lists",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "levelId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "withdrawn": {
+            "$ref": "#/components/schemas/FilesStateCounts",
+            "description": "The cells of its Items its source no longer lists that a file still fills, by state"
+          }
+        },
+        "required": [
+          "levelId",
+          "cells",
+          "items",
+          "itemStatus",
+          "withdrawn"
         ],
         "type": "object"
       },
@@ -3699,11 +3747,11 @@
       },
       "FilesState": {
         "enum": [
-          "unreleased",
+          "failed",
           "missing",
           "downloading",
-          "failed",
           "upgradable",
+          "unreleased",
           "met"
         ],
         "type": "string"
@@ -5361,6 +5409,9 @@
               "download_failed",
               "marked_failed",
               "removed",
+              "client_removed",
+              "client_deleted",
+              "goal_met",
               "no_video_file",
               "probe_failed",
               "fills_nothing",
@@ -5375,6 +5426,10 @@
               "release_fault"
             ],
             "type": "string"
+          },
+          "current": {
+            "description": "No later Grab holds any of its cells. Needs you lists a failure only while it is current.",
+            "type": "boolean"
           },
           "message": {
             "type": "string"
@@ -5398,7 +5453,8 @@
           "stage",
           "code",
           "message",
-          "needsYou"
+          "needsYou",
+          "current"
         ],
         "type": "object"
       },
@@ -20313,12 +20369,6 @@
             "pattern": "^[a-z][a-z0-9]{1,15}$",
             "type": "string"
           },
-          "failed": {
-            "description": "Its wanted cells whose download failed",
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
           "files": {
             "description": "Its library files, Kept files included",
             "format": "int64",
@@ -20450,7 +20500,6 @@
           "addedBy",
           "status",
           "cells",
-          "failed",
           "items",
           "itemStatus",
           "needsYou",

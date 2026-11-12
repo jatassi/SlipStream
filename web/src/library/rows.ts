@@ -47,8 +47,6 @@ export type LibraryWork = {
   /** Undefined for a Work with no cell. */
   readonly status: FilesState | undefined;
   readonly cells: FilesStateCounts;
-  /** Its wanted cells that failed, for the Failed chip. */
-  readonly failed: number;
   readonly items: number;
   readonly itemStatus: FilesStateCounts;
   readonly needsYou: number;
@@ -143,7 +141,6 @@ export function parseRow(row: WorksLibraryRow, type: WorksContentType): LibraryW
     addedBy: row.addedBy,
     status: row.status ?? undefined,
     cells: row.cells,
-    failed: row.failed,
     items: row.items,
     itemStatus: row.itemStatus,
     needsYou: row.needsYou,

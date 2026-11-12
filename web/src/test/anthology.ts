@@ -7,6 +7,7 @@ import type {
   WorksLevel,
   WorksWorkView,
 } from "../api/gen/model";
+import { levelRollupsOf } from "./shelf-cells";
 
 /** A many-Item type with one level, an aside level, a code field and per-Work options. */
 export const anthologies: WorksContentType = {
@@ -191,7 +192,8 @@ export const longShelf: WorksWorkView = {
 /** Every Story of The Long Shelf without a cell. */
 export const longShelfCells: FilesCellList = {
   cells: [],
-  items: longShelf.items.map((item) => ({ itemId: item.id, status: null })),
+  items: longShelf.items.map((item) => ({ itemId: item.id, status: null, released: true })),
+  levels: levelRollupsOf(longShelf, []),
   summary: { status: null, cells: {}, items: longShelf.items.length, itemStatus: {} },
   needsYou: [],
 };

@@ -16,9 +16,9 @@ test("the met pill counts every cell, failures and downloads are pills, the rest
     pills: [
       { tone: "plain", words: "3 of 9 met" },
       { tone: "fail", words: "1 failed" },
-      { tone: "live", words: "2 in flight" },
+      { tone: "live", words: "2 downloading" },
     ],
-    rest: ["1 upgrade available", "2 missing"],
+    rest: ["2 missing", "1 upgrade available"],
   });
 });
 

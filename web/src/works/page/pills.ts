@@ -1,4 +1,5 @@
 import type { FilesState, FilesSummary, WorksContentTypeItems } from "../../api/gen/model";
+import { stateOrder, statusMarks } from "../../ui/state-marks";
 
 export type PillTone = "met" | "fail" | "live" | "plain";
 
@@ -10,39 +11,20 @@ export type Pills = {
   readonly rest: readonly string[];
 };
 
-type Counted =
-  | {
-      readonly place: "pill";
-      readonly tone: PillTone;
-      readonly words: (count: number) => string;
-    }
-  | { readonly place: "rest"; readonly words: (count: number) => string };
-
-const counted: { readonly [S in Exclude<FilesState, "met">]: Counted } = {
-  failed: { place: "pill", tone: "fail", words: (count) => `${count} failed` },
-  downloading: {
-    place: "pill",
-    tone: "live",
-    words: (count) => `${count} in flight`,
-  },
-  upgradable: {
-    place: "rest",
-    words: (count) => `${count} ${count === 1 ? "upgrade" : "upgrades"} available`,
-  },
-  missing: { place: "rest", words: (count) => `${count} missing` },
-  unreleased: { place: "rest", words: (count) => `${count} unreleased` },
+const pillTones: { readonly [S in FilesState]?: PillTone } = {
+  failed: "fail",
+  downloading: "live",
 };
 
-const order = [
-  "failed",
-  "downloading",
-  "upgradable",
-  "missing",
-  "unreleased",
-] as const satisfies readonly (keyof typeof counted)[];
+const order = stateOrder.filter((state) => state !== "met");
+
+const wordsOf = (state: FilesState, count: number) =>
+  state === "upgradable" && count !== 1
+    ? `${count} upgrades available`
+    : `${count} ${statusMarks[state].word.toLowerCase()}`;
 
 /**
- * "3 of 9 met", "1 failed" and "2 in flight", then "1 upgrade available · 2 missing".
+ * "3 of 9 met", "1 failed" and "2 downloading", then "2 missing · 1 upgrade available".
  * One Item counts cells. Many Items count the Items that count, as the poster does.
  */
 export function pillsOf(
@@ -65,11 +47,11 @@ export function pillsOf(
     if (count === undefined) {
       continue;
     }
-    const entry = counted[state];
-    if (entry.place === "pill") {
-      pills.push({ tone: entry.tone, words: entry.words(count) });
+    const tone = pillTones[state];
+    if (tone === undefined) {
+      rest.push(wordsOf(state, count));
     } else {
-      rest.push(entry.words(count));
+      pills.push({ tone, words: wordsOf(state, count) });
     }
   }
   return { pills, rest };

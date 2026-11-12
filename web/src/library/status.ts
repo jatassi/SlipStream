@@ -1,38 +1,7 @@
-import {
-  Alert02Icon,
-  Calendar03Icon,
-  CircleArrowUp01Icon,
-  CloudOffIcon,
-  DashedLineCircleIcon,
-  Download04Icon,
-  NotificationOff01Icon,
-  Tick02Icon,
-} from "@hugeicons/core-free-icons";
-import type { IconSvgElement } from "@hugeicons/react";
+import { CloudOffIcon, NotificationOff01Icon } from "@hugeicons/core-free-icons";
 
-import type { FilesState } from "../api/gen/model";
+import { type StatusMark, statusMarks } from "../ui/state-marks";
 import type { LibraryWork } from "./rows";
-
-export type Tone = "quiet" | "neutral" | "live" | "fail" | "warn" | "met";
-
-/** A mark always carries its word beside its icon, so it never relies on colour. */
-export type StatusMark = {
-  readonly word: string;
-  readonly icon: IconSvgElement;
-  readonly tone: Tone;
-};
-
-/** One mark for every state, so a state the API adds fails the build until it has one. */
-export type MarksFor<S extends string> = { readonly [K in S]: StatusMark };
-
-export const statusMarks = {
-  unreleased: { word: "Unreleased", icon: Calendar03Icon, tone: "quiet" },
-  missing: { word: "Missing", icon: DashedLineCircleIcon, tone: "neutral" },
-  downloading: { word: "Downloading", icon: Download04Icon, tone: "live" },
-  failed: { word: "Failed", icon: Alert02Icon, tone: "fail" },
-  upgradable: { word: "Upgrade available", icon: CircleArrowUp01Icon, tone: "neutral" },
-  met: { word: "Met", icon: Tick02Icon, tone: "met" },
-} as const satisfies MarksFor<FilesState>;
 
 export const notMonitored: StatusMark = {
   word: "Not monitored",

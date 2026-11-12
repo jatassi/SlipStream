@@ -4,7 +4,7 @@ import { openManualSearch } from "../../manual/sheet-state";
 import { Button } from "../../ui/button";
 import { Menu } from "../../ui/menu";
 import { useShell } from "../../ui/shell-context";
-import { stateChips } from "../cell-state";
+import { StateChip } from "../cell-state";
 import { CellDetails } from "./cell-details";
 import { CellFacts } from "./cell-facts";
 import { type CellView, type MatrixShown, cellScope, fileOf } from "./matrix-model";
@@ -75,7 +75,7 @@ export function CellBlock({
   return (
     <div className="flex min-w-0 flex-col items-start gap-1.5">
       <span className="flex items-center gap-1">
-        {stateChips[cell.state]}
+        <StateChip state={cell.state} />
         {file !== null && <CellDetails view={view} cell={cell} file={file} shown={shown} />}
       </span>
       <CellFacts cell={cell} grabs={shown.grabs} />

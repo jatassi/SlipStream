@@ -29,7 +29,8 @@ export const missing: FilesCellList = {
       state: "missing",
     },
   ],
-  items: [{ itemId: orchardItemId, status: "missing" }],
+  items: [{ itemId: orchardItemId, status: "missing", released: true }],
+  levels: [],
   summary: { status: "missing", cells: { missing: 2 }, items: 1, itemStatus: { missing: 1 } },
   needsYou: [],
 };
@@ -60,7 +61,8 @@ export const filled: FilesCellList = {
       file: null,
     },
   ],
-  items: [{ itemId: orchardItemId, status: "downloading" }],
+  items: [{ itemId: orchardItemId, status: "downloading", released: true }],
+  levels: [],
   summary: {
     status: "downloading",
     cells: { downloading: 1, met: 1 },
@@ -85,7 +87,8 @@ export const filledTwice: FilesCellList = {
     { ...base, targetId: hd, targetName: "1080p", wanted: false, state: "met", file: remux },
   ],
   summary: { status: "met", cells: { met: 2 }, items: 1, itemStatus: { met: 1 } },
-  items: [{ itemId: orchardItemId, status: "met" }],
+  items: [{ itemId: orchardItemId, status: "met", released: true }],
+  levels: [],
 };
 
 export const hdtv = {
@@ -107,7 +110,8 @@ export const upgradable: FilesCellList = {
       state: "missing",
     },
   ],
-  items: [{ itemId: orchardItemId, status: "missing" }],
+  items: [{ itemId: orchardItemId, status: "missing", released: true }],
+  levels: [],
   summary: {
     status: "missing",
     cells: { missing: 1, upgradable: 1 },
@@ -131,7 +135,8 @@ export const failedCells = (failed: string): FilesCellList => ({
       file: null,
     },
   ],
-  items: [{ itemId: orchardItemId, status: "failed" }],
+  items: [{ itemId: orchardItemId, status: "failed", released: true }],
+  levels: [],
   summary: {
     status: "failed",
     cells: { failed: 1, missing: 1 },

@@ -2,7 +2,6 @@ import type {
   FilesFailedNeed,
   FilesUpgradeNeed,
   WorksContentType,
-  WorksItem,
   WorksWorkView,
 } from "../../api/gen/model";
 import { type FailedGrab, trackStage } from "../../grabs/stages";
@@ -41,46 +40,6 @@ function cellsOf(
 }
 
 export type FailedEntry = { readonly need: FilesFailedNeed; readonly grab: FailedGrab };
-
-const sameTargets = (a: readonly string[], b: readonly string[]) =>
-  a.length === b.length && a.every((id, index) => id === b[index]);
-
-/**
- * Adjacent failures of consecutive Items with the same Edition, Target,
- * waiting Targets and failed stage, as one run that keeps the first Grab.
- * The server lists each Grab's failure apart.
- */
-export function mergedFailures(
-  items: readonly WorksItem[],
-  failed: readonly FailedEntry[],
-): FailedEntry[] {
-  const at = new Map(items.map((item, index) => [item.id, index]));
-  const follows = (before: readonly string[], after: readonly string[]) => {
-    const last = at.get(before.at(-1) ?? "");
-    const next = at.get(after[0] ?? "");
-    return last !== undefined && next === last + 1;
-  };
-  const runs: FailedEntry[] = [];
-  for (const entry of failed) {
-    const run = runs.at(-1);
-    const joins =
-      run !== undefined &&
-      run.need.edition === entry.need.edition &&
-      run.need.targetId === entry.need.targetId &&
-      sameTargets(run.need.waiting, entry.need.waiting) &&
-      run.grab.failure.stage === entry.grab.failure.stage &&
-      follows(run.need.itemIds, entry.need.itemIds);
-    if (joins) {
-      runs[runs.length - 1] = {
-        ...run,
-        need: { ...run.need, itemIds: [...run.need.itemIds, ...entry.need.itemIds] },
-      };
-    } else {
-      runs.push(entry);
-    }
-  }
-  return runs;
-}
 
 /** A failure's key: its Items, Target and Edition. Grab ids can repeat across a run's Items. */
 export const failedKey = ({ need }: FailedEntry) =>

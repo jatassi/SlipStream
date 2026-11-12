@@ -8,7 +8,7 @@ import { Section } from "../ui/section";
 import { GrabFailure } from "./failure-cards";
 import { GrabTable } from "./grab-table";
 import { JobsStatus } from "./jobs-status";
-import { type FailedGrab, needsYou, withoutRetriedFailures } from "./stages";
+import { type FailedGrab, needsYou, withoutReplacedFailures } from "./stages";
 
 function Failed({
   grabs,
@@ -43,7 +43,7 @@ export function ActivityBody({
   labels: ReadonlyMap<string, string>;
   filter?: ReactNode;
 }) {
-  const grabs = withoutRetriedFailures(all);
+  const grabs = withoutReplacedFailures(all);
   if (grabs.length === 0) {
     return (
       <Empty

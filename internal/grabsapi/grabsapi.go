@@ -258,9 +258,10 @@ func idOrNil(id storage.UUID) *string {
 
 type failure struct {
 	Stage    string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
-	Code     string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,marked_failed,removed,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault"`
+	Code     string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,marked_failed,removed,client_removed,client_deleted,goal_met,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault"`
 	Message  string `json:"message"`
 	NeedsYou bool   `json:"needsYou" doc:"It goes under Needs you. False for a cancel and for a Manual Grab whose Release the Blocklist held after its fetch, which its sheet already said."`
+	Current  bool   `json:"current" doc:"No later Grab holds any of its cells. Needs you lists a failure only while it is current."`
 }
 
 type entered struct {
@@ -362,7 +363,7 @@ func grabOf(v grabs.View) grab {
 		}
 	}
 	if v.Failed != nil {
-		out.Failure = &failure{Stage: string(v.Failed.Stage), Code: string(v.Failed.Code), Message: v.Failed.Message, NeedsYou: v.NeedsYou()}
+		out.Failure = &failure{Stage: string(v.Failed.Stage), Code: string(v.Failed.Code), Message: v.Failed.Message, NeedsYou: v.NeedsYou(), Current: v.Current}
 	}
 	for _, e := range v.History {
 		out.History = append(out.History, entered{Stage: string(e.Stage), At: e.At})

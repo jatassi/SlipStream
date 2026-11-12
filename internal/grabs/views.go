@@ -30,6 +30,9 @@ type View struct {
 	// sentence: "Jackson grabbed it as the Director's Cut."
 	Overrides []string
 	Actions   Actions
+	// Current is whether a cell reads from it. A failure stays under
+	// Needs you only while it is.
+	Current bool
 }
 
 // Actions is what an Admin can do to a Grab now.
@@ -47,6 +50,7 @@ type reads struct {
 	fetchWaits   map[indexers.ID]indexers.FetchWait
 	clientWaits  map[GrabID]ClientWait
 	releaseWords map[GrabID]string
+	current      map[GrabID]bool
 }
 
 func (gr *Grabs) readsIn(ctx context.Context, r storage.Reader[file], grabs []Grab) (reads, error) {
@@ -63,8 +67,34 @@ func (gr *Grabs) readsIn(ctx context.Context, r storage.Reader[file], grabs []Gr
 	if out.releaseWords, err = gr.releaseWords(ctx, r, grabs); err != nil {
 		return reads{}, err
 	}
+	if out.current, err = grabsCellsReadFrom(ctx, r, grabs); err != nil {
+		return reads{}, err
+	}
 	out.metadataWait, err = metadataWaitIn(ctx, r)
 	return out, err
+}
+
+func grabsCellsReadFrom(ctx context.Context, r storage.Reader[file], grabs []Grab) (map[GrabID]bool, error) {
+	seen := map[works.WorkID]bool{}
+	var ids []works.WorkID
+	for _, g := range grabs {
+		if !seen[g.WorkID] {
+			seen[g.WorkID] = true
+			ids = append(ids, g.WorkID)
+		}
+	}
+	q := db.New(r)
+	rows, err := works.Read(works.Only(ids), nil, func(ids []works.WorkID) ([]db.ListTargetsOfWorksRow, error) {
+		return q.ListTargetsOfWorks(ctx, ids)
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := map[GrabID]bool{}
+	for _, row := range readFrom(rows) {
+		out[row.ID] = true
+	}
+	return out, nil
 }
 
 // releaseWords is each Grab's Release in words, read as its Work's
@@ -207,6 +237,7 @@ func (gr *Grabs) views(ctx context.Context, grabs []Grab, rd reads) ([]View, err
 		}
 		out[i].ReleaseWords = rd.releaseWords[g.ID]
 		out[i].Overrides = g.overrideWords()
+		out[i].Current = rd.current[g.ID]
 	}
 	return out, nil
 }
