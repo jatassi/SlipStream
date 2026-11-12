@@ -541,7 +541,7 @@ func (n *Node) startStorage(cfg Config) error {
 	}
 	n.disk = disk
 	n.store = storing.NewStore(storing.Config{
-		Disk: disk, Payloads: n.downloading, Downloads: n.downloading.Folders, Timings: cfg.Timings.Storing,
+		Disk: disk, Payloads: n.downloading, Downloads: n.downloading.Folders, Torrents: n.downloading.Torrents, Timings: cfg.Timings.Storing,
 		Prober: n.env.Media, ProbeTimeout: cfg.Timings.Media.Probe, PathLimit: cfg.Storage.PathLimit,
 	})
 	return nil

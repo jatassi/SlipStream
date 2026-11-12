@@ -101,10 +101,11 @@
             "type": "string"
           },
           "purpose": {
-            "description": "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node",
+            "description": "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node; import: a folder to import from, inside one of the Node's library roots or download folders",
             "enum": [
               "root",
-              "downloads"
+              "downloads",
+              "import"
             ],
             "type": "string"
           },
@@ -14101,6 +14102,7 @@
               "contains_downloads",
               "unresponsive",
               "network_share",
+              "outside",
               "node_offline"
             ],
             "type": "string"
@@ -45522,6 +45524,19 @@
               "description": "List hidden and system folders too",
               "type": "boolean"
             }
+          },
+          {
+            "description": "import: browse only the Node's library roots and download folders, which are then its places",
+            "explode": false,
+            "in": "query",
+            "name": "purpose",
+            "schema": {
+              "description": "import: browse only the Node's library roots and download folders, which are then its places",
+              "enum": [
+                "import"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -45650,6 +45665,7 @@
                         "code": {
                           "enum": [
                             "folder_invalid",
+                            "folder_outside",
                             "folder_unreadable",
                             "invalid"
                           ],

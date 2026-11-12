@@ -263,7 +263,7 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 	if !ok {
 		return fail{NoVideoFile, "The download holds no video file."}
 	}
-	record, err := gr.cfg.Media.Probe(ctx, g.Node, g.Torrent.InfoHash, video.Index)
+	record, err := gr.cfg.Media.Probe(ctx, g.Node, storing.Payload{InfoHash: g.Torrent.InfoHash, FileIndex: video.Index})
 	if err != nil {
 		return classify(ctx, err, ProbeFailed)
 	}

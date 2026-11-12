@@ -11,11 +11,11 @@ import (
 	"github.com/jatassi/slipstream/internal/storing"
 )
 
-// Place puts payload from at to in root, on the Node that holds root now,
+// Place puts the file from at to in root, on the Node that holds root now,
 // answering the placed file. The Node may refuse with a *WaitingError,
 // another file at to is storing.ErrOccupied, and a place that needs a copy
 // without allowCopy is *storing.NeedsCopyError.
-func (r *Roots) Place(ctx context.Context, root ID, to storing.Rel, from storing.Payload, allowCopy bool) (storing.Placed, error) {
+func (r *Roots) Place(ctx context.Context, root ID, to storing.Rel, from storing.Source, allowCopy bool) (storing.Placed, error) {
 	at, err := r.at(ctx, root)
 	if err != nil {
 		return storing.Placed{}, err

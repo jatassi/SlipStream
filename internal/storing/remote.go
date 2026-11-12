@@ -32,8 +32,16 @@ type Folders func(role.NodeID) storagev1connect.FolderServiceHandler
 // absolute, or a name that isn't one folder's.
 var ErrInvalid = errors.New("the Node can't use that path or name")
 
-func (f Folders) Browse(ctx context.Context, node role.NodeID, path string, showHidden bool) (Listing, error) {
-	res, err := f(node).Browse(ctx, &storagev1.BrowseRequest{Path: path, ShowHidden: showHidden})
+// Browse lists path on node, or its places for an empty path. For
+// PurposeImport the places are node's library roots and download folders
+// and a path outside them is *OutsideError; any other purpose browses
+// anywhere.
+func (f Folders) Browse(ctx context.Context, node role.NodeID, path string, showHidden bool, purpose Purpose) (Listing, error) {
+	req := &storagev1.BrowseRequest{Path: path, ShowHidden: showHidden}
+	if purpose != 0 {
+		req.Purpose = purpose.Wire()
+	}
+	res, err := f(node).Browse(ctx, req)
 	if err != nil {
 		return Listing{}, folderAnswer(err)
 	}
@@ -78,6 +86,60 @@ func (f Folders) MakeFolder(ctx context.Context, node role.NodeID, parent, name 
 		return "", folderAnswer(err)
 	}
 	return res.GetPath(), nil
+}
+
+// Listed is a folder ListVideos listed on a Node.
+type Listed struct {
+	// Path is the folder as its Node cleaned it.
+	Path string
+	// Root is the root the folder lies in, the zero id when it is in a
+	// download folder, and Rel is the folder under it.
+	Root  storage.UUID
+	Rel   Rel
+	Files []ListedFile
+}
+
+// ListedFile is a video file in a listed folder.
+type ListedFile struct {
+	Path string
+	Size int64
+	Seen Seen
+	// Seeded is a file a torrent one of the Node's clients holds lies at,
+	// which a Move may not take away.
+	Seeded bool
+}
+
+// ListVideos lists the video files by videos under path on node, which
+// must lie in one of its library roots or download folders: any other is
+// *OutsideError.
+func (f Folders) ListVideos(ctx context.Context, node role.NodeID, path string, videos media.Videos) (Listed, error) {
+	res, err := f(node).ListVideos(ctx, &storagev1.ListVideosRequest{Path: path, VideoExtensions: videos.Extensions()})
+	if err != nil {
+		return Listed{}, answer(err)
+	}
+	l := Listed{Path: res.GetPath()}
+	if len(res.GetRootId()) > 0 {
+		if l.Root, err = storage.UUIDFromBytes(res.GetRootId()); err != nil {
+			return Listed{}, fmt.Errorf("the listed folder's root id: %w", err)
+		}
+		if l.Rel, err = ParseRel(res.GetRel()); err != nil {
+			return Listed{}, fmt.Errorf("the listed folder in its root: %w", err)
+		}
+	}
+	for _, file := range res.GetFiles() {
+		l.Files = append(l.Files, ListedFile{Path: file.GetPath(), Size: file.GetSize(), Seen: seenOf(file.GetIdentity()), Seeded: file.GetSeeded()})
+	}
+	return l, nil
+}
+
+// RemoveSource removes the file at path on node once a Move placed it; a
+// file already gone is removed. A path outside node's library roots and
+// download folders is *OutsideError.
+func (f Folders) RemoveSource(ctx context.Context, node role.NodeID, path string) error {
+	if _, err := f(node).RemoveSource(ctx, &storagev1.RemoveSourceRequest{Path: path}); err != nil {
+		return answer(err)
+	}
+	return nil
 }
 
 // Check judges path on node for purpose; others are the roots a root may
@@ -163,14 +225,20 @@ type Placed struct {
 	Left []Rel
 }
 
-// Place puts payload p at to under the root by a link, a clone or, with
-// allowCopy, a copy. Another file there is ErrOccupied. A place that
-// needs a copy without allowCopy is *NeedsCopyError, and a clone or copy
-// the volume has no room for *NeedsSpaceError.
-func (r Remote) Place(ctx context.Context, at At, p Payload, to Rel, allowCopy bool) (Placed, error) {
-	res, err := r(at.Node).Place(ctx, &storagev1.PlaceRequest{
-		RootId: at.Root.Bytes(), InfoHash: p.InfoHash[:], FileIndex: int64(p.FileIndex), To: to.String(), AllowCopy: allowCopy,
-	})
+// Place puts the file from at to under the root by a link, a clone or,
+// with allowCopy, a copy. Another file there is ErrOccupied. A place that
+// needs a copy without allowCopy is *NeedsCopyError, a clone or copy the
+// volume has no room for *NeedsSpaceError, and a NodePath outside the
+// Node's library roots and download folders *OutsideError.
+func (r Remote) Place(ctx context.Context, at At, from Source, to Rel, allowCopy bool) (Placed, error) {
+	req := &storagev1.PlaceRequest{RootId: at.Root.Bytes(), To: to.String(), AllowCopy: allowCopy}
+	switch from := from.(type) {
+	case Payload:
+		req.Source = &storagev1.PlaceRequest_Payload{Payload: &storagev1.Payload{InfoHash: from.InfoHash[:], FileIndex: int64(from.FileIndex)}}
+	case NodePath:
+		req.Source = &storagev1.PlaceRequest_Path{Path: from.Abs}
+	}
+	res, err := r(at.Node).Place(ctx, req)
 	if err != nil {
 		return Placed{}, placeAnswer(err)
 	}
@@ -362,9 +430,12 @@ func (r Remote) Sample(ctx context.Context, node role.NodeID) (time.Time, error)
 	return time.UnixMilli(res.GetPassedAtUnixMs()), nil
 }
 
-// answer is a call's error as the domain reads it: the *FolderError or
-// *NotReady its detail carries, else the call's own.
+// answer is a call's error as the domain reads it: the *FolderError,
+// *NotReady or *OutsideError its detail carries, else the call's own.
 func answer(err error) error {
+	if d, ok := rpc.DetailOf[*storagev1.Outside](err); ok {
+		return &OutsideError{Path: d.GetPath()}
+	}
 	if d, ok := rpc.DetailOf[*storagev1.FolderError](err); ok {
 		kind, perr := folderErrorKinds.parse(d.GetKind())
 		if perr != nil {

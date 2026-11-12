@@ -52,9 +52,9 @@ export const checkFolderInputBodyPathMax = 4096;
 export const CheckFolderInputBody = zod.object({
   path: zod.string().min(1).max(checkFolderInputBodyPathMax),
   purpose: zod
-    .enum(["root", "downloads"])
+    .enum(["root", "downloads", "import"])
     .describe(
-      "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node",
+      "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node; import: a folder to import from, inside one of the Node's library roots or download folders",
     ),
   rootId: zod
     .uuid()
@@ -7488,6 +7488,7 @@ export const RootsRefusal = zod.object({
       "contains_downloads",
       "unresponsive",
       "network_share",
+      "outside",
       "node_offline",
     ])
     .describe("Why the folder can't serve its purpose"),

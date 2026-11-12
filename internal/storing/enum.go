@@ -106,6 +106,9 @@ const (
 	ReasonContainsDownloads
 	ReasonUnresponsive
 	ReasonNetworkShare
+	// ReasonOutside is a folder to import from outside the Node's library
+	// roots and download folders.
+	ReasonOutside
 )
 
 var reasons = enum[Reason, storagev1.Reason]{
@@ -121,6 +124,7 @@ var reasons = enum[Reason, storagev1.Reason]{
 	{ReasonContainsDownloads, storagev1.Reason_REASON_CONTAINS_DOWNLOADS, "contains_downloads"},
 	{ReasonUnresponsive, storagev1.Reason_REASON_UNRESPONSIVE, "unresponsive"},
 	{ReasonNetworkShare, storagev1.Reason_REASON_NETWORK_SHARE, "network_share"},
+	{ReasonOutside, storagev1.Reason_REASON_OUTSIDE, "outside"},
 }
 
 func (r Reason) String() string         { return reasons.of(r).word }
@@ -135,12 +139,16 @@ const (
 	// PurposeClientFolder is an external Download Client's download folder
 	// as its Node sees it. The client writes it, so it is never written.
 	PurposeClientFolder
+	// PurposeImport is a folder to import from: inside one of the Node's
+	// library roots or download folders, and never written.
+	PurposeImport
 )
 
 var purposes = enum[Purpose, storagev1.Purpose]{
 	{PurposeRoot, storagev1.Purpose_PURPOSE_ROOT, "root"},
 	{PurposeDownloads, storagev1.Purpose_PURPOSE_DOWNLOADS, "downloads"},
 	{PurposeClientFolder, storagev1.Purpose_PURPOSE_CLIENT_FOLDER, "client_folder"},
+	{PurposeImport, storagev1.Purpose_PURPOSE_IMPORT, "import"},
 }
 
 func (p Purpose) String() string                    { return purposes.of(p).word }

@@ -215,7 +215,7 @@ type Roots interface {
 	Reachable(ctx context.Context, r storage.Reader[file], root roots.Root) error
 	// Watch is closed at the next change of a root's report.
 	Watch() <-chan struct{}
-	Place(ctx context.Context, root roots.ID, to storing.Rel, from storing.Payload, allowCopy bool) (storing.Placed, error)
+	Place(ctx context.Context, root roots.ID, to storing.Rel, from storing.Source, allowCopy bool) (storing.Placed, error)
 	Move(ctx context.Context, root roots.ID, from, to storing.Rel, carry bool) (storing.Placed, error)
 }
 
@@ -234,7 +234,7 @@ type Config struct {
 	Downloads Downloads
 	// Router chooses the client each Grab's download goes to.
 	Router Router
-	Media  media.Remote
+	Media  storing.Probes
 	Roots  Roots
 	// Transfers copies a Grab's file from the Node that downloaded it to
 	// the Node that holds its root.

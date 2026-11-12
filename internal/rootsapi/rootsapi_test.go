@@ -421,6 +421,16 @@ func TestCheckFolderForDownloadsOnAnyNode(t *testing.T) {
 		`{"status":404,"code":"node_not_found","title":"No Node has this id"}`)
 }
 
+func TestAFolderOutsideTheRootsAndDownloadFoldersIsRefusedForImport(t *testing.T) {
+	s := serve(t)
+	dir := t.TempDir()
+	if code, reply := s.Call(t, http.MethodPost, checkPath(self.String()), checkBody("import", dir, "")); code != http.StatusOK || ownertest.Masked(reply) != `{"usable":false,"path":`+strconv.Quote(dir)+`,"volume":`+volumeOf(t, reply)+`,"refusal":{"reason":"outside"}}`+"\n" {
+		t.Errorf("checkFolder import outside the roots and download folders = %d %s, want outside", code, reply)
+	}
+	s.Expect(t, http.MethodGet, "/api/v1/nodes/"+self.String()+"/folders?purpose=import&path="+url.QueryEscape(dir), "", http.StatusUnprocessableEntity,
+		`{"status":422,"code":"folder_outside","title":"The folder isn't in a library root or a download folder on the Node"}`)
+}
+
 // volumeOf is the volume member of a verdict, masked as Expect masks it.
 func volumeOf(t *testing.T, reply string) string {
 	t.Helper()

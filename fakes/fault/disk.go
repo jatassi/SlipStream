@@ -457,6 +457,13 @@ func (d *disk) Rename(ctx context.Context, from, to string) error {
 	return d.base.Rename(ctx, src, dst)
 }
 
+func (d *disk) Resolve(ctx context.Context, path string) (string, error) {
+	if _, err := d.read(ctx, "resolve", path); err != nil {
+		return "", err
+	}
+	return d.base.Resolve(ctx, d.at(ctx, path))
+}
+
 func (d *disk) Link(ctx context.Context, from, to string) error {
 	pl, err := d.write(ctx, "link", from, to)
 	if err == nil && pl.noLinks {

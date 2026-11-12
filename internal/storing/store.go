@@ -33,7 +33,10 @@ type Config struct {
 	// Downloads is the downloads folder and every save folder outside it,
 	// which no root may overlap.
 	Downloads func() []string
-	Timings   Timings
+	// Torrents is where each file of every torrent the Node's clients hold
+	// lies, so a folder import can tell which files still seed.
+	Torrents func() []string
+	Timings  Timings
 	// Prober reads a root file's media record for Probe.
 	Prober media.Prober
 	// ProbeTimeout bounds one Probe: timings.media.probe.

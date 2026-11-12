@@ -73,7 +73,7 @@ func TestBrowseTypesEveryError(t *testing.T) {
 			{hung, FolderUnresponsive, "hasn't responded within 10s", ""},
 			{broken, FolderIO, "input/output error", ""},
 		} {
-			_, err := remote.Browse(t.Context(), node, c.path, false)
+			_, err := remote.Browse(t.Context(), node, c.path, false, 0)
 			fe := folderErr(t, err)
 			if fe.Kind != c.kind || !strings.Contains(fe.Text, c.text) || fe.Account != c.account {
 				t.Errorf("Browse %s = %+v, want %v with %q and account %q", c.path, fe, c.kind, c.text, c.account)
@@ -109,7 +109,7 @@ func TestBrowseShowsLinksAndUnreadableFolders(t *testing.T) {
 	}
 	remote := foldersOf(newStore(d))
 
-	l, err := remote.Browse(t.Context(), node, base, false)
+	l, err := remote.Browse(t.Context(), node, base, false, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestBrowseShowsLinksAndUnreadableFolders(t *testing.T) {
 		t.Errorf("segments = %v, want them to end at %s", segs, base)
 	}
 
-	shown, err := remote.Browse(t.Context(), node, base, true)
+	shown, err := remote.Browse(t.Context(), node, base, true, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestBrowsePlacesListTheRootsFirst(t *testing.T) {
 		s := newStore(d)
 		running(t, s, intentOf(rootAt(id, folder, false))).next(t)
 
-		l, err := foldersOf(s).Browse(t.Context(), node, "", false)
+		l, err := foldersOf(s).Browse(t.Context(), node, "", false, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -267,7 +267,7 @@ func TestMakeFolderMakesOneNamedFolder(t *testing.T) {
 			t.Errorf("MakeFolder(%q) = %v, want invalid", name, err)
 		}
 	}
-	if _, err := remote.Browse(t.Context(), node, "Movies", false); !errors.Is(err, ErrInvalid) {
+	if _, err := remote.Browse(t.Context(), node, "Movies", false, 0); !errors.Is(err, ErrInvalid) {
 		t.Errorf("Browse of a relative path = %v, want invalid", err)
 	}
 	_, err = remote.MakeFolder(t.Context(), node, filepath.Join(parent, "gone"), "Movies")
