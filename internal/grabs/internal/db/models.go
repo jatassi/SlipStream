@@ -5,8 +5,9 @@
 package db
 
 import (
+	"database/sql"
+
 	"github.com/jatassi/slipstream/internal/downloadclients"
-	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/role"
@@ -33,15 +34,19 @@ type GrabsBlocklist struct {
 	AddedAt      storage.Time
 }
 
+type GrabsCarry struct {
+	GrabID    GrabID
+	Was       string
+	FileIndex *int64
+	Probe     *string
+	RootID    roots.ID
+	Path      *string
+	Fills     string
+}
+
 type GrabsFaultSettled struct {
 	TorrentID downloadclients.ID
 	SettledAt storage.Time
-}
-
-type GrabsFill struct {
-	GrabID   GrabID
-	Position int64
-	TargetID targets.TargetID
 }
 
 type GrabsGrab struct {
@@ -69,16 +74,12 @@ type GrabsGrab struct {
 	UploadFactor      *float64
 	Stage             Stage
 	TorrentID         downloadclients.ID
-	FileIndex         *int64
-	Probe             *string
-	RootID            roots.ID
-	Path              *string
+	Probe             sql.NullString
 	FailedStage       *Stage
 	FailureCode       *Code
 	FailureMessage    *string
 	CreatedAt         storage.Time
 	UpdatedAt         storage.Time
-	Unwanted          *files.Unwanted
 	FetchNodeID       role.NodeID
 	MetadataStartedAt storage.Time
 	SentBuiltInOn     *role.NodeID

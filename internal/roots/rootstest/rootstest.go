@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/files"
-	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/media"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
@@ -71,7 +70,7 @@ func Config(tb testing.TB, lib *storage.DB[storage.Library], types ...works.Type
 		Storage:  Unreported{},
 		Arrivals: roots.NewArrivals(),
 		Contents: files.RootContents{},
-		Inflight: grabs.RootGrabs{},
+		Inflight: Idle{},
 		Videos: func(context.Context, storage.Reader[storage.Library]) (media.Videos, error) {
 			return media.DefaultVideos, nil
 		},
@@ -207,3 +206,12 @@ func (h *holder) SetFacts(f *storagev1.Facts) {
 func (h *holder) Report(context.Context, *storage.Tx[storage.Local], *storagev1.Result) error {
 	return errors.New("storage reports by facts")
 }
+
+// Idle is roots.Inflight with nothing in flight.
+type Idle struct{}
+
+func (Idle) Into(context.Context, storage.Reader[storage.Library], roots.ID, []works.WorkID) (int64, error) {
+	return 0, nil
+}
+
+func (Idle) Release(context.Context, *storage.Tx[storage.Library], roots.ID) error { return nil }

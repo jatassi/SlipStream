@@ -168,3 +168,9 @@ WHERE i.finished_at IS NULL AND (
 
 -- name: ForgetRoot :exec
 UPDATE imports_file SET root_id = NULL, dest = NULL WHERE imports_file.root_id = ? AND import_id IN (SELECT id FROM imports_import WHERE finished_at IS NOT NULL);
+
+-- name: GetOpenImportOfGrab :one
+SELECT id FROM imports_import WHERE grab_id = sqlc.arg(grab_id) AND finished_at IS NULL;
+
+-- name: ListImportsOfGrabs :many
+SELECT * FROM imports_import WHERE grab_id IN (sqlc.slice(grab_ids)) ORDER BY id;

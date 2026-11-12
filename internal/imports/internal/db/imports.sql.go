@@ -278,6 +278,17 @@ func (q *Queries) GetOpenFolderImport(ctx context.Context, arg GetOpenFolderImpo
 	return i, err
 }
 
+const getOpenImportOfGrab = `-- name: GetOpenImportOfGrab :one
+SELECT id FROM imports_import WHERE grab_id = ?1 AND finished_at IS NULL
+`
+
+func (q *Queries) GetOpenImportOfGrab(ctx context.Context, grabID grabs.GrabID) (ImportID, error) {
+	row := q.db.QueryRowContext(ctx, getOpenImportOfGrab, grabID)
+	var id ImportID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getRootImportAt = `-- name: GetRootImportAt :one
 SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import WHERE source = 'root' AND root_id = ? AND folder = ? AND finished_at IS NULL
 `
@@ -960,6 +971,62 @@ func (q *Queries) ListImporting(ctx context.Context, itemIds []works.ItemID) ([]
 	for rows.Next() {
 		var i ListImportingRow
 		if err := rows.Scan(&i.ItemID, &i.ImportID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listImportsOfGrabs = `-- name: ListImportsOfGrabs :many
+SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import WHERE grab_id IN (/*SLICE:grab_ids*/?) ORDER BY id
+`
+
+func (q *Queries) ListImportsOfGrabs(ctx context.Context, grabIds []grabs.GrabID) ([]ImportsImport, error) {
+	query := listImportsOfGrabs
+	var queryParams []interface{}
+	if len(grabIds) > 0 {
+		for _, v := range grabIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:grab_ids*/?", strings.Repeat(",?", len(grabIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:grab_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportsImport
+	for rows.Next() {
+		var i ImportsImport
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.GrabID,
+			&i.NodeID,
+			&i.InfoHash,
+			&i.RootID,
+			&i.Folder,
+			&i.ContentType,
+			&i.Hint,
+			&i.Suggestion,
+			&i.WorkID,
+			&i.Edition,
+			&i.MoveFiles,
+			&i.FailureCode,
+			&i.Ended,
+			&i.CreatedAt,
+			&i.IgnoredAt,
+			&i.FinishedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

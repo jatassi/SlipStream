@@ -3,33 +3,24 @@ package imports
 import (
 	"context"
 
-	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/imports/internal/db"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// RootImports is roots.Inflight: the unfinished Grabs and Imports into a
-// root, or of ws's Works. A root Import counts only while a file of it
+// RootImports is roots.Inflight: the unfinished Imports into a root, or
+// of ws's Works. A root Import counts only while a file of it
 // lands, for one waiting in Pending imports goes with its root.
 type RootImports struct{}
 
 func (RootImports) Into(ctx context.Context, r storage.Reader[file], root roots.ID, ws []works.WorkID) (int64, error) {
-	grabbed, err := grabs.RootGrabs{}.Into(ctx, r, root, ws)
-	if err != nil {
-		return 0, err
-	}
-	imported, err := db.New(r).CountUnfinishedInto(ctx, db.CountUnfinishedIntoParams{RootID: root, WorkIds: ws})
-	return grabbed + imported, err
+	return db.New(r).CountUnfinishedInto(ctx, db.CountUnfinishedIntoParams{RootID: root, WorkIds: ws})
 }
 
-// Release unties root's finished Grabs and Imports from it, so it can go
-// and they stay.
+// Release unties root's finished Imports from it, so it can go and they
+// stay.
 func (RootImports) Release(ctx context.Context, tx *storage.Tx[file], root roots.ID) error {
-	if err := (grabs.RootGrabs{}).Release(ctx, tx, root); err != nil {
-		return err
-	}
 	return db.New(tx).ForgetRoot(ctx, root)
 }
 

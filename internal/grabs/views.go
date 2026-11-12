@@ -220,10 +220,7 @@ func (gr *Grabs) Get(ctx context.Context, _ identity.Admin, id GrabID) (View, er
 }
 
 func (gr *Grabs) views(ctx context.Context, grabs []Grab, rd reads) ([]View, error) {
-	progress, err := gr.progress(ctx, grabs)
-	if err != nil {
-		return nil, err
-	}
+	progress := gr.progress(grabs)
 	out := make([]View, len(grabs))
 	for i, g := range grabs {
 		out[i] = View{Grab: g, Progress: progress[g.ID], Metadata: gr.metadataSearch(g, rd.metadataWait)}

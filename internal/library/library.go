@@ -19,7 +19,6 @@ type Config struct {
 	Targets *targets.Targets
 	Roots   *roots.Roots
 	Files   *files.Files
-	Grabs   Grabs
 	Imports Imports
 	Leaver  Leaver
 }
@@ -29,13 +28,6 @@ type Config struct {
 // record of the files left on disk.
 type Leaver interface {
 	Leave(ctx context.Context, tx *storage.Tx[storage.Library], ws []works.WorkID) error
-}
-
-// Grabs cancels the Transfers of a deleted Work's Grabs: in the delete's
-// Write, then a touch once it commits.
-type Grabs interface {
-	CancelTransfersIn(ctx context.Context, tx *storage.Tx[storage.Library], ws []works.WorkID) error
-	TouchTransfers()
 }
 
 // Imports ends the unfinished Imports of a deleted Work: in the delete's

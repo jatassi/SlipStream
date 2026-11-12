@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
-	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -21,7 +20,6 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/magnet"
-	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -30,7 +28,6 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
-	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -74,17 +71,15 @@ const (
 )
 
 const (
-	Fetching     = db.Fetching
-	Downloading  = db.Downloading
-	Probing      = db.Probing
-	Transferring = db.Transferring
-	Importing    = db.Importing
-	Imported     = db.Imported
-	Failed       = db.Failed
+	Fetching    = db.Fetching
+	Downloading = db.Downloading
+	Importing   = db.Importing
+	Imported    = db.Imported
+	Failed      = db.Failed
 )
 
 // Stages is every Stage, in the order a Grab walks them.
-var Stages = []Stage{Fetching, Downloading, Probing, Transferring, Importing, Imported, Failed}
+var Stages = []Stage{Fetching, Downloading, Importing, Imported, Failed}
 
 const (
 	SettledPlaced   = db.SettledPlaced
@@ -257,12 +252,8 @@ type Config struct {
 	Roster    Roster
 	Downloads Downloads
 	// Router chooses the client each Grab's download goes to.
-	Router Router
-	Media  storing.Probes
-	Roots  Roots
-	// Transfers copies a Grab's file from the Node that downloaded it to
-	// the Node that holds its root.
-	Transfers     *transfers.Transfers
+	Router        Router
+	Roots         Roots
 	Timings       Timings
 	Rand          *rand.Rand
 	Changed       Publisher[Changed]
@@ -292,26 +283,16 @@ type Grabs struct {
 	// decoded is the decoded Releases of the Manual search read last.
 	decoded decodedRuns
 
-	mu sync.Mutex
-	// moved is each Grab a transfers hook moved, for grabs.changed once
-	// the hook's Write commits.
-	moved map[string]Changed
+	// importer takes each Grab from its download on, set by Register.
+	importer Importer
 }
 
-// New builds the Grab pipeline and registers its Transfers purpose.
+// New builds the Grab pipeline. Its Importer registers before Run.
 func New(cfg Config) *Grabs {
-	gr := &Grabs{
-		cfg: cfg, poke: make(chan struct{}, 1), moved: map[string]Changed{}, searching: metadataPeers{peers: map[GrabID]int{}},
+	return &Grabs{
+		cfg: cfg, poke: make(chan struct{}, 1), searching: metadataPeers{peers: map[GrabID]int{}},
 		routes: routes{changed: make(chan struct{})}, runs: runs{cancel: map[SearchID]context.CancelFunc{}},
 	}
-	cfg.Transfers.Register(transfers.Purpose{
-		Kind:     transfers.Grab,
-		Verified: gr.transferVerified,
-		Failed:   gr.transferFailed,
-		After:    gr.transfersCommitted,
-		Names:    transferNames,
-	})
-	return gr
 }
 
 // Release is the release a Grab took, as the Indexer answered it.
@@ -344,19 +325,6 @@ func (gr *Grabs) link(g Grab) (searching.Link, error) {
 type Torrent struct {
 	ID downloadclients.ID
 	downloadclients.Attached
-}
-
-// Plan is placement, decided at probing before any Transfer (ADR 0004):
-// the file and its media record, the root it goes under, its path there, and
-// the Targets it fills in Profile order, the first naming the file.
-type Plan struct {
-	FileIndex int
-	Media     media.Record
-	// Root is zero once a finished Grab's root is deleted.
-	Root roots.Root
-	// Path is relative to the root, '/' separated.
-	Path  string
-	Fills []targets.TargetID
 }
 
 type Failure struct {
@@ -410,7 +378,6 @@ type Grab struct {
 	Stage Stage
 	// Torrent is nil until the fetch attached one.
 	Torrent *Torrent
-	Plan    *Plan
 	Failed  *Failure
 	History []Entered
 	Created time.Time
@@ -443,14 +410,13 @@ func (g Grab) NeedsYou() bool {
 type related struct {
 	items    map[GrabID][]works.ItemID
 	targets  map[GrabID][]db.GrabsTarget
-	fills    map[GrabID][]targets.TargetID
 	history  map[GrabID][]Entered
 	torrents map[downloadclients.ID]downloadclients.Attached
 }
 
 func readRelated(ctx context.Context, r storage.Reader[file], rows []db.GrabsGrab) (related, error) {
 	q := db.New(r)
-	rel := related{items: map[GrabID][]works.ItemID{}, targets: map[GrabID][]db.GrabsTarget{}, fills: map[GrabID][]targets.TargetID{}, history: map[GrabID][]Entered{}}
+	rel := related{items: map[GrabID][]works.ItemID{}, targets: map[GrabID][]db.GrabsTarget{}, history: map[GrabID][]Entered{}}
 	var ids []downloadclients.ID
 	for _, row := range rows {
 		if !row.TorrentID.IsZero() {
@@ -474,13 +440,6 @@ func readRelated(ctx context.Context, r storage.Reader[file], rows []db.GrabsGra
 	}
 	for _, t := range ts {
 		rel.targets[t.GrabID] = append(rel.targets[t.GrabID], t)
-	}
-	fs, err := q.ListFills(ctx)
-	if err != nil {
-		return related{}, err
-	}
-	for _, f := range fs {
-		rel.fills[f.GrabID] = append(rel.fills[f.GrabID], f.TargetID)
 	}
 	ss, err := q.ListStages(ctx)
 	if err != nil {
@@ -528,19 +487,6 @@ func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel rel
 	}
 	if !row.TorrentID.IsZero() {
 		g.Torrent = &Torrent{ID: row.TorrentID, Attached: rel.torrents[row.TorrentID]}
-	}
-	if row.Path != nil {
-		g.Plan = &Plan{FileIndex: int(*row.FileIndex), Path: *row.Path, Fills: rel.fills[row.ID]}
-		if !row.RootID.IsZero() {
-			root, err := roots.Get(ctx, r, row.RootID)
-			if err != nil {
-				return Grab{}, err
-			}
-			g.Plan.Root = root
-		}
-		if err := json.Unmarshal([]byte(*row.Probe), &g.Plan.Media); err != nil {
-			return Grab{}, fmt.Errorf("grab %s: probe: %w", row.ID, err)
-		}
 	}
 	if row.FailureCode != nil {
 		g.Failed = &Failure{Stage: *row.FailedStage, Code: *row.FailureCode, Message: *row.FailureMessage}
