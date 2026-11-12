@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
-import { halfLoop } from "../test/imports";
+import { halfLoop } from "../test/import-entries";
 import { brazil, halloween, heat, orchardLeft, severanceEntry } from "../test/pending-imports";
 import { openPending } from "../test/pending-page";
 import { asPhone } from "../test/viewport";
