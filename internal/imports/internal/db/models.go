@@ -5,36 +5,80 @@
 package db
 
 import (
+	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-type ImportsPending struct {
-	ID          EntryID
+type ImportsFile struct {
+	ImportID        ImportID
+	Position        int64
+	Path            string
+	SourceIndex     *int64
+	Size            int64
+	ModifiedAt      storage.Time
+	NodeFileID      *string
+	NodeVolumeID    *string
+	Probe           *media.Record
+	Quality         *release.Quality
+	Cut             release.CutKey
+	ReleaseName     string
+	SourceName      string
+	Outcome         string
+	Reason          *string
+	Hold            *string
+	Confirmed       int64
+	RootID          roots.ID
+	Dest            *string
+	SentTransfer    transfers.ID
+	SentOrder       *int64
+	PlacedBy        *string
+	FileID          files.ID
+	SourceRemovedAt storage.Time
+}
+
+type ImportsFileFill struct {
+	ImportID ImportID
+	Position int64
+	ItemID   works.ItemID
+	Edition  targets.Edition
+	TargetID targets.TargetID
+	Forced   int64
+}
+
+type ImportsFileItem struct {
+	ImportID ImportID
+	Position int64
+	ItemID   works.ItemID
+	Order    int64
+}
+
+type ImportsImport struct {
+	ID          ImportID
+	Source      string
+	GrabID      grabs.GrabID
+	NodeID      role.NodeID
+	InfoHash    []byte
 	RootID      roots.ID
-	Folder      string
+	Folder      *string
 	ContentType works.TypeID
 	Hint        string
 	Suggestion  *string
-	FoundAt     storage.Time
+	WorkID      works.WorkID
+	Edition     *release.CutKey
+	MoveFiles   int64
+	FailureCode *string
+	Ended       *string
+	CreatedAt   storage.Time
 	IgnoredAt   storage.Time
-}
-
-type ImportsPendingFile struct {
-	PendingID    EntryID
-	Path         string
-	Size         int64
-	ModifiedAt   storage.Time
-	NodeFileID   *string
-	NodeVolumeID *string
-	Probe        *media.Record
-	Quality      *release.Quality
-	Cut          release.CutKey
-	Items        string
-	Reason       string
+	FinishedAt  storage.Time
 }
 
 type ImportsRoot struct {
@@ -52,7 +96,10 @@ type ImportsRoot struct {
 }
 
 type ImportsSetting struct {
-	ID        Singleton
-	StopShare *int64
-	Probes    *int64
+	ID              Singleton
+	StopShare       *int64
+	Probes          *int64
+	VideoExtensions *string
+	SmallestVideo   *int64
+	SampleShorter   *int64
 }

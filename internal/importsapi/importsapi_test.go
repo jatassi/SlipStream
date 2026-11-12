@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"path"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -182,15 +183,16 @@ func (s *server) add(t *testing.T, key works.Key, root roots.ID) works.Tree {
 	return added.Tree
 }
 
-// waiting is a file of a pending import, which ffprobe read unless its
-// reason is unreadable.
+// waiting is a file of a root Import, which ffprobe read unless its reason
+// is unreadable.
 type waiting struct {
 	path   string
 	reason scanning.Reason
 }
 
-// pend writes a pending import of folder in the server's root with
-// suggestion, ignored or not, and answers its id.
+// pend writes a root Import of folder in the server's root with
+// suggestion, ignored or not, its files at positions in order, and
+// answers its id.
 func (s *server) pend(t *testing.T, folder string, suggestion *imports.Suggestion, ignored bool, fs ...waiting) string {
 	t.Helper()
 	id := storage.NewUUID()
@@ -211,19 +213,19 @@ func (s *server) pend(t *testing.T, folder string, suggestion *imports.Suggestio
 		ignoredAt = new(storage.Now())
 	}
 	err = s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO imports_pending (id, root_id, folder, content_type, hint, suggestion, found_at, ignored_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, id, s.root.ID, folder, contenttypetest.ID, string(hint), suggested, storage.Now(), ignoredAt); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO imports_import (id, source, root_id, folder, content_type, hint, suggestion, created_at, ignored_at)
+			VALUES (?, 'root', ?, ?, ?, ?, ?, ?, ?)`, id, s.root.ID, folder, contenttypetest.ID, string(hint), suggested, storage.Now(), ignoredAt); err != nil {
 			return err
 		}
-		for _, f := range fs {
+		for i, f := range fs {
 			var probe *media.Record
 			var quality *release.Quality
 			if f.reason.Code != scanning.Unreadable {
 				probe = &media.Record{Version: media.Version, Container: "matroska,webm", Video: media.Video{Codec: "hevc", Width: 1920, Height: 1080}}
 				quality = new(release.Bluray1080p)
 			}
-			if _, err := tx.ExecContext(ctx, `INSERT INTO imports_pending_file (pending_id, path, size, modified_at, probe, quality, cut, items, reason)
-				VALUES (?, ?, 1073741824, 1700000000000000, ?, ?, 'standard', '[]', ?)`, id, f.path, probe, quality, reasonOf(t, f.reason)); err != nil {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO imports_file (import_id, position, path, size, modified_at, probe, quality, cut, release_name, source_name, outcome, reason)
+				VALUES (?, ?, ?, 1073741824, 1700000000000000, ?, ?, 'standard', ?, ?, 'waiting', ?)`, id, i, f.path, probe, quality, path.Base(f.path), path.Base(f.path), reasonOf(t, f.reason)); err != nil {
 				return err
 			}
 		}
@@ -237,7 +239,7 @@ func (s *server) pend(t *testing.T, folder string, suggestion *imports.Suggestio
 
 func reasonOf(t *testing.T, r scanning.Reason) string {
 	t.Helper()
-	b, err := json.Marshal(r)
+	b, err := json.Marshal(imports.Reason{Code: imports.ReasonCode(r.Code), Scan: &r})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -248,9 +250,9 @@ func noMatch(p string) waiting { return waiting{p, scanning.Reason{Code: scannin
 
 func (s *server) entries(t *testing.T, query string) string {
 	t.Helper()
-	code, reply := s.Call(t, http.MethodGet, "/api/v1/imports/pending"+query, "")
+	code, reply := s.Call(t, http.MethodGet, "/api/v1/imports"+query, "")
 	if code != http.StatusOK {
-		t.Fatalf("listPendingImports%s = %d %s", query, code, reply)
+		t.Fatalf("listImports%s = %d %s", query, code, reply)
 	}
 	return ownertest.Masked(reply)
 }
@@ -271,24 +273,24 @@ func TestPendingImportsLeadWithEachScannedRootThenListTheEntries(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := `{"leads":[{"root":{"id":"id1","label":"Shelves library root on Media server"},"contentType":"fixture","added":398,"needsYou":2}],"entries":[` +
-		`{"id":"id2","root":{"id":"id1","label":"Shelves library root on Media server"},"folder":"Halloween","contentType":"fixture","hint":{"title":"Halloween","year":null,"ids":[]},"suggestion":null,"foundAt":"T","ignoredAt":null,"files":[` +
-		`{"path":"Halloween/Halloween.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"reason":{"code":"elsewhere","title":"Halloween","year":1978,"root":{"id":"id3","label":"Shelves library root on NAS"}}}]},` +
-		`{"id":"id4","root":{"id":"id1","label":"Shelves library root on Media server"},"folder":"Heat (1995)","contentType":"fixture","hint":{"title":"Heat","year":1995,"ids":[]},` +
-		`"suggestion":{"key":"w1","label":"Heat","year":1995,"posterUrl":null,"workId":null,"confident":true},"foundAt":"T","ignoredAt":null,"files":[` +
-		`{"path":"Heat (1995)/Heat.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"reason":{"code":"no_match"}},` +
-		`{"path":"Heat (1995)/Heat.sample.mkv","size":1073741824,"quality":null,"cut":"standard","itemIds":[],"reason":{"code":"unreadable","line":"Invalid data found when processing input"}}]}]}` + "\n"
+	want := `{"leads":[{"root":{"id":"id1","label":"Shelves library root on Media server"},"contentType":"fixture","added":398,"needsYou":2}],"imports":[` +
+		`{"id":"id2","source":"root","stage":"waiting","root":{"id":"id1","label":"Shelves library root on Media server"},"folder":"Halloween","contentType":"fixture","hint":{"title":"Halloween","year":null,"ids":[]},"suggestion":null,"createdAt":"T","ignoredAt":null,"finishedAt":null,"files":[` +
+		`{"position":0,"path":"Halloween/Halloween.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"elsewhere","title":"Halloween","year":1978,"root":{"id":"id3","label":"Shelves library root on NAS"}}}]},` +
+		`{"id":"id4","source":"root","stage":"waiting","root":{"id":"id1","label":"Shelves library root on Media server"},"folder":"Heat (1995)","contentType":"fixture","hint":{"title":"Heat","year":1995,"ids":[]},` +
+		`"suggestion":{"key":"w1","label":"Heat","year":1995,"posterUrl":null,"workId":null,"confident":true},"createdAt":"T","ignoredAt":null,"finishedAt":null,"files":[` +
+		`{"position":0,"path":"Heat (1995)/Heat.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"no_match"}},` +
+		`{"position":1,"path":"Heat (1995)/Heat.sample.mkv","size":1073741824,"quality":null,"cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"unreadable","line":"Invalid data found when processing input"}}]}]}` + "\n"
 	if got := s.entries(t, ""); got != want {
-		t.Errorf("listPendingImports = %s\nwant %s", got, want)
+		t.Errorf("listImports = %s\nwant %s", got, want)
 	}
-	ignored := `{"leads":[{"root":{"id":"id1","label":"Shelves library root on Media server"},"contentType":"fixture","added":398,"needsYou":2}],"entries":[` +
-		`{"id":"id2","root":{"id":"id1","label":"Shelves library root on Media server"},"folder":"Brazil (1985)","contentType":"fixture","hint":{"title":"Brazil","year":1985,"ids":[]},"suggestion":null,"foundAt":"T","ignoredAt":"T","files":[` +
-		`{"path":"Brazil (1985)/Brazil.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"reason":{"code":"no_match"}}]}]}` + "\n"
+	ignored := `{"leads":[{"root":{"id":"id1","label":"Shelves library root on Media server"},"contentType":"fixture","added":398,"needsYou":2}],"imports":[` +
+		`{"id":"id2","source":"root","stage":"waiting","root":{"id":"id1","label":"Shelves library root on Media server"},"folder":"Brazil (1985)","contentType":"fixture","hint":{"title":"Brazil","year":1985,"ids":[]},"suggestion":null,"createdAt":"T","ignoredAt":"T","finishedAt":null,"files":[` +
+		`{"position":0,"path":"Brazil (1985)/Brazil.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"no_match"}}]}]}` + "\n"
 	if got := s.entries(t, "?ignored=true"); got != ignored {
-		t.Errorf("listPendingImports?ignored=true = %s\nwant %s", got, ignored)
+		t.Errorf("listImports?ignored=true = %s\nwant %s", got, ignored)
 	}
-	if got, want := s.entries(t, "?rootId="+other.ID.String()), `{"leads":[],"entries":[]}`+"\n"; got != want {
-		t.Errorf("listPendingImports of a root with none = %s, want %s", got, want)
+	if got, want := s.entries(t, "?rootId="+other.ID.String()), `{"leads":[],"imports":[]}`+"\n"; got != want {
+		t.Errorf("listImports of a root with none = %s, want %s", got, want)
 	}
 }
 
@@ -299,7 +301,7 @@ func TestAddAddsEachSuggestedWorkAndRefusesTheRestOnTheirOwn(t *testing.T) {
 	none := s.pend(t, "Halloween", nil, false, noMatch("Halloween/Halloween.mkv"))
 	unknown := storage.NewUUID().String()
 
-	code, reply := s.Call(t, http.MethodPost, "/api/v1/imports/pending/add", `{"ids":["`+heat+`","`+none+`","`+unknown+`"]}`)
+	code, reply := s.Call(t, http.MethodPost, "/api/v1/imports/add", `{"importIds":["`+heat+`","`+none+`","`+unknown+`"]}`)
 	var out struct {
 		Outcomes []struct {
 			ID      string `json:"id"`
@@ -311,16 +313,16 @@ func TestAddAddsEachSuggestedWorkAndRefusesTheRestOnTheirOwn(t *testing.T) {
 		} `json:"outcomes"`
 	}
 	if err := json.Unmarshal([]byte(reply), &out); code != http.StatusOK || err != nil || len(out.Outcomes) != 3 {
-		t.Fatalf("addPendingImports = %d %s", code, reply)
+		t.Fatalf("addRootImports = %d %s", code, reply)
 	}
 	if o := out.Outcomes[0]; o.ID != heat || o.Outcome != "added" || o.WorkID == "" {
 		t.Errorf("the entry with a suggestion = %+v, want its Work added", o)
 	}
-	if o := out.Outcomes[1]; o.ID != none || o.Outcome != "failed" || o.Problem.Code != "pending_no_suggestion" {
-		t.Errorf("the entry with no suggestion = %+v, want pending_no_suggestion", o)
+	if o := out.Outcomes[1]; o.ID != none || o.Outcome != "failed" || o.Problem.Code != "import_no_suggestion" {
+		t.Errorf("the entry with no suggestion = %+v, want import_no_suggestion", o)
 	}
-	if o := out.Outcomes[2]; o.ID != unknown || o.Outcome != "failed" || o.Problem.Code != "pending_not_found" {
-		t.Errorf("an id no entry has = %+v, want pending_not_found", o)
+	if o := out.Outcomes[2]; o.ID != unknown || o.Outcome != "failed" || o.Problem.Code != "import_not_found" {
+		t.Errorf("an id no entry has = %+v, want import_not_found", o)
 	}
 	if got := s.entries(t, ""); strings.Contains(got, "Shelf w1") || !strings.Contains(got, "Halloween") {
 		t.Errorf("after Add Pending imports lists %s, want only the entry it refused", got)
@@ -331,40 +333,63 @@ func TestMatchMakesARecordTheSuggestion(t *testing.T) {
 	s := serve(t)
 	s.stock("w2", "Heat")
 	id := s.pend(t, "Heat (1995)", nil, false, noMatch("Heat (1995)/Heat.mkv"))
-	s.Expect(t, http.MethodPost, "/api/v1/imports/pending/"+id+"/match", `{"key":"w2"}`, http.StatusOK,
-		`{"id":"id1","root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Heat (1995)","contentType":"fixture","hint":{"title":"Heat","year":1995,"ids":[]},`+
-			`"suggestion":{"key":"w2","label":"Heat","year":null,"posterUrl":null,"workId":null,"confident":false},"foundAt":"T","ignoredAt":null,"files":[`+
-			`{"path":"Heat (1995)/Heat.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"reason":{"code":"no_match"}}]}`)
-	s.Expect(t, http.MethodPost, "/api/v1/imports/pending/"+id+"/match", `{"key":"nowhere"}`, http.StatusNotFound,
+	s.Expect(t, http.MethodPost, "/api/v1/imports/"+id, `{"action":"match","key":"w2"}`, http.StatusOK,
+		`{"id":"id1","source":"root","stage":"waiting","root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Heat (1995)","contentType":"fixture","hint":{"title":"Heat","year":1995,"ids":[]},`+
+			`"suggestion":{"key":"w2","label":"Heat","year":null,"posterUrl":null,"workId":null,"confident":false},"createdAt":"T","ignoredAt":null,"finishedAt":null,"files":[`+
+			`{"position":0,"path":"Heat (1995)/Heat.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"no_match"}}]}`)
+	s.Expect(t, http.MethodPost, "/api/v1/imports/"+id, `{"action":"match","key":"nowhere"}`, http.StatusNotFound,
 		`{"status":404,"code":"metadata_not_found","title":"The metadata source has no record with that key"}`)
-	s.Expect(t, http.MethodPost, "/api/v1/imports/pending/"+storage.NewUUID().String()+"/match", `{"key":"w2"}`, http.StatusNotFound,
-		`{"status":404,"code":"pending_not_found","title":"No pending import has that id"}`)
+	s.Expect(t, http.MethodPost, "/api/v1/imports/"+storage.NewUUID().String(), `{"action":"match","key":"w2"}`, http.StatusNotFound,
+		`{"status":404,"code":"import_not_found","title":"No Import has that id"}`)
 }
 
-func TestImportIntoAttachesTheChosenFilesToAWorkInTheEntrysRoot(t *testing.T) {
+func TestGetImportAnswersOneImportWithItsFiles(t *testing.T) {
+	s := serve(t)
+	id := s.pend(t, "Heat (1995)", nil, false, noMatch("Heat (1995)/Heat.mkv"))
+	s.Expect(t, http.MethodGet, "/api/v1/imports/"+id, "", http.StatusOK,
+		`{"id":"id1","source":"root","stage":"waiting","root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Heat (1995)","contentType":"fixture","hint":{"title":"Heat","year":1995,"ids":[]},`+
+			`"suggestion":null,"createdAt":"T","ignoredAt":null,"finishedAt":null,"files":[`+
+			`{"position":0,"path":"Heat (1995)/Heat.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"no_match"}}]}`)
+	s.Expect(t, http.MethodGet, "/api/v1/imports/"+storage.NewUUID().String(), "", http.StatusNotFound,
+		`{"status":404,"code":"import_not_found","title":"No Import has that id"}`)
+}
+
+func TestImportIntoAttachesTheChosenFilesToAWorkInTheImportsRoot(t *testing.T) {
 	s := serve(t)
 	work := s.add(t, "w1", s.root.ID)
 	id := s.pend(t, "Shelf", nil, false, noMatch("Shelf/a.mkv"), noMatch("Shelf/b.mkv"))
-	into := func(path string, item works.ItemID, w works.WorkID) string {
-		return `{"workId":"` + w.String() + `","files":[{"path":"` + path + `","itemIds":["` + item.String() + `"]}]}`
+	into := func(position int, w works.WorkID, items ...works.ItemID) string {
+		ids := make([]string, len(items))
+		for i, it := range items {
+			ids[i] = `"` + it.String() + `"`
+		}
+		return `{"action":"into","workId":"` + w.String() + `","files":[{"position":` + strconv.Itoa(position) + `,"itemIds":[` + strings.Join(ids, ",") + `]}]}`
 	}
-	url := "/api/v1/imports/pending/" + id + "/import"
+	url := "/api/v1/imports/" + id
 
-	s.Expect(t, http.MethodPost, url, into("Shelf/c.mkv", work.Items[0].ID, work.ID), http.StatusConflict,
-		`{"status":409,"code":"pending_changed","title":"The pending import no longer lists a chosen file"}`)
-	s.Expect(t, http.MethodPost, url, into("Shelf/a.mkv", works.ItemID{UUID: storage.NewUUID()}, work.ID), http.StatusUnprocessableEntity,
-		`{"status":422,"code":"pending_items","title":"A chosen Item isn't in the Work"}`)
+	s.Expect(t, http.MethodPost, url, into(2, work.ID, work.Items[0].ID), http.StatusConflict,
+		`{"status":409,"code":"import_changed","title":"The Import no longer has a chosen file waiting"}`)
+	s.Expect(t, http.MethodPost, url, into(0, work.ID, works.ItemID{UUID: storage.NewUUID()}), http.StatusUnprocessableEntity,
+		`{"status":422,"code":"import_items","title":"A chosen Item isn't in the Work"}`)
 	away := s.add(t, "w2", s.newRoot(t, s.nas).ID)
-	s.Expect(t, http.MethodPost, url, into("Shelf/a.mkv", away.Items[0].ID, away.ID), http.StatusConflict,
-		`{"status":409,"code":"pending_elsewhere","title":"The Work lives in another library root"}`)
+	s.Expect(t, http.MethodPost, url, into(0, away.ID, away.Items[0].ID), http.StatusConflict,
+		`{"status":409,"code":"import_elsewhere","title":"The Work lives in another library root"}`)
 
-	s.Expect(t, http.MethodPost, url, into("Shelf/a.mkv", work.Items[0].ID, work.ID), http.StatusOK,
-		`{"entry":{"id":"id1","root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Shelf","contentType":"fixture","hint":{"title":"Shelf","year":null,"ids":[]},`+
-			`"suggestion":{"key":"w1","label":"Shelf w1","year":null,"posterUrl":null,"workId":"id3","confident":false},"foundAt":"T","ignoredAt":null,"files":[`+
-			`{"path":"Shelf/b.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"reason":{"code":"no_match"}}]}}`)
-	s.Expect(t, http.MethodPost, url, into("Shelf/b.mkv", work.Items[1].ID, work.ID), http.StatusOK, `{"entry":null}`)
-	s.Expect(t, http.MethodPost, url, into("Shelf/b.mkv", work.Items[1].ID, work.ID), http.StatusNotFound,
-		`{"status":404,"code":"pending_not_found","title":"No pending import has that id"}`)
+	s.Expect(t, http.MethodPost, url, into(0, work.ID, work.Items[0].ID), http.StatusOK,
+		`{"id":"id1","source":"root","stage":"waiting","root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Shelf","contentType":"fixture","hint":{"title":"Shelf","year":null,"ids":[]},`+
+			`"suggestion":{"key":"w1","label":"Shelf w1","year":null,"posterUrl":null,"workId":"id3","confident":false},"createdAt":"T","ignoredAt":null,"finishedAt":null,"files":[`+
+			`{"position":0,"path":"Shelf/a.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":["id4"],"outcome":"placed","reason":null},`+
+			`{"position":1,"path":"Shelf/b.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"no_match"}}]}`)
+	s.Expect(t, http.MethodPost, url, into(1, work.ID, work.Items[2].ID, work.Items[1].ID), http.StatusOK,
+		`{"id":"id1","source":"root","stage":"done","root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Shelf","contentType":"fixture","hint":{"title":"Shelf","year":null,"ids":[]},`+
+			`"suggestion":{"key":"w1","label":"Shelf w1","year":null,"posterUrl":null,"workId":"id3","confident":false},"createdAt":"T","ignoredAt":null,"finishedAt":"T","files":[`+
+			`{"position":0,"path":"Shelf/a.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":["id4"],"outcome":"placed","reason":null},`+
+			`{"position":1,"path":"Shelf/b.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":["id5","id6"],"outcome":"placed","reason":null}]}`)
+	s.Expect(t, http.MethodPost, url, into(1, work.ID, work.Items[1].ID), http.StatusConflict,
+		`{"status":409,"code":"import_changed","title":"The Import no longer has a chosen file waiting"}`)
+	if got := s.entries(t, ""); got != `{"leads":[],"imports":[]}`+"\n" {
+		t.Errorf("after Into placed every file Pending imports lists %s, want nothing", got)
+	}
 	var recorded []string
 	err := s.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		on, err := files.OnRoot(ctx, r, s.root.ID)
@@ -388,34 +413,34 @@ func (s *server) noContent(t *testing.T, url, body string) {
 func TestIgnoreMovesEntriesToIgnoredUntilUnignored(t *testing.T) {
 	s := serve(t)
 	id := s.pend(t, "Halloween", nil, false, noMatch("Halloween/Halloween.mkv"))
-	body := `{"ids":["` + id + `"]}`
-	s.noContent(t, "/api/v1/imports/pending/ignore", body)
-	if got := s.entries(t, ""); got != `{"leads":[],"entries":[]}`+"\n" {
+	body := `{"importIds":["` + id + `"]}`
+	s.noContent(t, "/api/v1/imports/ignore", body)
+	if got := s.entries(t, ""); got != `{"leads":[],"imports":[]}`+"\n" {
 		t.Errorf("after Ignore the entries that need the Admin are %s, want none", got)
 	}
 	if got := s.entries(t, "?ignored=true"); !strings.Contains(got, `"folder":"Halloween"`) {
 		t.Errorf("after Ignore the ignored entries are %s, want Halloween", got)
 	}
-	s.noContent(t, "/api/v1/imports/pending/unignore", body)
-	if got := s.entries(t, ""); !strings.Contains(got, `"folder":"Halloween","contentType":"fixture","hint":{"title":"Halloween","year":null,"ids":[]},"suggestion":null,"foundAt":"T","ignoredAt":null`) {
+	s.noContent(t, "/api/v1/imports/unignore", body)
+	if got := s.entries(t, ""); !strings.Contains(got, `"folder":"Halloween","contentType":"fixture","hint":{"title":"Halloween","year":null,"ids":[]},"suggestion":null,"createdAt":"T","ignoredAt":null`) {
 		t.Errorf("after Unignore the entries that need the Admin are %s, want Halloween", got)
 	}
 }
 
 func TestLibraryScanSettingsStoreTheStopShareAndProbes(t *testing.T) {
 	s := serve(t)
-	code, reply := s.Call(t, http.MethodGet, "/api/v1/imports/settings", "")
+	code, reply := s.Call(t, http.MethodGet, "/api/v1/imports/scan-settings", "")
 	if code != http.StatusOK || !strings.Contains(reply, `"key":"library.scan.stopShare"`) || !strings.Contains(reply, `"key":"library.scan.probes"`) {
 		t.Fatalf("getLibraryScanSettings = %d %s, want the stop share and probes", code, reply)
 	}
-	code, reply = s.Call(t, http.MethodPatch, "/api/v1/imports/settings", `{"values":{"library.scan.stopShare":40,"library.scan.probes":4}}`)
+	code, reply = s.Call(t, http.MethodPatch, "/api/v1/imports/scan-settings", `{"values":{"library.scan.stopShare":40,"library.scan.probes":4}}`)
 	if code != http.StatusOK || !strings.Contains(reply, `"value":40`) || !strings.Contains(reply, `"value":4,`) {
 		t.Fatalf("updateLibraryScanSettings = %d %s, want 40 and 4 stored", code, reply)
 	}
-	code, reply = s.Call(t, http.MethodPatch, "/api/v1/imports/settings", `{"values":{"library.scan.probes":9}}`)
+	code, reply = s.Call(t, http.MethodPatch, "/api/v1/imports/scan-settings", `{"values":{"library.scan.probes":9}}`)
 	if code != http.StatusUnprocessableEntity || !strings.Contains(reply, `"code":"setting_out_of_range"`) {
 		t.Errorf("9 probes = %d %s, want setting_out_of_range", code, reply)
 	}
-	s.Expect(t, http.MethodPatch, "/api/v1/imports/settings", `{"values":{"library.scan.depth":1}}`, http.StatusUnprocessableEntity,
+	s.Expect(t, http.MethodPatch, "/api/v1/imports/scan-settings", `{"values":{"library.scan.depth":1}}`, http.StatusUnprocessableEntity,
 		`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key library.scan.depth."}`)
 }

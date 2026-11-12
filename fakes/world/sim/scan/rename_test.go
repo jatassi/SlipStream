@@ -48,7 +48,7 @@ func TestAScanDuringATargetRenameChangesNothing(t *testing.T) {
 		if found != 0 || gone != 0 {
 			t.Fatalf("the scan during the rename found %d files and %d gone, want none", found, gone)
 		}
-		if n := s.count("SELECT count(*) FROM imports_pending"); n != 0 {
+		if n := s.count("SELECT count(*) FROM imports_import WHERE source = 'root' AND finished_at IS NULL"); n != 0 {
 			t.Fatalf("the scan during the rename left %d pending imports, want none", n)
 		}
 		s.expectHealth()
