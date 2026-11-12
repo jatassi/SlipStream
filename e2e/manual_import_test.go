@@ -91,7 +91,6 @@ func TestAFolderInADownloadFolderImportsIntoTwoWorksByHandAndStartsNoSearch(t *t
 		decodeRaw(t, w.Work, &tr)
 		works[label] = tr.ID
 	}
-	decode(t, "updateImportingSettings", a.Admin("home", http.MethodPatch, "/api/v1/imports/importing-settings", `{"values":{"library.importing.smallestVideo":0}}`), &struct{}{})
 
 	folder := transmissionFolder(t, a)
 	video := downloaded(t, folder, clientOrchard.name+".mkv")
