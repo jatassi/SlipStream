@@ -19,9 +19,9 @@ func cellOf(target targets.TargetID) files.CellKey {
 func given(src Source, othersFill bool) outcomeContext {
 	return outcomeContext{
 		othersFill: othersFill, source: src,
-		cut:        func(int) release.CutKey { return "directors" },
-		confirmed:  func(int) bool { return false },
-		forced:     func(int) []files.CellKey { return nil },
+		cut:       func(int) release.CutKey { return "directors" },
+		confirmed: func(int) bool { return false },
+		forced:    func(int) []files.CellKey { return nil },
 	}
 }
 

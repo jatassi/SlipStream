@@ -42,13 +42,13 @@ func (im *Imports) attach(ctx context.Context, tx *storage.Tx[file], work works.
 		}
 		if len(f.Items) == 0 {
 			p := place(inside(f.Path))
-			item, ok := p.Item()
+			items, ok := p.Items()
 			if !ok {
 				f.waitFor(p.Reason())
 				rest = append(rest, f)
 				continue
 			}
-			f.Items = []works.ItemID{item}
+			f.Items = items
 		}
 		at, err := walked(f)
 		if err != nil {

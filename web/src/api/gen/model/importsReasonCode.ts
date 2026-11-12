@@ -27,7 +27,6 @@ export type ImportsReasonCode =
   | "elsewhere"
   | "unlisted"
   | "no_such_item"
-  | "several_items"
   | "unreadable"
   | "left"
   | "no_rule"

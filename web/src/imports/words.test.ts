@@ -45,11 +45,6 @@ const every: {
     shows,
     "This show has no episode S03E14.",
   ],
-  several_items: [
-    { code: "several_items", sentence: null },
-    shows,
-    "The file holds several episodes.",
-  ],
   unreadable: [
     { code: "unreadable", sentence: null, line: "Invalid data found when processing input" },
     cinema,

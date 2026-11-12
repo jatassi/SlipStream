@@ -266,7 +266,7 @@ func folderReason(e Import) scanning.Reason {
 		switch r := f.Scan(); r.Code {
 		case scanning.Several, scanning.NoMatch, scanning.NoYear, scanning.Elsewhere, scanning.Unlisted, scanning.Left:
 			return r
-		case scanning.NoNumber, scanning.NoSuchItem, scanning.SeveralItems, scanning.Unreadable, scanning.NoRule:
+		case scanning.NoNumber, scanning.NoSuchItem, scanning.Unreadable, scanning.NoRule:
 		}
 	}
 	return scanning.Reason{Code: scanning.NoMatch, Title: e.Hint.Title, Year: e.Hint.Year}

@@ -4958,7 +4958,6 @@ export const ImportsReason = zod.object({
       "elsewhere",
       "unlisted",
       "no_such_item",
-      "several_items",
       "unreadable",
       "left",
       "no_rule",
@@ -6730,7 +6729,7 @@ export type NamingNamingListOutput = zod.output<typeof NamingNamingList>;
 
 export const NamingUnplaced = zod.object({
   code: zod
-    .enum(["no_number", "no_such_item", "several_items", "no_rule"])
+    .enum(["no_number", "no_such_item", "no_rule"])
     .describe("Why the Content Type can't tell which Item the name holds"),
   names: zod
     .string()

@@ -402,6 +402,27 @@ func TestAFlatSeriesFolderNamedByTitleAndYearIsAdded(t *testing.T) {
 	})
 }
 
+// TestAScanPlacesAMultiEpisodeFile stocks a series folder whose one file
+// names two episodes: the scan records it as one file holding both, and
+// nothing waits.
+func TestAScanPlacesAMultiEpisodeFile(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		s := shelve(t, func(sc *scenario.Scenario) {
+			sc.Library.Roots = append(sc.Library.Roots, scenario.LibraryRoot{ContentType: "series", Folder: "tv"})
+		})
+		tv := s.on("tv")
+		tv.put("The Tin Signal (2019)/The Tin Signal - S01E01E02.mkv", 4096, hd)
+		s.scan()
+		if n := s.count("SELECT count(*) FROM imports_import WHERE source = 'root' AND finished_at IS NULL"); n != 0 {
+			t.Fatalf("Pending imports hold %d entries, want none", n)
+		}
+		if n := s.count("SELECT count(*) FROM files_file_item i JOIN files_file f ON f.id = i.file_id WHERE f.path LIKE '%S01E01E02.mkv'"); n != 2 {
+			t.Fatalf("the multi-episode file holds %d Items, want 2", n)
+		}
+	})
+}
+
 // TestADeletedFileReadsGoneAndWholeOnceRestored takes one Work's file off
 // the root: a scan marks it gone, its cell reads missing and Health counts
 // it; once the file is back the next scan fills the cell with it again.
