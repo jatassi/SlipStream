@@ -308,12 +308,22 @@ const (
 // its latest. Waiting is the code of what an unfinished Grab waits on that
 // only an Admin resolves, such as node_away, empty while it waits on
 // nothing. FailedAt is the stage a failed Grab failed at, such as
-// importing.
+// importing. ClientError is the error a Grab waiting client_error waits
+// on, nil for any other wait.
 type GrabCell struct {
-	State    GrabState
-	Grab     storage.UUID
-	Waiting  string
-	FailedAt string
+	State       GrabState
+	Grab        storage.UUID
+	Waiting     string
+	ClientError *ClientError
+	FailedAt    string
+}
+
+// ClientError is the error an external client reports on a Grab's Torrent:
+// Client on Node words it Message, and the Grab fails at FailsAt unless it
+// clears.
+type ClientError struct {
+	Client, Node, Message string
+	FailsAt               time.Time
 }
 
 func (g GrabCell) InFlight() bool { return g.State == GrabInFlight }
@@ -323,9 +333,9 @@ type Inflight interface {
 	// GrabCells reads the Grab each cell of ws reads from, for each cell a
 	// Grab is in flight for or failed.
 	GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[CellKey]GrabCell, error)
-	// Unfinished lists the ids of every Grab not yet imported or failed,
-	// whose download may sit in a root's holding folder.
-	Unfinished(ctx context.Context, r storage.Reader[storage.Library]) ([]storage.UUID, error)
+	// Holding is every path in a root's holding folder an unfinished
+	// import claims, by root.
+	Holding(ctx context.Context, r storage.Reader[storage.Library]) (map[roots.ID]map[string]bool, error)
 	// ReleaseTitles reads the Release title of every Grab with a record.
 	ReleaseTitles(ctx context.Context, r storage.Reader[storage.Library]) (map[storage.UUID]string, error)
 }
@@ -337,7 +347,7 @@ func (NoGrabs) GrabCells(context.Context, storage.Reader[storage.Library], works
 	return nil, nil
 }
 
-func (NoGrabs) Unfinished(context.Context, storage.Reader[storage.Library]) ([]storage.UUID, error) {
+func (NoGrabs) Holding(context.Context, storage.Reader[storage.Library]) (map[roots.ID]map[string]bool, error) {
 	return nil, nil
 }
 

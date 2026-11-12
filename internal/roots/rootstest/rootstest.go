@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/media"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
 	"github.com/jatassi/slipstream/internal/role"
@@ -71,10 +72,13 @@ func Config(tb testing.TB, lib *storage.DB[storage.Library], types ...works.Type
 		Arrivals: roots.NewArrivals(),
 		Contents: files.RootContents{},
 		Inflight: grabs.RootGrabs{},
-		Changed:  discard{},
-		Volumes:  discardVolumes{},
-		Cadence:  func() {},
-		Log:      slog.New(slog.DiscardHandler),
+		Videos: func(context.Context, storage.Reader[storage.Library]) (media.Videos, error) {
+			return media.DefaultVideos, nil
+		},
+		Changed: discard{},
+		Volumes: discardVolumes{},
+		Cadence: func() {},
+		Log:     slog.New(slog.DiscardHandler),
 	}
 	Everywhere(&cfg, Store(tb, tb.TempDir(), tb.TempDir()))
 	return cfg

@@ -133,7 +133,7 @@ type workFile struct {
 }
 
 type unplaced struct {
-	Code  string `json:"code" enum:"no_number,no_such_item,several_items,no_rule" doc:"Why the Content Type can't tell which Item the name holds"`
+	Code  string `json:"code" enum:"no_number,no_such_item,no_rule" doc:"Why the Content Type can't tell which Item the name holds"`
 	Names string `json:"names,omitempty" doc:"For no_such_item: the Item the name names, such as S03E14"`
 }
 

@@ -44,7 +44,7 @@ const (
 var timings = external.Timings{
 	RetryMin: 5 * time.Second, RetryMax: 5 * time.Minute, RefusedRetry: 30 * time.Minute, Grace: time.Minute,
 	ResendWait: 2 * time.Minute, MissingShare: 50, MissingFloor: 3, Trackers: time.Minute, Call: 30 * time.Second,
-	LiveFloor: 2 * time.Second, LiveSample: time.Second, TotalsReport: 5 * time.Minute,
+	LiveFloor: 2 * time.Second, LiveSample: time.Second, TotalsReport: 5 * time.Minute, ErrorHeartbeat: downloading.ErrorHeartbeat,
 }
 
 type release struct {
@@ -707,4 +707,40 @@ func mustLabel(t *testing.T) clients.Label {
 		t.Fatal(err)
 	}
 	return l
+}
+
+func TestAClientErrorIsReportedOnceAMinuteUntilItClears(t *testing.T) {
+	inEachVersion(t, func(t *testing.T, version string) {
+		r := newRig(t, version, faketransmission.Daemon{})
+		r.want("lantern")
+		r.start()
+		r.cue("error", map[string]any{"release": "lantern", "message": "No data found! Ensure your drives are connected."})
+		r.sleep(10 * time.Minute)
+
+		var beats []time.Time
+		for _, rep := range r.reportsOf("lantern") {
+			if rep.GetHold() == dlv1.Hold_HOLD_CLIENT_ERROR {
+				beats = append(beats, time.UnixMilli(rep.GetAtUnixMs()))
+			}
+		}
+		if len(beats) < 9 {
+			t.Fatalf("%d reports with the client's error in 10 minutes, want one a minute", len(beats))
+		}
+		for i := 1; i < len(beats); i++ {
+			if gap := beats[i].Sub(beats[i-1]); gap < downloading.ErrorHeartbeat || gap > downloading.ErrorHeartbeat+checkEvery {
+				t.Errorf("reports with the client's error %s apart, want one each %s, at the next poll", gap, downloading.ErrorHeartbeat)
+			}
+		}
+
+		r.cue("error", map[string]any{"release": "lantern", "message": ""})
+		r.sleep(time.Minute)
+		if got := r.latest("lantern").GetHold(); got == dlv1.Hold_HOLD_CLIENT_ERROR {
+			t.Fatal("the report after the clear still holds the client's error")
+		}
+		before := len(r.reportsOf("lantern"))
+		r.sleep(5 * time.Minute)
+		if got := len(r.reportsOf("lantern")) - before; got != 0 {
+			t.Errorf("%d reports in 5 minutes of seeding with no error, want none: a report goes only on a change", got)
+		}
+	})
 }

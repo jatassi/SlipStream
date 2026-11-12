@@ -12,8 +12,8 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// fileAt is a root file in outcome o with the columns the CHECKs ask of o.
-func fileAt(o Outcome) File {
+// fileIn is a root file in outcome o with the columns the CHECKs ask of o.
+func fileIn(o Outcome) File {
 	f := File{Path: "Odd/a.mkv", Cut: "standard", ReleaseName: "a.mkv", SourceName: "a.mkv", Outcome: o}
 	switch o {
 	case LeftOut, NotBetter, Waiting, FailedOut, Declined:
@@ -32,7 +32,7 @@ func TestSetFileTakesExactlyTheMovesTheTableListsAndTheCheckHoldsEveryOutcome(t 
 		return w.lib.Write(t.Context(), fn)
 	}
 	insert := func(o Outcome) (ImportID, error) {
-		im := Import{ID: ImportID{UUID: storage.NewUUID()}, Source: FromRoot, Root: w.root.ID, Folder: "Odd", ContentType: contenttypetest.ID, Created: storage.Now(), Finished: storage.Now(), Files: []File{fileAt(o)}}
+		im := Import{ID: ImportID{UUID: storage.NewUUID()}, Source: FromRoot, Root: w.root.ID, Folder: "Odd", ContentType: contenttypetest.ID, Created: storage.Now(), Finished: storage.Now(), Files: []File{fileIn(o)}}
 		return im.ID, write(func(ctx context.Context, tx *storage.Tx[storage.Library]) error { return insertImport(ctx, tx, im) })
 	}
 	if _, err := insert("bogus"); err == nil {
@@ -45,7 +45,7 @@ func TestSetFileTakesExactlyTheMovesTheTableListsAndTheCheckHoldsEveryOutcome(t 
 				t.Fatalf("the outcome CHECK refused a %s file: %v", from, err)
 			}
 			err = write(func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-				return setFile(ctx, db.New(tx), id, from, fileAt(to))
+				return setFile(ctx, db.New(tx), id, from, fileIn(to))
 			})
 			if want := from == to || slices.Contains(moves[from], to); (err == nil) != want {
 				t.Errorf("setFile %s to %s = %v, want it taken %v as moves lists", from, to, err, want)
@@ -57,17 +57,17 @@ func TestSetFileTakesExactlyTheMovesTheTableListsAndTheCheckHoldsEveryOutcome(t 
 		t.Fatal(err)
 	}
 	err = write(func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		return setFile(ctx, db.New(tx), id, Pending, fileAt(Waiting))
+		return setFile(ctx, db.New(tx), id, Pending, fileIn(Waiting))
 	})
 	if !errors.Is(err, errMoved) {
 		t.Errorf("setFile on a file that no longer reads the outcome it was read at = %v, want errMoved", err)
 	}
 }
 
-func TestEveryMoveIsBetweenOutcomesAndNoFinalOutcomeMovesButARetry(t *testing.T) {
+func TestEveryMoveIsBetweenOutcomesAndNoFinalOutcomeMovesButARetryOrASettingsWait(t *testing.T) {
 	t.Parallel()
 	for from, tos := range moves {
-		if from.Final() && from != FailedOut {
+		if from.Final() && from != FailedOut && (from != LeftOut || !slices.Equal(tos, []Outcome{Waiting})) {
 			t.Errorf("the final outcome %s moves to %v", from, tos)
 		}
 		for _, to := range append([]Outcome{from}, tos...) {

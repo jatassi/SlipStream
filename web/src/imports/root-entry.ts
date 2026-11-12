@@ -3,6 +3,7 @@ import type {
   ImportsImportFile,
   ImportsReason,
   ImportsRootLabel,
+  ListImportsParams,
 } from "../api/gen/model";
 import { useListImportsSuspense } from "../api/gen/query/imports/imports";
 
@@ -26,8 +27,8 @@ export const rootEntriesOf = (imports: readonly ImportsImportEntry[]): RootEntry
       : [],
   );
 
-/** Pending imports' root leads and root Imports, of the needs-you or the ignored view. */
-export function useRootImports(params: { source: "root"; ignored?: boolean }) {
+/** Pending imports' root leads and every Import it lists, of the needs-you or the ignored view. */
+export function usePendingImports(params: ListImportsParams) {
   const { leads, imports } = useListImportsSuspense(params).data;
-  return { leads, entries: rootEntriesOf(imports) };
+  return { leads, imports, entries: rootEntriesOf(imports) };
 }

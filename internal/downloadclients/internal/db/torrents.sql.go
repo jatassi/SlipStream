@@ -85,6 +85,21 @@ func (q *Queries) ChangeWanted(ctx context.Context, arg ChangeWantedParams) (int
 	return result.RowsAffected()
 }
 
+const clearClientError = `-- name: ClearClientError :exec
+UPDATE downloadclients_torrent SET client_error_ms = 0, client_error_at = NULL
+WHERE id = ?1 AND node_id = ?2 AND client_error_at IS NOT NULL
+`
+
+type ClearClientErrorParams struct {
+	ID     TorrentID
+	NodeID role.NodeID
+}
+
+func (q *Queries) ClearClientError(ctx context.Context, arg ClearClientErrorParams) error {
+	_, err := q.db.ExecContext(ctx, clearClientError, arg.ID, arg.NodeID)
+	return err
+}
+
 const countHeld = `-- name: CountHeld :one
 SELECT count(*) AS torrents, CAST(coalesce(sum(size), 0) AS INTEGER) AS bytes
 FROM downloadclients_torrent
@@ -348,19 +363,25 @@ func (q *Queries) GetRetry(ctx context.Context, arg GetRetryParams) (GetRetryRow
 }
 
 const getThresholds = `-- name: GetThresholds :one
-SELECT fault_stall_seconds, unregistered_gap_seconds, metadata_wait_seconds FROM downloadclients_settings WHERE id = 1
+SELECT fault_stall_seconds, unregistered_gap_seconds, metadata_wait_seconds, client_error_fail_seconds FROM downloadclients_settings WHERE id = 1
 `
 
 type GetThresholdsRow struct {
 	FaultStallSeconds      *int64
 	UnregisteredGapSeconds *int64
 	MetadataWaitSeconds    *int64
+	ClientErrorFailSeconds *int64
 }
 
 func (q *Queries) GetThresholds(ctx context.Context) (GetThresholdsRow, error) {
 	row := q.db.QueryRowContext(ctx, getThresholds)
 	var i GetThresholdsRow
-	err := row.Scan(&i.FaultStallSeconds, &i.UnregisteredGapSeconds, &i.MetadataWaitSeconds)
+	err := row.Scan(
+		&i.FaultStallSeconds,
+		&i.UnregisteredGapSeconds,
+		&i.MetadataWaitSeconds,
+		&i.ClientErrorFailSeconds,
+	)
 	return i, err
 }
 
@@ -493,7 +514,7 @@ func (q *Queries) ListActed(ctx context.Context, ids []TorrentID) ([]ListActedRo
 
 const listAttached = `-- name: ListAttached :many
 SELECT t.id, t.info_hash, t.size, t.removed_reason, t.removed_by_name, t.report, t.completion, t.fault, t.fault_at,
-       t.client_id, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name
+       t.node_id, t.client_error_ms, t.client_error_at, t.client_id, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.id IN (/*SLICE:ids*/?)
 ORDER BY t.id
@@ -509,6 +530,9 @@ type ListAttachedRow struct {
 	Completion    *string
 	Fault         *string
 	FaultAt       storage.Time
+	NodeID        role.NodeID
+	ClientErrorMs int64
+	ClientErrorAt storage.Time
 	ClientID      *ClientID
 	ClientKind    clients.Kind
 	ClientName    string
@@ -543,6 +567,9 @@ func (q *Queries) ListAttached(ctx context.Context, ids []TorrentID) ([]ListAtta
 			&i.Completion,
 			&i.Fault,
 			&i.FaultAt,
+			&i.NodeID,
+			&i.ClientErrorMs,
+			&i.ClientErrorAt,
 			&i.ClientID,
 			&i.ClientKind,
 			&i.ClientName,
@@ -1639,7 +1666,8 @@ const setThresholds = `-- name: SetThresholds :exec
 UPDATE downloadclients_settings SET
     fault_stall_seconds = ?1,
     unregistered_gap_seconds = ?2,
-    metadata_wait_seconds = ?3
+    metadata_wait_seconds = ?3,
+    client_error_fail_seconds = ?4
 WHERE id = 1
 `
 
@@ -1647,10 +1675,16 @@ type SetThresholdsParams struct {
 	FaultStallSeconds      *int64
 	UnregisteredGapSeconds *int64
 	MetadataWaitSeconds    *int64
+	ClientErrorFailSeconds *int64
 }
 
 func (q *Queries) SetThresholds(ctx context.Context, arg SetThresholdsParams) error {
-	_, err := q.db.ExecContext(ctx, setThresholds, arg.FaultStallSeconds, arg.UnregisteredGapSeconds, arg.MetadataWaitSeconds)
+	_, err := q.db.ExecContext(ctx, setThresholds,
+		arg.FaultStallSeconds,
+		arg.UnregisteredGapSeconds,
+		arg.MetadataWaitSeconds,
+		arg.ClientErrorFailSeconds,
+	)
 	return err
 }
 
@@ -1680,6 +1714,34 @@ type SetWantedParams struct {
 
 func (q *Queries) SetWanted(ctx context.Context, arg SetWantedParams) error {
 	_, err := q.db.ExecContext(ctx, setWanted, arg.Wanted, arg.ID)
+	return err
+}
+
+const tickClientError = `-- name: TickClientError :exec
+UPDATE downloadclients_torrent SET
+    client_error_ms = client_error_ms + CASE WHEN client_error_at IS NULL THEN 0
+        ELSE min(max(CAST(?1 AS INTEGER) - client_error_at, 0) / 1000, CAST(?2 AS INTEGER)) END,
+    client_error_at = max(CAST(?1 AS INTEGER), coalesce(client_error_at, 0))
+WHERE id = ?3 AND node_id = ?4
+`
+
+type TickClientErrorParams struct {
+	AtUs   int64
+	CapMs  int64
+	ID     TorrentID
+	NodeID role.NodeID
+}
+
+// A report with the client's error adds the gap since the last such report,
+// never below zero and at most cap_ms, so a replayed or older report adds
+// nothing and a Node that stopped reporting adds at most the cap.
+func (q *Queries) TickClientError(ctx context.Context, arg TickClientErrorParams) error {
+	_, err := q.db.ExecContext(ctx, tickClientError,
+		arg.AtUs,
+		arg.CapMs,
+		arg.ID,
+		arg.NodeID,
+	)
 	return err
 }
 

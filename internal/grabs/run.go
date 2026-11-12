@@ -26,6 +26,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -223,6 +224,9 @@ func (gr *Grabs) downloaded(_ context.Context, g Grab) outcome {
 		return fail{DownloadFailed, o.Error}
 	case downloadclients.Gone:
 		return failOfGone(o)
+	case downloadclients.Errored:
+		return fail{ClientError, fmt.Sprintf("%s on %s reported an error for more than %s. Search can try another Release.",
+			g.Torrent.Client.Name, g.Torrent.ClientError.Node, setting.Words(o.After))}
 	}
 	panic("grabs: a Grab whose Torrent is Pending is never due")
 }

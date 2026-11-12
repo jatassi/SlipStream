@@ -9,7 +9,9 @@ import (
 	"context"
 	"embed"
 	"log/slog"
+	"math/rand/v2"
 	"strings"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -21,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -69,16 +72,43 @@ type Config struct {
 	Hub          *live.Hub
 	Changed      Publisher[Changed]
 	FilesChanged Publisher[files.Changed]
-	// BeforeStep sees each root's unit before each phase, in tests.
-	BeforeStep func(ctx context.Context, root roots.ID, phase Phase)
-	Log        *slog.Logger
+	// Probes reads a file's media record where its bytes are, and
+	// Transfers is asked what live Transfers still send to a volume.
+	Probes    storing.Probes
+	Transfers *transfers.Transfers
+	Timings   Timings
+	Rand      *rand.Rand
+	// BeforeStep sees each root's unit before each phase, and BeforeImport
+	// each Import file's IO before it runs, in tests.
+	BeforeStep   func(ctx context.Context, root roots.ID, phase Phase)
+	BeforeImport func(ctx context.Context, at Step)
+	Log          *slog.Logger
+}
+
+// Timings are the reconciler's, the grabs backoff: an import wait retries
+// after RetryMin, doubling to RetryMax, and a pass runs at least every
+// RetryMax.
+type Timings struct {
+	RetryMin, RetryMax time.Duration
 }
 
 type Imports struct {
-	cfg Config
+	cfg    Config
+	probes *slots
+	wake   chan struct{}
 }
 
-func New(cfg Config) *Imports { return &Imports{cfg: cfg} }
+func New(cfg Config) *Imports {
+	return &Imports{cfg: cfg, probes: newSlots(), wake: make(chan struct{}, 1)}
+}
+
+// Touch has the reconciler pass soon.
+func (im *Imports) Touch() {
+	select {
+	case im.wake <- struct{}{}:
+	default:
+	}
+}
 
 func unitKey(root roots.ID) tasks.UnitKey { return tasks.UnitKey("root:" + root.String()) }
 

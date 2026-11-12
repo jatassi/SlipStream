@@ -873,10 +873,13 @@
             "minimum": 0,
             "type": "integer"
           },
-          "itemId": {
-            "description": "The Item it filled once a Grab imported it",
-            "format": "uuid",
-            "type": "string"
+          "items": {
+            "description": "The Items it filled once a Grab imported it, in order; empty before",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
           },
           "path": {
             "description": "Under the save folder, with / between folders",
@@ -891,7 +894,8 @@
         "required": [
           "index",
           "path",
-          "size"
+          "size",
+          "items"
         ],
         "type": "object"
       },
@@ -1397,6 +1401,7 @@
               "removed",
               "importing",
               "not_held",
+              "use_not_this_release",
               "reconciling",
               "offline",
               "client_away",
@@ -1413,7 +1418,7 @@
             "type": "string"
           },
           "workId": {
-            "description": "importing: the Work whose import holds it",
+            "description": "importing: the Work whose import holds it; use_not_this_release: the Work whose Pending import waits on it",
             "format": "uuid",
             "type": "string"
           }
@@ -2218,10 +2223,6 @@
             "format": "uuid",
             "type": "string"
           },
-          "itemId": {
-            "format": "uuid",
-            "type": "string"
-          },
           "release": {
             "type": "string"
           },
@@ -2244,7 +2245,6 @@
         "required": [
           "id",
           "workId",
-          "itemId",
           "release",
           "stage"
         ],
@@ -9683,6 +9683,22 @@
         ],
         "type": "object"
       },
+      "ImportsImportingSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "settings": {
+            "description": "The video file extensions, the smallest video file, then the runtime under which a video is a sample",
+            "items": {
+              "$ref": "#/components/schemas/SettingField"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "settings"
+        ],
+        "type": "object"
+      },
       "ImportsImportsList": {
         "additionalProperties": false,
         "properties": {
@@ -9941,7 +9957,6 @@
               "elsewhere",
               "unlisted",
               "no_such_item",
-              "several_items",
               "unreadable",
               "left",
               "no_rule",
@@ -12627,7 +12642,6 @@
             "enum": [
               "no_number",
               "no_such_item",
-              "several_items",
               "no_rule"
             ],
             "type": "string"
@@ -30205,31 +30219,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "client_error_fail_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -36263,7 +36252,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ImportsSettings"
+                  "$ref": "#/components/schemas/ImportsImportingSettings"
                 }
               }
             },
@@ -36370,31 +36359,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "import_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -36430,7 +36394,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ImportsSettings"
+                  "$ref": "#/components/schemas/ImportsImportingSettings"
                 }
               }
             },
@@ -36564,31 +36528,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "import_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -36768,31 +36707,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "import_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [

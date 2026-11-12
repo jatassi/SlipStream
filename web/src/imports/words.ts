@@ -1,4 +1,5 @@
 import type {
+  ImportsImportFile,
   ImportsLead,
   ImportsReason,
   ImportsReasonCode,
@@ -50,10 +51,6 @@ const reasonWords: { readonly [C in ImportsReasonCode]: Wording } = {
       : `${counted.format(files)} file names have no ${lower(type.item).one} number.`,
   no_such_item: ({ names }, type) =>
     `This ${lower(type.work).one} has no ${lower(type.item).one} ${given(names, "names")}.`,
-  several_items: (_reason, type, files) =>
-    files === 1
-      ? `The file holds several ${lower(type.item).many}.`
-      : `${counted.format(files)} files each hold several ${lower(type.item).many}.`,
   unreadable: (_reason, _type, files) =>
     files === 1
       ? "ffprobe can't read this file. Replace it, then scan again."
@@ -94,6 +91,14 @@ const reasonWords: { readonly [C in ImportsReasonCode]: Wording } = {
 /** Why one file waits, in plain words. */
 export const reasonOf = (reason: Reason, type: WorksContentType): string =>
   reasonWords[reason.code](reason, type, 1);
+
+/** The sentence a download's or a folder's file leads with: its hold, else why it waits. */
+export function fileSentence(file: ImportsImportFile, type: WorksContentType): string {
+  if (file.hold !== null) {
+    return file.hold.sentence;
+  }
+  return reasonOf(given(file.reason ?? undefined, "reason"), type);
+}
 
 /** Why an entry waits: one sentence per reason its files share, in file order. */
 export function reasonsOf(entry: RootEntry, type: WorksContentType): string[] {

@@ -95,7 +95,7 @@ function Picked({
 }
 
 /** Each of the entry's files and the Item of `row`'s Work it holds; a one-Item type needs no choice. */
-export function ImportFiles({
+export function IntoFiles({
   entry,
   type,
   row,

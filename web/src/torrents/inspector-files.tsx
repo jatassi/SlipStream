@@ -33,7 +33,7 @@ export function Files({ detail }: { detail: DownloadclientsTorrentDetail }) {
     <InspectorSection title="Files">
       <ul>
         {shown.map((file) => {
-          const label = file.itemId === undefined ? undefined : item(file.itemId);
+          const labels = file.items.flatMap((id) => item(id) ?? []);
           return (
             <li
               key={file.index}
@@ -49,7 +49,7 @@ export function Files({ detail }: { detail: DownloadclientsTorrentDetail }) {
               </span>
               <span className="text-meta text-ink-3">
                 <Data>{bytes(file.size)}</Data>
-                {label !== undefined && ` · Filled ${label}`}
+                {labels.length > 0 && ` · Filled ${labels.join(", ")}`}
               </span>
             </li>
           );

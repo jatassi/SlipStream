@@ -38,8 +38,8 @@ func TestPlaceReadsTrackNumbersOnTheAlbumTheFolderNames(t *testing.T) {
 	for _, tt := range tests {
 		p := place(tt.rel)
 		var got any = p.Reason()
-		if item, ok := p.Item(); ok {
-			got = labels[item]
+		if items, ok := p.Items(); ok {
+			got = labels[items[0]]
 		}
 		if !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("Place(%q) = %v, want %v", tt.rel, got, tt.want)

@@ -46,16 +46,21 @@ var ErrReconciling = errors.New("the Controller is Reconciling after a restore")
 type Use struct {
 	Grab    storage.UUID
 	Work    works.WorkID
-	Item    works.ItemID
 	Edition string
 	Release string
 	Stage   UseStage
-	// File is the index of the Torrent's file the Grab took, nil until it
-	// probed one.
-	File    *int
+	// Files are the Torrent's files the Grab's Import took, none before
+	// it took any.
+	Files   []UseFile
 	Created time.Time
 	// Floor is the seeding rule its Release stated, nil for none.
 	Floor seeding.Rule
+}
+
+// UseFile is the Torrent's file at Index, and the Items it is for.
+type UseFile struct {
+	Index int
+	Items []works.ItemID
 }
 
 type UseStage string
@@ -65,8 +70,11 @@ const (
 	// UseImporting is a Grab probing, transferring or importing the
 	// Torrent's files.
 	UseImporting UseStage = "importing"
-	UseImported  UseStage = "imported"
-	UseFailed    UseStage = "failed"
+	// UseWaiting is a Grab whose Import has a file waiting for the Admin
+	// and none sending or placing.
+	UseWaiting  UseStage = "waiting"
+	UseImported UseStage = "imported"
+	UseFailed   UseStage = "failed"
 )
 
 type ActionKind string
@@ -121,6 +129,10 @@ const (
 	// RefusedNotHeld is mark-failed on a Torrent no Grab at downloading
 	// holds.
 	RefusedNotHeld RefusalCode = "not_held"
+	// RefusedNotThisRelease is mark-failed on a Torrent whose Grab's Import
+	// waits for the Admin, who answers it with Not this Release on its
+	// Pending import.
+	RefusedNotThisRelease RefusalCode = "use_not_this_release"
 	// RefusedReconciling is mark-failed while a restored Controller is
 	// Reconciling, which removes no torrent.
 	RefusedReconciling RefusalCode = "reconciling"
@@ -147,13 +159,14 @@ const (
 
 // RefusalCodes is every RefusalCode.
 var RefusalCodes = []RefusalCode{
-	RefusedNotFound, RefusedRemoved, RefusedImporting, RefusedNotHeld, RefusedReconciling, RefusedOffline, RefusedClientAway,
-	RefusedClientOff, RefusedWindow, RefusedNotRunning, RefusedFailed, RefusedNotRetryable,
+	RefusedNotFound, RefusedRemoved, RefusedImporting, RefusedNotHeld, RefusedNotThisRelease, RefusedReconciling, RefusedOffline,
+	RefusedClientAway, RefusedClientOff, RefusedWindow, RefusedNotRunning, RefusedFailed, RefusedNotRetryable,
 }
 
 type Refusal struct {
 	Code RefusalCode
-	// Work is the Work being imported, for RefusedImporting.
+	// Work is the Work being imported, for RefusedImporting and
+	// RefusedNotThisRelease.
 	Work works.WorkID
 	// AcceptsAt is when an announce would be accepted, for RefusedWindow.
 	AcceptsAt time.Time
@@ -479,14 +492,21 @@ func (c *Clients) planRemoval(ctx context.Context, r storage.Reader[file], ids [
 }
 
 // removable is why a Torrent its Grabs uses may not be removed for
-// reason: a Grab importing from it, or for ByMarkFailed, no Grab at
-// downloading holding it. An import reads the files a removal deletes, so
-// it refuses mark-failed too, though its Grab is unfinished.
+// reason: a Grab importing from it, or for ByMarkFailed, a Grab whose
+// Import waits on it or no Grab at downloading holding it. An import reads
+// the files a removal deletes, so it refuses mark-failed too, though its
+// Grab is unfinished. A waiting Import reads none, so a remove ends it.
 func removable(uses []Use, reason RemoveReason) *Refusal {
 	if i := slices.IndexFunc(uses, func(u Use) bool { return u.Stage == UseImporting }); i >= 0 {
 		return &Refusal{Code: RefusedImporting, Work: uses[i].Work}
 	}
-	if reason == ByMarkFailed && !slices.ContainsFunc(uses, func(u Use) bool { return u.Stage == UseDownloading }) {
+	if reason != ByMarkFailed {
+		return nil
+	}
+	if i := slices.IndexFunc(uses, func(u Use) bool { return u.Stage == UseWaiting }); i >= 0 {
+		return &Refusal{Code: RefusedNotThisRelease, Work: uses[i].Work}
+	}
+	if !slices.ContainsFunc(uses, func(u Use) bool { return u.Stage == UseDownloading }) {
 		return &Refusal{Code: RefusedNotHeld}
 	}
 	return nil

@@ -3,6 +3,7 @@ import { HttpResponse, http } from "msw";
 import type {
   ImportsImportEntry,
   ImportsLead,
+  ImportsMatchFile,
   ImportsOutcome,
   WorksCandidate,
   WorksLibraryRow,
@@ -15,7 +16,14 @@ import {
 } from "../api/gen/zod/imports/imports.zod";
 import type { RootEntry } from "../imports/root-entry";
 import { filesOf, refused } from "./import-actions";
-import { brazilRow, brazilWork, severance, severanceRow, vaultRow } from "./import-entries";
+import {
+  brazilRow,
+  brazilWork,
+  severance,
+  severanceRow,
+  vaultRow,
+  vaultWork,
+} from "./import-entries";
 import type { liveServer } from "./live-server";
 import {
   brazil,
@@ -52,6 +60,8 @@ export type Sent = {
   restored: string[][];
   searched: string[];
   acted: { id: string; position: number; action: string }[];
+  /** The match each Change the match sent, beside its line in acted. */
+  fileMatches: ImportsMatchFile[];
   confirmed: string[][];
   moved: { importIds: string[]; on: boolean }[];
   opened: { nodeId: string; folder: string }[];
@@ -101,8 +111,13 @@ const readsOf = (world: ImportsWorld, sent: Sent) => [
     const query = new URL(request.url).searchParams;
     const ignored = query.get("ignored") === "true";
     const source = query.get("source");
+    const waiting = query.get("waiting") === "true";
     const roots = world.entries.filter((entry) => needsYou(entry) !== ignored);
-    const others = ignored ? [] : world.imports;
+    const others = ignored
+      ? []
+      : world.imports.filter(
+          ({ files }) => !waiting || files.some(({ outcome }) => outcome === "waiting"),
+        );
     return HttpResponse.json({
       leads: source === null || source === "root" ? world.leads : [],
       imports: [...roots, ...others].filter((entry) => source === null || entry.source === source),
@@ -203,7 +218,7 @@ export function serveImports(start: Partial<ImportsWorld> = {}) {
     leads: [filmsLead, showsLead],
     candidates: [halloween1978, halloween2018],
     rows: [brazilRow, vaultRow, severanceRow],
-    works: [brazilWork, severance],
+    works: [brazilWork, severance, vaultWork],
     changed: () => {},
     ...start,
   };
@@ -215,6 +230,7 @@ export function serveImports(start: Partial<ImportsWorld> = {}) {
     restored: [],
     searched: [],
     acted: [],
+    fileMatches: [],
     confirmed: [],
     moved: [],
     opened: [],

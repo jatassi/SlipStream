@@ -15,17 +15,84 @@ export type { Setting, SettingKind } from "./setting-kind";
 /** Saves a value, or null to reset to the default; rejects with the server's refusal. */
 export type SettingSave<K extends SettingKind> = (value: Values[K] | null) => Promise<unknown>;
 
+/** Answers what saving a value would change that the Admin should see first, or undefined for nothing. */
+export type SettingWarn<K extends SettingKind> = (value: Values[K]) => Promise<string | undefined>;
+
 type BodyProps<K extends SettingKind> = {
   kind: K;
   field: Fields[K];
   onSave: SettingSave<K>;
+  onWarn?: SettingWarn<K> | undefined;
   onSaved: () => void;
 };
 
-function Body<K extends SettingKind>({ kind, field, onSave, onSaved }: BodyProps<K>) {
+function ResetButton({ busy, send }: { busy: boolean; send: (value: null) => Promise<void> }) {
+  return (
+    <Button
+      look="ghost"
+      size="small"
+      disabled={busy}
+      onClick={() => {
+        void send(null);
+      }}
+    >
+      Reset to default
+    </Button>
+  );
+}
+
+function Warned({ words, busy, onSave }: { words: string; busy: boolean; onSave: () => void }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <output className="text-meta text-ink-2 in-data-[density=touch]:text-body-touch">
+        {words}
+      </output>
+      <Button look="ghost" size="small" disabled={busy} onClick={onSave}>
+        Save anyway
+      </Button>
+    </div>
+  );
+}
+
+function useWarned<V>(
+  onWarn: ((value: V) => Promise<string | undefined>) | undefined,
+  send: (value: V) => Promise<void>,
+  busy: boolean,
+) {
+  const [warned, setWarned] = useState<{ value: V; words: string }>();
+  const save = async (value: V) => {
+    const words = onWarn === undefined ? undefined : await onWarn(value);
+    if (words === undefined) {
+      await send(value);
+    } else {
+      setWarned({ value, words });
+    }
+  };
+  const notice = warned !== undefined && (
+    <Warned
+      words={warned.words}
+      busy={busy}
+      onSave={() => {
+        setWarned(undefined);
+        void send(warned.value);
+      }}
+    />
+  );
+  const clear = () => {
+    setWarned(undefined);
+  };
+  return { save, notice, clear };
+}
+
+function Body<K extends SettingKind>({ kind, field, onSave, onWarn, onSaved }: BodyProps<K>) {
   const { error, setError, busy, send } = useSave(onSave, onSaved);
+  const { save, notice, clear } = useWarned(onWarn, send, busy);
   const { Control, hints } = kinds[kind];
   const locked = field.lockedBy;
+  const edit = () => {
+    setError(undefined);
+    clear();
+  };
   return (
     <div className="flex flex-col gap-2">
       <Control
@@ -38,32 +105,17 @@ function Body<K extends SettingKind>({ kind, field, onSave, onSaved }: BodyProps
           if ("refused" in draft) {
             setError(draft.refused);
           } else {
-            void send(draft.value);
+            void save(draft.value);
           }
         }}
-        onEdit={() => {
-          setError(undefined);
-        }}
+        onEdit={edit}
       />
       {error !== undefined && <Refusal error={error} />}
+      {notice}
       {locked !== undefined && <Lock variable={locked} />}
       <Hints
         hints={[...hints(field), ...appliesHint[field.applies]]}
-        reset={
-          !field.isDefault &&
-          locked === undefined && (
-            <Button
-              look="ghost"
-              size="small"
-              disabled={busy}
-              onClick={() => {
-                void send(null);
-              }}
-            >
-              Reset to default
-            </Button>
-          )
-        }
+        reset={!field.isDefault && locked === undefined && <ResetButton busy={busy} send={send} />}
       />
     </div>
   );
@@ -110,6 +162,7 @@ const ignoreSaved = () => {};
 export type SettingFieldProps<K extends SettingKind> = {
   field: Fields[K] & { kind: K };
   onSave: SettingSave<K>;
+  onWarn?: SettingWarn<K>;
 } & ({ variant?: "full" } | { variant: "row"; words?: string | undefined });
 
 /**
@@ -125,11 +178,20 @@ export function SettingField<K extends SettingKind>(props: SettingFieldProps<K>)
         kind={kind}
         field={props.field}
         onSave={props.onSave}
+        onWarn={props.onWarn}
         words={props.words ?? kinds[kind].words(props.field)}
       />
     );
   }
-  return <Body kind={kind} field={props.field} onSave={props.onSave} onSaved={ignoreSaved} />;
+  return (
+    <Body
+      kind={kind}
+      field={props.field}
+      onSave={props.onSave}
+      onWarn={props.onWarn}
+      onSaved={ignoreSaved}
+    />
+  );
 }
 
 export function SettingGroup({ children }: { children: ReactNode }) {

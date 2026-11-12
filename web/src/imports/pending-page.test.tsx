@@ -183,11 +183,11 @@ test("Ignore sets a folder aside under Ignored, where Restore brings it back", a
 });
 
 test("with nothing waiting, each view says so", async () => {
-  openPending({ start: { entries: [], leads: [] } });
+  openPending({ start: { entries: [], leads: [], imports: [] } });
   await expect
     .element(
       page.getByText(
-        "No folders need you. A library scan lists here each folder it can't match to a Work with confidence.",
+        "Nothing needs you. A download SlipStream can't import without you, and each folder a library scan can't match to a Work with confidence, waits here.",
       ),
     )
     .toBeVisible();

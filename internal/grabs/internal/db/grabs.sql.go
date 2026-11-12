@@ -949,6 +949,50 @@ func (q *Queries) ListGrabsOfTorrents(ctx context.Context, torrentIds []download
 	return items, nil
 }
 
+const listItemsOfTorrents = `-- name: ListItemsOfTorrents :many
+SELECT i.grab_id, i.item_id FROM grabs_grab_item i JOIN grabs_grab g ON g.id = i.grab_id
+WHERE g.torrent_id IN (/*SLICE:torrent_ids*/?)
+ORDER BY i.grab_id, i.position
+`
+
+type ListItemsOfTorrentsRow struct {
+	GrabID GrabID
+	ItemID works.ItemID
+}
+
+func (q *Queries) ListItemsOfTorrents(ctx context.Context, torrentIds []downloadclients.ID) ([]ListItemsOfTorrentsRow, error) {
+	query := listItemsOfTorrents
+	var queryParams []interface{}
+	if len(torrentIds) > 0 {
+		for _, v := range torrentIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:torrent_ids*/?", strings.Repeat(",?", len(torrentIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:torrent_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListItemsOfTorrentsRow
+	for rows.Next() {
+		var i ListItemsOfTorrentsRow
+		if err := rows.Scan(&i.GrabID, &i.ItemID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listKeptReleasesOfSearch = `-- name: ListKeptReleasesOfSearch :many
 SELECT search_id, position, title, indexer_id, indexer_name, size, seeders, outcome, rank, reasons, lost_step, lost_target_id, lost_own, lost_ref, scores, formats, covers, copy_of, "release", link_sealed, read FROM grabs_release WHERE search_id = ?1 AND release IS NOT NULL ORDER BY position
 `

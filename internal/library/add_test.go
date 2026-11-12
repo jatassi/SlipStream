@@ -79,7 +79,7 @@ func newShelf(t *testing.T) shelf {
 }
 
 func (s shelf) library(leaver library.Leaver) *library.Library {
-	return library.New(library.Config{Library: s.lib, Works: s.works, Roots: s.roots, Files: s.files, Grabs: noGrabs{}, Leaver: leaver})
+	return library.New(library.Config{Library: s.lib, Works: s.works, Roots: s.roots, Files: s.files, Grabs: noGrabs{}, Imports: noGrabs{}, Leaver: leaver})
 }
 
 type noGrabs struct{}
@@ -89,6 +89,10 @@ func (noGrabs) CancelTransfersIn(context.Context, *storage.Tx[storage.Library], 
 }
 
 func (noGrabs) TouchTransfers() {}
+
+func (noGrabs) EndOf(context.Context, *storage.Tx[storage.Library], []works.WorkID) error { return nil }
+
+func (noGrabs) Touch() {}
 
 // stock puts Work key in the fixture with one box of three clips.
 func (s shelf) stock(key works.Key) {

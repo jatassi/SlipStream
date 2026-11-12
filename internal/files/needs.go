@@ -25,11 +25,13 @@ type Need struct {
 	// Edition.
 	Upgrades []targets.TargetID
 	// Grab is the Grab that failed, the first of a run's, or the one that
-	// waits; Code is what it waits on. FailedAt is the stage a NeedFailed's
-	// Grab failed at: a run's Grabs all failed at one stage.
-	Grab     storage.UUID
-	Code     string
-	FailedAt string
+	// waits; Code is what it waits on, and ClientError the error of a
+	// client_error wait. FailedAt is the stage a NeedFailed's Grab failed
+	// at: a run's Grabs all failed at one stage.
+	Grab        storage.UUID
+	Code        string
+	ClientError *ClientError
+	FailedAt    string
 }
 
 // NeedKind is a Need's kind, in the order Needs you lists them.
@@ -64,7 +66,7 @@ func needs(items []works.Item, cells []Cell, grabs map[CellKey]GrabCell, rooted 
 			g := grabs[c.key()]
 			if g.Waiting != "" && !waits[g.Grab] {
 				waits[g.Grab] = true
-				out = append(out, Need{Kind: NeedWaiting, Items: []works.ItemID{c.Item.ID}, Edition: c.Edition, Grab: g.Grab, Code: g.Waiting})
+				out = append(out, Need{Kind: NeedWaiting, Items: []works.ItemID{c.Item.ID}, Edition: c.Edition, Grab: g.Grab, Code: g.Waiting, ClientError: g.ClientError})
 			}
 			if !c.Wanted() {
 				continue

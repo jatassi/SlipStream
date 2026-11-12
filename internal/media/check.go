@@ -22,9 +22,11 @@ func NewVideos(exts ...string) Videos {
 	return v
 }
 
-// DefaultVideos is the list a library holds until the Admin sets one:
-// S22 (Library scan and file probe)'s.
-var DefaultVideos = NewVideos("mkv", "mp4", "m4v", "avi", "ts", "m2ts", "mov", "wmv", "webm", "mpg", "mpeg")
+// DefaultExtensions is the list a library holds until the Admin sets
+// one: S22 (Library scan and file probe)'s, in its order.
+var DefaultExtensions = []string{"mkv", "mp4", "m4v", "avi", "ts", "m2ts", "mov", "wmv", "webm", "mpg", "mpeg"}
+
+var DefaultVideos = NewVideos(DefaultExtensions...)
 
 // Extensions are v's extensions in byte order.
 func (v Videos) Extensions() []string { return slices.Clone(v.exts) }

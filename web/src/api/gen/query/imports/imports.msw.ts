@@ -9,6 +9,7 @@ import type {
   ImportsExtensionImpact,
   ImportsFailedOutcome,
   ImportsImportEntry,
+  ImportsImportingSettings,
   ImportsImportsList,
   ImportsList,
   ImportsSettings,
@@ -175,7 +176,6 @@ export const getListImportsResponseMock = (
                 "elsewhere",
                 "unlisted",
                 "no_such_item",
-                "several_items",
                 "unreadable",
                 "left",
                 "no_rule",
@@ -467,7 +467,6 @@ export const getImportFolderResponseMock = (
                     "elsewhere",
                     "unlisted",
                     "no_such_item",
-                    "several_items",
                     "unreadable",
                     "left",
                     "no_rule",
@@ -750,7 +749,6 @@ export const getImportFolderResponseMock = (
                     "elsewhere",
                     "unlisted",
                     "no_such_item",
-                    "several_items",
                     "unreadable",
                     "left",
                     "no_rule",
@@ -1076,7 +1074,6 @@ export const getConfirmImportsResponseMock = (
                 "elsewhere",
                 "unlisted",
                 "no_such_item",
-                "several_items",
                 "unreadable",
                 "left",
                 "no_rule",
@@ -1662,8 +1659,8 @@ export const getGetImportingSettingsResponseSettingSizeFieldMock = (
 });
 
 export const getGetImportingSettingsResponseMock = (
-  overrideResponse: Partial<Extract<ImportsSettings, object>> = {},
-): ImportsSettings => ({
+  overrideResponse: Partial<Extract<ImportsImportingSettings, object>> = {},
+): ImportsImportingSettings => ({
   settings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.helpers.arrayElement([
       { ...getGetImportingSettingsResponseSettingDurationFieldMock() },
@@ -2136,8 +2133,8 @@ export const getUpdateImportingSettingsResponseSettingSizeFieldMock = (
 });
 
 export const getUpdateImportingSettingsResponseMock = (
-  overrideResponse: Partial<Extract<ImportsSettings, object>> = {},
-): ImportsSettings => ({
+  overrideResponse: Partial<Extract<ImportsImportingSettings, object>> = {},
+): ImportsImportingSettings => ({
   settings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.helpers.arrayElement([
       { ...getUpdateImportingSettingsResponseSettingDurationFieldMock() },
@@ -3253,7 +3250,6 @@ export const getGetImportResponseMock = (
           "elsewhere",
           "unlisted",
           "no_such_item",
-          "several_items",
           "unreadable",
           "left",
           "no_rule",
@@ -3511,7 +3507,6 @@ export const getActOnRootImportResponseMock = (
           "elsewhere",
           "unlisted",
           "no_such_item",
-          "several_items",
           "unreadable",
           "left",
           "no_rule",
@@ -3769,7 +3764,6 @@ export const getActOnImportFileResponseMock = (
           "elsewhere",
           "unlisted",
           "no_such_item",
-          "several_items",
           "unreadable",
           "left",
           "no_rule",
@@ -4003,10 +3997,10 @@ export const getIgnoreImportsMockHandler = (
 
 export const getGetImportingSettingsMockHandler = (
   overrideResponse?:
-    | ImportsSettings
+    | ImportsImportingSettings
     | ((
         info: Parameters<Parameters<typeof http.get>[1]>[0],
-      ) => Promise<ImportsSettings> | ImportsSettings),
+      ) => Promise<ImportsImportingSettings> | ImportsImportingSettings),
   options?: RequestHandlerOptions,
 ) => {
   return http.get(
@@ -4027,10 +4021,10 @@ export const getGetImportingSettingsMockHandler = (
 
 export const getUpdateImportingSettingsMockHandler = (
   overrideResponse?:
-    | ImportsSettings
+    | ImportsImportingSettings
     | ((
         info: Parameters<Parameters<typeof http.patch>[1]>[0],
-      ) => Promise<ImportsSettings> | ImportsSettings),
+      ) => Promise<ImportsImportingSettings> | ImportsImportingSettings),
   options?: RequestHandlerOptions,
 ) => {
   return http.patch(

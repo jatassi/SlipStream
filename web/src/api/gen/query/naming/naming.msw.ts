@@ -1017,12 +1017,7 @@ export const getPreviewNamingResponseMock = (
       ...(faker.datatype.boolean()
         ? {
             unplaced: {
-              code: faker.helpers.arrayElement([
-                "no_number",
-                "no_such_item",
-                "several_items",
-                "no_rule",
-              ] as const),
+              code: faker.helpers.arrayElement(["no_number", "no_such_item", "no_rule"] as const),
               ...(faker.datatype.boolean()
                 ? { names: faker.string.alpha({ length: { min: 10, max: 20 } }) }
                 : {}),

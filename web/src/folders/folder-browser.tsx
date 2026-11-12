@@ -1,5 +1,6 @@
 import { type RefObject, useId, useRef } from "react";
 
+import type { BrowseFoldersPurpose } from "../api/gen/model";
 import { Dialog } from "../ui/dialog";
 import { useShell } from "../ui/shell-context";
 import { Sheet } from "../ui/sheet";
@@ -16,6 +17,8 @@ export type FolderBrowserProps = {
   /** "" opens on Places. */
   readonly startPath: string;
   readonly check: FolderCheck;
+  /** Limits the places to what the purpose may browse. */
+  readonly purpose?: BrowseFoldersPurpose;
   /** The main button's verb: "Use" reads "Use Anime". */
   readonly confirmVerb: string;
   readonly allowNewFolder: boolean;

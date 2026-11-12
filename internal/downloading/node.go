@@ -245,6 +245,7 @@ func (n *Node) actorConfig(id storage.UUID, kind clients.Kind, open func(clients
 			RetryMin: t.ClientRetryMin, RetryMax: t.ClientRetryMax, RefusedRetry: t.ClientRefusedRetry, Grace: t.ClientGrace,
 			ResendWait: t.ClientResendWait, MissingShare: t.ClientMissingShare, MissingFloor: t.ClientMissingFloor,
 			Trackers: t.ClientTrackers, Call: t.ClientCall, LiveFloor: t.ClientLiveFloor, LiveSample: t.LiveSample, TotalsReport: t.TotalsReport,
+			ErrorHeartbeat: ErrorHeartbeat,
 		},
 		Local: local, Holder: h, Control: ctl,
 		Rand: n.cfg.Rand,

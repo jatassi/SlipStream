@@ -144,14 +144,14 @@ func serve(t *testing.T) *server {
 		t.Fatal(err)
 	}
 	im := imports.New(imports.Config{
-		Library: s.lib, Roots: s.roots, Files: fs, Works: w,
+		Library: s.lib, Roots: s.roots, Files: fs, Works: w, Targets: goals,
 		Facets: map[works.TypeID]scanning.Facet{contenttypetest.ID: shelfFacet{}},
 		Add: func(ctx context.Context, by identity.Admin, a library.Adding) (library.Added, error) {
 			return s.library.Add(ctx, by, a)
 		},
 		Changed: discard[imports.Changed]{}, FilesChanged: discard[files.Changed]{},
 	})
-	s.library = library.New(library.Config{Library: s.lib, Works: w, Roots: s.roots, Files: fs, Grabs: noGrabs{}, Leaver: im})
+	s.library = library.New(library.Config{Library: s.lib, Works: w, Roots: s.roots, Files: fs, Grabs: noGrabs{}, Imports: im, Leaver: im})
 	s.Owner = ownertest.Serve(t, s.lib, func(r *api.Router) { importsapi.Routes(r, node{im, s.roots}) })
 	return s
 }
@@ -376,15 +376,15 @@ func TestImportIntoAttachesTheChosenFilesToAWorkInTheImportsRoot(t *testing.T) {
 		`{"status":409,"code":"import_elsewhere","title":"The Work lives in another library root"}`)
 
 	s.Expect(t, http.MethodPost, url, into(0, work.ID, work.Items[0].ID), http.StatusOK,
-		`{"id":"id1","source":"root","stage":"waiting","grab":null,"nodeId":null,"root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Shelf","workId":null,"edition":null,"moveFiles":false,"seeding":false,"failure":null,"contentType":"fixture","hint":{"title":"Shelf","year":null,"ids":[]},`+
+		`{"id":"id1","source":"root","stage":"waiting","grab":null,"nodeId":null,"root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Shelf","workId":"id3","edition":null,"moveFiles":false,"seeding":false,"failure":null,"contentType":"fixture","hint":{"title":"Shelf","year":null,"ids":[]},`+
 			`"suggestion":{"key":"w1","label":"Shelf w1","year":null,"posterUrl":null,"workId":"id3","confident":false},"createdAt":"T","ignoredAt":null,"finishedAt":null,"files":[`+
-			`{"position":0,"path":"Shelf/a.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":["id4"],"outcome":"placed","reason":null,"hold":null,"fills":[],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":"in_place","fileId":null,"staged":0,"movable":false},`+
+			`{"position":0,"path":"Shelf/a.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":["id4"],"outcome":"placed","reason":null,"hold":null,"fills":[{"itemId":"id4","edition":"any","targetId":"id5"}],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":"in_place","fileId":"id6","staged":0,"movable":false},`+
 			`{"position":1,"path":"Shelf/b.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":[],"outcome":"waiting","reason":{"code":"no_match","sentence":null},"hold":null,"fills":[],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":null,"fileId":null,"staged":0,"movable":false}]}`)
 	s.Expect(t, http.MethodPost, url, into(1, work.ID, work.Items[2].ID, work.Items[1].ID), http.StatusOK,
-		`{"id":"id1","source":"root","stage":"done","grab":null,"nodeId":null,"root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Shelf","workId":null,"edition":null,"moveFiles":false,"seeding":false,"failure":null,"contentType":"fixture","hint":{"title":"Shelf","year":null,"ids":[]},`+
+		`{"id":"id1","source":"root","stage":"done","grab":null,"nodeId":null,"root":{"id":"id2","label":"Shelves library root on Media server"},"folder":"Shelf","workId":"id3","edition":null,"moveFiles":false,"seeding":false,"failure":null,"contentType":"fixture","hint":{"title":"Shelf","year":null,"ids":[]},`+
 			`"suggestion":{"key":"w1","label":"Shelf w1","year":null,"posterUrl":null,"workId":"id3","confident":false},"createdAt":"T","ignoredAt":null,"finishedAt":"T","files":[`+
-			`{"position":0,"path":"Shelf/a.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":["id4"],"outcome":"placed","reason":null,"hold":null,"fills":[],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":"in_place","fileId":null,"staged":0,"movable":false},`+
-			`{"position":1,"path":"Shelf/b.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":["id5","id6"],"outcome":"placed","reason":null,"hold":null,"fills":[],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":"in_place","fileId":null,"staged":0,"movable":false}]}`)
+			`{"position":0,"path":"Shelf/a.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":["id4"],"outcome":"placed","reason":null,"hold":null,"fills":[{"itemId":"id4","edition":"any","targetId":"id5"}],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":"in_place","fileId":"id6","staged":0,"movable":false},`+
+			`{"position":1,"path":"Shelf/b.mkv","size":1073741824,"quality":"bluray-1080p","cut":"standard","itemIds":["id7","id8"],"outcome":"placed","reason":null,"hold":null,"fills":[{"itemId":"id7","edition":"any","targetId":"id5"},{"itemId":"id8","edition":"any","targetId":"id5"}],"verdicts":[],"recommended":null,"actions":[],"forces":[],"placedBy":"in_place","fileId":"id9","staged":0,"movable":false}]}`)
 	s.Expect(t, http.MethodPost, url, into(1, work.ID, work.Items[1].ID), http.StatusConflict,
 		`{"status":409,"code":"import_changed","title":"The Import no longer has a chosen file waiting"}`)
 	if got := s.entries(t, ""); got != `{"leads":[],"imports":[],"next":null}`+"\n" {
@@ -398,8 +398,8 @@ func TestImportIntoAttachesTheChosenFilesToAWorkInTheImportsRoot(t *testing.T) {
 		}
 		return err
 	})
-	if err != nil || !slices.Equal(recorded, []string{"Shelf/a.mkv", "Shelf/b.mkv"}) {
-		t.Errorf("the root records %v (%v), want both chosen files", recorded, err)
+	if err != nil || !slices.Equal(recorded, []string{"Shelf w1/Box/Shelf w1 - Clip 1 - HD.mkv", "Shelf w1/Box/Shelf w1 - Clip 2 + Clip 3 - HD.mkv"}) {
+		t.Errorf("the root records %v (%v), want both chosen files under their names", recorded, err)
 	}
 }
 
@@ -443,4 +443,34 @@ func TestLibraryScanSettingsStoreTheStopShareAndProbes(t *testing.T) {
 	}
 	s.Expect(t, http.MethodPatch, "/api/v1/imports/scan-settings", `{"values":{"library.scan.depth":1}}`, http.StatusUnprocessableEntity,
 		`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key library.scan.depth."}`)
+}
+
+func TestImportingSettingsStoreTheExtensionsSizeAndSampleRule(t *testing.T) {
+	s := serve(t)
+	code, reply := s.Call(t, http.MethodGet, "/api/v1/imports/importing-settings", "")
+	if code != http.StatusOK || !strings.Contains(reply, `"value":["mkv","mp4","m4v","avi","ts","m2ts","mov","wmv","webm","mpg","mpeg"]`) ||
+		!strings.Contains(reply, `"value":52428800`) || !strings.Contains(reply, `"value":25`) {
+		t.Fatalf("getImportingSettings = %d %s, want the defaults", code, reply)
+	}
+	code, reply = s.Call(t, http.MethodPatch, "/api/v1/imports/importing-settings", `{"values":{"library.importing.videoExtensions":[".MKV","webm"],"library.importing.smallestVideo":104857600,"library.importing.sampleShorter":0}}`)
+	if code != http.StatusOK || !strings.Contains(reply, `"value":["mkv","webm"]`) || !strings.Contains(reply, `"value":104857600`) || !strings.Contains(reply, `"value":0`) {
+		t.Fatalf("updateImportingSettings = %d %s, want mkv and webm, 100 MB and off stored", code, reply)
+	}
+	s.Expect(t, http.MethodPatch, "/api/v1/imports/importing-settings", `{"values":{"library.importing.videoExtensions":[]}}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Keep at least 1 extension in the list."}`)
+	s.Expect(t, http.MethodPatch, "/api/v1/imports/importing-settings", `{"values":{"library.scan.probes":1}}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key library.scan.probes."}`)
+}
+
+func TestExtensionImpactCountsTheFilesAListStopsCounting(t *testing.T) {
+	s := serve(t)
+	work := s.add(t, "w1", s.root.ID)
+	placed := s.pend(t, "Shelf", nil, false, noMatch("Shelf/a.avi"), noMatch("Shelf/b.mkv"))
+	body := `{"action":"into","workId":"` + work.ID.String() + `","files":[{"position":0,"itemIds":["` + work.Items[0].ID.String() + `"]},{"position":1,"itemIds":["` + work.Items[1].ID.String() + `"]}]}`
+	if code, reply := s.Call(t, http.MethodPost, "/api/v1/imports/"+placed, body); code != http.StatusOK {
+		t.Fatalf("Into = %d %s", code, reply)
+	}
+	s.pend(t, "Other", nil, false, noMatch("Other/c.avi"), noMatch("Other/d.mkv"))
+	s.Expect(t, http.MethodGet, "/api/v1/imports/importing-settings/extension-impact?extensions=mkv&extensions=mp4", "", http.StatusOK, `{"files":1,"pending":1}`)
+	s.Expect(t, http.MethodGet, "/api/v1/imports/importing-settings/extension-impact?extensions=mkv,avi", "", http.StatusOK, `{"files":0,"pending":0}`)
 }

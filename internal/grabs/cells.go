@@ -2,11 +2,13 @@ package grabs
 
 import (
 	"context"
+	"path"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -38,6 +40,10 @@ const (
 	// that can't take it: it is off or deleted, or its Node doesn't hold
 	// Downloading.
 	ClientOff = "client_off"
+	// ClientErrorWait is the Waiting code of a downloading Grab whose
+	// external client reports an error on its Torrent, until it clears or
+	// the Grab fails client_error.
+	ClientErrorWait = "client_error"
 )
 
 func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
@@ -68,7 +74,8 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 		case !g.InStep(row.NodeID):
 			cell.State, cell.Waiting = files.GrabInFlight, NodeAway
 		default:
-			cell.State, cell.Waiting = files.GrabInFlight, waits[row.ID]
+			w := waits[row.ID]
+			cell.State, cell.Waiting, cell.ClientError = files.GrabInFlight, w.code, w.clientError
 		}
 		out[key] = cell
 	}
@@ -111,11 +118,19 @@ func (GrabCells) ReleaseTitles(ctx context.Context, r storage.Reader[storage.Lib
 	return out, err
 }
 
+// waiting is what an unfinished Grab waits on: its Waiting code, and the
+// client's error for client_error.
+type waiting struct {
+	code        string
+	clientError *files.ClientError
+}
+
 // waits is what each unfinished Grab waits on while its own Node is in
 // step: a fetching one's pinned client that can't take it, client_off,
 // or its route's Node out of step, node_away, or its Torrent's away
-// client, client_away.
-func (g GrabCells) waits(ctx context.Context, r storage.Reader[storage.Library]) (map[GrabID]string, error) {
+// client, client_away, or a downloading one's client reporting an error,
+// client_error.
+func (g GrabCells) waits(ctx context.Context, r storage.Reader[storage.Library]) (map[GrabID]waiting, error) {
 	open, err := db.New(r).ListOpenGrabs(ctx)
 	if err != nil {
 		return nil, err
@@ -128,7 +143,11 @@ func (g GrabCells) waits(ctx context.Context, r storage.Reader[storage.Library])
 	if err != nil {
 		return nil, err
 	}
-	out := map[GrabID]string{}
+	torrents, err := downloadclients.Outcomes(ctx, r, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := map[GrabID]waiting{}
 	for _, row := range open {
 		if row.Stage == Fetching {
 			grab, err := load(ctx, r, row, related{})
@@ -140,29 +159,43 @@ func (g GrabCells) waits(ctx context.Context, r storage.Reader[storage.Library])
 			case err != nil:
 				return nil, err
 			case w != nil && w.Off:
-				out[row.ID] = ClientOff
+				out[row.ID] = waiting{code: ClientOff}
 				continue
 			case w != nil:
-				out[row.ID] = NodeAway
+				out[row.ID] = waiting{code: NodeAway}
 				continue
 			}
 		}
-		if away[row.TorrentID] {
-			out[row.ID] = ClientAway
+		t := torrents[row.TorrentID]
+		switch {
+		case away[row.TorrentID]:
+			out[row.ID] = waiting{code: ClientAway}
+		case row.Stage == Downloading && t.ClientError != nil:
+			out[row.ID] = waiting{code: ClientErrorWait, clientError: &files.ClientError{
+				Client: t.Client.Name, Node: t.ClientError.Node, Message: t.ClientError.Message, FailsAt: t.ClientError.FailsAt,
+			}}
 		}
 	}
 	return out, nil
 }
 
-// Unfinished lists every Grab not yet imported or failed.
-func (GrabCells) Unfinished(ctx context.Context, r storage.Reader[storage.Library]) ([]storage.UUID, error) {
+// Holding is the holding path of every Grab not yet imported or failed
+// that has planned its root and name, by root: its download's bytes wait
+// there.
+func (GrabCells) Holding(ctx context.Context, r storage.Reader[storage.Library]) (map[roots.ID]map[string]bool, error) {
 	rows, err := db.New(r).ListOpenGrabs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]storage.UUID, len(rows))
-	for i, row := range rows {
-		out[i] = row.ID.UUID
+	out := map[roots.ID]map[string]bool{}
+	for _, row := range rows {
+		if row.RootID.IsZero() || row.Path == nil {
+			continue
+		}
+		if out[row.RootID] == nil {
+			out[row.RootID] = map[string]bool{}
+		}
+		out[row.RootID][files.HoldingOf(row.ID.UUID, path.Ext(*row.Path))] = true
 	}
 	return out, nil
 }

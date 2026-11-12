@@ -205,6 +205,12 @@ test.each<[string, DownloadclientsRefusal, TorrentAction, string]>([
     "No Grab is downloading The Quiet Orchard, so nothing was marked failed.",
   ],
   [
+    "a torrent whose Import waits for the Admin points to its Pending import",
+    { code: "use_not_this_release" },
+    "mark-failed",
+    "Use Not this Release on its Pending import.",
+  ],
+  [
     "nothing is marked failed while Reconciling",
     { code: "reconciling" },
     "mark-failed",

@@ -1,0 +1,29 @@
+# The waiting table and the release-fault table of #158, S33 (Import pipeline)'s spec, as the spec writes them.
+# The words line holds the examples the sentences name.
+words: item=episode; work=movie; target=1080p; level=season 1; edition=Director's Cut; reading=episode 5; of=episodes 1 to 4; busy=episode 3
+
+| What the Import finds | Outcome | Blocklist cause |
+|---|---|---|
+| No video file, every video fails the name and folder rules, or every video is a sample by runtime | Import fails `no_video_file` | `no_video` |
+| ffprobe can't read any video, twice | fails `unreadable` | `unreadable` |
+| The probe contradicts the title's resolution or HDR on every video | files still fill what they meet | `misdescribed` |
+| Videos left out only by the Admin's size, extension or runtime settings | files wait `settings` | none |
+| A file's name reads as other Items, or only as a season | file waits `other_items` or `no_number` | none |
+| Not an upgrade, meets nothing, Edition not wanted, name taken, name too long, parts, busy | file waits | none |
+| Free space short, root not Ready, Node away, probe timeout | import wait, retries | none |
+| Storage error other than the above | file fails `import_failed`, with Retry | none |
+| Root changed under the Work, source written off, Transfer failed, torrent removed | as `main` and S31 (Transfers between Nodes) | none |
+
+
+| Reason | Sentence | Recommended | Also |
+|---|---|---|---|
+| `not_an_upgrade` | "This isn't better than the file you have for 1080p." | Don't import | Force into 1080p, Not this Release |
+| `meets_nothing` | "This doesn't meet any Target this Work wants. 1080p needs Bluray or WEB." | Don't import | Not this Release |
+| `edition_not_wanted` | "This Work stopped wanting the Director's Cut after this was grabbed." | Don't import | Change the Work's Editions |
+| `other_items` | "This file's name says episode 5. The download was for episodes 1 to 4." | Import as episode 5 | Change the match, Don't import |
+| `no_number` | "This file's name has no episode number. The folder says season 1." | Change the match | Don't import |
+| `parts` | "This movie is split into 2 files. SlipStream imports a movie as one file." | Don't import | Not this Release |
+| `name_taken` | "Another file already has the name Heat (1995).mkv. Rename or move that file, then retry." | Retry | Turn on renaming, Don't import |
+| `name_too_long` | "This name is 291 characters, and names on this Node can be 259 at most. Shorten the template, then retry." | Retry | Don't import |
+| `settings` | "Every video here is smaller than 50 MB, the smallest video file to import." | Change the setting | Don't import |
+| `busy` | "Another import is placing episode 3. This one continues after it." | none | Don't import |

@@ -17,9 +17,6 @@ func TestUnbuiltOperationsAnswer501(t *testing.T) {
 		{http.MethodPost, "/imports/" + id + "/files/0", `{"action":"confirm"}`},
 		{http.MethodPost, "/imports/confirm", `{"importIds":["` + id + `"]}`},
 		{http.MethodPost, "/imports/move-files", `{"importIds":["` + id + `"],"on":true}`},
-		{http.MethodGet, "/imports/importing-settings", ""},
-		{http.MethodPatch, "/imports/importing-settings", `{"values":{}}`},
-		{http.MethodGet, "/imports/importing-settings/extension-impact?extensions=mkv", ""},
 	} {
 		code, reply := s.Call(t, op.method, "/api/v1"+op.path, op.body)
 		if code != http.StatusNotImplemented || !strings.Contains(reply, `"code":"import_not_built"`) {
