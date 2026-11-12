@@ -591,7 +591,7 @@ The first line of every page that watches live work. It reads as one sentence of
 
 A job's path from Searching to Available, one segment per stage (Searching, Downloading, Transfer, Import, Conversion, Available). Segments are 6px tall (8px on phone and in the Inspector) with 3px gaps.
 
-A Grab's track keeps all six stops and moves only the stop it lights. Downloading lights while the Grab fetches and downloads. Transfer lights while any file of its Import is sending from another Node, and Import lights for the rest of the Import. A failed Grab lights the stop of the stage it failed at, and an imported Grab reads Available. Its Conversion stop reads Not needed.
+A Grab's track keeps all six stops, and only the lit stop follows its stage. Downloading lights while the Grab fetches and downloads. Transfer lights while any file of its Import is sending from another Node, and Import lights for the rest of the Import. A failed Grab lights the stop of the stage it failed at, and an imported Grab reads Available. A Grab's Conversion stop reads Not needed.
 - **Done:** Flat `ink-2`.
 - **Current:** `ink-1` with the live glow.
 - **Ahead:** `fill`.
