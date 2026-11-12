@@ -8,7 +8,7 @@ An Admin searches a Work's Indexers from the Work page. SlipStream asks every In
 - `grab-search` a search that reaches the fake Indexer ends `Grabbed a Release` with `2 Releases found`, the stage its Grab is at now, such as `Downloading`, `Imported` or `Failed`, and the line `Fixture Site` `Found 2 Releases`, and starts a Grab on the seedbox, through the Fake world's fake Indexer, tracker and seeders (P-256).
 - `grab-held` a throttled swarm holds the Grab at `Downloading` with a progress bar, and the seedbox's `started` announce reaches the tracker.
 - `grab-complete-now` clearing the throttle completes the torrent at once while the seedbox's libtorrent still hashes every piece (P-257).
-- `grab-transfer-import` the Grab moves through probing, transferring and importing to `Imported`, and the Admin's live stream carries `grabs.changed`.
+- `grab-transfer-import` the finished download hands off to its Import, which reads the file on seedbox, sends it to home in a Transfer and places it. The Grab moves from `downloading` to `importing` to `Imported`, its `import` reads `placed` 1, and the Admin's live stream carries `grabs.changed` (P-074).
 - `grab-activity` Activity lists the Grab with its Work, Release and stage.
 - `grab-files` the Work page lists the imported file, and the file in the real media root matches the Release byte for byte (P-258).
 
@@ -86,7 +86,7 @@ Steps:
   $FW sse wait $RUN --as admin --event grabs.changed --timeout 60s
   ```
 
-- **See it imported.** Activity's `Grabs` table reads `Imported`, and the API's Grab history runs fetching, downloading, probing, transferring, importing, imported.
+- **See it imported.** Activity's `Grabs` table reads `Imported`, and the API's Grab history runs fetching, downloading, importing, imported.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table", { name: "Grabs" }).getByText("Imported").waitFor({ timeout: 60000 }); }'

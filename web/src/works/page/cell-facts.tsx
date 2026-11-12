@@ -65,7 +65,7 @@ function HeldFacts({ held, grabs }: { held: Held; grabs: readonly GrabsGrab[] })
 /**
  * What a cell's state adds under its chip: its file's quality, its download,
  * the step a Grab holding it is at and the file it replaces, or why it failed
- * and the file it kept.
+ * and the file it kept. A downloading cell's Import names its own step.
  */
 export function CellFacts({ cell, grabs }: { cell: FilesCell; grabs: readonly GrabsGrab[] }) {
   switch (cell.state) {
@@ -80,10 +80,11 @@ export function CellFacts({ cell, grabs }: { cell: FilesCell; grabs: readonly Gr
       return <FileFacts file={cell.file} />;
     case "downloading": {
       const grab = grabs.find(({ id }) => id === cell.grabId);
+      const importing = grab?.stage === "importing" && grab.import !== null;
       return (
         <>
           {grab !== undefined && <ProgressCell grab={grab} />}
-          <HeldFacts held={cell} grabs={grabs} />
+          <HeldFacts held={importing ? { ...cell, step: null } : cell} grabs={grabs} />
           {cell.file !== null && <Replaces file={cell.file} />}
         </>
       );

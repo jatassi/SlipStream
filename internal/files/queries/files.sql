@@ -24,6 +24,9 @@ INSERT INTO files_imported (id, file_id, import_id, grab_id, work_id, placed_by,
 VALUES (sqlc.arg(id), sqlc.arg(file_id), sqlc.narg(import_id), sqlc.narg(grab_id), sqlc.arg(work_id), sqlc.arg(placed_by),
     sqlc.arg(items), sqlc.arg(cells), sqlc.arg(replaced), sqlc.arg(at));
 
+-- name: ListPlacedByOfFiles :many
+SELECT file_id, placed_by FROM files_imported WHERE file_id IN (sqlc.slice(file_ids)) ORDER BY at;
+
 -- name: ListImportsOfFiles :many
 SELECT file_id, import_id FROM files_imported
 WHERE file_id IN (sqlc.slice(file_ids)) AND import_id IS NOT NULL ORDER BY at;

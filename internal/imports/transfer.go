@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
@@ -66,11 +67,46 @@ func (im *Imports) verified(ctx context.Context, tx *storage.Tx[file], t transfe
 	})
 }
 
-// transferFailed is the Failed hook, for the files still sending. A
+// unstaged is the positions of imp's files placing from a staged copy
+// that their Transfer no longer counts verified, read in r: a re-home
+// moved their root, and the Transfer sends them again.
+func (im *Imports) unstaged(ctx context.Context, r storage.Reader[file], imp Import) ([]int, error) {
+	if !slices.ContainsFunc(imp.Files, staged) {
+		return nil, nil
+	}
+	t, _, err := im.cfg.Transfers.Find(ctx, r, transfers.Import, imp.ID.String())
+	if err != nil {
+		return nil, err
+	}
+	var out []int
+	for _, f := range imp.Files {
+		if staged(f) && !verifiedIn(t, f) {
+			out = append(out, f.Position)
+		}
+	}
+	return out, nil
+}
+
+// sentAgain reports whether file position of imp waits for its Transfer
+// to send it again, read in r.
+func (im *Imports) sentAgain(ctx context.Context, r storage.Reader[file], imp Import, position int) (bool, error) {
+	positions, err := im.unstaged(ctx, r, imp)
+	return slices.Contains(positions, position), err
+}
+
+func staged(f File) bool { return f.Outcome == Placing && f.Sent != nil }
+
+// verifiedIn reports whether t counts f's staged copy verified.
+func verifiedIn(t transfers.Transfer, f File) bool {
+	return slices.ContainsFunc(t.Files, func(tf transfers.File) bool { return tf.Position == f.Sent.Order && tf.Verified })
+}
+
+// transferFailed is the Failed hook, for the files still to arrive:
+// sending, or placing from a staged copy a re-home unverified. A
 // Transfer rerouted onto the source's Node places them there. A source
 // gone or written off ends the Import as a removal does. Bytes that
 // arrived damaged or a source that failed fail them, and Retry sends them
-// again. A file placing from its staged copy finishes either way.
+// again. A file placing from its verified staged copy finishes either way.
 func (im *Imports) transferFailed(ctx context.Context, tx *storage.Tx[file], t transfers.Transfer, f transfers.Failure) error {
 	return im.hook(ctx, tx, t.Job, func(cur *Import) {
 		switch f.Code {
@@ -83,14 +119,14 @@ func (im *Imports) transferFailed(ctx context.Context, tx *storage.Tx[file], t t
 		case transfers.Rerouted, transfers.Damaged, transfers.SourceFailed:
 		}
 		for i, g := range cur.Files {
-			if g.Outcome != Sending {
+			if g.Outcome != Sending && (!staged(g) || verifiedIn(t, g)) {
 				continue
 			}
 			if f.Code == transfers.Rerouted {
-				cur.Files[i].Outcome = Placing
+				cur.Files[i].Outcome, cur.Files[i].Sent = Placing, nil
 				continue
 			}
-			cur.Files[i].Outcome, cur.Files[i].Reason = FailedOut, &Reason{Code: ImportFail, Line: f.Sentence}
+			cur.Files[i].Outcome, cur.Files[i].Reason, cur.Files[i].Sent = FailedOut, &Reason{Code: ImportFail, Line: f.Sentence}, nil
 		}
 	})
 }

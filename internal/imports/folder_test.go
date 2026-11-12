@@ -3,15 +3,19 @@ package imports
 import (
 	"context"
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
+	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -217,5 +221,34 @@ func TestACopyWaitsForItsGrantThenPlaces(t *testing.T) {
 	got := w.until(t, "the clip is placed", imp.ID, placed)
 	if f := got.Files[0]; f.PlacedBy != ByCopy {
 		t.Errorf("the clip was placed by %q, want a copy, which the Store makes only once the Controller grants it", f.PlacedBy)
+	}
+}
+
+// seasonFacet is shelfFacet with a release reader that reads a name's
+// title as the words before its season mark, as in Shelf.w1.S01.1080p.
+type seasonFacet struct{ shelfFacet }
+
+func (seasonFacet) ReadName(p release.Prepared) release.Name {
+	title, _, ok := strings.Cut(p.Original, ".S01.")
+	if !ok {
+		return release.Name{}
+	}
+	return release.Name{Titles: []string{strings.ReplaceAll(title, ".", " ")}}
+}
+
+// TestAFolderNamedAsAReleaseMatchesTheWorkItsTitleNames opens a folder a
+// download client named for its release, whose files' names don't match
+// on their own.
+func TestAFolderNamedAsAReleaseMatchesTheWorkItsTitleNames(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	w.cfg.Facets = map[works.TypeID]scanning.Facet{contenttypetest.ID: seasonFacet{}}
+	one := w.add(t, "w1", w.root.ID)
+	dir := w.downloads(t, nil)
+	write(t, dir, "Shelf.w1.S01.1080p.WEB-DL-GRP/Clip 1.mkv", "Shelf.w1.S01.1080p.WEB-DL-GRP/Clip 2.mkv")
+
+	_, byWork := w.opened(t, dir)
+	if len(byWork) != 1 || byWork[one.ID] == nil || len(byWork[one.ID].Files) != 2 {
+		t.Fatalf("opening the folder made Imports for %v, want both files under Shelf w1", slices.Collect(maps.Keys(byWork)))
 	}
 }

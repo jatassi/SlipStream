@@ -113,7 +113,7 @@ What a Target's file should come out as when SlipStream makes or adjusts it: vid
 _Avoid_: Recipe, encode settings, preset, transcode profile
 
 **Blocklist**:
-Releases known to be bad, keyed by torrent info hash, that no search grabs again for any Work until an Admin removes them. A release fault, Mark failed and a canceled Grab the Admin chose to blocklist each add one.
+Releases known to be bad, keyed by torrent info hash, that no search grabs again for any Work until an Admin removes them. A release fault, Mark failed, Not this Release on a waiting download and a canceled Grab the Admin chose to blocklist each add one.
 _Avoid_: Blacklist, ignore list
 
 ## Topology
@@ -266,9 +266,21 @@ _Avoid_: Update window, quiet hours
 The Scheduled task that compares each library root with SlipStream's records, matches found files to Works, sends the rest to Pending imports and reads media info. It runs daily in the Maintenance window with one unit per root. A new root's first Ready report, a finished re-home and Scan now each scan one root at once. A scan that would mark more of a root's files gone than the share the Admin set, 25% by default, marks none until the Admin confirms them with Mark them gone.
 _Avoid_: Rescan, library sync, refresh
 
+**Import**:
+The work of bringing a set of video files into one Work from a download, a folder in a library root or a folder the Admin picks. Each file fills the cells it beats, waits for the Admin or is left out with a reason.
+_Avoid_: Import job, processing, post-processing
+
 **Pending import**:
-A folder of video files SlipStream found or downloaded that joins no Work until the Admin chooses: Add its suggested Work, Change the match, Import into a Work in the same root, or Ignore it.
+An Import with a file that waits for the Admin, such as a download whose file isn't better than the one the Work has, or a folder a Library scan can't match to a Work with confidence.
 _Avoid_: Unmatched, manual import queue, orphan
+
+**Force into a Target**:
+Fill a Target with a file that meets it but ranks lower than the file it holds.
+_Avoid_: Force import, downgrade
+
+**Clone**:
+A copy that shares its data on disk with the original until either file changes. Btrfs, XFS and APFS can clone.
+_Avoid_: Reflink, CoW copy
 
 **Metadata refresh**:
 The Scheduled task that keeps every Work's record current from its metadata source. Each run refreshes the Works the source reports changed, then every Work its tier makes due: Works with an unreleased Item, Works that can still gain Items, and every other Work, each on its own cadence. Refreshing a Work never searches for it again.
@@ -361,7 +373,7 @@ One Edition at one Target of a monitored, released Item, still listed by its sou
 _Avoid_: Missing item, wanted cell, slot
 
 **Grab**:
-The decision to download one Release for a Work and Edition, recorded with the Targets it is meant to fill and sent to one Download Client.
+The decision to download one Release for a Work and Edition, recorded with the Items it covers and the Targets it is meant to fill, and sent to one Download Client. Once the download completes, an Import takes its files.
 _Avoid_: Snatch, download (for the decision)
 
 **Hold**:

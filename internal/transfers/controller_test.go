@@ -604,6 +604,76 @@ func TestFailedFiresOnceWithItsSentence(t *testing.T) {
 	})
 }
 
+// TestAFailedRecordTakesNoNewFile fails a Transfer of two files after the
+// first verified. The purpose asks for the second again beside the first,
+// still placing from its staged copy: the failed record doesn't take it,
+// and once the first is placed it starts a record of its own. A failed
+// record whose files all went leaves a new file to a new record at once.
+func TestAFailedRecordTakesNoNewFile(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := newCluster(t)
+		file := func(n byte) transfers.FileRequest {
+			return transfers.FileRequest{Group: string('a' + n), Name: fmt.Sprintf("heat %d.mkv", n), Source: source.Torrent{Hash: bencode.InfoHash{n + 1}}, Size: 1 << 20}
+		}
+		want := func(ctx context.Context, tx *storage.Tx[storage.Library], job string, files ...transfers.FileRequest) (transfers.ID, error) {
+			return r.tr.Want(ctx, tx, transfers.Request{Purpose: transfers.Import, Job: job, Source: r.seedbox, Destination: transfers.Root{ID: r.root}, Files: files})
+		}
+		find := func(job string) transfers.Transfer {
+			var found transfers.Transfer
+			err := r.lib.Read(t.Context(), func(ctx context.Context, rd storage.Reader[storage.Library]) (err error) {
+				found, _, err = r.tr.Find(ctx, rd, transfers.Import, job)
+				return err
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			return found
+		}
+		names := func(tr transfers.Transfer) []string {
+			var out []string
+			for _, f := range tr.Files {
+				out = append(out, f.Name)
+			}
+			return out
+		}
+
+		id := r.start(t, "heat", "a", "b")
+		r.homeEnd.report(t, verifiedResult(id, 0, 1))
+		r.homeEnd.report(t, failed(id, tv1.Failed_CODE_DAMAGED, ""))
+		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := want(ctx, tx, "heat", file(0))
+			return err
+		})
+		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := want(ctx, tx, "heat", file(0), file(1))
+			return err
+		})
+		if got := find("heat"); got.ID != id || got.Failure == nil || !slices.Equal(names(got), []string{"heat 0.mkv"}) {
+			t.Fatalf("the failed record holds %q, failure %v, want only the staged file it had", names(got), got.Failure)
+		}
+		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			if err := r.tr.Placed(ctx, tx, id, 0); err != nil {
+				return err
+			}
+			_, err := want(ctx, tx, "heat", file(1))
+			return err
+		})
+		if got := find("heat"); got.ID == id || got.Failure != nil || !slices.Equal(names(got), []string{"heat 1.mkv"}) {
+			t.Errorf("once the staged file was placed the job's record is %s holding %q, failure %v; want a new live one of the file asked again", got.ID, names(got), got.Failure)
+		}
+
+		other := r.start(t, "ronin", "a")
+		r.homeEnd.report(t, failed(other, tv1.Failed_CODE_DAMAGED, ""))
+		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := want(ctx, tx, "ronin", file(2))
+			return err
+		})
+		if got := find("ronin"); got.ID == other || got.Failure != nil || !slices.Equal(names(got), []string{"heat 2.mkv"}) {
+			t.Errorf("a failed record whose files went leaves %s holding %q, failure %v; want a new live one", got.ID, names(got), got.Failure)
+		}
+	})
+}
+
 func TestAStaleOrForeignResultAppliesAsNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		r := newCluster(t)
