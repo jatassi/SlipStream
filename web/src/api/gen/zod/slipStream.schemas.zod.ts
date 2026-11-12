@@ -2766,7 +2766,6 @@ export const GrabsWordedReason = zod.object({
     .enum([
       "wrong_work",
       "wrong_item",
-      "covers_more",
       "wrong_title",
       "cut_not_wanted",
       "quality_not_in_target",
@@ -2780,7 +2779,7 @@ export const GrabsWordedReason = zod.object({
       "blocklisted",
     ])
     .describe(
-      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
     ),
   soft: zod
     .boolean()
@@ -2790,14 +2789,12 @@ export const GrabsWordedReason = zod.object({
   targetId: zod
     .uuid()
     .exactOptional()
-    .describe(
-      "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
-    ),
+    .describe("The Target whose verdict it is, absent for wrong_work, wrong_item and wrong_title"),
   value: zod
     .string()
     .exactOptional()
     .describe(
-      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
+      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
     ),
   words: zod.string().describe("The reason as a sentence"),
 });
@@ -3833,7 +3830,6 @@ export const GrabsReason = zod.object({
     .enum([
       "wrong_work",
       "wrong_item",
-      "covers_more",
       "wrong_title",
       "cut_not_wanted",
       "quality_not_in_target",
@@ -3847,7 +3843,7 @@ export const GrabsReason = zod.object({
       "blocklisted",
     ])
     .describe(
-      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
     ),
   soft: zod
     .boolean()
@@ -3857,14 +3853,12 @@ export const GrabsReason = zod.object({
   targetId: zod
     .uuid()
     .exactOptional()
-    .describe(
-      "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
-    ),
+    .describe("The Target whose verdict it is, absent for wrong_work, wrong_item and wrong_title"),
   value: zod
     .string()
     .exactOptional()
     .describe(
-      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
+      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
     ),
 });
 

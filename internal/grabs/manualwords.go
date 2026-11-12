@@ -713,7 +713,7 @@ func (rs runSheet) foldedWhy(g int) (foldKey, bool) {
 	if a.blocked() || slices.ContainsFunc(sts, func(st stance) bool { return st.kind == standsBlocked }) {
 		return foldKey{code: targets.Blocklisted}, true
 	}
-	if i := slices.IndexFunc(a.refusals, func(r Reason) bool { return r.Code.Hard() || r.Code == targets.CoversMore }); i >= 0 {
+	if i := slices.IndexFunc(a.refusals, func(r Reason) bool { return r.Code.Hard() }); i >= 0 {
 		return foldKey{code: a.refusals[i].Code}, true
 	}
 	return rs.foldedAt(a, sts), true
@@ -784,8 +784,6 @@ func (s sheet) foldWords(key foldKey, n int) string {
 		return plural(n, "1 names", "%d name") + " another Work."
 	case targets.WrongItem:
 		return plural(n, "1 names", "%d name") + " another " + item + "."
-	case targets.CoversMore:
-		return plural(n, "1 is a pack", "%d are packs") + " of more than one " + item + ", and SlipStream can't import packs yet."
 	case targets.FilterFailed:
 		return plural(n, "1 fails", "%d fail") + " a filter of every Target here."
 	case targets.NotAnUpgrade:
@@ -975,13 +973,10 @@ func (s sheet) offer(rs runSheet, g, f int) Offer {
 	return o
 }
 
-// refusal is why as[g] can't be grabbed at any cell of its Item: "It's a
-// pack of more than one episode, and SlipStream can't import packs yet."
+// refusal is why as[g] can't be grabbed at any cell of its Item: "It
+// isn't better than the file you have."
 func (s sheet) refusal(rs runSheet, g int) string {
 	for _, r := range rs.as[g].refusals {
-		if r.Code == targets.CoversMore {
-			return "It's a pack of more than one " + strings.ToLower(s.in.nouns.Item.One) + ", and SlipStream can't import packs yet."
-		}
 		if r.Code.Hard() {
 			return wordsOf(rs.worded([]Reason{r}, g))
 		}

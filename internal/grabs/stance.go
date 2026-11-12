@@ -23,7 +23,7 @@ type stance struct {
 type stanceKind uint8
 
 const (
-	// standsRefused: a hard reason, covers_more or not_an_upgrade.
+	// standsRefused: a hard reason or not_an_upgrade.
 	standsRefused stanceKind = iota
 	// standsAuto: grabbable at the cell with no refusal of its own, what
 	// picks keeps.
