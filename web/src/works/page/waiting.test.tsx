@@ -9,6 +9,7 @@ import { clock } from "../../format";
 import { orchardId } from "../../test/library";
 import { home } from "../../test/nodes";
 import { renderApp } from "../../test/render-app";
+// oxlint-disable-next-line import/max-dependencies -- an Import wait names its root, so the test serves roots on a served Node
 import { filmsRoot } from "../../test/roots";
 import { awayGrab as stuck, upgradable } from "../../test/work-cells";
 import { workServer } from "../../test/work-server";

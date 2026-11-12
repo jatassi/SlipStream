@@ -77,16 +77,15 @@ export type ImportWait = "no_space" | "root_not_ready" | "probe_timeout";
  * no_space, the bytes free and needed.
  */
 export function importWaitWords(code: ImportWait, root: string, space: FilesSpace | null): string {
-  switch (code) {
-    case "no_space":
-      return `${
-        space === null
-          ? `The ${root} has too little free space for this file.`
-          : `The ${root} has ${bytes(space.free)} free above its error level, and this file needs ${bytes(space.needs)}.`
-      } Free up space there. SlipStream retries automatically once there's room.`;
-    case "root_not_ready":
-      return `The ${root} isn't ready. SlipStream retries once it is.`;
-    case "probe_timeout":
-      return "Reading a file of this download timed out 3 times. Retry, or check the Node's disk.";
+  if (code === "probe_timeout") {
+    return "Reading a file of this download timed out 3 times. Retry, or check the Node's disk.";
   }
+  if (code === "root_not_ready") {
+    return `The ${root} isn't ready. SlipStream retries once it is.`;
+  }
+  return `${
+    space === null
+      ? `The ${root} has too little free space for this file.`
+      : `The ${root} has ${bytes(space.free)} free above its error level, and this file needs ${bytes(space.needs)}.`
+  } Free up space there. SlipStream retries automatically once there's room.`;
 }
