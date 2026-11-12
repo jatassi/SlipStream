@@ -279,7 +279,7 @@ func TestNeedsYouIsOneEntryPerItemAndEditionInRankOrder(t *testing.T) {
 		`{"kind":"failed","itemIds":["` + g.ID.String() + `"],"edition":"any","targetId":"` + uhd + `","waiting":["` + hd + `"],"grabId":"` + failedG.String() + `"},` +
 		`{"kind":"upgrade","itemIds":["` + b.ID.String() + `","` + c.ID.String() + `"],"edition":"any","upgrades":["` + hd + `"]},` +
 		`{"kind":"upgrade","itemIds":["` + e.ID.String() + `"],"edition":"any","upgrades":["` + hd + `"]},` +
-		`{"kind":"waiting","grabId":"` + waits.String() + `","code":"node_away","clientError":null}]`
+		`{"kind":"waiting","grabId":"` + waits.String() + `","code":"node_away","clientError":null,"importWait":null}]`
 	if got := s.needsYou(t, w); got != want {
 		t.Fatalf("Needs you is\n%s\nwant\n%s", got, want)
 	}
