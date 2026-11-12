@@ -7,11 +7,15 @@ package engine
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
+	"io/fs"
 	"log/slog"
 	"maps"
 	"net"
 	"slices"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -123,8 +127,10 @@ func (e *Engine) Run(ctx context.Context, h Holder) error {
 }
 
 // follow applies one intent: in step, it starts each active Transfer it
-// lacks, stops each that left or changed shape, hands a changed route to
-// its run, and deletes the staging of every Transfer in neither list.
+// lacks, stops each that left, changed shape or receives a file its
+// purpose dropped, hands a changed route to its run, deletes the staging
+// of every Transfer in neither list and the staged files of every dropped
+// position.
 // Out of step, it stops every run and keeps what they verified.
 func (e *Engine) follow(ctx context.Context, h Holder, snap role.Snapshot[*tv1.Intent]) {
 	defer e.facts.urgent()
@@ -142,11 +148,17 @@ func (e *Engine) follow(ctx context.Context, h Holder, snap role.Snapshot[*tv1.I
 		}
 		want[sp.id] = sp
 	}
-	keep := map[ID]bool{}
-	for _, b := range snap.Intent.GetKeep() {
-		if u, err := storage.UUIDFromBytes(b); err == nil {
-			keep[ID{UUID: u}] = true
+	keep := map[ID]map[int]bool{}
+	for _, k := range snap.Intent.GetKeep() {
+		u, err := storage.UUIDFromBytes(k.GetTransferId())
+		if err != nil {
+			continue
 		}
+		live := map[int]bool{}
+		for _, p := range k.GetPositions() {
+			live[int(p)] = true
+		}
+		keep[ID{UUID: u}] = live
 	}
 
 	e.mu.Lock()
@@ -155,7 +167,7 @@ func (e *Engine) follow(ctx context.Context, h Holder, snap role.Snapshot[*tv1.I
 	for id, r := range e.runs {
 		sp, ok := want[id]
 		switch {
-		case !ok || !r.spec.sameRun(sp):
+		case !ok || !r.spec.sameRun(sp) || r.spec.receivesDropped(keep[id]):
 			stopping = append(stopping, r)
 			delete(e.runs, id)
 		case sp.route != r.route():
@@ -173,7 +185,7 @@ func (e *Engine) follow(ctx context.Context, h Holder, snap role.Snapshot[*tv1.I
 		}
 	}
 	for id := range e.kept {
-		if !keep[id] {
+		if _, ok := keep[id]; !ok {
 			delete(e.kept, id)
 		}
 	}
@@ -207,20 +219,55 @@ func (e *Engine) stop(runs []*run) {
 }
 
 // collect deletes the staging folder and resume records of each Transfer
-// the intent neither runs nor keeps. A folder that won't go yet keeps its
-// record, so the next intent tries again.
-func (e *Engine) collect(ctx context.Context, active map[ID]spec, keep map[ID]bool) {
+// the intent neither runs nor keeps, and the staged file and resume
+// records of each position a kept Transfer no longer lists. A folder or
+// file that won't go yet keeps its record, so the next intent tries
+// again.
+func (e *Engine) collect(ctx context.Context, active map[ID]spec, keep map[ID]map[int]bool) {
 	rows, err := db.New(e.cfg.Local).ListStaging(ctx)
 	if err != nil {
 		e.cfg.Log.Error("list staged Transfers", "err", err)
 		return
 	}
 	for _, row := range rows {
-		if _, ok := active[row.TransferID]; ok || keep[row.TransferID] {
+		if live, ok := keep[row.TransferID]; ok {
+			e.prune(ctx, row.TransferID, row.Folder, live)
+			continue
+		}
+		if _, ok := active[row.TransferID]; ok {
 			continue
 		}
 		if err := e.unstage(ctx, row.TransferID, row.Folder); err != nil {
 			e.cfg.Log.Warn("delete a Transfer's staging folder", "transfer", row.TransferID, "folder", row.Folder, "err", err)
+		}
+	}
+}
+
+// prune deletes each staged file in folder whose position live doesn't
+// list, before its resume records, so a crash between leaves records that
+// the next pass finds rather than bytes nothing names.
+func (e *Engine) prune(ctx context.Context, id ID, folder string, live map[int]bool) {
+	entries, err := e.cfg.Disk.ReadDir(ctx, folder)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			e.cfg.Log.Warn("list a Transfer's staging folder", "transfer", id, "folder", folder, "err", err)
+		}
+		return
+	}
+	style := e.cfg.Disk.Host().Style
+	for _, entry := range entries {
+		position, err := strconv.Atoi(strings.TrimSuffix(entry.Name, ".part"))
+		if err != nil || live[position] {
+			continue
+		}
+		err = e.cfg.Disk.Remove(ctx, style.Join(folder, entry.Name))
+		if err == nil || errors.Is(err, fs.ErrNotExist) {
+			err = e.cfg.Local.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
+				return db.New(tx).DeleteResumeOf(ctx, db.DeleteResumeOfParams{TransferID: id, Position: int64(position)})
+			})
+		}
+		if err != nil {
+			e.cfg.Log.Warn("delete a dropped file's staged bytes", "transfer", id, "position", position, "err", err)
 		}
 	}
 }

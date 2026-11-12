@@ -15,7 +15,7 @@ import (
 )
 
 const countUnplaced = `-- name: CountUnplaced :one
-SELECT count(*) FROM transfers_file WHERE transfer_id = ?1 AND placed = 0
+SELECT count(*) FROM transfers_file WHERE transfer_id = ?1 AND placed = 0 AND dropped = 0
 `
 
 func (q *Queries) CountUnplaced(ctx context.Context, transferID local.TransferID) (int64, error) {
@@ -35,7 +35,7 @@ func (q *Queries) DeleteTransfer(ctx context.Context, id local.TransferID) error
 }
 
 const filesOf = `-- name: FilesOf :many
-SELECT transfer_id, position, item, name, source_kind, info_hash, file_index, size, verified_place, placed FROM transfers_file WHERE transfer_id = ?1 ORDER BY position
+SELECT transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, size, verified_place, placed, dropped FROM transfers_file WHERE transfer_id = ?1 ORDER BY position
 `
 
 func (q *Queries) FilesOf(ctx context.Context, transferID local.TransferID) ([]TransfersFile, error) {
@@ -50,14 +50,16 @@ func (q *Queries) FilesOf(ctx context.Context, transferID local.TransferID) ([]T
 		if err := rows.Scan(
 			&i.TransferID,
 			&i.Position,
-			&i.Item,
+			&i.GroupKey,
 			&i.Name,
 			&i.SourceKind,
 			&i.InfoHash,
 			&i.FileIndex,
+			&i.Path,
 			&i.Size,
 			&i.VerifiedPlace,
 			&i.Placed,
+			&i.Dropped,
 		); err != nil {
 			return nil, err
 		}
@@ -106,18 +108,19 @@ func (q *Queries) GetTransfer(ctx context.Context, id local.TransferID) (Transfe
 }
 
 const insertFile = `-- name: InsertFile :exec
-INSERT INTO transfers_file (transfer_id, position, item, name, source_kind, info_hash, file_index, size)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+INSERT INTO transfers_file (transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, size)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
 `
 
 type InsertFileParams struct {
 	TransferID local.TransferID
 	Position   int64
-	Item       string
+	GroupKey   string
 	Name       string
 	SourceKind string
 	InfoHash   []byte
 	FileIndex  *int64
+	Path       *string
 	Size       int64
 }
 
@@ -125,11 +128,12 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
 	_, err := q.db.ExecContext(ctx, insertFile,
 		arg.TransferID,
 		arg.Position,
-		arg.Item,
+		arg.GroupKey,
 		arg.Name,
 		arg.SourceKind,
 		arg.InfoHash,
 		arg.FileIndex,
+		arg.Path,
 		arg.Size,
 	)
 	return err
@@ -164,7 +168,7 @@ func (q *Queries) InsertTransfer(ctx context.Context, arg InsertTransferParams) 
 }
 
 const listFiles = `-- name: ListFiles :many
-SELECT transfer_id, position, item, name, source_kind, info_hash, file_index, size, verified_place, placed FROM transfers_file ORDER BY transfer_id, position
+SELECT transfer_id, position, group_key, name, source_kind, info_hash, file_index, path, size, verified_place, placed, dropped FROM transfers_file ORDER BY transfer_id, position
 `
 
 func (q *Queries) ListFiles(ctx context.Context) ([]TransfersFile, error) {
@@ -179,14 +183,16 @@ func (q *Queries) ListFiles(ctx context.Context) ([]TransfersFile, error) {
 		if err := rows.Scan(
 			&i.TransferID,
 			&i.Position,
-			&i.Item,
+			&i.GroupKey,
 			&i.Name,
 			&i.SourceKind,
 			&i.InfoHash,
 			&i.FileIndex,
+			&i.Path,
 			&i.Size,
 			&i.VerifiedPlace,
 			&i.Placed,
+			&i.Dropped,
 		); err != nil {
 			return nil, err
 		}
@@ -352,6 +358,20 @@ func (q *Queries) PutPair(ctx context.Context, arg PutPairParams) error {
 		arg.Route,
 		arg.RouteAt,
 	)
+	return err
+}
+
+const setDropped = `-- name: SetDropped :exec
+UPDATE transfers_file SET dropped = 1 WHERE transfer_id = ?1 AND position = ?2 AND placed = 0
+`
+
+type SetDroppedParams struct {
+	TransferID local.TransferID
+	Position   int64
+}
+
+func (q *Queries) SetDropped(ctx context.Context, arg SetDroppedParams) error {
+	_, err := q.db.ExecContext(ctx, setDropped, arg.TransferID, arg.Position)
 	return err
 }
 

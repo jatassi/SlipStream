@@ -56,10 +56,12 @@ type line struct {
 }
 
 type candidate struct {
-	i    int
-	t    Transfer
-	d    roots.Destination
-	recv *tv1.Receiving
+	i int
+	t Transfer
+	// files is what it sends now: its missing files that have room.
+	files []File
+	d     roots.Destination
+	recv  *tv1.Receiving
 	// aside is the wait its receiver reported that steps it aside.
 	aside *Wait
 }
@@ -77,7 +79,7 @@ func judge(s snapshot) judgment {
 		d := s.dests[rootOf(t.Destination)]
 		recv := s.receiving(t, d)
 		in := j.intent(s, d.Node)
-		in.Keep = append(in.Keep, t.ID.Bytes())
+		in.Keep = append(in.Keep, kept(t))
 		j.intent(s, t.Source)
 		v := s.base(t, d, recv)
 		if t.Failure == nil {
@@ -94,7 +96,7 @@ func judge(s snapshot) judgment {
 		default:
 			if w := s.stepAside(t, d); w != nil {
 				v.State, v.Wait = Waiting, w
-			} else if sp := s.space(t, d, recv, reserved); sp != nil {
+			} else if files, sp := s.space(t, d, recv, reserved); sp != nil {
 				v.State, v.Space = NeedsSpace, sp
 			} else {
 				key := pairKey{t.Source, d.Node}
@@ -102,7 +104,7 @@ func judge(s snapshot) judgment {
 				if at < 0 {
 					lines, at = append(lines, &line{key: key}), len(lines)
 				}
-				lines[at].cands = append(lines[at].cands, candidate{i: i, t: t, d: d, recv: recv, aside: s.reported(t, d, recv)})
+				lines[at].cands = append(lines[at].cands, candidate{i: i, t: t, files: files, d: d, recv: recv, aside: s.reported(t, d, recv)})
 			}
 		}
 		j.views[i] = v
@@ -111,7 +113,7 @@ func judge(s snapshot) judgment {
 		j.run(s, l)
 	}
 	for _, in := range j.intents {
-		slices.SortFunc(in.Keep, bytes.Compare)
+		slices.SortFunc(in.Keep, func(a, b *tv1.Kept) int { return bytes.Compare(a.GetTransferId(), b.GetTransferId()) })
 	}
 	return j
 }
@@ -127,6 +129,16 @@ func (j *judgment) intent(s snapshot, node role.NodeID) *tv1.Intent {
 
 // missing is a file its receiver still has to copy.
 func missing(f File) bool { return !f.Verified && !f.Placed }
+
+// kept is t's staging as its receiver keeps it: every position its
+// purpose still wants.
+func kept(t Transfer) *tv1.Kept {
+	k := &tv1.Kept{TransferId: t.ID.Bytes()}
+	for _, f := range t.Files {
+		k.Positions = append(k.Positions, uint32(f.Position)) //nolint:gosec // G115: a position counts a Request's files
+	}
+	return k
+}
 
 // base is t's view before judge decides its state: its bytes, its
 // receiver's details and its pair's last speed.
@@ -219,26 +231,37 @@ type volumeAt struct {
 	volume string
 }
 
-// space is t's NeedsSpace verdict, first come, first served on its
-// volume: each Transfer that fits reserves what it still has to copy. One
-// whose receiver found the disk full needs space until a volume sample
-// newer than that report.
-func (s snapshot) space(t Transfer, d roots.Destination, recv *tv1.Receiving, reserved map[volumeAt]int64) *Space {
+// space is what t sends now and its NeedsSpace verdict, first come,
+// first served on its volume. Its missing files reserve what they still
+// have to copy in position order, its receiver's verified bytes counted
+// off the first, up to the first file that doesn't fit: those files are
+// sent, and the rest wait for room. t needs space only when its first
+// missing file doesn't fit, or while its receiver found the disk full and
+// no volume sample is newer than that report.
+func (s snapshot) space(t Transfer, d roots.Destination, recv *tv1.Receiving, reserved map[volumeAt]int64) ([]File, *Space) {
+	files := slices.DeleteFunc(slices.Clone(t.Files), func(f File) bool { return !missing(f) })
 	vol := d.Volume
 	if vol == nil {
-		return nil
+		return files, nil
 	}
-	need := -recv.GetVerifiedBytes()
-	for _, f := range t.Files {
-		if missing(f) {
-			need += f.Size
-		}
-	}
-	need = max(need, 0)
 	at := volumeAt{d.Node, vol.ID}
-	room := vol.Free - s.levels.For(d.Node, vol.Mount, vol.Total).Error.Bytes
-	if over := reserved[at] + need - room; over > 0 {
-		return &Space{Node: d.Node, Volume: vol.Name, Need: over}
+	room := vol.Free - s.levels.For(d.Node, vol.Mount, vol.Total).Error.Bytes - reserved[at]
+	credit := recv.GetVerifiedBytes()
+	var fit, need int64
+	sent := len(files)
+	for i, f := range files {
+		left := max(f.Size-credit, 0)
+		credit = max(credit-f.Size, 0)
+		need += left
+		if sent == len(files) && fit+left > room {
+			if i == 0 {
+				return nil, &Space{Node: d.Node, Volume: vol.Name, Need: fit + left - room}
+			}
+			sent = i
+		}
+		if sent == len(files) {
+			fit += left
+		}
 	}
 	if recv.GetWait().GetKind() == tv1.Wait_KIND_DISK_FULL {
 		full, ok := s.fullAt[t.ID]
@@ -246,11 +269,11 @@ func (s snapshot) space(t Transfer, d roots.Destination, recv *tv1.Receiving, re
 			full = s.now
 		}
 		if !vol.SampledAt.After(full) {
-			return &Space{Node: d.Node, Volume: vol.Name, Need: need}
+			return nil, &Space{Node: d.Node, Volume: vol.Name, Need: need}
 		}
 	}
-	reserved[at] += need
-	return nil
+	reserved[at] += fit
+	return files[:sent], nil
 }
 
 // run judges one pair's line: its first Transfer is active and every
@@ -356,11 +379,9 @@ func gaveUp(r tv1.Route, recv *tv1.Receiving, send *tv1.Sending) bool {
 
 // activate puts the active Transfer in both ends' intents.
 func (j *judgment) activate(s snapshot, c candidate, route tv1.Route) {
-	var files []*tv1.File
-	for _, f := range c.t.Files {
-		if missing(f) {
-			files = append(files, &tv1.File{Position: uint32(f.Position), Source: sourceOf(f.Source), Size: f.Size}) //nolint:gosec // G115: a position counts a Request's files
-		}
+	files := make([]*tv1.File, len(c.files))
+	for i, f := range c.files {
+		files[i] = &tv1.File{Position: uint32(f.Position), Source: sourceOf(f.Source), Size: f.Size} //nolint:gosec // G115: a position counts a Request's files
 	}
 	send := j.intent(s, c.t.Source)
 	send.Active = append(send.Active, &tv1.Active{
@@ -385,9 +406,11 @@ func (s snapshot) peer(node role.NodeID) *tv1.Peer {
 }
 
 func sourceOf(ref source.Ref) *tv1.Source {
-	r, ok := ref.(source.Torrent)
-	if !ok {
-		panic("transfers: a source of no known kind")
+	switch r := ref.(type) {
+	case source.Torrent:
+		return &tv1.Source{Ref: &tv1.Source_Torrent{Torrent: &tv1.TorrentPayload{InfoHash: r.Hash[:], FileIndex: uint32(r.File)}}} //nolint:gosec // G115: a torrent's file index fits libtorrent's int
+	case source.Path:
+		return &tv1.Source{Ref: &tv1.Source_Path{Path: &tv1.PathSource{Abs: r.Abs}}}
 	}
-	return &tv1.Source{Ref: &tv1.Source_Torrent{Torrent: &tv1.TorrentPayload{InfoHash: r.Hash[:], FileIndex: uint32(r.File)}}} //nolint:gosec // G115: a torrent's file index fits libtorrent's int
+	panic("transfers: a source of no known kind")
 }

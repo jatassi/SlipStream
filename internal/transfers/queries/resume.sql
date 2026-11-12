@@ -28,3 +28,6 @@ WHERE transfer_id = sqlc.arg(transfer_id) AND position = sqlc.arg(position) AND 
 -- name: SetVerified :exec
 UPDATE transfers_resume SET verified = sqlc.arg(verified), done = sqlc.arg(done)
 WHERE transfer_id = sqlc.arg(transfer_id) AND position = sqlc.arg(position) AND place = sqlc.arg(place);
+
+-- name: DeleteResumeOf :exec
+DELETE FROM transfers_resume WHERE transfer_id = sqlc.arg(transfer_id) AND position = sqlc.arg(position);

@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"iter"
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
+	"os"
 	"path/filepath"
 	"slices"
 	"sync"
@@ -54,6 +56,9 @@ type NodeConfig struct {
 	// there, readable and apart from every root this Node holds, and
 	// writable too when write is set.
 	Folder func(ctx context.Context, path string, write bool) (storing.CheckResult, error)
+	// Holds is whether an absolute path lies in a root this Node holds or
+	// in one of its downloads folders, the only places Open reads a path.
+	Holds func(path string) bool
 	// Rand is the stream every actor draws its backoff from.
 	Rand *rand.Rand
 	Log  *slog.Logger
@@ -443,12 +448,15 @@ func (n *Node) Path(h bencode.InfoHash, index int) (string, error) {
 	return p, nil
 }
 
-// Open is the external client's that holds the torrent, the built-in
-// client's for any other.
+// Open is the external client's that holds a Torrent, the built-in
+// client's for any other, and openPath's for a Path.
 func (n *Node) Open(ref source.Ref) (string, error) {
-	r, ok := ref.(source.Torrent)
-	if !ok {
-		return n.builtin.Open(ref)
+	var r source.Torrent
+	switch ref := ref.(type) {
+	case source.Path:
+		return n.openPath(ref.Abs)
+	case source.Torrent:
+		r = ref
 	}
 	c, ok := n.routes.Load().byHash[r.Hash]
 	if !ok {
@@ -459,6 +467,33 @@ func (n *Node) Open(ref source.Ref) (string, error) {
 		return "", &source.Absent{Reason: source.NotReady, Detail: "this Node can't reach the torrent's Download Client yet"}
 	}
 	return a.Open(r)
+}
+
+// openPath is abs, a file in a root this Node holds or one of its
+// downloads folders, or why it can't be read now:
+//   - *source.Absent{Failed}: abs lies elsewhere, or is a folder.
+//   - *source.Absent{Gone}: nothing is at abs.
+//   - *source.Absent{NotReady}: the file won't open, with the open error.
+func (n *Node) openPath(abs string) (string, error) {
+	if !n.cfg.Holds(abs) {
+		return "", &source.Absent{Reason: source.Failed, Detail: "it isn't in a library root or a downloads folder on this Node"}
+	}
+	f, err := os.Open(abs) //nolint:gosec // a path inside this Node's roots and downloads folders
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return "", &source.Absent{Reason: source.Gone}
+	case err != nil:
+		return "", &source.Absent{Reason: source.NotReady, Detail: err.Error()}
+	}
+	info, err := f.Stat()
+	_ = f.Close()
+	switch {
+	case err != nil:
+		return "", &source.Absent{Reason: source.NotReady, Detail: err.Error()}
+	case info.IsDir():
+		return "", &source.Absent{Reason: source.Failed, Detail: "it is a folder"}
+	}
+	return abs, nil
 }
 
 // Folders is the built-in client's folders and each external client's

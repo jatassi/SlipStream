@@ -171,7 +171,7 @@ func TestCancelAtTransferringCancelsATransferThatWaits(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s := inTransmission(t, grabs.Transferring)
 		run(t, s.lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-			_, err := s.copies.Start(ctx, tx, transfers.Request{
+			_, err := s.copies.Want(ctx, tx, transfers.Request{
 				Purpose: transfers.Grab, Job: s.grab.String(), Source: s.node, Destination: transfers.Root{ID: s.root},
 				Files: []transfers.FileRequest{{Name: "The Attic.mkv", Source: source.Torrent{Hash: s.hash}, Size: 4096}},
 			})

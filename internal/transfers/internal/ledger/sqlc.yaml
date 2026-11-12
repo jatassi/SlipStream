@@ -43,3 +43,6 @@ sql:
           - column: transfers_file.placed
             go_type:
               type: bool
+          - column: transfers_file.dropped
+            go_type:
+              type: bool

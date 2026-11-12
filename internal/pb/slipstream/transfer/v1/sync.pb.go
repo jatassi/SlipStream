@@ -189,7 +189,7 @@ func (x Wait_Kind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Wait_Kind.Descriptor instead.
 func (Wait_Kind) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{11, 0}
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{13, 0}
 }
 
 type Failed_Code int32
@@ -241,7 +241,7 @@ func (x Failed_Code) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Failed_Code.Descriptor instead.
 func (Failed_Code) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{14, 0}
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{16, 0}
 }
 
 // Intent is what one Node sends and receives now, with every default
@@ -255,10 +255,10 @@ type Intent struct {
 	// sends or receives, oldest first. Queued and stepped-aside Transfers
 	// stay out, so nobody dials for them.
 	Active []*Active `protobuf:"bytes,2,rep,name=active,proto3" json:"active,omitempty"`
-	// keep is every Transfer id whose staging this Node holds, active or
-	// not, failed included, sorted. A staging folder neither list names
-	// goes.
-	Keep          [][]byte `protobuf:"bytes,3,rep,name=keep,proto3" json:"keep,omitempty"`
+	// keep is every Transfer whose staging this Node holds, active or not,
+	// failed included, sorted by id. A staging folder neither list names
+	// goes, and so does a staged file of a position keep doesn't list.
+	Keep          []*Kept `protobuf:"bytes,4,rep,name=keep,proto3" json:"keep,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -307,9 +307,63 @@ func (x *Intent) GetActive() []*Active {
 	return nil
 }
 
-func (x *Intent) GetKeep() [][]byte {
+func (x *Intent) GetKeep() []*Kept {
 	if x != nil {
 		return x.Keep
+	}
+	return nil
+}
+
+// Kept is a Transfer whose staging a receiver keeps, with the positions
+// of every file its purpose still wants, sorted.
+type Kept struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TransferId    []byte                 `protobuf:"bytes,1,opt,name=transfer_id,json=transferId,proto3" json:"transfer_id,omitempty"`
+	Positions     []uint32               `protobuf:"varint,2,rep,packed,name=positions,proto3" json:"positions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Kept) Reset() {
+	*x = Kept{}
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Kept) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Kept) ProtoMessage() {}
+
+func (x *Kept) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Kept.ProtoReflect.Descriptor instead.
+func (*Kept) Descriptor() ([]byte, []int) {
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Kept) GetTransferId() []byte {
+	if x != nil {
+		return x.TransferId
+	}
+	return nil
+}
+
+func (x *Kept) GetPositions() []uint32 {
+	if x != nil {
+		return x.Positions
 	}
 	return nil
 }
@@ -331,7 +385,7 @@ type Active struct {
 
 func (x *Active) Reset() {
 	*x = Active{}
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[1]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -343,7 +397,7 @@ func (x *Active) String() string {
 func (*Active) ProtoMessage() {}
 
 func (x *Active) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[1]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -356,7 +410,7 @@ func (x *Active) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Active.ProtoReflect.Descriptor instead.
 func (*Active) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{1}
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Active) GetTransferId() []byte {
@@ -415,7 +469,7 @@ type Peer struct {
 
 func (x *Peer) Reset() {
 	*x = Peer{}
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[2]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -427,7 +481,7 @@ func (x *Peer) String() string {
 func (*Peer) ProtoMessage() {}
 
 func (x *Peer) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[2]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -440,7 +494,7 @@ func (x *Peer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Peer.ProtoReflect.Descriptor instead.
 func (*Peer) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{2}
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Peer) GetKey() []byte {
@@ -469,7 +523,7 @@ type Destination struct {
 
 func (x *Destination) Reset() {
 	*x = Destination{}
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[3]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -481,7 +535,7 @@ func (x *Destination) String() string {
 func (*Destination) ProtoMessage() {}
 
 func (x *Destination) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[3]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -494,7 +548,7 @@ func (x *Destination) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Destination.ProtoReflect.Descriptor instead.
 func (*Destination) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{3}
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Destination) GetKind() isDestination_Kind {
@@ -535,7 +589,7 @@ type RootDestination struct {
 
 func (x *RootDestination) Reset() {
 	*x = RootDestination{}
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[4]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -547,7 +601,7 @@ func (x *RootDestination) String() string {
 func (*RootDestination) ProtoMessage() {}
 
 func (x *RootDestination) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[4]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -560,7 +614,7 @@ func (x *RootDestination) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RootDestination.ProtoReflect.Descriptor instead.
 func (*RootDestination) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{4}
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RootDestination) GetRootId() []byte {
@@ -588,7 +642,7 @@ type File struct {
 
 func (x *File) Reset() {
 	*x = File{}
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[5]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -600,7 +654,7 @@ func (x *File) String() string {
 func (*File) ProtoMessage() {}
 
 func (x *File) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[5]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -613,7 +667,7 @@ func (x *File) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use File.ProtoReflect.Descriptor instead.
 func (*File) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{5}
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *File) GetPosition() uint32 {
@@ -643,6 +697,7 @@ type Source struct {
 	// Types that are valid to be assigned to Ref:
 	//
 	//	*Source_Torrent
+	//	*Source_Path
 	Ref           isSource_Ref `protobuf_oneof:"ref"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -650,7 +705,7 @@ type Source struct {
 
 func (x *Source) Reset() {
 	*x = Source{}
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[6]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -662,7 +717,7 @@ func (x *Source) String() string {
 func (*Source) ProtoMessage() {}
 
 func (x *Source) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[6]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -675,7 +730,7 @@ func (x *Source) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Source.ProtoReflect.Descriptor instead.
 func (*Source) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{6}
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *Source) GetRef() isSource_Ref {
@@ -694,6 +749,15 @@ func (x *Source) GetTorrent() *TorrentPayload {
 	return nil
 }
 
+func (x *Source) GetPath() *PathSource {
+	if x != nil {
+		if x, ok := x.Ref.(*Source_Path); ok {
+			return x.Path
+		}
+	}
+	return nil
+}
+
 type isSource_Ref interface {
 	isSource_Ref()
 }
@@ -702,7 +766,59 @@ type Source_Torrent struct {
 	Torrent *TorrentPayload `protobuf:"bytes,1,opt,name=torrent,proto3,oneof"`
 }
 
+type Source_Path struct {
+	Path *PathSource `protobuf:"bytes,2,opt,name=path,proto3,oneof"`
+}
+
 func (*Source_Torrent) isSource_Ref() {}
+
+func (*Source_Path) isSource_Ref() {}
+
+// PathSource is a file at an absolute path on the sender, which it opens
+// only inside its library roots and download folders.
+type PathSource struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Abs           string                 `protobuf:"bytes,1,opt,name=abs,proto3" json:"abs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PathSource) Reset() {
+	*x = PathSource{}
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PathSource) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PathSource) ProtoMessage() {}
+
+func (x *PathSource) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PathSource.ProtoReflect.Descriptor instead.
+func (*PathSource) Descriptor() ([]byte, []int) {
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *PathSource) GetAbs() string {
+	if x != nil {
+		return x.Abs
+	}
+	return ""
+}
 
 type TorrentPayload struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -714,7 +830,7 @@ type TorrentPayload struct {
 
 func (x *TorrentPayload) Reset() {
 	*x = TorrentPayload{}
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[7]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -726,7 +842,7 @@ func (x *TorrentPayload) String() string {
 func (*TorrentPayload) ProtoMessage() {}
 
 func (x *TorrentPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[7]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -739,7 +855,7 @@ func (x *TorrentPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TorrentPayload.ProtoReflect.Descriptor instead.
 func (*TorrentPayload) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{7}
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *TorrentPayload) GetInfoHash() []byte {
@@ -768,7 +884,7 @@ type Facts struct {
 
 func (x *Facts) Reset() {
 	*x = Facts{}
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[8]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -780,7 +896,7 @@ func (x *Facts) String() string {
 func (*Facts) ProtoMessage() {}
 
 func (x *Facts) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[8]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -793,7 +909,7 @@ func (x *Facts) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Facts.ProtoReflect.Descriptor instead.
 func (*Facts) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{8}
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Facts) GetReceiving() []*Receiving {
@@ -843,7 +959,7 @@ type Receiving struct {
 
 func (x *Receiving) Reset() {
 	*x = Receiving{}
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[9]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -855,7 +971,7 @@ func (x *Receiving) String() string {
 func (*Receiving) ProtoMessage() {}
 
 func (x *Receiving) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[9]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -868,7 +984,7 @@ func (x *Receiving) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Receiving.ProtoReflect.Descriptor instead.
 func (*Receiving) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{9}
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Receiving) GetTransferId() []byte {
@@ -963,7 +1079,7 @@ type Sending struct {
 
 func (x *Sending) Reset() {
 	*x = Sending{}
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[10]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -975,7 +1091,7 @@ func (x *Sending) String() string {
 func (*Sending) ProtoMessage() {}
 
 func (x *Sending) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[10]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -988,7 +1104,7 @@ func (x *Sending) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Sending.ProtoReflect.Descriptor instead.
 func (*Sending) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{10}
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *Sending) GetTransferId() []byte {
@@ -1031,7 +1147,7 @@ type Wait struct {
 
 func (x *Wait) Reset() {
 	*x = Wait{}
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[11]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1043,7 +1159,7 @@ func (x *Wait) String() string {
 func (*Wait) ProtoMessage() {}
 
 func (x *Wait) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[11]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1056,7 +1172,7 @@ func (x *Wait) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Wait.ProtoReflect.Descriptor instead.
 func (*Wait) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{11}
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Wait) GetKind() Wait_Kind {
@@ -1089,7 +1205,7 @@ type Result struct {
 
 func (x *Result) Reset() {
 	*x = Result{}
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[12]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1101,7 +1217,7 @@ func (x *Result) String() string {
 func (*Result) ProtoMessage() {}
 
 func (x *Result) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[12]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1114,7 +1230,7 @@ func (x *Result) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Result.ProtoReflect.Descriptor instead.
 func (*Result) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{12}
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Result) GetResult() isResult_Result {
@@ -1171,7 +1287,7 @@ type FileVerified struct {
 
 func (x *FileVerified) Reset() {
 	*x = FileVerified{}
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[13]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1183,7 +1299,7 @@ func (x *FileVerified) String() string {
 func (*FileVerified) ProtoMessage() {}
 
 func (x *FileVerified) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[13]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1196,7 +1312,7 @@ func (x *FileVerified) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileVerified.ProtoReflect.Descriptor instead.
 func (*FileVerified) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{13}
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *FileVerified) GetTransferId() []byte {
@@ -1235,7 +1351,7 @@ type Failed struct {
 
 func (x *Failed) Reset() {
 	*x = Failed{}
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[14]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1247,7 +1363,7 @@ func (x *Failed) String() string {
 func (*Failed) ProtoMessage() {}
 
 func (x *Failed) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[14]
+	mi := &file_slipstream_transfer_v1_sync_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1260,7 +1376,7 @@ func (x *Failed) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Failed.ProtoReflect.Descriptor instead.
 func (*Failed) Descriptor() ([]byte, []int) {
-	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{14}
+	return file_slipstream_transfer_v1_sync_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *Failed) GetTransferId() []byte {
@@ -1295,12 +1411,16 @@ var File_slipstream_transfer_v1_sync_proto protoreflect.FileDescriptor
 
 const file_slipstream_transfer_v1_sync_proto_rawDesc = "" +
 	"\n" +
-	"!slipstream/transfer/v1/sync.proto\x12\x16slipstream.transfer.v1\"s\n" +
+	"!slipstream/transfer/v1/sync.proto\x12\x16slipstream.transfer.v1\"\x97\x01\n" +
 	"\x06Intent\x12\x1d\n" +
 	"\n" +
 	"send_limit\x18\x01 \x01(\x03R\tsendLimit\x126\n" +
-	"\x06active\x18\x02 \x03(\v2\x1e.slipstream.transfer.v1.ActiveR\x06active\x12\x12\n" +
-	"\x04keep\x18\x03 \x03(\fR\x04keep\"\xbd\x02\n" +
+	"\x06active\x18\x02 \x03(\v2\x1e.slipstream.transfer.v1.ActiveR\x06active\x120\n" +
+	"\x04keep\x18\x04 \x03(\v2\x1c.slipstream.transfer.v1.KeptR\x04keepJ\x04\b\x03\x10\x04\"E\n" +
+	"\x04Kept\x12\x1f\n" +
+	"\vtransfer_id\x18\x01 \x01(\fR\n" +
+	"transferId\x12\x1c\n" +
+	"\tpositions\x18\x02 \x03(\rR\tpositions\"\xbd\x02\n" +
 	"\x06Active\x12\x1f\n" +
 	"\vtransfer_id\x18\x01 \x01(\fR\n" +
 	"transferId\x120\n" +
@@ -1321,10 +1441,14 @@ const file_slipstream_transfer_v1_sync_proto_rawDesc = "" +
 	"\x04File\x12\x1a\n" +
 	"\bposition\x18\x01 \x01(\rR\bposition\x126\n" +
 	"\x06source\x18\x02 \x01(\v2\x1e.slipstream.transfer.v1.SourceR\x06source\x12\x12\n" +
-	"\x04size\x18\x03 \x01(\x03R\x04size\"S\n" +
+	"\x04size\x18\x03 \x01(\x03R\x04size\"\x8d\x01\n" +
 	"\x06Source\x12B\n" +
-	"\atorrent\x18\x01 \x01(\v2&.slipstream.transfer.v1.TorrentPayloadH\x00R\atorrentB\x05\n" +
-	"\x03ref\"L\n" +
+	"\atorrent\x18\x01 \x01(\v2&.slipstream.transfer.v1.TorrentPayloadH\x00R\atorrent\x128\n" +
+	"\x04path\x18\x02 \x01(\v2\".slipstream.transfer.v1.PathSourceH\x00R\x04pathB\x05\n" +
+	"\x03ref\"\x1e\n" +
+	"\n" +
+	"PathSource\x12\x10\n" +
+	"\x03abs\x18\x01 \x01(\tR\x03abs\"L\n" +
 	"\x0eTorrentPayload\x12\x1b\n" +
 	"\tinfo_hash\x18\x01 \x01(\fR\binfoHash\x12\x1d\n" +
 	"\n" +
@@ -1406,54 +1530,58 @@ func file_slipstream_transfer_v1_sync_proto_rawDescGZIP() []byte {
 }
 
 var file_slipstream_transfer_v1_sync_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_slipstream_transfer_v1_sync_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_slipstream_transfer_v1_sync_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_slipstream_transfer_v1_sync_proto_goTypes = []any{
 	(Side)(0),               // 0: slipstream.transfer.v1.Side
 	(Route)(0),              // 1: slipstream.transfer.v1.Route
 	(Wait_Kind)(0),          // 2: slipstream.transfer.v1.Wait.Kind
 	(Failed_Code)(0),        // 3: slipstream.transfer.v1.Failed.Code
 	(*Intent)(nil),          // 4: slipstream.transfer.v1.Intent
-	(*Active)(nil),          // 5: slipstream.transfer.v1.Active
-	(*Peer)(nil),            // 6: slipstream.transfer.v1.Peer
-	(*Destination)(nil),     // 7: slipstream.transfer.v1.Destination
-	(*RootDestination)(nil), // 8: slipstream.transfer.v1.RootDestination
-	(*File)(nil),            // 9: slipstream.transfer.v1.File
-	(*Source)(nil),          // 10: slipstream.transfer.v1.Source
-	(*TorrentPayload)(nil),  // 11: slipstream.transfer.v1.TorrentPayload
-	(*Facts)(nil),           // 12: slipstream.transfer.v1.Facts
-	(*Receiving)(nil),       // 13: slipstream.transfer.v1.Receiving
-	(*Sending)(nil),         // 14: slipstream.transfer.v1.Sending
-	(*Wait)(nil),            // 15: slipstream.transfer.v1.Wait
-	(*Result)(nil),          // 16: slipstream.transfer.v1.Result
-	(*FileVerified)(nil),    // 17: slipstream.transfer.v1.FileVerified
-	(*Failed)(nil),          // 18: slipstream.transfer.v1.Failed
+	(*Kept)(nil),            // 5: slipstream.transfer.v1.Kept
+	(*Active)(nil),          // 6: slipstream.transfer.v1.Active
+	(*Peer)(nil),            // 7: slipstream.transfer.v1.Peer
+	(*Destination)(nil),     // 8: slipstream.transfer.v1.Destination
+	(*RootDestination)(nil), // 9: slipstream.transfer.v1.RootDestination
+	(*File)(nil),            // 10: slipstream.transfer.v1.File
+	(*Source)(nil),          // 11: slipstream.transfer.v1.Source
+	(*PathSource)(nil),      // 12: slipstream.transfer.v1.PathSource
+	(*TorrentPayload)(nil),  // 13: slipstream.transfer.v1.TorrentPayload
+	(*Facts)(nil),           // 14: slipstream.transfer.v1.Facts
+	(*Receiving)(nil),       // 15: slipstream.transfer.v1.Receiving
+	(*Sending)(nil),         // 16: slipstream.transfer.v1.Sending
+	(*Wait)(nil),            // 17: slipstream.transfer.v1.Wait
+	(*Result)(nil),          // 18: slipstream.transfer.v1.Result
+	(*FileVerified)(nil),    // 19: slipstream.transfer.v1.FileVerified
+	(*Failed)(nil),          // 20: slipstream.transfer.v1.Failed
 }
 var file_slipstream_transfer_v1_sync_proto_depIdxs = []int32{
-	5,  // 0: slipstream.transfer.v1.Intent.active:type_name -> slipstream.transfer.v1.Active
-	0,  // 1: slipstream.transfer.v1.Active.side:type_name -> slipstream.transfer.v1.Side
-	6,  // 2: slipstream.transfer.v1.Active.peer:type_name -> slipstream.transfer.v1.Peer
-	1,  // 3: slipstream.transfer.v1.Active.route:type_name -> slipstream.transfer.v1.Route
-	7,  // 4: slipstream.transfer.v1.Active.destination:type_name -> slipstream.transfer.v1.Destination
-	9,  // 5: slipstream.transfer.v1.Active.files:type_name -> slipstream.transfer.v1.File
-	8,  // 6: slipstream.transfer.v1.Destination.root:type_name -> slipstream.transfer.v1.RootDestination
-	10, // 7: slipstream.transfer.v1.File.source:type_name -> slipstream.transfer.v1.Source
-	11, // 8: slipstream.transfer.v1.Source.torrent:type_name -> slipstream.transfer.v1.TorrentPayload
-	13, // 9: slipstream.transfer.v1.Facts.receiving:type_name -> slipstream.transfer.v1.Receiving
-	14, // 10: slipstream.transfer.v1.Facts.sending:type_name -> slipstream.transfer.v1.Sending
-	1,  // 11: slipstream.transfer.v1.Receiving.route:type_name -> slipstream.transfer.v1.Route
-	1,  // 12: slipstream.transfer.v1.Receiving.gave_up:type_name -> slipstream.transfer.v1.Route
-	15, // 13: slipstream.transfer.v1.Receiving.wait:type_name -> slipstream.transfer.v1.Wait
-	1,  // 14: slipstream.transfer.v1.Sending.route:type_name -> slipstream.transfer.v1.Route
-	1,  // 15: slipstream.transfer.v1.Sending.gave_up:type_name -> slipstream.transfer.v1.Route
-	2,  // 16: slipstream.transfer.v1.Wait.kind:type_name -> slipstream.transfer.v1.Wait.Kind
-	17, // 17: slipstream.transfer.v1.Result.verified:type_name -> slipstream.transfer.v1.FileVerified
-	18, // 18: slipstream.transfer.v1.Result.failed:type_name -> slipstream.transfer.v1.Failed
-	3,  // 19: slipstream.transfer.v1.Failed.code:type_name -> slipstream.transfer.v1.Failed.Code
-	20, // [20:20] is the sub-list for method output_type
-	20, // [20:20] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	6,  // 0: slipstream.transfer.v1.Intent.active:type_name -> slipstream.transfer.v1.Active
+	5,  // 1: slipstream.transfer.v1.Intent.keep:type_name -> slipstream.transfer.v1.Kept
+	0,  // 2: slipstream.transfer.v1.Active.side:type_name -> slipstream.transfer.v1.Side
+	7,  // 3: slipstream.transfer.v1.Active.peer:type_name -> slipstream.transfer.v1.Peer
+	1,  // 4: slipstream.transfer.v1.Active.route:type_name -> slipstream.transfer.v1.Route
+	8,  // 5: slipstream.transfer.v1.Active.destination:type_name -> slipstream.transfer.v1.Destination
+	10, // 6: slipstream.transfer.v1.Active.files:type_name -> slipstream.transfer.v1.File
+	9,  // 7: slipstream.transfer.v1.Destination.root:type_name -> slipstream.transfer.v1.RootDestination
+	11, // 8: slipstream.transfer.v1.File.source:type_name -> slipstream.transfer.v1.Source
+	13, // 9: slipstream.transfer.v1.Source.torrent:type_name -> slipstream.transfer.v1.TorrentPayload
+	12, // 10: slipstream.transfer.v1.Source.path:type_name -> slipstream.transfer.v1.PathSource
+	15, // 11: slipstream.transfer.v1.Facts.receiving:type_name -> slipstream.transfer.v1.Receiving
+	16, // 12: slipstream.transfer.v1.Facts.sending:type_name -> slipstream.transfer.v1.Sending
+	1,  // 13: slipstream.transfer.v1.Receiving.route:type_name -> slipstream.transfer.v1.Route
+	1,  // 14: slipstream.transfer.v1.Receiving.gave_up:type_name -> slipstream.transfer.v1.Route
+	17, // 15: slipstream.transfer.v1.Receiving.wait:type_name -> slipstream.transfer.v1.Wait
+	1,  // 16: slipstream.transfer.v1.Sending.route:type_name -> slipstream.transfer.v1.Route
+	1,  // 17: slipstream.transfer.v1.Sending.gave_up:type_name -> slipstream.transfer.v1.Route
+	2,  // 18: slipstream.transfer.v1.Wait.kind:type_name -> slipstream.transfer.v1.Wait.Kind
+	19, // 19: slipstream.transfer.v1.Result.verified:type_name -> slipstream.transfer.v1.FileVerified
+	20, // 20: slipstream.transfer.v1.Result.failed:type_name -> slipstream.transfer.v1.Failed
+	3,  // 21: slipstream.transfer.v1.Failed.code:type_name -> slipstream.transfer.v1.Failed.Code
+	22, // [22:22] is the sub-list for method output_type
+	22, // [22:22] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_transfer_v1_sync_proto_init() }
@@ -1461,13 +1589,14 @@ func file_slipstream_transfer_v1_sync_proto_init() {
 	if File_slipstream_transfer_v1_sync_proto != nil {
 		return
 	}
-	file_slipstream_transfer_v1_sync_proto_msgTypes[3].OneofWrappers = []any{
+	file_slipstream_transfer_v1_sync_proto_msgTypes[4].OneofWrappers = []any{
 		(*Destination_Root)(nil),
 	}
-	file_slipstream_transfer_v1_sync_proto_msgTypes[6].OneofWrappers = []any{
+	file_slipstream_transfer_v1_sync_proto_msgTypes[7].OneofWrappers = []any{
 		(*Source_Torrent)(nil),
+		(*Source_Path)(nil),
 	}
-	file_slipstream_transfer_v1_sync_proto_msgTypes[12].OneofWrappers = []any{
+	file_slipstream_transfer_v1_sync_proto_msgTypes[14].OneofWrappers = []any{
 		(*Result_Verified)(nil),
 		(*Result_Failed)(nil),
 	}
@@ -1477,7 +1606,7 @@ func file_slipstream_transfer_v1_sync_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_slipstream_transfer_v1_sync_proto_rawDesc), len(file_slipstream_transfer_v1_sync_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   15,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
