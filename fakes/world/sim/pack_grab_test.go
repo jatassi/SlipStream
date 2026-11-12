@@ -54,7 +54,7 @@ func (c crossNode) grabbed(t *testing.T) string {
 func TestAGrabbedPackLandsInAnyOrder(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		p, l := parkedAt(3), newLands()
+		p, l := newLaterParked(), newLands()
 		c := launchCrossNode(t, func(e *node.Env) { e.Test.Transfers.Sent = p.sent }, sim.Edit(func(name string, e *node.Env) {
 			if name == "home" {
 				e.Test.BeforeImport = l.before

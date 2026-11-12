@@ -45,6 +45,9 @@ func sortedIDs(ids []ImportID) []ImportID {
 	return slices.SortedFunc(slices.Values(ids), func(x, y ImportID) int { return x.Compare(y.UUID) })
 }
 
+// write makes each of paths under dir a file of the smallest size an
+// import takes as a video. A place by copy writes every byte, which a
+// Windows runner's disk takes longer than a test waits for at 1 GiB.
 func write(t *testing.T, dir string, paths ...string) {
 	t.Helper()
 	for _, p := range paths {
@@ -55,7 +58,7 @@ func write(t *testing.T, dir string, paths ...string) {
 		if err := os.WriteFile(at, []byte(p), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Truncate(at, 1<<30); err != nil {
+		if err := os.Truncate(at, SmallestVideo.Default); err != nil {
 			t.Fatal(err)
 		}
 	}

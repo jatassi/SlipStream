@@ -69,6 +69,16 @@ func (p planned) lines() []string {
 	return lines
 }
 
+// moving is the files of every Work p lists that the disk queue still
+// moves.
+func (p planned) moving() int {
+	n := 0
+	for _, w := range p.Works {
+		n += w.Moving
+	}
+	return n
+}
+
 // confirmed is the confirm body of every Work p lists, as shown.
 func (p planned) confirmed() []confirmedWork {
 	out := make([]confirmedWork, len(p.Works))
