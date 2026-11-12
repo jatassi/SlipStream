@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/live"
@@ -78,8 +79,10 @@ type Config struct {
 	// Transfers still send to a volume.
 	Probes    storing.Probes
 	Transfers *transfers.Transfers
-	Timings   Timings
-	Rand      *rand.Rand
+	// Grabs is told how each download's Import goes, through Follow.
+	Grabs   *grabs.Grabs
+	Timings Timings
+	Rand    *rand.Rand
 	// BeforeStep sees each root's unit before each phase, and BeforeImport
 	// each Import file's IO before it runs, in tests.
 	BeforeStep   func(ctx context.Context, root roots.ID, phase Phase)

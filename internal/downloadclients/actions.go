@@ -177,7 +177,8 @@ type Refusal struct {
 
 // Preview is what a remove or a recheck would do.
 type Preview struct {
-	// Cancels are the Grabs at downloading the remove fails.
+	// Cancels are the Grabs a remove ends: each at downloading, and each
+	// whose Import waits for the Admin.
 	Cancels []Use
 	// StopSeeding are the Works whose complete Torrents stop seeding.
 	StopSeeding []works.WorkID
@@ -545,7 +546,7 @@ func (c *Clients) hitsAndRuns(ctx context.Context, r storage.Reader[file], plan 
 // canceled, and once complete, every Work it seeds for stops seeding.
 func (p *Preview) add(row db.ListActedRow, uses []Use) {
 	for _, u := range uses {
-		if u.Stage == UseDownloading {
+		if u.Stage == UseDownloading || u.Stage == UseWaiting {
 			p.Cancels = append(p.Cancels, u)
 		}
 		if row.Completion != nil && !slices.Contains(p.StopSeeding, u.Work) {

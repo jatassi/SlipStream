@@ -43,14 +43,6 @@ type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
 
-type noGrabs struct{}
-
-func (noGrabs) CancelTransfersIn(context.Context, *storage.Tx[storage.Library], []works.WorkID) error {
-	return nil
-}
-
-func (noGrabs) TouchTransfers() {}
-
 // shelfFacet places a file at the Item its name, without extension,
 // labels.
 type shelfFacet struct {
@@ -138,7 +130,7 @@ func serve(t *testing.T) *server {
 		t.Fatal(err)
 	}
 	fs, err := files.Open(ctx, files.Config{
-		Library: s.lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }},
+		Library: s.lib, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}},
 		Naming: naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: s.fx}}), Names: map[works.TypeID]release.Names{contenttypetest.ID: s.fx}, Today: time.Now,
 	})
 	if err != nil {
@@ -152,7 +144,7 @@ func serve(t *testing.T) *server {
 		},
 		Changed: discard[imports.Changed]{}, FilesChanged: discard[files.Changed]{},
 	})
-	s.library = library.New(library.Config{Library: s.lib, Works: w, Roots: s.roots, Files: fs, Grabs: noGrabs{}, Imports: im, Leaver: im})
+	s.library = library.New(library.Config{Library: s.lib, Works: w, Roots: s.roots, Files: fs, Imports: im, Leaver: im})
 	s.Owner = ownertest.Serve(t, s.lib, func(r *api.Router) { importsapi.Routes(r, node{im, s.roots}) })
 	return s
 }

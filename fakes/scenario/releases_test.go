@@ -120,10 +120,12 @@ func TestValidateChecksTheReleaseFiles(t *testing.T) {
 }
 
 func TestValidateChecksTheImportingSettings(t *testing.T) {
-	s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}}, Library: &Library{Importing: LibraryImporting{SampleShorterThan: 91}}}
+	s := Scenario{Name: "x", Nodes: []Node{{Name: "home"}}, Library: &Library{Importing: LibraryImporting{SmallestVideoFile: 256 << 10, SampleShorterThan: 91}}}
 	err := s.Validate()
-	if err == nil || !strings.Contains(err.Error(), "library importing sample_shorter_than is 91%; it is 0 to 90") {
-		t.Fatalf("Validate = %v", err)
+	for _, want := range []string{"library importing smallest_video_file is 262144 bytes; it is whole MiB, as the setting takes", "library importing sample_shorter_than is 91%; it is 0 to 90"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("Validate = %v, want %q", err, want)
+		}
 	}
 }
 

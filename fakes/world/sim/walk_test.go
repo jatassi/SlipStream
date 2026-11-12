@@ -29,6 +29,7 @@ import (
 	"github.com/jatassi/slipstream/internal/contenttype"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/media/mediatest"
@@ -114,17 +115,15 @@ func watermarks(t *testing.T, w *sim.World) []int64 {
 	return out
 }
 
-// stageHold stops a walk once at stage: before home runs its step, or,
-// for transferring, at the first chunk seedbox sends, which waits until
-// restarted closes.
+// stageHold stops a walk once at a step: before home runs a Grab's step
+// at stage, before home's Import probes or lands the file at at, or, with
+// neither, at the first chunk seedbox sends, which waits until restarted
+// closes.
 type stageHold struct {
 	stage              grabs.Stage
+	at                 imports.StepAt
 	reached, restarted chan struct{}
 	held               atomic.Bool
-}
-
-func newStageHold(stage grabs.Stage) *stageHold {
-	return &stageHold{stage: stage, reached: make(chan struct{}), restarted: make(chan struct{})}
 }
 
 func (h *stageHold) hold() bool {
@@ -141,7 +140,12 @@ func (h *stageHold) edit(name string, e *node.Env) {
 			<-ctx.Done()
 		}
 	}
-	if name == "seedbox" && h.stage == grabs.Transferring {
+	e.Test.BeforeImport = func(ctx context.Context, s imports.Step) {
+		if s.At == h.at && h.hold() {
+			<-ctx.Done()
+		}
+	}
+	if name == "seedbox" && h.stage == "" && h.at == "" {
 		e.Test.Transfers.Sent = func(transfers.ID, int, int, []byte) {
 			if h.hold() {
 				<-h.restarted
@@ -156,11 +160,17 @@ func (h *stageHold) edit(name string, e *node.Env) {
 // default port restarts: the Grab resumes and ends imported with one file.
 func TestAControllerRestartedAtEachStageImportsOnce(t *testing.T) {
 	t.Parallel()
-	for _, stage := range []grabs.Stage{grabs.Fetching, grabs.Downloading, grabs.Probing, grabs.Transferring, grabs.Importing} {
-		t.Run(string(stage), func(t *testing.T) {
+	for name, hold := range map[string]struct {
+		stage grabs.Stage
+		at    imports.StepAt
+	}{
+		"fetching": {stage: grabs.Fetching}, "downloading": {stage: grabs.Downloading},
+		"probing": {at: imports.AtProbe}, "transferring": {}, "landing": {at: imports.AtLand},
+	} {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			synctest.Test(t, func(t *testing.T) {
-				held := newStageHold(stage)
+				held := &stageHold{stage: hold.stage, at: hold.at, reached: make(chan struct{}), restarted: make(chan struct{})}
 				w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), sim.Edit(held.edit))
 				simtest.Search(t, w, simtest.AddOrchard(t, w))
 				<-held.reached
@@ -447,11 +457,11 @@ func TestATorrentWhoseInfoHashDiffersFromTheIndexersFailsFetching(t *testing.T) 
 	})
 }
 
-// TestAPayloadProbedAt480pFillsNothing probes the 1080p release's file at
-// 480p on seedbox, which the starter Target doesn't accept: probing fails
-// fills_nothing, no Transfer starts, and seedbox keeps the torrent in its
-// intent.
-func TestAPayloadProbedAt480pFillsNothing(t *testing.T) {
+// TestAPayloadProbedAt480pWaitsInPendingImports probes the 1080p release's
+// file at 480p on seedbox, which the starter Target doesn't accept: the
+// Grab stays importing while its file waits meets_nothing for the Admin,
+// no Transfer starts, and seedbox keeps the torrent in its intent.
+func TestAPayloadProbedAt480pWaitsInPendingImports(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		var asked atomic.Bool
@@ -460,11 +470,15 @@ func TestAPayloadProbedAt480pFillsNothing(t *testing.T) {
 			e.Test.Transfers.Sent = func(transfers.ID, int, int, []byte) { asked.Store(true) }
 		}))
 		simtest.Search(t, w, simtest.AddOrchard(t, w))
-		g := simtest.Await(t, w)
-		expectFailed(t, g, "probing", "fills_nothing", "a SDTV file fills no Target the Work still wants")
-		if got := g.Stages(); !slices.Equal(got, []string{"fetching", "downloading", "probing", "failed"}) {
-			t.Fatalf("the Grab's history is %v, want [fetching downloading probing failed]", got)
+		simtest.Eventually(t, "the Grab's file waits meets_nothing", func() bool {
+			imps := grabImports(t, w)
+			return len(imps) == 1 && slices.Equal(imps[0].outcomes(), []string{release + ".mkv: waiting meets_nothing"})
+		})
+		gs := simtest.GrabsListed(t, w)
+		if len(gs) != 1 || gs[0].Stage != "importing" || !slices.Equal(gs[0].Stages(), []string{"fetching", "downloading", "importing"}) {
+			t.Fatalf("the Grabs are %+v, want one importing after [fetching downloading importing]", gs)
 		}
+		g := gs[0]
 		if asked.Load() {
 			t.Fatal("seedbox sent a chunk")
 		}

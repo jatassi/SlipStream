@@ -85,14 +85,7 @@ func settings(ctx context.Context, c *http.Client, lib *scenario.Library, contro
 			return err
 		}
 	}
-	return setImporting(ctx, c, controller, apiKey, lib.Importing)
-}
-
-// setImporting sets the Scenario's Importing settings on the Controller.
-// It sets nothing until S33 (Import pipeline) adds the Importing settings
-// route, whose PR sends them here.
-func setImporting(context.Context, *http.Client, string, string, scenario.LibraryImporting) error {
-	return nil
+	return nodeapi.SetImporting(ctx, c, controller, apiKey, lib.Importing)
 }
 
 // Clients is where the Node named node reaches the fake Download Client of

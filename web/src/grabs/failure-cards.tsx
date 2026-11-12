@@ -24,7 +24,7 @@ function useCardActions(grab: FailedGrab, form: "full" | "compact", onDetails: (
   const manual = {
     label: "Manual search",
     onClick: () => {
-      openManualSearch({ workId: grab.workId, scope: { itemIds: [grab.itemId] } });
+      openManualSearch({ workId: grab.workId, scope: { itemIds: grab.items } });
     },
   };
   const details = { label: "Details", onClick: onDetails };
@@ -72,7 +72,7 @@ export function GrabFailure({
         fix={{
           label: "Search again",
           onClick: () => {
-            search.start(grab.workId, { levelIds: [], itemIds: [grab.itemId] });
+            search.start(grab.workId, { levelIds: [], itemIds: grab.items });
           },
         }}
         actions={actions}

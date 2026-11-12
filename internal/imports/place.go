@@ -58,13 +58,13 @@ func (im *Imports) place(ctx context.Context, imp Import, f File) error {
 		}
 		return im.land(ctx, imp, f, seen, InPlace)
 	}
-	var (
-		placed storing.Placed
-		err    error
-	)
-	if f.Sent != nil {
+	var placed storing.Placed
+	err := im.vacant(ctx, imp, f)
+	switch {
+	case err != nil:
+	case f.Sent != nil:
 		placed, err = im.cfg.Roots.Move(ctx, f.Dest.Root, transfers.StagedRel(f.Sent.Transfer, f.Sent.Order), f.Dest.Holding, false)
-	} else {
+	default:
 		placed, err = im.cfg.Roots.Place(ctx, f.Dest.Root, f.Dest.Holding, f.sourceOf(imp), f.PlacedBy == ByCopy)
 	}
 	if needs, ok := errors.AsType[*storing.NeedsCopyError](err); ok {
@@ -92,12 +92,41 @@ func (im *Imports) place(ctx context.Context, imp Import, f File) error {
 	return im.land(ctx, imp, f, placed.Seen, by)
 }
 
-// holdOrFail makes a place's error an import wait, which retries, or for
-// any other storage error a failure the Admin retries.
+// vacant is nil when nothing SlipStream doesn't track sits at the name
+// f's decision gives it in its root, else *files.NameTakenError, read
+// before any of f's bytes move there.
+func (im *Imports) vacant(ctx context.Context, imp Import, f File) error {
+	var to string
+	err := im.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		cands, err := im.candidates(ctx, r, &imp, f.Dest.Root, []int{indexOf(&imp, f.Position)})
+		if err != nil {
+			return err
+		}
+		vs, err := im.cfg.Files.Judge(ctx, r, files.Batch{Work: imp.Work, Root: f.Dest.Root, Import: imp.ID.UUID, Candidates: cands})
+		if err != nil {
+			return err
+		}
+		to = vs[0].Path
+		return nil
+	})
+	if err != nil || to == "" {
+		return err
+	}
+	return im.cfg.Files.Vacant(ctx, f.Dest.Root, f.Dest.Holding.String(), to)
+}
+
+// holdOrFail makes a place's error an import wait: a name a file
+// SlipStream doesn't track holds waits for the Admin, a storage wait
+// retries, and any other storage error is a failure the Admin retries.
 func (f *File) holdOrFail(err error) {
-	var waiting *roots.WaitingError
+	var (
+		waiting *roots.WaitingError
+		taken   *files.NameTakenError
+	)
 	switch {
-	case errors.As(err, &waiting):
+	case errors.As(err, &taken):
+		f.Outcome, f.Reason, f.Hold = Waiting, &Reason{Code: NameTaken, Name: taken.Path}, nil
+	case errors.As(err, &waiting), errors.As(err, new(*storing.NotReady)):
 		f.wait(RootNotReady)
 	case away(err):
 		f.wait(NodeAway)

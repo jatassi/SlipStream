@@ -14,7 +14,6 @@ import (
 	"unicode"
 
 	"github.com/jatassi/slipstream/internal/bencode"
-	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/formats"
@@ -25,7 +24,6 @@ import (
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
-	"github.com/jatassi/slipstream/internal/torrent/engine"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -527,28 +525,6 @@ func TestAJobWhoseGrabVanishedLeavesTheReconcilerIdle(t *testing.T) {
 	}
 	if len(s.shown) != 0 {
 		t.Errorf("the vanished Grab's progress stays shown: %v", s.shown)
-	}
-}
-
-func TestProbingADownloadOfOnlyExtrasFailsAsNoVideoFile(t *testing.T) {
-	g := Grab{Torrent: &Torrent{Attached: downloadclients.Attached{Files: []engine.File{
-		{Index: 0, Path: "Heat.1995/Sample/heat.mkv", Size: 50},
-		{Index: 1, Path: "Heat.1995/Heat.1995-trailer.mp4", Size: 80},
-		{Index: 2, Path: "Heat.1995/Heat.1995.nfo", Size: 1},
-	}}}}
-	if got, want := (&Grabs{}).probe(t.Context(), g), (fail{NoVideoFile, "The download holds no video file."}); got != want {
-		t.Fatalf("probe = %+v, want %+v", got, want)
-	}
-}
-
-func TestLargestVideoPassesOverALargerSample(t *testing.T) {
-	got, ok := largestVideo([]engine.File{
-		{Index: 0, Path: "Heat.1995/Heat.1995-sample.mkv", Size: 900},
-		{Index: 1, Path: "Heat.1995/Heat.1995.m2ts", Size: 700},
-		{Index: 2, Path: "Heat.1995/Heat.1995.Part.2.mkv", Size: 300},
-	})
-	if !ok || got.Index != 1 {
-		t.Fatalf("largestVideo = %+v, %t; want Heat.1995.m2ts", got, ok)
 	}
 }
 

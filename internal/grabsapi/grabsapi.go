@@ -257,7 +257,7 @@ func idOrNil(id storage.UUID) *string {
 }
 
 type failure struct {
-	Stage    string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
+	Stage    string `json:"stage" enum:"fetching,downloading,importing"`
 	Code     string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,marked_failed,removed,client_removed,client_deleted,goal_met,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault,client_error,declined,unreadable"`
 	Message  string `json:"message"`
 	NeedsYou bool   `json:"needsYou" doc:"It goes under Needs you. False for a cancel and for a Manual Grab whose Release the Blocklist held after its fetch, which its sheet already said."`
@@ -265,12 +265,12 @@ type failure struct {
 }
 
 type entered struct {
-	Stage string    `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
+	Stage string    `json:"stage" enum:"fetching,downloading,importing,imported,failed"`
 	At    time.Time `json:"at"`
 }
 
 type progress struct {
-	Done  int64 `json:"done" minimum:"0" doc:"Bytes downloaded, or received and verified while transferring"`
+	Done  int64 `json:"done" minimum:"0" doc:"Bytes downloaded"`
 	Total int64 `json:"total" minimum:"0" doc:"Bytes wanted"`
 }
 
@@ -299,7 +299,6 @@ type clientWait struct {
 type grab struct {
 	ID           string                   `json:"id" format:"uuid"`
 	WorkID       string                   `json:"workId" format:"uuid"`
-	ItemID       string                   `json:"itemId" format:"uuid"`
 	Items        []string                 `json:"items" nullable:"false" doc:"The ids of the Items its Release covers in the Work, in tree order"`
 	Edition      string                   `json:"edition" doc:"The Edition it was grabbed to fill: any under any cut, else a cut key"`
 	TargetIDs    []string                 `json:"targetIds" nullable:"false" doc:"The Targets it was grabbed for, in Profile order"`
@@ -315,12 +314,12 @@ type grab struct {
 	TorrentID    *string                  `json:"torrentId" format:"uuid" doc:"The Torrent it downloads, null until the .torrent is fetched"`
 	Client       api.Nullable[grabClient] `json:"downloadClient" doc:"Its Torrent's external Download Client, null for its Node's built-in client or until the .torrent is fetched"`
 	InfoHash     *string                  `json:"infoHash" doc:"The v1 info hash in hex, null until the .torrent is fetched"`
-	Stage        string                   `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
+	Stage        string                   `json:"stage" enum:"fetching,downloading,importing,imported,failed"`
 	InFlight     bool                     `json:"inFlight" doc:"It holds its cells and counts in Activity: it is neither imported nor failed"`
 	Failure      *failure                 `json:"failure,omitempty" doc:"Why it failed, absent unless it did"`
 	Import       api.Nullable[grabImport] `json:"import" doc:"Its download's Import, from importing on; null before"`
 	History      []entered                `json:"history" nullable:"false" doc:"Each stage it entered, when it last entered it, oldest first"`
-	Progress     *progress                `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
+	Progress     *progress                `json:"progress,omitempty" doc:"The download's progress, absent unless it is downloading and its Node reported it"`
 	Metadata     *metadataSearch          `json:"metadata,omitempty" doc:"The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node"`
 	FetchWait    *fetchWait               `json:"fetchWait,omitempty" doc:"Why fetching the .torrent waits on its Indexer, absent unless it does"`
 	WaitsFor     *clientWait              `json:"waitsFor,omitempty" doc:"The client a fetching Grab goes to, absent unless it waits for that client: its Node to be back online, or a pinned client that can't take it"`
@@ -356,7 +355,7 @@ type grabActions struct {
 
 func grabOf(v grabs.View) grab {
 	out := grab{
-		ID: v.ID.String(), WorkID: v.WorkID.String(), ItemID: v.ItemID.String(), Edition: string(v.Edition), TargetIDs: []string{},
+		ID: v.ID.String(), WorkID: v.WorkID.String(), Edition: string(v.Edition), TargetIDs: []string{},
 		Items: []string{}, Targets: []grabTarget{}, ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseWords, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
 		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), InFlight: v.Stage.InFlight(), History: []entered{}, CreatedAt: v.Created,
 		Source: string(v.Source), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...),
@@ -506,7 +505,7 @@ func Routes(r *api.Router, p Pipeline) {
 		ID:      "cancelGrab",
 		Method:  http.MethodPost,
 		Path:    "/grabs/{grabId}/cancel",
-		Summary: "Cancel a Grab that is fetching, downloading or transferring. Canceling a canceled Grab changes nothing",
+		Summary: "Cancel a Grab that is fetching, downloading or importing. Canceling a canceled Grab changes nothing",
 		Status:  http.StatusNoContent,
 		Errors:  []*api.Code{grabNotFound, grabBusy, grabFinished, reconciling},
 	}, h.cancelGrab)

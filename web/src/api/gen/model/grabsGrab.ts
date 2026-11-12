@@ -50,7 +50,6 @@ export interface GrabsGrab {
    * @nullable
    */
   infoHash: string | null;
-  itemId: string;
   /** The ids of the Items its Release covers in the Work, in tree order */
   items: string[];
   /**
@@ -64,7 +63,7 @@ export interface GrabsGrab {
   nodeId: string;
   /** Each choice the Admin made past the decision, as a sentence */
   overrides: string[];
-  /** The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring */
+  /** The download's progress, absent unless it is downloading and its Node reported it */
   progress?: GrabsProgress;
   /** The quality the release title names, absent when it names none */
   quality?: GrabsGrabQuality;

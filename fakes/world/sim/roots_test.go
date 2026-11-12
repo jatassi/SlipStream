@@ -21,7 +21,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 	"github.com/jatassi/slipstream/internal/contenttype"
-	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/install"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -111,8 +111,8 @@ func TestAnImportIntoAnUnmountedRootWaitsUntilItIsBack(t *testing.T) {
 		reached, unmounted := make(chan struct{}), make(chan struct{})
 		var held atomic.Bool
 		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), sim.Edit(func(_ string, e *node.Env) {
-			e.Test.BeforeStep = func(_ context.Context, s grabs.Stage) {
-				if s == grabs.Importing && held.CompareAndSwap(false, true) {
+			e.Test.BeforeImport = func(_ context.Context, s imports.Step) {
+				if s.At == imports.AtPlace && held.CompareAndSwap(false, true) {
 					close(reached)
 					<-unmounted
 				}

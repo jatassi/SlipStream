@@ -20,13 +20,11 @@ type (
 type Stage string
 
 const (
-	Fetching     Stage = "fetching"
-	Downloading  Stage = "downloading"
-	Probing      Stage = "probing"
-	Transferring Stage = "transferring"
-	Importing    Stage = "importing"
-	Imported     Stage = "imported"
-	Failed       Stage = "failed"
+	Fetching    Stage = "fetching"
+	Downloading Stage = "downloading"
+	Importing   Stage = "importing"
+	Imported    Stage = "imported"
+	Failed      Stage = "failed"
 )
 
 // InFlight is the one answer to whether a Grab at s holds its cells: from
@@ -40,7 +38,7 @@ func (s Stage) Use() downloadclients.UseStage {
 	case Fetching:
 	case Downloading:
 		return downloadclients.UseDownloading
-	case Probing, Transferring, Importing:
+	case Importing:
 		return downloadclients.UseImporting
 	case Imported:
 		return downloadclients.UseImported

@@ -1,6 +1,1 @@
-export type GrabsFailureStage =
-  | "fetching"
-  | "downloading"
-  | "probing"
-  | "transferring"
-  | "importing";
+export type GrabsFailureStage = "fetching" | "downloading" | "importing";

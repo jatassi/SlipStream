@@ -263,6 +263,9 @@ type LibraryImporting struct {
 }
 
 func (i LibraryImporting) check(add func(format string, args ...any)) {
+	if i.SmallestVideoFile%(1<<20) != 0 {
+		add("library importing smallest_video_file is %d bytes; it is whole MiB, as the setting takes", i.SmallestVideoFile)
+	}
 	if i.SampleShorterThan < 0 || i.SampleShorterThan > 90 {
 		add("library importing sample_shorter_than is %d%%; it is 0 to 90", i.SampleShorterThan)
 	}

@@ -94,19 +94,20 @@ func (q *Queries) CountNeedsYouByRoot(ctx context.Context) ([]CountNeedsYouByRoo
 const countUnfinishedInto = `-- name: CountUnfinishedInto :one
 SELECT count(*) FROM imports_import i
 WHERE i.finished_at IS NULL AND (
-    i.source <> 'root' AND (i.work_id IN (/*SLICE:work_ids*/?) OR EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.root_id = ?2))
-    OR i.source = 'root' AND i.root_id = ?2 AND EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.outcome IN ('pending', 'placing'))
+    i.source = 'root' AND i.root_id = ?1 AND EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.outcome IN ('pending', 'placing'))
+    OR i.source <> 'root' AND (EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.root_id = ?1) OR i.work_id IN (/*SLICE:work_ids*/?))
 )
 `
 
 type CountUnfinishedIntoParams struct {
-	WorkIds []works.WorkID
 	RootID  roots.ID
+	WorkIds []works.WorkID
 }
 
 func (q *Queries) CountUnfinishedInto(ctx context.Context, arg CountUnfinishedIntoParams) (int64, error) {
 	query := countUnfinishedInto
 	var queryParams []interface{}
+	queryParams = append(queryParams, arg.RootID)
 	if len(arg.WorkIds) > 0 {
 		for _, v := range arg.WorkIds {
 			queryParams = append(queryParams, v)
@@ -115,7 +116,6 @@ func (q *Queries) CountUnfinishedInto(ctx context.Context, arg CountUnfinishedIn
 	} else {
 		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
 	}
-	queryParams = append(queryParams, arg.RootID)
 	row := q.db.QueryRowContext(ctx, query, queryParams...)
 	var count int64
 	err := row.Scan(&count)
@@ -276,6 +276,17 @@ func (q *Queries) GetOpenFolderImport(ctx context.Context, arg GetOpenFolderImpo
 		&i.FinishedAt,
 	)
 	return i, err
+}
+
+const getOpenImportOfGrab = `-- name: GetOpenImportOfGrab :one
+SELECT id FROM imports_import WHERE grab_id = ?1 AND finished_at IS NULL
+`
+
+func (q *Queries) GetOpenImportOfGrab(ctx context.Context, grabID grabs.GrabID) (ImportID, error) {
+	row := q.db.QueryRowContext(ctx, getOpenImportOfGrab, grabID)
+	var id ImportID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const getRootImportAt = `-- name: GetRootImportAt :one
@@ -523,15 +534,15 @@ const listBusy = `-- name: ListBusy :many
 SELECT DISTINCT fi.item_id, f.import_id FROM imports_file_item fi
 JOIN imports_file f ON f.import_id = fi.import_id AND f.position = fi.position
 JOIN imports_import i ON i.id = f.import_id
-WHERE i.finished_at IS NULL AND i.work_id IS NOT NULL AND fi.item_id IN (/*SLICE:item_ids*/?) AND f.import_id <> ?2
-  AND (f.outcome IN ('sending', 'placing') OR (f.outcome = 'pending' AND i.created_at < ?3))
+WHERE i.finished_at IS NULL AND i.work_id IS NOT NULL AND f.import_id <> ?1
+  AND (f.outcome IN ('sending', 'placing') OR (f.outcome = 'pending' AND i.created_at < ?2)) AND fi.item_id IN (/*SLICE:item_ids*/?)
 ORDER BY fi.item_id, f.import_id
 `
 
 type ListBusyParams struct {
-	ItemIds []works.ItemID
 	Except  ImportID
 	Created storage.Time
+	ItemIds []works.ItemID
 }
 
 type ListBusyRow struct {
@@ -542,6 +553,8 @@ type ListBusyRow struct {
 func (q *Queries) ListBusy(ctx context.Context, arg ListBusyParams) ([]ListBusyRow, error) {
 	query := listBusy
 	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Except)
+	queryParams = append(queryParams, arg.Created)
 	if len(arg.ItemIds) > 0 {
 		for _, v := range arg.ItemIds {
 			queryParams = append(queryParams, v)
@@ -550,8 +563,6 @@ func (q *Queries) ListBusy(ctx context.Context, arg ListBusyParams) ([]ListBusyR
 	} else {
 		query = strings.Replace(query, "/*SLICE:item_ids*/?", "NULL", 1)
 	}
-	queryParams = append(queryParams, arg.Except)
-	queryParams = append(queryParams, arg.Created)
 	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
@@ -960,6 +971,62 @@ func (q *Queries) ListImporting(ctx context.Context, itemIds []works.ItemID) ([]
 	for rows.Next() {
 		var i ListImportingRow
 		if err := rows.Scan(&i.ItemID, &i.ImportID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listImportsOfGrabs = `-- name: ListImportsOfGrabs :many
+SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import WHERE grab_id IN (/*SLICE:grab_ids*/?) ORDER BY id
+`
+
+func (q *Queries) ListImportsOfGrabs(ctx context.Context, grabIds []grabs.GrabID) ([]ImportsImport, error) {
+	query := listImportsOfGrabs
+	var queryParams []interface{}
+	if len(grabIds) > 0 {
+		for _, v := range grabIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:grab_ids*/?", strings.Repeat(",?", len(grabIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:grab_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportsImport
+	for rows.Next() {
+		var i ImportsImport
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.GrabID,
+			&i.NodeID,
+			&i.InfoHash,
+			&i.RootID,
+			&i.Folder,
+			&i.ContentType,
+			&i.Hint,
+			&i.Suggestion,
+			&i.WorkID,
+			&i.Edition,
+			&i.MoveFiles,
+			&i.FailureCode,
+			&i.Ended,
+			&i.CreatedAt,
+			&i.IgnoredAt,
+			&i.FinishedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

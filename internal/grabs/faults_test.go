@@ -18,7 +18,6 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
-	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -58,9 +57,9 @@ func newFaulty(t *testing.T, answers ...answer) *faulty {
 	})
 	f.cfg.Targets, f.cfg.Names = goals, map[works.TypeID]rel.Names{contenttypetest.ID: dated{}}
 	f.cfg.Downloads = removing{swarm: f.swarm, clients: clients}
-	f.copies = transfers.New(transfers.ControllerConfig{Library: f.lib})
-	f.cfg.Transfers = f.copies
 	f.g = grabs.New(f.cfg)
+	f.imports = &importer{g: f.g}
+	f.g.Register(f.imports)
 	return f
 }
 
@@ -191,19 +190,14 @@ func TestAReleaseFaultPastDownloadingBlocklistsAndTheGrabCarriesOn(t *testing.T)
 	synctest.Test(t, func(t *testing.T) {
 		f := newFaulty(t)
 		id := downloadingGrab(t, f.pipeline, seedingReport)
-		run(t, f.lib, sql(`UPDATE grabs_grab SET stage = 'probing'`))
+		run(t, f.lib, sql(`UPDATE grabs_grab SET stage = 'importing'`))
 		f.fault(downloadclients.FaultUnregistered)
-		f.beforeStep = func(ctx context.Context, s grabs.Stage) {
-			if s == grabs.Probing {
-				<-ctx.Done()
-			}
-		}
 
 		f.running()
 
 		f.faultEntry(grabs.BlockEntry{InfoHash: f.torrent().InfoHash, Grab: id, Title: "The.Attic.1080p.WEB", Cause: grabs.CauseUnregistered, Because: "Fixture Site reported it unregistered."})
-		if v := f.view(id); v.Stage != grabs.Probing {
-			t.Errorf("the Grab is %s, want still probing", v.Stage)
+		if v := f.view(id); v.Stage != grabs.Importing {
+			t.Errorf("the Grab is %s, want still importing", v.Stage)
 		}
 		if a := f.torrent(); a.Outcome != (downloadclients.Completed{}) {
 			t.Errorf("the Torrent reads %+v, want it complete", a.Outcome)

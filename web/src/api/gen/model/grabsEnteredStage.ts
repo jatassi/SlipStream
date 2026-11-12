@@ -1,8 +1,1 @@
-export type GrabsEnteredStage =
-  | "fetching"
-  | "downloading"
-  | "probing"
-  | "transferring"
-  | "importing"
-  | "imported"
-  | "failed";
+export type GrabsEnteredStage = "fetching" | "downloading" | "importing" | "imported" | "failed";

@@ -28,6 +28,7 @@ func (w *world) downloads(t *testing.T, disk storing.Disk, seeded ...string) str
 	w.cfg.Roots = rootstest.HeldOn(t, w.lib, w.node, rootstest.On{Disk: disk, Downloads: []string{dir}, Torrents: torrents, Tune: func(cfg *roots.Config) {
 		cfg.Names, cfg.Describe = w.names, w.works.Describe
 	}}, contenttypetest.ID)
+	w.disk.Disk = w.cfg.Roots
 	w.im = w.newImports(w.cfg)
 	return dir
 }

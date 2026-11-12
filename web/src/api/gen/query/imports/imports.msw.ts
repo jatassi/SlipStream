@@ -250,8 +250,6 @@ export const getListImportsResponseMock = (
           stage: faker.helpers.arrayElement([
             "fetching",
             "downloading",
-            "probing",
-            "transferring",
             "importing",
             "imported",
             "failed",
@@ -541,8 +539,6 @@ export const getImportFolderResponseMock = (
               stage: faker.helpers.arrayElement([
                 "fetching",
                 "downloading",
-                "probing",
-                "transferring",
                 "importing",
                 "imported",
                 "failed",
@@ -823,8 +819,6 @@ export const getImportFolderResponseMock = (
               stage: faker.helpers.arrayElement([
                 "fetching",
                 "downloading",
-                "probing",
-                "transferring",
                 "importing",
                 "imported",
                 "failed",
@@ -1148,8 +1142,6 @@ export const getConfirmImportsResponseMock = (
           stage: faker.helpers.arrayElement([
             "fetching",
             "downloading",
-            "probing",
-            "transferring",
             "importing",
             "imported",
             "failed",
@@ -3322,8 +3314,6 @@ export const getGetImportResponseMock = (
       stage: faker.helpers.arrayElement([
         "fetching",
         "downloading",
-        "probing",
-        "transferring",
         "importing",
         "imported",
         "failed",
@@ -3579,8 +3569,6 @@ export const getActOnRootImportResponseMock = (
       stage: faker.helpers.arrayElement([
         "fetching",
         "downloading",
-        "probing",
-        "transferring",
         "importing",
         "imported",
         "failed",
@@ -3836,8 +3824,6 @@ export const getActOnImportFileResponseMock = (
       stage: faker.helpers.arrayElement([
         "fetching",
         "downloading",
-        "probing",
-        "transferring",
         "importing",
         "imported",
         "failed",
