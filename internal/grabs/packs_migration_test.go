@@ -13,8 +13,7 @@ import (
 )
 
 // TestThePacksMigrationGivesEveryGrabItsItemAndSettlesOnlyImportedCells
-// migrates a Grab at every stage through grabs 00011, then writes one row
-// per new rule: each good row lands and each bad one is refused.
+// migrates a Grab at every stage through grabs 00011.
 func TestThePacksMigrationGivesEveryGrabItsItemAndSettlesOnlyImportedCells(t *testing.T) {
 	ctx := t.Context()
 	path := filepath.Join(t.TempDir(), storage.LibraryFile)

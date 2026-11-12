@@ -15,8 +15,8 @@ import (
 // any Grab in flight holds it unsettled, fetching included, and reads from
 // the latest such Grab, whatever finished after it. Else it reads from its
 // latest Grab, failed once failed, and from no Grab once that Grab settled
-// the cell. A failure that doesn't need the Admin,
-// such as a cancel, leaves the cell as no Grab would, as an import does.
+// the cell. A failure that doesn't need the Admin, such as a cancel,
+// leaves the cell as no Grab would, as an import does.
 // An unfinished Grab whose Node is out of step waits on it, node_away, as
 // does a fetching one whose route names a client on a Node out of step.
 // A fetching one pinned to a client that can't take it waits on that
