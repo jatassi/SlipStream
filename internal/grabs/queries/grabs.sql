@@ -9,8 +9,12 @@ VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(edition), s
     sqlc.narg(release_info_hash), sqlc.narg(fetch_query_id), sqlc.arg(min_ratio), sqlc.arg(min_seed_seconds),
     sqlc.arg(download_factor), sqlc.arg(upload_factor), 'fetching', sqlc.arg(created_at), sqlc.arg(created_at));
 
+-- name: InsertGrabItem :exec
+INSERT INTO grabs_grab_item (grab_id, item_id, position) VALUES (sqlc.arg(grab_id), sqlc.arg(item_id), sqlc.arg(position));
+
 -- name: InsertTarget :exec
-INSERT INTO grabs_target (grab_id, position, target_id) VALUES (sqlc.arg(grab_id), sqlc.arg(position), sqlc.arg(target_id));
+INSERT INTO grabs_target (grab_id, position, item_id, target_id, forced)
+VALUES (sqlc.arg(grab_id), sqlc.arg(position), sqlc.arg(item_id), sqlc.arg(target_id), sqlc.arg(forced));
 
 -- name: InsertFill :exec
 INSERT INTO grabs_fill (grab_id, position, target_id) VALUES (sqlc.arg(grab_id), sqlc.arg(position), sqlc.arg(target_id));
@@ -46,13 +50,16 @@ LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
 SELECT * FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id;
 
 -- name: CountMoving :one
-SELECT COUNT(*) FROM grabs_grab WHERE stage NOT IN ('imported', 'failed');
+SELECT COUNT(*) FROM grabs_grab WHERE stage IN (sqlc.slice(stages));
 
 -- name: GetGrab :one
 SELECT * FROM grabs_grab WHERE id = sqlc.arg(id);
 
 -- name: ListTargets :many
 SELECT * FROM grabs_target ORDER BY grab_id, position;
+
+-- name: ListGrabItems :many
+SELECT * FROM grabs_grab_item ORDER BY grab_id, position;
 
 -- name: ListFills :many
 SELECT * FROM grabs_fill ORDER BY grab_id, position;
@@ -143,15 +150,15 @@ SELECT * FROM grabs_search WHERE finished_at IS NULL ORDER BY started_at, id;
 SELECT * FROM grabs_search WHERE work_id = sqlc.arg(work_id) AND manual_id IS NULL ORDER BY started_at DESC, id DESC;
 
 -- name: ListTargetsOfWorks :many
-SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
-    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id
+SELECT grabs_grab.id, grabs_target.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
+    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
 WHERE grabs_grab.work_id IN (sqlc.slice(work_ids))
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
 
 -- name: ListEveryGrabTarget :many
-SELECT grabs_grab.id, grabs_grab.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
-    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id
+SELECT grabs_grab.id, grabs_target.item_id, grabs_grab.edition, grabs_grab.stage, grabs_grab.node_id, grabs_grab.failure_code,
+    grabs_grab.failed_stage, grabs_grab.source, grabs_target.target_id, grabs_target.settled
 FROM grabs_grab JOIN grabs_target ON grabs_target.grab_id = grabs_grab.id
 ORDER BY grabs_grab.created_at, grabs_grab.id, grabs_target.position;
 

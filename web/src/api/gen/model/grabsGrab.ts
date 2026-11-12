@@ -7,6 +7,7 @@ import type { GrabsGrabClient } from "./grabsGrabClient.ts";
 import type { GrabsGrabQuality } from "./grabsGrabQuality.ts";
 import type { GrabsGrabSource } from "./grabsGrabSource.ts";
 import type { GrabsGrabStage } from "./grabsGrabStage.ts";
+import type { GrabsGrabTarget } from "./grabsGrabTarget.ts";
 import type { GrabsMetadataSearch } from "./grabsMetadataSearch.ts";
 import type { GrabsProgress } from "./grabsProgress.ts";
 
@@ -34,6 +35,8 @@ export interface GrabsGrab {
   /** Each stage it entered, when it last entered it, oldest first */
   history: GrabsEntered[];
   id: string;
+  /** It holds its cells and counts in Activity: it is neither imported nor failed */
+  inFlight: boolean;
   /**
    * The Indexer it was grabbed from, null once the Indexer is deleted
    * @nullable
@@ -45,6 +48,8 @@ export interface GrabsGrab {
    */
   infoHash: string | null;
   itemId: string;
+  /** The ids of the Items its Release covers in the Work, in tree order */
+  items: string[];
   /**
    * The Manual search it came from; null for a search's Grab and once a later Manual search of the Work replaced it
    * @nullable
@@ -70,6 +75,8 @@ export interface GrabsGrab {
   stage: GrabsGrabStage;
   /** The Targets it was grabbed for, in Profile order */
   targetIds: string[];
+  /** Each cell it holds, in plan order */
+  targets: GrabsGrabTarget[];
   /**
    * The Torrent it downloads, null until the .torrent is fetched
    * @nullable

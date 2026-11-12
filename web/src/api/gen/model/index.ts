@@ -1471,6 +1471,8 @@ export * from "./grabsGrabPick.ts";
 export * from "./grabsGrabQuality.ts";
 export * from "./grabsGrabSource.ts";
 export * from "./grabsGrabStage.ts";
+export * from "./grabsGrabTarget.ts";
+export * from "./grabsGrabTargetSettled.ts";
 export * from "./grabsHeldCell.ts";
 export * from "./grabsHeldCellStage.ts";
 export * from "./grabsIndexerGrabList.ts";

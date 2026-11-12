@@ -13,6 +13,8 @@ const percent = (factor: string): string => `${Math.round(Number(factor) * 100)}
 
 const seeders = { one: "seeder", many: "seeders" };
 
+const unwanted = { one: "Item that isn't wanted", many: "Items that aren't wanted" };
+
 type Step = (
   values: { own: string; ref: string; at: string },
   reference: { subject: string; object: string },
@@ -26,6 +28,10 @@ const steps: Record<GrabsLostAtStep, Step> = {
   revision: ({ own, ref, at }, { subject }) =>
     `Its revision is ${own}. ${subject} is ${ref}, a newer revision${at}.`,
   score: ({ own, ref, at }, { subject }) => `Its score${at} is ${own}. ${subject} scores ${ref}.`,
+  chosen_by_another: (_, { object }) =>
+    `It ties ${object} up to score. Another Want already chose that one, so it comes first.`,
+  fewer_unwanted: ({ own, ref }, { subject }) =>
+    `It covers ${countWords(Number(own), unwanted)}. ${subject} covers ${countWords(Number(ref), unwanted)}.`,
   priority: ({ own, ref }, { subject }) =>
     `Its Indexer's priority is ${own}. ${subject}'s is ${ref}, and a lower number comes first.`,
   freeleech: ({ own, ref }, { subject }) =>

@@ -52,6 +52,7 @@ type (
 	ManualID       = db.ManualID
 	Source         = db.Source
 	BlockCause     = db.BlockCause
+	Settled        = db.Settled
 )
 
 const (
@@ -67,6 +68,9 @@ const (
 	CauseEngineError  BlockCause = "engine_error"
 	CauseMarkedFailed BlockCause = "marked_failed"
 	CauseByHand       BlockCause = "by_hand"
+	CauseNoVideo      BlockCause = "no_video"
+	CauseUnreadable   BlockCause = "unreadable"
+	CauseMisdescribed BlockCause = "misdescribed"
 )
 
 const (
@@ -77,6 +81,15 @@ const (
 	Importing    = db.Importing
 	Imported     = db.Imported
 	Failed       = db.Failed
+)
+
+// Stages is every Stage, in the order a Grab walks them.
+var Stages = []Stage{Fetching, Downloading, Probing, Transferring, Importing, Imported, Failed}
+
+const (
+	SettledPlaced   = db.SettledPlaced
+	SettledNone     = db.SettledNone
+	SettledDeclined = db.SettledDeclined
 )
 
 const (
@@ -107,6 +120,14 @@ const (
 	Blocklisted        Code = "blocklisted"
 	ReleaseFault       Code = "release_fault"
 )
+
+// Codes is every Code, in the order the wire lists them.
+var Codes = []Code{
+	IndexerUnavailable, IndexerRemoved, IndexerStopped, HomeOffline, TorrentUnreachable, MagnetInvalid, NoMetadata, NoPeerSource,
+	TorrentInvalid, InfohashMismatch, TorrentV2Only, DownloadFailed, MarkedFailed, Removed, ClientRemoved, ClientDeleted, GoalMet,
+	NoVideoFile, ProbeFailed, FillsNothing, NameTaken, NameTooLong, TransferFailed, ImportFailed, NodeWrittenOff, RootChanged,
+	Canceled, Blocklisted, ReleaseFault,
+}
 
 const (
 	Grabbed           Outcome = "grabbed"
@@ -347,13 +368,24 @@ type Entered struct {
 	At    time.Time
 }
 
+// Cell is one cell a Grab holds: the Admin may have forced it, and it is
+// settled, nil until it is, once the Grab is done with it.
+type Cell struct {
+	Key     files.CellKey
+	Forced  bool
+	Settled *Settled
+}
+
 type Grab struct {
 	ID     GrabID
 	WorkID works.WorkID
 	ItemID works.ItemID
+	// Items is every Item its Release covers in its Work, in tree order.
+	Items []works.ItemID
 	// Edition is what its cells want: its release's cut, or any.
 	Edition targets.Edition
-	Targets []targets.TargetID
+	// Targets is its cells, in plan order.
+	Targets []Cell
 	Release Release
 	// Ticket is the Grab's Indexer, zero once the Indexer is deleted, the
 	// grab Take reserved on it and the Tracker its Release reached, zero
@@ -403,10 +435,11 @@ func (g Grab) NeedsYou() bool {
 	return g.Failed.Code != Blocklisted || g.Source != FromManual
 }
 
-// related is every Grab's targets, fills and history, by Grab, and the
-// Torrents of the Grabs read.
+// related is every Grab's Items, cells, fills and history, by Grab, and
+// the Torrents of the Grabs read.
 type related struct {
-	targets  map[GrabID][]targets.TargetID
+	items    map[GrabID][]works.ItemID
+	targets  map[GrabID][]db.GrabsTarget
 	fills    map[GrabID][]targets.TargetID
 	history  map[GrabID][]Entered
 	torrents map[downloadclients.ID]downloadclients.Attached
@@ -414,7 +447,7 @@ type related struct {
 
 func readRelated(ctx context.Context, r storage.Reader[file], rows []db.GrabsGrab) (related, error) {
 	q := db.New(r)
-	rel := related{targets: map[GrabID][]targets.TargetID{}, fills: map[GrabID][]targets.TargetID{}, history: map[GrabID][]Entered{}}
+	rel := related{items: map[GrabID][]works.ItemID{}, targets: map[GrabID][]db.GrabsTarget{}, fills: map[GrabID][]targets.TargetID{}, history: map[GrabID][]Entered{}}
 	var ids []downloadclients.ID
 	for _, row := range rows {
 		if !row.TorrentID.IsZero() {
@@ -425,12 +458,19 @@ func readRelated(ctx context.Context, r storage.Reader[file], rows []db.GrabsGra
 	if rel.torrents, err = downloadclients.Outcomes(ctx, r, ids); err != nil {
 		return related{}, err
 	}
+	is, err := q.ListGrabItems(ctx)
+	if err != nil {
+		return related{}, err
+	}
+	for _, i := range is {
+		rel.items[i.GrabID] = append(rel.items[i.GrabID], i.ItemID)
+	}
 	ts, err := q.ListTargets(ctx)
 	if err != nil {
 		return related{}, err
 	}
 	for _, t := range ts {
-		rel.targets[t.GrabID] = append(rel.targets[t.GrabID], t.TargetID)
+		rel.targets[t.GrabID] = append(rel.targets[t.GrabID], t)
 	}
 	fs, err := q.ListFills(ctx)
 	if err != nil {
@@ -453,11 +493,16 @@ func readRelated(ctx context.Context, r storage.Reader[file], rows []db.GrabsGra
 // so a row that parses holds what its stage needs.
 func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel related) (Grab, error) {
 	g := Grab{
-		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Edition: row.Edition, Targets: rel.targets[row.ID],
+		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Items: rel.items[row.ID], Edition: row.Edition,
 		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, link: row.ReleaseLinkSealed, magnet: deref(row.ReleaseMagnet)},
 		Ticket:  indexers.Ticket{Indexer: row.IndexerID, Query: row.FetchQueryID, Tracker: row.TrackerID},
 		Node:    row.NodeID, FetchNode: row.FetchNodeID, MetadataSince: row.MetadataStartedAt.Time(), Stage: row.Stage,
 		History: rel.history[row.ID], Created: row.CreatedAt.Time(), Source: row.Source, Manual: row.ManualID,
+	}
+	for _, t := range rel.targets[row.ID] {
+		g.Targets = append(g.Targets, Cell{
+			Key: files.CellKey{Item: t.ItemID, Edition: row.Edition, Target: t.TargetID}, Forced: t.Forced, Settled: t.Settled,
+		})
 	}
 	if row.Source == FromManual {
 		g.By = &Actor{Name: deref(row.GrabbedByName)}

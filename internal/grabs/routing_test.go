@@ -146,7 +146,7 @@ func TestAFetchingGrabWaitsOnTheOfflineNodeItsRouteNames(t *testing.T) {
 		for id, target := range goals {
 			run(t, p.lib,
 				sql(`INSERT INTO targets_target (id, name, created_at) VALUES (?, ?, 0)`, target, target.String()),
-				sql(`INSERT INTO grabs_target VALUES (?, 0, ?)`, id, target),
+				sql(`INSERT INTO grabs_target (grab_id, position, item_id, target_id) SELECT id, 0, item_id, ? FROM grabs_grab WHERE id = ?`, target, id),
 			)
 		}
 		run(t, p.lib,

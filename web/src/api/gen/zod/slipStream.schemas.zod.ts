@@ -2906,7 +2906,16 @@ export const GrabsBlockEntry = zod.object({
   because: zod
     .string()
     .describe("The cause in a sentence, such as TorrentLeech reported it unregistered."),
-  cause: zod.enum(["unregistered", "no_payload", "engine_error", "marked_failed", "by_hand"]),
+  cause: zod.enum([
+    "unregistered",
+    "no_payload",
+    "engine_error",
+    "marked_failed",
+    "by_hand",
+    "no_video",
+    "unreadable",
+    "misdescribed",
+  ]),
   indexer: zod
     .string()
     .nullable()
@@ -2962,7 +2971,7 @@ export const GrabsLostAt = zod.object({
   own: zod
     .string()
     .describe(
-      "This Release's value at the step: a Target's name for want, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title",
+      "This Release's value at the step: a Target's name for want, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, whether another Want chose it for chosen_by_another, a count of the Items it covers that aren't wanted for fewer_unwanted, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title",
     ),
   ref: zod
     .string()
@@ -2975,6 +2984,8 @@ export const GrabsLostAt = zod.object({
       "tier",
       "revision",
       "score",
+      "chosen_by_another",
+      "fewer_unwanted",
       "priority",
       "freeleech",
       "seeders",
@@ -3211,6 +3222,23 @@ export const GrabsProgress = zod.object({
 export type GrabsProgress = zod.input<typeof GrabsProgress>;
 export type GrabsProgressOutput = zod.output<typeof GrabsProgress>;
 
+export const GrabsGrabTarget = zod.object({
+  forced: zod
+    .boolean()
+    .describe("An Admin forced it: a file goes in even when it isn't an upgrade"),
+  itemId: zod.uuid(),
+  settled: zod
+    .union([zod.literal("placed"), zod.literal("none"), zod.literal("declined"), zod.literal(null)])
+    .nullable()
+    .describe(
+      "How the Grab finished with the cell: a file placed into it, no file filled it, or the Admin declined it. Null while the Grab holds it",
+    ),
+  targetId: zod.uuid(),
+});
+
+export type GrabsGrabTarget = zod.input<typeof GrabsGrabTarget>;
+export type GrabsGrabTargetOutput = zod.output<typeof GrabsGrabTarget>;
+
 export const grabsGrabReleaseSizeMin = 0;
 
 export const GrabsGrab = zod.object({
@@ -3239,6 +3267,9 @@ export const GrabsGrab = zod.object({
     .array(GrabsEntered)
     .describe("Each stage it entered, when it last entered it, oldest first"),
   id: zod.uuid(),
+  inFlight: zod
+    .boolean()
+    .describe("It holds its cells and counts in Activity: it is neither imported nor failed"),
   indexerId: zod
     .uuid()
     .nullable()
@@ -3248,6 +3279,9 @@ export const GrabsGrab = zod.object({
     .nullable()
     .describe("The v1 info hash in hex, null until the .torrent is fetched"),
   itemId: zod.uuid(),
+  items: zod
+    .array(zod.string())
+    .describe("The ids of the Items its Release covers in the Work, in tree order"),
   manualSearchId: zod
     .uuid()
     .nullable()
@@ -3307,6 +3341,7 @@ export const GrabsGrab = zod.object({
     "failed",
   ]),
   targetIds: zod.array(zod.string()).describe("The Targets it was grabbed for, in Profile order"),
+  targets: zod.array(GrabsGrabTarget).describe("Each cell it holds, in plan order"),
   torrentId: zod
     .uuid()
     .nullable()
