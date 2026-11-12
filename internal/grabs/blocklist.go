@@ -18,7 +18,9 @@ import (
 )
 
 // BlockCauses is every BlockCause, the list the schema's CHECK holds.
-var BlockCauses = []BlockCause{CauseUnregistered, CauseNoPayload, CauseEngineError, CauseMarkedFailed, CauseByHand}
+var BlockCauses = []BlockCause{
+	CauseUnregistered, CauseNoPayload, CauseEngineError, CauseMarkedFailed, CauseByHand, CauseNoVideo, CauseUnreadable, CauseMisdescribed,
+}
 
 // BlockEntry is one Release on the Blocklist.
 type BlockEntry struct {
@@ -155,6 +157,12 @@ func (e BlockEntry) because() string {
 			return "Blocklisted through the API key when its Grab was canceled."
 		}
 		return e.By.Name + " blocklisted it when canceling its Grab."
+	case CauseNoVideo:
+		return "This download has no video file."
+	case CauseUnreadable:
+		return "ffprobe can't read any video in this download."
+	case CauseMisdescribed:
+		return "Its files' resolution or HDR doesn't match its title."
 	}
 	panic("grabs: no words for the Blocklist cause " + string(e.Cause))
 }

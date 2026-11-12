@@ -10,16 +10,27 @@ import (
 )
 
 const (
-	StepWant      Step = "want"
-	StepTier      Step = "tier"
-	StepRevision  Step = "revision"
-	StepScore     Step = "score"
-	StepPriority  Step = "priority"
-	StepFreeleech Step = "freeleech"
-	StepSeeders   Step = "seeders"
-	StepSize      Step = "size"
-	StepTitle     Step = "title"
+	StepWant     Step = "want"
+	StepTier     Step = "tier"
+	StepRevision Step = "revision"
+	StepScore    Step = "score"
+	// StepChosenByAnother and StepFewerUnwanted are the pack tie-breaks:
+	// the Release another Want already chose, then the one covering fewer
+	// Items that aren't wanted.
+	StepChosenByAnother Step = "chosen_by_another"
+	StepFewerUnwanted   Step = "fewer_unwanted"
+	StepPriority        Step = "priority"
+	StepFreeleech       Step = "freeleech"
+	StepSeeders         Step = "seeders"
+	StepSize            Step = "size"
+	StepTitle           Step = "title"
 )
+
+// Steps is every Step, in the ranking's order.
+var Steps = []Step{
+	StepWant, StepTier, StepRevision, StepScore, StepChosenByAnother, StepFewerUnwanted, StepPriority, StepFreeleech, StepSeeders,
+	StepSize, StepTitle,
+}
 
 // rung is one step of the chain: compare is +1 when a ranks first, and
 // value is a's value at the step. at, when set, is the step of the

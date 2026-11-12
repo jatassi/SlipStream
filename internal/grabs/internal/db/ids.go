@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -26,6 +27,36 @@ const (
 	Importing    Stage = "importing"
 	Imported     Stage = "imported"
 	Failed       Stage = "failed"
+)
+
+// InFlight is the one answer to whether a Grab at s holds its cells: from
+// fetching until it is imported or failed (catalog 2.4).
+func (s Stage) InFlight() bool { return s != Imported && s != Failed }
+
+// Use is the stage the client of a Grab's Torrent sees. A fetching Grab
+// has no Torrent, so asking panics.
+func (s Stage) Use() downloadclients.UseStage {
+	switch s {
+	case Downloading:
+		return downloadclients.UseDownloading
+	case Probing, Transferring, Importing:
+		return downloadclients.UseImporting
+	case Imported:
+		return downloadclients.UseImported
+	case Failed:
+		return downloadclients.UseFailed
+	}
+	panic("grabs: a Grab " + string(s) + " has no Torrent")
+}
+
+// Settled is how a Grab's cell settled: a file placed into it, no file of
+// the download filled it, or the Admin declined it.
+type Settled string
+
+const (
+	SettledPlaced   Settled = "placed"
+	SettledNone     Settled = "none"
+	SettledDeclined Settled = "declined"
 )
 
 // Code is why a Grab failed.

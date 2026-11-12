@@ -12,9 +12,10 @@ import (
 )
 
 // GrabCells is files.Inflight over the Grabs: each cell is in flight while
-// any unfinished Grab holds it, fetching included, and reads from the
-// latest such Grab, whatever finished after it. Else it reads from its
-// latest Grab, failed once failed. A failure that doesn't need the Admin,
+// any Grab in flight holds it unsettled, fetching included, and reads from
+// the latest such Grab, whatever finished after it. Else it reads from its
+// latest Grab, failed once failed, and from no Grab once that Grab settled
+// the cell. A failure that doesn't need the Admin,
 // such as a cancel, leaves the cell as no Grab would, as an import does.
 // An unfinished Grab whose Node is out of step waits on it, node_away, as
 // does a fetching one whose route names a client on a Node out of step.
@@ -60,7 +61,7 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 	for key, row := range readFrom(rows) {
 		cell := files.GrabCell{Grab: row.ID.UUID}
 		switch {
-		case row.Stage == Imported, row.Stage == Failed && !(Grab{Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}).NeedsYou():
+		case row.Settled != nil, row.Stage == Imported, row.Stage == Failed && !(Grab{Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}).NeedsYou():
 			continue
 		case row.Stage == Failed:
 			cell.State, cell.FailedAt = files.GrabFailed, string(*row.FailedStage)
@@ -78,7 +79,7 @@ func readFrom(oldestFirst []db.ListTargetsOfWorksRow) map[files.CellKey]db.ListT
 	out := map[files.CellKey]db.ListTargetsOfWorksRow{}
 	for _, row := range oldestFirst {
 		key := files.CellKey{Item: row.ItemID, Edition: row.Edition, Target: row.TargetID}
-		if held, ok := out[key]; ok && unfinished(held.Stage) && !unfinished(row.Stage) {
+		if held, ok := out[key]; ok && holds(held) && !holds(row) {
 			continue
 		}
 		out[key] = row
@@ -86,7 +87,20 @@ func readFrom(oldestFirst []db.ListTargetsOfWorksRow) map[files.CellKey]db.ListT
 	return out
 }
 
-func unfinished(s Stage) bool { return s != Imported && s != Failed }
+// holds reports whether row's Grab holds its cell: the Grab is in flight
+// and hasn't settled it.
+func holds(row db.ListTargetsOfWorksRow) bool { return row.Stage.InFlight() && row.Settled == nil }
+
+// inFlightStages is every Stage whose Grabs are in flight.
+var inFlightStages = func() []Stage {
+	var out []Stage
+	for _, s := range Stages {
+		if s.InFlight() {
+			out = append(out, s)
+		}
+	}
+	return out
+}()
 
 func (GrabCells) ReleaseTitles(ctx context.Context, r storage.Reader[storage.Library]) (map[storage.UUID]string, error) {
 	rows, err := db.New(r).ListReleaseTitles(ctx)
