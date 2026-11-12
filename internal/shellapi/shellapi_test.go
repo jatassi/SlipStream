@@ -191,9 +191,9 @@ func TestTheAlertsCarryHealthsWorstLevels(t *testing.T) {
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":"warn","tasks":"warn"},"pendingImports":0}`)
 }
 
-func TestPendingImportsCountsTheEntriesThatNeedTheAdmin(t *testing.T) {
+func TestPendingImportsCountsTheImportsWithAFileWaitingForTheAdmin(t *testing.T) {
 	ctx := t.Context()
-	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), imports.Schema(), health.Schema())
+	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), imports.Schema(), health.Schema())
 	roster, err := nodes.Open(ctx, nodes.Config{Library: lib, Name: "home", Link: unlinked{}, Owners: nodestest.Unowned(), Log: slog.New(slog.DiscardHandler)})
 	if err != nil {
 		t.Fatal(err)
@@ -203,9 +203,22 @@ func TestPendingImportsCountsTheEntriesThatNeedTheAdmin(t *testing.T) {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO roots_root (id, content_type, node_id, path, is_default) VALUES (?, 'fixture', ?, '/media', 1)`, root, roster.Self()); err != nil {
 			return err
 		}
-		for folder, ignoredAt := range map[string]*int64{"Brazil (1985)": nil, "Halloween": nil, "Heat (1995)": new(int64(1))} {
+		for _, e := range []struct {
+			folder    string
+			outcome   string
+			ignoredAt *int64
+		}{{"Brazil (1985)", "waiting", nil}, {"Halloween", "waiting", nil}, {"Heat (1995)", "waiting", new(int64(1))}, {"Alien (1979)", "pending", nil}} {
+			id := storage.NewUUID()
 			if _, err := tx.ExecContext(ctx, `INSERT INTO imports_import (id, source, root_id, folder, content_type, hint, created_at, ignored_at) VALUES (?, 'root', ?, ?, 'fixture', '{}', 0, ?)`,
-				storage.NewUUID(), root, folder, ignoredAt); err != nil {
+				id, root, e.folder, e.ignoredAt); err != nil {
+				return err
+			}
+			var reason *string
+			if e.outcome == "waiting" {
+				reason = new(`{"code":"no_match"}`)
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT INTO imports_file (import_id, position, path, size, cut, release_name, source_name, outcome, reason) VALUES (?, 0, ?, 1, 'standard', ?, ?, ?, ?)`,
+				id, e.folder+"/a.mkv", e.folder, "a.mkv", e.outcome, reason); err != nil {
 				return err
 			}
 		}

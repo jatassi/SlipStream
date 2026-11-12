@@ -11,7 +11,7 @@ export interface ShellCounts {
   /** Every download at once; torrents.live keeps it current */
   downloads: DownloadclientsAggregate;
   /**
-   * The pending imports that aren't ignored
+   * The Imports, of any source, with a file waiting for the Admin, ignored ones aside
    * @minimum 0
    */
   pendingImports: number;

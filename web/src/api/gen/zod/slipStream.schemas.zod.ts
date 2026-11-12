@@ -8287,7 +8287,7 @@ export const ShellCounts = zod.object({
   pendingImports: zod
     .int()
     .min(shellCountsPendingImportsMin)
-    .describe("The pending imports that aren't ignored"),
+    .describe("The Imports, of any source, with a file waiting for the Admin, ignored ones aside"),
 });
 
 export type ShellCounts = zod.input<typeof ShellCounts>;

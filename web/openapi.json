@@ -16902,7 +16902,7 @@
             "description": "Every download at once; torrents.live keeps it current"
           },
           "pendingImports": {
-            "description": "The pending imports that aren't ignored",
+            "description": "The Imports, of any source, with a file waiting for the Admin, ignored ones aside",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
