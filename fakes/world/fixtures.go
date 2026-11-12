@@ -39,23 +39,37 @@ func EncodeFixtures(ctx context.Context, binary string) error {
 		return fmt.Errorf("create a scratch folder: %w", err)
 	}
 	defer func() { _ = os.RemoveAll(scratch) }()
+	var catalog []scenario.Scenario
 	var files []scenario.MediaFile
-	for i, name := range scenario.Catalog() {
+	for _, name := range scenario.Catalog() {
 		s, err := scenario.Load(name)
 		if err != nil {
 			return err
 		}
-		cfg := releases.Config{FFmpeg: tools.FFmpeg, Cache: cache, Dir: filepath.Join(scratch, strconv.Itoa(i)), Tracker: netip.MustParseAddrPort("127.0.0.1:1")}
-		if _, err := releases.Build(ctx, s, cfg); err != nil {
-			return fmt.Errorf("scenario %s: %w", name, err)
-		}
+		catalog = append(catalog, s)
 		if s.Library != nil {
 			for _, f := range s.Library.Folders {
 				files = append(files, f.Files...)
 			}
 		}
+		for _, r := range s.Releases {
+			for _, f := range r.Files {
+				if f.Video != nil {
+					files = append(files, f.Media())
+				}
+			}
+		}
 	}
-	return buildAll(ctx, b, files)
+	if err := buildAll(ctx, b, files); err != nil {
+		return err
+	}
+	for i, s := range catalog {
+		cfg := releases.Config{Tools: tools, Cache: cache, Dir: filepath.Join(scratch, strconv.Itoa(i)), Tracker: netip.MustParseAddrPort("127.0.0.1:1")}
+		if _, err := releases.Build(ctx, s, cfg); err != nil {
+			return fmt.Errorf("scenario %s: %w", s.Name, err)
+		}
+	}
+	return nil
 }
 
 // buildAll builds files as many at a time as there are CPUs.

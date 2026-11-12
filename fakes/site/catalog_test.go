@@ -54,7 +54,7 @@ func newCatalogWorld(t *testing.T, serve served) catalogWorld {
 // and runs every port.
 func newWorld(t *testing.T, serve served, s scenario.Scenario) catalogWorld {
 	t.Helper()
-	meta, hash, err := releases.Metainfo("orchard.mkv", []byte("the orchard payload"), "https://127.0.0.1:1/announce/built", false)
+	meta, hash, err := releases.Metainfo("orchard.mkv", nil, []byte("the orchard payload"), "https://127.0.0.1:1/announce/built", false)
 	if err != nil {
 		t.Fatal(err)
 	}

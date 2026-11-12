@@ -1,10 +1,12 @@
 package setup
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/netip"
 
+	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/world/internal/lifecycle"
 	"github.com/jatassi/slipstream/internal/node"
@@ -31,6 +33,34 @@ type Node struct {
 	NodeKey string   `json:"nodeKey"`
 	NodeID  string   `json:"nodeId,omitempty"`
 	Roles   []string `json:"roles,omitempty"`
+}
+
+// Release is a catalog release: its torrent's info hash, its payload's
+// size and BLAKE3, its files back to back, and each of its files', hashes
+// in hex.
+type Release struct {
+	Name     string        `json:"name"`
+	InfoHash string        `json:"infoHash"`
+	Size     int64         `json:"size"`
+	BLAKE3   string        `json:"blake3"`
+	Files    []ReleaseFile `json:"files"`
+}
+
+// ReleaseFile is one file of a catalog release's payload, at its path in
+// the torrent.
+type ReleaseFile struct {
+	Path   string `json:"path"`
+	Size   int64  `json:"size"`
+	BLAKE3 string `json:"blake3"`
+}
+
+// ReleaseEntry is rel's manifest entry.
+func ReleaseEntry(rel releases.Release) Release {
+	out := Release{Name: rel.Name, InfoHash: rel.InfoHash.String(), Size: rel.Size, BLAKE3: hex.EncodeToString(rel.BLAKE3[:]), Files: []ReleaseFile{}}
+	for _, f := range rel.Files {
+		out.Files = append(out.Files, ReleaseFile{Path: f.Path, Size: f.Size, BLAKE3: hex.EncodeToString(f.BLAKE3[:])})
+	}
+	return out
 }
 
 // Claim is what a Node is once the world has set it up.

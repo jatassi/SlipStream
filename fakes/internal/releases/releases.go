@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/netip"
 	"os"
 	"os/exec"
@@ -21,12 +22,14 @@ import (
 	"runtime"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gofrs/flock"
 	"github.com/zeebo/blake3"
 
+	"github.com/jatassi/slipstream/fakes/internal/mediafix"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/node"
@@ -42,14 +45,28 @@ type Catalog struct {
 // Release is a Scenario release with its payload and metainfo.
 type Release struct {
 	scenario.Release
-	// Dir holds the payload, File, as a seeder's save path holds it.
-	Dir      string
-	File     string
+	// Dir holds the payload's Files, as a seeder's save path holds them.
+	Dir string
+	// Files are the payload's files in torrent order: <name>.mkv for a
+	// release of one video, else each of its files under a <name> folder.
+	Files []File
+	// Size and BLAKE3 are the payload's, its files back to back.
 	Size     int64
 	BLAKE3   [32]byte
 	Metainfo []byte
 	InfoHash bencode.InfoHash
 }
+
+// File is one file of a release's payload.
+type File struct {
+	// Path is the file's in the torrent and under Dir, '/' separated.
+	Path   string
+	Size   int64
+	BLAKE3 [32]byte
+}
+
+// Disk is where r's payload holds f.
+func (r Release) Disk(f File) string { return filepath.Join(r.Dir, filepath.FromSlash(f.Path)) }
 
 func (c *Catalog) ByInfoHash(h bencode.InfoHash) (Release, bool) {
 	for _, r := range c.Releases {
@@ -71,8 +88,8 @@ func Passkey(s scenario.Scenario, account string) string {
 }
 
 type Config struct {
-	// FFmpeg is the bundled ffmpeg that makes each payload.
-	FFmpeg string
+	// Tools are the bundled tools that make each payload's videos.
+	Tools mediafix.Tools
 	// Cache holds each payload ever made on this machine, named by its
 	// inputs, so a launch encodes only a release it has not seen.
 	Cache string
@@ -99,9 +116,13 @@ func Build(ctx context.Context, s scenario.Scenario, cfg Config) (*Catalog, erro
 	if len(s.Releases) == 0 {
 		return c, nil
 	}
-	version, err := exec.CommandContext(ctx, cfg.FFmpeg, "-version").Output()
+	version, err := exec.CommandContext(ctx, cfg.Tools.FFmpeg, "-version").Output()
 	if err != nil {
-		return nil, fmt.Errorf("%s -version: %w", cfg.FFmpeg, err)
+		return nil, fmt.Errorf("%s -version: %w", cfg.Tools.FFmpeg, err)
+	}
+	media, err := mediafix.NewBuilder(ctx, cfg.Tools, cfg.Cache)
+	if err != nil {
+		return nil, err
 	}
 	if err := os.MkdirAll(cfg.Dir, 0o755); err != nil {
 		return nil, fmt.Errorf("create the release folder: %w", err)
@@ -112,7 +133,7 @@ func Build(ctx context.Context, s scenario.Scenario, cfg Config) (*Catalog, erro
 	}
 	announce := "https://" + cfg.Tracker.String() + "/announce/" + Passkey(s, Seeders)
 	for _, r := range s.Releases {
-		release, err := place(cached[*r.Video], cfg.Dir, r, announce)
+		release, err := place(ctx, cfg.Dir, media, cached, r, announce)
 		if err != nil {
 			return nil, fmt.Errorf("release %s: %w", r.Name, err)
 		}
@@ -134,7 +155,7 @@ func payloads(ctx context.Context, cfg Config, version []byte, releases []scenar
 	}
 	var encodes []encode
 	for _, r := range releases {
-		if !slices.ContainsFunc(encodes, func(e encode) bool { return e.video == *r.Video }) {
+		if r.Video != nil && !slices.ContainsFunc(encodes, func(e encode) bool { return e.video == *r.Video }) {
 			encodes = append(encodes, encode{video: *r.Video, release: r.Name})
 		}
 	}
@@ -207,7 +228,7 @@ func payload(ctx context.Context, cfg Config, version []byte, v scenario.Video) 
 	}
 	_ = tmp.Close()
 	defer func() { _ = os.Remove(tmp.Name()) }()
-	cmd := exec.CommandContext(ctx, cfg.FFmpeg, append(encodeArgs(v, tmp.Name()), "-y")...)
+	cmd := exec.CommandContext(ctx, cfg.Tools.FFmpeg, append(encodeArgs(v, tmp.Name()), "-y")...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
@@ -222,52 +243,133 @@ func payload(ctx context.Context, cfg Config, version []byte, v scenario.Video) 
 	return path, nil
 }
 
-// place copies the cached payload into dir as <release name>.mkv, hashing
-// it as it goes, and builds its metainfo.
-func place(cached, dir string, r scenario.Release, announce string) (Release, error) {
-	name := r.Name + ".mkv"
-	file := filepath.Join(dir, name)
-	in, err := os.Open(cached)
-	if err != nil {
-		return Release{}, fmt.Errorf("open the payload: %w", err)
+// place writes r's payload into dir, hashing it as it goes, and builds
+// its metainfo: the cached encode of its video as <name>.mkv, or each of
+// its files under a <name> folder.
+func place(ctx context.Context, dir string, media *mediafix.Builder, cached map[scenario.Video]string, r scenario.Release, announce string) (Release, error) {
+	out := Release{Release: r, Dir: dir}
+	b3, pieces := blake3.New(), &pieceHasher{}
+	name, files := r.Name, []TorrentFile(nil)
+	if r.Video != nil {
+		name += ".mkv"
+		in, err := os.Open(cached[*r.Video])
+		if err != nil {
+			return Release{}, fmt.Errorf("open the payload: %w", err)
+		}
+		err = out.add(name, in, b3, pieces)
+		_ = in.Close()
+		if err != nil {
+			return Release{}, err
+		}
 	}
-	defer func() { _ = in.Close() }()
-	out, err := os.Create(file)
+	for _, f := range r.Files {
+		at := r.Name + "/" + f.Path
+		in, err := fileBytes(ctx, media, at, f)
+		if err != nil {
+			return Release{}, err
+		}
+		err = out.add(at, in, b3, pieces)
+		_ = in.Close()
+		if err != nil {
+			return Release{}, err
+		}
+		files = append(files, TorrentFile{Path: f.Path, Size: out.Files[len(out.Files)-1].Size})
+	}
+	meta, hash, err := metainfo(name, files, out.Size, pieces.sum(), announce, r.Public)
 	if err != nil {
-		return Release{}, fmt.Errorf("copy the payload: %w", err)
+		return Release{}, err
+	}
+	out.Metainfo, out.InfoHash = meta, hash
+	copy(out.BLAKE3[:], b3.Sum(nil))
+	return out, nil
+}
+
+// fileBytes are the bytes of the file f, at in its torrent: media's
+// encode of a video, else Filler's.
+func fileBytes(ctx context.Context, media *mediafix.Builder, at string, f scenario.ReleaseFile) (io.ReadCloser, error) {
+	if f.Video == nil {
+		return io.NopCloser(bytes.NewReader(Filler(at, int64(f.Size)))), nil
+	}
+	built, err := media.Build(ctx, f.Media())
+	if err != nil {
+		return nil, err
+	}
+	in, err := os.Open(built)
+	if err != nil {
+		return nil, fmt.Errorf("open the payload: %w", err)
+	}
+	return in, nil
+}
+
+// add copies in to r's file at torrentPath under Dir, and to payload,
+// which hashes the files back to back.
+func (r *Release) add(torrentPath string, in io.Reader, payload ...io.Writer) error {
+	f := File{Path: torrentPath}
+	path := r.Disk(f)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("copy the payload: %w", err)
+	}
+	out, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("copy the payload: %w", err)
 	}
 	b3 := blake3.New()
-	pieces := &pieceHasher{}
-	size, err := io.Copy(io.MultiWriter(out, b3, pieces), in)
+	f.Size, err = io.Copy(io.MultiWriter(append([]io.Writer{out, b3}, payload...)...), in)
 	if closeErr := out.Close(); err == nil {
 		err = closeErr
 	}
 	if err != nil {
-		return Release{}, fmt.Errorf("copy the payload: %w", err)
+		return fmt.Errorf("copy the payload: %w", err)
 	}
-	meta, hash, err := metainfo(name, size, pieces.sum(), announce, r.Public)
-	if err != nil {
-		return Release{}, err
-	}
-	release := Release{Release: r, Dir: dir, File: file, Size: size, Metainfo: meta, InfoHash: hash}
-	copy(release.BLAKE3[:], b3.Sum(nil))
-	return release, nil
+	copy(f.BLAKE3[:], b3.Sum(nil))
+	r.Files = append(r.Files, f)
+	r.Size += f.Size
+	return nil
 }
 
-// Metainfo is a catalog torrent of payload as the one file name, for a
-// world that makes its payloads without ffmpeg.
-func Metainfo(name string, payload []byte, announce string, public bool) ([]byte, bencode.InfoHash, error) {
+// Filler is size bytes that depend only on key, the bytes of a payload
+// file no encode makes.
+func Filler(key string, size int64) []byte {
+	b := make([]byte, size)
+	_, _ = rand.NewChaCha8(sha256.Sum256([]byte(key))).Read(b)
+	return b
+}
+
+// TorrentFile is one file of a multi-file torrent: its path under the
+// torrent's folder, '/' separated, and its size.
+type TorrentFile struct {
+	Path string
+	Size int64
+}
+
+// Metainfo is a catalog torrent of payload, for a world that makes its
+// payloads without ffmpeg: the one file name, or, when files are listed,
+// the folder name holding them, payload their bytes back to back.
+func Metainfo(name string, files []TorrentFile, payload []byte, announce string, public bool) ([]byte, bencode.InfoHash, error) {
 	pieces := &pieceHasher{}
 	_, _ = pieces.Write(payload)
-	return metainfo(name, int64(len(payload)), pieces.sum(), announce, public)
+	return metainfo(name, files, int64(len(payload)), pieces.sum(), announce, public)
 }
 
-func metainfo(name string, size int64, pieces []byte, announce string, public bool) ([]byte, bencode.InfoHash, error) {
+func metainfo(name string, files []TorrentFile, size int64, pieces []byte, announce string, public bool) ([]byte, bencode.InfoHash, error) {
 	info := map[string]any{
-		"length":       size,
 		"name":         name,
 		"piece length": PieceLength,
 		"pieces":       pieces,
+	}
+	if len(files) == 0 {
+		info["length"] = size
+	}
+	var list []any
+	for _, f := range files {
+		var path []any
+		for part := range strings.SplitSeq(f.Path, "/") {
+			path = append(path, part)
+		}
+		list = append(list, map[string]any{"length": f.Size, "path": path})
+	}
+	if len(list) > 0 {
+		info["files"] = list
 	}
 	if !public {
 		info["private"] = 1

@@ -117,14 +117,7 @@ type Front struct {
 	URL     string `json:"url,omitempty"`
 }
 
-// Release is a catalog release: its payload's size and BLAKE3, and its
-// torrent's info hash, all in hex.
-type Release struct {
-	Name     string `json:"name"`
-	InfoHash string `json:"infoHash"`
-	Size     int64  `json:"size"`
-	BLAKE3   string `json:"blake3"`
-}
+type Release = setup.Release
 
 // Browser is what a browser driving the run needs: Chromium's host
 // resolver rules for every Node's name, the playwright cli config
