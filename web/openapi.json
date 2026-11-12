@@ -3257,6 +3257,31 @@
         ],
         "type": "object"
       },
+      "FilesImportWait": {
+        "additionalProperties": false,
+        "properties": {
+          "rootId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "space": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesSpace"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For no_space, the bytes free and the bytes the file needs; null when a clone found the volume full or for root_not_ready"
+          }
+        },
+        "required": [
+          "rootId",
+          "space"
+        ],
+        "type": "object"
+      },
       "FilesItemStatus": {
         "additionalProperties": false,
         "properties": {
@@ -3910,6 +3935,28 @@
         ],
         "type": "object"
       },
+      "FilesSpace": {
+        "additionalProperties": false,
+        "properties": {
+          "free": {
+            "description": "Bytes free on the root's volume above its Storage error level",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "needs": {
+            "description": "Bytes the file needs",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "free",
+          "needs"
+        ],
+        "type": "object"
+      },
       "FilesState": {
         "enum": [
           "failed",
@@ -4289,6 +4336,17 @@
             "format": "uuid",
             "type": "string"
           },
+          "importWait": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilesImportWait"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The root the Import waits on, for no_space and root_not_ready; null otherwise"
+          },
           "kind": {
             "enum": [
               "waiting"
@@ -4300,7 +4358,8 @@
           "kind",
           "grabId",
           "code",
-          "clientError"
+          "clientError",
+          "importWait"
         ],
         "type": "object"
       },

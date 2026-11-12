@@ -1932,6 +1932,31 @@ export const FilesClientError = zod.object({
 export type FilesClientError = zod.input<typeof FilesClientError>;
 export type FilesClientErrorOutput = zod.output<typeof FilesClientError>;
 
+export const filesSpaceFreeMin = 0;
+
+export const FilesSpace = zod.object({
+  free: zod
+    .int()
+    .min(filesSpaceFreeMin)
+    .describe("Bytes free on the root's volume above its Storage error level"),
+  needs: zod.int().min(1).describe("Bytes the file needs"),
+});
+
+export type FilesSpace = zod.input<typeof FilesSpace>;
+export type FilesSpaceOutput = zod.output<typeof FilesSpace>;
+
+export const FilesImportWait = zod.object({
+  rootId: zod.uuid(),
+  space: zod
+    .union([FilesSpace, zod.null()])
+    .describe(
+      "For no_space, the bytes free and the bytes the file needs; null when a clone found the volume full or for root_not_ready",
+    ),
+});
+
+export type FilesImportWait = zod.input<typeof FilesImportWait>;
+export type FilesImportWaitOutput = zod.output<typeof FilesImportWait>;
+
 export const FilesWaitingNeed = zod.object({
   clientError: zod
     .union([FilesClientError, zod.null()])
@@ -1950,6 +1975,9 @@ export const FilesWaitingNeed = zod.object({
       "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't hold Downloading. no_space while its root has too little free space for a file, root_not_ready while its root isn't ready, probe_timeout while reading a file timed out three times, and client_error while its external client reports an error",
     ),
   grabId: zod.uuid(),
+  importWait: zod
+    .union([FilesImportWait, zod.null()])
+    .describe("The root the Import waits on, for no_space and root_not_ready; null otherwise"),
   kind: zod.enum(["waiting"]),
 });
 

@@ -309,13 +309,23 @@ const (
 // only an Admin resolves, such as node_away, empty while it waits on
 // nothing. FailedAt is the stage a failed Grab failed at, such as
 // importing. ClientError is the error a Grab waiting client_error waits
+// on, and Hold the root a Grab waiting no_space or root_not_ready waits
 // on, nil for any other wait.
 type GrabCell struct {
 	State       GrabState
 	Grab        storage.UUID
 	Waiting     string
 	ClientError *ClientError
+	Hold        *ImportHold
 	FailedAt    string
+}
+
+// ImportHold is the root an importing Grab's file waits on, and for
+// no_space the bytes Free above the root's Storage error level and the
+// bytes the file Needs, both 0 when a clone found the volume full.
+type ImportHold struct {
+	Root        roots.ID
+	Free, Needs int64
 }
 
 // ClientError is the error an external client reports on a Grab's Torrent:

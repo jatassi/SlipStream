@@ -4,9 +4,12 @@ import { page } from "vitest/browser";
 import type { FilesCellList, FilesNeed, GrabsGrab } from "../../api/gen/model";
 import { getGetWorkCellsMockHandler } from "../../api/gen/query/files/files.msw";
 import { getListGrabsMockHandler } from "../../api/gen/query/grabs/grabs.msw";
+import { getListRootsMockHandler } from "../../api/gen/query/roots/roots.msw";
 import { clock } from "../../format";
 import { orchardId } from "../../test/library";
+import { home } from "../../test/nodes";
 import { renderApp } from "../../test/render-app";
+import { filmsRoot } from "../../test/roots";
 import { awayGrab as stuck, upgradable } from "../../test/work-cells";
 import { workServer } from "../../test/work-server";
 
@@ -17,6 +20,7 @@ function openWith(needsYou: FilesNeed[], grabs: GrabsGrab[]) {
     handlers: [
       getGetWorkCellsMockHandler(cells),
       getListGrabsMockHandler({ grabs }),
+      getListRootsMockHandler({ roots: [{ ...filmsRoot, nodeId: home.id }] }),
       ...workServer().handlers,
     ],
   });
@@ -41,6 +45,7 @@ test("a download whose client reports an error quotes it and says when the Grab 
           message: "No space left on device",
           failsAt,
         },
+        importWait: null,
       },
     ],
     [erroring],
@@ -52,14 +57,45 @@ test("a download whose client reports an error quotes it and says when the Grab 
     );
 });
 
-test("a download whose Import waits for space sends the Admin to Pending imports", async () => {
+test("a download whose Import waits for space names the root, its free space and the file's size", async () => {
   const needsYou = openWith(
-    [{ kind: "waiting", grabId: stuck.id, code: "no_space", clientError: null }],
+    [
+      {
+        kind: "waiting",
+        grabId: stuck.id,
+        code: "no_space",
+        clientError: null,
+        importWait: {
+          rootId: filmsRoot.id,
+          space: { free: 12 * 1024 ** 3, needs: 48 * 1024 ** 3 },
+        },
+      },
+    ],
     [stuck],
   );
   await expect
     .element(needsYou)
     .toHaveTextContent(
-      `Needs you1Waiting${stuck.releaseTitle}Its library root has too little free space for a file of this download. Free up space there. SlipStream retries automatically once there's room.Open Pending imports`,
+      `Needs you1Waiting${stuck.releaseTitle}The Films library root on home has 12 GB free above its error level, and this file needs 48 GB. Free up space there. SlipStream retries automatically once there's room.Open Pending imports`,
+    );
+});
+
+test("a download whose Import waits on its root says the root isn't ready", async () => {
+  const needsYou = openWith(
+    [
+      {
+        kind: "waiting",
+        grabId: stuck.id,
+        code: "root_not_ready",
+        clientError: null,
+        importWait: { rootId: filmsRoot.id, space: null },
+      },
+    ],
+    [stuck],
+  );
+  await expect
+    .element(needsYou)
+    .toHaveTextContent(
+      `Needs you1Waiting${stuck.releaseTitle}The Films library root on home isn't ready. SlipStream retries once it is.Open Pending imports`,
     );
 });

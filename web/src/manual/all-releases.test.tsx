@@ -88,10 +88,14 @@ test("a Release's Details list its facts under their labels, the seeders as a nu
 });
 
 test("a Release that isn't better than the file grabs for its Target, forcing it in", async () => {
+  const [, base] = filmReleases;
+  if (base === undefined) {
+    throw new Error("the fixture has a second Release");
+  }
   const notBetter: GrabsOffer = {
-    ...filmReleases[1],
+    ...base,
     grab: {
-      ...filmReleases[1].grab,
+      ...base.grab,
       lifts: [
         {
           code: "not_an_upgrade",
