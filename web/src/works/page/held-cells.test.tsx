@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import type { FilesCellList, FilesFileList } from "../../api/gen/model";
-import { downloading } from "../../test/grabs";
+import { downloading, importingPack } from "../../test/grabs";
 import { orchardId } from "../../test/library";
 import { renderApp } from "../../test/render-app";
 import { scannedFiles } from "../../test/scanned-files";
@@ -57,6 +57,26 @@ test("a downloading cell names the Node its file is sent from and the Import del
   await expect
     .element(cutRow())
     .toMatchTextContent(/Waiting for the import delay, until \d{1,2}:10(\s?[AP]M)?\./u);
+});
+
+test("a downloading cell whose file waits for the Admin says Waiting for you once, as the link to its Import", async () => {
+  if (inFlight?.state !== "downloading") {
+    throw new Error("filled ends with a downloading cell");
+  }
+  const from = "2026-10-12T09:03:00Z";
+  const server = workServer({
+    startCells: { ...filled, cells: [{ ...inFlight, step: "waiting", from }] },
+  });
+  renderApp({ path: `/works/${orchardId}`, handlers: server.handlers });
+  server.grabMoves({ ...importingPack, id: downloading.id });
+  await expect
+    .element(cutRow().getByRole("link", { name: "Waiting for you" }))
+    .toHaveAttribute("href", `/library/pending/${importingPack.id}`);
+  expect(
+    cutRow()
+      .element()
+      .textContent.match(/Waiting for you/gu),
+  ).toHaveLength(1);
 });
 
 function placedFiles(placedBy: "link" | "transfer"): FilesFileList {
