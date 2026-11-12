@@ -26,37 +26,95 @@ type placer struct {
 	walks *sync.RWMutex
 }
 
-// place puts the file at from at rel, making its folders: a hard link,
-// else a copy to rel+".part" renamed into place. A file at rel with from's
-// size and BLAKE3 counts as placed, so placing again converges; another
-// file there is ErrOccupied. It answers the placed file and whether it is
-// a link to from.
-func (p placer) place(ctx context.Context, from string, rel Rel) (placed Info, linked bool, err error) {
+// NeedsCopyError is a place asked without allowCopy whose link and clone
+// both refused. Size is the bytes a copy writes.
+type NeedsCopyError struct{ Size int64 }
+
+func (e *NeedsCopyError) Error() string {
+	return fmt.Sprintf("the file can't be linked or cloned there and needs a copy of %d bytes", e.Size)
+}
+
+// NeedsSpaceError is a clone or copy the target volume has no room for.
+type NeedsSpaceError struct{}
+
+func (*NeedsSpaceError) Error() string { return "the target volume has no room for the file" }
+
+// place puts the file at from at rel, making its folders, by the first
+// step of the ladder that takes it: a hard link, a clone where the link is
+// refused across volumes, and a copy where the clone is unsupported and
+// allowCopy lets it. Any other refusal stops the ladder with its own
+// error. A file at rel with from's size and BLAKE3 counts as placed, by
+// Link when it is from itself and else by Copy, so placing again
+// converges; another file there is ErrOccupied, and is never removed.
+func (p placer) place(ctx context.Context, from string, rel Rel, allowCopy bool) (Info, Step, error) {
 	to := p.style.Under(p.root, rel)
 	if err := p.folders(ctx, Rel{}, rel); err != nil {
-		return nil, false, err
+		return nil, 0, err
 	}
 	switch same, err := p.identical(ctx, from, to); {
-	case errors.Is(err, fs.ErrNotExist):
-		if p.d.Link(ctx, from, to) != nil {
-			if err := p.copy(ctx, from, to); err != nil {
-				return nil, false, err
-			}
-		}
-	case err != nil:
-		return nil, false, err
-	case !same:
-		return nil, false, ErrOccupied
+	case err == nil && same:
+		return p.settled(ctx, from, to)
+	case err == nil:
+		return nil, 0, ErrOccupied
+	case !errors.Is(err, fs.ErrNotExist):
+		return nil, 0, err
 	}
+	step, err := p.climb(ctx, from, to, allowCopy)
+	if err != nil {
+		return nil, 0, err
+	}
+	placed, err := p.d.Stat(ctx, to)
+	if err != nil {
+		return nil, 0, fmt.Errorf("read the placed file: %w", err)
+	}
+	return placed, step, nil
+}
+
+func (p placer) climb(ctx context.Context, from, to string, allowCopy bool) (Step, error) {
+	err := p.d.Link(ctx, from, to)
+	switch {
+	case err == nil:
+		return Link, nil
+	case !errors.Is(err, ErrCrossDevice):
+		return 0, fmt.Errorf("link the file: %w", err)
+	}
+	switch err := p.d.Clone(ctx, from, to); {
+	case err == nil:
+		return Clone, nil
+	case NoSpace(err):
+		return 0, &NeedsSpaceError{}
+	case !errors.Is(err, errors.ErrUnsupported):
+		return 0, fmt.Errorf("clone the file: %w", err)
+	}
+	if !allowCopy {
+		src, err := p.d.Stat(ctx, from)
+		if err != nil {
+			return 0, fmt.Errorf("read the source: %w", err)
+		}
+		return 0, &NeedsCopyError{Size: src.Size()}
+	}
+	switch err := p.copy(ctx, from, to); {
+	case NoSpace(err):
+		return 0, &NeedsSpaceError{}
+	case err != nil:
+		return 0, err
+	}
+	return Copy, nil
+}
+
+func (p placer) settled(ctx context.Context, from, to string) (Info, Step, error) {
 	src, err := p.d.Stat(ctx, from)
 	if err != nil {
-		return nil, false, fmt.Errorf("read the source: %w", err)
+		return nil, 0, fmt.Errorf("read the source: %w", err)
 	}
 	dst, err := p.d.Stat(ctx, to)
 	if err != nil {
-		return nil, false, fmt.Errorf("read the placed file: %w", err)
+		return nil, 0, fmt.Errorf("read the placed file: %w", err)
 	}
-	return dst, src.Same(dst), nil
+	if src.Same(dst) {
+		return dst, Link, nil
+	}
+	return dst, Copy, nil
 }
 
 // move renames the file at from to to, making to's folders. A file at to

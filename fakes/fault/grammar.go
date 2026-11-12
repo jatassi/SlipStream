@@ -41,7 +41,7 @@ var bare = map[string]Fault{
 	"refuse": Refuse{}, "reset": Reset{}, "stall": Stall{},
 	"hang": Hang{}, "malformed": Malformed{}, "truncate": Truncate{},
 	"full": Full{}, "unmounted": Unmounted{}, "hung": Hung{}, "readonly": ReadOnly{},
-	"foldcase": FoldCase{}, "noids": NoIDs{},
+	"foldcase": FoldCase{}, "noids": NoIDs{}, "nolinks": NoLinks{}, "noclones": NoClones{}, "clonefull": CloneFull{},
 }
 
 var valued = map[string]func(string) (Fault, error){

@@ -163,11 +163,11 @@ func (s *Store) Place(ctx context.Context, req *storagev1.PlaceRequest) (*storag
 	if err != nil {
 		return nil, err
 	}
-	info, linked, err := s.place(ctx, root, Payload{InfoHash: h, FileIndex: int(req.GetFileIndex())}, to)
+	info, step, err := s.place(ctx, root, Payload{InfoHash: h, FileIndex: int(req.GetFileIndex())}, to, req.GetAllowCopy())
 	if err != nil {
 		return nil, wireError(err)
 	}
-	return &storagev1.PlaceResponse{Size: info.Size(), Linked: linked, Identity: identityOf(info)}, nil
+	return &storagev1.PlaceResponse{Size: info.Size(), Step: step.Wire(), Identity: identityOf(info)}, nil
 }
 
 func (s *Store) Move(ctx context.Context, req *storagev1.MoveRequest) (*storagev1.MoveResponse, error) {
@@ -378,6 +378,12 @@ func wireError(err error) error {
 	}
 	if errors.Is(err, ErrOccupied) {
 		return rpc.Errorf(rpc.CodeAlreadyExists, "%v", err)
+	}
+	if nc, ok := errors.AsType[*NeedsCopyError](err); ok {
+		return rpc.ErrorWith(rpc.CodeFailedPrecondition, &storagev1.NeedsCopy{Size: nc.Size}, nc.Error())
+	}
+	if ns, ok := errors.AsType[*NeedsSpaceError](err); ok {
+		return rpc.ErrorWith(rpc.CodeResourceExhausted, &storagev1.NeedsSpace{}, ns.Error())
 	}
 	return err
 }
@@ -698,21 +704,21 @@ func (s *Store) sized(ctx context.Context, dir string, rel Rel, size int64) (Mis
 	return 0, nil
 }
 
-func (s *Store) place(ctx context.Context, root storage.UUID, p Payload, to Rel) (placed Info, linked bool, err error) {
+func (s *Store) place(ctx context.Context, root storage.UUID, p Payload, to Rel, allowCopy bool) (Info, Step, error) {
 	dir, err := s.resolve(ctx, root, true)
 	if err != nil {
-		return nil, false, err
+		return nil, 0, err
 	}
 	from, err := s.cfg.Payloads.Path(p.InfoHash, p.FileIndex)
 	if err != nil {
-		return nil, false, rpc.Errorf(rpc.CodeUnavailable, "%v", err)
+		return nil, 0, rpc.Errorf(rpc.CodeUnavailable, "%v", err)
 	}
-	placed, linked, err = placer{s.cfg.Disk, s.host.Style, dir, s.walksOf(root)}.place(ctx, from, to)
+	placed, step, err := placer{s.cfg.Disk, s.host.Style, dir, s.walksOf(root)}.place(ctx, from, to, allowCopy)
 	if err != nil {
-		return nil, false, s.refused(ctx, dir, err)
+		return nil, 0, s.refused(ctx, dir, err)
 	}
 	s.resample(root)
-	return placed, linked, nil
+	return placed, step, nil
 }
 
 func (s *Store) move(ctx context.Context, root storage.UUID, from, to Rel, carry bool) (Info, []Rel, error) {
@@ -731,7 +737,7 @@ func (s *Store) move(ctx context.Context, root storage.UUID, from, to Rel, carry
 // it: a folder that stopped taking writes, or answering, is *NotReady, so
 // the write waits for the root. The facts follow at once.
 func (s *Store) refused(ctx context.Context, dir string, err error) error {
-	if errors.Is(err, ErrOccupied) {
+	if _, needsCopy := errors.AsType[*NeedsCopyError](err); needsCopy || errors.Is(err, ErrOccupied) {
 		return err
 	}
 	s.wake()

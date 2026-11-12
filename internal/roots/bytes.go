@@ -12,13 +12,14 @@ import (
 
 // Place puts payload from at to in root, on the Node that holds root now,
 // answering the placed file. The Node may refuse with a *WaitingError,
-// and another file at to is storing.ErrOccupied.
-func (r *Roots) Place(ctx context.Context, root ID, to storing.Rel, from storing.Payload) (storing.Placed, error) {
+// another file at to is storing.ErrOccupied, and a place that needs a copy
+// without allowCopy is *storing.NeedsCopyError.
+func (r *Roots) Place(ctx context.Context, root ID, to storing.Rel, from storing.Payload, allowCopy bool) (storing.Placed, error) {
 	at, err := r.at(ctx, root)
 	if err != nil {
 		return storing.Placed{}, err
 	}
-	placed, err := r.cfg.Remote.Place(ctx, at, from, to)
+	placed, err := r.cfg.Remote.Place(ctx, at, from, to, allowCopy)
 	return placed, r.waiting(ctx, at.Node, err)
 }
 

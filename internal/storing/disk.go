@@ -32,6 +32,11 @@ type Disk interface {
 	RemoveAll(ctx context.Context, path string) error
 	Rename(ctx context.Context, from, to string) error
 	Link(ctx context.Context, from, to string) error
+	// Clone makes to a clone of from that shares its extents, through
+	// to+".part" renamed into place. Where the volume or the OS can't, as
+	// on Windows, ext4, a share or across two volumes, it fails with
+	// errors.ErrUnsupported.
+	Clone(ctx context.Context, from, to string) error
 	// Writable writes nothing: access(W_OK) and the volume's read-only flag.
 	Writable(ctx context.Context, dir string) (bool, error)
 	Volume(ctx context.Context, path string) (Volume, error)

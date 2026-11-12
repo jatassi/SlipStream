@@ -292,13 +292,35 @@ message PlaceRequest {
   bytes info_hash = 2;
   int64 file_index = 3;
   string to = 4;
+  // allow_copy lets a place copy the file when link and clone both refuse.
+  // Without it the place fails with a NeedsCopy detail.
+  bool allow_copy = 5;
 }
 
 message PlaceResponse {
   int64 size = 1;
-  bool linked = 2;
+  PlaceStep step = 2;
   Identity identity = 3;
 }
+
+// PlaceStep is how a file came to be at its target.
+enum PlaceStep {
+  PLACE_STEP_UNSPECIFIED = 0;
+  PLACE_STEP_LINK = 1;
+  PLACE_STEP_CLONE = 2;
+  PLACE_STEP_COPY = 3;
+  PLACE_STEP_RENAME = 4;
+  PLACE_STEP_IN_PLACE = 5;
+}
+
+// NeedsCopy is a place asked without allow_copy whose link and clone both
+// refused. size is the bytes a copy writes.
+message NeedsCopy {
+  int64 size = 1;
+}
+
+// NeedsSpace is a clone or copy the target volume has no room for.
+message NeedsSpace {}
 
 message MoveRequest {
   bytes root_id = 1;

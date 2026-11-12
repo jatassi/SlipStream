@@ -370,7 +370,7 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 		Media: g.Plan.Media, SourceName: path.Base(g.Torrent.Files[i].Path), GrabID: g.ID.UUID, Meant: g.Targets,
 	}}
 	if root.Node == g.Node {
-		placed, err := gr.cfg.Roots.Place(ctx, root.ID, holding, storing.Payload{InfoHash: g.Torrent.InfoHash, FileIndex: g.Plan.FileIndex})
+		placed, err := gr.cfg.Roots.Place(ctx, root.ID, holding, storing.Payload{InfoHash: g.Torrent.InfoHash, FileIndex: g.Plan.FileIndex}, true)
 		if err != nil {
 			return storageOutcome(ctx, err, until)
 		}
