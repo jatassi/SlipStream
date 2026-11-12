@@ -2,7 +2,10 @@ package movie
 
 import (
 	"context"
+	"path"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/contenttypes/movie/internal/db"
 	"github.com/jatassi/slipstream/internal/scanning"
@@ -51,12 +54,34 @@ func (*Movie) YearOf(c works.Candidate) int {
 	return 0
 }
 
-// Place answers the movie's one Item for every file in its folder.
+// Place answers the movie's one Item for every file in its folder, as a
+// part of it for a name that ends in a part, such as CD1 or part2.
 func (*Movie) Place(ctx context.Context, r storage.Reader[file], work works.WorkID) (scanning.Placer, error) {
 	items, err := works.ItemsOf(ctx, r, works.Only([]works.WorkID{work}))
 	if err != nil {
 		return nil, err
 	}
 	item := items[work][0].ID
-	return func(string) scanning.Placement { return scanning.Placed(item) }, nil
+	return func(rel string) scanning.Placement {
+		if n := partOf(rel); n > 0 {
+			return scanning.PlacedPart(n, item)
+		}
+		return scanning.Placed(item)
+	}, nil
+}
+
+// part is Plex's and Jellyfin's stacked file suffix: a separator, cd,
+// dvd, part, pt, disc or disk, and the part's number, last in the name.
+var part = regexp.MustCompile(`(?i)[ ._-](?:cd|dvd|part|pt|dis[ck])[ ._-]?(\d{1,2})$`)
+
+// partOf is the part the file at rel reads as, zero when its name ends in
+// none.
+func partOf(rel string) int {
+	base := path.Base(strings.ReplaceAll(rel, `\`, "/"))
+	m := part.FindStringSubmatch(strings.TrimSuffix(base, path.Ext(base)))
+	if m == nil {
+		return 0
+	}
+	n, _ := strconv.Atoi(m[1])
+	return n
 }

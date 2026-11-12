@@ -46,11 +46,23 @@ func (f *File) sourceOf(imp Import) storing.Source {
 
 // place puts f's bytes at its Dest on the root's Node and lands it. A
 // root Import's file already sits in its root and lands where it is, and
-// a file sent from another Node moves there from its staged copy. A link
-// or a clone needs no room. A copy asks for it first, in a Write, so the
-// grant is a row the next file's check reads.
+// a file sent from another Node moves there from its staged copy, once
+// its Transfer counts the copy verified. A link or a clone needs no room.
+// A copy asks for it first, in a Write, so the grant is a row the next
+// file's check reads.
 func (im *Imports) place(ctx context.Context, imp Import, f File) error {
 	im.hold(ctx, imp, f, AtPlace)
+	if f.Sent != nil {
+		var again bool
+		err := im.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+			var err error
+			again, err = im.sentAgain(ctx, r, imp, f.Position)
+			return err
+		})
+		if err != nil || again {
+			return err
+		}
+	}
 	if imp.Source == FromRoot {
 		var seen storing.Seen
 		if f.Seen != nil {
@@ -74,11 +86,12 @@ func (im *Imports) place(ctx context.Context, imp Import, f File) error {
 		return err
 	}
 	if err != nil {
-		_, werr := im.write(ctx, imp.ID, func(_ context.Context, _ *storage.Tx[file], cur *Import, _ *after) error {
-			if g := fileAt(cur, f.Position); g.Outcome == Placing {
+		_, werr := im.write(ctx, imp.ID, func(ctx context.Context, tx *storage.Tx[file], cur *Import, _ *after) error {
+			again, rerr := im.sentAgain(ctx, tx, *cur, f.Position)
+			if g := fileAt(cur, f.Position); rerr == nil && !again && g.Outcome == Placing {
 				g.holdOrFail(err)
 			}
-			return nil
+			return rerr
 		})
 		return werr
 	}
