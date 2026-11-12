@@ -220,7 +220,7 @@ func (l *library) place(t testing.TB, item works.ItemID, work works.WorkID, path
 	t.Helper()
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: work, ItemID: item, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: 1024, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: q,
+			WorkID: work, Items: []works.ItemID{item}, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: 1024, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: q,
 		}, fills)
 		return err
 	})
@@ -362,7 +362,7 @@ func TestACellIsFilledOnce(t *testing.T) {
 	tree := l.work(t, "w1", true, nil)
 	l.place(t, tree.Items[0].ID, tree.ID, "a.mkv", release.WEBDL1080p, hd.ID)
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := files.Add(ctx, tx, files.File{WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Path: "b.mkv", Quality: release.WEBDL1080p}, []targets.TargetID{hd.ID})
+		_, err := files.Add(ctx, tx, files.File{WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID}, Cut: release.Standard, RootID: l.root.ID, Path: "b.mkv", Quality: release.WEBDL1080p}, []targets.TargetID{hd.ID})
 		return err
 	})
 	if err == nil || !strings.Contains(err.Error(), "UNIQUE constraint failed: files_fill.item_id, files_fill.edition, files_fill.target_id") {
@@ -383,7 +383,7 @@ func TestATargetsEstimateIsItsFilesRateOverTheProfilesRuntime(t *testing.T) {
 		t.Helper()
 		err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 			_, err := files.Add(ctx, tx, files.File{
-				WorkID: work, ItemID: item, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: mib << 20, Quality: release.WEBDL1080p,
+				WorkID: work, Items: []works.ItemID{item}, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: mib << 20, Quality: release.WEBDL1080p,
 			}, fills)
 			return err
 		})
@@ -445,7 +445,7 @@ func TestANamedListWantsStandardAndEachOtherCutOnceSeen(t *testing.T) {
 			return err
 		}
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: tree.ID, ItemID: mittens, Cut: "extended", RootID: l.root.ID, Path: "Shelf w1/Mittens.mkv", Size: 1024, Quality: release.WEBDL1080p,
+			WorkID: tree.ID, Items: []works.ItemID{mittens}, Cut: "extended", RootID: l.root.ID, Path: "Shelf w1/Mittens.mkv", Size: 1024, Quality: release.WEBDL1080p,
 		}, []targets.TargetID{hd.ID})
 		return err
 	})

@@ -41,7 +41,7 @@ func (s *server) file(t *testing.T, work, root, dir, rel string, size int) {
 			return err
 		}
 		_, err = files.Add(ctx, tx, files.File{
-			WorkID: w, ItemID: items[w][0].ID, Cut: release.Standard, RootID: roots.ID{UUID: must(storage.ParseUUID(root))},
+			WorkID: w, Items: []works.ItemID{items[w][0].ID}, Cut: release.Standard, RootID: roots.ID{UUID: must(storage.ParseUUID(root))},
 			Path: rel, Size: int64(size), Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p,
 		}, nil)
 		return err

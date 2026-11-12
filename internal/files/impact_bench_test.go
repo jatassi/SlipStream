@@ -303,7 +303,7 @@ func (s *stockroom) stock(b *testing.B, st stock, reads map[string]release.Read)
 		for i, it := range tree.Items {
 			name := st.name(i)
 			_, err := files.Add(ctx, tx, files.File{
-				WorkID: tree.ID, ItemID: it.ID, Cut: release.Standard, RootID: s.root.ID, Path: st.title + "/" + name + ".mkv",
+				WorkID: tree.ID, Items: []works.ItemID{it.ID}, Cut: release.Standard, RootID: s.root.ID, Path: st.title + "/" + name + ".mkv",
 				Size: 4 << 30, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: st.tails[i].quality,
 				ReleaseName: name, Title: reads[st.sample(i)],
 			}, []targets.TargetID{s.hd.ID, s.any.ID})

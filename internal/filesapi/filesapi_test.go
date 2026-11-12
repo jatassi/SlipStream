@@ -94,7 +94,7 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
 		placed, err = files.Add(ctx, tx, files.File{
-			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: root.ID,
+			WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID}, Cut: release.Standard, RootID: root.ID,
 			Path: "The Attic/The Attic - 1080p.mkv", Size: 4096, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p,
 		}, []targets.TargetID{hd.ID, small.ID})
 		return err
@@ -209,7 +209,7 @@ func TestForgetFilesForgetsGoneFilesAllOrNone(t *testing.T) {
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		for i, name := range []string{"Scarf", "Mittens"} {
 			f, err := files.Add(ctx, tx, files.File{
-				WorkID: tree.ID, ItemID: tree.Items[i].ID, Cut: release.Standard, RootID: root.ID, Path: "The Attic/" + name + ".mkv", Size: 4096, Quality: release.WEBDL1080p,
+				WorkID: tree.ID, Items: []works.ItemID{tree.Items[i].ID}, Cut: release.Standard, RootID: root.ID, Path: "The Attic/" + name + ".mkv", Size: 4096, Quality: release.WEBDL1080p,
 			}, []targets.TargetID{hd.ID})
 			if err != nil {
 				return err

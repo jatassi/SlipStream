@@ -359,7 +359,7 @@ func newCrashWorld(t *testing.T) crashWorld {
 	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		seed := func(path string, q release.Quality, fill targets.Target) error {
 			_, err := files.Add(ctx, tx, files.File{
-				WorkID: c.w1.ID, ItemID: c.w1.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: 1, Quality: q,
+				WorkID: c.w1.ID, Items: []works.ItemID{c.w1.Items[0].ID}, Cut: release.Standard, RootID: l.root.ID, Path: path, Size: 1, Quality: q,
 			}, []targets.TargetID{fill.ID})
 			return err
 		}

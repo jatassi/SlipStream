@@ -145,7 +145,7 @@ func fill(b *testing.B, lib *storage.DB[storage.Library], tree works.Tree, root 
 	err := lib.Write(b.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		for _, w := range ws {
 			_, err := files.Add(ctx, tx, files.File{
-				WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: root,
+				WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID}, Cut: release.Standard, RootID: root,
 				Path: tree.Label + "/" + tree.Label + " - " + w.quality.String() + ".mkv", Size: 1 << 30, Quality: w.quality,
 			}, []targets.TargetID{w.target})
 			if err != nil {

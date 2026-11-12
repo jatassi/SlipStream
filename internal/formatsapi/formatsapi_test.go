@@ -123,7 +123,7 @@ func serve(t *testing.T) *served {
 	}
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: root.ID, Path: "The Attic/The Attic - Scarf - 1080p.mkv",
+			WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID}, Cut: release.Standard, RootID: root.ID, Path: "The Attic/The Attic - Scarf - 1080p.mkv",
 			Size: 2000 << 20, Quality: release.WEBDL1080p,
 		}, []targets.TargetID{{UUID: starter}})
 		return err

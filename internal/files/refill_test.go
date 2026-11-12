@@ -54,7 +54,7 @@ func randomWorld(t *testing.T, r *rand.Rand) world {
 	for range r.IntN(7) {
 		name := marking(r, "Scarf.1080p", marks)
 		w.files = append(w.files, File{
-			ID: ID{UUID: storage.NewUUID()}, ItemID: w.tree.Items[r.IntN(len(w.tree.Items))].ID, Cut: release.Standard,
+			ID: ID{UUID: storage.NewUUID()}, Items: []works.ItemID{w.tree.Items[r.IntN(len(w.tree.Items))].ID}, Cut: release.Standard,
 			Quality: all[r.IntN(len(all))], ReleaseName: name, Title: release.Title(name, release.TitleOnly{}, nil),
 		})
 	}
@@ -167,7 +167,7 @@ func scoredOf(f File) targets.Scored {
 func meetingAt(w world, item works.ItemID, target targets.Target) []File {
 	var out []File
 	for _, f := range w.files {
-		if f.ItemID == item && targets.Judge(target, targets.Scored{Facts: f.Facts()}, nil).Meets() {
+		if f.Items[0] == item && targets.Judge(target, targets.Scored{Facts: f.Facts()}, nil).Meets() {
 			out = append(out, f)
 		}
 	}
@@ -186,7 +186,7 @@ func TestATieKeepsTheIncumbentElseTheOldestFile(t *testing.T) {
 	hd.ID = targets.TargetID{UUID: storage.NewUUID()}
 	key := CellKey{Item: item.ID, Edition: targets.AnyEdition, Target: hd.ID}
 	file := func(q release.Quality) File {
-		return File{ID: ID{UUID: storage.NewUUID()}, ItemID: item.ID, Cut: release.Standard, Quality: q}
+		return File{ID: ID{UUID: storage.NewUUID()}, Items: []works.ItemID{item.ID}, Cut: release.Standard, Quality: q}
 	}
 	older, newer, better := file(release.WEBDL1080p), file(release.WEBRip1080p), file(release.Remux1080p)
 	at := func(fills map[CellKey]Fill, fs ...File) ID {

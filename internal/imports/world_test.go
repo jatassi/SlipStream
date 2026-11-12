@@ -295,7 +295,7 @@ func (w *world) place(t *testing.T, work works.Tree, p string) {
 	i := slices.IndexFunc(work.Items, func(it works.Item) bool { return it.Label == label })
 	err := w.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: work.ID, ItemID: work.Items[i].ID, Cut: release.Standard, RootID: w.root.ID, Path: p, Size: 1 << 30, Quality: release.Bluray1080p,
+			WorkID: work.ID, Items: []works.ItemID{work.Items[i].ID}, Cut: release.Standard, RootID: w.root.ID, Path: p, Size: 1 << 30, Quality: release.Bluray1080p,
 			Media: media.Record{Version: media.Version, Video: media.Video{Codec: "hevc", Width: 1920, Height: 1080}},
 			Seen:  &storing.Seen{Modified: time.UnixMilli(1_700_000_000_000)},
 		}, []targets.TargetID{w.hd})

@@ -324,7 +324,7 @@ func (s *shelves) record(t *testing.T, work string, root roots.Root, path string
 	t.Helper()
 	err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: workID(t, work), ItemID: s.item(t, work), Cut: release.Standard, RootID: root.ID,
+			WorkID: workID(t, work), Items: []works.ItemID{s.item(t, work)}, Cut: release.Standard, RootID: root.ID,
 			Path: path, Size: 2048, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p,
 		}, nil)
 		return err

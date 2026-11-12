@@ -101,7 +101,7 @@ func (s shelf) stock(key works.Key) {
 // of Work w.
 func (s shelf) place(ctx context.Context, tx *storage.Tx[storage.Library], w works.WorkID, it works.Item) error {
 	_, err := files.Add(ctx, tx, files.File{
-		WorkID: w, ItemID: it.ID, Cut: release.Standard, RootID: s.root.ID, Path: w.String() + "/" + it.Label + ".mkv", Size: 1 << 30, Quality: release.Bluray1080p,
+		WorkID: w, Items: []works.ItemID{it.ID}, Cut: release.Standard, RootID: s.root.ID, Path: w.String() + "/" + it.Label + ".mkv", Size: 1 << 30, Quality: release.Bluray1080p,
 	}, []targets.TargetID{s.hd})
 	return err
 }

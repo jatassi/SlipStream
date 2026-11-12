@@ -48,7 +48,7 @@ func shelved(t *testing.T) (s *served, ids map[string]string) {
 	err = s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
 		held, err = files.Add(ctx, tx, files.File{
-			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: root.ID, Path: "The Attic/The Attic - Scarf - 1080p.mkv",
+			WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID}, Cut: release.Standard, RootID: root.ID, Path: "The Attic/The Attic - Scarf - 1080p.mkv",
 			Size: 2000 << 20, Quality: release.WEBDL1080p,
 		}, []targets.TargetID{{UUID: must[storage.UUID](t)(storage.ParseUUID(s.starter))}})
 		return err
