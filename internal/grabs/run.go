@@ -425,10 +425,7 @@ func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
 		if err != nil {
 			return storageOutcome(ctx, err, until)
 		}
-		imported.file.size, imported.file.seen, imported.file.placedBy = placed.Size, placed.Seen, "copy"
-		if placed.Linked {
-			imported.file.placedBy = "link"
-		}
+		imported.file.size, imported.file.seen, imported.file.placedBy = placed.Size, placed.Seen, placed.Step.String()
 		return imported
 	}
 	t, verified, err := gr.staged(ctx, g)
