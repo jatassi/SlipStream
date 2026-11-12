@@ -132,7 +132,7 @@ func (n *Node) startController(ctx context.Context) error {
 		},
 		Sealer:    lib.sealer,
 		Roster:    openedRoster{&side},
-		Uses:      grabs.TorrentUses{},
+		Uses:      imports.Uses{TorrentUses: grabs.TorrentUses{}},
 		Blocklist: grabs.BlocklistOn{Reconciling: trackers.NotReconciling, Changes: grabs.BlocklistChangedEvent.Bind(n.hub)},
 		Seeding:   lateSeeder{&seeding},
 		Live: downloadclients.LiveConfig{
@@ -343,7 +343,7 @@ func (n *Node) startController(ctx context.Context) error {
 		},
 		Arrivals: arrivals,
 		Contents: files.RootContents{},
-		Inflight: grabs.RootGrabs{},
+		Inflight: imports.RootImports{},
 		Changed:  roots.ChangedEvent.Bind(n.hub),
 		Volumes:  roots.VolumesChangedEvent.Bind(n.hub),
 		Cadence:  clients.CadenceChanged,
@@ -360,7 +360,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Describe: tree.Describe, Budget: roots.SmallestBudget, Changed: naming.ChangedEvent.Bind(n.hub),
 	})
 	shelf, err := files.Open(ctx, files.Config{
-		Library: lib.db, Targets: goals, Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}, Transfers: transfers.LiveIn,
+		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn,
 		Naming:  names,
 		Names:   contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
 		Today:   n.today,
