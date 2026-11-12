@@ -12,7 +12,7 @@ CREATE TABLE grabs_carry (
     path TEXT,
     -- The Targets it fills, in position order, as a JSON list of hex ids.
     fills TEXT NOT NULL CHECK (json_valid(fills)),
-    CHECK (was = 'probing' OR (file_index IS NOT NULL AND probe IS NOT NULL AND root_id IS NOT NULL AND path IS NOT NULL))
+    CHECK (was = 'probing' OR (file_index IS NOT NULL AND probe IS NOT NULL AND path IS NOT NULL))
 ) STRICT;
 
 INSERT INTO grabs_carry (grab_id, was, file_index, probe, root_id, path, fills)

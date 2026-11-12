@@ -45,7 +45,7 @@ func TestThePacksMigrationGivesEveryGrabItsItemAndSettlesOnlyImportedCells(t *te
 	for _, stage := range grabs.Stages {
 		want := "0 1 1 0 null"
 		if stage == grabs.Imported {
-			want = "0 1 1 0 placed 105"
+			want = "0 1 1 0 placed 103"
 		}
 		var got string
 		q := `SELECT i.position || ' ' || (i.item_id = ?) || ' ' || (t.item_id = i.item_id) || ' ' || t.forced || ' ' ||
@@ -151,7 +151,7 @@ func grabAtEveryStage(work, item, node, torrent, target storage.UUID) (map[grabs
 		if stage != grabs.Fetching {
 			g["torrent_id"] = torrent
 		}
-		if stage == grabs.Transferring || stage == grabs.Importing || stage == grabs.Imported {
+		if stage == grabs.Importing || stage == grabs.Imported {
 			g["path"], g["file_index"], g["probe"] = "Heat (1995)/Heat (1995).mkv", 0, "{}"
 		}
 		if stage == grabs.Failed {

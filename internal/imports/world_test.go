@@ -86,14 +86,6 @@ type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
 
-type noGrabs struct{}
-
-func (noGrabs) CancelTransfersIn(context.Context, *storage.Tx[storage.Library], []works.WorkID) error {
-	return nil
-}
-
-func (noGrabs) TouchTransfers() {}
-
 // shelfFacet hints a folder's name as release names write it and places
 // a file at the Item its name, without extension, labels.
 type shelfFacet struct {
@@ -159,7 +151,7 @@ func newWorld(t *testing.T) *world {
 		t.Fatal(err)
 	}
 	if w.files, err = files.Open(ctx, files.Config{
-		Library: w.lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }},
+		Library: w.lib, Targets: goals, Grabs: Cells{Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}},
 		Naming: naming.New(naming.Config{
 			Facets:   map[works.TypeID]naming.Facet{contenttypetest.ID: w.fx},
 			Describe: func(works.TypeID) (works.Description, bool) { return contenttypetest.Description, true },
@@ -189,7 +181,7 @@ func newWorld(t *testing.T) *world {
 		Log: slog.New(slog.DiscardHandler),
 	}
 	w.im = w.newImports(w.cfg)
-	w.library = library.New(library.Config{Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Grabs: noGrabs{}, Imports: w.im, Leaver: w.im})
+	w.library = library.New(library.Config{Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Imports: w.im, Leaver: w.im})
 	return w
 }
 

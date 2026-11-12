@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/indexers/indexerstest"
 	"github.com/jatassi/slipstream/internal/magnet"
@@ -177,6 +178,7 @@ type pipeline struct {
 	indexer    indexers.ID
 	copies     *transfers.Transfers
 	cfg        grabs.Config
+	imports    *importer
 	beforeStep func(context.Context, grabs.Stage)
 	// reconciling is whether the Controller is Reconciling after a restore.
 	reconciling atomic.Bool
@@ -228,9 +230,8 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 			Library: lib, Sealer: sealer, Roster: p.roster, Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
 		}),
 		Roster: p.roster, Downloads: p.swarm,
-		Router:    downloadclients.Router{Roster: p.roster, Routes: trackers.Routing{Roster: p.roster}},
-		Transfers: p.copies,
-		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
+		Router:  downloadclients.Router{Roster: p.roster, Routes: trackers.Routing{Roster: p.roster}},
+		Timings: grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: p.changed, BlocklistChanged: discard[grabs.BlocklistChanged]{}, Log: slog.New(slog.DiscardHandler),
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return p.reconciling.Load(), nil },
 		BeforeStep: func(ctx context.Context, s grabs.Stage) {
@@ -240,13 +241,51 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 		},
 	}
 	p.g = grabs.New(p.cfg)
+	p.imports = &importer{g: p.g}
+	p.g.Register(p.imports)
 	return p
+}
+
+// importer is the Importer the pipeline registers: it keeps each Grab
+// whose download it was handed, and ends an Import as the Grab says,
+// refusing a cancel while busy, as one placing a file does.
+type importer struct {
+	g       *grabs.Grabs
+	mu      sync.Mutex
+	started []grabs.GrabID
+	busy    bool
+}
+
+func (i *importer) Start(_ context.Context, _ *storage.Tx[storage.Library], h grabs.Handoff) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.started = append(i.started, h.Grab)
+	return nil
+}
+
+func (i *importer) End(ctx context.Context, tx *storage.Tx[storage.Library], id grabs.GrabID, why grabs.Failure, cancel bool) error {
+	i.mu.Lock()
+	busy := i.busy
+	i.mu.Unlock()
+	if cancel && busy {
+		return &grabs.GrabBusyError{Stage: grabs.Importing}
+	}
+	_, err := i.g.Follow(ctx, tx, id, grabs.Report{Ended: &why})
+	return err
+}
+
+func (*importer) Wake() {}
+
+func (i *importer) handed() []grabs.GrabID {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	return slices.Clone(i.started)
 }
 
 func schemas() []storage.Schema[storage.Library] {
 	return []storage.Schema[storage.Library]{
 		secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), health.Schema(), roots.Schema(),
-		downloadclients.Schema(), grabs.Schema(), indexers.Schema(), trackers.Schema(), files.Schema(), transfers.LibrarySchema(),
+		downloadclients.Schema(), grabs.Schema(), indexers.Schema(), trackers.Schema(), files.Schema(), transfers.LibrarySchema(), imports.Schema(),
 	}
 }
 

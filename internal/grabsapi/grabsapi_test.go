@@ -22,6 +22,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/grabsapi"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/indexers/indexerstest"
 	"github.com/jatassi/slipstream/internal/magnet"
@@ -181,7 +182,7 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 	t.Helper()
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(),
-		roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), trackers.Schema(), files.Schema(), transfers.LibrarySchema())
+		roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), trackers.Schema(), files.Schema(), transfers.LibrarySchema(), imports.Schema())
 	fx := contenttypetest.New()
 	w := must[*works.Works](t)(works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -232,7 +233,7 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{}, Timings: indexers.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
 	})
 	router := downloadclients.Router{Roster: roster, Routes: trackers.Routing{Roster: roster}}
-	shelf, err := files.Open(ctx, files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }, Router: router}, Today: time.Now})
+	shelf, err := files.Open(ctx, files.Config{Library: lib, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }, Router: router}}, Today: time.Now})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,9 +242,8 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Indexers: xs,
 		Terms:    map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Names: map[works.TypeID]release.Names{contenttypetest.ID: fx},
 		Roster: roster, Downloads: roster, Roots: library,
-		Router:    router,
-		Transfers: transfers.New(transfers.ControllerConfig{Library: lib}),
-		Timings:   grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
+		Router:  router,
+		Timings: grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, BlocklistChanged: blocklisted,
 		Reconciling: trackers.NotReconciling,
 		Log:         slog.New(slog.DiscardHandler),

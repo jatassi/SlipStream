@@ -44,17 +44,14 @@ func (l *library) torrentOf(tracker indexers.TrackerID, removed bool) storage.UU
 func (l *library) grabAt(tracker indexers.TrackerID, stage string, torrent *storage.UUID) storage.UUID {
 	l.t.Helper()
 	id := storage.NewUUID()
-	var path, failedStage, failureCode any
-	switch stage {
-	case "imported":
-		path = "/library/Orchard"
-	case "failed":
+	var failedStage, failureCode any
+	if stage == "failed" {
 		failedStage, failureCode = "downloading", "fixture_failure"
 	}
 	l.exec(`INSERT INTO grabs_grab (id, work_id, item_id, edition, source, tracker_id, node_id, release_title, release_size, release_magnet,
-		stage, torrent_id, path, failed_stage, failure_code, created_at, updated_at)
-		VALUES (?, ?, ?, 'any', 'search', ?, ?, 'Orchard.1080p', 1, 'magnet:?xt=urn:btih:00', ?, ?, ?, ?, ?, 0, 0)`,
-		id, l.work, l.item, tracker, l.node, stage, torrent, path, failedStage, failureCode)
+		stage, torrent_id, failed_stage, failure_code, created_at, updated_at)
+		VALUES (?, ?, ?, 'any', 'search', ?, ?, 'Orchard.1080p', 1, 'magnet:?xt=urn:btih:00', ?, ?, ?, ?, 0, 0)`,
+		id, l.work, l.item, tracker, l.node, stage, torrent, failedStage, failureCode)
 	return id
 }
 

@@ -64,10 +64,9 @@ func (unlinked) LaneBytes(link.Key) link.Stats                { return link.Stat
 // seed inserts one Grab in stage, with the columns the stage's CHECKs ask
 // for, against the one Item in the library.
 const seed = `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, node_id,
-	release_title, release_size, release_magnet, stage, torrent_id, path, failure_code, created_at, updated_at)
+	release_title, release_size, release_magnet, stage, torrent_id, failure_code, created_at, updated_at)
 SELECT ?, work_id, id, 'standard', 'search', ?, 'The.Attic.1080p.WEB', 4096, 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567', ?,
 	CASE WHEN ? = 'fetching' THEN NULL ELSE ? END,
-	CASE WHEN ? IN ('transferring', 'importing', 'imported') THEN 'The Attic.mkv' END,
 	CASE WHEN ? = 'failed' THEN 'download_failed' END,
 	0, 0
 FROM works_item`
@@ -97,7 +96,7 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 	}
 	watch := openHealth(t, lib, roster)
 	s := ownertest.Serve(t, lib, func(r *api.Router) {
-		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch, imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})})})
+		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch, imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})})})
 	})
 
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null},"pendingImports":0}`)
@@ -108,8 +107,8 @@ func TestActivityCountsTheGrabsNeitherImportedNorFailed(t *testing.T) {
 			torrent, home); err != nil {
 			return err
 		}
-		for _, stage := range []string{"fetching", "fetching", "downloading", "probing", "transferring", "importing", "imported", "imported", "failed"} {
-			if _, err := tx.ExecContext(ctx, seed, storage.NewUUID(), home, stage, stage, torrent, stage, stage); err != nil {
+		for _, stage := range []string{"fetching", "fetching", "downloading", "downloading", "importing", "importing", "imported", "imported", "failed"} {
+			if _, err := tx.ExecContext(ctx, seed, storage.NewUUID(), home, stage, stage, torrent, stage); err != nil {
 				return err
 			}
 		}
@@ -187,7 +186,7 @@ func TestTheAlertsCarryHealthsWorstLevels(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := ownertest.Serve(t, lib, func(r *api.Router) {
-		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch, imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})})})
+		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib}), watch, imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})})})
 	})
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":"warn","tasks":"warn"},"pendingImports":0}`)
 }
@@ -216,7 +215,7 @@ func TestPendingImportsCountsTheEntriesThatNeedTheAdmin(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := ownertest.Serve(t, lib, func(r *api.Router) {
-		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})}), roster, downloadclients.New(downloadclients.Config{Library: lib}), openHealth(t, lib, roster), imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})})})
+		shellapi.Routes(r, shell{grabs.New(grabs.Config{Library: lib}), roster, downloadclients.New(downloadclients.Config{Library: lib}), openHealth(t, lib, roster), imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})})})
 	})
 	s.Expect(t, http.MethodGet, "/api/v1/counts", "", http.StatusOK, `{"activity":0,"downloads":{"done":0,"wanted":0,"allPaused":false},"alerts":{"nodes":null,"health":null,"tasks":null},"pendingImports":2}`)
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -81,7 +82,7 @@ func tester(t *testing.T, keys ...works.Key) (*grabs.Grabs, *titled, []works.Wor
 	t.Helper()
 	ctx := t.Context()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(),
-		downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), transfers.LibrarySchema())
+		downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), transfers.LibrarySchema(), imports.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(ctx, works.Config{
 		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
@@ -96,7 +97,7 @@ func tester(t *testing.T, keys ...works.Key) (*grabs.Grabs, *titled, []works.Wor
 	if err != nil {
 		t.Fatal(err)
 	}
-	shelf, err := files.Open(ctx, files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Today: time.Now})
+	shelf, err := files.Open(ctx, files.Config{Library: lib, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}}, Today: time.Now})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +121,7 @@ func tester(t *testing.T, keys ...works.Key) (*grabs.Grabs, *titled, []works.Wor
 	g := grabs.New(grabs.Config{
 		Library: lib, Works: w, Targets: goals, Files: shelf,
 		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: claims}, Names: map[works.TypeID]rel.Names{contenttypetest.ID: dated{}},
-		Transfers: transfers.New(transfers.ControllerConfig{Library: lib}), Timings: grabs.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
+		Timings: grabs.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
 	})
 	return g, claims, ids
 }

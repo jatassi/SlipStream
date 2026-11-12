@@ -119,7 +119,7 @@ func (im *Imports) grabImport(ctx context.Context, r storage.Reader[file], h gra
 // reads as no Item or Items the Grab doesn't cover, else pending with its
 // Items.
 func (f *File) check(rel string, rules Rules, grabbed []works.ItemID, place scanning.Placer) {
-	if why, out := leftOut(rel, f.Size, rules); out {
+	if why, out := leftOutOf(rel, f.Size, rules); out {
 		f.Outcome, f.Reason = LeftOut, &why
 		return
 	}
@@ -135,9 +135,9 @@ func (f *File) check(rel string, rules Rules, grabbed []works.ItemID, place scan
 	}
 }
 
-// leftOut is why the video at rel, of size bytes, is left out of a
+// leftOutOf is why the video at rel, of size bytes, is left out of a
 // download's Import, if it is.
-func leftOut(rel string, size int64, rules Rules) (Reason, bool) {
+func leftOutOf(rel string, size int64, rules Rules) (Reason, bool) {
 	folders := strings.Split(rel, "/")
 	name := strings.ToLower(folders[len(folders)-1])
 	stem := strings.TrimSuffix(name, path.Ext(name))
