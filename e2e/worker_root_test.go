@@ -27,7 +27,7 @@ func TestAWorkerRootThatDownloadsImportsByHardLinkThere(t *testing.T) {
 	s := workerRoot(t, role.Searching, role.Downloading, role.Storage)
 	w := walkFrom(t, beginIn(t, s, worldtest.LaunchScenario(t, s)))
 	seedbox := w.m.Nodes[1]
-	if want := []string{"fetching", "downloading", "probing", "importing", "imported"}; !slices.Equal(w.grab.stages(), want) {
+	if want := []string{"fetching", "downloading", "importing", "imported"}; !slices.Equal(w.grab.stages(), want) {
 		t.Fatalf("the Grab's history is %v, want %v", w.grab.stages(), want)
 	}
 	if w.grab.NodeID != seedbox.NodeID {
@@ -43,7 +43,7 @@ func TestAGrabIntoAWorkerRootFromAnotherNodeTransfersThere(t *testing.T) {
 	t.Parallel()
 	s := workerRoot(t, role.Searching, role.Storage)
 	w := walkFrom(t, beginIn(t, s, worldtest.LaunchScenario(t, s)))
-	if want := []string{"fetching", "downloading", "probing", "transferring", "importing", "imported"}; !slices.Equal(w.grab.stages(), want) {
+	if want := []string{"fetching", "downloading", "importing", "imported"}; !slices.Equal(w.grab.stages(), want) {
 		t.Fatalf("the Grab's history is %v, want %v", w.grab.stages(), want)
 	}
 	if home := w.m.Nodes[0]; w.grab.NodeID != home.NodeID {

@@ -32,7 +32,7 @@ func TestTheLadderFaultsReachTheStore(t *testing.T) {
 		liftLinks := w.Disk("home", movies, fault.NoLinks{})
 		liftClones := w.Disk("home", movies, fault.NoClones{})
 		simtest.Search(t, w, simtest.AddOrchard(t, w))
-		expectImportedFrom(t, simtest.Await(t, w))
+		simtest.ExpectImported(t, simtest.Await(t, w))
 		expectPlaced(t, w)
 		copied, err := os.Stat(filepath.Join(w.Manifest().MediaDir, filepath.FromSlash(placed)))
 		if err != nil {

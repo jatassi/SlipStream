@@ -226,7 +226,7 @@ func TestALinkCutMidTransferResumes(t *testing.T) {
 		t.Fatalf("the cut connection carried %s, want the Transfer's 256 KiB from seedbox", cut.Data)
 	}
 	w.ended(t, *s.GrabID)
-	if want := []string{"fetching", "downloading", "probing", "transferring", "importing", "imported"}; !slices.Equal(w.grab.stages(), want) {
+	if want := []string{"fetching", "downloading", "importing", "imported"}; !slices.Equal(w.grab.stages(), want) {
 		t.Fatalf("the Grab's history is %v with %+v, want %v", w.grab.stages(), w.grab.Failure, want)
 	}
 	if _, err := events.Wait(worldtest.Context(t), w.m.RunDir, events.Query{Kind: "front.open", Match: map[string]string{"target": link}, After: cut.Seq}); err != nil {
