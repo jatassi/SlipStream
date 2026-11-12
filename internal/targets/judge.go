@@ -15,16 +15,14 @@ type ReasonCode string
 
 // A Release's own refusals, which grabs sets before any Target judges it:
 // WrongWork is an id naming another Work, WrongItem a name that covers
-// none of the searched Items, CoversMore one that covers more than the
-// searched Item, and WrongTitle one whose title or year doesn't match the
-// Work. CutNotWanted is a cell whose Edition doesn't take the Release's
+// none of the searched Items, and WrongTitle one whose title or year
+// doesn't match the Work. CutNotWanted is a cell whose Edition doesn't take the Release's
 // cut. The rest are Judge's. RepackOtherGroup's value is the held file's
 // release group, empty when the file gives none. Blocklisted is a Release
 // whose info hash is on the Blocklist.
 const (
 	WrongWork          ReasonCode = "wrong_work"
 	WrongItem          ReasonCode = "wrong_item"
-	CoversMore         ReasonCode = "covers_more"
 	WrongTitle         ReasonCode = "wrong_title"
 	CutNotWanted       ReasonCode = "cut_not_wanted"
 	QualityNotInTarget ReasonCode = "quality_not_in_target"
@@ -58,7 +56,7 @@ const (
 // weights is every ReasonCode, in the order the API lists them, and how
 // much it weighs.
 var weights = []weighed{
-	{WrongWork, hard}, {WrongItem, hard}, {CoversMore, soft}, {WrongTitle, soft}, {CutNotWanted, soft},
+	{WrongWork, hard}, {WrongItem, hard}, {WrongTitle, soft}, {CutNotWanted, soft},
 	{QualityNotInTarget, hard}, {FilterFailed, hard}, {SizeBelow, soft}, {SizeAbove, soft}, {SizeNotChecked, note},
 	{ScoreBelowMinimum, soft}, {NotAnUpgrade, soft}, {RepackOtherGroup, soft}, {Blocklisted, block},
 }

@@ -4,9 +4,9 @@ import { Link } from "@tanstack/react-router";
 import { useCounts } from "../shell/counts";
 import { Icon } from "../ui/icon";
 import { List, ListRow } from "../ui/list";
-import { needYouWords } from "./words";
+import { pendingWords } from "./words";
 
-/** The Library's row to Pending imports while folders there need the Admin. */
+/** The Library's row to Pending imports while an Import there has a file waiting for the Admin. */
 export function PendingLink() {
   const count = useCounts()?.pendingImports ?? 0;
   if (count === 0) {
@@ -16,8 +16,8 @@ export function PendingLink() {
     <div className="mb-4">
       <List label="Pending imports">
         <ListRow
-          title={needYouWords(count)}
-          meta="A library scan found them and can't match them with confidence."
+          title={pendingWords(count)}
+          meta="Each has a file SlipStream can't import without you."
           trailing={<Icon icon={ArrowRight01Icon} className="size-4" />}
           render={<Link to="/library/pending" />}
         />

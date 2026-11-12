@@ -255,25 +255,6 @@ export const getGetWorkCellsResponseFilesUpgradableCellMock = (
       ] as const),
       size: faker.number.int({ min: 0 }),
     },
-    held: faker.helpers.arrayElement([
-      {
-        from: faker.date.past().toISOString().slice(0, 19) + "Z",
-        grabId: faker.string.uuid(),
-        step: faker.helpers.arrayElement([
-          "fetching",
-          "downloading",
-          "reading",
-          "sending",
-          "placing",
-          "waiting",
-        ] as const),
-        until: faker.helpers.arrayElement([
-          faker.date.past().toISOString().slice(0, 19) + "Z",
-          null,
-        ]),
-      },
-      null,
-    ]),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["upgradable"] as const),
     targetId: faker.string.uuid(),
@@ -399,6 +380,16 @@ export const getGetWorkCellsResponseFilesWaitingNeedMock = (
       "client_error",
     ] as const),
     grabId: faker.string.uuid(),
+    importWait: faker.helpers.arrayElement([
+      {
+        rootId: faker.string.uuid(),
+        space: faker.helpers.arrayElement([
+          { free: faker.number.int({ min: 0 }), needs: faker.number.int({ min: 1 }) },
+          null,
+        ]),
+      },
+      null,
+    ]),
     kind: faker.helpers.arrayElement(["waiting"] as const),
   },
   ...overrideResponse,

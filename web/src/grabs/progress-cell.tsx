@@ -1,4 +1,6 @@
-import type { GrabsFetchWait, GrabsGrab } from "../api/gen/model";
+import { Link } from "@tanstack/react-router";
+
+import type { GrabsFetchWait, GrabsGrab, GrabsGrabImport } from "../api/gen/model";
 import { useListTorrentsSuspense } from "../api/gen/query/downloadclients/downloadclients";
 import { bytes } from "../format";
 import { useLiveRow } from "../live/torrents";
@@ -66,12 +68,33 @@ function FetchWaitCell({ wait }: { wait: GrabsFetchWait }) {
   return <span className="block max-w-[240px] text-meta text-ink-3">{wait.sentence}</span>;
 }
 
+/** "Importing 6 of 10 episodes", and while a file waits for the Admin, the link to its Pending import. */
+function ImportCell({ progress }: { progress: GrabsGrabImport }) {
+  return (
+    <span className="flex max-w-[240px] flex-col gap-0.5 text-meta">
+      <span className="text-ink-2">{progress.words}</span>
+      {progress.waiting > 0 && (
+        <Link
+          to="/library/pending/$importId"
+          params={{ importId: progress.id }}
+          className="w-fit rounded-item text-ink-1 underline hover:text-ink-2"
+        >
+          Waiting for you
+        </Link>
+      )}
+    </span>
+  );
+}
+
 export function ProgressCell({ grab }: { grab: GrabsGrab }) {
   if (grab.fetchWait !== undefined) {
     return <FetchWaitCell wait={grab.fetchWait} />;
   }
   if (grab.metadata !== undefined) {
     return <MetadataCell search={grab.metadata} />;
+  }
+  if (grab.stage === "importing" && grab.import !== null) {
+    return <ImportCell progress={grab.import} />;
   }
   if (!movesBytes(grab)) {
     return null;

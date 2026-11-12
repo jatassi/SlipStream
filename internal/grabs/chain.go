@@ -51,6 +51,10 @@ var chain = [...]rung{
 	atTarget(StepTier, targets.ByTier),
 	atTarget(StepRevision, targets.ByRevision),
 	atTarget(StepScore, targets.ByScore),
+	{StepChosenByAnother, 0, func(c cells, a, b judged) int { return cmp.Compare(boolRank(c.chosen.of(a)), boolRank(c.chosen.of(b))) },
+		func(c cells, r judged) string { return strconv.FormatBool(c.chosen.of(r)) }},
+	{StepFewerUnwanted, 0, func(c cells, a, b judged) int { return cmp.Compare(c.unwanted(b), c.unwanted(a)) },
+		func(c cells, r judged) string { return strconv.Itoa(c.unwanted(r)) }},
 	onRelease(StepPriority, lowerFirst, func(r indexers.Release) int { return r.Priority }, strconv.Itoa),
 	onRelease(StepFreeleech, lowerFirst, func(r indexers.Release) float64 { return r.Factors.Download }, func(f float64) string {
 		return strconv.FormatFloat(f, 'f', -1, 64)
@@ -58,6 +62,24 @@ var chain = [...]rung{
 	onRelease(StepSeeders, higherFirst, func(r indexers.Release) int { return r.Seeders }, strconv.Itoa),
 	onRelease(StepSize, higherFirst, func(r indexers.Release) int64 { return r.Size }, func(n int64) string { return strconv.FormatInt(n, 10) }),
 	onRelease(StepTitle, lowerFirst, func(r indexers.Release) string { return r.Title }, func(t string) string { return t }),
+}
+
+func boolRank(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// unwanted is how many Items r covers that have no open cell.
+func (c cells) unwanted(r judged) int {
+	n := 0
+	for _, it := range r.covers {
+		if !c.wanted[it] {
+			n++
+		}
+	}
+	return n
 }
 
 func byFirstCell(_ cells, a, b judged) int { return cmp.Compare(b.first, a.first) }

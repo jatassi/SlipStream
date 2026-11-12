@@ -82,7 +82,7 @@ func TestEachRefusalIsGrabbableOrNotAsTheSpecsTableSays(t *testing.T) {
 	minimum := targets.Spec{Name: "Minimum", Tiers: [][]release.Quality{{release.WEBDL1080p}}, Cutoff: release.WEBDL1080p, Scores: targets.Scores{Minimum: 10, Increment: 1}}
 	web := target("Web", release.Bluray1080p, nil, []release.Quality{release.Bluray1080p}, []release.Quality{release.WEBDL1080p})
 	upgradable := cell(web, files.Upgradable)
-	upgradable.File = &files.File{Quality: release.WEBDL1080p, Title: release.Title("Orchard.2021.1080p.WEB-DL-GRP", episodic{}, release.BuiltIn())}
+	upgradable.File = &files.File{Path: "Orchard (2021)/Orchard (2021) WEBDL-1080p.mkv", Quality: release.WEBDL1080p, Title: release.Title("Orchard.2021.1080p.WEB-DL-GRP", episodic{}, release.BuiltIn())}
 	open := []files.Cell{cell(hd, files.Missing)}
 	long := lasting(orchard, 100*time.Minute)
 	blocked := hashed(offered("Orchard.2021.1080p.BluRay-GRP", 5, 10, nil), 'b')
@@ -100,14 +100,13 @@ func TestEachRefusalIsGrabbableOrNotAsTheSpecsTableSays(t *testing.T) {
 		{targets.WrongItem, lanternS01E03, open, offered("Lantern.Keepers.S01E02.1080p.WEB-DL", 5, 10, nil), false, "The Work has no Item S01E02."},
 		{targets.QualityNotInTarget, orchard, open, offered("Orchard.2021.1080p.TS.x264", 5, 10, nil), false, "1080p doesn't accept"},
 		{targets.FilterFailed, orchard, []files.Cell{cell(targetOf(notX265), files.Missing)}, offered("Orchard.2021.1080p.WEB-DL.x265", 5, 10, nil), false, "It fails the video codec filter of No x265."},
-		{targets.CoversMore, lanternS01E03, open, offered("Lantern.Keepers.S01.1080p.WEB-DL", 5, 10, nil), false, "It's a pack of more than one item, and SlipStream can't import packs yet."},
 		{targets.WrongTitle, orchard, open, offered("Orchard.2019.1080p.WEB-DL", 5, 10, nil), true, "Its name gives"},
 		{targets.SizeBelow, long, open, offered("Orchard.2021.1080p.WEB-DL", 5, 10, nil), true, "It's smaller than 1080p allows."},
 		{targets.SizeAbove, long, open, offered("Orchard.2021.1080p.WEB-DL", 5, 10000<<20, nil), true, "It's larger than 1080p allows."},
 		{targets.ScoreBelowMinimum, orchard, []files.Cell{cell(targetOf(minimum), files.Missing)}, offered("Orchard.2021.1080p.WEB-DL", 5, 10, nil), true, "is below the minimum of 10 at Minimum."},
 		{targets.RepackOtherGroup, orchard, []files.Cell{upgradable}, offered("Orchard.2021.1080p.WEB-DL.REPACK-OTHER", 5, 10, nil), true, "It's a repack from OTHER"},
 		{targets.CutNotWanted, orchard, []files.Cell{cellOf(targets.Edition("extended"), hd, files.Missing)}, offered("Orchard.2021.1080p.WEB-DL", 5, 10, nil), true, "Its name gives the Standard Edition, which the Work doesn't want. It's grabbed as the Extended Edition."},
-		{targets.NotAnUpgrade, orchard, []files.Cell{upgradable}, offered("Orchard.2021.1080p.WEB-DL-GRP2", 5, 10, nil), false, "It isn't better than the file you have."},
+		{targets.NotAnUpgrade, orchard, []files.Cell{upgradable}, offered("Orchard.2021.1080p.WEB-DL-GRP2", 5, 10, nil), true, "It isn't better than Orchard (2021) WEBDL-1080p.mkv, the file at Web. Grabbing it replaces that file."},
 		{targets.Blocklisted, orchard, open, blocked, true, "It's been on the Blocklist since"},
 	} {
 		in := manualOf(c.j, c.cells, c.l)
@@ -228,21 +227,6 @@ func TestAReleaseATargetAcceptsFoldsForWhyThatTargetRefusesIt(t *testing.T) {
 	want := []FoldGroup{{Words: "1 isn't better than the files you have."}}
 	if !slices.Equal(f.Groups, want) {
 		t.Fatalf("a 720p WEB-DL that Small accepts folds as %+v, want %+v", f.Groups, want)
-	}
-}
-
-func TestASeasonPackFoldsOnceAcrossItsItems(t *testing.T) {
-	pack := hashed(offered("Lantern.Keepers.S01.1080p.WEB-DL", 5, 10, nil), 'p')
-	in := manualOf(lanternS01E03, []files.Cell{cell(hd, files.Missing)}, pack)
-	other := in.runs[0]
-	other.ID, other.ItemID = SearchID{UUID: storage.NewUUID()}, s01e02
-	in.runs = append(in.runs, other)
-	in.heard[other.ID] = in.heard[in.runs[0].ID]
-	in.cells = append(in.cells, files.Cell{Item: works.Item{ID: s01e02, Monitored: true}, Edition: targets.AnyEdition, Target: hd, State: files.Missing})
-	f := viewOf(t, in).Folded
-	want := Folded{Line: "SlipStream wouldn't grab 1 more Release.", Groups: []FoldGroup{{Words: "1 is a pack of more than one item, and SlipStream can't import packs yet."}}}
-	if f.Line != want.Line || !slices.Equal(f.Groups, want.Groups) {
-		t.Fatalf("a pack both runs listed folds as %+v, want %+v", f, want)
 	}
 }
 

@@ -17,10 +17,12 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// Liftable is the soft refusals a Manual pick may grab past. covers_more
-// and not_an_upgrade wait for S33 (Import pipeline). cut_not_wanted is
-// lifted only by the Edition override.
-var Liftable = []targets.ReasonCode{targets.WrongTitle, targets.SizeBelow, targets.SizeAbove, targets.ScoreBelowMinimum, targets.RepackOtherGroup}
+// Liftable is the soft refusals a Manual pick may grab past.
+// cut_not_wanted is lifted only by the Edition override. A pick past
+// not_an_upgrade forces its file into the cells it lifts it at.
+var Liftable = []targets.ReasonCode{
+	targets.WrongTitle, targets.SizeBelow, targets.SizeAbove, targets.ScoreBelowMinimum, targets.NotAnUpgrade, targets.RepackOtherGroup,
+}
 
 // ManualPick is one ticked row, or one Release's Grab, as the sheet sends
 // it.
@@ -64,7 +66,7 @@ const (
 	PickChanged PickCode = "pick_changed"
 	// NotTaken is a pick its Indexer won't take now.
 	NotTaken PickCode = "not_taken"
-	// NotGrabbable is a hard refusal, covers_more or not_an_upgrade.
+	// NotGrabbable is a hard refusal.
 	NotGrabbable PickCode = "not_grabbable"
 	// PickBusy is a pick whose Grab to cancel is placing its file.
 	PickBusy PickCode = "grab_busy"
@@ -93,8 +95,9 @@ var errRegrab = errors.New("a pick was refused after it changed the library")
 // GrabFromManual grabs picks from Manual search id of work in one Write.
 // Each is judged again in that Write as the plan judges it, and a refused
 // pick is refused alone and changes nothing. Two picks with one info hash
-// make one Grab, and a pick whose cell a Grab from this search holds with
-// its Release answers that Grab, so a request sent twice grabs once. It
+// make one Grab, from one run or from two that listed one pack, and a
+// pick whose cell a Grab from this search holds with its Release answers
+// that Grab, so a request sent twice grabs once. It
 // fails as a whole with ErrManualSearchReplaced, ErrReconciling, ErrNoWork
 // or a library error.
 func (gr *Grabs) GrabFromManual(ctx context.Context, by identity.Admin, work works.WorkID, id ManualID, picks []ManualPick) ([]PickResult, error) {
@@ -200,7 +203,7 @@ func (g *grabbing) open(ctx context.Context, work works.WorkID, id ManualID) err
 }
 
 // chosen is each pick not refused judged again, the picks of one Release
-// together.
+// as one Edition together, across runs.
 func (g *grabbing) chosen() []*chosen {
 	var all []*chosen
 	for i, p := range g.picks {
@@ -213,14 +216,45 @@ func (g *grabbing) chosen() []*chosen {
 			g.results[i].Err = e
 			continue
 		}
-		if k := slices.IndexFunc(all, func(o *chosen) bool { return o.run == c.run && o.group == c.group }); k >= 0 {
-			all[k].picks = append(all[k].picks, i)
+		if k := slices.IndexFunc(all, func(o *chosen) bool { return g.s.same(*o, c) }); k >= 0 {
+			g.s.join(all[k], c, i)
 			continue
 		}
 		c.picks = []int{i}
 		all = append(all, &c)
 	}
 	return all
+}
+
+// same reports whether a and b are one Release grabbed as one Edition:
+// one group of one run, or of two runs whose Releases share an info hash,
+// or a title and size when either has none.
+func (s sheet) same(a, b chosen) bool {
+	if a.run == b.run {
+		return a.group == b.group
+	}
+	ra, rb := s.runs[a.run], s.runs[b.run]
+	r := ra.js[a.group].Release
+	return sameRelease(Release{Title: r.Title, Size: r.Size, InfoHash: r.InfoHash}, rb.js[b.group]) && ra.item[a.cells[0]].Edition == rb.item[b.cells[0]].Edition
+}
+
+// join adds pick i, judged again as o, to c, the same Release: its
+// cells, which c's run places too, in Want order, and its lifts.
+func (s sheet) join(c *chosen, o chosen, i int) {
+	c.picks = append(c.picks, i)
+	item := s.runs[c.run].item
+	for _, k := range o.cells {
+		key := keyOf(s.runs[o.run].item[k])
+		if at := slices.IndexFunc(item, func(cell files.Cell) bool { return keyOf(cell) == key }); !slices.Contains(c.cells, at) {
+			c.cells = append(c.cells, at)
+		}
+	}
+	slices.Sort(c.cells)
+	for _, l := range o.stance.lifts {
+		if !slices.Contains(c.stance.lifts, l) {
+			c.stance.lifts = append(c.stance.lifts, l)
+		}
+	}
 }
 
 // refuse answers every pick of c with e, in this attempt and the ones
@@ -326,7 +360,7 @@ func (s sheet) conflictWords(c chosen) string {
 func (g *grabbing) grab(ctx context.Context, c chosen) (GrabID, *PickError, error) {
 	p := g.picks[c.picks[0]]
 	for _, l := range c.stance.lifts {
-		if !slices.Contains(p.Lifts, LiftKey{Code: l.Code, Target: l.Target}) {
+		if !slices.ContainsFunc(c.picks, func(i int) bool { return slices.Contains(g.picks[i].Lifts, LiftKey{Code: l.Code, Target: l.Target}) }) {
 			return GrabID{}, changedPick, nil
 		}
 	}
@@ -456,12 +490,52 @@ func (g *grabbing) make(ctx context.Context, c chosen, cl cleared) (GrabID, erro
 	if n.overrides, err = g.overridden(ctx, n, c, cl.sent); err != nil {
 		return GrabID{}, err
 	}
+	var cells []Cell
+	n.items, cells = rs.grabbed(c)
 	made, err := g.gr.insertGrab(ctx, g.tx, n, storage.Now())
 	if err != nil {
 		return GrabID{}, err
 	}
+	if err := g.recell(ctx, &made, cells); err != nil {
+		return GrabID{}, err
+	}
 	g.grabbed = append(g.grabbed, made)
 	return made.ID, nil
+}
+
+// recell rewrites made's cells as cells, which insertGrab keyed all by its
+// searched Item.
+func (g *grabbing) recell(ctx context.Context, made *Grab, cells []Cell) error {
+	q := db.New(g.tx)
+	if err := q.DeleteCellsOfGrab(ctx, made.ID); err != nil {
+		return err
+	}
+	made.Targets = cells
+	for i, c := range cells {
+		p := db.InsertTargetParams{GrabID: made.ID, Position: int64(i), ItemID: c.Key.Item, TargetID: c.Key.Target, Forced: c.Forced}
+		if err := q.InsertTarget(ctx, p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// grabbed is what a Grab of c holds: every Item its Release covers, in
+// tree order, and the cells it fills across them, each forced where it
+// gets past not_an_upgrade.
+func (rs runSheet) grabbed(c chosen) ([]works.ItemID, []Cell) {
+	var items []works.ItemID
+	for _, cell := range rs.item {
+		if slices.Contains(rs.as[c.group].covers, cell.Item.ID) && !slices.Contains(items, cell.Item.ID) {
+			items = append(items, cell.Item.ID)
+		}
+	}
+	cells := make([]Cell, len(c.cells))
+	for i, k := range c.cells {
+		forced := slices.ContainsFunc(rs.st[c.group][k].lifts, func(r Reason) bool { return r.Code == targets.NotAnUpgrade })
+		cells[i] = Cell{Key: keyOf(rs.item[k]), Forced: forced}
+	}
+	return items, cells
 }
 
 // overridden is n's overrides with its Edition's name and its client's

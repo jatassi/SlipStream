@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/imports/internal/db"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // probeFile reads f's media record where its bytes are, in its Node's probe
@@ -66,12 +68,44 @@ func (im *Imports) keepProbe(ctx context.Context, tx *storage.Tx[file], imp *Imp
 	}
 	g.Probe, g.Hold = &rec, nil
 	if imp.Source == FromFolder {
-		return im.readName(ctx, tx, imp.ContentType, imp.Edition, g)
+		if err := im.readName(ctx, tx, imp.ContentType, imp.Edition, g); err != nil {
+			return err
+		}
+	} else {
+		read, quality := scanning.QualityOf(g.Path, im.cfg.Facets[imp.ContentType], cuts.For(imp.ContentType), rec.Resolution())
+		g.Quality, g.Cut = quality, read.Facts.Cut
+		if imp.Edition != nil {
+			g.Cut = *imp.Edition
+		}
 	}
-	read, quality := scanning.QualityOf(g.Path, im.cfg.Facets[imp.ContentType], cuts.For(imp.ContentType), rec.Resolution())
-	g.Quality, g.Cut = quality, read.Facts.Cut
-	if imp.Edition != nil {
-		g.Cut = *imp.Edition
+	if imp.Source == FromRoot || imp.Work.IsZero() {
+		return nil
+	}
+	return im.sampleByRuntime(ctx, tx, imp, g)
+}
+
+// sampleByRuntime leaves g out as a sample when it runs shorter than the
+// sample setting's percent of its Items' runtime. A file whose Items have
+// no runtime skips the rule.
+func (im *Imports) sampleByRuntime(ctx context.Context, tx *storage.Tx[file], imp *Import, g *File) error {
+	rules, err := RulesIn(ctx, tx)
+	if err != nil {
+		return err
+	}
+	timings, err := im.cfg.Targets.TimingsIn(ctx, tx, imp.ContentType, works.Only([]works.WorkID{imp.Work}))
+	if err != nil {
+		return err
+	}
+	var runtime time.Duration
+	for _, it := range g.Items {
+		d, ok := timings[it].Runtime.Get()
+		if !ok {
+			return nil
+		}
+		runtime += d
+	}
+	if len(g.Items) > 0 && g.Probe.Duration*100 < runtime*time.Duration(rules.Sample) {
+		g.Outcome, g.Reason = LeftOut, &Reason{Code: RuntimeSample, Value: int64(rules.Sample)}
 	}
 	return nil
 }

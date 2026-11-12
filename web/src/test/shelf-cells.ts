@@ -2,6 +2,7 @@ import type {
   FilesCell,
   FilesCellList,
   FilesLevelRollup,
+  FilesLibraryFile,
   FilesState,
   FilesStateCounts,
   WorksItem,
@@ -20,18 +21,14 @@ function cellOf(item: WorksItem, state: FilesState, edition: string): FilesCell 
     wanted: counted(item) && (state === "missing" || state === "failed" || state === "upgradable"),
   };
   if (state === "met" || state === "upgradable") {
-    return {
-      ...base,
-      state,
-      file: {
-        id: item.id.replace(/^.{8}/u, "f11e0000"),
-        path: `shelf/${item.key}.epub`,
-        size: 1_048_576,
-        quality: "webdl-1080p",
-        probe: { width: 1920, height: 1080 },
-      },
-      held: null,
+    const file: FilesLibraryFile = {
+      id: item.id.replace(/^.{8}/u, "f11e0000"),
+      path: `shelf/${item.key}.epub`,
+      size: 1_048_576,
+      quality: "webdl-1080p",
+      probe: { width: 1920, height: 1080 },
     };
+    return state === "met" ? { ...base, state, file, held: null } : { ...base, state, file };
   }
   if (state === "downloading" || state === "failed") {
     const grabId = item.id.replace(/^.{8}/u, "96ab0000");

@@ -97,6 +97,7 @@ const liftable: Record<GrabsLiftKeyCode, true> = {
   size_below: true,
   size_above: true,
   score_below_minimum: true,
+  not_an_upgrade: true,
   repack_other_group: true,
 };
 

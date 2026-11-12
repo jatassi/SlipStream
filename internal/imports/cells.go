@@ -2,6 +2,7 @@ package imports
 
 import (
 	"context"
+	"slices"
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
@@ -37,23 +38,66 @@ func (c Cells) GrabCells(ctx context.Context, r storage.Reader[file], ws works.A
 		if !ok || !cell.InFlight() {
 			continue
 		}
-		if hold := imp.holdOn(key); hold != "" {
-			cell.Waiting = string(hold)
-			cells[key] = cell
+		if f := imp.holdOn(key); f != nil {
+			cell.Waiting, cell.Hold = string(f.Hold.Code), f.rootHold()
 		}
+		cell.Doing.Step = imp.stepOn(key)
+		cells[key] = cell
 	}
 	return cells, nil
 }
 
-// holdOn is the import wait of a file of im that holds cell k, "" for
-// none.
-func (im Import) holdOn(k files.CellKey) HoldCode {
-	for _, f := range im.Files {
+// holdOn is the file of im with an import wait that holds cell k, nil
+// for none.
+func (im Import) holdOn(k files.CellKey) *File {
+	for i, f := range im.Files {
 		if f.Hold != nil && f.holds(k) {
-			return f.Hold.Code
+			return &im.Files[i]
 		}
 	}
-	return ""
+	return nil
+}
+
+// rootHold is the root f's no_space or root_not_ready wait waits on, nil
+// for another wait. A place wait has its destination.
+func (f *File) rootHold() *files.ImportHold {
+	if f.Hold.Code != NoSpace && f.Hold.Code != RootNotReady {
+		return nil
+	}
+	return &files.ImportHold{Root: f.Dest.Root, Free: f.Hold.Free, Needs: f.Hold.Needs}
+}
+
+// stepOn is the step the furthest file of im that holds cell k is at, ""
+// when none holds it.
+func (im Import) stepOn(k files.CellKey) files.Step {
+	var out files.Step
+	for _, f := range im.Files {
+		if !f.holds(k) {
+			continue
+		}
+		s := f.step()
+		if slices.Index(steps, s) > slices.Index(steps, out) {
+			out = s
+		}
+	}
+	return out
+}
+
+// steps orders a file's steps from the one furthest from the library.
+var steps = []files.Step{"", files.StepReading, files.StepWaiting, files.StepSending, files.StepPlacing}
+
+// step is what a file that holds a cell does for it: a file whose probe
+// hold the Admin must answer waits for the Admin as a waiting file does.
+func (f *File) step() files.Step {
+	switch {
+	case f.Outcome == Pending && f.Hold != nil && f.Hold.offered(), f.Outcome == Waiting:
+		return files.StepWaiting
+	case f.Outcome == Pending:
+		return files.StepReading
+	case f.Outcome == Sending:
+		return files.StepSending
+	}
+	return files.StepPlacing
 }
 
 // importsOfGrabs is the Import of each of ids that has one, by its Grab,

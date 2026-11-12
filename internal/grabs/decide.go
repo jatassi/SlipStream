@@ -14,6 +14,7 @@ import (
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // listed is one Release a run's Indexers listed, at its position among
@@ -117,8 +118,29 @@ type titleSize struct {
 }
 
 // cells are the searched Item's open cells, and the filled ones a Release
-// is judged at only as a proper or repack of their file.
-type cells struct{ open, filled []files.Cell }
+// is judged at only as a proper or repack of their file. others are the
+// open cells of the Work's other Items, which a pick covering them holds
+// where it ranks first. wanted is each Item with an open cell, and chosen
+// what other Wants already chose: the pack tie-breaks read them.
+type cells struct {
+	open, filled, others []files.Cell
+	wanted               map[works.ItemID]bool
+	chosen               takenBy
+}
+
+// takenBy is the Releases other Wants already chose: by info hash, those
+// the Work's Grabs fetch or download, and by position, the one a run's
+// decision picked, with its copies.
+type takenBy struct {
+	hashes map[bencode.InfoHash]bool
+	at     map[int]bool
+}
+
+// of reports whether j's Release, or a copy of it, is chosen.
+func (ch takenBy) of(j judged) bool {
+	return slices.ContainsFunc(j.offers(), func(o judged) bool { return ch.at[o.at] }) ||
+		slices.ContainsFunc(j.hashes(), func(h bencode.InfoHash) bool { return ch.hashes[h] })
+}
 
 // at is cell i, counting open then filled.
 func (c cells) at(i int) *files.Cell {
@@ -222,6 +244,8 @@ func decided(c cells, js []judged) Decision {
 	return d
 }
 
+// judge judges a at each of c's cells of an Item it covers, against that
+// Item's own files.
 func judge(c cells, a *assessed) judged {
 	j := judged{assessed: a, first: -1}
 	if a.hard() {
@@ -236,9 +260,14 @@ func judge(c cells, a *assessed) judged {
 		return verdict{cell: i, target: cell.Target.ID, cut: cut, wanted: cell.Edition.Takes(cut), v: targets.Judge(cell.Target, a.scored, held)}
 	}
 	for i, cell := range c.open {
-		j.verdicts = append(j.verdicts, at(i, cell))
+		if a.coversItem(cell) {
+			j.verdicts = append(j.verdicts, at(i, cell))
+		}
 	}
 	for i, cell := range c.filled {
+		if !a.coversItem(cell) {
+			continue
+		}
 		v := at(len(c.open)+i, cell)
 		if rule, _ := v.v.Upgrade(); v.wanted && rule == properRule {
 			j.verdicts = append(j.verdicts, v)
@@ -279,6 +308,36 @@ func (d Decision) picks(c cells) []Pick {
 	for _, j := range d.Ranked {
 		if len(j.refusals) == 0 {
 			out = append(out, j.pick(c))
+		}
+	}
+	return out
+}
+
+// packCells is the open cells of the other Items p's Release covers, at p's
+// Edition, where it ranks first among the Releases of js an automatic
+// search may take, each judged against its Item's own files: what a pack
+// holds beyond the searched Item.
+func packCells(c cells, js []judged, p Pick) []files.CellKey {
+	at := cells{open: c.others, wanted: c.wanted, chosen: takenBy{hashes: c.chosen.hashes, at: map[int]bool{p.at: true}}}
+	var rivals []judged
+	for _, j := range js {
+		if len(j.refusals) == 0 {
+			rivals = append(rivals, judge(at, j.assessed))
+		}
+	}
+	var out []files.CellKey
+	for i, cell := range at.open {
+		if cell.Edition != p.Edition {
+			continue
+		}
+		var grabbable []judged
+		for _, j := range rivals {
+			if slices.ContainsFunc(j.verdicts, func(v verdict) bool { return v.cell == i && v.grabbable() }) {
+				grabbable = append(grabbable, j)
+			}
+		}
+		if len(grabbable) > 0 && slices.ContainsFunc(rankAt(at, i, grabbable)[0].offers(), func(o judged) bool { return o.at == p.at }) {
+			out = append(out, files.CellKey{Item: cell.Item.ID, Edition: cell.Edition, Target: cell.Target.ID})
 		}
 	}
 	return out

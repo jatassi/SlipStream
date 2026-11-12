@@ -29,7 +29,7 @@ type counts struct {
 	Activity  int                       `json:"activity" minimum:"0" doc:"The Grabs neither imported nor failed"`
 	Downloads downloadclients.Aggregate `json:"downloads" doc:"Every download at once; torrents.live keeps it current"`
 	Alerts    alerts                    `json:"alerts"`
-	Pending   int                       `json:"pendingImports" minimum:"0" doc:"The pending imports that aren't ignored"`
+	Pending   int                       `json:"pendingImports" minimum:"0" doc:"The Imports, of any source, with a file waiting for the Admin, ignored ones aside"`
 }
 
 type alerts struct {

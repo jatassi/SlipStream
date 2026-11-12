@@ -111,10 +111,10 @@ type searchStarted struct {
 type searchStartedOutput struct{ Body searchStarted }
 
 type reason struct {
-	Code      string `json:"code" enum:"wrong_work,wrong_item,covers_more,wrong_title,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,score_below_minimum,not_an_upgrade,repack_other_group,blocklisted" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist."`
-	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title"`
+	Code      string `json:"code" enum:"wrong_work,wrong_item,wrong_title,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,score_below_minimum,not_an_upgrade,repack_other_group,blocklisted" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist."`
+	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work, wrong_item and wrong_title"`
 	Attribute string `json:"attribute,omitempty" enum:"hdr,video_codec,audio_codec,channels,language" doc:"The attribute a failed filter rules on"`
-	Value     string `json:"value,omitempty" doc:"The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)"`
+	Value     string `json:"value,omitempty" doc:"The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)"`
 	Soft      bool   `json:"soft" doc:"Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note."`
 }
 
@@ -340,6 +340,13 @@ type grabImport struct {
 	Words   string `json:"words" doc:"Its progress in words, such as Importing 6 of 10 episodes"`
 }
 
+func importOf(im *grabs.ImportView) api.Nullable[grabImport] {
+	if im == nil {
+		return api.Nullable[grabImport]{}
+	}
+	return api.Some(grabImport{ID: im.ID.String(), Placed: im.Placed, Planned: im.Planned, Sending: im.Sending, Waiting: im.Waiting, Words: im.Words})
+}
+
 type grabTarget struct {
 	TargetID string               `json:"targetId" format:"uuid"`
 	ItemID   string               `json:"itemId" format:"uuid"`
@@ -358,7 +365,7 @@ func grabOf(v grabs.View) grab {
 		ID: v.ID.String(), WorkID: v.WorkID.String(), Edition: string(v.Edition), TargetIDs: []string{},
 		Items: []string{}, Targets: []grabTarget{}, ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseWords, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
 		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), InFlight: v.Stage.InFlight(), History: []entered{}, CreatedAt: v.Created,
-		Source: string(v.Source), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...),
+		Source: string(v.Source), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...), Import: importOf(v.Import),
 		Actions: grabActions{Cancel: v.Actions.Cancel, Blocklistable: v.Actions.Blocklist, SendTo: v.Actions.SendTo},
 	}
 	if v.By != nil {

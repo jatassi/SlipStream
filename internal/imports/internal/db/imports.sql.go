@@ -47,17 +47,6 @@ func (q *Queries) ConsumeConfirmed(ctx context.Context, arg ConsumeConfirmedPara
 	return err
 }
 
-const countNeedsYou = `-- name: CountNeedsYou :one
-SELECT count(*) FROM imports_import WHERE source = 'root' AND finished_at IS NULL AND ignored_at IS NULL
-`
-
-func (q *Queries) CountNeedsYou(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countNeedsYou)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countNeedsYouByRoot = `-- name: CountNeedsYouByRoot :many
 SELECT root_id, count(*) AS entries FROM imports_import WHERE source = 'root' AND finished_at IS NULL AND ignored_at IS NULL
 GROUP BY root_id ORDER BY root_id
@@ -117,6 +106,19 @@ func (q *Queries) CountUnfinishedInto(ctx context.Context, arg CountUnfinishedIn
 		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
 	}
 	row := q.db.QueryRowContext(ctx, query, queryParams...)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countWaiting = `-- name: CountWaiting :one
+SELECT count(*) FROM imports_import i
+WHERE i.finished_at IS NULL AND i.ignored_at IS NULL
+  AND EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.outcome = 'waiting')
+`
+
+func (q *Queries) CountWaiting(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countWaiting)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

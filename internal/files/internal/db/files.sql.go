@@ -1547,6 +1547,50 @@ func (q *Queries) ListPrune(ctx context.Context) ([]FilesPrune, error) {
 	return items, nil
 }
 
+const listPutBack = `-- name: ListPutBack :many
+SELECT f.id, f.work_id, f.root_id, f.path FROM files_file f
+WHERE f.gone_at IS NULL AND substr(f.path, 1, length(?1)) = ?1
+  AND NOT EXISTS (SELECT 1 FROM files_move m WHERE m.file_id = f.id)
+ORDER BY f.root_id, f.id
+`
+
+type ListPutBackRow struct {
+	ID     FileID
+	WorkID works.WorkID
+	RootID roots.ID
+	Path   string
+}
+
+// Each live file that sits in its root's holding folder with no move
+// queued: a fresh import the disk queue put back.
+func (q *Queries) ListPutBack(ctx context.Context, holding interface{}) ([]ListPutBackRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPutBack, holding)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPutBackRow
+	for rows.Next() {
+		var i ListPutBackRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkID,
+			&i.RootID,
+			&i.Path,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTracked = `-- name: ListTracked :many
 SELECT f.work_id, f.root_id, f.path, m.sits FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
 WHERE f.gone_at IS NULL ORDER BY f.id

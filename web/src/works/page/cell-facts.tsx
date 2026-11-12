@@ -70,13 +70,14 @@ function HeldFacts({ held, grabs }: { held: Held; grabs: readonly GrabsGrab[] })
 export function CellFacts({ cell, grabs }: { cell: FilesCell; grabs: readonly GrabsGrab[] }) {
   switch (cell.state) {
     case "met":
-    case "upgradable":
       return (
         <>
           <FileFacts file={cell.file} />
           {cell.held !== null && <HeldFacts held={cell.held} grabs={grabs} />}
         </>
       );
+    case "upgradable":
+      return <FileFacts file={cell.file} />;
     case "downloading": {
       const grab = grabs.find(({ id }) => id === cell.grabId);
       return (

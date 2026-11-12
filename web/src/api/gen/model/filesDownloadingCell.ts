@@ -8,7 +8,7 @@ export interface FilesDownloadingCell {
   /** The file the Grab would replace; null when it fills no file */
   file: FilesLibraryFile | null;
   /**
-   * When the step began; null with step
+   * When the Grab entered its stage; null with step
    * @nullable
    */
   from: string | null;

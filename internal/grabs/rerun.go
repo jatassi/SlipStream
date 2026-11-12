@@ -253,7 +253,7 @@ func (gr *Grabs) redecide(ctx context.Context, tx *storage.Tx[file], re redo) (*
 	if err != nil {
 		return nil, err
 	}
-	grab, pick, err := gr.take(ctx, tx, run, d.picks(c), re.gone, storage.Now())
+	grab, pick, err := gr.take(ctx, tx, run, d, c, re.gone, storage.Now())
 	if err != nil {
 		return nil, err
 	}

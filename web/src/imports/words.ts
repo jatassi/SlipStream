@@ -125,9 +125,13 @@ export const isElsewhere = (entry: RootEntry): boolean =>
 export const isAddable = (entry: RootEntry): boolean =>
   entry.suggestion !== null && !isElsewhere(entry);
 
-/** "14 folders need you", the Library's link to Pending imports. */
+/** "14 folders need you", a root's lead in Pending imports. */
 export const needYouWords = (count: number): string =>
   `${countOf(count, { one: "folder", many: "folders" })} ${count === 1 ? "needs" : "need"} you`;
+
+/** "3 pending imports need you", the Library's link to Pending imports. */
+export const pendingWords = (count: number): string =>
+  `${countOf(count, { one: "pending import", many: "pending imports" })} ${count === 1 ? "needs" : "need"} you`;
 
 /** "The last scan of the Films library root on home added 398 films. 14 folders need you." */
 export function leadWords(lead: ImportsLead, type: WorksContentType): string {

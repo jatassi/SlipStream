@@ -393,7 +393,6 @@ export const getParseReleasesResponseMock = (
             code: faker.helpers.arrayElement([
               "wrong_work",
               "wrong_item",
-              "covers_more",
               "wrong_title",
               "cut_not_wanted",
               "quality_not_in_target",

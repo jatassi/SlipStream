@@ -241,7 +241,7 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Library: lib, Sealer: sealer, Works: w, Targets: goals, Files: shelf,
 		Indexers: xs,
 		Terms:    map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Names: map[works.TypeID]release.Names{contenttypetest.ID: fx},
-		Roster: roster, Downloads: roster, Roots: library,
+		Roster: roster, Downloads: roster, Roots: library, Imports: imports.GrabImports{},
 		Router:  router,
 		Timings: grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, BlocklistChanged: blocklisted,
