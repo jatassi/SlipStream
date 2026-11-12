@@ -195,7 +195,7 @@ test("Manual search on a failed Grab opens the sheet on its Item", async () => {
   renderApp({ path: "/activity", handlers: [...manual.handlers, ...activityServer().handlers] });
   await userEvent.click(harvestCard().getByRole("button", { name: "Manual search" }));
   await expect.element(manualSheet(filmPlan)).toBeVisible();
-  await expect.poll(() => manual.started).toEqual([{ itemIds: [failed.itemId] }]);
+  await expect.poll(() => manual.started).toEqual([{ itemIds: failed.items }]);
 });
 
 test("Activity with no Grabs says what to do next", async () => {

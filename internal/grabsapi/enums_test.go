@@ -45,10 +45,10 @@ func TestTheGrabEnumsNameEveryStageCodeAndStepInOrder(t *testing.T) {
 		}
 	}
 	for _, c := range []struct{ name, got, want string }{
-		{"grab.Stage", unreached(enumOf[grab](t, "Stage")), joined(grabs.Stages)},
-		{"entered.Stage", unreached(enumOf[entered](t, "Stage")), joined(grabs.Stages)},
-		{"failure.Stage", unreached(enumOf[failure](t, "Stage")), joined(inFlight)},
-		{"heldCell.Stage", unreached(enumOf[heldCell](t, "Stage")), joined(inFlight)},
+		{"grab.Stage", enumOf[grab](t, "Stage"), joined(grabs.Stages)},
+		{"entered.Stage", enumOf[entered](t, "Stage"), joined(grabs.Stages)},
+		{"failure.Stage", enumOf[failure](t, "Stage"), joined(inFlight)},
+		{"heldCell.Stage", enumOf[heldCell](t, "Stage"), joined(inFlight)},
 		{"failure.Code", enumOf[failure](t, "Code"), joined(grabs.Codes)},
 		{"lostAt.Step", enumOf[lostAt](t, "Step"), joined(grabs.Steps)},
 	} {
@@ -56,10 +56,4 @@ func TestTheGrabEnumsNameEveryStageCodeAndStepInOrder(t *testing.T) {
 			t.Errorf("%s enum = %q, want %q", c.name, c.got, c.want)
 		}
 	}
-}
-
-// unreached is enum without probing and transferring, the stages S33
-// (Import pipeline) moved into the Import and the wire still names.
-func unreached(enum string) string {
-	return strings.Replace(enum, "probing,transferring,", "", 1)
 }

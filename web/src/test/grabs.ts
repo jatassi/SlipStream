@@ -10,7 +10,6 @@ const targetId = "1f3e5a7c-9b2d-4f6e-8a0c-2e4f6a8c0b1d";
 const fetched: GrabsGrab = {
   id: grabId,
   workId: orchardId,
-  itemId: orchardItemId,
   items: [orchardItemId],
   edition: "standard",
   targetIds: [targetId],
@@ -75,7 +74,6 @@ export const imported: GrabsGrab = {
   targets: [{ targetId, itemId: orchardItemId, forced: false, settled: "placed" }],
   history: [
     ...downloading.history,
-    { stage: "probing", at: "2026-10-12T09:03:00Z" },
     { stage: "importing", at: "2026-10-12T09:03:01Z" },
     { stage: "imported", at: "2026-10-12T09:03:02Z" },
   ],

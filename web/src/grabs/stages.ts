@@ -10,8 +10,6 @@ import type { Stage, TrackProgress } from "../ui/stage-track";
 export const stageWord = {
   fetching: "Fetching",
   downloading: "Downloading",
-  probing: "Verifying",
-  transferring: "Transferring",
   importing: "Importing",
   imported: "Imported",
   failed: "Failed",
@@ -20,8 +18,6 @@ export const stageWord = {
 export const trackStage = {
   fetching: "downloading",
   downloading: "downloading",
-  probing: "import",
-  transferring: "transfer",
   importing: "import",
 } as const satisfies Record<GrabsFailureStage, Stage>;
 
@@ -51,9 +47,7 @@ export function progressOf(grab: GrabsGrab): TrackProgress {
 export const withoutReplacedFailures = (grabs: readonly GrabsGrab[]): GrabsGrab[] =>
   grabs.filter((grab) => !needsYou(grab) || grab.failure.current);
 
-const byteStages = new Set<GrabsGrabStage>(["downloading", "transferring"]);
-
-export const movesBytes = (grab: GrabsGrab): boolean => byteStages.has(grab.stage);
+export const movesBytes = (grab: GrabsGrab): boolean => grab.stage === "downloading";
 
 export type Words = { readonly cause: string; readonly recovery?: string };
 

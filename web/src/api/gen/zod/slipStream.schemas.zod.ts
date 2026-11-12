@@ -3191,15 +3191,7 @@ export type GrabsClientWaitOutput = zod.output<typeof GrabsClientWait>;
 
 export const GrabsEntered = zod.object({
   at: zod.iso.datetime({ offset: true }),
-  stage: zod.enum([
-    "fetching",
-    "downloading",
-    "probing",
-    "transferring",
-    "importing",
-    "imported",
-    "failed",
-  ]),
+  stage: zod.enum(["fetching", "downloading", "importing", "imported", "failed"]),
 });
 
 export type GrabsEntered = zod.input<typeof GrabsEntered>;
@@ -3251,7 +3243,7 @@ export const GrabsFailure = zod.object({
     .describe(
       "It goes under Needs you. False for a cancel and for a Manual Grab whose Release the Blocklist held after its fetch, which its sheet already said.",
     ),
-  stage: zod.enum(["fetching", "downloading", "probing", "transferring", "importing"]),
+  stage: zod.enum(["fetching", "downloading", "importing"]),
 });
 
 export type GrabsFailure = zod.input<typeof GrabsFailure>;
@@ -3342,10 +3334,7 @@ export const grabsProgressDoneMin = 0;
 export const grabsProgressTotalMin = 0;
 
 export const GrabsProgress = zod.object({
-  done: zod
-    .int()
-    .min(grabsProgressDoneMin)
-    .describe("Bytes downloaded, or received and verified while transferring"),
+  done: zod.int().min(grabsProgressDoneMin).describe("Bytes downloaded"),
   total: zod.int().min(grabsProgressTotalMin).describe("Bytes wanted"),
 });
 
@@ -3411,7 +3400,6 @@ export const GrabsGrab = zod.object({
     .string()
     .nullable()
     .describe("The v1 info hash in hex, null until the .torrent is fetched"),
-  itemId: zod.uuid(),
   items: zod
     .array(zod.string())
     .describe("The ids of the Items its Release covers in the Work, in tree order"),
@@ -3433,7 +3421,7 @@ export const GrabsGrab = zod.object({
     .array(zod.string())
     .describe("Each choice the Admin made past the decision, as a sentence"),
   progress: GrabsProgress.exactOptional().describe(
-    "The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring",
+    "The download's progress, absent unless it is downloading and its Node reported it",
   ),
   quality: zod
     .enum([
@@ -3464,15 +3452,7 @@ export const GrabsGrab = zod.object({
   source: zod
     .enum(["search", "manual"])
     .describe("How it was chosen: by a search's decision, or by an Admin in a Manual search"),
-  stage: zod.enum([
-    "fetching",
-    "downloading",
-    "probing",
-    "transferring",
-    "importing",
-    "imported",
-    "failed",
-  ]),
+  stage: zod.enum(["fetching", "downloading", "importing", "imported", "failed"]),
   targetIds: zod.array(zod.string()).describe("The Targets it was grabbed for, in Profile order"),
   targets: zod.array(GrabsGrabTarget).describe("Each cell it holds, in plan order"),
   torrentId: zod
@@ -3501,7 +3481,7 @@ export type GrabsGrabListOutput = zod.output<typeof GrabsGrabList>;
 
 export const GrabsHeldCell = zod.object({
   grabId: zod.uuid(),
-  stage: zod.enum(["fetching", "downloading", "probing", "transferring", "importing"]),
+  stage: zod.enum(["fetching", "downloading", "importing"]),
   words: zod
     .string()
     .describe("Such as A Grab is downloading WEBDL-1080p · FLUX · 6.2 GB for 1080p."),
@@ -5109,15 +5089,7 @@ export type ImportsImportFileOutput = zod.output<typeof ImportsImportFile>;
 export const ImportsImportGrab = zod.object({
   id: zod.uuid(),
   release: zod.string().describe("The Release's title"),
-  stage: zod.enum([
-    "fetching",
-    "downloading",
-    "probing",
-    "transferring",
-    "importing",
-    "imported",
-    "failed",
-  ]),
+  stage: zod.enum(["fetching", "downloading", "importing", "imported", "failed"]),
 });
 
 export type ImportsImportGrab = zod.input<typeof ImportsImportGrab>;

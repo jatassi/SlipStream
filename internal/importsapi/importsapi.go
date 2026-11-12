@@ -212,7 +212,7 @@ type importEntry struct {
 type importGrab struct {
 	ID      string `json:"id" format:"uuid"`
 	Release string `json:"release" doc:"The Release's title"`
-	Stage   string `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
+	Stage   string `json:"stage" enum:"fetching,downloading,importing,imported,failed"`
 }
 
 type importFailure struct {

@@ -346,7 +346,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	if err != nil || len(reached) != 1 || reached[0].Name != "Fixture Site" {
 		t.Fatalf("Trackers = %+v, %v; want the Fixture Site one the Grab reached", reached, err)
 	}
-	want := `{"id":"` + grab + `","workId":"` + tree.ID.String() + `","itemId":"` + item + `","items":["` + item + `"],"edition":"any","targetIds":["` + hd.ID.String() + `"],` +
+	want := `{"id":"` + grab + `","workId":"` + tree.ID.String() + `","items":["` + item + `"],"edition":"any","targetIds":["` + hd.ID.String() + `"],` +
 		`"targets":[{"targetId":"` + hd.ID.String() + `","itemId":"` + item + `","forced":false,"settled":null}],"releaseTitle":"The.Attic.1080p.WEB","releaseWords":"WEBDL-1080p · 4.0 KB","quality":"webdl-1080p","releaseSize":4096,"indexerId":"` + indexer.String() + `",` +
 		`"trackerId":"` + reached[0].ID.String() + `","nodeId":"` + home.String() + `","fetchNodeId":null,"torrentId":null,"downloadClient":null,"infoHash":null,` +
 		`"stage":"failed","inFlight":false,"failure":{"stage":"fetching","code":"torrent_invalid","message":"The Indexer sent a .torrent file SlipStream can't read.","needsYou":true,"current":true},"import":null,` +

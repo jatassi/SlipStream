@@ -64,12 +64,5 @@ export function Stops({ grab, work }: { grab: GrabsGrab; work: string }) {
       </Suspense>
     );
   }
-  return (
-    <p>
-      {grab.stage === "transferring"
-        ? "SlipStream stops the Transfer and deletes the partial copy."
-        : "SlipStream stops fetching the Release."}{" "}
-      Its Item goes back to wanted.
-    </p>
-  );
+  return <p>SlipStream stops fetching the Release. Its Item goes back to wanted.</p>;
 }

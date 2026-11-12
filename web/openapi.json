@@ -5582,8 +5582,6 @@
             "enum": [
               "fetching",
               "downloading",
-              "probing",
-              "transferring",
               "importing",
               "imported",
               "failed"
@@ -5652,8 +5650,6 @@
             "enum": [
               "fetching",
               "downloading",
-              "probing",
-              "transferring",
               "importing"
             ],
             "type": "string"
@@ -5817,10 +5813,6 @@
               "null"
             ]
           },
-          "itemId": {
-            "format": "uuid",
-            "type": "string"
-          },
           "items": {
             "description": "The ids of the Items its Release covers in the Work, in tree order",
             "items": {
@@ -5854,7 +5846,7 @@
           },
           "progress": {
             "$ref": "#/components/schemas/GrabsProgress",
-            "description": "The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"
+            "description": "The download's progress, absent unless it is downloading and its Node reported it"
           },
           "quality": {
             "description": "The quality the release title names, absent when it names none",
@@ -5904,8 +5896,6 @@
             "enum": [
               "fetching",
               "downloading",
-              "probing",
-              "transferring",
               "importing",
               "imported",
               "failed"
@@ -5954,7 +5944,6 @@
         "required": [
           "id",
           "workId",
-          "itemId",
           "items",
           "edition",
           "targetIds",
@@ -6249,8 +6238,6 @@
             "enum": [
               "fetching",
               "downloading",
-              "probing",
-              "transferring",
               "importing"
             ],
             "type": "string"
@@ -6983,7 +6970,7 @@
         "additionalProperties": false,
         "properties": {
           "done": {
-            "description": "Bytes downloaded, or received and verified while transferring",
+            "description": "Bytes downloaded",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -9667,8 +9654,6 @@
             "enum": [
               "fetching",
               "downloading",
-              "probing",
-              "transferring",
               "importing",
               "imported",
               "failed"
@@ -34407,7 +34392,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Cancel a Grab that is fetching, downloading or transferring. Canceling a canceled Grab changes nothing",
+        "summary": "Cancel a Grab that is fetching, downloading or importing. Canceling a canceled Grab changes nothing",
         "tags": [
           "grabs"
         ],

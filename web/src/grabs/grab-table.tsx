@@ -1,8 +1,6 @@
 import { Link } from "@tanstack/react-router";
 
 import type { GrabsGrab } from "../api/gen/model";
-import { useTransferOf } from "../transfers/job";
-import { headline } from "../transfers/words";
 import { Data } from "../ui/data";
 import { StageTrack } from "../ui/stage-track";
 import { type Column, Table } from "../ui/table";
@@ -29,20 +27,13 @@ function WorkCell({ grab, work }: GrabRow) {
   );
 }
 
-function TransferWords({ grab }: { grab: GrabsGrab }) {
-  const transfer = useTransferOf(grab.id);
-  return transfer === undefined ? stageWord.transferring : headline(transfer);
-}
-
 function StageCell({ grab, work }: GrabRow) {
   if (grab.failure !== undefined) {
     return <span>{grab.failure.message}</span>;
   }
   return (
     <span className="flex max-w-[220px] flex-col gap-1.5">
-      <span>
-        {grab.stage === "transferring" ? <TransferWords grab={grab} /> : stageWord[grab.stage]}
-      </span>
+      <span>{stageWord[grab.stage]}</span>
       <StageTrack title={work} progress={progressOf(grab)} skipped={skippedStages} />
     </span>
   );
