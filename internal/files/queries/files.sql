@@ -237,3 +237,6 @@ WHERE f.gone_at IS NULL ORDER BY f.id;
 
 -- name: ForgetGoneAt :exec
 DELETE FROM files_file WHERE root_id = sqlc.arg(root_id) AND path = sqlc.arg(path) AND gone_at IS NOT NULL;
+
+-- name: ListPaths :many
+SELECT path FROM files_file ORDER BY id;

@@ -95,3 +95,10 @@ SELECT * FROM imports_settings;
 
 -- name: SetSettings :exec
 UPDATE imports_settings SET stop_share = ?, probes = ?;
+
+-- name: SetImportingSettings :exec
+UPDATE imports_settings SET video_extensions = ?, smallest_video = ?, sample_shorter = ?;
+
+-- name: ListUnfinishedPaths :many
+SELECT f.path FROM imports_file f JOIN imports_import i ON i.id = f.import_id
+WHERE i.finished_at IS NULL AND f.outcome NOT IN ('left_out', 'not_better', 'placed', 'declined', 'failed') ORDER BY f.import_id, f.position;

@@ -150,8 +150,12 @@ func (im *Imports) walk(ctx context.Context, s *scan) (scanning.Listing, error) 
 		after storing.Cursor
 		n     int
 	)
+	videos, err := Videos(ctx, im.cfg.Library)
+	if err != nil {
+		return scanning.Listing{}, err
+	}
 	for {
-		page, err := im.cfg.Remote.Walk(ctx, s.at, after, walkPage, media.DefaultVideos)
+		page, err := im.cfg.Remote.Walk(ctx, s.at, after, walkPage, videos)
 		if err != nil {
 			return scanning.Listing{}, err
 		}

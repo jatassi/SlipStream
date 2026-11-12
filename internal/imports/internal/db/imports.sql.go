@@ -638,6 +638,34 @@ func (q *Queries) ListRootsOf(ctx context.Context, ids []ImportID) ([]roots.ID, 
 	return items, nil
 }
 
+const listUnfinishedPaths = `-- name: ListUnfinishedPaths :many
+SELECT f.path FROM imports_file f JOIN imports_import i ON i.id = f.import_id
+WHERE i.finished_at IS NULL AND f.outcome NOT IN ('left_out', 'not_better', 'placed', 'declined', 'failed') ORDER BY f.import_id, f.position
+`
+
+func (q *Queries) ListUnfinishedPaths(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listUnfinishedPaths)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		items = append(items, path)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUnfinishedRootImports = `-- name: ListUnfinishedRootImports :many
 SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import WHERE source = 'root' AND finished_at IS NULL ORDER BY root_id, folder
 `
@@ -776,6 +804,21 @@ func (q *Queries) SetFile(ctx context.Context, arg SetFileParams) (int64, error)
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const setImportingSettings = `-- name: SetImportingSettings :exec
+UPDATE imports_settings SET video_extensions = ?, smallest_video = ?, sample_shorter = ?
+`
+
+type SetImportingSettingsParams struct {
+	VideoExtensions *string
+	SmallestVideo   *int64
+	SampleShorter   *int64
+}
+
+func (q *Queries) SetImportingSettings(ctx context.Context, arg SetImportingSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, setImportingSettings, arg.VideoExtensions, arg.SmallestVideo, arg.SampleShorter)
+	return err
 }
 
 const setSettings = `-- name: SetSettings :exec

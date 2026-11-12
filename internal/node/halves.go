@@ -344,6 +344,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Arrivals: arrivals,
 		Contents: files.RootContents{},
 		Inflight: imports.RootImports{},
+		Videos:   imports.Videos,
 		Changed:  roots.ChangedEvent.Bind(n.hub),
 		Volumes:  roots.VolumesChangedEvent.Bind(n.hub),
 		Cadence:  clients.CadenceChanged,

@@ -409,6 +409,12 @@ type settings struct {
 
 type settingsOutput struct{ Body settings }
 
+type importingSettings struct {
+	Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"The video file extensions, the smallest video file, then the runtime under which a video is a sample"`
+}
+
+type importingOutput struct{ Body importingSettings }
+
 type libraryScanSettingsInput struct {
 	Body struct {
 		Values map[string]json.RawMessage `json:"values" doc:"Each setting's new value by key, all or none; null resets one to its default"`
@@ -533,8 +539,7 @@ func Routes(r *api.Router, p Pending) {
 		Path:    "/imports/importing-settings",
 		Summary: "Get the Importing settings",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{notBuilt},
-	}, unbuilt[struct{}, settingsOutput])
+	}, h.getImporting)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "updateImportingSettings",
@@ -542,8 +547,8 @@ func Routes(r *api.Router, p Pending) {
 		Path:    "/imports/importing-settings",
 		Summary: "Change the Importing settings",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{notBuilt, settingapi.ErrOutOfRange, settingapi.ErrUnknown},
-	}, unbuilt[libraryScanSettingsInput, settingsOutput])
+		Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown},
+	}, h.updateImporting)
 
 	api.Register(o, api.Admin, api.Op{
 		ID:      "getExtensionImpact",
@@ -551,8 +556,7 @@ func Routes(r *api.Router, p Pending) {
 		Path:    "/imports/importing-settings/extension-impact",
 		Summary: "Count the library and pending files a video extension list stops counting as video",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{notBuilt},
-	}, unbuilt[extensionImpactInput, extensionImpactOutput])
+	}, h.extensionImpact)
 }
 
 type handlers struct{ pending Pending }
@@ -704,6 +708,34 @@ func settingsOf(ctx context.Context, p setting.Panel) (*settingsOutput, error) {
 		return nil, err
 	}
 	return &settingsOutput{Body: settings{Settings: settingapi.FieldsOf(fields)}}, nil
+}
+
+func (h handlers) getImporting(ctx context.Context, _ identity.Admin, _ *struct{}) (*importingOutput, error) {
+	return importingOf(ctx, open(h.pending).Importing())
+}
+
+func (h handlers) updateImporting(ctx context.Context, _ identity.Admin, in *libraryScanSettingsInput) (*importingOutput, error) {
+	p := open(h.pending).Importing()
+	if err := p.Apply(ctx, in.Body.Values); err != nil {
+		return nil, settingapi.Refused(err)
+	}
+	return importingOf(ctx, p)
+}
+
+func importingOf(ctx context.Context, p setting.Panel) (*importingOutput, error) {
+	fields, err := p.Fields(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &importingOutput{Body: importingSettings{Settings: settingapi.FieldsOf(fields)}}, nil
+}
+
+func (h handlers) extensionImpact(ctx context.Context, by identity.Admin, in *extensionImpactInput) (*extensionImpactOutput, error) {
+	library, pending, err := open(h.pending).ExtensionImpact(ctx, by, in.Extensions)
+	if err != nil {
+		return nil, err
+	}
+	return &extensionImpactOutput{Body: extensionImpact{Files: int(library), Pending: int(pending)}}, nil
 }
 
 func importID(s string) (imports.ImportID, error) {

@@ -1493,6 +1493,33 @@ func (q *Queries) ListMovingFilesOfWorks(ctx context.Context, workIds []works.Wo
 	return items, nil
 }
 
+const listPaths = `-- name: ListPaths :many
+SELECT path FROM files_file ORDER BY id
+`
+
+func (q *Queries) ListPaths(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listPaths)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		items = append(items, path)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPrune = `-- name: ListPrune :many
 SELECT root_id, folder FROM files_prune ORDER BY root_id, folder
 `

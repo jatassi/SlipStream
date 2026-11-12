@@ -444,3 +444,33 @@ func TestLibraryScanSettingsStoreTheStopShareAndProbes(t *testing.T) {
 	s.Expect(t, http.MethodPatch, "/api/v1/imports/scan-settings", `{"values":{"library.scan.depth":1}}`, http.StatusUnprocessableEntity,
 		`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key library.scan.depth."}`)
 }
+
+func TestImportingSettingsStoreTheExtensionsSizeAndSampleRule(t *testing.T) {
+	s := serve(t)
+	code, reply := s.Call(t, http.MethodGet, "/api/v1/imports/importing-settings", "")
+	if code != http.StatusOK || !strings.Contains(reply, `"value":["mkv","mp4","m4v","avi","ts","m2ts","mov","wmv","webm","mpg","mpeg"]`) ||
+		!strings.Contains(reply, `"value":52428800`) || !strings.Contains(reply, `"value":25`) {
+		t.Fatalf("getImportingSettings = %d %s, want the defaults", code, reply)
+	}
+	code, reply = s.Call(t, http.MethodPatch, "/api/v1/imports/importing-settings", `{"values":{"library.importing.videoExtensions":[".MKV","webm"],"library.importing.smallestVideo":104857600,"library.importing.sampleShorter":0}}`)
+	if code != http.StatusOK || !strings.Contains(reply, `"value":["mkv","webm"]`) || !strings.Contains(reply, `"value":104857600`) || !strings.Contains(reply, `"value":0`) {
+		t.Fatalf("updateImportingSettings = %d %s, want mkv and webm, 100 MB and off stored", code, reply)
+	}
+	s.Expect(t, http.MethodPatch, "/api/v1/imports/importing-settings", `{"values":{"library.importing.videoExtensions":[]}}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Keep at least 1 extension in the list."}`)
+	s.Expect(t, http.MethodPatch, "/api/v1/imports/importing-settings", `{"values":{"library.scan.probes":1}}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"unknown_setting","title":"No setting has this key","detail":"No setting has the key library.scan.probes."}`)
+}
+
+func TestExtensionImpactCountsTheFilesAListStopsCounting(t *testing.T) {
+	s := serve(t)
+	work := s.add(t, "w1", s.root.ID)
+	placed := s.pend(t, "Shelf", nil, false, noMatch("Shelf/a.avi"), noMatch("Shelf/b.mkv"))
+	body := `{"action":"into","workId":"` + work.ID.String() + `","files":[{"position":0,"itemIds":["` + work.Items[0].ID.String() + `"]},{"position":1,"itemIds":["` + work.Items[1].ID.String() + `"]}]}`
+	if code, reply := s.Call(t, http.MethodPost, "/api/v1/imports/"+placed, body); code != http.StatusOK {
+		t.Fatalf("Into = %d %s", code, reply)
+	}
+	s.pend(t, "Other", nil, false, noMatch("Other/c.avi"), noMatch("Other/d.mkv"))
+	s.Expect(t, http.MethodGet, "/api/v1/imports/importing-settings/extension-impact?extensions=mkv&extensions=mp4", "", http.StatusOK, `{"files":1,"pending":1}`)
+	s.Expect(t, http.MethodGet, "/api/v1/imports/importing-settings/extension-impact?extensions=mkv,avi", "", http.StatusOK, `{"files":0,"pending":0}`)
+}
