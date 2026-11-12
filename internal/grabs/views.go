@@ -163,7 +163,7 @@ func (gr *Grabs) listed(ctx context.Context, list func(context.Context, storage.
 	if err != nil {
 		return nil, err
 	}
-	return gr.views(ctx, grabs, rd)
+	return gr.views(grabs, rd)
 }
 
 // fetchWaits is why the fetch of each of grabs that fetches a .torrent
@@ -212,14 +212,14 @@ func (gr *Grabs) Get(ctx context.Context, _ identity.Admin, id GrabID) (View, er
 	if err != nil {
 		return View{}, err
 	}
-	views, err := gr.views(ctx, []Grab{g}, rd)
+	views, err := gr.views([]Grab{g}, rd)
 	if err != nil {
 		return View{}, err
 	}
 	return views[0], nil
 }
 
-func (gr *Grabs) views(ctx context.Context, grabs []Grab, rd reads) ([]View, error) {
+func (gr *Grabs) views(grabs []Grab, rd reads) ([]View, error) {
 	progress := gr.progress(grabs)
 	out := make([]View, len(grabs))
 	for i, g := range grabs {

@@ -148,7 +148,7 @@ func (g GrabCells) waits(ctx context.Context, r storage.Reader[storage.Library])
 	out := map[GrabID]waiting{}
 	for _, row := range open {
 		if row.Stage == Fetching {
-			grab, err := load(ctx, r, row, related{})
+			grab, err := load(row, related{})
 			if err != nil {
 				return nil, err
 			}

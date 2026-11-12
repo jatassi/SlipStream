@@ -214,7 +214,7 @@ var verdictWaits = []ReasonCode{NotAnUpgrade, NameTaken, NameTooLong, EditionNot
 // holds reports whether f could still fill cell k: a pending file or a
 // whole wait any cell, a verdict wait its Items' cells, and a file
 // sending or placing the cells it fills.
-func (f File) holds(k files.CellKey) bool {
+func (f *File) holds(k files.CellKey) bool {
 	switch f.Outcome {
 	case Pending:
 		return true
@@ -227,7 +227,7 @@ func (f File) holds(k files.CellKey) bool {
 	return false
 }
 
-func (f File) fills(k files.CellKey) bool {
+func (f *File) fills(k files.CellKey) bool {
 	return slices.ContainsFunc(f.Fills, func(fl Fill) bool { return fl.Cell == k })
 }
 

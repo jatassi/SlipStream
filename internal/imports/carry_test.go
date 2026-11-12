@@ -1,12 +1,12 @@
 package imports
 
 import (
-	"context"
 	"path"
 	"slices"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -65,29 +65,32 @@ func TestCarryMakesAnImportOfEachGrabFoundPastItsDownload(t *testing.T) {
 	}
 	for was, grab := range byWas {
 		imp := w.stored(t, ImportID{UUID: grab})
-		var got []string
-		for _, f := range imp.Files {
-			line := path.Base(f.Path) + ": " + string(f.Outcome)
-			if f.Reason != nil {
-				line += " " + string(f.Reason.Code)
-			}
-			if f.Dest != nil && f.Dest.Root == w.root.ID && f.Dest.Holding.String() != "" {
-				line += " holding"
-			}
-			got = append(got, line)
-		}
-		if imp.Grab.UUID != grab || !slices.Equal(got, want[was]) {
+		if got := carriedLines(imp, w.root.ID); imp.Grab.UUID != grab || !slices.Equal(got, want[was]) {
 			t.Errorf("the Grab carried at %s became an Import of Grab %s reading %q, want its own reading %q", was, imp.Grab, got, want[was])
 		}
 	}
 	var imports, left int
-	err := w.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		if err := r.QueryRowContext(ctx, `SELECT count(*) FROM imports_import`).Scan(&imports); err != nil {
-			return err
-		}
-		return r.QueryRowContext(ctx, `SELECT count(*) FROM grabs_carry`).Scan(&left)
-	})
-	if err != nil || imports != 3 || left != 0 {
-		t.Fatalf("after two Carries the library holds %d Imports and %d carry rows (%v), want 3 and none", imports, left, err)
+	if err := w.lib.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM imports_import), (SELECT count(*) FROM grabs_carry)`).Scan(&imports, &left); err != nil {
+		t.Fatal(err)
 	}
+	if imports != 3 || left != 0 {
+		t.Fatalf("after two Carries the library holds %d Imports and %d carry rows, want 3 and none", imports, left)
+	}
+}
+
+// carriedLines is each file of imp as "base: outcome reason", with
+// "holding" when it goes to a holding path in root.
+func carriedLines(imp *Import, root roots.ID) []string {
+	var out []string
+	for _, f := range imp.Files {
+		line := path.Base(f.Path) + ": " + string(f.Outcome)
+		if f.Reason != nil {
+			line += " " + string(f.Reason.Code)
+		}
+		if f.Dest != nil && f.Dest.Root == root && f.Dest.Holding.String() != "" {
+			line += " holding"
+		}
+		out = append(out, line)
+	}
+	return out
 }

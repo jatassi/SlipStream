@@ -453,7 +453,7 @@ func readRelated(ctx context.Context, r storage.Reader[file], rows []db.GrabsGra
 
 // load parses a row. The schema's checks guarantee each stage's columns,
 // so a row that parses holds what its stage needs.
-func load(ctx context.Context, r storage.Reader[file], row db.GrabsGrab, rel related) (Grab, error) {
+func load(row db.GrabsGrab, rel related) (Grab, error) {
 	g := Grab{
 		ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Items: rel.items[row.ID], Edition: row.Edition,
 		Release: Release{Title: row.ReleaseTitle, Size: row.ReleaseSize, link: row.ReleaseLinkSealed, magnet: deref(row.ReleaseMagnet)},
@@ -507,7 +507,7 @@ func grabIn(ctx context.Context, r storage.Reader[file], id GrabID) (Grab, error
 	if err != nil {
 		return Grab{}, err
 	}
-	return load(ctx, r, row, rel)
+	return load(row, rel)
 }
 
 func loadAll(ctx context.Context, r storage.Reader[file], rows []db.GrabsGrab) ([]Grab, error) {
@@ -517,7 +517,7 @@ func loadAll(ctx context.Context, r storage.Reader[file], rows []db.GrabsGrab) (
 	}
 	out := make([]Grab, len(rows))
 	for i, row := range rows {
-		if out[i], err = load(ctx, r, row, rel); err != nil {
+		if out[i], err = load(row, rel); err != nil {
 			return nil, err
 		}
 	}
