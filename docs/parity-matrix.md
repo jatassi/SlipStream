@@ -250,7 +250,7 @@ An exception is written on its row only with the maintainer's explicit yes.
 | P-167 | Live queue push with adaptive polling | `internal/downloader/broadcaster.go` | working | kept, pushed over Server-Sent Events | [Built-in torrent client](https://github.com/jatassi/SlipStream/issues/153) | shipped |
 | P-168 | Unreachable client banner showing last known data | `web/src/routes/downloads/index.tsx` | working | kept | [External Download Clients](https://github.com/jatassi/SlipStream/issues/155) | shipped |
 | P-169 | Completion detection with import attempt backoff | `internal/downloader/completion.go` | working | kept, as [External Download Clients](https://github.com/jatassi/SlipStream/issues/155)' completion rule with the Import's backoff, and no sweep | [Import pipeline](https://github.com/jatassi/SlipStream/issues/158) | shipped |
-| P-170 | Downloads removed from the client flip the item to failed | `internal/downloader/completion.go (CheckForDisappearedDownloads)` | working | kept, as [External Download Clients](https://github.com/jatassi/SlipStream/issues/155)' absence rule: a Grab whose torrent leaves its client fails `client_deleted` | [Import pipeline](https://github.com/jatassi/SlipStream/issues/158) | shipped |
+| P-170 | Downloads removed from the client flip the item to failed | `internal/downloader/completion.go (CheckForDisappearedDownloads)` | working | kept, as [External Download Clients](https://github.com/jatassi/SlipStream/issues/155)' absence rule. A Grab with nothing placed whose torrent its client removed fails `client_removed` | [Import pipeline](https://github.com/jatassi/SlipStream/issues/158) | shipped |
 
 ## Notifications
 
