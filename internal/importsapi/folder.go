@@ -111,7 +111,6 @@ func (h handlers) importFolder(ctx context.Context, by identity.Admin, in *impor
 	if err != nil {
 		return nil, err
 	}
-	out.Status = http.StatusOK
 	if opened.Created {
 		out.Status = http.StatusCreated
 	}
@@ -121,7 +120,7 @@ func (h handlers) importFolder(ctx context.Context, by identity.Admin, in *impor
 // entries is the Imports ids as the wire shows them, each with its
 // sentences.
 func (h handlers) entries(ctx context.Context, by identity.Admin, ids []imports.ImportID) (*importsOutput, error) {
-	out := &importsOutput{Body: importsList{Imports: make([]importEntry, len(ids))}}
+	out := &importsOutput{Status: http.StatusOK, Body: importsList{Imports: make([]importEntry, len(ids))}}
 	for i, id := range ids {
 		e, err := h.get(ctx, by, &importIDInput{ID: id.String()})
 		if err != nil {

@@ -14,6 +14,9 @@ SELECT * FROM imports_import WHERE source = 'root' AND root_id = ? AND folder = 
 -- name: ListUnfinishedRootImports :many
 SELECT * FROM imports_import WHERE source = 'root' AND finished_at IS NULL ORDER BY root_id, folder;
 
+-- name: ListUnfinishedImports :many
+SELECT * FROM imports_import WHERE finished_at IS NULL ORDER BY source <> 'root', root_id, folder, id;
+
 -- name: ListFiles :many
 SELECT * FROM imports_file ORDER BY import_id, position;
 

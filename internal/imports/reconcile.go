@@ -127,7 +127,8 @@ func (im *Imports) plan(ctx context.Context, r storage.Reader[file], imp Import,
 }
 
 // step is f's next IO: its probe while pending unread, its place while
-// placing, and its source's removal once it is placed by a move. A hold the Admin must answer has none.
+// placing, and its source's removal once it is placed by a move. A hold
+// the Admin must answer has none.
 func (im *Imports) step(imp Import, f File) func(context.Context) error {
 	switch {
 	case f.Hold != nil && f.Hold.offered():

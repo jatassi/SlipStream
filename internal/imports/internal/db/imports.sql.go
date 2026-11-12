@@ -1109,6 +1109,52 @@ func (q *Queries) ListUnfinished(ctx context.Context) ([]ImportsImport, error) {
 	return items, nil
 }
 
+const listUnfinishedImports = `-- name: ListUnfinishedImports :many
+SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import WHERE finished_at IS NULL ORDER BY source <> 'root', root_id, folder, id
+`
+
+func (q *Queries) ListUnfinishedImports(ctx context.Context) ([]ImportsImport, error) {
+	rows, err := q.db.QueryContext(ctx, listUnfinishedImports)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportsImport
+	for rows.Next() {
+		var i ImportsImport
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.GrabID,
+			&i.NodeID,
+			&i.InfoHash,
+			&i.RootID,
+			&i.Folder,
+			&i.ContentType,
+			&i.Hint,
+			&i.Suggestion,
+			&i.WorkID,
+			&i.Edition,
+			&i.MoveFiles,
+			&i.FailureCode,
+			&i.Ended,
+			&i.CreatedAt,
+			&i.IgnoredAt,
+			&i.FinishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUnfinishedOf = `-- name: ListUnfinishedOf :many
 SELECT id FROM imports_import WHERE finished_at IS NULL AND work_id IN (/*SLICE:work_ids*/?) ORDER BY id
 `

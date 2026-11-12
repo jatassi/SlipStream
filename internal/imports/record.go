@@ -309,8 +309,7 @@ func columnsOf(im Import) (hint string, suggestion, failure, ended *string, err 
 // save writes im over what tx holds for its id: each file through setFile
 // from its stored outcome, a new position inserted, a position im no
 // longer lists deleted. A root or folder Import left with no files is
-// deleted, and
-// one whose files are all final is finished.
+// deleted, and a root Import whose files are all final is finished.
 func save(ctx context.Context, tx *storage.Tx[file], im *Import) error {
 	q := db.New(tx)
 	stored, err := importOf(ctx, tx, im.ID)

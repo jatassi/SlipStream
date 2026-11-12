@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/works"
@@ -24,7 +25,9 @@ func (w *world) downloads(t *testing.T, disk storing.Disk, seeded ...string) str
 	for i, p := range seeded {
 		torrents[i] = filepath.Join(dir, filepath.FromSlash(p))
 	}
-	w.cfg.Roots = rootstest.HeldOn(t, w.lib, w.node, rootstest.On{Disk: disk, Downloads: []string{dir}, Torrents: torrents}, contenttypetest.ID)
+	w.cfg.Roots = rootstest.HeldOn(t, w.lib, w.node, rootstest.On{Disk: disk, Downloads: []string{dir}, Torrents: torrents, Tune: func(cfg *roots.Config) {
+		cfg.Names, cfg.Describe = w.names, w.works.Describe
+	}}, contenttypetest.ID)
 	w.im = New(w.cfg)
 	return dir
 }
@@ -104,6 +107,10 @@ func TestAFolderImportsIntoTwoWorksWithEditedItems(t *testing.T) {
 	}
 	if again, _ := w.opened(t, dir); again.Created || !sameIDs(again.IDs, o.IDs) {
 		t.Fatalf("reopening the folder answers %v, created %t, want the same Imports %v", again.IDs, again.Created, o.IDs)
+	}
+	folder := FromFolder
+	if l, err := w.im.List(t.Context(), identity.Admin{}, Filter{Source: &folder}); err != nil || len(l.Imports) != 3 {
+		t.Fatalf("Pending imports lists %d folder Imports (%v), want the three opened", len(l.Imports), err)
 	}
 	if !errors.Is(w.im.SetMoveFiles(t.Context(), identity.Admin{}, o.IDs, true), ErrMoveSeeding) {
 		t.Fatal("Move files on a folder with a seeding file was taken, want ErrMoveSeeding")

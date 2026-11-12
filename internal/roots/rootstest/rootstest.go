@@ -115,12 +115,13 @@ func Draining(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID,
 
 // On is what HeldOn's Store runs on: its disk, the OS disk when nil, its
 // download folders, a fresh one when nil, and where each file of its
-// clients' torrents lies.
+// clients' torrents lies. Tune, when set, changes the roots' config.
 type On struct {
 	Disk      storing.Disk
 	Payloads  storing.Payloads
 	Downloads []string
 	Torrents  []string
+	Tune      func(*roots.Config)
 }
 
 // HeldOn is Held on a Store set up as on says.
@@ -171,6 +172,9 @@ func held(tb testing.TB, lib *storage.DB[storage.Library], node role.NodeID, on 
 	}
 	cfg := Config(tb, lib, types...)
 	Everywhere(&cfg, store)
+	if on.Tune != nil {
+		on.Tune(&cfg)
+	}
 	svc, err := roots.Open(tb.Context(), cfg)
 	if err != nil {
 		tb.Fatal(err)

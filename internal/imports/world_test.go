@@ -135,9 +135,7 @@ func newWorld(t *testing.T) *world {
 		t.Fatal(err)
 	}
 	cfg := rootstest.Config(t, w.lib, contenttypetest.ID)
-	cfg.Names = func(context.Context) (map[role.NodeID]nodes.Named, error) {
-		return map[role.NodeID]nodes.Named{w.node: {Name: "Media server"}}, nil
-	}
+	cfg.Names = w.names
 	cfg.Describe = w.works.Describe
 	if w.roots, err = roots.Open(ctx, cfg); err != nil {
 		t.Fatal(err)
@@ -192,6 +190,10 @@ func newWorld(t *testing.T) *world {
 	w.im = New(w.cfg)
 	w.library = library.New(library.Config{Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Grabs: noGrabs{}, Imports: w.im, Leaver: w.im})
 	return w
+}
+
+func (w *world) names(context.Context) (map[role.NodeID]nodes.Named, error) {
+	return map[role.NodeID]nodes.Named{w.node: {Name: "Media server"}}, nil
 }
 
 func (w *world) newRoot(t *testing.T) roots.Root {
