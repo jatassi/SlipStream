@@ -127,13 +127,22 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		t.Fatalf("getWorkCells = %d\n%s\nwant\n%s", code, body, want)
 	}
 	upgrade, failed := storage.NewUUID(), storage.NewUUID()
-	inflight.cells[files.CellKey{Item: tree.Items[0].ID, Edition: targets.AnyEdition, Target: hd.ID}] = files.GrabCell{State: files.GrabInFlight, Grab: upgrade}
+	failsAt := time.Date(2026, 11, 12, 16, 10, 0, 0, time.UTC)
+	inflight.cells[files.CellKey{Item: tree.Items[0].ID, Edition: targets.AnyEdition, Target: hd.ID}] = files.GrabCell{
+		State: files.GrabInFlight, Grab: upgrade, Waiting: "client_error",
+		ClientError: &files.ClientError{Client: "Transmission", Node: "Seedbox", Message: "No data found!", FailsAt: failsAt},
+	}
 	inflight.cells[files.CellKey{Item: tree.Items[0].ID, Edition: targets.AnyEdition, Target: uhd.ID}] = files.GrabCell{State: files.GrabFailed, Grab: failed}
 	code, body = s.Call(t, http.MethodGet, "/api/v1/works/"+tree.ID.String()+"/cells", "")
 	want = `{"itemId":"` + scarf + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"downloading","grabId":"` + upgrade.String() + `",` + file + `,"step":null,"from":null,"until":null},` +
 		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"state":"failed","grabId":"` + failed.String() + `","file":null},`
 	if code != http.StatusOK || !strings.Contains(body, want) {
 		t.Fatalf("getWorkCells with an upgrade in flight and a failed Grab = %d\n%s\nwant it to hold\n%s", code, body, want)
+	}
+	waiting := `{"kind":"waiting","grabId":"` + upgrade.String() + `","code":"client_error",` +
+		`"clientError":{"client":"Transmission","node":"Seedbox","message":"No data found!","failsAt":"2026-11-12T16:10:00Z"}}`
+	if !strings.Contains(body, waiting) {
+		t.Errorf("getWorkCells with a Grab waiting on its client's error = %s\nwant its Needs you to hold\n%s", body, waiting)
 	}
 	empty := must[targets.Profile](t)(goals.CreateProfile(ctx, admin, targets.ProfileSpec{Name: "Empty", ContentType: contenttypetest.ID}))
 	fx.Put("w2", contenttypetest.Record{Tree: works.Fetched{Label: "The Cellar", Children: []works.Entry{{Key: "b1", Label: "Top", Children: []works.Entry{{Key: "c1", Label: "Jar"}}}}}})

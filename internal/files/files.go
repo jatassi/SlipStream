@@ -308,12 +308,22 @@ const (
 // its latest. Waiting is the code of what an unfinished Grab waits on that
 // only an Admin resolves, such as node_away, empty while it waits on
 // nothing. FailedAt is the stage a failed Grab failed at, such as
-// importing.
+// importing. ClientError is the error a Grab waiting client_error waits
+// on, nil for any other wait.
 type GrabCell struct {
-	State    GrabState
-	Grab     storage.UUID
-	Waiting  string
-	FailedAt string
+	State       GrabState
+	Grab        storage.UUID
+	Waiting     string
+	ClientError *ClientError
+	FailedAt    string
+}
+
+// ClientError is the error an external client reports on a Grab's Torrent:
+// Client on Node words it Message, and the Grab fails at FailsAt unless it
+// clears.
+type ClientError struct {
+	Client, Node, Message string
+	FailsAt               time.Time
 }
 
 func (g GrabCell) InFlight() bool { return g.State == GrabInFlight }
