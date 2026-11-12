@@ -1,15 +1,21 @@
+import type { ReactNode } from "react";
+
 import type {
   FilesAudioTrack,
   FilesHdrFormat,
   FilesListedFile,
+  FilesListedFilePlacedBy,
   FilesVideoInfo,
 } from "../../api/gen/model";
 import { isProblem, sentenceOf } from "../../api/errors";
 import { useForgetFiles } from "../../api/gen/query/files/files";
+import { useListGrabsSuspense } from "../../api/gen/query/grabs/grabs";
+import { useListNodesSuspense } from "../../api/gen/query/nodes/nodes";
 import { lengthWords } from "../../format";
 import { Button } from "../../ui/button";
 import { Data } from "../../ui/data";
 import { Details } from "../../ui/details";
+// oxlint-disable-next-line import/max-dependencies -- a file's Details read its media, its import and the Grab and Node it came from
 import { toast } from "../../ui/toast";
 import { nameOf } from "../paths";
 
@@ -71,6 +77,43 @@ function videoWords(codec: string, video: FilesVideoInfo): string {
 
 type MediaRow = { readonly label: string; readonly values: readonly string[] };
 
+type ImportRow = { readonly label: string; readonly value: ReactNode };
+
+/** How an import put a file into the library; a transfer names the Node it came from. */
+const placedWords: {
+  readonly [P in NonNullable<FilesListedFilePlacedBy>]: (node: string) => string;
+} = {
+  link: () => "Hard linked. The download and the library share the same data on disk.",
+  clone: () => "Cloned. The copy shares its data on disk until either file changes.",
+  copy: () => "Copied.",
+  transfer: (node) => `SlipStream sent this file from ${node}.`,
+  move: () => "Moved.",
+  in_place: () => "This file was already in the library folder.",
+};
+
+/** The file's import: how it was placed and the Grab it came from. */
+function useImportRows({ placedBy, grab }: FilesListedFile): readonly ImportRow[] {
+  const { grabs } = useListGrabsSuspense().data;
+  const { nodes } = useListNodesSuspense().data;
+  const nodeId = grabs.find(({ id }) => id === grab?.id)?.nodeId;
+  const node = nodes.find(({ id }) => id === nodeId)?.name ?? "another Node";
+  return [
+    ...(placedBy === null ? [] : [{ label: "Placed", value: placedWords[placedBy](node) }]),
+    ...(grab === null
+      ? []
+      : [
+          {
+            label: "From",
+            value: (
+              <>
+                Grab <Data>{grab.release}</Data>
+              </>
+            ),
+          },
+        ]),
+  ];
+}
+
 /** What ffprobe read of a file, a row per kind of stream; none for a file read before SlipStream kept its tracks. */
 export function mediaRows({ media, codec, probeError }: FilesListedFile): readonly MediaRow[] {
   const failed = probeError === null ? [] : [{ label: "Read error", values: [probeError] }];
@@ -96,15 +139,22 @@ export function mediaRows({ media, codec, probeError }: FilesListedFile): readon
   ].filter(({ values }) => values.length > 0);
 }
 
-/** A file's media info under Details, or nothing when there is none. */
+/** A file's import and media info under Details, or nothing when there is none. */
 export function FileMedia({ file }: { file: FilesListedFile }) {
+  const placed = useImportRows(file);
   const rows = mediaRows(file);
-  if (rows.length === 0) {
+  if (placed.length === 0 && rows.length === 0) {
     return null;
   }
   return (
     <Details>
       <dl className="flex flex-col gap-2 pb-1">
+        {placed.map(({ label, value }) => (
+          <div key={label}>
+            <dt className="text-label text-ink-3">{label}</dt>
+            <dd className="break-words whitespace-normal text-ink-1">{value}</dd>
+          </div>
+        ))}
         {rows.map(({ label, values }) => (
           <div key={label}>
             <dt className="text-label text-ink-3">{label}</dt>

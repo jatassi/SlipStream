@@ -4,6 +4,7 @@ import {
   getGetWorkCellsSuspenseQueryOptions,
   getListWorkFilesSuspenseQueryOptions,
 } from "../../api/gen/query/files/files";
+import { getListNodesSuspenseQueryOptions } from "../../api/gen/query/nodes/nodes";
 import {
   getListRootsSuspenseQueryOptions,
   getListVolumesSuspenseQueryOptions,
@@ -42,6 +43,7 @@ export async function loadWork(
     ensureQuery(queryClient, getListQualitiesSuspenseQueryOptions()),
     ensureQuery(queryClient, getListRootsSuspenseQueryOptions()),
     ensureQuery(queryClient, getListVolumesSuspenseQueryOptions()),
+    ensureQuery(queryClient, getListNodesSuspenseQueryOptions()),
   ]);
   return {
     title: work.label,
