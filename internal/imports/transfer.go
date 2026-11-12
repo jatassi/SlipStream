@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/jatassi/slipstream/internal/downloadclients"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/transfers/source"
@@ -73,10 +75,10 @@ func (im *Imports) transferFailed(ctx context.Context, tx *storage.Tx[file], t t
 	return im.hook(ctx, tx, t.Job, func(cur *Import) {
 		switch f.Code {
 		case transfers.SourceGone:
-			endImport(cur, Ending{Reason: Removed, Code: "removed"})
+			endImport(cur, removal(downloadclients.ByAdmin))
 			return
 		case transfers.SourceWrittenOff:
-			endImport(cur, Ending{Reason: Removed, Code: "node_written_off"})
+			endImport(cur, removal(downloadclients.NodeWrittenOff))
 			return
 		case transfers.Rerouted, transfers.Damaged, transfers.SourceFailed:
 		}
@@ -172,4 +174,11 @@ func transferNames(ctx context.Context, r storage.Reader[file], jobs []string) (
 		out[job] = w.Label
 	}
 	return out, nil
+}
+
+// removal is how a Transfer whose source went for r ends its Import, in
+// the words a Grab's removal for r fails with.
+func removal(r downloadclients.RemoveReason) Ending {
+	f := grabs.GoneFailure(downloadclients.Gone{Reason: r})
+	return Ending{Reason: Removed, Code: string(f.Code), Message: f.Message}
 }
