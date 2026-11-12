@@ -342,7 +342,7 @@ func largestVideo(fs []engine.File) (engine.File, bool) {
 	var best engine.File
 	found := false
 	for _, f := range fs {
-		if media.Counts(f.Path) && (!found || f.Size > best.Size) {
+		if media.Counts(f.Path, media.DefaultVideos) && (!found || f.Size > best.Size) {
 			best, found = f, true
 		}
 	}

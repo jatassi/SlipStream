@@ -2182,9 +2182,12 @@ type MoveRequest struct {
 	To     string                 `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
 	// carry moves each companion of from, a file in its folder named from's
 	// stem, ".", and a tail, to to's stem, ".", and the same tail.
-	Carry         bool `protobuf:"varint,4,opt,name=carry,proto3" json:"carry,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Carry bool `protobuf:"varint,4,opt,name=carry,proto3" json:"carry,omitempty"`
+	// video_extensions are the Admin's video file extensions, lower case
+	// without the dot. A file with one is never another's companion.
+	VideoExtensions []string `protobuf:"bytes,5,rep,name=video_extensions,json=videoExtensions,proto3" json:"video_extensions,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *MoveRequest) Reset() {
@@ -2243,6 +2246,13 @@ func (x *MoveRequest) GetCarry() bool {
 		return x.Carry
 	}
 	return false
+}
+
+func (x *MoveRequest) GetVideoExtensions() []string {
+	if x != nil {
+		return x.VideoExtensions
+	}
+	return nil
 }
 
 type MoveResponse struct {
@@ -2313,10 +2323,12 @@ type SurveyRequest struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	RootId []byte                 `protobuf:"bytes,1,opt,name=root_id,json=rootId,proto3" json:"root_id,omitempty"`
 	// planned is at most 2000 renames.
-	Planned       []*Planned `protobuf:"bytes,2,rep,name=planned,proto3" json:"planned,omitempty"`
-	Companions    bool       `protobuf:"varint,3,opt,name=companions,proto3" json:"companions,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Planned    []*Planned `protobuf:"bytes,2,rep,name=planned,proto3" json:"planned,omitempty"`
+	Companions bool       `protobuf:"varint,3,opt,name=companions,proto3" json:"companions,omitempty"`
+	// video_extensions are as on MoveRequest.
+	VideoExtensions []string `protobuf:"bytes,4,rep,name=video_extensions,json=videoExtensions,proto3" json:"video_extensions,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *SurveyRequest) Reset() {
@@ -2368,6 +2380,13 @@ func (x *SurveyRequest) GetCompanions() bool {
 		return x.Companions
 	}
 	return false
+}
+
+func (x *SurveyRequest) GetVideoExtensions() []string {
+	if x != nil {
+		return x.VideoExtensions
+	}
+	return nil
 }
 
 type Planned struct {
@@ -3022,9 +3041,12 @@ type WalkRequest struct {
 	// after is the last page's next, empty for the first page.
 	After []byte `protobuf:"bytes,2,opt,name=after,proto3" json:"after,omitempty"`
 	// limit is at most 1000 entries.
-	Limit         int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Limit int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	// video_extensions are as on MoveRequest: the walk lists only files
+	// with one of them.
+	VideoExtensions []string `protobuf:"bytes,4,rep,name=video_extensions,json=videoExtensions,proto3" json:"video_extensions,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *WalkRequest) Reset() {
@@ -3076,6 +3098,13 @@ func (x *WalkRequest) GetLimit() int32 {
 		return x.Limit
 	}
 	return 0
+}
+
+func (x *WalkRequest) GetVideoExtensions() []string {
+	if x != nil {
+		return x.VideoExtensions
+	}
+	return nil
 }
 
 type WalkResponse struct {
@@ -3647,22 +3676,24 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\tNeedsCopy\x12\x12\n" +
 	"\x04size\x18\x01 \x01(\x03R\x04size\"\f\n" +
 	"\n" +
-	"NeedsSpace\"`\n" +
+	"NeedsSpace\"\x8b\x01\n" +
 	"\vMoveRequest\x12\x17\n" +
 	"\aroot_id\x18\x01 \x01(\fR\x06rootId\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
 	"\x02to\x18\x03 \x01(\tR\x02to\x12\x14\n" +
-	"\x05carry\x18\x04 \x01(\bR\x05carry\"s\n" +
+	"\x05carry\x18\x04 \x01(\bR\x05carry\x12)\n" +
+	"\x10video_extensions\x18\x05 \x03(\tR\x0fvideoExtensions\"s\n" +
 	"\fMoveResponse\x12\x12\n" +
 	"\x04size\x18\x01 \x01(\x03R\x04size\x12;\n" +
 	"\bidentity\x18\x02 \x01(\v2\x1f.slipstream.storage.v1.IdentityR\bidentity\x12\x12\n" +
-	"\x04left\x18\x03 \x03(\tR\x04left\"\x82\x01\n" +
+	"\x04left\x18\x03 \x03(\tR\x04left\"\xad\x01\n" +
 	"\rSurveyRequest\x12\x17\n" +
 	"\aroot_id\x18\x01 \x01(\fR\x06rootId\x128\n" +
 	"\aplanned\x18\x02 \x03(\v2\x1e.slipstream.storage.v1.PlannedR\aplanned\x12\x1e\n" +
 	"\n" +
 	"companions\x18\x03 \x01(\bR\n" +
-	"companions\"-\n" +
+	"companions\x12)\n" +
+	"\x10video_extensions\x18\x04 \x03(\tR\x0fvideoExtensions\"-\n" +
 	"\aPlanned\x12\x12\n" +
 	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
 	"\x02to\x18\x02 \x01(\tR\x02to\"M\n" +
@@ -3698,11 +3729,12 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x05names\x18\x01 \x03(\tR\x05names\"\x0f\n" +
 	"\rSampleRequest\";\n" +
 	"\x0eSampleResponse\x12)\n" +
-	"\x11passed_at_unix_ms\x18\x01 \x01(\x03R\x0epassedAtUnixMs\"R\n" +
+	"\x11passed_at_unix_ms\x18\x01 \x01(\x03R\x0epassedAtUnixMs\"}\n" +
 	"\vWalkRequest\x12\x17\n" +
 	"\aroot_id\x18\x01 \x01(\fR\x06rootId\x12\x14\n" +
 	"\x05after\x18\x02 \x01(\fR\x05after\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xbd\x01\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12)\n" +
+	"\x10video_extensions\x18\x04 \x03(\tR\x0fvideoExtensions\"\xbd\x01\n" +
 	"\fWalkResponse\x127\n" +
 	"\aentries\x18\x01 \x03(\v2\x1d.slipstream.storage.v1.WalkedR\aentries\x125\n" +
 	"\x06unread\x18\x02 \x03(\v2\x1d.slipstream.storage.v1.UnreadR\x06unread\x12\x12\n" +

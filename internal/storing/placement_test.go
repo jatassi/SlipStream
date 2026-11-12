@@ -9,6 +9,8 @@ import (
 	"testing"
 	"testing/synctest"
 	"time"
+
+	"github.com/jatassi/slipstream/internal/media"
 )
 
 // tree is every file under folder but the marker, as the volume spells
@@ -50,7 +52,7 @@ func TestACaseOnlyMoveOnAFoldingVolumeRespellsTheFile(t *testing.T) {
 				t.Fatal(err)
 			}
 			for range 2 {
-				if moved, err := w.remote.Move(t.Context(), w.at, mustRel(t, c.from), mustRel(t, c.to), false); err != nil || moved.Size != 4 {
+				if moved, err := w.remote.Move(t.Context(), w.at, mustRel(t, c.from), mustRel(t, c.to), false, media.DefaultVideos); err != nil || moved.Size != 4 {
 					t.Fatalf("%s to %s: Move = %+v, %v; want 4 bytes", c.from, c.to, moved, err)
 				}
 			}
@@ -76,7 +78,7 @@ func TestACaseOnlyMoveCutShortFinishesOnRetry(t *testing.T) {
 			w := newWalking(t, nil)
 			w.disk.foldCase = true
 			w.file(t, c.left, "film")
-			if _, err := w.remote.Move(t.Context(), w.at, mustRel(t, c.from), mustRel(t, c.to), false); err != nil {
+			if _, err := w.remote.Move(t.Context(), w.at, mustRel(t, c.from), mustRel(t, c.to), false, media.DefaultVideos); err != nil {
 				t.Fatalf("%s to %s from %s: Move = %v", c.from, c.to, c.left, err)
 			}
 			if got := tree(t, w.folder); !slices.Equal(got, []string{c.to}) {
@@ -96,7 +98,7 @@ func TestAMoveOntoAHardLinkRemovesTheSource(t *testing.T) {
 			if err := os.Link(heat, filepath.Join(w.folder, "Ronin.mkv")); err != nil {
 				t.Skipf("the volume makes no hard links: %v", err)
 			}
-			if _, err := w.remote.Move(t.Context(), w.at, mustRel(t, "heat.mkv"), mustRel(t, "Ronin.mkv"), false); err != nil {
+			if _, err := w.remote.Move(t.Context(), w.at, mustRel(t, "heat.mkv"), mustRel(t, "Ronin.mkv"), false, media.DefaultVideos); err != nil {
 				t.Fatalf("folding %v: Move = %v", fold, err)
 			}
 			if got := tree(t, w.folder); !slices.Equal(got, []string{"Ronin.mkv"}) {
@@ -115,7 +117,7 @@ func TestACaseOnlyMoveOnAVolumeThatKeepsCaseMakesASecondFolder(t *testing.T) {
 		}
 		w.file(t, "heat (1995)/x.mkv", "film")
 		w.file(t, "heat (1995)/y.mkv", "another film")
-		if _, err := w.remote.Move(t.Context(), w.at, mustRel(t, "heat (1995)/x.mkv"), mustRel(t, "Heat (1995)/x.mkv"), false); err != nil {
+		if _, err := w.remote.Move(t.Context(), w.at, mustRel(t, "heat (1995)/x.mkv"), mustRel(t, "Heat (1995)/x.mkv"), false, media.DefaultVideos); err != nil {
 			t.Fatal(err)
 		}
 		if got := tree(t, w.folder); !slices.Equal(got, []string{"Heat (1995)/x.mkv", "heat (1995)/y.mkv"}) {
@@ -133,7 +135,7 @@ func TestAFolderRespellWaitsForAWalkOfItsRoot(t *testing.T) {
 	release := w.disk.hang(filepath.Join(w.folder, "a"))
 	walked := make(chan Page, 1)
 	go func() {
-		p, err := w.remote.Walk(t.Context(), w.at, Cursor{}, 1000)
+		p, err := w.remote.Walk(t.Context(), w.at, Cursor{}, 1000, media.DefaultVideos)
 		if err != nil {
 			t.Error(err)
 		}
@@ -144,7 +146,7 @@ func TestAFolderRespellWaitsForAWalkOfItsRoot(t *testing.T) {
 	}
 	moved := make(chan error, 1)
 	go func() {
-		_, err := w.remote.Move(t.Context(), w.at, mustRel(t, "heat (1995)/x.mkv"), mustRel(t, "Heat (1995)/x.mkv"), false)
+		_, err := w.remote.Move(t.Context(), w.at, mustRel(t, "heat (1995)/x.mkv"), mustRel(t, "Heat (1995)/x.mkv"), false, media.DefaultVideos)
 		moved <- err
 	}()
 	time.Sleep(100 * time.Millisecond)

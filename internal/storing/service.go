@@ -183,7 +183,11 @@ func (s *Store) Move(ctx context.Context, req *storagev1.MoveRequest) (*storagev
 	if err != nil {
 		return nil, err
 	}
-	info, left, err := s.move(ctx, root, from, to, req.GetCarry())
+	videos, err := videosOf(req.GetVideoExtensions())
+	if err != nil {
+		return nil, err
+	}
+	info, left, err := s.move(ctx, root, from, to, req.GetCarry(), videos)
 	if err != nil {
 		return nil, wireError(err)
 	}
@@ -214,7 +218,11 @@ func (s *Store) Survey(ctx context.Context, req *storagev1.SurveyRequest) (*stor
 		}
 		planned = append(planned, Planned{From: from, To: to})
 	}
-	found, err := s.survey(ctx, root, planned, req.GetCompanions())
+	videos, err := videosOf(req.GetVideoExtensions())
+	if err != nil {
+		return nil, err
+	}
+	found, err := s.survey(ctx, root, planned, req.GetCompanions(), videos)
 	if err != nil {
 		return nil, wireError(err)
 	}
@@ -304,7 +312,11 @@ func (s *Store) Walk(ctx context.Context, req *storagev1.WalkRequest) (*storagev
 	if len(req.GetAfter()) > 0 {
 		after = strings.Split(string(req.GetAfter()), "\x00")
 	}
-	p, err := s.walk(ctx, root, after, limit)
+	videos, err := videosOf(req.GetVideoExtensions())
+	if err != nil {
+		return nil, err
+	}
+	p, err := s.walk(ctx, root, after, limit, videos)
 	if err != nil {
 		return nil, wireError(err)
 	}
@@ -352,6 +364,15 @@ func rootID(b []byte) (storage.UUID, error) {
 		return id, rpc.Errorf(rpc.CodeInvalidArgument, "root id: %v", err)
 	}
 	return id, nil
+}
+
+// videosOf is a request's video extensions, which may not be none.
+func videosOf(exts []string) (media.Videos, error) {
+	v := media.NewVideos(exts...)
+	if v.Empty() {
+		return v, rpc.Errorf(rpc.CodeInvalidArgument, "no video file extensions")
+	}
+	return v, nil
 }
 
 func relOf(s string) (Rel, error) {
@@ -721,12 +742,12 @@ func (s *Store) place(ctx context.Context, root storage.UUID, p Payload, to Rel,
 	return placed, step, nil
 }
 
-func (s *Store) move(ctx context.Context, root storage.UUID, from, to Rel, carry bool) (Info, []Rel, error) {
+func (s *Store) move(ctx context.Context, root storage.UUID, from, to Rel, carry bool, videos media.Videos) (Info, []Rel, error) {
 	dir, err := s.resolve(ctx, root, false)
 	if err != nil {
 		return nil, nil, err
 	}
-	moved, left, err := placer{s.cfg.Disk, s.host.Style, dir, s.walksOf(root)}.move(ctx, from, to, carry)
+	moved, left, err := placer{s.cfg.Disk, s.host.Style, dir, s.walksOf(root)}.move(ctx, from, to, carry, videos)
 	if err != nil {
 		return nil, nil, s.refused(ctx, dir, err)
 	}

@@ -329,6 +329,9 @@ message MoveRequest {
   // carry moves each companion of from, a file in its folder named from's
   // stem, ".", and a tail, to to's stem, ".", and the same tail.
   bool carry = 4;
+  // video_extensions are the Admin's video file extensions, lower case
+  // without the dot. A file with one is never another's companion.
+  repeated string video_extensions = 5;
 }
 
 message MoveResponse {
@@ -346,6 +349,8 @@ message SurveyRequest {
   // planned is at most 2000 renames.
   repeated Planned planned = 2;
   bool companions = 3;
+  // video_extensions are as on MoveRequest.
+  repeated string video_extensions = 4;
 }
 
 message Planned {
@@ -428,6 +433,9 @@ message WalkRequest {
   bytes after = 2;
   // limit is at most 1000 entries.
   int32 limit = 3;
+  // video_extensions are as on MoveRequest: the walk lists only files
+  // with one of them.
+  repeated string video_extensions = 4;
 }
 
 message WalkResponse {

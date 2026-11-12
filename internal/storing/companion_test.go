@@ -6,6 +6,8 @@ import (
 	"slices"
 	"testing"
 	"testing/synctest"
+
+	"github.com/jatassi/slipstream/internal/media"
 )
 
 func rels(t *testing.T, ss ...string) []Rel {
@@ -42,7 +44,7 @@ func TestAMoveCarriesTheCompanionsOfItsLongestStem(t *testing.T) {
 		}
 		dir(t, filepath.Join(w.folder, "Heat", "Heat.extras"))
 		from, to := mustRel(t, "Heat/Heat.mkv"), mustRel(t, "Heat (1995)/Heat (1995).mkv")
-		surveyed, err := w.remote.Survey(t.Context(), w.at, []Planned{{From: from, To: to}}, true)
+		surveyed, err := w.remote.Survey(t.Context(), w.at, []Planned{{From: from, To: to}}, true, media.DefaultVideos)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -50,7 +52,7 @@ func TestAMoveCarriesTheCompanionsOfItsLongestStem(t *testing.T) {
 			t.Errorf("Survey found companions %v, want %v", surveyed[0].Companions, want)
 		}
 		for range 2 {
-			if moved, err := w.remote.Move(t.Context(), w.at, from, to, true); err != nil || len(moved.Left) != 0 {
+			if moved, err := w.remote.Move(t.Context(), w.at, from, to, true, media.DefaultVideos); err != nil || len(moved.Left) != 0 {
 				t.Fatalf("Move = %+v, %v; want every companion carried", moved, err)
 			}
 		}
@@ -70,7 +72,7 @@ func TestAMoveWithoutCarryLeavesTheCompanions(t *testing.T) {
 		w := newWalking(t, nil)
 		w.file(t, "Heat/Heat.mkv", "film")
 		w.file(t, "Heat/Heat.en.srt", "subs")
-		if _, err := w.remote.Move(t.Context(), w.at, mustRel(t, "Heat/Heat.mkv"), mustRel(t, "Heat (1995)/Heat (1995).mkv"), false); err != nil {
+		if _, err := w.remote.Move(t.Context(), w.at, mustRel(t, "Heat/Heat.mkv"), mustRel(t, "Heat (1995)/Heat (1995).mkv"), false, media.DefaultVideos); err != nil {
 			t.Fatal(err)
 		}
 		if got, want := sortedTree(t, w.folder), []string{"Heat (1995)/Heat (1995).mkv", "Heat/Heat.en.srt"}; !slices.Equal(got, want) {
@@ -87,7 +89,7 @@ func TestACompanionWhoseTargetIsTakenStaysAndIsReported(t *testing.T) {
 		w.file(t, "Heat/Heat.nfo", "info")
 		w.file(t, "Heat (1995)/Heat (1995).en.srt", "other subs")
 		for range 2 {
-			moved, err := w.remote.Move(t.Context(), w.at, mustRel(t, "Heat/Heat.mkv"), mustRel(t, "Heat (1995)/Heat (1995).mkv"), true)
+			moved, err := w.remote.Move(t.Context(), w.at, mustRel(t, "Heat/Heat.mkv"), mustRel(t, "Heat (1995)/Heat (1995).mkv"), true, media.DefaultVideos)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -113,7 +115,7 @@ func TestCompanionsGoThroughHoldingUnderTheFileID(t *testing.T) {
 		w.file(t, "Heat/Heat.nfo", "info")
 		w.file(t, "Heat (1995)/Heat (1995).en.srt", "other subs")
 		hold := mustRel(t, HoldingDir+"/"+id+".mkv")
-		if moved, err := w.remote.Move(t.Context(), w.at, mustRel(t, "Heat/Heat.mkv"), hold, true); err != nil || len(moved.Left) != 0 {
+		if moved, err := w.remote.Move(t.Context(), w.at, mustRel(t, "Heat/Heat.mkv"), hold, true, media.DefaultVideos); err != nil || len(moved.Left) != 0 {
 			t.Fatalf("Move into holding = %+v, %v; want every companion carried", moved, err)
 		}
 		want := []string{HoldingDir + "/" + id + ".en.srt", HoldingDir + "/" + id + ".mkv", HoldingDir + "/" + id + ".nfo", "Heat (1995)/Heat (1995).en.srt"}
@@ -121,7 +123,7 @@ func TestCompanionsGoThroughHoldingUnderTheFileID(t *testing.T) {
 			t.Fatalf("the root holds %v, want %v", got, want)
 		}
 		beside := "Heat (1995)/Heat (1995).0190a1b2.en.srt"
-		moved, err := w.remote.Move(t.Context(), w.at, hold, mustRel(t, "Heat (1995)/Heat (1995).mkv"), true)
+		moved, err := w.remote.Move(t.Context(), w.at, hold, mustRel(t, "Heat (1995)/Heat (1995).mkv"), true, media.DefaultVideos)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -142,7 +144,7 @@ func TestAMoveRetriedAfterItsFileMovedCarriesWhatIsLeft(t *testing.T) {
 		w.file(t, "Heat (1995)/Heat (1995).mkv", "film")
 		w.file(t, "Heat (1995)/Heat (1995).en.srt", "subs")
 		w.file(t, "Heat/Heat.nfo", "info")
-		moved, err := w.remote.Move(t.Context(), w.at, mustRel(t, "Heat/Heat.mkv"), mustRel(t, "Heat (1995)/Heat (1995).mkv"), true)
+		moved, err := w.remote.Move(t.Context(), w.at, mustRel(t, "Heat/Heat.mkv"), mustRel(t, "Heat (1995)/Heat (1995).mkv"), true, media.DefaultVideos)
 		if err != nil || moved.Size != 4 || len(moved.Left) != 0 {
 			t.Fatalf("Move = %+v, %v; want the moved file's 4 bytes and the rest carried", moved, err)
 		}
@@ -157,7 +159,7 @@ func TestAMoveRetriedAfterItsFolderWentConverges(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newWalking(t, nil)
 		w.file(t, "Heat (1995)/Heat (1995).mkv", "film")
-		if moved, err := w.remote.Move(t.Context(), w.at, mustRel(t, "Heat/Heat.mkv"), mustRel(t, "Heat (1995)/Heat (1995).mkv"), true); err != nil || moved.Size != 4 {
+		if moved, err := w.remote.Move(t.Context(), w.at, mustRel(t, "Heat/Heat.mkv"), mustRel(t, "Heat (1995)/Heat (1995).mkv"), true, media.DefaultVideos); err != nil || moved.Size != 4 {
 			t.Fatalf("Move = %+v, %v; want the moved file's 4 bytes", moved, err)
 		}
 	})
@@ -171,7 +173,7 @@ func TestACaseOnlyMoveRespellsItsCompanions(t *testing.T) {
 			w.file(t, "heat/heat.mkv", "film")
 			w.file(t, "heat/heat.en.srt", "subs")
 			for range 2 {
-				if moved, err := w.remote.Move(t.Context(), w.at, mustRel(t, "heat/heat.mkv"), mustRel(t, "Heat/Heat.mkv"), true); err != nil || len(moved.Left) != 0 {
+				if moved, err := w.remote.Move(t.Context(), w.at, mustRel(t, "heat/heat.mkv"), mustRel(t, "Heat/Heat.mkv"), true, media.DefaultVideos); err != nil || len(moved.Left) != 0 {
 					t.Fatalf("folding %v: Move = %+v, %v; want the companion carried", fold, moved, err)
 				}
 			}
@@ -190,7 +192,7 @@ func TestACaseOnlyCompanionRenameCutShortFinishesOnRetry(t *testing.T) {
 		w.disk.foldCase = true
 		w.file(t, "Heat.mkv", "film")
 		w.file(t, "Heat.en.srt"+recaseSuffix, "subs")
-		if _, err := w.remote.Move(t.Context(), w.at, mustRel(t, "heat.mkv"), mustRel(t, "Heat.mkv"), true); err != nil {
+		if _, err := w.remote.Move(t.Context(), w.at, mustRel(t, "heat.mkv"), mustRel(t, "Heat.mkv"), true, media.DefaultVideos); err != nil {
 			t.Fatal(err)
 		}
 		if got, want := sortedTree(t, w.folder), []string{"Heat.en.srt", "Heat.mkv"}; !slices.Equal(got, want) {

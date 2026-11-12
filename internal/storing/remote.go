@@ -192,9 +192,10 @@ func placeAnswer(err error) error {
 }
 
 // Move renames from to to within the root, and with carry from's
-// companions after it. Another file at to is ErrOccupied.
-func (r Remote) Move(ctx context.Context, at At, from, to Rel, carry bool) (Placed, error) {
-	res, err := r(at.Node).Move(ctx, &storagev1.MoveRequest{RootId: at.Root.Bytes(), From: from.String(), To: to.String(), Carry: carry})
+// companions after it, a file with one of videos' extensions never being
+// one. Another file at to is ErrOccupied.
+func (r Remote) Move(ctx context.Context, at At, from, to Rel, carry bool, videos media.Videos) (Placed, error) {
+	res, err := r(at.Node).Move(ctx, &storagev1.MoveRequest{RootId: at.Root.Bytes(), From: from.String(), To: to.String(), Carry: carry, VideoExtensions: videos.Extensions()})
 	if err != nil {
 		return Placed{}, occupied(err)
 	}
@@ -207,11 +208,11 @@ func (r Remote) Move(ctx context.Context, at At, from, to Rel, carry bool) (Plac
 
 // Survey answers each planned rename within the root, in batches of 2000:
 // the files at its target, compared without case, and with companions its
-// source's companions. A root that isn't ready is *NotReady.
-func (r Remote) Survey(ctx context.Context, at At, planned []Planned, companions bool) ([]Surveyed, error) {
+// source's companions by videos. A root that isn't ready is *NotReady.
+func (r Remote) Survey(ctx context.Context, at At, planned []Planned, companions bool, videos media.Videos) ([]Surveyed, error) {
 	out := make([]Surveyed, 0, len(planned))
 	for i := 0; i < len(planned); i += surveyBatch {
-		req := &storagev1.SurveyRequest{RootId: at.Root.Bytes(), Companions: companions}
+		req := &storagev1.SurveyRequest{RootId: at.Root.Bytes(), Companions: companions, VideoExtensions: videos.Extensions()}
 		for _, p := range planned[i:min(i+surveyBatch, len(planned))] {
 			req.Planned = append(req.Planned, &storagev1.Planned{From: p.From.String(), To: p.To.String()})
 		}
@@ -268,11 +269,12 @@ func relsOf(ss []string) ([]Rel, error) {
 	return out, nil
 }
 
-// Walk lists one page of the root's video files after the cursor, up to
-// limit of them, 1 to 1000. A root that isn't ready is *NotReady, and one
+// Walk lists one page of the root's video files by videos after the
+// cursor, up to limit of them, 1 to 1000. A root that isn't ready is *NotReady, and one
 // that stops answering mid-page a *FolderError.
-func (r Remote) Walk(ctx context.Context, at At, after Cursor, limit int) (Page, error) {
-	res, err := r(at.Node).Walk(ctx, &storagev1.WalkRequest{RootId: at.Root.Bytes(), After: []byte(after.b), Limit: int32(limit)}) //nolint:gosec // the Node refuses a limit past 1000
+func (r Remote) Walk(ctx context.Context, at At, after Cursor, limit int, videos media.Videos) (Page, error) {
+	req := &storagev1.WalkRequest{RootId: at.Root.Bytes(), After: []byte(after.b), Limit: int32(limit), VideoExtensions: videos.Extensions()} //nolint:gosec // the Node refuses a limit past 1000
+	res, err := r(at.Node).Walk(ctx, req)
 	if err != nil {
 		return Page{}, answer(err)
 	}

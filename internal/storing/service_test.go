@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/media"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
 	"github.com/jatassi/slipstream/internal/role"
@@ -677,7 +678,7 @@ func TestMoveRemoveAndListActOnTheRoot(t *testing.T) {
 		}
 		final := mustRel(t, "Heat (1995)/Heat (1995).mkv")
 		for range 2 {
-			if moved, err := p.remote.Move(t.Context(), p.at, holding, final, false); err != nil || moved.Size != 4 || moved.Seen.ID.IsZero() || !moved.Seen.Same(placed.Seen) {
+			if moved, err := p.remote.Move(t.Context(), p.at, holding, final, false, media.DefaultVideos); err != nil || moved.Size != 4 || moved.Seen.ID.IsZero() || !moved.Seen.Same(placed.Seen) {
 				t.Fatalf("Move = %+v, %v; want the placed file %+v, 4 bytes", moved, err, placed)
 			}
 		}
@@ -732,7 +733,7 @@ func TestPlaceRefusesWhileDraining(t *testing.T) {
 			t.Error("staging for a Transfer while draining was allowed")
 		}
 		write(t, filepath.Join(p.folder, HoldingDir, "0180.mkv"), "film")
-		if _, err := p.remote.Move(t.Context(), p.at, mustRel(t, HoldingDir+"/0180.mkv"), mustRel(t, "Heat/Heat.mkv"), false); err != nil {
+		if _, err := p.remote.Move(t.Context(), p.at, mustRel(t, HoldingDir+"/0180.mkv"), mustRel(t, "Heat/Heat.mkv"), false, media.DefaultVideos); err != nil {
 			t.Errorf("Move while draining = %v, want the existing file moved", err)
 		}
 	})
