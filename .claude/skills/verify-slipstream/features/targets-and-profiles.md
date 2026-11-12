@@ -18,7 +18,7 @@ An Admin decides what each file should be. A Target ranks the qualities it accep
 - `profiles-delete-move` deleting `UHD` asks where its Works go; the Work moves to `Films` and the Kept file fills again under `The Quiet Orchard (2021) - 1080p.mkv` (P-064).
 - `impact-delete` taking both Targets out of `Films` opens the Impact with `Delete` chosen and `Save and delete 1 file`, which removes the file from the media root and leaves the Work with no cells (P-199, P-204, P-206).
 - `sizes-refusals` on the `sizes` Scenario a search refuses the 14 GiB encode with `size_above` and the 1.5 GiB one with `size_below`, grabs the 8.2 GiB one, and a Work whose runtime TMDB doesn't know grabs with the note `size_not_checked` (P-203).
-- `sizes-probed-codec` a release whose title names no video codec is grabbed for `Encoded`, which refuses x264, and its file, probed as H.264, fills nothing. The Grab fails at probing with `fills_nothing`, no file lands, and the cell reads `Failed` (P-069).
+- `sizes-probed-codec` a release whose title names no video codec is grabbed for `Encoded`, which refuses x264, and its file, probed as H.264, meets no Target. The Grab stays at `importing`, its file waits in Pending imports with `This doesn't meet any Target this Work wants.` and `Don't import`, the `Encoded` cell's facts read `Waiting for you`, and no file lands (P-069).
 - `editions-cuts` Settings > Editions lists every cut with the phrases it is read as and where it comes from, and `Add cut` adds `Superfan`, also read as `Fan Cut`, as `Custom`.
 - `editions-cut-rename` renaming `Superfan` to `Superfan Edition` opens the Impact, `1 Work changes.` and `1 file is renamed.`, with no Delete or Keep and the file's old and new path under `Details`' `Renamed files`, and its file is renamed to `{edition-Superfan Edition}` (P-202).
 - `editions-cut-in-use` deleting `Superfan Edition` while `Films` lists it and a file holds it reads `Superfan Edition can't be deleted. Films and 1 file use it.`, and the API answers 409 `cut_in_use`.
@@ -264,7 +264,7 @@ Steps on `sizes`:
   $FW exec $RUN --proof targets-and-profiles/sizes-refusals -- curl -sS -H 'X-Api-Key: {apiKey}' "{nodes.home.url}/api/v1/works/$KEEPER/searches"
   ```
 
-- **A codec the probe reads.** Add The Copper Bell, picking `Encodes` in the sheet's `Profile`, and search it. The search grabs, but the Grab ends `failed` at `probing` with `fills_nothing` and `a WEBDL-1080p file fills no Target the Work still wants`. The `Encoded` cell reads `Failed`, `Needs you` lists the Grab, and no file lands.
+- **A codec the probe reads.** Add The Copper Bell, picking `Encodes` in the sheet's `Profile`, and search it. The search grabs, but the Grab stops at `importing` with its one file waiting, reason `meets_nothing`. Pending imports' `From downloads` lists it with `This doesn't meet any Target this Work wants.`, and no file lands.
 
   ```sh
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/add?contentType=movie&query=copper+bell'
@@ -273,9 +273,12 @@ Steps on `sizes`:
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("option", { name: "Encodes" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("dialog", { name: "Add The Copper Bell" }).getByRole("button", { name: "Add Movie" })'
   $FW exec $RUN -- $PW cli -s={runId}-admin-desktop click 'getByRole("main").getByRole("button", { name: "Search", exact: true })'
-  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop run-code 'async page => { await page.getByRole("table", { name: "Editions and Targets" }).getByText("Failed").first().waitFor({ timeout: 60000 }); }'
+  $FW exec $RUN -- bash -c 'for i in $(seq 120); do curl -sS -H "X-Api-Key: {apiKey}" "{nodes.home.url}/api/v1/grabs" | jq -e "any(.grabs[]; .import.waiting > 0)" && exit 0; sleep 0.5; done; exit 1'
   $FW exec $RUN --proof targets-and-profiles/sizes-probed-codec -- $PW cli -s={runId}-admin-desktop screenshot --full-page --filename={runDir}/proof/targets-and-profiles/sizes-probed-codec/work.png
   $FW exec $RUN --proof targets-and-profiles/sizes-probed-codec -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/grabs'
+  $FW exec $RUN --proof targets-and-profiles/sizes-probed-codec -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/imports?source=grab&waiting=true'
+  $FW exec $RUN -- $PW cli -s={runId}-admin-desktop goto '{nodes.home.browserUrl}/library/pending'
+  $FW exec $RUN --proof targets-and-profiles/sizes-probed-codec -- $PW cli -s={runId}-admin-desktop screenshot --full-page --filename={runDir}/proof/targets-and-profiles/sizes-probed-codec/pending.png
   ```
 
 Steps on a second fresh `targets` run:
@@ -358,12 +361,12 @@ Steps on a second fresh `targets` run:
 - The second `Delete UHD` is the Impact's button, in the dialog named `Delete UHD` without the question mark.
 - The payloads are a few seconds of video, so the Profile editor's estimates are tiny. Read their wording, not their numbers.
 - The add sheet keeps `Monitor` on; an unmonitored Work has no Wants and its Search finds nothing to do.
+- A cell whose upgrade Grab is in flight reads `Downloading`, with `Replaces <quality>` under it, until its Import lands or the file waits.
+- Two videos of one movie, such as `CD1` and `CD2`, wait together in Pending imports with `This movie is split into 2 files. SlipStream imports a movie as one file.` They never race for one name.
 - Known gaps a run will meet. These are not recipe failures:
   - A file SlipStream doesn't know, sitting at the path a rename wants, blocks that rename. The Node logs it and retries, and no page says so.
-  - A cell whose upgrade Grab is downloading still reads `Upgradable`, not `Downloading`.
-  - When two files of a Work would take one name as an import commits, the Grab retries instead of failing.
   - A save refused with 409 `impact_changed` carries no Impact. The web app previews again to show the new one.
   - A Grab under Any cut that is still downloading when the Work's list switches to named cuts leaves the new cell reading `Missing` until it imports.
-  - No title reads HDR, the audio codec, channels or audio languages yet, so a filter on them passes every release at search. A Grab's probe reads them, so the same filter judges the downloaded file, and a file it refuses fails `fills_nothing`.
-  - The `fills_nothing` message doesn't name the filter that refused the file.
+  - No title reads HDR, the audio codec, channels or audio languages yet, so a filter on them passes every release at search. A Grab's probe reads them, so the same filter judges the downloaded file. A download whose one video it refuses waits `meets_nothing` in Pending imports.
+  - The `meets_nothing` sentence doesn't name the filter that refused the file.
   - A film title that holds a cut's words, such as Uncut Gems or The Final Cut, reads as that cut.

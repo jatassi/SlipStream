@@ -6,7 +6,7 @@ An Admin keeps every place SlipStream stores files in Settings > Library roots. 
 
 - `roots-section` `/settings/library-roots` groups roots by Content Type: `TV` reads `Add a library root to hold Series.` with `Add a root for TV`, and under `Movies` each row reads its folder, `Default` on the default, its scan line such as `Scanned just now. Nothing changed.`, its Node with its status dot, `<size> free` and `<n> Movies, <bytes>`, with `Actions for <path>` holding `Make default`, `Edit` and `Delete` (P-021, P-022).
 - `roots-add-browser` `Add a library root` on seedbox, once it holds Storage, opens `Choose a folder on seedbox`, read by seedbox. Its data folder reads `Can't use this folder because it's inside SlipStream's data folder.` with `Use seedbox` disabled; a typed path goes there, `New folder` makes `worker-movies` and opens it, the footer reads `This folder is on /, <size> free.`, and `Use worker-movies` fills the dialog's `Folder`. With `Make this the default for Movies` ticked, `Add` toasts `Added <path>. New Movies go there.` (P-027, P-021, P-022).
-- `roots-import-worker` The Quiet Orchard, added and searched with the seedbox root as the default, downloads on seedbox and imports there with no Transfer: its Grab's history runs fetching, downloading, probing, importing, imported, and the placed file under `worker-movies` matches the release with 2 links, a hard link to seedbox's download.
+- `roots-import-worker` The Quiet Orchard, added and searched with the seedbox root as the default, downloads on seedbox and imports there with no Transfer: its Grab's history runs fetching, downloading, importing, imported, and the placed file under `worker-movies` matches the release with 2 links, a hard link to seedbox's download (P-077).
 - `roots-move-works` `PUT /api/v1/works/root` moves each Work without files into another root of its Content Type in one Write and answers one outcome per Work, in request order. The Quiet Orchard, whose file sits in `worker-movies`, answers `skipped` with `work_has_files` and stays, and an id no Work has answers `failed` with `work_not_found`.
 - `roots-storage` the Storage block lists `Volumes on home` and `Volumes on seedbox`, each volume with `<free> free of <total>`, a meter named `<volume> used` and the roots on it; the Diagram's Storage cabinet on seedbox has one drawer with `data-used`, and its Inspector `Storage on seedbox` reads `1 root on 1 volume, <size> free.` and links `Library roots` (P-028).
 - `roots-sample-every` the Storage block's Details sets `Check storage every` to 10 minutes, and the summary reads `Storage Nodes check each volume every 10 min, and again after each import.` (P-028).
@@ -90,7 +90,7 @@ Steps:
   $FW exec $RUN --proof library-roots/roots-add-browser -- curl -sS -H 'X-Api-Key: {apiKey}' '{nodes.home.url}/api/v1/roots'
   ```
 
-- **Import on the Worker.** Add The Quiet Orchard from the Library's `Add` menu and choose `Search`. Activity reads `Imported`, the Grab's history has no `transferring`, and the file under `worker-movies` matches the release with `"links":2`.
+- **Import on the Worker.** Add The Quiet Orchard from the Library's `Add` menu and choose `Search`. Activity reads `Imported`, `GET /api/v1/transfers` lists no Transfer for its Import, and the file under `worker-movies` matches the release with `"links":2`.
 
   ```sh
   $FW exec $RUN -- $PW cli $S goto '{nodes.home.browserUrl}/library'

@@ -1,3 +1,4 @@
+import { HttpResponse, http } from "msw";
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -15,6 +16,7 @@ import {
 } from "../test/folder-browsing";
 import { renderQueried, serveFolders } from "../test/folders";
 import { asPhone } from "../test/viewport";
+import { worker } from "../test/worker";
 
 test("hidden folders wait behind a counted row and Show hidden, remembered for the next open", async () => {
   await browse({ startPath: "/srv/media" });
@@ -69,6 +71,27 @@ test.each([
     await expect.element(place("/srv/media/Movies")).toBeVisible();
   },
 );
+
+test("a folder outside the library roots and download folders says so, naming the Node", async () => {
+  await browse({ startPath: "/srv/media" });
+  worker.use(
+    http.get("*/api/v1/nodes/:id/folders", () => {
+      const body = { status: 422, code: "folder_outside", title: "Not the web's words" };
+      return HttpResponse.json(body, {
+        status: 422,
+        headers: { "Content-Type": "application/problem+json" },
+      });
+    }),
+  );
+  await userEvent.keyboard("m{Enter}");
+  await expect
+    .element(
+      page.getByText(
+        "Can't use this folder because it isn't in a library root or a download folder on Media server.",
+      ),
+    )
+    .toBeVisible();
+});
 
 test("an offline Node's card says so, with Try again", async () => {
   await browse({ nodeId: "away" });

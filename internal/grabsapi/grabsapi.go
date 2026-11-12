@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
@@ -360,10 +361,27 @@ type grabActions struct {
 	SendTo        bool `json:"sendTo" doc:"sendGrabTo can send it to another client"`
 }
 
+// targetsOf is each Target cells name, once, in their order, and each
+// of cells.
+func targetsOf(cells []grabs.Cell) (ids []string, out []grabTarget) {
+	ids, out = []string{}, []grabTarget{}
+	for _, c := range cells {
+		if id := c.Key.Target.String(); !slices.Contains(ids, id) {
+			ids = append(ids, id)
+		}
+		t := grabTarget{TargetID: c.Key.Target.String(), ItemID: c.Key.Item.String(), Forced: c.Forced}
+		if c.Settled != nil {
+			t.Settled = api.Some(string(*c.Settled))
+		}
+		out = append(out, t)
+	}
+	return ids, out
+}
+
 func grabOf(v grabs.View) grab {
 	out := grab{
-		ID: v.ID.String(), WorkID: v.WorkID.String(), Edition: string(v.Edition), TargetIDs: []string{},
-		Items: []string{}, Targets: []grabTarget{}, ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseWords, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
+		ID: v.ID.String(), WorkID: v.WorkID.String(), Edition: string(v.Edition),
+		Items: []string{}, ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseWords, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
 		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), InFlight: v.Stage.InFlight(), History: []entered{}, CreatedAt: v.Created,
 		Source: string(v.Source), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...), Import: importOf(v.Import),
 		Actions: grabActions{Cancel: v.Actions.Cancel, Blocklistable: v.Actions.Blocklist, SendTo: v.Actions.SendTo},
@@ -378,14 +396,7 @@ func grabOf(v grabs.View) grab {
 	for _, item := range v.Items {
 		out.Items = append(out.Items, item.String())
 	}
-	for _, c := range v.Targets {
-		out.TargetIDs = append(out.TargetIDs, c.Key.Target.String())
-		t := grabTarget{TargetID: c.Key.Target.String(), ItemID: c.Key.Item.String(), Forced: c.Forced}
-		if c.Settled != nil {
-			t.Settled = api.Some(string(*c.Settled))
-		}
-		out.Targets = append(out.Targets, t)
-	}
+	out.TargetIDs, out.Targets = targetsOf(v.Targets)
 	if q, ok := release.QualityIn(v.Release.Title).Get(); ok {
 		out.Quality = q.String()
 	}

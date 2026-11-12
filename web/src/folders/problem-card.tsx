@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { RootsFolderProblemKind } from "../api/gen/model";
 import { Button } from "../ui/button";
 import { Data } from "../ui/data";
+import { refusalSentence } from "../roots/words";
 import { Details } from "../ui/details";
 import type { FolderProblem } from "./use-folder-listing";
 
@@ -36,6 +37,8 @@ function wordsOf(problem: FolderProblem, node: string): { sentence: string; deta
     }
     case "offline":
       return { sentence: `${node} is offline. Its folders can't be browsed until it reconnects.` };
+    case "outside":
+      return { sentence: refusalSentence({ reason: "outside" }, { node, roots: [], types: [] }) };
     case "refused":
       return { sentence: problem.sentence };
     default:

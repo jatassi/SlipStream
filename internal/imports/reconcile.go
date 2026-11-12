@@ -97,9 +97,15 @@ type plan struct {
 }
 
 // plan adds imp's jobs to p: a converge once its busy files are free,
-// and each file's next IO whose hold's backoff passed.
+// and each file's next IO whose hold's backoff passed. A file whose
+// staged copy a re-home unverified waits for its Transfer to send it
+// again.
 func (im *Imports) plan(ctx context.Context, r storage.Reader[file], imp Import, p *plan) error {
 	freed, err := busyFreed(ctx, r, imp)
+	if err != nil {
+		return err
+	}
+	unstaged, err := im.unstaged(ctx, r, imp)
 	if err != nil {
 		return err
 	}
@@ -112,7 +118,7 @@ func (im *Imports) plan(ctx context.Context, r storage.Reader[file], imp Import,
 	t := im.cfg.Timings
 	for _, f := range imp.Files {
 		run := im.step(imp, f)
-		if run == nil {
+		if run == nil || slices.Contains(unstaged, f.Position) {
 			continue
 		}
 		if f.Hold != nil {

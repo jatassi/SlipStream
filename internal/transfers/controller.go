@@ -246,51 +246,57 @@ func (t *Transfers) Touch() {
 // once no file is left unplaced and undropped, so a Request with no files
 // ends the Transfer, and Want returns the zero ID. Its source and
 // destination are the ones of the Request that recorded it, and a stored
-// failure stays. Wanting the same files again changes nothing. Call Touch
-// after the commit.
+// failure stays. A failed record takes no new file: a file r adds waits
+// until the record's last file goes, and then starts a record of its
+// own. Wanting the same files again changes nothing. Call Touch after the
+// commit.
 func (t *Transfers) Want(ctx context.Context, tx *storage.Tx[storage.Library], r Request) (ID, error) {
 	if _, ok := t.purposes[r.Purpose]; !ok {
 		panic("transfers: purpose " + string(r.Purpose) + " isn't registered")
 	}
 	q := ledger.New(tx)
-	id, ok, err := record(ctx, q, r)
+	id, failed, ok, err := record(ctx, q, r)
 	if err != nil || !ok {
 		return ID{}, err
 	}
-	if err := hold(ctx, q, id, r.Files); err != nil {
+	if err := hold(ctx, q, id, r.Files, !failed); err != nil {
 		return ID{}, err
 	}
 	left, err := q.CountUnplaced(ctx, id)
 	if err != nil || left > 0 {
 		return id, err
 	}
-	return ID{}, q.DeleteTransfer(ctx, id)
+	if err := q.DeleteTransfer(ctx, id); err != nil || !failed {
+		return ID{}, err
+	}
+	return t.Want(ctx, tx, r)
 }
 
-// record is r's record, made when r has files and none exists. False is
-// no record, for a Request of no files.
-func record(ctx context.Context, q *ledger.Queries, r Request) (id ID, ok bool, err error) {
+// record is r's record and whether it failed, made when r has files and
+// none exists. False is no record, for a Request of no files.
+func record(ctx context.Context, q *ledger.Queries, r Request) (id ID, failed, ok bool, err error) {
 	id, err = q.TransferOfJob(ctx, ledger.TransferOfJobParams{Purpose: string(r.Purpose), Job: r.Job})
 	switch {
 	case err == nil:
-		return id, true, nil
+		row, err := q.GetTransfer(ctx, id)
+		return id, row.FailureCode != nil, err == nil, err
 	case !errors.Is(err, storage.ErrNoRows):
-		return ID{}, false, err
+		return ID{}, false, false, err
 	case len(r.Files) == 0:
-		return ID{}, false, nil
+		return ID{}, false, false, nil
 	}
 	id = ID{UUID: storage.NewUUID()}
 	root := rootOf(r.Destination)
 	row := ledger.InsertTransferParams{ID: id, Purpose: string(r.Purpose), Job: r.Job, SourceNode: r.Source, DestinationKind: r.Destination.kind(), DestinationRoot: &root, CreatedAt: storage.Now()}
 	if err = q.InsertTransfer(ctx, row); err != nil {
-		return ID{}, false, fmt.Errorf("record the Transfer: %w", err)
+		return ID{}, false, false, fmt.Errorf("record the Transfer: %w", err)
 	}
-	return id, true, nil
+	return id, false, true, nil
 }
 
-// hold adds each of files id's record lacks at its next position and
-// drops each unplaced file it holds that files doesn't name.
-func hold(ctx context.Context, q *ledger.Queries, id ID, files []FileRequest) error {
+// hold adds each of files id's record lacks at its next position, when
+// adding, and drops each unplaced file it holds that files doesn't name.
+func hold(ctx context.Context, q *ledger.Queries, id ID, files []FileRequest, adding bool) error {
 	rows, err := q.FilesOf(ctx, id)
 	if err != nil {
 		return err
@@ -309,7 +315,7 @@ func hold(ctx context.Context, q *ledger.Queries, id ID, files []FileRequest) er
 	}
 	next := len(rows)
 	for _, f := range files {
-		if slices.ContainsFunc(held, f.same) {
+		if !adding || slices.ContainsFunc(held, f.same) {
 			continue
 		}
 		if err := q.InsertFile(ctx, fileRow(id, next, f)); err != nil {

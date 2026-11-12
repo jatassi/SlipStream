@@ -67,7 +67,11 @@ var rules = map[ReasonCode]rule{
 	},
 	NoNumber: {
 		sentence: func(r Reason, w wording) string {
-			return fmt.Sprintf("This file's name has no %s number. The folder says %s.", w.item(), w.level(r.Level))
+			s := "This file's name has no " + w.item() + " number."
+			if level := w.level(r.Level); level != "" {
+				s += " The folder says " + level + "."
+			}
+			return s
 		},
 		recommended: ActMatch, also: []ActionKind{ActDecline},
 	},

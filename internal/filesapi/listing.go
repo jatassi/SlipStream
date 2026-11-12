@@ -123,6 +123,12 @@ func listedOf(f files.Listed) ListedFile {
 	if f.Seen != nil {
 		out.ModifiedAt = &f.Seen.Modified
 	}
+	if f.PlacedBy != "" {
+		out.PlacedBy = api.Some(f.PlacedBy)
+	}
+	if !f.GrabID.IsZero() {
+		out.Grab = api.Some(fileGrab{ID: f.GrabID.String(), Release: f.ReleaseName})
+	}
 	if f.ProbeError != "" {
 		out.ProbeError = &f.ProbeError
 	}
