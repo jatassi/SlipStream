@@ -274,6 +274,12 @@ func TestTheEnginePlaysItsFaults(t *testing.T) {
 		if got := get(t, e, stalled); got.State != torrentclient.Stopped || got.LocalError != "No space left on device" {
 			t.Errorf("failed: state %d, error %q", got.State, got.LocalError)
 		}
+		if err := e.Fail(stalled.InfoHash, ""); err != nil {
+			t.Fatal(err)
+		}
+		if got := get(t, e, stalled); got.State != torrentclient.Downloading || got.LocalError != "" {
+			t.Errorf("cleared: state %d, error %q, want downloading again", got.State, got.LocalError)
+		}
 		e.Empty()
 		if got := e.List(nil); len(got) != 0 {
 			t.Errorf("an emptied client lists %d torrents", len(got))

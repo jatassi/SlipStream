@@ -296,12 +296,15 @@ func (e *Engine) Stall(h bencode.InfoHash, on bool) error {
 }
 
 // Fail gives a torrent a local error, such as a full disk, and stops it.
-// "" clears the error and leaves the torrent stopped.
+// "" clears the error and starts the torrent again, as a client does once
+// its disk has room.
 func (e *Engine) Fail(h bencode.InfoHash, message string) error {
 	return e.change(h, func(t *torrent) {
-		t.LocalError = message
-		if message != "" {
-			t.State = Stopped
+		switch {
+		case message != "":
+			t.LocalError, t.State = message, Stopped
+		case t.LocalError != "":
+			t.LocalError, t.State = "", Downloading
 		}
 	})
 }
