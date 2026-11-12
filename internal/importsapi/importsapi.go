@@ -490,7 +490,69 @@ func Routes(r *api.Router, p Pending) {
 		Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown},
 	}, h.updateSettings)
 
-	unbuiltRoutes(o)
+	api.Register(o, api.Admin, api.Op{
+		ID:      "importFolder",
+		Method:  http.MethodPost,
+		Path:    "/imports",
+		Summary: "Open the Imports of a folder on a Node, one per Work and Edition its files match",
+		Status:  http.StatusCreated,
+		Also:    []int{http.StatusOK},
+		Errors:  []*api.Code{notBuilt, importOutside},
+	}, unbuilt[importFolderInput, importsOutput])
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "actOnImportFile",
+		Method:  http.MethodPost,
+		Path:    "/imports/{id}/files/{position}",
+		Summary: "Confirm, retry, decline, force or match one file of an Import",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{notBuilt, importNotFound, importChanged, importItems},
+	}, unbuilt[fileActionInput, entryOutput])
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "confirmImports",
+		Method:  http.MethodPost,
+		Path:    "/imports/confirm",
+		Summary: "Import every file of these Imports that waits for confirmation",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{notBuilt},
+	}, unbuilt[importIDsInput, importsOutput])
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "setImportMoveFiles",
+		Method:  http.MethodPost,
+		Path:    "/imports/move-files",
+		Summary: "Turn Move files on or off for folder Imports",
+		Status:  http.StatusNoContent,
+		Errors:  []*api.Code{notBuilt, importMoveSeeding},
+	}, unbuilt[moveFilesInput, struct{}])
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getImportingSettings",
+		Method:  http.MethodGet,
+		Path:    "/imports/importing-settings",
+		Summary: "Get the Importing settings",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{notBuilt},
+	}, unbuilt[struct{}, settingsOutput])
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "updateImportingSettings",
+		Method:  http.MethodPatch,
+		Path:    "/imports/importing-settings",
+		Summary: "Change the Importing settings",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{notBuilt, settingapi.ErrOutOfRange, settingapi.ErrUnknown},
+	}, unbuilt[libraryScanSettingsInput, settingsOutput])
+
+	api.Register(o, api.Admin, api.Op{
+		ID:      "getExtensionImpact",
+		Method:  http.MethodGet,
+		Path:    "/imports/importing-settings/extension-impact",
+		Summary: "Count the library and pending files a video extension list stops counting as video",
+		Status:  http.StatusOK,
+		Errors:  []*api.Code{notBuilt},
+	}, unbuilt[extensionImpactInput, extensionImpactOutput])
 }
 
 type handlers struct{ pending Pending }
