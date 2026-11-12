@@ -3,4 +3,7 @@ export type GrabsBlockEntryCause =
   | "no_payload"
   | "engine_error"
   | "marked_failed"
-  | "by_hand";
+  | "by_hand"
+  | "no_video"
+  | "unreadable"
+  | "misdescribed";

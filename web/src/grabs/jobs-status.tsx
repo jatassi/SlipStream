@@ -1,5 +1,4 @@
 import type { GrabsGrab } from "../api/gen/model";
-import { activityStages } from "../shell/counts";
 import { type StatusPart, StatusSentence } from "../ui/status-sentence";
 import { failureAnchor } from "./failure-cards";
 import type { FailedGrab } from "./stages";
@@ -7,7 +6,7 @@ import type { FailedGrab } from "./stages";
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 function statusParts(grabs: readonly GrabsGrab[], failed: readonly FailedGrab[]): StatusPart[] {
-  const moving = grabs.filter((grab) => activityStages[grab.stage]).length;
+  const moving = grabs.filter((grab) => grab.inFlight).length;
   const imported = grabs.filter((grab) => grab.stage === "imported").length;
   const [firstFailed] = failed;
   return [

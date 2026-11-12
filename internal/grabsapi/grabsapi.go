@@ -155,9 +155,9 @@ type search struct {
 }
 
 type lostAt struct {
-	Step     string  `json:"step" enum:"want,tier,revision,score,priority,freeleech,seeders,size,title" doc:"The first step of the ranking where the reference Release ranked above this one"`
+	Step     string  `json:"step" enum:"want,tier,revision,score,chosen_by_another,fewer_unwanted,priority,freeleech,seeders,size,title" doc:"The first step of the ranking where the reference Release ranked above this one"`
 	TargetID *string `json:"targetId" format:"uuid" doc:"The Target the tier, revision and score steps compare at; null at the other steps and once the Target is deleted"`
-	Own      string  `json:"own" doc:"This Release's value at the step: a Target's name for want, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title"`
+	Own      string  `json:"own" doc:"This Release's value at the step: a Target's name for want, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, whether another Want chose it for chosen_by_another, a count of the Items it covers that aren't wanted for fewer_unwanted, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title"`
 	Ref      string  `json:"ref" doc:"The reference Release's value at the step, written as own is. The reference is the grabbed Release, or the first a search could take when the run grabbed none."`
 }
 
@@ -300,8 +300,10 @@ type grab struct {
 	ID           string                   `json:"id" format:"uuid"`
 	WorkID       string                   `json:"workId" format:"uuid"`
 	ItemID       string                   `json:"itemId" format:"uuid"`
+	Items        []string                 `json:"items" nullable:"false" doc:"The ids of the Items its Release covers in the Work, in tree order"`
 	Edition      string                   `json:"edition" doc:"The Edition it was grabbed to fill: any under any cut, else a cut key"`
 	TargetIDs    []string                 `json:"targetIds" nullable:"false" doc:"The Targets it was grabbed for, in Profile order"`
+	Targets      []grabTarget             `json:"targets" nullable:"false" doc:"Each cell it holds, in plan order"`
 	ReleaseTitle string                   `json:"releaseTitle"`
 	ReleaseWords string                   `json:"releaseWords" doc:"Its Release in words, such as Bluray-1080p · FKW · 9.8 GB"`
 	Quality      string                   `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality the release title names, absent when it names none"`
@@ -314,6 +316,7 @@ type grab struct {
 	Client       api.Nullable[grabClient] `json:"downloadClient" doc:"Its Torrent's external Download Client, null for its Node's built-in client or until the .torrent is fetched"`
 	InfoHash     *string                  `json:"infoHash" doc:"The v1 info hash in hex, null until the .torrent is fetched"`
 	Stage        string                   `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
+	InFlight     bool                     `json:"inFlight" doc:"It holds its cells and counts in Activity: it is neither imported nor failed"`
 	Failure      *failure                 `json:"failure,omitempty" doc:"Why it failed, absent unless it did"`
 	History      []entered                `json:"history" nullable:"false" doc:"Each stage it entered, when it last entered it, oldest first"`
 	Progress     *progress                `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
@@ -328,6 +331,13 @@ type grab struct {
 	Actions      grabActions              `json:"actions"`
 }
 
+type grabTarget struct {
+	TargetID string               `json:"targetId" format:"uuid"`
+	ItemID   string               `json:"itemId" format:"uuid"`
+	Forced   bool                 `json:"forced" doc:"An Admin forced it: a file goes in even when it isn't an upgrade"`
+	Settled  api.Nullable[string] `json:"settled" enum:"placed,none,declined" doc:"How the Grab finished with the cell: a file placed into it, no file filled it, or the Admin declined it. Null while the Grab holds it"`
+}
+
 type grabActions struct {
 	Cancel        bool `json:"cancel" doc:"cancelGrab can cancel it"`
 	Blocklistable bool `json:"blocklistable" doc:"A cancel can also put its Release on the Blocklist: its info hash is known"`
@@ -337,8 +347,8 @@ type grabActions struct {
 func grabOf(v grabs.View) grab {
 	out := grab{
 		ID: v.ID.String(), WorkID: v.WorkID.String(), ItemID: v.ItemID.String(), Edition: string(v.Edition), TargetIDs: []string{},
-		ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseWords, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
-		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), History: []entered{}, CreatedAt: v.Created,
+		Items: []string{}, Targets: []grabTarget{}, ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseWords, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
+		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), InFlight: v.Stage.InFlight(), History: []entered{}, CreatedAt: v.Created,
 		Source: string(v.Source), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...),
 		Actions: grabActions{Cancel: v.Actions.Cancel, Blocklistable: v.Actions.Blocklist, SendTo: v.Actions.SendTo},
 	}
@@ -349,8 +359,16 @@ func grabOf(v grabs.View) grab {
 		id := v.FetchNode.String()
 		out.FetchNodeID = &id
 	}
-	for _, t := range v.Targets {
-		out.TargetIDs = append(out.TargetIDs, t.String())
+	for _, item := range v.Items {
+		out.Items = append(out.Items, item.String())
+	}
+	for _, c := range v.Targets {
+		out.TargetIDs = append(out.TargetIDs, c.Key.Target.String())
+		t := grabTarget{TargetID: c.Key.Target.String(), ItemID: c.Key.Item.String(), Forced: c.Forced}
+		if c.Settled != nil {
+			t.Settled = api.Some(string(*c.Settled))
+		}
+		out.Targets = append(out.Targets, t)
 	}
 	if q, ok := release.QualityIn(v.Release.Title).Get(); ok {
 		out.Quality = q.String()

@@ -28,7 +28,7 @@ func (f *atticFixture) grabAt(t *testing.T, stage, failure string, target target
 			id, f.tree.ID, f.tree.Items[0].ID, f.home, stage, at, code, msg, now, now); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO grabs_target VALUES (?, 0, ?)`, id, target)
+		_, err := tx.ExecContext(ctx, `INSERT INTO grabs_target (grab_id, position, item_id, target_id) SELECT id, 0, item_id, ? FROM grabs_grab WHERE id = ?`, target, id)
 		return err
 	})
 	if err != nil {
