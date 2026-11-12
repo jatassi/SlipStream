@@ -256,7 +256,7 @@ func place(ctx context.Context, dir string, media *mediafix.Builder, cached map[
 		if err != nil {
 			return Release{}, fmt.Errorf("open the payload: %w", err)
 		}
-		err = out.add(name, in, b3, pieces)
+		err = addFile(&out, name, in, b3, pieces)
 		_ = in.Close()
 		if err != nil {
 			return Release{}, err
@@ -268,7 +268,7 @@ func place(ctx context.Context, dir string, media *mediafix.Builder, cached map[
 		if err != nil {
 			return Release{}, err
 		}
-		err = out.add(at, in, b3, pieces)
+		err = addFile(&out, at, in, b3, pieces)
 		_ = in.Close()
 		if err != nil {
 			return Release{}, err
@@ -301,9 +301,9 @@ func fileBytes(ctx context.Context, media *mediafix.Builder, at string, f scenar
 	return in, nil
 }
 
-// add copies in to r's file at torrentPath under Dir, and to payload,
+// addFile copies in to r's file at torrentPath under Dir, and to payload,
 // which hashes the files back to back.
-func (r *Release) add(torrentPath string, in io.Reader, payload ...io.Writer) error {
+func addFile(r *Release, torrentPath string, in io.Reader, payload ...io.Writer) error {
 	f := File{Path: torrentPath}
 	path := r.Disk(f)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

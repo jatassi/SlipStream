@@ -47,18 +47,7 @@ func EncodeFixtures(ctx context.Context, binary string) error {
 			return err
 		}
 		catalog = append(catalog, s)
-		if s.Library != nil {
-			for _, f := range s.Library.Folders {
-				files = append(files, f.Files...)
-			}
-		}
-		for _, r := range s.Releases {
-			for _, f := range r.Files {
-				if f.Video != nil {
-					files = append(files, f.Media())
-				}
-			}
-		}
+		files = append(files, mediaFiles(s)...)
 	}
 	if err := buildAll(ctx, b, files); err != nil {
 		return err
@@ -70,6 +59,25 @@ func EncodeFixtures(ctx context.Context, binary string) error {
 		}
 	}
 	return nil
+}
+
+// mediaFiles are the files of s's library folders and the videos of its
+// releases of files, which mediafix encodes.
+func mediaFiles(s scenario.Scenario) []scenario.MediaFile {
+	var files []scenario.MediaFile
+	if s.Library != nil {
+		for _, f := range s.Library.Folders {
+			files = append(files, f.Files...)
+		}
+	}
+	for _, r := range s.Releases {
+		for _, f := range r.Files {
+			if f.Video != nil {
+				files = append(files, f.Media())
+			}
+		}
+	}
+	return files
 }
 
 // buildAll builds files as many at a time as there are CPUs.

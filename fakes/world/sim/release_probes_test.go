@@ -42,7 +42,7 @@ func TestTheWalkProbesEachFileOfAReleaseOfFiles(t *testing.T) {
 
 	one := sim.ReleaseProbes(scenario.Release{Name: "Orchard.2021", TMDBID: 1, Video: &scenario.Video{Width: 1280, Height: 720, Seconds: 6}})
 	got, err := one.Probe(t.Context(), filepath.Join(in, "Orchard.2021.mkv"))
-	if err != nil || got.Video.Width != 1280 || got.Duration.Seconds() != 6 {
+	if err != nil || got.Width != 1280 || got.Duration.Seconds() != 6 {
 		t.Errorf("probe of a release of one video = %+v, %v; want its 1280 wide, 6 second video", got, err)
 	}
 }

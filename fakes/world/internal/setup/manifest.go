@@ -35,8 +35,8 @@ type Node struct {
 	Roles   []string `json:"roles,omitempty"`
 }
 
-// Release is a catalog release: its torrent's info hash, its payload's
-// size and BLAKE3, its files back to back, and each of its files', hashes
+// Release is a catalog release: its torrent's info hash, and the size and
+// BLAKE3 of its payload, its files back to back, and of each file, hashes
 // in hex.
 type Release struct {
 	Name     string        `json:"name"`

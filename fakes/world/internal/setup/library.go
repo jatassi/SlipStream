@@ -61,12 +61,7 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 			return err
 		}
 	}
-	if sd := s.Library.Seeding; sd != nil {
-		if err := nodeapi.SetSeeding(ctx, c, controller, apiKey, *sd); err != nil {
-			return err
-		}
-	}
-	if err := setImporting(ctx, c, controller, apiKey, s.Library.Importing); err != nil {
+	if err := settings(ctx, c, s.Library, controller, apiKey); err != nil {
 		return err
 	}
 	for i, n := range s.Nodes {
@@ -80,6 +75,17 @@ func Library(ctx context.Context, c *http.Client, s scenario.Scenario, ready []n
 		return err
 	}
 	return addIndexers(ctx, c, s, claims, controller, sites[site.Fake.Name])
+}
+
+// settings sets the library's seeding settings, when it has them, and its
+// Importing settings on the Controller.
+func settings(ctx context.Context, c *http.Client, lib *scenario.Library, controller, apiKey string) error {
+	if sd := lib.Seeding; sd != nil {
+		if err := nodeapi.SetSeeding(ctx, c, controller, apiKey, *sd); err != nil {
+			return err
+		}
+	}
+	return setImporting(ctx, c, controller, apiKey, lib.Importing)
 }
 
 // setImporting sets the Scenario's Importing settings on the Controller.

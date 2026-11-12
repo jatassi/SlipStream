@@ -38,8 +38,8 @@ import (
 	"github.com/jatassi/slipstream/internal/transfers"
 )
 
-// PayloadSize is each release payload's size in the walk: five Transfer
-// chunks, the last one short.
+// PayloadSize is the payload's size of a release of one video in the
+// walk: five Transfer chunks, the last one short.
 const PayloadSize = 4*transfers.ChunkSize + transfers.ChunkSize/2
 
 // WithWalk runs the skeleton's walk on a Scenario with releases and a
@@ -61,8 +61,8 @@ func Edit(edit func(name string, e *node.Env)) Option {
 	return func(o *options) { o.edits = append(o.edits, edit) }
 }
 
-// Payload is the release's payload in the walk: PayloadSize bytes that
-// depend only on its name.
+// Payload is the payload of a release of one video in the walk:
+// PayloadSize bytes that depend only on its name.
 func Payload(release string) []byte { return releases.Filler(release, PayloadSize) }
 
 type walk struct {
@@ -76,7 +76,7 @@ type walk struct {
 	// metadata to a magnet link.
 	served []bencode.Metainfo
 	hashes map[string]bencode.InfoHash
-	// catalog is the releases as the fake Download Clients serve them.
+	// catalog is the releases the fake Download Clients serve.
 	catalog *releases.Catalog
 	probes  map[string]media.Record
 	// fails are the probes that answer unreadable, by the same keys.
@@ -115,16 +115,7 @@ func startWalk(t *testing.T, s scenario.Scenario, local *fault.Host, fakes *serv
 		}
 		w.hashes[r.Name] = hash
 		rel := releases.Release{Release: r, Dir: base, Size: int64(len(payload)), BLAKE3: blake3.Sum256(payload), Metainfo: meta, InfoHash: hash}
-		for _, f := range payloadFiles(r) {
-			rel.Files = append(rel.Files, releases.File{Path: f.path, Size: int64(len(f.data)), BLAKE3: blake3.Sum256(f.data)})
-			file := rel.Disk(rel.Files[len(rel.Files)-1])
-			if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(file, f.data, 0o600); err != nil {
-				t.Fatal(err)
-			}
-		}
+		writePayload(t, &rel)
 		catalog.Releases = append(catalog.Releases, rel)
 		if r.Seeded {
 			w.payloads[hash] = payload
@@ -184,6 +175,22 @@ func torrent(s scenario.Scenario, r scenario.Release) (payload, meta []byte, has
 	}
 	meta, hash, err = releases.Metainfo(name, files, payload, "https://127.0.0.1/announce/"+releases.Passkey(s, releases.Seeders), r.Public)
 	return payload, meta, hash, err
+}
+
+// writePayload writes rel's payload files under its Dir, as a seeder's
+// save path holds them, and lists them in rel.
+func writePayload(t *testing.T, rel *releases.Release) {
+	t.Helper()
+	for _, f := range payloadFiles(rel.Release) {
+		file := releases.File{Path: f.path, Size: int64(len(f.data)), BLAKE3: blake3.Sum256(f.data)}
+		if err := os.MkdirAll(filepath.Dir(rel.Disk(file)), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(rel.Disk(file), f.data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		rel.Files = append(rel.Files, file)
+	}
 }
 
 type payloadFile struct {
