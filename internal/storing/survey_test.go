@@ -7,6 +7,7 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/jatassi/slipstream/internal/media"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 )
 
@@ -28,7 +29,7 @@ func TestSurveyAnswersTheFilesAtEachTarget(t *testing.T) {
 			{From: mustRel(t, "Movies/heat.mkv"), To: mustRel(t, "Movies/Heat (1995).mkv")},
 			{From: mustRel(t, "Movies/heat.mkv"), To: mustRel(t, "Gone/Heat.mkv")},
 		}
-		got, err := w.remote.Survey(t.Context(), w.at, planned, false)
+		got, err := w.remote.Survey(t.Context(), w.at, planned, false, media.DefaultVideos)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -50,7 +51,7 @@ func TestSurveyFindsTheSourceUnderACaseAlias(t *testing.T) {
 		w := newWalking(t, nil)
 		w.disk.foldCase = true
 		w.file(t, "Movies/heat.mkv", "film")
-		got, err := w.remote.Survey(t.Context(), w.at, []Planned{{From: mustRel(t, "Movies/heat.mkv"), To: mustRel(t, "Movies/Heat.mkv")}}, false)
+		got, err := w.remote.Survey(t.Context(), w.at, []Planned{{From: mustRel(t, "Movies/heat.mkv"), To: mustRel(t, "Movies/Heat.mkv")}}, false, media.DefaultVideos)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -78,7 +79,7 @@ func TestSurveyRefusesMoreThanOneBatch(t *testing.T) {
 		for i := range planned {
 			planned[i] = Planned{From: mustRel(t, "a.mkv"), To: mustRel(t, "b.mkv")}
 		}
-		if got, err := w.remote.Survey(t.Context(), w.at, planned, false); err != nil || len(got) != len(planned) {
+		if got, err := w.remote.Survey(t.Context(), w.at, planned, false, media.DefaultVideos); err != nil || len(got) != len(planned) {
 			t.Errorf("Remote.Survey of %d = %d answers, %v; want one each, in batches", len(planned), len(got), err)
 		}
 	})
@@ -147,7 +148,7 @@ func TestSurveyPruneAndMoveWaitForAnUnmountedRoot(t *testing.T) {
 			t.Fatal(err)
 		}
 		from, to := mustRel(t, "Heat/Heat.mkv"), mustRel(t, "Heat (1995)/Heat (1995).mkv")
-		_, err := w.remote.Survey(t.Context(), w.at, []Planned{{From: from, To: to}}, true)
+		_, err := w.remote.Survey(t.Context(), w.at, []Planned{{From: from, To: to}}, true, media.DefaultVideos)
 		if nr := notReady(t, err); nr.State != Unmounted {
 			t.Errorf("Survey = %+v, want unmounted", nr)
 		}
@@ -155,7 +156,7 @@ func TestSurveyPruneAndMoveWaitForAnUnmountedRoot(t *testing.T) {
 		if nr := notReady(t, err); nr.State != Unmounted {
 			t.Errorf("Prune = %+v, want unmounted", nr)
 		}
-		_, err = w.remote.Move(t.Context(), w.at, from, to, true)
+		_, err = w.remote.Move(t.Context(), w.at, from, to, true, media.DefaultVideos)
 		if nr := notReady(t, err); nr.State != Unmounted {
 			t.Errorf("Move = %+v, want unmounted", nr)
 		}

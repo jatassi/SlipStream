@@ -263,6 +263,13 @@ func (d *testDisk) Rename(ctx context.Context, from, to string) error {
 	return os.Rename(from, at) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
 
+func (d *testDisk) Resolve(ctx context.Context, path string) (string, error) {
+	if err := d.fault(ctx, "resolve", path); err != nil {
+		return "", err
+	}
+	return d.os.Resolve(ctx, d.at(path))
+}
+
 func (d *testDisk) Link(ctx context.Context, from, to string) error {
 	if err := d.fault(ctx, "link", to); err != nil {
 		return err

@@ -274,7 +274,7 @@ func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
 	if !ok {
 		return fail{NoVideoFile, "The download holds no video file."}
 	}
-	record, err := gr.cfg.Media.Probe(ctx, g.Node, g.Torrent.InfoHash, video.Index)
+	record, err := gr.cfg.Media.Probe(ctx, g.Node, storing.Payload{InfoHash: g.Torrent.InfoHash, FileIndex: video.Index})
 	if err != nil {
 		return classify(ctx, err, ProbeFailed)
 	}
@@ -396,7 +396,7 @@ func largestVideo(fs []engine.File) (engine.File, bool) {
 	var best engine.File
 	found := false
 	for _, f := range fs {
-		if media.Counts(f.Path) && (!found || f.Size > best.Size) {
+		if media.Counts(f.Path, media.DefaultVideos) && (!found || f.Size > best.Size) {
 			best, found = f, true
 		}
 	}

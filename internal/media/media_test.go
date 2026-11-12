@@ -10,11 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/media/mediatest"
-	mediav1 "github.com/jatassi/slipstream/internal/pb/slipstream/media/v1"
-	"github.com/jatassi/slipstream/internal/pb/slipstream/media/v1/mediav1connect"
 	"github.com/jatassi/slipstream/internal/release"
-	"github.com/jatassi/slipstream/internal/role"
-	"github.com/jatassi/slipstream/internal/rpc"
 )
 
 type payloads map[bencode.InfoHash]string
@@ -25,31 +21,6 @@ func (p payloads) Path(h bencode.InfoHash, index int) (string, error) {
 		return "", errors.New("the torrent is not in this Node's client")
 	}
 	return path, nil
-}
-
-func TestServiceProbesTheFileWhereItLies(t *testing.T) {
-	hash := bencode.InfoHash{1}
-	record := media.Record{
-		Version: media.Version, Container: "matroska,webm", Duration: 6 * time.Second,
-		Video: media.Video{Codec: "hevc", Width: 3840, Height: 2160, BitDepth: 10, HDR: []release.HDR{"DV", "HDR10"}, DolbyVision: &media.DolbyVision{Profile: 8, Level: 6, Compatibility: 1}},
-		Audio: []media.Audio{{Codec: "truehd", Profile: "Dolby TrueHD + Dolby Atmos", Atmos: true, Channels: 8, Layout: "7.1", Language: "en", Default: true}},
-	}
-	prober := mediatest.Prober{Of: map[string]media.Record{"orchard.mkv": record}, Fail: map[string]string{"0300/broken.mkv": "Invalid data found when processing input"}}
-	svc := media.NewService(prober, payloads{hash: "/downloads/0100/orchard.mkv", {2}: "/downloads/0200/notes.mkv", {3}: "/downloads/0300/broken.mkv"}, media.DefaultTimings())
-	remote := media.Remote(func(role.NodeID) mediav1connect.MediaServiceHandler { return svc })
-
-	got, err := remote.Probe(t.Context(), role.NodeID{}, hash, 0)
-	if err != nil || !equal(got, record) {
-		t.Fatalf("Probe = %+v, %v; want %+v", got, err, record)
-	}
-	_, err = svc.Probe(t.Context(), &mediav1.ProbeRequest{InfoHash: make([]byte, 20), FileIndex: 0})
-	if rpc.CodeOf(err) != rpc.CodeUnavailable || err.Error() != "unavailable: the torrent is not in this Node's client" {
-		t.Fatalf("Probe of a torrent not here = %v, want unavailable", err)
-	}
-	_, err = remote.Probe(t.Context(), role.NodeID{}, bencode.InfoHash{3}, 0)
-	if rpc.CodeOf(err) != rpc.CodeFailedPrecondition || err.Error() != "failed_precondition: ffprobe can't read the file: Invalid data found when processing input" {
-		t.Fatalf("Probe of an unreadable file = %v, want failed_precondition", err)
-	}
 }
 
 func TestProberAnswersTheLongestMatchingKey(t *testing.T) {

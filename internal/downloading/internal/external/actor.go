@@ -221,6 +221,23 @@ func (a *Actor) Frees(ctx context.Context, ids []storage.UUID) []*dlv1.Freed {
 	return out
 }
 
+// Torrents is where each file of every torrent the actor tracks lies on
+// this Node, finished or not, until the client stops listing it.
+func (a *Actor) Torrents() []string {
+	var out []string
+	for _, f := range a.pub.Load().byHash {
+		if f.vanished {
+			continue
+		}
+		for _, p := range f.paths {
+			if p != "" {
+				out = append(out, p)
+			}
+		}
+	}
+	return out
+}
+
 // Path is where file index of torrent h lies on this Node, false until the
 // actor has sent its Completion or once the client stopped listing it.
 func (a *Actor) Path(h bencode.InfoHash, index int) (string, bool) {

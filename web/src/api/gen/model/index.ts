@@ -63,6 +63,7 @@ export * from "./browseFolders500Code.ts";
 export * from "./browseFolders503.ts";
 export * from "./browseFolders503Code.ts";
 export * from "./browseFoldersParams.ts";
+export * from "./browseFoldersPurpose.ts";
 export * from "./cancelGrab401.ts";
 export * from "./cancelGrab401Code.ts";
 export * from "./cancelGrab403.ts";

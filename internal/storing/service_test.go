@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/media"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1/storagev1connect"
 	"github.com/jatassi/slipstream/internal/role"
@@ -72,7 +73,7 @@ func TestBrowseTypesEveryError(t *testing.T) {
 			{hung, FolderUnresponsive, "hasn't responded within 10s", ""},
 			{broken, FolderIO, "input/output error", ""},
 		} {
-			_, err := remote.Browse(t.Context(), node, c.path, false)
+			_, err := remote.Browse(t.Context(), node, c.path, false, 0)
 			fe := folderErr(t, err)
 			if fe.Kind != c.kind || !strings.Contains(fe.Text, c.text) || fe.Account != c.account {
 				t.Errorf("Browse %s = %+v, want %v with %q and account %q", c.path, fe, c.kind, c.text, c.account)
@@ -108,7 +109,7 @@ func TestBrowseShowsLinksAndUnreadableFolders(t *testing.T) {
 	}
 	remote := foldersOf(newStore(d))
 
-	l, err := remote.Browse(t.Context(), node, base, false)
+	l, err := remote.Browse(t.Context(), node, base, false, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +129,7 @@ func TestBrowseShowsLinksAndUnreadableFolders(t *testing.T) {
 		t.Errorf("segments = %v, want them to end at %s", segs, base)
 	}
 
-	shown, err := remote.Browse(t.Context(), node, base, true)
+	shown, err := remote.Browse(t.Context(), node, base, true, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +149,7 @@ func TestBrowsePlacesListTheRootsFirst(t *testing.T) {
 		s := newStore(d)
 		running(t, s, intentOf(rootAt(id, folder, false))).next(t)
 
-		l, err := foldersOf(s).Browse(t.Context(), node, "", false)
+		l, err := foldersOf(s).Browse(t.Context(), node, "", false, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -266,7 +267,7 @@ func TestMakeFolderMakesOneNamedFolder(t *testing.T) {
 			t.Errorf("MakeFolder(%q) = %v, want invalid", name, err)
 		}
 	}
-	if _, err := remote.Browse(t.Context(), node, "Movies", false); !errors.Is(err, ErrInvalid) {
+	if _, err := remote.Browse(t.Context(), node, "Movies", false, 0); !errors.Is(err, ErrInvalid) {
 		t.Errorf("Browse of a relative path = %v, want invalid", err)
 	}
 	_, err = remote.MakeFolder(t.Context(), node, filepath.Join(parent, "gone"), "Movies")
@@ -677,7 +678,7 @@ func TestMoveRemoveAndListActOnTheRoot(t *testing.T) {
 		}
 		final := mustRel(t, "Heat (1995)/Heat (1995).mkv")
 		for range 2 {
-			if moved, err := p.remote.Move(t.Context(), p.at, holding, final, false); err != nil || moved.Size != 4 || moved.Seen.ID.IsZero() || !moved.Seen.Same(placed.Seen) {
+			if moved, err := p.remote.Move(t.Context(), p.at, holding, final, false, media.DefaultVideos); err != nil || moved.Size != 4 || moved.Seen.ID.IsZero() || !moved.Seen.Same(placed.Seen) {
 				t.Fatalf("Move = %+v, %v; want the placed file %+v, 4 bytes", moved, err, placed)
 			}
 		}
@@ -732,7 +733,7 @@ func TestPlaceRefusesWhileDraining(t *testing.T) {
 			t.Error("staging for a Transfer while draining was allowed")
 		}
 		write(t, filepath.Join(p.folder, HoldingDir, "0180.mkv"), "film")
-		if _, err := p.remote.Move(t.Context(), p.at, mustRel(t, HoldingDir+"/0180.mkv"), mustRel(t, "Heat/Heat.mkv"), false); err != nil {
+		if _, err := p.remote.Move(t.Context(), p.at, mustRel(t, HoldingDir+"/0180.mkv"), mustRel(t, "Heat/Heat.mkv"), false, media.DefaultVideos); err != nil {
 			t.Errorf("Move while draining = %v, want the existing file moved", err)
 		}
 	})

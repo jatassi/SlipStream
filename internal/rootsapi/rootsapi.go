@@ -52,6 +52,7 @@ var (
 	folderUnreadable    = api.NewCarrying[folderProblem](http.StatusUnprocessableEntity, "folder_unreadable", "The Node can't read the folder", "problem")
 	folderInvalid       = api.NewCode(http.StatusUnprocessableEntity, "folder_invalid", "The Node can't use that path or folder name")
 	folderExists        = api.NewCode(http.StatusConflict, "folder_exists", "A folder of that name is already there")
+	folderOutside       = api.NewCode(http.StatusUnprocessableEntity, "folder_outside", "The folder isn't in a library root or a download folder on the Node")
 	rehomeMissing       = api.NewCarrying[missingFiles](http.StatusConflict, "rehome_missing", "Recorded files aren't at the new place", "missing")
 	rootInUse           = api.NewCarrying[inUse](http.StatusConflict, "root_in_use", "The root holds files or has a Grab in flight", "use")
 	rootIsDefault       = api.NewCode(http.StatusConflict, "root_is_default", "The root is its Content Type's default while another root exists")
@@ -91,6 +92,9 @@ func answer(err error) error {
 	}
 	if errors.Is(err, storing.ErrInvalid) {
 		return folderInvalid.Because(err.Error())
+	}
+	if _, ok := errors.AsType[*storing.OutsideError](err); ok {
+		return folderOutside
 	}
 	for _, c := range codes {
 		if errors.Is(err, c.err) {
@@ -187,7 +191,7 @@ type inUse struct {
 }
 
 type refusal struct {
-	Reason string `json:"reason" enum:"not_absolute,not_found,not_a_folder,unwritable,inside_root,contains_root,inside_data,contains_data,inside_downloads,contains_downloads,unresponsive,network_share,node_offline" doc:"Why the folder can't serve its purpose"`
+	Reason string `json:"reason" enum:"not_absolute,not_found,not_a_folder,unwritable,inside_root,contains_root,inside_data,contains_data,inside_downloads,contains_downloads,unresponsive,network_share,outside,node_offline" doc:"Why the folder can't serve its purpose"`
 	RootID string `json:"rootId,omitempty" format:"uuid" doc:"The root the folder is inside, contains or carries the marker of"`
 }
 
@@ -247,7 +251,7 @@ type checkFolderInput struct {
 	NodeID string `path:"id" format:"uuid"`
 	Body   struct {
 		Path    string `json:"path" minLength:"1" maxLength:"4096"`
-		Purpose string `json:"purpose" enum:"root,downloads" doc:"root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node"`
+		Purpose string `json:"purpose" enum:"root,downloads,import" doc:"root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node; import: a folder to import from, inside one of the Node's library roots or download folders"`
 		RootID  string `json:"rootId,omitempty" format:"uuid" doc:"For root: the root being re-homed, which the folder may overlap"`
 	}
 }
@@ -276,9 +280,10 @@ type deleteRootInput struct {
 }
 
 type browseInput struct {
-	NodeID string `path:"id" format:"uuid"`
-	Path   string `query:"path" maxLength:"4096" doc:"An absolute folder in the Node's path style; empty for its places"`
-	Hidden bool   `query:"hidden" doc:"List hidden and system folders too"`
+	NodeID  string `path:"id" format:"uuid"`
+	Path    string `query:"path" maxLength:"4096" doc:"An absolute folder in the Node's path style; empty for its places"`
+	Hidden  bool   `query:"hidden" doc:"List hidden and system folders too"`
+	Purpose string `query:"purpose" enum:"import" doc:"import: browse only the Node's library roots and download folders, which are then its places"`
 }
 
 type segment struct {
@@ -495,7 +500,7 @@ func Routes(r *api.Router, folders Folders) {
 		Path:    "/nodes/{id}/folders",
 		Summary: "List a folder on a Node, or its places",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{nodeNotFound, nodeOffline, folderUnreadable.Code, folderInvalid},
+		Errors:  []*api.Code{nodeNotFound, nodeOffline, folderUnreadable.Code, folderInvalid, folderOutside},
 	}, h.browseFolders)
 
 	api.Register(o, api.Admin, api.Op{
@@ -721,7 +726,13 @@ func (h handlers) browseFolders(ctx context.Context, by identity.Admin, in *brow
 	if err != nil {
 		return nil, err
 	}
-	l, err := open(h.folders).Browse(ctx, by, node, in.Path, in.Hidden)
+	var purpose storing.Purpose
+	if in.Purpose != "" {
+		if purpose, err = storing.ParsePurposeWord(in.Purpose); err != nil {
+			return nil, err
+		}
+	}
+	l, err := open(h.folders).Browse(ctx, by, node, in.Path, in.Hidden, purpose)
 	if err != nil {
 		return nil, answer(err)
 	}

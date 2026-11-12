@@ -33,6 +33,12 @@ export const BrowseFoldersQueryParams = zod.object({
     .exactOptional()
     .describe("An absolute folder in the Node's path style; empty for its places"),
   hidden: zod.boolean().exactOptional().describe("List hidden and system folders too"),
+  purpose: zod
+    .enum(["import"])
+    .exactOptional()
+    .describe(
+      "import: browse only the Node's library roots and download folders, which are then its places",
+    ),
 });
 
 export const BrowseFoldersResponse = RootsListing;

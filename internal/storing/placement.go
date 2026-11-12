@@ -9,6 +9,8 @@ import (
 	"sync"
 
 	"github.com/zeebo/blake3"
+
+	"github.com/jatassi/slipstream/internal/media"
 )
 
 var ErrOccupied = errors.New("another file is at the target path")
@@ -126,12 +128,12 @@ func (p placer) settled(ctx context.Context, from, to string) (Info, Step, error
 // carry, from's companions follow it, after it, so a failed move changes
 // nothing and a retry carries what a crash left. It answers the moved
 // file and the companions carry left.
-func (p placer) move(ctx context.Context, from, to Rel, carry bool) (Info, []Rel, error) {
+func (p placer) move(ctx context.Context, from, to Rel, carry bool, videos media.Videos) (Info, []Rel, error) {
 	info, err := p.moveFile(ctx, from, to)
 	if err != nil || !carry {
 		return info, nil, err
 	}
-	left, err := p.carry(ctx, from, to)
+	left, err := p.carry(ctx, from, to, videos)
 	if err != nil {
 		return nil, nil, err
 	}

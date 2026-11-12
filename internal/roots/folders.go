@@ -8,12 +8,14 @@ import (
 	"github.com/jatassi/slipstream/internal/storing"
 )
 
-// Browse lists a folder on node, or node's places for an empty path. Every
-// Node serves its folders, Storage or not. A Node the roster doesn't know
-// is ErrNoNode, one out of reach ErrNodeAway, and a folder it can't list a
-// *storing.FolderError.
-func (r *Roots) Browse(ctx context.Context, _ identity.Admin, node role.NodeID, path string, showHidden bool) (storing.Listing, error) {
-	l, err := r.cfg.Folders.Browse(ctx, node, path, showHidden)
+// Browse lists a folder on node, or node's places for an empty path, for
+// purpose, zero for any. Every Node serves its folders, Storage or not. A
+// Node the roster doesn't know is ErrNoNode, one out of reach ErrNodeAway,
+// a folder it can't list a *storing.FolderError, and for
+// storing.PurposeImport a folder outside its library roots and download
+// folders *storing.OutsideError.
+func (r *Roots) Browse(ctx context.Context, _ identity.Admin, node role.NodeID, path string, showHidden bool, purpose storing.Purpose) (storing.Listing, error) {
+	l, err := r.cfg.Folders.Browse(ctx, node, path, showHidden, purpose)
 	return l, reached(err)
 }
 

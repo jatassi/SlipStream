@@ -13,21 +13,21 @@ import (
 )
 
 // companions names the companions of the file video among a folder's
-// entries: a file that isn't a video and whose name is video's stem, ".",
+// entries: a file that isn't a video by videos and whose name is video's stem, ".",
 // and a tail, unless a longer stem of another video in the folder claims
 // it, so "Heat.1995.1080p.REMUX.en.srt" beside "Heat.mkv" and
 // "Heat.1995.1080p.REMUX.mkv" is the second one's.
-func companions(entries []Entry, video string) []string {
+func companions(entries []Entry, video string, videos media.Videos) []string {
 	stem := stemOf(video)
 	var stems []string
 	for _, e := range entries {
-		if s := stemOf(e.Name); !e.Dir && isVideo(e.Name) && len(s) > len(stem) {
+		if s := stemOf(e.Name); !e.Dir && videos.Video(e.Name) && len(s) > len(stem) {
 			stems = append(stems, s)
 		}
 	}
 	var out []string
 	for _, e := range entries {
-		if e.Dir || e.Link || isVideo(e.Name) || transient(e.Name) || !strings.HasPrefix(e.Name, stem+".") {
+		if e.Dir || e.Link || videos.Video(e.Name) || transient(e.Name) || !strings.HasPrefix(e.Name, stem+".") {
 			continue
 		}
 		if !slices.ContainsFunc(stems, func(s string) bool { return strings.HasPrefix(e.Name, s+".") }) {
@@ -38,10 +38,6 @@ func companions(entries []Entry, video string) []string {
 }
 
 func stemOf(name string) string { return strings.TrimSuffix(name, path.Ext(name)) }
-
-func isVideo(name string) bool {
-	return slices.Contains(media.Extensions, strings.ToLower(strings.TrimPrefix(path.Ext(name), ".")))
-}
 
 // transient is a name a write leaves only midway: a copy not yet renamed
 // into place, or a case-only rename not yet finished.
@@ -55,7 +51,7 @@ func transient(name string) bool {
 // or, out of the holding folder, at "<to's stem>.<8 hex of the file
 // id>.<tail>" beside to, since a companion left in holding would be swept
 // unseen.
-func (p placer) carry(ctx context.Context, from, to Rel) ([]Rel, error) {
+func (p placer) carry(ctx context.Context, from, to Rel, videos media.Videos) ([]Rel, error) {
 	folder, video := from.split()
 	into, name := to.split()
 	entries, err := p.d.ReadDir(ctx, p.style.Under(p.root, folder))
@@ -71,7 +67,7 @@ func (p placer) carry(ctx context.Context, from, to Rel) ([]Rel, error) {
 		}
 	}
 	var left []Rel
-	for _, c := range companions(entries, video) {
+	for _, c := range companions(entries, video, videos) {
 		tail := strings.TrimPrefix(c, stemOf(video)+".")
 		src := folder.join(c)
 		err := p.carryOne(ctx, src, into.join(stemOf(name)+"."+tail))

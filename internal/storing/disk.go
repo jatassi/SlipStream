@@ -18,6 +18,9 @@ import (
 type Disk interface {
 	// Stat follows links and junctions.
 	Stat(ctx context.Context, path string) (Info, error)
+	// Resolve is the absolute path with every link and junction on it
+	// followed. A path that isn't there wraps fs.ErrNotExist.
+	Resolve(ctx context.Context, path string) (string, error)
 	ReadDir(ctx context.Context, dir string) ([]Entry, error)
 	Mkdir(ctx context.Context, path string) error
 	Open(ctx context.Context, path string) (io.ReadCloser, error)
@@ -174,11 +177,22 @@ func (e *NotReady) Error() string {
 	return "the root is " + e.State.String()
 }
 
+// Source is where a placed or probed file's bytes are on its Node: a
+// Payload or a NodePath.
+type Source interface{ source() }
+
 // Payload is a finished download's file on the root's Node.
 type Payload struct {
 	InfoHash  bencode.InfoHash
 	FileIndex int
 }
+
+// NodePath is an absolute path on the Node in one of its library roots or
+// download folders. The Node refuses any other with *OutsideError.
+type NodePath struct{ Abs string }
+
+func (Payload) source()  {}
+func (NodePath) source() {}
 
 // Recorded is a file the library records in a root, for Verify. Its bytes
 // are at Sits, or at Next while the disk queue moves them: the queue

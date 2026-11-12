@@ -496,6 +496,16 @@ func (n *Node) openPath(abs string) (string, error) {
 	return abs, nil
 }
 
+// Torrents is where each file of every torrent this Node's clients hold
+// lies on this Node.
+func (n *Node) Torrents() []string {
+	out := n.builtin.Torrents()
+	for _, a := range n.actorList() {
+		out = append(out, a.Torrents()...)
+	}
+	return out
+}
+
 // Folders is the built-in client's folders and each external client's
 // download folder as this Node sees it, which no root may overlap.
 func (n *Node) Folders() []string {

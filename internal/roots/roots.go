@@ -358,7 +358,7 @@ func (r *Roots) Check(ctx context.Context, _ identity.Admin, node role.NodeID, p
 			return Verdict{}, ErrNotStorage
 		}
 		return r.check(ctx, node, path, except)
-	case storing.PurposeDownloads, storing.PurposeClientFolder:
+	case storing.PurposeDownloads, storing.PurposeClientFolder, storing.PurposeImport:
 		v, _, err := r.judged(ctx, node, path, purpose, nil)
 		return v, err
 	}
