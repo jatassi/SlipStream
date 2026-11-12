@@ -13,8 +13,6 @@ export * from "./actOnImportFile422.ts";
 export * from "./actOnImportFile422Code.ts";
 export * from "./actOnImportFile500.ts";
 export * from "./actOnImportFile500Code.ts";
-export * from "./actOnImportFile501.ts";
-export * from "./actOnImportFile501Code.ts";
 export * from "./actOnRootImport401.ts";
 export * from "./actOnRootImport401Code.ts";
 export * from "./actOnRootImport403.ts";

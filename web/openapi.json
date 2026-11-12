@@ -37919,6 +37919,7 @@
                         "code": {
                           "enum": [
                             "import_not_offered",
+                            "reconciling",
                             "worker_node"
                           ],
                           "type": "string"
@@ -37982,31 +37983,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "import_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -38019,7 +37995,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Confirm, retry, decline, force or match one file of an Import",
+        "summary": "Confirm, retry, decline, force or match one file of an Import, or put its download's Release on the Blocklist",
         "tags": [
           "imports"
         ],
