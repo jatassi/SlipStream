@@ -3,8 +3,7 @@ import { Fragment, Suspense, useState } from "react";
 import { sentenceOf } from "../api/errors";
 import type {
   ImportsImportEntry,
-  ImportsImportFile,
-  ImportsImportFileOutcome,
+  ImportsImportEntrySource,
   NodesNode,
   WorksContentType,
 } from "../api/gen/model";
@@ -21,29 +20,20 @@ import { FolderBrowser } from "../folders/folder-browser";
 import { purposeCheck } from "../roots/check";
 import { Button } from "../ui/button";
 // oxlint-disable-next-line import/max-dependencies -- the sheet picks a Node's folder, opens its Imports and acts on their files
-import { Data } from "../ui/data";
 import { Dialog } from "../ui/dialog";
 import { Select } from "../ui/select";
 import { Skeleton } from "../ui/skeleton";
 import { Switch } from "../ui/switch";
 import { toast } from "../ui/toast";
 import { nameOf } from "../works/paths";
+import { FileLine } from "./file-line";
 import { FileRow } from "./file-row";
 import { filesWords } from "./words";
 
-/** The folder Imports the sheet's rows show, as opening a folder made them. */
-export type Opened = { readonly importIds: readonly string[] };
-
-const outcomeWords: { readonly [O in ImportsImportFileOutcome]: string } = {
-  pending: "Reading",
-  left_out: "Left out",
-  not_better: "Not better than the file you have",
-  waiting: "Waiting for you",
-  sending: "Sending",
-  placing: "Importing",
-  placed: "Imported",
-  declined: "Not imported",
-  failed: "Failed",
+/** The Imports the sheet's rows show: a folder's, as opening it made them, or a Grab's download's. */
+export type Opened = {
+  readonly importIds: readonly string[];
+  readonly source: Extract<ImportsImportEntrySource, "folder" | "grab">;
 };
 
 function useOpening(onOpened: (opened: Opened) => void) {
@@ -54,7 +44,7 @@ function useOpening(onOpened: (opened: Opened) => void) {
     setFailure(undefined);
     try {
       const { imports } = await importFolder({ nodeId, folder });
-      onOpened({ importIds: imports.map(({ id }) => id) });
+      onOpened({ importIds: imports.map(({ id }) => id), source: "folder" });
     } catch (error) {
       setFailure(sentenceOf(error));
     } finally {
@@ -144,22 +134,6 @@ function FolderStep({ onOpened }: { onOpened: (opened: Opened) => void }) {
   );
 }
 
-function SettledFile({ file }: { file: ImportsImportFile }) {
-  return (
-    <li className="flex min-w-0 flex-col gap-0.5">
-      <span className="font-semibold text-ink-1 wrap-anywhere">
-        <Data>{nameOf(file.path)}</Data>
-      </span>
-      <span className="text-ink-2">
-        {outcomeWords[file.outcome]}
-        {file.reason?.sentence === undefined || file.reason.sentence === null
-          ? ""
-          : `. ${file.reason.sentence}`}
-      </span>
-    </li>
-  );
-}
-
 function ImportRows({ entry, type }: { entry: ImportsImportEntry; type: WorksContentType }) {
   const { rows } = useListLibrarySuspense({ contentType: type.id }).data;
   const work = rows.find(({ id }) => id === entry.workId)?.label ?? `No ${type.work.one}`;
@@ -179,7 +153,7 @@ function ImportRows({ entry, type }: { entry: ImportsImportEntry; type: WorksCon
               )}
             </Fragment>
           ) : (
-            <SettledFile key={file.position} file={file} />
+            <FileLine key={file.position} file={file} />
           ),
         )}
       </ul>
@@ -224,7 +198,7 @@ function useBatch(entries: readonly ImportsImportEntry[], onDone: () => void) {
 }
 
 function RowsStep({ opened, onDone }: { opened: Opened; onDone: () => void }) {
-  const { imports } = useListImportsSuspense({ source: "folder" }).data;
+  const { imports } = useListImportsSuspense({ source: opened.source }).data;
   const { contentTypes } = useListContentTypesSuspense().data;
   const entries = imports.filter(({ id }) => opened.importIds.includes(id));
   const { busy, confirming, importAll, moveFiles } = useBatch(entries, onDone);
@@ -235,18 +209,20 @@ function RowsStep({ opened, onDone }: { opened: Opened; onDone: () => void }) {
           .filter(({ id }) => id === entry.contentType)
           .map((type) => <ImportRows key={entry.id} entry={entry} type={type} />),
       )}
-      <div className="flex flex-col items-start gap-1">
-        <Switch
-          label="Move files"
-          checked={entries.length > 0 && entries.every(({ moveFiles: on }) => on)}
-          disabled={busy}
-          onCheckedChange={(on) => void moveFiles(on)}
-        />
-        <p className="text-meta text-ink-3">
-          On moves each file into the library and deletes it here. Off keeps the files in this
-          folder.
-        </p>
-      </div>
+      {opened.source === "folder" && (
+        <div className="flex flex-col items-start gap-1">
+          <Switch
+            label="Move files"
+            checked={entries.length > 0 && entries.every(({ moveFiles: on }) => on)}
+            disabled={busy}
+            onCheckedChange={(on) => void moveFiles(on)}
+          />
+          <p className="text-meta text-ink-3">
+            On moves each file into the library and deletes it here. Off keeps the files in this
+            folder.
+          </p>
+        </div>
+      )}
       <div className="flex justify-end">
         <Button
           look="primary"

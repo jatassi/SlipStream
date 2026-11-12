@@ -36,7 +36,7 @@ function Failed({
   return (
     <SignalRow
       signal="fail"
-      chip={`Failed at ${stageLabel[trackStage[grab.failure.stage]]}`}
+      chip={`Failed at ${stageLabel[trackStage(grab)]}`}
       subject={subject}
       verdict={recovery === undefined ? cause : `${cause} ${recovery}`}
       time={clock(grab.history.at(-1)?.at ?? grab.createdAt)}

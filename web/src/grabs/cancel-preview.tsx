@@ -64,5 +64,13 @@ export function Stops({ grab, work }: { grab: GrabsGrab; work: string }) {
       </Suspense>
     );
   }
+  if (grab.stage === "importing") {
+    return (
+      <p>
+        SlipStream stops importing the download and keeps its torrent. Files already in your library
+        stay, and Items it hasn&apos;t imported go back to wanted.
+      </p>
+    );
+  }
   return <p>SlipStream stops fetching the Release. Its Item goes back to wanted.</p>;
 }

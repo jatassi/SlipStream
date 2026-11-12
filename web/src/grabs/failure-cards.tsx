@@ -59,7 +59,7 @@ export function GrabFailure({
     <div id={failureAnchor(grab)} className="scroll-mt-20">
       <FailureCard
         form={form}
-        stage={trackStage[grab.failure.stage]}
+        stage={trackStage(grab)}
         time={failedAt(grab)}
         work={subject}
         track={{ skipped: skippedStages }}

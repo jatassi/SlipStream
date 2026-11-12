@@ -15,11 +15,22 @@ export const stageWord = {
   failed: "Failed",
 } as const satisfies Record<GrabsGrabStage, string>;
 
-export const trackStage = {
+const stopOf = {
   fetching: "downloading",
   downloading: "downloading",
   importing: "import",
 } as const satisfies Record<GrabsFailureStage, Stage>;
+
+/** The stop a Grab's track lights: the one it failed at, Transfer while a file of its Import sends, else its stage's. */
+export function trackStage(grab: GrabsGrab): Stage {
+  if (grab.failure !== undefined) {
+    return stopOf[grab.failure.stage];
+  }
+  if (grab.stage === "imported" || grab.stage === "failed") {
+    throw new Error(`Grab ${grab.id} is ${grab.stage}, which lights no single stop`);
+  }
+  return (grab.import?.sending ?? 0) > 0 ? "transfer" : stopOf[grab.stage];
+}
 
 export const skippedStages: readonly Stage[] = ["conversion"];
 
@@ -32,20 +43,21 @@ export const needsYou = (grab: GrabsGrab): grab is FailedGrab => grab.failure?.n
 
 export function progressOf(grab: GrabsGrab): TrackProgress {
   if (isFailed(grab)) {
-    return { kind: "failed", stage: trackStage[grab.failure.stage] };
+    return { kind: "failed", stage: trackStage(grab) };
   }
   if (grab.stage === "imported") {
     return { kind: "available" };
   }
-  if (grab.stage === "failed") {
-    throw new Error(`failed Grab ${grab.id} carries no failure`);
-  }
-  return { kind: "running", stage: trackStage[grab.stage] };
+  return { kind: "running", stage: trackStage(grab) };
 }
 
 /** Drops each failure a later Grab of one of its cells replaced, as the Work's Needs you does. */
 export const withoutReplacedFailures = (grabs: readonly GrabsGrab[]): GrabsGrab[] =>
   grabs.filter((grab) => !needsYou(grab) || grab.failure.current);
+
+/** An importing Grab's download can be imported by hand in the Import files sheet. */
+export const byHand = (grab: GrabsGrab): boolean =>
+  grab.stage === "importing" && grab.import !== null;
 
 export const movesBytes = (grab: GrabsGrab): boolean => grab.stage === "downloading";
 
