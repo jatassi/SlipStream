@@ -338,6 +338,21 @@ func TestDeleteIsRefusedWhileAGrabImportsFromTheClient(t *testing.T) {
 	}
 }
 
+func TestDeleteGoesAheadWhileAGrabsImportWaitsOnTheClient(t *testing.T) {
+	w := serveWorld(t)
+	c := w.add(t, transmissionOn(w.self))
+	id := downloadclients.ClientID{UUID: must(storage.ParseUUID(c.ID))}
+	orchard := w.holdIn(t, "Orchard", downloadclients.Target{Node: w.self, Client: &id}, nil)
+	w.uses[orchard] = []downloadclients.Use{{Grab: storage.NewUUID(), Release: orchardRelease, Stage: downloadclients.UseWaiting}}
+
+	if code, reply := w.o.Call(t, http.MethodDelete, "/api/v1/external-download-clients/"+c.ID+"?stopTracking=true", ""); code != http.StatusNoContent {
+		t.Fatalf("deleting the client = %d %s, want it deleted: a waiting Import reads none of its files", code, reply)
+	}
+	if got := w.externals(t, w.self); len(got) != 0 {
+		t.Errorf("after the delete the card lists %+v, want no external client", got)
+	}
+}
+
 func TestClientsAreRefusedAtTheBoundary(t *testing.T) {
 	w := serveWorld(t)
 	w.add(t, transmissionOn(w.self))

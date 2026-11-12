@@ -128,6 +128,19 @@ test("the metadata wait of a magnet link saves in seconds", async () => {
   expect(clients.writes).toEqual([{ path: "thresholds", body: { metadataWait: 600 } }]);
 });
 
+test("the client error setting saves in seconds", async () => {
+  const clients = downloadClients();
+  renderApp({ path, handlers: clients.handlers });
+  await expect.element(page.getByRole("heading", { name: "Client errors" })).toBeVisible();
+  await userEvent.fill(
+    page.getByRole("textbox", { name: "A client error fails its Grab after" }),
+    "2",
+  );
+  await userEvent.click(page.getByRole("button", { name: "Save" }));
+  await expect.element(page.getByText("Download Clients settings saved")).toBeVisible();
+  expect(clients.writes).toEqual([{ path: "thresholds", body: { clientErrorFail: 7200 } }]);
+});
+
 test("with no Node downloading, the section says how to get a client", async () => {
   renderApp({ path, handlers: downloadClients({ cards: [], thresholds }).handlers });
   await expect

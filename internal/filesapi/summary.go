@@ -78,8 +78,14 @@ var needVariants = map[files.NeedKind]func(files.Need) any{
 	files.NeedUpgrade: func(n files.Need) any {
 		return upgradeNeed{Kind: "upgrade", ItemIDs: itemIDs(n.Items), Edition: string(n.Edition), Upgrades: targetIDs(n.Upgrades)}
 	},
-	files.NeedWaiting: func(n files.Need) any { return waitingNeed{Kind: "waiting", GrabID: n.Grab.String(), Code: n.Code} },
-	files.NeedNoRoot:  func(files.Need) any { return noRootNeed{Kind: "no_root"} },
+	files.NeedWaiting: func(n files.Need) any {
+		w := waitingNeed{Kind: "waiting", GrabID: n.Grab.String(), Code: n.Code}
+		if e := n.ClientError; e != nil {
+			w.ClientError = api.Some(clientError{Client: e.Client, Node: e.Node, Message: e.Message, FailsAt: e.FailsAt})
+		}
+		return w
+	},
+	files.NeedNoRoot: func(files.Need) any { return noRootNeed{Kind: "no_root"} },
 }
 
 func needsOf(ns []files.Need) []api.OneOf[need] {

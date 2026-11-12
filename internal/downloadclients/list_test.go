@@ -230,8 +230,8 @@ func TestTheInspectorReadsTheNodeLiveAndTheLastReportOtherwise(t *testing.T) {
 	answered := reportedAt.Add(-time.Minute)
 	report := queued(&dlv1.TrackerLine{Index: 1, Status: dlv1.TrackerStatus_TRACKER_STATUS_ERROR, Message: "timed out", RetryAtUnixMs: reportedAt.Add(time.Hour).UnixMilli()})
 	id := l.add(t, l.seedbox, "Orchard", report)
-	file := 1
-	l.u[id] = []dc.Use{{Grab: storage.NewUUID(), Work: l.work, Item: works.ItemID{UUID: storage.NewUUID()}, Stage: dc.UseImported, File: &file}}
+	items := []works.ItemID{{UUID: storage.NewUUID()}, {UUID: storage.NewUUID()}}
+	l.u[id] = []dc.Use{{Grab: storage.NewUUID(), Work: l.work, Stage: dc.UseImported, Files: []dc.UseFile{{Index: 1, Items: items}}}}
 	l.node.held[id] = &dlv1.InspectResponse{
 		Files:            []*dlv1.FileProgress{{Index: 0, Done: 400}, {Index: 1, Done: 24}},
 		Trackers:         []*dlv1.TrackerDetail{{Index: 0, Status: dlv1.TrackerStatus_TRACKER_STATUS_WORKING, AnsweredAtUnixMs: answered.UnixMilli(), NextAnnounceUnixMs: answered.Add(30 * time.Minute).UnixMilli(), MinIntervalSeconds: 1800, AcceptsAtUnixMs: answered.Add(30 * time.Minute).UnixMilli()}},
@@ -253,9 +253,9 @@ func TestTheInspectorReadsTheNodeLiveAndTheLastReportOtherwise(t *testing.T) {
 	if !slices.EqualFunc(d.Trackers, wantTrackers, sameTracker) {
 		t.Errorf("trackers = %+v, want %+v", d.Trackers, wantTrackers)
 	}
-	if len(d.Files) != 2 || d.Files[0].Path != "Orchard/Orchard.mkv" || *d.Files[0].Done != 400 || !d.Files[0].Item.IsZero() ||
-		d.Files[1].Path != "Orchard/Sample/sample.mkv" || *d.Files[1].Done != 24 || d.Files[1].Item != l.u[id][0].Item {
-		t.Errorf("files = %+v, want both with the Node's progress, the second with the Item its Grab imported", d.Files)
+	if len(d.Files) != 2 || d.Files[0].Path != "Orchard/Orchard.mkv" || *d.Files[0].Done != 400 || len(d.Files[0].Items) != 0 ||
+		d.Files[1].Path != "Orchard/Sample/sample.mkv" || *d.Files[1].Done != 24 || !slices.Equal(d.Files[1].Items, items) {
+		t.Errorf("files = %+v, want both with the Node's progress, the second with the two Items its Grab imported", d.Files)
 	}
 
 	l.r.leave(l.seedbox)

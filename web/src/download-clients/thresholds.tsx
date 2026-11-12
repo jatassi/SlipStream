@@ -25,6 +25,12 @@ const sections: readonly {
     about: "A Grab of a magnet link fails when no peer sends its metadata in this long.",
     keys: ["metadataWait"],
   },
+  {
+    title: "Client errors",
+    about:
+      "A Grab fails when its external Download Client reports an error on its torrent for this long. The torrent stays in the client, and search can try another Release.",
+    keys: ["clientErrorFail"],
+  },
 ];
 
 export function Thresholds({ thresholds }: { thresholds: DownloadclientsThresholds }) {

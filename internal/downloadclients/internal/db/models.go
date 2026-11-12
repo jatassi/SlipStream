@@ -62,6 +62,7 @@ type DownloadclientsSetting struct {
 	FaultStallSeconds      *int64
 	UnregisteredGapSeconds *int64
 	MetadataWaitSeconds    *int64
+	ClientErrorFailSeconds *int64
 }
 
 type DownloadclientsTorrent struct {
@@ -104,6 +105,8 @@ type DownloadclientsTorrent struct {
 	FaultAt           storage.Time
 	Retry             *string
 	RemovedByName     sql.NullString
+	ClientErrorMs     int64
+	ClientErrorAt     storage.Time
 }
 
 type DownloadclientsVolume struct {

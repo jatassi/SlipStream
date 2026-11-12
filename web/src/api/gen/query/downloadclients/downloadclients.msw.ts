@@ -1702,6 +1702,7 @@ export const getActOnTorrentsResponseMock = (
                 "removed",
                 "importing",
                 "not_held",
+                "use_not_this_release",
                 "reconciling",
                 "offline",
                 "client_away",
@@ -1788,13 +1789,14 @@ export const getGetTorrentResponseMock = (
   files: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     ...(faker.datatype.boolean() ? { done: faker.number.int({ min: 0 }) } : {}),
     index: faker.number.int({ min: 0 }),
-    ...(faker.datatype.boolean() ? { itemId: faker.string.uuid() } : {}),
+    items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.uuid(),
+    ),
     path: faker.string.alpha({ length: { min: 10, max: 20 } }),
     size: faker.number.int({ min: 0 }),
   })),
   grabs: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     id: faker.string.uuid(),
-    itemId: faker.string.uuid(),
     release: faker.string.alpha({ length: { min: 10, max: 20 } }),
     stage: faker.helpers.arrayElement([
       "downloading",

@@ -118,6 +118,16 @@ type Timings struct {
 	ClientLiveFloor time.Duration `yaml:"client_live_floor"`
 }
 
+// ErrorHeartbeat is how often a Node resends the report of a torrent its
+// external client holds in error, so the Controller's client error clock
+// counts while the error lasts. ErrorGapCap is the most one such report
+// adds to the clock: a Node that stopped reporting adds no more than a few
+// missed beats.
+const (
+	ErrorHeartbeat = time.Minute
+	ErrorGapCap    = 3 * time.Minute
+)
+
 func DefaultTimings() Timings {
 	return Timings{
 		Facts: time.Second, AnnounceFloor: 5 * time.Minute, ResumeSave: 5 * time.Minute, ShutdownSave: 15 * time.Second,

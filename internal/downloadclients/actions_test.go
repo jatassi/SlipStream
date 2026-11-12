@@ -395,6 +395,28 @@ func TestRemoveIsRefusedDuringImport(t *testing.T) {
 	}
 }
 
+// TestAWaitingImportsTorrentRemovesButRefusesMarkFailed marks failed,
+// then removes, the Orchard whose Grab's Import waits for the Admin: mark
+// failed is refused, naming the Work whose Pending import answers it, and
+// the remove goes ahead, as nothing reads its files.
+func TestAWaitingImportsTorrentRemovesButRefusesMarkFailed(t *testing.T) {
+	s := newShelf(t)
+	u := uses{s.orchard: {{Grab: storage.NewUUID(), Work: orchardWork, Stage: dc.UseWaiting}}}
+	c, _ := newClients(s.lib, &roster{}, u, nil)
+
+	results, _ := act(t, c, dc.Action{Kind: dc.MarkFailed, IDs: []dc.ID{s.orchard}})
+	if got := refusals(results); got[0] == nil || *got[0] != (dc.Refusal{Code: dc.RefusedNotThisRelease, Work: orchardWork}) {
+		t.Fatalf("marking failed answered %+v, want it refused for Not this Release on the Orchard's Pending import", got)
+	}
+	results, _ = act(t, c, dc.Action{Kind: dc.Remove, IDs: []dc.ID{s.orchard}})
+	if got := refusals(results); got[0] != nil {
+		t.Fatalf("removing answered %+v, want the Orchard removed", got)
+	}
+	if got := outcomeOf(t, s.lib, s.orchard).Outcome; got != (dc.Gone{Reason: dc.ByAdmin}) {
+		t.Errorf("the removed Orchard reads %#v, want Gone by the Admin", got)
+	}
+}
+
 func intentWithDiscards(t *testing.T, lib library, node role.NodeID) *dlv1.Intent {
 	t.Helper()
 	var in *dlv1.Intent
@@ -425,7 +447,7 @@ func TestARemovePreviewNamesWhatItCancelsStopsAndFrees(t *testing.T) {
 	c, _ := newClients(s.lib, r, u, node)
 
 	_, preview := act(t, c, dc.Action{Kind: dc.Remove, IDs: []dc.ID{s.orchard, s.attic, s.harbor}, DryRun: true})
-	if preview == nil || !slices.Equal(preview.Cancels, []dc.Use{downloading}) || !slices.Equal(preview.StopSeeding, []works.WorkID{harborWork}) ||
+	if preview == nil || len(preview.Cancels) != 1 || preview.Cancels[0].Grab != downloading.Grab || !slices.Equal(preview.StopSeeding, []works.WorkID{harborWork}) ||
 		preview.Frees == nil || *preview.Frees != 624 || !preview.Linked {
 		t.Fatalf("the preview is %+v, want the Orchard's Grab canceled, the Harbor's Work no longer seeded, 624 bytes freed and a library file", preview)
 	}

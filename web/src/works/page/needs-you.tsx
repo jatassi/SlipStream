@@ -11,8 +11,9 @@ import { type FailedGrab, failureWords, isFailed, trackStage } from "../../grabs
 import { Section } from "../../ui/section";
 import { SignalRow } from "../../ui/signal-row";
 import { stageLabel } from "../../ui/stage-track";
-import { NoRoot, Upgrades, Waiting } from "./need-rows";
+import { NoRoot, Upgrades } from "./need-rows";
 import { type FailedEntry, type Naming, failedKey, failedWords } from "./need-words";
+import { Waiting } from "./waiting";
 
 const cardsShown = 3;
 
@@ -106,7 +107,7 @@ export function NeedsYou({
           <Waiting
             key={need.grabId}
             grab={grabs.find(({ id }) => id === need.grabId)}
-            code={need.code}
+            need={need}
           />
         ))}
         {noRoot && <NoRoot />}

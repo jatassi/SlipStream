@@ -33,7 +33,7 @@ func TestTransmission(t *testing.T) {
 	for _, v := range transmission.Versions {
 		t.Run(v, func(t *testing.T) {
 			t.Parallel()
-			clientSuite(t, transmission.Fake, v)
+			clientSuite(t, transmission.Fake, v, scenarioTest{"fails a Grab whose client error outlasts the setting", suite.failsAClientErrorPastTheSetting})
 		})
 	}
 }
@@ -245,6 +245,37 @@ func (c suite) anErrorStopsTheTorrentUntilCleared(t *testing.T) {
 		row := r.torrent()
 		return row.State == "seeding" && row.Hold == ""
 	})
+}
+
+// failsAClientErrorPastTheSetting sets the client error setting to 5
+// minutes and has the client stop the Grab's torrent with a local error as
+// it starts. The Grab waits downloading, then fails client_error naming
+// the client and its Node. The torrent stays in the client, and the
+// Release stays off the Blocklist.
+func (c suite) failsAClientErrorPastTheSetting(t *testing.T) {
+	w, r := c.launch(t, func(*scenario.DownloadClient) {})
+	if reply := w.API().Admin("home", http.MethodPatch, "/api/v1/download-clients/thresholds", `{"clientErrorFail":300}`); reply.Status != http.StatusOK {
+		t.Fatalf("setDownloadClientThresholds = %d %s, want 200", reply.Status, reply.Body)
+	}
+	simtest.Search(t, w, simtest.AddOrchard(t, w))
+	simtest.Eventually(t, "the Grab's Torrent downloads in the client", func() bool { return r.torrent().State == "downloading" })
+	w.Cue(c.kind, c.kind+"-error", map[string]string{"node": "home", "release": release, "message": "No space left on device"})
+	simtest.Eventually(t, "the Torrent reads the client's error", func() bool { return r.torrent().Hold == "client_error" })
+	if gs := simtest.GrabsListed(t, w); len(gs) != 1 || gs[0].Stage != "downloading" {
+		t.Fatalf("with the client's error just reported the Grabs are %+v, want one downloading", gs)
+	}
+
+	g := simtest.Await(t, w)
+	saved := r.saved()
+	if want := saved.Name + " on home reported an error for more than 5 min. Search can try another Release."; g.Stage != "failed" || g.Failure.Code != "client_error" || g.Failure.Message != want {
+		t.Fatalf("the Grab ended %s with %+v, want failed client_error: %q", g.Stage, g.Failure, want)
+	}
+	if r.torrent().ID == "" {
+		t.Error("the failed Grab's Torrent is gone, want it kept in the client")
+	}
+	if got := w.API().Admin("home", http.MethodGet, "/api/v1/blocklist", ""); got.Status != http.StatusOK || !strings.Contains(got.Body, `"total":0`) {
+		t.Errorf("listBlocklist = %d %s, want no entry", got.Status, got.Body)
+	}
 }
 
 // fromClient is a Grab's walk on one Node that downloads, probes and
