@@ -149,8 +149,6 @@ func TestEpisodeSearchSendsSeasonAndEp(t *testing.T) {
 	for _, r := range runs {
 		want := []string{
 			"The.Lantern.Keepers.S01E02.720p.WEB-DL.H264-FKW wrong_item S01E02",
-			"The.Lantern.Keepers.S01.1080p.WEB-DL.H264-FKW covers_more S01",
-			"The.Lantern.Keepers.S01E02E03.1080p.WEB-DL.H264-FKW covers_more S01E02-E03",
 		}
 		if r.ItemID == special {
 			want = nil
@@ -159,9 +157,20 @@ func TestEpisodeSearchSendsSeasonAndEp(t *testing.T) {
 			t.Fatalf("the search of %s ended %v refusing %q, want grabbed refusing %q", r.ItemID, r.Outcome, w.refusals(t, r), want)
 		}
 	}
+	var pack episodeRun
+	for id, r := range runs {
+		if r.ItemID == s01e03 {
+			pack = r
+			delete(runs, id)
+		}
+	}
+	g := decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+*pack.GrabID, ""), &grabView{})
+	if g.ReleaseTitle != "The.Lantern.Keepers.S01.1080p.WEB-DL.H264-FKW" {
+		t.Fatalf("the search of S01E03 grabbed %s, want the season pack, which has the most seeders", g.ReleaseTitle)
+	}
 	w.imported(t, runs)
-	if got := filed(t, w); len(got) != 2 || !got[s01e03] || !got[special] {
-		t.Fatalf("the episodes with files are %v, want S01E03 %s and S00E01 %s", got, s01e03, special)
+	if got := filed(t, w); len(got) != 1 || !got[special] {
+		t.Fatalf("the episodes with files are %v, want only S00E01 %s while the unseeded pack downloads", got, special)
 	}
 }
 

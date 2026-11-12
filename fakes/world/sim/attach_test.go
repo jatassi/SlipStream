@@ -36,7 +36,7 @@ func torrentsOf(t *testing.T, w *sim.World, hash string) int64 {
 }
 
 // TestAttachFollowsTheTorrentsState fails seedbox's first Grab's Import
-// unreadable, so its Torrent stays complete and seeding, sets that
+// declined, so its Torrent stays complete and seeding, sets that
 // Torrent's state, and searches again: the second Grab attaches to the Torrent, and the
 // Torrent's state alone decides what it does.
 func TestAttachFollowsTheTorrentsState(t *testing.T) {
@@ -83,11 +83,10 @@ func TestAttachFollowsTheTorrentsState(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			synctest.Test(t, func(t *testing.T) {
-				w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), unreadableFirst())
+				w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), heldFirst())
 				work := simtest.AddOrchard(t, w)
 				simtest.Search(t, w, work)
-				first := simtest.Await(t, w)
-				expectFailed(t, first, "importing", "unreadable", "SlipStream can't read any video file in the download.")
+				first := declineFirst(t, w)
 				if c.set != "" {
 					onTorrents(t, w, c.set)
 				}

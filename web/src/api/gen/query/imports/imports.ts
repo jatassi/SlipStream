@@ -22,7 +22,6 @@ import type {
   ActOnImportFile409,
   ActOnImportFile422,
   ActOnImportFile500,
-  ActOnImportFile501,
   ActOnRootImport401,
   ActOnRootImport403,
   ActOnRootImport404,
@@ -1974,7 +1973,7 @@ export const getActOnImportFileUrl = (id: string, position: number) => {
 };
 
 /**
- * @summary Confirm, retry, decline, force or match one file of an Import
+ * @summary Confirm, retry, decline, force or match one file of an Import, or put its download's Release on the Blocklist
  */
 export const actOnImportFile = async (
   id: string,
@@ -2019,7 +2018,6 @@ export const getActOnImportFileMutationOptions = <
     | ActOnImportFile409
     | ActOnImportFile422
     | ActOnImportFile500
-    | ActOnImportFile501
   >,
   TContext = unknown,
 >(options?: {
@@ -2066,7 +2064,6 @@ export type ActOnImportFileMutationError = ErrorType<
   | ActOnImportFile409
   | ActOnImportFile422
   | ActOnImportFile500
-  | ActOnImportFile501
 >;
 export type ActOnImportFileMutationVariables = {
   id: string;
@@ -2075,7 +2072,7 @@ export type ActOnImportFileMutationVariables = {
 };
 
 /**
- * @summary Confirm, retry, decline, force or match one file of an Import
+ * @summary Confirm, retry, decline, force or match one file of an Import, or put its download's Release on the Blocklist
  */
 export const useActOnImportFile = <
   TError = ErrorType<
@@ -2085,7 +2082,6 @@ export const useActOnImportFile = <
     | ActOnImportFile409
     | ActOnImportFile422
     | ActOnImportFile500
-    | ActOnImportFile501
   >,
   TContext = unknown,
 >(

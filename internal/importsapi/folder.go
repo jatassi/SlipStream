@@ -2,10 +2,13 @@ package importsapi
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/release"
@@ -15,10 +18,8 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// notBuilt answers what S33 (Import pipeline)'s later lanes build, and
-// TestUnbuiltOperationsAnswer501 lists what still answers it.
 var (
-	notBuilt          = api.NewCode(http.StatusNotImplemented, "import_not_built", "This SlipStream build can't do this yet")
+	reconciling       = api.NewCode(http.StatusConflict, "reconciling", "SlipStream is Reconciling after a restore")
 	importMoveSeeding = api.NewCode(http.StatusConflict, "import_move_seeding", "A tracked torrent seeds one of these files. Move files can't take a file while it seeds.")
 	importOutside     = api.NewCode(http.StatusUnprocessableEntity, "import_outside", "The folder isn't in one of the Node's library roots or download folders")
 )
@@ -141,6 +142,9 @@ func (h handlers) actOnFile(ctx context.Context, by identity.Admin, in *fileActi
 		return nil, err
 	}
 	e, err := open(h.pending).Act(ctx, by, imports.FileRef{Import: id, Position: in.Position}, a)
+	if errors.Is(err, grabs.ErrReconciling) {
+		return nil, reconciling.Because("Use Not this Release once Reconciling finishes.")
+	}
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -155,6 +159,8 @@ func actionOf(v any) (imports.Action, error) {
 		return imports.RetryFile{}, nil
 	case declineFile:
 		return imports.DeclineFile{}, nil
+	case notThisReleaseFile:
+		return imports.NotThisReleaseFile{}, nil
 	case forceFile:
 		item, err := storage.ParseUUID(a.Cell.ItemID)
 		if err != nil {
@@ -183,7 +189,7 @@ func actionOf(v any) (imports.Action, error) {
 		}
 		return m, nil
 	}
-	return nil, notBuilt
+	panic(fmt.Sprintf("importsapi: no action for %T", v))
 }
 
 func (h handlers) confirm(ctx context.Context, by identity.Admin, in *importIDsInput) (*importsOutput, error) {
