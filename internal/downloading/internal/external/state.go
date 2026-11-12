@@ -95,7 +95,9 @@ type track struct {
 	vanished, told bool
 	completion     *dlv1.Completion
 	sent           *dlv1.TorrentReport
-	sentTotals     *dlv1.ClientCounters
+	// sentAt is when sent went, which an error's heartbeat counts from.
+	sentAt     time.Time
+	sentTotals *dlv1.ClientCounters
 }
 
 func (t *track) live() bool { return t.discard == nil && !t.vanished }

@@ -326,8 +326,14 @@ func TestDownloadClientsListEachDownloadingNodesCardAndTheThresholds(t *testing.
 	}
 	w.o.Expect(t, http.MethodPatch, "/api/v1/download-clients/thresholds", `{"faultStall":60}`, http.StatusUnprocessableEntity,
 		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Between 1 h and 30 days."}`)
-	w.o.Expect(t, http.MethodPatch, "/api/v1/download-clients/thresholds", `{"clientErrorFail":600}`, http.StatusNotImplemented,
-		`{"status":501,"code":"client_error_fail_not_built","title":"This SlipStream build can't store the client error setting yet"}`)
+	if _, reply := w.o.Call(t, http.MethodPatch, "/api/v1/download-clients/thresholds", `{"clientErrorFail":600}`); !strings.Contains(reply, `"value":600,`) {
+		t.Errorf("setDownloadClientThresholds = %s, want the client error to fail its Grab after 10 minutes", reply)
+	}
+	if _, reply := w.o.Call(t, http.MethodGet, "/api/v1/download-clients", ""); !strings.Contains(reply, `"clientErrorFail":{"key":"downloading.clientErrorFail","label":"A client error fails its Grab after","source":"database","applies":"live","isDefault":false`) {
+		t.Errorf("listDownloadClients = %s, want the stored client error setting", reply)
+	}
+	w.o.Expect(t, http.MethodPatch, "/api/v1/download-clients/thresholds", `{"clientErrorFail":60}`, http.StatusUnprocessableEntity,
+		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Between 5 min and 7 days."}`)
 
 	delete(w.facts, w.self)
 	w.roster.away[w.self] = true

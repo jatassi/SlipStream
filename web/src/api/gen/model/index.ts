@@ -2963,8 +2963,6 @@ export * from "./setDownloadClientThresholds422.ts";
 export * from "./setDownloadClientThresholds422Code.ts";
 export * from "./setDownloadClientThresholds500.ts";
 export * from "./setDownloadClientThresholds500Code.ts";
-export * from "./setDownloadClientThresholds501.ts";
-export * from "./setDownloadClientThresholds501Code.ts";
 export * from "./setFirstRunStep401.ts";
 export * from "./setFirstRunStep401Code.ts";
 export * from "./setFirstRunStep403.ts";

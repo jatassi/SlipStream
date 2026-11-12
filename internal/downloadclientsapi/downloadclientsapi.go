@@ -67,10 +67,6 @@ func routedOf(rs []trackers.Routed) []routedTracker {
 
 var nodeNotFound = api.NewCode(http.StatusNotFound, "node_not_found", "No Node has this id")
 
-// clientErrorNotBuilt refuses clientErrorFail until S33 (Import
-// pipeline)'s client error clock stores it.
-var clientErrorNotBuilt = api.NewCode(http.StatusNotImplemented, "client_error_fail_not_built", "This SlipStream build can't store the client error setting yet")
-
 type settings struct {
 	DownloadLimit   setting.RateField     `json:"downloadLimit"`
 	UploadLimit     setting.RateField     `json:"uploadLimit"`
@@ -304,7 +300,7 @@ type thresholdsOutput struct{ Body thresholds }
 func thresholdsOf(o downloadclients.ThresholdOverrides) thresholds {
 	return thresholds{
 		FaultStall: downloadclients.FaultStall.Field(o.FaultStall), UnregisteredGap: downloadclients.UnregisteredGap.Field(o.UnregisteredGap),
-		MetadataWait: downloadclients.MetadataWait.Field(o.MetadataWait), ClientErrorFail: downloadclients.ClientErrorFail.Field(nil),
+		MetadataWait: downloadclients.MetadataWait.Field(o.MetadataWait), ClientErrorFail: downloadclients.ClientErrorFail.Field(o.ClientErrorFail),
 	}
 }
 
@@ -377,9 +373,6 @@ func (h handlers) listClients(ctx context.Context, by identity.Admin, _ *struct{
 }
 
 func (h handlers) setThresholds(ctx context.Context, _ identity.Admin, in *thresholdsInput) (*thresholdsOutput, error) {
-	if in.Body.ClientErrorFail.Sent() {
-		return nil, clientErrorNotBuilt
-	}
 	clients, _ := open(h.clients)
 	var ch downloadclients.ThresholdChange
 	for _, f := range []struct {
@@ -390,6 +383,7 @@ func (h handlers) setThresholds(ctx context.Context, _ identity.Admin, in *thres
 		{in.Body.FaultStall, downloadclients.FaultStall.Parse, &ch.FaultStall},
 		{in.Body.UnregisteredGap, downloadclients.UnregisteredGap.Parse, &ch.UnregisteredGap},
 		{in.Body.MetadataWait, downloadclients.MetadataWait.Parse, &ch.MetadataWait},
+		{in.Body.ClientErrorFail, downloadclients.ClientErrorFail.Parse, &ch.ClientErrorFail},
 	} {
 		if !f.patch.Sent() {
 			continue
@@ -451,7 +445,7 @@ func Routes(r *api.Router, clients Clients) {
 		Path:    "/download-clients/thresholds",
 		Summary: "Change when a release counts as bad, which every downloading Node applies at once",
 		Status:  http.StatusOK,
-		Errors:  []*api.Code{settingapi.ErrOutOfRange, clientErrorNotBuilt},
+		Errors:  []*api.Code{settingapi.ErrOutOfRange},
 	}, h.setThresholds)
 
 	api.Register(o, api.Admin, api.Op{

@@ -31,13 +31,14 @@ ON CONFLICT (node_id) DO UPDATE SET
     grabs_to = excluded.grabs_to;
 
 -- name: GetThresholds :one
-SELECT fault_stall_seconds, unregistered_gap_seconds, metadata_wait_seconds FROM downloadclients_settings WHERE id = 1;
+SELECT fault_stall_seconds, unregistered_gap_seconds, metadata_wait_seconds, client_error_fail_seconds FROM downloadclients_settings WHERE id = 1;
 
 -- name: SetThresholds :exec
 UPDATE downloadclients_settings SET
     fault_stall_seconds = sqlc.narg(fault_stall_seconds),
     unregistered_gap_seconds = sqlc.narg(unregistered_gap_seconds),
-    metadata_wait_seconds = sqlc.narg(metadata_wait_seconds)
+    metadata_wait_seconds = sqlc.narg(metadata_wait_seconds),
+    client_error_fail_seconds = sqlc.narg(client_error_fail_seconds)
 WHERE id = 1;
 
 -- name: GetMetainfoOfHash :one
@@ -71,7 +72,7 @@ INSERT INTO downloadclients_torrent (
 
 -- name: ListAttached :many
 SELECT t.id, t.info_hash, t.size, t.removed_reason, t.removed_by_name, t.report, t.completion, t.fault, t.fault_at,
-       t.client_id, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name
+       t.node_id, t.client_error_ms, t.client_error_at, t.client_id, coalesce(c.kind, '') AS client_kind, coalesce(c.name, '') AS client_name
 FROM downloadclients_torrent t LEFT JOIN downloadclients_client c ON c.id = t.client_id
 WHERE t.id IN (sqlc.slice(ids))
 ORDER BY t.id;
@@ -108,6 +109,20 @@ WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND completion IS NULL;
 -- name: SetReport :execrows
 UPDATE downloadclients_torrent SET report = sqlc.arg(report), reported_at = sqlc.arg(reported_at)
 WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id);
+
+-- name: TickClientError :exec
+-- A report with the client's error adds the gap since the last such report,
+-- never below zero and at most cap_ms, so a replayed or older report adds
+-- nothing and a Node that stopped reporting adds at most the cap.
+UPDATE downloadclients_torrent SET
+    client_error_ms = client_error_ms + CASE WHEN client_error_at IS NULL THEN 0
+        ELSE min(max(CAST(sqlc.arg(at_us) AS INTEGER) - client_error_at, 0) / 1000, CAST(sqlc.arg(cap_ms) AS INTEGER)) END,
+    client_error_at = max(CAST(sqlc.arg(at_us) AS INTEGER), coalesce(client_error_at, 0))
+WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id);
+
+-- name: ClearClientError :exec
+UPDATE downloadclients_torrent SET client_error_ms = 0, client_error_at = NULL
+WHERE id = sqlc.arg(id) AND node_id = sqlc.arg(node_id) AND client_error_at IS NOT NULL;
 
 -- name: SetFault :exec
 UPDATE downloadclients_torrent SET fault = sqlc.arg(fault), fault_at = sqlc.arg(fault_at)

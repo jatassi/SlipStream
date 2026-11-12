@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/downloadclients/internal/db"
+	"github.com/jatassi/slipstream/internal/downloading"
 	"github.com/jatassi/slipstream/internal/live"
 	dlv1 "github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/downloading/v1/downloadingv1connect"
@@ -352,6 +353,9 @@ func applyReport(ctx context.Context, q *db.Queries, node role.NodeID, id ID, r 
 	if err != nil || n == 0 {
 		return false, err
 	}
+	if err := clientErrorClock(ctx, q, node, id, r); err != nil {
+		return false, err
+	}
 	if f := r.GetSaveFolder(); f != "" {
 		if err := q.SetSaveFolder(ctx, db.SetSaveFolderParams{SaveFolder: &f, ID: id, NodeID: node}); err != nil {
 			return false, err
@@ -375,6 +379,20 @@ func applyReport(ctx context.Context, q *db.Queries, node role.NodeID, id ID, r 
 		}
 	}
 	return true, nil
+}
+
+// clientErrorClock counts how long reports keep arriving with the
+// client's error. One with the error adds the gap since the last such
+// report, up to downloading.ErrorGapCap, so a Node that stops reporting
+// adds little and the same report applied twice adds nothing. One without
+// it clears the clock.
+func clientErrorClock(ctx context.Context, q *db.Queries, node role.NodeID, id ID, r *dlv1.TorrentReport) error {
+	if r.GetHold() != dlv1.Hold_HOLD_CLIENT_ERROR {
+		return q.ClearClientError(ctx, db.ClearClientErrorParams{ID: id, NodeID: node})
+	}
+	return q.TickClientError(ctx, db.TickClientErrorParams{
+		AtUs: time.UnixMilli(r.GetAtUnixMs()).UnixMicro(), CapMs: downloading.ErrorGapCap.Milliseconds(), ID: id, NodeID: node,
+	})
 }
 
 func setCompletion(ctx context.Context, q *db.Queries, node role.NodeID, id ID, c *dlv1.Completion, at storage.Time) error {
