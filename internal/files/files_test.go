@@ -406,6 +406,29 @@ func TestATargetsEstimateIsItsFilesRateOverTheProfilesRuntime(t *testing.T) {
 	}
 }
 
+func TestAFileOfTwoItemsCountsOnceTowardItsTargetsEstimate(t *testing.T) {
+	l := open(t)
+	hd := l.target(t, "HD", []release.Quality{release.WEBDL1080p})
+	p := l.profile(t, "HD", hd)
+	tree := l.work(t, "w1", true, &p)
+	for _, it := range tree.Items {
+		l.fx.SetTiming(it.ID, targets.Timing{Released: release.Known(contenttypetest.Released), Runtime: release.Known(time.Hour)})
+	}
+	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := files.Add(ctx, tx, files.File{
+			WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID, tree.Items[1].ID}, Cut: release.Standard, RootID: l.root.ID, Path: "both.mkv", Size: 1200 << 20, Quality: release.WEBDL1080p,
+		}, []targets.TargetID{hd.ID})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := must[map[targets.TargetID]files.Estimate](t)(l.files(files.NoGrabs{}).Estimates(t.Context(), admin, must[targets.Profile](t)(l.targets.GetProfile(t.Context(), admin, p))))
+	if want := (files.Estimate{MiBPerMinute: 10, Bytes: 1200 << 20}); got[hd.ID] != want {
+		t.Fatalf("HD's estimate = %+v, want %+v: the file's 1,200 MiB once over its two Items' 120 minutes", got[hd.ID], want)
+	}
+}
+
 func TestANamedListWantsStandardAndEachOtherCutOnceSeen(t *testing.T) {
 	l := open(t)
 	hd := l.target(t, "HD", []release.Quality{release.WEBDL1080p})

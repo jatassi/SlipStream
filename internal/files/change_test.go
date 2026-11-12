@@ -139,6 +139,22 @@ func TestDeletingSavesRemoveTheFilesTheyLeaveFillingNothing(t *testing.T) {
 	}
 }
 
+func TestAChangeCountsEachGrabInFlightForACellThatGoesOnce(t *testing.T) {
+	s := shelved(t)
+	pack, other := storage.NewUUID(), storage.NewUUID()
+	key := func(item int, target targets.Target) files.CellKey {
+		return files.CellKey{Item: s.tree.Items[item].ID, Edition: targets.AnyEdition, Target: target.ID}
+	}
+	svc := s.files(grabbing{
+		key(0, s.web): {State: files.GrabInFlight, Grab: pack},
+		key(1, s.web): {State: files.GrabInFlight, Grab: pack},
+		key(1, s.hd):  {State: files.GrabInFlight, Grab: other},
+	})
+	if got := s.change(t, svc, holding(s.both, s.hd), files.Mode{Unwanted: files.Delete, Preview: true}); got.Downloading != 1 {
+		t.Fatalf("taking Web away counts %d downloads, want the one Grab for both its cells", got.Downloading)
+	}
+}
+
 // snapshot is everything a user of l can see: what the root holds, each
 // file's row and every cell.
 func (l *library) snapshot(t *testing.T, svc *files.Files, ws ...works.WorkID) string {

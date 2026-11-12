@@ -470,3 +470,95 @@ func TestAMoveQueuedBeforeNamingKeepsItsTwoHopsAndAFoundFileItsName(t *testing.T
 		t.Fatalf("source names are %v for the found file and %v for the grabbed one, want its own name and none", foundName, grabbedName)
 	}
 }
+
+func TestExistingFilesEachHoldTheirOneItemAndKeepTheirFills(t *testing.T) {
+	ctx := t.Context()
+	open := opener(t)
+	before := open(nodes.Schema(), works.Schema(), targets.Schema().Through(1), roots.Schema().Through(1), indexers.Schema().Through(2), grabs.Schema().Through(1), files.Schema().Through(1))
+	var want map[string]string
+	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		var err error
+		want, err = seedFilled(ctx, tx)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := before.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
+	t.Cleanup(func() { _ = lib.Close() })
+	if got := heldItems(t, lib); !maps.Equal(got, want) {
+		t.Fatalf("migrated files hold %v, want each its one Item at position 0 still filling its Target unforced: %v", got, want)
+	}
+	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO files_imported (id, file_id, import_id, work_id, placed_by, items, cells, replaced, at)
+			SELECT ?, id, ?, work_id, 'copy', '[]', '[]', '[]', 0 FROM files_file LIMIT 1`, storage.NewUUID(), storage.NewUUID())
+		return err
+	})
+	if err != nil {
+		t.Fatalf("an import record naming an Import no table holds yet is refused: %v", err)
+	}
+	distinct(t, lib, `SELECT CAST(count(*) AS TEXT) FROM pragma_foreign_key_check`, "0")
+}
+
+// seedFilled adds a found file and a grabbed one, each filling a Target,
+// and returns what each file's path should hold once migrated: its Item,
+// at position 0, filling unforced.
+func seedFilled(ctx context.Context, tx *storage.Tx[storage.Library]) (map[string]string, error) {
+	at, err := seedLibrary(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	target := storage.NewUUID()
+	if _, err := tx.ExecContext(ctx, `INSERT INTO targets_target VALUES (?, 'Large', 1)`, target); err != nil {
+		return nil, fmt.Errorf("add a Target: %w", err)
+	}
+	want := map[string]string{}
+	for n, title := range []string{"", migrated[0].title} {
+		path, err := seedFile(ctx, tx, n+1, title, frames[2], at)
+		if err != nil {
+			return nil, err
+		}
+		var item storage.UUID
+		if err := tx.QueryRowContext(ctx, `SELECT item_id FROM files_file WHERE path = ?`, path).Scan(&item); err != nil {
+			return nil, fmt.Errorf("read a file's Item: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO files_fill SELECT id, ?, item_id, 'standard' FROM files_file WHERE path = ?`, target, path); err != nil {
+			return nil, fmt.Errorf("add a fill: %w", err)
+		}
+		want[path] = fmt.Sprintf("%s 0 unforced=true", item)
+	}
+	return want, nil
+}
+
+// heldItems is each of lib's files' Items, positions and fills of them.
+func heldItems(t *testing.T, lib *storage.DB[storage.Library]) map[string]string {
+	t.Helper()
+	got := map[string]string{}
+	err := lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		rows, err := r.QueryContext(ctx, `SELECT f.path, i.item_id, i.position, fill.forced_at IS NULL FROM files_file f
+			JOIN files_file_item i ON i.file_id = f.id JOIN files_fill fill ON fill.file_id = f.id AND fill.item_id = i.item_id`)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var path string
+			var item storage.UUID
+			var position int
+			var unforced bool
+			if err := rows.Scan(&path, &item, &position, &unforced); err != nil {
+				return fmt.Errorf("read a file: %w", err)
+			}
+			got[path] = fmt.Sprintf("%s %d unforced=%t", item, position, unforced)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return got
+}
