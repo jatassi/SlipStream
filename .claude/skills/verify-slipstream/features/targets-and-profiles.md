@@ -361,10 +361,10 @@ Steps on a second fresh `targets` run:
 - The second `Delete UHD` is the Impact's button, in the dialog named `Delete UHD` without the question mark.
 - The payloads are a few seconds of video, so the Profile editor's estimates are tiny. Read their wording, not their numbers.
 - The add sheet keeps `Monitor` on; an unmonitored Work has no Wants and its Search finds nothing to do.
+- A cell whose upgrade Grab is in flight reads `Downloading`, with `Replaces <quality>` under it, until its Import lands or the file waits.
+- Two videos of one movie, such as `CD1` and `CD2`, wait together in Pending imports with `This movie is split into 2 files. SlipStream imports a movie as one file.` They never race for one name.
 - Known gaps a run will meet. These are not recipe failures:
   - A file SlipStream doesn't know, sitting at the path a rename wants, blocks that rename. The Node logs it and retries, and no page says so.
-  - A cell whose upgrade Grab is downloading still reads `Upgradable`, not `Downloading`.
-  - When two files of a Work would take one name as an import commits, the Grab retries instead of failing.
   - A save refused with 409 `impact_changed` carries no Impact. The web app previews again to show the new one.
   - A Grab under Any cut that is still downloading when the Work's list switches to named cuts leaves the new cell reading `Missing` until it imports.
   - No title reads HDR, the audio codec, channels or audio languages yet, so a filter on them passes every release at search. A Grab's probe reads them, so the same filter judges the downloaded file. A download whose one video it refuses waits `meets_nothing` in Pending imports.

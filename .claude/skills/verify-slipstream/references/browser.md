@@ -30,6 +30,7 @@ The browser is `playwright cli` from web/'s pinned Playwright (`web/node_modules
 
 - Before and after each proof action: `snapshot --filename={runDir}/proof/<f>/<s>/<name>.aria.yml` and `screenshot --filename={runDir}/proof/<f>/<s>/<name>.png`. A relative `--filename` lands in the current directory, the worktree root, so always pass `{runDir}/proof/...`.
 - Run those steps with `--proof <f>/<s>` too, so their output sits beside the files.
+- `screenshot` saves CSS pixels. For a sharper shot, open the session from a copy of its config with a larger `contextOptions.deviceScaleFactor` and pass `--hires`, which saves device pixels.
 
 ## Traces
 
