@@ -59,50 +59,58 @@ func (f *fenced) escape(t *testing.T) string {
 	return link
 }
 
+// requests are every Node request on the folder and file, by name.
+func (f *fenced) requests(t *testing.T, folder, file string) map[string]func() error {
+	folders := foldersOf(f.store)
+	return map[string]func() error{
+		"Place": func() error {
+			_, err := remoteOf(f.store).Place(t.Context(), f.at, NodePath{Abs: file}, mustRel(t, HoldingDir+"/0190.mkv"), true)
+			return err
+		},
+		"Probe": func() error {
+			_, err := f.probes.Probe(t.Context(), node, NodePath{Abs: file})
+			return err
+		},
+		"ListVideos": func() error {
+			_, err := folders.ListVideos(t.Context(), node, folder, media.DefaultVideos)
+			return err
+		},
+		"RemoveSource": func() error { return folders.RemoveSource(t.Context(), node, file) },
+		"Browse": func() error {
+			_, err := folders.Browse(t.Context(), node, folder, false, PurposeImport)
+			return err
+		},
+	}
+}
+
 func TestEveryRequestRefusesAPathOutsideTheFence(t *testing.T) {
 	for _, place := range []string{"elsewhere", "a link in the root to elsewhere"} {
 		t.Run(place, func(t *testing.T) {
-			synctest.Test(t, func(t *testing.T) {
-				f := newFenced(t, mediatest.Prober{Of: map[string]media.Record{"Heat.mkv": {Container: "matroska"}}})
-				write(t, filepath.Join(f.elsewhere, "Heat (1995)", "Heat.mkv"), "film")
-				folder := f.elsewhere
-				if place != "elsewhere" {
-					folder = f.escape(t)
-				}
-				file := filepath.Join(folder, "Heat (1995)", "Heat.mkv")
-				folders := foldersOf(f.store)
-				for name, call := range map[string]func() error{
-					"Place": func() error {
-						_, err := remoteOf(f.store).Place(t.Context(), f.at, NodePath{Abs: file}, mustRel(t, HoldingDir+"/0190.mkv"), true)
-						return err
-					},
-					"Probe": func() error {
-						_, err := f.probes.Probe(t.Context(), node, NodePath{Abs: file})
-						return err
-					},
-					"ListVideos": func() error {
-						_, err := folders.ListVideos(t.Context(), node, folder, media.DefaultVideos)
-						return err
-					},
-					"RemoveSource": func() error { return folders.RemoveSource(t.Context(), node, file) },
-					"Browse": func() error {
-						_, err := folders.Browse(t.Context(), node, folder, false, PurposeImport)
-						return err
-					},
-				} {
-					if _, ok := errors.AsType[*OutsideError](call()); !ok {
-						t.Errorf("%s of a file %s = %v, want *OutsideError", name, place, call())
-					}
-				}
-				c, err := folders.Check(t.Context(), node, folder, PurposeImport, nil)
-				if err != nil || c.Refusal == nil || c.Refusal.Reason != ReasonOutside {
-					t.Errorf("Check for import of a folder %s = %+v, %v; want refused outside", place, c, err)
-				}
-				if _, err := os.Stat(filepath.Join(f.elsewhere, "Heat (1995)", "Heat.mkv")); err != nil {
-					t.Errorf("the file outside is gone: %v", err)
-				}
-			})
+			synctest.Test(t, func(t *testing.T) { refusesOutside(t, place) })
 		})
+	}
+}
+
+func refusesOutside(t *testing.T, place string) {
+	f := newFenced(t, mediatest.Prober{Of: map[string]media.Record{"Heat.mkv": {Container: "matroska"}}})
+	write(t, filepath.Join(f.elsewhere, "Heat (1995)", "Heat.mkv"), "film")
+	folder := f.elsewhere
+	if place != "elsewhere" {
+		folder = f.escape(t)
+	}
+	file := filepath.Join(folder, "Heat (1995)", "Heat.mkv")
+	folders := foldersOf(f.store)
+	for name, call := range f.requests(t, folder, file) {
+		if _, ok := errors.AsType[*OutsideError](call()); !ok {
+			t.Errorf("%s of a file %s = %v, want *OutsideError", name, place, call())
+		}
+	}
+	c, err := folders.Check(t.Context(), node, folder, PurposeImport, nil)
+	if err != nil || c.Refusal == nil || c.Refusal.Reason != ReasonOutside {
+		t.Errorf("Check for import of a folder %s = %+v, %v; want refused outside", place, c, err)
+	}
+	if _, err := os.Stat(filepath.Join(f.elsewhere, "Heat (1995)", "Heat.mkv")); err != nil {
+		t.Errorf("the file outside is gone: %v", err)
 	}
 }
 

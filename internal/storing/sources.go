@@ -104,17 +104,9 @@ func (s *Store) listVideos(ctx context.Context, path string, videos media.Videos
 					return err
 				}
 			case media.Counts(strings.Join(at, "/"), videos):
-				info, err := timed(ctx, s, dir, func(ctx context.Context) (Info, error) { return s.cfg.Disk.Stat(ctx, p) })
-				switch {
-				case errors.Is(err, fs.ErrNotExist):
-					continue
-				case err != nil:
-					return s.folderError(err)
+				if err := s.listVideo(ctx, &l, p, seeding); err != nil {
+					return err
 				}
-				if len(l.files) == listLimit {
-					return rpc.Errorf(rpc.CodeFailedPrecondition, "%s holds more than %d video files. Choose a folder inside it", dir, listLimit)
-				}
-				l.files = append(l.files, listedVideo{path: p, info: info, seeded: seeding[s.key(p)]})
 			}
 		}
 		return nil
@@ -122,11 +114,27 @@ func (s *Store) listVideos(ctx context.Context, path string, videos media.Videos
 	return l, walk(dir, nil)
 }
 
+// listVideo adds the video file p to l, unless it went before its stat.
+func (s *Store) listVideo(ctx context.Context, l *videoList, p string, seeding map[string]bool) error {
+	info, err := timed(ctx, s, l.path, func(ctx context.Context) (Info, error) { return s.cfg.Disk.Stat(ctx, p) })
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return nil
+	case err != nil:
+		return s.folderError(err)
+	}
+	if len(l.files) == listLimit {
+		return rpc.Errorf(rpc.CodeFailedPrecondition, "%s holds more than %d video files. Choose a folder inside it", l.path, listLimit)
+	}
+	l.files = append(l.files, listedVideo{path: p, info: info, seeded: seeding[s.key(p)]})
+	return nil
+}
+
 // rootOf is the root the Store holds that the clean folder dir lies in,
 // with dir beneath it, or the zero id when none holds it. The root is the
 // nearest folder above dir, links followed, that is a root by identity.
 func (s *Store) rootOf(ctx context.Context, dir string) (storage.UUID, Rel, error) {
-	real, err := s.real(ctx, dir)
+	resolved, err := s.real(ctx, dir)
 	if err != nil {
 		return storage.UUID{}, Rel{}, s.folderError(err)
 	}
@@ -135,7 +143,7 @@ func (s *Store) rootOf(ctx context.Context, dir string) (storage.UUID, Rel, erro
 	s.mu.Unlock()
 	same := s.identity(ctx)
 	var names []string
-	for at, ok := real, true; ok; at, ok = s.host.Style.Parent(at) {
+	for at, ok := resolved, true; ok; at, ok = s.host.Style.Parent(at) {
 		for _, r := range roots {
 			if !same(at, r.path) {
 				continue

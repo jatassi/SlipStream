@@ -3,25 +3,13 @@ package media_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"testing"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/media/mediatest"
 	"github.com/jatassi/slipstream/internal/release"
 )
-
-type payloads map[bencode.InfoHash]string
-
-func (p payloads) Path(h bencode.InfoHash, index int) (string, error) {
-	path, ok := p[h]
-	if !ok || index != 0 {
-		return "", errors.New("the torrent is not in this Node's client")
-	}
-	return path, nil
-}
 
 func TestProberAnswersTheLongestMatchingKey(t *testing.T) {
 	near, far := media.Record{Container: "near"}, media.Record{Container: "far"}

@@ -690,6 +690,7 @@ func (s *Store) reserved(purpose Purpose, others []Other) []reserved {
 		}
 		s.mu.Unlock()
 		return apartFrom(held)
+	case PurposeImport:
 	}
 	panic(fmt.Sprintf("storing: purpose %d has no rules", purpose))
 }

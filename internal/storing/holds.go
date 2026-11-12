@@ -33,7 +33,7 @@ func (s *Store) fence(ctx context.Context, path string) (string, error) {
 	if err != nil {
 		return "", &OutsideError{Path: path}
 	}
-	real, err := s.real(ctx, p)
+	resolved, err := s.real(ctx, p)
 	if err != nil {
 		return "", &OutsideError{Path: path}
 	}
@@ -47,7 +47,7 @@ func (s *Store) fence(ctx context.Context, path string) (string, error) {
 	same := s.identity(ctx)
 	// The folders compare by file identity, as a folder check's do, so
 	// case, separators and a linked root can't take a path outside them.
-	if !slices.ContainsFunc(folders, func(dir string) bool { return within(s.host.Style, real, dir, same) }) {
+	if !slices.ContainsFunc(folders, func(dir string) bool { return within(s.host.Style, resolved, dir, same) }) {
 		return "", &OutsideError{Path: path}
 	}
 	return p, nil
