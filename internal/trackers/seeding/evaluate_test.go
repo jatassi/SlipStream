@@ -251,6 +251,9 @@ func TestEvaluate(t *testing.T) {
 		{"a goal waits while a Grab imports from the torrent",
 			hash(private(tenDays), met(), seeder(past, withGrabs(Grabs{Importing: true}))),
 			outcome{Window: met(), Risk: Safe, GoalMet: true, Plans: waits(GrabImporting)}},
+		{"a goal waits while a file of a Grab's Import waits for the Admin",
+			hash(private(tenDays), met(), seeder(past, withGrabs(Grabs{Waiting: true}))),
+			outcome{Window: met(), Risk: Safe, GoalMet: true, Plans: waits(ImportWaiting)}},
 		{"a goal waits while the torrent is removed",
 			hash(private(tenDays), met(), seeder(past, removing, ran(RanRemove))),
 			outcome{Window: met(), Risk: Safe, GoalMet: true, Plans: waits(BeingRemoved)}},
@@ -380,7 +383,7 @@ func TestEndless(t *testing.T) {
 	for why, want := range map[Why]bool{
 		ResumedAfterPause: true, SeedsForever: true, NoTracker: true, NoRule: true, PartialOwesTime: true,
 		BeingRemoved: false, AlreadyRan: false, StillOwes: false, NotMet: false, Incomplete: false,
-		GrabDownloading: false, GrabImporting: false, Reconciling: false,
+		GrabDownloading: false, GrabImporting: false, ImportWaiting: false, Reconciling: false,
 	} {
 		if got := why.Endless(); got != want {
 			t.Errorf("%s: Endless = %v, want %v", why, got, want)

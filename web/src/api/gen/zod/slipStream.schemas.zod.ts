@@ -86,6 +86,7 @@ export const DownloadclientsRefusal = zod.object({
     "removed",
     "importing",
     "not_held",
+    "use_not_this_release",
     "reconciling",
     "offline",
     "client_away",
@@ -99,7 +100,12 @@ export const DownloadclientsRefusal = zod.object({
     .string()
     .exactOptional()
     .describe("client_away and client_off: the name of the external client's Node"),
-  workId: zod.uuid().exactOptional().describe("importing: the Work whose import holds it"),
+  workId: zod
+    .uuid()
+    .exactOptional()
+    .describe(
+      "importing: the Work whose import holds it; use_not_this_release: the Work whose Pending import waits on it",
+    ),
 });
 
 export type DownloadclientsRefusal = zod.input<typeof DownloadclientsRefusal>;
@@ -702,7 +708,9 @@ export const DownloadclientsFileDetail = zod.object({
     .exactOptional()
     .describe("Bytes done, absent while unknown"),
   index: zod.int().min(downloadclientsFileDetailIndexMin),
-  itemId: zod.uuid().exactOptional().describe("The Item it filled once a Grab imported it"),
+  items: zod
+    .array(zod.uuid())
+    .describe("The Items it filled once a Grab imported it, in order; empty before"),
   path: zod.string().describe("Under the save folder, with / between folders"),
   size: zod.int().min(downloadclientsFileDetailSizeMin),
 });
@@ -1114,7 +1122,6 @@ export type DownloadclientsTrackerCellOutput = zod.output<typeof Downloadclients
 
 export const DownloadclientsTorrentGrab = zod.object({
   id: zod.uuid(),
-  itemId: zod.uuid(),
   release: zod.string(),
   stage: zod
     .enum(["downloading", "importing", "waiting", "imported", "failed"])

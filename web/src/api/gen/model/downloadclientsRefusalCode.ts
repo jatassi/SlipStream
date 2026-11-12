@@ -3,6 +3,7 @@ export type DownloadclientsRefusalCode =
   | "removed"
   | "importing"
   | "not_held"
+  | "use_not_this_release"
   | "reconciling"
   | "offline"
   | "client_away"

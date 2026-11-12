@@ -6,8 +6,8 @@ export interface DownloadclientsFileDetail {
   done?: number;
   /** @minimum 0 */
   index: number;
-  /** The Item it filled once a Grab imported it */
-  itemId?: string;
+  /** The Items it filled once a Grab imported it, in order; empty before */
+  items: string[];
   /** Under the save folder, with / between folders */
   path: string;
   /** @minimum 0 */

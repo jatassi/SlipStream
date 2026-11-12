@@ -72,6 +72,11 @@ SELECT id, torrent_id, work_id, item_id, edition, release_title, stage, file_ind
 WHERE torrent_id IN (sqlc.slice(torrent_ids))
 ORDER BY created_at, id;
 
+-- name: ListItemsOfTorrents :many
+SELECT i.grab_id, i.item_id FROM grabs_grab_item i JOIN grabs_grab g ON g.id = i.grab_id
+WHERE g.torrent_id IN (sqlc.slice(torrent_ids))
+ORDER BY i.grab_id, i.position;
+
 -- name: InsertSearch :exec
 INSERT INTO grabs_search (id, work_id, item_id, started_at)
 VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(started_at));

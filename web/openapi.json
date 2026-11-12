@@ -873,10 +873,13 @@
             "minimum": 0,
             "type": "integer"
           },
-          "itemId": {
-            "description": "The Item it filled once a Grab imported it",
-            "format": "uuid",
-            "type": "string"
+          "items": {
+            "description": "The Items it filled once a Grab imported it, in order; empty before",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
           },
           "path": {
             "description": "Under the save folder, with / between folders",
@@ -891,7 +894,8 @@
         "required": [
           "index",
           "path",
-          "size"
+          "size",
+          "items"
         ],
         "type": "object"
       },
@@ -1397,6 +1401,7 @@
               "removed",
               "importing",
               "not_held",
+              "use_not_this_release",
               "reconciling",
               "offline",
               "client_away",
@@ -1413,7 +1418,7 @@
             "type": "string"
           },
           "workId": {
-            "description": "importing: the Work whose import holds it",
+            "description": "importing: the Work whose import holds it; use_not_this_release: the Work whose Pending import waits on it",
             "format": "uuid",
             "type": "string"
           }
@@ -2218,10 +2223,6 @@
             "format": "uuid",
             "type": "string"
           },
-          "itemId": {
-            "format": "uuid",
-            "type": "string"
-          },
           "release": {
             "type": "string"
           },
@@ -2244,7 +2245,6 @@
         "required": [
           "id",
           "workId",
-          "itemId",
           "release",
           "stage"
         ],

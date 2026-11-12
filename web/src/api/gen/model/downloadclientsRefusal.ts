@@ -8,6 +8,6 @@ export interface DownloadclientsRefusal {
   code: DownloadclientsRefusalCode;
   /** client_away and client_off: the name of the external client's Node */
   node?: string;
-  /** importing: the Work whose import holds it */
+  /** importing: the Work whose import holds it; use_not_this_release: the Work whose Pending import waits on it */
   workId?: string;
 }

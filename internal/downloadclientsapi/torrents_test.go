@@ -184,8 +184,10 @@ func TestATorrentReadsLiveFromItsNodeAndRefusesAnUnknownID(t *testing.T) {
 		Trackers:         []*dlv1.TrackerDetail{{Index: 1, Status: dlv1.TrackerStatus_TRACKER_STATUS_WORKING, AnsweredAtUnixMs: answered.UnixMilli(), MinIntervalSeconds: 1800}},
 		AnnounceAtUnixMs: answered.Add(30 * time.Minute).UnixMilli(),
 	}}
-	file, item := 0, works.ItemID{UUID: storage.NewUUID()}
-	w.uses[harbor] = []downloadclients.Use{{Grab: storage.NewUUID(), Work: works.WorkID{UUID: storage.NewUUID()}, Item: item, Release: "Harbor.2019.720p.HDTV", Stage: downloadclients.UseImported, File: &file}}
+	w.uses[harbor] = []downloadclients.Use{{
+		Grab: storage.NewUUID(), Work: works.WorkID{UUID: storage.NewUUID()}, Release: "Harbor.2019.720p.HDTV", Stage: downloadclients.UseImported,
+		Files: []downloadclients.UseFile{{Index: 0, Items: []works.ItemID{{UUID: storage.NewUUID()}, {UUID: storage.NewUUID()}}}},
+	}}
 
 	_, reply := w.o.Call(t, http.MethodGet, "/api/v1/torrents/"+harbor.String(), "")
 	want := `{"id":"id1","nodeId":"id2","deleteFiles":true,"name":"Harbor","contentType":"fixture","workId":"id3","quality":"hdtv-720p","state":"tracker-error","severity":"failure",` +
@@ -195,8 +197,8 @@ func TestATorrentReadsLiveFromItsNodeAndRefusesAnUnknownID(t *testing.T) {
 		`"downloaded":0,"activeSeconds":0,"infoHash":"` + w.hashes[harbor] + `","pieceSize":16384,"private":true,` +
 		`"trackers":[{"url":"https://beacon.test/announce/•••","tier":0,"status":"unregistered","message":"Unregistered torrent","retryAt":"T"},` +
 		`{"url":"udp://backup.test:6969/announce","tier":1,"status":"working","answeredAt":"T","minIntervalSeconds":1800}],` +
-		`"files":[{"index":0,"path":"Harbor/Harbor.mkv","size":1000,"done":1000,"itemId":"id4"}],` +
-		`"grabs":[{"id":"id5","workId":"id3","itemId":"id4","release":"Harbor.2019.720p.HDTV","stage":"imported"}],"live":true,"announceAt":"T"}`
+		`"files":[{"index":0,"path":"Harbor/Harbor.mkv","size":1000,"done":1000,"items":["id4","id5"]}],` +
+		`"grabs":[{"id":"id6","workId":"id3","release":"Harbor.2019.720p.HDTV","stage":"imported"}],"live":true,"announceAt":"T"}`
 	if got := maskedReply(reply); got != want {
 		t.Errorf("getTorrent =\n%s\nwant\n%s", got, want)
 	}
