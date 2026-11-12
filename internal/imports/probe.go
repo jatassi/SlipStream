@@ -57,8 +57,8 @@ func (im *Imports) probeFile(ctx context.Context, imp Import, f File) error {
 }
 
 // keepProbe keeps rec as g's probe, with the quality and cut its path
-// reads as: a folder file's release name, which the Admin may edit, and
-// its Import's Edition when it has one.
+// reads as, a folder file's by its release name, which the Admin may
+// edit. Its Import's Edition, when it has one, is its cut.
 func (im *Imports) keepProbe(ctx context.Context, tx *storage.Tx[file], imp *Import, g *File, rec media.Record) error {
 	cuts, err := im.cfg.Targets.CutsIn(ctx, tx)
 	if err != nil {
@@ -70,5 +70,8 @@ func (im *Imports) keepProbe(ctx context.Context, tx *storage.Tx[file], imp *Imp
 	}
 	read, quality := scanning.QualityOf(g.Path, im.cfg.Facets[imp.ContentType], cuts.For(imp.ContentType), rec.Resolution())
 	g.Quality, g.Cut = quality, read.Facts.Cut
+	if imp.Edition != nil {
+		g.Cut = *imp.Edition
+	}
 	return nil
 }
