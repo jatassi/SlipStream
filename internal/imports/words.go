@@ -9,6 +9,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -114,10 +115,36 @@ func (w treeWording) item() string  { return w.nouns.Item.One }
 func (w treeWording) work() string  { return strings.ToLower(w.nouns.Work.One) }
 func (w treeWording) label() string { return w.tree.Label }
 
-// Sentences words each of imp's files whose reason has a sentence, by
-// position, read for its Work: with none, only the sentences that name
-// nothing of one.
-func (im *Imports) Sentences(ctx context.Context, by identity.Admin, imp Import) (map[int]string, error) {
+// FileWords is what Pending imports reads about one file of an Import.
+// Sentence is its reason worded, empty for none. A file that waits on its
+// verdict is judged alone against its Work's files now: Verdicts is each
+// Target's verdict on it, in Target order, and Forces the Targets its row
+// offers Force into.
+type FileWords struct {
+	Sentence string
+	Verdicts []TargetVerdict
+	Forces   []ForceOption
+}
+
+// TargetVerdict is a Target's verdict on a file in one sentence.
+type TargetVerdict struct {
+	Target   targets.TargetID
+	Sentence string
+}
+
+// ForceOption is a cell Force puts a file into, and the root-relative
+// paths of the library files that deletes because they fill nothing else.
+type ForceOption struct {
+	Cell    files.CellKey
+	Deletes []string
+}
+
+// judgedWaits are the waits whose Details read each Target's verdict.
+var judgedWaits = []ReasonCode{NotAnUpgrade, MeetsNothing, Confirm}
+
+// Words words each of imp's files by position, read for its Work: with
+// none, only the sentences that name nothing of one.
+func (im *Imports) Words(ctx context.Context, by identity.Admin, imp Import) (map[int]FileWords, error) {
 	ts, err := im.cfg.Targets.ListTargets(ctx, by)
 	if err != nil {
 		return nil, err
@@ -126,33 +153,110 @@ func (im *Imports) Sentences(ctx context.Context, by identity.Admin, imp Import)
 	for _, t := range ts {
 		names[t.ID] = t.Name
 	}
-	var w treeWording
+	out := map[int]FileWords{}
 	err = im.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		cuts, err := im.cfg.Targets.CutsIn(ctx, r)
+		w, err := im.wordingOf(ctx, r, imp, names)
 		if err != nil {
 			return err
 		}
-		var tree works.Tree
-		if !imp.Work.IsZero() {
-			if tree, err = im.cfg.Works.TreeIn(ctx, r, imp.Work); err != nil {
-				return err
+		for _, f := range imp.Files {
+			if f.Reason == nil {
+				continue
 			}
+			fw := FileWords{Sentence: f.Reason.sentence(w)}
+			if f.Outcome == Waiting && slices.Contains(judgedWaits, f.Reason.Code) {
+				if fw.Verdicts, fw.Forces, err = im.judgeAlone(ctx, r, &imp, f, ts, w); err != nil {
+					return err
+				}
+			}
+			out[f.Position] = fw
 		}
-		nouns, _ := im.cfg.Works.Describe(imp.ContentType)
-		w = newWording(tree, nouns, names, cuts.For(imp.ContentType))
 		return nil
 	})
+	return out, err
+}
+
+// wordingOf is the wording of imp's Work in r, with names for its Targets.
+func (im *Imports) wordingOf(ctx context.Context, r storage.Reader[file], imp Import, names map[targets.TargetID]string) (treeWording, error) {
+	cuts, err := im.cfg.Targets.CutsIn(ctx, r)
 	if err != nil {
-		return nil, err
+		return treeWording{}, err
 	}
-	out := map[int]string{}
-	for _, f := range imp.Files {
-		if f.Reason == nil {
+	var tree works.Tree
+	if !imp.Work.IsZero() {
+		if tree, err = im.cfg.Works.TreeIn(ctx, r, imp.Work); err != nil {
+			return treeWording{}, err
+		}
+	}
+	nouns, _ := im.cfg.Works.Describe(imp.ContentType)
+	return newWording(tree, nouns, names, cuts.For(imp.ContentType)), nil
+}
+
+// judgeAlone judges f alone against its Work's files in r: each of ts's
+// verdicts on it, and, when its row offers Force, each Target it can be
+// forced into with the files that deletes.
+func (im *Imports) judgeAlone(ctx context.Context, r storage.Reader[file], imp *Import, f File, ts []targets.Target, w treeWording) ([]TargetVerdict, []ForceOption, error) {
+	root, err := imp.rootOf(ctx, r)
+	if err != nil {
+		return nil, nil, err
+	}
+	cands, err := im.candidates(ctx, r, imp, root.ID, []int{indexOf(imp, f.Position)})
+	if err != nil {
+		return nil, nil, err
+	}
+	judge := func(force []files.CellKey) (files.Verdict, error) {
+		c := cands[0]
+		c.Force = force
+		vs, err := im.cfg.Files.Judge(ctx, r, files.Batch{Work: imp.Work, Root: root.ID, Import: imp.ID.UUID, Candidates: []files.Candidate{c}})
+		if err != nil {
+			return files.Verdict{}, err
+		}
+		return vs[0], nil
+	}
+	v, err := judge(cands[0].Force)
+	if err != nil {
+		return nil, nil, err
+	}
+	var verdicts []TargetVerdict
+	for _, t := range ts {
+		if _, ok := v.Reasons[t.ID]; ok {
+			verdicts = append(verdicts, TargetVerdict{Target: t.ID, Sentence: verdictSentence(v, t.ID, w)})
+		}
+	}
+	if _, also := f.Actions(*imp); !slices.Contains(also, ActForce) {
+		return verdicts, nil, nil
+	}
+	var forces []ForceOption
+	for _, cell := range v.Meets {
+		if _, lost := v.Lost[cell]; !lost || slices.ContainsFunc(forces, func(o ForceOption) bool { return o.Cell.Target == cell.Target }) {
 			continue
 		}
-		if s := f.Reason.sentence(w); s != "" {
-			out[f.Position] = s
+		forced, err := judge([]files.CellKey{cell})
+		if err != nil {
+			return nil, nil, err
 		}
+		o := ForceOption{Cell: cell}
+		for _, d := range forced.Replaces {
+			o.Deletes = append(o.Deletes, d.Path)
+		}
+		forces = append(forces, o)
 	}
-	return out, nil
+	return verdicts, forces, nil
+}
+
+// verdictSentence is target's verdict on v's file: it fills a cell of
+// target, a file the Work has holds the cells it meets, or it doesn't
+// meet target.
+func verdictSentence(v files.Verdict, target targets.TargetID, w treeWording) string {
+	of := func(cells []files.CellKey) bool {
+		return slices.ContainsFunc(cells, func(c files.CellKey) bool { return c.Target == target })
+	}
+	name := w.names[target]
+	switch {
+	case of(v.Fills):
+		return "Fills " + name + " for " + w.label() + "."
+	case of(v.Meets):
+		return "This isn't better than the file you have for " + name + "."
+	}
+	return "This doesn't meet " + name + "."
 }
