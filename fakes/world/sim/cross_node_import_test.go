@@ -18,15 +18,14 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/internal/imports"
-	"github.com/jatassi/slipstream/internal/media/mediatest"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/transfers"
 )
 
-// copperFolder is the series folder a folder's files lie in, whose name
-// matches The Copper Coast in the library.
-const copperFolder = "The Copper Coast (2022)"
+// copperFolder is the season pack's folder a folder's files lie in, whose
+// release name matches The Copper Coast in the library.
+const copperFolder = "The.Copper.Coast.S01.720p.WEB-DL.H264-FKW"
 
 func episodeName(n int) string {
 	return "The.Copper.Coast.S01E" + strconv.Itoa(100 + n)[1:] + ".720p.WEB-DL.H264-FKW.mkv"
@@ -84,24 +83,14 @@ type crossNode struct {
 	downloads string
 }
 
-// launchCrossNode launches the world with edit on seedbox, which probes
-// each episode in copperFolder as the season pack's copy of it.
+// launchCrossNode launches the world with edit on seedbox.
 func launchCrossNode(t *testing.T, edit func(e *node.Env), opts ...sim.Option) crossNode {
 	t.Helper()
 	s, err := scenario.Load("packs")
 	if err != nil {
 		t.Fatal(err)
 	}
-	w := sim.Launch(t, s, append([]sim.Option{sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) {
-		probes, ok := e.Media.(mediatest.Prober)
-		if !ok {
-			t.Fatalf("seedbox probes with %T, want the walk's mediatest.Prober", e.Media)
-		}
-		for n := 1; n <= 10; n++ {
-			probes.Of[copperFolder+"/"+episodeName(n)] = probes.Of["The.Copper.Coast.S01.720p.WEB-DL.H264-FKW/"+episodeName(n)]
-		}
-		edit(e)
-	})}, opts...)...)
+	w := sim.Launch(t, s, append([]sim.Option{sim.WithWalk(), simtest.OnSeedbox(edit)}, opts...)...)
 	added := simtest.Decode[struct {
 		Work struct {
 			ID string `json:"id"`

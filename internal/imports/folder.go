@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports/internal/db"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/scanning"
@@ -215,12 +216,28 @@ func (m matcher) match(names ...string) (t works.TypeID, work works.WorkID) {
 			continue
 		}
 		for _, t := range m.types {
-			if w := m.shelves[t].Match("", m.im.cfg.Facets[t].Hint(name)).Work; !w.IsZero() {
-				return t, w
+			for _, h := range m.hints(t, name) {
+				if w := m.shelves[t].Match("", h).Work; !w.IsZero() {
+					return t, w
+				}
 			}
 		}
 	}
 	return "", works.WorkID{}
+}
+
+// hints are what name says to type t: read as a library folder names a
+// Work, then as a release names one, by each title it gives with its
+// year, as in Show.Name.S01.1080p.WEB-DL.
+func (m matcher) hints(t works.TypeID, name string) []scanning.Hint {
+	facet := m.im.cfg.Facets[t]
+	out := []scanning.Hint{facet.Hint(name)}
+	read := release.Title(name, facet, nil).Name
+	year, _ := read.Year.Get()
+	for _, title := range read.Titles {
+		out = append(out, scanning.Hint{Title: title, Year: year})
+	}
+	return out
 }
 
 // SetMoveFiles turns Move files on or off for the folder Imports ids. On
