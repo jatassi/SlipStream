@@ -37,6 +37,7 @@ func (s Stage) InFlight() bool { return s != Imported && s != Failed }
 // has no Torrent, so asking panics.
 func (s Stage) Use() downloadclients.UseStage {
 	switch s {
+	case Fetching:
 	case Downloading:
 		return downloadclients.UseDownloading
 	case Probing, Transferring, Importing:

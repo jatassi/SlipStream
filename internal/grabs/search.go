@@ -515,18 +515,26 @@ func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], n newGrab
 			return Grab{}, err
 		}
 	}
+	if err := insertCells(ctx, q, g); err != nil {
+		return Grab{}, err
+	}
+	return g, q.InsertStage(ctx, db.InsertStageParams{GrabID: g.ID, Stage: Fetching, EnteredAt: now})
+}
+
+// insertCells inserts g's Items and the cells it holds.
+func insertCells(ctx context.Context, q *db.Queries, g Grab) error {
 	for i, item := range g.Items {
 		if err := q.InsertGrabItem(ctx, db.InsertGrabItemParams{GrabID: g.ID, ItemID: item, Position: int64(i)}); err != nil {
-			return Grab{}, err
+			return err
 		}
 	}
 	for i, c := range g.Targets {
 		p := db.InsertTargetParams{GrabID: g.ID, Position: int64(i), ItemID: c.Key.Item, TargetID: c.Key.Target, Forced: c.Forced}
 		if err := q.InsertTarget(ctx, p); err != nil {
-			return Grab{}, err
+			return err
 		}
 	}
-	return g, q.InsertStage(ctx, db.InsertStageParams{GrabID: g.ID, Stage: Fetching, EnteredAt: now})
+	return nil
 }
 
 // Searches lists work's search runs, newest first.
