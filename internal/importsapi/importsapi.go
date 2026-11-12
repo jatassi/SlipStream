@@ -217,8 +217,9 @@ type importFailure struct {
 }
 
 type converter struct {
-	m     artwork.Minter
-	roots map[roots.ID]string
+	m         artwork.Minter
+	roots     map[roots.ID]string
+	sentences map[imports.ImportID]map[int]string
 }
 
 func (c converter) label(id roots.ID) rootLabel {
@@ -253,7 +254,7 @@ func (c converter) entry(e imports.Import) importEntry {
 		out.FinishedAt = new(e.Finished.Time())
 	}
 	for i, f := range e.Files {
-		out.Files[i] = c.file(f)
+		out.Files[i] = c.file(e, f)
 	}
 	if e.Source == imports.FromRoot {
 		slices.SortFunc(out.Files, func(a, b importFile) int { return strings.Compare(a.Path, b.Path) })
@@ -287,7 +288,7 @@ func (c converter) suggestion(s imports.Suggestion) suggestion {
 	return out
 }
 
-func (c converter) file(f imports.File) importFile {
+func (c converter) file(e imports.Import, f imports.File) importFile {
 	out := importFile{
 		Position: f.Position, Path: f.Path, Size: f.Size, Cut: string(f.Cut), Outcome: string(f.Outcome), ItemIDs: make([]string, len(f.Items)),
 		Fills: []cellRef{}, Verdicts: []targetVerdict{}, Actions: []api.Enum[action]{}, Forces: []forceOption{},
@@ -304,11 +305,27 @@ func (c converter) file(f imports.File) importFile {
 	for i, it := range f.Items {
 		out.ItemIDs[i] = it.String()
 	}
+	for _, fl := range f.Fills {
+		out.Fills = append(out.Fills, cellRef{ItemID: fl.Cell.Item.String(), Edition: string(fl.Cell.Edition), TargetID: fl.Cell.Target.String()})
+	}
+	recommended, also := f.Actions(e)
+	if recommended != "" {
+		out.Recommended = api.Some(api.NewEnum[action](string(recommended)))
+	}
+	for _, a := range also {
+		out.Actions = append(out.Actions, api.NewEnum[action](string(a)))
+	}
 	if f.Reason == nil {
 		return out
 	}
 	r := f.Scan()
-	rs := reason{Code: string(r.Code), Title: r.Title, Year: r.Year, Count: r.Count, Names: r.Names, Line: r.Line}
+	rs := reason{Code: string(f.Reason.Code), Title: r.Title, Year: r.Year, Count: r.Count, Names: r.Names, Line: r.Line}
+	if f.Reason.Scan == nil {
+		rs.Line = f.Reason.Line
+	}
+	if said, ok := c.sentences[e.ID][f.Position]; ok {
+		rs.Sentence = api.Some(said)
+	}
 	if id, err := storage.ParseUUID(r.Root); err == nil {
 		rs.Root = new(c.label(roots.ID{UUID: id}))
 	}
@@ -587,7 +604,12 @@ func (h handlers) list(ctx context.Context, by identity.Admin, in *listInput) (*
 	if err != nil {
 		return nil, answer(err)
 	}
-	c := converter{m: minter(h.pending), roots: l.Roots}
+	c := converter{m: minter(h.pending), roots: l.Roots, sentences: map[imports.ImportID]map[int]string{}}
+	for _, e := range l.Imports {
+		if c.sentences[e.ID], err = open(h.pending).Sentences(ctx, by, e); err != nil {
+			return nil, err
+		}
+	}
 	out := list{Leads: make([]lead, len(l.Leads)), Imports: make([]importEntry, len(l.Imports))}
 	for i, ld := range l.Leads {
 		out.Leads[i] = lead{Root: c.label(ld.Root), ContentType: string(ld.ContentType), Added: ld.Added, NeedsYou: ld.NeedsYou}
@@ -610,7 +632,12 @@ func (h handlers) get(ctx context.Context, by identity.Admin, in *importIDInput)
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &entryOutput{Body: converter{m: minter(h.pending), roots: words}.entry(e)}, nil
+	said, err := open(h.pending).Sentences(ctx, by, e)
+	if err != nil {
+		return nil, err
+	}
+	c := converter{m: minter(h.pending), roots: words, sentences: map[imports.ImportID]map[int]string{e.ID: said}}
+	return &entryOutput{Body: c.entry(e)}, nil
 }
 
 func (h handlers) add(ctx context.Context, by identity.Admin, in *importIDsInput) (*addedOutput, error) {

@@ -321,17 +321,27 @@ func (w *world) place(t *testing.T, work works.Tree, p string) {
 	}
 }
 
-// itemsOf is the Items of work's library file at p.
-func (w *world) itemsOf(t *testing.T, work works.WorkID, p string) []works.ItemID {
+// itemsOfFile is the Items work's file id holds.
+func (w *world) itemsOfFile(t *testing.T, work works.WorkID, id files.ID) []works.ItemID {
 	t.Helper()
 	l, err := w.files.WorkFiles(t.Context(), identity.Admin{}, work)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, f := range l.Files {
-		if f.Path == p {
+		if f.ID == id {
 			return f.Items
 		}
 	}
 	return nil
+}
+
+// stored is Import id as its rows read.
+func (w *world) stored(t *testing.T, id ImportID) *Import {
+	t.Helper()
+	imp, err := importOf(t.Context(), w.lib, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &imp
 }

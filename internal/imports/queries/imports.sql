@@ -102,3 +102,57 @@ UPDATE imports_settings SET video_extensions = ?, smallest_video = ?, sample_sho
 -- name: ListUnfinishedPaths :many
 SELECT f.path FROM imports_file f JOIN imports_import i ON i.id = f.import_id
 WHERE i.finished_at IS NULL AND f.outcome NOT IN ('left_out', 'not_better', 'placed', 'declined', 'failed') ORDER BY f.import_id, f.position;
+
+-- name: ListFills :many
+SELECT * FROM imports_file_fill ORDER BY import_id, position, item_id, edition, target_id;
+
+-- name: ListFillsOf :many
+SELECT * FROM imports_file_fill WHERE import_id = ? ORDER BY position, item_id, edition, target_id;
+
+-- name: InsertFill :exec
+INSERT INTO imports_file_fill (import_id, position, item_id, edition, target_id, forced) VALUES (?, ?, ?, ?, ?, ?);
+
+-- name: DeleteFills :exec
+DELETE FROM imports_file_fill WHERE import_id = ? AND position = ?;
+
+-- name: ListBusy :many
+SELECT DISTINCT fi.item_id, f.import_id FROM imports_file_item fi
+JOIN imports_file f ON f.import_id = fi.import_id AND f.position = fi.position
+JOIN imports_import i ON i.id = f.import_id
+WHERE i.finished_at IS NULL AND i.work_id IS NOT NULL AND fi.item_id IN (sqlc.slice(item_ids)) AND f.import_id <> sqlc.arg(except)
+  AND (f.outcome IN ('sending', 'placing') OR (f.outcome = 'pending' AND i.created_at < sqlc.arg(created)))
+ORDER BY fi.item_id, f.import_id;
+
+-- name: ListImporting :many
+SELECT DISTINCT fi.item_id, f.import_id FROM imports_file_item fi
+JOIN imports_file f ON f.import_id = fi.import_id AND f.position = fi.position
+JOIN imports_import i ON i.id = f.import_id
+WHERE i.finished_at IS NULL AND i.work_id IS NOT NULL AND fi.item_id IN (sqlc.slice(item_ids))
+  AND f.outcome IN ('pending', 'waiting', 'sending', 'placing')
+ORDER BY fi.item_id, f.import_id;
+
+-- name: ListCopies :many
+SELECT f.import_id, f.position, f.root_id, f.size FROM imports_file f JOIN imports_import i ON i.id = f.import_id
+WHERE i.finished_at IS NULL AND f.outcome = 'placing' AND f.placed_by = 'copy' ORDER BY f.import_id, f.position;
+
+-- name: ListUnfinished :many
+SELECT * FROM imports_import WHERE finished_at IS NULL AND source <> 'root' OR finished_at IS NULL AND id IN (
+    SELECT import_id FROM imports_file WHERE outcome IN ('pending', 'placing') OR outcome = 'waiting' AND json_extract(reason, '$.code') = 'busy'
+) ORDER BY id;
+
+-- name: ListHolding :many
+SELECT f.root_id, f.dest FROM imports_file f JOIN imports_import i ON i.id = f.import_id
+WHERE i.finished_at IS NULL AND f.dest IS NOT NULL AND i.source <> 'root'
+  AND (f.outcome IN ('pending', 'waiting', 'sending', 'placing') OR f.outcome = 'failed' AND json_extract(f.reason, '$.code') = 'import_failed')
+ORDER BY f.root_id, f.dest;
+
+-- name: ListUnfinishedOf :many
+SELECT id FROM imports_import WHERE finished_at IS NULL AND work_id IN (sqlc.slice(work_ids)) ORDER BY id;
+
+-- name: CountUnfinishedInto :one
+SELECT count(DISTINCT i.id) FROM imports_import i
+WHERE i.finished_at IS NULL AND (i.root_id = sqlc.arg(root_id) OR i.work_id IN (sqlc.slice(work_ids))
+   OR EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.root_id = sqlc.arg(root_id)));
+
+-- name: ForgetRoot :exec
+UPDATE imports_file SET root_id = NULL, dest = NULL WHERE imports_file.root_id = ? AND import_id IN (SELECT id FROM imports_import WHERE finished_at IS NOT NULL);

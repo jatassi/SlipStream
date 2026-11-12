@@ -47,6 +47,9 @@ type Test struct {
 	// BeforeScanStep sees each phase of a root's Library scan unit before
 	// it runs.
 	BeforeScanStep func(context.Context, roots.ID, imports.Phase)
+	// BeforeImport sees each Import file's probe, place and landing on the
+	// Controller before it runs.
+	BeforeImport func(context.Context, imports.Step)
 	// Today stands in for the Node's clock where it decides which Items
 	// are out and which years a search names, for a synctest bubble, whose
 	// time starts in 2000.

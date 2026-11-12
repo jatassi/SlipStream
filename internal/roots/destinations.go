@@ -67,3 +67,16 @@ func DestinationsIn(ctx context.Context, rd storage.Reader[file], ids []ID, s St
 	}
 	return out, nil
 }
+
+// DestinationIn is root id as a place into it reads it, in rd.
+func (r *Roots) DestinationIn(ctx context.Context, rd storage.Reader[file], id ID) (Destination, error) {
+	ds, err := DestinationsIn(ctx, rd, []ID{id}, r.cfg.Storage, r.cfg.Roster)
+	if err != nil {
+		return Destination{}, err
+	}
+	d, ok := ds[id]
+	if !ok {
+		return Destination{}, ErrNotFound
+	}
+	return d, nil
+}

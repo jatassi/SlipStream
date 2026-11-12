@@ -135,7 +135,8 @@ func TestEverySpecReasonHasItsSentenceAndAction(t *testing.T) {
 		if got != want {
 			t.Errorf("%s: sentence %q, want %q", code, got, want)
 		}
-		recommended, also := File{Outcome: Waiting, Reason: &r}.Actions(grab)
+		f := File{Outcome: Waiting, Reason: &r}
+		recommended, also := f.Actions(grab)
 		wantRec := actionWords(row[2])
 		if got := slices.DeleteFunc([]ActionKind{recommended}, func(a ActionKind) bool { return a == "" }); !slices.Equal(got, wantRec) {
 			t.Errorf("%s: recommends %v, want %v", code, got, wantRec)

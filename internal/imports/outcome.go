@@ -12,9 +12,11 @@ import (
 
 // moves is every change of outcome setFile allows. A file may also be
 // written again in the outcome it has. Final outcomes move nowhere, except
-// a failed file the Admin retries.
+// a failed file the Admin retries and a file a setting alone left out,
+// which waits settings once nothing else of its Import is left.
 var moves = map[Outcome][]Outcome{
 	Pending:   {LeftOut, NotBetter, Waiting, Sending, Placing, FailedOut, Declined},
+	LeftOut:   {Waiting},
 	Waiting:   {Pending, Sending, Placing, Placed, Declined},
 	Sending:   {Placing, FailedOut, Declined},
 	Placing:   {Placed, Waiting, FailedOut, Declined},

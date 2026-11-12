@@ -147,7 +147,7 @@ func (im *Imports) joinIn(ctx context.Context, tx *storage.Tx[file], s *scan, g 
 	if err != nil {
 		return files.Scanned{}, err
 	}
-	_, err = im.keep(ctx, tx, e, work, placed, rest)
+	err = im.keep(ctx, tx, e, work, placed, rest)
 	return scanned, err
 }
 

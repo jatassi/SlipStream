@@ -166,7 +166,7 @@ func (r Reason) sentence(w wording) string {
 // Actions is what f offers now, recommended first, empty for none: its
 // reason's rule while it waits, Retry and Don't import on an offered hold,
 // and Not this Release only on a grab Import.
-func (f File) Actions(im Import) (recommended ActionKind, also []ActionKind) {
+func (f *File) Actions(im Import) (recommended ActionKind, also []ActionKind) {
 	switch {
 	case f.Hold != nil && f.Hold.offered():
 		return ActRetry, []ActionKind{ActDecline}

@@ -315,25 +315,23 @@ func (im *Imports) share(ctx context.Context, s *scan, work works.WorkID, sh sca
 	return nil
 }
 
-// probe reads each of ws's media records on the root's Node,
-// library.scan.probes at a time. A file the read couldn't reach, such as
-// one gone since the walk, has no answer: the next scan reads it again.
+// probe reads each of ws's media records on the root's Node, taking that
+// Node's library.scan.probes slots with every Import probing there. A
+// file the read couldn't reach, such as one gone since the walk, has no
+// answer: the next scan reads it again.
 func (im *Imports) probe(ctx context.Context, s *scan, ws []storing.Walked) map[storing.Rel]files.Probe {
 	out := make(map[storing.Rel]files.Probe, len(ws))
 	var (
 		mu sync.Mutex
 		wg sync.WaitGroup
 	)
-	slots := make(chan struct{}, s.known.probes)
 	for _, w := range ws {
-		select {
-		case slots <- struct{}{}:
-		case <-ctx.Done():
+		if !im.probes.take(ctx, s.at.Node, s.known.probes) {
 			wg.Wait()
 			return out
 		}
 		wg.Go(func() {
-			defer func() { <-slots }()
+			defer im.probes.give(s.at.Node)
 			rec, err := im.cfg.Remote.Probe(ctx, s.at, w.Path)
 			p := files.Probe{Media: rec}
 			if u, ok := errors.AsType[*media.UnreadableError](err); ok {

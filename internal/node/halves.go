@@ -423,7 +423,14 @@ func (n *Node) startController(ctx context.Context) error {
 		Hub:          n.hub,
 		Changed:      imports.ChangedEvent.Bind(n.hub),
 		FilesChanged: files.ChangedEvent.Bind(n.hub),
+		Probes: func(node role.NodeID) mediav1connect.MediaServiceHandler {
+			return mediav1connect.MediaService.On(cluster, node)
+		},
+		Transfers:    copies,
+		Timings:      imports.Timings{RetryMin: n.cfg.Timings.Grabs.RetryMin, RetryMax: n.cfg.Timings.Grabs.RetryMax},
+		Rand:         n.importsRand,
 		BeforeStep:   n.env.Test.BeforeScanStep,
+		BeforeImport: n.env.Test.BeforeImport,
 		Log:          n.rootLog.With("subsystem", "imports"),
 	})
 	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Grabs: pipeline, Leaver: found})

@@ -1,13 +1,17 @@
 package imports
 
 import (
+	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -78,7 +82,7 @@ func numbersWords(noun works.Noun, ns []int) string {
 			runs = append(runs, fmt.Sprintf("%d to %d", ns[i], ns[k]))
 		} else {
 			for _, n := range ns[i : k+1] {
-				runs = append(runs, fmt.Sprint(n))
+				runs = append(runs, strconv.Itoa(n))
 			}
 		}
 		i = k + 1
@@ -109,3 +113,46 @@ func (w treeWording) edition(cut release.CutKey) string {
 func (w treeWording) item() string  { return w.nouns.Item.One }
 func (w treeWording) work() string  { return strings.ToLower(w.nouns.Work.One) }
 func (w treeWording) label() string { return w.tree.Label }
+
+// Sentences words each of imp's files whose reason has a sentence, by
+// position, read for its Work: with none, only the sentences that name
+// nothing of one.
+func (im *Imports) Sentences(ctx context.Context, by identity.Admin, imp Import) (map[int]string, error) {
+	ts, err := im.cfg.Targets.ListTargets(ctx, by)
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[targets.TargetID]string, len(ts))
+	for _, t := range ts {
+		names[t.ID] = t.Name
+	}
+	var w treeWording
+	err = im.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		cuts, err := im.cfg.Targets.CutsIn(ctx, r)
+		if err != nil {
+			return err
+		}
+		var tree works.Tree
+		if !imp.Work.IsZero() {
+			if tree, err = im.cfg.Works.TreeIn(ctx, r, imp.Work); err != nil {
+				return err
+			}
+		}
+		nouns, _ := im.cfg.Works.Describe(imp.ContentType)
+		w = newWording(tree, nouns, names, cuts.For(imp.ContentType))
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := map[int]string{}
+	for _, f := range imp.Files {
+		if f.Reason == nil {
+			continue
+		}
+		if s := f.Reason.sentence(w); s != "" {
+			out[f.Position] = s
+		}
+	}
+	return out, nil
+}

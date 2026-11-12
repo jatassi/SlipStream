@@ -2,6 +2,7 @@ package imports
 
 import (
 	"context"
+	"sync"
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports/internal/db"
@@ -11,13 +12,17 @@ import (
 	"github.com/jatassi/slipstream/internal/tasks"
 )
 
-// Run starts the first scan of each root until ctx ends: at start and
-// after each roots.changed or nodes.changed, every root Ready at a place
-// no comparison of it has been at starts its unit, once per place while
+// Run reconciles the unfinished Imports and starts the first scan of each
+// root until ctx ends. At start and after each roots.changed or
+// nodes.changed, every root Ready at a place no comparison of it has been
+// at starts its unit, once per place while
 // this process runs. A new root's first Ready report and a finished
 // re-home are both a new place, and a crash before the comparison
 // finished leaves the place uncompared, so this one rule starts all three.
 func (im *Imports) Run(ctx context.Context) error {
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	wg.Go(func() { im.reconcile(ctx) })
 	woken := im.cfg.Hub.Watch(ctx, roots.ChangedEvent, nodes.ChangedEvent)
 	asked := map[roots.ID]int64{}
 	for {

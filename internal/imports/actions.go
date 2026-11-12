@@ -87,15 +87,14 @@ func (im *Imports) attachEntry(ctx context.Context, tx *storage.Tx[file], id Imp
 	if err != nil {
 		return err
 	}
-	_, err = im.keep(ctx, tx, e, work, placed, rest)
-	return err
+	return im.keep(ctx, tx, e, work, placed, rest)
 }
 
 // keep writes what attaching e's files to work made of them. Each of
 // placed that e lists is placed in place. Each of rest waits, appended
 // when e doesn't list it yet. Every other waiting file of e is gone. While
 // a file waits, work is e's suggestion.
-func (im *Imports) keep(ctx context.Context, tx *storage.Tx[file], e Import, work works.WorkID, placed, rest []File) (Import, error) {
+func (im *Imports) keep(ctx context.Context, tx *storage.Tx[file], e Import, work works.WorkID, placed, rest []File) error {
 	now := map[int]File{}
 	for _, f := range placed {
 		if f.Position >= 0 {
@@ -124,14 +123,13 @@ func (im *Imports) keep(ctx context.Context, tx *storage.Tx[file], e Import, wor
 	if len(rest) > 0 {
 		tree, err := im.cfg.Works.TreeIn(ctx, tx, work)
 		if err != nil {
-			return Import{}, err
+			return err
 		}
 		s := im.suggestionOf(tree)
 		s.WorkID = work
 		e.Suggestion = &s
 	}
-	err := save(ctx, tx, &e)
-	return e, err
+	return save(ctx, tx, &e)
 }
 
 func (im *Imports) suggestionOf(t works.Tree) Suggestion {
@@ -203,45 +201,66 @@ type Chosen struct {
 	Items    []works.ItemID
 }
 
-// Into attaches the chosen files to work, a Work in the root Import's
-// root, at the Items chosen, in one Write. It answers the Import, finished
-// once no file waits. ErrNoImport, ErrChanged when the Import no longer
-// has a chosen file waiting, ErrElsewhere and ErrNotOfWork refuse it
-// whole. A chosen file ffprobe can't read stays.
+// Into takes the chosen files into work, a Work in the root Import's
+// root, at the Items chosen: in one Write each joins the decision, and
+// each the decision places lands where it sits, which may doom the files
+// it replaces. It answers the Import, finished once no file waits.
+// ErrNoImport, ErrChanged when the Import no longer has a chosen file
+// waiting or still lands files into another Work, ErrElsewhere and
+// ErrNotOfWork refuse it whole. A chosen file ffprobe can't read stays.
 func (im *Imports) Into(ctx context.Context, _ identity.Admin, id ImportID, work works.WorkID, chosen []Chosen) (Import, error) {
-	var (
-		left  Import
-		moved bool
-	)
-	err := im.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		e, err := importOf(ctx, tx, id)
-		if err != nil {
-			return err
-		}
-		items, err := works.ItemsOf(ctx, tx, works.Only([]works.WorkID{work}))
-		if err != nil {
-			return err
-		}
-		picked, rest, err := pick(e, items[work], chosen)
-		if err != nil {
-			return err
-		}
-		scanned, placed, unread, err := im.attach(ctx, tx, work, e.Root, picked)
-		if err != nil {
-			return err
-		}
-		moved = scanned.Changed
-		left, err = im.keep(ctx, tx, e, work, placed, append(rest, unread...))
-		return err
+	e, err := im.write(ctx, id, func(ctx context.Context, tx *storage.Tx[file], cur *Import, _ *after) error {
+		return im.into(ctx, tx, cur, work, chosen)
 	})
 	if err != nil {
 		return Import{}, err
 	}
-	im.cfg.Changed.Publish(ctx, changedOf(left.Root))
-	if moved {
-		im.cfg.FilesChanged.Publish(ctx, files.Changed{WorkID: work.String()})
+	for _, f := range e.Files {
+		if f.Outcome == Placing {
+			if err := im.place(ctx, e, f); err != nil {
+				return Import{}, err
+			}
+		}
 	}
-	return left, nil
+	return importOf(ctx, im.cfg.Library, id)
+}
+
+// into makes cur's chosen files that ffprobe read pending in work at their
+// chosen Items, for the decision to take, and work cur's suggestion.
+func (im *Imports) into(ctx context.Context, tx *storage.Tx[file], cur *Import, work works.WorkID, chosen []Chosen) error {
+	home, err := roots.OfWork(ctx, tx, work)
+	switch {
+	case errors.Is(err, roots.ErrNoRoot) || err == nil && home.ID != cur.Root:
+		return ErrElsewhere
+	case err != nil:
+		return err
+	}
+	if cur.Work != work && slices.ContainsFunc(cur.Files, func(f File) bool { return f.Outcome == Pending || f.Outcome == Placing }) {
+		return ErrChanged
+	}
+	items, err := works.ItemsOf(ctx, tx, works.Only([]works.WorkID{work}))
+	if err != nil {
+		return err
+	}
+	picked, _, err := pick(*cur, items[work], chosen)
+	if err != nil {
+		return err
+	}
+	for _, p := range picked {
+		if p.Probe == nil {
+			continue
+		}
+		f := fileAt(cur, p.Position)
+		f.Items, f.Outcome, f.Reason = p.Items, Pending, nil
+	}
+	tree, err := im.cfg.Works.TreeIn(ctx, tx, work)
+	if err != nil {
+		return err
+	}
+	s := im.suggestionOf(tree)
+	s.WorkID = work
+	cur.Work, cur.Suggestion = work, &s
+	return nil
 }
 
 // pick splits e's waiting files into the chosen ones, each holding its
