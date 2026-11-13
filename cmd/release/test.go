@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
 )
@@ -239,10 +240,21 @@ func testBrowser(ctx context.Context, root string, o testOptions) error {
 	return runPlaywright(ctx, web, env, o, selected)
 }
 
+// shardBudget ends a browser shard's Playwright runs before CI's 30 minute
+// job limit. A shard that outgrows it fails with a report naming the tests
+// it never finished and keeps the timings of those it did, which the next
+// runs split by. A job cut off at the limit records nothing, so its tests
+// stay unseen and the same split overruns again.
+const shardBudget = 25 * time.Minute
+
 func runPlaywright(ctx context.Context, web string, env []string, o testOptions, selected string) error {
 	var reports []string
 	var err error
+	deadline := time.Now().Add(shardBudget)
 	for i, args := range playwrightRuns(o, selected) {
+		if o.shard != (shard{}) {
+			args = append(args, "--global-timeout="+strconv.FormatInt(max(time.Until(deadline).Milliseconds(), 1), 10))
+		}
 		runEnv := env
 		if o.record != "" {
 			report := filepath.Join(filepath.Dir(selected), "report-"+strconv.Itoa(i)+".json")
