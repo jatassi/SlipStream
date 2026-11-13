@@ -45,6 +45,8 @@ func TestTestRefusesFlagsTheTierDoesNotTake(t *testing.T) {
 		{[]string{"-tier", "component", "-timings", "t"}, "-timings and -record need -tier go, e2e or browser"},
 		{[]string{"-tier", "go", "-shard", "1/2", "./internal/..."}, `go test arguments ["./internal/..."] pick the tests themselves, so they take none of -shard, -filter, -repeat, -timings or -record`},
 		{[]string{"-tier", "go", "-repeat", "0"}, "-repeat 0 is not a positive count"},
+		{[]string{"-tier", "e2e", "-deadline", "1794600000"}, "-deadline needs -tier browser"},
+		{[]string{"-tier", "browser", "-deadline", "soon"}, `parse flags: invalid value "soon" for flag -deadline: -deadline "soon" is not a Unix time in seconds`},
 		{[]string{"-tier", "go", "-shard", "3/2"}, `parse flags: invalid value "3/2" for flag -shard: shard "3/2" is not i/n with 1 <= i <= n`},
 	} {
 		if err := runTest(t.Context(), c.args); err == nil || err.Error() != c.want {

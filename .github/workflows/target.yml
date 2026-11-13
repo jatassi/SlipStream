@@ -299,6 +299,10 @@ jobs:
       REPEAT: ${{ inputs.repeat }}
       EXE: ${{ matrix.goos == 'windows' && '.exe' || '' }}
     steps:
+      # The test step ends its Playwright runs 2 minutes before the job's
+      # limit, so a shard that runs long still reports and records timings.
+      - name: Note when the browser tests must end
+        run: echo "DEADLINE=$(( $(date +%s) + 28 * 60 ))" >> "$GITHUB_ENV"
       - name: Check out the repository
         uses: actions/checkout@v7
       - name: Download dist/ from the build job
@@ -368,7 +372,7 @@ jobs:
       - name: Run browser test shard
         id: test
         run: |
-          "dist/release$EXE" test -tier browser -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-browser-${{ matrix.shard }}.json"
+          "dist/release$EXE" test -tier browser -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-browser-${{ matrix.shard }}.json" -deadline "$DEADLINE"
         env:
           TEST_SLIPSTREAM_BINARY: ${{ github.workspace }}/dist/slipstream${{ env.EXE }}
           TEST_FAKEWORLD_BINARY: ${{ github.workspace }}/dist/fakeworld${{ env.EXE }}
