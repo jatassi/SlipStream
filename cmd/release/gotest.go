@@ -398,7 +398,9 @@ type packageTimings struct {
 // the target has no timings for takes them from the first other target,
 // in name order, that has it, and a target that recorded no CPUs takes
 // the CPUs of the first target that filled a package. Partition uses only
-// how the seconds compare, so another runner's need no scaling.
+// how the seconds compare, so another runner's need no scaling. Within a
+// package the target has, a test it never recorded takes another target's
+// seconds as fillTests scales them.
 func loadTimings(dir, target string) (timings, error) {
 	byTarget := map[string]*timings{target: {Target: target, Packages: map[string]packageTimings{}}}
 	if dir == "" {
@@ -423,6 +425,7 @@ func loadTimings(dir, target string) (timings, error) {
 		byTarget[t.Target].add(t)
 	}
 	merged := byTarget[target]
+	fillUnseenTests(byTarget, target)
 	for _, name := range slices.Sorted(maps.Keys(byTarget)) {
 		other := byTarget[name]
 		supplied := false
@@ -437,6 +440,43 @@ func loadTimings(dir, target string) (timings, error) {
 		}
 	}
 	return *merged, nil
+}
+
+// fillUnseenTests fills each package the target recorded with the tests
+// it never ran, from every other target in name order.
+func fillUnseenTests(byTarget map[string]*timings, target string) {
+	for pkg, own := range byTarget[target].Packages {
+		recorded := maps.Clone(own.Tests)
+		for _, name := range slices.Sorted(maps.Keys(byTarget)) {
+			if name != target {
+				fillTests(recorded, own.Tests, byTarget[name].Packages[pkg].Tests)
+			}
+		}
+	}
+}
+
+// fillTests gives each test of theirs that tests lacks theirs's seconds,
+// scaled by how the two targets compare on the tests both recorded. A test
+// another target ran weighs closer to its own cost than the mean of the
+// rest, which on darwin's browser tier is the mean of the one shard that
+// finished. Without a test in common the two scales can't be compared, so
+// tests is left as it is.
+func fillTests(recorded, tests, theirs map[string]float64) {
+	var mine, other float64
+	for name, s := range recorded {
+		if t, ok := theirs[name]; ok {
+			mine += s
+			other += t
+		}
+	}
+	if mine == 0 || other == 0 {
+		return
+	}
+	for name, t := range theirs {
+		if _, ok := tests[name]; !ok {
+			tests[name] = t * mine / other
+		}
+	}
 }
 
 func (t *timings) add(o timings) {

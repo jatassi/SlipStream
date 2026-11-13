@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jatassi/slipstream/cmd/release/internal/native"
 )
@@ -51,7 +52,13 @@ type testOptions struct {
 	repeat  int
 	timings string
 	record  string
-	goArgs  []string
+	// deadline ends the browser tier's Playwright runs before CI's job
+	// limit. A shard that outgrows it fails with a report naming the tests
+	// it never finished and keeps the timings of those it did. A job cut off
+	// at its limit records nothing, so its tests stay unseen and the next
+	// split overruns again.
+	deadline time.Time
+	goArgs   []string
 }
 
 // shard is the index-th of count, from 1. The zero shard is the whole tier.
@@ -81,6 +88,14 @@ func runTest(ctx context.Context, args []string) error {
 	fs.IntVar(&o.repeat, "repeat", 1, "run each test this many times, as go test -count or playwright --repeat-each")
 	fs.StringVar(&o.timings, "timings", "", "directory of earlier runs' timings to split the shards by")
 	fs.StringVar(&o.record, "record", "", "write this run's timings to this file")
+	fs.Func("deadline", "end the browser tier's runs at this Unix time, in seconds, so a shard that outgrows its job still reports", func(v string) error {
+		sec, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return fmt.Errorf("-deadline %q is not a Unix time in seconds", v)
+		}
+		o.deadline = time.Unix(sec, 0)
+		return nil
+	})
 	ownArgs, goArgs := splitOwnFlags(fs, args)
 	if err := fs.Parse(ownArgs); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
@@ -125,6 +140,8 @@ func (o testOptions) fits(tiers []testTier) error {
 		return errors.New("-timings and -record need -tier go, e2e or browser")
 	case len(o.goArgs) > 0 && (o.shard != shard{} || o.filter != "" || o.repeat != 1 || o.timings != "" || o.record != ""):
 		return fmt.Errorf("go test arguments %q pick the tests themselves, so they take none of -shard, -filter, -repeat, -timings or -record", o.goArgs)
+	case !o.deadline.IsZero() && (!one || tiers[0].name != "browser"):
+		return errors.New("-deadline needs -tier browser")
 	case o.repeat < 1:
 		return fmt.Errorf("-repeat %d is not a positive count", o.repeat)
 	}
@@ -243,6 +260,9 @@ func runPlaywright(ctx context.Context, web string, env []string, o testOptions,
 	var reports []string
 	var err error
 	for i, args := range playwrightRuns(o, selected) {
+		if !o.deadline.IsZero() {
+			args = append(args, "--global-timeout="+strconv.FormatInt(max(time.Until(o.deadline).Milliseconds(), 1), 10))
+		}
 		runEnv := env
 		if o.record != "" {
 			report := filepath.Join(filepath.Dir(selected), "report-"+strconv.Itoa(i)+".json")

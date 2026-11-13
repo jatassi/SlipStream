@@ -8,8 +8,9 @@ description: >-
   Orchard with a 720p WEB-DL, so its 1080p cell is missing and its HD cell
   can upgrade, and the tv root's adds The Lantern Keepers with S02E01 to
   S02E04, so E05 to E10 of season 2 are missing. Fixture Site lists most
-  Releases, at priority 10. Heron answers each search 20 seconds late, with
-  a freeleech WEB-DL, a copy of Fixture Site's 1080p WEB-DL and S02E08.
+  Releases, at priority 10. Once the world is up, Heron answers each
+  request 20 seconds late, with a freeleech WEB-DL, a copy of Fixture
+  Site's 1080p WEB-DL and S02E08; adding it during setup isn't delayed.
   Tamarack is off for automatic search and lists a 1080p Bluray. Cinder, a
   Cardigann site behind a challenge, lists FLUX's WEB-DL. The Orchard's
   Releases hit each refusal: another film's IMDb id, a title of 1987, a
@@ -289,4 +290,4 @@ library:
     - {name: Tamarack, kind: torznab, site: tamarack, automatic_search: false}
     - {name: Cinder, kind: catalog, site: cinder}
 faults:
-  - {id: heron-answers-late, target: fixture-site, route: heron.api, fault: delay=20s}
+  - {id: heron-answers-late, target: fixture-site, route: heron.api, fault: delay=20s, after: {kind: run.ready}}
