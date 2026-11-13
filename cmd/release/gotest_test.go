@@ -394,3 +394,17 @@ func TestGoTestLogPrintsWhatGoTestPrintsWithoutV(t *testing.T) {
 		t.Errorf("timings = %v, want %v", log.timings.Packages, wantTimings)
 	}
 }
+
+func TestLoadTimingsFillsAnUnseenTestFromAnotherTargetAtThisTargetsScale(t *testing.T) {
+	dir := t.TempDir()
+	writeTimings(t, dir, "linux-amd64-browser-1.json", `{"target":"linux-amd64","packages":{"browser":{"seconds":40,"tests":{"[webkit-phone] › a":10,"[webkit-phone] › slow":30}}}}`)
+	writeTimings(t, dir, "darwin-arm64-browser-2.json", `{"target":"darwin-arm64","packages":{"browser":{"seconds":20,"tests":{"[webkit-phone] › a":20}}}}`)
+	got, err := loadTimings(dir, "darwin-arm64")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]float64{"[webkit-phone] › a": 20, "[webkit-phone] › slow": 60}
+	if fmt.Sprint(got.Packages["browser"].Tests) != fmt.Sprint(want) {
+		t.Errorf("darwin-arm64 browser tests = %v, want its own a and linux-amd64's slow at twice its seconds: %v", got.Packages["browser"].Tests, want)
+	}
+}
