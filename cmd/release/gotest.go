@@ -425,14 +425,7 @@ func loadTimings(dir, target string) (timings, error) {
 		byTarget[t.Target].add(t)
 	}
 	merged := byTarget[target]
-	for pkg, own := range merged.Packages {
-		recorded := maps.Clone(own.Tests)
-		for _, name := range slices.Sorted(maps.Keys(byTarget)) {
-			if name != target {
-				fillTests(recorded, own.Tests, byTarget[name].Packages[pkg].Tests)
-			}
-		}
-	}
+	fillUnseenTests(byTarget, target)
 	for _, name := range slices.Sorted(maps.Keys(byTarget)) {
 		other := byTarget[name]
 		supplied := false
@@ -447,6 +440,19 @@ func loadTimings(dir, target string) (timings, error) {
 		}
 	}
 	return *merged, nil
+}
+
+// fillUnseenTests fills each package the target recorded with the tests
+// it never ran, from every other target in name order.
+func fillUnseenTests(byTarget map[string]*timings, target string) {
+	for pkg, own := range byTarget[target].Packages {
+		recorded := maps.Clone(own.Tests)
+		for _, name := range slices.Sorted(maps.Keys(byTarget)) {
+			if name != target {
+				fillTests(recorded, own.Tests, byTarget[name].Packages[pkg].Tests)
+			}
+		}
+	}
 }
 
 // fillTests gives each test of theirs that tests lacks theirs's seconds,
