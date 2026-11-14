@@ -12,8 +12,8 @@ import (
 	"github.com/jatassi/slipstream/internal/node"
 )
 
-// searchItem searches the Item of the Work whose key is key, alone.
-func (c crossNode) searchItem(t *testing.T, key string) {
+// itemID is the id of the Item of the Work whose key is key.
+func (c crossNode) itemID(t *testing.T, key string) string {
 	t.Helper()
 	work := simtest.Decode[struct {
 		Items []struct {
@@ -23,14 +23,34 @@ func (c crossNode) searchItem(t *testing.T, key string) {
 	}](t, "getWork", c.w.API().Admin("home", http.MethodGet, "/api/v1/works/"+c.work, ""))
 	for _, it := range work.Items {
 		if it.Key == key {
-			body := `{"levelIds":[],"itemIds":["` + it.ID + `"]}`
-			if r := c.w.API().Admin("home", http.MethodPost, "/api/v1/works/"+c.work+"/search", body); r.Status != http.StatusAccepted {
-				t.Fatalf("searchWork %s = %d %s, want 202", key, r.Status, r.Body)
-			}
-			return
+			return it.ID
 		}
 	}
 	t.Fatalf("The Copper Coast has no Item %s", key)
+	return ""
+}
+
+// searchItem searches the Item of the Work whose key is key, alone.
+func (c crossNode) searchItem(t *testing.T, key string) {
+	t.Helper()
+	body := `{"levelIds":[],"itemIds":["` + c.itemID(t, key) + `"]}`
+	if r := c.w.API().Admin("home", http.MethodPost, "/api/v1/works/"+c.work+"/search", body); r.Status != http.StatusAccepted {
+		t.Fatalf("searchWork %s = %d %s, want 202", key, r.Status, r.Body)
+	}
+}
+
+// unmonitor turns monitoring off for the Items of the Work whose keys are
+// keys.
+func (c crossNode) unmonitor(t *testing.T, keys ...string) {
+	t.Helper()
+	ids := make([]string, len(keys))
+	for i, k := range keys {
+		ids[i] = `"` + c.itemID(t, k) + `"`
+	}
+	body := `{"levelIds":[],"itemIds":[` + strings.Join(ids, ",") + `],"on":false}`
+	if r := c.w.API().Admin("home", http.MethodPut, "/api/v1/works/"+c.work+"/monitored", body); r.Status != http.StatusNoContent {
+		t.Fatalf("setWorkMonitored %v off = %d %s, want 204", keys, r.Status, r.Body)
+	}
 }
 
 // grabbed waits for the one Grab's Import and answers its id.
@@ -47,8 +67,10 @@ func (c crossNode) grabbed(t *testing.T) string {
 }
 
 // TestAGrabbedPackLandsInAnyOrder searches episode 1 of The Copper Coast,
-// with episode 4 already in home's TV root. The search grabs the season
-// pack, which holds every open cell of its episodes. Its Import sends only
+// with episode 4 already in home's TV root and season 2 not monitored, so
+// the pack of both seasons fills no more episodes than the season pack.
+// The search grabs the season pack, which holds every open cell of its
+// episodes. Its Import sends only
 // the nine files with cells, episode 4 is not better, and each lands on
 // its own, in any order. The Grab reads imported once the last lands.
 func TestAGrabbedPackLandsInAnyOrder(t *testing.T) {
@@ -69,6 +91,7 @@ func TestAGrabbedPackLandsInAnyOrder(t *testing.T) {
 			}
 		})
 		c.importHome(t)
+		c.unmonitor(t, "110121", "110122", "110123")
 		c.searchItem(t, "110111")
 		id := c.grabbed(t)
 		<-p.reached

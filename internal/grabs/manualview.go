@@ -604,8 +604,12 @@ func place(rs *runSheet, in manualIn, gs map[GrabID]db.ListCellGrabsOfWorkRow) {
 			rs.item = append(rs.item, c)
 		}
 	}
+	scoped := map[works.ItemID]bool{}
+	for _, run := range in.runs {
+		scoped[run.ItemID] = true
+	}
 	rs.held, rs.failure = map[int]db.ListCellGrabsOfWorkRow{}, map[int]string{}
-	rs.fill = make([]bool, len(rs.item))
+	rs.fill, rs.scope = make([]bool, len(rs.item)), make([]bool, len(rs.item))
 	for k, c := range rs.item {
 		g := gs[GrabID{UUID: c.Grab}]
 		if c.State == files.Downloading {
@@ -619,7 +623,8 @@ func place(rs *runSheet, in manualIn, gs map[GrabID]db.ListCellGrabsOfWorkRow) {
 			continue
 		}
 		rs.fill[k] = true
-		if c.Item.ID == rs.run.ItemID && (in.cell == nil || *in.cell == keyOf(c)) {
+		rs.scope[k] = scoped[c.Item.ID] && (in.cell == nil || *in.cell == keyOf(c))
+		if rs.scope[k] && c.Item.ID == rs.run.ItemID {
 			rs.walk = append(rs.walk, k)
 		}
 	}

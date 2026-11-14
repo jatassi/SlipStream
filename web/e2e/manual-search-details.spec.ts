@@ -73,7 +73,8 @@ test("a failed automatic Grab's Details open from its Needs you card", async ({
   await needsYouAction(page, "Details");
   const record = page.getByRole("dialog", { name: "Grab of The Lantern Keepers" });
   await expect(record).toContainText(/Automatic search, .+\./u);
-  await expect(record).toContainText("The.Lantern.Keepers.S02E10.1080p.WEB-DL.H264-NTb");
+  // The season pack fills E05 to E10, so automatic search grabs it.
+  await expect(record).toContainText("The.Lantern.Keepers.S02.1080p.WEB-DL.H264-FKW");
   await expect(record).toContainText("Failed");
   await expect(record).toContainText(
     "SlipStream can't read the Release's .torrent file, or the metadata peers sent for its magnet link.",

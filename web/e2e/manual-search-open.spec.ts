@@ -78,9 +78,12 @@ test("Manual search opens from a cell, a season, an episode and a Needs you card
   await failedGrab(world, series, e10);
 
   await page.goto(`/works/${series}`);
+  // Automatic search grabbed the season pack, so its Needs you card opens
+  // a Manual search of every episode the pack fills.
   await needsYouAction(page, "Manual search");
-  await expect(sheet(page, "S02E10 of The Lantern Keepers")).toContainText(
-    "It gets you 1080p for E10.",
+  await searched(sheet(page, lanternKeepers));
+  await expect(sheet(page, lanternKeepers)).toContainText(
+    "It gets you 1080p for E05 to E10. E01 to E04 keep their files.",
   );
   await expectAccessible(page);
   await frame(page, testInfo, "open-needs-you");
@@ -91,10 +94,9 @@ test("Manual search opens from a cell, a season, an episode and a Needs you card
   await menuAction(page, "Actions for Season 2", "Manual search");
   const season = sheet(page, lanternKeepers);
   await searched(season);
-  await expect(season).toContainText("5 Grabs get you everything.");
-  await expect(season).toContainText("It gets you 1080p for E05.");
+  await expect(season).toContainText("1 Grab gets you everything.");
   await expect(season).toContainText(
-    "It gets you 1080p for E09 and E10. E01 to E04 keep their files.",
+    "It gets you 1080p for E05 to E10. E01 to E04 keep their files.",
   );
   await expectAccessible(page);
   await frame(page, testInfo, "open-season");
@@ -104,6 +106,7 @@ test("Manual search opens from a cell, a season, an episode and a Needs you card
   await openFromEpisode(page, "S02E06");
   const episode = sheet(page, "S02E06 of The Lantern Keepers");
   await expect(episode.getByRole("searchbox", { name: "Query" })).toBeVisible();
+  await searched(episode);
   await expect(episode).toContainText("It gets you 1080p for E06.");
   await expect(episode).not.toContainText("for E05");
 });

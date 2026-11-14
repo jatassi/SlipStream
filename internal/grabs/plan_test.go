@@ -307,9 +307,9 @@ func TestThePlansFirstRowIsAutomaticSearchsTakeOverGeneratedSearches(t *testing.
 
 // walkingAll is the plan input of g walking every cell, with no pin.
 func walkingAll(g generated) planIn {
-	in := planIn{item: g.c.open, fill: make([]bool, len(g.c.open)), as: g.as, take: reading(g.sts)}
+	in := planIn{item: g.c.open, fill: make([]bool, len(g.c.open)), scope: make([]bool, len(g.c.open)), as: g.as, take: reading(g.sts)}
 	for k := range in.item {
-		in.walk, in.fill[k] = append(in.walk, k), true
+		in.walk, in.fill[k], in.scope[k] = append(in.walk, k), true, true
 	}
 	for i := range g.as {
 		j := judge(cells{open: in.item}, &g.as[i])

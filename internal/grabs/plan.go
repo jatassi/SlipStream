@@ -22,6 +22,10 @@ type planIn struct {
 	// upgradable or unreleased cell of the Work, since a Grab fills every
 	// Target it can (#87 Q15).
 	fill []bool
+	// scope is whether a cell is one the Manual search walks in any run,
+	// which the chain counts toward the Items a Release fills, so a pack
+	// that fills more of the scope ranks first in each run.
+	scope []bool
 	// before is the cells taken before the walk starts: those a row of an
 	// earlier run fills, and those a pin of another run holds.
 	before []bool
@@ -127,14 +131,12 @@ func (in planIn) next(taken []bool) (Pick, led, bool, error) {
 }
 
 // beyond is the Items with no file that j is grabbable at among the
-// cells a row may fill outside ks that no row fills yet, so a pack's
-// count of the Items it fills reaches past the walk as automatic search's
-// does past its Item.
+// cells of the scope outside ks that no row fills yet.
 func (in planIn) beyond(j judged, ks []int, taken []bool) []works.ItemID {
 	var out []works.ItemID
 	for _, v := range j.verdicts {
 		cell := in.item[v.cell]
-		if v.grabbable() && in.fill[v.cell] && !taken[v.cell] && !slices.Contains(ks, v.cell) && cell.File == nil &&
+		if v.grabbable() && in.scope[v.cell] && !taken[v.cell] && !slices.Contains(ks, v.cell) && cell.File == nil &&
 			!slices.Contains(out, cell.Item.ID) {
 			out = append(out, cell.Item.ID)
 		}
