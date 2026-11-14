@@ -59,7 +59,7 @@ type container struct {
 	MediaContainer any
 }
 
-// authed refuses a request without a token the server issued, from the
+// authed refuses a request without a server token, from the
 // X-Plex-Token header or query parameter. A world with no Plex answers
 // 404 everywhere.
 func (s *server) authed(h http.HandlerFunc) http.HandlerFunc {
@@ -72,7 +72,7 @@ func (s *server) authed(h http.HandlerFunc) http.HandlerFunc {
 		if token == "" {
 			token = r.URL.Query().Get("X-Plex-Token")
 		}
-		if token == "" || !slices.Contains(s.srv.Tokens, token) {
+		if token == "" || (!slices.Contains(s.srv.Tokens, token) && !s.account.Accepts(s.srv.Identifier, token)) {
 			writeHTML(w, http.StatusUnauthorized, unauthorizedBody)
 			return
 		}
