@@ -11,6 +11,8 @@ export function useServerForm(
   defaultValues: ServerValues,
   /** Answers the values the form shows once saved, or null when the form closes. */
   save: (value: ServerValues) => Promise<ServerValues | null>,
+  /** The fields that sit under Details. */
+  details: ReadonlySet<string> = underDetails,
 ) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const form = useAppForm({
@@ -24,7 +26,7 @@ export function useServerForm(
       } catch (error) {
         const errors = refusalOf(error);
         form.setErrorMap({ onSubmit: errors });
-        if (Object.keys(errors.fields).some((field) => underDetails.has(field))) {
+        if (Object.keys(errors.fields).some((field) => details.has(field))) {
           setDetailsOpen(true);
         }
       }

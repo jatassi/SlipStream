@@ -21,6 +21,7 @@ import (
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mail"
+	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/naming"
@@ -54,6 +55,8 @@ func (worker) Nodes() (*nodes.Service, bool) { return nil, false }
 func (worker) Systems() (*nodesystem.Nodes, bool) { return nil, false }
 
 func (worker) Works() (*works.Works, bool) { return nil, false }
+
+func (worker) MediaServers() (mediaservers.Service, bool) { return nil, false }
 
 func (worker) Minter() (artwork.Minter, bool) { return artwork.Minter{}, false }
 

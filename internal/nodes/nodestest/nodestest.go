@@ -31,3 +31,12 @@ func Insert(ctx context.Context, tx *storage.Tx[storage.Library], id role.NodeID
 	}
 	return nil
 }
+
+// Address records addr, such as 10.0.0.7:7878, as one of node's link
+// addresses.
+func Address(ctx context.Context, tx *storage.Tx[storage.Library], id role.NodeID, position int64, addr string) error {
+	if err := db.New(tx).InsertAddress(ctx, db.InsertAddressParams{NodeID: id, Position: position, Address: addr}); err != nil {
+		return fmt.Errorf("record an address of Node %s: %w", id, err)
+	}
+	return nil
+}

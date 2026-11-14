@@ -53,6 +53,7 @@ import (
 	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/serving"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -94,9 +95,11 @@ type half struct {
 	imports  *imports.Imports
 	grabs    *grabs.Grabs
 	clients  *downloadclients.Clients
-	tasks    *tasks.Scheduler
-	health   *health.Health
-	firstRun *firstrun.FirstRun
+	// mediaServers is the Media Servers' operations, on a Controller.
+	mediaServers mediaservers.Service
+	tasks        *tasks.Scheduler
+	health       *health.Health
+	firstRun     *firstrun.FirstRun
 	// transfers judges every Transfer, on a Controller, and copier sends
 	// and receives this Node's, on every Node.
 	transfers *transfers.Transfers
@@ -124,6 +127,7 @@ func (n *Node) startController(ctx context.Context) error {
 		homes        *roots.Roots
 		seeding      *trackers.Trackers
 		pipeline     *grabs.Grabs
+		scheduler    *tasks.Scheduler
 	)
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
@@ -148,7 +152,6 @@ func (n *Node) startController(ctx context.Context) error {
 		Hub: n.hub,
 		Log: n.rootLog.With("subsystem", "downloadclients"),
 	})
-	var scheduler *tasks.Scheduler
 	seeding = trackers.New(trackers.Config{
 		Library:         lib.db,
 		Clients:         clients,
@@ -183,9 +186,30 @@ func (n *Node) startController(ctx context.Context) error {
 	transferring = transfers.Def.Serve(copies.Derive, copies.Apply)
 	servers := mediaservers.New(mediaservers.Config{
 		Library: lib.db,
+		Sealer:  lib.sealer,
 		Roster:  openedRoster{&side},
-		Touch:   func(nodes ...role.NodeID) { linked.Touch(nodes...) },
-		Log:     n.rootLog.With("subsystem", "mediaservers"),
+		Kinds:   mediaserverlink.Kinds,
+		HTTP:    client,
+		Timings: n.cfg.Timings.MediaServers,
+		PlexTV:  n.cfg.Endpoints.PlexTV,
+		Link: func(node role.NodeID) mediaserverv1connect.MediaServerLinkServiceHandler {
+			return mediaserverv1connect.MediaServerLinkService.On(cluster, node)
+		},
+		RootWords: func(ctx context.Context, r storage.Reader[storage.Library]) (map[roots.ID]string, error) {
+			return homes.WordsIn(ctx, r)
+		},
+		RootsChanged: func(ctx context.Context) <-chan struct{} { return n.hub.Watch(ctx, roots.ChangedEvent) },
+		Tasks:        lateTasks{&scheduler},
+		Events: mediaservers.Events{
+			Changed:         mediaservers.ChangedEvent.Bind(n.hub),
+			SessionsChanged: mediaservers.SessionsChangedEvent.Bind(n.hub),
+			Unhealthy:       mediaservers.UnhealthyEvent.Bind(n.hub),
+			Recovered:       mediaservers.RecoveredEvent.Bind(n.hub),
+			ItemsFound:      mediaservers.ItemsFoundEvent.Bind(n.hub),
+		},
+		Touch: func(nodes ...role.NodeID) { linked.Touch(nodes...) },
+		Zone:  n.zone(),
+		Log:   n.rootLog.With("subsystem", "mediaservers"),
 	})
 	linked = mediaserverlink.Def.Serve(servers.Intent, servers.Apply)
 	arrivals := roots.NewArrivals()
@@ -471,7 +495,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Types:    contenttype.Project(opened, func(t contenttype.Library) metadata.Refreshing { return t }),
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
-		}, found), append(append(registry.Tasks(), seeding.Task()), n.env.Test.tasks(started)...)...),
+		}, found), append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask()), n.env.Test.tasks(started)...)...),
 		Roster:     side,
 		Zone:       n.zone(),
 		Rand:       n.tasksRand,
@@ -485,18 +509,20 @@ func (n *Node) startController(ctx context.Context) error {
 	}
 	h := &half{
 		self: side.Self(), peers: side, dispatch: dispatch, holding: holding, systems: systems, nodes: side, controls: controls, cluster: cluster, works: tree, metadata: meta, indexers: registry,
-		trackers:  seeding,
-		targets:   goals,
-		roots:     homes,
-		files:     shelf,
-		naming:    names,
-		library:   composer,
-		imports:   found,
-		grabs:     pipeline,
-		clients:   clients,
-		tasks:     scheduler,
-		transfers: copies,
-		copier:    copier,
+		trackers: seeding,
+		targets:  goals,
+		roots:    homes,
+		files:    shelf,
+		naming:   names,
+		library:  composer,
+		imports:  found,
+		grabs:    pipeline,
+		clients:  clients,
+		tasks:    scheduler,
+
+		mediaServers: servers.Service(),
+		transfers:    copies,
+		copier:       copier,
 	}
 	if h.health, err = n.openHealth(ctx, lib.db, h); err != nil {
 		return err
@@ -549,6 +575,18 @@ func (r openedRoster) Holds(name role.Name, node role.NodeID) bool {
 
 func (r openedRoster) Draining(name role.Name, node role.NodeID) bool {
 	return (*r.side).Draining(name, node)
+}
+
+// lateTasks is the Scheduled tasks once they open: the Media Servers are
+// made before them, since the tasks' catalog lists the renewal task.
+type lateTasks struct{ tasks **tasks.Scheduler }
+
+func (t lateTasks) Every(ctx context.Context, id tasks.TaskID) (*int64, error) {
+	return (*t.tasks).Every(ctx, id)
+}
+
+func (t lateTasks) SetCadence(ctx context.Context, id tasks.TaskID, v setting.Stored[int64]) error {
+	return (*t.tasks).SetCadence(ctx, id, v)
 }
 
 // lateSeeder is the Trackers' seeder once they are made: the download

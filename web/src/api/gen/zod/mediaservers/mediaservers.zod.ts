@@ -15,11 +15,13 @@ import {
   MediaserversPlexPinState,
   MediaserversServerView,
   MediaserversSessions,
+  MediaserversSettings,
   MediaserversSignInBody,
   MediaserversSignedIn,
   MediaserversTested,
   PlexServersOutputBody,
   ServersOutputBody,
+  SettingsInputBody,
 } from "../slipStream.schemas.zod.ts";
 
 /**
@@ -69,6 +71,18 @@ export const GetPlexSignInResponse = MediaserversPlexPinState;
  * @summary List the Plex account's servers and which Nodes reach each of their connections
  */
 export const ListPlexServersResponse = PlexServersOutputBody;
+
+/**
+ * @summary Get the Media Servers settings
+ */
+export const GetMediaServerSettingsResponse = MediaserversSettings;
+
+/**
+ * @summary Change the Media Servers settings by key, all or none
+ */
+export const UpdateMediaServerSettingsBody = SettingsInputBody;
+
+export const UpdateMediaServerSettingsResponse = MediaserversSettings;
 
 /**
  * @summary Sign in to a Jellyfin or Emby server as an administrator once, creating an API key named SlipStream for a draft server

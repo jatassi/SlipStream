@@ -52,4 +52,6 @@ A setting the Controller stores for each Node, such as where that Node's Grabs g
 
 Importing sits after Library scan, which links to it, because a scan reads its Video file extensions. A download and a manual import read all three of its settings.
 
+Media Servers holds the settings that apply to every Plex, Jellyfin and Emby server: "Wait before sending", "Check sessions every", "Mark unhealthy after" and "Keep play history for", then the Plex sign-in's "Renew Plex sign-in every" and "Renew when less than this is left". The renewal schedule is the Plex sign-in task's frequency, so it shows on the Tasks page too. A server's own address, Nodes and Path mappings stay on that server's sheet.
+
 A setting can show in more than one place when an Admin would look for it there, such as a task's frequency on the Tasks page and in its feature's section. It still has one stored value.

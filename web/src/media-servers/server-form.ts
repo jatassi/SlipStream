@@ -17,6 +17,8 @@ export type ServerValues = {
   address: string;
   apiKey: string;
   deviceId: string;
+  /** Plex: the machineIdentifier of the account's server, or "" before one is picked. */
+  plexServer: string;
   reachingNodeId: string;
   /** A Node id, or noNode when the server runs on no Node. */
   runsOnNodeId: string;
@@ -85,6 +87,7 @@ export const newValues = (kind: Kind, reaching: Reaching): ServerValues => ({
   address: "",
   apiKey: "",
   deviceId: "",
+  plexServer: "",
   reachingNodeId: reaching.controller.id,
   runsOnNodeId: noNode,
   fallbackAddress: "",
@@ -97,6 +100,7 @@ export const valuesOf = (server: Server): ServerValues => ({
   address: server.address,
   apiKey: "",
   deviceId: "",
+  plexServer: "",
   reachingNodeId: server.reachingNode.id,
   runsOnNodeId: server.runsOnNode?.id ?? noNode,
   fallbackAddress: server.fallbackAddress ?? "",
@@ -107,11 +111,13 @@ export const valuesOf = (server: Server): ServerValues => ({
 export function draftOf(values: ServerValues, kind: Kind): Draft {
   const fallback = values.fallbackAddress.trim();
   const browser = values.browserAddress.trim();
+  const address = values.address.trim();
   return {
     kind: values.kind,
     name: values.name.trim(),
-    address: values.address.trim(),
     reachingNodeId: values.reachingNodeId,
+    ...(address !== "" && { address }),
+    ...(values.plexServer !== "" && { plexServer: values.plexServer }),
     ...(values.apiKey !== "" && { apiKey: values.apiKey }),
     ...(values.deviceId !== "" && { deviceId: values.deviceId }),
     ...(values.runsOnNodeId !== noNode && { runsOnNodeId: values.runsOnNodeId }),
@@ -147,6 +153,7 @@ export function editOf(server: Server, values: ServerValues, kind: Kind): Patch 
 
 const fieldOfCode: Readonly<Record<string, keyof ServerValues>> = {
   media_server_name_taken: "name",
+  plex_server_not_found: "plexServer",
   media_server_sign_in_refused: "apiKey",
   media_server_unreached: "address",
   media_server_other_server: "address",
@@ -176,7 +183,3 @@ export const kindOf = (kinds: readonly Kind[], id: string): Kind => {
   }
   return kind;
 };
-
-/** The kinds this sheet adds: those that take an API key or an administrator's sign-in. */
-export const keyKinds = (kinds: readonly Kind[]): readonly Kind[] =>
-  kinds.filter((kind) => kind.signIn === "api_key_or_admin");

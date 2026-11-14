@@ -20,13 +20,13 @@ const example = "http://192.168.1.20:8096";
 
 const untouched = (meta: { isTouched: boolean } | undefined) => meta?.isTouched !== true;
 
-function Refused({ errors }: { errors: readonly unknown[] }) {
+export function Refused({ errors }: { errors: readonly unknown[] }) {
   const error = errorText(errors);
   return error === undefined ? null : <Refusal error={error} />;
 }
 
 /** Which Node reaches the server and which it runs on. A choice the Admin made stays. */
-function NodeFields({
+export function NodeFields({
   sheet: { form },
   nodes,
   reaching,

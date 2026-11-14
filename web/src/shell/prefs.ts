@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react";
 
+import { MediaserversPlexPin as PlexPin } from "../api/gen/zod/slipStream.schemas.zod";
+
 type Area = "browser" | "tab";
 
 type Values = {
@@ -11,6 +13,8 @@ type Values = {
   /** Each Library's last view, by Content Type id or "all", in its address form; the Library parses it. */
   libraryViews: Readonly<Record<string, unknown>>;
   setupCode: string;
+  /** The Plex sign-in this tab waits on, so a reload picks it up again. */
+  plexPin: PlexPin | null;
 };
 
 export type Pref = keyof Values;
@@ -46,6 +50,13 @@ const views: Kind<Values["libraryViews"]> = {
   serialize: (value) => JSON.stringify(value),
 };
 
+const plexPin: Kind<PlexPin | null> = {
+  area: "tab",
+  fallback: null,
+  parse: (raw) => PlexPin.nullable().catch(null).parse(JSON.parse(raw)),
+  serialize: (value) => JSON.stringify(value),
+};
+
 const kinds: { readonly [P in Pref]: Kind<Values[P]> } = {
   sidebarCollapsed: flag("browser"),
   startupOff: flag("browser"),
@@ -54,6 +65,7 @@ const kinds: { readonly [P in Pref]: Kind<Values[P]> } = {
   showHiddenFolders: flag("browser"),
   libraryViews: views,
   setupCode: text("tab"),
+  plexPin,
 };
 
 export const prefKey = (pref: Pref): string => `slipstream.${pref}`;

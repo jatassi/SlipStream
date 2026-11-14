@@ -6528,7 +6528,9 @@ export const MediaserversMappingView = zod.object({
     "The library the folder sits inside; absent when not shown",
   ),
   rootId: zod.uuid(),
-  rootName: zod.string().describe("Such as Movies (D:)"),
+  rootName: zod
+    .string()
+    .describe("The root as copy names it, such as Movies library root on Media server"),
   rootNode: MediaserversNodeRef.describe("The Storage Node whose disk holds the root"),
   scanned: zod
     .boolean()
@@ -6753,7 +6755,9 @@ export const MediaserversPatchBody = zod.object({
     .min(1)
     .max(mediaserversPatchBodyApiKeyMax)
     .exactOptional()
-    .describe("Jellyfin and Emby. Write-only"),
+    .describe(
+      "Jellyfin and Emby. Write-only. A key from signInToMediaServer keeps the server's saved deviceId, since the key isn't tied to a device",
+    ),
   browserAddress: zod.string().nullish().describe("null for no Open in button"),
   fallbackAddress: zod.string().nullish().describe("null for address"),
   name: zod.string().min(1).max(mediaserversPatchBodyNameMax).exactOptional(),
@@ -6954,6 +6958,17 @@ export const MediaserversSessionsChanged = zod.object({
 
 export type MediaserversSessionsChanged = zod.input<typeof MediaserversSessionsChanged>;
 export type MediaserversSessionsChangedOutput = zod.output<typeof MediaserversSessionsChanged>;
+
+export const MediaserversSettings = zod.object({
+  settings: zod
+    .array(SettingField)
+    .describe(
+      "Wait before sending, Check sessions every, Mark unhealthy after, Keep play history for, and the Plex sign-in's renewal schedule and margin",
+    ),
+});
+
+export type MediaserversSettings = zod.input<typeof MediaserversSettings>;
+export type MediaserversSettingsOutput = zod.output<typeof MediaserversSettings>;
 
 export const mediaserversSignInBodyAddressMax = 2048;
 
@@ -8819,6 +8834,15 @@ export const SetNamingInputBody = zod.object({
 
 export type SetNamingInputBody = zod.input<typeof SetNamingInputBody>;
 export type SetNamingInputBodyOutput = zod.output<typeof SetNamingInputBody>;
+
+export const SettingsInputBody = zod.object({
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe("Each setting's new value by key, all or none; null resets one to its default"),
+});
+
+export type SettingsInputBody = zod.input<typeof SettingsInputBody>;
+export type SettingsInputBodyOutput = zod.output<typeof SettingsInputBody>;
 
 export const ShellAlerts = zod.object({
   health: zod

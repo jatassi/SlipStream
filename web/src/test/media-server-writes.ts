@@ -1,6 +1,7 @@
 import { HttpResponse, http } from "msw";
 
 import type {
+  MediaserversAccountView,
   MediaserversLibraries,
   MediaserversMappingInput,
   MediaserversMappingView,
@@ -12,9 +13,17 @@ import {
   MediaserversKind,
   MediaserversMappingsBody,
   MediaserversPatchBody,
+  SettingsInputBody,
 } from "../api/gen/zod/slipStream.schemas.zod";
-import { denJellyfin, denLibraries, mediaServerHandlers } from "./media-servers";
+import {
+  denJellyfin,
+  denLibraries,
+  mediaServerHandlers,
+  mediaServerSettings,
+  plexAccount,
+} from "./media-servers";
 import { refused } from "./roots";
+import { durationWords } from "../format";
 
 const api = "/api/v1/media-servers";
 
@@ -124,12 +133,91 @@ function serverHandlers(list: MediaserversServerView[], write: Write) {
   ];
 }
 
+export const plexPin = {
+  pinId: 4711,
+  authUrl: "https://app.plex.tv/auth#?code=3f9c2a",
+  expiresAt: "2026-11-14T10:30:00Z",
+};
+
+/**
+ * plex.tv as the Controller relays it: no account until the PIN is polled
+ * once more after it starts, when the PIN signs in as ada.
+ */
+function plexHandlers(write: Write, start: MediaserversAccountView | null) {
+  let account = start;
+  let polls = 0;
+  return [
+    http.get(`${api}/plex/account`, () =>
+      account === null
+        ? refused(409, "plex_not_signed_in", "SlipStream isn't signed in to Plex")
+        : HttpResponse.json(account),
+    ),
+    http.post(`${api}/plex/pin`, async ({ request }) => {
+      await write("plex-pin", request);
+      return HttpResponse.json(plexPin, { status: 201 });
+    }),
+    http.get(`${api}/plex/pin/${plexPin.pinId}`, () => {
+      polls += 1;
+      if (polls < 2) {
+        return HttpResponse.json({ state: "waiting" });
+      }
+      account = plexAccount;
+      return HttpResponse.json({ state: "signed_in" });
+    }),
+  ];
+}
+
+const seconds = (value: unknown): number => {
+  if (typeof value !== "number") {
+    throw new TypeError("the settings fixture takes only seconds");
+  }
+  return value;
+};
+
+/** The six settings as saved, refusing a renewal margin no longer than the renewal schedule. */
+function settingsHandlers(write: Write) {
+  const settings = mediaServerSettings();
+  const valueOf = (key: string) => settings.find((field) => field.key === key)?.value;
+  return [
+    http.get(`${api}/settings`, () => HttpResponse.json({ settings })),
+    http.patch(`${api}/settings`, async ({ request }) => {
+      const { values } = SettingsInputBody.parse(await write("settings", request));
+      const next = (key: string) => (key in values ? seconds(values[key]) : valueOf(key));
+      const margin = next("mediaServers.renewMargin");
+      const every = next("tasks.plex-sign-in.cadence");
+      if (margin !== undefined && every !== undefined && margin <= every) {
+        const words = `"Renew when less than this is left" must be longer than "Renew Plex sign-in every", which is ${durationWords(every)}. Lengthen the margin or renew more often.`;
+        return refused(
+          422,
+          "renew_margin_too_short",
+          "The renewal margin isn't longer than the renewal schedule",
+          {
+            detail: words,
+            errors: [{ location: "body.values.mediaServers.renewMargin", message: words }],
+          },
+        );
+      }
+      for (const field of settings) {
+        if (field.key in values) {
+          field.value = seconds(values[field.key]);
+          field.isDefault = field.value === field.default;
+        }
+      }
+      return HttpResponse.json({ settings });
+    }),
+  ];
+}
+
 /**
  * A Media Servers API that keeps what the sheets write: an added server joins
  * the list with Den Jellyfin's libraries, a mapping outside every library
- * folder is refused, and the sign-in creates the key named SlipStream.
+ * folder is refused, the sign-in creates the key named SlipStream, a Plex PIN
+ * signs in on its second poll, and the settings keep what was saved.
  */
-export function mediaServersWorld(start: MediaserversServerView[] = [denJellyfin]) {
+export function mediaServersWorld(
+  start: MediaserversServerView[] = [denJellyfin],
+  plex: MediaserversAccountView | null = plexAccount,
+) {
   const list = [...start];
   const writes: MediaServerWrite[] = [];
   const write: Write = async (path, request) => {
@@ -139,6 +227,8 @@ export function mediaServersWorld(start: MediaserversServerView[] = [denJellyfin
     return body;
   };
   const handlers = [
+    ...plexHandlers(write, plex),
+    ...settingsHandlers(write),
     ...draftHandlers(list, write),
     ...serverHandlers(list, write),
     ...mediaServerHandlers(list),

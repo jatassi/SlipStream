@@ -8,6 +8,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/mediaservers"
+	"github.com/jatassi/slipstream/internal/settingapi"
 )
 
 var (
@@ -27,35 +28,33 @@ var (
 	plexServerNotFound = api.NewCode(http.StatusNotFound, "plex_server_not_found", "The Plex account has no server with this id")
 	plexPinNotFound    = api.NewCode(http.StatusNotFound, "plex_pin_not_found", "No Plex sign-in has this id")
 	plexTVUnreached    = api.NewCode(http.StatusBadGateway, "plex_tv_unreached", "plex.tv didn't respond")
+	marginTooShort     = api.NewCode(http.StatusUnprocessableEntity, "renew_margin_too_short", "The renewal margin isn't longer than the renewal schedule")
 	notBuilt           = api.NewCode(http.StatusNotImplemented, "media_servers_not_built", "This Media Servers operation isn't built yet")
 )
 
 // answer is err as the problem an Admin reads.
 func answer(err error) error {
-	var (
-		old      *mediaservers.TooOldError
-		other    *mediaservers.OtherServerError
-		away     *mediaservers.UnreachedError
-		refused  *mediaservers.SignInRefusedError
-		local    *mediaservers.LocalhostOnWorkerError
-		unlinked *mediaservers.NodeNotLinkedError
-		outside  *mediaservers.OutsideLibrariesError
-	)
+	words, _ := mediaservers.Words(err)
 	switch {
-	case errors.As(err, &old):
-		return tooOld.Because(fmt.Sprintf("%s %s is older than SlipStream supports. Update it to %s or later, then save again.", old.Label, old.Found, old.Floor))
-	case errors.As(err, &other):
-		return otherServer.Because(fmt.Sprintf("A different %s server responds at %s. Check the address, or confirm the new server under Details.", other.Label, other.Address))
-	case errors.As(err, &away):
-		return unreached.Because(fmt.Sprintf("%s at %s didn't respond to %s. Check that %s is running and that %s can reach %s.", away.Label, away.Address, away.Node, away.Label, away.Node, away.Address))
-	case errors.As(err, &refused):
-		return signInRefused.Because(refusedWords(refused))
-	case errors.As(err, &local):
-		return localhostOnWorker.On("address", fmt.Sprintf("The Controller can't use %s, because localhost on %s is %s itself. Enter %s's network address, or a fallback address the Controller can reach.", local.Address, local.Node, local.Node, local.Node))
-	case errors.As(err, &unlinked):
-		return nodeNotLinked.Because(fmt.Sprintf("%s doesn't hold Media Server link. Tick the Role on %s, or reach the server from the Controller.", unlinked.Node, unlinked.Node))
-	case errors.As(err, &outside):
+	case errors.As(err, new(*mediaservers.TooOldError)):
+		return tooOld.Because(words)
+	case errors.As(err, new(*mediaservers.OtherServerError)):
+		return otherServer.Because(words)
+	case errors.As(err, new(*mediaservers.UnreachedError)):
+		return unreached.Because(words)
+	case errors.As(err, new(*mediaservers.SignInRefusedError)):
+		return signInRefused.Because(words)
+	case errors.As(err, new(*mediaservers.LocalhostOnWorkerError)):
+		return localhostOnWorker.On("address", words)
+	case errors.As(err, new(*mediaservers.NodeNotLinkedError)):
+		return nodeNotLinked.Because(words)
+	case errors.As(err, new(*mediaservers.MarginTooShortError)):
+		return marginTooShort.On("values."+mediaservers.RenewMargin.Key, words)
+	}
+	if outside, ok := errors.AsType[*mediaservers.OutsideLibrariesError](err); ok {
 		return outsideFields(outside)
+	}
+	switch {
 	case errors.Is(err, mediaservers.ErrNotFound):
 		return serverNotFound
 	case errors.Is(err, mediaservers.ErrNameTaken):
@@ -77,18 +76,7 @@ func answer(err error) error {
 	case errors.Is(err, mediaservers.ErrNotBuilt):
 		return notBuilt
 	}
-	return err
-}
-
-func refusedWords(e *mediaservers.SignInRefusedError) string {
-	switch e.With {
-	case mediaservers.RefusedPlex:
-		return "SlipStream's sign-in to " + e.Server + " has expired or was revoked. Sign in with Plex again."
-	case mediaservers.RefusedKey:
-		return e.Server + " refused the API key. Paste a new key, or sign in with an administrator's name and password."
-	case mediaservers.RefusedPassword:
-	}
-	return e.Server + " refused that name and password. Check them and sign in again."
+	return settingapi.Refused(err)
 }
 
 func outsideFields(e *mediaservers.OutsideLibrariesError) error {

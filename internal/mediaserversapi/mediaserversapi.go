@@ -6,6 +6,7 @@ package mediaserversapi
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
 	"github.com/jatassi/slipstream/internal/api"
@@ -15,6 +16,8 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/setting"
+	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
@@ -44,7 +47,7 @@ type patchBody struct {
 	BrowserAddress  api.Patch[string] `json:"browserAddress,omitempty" doc:"null for no Open in button"`
 	ReachingNodeID  *string           `json:"reachingNodeId,omitempty" format:"uuid"`
 	RunsOnNodeID    api.Patch[string] `json:"runsOnNodeId,omitempty" doc:"A Node id; null when the server runs on no Node"`
-	APIKey          *string           `json:"apiKey,omitempty" minLength:"1" maxLength:"1024" doc:"Jellyfin and Emby. Write-only"`
+	APIKey          *string           `json:"apiKey,omitempty" minLength:"1" maxLength:"1024" doc:"Jellyfin and Emby. Write-only. A key from signInToMediaServer keeps the server's saved deviceId, since the key isn't tied to a device"`
 }
 
 type updateInput struct {
@@ -222,7 +225,53 @@ func mappingsOf(in []MappingInput) ([]mediaservers.Mapping, error) {
 	return out, nil
 }
 
-type handlers struct{ svc mediaservers.Service }
+// Servers is the Controller's Media Servers, false on a Node that is no
+// Controller.
+type Servers interface {
+	MediaServers() (mediaservers.Service, bool)
+}
+
+type handlers struct{ servers Servers }
+
+func (h handlers) svc() mediaservers.Service {
+	s, ok := h.servers.MediaServers()
+	if !ok {
+		panic("mediaserversapi: an operation ran on a Node that is no Controller")
+	}
+	return s
+}
+
+type settings struct {
+	Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"Wait before sending, Check sessions every, Mark unhealthy after, Keep play history for, and the Plex sign-in's renewal schedule and margin"`
+}
+
+type settingsOutput struct{ Body settings }
+
+type settingsInput struct {
+	Body struct {
+		Values map[string]json.RawMessage `json:"values" doc:"Each setting's new value by key, all or none; null resets one to its default"`
+	}
+}
+
+func settingsOf(ctx context.Context, p setting.Panel) (*settingsOutput, error) {
+	fields, err := p.Fields(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &settingsOutput{Body: settings{Settings: settingapi.FieldsOf(fields)}}, nil
+}
+
+func (h handlers) getSettings(ctx context.Context, _ identity.Admin, _ *struct{}) (*settingsOutput, error) {
+	return settingsOf(ctx, h.svc().Settings())
+}
+
+func (h handlers) updateSettings(ctx context.Context, _ identity.Admin, in *settingsInput) (*settingsOutput, error) {
+	p := h.svc().Settings()
+	if err := p.Apply(ctx, in.Body.Values); err != nil {
+		return nil, answer(err)
+	}
+	return settingsOf(ctx, p)
+}
 
 func (handlers) listKinds(context.Context, identity.Admin, *struct{}) (*kindsOutput, error) {
 	out := &kindsOutput{}
@@ -236,7 +285,7 @@ func (handlers) listKinds(context.Context, identity.Admin, *struct{}) (*kindsOut
 }
 
 func (h handlers) list(ctx context.Context, _ identity.Admin, _ *struct{}) (*serversOutput, error) {
-	servers, err := h.svc.List(ctx)
+	servers, err := h.svc().List(ctx)
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -250,7 +299,7 @@ func (h handlers) get(ctx context.Context, _ identity.Admin, in *idInput) (*serv
 	if err != nil {
 		return nil, err
 	}
-	return server(h.svc.Get(ctx, id))
+	return server(h.svc().Get(ctx, id))
 }
 
 func server(v mediaservers.ServerView, err error) (*serverOutput, error) {
@@ -265,7 +314,7 @@ func (h handlers) add(ctx context.Context, _ identity.Admin, in *addInput) (*ser
 	if err != nil {
 		return nil, err
 	}
-	return server(h.svc.Add(ctx, d))
+	return server(h.svc().Add(ctx, d))
 }
 
 func (h handlers) update(ctx context.Context, _ identity.Admin, in *updateInput) (*serverOutput, error) {
@@ -277,7 +326,7 @@ func (h handlers) update(ctx context.Context, _ identity.Admin, in *updateInput)
 	if err != nil {
 		return nil, err
 	}
-	return server(h.svc.Update(ctx, id, p))
+	return server(h.svc().Update(ctx, id, p))
 }
 
 func (h handlers) remove(ctx context.Context, _ identity.Admin, in *idInput) (*struct{}, error) {
@@ -285,7 +334,7 @@ func (h handlers) remove(ctx context.Context, _ identity.Admin, in *idInput) (*s
 	if err != nil {
 		return nil, err
 	}
-	if err := h.svc.Remove(ctx, id); err != nil {
+	if err := h.svc().Remove(ctx, id); err != nil {
 		return nil, answer(err)
 	}
 	return &struct{}{}, nil
@@ -296,7 +345,7 @@ func (h handlers) test(ctx context.Context, _ identity.Admin, in *idInput) (*tes
 	if err != nil {
 		return nil, err
 	}
-	t, err := h.svc.Test(ctx, id)
+	t, err := h.svc().Test(ctx, id)
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -308,7 +357,7 @@ func (h handlers) confirmIdentity(ctx context.Context, _ identity.Admin, in *idI
 	if err != nil {
 		return nil, err
 	}
-	return server(h.svc.ConfirmIdentity(ctx, id))
+	return server(h.svc().ConfirmIdentity(ctx, id))
 }
 
 func (h handlers) libraries(ctx context.Context, _ identity.Admin, in *idInput) (*librariesOutput, error) {
@@ -316,7 +365,7 @@ func (h handlers) libraries(ctx context.Context, _ identity.Admin, in *idInput) 
 	if err != nil {
 		return nil, err
 	}
-	l, err := h.svc.Libraries(ctx, id)
+	l, err := h.svc().Libraries(ctx, id)
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -332,7 +381,7 @@ func (h handlers) saveMappings(ctx context.Context, _ identity.Admin, in *mappin
 	if err != nil {
 		return nil, err
 	}
-	saved, err := h.svc.SaveMappings(ctx, id, ms)
+	saved, err := h.svc().SaveMappings(ctx, id, ms)
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -346,7 +395,7 @@ func (h handlers) refresh(ctx context.Context, _ identity.Admin, in *idInput) (*
 	if err != nil {
 		return nil, err
 	}
-	if err := h.svc.Refresh(ctx, id); err != nil {
+	if err := h.svc().Refresh(ctx, id); err != nil {
 		return nil, answer(err)
 	}
 	return &struct{}{}, nil
@@ -357,7 +406,7 @@ func (h handlers) sessions(ctx context.Context, _ identity.Admin, in *idInput) (
 	if err != nil {
 		return nil, err
 	}
-	s, err := h.svc.Sessions(ctx, id)
+	s, err := h.svc().Sessions(ctx, id)
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -369,7 +418,7 @@ func (h handlers) changes(ctx context.Context, _ identity.Admin, in *changesInpu
 	if err != nil {
 		return nil, err
 	}
-	c, err := h.svc.Changes(ctx, id, in.Cursor)
+	c, err := h.svc().Changes(ctx, id, in.Cursor)
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -381,7 +430,7 @@ func (h handlers) holders(ctx context.Context, _ identity.Admin, in *idInput) (*
 	if err != nil {
 		return nil, err
 	}
-	hs, err := h.svc.CredentialHolders(ctx, id)
+	hs, err := h.svc().CredentialHolders(ctx, id)
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -395,7 +444,7 @@ func (h handlers) signIn(ctx context.Context, _ identity.Admin, in *signInInput)
 	if err != nil {
 		return nil, err
 	}
-	s, err := h.svc.SignIn(ctx, mediaservers.SignInDraft{
+	s, err := h.svc().SignIn(ctx, mediaservers.SignInDraft{
 		Kind: link.KindName(in.Body.Kind), Address: in.Body.Address, Node: n, User: in.Body.User, Password: in.Body.Password,
 	})
 	if err != nil {
@@ -405,7 +454,7 @@ func (h handlers) signIn(ctx context.Context, _ identity.Admin, in *signInInput)
 }
 
 func (h handlers) startPin(ctx context.Context, _ identity.Admin, in *pinInput) (*pinOutput, error) {
-	p, err := h.svc.StartPlexPin(ctx, in.Body.Forward)
+	p, err := h.svc().StartPlexPin(ctx, in.Body.Forward)
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -413,7 +462,7 @@ func (h handlers) startPin(ctx context.Context, _ identity.Admin, in *pinInput) 
 }
 
 func (h handlers) pin(ctx context.Context, _ identity.Admin, in *pinIDInput) (*pinStateOutput, error) {
-	s, err := h.svc.PlexPin(ctx, in.ID)
+	s, err := h.svc().PlexPin(ctx, in.ID)
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -421,7 +470,7 @@ func (h handlers) pin(ctx context.Context, _ identity.Admin, in *pinIDInput) (*p
 }
 
 func (h handlers) account(ctx context.Context, _ identity.Admin, _ *struct{}) (*accountOutput, error) {
-	a, err := h.svc.PlexAccount(ctx)
+	a, err := h.svc().PlexAccount(ctx)
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -429,14 +478,14 @@ func (h handlers) account(ctx context.Context, _ identity.Admin, _ *struct{}) (*
 }
 
 func (h handlers) signOut(ctx context.Context, _ identity.Admin, _ *struct{}) (*struct{}, error) {
-	if err := h.svc.SignOutOfPlex(ctx); err != nil {
+	if err := h.svc().SignOutOfPlex(ctx); err != nil {
 		return nil, answer(err)
 	}
 	return &struct{}{}, nil
 }
 
 func (h handlers) plexServers(ctx context.Context, _ identity.Admin, _ *struct{}) (*plexServersOutput, error) {
-	ss, err := h.svc.PlexServers(ctx)
+	ss, err := h.svc().PlexServers(ctx)
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -445,20 +494,29 @@ func (h handlers) plexServers(ctx context.Context, _ identity.Admin, _ *struct{}
 	return out, nil
 }
 
-// Routes registers the Media Servers' operations against svc.
-func Routes(r *api.Router, svc mediaservers.Service) {
+// Routes registers the Media Servers' operations.
+func Routes(r *api.Router, servers Servers) {
 	o := r.Owner("mediaservers", api.Admin)
-	h := handlers{svc}
+	h := handlers{servers}
 	const base = "/media-servers"
 	saved := []*api.Code{tooOld, otherServer, unreached, signInRefused, localhostOnWorker, nameTaken, nodeNotFound, nodeNotLinked}
-	add := append([]*api.Code{kindUnknown, plexNotSignedIn, plexServerNotFound, plexTVUnreached, notBuilt}, saved...)
-	update := append([]*api.Code{serverNotFound, notBuilt}, saved...)
-	plex := []*api.Code{plexNotSignedIn, plexTVUnreached, notBuilt}
+	add := append([]*api.Code{kindUnknown, plexNotSignedIn, plexServerNotFound, plexTVUnreached}, saved...)
+	update := append([]*api.Code{serverNotFound}, saved...)
+	plex := []*api.Code{plexNotSignedIn, plexTVUnreached}
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "listMediaServerKinds", Method: http.MethodGet, Path: base + "/kinds", Status: http.StatusOK,
 		Summary: "List the kinds of Media Server SlipStream supports, with the sign-in each takes and its oldest supported version",
 	}, h.listKinds)
+	api.Register(o, api.Admin, api.Op{
+		ID: "getMediaServerSettings", Method: http.MethodGet, Path: base + "/settings", Status: http.StatusOK,
+		Summary: "Get the Media Servers settings",
+	}, h.getSettings)
+	api.Register(o, api.Admin, api.Op{
+		ID: "updateMediaServerSettings", Method: http.MethodPatch, Path: base + "/settings", Status: http.StatusOK,
+		Summary: "Change the Media Servers settings by key, all or none",
+		Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown, marginTooShort},
+	}, h.updateSettings)
 	api.Register(o, api.Admin, api.Op{
 		ID: "listMediaServers", Method: http.MethodGet, Path: base, Status: http.StatusOK,
 		Summary: "List the Media Servers SlipStream keeps up to date, each with its state",
@@ -481,27 +539,27 @@ func Routes(r *api.Router, svc mediaservers.Service) {
 	api.Register(o, api.Admin, api.Op{
 		ID: "removeMediaServer", Method: http.MethodDelete, Path: base + "/{id}", Status: http.StatusNoContent,
 		Summary: "Remove a Media Server, which also deletes its queued changes, its path index and its play history",
-		Errors:  []*api.Code{serverNotFound, notBuilt},
+		Errors:  []*api.Code{serverNotFound},
 	}, h.remove)
 	api.Register(o, api.Admin, api.Op{
 		ID: "testMediaServer", Method: http.MethodPost, Path: base + "/{id}/test", Status: http.StatusOK,
 		Summary: "Test a Media Server from its reaching Node at its address and from the Controller at its fallback address",
-		Errors:  []*api.Code{serverNotFound, unreached, notBuilt},
+		Errors:  []*api.Code{serverNotFound},
 	}, h.test)
 	api.Register(o, api.Admin, api.Op{
 		ID: "confirmMediaServerIdentity", Method: http.MethodPost, Path: base + "/{id}/confirm-identity", Status: http.StatusOK,
 		Summary: "Accept the server that responds at a Media Server's address now as that Media Server",
-		Errors:  []*api.Code{serverNotFound, unreached, tooOld, signInRefused, notBuilt},
+		Errors:  []*api.Code{serverNotFound, unreached, otherServer, tooOld, signInRefused},
 	}, h.confirmIdentity)
 	api.Register(o, api.Admin, api.Op{
 		ID: "listMediaServerLibraries", Method: http.MethodGet, Path: base + "/{id}/libraries", Status: http.StatusOK,
 		Summary: "List a Media Server's library folders and every library root's Path mapping, pre-filled where none is saved",
-		Errors:  []*api.Code{serverNotFound, unreached, signInRefused, notBuilt},
+		Errors:  []*api.Code{serverNotFound, unreached, otherServer, signInRefused},
 	}, h.libraries)
 	api.Register(o, api.Admin, api.Op{
 		ID: "saveMediaServerMappings", Method: http.MethodPut, Path: base + "/{id}/mappings", Status: http.StatusOK,
 		Summary: "Save a Media Server's Path mappings once each shown folder sits inside one of its library folders",
-		Errors:  []*api.Code{serverNotFound, rootNotFound, outsideLibraries, unreached, signInRefused, notBuilt},
+		Errors:  []*api.Code{serverNotFound, rootNotFound, outsideLibraries, unreached, otherServer, signInRefused},
 	}, h.saveMappings)
 	api.Register(o, api.Admin, api.Op{
 		ID: "refreshMediaServer", Method: http.MethodPost, Path: base + "/{id}/refresh", Status: http.StatusAccepted,
@@ -521,32 +579,31 @@ func Routes(r *api.Router, svc mediaservers.Service) {
 	api.Register(o, api.Admin, api.Op{
 		ID: "listMediaServerCredentialHolders", Method: http.MethodGet, Path: base + "/{id}/credential-holders", Status: http.StatusOK,
 		Summary: "List every Node that fetched a Media Server's credential",
-		Errors:  []*api.Code{serverNotFound, notBuilt},
+		Errors:  []*api.Code{serverNotFound},
 	}, h.holders)
 	api.Register(o, api.Admin, api.Op{
 		ID: "signInToMediaServer", Method: http.MethodPost, Path: base + "/sign-in", Status: http.StatusOK,
 		Summary: "Sign in to a Jellyfin or Emby server as an administrator once, creating an API key named SlipStream for a draft server",
-		Errors:  []*api.Code{kindUnknown, signInRefused, unreached, tooOld, nodeNotFound, nodeNotLinked, notBuilt},
+		Errors:  []*api.Code{kindUnknown, signInRefused, unreached, tooOld, nodeNotFound, nodeNotLinked},
 	}, h.signIn)
 	api.Register(o, api.Admin, api.Op{
 		ID: "startPlexSignIn", Method: http.MethodPost, Path: base + "/plex/pin", Status: http.StatusCreated,
 		Summary: "Start a Plex sign-in and get the plex.tv page the Admin signs in on",
-		Errors:  []*api.Code{plexTVUnreached, notBuilt},
+		Errors:  []*api.Code{plexTVUnreached, signInRefused},
 	}, h.startPin)
 	api.Register(o, api.Admin, api.Op{
 		ID: "getPlexSignIn", Method: http.MethodGet, Path: base + "/plex/pin/{id}", Status: http.StatusOK,
 		Summary: "Get whether a Plex sign-in is still waiting, has expired or signed in",
-		Errors:  []*api.Code{plexPinNotFound, notBuilt},
+		Errors:  []*api.Code{plexPinNotFound, plexTVUnreached, signInRefused},
 	}, h.pin)
 	api.Register(o, api.Admin, api.Op{
 		ID: "getPlexAccount", Method: http.MethodGet, Path: base + "/plex/account", Status: http.StatusOK,
 		Summary: "Get the Plex account SlipStream is signed in to and when its sign-in expires",
-		Errors:  []*api.Code{plexNotSignedIn, notBuilt},
+		Errors:  []*api.Code{plexNotSignedIn},
 	}, h.account)
 	api.Register(o, api.Admin, api.Op{
 		ID: "signOutOfPlex", Method: http.MethodDelete, Path: base + "/plex/account", Status: http.StatusNoContent,
 		Summary: "Sign out of Plex, which also removes every Plex server",
-		Errors:  []*api.Code{notBuilt},
 	}, h.signOut)
 	api.Register(o, api.Admin, api.Op{
 		ID: "listPlexServers", Method: http.MethodGet, Path: base + "/plex/servers", Status: http.StatusOK,
