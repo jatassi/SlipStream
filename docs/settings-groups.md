@@ -12,7 +12,7 @@ An Admin comes to Settings with a question, such as "where do my files go?" or "
 | Files to keep | Which versions of each Work do I want? | Targets, Profiles, Custom Formats, Editions | Conversion |
 | Search and download | How does SlipStream find and fetch releases? | Indexers, Trackers, Download Clients (built-in and external) | Automatic search |
 | Access | Who can reach SlipStream, and how? | Address, Sign-in, API key | Requests, Member portal |
-| System | How do the Nodes and the server itself run? | Nodes, Email | Backups, Updates, Media Servers, Notifications |
+| System | How do the Nodes and the server itself run? | Nodes, Email, Media Servers | Backups, Updates, Notifications |
 
 The first three groups follow the media pipeline in order. An Admin sets up a library, says what to keep in it, then says where to get it. The last two are about running the server and come after, because an Admin visits them less often once setup is done.
 
