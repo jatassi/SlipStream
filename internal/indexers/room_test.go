@@ -39,8 +39,7 @@ func torrentLeech() indexers.Facts {
 // take is how many lines of c FitOf reserves from f at now, each answered
 // before the next once Searches at once is in flight, and the Fit that
 // stopped them.
-func take(f indexers.Facts, c indexers.Claim) (int, int, indexers.Fit) {
-	taken, waves := 0, 0
+func take(f indexers.Facts, c indexers.Claim) (taken, waves int, last indexers.Fit) {
 	for {
 		fit := indexers.FitOf(f, c, now)
 		switch {
@@ -186,7 +185,8 @@ func (p *planned) reserve(name string, c indexers.Claim) (indexers.QueryID, erro
 	return q, err
 }
 
-func (p *planned) room(name string) indexers.Room {
+// leech is TorrentLeech's Room now.
+func (p *planned) leech() indexers.Room {
 	p.t.Helper()
 	var rooms map[indexers.ID]indexers.Room
 	err := p.lib.Read(p.t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
@@ -197,7 +197,28 @@ func (p *planned) room(name string) indexers.Room {
 	if err != nil {
 		p.t.Fatal(err)
 	}
-	return rooms[p.ids[name]]
+	return rooms[p.ids["TorrentLeech"]]
+}
+
+// reserveAll is how many background lines Reserve takes on Indexer name,
+// each in-flight one answered once it is busy, and the wait that stopped
+// it. Room has none free each time Reserve is busy.
+func (p *planned) reserveAll(name string) (taken int, stopped *indexers.RoomError) {
+	p.t.Helper()
+	for {
+		_, err := p.reserve(name, indexers.ClaimBackground)
+		if errors.As(err, &stopped) && stopped.Busy {
+			if free := p.leech().Background.Free; free != 0 {
+				p.t.Fatalf("Room has %d background lines free while Reserve is busy", free)
+			}
+			p.answerAll()
+			continue
+		}
+		if err != nil {
+			return taken, stopped
+		}
+		taken++
+	}
 }
 
 // answerAll completes every open query, as their jobs answering would.
@@ -220,29 +241,14 @@ func TestReserveWritesTheClaimAndRoomAgreesWithIt(t *testing.T) {
 	p.insertQueries(p.ids["TorrentLeech"], 1, oldest, "press", false)
 	p.insertQueries(p.ids["TorrentLeech"], 35, time.Now().Add(-time.Minute), "background", false)
 
-	if r := p.room("TorrentLeech"); r.Background.Free != 2 || r.Press.Free != 3 {
+	if r := p.leech(); r.Background.Free != 2 || r.Press.Free != 3 {
 		t.Fatalf("Room = %+v, want 2 background lines and 3 presses free", r)
 	}
-	taken := 0
-	var room *indexers.RoomError
-	for {
-		_, err := p.reserve("TorrentLeech", indexers.ClaimBackground)
-		if errors.As(err, &room) && room.Busy {
-			if free := p.room("TorrentLeech").Background.Free; free != 0 {
-				t.Fatalf("Room has %d background lines free while Reserve is busy", free)
-			}
-			p.answerAll()
-			continue
-		}
-		if err != nil {
-			break
-		}
-		taken++
-	}
+	taken, room := p.reserveAll("TorrentLeech")
 	if taken != 11 || room == nil || !room.Until.Equal(oldest.Add(time.Hour)) {
 		t.Fatalf("Reserve took %d background lines and stopped with %v, want 11 and a wait until %s", taken, room, oldest.Add(time.Hour))
 	}
-	if r := p.room("TorrentLeech").Background; r.Free != 0 || !r.Until.Equal(room.Until) {
+	if r := p.leech().Background; r.Free != 0 || !r.Until.Equal(room.Until) {
 		t.Fatalf("Room's background = %+v, want none free until %s as Reserve said", r, room.Until)
 	}
 	var background int
@@ -250,7 +256,7 @@ func TestReserveWritesTheClaimAndRoomAgreesWithIt(t *testing.T) {
 		t.Fatalf("background query rows = %d, %v; want 46", background, err)
 	}
 	p.answerAll()
-	if r := p.room("TorrentLeech").Press; r.Free != 3 {
+	if r := p.leech().Press; r.Free != 3 {
 		t.Fatalf("Room's press = %+v, want the reserve's 3 slots free for presses", r)
 	}
 	for range 3 {

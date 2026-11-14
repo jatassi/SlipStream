@@ -139,7 +139,7 @@ func FitOf(f Facts, c Claim, now time.Time) Fit {
 
 func (f Facts) busy(c Claim) bool {
 	if c == ClaimPress {
-		return f.InFlight[ClaimPress]+f.InFlight[ClaimBackground] >= f.AtOnce+1
+		return f.InFlight[ClaimPress]+f.InFlight[ClaimBackground] > f.AtOnce
 	}
 	return f.InFlight[ClaimBackground] >= f.AtOnce
 }
