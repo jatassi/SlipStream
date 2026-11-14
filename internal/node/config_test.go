@@ -44,6 +44,13 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		"timings.metadata.attempts", "timings.metadata.try", "timings.metadata.retry_min", "timings.metadata.retry_max", "timings.metadata.wait", "timings.metadata.cache_entries", "timings.metadata.retest_min", "timings.metadata.retest_max", "timings.metadata.artwork_retry", "timings.metadata.changes_pages",
 		"timings.tmdb.interval", "timings.tmdb.burst", "timings.tvdb.interval", "timings.tvdb.burst", "timings.omdb.interval", "timings.omdb.burst",
 		"timings.health.retry", "timings.health.check",
+		"timings.media_servers.call", "timings.media_servers.keep_alive", "timings.media_servers.reconnect_min",
+		"timings.media_servers.reconnect_max", "timings.media_servers.retry_min", "timings.media_servers.retry_max",
+		"timings.media_servers.pin_poll", "timings.media_servers.scan_end_poll", "timings.media_servers.scan_end_poll_max",
+		"timings.media_servers.scan_end_bound", "timings.media_servers.moved_confirm", "timings.media_servers.moved_step",
+		"timings.media_servers.step_poll", "timings.media_servers.rename_snapshot", "timings.media_servers.upgrade_pairing",
+		"timings.media_servers.section_folders", "timings.media_servers.session_cap", "timings.media_servers.index_age",
+		"timings.media_servers.sent_age", "timings.media_servers.index_page",
 	}
 	if !slices.Equal(paths, want) {
 		t.Fatalf("leaves = %v, want %v", paths, want)
