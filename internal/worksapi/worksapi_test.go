@@ -262,7 +262,7 @@ func TestAddWorkAnswersTheTreeWithItsFields(t *testing.T) {
 		`"levels":[{"id":"id2","parentId":null,"depth":1,"key":"b1","label":"Winter","position":1,"withdrawnAt":null,"aside":false,"fields":[{"key":"packed","kind":"date","date":"2024-11-02"}],"artwork":[]}],` +
 		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":true,"aside":false,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[],"artwork":[],` +
 		`"availability":{"date":"2000-01-01","basis":""}}],"links":[],"profile":{"id":"id4","name":"fixture"},"root":null,"monitorNew":true,"monitorAsides":false,"levelFolders":true,` +
-		`"options":[{"key":"order","label":"Order","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"choice","value":"shelf","running":"shelf","default":"shelf","options":[{"value":"shelf","label":"Shelf order"}]}]}}` + "\n"
+		`"options":[{"key":"order","label":"Order","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"choice","value":"shelf","running":"shelf","default":"shelf","options":[{"value":"shelf","label":"Shelf order"}]}],"openIn":[]}}` + "\n"
 	if code != http.StatusOK || masked(body) != want {
 		t.Fatalf("addWork = %d\n%s\nwant\n%s", code, masked(body), want)
 	}

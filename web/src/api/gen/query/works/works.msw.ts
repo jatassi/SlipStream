@@ -2325,6 +2325,14 @@ export const getAddWorkResponseMock = (
     ),
     monitorAsides: faker.datatype.boolean(),
     monitorNew: faker.datatype.boolean(),
+    openIn: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        serverId: faker.string.uuid(),
+        url: faker.internet.url(),
+      }),
+    ),
     options: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () =>
         faker.helpers.arrayElement([
@@ -3502,6 +3510,14 @@ export const getGetWorkResponseMock = (
   })),
   monitorAsides: faker.datatype.boolean(),
   monitorNew: faker.datatype.boolean(),
+  openIn: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      serverId: faker.string.uuid(),
+      url: faker.internet.url(),
+    }),
+  ),
   options: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.helpers.arrayElement([
       { ...getGetWorkResponseSettingDurationFieldMock() },

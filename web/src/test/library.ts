@@ -94,6 +94,7 @@ export const orchard: WorksWorkView = {
   monitorAsides: false,
   levelFolders: true,
   options: [],
+  openIn: [],
 };
 
 export const orchardRow: WorksLibraryRow = {

@@ -129,8 +129,10 @@ func cycles(n int, next func(int) []int) [][]int {
 // sweep keeps. A ring member in holding returns to its origin when no
 // settled file has it, and stays at its holding name otherwise. Every
 // queued move whose path folds to a place a put-back file returns to is
-// put back too, transitively, in the same Write. It answers the Works whose
-// moves it put back, none when m's row changed since the queue read it.
+// put back too, transitively, in the same Write. A move put back for good
+// tells servers its bytes went from its origin to where they stay. It
+// answers the Works whose moves it put back, none when m's row changed
+// since the queue read it.
 func (f *Files) putBack(ctx context.Context, m move) ([]works.WorkID, error) {
 	var put []works.WorkID
 	err := f.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
@@ -150,11 +152,15 @@ func (f *Files) putBack(ctx context.Context, m move) ([]works.WorkID, error) {
 		if err := putAll(ctx, q, backs); err != nil {
 			return err
 		}
+		var went []fact
 		for _, b := range backs {
 			put = append(put, b.m.work)
+			if !b.keep {
+				went = append(went, fact{file: b.m.file, root: b.m.root, from: b.m.origin, to: b.to})
+			}
 		}
 		f.cfg.Log.Warn("another file is at a file's new path, and the file stays where it was", "root", m.root.String(), "path", m.path, "files", len(backs))
-		return nil
+		return f.tell(ctx, tx, went)
 	})
 	return put, err
 }

@@ -410,10 +410,13 @@ type Config struct {
 	// Moved publishes files.moved once per confirmed rename plan that
 	// queued a move, and once per pass of the disk queue that finished or
 	// put back a move.
-	Moved   MovedPublisher
-	Timings Timings
-	Rand    *rand.Rand
-	Log     *slog.Logger
+	Moved MovedPublisher
+	// MediaServers is told every change of a file's bytes, NoMediaServers
+	// when nil.
+	MediaServers MediaServers
+	Timings      Timings
+	Rand         *rand.Rand
+	Log          *slog.Logger
 }
 
 type Files struct {
