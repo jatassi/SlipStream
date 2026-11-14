@@ -15,7 +15,9 @@ type Due struct {
 	// step is due again between its steps.
 	Rows     []Row
 	Mappings []PlanMapping
-	Timings  Timings
+	// Wait is the server's Wait before sending.
+	Wait    time.Duration
+	Timings Timings
 }
 
 // Row is one due change row.
@@ -28,8 +30,10 @@ type Row struct {
 	Created      time.Time
 	// NextAt is the row's next_attempt_at: a retry's backoff, or a step's
 	// timed wait.
-	NextAt   time.Time
-	Step     Step
+	NextAt time.Time
+	Step   Step
+	// StepAt is when the row reached Step, zero at StepNone.
+	StepAt   time.Time
 	Attempts int
 	// Pairing is a half of an upgrade waiting for the other: a removed that
 	// names its replacer, or an added that a removed will follow.
