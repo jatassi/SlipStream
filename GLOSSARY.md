@@ -246,9 +246,37 @@ _Avoid_: Migration, relocation, sync, transfer (for the whole job), Handover
 An external player-facing server that serves the library to players, such as Plex, Jellyfin or Emby. The admin adds each one SlipStream keeps up to date, and one Node holding the Media Server link Role reaches it. The Media Server, never SlipStream, picks which file a player gets.
 _Avoid_: Plex (as a generic term), link, connection
 
+**Reaching Node**:
+The one Node a Media Server names to reach it, which is the Controller or a Worker holding Media Server link. It sends the server its Media Server changes and watches its sessions, and it need not be the Node the server runs on. Settings labels it Reached from.
+_Avoid_: Home Node (that is an Indexer's), host Node, runs-on Node
+
+**Fallback address**:
+The address at which the Controller calls a Media Server itself while the server's Reaching Node is offline. The Controller uses it only once its own test of that address passed, and otherwise holds the server's changes until the Node is back. Session watching never falls back.
+_Avoid_: Covering (that is a Role's), failover
+
 **Path mapping**:
 How one Media Server sees a library root, such as `/mnt/media` on the storage Node being `/data/media` to Plex.
 _Avoid_: Path substitution, remote path mapping
+
+**Fresh folder**:
+A library folder that a Media Server has never scanned with a file in it. Plex and Jellyfin skip a report or a partial scan into one, so the first change into it waits until a full scan of its library has found a file there.
+_Avoid_: New root, empty library
+
+**Media Server change**:
+One change a Media Server is sent about one library path: a file added, replaced, removed or moved, a Sidecar added, replaced or removed, or a refresh of a whole library. The Controller keeps it until the server accepts it, and merges the changes on one path into one.
+_Avoid_: Notification, event, update, refresh (for the change itself)
+
+**Carry**:
+A Media Server change that puts an item's file at a new path, from a rename or an upgrade under a new name, and keeps every user's Watch data and the item's collections on the item at the new path. The change lists what the server couldn't keep as lost.
+_Avoid_: Move (that is the Admin's job), restore, migration
+
+**Watch data**:
+What a Media Server records for each of its users about one item: played, play count, resume position, favourite, last played and rating.
+_Avoid_: Watch history, user data
+
+**Play history**:
+The plays SlipStream records from each Media Server's sessions: who played which library file on which player, and whether the server direct played, copied or transcoded it, with the reasons the server gave. It keeps them for "Keep play history for", 30 days by default.
+_Avoid_: Session history, watch history, stats
 
 **Playback report**:
 What SlipStream shows about recent plays on each Media Server: which players transcoded, why, and which Target would have played without transcoding.
