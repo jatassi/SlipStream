@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
@@ -24,6 +25,12 @@ type kind struct{}
 
 func (kind) About() link.About {
 	return link.About{Name: "plex", Label: "Plex", Form: link.SignInPlexPIN, Floor: link.MustVersion("1.43")}
+}
+
+// OpenIn is the item in Plex's web app, which reaches the server through
+// plex.tv wherever the Admin is.
+func (kind) OpenIn(app, identity, item string) string {
+	return strings.TrimSuffix(app, "/") + "/#!/server/" + identity + "/details?key=/library/metadata/" + item
 }
 
 func (kind) Dial(d link.Dialed) link.Conn {

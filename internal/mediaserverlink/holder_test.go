@@ -29,8 +29,9 @@ type fakeKind struct {
 	seen   chan link.Seen
 }
 
-func (k *fakeKind) About() link.About        { return link.About{Name: "fake", Label: "Fake"} }
-func (k *fakeKind) Plan(link.Due) []link.Job { return nil }
+func (k *fakeKind) About() link.About                    { return link.About{Name: "fake", Label: "Fake"} }
+func (k *fakeKind) Plan(link.Due) []link.Job             { return nil }
+func (k *fakeKind) OpenIn(string, string, string) string { return "" }
 
 func (k *fakeKind) Dial(d link.Dialed) link.Conn {
 	k.mu.Lock()
