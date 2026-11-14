@@ -73,6 +73,10 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/mediaserverlink/link
               type: Step
+          - column: mediaservers_change.state
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaservers/queue
+              type: State
           - column: mediaservers_change.result
             go_type:
               import: github.com/jatassi/slipstream/internal/mediaserverlink/link

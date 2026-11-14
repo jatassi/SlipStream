@@ -10,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
+	"github.com/jatassi/slipstream/internal/mediaservers/queue"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 )
@@ -31,7 +32,7 @@ type InsertChangeParams struct {
 	FileID        files.ID
 	ReplacedBy    files.ID
 	Upgrade       bool
-	State         string
+	State         queue.State
 	Step          link.Step
 	StepAt        storage.Time
 	Snapshot      *string
