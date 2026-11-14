@@ -9,7 +9,7 @@ export interface MediaserversMappingView {
   /** The library the folder sits inside; absent when not shown */
   library?: MediaserversLibrary;
   rootId: string;
-  /** Such as Movies (D:) */
+  /** The root as copy names it, such as Movies library root on Media server */
   rootName: string;
   /** The Storage Node whose disk holds the root */
   rootNode: MediaserversNodeRef;

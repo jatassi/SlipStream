@@ -5,7 +5,7 @@ export interface MediaserversPatchBody {
    */
   address?: string;
   /**
-   * Jellyfin and Emby. Write-only
+   * Jellyfin and Emby. Write-only. A key from signInToMediaServer keeps the server's saved deviceId, since the key isn't tied to a device
    * @minLength 1
    * @maxLength 1024
    */
