@@ -248,11 +248,14 @@ func (s service) PlexAccount(ctx context.Context) (AccountView, error) {
 // SignOutOfPlex forgets the account's sign-in and removes every Plex
 // server in the same Write. The device key stays for the next sign-in.
 func (s service) SignOutOfPlex(ctx context.Context) error {
-	var removed []db.DeletePlexServersRow
+	var removed []db.MediaserversServer
 	err := s.m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
 		var err error
-		if removed, err = q.DeletePlexServers(ctx); err != nil {
+		if removed, err = q.ListPlexServers(ctx); err != nil {
+			return err
+		}
+		if err := q.DeletePlexServers(ctx); err != nil {
 			return err
 		}
 		return q.SignOutOfPlex(ctx)

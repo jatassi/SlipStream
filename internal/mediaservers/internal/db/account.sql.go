@@ -8,42 +8,17 @@ package db
 import (
 	"context"
 
-	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
-	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-const deletePlexServers = `-- name: DeletePlexServers :many
-DELETE FROM mediaservers_server WHERE kind = 'plex' RETURNING id, reaching_node_id
+const deletePlexServers = `-- name: DeletePlexServers :exec
+DELETE FROM mediaservers_server WHERE kind = 'plex'
 `
 
-type DeletePlexServersRow struct {
-	ID             link.ServerID
-	ReachingNodeID role.NodeID
-}
-
-func (q *Queries) DeletePlexServers(ctx context.Context) ([]DeletePlexServersRow, error) {
-	rows, err := q.db.QueryContext(ctx, deletePlexServers)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []DeletePlexServersRow
-	for rows.Next() {
-		var i DeletePlexServersRow
-		if err := rows.Scan(&i.ID, &i.ReachingNodeID); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) DeletePlexServers(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deletePlexServers)
+	return err
 }
 
 const getPlexAccount = `-- name: GetPlexAccount :one

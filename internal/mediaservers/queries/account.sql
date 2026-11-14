@@ -38,5 +38,5 @@ WHERE id = 1;
 -- name: ListPlexServers :many
 SELECT * FROM mediaservers_server WHERE kind = 'plex' ORDER BY id;
 
--- name: DeletePlexServers :many
-DELETE FROM mediaservers_server WHERE kind = 'plex' RETURNING id, reaching_node_id;
+-- name: DeletePlexServers :exec
+DELETE FROM mediaservers_server WHERE kind = 'plex';
