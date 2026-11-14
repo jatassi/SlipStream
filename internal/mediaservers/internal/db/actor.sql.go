@@ -210,7 +210,7 @@ SELECT id FROM mediaservers_server ORDER BY id
 `
 
 // The sender of each server: it takes due rows, records each step, and
-// writes the server's sends columns.
+// writes the server's sends and unhealthy columns.
 func (q *Queries) ListServerIDs(ctx context.Context) ([]link.ServerID, error) {
 	rows, err := q.db.QueryContext(ctx, listServerIDs)
 	if err != nil {
@@ -261,6 +261,22 @@ type SetSendsOKParams struct {
 
 func (q *Queries) SetSendsOK(ctx context.Context, arg SetSendsOKParams) error {
 	_, err := q.db.ExecContext(ctx, setSendsOK, arg.At, arg.ID)
+	return err
+}
+
+const setUnhealthy = `-- name: SetUnhealthy :exec
+UPDATE mediaservers_server SET unhealthy_reason = ?1, unhealthy_since = ?2
+WHERE id = ?3
+`
+
+type SetUnhealthyParams struct {
+	Reason *string
+	Since  storage.Time
+	ID     link.ServerID
+}
+
+func (q *Queries) SetUnhealthy(ctx context.Context, arg SetUnhealthyParams) error {
+	_, err := q.db.ExecContext(ctx, setUnhealthy, arg.Reason, arg.Since, arg.ID)
 	return err
 }
 

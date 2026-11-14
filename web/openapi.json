@@ -7635,6 +7635,7 @@
           "library",
           "nodes",
           "download-clients",
+          "media-servers",
           "seeding",
           "indexers",
           "scheduled-tasks"

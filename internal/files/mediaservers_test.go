@@ -460,7 +460,7 @@ func TestIDsAtFindsTheFileWhoseBytesSitAtEachPath(t *testing.T) {
 	var got map[storing.Rel]files.ID
 	err := l.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
-		got, err = svc.IDsAt(ctx, r, l.root.ID, []storing.Rel{rel(t, "w1/a.mkv"), rel(t, "w1/b.mkv"), rel(t, "w1/z.mkv"), rel(t, "w1/none.mkv")})
+		got, err = files.IDsAt(ctx, r, l.root.ID, []storing.Rel{rel(t, "w1/a.mkv"), rel(t, "w1/b.mkv"), rel(t, "w1/z.mkv"), rel(t, "w1/none.mkv")})
 		return err
 	})
 	if err != nil {

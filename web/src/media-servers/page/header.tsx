@@ -14,6 +14,7 @@ import { adoptMediaServer } from "../../live/adopt-media-servers";
 import { Button } from "../../ui/button";
 import { toast } from "../../ui/toast";
 import { SignalLine } from "../lines";
+import { RefreshServer } from "./refresh-server";
 
 type TestAnswer = { readonly tested: Tested } | { readonly refused: string };
 
@@ -41,7 +42,7 @@ function TestResult({ answer }: { answer: TestAnswer }) {
   );
 }
 
-/** What the server needs, then Test, which runs both routes, and Confirm on a new server Id. */
+/** What the server needs, then Test, which runs both routes, Refresh whole library, and Confirm on a new server Id. */
 export function ServerHeader({ server }: { server: Server }) {
   const queryClient = useQueryClient();
   const [answer, setAnswer] = useState<TestAnswer>();
@@ -76,6 +77,7 @@ export function ServerHeader({ server }: { server: Server }) {
         <Button size="small" busy={testing} onClick={() => void test()}>
           Test
         </Button>
+        <RefreshServer server={server} />
         {server.contact === "other_server" && (
           <Button size="small" look="warn" busy={confirming} onClick={() => void confirm()}>
             Confirm the new server

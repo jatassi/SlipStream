@@ -176,6 +176,10 @@ export function refusalOf(error: unknown): SubmitErrors {
 
 export const underDetails = new Set<string>(["fallbackAddress", "browserAddress"]);
 
+/** A Plex server's address sits under Details too, because plex.tv lists it. */
+export const detailsOf = (kind: Kind): ReadonlySet<string> =>
+  kind.signIn === "plex_pin" ? new Set([...underDetails, "address"]) : underDetails;
+
 export const kindOf = (kinds: readonly Kind[], id: string): Kind => {
   const kind = kinds.find((each) => each.kind === id);
   if (kind === undefined) {

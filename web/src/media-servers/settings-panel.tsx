@@ -42,8 +42,9 @@ export function MediaServerSettings() {
                 key={field.key}
                 field={field}
                 onSave={async (value) => {
-                  adoptMediaServerSettings(
+                  await adoptMediaServerSettings(
                     queryClient,
+                    field.key,
                     await updateMediaServerSettings({ values: { [field.key]: value } }),
                   );
                 }}

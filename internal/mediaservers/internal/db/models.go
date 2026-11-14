@@ -57,6 +57,14 @@ type MediaserversItem struct {
 	Stale      bool
 }
 
+type MediaserversListing struct {
+	ServerID   link.ServerID
+	LibraryKey string
+	StartedAt  storage.Time
+	Cursor     string
+	ListedAt   storage.Time
+}
+
 type MediaserversMapping struct {
 	ServerID        link.ServerID
 	RootID          roots.ID

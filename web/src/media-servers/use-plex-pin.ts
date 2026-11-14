@@ -1,4 +1,4 @@
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 import { isApiError } from "../api/errors";
@@ -20,20 +20,22 @@ import { writePref } from "../shell/prefs";
 const pollEvery = 1000;
 
 /** The Plex account SlipStream is signed in to, or null when it is signed in to none. */
-export function usePlexAccount(): Account | null {
-  return useSuspenseQuery({
-    queryKey: [...getGetPlexAccountQueryKey(), "or-signed-out"],
-    queryFn: async ({ signal }) => {
-      try {
-        return await getPlexAccount({ signal });
-      } catch (error) {
-        if (isApiError(error) && error.code === "plex_not_signed_in") {
-          return null;
-        }
-        throw error;
+export const plexAccountQuery = queryOptions({
+  queryKey: [...getGetPlexAccountQueryKey(), "or-signed-out"],
+  queryFn: async ({ signal }): Promise<Account | null> => {
+    try {
+      return await getPlexAccount({ signal });
+    } catch (error) {
+      if (isApiError(error) && error.code === "plex_not_signed_in") {
+        return null;
       }
-    },
-  }).data;
+      throw error;
+    }
+  },
+});
+
+export function usePlexAccount(): Account | null {
+  return useSuspenseQuery(plexAccountQuery).data;
 }
 
 /**

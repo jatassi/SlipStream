@@ -9,7 +9,7 @@ import { useListNodesSuspense } from "../../api/gen/query/nodes/nodes";
 import { adoptMediaServer } from "../../live/adopt-media-servers";
 import { toast } from "../../ui/toast";
 import { ServerFields } from "../server-fields";
-import { editOf, kindOf, reachingOf, valuesOf } from "../server-form";
+import { detailsOf, editOf, kindOf, reachingOf, valuesOf } from "../server-form";
 import { useServerForm } from "../use-server-form";
 
 /** The server's own settings, as the Add sheet took them. Save tests the routes a change reaches. */
@@ -17,16 +17,20 @@ export function SettingsTab({ server }: { server: Server }) {
   const queryClient = useQueryClient();
   const kind = kindOf(useListMediaServerKindsSuspense().data.kinds, server.kind);
   const { nodes } = useListNodesSuspense().data;
-  const sheet = useServerForm(valuesOf(server), async (value) => {
-    const edit = editOf(server, value, kind);
-    if (Object.keys(edit).length === 0) {
-      return value;
-    }
-    const got = await updateMediaServer(server.id, edit);
-    adoptMediaServer(queryClient, got);
-    toast(`Saved ${got.name}`);
-    return valuesOf(got);
-  });
+  const sheet = useServerForm(
+    valuesOf(server),
+    async (value) => {
+      const edit = editOf(server, value, kind);
+      if (Object.keys(edit).length === 0) {
+        return value;
+      }
+      const got = await updateMediaServer(server.id, edit);
+      adoptMediaServer(queryClient, got);
+      toast(`Saved ${got.name}`);
+      return valuesOf(got);
+    },
+    detailsOf(kind),
+  );
   const { form } = sheet;
   return (
     <form

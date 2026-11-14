@@ -203,7 +203,7 @@ message AdvanceResponse {
   int64 wait_unix_ms = 3;
   repeated Outcome outcomes = 4;
   repeated IndexEntry learned = 5;
-  MappingFact mapping = 6;
+  reserved 6;
   repeated Library libraries = 7;
   // problem is set when the server failed the step, and the rest is then
   // empty.
@@ -282,6 +282,7 @@ message Fresh {
   string folder = 2;
   int64 requested_unix_ms = 3;
   int64 started_unix_ms = 4;
+  repeated bytes changes = 5;
 }
 
 message Rescan {
@@ -332,9 +333,4 @@ message IndexEntry {
   string library = 2;
   ItemKey item = 3;
   bool gone = 4;
-}
-
-message MappingFact {
-  int64 started_unix_ms = 1;
-  bool scanned = 2;
 }

@@ -53,6 +53,7 @@ func (m *MediaServers) renew(ctx context.Context, _ tasks.Unit, _ *tasks.Progres
 			return err
 		}
 		m.cfg.Log.Info("renewed the Plex sign-in", "expires", token.Expires)
+		m.senders.wakeAll()
 	}
 	return renewal(m.reread(ctx))
 }

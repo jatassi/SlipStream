@@ -43,6 +43,9 @@ func (m *MediaServers) Apply(ctx context.Context, tx *storage.Tx[storage.Library
 		if c.version < cur.SettingsVersion {
 			return nil
 		}
+		if c.state != cur.Contact {
+			m.senders.wake(id)
+		}
 		return q.SetContact(ctx, c.next(id, cur))
 	case *msv1.Report_PlayStarted:
 		return startPlay(ctx, q, id, rep.PlayStarted)
@@ -53,6 +56,7 @@ func (m *MediaServers) Apply(ctx context.Context, tx *storage.Tx[storage.Library
 	case *msv1.Report_Watching:
 		return watching(ctx, q, id, rep.Watching)
 	case *msv1.Report_IndexHint:
+		m.senders.wake(id)
 		return hint(ctx, q, id, rep.IndexHint)
 	default:
 		return fmt.Errorf("a Media Server report of type %T isn't one the Controller applies", rep)

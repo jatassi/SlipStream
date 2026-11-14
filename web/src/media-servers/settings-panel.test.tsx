@@ -1,6 +1,8 @@
 import { expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { getGetTaskQueryKey, getListTasksQueryKey } from "../api/gen/query/tasks/tasks";
+import { seeded } from "../test/live-server";
 import { mediaServersWorld } from "../test/media-server-writes";
 import { home, nodesAre } from "../test/nodes";
 import { renderApp } from "../test/render-app";
@@ -71,4 +73,23 @@ test("a renewal margin no longer than the renewal schedule is refused on its fie
     path: "settings",
     body: { values: { "mediaServers.renewMargin": 172_800 } },
   });
+});
+
+test("saving the renewal schedule makes the Tasks page read the renewal task again", async () => {
+  const world = mediaServersWorld();
+  const app = renderApp({ path, handlers: [nodesAre(home), ...world.handlers] });
+  const panel = page.getByRole("region", { name: "Sending and sessions" });
+  await userEvent.click(panel.getByRole("button", { name: "Details" }));
+  const invalidated = seeded(app, {
+    tasks: getListTasksQueryKey(),
+    renewal: getGetTaskQueryKey("plex-sign-in"),
+  });
+  await userEvent.fill(panel.getByRole("textbox", { name: "Wait before sending" }), "30");
+  await userEvent.click(panel.getByRole("button", { name: "Save" }));
+  await expect.element(panel.getByText("30 s after", { exact: false })).toBeVisible();
+  expect(invalidated()).toEqual({ tasks: false, renewal: false });
+
+  await userEvent.fill(panel.getByRole("textbox", { name: "Renew Plex sign-in every" }), "2");
+  await userEvent.click(panel.getByRole("button", { name: "Save" }));
+  await expect.poll(invalidated).toEqual({ tasks: true, renewal: true });
 });

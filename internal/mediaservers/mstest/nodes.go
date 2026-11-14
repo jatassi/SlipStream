@@ -33,6 +33,7 @@ type links struct {
 	facts   map[role.NodeID]*msv1.Facts
 	away    map[role.NodeID]time.Time
 	cut     map[role.NodeID]bool
+	lose    map[role.NodeID]func(*msv1.Job) bool
 	changed chan struct{}
 }
 
@@ -40,7 +41,8 @@ func newLinks(t *testing.T, w *World, cfg mediaserverlink.Config) *links {
 	return &links{
 		t: t, w: w, cfg: cfg, held: map[role.NodeID]*holder{}, link: map[role.NodeID]*mediaserverlink.Link{},
 		local: map[role.NodeID]*storage.DB[storage.Local]{}, facts: map[role.NodeID]*msv1.Facts{},
-		away: map[role.NodeID]time.Time{}, cut: map[role.NodeID]bool{}, changed: make(chan struct{}),
+		away: map[role.NodeID]time.Time{}, cut: map[role.NodeID]bool{}, lose: map[role.NodeID]func(*msv1.Job) bool{},
+		changed: make(chan struct{}),
 	}
 }
 
@@ -120,7 +122,33 @@ func (l *links) service(node role.NodeID) mediaserverv1connect.MediaServerLinkSe
 	if _, away := l.away[node]; away || l.cut[node] {
 		return unlinked{}
 	}
-	return l.link[node].Service()
+	return losing{l.link[node].Service(), l, node}
+}
+
+// LoseAnswer drops the answer of node's next Advance whose Job matches,
+// after node ran its step: a link that broke while the call ran.
+func (w *World) LoseAnswer(node role.NodeID, match func(*msv1.Job) bool) {
+	w.links.mu.Lock()
+	defer w.links.mu.Unlock()
+	w.links.lose[node] = match
+}
+
+// losing is node's service, dropping the answer LoseAnswer names.
+type losing struct {
+	mediaserverv1connect.MediaServerLinkServiceHandler
+	l    *links
+	node role.NodeID
+}
+
+func (s losing) Advance(ctx context.Context, req *msv1.AdvanceRequest) (*msv1.AdvanceResponse, error) {
+	res, err := s.MediaServerLinkServiceHandler.Advance(ctx, req)
+	s.l.mu.Lock()
+	defer s.l.mu.Unlock()
+	if match, ok := s.l.lose[s.node]; ok && match(req.GetJob()) {
+		delete(s.l.lose, s.node)
+		return nil, errUnlinked()
+	}
+	return res, err
 }
 
 func (l *links) set(node role.NodeID, away, cut bool) {
@@ -134,6 +162,7 @@ func (l *links) set(node role.NodeID, away, cut bool) {
 	l.cut[node] = cut
 	close(l.changed)
 	l.changed = make(chan struct{})
+	nodes.ChangedEvent.Bind(l.w.hub).Publish(context.Background(), nodes.Changed{NodeID: node.String()})
 }
 
 func (l *links) inStep(node role.NodeID) bool {

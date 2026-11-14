@@ -1,4 +1,10 @@
-import { FolderLinksIcon, InformationCircleIcon, Settings02Icon } from "@hugeicons/core-free-icons";
+import {
+  ArrowDataTransferVerticalIcon,
+  FolderLinksIcon,
+  InformationCircleIcon,
+  PlayCircle02Icon,
+  Settings02Icon,
+} from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 
 import type { MediaserversServerView as Server } from "../../api/gen/model";
@@ -20,10 +26,17 @@ export type ServerSection = {
  */
 export const serverSections = [
   {
-    id: "details",
-    label: "Details",
-    icon: InformationCircleIcon,
+    id: "playing",
+    label: "Now playing",
+    icon: PlayCircle02Icon,
     to: "/settings/media-servers/$serverId",
+  },
+  {
+    id: "changes",
+    label: "Changes",
+    icon: ArrowDataTransferVerticalIcon,
+    to: "/settings/media-servers/$serverId/changes",
+    dot: (server) => (server.sends === "failing" ? "fail" : undefined),
   },
   {
     id: "mappings",
@@ -38,6 +51,12 @@ export const serverSections = [
     label: "Settings",
     icon: Settings02Icon,
     to: "/settings/media-servers/$serverId/settings",
+  },
+  {
+    id: "details",
+    label: "Details",
+    icon: InformationCircleIcon,
+    to: "/settings/media-servers/$serverId/details",
   },
 ] as const satisfies readonly ServerSection[];
 
