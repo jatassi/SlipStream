@@ -18,8 +18,8 @@ package plex
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake"

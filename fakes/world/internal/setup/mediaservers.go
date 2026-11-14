@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/jatassi/slipstream/fakes/emby"
 	"github.com/jatassi/slipstream/fakes/internal/serverfake"
@@ -89,13 +88,10 @@ func addMediaServer(ctx context.Context, c *http.Client, s scenario.Scenario, cl
 	return nodeapi.AddMediaServer(ctx, c, controller, claims.APIKey, body)
 }
 
-// plexSignInWait is how long the Controller has to see the approved PIN.
-const plexSignInWait = 30 * time.Second
-
-var errPlexSignIn = errors.New("the Plex sign-in never read signed in")
+var errPlexSignIn = errors.New("the Plex sign-in didn't read signed in once approved")
 
 // signInToPlex signs the Controller in to plex.tv, approving the PIN as
-// the Admin would, and answers the machineIdentifier of the account's
+// the Admin would, which the PIN's first read then finds, and answers the machineIdentifier of the account's
 // server named name.
 func signInToPlex(ctx context.Context, c *http.Client, controller, apiKey, name string, w MediaWorld) (string, error) {
 	pin, err := nodeapi.StartPlexSignIn(ctx, c, controller, apiKey, controller+"/settings/system/media-servers")
@@ -110,18 +106,12 @@ func signInToPlex(ctx context.Context, c *http.Client, controller, apiKey, name 
 	if err := w.Approve(ctx, q.Get("code")); err != nil {
 		return "", err
 	}
-	for deadline := time.Now().Add(plexSignInWait); ; {
-		state, err := nodeapi.PlexSignInState(ctx, c, controller, apiKey, pin.ID)
-		if err != nil {
-			return "", err
-		}
-		if state == "signed_in" {
-			break
-		}
-		if time.Now().After(deadline) {
-			return "", fmt.Errorf("%w: it reads %s", errPlexSignIn, state)
-		}
-		time.Sleep(250 * time.Millisecond)
+	state, err := nodeapi.PlexSignInState(ctx, c, controller, apiKey, pin.ID)
+	if err != nil {
+		return "", err
+	}
+	if state != "signed_in" {
+		return "", fmt.Errorf("%w: it reads %s", errPlexSignIn, state)
 	}
 	servers, err := nodeapi.ListPlexServers(ctx, c, controller, apiKey)
 	if err != nil {
