@@ -40,36 +40,37 @@ type IndexersDefinition struct {
 }
 
 type IndexersIndexer struct {
-	ID            IndexerID
-	Name          string
-	Kind          string
-	HomeNodeID    role.NodeID
-	IsOn          bool
-	AutoSearch    bool
-	Rss           bool
-	AllowFailover bool
-	Priority      int64
-	Categories    *string
-	Media         *string
-	SearchLimit   int64
-	SearchWindow  string
-	GrabLimit     int64
-	GrabWindow    string
-	DefinitionID  *string
-	DefinitionSha *string
-	PortID        *string
-	BaseAddress   *string
-	Plain         string
-	SecretsSealed secret.Sealed
-	FeedHost      *string
-	TrackerName   *string
-	AllowNoSize   bool
-	RssReading    *string
-	Caps          string
-	Notes         string
-	Revision      int64
-	CreatedAt     storage.Time
-	UpdatedAt     storage.Time
+	ID             IndexerID
+	Name           string
+	Kind           string
+	HomeNodeID     role.NodeID
+	IsOn           bool
+	AutoSearch     bool
+	Rss            bool
+	AllowFailover  bool
+	Priority       int64
+	Categories     *string
+	Media          *string
+	SearchLimit    int64
+	SearchWindow   string
+	GrabLimit      int64
+	GrabWindow     string
+	DefinitionID   *string
+	DefinitionSha  *string
+	PortID         *string
+	BaseAddress    *string
+	Plain          string
+	SecretsSealed  secret.Sealed
+	FeedHost       *string
+	TrackerName    *string
+	AllowNoSize    bool
+	RssReading     *string
+	Caps           string
+	Notes          string
+	Revision       int64
+	CreatedAt      storage.Time
+	UpdatedAt      storage.Time
+	SearchesAtOnce int64
 }
 
 type IndexersNode struct {
@@ -82,6 +83,7 @@ type IndexersQuery struct {
 	ID          QueryID
 	IndexerID   IndexerID
 	Use         string
+	Claim       *string
 	ReservedAt  storage.Time
 	StartedAt   storage.Time
 	CompletedAt storage.Time
@@ -95,6 +97,16 @@ type IndexersQuery struct {
 type IndexersReach struct {
 	IndexerID IndexerID
 	TrackerID TrackerID
+}
+
+type IndexersRss struct {
+	IndexerID       IndexerID
+	LastGuids       string
+	LastPublishedAt storage.Time
+	LastFetchAt     storage.Time
+	LastPages       int64
+	GapAt           storage.Time
+	GapKind         *string
 }
 
 type IndexersSession struct {
