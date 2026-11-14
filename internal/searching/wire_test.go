@@ -33,10 +33,6 @@ func TestAJobAndItsAnswerCrossTheWireWhole(t *testing.T) {
 	if got, site, err := decodeJob(encodeJob(feed)); err != nil || !reflect.DeepEqual(got, feed) || site.RSS != feed.RSS {
 		t.Fatalf("the RSS job came across as %+v, %+v, %v; want %+v", got, site, err, feed)
 	}
-	feed.Call = RecentCall{Offset: -1}
-	if _, _, err := decodeJob(encodeJob(feed)); err == nil {
-		t.Fatal("a recent call at offset -1 came across, want it refused")
-	}
 
 	for _, call := range []Call{TestCall{Captcha: &CaptchaAnswer{PreLogin: []byte(`{"Action":"x"}`), Text: "x7k2"}}, CaptchaCall{}} {
 		catalog := Job{
@@ -80,6 +76,13 @@ func TestAJobAndItsAnswerCrossTheWireWhole(t *testing.T) {
 		if back, err := decodeAnswer(encodeAnswer(a)); err != nil || !same(back, a) {
 			t.Fatalf("an RSS Test's answer came across as %+v, %v; want %+v", back.Report, err, r)
 		}
+	}
+}
+
+func TestARecentCallBelowOffset0IsRefused(t *testing.T) {
+	job := Job{ID: "f", Indexer: "b", Kind: Torznab, Address: "https://site.test/torznab", Call: RecentCall{Offset: -1}}
+	if _, _, err := decodeJob(encodeJob(job)); err == nil {
+		t.Fatal("a recent call at offset -1 came across, want it refused")
 	}
 }
 
