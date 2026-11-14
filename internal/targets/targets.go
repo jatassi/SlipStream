@@ -13,6 +13,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -132,6 +133,7 @@ func insertTarget(ctx context.Context, q *db.Queries, t Target) error {
 	err = q.InsertTarget(ctx, db.InsertTargetParams{
 		ID: t.ID, Name: t.Name, NameFolded: &folded, CreatedAt: t.CreatedAt, CutoffTier: int64(t.Cutoff), MinScore: int64(t.Scores.Minimum),
 		UpgradeUntil: int64(t.Scores.UpgradeUntil), ScoreIncrement: int64(t.Scores.Increment), Propers: t.Propers.String(),
+		HoldSeconds: int64(t.Hold / time.Second),
 	})
 	if err != nil {
 		return err
@@ -223,7 +225,7 @@ func (t *Targets) DuplicateTarget(ctx context.Context, _ identity.Admin, id Targ
 		}
 		copied = Target{
 			ID: TargetID{UUID: storage.NewUUID()}, Tiers: all[i].Tiers, Cutoff: all[i].Cutoff, Filters: all[i].Filters,
-			Scores: all[i].Scores, Propers: all[i].Propers, CreatedAt: storage.Now(),
+			Scores: all[i].Scores, Propers: all[i].Propers, Hold: all[i].Hold, CreatedAt: storage.Now(),
 		}
 		for n := 1; copied.Name == "" || slices.ContainsFunc(all, func(t Target) bool { return foldName(t.Name) == foldName(copied.Name) }); n++ {
 			copied.Name = all[i].Name + " copy"
@@ -348,8 +350,9 @@ func targetOf(row db.TargetsTarget) (Target, error) {
 		return Target{}, fmt.Errorf("target %s: %w", row.ID, err)
 	}
 	return Target{
-		ID: row.ID, Name: row.Name, Cutoff: int(row.CutoffTier), Propers: propers, CreatedAt: row.CreatedAt,
-		Scores: Scores{Formats: map[formats.ID]int{}, Minimum: int(row.MinScore), UpgradeUntil: int(row.UpgradeUntil), Increment: int(row.ScoreIncrement)},
+		ID: row.ID, Name: row.Name, Cutoff: int(row.CutoffTier), Propers: propers, Hold: time.Duration(row.HoldSeconds) * time.Second,
+		CreatedAt: row.CreatedAt,
+		Scores:    Scores{Formats: map[formats.ID]int{}, Minimum: int(row.MinScore), UpgradeUntil: int(row.UpgradeUntil), Increment: int(row.ScoreIncrement)},
 	}, nil
 }
 

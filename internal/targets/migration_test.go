@@ -318,3 +318,42 @@ func TestTargetNamesTwinnedByCaseAreRenamedOnceAtStartUntilEachFoldsApart(t *tes
 		t.Fatal("the schema took a second Target folded as strasse")
 	}
 }
+
+func TestATargetMigratesWithNoHoldAndAHoldKeepsToWholeMinutesUpToSevenDays(t *testing.T) {
+	ctx := t.Context()
+	open := opener(t, filepath.Join(t.TempDir(), storage.LibraryFile))
+	before := open(targets.Schema().Through(4))
+	id := targets.TargetID{UUID: storage.NewUUID()}
+	err := before.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO targets_target (id, name, name_folded, created_at, cutoff_tier) VALUES (?, 'HD', 'hd', 1, 0)`, id); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `INSERT INTO targets_quality (target_id, quality, tier, position, min_mib_per_minute) VALUES (?, 'webdl-1080p', 0, 0, 12.5)`, id)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := before.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	lib := open(targets.Schema())
+	t.Cleanup(func() { _ = lib.Close() })
+	goals := must[*targets.Targets](t)(targets.Open(ctx, targets.Config{Library: lib, Changed: discard{}}))
+	if got := must[targets.Target](t)(goals.GetTarget(ctx, identity.Admin{}, id)); got.Hold != 0 {
+		t.Errorf("a migrated Target holds for %v, want 0", got.Hold)
+	}
+	for _, c := range []struct {
+		seconds int
+		ok      bool
+	}{{0, true}, {60, true}, {604800, true}, {-60, false}, {604860, false}, {90, false}} {
+		err := lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := tx.ExecContext(ctx, `UPDATE targets_target SET hold_seconds = ?`, c.seconds)
+			return err
+		})
+		if c.ok != (err == nil) || !c.ok && !strings.Contains(err.Error(), "CHECK constraint failed") {
+			t.Errorf("a Hold of %d seconds: written with %v, want ok=%v", c.seconds, err, c.ok)
+		}
+	}
+}
