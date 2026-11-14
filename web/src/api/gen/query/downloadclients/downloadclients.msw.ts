@@ -372,6 +372,36 @@ export const getListDownloadClientsResponseMock = (
     }),
   ),
   thresholds: {
+    clientErrorFail: {
+      applies: faker.helpers.arrayElement(["live", "restart"] as const),
+      default: faker.number.int(),
+      ...(faker.datatype.boolean()
+        ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      ...(faker.datatype.boolean()
+        ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      isDefault: faker.datatype.boolean(),
+      key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      kind: faker.helpers.arrayElement(["duration"] as const),
+      label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      ...(faker.datatype.boolean()
+        ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+        : {}),
+      max: faker.number.int(),
+      min: faker.number.int(),
+      pendingRestart: faker.datatype.boolean(),
+      running: faker.number.int(),
+      source: faker.helpers.arrayElement([
+        "database",
+        "default",
+        "config.yaml",
+        ".env",
+        "env",
+      ] as const),
+      step: faker.number.int(),
+      value: faker.number.int(),
+    },
     faultStall: {
       applies: faker.helpers.arrayElement(["live", "restart"] as const),
       default: faker.number.int(),
@@ -469,6 +499,36 @@ export const getListDownloadClientsResponseMock = (
 export const getSetDownloadClientThresholdsResponseMock = (
   overrideResponse: Partial<Extract<DownloadclientsThresholds, object>> = {},
 ): DownloadclientsThresholds => ({
+  clientErrorFail: {
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    ...(faker.datatype.boolean()
+      ? { floor: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["duration"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    step: faker.number.int(),
+    value: faker.number.int(),
+  },
   faultStall: {
     applies: faker.helpers.arrayElement(["live", "restart"] as const),
     default: faker.number.int(),
@@ -1642,6 +1702,7 @@ export const getActOnTorrentsResponseMock = (
                 "removed",
                 "importing",
                 "not_held",
+                "use_not_this_release",
                 "reconciling",
                 "offline",
                 "client_away",
@@ -1728,15 +1789,22 @@ export const getGetTorrentResponseMock = (
   files: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     ...(faker.datatype.boolean() ? { done: faker.number.int({ min: 0 }) } : {}),
     index: faker.number.int({ min: 0 }),
-    ...(faker.datatype.boolean() ? { itemId: faker.string.uuid() } : {}),
+    items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.uuid(),
+    ),
     path: faker.string.alpha({ length: { min: 10, max: 20 } }),
     size: faker.number.int({ min: 0 }),
   })),
   grabs: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     id: faker.string.uuid(),
-    itemId: faker.string.uuid(),
     release: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    stage: faker.helpers.arrayElement(["downloading", "importing", "imported", "failed"] as const),
+    stage: faker.helpers.arrayElement([
+      "downloading",
+      "importing",
+      "waiting",
+      "imported",
+      "failed",
+    ] as const),
     workId: faker.string.uuid(),
   })),
   held: faker.datatype.boolean(),

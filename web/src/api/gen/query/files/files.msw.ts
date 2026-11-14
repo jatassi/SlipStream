@@ -157,11 +157,24 @@ export const getGetWorkCellsResponseFilesDownloadingCellMock = (
       },
       null,
     ]),
+    from: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
     grabId: faker.string.uuid(),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["downloading"] as const),
+    step: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        "fetching",
+        "downloading",
+        "reading",
+        "sending",
+        "placing",
+        "waiting",
+      ] as const),
+      null,
+    ]),
     targetId: faker.string.uuid(),
     targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    until: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
     wanted: faker.datatype.boolean(),
   },
   ...overrideResponse,
@@ -282,6 +295,25 @@ export const getGetWorkCellsResponseFilesMetCellMock = (
       ] as const),
       size: faker.number.int({ min: 0 }),
     },
+    held: faker.helpers.arrayElement([
+      {
+        from: faker.date.past().toISOString().slice(0, 19) + "Z",
+        grabId: faker.string.uuid(),
+        step: faker.helpers.arrayElement([
+          "fetching",
+          "downloading",
+          "reading",
+          "sending",
+          "placing",
+          "waiting",
+        ] as const),
+        until: faker.helpers.arrayElement([
+          faker.date.past().toISOString().slice(0, 19) + "Z",
+          null,
+        ]),
+      },
+      null,
+    ]),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["met"] as const),
     targetId: faker.string.uuid(),
@@ -329,8 +361,35 @@ export const getGetWorkCellsResponseFilesWaitingNeedMock = (
   overrideResponse: Partial<FilesWaitingNeed> = {},
 ): FilesWaitingNeed => ({
   ...{
-    code: faker.helpers.arrayElement(["node_away", "client_away", "client_off"] as const),
+    clientError: faker.helpers.arrayElement([
+      {
+        client: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        failsAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+        message: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        node: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+      null,
+    ]),
+    code: faker.helpers.arrayElement([
+      "node_away",
+      "client_away",
+      "client_off",
+      "no_space",
+      "root_not_ready",
+      "probe_timeout",
+      "client_error",
+    ] as const),
     grabId: faker.string.uuid(),
+    importWait: faker.helpers.arrayElement([
+      {
+        rootId: faker.string.uuid(),
+        space: faker.helpers.arrayElement([
+          { free: faker.number.int({ min: 0 }), needs: faker.number.int({ min: 1 }) },
+          null,
+        ]),
+      },
+      null,
+    ]),
     kind: faker.helpers.arrayElement(["waiting"] as const),
   },
   ...overrideResponse,
@@ -460,6 +519,10 @@ export const getListWorkFilesResponseMock = (
     ),
     folder: faker.string.alpha({ length: { min: 10, max: 20 } }),
     goneAt: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
+    grab: faker.helpers.arrayElement([
+      { id: faker.string.uuid(), release: faker.string.alpha({ length: { min: 10, max: 20 } }) },
+      null,
+    ]),
     id: faker.string.uuid(),
     kept: faker.datatype.boolean(),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -521,6 +584,17 @@ export const getListWorkFilesResponseMock = (
       null,
     ]),
     path: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    placedBy: faker.helpers.arrayElement([
+      faker.helpers.arrayElement([
+        "link",
+        "clone",
+        "copy",
+        "transfer",
+        "move",
+        "in_place",
+      ] as const),
+      null,
+    ]),
     probeError: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
       null,

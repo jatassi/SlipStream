@@ -41,7 +41,7 @@ func (s *server) file(t *testing.T, work, root, dir, rel string, size int) {
 			return err
 		}
 		_, err = files.Add(ctx, tx, files.File{
-			WorkID: w, ItemID: items[w][0].ID, Cut: release.Standard, RootID: roots.ID{UUID: must(storage.ParseUUID(root))},
+			WorkID: w, Items: []works.ItemID{items[w][0].ID}, Cut: release.Standard, RootID: roots.ID{UUID: must(storage.ParseUUID(root))},
 			Path: rel, Size: int64(size), Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p,
 		}, nil)
 		return err
@@ -292,18 +292,14 @@ func TestRehomeRefusals(t *testing.T) {
 	}
 }
 
-// grab records a Grab of work at stage, imported into root at rel when
-// stage is imported.
-func (s *server) grab(t *testing.T, work, stage, root, rel string) {
+// grab records a Grab of work at stage, with its unfinished Import when
+// stage is importing.
+func (s *server) grab(t *testing.T, work, stage string) {
 	t.Helper()
 	err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		home := storage.NewUUID()
 		if _, err := tx.ExecContext(ctx, `INSERT INTO nodes_node (id, public_key, name, paired_at) VALUES (?, randomblob(32), ?, 0)`, home, home.String()); err != nil {
 			return err
-		}
-		var rootID, path any
-		if stage == "imported" {
-			rootID, path = must(storage.ParseUUID(root)), rel
 		}
 		torrent := storage.NewUUID()
 		if _, err := tx.ExecContext(ctx, `INSERT INTO downloadclients_torrent (id, node_id, info_hash, metainfo, name, size, private, trackers,
@@ -312,12 +308,17 @@ func (s *server) grab(t *testing.T, work, stage, root, rel string) {
 			torrent, home); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, node_id,
-			release_title, release_size, stage, torrent_id, file_index, probe, root_id, path, created_at, updated_at)
+		id, workID := storage.NewUUID(), must(storage.ParseUUID(work))
+		if _, err := tx.ExecContext(ctx, `INSERT INTO grabs_grab (id, work_id, item_id, edition, source, node_id,
+			release_title, release_size, stage, torrent_id, probe, created_at, updated_at)
 			SELECT ?, work_id, id, 'any', 'search', ?, 'The.Held.1080p.WEB', 4096, ?,
-				?, 0, '{}', ?, ?, 0, 0
+				?, '{}', 0, 0
 			FROM works_item WHERE work_id = ? LIMIT 1`,
-			storage.NewUUID(), home, stage, torrent, rootID, path, must(storage.ParseUUID(work)))
+			id, home, stage, torrent, workID); err != nil || stage != "importing" {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `INSERT INTO imports_import (id, source, grab_id, node_id, info_hash, content_type, hint, work_id, created_at)
+			VALUES (?, 'grab', ?, ?, randomblob(20), 'fixture', '{}', ?, 0)`, id, id, home, workID)
 		return err
 	})
 	if err != nil {
@@ -331,8 +332,8 @@ func TestDeleteRefusesFilesAndGrabs(t *testing.T) {
 	id := s.create(t, body("fixture", dir))
 	held := s.add(t, "held", "")
 	s.file(t, held, id, dir, "held/held.mkv", 2048)
-	s.grab(t, held, "imported", id, "held/held.mkv")
-	s.grab(t, s.add(t, "fetching", ""), "downloading", "", "")
+	s.grab(t, held, "imported")
+	s.grab(t, s.add(t, "fetching", ""), "importing")
 	inUse := func(files, grabs int) string {
 		return fmt.Sprintf(`{"status":409,"code":"root_in_use","title":"The root holds files or has a Grab in flight","use":{"files":%d,"grabs":%d}}`, files, grabs)
 	}
@@ -343,8 +344,7 @@ func TestDeleteRefusesFilesAndGrabs(t *testing.T) {
 		`{"id":"id1","contentType":"fixture","nodeId":"id2","path":`+strconv.Quote(empty)+`,"default":true,"state":"checking","works":2,"fileBytes":0,"scan":`+notScanned+`}`)
 	s.Expect(t, http.MethodDelete, "/api/v1/roots/"+id, "", http.StatusConflict, inUse(0, 1))
 	err := s.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		_, err := tx.ExecContext(ctx, `UPDATE grabs_grab SET stage = 'failed', failed_stage = 'downloading', failure_code = 'download_failed',
-			failure_message = 'gone' WHERE stage = 'downloading'`)
+		_, err := tx.ExecContext(ctx, `UPDATE imports_import SET finished_at = 1`)
 		return err
 	})
 	if err != nil {
@@ -356,13 +356,6 @@ func TestDeleteRefusesFilesAndGrabs(t *testing.T) {
 	}
 	if got := fmt.Sprint(s.changed.ids); got != "[["+id+"]]" {
 		t.Fatalf("roots.changed published %s, want the deleted root", got)
-	}
-	var released int
-	err = s.lib.Read(t.Context(), func(ctx context.Context, rd storage.Reader[storage.Library]) error {
-		return rd.QueryRowContext(ctx, `SELECT count(*) FROM grabs_grab WHERE stage = 'imported' AND root_id IS NULL AND path IS NOT NULL`).Scan(&released)
-	})
-	if err != nil || released != 1 {
-		t.Fatalf("the imported Grab kept its history without its root %d times (%v), want once", released, err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "held", "held.mkv")); err != nil {
 		t.Fatalf("deleting the root removed a file from its old folder: %v", err)

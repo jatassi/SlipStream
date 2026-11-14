@@ -25,6 +25,20 @@ func (q *Queries) DeleteResumeElsewhere(ctx context.Context, arg DeleteResumeEls
 	return err
 }
 
+const deleteResumeOf = `-- name: DeleteResumeOf :exec
+DELETE FROM transfers_resume WHERE transfer_id = ?1 AND position = ?2
+`
+
+type DeleteResumeOfParams struct {
+	TransferID TransferID
+	Position   int64
+}
+
+func (q *Queries) DeleteResumeOf(ctx context.Context, arg DeleteResumeOfParams) error {
+	_, err := q.db.ExecContext(ctx, deleteResumeOf, arg.TransferID, arg.Position)
+	return err
+}
+
 const deleteStaging = `-- name: DeleteStaging :exec
 DELETE FROM transfers_staging WHERE transfer_id = ?1
 `

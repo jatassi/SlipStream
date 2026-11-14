@@ -139,6 +139,22 @@ func TestDeletingSavesRemoveTheFilesTheyLeaveFillingNothing(t *testing.T) {
 	}
 }
 
+func TestAChangeCountsEachGrabInFlightForACellThatGoesOnce(t *testing.T) {
+	s := shelved(t)
+	pack, other := storage.NewUUID(), storage.NewUUID()
+	key := func(item int, target targets.Target) files.CellKey {
+		return files.CellKey{Item: s.tree.Items[item].ID, Edition: targets.AnyEdition, Target: target.ID}
+	}
+	svc := s.files(grabbing{
+		key(0, s.web): {State: files.GrabInFlight, Grab: pack},
+		key(1, s.web): {State: files.GrabInFlight, Grab: pack},
+		key(1, s.hd):  {State: files.GrabInFlight, Grab: other},
+	})
+	if got := s.change(t, svc, holding(s.both, s.hd), files.Mode{Unwanted: files.Delete, Preview: true}); got.Downloading != 1 {
+		t.Fatalf("taking Web away counts %d downloads, want the one Grab for both its cells", got.Downloading)
+	}
+}
+
 // snapshot is everything a user of l can see: what the root holds, each
 // file's row and every cell.
 func (l *library) snapshot(t *testing.T, svc *files.Files, ws ...works.WorkID) string {
@@ -248,47 +264,20 @@ func TestMovingAWorkToAnotherProfileRefillsItAndDeletingAProfileMovesItsWorks(t 
 	}
 }
 
-func TestAnImportWhoseCellsWentFollowsTheSavedChoice(t *testing.T) {
-	for _, c := range []struct {
-		name   string
-		choice files.Unwanted
-		meant  bool
-		disk   map[string]string
-		landed bool
-	}{
-		{"delete", files.Delete, false, map[string]string{}, false},
-		{"keep named by its quality", files.Keep, false, map[string]string{"Shelf w1/Shelf w1 - Scarf - WEBDL-1080p (extra 1).mkv": "webdl"}, true},
-		{"keep named by the Target its Grab meant", files.Keep, true, map[string]string{"Shelf w1/Shelf w1 - Scarf - Disc (extra 1).mkv": "webdl"}, true},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			l := open(t)
-			empty := l.profile(t, "Empty")
-			tree := l.work(t, "w1", true, &empty)
-			var meant []targets.TargetID
-			if c.meant {
-				meant = []targets.TargetID{{UUID: storage.NewUUID()}, l.target(t, "Disc", []release.Quality{release.Bluray1080p}).ID}
-			}
-			svc := l.files(files.NoGrabs{})
-			holding := files.HoldingOf(storage.NewUUID(), ".mkv")
-			l.put(t, holding, "webdl")
-			in := files.Incoming{
-				WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Holding: holding,
-				Size: 5, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p, Unwanted: &c.choice, Meant: meant,
-			}
-			var landed bool
-			err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-				var err error
-				_, landed, err = svc.Import(ctx, tx, in)
-				return err
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-			l.settle(t, svc)
-			if disk := l.onDisk(t); landed != c.landed || !maps.Equal(disk, c.disk) {
-				t.Fatalf("an import filling nothing under %s landed %t and the root holds %v, want %t and %v", c.choice, landed, disk, c.landed, c.disk)
-			}
-		})
+func TestAnImportWhoseCellsWentIsRefused(t *testing.T) {
+	l := open(t)
+	empty := l.profile(t, "Empty")
+	tree := l.work(t, "w1", true, &empty)
+	svc := l.files(files.NoGrabs{})
+	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		_, err := l.land(ctx, tx, svc, tree.ID, holdingOf(tree, 0, files.HoldingOf(storage.NewUUID(), ".mkv"), 5, h264, release.WEBDL1080p))
+		return err
+	})
+	if refused, ok := errors.AsType[*files.Refused](err); !ok || len(refused.Verdict.Meets) != 0 {
+		t.Fatalf("an import into a Work wanting no Target = %v, want it refused for meeting no cell", err)
+	}
+	if n, moves := fileCount(t, l), l.queued(t); n != 0 || moves != 0 {
+		t.Fatalf("the refused import left %d files and %d moves, want none", n, moves)
 	}
 }
 
@@ -348,18 +337,13 @@ func TestATargetRefusingTheVideoCodecAFileWasProbedAtLetsGoOfIt(t *testing.T) {
 }
 
 func TestAnImportProbedAtAVideoCodecItsTargetRefusesFillsNothing(t *testing.T) {
-	keep, del := files.Keep, files.Delete
 	for _, c := range []struct {
-		name     string
-		probe    media.Record
-		unwanted *files.Unwanted
-		fills    bool
-		disk     map[string]string
+		name  string
+		probe media.Record
+		disk  map[string]string
 	}{
-		{"hevc fills Web", hevc, nil, true, map[string]string{"Shelf w1/Shelf w1 - Scarf - Web.mkv": "payload"}},
-		{"h264 with no choice", h264, nil, false, nil},
-		{"h264 kept", h264, &keep, false, map[string]string{"Shelf w1/Shelf w1 - Scarf - Web (extra 1).mkv": "payload"}},
-		{"h264 deleted", h264, &del, false, map[string]string{}},
+		{"hevc fills Web", hevc, map[string]string{"Shelf w1/Shelf w1 - Scarf - Web.mkv": "payload"}},
+		{"h264 is refused", h264, nil},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			l := open(t)
@@ -368,35 +352,20 @@ func TestAnImportProbedAtAVideoCodecItsTargetRefusesFillsNothing(t *testing.T) {
 			svc := l.files(files.NoGrabs{})
 			holding := files.HoldingOf(storage.NewUUID(), ".mkv")
 			l.put(t, holding, "payload")
-			in := files.Incoming{
-				WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Holding: holding,
-				Size: 7, Media: c.probe, Quality: release.WEBDL1080p, Meant: []targets.TargetID{web.ID}, Unwanted: c.unwanted,
+			in := holdingOf(tree, 0, holding, 7, c.probe, release.WEBDL1080p)
+			v := l.judge(t, svc, tree.ID, in)
+			if fills := c.disk != nil; fills != slices.Equal(targetsOf(v.Fills), []targets.TargetID{web.ID}) || fills != v.Reasons[web.ID].Meets() {
+				t.Fatalf("Judge = fills %v, Web's verdict %+v; want it to fill Web %t", v.Fills, v.Reasons[web.ID], fills)
 			}
-			var placed files.Placement
-			err := l.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-				var err error
-				placed, err = svc.Place(ctx, r, in)
+			err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+				_, err := l.land(ctx, tx, svc, tree.ID, in)
 				return err
 			})
-			_, nothing := errors.AsType[*files.FillsNothingError](err)
-			kept := c.unwanted != nil && *c.unwanted == files.Keep
-			switch {
-			case c.fills && (err != nil || !slices.Equal(placed.Fills, []targets.TargetID{web.ID})):
-				t.Fatalf("Place = %+v, %v, want it to fill Web", placed, err)
-			case !c.fills && !kept && !nothing:
-				t.Fatalf("Place = %+v, %v, want a FillsNothingError", placed, err)
-			case kept && (err != nil || !placed.Kept):
-				t.Fatalf("Place = %+v, %v, want it Kept", placed, err)
+			if _, refused := errors.AsType[*files.Refused](err); c.disk == nil != refused {
+				t.Fatalf("Import = %v, want it refused %t", err, c.disk == nil)
 			}
 			if c.disk == nil {
 				return
-			}
-			err = l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-				_, _, err := svc.Import(ctx, tx, in)
-				return err
-			})
-			if err != nil {
-				t.Fatal(err)
 			}
 			l.settle(t, svc)
 			if disk := l.onDisk(t); !maps.Equal(disk, c.disk) {

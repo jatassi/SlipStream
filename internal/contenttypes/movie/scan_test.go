@@ -3,6 +3,7 @@ package movie_test
 import (
 	"context"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/scanning"
@@ -64,8 +65,31 @@ func TestPlaceAnswersTheMoviesOneItem(t *testing.T) {
 		return err
 	})
 	for _, rel := range []string{"The Salt Road (2022).mkv", "Extras Folder/The Salt Road.mkv"} {
-		if item, ok := place(rel).Item(); !ok || item != tree.Items[0].ID {
-			t.Errorf("Place(%q) = %v, %t; want the movie's Item %v", rel, item, ok, tree.Items[0].ID)
+		if items, ok := place(rel).Items(); !ok || !slices.Equal(items, []works.ItemID{tree.Items[0].ID}) {
+			t.Errorf("Place(%q) = %v, %t; want the movie's Item %v", rel, items, ok, tree.Items[0].ID)
+		}
+	}
+}
+
+func TestPlaceReadsAStackedFilesPart(t *testing.T) {
+	sh, tree := added(t, saltRoad)
+	var place scanning.Placer
+	sh.read(t, func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		place, err = sh.m.Place(ctx, r, tree.ID)
+		return err
+	})
+	for rel, want := range map[string]int{
+		"The Salt Road (2022) - cd1.avi":                  1,
+		`Salt\The.Salt.Road.2022.DVDRip.XviD-GRP.CD2.avi`: 2,
+		"The Salt Road (2022) part2.mkv":                  2,
+		"The Salt Road (2022) - Disc 3.mkv":               3,
+		"The Salt Road (2022).mkv":                        0,
+		"The Salt Road Part 2 (2022).mkv":                 0,
+	} {
+		p := place(rel)
+		if items, ok := p.Items(); !ok || !slices.Equal(items, []works.ItemID{tree.Items[0].ID}) || p.Part() != want {
+			t.Errorf("Place(%q) = %v part %d, want the movie's Item %v part %d", rel, items, p.Part(), tree.Items[0].ID, want)
 		}
 	}
 }

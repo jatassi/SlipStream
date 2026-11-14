@@ -387,9 +387,9 @@ func (r *Run) buildReleases(ctx context.Context, _ *unwind) error {
 		return err
 	}
 	cfg := releases.Config{
-		FFmpeg: filepath.Join(r.runDir, "bin", "ffmpeg"+filepath.Ext(r.binary.Path)),
-		Cache:  cache,
-		Dir:    filepath.Join(r.scratchDir, "releases"),
+		Tools: mediafix.ToolsIn(filepath.Join(r.runDir, "bin"), filepath.Ext(r.binary.Path)),
+		Cache: cache,
+		Dir:   filepath.Join(r.scratchDir, "releases"),
 	}
 	if len(r.scenario.Releases) > 0 {
 		i := slices.IndexFunc(r.fakes, func(f *fakeRun) bool { return f.spec.Name == tracker.Fake.Name })
@@ -907,7 +907,7 @@ func (r *Run) buildManifest() (Manifest, error) {
 		m.Links[n.spec.Name] = r.linkFront(n.spec.Name).Addr().String()
 	}
 	for _, rel := range r.releases.Releases {
-		m.Releases = append(m.Releases, Release{Name: rel.Name, InfoHash: rel.InfoHash.String(), Size: rel.Size, BLAKE3: hex.EncodeToString(rel.BLAKE3[:])})
+		m.Releases = append(m.Releases, setup.ReleaseEntry(rel))
 	}
 	for i := range r.nodes {
 		entry, err := r.entry(i)

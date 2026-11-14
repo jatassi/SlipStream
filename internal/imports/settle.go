@@ -20,7 +20,7 @@ import (
 
 // settle reads one folder's found files and writes them: they join the
 // one library Work the folder names, become a new Work the scan is sure
-// of, or wait in the folder's pending entry. A folder with an entry is
+// of, or wait in the folder's root Import. A folder with a root Import is
 // never added as a new Work: only the library rules run for it.
 func (im *Imports) settle(ctx context.Context, s *scan, g scanning.Group) error {
 	found := im.found(ctx, s, g.Found)
@@ -36,7 +36,7 @@ func (im *Imports) settle(ctx context.Context, s *scan, g scanning.Group) error 
 		return im.join(ctx, s, g, hint, m.Work, found)
 	case g.Entry != nil:
 		e := s.known.entries[g.Folder]
-		if len(found) == 0 && len(g.Listed) == len(e.Files) {
+		if len(found) == 0 && len(g.Listed) == len(e.waiting()) {
 			return nil
 		}
 		return im.pend(ctx, s, g, hint, nil, withReason(found, folderReason(e)))
@@ -62,22 +62,22 @@ func (im *Imports) settle(ctx context.Context, s *scan, g scanning.Group) error 
 	return im.pend(ctx, s, g, hint, suggestion, withReason(found, reason))
 }
 
-// found is each of ws read, as a pending file: one ffprobe can't read
-// carries its line. A file the read couldn't reach is left for the next
-// scan.
-func (im *Imports) found(ctx context.Context, s *scan, ws []storing.Walked) []PendingFile {
+// found is each of ws read, as a file of no Import yet: one ffprobe can't
+// read waits with its line. A file the read couldn't reach is left for the
+// next scan.
+func (im *Imports) found(ctx context.Context, s *scan, ws []storing.Walked) []File {
 	probes := im.probe(ctx, s, ws)
-	var out []PendingFile
+	var out []File
 	for _, w := range ws {
 		p, ok := probes[w.Path]
 		if !ok {
 			continue
 		}
-		f := PendingFile{Path: w.Path.String(), Size: w.Size, Seen: &w.Seen}
+		f := File{Position: -1, Path: w.Path.String(), Size: w.Size, Seen: &w.Seen}
 		if p.Error != "" {
-			f.Reason = scanning.Reason{Code: scanning.Unreadable, Line: p.Error}
+			f.waitFor(scanning.Reason{Code: scanning.Unreadable, Line: p.Error})
 		} else {
-			f.Media = &p.Media
+			f.Probe = &p.Media
 			read, quality := scanning.QualityOf(f.Path, im.cfg.Facets[s.root.ContentType], s.known.cuts, p.Media.Resolution())
 			f.Quality, f.Cut = quality, read.Facts.Cut
 		}
@@ -86,10 +86,11 @@ func (im *Imports) found(ctx context.Context, s *scan, ws []storing.Walked) []Pe
 	return out
 }
 
-// join attaches the folder's files, its entry's ones too, to work in one
-// Write. The files work's type can't place wait in the folder's entry with
-// work as its suggestion. A Work in another root takes none of them.
-func (im *Imports) join(ctx context.Context, s *scan, g scanning.Group, hint scanning.Hint, work works.WorkID, found []PendingFile) error {
+// join attaches the folder's files, its root Import's waiting ones too, to
+// work in one Write. The files work's type can't place wait in the
+// folder's root Import with work as its suggestion. A Work in another root
+// takes none of them.
+func (im *Imports) join(ctx context.Context, s *scan, g scanning.Group, hint scanning.Hint, work works.WorkID, found []File) error {
 	var scanned files.Scanned
 	err := im.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		var err error
@@ -120,9 +121,9 @@ func (im *Imports) join(ctx context.Context, s *scan, g scanning.Group, hint sca
 	return nil
 }
 
-func (im *Imports) joinIn(ctx context.Context, tx *storage.Tx[file], s *scan, g scanning.Group, hint scanning.Hint, work works.WorkID, found []PendingFile) (files.Scanned, error) {
+func (im *Imports) joinIn(ctx context.Context, tx *storage.Tx[file], s *scan, g scanning.Group, hint scanning.Hint, work works.WorkID, found []File) (files.Scanned, error) {
 	if g.Entry == nil {
-		scanned, rest, err := im.attach(ctx, tx, work, s.root.ID, found)
+		scanned, _, rest, err := im.attach(ctx, tx, work, s.root.ID, found)
 		if err != nil || len(rest) == 0 {
 			return scanned, err
 		}
@@ -133,7 +134,7 @@ func (im *Imports) joinIn(ctx context.Context, tx *storage.Tx[file], s *scan, g 
 		suggestion := im.suggestionOf(tree)
 		return scanned, upsertPending(ctx, tx, pend{Root: s.root.ID, Folder: g.Folder, ContentType: s.root.ContentType, Hint: hint, Suggestion: &suggestion, Files: rest}, storage.Now())
 	}
-	e, err := entry(ctx, tx, EntryID{UUID: g.Entry.ID})
+	e, err := importOf(ctx, tx, ImportID{UUID: g.Entry.ID})
 	if err != nil {
 		return files.Scanned{}, err
 	}
@@ -141,19 +142,19 @@ func (im *Imports) joinIn(ctx context.Context, tx *storage.Tx[file], s *scan, g 
 	for _, w := range g.Listed {
 		listed[w.Path.String()] = true
 	}
-	fs := slices.DeleteFunc(slices.Clone(e.Files), func(f PendingFile) bool { return !listed[f.Path] })
-	scanned, rest, err := im.attach(ctx, tx, work, s.root.ID, append(fs, found...))
+	fs := slices.DeleteFunc(e.waiting(), func(f File) bool { return !listed[f.Path] })
+	scanned, placed, rest, err := im.attach(ctx, tx, work, s.root.ID, append(fs, found...))
 	if err != nil {
 		return files.Scanned{}, err
 	}
-	_, err = im.keep(ctx, tx, e, work, rest)
+	err = im.keep(ctx, tx, e, work, placed, rest)
 	return scanned, err
 }
 
 // adopt adds c, the Work the scan is sure the folder holds, into the root
 // with its type's add defaults, and attaches the folder's files in the
 // add's Write.
-func (im *Imports) adopt(ctx context.Context, s *scan, g scanning.Group, hint scanning.Hint, c candidate, found []PendingFile) error {
+func (im *Imports) adopt(ctx context.Context, s *scan, g scanning.Group, hint scanning.Hint, c candidate, found []File) error {
 	attach := func(ctx context.Context, tx *storage.Tx[file], w works.Summary) error {
 		_, err := im.joinIn(ctx, tx, s, g, hint, w.ID, found)
 		return err
@@ -173,9 +174,9 @@ func (im *Imports) adopt(ctx context.Context, s *scan, g scanning.Group, hint sc
 	return nil
 }
 
-// pend writes the folder's found files into its pending entry with their
+// pend writes the folder's found files into its root Import with their
 // reasons, keeping the files it lists that the walk found unchanged.
-func (im *Imports) pend(ctx context.Context, s *scan, g scanning.Group, hint scanning.Hint, suggestion *Suggestion, found []PendingFile) error {
+func (im *Imports) pend(ctx context.Context, s *scan, g scanning.Group, hint scanning.Hint, suggestion *Suggestion, found []File) error {
 	listed := make([]string, len(g.Listed))
 	for i, w := range g.Listed {
 		listed[i] = w.Path.String()
@@ -244,11 +245,11 @@ func (im *Imports) lookup(ctx context.Context, t works.TypeID, h scanning.Hint) 
 	return out, nil
 }
 
-// withReason gives each of fs ffprobe could read reason r.
-func withReason(fs []PendingFile, r scanning.Reason) []PendingFile {
+// withReason makes each of fs ffprobe could read wait for r.
+func withReason(fs []File, r scanning.Reason) []File {
 	for i := range fs {
-		if fs[i].Media != nil {
-			fs[i].Reason = r
+		if fs[i].Probe != nil {
+			fs[i].waitFor(r)
 		}
 	}
 	return fs
@@ -260,12 +261,12 @@ func elsewhere(h scanning.Hint, home roots.ID) scanning.Reason {
 
 // folderReason is why the files of e's folder wait: the reason its files
 // already wait for that is about the folder, not one file.
-func folderReason(e Entry) scanning.Reason {
-	for _, f := range e.Files {
-		switch f.Reason.Code {
+func folderReason(e Import) scanning.Reason {
+	for _, f := range e.waiting() {
+		switch r := f.Scan(); r.Code {
 		case scanning.Several, scanning.NoMatch, scanning.NoYear, scanning.Elsewhere, scanning.Unlisted, scanning.Left:
-			return f.Reason
-		case scanning.NoNumber, scanning.NoSuchItem, scanning.SeveralItems, scanning.Unreadable, scanning.NoRule:
+			return r
+		case scanning.NoNumber, scanning.NoSuchItem, scanning.Unreadable, scanning.NoRule:
 		}
 	}
 	return scanning.Reason{Code: scanning.NoMatch, Title: e.Hint.Title, Year: e.Hint.Year}

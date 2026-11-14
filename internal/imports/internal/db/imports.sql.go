@@ -9,10 +9,15 @@ import (
 	"context"
 	"strings"
 
+	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -42,19 +47,9 @@ func (q *Queries) ConsumeConfirmed(ctx context.Context, arg ConsumeConfirmedPara
 	return err
 }
 
-const countNeedsYou = `-- name: CountNeedsYou :one
-SELECT count(*) FROM imports_pending WHERE ignored_at IS NULL
-`
-
-func (q *Queries) CountNeedsYou(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countNeedsYou)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countNeedsYouByRoot = `-- name: CountNeedsYouByRoot :many
-SELECT root_id, count(*) AS entries FROM imports_pending WHERE ignored_at IS NULL GROUP BY root_id ORDER BY root_id
+SELECT root_id, count(*) AS entries FROM imports_import WHERE source = 'root' AND finished_at IS NULL AND ignored_at IS NULL
+GROUP BY root_id ORDER BY root_id
 `
 
 type CountNeedsYouByRootRow struct {
@@ -85,21 +80,107 @@ func (q *Queries) CountNeedsYouByRoot(ctx context.Context) ([]CountNeedsYouByRoo
 	return items, nil
 }
 
-const deleteEntry = `-- name: DeleteEntry :exec
-DELETE FROM imports_pending WHERE id = ?
+const countUnfinishedInto = `-- name: CountUnfinishedInto :one
+SELECT count(*) FROM imports_import i
+WHERE i.finished_at IS NULL AND (
+    i.source = 'root' AND i.root_id = ?1 AND EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.outcome IN ('pending', 'placing'))
+    OR i.source <> 'root' AND (EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.root_id = ?1) OR i.work_id IN (/*SLICE:work_ids*/?))
+)
 `
 
-func (q *Queries) DeleteEntry(ctx context.Context, id EntryID) error {
-	_, err := q.db.ExecContext(ctx, deleteEntry, id)
+type CountUnfinishedIntoParams struct {
+	RootID  roots.ID
+	WorkIds []works.WorkID
+}
+
+func (q *Queries) CountUnfinishedInto(ctx context.Context, arg CountUnfinishedIntoParams) (int64, error) {
+	query := countUnfinishedInto
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.RootID)
+	if len(arg.WorkIds) > 0 {
+		for _, v := range arg.WorkIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(arg.WorkIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	row := q.db.QueryRowContext(ctx, query, queryParams...)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countWaiting = `-- name: CountWaiting :one
+SELECT count(*) FROM imports_import i
+WHERE i.finished_at IS NULL AND i.ignored_at IS NULL
+  AND EXISTS (SELECT 1 FROM imports_file f WHERE f.import_id = i.id AND f.outcome = 'waiting')
+`
+
+func (q *Queries) CountWaiting(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countWaiting)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const deleteFile = `-- name: DeleteFile :exec
+DELETE FROM imports_file WHERE import_id = ? AND position = ?
+`
+
+type DeleteFileParams struct {
+	ImportID ImportID
+	Position int64
+}
+
+func (q *Queries) DeleteFile(ctx context.Context, arg DeleteFileParams) error {
+	_, err := q.db.ExecContext(ctx, deleteFile, arg.ImportID, arg.Position)
 	return err
 }
 
-const deleteEntryFiles = `-- name: DeleteEntryFiles :exec
-DELETE FROM imports_pending_file WHERE pending_id = ?
+const deleteFileItems = `-- name: DeleteFileItems :exec
+DELETE FROM imports_file_item WHERE import_id = ? AND position = ?
 `
 
-func (q *Queries) DeleteEntryFiles(ctx context.Context, pendingID EntryID) error {
-	_, err := q.db.ExecContext(ctx, deleteEntryFiles, pendingID)
+type DeleteFileItemsParams struct {
+	ImportID ImportID
+	Position int64
+}
+
+func (q *Queries) DeleteFileItems(ctx context.Context, arg DeleteFileItemsParams) error {
+	_, err := q.db.ExecContext(ctx, deleteFileItems, arg.ImportID, arg.Position)
+	return err
+}
+
+const deleteFills = `-- name: DeleteFills :exec
+DELETE FROM imports_file_fill WHERE import_id = ? AND position = ?
+`
+
+type DeleteFillsParams struct {
+	ImportID ImportID
+	Position int64
+}
+
+func (q *Queries) DeleteFills(ctx context.Context, arg DeleteFillsParams) error {
+	_, err := q.db.ExecContext(ctx, deleteFills, arg.ImportID, arg.Position)
+	return err
+}
+
+const deleteImport = `-- name: DeleteImport :exec
+DELETE FROM imports_import WHERE id = ?
+`
+
+func (q *Queries) DeleteImport(ctx context.Context, id ImportID) error {
+	_, err := q.db.ExecContext(ctx, deleteImport, id)
+	return err
+}
+
+const forgetRoot = `-- name: ForgetRoot :exec
+UPDATE imports_file SET root_id = NULL, dest = NULL WHERE imports_file.root_id = ? AND import_id IN (SELECT id FROM imports_import WHERE finished_at IS NOT NULL)
+`
+
+func (q *Queries) ForgetRoot(ctx context.Context, rootID roots.ID) error {
+	_, err := q.db.ExecContext(ctx, forgetRoot, rootID)
 	return err
 }
 
@@ -126,69 +207,150 @@ func (q *Queries) GetCompared(ctx context.Context, rootID roots.ID) (ImportsRoot
 	return i, err
 }
 
-const getEntry = `-- name: GetEntry :one
-SELECT id, root_id, folder, content_type, hint, suggestion, found_at, ignored_at FROM imports_pending WHERE id = ?
+const getImport = `-- name: GetImport :one
+SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import WHERE id = ?
 `
 
-func (q *Queries) GetEntry(ctx context.Context, id EntryID) (ImportsPending, error) {
-	row := q.db.QueryRowContext(ctx, getEntry, id)
-	var i ImportsPending
+func (q *Queries) GetImport(ctx context.Context, id ImportID) (ImportsImport, error) {
+	row := q.db.QueryRowContext(ctx, getImport, id)
+	var i ImportsImport
 	err := row.Scan(
 		&i.ID,
+		&i.Source,
+		&i.GrabID,
+		&i.NodeID,
+		&i.InfoHash,
 		&i.RootID,
 		&i.Folder,
 		&i.ContentType,
 		&i.Hint,
 		&i.Suggestion,
-		&i.FoundAt,
+		&i.WorkID,
+		&i.Edition,
+		&i.MoveFiles,
+		&i.FailureCode,
+		&i.Ended,
+		&i.CreatedAt,
 		&i.IgnoredAt,
+		&i.FinishedAt,
 	)
 	return i, err
 }
 
-const getEntryAt = `-- name: GetEntryAt :one
-SELECT id, root_id, folder, content_type, hint, suggestion, found_at, ignored_at FROM imports_pending WHERE root_id = ? AND folder = ?
+const getOpenFolderImport = `-- name: GetOpenFolderImport :one
+SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import
+WHERE source = 'folder' AND node_id = ? AND folder = ? AND finished_at IS NULL AND work_id IS ? AND edition IS ?
 `
 
-type GetEntryAtParams struct {
-	RootID roots.ID
-	Folder string
+type GetOpenFolderImportParams struct {
+	NodeID  role.NodeID
+	Folder  *string
+	WorkID  works.WorkID
+	Edition *release.CutKey
 }
 
-func (q *Queries) GetEntryAt(ctx context.Context, arg GetEntryAtParams) (ImportsPending, error) {
-	row := q.db.QueryRowContext(ctx, getEntryAt, arg.RootID, arg.Folder)
-	var i ImportsPending
+func (q *Queries) GetOpenFolderImport(ctx context.Context, arg GetOpenFolderImportParams) (ImportsImport, error) {
+	row := q.db.QueryRowContext(ctx, getOpenFolderImport,
+		arg.NodeID,
+		arg.Folder,
+		arg.WorkID,
+		arg.Edition,
+	)
+	var i ImportsImport
 	err := row.Scan(
 		&i.ID,
+		&i.Source,
+		&i.GrabID,
+		&i.NodeID,
+		&i.InfoHash,
 		&i.RootID,
 		&i.Folder,
 		&i.ContentType,
 		&i.Hint,
 		&i.Suggestion,
-		&i.FoundAt,
+		&i.WorkID,
+		&i.Edition,
+		&i.MoveFiles,
+		&i.FailureCode,
+		&i.Ended,
+		&i.CreatedAt,
 		&i.IgnoredAt,
+		&i.FinishedAt,
+	)
+	return i, err
+}
+
+const getOpenImportOfGrab = `-- name: GetOpenImportOfGrab :one
+SELECT id FROM imports_import WHERE grab_id = ?1 AND finished_at IS NULL
+`
+
+func (q *Queries) GetOpenImportOfGrab(ctx context.Context, grabID grabs.GrabID) (ImportID, error) {
+	row := q.db.QueryRowContext(ctx, getOpenImportOfGrab, grabID)
+	var id ImportID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getRootImportAt = `-- name: GetRootImportAt :one
+SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import WHERE source = 'root' AND root_id = ? AND folder = ? AND finished_at IS NULL
+`
+
+type GetRootImportAtParams struct {
+	RootID roots.ID
+	Folder *string
+}
+
+func (q *Queries) GetRootImportAt(ctx context.Context, arg GetRootImportAtParams) (ImportsImport, error) {
+	row := q.db.QueryRowContext(ctx, getRootImportAt, arg.RootID, arg.Folder)
+	var i ImportsImport
+	err := row.Scan(
+		&i.ID,
+		&i.Source,
+		&i.GrabID,
+		&i.NodeID,
+		&i.InfoHash,
+		&i.RootID,
+		&i.Folder,
+		&i.ContentType,
+		&i.Hint,
+		&i.Suggestion,
+		&i.WorkID,
+		&i.Edition,
+		&i.MoveFiles,
+		&i.FailureCode,
+		&i.Ended,
+		&i.CreatedAt,
+		&i.IgnoredAt,
+		&i.FinishedAt,
 	)
 	return i, err
 }
 
 const getSettings = `-- name: GetSettings :one
-SELECT id, stop_share, probes FROM imports_settings
+SELECT id, stop_share, probes, video_extensions, smallest_video, sample_shorter FROM imports_settings
 `
 
 func (q *Queries) GetSettings(ctx context.Context) (ImportsSetting, error) {
 	row := q.db.QueryRowContext(ctx, getSettings)
 	var i ImportsSetting
-	err := row.Scan(&i.ID, &i.StopShare, &i.Probes)
+	err := row.Scan(
+		&i.ID,
+		&i.StopShare,
+		&i.Probes,
+		&i.VideoExtensions,
+		&i.SmallestVideo,
+		&i.SampleShorter,
+	)
 	return i, err
 }
 
 const ignore = `-- name: Ignore :exec
-UPDATE imports_pending SET ignored_at = coalesce(ignored_at, ?1) WHERE id IN (/*SLICE:ids*/?)
+UPDATE imports_import SET ignored_at = coalesce(ignored_at, ?1) WHERE id IN (/*SLICE:ids*/?) AND finished_at IS NULL
 `
 
 type IgnoreParams struct {
 	IgnoredAt storage.Time
-	Ids       []EntryID
+	Ids       []ImportID
 }
 
 func (q *Queries) Ignore(ctx context.Context, arg IgnoreParams) error {
@@ -207,59 +369,47 @@ func (q *Queries) Ignore(ctx context.Context, arg IgnoreParams) error {
 	return err
 }
 
-const insertEntry = `-- name: InsertEntry :exec
-INSERT INTO imports_pending (id, root_id, folder, content_type, hint, suggestion, found_at, ignored_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+const insertFile = `-- name: InsertFile :exec
+INSERT INTO imports_file (import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut,
+                          release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order,
+                          placed_by, file_id, source_removed_at, seeded)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
-type InsertEntryParams struct {
-	ID          EntryID
-	RootID      roots.ID
-	Folder      string
-	ContentType works.TypeID
-	Hint        string
-	Suggestion  *string
-	FoundAt     storage.Time
-	IgnoredAt   storage.Time
+type InsertFileParams struct {
+	ImportID        ImportID
+	Position        int64
+	Path            string
+	SourceIndex     *int64
+	Size            int64
+	ModifiedAt      storage.Time
+	NodeFileID      *string
+	NodeVolumeID    *string
+	Probe           *media.Record
+	Quality         *release.Quality
+	Cut             release.CutKey
+	ReleaseName     string
+	SourceName      string
+	Outcome         string
+	Reason          *string
+	Hold            *string
+	Confirmed       int64
+	RootID          roots.ID
+	Dest            *string
+	SentTransfer    transfers.ID
+	SentOrder       *int64
+	PlacedBy        *string
+	FileID          files.ID
+	SourceRemovedAt storage.Time
+	Seeded          int64
 }
 
-func (q *Queries) InsertEntry(ctx context.Context, arg InsertEntryParams) error {
-	_, err := q.db.ExecContext(ctx, insertEntry,
-		arg.ID,
-		arg.RootID,
-		arg.Folder,
-		arg.ContentType,
-		arg.Hint,
-		arg.Suggestion,
-		arg.FoundAt,
-		arg.IgnoredAt,
-	)
-	return err
-}
-
-const insertEntryFile = `-- name: InsertEntryFile :exec
-INSERT INTO imports_pending_file (pending_id, path, size, modified_at, node_file_id, node_volume_id, probe, quality, cut, items, reason)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`
-
-type InsertEntryFileParams struct {
-	PendingID    EntryID
-	Path         string
-	Size         int64
-	ModifiedAt   storage.Time
-	NodeFileID   *string
-	NodeVolumeID *string
-	Probe        *media.Record
-	Quality      *release.Quality
-	Cut          release.CutKey
-	Items        string
-	Reason       string
-}
-
-func (q *Queries) InsertEntryFile(ctx context.Context, arg InsertEntryFileParams) error {
-	_, err := q.db.ExecContext(ctx, insertEntryFile,
-		arg.PendingID,
+func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) error {
+	_, err := q.db.ExecContext(ctx, insertFile,
+		arg.ImportID,
+		arg.Position,
 		arg.Path,
+		arg.SourceIndex,
 		arg.Size,
 		arg.ModifiedAt,
 		arg.NodeFileID,
@@ -267,10 +417,174 @@ func (q *Queries) InsertEntryFile(ctx context.Context, arg InsertEntryFileParams
 		arg.Probe,
 		arg.Quality,
 		arg.Cut,
-		arg.Items,
+		arg.ReleaseName,
+		arg.SourceName,
+		arg.Outcome,
 		arg.Reason,
+		arg.Hold,
+		arg.Confirmed,
+		arg.RootID,
+		arg.Dest,
+		arg.SentTransfer,
+		arg.SentOrder,
+		arg.PlacedBy,
+		arg.FileID,
+		arg.SourceRemovedAt,
+		arg.Seeded,
 	)
 	return err
+}
+
+const insertFileItem = `-- name: InsertFileItem :exec
+INSERT INTO imports_file_item (import_id, position, item_id, "order") VALUES (?, ?, ?, ?)
+`
+
+type InsertFileItemParams struct {
+	ImportID ImportID
+	Position int64
+	ItemID   works.ItemID
+	Order    int64
+}
+
+func (q *Queries) InsertFileItem(ctx context.Context, arg InsertFileItemParams) error {
+	_, err := q.db.ExecContext(ctx, insertFileItem,
+		arg.ImportID,
+		arg.Position,
+		arg.ItemID,
+		arg.Order,
+	)
+	return err
+}
+
+const insertFill = `-- name: InsertFill :exec
+INSERT INTO imports_file_fill (import_id, position, item_id, edition, target_id, forced) VALUES (?, ?, ?, ?, ?, ?)
+`
+
+type InsertFillParams struct {
+	ImportID ImportID
+	Position int64
+	ItemID   works.ItemID
+	Edition  targets.Edition
+	TargetID targets.TargetID
+	Forced   int64
+}
+
+func (q *Queries) InsertFill(ctx context.Context, arg InsertFillParams) error {
+	_, err := q.db.ExecContext(ctx, insertFill,
+		arg.ImportID,
+		arg.Position,
+		arg.ItemID,
+		arg.Edition,
+		arg.TargetID,
+		arg.Forced,
+	)
+	return err
+}
+
+const insertImport = `-- name: InsertImport :exec
+INSERT INTO imports_import (id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition,
+                            move_files, failure_code, ended, created_at, ignored_at, finished_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertImportParams struct {
+	ID          ImportID
+	Source      string
+	GrabID      grabs.GrabID
+	NodeID      role.NodeID
+	InfoHash    []byte
+	RootID      roots.ID
+	Folder      *string
+	ContentType works.TypeID
+	Hint        string
+	Suggestion  *string
+	WorkID      works.WorkID
+	Edition     *release.CutKey
+	MoveFiles   int64
+	FailureCode *string
+	Ended       *string
+	CreatedAt   storage.Time
+	IgnoredAt   storage.Time
+	FinishedAt  storage.Time
+}
+
+func (q *Queries) InsertImport(ctx context.Context, arg InsertImportParams) error {
+	_, err := q.db.ExecContext(ctx, insertImport,
+		arg.ID,
+		arg.Source,
+		arg.GrabID,
+		arg.NodeID,
+		arg.InfoHash,
+		arg.RootID,
+		arg.Folder,
+		arg.ContentType,
+		arg.Hint,
+		arg.Suggestion,
+		arg.WorkID,
+		arg.Edition,
+		arg.MoveFiles,
+		arg.FailureCode,
+		arg.Ended,
+		arg.CreatedAt,
+		arg.IgnoredAt,
+		arg.FinishedAt,
+	)
+	return err
+}
+
+const listBusy = `-- name: ListBusy :many
+SELECT DISTINCT fi.item_id, f.import_id FROM imports_file_item fi
+JOIN imports_file f ON f.import_id = fi.import_id AND f.position = fi.position
+JOIN imports_import i ON i.id = f.import_id
+WHERE i.finished_at IS NULL AND i.work_id IS NOT NULL AND f.import_id <> ?1
+  AND (f.outcome IN ('sending', 'placing') OR (f.outcome = 'pending' AND i.created_at < ?2)) AND fi.item_id IN (/*SLICE:item_ids*/?)
+ORDER BY fi.item_id, f.import_id
+`
+
+type ListBusyParams struct {
+	Except  ImportID
+	Created storage.Time
+	ItemIds []works.ItemID
+}
+
+type ListBusyRow struct {
+	ItemID   works.ItemID
+	ImportID ImportID
+}
+
+func (q *Queries) ListBusy(ctx context.Context, arg ListBusyParams) ([]ListBusyRow, error) {
+	query := listBusy
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Except)
+	queryParams = append(queryParams, arg.Created)
+	if len(arg.ItemIds) > 0 {
+		for _, v := range arg.ItemIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:item_ids*/?", strings.Repeat(",?", len(arg.ItemIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:item_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListBusyRow
+	for rows.Next() {
+		var i ListBusyRow
+		if err := rows.Scan(&i.ItemID, &i.ImportID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listCompared = `-- name: ListCompared :many
@@ -312,28 +626,32 @@ func (q *Queries) ListCompared(ctx context.Context) ([]ImportsRoot, error) {
 	return items, nil
 }
 
-const listEntries = `-- name: ListEntries :many
-SELECT id, root_id, folder, content_type, hint, suggestion, found_at, ignored_at FROM imports_pending ORDER BY root_id, folder
+const listCopies = `-- name: ListCopies :many
+SELECT f.import_id, f.position, f.root_id, f.size FROM imports_file f JOIN imports_import i ON i.id = f.import_id
+WHERE i.finished_at IS NULL AND f.outcome = 'placing' AND f.placed_by = 'copy' ORDER BY f.import_id, f.position
 `
 
-func (q *Queries) ListEntries(ctx context.Context) ([]ImportsPending, error) {
-	rows, err := q.db.QueryContext(ctx, listEntries)
+type ListCopiesRow struct {
+	ImportID ImportID
+	Position int64
+	RootID   roots.ID
+	Size     int64
+}
+
+func (q *Queries) ListCopies(ctx context.Context) ([]ListCopiesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCopies)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ImportsPending
+	var items []ListCopiesRow
 	for rows.Next() {
-		var i ImportsPending
+		var i ListCopiesRow
 		if err := rows.Scan(
-			&i.ID,
+			&i.ImportID,
+			&i.Position,
 			&i.RootID,
-			&i.Folder,
-			&i.ContentType,
-			&i.Hint,
-			&i.Suggestion,
-			&i.FoundAt,
-			&i.IgnoredAt,
+			&i.Size,
 		); err != nil {
 			return nil, err
 		}
@@ -348,31 +666,66 @@ func (q *Queries) ListEntries(ctx context.Context) ([]ImportsPending, error) {
 	return items, nil
 }
 
-const listFiles = `-- name: ListFiles :many
-SELECT pending_id, path, size, modified_at, node_file_id, node_volume_id, probe, quality, cut, items, reason FROM imports_pending_file ORDER BY pending_id, path
+const listFileItemsOf = `-- name: ListFileItemsOf :many
+SELECT import_id, position, item_id, "order" FROM imports_file_item WHERE import_id = ? ORDER BY position, "order"
 `
 
-func (q *Queries) ListFiles(ctx context.Context) ([]ImportsPendingFile, error) {
-	rows, err := q.db.QueryContext(ctx, listFiles)
+func (q *Queries) ListFileItemsOf(ctx context.Context, importID ImportID) ([]ImportsFileItem, error) {
+	rows, err := q.db.QueryContext(ctx, listFileItemsOf, importID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ImportsPendingFile
+	var items []ImportsFileItem
 	for rows.Next() {
-		var i ImportsPendingFile
+		var i ImportsFileItem
 		if err := rows.Scan(
-			&i.PendingID,
-			&i.Path,
-			&i.Size,
-			&i.ModifiedAt,
-			&i.NodeFileID,
-			&i.NodeVolumeID,
-			&i.Probe,
-			&i.Quality,
-			&i.Cut,
-			&i.Items,
-			&i.Reason,
+			&i.ImportID,
+			&i.Position,
+			&i.ItemID,
+			&i.Order,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFileItemsOfImports = `-- name: ListFileItemsOfImports :many
+SELECT import_id, position, item_id, "order" FROM imports_file_item WHERE import_id IN (/*SLICE:ids*/?) ORDER BY import_id, position, "order"
+`
+
+func (q *Queries) ListFileItemsOfImports(ctx context.Context, ids []ImportID) ([]ImportsFileItem, error) {
+	query := listFileItemsOfImports
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportsFileItem
+	for rows.Next() {
+		var i ImportsFileItem
+		if err := rows.Scan(
+			&i.ImportID,
+			&i.Position,
+			&i.ItemID,
+			&i.Order,
 		); err != nil {
 			return nil, err
 		}
@@ -388,21 +741,23 @@ func (q *Queries) ListFiles(ctx context.Context) ([]ImportsPendingFile, error) {
 }
 
 const listFilesOf = `-- name: ListFilesOf :many
-SELECT pending_id, path, size, modified_at, node_file_id, node_volume_id, probe, quality, cut, items, reason FROM imports_pending_file WHERE pending_id = ? ORDER BY path
+SELECT import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut, release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order, placed_by, file_id, source_removed_at, seeded FROM imports_file WHERE import_id = ? ORDER BY position
 `
 
-func (q *Queries) ListFilesOf(ctx context.Context, pendingID EntryID) ([]ImportsPendingFile, error) {
-	rows, err := q.db.QueryContext(ctx, listFilesOf, pendingID)
+func (q *Queries) ListFilesOf(ctx context.Context, importID ImportID) ([]ImportsFile, error) {
+	rows, err := q.db.QueryContext(ctx, listFilesOf, importID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ImportsPendingFile
+	var items []ImportsFile
 	for rows.Next() {
-		var i ImportsPendingFile
+		var i ImportsFile
 		if err := rows.Scan(
-			&i.PendingID,
+			&i.ImportID,
+			&i.Position,
 			&i.Path,
+			&i.SourceIndex,
 			&i.Size,
 			&i.ModifiedAt,
 			&i.NodeFileID,
@@ -410,8 +765,350 @@ func (q *Queries) ListFilesOf(ctx context.Context, pendingID EntryID) ([]Imports
 			&i.Probe,
 			&i.Quality,
 			&i.Cut,
-			&i.Items,
+			&i.ReleaseName,
+			&i.SourceName,
+			&i.Outcome,
 			&i.Reason,
+			&i.Hold,
+			&i.Confirmed,
+			&i.RootID,
+			&i.Dest,
+			&i.SentTransfer,
+			&i.SentOrder,
+			&i.PlacedBy,
+			&i.FileID,
+			&i.SourceRemovedAt,
+			&i.Seeded,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFilesOfImports = `-- name: ListFilesOfImports :many
+SELECT import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut, release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order, placed_by, file_id, source_removed_at, seeded FROM imports_file WHERE import_id IN (/*SLICE:ids*/?) ORDER BY import_id, position
+`
+
+func (q *Queries) ListFilesOfImports(ctx context.Context, ids []ImportID) ([]ImportsFile, error) {
+	query := listFilesOfImports
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportsFile
+	for rows.Next() {
+		var i ImportsFile
+		if err := rows.Scan(
+			&i.ImportID,
+			&i.Position,
+			&i.Path,
+			&i.SourceIndex,
+			&i.Size,
+			&i.ModifiedAt,
+			&i.NodeFileID,
+			&i.NodeVolumeID,
+			&i.Probe,
+			&i.Quality,
+			&i.Cut,
+			&i.ReleaseName,
+			&i.SourceName,
+			&i.Outcome,
+			&i.Reason,
+			&i.Hold,
+			&i.Confirmed,
+			&i.RootID,
+			&i.Dest,
+			&i.SentTransfer,
+			&i.SentOrder,
+			&i.PlacedBy,
+			&i.FileID,
+			&i.SourceRemovedAt,
+			&i.Seeded,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFillsOf = `-- name: ListFillsOf :many
+SELECT import_id, position, item_id, edition, target_id, forced FROM imports_file_fill WHERE import_id = ? ORDER BY position, item_id, edition, target_id
+`
+
+func (q *Queries) ListFillsOf(ctx context.Context, importID ImportID) ([]ImportsFileFill, error) {
+	rows, err := q.db.QueryContext(ctx, listFillsOf, importID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportsFileFill
+	for rows.Next() {
+		var i ImportsFileFill
+		if err := rows.Scan(
+			&i.ImportID,
+			&i.Position,
+			&i.ItemID,
+			&i.Edition,
+			&i.TargetID,
+			&i.Forced,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFillsOfImports = `-- name: ListFillsOfImports :many
+SELECT import_id, position, item_id, edition, target_id, forced FROM imports_file_fill WHERE import_id IN (/*SLICE:ids*/?) ORDER BY import_id, position, item_id, edition, target_id
+`
+
+func (q *Queries) ListFillsOfImports(ctx context.Context, ids []ImportID) ([]ImportsFileFill, error) {
+	query := listFillsOfImports
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportsFileFill
+	for rows.Next() {
+		var i ImportsFileFill
+		if err := rows.Scan(
+			&i.ImportID,
+			&i.Position,
+			&i.ItemID,
+			&i.Edition,
+			&i.TargetID,
+			&i.Forced,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHolding = `-- name: ListHolding :many
+SELECT f.root_id, f.dest FROM imports_file f JOIN imports_import i ON i.id = f.import_id
+WHERE i.finished_at IS NULL AND f.dest IS NOT NULL AND i.source <> 'root'
+  AND (f.outcome IN ('pending', 'waiting', 'sending', 'placing') OR f.outcome = 'failed' AND json_extract(f.reason, '$.code') = 'import_failed')
+ORDER BY f.root_id, f.dest
+`
+
+type ListHoldingRow struct {
+	RootID roots.ID
+	Dest   *string
+}
+
+func (q *Queries) ListHolding(ctx context.Context) ([]ListHoldingRow, error) {
+	rows, err := q.db.QueryContext(ctx, listHolding)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListHoldingRow
+	for rows.Next() {
+		var i ListHoldingRow
+		if err := rows.Scan(&i.RootID, &i.Dest); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listImporting = `-- name: ListImporting :many
+SELECT DISTINCT fi.item_id, f.import_id FROM imports_file_item fi
+JOIN imports_file f ON f.import_id = fi.import_id AND f.position = fi.position
+JOIN imports_import i ON i.id = f.import_id
+WHERE i.finished_at IS NULL AND i.work_id IS NOT NULL AND fi.item_id IN (/*SLICE:item_ids*/?)
+  AND f.outcome IN ('pending', 'waiting', 'sending', 'placing')
+ORDER BY fi.item_id, f.import_id
+`
+
+type ListImportingRow struct {
+	ItemID   works.ItemID
+	ImportID ImportID
+}
+
+func (q *Queries) ListImporting(ctx context.Context, itemIds []works.ItemID) ([]ListImportingRow, error) {
+	query := listImporting
+	var queryParams []interface{}
+	if len(itemIds) > 0 {
+		for _, v := range itemIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:item_ids*/?", strings.Repeat(",?", len(itemIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:item_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListImportingRow
+	for rows.Next() {
+		var i ListImportingRow
+		if err := rows.Scan(&i.ItemID, &i.ImportID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listImportsOfGrabs = `-- name: ListImportsOfGrabs :many
+SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import WHERE grab_id IN (/*SLICE:grab_ids*/?) ORDER BY id
+`
+
+func (q *Queries) ListImportsOfGrabs(ctx context.Context, grabIds []grabs.GrabID) ([]ImportsImport, error) {
+	query := listImportsOfGrabs
+	var queryParams []interface{}
+	if len(grabIds) > 0 {
+		for _, v := range grabIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:grab_ids*/?", strings.Repeat(",?", len(grabIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:grab_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportsImport
+	for rows.Next() {
+		var i ImportsImport
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.GrabID,
+			&i.NodeID,
+			&i.InfoHash,
+			&i.RootID,
+			&i.Folder,
+			&i.ContentType,
+			&i.Hint,
+			&i.Suggestion,
+			&i.WorkID,
+			&i.Edition,
+			&i.MoveFiles,
+			&i.FailureCode,
+			&i.Ended,
+			&i.CreatedAt,
+			&i.IgnoredAt,
+			&i.FinishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOpenFolderImports = `-- name: ListOpenFolderImports :many
+SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import WHERE source = 'folder' AND node_id = ? AND folder = ? AND finished_at IS NULL ORDER BY id
+`
+
+type ListOpenFolderImportsParams struct {
+	NodeID role.NodeID
+	Folder *string
+}
+
+func (q *Queries) ListOpenFolderImports(ctx context.Context, arg ListOpenFolderImportsParams) ([]ImportsImport, error) {
+	rows, err := q.db.QueryContext(ctx, listOpenFolderImports, arg.NodeID, arg.Folder)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportsImport
+	for rows.Next() {
+		var i ImportsImport
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.GrabID,
+			&i.NodeID,
+			&i.InfoHash,
+			&i.RootID,
+			&i.Folder,
+			&i.ContentType,
+			&i.Hint,
+			&i.Suggestion,
+			&i.WorkID,
+			&i.Edition,
+			&i.MoveFiles,
+			&i.FailureCode,
+			&i.Ended,
+			&i.CreatedAt,
+			&i.IgnoredAt,
+			&i.FinishedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -427,10 +1124,10 @@ func (q *Queries) ListFilesOf(ctx context.Context, pendingID EntryID) ([]Imports
 }
 
 const listRootsOf = `-- name: ListRootsOf :many
-SELECT DISTINCT root_id FROM imports_pending WHERE id IN (/*SLICE:ids*/?) ORDER BY root_id
+SELECT DISTINCT root_id FROM imports_import WHERE id IN (/*SLICE:ids*/?) AND root_id IS NOT NULL ORDER BY root_id
 `
 
-func (q *Queries) ListRootsOf(ctx context.Context, ids []EntryID) ([]roots.ID, error) {
+func (q *Queries) ListRootsOf(ctx context.Context, ids []ImportID) ([]roots.ID, error) {
 	query := listRootsOf
 	var queryParams []interface{}
 	if len(ids) > 0 {
@@ -453,6 +1150,211 @@ func (q *Queries) ListRootsOf(ctx context.Context, ids []EntryID) ([]roots.ID, e
 			return nil, err
 		}
 		items = append(items, root_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnfinished = `-- name: ListUnfinished :many
+SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import WHERE finished_at IS NULL AND source <> 'root' OR finished_at IS NULL AND id IN (
+    SELECT import_id FROM imports_file WHERE outcome IN ('pending', 'placing') OR outcome = 'waiting' AND json_extract(reason, '$.code') = 'busy'
+) ORDER BY id
+`
+
+func (q *Queries) ListUnfinished(ctx context.Context) ([]ImportsImport, error) {
+	rows, err := q.db.QueryContext(ctx, listUnfinished)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportsImport
+	for rows.Next() {
+		var i ImportsImport
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.GrabID,
+			&i.NodeID,
+			&i.InfoHash,
+			&i.RootID,
+			&i.Folder,
+			&i.ContentType,
+			&i.Hint,
+			&i.Suggestion,
+			&i.WorkID,
+			&i.Edition,
+			&i.MoveFiles,
+			&i.FailureCode,
+			&i.Ended,
+			&i.CreatedAt,
+			&i.IgnoredAt,
+			&i.FinishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnfinishedImports = `-- name: ListUnfinishedImports :many
+SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import WHERE finished_at IS NULL ORDER BY source <> 'root', root_id, folder, id
+`
+
+func (q *Queries) ListUnfinishedImports(ctx context.Context) ([]ImportsImport, error) {
+	rows, err := q.db.QueryContext(ctx, listUnfinishedImports)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportsImport
+	for rows.Next() {
+		var i ImportsImport
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.GrabID,
+			&i.NodeID,
+			&i.InfoHash,
+			&i.RootID,
+			&i.Folder,
+			&i.ContentType,
+			&i.Hint,
+			&i.Suggestion,
+			&i.WorkID,
+			&i.Edition,
+			&i.MoveFiles,
+			&i.FailureCode,
+			&i.Ended,
+			&i.CreatedAt,
+			&i.IgnoredAt,
+			&i.FinishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnfinishedOf = `-- name: ListUnfinishedOf :many
+SELECT id FROM imports_import WHERE finished_at IS NULL AND work_id IN (/*SLICE:work_ids*/?) ORDER BY id
+`
+
+func (q *Queries) ListUnfinishedOf(ctx context.Context, workIds []works.WorkID) ([]ImportID, error) {
+	query := listUnfinishedOf
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportID
+	for rows.Next() {
+		var id ImportID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnfinishedPaths = `-- name: ListUnfinishedPaths :many
+SELECT f.path FROM imports_file f JOIN imports_import i ON i.id = f.import_id
+WHERE i.finished_at IS NULL AND f.outcome NOT IN ('left_out', 'not_better', 'placed', 'declined', 'failed') ORDER BY f.import_id, f.position
+`
+
+func (q *Queries) ListUnfinishedPaths(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listUnfinishedPaths)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		items = append(items, path)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnfinishedRootImports = `-- name: ListUnfinishedRootImports :many
+SELECT id, source, grab_id, node_id, info_hash, root_id, folder, content_type, hint, suggestion, work_id, edition, move_files, failure_code, ended, created_at, ignored_at, finished_at FROM imports_import WHERE source = 'root' AND finished_at IS NULL ORDER BY root_id, folder
+`
+
+func (q *Queries) ListUnfinishedRootImports(ctx context.Context) ([]ImportsImport, error) {
+	rows, err := q.db.QueryContext(ctx, listUnfinishedRootImports)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportsImport
+	for rows.Next() {
+		var i ImportsImport
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.GrabID,
+			&i.NodeID,
+			&i.InfoHash,
+			&i.RootID,
+			&i.Folder,
+			&i.ContentType,
+			&i.Hint,
+			&i.Suggestion,
+			&i.WorkID,
+			&i.Edition,
+			&i.MoveFiles,
+			&i.FailureCode,
+			&i.Ended,
+			&i.CreatedAt,
+			&i.IgnoredAt,
+			&i.FinishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -500,6 +1402,78 @@ func (q *Queries) RecordComparison(ctx context.Context, arg RecordComparisonPara
 	return err
 }
 
+const setFile = `-- name: SetFile :execrows
+UPDATE imports_file SET outcome = ?1, reason = ?2, hold = ?3, confirmed = ?4,
+                        probe = ?5, quality = ?6, cut = ?7, release_name = ?8,
+                        root_id = ?9, dest = ?10, sent_transfer = ?11,
+                        sent_order = ?12, placed_by = ?13, file_id = ?14,
+                        source_removed_at = ?15
+WHERE import_id = ?16 AND position = ?17 AND outcome = ?18
+`
+
+type SetFileParams struct {
+	Outcome         string
+	Reason          *string
+	Hold            *string
+	Confirmed       int64
+	Probe           *media.Record
+	Quality         *release.Quality
+	Cut             release.CutKey
+	ReleaseName     string
+	RootID          roots.ID
+	Dest            *string
+	SentTransfer    transfers.ID
+	SentOrder       *int64
+	PlacedBy        *string
+	FileID          files.ID
+	SourceRemovedAt storage.Time
+	ImportID        ImportID
+	Position        int64
+	Was             string
+}
+
+func (q *Queries) SetFile(ctx context.Context, arg SetFileParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setFile,
+		arg.Outcome,
+		arg.Reason,
+		arg.Hold,
+		arg.Confirmed,
+		arg.Probe,
+		arg.Quality,
+		arg.Cut,
+		arg.ReleaseName,
+		arg.RootID,
+		arg.Dest,
+		arg.SentTransfer,
+		arg.SentOrder,
+		arg.PlacedBy,
+		arg.FileID,
+		arg.SourceRemovedAt,
+		arg.ImportID,
+		arg.Position,
+		arg.Was,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setImportingSettings = `-- name: SetImportingSettings :exec
+UPDATE imports_settings SET video_extensions = ?, smallest_video = ?, sample_shorter = ?
+`
+
+type SetImportingSettingsParams struct {
+	VideoExtensions *string
+	SmallestVideo   *int64
+	SampleShorter   *int64
+}
+
+func (q *Queries) SetImportingSettings(ctx context.Context, arg SetImportingSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, setImportingSettings, arg.VideoExtensions, arg.SmallestVideo, arg.SampleShorter)
+	return err
+}
+
 const setSettings = `-- name: SetSettings :exec
 UPDATE imports_settings SET stop_share = ?, probes = ?
 `
@@ -515,10 +1489,10 @@ func (q *Queries) SetSettings(ctx context.Context, arg SetSettingsParams) error 
 }
 
 const unignore = `-- name: Unignore :exec
-UPDATE imports_pending SET ignored_at = NULL WHERE id IN (/*SLICE:ids*/?)
+UPDATE imports_import SET ignored_at = NULL WHERE id IN (/*SLICE:ids*/?)
 `
 
-func (q *Queries) Unignore(ctx context.Context, ids []EntryID) error {
+func (q *Queries) Unignore(ctx context.Context, ids []ImportID) error {
 	query := unignore
 	var queryParams []interface{}
 	if len(ids) > 0 {
@@ -533,22 +1507,36 @@ func (q *Queries) Unignore(ctx context.Context, ids []EntryID) error {
 	return err
 }
 
-const updateEntry = `-- name: UpdateEntry :exec
-UPDATE imports_pending SET hint = ?, suggestion = ?, ignored_at = ? WHERE id = ?
+const updateImport = `-- name: UpdateImport :exec
+UPDATE imports_import SET hint = ?, suggestion = ?, work_id = ?, edition = ?, move_files = ?, failure_code = ?, ended = ?,
+                          ignored_at = ?, finished_at = ?
+WHERE id = ?
 `
 
-type UpdateEntryParams struct {
-	Hint       string
-	Suggestion *string
-	IgnoredAt  storage.Time
-	ID         EntryID
+type UpdateImportParams struct {
+	Hint        string
+	Suggestion  *string
+	WorkID      works.WorkID
+	Edition     *release.CutKey
+	MoveFiles   int64
+	FailureCode *string
+	Ended       *string
+	IgnoredAt   storage.Time
+	FinishedAt  storage.Time
+	ID          ImportID
 }
 
-func (q *Queries) UpdateEntry(ctx context.Context, arg UpdateEntryParams) error {
-	_, err := q.db.ExecContext(ctx, updateEntry,
+func (q *Queries) UpdateImport(ctx context.Context, arg UpdateImportParams) error {
+	_, err := q.db.ExecContext(ctx, updateImport,
 		arg.Hint,
 		arg.Suggestion,
+		arg.WorkID,
+		arg.Edition,
+		arg.MoveFiles,
+		arg.FailureCode,
+		arg.Ended,
 		arg.IgnoredAt,
+		arg.FinishedAt,
 		arg.ID,
 	)
 	return err

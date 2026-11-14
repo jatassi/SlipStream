@@ -101,7 +101,18 @@ func output(ctx context.Context, tool string, args ...string) (string, error) {
 // Build returns the cached file f describes, making it first if the cache
 // lacks it. Callers copy it out and never write to it.
 func (b *Builder) Build(ctx context.Context, f scenario.MediaFile) (string, error) {
-	r := recipeOf("media", f)
+	return b.build(ctx, f, "")
+}
+
+// BuildDistinct is Build of a file whose bytes are its own: files of one
+// description built under two keys read alike and differ in their bytes,
+// at the cost of an encode per key.
+func (b *Builder) BuildDistinct(ctx context.Context, f scenario.MediaFile, key string) (string, error) {
+	return b.build(ctx, f, key)
+}
+
+func (b *Builder) build(ctx context.Context, f scenario.MediaFile, salt string) (string, error) {
+	r := recipeOf("media", f, salt)
 	key, err := json.Marshal(struct {
 		FFmpeg   string     `json:"ffmpeg"`
 		DoviTool string     `json:"doviTool"`

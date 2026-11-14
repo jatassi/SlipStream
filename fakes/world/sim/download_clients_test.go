@@ -33,7 +33,7 @@ func TestTransmission(t *testing.T) {
 	for _, v := range transmission.Versions {
 		t.Run(v, func(t *testing.T) {
 			t.Parallel()
-			clientSuite(t, transmission.Fake, v)
+			clientSuite(t, transmission.Fake, v, scenarioTest{"fails a Grab whose client error outlasts the setting", suite.failsAClientErrorPastTheSetting})
 		})
 	}
 }
@@ -82,6 +82,7 @@ func clientSuite(t *testing.T, spec fake.Spec, version string, own ...scenarioTe
 	for _, sc := range append([]scenarioTest{
 		{"tests, imports, shares a pause and removes with its files", suite.testsImportsSharesAPauseAndRemoves},
 		{"imports through a Client folder after the Import delay", suite.importsThroughAClientFolderAfterTheDelay},
+		{"an error stops the torrent and its clear starts it again", suite.anErrorStopsTheTorrentUntilCleared},
 	}, own...) {
 		t.Run(sc.name, func(t *testing.T) {
 			t.Parallel()
@@ -153,7 +154,7 @@ func (c suite) testsImportsSharesAPauseAndRemoves(t *testing.T) {
 	}), saved.Name+" saves to "+root+", which overlaps a library root on home. Choose a download folder outside every library root and test again.", "folder")
 
 	simtest.Search(t, w, simtest.AddOrchard(t, w))
-	expectImportedFrom(t, simtest.Await(t, w))
+	simtest.ExpectImported(t, simtest.Await(t, w))
 	expectPlaced(t, w)
 	r.expectLinked()
 
@@ -186,7 +187,7 @@ func (c suite) healsALabelThatNeverArrived(t *testing.T) {
 	w, r := c.launch(t, func(*scenario.DownloadClient) {})
 	w.Cue(c.kind, c.kind+"-late-add", map[string]string{"node": "home", "after": "30s"})
 	simtest.Search(t, w, simtest.AddOrchard(t, w))
-	expectImportedFrom(t, simtest.Await(t, w))
+	simtest.ExpectImported(t, simtest.Await(t, w))
 	if got := r.delugeLabel(w.InfoHash(release)); got != clients.DefaultLabel {
 		t.Fatalf("the torrent's label in Deluge reads %q, want %q", got, clients.DefaultLabel)
 	}
@@ -202,7 +203,8 @@ func (c suite) importsThroughAClientFolderAfterTheDelay(t *testing.T) {
 	})
 	saved := r.saved()
 	r.grabsTo(saved.ID)
-	simtest.Search(t, w, simtest.AddOrchard(t, w))
+	work := simtest.AddOrchard(t, w)
+	simtest.Search(t, w, work)
 
 	var row torrentRow
 	simtest.Eventually(t, "the Torrent seeds in "+saved.Name, func() bool {
@@ -217,24 +219,93 @@ func (c suite) importsThroughAClientFolderAfterTheDelay(t *testing.T) {
 	if gs := simtest.GrabsListed(t, w); len(gs) != 1 || gs[0].Stage != "downloading" {
 		t.Fatalf("within the Import delay the Grabs are %+v, want one downloading", gs)
 	}
+	cell := downloadingCell(t, w, work)
+	if cell.Step != "downloading" || cell.Until == nil || cell.Until.Before(finished.Add(importDelay-time.Minute)) || cell.Until.After(finished.Add(importDelay+time.Minute)) {
+		t.Fatalf("within the Import delay the cell reads %+v, want downloading until about %s", cell, finished.Add(importDelay))
+	}
 
 	g := simtest.Await(t, w)
 	if waited := time.Since(finished); waited < importDelay-time.Minute {
 		t.Fatalf("the Grab imported %s after the client finished, want the Import delay of %s", waited, importDelay)
 	}
-	expectImportedFrom(t, g)
+	simtest.ExpectImported(t, g)
 	expectPlaced(t, w)
 	r.expectLinked()
+	expectImportOf(t, w, g.ID)
 }
 
-// fromClient is a Grab's walk on one Node that downloads, probes and
-// imports there.
-var fromClient = []string{"fetching", "downloading", "probing", "importing", "imported"}
-
-func expectImportedFrom(t *testing.T, g simtest.GrabView) {
+// expectImportOf sees imported Grab id name its Import in words, and the
+// Import name the Grab back.
+func expectImportOf(t *testing.T, w *sim.World, id string) {
 	t.Helper()
-	if g.Stage != "imported" || !slices.Equal(g.Stages(), fromClient) {
-		t.Fatalf("the Grab ended %s with %+v after %v, want imported after %v", g.Stage, g.Failure, g.Stages(), fromClient)
+	got := simtest.Decode[struct {
+		Import struct {
+			ID    string `json:"id"`
+			Words string `json:"words"`
+		} `json:"import"`
+	}](t, "getGrab", w.API().Admin("home", http.MethodGet, "/api/v1/grabs/"+id, ""))
+	if got.Import.Words != "Imported 1 of 1 movie" {
+		t.Fatalf("the imported Grab's Import reads %q, want Imported 1 of 1 movie", got.Import.Words)
+	}
+	entry := simtest.Decode[struct {
+		Grab struct {
+			ID      string `json:"id"`
+			Release string `json:"release"`
+			Stage   string `json:"stage"`
+		} `json:"grab"`
+	}](t, "getImport", w.API().Admin("home", http.MethodGet, "/api/v1/imports/"+got.Import.ID, ""))
+	if entry.Grab.ID != id || entry.Grab.Release != release || entry.Grab.Stage != "imported" {
+		t.Fatalf("the Grab's Import names the Grab %+v, want %s %s imported", entry.Grab, id, release)
+	}
+}
+
+// anErrorStopsTheTorrentUntilCleared imports a Grab, has the client stop
+// its torrent with a local error, then clears the error: the Torrent reads
+// held by the client's error, then seeds again with no hold, as a clean
+// report from the client reads.
+func (c suite) anErrorStopsTheTorrentUntilCleared(t *testing.T) {
+	w, r := c.launch(t, func(*scenario.DownloadClient) {})
+	simtest.Search(t, w, simtest.AddOrchard(t, w))
+	simtest.ExpectImported(t, simtest.Await(t, w))
+	simtest.Eventually(t, "the Torrent seeds", func() bool { return r.torrent().State == "seeding" })
+
+	w.Cue(c.kind, c.kind+"-error", map[string]string{"node": "home", "release": release, "message": "No space left on device"})
+	simtest.Eventually(t, "the Torrent reads the client's error", func() bool { return r.torrent().Hold == "client_error" })
+	w.Cue(c.kind, c.kind+"-error", map[string]string{"node": "home", "release": release, "message": ""})
+	simtest.Eventually(t, "the Torrent seeds again", func() bool {
+		row := r.torrent()
+		return row.State == "seeding" && row.Hold == ""
+	})
+}
+
+// failsAClientErrorPastTheSetting sets the client error setting to 5
+// minutes and has the client stop the Grab's torrent with a local error as
+// it starts. The Grab waits downloading, then fails client_error naming
+// the client and its Node. The torrent stays in the client, and the
+// Release stays off the Blocklist.
+func (c suite) failsAClientErrorPastTheSetting(t *testing.T) {
+	w, r := c.launch(t, func(*scenario.DownloadClient) {})
+	if reply := w.API().Admin("home", http.MethodPatch, "/api/v1/download-clients/thresholds", `{"clientErrorFail":300}`); reply.Status != http.StatusOK {
+		t.Fatalf("setDownloadClientThresholds = %d %s, want 200", reply.Status, reply.Body)
+	}
+	simtest.Search(t, w, simtest.AddOrchard(t, w))
+	simtest.Eventually(t, "the Grab's Torrent downloads in the client", func() bool { return r.torrent().State == "downloading" })
+	w.Cue(c.kind, c.kind+"-error", map[string]string{"node": "home", "release": release, "message": "No space left on device"})
+	simtest.Eventually(t, "the Torrent reads the client's error", func() bool { return r.torrent().Hold == "client_error" })
+	if gs := simtest.GrabsListed(t, w); len(gs) != 1 || gs[0].Stage != "downloading" {
+		t.Fatalf("with the client's error just reported the Grabs are %+v, want one downloading", gs)
+	}
+
+	g := simtest.Await(t, w)
+	saved := r.saved()
+	if want := saved.Name + " on home reported an error for more than 5 min. Search can try another Release."; g.Stage != "failed" || g.Failure.Code != "client_error" || g.Failure.Message != want {
+		t.Fatalf("the Grab ended %s with %+v, want failed client_error: %q", g.Stage, g.Failure, want)
+	}
+	if r.torrent().ID == "" {
+		t.Error("the failed Grab's Torrent is gone, want it kept in the client")
+	}
+	if got := w.API().Admin("home", http.MethodGet, "/api/v1/blocklist", ""); got.Status != http.StatusOK || !strings.Contains(got.Body, `"total":0`) {
+		t.Errorf("listBlocklist = %d %s, want no entry", got.Status, got.Body)
 	}
 }
 
@@ -260,6 +331,7 @@ type torrentRow struct {
 	ClientName string `json:"clientName"`
 	ClientKind string `json:"clientKind"`
 	State      string `json:"state"`
+	Hold       string `json:"hold"`
 	Pending    string `json:"pending"`
 }
 
@@ -430,7 +502,7 @@ func TestEveryKindOnOneNode(t *testing.T) {
 		}
 
 		simtest.Search(t, w, simtest.AddOrchard(t, w))
-		expectImportedFrom(t, simtest.Await(t, w))
+		simtest.ExpectImported(t, simtest.Await(t, w))
 		rows := simtest.Decode[struct {
 			Rows []torrentRow `json:"rows"`
 		}](t, "listTorrents", w.API().Admin("home", http.MethodGet, "/api/v1/torrents", "")).Rows
@@ -438,4 +510,25 @@ func TestEveryKindOnOneNode(t *testing.T) {
 			t.Fatalf("the Torrents are %+v, want one in qBittorrent", rows)
 		}
 	})
+}
+
+type heldCell struct {
+	State string     `json:"state"`
+	Step  string     `json:"step"`
+	Until *time.Time `json:"until"`
+}
+
+// downloadingCell is work's one downloading cell.
+func downloadingCell(t *testing.T, w *sim.World, work string) heldCell {
+	t.Helper()
+	cells := simtest.Decode[struct {
+		Cells []heldCell `json:"cells"`
+	}](t, "listCells", w.API().Admin("home", http.MethodGet, "/api/v1/works/"+work+"/cells", ""))
+	for _, c := range cells.Cells {
+		if c.State == "downloading" {
+			return c
+		}
+	}
+	t.Fatalf("the Work's cells are %+v, want one downloading", cells.Cells)
+	return heldCell{}
 }

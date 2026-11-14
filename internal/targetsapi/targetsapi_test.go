@@ -17,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -82,7 +83,7 @@ func serve(t *testing.T) *served {
 	}
 	changed.n = 0
 	shelf, err := files.Open(t.Context(), files.Config{
-		Library: lib, Targets: svc, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Naming: naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}}), Today: time.Now,
+		Library: lib, Targets: svc, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}}, Naming: naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}}), Today: time.Now,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -357,7 +358,7 @@ func TestProfilesAreListedWithTheirWorksMadeDefaultAndEstimated(t *testing.T) {
 	root := rootstest.Root(t, s.lib, role.NodeID{UUID: storage.NewUUID()}, contenttypetest.ID, t.TempDir())
 	err = s.lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: root.ID, Path: "a.mkv", Size: 2000 << 20, Quality: release.WEBDL1080p,
+			WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID}, Cut: release.Standard, RootID: root.ID, Path: "a.mkv", Size: 2000 << 20, Quality: release.WEBDL1080p,
 		}, []targets.TargetID{{UUID: must[storage.UUID](t)(storage.ParseUUID(s.starter))}})
 		return err
 	})

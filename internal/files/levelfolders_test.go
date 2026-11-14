@@ -61,3 +61,38 @@ func TestNewFileSitsInItsLevelFolder(t *testing.T) {
 		t.Fatalf("the files sit at %v, want each in its level's folder when the Work keeps one: %v", got, want)
 	}
 }
+
+func TestAFileOfManyItemsIsNamedForAllAndSitsInItsFirstItemsFolder(t *testing.T) {
+	l := open(t)
+	web := l.target(t, "Web", []release.Quality{release.WEBDL1080p})
+	p := l.profile(t, "Web", web)
+	l.fx.Put("w1", contenttypetest.Record{Tree: works.Fetched{Label: "Shelf w1", Children: []works.Entry{
+		box("b1", false, "Scarf", "Mittens"), box("b2", false, "Hat"),
+	}}})
+	tree, _, err := l.works.Add(t.Context(), admin, contenttypetest.ID, "w1", works.Adding{
+		Monitor: true, LevelFolders: true,
+		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
+			if err := targets.Assign(ctx, tx, w, &p); err != nil {
+				return err
+			}
+			return roots.Assign(ctx, tx, w, nil)
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := l.files(files.NoGrabs{})
+	for _, c := range []struct {
+		items []int
+		want  string
+	}{
+		{[]int{0, 1}, "Shelf w1/Box b1/Shelf w1 - Scarf + Mittens - Web.mkv"},
+		{[]int{1, 2}, "Shelf w1/Box b1/Shelf w1 - Mittens + Hat - Web.mkv"},
+	} {
+		in := holdingOf(tree, c.items[0], files.HoldingOf(storage.NewUUID(), ".mkv"), 1024, probeOf(release.WEBDL1080p), release.WEBDL1080p)
+		in.Items = append(in.Items, tree.Items[c.items[1]].ID)
+		if got := l.judge(t, svc, tree.ID, in).Path; got != c.want {
+			t.Fatalf("a file of %s and %s is named %q, want %q", tree.Items[c.items[0]].Label, tree.Items[c.items[1]].Label, got, c.want)
+		}
+	}
+}

@@ -67,7 +67,7 @@ func TestDeleteCountsEveryItemFile(t *testing.T) {
 			size := int64(i+1) << 20
 			bytes += size
 			if _, err := files.Add(ctx, tx, files.File{
-				WorkID: tree.ID, ItemID: it.ID, Cut: release.Standard, RootID: root.ID, Path: fmt.Sprintf("Shelf w1/%s.mkv", it.Label), Size: size, Quality: release.WEBDL1080p,
+				WorkID: tree.ID, Items: []works.ItemID{it.ID}, Cut: release.Standard, RootID: root.ID, Path: fmt.Sprintf("Shelf w1/%s.mkv", it.Label), Size: size, Quality: release.WEBDL1080p,
 			}, nil); err != nil {
 				return err
 			}

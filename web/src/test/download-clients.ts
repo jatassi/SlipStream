@@ -44,7 +44,10 @@ const duration = (
   step,
 });
 
+const clientError = ["downloading.clientErrorFail", "A client error fails its Grab after"] as const;
+
 export const thresholds: DownloadclientsThresholds = {
+  clientErrorFail: duration(...clientError, 3600, [300, 604_800, 60]),
   faultStall: duration(
     "downloading.faultStall",
     "A download with no data at all is bad after",

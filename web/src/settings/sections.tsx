@@ -16,7 +16,7 @@ import { getListContentTypesSuspenseQueryOptions } from "../api/gen/query/works/
 import { ensureQuery, freshQuery } from "../api/query-client";
 import { downloadClientsSection } from "../download-clients/section";
 import { customFormatsSection } from "../formats/section";
-import { libraryScanSection } from "../imports/section";
+import { importingSection, libraryScanSection } from "../imports/section";
 import { indexersSection } from "../indexers/section";
 // oxlint-disable-next-line import/max-dependencies -- the table names every section of Settings
 import { namingSection } from "../naming/section";
@@ -118,6 +118,7 @@ export const settingsGroups: readonly [SettingsGroup, ...SettingsGroup[]] = [
       contentTypesSection,
       libraryRootsSection,
       libraryScanSection,
+      importingSection,
       namingSection,
       metadataSection,
     ],

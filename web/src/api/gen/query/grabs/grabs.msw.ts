@@ -30,6 +30,9 @@ export const getListBlocklistResponseMock = (
         "engine_error",
         "marked_failed",
         "by_hand",
+        "no_video",
+        "unreadable",
+        "misdescribed",
       ] as const),
       indexer: faker.helpers.arrayElement([
         faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -105,17 +108,14 @@ export const getListGrabsResponseMock = (
               "canceled",
               "blocklisted",
               "release_fault",
+              "client_error",
+              "declined",
+              "unreadable",
             ] as const),
             current: faker.datatype.boolean(),
             message: faker.string.alpha({ length: { min: 10, max: 20 } }),
             needsYou: faker.datatype.boolean(),
-            stage: faker.helpers.arrayElement([
-              "fetching",
-              "downloading",
-              "probing",
-              "transferring",
-              "importing",
-            ] as const),
+            stage: faker.helpers.arrayElement(["fetching", "downloading", "importing"] as const),
           },
         }
       : {}),
@@ -141,8 +141,6 @@ export const getListGrabsResponseMock = (
         stage: faker.helpers.arrayElement([
           "fetching",
           "downloading",
-          "probing",
-          "transferring",
           "importing",
           "imported",
           "failed",
@@ -150,12 +148,26 @@ export const getListGrabsResponseMock = (
       }),
     ),
     id: faker.string.uuid(),
+    import: faker.helpers.arrayElement([
+      {
+        id: faker.string.uuid(),
+        placed: faker.number.int({ min: 0 }),
+        planned: faker.number.int({ min: 0 }),
+        sending: faker.number.int({ min: 0 }),
+        waiting: faker.number.int({ min: 0 }),
+        words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+      null,
+    ]),
+    inFlight: faker.datatype.boolean(),
     indexerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     infoHash: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
       null,
     ]),
-    itemId: faker.string.uuid(),
+    items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
     manualSearchId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     ...(faker.datatype.boolean()
       ? {
@@ -203,14 +215,23 @@ export const getListGrabsResponseMock = (
     stage: faker.helpers.arrayElement([
       "fetching",
       "downloading",
-      "probing",
-      "transferring",
       "importing",
       "imported",
       "failed",
     ] as const),
     targetIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        forced: faker.datatype.boolean(),
+        itemId: faker.string.uuid(),
+        settled: faker.helpers.arrayElement([
+          faker.helpers.arrayElement(["placed", "none", "declined"] as const),
+          null,
+        ]),
+        targetId: faker.string.uuid(),
+      }),
     ),
     torrentId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     trackerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
@@ -296,17 +317,14 @@ export const getGetGrabResponseMock = (
             "canceled",
             "blocklisted",
             "release_fault",
+            "client_error",
+            "declined",
+            "unreadable",
           ] as const),
           current: faker.datatype.boolean(),
           message: faker.string.alpha({ length: { min: 10, max: 20 } }),
           needsYou: faker.datatype.boolean(),
-          stage: faker.helpers.arrayElement([
-            "fetching",
-            "downloading",
-            "probing",
-            "transferring",
-            "importing",
-          ] as const),
+          stage: faker.helpers.arrayElement(["fetching", "downloading", "importing"] as const),
         },
       }
     : {}),
@@ -332,8 +350,6 @@ export const getGetGrabResponseMock = (
       stage: faker.helpers.arrayElement([
         "fetching",
         "downloading",
-        "probing",
-        "transferring",
         "importing",
         "imported",
         "failed",
@@ -341,12 +357,26 @@ export const getGetGrabResponseMock = (
     }),
   ),
   id: faker.string.uuid(),
+  import: faker.helpers.arrayElement([
+    {
+      id: faker.string.uuid(),
+      placed: faker.number.int({ min: 0 }),
+      planned: faker.number.int({ min: 0 }),
+      sending: faker.number.int({ min: 0 }),
+      waiting: faker.number.int({ min: 0 }),
+      words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    },
+    null,
+  ]),
+  inFlight: faker.datatype.boolean(),
   indexerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
   infoHash: faker.helpers.arrayElement([
     faker.string.alpha({ length: { min: 10, max: 20 } }),
     null,
   ]),
-  itemId: faker.string.uuid(),
+  items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+    faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
   manualSearchId: faker.helpers.arrayElement([faker.string.uuid(), null]),
   ...(faker.datatype.boolean()
     ? {
@@ -394,14 +424,23 @@ export const getGetGrabResponseMock = (
   stage: faker.helpers.arrayElement([
     "fetching",
     "downloading",
-    "probing",
-    "transferring",
     "importing",
     "imported",
     "failed",
   ] as const),
   targetIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ),
+  targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+    () => ({
+      forced: faker.datatype.boolean(),
+      itemId: faker.string.uuid(),
+      settled: faker.helpers.arrayElement([
+        faker.helpers.arrayElement(["placed", "none", "declined"] as const),
+        null,
+      ]),
+      targetId: faker.string.uuid(),
+    }),
   ),
   torrentId: faker.helpers.arrayElement([faker.string.uuid(), null]),
   trackerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
@@ -487,17 +526,14 @@ export const getListIndexerGrabsResponseMock = (
               "canceled",
               "blocklisted",
               "release_fault",
+              "client_error",
+              "declined",
+              "unreadable",
             ] as const),
             current: faker.datatype.boolean(),
             message: faker.string.alpha({ length: { min: 10, max: 20 } }),
             needsYou: faker.datatype.boolean(),
-            stage: faker.helpers.arrayElement([
-              "fetching",
-              "downloading",
-              "probing",
-              "transferring",
-              "importing",
-            ] as const),
+            stage: faker.helpers.arrayElement(["fetching", "downloading", "importing"] as const),
           },
         }
       : {}),
@@ -523,8 +559,6 @@ export const getListIndexerGrabsResponseMock = (
         stage: faker.helpers.arrayElement([
           "fetching",
           "downloading",
-          "probing",
-          "transferring",
           "importing",
           "imported",
           "failed",
@@ -532,12 +566,26 @@ export const getListIndexerGrabsResponseMock = (
       }),
     ),
     id: faker.string.uuid(),
+    import: faker.helpers.arrayElement([
+      {
+        id: faker.string.uuid(),
+        placed: faker.number.int({ min: 0 }),
+        planned: faker.number.int({ min: 0 }),
+        sending: faker.number.int({ min: 0 }),
+        waiting: faker.number.int({ min: 0 }),
+        words: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      },
+      null,
+    ]),
+    inFlight: faker.datatype.boolean(),
     indexerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     infoHash: faker.helpers.arrayElement([
       faker.string.alpha({ length: { min: 10, max: 20 } }),
       null,
     ]),
-    itemId: faker.string.uuid(),
+    items: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
     manualSearchId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     ...(faker.datatype.boolean()
       ? {
@@ -585,14 +633,23 @@ export const getListIndexerGrabsResponseMock = (
     stage: faker.helpers.arrayElement([
       "fetching",
       "downloading",
-      "probing",
-      "transferring",
       "importing",
       "imported",
       "failed",
     ] as const),
     targetIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    targets: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => ({
+        forced: faker.datatype.boolean(),
+        itemId: faker.string.uuid(),
+        settled: faker.helpers.arrayElement([
+          faker.helpers.arrayElement(["placed", "none", "declined"] as const),
+          null,
+        ]),
+        targetId: faker.string.uuid(),
+      }),
     ),
     torrentId: faker.helpers.arrayElement([faker.string.uuid(), null]),
     trackerId: faker.helpers.arrayElement([faker.string.uuid(), null]),
@@ -646,6 +703,8 @@ export const getListSearchReleasesResponseMock = (
             "tier",
             "revision",
             "score",
+            "chosen_by_another",
+            "fewer_unwanted",
             "priority",
             "freeleech",
             "seeders",
@@ -681,7 +740,6 @@ export const getListSearchReleasesResponseMock = (
           code: faker.helpers.arrayElement([
             "wrong_work",
             "wrong_item",
-            "covers_more",
             "wrong_title",
             "cut_not_wanted",
             "quality_not_in_target",
@@ -747,13 +805,7 @@ export const getGetManualSearchResponseMock = (
     held: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         grabId: faker.string.uuid(),
-        stage: faker.helpers.arrayElement([
-          "fetching",
-          "downloading",
-          "probing",
-          "transferring",
-          "importing",
-        ] as const),
+        stage: faker.helpers.arrayElement(["fetching", "downloading", "importing"] as const),
         words: faker.string.alpha({ length: { min: 10, max: 20 } }),
       }),
     ),
@@ -793,7 +845,6 @@ export const getGetManualSearchResponseMock = (
               code: faker.helpers.arrayElement([
                 "wrong_work",
                 "wrong_item",
-                "covers_more",
                 "wrong_title",
                 "cut_not_wanted",
                 "quality_not_in_target",
@@ -841,6 +892,8 @@ export const getGetManualSearchResponseMock = (
                     "tier",
                     "revision",
                     "score",
+                    "chosen_by_another",
+                    "fewer_unwanted",
                     "priority",
                     "freeleech",
                     "seeders",
@@ -910,7 +963,6 @@ export const getGetManualSearchResponseMock = (
               code: faker.helpers.arrayElement([
                 "wrong_work",
                 "wrong_item",
-                "covers_more",
                 "wrong_title",
                 "cut_not_wanted",
                 "quality_not_in_target",
@@ -954,6 +1006,8 @@ export const getGetManualSearchResponseMock = (
                     "tier",
                     "revision",
                     "score",
+                    "chosen_by_another",
+                    "fewer_unwanted",
                     "priority",
                     "freeleech",
                     "seeders",
@@ -1062,13 +1116,7 @@ export const getListManualSearchReleasesResponseMock = (
         cancels: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
           () => ({
             grabId: faker.string.uuid(),
-            stage: faker.helpers.arrayElement([
-              "fetching",
-              "downloading",
-              "probing",
-              "transferring",
-              "importing",
-            ] as const),
+            stage: faker.helpers.arrayElement(["fetching", "downloading", "importing"] as const),
             words: faker.string.alpha({ length: { min: 10, max: 20 } }),
           }),
         ),
@@ -1099,7 +1147,6 @@ export const getListManualSearchReleasesResponseMock = (
             code: faker.helpers.arrayElement([
               "wrong_work",
               "wrong_item",
-              "covers_more",
               "wrong_title",
               "cut_not_wanted",
               "quality_not_in_target",
@@ -1156,6 +1203,8 @@ export const getListManualSearchReleasesResponseMock = (
               "tier",
               "revision",
               "score",
+              "chosen_by_another",
+              "fewer_unwanted",
               "priority",
               "freeleech",
               "seeders",
@@ -1250,7 +1299,6 @@ export const getListSearchesResponseMock = (
           code: faker.helpers.arrayElement([
             "wrong_work",
             "wrong_item",
-            "covers_more",
             "wrong_title",
             "cut_not_wanted",
             "quality_not_in_target",

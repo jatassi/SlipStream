@@ -15,8 +15,6 @@ import (
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	mediav1 "github.com/jatassi/slipstream/internal/pb/slipstream/media/v1"
-	"github.com/jatassi/slipstream/internal/pb/slipstream/media/v1/mediav1connect"
-	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/rpc"
 )
 
@@ -77,6 +75,9 @@ type UnreadableError struct{ Line string }
 
 func (e *UnreadableError) Error() string { return "ffprobe can't read the file: " + e.Line }
 
+// ErrProbeTimeout is a probe that ran out of time.
+var ErrProbeTimeout = errors.New("reading the file timed out")
+
 // Payloads is where this Node's downloaded torrent files lie.
 type Payloads interface {
 	Path(h bencode.InfoHash, index int) (string, error)
@@ -86,26 +87,30 @@ type Payloads interface {
 type Service struct {
 	prober   Prober
 	payloads Payloads
-	timings  Timings
+	// holds is the Node's fence: whether an absolute path lies in one of
+	// its library roots or download folders once its links are followed.
+	holds   func(ctx context.Context, path string) bool
+	timings Timings
 }
 
-func NewService(p Prober, payloads Payloads, t Timings) *Service {
-	return &Service{prober: p, payloads: payloads, timings: t}
+func NewService(p Prober, payloads Payloads, holds func(ctx context.Context, path string) bool, t Timings) *Service {
+	return &Service{prober: p, payloads: payloads, holds: holds, timings: t}
 }
 
 func (s *Service) Probe(ctx context.Context, req *mediav1.ProbeRequest) (*mediav1.ProbeResponse, error) {
-	var h bencode.InfoHash
-	if len(req.GetInfoHash()) != len(h) {
-		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "an info hash is %d bytes, not %d", len(h), len(req.GetInfoHash()))
-	}
-	copy(h[:], req.GetInfoHash())
-	file, err := s.payloads.Path(h, int(req.GetFileIndex()))
+	file, err := s.file(ctx, req)
 	if err != nil {
-		return nil, rpc.Errorf(rpc.CodeUnavailable, "%v", err)
+		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(ctx, s.timings.Probe)
+	probing, cancel := context.WithTimeout(ctx, s.timings.Probe)
 	defer cancel()
-	r, err := s.prober.Probe(ctx, file)
+	r, err := s.prober.Probe(probing, file)
+	if u, ok := errors.AsType[*UnreadableError](err); ok {
+		return nil, rpc.ErrorWith(rpc.CodeFailedPrecondition, &mediav1.Unprobed{Line: u.Line}, u.Error())
+	}
+	if err != nil && ctx.Err() == nil && errors.Is(probing.Err(), context.DeadlineExceeded) {
+		return nil, rpc.ErrorWith(rpc.CodeDeadlineExceeded, &mediav1.TimedOut{}, ErrProbeTimeout.Error())
+	}
 	if err != nil {
 		return nil, rpc.Errorf(rpc.CodeFailedPrecondition, "%v", err)
 	}
@@ -116,19 +121,25 @@ func (s *Service) Probe(ctx context.Context, req *mediav1.ProbeRequest) (*mediav
 	return &mediav1.ProbeResponse{Record: record}, nil
 }
 
-// Remote is MediaService as the Controller reaches it on a Node.
-type Remote func(role.NodeID) mediav1connect.MediaServiceHandler
-
-// Probe probes the index'th file of torrent h on node. Its errors are the
-// call's, for rpc.NotSent and rpc.Lost to read.
-func (r Remote) Probe(ctx context.Context, node role.NodeID, h bencode.InfoHash, index int) (Record, error) {
-	res, err := r(node).Probe(ctx, &mediav1.ProbeRequest{InfoHash: h[:], FileIndex: int32(index)}) //nolint:gosec // a torrent's file index fits
-	if err != nil {
-		return Record{}, err
+// file is where req's source lies on this Node.
+func (s *Service) file(ctx context.Context, req *mediav1.ProbeRequest) (string, error) {
+	switch src := req.GetSource().(type) {
+	case *mediav1.ProbeRequest_Payload:
+		var h bencode.InfoHash
+		if len(src.Payload.GetInfoHash()) != len(h) {
+			return "", rpc.Errorf(rpc.CodeInvalidArgument, "an info hash is %d bytes, not %d", len(h), len(src.Payload.GetInfoHash()))
+		}
+		copy(h[:], src.Payload.GetInfoHash())
+		file, err := s.payloads.Path(h, int(src.Payload.GetFileIndex()))
+		if err != nil {
+			return "", rpc.Errorf(rpc.CodeUnavailable, "%v", err)
+		}
+		return file, nil
+	case *mediav1.ProbeRequest_Path:
+		if !s.holds(ctx, src.Path) {
+			return "", rpc.ErrorWith(rpc.CodeFailedPrecondition, &mediav1.Outside{Path: src.Path}, src.Path+" isn't in a library root or a download folder on this Node")
+		}
+		return src.Path, nil
 	}
-	var rec Record
-	if err := json.Unmarshal(res.GetRecord(), &rec); err != nil {
-		return Record{}, fmt.Errorf("read the media record: %w", err)
-	}
-	return rec, nil
+	return "", rpc.Errorf(rpc.CodeInvalidArgument, "a probe names no file")
 }

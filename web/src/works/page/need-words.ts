@@ -1,9 +1,12 @@
 import type {
+  FilesClientError,
   FilesFailedNeed,
+  FilesSpace,
   FilesUpgradeNeed,
   WorksContentType,
   WorksWorkView,
 } from "../../api/gen/model";
+import { bytes, clock } from "../../format";
 import { type FailedGrab, trackStage } from "../../grabs/stages";
 import { stageLabel } from "../../ui/stage-track";
 import { codeOf } from "../fields-by-tier";
@@ -39,7 +42,10 @@ function cellsOf(
   return `${itemPart}${cutPart}${list.format(targets.map((id) => targetName(id)))}`;
 }
 
-export type FailedEntry = { readonly need: FilesFailedNeed; readonly grab: FailedGrab };
+export type FailedEntry = {
+  readonly need: FilesFailedNeed;
+  readonly grab: FailedGrab;
+};
 
 /** A failure's key: its Items, Target and Edition. Grab ids can repeat across a run's Items. */
 export const failedKey = ({ need }: FailedEntry) =>
@@ -47,7 +53,7 @@ export const failedKey = ({ need }: FailedEntry) =>
 
 /** "2160p HDR failed at Import · 1080p and 720p wait on it" */
 export function failedWords(naming: Naming, need: FilesFailedNeed, grab: FailedGrab): string {
-  const failed = `${cellsOf(naming, need, [need.targetId])} failed at ${stageLabel[trackStage[grab.failure.stage]]}`;
+  const failed = `${cellsOf(naming, need, [need.targetId])} failed at ${stageLabel[trackStage(grab)]}`;
   if (need.waiting.length === 0) {
     return failed;
   }
@@ -57,3 +63,29 @@ export function failedWords(naming: Naming, need: FilesFailedNeed, grab: FailedG
 
 export const upgradeWords = (naming: Naming, need: FilesUpgradeNeed): string =>
   `Upgrade available for ${cellsOf(naming, need, need.upgrades)}`;
+
+export const clientErrorWords = ({ client, node, message, failsAt }: FilesClientError) => {
+  const said = /[.!?]$/u.test(message) ? message : `${message}.`;
+  return `${client} on ${node} reports "${said}" Fix it in ${client}. SlipStream fails this Grab if the error lasts past ${clock(failsAt)}.`;
+};
+
+/** The words of an Import's wait, which Pending imports shows in full. */
+export type ImportWait = "no_space" | "root_not_ready" | "probe_timeout";
+
+/**
+ * An Import's wait, naming its library root as root words name it and, for
+ * no_space, the bytes free and needed.
+ */
+export function importWaitWords(code: ImportWait, root: string, space: FilesSpace | null): string {
+  if (code === "probe_timeout") {
+    return "Reading a file of this download timed out 3 times. Retry, or check the Node's disk.";
+  }
+  if (code === "root_not_ready") {
+    return `The ${root} isn't ready. SlipStream retries once it is.`;
+  }
+  return `${
+    space === null
+      ? `The ${root} has too little free space for this file.`
+      : `The ${root} has ${bytes(space.free)} free above its error level, and this file needs ${bytes(space.needs)}.`
+  } Free up space there. SlipStream retries automatically once there's room.`;
+}

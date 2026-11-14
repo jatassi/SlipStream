@@ -384,19 +384,18 @@ type trackerDetail struct {
 }
 
 type fileDetail struct {
-	Index  int     `json:"index" minimum:"0"`
-	Path   string  `json:"path" doc:"Under the save folder, with / between folders"`
-	Size   int64   `json:"size" minimum:"0"`
-	Done   *int64  `json:"done,omitempty" minimum:"0" doc:"Bytes done, absent while unknown"`
-	ItemID *string `json:"itemId,omitempty" format:"uuid" doc:"The Item it filled once a Grab imported it"`
+	Index int      `json:"index" minimum:"0"`
+	Path  string   `json:"path" doc:"Under the save folder, with / between folders"`
+	Size  int64    `json:"size" minimum:"0"`
+	Done  *int64   `json:"done,omitempty" minimum:"0" doc:"Bytes done, absent while unknown"`
+	Items []string `json:"items" format:"uuid" nullable:"false" doc:"The Items it filled once a Grab imported it, in order; empty before"`
 }
 
 type torrentGrab struct {
 	ID      string `json:"id" format:"uuid"`
 	WorkID  string `json:"workId" format:"uuid"`
-	ItemID  string `json:"itemId" format:"uuid"`
 	Release string `json:"release"`
-	Stage   string `json:"stage" enum:"downloading,importing,imported,failed"`
+	Stage   string `json:"stage" enum:"downloading,importing,waiting,imported,failed" doc:"waiting: a file of its Import waits for the Admin and none is sending or placing"`
 }
 
 func detailOf(d downloadclients.Detail) TorrentDetail {
@@ -416,14 +415,14 @@ func detailOf(d downloadclients.Detail) TorrentDetail {
 		out.Trackers = append(out.Trackers, td)
 	}
 	for _, f := range d.Files {
-		fd := fileDetail{Index: f.Index, Path: f.Path, Size: f.Size, Done: f.Done}
-		if !f.Item.IsZero() {
-			fd.ItemID = new(f.Item.String())
+		fd := fileDetail{Index: f.Index, Path: f.Path, Size: f.Size, Done: f.Done, Items: make([]string, len(f.Items))}
+		for i, item := range f.Items {
+			fd.Items[i] = item.String()
 		}
 		out.Files = append(out.Files, fd)
 	}
 	for _, u := range d.Uses {
-		out.Grabs = append(out.Grabs, torrentGrab{ID: u.Grab.String(), WorkID: u.Work.String(), ItemID: u.Item.String(), Release: u.Release, Stage: string(u.Stage)})
+		out.Grabs = append(out.Grabs, torrentGrab{ID: u.Grab.String(), WorkID: u.Work.String(), Release: u.Release, Stage: string(u.Stage)})
 	}
 	return out
 }
@@ -471,8 +470,8 @@ type actResult struct {
 }
 
 type refusal struct {
-	Code      string     `json:"code" enum:"not_found,removed,importing,not_held,reconciling,offline,client_away,client_off,window,not_running,failed,not_retryable"`
-	WorkID    *string    `json:"workId,omitempty" format:"uuid" doc:"importing: the Work whose import holds it"`
+	Code      string     `json:"code" enum:"not_found,removed,importing,not_held,use_not_this_release,reconciling,offline,client_away,client_off,window,not_running,failed,not_retryable"`
+	WorkID    *string    `json:"workId,omitempty" format:"uuid" doc:"importing: the Work whose import holds it; use_not_this_release: the Work whose Pending import waits on it"`
 	AcceptsAt *time.Time `json:"acceptsAt,omitempty" doc:"window: when every announce URL accepts an announce"`
 	Client    string     `json:"client,omitempty" doc:"client_away and client_off: the external client's name"`
 	Node      string     `json:"node,omitempty" doc:"client_away and client_off: the name of the external client's Node"`

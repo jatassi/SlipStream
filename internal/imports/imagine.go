@@ -35,7 +35,7 @@ func (e *UnplacedError) Error() string {
 //
 // A name placed at no Item is an *UnplacedError, one with no quality
 // ErrNoQuality, and a Work in no root roots.ErrNoRoot; files' refusals
-// are Place's, and a draft the save check refuses is its
+// are Imagine's, and a draft the save check refuses is its
 // *naming.RefusedError.
 func (im *Imports) Imagine(ctx context.Context, _ identity.Admin, work works.WorkID, name string, draft *files.Draft) (string, error) {
 	rel := strings.ReplaceAll(name, `\`, "/")
@@ -54,7 +54,7 @@ func (im *Imports) Imagine(ctx context.Context, _ identity.Admin, work works.Wor
 			return err
 		}
 		placed := place(rel)
-		item, ok := placed.Item()
+		items, ok := placed.Items()
 		if !ok {
 			return &UnplacedError{Reason: placed.Reason()}
 		}
@@ -67,12 +67,10 @@ func (im *Imports) Imagine(ctx context.Context, _ identity.Admin, work works.Wor
 		if !ok {
 			return ErrNoQuality
 		}
-		keep := files.Keep
-		p, err := im.cfg.Files.Imagine(ctx, r, files.Incoming{
-			WorkID: work, ItemID: item, Cut: read.Facts.Cut, RootID: root.ID, Holding: files.HoldingOf(storage.NewUUID(), path.Ext(rel)),
-			Quality: quality, ReleaseName: path.Base(rel), Title: read, SourceName: path.Base(rel), Unwanted: &keep,
-		}, draft)
-		out = p.Path
+		out, err = im.cfg.Files.Imagine(ctx, r, files.Batch{Work: work, Root: root.ID, Candidates: []files.Candidate{{
+			Items: items, Cut: read.Facts.Cut, Holding: files.HoldingOf(storage.NewUUID(), path.Ext(rel)),
+			Quality: quality, ReleaseName: path.Base(rel), Title: read, SourceName: path.Base(rel),
+		}}}, draft)
 		return err
 	})
 	return out, err

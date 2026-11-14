@@ -8,17 +8,46 @@ import "slipstream/node/v1/options.proto";
 
 service MediaService {
   option (slipstream.node.v1.served_by) = {every_node: true};
-  // Probe reads a downloaded torrent file's media record with the bundled
-  // ffprobe.
+  // Probe reads a file's media record with the bundled ffprobe: a finished
+  // torrent's file, or a file in one of the Node's library roots or
+  // download folders. A file ffprobe can't read is FAILED_PRECONDITION
+  // with an Unprobed detail, a probe that ran out of time
+  // DEADLINE_EXCEEDED with a TimedOut detail, and a path anywhere else
+  // FAILED_PRECONDITION with an Outside detail.
   rpc Probe(ProbeRequest) returns (ProbeResponse);
 }
 
 message ProbeRequest {
+  reserved 1, 2;
+  oneof source {
+    Payload payload = 3;
+    // path is absolute.
+    string path = 4;
+  }
+}
+
+// Payload is file file_index of a torrent this Node finished.
+message Payload {
   bytes info_hash = 1;
-  int32 file_index = 2;
+  int64 file_index = 2;
 }
 
 message ProbeResponse {
   // record is media.Record as JSON, the shape files_file.probe keeps.
   bytes record = 1;
+}
+
+// Unprobed details a Probe of a file ffprobe can't read.
+message Unprobed {
+  // line is the first line of ffprobe's error output.
+  string line = 1;
+}
+
+// TimedOut details a Probe that ran out of time.
+message TimedOut {}
+
+// Outside details a path outside the Node's library roots and download
+// folders once its links are followed.
+message Outside {
+  string path = 1;
 }

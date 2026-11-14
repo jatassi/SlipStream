@@ -1,14 +1,12 @@
 export interface ImportsChosenFile {
   /**
-   * The Item of the Work the file holds. One for now; S33 (Import pipeline) allows several
+   * The Items of the Work the file holds, in any order
    * @minItems 1
-   * @maxItems 1
-   * @nullable
    */
-  itemIds: string[] | null;
+  itemIds: string[];
   /**
-   * One of the pending import's paths
-   * @minLength 1
+   * A waiting file of the Import
+   * @minimum 0
    */
-  path: string;
+  position: number;
 }

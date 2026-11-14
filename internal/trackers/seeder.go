@@ -254,6 +254,8 @@ func copyOf(f downloadclients.HashFact, ran seeding.Ran, nodes Roster) seeding.C
 			c.Grabs.Downloading = true
 		case downloadclients.UseImporting:
 			c.Grabs.Importing = true
+		case downloadclients.UseWaiting:
+			c.Grabs.Waiting = true
 		case downloadclients.UseFailed:
 			c.Grabs.Unimported = true
 		case downloadclients.UseImported:

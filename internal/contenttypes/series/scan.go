@@ -75,16 +75,13 @@ func (s *Series) Place(ctx context.Context, r storage.Reader[file], work works.W
 	}
 	return func(rel string) scanning.Placement {
 		n := release.Title(path.Base(rel), s, nil).Name
-		switch {
-		case len(n.Marks) == 0:
+		if len(n.Marks) == 0 || n.Span == release.Level || n.Span == release.Levels {
 			return scanning.Unplaced(scanning.Reason{Code: scanning.NoNumber})
-		case n.Span != release.One:
-			return scanning.Unplaced(scanning.Reason{Code: scanning.SeveralItems})
 		}
 		covers := ex.Covers(n)
 		if len(covers) == 0 {
 			return scanning.Unplaced(scanning.Reason{Code: scanning.NoSuchItem, Names: n.Marks[0].Words})
 		}
-		return scanning.Placed(covers[0])
+		return scanning.Placed(covers...)
 	}, nil
 }

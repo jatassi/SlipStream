@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -164,9 +165,6 @@ func actAsTheGrabSteps(t *testing.T, kind downloadclients.ActionKind, at grabs.S
 			return
 		}
 		refusal = results[0].Refusal
-		if at == grabs.Probing {
-			<-ctx.Done()
-		}
 	}
 	p.running()
 	time.Sleep(time.Second)
@@ -193,19 +191,32 @@ func TestAnAdminRemovalBetweenAGrabsReadAndCommitFailsIt(t *testing.T) {
 	}
 }
 
-// TestAnAdminRemovalOfAProbingGrabsTorrentIsRefused runs remove and
-// mark-failed once the Grab probes: the action is refused as importing and
-// leaves the Torrent and the Grab be.
-func TestAnAdminRemovalOfAProbingGrabsTorrentIsRefused(t *testing.T) {
+// TestAnAdminRemovalOfAnImportingGrabsTorrentIsRefused runs remove and
+// mark-failed once the Grab's download is complete and handed to its
+// Import: the action is refused as importing and leaves the Torrent and
+// the Grab be.
+func TestAnAdminRemovalOfAnImportingGrabsTorrentIsRefused(t *testing.T) {
 	for kind := range actions {
 		t.Run(string(kind), func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				v, refusal := actAsTheGrabSteps(t, kind, grabs.Probing)
-				if refusal == nil || refusal.Code != downloadclients.RefusedImporting {
-					t.Fatalf("%s of a probing Grab's Torrent answered %+v, want refused as importing", kind, refusal)
+				p := newPipeline(t)
+				id := downloadingGrab(t, p, seedingReport)
+				torrent := torrentOf(t, p)
+				clients := clientsOf(p, grabs.BlocklistOn{Reconciling: trackers.NotReconciling, Changes: discard[grabs.BlocklistChanged]{}})
+				p.running()
+				if v := p.view(id); v.Stage != grabs.Importing || !slices.Equal(p.imports.handed(), []grabs.GrabID{id}) {
+					t.Fatalf("the Grab is %s with %v handed, want importing and its download handed to its Import", v.Stage, p.imports.handed())
 				}
-				if v.Stage != grabs.Probing {
-					t.Fatalf("the Grab is %s with %+v, want still probing", v.Stage, v.Failed)
+
+				results, _, err := clients.Act(t.Context(), downloadclients.Action{Kind: kind, IDs: []downloadclients.ID{torrent}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if r := results[0].Refusal; r == nil || r.Code != downloadclients.RefusedImporting {
+					t.Fatalf("%s of an importing Grab's Torrent answered %+v, want refused as importing", kind, r)
+				}
+				if v := p.view(id); v.Stage != grabs.Importing {
+					t.Fatalf("the Grab is %s with %+v, want still importing", v.Stage, v.Failed)
 				}
 			})
 		})

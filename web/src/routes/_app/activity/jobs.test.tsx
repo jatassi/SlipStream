@@ -38,6 +38,7 @@ const failed: GrabsGrab = {
   workId: harvestId,
   releaseTitle: "Orchard.Harvest.2019.720p.HDTV",
   stage: "failed",
+  inFlight: false,
   history: [
     { stage: "fetching", at: "2026-10-11T09:01:00Z" },
     { stage: "failed", at: "2026-10-11T09:01:01Z" },
@@ -194,7 +195,7 @@ test("Manual search on a failed Grab opens the sheet on its Item", async () => {
   renderApp({ path: "/activity", handlers: [...manual.handlers, ...activityServer().handlers] });
   await userEvent.click(harvestCard().getByRole("button", { name: "Manual search" }));
   await expect.element(manualSheet(filmPlan)).toBeVisible();
-  await expect.poll(() => manual.started).toEqual([{ itemIds: [failed.itemId] }]);
+  await expect.poll(() => manual.started).toEqual([{ itemIds: failed.items }]);
 });
 
 test("Activity with no Grabs says what to do next", async () => {

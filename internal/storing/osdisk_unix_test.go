@@ -3,6 +3,7 @@
 package storing
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -70,5 +71,35 @@ func TestOSDiskUnreadableAndUnwritableFolders(t *testing.T) {
 	}
 	if ok, err := d.Writable(ctx, ro); ok || err != nil {
 		t.Errorf("Writable(0555 folder) = %v, %v; want false", ok, err)
+	}
+}
+
+func TestOSDiskClonesThroughAPartFile(t *testing.T) {
+	dir := t.TempDir()
+	from, to := filepath.Join(dir, "download.mkv"), filepath.Join(dir, "Heat.mkv")
+	if err := os.WriteFile(from, []byte("film"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := OSDisk{}.Clone(t.Context(), from, to)
+	if _, serr := os.Stat(to + ".part"); !errors.Is(serr, os.ErrNotExist) {
+		t.Errorf("Clone left its .part file: %v", serr)
+	}
+	if errors.Is(err, errors.ErrUnsupported) {
+		if _, serr := os.Stat(to); !errors.Is(serr, os.ErrNotExist) {
+			t.Errorf("an unsupported Clone left a file at the target: %v", serr)
+		}
+		t.Skipf("the temp folder's filesystem can't clone (%v); set TMPDIR to a Btrfs, XFS or APFS folder to run this", err)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(to)
+	if err != nil || string(b) != "film" {
+		t.Fatalf("the clone holds %q, %v; want the source's bytes", b, err)
+	}
+	src, _ := os.Stat(from)
+	dst, _ := os.Stat(to)
+	if os.SameFile(src, dst) {
+		t.Error("the clone is the source itself, want a file of its own")
 	}
 }

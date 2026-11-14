@@ -11,8 +11,9 @@ import { type FailedGrab, failureWords, isFailed, trackStage } from "../../grabs
 import { Section } from "../../ui/section";
 import { SignalRow } from "../../ui/signal-row";
 import { stageLabel } from "../../ui/stage-track";
-import { NoRoot, Upgrades, Waiting } from "./need-rows";
+import { NoRoot, Upgrades } from "./need-rows";
 import { type FailedEntry, type Naming, failedKey, failedWords } from "./need-words";
+import { Waiting } from "./waiting";
 
 const cardsShown = 3;
 
@@ -35,7 +36,7 @@ function Failed({
   return (
     <SignalRow
       signal="fail"
-      chip={`Failed at ${stageLabel[trackStage[grab.failure.stage]]}`}
+      chip={`Failed at ${stageLabel[trackStage(grab)]}`}
       subject={subject}
       verdict={recovery === undefined ? cause : `${cause} ${recovery}`}
       time={clock(grab.history.at(-1)?.at ?? grab.createdAt)}
@@ -105,8 +106,9 @@ export function NeedsYou({
         {waiting.map((need) => (
           <Waiting
             key={need.grabId}
+            type={naming.type}
             grab={grabs.find(({ id }) => id === need.grabId)}
-            code={need.code}
+            need={need}
           />
         ))}
         {noRoot && <NoRoot />}

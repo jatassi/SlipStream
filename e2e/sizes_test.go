@@ -83,13 +83,17 @@ func (w *walked) searchedOnce(t *testing.T, candidates int, refused []string, no
 }
 
 // holdsRelease checks the media dir comes to hold only the file at path,
-// the payload of release name.
+// the payload of release name, then waits until the library moves no
+// file. The disk queue records a move in a Write after its bytes land.
 func (w *walked) holdsRelease(t *testing.T, path, name string) {
 	t.Helper()
 	holdsOnly(t, w.m, path)
 	if _, err := world.MatchRelease(w.m, filepath.Join(w.m.MediaDir, filepath.FromSlash(path)), name); err != nil {
 		t.Fatal(err)
 	}
+	worldtest.Until(t, "the library moves no file", func() (bool, error) {
+		return planRenames(t, w.a, `{"scope":{"kind":"library"}}`).moving() == 0, nil
+	})
 }
 
 // The Quiet Orchard runs 104 minutes, so Sized takes 2080 to 10400 MiB of
@@ -114,25 +118,19 @@ func TestAWorkWithNoKnownRuntimeGrabsWithItsSizeNotChecked(t *testing.T) {
 
 // The Copper Bell's title doesn't name its video codec, so Encoded's
 // filter passes it at grab time; its payload probes as H.264, which
-// Encoded refuses, so the probed file fills nothing and no file lands.
-func TestAFileProbedAtAVideoCodecItsTargetRefusesFillsNothing(t *testing.T) {
+// Encoded refuses, so the probed file meets nothing and waits for the
+// Admin, and no file lands.
+func TestAFileProbedAtAVideoCodecItsTargetRefusesWaitsMeetingNothing(t *testing.T) {
 	t.Parallel()
 	w, target := sized(t, "9000003", "Encodes", "Encoded")
 	found := w.searched(t, w.search(t))
 	if found.Outcome == nil || *found.Outcome != "grabbed" || found.Candidates != 1 || found.GrabID == nil {
 		t.Fatalf("the search ended %+v, want the one listed release grabbed", found)
 	}
-	w.ended(t, *found.GrabID)
-	if w.grab.Stage != "failed" || w.grab.Failure == nil || w.grab.Failure.Code != "fills_nothing" ||
-		w.grab.Failure.Message != "a WEBDL-1080p file fills no Target the Work still wants" {
-		t.Fatalf("the Grab ended %s with %+v after %v, want failed filling nothing", w.grab.Stage, w.grab.Failure, w.grab.stages())
-	}
-	if got := w.grab.stages(); !slices.Equal(got[len(got)-2:], []string{"probing", "failed"}) {
-		t.Fatalf("the Grab went through %v, want it to fail at its probe", got)
-	}
+	w.waits(t, *found.GrabID, "The.Copper.Bell.2020.1080p.WEB-DL-FKW.mkv: waiting meets_nothing")
 	holdsOnly(t, w.m)
 	cells := w.cells(t)
-	if got, _ := cells.summary(t); !slices.Equal(got, []string{"Encoded failed wanted"}) || cells.Cells[0].TargetID != target {
-		t.Fatalf("after the probe the cells are %q, want Encoded failed and still wanted", got)
+	if got, _ := cells.summary(t); !slices.Equal(got, []string{"Encoded downloading"}) || cells.Cells[0].TargetID != target {
+		t.Fatalf("after the probe the cells are %q, want Encoded still held by the Grab while its file waits", got)
 	}
 }

@@ -2,6 +2,7 @@ package transfers
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -10,23 +11,32 @@ import (
 	"github.com/jatassi/slipstream/internal/transfers/source"
 )
 
-// TestTheSchemaChecksEveryKindGoWrites pins each CHECK list in the
-// library schema to the Go values written into it, so a value added on
+// TestTheSchemaChecksEveryKindGoWrites pins each column's latest CHECK
+// list in the library schema to the Go values written into it, so a value added on
 // one side alone fails here.
 func TestTheSchemaChecksEveryKindGoWrites(t *testing.T) {
-	schema, err := os.ReadFile("internal/ledger/schema/00001_transfers.sql")
+	var schema []byte
+	files, err := filepath.Glob("internal/ledger/schema/*.sql")
 	if err != nil {
 		t.Fatal(err)
+	}
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		schema = append(schema, b...)
 	}
 	for column, want := range map[string][]string{
 		"failure_code":     {string(SourceGone), string(SourceFailed), string(Damaged), string(SourceWrittenOff), string(Rerouted)},
 		"destination_kind": {Root{}.kind()},
-		"source_kind":      {string(source.TorrentKind)},
+		"source_kind":      {string(source.TorrentKind), string(source.PathKind)},
 	} {
-		m := regexp.MustCompile(column + ` IN \(([^)]*)\)`).FindSubmatch(schema)
-		if m == nil {
+		all := regexp.MustCompile(column+` IN \(([^)]*)\)`).FindAllSubmatch(schema, -1)
+		if all == nil {
 			t.Fatalf("the schema has no CHECK list for %s", column)
 		}
+		m := all[len(all)-1]
 		var got []string
 		for v := range strings.SplitSeq(string(m[1]), ",") {
 			got = append(got, strings.Trim(strings.TrimSpace(v), "'"))

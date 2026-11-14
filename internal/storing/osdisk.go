@@ -84,6 +84,10 @@ func (d OSDisk) Stat(_ context.Context, path string) (Info, error) {
 	return d.identify(path, info)
 }
 
+func (OSDisk) Resolve(_ context.Context, path string) (string, error) {
+	return filepath.EvalSymlinks(path) //nolint:wrapcheck // a PathError names the call and the path; callers classify it with errors.Is
+}
+
 func (OSDisk) ReadDir(_ context.Context, dir string) ([]Entry, error) {
 	des, err := os.ReadDir(dir)
 	if err != nil {

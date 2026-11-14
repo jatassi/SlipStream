@@ -33,10 +33,18 @@ type Impact struct {
 	Renames []Renames
 	// NewlyWanted counts the cells that become Wants.
 	NewlyWanted int
-	// Downloading counts the unfinished Grabs whose every cell goes; their
-	// files follow the Admin's choice.
+	// Downloading counts the Grabs in flight for a cell that goes.
 	Downloading int
 }
+
+// Unwanted is what becomes of a file a change leaves filling nothing: it
+// is deleted, or it stays as a Kept file.
+type Unwanted string
+
+const (
+	Delete Unwanted = "delete"
+	Keep   Unwanted = "keep"
+)
 
 // Renames is the rows of one Work's files an Impact renames, in file id
 // order.
@@ -52,8 +60,7 @@ const ImpactRows = 500
 
 // Mode is how Change ends. A Preview computes the Impact and rolls the
 // change back; a save commits it. Unwanted is what becomes of the files
-// it leaves filling nothing, and of the downloads in flight for cells it
-// removes. Confirmed, when set, is how many files the Admin agreed to
+// it leaves filling nothing. Confirmed, when set, is how many files the Admin agreed to
 // delete: a save deleting more is an *ImpactChangedError.
 type Mode struct {
 	Unwanted  Unwanted
@@ -76,11 +83,10 @@ var errPreview = errors.New("files: a preview rolls back")
 
 // Change applies c and converges every Work it touches in one Write: it
 // reads the Works c touches and their world, applies c, reads their world
-// again, refills and names them, writes the fills, names, dooms and moves
-// and settles the downloads in flight for cells that go. A Preview then
-// rolls it all back, so its Impact is the save's. A save publishes
-// targets.changed naming the Works it touched and pokes the disk queue
-// once it commits.
+// again, refills and names them, and writes the fills, names, dooms and
+// moves. A Preview then rolls it all back, so its Impact is the save's. A
+// save publishes targets.changed naming the Works it touched and pokes
+// the disk queue once it commits.
 func (f *Files) Change(ctx context.Context, _ identity.Admin, c targets.Change, m Mode) (Impact, error) {
 	var (
 		impact  Impact
@@ -167,11 +173,7 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 		if err := apply(ctx, q, p); err != nil {
 			return Impact{}, nil, err
 		}
-		n, err := f.cfg.Grabs.Settle(ctx, tx, was.tree.ID, gone(from[i], to), m.Unwanted)
-		if err != nil {
-			return Impact{}, nil, err
-		}
-		impact.Downloading += n
+		impact.Downloading += downloading(was.grabs, gone(from[i], to))
 	}
 	impact.Renames = listed(impact.Renames, trees)
 	return impact, ids, nil
@@ -309,6 +311,17 @@ func gone(from, to []Cell) map[CellKey]bool {
 		delete(out, keyOf(c))
 	}
 	return out
+}
+
+// downloading counts the Grabs in flight for a cell of gone.
+func downloading(grabs map[CellKey]GrabCell, gone map[CellKey]bool) int {
+	in := map[storage.UUID]bool{}
+	for key := range gone {
+		if g := grabs[key]; g.InFlight() {
+			in[g.Grab] = true
+		}
+	}
+	return len(in)
 }
 
 // HeldOf counts the library's files of cut in r, for targets.DeleteCut.

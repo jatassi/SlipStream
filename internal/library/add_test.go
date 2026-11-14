@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -71,7 +72,7 @@ func newShelf(t *testing.T) shelf {
 	if _, err := goals.MakeDefault(ctx, identity.Admin{}, profile.ID); err != nil {
 		t.Fatal(err)
 	}
-	fs, err := files.Open(ctx, files.Config{Library: lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Today: time.Now})
+	fs, err := files.Open(ctx, files.Config{Library: lib, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}}, Today: time.Now})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,16 +80,16 @@ func newShelf(t *testing.T) shelf {
 }
 
 func (s shelf) library(leaver library.Leaver) *library.Library {
-	return library.New(library.Config{Library: s.lib, Works: s.works, Roots: s.roots, Files: s.files, Grabs: noGrabs{}, Leaver: leaver})
+	return library.New(library.Config{Library: s.lib, Works: s.works, Roots: s.roots, Files: s.files, Imports: noImports{}, Leaver: leaver})
 }
 
-type noGrabs struct{}
+type noImports struct{}
 
-func (noGrabs) CancelTransfersIn(context.Context, *storage.Tx[storage.Library], []works.WorkID) error {
+func (noImports) EndOf(context.Context, *storage.Tx[storage.Library], []works.WorkID) error {
 	return nil
 }
 
-func (noGrabs) TouchTransfers() {}
+func (noImports) Touch() {}
 
 // stock puts Work key in the fixture with one box of three clips.
 func (s shelf) stock(key works.Key) {
@@ -101,7 +102,7 @@ func (s shelf) stock(key works.Key) {
 // of Work w.
 func (s shelf) place(ctx context.Context, tx *storage.Tx[storage.Library], w works.WorkID, it works.Item) error {
 	_, err := files.Add(ctx, tx, files.File{
-		WorkID: w, ItemID: it.ID, Cut: release.Standard, RootID: s.root.ID, Path: w.String() + "/" + it.Label + ".mkv", Size: 1 << 30, Quality: release.Bluray1080p,
+		WorkID: w, Items: []works.ItemID{it.ID}, Cut: release.Standard, RootID: s.root.ID, Path: w.String() + "/" + it.Label + ".mkv", Size: 1 << 30, Quality: release.Bluray1080p,
 	}, []targets.TargetID{s.hd})
 	return err
 }

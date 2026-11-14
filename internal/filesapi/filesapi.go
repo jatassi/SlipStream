@@ -1,6 +1,8 @@
 package filesapi
 
 import (
+	"time"
+
 	"context"
 	"errors"
 	"fmt"
@@ -79,9 +81,26 @@ type missingCell struct {
 
 type downloadingCell struct {
 	CellBase
-	State  string                    `json:"state" enum:"downloading" doc:"A Grab is in flight for it, fetching included"`
-	GrabID string                    `json:"grabId" format:"uuid" doc:"The latest Grab in flight for it"`
-	File   api.Nullable[LibraryFile] `json:"file" doc:"The file the Grab would replace; null when it fills no file"`
+	State  string                       `json:"state" enum:"downloading" doc:"A Grab is in flight for it, fetching included"`
+	GrabID string                       `json:"grabId" format:"uuid" doc:"The latest Grab in flight for it"`
+	File   api.Nullable[LibraryFile]    `json:"file" doc:"The file the Grab would replace; null when it fills no file"`
+	Step   api.Nullable[api.Enum[step]] `json:"step" doc:"What the Grab or its Import is doing for the cell; null until SlipStream reads it"`
+	From   *time.Time                   `json:"from" doc:"When the Grab entered its stage; null with step"`
+	Until  *time.Time                   `json:"until" doc:"When the Import delay ends, for a download that waits for it; null otherwise"`
+}
+
+// step is what holds a cell, in the order a download walks it.
+type step struct{}
+
+func (step) Values() []string {
+	return []string{"fetching", "downloading", "reading", "sending", "placing", "waiting"}
+}
+
+type heldCell struct {
+	GrabID string         `json:"grabId" format:"uuid" doc:"The Grab in flight for the cell"`
+	Step   api.Enum[step] `json:"step"`
+	From   time.Time      `json:"from" doc:"When the Grab entered its stage"`
+	Until  *time.Time     `json:"until" doc:"When the Import delay ends, for a download that waits for it; null otherwise"`
 }
 
 type failedCell struct {
@@ -93,14 +112,15 @@ type failedCell struct {
 
 type upgradableCell struct {
 	CellBase
-	State string      `json:"state" enum:"upgradable"`
+	State string      `json:"state" enum:"upgradable" doc:"No Grab is in flight for it. A Grab in flight makes it downloading"`
 	File  LibraryFile `json:"file" doc:"The file filling it, short of its Target's cutoff or upgrade-until score"`
 }
 
 type metCell struct {
 	CellBase
-	State string      `json:"state" enum:"met"`
-	File  LibraryFile `json:"file" doc:"The file filling it"`
+	State string                 `json:"state" enum:"met"`
+	File  LibraryFile            `json:"file" doc:"The file filling it"`
+	Held  api.Nullable[heldCell] `json:"held" doc:"The Grab in flight for it; null while none is"`
 }
 
 func variantOf(c files.Cell) api.OneOf[cell] {
@@ -112,15 +132,32 @@ func variantOf(c files.Cell) api.OneOf[cell] {
 	case files.Missing:
 		return api.NewOneOf[cell](missingCell{base, state})
 	case files.Downloading:
-		return api.NewOneOf[cell](downloadingCell{base, state, c.Grab.String(), replaced(c)})
+		d := downloadingCell{CellBase: base, State: state, GrabID: c.Grab.String(), File: replaced(c), Until: untilOf(c.Doing)}
+		if c.Doing.Step != "" {
+			d.Step, d.From = api.Some(api.NewEnum[step](string(c.Doing.Step))), new(c.Doing.From)
+		}
+		return api.NewOneOf[cell](d)
 	case files.Failed:
 		return api.NewOneOf[cell](failedCell{base, state, c.Grab.String(), replaced(c)})
 	case files.Upgradable:
-		return api.NewOneOf[cell](upgradableCell{base, state, fileOf(*c.File)})
+		return api.NewOneOf[cell](upgradableCell{CellBase: base, State: state, File: fileOf(*c.File)})
 	case files.Met:
-		return api.NewOneOf[cell](metCell{base, state, fileOf(*c.File)})
+		m := metCell{CellBase: base, State: state, File: fileOf(*c.File)}
+		if c.Doing.Step != "" {
+			m.Held = api.Some(heldCell{GrabID: c.Grab.String(), Step: api.NewEnum[step](string(c.Doing.Step)), From: c.Doing.From, Until: untilOf(c.Doing)})
+		}
+		return api.NewOneOf[cell](m)
 	}
 	panic(fmt.Sprintf("filesapi: a cell in state %d", c.State))
+}
+
+// untilOf is when the Import delay d waits for ends, nil when it waits for
+// none.
+func untilOf(d files.Doing) *time.Time {
+	if d.Until.IsZero() {
+		return nil
+	}
+	return new(d.Until)
 }
 
 // replaced is the file a Grab of c would replace.

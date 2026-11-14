@@ -130,6 +130,7 @@ const refusalWords: {
     `SlipStream is finishing the import of ${(refusal.workId === undefined ? undefined : work(refusal.workId)) ?? names[0]}. Try again once it's done.`,
   not_held: ({ names }) =>
     `No Grab is downloading ${names.join(", ")}, so nothing was marked failed.`,
+  use_not_this_release: () => "Use Not this Release on its Pending import.",
   reconciling: () =>
     "SlipStream is Reconciling after a restore, so nothing was marked failed. Try again once it finishes.",
   offline: ({ names }) =>

@@ -1,6 +1,8 @@
 package transfers
 
 import (
+	"google.golang.org/protobuf/proto"
+
 	"bytes"
 	"slices"
 	"testing"
@@ -36,8 +38,8 @@ func TestAnActiveTransferNamesWhatEachEndNeeds(t *testing.T) {
 	if got := r.GetPeer().GetAddresses(); !slices.Equal(got, []string{"seedbox:8485"}) {
 		t.Errorf("the receiver dials %v, want the Worker's addresses", got)
 	}
-	if !slices.EqualFunc(recv.GetKeep(), [][]byte{tid(1).Bytes()}, bytes.Equal) {
-		t.Errorf("the receiver keeps %x, want the Transfer it stages", recv.GetKeep())
+	if want := []*tv1.Kept{{TransferId: tid(1).Bytes(), Positions: []uint32{0, 1, 2}}}; !slices.EqualFunc(recv.GetKeep(), want, keptEqual) {
+		t.Errorf("the receiver keeps %v, want the Transfer it stages and every position", recv.GetKeep())
 	}
 	if in := j.intents.of(vps); len(in.GetActive()) != 0 || len(in.GetKeep()) != 0 {
 		t.Errorf("a Node no Transfer names has %v, want the empty intent", in)
@@ -48,11 +50,13 @@ func TestTheReceiverKeepsEveryRecordItStagesInIDOrder(t *testing.T) {
 	w := newWorld().add(2, seedbox, onNas, gb).add(1, vps, onNas, 200*gb).add(3, seedbox, onNas, gb).
 		with(func(s *snapshot) { s.transfers[2].Failure = &Failure{Code: SourceGone, Position: 0} })
 	got := judge(w.s).intents.of(nas).GetKeep()
-	want := [][]byte{tid(1).Bytes(), tid(2).Bytes(), tid(3).Bytes()}
-	if !slices.EqualFunc(got, want, bytes.Equal) {
-		t.Errorf("keep = %x, want queued, needing space and failed Transfers, sorted", got)
+	want := []*tv1.Kept{{TransferId: tid(1).Bytes(), Positions: []uint32{0}}, {TransferId: tid(2).Bytes(), Positions: []uint32{0}}, {TransferId: tid(3).Bytes(), Positions: []uint32{0}}}
+	if !slices.EqualFunc(got, want, keptEqual) {
+		t.Errorf("keep = %v, want queued, needing space and failed Transfers, sorted", got)
 	}
 }
+
+func keptEqual(a, b *tv1.Kept) bool { return proto.Equal(a, b) }
 
 func TestARecentHigherRouteIsJudgedAgainWhenItsRetryEnds(t *testing.T) {
 	at := t0.Add(-time.Minute)

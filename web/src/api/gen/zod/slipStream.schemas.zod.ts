@@ -52,9 +52,9 @@ export const checkFolderInputBodyPathMax = 4096;
 export const CheckFolderInputBody = zod.object({
   path: zod.string().min(1).max(checkFolderInputBodyPathMax),
   purpose: zod
-    .enum(["root", "downloads"])
+    .enum(["root", "downloads", "import"])
     .describe(
-      "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node",
+      "root: a library root's rules, on a Storage Node; downloads: a downloads folder's, writable, on no network share and apart from every root on the Node; import: a folder to import from, inside one of the Node's library roots or download folders",
     ),
   rootId: zod
     .uuid()
@@ -86,6 +86,7 @@ export const DownloadclientsRefusal = zod.object({
     "removed",
     "importing",
     "not_held",
+    "use_not_this_release",
     "reconciling",
     "offline",
     "client_away",
@@ -99,7 +100,12 @@ export const DownloadclientsRefusal = zod.object({
     .string()
     .exactOptional()
     .describe("client_away and client_off: the name of the external client's Node"),
-  workId: zod.uuid().exactOptional().describe("importing: the Work whose import holds it"),
+  workId: zod
+    .uuid()
+    .exactOptional()
+    .describe(
+      "importing: the Work whose import holds it; use_not_this_release: the Work whose Pending import waits on it",
+    ),
 });
 
 export type DownloadclientsRefusal = zod.input<typeof DownloadclientsRefusal>;
@@ -604,6 +610,7 @@ export type DownloadclientsKind = zod.input<typeof DownloadclientsKind>;
 export type DownloadclientsKindOutput = zod.output<typeof DownloadclientsKind>;
 
 export const DownloadclientsThresholds = zod.object({
+  clientErrorFail: SettingDurationField,
   faultStall: SettingDurationField,
   metadataWait: SettingDurationField,
   unregisteredGap: SettingDurationField,
@@ -701,7 +708,9 @@ export const DownloadclientsFileDetail = zod.object({
     .exactOptional()
     .describe("Bytes done, absent while unknown"),
   index: zod.int().min(downloadclientsFileDetailIndexMin),
-  itemId: zod.uuid().exactOptional().describe("The Item it filled once a Grab imported it"),
+  items: zod
+    .array(zod.uuid())
+    .describe("The Items it filled once a Grab imported it, in order; empty before"),
   path: zod.string().describe("Under the save folder, with / between folders"),
   size: zod.int().min(downloadclientsFileDetailSizeMin),
 });
@@ -1074,6 +1083,12 @@ export type DownloadclientsTestReport = zod.input<typeof DownloadclientsTestRepo
 export type DownloadclientsTestReportOutput = zod.output<typeof DownloadclientsTestReport>;
 
 export const DownloadclientsThresholdsPatch = zod.object({
+  clientErrorFail: zod
+    .int()
+    .nullish()
+    .describe(
+      "Seconds an external client reports an error on a Torrent before its Grab fails; null resets it to its default",
+    ),
   faultStall: zod.int().nullish().describe("Seconds; null resets it to its default"),
   metadataWait: zod
     .int()
@@ -1107,9 +1122,10 @@ export type DownloadclientsTrackerCellOutput = zod.output<typeof Downloadclients
 
 export const DownloadclientsTorrentGrab = zod.object({
   id: zod.uuid(),
-  itemId: zod.uuid(),
   release: zod.string(),
-  stage: zod.enum(["downloading", "importing", "imported", "failed"]),
+  stage: zod
+    .enum(["downloading", "importing", "waiting", "imported", "failed"])
+    .describe("waiting: a file of its Import waits for the Admin and none is sending or placing"),
   workId: zod.uuid(),
 });
 
@@ -1691,16 +1707,39 @@ export const FilesLibraryFile = zod.object({
 export type FilesLibraryFile = zod.input<typeof FilesLibraryFile>;
 export type FilesLibraryFileOutput = zod.output<typeof FilesLibraryFile>;
 
+export const FilesStep = zod.enum([
+  "fetching",
+  "downloading",
+  "reading",
+  "sending",
+  "placing",
+  "waiting",
+]);
+
+export type FilesStep = zod.input<typeof FilesStep>;
+export type FilesStepOutput = zod.output<typeof FilesStep>;
+
 export const FilesDownloadingCell = zod.object({
   edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   file: zod
     .union([FilesLibraryFile, zod.null()])
     .describe("The file the Grab would replace; null when it fills no file"),
+  from: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the Grab entered its stage; null with step"),
   grabId: zod.uuid().describe("The latest Grab in flight for it"),
   itemId: zod.uuid(),
   state: zod.enum(["downloading"]).describe("A Grab is in flight for it, fetching included"),
+  step: zod
+    .union([FilesStep, zod.null()])
+    .describe("What the Grab or its Import is doing for the cell; null until SlipStream reads it"),
   targetId: zod.uuid(),
   targetName: zod.string(),
+  until: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the Import delay ends, for a download that waits for it; null otherwise"),
   wanted: zod
     .boolean()
     .describe(
@@ -1737,7 +1776,9 @@ export const FilesUpgradableCell = zod.object({
     "The file filling it, short of its Target's cutoff or upgrade-until score",
   ),
   itemId: zod.uuid(),
-  state: zod.enum(["upgradable"]),
+  state: zod
+    .enum(["upgradable"])
+    .describe("No Grab is in flight for it. A Grab in flight makes it downloading"),
   targetId: zod.uuid(),
   targetName: zod.string(),
   wanted: zod
@@ -1750,9 +1791,25 @@ export const FilesUpgradableCell = zod.object({
 export type FilesUpgradableCell = zod.input<typeof FilesUpgradableCell>;
 export type FilesUpgradableCellOutput = zod.output<typeof FilesUpgradableCell>;
 
+export const FilesHeldCell = zod.object({
+  from: zod.iso.datetime({ offset: true }).describe("When the Grab entered its stage"),
+  grabId: zod.uuid().describe("The Grab in flight for the cell"),
+  step: FilesStep,
+  until: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the Import delay ends, for a download that waits for it; null otherwise"),
+});
+
+export type FilesHeldCell = zod.input<typeof FilesHeldCell>;
+export type FilesHeldCellOutput = zod.output<typeof FilesHeldCell>;
+
 export const FilesMetCell = zod.object({
   edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   file: FilesLibraryFile.describe("The file filling it"),
+  held: zod
+    .union([FilesHeldCell, zod.null()])
+    .describe("The Grab in flight for it; null while none is"),
   itemId: zod.uuid(),
   state: zod.enum(["met"]),
   targetId: zod.uuid(),
@@ -1862,13 +1919,64 @@ export const FilesUpgradeNeed = zod.object({
 export type FilesUpgradeNeed = zod.input<typeof FilesUpgradeNeed>;
 export type FilesUpgradeNeedOutput = zod.output<typeof FilesUpgradeNeed>;
 
-export const FilesWaitingNeed = zod.object({
-  code: zod
-    .enum(["node_away", "client_away", "client_off"])
+export const FilesClientError = zod.object({
+  client: zod.string().describe("The external Download Client's name"),
+  failsAt: zod.iso
+    .datetime({ offset: true })
+    .describe("When the Grab fails unless the error clears"),
+  message: zod.string().describe("The error as the client words it"),
+  node: zod.string().describe("The client's Node's name"),
+});
+
+export type FilesClientError = zod.input<typeof FilesClientError>;
+export type FilesClientErrorOutput = zod.output<typeof FilesClientError>;
+
+export const filesSpaceFreeMin = 0;
+
+export const FilesSpace = zod.object({
+  free: zod
+    .int()
+    .min(filesSpaceFreeMin)
+    .describe("Bytes free on the root's volume above its Storage error level"),
+  needs: zod.int().min(1).describe("Bytes the file needs"),
+});
+
+export type FilesSpace = zod.input<typeof FilesSpace>;
+export type FilesSpaceOutput = zod.output<typeof FilesSpace>;
+
+export const FilesImportWait = zod.object({
+  rootId: zod.uuid(),
+  space: zod
+    .union([FilesSpace, zod.null()])
     .describe(
-      "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't hold Downloading",
+      "For no_space, the bytes free and the bytes the file needs; null when a clone found the volume full or for root_not_ready",
+    ),
+});
+
+export type FilesImportWait = zod.input<typeof FilesImportWait>;
+export type FilesImportWaitOutput = zod.output<typeof FilesImportWait>;
+
+export const FilesWaitingNeed = zod.object({
+  clientError: zod
+    .union([FilesClientError, zod.null()])
+    .describe("The client's error, for client_error; null otherwise"),
+  code: zod
+    .enum([
+      "node_away",
+      "client_away",
+      "client_off",
+      "no_space",
+      "root_not_ready",
+      "probe_timeout",
+      "client_error",
+    ])
+    .describe(
+      "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't hold Downloading. no_space while its root has too little free space for a file, root_not_ready while its root isn't ready, probe_timeout while reading a file timed out three times, and client_error while its external client reports an error",
     ),
   grabId: zod.uuid(),
+  importWait: zod
+    .union([FilesImportWait, zod.null()])
+    .describe("The root the Import waits on, for no_space and root_not_ready; null otherwise"),
   kind: zod.enum(["waiting"]),
 });
 
@@ -1974,6 +2082,14 @@ export const FilesDolbyVision = zod.object({
 export type FilesDolbyVision = zod.input<typeof FilesDolbyVision>;
 export type FilesDolbyVisionOutput = zod.output<typeof FilesDolbyVision>;
 
+export const FilesFileGrab = zod.object({
+  id: zod.uuid(),
+  release: zod.string().describe("The Release's title"),
+});
+
+export type FilesFileGrab = zod.input<typeof FilesFileGrab>;
+export type FilesFileGrabOutput = zod.output<typeof FilesFileGrab>;
+
 export const FilesVideoCodec = zod.enum(["x264", "x265", "AV1", "VP9", "XviD", "MPEG2"]);
 
 export type FilesVideoCodec = zod.input<typeof FilesVideoCodec>;
@@ -2068,6 +2184,9 @@ export const FilesListedFile = zod.object({
     .datetime({ offset: true })
     .nullable()
     .describe("When a library scan found it missing from its root; null while it is there"),
+  grab: zod
+    .union([FilesFileGrab, zod.null()])
+    .describe("The Grab whose download it came from; null for a file no Grab brought"),
   id: zod.uuid(),
   kept: zod.boolean().describe("A Kept file, which fills no cell"),
   label: zod.string().describe("The Target name its file name carries, before any suffix"),
@@ -2081,6 +2200,18 @@ export const FilesListedFile = zod.object({
       "Its modification time as a library scan or its import last read it; null until one did",
     ),
   path: zod.string().describe("Relative to its root, / separated"),
+  placedBy: zod
+    .union([
+      zod.literal("link"),
+      zod.literal("clone"),
+      zod.literal("copy"),
+      zod.literal("transfer"),
+      zod.literal("move"),
+      zod.literal("in_place"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("How its import put it into the library; null for a file no import recorded"),
   probeError: zod
     .string()
     .nullable()
@@ -2499,7 +2630,7 @@ export const TargetsImpact = zod.object({
     .int()
     .min(targetsImpactDownloadingMin)
     .describe(
-      "Downloads in progress for cells that are no longer wanted. The save's choice decides whether their files are deleted or kept",
+      "Downloads in progress for cells that are no longer wanted. Each waits in Pending imports once it finishes",
     ),
   newlyWanted: zod.int().min(targetsImpactNewlyWantedMin).describe("Cells that become wanted"),
   ownList: zod
@@ -2662,7 +2793,6 @@ export const GrabsWordedReason = zod.object({
     .enum([
       "wrong_work",
       "wrong_item",
-      "covers_more",
       "wrong_title",
       "cut_not_wanted",
       "quality_not_in_target",
@@ -2676,7 +2806,7 @@ export const GrabsWordedReason = zod.object({
       "blocklisted",
     ])
     .describe(
-      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
     ),
   soft: zod
     .boolean()
@@ -2686,14 +2816,12 @@ export const GrabsWordedReason = zod.object({
   targetId: zod
     .uuid()
     .exactOptional()
-    .describe(
-      "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
-    ),
+    .describe("The Target whose verdict it is, absent for wrong_work, wrong_item and wrong_title"),
   value: zod
     .string()
     .exactOptional()
     .describe(
-      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
+      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
     ),
   words: zod.string().describe("The reason as a sentence"),
 });
@@ -2847,6 +2975,7 @@ export const GrabsLiftKey = zod.object({
     "size_below",
     "size_above",
     "score_below_minimum",
+    "not_an_upgrade",
     "repack_other_group",
   ]),
   targetId: zod.uuid().exactOptional().describe("Absent for wrong_title"),
@@ -2906,7 +3035,16 @@ export const GrabsBlockEntry = zod.object({
   because: zod
     .string()
     .describe("The cause in a sentence, such as TorrentLeech reported it unregistered."),
-  cause: zod.enum(["unregistered", "no_payload", "engine_error", "marked_failed", "by_hand"]),
+  cause: zod.enum([
+    "unregistered",
+    "no_payload",
+    "engine_error",
+    "marked_failed",
+    "by_hand",
+    "no_video",
+    "unreadable",
+    "misdescribed",
+  ]),
   indexer: zod
     .string()
     .nullable()
@@ -2962,7 +3100,7 @@ export const GrabsLostAt = zod.object({
   own: zod
     .string()
     .describe(
-      "This Release's value at the step: a Target's name for want, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title",
+      "This Release's value at the step: a Target's name for want, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, whether another Want chose it for chosen_by_another, a count of the Items it covers that aren't wanted for fewer_unwanted, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title",
     ),
   ref: zod
     .string()
@@ -2975,6 +3113,8 @@ export const GrabsLostAt = zod.object({
       "tier",
       "revision",
       "score",
+      "chosen_by_another",
+      "fewer_unwanted",
       "priority",
       "freeleech",
       "seeders",
@@ -3076,15 +3216,7 @@ export type GrabsClientWaitOutput = zod.output<typeof GrabsClientWait>;
 
 export const GrabsEntered = zod.object({
   at: zod.iso.datetime({ offset: true }),
-  stage: zod.enum([
-    "fetching",
-    "downloading",
-    "probing",
-    "transferring",
-    "importing",
-    "imported",
-    "failed",
-  ]),
+  stage: zod.enum(["fetching", "downloading", "importing", "imported", "failed"]),
 });
 
 export type GrabsEntered = zod.input<typeof GrabsEntered>;
@@ -3121,6 +3253,9 @@ export const GrabsFailure = zod.object({
     "canceled",
     "blocklisted",
     "release_fault",
+    "client_error",
+    "declined",
+    "unreadable",
   ]),
   current: zod
     .boolean()
@@ -3133,7 +3268,7 @@ export const GrabsFailure = zod.object({
     .describe(
       "It goes under Needs you. False for a cancel and for a Manual Grab whose Release the Blocklist held after its fetch, which its sheet already said.",
     ),
-  stage: zod.enum(["fetching", "downloading", "probing", "transferring", "importing"]),
+  stage: zod.enum(["fetching", "downloading", "importing"]),
 });
 
 export type GrabsFailure = zod.input<typeof GrabsFailure>;
@@ -3181,6 +3316,29 @@ export const GrabsGrabActions = zod.object({
 export type GrabsGrabActions = zod.input<typeof GrabsGrabActions>;
 export type GrabsGrabActionsOutput = zod.output<typeof GrabsGrabActions>;
 
+export const grabsGrabImportPlacedMin = 0;
+
+export const grabsGrabImportPlannedMin = 0;
+
+export const grabsGrabImportSendingMin = 0;
+
+export const grabsGrabImportWaitingMin = 0;
+
+export const GrabsGrabImport = zod.object({
+  id: zod.uuid(),
+  placed: zod.int().min(grabsGrabImportPlacedMin).describe("Its files placed into the library"),
+  planned: zod
+    .int()
+    .min(grabsGrabImportPlannedMin)
+    .describe("Its files that are or were sending, placing, placed or waiting"),
+  sending: zod.int().min(grabsGrabImportSendingMin).describe("Its files a Transfer is sending"),
+  waiting: zod.int().min(grabsGrabImportWaitingMin).describe("Its files that wait for the Admin"),
+  words: zod.string().describe("Its progress in words, such as Importing 6 of 10 episodes"),
+});
+
+export type GrabsGrabImport = zod.input<typeof GrabsGrabImport>;
+export type GrabsGrabImportOutput = zod.output<typeof GrabsGrabImport>;
+
 export const grabsMetadataSearchPeersMin = 0;
 
 export const GrabsMetadataSearch = zod.object({
@@ -3201,15 +3359,29 @@ export const grabsProgressDoneMin = 0;
 export const grabsProgressTotalMin = 0;
 
 export const GrabsProgress = zod.object({
-  done: zod
-    .int()
-    .min(grabsProgressDoneMin)
-    .describe("Bytes downloaded, or received and verified while transferring"),
+  done: zod.int().min(grabsProgressDoneMin).describe("Bytes downloaded"),
   total: zod.int().min(grabsProgressTotalMin).describe("Bytes wanted"),
 });
 
 export type GrabsProgress = zod.input<typeof GrabsProgress>;
 export type GrabsProgressOutput = zod.output<typeof GrabsProgress>;
+
+export const GrabsGrabTarget = zod.object({
+  forced: zod
+    .boolean()
+    .describe("An Admin forced it: a file goes in even when it isn't an upgrade"),
+  itemId: zod.uuid(),
+  settled: zod
+    .union([zod.literal("placed"), zod.literal("none"), zod.literal("declined"), zod.literal(null)])
+    .nullable()
+    .describe(
+      "How the Grab finished with the cell: a file placed into it, no file filled it, or the Admin declined it. Null while the Grab holds it",
+    ),
+  targetId: zod.uuid(),
+});
+
+export type GrabsGrabTarget = zod.input<typeof GrabsGrabTarget>;
+export type GrabsGrabTargetOutput = zod.output<typeof GrabsGrabTarget>;
 
 export const grabsGrabReleaseSizeMin = 0;
 
@@ -3239,6 +3411,12 @@ export const GrabsGrab = zod.object({
     .array(GrabsEntered)
     .describe("Each stage it entered, when it last entered it, oldest first"),
   id: zod.uuid(),
+  import: zod
+    .union([GrabsGrabImport, zod.null()])
+    .describe("Its download's Import, from importing on; null before"),
+  inFlight: zod
+    .boolean()
+    .describe("It holds its cells and counts in Activity: it is neither imported nor failed"),
   indexerId: zod
     .uuid()
     .nullable()
@@ -3247,7 +3425,9 @@ export const GrabsGrab = zod.object({
     .string()
     .nullable()
     .describe("The v1 info hash in hex, null until the .torrent is fetched"),
-  itemId: zod.uuid(),
+  items: zod
+    .array(zod.string())
+    .describe("The ids of the Items its Release covers in the Work, in tree order"),
   manualSearchId: zod
     .uuid()
     .nullable()
@@ -3266,7 +3446,7 @@ export const GrabsGrab = zod.object({
     .array(zod.string())
     .describe("Each choice the Admin made past the decision, as a sentence"),
   progress: GrabsProgress.exactOptional().describe(
-    "The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring",
+    "The download's progress, absent unless it is downloading and its Node reported it",
   ),
   quality: zod
     .enum([
@@ -3297,16 +3477,9 @@ export const GrabsGrab = zod.object({
   source: zod
     .enum(["search", "manual"])
     .describe("How it was chosen: by a search's decision, or by an Admin in a Manual search"),
-  stage: zod.enum([
-    "fetching",
-    "downloading",
-    "probing",
-    "transferring",
-    "importing",
-    "imported",
-    "failed",
-  ]),
+  stage: zod.enum(["fetching", "downloading", "importing", "imported", "failed"]),
   targetIds: zod.array(zod.string()).describe("The Targets it was grabbed for, in Profile order"),
+  targets: zod.array(GrabsGrabTarget).describe("Each cell it holds, in plan order"),
   torrentId: zod
     .uuid()
     .nullable()
@@ -3333,7 +3506,7 @@ export type GrabsGrabListOutput = zod.output<typeof GrabsGrabList>;
 
 export const GrabsHeldCell = zod.object({
   grabId: zod.uuid(),
-  stage: zod.enum(["fetching", "downloading", "probing", "transferring", "importing"]),
+  stage: zod.enum(["fetching", "downloading", "importing"]),
   words: zod
     .string()
     .describe("Such as A Grab is downloading WEBDL-1080p · FLUX · 6.2 GB for 1080p."),
@@ -3665,7 +3838,6 @@ export const GrabsReason = zod.object({
     .enum([
       "wrong_work",
       "wrong_item",
-      "covers_more",
       "wrong_title",
       "cut_not_wanted",
       "quality_not_in_target",
@@ -3679,7 +3851,7 @@ export const GrabsReason = zod.object({
       "blocklisted",
     ])
     .describe(
-      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
     ),
   soft: zod
     .boolean()
@@ -3689,14 +3861,12 @@ export const GrabsReason = zod.object({
   targetId: zod
     .uuid()
     .exactOptional()
-    .describe(
-      "The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title",
-    ),
+    .describe("The Target whose verdict it is, absent for wrong_work, wrong_item and wrong_title"),
   value: zod
     .string()
     .exactOptional()
     .describe(
-      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
+      "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
     ),
 });
 
@@ -4520,30 +4690,38 @@ export const IdentitySignupLinkURL = zod.object({
 export type IdentitySignupLinkURL = zod.input<typeof IdentitySignupLinkURL>;
 export type IdentitySignupLinkURLOutput = zod.output<typeof IdentitySignupLinkURL>;
 
-export const importsChosenFileItemIdsMax = 1;
-
-export const ImportsChosenFile = zod.object({
-  itemIds: zod
-    .array(zod.string())
+export const ImportFolderInputBody = zod.object({
+  folder: zod
+    .string()
     .min(1)
-    .max(importsChosenFileItemIdsMax)
-    .nullable()
-    .describe(
-      "The Item of the Work the file holds. One for now; S33 (Import pipeline) allows several",
-    ),
-  path: zod.string().min(1).describe("One of the pending import's paths"),
+    .describe("Absolute on the Node, inside one of its library roots or download folders"),
+  nodeId: zod.uuid(),
 });
 
-export type ImportsChosenFile = zod.input<typeof ImportsChosenFile>;
-export type ImportsChosenFileOutput = zod.output<typeof ImportsChosenFile>;
+export type ImportFolderInputBody = zod.input<typeof ImportFolderInputBody>;
+export type ImportFolderInputBodyOutput = zod.output<typeof ImportFolderInputBody>;
 
-export const ImportIntoInputBody = zod.object({
-  files: zod.array(ImportsChosenFile).min(1),
-  workId: zod.uuid().describe("A Work in the pending import's root"),
+export const ImportIDsInputBody = zod.object({
+  importIds: zod.array(zod.uuid()).min(1),
 });
 
-export type ImportIntoInputBody = zod.input<typeof ImportIntoInputBody>;
-export type ImportIntoInputBodyOutput = zod.output<typeof ImportIntoInputBody>;
+export type ImportIDsInputBody = zod.input<typeof ImportIDsInputBody>;
+export type ImportIDsInputBodyOutput = zod.output<typeof ImportIDsInputBody>;
+
+export const ImportsAction = zod.enum([
+  "confirm",
+  "retry",
+  "decline",
+  "force",
+  "match",
+  "notThisRelease",
+  "changeEditions",
+  "turnOnRenaming",
+  "changeSetting",
+]);
+
+export type ImportsAction = zod.input<typeof ImportsAction>;
+export type ImportsActionOutput = zod.output<typeof ImportsAction>;
 
 export const ImportsAddedOutcome = zod.object({
   id: zod.uuid(),
@@ -4557,7 +4735,7 @@ export type ImportsAddedOutcomeOutput = zod.output<typeof ImportsAddedOutcome>;
 export const ImportsOutcomeProblem = zod.object({
   code: zod
     .string()
-    .describe("The code a request for this pending import alone would have been refused with"),
+    .describe("The code a request for this Import alone would have been refused with"),
   detail: zod.string().exactOptional(),
   title: zod.string(),
 });
@@ -4583,11 +4761,20 @@ export type ImportsOutcome = zod.input<typeof ImportsOutcome>;
 export type ImportsOutcomeOutput = zod.output<typeof ImportsOutcome>;
 
 export const ImportsAddedList = zod.object({
-  outcomes: zod.array(ImportsOutcome).describe("One per pending import, in request order"),
+  outcomes: zod.array(ImportsOutcome).describe("One per Import, in request order"),
 });
 
 export type ImportsAddedList = zod.input<typeof ImportsAddedList>;
 export type ImportsAddedListOutput = zod.output<typeof ImportsAddedList>;
+
+export const ImportsCellRef = zod.object({
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
+  itemId: zod.uuid(),
+  targetId: zod.uuid(),
+});
+
+export type ImportsCellRef = zod.input<typeof ImportsCellRef>;
+export type ImportsCellRefOutput = zod.output<typeof ImportsCellRef>;
 
 export const ImportsChanged = zod.object({
   rootIds: zod.array(zod.string()),
@@ -4595,6 +4782,152 @@ export const ImportsChanged = zod.object({
 
 export type ImportsChanged = zod.input<typeof ImportsChanged>;
 export type ImportsChangedOutput = zod.output<typeof ImportsChanged>;
+
+export const importsChosenFilePositionMin = 0;
+
+export const ImportsChosenFile = zod.object({
+  itemIds: zod
+    .array(zod.string())
+    .min(1)
+    .describe("The Items of the Work the file holds, in any order"),
+  position: zod.int().min(importsChosenFilePositionMin).describe("A waiting file of the Import"),
+});
+
+export type ImportsChosenFile = zod.input<typeof ImportsChosenFile>;
+export type ImportsChosenFileOutput = zod.output<typeof ImportsChosenFile>;
+
+export const ImportsConfirmFile = zod.object({
+  action: zod.enum(["confirm"]).describe("Import the file with its current reading"),
+});
+
+export type ImportsConfirmFile = zod.input<typeof ImportsConfirmFile>;
+export type ImportsConfirmFileOutput = zod.output<typeof ImportsConfirmFile>;
+
+export const ImportsDeclineFile = zod.object({
+  action: zod.enum(["decline"]).describe("Don't import the file"),
+});
+
+export type ImportsDeclineFile = zod.input<typeof ImportsDeclineFile>;
+export type ImportsDeclineFileOutput = zod.output<typeof ImportsDeclineFile>;
+
+export const importsExtensionImpactFilesMin = 0;
+
+export const importsExtensionImpactPendingMin = 0;
+
+export const ImportsExtensionImpact = zod.object({
+  files: zod
+    .int()
+    .min(importsExtensionImpactFilesMin)
+    .describe("The library files that stop counting as video"),
+  pending: zod
+    .int()
+    .min(importsExtensionImpactPendingMin)
+    .describe("The files of unfinished Imports that stop counting as video"),
+});
+
+export type ImportsExtensionImpact = zod.input<typeof ImportsExtensionImpact>;
+export type ImportsExtensionImpactOutput = zod.output<typeof ImportsExtensionImpact>;
+
+export const ImportsRetryFile = zod.object({
+  action: zod.enum(["retry"]).describe("Try the file again"),
+});
+
+export type ImportsRetryFile = zod.input<typeof ImportsRetryFile>;
+export type ImportsRetryFileOutput = zod.output<typeof ImportsRetryFile>;
+
+export const ImportsNotThisReleaseFile = zod.object({
+  action: zod
+    .enum(["notThisRelease"])
+    .describe("Put the download's Release on the Blocklist and search again; a Grab's Import only"),
+});
+
+export type ImportsNotThisReleaseFile = zod.input<typeof ImportsNotThisReleaseFile>;
+export type ImportsNotThisReleaseFileOutput = zod.output<typeof ImportsNotThisReleaseFile>;
+
+export const ImportsForceFile = zod.object({
+  action: zod
+    .enum(["force"])
+    .describe("Put the file into a Target even though it isn't an upgrade there"),
+  cell: ImportsCellRef,
+});
+
+export type ImportsForceFile = zod.input<typeof ImportsForceFile>;
+export type ImportsForceFileOutput = zod.output<typeof ImportsForceFile>;
+
+export const ImportsMatchFile = zod.object({
+  action: zod.enum(["match"]).describe("Change what the file is"),
+  edition: zod
+    .string()
+    .nullable()
+    .describe("The key of the cut it is; null for the one its name carries"),
+  itemIds: zod
+    .array(zod.uuid())
+    .min(1)
+    .describe("The Items of the Work the file holds, in any order"),
+  releaseName: zod.string().min(1).describe("The name SlipStream reads its quality and cut from"),
+  workId: zod.uuid(),
+});
+
+export type ImportsMatchFile = zod.input<typeof ImportsMatchFile>;
+export type ImportsMatchFileOutput = zod.output<typeof ImportsMatchFile>;
+
+export const ImportsFileAction = zod.discriminatedUnion("action", [
+  ImportsConfirmFile,
+  ImportsRetryFile,
+  ImportsDeclineFile,
+  ImportsNotThisReleaseFile,
+  ImportsForceFile,
+  ImportsMatchFile,
+]);
+
+export type ImportsFileAction = zod.input<typeof ImportsFileAction>;
+export type ImportsFileActionOutput = zod.output<typeof ImportsFileAction>;
+
+export const importsFileHoldAttemptsMin = 0;
+
+export const ImportsFileHold = zod.object({
+  attempts: zod.int().min(importsFileHoldAttemptsMin).describe("The tries that ran into the hold"),
+  code: zod.enum(["no_space", "root_not_ready", "node_away", "probe_timeout", "probe_error"]),
+  sentence: zod.string().describe("What it waits on and when SlipStream retries"),
+});
+
+export type ImportsFileHold = zod.input<typeof ImportsFileHold>;
+export type ImportsFileHoldOutput = zod.output<typeof ImportsFileHold>;
+
+export const ImportsForceOption = zod.object({
+  cell: ImportsCellRef,
+  deletes: zod
+    .array(zod.string())
+    .describe("The paths of the library files the force deletes, relative to their root"),
+});
+
+export type ImportsForceOption = zod.input<typeof ImportsForceOption>;
+export type ImportsForceOptionOutput = zod.output<typeof ImportsForceOption>;
+
+export const ImportsHintID = zod.object({
+  provider: zod.enum(["tmdb", "imdb", "tvdb"]),
+  value: zod.string(),
+});
+
+export type ImportsHintID = zod.input<typeof ImportsHintID>;
+export type ImportsHintIDOutput = zod.output<typeof ImportsHintID>;
+
+export const ImportsHint = zod.object({
+  ids: zod.array(ImportsHintID).describe("The provider ids the name's tags carry"),
+  title: zod.string().describe("The title the folder or file name carries, as written"),
+  year: zod.int().nullable().describe("Null when the name carries none"),
+});
+
+export type ImportsHint = zod.input<typeof ImportsHint>;
+export type ImportsHintOutput = zod.output<typeof ImportsHint>;
+
+export const ImportsImportFailure = zod.object({
+  code: zod.enum(["no_video_file", "unreadable"]),
+  sentence: zod.string(),
+});
+
+export type ImportsImportFailure = zod.input<typeof ImportsImportFailure>;
+export type ImportsImportFailureOutput = zod.output<typeof ImportsImportFailure>;
 
 export const ImportsRootLabel = zod.object({
   id: zod.uuid(),
@@ -4609,19 +4942,43 @@ export type ImportsRootLabelOutput = zod.output<typeof ImportsRootLabel>;
 export const ImportsReason = zod.object({
   code: zod
     .enum([
+      "sample",
+      "bonus",
+      "hidden_folder",
+      "too_small",
+      "extension",
+      "runtime_sample",
+      "sibling_better",
+      "kept_better",
+      "meets_nothing",
+      "not_an_upgrade",
+      "edition_not_wanted",
+      "other_items",
+      "no_number",
+      "parts",
+      "name_taken",
+      "name_too_long",
+      "settings",
+      "busy",
+      "confirm",
       "several",
       "no_match",
       "no_year",
       "elsewhere",
       "unlisted",
-      "no_number",
       "no_such_item",
-      "several_items",
       "unreadable",
       "left",
       "no_rule",
+      "import_failed",
+      "root_changed",
+      "by_admin",
+      "removed",
+      "canceled",
+      "blocklisted",
+      "work_deleted",
     ])
-    .describe("Why the file joins no Work"),
+    .describe("Why the file is left out, waits, isn't better or failed"),
   count: zod.int().exactOptional().describe("For several: the candidates that match"),
   line: zod.string().exactOptional().describe("For unreadable: the first line ffprobe printed"),
   names: zod
@@ -4629,6 +4986,12 @@ export const ImportsReason = zod.object({
     .exactOptional()
     .describe("For no_such_item: the Item the file name names, such as S03E14"),
   root: ImportsRootLabel.exactOptional().describe("For elsewhere: the root the Work lives in"),
+  sentence: zod
+    .string()
+    .nullable()
+    .describe(
+      "The one sentence the row leads with; null for a root Import's reason, which its other fields word",
+    ),
   title: zod
     .string()
     .exactOptional()
@@ -4641,14 +5004,67 @@ export const ImportsReason = zod.object({
 export type ImportsReason = zod.input<typeof ImportsReason>;
 export type ImportsReasonOutput = zod.output<typeof ImportsReason>;
 
-export const importsPendingFileSizeMin = 0;
+export const ImportsTargetVerdict = zod.object({
+  sentence: zod
+    .string()
+    .describe("How the Target judges the file, such as Fills 2160p for Heat (1995)."),
+  targetId: zod.uuid(),
+});
 
-export const ImportsPendingFile = zod.object({
+export type ImportsTargetVerdict = zod.input<typeof ImportsTargetVerdict>;
+export type ImportsTargetVerdictOutput = zod.output<typeof ImportsTargetVerdict>;
+
+export const importsImportFilePositionMin = 0;
+
+export const importsImportFileSizeMin = 0;
+
+export const importsImportFileStagedMin = 0;
+
+export const ImportsImportFile = zod.object({
+  actions: zod.array(ImportsAction).describe("The other actions its row offers"),
   cut: zod.string().describe("The key of the cut its name carries"),
+  fileId: zod.uuid().nullable().describe("The library file it became; null until it is placed"),
+  fills: zod.array(ImportsCellRef).describe("The cells it fills, or would fill once confirmed"),
+  forces: zod
+    .array(ImportsForceOption)
+    .describe("Each Target it can be forced into, with the files that deletes"),
+  hold: zod
+    .union([ImportsFileHold, zod.null()])
+    .describe(
+      "What it waits on that SlipStream retries automatically; null while nothing holds it",
+    ),
   itemIds: zod
     .array(zod.string())
-    .describe("The Items of the suggested Work its path names; empty until a Work places it"),
-  path: zod.string().describe("Relative to the root, / separated"),
+    .describe("The Items of the Work it holds, in tree order; empty until a Work places it"),
+  movable: zod.boolean().describe("Move files may take it: no tracked torrent seeds it"),
+  outcome: zod.enum([
+    "pending",
+    "left_out",
+    "not_better",
+    "waiting",
+    "sending",
+    "placing",
+    "placed",
+    "declined",
+    "failed",
+  ]),
+  path: zod.string().describe("For a root Import relative to the root, / separated"),
+  placedBy: zod
+    .union([
+      zod.literal("link"),
+      zod.literal("clone"),
+      zod.literal("copy"),
+      zod.literal("transfer"),
+      zod.literal("move"),
+      zod.literal("in_place"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("How it went into the library; null until it is placing"),
+  position: zod
+    .int()
+    .min(importsImportFilePositionMin)
+    .describe("The file's place in its Import, which names it in actions"),
   quality: zod
     .union([
       zod.literal("sdtv"),
@@ -4673,29 +5089,33 @@ export const ImportsPendingFile = zod.object({
     ])
     .nullable()
     .describe("The quality its name and media info read as; null when ffprobe can't read it"),
-  reason: ImportsReason,
-  size: zod.int().min(importsPendingFileSizeMin),
+  reason: zod
+    .union([ImportsReason, zod.null()])
+    .describe("Why it is left out, waits, isn't better or failed; null otherwise"),
+  recommended: zod
+    .union([ImportsAction, zod.null()])
+    .describe("The action its row offers first; null when it offers none"),
+  size: zod.int().min(importsImportFileSizeMin),
+  staged: zod
+    .int()
+    .min(importsImportFileStagedMin)
+    .describe("Bytes its holding or staged copy uses while it waits"),
+  verdicts: zod
+    .array(ImportsTargetVerdict)
+    .describe("Each Target's verdict on it, for its Details"),
 });
 
-export type ImportsPendingFile = zod.input<typeof ImportsPendingFile>;
-export type ImportsPendingFileOutput = zod.output<typeof ImportsPendingFile>;
+export type ImportsImportFile = zod.input<typeof ImportsImportFile>;
+export type ImportsImportFileOutput = zod.output<typeof ImportsImportFile>;
 
-export const ImportsHintID = zod.object({
-  provider: zod.enum(["tmdb", "imdb", "tvdb"]),
-  value: zod.string(),
+export const ImportsImportGrab = zod.object({
+  id: zod.uuid(),
+  release: zod.string().describe("The Release's title"),
+  stage: zod.enum(["fetching", "downloading", "importing", "imported", "failed"]),
 });
 
-export type ImportsHintID = zod.input<typeof ImportsHintID>;
-export type ImportsHintIDOutput = zod.output<typeof ImportsHintID>;
-
-export const ImportsHint = zod.object({
-  ids: zod.array(ImportsHintID).describe("The provider ids the name's tags carry"),
-  title: zod.string().describe("The title the folder or file name carries, as written"),
-  year: zod.int().nullable().describe("Null when the name carries none"),
-});
-
-export type ImportsHint = zod.input<typeof ImportsHint>;
-export type ImportsHintOutput = zod.output<typeof ImportsHint>;
+export type ImportsImportGrab = zod.input<typeof ImportsImportGrab>;
+export type ImportsImportGrabOutput = zod.output<typeof ImportsImportGrab>;
 
 export const ImportsSuggestion = zod.object({
   confident: zod
@@ -4714,69 +5134,65 @@ export const ImportsSuggestion = zod.object({
 export type ImportsSuggestion = zod.input<typeof ImportsSuggestion>;
 export type ImportsSuggestionOutput = zod.output<typeof ImportsSuggestion>;
 
-export const importsEntryContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+export const importsImportEntryContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
-export const ImportsEntry = zod.object({
-  contentType: zod.string().regex(importsEntryContentTypeRegExp),
-  files: zod.array(ImportsPendingFile).describe("In path order"),
+export const ImportsImportEntry = zod.object({
+  contentType: zod.string().regex(importsImportEntryContentTypeRegExp),
+  createdAt: zod.iso.datetime({ offset: true }),
+  edition: zod
+    .string()
+    .nullable()
+    .describe("The key of the cut its files fill; null for any under any cut"),
+  failure: zod
+    .union([ImportsImportFailure, zod.null()])
+    .describe("Why the whole Import failed; null unless it did"),
+  files: zod.array(ImportsImportFile).describe("For a root Import in path order, else by position"),
+  finishedAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("Null until every file is placed or settled"),
   folder: zod
     .string()
     .describe(
-      "Its Work folder relative to the root, or the file's path when it sits loose at the root's top",
+      "For a root Import, its Work folder relative to the root, or the file's path when it sits loose at the root's top. The folder on its Node for a folder Import, and empty for a download, whose file paths are relative to its torrent",
     ),
-  foundAt: zod.iso.datetime({ offset: true }),
+  grab: zod
+    .union([ImportsImportGrab, zod.null()])
+    .describe("The Grab whose download this is; null for a folder or a root"),
   hint: ImportsHint.describe("What the folder or file name says"),
   id: zod.uuid(),
   ignoredAt: zod.iso
     .datetime({ offset: true })
     .nullable()
     .describe("Null while it needs the Admin"),
-  root: ImportsRootLabel,
+  moveFiles: zod
+    .boolean()
+    .describe(
+      "A folder Import moves its files into the library and deletes the folder once it is empty",
+    ),
+  nodeId: zod
+    .uuid()
+    .nullable()
+    .describe("The Node the files are on, for a download or a folder; null for a root"),
+  root: zod
+    .union([ImportsRootLabel, zod.null()])
+    .describe("The library root the folder is in; null outside a root Import"),
+  seeding: zod.boolean().describe("The download keeps seeding while a file waits"),
+  source: zod
+    .enum(["grab", "root", "folder"])
+    .describe("root: a folder a library scan found in a root and couldn't place"),
+  stage: zod.enum(["probing", "waiting", "placing", "done", "failed"]),
   suggestion: zod
     .union([ImportsSuggestion, zod.null()])
     .describe("The best candidate; null when none matched"),
+  workId: zod
+    .uuid()
+    .nullable()
+    .describe("The Work its files go into; null for a root Import, whose suggestion names one"),
 });
 
-export type ImportsEntry = zod.input<typeof ImportsEntry>;
-export type ImportsEntryOutput = zod.output<typeof ImportsEntry>;
-
-export const ImportsImported = zod.object({
-  entry: zod
-    .union([ImportsEntry, zod.null()])
-    .describe("The files left waiting; null once none is"),
-});
-
-export type ImportsImported = zod.input<typeof ImportsImported>;
-export type ImportsImportedOutput = zod.output<typeof ImportsImported>;
-
-export const importsLeadAddedMin = 0;
-
-export const importsLeadContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
-export const importsLeadNeedsYouMin = 0;
-
-export const ImportsLead = zod.object({
-  added: zod
-    .int()
-    .min(importsLeadAddedMin)
-    .describe("The Works the root's last library scan added"),
-  contentType: zod.string().regex(importsLeadContentTypeRegExp),
-  needsYou: zod
-    .int()
-    .min(importsLeadNeedsYouMin)
-    .describe("The root's pending imports that aren't ignored"),
-  root: ImportsRootLabel,
-});
-
-export type ImportsLead = zod.input<typeof ImportsLead>;
-export type ImportsLeadOutput = zod.output<typeof ImportsLead>;
-
-export const ImportsList = zod.object({
-  entries: zod.array(ImportsEntry).describe("In root and folder order"),
-  leads: zod.array(ImportsLead).describe("One per root a library scan compared, in root order"),
-});
-
-export type ImportsList = zod.input<typeof ImportsList>;
-export type ImportsListOutput = zod.output<typeof ImportsList>;
+export type ImportsImportEntry = zod.input<typeof ImportsImportEntry>;
+export type ImportsImportEntryOutput = zod.output<typeof ImportsImportEntry>;
 
 export const SettingChoiceOption = zod.object({
   label: zod.string(),
@@ -4969,6 +5385,72 @@ export const SettingTemplateField = zod.object({
 export type SettingTemplateField = zod.input<typeof SettingTemplateField>;
 export type SettingTemplateFieldOutput = zod.output<typeof SettingTemplateField>;
 
+export const settingListFieldMinMin = 0;
+
+export const SettingListField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.array(zod.string()),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  item: zod
+    .enum(["extension"])
+    .describe(
+      "What each entry is: an extension is lowercase letters and digits with no leading dot, such as mkv",
+    ),
+  key: zod.string(),
+  kind: zod.enum(["list"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  min: zod.int().min(settingListFieldMinMin).describe("The fewest entries the list takes"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.array(zod.string()),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.array(zod.string()),
+});
+
+export type SettingListField = zod.input<typeof SettingListField>;
+export type SettingListFieldOutput = zod.output<typeof SettingListField>;
+
+export const SettingSizeField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.int().describe("Bytes"),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["size"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  max: zod.int().describe("Bytes"),
+  min: zod.int().describe("Bytes"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.int().describe("Bytes"),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.int().describe("Bytes"),
+});
+
+export type SettingSizeField = zod.input<typeof SettingSizeField>;
+export type SettingSizeFieldOutput = zod.output<typeof SettingSizeField>;
+
 export const SettingField = zod.discriminatedUnion("kind", [
   SettingDurationField,
   SettingCountField,
@@ -4981,10 +5463,96 @@ export const SettingField = zod.discriminatedUnion("kind", [
   SettingFolderField,
   SettingSpaceField,
   SettingTemplateField,
+  SettingListField,
+  SettingSizeField,
 ]);
 
 export type SettingField = zod.input<typeof SettingField>;
 export type SettingFieldOutput = zod.output<typeof SettingField>;
+
+export const ImportsImportingSettings = zod.object({
+  settings: zod
+    .array(SettingField)
+    .describe(
+      "The video file extensions, the smallest video file, then the runtime under which a video is a sample",
+    ),
+});
+
+export type ImportsImportingSettings = zod.input<typeof ImportsImportingSettings>;
+export type ImportsImportingSettingsOutput = zod.output<typeof ImportsImportingSettings>;
+
+export const ImportsImportsList = zod.object({
+  imports: zod.array(ImportsImportEntry),
+});
+
+export type ImportsImportsList = zod.input<typeof ImportsImportsList>;
+export type ImportsImportsListOutput = zod.output<typeof ImportsImportsList>;
+
+export const ImportsIntoAction = zod.object({
+  action: zod.enum(["into"]),
+  files: zod.array(ImportsChosenFile).min(1),
+  workId: zod.uuid().describe("A Work in the Import's root"),
+});
+
+export type ImportsIntoAction = zod.input<typeof ImportsIntoAction>;
+export type ImportsIntoActionOutput = zod.output<typeof ImportsIntoAction>;
+
+export const importsLeadAddedMin = 0;
+
+export const importsLeadContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+export const importsLeadNeedsYouMin = 0;
+
+export const ImportsLead = zod.object({
+  added: zod
+    .int()
+    .min(importsLeadAddedMin)
+    .describe("The Works the root's last library scan added"),
+  contentType: zod.string().regex(importsLeadContentTypeRegExp),
+  needsYou: zod
+    .int()
+    .min(importsLeadNeedsYouMin)
+    .describe("The root's unfinished root Imports that aren't ignored"),
+  root: ImportsRootLabel,
+});
+
+export type ImportsLead = zod.input<typeof ImportsLead>;
+export type ImportsLeadOutput = zod.output<typeof ImportsLead>;
+
+export const ImportsList = zod.object({
+  imports: zod
+    .array(ImportsImportEntry)
+    .describe("The unfinished Imports, in root and folder order"),
+  leads: zod
+    .array(ImportsLead)
+    .describe(
+      "One per root a library scan compared, in root order; empty when source leaves out root",
+    ),
+  next: zod.uuid().nullable().describe("Pass it as after for the next page; null on the last page"),
+});
+
+export type ImportsList = zod.input<typeof ImportsList>;
+export type ImportsListOutput = zod.output<typeof ImportsList>;
+
+export const ImportsMatchAction = zod.object({
+  action: zod.enum(["match"]),
+  key: zod
+    .string()
+    .min(1)
+    .describe(
+      "A record's key at the Content Type's source, as searchCatalog lists it; it becomes the suggestion",
+    ),
+});
+
+export type ImportsMatchAction = zod.input<typeof ImportsMatchAction>;
+export type ImportsMatchActionOutput = zod.output<typeof ImportsMatchAction>;
+
+export const ImportsRootAction = zod.discriminatedUnion("action", [
+  ImportsMatchAction,
+  ImportsIntoAction,
+]);
+
+export type ImportsRootAction = zod.input<typeof ImportsRootAction>;
+export type ImportsRootActionOutput = zod.output<typeof ImportsRootAction>;
 
 export const ImportsSettings = zod.object({
   settings: zod
@@ -5882,16 +6450,6 @@ export const MakeFolderInputBody = zod.object({
 export type MakeFolderInputBody = zod.input<typeof MakeFolderInputBody>;
 export type MakeFolderInputBodyOutput = zod.output<typeof MakeFolderInputBody>;
 
-export const MatchPendingInputBody = zod.object({
-  key: zod
-    .string()
-    .min(1)
-    .describe("A record's key at the Content Type's source, as searchCatalog lists it"),
-});
-
-export type MatchPendingInputBody = zod.input<typeof MatchPendingInputBody>;
-export type MatchPendingInputBodyOutput = zod.output<typeof MatchPendingInputBody>;
-
 export const MergeTrackerInputBody = zod.object({
   into: zod.uuid().describe("The Tracker it merges into, which is kept"),
 });
@@ -6048,6 +6606,14 @@ export const MetadataSettingsChange = zod.object({
 export type MetadataSettingsChange = zod.input<typeof MetadataSettingsChange>;
 export type MetadataSettingsChangeOutput = zod.output<typeof MetadataSettingsChange>;
 
+export const MoveFilesInputBody = zod.object({
+  importIds: zod.array(zod.uuid()).min(1),
+  on: zod.boolean(),
+});
+
+export type MoveFilesInputBody = zod.input<typeof MoveFilesInputBody>;
+export type MoveFilesInputBodyOutput = zod.output<typeof MoveFilesInputBody>;
+
 export const movingOutputBodyFilesMin = 0;
 
 export const MovingOutputBody = zod.object({
@@ -6164,7 +6730,7 @@ export type NamingNamingListOutput = zod.output<typeof NamingNamingList>;
 
 export const NamingUnplaced = zod.object({
   code: zod
-    .enum(["no_number", "no_such_item", "several_items", "no_rule"])
+    .enum(["no_number", "no_such_item", "no_rule"])
     .describe("Why the Content Type can't tell which Item the name holds"),
   names: zod
     .string()
@@ -7208,13 +7774,6 @@ export const PasskeyRenameInputBody = zod.object({
 export type PasskeyRenameInputBody = zod.input<typeof PasskeyRenameInputBody>;
 export type PasskeyRenameInputBodyOutput = zod.output<typeof PasskeyRenameInputBody>;
 
-export const PendingIDsInputBody = zod.object({
-  ids: zod.array(zod.uuid()).min(1),
-});
-
-export type PendingIDsInputBody = zod.input<typeof PendingIDsInputBody>;
-export type PendingIDsInputBodyOutput = zod.output<typeof PendingIDsInputBody>;
-
 export const PlanInputBody = zod.object({
   draft: FilesRenameDraft.exactOptional().describe(
     "Unsaved naming settings to plan under instead of the stored ones",
@@ -7488,6 +8047,7 @@ export const RootsRefusal = zod.object({
       "contains_downloads",
       "unresponsive",
       "network_share",
+      "outside",
       "node_offline",
     ])
     .describe("Why the folder can't serve its purpose"),
@@ -7720,7 +8280,7 @@ export const ShellCounts = zod.object({
   pendingImports: zod
     .int()
     .min(shellCountsPendingImportsMin)
-    .describe("The pending imports that aren't ignored"),
+    .describe("The Imports, of any source, with a file waiting for the Admin, ignored ones aside"),
 });
 
 export type ShellCounts = zod.input<typeof ShellCounts>;
@@ -8817,10 +9377,11 @@ export const TrackersWait = zod.object({
       "incomplete",
       "grab-downloading",
       "grab-importing",
+      "import-waiting",
       "reconciling",
     ])
     .describe(
-      "What holds its met goal back: removing, it is being removed; resumed, an Admin resumed it after its goal paused it, so it seeds with no end; ran, its goal already acted on it; incomplete, its selected files aren't all there; grab-downloading or grab-importing, a Grab on it is still downloading or importing; reconciling, SlipStream is reconciling the library after a restore",
+      "What holds its met goal back: removing, it is being removed; resumed, an Admin resumed it after its goal paused it, so it seeds with no end; ran, its goal already acted on it; incomplete, its selected files aren't all there; grab-downloading or grab-importing, a Grab on it is still downloading or importing; import-waiting, a file of its Import waits for the Admin; reconciling, SlipStream is reconciling the library after a restore",
     ),
 });
 
@@ -9305,7 +9866,7 @@ export const TransfersTransfer = zod.object({
   id: zod.uuid(),
   job: zod.string().describe("The id of the job that asked for it, such as its Grab's"),
   jobName: zod.string().describe("The job's name, such as a Work's title and year"),
-  purpose: zod.enum(["grab"]).describe("The kind of job that asked for it"),
+  purpose: zod.enum(["import"]).describe("The kind of job that asked for it"),
   rate: zod
     .int()
     .min(transfersTransferRateMin)

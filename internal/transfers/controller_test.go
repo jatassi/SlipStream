@@ -110,7 +110,7 @@ type purpose struct {
 
 func (p *purpose) register(tr *transfers.Transfers) {
 	tr.Register(transfers.Purpose{
-		Kind: transfers.Grab,
+		Kind: transfers.Import,
 		Verified: func(_ context.Context, _ *storage.Tx[storage.Library], t transfers.Transfer, group string) error {
 			p.mu.Lock()
 			defer p.mu.Unlock()
@@ -363,10 +363,10 @@ func (r *cluster) hold(t *testing.T, e *nodeEnd, upstream role.Upstream) {
 }
 
 // start asks for job's Transfer of one file per group from seedbox into
-// home's root, as a purpose does: Start in its Write, Touch after.
+// home's root, as a purpose does: Want in its Write, Touch after.
 func (r *cluster) start(t *testing.T, job string, groups ...string) transfers.ID {
 	t.Helper()
-	req := transfers.Request{Purpose: transfers.Grab, Job: job, Source: r.seedbox, Destination: transfers.Root{ID: r.root}}
+	req := transfers.Request{Purpose: transfers.Import, Job: job, Source: r.seedbox, Destination: transfers.Root{ID: r.root}}
 	for i, g := range groups {
 		var h bencode.InfoHash
 		h[0] = byte(i + 1)
@@ -375,10 +375,16 @@ func (r *cluster) start(t *testing.T, job string, groups ...string) transfers.ID
 	var id transfers.ID
 	r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
-		id, err = r.tr.Start(ctx, tx, req)
+		id, err = r.tr.Want(ctx, tx, req)
 		return err
 	})
 	return id
+}
+
+// end asks for none of job's files, which ends its Transfer.
+func (r *cluster) end(ctx context.Context, tx *storage.Tx[storage.Library], job string) error {
+	_, err := r.tr.Want(ctx, tx, transfers.Request{Purpose: transfers.Import, Job: job})
+	return err
 }
 
 // write runs fn in one Write, then Touches the loop and waits for it.
@@ -433,7 +439,7 @@ func check(t *testing.T, what string, got, want []string) {
 	}
 }
 
-func TestStartIsIdempotentOnPurposeAndJob(t *testing.T) {
+func TestWantIsIdempotentOnPurposeAndJob(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		r := newCluster(t)
 		first := r.start(t, "heat", "")
@@ -447,7 +453,7 @@ func TestStartIsIdempotentOnPurposeAndJob(t *testing.T) {
 		var ok bool
 		err := r.lib.Read(t.Context(), func(ctx context.Context, rd storage.Reader[storage.Library]) error {
 			var err error
-			found, ok, err = r.tr.Find(ctx, rd, transfers.Grab, "heat")
+			found, ok, err = r.tr.Find(ctx, rd, transfers.Import, "heat")
 			return err
 		})
 		if err != nil || !ok || found.ID != first || found.Source != r.seedbox || found.Destination != (transfers.Root{ID: r.root}) {
@@ -511,11 +517,14 @@ func TestPlacedRemovesTheRecordWithItsLastFile(t *testing.T) {
 	})
 }
 
-func TestCancelDeletesTheRecordAndBothEndsLetGo(t *testing.T) {
+func TestWantingNothingDeletesTheRecordAndBothEndsLetGo(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		r := newCluster(t)
 		id := r.start(t, "heat", "")
-		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error { return r.tr.Cancel(ctx, tx, id) })
+		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error { return r.end(ctx, tx, "heat") })
+		if _, err := r.tr.Get(t.Context(), id); !errors.Is(err, transfers.ErrNotFound) {
+			t.Errorf("the Transfer reads %v, want it gone", err)
+		}
 		check(t, "seedbox runs", r.seedboxEnd.actives(), nil)
 		check(t, "home runs", r.homeEnd.actives(), nil)
 		if in, _ := r.homeEnd.now(); len(in.GetKeep()) != 0 {
@@ -524,15 +533,15 @@ func TestCancelDeletesTheRecordAndBothEndsLetGo(t *testing.T) {
 	})
 }
 
-// TestALoopStartedAfterACancelLetsGo cancels a Transfer while the loop is
+// TestALoopStartedAfterAnEndLetsGo ends a Transfer while the loop is
 // down, as when the Controller restarts after its Nodes' sessions derived
 // their intents: the loop's first pass lets both ends go.
-func TestALoopStartedAfterACancelLetsGo(t *testing.T) {
+func TestALoopStartedAfterAnEndLetsGo(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		r := newCluster(t)
-		id := r.start(t, "heat", "")
+		r.start(t, "heat", "")
 		r.stop()
-		if err := r.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error { return r.tr.Cancel(ctx, tx, id) }); err != nil {
+		if err := r.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error { return r.end(ctx, tx, "heat") }); err != nil {
 			t.Fatal(err)
 		}
 		r.tr.Touch()
@@ -546,18 +555,16 @@ func TestALoopStartedAfterACancelLetsGo(t *testing.T) {
 	})
 }
 
-// TestANodeThatDerivesBetweenPassesLetsGo starts and cancels a Transfer
+// TestANodeThatDerivesBetweenPassesLetsGo starts and ends a Transfer
 // while the loop is busy, and seedbox's session derives in between: the
 // loop's next judgment matches its last, yet seedbox lets go.
 func TestANodeThatDerivesBetweenPassesLetsGo(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		r := newCluster(t)
 		resume := r.pause()
-		var id transfers.ID
-		req := transfers.Request{Purpose: transfers.Grab, Job: "heat", Source: r.seedbox, Destination: transfers.Root{ID: r.root}, Files: []transfers.FileRequest{{Name: "heat.mkv", Source: source.Torrent{Hash: bencode.InfoHash{1}}, Size: 1 << 20}}}
+		req := transfers.Request{Purpose: transfers.Import, Job: "heat", Source: r.seedbox, Destination: transfers.Root{ID: r.root}, Files: []transfers.FileRequest{{Name: "heat.mkv", Source: source.Torrent{Hash: bencode.InfoHash{1}}, Size: 1 << 20}}}
 		if err := r.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-			var err error
-			id, err = r.tr.Start(ctx, tx, req)
+			_, err := r.tr.Want(ctx, tx, req)
 			return err
 		}); err != nil {
 			t.Fatal(err)
@@ -566,7 +573,7 @@ func TestANodeThatDerivesBetweenPassesLetsGo(t *testing.T) {
 		r.controls.Touch(r.seedbox)
 		synctest.Wait()
 		check(t, "seedbox runs after its session derived", r.seedboxEnd.actives(), []string{"send 0"})
-		if err := r.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error { return r.tr.Cancel(ctx, tx, id) }); err != nil {
+		if err := r.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error { return r.end(ctx, tx, "heat") }); err != nil {
 			t.Fatal(err)
 		}
 		r.tr.Touch()
@@ -597,12 +604,82 @@ func TestFailedFiresOnceWithItsSentence(t *testing.T) {
 	})
 }
 
+// TestAFailedRecordTakesNoNewFile fails a Transfer of two files after the
+// first verified. The purpose asks for the second again beside the first,
+// still placing from its staged copy: the failed record doesn't take it,
+// and once the first is placed it starts a record of its own. A failed
+// record whose files all went leaves a new file to a new record at once.
+func TestAFailedRecordTakesNoNewFile(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := newCluster(t)
+		file := func(n byte) transfers.FileRequest {
+			return transfers.FileRequest{Group: string('a' + n), Name: fmt.Sprintf("heat %d.mkv", n), Source: source.Torrent{Hash: bencode.InfoHash{n + 1}}, Size: 1 << 20}
+		}
+		want := func(ctx context.Context, tx *storage.Tx[storage.Library], job string, files ...transfers.FileRequest) (transfers.ID, error) {
+			return r.tr.Want(ctx, tx, transfers.Request{Purpose: transfers.Import, Job: job, Source: r.seedbox, Destination: transfers.Root{ID: r.root}, Files: files})
+		}
+		find := func(job string) transfers.Transfer {
+			var found transfers.Transfer
+			err := r.lib.Read(t.Context(), func(ctx context.Context, rd storage.Reader[storage.Library]) (err error) {
+				found, _, err = r.tr.Find(ctx, rd, transfers.Import, job)
+				return err
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			return found
+		}
+		names := func(tr transfers.Transfer) []string {
+			var out []string
+			for _, f := range tr.Files {
+				out = append(out, f.Name)
+			}
+			return out
+		}
+
+		id := r.start(t, "heat", "a", "b")
+		r.homeEnd.report(t, verifiedResult(id, 0, 1))
+		r.homeEnd.report(t, failed(id, tv1.Failed_CODE_DAMAGED, ""))
+		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := want(ctx, tx, "heat", file(0))
+			return err
+		})
+		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := want(ctx, tx, "heat", file(0), file(1))
+			return err
+		})
+		if got := find("heat"); got.ID != id || got.Failure == nil || !slices.Equal(names(got), []string{"heat 0.mkv"}) {
+			t.Fatalf("the failed record holds %q, failure %v, want only the staged file it had", names(got), got.Failure)
+		}
+		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			if err := r.tr.Placed(ctx, tx, id, 0); err != nil {
+				return err
+			}
+			_, err := want(ctx, tx, "heat", file(1))
+			return err
+		})
+		if got := find("heat"); got.ID == id || got.Failure != nil || !slices.Equal(names(got), []string{"heat 1.mkv"}) {
+			t.Errorf("once the staged file was placed the job's record is %s holding %q, failure %v; want a new live one of the file asked again", got.ID, names(got), got.Failure)
+		}
+
+		other := r.start(t, "ronin", "a")
+		r.homeEnd.report(t, failed(other, tv1.Failed_CODE_DAMAGED, ""))
+		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := want(ctx, tx, "ronin", file(2))
+			return err
+		})
+		if got := find("ronin"); got.ID == other || got.Failure != nil || !slices.Equal(names(got), []string{"heat 2.mkv"}) {
+			t.Errorf("a failed record whose files went leaves %s holding %q, failure %v; want a new live one", got.ID, names(got), got.Failure)
+		}
+	})
+}
+
 func TestAStaleOrForeignResultAppliesAsNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		r := newCluster(t)
 		id := r.start(t, "heat", "")
 		gone := r.start(t, "ronin", "")
-		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error { return r.tr.Cancel(ctx, tx, gone) })
+		r.write(t, func(ctx context.Context, tx *storage.Tx[storage.Library]) error { return r.end(ctx, tx, "ronin") })
 		r.seedboxEnd.report(t, verifiedResult(id, 0, 1))
 		r.seedboxEnd.report(t, failed(id, tv1.Failed_CODE_SOURCE_GONE, ""))
 		r.homeEnd.report(t, verifiedResult(id, 0, 2))

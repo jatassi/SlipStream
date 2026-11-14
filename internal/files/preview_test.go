@@ -71,13 +71,12 @@ func TestAnImaginedFileIsNamedUnderTheDraftAndWritesNothing(t *testing.T) {
 	w1 := s.work(t, "w1", "Shelf w1")
 	s.found(t, w1, 0, "Shelf w1/Shelf w1 - Scarf - Web.mkv")
 	before := s.l.rows(t)
-	keep := files.Keep
-	in := files.Incoming{
-		WorkID: w1.ID, ItemID: w1.Items[1].ID, Cut: release.Standard, RootID: s.l.root.ID, Holding: files.HoldingOf(storage.NewUUID(), ".mkv"),
-		Quality: release.WEBDL1080p, SourceName: "mittens.mkv", Unwanted: &keep,
-	}
+	in := files.Batch{Work: w1.ID, Root: s.l.root.ID, Candidates: []files.Candidate{{
+		Items: []works.ItemID{w1.Items[1].ID}, Cut: release.Standard, Holding: files.HoldingOf(storage.NewUUID(), ".mkv"),
+		Quality: release.WEBDL1080p, SourceName: "mittens.mkv",
+	}}}
 
-	var stored, drafted files.Placement
+	var stored, drafted string
 	err := s.l.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
 		var err error
 		if stored, err = svc.Imagine(ctx, r, in, nil); err != nil {
@@ -89,8 +88,8 @@ func TestAnImaginedFileIsNamedUnderTheDraftAndWritesNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stored.Path != "Shelf w1/Shelf w1 - Mittens - Web.mkv" || drafted.Path != "Shelf w1/Shelf w1 - Mittens - [Web].mkv" {
-		t.Fatalf("imagined paths = %q and %q, want the stored template's and the draft's", stored.Path, drafted.Path)
+	if stored != "Shelf w1/Shelf w1 - Mittens - Web.mkv" || drafted != "Shelf w1/Shelf w1 - Mittens - [Web].mkv" {
+		t.Fatalf("imagined paths = %q and %q, want the stored template's and the draft's", stored, drafted)
 	}
 	if after := s.l.rows(t); !maps.Equal(after, before) {
 		t.Fatalf("files after imagining = %v, want them as they were: %v", after, before)

@@ -39,23 +39,45 @@ func EncodeFixtures(ctx context.Context, binary string) error {
 		return fmt.Errorf("create a scratch folder: %w", err)
 	}
 	defer func() { _ = os.RemoveAll(scratch) }()
+	var catalog []scenario.Scenario
 	var files []scenario.MediaFile
-	for i, name := range scenario.Catalog() {
+	for _, name := range scenario.Catalog() {
 		s, err := scenario.Load(name)
 		if err != nil {
 			return err
 		}
-		cfg := releases.Config{FFmpeg: tools.FFmpeg, Cache: cache, Dir: filepath.Join(scratch, strconv.Itoa(i)), Tracker: netip.MustParseAddrPort("127.0.0.1:1")}
+		catalog = append(catalog, s)
+		files = append(files, mediaFiles(s)...)
+	}
+	if err := buildAll(ctx, b, files); err != nil {
+		return err
+	}
+	for i, s := range catalog {
+		cfg := releases.Config{Tools: tools, Cache: cache, Dir: filepath.Join(scratch, strconv.Itoa(i)), Tracker: netip.MustParseAddrPort("127.0.0.1:1")}
 		if _, err := releases.Build(ctx, s, cfg); err != nil {
-			return fmt.Errorf("scenario %s: %w", name, err)
+			return fmt.Errorf("scenario %s: %w", s.Name, err)
 		}
-		if s.Library != nil {
-			for _, f := range s.Library.Folders {
-				files = append(files, f.Files...)
+	}
+	return nil
+}
+
+// mediaFiles are the files of s's library folders and the videos of its
+// releases of files, which mediafix encodes.
+func mediaFiles(s scenario.Scenario) []scenario.MediaFile {
+	var files []scenario.MediaFile
+	if s.Library != nil {
+		for _, f := range s.Library.Folders {
+			files = append(files, f.Files...)
+		}
+	}
+	for _, r := range s.Releases {
+		for _, f := range r.Files {
+			if f.Video != nil {
+				files = append(files, f.Media())
 			}
 		}
 	}
-	return buildAll(ctx, b, files)
+	return files
 }
 
 // buildAll builds files as many at a time as there are CPUs.

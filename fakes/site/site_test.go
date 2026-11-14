@@ -448,7 +448,7 @@ func TestATorznabSearchPagesAndReadsEveryAttribute(t *testing.T) {
 
 func TestAnnounceRewriteKeepsTheInfoHash(t *testing.T) {
 	s := scenarioWithSeed()
-	meta, hash, err := releases.Metainfo("orchard.mkv", []byte("the orchard payload"), "https://127.0.0.1:1/announce/built", false)
+	meta, hash, err := releases.Metainfo("orchard.mkv", nil, []byte("the orchard payload"), "https://127.0.0.1:1/announce/built", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -524,7 +524,7 @@ func TestAMagnetLinkNamesTheReadersTrackerFront(t *testing.T) {
 
 func TestAPublicReleaseAnnouncesToTheReadersUDPSocket(t *testing.T) {
 	s := scenarioWithSeed()
-	meta, hash, err := releases.Metainfo("orchard.mkv", []byte("the orchard payload"), "https://127.0.0.1:1/announce/built", true)
+	meta, hash, err := releases.Metainfo("orchard.mkv", nil, []byte("the orchard payload"), "https://127.0.0.1:1/announce/built", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -584,7 +584,7 @@ func TestEachPrivateSiteStatesItsRule(t *testing.T) {
 
 func TestEachSitesTorrentsAnnounceWithItsOwnPasskey(t *testing.T) {
 	s := scenarioWithSeed()
-	meta, hash, err := releases.Metainfo("orchard.mkv", []byte("the orchard payload"), "https://127.0.0.1:1/announce/built", false)
+	meta, hash, err := releases.Metainfo("orchard.mkv", nil, []byte("the orchard payload"), "https://127.0.0.1:1/announce/built", false)
 	if err != nil {
 		t.Fatal(err)
 	}

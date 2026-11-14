@@ -26,6 +26,7 @@ var (
 	FaultStall      = setting.Duration{Key: "downloading.faultStall", Label: "A download with no data at all is bad after", Default: 12 * time.Hour, Min: time.Hour, Max: 30 * 24 * time.Hour, Step: time.Hour}
 	UnregisteredGap = setting.Duration{Key: "downloading.unregisteredGap", Label: "Unregistered twice, this far apart", Default: 30 * time.Minute, Min: time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute}
 	MetadataWait    = setting.Duration{Key: "downloading.metadataWait", Label: "A magnet link with no metadata fails after", Default: 30 * time.Minute, Min: time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute}
+	ClientErrorFail = setting.Duration{Key: "downloading.clientErrorFail", Label: "A client error fails its Grab after", Default: time.Hour, Min: 5 * time.Minute, Max: 7 * 24 * time.Hour, Step: time.Minute}
 	CheckEvery      = setting.Duration{Key: "downloadClients.checkEvery", Label: "Check every", Default: 10 * time.Second, Min: 2 * time.Second, Max: time.Hour, Step: time.Second}
 	ImportDelay     = setting.Duration{Key: "downloadClients.importDelay", Label: "Import delay", Default: 0, Min: 0, Max: 24 * time.Hour, Step: time.Minute}
 )
@@ -174,25 +175,32 @@ func setNodeSettings(ctx context.Context, tx *storage.Tx[file], node role.NodeID
 
 // Thresholds decide when a release counts as bad: FaultStall and
 // UnregisteredGap on every Node, MetadataWait on the Controller, which
-// fails a magnet link's Grab once its metadata search ran this long.
-type Thresholds struct{ FaultStall, UnregisteredGap, MetadataWait time.Duration }
+// fails a magnet link's Grab once its metadata search ran this long. And
+// ClientErrorFail, which fails a downloading Grab once its external client
+// reported an error on its Torrent this long.
+type Thresholds struct{ FaultStall, UnregisteredGap, MetadataWait, ClientErrorFail time.Duration }
 
 // ThresholdOverrides is the stored thresholds, each nil at its default.
-type ThresholdOverrides struct{ FaultStall, UnregisteredGap, MetadataWait *int64 }
+type ThresholdOverrides struct{ FaultStall, UnregisteredGap, MetadataWait, ClientErrorFail *int64 }
 
 // ThresholdChange is the thresholds to store, each nil to leave.
-type ThresholdChange struct{ FaultStall, UnregisteredGap, MetadataWait *setting.Stored[int64] }
+type ThresholdChange struct {
+	FaultStall, UnregisteredGap, MetadataWait, ClientErrorFail *setting.Stored[int64]
+}
 
 func (o ThresholdOverrides) Thresholds() Thresholds {
 	return Thresholds{
 		FaultStall: FaultStall.Value(o.FaultStall), UnregisteredGap: UnregisteredGap.Value(o.UnregisteredGap),
-		MetadataWait: MetadataWait.Value(o.MetadataWait),
+		MetadataWait: MetadataWait.Value(o.MetadataWait), ClientErrorFail: ClientErrorFail.Value(o.ClientErrorFail),
 	}
 }
 
 func thresholdOverridesOf(ctx context.Context, r storage.Reader[file]) (ThresholdOverrides, error) {
 	row, err := db.New(r).GetThresholds(ctx)
-	return ThresholdOverrides{FaultStall: row.FaultStallSeconds, UnregisteredGap: row.UnregisteredGapSeconds, MetadataWait: row.MetadataWaitSeconds}, err
+	return ThresholdOverrides{
+		FaultStall: row.FaultStallSeconds, UnregisteredGap: row.UnregisteredGapSeconds, MetadataWait: row.MetadataWaitSeconds,
+		ClientErrorFail: row.ClientErrorFailSeconds,
+	}, err
 }
 
 // ThresholdsIn is the thresholds with every default applied, read in r.
@@ -207,7 +215,8 @@ func (c *Clients) Thresholds(ctx context.Context) (ThresholdOverrides, error) {
 }
 
 // SetThresholds stores ch, which every downloading Node applies from its
-// next intent.
+// next intent, and wakes what reads the Torrents' outcomes, as a changed
+// ClientErrorFail may fail a Grab.
 func (c *Clients) SetThresholds(ctx context.Context, ch ThresholdChange) (ThresholdOverrides, error) {
 	var o ThresholdOverrides
 	err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
@@ -221,6 +230,7 @@ func (c *Clients) SetThresholds(ctx context.Context, ch ThresholdChange) (Thresh
 	downloaders := c.cfg.Roster.Serving(role.Downloading)
 	c.cfg.Touch(downloaders...)
 	c.cardsChanged(downloaders...)
+	c.wake()
 	return o, nil
 }
 
@@ -238,7 +248,11 @@ func setThresholds(ctx context.Context, tx *storage.Tx[file], c ThresholdChange)
 	if c.MetadataWait != nil {
 		o.MetadataWait = c.MetadataWait.Override()
 	}
+	if c.ClientErrorFail != nil {
+		o.ClientErrorFail = c.ClientErrorFail.Override()
+	}
 	return o, db.New(tx).SetThresholds(ctx, db.SetThresholdsParams{
 		FaultStallSeconds: o.FaultStall, UnregisteredGapSeconds: o.UnregisteredGap, MetadataWaitSeconds: o.MetadataWait,
+		ClientErrorFailSeconds: o.ClientErrorFail,
 	})
 }

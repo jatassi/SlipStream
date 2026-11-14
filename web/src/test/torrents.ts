@@ -125,7 +125,9 @@ export function detailOf(
     pieceSize: 4 * 1024 * 1024,
     private: true,
     trackers: [],
-    files: [{ index: 0, path: `${row.name}/${row.name}.mkv`, size: row.size, done: row.done }],
+    files: [
+      { index: 0, path: `${row.name}/${row.name}.mkv`, size: row.size, done: row.done, items: [] },
+    ],
     grabs: [],
     live: true,
     ...more,

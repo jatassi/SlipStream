@@ -48,7 +48,7 @@ func write(t *testing.T, lib library, fn func(context.Context, *storage.Tx[stora
 func TestEveryClientSettingIsDeclaredSoundly(t *testing.T) {
 	for _, d := range []interface{ Check() error }{
 		dc.DownloadLimit, dc.UploadLimit, dc.ActiveDownloads, dc.ActiveChecks, dc.Connections,
-		dc.StalledAfter, dc.FaultStall, dc.UnregisteredGap, dc.MetadataWait, dc.CheckEvery, dc.ImportDelay,
+		dc.StalledAfter, dc.FaultStall, dc.UnregisteredGap, dc.MetadataWait, dc.ClientErrorFail, dc.CheckEvery, dc.ImportDelay,
 	} {
 		if err := d.Check(); err != nil {
 			t.Error(err)
@@ -72,8 +72,8 @@ func TestNodeSettingsReadDefaultsWhenAbsent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := th.Thresholds(); got != (dc.Thresholds{FaultStall: 12 * time.Hour, UnregisteredGap: 30 * time.Minute, MetadataWait: 30 * time.Minute}) {
-		t.Errorf("thresholds = %+v, want 12h, 30m and 30m", got)
+	if got := th.Thresholds(); got != (dc.Thresholds{FaultStall: 12 * time.Hour, UnregisteredGap: 30 * time.Minute, MetadataWait: 30 * time.Minute, ClientErrorFail: time.Hour}) {
+		t.Errorf("thresholds = %+v, want 12h, 30m, 30m and 1h", got)
 	}
 }
 
@@ -145,15 +145,16 @@ func TestThresholdsKeepWhatIsLeftAndReachEveryDownloadingNode(t *testing.T) {
 	seedbox, home := addNode(t, lib, "seedbox"), addNode(t, lib, "home")
 	r, cards := &readers{}, &told{}
 	c := dc.New(dc.Config{Library: lib, Touch: r.touch, Changed: r, CardsChanged: cards, Roster: &roster{serving: []role.NodeID{seedbox, home}}})
-	gap, metadataWait := int64(3600), int64(60)
+	gap, metadataWait, clientError := int64(3600), int64(60), int64(600)
 	o, err := c.SetThresholds(t.Context(), dc.ThresholdChange{
 		UnregisteredGap: parsed(dc.UnregisteredGap.Parse(&gap)), MetadataWait: parsed(dc.MetadataWait.Parse(&metadataWait)),
+		ClientErrorFail: parsed(dc.ClientErrorFail.Parse(&clientError)),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := o.Thresholds(); got != (dc.Thresholds{FaultStall: 12 * time.Hour, UnregisteredGap: time.Hour, MetadataWait: time.Minute}) {
-		t.Errorf("thresholds = %+v, want 12h, 1h and 1m", got)
+	if got := o.Thresholds(); got != (dc.Thresholds{FaultStall: 12 * time.Hour, UnregisteredGap: time.Hour, MetadataWait: time.Minute, ClientErrorFail: 10 * time.Minute}) {
+		t.Errorf("thresholds = %+v, want 12h, 1h, 1m and 10m", got)
 	}
 	if read, err := c.Thresholds(t.Context()); err != nil || read.Thresholds() != o.Thresholds() {
 		t.Errorf("read back %+v, %v; want %+v", read, err, o)

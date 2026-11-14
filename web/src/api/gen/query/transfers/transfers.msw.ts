@@ -39,7 +39,7 @@ export const getListTransfersResponseMock = (
       id: faker.string.uuid(),
       job: faker.string.alpha({ length: { min: 10, max: 20 } }),
       jobName: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      purpose: faker.helpers.arrayElement(["grab"] as const),
+      purpose: faker.helpers.arrayElement(["import"] as const),
       rate: faker.number.int({ min: 0 }),
       ...(faker.datatype.boolean()
         ? { reason: faker.string.alpha({ length: { min: 10, max: 20 } }) }
@@ -207,7 +207,7 @@ export const getGetTransferResponseMock = (
   id: faker.string.uuid(),
   job: faker.string.alpha({ length: { min: 10, max: 20 } }),
   jobName: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  purpose: faker.helpers.arrayElement(["grab"] as const),
+  purpose: faker.helpers.arrayElement(["import"] as const),
   rate: faker.number.int({ min: 0 }),
   ...(faker.datatype.boolean()
     ? { reason: faker.string.alpha({ length: { min: 10, max: 20 } }) }

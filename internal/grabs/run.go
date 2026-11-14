@@ -3,11 +3,9 @@ package grabs
 import (
 	"cmp"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand/v2"
-	"path"
 	"slices"
 	"time"
 
@@ -19,18 +17,11 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/magnet"
-	"github.com/jatassi/slipstream/internal/media"
-	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
-	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
-	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
-	"github.com/jatassi/slipstream/internal/storing"
-	"github.com/jatassi/slipstream/internal/targets"
-	"github.com/jatassi/slipstream/internal/torrent/engine"
-	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -39,16 +30,11 @@ import (
 type outcome interface{ outcome() }
 
 // advance moves a Grab to its next stage with what that stage needs: the
-// .torrent and the Nodes that fetched and download it into downloading,
-// the plan out of probing, the file into imported and, when a Transfer
-// staged it, that Transfer.
+// .torrent and the Nodes that fetched and download it into downloading.
 type advance struct {
 	to      Stage
 	torrent *dotTorrent
 	fetched *fetched
-	plan    *Plan
-	file    *files.Incoming
-	placed  *transfers.ID
 }
 
 // dotTorrent is a fetched .torrent, decoded and as the Indexer sent it.
@@ -88,13 +74,11 @@ func (fail) outcome()    {}
 func (wait) outcome()    {}
 func (stopped) outcome() {}
 
-// steps is the pipeline: the step each stage runs. A transferring Grab
-// has none: its Transfer's hooks move it. Imported and Failed have none.
+// steps is the pipeline: the step each stage runs. An importing Grab has
+// none: its Import moves it through Follow. Imported and Failed have none.
 var steps = map[Stage]func(*Grabs, context.Context, Grab) outcome{
 	Fetching:    (*Grabs).fetch,
 	Downloading: (*Grabs).downloaded,
-	Probing:     (*Grabs).probe,
-	Importing:   (*Grabs).importFile,
 }
 
 // due reports whether g has a step to run now. A downloading Grab waits
@@ -207,11 +191,14 @@ func decoded(g Grab, raw []byte, f fetched) outcome {
 func (gr *Grabs) downloaded(_ context.Context, g Grab) outcome {
 	switch o := g.Torrent.Outcome.(type) {
 	case downloadclients.Completed:
-		return advance{to: Probing}
+		return advance{to: Importing}
 	case downloadclients.Failed:
 		return fail{DownloadFailed, o.Error}
 	case downloadclients.Gone:
 		return failOfGone(o)
+	case downloadclients.Errored:
+		return fail{ClientError, fmt.Sprintf("%s on %s reported an error for more than %s. Search can try another Release.",
+			g.Torrent.Client.Name, g.Torrent.ClientError.Node, setting.Words(o.After))}
 	}
 	panic("grabs: a Grab whose Torrent is Pending is never due")
 }
@@ -258,200 +245,6 @@ func failOfFault(g downloadclients.Gone) fail {
 	panic("grabs: no failure for release fault " + string(*g.Fault))
 }
 
-func (gr *Grabs) probe(ctx context.Context, g Grab) outcome {
-	video, ok := largestVideo(g.Torrent.Files)
-	if !ok {
-		return fail{NoVideoFile, "The download holds no video file."}
-	}
-	record, err := gr.cfg.Media.Probe(ctx, g.Node, g.Torrent.InfoHash, video.Index)
-	if err != nil {
-		return classify(ctx, err, ProbeFailed)
-	}
-	holding := files.HoldingOf(g.ID.UUID, path.Ext(video.Path))
-	var p Plan
-	var placeErr error
-	err = gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		tree, err := gr.cfg.Works.TreeIn(ctx, r, g.WorkID)
-		if err != nil {
-			return err
-		}
-		root, err := roots.OfWork(ctx, r, g.WorkID)
-		if err != nil {
-			return err
-		}
-		unwanted, err := db.New(r).GetUnwanted(ctx, g.ID)
-		if err != nil {
-			return err
-		}
-		read, facts, err := gr.facts(ctx, r, g, tree.ContentType, record)
-		if err != nil {
-			return err
-		}
-		quality, _ := facts.Quality.Get()
-		placement, err := gr.cfg.Files.Place(ctx, r, files.Incoming{
-			WorkID: g.WorkID, ItemID: g.ItemID, Cut: facts.Cut, RootID: root.ID, Holding: holding,
-			Size: video.Size, Media: record, Quality: quality, ReleaseName: g.Release.Title, Title: read, SourceName: path.Base(video.Path),
-			GrabID: g.ID.UUID, Meant: g.Targets, Unwanted: unwanted,
-		})
-		p, placeErr = Plan{Root: root, Path: placement.Path, Fills: placement.Fills}, err
-		return nil
-	})
-	if err != nil {
-		return local(ctx, err)
-	}
-	if f, ok := refused(placeErr); ok {
-		return f
-	}
-	if placeErr != nil {
-		return fail{ImportFailed, placeErr.Error()}
-	}
-	until := gr.cfg.Roots.Watch()
-	if err := gr.cfg.Files.Vacant(ctx, p.Root.ID, holding, p.Path); err != nil {
-		if f, ok := refused(err); ok {
-			return f
-		}
-		return storageOutcome(ctx, err, until)
-	}
-	p.FileIndex, p.Media = video.Index, record
-	if p.Root.Node == g.Node {
-		return advance{to: Importing, plan: &p}
-	}
-	return advance{to: Transferring, plan: &p}
-}
-
-// refused is the failure of a Grab whose file the library refuses: it
-// fills nothing, its name is taken, or its name doesn't fit on its root.
-func refused(err error) (fail, bool) {
-	var nothing *files.FillsNothingError
-	var taken *files.NameTakenError
-	var long *naming.TooLongError
-	switch {
-	case errors.As(err, &nothing):
-		return fail{FillsNothing, nothing.Error()}, true
-	case errors.As(err, &taken):
-		return fail{NameTaken, taken.Error()}, true
-	case errors.As(err, &long):
-		return fail{NameTooLong, long.Error()}, true
-	}
-	return fail{}, false
-}
-
-// largestVideo is the largest file that counts as a video, so a sample
-// or a bonus feature is never the one imported.
-func largestVideo(fs []engine.File) (engine.File, bool) {
-	var best engine.File
-	found := false
-	for _, f := range fs {
-		if media.Counts(f.Path) && (!found || f.Size > best.Size) {
-			best, found = f, true
-		}
-	}
-	return best, found
-}
-
-// importFile places the file in its root's holding folder, on the Node
-// that holds the root: the download linked when that Node downloaded it,
-// else the file its Transfer staged renamed. The root is read as it is
-// now, so a re-home never strands a Grab on a stale plan. The bytes go
-// first, outside any Write, under a name only this Grab uses; the commit
-// imports the file, and the disk queue gives it its name. A root that
-// isn't ready makes it wait for the root to change, and a staged file not
-// verified where the root is now sends the Grab back to transferring.
-func (gr *Grabs) importFile(ctx context.Context, g Grab) outcome {
-	root := g.Plan.Root
-	holding, err := storing.ParseRel(files.HoldingOf(g.ID.UUID, path.Ext(g.Plan.Path)))
-	if err != nil {
-		return fail{ImportFailed, err.Error()}
-	}
-	until := gr.cfg.Roots.Watch()
-	i := slices.IndexFunc(g.Torrent.Files, func(f engine.File) bool { return f.Index == g.Plan.FileIndex })
-	imported := advance{to: Imported, file: &files.Incoming{
-		WorkID: g.WorkID, ItemID: g.ItemID, RootID: root.ID, Holding: holding.String(),
-		Media: g.Plan.Media, SourceName: path.Base(g.Torrent.Files[i].Path), GrabID: g.ID.UUID, Meant: g.Targets,
-	}}
-	if root.Node == g.Node {
-		placed, err := gr.cfg.Roots.Place(ctx, root.ID, holding, storing.Payload{InfoHash: g.Torrent.InfoHash, FileIndex: g.Plan.FileIndex})
-		if err != nil {
-			return storageOutcome(ctx, err, until)
-		}
-		imported.file.Size, imported.file.Seen = placed.Size, placed.Seen
-		return imported
-	}
-	t, verified, err := gr.staged(ctx, g)
-	switch {
-	case err != nil:
-		return local(ctx, err)
-	case !verified:
-		return advance{to: Transferring}
-	}
-	moved, err := gr.cfg.Roots.Move(ctx, root.ID, transfers.StagedRel(t, 0), holding, false)
-	if err != nil {
-		if _, verified, rerr := gr.staged(ctx, g); rerr == nil && !verified {
-			return advance{to: Transferring}
-		}
-		return storageOutcome(ctx, err, until)
-	}
-	imported.file.Size, imported.file.Seen = moved.Size, moved.Seen
-	imported.placed = &t
-	return imported
-}
-
-// staged is g's Transfer, and whether it holds g's file verified at the
-// place g's root is now.
-func (gr *Grabs) staged(ctx context.Context, g Grab) (id transfers.ID, verified bool, err error) {
-	var t transfers.Transfer
-	var ok bool
-	err = gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		var err error
-		t, ok, err = gr.cfg.Transfers.Find(ctx, r, transfers.Grab, g.ID.String())
-		return err
-	})
-	if err != nil || !ok || t.Failure != nil {
-		return transfers.ID{}, false, err
-	}
-	return t.ID, !slices.ContainsFunc(t.Files, func(f transfers.File) bool { return !f.Verified && !f.Placed }), nil
-}
-
-// storageOutcome turns a root's refusal or a Storage call's error into its
-// outcome. A root that may not take the bytes now, or a Node that lost
-// Storage, waits for until, a root's next change; a Node the call didn't
-// reach waits for the roster, and a call lost on the way, or a download
-// its Node hasn't finished re-adding, waits a backoff. Another file at the
-// target, or any other error, fails the Grab.
-func storageOutcome(ctx context.Context, err error, until <-chan struct{}) outcome {
-	why, notSent := rpc.NotSent(err)
-	_, notReady := errors.AsType[*storing.NotReady](err)
-	switch {
-	case ctx.Err() != nil:
-		return stopped{}
-	case notReady, notSent && why == rpc.NotHolder:
-		return wait{cause: err, root: until}
-	case notSent:
-		return wait{cause: err, roster: true}
-	case rpc.Lost(err):
-		return wait{cause: err}
-	}
-	return fail{ImportFailed, err.Error()}
-}
-
-// facts is what g's file is, read in r: its release title read by
-// Content Type typ, among the cuts a title of typ can name, and that
-// reading's facts at the resolution its media record measured. A Grab an
-// Admin grabbed as another Edition has that Edition's cut, so its file is
-// stored under it and every later refill keeps the fill.
-func (gr *Grabs) facts(ctx context.Context, r storage.Reader[file], g Grab, typ works.TypeID, m media.Record) (release.Read, release.Facts, error) {
-	known, err := gr.cfg.Targets.CutsIn(ctx, r)
-	if err != nil {
-		return release.Read{}, release.Facts{}, err
-	}
-	read := release.Title(g.Release.Title, gr.cfg.Names[typ], known.For(typ))
-	facts := read.Facts.WithProbe(release.Probed{Resolution: release.Known(m.Resolution())})
-	if g.Overrides.Edition != "" {
-		facts.Cut = release.CutKey(g.Edition)
-	}
-	return read, facts, nil
-}
-
 // errLeft rolls back a commit whose Grab has left the stage it moves
 // from, along with any Torrent its attach added.
 var errLeft = errors.New("the Grab left the stage")
@@ -485,14 +278,9 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 		taken, reran, err = gr.left(ctx, tx, g, o, re)
 		return err
 	})
-	f, isRefused := refused(err)
 	switch {
-	case errors.Is(err, files.ErrRootChanged):
-		return gr.commit(ctx, g, fail{RootChanged, err.Error()})
 	case errors.Is(err, errBlocked):
 		return gr.commit(ctx, g, dropped{Blocklisted, blockedWords})
-	case isRefused:
-		return gr.commit(ctx, g, f)
 	case errors.Is(err, errLeft), errors.Is(err, works.ErrNoWork):
 		return nil
 	case err != nil:
@@ -515,8 +303,7 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 // confirm refuses a fetch whose .torrent the Blocklist holds with
 // errBlocked, before anything reaches a client. It re-reads a Grab's
 // Torrent in tx, so a removal that committed after the step read it fails
-// the Grab by its reason: a downloading Grab rather than advancing it, and
-// a later one rather than failing it for the files the removal took.
+// a downloading Grab by its reason rather than advancing it.
 func confirm(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome) (outcome, error) {
 	if a, ok := o.(advance); ok && a.torrent != nil {
 		hit, err := blockedHash(ctx, tx, a.torrent.metainfo.InfoHash)
@@ -527,16 +314,14 @@ func confirm(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome) (outc
 			return nil, errBlocked
 		}
 	}
-	_, failing := o.(fail)
-	if g.Stage == Fetching || g.Stage != Downloading && !failing {
+	if g.Stage != Downloading {
 		return o, nil
 	}
 	now, err := downloadclients.Outcomes(ctx, tx, []downloadclients.ID{g.Torrent.ID})
 	if err != nil {
 		return nil, err
 	}
-	gone, ok := now[g.Torrent.ID].Outcome.(downloadclients.Gone)
-	if ok && (g.Stage == Downloading || slices.Contains(failsAtAnyStage, gone.Reason)) {
+	if gone, ok := now[g.Torrent.ID].Outcome.(downloadclients.Gone); ok {
 		return failOfGone(gone), nil
 	}
 	return o, nil
@@ -573,18 +358,14 @@ func RepointTracker(ctx context.Context, tx *storage.Tx[storage.Library], from, 
 
 // move writes o to g in tx, or fails with errLeft when g has left the
 // stage it stood at when read. It is the only code that writes a Grab's
-// stage: commit calls it for a step's outcome, and the transfers hooks
-// inside the Write that verified or failed the Grab's Transfer. In the
-// same Write, a move into transferring starts the Grab's Transfer, one
-// into imported places the file it staged, and one into imported or
-// failed cancels whatever Transfer the Grab still has.
+// stage: commit calls it for a step's outcome, cancelIn for a cancel and
+// Follow for what the Grab's Import reports. A move into importing starts
+// the Grab's Import in the same Write.
 func (gr *Grabs) move(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome) (db.AdvanceParams, error) {
 	now := storage.Now()
-	params, a, err := advanceParams(g, o, now)
-	if err != nil {
-		return params, err
-	}
+	params, a := advanceParams(g, o, now)
 	if a.torrent != nil {
+		var err error
 		if params.TorrentID, params.NodeID, err = gr.attach(ctx, tx, g, a, now); err != nil {
 			return params, err
 		}
@@ -600,76 +381,36 @@ func (gr *Grabs) move(ctx context.Context, tx *storage.Tx[file], g Grab, o outco
 	if err := q.InsertStage(ctx, db.InsertStageParams{GrabID: g.ID, Stage: params.Next, EnteredAt: now}); err != nil {
 		return params, err
 	}
-	for i, t := range a.fills() {
-		if err := q.InsertFill(ctx, db.InsertFillParams{GrabID: g.ID, Position: int64(i), TargetID: t}); err != nil {
-			return params, err
-		}
+	if params.Next != Importing {
+		return params, nil
 	}
-	if a.file != nil {
-		if err := gr.land(ctx, tx, g, *a.file); err != nil {
-			return params, err
-		}
-	}
-	if a.placed != nil {
-		if err := gr.cfg.Transfers.Placed(ctx, tx, *a.placed, 0); err != nil {
-			return params, err
-		}
-	}
-	switch params.Next {
-	case Transferring:
-		if a.plan != nil {
-			g.Plan = a.plan
-		}
-		return params, gr.startTransfer(ctx, tx, g)
-	case Imported, Failed:
-		return params, gr.cancelTransfer(ctx, tx, g.ID)
-	case Fetching, Downloading, Probing, Importing:
-	}
-	return params, nil
-}
-
-// land imports g's file in tx, with its facts, under the choice a change
-// that took its cells saved, if one did.
-func (gr *Grabs) land(ctx context.Context, tx *storage.Tx[file], g Grab, in files.Incoming) error {
-	unwanted, err := db.New(tx).GetUnwanted(ctx, g.ID)
+	h, err := Handed(ctx, tx, g.ID)
 	if err != nil {
-		return err
+		return params, err
 	}
-	tree, err := gr.cfg.Works.TreeIn(ctx, tx, g.WorkID)
-	if err != nil {
-		return err
-	}
-	read, facts, err := gr.facts(ctx, tx, g, tree.ContentType, g.Plan.Media)
-	if err != nil {
-		return err
-	}
-	in.Unwanted, in.Cut, in.ReleaseName, in.Title = unwanted, facts.Cut, g.Release.Title, read
-	in.Quality, _ = facts.Quality.Get()
-	_, _, err = gr.cfg.Files.Import(ctx, tx, in)
-	return err
+	return params, gr.importer.Start(ctx, tx, h)
 }
 
 // entered tells what g entering stage next changes beyond the library:
-// Admins, the downloading Node's intent, and the Transfers move started,
-// placed or canceled.
+// Admins, the downloading Node's intent, the Import that starts and the
+// library a placed file changed.
 func (gr *Grabs) entered(ctx context.Context, g Grab, next Stage) {
 	gr.searching.drop(g.ID)
 	gr.cfg.Changed.Publish(ctx, Changed{GrabID: g.ID.String(), WorkID: g.WorkID.String()})
 	switch next {
 	case Downloading:
 		gr.cfg.Downloads.Touch(g.Node)
+	case Importing:
+		gr.importer.Wake()
 	case Imported:
 		gr.cfg.Files.Poke()
 		gr.cfg.FilesChanged.Publish(ctx, files.Changed{WorkID: g.WorkID.String()})
-		gr.cfg.Transfers.Touch()
-	case Transferring, Failed:
-		gr.cfg.Transfers.Touch()
-	case Fetching, Probing, Importing:
+	case Fetching, Failed:
 	}
 }
 
 // advanceParams is the update moving g by o, and o when it advances.
-func advanceParams(g Grab, o outcome, now storage.Time) (db.AdvanceParams, advance, error) {
+func advanceParams(g Grab, o outcome, now storage.Time) (db.AdvanceParams, advance) {
 	params := db.AdvanceParams{ID: g.ID, Stage: g.Stage, UpdatedAt: now}
 	switch o := o.(type) {
 	case advance:
@@ -677,29 +418,14 @@ func advanceParams(g Grab, o outcome, now storage.Time) (db.AdvanceParams, advan
 		if o.fetched != nil {
 			params.FetchNodeID, params.NodeID = o.fetched.by, o.fetched.to
 		}
-		if o.plan != nil {
-			probe, err := json.Marshal(o.plan.Media)
-			if err != nil {
-				return db.AdvanceParams{}, advance{}, fmt.Errorf("encode the probe: %w", err)
-			}
-			params.FileIndex = new(int64(o.plan.FileIndex))
-			params.Probe, params.RootID, params.Path = new(string(probe)), o.plan.Root.ID, new(o.plan.Path)
-		}
-		return params, o, nil
+		return params, o
 	case fail:
 		params.Next = Failed
 		params.FailedStage, params.FailureCode, params.FailureMessage = &g.Stage, &o.code, new(o.msg)
 	case dropped:
 		return advanceParams(g, fail(o), now)
 	}
-	return params, advance{}, nil
-}
-
-func (a advance) fills() []targets.TargetID {
-	if a.plan == nil {
-		return nil
-	}
-	return a.plan.Fills
+	return params, advance{}
 }
 
 // result is how a job ended, for the schedule.
@@ -908,11 +634,11 @@ func (s *schedule) record(r report, now time.Time, t Timings, rnd *rand.Rand) {
 
 // next is how long the reconciler sleeps: until the earliest retry of a
 // job not running, as a running one may be waiting on the roster, and
-// no longer than one progress tick while a Grab downloads or transfers or
-// a read failed.
+// no longer than one progress tick while a Grab downloads or a read
+// failed.
 func (s *schedule) next(now time.Time, grabs []Grab, readFailed bool, t Timings) time.Duration {
 	wake := now.Add(time.Hour)
-	if readFailed || slices.ContainsFunc(grabs, func(g Grab) bool { return g.waitsOnTorrent() || g.Stage == Transferring }) {
+	if readFailed || slices.ContainsFunc(grabs, func(g Grab) bool { return g.waitsOnTorrent() }) {
 		wake = now.Add(t.Progress)
 	}
 	for id, at := range s.retryAt {
@@ -923,20 +649,14 @@ func (s *schedule) next(now time.Time, grabs []Grab, readFailed bool, t Timings)
 	return max(wake.Sub(now), 0)
 }
 
-// publishProgress sends grabs.changed for each downloading or transferring
-// Grab whose progress moved, at most once per progress tick.
+// publishProgress sends grabs.changed for each downloading Grab whose
+// progress moved, at most once per progress tick.
 func (gr *Grabs) publishProgress(ctx context.Context, s *schedule, now time.Time, grabs []Grab) {
 	if now.Sub(s.ticked) < gr.cfg.Timings.Progress {
 		return
 	}
 	s.ticked = now
-	progress, err := gr.progress(ctx, grabs)
-	if err != nil {
-		if ctx.Err() == nil {
-			gr.cfg.Log.Warn("read the Grabs' Transfers", "err", err.Error())
-		}
-		return
-	}
+	progress := gr.progress(grabs)
 	for _, g := range grabs {
 		p := progress[g.ID]
 		if p == nil || s.shown[g.ID] == *p {
@@ -947,7 +667,7 @@ func (gr *Grabs) publishProgress(ctx context.Context, s *schedule, now time.Time
 	}
 }
 
-// Progress is a download's or a Transfer's bytes done of its total.
+// Progress is a download's bytes done of its total.
 type Progress struct {
 	Done  int64
 	Total int64
@@ -955,34 +675,18 @@ type Progress struct {
 
 // progress is each of grabs' progress, when it has one: a downloading
 // Grab's live while its Torrent is sampled, else as its Node last reported
-// it, and a transferring Grab's verified bytes of its Transfer.
-func (gr *Grabs) progress(ctx context.Context, grabs []Grab) (map[GrabID]*Progress, error) {
+// it.
+func (gr *Grabs) progress(grabs []Grab) map[GrabID]*Progress {
 	out := map[GrabID]*Progress{}
-	var jobs []string
 	for _, g := range grabs {
-		switch g.Stage {
-		case Downloading:
-			if p := gr.downloadProgress(g); p != nil {
-				out[g.ID] = p
-			}
-		case Transferring:
-			jobs = append(jobs, g.ID.String())
-		case Fetching, Probing, Importing, Imported, Failed:
+		if g.Stage != Downloading {
+			continue
+		}
+		if p := gr.downloadProgress(g); p != nil {
+			out[g.ID] = p
 		}
 	}
-	if len(jobs) == 0 {
-		return out, nil
-	}
-	views, err := gr.cfg.Transfers.ViewsOf(ctx, transfers.Grab, jobs)
-	if err != nil {
-		return nil, err
-	}
-	for _, g := range grabs {
-		if v, ok := views[g.ID.String()]; ok {
-			out[g.ID] = &Progress{Done: v.Verified, Total: v.Total}
-		}
-	}
-	return out, nil
+	return out
 }
 
 func (gr *Grabs) downloadProgress(g Grab) *Progress {

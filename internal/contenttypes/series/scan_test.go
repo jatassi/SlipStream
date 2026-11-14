@@ -79,16 +79,23 @@ func placer(t *testing.T, sh shelf, work works.WorkID) scanning.Placer {
 func placed(t *testing.T, tree works.Tree, place scanning.Placer, rel string) any {
 	t.Helper()
 	p := place(rel)
-	item, ok := p.Item()
+	items, ok := p.Items()
 	if !ok {
 		return p.Reason()
 	}
+	var keys []works.Key
 	for _, it := range tree.Items {
-		if it.ID == item {
-			return it.Key
+		if slices.Contains(items, it.ID) {
+			keys = append(keys, it.Key)
 		}
 	}
-	t.Fatalf("Place(%q) = Item %v, not one of %s's", rel, item, tree.Label)
+	if len(keys) == 1 {
+		return keys[0]
+	}
+	if len(keys) > 1 {
+		return keys
+	}
+	t.Fatalf("Place(%q) = Items %v, none of %s's", rel, items, tree.Label)
 	return nil
 }
 
@@ -107,11 +114,11 @@ func TestPlaceReadsEpisodeMarkers(t *testing.T) {
 		{"Specials/Severed S00E01.mkv", ep(0, 1)},
 		{"Severed 1920x1080 S01E01.mkv", ep(1, 1)},
 		{"Severed S01E01-720p.mkv", ep(1, 1)},
-		{"Severed S01E01E02.mkv", scanning.Reason{Code: scanning.SeveralItems}},
-		{"Severed S01E01-E02.mkv", scanning.Reason{Code: scanning.SeveralItems}},
-		{"Severed S01E01-02.mkv", scanning.Reason{Code: scanning.SeveralItems}},
-		{"Severed 1x01-1x02.mkv", scanning.Reason{Code: scanning.SeveralItems}},
-		{"Severed.S01.1080p.WEB-DL.mkv", scanning.Reason{Code: scanning.SeveralItems}},
+		{"Severed S01E01E02.mkv", []works.Key{ep(1, 1), ep(1, 2)}},
+		{"Severed S01E01-E02.mkv", []works.Key{ep(1, 1), ep(1, 2)}},
+		{"Severed S01E01-02.mkv", []works.Key{ep(1, 1), ep(1, 2)}},
+		{"Severed 1x01-1x02.mkv", []works.Key{ep(1, 1), ep(1, 2)}},
+		{"Severed.S01.1080p.WEB-DL.mkv", scanning.Reason{Code: scanning.NoNumber}},
 		{"Severed - Pilot.mkv", scanning.Reason{Code: scanning.NoNumber}},
 		{"Season 1/Severed.mkv", scanning.Reason{Code: scanning.NoNumber}},
 		{"Severed S03E14.mkv", scanning.Reason{Code: scanning.NoSuchItem, Names: "S03E14"}},

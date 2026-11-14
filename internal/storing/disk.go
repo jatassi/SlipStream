@@ -18,6 +18,9 @@ import (
 type Disk interface {
 	// Stat follows links and junctions.
 	Stat(ctx context.Context, path string) (Info, error)
+	// Resolve is the absolute path with every link and junction on it
+	// followed. A path that isn't there wraps fs.ErrNotExist.
+	Resolve(ctx context.Context, path string) (string, error)
 	ReadDir(ctx context.Context, dir string) ([]Entry, error)
 	Mkdir(ctx context.Context, path string) error
 	Open(ctx context.Context, path string) (io.ReadCloser, error)
@@ -32,6 +35,11 @@ type Disk interface {
 	RemoveAll(ctx context.Context, path string) error
 	Rename(ctx context.Context, from, to string) error
 	Link(ctx context.Context, from, to string) error
+	// Clone makes to a clone of from that shares its extents, through
+	// to+".part" renamed into place. Where the volume or the OS can't, as
+	// on Windows, ext4, a share or across two volumes, it fails with
+	// errors.ErrUnsupported.
+	Clone(ctx context.Context, from, to string) error
 	// Writable writes nothing: access(W_OK) and the volume's read-only flag.
 	Writable(ctx context.Context, dir string) (bool, error)
 	Volume(ctx context.Context, path string) (Volume, error)
@@ -169,11 +177,22 @@ func (e *NotReady) Error() string {
 	return "the root is " + e.State.String()
 }
 
+// Source is where a placed or probed file's bytes are on its Node: a
+// Payload or a NodePath.
+type Source interface{ source() }
+
 // Payload is a finished download's file on the root's Node.
 type Payload struct {
 	InfoHash  bencode.InfoHash
 	FileIndex int
 }
+
+// NodePath is an absolute path on the Node in one of its library roots or
+// download folders. The Node refuses any other with *OutsideError.
+type NodePath struct{ Abs string }
+
+func (Payload) source()  {}
+func (NodePath) source() {}
 
 // Recorded is a file the library records in a root, for Verify. Its bytes
 // are at Sits, or at Next while the disk queue moves them: the queue

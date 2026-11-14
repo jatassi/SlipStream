@@ -1,8 +1,6 @@
 package files_test
 
 import (
-	"context"
-	"errors"
 	"reflect"
 	"slices"
 	"testing"
@@ -41,19 +39,9 @@ func TestAnHDRTargetJudgesWhatAFilesMediaRecordReads(t *testing.T) {
 			hdr := must[targets.Target](t)(l.targets.CreateTarget(t.Context(), admin, spec))
 			tree := l.work(t, "w1", true, new(l.profile(t, "Films", hdr)))
 			svc := l.files(files.NoGrabs{})
-			in := files.Incoming{
-				WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: l.root.ID, Holding: files.HoldingOf(storage.NewUUID(), ".mkv"),
-				Size: 7, Media: c.record, Quality: release.WEBDL1080p, Meant: []targets.TargetID{hdr.ID},
-			}
-			var placed files.Placement
-			err := l.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-				var err error
-				placed, err = svc.Place(ctx, r, in)
-				return err
-			})
-			_, nothing := errors.AsType[*files.FillsNothingError](err)
-			if c.fills != (err == nil && slices.Equal(placed.Fills, []targets.TargetID{hdr.ID})) || !c.fills && !nothing {
-				t.Fatalf("Place = %+v, %v; want fills %t", placed, err, c.fills)
+			v := l.judge(t, svc, tree.ID, holdingOf(tree, 0, files.HoldingOf(storage.NewUUID(), ".mkv"), 7, c.record, release.WEBDL1080p))
+			if c.fills != slices.Equal(targetsOf(v.Fills), []targets.TargetID{hdr.ID}) || c.fills != v.Reasons[hdr.ID].Meets() {
+				t.Fatalf("Judge = fills %v, HDR's verdict %+v; want fills %t", v.Fills, v.Reasons[hdr.ID], c.fills)
 			}
 			if !c.fills {
 				return

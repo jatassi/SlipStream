@@ -5,7 +5,7 @@ import { page, userEvent } from "vitest/browser";
 import { problem } from "../../test/handlers";
 import { orchardId } from "../../test/library";
 import { renderApp } from "../../test/render-app";
-import { scannedFiles } from "../../test/work-cells";
+import { scannedFiles } from "../../test/scanned-files";
 import { workServer } from "../../test/work-server";
 
 const files = () => page.getByRole("list", { name: "Files", exact: true });

@@ -1,10 +1,11 @@
 import type {
-  ImportsEntry,
+  ImportsImportFile,
   ImportsLead,
   ImportsReason,
   ImportsReasonCode,
   WorksContentType,
 } from "../api/gen/model";
+import type { RootEntry } from "./root-entry";
 import type { Noun } from "../format";
 
 const counted = new Intl.NumberFormat("en");
@@ -25,8 +26,13 @@ function given<T>(value: T | undefined, what: string): T {
   return value;
 }
 
+/** A reason as a library scan or the name tester gives it, whose sentence the server may word. */
+type Reason = Omit<ImportsReason, "sentence"> & { readonly sentence?: string | null };
+
 /** How one reason reads for `files` of an entry's files that share it. */
-type Wording = (reason: ImportsReason, type: WorksContentType, files: number) => string;
+type Wording = (reason: Reason, type: WorksContentType, files: number) => string;
+
+const worded: Wording = ({ sentence }) => given(sentence ?? undefined, "sentence");
 
 const reasonWords: { readonly [C in ImportsReasonCode]: Wording } = {
   several: ({ title, year, count }, type) =>
@@ -45,10 +51,6 @@ const reasonWords: { readonly [C in ImportsReasonCode]: Wording } = {
       : `${counted.format(files)} file names have no ${lower(type.item).one} number.`,
   no_such_item: ({ names }, type) =>
     `This ${lower(type.work).one} has no ${lower(type.item).one} ${given(names, "names")}.`,
-  several_items: (_reason, type, files) =>
-    files === 1
-      ? `The file holds several ${lower(type.item).many}.`
-      : `${counted.format(files)} files each hold several ${lower(type.item).many}.`,
   unreadable: (_reason, _type, files) =>
     files === 1
       ? "ffprobe can't read this file. Replace it, then scan again."
@@ -59,15 +61,48 @@ const reasonWords: { readonly [C in ImportsReasonCode]: Wording } = {
     files === 1
       ? `SlipStream can't tell which ${lower(type.item).one} this file holds.`
       : `SlipStream can't tell which ${lower(type.item).one} each of ${counted.format(files)} files holds.`,
+  sample: worded,
+  bonus: worded,
+  hidden_folder: worded,
+  too_small: worded,
+  extension: worded,
+  runtime_sample: worded,
+  sibling_better: worded,
+  kept_better: worded,
+  meets_nothing: worded,
+  not_an_upgrade: worded,
+  edition_not_wanted: worded,
+  other_items: worded,
+  parts: worded,
+  name_taken: worded,
+  name_too_long: worded,
+  settings: worded,
+  busy: worded,
+  confirm: worded,
+  import_failed: worded,
+  root_changed: worded,
+  by_admin: worded,
+  removed: worded,
+  canceled: worded,
+  blocklisted: worded,
+  work_deleted: worded,
 };
 
 /** Why one file waits, in plain words. */
-export const reasonOf = (reason: ImportsReason, type: WorksContentType): string =>
+export const reasonOf = (reason: Reason, type: WorksContentType): string =>
   reasonWords[reason.code](reason, type, 1);
 
+/** The sentence a download's or a folder's file leads with: its hold, else why it waits. */
+export function fileSentence(file: ImportsImportFile, type: WorksContentType): string {
+  if (file.hold !== null) {
+    return file.hold.sentence;
+  }
+  return reasonOf(given(file.reason ?? undefined, "reason"), type);
+}
+
 /** Why an entry waits: one sentence per reason its files share, in file order. */
-export function reasonsOf(entry: ImportsEntry, type: WorksContentType): string[] {
-  const shared = new Map<string, { reason: ImportsReason; files: number }>();
+export function reasonsOf(entry: RootEntry, type: WorksContentType): string[] {
+  const shared = new Map<string, { reason: Reason; files: number }>();
   for (const { reason } of entry.files) {
     const key = JSON.stringify(reason);
     const seen = shared.get(key);
@@ -83,16 +118,20 @@ export function reasonsOf(entry: ImportsEntry, type: WorksContentType): string[]
 }
 
 /** An entry waits on a Work in another root, so it offers only Ignore. */
-export const isElsewhere = (entry: ImportsEntry): boolean =>
+export const isElsewhere = (entry: RootEntry): boolean =>
   entry.files.some(({ reason }) => reason.code === "elsewhere");
 
 /** Its suggestion can be added, or take its files, from here. */
-export const isAddable = (entry: ImportsEntry): boolean =>
+export const isAddable = (entry: RootEntry): boolean =>
   entry.suggestion !== null && !isElsewhere(entry);
 
-/** "14 folders need you", the Library's link to Pending imports. */
+/** "14 folders need you", a root's lead in Pending imports. */
 export const needYouWords = (count: number): string =>
   `${countOf(count, { one: "folder", many: "folders" })} ${count === 1 ? "needs" : "need"} you`;
+
+/** "3 pending imports need you", the Library's link to Pending imports. */
+export const pendingWords = (count: number): string =>
+  `${countOf(count, { one: "pending import", many: "pending imports" })} ${count === 1 ? "needs" : "need"} you`;
 
 /** "The last scan of the Films library root on home added 398 films. 14 folders need you." */
 export function leadWords(lead: ImportsLead, type: WorksContentType): string {

@@ -29,14 +29,15 @@ const (
 )
 
 type grabView struct {
-	ID          string  `json:"id"`
-	ReleaseSize int64   `json:"releaseSize"`
-	IndexerID   *string `json:"indexerId"`
-	NodeID      string  `json:"nodeId"`
-	FetchNodeID *string `json:"fetchNodeId"`
-	InfoHash    string  `json:"infoHash"`
-	Stage       string  `json:"stage"`
-	Progress    *struct {
+	ID           string  `json:"id"`
+	ReleaseTitle string  `json:"releaseTitle"`
+	ReleaseSize  int64   `json:"releaseSize"`
+	IndexerID    *string `json:"indexerId"`
+	NodeID       string  `json:"nodeId"`
+	FetchNodeID  *string `json:"fetchNodeId"`
+	InfoHash     string  `json:"infoHash"`
+	Stage        string  `json:"stage"`
+	Progress     *struct {
 		Done  int64 `json:"done"`
 		Total int64 `json:"total"`
 	} `json:"progress"`
@@ -178,6 +179,26 @@ func (w *walked) ended(t *testing.T, id string) {
 	})
 }
 
+// waits waits until the Grab id's one Import holds its files as want,
+// each "base: outcome reason", and reads the Grab, which stays importing
+// while a file waits for the Admin.
+func (w *walked) waits(t *testing.T, id string, want ...string) {
+	t.Helper()
+	var l folderImports
+	worldtest.Until(t, "the Grab's Import waits for the Admin", func() (bool, error) {
+		w.grab = *decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+id, ""), &grabView{})
+		if w.grab.Stage == "imported" || w.grab.Stage == "failed" {
+			return false, fmt.Errorf("the Grab ended %s with %+v", w.grab.Stage, w.grab.Failure)
+		}
+		l = folderImports{}
+		decodeRaw(t, []byte(w.a.Admin("home", http.MethodGet, "/api/v1/imports?source=grab", "").Body), &l)
+		return slices.Equal(l.lines(), want), nil
+	})
+	if w.grab.Stage != "importing" || !slices.Equal(w.grab.stages(), []string{"fetching", "downloading", "importing"}) {
+		t.Fatalf("the Grab is %s after %v while its file waits, want importing after [fetching downloading importing]", w.grab.Stage, w.grab.stages())
+	}
+}
+
 var grabChangedData = regexp.MustCompile(`^\{"grabId":"([0-9a-f-]{36})","workId":"([0-9a-f-]{36})","progress":false\}$`)
 
 // grabChanged reads the stream to the next grabs.changed and returns its
@@ -217,7 +238,7 @@ func TestSkeletonHome(t *testing.T) {
 	t.Parallel()
 	w := walk(t, "home")
 	seedbox := w.m.Nodes[1]
-	if want := []string{"fetching", "downloading", "probing", "transferring", "importing", "imported"}; !slices.Equal(w.grab.stages(), want) {
+	if want := []string{"fetching", "downloading", "importing", "imported"}; !slices.Equal(w.grab.stages(), want) {
 		t.Fatalf("the Grab's history is %v, want %v", w.grab.stages(), want)
 	}
 	if w.grab.NodeID != seedbox.NodeID {
@@ -236,7 +257,7 @@ func TestSkeletonHome(t *testing.T) {
 func TestSkeletonSingleMachine(t *testing.T) {
 	t.Parallel()
 	w := walk(t, "single-machine")
-	if want := []string{"fetching", "downloading", "probing", "importing", "imported"}; !slices.Equal(w.grab.stages(), want) {
+	if want := []string{"fetching", "downloading", "importing", "imported"}; !slices.Equal(w.grab.stages(), want) {
 		t.Fatalf("the Grab's history is %v, want %v", w.grab.stages(), want)
 	}
 	if w.grab.NodeID != w.m.Nodes[0].NodeID {

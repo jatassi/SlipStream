@@ -27,4 +27,7 @@ export type GrabsFailureCode =
   | "root_changed"
   | "canceled"
   | "blocklisted"
-  | "release_fault";
+  | "release_fault"
+  | "client_error"
+  | "declined"
+  | "unreadable";

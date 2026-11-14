@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -36,7 +37,11 @@ type testDisk struct {
 	broken     map[string]bool
 	readOnly   map[string]bool
 	unreadable map[string]bool
-	noLinks    bool
+	// linkErr is the errno every Link fails with, nil for none. cloneErr is
+	// the errno every Clone fails with; nil clones, by writing from's
+	// bytes into to+".part" and renaming it, as a volume that shares
+	// extents leaves the same bytes at to.
+	linkErr, cloneErr error
 	// foldCase finds a name ignoring case, keeps the case a name was made
 	// with and respells a name renamed onto its own other spelling, as NTFS
 	// and APFS do; noIDs keeps no file ids, as a share does.
@@ -258,17 +263,48 @@ func (d *testDisk) Rename(ctx context.Context, from, to string) error {
 	return os.Rename(from, at) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
 
+func (d *testDisk) Resolve(ctx context.Context, path string) (string, error) {
+	if err := d.fault(ctx, "resolve", path); err != nil {
+		return "", err
+	}
+	return d.os.Resolve(ctx, d.at(path))
+}
+
 func (d *testDisk) Link(ctx context.Context, from, to string) error {
 	if err := d.fault(ctx, "link", to); err != nil {
 		return err
 	}
 	d.mu.Lock()
-	refuse := d.noLinks
+	refuse := d.linkErr
 	d.mu.Unlock()
-	if refuse {
-		return &os.LinkError{Op: "link", Old: from, New: to, Err: errors.New("operation not permitted")}
+	if refuse != nil {
+		return &os.LinkError{Op: "link", Old: from, New: to, Err: refuse}
 	}
 	return os.Link(d.at(from), d.at(to)) //nolint:wrapcheck // the OS's own error, as a Disk answers it
+}
+
+func (d *testDisk) Clone(ctx context.Context, from, to string) error {
+	if err := d.fault(ctx, "clone", to); err != nil {
+		return err
+	}
+	d.mu.Lock()
+	refuse := d.cloneErr
+	if d.readOnly[filepath.Dir(to)] {
+		refuse = syscall.EROFS
+	}
+	d.mu.Unlock()
+	if refuse != nil {
+		return &fs.PathError{Op: "clone", Path: to + ".part", Err: refuse}
+	}
+	b, err := os.ReadFile(d.at(from))
+	if err != nil {
+		return err //nolint:wrapcheck // the OS's own error, as a Disk answers it
+	}
+	part := d.at(to) + ".part"
+	if err := os.WriteFile(part, b, 0o600); err != nil {
+		return err //nolint:wrapcheck // the OS's own error, as a Disk answers it
+	}
+	return os.Rename(part, d.at(to)) //nolint:wrapcheck // the OS's own error, as a Disk answers it
 }
 
 func (d *testDisk) Writable(ctx context.Context, dir string) (bool, error) {

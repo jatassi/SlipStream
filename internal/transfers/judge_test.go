@@ -83,7 +83,7 @@ func newWorld() *world {
 // add appends a Transfer of one file per size from src into root, line
 // order following n.
 func (w *world) add(n byte, src role.NodeID, root roots.ID, sizes ...int64) *world {
-	t := Transfer{ID: tid(n), Purpose: Grab, Job: strconv.Itoa(int(n)), Source: src, Destination: Root{ID: root}, Created: t0.Add(time.Duration(n) * time.Second)}
+	t := Transfer{ID: tid(n), Purpose: Import, Job: strconv.Itoa(int(n)), Source: src, Destination: Root{ID: root}, Created: t0.Add(time.Duration(n) * time.Second)}
 	for i, size := range sizes {
 		t.Files = append(t.Files, File{Position: i, Name: fmt.Sprintf("file %d.%d.mkv", n, i), Source: torrent(n, i), Size: size})
 	}

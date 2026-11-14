@@ -37,16 +37,21 @@ type world struct {
 	seen  map[works.ItemID][]release.CutKey
 	cuts  targets.Cuts
 	today time.Time
-	// fresh is the file being placed, which takes its folder and its name
-	// from the templates. Until names gives it one, its Path is where its
-	// bytes are held.
-	fresh ID
-	// beside are the Work's files from before the fresh file came, the
-	// ones it dooms included. The fresh file lands beside them.
+	// fresh are the files an import judges, which take their folders and
+	// names from the templates. Until names gives one a name, its Path is
+	// where its bytes are held.
+	fresh map[ID]bool
+	// importing is the Import the fresh files are of, zero for none.
+	importing storage.UUID
+	// force is each cell a fresh file takes by Force, whatever it ranks,
+	// and forcedAt the time such a fill records.
+	force    map[CellKey]ID
+	forcedAt storage.Time
+	// imports is the Import that landed each file holding a forced fill.
+	imports map[ID]storage.UUID
+	// beside are the Work's files from before the fresh files came, the
+	// ones they doom included. The fresh files land beside them.
 	beside []File
-	// meant is the name of the first Target the fresh file's Grab was
-	// meant to fill, which labels it should it fill and meet none.
-	meant string
 	// found are a scan's new files, inserted where the scan found them.
 	found map[ID]bool
 	// mode is which files names gives a path from the templates.
@@ -156,13 +161,31 @@ func shelve(ctx context.Context, q *db.Queries, ws []world, among works.Among[wo
 	if err != nil {
 		return err
 	}
+	items, err := works.Read(among, func() ([]db.ListEveryFileItemRow, error) { return q.ListEveryFileItem(ctx) }, func(ids []works.WorkID) ([]db.ListEveryFileItemRow, error) {
+		rows, err := q.ListFileItemsOfWorks(ctx, ids)
+		out := make([]db.ListEveryFileItemRow, len(rows))
+		for i, row := range rows {
+			out[i] = db.ListEveryFileItemRow(row)
+		}
+		return out, err
+	})
+	if err != nil {
+		return err
+	}
+	held := map[ID][]works.ItemID{}
+	for _, it := range items {
+		held[it.FileID] = append(held[it.FileID], it.ItemID)
+	}
 	of := make(map[ID]*world, len(rows))
 	for _, row := range rows {
+		row.Items = held[row.ID]
 		w := at[row.WorkID]
 		w.files = append(w.files, row)
 		of[row.ID] = w
-		if !slices.Contains(seen[row.ItemID], row.Cut) {
-			seen[row.ItemID] = append(seen[row.ItemID], row.Cut)
+		for _, it := range row.Items {
+			if !slices.Contains(seen[it], row.Cut) {
+				seen[it] = append(seen[it], row.Cut)
+			}
 		}
 	}
 	for i := range ws {
@@ -179,7 +202,7 @@ func shelve(ctx context.Context, q *db.Queries, ws []world, among works.Among[wo
 		if w.fills == nil {
 			w.fills = map[CellKey]Fill{}
 		}
-		w.fills[CellKey{Item: fill.ItemID, Edition: fill.Edition, Target: fill.TargetID}] = Fill{File: fill.FileID, Score: int(fill.Score)}
+		w.fills[CellKey{Item: fill.ItemID, Edition: fill.Edition, Target: fill.TargetID}] = Fill{File: fill.FileID, Score: int(fill.Score), Forced: fill.ForcedAt}
 	}
 	return nil
 }
@@ -211,7 +234,7 @@ func briefFiles(ctx context.Context, q *db.Queries, among works.Among[works.Work
 	})
 	out := make([]File, len(rows))
 	for i, row := range rows {
-		out[i] = File{ID: row.ID, WorkID: row.WorkID, ItemID: row.ItemID, Cut: row.Cut, RootID: row.RootID, Size: row.Size, Quality: row.Quality, Extra: row.Extra, GoneAt: row.GoneAt}
+		out[i] = File{ID: row.ID, WorkID: row.WorkID, Cut: row.Cut, RootID: row.RootID, Size: row.Size, Quality: row.Quality, Extra: row.Extra, GoneAt: row.GoneAt}
 	}
 	return out, err
 }
@@ -219,7 +242,7 @@ func briefFiles(ctx context.Context, q *db.Queries, among works.Among[works.Work
 // named adds what names reads to w under fills, when a file of w takes a
 // new path, under d for d's type.
 func (f *Files) named(ctx context.Context, r storage.Reader[file], w *world, fills map[CellKey]Fill, d *drafted) error {
-	if !slices.ContainsFunc(w.files, func(g File) bool { return g.ID == w.fresh }) {
+	if !slices.ContainsFunc(w.files, func(g File) bool { return w.fresh[g.ID] }) {
 		next, err := labels(*w, fills)
 		if err != nil {
 			return err
@@ -229,6 +252,22 @@ func (f *Files) named(ctx context.Context, r storage.Reader[file], w *world, fil
 		}
 	}
 	return f.withNaming(ctx, r, []*world{w}, works.Only([]works.WorkID{w.tree.ID}), d)
+}
+
+// see records cut as seen for each of items in w's own seen, leaving the
+// slices it shares with the world it was cloned from untouched.
+func (w world) see(items []works.ItemID, cut release.CutKey) {
+	for _, it := range items {
+		w.seen[it] = seenWith(w.seen[it], cut)
+	}
+}
+
+// seenWith is seen and cut, a new slice when cut is new to seen.
+func seenWith(seen []release.CutKey, cut release.CutKey) []release.CutKey {
+	if slices.Contains(seen, cut) {
+		return seen
+	}
+	return append(slices.Clone(seen), cut)
 }
 
 // withNaming adds what names reads to each of ws: its Content Type's
@@ -292,24 +331,32 @@ func appendCells(out []Cell, w world) []Cell {
 				if fill, ok := w.fills[key]; ok && !w.lost[files[fill.File].RootID] {
 					c.File, c.Score = files[fill.File], fill.Score
 				}
-				g := w.grabs[key]
-				switch {
-				case c.File != nil && final(t, *c.File, c.Score):
-					c.State = Met
-				case g.InFlight():
-					c.State, c.Grab = Downloading, g.Grab
-				case g.State == GrabFailed:
-					c.State, c.Grab = Failed, g.Grab
-				case c.File != nil:
-					c.State = Upgradable
-				case !released:
-					c.State = Unreleased
-				}
-				out = append(out, c)
+				out = append(out, stated(c, w.grabs[key]))
 			}
 		}
 	}
 	return out
+}
+
+// stated is c in the state its file and g, the Grab it reads from, give
+// it. A Met cell keeps the Grab in flight for it, if any.
+func stated(c Cell, g GrabCell) Cell {
+	switch {
+	case c.File != nil && final(c.Target, *c.File, c.Score):
+		c.State = Met
+		if g.InFlight() {
+			c.Grab, c.Doing = g.Grab, g.Doing
+		}
+	case g.InFlight():
+		c.State, c.Grab, c.Doing = Downloading, g.Grab, g.Doing
+	case g.State == GrabFailed:
+		c.State, c.Grab = Failed, g.Grab
+	case c.File != nil:
+		c.State = Upgradable
+	case !c.Released:
+		c.State = Unreleased
+	}
+	return c
 }
 
 // final reports whether f, scoring score, is final at t. A file whose

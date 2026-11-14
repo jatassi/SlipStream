@@ -42,7 +42,7 @@ type scan struct {
 // known is what one Read gives a comparison of a root.
 type known struct {
 	files   files.OnRootFiles
-	entries map[string]Entry
+	entries map[string]Import
 	guard   scanning.Guard
 	probes  int
 	cuts    []release.Cut
@@ -150,8 +150,12 @@ func (im *Imports) walk(ctx context.Context, s *scan) (scanning.Listing, error) 
 		after storing.Cursor
 		n     int
 	)
+	videos, err := Videos(ctx, im.cfg.Library)
+	if err != nil {
+		return scanning.Listing{}, err
+	}
 	for {
-		page, err := im.cfg.Remote.Walk(ctx, s.at, after, walkPage)
+		page, err := im.cfg.Remote.Walk(ctx, s.at, after, walkPage, videos)
 		if err != nil {
 			return scanning.Listing{}, err
 		}
@@ -174,11 +178,11 @@ func (im *Imports) read(ctx context.Context, root roots.Root) (known, error) {
 		if k.files, err = files.OnRoot(ctx, r, root.ID); err != nil {
 			return err
 		}
-		all, err := entries(ctx, r)
+		all, err := unfinishedRootImports(ctx, r)
 		if err != nil {
 			return err
 		}
-		k.entries = map[string]Entry{}
+		k.entries = map[string]Import{}
 		for _, e := range all {
 			if e.Root == root.ID {
 				k.entries[e.Folder] = e
@@ -208,7 +212,7 @@ func (im *Imports) read(ctx context.Context, root roots.Root) (known, error) {
 func (k known) listed() ([]storing.Walked, error) {
 	var out []storing.Walked
 	for _, e := range k.entries {
-		for _, f := range e.Files {
+		for _, f := range e.waiting() {
 			path, err := storing.ParseRel(f.Path)
 			if err != nil {
 				return nil, err
@@ -226,7 +230,7 @@ func (k known) listed() ([]storing.Walked, error) {
 func (k known) folders() map[string]scanning.Entry {
 	out := make(map[string]scanning.Entry, len(k.entries))
 	for folder, e := range k.entries {
-		out[folder] = scanning.Entry{ID: e.ID.UUID, Ignored: e.Ignored(), Hint: e.Hint}
+		out[folder] = scanning.Entry{ID: e.ID.UUID, Ignored: e.IsIgnored(), Hint: e.Hint}
 	}
 	return out
 }
@@ -311,25 +315,23 @@ func (im *Imports) share(ctx context.Context, s *scan, work works.WorkID, sh sca
 	return nil
 }
 
-// probe reads each of ws's media records on the root's Node,
-// library.scan.probes at a time. A file the read couldn't reach, such as
-// one gone since the walk, has no answer: the next scan reads it again.
+// probe reads each of ws's media records on the root's Node, taking that
+// Node's library.scan.probes slots with every Import probing there. A
+// file the read couldn't reach, such as one gone since the walk, has no
+// answer: the next scan reads it again.
 func (im *Imports) probe(ctx context.Context, s *scan, ws []storing.Walked) map[storing.Rel]files.Probe {
 	out := make(map[storing.Rel]files.Probe, len(ws))
 	var (
 		mu sync.Mutex
 		wg sync.WaitGroup
 	)
-	slots := make(chan struct{}, s.known.probes)
 	for _, w := range ws {
-		select {
-		case slots <- struct{}{}:
-		case <-ctx.Done():
+		if !im.probes.take(ctx, s.at.Node, s.known.probes) {
 			wg.Wait()
 			return out
 		}
 		wg.Go(func() {
-			defer func() { <-slots }()
+			defer im.probes.give(s.at.Node)
 			rec, err := im.cfg.Remote.Probe(ctx, s.at, w.Path)
 			p := files.Probe{Media: rec}
 			if u, ok := errors.AsType[*media.UnreadableError](err); ok {
@@ -368,12 +370,13 @@ func (im *Imports) prune(ctx context.Context, s *scan, plan scanning.Plan) error
 	for _, folder := range slices.Sorted(maps.Keys(s.known.entries)) {
 		e := s.known.entries[folder]
 		var listed []string
-		for _, f := range e.Files {
+		waiting := e.waiting()
+		for _, f := range waiting {
 			if !vanished[f.Path] {
 				listed = append(listed, f.Path)
 			}
 		}
-		if len(listed) == len(e.Files) {
+		if len(listed) == len(waiting) {
 			continue
 		}
 		err := im.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {

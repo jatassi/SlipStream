@@ -132,7 +132,7 @@ func (n *Node) startController(ctx context.Context) error {
 		},
 		Sealer:    lib.sealer,
 		Roster:    openedRoster{&side},
-		Uses:      grabs.TorrentUses{},
+		Uses:      imports.Uses{TorrentUses: grabs.TorrentUses{}},
 		Blocklist: grabs.BlocklistOn{Reconciling: trackers.NotReconciling, Changes: grabs.BlocklistChangedEvent.Bind(n.hub)},
 		Seeding:   lateSeeder{&seeding},
 		Live: downloadclients.LiveConfig{
@@ -227,7 +227,7 @@ func (n *Node) startController(ctx context.Context) error {
 	}
 	searchv1connect.SearchingService.Mount(dispatch, n.searchingService())
 	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(holder))
-	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.cfg.Timings.Media))
+	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
 	storagev1connect.FolderService.Mount(dispatch, n.store)
@@ -343,7 +343,8 @@ func (n *Node) startController(ctx context.Context) error {
 		},
 		Arrivals: arrivals,
 		Contents: files.RootContents{},
-		Inflight: grabs.RootGrabs{},
+		Inflight: imports.RootImports{},
+		Videos:   imports.Videos,
 		Changed:  roots.ChangedEvent.Bind(n.hub),
 		Volumes:  roots.VolumesChangedEvent.Bind(n.hub),
 		Cadence:  clients.CadenceChanged,
@@ -360,7 +361,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Describe: tree.Describe, Budget: roots.SmallestBudget, Changed: naming.ChangedEvent.Bind(n.hub),
 	})
 	shelf, err := files.Open(ctx, files.Config{
-		Library: lib.db, Targets: goals, Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}, Transfers: transfers.LiveIn,
+		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn,
 		Naming:  names,
 		Names:   contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
 		Today:   n.today,
@@ -375,22 +376,19 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	pipeline = grabs.New(grabs.Config{
-		Library:   lib.db,
-		Works:     tree,
-		Targets:   goals,
-		Files:     shelf,
-		Indexers:  registry,
-		Sealer:    lib.sealer,
-		Terms:     contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
-		Names:     contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
-		Roster:    side,
-		Downloads: clients,
-		Router:    router,
-		Media: func(node role.NodeID) mediav1connect.MediaServiceHandler {
-			return mediav1connect.MediaService.On(cluster, node)
-		},
+		Library:          lib.db,
+		Works:            tree,
+		Targets:          goals,
+		Files:            shelf,
+		Indexers:         registry,
+		Sealer:           lib.sealer,
+		Terms:            contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
+		Names:            contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
+		Roster:           side,
+		Downloads:        clients,
+		Router:           router,
 		Roots:            homes,
-		Transfers:        copies,
+		Imports:          imports.GrabImports{},
 		Timings:          n.cfg.Timings.Grabs,
 		Rand:             n.grabsRand,
 		Changed:          grabs.ChangedEvent.Bind(n.hub),
@@ -422,10 +420,22 @@ func (n *Node) startController(ctx context.Context) error {
 		Hub:          n.hub,
 		Changed:      imports.ChangedEvent.Bind(n.hub),
 		FilesChanged: files.ChangedEvent.Bind(n.hub),
+		Probes: func(node role.NodeID) mediav1connect.MediaServiceHandler {
+			return mediav1connect.MediaService.On(cluster, node)
+		},
+		Transfers:    copies,
+		Grabs:        pipeline,
+		Timings:      imports.Timings{RetryMin: n.cfg.Timings.Grabs.RetryMin, RetryMax: n.cfg.Timings.Grabs.RetryMax},
+		Rand:         n.importsRand,
 		BeforeStep:   n.env.Test.BeforeScanStep,
+		BeforeImport: n.env.Test.BeforeImport,
 		Log:          n.rootLog.With("subsystem", "imports"),
 	})
-	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Grabs: pipeline, Leaver: found})
+	pipeline.Register(found.Importer())
+	if err := found.Carry(ctx); err != nil {
+		return err
+	}
+	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found})
 
 	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found}
 	scheduler, err = tasks.Open(ctx, tasks.Config{
@@ -628,7 +638,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	}
 	searchv1connect.SearchingService.Mount(dispatch, n.searchingService())
 	metadatav1connect.MetadataService.Mount(dispatch, metadata.NewHolder(n.openHolder(n.httpClient(n.env.Net.DialContext))))
-	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.cfg.Timings.Media))
+	mediav1connect.MediaService.Mount(dispatch, media.NewService(n.env.Media, n.downloading, n.store.Holds, n.cfg.Timings.Media))
 	notifyv1connect.NotifyingService.Mount(dispatch, notifying.Serve(n.cfg.Timings.Mail, n.env.Net.DialContext))
 	storagev1connect.StorageService.Mount(dispatch, n.store)
 	storagev1connect.FolderService.Mount(dispatch, n.store)

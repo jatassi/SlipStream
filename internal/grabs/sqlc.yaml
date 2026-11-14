@@ -163,16 +163,11 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/targets
               type: Edition
-          - column: grabs_grab.unwanted
-            go_type:
-              import: github.com/jatassi/slipstream/internal/files
-              type: Unwanted
-              pointer: true
           - column: grabs_grab.torrent_id
             go_type:
               import: github.com/jatassi/slipstream/internal/downloadclients
               type: ID
-          - column: grabs_grab.root_id
+          - column: grabs_carry.root_id
             go_type:
               import: github.com/jatassi/slipstream/internal/roots
               type: ID
@@ -180,6 +175,13 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/targets
               type: TargetID
+          - column: grabs_target.forced
+            go_type:
+              type: bool
+          - column: grabs_target.settled
+            go_type:
+              type: Settled
+              pointer: true
           - column: "*.stage"
             go_type:
               type: Stage
@@ -195,11 +197,11 @@ sql:
             go_type:
               type: Outcome
               pointer: true
-          - column: grabs_grab.probe
+          - column: grabs_carry.probe
             go_type:
               type: string
               pointer: true
-          - column: grabs_grab.path
+          - column: grabs_carry.path
             go_type:
               type: string
               pointer: true
@@ -207,7 +209,7 @@ sql:
             go_type:
               type: string
               pointer: true
-          - column: grabs_grab.file_index
+          - column: grabs_carry.file_index
             go_type:
               type: int64
               pointer: true

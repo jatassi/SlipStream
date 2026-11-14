@@ -9,10 +9,13 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
+	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -173,5 +176,44 @@ func TestHealthWarnsOfFilesFfprobeCantRead(t *testing.T) {
 	w.scanned(t, shelved[1:], "moov atom not found")
 	if it := w.health(t)[key]; it.Text != "ffprobe can't read 3 files. Replace them, then scan again." || len(it.Detail) != 6 {
 		t.Errorf("three unreadable files raise %q with %d facts, want the count and each path with its line", it.Text, len(it.Detail))
+	}
+}
+
+// TestHealthWarnsOfAFreshImportPutBackInItsHoldingFolder holds a file in
+// its root's holding folder with no move queued, as the disk queue leaves
+// a fresh import whose name another file has: Health warns of it and
+// links its Work, and the warning clears once the file has its name.
+func TestHealthWarnsOfAFreshImportPutBackInItsHoldingFolder(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	tree := w.add(t, "w1", w.root.ID)
+	var id files.ID
+	held := storing.HoldingDir + "/" + storage.NewUUID().String() + ".mkv"
+	err := w.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		f, err := files.Add(ctx, tx, files.File{
+			WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID}, Cut: release.Standard, RootID: w.root.ID,
+			Path: held, Size: 1 << 30, Quality: release.Bluray1080p,
+			Media: media.Record{Version: media.Version, Video: media.Video{Codec: "hevc", Width: 1920, Height: 1080}},
+		}, []targets.TargetID{w.hd})
+		id = f.ID
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := health.KeyOf("put_back", id.String())
+	it, ok := w.health(t)[key]
+	if !ok || it.Level != health.Warn || it.Subject != "Shelves library root on Media server" {
+		t.Fatalf("a put-back file raises %+v, want a Warn on its root", it)
+	}
+	if want := "A file imported into Shelves went back to its holding folder because another file already has its name, Shelf w1 - Clip 1 - HD.mkv. Rename or remove that file."; it.Text != want {
+		t.Errorf("it says %q, want %q", it.Text, want)
+	}
+	if a := it.Action; a.Kind() != health.ActionLink || a.Href() != "/works/"+tree.ID.String() || a.Label() != "Open the Work" {
+		t.Errorf("its action = %s %q %q, want a link to the Work", a.Kind(), a.Href(), a.Label())
+	}
+	w.scanned(t, []string{held}, "")
+	if _, ok := w.health(t)[key]; ok {
+		t.Error("the file removed from its holding folder still raises the warning, want it cleared")
 	}
 }

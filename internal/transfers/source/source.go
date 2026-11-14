@@ -12,10 +12,13 @@ import (
 
 type Kind string
 
-const TorrentKind Kind = "torrent"
+const (
+	TorrentKind Kind = "torrent"
+	PathKind    Kind = "path"
+)
 
-// Ref names one file a sender reads. The only kind is Torrent, and Refs
-// are comparable, so they key maps.
+// Ref names one file a sender reads: a Torrent or a Path. Refs are
+// comparable, so they key maps.
 type Ref interface {
 	Kind() Kind
 	ref()
@@ -30,6 +33,13 @@ type Torrent struct {
 
 func (Torrent) Kind() Kind { return TorrentKind }
 func (Torrent) ref()       {}
+
+// Path is the file at Abs, an absolute path on the source Node. The Node
+// opens it only inside its library roots and download folders.
+type Path struct{ Abs string }
+
+func (Path) Kind() Kind { return PathKind }
+func (Path) ref()       {}
 
 // Reason is why a sender can't read a source.
 type Reason uint8

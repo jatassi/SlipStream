@@ -76,6 +76,8 @@ type Copy struct {
 
 type Grabs struct {
 	Downloading, Importing bool
+	// Waiting is a Grab on it whose Import waits for the Admin.
+	Waiting bool
 	// Unimported is a Grab on it that ended without importing.
 	Unimported bool
 }
@@ -178,6 +180,7 @@ const (
 	Incomplete      Why = "incomplete"
 	GrabDownloading Why = "grab-downloading"
 	GrabImporting   Why = "grab-importing"
+	ImportWaiting   Why = "import-waiting"
 	Reconciling     Why = "reconciling"
 )
 
@@ -187,7 +190,7 @@ func (w Why) Endless() bool {
 	switch w {
 	case ResumedAfterPause, SeedsForever, NoTracker, NoRule, PartialOwesTime:
 		return true
-	case BeingRemoved, AlreadyRan, StillOwes, NotMet, Incomplete, GrabDownloading, GrabImporting, Reconciling:
+	case BeingRemoved, AlreadyRan, StillOwes, NotMet, Incomplete, GrabDownloading, GrabImporting, ImportWaiting, Reconciling:
 	}
 	return false
 }
@@ -297,6 +300,8 @@ func blocked(h Hash, c Copy, rule Rule, owing, met bool) Why {
 		return GrabDownloading
 	case c.Grabs.Importing:
 		return GrabImporting
+	case c.Grabs.Waiting:
+		return ImportWaiting
 	case h.Reconciling:
 		return Reconciling
 	}

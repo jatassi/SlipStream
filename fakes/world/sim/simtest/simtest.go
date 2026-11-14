@@ -267,7 +267,7 @@ func OnSeedbox(edit func(e *node.Env)) sim.Option {
 	})
 }
 
-var walked = []string{"fetching", "downloading", "probing", "transferring", "importing", "imported"}
+var walked = []string{"fetching", "downloading", "importing", "imported"}
 
 type GrabView struct {
 	ID          string `json:"id"`

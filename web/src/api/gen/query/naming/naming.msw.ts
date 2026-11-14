@@ -13,8 +13,10 @@ import type {
   SettingCountField,
   SettingDurationField,
   SettingFolderField,
+  SettingListField,
   SettingPortField,
   SettingRateField,
+  SettingSizeField,
   SettingSpaceField,
   SettingSwitchField,
   SettingTemplateField,
@@ -402,6 +404,76 @@ export const getListNamingResponseSettingTemplateFieldMock = (
   ...overrideResponse,
 });
 
+export const getListNamingResponseSettingListFieldMock = (
+  overrideResponse: Partial<SettingListField> = {},
+): SettingListField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    item: faker.helpers.arrayElement(["extension"] as const),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["list"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    min: faker.number.int({ min: 0 }),
+    pendingRestart: faker.datatype.boolean(),
+    running: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+  },
+  ...overrideResponse,
+});
+
+export const getListNamingResponseSettingSizeFieldMock = (
+  overrideResponse: Partial<SettingSizeField> = {},
+): SettingSizeField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["size"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.number.int(),
+  },
+  ...overrideResponse,
+});
+
 export const getListNamingResponseMock = (
   overrideResponse: Partial<Extract<NamingNamingList, object>> = {},
 ): NamingNamingList => ({
@@ -428,6 +500,8 @@ export const getListNamingResponseMock = (
             { ...getListNamingResponseSettingFolderFieldMock() },
             { ...getListNamingResponseSettingSpaceFieldMock() },
             { ...getListNamingResponseSettingTemplateFieldMock() },
+            { ...getListNamingResponseSettingListFieldMock() },
+            { ...getListNamingResponseSettingSizeFieldMock() },
           ]),
       ),
     }),
@@ -816,6 +890,76 @@ export const getSetNamingResponseSettingTemplateFieldMock = (
   ...overrideResponse,
 });
 
+export const getSetNamingResponseSettingListFieldMock = (
+  overrideResponse: Partial<SettingListField> = {},
+): SettingListField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    item: faker.helpers.arrayElement(["extension"] as const),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["list"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    min: faker.number.int({ min: 0 }),
+    pendingRestart: faker.datatype.boolean(),
+    running: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+  },
+  ...overrideResponse,
+});
+
+export const getSetNamingResponseSettingSizeFieldMock = (
+  overrideResponse: Partial<SettingSizeField> = {},
+): SettingSizeField => ({
+  ...{
+    applies: faker.helpers.arrayElement(["live", "restart"] as const),
+    default: faker.number.int(),
+    ...(faker.datatype.boolean()
+      ? { defaultFrom: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    isDefault: faker.datatype.boolean(),
+    key: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    kind: faker.helpers.arrayElement(["size"] as const),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ...(faker.datatype.boolean()
+      ? { lockedBy: faker.string.alpha({ length: { min: 10, max: 20 } }) }
+      : {}),
+    max: faker.number.int(),
+    min: faker.number.int(),
+    pendingRestart: faker.datatype.boolean(),
+    running: faker.number.int(),
+    source: faker.helpers.arrayElement([
+      "database",
+      "default",
+      "config.yaml",
+      ".env",
+      "env",
+    ] as const),
+    value: faker.number.int(),
+  },
+  ...overrideResponse,
+});
+
 export const getSetNamingResponseMock = (
   overrideResponse: Partial<Extract<NamingTypeNaming, object>> = {},
 ): NamingTypeNaming => ({
@@ -839,6 +983,8 @@ export const getSetNamingResponseMock = (
       { ...getSetNamingResponseSettingFolderFieldMock() },
       { ...getSetNamingResponseSettingSpaceFieldMock() },
       { ...getSetNamingResponseSettingTemplateFieldMock() },
+      { ...getSetNamingResponseSettingListFieldMock() },
+      { ...getSetNamingResponseSettingSizeFieldMock() },
     ]),
   ),
   ...overrideResponse,
@@ -871,12 +1017,7 @@ export const getPreviewNamingResponseMock = (
       ...(faker.datatype.boolean()
         ? {
             unplaced: {
-              code: faker.helpers.arrayElement([
-                "no_number",
-                "no_such_item",
-                "several_items",
-                "no_rule",
-              ] as const),
+              code: faker.helpers.arrayElement(["no_number", "no_such_item", "no_rule"] as const),
               ...(faker.datatype.boolean()
                 ? { names: faker.string.alpha({ length: { min: 10, max: 20 } }) }
                 : {}),

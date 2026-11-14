@@ -543,20 +543,39 @@ type runSheet struct {
 var walked = []files.State{files.Unreleased, files.Missing, files.Failed, files.Upgradable}
 
 // worked is in worked out around pins, which drops each pin that names no
-// Release of a run or no cell of its Item.
+// Release of a run or no cell of its Items. Runs plan in order, each
+// around the cells an earlier run's row fills and another run's pins
+// hold, so a pack one run takes fills its cells in no other run.
 func worked(in manualIn, pins []Pin) (sheet, error) {
 	s := sheet{in: in}
 	gs := grabsByID(in.grabs)
+	pinned := map[files.CellKey]SearchID{}
 	for _, run := range in.runs {
 		rs := runSheet{run: run, planIn: planIn{take: in.standings.Take}}
-		place(&rs, in, gs)
-		judgeRun(&rs, in)
+		judgeRun(&rs, in, gs)
 		pin(&rs, pins)
+		for k := range rs.pins {
+			pinned[keyOf(rs.item[k])] = run.ID
+		}
+		s.runs = append(s.runs, rs)
+	}
+	filled := map[files.CellKey]bool{}
+	for i := range s.runs {
+		rs := &s.runs[i]
+		rs.before = make([]bool, len(rs.item))
+		for k, c := range rs.item {
+			by, ok := pinned[keyOf(c)]
+			rs.before[k] = filled[keyOf(c)] || ok && by != rs.run.ID
+		}
 		var err error
 		if rs.rows, rs.live, err = plan(rs.planIn); err != nil {
 			return sheet{}, err
 		}
-		s.runs = append(s.runs, rs)
+		for _, r := range rs.rows {
+			for _, k := range r.cells {
+				filled[keyOf(rs.item[k])] = filled[keyOf(rs.item[k])] || r.group >= 0
+			}
+		}
 	}
 	return s, nil
 }
@@ -569,18 +588,25 @@ func grabsByID(grabs []db.ListCellGrabsOfWorkRow) map[GrabID]db.ListCellGrabsOfW
 	return out
 }
 
-// place sets rs's cells: the Grab in flight that holds each downloading
-// one, which the plan walks and which a row may fill.
+// place sets rs's cells, every cell of its Item and of each Item one of
+// its Releases covers: the Grab in flight that holds each downloading
+// one, which a row may fill, and which of its Item's the plan walks.
 func place(rs *runSheet, in manualIn, gs map[GrabID]db.ListCellGrabsOfWorkRow) {
-	rs.held, rs.failure = map[int]db.ListCellGrabsOfWorkRow{}, map[int]string{}
+	items := map[works.ItemID]bool{rs.run.ItemID: true}
+	for _, a := range rs.as {
+		for _, it := range a.covers {
+			items[it] = true
+		}
+	}
+	rs.item = nil
 	for _, c := range in.cells {
-		if c.Item.ID == rs.run.ItemID {
+		if items[c.Item.ID] {
 			rs.item = append(rs.item, c)
 		}
 	}
+	rs.held, rs.failure = map[int]db.ListCellGrabsOfWorkRow{}, map[int]string{}
 	rs.fill = make([]bool, len(rs.item))
 	for k, c := range rs.item {
-		key := keyOf(c)
 		g := gs[GrabID{UUID: c.Grab}]
 		if c.State == files.Downloading {
 			rs.held[k] = g
@@ -592,16 +618,17 @@ func place(rs *runSheet, in manualIn, gs map[GrabID]db.ListCellGrabsOfWorkRow) {
 		if !slices.Contains(walked, c.State) {
 			continue
 		}
-		rs.fill[k] = in.cell == nil || in.cell.Item == key.Item
-		if in.cell == nil || *in.cell == key {
+		rs.fill[k] = true
+		if c.Item.ID == rs.run.ItemID && (in.cell == nil || *in.cell == keyOf(c)) {
 			rs.walk = append(rs.walk, k)
 		}
 	}
 }
 
-// judgeRun dedupes rs's stored Releases, gates them by the Blocklist
-// and judges each at every cell of its Item.
-func judgeRun(rs *runSheet, in manualIn) {
+// judgeRun dedupes rs's stored Releases, gates them by the Blocklist,
+// places its cells and judges each Release at every cell of the Items it
+// covers. It stands refused, with no reason, at every other cell.
+func judgeRun(rs *runSheet, in manualIn, gs map[GrabID]db.ListCellGrabsOfWorkRow) {
 	j := in.judging
 	j.searched = rs.run.ItemID
 	heard := in.heard[rs.run.ID]
@@ -620,16 +647,41 @@ func judgeRun(rs *runSheet, in manualIn) {
 		as[i] = assessStored(j, l, h.read, h.matched)
 	}
 	rs.as = in.blocks.gate(as)
-	all := cells{open: rs.item}
+	place(rs, in, gs)
 	rs.js, rs.st = make([]judged, len(rs.as)), make([][]stance, len(rs.as))
 	for g := range rs.as {
-		rs.js[g] = judge(all, &rs.as[g])
+		rs.js[g] = judgeCovering(rs.item, &rs.as[g])
 		rs.st[g] = stances(rs.item, rs.js[g])
 	}
 }
 
-// pin keeps each of pins that names a Release of rs's run and a cell of
-// its Item.
+// judgeCovering is a judged at the cells of item of the Items it covers,
+// each verdict counting its cell by its place in item. Most Releases
+// cover every Item of their run's cells, and judge judges them as is.
+func judgeCovering(item []files.Cell, a *assessed) judged {
+	covered := func(c files.Cell) bool { return slices.Contains(a.covers, c.Item.ID) }
+	if !slices.ContainsFunc(item, func(c files.Cell) bool { return !covered(c) }) {
+		return judge(cells{open: item}, a)
+	}
+	var ks []int
+	var at cells
+	for k, c := range item {
+		if covered(c) {
+			ks, at.open = append(ks, k), append(at.open, c)
+		}
+	}
+	j := judge(at, a)
+	for i := range j.verdicts {
+		j.verdicts[i].cell = ks[j.verdicts[i].cell]
+	}
+	if j.first >= 0 {
+		j.first = ks[j.first]
+	}
+	return j
+}
+
+// pin keeps each of pins that names a Release of rs's run and one of its
+// cells.
 func pin(rs *runSheet, pins []Pin) {
 	rs.pins = map[int]int{}
 	for _, p := range pins {

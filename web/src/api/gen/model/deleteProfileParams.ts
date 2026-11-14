@@ -10,7 +10,7 @@ export type DeleteProfileParams = {
    */
   preview?: boolean;
   /**
-   * What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes
+   * What becomes of the files the change leaves filling nothing
    */
   unwanted?: DeleteProfileUnwanted;
   /**

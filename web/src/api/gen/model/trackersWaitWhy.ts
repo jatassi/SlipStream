@@ -1,5 +1,5 @@
 /**
- * What holds its met goal back: removing, it is being removed; resumed, an Admin resumed it after its goal paused it, so it seeds with no end; ran, its goal already acted on it; incomplete, its selected files aren't all there; grab-downloading or grab-importing, a Grab on it is still downloading or importing; reconciling, SlipStream is reconciling the library after a restore
+ * What holds its met goal back: removing, it is being removed; resumed, an Admin resumed it after its goal paused it, so it seeds with no end; ran, its goal already acted on it; incomplete, its selected files aren't all there; grab-downloading or grab-importing, a Grab on it is still downloading or importing; import-waiting, a file of its Import waits for the Admin; reconciling, SlipStream is reconciling the library after a restore
  */
 export type TrackersWaitWhy =
   | "removing"
@@ -8,4 +8,5 @@ export type TrackersWaitWhy =
   | "incomplete"
   | "grab-downloading"
   | "grab-importing"
+  | "import-waiting"
   | "reconciling";

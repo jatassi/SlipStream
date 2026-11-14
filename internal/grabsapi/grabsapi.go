@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
@@ -111,10 +112,10 @@ type searchStarted struct {
 type searchStartedOutput struct{ Body searchStarted }
 
 type reason struct {
-	Code      string `json:"code" enum:"wrong_work,wrong_item,covers_more,wrong_title,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,score_below_minimum,not_an_upgrade,repack_other_group,blocklisted" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. covers_more is a release that holds more than one Item, such as a season pack. SlipStream grabs Releases that hold more than one Item once S33 (Import pipeline) can import them. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist."`
-	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work, wrong_item, covers_more and wrong_title"`
+	Code      string `json:"code" enum:"wrong_work,wrong_item,wrong_title,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,score_below_minimum,not_an_upgrade,repack_other_group,blocklisted" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist."`
+	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work, wrong_item and wrong_title"`
 	Attribute string `json:"attribute,omitempty" enum:"hdr,video_codec,audio_codec,channels,language" doc:"The attribute a failed filter rules on"`
-	Value     string `json:"value,omitempty" doc:"The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item or covers_more title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)"`
+	Value     string `json:"value,omitempty" doc:"The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)"`
 	Soft      bool   `json:"soft" doc:"Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note."`
 }
 
@@ -155,9 +156,9 @@ type search struct {
 }
 
 type lostAt struct {
-	Step     string  `json:"step" enum:"want,tier,revision,score,priority,freeleech,seeders,size,title" doc:"The first step of the ranking where the reference Release ranked above this one"`
+	Step     string  `json:"step" enum:"want,tier,revision,score,chosen_by_another,fewer_unwanted,priority,freeleech,seeders,size,title" doc:"The first step of the ranking where the reference Release ranked above this one"`
 	TargetID *string `json:"targetId" format:"uuid" doc:"The Target the tier, revision and score steps compare at; null at the other steps and once the Target is deleted"`
-	Own      string  `json:"own" doc:"This Release's value at the step: a Target's name for want, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title"`
+	Own      string  `json:"own" doc:"This Release's value at the step: a Target's name for want, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, whether another Want chose it for chosen_by_another, a count of the Items it covers that aren't wanted for fewer_unwanted, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title"`
 	Ref      string  `json:"ref" doc:"The reference Release's value at the step, written as own is. The reference is the grabbed Release, or the first a search could take when the run grabbed none."`
 }
 
@@ -257,20 +258,20 @@ func idOrNil(id storage.UUID) *string {
 }
 
 type failure struct {
-	Stage    string `json:"stage" enum:"fetching,downloading,probing,transferring,importing"`
-	Code     string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,marked_failed,removed,client_removed,client_deleted,goal_met,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault"`
+	Stage    string `json:"stage" enum:"fetching,downloading,importing"`
+	Code     string `json:"code" enum:"indexer_unavailable,indexer_removed,indexer_stopped,home_offline,torrent_unreachable,magnet_invalid,no_metadata,no_peer_source,torrent_invalid,infohash_mismatch,torrent_v2_only,download_failed,marked_failed,removed,client_removed,client_deleted,goal_met,no_video_file,probe_failed,fills_nothing,name_taken,name_too_long,transfer_failed,import_failed,node_written_off,root_changed,canceled,blocklisted,release_fault,client_error,declined,unreadable"`
 	Message  string `json:"message"`
 	NeedsYou bool   `json:"needsYou" doc:"It goes under Needs you. False for a cancel and for a Manual Grab whose Release the Blocklist held after its fetch, which its sheet already said."`
 	Current  bool   `json:"current" doc:"No later Grab holds any of its cells. Needs you lists a failure only while it is current."`
 }
 
 type entered struct {
-	Stage string    `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
+	Stage string    `json:"stage" enum:"fetching,downloading,importing,imported,failed"`
 	At    time.Time `json:"at"`
 }
 
 type progress struct {
-	Done  int64 `json:"done" minimum:"0" doc:"Bytes downloaded, or received and verified while transferring"`
+	Done  int64 `json:"done" minimum:"0" doc:"Bytes downloaded"`
 	Total int64 `json:"total" minimum:"0" doc:"Bytes wanted"`
 }
 
@@ -299,9 +300,10 @@ type clientWait struct {
 type grab struct {
 	ID           string                   `json:"id" format:"uuid"`
 	WorkID       string                   `json:"workId" format:"uuid"`
-	ItemID       string                   `json:"itemId" format:"uuid"`
+	Items        []string                 `json:"items" nullable:"false" doc:"The ids of the Items its Release covers in the Work, in tree order"`
 	Edition      string                   `json:"edition" doc:"The Edition it was grabbed to fill: any under any cut, else a cut key"`
 	TargetIDs    []string                 `json:"targetIds" nullable:"false" doc:"The Targets it was grabbed for, in Profile order"`
+	Targets      []grabTarget             `json:"targets" nullable:"false" doc:"Each cell it holds, in plan order"`
 	ReleaseTitle string                   `json:"releaseTitle"`
 	ReleaseWords string                   `json:"releaseWords" doc:"Its Release in words, such as Bluray-1080p · FKW · 9.8 GB"`
 	Quality      string                   `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality the release title names, absent when it names none"`
@@ -313,10 +315,12 @@ type grab struct {
 	TorrentID    *string                  `json:"torrentId" format:"uuid" doc:"The Torrent it downloads, null until the .torrent is fetched"`
 	Client       api.Nullable[grabClient] `json:"downloadClient" doc:"Its Torrent's external Download Client, null for its Node's built-in client or until the .torrent is fetched"`
 	InfoHash     *string                  `json:"infoHash" doc:"The v1 info hash in hex, null until the .torrent is fetched"`
-	Stage        string                   `json:"stage" enum:"fetching,downloading,probing,transferring,importing,imported,failed"`
+	Stage        string                   `json:"stage" enum:"fetching,downloading,importing,imported,failed"`
+	InFlight     bool                     `json:"inFlight" doc:"It holds its cells and counts in Activity: it is neither imported nor failed"`
 	Failure      *failure                 `json:"failure,omitempty" doc:"Why it failed, absent unless it did"`
+	Import       api.Nullable[grabImport] `json:"import" doc:"Its download's Import, from importing on; null before"`
 	History      []entered                `json:"history" nullable:"false" doc:"Each stage it entered, when it last entered it, oldest first"`
-	Progress     *progress                `json:"progress,omitempty" doc:"The download's or the Transfer's progress, absent unless it is downloading and its Node reported it, or transferring"`
+	Progress     *progress                `json:"progress,omitempty" doc:"The download's progress, absent unless it is downloading and its Node reported it"`
 	Metadata     *metadataSearch          `json:"metadata,omitempty" doc:"The search for the magnet link's metadata, absent unless it is fetching from a magnet link and has asked its Downloading Node"`
 	FetchWait    *fetchWait               `json:"fetchWait,omitempty" doc:"Why fetching the .torrent waits on its Indexer, absent unless it does"`
 	WaitsFor     *clientWait              `json:"waitsFor,omitempty" doc:"The client a fetching Grab goes to, absent unless it waits for that client: its Node to be back online, or a pinned client that can't take it"`
@@ -328,18 +332,58 @@ type grab struct {
 	Actions      grabActions              `json:"actions"`
 }
 
+type grabImport struct {
+	ID      string `json:"id" format:"uuid"`
+	Placed  int    `json:"placed" minimum:"0" doc:"Its files placed into the library"`
+	Planned int    `json:"planned" minimum:"0" doc:"Its files that are or were sending, placing, placed or waiting"`
+	Sending int    `json:"sending" minimum:"0" doc:"Its files a Transfer is sending"`
+	Waiting int    `json:"waiting" minimum:"0" doc:"Its files that wait for the Admin"`
+	Words   string `json:"words" doc:"Its progress in words, such as Importing 6 of 10 episodes"`
+}
+
+func importOf(im *grabs.ImportView) api.Nullable[grabImport] {
+	if im == nil {
+		return api.Nullable[grabImport]{}
+	}
+	return api.Some(grabImport{ID: im.ID.String(), Placed: im.Placed, Planned: im.Planned, Sending: im.Sending, Waiting: im.Waiting, Words: im.Words})
+}
+
+type grabTarget struct {
+	TargetID string               `json:"targetId" format:"uuid"`
+	ItemID   string               `json:"itemId" format:"uuid"`
+	Forced   bool                 `json:"forced" doc:"An Admin forced it: a file goes in even when it isn't an upgrade"`
+	Settled  api.Nullable[string] `json:"settled" enum:"placed,none,declined" doc:"How the Grab finished with the cell: a file placed into it, no file filled it, or the Admin declined it. Null while the Grab holds it"`
+}
+
 type grabActions struct {
 	Cancel        bool `json:"cancel" doc:"cancelGrab can cancel it"`
 	Blocklistable bool `json:"blocklistable" doc:"A cancel can also put its Release on the Blocklist: its info hash is known"`
 	SendTo        bool `json:"sendTo" doc:"sendGrabTo can send it to another client"`
 }
 
+// targetsOf is each Target cells name, once, in their order, and each
+// of cells.
+func targetsOf(cells []grabs.Cell) (ids []string, out []grabTarget) {
+	ids, out = []string{}, []grabTarget{}
+	for _, c := range cells {
+		if id := c.Key.Target.String(); !slices.Contains(ids, id) {
+			ids = append(ids, id)
+		}
+		t := grabTarget{TargetID: c.Key.Target.String(), ItemID: c.Key.Item.String(), Forced: c.Forced}
+		if c.Settled != nil {
+			t.Settled = api.Some(string(*c.Settled))
+		}
+		out = append(out, t)
+	}
+	return ids, out
+}
+
 func grabOf(v grabs.View) grab {
 	out := grab{
-		ID: v.ID.String(), WorkID: v.WorkID.String(), ItemID: v.ItemID.String(), Edition: string(v.Edition), TargetIDs: []string{},
-		ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseWords, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
-		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), History: []entered{}, CreatedAt: v.Created,
-		Source: string(v.Source), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...),
+		ID: v.ID.String(), WorkID: v.WorkID.String(), Edition: string(v.Edition),
+		Items: []string{}, ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseWords, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
+		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), InFlight: v.Stage.InFlight(), History: []entered{}, CreatedAt: v.Created,
+		Source: string(v.Source), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...), Import: importOf(v.Import),
 		Actions: grabActions{Cancel: v.Actions.Cancel, Blocklistable: v.Actions.Blocklist, SendTo: v.Actions.SendTo},
 	}
 	if v.By != nil {
@@ -349,9 +393,10 @@ func grabOf(v grabs.View) grab {
 		id := v.FetchNode.String()
 		out.FetchNodeID = &id
 	}
-	for _, t := range v.Targets {
-		out.TargetIDs = append(out.TargetIDs, t.String())
+	for _, item := range v.Items {
+		out.Items = append(out.Items, item.String())
 	}
+	out.TargetIDs, out.Targets = targetsOf(v.Targets)
 	if q, ok := release.QualityIn(v.Release.Title).Get(); ok {
 		out.Quality = q.String()
 	}
@@ -478,7 +523,7 @@ func Routes(r *api.Router, p Pipeline) {
 		ID:      "cancelGrab",
 		Method:  http.MethodPost,
 		Path:    "/grabs/{grabId}/cancel",
-		Summary: "Cancel a Grab that is fetching, downloading or transferring. Canceling a canceled Grab changes nothing",
+		Summary: "Cancel a Grab that is fetching, downloading or importing. Canceling a canceled Grab changes nothing",
 		Status:  http.StatusNoContent,
 		Errors:  []*api.Code{grabNotFound, grabBusy, grabFinished, reconciling},
 	}, h.cancelGrab)

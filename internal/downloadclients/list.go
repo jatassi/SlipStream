@@ -372,7 +372,9 @@ func (c *Clients) rowOf(h db.ListHeldRow, uses []Use) (Row, error) {
 
 // held reports whether a Grab of uses is unfinished.
 func held(uses []Use) bool {
-	return slices.ContainsFunc(uses, func(u Use) bool { return u.Stage == UseDownloading || u.Stage == UseImporting })
+	return slices.ContainsFunc(uses, func(u Use) bool {
+		return u.Stage == UseDownloading || u.Stage == UseImporting || u.Stage == UseWaiting
+	})
 }
 
 // refOf is a Torrent's client as a row names it, nil for the built-in
@@ -467,9 +469,9 @@ type FileDetail struct {
 	// Done is nil while unknown: the detail is not Live and the Torrent
 	// is not complete.
 	Done *int64
-	// Item is the Item the file filled once a Grab imported it, zero
+	// Items are the Items the file filled once a Grab imported it, none
 	// before.
-	Item works.ItemID
+	Items []works.ItemID
 }
 
 // Get is Torrent id, live or Removing, with its Node's word on its
@@ -531,14 +533,16 @@ func detailOf(row Row, details db.GetDetailsRow) (Detail, error) {
 			i++
 		}
 	}
-	items := map[int]works.ItemID{}
+	items := map[int][]works.ItemID{}
 	for _, u := range row.Uses {
-		if u.Stage == UseImported && u.File != nil {
-			items[*u.File] = u.Item
+		if u.Stage == UseImported {
+			for _, f := range u.Files {
+				items[f.Index] = f.Items
+			}
 		}
 	}
 	for i, f := range m.Info.Files {
-		fd := FileDetail{Index: i, Path: pathOf(m.Info, f), Size: f.Length, Item: items[i]}
+		fd := FileDetail{Index: i, Path: pathOf(m.Info, f), Size: f.Length, Items: items[i]}
 		if complete {
 			fd.Done = new(f.Length)
 		}

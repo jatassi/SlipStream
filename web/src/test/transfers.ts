@@ -16,7 +16,7 @@ const mib = 1024 * 1024;
 /** A Transfer from seedbox into a root on home, copying 2.1 GB of 8.4 GB at 48 MB/s with 2 min left. */
 export const copying: TransfersTransfer = {
   id: "7d3f1a9c-2b4e-4c6a-8e0f-1a3c5e7b9d2f",
-  purpose: "grab",
+  purpose: "import",
   job: "3c8e1f5a-7b2d-4e9c-a1f3-5d7b9e2c4a6f",
   jobName: "Heat (1995)",
   source: { nodeId: seedboxId, nodeName: "seedbox" },
@@ -43,6 +43,14 @@ export const copying: TransfersTransfer = {
     { position: 1, name: "Heat (1995).en.srt", size: 40_000, verified: true, placed: false },
   ],
   details: { lanes: 3, rttMs: 42, retried: 1 },
+};
+
+/** The same copy, asked for by the Import of the Grab whose download it is. */
+export const importCopying: TransfersTransfer = {
+  ...copying,
+  id: "7d3f1a9c-2b4e-4c6a-8e0f-1a3c5e7b9d30",
+  purpose: "import",
+  job: "6c8e0a2b-4d6f-4b8a-9c1e-5f7a9b1d3e60",
 };
 
 const at = (

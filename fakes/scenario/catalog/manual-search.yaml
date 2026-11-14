@@ -228,10 +228,21 @@ releases:
     sites: [torznab]
   - name: The.Lantern.Keepers.S02.1080p.WEB-DL.H264-FKW
     tvdb: {series: 1001, season: 2}
-    video: {width: 1920, height: 1080, seconds: 6}
     seeders: 40
+    seeded: true
     advertised_size: 24.0GiB
     sites: [torznab]
+    files:
+      - {path: The.Lantern.Keepers.S02E01.1080p.WEB-DL.H264-FKW.mkv, items: [{season: 2, episode: 1}], video: &episode {width: 1920, height: 1080, seconds: 6, hdr: sdr}, size: 2MiB}
+      - {path: The.Lantern.Keepers.S02E02.1080p.WEB-DL.H264-FKW.mkv, items: [{season: 2, episode: 2}], video: *episode, size: 2MiB}
+      - {path: The.Lantern.Keepers.S02E03.1080p.WEB-DL.H264-FKW.mkv, items: [{season: 2, episode: 3}], video: *episode, size: 2MiB}
+      - {path: The.Lantern.Keepers.S02E04.1080p.WEB-DL.H264-FKW.mkv, items: [{season: 2, episode: 4}], video: *episode, size: 2MiB}
+      - {path: The.Lantern.Keepers.S02E05.1080p.WEB-DL.H264-FKW.mkv, items: [{season: 2, episode: 5}], video: *episode, size: 2MiB}
+      - {path: The.Lantern.Keepers.S02E06.1080p.WEB-DL.H264-FKW.mkv, items: [{season: 2, episode: 6}], video: *episode, size: 2MiB}
+      - {path: The.Lantern.Keepers.S02E07.1080p.WEB-DL.H264-FKW.mkv, items: [{season: 2, episode: 7}], video: *episode, size: 2MiB}
+      - {path: The.Lantern.Keepers.S02E08.1080p.WEB-DL.H264-FKW.mkv, items: [{season: 2, episode: 8}], video: *episode, size: 2MiB}
+      - {path: The.Lantern.Keepers.S02E09.1080p.WEB-DL.H264-FKW.mkv, items: [{season: 2, episode: 9}], video: *episode, size: 2MiB}
+      - {path: The.Lantern.Keepers.S02E10.1080p.WEB-DL.H264-FKW.mkv, items: [{season: 2, episode: 10}], video: *episode, size: 2MiB}
 tracker:
   interval: 5s
 library:

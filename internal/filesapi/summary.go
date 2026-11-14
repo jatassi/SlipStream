@@ -1,6 +1,8 @@
 package filesapi
 
 import (
+	"time"
+
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -52,9 +54,28 @@ type upgradeNeed struct {
 }
 
 type waitingNeed struct {
-	Kind   string `json:"kind" enum:"waiting"`
-	GrabID string `json:"grabId" format:"uuid"`
-	Code   string `json:"code" enum:"node_away,client_away,client_off" doc:"Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't hold Downloading"`
+	Kind        string                    `json:"kind" enum:"waiting"`
+	GrabID      string                    `json:"grabId" format:"uuid"`
+	Code        string                    `json:"code" enum:"node_away,client_away,client_off,no_space,root_not_ready,probe_timeout,client_error" doc:"Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't hold Downloading. no_space while its root has too little free space for a file, root_not_ready while its root isn't ready, probe_timeout while reading a file timed out three times, and client_error while its external client reports an error"`
+	ClientError api.Nullable[clientError] `json:"clientError" doc:"The client's error, for client_error; null otherwise"`
+	ImportWait  api.Nullable[importWait]  `json:"importWait" doc:"The root the Import waits on, for no_space and root_not_ready; null otherwise"`
+}
+
+type importWait struct {
+	RootID string              `json:"rootId" format:"uuid"`
+	Space  api.Nullable[space] `json:"space" doc:"For no_space, the bytes free and the bytes the file needs; null when a clone found the volume full or for root_not_ready"`
+}
+
+type space struct {
+	Free  int64 `json:"free" minimum:"0" doc:"Bytes free on the root's volume above its Storage error level"`
+	Needs int64 `json:"needs" minimum:"1" doc:"Bytes the file needs"`
+}
+
+type clientError struct {
+	Client  string    `json:"client" doc:"The external Download Client's name"`
+	Node    string    `json:"node" doc:"The client's Node's name"`
+	Message string    `json:"message" doc:"The error as the client words it"`
+	FailsAt time.Time `json:"failsAt" doc:"When the Grab fails unless the error clears"`
 }
 
 type noRootNeed struct {
@@ -68,8 +89,21 @@ var needVariants = map[files.NeedKind]func(files.Need) any{
 	files.NeedUpgrade: func(n files.Need) any {
 		return upgradeNeed{Kind: "upgrade", ItemIDs: itemIDs(n.Items), Edition: string(n.Edition), Upgrades: targetIDs(n.Upgrades)}
 	},
-	files.NeedWaiting: func(n files.Need) any { return waitingNeed{Kind: "waiting", GrabID: n.Grab.String(), Code: n.Code} },
-	files.NeedNoRoot:  func(files.Need) any { return noRootNeed{Kind: "no_root"} },
+	files.NeedWaiting: func(n files.Need) any {
+		w := waitingNeed{Kind: "waiting", GrabID: n.Grab.String(), Code: n.Code}
+		if e := n.ClientError; e != nil {
+			w.ClientError = api.Some(clientError{Client: e.Client, Node: e.Node, Message: e.Message, FailsAt: e.FailsAt})
+		}
+		if h := n.Hold; h != nil {
+			iw := importWait{RootID: h.Root.String()}
+			if h.Needs > 0 {
+				iw.Space = api.Some(space{Free: h.Free, Needs: h.Needs})
+			}
+			w.ImportWait = api.Some(iw)
+		}
+		return w
+	},
+	files.NeedNoRoot: func(files.Need) any { return noRootNeed{Kind: "no_root"} },
 }
 
 func needsOf(ns []files.Need) []api.OneOf[need] {

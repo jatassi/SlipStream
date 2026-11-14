@@ -2,10 +2,15 @@ package imports
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"math/rand/v2"
 	"path"
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -19,6 +24,8 @@ import (
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
+	mediav1 "github.com/jatassi/slipstream/internal/pb/slipstream/media/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/media/v1/mediav1connect"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -29,6 +36,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -43,13 +51,22 @@ type world struct {
 	files   *files.Files
 	library *library.Library
 	im      *Imports
+	cfg     Config
 	root    roots.Root
 	node    role.NodeID
 	hd      targets.TargetID
 	changed *heard[Changed]
 	moved   *heard[files.Changed]
 	steps   map[tasks.UnitKey]tasks.Step
+	// stop, when set, sees each Import file's IO before it runs.
+	stop  atomic.Pointer[func(context.Context, Step)]
+	probe media.Record
+	// disk is files' Disk, the roots its Imports place through.
+	disk *heldDisk
 }
+
+// heldDisk is a files.Disk that follows the roots a test moves w onto.
+type heldDisk struct{ files.Disk }
 
 type heard[T any] struct {
 	mu   sync.Mutex
@@ -73,14 +90,6 @@ func (h *heard[T]) take() []T {
 type discard[T any] struct{}
 
 func (discard[T]) Publish(context.Context, T) {}
-
-type noGrabs struct{}
-
-func (noGrabs) CancelTransfersIn(context.Context, *storage.Tx[storage.Library], []works.WorkID) error {
-	return nil
-}
-
-func (noGrabs) TouchTransfers() {}
 
 // shelfFacet hints a folder's name as release names write it and places
 // a file at the Item its name, without extension, labels.
@@ -109,7 +118,7 @@ func newWorld(t *testing.T) *world {
 	t.Helper()
 	ctx := t.Context()
 	w := &world{
-		lib:     storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), naming.Schema(), Schema()),
+		lib:     storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), indexers.Schema(), downloadclients.Schema(), grabs.Schema(), files.Schema(), naming.Schema(), transfers.LibrarySchema(), Schema()),
 		fx:      contenttypetest.New(),
 		node:    role.NodeID{UUID: storage.NewUUID()},
 		changed: &heard[Changed]{},
@@ -124,14 +133,13 @@ func newWorld(t *testing.T) *world {
 		t.Fatal(err)
 	}
 	cfg := rootstest.Config(t, w.lib, contenttypetest.ID)
-	cfg.Names = func(context.Context) (map[role.NodeID]nodes.Named, error) {
-		return map[role.NodeID]nodes.Named{w.node: {Name: "Media server"}}, nil
-	}
+	cfg.Names = w.names
 	cfg.Describe = w.works.Describe
 	if w.roots, err = roots.Open(ctx, cfg); err != nil {
 		t.Fatal(err)
 	}
 	w.root = w.newRoot(t)
+	w.disk = &heldDisk{Disk: w.roots}
 	goals, err := targets.Open(ctx, targets.Config{Library: w.lib, Works: w.works, Types: map[works.TypeID]targets.Facet{contenttypetest.ID: w.fx}, Changed: discard[targets.Changed]{}})
 	if err != nil {
 		t.Fatal(err)
@@ -149,18 +157,19 @@ func newWorld(t *testing.T) *world {
 		t.Fatal(err)
 	}
 	if w.files, err = files.Open(ctx, files.Config{
-		Library: w.lib, Targets: goals, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }},
+		Library: w.lib, Targets: goals, Grabs: Cells{Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}},
 		Naming: naming.New(naming.Config{
 			Facets:   map[works.TypeID]naming.Facet{contenttypetest.ID: w.fx},
 			Describe: func(works.TypeID) (works.Description, bool) { return contenttypetest.Description, true },
 			Budget:   func(context.Context, storage.Reader[storage.Library], works.TypeID) (int, error) { return 1000, nil },
 		}),
-		Names: map[works.TypeID]release.Names{contenttypetest.ID: w.fx}, Today: time.Now,
+		Names: map[works.TypeID]release.Names{contenttypetest.ID: w.fx}, Today: time.Now, Disk: w.disk,
 	}); err != nil {
 		t.Fatal(err)
 	}
-	w.im = New(Config{
-		Library: w.lib, Roots: w.roots, Files: w.files, Works: w.works, Targets: goals,
+	w.probe = media.Record{Version: media.Version, Container: "matroska,webm", Video: media.Video{Codec: "hevc", Width: 1920, Height: 1080}}
+	w.cfg = Config{
+		Library: w.lib, Roots: w.roots, Files: w.files, Works: w.works, Targets: goals, Probes: w.probes,
 		Facets: map[works.TypeID]scanning.Facet{contenttypetest.ID: shelfFacet{}},
 		Add: func(ctx context.Context, by identity.Admin, a library.Adding) (library.Added, error) {
 			return w.library.Add(ctx, by, a)
@@ -169,9 +178,28 @@ func newWorld(t *testing.T) *world {
 			return 7, w.steps, w.steps != nil
 		},
 		Changed: w.changed, FilesChanged: w.moved,
-	})
-	w.library = library.New(library.Config{Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Grabs: noGrabs{}, Leaver: w.im})
+		Timings: Timings{RetryMin: time.Millisecond, RetryMax: 20 * time.Millisecond}, Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // a fixed draw the test replays
+		BeforeImport: func(ctx context.Context, s Step) {
+			if stop := w.stop.Load(); stop != nil {
+				(*stop)(ctx, s)
+			}
+		},
+		Log: slog.New(slog.DiscardHandler),
+	}
+	w.im = w.newImports(w.cfg)
+	w.library = library.New(library.Config{Library: w.lib, Works: w.works, Roots: w.roots, Files: w.files, Imports: w.im, Leaver: w.im})
 	return w
+}
+
+// newImports is New over cfg with Transfers of its own, as each Controller
+// start registers the purpose once.
+func (w *world) newImports(cfg Config) *Imports {
+	cfg.Transfers = transfers.New(transfers.ControllerConfig{Library: w.lib})
+	return New(cfg)
+}
+
+func (w *world) names(context.Context) (map[role.NodeID]nodes.Named, error) {
+	return map[role.NodeID]nodes.Named{w.node: {Name: "Media server"}}, nil
 }
 
 func (w *world) newRoot(t *testing.T) roots.Root {
@@ -202,12 +230,14 @@ func (w *world) add(t *testing.T, key works.Key, root roots.ID) works.Tree {
 }
 
 // found is a file a scan read whole.
-func found(p string) PendingFile {
-	return PendingFile{
+func found(p string) File {
+	f := File{
 		Path: p, Size: 1 << 30, Seen: &storing.Seen{Modified: time.UnixMilli(1_700_000_000_000)},
-		Media:   &media.Record{Version: media.Version, Container: "matroska,webm", Video: media.Video{Codec: "hevc", Width: 1920, Height: 1080}},
-		Quality: release.Bluray1080p, Cut: release.Standard, Reason: scanning.Reason{Code: scanning.NoMatch},
+		Probe:   &media.Record{Version: media.Version, Container: "matroska,webm", Video: media.Video{Codec: "hevc", Width: 1920, Height: 1080}},
+		Quality: release.Bluray1080p, Cut: release.Standard, Position: -1,
 	}
+	f.waitFor(scanning.Reason{Code: scanning.NoMatch})
+	return f
 }
 
 // pend writes what a scan of the world's root found in folder.
@@ -230,18 +260,18 @@ func (w *world) pend(t *testing.T, p pend) {
 
 // entries is what Pending imports lists, the ones that need the Admin or
 // the ignored ones.
-func (w *world) entries(t *testing.T, ignored bool) []Entry {
+func (w *world) entries(t *testing.T, ignored bool) []Import {
 	t.Helper()
-	l, err := w.im.Pending(t.Context(), identity.Admin{}, Filter{Ignored: ignored})
+	l, err := w.im.List(t.Context(), identity.Admin{}, Filter{Ignored: ignored})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return l.Entries
+	return l.Imports
 }
 
 // at is the entry of folder Pending imports lists, needing the Admin or
 // ignored, nil when it lists none.
-func (w *world) at(t *testing.T, folder string) *Entry {
+func (w *world) at(t *testing.T, folder string) *Import {
 	t.Helper()
 	for _, ignored := range []bool{false, true} {
 		for _, e := range w.entries(t, ignored) {
@@ -253,15 +283,28 @@ func (w *world) at(t *testing.T, folder string) *Entry {
 	return nil
 }
 
-func paths(e *Entry) []string {
+// paths is the paths of e's waiting files, the ones Pending imports
+// lists, in path order.
+func paths(e *Import) []string {
 	if e == nil {
 		return nil
 	}
-	out := make([]string, len(e.Files))
-	for i, f := range e.Files {
-		out[i] = f.Path
+	var out []string
+	for _, f := range e.waiting() {
+		out = append(out, f.Path)
 	}
+	slices.Sort(out)
 	return out
+}
+
+// position is the position of e's waiting file at p, -1 for none.
+func position(e *Import, p string) int {
+	for _, f := range e.waiting() {
+		if f.Path == p {
+			return f.Position
+		}
+	}
+	return -1
 }
 
 // filesOf is the paths work's file rows record.
@@ -295,7 +338,7 @@ func (w *world) place(t *testing.T, work works.Tree, p string) {
 	i := slices.IndexFunc(work.Items, func(it works.Item) bool { return it.Label == label })
 	err := w.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: work.ID, ItemID: work.Items[i].ID, Cut: release.Standard, RootID: w.root.ID, Path: p, Size: 1 << 30, Quality: release.Bluray1080p,
+			WorkID: work.ID, Items: []works.ItemID{work.Items[i].ID}, Cut: release.Standard, RootID: w.root.ID, Path: p, Size: 1 << 30, Quality: release.Bluray1080p,
 			Media: media.Record{Version: media.Version, Video: media.Video{Codec: "hevc", Width: 1920, Height: 1080}},
 			Seen:  &storing.Seen{Modified: time.UnixMilli(1_700_000_000_000)},
 		}, []targets.TargetID{w.hd})
@@ -304,4 +347,42 @@ func (w *world) place(t *testing.T, work works.Tree, p string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+// itemsOfFile is the Items work's file id holds.
+func (w *world) itemsOfFile(t *testing.T, work works.WorkID, id files.ID) []works.ItemID {
+	t.Helper()
+	l, err := w.files.WorkFiles(t.Context(), identity.Admin{}, work)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range l.Files {
+		if f.ID == id {
+			return f.Items
+		}
+	}
+	return nil
+}
+
+// stored is Import id as its rows read.
+func (w *world) stored(t *testing.T, id ImportID) *Import {
+	t.Helper()
+	imp, err := importOf(t.Context(), w.lib, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &imp
+}
+
+// probes is MediaService on every Node, answering w.probe for any file.
+func (w *world) probes(role.NodeID) mediav1connect.MediaServiceHandler { return prober{w} }
+
+type prober struct{ w *world }
+
+func (p prober) Probe(context.Context, *mediav1.ProbeRequest) (*mediav1.ProbeResponse, error) {
+	b, err := json.Marshal(p.w.probe)
+	if err != nil {
+		return nil, fmt.Errorf("encode the probe: %w", err)
+	}
+	return &mediav1.ProbeResponse{Record: b}, nil
 }

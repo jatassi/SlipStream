@@ -18,4 +18,6 @@ export type Scenario =
   | "seeding"
   | "seeding-routing"
   | "external-clients"
-  | "manual-search";
+  | "manual-search"
+  | "packs"
+  | "imports";

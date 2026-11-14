@@ -29,6 +29,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -83,7 +84,7 @@ func attic(t *testing.T) (o *ownertest.Owner, work string) {
 	}
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: root.ID, Path: "Loft/scarf.mkv", Size: 5,
+			WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID}, Cut: release.Standard, RootID: root.ID, Path: "Loft/scarf.mkv", Size: 5,
 			Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p,
 		}, []targets.TargetID{hd.ID})
 		return err
@@ -98,7 +99,7 @@ func attic(t *testing.T) (o *ownertest.Owner, work string) {
 		Library: lib, Targets: goals, Grabs: files.NoGrabs{}, Naming: nm,
 		Names: map[works.TypeID]release.Names{contenttypetest.ID: fx}, Today: time.Now, Moved: ignore[files.Moved]{},
 	}))
-	im := imports.New(imports.Config{Library: lib, Files: svc, Targets: goals, Facets: map[works.TypeID]scanning.Facet{contenttypetest.ID: fx}})
+	im := imports.New(imports.Config{Library: lib, Transfers: transfers.New(transfers.ControllerConfig{Library: lib}), Files: svc, Targets: goals, Facets: map[works.TypeID]scanning.Facet{contenttypetest.ID: fx}})
 	return ownertest.Serve(t, lib, func(r *api.Router) { namingapi.Routes(r, node{n: nm, f: svc, im: im}) }), tree.ID.String()
 }
 

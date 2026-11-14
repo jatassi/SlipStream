@@ -301,3 +301,39 @@ func TestNeedsKeepsConsecutiveItemsSideBySide(t *testing.T) {
 		t.Fatalf("Needs you is\n%swant each Edition's failures in tree order, side by side, those at one stage joined\n%s", got, want)
 	}
 }
+
+func TestTheRollupCountsEachFileOnceAndNoneInALostRoot(t *testing.T) {
+	l := open(t)
+	tree := l.stocked(t, "w1", true, box("b1", false, "Scarf", "Mittens", "Gloves"))
+	starter := must[[]targets.Target](t)(l.targets.ListTargets(t.Context(), admin))[0]
+	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		for _, f := range []files.File{
+			{Items: []works.ItemID{tree.Items[0].ID, tree.Items[1].ID}, Path: "pair.mkv", Size: 3000},
+			{Items: []works.ItemID{tree.Items[2].ID}, Path: "gloves.mkv", Size: 1000},
+		} {
+			f.WorkID, f.Cut, f.RootID, f.Quality = tree.ID, release.Standard, l.root.ID, release.WEBDL1080p
+			if _, err := files.Add(ctx, tx, f, []targets.TargetID{starter.ID}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := l.files(files.NoGrabs{})
+	rollup := func() string {
+		_, _, r, err := svc.WorkCells(t.Context(), admin, tree.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return fmt.Sprintf("files=%d bytes=%d", r.Files, r.Bytes)
+	}
+	if got, want := rollup(), "files=2 bytes=4000"; got != want {
+		t.Fatalf("the rollup holds %s, want %s: the file of Scarf and Mittens once", got, want)
+	}
+	l.writeOff(t)
+	if got, want := rollup(), "files=0 bytes=0"; got != want {
+		t.Fatalf("with the root lost the rollup holds %s, want %s", got, want)
+	}
+}

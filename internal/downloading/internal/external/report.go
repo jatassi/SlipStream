@@ -41,7 +41,8 @@ func (s *state) report(now time.Time, b *batch) {
 
 func (s *state) reportTorrent(t *track, now time.Time, b *batch) {
 	key := s.reportOf(t, now)
-	if !proto.Equal(key, t.sent) || t.change != nil || t.completion != nil {
+	beat := key.GetHold() == dlv1.Hold_HOLD_CLIENT_ERROR && now.Sub(t.sentAt) >= s.cfg.Timings.ErrorHeartbeat
+	if !proto.Equal(key, t.sent) || t.change != nil || t.completion != nil || beat {
 		r := proto.CloneOf(key)
 		r.AtUnixMs, r.Done, r.Wanted = now.UnixMilli(), t.status.Done, t.status.Size
 		if t.change != nil {
@@ -196,7 +197,7 @@ func (s *state) writeRows(ctx context.Context, q *db.Queries, b *batch) error {
 // sent marks what b's committed Write sent.
 func (b *batch) sent() {
 	for i, t := range b.reported {
-		t.sent, t.change, t.completion = b.keys[i], nil, nil
+		t.sent, t.sentAt, t.change, t.completion = b.keys[i], time.UnixMilli(b.reports[i].GetAtUnixMs()), nil, nil
 	}
 	for _, t := range b.vanished {
 		t.told = true

@@ -2,6 +2,7 @@ package grabs
 
 import (
 	"context"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
@@ -12,10 +13,11 @@ import (
 )
 
 // GrabCells is files.Inflight over the Grabs: each cell is in flight while
-// any unfinished Grab holds it, fetching included, and reads from the
-// latest such Grab, whatever finished after it. Else it reads from its
-// latest Grab, failed once failed. A failure that doesn't need the Admin,
-// such as a cancel, leaves the cell as no Grab would, as an import does.
+// any Grab in flight holds it unsettled, fetching included, and reads from
+// the latest such Grab, whatever finished after it. Else it reads from its
+// latest Grab, failed once failed, and from no Grab once that Grab settled
+// the cell. A failure that doesn't need the Admin, such as a cancel,
+// leaves the cell as no Grab would, as an import does.
 // An unfinished Grab whose Node is out of step waits on it, node_away, as
 // does a fetching one whose route names a client on a Node out of step.
 // A fetching one pinned to a client that can't take it waits on that
@@ -37,6 +39,10 @@ const (
 	// that can't take it: it is off or deleted, or its Node doesn't hold
 	// Downloading.
 	ClientOff = "client_off"
+	// ClientErrorWait is the Waiting code of a downloading Grab whose
+	// external client reports an error on its Torrent, until it clears or
+	// the Grab fails client_error.
+	ClientErrorWait = "client_error"
 )
 
 func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
@@ -60,14 +66,15 @@ func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Libra
 	for key, row := range readFrom(rows) {
 		cell := files.GrabCell{Grab: row.ID.UUID}
 		switch {
-		case row.Stage == Imported, row.Stage == Failed && !(Grab{Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}).NeedsYou():
+		case row.Settled != nil, row.Stage == Imported, row.Stage == Failed && !(Grab{Stage: Failed, Failed: &Failure{Code: *row.FailureCode}, Source: row.Source}).NeedsYou():
 			continue
 		case row.Stage == Failed:
 			cell.State, cell.FailedAt = files.GrabFailed, string(*row.FailedStage)
 		case !g.InStep(row.NodeID):
-			cell.State, cell.Waiting = files.GrabInFlight, NodeAway
+			cell.State, cell.Waiting, cell.Doing = files.GrabInFlight, NodeAway, doingOf(row, waiting{})
 		default:
-			cell.State, cell.Waiting = files.GrabInFlight, waits[row.ID]
+			w := waits[row.ID]
+			cell.State, cell.Waiting, cell.ClientError, cell.Doing = files.GrabInFlight, w.code, w.clientError, doingOf(row, w)
 		}
 		out[key] = cell
 	}
@@ -78,7 +85,7 @@ func readFrom(oldestFirst []db.ListTargetsOfWorksRow) map[files.CellKey]db.ListT
 	out := map[files.CellKey]db.ListTargetsOfWorksRow{}
 	for _, row := range oldestFirst {
 		key := files.CellKey{Item: row.ItemID, Edition: row.Edition, Target: row.TargetID}
-		if held, ok := out[key]; ok && unfinished(held.Stage) && !unfinished(row.Stage) {
+		if held, ok := out[key]; ok && holds(held) && !holds(row) {
 			continue
 		}
 		out[key] = row
@@ -86,7 +93,20 @@ func readFrom(oldestFirst []db.ListTargetsOfWorksRow) map[files.CellKey]db.ListT
 	return out
 }
 
-func unfinished(s Stage) bool { return s != Imported && s != Failed }
+// holds reports whether row's Grab holds its cell: the Grab is in flight
+// and hasn't settled it.
+func holds(row db.ListTargetsOfWorksRow) bool { return row.Stage.InFlight() && row.Settled == nil }
+
+// inFlightStages is every Stage whose Grabs are in flight.
+var inFlightStages = func() []Stage {
+	var out []Stage
+	for _, s := range Stages {
+		if s.InFlight() {
+			out = append(out, s)
+		}
+	}
+	return out
+}()
 
 func (GrabCells) ReleaseTitles(ctx context.Context, r storage.Reader[storage.Library]) (map[storage.UUID]string, error) {
 	rows, err := db.New(r).ListReleaseTitles(ctx)
@@ -97,11 +117,36 @@ func (GrabCells) ReleaseTitles(ctx context.Context, r storage.Reader[storage.Lib
 	return out, err
 }
 
+// waiting is what an unfinished Grab waits on: its Waiting code, and the
+// client's error for client_error.
+type waiting struct {
+	code        string
+	clientError *files.ClientError
+	// until is when a downloading Grab's client's Import delay ends, zero
+	// unless it waits for it.
+	until time.Time
+}
+
+// doingOf is the step in flight row's Grab is at, w what it waits on. An
+// importing Grab's step is its Import's, which imports reads.
+func doingOf(row db.ListTargetsOfWorksRow, w waiting) files.Doing {
+	h := files.Doing{From: row.EnteredAt.Time(), Until: w.until}
+	switch row.Stage {
+	case Fetching:
+		h.Step = files.StepFetching
+	case Downloading:
+		h.Step = files.StepDownloading
+	case Importing, Imported, Failed:
+	}
+	return h
+}
+
 // waits is what each unfinished Grab waits on while its own Node is in
 // step: a fetching one's pinned client that can't take it, client_off,
 // or its route's Node out of step, node_away, or its Torrent's away
-// client, client_away.
-func (g GrabCells) waits(ctx context.Context, r storage.Reader[storage.Library]) (map[GrabID]string, error) {
+// client, client_away, or a downloading one's client reporting an error,
+// client_error.
+func (g GrabCells) waits(ctx context.Context, r storage.Reader[storage.Library]) (map[GrabID]waiting, error) {
 	open, err := db.New(r).ListOpenGrabs(ctx)
 	if err != nil {
 		return nil, err
@@ -114,10 +159,14 @@ func (g GrabCells) waits(ctx context.Context, r storage.Reader[storage.Library])
 	if err != nil {
 		return nil, err
 	}
-	out := map[GrabID]string{}
+	torrents, err := downloadclients.Outcomes(ctx, r, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := map[GrabID]waiting{}
 	for _, row := range open {
 		if row.Stage == Fetching {
-			grab, err := load(ctx, r, row, related{})
+			grab, err := load(row, related{})
 			if err != nil {
 				return nil, err
 			}
@@ -126,64 +175,25 @@ func (g GrabCells) waits(ctx context.Context, r storage.Reader[storage.Library])
 			case err != nil:
 				return nil, err
 			case w != nil && w.Off:
-				out[row.ID] = ClientOff
+				out[row.ID] = waiting{code: ClientOff}
 				continue
 			case w != nil:
-				out[row.ID] = NodeAway
+				out[row.ID] = waiting{code: NodeAway}
 				continue
 			}
 		}
-		if away[row.TorrentID] {
-			out[row.ID] = ClientAway
+		t := torrents[row.TorrentID]
+		if row.Stage == Downloading && !t.ImportDelayUntil.IsZero() {
+			out[row.ID] = waiting{until: t.ImportDelayUntil}
+		}
+		switch {
+		case away[row.TorrentID]:
+			out[row.ID] = waiting{code: ClientAway, until: out[row.ID].until}
+		case row.Stage == Downloading && t.ClientError != nil:
+			out[row.ID] = waiting{code: ClientErrorWait, until: out[row.ID].until, clientError: &files.ClientError{
+				Client: t.Client.Name, Node: t.ClientError.Node, Message: t.ClientError.Message, FailsAt: t.ClientError.FailsAt,
+			}}
 		}
 	}
 	return out, nil
-}
-
-// Unfinished lists every Grab not yet imported or failed.
-func (GrabCells) Unfinished(ctx context.Context, r storage.Reader[storage.Library]) ([]storage.UUID, error) {
-	rows, err := db.New(r).ListOpenGrabs(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]storage.UUID, len(rows))
-	for i, row := range rows {
-		out[i] = row.ID.UUID
-	}
-	return out, nil
-}
-
-// Settle records u on each unfinished Grab of work all of whose cells are
-// in gone. Settling one twice changes nothing.
-func (GrabCells) Settle(ctx context.Context, tx *storage.Tx[storage.Library], work works.WorkID, gone map[files.CellKey]bool, u files.Unwanted) (int, error) {
-	q := db.New(tx)
-	rows, err := q.ListTargetsOfWork(ctx, work)
-	if err != nil {
-		return 0, err
-	}
-	var order []GrabID
-	left := map[GrabID]bool{}
-	for _, row := range rows {
-		if row.Stage == Imported || row.Stage == Failed {
-			continue
-		}
-		if _, seen := left[row.ID]; !seen {
-			order = append(order, row.ID)
-			left[row.ID] = false
-		}
-		if !gone[files.CellKey{Item: row.ItemID, Edition: row.Edition, Target: row.TargetID}] {
-			left[row.ID] = true
-		}
-	}
-	n := 0
-	for _, id := range order {
-		if left[id] {
-			continue
-		}
-		if err := q.SettleGrab(ctx, db.SettleGrabParams{ID: id, Unwanted: &u}); err != nil {
-			return 0, err
-		}
-		n++
-	}
-	return n, nil
 }

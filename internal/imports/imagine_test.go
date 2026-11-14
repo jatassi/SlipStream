@@ -39,7 +39,7 @@ func (dottedFacet) Place(ctx context.Context, r storage.Reader[storage.Library],
 func dotted(w *world) *Imports {
 	cfg := w.im.cfg
 	cfg.Facets = map[works.TypeID]scanning.Facet{contenttypetest.ID: dottedFacet{}}
-	return New(cfg)
+	return w.newImports(cfg)
 }
 
 func TestATestedNameGetsThePathItsImportWouldUnderADraft(t *testing.T) {

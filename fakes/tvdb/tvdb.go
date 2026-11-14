@@ -96,7 +96,11 @@ type server struct {
 	rejectedKeys map[string]bool
 	rejectedPins map[string]bool
 	// edited holds each series a cue reshaped, whole.
-	edited   map[int64]scenario.TVDBSeries
+	edited map[int64]scenario.TVDBSeries
+	// orders holds each series' episodes in an order, as episodesIn
+	// sorts them, since a client pages a long series one request at a
+	// time. An edit or a change drops the series' entries.
+	orders   map[orderKey][]placed
 	revision map[int64]int
 	deleted  map[int64]bool
 	updates  []update
@@ -117,7 +121,7 @@ type update struct {
 func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 	srv := &server{
 		lifetime: tokenLifetime, tokens: map[string]session{}, seen: map[string]bool{}, rejectedKeys: map[string]bool{}, rejectedPins: map[string]bool{},
-		edited: map[int64]scenario.TVDBSeries{}, revision: map[int64]int{}, deleted: map[int64]bool{}, added: addedEpisodesFirstID,
+		edited: map[int64]scenario.TVDBSeries{}, orders: map[orderKey][]placed{}, revision: map[int64]int{}, deleted: map[int64]bool{}, added: addedEpisodesFirstID,
 	}
 	if s.TVDB != nil {
 		srv.catalog = *s.TVDB
@@ -302,6 +306,7 @@ func (s *server) change(id int64) (any, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.revision[id]++
+	s.forget(id)
 	s.updates = append(s.updates, update{id: id, at: time.Now()})
 	return changed{Revision: s.revision[id]}, nil
 }
@@ -315,6 +320,33 @@ func (s *server) remove(id int64) (any, error) {
 	s.deleted[id] = true
 	s.updates = append(s.updates, update{id: id, deleted: true, at: time.Now()})
 	return changed{Revision: s.revision[id], Deleted: true}, nil
+}
+
+type orderKey struct {
+	series int64
+	order  int
+}
+
+// ordered is series' episodes in order t.
+func (s *server) ordered(series scenario.TVDBSeries, t seasonType) []placed {
+	k := orderKey{series.ID, t.ID}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, ok := s.orders[k]
+	if !ok {
+		out = episodesIn(series, t)
+		s.orders[k] = out
+	}
+	return out
+}
+
+// forget drops series id's orders. Callers hold s.mu.
+func (s *server) forget(id int64) {
+	for k := range s.orders {
+		if k.series == id {
+			delete(s.orders, k)
+		}
+	}
 }
 
 // edit reshapes series id with f and lists it as updated now.
@@ -333,6 +365,7 @@ func (s *server) edit(id int64, f func(*scenario.TVDBSeries) error) error {
 		return err
 	}
 	s.edited[id] = series
+	s.forget(id)
 	s.updates = append(s.updates, update{id: id, at: time.Now()})
 	return nil
 }

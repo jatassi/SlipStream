@@ -2,7 +2,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { isProblem, sentenceOf } from "../api/errors";
-import type { RootsFolderProblem, RootsListing } from "../api/gen/model";
+import type { BrowseFoldersPurpose, RootsFolderProblem, RootsListing } from "../api/gen/model";
 import {
   browseFolders,
   getBrowseFoldersQueryKey,
@@ -17,6 +17,7 @@ import { useSettled } from "./use-settled";
 export type FolderProblem =
   | { readonly kind: "unreadable"; readonly problem: RootsFolderProblem }
   | { readonly kind: "offline" }
+  | { readonly kind: "outside" }
   /** Any other refusal, in the Node's own words. */
   | { readonly kind: "refused"; readonly sentence: string };
 
@@ -28,6 +29,9 @@ export function problemOf(error: unknown): FolderProblem {
   }
   if (isProblem(error, "node_offline")) {
     return { kind: "offline" };
+  }
+  if (isProblem(error, "folder_outside")) {
+    return { kind: "outside" };
   }
   return { kind: "refused", sentence: sentenceOf(error) };
 }
@@ -51,8 +55,13 @@ export type FolderListing = {
  * One folder, or the Node's places for "", read fresh each time it is shown:
  * a folder changes on disk with no event to say so.
  */
-export function useFolderListing(nodeId: string, path: string, hidden: boolean): FolderListing {
-  const params = { path, hidden };
+export function useFolderListing(
+  nodeId: string,
+  path: string,
+  hidden: boolean,
+  purpose?: BrowseFoldersPurpose,
+): FolderListing {
+  const params = { path, hidden, ...(purpose !== undefined && { purpose }) };
   const query = useQuery({
     queryKey: getBrowseFoldersQueryKey(nodeId, params),
     queryFn: ({ signal }) => browseFolders(nodeId, params, { signal }),

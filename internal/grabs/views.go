@@ -30,6 +30,8 @@ type View struct {
 	// sentence: "Jackson grabbed it as the Director's Cut."
 	Overrides []string
 	Actions   Actions
+	// Import is its download's Import, nil before importing.
+	Import *ImportView
 	// Current is whether a cell reads from it. A failure stays under
 	// Needs you only while it is.
 	Current bool
@@ -50,6 +52,7 @@ type reads struct {
 	fetchWaits   map[indexers.ID]indexers.FetchWait
 	clientWaits  map[GrabID]ClientWait
 	releaseWords map[GrabID]string
+	imports      map[GrabID]ImportView
 	current      map[GrabID]bool
 }
 
@@ -64,7 +67,12 @@ func (gr *Grabs) readsIn(ctx context.Context, r storage.Reader[file], grabs []Gr
 	if out.clientWaits, err = gr.clientWaits(ctx, r, grabs); err != nil {
 		return reads{}, err
 	}
-	if out.releaseWords, err = gr.releaseWords(ctx, r, grabs); err != nil {
+	types, err := typesOf(ctx, r, grabs)
+	if err != nil {
+		return reads{}, err
+	}
+	out.releaseWords = gr.releaseWords(grabs, types)
+	if out.imports, err = gr.importsOf(ctx, r, grabs, types); err != nil {
 		return reads{}, err
 	}
 	if out.current, err = grabsCellsReadFrom(ctx, r, grabs); err != nil {
@@ -92,14 +100,15 @@ func grabsCellsReadFrom(ctx context.Context, r storage.Reader[file], grabs []Gra
 	}
 	out := map[GrabID]bool{}
 	for _, row := range readFrom(rows) {
-		out[row.ID] = true
+		if row.Settled == nil {
+			out[row.ID] = true
+		}
 	}
 	return out, nil
 }
 
-// releaseWords is each Grab's Release in words, read as its Work's
-// Content Type reads a title.
-func (gr *Grabs) releaseWords(ctx context.Context, r storage.Reader[file], grabs []Grab) (map[GrabID]string, error) {
+// typesOf is the Content Type of each of grabs' Works.
+func typesOf(ctx context.Context, r storage.Reader[file], grabs []Grab) (map[works.WorkID]works.TypeID, error) {
 	ids := make([]works.WorkID, len(grabs))
 	for i, g := range grabs {
 		ids[i] = g.WorkID
@@ -108,11 +117,21 @@ func (gr *Grabs) releaseWords(ctx context.Context, r storage.Reader[file], grabs
 	if err != nil {
 		return nil, err
 	}
-	out := make(map[GrabID]string, len(grabs))
-	for _, g := range grabs {
-		out[g.ID] = releaseWordsOf(g.Release.Title, g.Release.Size, gr.cfg.Names[summaries[g.WorkID].ContentType])
+	out := make(map[works.WorkID]works.TypeID, len(summaries))
+	for id, s := range summaries {
+		out[id] = s.ContentType
 	}
 	return out, nil
+}
+
+// releaseWords is each Grab's Release in words, read as its Work's
+// Content Type reads a title.
+func (gr *Grabs) releaseWords(grabs []Grab, types map[works.WorkID]works.TypeID) map[GrabID]string {
+	out := make(map[GrabID]string, len(grabs))
+	for _, g := range grabs {
+		out[g.ID] = releaseWordsOf(g.Release.Title, g.Release.Size, gr.cfg.Names[types[g.WorkID]])
+	}
+	return out
 }
 
 // releaseWordsOf is a Release titled title, of size bytes, in the words a
@@ -161,7 +180,7 @@ func (gr *Grabs) listed(ctx context.Context, list func(context.Context, storage.
 	if err != nil {
 		return nil, err
 	}
-	return gr.views(ctx, grabs, rd)
+	return gr.views(grabs, rd)
 }
 
 // fetchWaits is why the fetch of each of grabs that fetches a .torrent
@@ -184,12 +203,12 @@ func fromIndexer(g Grab) bool {
 	return g.Stage == Fetching && g.Release.link.Set() && !g.Ticket.Indexer.IsZero()
 }
 
-// Moving counts the Grabs not yet imported or failed.
+// Moving counts the Grabs in flight.
 func (gr *Grabs) Moving(ctx context.Context, _ identity.Admin) (int, error) {
 	var n int64
 	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
 		var err error
-		n, err = db.New(r).CountMoving(ctx)
+		n, err = db.New(r).CountMoving(ctx, inFlightStages)
 		return err
 	})
 	return int(n), err
@@ -210,18 +229,15 @@ func (gr *Grabs) Get(ctx context.Context, _ identity.Admin, id GrabID) (View, er
 	if err != nil {
 		return View{}, err
 	}
-	views, err := gr.views(ctx, []Grab{g}, rd)
+	views, err := gr.views([]Grab{g}, rd)
 	if err != nil {
 		return View{}, err
 	}
 	return views[0], nil
 }
 
-func (gr *Grabs) views(ctx context.Context, grabs []Grab, rd reads) ([]View, error) {
-	progress, err := gr.progress(ctx, grabs)
-	if err != nil {
-		return nil, err
-	}
+func (gr *Grabs) views(grabs []Grab, rd reads) ([]View, error) {
+	progress := gr.progress(grabs)
 	out := make([]View, len(grabs))
 	for i, g := range grabs {
 		out[i] = View{Grab: g, Progress: progress[g.ID], Metadata: gr.metadataSearch(g, rd.metadataWait)}
@@ -236,6 +252,9 @@ func (gr *Grabs) views(ctx context.Context, grabs []Grab, rd reads) ([]View, err
 			SendTo: g.waitsOnTorrent() || out[i].WaitsFor != nil,
 		}
 		out[i].ReleaseWords = rd.releaseWords[g.ID]
+		if im, ok := rd.imports[g.ID]; ok {
+			out[i].Import = &im
+		}
 		out[i].Overrides = g.overrideWords()
 		out[i].Current = rd.current[g.ID]
 	}

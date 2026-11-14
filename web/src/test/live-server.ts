@@ -60,6 +60,9 @@ export async function synced({ live, queryClient }: ReturnType<typeof renderApp>
   await expect
     .poll(() => queryClient.getQueryState(getGetSessionQueryKey())?.dataUpdateCount)
     .toBe(2);
+  // A fetch the page started before a test seeds its key would land after the
+  // seed and read as a refetch.
+  await expect.poll(() => queryClient.isFetching()).toBe(0);
 }
 
 // seeded caches an empty answer under each key and reads which were since

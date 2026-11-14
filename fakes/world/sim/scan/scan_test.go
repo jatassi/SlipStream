@@ -23,7 +23,6 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
-	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/media"
@@ -367,14 +366,14 @@ func TestAFirstScanAddsTheWorksItIsSureOfAndAnUnchangedRootReadsNothing(t *testi
 		}
 		s.expectWorks(films...)
 		s.expectFilled(films...)
-		if n := s.count("SELECT count(*) FROM imports_pending WHERE folder = 'Halloween' AND ignored_at IS NULL"); n != 1 {
+		if n := s.count("SELECT count(*) FROM imports_import WHERE source = 'root' AND finished_at IS NULL AND folder = 'Halloween' AND ignored_at IS NULL"); n != 1 {
 			t.Fatalf("Pending imports hold %d entries for Halloween, want 1", n)
 		}
 
 		expectScanned(t, s.scan(), "succeeded", succeeded)
 		s.expectReads("a scan of the unchanged root")
 		s.expectWorks(films...)
-		if n := s.count("SELECT count(*) FROM imports_pending"); n != 1 {
+		if n := s.count("SELECT count(*) FROM imports_import WHERE source = 'root' AND finished_at IS NULL"); n != 1 {
 			t.Fatalf("Pending imports hold %d entries after a scan of the unchanged root, want 1", n)
 		}
 	})
@@ -396,8 +395,29 @@ func TestAFlatSeriesFolderNamedByTitleAndYearIsAdded(t *testing.T) {
 		if got := s.worksOf("series"); len(got) != 1 || got["Brass Meridian"] == "" {
 			t.Fatalf("the library's series are %v, want Brass Meridian alone", got)
 		}
-		if n := s.count("SELECT count(*) FROM imports_pending"); n != 0 {
+		if n := s.count("SELECT count(*) FROM imports_import WHERE source = 'root' AND finished_at IS NULL"); n != 0 {
 			t.Fatalf("Pending imports hold %d entries, want none", n)
+		}
+	})
+}
+
+// TestAScanPlacesAMultiEpisodeFile stocks a series folder whose one file
+// names two episodes: the scan records it as one file holding both, and
+// nothing waits.
+func TestAScanPlacesAMultiEpisodeFile(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		s := shelve(t, func(sc *scenario.Scenario) {
+			sc.Library.Roots = append(sc.Library.Roots, scenario.LibraryRoot{ContentType: "series", Folder: "tv"})
+		})
+		tv := s.on("tv")
+		tv.put("The Tin Signal (2019)/The Tin Signal - S01E01E02.mkv", 4096, hd)
+		s.scan()
+		if n := s.count("SELECT count(*) FROM imports_import WHERE source = 'root' AND finished_at IS NULL"); n != 0 {
+			t.Fatalf("Pending imports hold %d entries, want none", n)
+		}
+		if n := s.count("SELECT count(*) FROM files_file_item i JOIN files_file f ON f.id = i.file_id WHERE f.path LIKE '%S01E01E02.mkv'"); n != 2 {
+			t.Fatalf("the multi-episode file holds %d Items, want 2", n)
 		}
 	})
 }
@@ -591,7 +611,7 @@ func TestCancelMidWalkStopsTheWorkersWalk(t *testing.T) {
 		if got.result != "canceled" || !slices.Contains(got.units, filmsOnSeedbox+"|seedbox|canceled|") {
 			t.Fatalf("the canceled run is %s with units %q, want canceled with seedbox's unit canceled", got.result, got.units)
 		}
-		if n := s.count("SELECT count(*) FROM files_file") + s.count("SELECT count(*) FROM imports_pending"); n != 0 {
+		if n := s.count("SELECT count(*) FROM files_file") + s.count("SELECT count(*) FROM imports_import WHERE source = 'root' AND finished_at IS NULL"); n != 0 {
 			t.Fatalf("a scan canceled mid-walk recorded %d rows, want none", n)
 		}
 	})
@@ -672,7 +692,7 @@ func TestARenamedFileKeepsItsRecord(t *testing.T) {
 			t.Fatalf("%s's cell holds %s after the rename, want %s", films[0].Title, got, renamed)
 		}
 		s.expectWorks(films...)
-		if n := s.count("SELECT count(*) FROM imports_pending"); n != 0 {
+		if n := s.count("SELECT count(*) FROM imports_import WHERE source = 'root' AND finished_at IS NULL"); n != 0 {
 			t.Fatalf("a rename left %d pending imports, want none", n)
 		}
 	})
@@ -697,7 +717,7 @@ func TestAFileMovedOnARootWithoutIDsKeepsItsRecord(t *testing.T) {
 		if got := s.filled(films[0]); got != moved {
 			t.Fatalf("%s's cell holds %s after the move, want %s", films[0].Title, got, moved)
 		}
-		if n := s.count("SELECT count(*) FROM imports_pending"); n != 0 {
+		if n := s.count("SELECT count(*) FROM imports_import WHERE source = 'root' AND finished_at IS NULL"); n != 0 {
 			t.Fatalf("a move left %d pending imports, want none", n)
 		}
 	})
@@ -721,7 +741,7 @@ func TestACaseOnlyRenameIsAMoveOnACaseInsensitiveRoot(t *testing.T) {
 		if got := s.filled(films[0]); got != lower {
 			t.Fatalf("%s's cell holds %s after the case-only rename, want %s", films[0].Title, got, lower)
 		}
-		if n := s.count("SELECT count(*) FROM imports_pending"); n != 0 {
+		if n := s.count("SELECT count(*) FROM imports_import WHERE source = 'root' AND finished_at IS NULL"); n != 0 {
 			t.Fatalf("a case-only rename left %d pending imports, want none", n)
 		}
 	})
@@ -763,8 +783,8 @@ func TestAScanDuringAnImportChangesNothing(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		grab, scan := newGate(), newGate()
 		s := shelve(t, nil, sim.Edit(func(_ string, e *node.Env) {
-			e.Test.BeforeStep = func(_ context.Context, st grabs.Stage) {
-				if st == grabs.Importing {
+			e.Test.BeforeImport = func(_ context.Context, st imports.Step) {
+				if st.At == imports.AtProbe {
 					grab.pass()
 				}
 			}
@@ -805,7 +825,7 @@ func TestAScanDuringAnImportChangesNothing(t *testing.T) {
 		if found != 0 || gone != 0 {
 			t.Fatalf("the scan during the import found %d files and %d gone, want none", found, gone)
 		}
-		if n := s.count("SELECT count(*) FROM imports_pending"); n != 0 {
+		if n := s.count("SELECT count(*) FROM imports_import WHERE source = 'root' AND finished_at IS NULL"); n != 0 {
 			t.Fatalf("the scan during the import left %d pending imports, want none", n)
 		}
 		s.expectHealth()
@@ -957,22 +977,27 @@ func TestARootOnAnOfflineWorkerIsSkippedThenScannedOnReturn(t *testing.T) {
 // <label (year)>, or nothing: <reason code>".
 func (s *shelf) pending() []string {
 	s.t.Helper()
+	type file struct {
+		Outcome string
+		Reason  struct{ Code string }
+	}
 	type entry struct {
 		Folder     string
 		Suggestion *struct {
 			Label string
 			Year  int
 		}
-		Files []struct{ Reason struct{ Code string } }
+		Files []file
 	}
-	entries := simtest.Decode[struct{ Entries []entry }](s.t, "listPendingImports", s.w.API().Admin("home", http.MethodGet, "/api/v1/imports/pending", "")).Entries
+	listed := simtest.Decode[struct{ Imports []entry }](s.t, "listImports", s.w.API().Admin("home", http.MethodGet, "/api/v1/imports?source=root", "")).Imports
 	var out []string
-	for _, e := range entries {
+	for _, e := range listed {
 		suggests := "nothing"
 		if e.Suggestion != nil {
 			suggests = fmt.Sprintf("%s (%d)", e.Suggestion.Label, e.Suggestion.Year)
 		}
-		out = append(out, e.Folder+" suggests "+suggests+": "+e.Files[0].Reason.Code)
+		i := slices.IndexFunc(e.Files, func(f file) bool { return f.Outcome == "waiting" })
+		out = append(out, e.Folder+" suggests "+suggests+": "+e.Files[i].Reason.Code)
 	}
 	slices.Sort(out)
 	return out

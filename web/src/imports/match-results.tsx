@@ -1,6 +1,7 @@
 import { sentenceOf } from "../api/errors";
-import type { ImportsEntry, WorksCandidate, WorksContentType } from "../api/gen/model";
-import { useMatchPendingImport } from "../api/gen/query/imports/imports";
+import type { WorksCandidate, WorksContentType } from "../api/gen/model";
+import type { RootEntry } from "./root-entry";
+import { useActOnRootImport } from "../api/gen/query/imports/imports";
 import { useSearchCatalogSuspense } from "../api/gen/query/works/works";
 import { Button } from "../ui/button";
 import { List, ListRow } from "../ui/list";
@@ -20,11 +21,11 @@ function CandidateRow({
   candidate,
   onDone,
 }: {
-  entry: ImportsEntry;
+  entry: RootEntry;
   candidate: WorksCandidate;
   onDone: () => void;
 }) {
-  const match = useMatchPendingImport();
+  const match = useActOnRootImport();
   const label = named(candidate.label, yearOf(candidate));
   return (
     <ListRow
@@ -39,7 +40,7 @@ function CandidateRow({
           busy={match.isPending}
           onClick={() => {
             match.mutate(
-              { id: entry.id, data: { key: candidate.key } },
+              { id: entry.id, data: { action: "match", key: candidate.key } },
               {
                 onSuccess: () => {
                   toast(`${entry.folder} now matches ${label}.`);
@@ -66,7 +67,7 @@ export function MatchResults({
   query,
   onDone,
 }: {
-  entry: ImportsEntry;
+  entry: RootEntry;
   type: WorksContentType;
   query: string;
   onDone: () => void;

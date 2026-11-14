@@ -14,4 +14,5 @@ export type RootsRefusalReason =
   | "contains_downloads"
   | "unresponsive"
   | "network_share"
+  | "outside"
   | "node_offline";

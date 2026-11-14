@@ -1,6 +1,7 @@
 import {
   ArrowUpRight01Icon,
   Cancel01Icon,
+  FileImportIcon,
   InformationCircleIcon,
   MoreHorizontalIcon,
 } from "@hugeicons/core-free-icons";
@@ -14,6 +15,8 @@ import { type TorrentAction, menuFor, subjectOf } from "../torrents/actions";
 import { IconButton } from "../ui/icon-button";
 import { Menu, type MenuEntry } from "../ui/menu";
 import { type GrabView, GrabDialogs } from "./grab-details";
+// oxlint-disable-next-line import/max-dependencies -- a Grab's menu wraps its Torrent's and adds Details, Import by hand and Cancel
+import { byHand } from "./stages";
 
 type Job = { readonly grab: GrabsGrab; readonly work: string };
 
@@ -83,6 +86,17 @@ export function JobMenu({ grab, work }: Job) {
       },
     },
     ...torrent,
+    ...(byHand(grab)
+      ? [
+          {
+            label: "Import by hand",
+            icon: FileImportIcon,
+            onSelect: () => {
+              setView("import");
+            },
+          },
+        ]
+      : []),
     ...(grab.actions.cancel
       ? [
           "separator" as const,

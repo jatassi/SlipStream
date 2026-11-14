@@ -228,7 +228,7 @@ func TestAPlacementIntoADrainingNodesRootWaitsInWords(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = svc.Place(t.Context(), root.ID, to, storing.Payload{})
+	_, err = svc.Place(t.Context(), root.ID, to, storing.Payload{}, true)
 	var waiting *roots.WaitingError
 	var notReady *storing.NotReady
 	const words = "seedbox is draining Storage, so the library root there takes no new files."

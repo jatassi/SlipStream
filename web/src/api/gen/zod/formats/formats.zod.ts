@@ -36,9 +36,7 @@ export const PasteCustomFormatsQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(pasteCustomFormatsQueryUnwantedDefault)
-    .describe(
-      "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
-    ),
+    .describe("What becomes of the files the change leaves filling nothing"),
   confirm: zod
     .int()
     .min(pasteCustomFormatsQueryConfirmMin)
@@ -72,9 +70,7 @@ export const DeleteCustomFormatQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(deleteCustomFormatQueryUnwantedDefault)
-    .describe(
-      "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
-    ),
+    .describe("What becomes of the files the change leaves filling nothing"),
   confirm: zod
     .int()
     .min(deleteCustomFormatQueryConfirmMin)
@@ -110,9 +106,7 @@ export const UpdateCustomFormatQueryParams = zod.object({
   unwanted: zod
     .enum(["delete", "keep"])
     .default(updateCustomFormatQueryUnwantedDefault)
-    .describe(
-      "What becomes of the files the change leaves filling nothing, and of downloads in flight for cells it removes",
-    ),
+    .describe("What becomes of the files the change leaves filling nothing"),
   confirm: zod
     .int()
     .min(updateCustomFormatQueryConfirmMin)

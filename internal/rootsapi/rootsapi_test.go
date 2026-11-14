@@ -42,6 +42,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 	"github.com/jatassi/slipstream/internal/worksapi"
 )
@@ -158,7 +159,7 @@ func serve(t *testing.T) *server {
 	s := &server{lib: lib, fx: fx, changed: &published{}, data: t.TempDir(), downloads: t.TempDir()}
 	cfg := rootstest.Config(t, lib, contenttypetest.ID, "other")
 	local := rootstest.Store(t, s.data, s.downloads)
-	cfg.Roster, cfg.Changed = roster{}, s.changed
+	cfg.Roster, cfg.Changed, cfg.Inflight = roster{}, s.changed, imports.RootImports{}
 	offline := unreached{err: fmt.Errorf("call: %w", link.ErrDisconnected)}
 	cfg.Remote = func(n role.NodeID) storagev1connect.StorageServiceHandler {
 		switch n {
@@ -183,7 +184,7 @@ func serve(t *testing.T) *server {
 		t.Fatal(err)
 	}
 	im := imports.New(imports.Config{
-		Library: lib, Roots: svc,
+		Library: lib, Roots: svc, Transfers: transfers.New(transfers.ControllerConfig{Library: lib}),
 		Start: func(_ context.Context, st tasks.Start) (tasks.Started, error) {
 			s.started = append(s.started, st)
 			return tasks.Started{Run: tasks.RunID(len(s.started)), Added: st.Units}, nil
@@ -419,6 +420,16 @@ func TestCheckFolderForDownloadsOnAnyNode(t *testing.T) {
 		`{"usable":false,"path":`+strconv.Quote(dir)+`,"refusal":{"reason":"node_offline"}}`)
 	s.Expect(t, http.MethodPost, checkPath(stranger.String()), checkBody("downloads", dir, ""), http.StatusNotFound,
 		`{"status":404,"code":"node_not_found","title":"No Node has this id"}`)
+}
+
+func TestAFolderOutsideTheRootsAndDownloadFoldersIsRefusedForImport(t *testing.T) {
+	s := serve(t)
+	dir := t.TempDir()
+	if code, reply := s.Call(t, http.MethodPost, checkPath(self.String()), checkBody("import", dir, "")); code != http.StatusOK || ownertest.Masked(reply) != `{"usable":false,"path":`+strconv.Quote(dir)+`,"volume":`+volumeOf(t, reply)+`,"refusal":{"reason":"outside"}}`+"\n" {
+		t.Errorf("checkFolder import outside the roots and download folders = %d %s, want outside", code, reply)
+	}
+	s.Expect(t, http.MethodGet, "/api/v1/nodes/"+self.String()+"/folders?purpose=import&path="+url.QueryEscape(dir), "", http.StatusUnprocessableEntity,
+		`{"status":422,"code":"folder_outside","title":"The folder isn't in a library root or a download folder on the Node"}`)
 }
 
 // volumeOf is the volume member of a verdict, masked as Expect masks it.

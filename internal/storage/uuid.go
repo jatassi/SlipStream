@@ -70,6 +70,19 @@ func (u UUID) IsZero() bool { return u.u == uuid.Nil() }
 
 func (u UUID) Compare(v UUID) int { return u.u.Compare(v.u) }
 
+// MarshalText is u's canonical string, so a UUID in stored JSON or on the
+// wire reads as its id.
+func (u UUID) MarshalText() ([]byte, error) { return []byte(u.String()), nil }
+
+func (u *UUID) UnmarshalText(b []byte) error {
+	v, err := ParseUUID(string(b))
+	if err != nil {
+		return err
+	}
+	*u = v
+	return nil
+}
+
 func (u UUID) Value() (driver.Value, error) {
 	if u.IsZero() {
 		return nil, nil

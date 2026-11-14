@@ -688,6 +688,18 @@ func SetSeeding(ctx context.Context, c *http.Client, baseURL, apiKey string, sd 
 	}, &task)
 }
 
+// SetImporting saves the smallest video file and the sample share an
+// Import leaves out by, 0 for none.
+func SetImporting(ctx context.Context, c *http.Client, baseURL, apiKey string, im scenario.LibraryImporting) error {
+	var settings struct{}
+	return call(ctx, c, request{
+		what: "save the Importing settings", method: http.MethodPatch, url: baseURL + "/api/v1/imports/importing-settings",
+		header: apiKeyHeader(apiKey), want: http.StatusOK, body: map[string]any{"values": map[string]int64{
+			"library.importing.smallestVideo": int64(im.SmallestVideoFile), "library.importing.sampleShorter": int64(im.SampleShorterThan),
+		}},
+	}, &settings)
+}
+
 // SetMetadataKey saves key as the Admin's key for provider, which a holder
 // tests first.
 func SetMetadataKey(ctx context.Context, c *http.Client, baseURL, apiKey, provider, key string) error {

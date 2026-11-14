@@ -3,7 +3,6 @@ package sim_test
 import (
 	"bytes"
 	"context"
-	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,8 +16,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/sim"
 	"github.com/jatassi/slipstream/fakes/world/sim/simtest"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
-	"github.com/jatassi/slipstream/internal/grabs"
-	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/node"
 	"github.com/jatassi/slipstream/internal/torrent/engine"
 )
@@ -180,7 +178,7 @@ func TestAnUntickedDownloadingRoleDrainsUntilItIsWrittenOff(t *testing.T) {
 }
 
 // TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns writes off
-// Downloading on seedbox while it is stopped and its Grab waits to probe:
+// Downloading on seedbox while it is stopped and its Import waits to probe:
 // the Grab fails node_written_off and the forfeit goes at once, and once
 // seedbox is back its engine holds no torrent and its file is kept.
 func TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns(t *testing.T) {
@@ -194,8 +192,8 @@ func TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns(t *testing.T) {
 			case "seedbox":
 				e.Engine = box.wrap(e.Engine)
 			case "home":
-				e.Test.BeforeStep = func(ctx context.Context, s grabs.Stage) {
-					if s == grabs.Probing && held.CompareAndSwap(false, true) {
+				e.Test.BeforeImport = func(ctx context.Context, s imports.Step) {
+					if s.At == imports.AtProbe && held.CompareAndSwap(false, true) {
 						close(reached)
 						<-ctx.Done()
 					}
@@ -220,7 +218,7 @@ func TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns(t *testing.T) {
 			}
 			return failed.Stage == "failed" && forfeits(t, w) == 0
 		})
-		expectFailed(t, failed, "probing", "node_written_off", "The Admin wrote off what this Grab's Node downloads")
+		expectFailed(t, failed, "importing", "node_written_off", "The Admin wrote off what this Grab's Node downloads")
 
 		w.Node("seedbox").Start()
 		a = w.API()
@@ -236,21 +234,30 @@ func TestAWriteOffOnAnOfflineSeedboxSettlesWhenItReturns(t *testing.T) {
 	})
 }
 
-// failsOnce fails the first probe it is asked for.
-type failsOnce struct {
-	media.Prober
-	failed atomic.Bool
+// heldFirst holds the first Grab's file for the Admin: its probe times out
+// three times, then reads.
+func heldFirst() sim.Option {
+	probes := simtest.NewProbes()
+	probes.Play(release+".mkv", simtest.ProbeTimeout, simtest.ProbeTimeout, simtest.ProbeTimeout)
+	return probes.Option()
 }
 
-func (p *failsOnce) Probe(ctx context.Context, path string) (media.Record, error) {
-	if p.failed.CompareAndSwap(false, true) {
-		return media.Record{}, errors.New("the probe failed once")
-	}
-	return p.Prober.Probe(ctx, path)
+// declineFirst answers Don't import on the first Grab's held file once its
+// hold offers it, so the Grab fails declined, nothing is blocklisted and
+// its torrent keeps seeding, and returns the Grab.
+func declineFirst(t *testing.T, w *sim.World) simtest.GrabView {
+	t.Helper()
+	simtest.Eventually(t, "the first Grab's file offers Don't import", func() bool {
+		ims := grabImports(t, w)
+		return len(ims) == 1 && w.API().Admin("home", http.MethodPost, "/api/v1/imports/"+ims[0].ID+"/files/0", `{"action":"decline"}`).Status == http.StatusOK
+	})
+	first := simtest.Await(t, w)
+	expectFailed(t, first, "importing", "declined", "The Admin declined every file of the download.")
+	return first
 }
 
 // TestANewGrabAttachesToTheTorrentADrainingSeedboxSeeds fails seedbox's
-// first Grab at probing, so its torrent keeps seeding, then unticks
+// first Grab's Import declined, so its torrent keeps seeding, then unticks
 // Downloading on seedbox: seedbox drains. The next search's Grab is
 // fetched through seedbox, which still searches, and though the router
 // picks home, it attaches to the Torrent seedbox already holds instead of
@@ -259,16 +266,10 @@ func TestANewGrabAttachesToTheTorrentADrainingSeedboxSeeds(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		box := &engines{}
-		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), simtest.OnSeedbox(func(e *node.Env) {
-			e.Engine = box.wrap(e.Engine)
-			e.Media = &failsOnce{Prober: e.Media}
-		}))
+		w := sim.Launch(t, simtest.Home(t), sim.WithWalk(), heldFirst(), simtest.OnSeedbox(func(e *node.Env) { e.Engine = box.wrap(e.Engine) }))
 		work := simtest.AddOrchard(t, w)
 		simtest.Search(t, w, work)
-		first := simtest.Await(t, w)
-		if first.Stage != "failed" || first.Failure == nil || first.Failure.Stage != "probing" {
-			t.Fatalf("seedbox's first Grab ended %s with %+v, want failed at probing", first.Stage, first.Failure)
-		}
+		first := declineFirst(t, w)
 		a := w.API()
 		box1 := seedbox(t, a)
 		var home string

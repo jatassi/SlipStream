@@ -631,7 +631,7 @@ export const getCancelGrabUrl = (grabId: string) => {
 };
 
 /**
- * @summary Cancel a Grab that is fetching, downloading or transferring. Canceling a canceled Grab changes nothing
+ * @summary Cancel a Grab that is fetching, downloading or importing. Canceling a canceled Grab changes nothing
  */
 export const cancelGrab = async (
   grabId: string,
@@ -713,7 +713,7 @@ export type CancelGrabMutationError = ErrorType<
 export type CancelGrabMutationVariables = { grabId: string; data: CancelInputBody };
 
 /**
- * @summary Cancel a Grab that is fetching, downloading or transferring. Canceling a canceled Grab changes nothing
+ * @summary Cancel a Grab that is fetching, downloading or importing. Canceling a canceled Grab changes nothing
  */
 export const useCancelGrab = <
   TError = ErrorType<

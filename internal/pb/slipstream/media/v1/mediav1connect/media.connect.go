@@ -43,8 +43,12 @@ var (
 
 // MediaServiceClient is a client for the slipstream.media.v1.MediaService service.
 type MediaServiceClient interface {
-	// Probe reads a downloaded torrent file's media record with the bundled
-	// ffprobe.
+	// Probe reads a file's media record with the bundled ffprobe: a finished
+	// torrent's file, or a file in one of the Node's library roots or
+	// download folders. A file ffprobe can't read is FAILED_PRECONDITION
+	// with an Unprobed detail, a probe that ran out of time
+	// DEADLINE_EXCEEDED with a TimedOut detail, and a path anywhere else
+	// FAILED_PRECONDITION with an Outside detail.
 	Probe(context.Context, *v1.ProbeRequest) (*v1.ProbeResponse, error)
 }
 
@@ -56,8 +60,12 @@ func NewMediaServiceClient(client *connect.Client) MediaServiceClient {
 
 // MediaServiceHandler is an implementation of the slipstream.media.v1.MediaService service.
 type MediaServiceHandler interface {
-	// Probe reads a downloaded torrent file's media record with the bundled
-	// ffprobe.
+	// Probe reads a file's media record with the bundled ffprobe: a finished
+	// torrent's file, or a file in one of the Node's library roots or
+	// download folders. A file ffprobe can't read is FAILED_PRECONDITION
+	// with an Unprobed detail, a probe that ran out of time
+	// DEADLINE_EXCEEDED with a TimedOut detail, and a path anywhere else
+	// FAILED_PRECONDITION with an Outside detail.
 	Probe(context.Context, *v1.ProbeRequest) (*v1.ProbeResponse, error)
 }
 

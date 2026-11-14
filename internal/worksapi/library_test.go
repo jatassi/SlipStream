@@ -122,7 +122,7 @@ func (s *shelved) place(t *testing.T, w works.Tree, path string, q release.Quali
 
 func (s *shelved) placeAt(t *testing.T, it works.Item, w works.Tree, path string, q release.Quality, size int64, fills ...targets.TargetID) files.ID {
 	t.Helper()
-	f := files.File{WorkID: w.ID, ItemID: it.ID, Cut: release.Standard, RootID: s.root.ID, Path: path, Size: size, Quality: q}
+	f := files.File{WorkID: w.ID, Items: []works.ItemID{it.ID}, Cut: release.Standard, RootID: s.root.ID, Path: path, Size: size, Quality: q}
 	if len(fills) == 0 {
 		f.Label, f.Extra = "HD", 1
 	}
@@ -279,7 +279,7 @@ func TestNeedsYouIsOneEntryPerItemAndEditionInRankOrder(t *testing.T) {
 		`{"kind":"failed","itemIds":["` + g.ID.String() + `"],"edition":"any","targetId":"` + uhd + `","waiting":["` + hd + `"],"grabId":"` + failedG.String() + `"},` +
 		`{"kind":"upgrade","itemIds":["` + b.ID.String() + `","` + c.ID.String() + `"],"edition":"any","upgrades":["` + hd + `"]},` +
 		`{"kind":"upgrade","itemIds":["` + e.ID.String() + `"],"edition":"any","upgrades":["` + hd + `"]},` +
-		`{"kind":"waiting","grabId":"` + waits.String() + `","code":"node_away"}]`
+		`{"kind":"waiting","grabId":"` + waits.String() + `","code":"node_away","clientError":null,"importWait":null}]`
 	if got := s.needsYou(t, w); got != want {
 		t.Fatalf("Needs you is\n%s\nwant\n%s", got, want)
 	}
@@ -380,12 +380,12 @@ func TestListWorkFilesListsFillingFilesInProfileOrderThenTheRest(t *testing.T) {
 		`"video":{"codec":"hevc","profile":"Main 10","width":1920,"height":1080,"bitDepth":10,"frameRate":23.976,"hdr":["DV","HDR10"],"dolbyVision":{"profile":8,"level":6,"compatibility":1}},` +
 		`"audio":[{"codec":"truehd","profile":"Dolby TrueHD + Dolby Atmos","atmos":true,"channels":8,"layout":"7.1","language":"en","default":true,"title":""},` +
 		`{"codec":"ac3","profile":"","atmos":false,"channels":2,"layout":"stereo","language":null,"default":false,"title":"Commentary"}],` +
-		`"subtitles":[{"codec":"hdmv_pgs_subtitle","image":true,"language":"en","forced":true,"default":false},{"codec":"subrip","image":false,"language":"fr","forced":false,"default":false}]}},` +
+		`"subtitles":[{"codec":"hdmv_pgs_subtitle","image":true,"language":"en","forced":true,"default":false},{"codec":"subrip","image":false,"language":"fr","forced":false,"default":false}]},"placedBy":null,"grab":null},` +
 		`{"id":"` + uhd.String() + `","path":"Heat/Heat - 2160p.mkv","folder":"Heat","size":3000,"quality":"webdl-2160p","codec":null,"cut":"standard","label":"2160p","kept":false,` +
 		`"fills":[{"itemId":"` + item + `","edition":"any","targetId":"` + s.uhd.ID.String() + `"}],"modifiedAt":` + modified + `,"goneAt":null,` +
-		`"probeError":"Invalid data found when processing input","media":null},` +
+		`"probeError":"Invalid data found when processing input","media":null,"placedBy":null,"grab":null},` +
 		`{"id":"` + kept.String() + `","path":"Heat/Heat - HD (extra 1).mkv","folder":"Heat","size":500,"quality":"webdl-1080p","codec":null,"cut":"standard","label":"HD","kept":false,` +
-		`"fills":[],"modifiedAt":null,"goneAt":"T","probeError":null,"media":null}]}` + "\n"
+		`"fills":[],"modifiedAt":null,"goneAt":"T","probeError":null,"media":null,"placedBy":null,"grab":null}]}` + "\n"
 	if got := goneAt.ReplaceAllString(body, `"goneAt":"T"`); code != http.StatusOK || got != want {
 		t.Fatalf("listWorkFiles = %d\n%s\nwant\n%s", code, got, want)
 	}

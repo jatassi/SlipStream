@@ -19,7 +19,7 @@ type blockEntry struct {
 	InfoHash string                `json:"infoHash" pattern:"^[0-9a-f]{40}$"`
 	Title    string                `json:"title"`
 	Words    string                `json:"words" doc:"What SlipStream reads from the title, in words"`
-	Cause    string                `json:"cause" enum:"unregistered,no_payload,engine_error,marked_failed,by_hand"`
+	Cause    string                `json:"cause" enum:"unregistered,no_payload,engine_error,marked_failed,by_hand,no_video,unreadable,misdescribed"`
 	Because  string                `json:"because" doc:"The cause in a sentence, such as TorrentLeech reported it unregistered."`
 	Indexer  *string               `json:"indexer" doc:"The name of the Indexer that listed it; null when none is known"`
 	Work     api.Nullable[workRef] `json:"work" doc:"The Work it was grabbed for; null once the Work is deleted"`

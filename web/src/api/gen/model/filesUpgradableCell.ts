@@ -7,6 +7,7 @@ export interface FilesUpgradableCell {
   /** The file filling it, short of its Target's cutoff or upgrade-until score */
   file: FilesLibraryFile;
   itemId: string;
+  /** No Grab is in flight for it. A Grab in flight makes it downloading */
   state: FilesUpgradableCellState;
   targetId: string;
   targetName: string;

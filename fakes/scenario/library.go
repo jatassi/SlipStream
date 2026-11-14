@@ -31,6 +31,10 @@ type Library struct {
 	// Seeding is the seeding settings and the Seeding goals task's cadence
 	// the world sets, so a Scenario's windows and Health move in minutes.
 	Seeding *LibrarySeeding `yaml:"seeding,omitempty"`
+	// Importing is the Importing settings the world sets, both 0 when
+	// unset: the fakes' payloads are a few MiB that run seconds, which the
+	// defaults, 50 MB and a quarter of the runtime, would leave out.
+	Importing LibraryImporting `yaml:"importing,omitempty"`
 	// Works are added last, after the Indexers.
 	Works *LibraryWorks `yaml:"works,omitempty"`
 	// Folders are written before any root is made.
@@ -250,6 +254,23 @@ func (s LibrarySeeding) check(add func(format string, args ...any)) {
 	}
 }
 
+// LibraryImporting is the Importing settings the world sets.
+type LibraryImporting struct {
+	SmallestVideoFile Bytes `yaml:"smallest_video_file,omitempty"`
+	// SampleShorterThan is the share of its Items' runtime, in percent,
+	// under which a downloaded video is a sample. 0 turns the rule off.
+	SampleShorterThan int `jsonschema:"minimum=0,maximum=90" yaml:"sample_shorter_than,omitempty"`
+}
+
+func (i LibraryImporting) check(add func(format string, args ...any)) {
+	if i.SmallestVideoFile%(1<<20) != 0 {
+		add("library importing smallest_video_file is %d bytes; it is whole MiB, as the setting takes", i.SmallestVideoFile)
+	}
+	if i.SampleShorterThan < 0 || i.SampleShorterThan > 90 {
+		add("library importing sample_shorter_than is %d%%; it is 0 to 90", i.SampleShorterThan)
+	}
+}
+
 var folderName = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
 
 func (l Library) check(add func(format string, args ...any)) {
@@ -262,6 +283,7 @@ func (l Library) check(add func(format string, args ...any)) {
 	if l.Seeding != nil {
 		l.Seeding.check(add)
 	}
+	l.Importing.check(add)
 }
 
 func (l Library) checkRoots(add func(format string, args ...any)) {

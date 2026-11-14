@@ -35,14 +35,14 @@ type walkedFile struct {
 // names, depth first, each folder's names in byte order, so the cursor
 // compares one segment at a time and never as a string ("A B/x" sorts
 // before "A/y" as a string, after it in the walk). It skips by
-// media.SkipsFolder and media.Counts, enters no linked folder, sizes a
+// media.SkipsFolder and media.Counts with videos, enters no linked folder, sizes a
 // linked file by its target, and keeps no state between pages (ADR 0003).
 // Each page resolves the root afresh and needs its last judgment Ready.
 // Every Disk call is timed under the root's folder, so one hung call
 // fails the page and later pages fail fast while the kernel holds it. A
 // page also ends early once it has run Timings.Stat, so a slow share
 // pages instead of failing.
-func (s *Store) walk(ctx context.Context, root storage.UUID, after []string, limit int) (walkPage, error) {
+func (s *Store) walk(ctx context.Context, root storage.UUID, after []string, limit int, videos media.Videos) (walkPage, error) {
 	dir, err := s.ready(ctx, root)
 	if err != nil {
 		return walkPage{}, err
@@ -54,7 +54,7 @@ func (s *Store) walk(ctx context.Context, root storage.UUID, after []string, lim
 	if err != nil {
 		return walkPage{}, s.folderError(err)
 	}
-	w := &walker{s: s, ctx: ctx, root: dir, limit: limit, until: time.Now().Add(s.cfg.Timings.Stat)}
+	w := &walker{s: s, ctx: ctx, root: dir, limit: limit, videos: videos, until: time.Now().Add(s.cfg.Timings.Stat)}
 	w.page.caseFold = fold
 	more, err := w.folder(dir, nil, after)
 	if err != nil {
@@ -105,10 +105,11 @@ type walker struct {
 	s   *Store
 	ctx context.Context //nolint:containedctx // one page's context, for every call the page makes
 	// root is the root's folder, which keys every timed call.
-	root  string
-	limit int
-	until time.Time
-	page  walkPage
+	root   string
+	limit  int
+	videos media.Videos
+	until  time.Time
+	page   walkPage
 	// at is the last entry finished.
 	at []string
 }
@@ -163,7 +164,7 @@ func (w *walker) entry(dir string, segs []string, e Entry, after []string) (bool
 		if more, err := w.folder(path, segs, after); err != nil || !more {
 			return more, err
 		}
-	case media.Counts(strings.Join(segs, "/")):
+	case media.Counts(strings.Join(segs, "/"), w.videos):
 		if err := w.file(path, segs); err != nil {
 			return false, err
 		}

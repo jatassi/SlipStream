@@ -283,12 +283,14 @@ type thresholds struct {
 	FaultStall      setting.DurationField `json:"faultStall"`
 	UnregisteredGap setting.DurationField `json:"unregisteredGap"`
 	MetadataWait    setting.DurationField `json:"metadataWait"`
+	ClientErrorFail setting.DurationField `json:"clientErrorFail"`
 }
 
 type thresholdsPatch struct {
 	FaultStall      api.Patch[int64] `json:"faultStall,omitempty" doc:"Seconds; null resets it to its default"`
 	UnregisteredGap api.Patch[int64] `json:"unregisteredGap,omitempty" doc:"Seconds; null resets it to its default"`
 	MetadataWait    api.Patch[int64] `json:"metadataWait,omitempty" doc:"Seconds a magnet link's metadata search runs before its Grab fails; null resets it to its default"`
+	ClientErrorFail api.Patch[int64] `json:"clientErrorFail,omitempty" doc:"Seconds an external client reports an error on a Torrent before its Grab fails; null resets it to its default"`
 }
 
 type thresholdsInput struct{ Body thresholdsPatch }
@@ -298,7 +300,7 @@ type thresholdsOutput struct{ Body thresholds }
 func thresholdsOf(o downloadclients.ThresholdOverrides) thresholds {
 	return thresholds{
 		FaultStall: downloadclients.FaultStall.Field(o.FaultStall), UnregisteredGap: downloadclients.UnregisteredGap.Field(o.UnregisteredGap),
-		MetadataWait: downloadclients.MetadataWait.Field(o.MetadataWait),
+		MetadataWait: downloadclients.MetadataWait.Field(o.MetadataWait), ClientErrorFail: downloadclients.ClientErrorFail.Field(o.ClientErrorFail),
 	}
 }
 
@@ -381,6 +383,7 @@ func (h handlers) setThresholds(ctx context.Context, _ identity.Admin, in *thres
 		{in.Body.FaultStall, downloadclients.FaultStall.Parse, &ch.FaultStall},
 		{in.Body.UnregisteredGap, downloadclients.UnregisteredGap.Parse, &ch.UnregisteredGap},
 		{in.Body.MetadataWait, downloadclients.MetadataWait.Parse, &ch.MetadataWait},
+		{in.Body.ClientErrorFail, downloadclients.ClientErrorFail.Parse, &ch.ClientErrorFail},
 	} {
 		if !f.patch.Sent() {
 			continue

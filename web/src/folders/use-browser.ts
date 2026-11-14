@@ -8,6 +8,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 
+import type { BrowseFoldersPurpose } from "../api/gen/model";
 import { readPref, writePref } from "../shell/prefs";
 import { appleViewer } from "../ui/platform";
 import { type Intent, intentOf } from "./browser-keys";
@@ -15,6 +16,7 @@ import { type BrowserAction, type BrowserState, browse, startBrowsing } from "./
 import { type Row, pathOf, rowsOf } from "./rows";
 import { type FolderListing, useFolderListing, useSuggestions } from "./use-folder-listing";
 import { useNewFolder } from "./use-new-folder";
+// oxlint-disable-next-line import/max-dependencies -- the browser drives the listing, the keys, the verdict and the browse purpose
 import { type FolderCheck, type Judging, usable, useVerdict } from "./verdict";
 
 export type BrowserProps = {
@@ -23,6 +25,8 @@ export type BrowserProps = {
   /** "" opens on Places. */
   readonly startPath: string;
   readonly check: FolderCheck;
+  /** Limits the places to what the purpose may browse, such as an import's roots and download folders. */
+  readonly purpose?: BrowseFoldersPurpose | undefined;
   readonly onPick: (path: string) => void;
   readonly close: () => void;
   /** The filter or path field, which keeps focus while the list is driven. */
@@ -84,13 +88,13 @@ function useRelisted(
   }, [listed]);
 }
 
-function useNavigation({ nodeId, startPath, field, refocus }: BrowserProps): Navigation {
+function useNavigation({ nodeId, startPath, purpose, field, refocus }: BrowserProps): Navigation {
   const [state, dispatch] = useReducer(browse, undefined, () =>
     startBrowsing(startPath, readPref("showHiddenFolders")),
   );
   // Where Go up leads while the folder asked for has no listing to name its parent.
   const [back, setBack] = useState("");
-  const listing = useFolderListing(nodeId, state.path, state.showHidden);
+  const listing = useFolderListing(nodeId, state.path, state.showHidden, purpose);
   const rows = rowsOf(state, listing.shown, useSuggestions(nodeId, state.field));
   useRelisted(state, rows, listing.loading, dispatch);
   const { current } = listing;

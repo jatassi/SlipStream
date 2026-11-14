@@ -5,12 +5,15 @@ import { seedboxId } from "./nodes";
 export const grabId = "6c8e0a2b-4d6f-4b8a-9c1e-5f7a9b1d3e5f";
 export const indexerId = "0e2a4c6e-8f1b-4d3f-a5c7-e9b1d3f5a7c9";
 
+const targetId = "1f3e5a7c-9b2d-4f6e-8a0c-2e4f6a8c0b1d";
+
 const fetched: GrabsGrab = {
   id: grabId,
   workId: orchardId,
-  itemId: orchardItemId,
+  items: [orchardItemId],
   edition: "standard",
-  targetIds: ["1f3e5a7c-9b2d-4f6e-8a0c-2e4f6a8c0b1d"],
+  targetIds: [targetId],
+  targets: [{ targetId, itemId: orchardItemId, forced: false, settled: null }],
   releaseTitle: "The.Quiet.Orchard.2021.1080p.WEB-DL",
   releaseWords: "WEBDL-1080p · 700 MB",
   quality: "webdl-1080p",
@@ -23,6 +26,8 @@ const fetched: GrabsGrab = {
   downloadClient: null,
   infoHash: "0102030405060708090a0b0c0d0e0f1011121314",
   stage: "fetching",
+  inFlight: true,
+  import: null,
   history: [{ stage: "fetching", at: "2026-10-12T09:01:00Z" }],
   createdAt: "2026-10-12T09:01:00Z",
   source: "search",
@@ -65,9 +70,10 @@ export const downloading: GrabsGrab = {
 export const imported: GrabsGrab = {
   ...fetched,
   stage: "imported",
+  inFlight: false,
+  targets: [{ targetId, itemId: orchardItemId, forced: false, settled: "placed" }],
   history: [
     ...downloading.history,
-    { stage: "probing", at: "2026-10-12T09:03:00Z" },
     { stage: "importing", at: "2026-10-12T09:03:01Z" },
     { stage: "imported", at: "2026-10-12T09:03:02Z" },
   ],
@@ -77,6 +83,7 @@ export const imported: GrabsGrab = {
 export const failedImport: GrabsGrab = {
   ...imported,
   stage: "failed",
+  targets: fetched.targets,
   history: [...imported.history.slice(0, -1), { stage: "failed", at: "2026-10-12T09:03:02Z" }],
   failure: {
     stage: "importing",
@@ -84,5 +91,22 @@ export const failedImport: GrabsGrab = {
     message: "place movies/The Quiet Orchard (2021): permission denied",
     needsYou: true,
     current: true,
+  },
+};
+
+/** A season pack at importing: 6 of its 10 episodes placed, one waiting for the Admin. */
+export const importingPack: GrabsGrab = {
+  ...downloading,
+  id: "6c8e0a2b-4d6f-4b8a-9c1e-5f7a9b1d3e60",
+  releaseTitle: "Severance.S01.1080p.WEB-DL",
+  stage: "importing",
+  history: [...downloading.history, { stage: "importing", at: "2026-10-12T09:30:00Z" }],
+  import: {
+    id: "6c8e0a2b-4d6f-4b8a-9c1e-5f7a9b1d3e60",
+    placed: 6,
+    planned: 10,
+    sending: 0,
+    waiting: 1,
+    words: "Importing 6 of 10 episodes",
   },
 };

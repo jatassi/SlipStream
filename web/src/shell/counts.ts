@@ -1,11 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-import type {
-  DownloadclientsAggregate,
-  GrabsGrabStage,
-  ShellAlerts,
-  ShellCounts,
-} from "../api/gen/model";
+import type { DownloadclientsAggregate, ShellAlerts, ShellCounts } from "../api/gen/model";
 import { getCounts, getGetCountsQueryKey } from "../api/gen/query/shell/shell";
 import { useAccount } from "../session/session";
 import type { AlertTone, CountDot } from "../ui/count";
@@ -19,17 +14,6 @@ export type FillKey = {
 }[keyof ShellCounts];
 
 export type AlertKey = keyof ShellAlerts;
-
-// The server counts; this is the client's reading of which stages it counts.
-export const activityStages = {
-  fetching: true,
-  downloading: true,
-  probing: true,
-  transferring: true,
-  importing: true,
-  imported: false,
-  failed: false,
-} as const satisfies Record<GrabsGrabStage, boolean>;
 
 export function useCounts(): ShellCounts | undefined {
   const { admin } = useAccount();

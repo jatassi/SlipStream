@@ -1,18 +1,22 @@
-// Package imports owns what a library scan finds and can't place: Pending
-// imports and their actions, each root's last comparison, the Library
-// Health category and the scan's settings. S33 (Import pipeline) adds
-// downloads as a second source of pending entries.
+// Package imports owns the Import: a set of video files from one source
+// brought into one Work. A library scan's root Imports hold what it finds
+// and can't place, which wait in Pending imports for the Admin's actions.
+// It also owns each root's last comparison, the Library Health category
+// and the scan's settings.
 package imports
 
 import (
 	"context"
 	"embed"
 	"log/slog"
+	"math/rand/v2"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
-	"github.com/jatassi/slipstream/internal/imports/internal/db"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -21,6 +25,7 @@ import (
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/tasks"
+	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -30,8 +35,6 @@ type file = storage.Library
 var schemaFiles embed.FS
 
 func Schema() storage.Schema[file] { return storage.NewSchema[file]("imports", schemaFiles) }
-
-type EntryID = db.EntryID
 
 const TaskID tasks.TaskID = "library-scan"
 
@@ -71,16 +74,54 @@ type Config struct {
 	Hub          *live.Hub
 	Changed      Publisher[Changed]
 	FilesChanged Publisher[files.Changed]
-	// BeforeStep sees each root's unit before each phase, in tests.
-	BeforeStep func(ctx context.Context, root roots.ID, phase Phase)
-	Log        *slog.Logger
+	// Probes reads a file's media record where its bytes are. Transfers
+	// sends a file to another Node's root, and is asked what live
+	// Transfers still send to a volume.
+	Probes    storing.Probes
+	Transfers *transfers.Transfers
+	// Grabs is told how each download's Import goes, through Follow.
+	Grabs   *grabs.Grabs
+	Timings Timings
+	Rand    *rand.Rand
+	// BeforeStep sees each root's unit before each phase, and BeforeImport
+	// each Import file's IO before it runs, in tests.
+	BeforeStep   func(ctx context.Context, root roots.ID, phase Phase)
+	BeforeImport func(ctx context.Context, at Step)
+	Log          *slog.Logger
+}
+
+// Timings are the reconciler's, the grabs backoff: an import wait retries
+// after RetryMin, doubling to RetryMax, and a pass runs at least every
+// RetryMax.
+type Timings struct {
+	RetryMin, RetryMax time.Duration
 }
 
 type Imports struct {
-	cfg Config
+	cfg    Config
+	probes *slots
+	wake   chan struct{}
+
+	mu sync.Mutex
+	// hooked is what each job's Transfers hooks changed, published once
+	// their Write commits.
+	hooked map[string]after
 }
 
-func New(cfg Config) *Imports { return &Imports{cfg: cfg} }
+// New builds the pipeline and registers its Transfers purpose.
+func New(cfg Config) *Imports {
+	im := &Imports{cfg: cfg, probes: newSlots(), wake: make(chan struct{}, 1), hooked: map[string]after{}}
+	cfg.Transfers.Register(im.purpose())
+	return im
+}
+
+// Touch has the reconciler pass soon.
+func (im *Imports) Touch() {
+	select {
+	case im.wake <- struct{}{}:
+	default:
+	}
+}
 
 func unitKey(root roots.ID) tasks.UnitKey { return tasks.UnitKey("root:" + root.String()) }
 

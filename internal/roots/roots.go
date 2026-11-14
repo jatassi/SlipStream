@@ -15,6 +15,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/live"
+	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/nodes"
 	storagev1 "github.com/jatassi/slipstream/internal/pb/slipstream/storage/v1"
 	"github.com/jatassi/slipstream/internal/role"
@@ -190,12 +191,13 @@ type Contents interface {
 	ForgetGoneOf(ctx context.Context, tx *storage.Tx[file], work works.WorkID) error
 }
 
-// Inflight is what grabs knows about roots. grabs.RootGrabs implements it.
+// Inflight is what imports knows about roots. imports.RootImports
+// implements it.
 type Inflight interface {
-	// Into counts the unfinished Grabs of ws, or planned into root.
+	// Into counts the unfinished Imports of ws, or into root.
 	Into(ctx context.Context, r storage.Reader[file], root ID, ws []works.WorkID) (int64, error)
-	// Release unties root's finished Grabs from it, so it can go and they
-	// stay.
+	// Release unties root's finished Imports from it, so it can go and
+	// they stay.
 	Release(ctx context.Context, tx *storage.Tx[file], root ID) error
 }
 
@@ -212,11 +214,14 @@ type Storage interface {
 type Config struct {
 	Library *storage.DB[file]
 	// Types is every Content Type this binary registers.
-	Types    []works.TypeID
-	Roster   Roster
-	Storage  Storage
-	Remote   storing.Remote
-	Folders  storing.Folders
+	Types   []works.TypeID
+	Roster  Roster
+	Storage Storage
+	Remote  storing.Remote
+	Folders storing.Folders
+	// Videos is the Admin's video extensions, which each move and survey
+	// sends, so the companion rule reads them: imports.Videos.
+	Videos   func(ctx context.Context, r storage.Reader[file]) (media.Videos, error)
 	Arrivals *Arrivals
 	Contents Contents
 	Inflight Inflight
@@ -358,7 +363,7 @@ func (r *Roots) Check(ctx context.Context, _ identity.Admin, node role.NodeID, p
 			return Verdict{}, ErrNotStorage
 		}
 		return r.check(ctx, node, path, except)
-	case storing.PurposeDownloads, storing.PurposeClientFolder:
+	case storing.PurposeDownloads, storing.PurposeClientFolder, storing.PurposeImport:
 		v, _, err := r.judged(ctx, node, path, purpose, nil)
 		return v, err
 	}

@@ -140,9 +140,9 @@ func TestNames(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			w := shelved(t, "{Shelf} - {Thing} - {Edition Tag} {Target}", targets.Goals{Targets: []targets.Target{best, web, uhd}}, scarf)
-			w.fresh = ids["fresh"]
+			w.fresh = map[ID]bool{ids["fresh"]: true}
 			for _, s := range c.files {
-				w.files = append(w.files, File{ID: ids[s.id], ItemID: scarf.ID, Cut: release.Standard, Quality: s.quality, Label: s.label, Extra: s.extra, Path: s.path})
+				w.files = append(w.files, File{ID: ids[s.id], Items: []works.ItemID{scarf.ID}, Cut: release.Standard, Quality: s.quality, Label: s.label, Extra: s.extra, Path: s.path})
 			}
 			fills := map[CellKey]Fill{}
 			for target, id := range c.fills {
@@ -166,10 +166,10 @@ func TestNames(t *testing.T) {
 func TestAFileBeingPlacedOnAnotherFilesNameFindsItTaken(t *testing.T) {
 	web := newTarget(t, "Web", []release.Quality{release.WEBDL1080p})
 	scarf := works.Item{ID: works.ItemID{UUID: storage.NewUUID()}}
-	held := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Path: "Attic/Attic - Scarf.mkv"}
-	fresh := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Path: ".slipstream-incoming/grab.mkv"}
+	held := File{ID: ID{UUID: storage.NewUUID()}, Items: []works.ItemID{scarf.ID}, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Path: "Attic/Attic - Scarf.mkv"}
+	fresh := File{ID: ID{UUID: storage.NewUUID()}, Items: []works.ItemID{scarf.ID}, Cut: release.Standard, Quality: release.WEBDL1080p, Path: ".slipstream-incoming/grab.mkv"}
 	w := shelved(t, "{Shelf} - {Thing}", targets.Goals{Targets: []targets.Target{web}}, scarf)
-	w.files, w.fresh = []File{held, fresh}, fresh.ID
+	w.files, w.fresh = []File{held, fresh}, map[ID]bool{fresh.ID: true}
 	_, _, err := names(w, map[CellKey]Fill{{Item: scarf.ID, Edition: targets.AnyEdition, Target: web.ID}: {File: held.ID}})
 	if taken, ok := errors.AsType[*NameTakenError](err); !ok || *taken != (NameTakenError{Path: "Attic/Attic - Scarf.mkv"}) {
 		t.Fatalf("names of a Kept file whose template names no Target = %v, want its name taken at Attic/Attic - Scarf.mkv", err)
@@ -190,9 +190,9 @@ func keeping(t *testing.T, held, source string) (w world, fills map[CellKey]Fill
 		t.Fatal(err)
 	}
 	w.scheme = scheme
-	filling := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Path: held}
-	placing := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Path: ".slipstream-incoming/grab.mkv", SourceName: source}
-	w.files, w.beside, w.fresh = []File{filling, placing}, []File{filling}, placing.ID
+	filling := File{ID: ID{UUID: storage.NewUUID()}, Items: []works.ItemID{scarf.ID}, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Path: held}
+	placing := File{ID: ID{UUID: storage.NewUUID()}, Items: []works.ItemID{scarf.ID}, Cut: release.Standard, Quality: release.WEBDL1080p, Path: ".slipstream-incoming/grab.mkv", SourceName: source}
+	w.files, w.beside, w.fresh = []File{filling, placing}, []File{filling}, map[ID]bool{placing.ID: true}
 	return w, map[CellKey]Fill{{Item: scarf.ID, Edition: targets.AnyEdition, Target: web.ID}: {File: filling.ID}}, placing.ID
 }
 
@@ -220,10 +220,10 @@ func TestAGoneFileKeepsItsNameAndHoldsItsN(t *testing.T) {
 	best := newTarget(t, "Best", []release.Quality{release.Bluray1080p}, []release.Quality{release.WEBDL1080p})
 	scarf := works.Item{ID: works.ItemID{UUID: storage.NewUUID()}}
 	gone := File{
-		ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Extra: 1,
+		ID: ID{UUID: storage.NewUUID()}, Items: []works.ItemID{scarf.ID}, Cut: release.Standard, Quality: release.WEBDL1080p, Label: "Web", Extra: 1,
 		Path: "Attic/Attic - Scarf - Web (extra 1).mkv", GoneAt: storage.Now(),
 	}
-	kept := File{ID: ID{UUID: storage.NewUUID()}, ItemID: scarf.ID, Cut: release.Standard, Quality: release.HDTV720p, Label: "Web", Path: "Attic/Scarf.mkv"}
+	kept := File{ID: ID{UUID: storage.NewUUID()}, Items: []works.ItemID{scarf.ID}, Cut: release.Standard, Quality: release.HDTV720p, Label: "Web", Path: "Attic/Scarf.mkv"}
 	w := shelved(t, "{Shelf} - {Thing} - {Edition Tag} {Target}", targets.Goals{Targets: []targets.Target{best}}, scarf)
 	w.files, w.retagged = []File{gone, kept}, map[release.CutKey]bool{release.Standard: true}
 	got, _, err := names(w, nil)

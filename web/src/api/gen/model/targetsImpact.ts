@@ -3,7 +3,7 @@ import type { TargetsWorkRenames } from "./targetsWorkRenames.ts";
 
 export interface TargetsImpact {
   /**
-   * Downloads in progress for cells that are no longer wanted. The save's choice decides whether their files are deleted or kept
+   * Downloads in progress for cells that are no longer wanted. Each waits in Pending imports once it finishes
    * @minimum 0
    */
   downloading: number;

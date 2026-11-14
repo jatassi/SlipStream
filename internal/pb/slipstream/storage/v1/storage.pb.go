@@ -155,6 +155,9 @@ const (
 	// Node sees it: readable, on any volume, and apart from every root the
 	// Node holds. It is never written.
 	Purpose_PURPOSE_CLIENT_FOLDER Purpose = 3
+	// IMPORT: a folder to import from, readable and inside one of the
+	// Node's library roots or download folders once its links are followed.
+	Purpose_PURPOSE_IMPORT Purpose = 4
 )
 
 // Enum value maps for Purpose.
@@ -164,12 +167,14 @@ var (
 		1: "PURPOSE_ROOT",
 		2: "PURPOSE_DOWNLOADS",
 		3: "PURPOSE_CLIENT_FOLDER",
+		4: "PURPOSE_IMPORT",
 	}
 	Purpose_value = map[string]int32{
 		"PURPOSE_UNSPECIFIED":   0,
 		"PURPOSE_ROOT":          1,
 		"PURPOSE_DOWNLOADS":     2,
 		"PURPOSE_CLIENT_FOLDER": 3,
+		"PURPOSE_IMPORT":        4,
 	}
 )
 
@@ -216,6 +221,7 @@ const (
 	Reason_REASON_CONTAINS_DOWNLOADS Reason = 10
 	Reason_REASON_UNRESPONSIVE       Reason = 11
 	Reason_REASON_NETWORK_SHARE      Reason = 12
+	Reason_REASON_OUTSIDE            Reason = 13
 )
 
 // Enum value maps for Reason.
@@ -234,6 +240,7 @@ var (
 		10: "REASON_CONTAINS_DOWNLOADS",
 		11: "REASON_UNRESPONSIVE",
 		12: "REASON_NETWORK_SHARE",
+		13: "REASON_OUTSIDE",
 	}
 	Reason_value = map[string]int32{
 		"REASON_UNSPECIFIED":        0,
@@ -249,6 +256,7 @@ var (
 		"REASON_CONTAINS_DOWNLOADS": 10,
 		"REASON_UNRESPONSIVE":       11,
 		"REASON_NETWORK_SHARE":      12,
+		"REASON_OUTSIDE":            13,
 	}
 )
 
@@ -328,6 +336,65 @@ func (MissingReason) EnumDescriptor() ([]byte, []int) {
 	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{4}
 }
 
+// PlaceStep is how a file came to be at its target.
+type PlaceStep int32
+
+const (
+	PlaceStep_PLACE_STEP_UNSPECIFIED PlaceStep = 0
+	PlaceStep_PLACE_STEP_LINK        PlaceStep = 1
+	PlaceStep_PLACE_STEP_CLONE       PlaceStep = 2
+	PlaceStep_PLACE_STEP_COPY        PlaceStep = 3
+	PlaceStep_PLACE_STEP_RENAME      PlaceStep = 4
+	PlaceStep_PLACE_STEP_IN_PLACE    PlaceStep = 5
+)
+
+// Enum value maps for PlaceStep.
+var (
+	PlaceStep_name = map[int32]string{
+		0: "PLACE_STEP_UNSPECIFIED",
+		1: "PLACE_STEP_LINK",
+		2: "PLACE_STEP_CLONE",
+		3: "PLACE_STEP_COPY",
+		4: "PLACE_STEP_RENAME",
+		5: "PLACE_STEP_IN_PLACE",
+	}
+	PlaceStep_value = map[string]int32{
+		"PLACE_STEP_UNSPECIFIED": 0,
+		"PLACE_STEP_LINK":        1,
+		"PLACE_STEP_CLONE":       2,
+		"PLACE_STEP_COPY":        3,
+		"PLACE_STEP_RENAME":      4,
+		"PLACE_STEP_IN_PLACE":    5,
+	}
+)
+
+func (x PlaceStep) Enum() *PlaceStep {
+	p := new(PlaceStep)
+	*p = x
+	return p
+}
+
+func (x PlaceStep) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PlaceStep) Descriptor() protoreflect.EnumDescriptor {
+	return file_slipstream_storage_v1_storage_proto_enumTypes[5].Descriptor()
+}
+
+func (PlaceStep) Type() protoreflect.EnumType {
+	return &file_slipstream_storage_v1_storage_proto_enumTypes[5]
+}
+
+func (x PlaceStep) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PlaceStep.Descriptor instead.
+func (PlaceStep) EnumDescriptor() ([]byte, []int) {
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{5}
+}
+
 type HeldFolder int32
 
 const (
@@ -361,11 +428,11 @@ func (x HeldFolder) String() string {
 }
 
 func (HeldFolder) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_storage_v1_storage_proto_enumTypes[5].Descriptor()
+	return file_slipstream_storage_v1_storage_proto_enumTypes[6].Descriptor()
 }
 
 func (HeldFolder) Type() protoreflect.EnumType {
-	return &file_slipstream_storage_v1_storage_proto_enumTypes[5]
+	return &file_slipstream_storage_v1_storage_proto_enumTypes[6]
 }
 
 func (x HeldFolder) Number() protoreflect.EnumNumber {
@@ -374,7 +441,7 @@ func (x HeldFolder) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use HeldFolder.Descriptor instead.
 func (HeldFolder) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{5}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{6}
 }
 
 type UnreadReason int32
@@ -413,11 +480,11 @@ func (x UnreadReason) String() string {
 }
 
 func (UnreadReason) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_storage_v1_storage_proto_enumTypes[6].Descriptor()
+	return file_slipstream_storage_v1_storage_proto_enumTypes[7].Descriptor()
 }
 
 func (UnreadReason) Type() protoreflect.EnumType {
-	return &file_slipstream_storage_v1_storage_proto_enumTypes[6]
+	return &file_slipstream_storage_v1_storage_proto_enumTypes[7]
 }
 
 func (x UnreadReason) Number() protoreflect.EnumNumber {
@@ -426,7 +493,7 @@ func (x UnreadReason) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use UnreadReason.Descriptor instead.
 func (UnreadReason) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{6}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{7}
 }
 
 type FolderErrorKind int32
@@ -471,11 +538,11 @@ func (x FolderErrorKind) String() string {
 }
 
 func (FolderErrorKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_slipstream_storage_v1_storage_proto_enumTypes[7].Descriptor()
+	return file_slipstream_storage_v1_storage_proto_enumTypes[8].Descriptor()
 }
 
 func (FolderErrorKind) Type() protoreflect.EnumType {
-	return &file_slipstream_storage_v1_storage_proto_enumTypes[7]
+	return &file_slipstream_storage_v1_storage_proto_enumTypes[8]
 }
 
 func (x FolderErrorKind) Number() protoreflect.EnumNumber {
@@ -484,7 +551,7 @@ func (x FolderErrorKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use FolderErrorKind.Descriptor instead.
 func (FolderErrorKind) EnumDescriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{7}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{8}
 }
 
 // Intent is every root the Node holds, by id, and how often to sample.
@@ -910,9 +977,13 @@ func (*Result) Descriptor() ([]byte, []int) {
 }
 
 type BrowseRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	ShowHidden    bool                   `protobuf:"varint,2,opt,name=show_hidden,json=showHidden,proto3" json:"show_hidden,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Path       string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	ShowHidden bool                   `protobuf:"varint,2,opt,name=show_hidden,json=showHidden,proto3" json:"show_hidden,omitempty"`
+	// purpose IMPORT browses only the Node's library roots and download
+	// folders: its places are those folders, and a path outside them is
+	// refused with an Outside detail.
+	Purpose       Purpose `protobuf:"varint,3,opt,name=purpose,proto3,enum=slipstream.storage.v1.Purpose" json:"purpose,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -959,6 +1030,13 @@ func (x *BrowseRequest) GetShowHidden() bool {
 		return x.ShowHidden
 	}
 	return false
+}
+
+func (x *BrowseRequest) GetPurpose() Purpose {
+	if x != nil {
+		return x.Purpose
+	}
+	return Purpose_PURPOSE_UNSPECIFIED
 }
 
 type BrowseResponse struct {
@@ -1896,11 +1974,19 @@ func (x *Missing) GetReason() MissingReason {
 }
 
 type PlaceRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	RootId        []byte                 `protobuf:"bytes,1,opt,name=root_id,json=rootId,proto3" json:"root_id,omitempty"`
-	InfoHash      []byte                 `protobuf:"bytes,2,opt,name=info_hash,json=infoHash,proto3" json:"info_hash,omitempty"`
-	FileIndex     int64                  `protobuf:"varint,3,opt,name=file_index,json=fileIndex,proto3" json:"file_index,omitempty"`
-	To            string                 `protobuf:"bytes,4,opt,name=to,proto3" json:"to,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	RootId []byte                 `protobuf:"bytes,1,opt,name=root_id,json=rootId,proto3" json:"root_id,omitempty"`
+	// source is where the file's bytes are.
+	//
+	// Types that are valid to be assigned to Source:
+	//
+	//	*PlaceRequest_Payload
+	//	*PlaceRequest_Path
+	Source isPlaceRequest_Source `protobuf_oneof:"source"`
+	To     string                `protobuf:"bytes,4,opt,name=to,proto3" json:"to,omitempty"`
+	// allow_copy lets a place copy the file when link and clone both refuse.
+	// Without it the place fails with a NeedsCopy detail.
+	AllowCopy     bool `protobuf:"varint,5,opt,name=allow_copy,json=allowCopy,proto3" json:"allow_copy,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1942,18 +2028,29 @@ func (x *PlaceRequest) GetRootId() []byte {
 	return nil
 }
 
-func (x *PlaceRequest) GetInfoHash() []byte {
+func (x *PlaceRequest) GetSource() isPlaceRequest_Source {
 	if x != nil {
-		return x.InfoHash
+		return x.Source
 	}
 	return nil
 }
 
-func (x *PlaceRequest) GetFileIndex() int64 {
+func (x *PlaceRequest) GetPayload() *Payload {
 	if x != nil {
-		return x.FileIndex
+		if x, ok := x.Source.(*PlaceRequest_Payload); ok {
+			return x.Payload
+		}
 	}
-	return 0
+	return nil
+}
+
+func (x *PlaceRequest) GetPath() string {
+	if x != nil {
+		if x, ok := x.Source.(*PlaceRequest_Path); ok {
+			return x.Path
+		}
+	}
+	return ""
 }
 
 func (x *PlaceRequest) GetTo() string {
@@ -1963,10 +2060,35 @@ func (x *PlaceRequest) GetTo() string {
 	return ""
 }
 
+func (x *PlaceRequest) GetAllowCopy() bool {
+	if x != nil {
+		return x.AllowCopy
+	}
+	return false
+}
+
+type isPlaceRequest_Source interface {
+	isPlaceRequest_Source()
+}
+
+type PlaceRequest_Payload struct {
+	Payload *Payload `protobuf:"bytes,6,opt,name=payload,proto3,oneof"`
+}
+
+type PlaceRequest_Path struct {
+	// path is an absolute path in one of the Node's library roots or
+	// download folders. Any other is refused with an Outside detail.
+	Path string `protobuf:"bytes,7,opt,name=path,proto3,oneof"`
+}
+
+func (*PlaceRequest_Payload) isPlaceRequest_Source() {}
+
+func (*PlaceRequest_Path) isPlaceRequest_Source() {}
+
 type PlaceResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Size          int64                  `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
-	Linked        bool                   `protobuf:"varint,2,opt,name=linked,proto3" json:"linked,omitempty"`
+	Step          PlaceStep              `protobuf:"varint,2,opt,name=step,proto3,enum=slipstream.storage.v1.PlaceStep" json:"step,omitempty"`
 	Identity      *Identity              `protobuf:"bytes,3,opt,name=identity,proto3" json:"identity,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2009,11 +2131,11 @@ func (x *PlaceResponse) GetSize() int64 {
 	return 0
 }
 
-func (x *PlaceResponse) GetLinked() bool {
+func (x *PlaceResponse) GetStep() PlaceStep {
 	if x != nil {
-		return x.Linked
+		return x.Step
 	}
-	return false
+	return PlaceStep_PLACE_STEP_UNSPECIFIED
 }
 
 func (x *PlaceResponse) GetIdentity() *Identity {
@@ -2023,6 +2145,464 @@ func (x *PlaceResponse) GetIdentity() *Identity {
 	return nil
 }
 
+// NeedsCopy is a place asked without allow_copy whose link and clone both
+// refused. size is the bytes a copy writes.
+type NeedsCopy struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Size          int64                  `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NeedsCopy) Reset() {
+	*x = NeedsCopy{}
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NeedsCopy) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NeedsCopy) ProtoMessage() {}
+
+func (x *NeedsCopy) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NeedsCopy.ProtoReflect.Descriptor instead.
+func (*NeedsCopy) Descriptor() ([]byte, []int) {
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *NeedsCopy) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+// NeedsSpace is a clone or copy the target volume has no room for.
+type NeedsSpace struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NeedsSpace) Reset() {
+	*x = NeedsSpace{}
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NeedsSpace) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NeedsSpace) ProtoMessage() {}
+
+func (x *NeedsSpace) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NeedsSpace.ProtoReflect.Descriptor instead.
+func (*NeedsSpace) Descriptor() ([]byte, []int) {
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{25}
+}
+
+// Payload is file file_index of a torrent this Node finished.
+type Payload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	InfoHash      []byte                 `protobuf:"bytes,1,opt,name=info_hash,json=infoHash,proto3" json:"info_hash,omitempty"`
+	FileIndex     int64                  `protobuf:"varint,2,opt,name=file_index,json=fileIndex,proto3" json:"file_index,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Payload) Reset() {
+	*x = Payload{}
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Payload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Payload) ProtoMessage() {}
+
+func (x *Payload) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Payload.ProtoReflect.Descriptor instead.
+func (*Payload) Descriptor() ([]byte, []int) {
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *Payload) GetInfoHash() []byte {
+	if x != nil {
+		return x.InfoHash
+	}
+	return nil
+}
+
+func (x *Payload) GetFileIndex() int64 {
+	if x != nil {
+		return x.FileIndex
+	}
+	return 0
+}
+
+// Outside details a path the Node refuses to read or change: outside its
+// library roots and download folders once its links are followed.
+type Outside struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Outside) Reset() {
+	*x = Outside{}
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Outside) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Outside) ProtoMessage() {}
+
+func (x *Outside) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Outside.ProtoReflect.Descriptor instead.
+func (*Outside) Descriptor() ([]byte, []int) {
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *Outside) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+type ListVideosRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Path  string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	// video_extensions are as on MoveRequest.
+	VideoExtensions []string `protobuf:"bytes,2,rep,name=video_extensions,json=videoExtensions,proto3" json:"video_extensions,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ListVideosRequest) Reset() {
+	*x = ListVideosRequest{}
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListVideosRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListVideosRequest) ProtoMessage() {}
+
+func (x *ListVideosRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListVideosRequest.ProtoReflect.Descriptor instead.
+func (*ListVideosRequest) Descriptor() ([]byte, []int) {
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *ListVideosRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ListVideosRequest) GetVideoExtensions() []string {
+	if x != nil {
+		return x.VideoExtensions
+	}
+	return nil
+}
+
+type ListVideosResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// path is cleaned.
+	Path string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	// root_id is set when path is in a library root the Node holds, and rel
+	// is path under it, "" for the root itself.
+	RootId []byte `protobuf:"bytes,2,opt,name=root_id,json=rootId,proto3" json:"root_id,omitempty"`
+	Rel    string `protobuf:"bytes,3,opt,name=rel,proto3" json:"rel,omitempty"`
+	// files are in walk order: depth first, each folder's names in byte
+	// order.
+	Files         []*Listed `protobuf:"bytes,4,rep,name=files,proto3" json:"files,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListVideosResponse) Reset() {
+	*x = ListVideosResponse{}
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListVideosResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListVideosResponse) ProtoMessage() {}
+
+func (x *ListVideosResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListVideosResponse.ProtoReflect.Descriptor instead.
+func (*ListVideosResponse) Descriptor() ([]byte, []int) {
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *ListVideosResponse) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ListVideosResponse) GetRootId() []byte {
+	if x != nil {
+		return x.RootId
+	}
+	return nil
+}
+
+func (x *ListVideosResponse) GetRel() string {
+	if x != nil {
+		return x.Rel
+	}
+	return ""
+}
+
+func (x *ListVideosResponse) GetFiles() []*Listed {
+	if x != nil {
+		return x.Files
+	}
+	return nil
+}
+
+type Listed struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// path is absolute.
+	Path     string    `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Size     int64     `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
+	Identity *Identity `protobuf:"bytes,3,opt,name=identity,proto3" json:"identity,omitempty"`
+	// seeded: a torrent one of the Node's clients holds lies at path.
+	Seeded        bool `protobuf:"varint,4,opt,name=seeded,proto3" json:"seeded,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Listed) Reset() {
+	*x = Listed{}
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Listed) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Listed) ProtoMessage() {}
+
+func (x *Listed) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Listed.ProtoReflect.Descriptor instead.
+func (*Listed) Descriptor() ([]byte, []int) {
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *Listed) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *Listed) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+func (x *Listed) GetIdentity() *Identity {
+	if x != nil {
+		return x.Identity
+	}
+	return nil
+}
+
+func (x *Listed) GetSeeded() bool {
+	if x != nil {
+		return x.Seeded
+	}
+	return false
+}
+
+type RemoveSourceRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveSourceRequest) Reset() {
+	*x = RemoveSourceRequest{}
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveSourceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveSourceRequest) ProtoMessage() {}
+
+func (x *RemoveSourceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveSourceRequest.ProtoReflect.Descriptor instead.
+func (*RemoveSourceRequest) Descriptor() ([]byte, []int) {
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *RemoveSourceRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+type RemoveSourceResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveSourceResponse) Reset() {
+	*x = RemoveSourceResponse{}
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveSourceResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveSourceResponse) ProtoMessage() {}
+
+func (x *RemoveSourceResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveSourceResponse.ProtoReflect.Descriptor instead.
+func (*RemoveSourceResponse) Descriptor() ([]byte, []int) {
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{32}
+}
+
 type MoveRequest struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	RootId []byte                 `protobuf:"bytes,1,opt,name=root_id,json=rootId,proto3" json:"root_id,omitempty"`
@@ -2030,14 +2610,17 @@ type MoveRequest struct {
 	To     string                 `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
 	// carry moves each companion of from, a file in its folder named from's
 	// stem, ".", and a tail, to to's stem, ".", and the same tail.
-	Carry         bool `protobuf:"varint,4,opt,name=carry,proto3" json:"carry,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Carry bool `protobuf:"varint,4,opt,name=carry,proto3" json:"carry,omitempty"`
+	// video_extensions are the Admin's video file extensions, lower case
+	// without the dot. A file with one is never another's companion.
+	VideoExtensions []string `protobuf:"bytes,5,rep,name=video_extensions,json=videoExtensions,proto3" json:"video_extensions,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *MoveRequest) Reset() {
 	*x = MoveRequest{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[24]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2049,7 +2632,7 @@ func (x *MoveRequest) String() string {
 func (*MoveRequest) ProtoMessage() {}
 
 func (x *MoveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[24]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2062,7 +2645,7 @@ func (x *MoveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveRequest.ProtoReflect.Descriptor instead.
 func (*MoveRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{24}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *MoveRequest) GetRootId() []byte {
@@ -2093,6 +2676,13 @@ func (x *MoveRequest) GetCarry() bool {
 	return false
 }
 
+func (x *MoveRequest) GetVideoExtensions() []string {
+	if x != nil {
+		return x.VideoExtensions
+	}
+	return nil
+}
+
 type MoveResponse struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Size     int64                  `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
@@ -2108,7 +2698,7 @@ type MoveResponse struct {
 
 func (x *MoveResponse) Reset() {
 	*x = MoveResponse{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[25]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2120,7 +2710,7 @@ func (x *MoveResponse) String() string {
 func (*MoveResponse) ProtoMessage() {}
 
 func (x *MoveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[25]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2133,7 +2723,7 @@ func (x *MoveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveResponse.ProtoReflect.Descriptor instead.
 func (*MoveResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{25}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *MoveResponse) GetSize() int64 {
@@ -2161,15 +2751,17 @@ type SurveyRequest struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	RootId []byte                 `protobuf:"bytes,1,opt,name=root_id,json=rootId,proto3" json:"root_id,omitempty"`
 	// planned is at most 2000 renames.
-	Planned       []*Planned `protobuf:"bytes,2,rep,name=planned,proto3" json:"planned,omitempty"`
-	Companions    bool       `protobuf:"varint,3,opt,name=companions,proto3" json:"companions,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Planned    []*Planned `protobuf:"bytes,2,rep,name=planned,proto3" json:"planned,omitempty"`
+	Companions bool       `protobuf:"varint,3,opt,name=companions,proto3" json:"companions,omitempty"`
+	// video_extensions are as on MoveRequest.
+	VideoExtensions []string `protobuf:"bytes,4,rep,name=video_extensions,json=videoExtensions,proto3" json:"video_extensions,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *SurveyRequest) Reset() {
 	*x = SurveyRequest{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[26]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2181,7 +2773,7 @@ func (x *SurveyRequest) String() string {
 func (*SurveyRequest) ProtoMessage() {}
 
 func (x *SurveyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[26]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2194,7 +2786,7 @@ func (x *SurveyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SurveyRequest.ProtoReflect.Descriptor instead.
 func (*SurveyRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{26}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *SurveyRequest) GetRootId() []byte {
@@ -2218,6 +2810,13 @@ func (x *SurveyRequest) GetCompanions() bool {
 	return false
 }
 
+func (x *SurveyRequest) GetVideoExtensions() []string {
+	if x != nil {
+		return x.VideoExtensions
+	}
+	return nil
+}
+
 type Planned struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	From          string                 `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
@@ -2228,7 +2827,7 @@ type Planned struct {
 
 func (x *Planned) Reset() {
 	*x = Planned{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[27]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2240,7 +2839,7 @@ func (x *Planned) String() string {
 func (*Planned) ProtoMessage() {}
 
 func (x *Planned) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[27]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2253,7 +2852,7 @@ func (x *Planned) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Planned.ProtoReflect.Descriptor instead.
 func (*Planned) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{27}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *Planned) GetFrom() string {
@@ -2280,7 +2879,7 @@ type SurveyResponse struct {
 
 func (x *SurveyResponse) Reset() {
 	*x = SurveyResponse{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[28]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2292,7 +2891,7 @@ func (x *SurveyResponse) String() string {
 func (*SurveyResponse) ProtoMessage() {}
 
 func (x *SurveyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[28]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2305,7 +2904,7 @@ func (x *SurveyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SurveyResponse.ProtoReflect.Descriptor instead.
 func (*SurveyResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{28}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *SurveyResponse) GetSurveyed() []*Surveyed {
@@ -2328,7 +2927,7 @@ type Surveyed struct {
 
 func (x *Surveyed) Reset() {
 	*x = Surveyed{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[29]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2340,7 +2939,7 @@ func (x *Surveyed) String() string {
 func (*Surveyed) ProtoMessage() {}
 
 func (x *Surveyed) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[29]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2353,7 +2952,7 @@ func (x *Surveyed) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Surveyed.ProtoReflect.Descriptor instead.
 func (*Surveyed) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{29}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *Surveyed) GetOccupants() []*Occupant {
@@ -2380,7 +2979,7 @@ type Occupant struct {
 
 func (x *Occupant) Reset() {
 	*x = Occupant{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[30]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2392,7 +2991,7 @@ func (x *Occupant) String() string {
 func (*Occupant) ProtoMessage() {}
 
 func (x *Occupant) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[30]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2405,7 +3004,7 @@ func (x *Occupant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Occupant.ProtoReflect.Descriptor instead.
 func (*Occupant) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{30}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *Occupant) GetPath() string {
@@ -2434,7 +3033,7 @@ type PruneRequest struct {
 
 func (x *PruneRequest) Reset() {
 	*x = PruneRequest{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[31]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2446,7 +3045,7 @@ func (x *PruneRequest) String() string {
 func (*PruneRequest) ProtoMessage() {}
 
 func (x *PruneRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[31]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2459,7 +3058,7 @@ func (x *PruneRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PruneRequest.ProtoReflect.Descriptor instead.
 func (*PruneRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{31}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *PruneRequest) GetRootId() []byte {
@@ -2493,7 +3092,7 @@ type PruneResponse struct {
 
 func (x *PruneResponse) Reset() {
 	*x = PruneResponse{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[32]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2505,7 +3104,7 @@ func (x *PruneResponse) String() string {
 func (*PruneResponse) ProtoMessage() {}
 
 func (x *PruneResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[32]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2518,7 +3117,7 @@ func (x *PruneResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PruneResponse.ProtoReflect.Descriptor instead.
 func (*PruneResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{32}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *PruneResponse) GetRemoved() []string {
@@ -2543,7 +3142,7 @@ type Identity struct {
 
 func (x *Identity) Reset() {
 	*x = Identity{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[33]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2555,7 +3154,7 @@ func (x *Identity) String() string {
 func (*Identity) ProtoMessage() {}
 
 func (x *Identity) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[33]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2568,7 +3167,7 @@ func (x *Identity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Identity.ProtoReflect.Descriptor instead.
 func (*Identity) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{33}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *Identity) GetModifiedUnixMs() int64 {
@@ -2603,7 +3202,7 @@ type RemoveRequest struct {
 
 func (x *RemoveRequest) Reset() {
 	*x = RemoveRequest{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[34]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2615,7 +3214,7 @@ func (x *RemoveRequest) String() string {
 func (*RemoveRequest) ProtoMessage() {}
 
 func (x *RemoveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[34]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2628,7 +3227,7 @@ func (x *RemoveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveRequest.ProtoReflect.Descriptor instead.
 func (*RemoveRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{34}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *RemoveRequest) GetRootId() []byte {
@@ -2660,7 +3259,7 @@ type RemoveResponse struct {
 
 func (x *RemoveResponse) Reset() {
 	*x = RemoveResponse{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[35]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2672,7 +3271,7 @@ func (x *RemoveResponse) String() string {
 func (*RemoveResponse) ProtoMessage() {}
 
 func (x *RemoveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[35]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2685,7 +3284,7 @@ func (x *RemoveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveResponse.ProtoReflect.Descriptor instead.
 func (*RemoveResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{35}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{44}
 }
 
 type ListRequest struct {
@@ -2698,7 +3297,7 @@ type ListRequest struct {
 
 func (x *ListRequest) Reset() {
 	*x = ListRequest{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[36]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2710,7 +3309,7 @@ func (x *ListRequest) String() string {
 func (*ListRequest) ProtoMessage() {}
 
 func (x *ListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[36]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2723,7 +3322,7 @@ func (x *ListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRequest.ProtoReflect.Descriptor instead.
 func (*ListRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{36}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ListRequest) GetRootId() []byte {
@@ -2749,7 +3348,7 @@ type ListResponse struct {
 
 func (x *ListResponse) Reset() {
 	*x = ListResponse{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[37]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2761,7 +3360,7 @@ func (x *ListResponse) String() string {
 func (*ListResponse) ProtoMessage() {}
 
 func (x *ListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[37]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2774,7 +3373,7 @@ func (x *ListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListResponse.ProtoReflect.Descriptor instead.
 func (*ListResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{37}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ListResponse) GetNames() []string {
@@ -2792,7 +3391,7 @@ type SampleRequest struct {
 
 func (x *SampleRequest) Reset() {
 	*x = SampleRequest{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[38]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2804,7 +3403,7 @@ func (x *SampleRequest) String() string {
 func (*SampleRequest) ProtoMessage() {}
 
 func (x *SampleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[38]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2817,7 +3416,7 @@ func (x *SampleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SampleRequest.ProtoReflect.Descriptor instead.
 func (*SampleRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{38}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{47}
 }
 
 type SampleResponse struct {
@@ -2829,7 +3428,7 @@ type SampleResponse struct {
 
 func (x *SampleResponse) Reset() {
 	*x = SampleResponse{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[39]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2841,7 +3440,7 @@ func (x *SampleResponse) String() string {
 func (*SampleResponse) ProtoMessage() {}
 
 func (x *SampleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[39]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2854,7 +3453,7 @@ func (x *SampleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SampleResponse.ProtoReflect.Descriptor instead.
 func (*SampleResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{39}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *SampleResponse) GetPassedAtUnixMs() int64 {
@@ -2870,14 +3469,17 @@ type WalkRequest struct {
 	// after is the last page's next, empty for the first page.
 	After []byte `protobuf:"bytes,2,opt,name=after,proto3" json:"after,omitempty"`
 	// limit is at most 1000 entries.
-	Limit         int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Limit int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	// video_extensions are as on MoveRequest: the walk lists only files
+	// with one of them.
+	VideoExtensions []string `protobuf:"bytes,4,rep,name=video_extensions,json=videoExtensions,proto3" json:"video_extensions,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *WalkRequest) Reset() {
 	*x = WalkRequest{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[40]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2889,7 +3491,7 @@ func (x *WalkRequest) String() string {
 func (*WalkRequest) ProtoMessage() {}
 
 func (x *WalkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[40]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2902,7 +3504,7 @@ func (x *WalkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WalkRequest.ProtoReflect.Descriptor instead.
 func (*WalkRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{40}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *WalkRequest) GetRootId() []byte {
@@ -2926,6 +3528,13 @@ func (x *WalkRequest) GetLimit() int32 {
 	return 0
 }
 
+func (x *WalkRequest) GetVideoExtensions() []string {
+	if x != nil {
+		return x.VideoExtensions
+	}
+	return nil
+}
+
 type WalkResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// entries are video files, depth first, each folder's names in byte
@@ -2942,7 +3551,7 @@ type WalkResponse struct {
 
 func (x *WalkResponse) Reset() {
 	*x = WalkResponse{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[41]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2954,7 +3563,7 @@ func (x *WalkResponse) String() string {
 func (*WalkResponse) ProtoMessage() {}
 
 func (x *WalkResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[41]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2967,7 +3576,7 @@ func (x *WalkResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WalkResponse.ProtoReflect.Descriptor instead.
 func (*WalkResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{41}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *WalkResponse) GetEntries() []*Walked {
@@ -3010,7 +3619,7 @@ type Walked struct {
 
 func (x *Walked) Reset() {
 	*x = Walked{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[42]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3022,7 +3631,7 @@ func (x *Walked) String() string {
 func (*Walked) ProtoMessage() {}
 
 func (x *Walked) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[42]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3035,7 +3644,7 @@ func (x *Walked) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Walked.ProtoReflect.Descriptor instead.
 func (*Walked) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{42}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *Walked) GetPath() string {
@@ -3071,7 +3680,7 @@ type Unread struct {
 
 func (x *Unread) Reset() {
 	*x = Unread{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[43]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3083,7 +3692,7 @@ func (x *Unread) String() string {
 func (*Unread) ProtoMessage() {}
 
 func (x *Unread) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[43]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3096,7 +3705,7 @@ func (x *Unread) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Unread.ProtoReflect.Descriptor instead.
 func (*Unread) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{43}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *Unread) GetPath() string {
@@ -3123,7 +3732,7 @@ type ProbeRequest struct {
 
 func (x *ProbeRequest) Reset() {
 	*x = ProbeRequest{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[44]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3135,7 +3744,7 @@ func (x *ProbeRequest) String() string {
 func (*ProbeRequest) ProtoMessage() {}
 
 func (x *ProbeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[44]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3148,7 +3757,7 @@ func (x *ProbeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeRequest.ProtoReflect.Descriptor instead.
 func (*ProbeRequest) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{44}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *ProbeRequest) GetRootId() []byte {
@@ -3175,7 +3784,7 @@ type ProbeResponse struct {
 
 func (x *ProbeResponse) Reset() {
 	*x = ProbeResponse{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[45]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3187,7 +3796,7 @@ func (x *ProbeResponse) String() string {
 func (*ProbeResponse) ProtoMessage() {}
 
 func (x *ProbeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[45]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3200,7 +3809,7 @@ func (x *ProbeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeResponse.ProtoReflect.Descriptor instead.
 func (*ProbeResponse) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{45}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *ProbeResponse) GetRecord() []byte {
@@ -3221,7 +3830,7 @@ type Unprobed struct {
 
 func (x *Unprobed) Reset() {
 	*x = Unprobed{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[46]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3233,7 +3842,7 @@ func (x *Unprobed) String() string {
 func (*Unprobed) ProtoMessage() {}
 
 func (x *Unprobed) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[46]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3246,7 +3855,7 @@ func (x *Unprobed) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Unprobed.ProtoReflect.Descriptor instead.
 func (*Unprobed) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{46}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *Unprobed) GetLine() string {
@@ -3269,7 +3878,7 @@ type FolderError struct {
 
 func (x *FolderError) Reset() {
 	*x = FolderError{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[47]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3281,7 +3890,7 @@ func (x *FolderError) String() string {
 func (*FolderError) ProtoMessage() {}
 
 func (x *FolderError) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[47]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3294,7 +3903,7 @@ func (x *FolderError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FolderError.ProtoReflect.Descriptor instead.
 func (*FolderError) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{47}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *FolderError) GetKind() FolderErrorKind {
@@ -3333,7 +3942,7 @@ type NotReady struct {
 
 func (x *NotReady) Reset() {
 	*x = NotReady{}
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[48]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3345,7 +3954,7 @@ func (x *NotReady) String() string {
 func (*NotReady) ProtoMessage() {}
 
 func (x *NotReady) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[48]
+	mi := &file_slipstream_storage_v1_storage_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3358,7 +3967,7 @@ func (x *NotReady) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotReady.ProtoReflect.Descriptor instead.
 func (*NotReady) Descriptor() ([]byte, []int) {
-	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{48}
+	return file_slipstream_storage_v1_storage_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *NotReady) GetState() RootState {
@@ -3416,11 +4025,12 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x05total\x18\x05 \x01(\x03R\x05total\x12\x12\n" +
 	"\x04free\x18\x06 \x01(\x03R\x04free\x12+\n" +
 	"\x12sampled_at_unix_ms\x18\a \x01(\x03R\x0fsampledAtUnixMs\"\b\n" +
-	"\x06Result\"D\n" +
+	"\x06Result\"~\n" +
 	"\rBrowseRequest\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x1f\n" +
 	"\vshow_hidden\x18\x02 \x01(\bR\n" +
-	"showHidden\"\xd0\x02\n" +
+	"showHidden\x128\n" +
+	"\apurpose\x18\x03 \x01(\x0e2\x1e.slipstream.storage.v1.PurposeR\apurpose\"\xd0\x02\n" +
 	"\x0eBrowseResponse\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x16\n" +
 	"\x06parent\x18\x02 \x01(\tR\x06parent\x12:\n" +
@@ -3479,32 +4089,62 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\amissing\x18\x01 \x03(\v2\x1e.slipstream.storage.v1.MissingR\amissing\"]\n" +
 	"\aMissing\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\x03R\x05index\x12<\n" +
-	"\x06reason\x18\x02 \x01(\x0e2$.slipstream.storage.v1.MissingReasonR\x06reason\"s\n" +
+	"\x06reason\x18\x02 \x01(\x0e2$.slipstream.storage.v1.MissingReasonR\x06reason\"\xbe\x01\n" +
 	"\fPlaceRequest\x12\x17\n" +
-	"\aroot_id\x18\x01 \x01(\fR\x06rootId\x12\x1b\n" +
-	"\tinfo_hash\x18\x02 \x01(\fR\binfoHash\x12\x1d\n" +
+	"\aroot_id\x18\x01 \x01(\fR\x06rootId\x12:\n" +
+	"\apayload\x18\x06 \x01(\v2\x1e.slipstream.storage.v1.PayloadH\x00R\apayload\x12\x14\n" +
+	"\x04path\x18\a \x01(\tH\x00R\x04path\x12\x0e\n" +
+	"\x02to\x18\x04 \x01(\tR\x02to\x12\x1d\n" +
 	"\n" +
-	"file_index\x18\x03 \x01(\x03R\tfileIndex\x12\x0e\n" +
-	"\x02to\x18\x04 \x01(\tR\x02to\"x\n" +
+	"allow_copy\x18\x05 \x01(\bR\tallowCopyB\b\n" +
+	"\x06sourceJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04\"\x96\x01\n" +
 	"\rPlaceResponse\x12\x12\n" +
-	"\x04size\x18\x01 \x01(\x03R\x04size\x12\x16\n" +
-	"\x06linked\x18\x02 \x01(\bR\x06linked\x12;\n" +
-	"\bidentity\x18\x03 \x01(\v2\x1f.slipstream.storage.v1.IdentityR\bidentity\"`\n" +
+	"\x04size\x18\x01 \x01(\x03R\x04size\x124\n" +
+	"\x04step\x18\x02 \x01(\x0e2 .slipstream.storage.v1.PlaceStepR\x04step\x12;\n" +
+	"\bidentity\x18\x03 \x01(\v2\x1f.slipstream.storage.v1.IdentityR\bidentity\"\x1f\n" +
+	"\tNeedsCopy\x12\x12\n" +
+	"\x04size\x18\x01 \x01(\x03R\x04size\"\f\n" +
+	"\n" +
+	"NeedsSpace\"E\n" +
+	"\aPayload\x12\x1b\n" +
+	"\tinfo_hash\x18\x01 \x01(\fR\binfoHash\x12\x1d\n" +
+	"\n" +
+	"file_index\x18\x02 \x01(\x03R\tfileIndex\"\x1d\n" +
+	"\aOutside\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\"R\n" +
+	"\x11ListVideosRequest\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12)\n" +
+	"\x10video_extensions\x18\x02 \x03(\tR\x0fvideoExtensions\"\x88\x01\n" +
+	"\x12ListVideosResponse\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x17\n" +
+	"\aroot_id\x18\x02 \x01(\fR\x06rootId\x12\x10\n" +
+	"\x03rel\x18\x03 \x01(\tR\x03rel\x123\n" +
+	"\x05files\x18\x04 \x03(\v2\x1d.slipstream.storage.v1.ListedR\x05files\"\x85\x01\n" +
+	"\x06Listed\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
+	"\x04size\x18\x02 \x01(\x03R\x04size\x12;\n" +
+	"\bidentity\x18\x03 \x01(\v2\x1f.slipstream.storage.v1.IdentityR\bidentity\x12\x16\n" +
+	"\x06seeded\x18\x04 \x01(\bR\x06seeded\")\n" +
+	"\x13RemoveSourceRequest\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\"\x16\n" +
+	"\x14RemoveSourceResponse\"\x8b\x01\n" +
 	"\vMoveRequest\x12\x17\n" +
 	"\aroot_id\x18\x01 \x01(\fR\x06rootId\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
 	"\x02to\x18\x03 \x01(\tR\x02to\x12\x14\n" +
-	"\x05carry\x18\x04 \x01(\bR\x05carry\"s\n" +
+	"\x05carry\x18\x04 \x01(\bR\x05carry\x12)\n" +
+	"\x10video_extensions\x18\x05 \x03(\tR\x0fvideoExtensions\"s\n" +
 	"\fMoveResponse\x12\x12\n" +
 	"\x04size\x18\x01 \x01(\x03R\x04size\x12;\n" +
 	"\bidentity\x18\x02 \x01(\v2\x1f.slipstream.storage.v1.IdentityR\bidentity\x12\x12\n" +
-	"\x04left\x18\x03 \x03(\tR\x04left\"\x82\x01\n" +
+	"\x04left\x18\x03 \x03(\tR\x04left\"\xad\x01\n" +
 	"\rSurveyRequest\x12\x17\n" +
 	"\aroot_id\x18\x01 \x01(\fR\x06rootId\x128\n" +
 	"\aplanned\x18\x02 \x03(\v2\x1e.slipstream.storage.v1.PlannedR\aplanned\x12\x1e\n" +
 	"\n" +
 	"companions\x18\x03 \x01(\bR\n" +
-	"companions\"-\n" +
+	"companions\x12)\n" +
+	"\x10video_extensions\x18\x04 \x03(\tR\x0fvideoExtensions\"-\n" +
 	"\aPlanned\x12\x12\n" +
 	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
 	"\x02to\x18\x02 \x01(\tR\x02to\"M\n" +
@@ -3540,11 +4180,12 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x05names\x18\x01 \x03(\tR\x05names\"\x0f\n" +
 	"\rSampleRequest\";\n" +
 	"\x0eSampleResponse\x12)\n" +
-	"\x11passed_at_unix_ms\x18\x01 \x01(\x03R\x0epassedAtUnixMs\"R\n" +
+	"\x11passed_at_unix_ms\x18\x01 \x01(\x03R\x0epassedAtUnixMs\"}\n" +
 	"\vWalkRequest\x12\x17\n" +
 	"\aroot_id\x18\x01 \x01(\fR\x06rootId\x12\x14\n" +
 	"\x05after\x18\x02 \x01(\fR\x05after\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xbd\x01\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12)\n" +
+	"\x10video_extensions\x18\x04 \x03(\tR\x0fvideoExtensions\"\xbd\x01\n" +
 	"\fWalkResponse\x127\n" +
 	"\aentries\x18\x01 \x03(\v2\x1d.slipstream.storage.v1.WalkedR\aentries\x125\n" +
 	"\x06unread\x18\x02 \x03(\v2\x1d.slipstream.storage.v1.UnreadR\x06unread\x12\x12\n" +
@@ -3585,12 +4226,13 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x17VOLUME_KIND_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11VOLUME_KIND_LOCAL\x10\x01\x12\x19\n" +
 	"\x15VOLUME_KIND_REMOVABLE\x10\x02\x12\x17\n" +
-	"\x13VOLUME_KIND_NETWORK\x10\x03*f\n" +
+	"\x13VOLUME_KIND_NETWORK\x10\x03*z\n" +
 	"\aPurpose\x12\x17\n" +
 	"\x13PURPOSE_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fPURPOSE_ROOT\x10\x01\x12\x15\n" +
 	"\x11PURPOSE_DOWNLOADS\x10\x02\x12\x19\n" +
-	"\x15PURPOSE_CLIENT_FOLDER\x10\x03*\xd2\x02\n" +
+	"\x15PURPOSE_CLIENT_FOLDER\x10\x03\x12\x12\n" +
+	"\x0ePURPOSE_IMPORT\x10\x04*\xe6\x02\n" +
 	"\x06Reason\x12\x16\n" +
 	"\x12REASON_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13REASON_NOT_ABSOLUTE\x10\x01\x12\x14\n" +
@@ -3605,11 +4247,19 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x19REASON_CONTAINS_DOWNLOADS\x10\n" +
 	"\x12\x17\n" +
 	"\x13REASON_UNRESPONSIVE\x10\v\x12\x18\n" +
-	"\x14REASON_NETWORK_SHARE\x10\f*l\n" +
+	"\x14REASON_NETWORK_SHARE\x10\f\x12\x12\n" +
+	"\x0eREASON_OUTSIDE\x10\r*l\n" +
 	"\rMissingReason\x12\x1e\n" +
 	"\x1aMISSING_REASON_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16MISSING_REASON_MISSING\x10\x01\x12\x1f\n" +
-	"\x1bMISSING_REASON_SIZE_DIFFERS\x10\x02*[\n" +
+	"\x1bMISSING_REASON_SIZE_DIFFERS\x10\x02*\x97\x01\n" +
+	"\tPlaceStep\x12\x1a\n" +
+	"\x16PLACE_STEP_UNSPECIFIED\x10\x00\x12\x13\n" +
+	"\x0fPLACE_STEP_LINK\x10\x01\x12\x14\n" +
+	"\x10PLACE_STEP_CLONE\x10\x02\x12\x13\n" +
+	"\x0fPLACE_STEP_COPY\x10\x03\x12\x15\n" +
+	"\x11PLACE_STEP_RENAME\x10\x04\x12\x17\n" +
+	"\x13PLACE_STEP_IN_PLACE\x10\x05*[\n" +
 	"\n" +
 	"HeldFolder\x12\x1b\n" +
 	"\x17HELD_FOLDER_UNSPECIFIED\x10\x00\x12\x17\n" +
@@ -3637,13 +4287,16 @@ const file_slipstream_storage_v1_storage_proto_rawDesc = "" +
 	"\x04List\x12\".slipstream.storage.v1.ListRequest\x1a#.slipstream.storage.v1.ListResponse\x12U\n" +
 	"\x06Sample\x12$.slipstream.storage.v1.SampleRequest\x1a%.slipstream.storage.v1.SampleResponse\x12O\n" +
 	"\x04Walk\x12\".slipstream.storage.v1.WalkRequest\x1a#.slipstream.storage.v1.WalkResponse\x12R\n" +
-	"\x05Probe\x12#.slipstream.storage.v1.ProbeRequest\x1a$.slipstream.storage.v1.ProbeResponse\x1a\r\xc2\xf3\x18\t\x1a\astorage2\xff\x02\n" +
+	"\x05Probe\x12#.slipstream.storage.v1.ProbeRequest\x1a$.slipstream.storage.v1.ProbeResponse\x1a\r\xc2\xf3\x18\t\x1a\astorage2\xcb\x04\n" +
 	"\rFolderService\x12U\n" +
 	"\x06Browse\x12$.slipstream.storage.v1.BrowseRequest\x1a%.slipstream.storage.v1.BrowseResponse\x12X\n" +
 	"\aSuggest\x12%.slipstream.storage.v1.SuggestRequest\x1a&.slipstream.storage.v1.SuggestResponse\x12a\n" +
 	"\n" +
 	"MakeFolder\x12(.slipstream.storage.v1.MakeFolderRequest\x1a).slipstream.storage.v1.MakeFolderResponse\x12R\n" +
-	"\x05Check\x12#.slipstream.storage.v1.CheckRequest\x1a$.slipstream.storage.v1.CheckResponse\x1a\x06\xc2\xf3\x18\x02\x10\x01B\xea\x01\n" +
+	"\x05Check\x12#.slipstream.storage.v1.CheckRequest\x1a$.slipstream.storage.v1.CheckResponse\x12a\n" +
+	"\n" +
+	"ListVideos\x12(.slipstream.storage.v1.ListVideosRequest\x1a).slipstream.storage.v1.ListVideosResponse\x12g\n" +
+	"\fRemoveSource\x12*.slipstream.storage.v1.RemoveSourceRequest\x1a+.slipstream.storage.v1.RemoveSourceResponse\x1a\x06\xc2\xf3\x18\x02\x10\x01B\xea\x01\n" +
 	"\x19com.slipstream.storage.v1B\fStorageProtoP\x01ZIgithub.com/jatassi/slipstream/internal/pb/slipstream/storage/v1;storagev1\xa2\x02\x03SSX\xaa\x02\x15Slipstream.Storage.V1\xca\x02\x15Slipstream\\Storage\\V1\xe2\x02!Slipstream\\Storage\\V1\\GPBMetadata\xea\x02\x17Slipstream::Storage::V1b\x06proto3"
 
 var (
@@ -3658,131 +4311,150 @@ func file_slipstream_storage_v1_storage_proto_rawDescGZIP() []byte {
 	return file_slipstream_storage_v1_storage_proto_rawDescData
 }
 
-var file_slipstream_storage_v1_storage_proto_enumTypes = make([]protoimpl.EnumInfo, 8)
-var file_slipstream_storage_v1_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 49)
+var file_slipstream_storage_v1_storage_proto_enumTypes = make([]protoimpl.EnumInfo, 9)
+var file_slipstream_storage_v1_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 58)
 var file_slipstream_storage_v1_storage_proto_goTypes = []any{
-	(RootState)(0),             // 0: slipstream.storage.v1.RootState
-	(VolumeKind)(0),            // 1: slipstream.storage.v1.VolumeKind
-	(Purpose)(0),               // 2: slipstream.storage.v1.Purpose
-	(Reason)(0),                // 3: slipstream.storage.v1.Reason
-	(MissingReason)(0),         // 4: slipstream.storage.v1.MissingReason
-	(HeldFolder)(0),            // 5: slipstream.storage.v1.HeldFolder
-	(UnreadReason)(0),          // 6: slipstream.storage.v1.UnreadReason
-	(FolderErrorKind)(0),       // 7: slipstream.storage.v1.FolderErrorKind
-	(*Intent)(nil),             // 8: slipstream.storage.v1.Intent
-	(*Root)(nil),               // 9: slipstream.storage.v1.Root
-	(*Facts)(nil),              // 10: slipstream.storage.v1.Facts
-	(*RootFacts)(nil),          // 11: slipstream.storage.v1.RootFacts
-	(*Volume)(nil),             // 12: slipstream.storage.v1.Volume
-	(*Result)(nil),             // 13: slipstream.storage.v1.Result
-	(*BrowseRequest)(nil),      // 14: slipstream.storage.v1.BrowseRequest
-	(*BrowseResponse)(nil),     // 15: slipstream.storage.v1.BrowseResponse
-	(*Segment)(nil),            // 16: slipstream.storage.v1.Segment
-	(*Folder)(nil),             // 17: slipstream.storage.v1.Folder
-	(*Place)(nil),              // 18: slipstream.storage.v1.Place
-	(*SuggestRequest)(nil),     // 19: slipstream.storage.v1.SuggestRequest
-	(*SuggestResponse)(nil),    // 20: slipstream.storage.v1.SuggestResponse
-	(*MakeFolderRequest)(nil),  // 21: slipstream.storage.v1.MakeFolderRequest
-	(*MakeFolderResponse)(nil), // 22: slipstream.storage.v1.MakeFolderResponse
-	(*CheckRequest)(nil),       // 23: slipstream.storage.v1.CheckRequest
-	(*Other)(nil),              // 24: slipstream.storage.v1.Other
-	(*CheckResponse)(nil),      // 25: slipstream.storage.v1.CheckResponse
-	(*VerifyRequest)(nil),      // 26: slipstream.storage.v1.VerifyRequest
-	(*Recorded)(nil),           // 27: slipstream.storage.v1.Recorded
-	(*VerifyResponse)(nil),     // 28: slipstream.storage.v1.VerifyResponse
-	(*Missing)(nil),            // 29: slipstream.storage.v1.Missing
-	(*PlaceRequest)(nil),       // 30: slipstream.storage.v1.PlaceRequest
-	(*PlaceResponse)(nil),      // 31: slipstream.storage.v1.PlaceResponse
-	(*MoveRequest)(nil),        // 32: slipstream.storage.v1.MoveRequest
-	(*MoveResponse)(nil),       // 33: slipstream.storage.v1.MoveResponse
-	(*SurveyRequest)(nil),      // 34: slipstream.storage.v1.SurveyRequest
-	(*Planned)(nil),            // 35: slipstream.storage.v1.Planned
-	(*SurveyResponse)(nil),     // 36: slipstream.storage.v1.SurveyResponse
-	(*Surveyed)(nil),           // 37: slipstream.storage.v1.Surveyed
-	(*Occupant)(nil),           // 38: slipstream.storage.v1.Occupant
-	(*PruneRequest)(nil),       // 39: slipstream.storage.v1.PruneRequest
-	(*PruneResponse)(nil),      // 40: slipstream.storage.v1.PruneResponse
-	(*Identity)(nil),           // 41: slipstream.storage.v1.Identity
-	(*RemoveRequest)(nil),      // 42: slipstream.storage.v1.RemoveRequest
-	(*RemoveResponse)(nil),     // 43: slipstream.storage.v1.RemoveResponse
-	(*ListRequest)(nil),        // 44: slipstream.storage.v1.ListRequest
-	(*ListResponse)(nil),       // 45: slipstream.storage.v1.ListResponse
-	(*SampleRequest)(nil),      // 46: slipstream.storage.v1.SampleRequest
-	(*SampleResponse)(nil),     // 47: slipstream.storage.v1.SampleResponse
-	(*WalkRequest)(nil),        // 48: slipstream.storage.v1.WalkRequest
-	(*WalkResponse)(nil),       // 49: slipstream.storage.v1.WalkResponse
-	(*Walked)(nil),             // 50: slipstream.storage.v1.Walked
-	(*Unread)(nil),             // 51: slipstream.storage.v1.Unread
-	(*ProbeRequest)(nil),       // 52: slipstream.storage.v1.ProbeRequest
-	(*ProbeResponse)(nil),      // 53: slipstream.storage.v1.ProbeResponse
-	(*Unprobed)(nil),           // 54: slipstream.storage.v1.Unprobed
-	(*FolderError)(nil),        // 55: slipstream.storage.v1.FolderError
-	(*NotReady)(nil),           // 56: slipstream.storage.v1.NotReady
+	(RootState)(0),               // 0: slipstream.storage.v1.RootState
+	(VolumeKind)(0),              // 1: slipstream.storage.v1.VolumeKind
+	(Purpose)(0),                 // 2: slipstream.storage.v1.Purpose
+	(Reason)(0),                  // 3: slipstream.storage.v1.Reason
+	(MissingReason)(0),           // 4: slipstream.storage.v1.MissingReason
+	(PlaceStep)(0),               // 5: slipstream.storage.v1.PlaceStep
+	(HeldFolder)(0),              // 6: slipstream.storage.v1.HeldFolder
+	(UnreadReason)(0),            // 7: slipstream.storage.v1.UnreadReason
+	(FolderErrorKind)(0),         // 8: slipstream.storage.v1.FolderErrorKind
+	(*Intent)(nil),               // 9: slipstream.storage.v1.Intent
+	(*Root)(nil),                 // 10: slipstream.storage.v1.Root
+	(*Facts)(nil),                // 11: slipstream.storage.v1.Facts
+	(*RootFacts)(nil),            // 12: slipstream.storage.v1.RootFacts
+	(*Volume)(nil),               // 13: slipstream.storage.v1.Volume
+	(*Result)(nil),               // 14: slipstream.storage.v1.Result
+	(*BrowseRequest)(nil),        // 15: slipstream.storage.v1.BrowseRequest
+	(*BrowseResponse)(nil),       // 16: slipstream.storage.v1.BrowseResponse
+	(*Segment)(nil),              // 17: slipstream.storage.v1.Segment
+	(*Folder)(nil),               // 18: slipstream.storage.v1.Folder
+	(*Place)(nil),                // 19: slipstream.storage.v1.Place
+	(*SuggestRequest)(nil),       // 20: slipstream.storage.v1.SuggestRequest
+	(*SuggestResponse)(nil),      // 21: slipstream.storage.v1.SuggestResponse
+	(*MakeFolderRequest)(nil),    // 22: slipstream.storage.v1.MakeFolderRequest
+	(*MakeFolderResponse)(nil),   // 23: slipstream.storage.v1.MakeFolderResponse
+	(*CheckRequest)(nil),         // 24: slipstream.storage.v1.CheckRequest
+	(*Other)(nil),                // 25: slipstream.storage.v1.Other
+	(*CheckResponse)(nil),        // 26: slipstream.storage.v1.CheckResponse
+	(*VerifyRequest)(nil),        // 27: slipstream.storage.v1.VerifyRequest
+	(*Recorded)(nil),             // 28: slipstream.storage.v1.Recorded
+	(*VerifyResponse)(nil),       // 29: slipstream.storage.v1.VerifyResponse
+	(*Missing)(nil),              // 30: slipstream.storage.v1.Missing
+	(*PlaceRequest)(nil),         // 31: slipstream.storage.v1.PlaceRequest
+	(*PlaceResponse)(nil),        // 32: slipstream.storage.v1.PlaceResponse
+	(*NeedsCopy)(nil),            // 33: slipstream.storage.v1.NeedsCopy
+	(*NeedsSpace)(nil),           // 34: slipstream.storage.v1.NeedsSpace
+	(*Payload)(nil),              // 35: slipstream.storage.v1.Payload
+	(*Outside)(nil),              // 36: slipstream.storage.v1.Outside
+	(*ListVideosRequest)(nil),    // 37: slipstream.storage.v1.ListVideosRequest
+	(*ListVideosResponse)(nil),   // 38: slipstream.storage.v1.ListVideosResponse
+	(*Listed)(nil),               // 39: slipstream.storage.v1.Listed
+	(*RemoveSourceRequest)(nil),  // 40: slipstream.storage.v1.RemoveSourceRequest
+	(*RemoveSourceResponse)(nil), // 41: slipstream.storage.v1.RemoveSourceResponse
+	(*MoveRequest)(nil),          // 42: slipstream.storage.v1.MoveRequest
+	(*MoveResponse)(nil),         // 43: slipstream.storage.v1.MoveResponse
+	(*SurveyRequest)(nil),        // 44: slipstream.storage.v1.SurveyRequest
+	(*Planned)(nil),              // 45: slipstream.storage.v1.Planned
+	(*SurveyResponse)(nil),       // 46: slipstream.storage.v1.SurveyResponse
+	(*Surveyed)(nil),             // 47: slipstream.storage.v1.Surveyed
+	(*Occupant)(nil),             // 48: slipstream.storage.v1.Occupant
+	(*PruneRequest)(nil),         // 49: slipstream.storage.v1.PruneRequest
+	(*PruneResponse)(nil),        // 50: slipstream.storage.v1.PruneResponse
+	(*Identity)(nil),             // 51: slipstream.storage.v1.Identity
+	(*RemoveRequest)(nil),        // 52: slipstream.storage.v1.RemoveRequest
+	(*RemoveResponse)(nil),       // 53: slipstream.storage.v1.RemoveResponse
+	(*ListRequest)(nil),          // 54: slipstream.storage.v1.ListRequest
+	(*ListResponse)(nil),         // 55: slipstream.storage.v1.ListResponse
+	(*SampleRequest)(nil),        // 56: slipstream.storage.v1.SampleRequest
+	(*SampleResponse)(nil),       // 57: slipstream.storage.v1.SampleResponse
+	(*WalkRequest)(nil),          // 58: slipstream.storage.v1.WalkRequest
+	(*WalkResponse)(nil),         // 59: slipstream.storage.v1.WalkResponse
+	(*Walked)(nil),               // 60: slipstream.storage.v1.Walked
+	(*Unread)(nil),               // 61: slipstream.storage.v1.Unread
+	(*ProbeRequest)(nil),         // 62: slipstream.storage.v1.ProbeRequest
+	(*ProbeResponse)(nil),        // 63: slipstream.storage.v1.ProbeResponse
+	(*Unprobed)(nil),             // 64: slipstream.storage.v1.Unprobed
+	(*FolderError)(nil),          // 65: slipstream.storage.v1.FolderError
+	(*NotReady)(nil),             // 66: slipstream.storage.v1.NotReady
 }
 var file_slipstream_storage_v1_storage_proto_depIdxs = []int32{
-	9,  // 0: slipstream.storage.v1.Intent.roots:type_name -> slipstream.storage.v1.Root
-	11, // 1: slipstream.storage.v1.Facts.roots:type_name -> slipstream.storage.v1.RootFacts
-	12, // 2: slipstream.storage.v1.Facts.volumes:type_name -> slipstream.storage.v1.Volume
+	10, // 0: slipstream.storage.v1.Intent.roots:type_name -> slipstream.storage.v1.Root
+	12, // 1: slipstream.storage.v1.Facts.roots:type_name -> slipstream.storage.v1.RootFacts
+	13, // 2: slipstream.storage.v1.Facts.volumes:type_name -> slipstream.storage.v1.Volume
 	0,  // 3: slipstream.storage.v1.RootFacts.state:type_name -> slipstream.storage.v1.RootState
 	1,  // 4: slipstream.storage.v1.Volume.kind:type_name -> slipstream.storage.v1.VolumeKind
-	16, // 5: slipstream.storage.v1.BrowseResponse.segments:type_name -> slipstream.storage.v1.Segment
-	12, // 6: slipstream.storage.v1.BrowseResponse.volume:type_name -> slipstream.storage.v1.Volume
-	17, // 7: slipstream.storage.v1.BrowseResponse.folders:type_name -> slipstream.storage.v1.Folder
-	18, // 8: slipstream.storage.v1.BrowseResponse.places:type_name -> slipstream.storage.v1.Place
-	1,  // 9: slipstream.storage.v1.Place.kind:type_name -> slipstream.storage.v1.VolumeKind
-	24, // 10: slipstream.storage.v1.CheckRequest.others:type_name -> slipstream.storage.v1.Other
-	2,  // 11: slipstream.storage.v1.CheckRequest.purpose:type_name -> slipstream.storage.v1.Purpose
-	12, // 12: slipstream.storage.v1.CheckResponse.volume:type_name -> slipstream.storage.v1.Volume
-	3,  // 13: slipstream.storage.v1.CheckResponse.refusal:type_name -> slipstream.storage.v1.Reason
-	27, // 14: slipstream.storage.v1.VerifyRequest.files:type_name -> slipstream.storage.v1.Recorded
-	29, // 15: slipstream.storage.v1.VerifyResponse.missing:type_name -> slipstream.storage.v1.Missing
-	4,  // 16: slipstream.storage.v1.Missing.reason:type_name -> slipstream.storage.v1.MissingReason
-	41, // 17: slipstream.storage.v1.PlaceResponse.identity:type_name -> slipstream.storage.v1.Identity
-	41, // 18: slipstream.storage.v1.MoveResponse.identity:type_name -> slipstream.storage.v1.Identity
-	35, // 19: slipstream.storage.v1.SurveyRequest.planned:type_name -> slipstream.storage.v1.Planned
-	37, // 20: slipstream.storage.v1.SurveyResponse.surveyed:type_name -> slipstream.storage.v1.Surveyed
-	38, // 21: slipstream.storage.v1.Surveyed.occupants:type_name -> slipstream.storage.v1.Occupant
-	41, // 22: slipstream.storage.v1.Occupant.identity:type_name -> slipstream.storage.v1.Identity
-	5,  // 23: slipstream.storage.v1.ListRequest.folder:type_name -> slipstream.storage.v1.HeldFolder
-	50, // 24: slipstream.storage.v1.WalkResponse.entries:type_name -> slipstream.storage.v1.Walked
-	51, // 25: slipstream.storage.v1.WalkResponse.unread:type_name -> slipstream.storage.v1.Unread
-	41, // 26: slipstream.storage.v1.Walked.identity:type_name -> slipstream.storage.v1.Identity
-	6,  // 27: slipstream.storage.v1.Unread.reason:type_name -> slipstream.storage.v1.UnreadReason
-	7,  // 28: slipstream.storage.v1.FolderError.kind:type_name -> slipstream.storage.v1.FolderErrorKind
-	0,  // 29: slipstream.storage.v1.NotReady.state:type_name -> slipstream.storage.v1.RootState
-	26, // 30: slipstream.storage.v1.StorageService.Verify:input_type -> slipstream.storage.v1.VerifyRequest
-	30, // 31: slipstream.storage.v1.StorageService.Place:input_type -> slipstream.storage.v1.PlaceRequest
-	32, // 32: slipstream.storage.v1.StorageService.Move:input_type -> slipstream.storage.v1.MoveRequest
-	34, // 33: slipstream.storage.v1.StorageService.Survey:input_type -> slipstream.storage.v1.SurveyRequest
-	39, // 34: slipstream.storage.v1.StorageService.Prune:input_type -> slipstream.storage.v1.PruneRequest
-	42, // 35: slipstream.storage.v1.StorageService.Remove:input_type -> slipstream.storage.v1.RemoveRequest
-	44, // 36: slipstream.storage.v1.StorageService.List:input_type -> slipstream.storage.v1.ListRequest
-	46, // 37: slipstream.storage.v1.StorageService.Sample:input_type -> slipstream.storage.v1.SampleRequest
-	48, // 38: slipstream.storage.v1.StorageService.Walk:input_type -> slipstream.storage.v1.WalkRequest
-	52, // 39: slipstream.storage.v1.StorageService.Probe:input_type -> slipstream.storage.v1.ProbeRequest
-	14, // 40: slipstream.storage.v1.FolderService.Browse:input_type -> slipstream.storage.v1.BrowseRequest
-	19, // 41: slipstream.storage.v1.FolderService.Suggest:input_type -> slipstream.storage.v1.SuggestRequest
-	21, // 42: slipstream.storage.v1.FolderService.MakeFolder:input_type -> slipstream.storage.v1.MakeFolderRequest
-	23, // 43: slipstream.storage.v1.FolderService.Check:input_type -> slipstream.storage.v1.CheckRequest
-	28, // 44: slipstream.storage.v1.StorageService.Verify:output_type -> slipstream.storage.v1.VerifyResponse
-	31, // 45: slipstream.storage.v1.StorageService.Place:output_type -> slipstream.storage.v1.PlaceResponse
-	33, // 46: slipstream.storage.v1.StorageService.Move:output_type -> slipstream.storage.v1.MoveResponse
-	36, // 47: slipstream.storage.v1.StorageService.Survey:output_type -> slipstream.storage.v1.SurveyResponse
-	40, // 48: slipstream.storage.v1.StorageService.Prune:output_type -> slipstream.storage.v1.PruneResponse
-	43, // 49: slipstream.storage.v1.StorageService.Remove:output_type -> slipstream.storage.v1.RemoveResponse
-	45, // 50: slipstream.storage.v1.StorageService.List:output_type -> slipstream.storage.v1.ListResponse
-	47, // 51: slipstream.storage.v1.StorageService.Sample:output_type -> slipstream.storage.v1.SampleResponse
-	49, // 52: slipstream.storage.v1.StorageService.Walk:output_type -> slipstream.storage.v1.WalkResponse
-	53, // 53: slipstream.storage.v1.StorageService.Probe:output_type -> slipstream.storage.v1.ProbeResponse
-	15, // 54: slipstream.storage.v1.FolderService.Browse:output_type -> slipstream.storage.v1.BrowseResponse
-	20, // 55: slipstream.storage.v1.FolderService.Suggest:output_type -> slipstream.storage.v1.SuggestResponse
-	22, // 56: slipstream.storage.v1.FolderService.MakeFolder:output_type -> slipstream.storage.v1.MakeFolderResponse
-	25, // 57: slipstream.storage.v1.FolderService.Check:output_type -> slipstream.storage.v1.CheckResponse
-	44, // [44:58] is the sub-list for method output_type
-	30, // [30:44] is the sub-list for method input_type
-	30, // [30:30] is the sub-list for extension type_name
-	30, // [30:30] is the sub-list for extension extendee
-	0,  // [0:30] is the sub-list for field type_name
+	2,  // 5: slipstream.storage.v1.BrowseRequest.purpose:type_name -> slipstream.storage.v1.Purpose
+	17, // 6: slipstream.storage.v1.BrowseResponse.segments:type_name -> slipstream.storage.v1.Segment
+	13, // 7: slipstream.storage.v1.BrowseResponse.volume:type_name -> slipstream.storage.v1.Volume
+	18, // 8: slipstream.storage.v1.BrowseResponse.folders:type_name -> slipstream.storage.v1.Folder
+	19, // 9: slipstream.storage.v1.BrowseResponse.places:type_name -> slipstream.storage.v1.Place
+	1,  // 10: slipstream.storage.v1.Place.kind:type_name -> slipstream.storage.v1.VolumeKind
+	25, // 11: slipstream.storage.v1.CheckRequest.others:type_name -> slipstream.storage.v1.Other
+	2,  // 12: slipstream.storage.v1.CheckRequest.purpose:type_name -> slipstream.storage.v1.Purpose
+	13, // 13: slipstream.storage.v1.CheckResponse.volume:type_name -> slipstream.storage.v1.Volume
+	3,  // 14: slipstream.storage.v1.CheckResponse.refusal:type_name -> slipstream.storage.v1.Reason
+	28, // 15: slipstream.storage.v1.VerifyRequest.files:type_name -> slipstream.storage.v1.Recorded
+	30, // 16: slipstream.storage.v1.VerifyResponse.missing:type_name -> slipstream.storage.v1.Missing
+	4,  // 17: slipstream.storage.v1.Missing.reason:type_name -> slipstream.storage.v1.MissingReason
+	35, // 18: slipstream.storage.v1.PlaceRequest.payload:type_name -> slipstream.storage.v1.Payload
+	5,  // 19: slipstream.storage.v1.PlaceResponse.step:type_name -> slipstream.storage.v1.PlaceStep
+	51, // 20: slipstream.storage.v1.PlaceResponse.identity:type_name -> slipstream.storage.v1.Identity
+	39, // 21: slipstream.storage.v1.ListVideosResponse.files:type_name -> slipstream.storage.v1.Listed
+	51, // 22: slipstream.storage.v1.Listed.identity:type_name -> slipstream.storage.v1.Identity
+	51, // 23: slipstream.storage.v1.MoveResponse.identity:type_name -> slipstream.storage.v1.Identity
+	45, // 24: slipstream.storage.v1.SurveyRequest.planned:type_name -> slipstream.storage.v1.Planned
+	47, // 25: slipstream.storage.v1.SurveyResponse.surveyed:type_name -> slipstream.storage.v1.Surveyed
+	48, // 26: slipstream.storage.v1.Surveyed.occupants:type_name -> slipstream.storage.v1.Occupant
+	51, // 27: slipstream.storage.v1.Occupant.identity:type_name -> slipstream.storage.v1.Identity
+	6,  // 28: slipstream.storage.v1.ListRequest.folder:type_name -> slipstream.storage.v1.HeldFolder
+	60, // 29: slipstream.storage.v1.WalkResponse.entries:type_name -> slipstream.storage.v1.Walked
+	61, // 30: slipstream.storage.v1.WalkResponse.unread:type_name -> slipstream.storage.v1.Unread
+	51, // 31: slipstream.storage.v1.Walked.identity:type_name -> slipstream.storage.v1.Identity
+	7,  // 32: slipstream.storage.v1.Unread.reason:type_name -> slipstream.storage.v1.UnreadReason
+	8,  // 33: slipstream.storage.v1.FolderError.kind:type_name -> slipstream.storage.v1.FolderErrorKind
+	0,  // 34: slipstream.storage.v1.NotReady.state:type_name -> slipstream.storage.v1.RootState
+	27, // 35: slipstream.storage.v1.StorageService.Verify:input_type -> slipstream.storage.v1.VerifyRequest
+	31, // 36: slipstream.storage.v1.StorageService.Place:input_type -> slipstream.storage.v1.PlaceRequest
+	42, // 37: slipstream.storage.v1.StorageService.Move:input_type -> slipstream.storage.v1.MoveRequest
+	44, // 38: slipstream.storage.v1.StorageService.Survey:input_type -> slipstream.storage.v1.SurveyRequest
+	49, // 39: slipstream.storage.v1.StorageService.Prune:input_type -> slipstream.storage.v1.PruneRequest
+	52, // 40: slipstream.storage.v1.StorageService.Remove:input_type -> slipstream.storage.v1.RemoveRequest
+	54, // 41: slipstream.storage.v1.StorageService.List:input_type -> slipstream.storage.v1.ListRequest
+	56, // 42: slipstream.storage.v1.StorageService.Sample:input_type -> slipstream.storage.v1.SampleRequest
+	58, // 43: slipstream.storage.v1.StorageService.Walk:input_type -> slipstream.storage.v1.WalkRequest
+	62, // 44: slipstream.storage.v1.StorageService.Probe:input_type -> slipstream.storage.v1.ProbeRequest
+	15, // 45: slipstream.storage.v1.FolderService.Browse:input_type -> slipstream.storage.v1.BrowseRequest
+	20, // 46: slipstream.storage.v1.FolderService.Suggest:input_type -> slipstream.storage.v1.SuggestRequest
+	22, // 47: slipstream.storage.v1.FolderService.MakeFolder:input_type -> slipstream.storage.v1.MakeFolderRequest
+	24, // 48: slipstream.storage.v1.FolderService.Check:input_type -> slipstream.storage.v1.CheckRequest
+	37, // 49: slipstream.storage.v1.FolderService.ListVideos:input_type -> slipstream.storage.v1.ListVideosRequest
+	40, // 50: slipstream.storage.v1.FolderService.RemoveSource:input_type -> slipstream.storage.v1.RemoveSourceRequest
+	29, // 51: slipstream.storage.v1.StorageService.Verify:output_type -> slipstream.storage.v1.VerifyResponse
+	32, // 52: slipstream.storage.v1.StorageService.Place:output_type -> slipstream.storage.v1.PlaceResponse
+	43, // 53: slipstream.storage.v1.StorageService.Move:output_type -> slipstream.storage.v1.MoveResponse
+	46, // 54: slipstream.storage.v1.StorageService.Survey:output_type -> slipstream.storage.v1.SurveyResponse
+	50, // 55: slipstream.storage.v1.StorageService.Prune:output_type -> slipstream.storage.v1.PruneResponse
+	53, // 56: slipstream.storage.v1.StorageService.Remove:output_type -> slipstream.storage.v1.RemoveResponse
+	55, // 57: slipstream.storage.v1.StorageService.List:output_type -> slipstream.storage.v1.ListResponse
+	57, // 58: slipstream.storage.v1.StorageService.Sample:output_type -> slipstream.storage.v1.SampleResponse
+	59, // 59: slipstream.storage.v1.StorageService.Walk:output_type -> slipstream.storage.v1.WalkResponse
+	63, // 60: slipstream.storage.v1.StorageService.Probe:output_type -> slipstream.storage.v1.ProbeResponse
+	16, // 61: slipstream.storage.v1.FolderService.Browse:output_type -> slipstream.storage.v1.BrowseResponse
+	21, // 62: slipstream.storage.v1.FolderService.Suggest:output_type -> slipstream.storage.v1.SuggestResponse
+	23, // 63: slipstream.storage.v1.FolderService.MakeFolder:output_type -> slipstream.storage.v1.MakeFolderResponse
+	26, // 64: slipstream.storage.v1.FolderService.Check:output_type -> slipstream.storage.v1.CheckResponse
+	38, // 65: slipstream.storage.v1.FolderService.ListVideos:output_type -> slipstream.storage.v1.ListVideosResponse
+	41, // 66: slipstream.storage.v1.FolderService.RemoveSource:output_type -> slipstream.storage.v1.RemoveSourceResponse
+	51, // [51:67] is the sub-list for method output_type
+	35, // [35:51] is the sub-list for method input_type
+	35, // [35:35] is the sub-list for extension type_name
+	35, // [35:35] is the sub-list for extension extendee
+	0,  // [0:35] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_storage_v1_storage_proto_init() }
@@ -3794,13 +4466,17 @@ func file_slipstream_storage_v1_storage_proto_init() {
 		(*VerifyRequest_Path)(nil),
 		(*VerifyRequest_RootId)(nil),
 	}
+	file_slipstream_storage_v1_storage_proto_msgTypes[22].OneofWrappers = []any{
+		(*PlaceRequest_Payload)(nil),
+		(*PlaceRequest_Path)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_slipstream_storage_v1_storage_proto_rawDesc), len(file_slipstream_storage_v1_storage_proto_rawDesc)),
-			NumEnums:      8,
-			NumMessages:   49,
+			NumEnums:      9,
+			NumMessages:   58,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

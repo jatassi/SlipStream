@@ -64,7 +64,7 @@ export const GetGrabParams = zod.object({
 export const GetGrabResponse = GrabsGrab;
 
 /**
- * @summary Cancel a Grab that is fetching, downloading or transferring. Canceling a canceled Grab changes nothing
+ * @summary Cancel a Grab that is fetching, downloading or importing. Canceling a canceled Grab changes nothing
  */
 export const CancelGrabParams = zod.object({
   grabId: zod.uuid(),

@@ -14,14 +14,16 @@ import (
 type TransfersFile struct {
 	TransferID    local.TransferID
 	Position      int64
-	Item          string
+	GroupKey      string
 	Name          string
 	SourceKind    string
 	InfoHash      []byte
 	FileIndex     *int64
+	Path          *string
 	Size          int64
 	VerifiedPlace *int64
 	Placed        bool
+	Dropped       bool
 }
 
 type TransfersNode struct {

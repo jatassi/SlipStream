@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/formatsapi"
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -83,7 +84,7 @@ func serve(t *testing.T) *served {
 		t.Fatal(err)
 	}
 	shelf, err := files.Open(ctx, files.Config{
-		Library: lib, Targets: svc, Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}, Naming: naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}}), Today: time.Now,
+		Library: lib, Targets: svc, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}}, Naming: naming.New(naming.Config{Facets: map[works.TypeID]naming.Facet{contenttypetest.ID: fx}}), Today: time.Now,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -91,7 +92,7 @@ func serve(t *testing.T) *served {
 	g := grabs.New(grabs.Config{
 		Library: lib, Works: w, Targets: svc, Files: shelf,
 		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: claims{w}}, Names: map[works.TypeID]release.Names{contenttypetest.ID: dated{}},
-		Transfers: transfers.New(transfers.ControllerConfig{Library: lib}), Timings: grabs.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
+		Timings: grabs.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
 	})
 	s := &served{Owner: ownertest.Serve(t, lib, func(r *api.Router) {
 		targetsapi.Routes(r, goals{svc, shelf, g})
@@ -123,7 +124,7 @@ func serve(t *testing.T) *served {
 	}
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		_, err := files.Add(ctx, tx, files.File{
-			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: root.ID, Path: "The Attic/The Attic - Scarf - 1080p.mkv",
+			WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID}, Cut: release.Standard, RootID: root.ID, Path: "The Attic/The Attic - Scarf - 1080p.mkv",
 			Size: 2000 << 20, Quality: release.WEBDL1080p,
 		}, []targets.TargetID{{UUID: starter}})
 		return err

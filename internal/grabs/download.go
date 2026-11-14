@@ -15,34 +15,24 @@ import (
 // TorrentUses answers downloadclients which Grabs used each Torrent.
 type TorrentUses struct{}
 
-// Of is each Torrent's Grabs, newest first.
+// Of is each Torrent's Grabs, newest first, without their files, which
+// their Imports know.
 func (TorrentUses) Of(ctx context.Context, r storage.Reader[file], ids []downloadclients.ID) (map[downloadclients.ID][]downloadclients.Use, error) {
-	rows, err := db.New(r).ListGrabsOfTorrents(ctx, ids)
+	q := db.New(r)
+	rows, err := q.ListGrabsOfTorrents(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
 	out := map[downloadclients.ID][]downloadclients.Use{}
 	for _, row := range slices.Backward(rows) {
 		u := downloadclients.Use{
-			Grab: row.ID.UUID, Work: row.WorkID, Item: row.ItemID, Edition: string(row.Edition), Release: row.ReleaseTitle,
-			Stage: useStages[row.Stage], Created: row.CreatedAt.Time(),
-		}
-		if row.FileIndex != nil {
-			u.File = new(int(*row.FileIndex))
+			Grab: row.ID.UUID, Work: row.WorkID, Edition: string(row.Edition), Release: row.ReleaseTitle,
+			Stage: row.Stage.Use(), Created: row.CreatedAt.Time(),
 		}
 		u.Floor = seeding.Stated(row.MinRatio, seconds(row.MinSeedSeconds))
 		out[row.TorrentID] = append(out[row.TorrentID], u)
 	}
 	return out, nil
-}
-
-var useStages = map[Stage]downloadclients.UseStage{
-	Downloading:  downloadclients.UseDownloading,
-	Probing:      downloadclients.UseImporting,
-	Transferring: downloadclients.UseImporting,
-	Importing:    downloadclients.UseImporting,
-	Imported:     downloadclients.UseImported,
-	Failed:       downloadclients.UseFailed,
 }
 
 // Kept is every Torrent node's client keeps, in its intent's order,

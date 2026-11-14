@@ -51,14 +51,13 @@ const detail = (row: DownloadclientsTorrentRow) =>
             path: "The.Quiet.Orchard.2021.1080p.WEB-DL/orchard.mkv",
             size: 1_000_000_000,
             done: 250_000_000,
-            itemId: orchardItemId,
+            items: [orchardItemId],
           },
         ],
         grabs: [
           {
             id: grab.id,
             workId: orchardId,
-            itemId: orchardItemId,
             release: grab.releaseTitle,
             stage: "downloading",
           },

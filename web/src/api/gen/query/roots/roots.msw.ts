@@ -90,6 +90,7 @@ export const getCheckFolderResponseMock = (
             "contains_downloads",
             "unresponsive",
             "network_share",
+            "outside",
             "node_offline",
           ] as const),
           ...(faker.datatype.boolean() ? { rootId: faker.string.uuid() } : {}),

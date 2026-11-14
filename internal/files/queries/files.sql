@@ -1,10 +1,35 @@
 -- name: InsertFile :exec
-INSERT INTO files_file (id, work_id, item_id, cut, root_id, path, size, probe, grab_id, quality, label, extra,
+INSERT INTO files_file (id, work_id, cut, root_id, path, size, probe, grab_id, quality, label, extra,
     release_name, title_read, modified_at, node_file_id, node_volume_id, probed_at, source_name)
-VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(cut), sqlc.arg(root_id), sqlc.arg(path),
+VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(cut), sqlc.arg(root_id), sqlc.arg(path),
     sqlc.arg(size), sqlc.arg(probe), sqlc.arg(grab_id), sqlc.arg(quality), sqlc.arg(label), sqlc.arg(extra),
     sqlc.arg(release_name), sqlc.arg(title_read), sqlc.arg(modified_at), sqlc.arg(node_file_id), sqlc.arg(node_volume_id),
     sqlc.arg(probed_at), sqlc.narg(source_name));
+
+-- name: InsertFileItem :exec
+INSERT INTO files_file_item (file_id, item_id, position) VALUES (sqlc.arg(file_id), sqlc.arg(item_id), sqlc.arg(position));
+
+-- name: ListFileItemsOfWorks :many
+SELECT i.file_id, i.item_id FROM files_file_item i JOIN files_file f ON f.id = i.file_id
+WHERE f.work_id IN (sqlc.slice(work_ids)) ORDER BY i.file_id, i.position;
+
+-- name: ListEveryFileItem :many
+SELECT file_id, item_id FROM files_file_item ORDER BY file_id, position;
+
+-- name: ListItemsOfFiles :many
+SELECT file_id, item_id FROM files_file_item WHERE file_id IN (sqlc.slice(file_ids)) ORDER BY file_id, position;
+
+-- name: InsertImported :exec
+INSERT INTO files_imported (id, file_id, import_id, grab_id, work_id, placed_by, items, cells, replaced, at)
+VALUES (sqlc.arg(id), sqlc.arg(file_id), sqlc.narg(import_id), sqlc.narg(grab_id), sqlc.arg(work_id), sqlc.arg(placed_by),
+    sqlc.arg(items), sqlc.arg(cells), sqlc.arg(replaced), sqlc.arg(at));
+
+-- name: ListPlacedByOfFiles :many
+SELECT file_id, placed_by FROM files_imported WHERE file_id IN (sqlc.slice(file_ids)) ORDER BY at;
+
+-- name: ListImportsOfFiles :many
+SELECT file_id, import_id FROM files_imported
+WHERE file_id IN (sqlc.slice(file_ids)) AND import_id IS NOT NULL ORDER BY at;
 
 -- name: UpdateScanned :exec
 UPDATE files_file SET path = sqlc.arg(path), size = sqlc.arg(size), probe = sqlc.arg(probe), grab_id = sqlc.arg(grab_id),
@@ -32,10 +57,10 @@ SELECT id, work_id, release_name FROM files_file WHERE work_id IN (sqlc.slice(wo
 SELECT * FROM files_file ORDER BY rowid;
 
 -- name: ListBriefFilesOfWorks :many
-SELECT id, work_id, item_id, cut, root_id, size, quality, extra, gone_at FROM files_file WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
+SELECT id, work_id, cut, root_id, size, quality, extra, gone_at FROM files_file WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id;
 
 -- name: ListEveryBriefFile :many
-SELECT id, work_id, item_id, cut, root_id, size, quality, extra, gone_at FROM files_file ORDER BY rowid;
+SELECT id, work_id, cut, root_id, size, quality, extra, gone_at FROM files_file ORDER BY rowid;
 
 -- name: ListUnreadFiles :many
 SELECT id, work_id, grab_id, path FROM files_file WHERE title_read IS NULL ORDER BY id;
@@ -49,8 +74,8 @@ WHERE id = sqlc.arg(id) AND title_read IS NULL;
 SELECT id FROM files_file ORDER BY id;
 
 -- name: InsertFill :exec
-INSERT INTO files_fill (file_id, target_id, item_id, edition, score)
-VALUES (sqlc.arg(file_id), sqlc.arg(target_id), sqlc.arg(item_id), sqlc.arg(edition), sqlc.arg(score));
+INSERT INTO files_fill (file_id, target_id, item_id, edition, score, forced_at)
+VALUES (sqlc.arg(file_id), sqlc.arg(target_id), sqlc.arg(item_id), sqlc.arg(edition), sqlc.arg(score), sqlc.arg(forced_at));
 
 -- name: DeleteFill :exec
 DELETE FROM files_fill WHERE item_id = sqlc.arg(item_id) AND edition = sqlc.arg(edition) AND target_id = sqlc.arg(target_id);
@@ -65,7 +90,7 @@ ORDER BY files_fill.item_id, files_fill.edition, files_fill.target_id;
 SELECT * FROM files_fill ORDER BY rowid;
 
 -- name: ListFillsOfTargets :many
-SELECT files_fill.target_id, files_file.work_id, files_file.item_id, files_file.size FROM files_fill
+SELECT files_fill.target_id, files_fill.file_id, files_file.work_id, files_fill.item_id, files_file.size FROM files_fill
 JOIN files_file ON files_file.id = files_fill.file_id
 WHERE files_fill.target_id IN (sqlc.slice(target_ids))
 ORDER BY files_fill.target_id, files_fill.file_id;
@@ -215,3 +240,14 @@ WHERE f.gone_at IS NULL ORDER BY f.id;
 
 -- name: ForgetGoneAt :exec
 DELETE FROM files_file WHERE root_id = sqlc.arg(root_id) AND path = sqlc.arg(path) AND gone_at IS NOT NULL;
+
+-- name: ListPaths :many
+SELECT path FROM files_file ORDER BY id;
+
+-- name: ListPutBack :many
+-- Each live file that sits in its root's holding folder with no move
+-- queued: a fresh import the disk queue put back.
+SELECT f.id, f.work_id, f.root_id, f.path FROM files_file f
+WHERE f.gone_at IS NULL AND substr(f.path, 1, length(sqlc.arg(holding))) = sqlc.arg(holding)
+  AND NOT EXISTS (SELECT 1 FROM files_move m WHERE m.file_id = f.id)
+ORDER BY f.root_id, f.id;

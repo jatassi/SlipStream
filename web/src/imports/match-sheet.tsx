@@ -1,6 +1,7 @@
 import { Suspense, useState } from "react";
 
-import type { ImportsEntry, WorksContentType } from "../api/gen/model";
+import type { WorksContentType } from "../api/gen/model";
+import type { RootEntry } from "./root-entry";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import { SearchField } from "../ui/search-field";
@@ -13,7 +14,7 @@ export function MatchSheet({
   type,
   onClose,
 }: {
-  entry: ImportsEntry;
+  entry: RootEntry;
   type: WorksContentType;
   onClose: () => void;
 }) {

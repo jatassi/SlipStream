@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -28,7 +29,7 @@ var Def = role.WideDef[*tv1.Intent, *tv1.Facts, *tv1.Result]{Name: role.Transfer
 // Transfers.
 type PurposeKind string
 
-const Grab PurposeKind = "grab"
+const Import PurposeKind = "import"
 
 // Destination is where a Transfer's files go. Its Node is never stored:
 // judge reads it from the destination each time, so a re-home moves it.
@@ -122,7 +123,7 @@ type Failure struct {
 }
 
 // Purpose is a registered kind and its hooks. The hooks run inside a
-// library Write, write only their own purpose's rows, may Cancel their own
+// library Write, write only their own purpose's rows, may Want their own
 // Transfer, do no IO, and treat a state they don't expect as nothing to
 // do.
 type Purpose struct {
@@ -228,7 +229,7 @@ func (t *Transfers) Register(p Purpose) {
 }
 
 // Touch tells the loop the library changed. Call it after any commit that
-// called Start, Placed or Cancel.
+// called Want or Placed.
 func (t *Transfers) Touch() {
 	select {
 	case t.poke <- struct{}{}:
@@ -236,42 +237,121 @@ func (t *Transfers) Touch() {
 	}
 }
 
-// Start records r in tx and returns its id. A Request for a (purpose, job)
-// that already has a record returns that record's id, so a repeated step
-// converges. Call Touch after the commit.
-func (t *Transfers) Start(ctx context.Context, tx *storage.Tx[storage.Library], r Request) (ID, error) {
+// Want makes the record of r's (purpose, job) hold exactly r's files, in
+// tx, and returns its id. A file r names that the record lacks is added
+// at the next position, in r's order. An unplaced file the record holds
+// that r doesn't name is dropped: its receiver deletes its staged bytes,
+// and it counts as done for its group and the record. A dropped file r
+// names again is added again, and sent from the start. The record goes
+// once no file is left unplaced and undropped, so a Request with no files
+// ends the Transfer, and Want returns the zero ID. Its source and
+// destination are the ones of the Request that recorded it, and a stored
+// failure stays. A failed record takes no new file: a file r adds waits
+// until the record's last file goes, and then starts a record of its
+// own. Wanting the same files again changes nothing. Call Touch after the
+// commit.
+func (t *Transfers) Want(ctx context.Context, tx *storage.Tx[storage.Library], r Request) (ID, error) {
 	if _, ok := t.purposes[r.Purpose]; !ok {
 		panic("transfers: purpose " + string(r.Purpose) + " isn't registered")
 	}
 	q := ledger.New(tx)
-	id, err := q.TransferOfJob(ctx, ledger.TransferOfJobParams{Purpose: string(r.Purpose), Job: r.Job})
+	id, failed, ok, err := record(ctx, q, r)
+	if err != nil || !ok {
+		return ID{}, err
+	}
+	if err := hold(ctx, q, id, r.Files, !failed); err != nil {
+		return ID{}, err
+	}
+	left, err := q.CountUnplaced(ctx, id)
+	if err != nil || left > 0 {
+		return id, err
+	}
+	if err := q.DeleteTransfer(ctx, id); err != nil || !failed {
+		return ID{}, err
+	}
+	return t.Want(ctx, tx, r)
+}
+
+// record is r's record and whether it failed, made when r has files and
+// none exists. False is no record, for a Request of no files.
+func record(ctx context.Context, q *ledger.Queries, r Request) (id ID, failed, ok bool, err error) {
+	id, err = q.TransferOfJob(ctx, ledger.TransferOfJobParams{Purpose: string(r.Purpose), Job: r.Job})
 	switch {
 	case err == nil:
-		return id, nil
+		row, err := q.GetTransfer(ctx, id)
+		return id, row.FailureCode != nil, err == nil, err
 	case !errors.Is(err, storage.ErrNoRows):
-		return ID{}, err
+		return ID{}, false, false, err
+	case len(r.Files) == 0:
+		return ID{}, false, false, nil
 	}
 	id = ID{UUID: storage.NewUUID()}
 	root := rootOf(r.Destination)
 	row := ledger.InsertTransferParams{ID: id, Purpose: string(r.Purpose), Job: r.Job, SourceNode: r.Source, DestinationKind: r.Destination.kind(), DestinationRoot: &root, CreatedAt: storage.Now()}
-	if err := q.InsertTransfer(ctx, row); err != nil {
-		return ID{}, fmt.Errorf("record the Transfer: %w", err)
+	if err = q.InsertTransfer(ctx, row); err != nil {
+		return ID{}, false, false, fmt.Errorf("record the Transfer: %w", err)
 	}
-	for i, f := range r.Files {
-		s, ok := f.Source.(source.Torrent)
-		if !ok {
-			panic("transfers: a source of no known kind")
+	return id, false, true, nil
+}
+
+// hold adds each of files id's record lacks at its next position, when
+// adding, and drops each unplaced file it holds that files doesn't name.
+func hold(ctx context.Context, q *ledger.Queries, id ID, files []FileRequest, adding bool) error {
+	rows, err := q.FilesOf(ctx, id)
+	if err != nil {
+		return err
+	}
+	keys := make([]FileRequest, len(rows))
+	var held []FileRequest
+	for i, row := range rows {
+		ref, err := refOf(row)
+		if err != nil {
+			return err
 		}
-		file := ledger.InsertFileParams{TransferID: id, Position: int64(i), Item: f.Group, Name: f.Name, SourceKind: string(f.Source.Kind()), InfoHash: s.Hash[:], FileIndex: new(int64(s.File)), Size: f.Size}
-		if err := q.InsertFile(ctx, file); err != nil {
-			return ID{}, fmt.Errorf("record the Transfer's file %d: %w", i, err)
+		keys[i] = FileRequest{Group: row.GroupKey, Source: ref}
+		if !row.Dropped {
+			held = append(held, keys[i])
 		}
 	}
-	return id, nil
+	next := len(rows)
+	for _, f := range files {
+		if !adding || slices.ContainsFunc(held, f.same) {
+			continue
+		}
+		if err := q.InsertFile(ctx, fileRow(id, next, f)); err != nil {
+			return fmt.Errorf("record the Transfer's file %d: %w", next, err)
+		}
+		held = append(held, f)
+		next++
+	}
+	for i, row := range rows {
+		if row.Placed || row.Dropped || slices.ContainsFunc(files, keys[i].same) {
+			continue
+		}
+		if err := q.SetDropped(ctx, ledger.SetDroppedParams{TransferID: id, Position: row.Position}); err != nil {
+			return fmt.Errorf("drop the Transfer's file %d: %w", row.Position, err)
+		}
+	}
+	return nil
+}
+
+// same is whether f and o name one file: the same group and source.
+func (f FileRequest) same(o FileRequest) bool { return f.Group == o.Group && f.Source == o.Source }
+
+func fileRow(id ID, position int, f FileRequest) ledger.InsertFileParams {
+	p := ledger.InsertFileParams{TransferID: id, Position: int64(position), GroupKey: f.Group, Name: f.Name, SourceKind: string(f.Source.Kind()), Size: f.Size}
+	switch s := f.Source.(type) {
+	case source.Torrent:
+		p.InfoHash, p.FileIndex = s.Hash[:], new(int64(s.File))
+	case source.Path:
+		p.Path = &s.Abs
+	}
+	return p
 }
 
 // Placed marks file position of id placed. The record goes with its last
-// unplaced file. A Transfer or file it doesn't have is nothing to do.
+// file neither placed nor dropped. A Transfer or file it doesn't have is
+// nothing to do.
 func (t *Transfers) Placed(ctx context.Context, tx *storage.Tx[storage.Library], id ID, position int) error {
 	q := ledger.New(tx)
 	if err := q.SetPlaced(ctx, ledger.SetPlacedParams{TransferID: id, Position: int64(position)}); err != nil {
@@ -282,12 +362,6 @@ func (t *Transfers) Placed(ctx context.Context, tx *storage.Tx[storage.Library],
 		return err
 	}
 	return q.DeleteTransfer(ctx, id)
-}
-
-// Cancel deletes id's record. Its receiver deletes the staging folder once
-// the id leaves its intent.
-func (t *Transfers) Cancel(ctx context.Context, tx *storage.Tx[storage.Library], id ID) error {
-	return ledger.New(tx).DeleteTransfer(ctx, id)
 }
 
 // Find is p's record for job, false when it has none.
@@ -358,26 +432,38 @@ func transferOf(row ledger.Transfer, files []ledger.File, place int64) (Transfer
 		}
 	}
 	for _, f := range files {
+		if f.Dropped {
+			continue
+		}
 		ref, err := refOf(f)
 		if err != nil {
 			return Transfer{}, err
 		}
 		t.Files = append(t.Files, File{
-			Position: int(f.Position), Group: f.Item, Name: f.Name, Source: ref, Size: f.Size,
+			Position: int(f.Position), Group: f.GroupKey, Name: f.Name, Source: ref, Size: f.Size,
 			Verified: f.VerifiedPlace != nil && *f.VerifiedPlace == place, Placed: f.Placed,
 		})
 	}
 	return t, nil
 }
 
+// fromPath is whether f's source is a path.
+func (f File) fromPath() bool {
+	_, ok := f.Source.(source.Path)
+	return ok
+}
+
 func refOf(f ledger.File) (source.Ref, error) {
-	if source.Kind(f.SourceKind) != source.TorrentKind {
-		return nil, fmt.Errorf("file %d of Transfer %s has the source kind %q", f.Position, f.TransferID, f.SourceKind)
+	switch source.Kind(f.SourceKind) {
+	case source.TorrentKind:
+		var t source.Torrent
+		if copy(t.Hash[:], f.InfoHash) != len(t.Hash) {
+			return nil, fmt.Errorf("file %d of Transfer %s has a %d-byte info hash", f.Position, f.TransferID, len(f.InfoHash))
+		}
+		t.File = int(*f.FileIndex)
+		return t, nil
+	case source.PathKind:
+		return source.Path{Abs: *f.Path}, nil
 	}
-	var t source.Torrent
-	if copy(t.Hash[:], f.InfoHash) != len(t.Hash) {
-		return nil, fmt.Errorf("file %d of Transfer %s has a %d-byte info hash", f.Position, f.TransferID, len(f.InfoHash))
-	}
-	t.File = int(*f.FileIndex)
-	return t, nil
+	return nil, fmt.Errorf("file %d of Transfer %s has the source kind %q", f.Position, f.TransferID, f.SourceKind)
 }

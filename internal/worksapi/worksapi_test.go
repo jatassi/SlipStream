@@ -49,16 +49,12 @@ func (g grabbing) GrabCells(context.Context, storage.Reader[storage.Library], wo
 	return g, nil
 }
 
-func (grabbing) Unfinished(context.Context, storage.Reader[storage.Library]) ([]storage.UUID, error) {
+func (grabbing) Holding(context.Context, storage.Reader[storage.Library]) (map[roots.ID]map[string]bool, error) {
 	return nil, nil
 }
 
 func (grabbing) ReleaseTitles(context.Context, storage.Reader[storage.Library]) (map[storage.UUID]string, error) {
 	return nil, nil
-}
-
-func (grabbing) Settle(context.Context, *storage.Tx[storage.Library], works.WorkID, map[files.CellKey]bool, files.Unwanted) (int, error) {
-	return 0, nil
 }
 
 type discard[T any] struct{}
@@ -204,7 +200,7 @@ func serveAt(t *testing.T, today func() time.Time) *server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sh := shelf{lib: lib, w: w, t: goals, f: shelved, l: library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: homes, Files: shelved, Grabs: noGrabs{}})}
+	sh := shelf{lib: lib, w: w, t: goals, f: shelved, l: library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: homes, Files: shelved, Imports: noImports{}})}
 	worksapi.Routes(r, sh)
 	filesapi.Routes(r, sh)
 	return &server{handler: r.Handler(), lib: lib, fx: fx, works: w, goals: goals, grabs: cells, homes: homes, files: shelved, library: sh.l, targetsChanged: targetsChanged, rootsChanged: rootsChanged, apiKey: identitytest.APIKey(t, lib), session: admin.Cookie.Value, log: logged}
@@ -576,11 +572,11 @@ func TestTheLibraryTakesATypeOrIdsNotBoth(t *testing.T) {
 		`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"query.workIds","message":"Use contentType or workIds, not both."}]}`)
 }
 
-// noGrabs is a library with no Grab Transfers to cancel.
-type noGrabs struct{}
+// noImports is a library with no Imports to end.
+type noImports struct{}
 
-func (noGrabs) CancelTransfersIn(context.Context, *storage.Tx[storage.Library], []works.WorkID) error {
+func (noImports) EndOf(context.Context, *storage.Tx[storage.Library], []works.WorkID) error {
 	return nil
 }
 
-func (noGrabs) TouchTransfers() {}
+func (noImports) Touch() {}

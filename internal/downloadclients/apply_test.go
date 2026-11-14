@@ -353,3 +353,58 @@ func TestEveryCauseANodeSendsReadsBackAsItself(t *testing.T) {
 		}
 	}
 }
+
+func TestAClientErrorFailsOnlyOnceItsReportsCarriedItPastTheSetting(t *testing.T) {
+	s := newMediaServer(t)
+	id := s.send(t, "Orchard")
+	const words = "No data found! Ensure your drives are connected."
+	start := reportedAt
+	beat := func(at time.Time, hold dlv1.Hold) {
+		t.Helper()
+		r := &dlv1.TorrentReport{Id: id.Bytes(), Engine: dlv1.EngineState_ENGINE_STATE_DOWNLOADING, Run: dlv1.Wanted_WANTED_STARTED, Hold: hold, AtUnixMs: at.UnixMilli()}
+		if hold == dlv1.Hold_HOLD_CLIENT_ERROR {
+			r.Error = words
+		}
+		s.report(t, s.node, &dlv1.Report{Kind: &dlv1.Report_Torrents{Torrents: &dlv1.Torrents{Reports: []*dlv1.TorrentReport{r}}}})
+	}
+	beats := func(from time.Time, n int) time.Time {
+		t.Helper()
+		for i := range n {
+			beat(from.Add(time.Duration(i)*time.Minute), dlv1.Hold_HOLD_CLIENT_ERROR)
+		}
+		return from.Add(time.Duration(n-1) * time.Minute)
+	}
+
+	last := beats(start, 30)
+	got := outcomeOf(t, s.lib, id)
+	if got.Outcome != dc.Outcome(dc.Pending{}) || got.ClientError == nil {
+		t.Fatalf("after 29 minutes of reports with the error, the Torrent reads %#v, want Pending with the error", got)
+	}
+	if want := start.Add(time.Hour); got.ClientError.Message != words || got.ClientError.Node != "Media server" || !got.ClientError.FailsAt.Equal(want) {
+		t.Errorf("the client error reads %+v, want %q on Media server failing at %v", *got.ClientError, words, want)
+	}
+	beat(last, dlv1.Hold_HOLD_CLIENT_ERROR)
+	if got := outcomeOf(t, s.lib, id).ClientError.FailsAt; !got.Equal(start.Add(time.Hour)) {
+		t.Errorf("a replayed report moved the failure to %v, want it to add nothing", got)
+	}
+
+	silent := last.Add(30 * time.Minute)
+	beat(silent, dlv1.Hold_HOLD_CLIENT_ERROR)
+	if got, want := outcomeOf(t, s.lib, id).ClientError.FailsAt, silent.Add(time.Hour-29*time.Minute-3*time.Minute); !got.Equal(want) {
+		t.Errorf("after 30 minutes with no report the Grab fails at %v, want %v: the silence counts only the 3-minute cap", got, want)
+	}
+
+	beat(silent.Add(time.Minute), dlv1.Hold_HOLD_UNSPECIFIED)
+	if got := outcomeOf(t, s.lib, id); got.Outcome != dc.Outcome(dc.Pending{}) || got.ClientError != nil {
+		t.Fatalf("after a clean report the Torrent reads %#v, want Pending with no client error", got)
+	}
+
+	last = beats(silent.Add(2*time.Minute), 60)
+	if got := outcomeOf(t, s.lib, id).Outcome; got != dc.Outcome(dc.Pending{}) {
+		t.Fatalf("after 59 minutes of reports with the error since the clean one, the Torrent reads %#v, want Pending", got)
+	}
+	beat(last.Add(time.Minute), dlv1.Hold_HOLD_CLIENT_ERROR)
+	if got := outcomeOf(t, s.lib, id).Outcome; got != dc.Outcome(dc.Errored{After: time.Hour}) {
+		t.Errorf("after 60 minutes of reports with the error, the Torrent reads %#v, want Errored after 1 hour", got)
+	}
+}

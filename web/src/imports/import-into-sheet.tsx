@@ -1,12 +1,13 @@
 import { Suspense, useState } from "react";
 
-import type { ImportsEntry, WorksContentType, WorksLibraryRow } from "../api/gen/model";
+import type { WorksContentType, WorksLibraryRow } from "../api/gen/model";
+import type { RootEntry } from "./root-entry";
 import { useListLibrarySuspense } from "../api/gen/query/works/works";
 import { Dialog } from "../ui/dialog";
 import { List, ListRow } from "../ui/list";
 import { SearchField } from "../ui/search-field";
 import { Skeleton } from "../ui/skeleton";
-import { ImportFiles } from "./import-files";
+import { IntoFiles } from "./into-files";
 
 const shown = 25;
 
@@ -65,7 +66,7 @@ function Steps({
   type,
   onDone,
 }: {
-  entry: ImportsEntry;
+  entry: RootEntry;
   type: WorksContentType;
   onDone: () => void;
 }) {
@@ -86,7 +87,7 @@ function Steps({
   }
   return (
     <Suspense fallback={<Skeleton label={`Loading ${picked.label}`} />}>
-      <ImportFiles
+      <IntoFiles
         entry={entry}
         type={type}
         row={picked}
@@ -105,7 +106,7 @@ export function ImportIntoSheet({
   type,
   onClose,
 }: {
-  entry: ImportsEntry;
+  entry: RootEntry;
   type: WorksContentType;
   onClose: () => void;
 }) {

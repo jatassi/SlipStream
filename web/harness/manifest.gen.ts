@@ -90,6 +90,13 @@ export const manifestSchema = z.strictObject({
       infoHash: z.string(),
       size: z.int(),
       blake3: z.string(),
+      files: z.array(
+        z.strictObject({
+          path: z.string(),
+          size: z.int(),
+          blake3: z.string(),
+        }),
+      ),
     }),
   ),
   browser: z.strictObject({

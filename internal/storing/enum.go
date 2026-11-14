@@ -106,6 +106,9 @@ const (
 	ReasonContainsDownloads
 	ReasonUnresponsive
 	ReasonNetworkShare
+	// ReasonOutside is a folder to import from outside the Node's library
+	// roots and download folders.
+	ReasonOutside
 )
 
 var reasons = enum[Reason, storagev1.Reason]{
@@ -121,6 +124,7 @@ var reasons = enum[Reason, storagev1.Reason]{
 	{ReasonContainsDownloads, storagev1.Reason_REASON_CONTAINS_DOWNLOADS, "contains_downloads"},
 	{ReasonUnresponsive, storagev1.Reason_REASON_UNRESPONSIVE, "unresponsive"},
 	{ReasonNetworkShare, storagev1.Reason_REASON_NETWORK_SHARE, "network_share"},
+	{ReasonOutside, storagev1.Reason_REASON_OUTSIDE, "outside"},
 }
 
 func (r Reason) String() string         { return reasons.of(r).word }
@@ -135,12 +139,16 @@ const (
 	// PurposeClientFolder is an external Download Client's download folder
 	// as its Node sees it. The client writes it, so it is never written.
 	PurposeClientFolder
+	// PurposeImport is a folder to import from: inside one of the Node's
+	// library roots or download folders, and never written.
+	PurposeImport
 )
 
 var purposes = enum[Purpose, storagev1.Purpose]{
 	{PurposeRoot, storagev1.Purpose_PURPOSE_ROOT, "root"},
 	{PurposeDownloads, storagev1.Purpose_PURPOSE_DOWNLOADS, "downloads"},
 	{PurposeClientFolder, storagev1.Purpose_PURPOSE_CLIENT_FOLDER, "client_folder"},
+	{PurposeImport, storagev1.Purpose_PURPOSE_IMPORT, "import"},
 }
 
 func (p Purpose) String() string                    { return purposes.of(p).word }
@@ -208,3 +216,27 @@ var unreadReasons = enum[UnreadReason, storagev1.UnreadReason]{
 
 func (r UnreadReason) String() string               { return unreadReasons.of(r).word }
 func (r UnreadReason) Wire() storagev1.UnreadReason { return unreadReasons.of(r).wire }
+
+// Step is how a file came to be at its target: a hard link to its source,
+// a clone sharing its extents, a copy of its bytes, a rename of its source,
+// or the source itself, left where it lies.
+type Step uint8
+
+const (
+	Link Step = iota + 1
+	Clone
+	Copy
+	Rename
+	InPlace
+)
+
+var steps = enum[Step, storagev1.PlaceStep]{
+	{Link, storagev1.PlaceStep_PLACE_STEP_LINK, "link"},
+	{Clone, storagev1.PlaceStep_PLACE_STEP_CLONE, "clone"},
+	{Copy, storagev1.PlaceStep_PLACE_STEP_COPY, "copy"},
+	{Rename, storagev1.PlaceStep_PLACE_STEP_RENAME, "rename"},
+	{InPlace, storagev1.PlaceStep_PLACE_STEP_IN_PLACE, "in_place"},
+}
+
+func (s Step) String() string            { return steps.of(s).word }
+func (s Step) Wire() storagev1.PlaceStep { return steps.of(s).wire }

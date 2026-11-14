@@ -118,6 +118,16 @@ type Timings struct {
 	ClientLiveFloor time.Duration `yaml:"client_live_floor"`
 }
 
+// ErrorHeartbeat is how often a Node resends the report of a torrent its
+// external client holds in error, so the Controller's client error clock
+// counts while the error lasts. ErrorGapCap is the most one such report
+// adds to the clock: a Node that stopped reporting adds no more than a few
+// missed beats.
+const (
+	ErrorHeartbeat = time.Minute
+	ErrorGapCap    = 3 * time.Minute
+)
+
 func DefaultTimings() Timings {
 	return Timings{
 		Facts: time.Second, AnnounceFloor: 5 * time.Minute, ResumeSave: 5 * time.Minute, ShutdownSave: 15 * time.Second,
@@ -272,6 +282,25 @@ func (c *Client) Path(h bencode.InfoHash, index int) (string, error) {
 		return "", ErrNotPresent
 	}
 	return c.pathOf(h, t, index)
+}
+
+// Torrents is where each file of every torrent the engine holds lies on
+// this Node, finished or not.
+func (c *Client) Torrents() []string {
+	var out []string
+	for _, t := range c.held.Load().torrents {
+		if t.handle == 0 {
+			continue
+		}
+		files, err := c.cfg.Engine.Files(t.handle)
+		if err != nil {
+			continue
+		}
+		for _, f := range files {
+			out = append(out, filepath.Join(t.folder, filepath.FromSlash(f.Path)))
+		}
+	}
+	return out
 }
 
 // Open is where the file ref names lies on this Node, once the torrent is

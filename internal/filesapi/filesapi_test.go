@@ -94,7 +94,7 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		var err error
 		placed, err = files.Add(ctx, tx, files.File{
-			WorkID: tree.ID, ItemID: tree.Items[0].ID, Cut: release.Standard, RootID: root.ID,
+			WorkID: tree.ID, Items: []works.ItemID{tree.Items[0].ID}, Cut: release.Standard, RootID: root.ID,
 			Path: "The Attic/The Attic - 1080p.mkv", Size: 4096, Media: media.Record{Video: media.Video{Width: 1920, Height: 1080}}, Quality: release.WEBDL1080p,
 		}, []targets.TargetID{hd.ID, small.ID})
 		return err
@@ -115,7 +115,7 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	want := `{"cells":[` +
 		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":true,"state":"upgradable",` + file + `},` +
 		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"state":"missing"},` +
-		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"state":"met",` + file + `},` +
+		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"state":"met",` + file + `,"held":null},` +
 		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"unreleased"},` +
 		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":false,"state":"unreleased"},` +
 		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"state":"unreleased"}],` +
@@ -127,13 +127,31 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		t.Fatalf("getWorkCells = %d\n%s\nwant\n%s", code, body, want)
 	}
 	upgrade, failed := storage.NewUUID(), storage.NewUUID()
-	inflight.cells[files.CellKey{Item: tree.Items[0].ID, Edition: targets.AnyEdition, Target: hd.ID}] = files.GrabCell{State: files.GrabInFlight, Grab: upgrade}
+	failsAt := time.Date(2026, 11, 12, 16, 10, 0, 0, time.UTC)
+	inflight.cells[files.CellKey{Item: tree.Items[0].ID, Edition: targets.AnyEdition, Target: hd.ID}] = files.GrabCell{
+		State: files.GrabInFlight, Grab: upgrade, Waiting: "client_error",
+		ClientError: &files.ClientError{Client: "Transmission", Node: "Seedbox", Message: "No data found!", FailsAt: failsAt},
+	}
 	inflight.cells[files.CellKey{Item: tree.Items[0].ID, Edition: targets.AnyEdition, Target: uhd.ID}] = files.GrabCell{State: files.GrabFailed, Grab: failed}
+	full, held := storage.NewUUID(), roots.ID{UUID: storage.NewUUID()}
+	inflight.cells[files.CellKey{Item: tree.Items[0].ID, Edition: targets.AnyEdition, Target: small.ID}] = files.GrabCell{
+		State: files.GrabInFlight, Grab: full, Waiting: "no_space", Hold: &files.ImportHold{Root: held, Free: 12 << 30, Needs: 48 << 30},
+	}
 	code, body = s.Call(t, http.MethodGet, "/api/v1/works/"+tree.ID.String()+"/cells", "")
-	want = `{"itemId":"` + scarf + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"downloading","grabId":"` + upgrade.String() + `",` + file + `},` +
+	want = `{"itemId":"` + scarf + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"downloading","grabId":"` + upgrade.String() + `",` + file + `,"step":null,"from":null,"until":null},` +
 		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"state":"failed","grabId":"` + failed.String() + `","file":null},`
 	if code != http.StatusOK || !strings.Contains(body, want) {
 		t.Fatalf("getWorkCells with an upgrade in flight and a failed Grab = %d\n%s\nwant it to hold\n%s", code, body, want)
+	}
+	waiting := `{"kind":"waiting","grabId":"` + upgrade.String() + `","code":"client_error",` +
+		`"clientError":{"client":"Transmission","node":"Seedbox","message":"No data found!","failsAt":"2026-11-12T16:10:00Z"},"importWait":null}`
+	if !strings.Contains(body, waiting) {
+		t.Errorf("getWorkCells with a Grab waiting on its client's error = %s\nwant its Needs you to hold\n%s", body, waiting)
+	}
+	noSpace := `{"kind":"waiting","grabId":"` + full.String() + `","code":"no_space","clientError":null,` +
+		`"importWait":{"rootId":"` + held.String() + `","space":{"free":12884901888,"needs":51539607552}}}`
+	if !strings.Contains(body, noSpace) {
+		t.Errorf("getWorkCells with an Import waiting for space = %s\nwant its Needs you to hold\n%s", body, noSpace)
 	}
 	empty := must[targets.Profile](t)(goals.CreateProfile(ctx, admin, targets.ProfileSpec{Name: "Empty", ContentType: contenttypetest.ID}))
 	fx.Put("w2", contenttypetest.Record{Tree: works.Fetched{Label: "The Cellar", Children: []works.Entry{{Key: "b1", Label: "Top", Children: []works.Entry{{Key: "c1", Label: "Jar"}}}}}})
@@ -209,7 +227,7 @@ func TestForgetFilesForgetsGoneFilesAllOrNone(t *testing.T) {
 	err = lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		for i, name := range []string{"Scarf", "Mittens"} {
 			f, err := files.Add(ctx, tx, files.File{
-				WorkID: tree.ID, ItemID: tree.Items[i].ID, Cut: release.Standard, RootID: root.ID, Path: "The Attic/" + name + ".mkv", Size: 4096, Quality: release.WEBDL1080p,
+				WorkID: tree.ID, Items: []works.ItemID{tree.Items[i].ID}, Cut: release.Standard, RootID: root.ID, Path: "The Attic/" + name + ".mkv", Size: 4096, Quality: release.WEBDL1080p,
 			}, []targets.TargetID{hd.ID})
 			if err != nil {
 				return err

@@ -97,9 +97,7 @@ function ImpactBody({
         )}
       </ul>
       {impact.renames.length > 0 && <Renames impact={impact} />}
-      {(impact.unwanted.files > 0 || impact.downloading > 0) && (
-        <Choice value={unwanted} onChange={setUnwanted} />
-      )}
+      {impact.unwanted.files > 0 && <Choice value={unwanted} onChange={setUnwanted} />}
       <AttemptActions
         attempt={saving}
         look={unwanted === "delete" && impact.unwanted.files > 0 ? "fail" : "primary"}

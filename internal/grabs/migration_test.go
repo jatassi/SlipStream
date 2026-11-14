@@ -17,7 +17,6 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
-	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -74,14 +73,18 @@ func TestAGrabsTargetsSurviveTheMigrationAndGoWithTheirTarget(t *testing.T) {
 
 	lib := open(nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema())
 	t.Cleanup(func() { _ = lib.Close() })
-	g := grabs.New(grabs.Config{Library: lib, Names: map[works.TypeID]rel.Names{contenttypetest.ID: dated{}}, Transfers: transfers.New(transfers.ControllerConfig{Library: lib})})
+	g := grabs.New(grabs.Config{Library: lib, Names: map[works.TypeID]rel.Names{contenttypetest.ID: dated{}}, Imports: noImports{}})
 	held := func() []targets.TargetID {
 		t.Helper()
 		v, err := g.Get(ctx, identity.Admin{}, grabs.GrabID{UUID: grab})
 		if err != nil {
 			t.Fatal(err)
 		}
-		return v.Targets
+		var out []targets.TargetID
+		for _, c := range v.Targets {
+			out = append(out, c.Key.Target)
+		}
+		return out
 	}
 	if got := held(); len(got) != 1 || got[0].UUID != target {
 		t.Fatalf("after the migration the Grab is for %v, want the Target %s", got, target)

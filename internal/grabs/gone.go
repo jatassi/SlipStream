@@ -2,32 +2,40 @@ package grabs
 
 import (
 	"context"
-	"slices"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// settleGone fails each unimported Grab past fetching whose Node the Admin
-// wrote Downloading off, or whose Torrent is Gone for a reason that fails
-// it at any stage, by failOfGone, so its Items are wanted again, and
-// cancels its Transfer in the same Write. None of these blocklists. A
-// fetching Grab has no Torrent yet: the fetch routes it afresh. It
-// reports whether it changed anything.
+// settleGone settles each Grab past fetching whose Node the Admin wrote
+// Downloading off, or, once importing, whose Torrent is Gone. A downloading
+// Grab fails by failOfGone, so its Items are wanted again. An importing
+// Grab's Import ends, which fails it the same way with nothing placed, and
+// lets a placing file finish. None of these blocklists. A fetching Grab
+// has no Torrent yet: the fetch routes it afresh, and a downloading Grab's
+// own step reads its Torrent gone. It reports whether it changed anything.
 func (gr *Grabs) settleGone(ctx context.Context, open []Grab) (bool, error) {
 	settled := false
 	for _, g := range open {
 		if g.Stage == Fetching {
 			continue
 		}
-		gone, ok := g.goneAtAnyStage()
-		if !ok && !gr.cfg.Roster.WrittenOff(role.Downloading, g.Node) {
+		gone, ok := g.Torrent.Outcome.(downloadclients.Gone)
+		switch {
+		case ok && g.Stage == Importing:
+		case gr.cfg.Roster.WrittenOff(role.Downloading, g.Node):
+			gone = downloadclients.Gone{Reason: downloadclients.NodeWrittenOff}
+		default:
 			continue
 		}
-		if !ok {
-			gone = downloadclients.Gone{Reason: downloadclients.NodeWrittenOff}
+		var err error
+		if g.Stage == Importing {
+			err = gr.endImport(ctx, g, GoneFailure(gone))
+		} else {
+			err = gr.commit(ctx, g, failOfGone(gone))
 		}
-		if err := gr.commit(ctx, g, failOfGone(gone)); err != nil {
+		if err != nil {
 			return settled, err
 		}
 		settled = true
@@ -35,16 +43,23 @@ func (gr *Grabs) settleGone(ctx context.Context, open []Grab) (bool, error) {
 	return settled, nil
 }
 
-// failsAtAnyStage is the reasons that fail a Grab past downloading too: an
-// Admin's remove is refused while a Grab imports, and these can't be.
-var failsAtAnyStage = []downloadclients.RemoveReason{downloadclients.NodeWrittenOff, downloadclients.ByClient, downloadclients.ClientDeleted}
-
-// goneAtAnyStage is g's Torrent's removal when its reason fails g at any
-// stage.
-func (g Grab) goneAtAnyStage() (downloadclients.Gone, bool) {
-	if g.Torrent == nil {
-		return downloadclients.Gone{}, false
+// endImport ends importing Grab g's Import for why, and publishes the
+// Grab's move.
+func (gr *Grabs) endImport(ctx context.Context, g Grab, why Failure) error {
+	var now Grab
+	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		if err := gr.importer.End(ctx, tx, g.ID, why, false); err != nil {
+			return err
+		}
+		var err error
+		now, err = grabIn(ctx, tx, g.ID)
+		return err
+	})
+	if err != nil {
+		return err
 	}
-	gone, ok := g.Torrent.Outcome.(downloadclients.Gone)
-	return gone, ok && slices.Contains(failsAtAnyStage, gone.Reason)
+	if now.Stage != Importing {
+		gr.entered(ctx, now, now.Stage)
+	}
+	return nil
 }

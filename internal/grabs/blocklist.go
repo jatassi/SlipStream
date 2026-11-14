@@ -18,7 +18,9 @@ import (
 )
 
 // BlockCauses is every BlockCause, the list the schema's CHECK holds.
-var BlockCauses = []BlockCause{CauseUnregistered, CauseNoPayload, CauseEngineError, CauseMarkedFailed, CauseByHand}
+var BlockCauses = []BlockCause{
+	CauseUnregistered, CauseNoPayload, CauseEngineError, CauseMarkedFailed, CauseByHand, CauseNoVideo, CauseUnreadable, CauseMisdescribed,
+}
 
 // BlockEntry is one Release on the Blocklist.
 type BlockEntry struct {
@@ -155,6 +157,12 @@ func (e BlockEntry) because() string {
 			return "Blocklisted through the API key when its Grab was canceled."
 		}
 		return e.By.Name + " blocklisted it when canceling its Grab."
+	case CauseNoVideo:
+		return "This download has no video file."
+	case CauseUnreadable:
+		return "ffprobe can't read any video in this download."
+	case CauseMisdescribed:
+		return "Its files' resolution or HDR doesn't match its title."
 	}
 	panic("grabs: no words for the Blocklist cause " + string(e.Cause))
 }
@@ -288,4 +296,50 @@ func (b BlocklistOn) MarkedFailed(ctx context.Context, tx *storage.Tx[file], ids
 		}
 	}
 	return nil
+}
+
+// Block puts Grab id's Release on the Blocklist for cause in tx, by by for
+// by_hand: an import's release fault or Not this Release. While a
+// restored Controller is Reconciling a release fault adds nothing and
+// by_hand refuses with ErrReconciling. It reports whether it added an
+// entry; a Release listed already keeps its first.
+func (gr *Grabs) Block(ctx context.Context, tx *storage.Tx[file], id GrabID, cause BlockCause, by *identity.Admin) (bool, error) {
+	if by == nil {
+		reconciling, err := gr.cfg.Reconciling(ctx, tx)
+		if err != nil || reconciling {
+			return false, err
+		}
+	}
+	g, err := grabIn(ctx, tx, id)
+	if err != nil {
+		return false, err
+	}
+	h := g.infoHash()
+	if h == nil {
+		return false, nil
+	}
+	if listed, err := blockedHash(ctx, tx, *h); err != nil || listed {
+		return false, err
+	}
+	e := BlockEntry{
+		InfoHash: *h, Title: g.Release.Title, Size: g.Release.Size, Indexer: g.Ticket.Indexer, Tracker: g.Ticket.Tracker,
+		Work: g.WorkID, Grab: g.ID, Cause: cause,
+	}
+	if by != nil {
+		e.By = new(actorOf(*by))
+	}
+	if !g.Ticket.Indexer.IsZero() {
+		idx, err := indexers.Get(ctx, tx, g.Ticket.Indexer)
+		if err != nil {
+			return false, err
+		}
+		e.IndexerName = idx.Name
+	}
+	return true, BlocklistOn{Reconciling: gr.cfg.Reconciling}.Block(ctx, tx, e)
+}
+
+// Blocked tells the Admins the Blocklist changed, once a Write that
+// Block added to commits.
+func (gr *Grabs) Blocked(ctx context.Context) {
+	gr.cfg.BlocklistChanged.Publish(ctx, BlocklistChanged{})
 }
