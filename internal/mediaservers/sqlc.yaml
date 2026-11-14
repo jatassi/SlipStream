@@ -1,0 +1,98 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: schema
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        emit_pointers_for_null_types: true
+        overrides:
+          - column: "*.*_at"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
+          - column: "*.*_sealed"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/secret
+              type: Sealed
+          - column: mediaservers_server.id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaserverlink/link
+              type: ServerID
+          - column: "*.server_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaserverlink/link
+              type: ServerID
+          - column: mediaservers_change.id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaserverlink/link
+              type: ChangeID
+          - column: mediaservers_play.id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaserverlink/link
+              type: PlayID
+          - column: "*.root_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/roots
+              type: ID
+          - column: "*.file_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/files
+              type: ID
+          - column: mediaservers_change.replaced_by
+            go_type:
+              import: github.com/jatassi/slipstream/internal/files
+              type: ID
+          - column: "*.node_id"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: mediaservers_server.reaching_node_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: mediaservers_server.runs_on_node_id
+            go_type:
+              import: github.com/jatassi/slipstream/internal/role
+              type: NodeID
+          - column: mediaservers_server.kind
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaserverlink/link
+              type: KindName
+          - column: mediaservers_server.contact
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaserverlink/link
+              type: Contact
+          - column: mediaservers_change.kind
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaserverlink/link
+              type: ChangeKind
+          - column: mediaservers_change.step
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaserverlink/link
+              type: Step
+          - column: mediaservers_change.result
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaserverlink/link
+              type: Result
+              pointer: true
+          - column: mediaservers_play.decision
+            go_type:
+              import: github.com/jatassi/slipstream/internal/mediaserverlink/link
+              type: Decision
+          - column: mediaservers_mapping.shown
+            go_type: bool
+          - column: mediaservers_mapping.guess
+            go_type: bool
+          - column: mediaservers_change.upgrade
+            go_type: bool
+          - column: mediaservers_item.stale
+            go_type: bool
+          - column: mediaservers_play.hardware
+            go_type: bool
+          - column: mediaservers_plex_account.plex_pass
+            go_type:
+              type: bool
+              pointer: true
