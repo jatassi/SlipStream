@@ -88,8 +88,9 @@ type Play struct {
 	Decision link.Decision
 	Reasons  []string
 	Hardware bool
-	// Unreported is a client that never reported its timeline, which Plex
-	// lists only in /transcode/sessions (#71).
+	// Unreported is a client that hasn't reported its playback: Plex lists
+	// it only in /transcode/sessions, and Emby gives it no transcode info
+	// (#71).
 	Unreported bool
 }
 
@@ -134,6 +135,19 @@ func (s *Server) Stop(key string) bool {
 	return true
 }
 
+// Reported is the client of session key reporting its playback, false
+// when none plays.
+func (s *Server) Reported(key string) bool {
+	s.lock()
+	defer s.mu.Unlock()
+	i := slices.IndexFunc(s.sessions, func(x *Session) bool { return x.Key == key })
+	if i < 0 {
+		return false
+	}
+	s.sessions[i].Unreported = false
+	return true
+}
+
 // Sessions are the playbacks now, in the order they started.
 func (s *Server) Sessions() []Session {
 	s.lock()
@@ -159,5 +173,6 @@ func (s *Server) Restart() {
 			l.timer, l.scan.Running = nil, false
 		}
 	}
+	s.task.Running = false
 	s.dropPending()
 }

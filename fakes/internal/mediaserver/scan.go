@@ -21,6 +21,7 @@ var (
 	yearRe     = regexp.MustCompile(`^(.*?)\s*\((\d{4})\)`)
 	episodeRe  = regexp.MustCompile(`(?i)\bS(\d{1,3})E(\d{1,4})\b`)
 	editionRe  = regexp.MustCompile(`\{edition-([^}]*)\}`)
+	providerRe = regexp.MustCompile(`(?i)\[(tmdb|imdb|tvdb)id-([^\]]+)\]|\{(tmdb|imdb|tvdb)-([^}]+)\}`)
 )
 
 // ErrNoLibrary is a call naming a library the server doesn't hold.
@@ -41,6 +42,7 @@ type named struct {
 	show            string
 	season, episode int
 	edition         string
+	provider        string
 }
 
 func describe(file link.ServerPath) named {
@@ -48,6 +50,10 @@ func describe(file link.ServerPath) named {
 	var n named
 	if m := editionRe.FindStringSubmatch(name); m != nil {
 		n.edition = m[1]
+	}
+	if m := providerRe.FindStringSubmatch(name); m != nil {
+		n.provider = strings.ToLower(m[1]+m[3]) + "-" + m[2] + m[4]
+		name = strings.TrimSpace(providerRe.ReplaceAllString(name, ""))
 	}
 	if m := episodeRe.FindStringSubmatchIndex(name); m != nil {
 		n.season, _ = strconv.Atoi(name[m[2]:m[3]])
@@ -129,7 +135,7 @@ func (s *Server) RefreshFolder(library string, folder link.ServerPath) error {
 	if !ok {
 		return fmt.Errorf("library %s: %w", library, ErrNoLibrary)
 	}
-	if s.b.FreshSectionIgnores && !l.scanned {
+	if s.b.FreshSectionIgnores && l.fresh() {
 		return nil
 	}
 	if !slices.ContainsFunc(l.Folders, folder.Within) {
@@ -148,8 +154,35 @@ func (s *Server) RefreshLibrary(library string) (time.Time, error) {
 	if !ok {
 		return time.Time{}, fmt.Errorf("library %s: %w", library, ErrNoLibrary)
 	}
+	return s.startScan(l), nil
+}
+
+// RefreshAll starts a full scan of every library as one task, as
+// Jellyfin's and Emby's RefreshLibrary task does, and answers when it
+// started. A task already running is that task.
+func (s *Server) RefreshAll() time.Time {
+	s.lock()
+	defer s.mu.Unlock()
+	if s.task.Running {
+		return s.task.Started
+	}
+	s.task.Running, s.task.Started = true, time.Now()
+	for _, l := range s.libs {
+		s.startScan(l)
+	}
+	return s.task.Started
+}
+
+// TaskState is the task RefreshAll starts.
+func (s *Server) TaskState() ScanState {
+	s.lock()
+	defer s.mu.Unlock()
+	return s.task
+}
+
+func (s *Server) startScan(l *library) time.Time {
 	if l.scan.Running {
-		return l.scan.Started, nil
+		return l.scan.Started
 	}
 	if s.b.ScanDropsPending {
 		s.dropPending()
@@ -165,8 +198,29 @@ func (s *Server) RefreshLibrary(library string) (time.Time, error) {
 		}
 		l.scan.Running, l.scan.Ended = false, time.Now()
 		s.publish(Event{Kind: ScanEnded, Library: l.Key})
+		if s.task.Running && !slices.ContainsFunc(s.libs, func(o *library) bool { return o.scan.Running }) {
+			s.task.Running, s.task.Ended = false, l.scan.Ended
+		}
 	})
-	return l.scan.Started, nil
+	return l.scan.Started
+}
+
+// AddFolder adds folder to library, as Jellyfin's
+// /Library/VirtualFolders/Paths does. The folder starts fresh.
+func (s *Server) AddFolder(library string, folder link.ServerPath) error {
+	s.lock()
+	defer s.mu.Unlock()
+	l, ok := s.library(library)
+	if !ok {
+		return fmt.Errorf("library %s: %w", library, ErrNoLibrary)
+	}
+	if s.b.ScanDropsPending {
+		s.dropPending()
+	}
+	if !slices.ContainsFunc(l.Folders, func(f link.ServerPath) bool { return f.Key() == folder.Key() }) {
+		l.Folders = append(l.Folders, folder)
+	}
+	return nil
 }
 
 // ScanState is library's full scan.
@@ -203,14 +257,16 @@ func (s *Server) scanFolder(l *library, folder link.ServerPath) {
 	changed := s.placeAll(l, d)
 	s.dropVanished(folder, d, changed)
 	folders := map[string]link.ServerPath{}
-	for it := range changed {
+	for _, it := range s.itemsUnder(folder) {
 		folders[it.Folder.Key()] = it.Folder
 	}
 	for _, f := range folders {
 		s.bind(f, d.sidecars)
 	}
-	if len(s.itemsIn(l.Key)) > 0 {
-		l.scanned = true
+	for _, f := range l.Folders {
+		if len(s.itemsUnder(f)) > 0 {
+			l.scanned[f.Key()] = true
+		}
 	}
 	for it, kind := range changed {
 		s.publish(Event{Kind: kind, Library: it.Library, Item: it.clone()})
@@ -276,23 +332,19 @@ func (s *Server) place(l *library, v disked) (*Item, bool) {
 	n := describe(v.path)
 	part := Part{ID: s.partID(), File: v.path, Size: v.size}
 	folder := v.path.Dir()
-	if s.b.StableKeyInFolder {
-		for _, it := range s.items {
-			if it.Library == l.Key && it.Folder.Key() == folder.Key() && it.GUID == n.guid && s.edition(it.Edition) == s.edition(n.edition) {
-				it.Parts = append(it.Parts, part)
-				return it, false
-			}
-		}
+	if it, ok := s.versionOf(l, folder, n); ok {
+		it.Parts = append(it.Parts, part)
+		return it, false
 	}
 	it := &Item{
-		Key: s.key(), Library: l.Key, GUID: n.guid, Title: n.title, Year: n.year,
-		Show: n.show, Season: n.season, Episode: n.episode, Edition: s.edition(n.edition),
+		Key: s.key("item " + v.path.Key()), Library: l.Key, GUID: n.guid, Title: n.title, Year: n.year,
+		Show: n.show, Season: n.season, Episode: n.episode, Edition: s.edition(n.edition), Provider: n.provider,
 		Folder: folder, Parts: []Part{part}, Added: time.Now(),
 	}
 	if n.show != "" {
 		show := l.Key + "/" + strings.ToLower(n.show)
 		if _, ok := s.shows[show]; !ok {
-			s.shows[show] = s.key()
+			s.shows[show] = s.key("show " + show)
 		}
 		it.ShowKey = s.shows[show]
 	}
@@ -300,7 +352,27 @@ func (s *Server) place(l *library, v disked) (*Item, bool) {
 	if s.b.StableKeyInFolder {
 		s.takeOver(it)
 	}
+	s.carryByProvider(it)
 	return it, true
+}
+
+// versionOf is the item in folder that a file named n is another version
+// of. With NewIDOnPathChange only an item with a file still on disk takes
+// it, so a renamed file is a new item.
+func (s *Server) versionOf(l *library, folder link.ServerPath, n named) (*Item, bool) {
+	if s.b.ItemPerFile {
+		return nil, false
+	}
+	for _, it := range s.items {
+		if it.Library != l.Key || it.Folder.Key() != folder.Key() || it.GUID != n.guid || s.edition(it.Edition) != s.edition(n.edition) {
+			continue
+		}
+		if s.b.NewIDOnPathChange && !slices.ContainsFunc(it.Parts, func(p Part) bool { return s.exists(p.File) }) {
+			continue
+		}
+		return it, true
+	}
+	return nil, false
 }
 
 func (s *Server) edition(e string) string {
@@ -340,16 +412,6 @@ func (s *Server) itemsUnder(folder link.ServerPath) []*Item {
 	var out []*Item
 	for _, it := range s.items {
 		if slices.ContainsFunc(it.Parts, func(p Part) bool { return p.File.Within(folder) }) {
-			out = append(out, it)
-		}
-	}
-	return out
-}
-
-func (s *Server) itemsIn(library string) []*Item {
-	var out []*Item
-	for _, it := range s.items {
-		if it.Library == library {
 			out = append(out, it)
 		}
 	}
