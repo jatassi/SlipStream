@@ -19,6 +19,7 @@ type world struct {
 	roots    []roots.Root
 	words    map[roots.ID]string
 	mappings map[link.ServerID]map[roots.ID]db.MediaserversMapping
+	plex     account
 }
 
 func (m *MediaServers) world(ctx context.Context, r storage.Reader[storage.Library]) (world, error) {
@@ -31,6 +32,9 @@ func (m *MediaServers) world(ctx context.Context, r storage.Reader[storage.Libra
 		return w, err
 	}
 	if w.words, err = m.cfg.RootWords(ctx, r); err != nil {
+		return w, err
+	}
+	if w.plex, _, err = m.readAccount(ctx, db.New(r)); err != nil {
 		return w, err
 	}
 	all, err := db.New(r).ListAllMappings(ctx)
@@ -112,6 +116,9 @@ func (m *MediaServers) viewOf(row db.MediaserversServer, w world) ServerView {
 	if row.UnhealthyReason != nil {
 		v.Unhealthy = &Unhealthy{Reason: *row.UnhealthyReason, Since: row.UnhealthySince.Time()}
 	}
+	if k.About().Form == link.SignInPlexPIN {
+		v.PlexPass = &w.plex.plexPass
+	}
 	needed := w.needed(row.ID)
 	v.MappingsNeeded = len(needed)
 	v.State = m.stateOf(row, k, w, needed)
@@ -128,7 +135,7 @@ func (m *MediaServers) stateOf(row db.MediaserversServer, k link.Kind, w world, 
 	case row.Contact == link.ContactOtherServer:
 		words, _ := Words(&OtherServerError{Label: label, Address: row.Address})
 		return State{Level: "fail", Words: words}
-	case row.Contact == link.ContactSignInRefused:
+	case row.Contact == link.ContactSignInRefused || (k.About().Form == link.SignInPlexPIN && w.plex.refused):
 		with := RefusedKey
 		if k.About().Form == link.SignInPlexPIN {
 			with = RefusedPlex

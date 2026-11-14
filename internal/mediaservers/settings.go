@@ -64,9 +64,8 @@ func (e *MarginTooShortError) Error() string {
 	return fmt.Sprintf("the renewal margin %s isn't longer than the renewal cadence %s", e.Margin, e.Cadence)
 }
 
-// RenewalTask renews the Plex sign-in. It lists no unit until the Plex
-// account is built, so it stays off the Tasks page until then, while its
-// cadence is already the section's stored value.
+// RenewalTask renews the Plex sign-in. Its one unit is the signed-in
+// account, so it is listed only while SlipStream is signed in to Plex.
 func (m *MediaServers) RenewalTask() tasks.Task {
 	return tasks.Task{
 		ID:      RenewalTaskID,
@@ -75,8 +74,8 @@ func (m *MediaServers) RenewalTask() tasks.Task {
 		Group:   tasks.ControllerGroup,
 		Cadence: tasks.Every{Interval: RenewEvery},
 		Noun:    setting.Noun{One: "Plex account", Many: "Plex accounts"},
-		Units:   func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) { return nil, nil },
-		Run:     func(context.Context, tasks.Unit, *tasks.Progress) error { return ErrNotBuilt },
+		Units:   m.renewalUnits,
+		Run:     m.renew,
 	}
 }
 

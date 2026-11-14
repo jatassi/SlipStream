@@ -17,11 +17,6 @@ var notYet = []string{
 	"refreshMediaServer",
 	"listMediaServerSessions",
 	"listMediaServerChanges",
-	"startPlexSignIn",
-	"getPlexSignIn",
-	"getPlexAccount",
-	"signOutOfPlex",
-	"listPlexServers",
 }
 
 const (

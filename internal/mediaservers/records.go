@@ -50,7 +50,7 @@ func (m *MediaServers) reach(ctx context.Context, r route) (link.Identity, error
 	id, err := m.reachFrom(ctx, r)
 	if err != nil {
 		m.cfg.Log.Info("a Media Server didn't respond to a test", "server", r.server, "from", r.name, "err", err.Error())
-		return id, failure(err, r.label, r.name, r.address, r.server)
+		return id, failure(err, r)
 	}
 	return id, floored(r, id)
 }
@@ -82,7 +82,7 @@ func (m *MediaServers) check(ctx context.Context, r route, identity string) (lin
 	switch {
 	case err != nil:
 		m.cfg.Log.Info("a Media Server failed a test", "server", r.server, "from", r.name, "err", err.Error())
-		return c, failure(err, r.label, r.name, r.address, r.server)
+		return c, failure(err, r)
 	case identity != "" && c.Identity.ID != identity:
 		return c, &OtherServerError{Label: r.label, Address: r.address}
 	}
@@ -142,7 +142,7 @@ func (m *MediaServers) test(ctx context.Context, r, fallback route, identity str
 		return t
 	}
 	if _, err := m.direct(fallback, want).Check(ctx); err != nil {
-		t.controller = failure(err, fallback.label, fallback.name, fallback.address, fallback.server)
+		t.controller = failure(err, fallback)
 	}
 	return t
 }
@@ -293,23 +293,18 @@ func nameTaken(ctx context.Context, q *db.Queries, name string, except link.Serv
 	return slices.ContainsFunc(all, func(s db.MediaserversServer) bool { return s.Name == name && s.ID != except }), err
 }
 
-// Add tests a Jellyfin or Emby draft from its reaching Node and from the
-// Controller, refuses one older than its kind's floor, and saves it with
-// whether a fallback is available. The reaching Node held the credential
-// for its test, so it is recorded as a holder.
+// Add tests a draft from its reaching Node and from the Controller,
+// refuses one older than its kind's floor, and saves it with whether a
+// fallback is available. A Plex draft takes its token and its addresses
+// from the Plex account. The reaching Node held the credential for its
+// test, so it is recorded as a holder.
 func (s service) Add(ctx context.Context, d Draft) (ServerView, error) {
 	k, ok := s.m.cfg.Kinds.Of(d.Kind)
-	switch {
-	case !ok:
+	if !ok {
 		return ServerView{}, ErrKindUnknown
-	case k.About().Form == link.SignInPlexPIN:
-		return ServerView{}, ErrNotBuilt
 	}
 	names, err := s.m.placed(ctx, d.Reaching, d.RunsOn)
 	if err != nil {
-		return ServerView{}, err
-	}
-	if err := s.m.localOnWorker(names, d.Reaching, d.Address, d.FallbackAddress); err != nil {
 		return ServerView{}, err
 	}
 	err = s.m.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[storage.Library]) error {
@@ -322,10 +317,26 @@ func (s service) Add(ctx context.Context, d Draft) (ServerView, error) {
 	if err != nil {
 		return ServerView{}, err
 	}
-	device := cmpOr(d.DeviceID, storage.NewUUID().String())
-	cred := link.Credential{APIKey: d.APIKey}
+	var (
+		device, identity string
+		deviceColumn     *string
+		cred             link.Credential
+	)
+	if k.About().Form == link.SignInPlexPIN {
+		var a account
+		if d, a, cred, err = s.m.plexDraft(ctx, d, names); err != nil {
+			return ServerView{}, err
+		}
+		device, identity = a.clientID, d.PlexServer
+	} else {
+		device, cred = cmpOr(d.DeviceID, storage.NewUUID().String()), link.Credential{APIKey: d.APIKey}
+		deviceColumn = &device
+	}
+	if err := s.m.localOnWorker(names, d.Reaching, d.Address, d.FallbackAddress); err != nil {
+		return ServerView{}, err
+	}
 	r, f := s.m.routes(k, names, d.Reaching, d.Address, d.FallbackAddress, cred, device, k.About().Label+" at "+d.Address)
-	t := s.m.test(ctx, r, f, "")
+	t := s.m.test(ctx, r, f, identity)
 	if t.reaching != nil {
 		return ServerView{}, t.reaching
 	}
@@ -341,7 +352,7 @@ func (s service) Add(ctx context.Context, d Draft) (ServerView, error) {
 			ID: id, Kind: d.Kind, Name: d.Name, Address: d.Address, FallbackAddress: optional(d.FallbackAddress),
 			BrowserAddress: optional(d.BrowserAddress), Identity: t.identity.ID, Version: t.identity.Version.String(),
 			MonitorDelayMs: delayMs(k, t.checked.MonitorDelay), ReachingNodeID: d.Reaching, RunsOnNodeID: nodeOrZero(d.RunsOn),
-			DeviceID: &device, SecretsSealed: sealed, Fallback: t.fallback(), CheckedAt: now, At: now,
+			DeviceID: deviceColumn, SecretsSealed: sealed, Fallback: t.fallback(), CheckedAt: now, At: now,
 		})
 		if err != nil {
 			return err
@@ -361,6 +372,9 @@ type saved struct {
 	row  db.MediaserversServer
 	kind link.Kind
 	cred link.Credential
+	// device is the DeviceId the server knows SlipStream by: the Plex
+	// account's client identifier for Plex.
+	device string
 }
 
 func (m *MediaServers) load(ctx context.Context, r storage.Reader[storage.Library], id link.ServerID) (saved, error) {
@@ -373,7 +387,20 @@ func (m *MediaServers) load(ctx context.Context, r storage.Reader[storage.Librar
 	}
 	k, _ := m.cfg.Kinds.Of(row.Kind)
 	cred, err := unsealCredential(m.cfg.Sealer, id, row.SecretsSealed)
-	return saved{row: row, kind: k, cred: cred}, err
+	if err != nil {
+		return saved{}, err
+	}
+	device, err := deviceOf(ctx, db.New(r), row)
+	return saved{row: row, kind: k, cred: cred, device: device}, err
+}
+
+// deviceOf is the DeviceId row's server knows SlipStream by.
+func deviceOf(ctx context.Context, q *db.Queries, row db.MediaserversServer) (string, error) {
+	if row.DeviceID != nil {
+		return *row.DeviceID, nil
+	}
+	a, err := q.GetPlexAccount(ctx)
+	return a.ClientIdentifier, err
 }
 
 // loaded is server id and every Node's name, in one Read.
@@ -394,7 +421,7 @@ func (m *MediaServers) loaded(ctx context.Context, id link.ServerID) (saved, map
 }
 
 func (m *MediaServers) routesOf(sv saved, names map[role.NodeID]nodes.Named) (fromNode, fromController route) {
-	return m.routes(sv.kind, names, sv.row.ReachingNodeID, sv.row.Address, deref(sv.row.FallbackAddress), sv.cred, deref(sv.row.DeviceID), sv.row.Name)
+	return m.routes(sv.kind, names, sv.row.ReachingNodeID, sv.row.Address, deref(sv.row.FallbackAddress), sv.cred, sv.device, sv.row.Name)
 }
 
 // Update changes a saved server. A change to its address, fallback
@@ -422,7 +449,7 @@ func (s service) Update(ctx context.Context, id link.ServerID, p Patch) (ServerV
 	routed := next.Address != row.Address || deref(next.FallbackAddress) != deref(row.FallbackAddress) ||
 		next.ReachingNodeID != row.ReachingNodeID || cred != sv.cred
 	if routed {
-		r, f := s.m.routes(sv.kind, names, next.ReachingNodeID, next.Address, deref(next.FallbackAddress), cred, deref(row.DeviceID), next.Name)
+		r, f := s.m.routes(sv.kind, names, next.ReachingNodeID, next.Address, deref(next.FallbackAddress), cred, sv.device, next.Name)
 		t := s.m.test(ctx, r, f, row.Identity)
 		if t.reaching != nil {
 			return ServerView{}, t.reaching
@@ -635,7 +662,7 @@ func signInFailure(err error, r route) error {
 	if p, ok := link.ServerProblem(err); ok && p.Reason == link.ReasonRefused {
 		return &SignInRefusedError{Server: r.server, With: RefusedPassword}
 	}
-	return failure(err, r.label, r.name, r.address, r.server)
+	return failure(err, r)
 }
 
 // CredentialHolders is every Node that fetched the server's credential,

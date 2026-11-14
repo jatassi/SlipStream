@@ -36,7 +36,7 @@ func (m *MediaServers) libraries(ctx context.Context, sv saved, names map[role.N
 	}
 	c, err := m.direct(f, row.Identity).Check(ctx)
 	if err != nil {
-		return nil, failure(err, f.label, f.name, f.address, f.server)
+		return nil, failure(err, f)
 	}
 	return c.Libraries, nil
 }

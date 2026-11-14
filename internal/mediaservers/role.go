@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/nodes"
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1/mediaserverv1connect"
+	"github.com/jatassi/slipstream/internal/providers/plextv"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -21,7 +22,10 @@ import (
 // records and their Path mappings, each Node's intent of the Media Server
 // link Role, the reports it applies and the reaching Nodes it follows on
 // the roster.
-type MediaServers struct{ cfg Config }
+type MediaServers struct {
+	cfg  Config
+	pins pins
+}
 
 type Config struct {
 	Library *storage.DB[storage.Library]
@@ -33,6 +37,8 @@ type Config struct {
 	// fallback address.
 	HTTP    *http.Client
 	Timings link.Timings
+	// PlexTV is where the Controller signs in to Plex.
+	PlexTV plextv.Endpoints
 	// Link is MediaServerLinkService on node, the Controller's own through
 	// Local.
 	Link func(node role.NodeID) mediaserverv1connect.MediaServerLinkServiceHandler
@@ -70,6 +76,7 @@ type Roster interface {
 	Changed() <-chan struct{}
 	InStep(node role.NodeID) bool
 	Holds(name role.Name, node role.NodeID) bool
+	Holding(name role.Name) []role.NodeID
 }
 
 func New(cfg Config) *MediaServers { return &MediaServers{cfg: cfg} }
@@ -105,6 +112,12 @@ func (m *MediaServers) Intent(ctx context.Context, r storage.Reader[storage.Libr
 		}
 		if row.DeviceID != nil {
 			s.DeviceId = *row.DeviceID
+		} else {
+			a, err := db.New(r).GetPlexAccount(ctx)
+			if err != nil {
+				return nil, err
+			}
+			s.DeviceId = a.ClientIdentifier
 		}
 		if row.MonitorDelayMs != nil {
 			s.MonitorDelayMs = *row.MonitorDelayMs

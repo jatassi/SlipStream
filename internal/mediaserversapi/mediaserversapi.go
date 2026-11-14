@@ -500,9 +500,9 @@ func Routes(r *api.Router, servers Servers) {
 	h := handlers{servers}
 	const base = "/media-servers"
 	saved := []*api.Code{tooOld, otherServer, unreached, signInRefused, localhostOnWorker, nameTaken, nodeNotFound, nodeNotLinked}
-	add := append([]*api.Code{kindUnknown, plexNotSignedIn, plexServerNotFound, plexTVUnreached, notBuilt}, saved...)
+	add := append([]*api.Code{kindUnknown, plexNotSignedIn, plexServerNotFound, plexTVUnreached}, saved...)
 	update := append([]*api.Code{serverNotFound}, saved...)
-	plex := []*api.Code{plexNotSignedIn, plexTVUnreached, notBuilt}
+	plex := []*api.Code{plexNotSignedIn, plexTVUnreached}
 
 	api.Register(o, api.Admin, api.Op{
 		ID: "listMediaServerKinds", Method: http.MethodGet, Path: base + "/kinds", Status: http.StatusOK,
@@ -589,22 +589,21 @@ func Routes(r *api.Router, servers Servers) {
 	api.Register(o, api.Admin, api.Op{
 		ID: "startPlexSignIn", Method: http.MethodPost, Path: base + "/plex/pin", Status: http.StatusCreated,
 		Summary: "Start a Plex sign-in and get the plex.tv page the Admin signs in on",
-		Errors:  []*api.Code{plexTVUnreached, notBuilt},
+		Errors:  []*api.Code{plexTVUnreached, signInRefused},
 	}, h.startPin)
 	api.Register(o, api.Admin, api.Op{
 		ID: "getPlexSignIn", Method: http.MethodGet, Path: base + "/plex/pin/{id}", Status: http.StatusOK,
 		Summary: "Get whether a Plex sign-in is still waiting, has expired or signed in",
-		Errors:  []*api.Code{plexPinNotFound, notBuilt},
+		Errors:  []*api.Code{plexPinNotFound, plexTVUnreached, signInRefused},
 	}, h.pin)
 	api.Register(o, api.Admin, api.Op{
 		ID: "getPlexAccount", Method: http.MethodGet, Path: base + "/plex/account", Status: http.StatusOK,
 		Summary: "Get the Plex account SlipStream is signed in to and when its sign-in expires",
-		Errors:  []*api.Code{plexNotSignedIn, notBuilt},
+		Errors:  []*api.Code{plexNotSignedIn},
 	}, h.account)
 	api.Register(o, api.Admin, api.Op{
 		ID: "signOutOfPlex", Method: http.MethodDelete, Path: base + "/plex/account", Status: http.StatusNoContent,
 		Summary: "Sign out of Plex, which also removes every Plex server",
-		Errors:  []*api.Code{notBuilt},
 	}, h.signOut)
 	api.Register(o, api.Admin, api.Op{
 		ID: "listPlexServers", Method: http.MethodGet, Path: base + "/plex/servers", Status: http.StatusOK,

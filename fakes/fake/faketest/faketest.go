@@ -43,6 +43,18 @@ type Served struct {
 	RunDir  string
 	Media   string
 	env     fake.Env
+	from    func(origin string) *http.Client
+}
+
+// From is a client whose requests arrive through origin's front, which
+// WithOrigins declared, so a fault rule can name origin, and whose dials a
+// refuse rule on that front refuses. InMemory only.
+func (s Served) From(t testing.TB, origin string) *http.Client {
+	t.Helper()
+	if s.from == nil {
+		t.Fatal("faketest: From needs a fake served InMemory")
+	}
+	return s.from(origin)
 }
 
 // Cue plays the fake's cue name with args, as fakeworld cue does, and
@@ -75,6 +87,7 @@ type options struct {
 	rules    []fault.Rule
 	fronts   fake.Fronts
 	origin   string
+	origins  []string
 	media    string
 	shared   *fake.Shared
 }
@@ -132,6 +145,12 @@ func As(origin string) Option {
 	return func(o *options) { o.origin = origin }
 }
 
+// WithOrigins declares one more front per origin, which Served.From
+// dials, as the world's fronts give each Node its own.
+func WithOrigins(origins ...string) Option {
+	return func(o *options) { o.origins = append(o.origins, origins...) }
+}
+
 // WithFaults sets rules before the fake serves, after the Scenario's own
 // rules for the fake. Their Target is the fake's name, and its one front
 // carries connections and HTTP.
@@ -155,9 +174,22 @@ func Loopback(t testing.TB, spec fake.Spec, s scenario.Scenario, opts ...Option)
 func InMemory(t testing.TB, spec fake.Spec, s scenario.Scenario, opts ...Option) Served {
 	t.Helper()
 	l := &pipeListener{conns: make(chan net.Conn), closed: make(chan struct{})}
-	return serve(t, spec, s, l, &http.Transport{
-		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) { return l.dial(ctx) },
+	served := serve(t, spec, s, l, &http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) { return l.dial(ctx, "") },
 	}, newCA(t), opts...)
+	tr, _ := served.Client.Transport.(*http.Transport)
+	served.from = func(origin string) *http.Client {
+		via := tr.Clone()
+		front := fault.Front{Target: fault.Target(spec.Name), Origin: origin, Layers: fault.Conn | fault.HTTP}
+		via.DialContext = func(ctx context.Context, _, _ string) (net.Conn, error) {
+			if served.Faults.Refused(front) {
+				return nil, &net.OpError{Op: "dial", Net: "tcp", Addr: l.Addr(), Err: fault.ErrRefused}
+			}
+			return l.dial(ctx, origin)
+		}
+		return &http.Client{Transport: via}
+	}
+	return served
 }
 
 func newCA(t testing.TB) *ca.CA {
@@ -175,10 +207,15 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 	for _, opt := range opts {
 		opt(&o)
 	}
-	front := fault.Front{Target: fault.Target(spec.Name), Origin: o.origin, Layers: fault.Conn | fault.HTTP}
-	plan := fault.NewPlan([]fault.Front{front}, nil)
+	fronts := map[string]fault.Front{"": {Target: fault.Target(spec.Name), Origin: o.origin, Layers: fault.Conn | fault.HTTP}}
+	all := []fault.Front{fronts[""]}
+	for _, origin := range o.origins {
+		fronts[origin] = fault.Front{Target: fault.Target(spec.Name), Origin: origin, Layers: fault.Conn | fault.HTTP}
+		all = append(all, fronts[origin])
+	}
+	plan := fault.NewPlan(all, nil)
 	at := fake.Address{AddrPort: netip.MustParseAddrPort(l.Addr().String()), TLS: spec.TLS == fake.FrontTLS}
-	l = plan.Listener(l, front)
+	l = fronted{Listener: l, plan: plan, fronts: fronts}
 	if spec.Endpoints != nil {
 		var e node.EndpointsBlock
 		spec.Endpoints(&e, at)
@@ -244,6 +281,32 @@ func ownRules(s scenario.Scenario, spec fake.Spec) []fault.Rule {
 
 // pipeListener hands each dial's far end of a fault.Pipe to Accept. Every
 // block is on a channel, so a bubble's goroutines block durably.
+// fronted wraps each accepted connection in its origin's front, the
+// default front for a connection from no origin.
+type fronted struct {
+	net.Listener
+	plan   *fault.Plan
+	fronts map[string]fault.Front
+}
+
+func (l fronted) Accept() (net.Conn, error) {
+	c, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err //nolint:wrapcheck // the listener's own error, as net.Listener callers expect
+	}
+	origin := ""
+	if o, ok := c.(originConn); ok {
+		c, origin = o.Conn, o.origin
+	}
+	return l.plan.Conn(c, l.fronts[origin]), nil
+}
+
+// originConn is the fake's end of an in-memory connection From dialed.
+type originConn struct {
+	net.Conn
+	origin string
+}
+
 type pipeListener struct {
 	conns  chan net.Conn
 	closed chan struct{}
@@ -268,10 +331,10 @@ func (l *pipeListener) Addr() net.Addr {
 	return net.TCPAddrFromAddrPort(netip.MustParseAddrPort("127.0.0.1:443"))
 }
 
-func (l *pipeListener) dial(ctx context.Context) (net.Conn, error) {
+func (l *pipeListener) dial(ctx context.Context, origin string) (net.Conn, error) {
 	server, client := fault.Pipe(l.Addr(), l.Addr())
 	select {
-	case l.conns <- server:
+	case l.conns <- originConn{Conn: server, origin: origin}:
 		return client, nil
 	case <-l.closed:
 		return nil, net.ErrClosed

@@ -67,17 +67,21 @@ func hostOf(address string) string {
 
 // failure is a route test's error as the Admin reads it: the server's own
 // response, or no response at all from a Node that didn't get one.
-func failure(err error, label, node, address, server string) error {
+func failure(err error, r route) error {
 	p, ok := link.ServerProblem(err)
 	if !ok {
-		return &UnreachedError{Label: label, Node: node, Address: address}
+		return &UnreachedError{Label: r.label, Node: r.name, Address: r.address}
 	}
 	switch p.Reason {
 	case link.ReasonRefused:
-		return &SignInRefusedError{Server: server, With: RefusedKey}
+		with := RefusedKey
+		if r.kind.About().Form == link.SignInPlexPIN {
+			with = RefusedPlex
+		}
+		return &SignInRefusedError{Server: r.server, With: with}
 	case link.ReasonOtherServer:
-		return &OtherServerError{Label: label, Address: address}
+		return &OtherServerError{Label: r.label, Address: r.address}
 	case link.ReasonUnreachable, link.ReasonUnsupported, link.ReasonFailed:
 	}
-	return &UnreachedError{Label: label, Node: node, Address: address}
+	return &UnreachedError{Label: r.label, Node: r.name, Address: r.address}
 }

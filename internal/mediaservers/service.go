@@ -59,15 +59,3 @@ func (Unbuilt) Sessions(context.Context, link.ServerID) (Sessions, error) {
 func (Unbuilt) Changes(context.Context, link.ServerID, string) (Changes, error) {
 	return Changes{}, ErrNotBuilt
 }
-
-func (Unbuilt) StartPlexPin(context.Context, string) (PlexPin, error) { return PlexPin{}, ErrNotBuilt }
-
-func (Unbuilt) PlexPin(context.Context, int64) (PlexPinState, error) {
-	return PlexPinState{}, ErrNotBuilt
-}
-
-func (Unbuilt) PlexAccount(context.Context) (AccountView, error) { return AccountView{}, ErrNotBuilt }
-
-func (Unbuilt) SignOutOfPlex(context.Context) error { return ErrNotBuilt }
-
-func (Unbuilt) PlexServers(context.Context) ([]PlexServerView, error) { return nil, ErrNotBuilt }

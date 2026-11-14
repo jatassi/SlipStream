@@ -22,7 +22,6 @@ import type {
   AddMediaServer409,
   AddMediaServer422,
   AddMediaServer500,
-  AddMediaServer501,
   AddMediaServer502,
   ConfirmMediaServerIdentity401,
   ConfirmMediaServerIdentity403,
@@ -45,14 +44,13 @@ import type {
   GetPlexAccount403,
   GetPlexAccount409,
   GetPlexAccount500,
-  GetPlexAccount501,
   GetPlexSignIn401,
   GetPlexSignIn403,
   GetPlexSignIn404,
   GetPlexSignIn409,
   GetPlexSignIn422,
   GetPlexSignIn500,
-  GetPlexSignIn501,
+  GetPlexSignIn502,
   HoldersOutputBody,
   KindsOutputBody,
   ListMediaServerChanges401,
@@ -96,7 +94,6 @@ import type {
   ListPlexServers409,
   ListPlexServers422,
   ListPlexServers500,
-  ListPlexServers501,
   ListPlexServers502,
   MappingsOutputBody,
   MediaserversAccountView,
@@ -148,13 +145,11 @@ import type {
   SignOutOfPlex403,
   SignOutOfPlex409,
   SignOutOfPlex500,
-  SignOutOfPlex501,
   StartPlexSignIn401,
   StartPlexSignIn403,
   StartPlexSignIn409,
   StartPlexSignIn422,
   StartPlexSignIn500,
-  StartPlexSignIn501,
   StartPlexSignIn502,
   TestMediaServer401,
   TestMediaServer403,
@@ -370,7 +365,6 @@ export const getAddMediaServerMutationOptions = <
     | AddMediaServer409
     | AddMediaServer422
     | AddMediaServer500
-    | AddMediaServer501
     | AddMediaServer502
   >,
   TContext = unknown,
@@ -416,7 +410,6 @@ export type AddMediaServerMutationError = ErrorType<
   | AddMediaServer409
   | AddMediaServer422
   | AddMediaServer500
-  | AddMediaServer501
   | AddMediaServer502
 >;
 export type AddMediaServerMutationVariables = { data: MediaserversDraftBody };
@@ -432,7 +425,6 @@ export const useAddMediaServer = <
     | AddMediaServer409
     | AddMediaServer422
     | AddMediaServer500
-    | AddMediaServer501
     | AddMediaServer502
   >,
   TContext = unknown,
@@ -616,9 +608,7 @@ export const signOutOfPlex = async (options?: Parameters<typeof apiFetch>[1]): P
 export const getSignOutOfPlexMutationKey = () => ["signOutOfPlex"] as const;
 
 export const getSignOutOfPlexMutationOptions = <
-  TError = ErrorType<
-    SignOutOfPlex401 | SignOutOfPlex403 | SignOutOfPlex409 | SignOutOfPlex500 | SignOutOfPlex501
-  >,
+  TError = ErrorType<SignOutOfPlex401 | SignOutOfPlex403 | SignOutOfPlex409 | SignOutOfPlex500>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<Awaited<ReturnType<typeof signOutOfPlex>>, TError, void, TContext>;
@@ -641,16 +631,14 @@ export const getSignOutOfPlexMutationOptions = <
 export type SignOutOfPlexMutationResult = NonNullable<Awaited<ReturnType<typeof signOutOfPlex>>>;
 
 export type SignOutOfPlexMutationError = ErrorType<
-  SignOutOfPlex401 | SignOutOfPlex403 | SignOutOfPlex409 | SignOutOfPlex500 | SignOutOfPlex501
+  SignOutOfPlex401 | SignOutOfPlex403 | SignOutOfPlex409 | SignOutOfPlex500
 >;
 
 /**
  * @summary Sign out of Plex, which also removes every Plex server
  */
 export const useSignOutOfPlex = <
-  TError = ErrorType<
-    SignOutOfPlex401 | SignOutOfPlex403 | SignOutOfPlex409 | SignOutOfPlex500 | SignOutOfPlex501
-  >,
+  TError = ErrorType<SignOutOfPlex401 | SignOutOfPlex403 | SignOutOfPlex409 | SignOutOfPlex500>,
   TContext = unknown,
 >(
   options?: {
@@ -688,13 +676,7 @@ export const getGetPlexAccountQueryKey = () => {
 
 export const getGetPlexAccountSuspenseQueryOptions = <
   TData = Awaited<ReturnType<typeof getPlexAccount>>,
-  TError = ErrorType<
-    | GetPlexAccount401
-    | GetPlexAccount403
-    | GetPlexAccount409
-    | GetPlexAccount500
-    | GetPlexAccount501
-  >,
+  TError = ErrorType<GetPlexAccount401 | GetPlexAccount403 | GetPlexAccount409 | GetPlexAccount500>,
 >(options?: {
   query?: Partial<
     UseSuspenseQueryOptions<Awaited<ReturnType<typeof getPlexAccount>>, TError, TData>
@@ -723,18 +705,12 @@ export type GetPlexAccountSuspenseQueryResult = NonNullable<
   Awaited<ReturnType<typeof getPlexAccount>>
 >;
 export type GetPlexAccountSuspenseQueryError = ErrorType<
-  GetPlexAccount401 | GetPlexAccount403 | GetPlexAccount409 | GetPlexAccount500 | GetPlexAccount501
+  GetPlexAccount401 | GetPlexAccount403 | GetPlexAccount409 | GetPlexAccount500
 >;
 
 export function useGetPlexAccountSuspense<
   TData = Awaited<ReturnType<typeof getPlexAccount>>,
-  TError = ErrorType<
-    | GetPlexAccount401
-    | GetPlexAccount403
-    | GetPlexAccount409
-    | GetPlexAccount500
-    | GetPlexAccount501
-  >,
+  TError = ErrorType<GetPlexAccount401 | GetPlexAccount403 | GetPlexAccount409 | GetPlexAccount500>,
 >(
   options: {
     query: Partial<
@@ -746,13 +722,7 @@ export function useGetPlexAccountSuspense<
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 export function useGetPlexAccountSuspense<
   TData = Awaited<ReturnType<typeof getPlexAccount>>,
-  TError = ErrorType<
-    | GetPlexAccount401
-    | GetPlexAccount403
-    | GetPlexAccount409
-    | GetPlexAccount500
-    | GetPlexAccount501
-  >,
+  TError = ErrorType<GetPlexAccount401 | GetPlexAccount403 | GetPlexAccount409 | GetPlexAccount500>,
 >(
   options?: {
     query?: Partial<
@@ -764,13 +734,7 @@ export function useGetPlexAccountSuspense<
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 export function useGetPlexAccountSuspense<
   TData = Awaited<ReturnType<typeof getPlexAccount>>,
-  TError = ErrorType<
-    | GetPlexAccount401
-    | GetPlexAccount403
-    | GetPlexAccount409
-    | GetPlexAccount500
-    | GetPlexAccount501
-  >,
+  TError = ErrorType<GetPlexAccount401 | GetPlexAccount403 | GetPlexAccount409 | GetPlexAccount500>,
 >(
   options?: {
     query?: Partial<
@@ -786,13 +750,7 @@ export function useGetPlexAccountSuspense<
 
 export function useGetPlexAccountSuspense<
   TData = Awaited<ReturnType<typeof getPlexAccount>>,
-  TError = ErrorType<
-    | GetPlexAccount401
-    | GetPlexAccount403
-    | GetPlexAccount409
-    | GetPlexAccount500
-    | GetPlexAccount501
-  >,
+  TError = ErrorType<GetPlexAccount401 | GetPlexAccount403 | GetPlexAccount409 | GetPlexAccount500>,
 >(
   options?: {
     query?: Partial<
@@ -859,7 +817,6 @@ export const getStartPlexSignInMutationOptions = <
     | StartPlexSignIn409
     | StartPlexSignIn422
     | StartPlexSignIn500
-    | StartPlexSignIn501
     | StartPlexSignIn502
   >,
   TContext = unknown,
@@ -906,7 +863,6 @@ export type StartPlexSignInMutationError = ErrorType<
   | StartPlexSignIn409
   | StartPlexSignIn422
   | StartPlexSignIn500
-  | StartPlexSignIn501
   | StartPlexSignIn502
 >;
 export type StartPlexSignInMutationVariables = { data: MediaserversPinBody };
@@ -921,7 +877,6 @@ export const useStartPlexSignIn = <
     | StartPlexSignIn409
     | StartPlexSignIn422
     | StartPlexSignIn500
-    | StartPlexSignIn501
     | StartPlexSignIn502
   >,
   TContext = unknown,
@@ -974,7 +929,7 @@ export const getGetPlexSignInSuspenseQueryOptions = <
     | GetPlexSignIn409
     | GetPlexSignIn422
     | GetPlexSignIn500
-    | GetPlexSignIn501
+    | GetPlexSignIn502
   >,
 >(
   id: number,
@@ -1013,7 +968,7 @@ export type GetPlexSignInSuspenseQueryError = ErrorType<
   | GetPlexSignIn409
   | GetPlexSignIn422
   | GetPlexSignIn500
-  | GetPlexSignIn501
+  | GetPlexSignIn502
 >;
 
 export function useGetPlexSignInSuspense<
@@ -1025,7 +980,7 @@ export function useGetPlexSignInSuspense<
     | GetPlexSignIn409
     | GetPlexSignIn422
     | GetPlexSignIn500
-    | GetPlexSignIn501
+    | GetPlexSignIn502
   >,
 >(
   id: number,
@@ -1046,7 +1001,7 @@ export function useGetPlexSignInSuspense<
     | GetPlexSignIn409
     | GetPlexSignIn422
     | GetPlexSignIn500
-    | GetPlexSignIn501
+    | GetPlexSignIn502
   >,
 >(
   id: number,
@@ -1067,7 +1022,7 @@ export function useGetPlexSignInSuspense<
     | GetPlexSignIn409
     | GetPlexSignIn422
     | GetPlexSignIn500
-    | GetPlexSignIn501
+    | GetPlexSignIn502
   >,
 >(
   id: number,
@@ -1092,7 +1047,7 @@ export function useGetPlexSignInSuspense<
     | GetPlexSignIn409
     | GetPlexSignIn422
     | GetPlexSignIn500
-    | GetPlexSignIn501
+    | GetPlexSignIn502
   >,
 >(
   id: number,
@@ -1142,7 +1097,6 @@ export const getListPlexServersSuspenseQueryOptions = <
     | ListPlexServers409
     | ListPlexServers422
     | ListPlexServers500
-    | ListPlexServers501
     | ListPlexServers502
   >,
 >(options?: {
@@ -1178,7 +1132,6 @@ export type ListPlexServersSuspenseQueryError = ErrorType<
   | ListPlexServers409
   | ListPlexServers422
   | ListPlexServers500
-  | ListPlexServers501
   | ListPlexServers502
 >;
 
@@ -1190,7 +1143,6 @@ export function useListPlexServersSuspense<
     | ListPlexServers409
     | ListPlexServers422
     | ListPlexServers500
-    | ListPlexServers501
     | ListPlexServers502
   >,
 >(
@@ -1210,7 +1162,6 @@ export function useListPlexServersSuspense<
     | ListPlexServers409
     | ListPlexServers422
     | ListPlexServers500
-    | ListPlexServers501
     | ListPlexServers502
   >,
 >(
@@ -1230,7 +1181,6 @@ export function useListPlexServersSuspense<
     | ListPlexServers409
     | ListPlexServers422
     | ListPlexServers500
-    | ListPlexServers501
     | ListPlexServers502
   >,
 >(
@@ -1254,7 +1204,6 @@ export function useListPlexServersSuspense<
     | ListPlexServers409
     | ListPlexServers422
     | ListPlexServers500
-    | ListPlexServers501
     | ListPlexServers502
   >,
 >(
