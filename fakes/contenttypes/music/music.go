@@ -263,6 +263,16 @@ func (*Music) SearchTerms(context.Context, storage.Reader[file], works.ItemID) (
 	return indexers.Terms{}, nil
 }
 
+// Groups searches each track alone: music isn't searched.
+func (*Music) Groups(_ context.Context, _ storage.Reader[file], _ works.WorkID, items []works.ItemID) ([]indexers.Group, error) {
+	return indexers.Singles(items, ""), nil
+}
+
+// GroupTerms answers indexers' empty answer: music isn't searched.
+func (*Music) GroupTerms(context.Context, storage.Reader[file], works.WorkID, indexers.Group) (indexers.Terms, error) {
+	return indexers.Terms{}, nil
+}
+
 // Categories are none: music isn't searched.
 func (*Music) Categories() []newznab.ID { return nil }
 

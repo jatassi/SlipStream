@@ -147,6 +147,14 @@ func (a *attic) SearchTerms(ctx context.Context, r storage.Reader[storage.Librar
 	return indexers.Terms{Expect: e, Mode: "search", Query: "The Attic"}, err
 }
 
+func (*attic) Groups(_ context.Context, _ storage.Reader[storage.Library], _ works.WorkID, items []works.ItemID) ([]indexers.Group, error) {
+	return indexers.Singles(items, "The Attic"), nil
+}
+
+func (a *attic) GroupTerms(ctx context.Context, r storage.Reader[storage.Library], _ works.WorkID, g indexers.Group) (indexers.Terms, error) {
+	return a.SearchTerms(ctx, r, g.Items[0])
+}
+
 func (*attic) Categories() []newznab.ID { return newznab.Family(2000) }
 
 // newTwinWorld is The Attic whose Indexers answer as tw's sites.
