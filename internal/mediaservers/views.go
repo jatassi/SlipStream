@@ -119,7 +119,7 @@ type LibraryView struct {
 
 type MappingView struct {
 	RootID       string   `json:"rootId" format:"uuid"`
-	RootName     string   `json:"rootName" doc:"Such as Movies (D:)"`
+	RootName     string   `json:"rootName" doc:"The root as copy names it, such as Movies library root on Media server"`
 	RootNode     NodeRef  `json:"rootNode" doc:"The Storage Node whose disk holds the root"`
 	Shown        bool     `json:"shown" doc:"false for a root this server doesn't show, which gets no changes"`
 	ServerFolder string   `json:"serverFolder,omitempty" doc:"The root's folder as the server sees it; absent when not shown"`

@@ -137,10 +137,12 @@ func newRig(t *testing.T) *rig {
 	var control *role.Control[*msv1.Intent, *msv1.Facts, *msv1.Report]
 	var svc *nodes.Service
 	ms := mediaservers.New(mediaservers.Config{
-		Library: r.lib,
-		Roster:  roster{&svc},
-		Touch:   func(nodes ...role.NodeID) { control.Touch(nodes...) },
-		Log:     log,
+		Library:      r.lib,
+		Roster:       roster{&svc},
+		Touch:        func(nodes ...role.NodeID) { control.Touch(nodes...) },
+		Log:          log,
+		Events:       mediaservers.Events{Changed: unpublished[mediaservers.Changed]{}},
+		RootsChanged: func(context.Context) <-chan struct{} { return nil },
 	})
 	control = mediaserverlink.Def.Serve(ms.Intent, ms.Apply)
 	owners := nodestest.Unowned()
@@ -236,6 +238,16 @@ type roster struct{ svc **nodes.Service }
 
 func (r roster) Self() role.NodeID        { return (*r.svc).Self() }
 func (r roster) Changed() <-chan struct{} { return (*r.svc).Changed() }
+func (r roster) InStep(node role.NodeID) bool {
+	return (*r.svc).InStep(node)
+}
+func (r roster) Holds(name role.Name, node role.NodeID) bool {
+	return (*r.svc).Holds(name, node)
+}
+
+type unpublished[T any] struct{}
+
+func (unpublished[T]) Publish(context.Context, T) {}
 
 func run(t *testing.T, f func(context.Context) error) {
 	t.Helper()

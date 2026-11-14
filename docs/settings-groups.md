@@ -12,7 +12,7 @@ An Admin comes to Settings with a question, such as "where do my files go?" or "
 | Files to keep | Which versions of each Work do I want? | Targets, Profiles, Custom Formats, Editions | Conversion |
 | Search and download | How does SlipStream find and fetch releases? | Indexers, Trackers, Download Clients (built-in and external) | Automatic search |
 | Access | Who can reach SlipStream, and how? | Address, Sign-in, API key | Requests, Member portal |
-| System | How do the Nodes and the server itself run? | Nodes, Email | Backups, Updates, Media Servers, Notifications |
+| System | How do the Nodes and the server itself run? | Nodes, Email, Media Servers | Backups, Updates, Notifications |
 
 The first three groups follow the media pipeline in order. An Admin sets up a library, says what to keep in it, then says where to get it. The last two are about running the server and come after, because an Admin visits them less often once setup is done.
 
@@ -51,5 +51,7 @@ A setting the Controller stores for each Node, such as where that Node's Grabs g
 "A client error fails its Grab after" sits in Download Clients under its own "Client errors" heading, after "When a Release counts as bad" and "Magnet links". It applies to every external Download Client, so it sits in the section and not on each client's sheet.
 
 Importing sits after Library scan, which links to it, because a scan reads its Video file extensions. A download and a manual import read all three of its settings.
+
+Media Servers holds the settings that apply to every Plex, Jellyfin and Emby server: "Wait before sending", "Check sessions every", "Mark unhealthy after" and "Keep play history for", then the Plex sign-in's "Renew Plex sign-in every" and "Renew when less than this is left". The renewal schedule is the Plex sign-in task's frequency, so it shows on the Tasks page too. A server's own address, Nodes and Path mappings stay on that server's sheet.
 
 A setting can show in more than one place when an Admin would look for it there, such as a task's frequency on the Tasks page and in its feature's section. It still has one stored value.
