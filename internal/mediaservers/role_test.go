@@ -245,6 +245,8 @@ func (r roster) Holds(name role.Name, node role.NodeID) bool {
 	return (*r.svc).Holds(name, node)
 }
 
+func (r roster) Holding(name role.Name) []role.NodeID { return (*r.svc).Holding(name) }
+
 type unpublished[T any] struct{}
 
 func (unpublished[T]) Publish(context.Context, T) {}

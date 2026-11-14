@@ -10,24 +10,33 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/netip"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"testing/synctest"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
 	"github.com/jatassi/slipstream/fakes/jellyfin"
+	fakeplex "github.com/jatassi/slipstream/fakes/plex"
+	fakeplextv "github.com/jatassi/slipstream/fakes/plextv"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/mediaserverlink"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers"
+	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
+	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1/mediaserverv1connect"
+	"github.com/jatassi/slipstream/internal/providers/plextv"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
@@ -47,11 +56,14 @@ type World struct {
 	Sealer        *secret.Sealer
 	Home, Seedbox role.NodeID
 	Service       mediaservers.Service
-	net           *network
-	roots         *roots.Roots
-	rehomed       chan struct{}
-	mu            sync.Mutex
-	changed       []mediaservers.Changed
+	// Renewal is the Plex sign-in task, run as the scheduler runs it.
+	Renewal tasks.Task
+	ms      *mediaservers.MediaServers
+	net     *network
+	roots   *roots.Roots
+	rehomed chan struct{}
+	mu      sync.Mutex
+	changed []mediaservers.Changed
 }
 
 // Schemas are the library schemas the Media Servers read.
@@ -69,7 +81,8 @@ func New(t *testing.T) *World {
 		net: &network{served: map[string]http.RoundTripper{}}, rehomed: make(chan struct{}, 1),
 	}
 	err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		return errors.Join(nodestest.Insert(ctx, tx, w.Home, "home"), nodestest.Insert(ctx, tx, w.Seedbox, "seedbox"))
+		return errors.Join(nodestest.Insert(ctx, tx, w.Home, "home"), nodestest.Insert(ctx, tx, w.Seedbox, "seedbox"),
+			nodestest.Address(ctx, tx, w.Home, 0, HomeIP+":7878"), nodestest.Address(ctx, tx, w.Seedbox, 0, SeedboxIP+":7878"))
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -84,8 +97,8 @@ func New(t *testing.T) *World {
 	// A route test, a sign-in and a library read are each one call.
 	timings := link.Timings{Call: 10 * time.Second}
 	ms := mediaservers.New(mediaservers.Config{
-		Library: w.Lib, Sealer: w.Sealer, Roster: roster{w.Home}, Kinds: mediaserverlink.Kinds,
-		HTTP: w.net.client(), Timings: timings,
+		Library: w.Lib, Sealer: w.Sealer, Roster: roster{w.Home, w.Seedbox}, Kinds: mediaserverlink.Kinds,
+		HTTP: w.net.client(), Timings: timings, PlexTV: plexTV,
 		Link: func(role.NodeID) mediaserverv1connect.MediaServerLinkServiceHandler {
 			return mediaserverlink.NewLink(mediaserverlink.Config{Kinds: mediaserverlink.Kinds, HTTP: w.net.client(), Timings: timings, Log: log}).Service()
 		},
@@ -97,7 +110,7 @@ func New(t *testing.T) *World {
 		Zone:         time.UTC,
 		Log:          log,
 	})
-	w.Service = ms.Service()
+	w.ms, w.Service, w.Renewal = ms, ms.Service(), ms.RenewalTask()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -134,6 +147,77 @@ func (w *World) Jellyfin(t *testing.T, host string, srv jellyfin.Server) {
 	w.net.mu.Lock()
 	defer w.net.mu.Unlock()
 	w.net.served[host] = f.Client.Transport
+}
+
+// The link addresses of home and seedbox, where Plex lists a local
+// connection to the Plex each runs.
+const (
+	HomeIP    = "192.168.1.10"
+	SeedboxIP = "10.0.0.7"
+)
+
+// plexTV is where the World's plex.tv is served.
+var plexTV = plextv.Endpoints{
+	API:     endpoint.MustParseURL("https://plextv.fake.localhost"),
+	Auth:    endpoint.MustParseURL("http://plextv-auth.fake.localhost/auth"),
+	Desktop: endpoint.MustParseURL("https://app.plex.invalid/desktop"),
+}
+
+// Plex is plex.tv signing in to account, which owns srv, and srv served
+// at home's and seedbox's addresses on port 32400, in that order in
+// resources. Each connection is that Node's front, as in the world, so a
+// fault rule's origin names the connection, whoever dials it.
+type Plex struct {
+	TV, Server faketest.Served
+}
+
+func (w *World) Plex(t *testing.T, srv fakeplex.Server, a fakeplextv.Account) Plex {
+	t.Helper()
+	s := scenario.Scenario{Seed: "mstest"}
+	shared := fake.NewShared()
+	p := Plex{Server: faketest.InMemory(t, fakeplex.Playing(srv), s, faketest.WithShared(shared), faketest.WithOrigins("home", "seedbox"))}
+	fronts := fake.Fronts{}
+	hosts := map[string]string{}
+	for _, f := range []struct{ node, ip string }{{"home", HomeIP}, {"seedbox", SeedboxIP}} {
+		at := netip.MustParseAddrPort(f.ip + ":32400")
+		fronts = append(fronts, fake.Front{Target: "plex", Node: f.node, Address: fake.Address{AddrPort: at}})
+		hosts[at.String()] = f.node
+	}
+	p.TV = faketest.InMemory(t, fakeplextv.Playing(a), s, faketest.WithShared(shared), faketest.WithFronts(fronts))
+	w.net.mu.Lock()
+	defer w.net.mu.Unlock()
+	for host, node := range hosts {
+		w.net.served[host] = p.Server.From(t, node).Transport
+	}
+	w.net.served[plexTV.API.Hostname()] = p.TV.Client.Transport
+	return p
+}
+
+// Approve signs the account in on the sign-in page at authURL, as the
+// Admin does on plex.tv.
+func (p Plex) Approve(t *testing.T, authURL string) {
+	t.Helper()
+	_, fragment, _ := strings.Cut(authURL, "#?")
+	q, err := url.ParseQuery(fragment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.TV.Cue(t, fakeplextv.Approve.Name, map[string]string{"code": q.Get("code")})
+}
+
+// Intent is node's intent as the Role sends it.
+func (w *World) Intent(t *testing.T, node role.NodeID) *msv1.Intent {
+	t.Helper()
+	var in *msv1.Intent
+	err := w.Lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		in, err = w.ms.Intent(ctx, r, node)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return in
 }
 
 // Root makes a fresh folder named name a library root on home.
@@ -245,9 +329,10 @@ func (f roundTrip) RoundTrip(req *http.Request) (*http.Response, error) { return
 
 // roster is home's view of its Nodes: each in step, holding Media Server
 // link.
-type roster struct{ self role.NodeID }
+type roster struct{ self, worker role.NodeID }
 
 func (r roster) Self() role.NodeID                      { return r.self }
+func (r roster) Holding(role.Name) []role.NodeID        { return []role.NodeID{r.self, r.worker} }
 func (roster) Changed() <-chan struct{}                 { return nil }
 func (roster) InStep(role.NodeID) bool                  { return true }
 func (roster) Holds(name role.Name, _ role.NodeID) bool { return name == role.MediaServerLink }

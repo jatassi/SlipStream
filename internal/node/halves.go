@@ -191,6 +191,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Kinds:   mediaserverlink.Kinds,
 		HTTP:    client,
 		Timings: n.cfg.Timings.MediaServers,
+		PlexTV:  n.cfg.Endpoints.PlexTV,
 		Link: func(node role.NodeID) mediaserverv1connect.MediaServerLinkServiceHandler {
 			return mediaserverv1connect.MediaServerLinkService.On(cluster, node)
 		},
