@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/imagecdn"
 	"github.com/jatassi/slipstream/fakes/omdb"
 	"github.com/jatassi/slipstream/fakes/plex"
+	"github.com/jatassi/slipstream/fakes/plextv"
 	"github.com/jatassi/slipstream/fakes/qbittorrent"
 	"github.com/jatassi/slipstream/fakes/rtorrent"
 	"github.com/jatassi/slipstream/fakes/site"
@@ -23,7 +24,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/tvdb"
 )
 
-var fakes = []fake.Spec{musicmeta.Fake, coverart.Fake, tmdb.Fake, tvdb.Fake, omdb.Fake, imagecdn.Fake, tracker.Fake, tracker.UDP, dht.Fake, site.Fake, catalog.Fake, challengesolver.Fake, smtp.Fake, qbittorrent.Fake, transmission.Fake, deluge.Fake, rtorrent.Fake, plex.Fake}
+var fakes = []fake.Spec{musicmeta.Fake, coverart.Fake, tmdb.Fake, tvdb.Fake, omdb.Fake, imagecdn.Fake, tracker.Fake, tracker.UDP, dht.Fake, site.Fake, catalog.Fake, challengesolver.Fake, smtp.Fake, qbittorrent.Fake, transmission.Fake, deluge.Fake, rtorrent.Fake, plex.Fake, plextv.Fake, plextv.Auth}
 
 // Cues are the cues the world's fakes declare, each a name fakeworld cue
 // takes.

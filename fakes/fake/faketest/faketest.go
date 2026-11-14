@@ -76,6 +76,7 @@ type options struct {
 	fronts   fake.Fronts
 	origin   string
 	media    string
+	shared   *fake.Shared
 }
 
 type Option func(*options)
@@ -118,6 +119,12 @@ func WithFronts(fronts fake.Fronts) Option {
 // folder.
 func WithMedia(dir string) Option {
 	return func(o *options) { o.media = dir }
+}
+
+// WithShared hands the fake shared, as the world hands every fake of a
+// run one, so a test serves fakes that share state.
+func WithShared(shared *fake.Shared) Option {
+	return func(o *options) { o.shared = shared }
 }
 
 // As has every request arrive from origin, as through that Node's front.
@@ -197,6 +204,9 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 		o.media = t.TempDir()
 	}
 	env.Releases, env.Fronts, env.Files, env.Dir, env.Media = o.releases, o.fronts, runDir, t.TempDir(), o.media
+	if o.shared != nil {
+		env.Shared = o.shared
+	}
 	if spec.TLS == fake.OwnTLS {
 		env.Leaf = served
 	}
