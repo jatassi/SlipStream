@@ -12282,6 +12282,10 @@
         "type": "object"
       },
       "MediaserversKind": {
+        "enum": [
+          "jellyfin",
+          "emby"
+        ],
         "type": "string"
       },
       "MediaserversKindView": {
