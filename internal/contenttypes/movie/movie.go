@@ -235,6 +235,20 @@ func (*Movie) SearchTerms(ctx context.Context, r storage.Reader[file], item work
 	return t, nil
 }
 
+// Groups searches each Item alone, labeled the movie's title.
+func (*Movie) Groups(ctx context.Context, r storage.Reader[file], work works.WorkID, items []works.ItemID) ([]indexers.Group, error) {
+	mv, err := db.New(r).GetMovie(ctx, work)
+	if err != nil {
+		return nil, err
+	}
+	return indexers.Singles(items, mv.TitleEnglish), nil
+}
+
+// GroupTerms are the SearchTerms of g's Item.
+func (m *Movie) GroupTerms(ctx context.Context, r storage.Reader[file], _ works.WorkID, g indexers.Group) (indexers.Terms, error) {
+	return m.SearchTerms(ctx, r, g.Items[0])
+}
+
 // Categories are the Movies Newznab family.
 func (*Movie) Categories() []newznab.ID { return newznab.Family(2000) }
 
