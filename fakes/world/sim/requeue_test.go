@@ -75,14 +75,6 @@ func searched(t *testing.T, a *worldtest.API, work string) string {
 	return outcome
 }
 
-// accepted reads a 202 as decode reads a 200.
-func accepted(r worldtest.Reply) worldtest.Reply {
-	if r.Status == http.StatusAccepted {
-		r.Status = http.StatusOK
-	}
-	return r
-}
-
 func grabsOn(t *testing.T, a *worldtest.API) []simtest.GrabView {
 	t.Helper()
 	return simtest.Decode[struct {

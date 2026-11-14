@@ -18,15 +18,13 @@ type queuedCanceled struct {
 
 type queuedCanceledOutput struct{ Body queuedCanceled }
 
-func queueRoutes(o *api.Owner, h handlers) {
-	api.Register(o, api.Admin, api.Op{
-		ID:      "cancelQueuedSearches",
-		Method:  http.MethodDelete,
-		Path:    "/search-queue",
-		Summary: "Cancel every search queued in a lane",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{notYet},
-	}, h.cancelQueuedSearches)
+var cancelQueuedSearchesOp = api.Op{
+	ID:      "cancelQueuedSearches",
+	Method:  http.MethodDelete,
+	Path:    "/search-queue",
+	Summary: "Cancel every search queued in a lane",
+	Status:  http.StatusOK,
+	Errors:  []*api.Code{notYet},
 }
 
 func (handlers) cancelQueuedSearches(context.Context, identity.Admin, *cancelQueuedInput) (*queuedCanceledOutput, error) {

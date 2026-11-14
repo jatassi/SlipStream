@@ -35,15 +35,13 @@ type queuedGroup struct {
 
 type searchQueuedOutput struct{ Body searchQueued }
 
-func searchRoutes(o *api.Owner, h handlers) {
-	api.Register(o, api.Admin, api.Op{
-		ID:      "searchWork",
-		Method:  http.MethodPost,
-		Path:    "/works/{workId}/search",
-		Summary: "Queue a search of each wanted Item of a Work, or of some of its levels and Items, to grab the best release",
-		Status:  http.StatusAccepted,
-		Errors:  []*api.Code{workNotFound, nothingWanted, noIndexer, noRoot, rootUnreachable, notSearchable, reconciling},
-	}, h.searchWork)
+var searchWorkOp = api.Op{
+	ID:      "searchWork",
+	Method:  http.MethodPost,
+	Path:    "/works/{workId}/search",
+	Summary: "Queue a search of each wanted Item of a Work, or of some of its levels and Items, to grab the best release",
+	Status:  http.StatusAccepted,
+	Errors:  []*api.Code{workNotFound, nothingWanted, noIndexer, noRoot, rootUnreachable, notSearchable, reconciling},
 }
 
 func (h handlers) searchWork(ctx context.Context, by identity.Admin, in *searchWorkInput) (*searchQueuedOutput, error) {

@@ -22,23 +22,22 @@ type searchSettingsInput struct {
 	}
 }
 
-func settingsRoutes(o *api.Owner, h handlers) {
-	api.Register(o, api.Admin, api.Op{
-		ID:      "getSearchSettings",
-		Method:  http.MethodGet,
-		Path:    "/search-settings",
-		Summary: "Get the Automatic search settings",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{notYet},
-	}, h.getSearchSettings)
-	api.Register(o, api.Admin, api.Op{
-		ID:      "updateSearchSettings",
-		Method:  http.MethodPatch,
-		Path:    "/search-settings",
-		Summary: "Change Automatic search settings by key, all or none",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown, notYet},
-	}, h.updateSearchSettings)
+var getSearchSettingsOp = api.Op{
+	ID:      "getSearchSettings",
+	Method:  http.MethodGet,
+	Path:    "/search-settings",
+	Summary: "Get the Automatic search settings",
+	Status:  http.StatusOK,
+	Errors:  []*api.Code{notYet},
+}
+
+var updateSearchSettingsOp = api.Op{
+	ID:      "updateSearchSettings",
+	Method:  http.MethodPatch,
+	Path:    "/search-settings",
+	Summary: "Change Automatic search settings by key, all or none",
+	Status:  http.StatusOK,
+	Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown, notYet},
 }
 
 func (handlers) getSearchSettings(context.Context, identity.Admin, *struct{}) (*searchSettingsOutput, error) {

@@ -481,13 +481,14 @@ func Routes(r *api.Router, p Pipeline) {
 	o := r.Owner("grabs", api.Admin)
 	h := handlers{p}
 
-	searchRoutes(o, h)
-	severalRoutes(o, h)
-	queueRoutes(o, h)
-	searchingRoutes(o, h)
-	waitsRoutes(o, h)
-	wantedRoutes(o, h)
-	settingsRoutes(o, h)
+	api.Register(o, api.Admin, searchWorkOp, h.searchWork)
+	api.Register(o, api.Admin, searchSeveralWorksOp, h.searchSeveralWorks)
+	api.Register(o, api.Admin, cancelQueuedSearchesOp, h.cancelQueuedSearches)
+	api.Register(o, api.Admin, getWorkSearchingOp, h.getWorkSearching)
+	api.Register(o, api.Admin, grabWaitingOp, h.grabWaiting)
+	api.Register(o, api.Admin, listWantedOp, h.listWanted)
+	api.Register(o, api.Admin, getSearchSettingsOp, h.getSearchSettings)
+	api.Register(o, api.Admin, updateSearchSettingsOp, h.updateSearchSettings)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listSearches",
 		Method:  http.MethodGet,

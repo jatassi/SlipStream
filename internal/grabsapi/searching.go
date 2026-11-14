@@ -74,15 +74,13 @@ type lead struct {
 
 type workSearchingOutput struct{ Body workSearching }
 
-func searchingRoutes(o *api.Owner, h handlers) {
-	api.Register(o, api.Admin, api.Op{
-		ID:      "getWorkSearching",
-		Method:  http.MethodGet,
-		Path:    "/works/{workId}/searching",
-		Summary: "Get what Automatic search is doing for a Work: each search group's state, its waits and its stopped cells",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{workNotFound, notYet},
-	}, h.getWorkSearching)
+var getWorkSearchingOp = api.Op{
+	ID:      "getWorkSearching",
+	Method:  http.MethodGet,
+	Path:    "/works/{workId}/searching",
+	Summary: "Get what Automatic search is doing for a Work: each search group's state, its waits and its stopped cells",
+	Status:  http.StatusOK,
+	Errors:  []*api.Code{workNotFound, notYet},
 }
 
 func (handlers) getWorkSearching(context.Context, identity.Admin, *workInput) (*workSearchingOutput, error) {

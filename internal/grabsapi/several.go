@@ -37,15 +37,13 @@ type workOutcome struct {
 
 type severalQueuedOutput struct{ Body severalQueued }
 
-func severalRoutes(o *api.Owner, h handlers) {
-	api.Register(o, api.Admin, api.Op{
-		ID:      "searchSeveralWorks",
-		Method:  http.MethodPost,
-		Path:    "/works/search",
-		Summary: "Queue a search of several Works, by id or by a Wanted filter, behind every search already queued",
-		Status:  http.StatusAccepted,
-		Errors:  []*api.Code{reconciling, tooManyWorks, notYet},
-	}, h.searchSeveralWorks)
+var searchSeveralWorksOp = api.Op{
+	ID:      "searchSeveralWorks",
+	Method:  http.MethodPost,
+	Path:    "/works/search",
+	Summary: "Queue a search of several Works, by id or by a Wanted filter, behind every search already queued",
+	Status:  http.StatusAccepted,
+	Errors:  []*api.Code{reconciling, tooManyWorks, notYet},
 }
 
 func (handlers) searchSeveralWorks(context.Context, identity.Admin, *severalInput) (*severalQueuedOutput, error) {

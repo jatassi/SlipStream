@@ -21,15 +21,13 @@ type grabbing struct {
 
 type grabbingOutput struct{ Body grabbing }
 
-func waitsRoutes(o *api.Owner, h handlers) {
-	api.Register(o, api.Admin, api.Op{
-		ID:      "grabWaiting",
-		Method:  http.MethodPost,
-		Path:    "/works/{workId}/waits/grab",
-		Summary: "End a Work's waits for a better Release and grab the best Release each holds now",
-		Status:  http.StatusAccepted,
-		Errors:  []*api.Code{workNotFound, reconciling, notYet},
-	}, h.grabWaiting)
+var grabWaitingOp = api.Op{
+	ID:      "grabWaiting",
+	Method:  http.MethodPost,
+	Path:    "/works/{workId}/waits/grab",
+	Summary: "End a Work's waits for a better Release and grab the best Release each holds now",
+	Status:  http.StatusAccepted,
+	Errors:  []*api.Code{workNotFound, reconciling, notYet},
 }
 
 func (handlers) grabWaiting(context.Context, identity.Admin, *grabWaitingInput) (*grabbingOutput, error) {

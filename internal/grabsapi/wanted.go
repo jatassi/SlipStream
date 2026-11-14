@@ -66,15 +66,13 @@ type wantedRow struct {
 
 type wantedPageOutput struct{ Body wantedPage }
 
-func wantedRoutes(o *api.Owner, h handlers) {
-	api.Register(o, api.Admin, api.Op{
-		ID:      "listWanted",
-		Method:  http.MethodGet,
-		Path:    "/wanted",
-		Summary: "List the Works that want a Release, 100 at a time, with what the search queue is doing",
-		Status:  http.StatusOK,
-		Errors:  []*api.Code{wantedCursorStale, notYet},
-	}, h.listWanted)
+var listWantedOp = api.Op{
+	ID:      "listWanted",
+	Method:  http.MethodGet,
+	Path:    "/wanted",
+	Summary: "List the Works that want a Release, 100 at a time, with what the search queue is doing",
+	Status:  http.StatusOK,
+	Errors:  []*api.Code{wantedCursorStale, notYet},
 }
 
 func (handlers) listWanted(context.Context, identity.Admin, *wantedInput) (*wantedPageOutput, error) {
