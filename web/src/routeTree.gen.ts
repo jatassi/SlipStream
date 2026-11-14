@@ -56,6 +56,7 @@ import { Route as AppLibraryPendingImportIdRouteImport } from "./routes/_app/lib
 import { Route as AppNodesNodeIdIndexRouteImport } from "./routes/_app/nodes/$nodeId/index";
 import { Route as AppNodesNodeIdLogSettingsRouteImport } from "./routes/_app/nodes/$nodeId/log-settings";
 import { Route as AppNodesNodeIdLogsRouteImport } from "./routes/_app/nodes/$nodeId/logs";
+import { Route as AppNodesNodeIdMediaServersRouteImport } from "./routes/_app/nodes/$nodeId/media-servers";
 import { Route as AppNodesNodeIdRolesRouteImport } from "./routes/_app/nodes/$nodeId/roles";
 import { Route as AppNodesNodeIdSearchingRouteImport } from "./routes/_app/nodes/$nodeId/searching";
 import { Route as AppNodesNodeIdTorrentClientRouteImport } from "./routes/_app/nodes/$nodeId/torrent-client";
@@ -324,6 +325,12 @@ const AppNodesNodeIdLogsRoute = AppNodesNodeIdLogsRouteImport.update({
   path: "/logs",
   getParentRoute: () => AppNodesNodeIdRouteRoute,
 } as any);
+const AppNodesNodeIdMediaServersRoute =
+  AppNodesNodeIdMediaServersRouteImport.update({
+    id: "/media-servers",
+    path: "/media-servers",
+    getParentRoute: () => AppNodesNodeIdRouteRoute,
+  } as any);
 const AppNodesNodeIdRolesRoute = AppNodesNodeIdRolesRouteImport.update({
   id: "/roles",
   path: "/roles",
@@ -546,6 +553,7 @@ export interface FileRoutesByFullPath {
   "/library/pending/$importId": typeof AppLibraryPendingImportIdRoute;
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
+  "/nodes/$nodeId/media-servers": typeof AppNodesNodeIdMediaServersRoute;
   "/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
   "/nodes/$nodeId/searching": typeof AppNodesNodeIdSearchingRoute;
   "/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
@@ -616,6 +624,7 @@ export interface FileRoutesByTo {
   "/library/pending/$importId": typeof AppLibraryPendingImportIdRoute;
   "/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
+  "/nodes/$nodeId/media-servers": typeof AppNodesNodeIdMediaServersRoute;
   "/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
   "/nodes/$nodeId/searching": typeof AppNodesNodeIdSearchingRoute;
   "/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
@@ -694,6 +703,7 @@ export interface FileRoutesById {
   "/_app/library/pending_/$importId": typeof AppLibraryPendingImportIdRoute;
   "/_app/nodes/$nodeId/log-settings": typeof AppNodesNodeIdLogSettingsRoute;
   "/_app/nodes/$nodeId/logs": typeof AppNodesNodeIdLogsRoute;
+  "/_app/nodes/$nodeId/media-servers": typeof AppNodesNodeIdMediaServersRoute;
   "/_app/nodes/$nodeId/roles": typeof AppNodesNodeIdRolesRoute;
   "/_app/nodes/$nodeId/searching": typeof AppNodesNodeIdSearchingRoute;
   "/_app/nodes/$nodeId/torrent-client": typeof AppNodesNodeIdTorrentClientRoute;
@@ -774,6 +784,7 @@ export interface FileRouteTypes {
     | "/library/pending/$importId"
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
+    | "/nodes/$nodeId/media-servers"
     | "/nodes/$nodeId/roles"
     | "/nodes/$nodeId/searching"
     | "/nodes/$nodeId/torrent-client"
@@ -844,6 +855,7 @@ export interface FileRouteTypes {
     | "/library/pending/$importId"
     | "/nodes/$nodeId/log-settings"
     | "/nodes/$nodeId/logs"
+    | "/nodes/$nodeId/media-servers"
     | "/nodes/$nodeId/roles"
     | "/nodes/$nodeId/searching"
     | "/nodes/$nodeId/torrent-client"
@@ -921,6 +933,7 @@ export interface FileRouteTypes {
     | "/_app/library/pending_/$importId"
     | "/_app/nodes/$nodeId/log-settings"
     | "/_app/nodes/$nodeId/logs"
+    | "/_app/nodes/$nodeId/media-servers"
     | "/_app/nodes/$nodeId/roles"
     | "/_app/nodes/$nodeId/searching"
     | "/_app/nodes/$nodeId/torrent-client"
@@ -1298,6 +1311,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppNodesNodeIdLogsRouteImport;
       parentRoute: typeof AppNodesNodeIdRouteRoute;
     };
+    "/_app/nodes/$nodeId/media-servers": {
+      id: "/_app/nodes/$nodeId/media-servers";
+      path: "/media-servers";
+      fullPath: "/nodes/$nodeId/media-servers";
+      preLoaderRoute: typeof AppNodesNodeIdMediaServersRouteImport;
+      parentRoute: typeof AppNodesNodeIdRouteRoute;
+    };
     "/_app/nodes/$nodeId/roles": {
       id: "/_app/nodes/$nodeId/roles";
       path: "/roles";
@@ -1558,6 +1578,7 @@ const AppLibraryRouteRouteWithChildren = AppLibraryRouteRoute._addFileChildren(
 interface AppNodesNodeIdRouteRouteChildren {
   AppNodesNodeIdLogSettingsRoute: typeof AppNodesNodeIdLogSettingsRoute;
   AppNodesNodeIdLogsRoute: typeof AppNodesNodeIdLogsRoute;
+  AppNodesNodeIdMediaServersRoute: typeof AppNodesNodeIdMediaServersRoute;
   AppNodesNodeIdRolesRoute: typeof AppNodesNodeIdRolesRoute;
   AppNodesNodeIdSearchingRoute: typeof AppNodesNodeIdSearchingRoute;
   AppNodesNodeIdTorrentClientRoute: typeof AppNodesNodeIdTorrentClientRoute;
@@ -1569,6 +1590,7 @@ interface AppNodesNodeIdRouteRouteChildren {
 const AppNodesNodeIdRouteRouteChildren: AppNodesNodeIdRouteRouteChildren = {
   AppNodesNodeIdLogSettingsRoute: AppNodesNodeIdLogSettingsRoute,
   AppNodesNodeIdLogsRoute: AppNodesNodeIdLogsRoute,
+  AppNodesNodeIdMediaServersRoute: AppNodesNodeIdMediaServersRoute,
   AppNodesNodeIdRolesRoute: AppNodesNodeIdRolesRoute,
   AppNodesNodeIdSearchingRoute: AppNodesNodeIdSearchingRoute,
   AppNodesNodeIdTorrentClientRoute: AppNodesNodeIdTorrentClientRoute,
