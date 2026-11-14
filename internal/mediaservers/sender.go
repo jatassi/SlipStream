@@ -32,6 +32,9 @@ type senders struct {
 type wake struct {
 	ring chan struct{}
 	told atomic.Bool
+	// indexAfter holds the path index's Jobs back after one failed. Only
+	// the sender reads and writes it.
+	indexAfter time.Time
 }
 
 func newSenders() *senders {
@@ -203,6 +206,8 @@ type sending struct {
 	// libraries are the roots each library key's mappings lead into, for
 	// the changes a whole library refresh covers.
 	libraries map[string][]roots.ID
+	// mappings are the server's, for the paths the index learns.
+	mappings []link.PlanMapping
 	// next is when a row held by time may be ready, zero for none.
 	next time.Time
 }
@@ -211,7 +216,7 @@ type sending struct {
 // zero for when woken, and whether the server is gone.
 func (m *MediaServers) pass(ctx context.Context, id link.ServerID, w *wake) (time.Time, bool) {
 	told := w.told.Swap(false)
-	s, err := m.take(ctx, id)
+	s, err := m.take(ctx, id, w.indexAfter)
 	switch {
 	case errors.Is(err, errGone):
 		return time.Time{}, true
@@ -233,6 +238,9 @@ func (m *MediaServers) pass(ctx context.Context, id link.ServerID, w *wake) (tim
 			continue
 		}
 		m.putBack(ctx, s.jobs[i+1:])
+		if isIndex(j) {
+			w.indexAfter = time.Now().Add(m.cfg.Timings.RetryMin)
+		}
 		if _, server := link.ServerProblem(err); !server {
 			m.cfg.Log.Warn("a step on a Media Server was cut off and resumes at that step", "server", id.String(), "err", err.Error())
 		}
@@ -243,8 +251,9 @@ func (m *MediaServers) pass(ctx context.Context, id link.ServerID, w *wake) (tim
 
 // take plans the server's due rows and takes the Jobs' rows to send, in
 // one Write: a change's Write ends before it starts, so it plans from
-// every row recorded so far.
-func (m *MediaServers) take(ctx context.Context, id link.ServerID) (sending, error) {
+// every row recorded so far. With nothing to send, and not before
+// indexAfter, it takes one Job for the path index.
+func (m *MediaServers) take(ctx context.Context, id link.ServerID, indexAfter time.Time) (sending, error) {
 	s := sending{id: id}
 	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		q := db.New(tx)
@@ -272,6 +281,11 @@ func (m *MediaServers) take(ctx context.Context, id link.ServerID) (sending, err
 			s.jobs = append(s.jobs, j)
 		}
 		if len(s.jobs) == 0 {
+			if err := m.takeIndex(ctx, q, d, indexAfter, &s); err != nil {
+				return err
+			}
+		}
+		if len(s.jobs) == 0 {
 			return nil
 		}
 		s.port, err = m.port(ctx, q, row, k, v)
@@ -282,20 +296,14 @@ func (m *MediaServers) take(ctx context.Context, id link.ServerID) (sending, err
 
 // sendable is the Jobs of plan one pass sends. A whole library refresh
 // goes alone: the changes it covers are sent by it, so the next pass
-// plans again without them. The fresh folder rule's Jobs aren't sent:
-// rows into a mapping never scanned wait.
+// plans again without them.
 func sendable(plan []link.Job) []link.Job {
-	var out []link.Job
 	for _, j := range plan {
-		switch j.Work.(type) {
-		case link.Fresh:
-			continue
-		case link.Rescan:
+		if _, ok := j.Work.(link.Rescan); ok {
 			return []link.Job{j}
 		}
-		out = append(out, j)
 	}
-	return out
+	return plan
 }
 
 func (m *MediaServers) port(ctx context.Context, q *db.Queries, row db.MediaserversServer, k link.Kind, v via) (mediaserverlink.Port, error) {
@@ -353,6 +361,7 @@ func (m *MediaServers) due(ctx context.Context, q *db.Queries, row db.Mediaserve
 		folders[mp.RootID] = pm
 		d.Mappings = append(d.Mappings, pm)
 	}
+	s.mappings = d.Mappings
 	rows, err := q.ListDue(ctx, row.ID)
 	if err != nil {
 		return d, err
@@ -395,6 +404,8 @@ func jobIDs(j link.Job) []link.ChangeID {
 		return changeIDs(w.Changes)
 	case link.Rescan:
 		return w.Changes
+	case link.Fresh:
+		return w.Changes
 	}
 	return nil
 }
@@ -408,7 +419,9 @@ func changeIDs(cs []link.JobChange) []link.ChangeID {
 }
 
 // drive runs j one step per call until it is done, waits or fails,
-// recording each step on its rows. A failed call answers when the next
+// recording each step on its rows. An index Job runs one page a pass, so
+// a change that came meanwhile goes first, and its answer goes in the
+// index, which a failed call leaves as it was. A failed call answers when the next
 // step may start: never before the call's deadline, by when the reaching
 // Node's handler has ended too.
 func (m *MediaServers) drive(ctx context.Context, s sending, j link.Job) (time.Time, error) {
@@ -417,8 +430,15 @@ func (m *MediaServers) drive(ctx context.Context, s sending, j link.Job) (time.T
 		call, cancel := context.WithTimeout(ctx, m.cfg.Timings.Call)
 		out, err := s.port.Advance(call, j)
 		cancel()
-		more := err == nil && !out.Done && out.Wait.IsZero()
-		if rerr := m.record(ctx, s, j, out, err, start, more); rerr != nil {
+		more := err == nil && !out.Done && out.Wait.IsZero() && !isIndex(j)
+		var rerr error
+		switch {
+		case !isIndex(j):
+			rerr = m.record(ctx, s, j, out, err, start, more)
+		case err == nil:
+			rerr = m.indexed(ctx, s, out)
+		}
+		if rerr != nil {
 			if ctx.Err() == nil {
 				m.cfg.Log.Error("record a step on a Media Server", "server", s.id.String(), "err", rerr.Error())
 			}
@@ -452,6 +472,9 @@ func (m *MediaServers) record(ctx context.Context, s sending, j link.Job, out li
 		}
 		if callErr != nil {
 			return m.failed(ctx, q, s.id, cs, callErr, later(time.Now(), start.Add(m.cfg.Timings.Call)))
+		}
+		if err := m.stepped(ctx, tx, s, cs, out); err != nil {
+			return err
 		}
 		st := stepped{s: s, out: out, start: start, now: time.Now(), more: more, ended: map[link.ChangeID]link.Outcome{}, snaps: snapshotsOf(out.Job)}
 		for _, o := range out.Outcomes {
@@ -501,6 +524,31 @@ func (st stepped) land(ctx context.Context, q *db.Queries, c queue.Change) error
 	}
 	c.NextAt = later(st.now, st.out.Wait)
 	return reopen(ctx, q, c)
+}
+
+// stepped writes what a step answered beside its rows: the entries it
+// learned, and a Fresh Job's mapping.
+func (m *MediaServers) stepped(ctx context.Context, tx *storage.Tx[storage.Library], s sending, cs []queue.Change, out link.Advanced) error {
+	if err := m.learn(ctx, tx, s, out.Learned, time.Now()); err != nil {
+		return err
+	}
+	if f, ok := out.Job.Work.(link.Fresh); ok && len(cs) > 0 {
+		return scan(ctx, db.New(tx), s.id, cs[0].Root, f, out.Done)
+	}
+	return nil
+}
+
+// scan writes a Fresh Job's answer on root's mapping: the decision and
+// the server's last scan end before it, and scanned_at once it is done.
+// Its rows wait until then and go again once it is done.
+func scan(ctx context.Context, q *db.Queries, server link.ServerID, root roots.ID, f link.Fresh, done bool) error {
+	p := db.SetMappingScanParams{
+		ServerID: server, RootID: root, RequestedAt: storage.FromTime(f.Requested), StartedAt: storage.FromTime(f.Started),
+	}
+	if done {
+		p.ScannedAt = storage.Now()
+	}
+	return q.SetMappingScan(ctx, p)
 }
 
 // failed backs cs off after callErr, not before notBefore.

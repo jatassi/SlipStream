@@ -1374,7 +1374,6 @@ type AdvanceResponse struct {
 	WaitUnixMs int64         `protobuf:"varint,3,opt,name=wait_unix_ms,json=waitUnixMs,proto3" json:"wait_unix_ms,omitempty"`
 	Outcomes   []*Outcome    `protobuf:"bytes,4,rep,name=outcomes,proto3" json:"outcomes,omitempty"`
 	Learned    []*IndexEntry `protobuf:"bytes,5,rep,name=learned,proto3" json:"learned,omitempty"`
-	Mapping    *MappingFact  `protobuf:"bytes,6,opt,name=mapping,proto3" json:"mapping,omitempty"`
 	Libraries  []*Library    `protobuf:"bytes,7,rep,name=libraries,proto3" json:"libraries,omitempty"`
 	// problem is set when the server failed the step, and the rest is then
 	// empty.
@@ -1444,13 +1443,6 @@ func (x *AdvanceResponse) GetOutcomes() []*Outcome {
 func (x *AdvanceResponse) GetLearned() []*IndexEntry {
 	if x != nil {
 		return x.Learned
-	}
-	return nil
-}
-
-func (x *AdvanceResponse) GetMapping() *MappingFact {
-	if x != nil {
-		return x.Mapping
 	}
 	return nil
 }
@@ -2164,6 +2156,7 @@ type Fresh struct {
 	Folder          string                 `protobuf:"bytes,2,opt,name=folder,proto3" json:"folder,omitempty"`
 	RequestedUnixMs int64                  `protobuf:"varint,3,opt,name=requested_unix_ms,json=requestedUnixMs,proto3" json:"requested_unix_ms,omitempty"`
 	StartedUnixMs   int64                  `protobuf:"varint,4,opt,name=started_unix_ms,json=startedUnixMs,proto3" json:"started_unix_ms,omitempty"`
+	Changes         [][]byte               `protobuf:"bytes,5,rep,name=changes,proto3" json:"changes,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -2224,6 +2217,13 @@ func (x *Fresh) GetStartedUnixMs() int64 {
 		return x.StartedUnixMs
 	}
 	return 0
+}
+
+func (x *Fresh) GetChanges() [][]byte {
+	if x != nil {
+		return x.Changes
+	}
+	return nil
 }
 
 type Rescan struct {
@@ -2742,58 +2742,6 @@ func (x *IndexEntry) GetGone() bool {
 	return false
 }
 
-type MappingFact struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	StartedUnixMs int64                  `protobuf:"varint,1,opt,name=started_unix_ms,json=startedUnixMs,proto3" json:"started_unix_ms,omitempty"`
-	Scanned       bool                   `protobuf:"varint,2,opt,name=scanned,proto3" json:"scanned,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *MappingFact) Reset() {
-	*x = MappingFact{}
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[40]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MappingFact) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MappingFact) ProtoMessage() {}
-
-func (x *MappingFact) ProtoReflect() protoreflect.Message {
-	mi := &file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes[40]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MappingFact.ProtoReflect.Descriptor instead.
-func (*MappingFact) Descriptor() ([]byte, []int) {
-	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP(), []int{40}
-}
-
-func (x *MappingFact) GetStartedUnixMs() int64 {
-	if x != nil {
-		return x.StartedUnixMs
-	}
-	return 0
-}
-
-func (x *MappingFact) GetScanned() bool {
-	if x != nil {
-		return x.Scanned
-	}
-	return false
-}
-
 var File_slipstream_mediaserver_v1_mediaserver_proto protoreflect.FileDescriptor
 
 const file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc = "" +
@@ -2903,7 +2851,7 @@ const file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc = "" +
 	"\x0eAdvanceRequest\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\fR\bserverId\x12)\n" +
 	"\x10settings_version\x18\x02 \x01(\x03R\x0fsettingsVersion\x120\n" +
-	"\x03job\x18\x03 \x01(\v2\x1e.slipstream.mediaserver.v1.JobR\x03job\"\xbc\x03\n" +
+	"\x03job\x18\x03 \x01(\v2\x1e.slipstream.mediaserver.v1.JobR\x03job\"\x80\x03\n" +
 	"\x0fAdvanceResponse\x120\n" +
 	"\x03job\x18\x01 \x01(\v2\x1e.slipstream.mediaserver.v1.JobR\x03job\x12\x12\n" +
 	"\x04done\x18\x02 \x01(\bR\x04done\x12 \n" +
@@ -2911,9 +2859,8 @@ const file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc = "" +
 	"waitUnixMs\x12>\n" +
 	"\boutcomes\x18\x04 \x03(\v2\".slipstream.mediaserver.v1.OutcomeR\boutcomes\x12?\n" +
 	"\alearned\x18\x05 \x03(\v2%.slipstream.mediaserver.v1.IndexEntryR\alearned\x12@\n" +
-	"\amapping\x18\x06 \x01(\v2&.slipstream.mediaserver.v1.MappingFactR\amapping\x12@\n" +
 	"\tlibraries\x18\a \x03(\v2\".slipstream.mediaserver.v1.LibraryR\tlibraries\x12<\n" +
-	"\aproblem\x18\b \x01(\v2\".slipstream.mediaserver.v1.ProblemR\aproblem\"8\n" +
+	"\aproblem\x18\b \x01(\v2\".slipstream.mediaserver.v1.ProblemR\aproblemJ\x04\b\x06\x10\a\"8\n" +
 	"\x19MediaServerSecretsRequest\x12\x1b\n" +
 	"\tserver_id\x18\x01 \x01(\fR\bserverId\"\x8e\x01\n" +
 	"\x1aMediaServerSecretsResponse\x12E\n" +
@@ -2960,12 +2907,13 @@ const file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc = "" +
 	"\aRefresh\x12>\n" +
 	"\achanges\x18\x01 \x03(\v2$.slipstream.mediaserver.v1.JobChangeR\achanges\"G\n" +
 	"\x05Carry\x12>\n" +
-	"\achanges\x18\x01 \x03(\v2$.slipstream.mediaserver.v1.JobChangeR\achanges\"\x8d\x01\n" +
+	"\achanges\x18\x01 \x03(\v2$.slipstream.mediaserver.v1.JobChangeR\achanges\"\xa7\x01\n" +
 	"\x05Fresh\x12\x18\n" +
 	"\alibrary\x18\x01 \x01(\tR\alibrary\x12\x16\n" +
 	"\x06folder\x18\x02 \x01(\tR\x06folder\x12*\n" +
 	"\x11requested_unix_ms\x18\x03 \x01(\x03R\x0frequestedUnixMs\x12&\n" +
-	"\x0fstarted_unix_ms\x18\x04 \x01(\x03R\rstartedUnixMs\"@\n" +
+	"\x0fstarted_unix_ms\x18\x04 \x01(\x03R\rstartedUnixMs\x12\x18\n" +
+	"\achanges\x18\x05 \x03(\fR\achanges\"@\n" +
 	"\x06Rescan\x12\x1c\n" +
 	"\tlibraries\x18\x01 \x03(\tR\tlibraries\x12\x18\n" +
 	"\achanges\x18\x02 \x03(\fR\achanges\"\x1e\n" +
@@ -3001,10 +2949,7 @@ const file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc = "" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x18\n" +
 	"\alibrary\x18\x02 \x01(\tR\alibrary\x126\n" +
 	"\x04item\x18\x03 \x01(\v2\".slipstream.mediaserver.v1.ItemKeyR\x04item\x12\x12\n" +
-	"\x04gone\x18\x04 \x01(\bR\x04gone\"O\n" +
-	"\vMappingFact\x12&\n" +
-	"\x0fstarted_unix_ms\x18\x01 \x01(\x03R\rstartedUnixMs\x12\x18\n" +
-	"\ascanned\x18\x02 \x01(\bR\ascanned2\xaa\x03\n" +
+	"\x04gone\x18\x04 \x01(\bR\x04gone2\xaa\x03\n" +
 	"\x16MediaServerLinkService\x12Z\n" +
 	"\x05Reach\x12'.slipstream.mediaserver.v1.ReachRequest\x1a(.slipstream.mediaserver.v1.ReachResponse\x12Z\n" +
 	"\x05Check\x12'.slipstream.mediaserver.v1.CheckRequest\x1a(.slipstream.mediaserver.v1.CheckResponse\x12]\n" +
@@ -3026,7 +2971,7 @@ func file_slipstream_mediaserver_v1_mediaserver_proto_rawDescGZIP() []byte {
 	return file_slipstream_mediaserver_v1_mediaserver_proto_rawDescData
 }
 
-var file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes = make([]protoimpl.MessageInfo, 41)
+var file_slipstream_mediaserver_v1_mediaserver_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
 var file_slipstream_mediaserver_v1_mediaserver_proto_goTypes = []any{
 	(*Intent)(nil),                     // 0: slipstream.mediaserver.v1.Intent
 	(*Server)(nil),                     // 1: slipstream.mediaserver.v1.Server
@@ -3068,7 +3013,6 @@ var file_slipstream_mediaserver_v1_mediaserver_proto_goTypes = []any{
 	(*UserData)(nil),                   // 37: slipstream.mediaserver.v1.UserData
 	(*Outcome)(nil),                    // 38: slipstream.mediaserver.v1.Outcome
 	(*IndexEntry)(nil),                 // 39: slipstream.mediaserver.v1.IndexEntry
-	(*MappingFact)(nil),                // 40: slipstream.mediaserver.v1.MappingFact
 }
 var file_slipstream_mediaserver_v1_mediaserver_proto_depIdxs = []int32{
 	1,  // 0: slipstream.mediaserver.v1.Intent.servers:type_name -> slipstream.mediaserver.v1.Server
@@ -3093,38 +3037,37 @@ var file_slipstream_mediaserver_v1_mediaserver_proto_depIdxs = []int32{
 	26, // 19: slipstream.mediaserver.v1.AdvanceResponse.job:type_name -> slipstream.mediaserver.v1.Job
 	38, // 20: slipstream.mediaserver.v1.AdvanceResponse.outcomes:type_name -> slipstream.mediaserver.v1.Outcome
 	39, // 21: slipstream.mediaserver.v1.AdvanceResponse.learned:type_name -> slipstream.mediaserver.v1.IndexEntry
-	40, // 22: slipstream.mediaserver.v1.AdvanceResponse.mapping:type_name -> slipstream.mediaserver.v1.MappingFact
-	25, // 23: slipstream.mediaserver.v1.AdvanceResponse.libraries:type_name -> slipstream.mediaserver.v1.Library
-	24, // 24: slipstream.mediaserver.v1.AdvanceResponse.problem:type_name -> slipstream.mediaserver.v1.Problem
-	23, // 25: slipstream.mediaserver.v1.MediaServerSecretsResponse.credential:type_name -> slipstream.mediaserver.v1.Credential
-	28, // 26: slipstream.mediaserver.v1.Job.refresh:type_name -> slipstream.mediaserver.v1.Refresh
-	29, // 27: slipstream.mediaserver.v1.Job.carry:type_name -> slipstream.mediaserver.v1.Carry
-	30, // 28: slipstream.mediaserver.v1.Job.fresh:type_name -> slipstream.mediaserver.v1.Fresh
-	31, // 29: slipstream.mediaserver.v1.Job.rescan:type_name -> slipstream.mediaserver.v1.Rescan
-	32, // 30: slipstream.mediaserver.v1.Job.lookup:type_name -> slipstream.mediaserver.v1.Lookup
-	33, // 31: slipstream.mediaserver.v1.Job.index:type_name -> slipstream.mediaserver.v1.Index
-	34, // 32: slipstream.mediaserver.v1.Job.libraries:type_name -> slipstream.mediaserver.v1.Libraries
-	35, // 33: slipstream.mediaserver.v1.JobChange.snapshot:type_name -> slipstream.mediaserver.v1.Snapshot
-	27, // 34: slipstream.mediaserver.v1.Refresh.changes:type_name -> slipstream.mediaserver.v1.JobChange
-	27, // 35: slipstream.mediaserver.v1.Carry.changes:type_name -> slipstream.mediaserver.v1.JobChange
-	36, // 36: slipstream.mediaserver.v1.Snapshot.item:type_name -> slipstream.mediaserver.v1.ItemKey
-	37, // 37: slipstream.mediaserver.v1.Snapshot.users:type_name -> slipstream.mediaserver.v1.UserData
-	36, // 38: slipstream.mediaserver.v1.IndexEntry.item:type_name -> slipstream.mediaserver.v1.ItemKey
-	12, // 39: slipstream.mediaserver.v1.MediaServerLinkService.Reach:input_type -> slipstream.mediaserver.v1.ReachRequest
-	14, // 40: slipstream.mediaserver.v1.MediaServerLinkService.Check:input_type -> slipstream.mediaserver.v1.CheckRequest
-	16, // 41: slipstream.mediaserver.v1.MediaServerLinkService.SignIn:input_type -> slipstream.mediaserver.v1.SignInRequest
-	18, // 42: slipstream.mediaserver.v1.MediaServerLinkService.Advance:input_type -> slipstream.mediaserver.v1.AdvanceRequest
-	20, // 43: slipstream.mediaserver.v1.MediaServerControlService.MediaServerSecrets:input_type -> slipstream.mediaserver.v1.MediaServerSecretsRequest
-	13, // 44: slipstream.mediaserver.v1.MediaServerLinkService.Reach:output_type -> slipstream.mediaserver.v1.ReachResponse
-	15, // 45: slipstream.mediaserver.v1.MediaServerLinkService.Check:output_type -> slipstream.mediaserver.v1.CheckResponse
-	17, // 46: slipstream.mediaserver.v1.MediaServerLinkService.SignIn:output_type -> slipstream.mediaserver.v1.SignInResponse
-	19, // 47: slipstream.mediaserver.v1.MediaServerLinkService.Advance:output_type -> slipstream.mediaserver.v1.AdvanceResponse
-	21, // 48: slipstream.mediaserver.v1.MediaServerControlService.MediaServerSecrets:output_type -> slipstream.mediaserver.v1.MediaServerSecretsResponse
-	44, // [44:49] is the sub-list for method output_type
-	39, // [39:44] is the sub-list for method input_type
-	39, // [39:39] is the sub-list for extension type_name
-	39, // [39:39] is the sub-list for extension extendee
-	0,  // [0:39] is the sub-list for field type_name
+	25, // 22: slipstream.mediaserver.v1.AdvanceResponse.libraries:type_name -> slipstream.mediaserver.v1.Library
+	24, // 23: slipstream.mediaserver.v1.AdvanceResponse.problem:type_name -> slipstream.mediaserver.v1.Problem
+	23, // 24: slipstream.mediaserver.v1.MediaServerSecretsResponse.credential:type_name -> slipstream.mediaserver.v1.Credential
+	28, // 25: slipstream.mediaserver.v1.Job.refresh:type_name -> slipstream.mediaserver.v1.Refresh
+	29, // 26: slipstream.mediaserver.v1.Job.carry:type_name -> slipstream.mediaserver.v1.Carry
+	30, // 27: slipstream.mediaserver.v1.Job.fresh:type_name -> slipstream.mediaserver.v1.Fresh
+	31, // 28: slipstream.mediaserver.v1.Job.rescan:type_name -> slipstream.mediaserver.v1.Rescan
+	32, // 29: slipstream.mediaserver.v1.Job.lookup:type_name -> slipstream.mediaserver.v1.Lookup
+	33, // 30: slipstream.mediaserver.v1.Job.index:type_name -> slipstream.mediaserver.v1.Index
+	34, // 31: slipstream.mediaserver.v1.Job.libraries:type_name -> slipstream.mediaserver.v1.Libraries
+	35, // 32: slipstream.mediaserver.v1.JobChange.snapshot:type_name -> slipstream.mediaserver.v1.Snapshot
+	27, // 33: slipstream.mediaserver.v1.Refresh.changes:type_name -> slipstream.mediaserver.v1.JobChange
+	27, // 34: slipstream.mediaserver.v1.Carry.changes:type_name -> slipstream.mediaserver.v1.JobChange
+	36, // 35: slipstream.mediaserver.v1.Snapshot.item:type_name -> slipstream.mediaserver.v1.ItemKey
+	37, // 36: slipstream.mediaserver.v1.Snapshot.users:type_name -> slipstream.mediaserver.v1.UserData
+	36, // 37: slipstream.mediaserver.v1.IndexEntry.item:type_name -> slipstream.mediaserver.v1.ItemKey
+	12, // 38: slipstream.mediaserver.v1.MediaServerLinkService.Reach:input_type -> slipstream.mediaserver.v1.ReachRequest
+	14, // 39: slipstream.mediaserver.v1.MediaServerLinkService.Check:input_type -> slipstream.mediaserver.v1.CheckRequest
+	16, // 40: slipstream.mediaserver.v1.MediaServerLinkService.SignIn:input_type -> slipstream.mediaserver.v1.SignInRequest
+	18, // 41: slipstream.mediaserver.v1.MediaServerLinkService.Advance:input_type -> slipstream.mediaserver.v1.AdvanceRequest
+	20, // 42: slipstream.mediaserver.v1.MediaServerControlService.MediaServerSecrets:input_type -> slipstream.mediaserver.v1.MediaServerSecretsRequest
+	13, // 43: slipstream.mediaserver.v1.MediaServerLinkService.Reach:output_type -> slipstream.mediaserver.v1.ReachResponse
+	15, // 44: slipstream.mediaserver.v1.MediaServerLinkService.Check:output_type -> slipstream.mediaserver.v1.CheckResponse
+	17, // 45: slipstream.mediaserver.v1.MediaServerLinkService.SignIn:output_type -> slipstream.mediaserver.v1.SignInResponse
+	19, // 46: slipstream.mediaserver.v1.MediaServerLinkService.Advance:output_type -> slipstream.mediaserver.v1.AdvanceResponse
+	21, // 47: slipstream.mediaserver.v1.MediaServerControlService.MediaServerSecrets:output_type -> slipstream.mediaserver.v1.MediaServerSecretsResponse
+	43, // [43:48] is the sub-list for method output_type
+	38, // [38:43] is the sub-list for method input_type
+	38, // [38:38] is the sub-list for extension type_name
+	38, // [38:38] is the sub-list for extension extendee
+	0,  // [0:38] is the sub-list for field type_name
 }
 
 func init() { file_slipstream_mediaserver_v1_mediaserver_proto_init() }
@@ -3155,7 +3098,7 @@ func file_slipstream_mediaserver_v1_mediaserver_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc), len(file_slipstream_mediaserver_v1_mediaserver_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   41,
+			NumMessages:   40,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

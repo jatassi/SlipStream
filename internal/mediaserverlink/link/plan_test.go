@@ -1,6 +1,7 @@
 package link_test
 
 import (
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -142,16 +143,17 @@ func TestReadyHoldsRowsIntoAFreshMappingBehindOneFreshJob(t *testing.T) {
 	w := newWorld(t)
 	requested := t0.Add(-time.Minute)
 	w.due.Mappings[0].Scanned, w.due.Mappings[0].Requested = false, requested
-	w.row(w.movies, link.ChangeAdded, "", "Heat/Heat.mkv", time.Minute)
-	w.row(w.movies, link.ChangeAdded, "", "Ran/Ran.mkv", time.Minute)
+	heat := w.row(w.movies, link.ChangeAdded, "", "Heat/Heat.mkv", time.Minute)
+	ran := w.row(w.movies, link.ChangeAdded, "", "Ran/Ran.mkv", time.Minute)
 	library := w.row(w.movies, link.ChangeLibrary, "", "", time.Minute)
+	removed := w.row(w.movies, link.ChangeRemoved, "", "Up/Up.mkv", time.Minute)
 	shows := w.row(w.shows, link.ChangeAdded, "", "Show/S01E01.mkv", time.Minute)
 	p, got := w.ready(0)
-	if !slices.Equal(got, ids(library, shows)) {
-		t.Errorf("ready %v, want the library refresh and the scanned mapping's row %v", got, ids(library, shows))
+	if want := ids(library, removed, shows); !slices.Equal(got, want) {
+		t.Errorf("ready %v, want the library refresh, the removal and the scanned mapping's row %v", got, want)
 	}
-	want := []link.Fresh{{Library: "1", Folder: w.due.Mappings[0].Folder, Requested: requested}}
-	if !slices.Equal(p.Fresh, want) {
+	want := []link.Fresh{{Library: "1", Folder: w.due.Mappings[0].Folder, Requested: requested, Changes: ids(heat, ran)}}
+	if !reflect.DeepEqual(p.Fresh, want) {
 		t.Errorf("fresh %+v, want %+v", p.Fresh, want)
 	}
 }

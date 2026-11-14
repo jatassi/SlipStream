@@ -124,8 +124,8 @@ func (p *Pick) wake(at time.Time) {
 //   - A row waits for its next_attempt_at, and either half of an upgrade
 //     waits until its partner folds in or Timings.UpgradePairing passes.
 //   - New rows wait until the oldest of them has waited wait.
-//   - A row into a mapping with no scanned_at waits behind that mapping's
-//     Fresh Job.
+//   - A row that brings content into a mapping with no scanned_at waits
+//     behind that mapping's Fresh Job.
 //   - A row waits for every earlier row that touches one of its paths,
 //     except that a carry may go in the same pass as an earlier ready
 //     refresh, which a kind sends first.
@@ -176,20 +176,26 @@ func (d Due) holdUntilDue(maps map[roots.ID]PlanMapping, held []bool, wait time.
 	p.wake(oldest.Add(wait))
 }
 
-// holdFresh holds the ready rows into a mapping with no scanned_at, and
-// adds one Fresh Job for each such mapping.
+// holdFresh holds the ready rows that bring content into a mapping with
+// no scanned_at, and adds one Fresh Job for each such mapping. The rule's
+// scan then always runs with content under the folder, since a scan that
+// finds none there leaves the folder fresh (recorded run 2026-11-14).
+// A removal into a folder the server never scanned has nothing to wait
+// for.
 func (d Due) holdFresh(maps map[roots.ID]PlanMapping, held []bool, p *Pick) {
-	fresh := map[roots.ID]bool{}
+	at := map[roots.ID]int{}
 	for i, r := range d.Rows {
 		m := maps[r.Root]
-		if held[i] || r.Kind == ChangeLibrary || m.Scanned {
+		if held[i] || m.Scanned || !r.Kind.Brings() {
 			continue
 		}
 		held[i] = true
-		if !fresh[r.Root] {
-			fresh[r.Root] = true
+		n, ok := at[r.Root]
+		if !ok {
+			n, at[r.Root] = len(p.Fresh), len(p.Fresh)
 			p.Fresh = append(p.Fresh, Fresh{Library: m.Library, Folder: m.Folder, Requested: m.Requested, Started: m.Started})
 		}
+		p.Fresh[n].Changes = append(p.Fresh[n].Changes, r.ID)
 	}
 }
 

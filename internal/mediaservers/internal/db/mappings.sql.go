@@ -161,7 +161,10 @@ INSERT INTO mediaservers_mapping (
     ?6, ?7, 0, ?8, ?9
 )
 ON CONFLICT (server_id, root_id) DO UPDATE
-SET shown = excluded.shown,
+SET scanned_at = iif((server_folder IS NOT excluded.server_folder OR library_key IS NOT excluded.library_key), NULL, scanned_at),
+    scan_requested_at = iif((server_folder IS NOT excluded.server_folder OR library_key IS NOT excluded.library_key), NULL, scan_requested_at),
+    scan_started_at = iif((server_folder IS NOT excluded.server_folder OR library_key IS NOT excluded.library_key), NULL, scan_started_at),
+    shown = excluded.shown,
     server_folder = excluded.server_folder,
     library_key = excluded.library_key,
     library_name = excluded.library_name,
@@ -183,6 +186,8 @@ type UpsertMappingParams struct {
 	ConfirmedPlace *int64
 }
 
+// UpsertMapping forgets the fresh folder rule's columns when the mapping
+// points at another folder or library.
 func (q *Queries) UpsertMapping(ctx context.Context, arg UpsertMappingParams) error {
 	_, err := q.db.ExecContext(ctx, upsertMapping,
 		arg.ServerID,

@@ -47,7 +47,7 @@ func works(t *testing.T) []link.Work {
 		}},
 		link.Carry{Changes: []link.JobChange{{ID: change(), Kind: link.ChangeMoved, Library: "2",
 			Path: path(t, "/media/shows/Show/S01E01.mkv"), From: path(t, "/media/shows/Show/Show - 1x01.mkv"), Snapshot: snapshot()}}},
-		link.Fresh{Library: "3", Folder: path(t, `\\nas\media\music`), Requested: at, Started: at.Add(time.Second)},
+		link.Fresh{Library: "3", Folder: path(t, `\\nas\media\music`), Requested: at, Started: at.Add(time.Second), Changes: []link.ChangeID{change()}},
 		link.Rescan{Libraries: []string{"1", "2"}, Changes: []link.ChangeID{change()}},
 		link.Lookup{Paths: []link.ServerPath{path(t, "/media/movies/Heat.mkv")}},
 		link.Index{Library: "1", Cursor: "500"},
@@ -80,7 +80,6 @@ func TestAnAnswerCrossesTheWireUnchanged(t *testing.T) {
 			{Change: change(), Result: link.ResultConverted},
 		},
 		Learned:   []link.IndexEntry{{Path: path(t, `D:\Movies\Heat.mkv`), Library: "1", Item: link.ItemKey{Item: "7", Top: "7"}, Gone: true}},
-		Mapping:   &link.MappingFact{Started: at, Scanned: true},
 		Libraries: []link.Library{{Key: "1", Name: "Movies", Folders: []link.ServerPath{path(t, `D:\Movies`), path(t, `E:\Movies`)}}},
 	}
 	got, err := mediaserverlink.AdvancedOf(s, mediaserverlink.AdvancedOnWire(a))

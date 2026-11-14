@@ -71,6 +71,7 @@ func Run(t *testing.T, tg Target) {
 		run  func(*testing.T, Target, mediaservers.Target)
 	}{
 		{"IdentityWithoutToken", IdentityWithoutToken},
+		{"ScanEndPassesScannedAt", ScanEndPassesScannedAt},
 		{"RenameInFolderKeepsRatingKey", RenameInFolderKeepsRatingKey},
 		{"MovedDestinationThenSource", MovedDestinationThenSource},
 		{"SourceFirstPurges", SourceFirstPurges},
@@ -104,6 +105,35 @@ func IdentityWithoutToken(t *testing.T, tg Target, _ mediaservers.Target) {
 	if _, err := tg.client(t, "not-the-server-token").Sections(t.Context()); !plex.Refused(err) {
 		t.Fatalf("/library/sections with another token answered %v, want a 401", err)
 	}
+}
+
+// ScanEndPassesScannedAt is the scan end the fresh folder rule reads on
+// Plex (graft 3): once a section refresh ends, the section isn't
+// refreshing and its scannedAt, whole seconds on Plex's own clock, is past
+// its value before the refresh. plexkind compares the two and never the
+// caller's clock. The wait first puts the refresh's end in a later second
+// than any scan before it.
+func ScanEndPassesScannedAt(t *testing.T, tg Target, shared mediaservers.Target) {
+	c := tg.client(t, tg.Token)
+	read := func() (plex.Section, error) {
+		s, ok, err := c.Section(t.Context(), plex.ID(tg.Section))
+		if err == nil && !ok {
+			err = errors.New("no section " + tg.Section)
+		}
+		return s, err
+	}
+	before, err := read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Second)
+	if err := c.RefreshSection(t.Context(), plex.ID(tg.Section)); err != nil {
+		t.Fatal(err)
+	}
+	mediaservers.Eventually(t, shared, "scannedAt past its value before the refresh", func() (bool, error) {
+		s, err := read()
+		return !s.Refreshing && s.ScannedAt > before.ScannedAt, err
+	})
 }
 
 func watched(t *testing.T, tg mediaservers.Target, f *mediaservers.Files, title string) (mediaservers.Item, link.ServerPath) {

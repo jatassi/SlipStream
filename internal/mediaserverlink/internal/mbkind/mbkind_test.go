@@ -455,25 +455,21 @@ func TestFreshScansOnceThenTheServerTakesReports(t *testing.T) {
 	each(t, func(t *testing.T, w *world) {
 		fresh := w.library("Fresh")
 		w.place("Fresh/Heat (1995)/Heat (1995).mkv")
-		var requested int
-		as := w.drive(job(link.Fresh{Library: fresh.Key, Folder: fresh.Folders[0]}), func(a link.Advanced) {
-			if f, _ := a.Job.Work.(link.Fresh); !f.Requested.IsZero() && f.Started.IsZero() {
-				requested++
+		var decided int
+		w.drive(job(link.Fresh{Library: fresh.Key, Folder: fresh.Folders[0]}), func(a link.Advanced) {
+			if f, _ := a.Job.Work.(link.Fresh); !a.Done && !f.Requested.IsZero() && a.Wait.IsZero() {
+				decided++
 			}
 		})
-		last := as[len(as)-1]
-		if last.Mapping == nil || !last.Mapping.Scanned {
-			t.Errorf("last answer %+v, want the mapping scanned", last)
-		}
-		if requested != 1 {
-			t.Errorf("the Job came back requested and not started %d times, want once before the scan", requested)
+		if decided != 1 {
+			t.Errorf("the Job came back decided with nothing sent %d times, want once before the scan", decided)
 		}
 		if n := len(w.records(w.p.scans)); n != 1 {
 			t.Errorf("%d full scans, want 1", n)
 		}
 		again := w.drive(job(link.Fresh{Library: fresh.Key, Folder: fresh.Folders[0]}))
-		if len(again) != 1 || again[0].Mapping == nil || !again[0].Mapping.Scanned {
-			t.Errorf("a second Fresh = %+v, want scanned at once from the item under the folder", again)
+		if len(again) != 1 || !again[0].Done {
+			t.Errorf("a second Fresh = %+v, want done at once from the item under the folder", again)
 		}
 		if n := len(w.records(w.p.scans)); n != 1 {
 			t.Errorf("%d full scans after the second Fresh, want still 1", n)

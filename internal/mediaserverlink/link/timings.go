@@ -52,6 +52,16 @@ type Timings struct {
 	IndexPage int `yaml:"index_page"`
 }
 
+// ScanWait is the wait before the next look at a full scan the fresh
+// folder rule decided on at requested, zero for not yet: ScanEndPoll,
+// growing with the time waited up to ScanEndPollMax.
+func (t Timings) ScanWait(requested, now time.Time) time.Duration {
+	if requested.IsZero() {
+		return t.ScanEndPoll
+	}
+	return min(max(t.ScanEndPoll, now.Sub(requested)), t.ScanEndPollMax)
+}
+
 func DefaultTimings() Timings {
 	return Timings{
 		Call:           10 * time.Second,

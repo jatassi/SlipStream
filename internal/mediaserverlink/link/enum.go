@@ -29,6 +29,12 @@ func ChangeKinds() []ChangeKind {
 
 func ParseChangeKind(s string) (ChangeKind, error) { return parse(s, ChangeKinds(), "change kind") }
 
+// Brings is whether a change puts a file at its path: every kind but the
+// removals and a whole library refresh.
+func (k ChangeKind) Brings() bool {
+	return k != ChangeRemoved && k != ChangeSidecarRemoved && k != ChangeLibrary
+}
+
 // Step is where a change's Job stopped. Steps only move forward.
 type Step string
 

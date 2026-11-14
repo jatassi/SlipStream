@@ -123,11 +123,6 @@ func (d *den) drive(j link.Job) ([]link.Step, link.Advanced) {
 		if a.Job.Step != j.Step {
 			steps = append(steps, a.Job.Step)
 		}
-		if f, ok := a.Job.Work.(link.Fresh); ok && a.Mapping != nil {
-			f.Started = a.Mapping.Started
-			a.Job.Work = f
-			all.Mapping = a.Mapping
-		}
 		if a.Done {
 			all.Job, all.Done = a.Job, true
 			return steps, all
@@ -342,26 +337,57 @@ func TestFreshScansTheSectionOnceAndWaitsForItsEnd(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		d := newDen(t, "Films/Metropolis (1927)/Metropolis (1927).mkv")
 		d.place("Fresh/Nosferatu (1922)/Nosferatu (1922).mkv")
-		steps, a := d.drive(link.Job{Work: link.Fresh{Library: "4", Folder: d.at("Fresh"), Requested: time.Now()}, Step: link.StepNone})
-		check(t, "steps", steps, []link.Step(nil))
+		_, a := d.drive(link.Job{Work: link.Fresh{Library: "4", Folder: d.at("Fresh")}, Step: link.StepNone})
 		check(t, "refreshes", d.refreshes(), []string{"section 4"})
-		if a.Mapping == nil || !a.Mapping.Scanned || a.Mapping.Started.IsZero() {
-			t.Errorf("mapping = %+v, want scanned with the scan's start", a.Mapping)
+		if f, _ := a.Job.Work.(link.Fresh); f.Requested.IsZero() {
+			t.Errorf("the scan's end came back as %+v, want the request it answers", f)
 		}
-		_, a = d.drive(link.Job{Work: link.Fresh{Library: "4", Folder: d.at("Fresh")}, Step: link.StepNone})
-		if !a.Mapping.Scanned || len(d.refreshes()) != 1 {
-			t.Errorf("a second Fresh = %+v with refreshes %v, want scanned and no second scan", a.Mapping, d.refreshes())
+		d.drive(link.Job{Work: link.Fresh{Library: "4", Folder: d.at("Fresh")}, Step: link.StepNone})
+		check(t, "refreshes after a second Fresh", d.refreshes(), []string{"section 4"})
+	})
+}
+
+func TestFreshDecidesBeforeItRefreshes(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		d := newDen(t, "Films/Metropolis (1927)/Metropolis (1927).mkv")
+		d.place("Fresh/Nosferatu (1922)/Nosferatu (1922).mkv")
+		a, err := d.conn.Advance(t.Context(), link.Job{Work: link.Fresh{Library: "4", Folder: d.at("Fresh")}, Step: link.StepNone})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f, _ := a.Job.Work.(link.Fresh); a.Done || f.Requested.IsZero() || len(d.refreshes()) != 0 {
+			t.Errorf("the first call = %+v with refreshes %v, want the decision and no refresh", a, d.refreshes())
 		}
 	})
 }
 
-func TestAnEmptyFreshFolderStaysFresh(t *testing.T) {
+// A retry of the call that sent the refresh, its answer lost, finds the
+// section's scannedAt past Started and ends with no second refresh, on
+// Plex's clock however far the caller's runs ahead.
+func TestFreshRetriedAfterItsRefreshStartsNoSecond(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		d := newDen(t, "Films/Metropolis (1927)/Metropolis (1927).mkv")
-		_, a := d.drive(link.Job{Work: link.Fresh{Library: "4", Folder: d.at("Fresh"), Requested: time.Now()}, Step: link.StepNone})
-		if a.Mapping == nil || a.Mapping.Scanned {
-			t.Errorf("mapping = %+v, want not scanned", a.Mapping)
+		d.place("Fresh/Nosferatu (1922)/Nosferatu (1922).mkv")
+		decided, err := d.conn.Advance(t.Context(), link.Job{Work: link.Fresh{Library: "4", Folder: d.at("Fresh")}, Step: link.StepNone})
+		if err != nil {
+			t.Fatal(err)
 		}
+		if _, err := d.conn.Advance(t.Context(), decided.Job); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(time.Minute)
+		retry := decided.Job
+		f, _ := retry.Work.(link.Fresh)
+		f.Requested = f.Requested.Add(time.Hour)
+		retry.Work = f
+		a, err := d.conn.Advance(t.Context(), retry)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !a.Done {
+			t.Errorf("the retry = %+v, want the scan's end", a)
+		}
+		check(t, "refreshes", d.refreshes(), []string{"section 4"})
 	})
 }
 
@@ -404,13 +430,19 @@ func TestIndexPagesThroughEveryFile(t *testing.T) {
 		var paths, cursors []string
 		w := link.Index{Library: "2"}
 		for {
-			_, a := d.drive(link.Job{Work: w, Step: link.StepNone})
+			a, err := d.conn.Advance(t.Context(), link.Job{Work: w, Step: link.StepNone})
+			if err != nil {
+				t.Fatal(err)
+			}
 			for _, e := range a.Learned {
 				paths = append(paths, e.Path.String())
 			}
 			w, _ = a.Job.Work.(link.Index)
 			cursors = append(cursors, w.Cursor)
-			if w.Cursor == "" {
+			if a.Done != (w.Cursor == "") {
+				t.Fatalf("a page with the next cursor %q answered done %t", w.Cursor, a.Done)
+			}
+			if a.Done {
 				break
 			}
 		}
