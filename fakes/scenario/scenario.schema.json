@@ -433,6 +433,15 @@
             "unanswered": {
               "type": "string",
               "pattern": "^[-+]?(0|(([0-9]+(\\.[0-9]*)?|\\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$"
+            },
+            "rss_pages": {
+              "type": "integer"
+            },
+            "rss_page_items": {
+              "type": "integer"
+            },
+            "guid_bytes": {
+              "type": "integer"
             }
           },
           "additionalProperties": false,

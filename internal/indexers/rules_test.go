@@ -300,7 +300,8 @@ func saved(t *testing.T) (*Indexers, *storage.DB[file], Indexer) {
 	lib := storagetest.Library(t, secret.Schema(), nodes.Schema(), Schema())
 	idx := Indexer{
 		ID: ID{UUID: storage.NewUUID()}, Name: "Fixture Site", Kind: Torznab, Home: home, On: true, Priority: DefaultPriority,
-		Searches: Limit{Count: 2, Per: Hour}, Grabs: Limit{Per: Hour}, Source: Feed{}, FeedHost: "site.test", Revision: 2, Created: t0,
+		Searches: Limit{Count: 2, Per: Hour}, Grabs: Limit{Per: Hour}, SearchesAtOnce: DefaultSearchesAtOnce, Source: Feed{}, FeedHost: "site.test",
+		Revision: 2, Created: t0,
 	}
 	x := New(Config{Library: lib, Sealer: sealer, Timings: ladder})
 	sealed, err := x.seal(idx.ID, Secrets{Address: "https://site.test/torznab", APIKey: "k"})

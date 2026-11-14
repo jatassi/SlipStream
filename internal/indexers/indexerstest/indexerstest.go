@@ -111,7 +111,7 @@ func Torznab(ctx context.Context, tx *storage.Tx[storage.Library], sealer *secre
 	}
 	err = db.New(tx).InsertIndexer(ctx, db.InsertIndexerParams{
 		ID: id, Name: name, Kind: string(indexers.Torznab), HomeNodeID: home, IsOn: true, AutoSearch: true, Rss: true,
-		Priority: 25, SearchWindow: "hour", GrabWindow: "hour", Plain: "{}",
+		Priority: 25, SearchWindow: "hour", SearchesAtOnce: indexers.DefaultSearchesAtOnce, GrabWindow: "hour", Plain: "{}",
 		SecretsSealed: sealer.Seal(plain, secret.NewColumn("indexers_indexer.secrets_sealed").Row(id.String())),
 		FeedHost:      &u.Host, TrackerName: &name, Caps: Caps, Notes: "[]", Revision: 1, CreatedAt: storage.Now(), UpdatedAt: storage.Now(),
 	})
@@ -136,7 +136,7 @@ func Catalog(ctx context.Context, tx *storage.Tx[storage.Library], sealer *secre
 	base := ""
 	err = db.New(tx).InsertIndexer(ctx, db.InsertIndexerParams{
 		ID: id, Name: name, Kind: string(indexers.Catalog), HomeNodeID: home, IsOn: true, AutoSearch: true, Rss: true,
-		Priority: 25, SearchWindow: "hour", GrabWindow: "hour", DefinitionID: &definition, DefinitionSha: &sha, BaseAddress: &base,
+		Priority: 25, SearchWindow: "hour", SearchesAtOnce: indexers.DefaultSearchesAtOnce, GrabWindow: "hour", DefinitionID: &definition, DefinitionSha: &sha, BaseAddress: &base,
 		Plain: string(settings), SecretsSealed: sealer.Seal(secrets, secret.NewColumn("indexers_indexer.secrets_sealed").Row(id.String())),
 		Caps: `{"modes":{}}`, Notes: "[]", Revision: 1, CreatedAt: storage.Now(), UpdatedAt: storage.Now(),
 	})
@@ -160,7 +160,7 @@ func Native(ctx context.Context, tx *storage.Tx[storage.Library], sealer *secret
 	}
 	err = db.New(tx).InsertIndexer(ctx, db.InsertIndexerParams{
 		ID: id, Name: name, Kind: string(indexers.Native), HomeNodeID: home, IsOn: true, AutoSearch: true, Rss: true,
-		Priority: 25, SearchWindow: "hour", GrabWindow: "hour", PortID: &port, BaseAddress: &address,
+		Priority: 25, SearchWindow: "hour", SearchesAtOnce: indexers.DefaultSearchesAtOnce, GrabWindow: "hour", PortID: &port, BaseAddress: &address,
 		Plain: string(settings), SecretsSealed: sealer.Seal(secrets, secret.NewColumn("indexers_indexer.secrets_sealed").Row(id.String())),
 		Caps: Caps, Notes: "[]", Revision: 1, CreatedAt: storage.Now(), UpdatedAt: storage.Now(),
 	})
