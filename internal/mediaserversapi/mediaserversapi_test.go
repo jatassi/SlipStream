@@ -15,7 +15,6 @@ import (
 // deletes its line here and its method on mediaservers.Unbuilt.
 var notYet = []string{
 	"refreshMediaServer",
-	"listMediaServerSessions",
 	"listMediaServerChanges",
 }
 

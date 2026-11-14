@@ -52,10 +52,6 @@ type Unbuilt struct{}
 
 func (Unbuilt) Refresh(context.Context, link.ServerID) error { return ErrNotBuilt }
 
-func (Unbuilt) Sessions(context.Context, link.ServerID) (Sessions, error) {
-	return Sessions{}, ErrNotBuilt
-}
-
 func (Unbuilt) Changes(context.Context, link.ServerID, string) (Changes, error) {
 	return Changes{}, ErrNotBuilt
 }

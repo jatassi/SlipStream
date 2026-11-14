@@ -208,6 +208,7 @@ func (n *Node) startController(ctx context.Context) error {
 			ItemsFound:      mediaservers.ItemsFoundEvent.Bind(n.hub),
 		},
 		Touch: func(nodes ...role.NodeID) { linked.Touch(nodes...) },
+		Facts: func(node role.NodeID) (*msv1.Facts, bool) { return linked.Facts(node) },
 		Zone:  n.zone(),
 		Log:   n.rootLog.With("subsystem", "mediaservers"),
 	})
@@ -235,6 +236,7 @@ func (n *Node) startController(ctx context.Context) error {
 			arrivals.Note(id, scope)
 			clients.Arrived(id, scope)
 			copies.Noted(id, scope)
+			servers.Noted(id, scope)
 		},
 		Applied: func(id role.NodeID, scope string) {
 			clients.Applied(id, scope)
@@ -486,7 +488,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Tidy: func(node role.NodeID) housekeepingv1connect.HousekeepingServiceHandler {
 				return housekeepingv1connect.HousekeepingService.On(cluster, node)
 			},
-			Steps: []housekeeping.Step{{Key: "indexer-queries", Label: "Indexer queries and sessions", Run: registry.Prune}},
+			Steps: []housekeeping.Step{{Key: "indexer-queries", Label: "Indexer queries and sessions", Run: registry.Prune}, servers.Housekeeping()},
 		}, metadata.RefreshConfig{
 			Library:  lib.db,
 			Metadata: meta,
@@ -556,6 +558,10 @@ func (n *Node) startController(ctx context.Context) error {
 type openedRoster struct{ side **nodes.Service }
 
 func (r openedRoster) InStep(node role.NodeID) bool { return (*r.side).InStep(node) }
+
+func (r openedRoster) Standing(node role.NodeID) (nodes.Standing, time.Time) {
+	return (*r.side).Standing(node)
+}
 
 func (r openedRoster) WrittenOff(name role.Name, node role.NodeID) bool {
 	return (*r.side).WrittenOff(name, node)

@@ -7,8 +7,8 @@ package mbkind
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"fmt"
 	"net/url"
 	"slices"
 	"time"
@@ -205,48 +205,64 @@ func (c *conn) signIn(ctx context.Context, user, password string) (link.Credenti
 	return link.Credential{APIKey: newest.AccessToken}, nil
 }
 
-// Watch polls the server's sessions every every until ctx ends.
+// Watch polls GET /Sessions every every, and holds the server's socket
+// beside: its Sessions messages list the sessions, and a LibraryChanged
+// names the items it changed.
 func (c *conn) Watch(ctx context.Context, every time.Duration, seen func(link.Seen)) error {
 	if _, err := c.same(ctx); err != nil {
 		return problem(ctx, err)
 	}
-	tick := time.NewTicker(every)
-	defer tick.Stop()
-	for {
-		s := link.Seen{At: time.Now(), Polled: true}
-		sessions, err := c.sessions(ctx)
-		if err := problem(ctx, err); err != nil {
-			p, ok := link.ServerProblem(err)
-			if !ok {
-				return err
-			}
-			s.Problem = &p
-		}
-		s.Sessions = sessions
-		seen(s)
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("the watch of %s ended: %w", c.f.about.Label, ctx.Err())
-		case <-tick.C:
-		}
-	}
+	return link.Watcher{Poll: c.poll, Socket: c.socket}.Run(ctx, c.d.Timings, every, seen)
 }
 
-func (c *conn) sessions(ctx context.Context) ([]link.Session, error) {
+func (c *conn) poll(ctx context.Context) link.Seen {
+	s := link.Seen{At: time.Now(), Polled: true}
 	all, err := c.c.Sessions(ctx)
-	if err != nil {
-		return nil, err
+	if p, ok := link.ServerProblem(problem(ctx, err)); ok {
+		s.Problem = &p
+		return s
 	}
+	s.Sessions, s.Transcoding = c.sessions(all)
+	return s
+}
+
+// sessionsPush is the SessionsStart period, the one Jellyfin's own web
+// client asks for.
+const sessionsPush = 1500 * time.Millisecond
+
+func (c *conn) socket(ctx context.Context, opened func(), push func(link.Seen), _ func()) error {
+	return c.c.Socket(ctx, sessionsPush, opened, func(m jellyfin.Message) {
+		s := link.Seen{At: time.Now()}
+		switch m.MessageType {
+		case jellyfin.MessageSessions:
+			all, err := m.Sessions()
+			if err != nil {
+				return
+			}
+			s.Sessions, s.Transcoding = c.sessions(all)
+		case jellyfin.MessageLibraryChanged:
+			var lc jellyfin.LibraryChanged
+			if err := json.Unmarshal(m.Data, &lc); err != nil {
+				return
+			}
+			s.Items = slices.Concat(lc.ItemsAdded, lc.ItemsUpdated, lc.ItemsRemoved)
+		default:
+			return
+		}
+		push(s)
+	})
+}
+
+// sessions are the sessions that play an item, capped, and whether any
+// session re-encodes its video, counted before the cap.
+func (c *conn) sessions(all []jellyfin.Session) ([]link.Session, bool) {
 	var out []link.Session
+	transcoding := false
 	for _, s := range all {
-		if s.NowPlayingItem == nil || len(out) == c.d.Timings.SessionCap {
+		if s.NowPlayingItem == nil {
 			continue
 		}
-		p, err := link.ParsePath(s.NowPlayingItem.Path)
-		if err != nil {
-			continue
-		}
-		ls := link.Session{Key: s.ID, Path: p, User: s.UserName, Player: s.DeviceName, Product: s.Client, Decision: link.DecisionDirectPlay}
+		ls := link.Session{Key: s.ID, User: s.UserName, Player: s.DeviceName, Product: s.Client, Decision: link.DecisionDirectPlay}
 		if ti := s.TranscodingInfo; ti != nil && s.PlayState != nil && s.PlayState.PlayMethod == jellyfin.Transcode {
 			ls.Decision, ls.Reasons = link.DecisionTranscode, slices.Clone(ti.TranscodeReasons)
 			if ti.IsVideoDirect {
@@ -254,7 +270,13 @@ func (c *conn) sessions(ctx context.Context) ([]link.Session, error) {
 			}
 			ls.Hardware = ti.VideoEncoderIsHardware || (ti.HardwareAccelerationType != "" && ti.HardwareAccelerationType != "none")
 		}
+		transcoding = transcoding || ls.Decision == link.DecisionTranscode
+		p, err := link.ParsePath(s.NowPlayingItem.Path)
+		if err != nil || len(out) == c.d.Timings.SessionCap {
+			continue
+		}
+		ls.Path = p
 		out = append(out, ls)
 	}
-	return out, nil
+	return out, transcoding
 }

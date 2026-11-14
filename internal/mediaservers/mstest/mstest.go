@@ -57,13 +57,17 @@ type World struct {
 	Home, Seedbox role.NodeID
 	Service       mediaservers.Service
 	// Renewal is the Plex sign-in task, run as the scheduler runs it.
-	Renewal tasks.Task
-	ms      *mediaservers.MediaServers
-	net     *network
-	roots   *roots.Roots
-	rehomed chan struct{}
-	mu      sync.Mutex
-	changed []mediaservers.Changed
+	Renewal  tasks.Task
+	ms       *mediaservers.MediaServers
+	net      *network
+	roots    *roots.Roots
+	roster   *roster
+	rehomed  chan struct{}
+	mu       sync.Mutex
+	changed  []mediaservers.Changed
+	sessions []mediaservers.SessionsChanged
+	facts    map[role.NodeID]*msv1.Facts
+	watches  map[role.NodeID]chan struct{}
 }
 
 // Schemas are the library schemas the Media Servers read.
@@ -79,7 +83,9 @@ func New(t *testing.T) *World {
 		Lib: storagetest.Library(t, Schemas()...), Sealer: secrettest.Sealer(t),
 		Home: role.NodeID{UUID: storage.NewUUID()}, Seedbox: role.NodeID{UUID: storage.NewUUID()},
 		net: &network{served: map[string]http.RoundTripper{}}, rehomed: make(chan struct{}, 1),
+		facts: map[role.NodeID]*msv1.Facts{}, watches: map[role.NodeID]chan struct{}{},
 	}
+	w.roster = &roster{self: w.Home, worker: w.Seedbox, changed: make(chan struct{}), away: map[role.NodeID]time.Time{}}
 	err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		return errors.Join(nodestest.Insert(ctx, tx, w.Home, "home"), nodestest.Insert(ctx, tx, w.Seedbox, "seedbox"),
 			nodestest.Address(ctx, tx, w.Home, 0, HomeIP+":7878"), nodestest.Address(ctx, tx, w.Seedbox, 0, SeedboxIP+":7878"))
@@ -97,7 +103,7 @@ func New(t *testing.T) *World {
 	// A route test, a sign-in and a library read are each one call.
 	timings := link.Timings{Call: 10 * time.Second}
 	ms := mediaservers.New(mediaservers.Config{
-		Library: w.Lib, Sealer: w.Sealer, Roster: roster{w.Home, w.Seedbox}, Kinds: mediaserverlink.Kinds,
+		Library: w.Lib, Sealer: w.Sealer, Roster: w.roster, Kinds: mediaserverlink.Kinds,
 		HTTP: w.net.client(), Timings: timings, PlexTV: plexTV,
 		Link: func(role.NodeID) mediaserverv1connect.MediaServerLinkServiceHandler {
 			return mediaserverlink.NewLink(mediaserverlink.Config{Kinds: mediaserverlink.Kinds, HTTP: w.net.client(), Timings: timings, Log: log}).Service()
@@ -105,8 +111,9 @@ func New(t *testing.T) *World {
 		RootWords:    w.roots.WordsIn,
 		RootsChanged: func(context.Context) <-chan struct{} { return w.rehomed },
 		Tasks:        &cadences{},
-		Events:       mediaservers.Events{Changed: changedEvents{w}},
-		Touch:        func(...role.NodeID) {},
+		Events:       mediaservers.Events{Changed: changedEvents{w}, SessionsChanged: sessionsEvents{w}},
+		Touch:        w.touch,
+		Facts:        w.factsOf,
 		Zone:         time.UTC,
 		Log:          log,
 	})
@@ -128,8 +135,9 @@ func New(t *testing.T) *World {
 func (w *World) MediaServers() (mediaservers.Service, bool) { return w.Service, true }
 
 // Jellyfin serves srv at host, such as 192.168.1.20:8096, in place of the
-// server there before, with each library folder made in its media dir.
-func (w *World) Jellyfin(t *testing.T, host string, srv jellyfin.Server) {
+// server there before, with each library folder made in its media dir and
+// each of files, a path under srv.Root, placed before it serves.
+func (w *World) Jellyfin(t *testing.T, host string, srv jellyfin.Server, files ...string) faketest.Served {
 	t.Helper()
 	media := t.TempDir()
 	for _, l := range srv.Libraries {
@@ -143,10 +151,20 @@ func (w *World) Jellyfin(t *testing.T, host string, srv jellyfin.Server) {
 			}
 		}
 	}
+	for _, f := range files {
+		rel, err := filepath.Rel(srv.Root, f)
+		if err == nil {
+			err = os.WriteFile(filepath.Join(media, rel), []byte(rel), 0o600)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	f := faketest.InMemory(t, jellyfin.Playing(srv), scenario.Scenario{Seed: "mstest"}, faketest.WithMedia(media))
 	w.net.mu.Lock()
 	defer w.net.mu.Unlock()
 	w.net.served[host] = f.Client.Transport
+	return f
 }
 
 // The link addresses of home and seedbox, where Plex lists a local
@@ -327,15 +345,56 @@ type roundTrip func(*http.Request) (*http.Response, error)
 
 func (f roundTrip) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
 
-// roster is home's view of its Nodes: each in step, holding Media Server
-// link.
-type roster struct{ self, worker role.NodeID }
+// roster is home's view of its Nodes: each holding Media Server link, and
+// in step unless a test sent it away.
+type roster struct {
+	self, worker role.NodeID
+	mu           sync.Mutex
+	changed      chan struct{}
+	away         map[role.NodeID]time.Time
+}
 
-func (r roster) Self() role.NodeID                      { return r.self }
-func (r roster) Holding(role.Name) []role.NodeID        { return []role.NodeID{r.self, r.worker} }
-func (roster) Changed() <-chan struct{}                 { return nil }
-func (roster) InStep(role.NodeID) bool                  { return true }
-func (roster) Holds(name role.Name, _ role.NodeID) bool { return name == role.MediaServerLink }
+func (r *roster) Self() role.NodeID                      { return r.self }
+func (r *roster) Holding(role.Name) []role.NodeID        { return []role.NodeID{r.self, r.worker} }
+func (*roster) Holds(name role.Name, _ role.NodeID) bool { return name == role.MediaServerLink }
+
+func (r *roster) Changed() <-chan struct{} {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.changed
+}
+
+func (r *roster) InStep(node role.NodeID) bool {
+	s, _ := r.Standing(node)
+	return s == nodes.InStep
+}
+
+func (r *roster) Standing(node role.NodeID) (nodes.Standing, time.Time) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if since, ok := r.away[node]; ok {
+		return nodes.Offline, since
+	}
+	return nodes.InStep, time.Time{}
+}
+
+func (r *roster) set(node role.NodeID, away bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if away {
+		r.away[node] = time.Now()
+	} else {
+		delete(r.away, node)
+	}
+	close(r.changed)
+	r.changed = make(chan struct{})
+}
+
+// Away is node's link going down now, as the Controller's roster sees it.
+func (w *World) Away(node role.NodeID) {
+	w.roster.set(node, true)
+	synctest.Wait()
+}
 
 // cadences is the renewal task's cadence as tasks would store it.
 type cadences struct {

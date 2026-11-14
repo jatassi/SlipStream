@@ -247,6 +247,10 @@ func (r roster) Holds(name role.Name, node role.NodeID) bool {
 
 func (r roster) Holding(name role.Name) []role.NodeID { return (*r.svc).Holding(name) }
 
+func (r roster) Standing(node role.NodeID) (nodes.Standing, time.Time) {
+	return (*r.svc).Standing(node)
+}
+
 type unpublished[T any] struct{}
 
 func (unpublished[T]) Publish(context.Context, T) {}
