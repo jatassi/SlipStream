@@ -235,6 +235,40 @@ func (c *Controls) Lagging(ctx context.Context) ([]Lag, error) {
 	return lags, nil
 }
 
+// Rejected is the results from a Node the Controller skipped because it
+// can never apply them. The log has an error for each.
+type Rejected struct {
+	Count int
+	// Last is when it last skipped one.
+	Last time.Time
+}
+
+// Rejected is each Node's skipped results, for every Node with any.
+func (c *Controls) Rejected(ctx context.Context) (map[NodeID]Rejected, error) {
+	rows, err := watermark.ListRejected(ctx, c.cfg.Library)
+	if err != nil {
+		return nil, fmt.Errorf("read the skipped results: %w", err)
+	}
+	out := make(map[NodeID]Rejected, len(rows))
+	for node, r := range rows {
+		out[NodeID{UUID: node}] = Rejected{Count: r.Count, Last: r.Last.Time()}
+	}
+	return out, nil
+}
+
+// ForgetRejected deletes node's skipped results.
+func (c *Controls) ForgetRejected(ctx context.Context, node NodeID) error {
+	if err := c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return watermark.Forget(ctx, tx, node.UUID)
+	}); err != nil {
+		return fmt.Errorf("forget the results skipped from %s: %w", node, err)
+	}
+	if c.cfg.Changed != nil {
+		c.cfg.Changed(node)
+	}
+	return nil
+}
+
 // serve runs one holder session for node until the holder closes it, a
 // newer session for node replaces it, or ctx ends. It logs its own
 // failures, such as an apply error; the stream's are the link's.
@@ -356,8 +390,22 @@ func (c *Controls) detach(s *controlSession) {
 	}
 }
 
+// rejection is a result the Controller can never apply: it fails the
+// same way each time, so resending it can't help.
+type rejection struct {
+	seq   uint64
+	scope string
+	cause error
+}
+
+func (r *rejection) Error() string {
+	return fmt.Sprintf("apply %s result %d: %v", r.scope, r.seq, r.cause)
+}
+
 // receive stores a batch's facts and applies its results in one Write,
-// then acks them.
+// then acks them. A result apply rejects is skipped: the Write runs again
+// and records it in place of applying it, so nothing its apply wrote
+// commits.
 func (c *Controls) receive(ctx context.Context, sess *controlSession, epoch storage.UUID, s controlStream, batch []*nodev1.Up) error {
 	results, err := c.sort(sess, batch)
 	if err != nil {
@@ -368,13 +416,27 @@ func (c *Controls) receive(ctx context.Context, sess *controlSession, epoch stor
 	}
 	var top uint64
 	var scopes []string
-	err = c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		var err error
-		top, scopes, err = c.apply(ctx, tx, sess.node, epoch, results)
-		return err
-	})
+	var rejected []*rejection
+	for {
+		err = c.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			var err error
+			top, scopes, err = c.apply(ctx, tx, sess.node, epoch, results, rejected)
+			return err
+		})
+		r, ok := errors.AsType[*rejection](err)
+		if !ok {
+			break
+		}
+		rejected = append(rejected, r)
+	}
 	if err != nil {
 		return err
+	}
+	for _, r := range rejected {
+		c.cfg.Log.Error("skipped a result the Controller can't apply", "node", sess.node.String(), "scope", r.scope, "seq", r.seq, "err", r.cause)
+	}
+	if len(rejected) > 0 && c.cfg.Changed != nil {
+		c.cfg.Changed(sess.node)
 	}
 	if c.cfg.Applied != nil {
 		for _, scope := range scopes {
@@ -384,9 +446,11 @@ func (c *Controls) receive(ctx context.Context, sess *controlSession, epoch stor
 	return s.Send(&nodev1.Down{Frame: &nodev1.Down_Ack{Ack: &nodev1.Ack{Seq: top}}})
 }
 
-// apply applies the results past node's watermark for epoch and moves it
-// to the last, answering it and the scopes applied.
-func (c *Controls) apply(ctx context.Context, tx *storage.Tx[storage.Library], node NodeID, epoch storage.UUID, results []*nodev1.Result) (top uint64, scopes []string, err error) {
+// apply applies the results past node's watermark for epoch, records each
+// in rejected as skipped, and moves the watermark to the last, answering
+// it and the scopes applied. It answers a *rejection for the first other
+// result that fails for any reason but the database or ctx failing.
+func (c *Controls) apply(ctx context.Context, tx *storage.Tx[storage.Library], node NodeID, epoch storage.UUID, results []*nodev1.Result, rejected []*rejection) (top uint64, scopes []string, err error) {
 	if top, err = watermark.Get(ctx, tx, node.UUID, epoch); err != nil {
 		return 0, nil, err
 	}
@@ -395,12 +459,24 @@ func (c *Controls) apply(ctx context.Context, tx *storage.Tx[storage.Library], n
 		if r.GetSeq() <= top {
 			continue
 		}
-		srv := c.served[r.GetScope()]
-		if srv == nil {
-			return 0, nil, fmt.Errorf("result %d is for %q, which this Controller does not serve", r.GetSeq(), r.GetScope())
+		if i := slices.IndexFunc(rejected, func(rj *rejection) bool { return rj.seq == r.GetSeq() }); i >= 0 {
+			if err := watermark.Reject(ctx, tx, node.UUID, epoch, r.GetSeq(), r.GetScope(), rejected[i].cause.Error()); err != nil {
+				return 0, nil, err
+			}
+			top = r.GetSeq()
+			continue
 		}
-		if err := srv.applyAny(ctx, tx, node, r.GetPayload()); err != nil {
-			return 0, nil, fmt.Errorf("apply %s result %d: %w", r.GetScope(), r.GetSeq(), err)
+		var err error
+		if srv := c.served[r.GetScope()]; srv == nil {
+			err = fmt.Errorf("this Controller doesn't serve %q", r.GetScope())
+		} else {
+			err = srv.applyAny(ctx, tx, node, r.GetPayload())
+		}
+		if err != nil {
+			if storage.Failed(err) {
+				return 0, nil, fmt.Errorf("apply %s result %d: %w", r.GetScope(), r.GetSeq(), err)
+			}
+			return 0, nil, &rejection{seq: r.GetSeq(), scope: r.GetScope(), cause: err}
 		}
 		if !slices.Contains(scopes, r.GetScope()) {
 			scopes = append(scopes, r.GetScope())

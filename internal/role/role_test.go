@@ -3,8 +3,10 @@ package role_test
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"math/rand/v2"
 	"net/http"
 	"slices"
@@ -299,10 +301,27 @@ func TestAppliedRunsOnceEachBatchOfResultsCommits(t *testing.T) {
 	})
 }
 
+func (c *cluster) checkApplied(t *testing.T, when string, want ...uint64) {
+	t.Helper()
+	if got, err := roletest.Applied(t.Context(), c.lib, c.workerID); err != nil || !slices.Equal(got, want) {
+		t.Fatalf("%s the Controller applied %v (%v), want %v", when, got, err, want)
+	}
+}
+
+func (c *cluster) rejected(t *testing.T) map[role.NodeID]role.Rejected {
+	t.Helper()
+	r, err := c.controls.Rejected(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
 // TestAResultTheControllerCanNeverApplyIsSkipped reports three results
-// from the Worker, the second of which the probe can never apply: the
-// Controller applies the other two, and the Worker's next result applies
-// in turn.
+// from the Worker, the second of which the probe writes and then fails:
+// the Controller applies the other two and records the second as skipped
+// without what it wrote, the Worker's next result applies in turn, and
+// ForgetRejected clears the record.
 func TestAResultTheControllerCanNeverApplyIsSkipped(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := newCluster(t, "", "")
@@ -310,22 +329,57 @@ func TestAResultTheControllerCanNeverApplyIsSkipped(t *testing.T) {
 		w := c.startWorker(t, storagetest.Local(t, role.LocalSchema()))
 		c.pair.Connect(t)
 		synctest.Wait()
-		c.probe.RejectAt(2)
+		c.probe.FailAt(2, errors.New("result 2 names no Item"))
 		for _, n := range []uint64{1, 2, 3} {
 			if err := w.probe.Report(t.Context(), n); err != nil {
 				t.Fatal(err)
 			}
 		}
 		synctest.Wait()
-		if got, err := roletest.Applied(t.Context(), c.lib, c.workerID); err != nil || !slices.Equal(got, []uint64{1, 3}) {
-			t.Fatalf("the Controller applied %v (%v), want [1 3]", got, err)
+		c.checkApplied(t, "past the skipped result", 1, 3)
+		if got, want := c.rejected(t), map[role.NodeID]role.Rejected{c.workerID: {Count: 1, Last: storage.Now().Time()}}; !maps.Equal(got, want) {
+			t.Errorf("the skipped results are %v, want %v", got, want)
 		}
 		if err := w.probe.Report(t.Context(), 4); err != nil {
 			t.Fatal(err)
 		}
 		synctest.Wait()
-		if got, err := roletest.Applied(t.Context(), c.lib, c.workerID); err != nil || !slices.Equal(got, []uint64{1, 3, 4}) {
-			t.Errorf("after the next report the Controller applied %v (%v), want [1 3 4]", got, err)
+		c.checkApplied(t, "after the next report", 1, 3, 4)
+
+		if err := c.controls.ForgetRejected(t.Context(), c.workerID); err != nil {
+			t.Fatal(err)
+		}
+		if got := c.rejected(t); len(got) != 0 {
+			t.Errorf("after ForgetRejected the skipped results are %v, want none", got)
+		}
+	})
+}
+
+// TestAResultIsResentWhileTheDatabaseFails fails the probe's apply of the
+// second result as a database that timed out does: the Controller skips
+// nothing, and once the failure passes the Worker's resend applies it.
+func TestAResultIsResentWhileTheDatabaseFails(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := newCluster(t, "", "")
+		c.assign(c.workerID, roletest.Name)
+		w := c.startWorker(t, storagetest.Local(t, role.LocalSchema()))
+		c.pair.Connect(t)
+		synctest.Wait()
+		heal := c.probe.FailAt(2, fmt.Errorf("probe_applied: %w", context.DeadlineExceeded))
+		for _, n := range []uint64{1, 2, 3} {
+			if err := w.probe.Report(t.Context(), n); err != nil {
+				t.Fatal(err)
+			}
+		}
+		synctest.Wait()
+		c.checkApplied(t, "while the database fails", 1)
+
+		heal()
+		time.Sleep(redialed)
+		synctest.Wait()
+		c.checkApplied(t, "once it no longer fails", 1, 2, 3)
+		if got := c.rejected(t); len(got) != 0 {
+			t.Errorf("the skipped results are %v, want none", got)
 		}
 	})
 }

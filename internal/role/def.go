@@ -16,7 +16,7 @@ import (
 )
 
 // LibrarySchema is the role library set: the Controller's watermark per
-// (Node, epoch).
+// (Node, epoch), and the results it skipped.
 func LibrarySchema() storage.Schema[storage.Library] { return watermark.Schema() }
 
 // LocalSchema is the role local set: the epoch, the intent cache and the

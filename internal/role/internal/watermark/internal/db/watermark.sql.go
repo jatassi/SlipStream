@@ -11,6 +11,15 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+const deleteRejected = `-- name: DeleteRejected :exec
+DELETE FROM role_rejected WHERE node_id = ?1
+`
+
+func (q *Queries) DeleteRejected(ctx context.Context, nodeID NodeID) error {
+	_, err := q.db.ExecContext(ctx, deleteRejected, nodeID)
+	return err
+}
+
 const getWatermark = `-- name: GetWatermark :one
 SELECT seq FROM role_watermark WHERE node_id = ?1 AND epoch = ?2
 `
@@ -25,6 +34,64 @@ func (q *Queries) GetWatermark(ctx context.Context, arg GetWatermarkParams) (int
 	var seq int64
 	err := row.Scan(&seq)
 	return seq, err
+}
+
+const insertRejected = `-- name: InsertRejected :exec
+INSERT INTO role_rejected (node_id, epoch, seq, scope, reason, rejected_at)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+`
+
+type InsertRejectedParams struct {
+	NodeID     NodeID
+	Epoch      storage.UUID
+	Seq        int64
+	Scope      string
+	Reason     string
+	RejectedAt storage.Time
+}
+
+func (q *Queries) InsertRejected(ctx context.Context, arg InsertRejectedParams) error {
+	_, err := q.db.ExecContext(ctx, insertRejected,
+		arg.NodeID,
+		arg.Epoch,
+		arg.Seq,
+		arg.Scope,
+		arg.Reason,
+		arg.RejectedAt,
+	)
+	return err
+}
+
+const listRejected = `-- name: ListRejected :many
+SELECT node_id, rejected_at FROM role_rejected ORDER BY node_id, rejected_at
+`
+
+type ListRejectedRow struct {
+	NodeID     NodeID
+	RejectedAt storage.Time
+}
+
+func (q *Queries) ListRejected(ctx context.Context) ([]ListRejectedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRejected)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRejectedRow
+	for rows.Next() {
+		var i ListRejectedRow
+		if err := rows.Scan(&i.NodeID, &i.RejectedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const setWatermark = `-- name: SetWatermark :exec
