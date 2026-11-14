@@ -437,7 +437,7 @@ func (r *Run) serveFakes(_ context.Context, undo *unwind) error {
 	shared := fake.NewShared()
 	for _, f := range r.fakes {
 		f.env = fake.NewEnv(r.scenario, f.spec, r.log, r.faults, r.events)
-		f.env.Releases, f.env.Fronts, f.env.Files, f.env.Dir, f.env.Shared = r.releases, r.table, r.runDir, r.fakeDir(f.spec.Name), shared
+		f.env.Releases, f.env.Fronts, f.env.Files, f.env.Dir, f.env.Media, f.env.Shared = r.releases, r.table, r.runDir, r.fakeDir(f.spec.Name), r.mediaDir(), shared
 		if f.spec.TLS == fake.OwnTLS {
 			leaf, err := r.leaf(f.spec)
 			if err != nil {

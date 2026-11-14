@@ -33,13 +33,15 @@ import (
 // is the CA its certificates chain to, for a client of another protocol.
 // Faults plays on every connection and request, and a test may set and
 // clear its rules as it goes. RunDir holds the event log its captures
-// write.
+// write. Media is the fake's media dir, where a test places the files a
+// Media Server fake reads.
 type Served struct {
 	Address fake.Address
 	Client  *http.Client
 	Roots   *x509.CertPool
 	Faults  *fault.Plan
 	RunDir  string
+	Media   string
 	env     fake.Env
 }
 
@@ -73,6 +75,7 @@ type options struct {
 	rules    []fault.Rule
 	fronts   fake.Fronts
 	origin   string
+	media    string
 }
 
 type Option func(*options)
@@ -109,6 +112,12 @@ func Catalog(t testing.TB, size int, names ...string) *releases.Catalog {
 // WithFronts hands the fake the world's fronts, as the world does.
 func WithFronts(fronts fake.Fronts) Option {
 	return func(o *options) { o.fronts = fronts }
+}
+
+// WithMedia hands the fake dir as its media dir, in place of a new test
+// folder.
+func WithMedia(dir string) Option {
+	return func(o *options) { o.media = dir }
 }
 
 // As has every request arrive from origin, as through that Node's front.
@@ -184,7 +193,10 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 	}
 	t.Cleanup(func() { _ = log.Close() })
 	env := fake.NewEnv(s, spec, slog.New(slog.NewTextHandler(t.Output(), nil)), plan, log)
-	env.Releases, env.Fronts, env.Files, env.Dir = o.releases, o.fronts, runDir, t.TempDir()
+	if o.media == "" {
+		o.media = t.TempDir()
+	}
+	env.Releases, env.Fronts, env.Files, env.Dir, env.Media = o.releases, o.fronts, runDir, t.TempDir(), o.media
 	if spec.TLS == fake.OwnTLS {
 		env.Leaf = served
 	}
@@ -205,7 +217,7 @@ func serve(t testing.TB, spec fake.Spec, s scenario.Scenario, l net.Listener, tr
 			t.Errorf("fake %s: %v", spec.Name, err)
 		}
 	})
-	return Served{Address: at, Client: &http.Client{Transport: tr}, Roots: authority.Pool(), Faults: plan, RunDir: runDir, env: env}
+	return Served{Address: at, Client: &http.Client{Transport: tr}, Roots: authority.Pool(), Faults: plan, RunDir: runDir, Media: o.media, env: env}
 }
 
 // ownRules are the Scenario's fault rules whose Target is spec's fake, as
