@@ -1,0 +1,340 @@
+// The Media Server link Role's messages: the servers a Node reaches, what
+// it reports of their sessions and contact, the one-step Advance calls the
+// Controller drives each change through, and the credential fetch. Kinds,
+// change kinds, steps, results, losses, decisions, contact states and
+// problem reasons are the text of the lists in
+// internal/mediaserverlink/link, so a fourth kind or a new step adds
+// nothing here.
+syntax = "proto3";
+
+package slipstream.mediaserver.v1;
+
+import "slipstream/node/v1/options.proto";
+
+// Intent is the servers that name the Node as their reaching Node. It
+// carries no secret and no change: the Node fetches each credential with
+// MediaServerSecrets, and the Controller sends every change with Advance.
+message Intent {
+  // servers are in id order.
+  repeated Server servers = 1;
+  // sessions_every_ms is the Admin's Check sessions every.
+  int64 sessions_every_ms = 2;
+}
+
+message Server {
+  bytes id = 1;
+  string kind = 2;
+  string name = 3;
+  string address = 4;
+  // identity is the machineIdentifier or server Id SlipStream saved.
+  string identity = 5;
+  int64 settings_version = 6;
+  // device_id is the server's Jellyfin or Emby DeviceId, or the Plex
+  // account's client identifier.
+  string device_id = 7;
+  int64 monitor_delay_ms = 8;
+}
+
+// Facts are the Node's live view of its servers, replaced on every change.
+message Facts {
+  repeated ServerFacts servers = 1;
+}
+
+message ServerFacts {
+  bytes server_id = 1;
+  bool responding = 2;
+  // sessions are capped at the Node's Timings session cap.
+  repeated Session sessions = 3;
+  // transcoding is whether any session transcodes, counted before the cap.
+  bool transcoding = 4;
+}
+
+message Session {
+  // play_id is minted by the Node when it first sees the session.
+  bytes play_id = 1;
+  string session_key = 2;
+  string server_path = 3;
+  string user = 4;
+  string player = 5;
+  string product = 6;
+  string decision = 7;
+  bool hardware = 8;
+  repeated string reasons = 9;
+  int64 started_unix_ms = 10;
+  int64 seen_unix_ms = 11;
+}
+
+// Report goes through the Node's outbox. The Controller applies it once,
+// and only when the Node is the server's reaching Node at apply time.
+message Report {
+  bytes server_id = 1;
+  oneof report {
+    Contact contact = 2;
+    PlayStarted play_started = 3;
+    PlayChanged play_changed = 4;
+    PlayEnded play_ended = 5;
+    Watching watching = 6;
+    IndexHint index_hint = 7;
+  }
+}
+
+// Contact is a change in how the server responds to the Node.
+message Contact {
+  string state = 1;
+  // settings_version is the credential's, so a report made with an old
+  // credential doesn't overwrite one made with the new.
+  int64 settings_version = 2;
+  int64 at_unix_ms = 3;
+  // found is, for other_server, the identity that responded.
+  string found = 4;
+}
+
+message PlayStarted {
+  Session session = 1;
+}
+
+// PlayChanged is a session's new decision, hardware or reasons. A play the
+// Controller already ended stays ended.
+message PlayChanged {
+  bytes play_id = 1;
+  string decision = 2;
+  bool hardware = 3;
+  repeated string reasons = 4;
+  int64 seen_unix_ms = 5;
+}
+
+message PlayEnded {
+  bytes play_id = 1;
+  int64 last_seen_unix_ms = 2;
+}
+
+// Watching lists the plays open on the server when a watch starts. The
+// Controller ends every other open play of the server at its last_seen,
+// and moves the listed plays' last_seen to at.
+message Watching {
+  repeated bytes play_ids = 1;
+  int64 at_unix_ms = 2;
+}
+
+// IndexHint names items a push said changed: Plex timeline, Emby
+// LibraryChanged. Their path index entries are checked before use.
+message IndexHint {
+  repeated string item_keys = 1;
+}
+
+// MediaServerLinkService runs on a Node that holds Media Server link. No
+// call but CheckRequest and SignInRequest carries a secret.
+service MediaServerLinkService {
+  option (slipstream.node.v1.served_by) = {role: "media-server-link"};
+  // Reach reads the identity at an address with no credential: Plex
+  // /identity, Jellyfin and Emby /System/Info/Public.
+  rpc Reach(ReachRequest) returns (ReachResponse);
+  // Check proves a credential from this Node and reads the server's
+  // version, monitor delay and libraries. The Controller records this Node
+  // as one that held the credential.
+  rpc Check(CheckRequest) returns (CheckResponse);
+  // SignIn creates a Jellyfin or Emby key named SlipStream with an
+  // administrator's name and password, which are in this one call and are
+  // never stored or logged.
+  rpc SignIn(SignInRequest) returns (SignInResponse);
+  // Advance runs one step of a Job on a server in this Node's intent.
+  rpc Advance(AdvanceRequest) returns (AdvanceResponse);
+}
+
+// MediaServerControlService runs on the Controller.
+service MediaServerControlService {
+  option (slipstream.node.v1.served_by) = {controller: true};
+  // MediaServerSecrets answers only the server's reaching Node.
+  rpc MediaServerSecrets(MediaServerSecretsRequest) returns (MediaServerSecretsResponse);
+}
+
+message ReachRequest {
+  string kind = 1;
+  string address = 2;
+}
+
+message ReachResponse {
+  Identity identity = 1;
+  // problem is set when the server failed the call, and identity is then
+  // empty.
+  Problem problem = 2;
+}
+
+message CheckRequest {
+  string kind = 1;
+  string address = 2;
+  Credential credential = 3;
+  string device_id = 4;
+}
+
+message CheckResponse {
+  Identity identity = 1;
+  int64 monitor_delay_ms = 2;
+  repeated Library libraries = 3;
+  Problem problem = 4;
+}
+
+message SignInRequest {
+  string kind = 1;
+  string address = 2;
+  string device_id = 3;
+  string user = 4;
+  string password = 5;
+}
+
+message SignInResponse {
+  Credential credential = 1;
+  Problem problem = 2;
+}
+
+message AdvanceRequest {
+  bytes server_id = 1;
+  // settings_version is the server's on the Controller. A Node holding an
+  // older credential fetches it again before it runs the step.
+  int64 settings_version = 2;
+  Job job = 3;
+}
+
+message AdvanceResponse {
+  // job is the Job at its new step.
+  Job job = 1;
+  bool done = 2;
+  // wait_unix_ms is when to call again, 0 for now.
+  int64 wait_unix_ms = 3;
+  repeated Outcome outcomes = 4;
+  repeated IndexEntry learned = 5;
+  MappingFact mapping = 6;
+  repeated Library libraries = 7;
+  // problem is set when the server failed the step, and the rest is then
+  // empty.
+  Problem problem = 8;
+}
+
+message MediaServerSecretsRequest {
+  bytes server_id = 1;
+}
+
+message MediaServerSecretsResponse {
+  Credential credential = 1;
+  // settings_version is the version this credential belongs to.
+  int64 settings_version = 2;
+}
+
+message Identity {
+  string id = 1;
+  string name = 2;
+  string version = 3;
+}
+
+message Credential {
+  string token = 1;
+  string api_key = 2;
+}
+
+// Problem is a server's own failure of a call. An rpc error is the link's.
+message Problem {
+  string reason = 1;
+  int32 status = 2;
+  string found = 3;
+  string detail = 4;
+}
+
+message Library {
+  string key = 1;
+  string name = 2;
+  repeated string folders = 3;
+}
+
+message Job {
+  oneof work {
+    Refresh refresh = 1;
+    Carry carry = 2;
+    Fresh fresh = 3;
+    Rescan rescan = 4;
+    Lookup lookup = 5;
+    Index index = 6;
+    Libraries libraries = 7;
+  }
+  string step = 8;
+  int64 step_unix_ms = 9;
+}
+
+message JobChange {
+  bytes id = 1;
+  string kind = 2;
+  string library = 3;
+  // path and from_path are server paths, joined on the Controller.
+  string path = 4;
+  string from_path = 5;
+  Snapshot snapshot = 6;
+}
+
+message Refresh {
+  repeated JobChange changes = 1;
+}
+
+message Carry {
+  repeated JobChange changes = 1;
+}
+
+message Fresh {
+  string library = 1;
+  string folder = 2;
+  int64 requested_unix_ms = 3;
+  int64 started_unix_ms = 4;
+}
+
+message Rescan {
+  repeated string libraries = 1;
+  repeated bytes changes = 2;
+}
+
+message Lookup {
+  repeated string paths = 1;
+}
+
+message Index {
+  string library = 1;
+  string cursor = 2;
+}
+
+message Libraries {}
+
+message Snapshot {
+  ItemKey item = 1;
+  repeated UserData users = 2;
+  repeated string collections = 3;
+}
+
+message ItemKey {
+  string item = 1;
+  string top = 2;
+}
+
+message UserData {
+  string user = 1;
+  bool played = 2;
+  int32 play_count = 3;
+  int64 position_ms = 4;
+  bool favorite = 5;
+  int64 last_played_unix_ms = 6;
+  double rating = 7;
+}
+
+message Outcome {
+  bytes change_id = 1;
+  string result = 2;
+  repeated string lost = 3;
+}
+
+message IndexEntry {
+  string path = 1;
+  string library = 2;
+  ItemKey item = 3;
+  bool gone = 4;
+}
+
+message MappingFact {
+  int64 started_unix_ms = 1;
+  bool scanned = 2;
+}
