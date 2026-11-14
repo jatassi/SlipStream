@@ -34,15 +34,18 @@ type Release struct {
 	DownloadFactor, UploadFactor float64
 	MinRatio                     float64
 	MinSeed                      time.Duration
+	// GUID tells Releases apart: the site's guid, else the download link,
+	// the magnet or the details page.
+	GUID string
 }
 
 // parsed is a release as the parser fills it, with what Prowlarr's
 // TorrentInfo holds besides the Release.
 type parsed struct {
 	Release
-	guid, description, infoHash string
-	peers                       int
-	genres                      []string
+	description, infoHash string
+	peers                 int
+	genres                []string
 }
 
 // Result is the search's Releases once the exchange has ended. Releases
@@ -56,10 +59,10 @@ func (x *Search) Result() ([]Release, error) {
 	var guids []string
 	for _, r := range x.releases {
 		x.finish(r)
-		if strings.TrimSpace(r.Title) == "" || slices.Contains(guids, r.guid) {
+		if strings.TrimSpace(r.Title) == "" || slices.Contains(guids, r.GUID) {
 			continue
 		}
-		guids = append(guids, r.guid)
+		guids = append(guids, r.GUID)
 		kept = append(kept, r)
 	}
 	if slices.ContainsFunc(x.d.def.Search.Rows.Filters, func(f filterBlock) bool { return f.Name == "andmatch" }) {
@@ -88,14 +91,14 @@ func (x *Search) finish(r *parsed) {
 	} else if l, err := magnet.Parse(r.Magnet); err == nil {
 		r.InfoHash = l.InfoHash[:]
 	}
-	if r.guid == "" {
+	if r.GUID == "" {
 		switch {
 		case r.Link != "":
-			r.guid = r.Link
+			r.GUID = r.Link
 		case r.Magnet != "":
-			r.guid = r.Magnet
+			r.GUID = r.Magnet
 		default:
-			r.guid = r.Details
+			r.GUID = r.Details
 		}
 	}
 }
@@ -221,7 +224,7 @@ func setDownload(_ *Search, r *parsed, v value, f fieldUse) (value, error) {
 		r.Link = u.String()
 		v = textValue(r.Link)
 	}
-	r.guid = v.text
+	r.GUID = v.text
 	return v, nil
 }
 

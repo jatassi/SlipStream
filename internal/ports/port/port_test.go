@@ -300,8 +300,11 @@ func TestTheRegistryListsHidesAndRetires(t *testing.T) {
 	if s, ok := errors.AsType[*searching.Stopped](err); !ok || s.Cause != searching.PortRetired || s.Text != "the site closed" {
 		t.Errorf("a retired port's search = %v, want port_retired with its reason", err)
 	}
-	if _, err := d.Recent(t.Context(), &searching.Site{Port: "gone"}); !isFailing(err) {
+	if _, err := d.Recent(t.Context(), &searching.Site{Port: "gone"}, 0); !isFailing(err) {
 		t.Errorf("an unknown port's recent = %v, want failing", err)
+	}
+	if _, err := d.Recent(t.Context(), &searching.Site{Port: "lantern"}, 100); !isFailing(err) {
+		t.Errorf("a recent call at offset 100 = %v, want failing, since a port lists only its newest", err)
 	}
 	if _, err := d.Captcha(t.Context(), &searching.Site{Port: "lantern"}); !isFailing(err) {
 		t.Errorf("a captcha = %v, want failing", err)

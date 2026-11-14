@@ -1064,7 +1064,10 @@ func (x *SearchCall) GetQuery() *Query {
 }
 
 type RecentCall struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// offset is how many of the newest Releases to skip, for paging back. It
+	// is sent only to an Indexer whose capabilities say recent_paging.
+	Offset        int32 `protobuf:"varint,1,opt,name=offset,proto3" json:"offset,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1097,6 +1100,13 @@ func (x *RecentCall) ProtoReflect() protoreflect.Message {
 // Deprecated: Use RecentCall.ProtoReflect.Descriptor instead.
 func (*RecentCall) Descriptor() ([]byte, []int) {
 	return file_slipstream_search_v1_search_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *RecentCall) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
 }
 
 type FetchCall struct {
@@ -1926,7 +1936,9 @@ type Release struct {
 	Source *Source `protobuf:"bytes,17,opt,name=source,proto3" json:"source,omitempty"`
 	// flags are Radarr's indexer flags the Release carries, such as
 	// "freeleech" or "internal".
-	Flags         []string `protobuf:"bytes,18,rep,name=flags,proto3" json:"flags,omitempty"`
+	Flags []string `protobuf:"bytes,18,rep,name=flags,proto3" json:"flags,omitempty"`
+	// guid is the item's GUID as the site sent it, empty when it sent none.
+	Guid          string `protobuf:"bytes,19,opt,name=guid,proto3" json:"guid,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2085,6 +2097,13 @@ func (x *Release) GetFlags() []string {
 		return x.Flags
 	}
 	return nil
+}
+
+func (x *Release) GetGuid() string {
+	if x != nil {
+		return x.Guid
+	}
+	return ""
 }
 
 type Source struct {
@@ -2321,8 +2340,10 @@ func (x *TestReport) GetRefusal() RSSRefusal {
 type Capabilities struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// modes are by their t= value.
-	Modes         map[string]*ModeParams `protobuf:"bytes,1,rep,name=modes,proto3" json:"modes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Categories    []int32                `protobuf:"varint,2,rep,packed,name=categories,proto3" json:"categories,omitempty"`
+	Modes      map[string]*ModeParams `protobuf:"bytes,1,rep,name=modes,proto3" json:"modes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Categories []int32                `protobuf:"varint,2,rep,packed,name=categories,proto3" json:"categories,omitempty"`
+	// recent_paging is whether a recent call lists older Releases by offset.
+	RecentPaging  bool `protobuf:"varint,3,opt,name=recent_paging,json=recentPaging,proto3" json:"recent_paging,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2369,6 +2390,13 @@ func (x *Capabilities) GetCategories() []int32 {
 		return x.Categories
 	}
 	return nil
+}
+
+func (x *Capabilities) GetRecentPaging() bool {
+	if x != nil {
+		return x.RecentPaging
+	}
+	return false
 }
 
 type ModeParams struct {
@@ -2658,9 +2686,10 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	"\a_season\"?\n" +
 	"\n" +
 	"SearchCall\x121\n" +
-	"\x05query\x18\x01 \x01(\v2\x1b.slipstream.search.v1.QueryR\x05query\"\f\n" +
+	"\x05query\x18\x01 \x01(\v2\x1b.slipstream.search.v1.QueryR\x05query\"$\n" +
 	"\n" +
-	"RecentCall\"\x1f\n" +
+	"RecentCall\x12\x16\n" +
+	"\x06offset\x18\x01 \x01(\x05R\x06offset\"\x1f\n" +
 	"\tFetchCall\x12\x12\n" +
 	"\x04link\x18\x01 \x01(\tR\x04link\"]\n" +
 	"\bTestCall\x12=\n" +
@@ -2712,7 +2741,7 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	"\x11CAUSE_CODE_NEEDED\x10\b\x12\x16\n" +
 	"\x12CAUSE_PORT_RETIRED\x10\t\"E\n" +
 	"\bReleases\x129\n" +
-	"\breleases\x18\x01 \x03(\v2\x1d.slipstream.search.v1.ReleaseR\breleases\"\x81\x05\n" +
+	"\breleases\x18\x01 \x03(\v2\x1d.slipstream.search.v1.ReleaseR\breleases\"\x95\x05\n" +
 	"\aRelease\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12\x12\n" +
 	"\x04size\x18\x02 \x01(\x03R\x04size\x12*\n" +
@@ -2734,7 +2763,8 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	"\x10min_seed_seconds\x18\x0f \x01(\x03R\x0eminSeedSeconds\x12\x18\n" +
 	"\adetails\x18\x10 \x01(\tR\adetails\x124\n" +
 	"\x06source\x18\x11 \x01(\v2\x1c.slipstream.search.v1.SourceR\x06source\x12\x14\n" +
-	"\x05flags\x18\x12 \x03(\tR\x05flags\x1a6\n" +
+	"\x05flags\x18\x12 \x03(\tR\x05flags\x12\x12\n" +
+	"\x04guid\x18\x13 \x01(\tR\x04guid\x1a6\n" +
 	"\bIdsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"^\n" +
@@ -2753,12 +2783,13 @@ const file_slipstream_search_v1_search_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x01(\x05R\x05items\x12\x18\n" +
 	"\asources\x18\x03 \x03(\tR\asources\x122\n" +
 	"\x03rss\x18\x04 \x01(\v2 .slipstream.search.v1.RSSReadingR\x03rss\x12:\n" +
-	"\arefusal\x18\x05 \x01(\x0e2 .slipstream.search.v1.RSSRefusalR\arefusal\"\xcf\x01\n" +
+	"\arefusal\x18\x05 \x01(\x0e2 .slipstream.search.v1.RSSRefusalR\arefusal\"\xf4\x01\n" +
 	"\fCapabilities\x12C\n" +
 	"\x05modes\x18\x01 \x03(\v2-.slipstream.search.v1.Capabilities.ModesEntryR\x05modes\x12\x1e\n" +
 	"\n" +
 	"categories\x18\x02 \x03(\x05R\n" +
-	"categories\x1aZ\n" +
+	"categories\x12#\n" +
+	"\rrecent_paging\x18\x03 \x01(\bR\frecentPaging\x1aZ\n" +
 	"\n" +
 	"ModesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x126\n" +

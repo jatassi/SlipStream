@@ -38,7 +38,9 @@ type Timings struct {
 	// longest search wait, so a search past its wait is late, never failing.
 	JobCap time.Duration `yaml:"job_cap"`
 	// Keep is how long a finished answer stays for a call whose answer was
-	// lost.
+	// lost. A search's stays for JobCap instead, longer than any search
+	// wait, so a Controller that restarts and asks again within a search's
+	// deadline joins it rather than searching twice.
 	Keep time.Duration `yaml:"keep"`
 	// Results is the most Releases a Torznab search pages to.
 	Results int `yaml:"results"`
@@ -81,7 +83,7 @@ func New(cfg Config) *Service {
 	return &Service{
 		cfg:      cfg,
 		client:   &client,
-		jobs:     &jobs{keep: cfg.Timings.Keep, byID: map[string]*run{}},
+		jobs:     &jobs{byID: map[string]*run{}},
 		sessions: &sessions{by: map[string]*slot{}},
 		cleared:  &clearances{byHost: map[string]clearance{}},
 		spacer:   &spacer{floor: cfg.Timings.Floor, next: map[string]time.Time{}},

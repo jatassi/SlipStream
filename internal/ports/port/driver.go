@@ -108,7 +108,10 @@ func (d driver) Search(ctx context.Context, s *searching.Site, q searching.Query
 	return contained(func() ([]searching.Release, error) { return p.run.search(ctx, s, p.entry, q) })
 }
 
-func (d driver) Recent(ctx context.Context, s *searching.Site) ([]searching.Release, error) {
+func (d driver) Recent(ctx context.Context, s *searching.Site, offset int) ([]searching.Release, error) {
+	if err := searching.NewestOnly(offset); err != nil {
+		return nil, err
+	}
 	p, err := d.port(s)
 	if err != nil {
 		return nil, err
@@ -614,7 +617,9 @@ func releasesOf(infos []TorrentInfo) []searching.Release {
 			continue
 		}
 		seen[guid] = true
-		out = append(out, releaseOf(i))
+		r := releaseOf(i)
+		r.GUID = guid
+		out = append(out, r)
 	}
 	return out
 }

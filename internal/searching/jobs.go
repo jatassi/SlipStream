@@ -6,9 +6,8 @@ import (
 )
 
 // jobs are the jobs running on this Node and those that finished within
-// keep, by id.
+// their keep, by id.
 type jobs struct {
-	keep time.Duration
 	mu   sync.Mutex
 	byID map[string]*run
 }
@@ -22,8 +21,8 @@ type run struct {
 }
 
 // join is the run of job id: the one running or kept, else a new one that
-// do runs.
-func (js *jobs) join(id string, do func(*run) Answer) *run {
+// do runs and keeps for keep once it answers.
+func (js *jobs) join(id string, keep time.Duration, do func(*run) Answer) *run {
 	js.mu.Lock()
 	defer js.mu.Unlock()
 	if r := js.byID[id]; r != nil {
@@ -36,7 +35,7 @@ func (js *jobs) join(id string, do func(*run) Answer) *run {
 		a.Started = r.startedAt()
 		r.answer = a
 		close(r.done)
-		time.AfterFunc(js.keep, func() { js.forget(id, r) })
+		time.AfterFunc(keep, func() { js.forget(id, r) })
 	}()
 	return r
 }

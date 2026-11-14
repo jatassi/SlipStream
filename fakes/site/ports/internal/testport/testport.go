@@ -54,7 +54,10 @@ func (Driver) Search(ctx context.Context, s *searching.Site, q searching.Query) 
 	return search(ctx, s, q.Text, q.IDs["imdbid"])
 }
 
-func (Driver) Recent(ctx context.Context, s *searching.Site) ([]searching.Release, error) {
+func (Driver) Recent(ctx context.Context, s *searching.Site, offset int) ([]searching.Release, error) {
+	if err := searching.NewestOnly(offset); err != nil {
+		return nil, err
+	}
 	return search(ctx, s, "", "")
 }
 
