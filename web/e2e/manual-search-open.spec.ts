@@ -93,6 +93,7 @@ test("Manual search opens from a cell, a season, an episode and a Needs you card
   await page.getByRole("button", { name: "More actions for Season 2" }).click();
   await menuAction(page, "Actions for Season 2", "Manual search");
   const season = sheet(page, lanternKeepers);
+  await expect(season).toContainText("Searching 4 Indexers.");
   await searched(season);
   await expect(season).toContainText("1 Grab gets you everything.");
   await expect(season).toContainText(
