@@ -20,6 +20,8 @@ type watch struct {
 	// version is the settings version of the credential the watch holds.
 	version  int64
 	reported contactState
+	// watching is whether this watch has sent its Watching report.
+	watching bool
 	wait     time.Duration
 }
 
@@ -54,9 +56,9 @@ func (w *watch) once(ctx context.Context) error {
 		return err
 	}
 	w.version = h.version
-	err = w.l.dial(w.t, h).Watch(ctx, w.t.every, func(s link.Seen) { w.note(ctx, contactOf(s.Problem), s.At) })
+	err = w.l.dial(w.t, h).Watch(ctx, w.t.every, func(s link.Seen) { w.look(ctx, s) })
 	if p, ok := link.ServerProblem(err); ok {
-		w.note(ctx, contactOf(&p), time.Now())
+		w.look(ctx, link.Seen{At: time.Now(), Problem: &p})
 	}
 	return err
 }
@@ -78,28 +80,47 @@ var contactsOf = map[link.Reason]link.Contact{
 	link.ReasonFailed:      link.ContactNotResponding,
 }
 
-// note reports c when it differs from what the watch last reported. A
-// report that fails to queue goes again with the next look.
-func (w *watch) note(ctx context.Context, c contactState, at time.Time) {
+// look queues, in one Write, the reports s causes: a change in how the
+// server responds, the plays it starts, changes and ends, the items a
+// push said changed, and after the watch's first poll its Watching. The
+// facts and the plays move on only once the reports are queued, so a look
+// that fails to queue is reported again with the next.
+func (w *watch) look(ctx context.Context, s link.Seen) {
+	c := contactOf(s.Problem)
 	if c.state == link.ContactResponding {
 		w.wait = w.l.cfg.Timings.ReconnectMin
 	}
-	if c == w.reported {
-		return
+	diff, reports, facts := w.l.diff(w.t.ref.ID).Next(s, storage.NewUUID)
+	if c != w.reported {
+		reports = append([]*msv1.Report{{ServerId: w.t.ref.ID.Bytes(), Report: &msv1.Report_Contact{Contact: &msv1.Contact{
+			State: string(c.state), SettingsVersion: w.version, AtUnixMs: s.At.UnixMilli(), Found: c.found,
+		}}}}, reports...)
 	}
-	r := &msv1.Report{ServerId: w.t.ref.ID.Bytes(), Report: &msv1.Report_Contact{Contact: &msv1.Contact{
-		State: string(c.state), SettingsVersion: w.version, AtUnixMs: at.UnixMilli(), Found: c.found,
-	}}}
-	err := w.local.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
-		return w.h.Report(ctx, tx, r)
-	})
-	if err != nil {
-		if ctx.Err() == nil {
-			w.l.cfg.Log.Error("queue a Media Server's contact report", "server", w.t.name, "err", err.Error())
+	if len(s.Items) > 0 {
+		reports = append(reports, &msv1.Report{ServerId: w.t.ref.ID.Bytes(), Report: &msv1.Report_IndexHint{IndexHint: &msv1.IndexHint{ItemKeys: s.Items}}})
+	}
+	watching := s.Polled && s.Problem == nil
+	if watching && !w.watching {
+		reports = append(reports, diff.Watching(s.At))
+	}
+	if len(reports) > 0 {
+		err := w.local.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Local]) error {
+			for _, r := range reports {
+				if err := w.h.Report(ctx, tx, r); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			if ctx.Err() == nil {
+				w.l.cfg.Log.Error("queue a Media Server's reports", "server", w.t.name, "err", err.Error())
+			}
+			return
 		}
-		return
 	}
-	w.reported = c
+	w.reported, w.watching = c, w.watching || watching
+	w.l.keep(w.h, w.t.ref.ID, diff, facts)
 }
 
 func errString(err error) string {

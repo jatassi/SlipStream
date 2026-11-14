@@ -26,6 +26,10 @@ type Seen struct {
 	// missing from two polls. A push lists only what it carried.
 	Polled   bool
 	Sessions []Session
+	// Transcoding is whether the server re-encodes any video now, counted
+	// before the session cap and including a transcode no session lists.
+	// A poll sets it.
+	Transcoding bool
 	// Items are item keys a push said changed, which make their index
 	// entries stale.
 	Items []string

@@ -73,7 +73,7 @@ type mappingsInput struct {
 
 type changesInput struct {
 	ID     string `path:"id" format:"uuid"`
-	Cursor string `query:"cursor" maxLength:"256" doc:"The next member of the previous page; absent for the newest"`
+	Cursor string `query:"cursor" format:"uuid" doc:"The next member of the previous page; absent for the newest"`
 }
 
 type signInBody struct {
@@ -418,7 +418,13 @@ func (h handlers) changes(ctx context.Context, _ identity.Admin, in *changesInpu
 	if err != nil {
 		return nil, err
 	}
-	c, err := h.svc().Changes(ctx, id, in.Cursor)
+	var before link.ChangeID
+	if in.Cursor != "" {
+		if before.UUID, err = storage.ParseUUID(in.Cursor); err != nil {
+			return nil, err
+		}
+	}
+	c, err := h.svc().Changes(ctx, id, before)
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -564,17 +570,17 @@ func Routes(r *api.Router, servers Servers) {
 	api.Register(o, api.Admin, api.Op{
 		ID: "refreshMediaServer", Method: http.MethodPost, Path: base + "/{id}/refresh", Status: http.StatusAccepted,
 		Summary: "Queue a whole library refresh of every library a Media Server's confirmed Path mappings lead into",
-		Errors:  []*api.Code{serverNotFound, notBuilt},
+		Errors:  []*api.Code{serverNotFound},
 	}, h.refresh)
 	api.Register(o, api.Admin, api.Op{
 		ID: "listMediaServerSessions", Method: http.MethodGet, Path: base + "/{id}/sessions", Status: http.StatusOK,
 		Summary: "List what plays on a Media Server now, as its reaching Node last saw it",
-		Errors:  []*api.Code{serverNotFound, notBuilt},
+		Errors:  []*api.Code{serverNotFound},
 	}, h.sessions)
 	api.Register(o, api.Admin, api.Op{
 		ID: "listMediaServerChanges", Method: http.MethodGet, Path: base + "/{id}/changes", Status: http.StatusOK,
 		Summary: "List a Media Server's recent changes, newest first, with their results and what each move couldn't carry",
-		Errors:  []*api.Code{serverNotFound, notBuilt},
+		Errors:  []*api.Code{serverNotFound},
 	}, h.changes)
 	api.Register(o, api.Admin, api.Op{
 		ID: "listMediaServerCredentialHolders", Method: http.MethodGet, Path: base + "/{id}/credential-holders", Status: http.StatusOK,

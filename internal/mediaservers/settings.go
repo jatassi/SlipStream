@@ -152,6 +152,7 @@ func (p panel) Apply(ctx context.Context, patch setting.Patch) error {
 		if err != nil {
 			return err
 		}
+		p.m.senders.wakeAll()
 	}
 	if c.cadence != nil {
 		if err := p.m.cfg.Tasks.SetCadence(ctx, RenewalTaskID, *c.cadence); err != nil {

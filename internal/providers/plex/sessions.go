@@ -51,17 +51,24 @@ type Session struct {
 // is listed in /status/sessions only once its client reported a timeline,
 // and /transcode/sessions always lists a transcode (#71).
 func (c *Client) Sessions(ctx context.Context) ([]Session, error) {
+	sessions, _, err := c.Playing(ctx)
+	return sessions, err
+}
+
+// Playing is Sessions and every transcode, which lists those of sessions
+// /status/sessions doesn't list yet.
+func (c *Client) Playing(ctx context.Context) ([]Session, []Transcode, error) {
 	var status struct {
 		MediaContainer struct {
 			Metadata []Metadata `json:"Metadata"`
 		}
 	}
 	if err := c.do(ctx, http.MethodGet, "/status/sessions", nil, true, &status); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	transcodes, err := c.Transcodes(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	byKey := map[string]*Transcode{}
 	for i := range transcodes {
@@ -76,7 +83,7 @@ func (c *Client) Sessions(ctx context.Context) ([]Session, error) {
 			}
 		}
 	}
-	return out, nil
+	return out, transcodes, nil
 }
 
 // transcodeKey is a session's transcode key, which /status/sessions gives

@@ -29,7 +29,6 @@ var (
 	plexPinNotFound    = api.NewCode(http.StatusNotFound, "plex_pin_not_found", "No Plex sign-in has this id")
 	plexTVUnreached    = api.NewCode(http.StatusBadGateway, "plex_tv_unreached", "plex.tv didn't respond")
 	marginTooShort     = api.NewCode(http.StatusUnprocessableEntity, "renew_margin_too_short", "The renewal margin isn't longer than the renewal schedule")
-	notBuilt           = api.NewCode(http.StatusNotImplemented, "media_servers_not_built", "This Media Servers operation isn't built yet")
 )
 
 // answer is err as the problem an Admin reads.
@@ -73,8 +72,6 @@ func answer(err error) error {
 		return plexPinNotFound
 	case errors.Is(err, mediaservers.ErrPlexTVUnreached):
 		return plexTVUnreached.Because("plex.tv didn't respond to the Controller. Check the Controller's internet connection and try again.")
-	case errors.Is(err, mediaservers.ErrNotBuilt):
-		return notBuilt
 	}
 	return settingapi.Refused(err)
 }

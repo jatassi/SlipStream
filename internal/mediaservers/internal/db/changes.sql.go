@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
@@ -15,11 +16,64 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+const deleteAllPrepared = `-- name: DeleteAllPrepared :exec
+DELETE FROM mediaservers_change WHERE state = 'prepared'
+`
+
+func (q *Queries) DeleteAllPrepared(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllPrepared)
+	return err
+}
+
+const deleteChange = `-- name: DeleteChange :exec
+DELETE FROM mediaservers_change WHERE id = ?1
+`
+
+func (q *Queries) DeleteChange(ctx context.Context, id link.ChangeID) error {
+	_, err := q.db.ExecContext(ctx, deleteChange, id)
+	return err
+}
+
+const deletePrepared = `-- name: DeletePrepared :exec
+DELETE FROM mediaservers_change WHERE file_id = ?1 AND state = 'prepared'
+`
+
+func (q *Queries) DeletePrepared(ctx context.Context, fileID files.ID) error {
+	_, err := q.db.ExecContext(ctx, deletePrepared, fileID)
+	return err
+}
+
+const deleteStalePrepared = `-- name: DeleteStalePrepared :exec
+DELETE FROM mediaservers_change WHERE state = 'prepared' AND file_id NOT IN (/*SLICE:pending*/?)
+`
+
+// DeleteStalePrepared deletes the prepared rows of files no pending
+// rename names any more: a plan cancelled or replaced.
+func (q *Queries) DeleteStalePrepared(ctx context.Context, pending []files.ID) error {
+	query := deleteStalePrepared
+	var queryParams []interface{}
+	if len(pending) > 0 {
+		for _, v := range pending {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:pending*/?", strings.Repeat(",?", len(pending))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:pending*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
+}
+
 const insertChange = `-- name: InsertChange :exec
 INSERT INTO mediaservers_change (
     id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade,
-    state, step, step_at, snapshot, next_attempt_at, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem
+) VALUES (
+    ?1, ?2, ?3, ?4, ?5, ?6,
+    ?7, ?8, ?9, ?10, ?11, ?12,
+    ?13, ?14, ?15, ?16, ?17,
+    ?18, ?19, ?20
+)
 `
 
 type InsertChangeParams struct {
@@ -36,8 +90,13 @@ type InsertChangeParams struct {
 	Step          link.Step
 	StepAt        storage.Time
 	Snapshot      *string
+	Attempts      int64
 	NextAttemptAt storage.Time
 	CreatedAt     storage.Time
+	SentAt        storage.Time
+	Result        *link.Result
+	Lost          string
+	Problem       *string
 }
 
 func (q *Queries) InsertChange(ctx context.Context, arg InsertChangeParams) error {
@@ -55,8 +114,419 @@ func (q *Queries) InsertChange(ctx context.Context, arg InsertChangeParams) erro
 		arg.Step,
 		arg.StepAt,
 		arg.Snapshot,
+		arg.Attempts,
 		arg.NextAttemptAt,
 		arg.CreatedAt,
+		arg.SentAt,
+		arg.Result,
+		arg.Lost,
+		arg.Problem,
+	)
+	return err
+}
+
+const listChanges = `-- name: ListChanges :many
+SELECT id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem FROM mediaservers_change WHERE server_id = ?1 ORDER BY id DESC LIMIT ?2
+`
+
+type ListChangesParams struct {
+	ServerID link.ServerID
+	N        int64
+}
+
+func (q *Queries) ListChanges(ctx context.Context, arg ListChangesParams) ([]MediaserversChange, error) {
+	rows, err := q.db.QueryContext(ctx, listChanges, arg.ServerID, arg.N)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MediaserversChange
+	for rows.Next() {
+		var i MediaserversChange
+		if err := rows.Scan(
+			&i.ID,
+			&i.ServerID,
+			&i.Kind,
+			&i.RootID,
+			&i.Path,
+			&i.FromPath,
+			&i.FileID,
+			&i.ReplacedBy,
+			&i.Upgrade,
+			&i.State,
+			&i.Step,
+			&i.StepAt,
+			&i.Snapshot,
+			&i.Attempts,
+			&i.NextAttemptAt,
+			&i.CreatedAt,
+			&i.SentAt,
+			&i.Result,
+			&i.Lost,
+			&i.Problem,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listChangesBefore = `-- name: ListChangesBefore :many
+SELECT id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem FROM mediaservers_change
+WHERE server_id = ?1 AND id < ?2
+ORDER BY id DESC
+LIMIT ?3
+`
+
+type ListChangesBeforeParams struct {
+	ServerID link.ServerID
+	Before   link.ChangeID
+	N        int64
+}
+
+func (q *Queries) ListChangesBefore(ctx context.Context, arg ListChangesBeforeParams) ([]MediaserversChange, error) {
+	rows, err := q.db.QueryContext(ctx, listChangesBefore, arg.ServerID, arg.Before, arg.N)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MediaserversChange
+	for rows.Next() {
+		var i MediaserversChange
+		if err := rows.Scan(
+			&i.ID,
+			&i.ServerID,
+			&i.Kind,
+			&i.RootID,
+			&i.Path,
+			&i.FromPath,
+			&i.FileID,
+			&i.ReplacedBy,
+			&i.Upgrade,
+			&i.State,
+			&i.Step,
+			&i.StepAt,
+			&i.Snapshot,
+			&i.Attempts,
+			&i.NextAttemptAt,
+			&i.CreatedAt,
+			&i.SentAt,
+			&i.Result,
+			&i.Lost,
+			&i.Problem,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listShowing = `-- name: ListShowing :many
+
+SELECT server_id FROM mediaservers_mapping
+WHERE root_id = ?1 AND shown = 1
+ORDER BY server_id
+`
+
+// Changed and Prepare fold each file change into the rows below, and the
+// API lists them.
+func (q *Queries) ListShowing(ctx context.Context, rootID roots.ID) ([]link.ServerID, error) {
+	rows, err := q.db.QueryContext(ctx, listShowing, rootID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []link.ServerID
+	for rows.Next() {
+		var server_id link.ServerID
+		if err := rows.Scan(&server_id); err != nil {
+			return nil, err
+		}
+		items = append(items, server_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const openAtPaths = `-- name: OpenAtPaths :many
+SELECT id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem FROM mediaservers_change
+WHERE server_id = ?1 AND root_id = ?2 AND from_path IS NULL
+    AND state IN ('prepared', 'due') AND step IN ('none', 'snapshotted')
+    AND path IN (/*SLICE:paths*/?)
+ORDER BY created_at, id
+`
+
+type OpenAtPathsParams struct {
+	ServerID link.ServerID
+	RootID   roots.ID
+	Paths    []string
+}
+
+func (q *Queries) OpenAtPaths(ctx context.Context, arg OpenAtPathsParams) ([]MediaserversChange, error) {
+	query := openAtPaths
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.ServerID)
+	queryParams = append(queryParams, arg.RootID)
+	if len(arg.Paths) > 0 {
+		for _, v := range arg.Paths {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:paths*/?", strings.Repeat(",?", len(arg.Paths))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:paths*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MediaserversChange
+	for rows.Next() {
+		var i MediaserversChange
+		if err := rows.Scan(
+			&i.ID,
+			&i.ServerID,
+			&i.Kind,
+			&i.RootID,
+			&i.Path,
+			&i.FromPath,
+			&i.FileID,
+			&i.ReplacedBy,
+			&i.Upgrade,
+			&i.State,
+			&i.Step,
+			&i.StepAt,
+			&i.Snapshot,
+			&i.Attempts,
+			&i.NextAttemptAt,
+			&i.CreatedAt,
+			&i.SentAt,
+			&i.Result,
+			&i.Lost,
+			&i.Problem,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const openCarry = `-- name: OpenCarry :many
+SELECT id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem FROM mediaservers_change
+WHERE server_id = ?1 AND file_id = ?2 AND from_path IS NOT NULL
+    AND state IN ('prepared', 'due') AND step IN ('none', 'snapshotted')
+ORDER BY created_at, id
+`
+
+type OpenCarryParams struct {
+	ServerID link.ServerID
+	FileID   files.ID
+}
+
+func (q *Queries) OpenCarry(ctx context.Context, arg OpenCarryParams) ([]MediaserversChange, error) {
+	rows, err := q.db.QueryContext(ctx, openCarry, arg.ServerID, arg.FileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MediaserversChange
+	for rows.Next() {
+		var i MediaserversChange
+		if err := rows.Scan(
+			&i.ID,
+			&i.ServerID,
+			&i.Kind,
+			&i.RootID,
+			&i.Path,
+			&i.FromPath,
+			&i.FileID,
+			&i.ReplacedBy,
+			&i.Upgrade,
+			&i.State,
+			&i.Step,
+			&i.StepAt,
+			&i.Snapshot,
+			&i.Attempts,
+			&i.NextAttemptAt,
+			&i.CreatedAt,
+			&i.SentAt,
+			&i.Result,
+			&i.Lost,
+			&i.Problem,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const openPartner = `-- name: OpenPartner :many
+SELECT id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem FROM mediaservers_change
+WHERE server_id = ?1 AND state IN ('prepared', 'due') AND step IN ('none', 'snapshotted')
+    AND ((kind = 'added' AND upgrade = 1 AND file_id = ?2)
+        OR (kind = 'removed' AND replaced_by = ?3))
+ORDER BY created_at, id
+`
+
+type OpenPartnerParams struct {
+	ServerID link.ServerID
+	Replacer files.ID
+	Added    files.ID
+}
+
+// OpenPartner is the other half of an upgrade: for a removed naming its
+// replacer, that file's added; for an added, the removed naming its file.
+func (q *Queries) OpenPartner(ctx context.Context, arg OpenPartnerParams) ([]MediaserversChange, error) {
+	rows, err := q.db.QueryContext(ctx, openPartner, arg.ServerID, arg.Replacer, arg.Added)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MediaserversChange
+	for rows.Next() {
+		var i MediaserversChange
+		if err := rows.Scan(
+			&i.ID,
+			&i.ServerID,
+			&i.Kind,
+			&i.RootID,
+			&i.Path,
+			&i.FromPath,
+			&i.FileID,
+			&i.ReplacedBy,
+			&i.Upgrade,
+			&i.State,
+			&i.Step,
+			&i.StepAt,
+			&i.Snapshot,
+			&i.Attempts,
+			&i.NextAttemptAt,
+			&i.CreatedAt,
+			&i.SentAt,
+			&i.Result,
+			&i.Lost,
+			&i.Problem,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const pruneSent = `-- name: PruneSent :execrows
+DELETE FROM mediaservers_change WHERE state = 'sent' AND sent_at < ?1
+`
+
+func (q *Queries) PruneSent(ctx context.Context, before storage.Time) (int64, error) {
+	result, err := q.db.ExecContext(ctx, pruneSent, before)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const updateChange = `-- name: UpdateChange :exec
+UPDATE mediaservers_change
+SET kind = ?1,
+    path = ?2,
+    from_path = ?3,
+    file_id = ?4,
+    replaced_by = ?5,
+    upgrade = ?6,
+    state = ?7,
+    step = ?8,
+    step_at = ?9,
+    snapshot = ?10,
+    attempts = ?11,
+    next_attempt_at = ?12,
+    sent_at = ?13,
+    result = ?14,
+    lost = ?15,
+    problem = ?16
+WHERE id = ?17
+`
+
+type UpdateChangeParams struct {
+	Kind          link.ChangeKind
+	Path          string
+	FromPath      *string
+	FileID        files.ID
+	ReplacedBy    files.ID
+	Upgrade       bool
+	State         queue.State
+	Step          link.Step
+	StepAt        storage.Time
+	Snapshot      *string
+	Attempts      int64
+	NextAttemptAt storage.Time
+	SentAt        storage.Time
+	Result        *link.Result
+	Lost          string
+	Problem       *string
+	ID            link.ChangeID
+}
+
+// UpdateChange writes every column a fold or a step moves. A row keeps
+// its id, server, root and age.
+func (q *Queries) UpdateChange(ctx context.Context, arg UpdateChangeParams) error {
+	_, err := q.db.ExecContext(ctx, updateChange,
+		arg.Kind,
+		arg.Path,
+		arg.FromPath,
+		arg.FileID,
+		arg.ReplacedBy,
+		arg.Upgrade,
+		arg.State,
+		arg.Step,
+		arg.StepAt,
+		arg.Snapshot,
+		arg.Attempts,
+		arg.NextAttemptAt,
+		arg.SentAt,
+		arg.Result,
+		arg.Lost,
+		arg.Problem,
+		arg.ID,
 	)
 	return err
 }

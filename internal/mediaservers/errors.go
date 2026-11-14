@@ -17,8 +17,6 @@ var (
 	ErrPlexServerNotFound = errors.New("the Plex account has no server with this id")
 	ErrPlexPinNotFound    = errors.New("no Plex sign-in has this id")
 	ErrPlexTVUnreached    = errors.New("plex.tv didn't respond")
-	// ErrNotBuilt is an operation Unbuilt still stands in for.
-	ErrNotBuilt = errors.New("not built yet")
 )
 
 // TooOldError is a server below its kind's version floor.
