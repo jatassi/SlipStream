@@ -40,6 +40,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/internal/nodeenv"
 	"github.com/jatassi/slipstream/fakes/internal/releases"
 	"github.com/jatassi/slipstream/fakes/internal/seeders"
+	"github.com/jatassi/slipstream/fakes/plextv"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/fakes/smtp"
 	"github.com/jatassi/slipstream/fakes/tracker"
@@ -797,6 +798,22 @@ func (r *Run) seedLibrary(ctx context.Context, _ *unwind) error {
 		return err
 	}
 	r.log.Info("library seeded")
+	media := setup.MediaWorld{
+		Front: func(node, kind string) string {
+			at, _ := r.table.Find(fault.Target(kind), node)
+			return at.URL("")
+		},
+		Approve: func(ctx context.Context, code string) error {
+			args, err := json.Marshal(map[string]string{"code": code})
+			if err == nil {
+				_, err = r.Cue(ctx, plextv.Approve.Name, args)
+			}
+			return err
+		},
+	}
+	if err := setup.MediaServers(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims, r.mediaDir(), media); err != nil {
+		return err
+	}
 	if w := r.scenario.Library.Works; w != nil {
 		start := time.Now()
 		n, err := setup.Works(ctx, http.DefaultClient, r.scenario, r.ready(), r.claims)

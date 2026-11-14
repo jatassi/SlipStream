@@ -8221,6 +8221,11 @@ export const NodesTopologyNode = zod.object({
     .datetime({ offset: true })
     .describe("When it came in step; while away, its last Sync frame"),
   state: zod.enum(["online", "reconnecting", "offline", "lapsed", "mismatched"]),
+  television: zod
+    .boolean()
+    .describe(
+      "Whether any Media Server the Node reaches responds; false unless it stands in Media Server link",
+    ),
 });
 
 export type NodesTopologyNode = zod.input<typeof NodesTopologyNode>;
@@ -10732,6 +10737,7 @@ export type WorksWebLinkOutput = zod.output<typeof WorksWebLink>;
 
 export const WorksOpenIn = zod.object({
   kind: MediaserversKind,
+  label: zod.string().describe("The kind's name, such as Plex"),
   name: zod.string().describe("The Media Server's name, such as Living room Plex"),
   serverId: zod.uuid(),
   url: zod.url(),

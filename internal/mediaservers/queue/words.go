@@ -30,10 +30,13 @@ var lost = map[link.Loss]string{
 func (c Change) Words() string {
 	switch c.State {
 	case Prepared:
-		if c.Snapshot == nil {
-			return "SlipStream sends this change once the rename finishes."
+		switch {
+		case c.Snapshot != nil:
+			return "Saved every user's watch data before the rename. SlipStream sends this change once the rename finishes."
+		case len(c.Lost) > 0:
+			return "SlipStream couldn't save the watch data before the rename. It tries again when it sends this change."
 		}
-		return "Saved every user's watch data before the rename. SlipStream sends this change once the rename finishes."
+		return "SlipStream sends this change once the rename finishes."
 	case Sending:
 		return "SlipStream is sending this change."
 	case Due:

@@ -14,7 +14,7 @@ export const SMALL = {
   searching: (P: Projection): Item[] => [dish(P)],
   subtitles: (P: Projection): Item[] => [typewriter(P)],
   metadata: (P: Projection): Item[] => [catalog(P)],
-  "media-server-link": (P: Projection): Item[] => [television(P)],
+  "media-server-link": (P: Projection, node: NodeRow): Item[] => [television(P, node.television)],
   notifying: (P: Projection): Item[] => [mailbox(P)],
   serving: (P: Projection, node: NodeRow): Item[] => [booth(P, node.listening)],
 };

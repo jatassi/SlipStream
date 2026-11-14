@@ -153,20 +153,21 @@ func (c *controller) open(t *testing.T, s *side) {
 	t.Helper()
 	pub, traffic := &published{}, &heard{}
 	cfg := nodes.Config{
-		Library:  c.lib,
-		Key:      c.node.Key,
-		Name:     "home",
-		Link:     c.node.Link,
-		Changed:  pub,
-		Traffic:  traffic,
-		Owners:   nodestest.Unowned(),
-		Kept:     keptNothing,
-		Torrents: unsampled{},
-		Storage:  storesNothing,
-		Facts:    func(nodes.ID, string) {},
-		Timings:  nodes.DefaultTimings(),
-		Stall:    45 * time.Second,
-		Log:      discard,
+		Library:    c.lib,
+		Key:        c.node.Key,
+		Name:       "home",
+		Link:       c.node.Link,
+		Changed:    pub,
+		Traffic:    traffic,
+		Owners:     nodestest.Unowned(),
+		Kept:       keptNothing,
+		Torrents:   unsampled{},
+		Storage:    storesNothing,
+		Television: func(nodes.ID) bool { return false },
+		Facts:      func(nodes.ID, string) {},
+		Timings:    nodes.DefaultTimings(),
+		Stall:      45 * time.Second,
+		Log:        discard,
 	}
 	for _, e := range c.edit {
 		e(&cfg)

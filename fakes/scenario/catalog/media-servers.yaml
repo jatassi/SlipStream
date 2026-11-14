@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  Two Nodes, each with a movie root and a series root, and one Media Server
+  of each kind. The Controller home reaches Living room Plex, which holds
+  home's roots: the world signs in with Plex through a plex.tv PIN it
+  approves on fake-plex-tv, then picks the server's connection through
+  home's front. The Worker den holds Storage and Media Server link and
+  reaches Den Jellyfin and Den Emby, which hold den's roots. Jellyfin signs
+  in with the key fake-jellyfin holds, Emby as its administrator, so
+  SlipStream creates its key. Each den server's fallback address is the
+  Controller's front. The world saves every server's Path mappings, each
+  root the server doesn't hold as not shown. Every library starts empty, so
+  the first import into each root starts a full scan first.
+seed: media-servers
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+    roles: [storage, searching, downloading, converting, subtitles, metadata, media-server-link, notifying, serving]
+    media_servers:
+      - kind: plex
+        name: Living room Plex
+  - name: den
+    setup: join
+    roles: [storage, media-server-link]
+    media_servers:
+      - kind: jellyfin
+        name: Den Jellyfin
+        users: [grace]
+      - kind: emby
+        name: Den Emby
+        sign_in: admin
+timings:
+  node:
+    stop_deadline: 15s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+tvdb:
+  series:
+    - id: 9100201
+      name: The Tin Signal
+      status: continuing
+      seasons:
+        - number: 1
+          episodes:
+            - {id: 9120101, number: 1, name: Static, aired: 2019-01-07}
+            - {id: 9120102, number: 2, name: Carrier Wave, aired: 2019-01-14}
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 8.2GiB
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots:
+    - {content_type: movie, folder: movies}
+    - {content_type: series, folder: series}
+    - {content_type: movie, folder: den-movies, node: den}
+    - {content_type: series, folder: den-series, node: den}
+  indexers: [{name: Fixture Site, kind: torznab, site: torznab}]

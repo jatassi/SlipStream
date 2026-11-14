@@ -30,6 +30,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -884,3 +885,5 @@ func (s *shelves) seed(t *testing.T, n int, profile targets.ProfileID) []string 
 	}
 	return ws
 }
+
+func (node) OpenIn(context.Context, works.WorkID) ([]mediaservers.OpenIn, error) { return nil, nil }

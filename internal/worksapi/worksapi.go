@@ -1,12 +1,14 @@
 package worksapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/library"
+	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/settingapi"
@@ -25,6 +27,9 @@ type Shelf interface {
 	// Library composes the Library's reads and actions, false unless the
 	// Node is a Controller.
 	Library() (*library.Library, bool)
+	// OpenIn links to a Work on each Media Server that holds it, on a
+	// Controller.
+	OpenIn(ctx context.Context, work works.WorkID) ([]mediaservers.OpenIn, error)
 }
 
 func open(s Shelf) *works.Works {

@@ -145,6 +145,70 @@
             },
             "type": "array"
           },
+          "media_servers": {
+            "items": {
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "plex",
+                    "jellyfin",
+                    "emby"
+                  ]
+                },
+                "version": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "windows": {
+                  "type": "boolean"
+                },
+                "sign_in": {
+                  "type": "string",
+                  "enum": [
+                    "key",
+                    "admin"
+                  ]
+                },
+                "no_fallback": {
+                  "type": "boolean"
+                },
+                "roots": {
+                  "items": {
+                    "properties": {
+                      "folder": {
+                        "type": "string"
+                      },
+                      "hidden": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "folder"
+                    ]
+                  },
+                  "type": "array"
+                },
+                "users": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "kind",
+                "name"
+              ]
+            },
+            "type": "array"
+          },
           "path_limit": {
             "type": "integer",
             "minimum": 0

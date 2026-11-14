@@ -27,6 +27,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity/identitytest"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/library"
+	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -580,3 +581,5 @@ func (noImports) EndOf(context.Context, *storage.Tx[storage.Library], []works.Wo
 }
 
 func (noImports) Touch() {}
+
+func (shelf) OpenIn(context.Context, works.WorkID) ([]mediaservers.OpenIn, error) { return nil, nil }

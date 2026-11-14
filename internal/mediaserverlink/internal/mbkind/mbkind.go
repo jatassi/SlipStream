@@ -11,6 +11,7 @@ import (
 	"errors"
 	"net/url"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
@@ -27,6 +28,8 @@ type family struct {
 	// deletesAtOnce is Emby's: a Deleted report removes its item without
 	// waiting out the monitor delay (#101).
 	deletesAtOnce bool
+	// details is the web app's route to an item page, after its address.
+	details string
 }
 
 var (
@@ -34,11 +37,13 @@ var (
 		about:            link.About{Name: "jellyfin", Label: "Jellyfin", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustVersion("12.2")},
 		flavor:           jellyfin.Jellyfin,
 		scanDropsReports: true,
+		details:          "/web/#/details",
 	}
 	Emby link.Kind = family{
 		about:         link.About{Name: "emby", Label: "Emby", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustVersion("4.10")},
 		flavor:        jellyfin.Emby,
 		deletesAtOnce: true,
+		details:       "/web/index.html#!/item",
 	}
 )
 
@@ -46,6 +51,10 @@ func (f family) About() link.About { return f.about }
 
 // keyName is the name of the API key SignIn creates.
 const keyName = "SlipStream"
+
+func (f family) OpenIn(app, identity, item string) string {
+	return strings.TrimSuffix(app, "/") + f.details + "?id=" + url.QueryEscape(item) + "&serverId=" + url.QueryEscape(identity)
+}
 
 func (f family) Dial(d link.Dialed) link.Conn {
 	return &conn{f: f, d: d, c: f.client(d, d.Credential.APIKey)}

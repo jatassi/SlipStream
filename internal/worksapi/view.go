@@ -27,6 +27,7 @@ type workView struct {
 type openIn struct {
 	ServerID string                      `json:"serverId" format:"uuid"`
 	Kind     api.Enum[mediaservers.Kind] `json:"kind"`
+	Label    string                      `json:"label" doc:"The kind's name, such as Plex"`
 	Name     string                      `json:"name" doc:"The Media Server's name, such as Living room Plex"`
 	URL      string                      `json:"url" format:"uri"`
 }
@@ -68,16 +69,23 @@ func (h handlers) view(ctx context.Context, by identity.Admin, id works.WorkID) 
 	if err != nil {
 		return workView{}, answer(err)
 	}
-	return viewOf(minter(h.shelf), w), nil
+	links, err := h.shelf.OpenIn(ctx, id)
+	if err != nil {
+		return workView{}, err
+	}
+	return viewOf(minter(h.shelf), w, links), nil
 }
 
-func viewOf(m artwork.Minter, w library.Work) workView {
+func viewOf(m artwork.Minter, w library.Work, links []mediaservers.OpenIn) workView {
 	out := workView{
 		Tree: treeOf(m, w.Tree, w.Timings), Links: make([]webLink, len(w.Links)), Profile: workProfile{ID: w.Profile.ID.String(), Name: w.Profile.Name},
 		MonitorNew: w.MonitorNew, MonitorAsides: w.MonitorAsides, LevelFolders: w.Options.LevelFolders, Options: settingapi.FieldsOf(w.Options.Fields), OpenIn: []openIn{},
 	}
 	for i, l := range w.Links {
 		out.Links[i] = webLink{Key: l.Key, Label: l.Label, URL: l.URL, Kind: l.Kind.String()}
+	}
+	for _, l := range links {
+		out.OpenIn = append(out.OpenIn, openIn{ServerID: l.Server.String(), Kind: mediaservers.KindOf(l.Kind), Label: l.Label, Name: l.Name, URL: l.URL})
 	}
 	if r := w.Root; r != nil {
 		out.Root = api.Some(workRoot{ID: r.ID.String(), NodeID: r.Node.String(), Path: r.Path})

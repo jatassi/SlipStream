@@ -7,6 +7,7 @@ import {
   Layers01Icon,
   Settings02Icon,
   TextAlignLeftIcon,
+  Tv01Icon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
@@ -53,6 +54,13 @@ export const nodeSections = [
     icon: Search01Icon,
     to: "/nodes/$nodeId/searching",
     shows: standsIn("searching"),
+  },
+  {
+    id: "media-servers",
+    label: "Media Servers",
+    icon: Tv01Icon,
+    to: "/nodes/$nodeId/media-servers",
+    shows: standsIn("media-server-link"),
   },
   {
     id: "transfers",

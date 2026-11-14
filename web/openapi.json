@@ -15545,6 +15545,10 @@
               "mismatched"
             ],
             "type": "string"
+          },
+          "television": {
+            "description": "Whether any Media Server the Node reaches responds; false unless it stands in Media Server link",
+            "type": "boolean"
           }
         },
         "required": [
@@ -15556,7 +15560,8 @@
           "since",
           "roles",
           "probes",
-          "resources"
+          "resources",
+          "television"
         ],
         "type": "object"
       },
@@ -23325,6 +23330,10 @@
           "kind": {
             "$ref": "#/components/schemas/MediaserversKind"
           },
+          "label": {
+            "description": "The kind's name, such as Plex",
+            "type": "string"
+          },
           "name": {
             "description": "The Media Server's name, such as Living room Plex",
             "type": "string"
@@ -23341,6 +23350,7 @@
         "required": [
           "serverId",
           "kind",
+          "label",
           "name",
           "url"
         ],

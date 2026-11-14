@@ -17,6 +17,8 @@ func TestWordsSayWhatAChangeDidAndWhatItLost(t *testing.T) {
 	refused.Attempts, refused.Problem = 1, &link.Problem{Reason: link.ReasonRefused, Status: 401}
 	prepared := tb.change(link.ChangeMoved, "A>B", "f")
 	prepared.State, prepared.Snapshot = queue.Prepared, &link.Snapshot{}
+	missed := tb.change(link.ChangeMoved, "A>B", "f")
+	missed.State, missed.Lost = queue.Prepared, []link.Loss{link.LostWatchState, link.LostCollections}
 	for _, c := range []struct {
 		change queue.Change
 		want   string
@@ -31,6 +33,7 @@ func TestWordsSayWhatAChangeDidAndWhatItLost(t *testing.T) {
 		{refused, "The Media Server refused SlipStream's credential (status 401). SlipStream retries automatically."},
 		{tb.doomed(tb.change(link.ChangeRemoved, "A", "old")), "This change is waiting for the other half of its upgrade."},
 		{prepared, "Saved every user's watch data before the rename. SlipStream sends this change once the rename finishes."},
+		{missed, "SlipStream couldn't save the watch data before the rename. It tries again when it sends this change."},
 	} {
 		if got := c.change.Words(); got != c.want {
 			t.Errorf("%s reads %q, want %q", show(tb, c.change), got, c.want)

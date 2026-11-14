@@ -19,6 +19,7 @@ import (
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // MediaServers is the Controller's side of S35 (Media Servers): the server
@@ -30,6 +31,10 @@ type MediaServers struct {
 	pins    pins
 	seen    seenSessions
 	senders *senders
+	lookups *lookups
+	// contacted is the servers whose contact each Node's reports changed,
+	// published once they commit.
+	contacted pendingServers
 }
 
 type Config struct {
@@ -50,6 +55,9 @@ type Config struct {
 	// FileIDs is files.IDsAt: the file whose bytes sit at each path of a
 	// root.
 	FileIDs func(ctx context.Context, r storage.Reader[storage.Library], root roots.ID, rels []storing.Rel) (map[storing.Rel]files.ID, error)
+	// WorkFiles is files.LeftIn of one Work: its files whose bytes sit at
+	// their paths.
+	WorkFiles func(ctx context.Context, r storage.Reader[storage.Library], work works.WorkID) ([]files.File, error)
 	// RootWords names each root the way copy does.
 	RootWords func(ctx context.Context, r storage.Reader[storage.Library]) (map[roots.ID]string, error)
 	// RootsChanged wakes after each roots.changed until ctx ends.
@@ -94,7 +102,7 @@ type Roster interface {
 }
 
 func New(cfg Config) *MediaServers {
-	return &MediaServers{cfg: cfg, seen: newSeenSessions(), senders: newSenders()}
+	return &MediaServers{cfg: cfg, seen: newSeenSessions(), senders: newSenders(), lookups: newLookups(), contacted: pendingServers{byNode: map[role.NodeID][]string{}}}
 }
 
 // Owner keeps Media Server link on every Node that a server names as its

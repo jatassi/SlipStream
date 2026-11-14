@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
+	"github.com/jatassi/slipstream/fakes/jellyfin"
 	fakeplex "github.com/jatassi/slipstream/fakes/plex"
 	fakeplextv "github.com/jatassi/slipstream/fakes/plextv"
 	"github.com/jatassi/slipstream/internal/files"
@@ -37,7 +38,14 @@ type shelf struct {
 // set.
 func newShelf(t *testing.T, fallback string) shelf {
 	t.Helper()
-	s := addShelf(t, fallback)
+	return newShelfOf(t, den(floorVer), fallback)
+}
+
+// newShelfOf is newShelf with srv as Den, and each of placed, a path Den
+// names, there before Den scans.
+func newShelfOf(t *testing.T, srv jellyfin.Server, fallback string, placed ...string) shelf {
+	t.Helper()
+	s := addShelfOf(t, srv, fallback, placed...)
 	s.w.Scanned(t)
 	time.Sleep(15 * time.Second)
 	synctest.Wait()
@@ -51,8 +59,13 @@ func newShelf(t *testing.T, fallback string) shelf {
 // never scanned with content.
 func addShelf(t *testing.T, fallback string) shelf {
 	t.Helper()
+	return addShelfOf(t, den(floorVer), fallback)
+}
+
+func addShelfOf(t *testing.T, srv jellyfin.Server, fallback string, placed ...string) shelf {
+	t.Helper()
 	r := newRig(t)
-	s := shelf{rig: r, den: r.w.Jellyfin(t, host, den(floorVer))}
+	s := shelf{rig: r, den: r.w.Jellyfin(t, host, srv, placed...)}
 	draft := `{"kind":"jellyfin","name":"Den","address":"` + address + `","reachingNodeId":"` + r.w.Seedbox.String() + `","apiKey":"` + denKey + `"`
 	if fallback != "" {
 		draft += `,"fallbackAddress":"` + fallback + `"`
@@ -354,7 +367,7 @@ func TestAFailingServerKeepsItsChanges(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s := newShelf(t, "")
 		ids := fileIDs{}
-		up := s.w.Down(host)
+		up := s.w.Down(t, host)
 		s.tell(t, at(t, files.PathAdded, ids.of("old"), "Trip/Trip.mkv"))
 		settle(time.Minute)
 		c := change(t, s.changes(t), "Trip/Trip.mkv")
@@ -452,17 +465,26 @@ func TestRefreshWholeLibraryCoversWaitingChanges(t *testing.T) {
 // windowsPlex is Living room Plex on Windows, with a Shows section at
 // C:\Media\Shows.
 var windowsPlex = fakeplex.Server{
-	Name: "Living room", Version: "1.43.5.11029", Identifier: plexID, Owner: "plex-admin", Root: `C:\Media`,
+	Name: "Living room", Version: "1.43.5.11029", Identifier: plexID, Owner: "plex-admin", Root: `C:\Media`, Tokens: []string{plexToken},
 	Sections: []fakeplex.Section{{Key: "2", Title: "Shows", Type: "show", Folders: []string{`C:\Media\Shows`}, Scanned: true}},
 }
 
+// plexToken is a token Living room Plex takes beside plex.tv's, for a
+// test that seeds watch data as a person does in Plex.
+const plexToken = "living-room-test-token"
+
 // shows is Living room Plex, which seedbox reaches, with the Shows root
 // mapped and scanned, once the section refresh its mapping queued has
-// gone.
-func newShows(t *testing.T) (shelf, mstest.Plex) {
+// gone. Shows holds an episode of Harbor, so Plex scanned it with
+// content, and each of placed, a path under Shows, is there before that
+// refresh.
+func newShows(t *testing.T, placed ...string) (shelf, mstest.Plex) {
 	t.Helper()
 	r := plexRig{rig: newRig(t)}
 	r.plex = r.w.Plex(t, windowsPlex, fakeplextv.Account{Username: "plex-admin", PlexPass: true})
+	for _, rel := range append([]string{"Harbor/Season 01/Harbor - S01E01.mkv"}, placed...) {
+		place(t, r.plex.Server.Media, "Shows/"+rel)
+	}
 	r.signIn(t)
 	s := shelf{rig: r.rig, id: r.addPlex(t, r.w.Seedbox.String()).ID, root: r.w.Root(t, "Shows").ID}
 	s.mapTo(t, `C:\Media\Shows`)
@@ -498,7 +520,7 @@ func refreshed(t *testing.T, px mstest.Plex) []string {
 
 // TestASeasonPackIsOnePlexRefresh lands 40 episodes in one season folder
 // of a Windows Plex: Plex refreshes that one folder once, named with the
-// server's backslashes.
+// server's backslashes, and holds the last episode as an item.
 func TestASeasonPackIsOnePlexRefresh(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s, px := newShows(t)
@@ -506,6 +528,7 @@ func TestASeasonPackIsOnePlexRefresh(t *testing.T) {
 		var cs []files.PathChange
 		for e := 1; e <= 40; e++ {
 			name := fmt.Sprintf("Voyage/Season 01/Voyage - S01E%02d.mkv", e)
+			place(t, px.Server.Media, "Shows/"+name)
 			cs = append(cs, at(t, files.PathAdded, ids.of(name), name))
 		}
 		s.tell(t, cs...)
@@ -514,6 +537,7 @@ func TestASeasonPackIsOnePlexRefresh(t *testing.T) {
 		if got := refreshed(t, px); !slices.Equal(got, want) {
 			t.Errorf("Plex took the refreshes %v, want %v", got, want)
 		}
+		plexKey(t, px, "Voyage/Season 01/Voyage - S01E40.mkv")
 	})
 }
 

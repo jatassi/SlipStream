@@ -46,6 +46,7 @@ const canonical: NodeRow = {
   torrents: [],
   storage: undefined,
   listening: true,
+  television: true,
 };
 
 const P = fitProjection(boxCorners(TILE, 0, 180), 1100, 900, { pad: 24, azimuth: AZIMUTH });

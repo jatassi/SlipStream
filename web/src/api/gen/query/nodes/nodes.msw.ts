@@ -1194,6 +1194,7 @@ export const getGetTopologyResponseMock = (
       "lapsed",
       "mismatched",
     ] as const),
+    television: faker.datatype.boolean(),
   })),
   sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
   ...overrideResponse,

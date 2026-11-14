@@ -13,11 +13,17 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
-// Apply applies one of node's reports, as the Role's receive Write does.
+// Apply applies one of node's reports, as the Role's receive Write does,
+// and follows its commit as the Role does.
 func (w *World) Apply(ctx context.Context, node role.NodeID, r *msv1.Report) error {
-	return w.Lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+	err := w.Lib.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		return w.ms.Apply(ctx, tx, node, r)
 	})
+	if err != nil {
+		return err
+	}
+	w.ms.Applied(node, string(role.MediaServerLink))
+	return nil
 }
 
 // Plays is every play of server, by start, each as "<path> <decision>

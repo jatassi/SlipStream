@@ -105,13 +105,10 @@ func (r rig) expectTransitions(t *testing.T, id, kind string, want ...string) {
 	}
 }
 
-// stop resets every connection to Den, its socket too, as a server that
-// stopped does, until the rule "stopped" is cleared.
-func (s shelf) stop(t *testing.T) {
+// stop stops Den, as a server that stopped does, until start.
+func (s shelf) stop(t *testing.T) (start func()) {
 	t.Helper()
-	if _, err := s.den.Faults.Set(fault.Rule{ID: "stopped", Target: "jellyfin", Fault: fault.Reset{}}); err != nil {
-		t.Fatal(err)
-	}
+	return s.w.Down(t, host)
 }
 
 // TestAServerNotRespondingIsUnhealthyAfterMarkUnhealthyAfter stops Den:
@@ -122,7 +119,7 @@ func TestAServerNotRespondingIsUnhealthyAfterMarkUnhealthyAfter(t *testing.T) {
 		s := newShelf(t, "")
 		s.openHealth(t)
 		s.expectHealthy(t)
-		s.stop(t)
+		start := s.stop(t)
 		settle(4 * time.Minute)
 		s.expectHealthy(t)
 		s.expectTransitions(t, s.id, "jellyfin")
@@ -132,7 +129,7 @@ func TestAServerNotRespondingIsUnhealthyAfterMarkUnhealthyAfter(t *testing.T) {
 			t.Errorf("the item is %+v, want Den with its last response under Details", it)
 		}
 		s.expectTransitions(t, s.id, "jellyfin", "unhealthy not_responding")
-		s.den.Faults.Clear("stopped")
+		start()
 		settle(2 * time.Minute)
 		s.expectHealthy(t)
 		s.expectTransitions(t, s.id, "jellyfin", "unhealthy not_responding", "recovered not_responding")
@@ -242,5 +239,52 @@ func TestARefusedPlexSignInIsUnhealthyAtOnce(t *testing.T) {
 		settle(time.Minute)
 		r.expectHealthy(t)
 		r.expectTransitions(t, v.ID, "plex", "unhealthy sign_in_refused", "recovered sign_in_refused")
+	})
+}
+
+// TestAContactChangeTellsTheList stops Den: once seedbox reports it isn't
+// responding, media-servers.changed names Den, and the list then reads
+// its new state, so the state line refreshes before Health raises it.
+func TestAContactChangeTellsTheList(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		s := newShelf(t, "")
+		before := len(s.w.Changed())
+		s.stop(t)
+		settle(time.Minute)
+		var told bool
+		for _, c := range s.w.Changed()[before:] {
+			told = told || slices.Equal(c.ServerIDs, []string{s.id})
+		}
+		if !told {
+			t.Fatalf("media-servers.changed published %v once Den stopped, want one naming %s", s.w.Changed()[before:], s.id)
+		}
+		status, body := s.o.Call(t, http.MethodGet, servers, "")
+		if status != http.StatusOK {
+			t.Fatalf("list the servers = %d %s", status, body)
+		}
+		type view struct {
+			Contact string `json:"contact"`
+		}
+		got := decode[struct{ Servers []view }](t, body).Servers
+		if len(got) != 1 || got[0].Contact != "not_responding" {
+			t.Errorf("the list reads %+v, want Den not responding", got)
+		}
+	})
+}
+
+// TestTheTelevisionLightsWhileAServerResponds stops Den: seedbox's
+// television is lit while Den responds and dark once it doesn't, and
+// home's, which reaches no server, stays dark.
+func TestTheTelevisionLightsWhileAServerResponds(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		s := newShelf(t, "")
+		if !s.w.Television(s.w.Seedbox) || s.w.Television(s.w.Home) {
+			t.Fatalf("seedbox's television lit %t and home's %t, want seedbox's alone", s.w.Television(s.w.Seedbox), s.w.Television(s.w.Home))
+		}
+		s.stop(t)
+		settle(time.Minute)
+		if s.w.Television(s.w.Seedbox) {
+			t.Error("seedbox's television is lit once Den stopped, want it dark")
+		}
 	})
 }

@@ -272,3 +272,6 @@ func (unlinked) SignIn(context.Context, *msv1.SignInRequest) (*msv1.SignInRespon
 func (unlinked) Advance(context.Context, *msv1.AdvanceRequest) (*msv1.AdvanceResponse, error) {
 	return nil, errUnlinked()
 }
+
+// Television is whether the Diagram lights node's television.
+func (w *World) Television(node role.NodeID) bool { return w.ms.Television(node) }

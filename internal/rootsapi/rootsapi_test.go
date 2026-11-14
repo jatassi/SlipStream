@@ -26,6 +26,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/link"
+	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/nodes"
 	nodev1 "github.com/jatassi/slipstream/internal/pb/slipstream/node/v1"
@@ -583,3 +584,5 @@ func must[T any](v T, err error) T {
 	}
 	return v
 }
+
+func (node) OpenIn(context.Context, works.WorkID) ([]mediaservers.OpenIn, error) { return nil, nil }
