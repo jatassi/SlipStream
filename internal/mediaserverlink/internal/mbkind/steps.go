@@ -248,7 +248,7 @@ func (c *conn) anyUnder(ctx context.Context, library string, folder link.ServerP
 	}
 	size := c.d.Timings.IndexPage
 	for start := 0; ; start += size {
-		page, err := c.c.Items(ctx, jellyfin.Query{User: us[0].ID, Parent: library, Recursive: true, Types: videoTypes, Start: start, Limit: size})
+		page, err := c.c.Items(ctx, jellyfin.Query{User: us[0].ID, Parent: library, Recursive: true, Types: jellyfin.VideoTypes, Start: start, Limit: size})
 		if err != nil {
 			return false, err
 		}
@@ -315,7 +315,7 @@ func (c *conn) index(ctx context.Context, j link.Job, w link.Index) (link.Advanc
 		return link.Advanced{}, err
 	}
 	size := c.d.Timings.IndexPage
-	page, err := c.c.Items(ctx, jellyfin.Query{User: us[0].ID, Parent: w.Library, Recursive: true, Types: videoTypes, Start: start, Limit: size})
+	page, err := c.c.Items(ctx, jellyfin.Query{User: us[0].ID, Parent: w.Library, Recursive: true, Types: jellyfin.VideoTypes, Start: start, Limit: size})
 	if err != nil {
 		return link.Advanced{}, err
 	}

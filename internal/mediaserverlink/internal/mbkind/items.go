@@ -51,11 +51,7 @@ func sourcePaths(it jellyfin.Item) []string {
 }
 
 func key(it jellyfin.Item) link.ItemKey {
-	top := it.SeriesID
-	if top == "" {
-		top = it.ID
-	}
-	return link.ItemKey{Item: it.ID, Top: top}
+	return link.ItemKey{Item: it.ID, Top: it.Top()}
 }
 
 // want is the paths a lookup asks for, in each library.
@@ -70,8 +66,6 @@ func (f found) at(p link.ServerPath) (jellyfin.Item, bool) {
 	it, ok := f[p.Key()]
 	return it, ok
 }
-
-var videoTypes = []string{jellyfin.TypeMovie, jellyfin.TypeEpisode}
 
 // find is the items with a file at the paths w names, as user sees them,
 // with user's data. Emby looks each path up; Jellyfin, which has no
@@ -102,7 +96,7 @@ func (c *conn) page(ctx context.Context, user, library string, paths []link.Serv
 	size := c.d.Timings.IndexPage
 	left := len(paths)
 	for start := 0; left > 0; start += size {
-		page, err := c.c.Items(ctx, jellyfin.Query{User: user, Parent: library, Recursive: true, Types: videoTypes, Start: start, Limit: size})
+		page, err := c.c.Items(ctx, jellyfin.Query{User: user, Parent: library, Recursive: true, Types: jellyfin.VideoTypes, Start: start, Limit: size})
 		if err != nil {
 			return err
 		}
