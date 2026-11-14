@@ -138,6 +138,7 @@ func newRig(t *testing.T) *rig {
 	var svc *nodes.Service
 	ms := mediaservers.New(mediaservers.Config{
 		Library:      r.lib,
+		Kinds:        mediaserverlink.Kinds,
 		Roster:       roster{&svc},
 		Touch:        func(nodes ...role.NodeID) { control.Touch(nodes...) },
 		Log:          log,

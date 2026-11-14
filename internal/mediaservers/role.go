@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
@@ -23,8 +24,9 @@ import (
 // link Role, the reports it applies and the reaching Nodes it follows on
 // the roster.
 type MediaServers struct {
-	cfg  Config
-	pins pins
+	cfg     Config
+	pins    pins
+	senders *senders
 }
 
 type Config struct {
@@ -79,7 +81,7 @@ type Roster interface {
 	Holding(name role.Name) []role.NodeID
 }
 
-func New(cfg Config) *MediaServers { return &MediaServers{cfg: cfg} }
+func New(cfg Config) *MediaServers { return &MediaServers{cfg: cfg, senders: newSenders()} }
 
 // Owner keeps Media Server link on every Node that a server names as its
 // reaching Node, until the Admin names another or removes the Node with a
@@ -127,21 +129,29 @@ func (m *MediaServers) Intent(ctx context.Context, r storage.Reader[storage.Libr
 	return in, nil
 }
 
-// Run follows the roster and the roots: at its start and at each change
-// of the roster it names the Controller as the reaching Node of every
-// server whose reaching Node the Admin removed with a write-off, and at
-// its start and at each roots.changed it unconfirms the mappings of
-// re-homed roots.
+// Run sends every server's changes and follows the roster and the roots.
+// It first returns the changes being sent at the last stop to due, then
+// runs one sender per server. At its start and at each change of the
+// roster it names the Controller as the reaching Node of every server
+// whose reaching Node the Admin removed with a write-off, and wakes every
+// sender to route again. At its start and at each roots.changed it
+// unconfirms the mappings of re-homed roots.
 func (m *MediaServers) Run(ctx context.Context) error {
 	rehomed := m.cfg.RootsChanged(ctx)
+	m.revert(ctx)
+	var wg sync.WaitGroup
+	defer wg.Wait()
 	m.unconfirm(ctx)
 	for {
 		changed := m.cfg.Roster.Changed()
 		m.repoint(ctx)
+		m.follow(ctx, &wg)
+		m.senders.wakeAll()
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-changed:
+		case <-m.senders.follow:
 		case <-rehomed:
 			m.unconfirm(ctx)
 		}
