@@ -6,7 +6,8 @@ import type {
   MediaserversServerView as Server,
 } from "../api/gen/model";
 import { Icon } from "../ui/icon";
-import { ListRow } from "../ui/list";
+import { Empty } from "../shell/empty";
+import { List, ListRow } from "../ui/list";
 import { SignalLine } from "./lines";
 import { kindOf } from "./server-form";
 
@@ -24,5 +25,31 @@ export function ServerRow({ server, kinds }: { server: Server; kinds: readonly K
       }
       render={<Link to="/settings/media-servers/$serverId" params={{ serverId: server.id }} />}
     />
+  );
+}
+
+/** Every server's row, or what adding one does while there are none. */
+export function ServerList({
+  servers,
+  kinds,
+}: {
+  servers: readonly Server[];
+  kinds: readonly Kind[];
+}) {
+  if (servers.length === 0) {
+    return (
+      <Empty>
+        {
+          "No Media Servers yet. Add a Plex, Jellyfin or Emby server, and SlipStream sends it every change to your library's files."
+        }
+      </Empty>
+    );
+  }
+  return (
+    <List label="Media Servers">
+      {servers.map((server) => (
+        <ServerRow key={server.id} server={server} kinds={kinds} />
+      ))}
+    </List>
   );
 }

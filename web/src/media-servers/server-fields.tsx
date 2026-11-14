@@ -147,7 +147,9 @@ function LeadFields({ sheet, kind, nodes, reaching, keySaved }: Props) {
           />
         )}
       </form.AppField>
-      <AddressField sheet={sheet} kind={kind} nodes={nodes} reaching={reaching} />
+      {kind.signIn === "api_key_or_admin" && (
+        <AddressField sheet={sheet} kind={kind} nodes={nodes} reaching={reaching} />
+      )}
       {kind.signIn === "api_key_or_admin" && (
         <form.AppField name="apiKey">
           {(field) => (
@@ -163,6 +165,24 @@ function LeadFields({ sheet, kind, nodes, reaching, keySaved }: Props) {
   );
 }
 
+/** A saved Plex server's address, which plex.tv listed unless the Admin typed one. */
+function PlexAddressField({ sheet: { form } }: Pick<Props, "sheet">) {
+  return (
+    <form.AppField name="address">
+      {(field) => (
+        <field.TextField
+          label="Address"
+          type="url"
+          data
+          autoComplete="off"
+          spellCheck={false}
+          description="The address SlipStream found from those plex.tv lists. Type another when the server responds at an address plex.tv doesn't list."
+        />
+      )}
+    </form.AppField>
+  );
+}
+
 /** The addresses only some setups need. */
 function AddressDetails({ sheet, kind }: Pick<Props, "sheet" | "kind">) {
   const { form } = sheet;
@@ -174,6 +194,7 @@ function AddressDetails({ sheet, kind }: Pick<Props, "sheet" | "kind">) {
       summary="SlipStream calls the address from the Node it's reached from, and the fallback address from the Controller while that Node is offline."
     >
       <div className="mt-2 flex flex-col gap-4">
+        {kind.signIn === "plex_pin" && <PlexAddressField sheet={sheet} />}
         <form.AppField name="fallbackAddress">
           {(field) => (
             <field.TextField
