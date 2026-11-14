@@ -3,22 +3,29 @@ package files_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/media"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
 // tellings is a library's files.MediaServers. It records each change in
-// the Write that tells it, so a Write that fails records none.
-type tellings struct{}
+// the Write that tells it, so a Write that fails records none, and hands
+// each Prepare to prepare when set.
+type tellings struct {
+	mu      sync.Mutex
+	prepare func([]files.Rename)
+}
 
 func (s *tellings) record(t testing.TB, lib *storage.DB[storage.Library]) {
 	t.Helper()
@@ -44,7 +51,20 @@ func (s *tellings) Changed(ctx context.Context, tx *storage.Tx[storage.Library],
 	return nil
 }
 
-func (s *tellings) Prepare(context.Context, []files.Rename) {}
+func (s *tellings) Prepare(_ context.Context, rs []files.Rename) {
+	s.mu.Lock()
+	prepare := s.prepare
+	s.mu.Unlock()
+	if prepare != nil {
+		prepare(rs)
+	}
+}
+
+func (s *tellings) preparing(prepare func([]files.Rename)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.prepare = prepare
+}
 
 // told is every change l's files owners told, in order.
 func (l *library) told(t *testing.T) []files.PathChange {
@@ -182,6 +202,55 @@ func (l *library) converges(t *testing.T, base map[files.ID]string) {
 	}
 }
 
+// sequence is a log of the disk queue's byte steps and Prepare calls, in
+// the order they ran.
+type sequence struct {
+	files.Disk
+	mu    sync.Mutex
+	steps []string
+}
+
+func (s *sequence) add(step string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.steps = append(s.steps, step)
+}
+
+func (s *sequence) Move(ctx context.Context, root roots.ID, from, to storing.Rel, carry bool) (storing.Placed, error) {
+	s.add("move " + from.String() + " -> " + to.String())
+	return s.Disk.Move(ctx, root, from, to, carry)
+}
+
+func (s *sequence) Remove(ctx context.Context, root roots.ID, at storing.Rel) error {
+	s.add("remove " + at.String())
+	return s.Disk.Remove(ctx, root, at)
+}
+
+func (s *sequence) prepared(rs []files.Rename) {
+	var leaving []string
+	for _, r := range rs {
+		if r.Leaving {
+			leaving = append(leaving, r.From.String()+" -> "+r.To.String())
+		}
+	}
+	slices.Sort(leaving)
+	s.add(fmt.Sprintf("prepare %v", leaving))
+}
+
+func (s *sequence) seen() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.steps)
+}
+
+// before reports whether a step holding first runs before every step that
+// starts with then.
+func before(steps []string, first, then string) bool {
+	i := slices.IndexFunc(steps, func(s string) bool { return strings.Contains(s, first) })
+	j := slices.IndexFunc(steps, func(s string) bool { return strings.HasPrefix(s, then) })
+	return i >= 0 && (j < 0 || i < j)
+}
+
 func TestAPlacedImportIsAddedAndASameNameUpgradesRemovalNamesItsReplacer(t *testing.T) {
 	l := open(t)
 	best := l.target(t, "Best", []release.Quality{release.Bluray1080p}, []release.Quality{release.WEBDL1080p})
@@ -211,6 +280,56 @@ func TestAPlacedImportIsAddedAndASameNameUpgradesRemovalNamesItsReplacer(t *test
 	l.converges(t, base)
 }
 
+// downloadAs is download of a file whose bytes end in ext.
+func (l *library) downloadAs(t *testing.T, svc *files.Files, tree works.Tree, q release.Quality, ext, content string) files.File {
+	t.Helper()
+	holding := files.HoldingOf(storage.NewUUID(), ext)
+	l.put(t, holding, content)
+	var landed files.Landed
+	err := l.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		var err error
+		landed, err = l.land(ctx, tx, svc, tree.ID, holdingOf(tree, 0, holding, int64(len(content)), media.Record{Video: media.Video{Width: 1920, Height: 1080}}, q))
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return landed.File
+}
+
+func TestAnUpgradeUnderAnotherNameIsPreparedBeforeItsOldBytesGo(t *testing.T) {
+	l := open(t)
+	best := l.target(t, "Best", []release.Quality{release.Bluray1080p}, []release.Quality{release.WEBDL1080p})
+	p := l.profile(t, "Best", best)
+	tree := l.work(t, "w1", true, &p)
+	svc := l.files(files.NoGrabs{})
+	web := l.download(t, svc, tree, 0, release.WEBDL1080p, "webdl")
+	l.settle(t, svc)
+	base := l.listing(t)
+	l.forget(t)
+
+	disk := &sequence{Disk: l.held}
+	var renames []files.Rename
+	l.servers.preparing(func(rs []files.Rename) {
+		disk.prepared(rs)
+		renames = append(renames, rs...)
+	})
+	bluray := l.downloadAs(t, svc, tree, release.Bluray1080p, ".mp4", "bluray")
+	l.settle(t, l.on(files.NoGrabs{}, disk))
+
+	upgrade := web.Path + " -> " + bluray.Path
+	if steps := disk.seen(); !before(steps, upgrade, "remove "+web.Path) {
+		t.Fatalf("the queue ran %v, want a Prepare naming %s before the WEB-DL's removal", steps, upgrade)
+	}
+	if i := slices.IndexFunc(renames, func(r files.Rename) bool { return r.File == web.ID }); i < 0 || renames[i].ReplacedBy != bluray.ID {
+		t.Fatalf("Prepare saw %+v, want the WEB-DL leaving for the Bluray's name", renames)
+	}
+	if got, want := said(l.told(t)), []string{"removed " + web.Path + " replaced", "added " + bluray.Path}; !slices.Equal(got, want) {
+		t.Fatalf("the upgrade told %v, want %v", got, want)
+	}
+	l.converges(t, base)
+}
+
 func TestAnImportWhoseBytesSitAtItsNameIsAddedInItsWrite(t *testing.T) {
 	l := open(t)
 	tree := l.work(t, "w1", true, nil)
@@ -231,6 +350,30 @@ func TestAnImportWhoseBytesSitAtItsNameIsAddedInItsWrite(t *testing.T) {
 	if got := said(l.told(t)); len(got) != 1 {
 		t.Fatalf("after the queue ran the library told %v, want only the added", got)
 	}
+}
+
+func TestARenameIsPreparedBeforeItsBytesLeaveAndToldOnceTheyLand(t *testing.T) {
+	l := open(t)
+	tree := l.work(t, "w1", true, nil)
+	l.stock(t, tree, "w1/a.mkv", "w1/b.mkv", "w1/c.mkv")
+	base := l.listing(t)
+	l.renames(t, map[string]string{"w1/a.mkv": "w1/b.mkv", "w1/b.mkv": "w1/a.mkv", "w1/c.mkv": "w2/c.mkv"})
+	disk := &sequence{Disk: l.held}
+	l.servers.preparing(disk.prepared)
+	l.settle(t, l.on(files.NoGrabs{}, disk))
+
+	steps := disk.seen()
+	for _, r := range []string{"w1/a.mkv -> w1/b.mkv", "w1/b.mkv -> w1/a.mkv", "w1/c.mkv -> w2/c.mkv"} {
+		if !before(steps, r, "move "+strings.Split(r, " ")[0]) {
+			t.Fatalf("the queue ran %v, want a Prepare naming %s before its bytes moved", steps, r)
+		}
+	}
+	got := said(l.told(t))
+	slices.Sort(got)
+	if want := []string{"moved w1/a.mkv -> w1/b.mkv", "moved w1/b.mkv -> w1/a.mkv", "moved w1/c.mkv -> w2/c.mkv"}; !slices.Equal(got, want) {
+		t.Fatalf("the renames told %v, want %v", got, want)
+	}
+	l.converges(t, base)
 }
 
 func TestADoomMidRenameRemovesTheFileWhereServersListIt(t *testing.T) {
@@ -357,6 +500,26 @@ func TestAnInPlaceUpgradeIsAddedAsOneThatARemovalFollows(t *testing.T) {
 	l.settle(t, svc)
 	if got, want := said(l.told(t)), []string{"added " + name + " upgrade", "removed " + web.Path + " replaced"}; !slices.Equal(got, want) {
 		t.Fatalf("after the queue ran the upgrade told %v, want %v", got, want)
+	}
+	l.converges(t, base)
+}
+
+func TestARenameQueuedMidPassWaitsForItsPrepare(t *testing.T) {
+	l := open(t)
+	tree := l.work(t, "w1", true, nil)
+	l.stock(t, tree, "w1/a.mkv", "w1/b.mkv", "w1/d.mkv")
+	base := l.listing(t)
+	l.renames(t, map[string]string{"w1/a.mkv": "w1/b.mkv", "w1/b.mkv": "w1/a.mkv"})
+	var once sync.Once
+	disk := &sequence{Disk: &recording{Disk: l.held, before: func(storing.Rel, storing.Rel) error {
+		once.Do(func() { l.renames(t, map[string]string{"w1/d.mkv": "w1/e.mkv"}) })
+		return nil
+	}}}
+	l.servers.preparing(disk.prepared)
+	l.settle(t, l.on(files.NoGrabs{}, disk))
+
+	if steps := disk.seen(); !before(steps, "w1/d.mkv -> w1/e.mkv", "move w1/d.mkv") {
+		t.Fatalf("the queue ran %v, want the rename queued mid-pass prepared before its bytes moved", steps)
 	}
 	l.converges(t, base)
 }

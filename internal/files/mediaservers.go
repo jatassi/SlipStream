@@ -161,6 +161,48 @@ func named(d db.FilesDoomed) string {
 	return d.Path
 }
 
+// leaves reports whether m's next step takes bytes off a path a server
+// lists: they still sit at its origin, which isn't its path.
+func (m move) leaves() bool { return m.sits == m.origin && m.renames() }
+
+// renames reports whether m changes the path a server lists its file at.
+func (m move) renames() bool { return !isHeld(m.origin) && !isHeld(m.path) && m.origin != m.path }
+
+// renames is every pending rename of q: each move that renames, and each
+// doomed file whose replacer belongs under another name.
+func (q queue) renames() ([]Rename, error) {
+	var out []Rename
+	add := func(r Rename, from, to string) error {
+		var err error
+		if r.From, err = storing.ParseRel(from); err != nil {
+			return err
+		}
+		if r.To, err = storing.ParseRel(to); err != nil {
+			return err
+		}
+		out = append(out, r)
+		return nil
+	}
+	for _, m := range q.moves {
+		if !m.renames() {
+			continue
+		}
+		if err := add(Rename{File: m.file, Root: m.root, Leaving: m.sits == m.origin}, m.origin, m.path); err != nil {
+			return nil, err
+		}
+	}
+	for _, d := range q.doomed {
+		from, to := named(d), q.replacers[d.FileID]
+		if to == "" || isHeld(from) || isHeld(to) || from == to {
+			continue
+		}
+		if err := add(Rename{File: d.FileID, Root: d.RootID, ReplacedBy: d.ReplacedBy, Leaving: true}, from, to); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
 // IDsAt reads, in r, the file of root whose bytes sit at each of rels, gone
 // files included: at its move's place while one is pending, else at its
 // path. A rel no file's bytes sit at is left out.
