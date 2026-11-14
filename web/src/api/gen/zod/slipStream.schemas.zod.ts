@@ -9542,6 +9542,12 @@ export const TasksRunUnit = zod.object({
     .describe("The Node it ran on, still named once removed; empty when no Node has its id"),
   nodeId: zod.uuid().describe("The Node it ran on"),
   nodeRemoved: zod.boolean().describe("The Node it ran on was removed since"),
+  note: zod
+    .string()
+    .nullable()
+    .describe(
+      "How it ended, such as Queued 212 groups for search.; null when it didn't succeed or has none",
+    ),
   outcome: zod.enum(["succeeded", "failed", "skipped", "canceled"]),
 });
 

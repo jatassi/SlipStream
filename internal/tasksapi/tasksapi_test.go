@@ -174,7 +174,7 @@ func TestRunNowAnswersItsRunThenThatTheTaskRuns(t *testing.T) {
 		synctest.Wait()
 		o.Expect(t, http.MethodDelete, "/api/v1/tasks/runs/1", "", http.StatusNotFound,
 			`{"status":404,"code":"run_not_open","title":"No open run has this id"}`)
-		lines := `"units":[{"key":"a","label":"A","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":"canceled","cause":null},{"key":"b","label":"B","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":"canceled","cause":null}]`
+		lines := `"units":[{"key":"a","label":"A","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":"canceled","cause":null,"note":null},{"key":"b","label":"B","node":"home","nodeId":"id1","nodeRemoved":false,"outcome":"canceled","cause":null,"note":null}]`
 		last := `{"id":1,"trigger":"run-now","startedAt":"T","endedAt":"T","result":"canceled","summary":"0 of 2 steps","cause":null,"nodes":["home"],` + lines + `}`
 		o.Expect(t, http.MethodGet, "/api/v1/tasks/tidy", "", http.StatusOK, `{"task":`+
 			tidyTask(8, idle, `"lastRun":`+last+`,`, available)+

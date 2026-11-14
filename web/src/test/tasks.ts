@@ -76,6 +76,7 @@ export const succeededRun: TasksRun = {
       nodeRemoved: false,
       outcome: "succeeded",
       cause: null,
+      note: null,
     },
     {
       key: "node:seedbox",
@@ -85,6 +86,7 @@ export const succeededRun: TasksRun = {
       nodeRemoved: false,
       outcome: "succeeded",
       cause: null,
+      note: null,
     },
   ],
 };

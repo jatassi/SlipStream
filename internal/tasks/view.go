@@ -112,6 +112,8 @@ type Line struct {
 	NodeRemoved bool
 	Outcome     Outcome
 	Cause       string
+	// Note is how a succeeded unit ended, in the task's words.
+	Note string
 }
 
 // UnitView is one unit a task lists now, with its last outcome. Outcome
@@ -423,7 +425,7 @@ func (l look) runOf(row db.TasksRun) Run {
 			node = role.NodeID{UUID: id}
 		}
 		name := l.name(node)
-		r.Lines = append(r.Lines, Line{Key: ln.Key, Label: ln.Label, Node: name, NodeID: node, NodeRemoved: l.removed(node), Outcome: ln.Outcome, Cause: ln.Cause})
+		r.Lines = append(r.Lines, Line{Key: ln.Key, Label: ln.Label, Node: name, NodeID: node, NodeRemoved: l.removed(node), Outcome: ln.Outcome, Cause: ln.Cause, Note: ln.Note})
 		if name != "" {
 			r.Nodes = appendNew(r.Nodes, name)
 		}

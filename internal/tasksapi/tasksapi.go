@@ -199,6 +199,7 @@ type runUnit struct {
 	NodeRemoved bool    `json:"nodeRemoved" doc:"The Node it ran on was removed since"`
 	Outcome     string  `json:"outcome" enum:"succeeded,failed,skipped,canceled"`
 	Cause       *string `json:"cause" doc:"Why it failed or was skipped, null when it succeeded"`
+	Note        *string `json:"note" doc:"How it ended, such as Queued 212 groups for search.; null when it didn't succeed or has none"`
 }
 
 func runOf(r tasks.Run) run {
@@ -208,7 +209,7 @@ func runOf(r tasks.Run) run {
 		out.EndedAt, out.Result = &ended, &result
 	}
 	for _, l := range r.Lines {
-		out.Units = append(out.Units, runUnit{Key: string(l.Key), Label: l.Label, Node: l.Node, NodeID: l.NodeID.String(), NodeRemoved: l.NodeRemoved, Outcome: string(l.Outcome), Cause: optional(l.Cause)})
+		out.Units = append(out.Units, runUnit{Key: string(l.Key), Label: l.Label, Node: l.Node, NodeID: l.NodeID.String(), NodeRemoved: l.NodeRemoved, Outcome: string(l.Outcome), Cause: optional(l.Cause), Note: optional(l.Note)})
 	}
 	return out
 }
