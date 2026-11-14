@@ -21,3 +21,22 @@ func ItemGroup(id works.ItemID) GroupKey { return GroupKey("i:" + hex.EncodeToSt
 // NamedGroup is a group its Content Type names, such as a level under
 // another numbering than the stored one.
 func NamedGroup(name string) GroupKey { return GroupKey("n:" + name) }
+
+// Group is the Items of a Work one query searches.
+type Group struct {
+	Key GroupKey
+	// Label is a noun phrase for mid-sentence use, such as "season 3",
+	// "S00E04" or a title.
+	Label string
+	Items []works.ItemID
+}
+
+// Singles is each of items in a group of its own, labeled label, for a
+// type that searches every Item alone.
+func Singles(items []works.ItemID, label string) []Group {
+	groups := make([]Group, len(items))
+	for i, id := range items {
+		groups[i] = Group{Key: ItemGroup(id), Label: label, Items: []works.ItemID{id}}
+	}
+	return groups
+}
