@@ -247,3 +247,27 @@ func TestEachChangesErrorAnswersItsProblem(t *testing.T) {
 		t.Fatalf("targets.changed published %d times, want none", s.changed.n)
 	}
 }
+
+func TestATargetsHoldRoundTripsAndMovesNoWork(t *testing.T) {
+	s, ids := shelved(t)
+	put := func(hold string) (int, string) {
+		return s.Call(t, http.MethodPut, "/api/v1/targets/"+ids["starter"], `{"name":"1080p",`+starterRules+`,"holdSeconds":`+hold+`}`)
+	}
+	code, reply := put("5400")
+	none := `{"works":0,"ownList":0,"unwanted":{"files":0,"bytes":0},"renamed":0,"renames":[],"newlyWanted":0,"downloading":0}`
+	if got := impactOf(t, "holding the starter 90 minutes", code, reply); got != none || !strings.Contains(reply, `"holdSeconds":5400`) {
+		t.Fatalf("holding the starter 90 minutes = %s, want no Work moved and holdSeconds 5400", reply)
+	}
+	if code, reply := s.Call(t, http.MethodGet, "/api/v1/targets/"+ids["starter"], ""); code != http.StatusOK || !strings.Contains(reply, `"holdSeconds":5400`) {
+		t.Fatalf("getTarget after the Hold = %d %s, want holdSeconds 5400", code, reply)
+	}
+	for _, hold := range []string{"90", "-60", "604860"} {
+		if code, reply := put(hold); code != http.StatusUnprocessableEntity {
+			t.Errorf("a Hold of %s seconds = %d %s, want 422", hold, code, reply)
+		}
+	}
+	code, reply = s.Call(t, http.MethodPut, "/api/v1/targets/"+ids["starter"], `{"name":"1080p",`+starterRules+`}`)
+	if impactOf(t, "leaving the Hold out", code, reply) != none || !strings.Contains(reply, `"holdSeconds":0`) {
+		t.Fatalf("leaving the Hold out = %s, want holdSeconds 0 and no Work moved", reply)
+	}
+}

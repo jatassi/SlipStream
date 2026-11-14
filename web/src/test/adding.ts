@@ -147,13 +147,13 @@ const mainStories = volumeCount * storiesPerVolume;
 export const longShelfPresets: WorksPresetCounts = {
   asides: extraCount,
   choices: [
-    { preset: "all", monitors: mainStories, monitorsNew: true },
-    { preset: "future", monitors: 0, monitorsNew: true },
-    { preset: "missing", monitors: mainStories, monitorsNew: true },
-    { preset: "existing", monitors: 0, monitorsNew: false },
-    { preset: "first", monitors: storiesPerVolume, monitorsNew: false },
-    { preset: "latest", monitors: storiesPerVolume, monitorsNew: true },
-    { preset: "none", monitors: 0, monitorsNew: false },
+    { preset: "all", monitors: mainStories, monitorsNew: true, searches: [] },
+    { preset: "future", monitors: 0, monitorsNew: true, searches: [] },
+    { preset: "missing", monitors: mainStories, monitorsNew: true, searches: [] },
+    { preset: "existing", monitors: 0, monitorsNew: false, searches: [] },
+    { preset: "first", monitors: storiesPerVolume, monitorsNew: false, searches: [] },
+    { preset: "latest", monitors: storiesPerVolume, monitorsNew: true, searches: [] },
+    { preset: "none", monitors: 0, monitorsNew: false, searches: [] },
   ],
 };
 

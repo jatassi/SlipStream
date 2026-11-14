@@ -48,13 +48,7 @@ func indexerWaits(t *testing.T, a *worldtest.API) string {
 // searched presses Search on work and waits for the run's outcome.
 func searched(t *testing.T, a *worldtest.API, work string) string {
 	t.Helper()
-	started := simtest.Decode[struct {
-		SearchIDs []string `json:"searchIds"`
-	}](t, "searchWork", accepted(a.Admin("home", http.MethodPost, "/api/v1/works/"+work+"/search", "")))
-	if len(started.SearchIDs) != 1 {
-		t.Fatalf("searchWork started %v, want one search", started.SearchIDs)
-	}
-	run := started.SearchIDs[0]
+	run := a.Searched(work, "", 1)[0]
 	var outcome string
 	simtest.Eventually(t, "the search finishes", func() bool {
 		runs := simtest.Decode[struct {

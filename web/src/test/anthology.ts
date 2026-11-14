@@ -72,6 +72,16 @@ export const anthologies: WorksContentType = {
   ratings: [],
   availability: "Next issue",
   releases: "",
+  addSearch: {
+    kind: "choice",
+    choices: [
+      { value: "monitored", label: "Everything monitored" },
+      { value: "first_level", label: "First volume" },
+      { value: "latest_level", label: "Latest volume" },
+      { value: "first_item", label: "First story" },
+      { value: "none", label: "Nothing" },
+    ],
+  },
 };
 
 export const anthologyId = "6a8c0e2a-4c6e-4a8c-9e0a-2c4e6a8c0e2b";

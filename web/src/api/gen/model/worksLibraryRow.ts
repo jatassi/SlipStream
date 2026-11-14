@@ -3,6 +3,7 @@ import type { FilesStateCounts } from "./filesStateCounts.ts";
 import type { WorksLibraryRowAddedBy } from "./worksLibraryRowAddedBy.ts";
 import type { WorksLibraryRowMonitored } from "./worksLibraryRowMonitored.ts";
 import type { WorksLibraryRowValues } from "./worksLibraryRowValues.ts";
+import type { WorksLibraryRowWanted } from "./worksLibraryRowWanted.ts";
 import type { WorksRowRating } from "./worksRowRating.ts";
 
 export interface WorksLibraryRow {
@@ -80,4 +81,9 @@ export interface WorksLibraryRow {
   status: FilesState | null;
   /** Its listed fields by key: a string for text and date, a number for number and duration in ms, a list of strings for texts; a field it lacks is left out */
   values: WorksLibraryRowValues;
+  /**
+   * The first reason Wanted lists it for, in this order; null while it wants nothing
+   * @nullable
+   */
+  wanted: WorksLibraryRowWanted;
 }

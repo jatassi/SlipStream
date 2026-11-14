@@ -1,0 +1,1 @@
+export type GetWorkSearching401Code = "api_key_wrong" | "signed_out";

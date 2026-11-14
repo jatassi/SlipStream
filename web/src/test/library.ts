@@ -49,6 +49,13 @@ export const cinema: WorksContentType = {
   ratings: [],
   availability: "",
   releases: "",
+  addSearch: {
+    kind: "switch",
+    choices: [
+      { value: "monitored", label: "Everything monitored" },
+      { value: "none", label: "Nothing" },
+    ],
+  },
 };
 
 export const orchardId = "3c1e9a52-7b4d-4f0e-8a6c-2d5b9e1f7a03";
@@ -122,6 +129,7 @@ export const orchardRow: WorksLibraryRow = {
   items: 1,
   itemStatus: { missing: 1 },
   needsYou: 0,
+  wanted: null,
   values: { year: 2021, runtime: 6_720_000 },
 };
 

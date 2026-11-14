@@ -3,6 +3,7 @@ package worksapi
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -64,6 +65,35 @@ type contentType struct {
 	Ratings      []string           `json:"ratings" nullable:"false" doc:"The ratings sources its Works show, in order. The first a Work holds is its hero rating"`
 	Availability string             `json:"availability" doc:"The label of the Library's availability column and sort, such as Next airing; empty reads Available"`
 	Releases     string             `json:"releases" doc:"The verb for unreleased Items coming out, as in Episodes 4 to 7 air 12 October; empty reads come out"`
+	AddSearch    addSearch          `json:"addSearch" doc:"What the add sheet's Search after adding offers"`
+}
+
+type addSearch struct {
+	Kind    string         `json:"kind" enum:"switch,choice" doc:"switch for a type of one Item, whose first choice is on and second off"`
+	Choices []searchChoice `json:"choices" nullable:"false" doc:"In the order the add sheet lists them"`
+}
+
+type searchChoice struct {
+	Value string `json:"value" enum:"monitored,first_level,latest_level,first_item,none"`
+	Label string `json:"label"`
+}
+
+// addSearchOf is the add searches t offers: on or off for a type of one
+// Item, else each scope its nouns name.
+func addSearchOf(t works.ContentType) addSearch {
+	on, off := searchChoice{Value: string(works.SearchMonitored), Label: "Everything monitored"}, searchChoice{Value: string(works.SearchNone), Label: "Nothing"}
+	if t.Items == works.ItemsOne {
+		return addSearch{Kind: "switch", Choices: []searchChoice{on, off}}
+	}
+	out := addSearch{Kind: "choice", Choices: []searchChoice{on}}
+	if len(t.Levels) > 0 {
+		level := strings.ToLower(t.Levels[0].One)
+		out.Choices = append(out.Choices,
+			searchChoice{Value: string(works.SearchFirstLevel), Label: "First " + level},
+			searchChoice{Value: string(works.SearchLatestLevel), Label: "Latest " + level})
+	}
+	out.Choices = append(out.Choices, searchChoice{Value: string(works.SearchFirstItem), Label: "First " + strings.ToLower(t.Item.One)}, off)
+	return out
 }
 
 func contentTypeOf(t works.ContentType) contentType {
@@ -71,8 +101,8 @@ func contentTypeOf(t works.ContentType) contentType {
 		ID: string(t.ID), Name: t.Name, Icon: t.Icon.String(), Enabled: t.Enabled,
 		Work: noun(t.Work), Item: noun(t.Item), Levels: []noun{}, Fields: []fieldSpec{}, Artwork: []artworkKind{},
 		Source: t.Source, Items: t.Items.String(), Ratings: []string{}, Availability: t.Availability,
-		Releases: t.Releases,
-		Art:      artRoles{Poster: stringOrNull(t.Art.Poster), Backdrop: stringOrNull(t.Art.Backdrop), Title: stringOrNull(t.Art.Title)},
+		Releases: t.Releases, AddSearch: addSearchOf(t),
+		Art: artRoles{Poster: stringOrNull(t.Art.Poster), Backdrop: stringOrNull(t.Art.Backdrop), Title: stringOrNull(t.Art.Title)},
 	}
 	for _, r := range t.Ratings {
 		out.Ratings = append(out.Ratings, string(r))

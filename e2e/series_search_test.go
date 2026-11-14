@@ -36,14 +36,7 @@ func searchingSeries(t *testing.T) (*walked, seriesView) {
 // returns the runs, which must be n.
 func (w *walked) searchWithin(t *testing.T, body string, n int) []string {
 	t.Helper()
-	reply := w.a.Admin("home", http.MethodPost, "/api/v1/works/"+w.work+"/search", body)
-	var started struct {
-		SearchIDs []string `json:"searchIds"`
-	}
-	if err := json.Unmarshal([]byte(reply.Body), &started); err != nil || reply.Status != http.StatusAccepted || len(started.SearchIDs) != n {
-		t.Fatalf("searchWork %s = %d %s, want 202 with %d searches", body, reply.Status, reply.Body, n)
-	}
-	return started.SearchIDs
+	return w.a.Searched(w.work, body, n)
 }
 
 func itemsBody(ids ...string) string {

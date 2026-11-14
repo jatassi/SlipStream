@@ -310,14 +310,7 @@ func AddOrchard(t *testing.T, w *sim.World) string {
 // Search presses Search on work and returns its one run.
 func Search(t *testing.T, w *sim.World, work string) string {
 	t.Helper()
-	reply := w.API().Admin("home", http.MethodPost, "/api/v1/works/"+work+"/search", "")
-	var started struct {
-		SearchIDs []string `json:"searchIds"`
-	}
-	if err := json.Unmarshal([]byte(reply.Body), &started); err != nil || reply.Status != http.StatusAccepted || len(started.SearchIDs) != 1 {
-		t.Fatalf("searchWork = %d %s, want 202 with one search", reply.Status, reply.Body)
-	}
-	return started.SearchIDs[0]
+	return w.API().Searched(work, "", 1)[0]
 }
 
 func GrabsListed(t *testing.T, w *sim.World) []GrabView {

@@ -158,7 +158,7 @@ func fresh(feedHost, switches string, priority, revision int, categories string)
 		sentence = "Fixture Site is off."
 	}
 	return `{"id":"id1","name":"Fixture Site","kind":"torznab","homeNodeId":"id2",` + switches + `,"priority":` + strconv.Itoa(priority) +
-		`,"categories":` + categories + `,"media":null,"allowNoSize":false,"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
+		`,"searchesAtOnce":2,"recentPaging":false,"categories":` + categories + `,"media":null,"allowNoSize":false,"searches":{"count":0,"per":"hour","used":0,"freeAt":null},"grabs":{"count":0,"per":"hour","used":0,"freeAt":null},` +
 		`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"T"},` +
 		`"sentence":"` + sentence + `","fix":null,"signsIn":false,"trackerIds":["id3"],` +
 		`"waits":null,"session":null,"feedHost":"` + feedHost + `","definition":null,"port":null,` + modes + `,"notes":[],"revision":` + strconv.Itoa(revision) + `,"createdAt":"T"}`
@@ -276,6 +276,29 @@ func TestAPatchChangesOnlyWhatItSends(t *testing.T) {
 		`{"status":404,"code":"indexer_not_found","title":"No Indexer has that id"}`)
 	if len(s.changed.ids) != 4 {
 		t.Fatalf("indexers.changed published %d times, want the create and three saved edits", len(s.changed.ids))
+	}
+}
+
+func TestSearchesAtOnceIsSetOnCreateAndPatchedBackToItsDefault(t *testing.T) {
+	s := serve(t, indexerstest.Alone(self), role.NodeID{})
+	body := strings.TrimSuffix(s.body(s.address(), s.key), "}") + `,"searchesAtOnce":4}`
+	code, reply := s.owner.Call(t, http.MethodPost, "/api/v1/indexers", body)
+	if code != http.StatusCreated || !strings.Contains(reply, `"searchesAtOnce":4,`) {
+		t.Fatalf("createIndexer with 4 searches at once = %d %s, want 201 with 4", code, reply)
+	}
+	path := "/api/v1/indexers/" + ownertest.FirstID(reply)
+	host := site.Host("torznab")
+	at := func(n string, revision int) string {
+		return strings.Replace(fresh(host, on, 25, revision, "null"), `"searchesAtOnce":2,`, `"searchesAtOnce":`+n+`,`, 1)
+	}
+	s.owner.Expect(t, http.MethodPatch, path, `{"searchesAtOnce":10}`, http.StatusOK, at("10", 2))
+	s.owner.Expect(t, http.MethodGet, path, "", http.StatusOK, at("10", 2))
+	s.owner.Expect(t, http.MethodPatch, path, `{"priority":5}`, http.StatusOK, strings.Replace(at("10", 3), `"priority":25`, `"priority":5`, 1))
+	s.owner.Expect(t, http.MethodPatch, path, `{"searchesAtOnce":null,"priority":null}`, http.StatusOK, at("2", 4))
+	for _, n := range []string{"0", "11"} {
+		if code, reply := s.owner.Call(t, http.MethodPatch, path, `{"searchesAtOnce":`+n+`}`); code != http.StatusUnprocessableEntity {
+			t.Errorf("patching searchesAtOnce to %s = %d %s, want 422", n, code, reply)
+		}
 	}
 }
 

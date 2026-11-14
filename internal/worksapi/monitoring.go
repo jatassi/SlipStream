@@ -20,9 +20,15 @@ type presetCounts struct {
 }
 
 type presetCount struct {
-	Preset      string `json:"preset" enum:"all,future,missing,existing,first,latest,none"`
-	Monitors    int    `json:"monitors" doc:"Live Items the preset monitors, asides left out"`
-	MonitorsNew bool   `json:"monitorsNew" doc:"Whether the preset monitors Items a refresh adds"`
+	Preset      string       `json:"preset" enum:"all,future,missing,existing,first,latest,none"`
+	Monitors    int          `json:"monitors" doc:"Live Items the preset monitors, asides left out"`
+	MonitorsNew bool         `json:"monitorsNew" doc:"Whether the preset monitors Items a refresh adds"`
+	Searches    []scopeCount `json:"searches" nullable:"false" doc:"How many of the Items the preset monitors each add search scope searches"`
+}
+
+type scopeCount struct {
+	Scope string `json:"scope" enum:"monitored,first_level,latest_level,first_item,none"`
+	Items int    `json:"items" minimum:"0"`
 }
 
 type monitoringInput struct {
@@ -132,7 +138,7 @@ func (h handlers) setWorksMonitoring(ctx context.Context, by identity.Admin, in 
 func presetCountsOf(c works.PresetCounts) presetCounts {
 	out := presetCounts{Asides: c.Asides, Choices: make([]presetCount, len(c.Choices))}
 	for i, p := range c.Choices {
-		out.Choices[i] = presetCount{Preset: string(p.Preset), Monitors: p.Monitors, MonitorsNew: p.MonitorsNew}
+		out.Choices[i] = presetCount{Preset: string(p.Preset), Monitors: p.Monitors, MonitorsNew: p.MonitorsNew, Searches: []scopeCount{}}
 	}
 	return out
 }

@@ -286,9 +286,9 @@ func TestPreviewCatalogRecordAnswersTheAddedTreeAndAddsNothing(t *testing.T) {
 		`"levels":[{"id":"id2","parentId":null,"depth":1,"key":"b1","label":"Winter","position":1,"withdrawnAt":null,"aside":false,"fields":[{"key":"packed","kind":"date","date":"2024-11-02"}],"artwork":[]}],` +
 		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":false,"aside":false,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[],"artwork":[],"availability":{"date":"2000-01-01","basis":""}}]}`
 	code, body := s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog/w1", "")
-	presets := `{"asides":0,"choices":[{"preset":"all","monitors":1,"monitorsNew":true},{"preset":"future","monitors":0,"monitorsNew":true},` +
-		`{"preset":"missing","monitors":1,"monitorsNew":true},{"preset":"existing","monitors":0,"monitorsNew":false},{"preset":"first","monitors":1,"monitorsNew":false},` +
-		`{"preset":"latest","monitors":1,"monitorsNew":true},{"preset":"none","monitors":0,"monitorsNew":false}]}`
+	presets := `{"asides":0,"choices":[{"preset":"all","monitors":1,"monitorsNew":true,"searches":[]},{"preset":"future","monitors":0,"monitorsNew":true,"searches":[]},` +
+		`{"preset":"missing","monitors":1,"monitorsNew":true,"searches":[]},{"preset":"existing","monitors":0,"monitorsNew":false,"searches":[]},{"preset":"first","monitors":1,"monitorsNew":false,"searches":[]},` +
+		`{"preset":"latest","monitors":1,"monitorsNew":true,"searches":[]},{"preset":"none","monitors":0,"monitorsNew":false,"searches":[]}]}`
 	if want := `{"inLibrary":false,"work":` + tree + `,"presets":` + presets + `}` + "\n"; code != http.StatusOK || masked(body) != want {
 		t.Fatalf("previewCatalogRecord = %d\n%s\nwant\n%s", code, masked(body), want)
 	}
@@ -317,7 +317,8 @@ const fixtureDescriptors = `"fields":[` +
 	`{"key":"page","label":"Page","tier":"work","kind":"link","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
 	`{"key":"code","label":"Code","tier":"item","kind":"text","in":["code"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],` +
 	`"artwork":[{"key":"photo","label":"Photo","tier":"work","shape":"poster"},{"key":"label","label":"Label","tier":"level","depth":1,"shape":"poster"},{"key":"snap","label":"Snap","tier":"item","shape":"backdrop"}],` +
-	`"source":"Fixture source","items":"many","art":{"poster":"photo","backdrop":null,"title":null},"ratings":["tmdb","imdb"],"availability":"","releases":""`
+	`"source":"Fixture source","items":"many","art":{"poster":"photo","backdrop":null,"title":null},"ratings":["tmdb","imdb"],"availability":"","releases":"",` +
+	`"addSearch":{"kind":"choice","choices":[{"value":"monitored","label":"Everything monitored"},{"value":"first_level","label":"First box"},{"value":"latest_level","label":"Latest box"},{"value":"first_item","label":"First thing"},{"value":"none","label":"Nothing"}]}`
 
 func TestListContentTypesAnswersASession(t *testing.T) {
 	s := serve(t)

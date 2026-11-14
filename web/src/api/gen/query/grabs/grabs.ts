@@ -23,6 +23,13 @@ import type {
   CancelGrab422,
   CancelGrab500,
   CancelInputBody,
+  CancelQueuedSearches401,
+  CancelQueuedSearches403,
+  CancelQueuedSearches409,
+  CancelQueuedSearches422,
+  CancelQueuedSearches500,
+  CancelQueuedSearches501,
+  CancelQueuedSearchesParams,
   GetGrab401,
   GetGrab403,
   GetGrab404,
@@ -36,6 +43,18 @@ import type {
   GetManualSearch422,
   GetManualSearch500,
   GetManualSearchParams,
+  GetSearchSettings401,
+  GetSearchSettings403,
+  GetSearchSettings409,
+  GetSearchSettings500,
+  GetSearchSettings501,
+  GetWorkSearching401,
+  GetWorkSearching403,
+  GetWorkSearching404,
+  GetWorkSearching409,
+  GetWorkSearching422,
+  GetWorkSearching500,
+  GetWorkSearching501,
   GrabFromManualSearch401,
   GrabFromManualSearch403,
   GrabFromManualSearch404,
@@ -43,19 +62,34 @@ import type {
   GrabFromManualSearch422,
   GrabFromManualSearch500,
   GrabManualInputBody,
+  GrabWaiting401,
+  GrabWaiting403,
+  GrabWaiting404,
+  GrabWaiting409,
+  GrabWaiting422,
+  GrabWaiting500,
+  GrabWaiting501,
+  GrabWaitingInputBody,
   GrabsBlocklist,
   GrabsGrab,
   GrabsGrabList,
+  GrabsGrabbing,
   GrabsIndexerGrabList,
   GrabsManualSearch,
   GrabsManualStarted,
   GrabsOfferList,
   GrabsPickResults,
+  GrabsQueuedCanceled,
   GrabsReleaseList,
   GrabsSearchList,
+  GrabsSearchQueued,
   GrabsSearchScope,
-  GrabsSearchStarted,
+  GrabsSearchSettings,
+  GrabsSeveralBody,
+  GrabsSeveralQueued,
   GrabsStartManual,
+  GrabsWantedPage,
+  GrabsWorkSearching,
   ListBlocklist401,
   ListBlocklist403,
   ListBlocklist409,
@@ -91,11 +125,26 @@ import type {
   ListSearches409,
   ListSearches422,
   ListSearches500,
+  ListWanted400,
+  ListWanted401,
+  ListWanted403,
+  ListWanted409,
+  ListWanted422,
+  ListWanted500,
+  ListWanted501,
+  ListWantedParams,
   RemoveFromBlocklist401,
   RemoveFromBlocklist403,
   RemoveFromBlocklist409,
   RemoveFromBlocklist422,
   RemoveFromBlocklist500,
+  SearchSettingsInputBody,
+  SearchSeveralWorks401,
+  SearchSeveralWorks403,
+  SearchSeveralWorks409,
+  SearchSeveralWorks422,
+  SearchSeveralWorks500,
+  SearchSeveralWorks501,
   SearchWork401,
   SearchWork403,
   SearchWork404,
@@ -116,6 +165,12 @@ import type {
   StartManualSearch422,
   StartManualSearch500,
   UnblockInputBody,
+  UpdateSearchSettings401,
+  UpdateSearchSettings403,
+  UpdateSearchSettings409,
+  UpdateSearchSettings422,
+  UpdateSearchSettings500,
+  UpdateSearchSettings501,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -1034,6 +1089,405 @@ export function useListIndexerGrabsSuspense<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getCancelQueuedSearchesUrl = (params: CancelQueuedSearchesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/v1/search-queue?${stringifiedParams}`
+    : `/api/v1/search-queue`;
+};
+
+/**
+ * @summary Cancel every search queued in a lane
+ */
+export const cancelQueuedSearches = async (
+  params: CancelQueuedSearchesParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<GrabsQueuedCanceled> => {
+  return apiFetch<GrabsQueuedCanceled>(getCancelQueuedSearchesUrl(params), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getCancelQueuedSearchesMutationKey = () => ["cancelQueuedSearches"] as const;
+
+export const getCancelQueuedSearchesMutationOptions = <
+  TError = ErrorType<
+    | CancelQueuedSearches401
+    | CancelQueuedSearches403
+    | CancelQueuedSearches409
+    | CancelQueuedSearches422
+    | CancelQueuedSearches500
+    | CancelQueuedSearches501
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelQueuedSearches>>,
+    TError,
+    CancelQueuedSearchesMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof cancelQueuedSearches>>,
+  TError,
+  CancelQueuedSearchesMutationVariables,
+  TContext
+> => {
+  const mutationKey = getCancelQueuedSearchesMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof cancelQueuedSearches>>,
+    CancelQueuedSearchesMutationVariables
+  > = (props) => {
+    const { params } = props ?? {};
+
+    return cancelQueuedSearches(params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CancelQueuedSearchesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelQueuedSearches>>
+>;
+
+export type CancelQueuedSearchesMutationError = ErrorType<
+  | CancelQueuedSearches401
+  | CancelQueuedSearches403
+  | CancelQueuedSearches409
+  | CancelQueuedSearches422
+  | CancelQueuedSearches500
+  | CancelQueuedSearches501
+>;
+export type CancelQueuedSearchesMutationVariables = { params: CancelQueuedSearchesParams };
+
+/**
+ * @summary Cancel every search queued in a lane
+ */
+export const useCancelQueuedSearches = <
+  TError = ErrorType<
+    | CancelQueuedSearches401
+    | CancelQueuedSearches403
+    | CancelQueuedSearches409
+    | CancelQueuedSearches422
+    | CancelQueuedSearches500
+    | CancelQueuedSearches501
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof cancelQueuedSearches>>,
+      TError,
+      CancelQueuedSearchesMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof cancelQueuedSearches>>,
+  TError,
+  CancelQueuedSearchesMutationVariables,
+  TContext
+> => {
+  return useMutation(getCancelQueuedSearchesMutationOptions(options), queryClient);
+};
+export const getGetSearchSettingsUrl = () => {
+  return `/api/v1/search-settings`;
+};
+
+/**
+ * @summary Get the Automatic search settings
+ */
+export const getSearchSettings = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<GrabsSearchSettings> => {
+  return apiFetch<GrabsSearchSettings>(getGetSearchSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSearchSettingsQueryKey = () => {
+  return [`/api/v1/search-settings`] as const;
+};
+
+export const getGetSearchSettingsSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSearchSettings>>,
+  TError = ErrorType<
+    | GetSearchSettings401
+    | GetSearchSettings403
+    | GetSearchSettings409
+    | GetSearchSettings500
+    | GetSearchSettings501
+  >,
+>(options?: {
+  query?: Partial<
+    UseSuspenseQueryOptions<Awaited<ReturnType<typeof getSearchSettings>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSearchSettingsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSearchSettings>>> = ({ signal }) =>
+    getSearchSettings({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getSearchSettings>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetSearchSettingsSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSearchSettings>>
+>;
+export type GetSearchSettingsSuspenseQueryError = ErrorType<
+  | GetSearchSettings401
+  | GetSearchSettings403
+  | GetSearchSettings409
+  | GetSearchSettings500
+  | GetSearchSettings501
+>;
+
+export function useGetSearchSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getSearchSettings>>,
+  TError = ErrorType<
+    | GetSearchSettings401
+    | GetSearchSettings403
+    | GetSearchSettings409
+    | GetSearchSettings500
+    | GetSearchSettings501
+  >,
+>(
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getSearchSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetSearchSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getSearchSettings>>,
+  TError = ErrorType<
+    | GetSearchSettings401
+    | GetSearchSettings403
+    | GetSearchSettings409
+    | GetSearchSettings500
+    | GetSearchSettings501
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getSearchSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetSearchSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getSearchSettings>>,
+  TError = ErrorType<
+    | GetSearchSettings401
+    | GetSearchSettings403
+    | GetSearchSettings409
+    | GetSearchSettings500
+    | GetSearchSettings501
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getSearchSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get the Automatic search settings
+ */
+
+export function useGetSearchSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getSearchSettings>>,
+  TError = ErrorType<
+    | GetSearchSettings401
+    | GetSearchSettings403
+    | GetSearchSettings409
+    | GetSearchSettings500
+    | GetSearchSettings501
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getSearchSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetSearchSettingsSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getUpdateSearchSettingsUrl = () => {
+  return `/api/v1/search-settings`;
+};
+
+/**
+ * @summary Change Automatic search settings by key, all or none
+ */
+export const updateSearchSettings = async (
+  searchSettingsInputBody: SearchSettingsInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<GrabsSearchSettings> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<GrabsSearchSettings>(getUpdateSearchSettingsUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(searchSettingsInputBody),
+  });
+};
+
+export const getUpdateSearchSettingsMutationKey = () => ["updateSearchSettings"] as const;
+
+export const getUpdateSearchSettingsMutationOptions = <
+  TError = ErrorType<
+    | UpdateSearchSettings401
+    | UpdateSearchSettings403
+    | UpdateSearchSettings409
+    | UpdateSearchSettings422
+    | UpdateSearchSettings500
+    | UpdateSearchSettings501
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSearchSettings>>,
+    TError,
+    UpdateSearchSettingsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSearchSettings>>,
+  TError,
+  UpdateSearchSettingsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUpdateSearchSettingsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSearchSettings>>,
+    UpdateSearchSettingsMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateSearchSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSearchSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSearchSettings>>
+>;
+export type UpdateSearchSettingsMutationBody = SearchSettingsInputBody;
+export type UpdateSearchSettingsMutationError = ErrorType<
+  | UpdateSearchSettings401
+  | UpdateSearchSettings403
+  | UpdateSearchSettings409
+  | UpdateSearchSettings422
+  | UpdateSearchSettings500
+  | UpdateSearchSettings501
+>;
+export type UpdateSearchSettingsMutationVariables = { data: SearchSettingsInputBody };
+
+/**
+ * @summary Change Automatic search settings by key, all or none
+ */
+export const useUpdateSearchSettings = <
+  TError = ErrorType<
+    | UpdateSearchSettings401
+    | UpdateSearchSettings403
+    | UpdateSearchSettings409
+    | UpdateSearchSettings422
+    | UpdateSearchSettings500
+    | UpdateSearchSettings501
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updateSearchSettings>>,
+      TError,
+      UpdateSearchSettingsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updateSearchSettings>>,
+  TError,
+  UpdateSearchSettingsMutationVariables,
+  TContext
+> => {
+  return useMutation(getUpdateSearchSettingsMutationOptions(options), queryClient);
+};
 export const getListSearchReleasesUrl = (searchId: string) => {
   return `/api/v1/searches/${searchId}/releases`;
 };
@@ -1198,6 +1652,303 @@ export function useListSearchReleasesSuspense<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getListWantedUrl = (params?: ListWantedParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/wanted?${stringifiedParams}` : `/api/v1/wanted`;
+};
+
+/**
+ * @summary List the Works that want a Release, 100 at a time, with what the search queue is doing
+ */
+export const listWanted = async (
+  params?: ListWantedParams,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<GrabsWantedPage> => {
+  return apiFetch<GrabsWantedPage>(getListWantedUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListWantedQueryKey = (params?: ListWantedParams) => {
+  return [`/api/v1/wanted`, ...(params ? [params] : [])] as const;
+};
+
+export const getListWantedSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof listWanted>>,
+  TError = ErrorType<
+    | ListWanted400
+    | ListWanted401
+    | ListWanted403
+    | ListWanted409
+    | ListWanted422
+    | ListWanted500
+    | ListWanted501
+  >,
+>(
+  params?: ListWantedParams,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWanted>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListWantedQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listWanted>>> = ({ signal }) =>
+    listWanted(params, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWanted>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type ListWantedSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof listWanted>>>;
+export type ListWantedSuspenseQueryError = ErrorType<
+  | ListWanted400
+  | ListWanted401
+  | ListWanted403
+  | ListWanted409
+  | ListWanted422
+  | ListWanted500
+  | ListWanted501
+>;
+
+export function useListWantedSuspense<
+  TData = Awaited<ReturnType<typeof listWanted>>,
+  TError = ErrorType<
+    | ListWanted400
+    | ListWanted401
+    | ListWanted403
+    | ListWanted409
+    | ListWanted422
+    | ListWanted500
+    | ListWanted501
+  >,
+>(
+  params: undefined | ListWantedParams,
+  options: {
+    query: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWanted>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListWantedSuspense<
+  TData = Awaited<ReturnType<typeof listWanted>>,
+  TError = ErrorType<
+    | ListWanted400
+    | ListWanted401
+    | ListWanted403
+    | ListWanted409
+    | ListWanted422
+    | ListWanted500
+    | ListWanted501
+  >,
+>(
+  params?: ListWantedParams,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWanted>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useListWantedSuspense<
+  TData = Awaited<ReturnType<typeof listWanted>>,
+  TError = ErrorType<
+    | ListWanted400
+    | ListWanted401
+    | ListWanted403
+    | ListWanted409
+    | ListWanted422
+    | ListWanted500
+    | ListWanted501
+  >,
+>(
+  params?: ListWantedParams,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWanted>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary List the Works that want a Release, 100 at a time, with what the search queue is doing
+ */
+
+export function useListWantedSuspense<
+  TData = Awaited<ReturnType<typeof listWanted>>,
+  TError = ErrorType<
+    | ListWanted400
+    | ListWanted401
+    | ListWanted403
+    | ListWanted409
+    | ListWanted422
+    | ListWanted500
+    | ListWanted501
+  >,
+>(
+  params?: ListWantedParams,
+  options?: {
+    query?: Partial<UseSuspenseQueryOptions<Awaited<ReturnType<typeof listWanted>>, TError, TData>>;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getListWantedSuspenseQueryOptions(params, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getSearchSeveralWorksUrl = () => {
+  return `/api/v1/works/search`;
+};
+
+/**
+ * @summary Queue a search of several Works, by id or by a Wanted filter, behind every search already queued
+ */
+export const searchSeveralWorks = async (
+  grabsSeveralBody: GrabsSeveralBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<GrabsSeveralQueued> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<GrabsSeveralQueued>(getSearchSeveralWorksUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(grabsSeveralBody),
+  });
+};
+
+export const getSearchSeveralWorksMutationKey = () => ["searchSeveralWorks"] as const;
+
+export const getSearchSeveralWorksMutationOptions = <
+  TError = ErrorType<
+    | SearchSeveralWorks401
+    | SearchSeveralWorks403
+    | SearchSeveralWorks409
+    | SearchSeveralWorks422
+    | SearchSeveralWorks500
+    | SearchSeveralWorks501
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof searchSeveralWorks>>,
+    TError,
+    SearchSeveralWorksMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof searchSeveralWorks>>,
+  TError,
+  SearchSeveralWorksMutationVariables,
+  TContext
+> => {
+  const mutationKey = getSearchSeveralWorksMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof searchSeveralWorks>>,
+    SearchSeveralWorksMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return searchSeveralWorks(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SearchSeveralWorksMutationResult = NonNullable<
+  Awaited<ReturnType<typeof searchSeveralWorks>>
+>;
+export type SearchSeveralWorksMutationBody = GrabsSeveralBody;
+export type SearchSeveralWorksMutationError = ErrorType<
+  | SearchSeveralWorks401
+  | SearchSeveralWorks403
+  | SearchSeveralWorks409
+  | SearchSeveralWorks422
+  | SearchSeveralWorks500
+  | SearchSeveralWorks501
+>;
+export type SearchSeveralWorksMutationVariables = { data: GrabsSeveralBody };
+
+/**
+ * @summary Queue a search of several Works, by id or by a Wanted filter, behind every search already queued
+ */
+export const useSearchSeveralWorks = <
+  TError = ErrorType<
+    | SearchSeveralWorks401
+    | SearchSeveralWorks403
+    | SearchSeveralWorks409
+    | SearchSeveralWorks422
+    | SearchSeveralWorks500
+    | SearchSeveralWorks501
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof searchSeveralWorks>>,
+      TError,
+      SearchSeveralWorksMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof searchSeveralWorks>>,
+  TError,
+  SearchSeveralWorksMutationVariables,
+  TContext
+> => {
+  return useMutation(getSearchSeveralWorksMutationOptions(options), queryClient);
+};
 export const getGetManualSearchUrl = (workId: string, params?: GetManualSearchParams) => {
   const normalizedParams = new URLSearchParams();
 
@@ -1812,13 +2563,13 @@ export const getSearchWorkUrl = (workId: string) => {
 };
 
 /**
- * @summary Search for each wanted Item of a Work, or of some of its levels and Items, and grab the best release
+ * @summary Queue a search of each wanted Item of a Work, or of some of its levels and Items, to grab the best release
  */
 export const searchWork = async (
   workId: string,
   grabsSearchScope?: GrabsSearchScope,
   options?: Parameters<typeof apiFetch>[1],
-): Promise<GrabsSearchStarted> => {
+): Promise<GrabsSearchQueued> => {
   const getHeaders = (
     h?: NonNullable<RequestInit["headers"]>,
   ): Record<string, string | readonly string[]> => {
@@ -1838,7 +2589,7 @@ export const searchWork = async (
     }
     return headers;
   };
-  return apiFetch<GrabsSearchStarted>(getSearchWorkUrl(workId), {
+  return apiFetch<GrabsSearchQueued>(getSearchWorkUrl(workId), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1894,7 +2645,7 @@ export type SearchWorkMutationError = ErrorType<
 export type SearchWorkMutationVariables = { workId: string; data?: GrabsSearchScope };
 
 /**
- * @summary Search for each wanted Item of a Work, or of some of its levels and Items, and grab the best release
+ * @summary Queue a search of each wanted Item of a Work, or of some of its levels and Items, to grab the best release
  */
 export const useSearchWork = <
   TError = ErrorType<
@@ -2081,3 +2832,305 @@ export function useListSearchesSuspense<
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+export const getGetWorkSearchingUrl = (workId: string) => {
+  return `/api/v1/works/${workId}/searching`;
+};
+
+/**
+ * @summary Get what Automatic search is doing for a Work: each search group's state, its waits and its stopped cells
+ */
+export const getWorkSearching = async (
+  workId: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<GrabsWorkSearching> => {
+  return apiFetch<GrabsWorkSearching>(getGetWorkSearchingUrl(workId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetWorkSearchingQueryKey = (workId: string) => {
+  return [`/api/v1/works/${workId}/searching`] as const;
+};
+
+export const getGetWorkSearchingSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWorkSearching>>,
+  TError = ErrorType<
+    | GetWorkSearching401
+    | GetWorkSearching403
+    | GetWorkSearching404
+    | GetWorkSearching409
+    | GetWorkSearching422
+    | GetWorkSearching500
+    | GetWorkSearching501
+  >,
+>(
+  workId: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getWorkSearching>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetWorkSearchingQueryKey(workId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getWorkSearching>>> = ({ signal }) =>
+    getWorkSearching(workId, { signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<Awaited<ReturnType<typeof getWorkSearching>>, TError, TData> & {
+    queryKey: DataTag<QueryKey, TData, TError>;
+  } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetWorkSearchingSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWorkSearching>>
+>;
+export type GetWorkSearchingSuspenseQueryError = ErrorType<
+  | GetWorkSearching401
+  | GetWorkSearching403
+  | GetWorkSearching404
+  | GetWorkSearching409
+  | GetWorkSearching422
+  | GetWorkSearching500
+  | GetWorkSearching501
+>;
+
+export function useGetWorkSearchingSuspense<
+  TData = Awaited<ReturnType<typeof getWorkSearching>>,
+  TError = ErrorType<
+    | GetWorkSearching401
+    | GetWorkSearching403
+    | GetWorkSearching404
+    | GetWorkSearching409
+    | GetWorkSearching422
+    | GetWorkSearching500
+    | GetWorkSearching501
+  >,
+>(
+  workId: string,
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getWorkSearching>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetWorkSearchingSuspense<
+  TData = Awaited<ReturnType<typeof getWorkSearching>>,
+  TError = ErrorType<
+    | GetWorkSearching401
+    | GetWorkSearching403
+    | GetWorkSearching404
+    | GetWorkSearching409
+    | GetWorkSearching422
+    | GetWorkSearching500
+    | GetWorkSearching501
+  >,
+>(
+  workId: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getWorkSearching>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetWorkSearchingSuspense<
+  TData = Awaited<ReturnType<typeof getWorkSearching>>,
+  TError = ErrorType<
+    | GetWorkSearching401
+    | GetWorkSearching403
+    | GetWorkSearching404
+    | GetWorkSearching409
+    | GetWorkSearching422
+    | GetWorkSearching500
+    | GetWorkSearching501
+  >,
+>(
+  workId: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getWorkSearching>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get what Automatic search is doing for a Work: each search group's state, its waits and its stopped cells
+ */
+
+export function useGetWorkSearchingSuspense<
+  TData = Awaited<ReturnType<typeof getWorkSearching>>,
+  TError = ErrorType<
+    | GetWorkSearching401
+    | GetWorkSearching403
+    | GetWorkSearching404
+    | GetWorkSearching409
+    | GetWorkSearching422
+    | GetWorkSearching500
+    | GetWorkSearching501
+  >,
+>(
+  workId: string,
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getWorkSearching>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetWorkSearchingSuspenseQueryOptions(workId, options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getGrabWaitingUrl = (workId: string) => {
+  return `/api/v1/works/${workId}/waits/grab`;
+};
+
+/**
+ * @summary End a Work's waits for a better Release and grab the best Release each holds now
+ */
+export const grabWaiting = async (
+  workId: string,
+  grabWaitingInputBody: GrabWaitingInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<GrabsGrabbing> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<GrabsGrabbing>(getGrabWaitingUrl(workId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(grabWaitingInputBody),
+  });
+};
+
+export const getGrabWaitingMutationKey = () => ["grabWaiting"] as const;
+
+export const getGrabWaitingMutationOptions = <
+  TError = ErrorType<
+    | GrabWaiting401
+    | GrabWaiting403
+    | GrabWaiting404
+    | GrabWaiting409
+    | GrabWaiting422
+    | GrabWaiting500
+    | GrabWaiting501
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof grabWaiting>>,
+    TError,
+    GrabWaitingMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof grabWaiting>>,
+  TError,
+  GrabWaitingMutationVariables,
+  TContext
+> => {
+  const mutationKey = getGrabWaitingMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof grabWaiting>>,
+    GrabWaitingMutationVariables
+  > = (props) => {
+    const { workId, data } = props ?? {};
+
+    return grabWaiting(workId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GrabWaitingMutationResult = NonNullable<Awaited<ReturnType<typeof grabWaiting>>>;
+export type GrabWaitingMutationBody = GrabWaitingInputBody;
+export type GrabWaitingMutationError = ErrorType<
+  | GrabWaiting401
+  | GrabWaiting403
+  | GrabWaiting404
+  | GrabWaiting409
+  | GrabWaiting422
+  | GrabWaiting500
+  | GrabWaiting501
+>;
+export type GrabWaitingMutationVariables = { workId: string; data: GrabWaitingInputBody };
+
+/**
+ * @summary End a Work's waits for a better Release and grab the best Release each holds now
+ */
+export const useGrabWaiting = <
+  TError = ErrorType<
+    | GrabWaiting401
+    | GrabWaiting403
+    | GrabWaiting404
+    | GrabWaiting409
+    | GrabWaiting422
+    | GrabWaiting500
+    | GrabWaiting501
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof grabWaiting>>,
+      TError,
+      GrabWaitingMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof grabWaiting>>,
+  TError,
+  GrabWaitingMutationVariables,
+  TContext
+> => {
+  return useMutation(getGrabWaitingMutationOptions(options), queryClient);
+};

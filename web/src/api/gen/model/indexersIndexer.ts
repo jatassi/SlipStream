@@ -53,12 +53,20 @@ export interface IndexersIndexer {
    * @maximum 50
    */
   priority: number;
+  /** Its feed lists older uploads by offset, so RSS sync can page back to the last one it read. Read by its last Test */
+  recentPaging: boolean;
   /** @minimum 1 */
   revision: number;
   rss: boolean;
   /** By mode */
   searchModes: IndexersSearchMode[];
   searches: IndexersLimitUse;
+  /**
+   * How many background searches go to it at a time. A press of Search takes one more
+   * @minimum 1
+   * @maximum 10
+   */
+  searchesAtOnce: number;
   /** Its status in words */
   sentence: string;
   /** Its newest session on any Node, null for none */

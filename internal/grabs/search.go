@@ -12,9 +12,11 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
+	"github.com/jatassi/slipstream/internal/grabs/internal/pace"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -27,6 +29,10 @@ type Search struct {
 	WorkID works.WorkID
 	// Group is the search group the run searched, zero for a Manual run.
 	Group indexers.GroupKey
+	// Lane is the run's lane in words and Trigger what queued it, both ""
+	// for a Manual run.
+	Lane    string
+	Trigger searches.Trigger
 	// Items are the Items it searched.
 	Items []works.ItemID
 	// Manual is the Manual search the run lists Releases for, zero for an
@@ -42,8 +48,11 @@ type Search struct {
 	Finished   time.Time
 	Outcome    Outcome
 	Candidates int
-	Grabs      []GrabID
-	Notes      []Reason
+	// Took counts the Grabs and joins at decide time, so it outlives a
+	// pruned Grab.
+	Took  int
+	Grabs []GrabID
+	Notes []Reason
 }
 
 // item is the one Item a Manual run or a press of one Item searches.
@@ -103,10 +112,16 @@ func runsOf(ctx context.Context, q *db.Queries, rows []db.GrabsSearch, lines map
 func searchOf(row db.GrabsSearch, items []works.ItemID, grabs []GrabID, lines []SearchIndexer) (Search, error) {
 	s := Search{
 		ID: row.ID, WorkID: row.WorkID, Items: items, Manual: row.ManualID, Started: row.StartedAt.Time(), Indexers: lines,
-		Finished: row.FinishedAt.Time(), Candidates: int(row.Candidates), Grabs: grabs,
+		Finished: row.FinishedAt.Time(), Candidates: int(row.Candidates), Took: int(row.Grabs), Grabs: grabs,
 	}
 	if row.GroupKey != nil {
 		s.Group = *row.GroupKey
+	}
+	if row.Lane != nil {
+		s.Lane = pace.Lane(*row.Lane).String()
+	}
+	if row.Trigger != nil {
+		s.Trigger = searches.Trigger(*row.Trigger)
 	}
 	if row.Outcome != nil {
 		s.Outcome = *row.Outcome
@@ -186,14 +201,22 @@ func (s Scope) items(t works.Tree) ([]works.Item, error) {
 	return t.ItemsWithin(*s.part)
 }
 
+// Pressed is one run a press of SearchWork recorded: its search group and
+// the label of the Item it searches.
+type Pressed struct {
+	Search SearchID
+	Group  indexers.GroupKey
+	Label  string
+}
+
 // SearchWork records a search run for each Item of work within scope with
 // a wanted cell, each with the Indexers it asks and skips and a query
-// reserved on each it asks, and returns their ids.
+// reserved on each it asks, and returns them.
 // Each run reserves its own queries, so an Indexer's search limit skips it
 // for the runs past the limit. Run searches them. An id scope names that
 // work doesn't have is a *works.NotInWorkError.
-func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.WorkID, scope Scope) ([]SearchID, error) {
-	var ids []SearchID
+func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.WorkID, scope Scope) ([]Pressed, error) {
+	var runs []Pressed
 	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		tree, err := gr.cfg.Works.TreeIn(ctx, tx, work)
 		if err != nil {
@@ -220,9 +243,9 @@ func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.Wo
 			if err != nil {
 				return err
 			}
-			ids = append(ids, id)
+			runs = append(runs, Pressed{Search: id, Group: pressGroup(it), Label: it.Label})
 		}
-		if len(ids) == 0 {
+		if len(runs) == 0 {
 			return ErrNothingWanted
 		}
 		return nil
@@ -230,11 +253,11 @@ func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.Wo
 	if err != nil {
 		return nil, err
 	}
-	for _, id := range ids {
-		gr.cfg.SearchChanged.Publish(ctx, SearchChanged{SearchID: id.String(), WorkID: work.String()})
+	for _, p := range runs {
+		gr.cfg.SearchChanged.Publish(ctx, SearchChanged{SearchID: p.Search.String(), WorkID: work.String()})
 	}
 	gr.wake()
-	return ids, nil
+	return runs, nil
 }
 
 // wantedOf is each of items that has a cell in open, in items' order.

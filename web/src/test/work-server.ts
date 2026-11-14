@@ -7,6 +7,7 @@ import type {
   GrabsSearch,
   GrabsSearchIndexer,
   GrabsSearchList,
+  GrabsSearchQueued,
   TargetsWants,
   WorksWorkView,
 } from "../api/gen/model";
@@ -49,11 +50,22 @@ const otherWork: GrabsGrab = {
 const searchId = "2b4d6f8a-0c2e-4a6c-8e0a-2c4e6a8c0e2a";
 const mirrorId = "8a0c2e4f-6b8d-4f0a-9c2e-4f6a8b0d2e4f";
 
-const run: Pick<GrabsSearch, "id" | "itemIds" | "startedAt" | "notes"> = {
+const run: Pick<
+  GrabsSearch,
+  "id" | "groupKey" | "groupLabel" | "lane" | "trigger" | "itemIds" | "startedAt" | "notes"
+> = {
   id: searchId,
+  groupKey: `i:${orchardItemId}`,
+  groupLabel: null,
+  lane: "now",
+  trigger: "search",
   itemIds: [orchardItemId],
   startedAt: "2026-10-12T09:00:58Z",
   notes: [],
+};
+
+const queued: GrabsSearchQueued = {
+  groups: [{ key: run.groupKey ?? "", label: orchard.label, state: "queued" }],
 };
 
 const line = (
@@ -81,6 +93,7 @@ export const searching: GrabsSearchList = {
       finishedAt: null,
       outcome: null,
       candidates: 0,
+      grabs: 0,
       grabIds: [],
     },
   ],
@@ -96,6 +109,7 @@ export const grabbed: GrabsSearchList = {
       finishedAt: "2026-10-12T09:01:00Z",
       outcome: "grabbed",
       candidates: 2,
+      grabs: 1,
       grabIds: [grabId],
     },
   ],
@@ -146,6 +160,7 @@ export const everyOutcome: GrabsSearchList = {
       finishedAt: "2026-10-12T09:01:00Z",
       outcome: "nothing_acceptable",
       candidates: 1,
+      grabs: 0,
       grabIds: [],
     },
   ],
@@ -243,7 +258,7 @@ export function workServer({
     getListGrabsMockHandler(() => ({ grabs })),
     http.post("*/api/v1/works/:workId/search", ({ params }) => {
       searched.push(String(params["workId"]));
-      return HttpResponse.json({ searchIds: [searchId] }, { status: 202 });
+      return HttpResponse.json(queued, { status: 202 });
     }),
     handler,
   ];

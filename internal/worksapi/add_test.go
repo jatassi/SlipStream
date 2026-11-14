@@ -281,3 +281,40 @@ func TestARacingAddAnswersTheWorkTheOtherMade(t *testing.T) {
 	}
 	w.moved(t, "racing adds", made.profile == "Small")
 }
+
+func (s *server) addSearch(t *testing.T) works.SearchScope {
+	t.Helper()
+	var d works.AddDefaults
+	err := s.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		var err error
+		d, err = works.AddDefaultsIn(ctx, r, contenttypetest.ID)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d.Search
+}
+
+func TestAnAddRemembersWhatItSearchesAsTheTypesDefault(t *testing.T) {
+	w := newWorld(t)
+	s := w.s
+	if got := s.addSearch(t); got != works.SearchMonitored {
+		t.Fatalf("before any add the add search is %s, want monitored", got)
+	}
+	s.add(t, `{"contentType":"fixture","key":"w1","search":"first_level"}`)
+	if got := s.addSearch(t); got != works.SearchMonitored {
+		t.Fatalf("after an add that doesn't remember, the add search is %s, want monitored", got)
+	}
+	s.add(t, `{"contentType":"fixture","key":"w2","search":"first_level","remember":true}`)
+	if got := s.addSearch(t); got != works.SearchFirstLevel {
+		t.Fatalf("after remembering first_level, the add search is %s", got)
+	}
+	s.add(t, `{"contentType":"fixture","key":"w3","preset":"none","remember":true}`)
+	if got := s.addSearch(t); got != works.SearchFirstLevel {
+		t.Fatalf("after remembering a preset alone, the add search is %s, want first_level kept", got)
+	}
+	if code, reply := s.call(t, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w4","search":"everything"}`); code != http.StatusUnprocessableEntity {
+		t.Fatalf("an add searching everything = %d %s, want 422", code, reply)
+	}
+}

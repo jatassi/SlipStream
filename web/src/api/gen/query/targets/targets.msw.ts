@@ -480,6 +480,7 @@ export const getListTargetsResponseMock = (
           ).map(() => faker.string.alpha({ length: { min: 10, max: 20 } })),
         }),
       ),
+      holdSeconds: faker.number.int({ min: 0, max: 604800 }),
       id: faker.string.uuid(),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
       profiles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -564,6 +565,7 @@ export const getCreateTargetResponseMock = (
       ),
     }),
   ),
+  holdSeconds: faker.number.int({ min: 0, max: 604800 }),
   id: faker.string.uuid(),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   profiles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -637,6 +639,7 @@ export const getGetTargetResponseMock = (
       ),
     }),
   ),
+  holdSeconds: faker.number.int({ min: 0, max: 604800 }),
   id: faker.string.uuid(),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   profiles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -732,6 +735,7 @@ export const getUpdateTargetResponseMock = (
         ),
       }),
     ),
+    holdSeconds: faker.number.int({ min: 0, max: 604800 }),
     id: faker.string.uuid(),
     name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     profiles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
@@ -811,6 +815,7 @@ export const getDuplicateTargetResponseMock = (
       ),
     }),
   ),
+  holdSeconds: faker.number.int({ min: 0, max: 604800 }),
   id: faker.string.uuid(),
   name: faker.string.alpha({ length: { min: 10, max: 20 } }),
   profiles: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(

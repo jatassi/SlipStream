@@ -191,6 +191,8 @@ type indexer struct {
 	RSS             bool                  `json:"rss"`
 	AllowFailover   bool                  `json:"allowFailover" doc:"Read only for an Indexer that signs in"`
 	Priority        int                   `json:"priority" minimum:"1" maximum:"50" doc:"Lower wins a tie"`
+	SearchesAtOnce  int                   `json:"searchesAtOnce" minimum:"1" maximum:"10" doc:"How many background searches go to it at a time. A press of Search takes one more"`
+	RecentPaging    bool                  `json:"recentPaging" doc:"Its feed lists older uploads by offset, so RSS sync can page back to the last one it read. Read by its last Test"`
 	Categories      []int                 `json:"categories" doc:"Newznab category ids; null for every category it advertises"`
 	Media           []string              `json:"media" doc:"The Content Types an RSS feed carries; null for every other kind"`
 	AllowNoSize     bool                  `json:"allowNoSize" doc:"An RSS feed whose items may have no size"`
@@ -238,7 +240,7 @@ func node(n role.NodeID) *string {
 func indexerOf(v indexers.View) indexer {
 	out := indexer{
 		ID: v.ID.String(), Name: v.Name, Kind: string(v.Kind), HomeNodeID: v.Home.String(), On: v.On, AutomaticSearch: v.AutoSearch,
-		RSS: v.RSS, AllowFailover: v.AllowFailover, Priority: v.Priority,
+		RSS: v.RSS, AllowFailover: v.AllowFailover, Priority: v.Priority, SearchesAtOnce: v.SearchesAtOnce, RecentPaging: v.Caps.RecentPaging,
 		Searches:    limitUseOf(v.Searches, v.Usage.Searches, v.Usage.SearchesFree),
 		Grabs:       limitUseOf(v.Grabs, v.Usage.Grabs, v.Usage.GrabsFree),
 		Status:      statusOf(v.Status),
@@ -342,6 +344,7 @@ type newIndexer struct {
 	RSS             *bool             `json:"rss,omitempty" doc:"Absent for on"`
 	AllowFailover   bool              `json:"allowFailover,omitempty"`
 	Priority        int               `json:"priority,omitempty" minimum:"1" maximum:"50" default:"25"`
+	SearchesAtOnce  int               `json:"searchesAtOnce,omitempty" minimum:"1" maximum:"10" default:"2" doc:"How many background searches go to it at a time"`
 	Categories      []int             `json:"categories,omitempty" doc:"Newznab category ids; absent for every category it advertises"`
 	Searches        *limit            `json:"searches,omitempty"`
 	Grabs           *limit            `json:"grabs,omitempty"`
@@ -358,7 +361,7 @@ func (n newIndexer) draft() (indexers.Draft, error) {
 		Kind: indexers.Kind(n.Kind), Name: n.Name, Definition: n.Definition, Port: port.ID(n.Port), BaseAddress: n.BaseAddress, Values: n.Values,
 		Address: n.Address, APIKey: n.APIKey, Tracker: n.TrackerName, Media: media(n.Media),
 		AllowNoSize: n.AllowNoSize, Cookie: cookieIn(n.Cookie), On: onUnlessOff(n.On), AutoSearch: onUnlessOff(n.AutomaticSearch), RSS: onUnlessOff(n.RSS),
-		AllowFailover: n.AllowFailover, Priority: n.Priority, Categories: indexers.CategoriesOf(n.Categories),
+		AllowFailover: n.AllowFailover, Priority: n.Priority, SearchesAtOnce: n.SearchesAtOnce, Categories: indexers.CategoriesOf(n.Categories),
 	}
 	if n.Searches != nil {
 		d.Searches = limitIn(*n.Searches)
@@ -467,6 +470,7 @@ type indexerEdit struct {
 	RSS             api.Patch[bool]   `json:"rss,omitempty" doc:"Null resets it to on"`
 	AllowFailover   api.Patch[bool]   `json:"allowFailover,omitempty" doc:"Null resets it to off"`
 	Priority        api.Patch[int]    `json:"priority,omitempty" minimum:"1" maximum:"50" doc:"Null resets it to 25"`
+	SearchesAtOnce  api.Patch[int]    `json:"searchesAtOnce,omitempty" minimum:"1" maximum:"10" doc:"Null resets it to 2"`
 	Categories      api.Patch[[]int]  `json:"categories,omitempty" doc:"Null for every category it advertises"`
 	Searches        api.Patch[limit]  `json:"searches,omitempty" doc:"Null turns the limit off"`
 	Grabs           api.Patch[limit]  `json:"grabs,omitempty" doc:"Null turns the limit off"`
@@ -495,7 +499,8 @@ func (e indexerEdit) edit() (indexers.Edit, error) {
 		Name: e.Name, Address: e.Address, APIKey: e.APIKey,
 		On: patched(e.On, true), AutoSearch: patched(e.AutomaticSearch, true), RSS: patched(e.RSS, true),
 		AllowFailover: patched(e.AllowFailover, false), Priority: patched(e.Priority, indexers.DefaultPriority),
-		AllowNoSize: e.AllowNoSize, Cookie: cookieIn(e.Cookie), BaseAddress: e.BaseAddress, Values: e.Values,
+		SearchesAtOnce: patched(e.SearchesAtOnce, indexers.DefaultSearchesAtOnce),
+		AllowNoSize:    e.AllowNoSize, Cookie: cookieIn(e.Cookie), BaseAddress: e.BaseAddress, Values: e.Values,
 	}
 	if e.Media != nil {
 		m := media(*e.Media)

@@ -159,15 +159,7 @@ func beginIn(t *testing.T, s scenario.Scenario, run *world.Run) walked {
 // search starts a search of w's Work and returns its run's id.
 func (w *walked) search(t *testing.T) string {
 	t.Helper()
-	reply := w.a.Admin("home", http.MethodPost, "/api/v1/works/"+w.work+"/search", "")
-	var started struct {
-		SearchIDs []string `json:"searchIds"`
-	}
-	if err := json.Unmarshal([]byte(reply.Body), &started); err != nil || reply.Status != http.StatusAccepted || len(started.SearchIDs) != 1 {
-		t.Fatalf("searchWork = %d %s, want 202 with one search", reply.Status, reply.Body)
-	}
-	worldtest.Expect(t, "searchWork", reply, worldtest.Reply{Status: http.StatusAccepted, Body: `{"searchIds":["` + started.SearchIDs[0] + `"]}` + "\n"})
-	return started.SearchIDs[0]
+	return w.a.Searched(w.work, "", 1)[0]
 }
 
 // ended reads the Grab id until it is imported or failed.
