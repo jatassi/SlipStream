@@ -452,6 +452,35 @@ func TestTheControllersOwnRow(t *testing.T) {
 	})
 }
 
+// TestTheControllerHoldsItsOwnRolesAtOpen opens a library whose
+// Controller row lacks Media Server link, as one from before its rule kept
+// it on the Controller: the open ticks it there again.
+func TestTheControllerHoldsItsOwnRolesAtOpen(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := startController(t)
+		self := c.svc.Self()
+		err := c.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := tx.ExecContext(ctx, "DELETE FROM nodes_role WHERE node_id = ? AND role = ?", self, role.MediaServerLink)
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.stop()
+		c.open(t, &side{})
+		if !c.svc.Holds(role.MediaServerLink, self) {
+			t.Fatal("after the open the Controller doesn't hold Media Server link")
+		}
+		own, err := c.svc.Get(t.Context(), self)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Contains(roleNames(own.Roles), role.MediaServerLink) {
+			t.Fatalf("after the open the Controller's row ticks %v, want Media Server link among them", roleNames(own.Roles))
+		}
+	})
+}
+
 // A nodes_address row the peer address record refuses fails the read.
 func TestAZonedAddressRowIsRefused(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
@@ -622,7 +651,8 @@ func (unlinked) LaneBytes(link.Key) link.Stats             { return link.Stats{}
 // TestTheRosterMigrationKeepsEveryNode migrates a library holding two
 // Nodes with Roles, an address and a used Join Code: every row and
 // reference survives the rebuild, and a tombstone may then share a live
-// Node's name but not stand in for its key.
+// Node's name but not stand in for its key. The open ticks the Roles the
+// Controller always holds.
 func TestTheRosterMigrationKeepsEveryNode(t *testing.T) {
 	path := filepath.Join(t.TempDir(), storage.LibraryFile)
 	homeKey, boxKey := bytes.Repeat([]byte{1}, 32), bytes.Repeat([]byte{2}, 32)
@@ -682,7 +712,7 @@ func TestTheRosterMigrationKeepsEveryNode(t *testing.T) {
 	for _, n := range list {
 		got = append(got, fmt.Sprintf("%s %v %v", n.Name, n.Self, roleNames(n.Roles)))
 	}
-	if want := []string{"home true [searching]", "box false [downloading]"}; !slices.Equal(got, want) {
+	if want := []string{"home true [searching media-server-link serving]", "box false [downloading]"}; !slices.Equal(got, want) {
 		t.Fatalf("the migrated roster lists %q, want %q", got, want)
 	}
 }
