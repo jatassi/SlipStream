@@ -4,10 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/jatassi/slipstream/internal/mediaserverlink/internal/sessions"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
 	"github.com/jatassi/slipstream/internal/role"
@@ -37,6 +42,11 @@ type Link struct {
 	control Control
 	servers map[link.ServerID]target
 	secrets map[link.ServerID]held
+	// plays outlive a watch started again, so its sessions keep their
+	// plays.
+	plays map[link.ServerID]sessions.Diff
+	facts map[link.ServerID]*msv1.ServerFacts
+	sent  *msv1.Facts
 }
 
 // held is a credential and the settings version the Controller said it
@@ -47,7 +57,9 @@ type held struct {
 }
 
 func NewLink(cfg Config) *Link {
-	return &Link{cfg: cfg, servers: map[link.ServerID]target{}, secrets: map[link.ServerID]held{}}
+	l := &Link{cfg: cfg}
+	l.forget()
+	return l
 }
 
 // target is one server of the intent, as a watch dials it.
@@ -104,7 +116,7 @@ func (l *Link) Run(local *storage.DB[storage.Local], control Control) func(conte
 			if err != nil {
 				return err
 			}
-			l.follow(ts)
+			l.follow(h, ts)
 			l.reconcile(ctx, watches, ts, func(t target) *watch { return &watch{l: l, local: local, h: h, t: t} })
 		}
 		return nil
@@ -128,8 +140,9 @@ func (l *Link) reconcile(ctx context.Context, watches map[link.ServerID]*running
 }
 
 // follow makes ts the servers this Node reaches, and forgets the
-// credential of each server that left.
-func (l *Link) follow(ts map[link.ServerID]target) {
+// credential, plays and facts of each server that left. The Controller
+// ends the plays of a server it names another reaching Node for.
+func (l *Link) follow(h Holder, ts map[link.ServerID]target) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.servers = ts
@@ -138,14 +151,62 @@ func (l *Link) follow(ts map[link.ServerID]target) {
 			delete(l.secrets, id)
 		}
 	}
+	for id := range l.facts {
+		if _, ok := ts[id]; !ok {
+			delete(l.plays, id)
+			delete(l.facts, id)
+		}
+	}
+	l.setFacts(h)
 }
 
-// Release forgets every credential. The holder keeps nothing durable.
+// Release forgets every credential, play and fact. The holder keeps
+// nothing durable.
 func (l *Link) Release(context.Context) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.control, l.servers, l.secrets = nil, map[link.ServerID]target{}, map[link.ServerID]held{}
+	l.forget()
 	return nil
+}
+
+func (l *Link) forget() {
+	l.control, l.servers, l.secrets = nil, map[link.ServerID]target{}, map[link.ServerID]held{}
+	l.plays, l.facts, l.sent = map[link.ServerID]sessions.Diff{}, map[link.ServerID]*msv1.ServerFacts{}, &msv1.Facts{}
+}
+
+func (l *Link) diff(id link.ServerID) sessions.Diff {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if d, ok := l.plays[id]; ok {
+		return d
+	}
+	return sessions.New(id)
+}
+
+// keep records id's plays and facts once their reports are queued, while
+// this Node still reaches id.
+func (l *Link) keep(h Holder, id link.ServerID, d sessions.Diff, f *msv1.ServerFacts) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if _, ok := l.servers[id]; !ok {
+		return
+	}
+	l.plays[id], l.facts[id] = d, f
+	l.setFacts(h)
+}
+
+// setFacts sets every server's facts, in id order, when they changed.
+// The caller holds l.mu.
+func (l *Link) setFacts(h Holder) {
+	next := &msv1.Facts{}
+	for _, id := range slices.SortedFunc(maps.Keys(l.facts), func(a, b link.ServerID) int { return a.Compare(b.UUID) }) {
+		next.Servers = append(next.Servers, l.facts[id])
+	}
+	if proto.Equal(next, l.sent) {
+		return
+	}
+	l.sent = next
+	h.SetFacts(next)
 }
 
 // target is the intent's server id, false for one this Node doesn't reach.

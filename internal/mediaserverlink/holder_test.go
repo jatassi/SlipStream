@@ -107,6 +107,8 @@ type holder struct {
 	intents chan *msv1.Intent
 	mu      sync.Mutex
 	reports []string
+	facts   *msv1.Facts
+	plays   map[string]int
 }
 
 func (h *holder) Intent(ctx context.Context) iter.Seq[role.Snapshot[*msv1.Intent]] {
@@ -124,14 +126,51 @@ func (h *holder) Intent(ctx context.Context) iter.Seq[role.Snapshot[*msv1.Intent
 	}
 }
 
-func (h *holder) SetFacts(*msv1.Facts) {}
+func (h *holder) SetFacts(f *msv1.Facts) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.facts = f
+}
 
+// Report records r as the test reads it, each play named by the order it
+// started in.
 func (h *holder) Report(_ context.Context, _ *storage.Tx[storage.Local], r *msv1.Report) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	c := r.GetContact()
-	h.reports = append(h.reports, fmt.Sprintf("%s at %d", c.GetState(), c.GetSettingsVersion()))
+	play := func(id []byte) int {
+		if _, ok := h.plays[string(id)]; !ok {
+			h.plays[string(id)] = len(h.plays) + 1
+		}
+		return h.plays[string(id)]
+	}
+	switch {
+	case r.GetContact() != nil:
+		c := r.GetContact()
+		h.reports = append(h.reports, fmt.Sprintf("%s at %d", c.GetState(), c.GetSettingsVersion()))
+	case r.GetPlayStarted() != nil:
+		h.reports = append(h.reports, fmt.Sprintf("play %d started", play(r.GetPlayStarted().GetSession().GetPlayId())))
+	case r.GetPlayEnded() != nil:
+		h.reports = append(h.reports, fmt.Sprintf("play %d ended", play(r.GetPlayEnded().GetPlayId())))
+	case r.GetIndexHint() != nil:
+		h.reports = append(h.reports, fmt.Sprintf("items %v changed", r.GetIndexHint().GetItemKeys()))
+	case r.GetWatching() != nil:
+		var ps []int
+		for _, id := range r.GetWatching().GetPlayIds() {
+			ps = append(ps, play(id))
+		}
+		h.reports = append(h.reports, fmt.Sprintf("watching %v", ps))
+	}
 	return nil
+}
+
+func (h *holder) sessions() int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	n := 0
+	for _, s := range h.facts.GetServers() {
+		n += len(s.GetSessions())
+	}
+	return n
 }
 
 func (h *holder) reported() []string {
@@ -149,7 +188,7 @@ type world struct {
 
 func start(t *testing.T) *world {
 	t.Helper()
-	w := &world{kind: &fakeKind{seen: make(chan link.Seen)}, control: &control{version: 1}, holder: &holder{intents: make(chan *msv1.Intent)}}
+	w := &world{kind: &fakeKind{seen: make(chan link.Seen)}, control: &control{version: 1}, holder: &holder{intents: make(chan *msv1.Intent), plays: map[string]int{}}}
 	w.link = mediaserverlink.NewLink(mediaserverlink.Config{
 		Kinds: link.Registry{w.kind}, Timings: link.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
 	})
@@ -244,9 +283,72 @@ func TestTheHolderReportsEachChangeInHowAServerResponds(t *testing.T) {
 			w.kind.seen <- link.Seen{At: time.Now(), Polled: true, Problem: p}
 			synctest.Wait()
 		}
-		want := []string{"responding at 1", "not_responding at 1", "sign_in_refused at 1", "responding at 1"}
+		want := []string{"responding at 1", "watching []", "not_responding at 1", "sign_in_refused at 1", "responding at 1"}
 		if got := w.holder.reported(); !slices.Equal(got, want) {
 			t.Errorf("the holder reported %q, want %q", got, want)
 		}
 	})
+}
+
+func (w *world) look(sessions ...link.Session) {
+	w.kind.seen <- link.Seen{At: time.Now(), Polled: true, Sessions: sessions}
+	synctest.Wait()
+}
+
+// TestTheHolderReportsPlaysAndKeepsThemAcrossAWatchStartedAgain plays
+// Metropolis on Den, has a push name a changed item, starts Den's watch
+// again with a new settings version, then polls twice without Metropolis:
+// the play starts once, each watch says it is watching it, the item is
+// reported, and the play ends after the two polls.
+func TestTheHolderReportsPlaysAndKeepsThemAcrossAWatchStartedAgain(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p, err := link.ParsePath("/media/Movies/Metropolis (1927)/Metropolis (1927).mkv")
+		if err != nil {
+			t.Fatal(err)
+		}
+		metropolis := link.Session{Key: "1", Path: p, User: "jackson", Decision: link.DecisionDirectPlay}
+		w := start(t)
+		w.send(intent(1))
+		w.look(metropolis)
+		w.kind.seen <- link.Seen{At: time.Now(), Items: []string{"42"}}
+		synctest.Wait()
+		if n := w.holder.sessions(); n != 1 {
+			t.Errorf("Den's facts list %d sessions while Metropolis plays, want 1", n)
+		}
+		w.control.set(2)
+		w.send(intent(2))
+		w.look(metropolis)
+		w.look()
+		w.look()
+		want := []string{"responding at 1", "play 1 started", "watching [1]", "items [42] changed", "responding at 2", "watching [1]", "play 1 ended"}
+		if got := w.holder.reported(); !slices.Equal(got, want) {
+			t.Errorf("the holder reported %q, want %q", got, want)
+		}
+		if n := w.holder.sessions(); n != 0 {
+			t.Errorf("Den's facts list %d sessions once Metropolis ended, want none", n)
+		}
+	})
+}
+
+func TestOnlyAChangeInHowManyServersRespondIsNotable(t *testing.T) {
+	facts := func(responding ...bool) *msv1.Facts {
+		f := &msv1.Facts{}
+		for _, r := range responding {
+			f.Servers = append(f.Servers, &msv1.ServerFacts{Responding: r, Sessions: []*msv1.Session{{SessionKey: "1"}}})
+		}
+		return f
+	}
+	for _, c := range []struct {
+		last, next *msv1.Facts
+		want       bool
+	}{
+		{&msv1.Facts{}, facts(true), true},
+		{facts(true), facts(false), true},
+		{facts(true, false), facts(false, true), false},
+		{facts(true), &msv1.Facts{Servers: []*msv1.ServerFacts{{Responding: true}}}, false},
+	} {
+		if got := mediaserverlink.Def.Notable(c.last, c.next); got != c.want {
+			t.Errorf("Notable(%v, %v) = %v, want %v", c.last, c.next, got, c.want)
+		}
+	}
 }
