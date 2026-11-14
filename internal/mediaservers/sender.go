@@ -282,20 +282,14 @@ func (m *MediaServers) take(ctx context.Context, id link.ServerID) (sending, err
 
 // sendable is the Jobs of plan one pass sends. A whole library refresh
 // goes alone: the changes it covers are sent by it, so the next pass
-// plans again without them. The fresh folder rule's Jobs aren't sent:
-// rows into a mapping never scanned wait.
+// plans again without them.
 func sendable(plan []link.Job) []link.Job {
-	var out []link.Job
 	for _, j := range plan {
-		switch j.Work.(type) {
-		case link.Fresh:
-			continue
-		case link.Rescan:
+		if _, ok := j.Work.(link.Rescan); ok {
 			return []link.Job{j}
 		}
-		out = append(out, j)
 	}
-	return out
+	return plan
 }
 
 func (m *MediaServers) port(ctx context.Context, q *db.Queries, row db.MediaserversServer, k link.Kind, v via) (mediaserverlink.Port, error) {
@@ -395,6 +389,8 @@ func jobIDs(j link.Job) []link.ChangeID {
 		return changeIDs(w.Changes)
 	case link.Rescan:
 		return w.Changes
+	case link.Fresh:
+		return w.Changes
 	}
 	return nil
 }
@@ -453,6 +449,11 @@ func (m *MediaServers) record(ctx context.Context, s sending, j link.Job, out li
 		if callErr != nil {
 			return m.failed(ctx, q, s.id, cs, callErr, later(time.Now(), start.Add(m.cfg.Timings.Call)))
 		}
+		if f, ok := out.Job.Work.(link.Fresh); ok && len(cs) > 0 {
+			if err := scan(ctx, q, s.id, cs[0].Root, f, out.Done); err != nil {
+				return err
+			}
+		}
 		st := stepped{s: s, out: out, start: start, now: time.Now(), more: more, ended: map[link.ChangeID]link.Outcome{}, snaps: snapshotsOf(out.Job)}
 		for _, o := range out.Outcomes {
 			st.ended[o.Change] = o
@@ -501,6 +502,19 @@ func (st stepped) land(ctx context.Context, q *db.Queries, c queue.Change) error
 	}
 	c.NextAt = later(st.now, st.out.Wait)
 	return reopen(ctx, q, c)
+}
+
+// scan writes a Fresh Job's answer on root's mapping: the decision and
+// the server's last scan end before it, and scanned_at once it is done.
+// Its rows wait until then and go again once it is done.
+func scan(ctx context.Context, q *db.Queries, server link.ServerID, root roots.ID, f link.Fresh, done bool) error {
+	p := db.SetMappingScanParams{
+		ServerID: server, RootID: root, RequestedAt: storage.FromTime(f.Requested), StartedAt: storage.FromTime(f.Started),
+	}
+	if done {
+		p.ScannedAt = storage.Now()
+	}
+	return q.SetMappingScan(ctx, p)
 }
 
 // failed backs cs off after callErr, not before notBefore.

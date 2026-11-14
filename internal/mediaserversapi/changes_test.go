@@ -37,6 +37,20 @@ type shelf struct {
 // set.
 func newShelf(t *testing.T, fallback string) shelf {
 	t.Helper()
+	s := addShelf(t, fallback)
+	s.w.Scanned(t)
+	time.Sleep(15 * time.Second)
+	synctest.Wait()
+	if scans := records(t, s.den, "jellyfin.scan"); len(scans) != 1 {
+		t.Fatalf("saving the mapping refreshed Den's libraries %d times, want once", len(scans))
+	}
+	return s
+}
+
+// addShelf adds Den with the Shelves root shown in its library, which Den
+// never scanned with content.
+func addShelf(t *testing.T, fallback string) shelf {
+	t.Helper()
 	r := newRig(t)
 	s := shelf{rig: r, den: r.w.Jellyfin(t, host, den(floorVer))}
 	draft := `{"kind":"jellyfin","name":"Den","address":"` + address + `","reachingNodeId":"` + r.w.Seedbox.String() + `","apiKey":"` + denKey + `"`
@@ -51,12 +65,6 @@ func newShelf(t *testing.T, fallback string) shelf {
 	s.id = decode[serverOut](t, body).ID
 	s.root = r.w.Root(t, "Shelves").ID
 	s.mapTo(t, shelves)
-	r.w.Scanned(t)
-	time.Sleep(15 * time.Second)
-	synctest.Wait()
-	if scans := records(t, s.den, "jellyfin.scan"); len(scans) != 1 {
-		t.Fatalf("saving the mapping refreshed Den's libraries %d times, want once", len(scans))
-	}
 	return s
 }
 

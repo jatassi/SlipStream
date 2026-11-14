@@ -4,6 +4,8 @@ SELECT * FROM mediaservers_mapping WHERE server_id = sqlc.arg(server_id) ORDER B
 -- name: ListAllMappings :many
 SELECT * FROM mediaservers_mapping ORDER BY server_id, root_id;
 
+-- UpsertMapping forgets the fresh folder rule's columns when the mapping
+-- points at another folder or library.
 -- name: UpsertMapping :exec
 INSERT INTO mediaservers_mapping (
     server_id, root_id, shown, server_folder, library_key, library_name, library_folder, guess, confirmed_at, confirmed_place
@@ -12,7 +14,10 @@ INSERT INTO mediaservers_mapping (
     sqlc.narg(library_name), sqlc.narg(library_folder), 0, sqlc.arg(confirmed_at), sqlc.arg(confirmed_place)
 )
 ON CONFLICT (server_id, root_id) DO UPDATE
-SET shown = excluded.shown,
+SET scanned_at = iif((server_folder IS NOT excluded.server_folder OR library_key IS NOT excluded.library_key), NULL, scanned_at),
+    scan_requested_at = iif((server_folder IS NOT excluded.server_folder OR library_key IS NOT excluded.library_key), NULL, scan_requested_at),
+    scan_started_at = iif((server_folder IS NOT excluded.server_folder OR library_key IS NOT excluded.library_key), NULL, scan_started_at),
+    shown = excluded.shown,
     server_folder = excluded.server_folder,
     library_key = excluded.library_key,
     library_name = excluded.library_name,

@@ -200,14 +200,15 @@ func (c *conn) rescan(ctx context.Context, j link.Job, w link.Rescan) (link.Adva
 // an item under the folder ends it. Else the Job comes back with Requested
 // and Started, the task's last end, and nothing sent, so the Controller
 // writes them before the scan goes. Decided, a last end past Started is
-// the scan's end, and no end yet sends the scan. Emby's full scan is the
-// same RefreshLibrary task.
+// the scan's end, and no end yet sends the scan. The end is read in whole
+// milliseconds, as Started crosses the wire. Emby's full scan is the same
+// RefreshLibrary task.
 func (c *conn) fresh(ctx context.Context, j link.Job, w link.Fresh) (link.Advanced, error) {
 	t, err := c.task(ctx)
 	if err != nil {
 		return link.Advanced{}, err
 	}
-	now, end := time.Now(), lastRun(t).EndTimeUtc
+	now, end := time.Now(), lastRun(t).EndTimeUtc.Truncate(time.Millisecond)
 	wait := c.d.Timings.ScanWait(w.Requested, now)
 	switch {
 	case t.State != jellyfin.TaskIdle:
