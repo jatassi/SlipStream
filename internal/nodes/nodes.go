@@ -205,15 +205,15 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 	}
 	err := cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
+		now := storage.Now()
 		row, err := q.GetNodeByKey(ctx, cfg.Key[:])
 		if err == nil {
 			s.self = row.ID
-			return nil
+			return holdControllerRoles(ctx, q, s.self, now)
 		}
 		if !errors.Is(err, storage.ErrNoRows) {
 			return err
 		}
-		now := storage.Now()
 		s.self = ID{UUID: storage.NewUUID()}
 		name, err := freeName(ctx, q, s.self, cfg.Name)
 		if err != nil {
@@ -293,6 +293,21 @@ func (s *Service) load(ctx context.Context) error {
 			return fmt.Errorf("load the roster: removed node %s: %w", row.ID, err)
 		}
 		s.removed[key] = true
+	}
+	return nil
+}
+
+// holdControllerRoles ticks every Role the Controller always holds on
+// self, which a library from before a Role's rule became Controller-held
+// may lack.
+func holdControllerRoles(ctx context.Context, q *db.Queries, self ID, now storage.Time) error {
+	for _, r := range role.Names() {
+		if !r.Rule().Controller {
+			continue
+		}
+		if err := q.InsertRole(ctx, db.InsertRoleParams{NodeID: self, Role: r, AssignedAt: now}); err != nil {
+			return err
+		}
 	}
 	return nil
 }
