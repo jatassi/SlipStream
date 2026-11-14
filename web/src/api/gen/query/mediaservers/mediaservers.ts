@@ -59,7 +59,6 @@ import type {
   ListMediaServerChanges409,
   ListMediaServerChanges422,
   ListMediaServerChanges500,
-  ListMediaServerChanges501,
   ListMediaServerChangesParams,
   ListMediaServerCredentialHolders401,
   ListMediaServerCredentialHolders403,
@@ -84,7 +83,6 @@ import type {
   ListMediaServerSessions409,
   ListMediaServerSessions422,
   ListMediaServerSessions500,
-  ListMediaServerSessions501,
   ListMediaServers401,
   ListMediaServers403,
   ListMediaServers409,
@@ -118,7 +116,6 @@ import type {
   RefreshMediaServer409,
   RefreshMediaServer422,
   RefreshMediaServer500,
-  RefreshMediaServer501,
   RemoveMediaServer401,
   RemoveMediaServer403,
   RemoveMediaServer404,
@@ -2080,7 +2077,6 @@ export const getListMediaServerChangesSuspenseQueryOptions = <
     | ListMediaServerChanges409
     | ListMediaServerChanges422
     | ListMediaServerChanges500
-    | ListMediaServerChanges501
   >,
 >(
   id: string,
@@ -2122,7 +2118,6 @@ export type ListMediaServerChangesSuspenseQueryError = ErrorType<
   | ListMediaServerChanges409
   | ListMediaServerChanges422
   | ListMediaServerChanges500
-  | ListMediaServerChanges501
 >;
 
 export function useListMediaServerChangesSuspense<
@@ -2134,7 +2129,6 @@ export function useListMediaServerChangesSuspense<
     | ListMediaServerChanges409
     | ListMediaServerChanges422
     | ListMediaServerChanges500
-    | ListMediaServerChanges501
   >,
 >(
   id: string,
@@ -2156,7 +2150,6 @@ export function useListMediaServerChangesSuspense<
     | ListMediaServerChanges409
     | ListMediaServerChanges422
     | ListMediaServerChanges500
-    | ListMediaServerChanges501
   >,
 >(
   id: string,
@@ -2178,7 +2171,6 @@ export function useListMediaServerChangesSuspense<
     | ListMediaServerChanges409
     | ListMediaServerChanges422
     | ListMediaServerChanges500
-    | ListMediaServerChanges501
   >,
 >(
   id: string,
@@ -2204,7 +2196,6 @@ export function useListMediaServerChangesSuspense<
     | ListMediaServerChanges409
     | ListMediaServerChanges422
     | ListMediaServerChanges500
-    | ListMediaServerChanges501
   >,
 >(
   id: string,
@@ -2862,7 +2853,6 @@ export const getRefreshMediaServerMutationOptions = <
     | RefreshMediaServer409
     | RefreshMediaServer422
     | RefreshMediaServer500
-    | RefreshMediaServer501
   >,
   TContext = unknown,
 >(options?: {
@@ -2909,7 +2899,6 @@ export type RefreshMediaServerMutationError = ErrorType<
   | RefreshMediaServer409
   | RefreshMediaServer422
   | RefreshMediaServer500
-  | RefreshMediaServer501
 >;
 export type RefreshMediaServerMutationVariables = { id: string };
 
@@ -2924,7 +2913,6 @@ export const useRefreshMediaServer = <
     | RefreshMediaServer409
     | RefreshMediaServer422
     | RefreshMediaServer500
-    | RefreshMediaServer501
   >,
   TContext = unknown,
 >(
@@ -2976,7 +2964,6 @@ export const getListMediaServerSessionsSuspenseQueryOptions = <
     | ListMediaServerSessions409
     | ListMediaServerSessions422
     | ListMediaServerSessions500
-    | ListMediaServerSessions501
   >,
 >(
   id: string,
@@ -3018,7 +3005,6 @@ export type ListMediaServerSessionsSuspenseQueryError = ErrorType<
   | ListMediaServerSessions409
   | ListMediaServerSessions422
   | ListMediaServerSessions500
-  | ListMediaServerSessions501
 >;
 
 export function useListMediaServerSessionsSuspense<
@@ -3030,7 +3016,6 @@ export function useListMediaServerSessionsSuspense<
     | ListMediaServerSessions409
     | ListMediaServerSessions422
     | ListMediaServerSessions500
-    | ListMediaServerSessions501
   >,
 >(
   id: string,
@@ -3051,7 +3036,6 @@ export function useListMediaServerSessionsSuspense<
     | ListMediaServerSessions409
     | ListMediaServerSessions422
     | ListMediaServerSessions500
-    | ListMediaServerSessions501
   >,
 >(
   id: string,
@@ -3072,7 +3056,6 @@ export function useListMediaServerSessionsSuspense<
     | ListMediaServerSessions409
     | ListMediaServerSessions422
     | ListMediaServerSessions500
-    | ListMediaServerSessions501
   >,
 >(
   id: string,
@@ -3097,7 +3080,6 @@ export function useListMediaServerSessionsSuspense<
     | ListMediaServerSessions409
     | ListMediaServerSessions422
     | ListMediaServerSessions500
-    | ListMediaServerSessions501
   >,
 >(
   id: string,

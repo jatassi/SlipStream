@@ -22,11 +22,7 @@ import (
 // Service is what the API calls.
 func (m *MediaServers) Service() Service { return service{m: m} }
 
-// service builds every operation but those Unbuilt still stands in for.
-type service struct {
-	Unbuilt
-	m *MediaServers
-}
+type service struct{ m *MediaServers }
 
 func (s service) Settings() setting.Panel { return s.m.Settings() }
 

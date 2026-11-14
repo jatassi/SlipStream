@@ -46,8 +46,3 @@ type Mapping struct {
 	Shown  bool
 	Folder string
 }
-
-// Unbuilt answers 501 for each operation not built yet. The Service
-// embeds it for the operations still in TestNotYetLedger, and each that is
-// built deletes its method here and its ledger line.
-type Unbuilt struct{}
