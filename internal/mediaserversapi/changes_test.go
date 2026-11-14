@@ -367,7 +367,7 @@ func TestAFailingServerKeepsItsChanges(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s := newShelf(t, "")
 		ids := fileIDs{}
-		up := s.w.Down(host)
+		up := s.w.Down(t, host)
 		s.tell(t, at(t, files.PathAdded, ids.of("old"), "Trip/Trip.mkv"))
 		settle(time.Minute)
 		c := change(t, s.changes(t), "Trip/Trip.mkv")

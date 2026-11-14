@@ -105,13 +105,10 @@ func (r rig) expectTransitions(t *testing.T, id, kind string, want ...string) {
 	}
 }
 
-// stop resets every connection to Den, its socket too, as a server that
-// stopped does, until the rule "stopped" is cleared.
-func (s shelf) stop(t *testing.T) {
+// stop stops Den, as a server that stopped does, until start.
+func (s shelf) stop(t *testing.T) (start func()) {
 	t.Helper()
-	if _, err := s.den.Faults.Set(fault.Rule{ID: "stopped", Target: "jellyfin", Fault: fault.Reset{}}); err != nil {
-		t.Fatal(err)
-	}
+	return s.w.Down(t, host)
 }
 
 // TestAServerNotRespondingIsUnhealthyAfterMarkUnhealthyAfter stops Den:
@@ -122,7 +119,7 @@ func TestAServerNotRespondingIsUnhealthyAfterMarkUnhealthyAfter(t *testing.T) {
 		s := newShelf(t, "")
 		s.openHealth(t)
 		s.expectHealthy(t)
-		s.stop(t)
+		start := s.stop(t)
 		settle(4 * time.Minute)
 		s.expectHealthy(t)
 		s.expectTransitions(t, s.id, "jellyfin")
@@ -132,7 +129,7 @@ func TestAServerNotRespondingIsUnhealthyAfterMarkUnhealthyAfter(t *testing.T) {
 			t.Errorf("the item is %+v, want Den with its last response under Details", it)
 		}
 		s.expectTransitions(t, s.id, "jellyfin", "unhealthy not_responding")
-		s.den.Faults.Clear("stopped")
+		start()
 		settle(2 * time.Minute)
 		s.expectHealthy(t)
 		s.expectTransitions(t, s.id, "jellyfin", "unhealthy not_responding", "recovered not_responding")
