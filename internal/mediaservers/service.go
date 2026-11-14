@@ -1,4 +1,4 @@
-package mediaserversapi
+package mediaservers
 
 import (
 	"context"
@@ -7,9 +7,8 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 )
 
-// Service is what the operations call. internal/mediaservers implements it
-// and renders every words field. Its errors are the ones problems.go
-// declares.
+// Service is what internal/mediaserversapi's operations call. It renders
+// every words field, and its errors are the ones errors.go declares.
 type Service interface {
 	List(ctx context.Context) ([]ServerView, error)
 	Get(ctx context.Context, id link.ServerID) (ServerView, error)
@@ -44,7 +43,7 @@ type Mapping struct {
 	Folder string
 }
 
-// Unbuilt is the Service until internal/mediaservers builds it: no
+// Unbuilt is the Service until this package builds it: no
 // servers, and every other operation answers 501. The built Service embeds
 // it for the operations still in TestNotYetLedger, and each that it builds
 // deletes its method here and its ledger line.
@@ -56,52 +55,52 @@ func (Unbuilt) Get(context.Context, link.ServerID) (ServerView, error) {
 	return ServerView{}, ErrNotFound
 }
 
-func (Unbuilt) Add(context.Context, Draft) (ServerView, error) { return ServerView{}, notYet() }
+func (Unbuilt) Add(context.Context, Draft) (ServerView, error) { return ServerView{}, ErrNotBuilt }
 
 func (Unbuilt) Update(context.Context, link.ServerID, Patch) (ServerView, error) {
-	return ServerView{}, notYet()
+	return ServerView{}, ErrNotBuilt
 }
 
-func (Unbuilt) Remove(context.Context, link.ServerID) error { return notYet() }
+func (Unbuilt) Remove(context.Context, link.ServerID) error { return ErrNotBuilt }
 
-func (Unbuilt) Test(context.Context, link.ServerID) (Tested, error) { return Tested{}, notYet() }
+func (Unbuilt) Test(context.Context, link.ServerID) (Tested, error) { return Tested{}, ErrNotBuilt }
 
 func (Unbuilt) ConfirmIdentity(context.Context, link.ServerID) (ServerView, error) {
-	return ServerView{}, notYet()
+	return ServerView{}, ErrNotBuilt
 }
 
 func (Unbuilt) Libraries(context.Context, link.ServerID) (Libraries, error) {
-	return Libraries{}, notYet()
+	return Libraries{}, ErrNotBuilt
 }
 
 func (Unbuilt) SaveMappings(context.Context, link.ServerID, []Mapping) ([]MappingView, error) {
-	return nil, notYet()
+	return nil, ErrNotBuilt
 }
 
-func (Unbuilt) Refresh(context.Context, link.ServerID) error { return notYet() }
+func (Unbuilt) Refresh(context.Context, link.ServerID) error { return ErrNotBuilt }
 
 func (Unbuilt) Sessions(context.Context, link.ServerID) (Sessions, error) {
-	return Sessions{}, notYet()
+	return Sessions{}, ErrNotBuilt
 }
 
 func (Unbuilt) Changes(context.Context, link.ServerID, string) (Changes, error) {
-	return Changes{}, notYet()
+	return Changes{}, ErrNotBuilt
 }
 
 func (Unbuilt) CredentialHolders(context.Context, link.ServerID) ([]HolderView, error) {
-	return nil, notYet()
+	return nil, ErrNotBuilt
 }
 
-func (Unbuilt) SignIn(context.Context, SignInDraft) (SignedIn, error) { return SignedIn{}, notYet() }
+func (Unbuilt) SignIn(context.Context, SignInDraft) (SignedIn, error) { return SignedIn{}, ErrNotBuilt }
 
-func (Unbuilt) StartPlexPin(context.Context, string) (PlexPin, error) { return PlexPin{}, notYet() }
+func (Unbuilt) StartPlexPin(context.Context, string) (PlexPin, error) { return PlexPin{}, ErrNotBuilt }
 
 func (Unbuilt) PlexPin(context.Context, int64) (PlexPinState, error) {
-	return PlexPinState{}, notYet()
+	return PlexPinState{}, ErrNotBuilt
 }
 
-func (Unbuilt) PlexAccount(context.Context) (AccountView, error) { return AccountView{}, notYet() }
+func (Unbuilt) PlexAccount(context.Context) (AccountView, error) { return AccountView{}, ErrNotBuilt }
 
-func (Unbuilt) SignOutOfPlex(context.Context) error { return notYet() }
+func (Unbuilt) SignOutOfPlex(context.Context) error { return ErrNotBuilt }
 
-func (Unbuilt) PlexServers(context.Context) ([]PlexServerView, error) { return nil, notYet() }
+func (Unbuilt) PlexServers(context.Context) ([]PlexServerView, error) { return nil, ErrNotBuilt }

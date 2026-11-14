@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/mediaserversapi"
 	"github.com/jatassi/slipstream/internal/node/surface"
 	"github.com/jatassi/slipstream/internal/secret"
@@ -17,7 +18,7 @@ import (
 )
 
 // notYet is every operation still answering 501. A PR that builds one
-// deletes its line here and its method on mediaserversapi.Unbuilt.
+// deletes its line here and its method on mediaservers.Unbuilt.
 var notYet = []string{
 	"addMediaServer",
 	"updateMediaServer",
@@ -71,7 +72,7 @@ var calls = map[string]call{
 func serve(t *testing.T) *ownertest.Owner {
 	t.Helper()
 	lib := storagetest.Library(t, secret.Schema(), identity.Schema())
-	return ownertest.Serve(t, lib, func(r *api.Router) { mediaserversapi.Routes(r, mediaserversapi.Unbuilt{}) })
+	return ownertest.Serve(t, lib, func(r *api.Router) { mediaserversapi.Routes(r, mediaservers.Unbuilt{}) })
 }
 
 func documentedOps(t *testing.T) []string {

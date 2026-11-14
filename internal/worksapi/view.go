@@ -6,7 +6,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/library"
-	"github.com/jatassi/slipstream/internal/mediaserversapi"
+	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/works"
@@ -25,10 +25,10 @@ type workView struct {
 }
 
 type openIn struct {
-	ServerID string                         `json:"serverId" format:"uuid"`
-	Kind     api.Enum[mediaserversapi.Kind] `json:"kind"`
-	Name     string                         `json:"name" doc:"The Media Server's name, such as Living room Plex"`
-	URL      string                         `json:"url" format:"uri"`
+	ServerID string                      `json:"serverId" format:"uuid"`
+	Kind     api.Enum[mediaservers.Kind] `json:"kind"`
+	Name     string                      `json:"name" doc:"The Media Server's name, such as Living room Plex"`
+	URL      string                      `json:"url" format:"uri"`
 }
 
 type webLink struct {

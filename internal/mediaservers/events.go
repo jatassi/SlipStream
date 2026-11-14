@@ -1,4 +1,4 @@
-package mediaserversapi
+package mediaservers
 
 import (
 	"github.com/jatassi/slipstream/internal/api"

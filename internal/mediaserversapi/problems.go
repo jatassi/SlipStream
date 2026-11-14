@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/mediaservers"
 )
 
 var (
@@ -29,112 +30,16 @@ var (
 	notBuilt           = api.NewCode(http.StatusNotImplemented, "media_servers_not_built", "This Media Servers operation isn't built yet")
 )
 
-// The errors a Service returns, which the API answers as problems. Any
-// other error answers 500.
-var (
-	ErrNotFound           = errors.New("no Media Server has this id")
-	ErrNameTaken          = errors.New("another Media Server has this name")
-	ErrKindUnknown        = errors.New("not a kind of Media Server SlipStream supports")
-	ErrNodeNotFound       = errors.New("no Node has this id")
-	ErrRootNotFound       = errors.New("no root has this id")
-	ErrPlexNotSignedIn    = errors.New("SlipStream isn't signed in to Plex")
-	ErrPlexServerNotFound = errors.New("the Plex account has no server with this id")
-	ErrPlexPinNotFound    = errors.New("no Plex sign-in has this id")
-	ErrPlexTVUnreached    = errors.New("plex.tv didn't respond")
-	errNotYet             = errors.New("not built yet")
-)
-
-// TooOldError is a server below its kind's version floor.
-type TooOldError struct {
-	// Label is the kind's label, such as Jellyfin.
-	Label, Found, Floor string
-}
-
-func (e *TooOldError) Error() string {
-	return fmt.Sprintf("%s %s is older than the supported %s", e.Label, e.Found, e.Floor)
-}
-
-// OtherServerError is another identity responding at a server's address.
-type OtherServerError struct{ Label, Address string }
-
-func (e *OtherServerError) Error() string {
-	return fmt.Sprintf("a different %s server responds at %s", e.Label, e.Address)
-}
-
-// UnreachedError is no response at Address from Node.
-type UnreachedError struct{ Label, Node, Address string }
-
-func (e *UnreachedError) Error() string {
-	return fmt.Sprintf("%s at %s didn't respond to %s", e.Label, e.Address, e.Node)
-}
-
-// Refused is the credential a server refused.
-type Refused uint8
-
-const (
-	// RefusedPlex is a saved Plex server refusing the account's token.
-	RefusedPlex Refused = iota + 1
-	// RefusedKey is a Jellyfin or Emby server refusing its API key.
-	RefusedKey
-	// RefusedPassword is an administrator sign-in refused.
-	RefusedPassword
-)
-
-// SignInRefusedError is a server refusing SlipStream's credential. Server
-// is the saved server's name, or for a draft the kind's label and address.
-type SignInRefusedError struct {
-	Server string
-	With   Refused
-}
-
-func (e *SignInRefusedError) Error() string { return e.Server + " refused SlipStream's sign-in" }
-
-// LocalhostOnWorkerError is a localhost address on a Worker with no
-// fallback address for the Controller.
-type LocalhostOnWorkerError struct{ Node, Address string }
-
-func (e *LocalhostOnWorkerError) Error() string {
-	return fmt.Sprintf("%s is localhost on %s, which the Controller can't use", e.Address, e.Node)
-}
-
-// NodeNotLinkedError is a reaching Node that doesn't hold Media Server
-// link.
-type NodeNotLinkedError struct{ Node string }
-
-func (e *NodeNotLinkedError) Error() string { return e.Node + " doesn't hold Media Server link" }
-
-// Outside is one shown mapping whose folder isn't inside a library folder.
-type Outside struct {
-	// Index is the mapping's place in the saved list.
-	Index  int
-	Root   string
-	Folder string
-}
-
-// OutsideLibrariesError names the mappings outside every library folder,
-// and the folders the server has.
-type OutsideLibrariesError struct {
-	Server  string
-	Outside []Outside
-	Found   []string
-}
-
-func (e *OutsideLibrariesError) Error() string {
-	return fmt.Sprintf("%d folders aren't inside a library folder on %s", len(e.Outside), e.Server)
-}
-
-func notYet() error { return errNotYet }
-
 // answer is err as the problem an Admin reads.
 func answer(err error) error {
 	var (
-		old      *TooOldError
-		other    *OtherServerError
-		away     *UnreachedError
-		refused  *SignInRefusedError
-		local    *LocalhostOnWorkerError
-		unlinked *NodeNotLinkedError
-		outside  *OutsideLibrariesError
+		old      *mediaservers.TooOldError
+		other    *mediaservers.OtherServerError
+		away     *mediaservers.UnreachedError
+		refused  *mediaservers.SignInRefusedError
+		local    *mediaservers.LocalhostOnWorkerError
+		unlinked *mediaservers.NodeNotLinkedError
+		outside  *mediaservers.OutsideLibrariesError
 	)
 	switch {
 	case errors.As(err, &old):
@@ -151,42 +56,42 @@ func answer(err error) error {
 		return nodeNotLinked.Because(fmt.Sprintf("%s doesn't hold Media Server link. Tick the Role on %s, or reach the server from the Controller.", unlinked.Node, unlinked.Node))
 	case errors.As(err, &outside):
 		return outsideFields(outside)
-	case errors.Is(err, ErrNotFound):
+	case errors.Is(err, mediaservers.ErrNotFound):
 		return serverNotFound
-	case errors.Is(err, ErrNameTaken):
+	case errors.Is(err, mediaservers.ErrNameTaken):
 		return nameTaken
-	case errors.Is(err, ErrKindUnknown):
+	case errors.Is(err, mediaservers.ErrKindUnknown):
 		return kindUnknown
-	case errors.Is(err, ErrNodeNotFound):
+	case errors.Is(err, mediaservers.ErrNodeNotFound):
 		return nodeNotFound
-	case errors.Is(err, ErrRootNotFound):
+	case errors.Is(err, mediaservers.ErrRootNotFound):
 		return rootNotFound
-	case errors.Is(err, ErrPlexNotSignedIn):
+	case errors.Is(err, mediaservers.ErrPlexNotSignedIn):
 		return plexNotSignedIn.Because("SlipStream isn't signed in to a Plex account. Sign in with Plex, then try again.")
-	case errors.Is(err, ErrPlexServerNotFound):
+	case errors.Is(err, mediaservers.ErrPlexServerNotFound):
 		return plexServerNotFound
-	case errors.Is(err, ErrPlexPinNotFound):
+	case errors.Is(err, mediaservers.ErrPlexPinNotFound):
 		return plexPinNotFound
-	case errors.Is(err, ErrPlexTVUnreached):
+	case errors.Is(err, mediaservers.ErrPlexTVUnreached):
 		return plexTVUnreached.Because("plex.tv didn't respond to the Controller. Check the Controller's internet connection and try again.")
-	case errors.Is(err, errNotYet):
+	case errors.Is(err, mediaservers.ErrNotBuilt):
 		return notBuilt
 	}
 	return err
 }
 
-func refusedWords(e *SignInRefusedError) string {
+func refusedWords(e *mediaservers.SignInRefusedError) string {
 	switch e.With {
-	case RefusedPlex:
+	case mediaservers.RefusedPlex:
 		return "SlipStream's sign-in to " + e.Server + " has expired or was revoked. Sign in with Plex again."
-	case RefusedKey:
+	case mediaservers.RefusedKey:
 		return e.Server + " refused the API key. Paste a new key, or sign in with an administrator's name and password."
-	case RefusedPassword:
+	case mediaservers.RefusedPassword:
 	}
 	return e.Server + " refused that name and password. Check them and sign in again."
 }
 
-func outsideFields(e *OutsideLibrariesError) error {
+func outsideFields(e *mediaservers.OutsideLibrariesError) error {
 	found := strings.Join(e.Found, ", ")
 	errs := make([]api.FieldError, len(e.Outside))
 	for i, o := range e.Outside {

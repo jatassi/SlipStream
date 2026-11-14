@@ -1,4 +1,4 @@
-package mediaserversapi
+package mediaservers
 
 import (
 	"time"
@@ -128,13 +128,6 @@ type MappingView struct {
 	Confirmed    bool     `json:"confirmed" doc:"false while a guess or after the root was re-homed, and changes under it wait"`
 	Scanned      bool     `json:"scanned" doc:"The server has content under the folder, or a full scan of its library ended"`
 	Words        string   `json:"words,omitempty" doc:"What to do about the mapping, such as Living room Plex won't get changes for files in Movies (D:)."`
-}
-
-// MappingInput is one root's mapping to save.
-type MappingInput struct {
-	RootID       string `json:"rootId" format:"uuid"`
-	Shown        bool   `json:"shown"`
-	ServerFolder string `json:"serverFolder,omitempty" maxLength:"4096" doc:"Required when shown: the root's folder as the server sees it, such as /data/movies or D:\\Movies"`
 }
 
 type Libraries struct {

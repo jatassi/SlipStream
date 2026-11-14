@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/mediaserverlink"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
+	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -51,6 +52,13 @@ type updateInput struct {
 	Body patchBody
 }
 
+// MappingInput is one root's mapping to save.
+type MappingInput struct {
+	RootID       string `json:"rootId" format:"uuid"`
+	Shown        bool   `json:"shown"`
+	ServerFolder string `json:"serverFolder,omitempty" maxLength:"4096" doc:"Required when shown: the root's folder as the server sees it, such as /data/movies or D:\\Movies"`
+}
+
 type mappingsBody struct {
 	Mappings []MappingInput `json:"mappings" nullable:"false" maxItems:"1000"`
 }
@@ -87,49 +95,49 @@ type pinIDInput struct {
 
 type kindsOutput struct {
 	Body struct {
-		Kinds []KindView `json:"kinds" nullable:"false" doc:"In the order the Add sheet offers them"`
+		Kinds []mediaservers.KindView `json:"kinds" nullable:"false" doc:"In the order the Add sheet offers them"`
 	}
 }
 
 type serversOutput struct {
 	Body struct {
-		Servers []ServerView `json:"servers" nullable:"false" doc:"By name"`
+		Servers []mediaservers.ServerView `json:"servers" nullable:"false" doc:"By name"`
 	}
 }
 
-type serverOutput struct{ Body ServerView }
+type serverOutput struct{ Body mediaservers.ServerView }
 
-type testedOutput struct{ Body Tested }
+type testedOutput struct{ Body mediaservers.Tested }
 
-type librariesOutput struct{ Body Libraries }
+type librariesOutput struct{ Body mediaservers.Libraries }
 
 type mappingsOutput struct {
 	Body struct {
-		Mappings []MappingView `json:"mappings" nullable:"false"`
+		Mappings []mediaservers.MappingView `json:"mappings" nullable:"false"`
 	}
 }
 
-type sessionsOutput struct{ Body Sessions }
+type sessionsOutput struct{ Body mediaservers.Sessions }
 
-type changesOutput struct{ Body Changes }
+type changesOutput struct{ Body mediaservers.Changes }
 
 type holdersOutput struct {
 	Body struct {
-		Holders []HolderView `json:"holders" nullable:"false" doc:"Every Node that fetched the server's credential, newest first. A Worker that fetched a Jellyfin or Emby key holds it until the key is replaced on the server"`
+		Holders []mediaservers.HolderView `json:"holders" nullable:"false" doc:"Every Node that fetched the server's credential, newest first. A Worker that fetched a Jellyfin or Emby key holds it until the key is replaced on the server"`
 	}
 }
 
-type signedInOutput struct{ Body SignedIn }
+type signedInOutput struct{ Body mediaservers.SignedIn }
 
-type pinOutput struct{ Body PlexPin }
+type pinOutput struct{ Body mediaservers.PlexPin }
 
-type pinStateOutput struct{ Body PlexPinState }
+type pinStateOutput struct{ Body mediaservers.PlexPinState }
 
-type accountOutput struct{ Body AccountView }
+type accountOutput struct{ Body mediaservers.AccountView }
 
 type plexServersOutput struct {
 	Body struct {
-		Servers []PlexServerView `json:"servers" nullable:"false"`
+		Servers []mediaservers.PlexServerView `json:"servers" nullable:"false"`
 	}
 }
 
@@ -142,17 +150,17 @@ func parseUUID(raw string, missing error) (storage.UUID, error) {
 }
 
 func serverID(raw string) (link.ServerID, error) {
-	u, err := parseUUID(raw, ErrNotFound)
+	u, err := parseUUID(raw, mediaservers.ErrNotFound)
 	return link.ServerID{UUID: u}, err
 }
 
 func nodeID(raw string) (role.NodeID, error) {
-	u, err := parseUUID(raw, ErrNodeNotFound)
+	u, err := parseUUID(raw, mediaservers.ErrNodeNotFound)
 	return role.NodeID{UUID: u}, err
 }
 
-func (b draftBody) draft() (Draft, error) {
-	d := Draft{
+func (b draftBody) draft() (mediaservers.Draft, error) {
+	d := mediaservers.Draft{
 		Kind: link.KindName(b.Kind), Name: b.Name, Address: b.Address, FallbackAddress: b.FallbackAddress,
 		BrowserAddress: b.BrowserAddress, APIKey: b.APIKey, DeviceID: b.DeviceID, PlexServer: b.PlexServer,
 	}
@@ -170,15 +178,15 @@ func (b draftBody) draft() (Draft, error) {
 	return d, nil
 }
 
-func setOf(p api.Patch[string]) *Set[string] {
+func setOf(p api.Patch[string]) *mediaservers.Set[string] {
 	if !p.Sent() {
 		return nil
 	}
-	return &Set[string]{To: p.Value()}
+	return &mediaservers.Set[string]{To: p.Value()}
 }
 
-func (b patchBody) patch() (Patch, error) {
-	p := Patch{
+func (b patchBody) patch() (mediaservers.Patch, error) {
+	p := mediaservers.Patch{
 		Name: b.Name, Address: b.Address, APIKey: b.APIKey,
 		FallbackAddress: setOf(b.FallbackAddress), BrowserAddress: setOf(b.BrowserAddress),
 	}
@@ -190,7 +198,7 @@ func (b patchBody) patch() (Patch, error) {
 		p.Reaching = &n
 	}
 	if b.RunsOnNodeID.Sent() {
-		p.RunsOn = &Set[role.NodeID]{}
+		p.RunsOn = &mediaservers.Set[role.NodeID]{}
 		if raw := b.RunsOnNodeID.Value(); raw != nil {
 			n, err := nodeID(*raw)
 			if err != nil {
@@ -202,26 +210,26 @@ func (b patchBody) patch() (Patch, error) {
 	return p, nil
 }
 
-func mappingsOf(in []MappingInput) ([]Mapping, error) {
-	out := make([]Mapping, len(in))
+func mappingsOf(in []MappingInput) ([]mediaservers.Mapping, error) {
+	out := make([]mediaservers.Mapping, len(in))
 	for i, m := range in {
-		u, err := parseUUID(m.RootID, ErrRootNotFound)
+		u, err := parseUUID(m.RootID, mediaservers.ErrRootNotFound)
 		if err != nil {
 			return nil, err
 		}
-		out[i] = Mapping{Root: roots.ID{UUID: u}, Shown: m.Shown, Folder: m.ServerFolder}
+		out[i] = mediaservers.Mapping{Root: roots.ID{UUID: u}, Shown: m.Shown, Folder: m.ServerFolder}
 	}
 	return out, nil
 }
 
-type handlers struct{ svc Service }
+type handlers struct{ svc mediaservers.Service }
 
 func (handlers) listKinds(context.Context, identity.Admin, *struct{}) (*kindsOutput, error) {
 	out := &kindsOutput{}
-	out.Body.Kinds = []KindView{}
+	out.Body.Kinds = []mediaservers.KindView{}
 	for _, a := range mediaserverlink.Kinds.Abouts() {
-		out.Body.Kinds = append(out.Body.Kinds, KindView{
-			Kind: KindOf(a.Name), Label: a.Label, SignIn: string(a.Form), Browser: a.Browser, Floor: a.Floor.String(),
+		out.Body.Kinds = append(out.Body.Kinds, mediaservers.KindView{
+			Kind: mediaservers.KindOf(a.Name), Label: a.Label, SignIn: string(a.Form), Browser: a.Browser, Floor: a.Floor.String(),
 		})
 	}
 	return out, nil
@@ -245,7 +253,7 @@ func (h handlers) get(ctx context.Context, _ identity.Admin, in *idInput) (*serv
 	return server(h.svc.Get(ctx, id))
 }
 
-func server(v ServerView, err error) (*serverOutput, error) {
+func server(v mediaservers.ServerView, err error) (*serverOutput, error) {
 	if err != nil {
 		return nil, answer(err)
 	}
@@ -387,7 +395,7 @@ func (h handlers) signIn(ctx context.Context, _ identity.Admin, in *signInInput)
 	if err != nil {
 		return nil, err
 	}
-	s, err := h.svc.SignIn(ctx, SignInDraft{
+	s, err := h.svc.SignIn(ctx, mediaservers.SignInDraft{
 		Kind: link.KindName(in.Body.Kind), Address: in.Body.Address, Node: n, User: in.Body.User, Password: in.Body.Password,
 	})
 	if err != nil {
@@ -438,7 +446,7 @@ func (h handlers) plexServers(ctx context.Context, _ identity.Admin, _ *struct{}
 }
 
 // Routes registers the Media Servers' operations against svc.
-func Routes(r *api.Router, svc Service) {
+func Routes(r *api.Router, svc mediaservers.Service) {
 	o := r.Owner("mediaservers", api.Admin)
 	h := handlers{svc}
 	const base = "/media-servers"
