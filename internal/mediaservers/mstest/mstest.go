@@ -27,15 +27,16 @@ import (
 	fakeplextv "github.com/jatassi/slipstream/fakes/plextv"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/mediaserverlink"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers"
+	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
 	"github.com/jatassi/slipstream/internal/node/endpoint"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
-	"github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1/mediaserverv1connect"
 	"github.com/jatassi/slipstream/internal/providers/plextv"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
@@ -50,6 +51,17 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+// Timings are the Media Server link's shipped defaults, spelled out: only
+// the Node's composition root reads its defaults.
+var Timings = link.Timings{
+	Call: 10 * time.Second, KeepAlive: 30 * time.Second, ReconnectMin: time.Second, ReconnectMax: time.Minute,
+	RetryMin: 10 * time.Second, RetryMax: 15 * time.Minute, PinPoll: time.Second,
+	ScanEndPoll: 250 * time.Millisecond, ScanEndPollMax: 5 * time.Second, ScanEndBound: 2 * time.Hour,
+	MovedConfirm: 2 * time.Minute, MovedStep: 5 * time.Minute, StepPoll: 2 * time.Second,
+	RenameSnapshot: 20 * time.Second, UpgradePairing: 2 * time.Minute, SectionFolders: 10, SessionCap: 100,
+	IndexAge: 24 * time.Hour, SentAge: 7 * 24 * time.Hour, IndexPage: 500,
+}
+
 // World is the Media Servers of home, with seedbox paired.
 type World struct {
 	Lib           *storage.DB[storage.Library]
@@ -60,6 +72,7 @@ type World struct {
 	Renewal tasks.Task
 	ms      *mediaservers.MediaServers
 	net     *network
+	links   *links
 	roots   *roots.Roots
 	rehomed chan struct{}
 	mu      sync.Mutex
@@ -94,32 +107,30 @@ func New(t *testing.T) *World {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(t.Output(), nil))
-	// A route test, a sign-in and a library read are each one call.
-	timings := link.Timings{Call: 10 * time.Second}
+	w.links = newLinks(w.Home)
 	ms := mediaservers.New(mediaservers.Config{
-		Library: w.Lib, Sealer: w.Sealer, Roster: roster{w.Home, w.Seedbox}, Kinds: mediaserverlink.Kinds,
-		HTTP: w.net.client(), Timings: timings, PlexTV: plexTV,
-		Link: func(role.NodeID) mediaserverv1connect.MediaServerLinkServiceHandler {
-			return mediaserverlink.NewLink(mediaserverlink.Config{Kinds: mediaserverlink.Kinds, HTTP: w.net.client(), Timings: timings, Log: log}).Service()
-		},
+		Library: w.Lib, Sealer: w.Sealer, Roster: roster{w.Home, w.Seedbox, w.links}, Kinds: mediaserverlink.Kinds,
+		HTTP: w.net.client(), Timings: Timings, PlexTV: plexTV,
+		Link:         w.links.service,
 		RootWords:    w.roots.WordsIn,
 		RootsChanged: func(context.Context) <-chan struct{} { return w.rehomed },
 		Tasks:        &cadences{},
 		Events:       mediaservers.Events{Changed: changedEvents{w}},
-		Touch:        func(...role.NodeID) {},
+		Touch:        w.links.touch,
 		Zone:         time.UTC,
 		Log:          log,
 	})
 	w.ms, w.Service, w.Renewal = ms, ms.Service(), ms.RenewalTask()
 	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		_ = ms.Run(ctx)
-	}()
+	var wg sync.WaitGroup
+	linkCfg := mediaserverlink.Config{Kinds: mediaserverlink.Kinds, HTTP: w.net.client(), Timings: Timings, Log: log}
+	for _, node := range []role.NodeID{w.Home, w.Seedbox} {
+		w.links.start(ctx, t, w, node, linkCfg, &wg)
+	}
+	wg.Go(func() { _ = ms.Run(ctx) })
 	t.Cleanup(func() {
 		cancel()
-		<-done
+		wg.Wait()
 	})
 	return w
 }
@@ -129,7 +140,7 @@ func (w *World) MediaServers() (mediaservers.Service, bool) { return w.Service, 
 
 // Jellyfin serves srv at host, such as 192.168.1.20:8096, in place of the
 // server there before, with each library folder made in its media dir.
-func (w *World) Jellyfin(t *testing.T, host string, srv jellyfin.Server) {
+func (w *World) Jellyfin(t *testing.T, host string, srv jellyfin.Server) faketest.Served {
 	t.Helper()
 	media := t.TempDir()
 	for _, l := range srv.Libraries {
@@ -147,6 +158,7 @@ func (w *World) Jellyfin(t *testing.T, host string, srv jellyfin.Server) {
 	w.net.mu.Lock()
 	defer w.net.mu.Unlock()
 	w.net.served[host] = f.Client.Transport
+	return f
 }
 
 // The link addresses of home and seedbox, where Plex lists a local
@@ -327,14 +339,17 @@ type roundTrip func(*http.Request) (*http.Response, error)
 
 func (f roundTrip) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
 
-// roster is home's view of its Nodes: each in step, holding Media Server
-// link.
-type roster struct{ self, worker role.NodeID }
+// roster is home's view of its Nodes: each holding Media Server link, and
+// in step until a test takes its link down.
+type roster struct {
+	self, worker role.NodeID
+	links        *links
+}
 
 func (r roster) Self() role.NodeID                      { return r.self }
 func (r roster) Holding(role.Name) []role.NodeID        { return []role.NodeID{r.self, r.worker} }
-func (roster) Changed() <-chan struct{}                 { return nil }
-func (roster) InStep(role.NodeID) bool                  { return true }
+func (r roster) Changed() <-chan struct{}               { return r.links.roster() }
+func (r roster) InStep(node role.NodeID) bool           { return r.links.inStep(node) }
 func (roster) Holds(name role.Name, _ role.NodeID) bool { return name == role.MediaServerLink }
 
 // cadences is the renewal task's cadence as tasks would store it.
@@ -354,4 +369,48 @@ func (c *cadences) SetCadence(_ context.Context, _ tasks.TaskID, v setting.Store
 	defer c.mu.Unlock()
 	c.every = v.Override()
 	return nil
+}
+
+// Tell has the Media Servers record cs in one library Write, as files
+// does in the Write that records the bytes.
+func (w *World) Tell(t *testing.T, cs ...files.PathChange) {
+	t.Helper()
+	err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return w.ms.Changed(ctx, tx, cs)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Prepare is files' once-per-pass call before the disk queue moves bytes.
+func (w *World) Prepare(t *testing.T, rs ...files.Rename) {
+	t.Helper()
+	w.ms.Prepare(t.Context(), rs)
+}
+
+// Scanned marks every mapping scanned, as the fresh folder rule leaves a
+// server that already lists content under its folders.
+func (w *World) Scanned(t *testing.T) {
+	t.Helper()
+	err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return db.New(tx).MarkShownScanned(ctx, storage.Now())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Down stops the server at host answering, as a server that stopped does,
+// until the func it returns starts it again.
+func (w *World) Down(host string) (up func()) {
+	w.net.mu.Lock()
+	defer w.net.mu.Unlock()
+	rt := w.net.served[host]
+	delete(w.net.served, host)
+	return func() {
+		w.net.mu.Lock()
+		defer w.net.mu.Unlock()
+		w.net.served[host] = rt
+	}
 }
