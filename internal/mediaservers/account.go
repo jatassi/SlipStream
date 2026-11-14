@@ -231,6 +231,7 @@ func (m *MediaServers) poll(ctx context.Context, id int64, w *pinWait, now time.
 		return "", err
 	}
 	m.cfg.Log.Info("signed in to Plex", "account", name)
+	m.senders.wakeAll()
 	if err := m.reread(ctx); err != nil {
 		m.cfg.Log.Warn("read the Plex servers again after a sign-in", "err", err.Error())
 	}

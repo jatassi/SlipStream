@@ -3,12 +3,15 @@ package mediaserversapi_test
 import (
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 
 	"github.com/jatassi/slipstream/fakes/jellyfin"
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/api/ownertest"
+	"github.com/jatassi/slipstream/internal/health"
+	"github.com/jatassi/slipstream/internal/healthapi"
 	"github.com/jatassi/slipstream/internal/mediaservers/mstest"
 	"github.com/jatassi/slipstream/internal/mediaserversapi"
 )
@@ -35,12 +38,27 @@ func den(version string) jellyfin.Server {
 type rig struct {
 	w *mstest.World
 	o *ownertest.Owner
+	// health is home's Health once a test opens it.
+	health *atomic.Pointer[health.Health]
 }
 
 func newRig(t *testing.T) rig {
 	t.Helper()
 	w := mstest.New(t)
-	return rig{w: w, o: ownertest.Serve(t, w.Lib, func(r *api.Router) { mediaserversapi.Routes(r, w) })}
+	h := &atomic.Pointer[health.Health]{}
+	return rig{w: w, health: h, o: ownertest.Serve(t, w.Lib, func(r *api.Router) {
+		mediaserversapi.Routes(r, w)
+		healthapi.Routes(r, watch{h})
+	})}
+}
+
+type watch struct {
+	h *atomic.Pointer[health.Health]
+}
+
+func (w watch) Health() (*health.Health, bool) {
+	h := w.h.Load()
+	return h, h != nil
 }
 
 func (r rig) draft(name, reaching, addr string) string {

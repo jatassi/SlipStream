@@ -131,8 +131,9 @@ func (m *MediaServers) revert(ctx context.Context) {
 	}
 }
 
-// send is one server's sender: it runs a pass whenever it is woken or a
-// held row may be ready, until the server is removed.
+// send is one server's sender: it runs a pass and judges the server's
+// health whenever it is woken, a held row may be ready or the verdict may
+// turn, until the server is removed.
 func (m *MediaServers) send(ctx context.Context, id link.ServerID, w *wake) {
 	defer m.senders.forget(id)
 	for {
@@ -140,6 +141,7 @@ func (m *MediaServers) send(ctx context.Context, id link.ServerID, w *wake) {
 		if gone || ctx.Err() != nil {
 			return
 		}
+		next = earlier(next, m.settle(ctx, id))
 		if !m.sleep(ctx, w, next) {
 			return
 		}

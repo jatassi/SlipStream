@@ -242,7 +242,7 @@ func (m *MediaServers) awayUntil(node, self role.NodeID, after time.Duration) (t
 
 // earlier is the earlier of a and b, where zero is none.
 func earlier(a, b time.Time) time.Time {
-	if a.IsZero() || b.Before(a) {
+	if a.IsZero() || (!b.IsZero() && b.Before(a)) {
 		return b
 	}
 	return a

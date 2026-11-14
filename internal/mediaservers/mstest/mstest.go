@@ -28,7 +28,9 @@ import (
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/mediaserverlink"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers"
@@ -78,12 +80,15 @@ type World struct {
 	mu       sync.Mutex
 	changed  []mediaservers.Changed
 	sessions []mediaservers.SessionsChanged
+	// hub carries the events Health follows.
+	hub         *live.Hub
+	transitions []Transition
 }
 
 // Schemas are the library schemas the Media Servers read.
 func Schemas() []storage.Schema[storage.Library] {
 	return []storage.Schema[storage.Library]{
-		secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), roots.Schema(), mediaservers.Schema(),
+		secret.Schema(), identity.Schema(), nodes.Schema(), role.LibrarySchema(), works.Schema(), roots.Schema(), mediaservers.Schema(), health.Schema(),
 	}
 }
 
@@ -92,8 +97,9 @@ func New(t *testing.T) *World {
 	w := &World{
 		Lib: storagetest.Library(t, Schemas()...), Sealer: secrettest.Sealer(t),
 		Home: role.NodeID{UUID: storage.NewUUID()}, Seedbox: role.NodeID{UUID: storage.NewUUID()},
-		net: &network{served: map[string]http.RoundTripper{}}, rehomed: make(chan struct{}, 1),
+		net: &network{served: map[string]http.RoundTripper{}}, rehomed: make(chan struct{}, 1), hub: live.NewHub(hubEvents),
 	}
+	t.Cleanup(w.hub.Close)
 	err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		return errors.Join(nodestest.Insert(ctx, tx, w.Home, "home"), nodestest.Insert(ctx, tx, w.Seedbox, "seedbox"),
 			nodestest.Address(ctx, tx, w.Home, 0, HomeIP+":7878"), nodestest.Address(ctx, tx, w.Seedbox, 0, SeedboxIP+":7878"))
@@ -116,11 +122,13 @@ func New(t *testing.T) *World {
 		RootWords:    w.roots.WordsIn,
 		RootsChanged: func(context.Context) <-chan struct{} { return w.rehomed },
 		Tasks:        &cadences{},
-		Events:       mediaservers.Events{Changed: changedEvents{w}, SessionsChanged: sessionsEvents{w}},
-		Touch:        w.links.touch,
-		Facts:        w.links.factsOf,
-		Zone:         time.UTC,
-		Log:          log,
+		Events: mediaservers.Events{
+			Changed: changedEvents{w}, SessionsChanged: sessionsEvents{w}, Unhealthy: unhealthyEvents{w}, Recovered: recoveredEvents{w},
+		},
+		Touch: w.links.touch,
+		Facts: w.links.factsOf,
+		Zone:  time.UTC,
+		Log:   log,
 	})
 	w.ms, w.Service, w.Renewal = ms, ms.Service(), ms.RenewalTask()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -284,10 +292,11 @@ func (w *World) Changed() []mediaservers.Changed {
 
 type changedEvents struct{ w *World }
 
-func (e changedEvents) Publish(_ context.Context, v mediaservers.Changed) {
+func (e changedEvents) Publish(ctx context.Context, v mediaservers.Changed) {
 	e.w.mu.Lock()
-	defer e.w.mu.Unlock()
 	e.w.changed = append(e.w.changed, v)
+	e.w.mu.Unlock()
+	mediaservers.ChangedEvent.Bind(e.w.hub).Publish(ctx, v)
 }
 
 type rootsChanged struct{ w *World }
