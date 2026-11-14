@@ -299,6 +299,37 @@ func TestAppliedRunsOnceEachBatchOfResultsCommits(t *testing.T) {
 	})
 }
 
+// TestAResultTheControllerCanNeverApplyIsSkipped reports three results
+// from the Worker, the second of which the probe can never apply: the
+// Controller applies the other two, and the Worker's next result applies
+// in turn.
+func TestAResultTheControllerCanNeverApplyIsSkipped(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := newCluster(t, "", "")
+		c.assign(c.workerID, roletest.Name)
+		w := c.startWorker(t, storagetest.Local(t, role.LocalSchema()))
+		c.pair.Connect(t)
+		synctest.Wait()
+		c.probe.RejectAt(2)
+		for _, n := range []uint64{1, 2, 3} {
+			if err := w.probe.Report(t.Context(), n); err != nil {
+				t.Fatal(err)
+			}
+		}
+		synctest.Wait()
+		if got, err := roletest.Applied(t.Context(), c.lib, c.workerID); err != nil || !slices.Equal(got, []uint64{1, 3}) {
+			t.Fatalf("the Controller applied %v (%v), want [1 3]", got, err)
+		}
+		if err := w.probe.Report(t.Context(), 4); err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		if got, err := roletest.Applied(t.Context(), c.lib, c.workerID); err != nil || !slices.Equal(got, []uint64{1, 3, 4}) {
+			t.Errorf("after the next report the Controller applied %v (%v), want [1 3 4]", got, err)
+		}
+	})
+}
+
 // TestADrainingRoleRunsUntilItIsReleased unticks the probe on the Worker
 // while the Worker still holds work for it: the same run goes on, starting
 // nothing new, until the Worker no longer drains it, and only then is the

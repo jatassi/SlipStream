@@ -64,9 +64,10 @@ func Applied(ctx context.Context, r storage.Reader[file], node role.NodeID) ([]u
 type Control struct {
 	*role.Control[*probev1.Intent, *probev1.Facts, *probev1.Result]
 
-	mu      sync.Mutex
-	pauseAt uint64
-	pause   chan struct{}
+	mu       sync.Mutex
+	pauseAt  uint64
+	pause    chan struct{}
+	rejectAt uint64
 }
 
 // Serve derives a Node's intent from its probe_intent row and applies a
@@ -100,6 +101,14 @@ func (c *Control) PauseAt(n uint64) (resume func()) {
 	}
 }
 
+// RejectAt fails every apply of result n, as a Role fails a result it can
+// never apply.
+func (c *Control) RejectAt(n uint64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.rejectAt = n
+}
+
 func derive(ctx context.Context, r storage.Reader[file], node role.NodeID) (*probev1.Intent, error) {
 	return intent(db.New(r).GetIntent(ctx, node))
 }
@@ -121,9 +130,13 @@ func (c *Control) apply(ctx context.Context, tx *storage.Tx[file], node role.Nod
 	if c.pauseAt != r.GetN() {
 		p = nil
 	}
+	rejected := c.rejectAt != 0 && c.rejectAt == r.GetN()
 	c.mu.Unlock()
 	if p != nil {
 		<-p
+	}
+	if rejected {
+		return fmt.Errorf("the probe can't apply result %d", r.GetN())
 	}
 	return db.New(tx).InsertApplied(ctx, db.InsertAppliedParams{NodeID: node, N: int64(r.GetN())}) //nolint:gosec // tests report small counts
 }
