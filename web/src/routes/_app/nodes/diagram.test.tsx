@@ -212,3 +212,23 @@ test("a link's Inspector counts the link and its Transfers in what each end send
       "vps sends home 48.0 Mbit/s and receives 2.0 Mbit/s. This includes the link and every Transfer between them.",
     );
 });
+
+test("a television's screen is lit while its Node is online and a Media Server it reaches responds", async () => {
+  const { topology, board: shown } = fixtureOf(6);
+  renderApp({ path: "/nodes", handlers: [nodesAre(), topologyIs(topology), boardIs(shown)] });
+  await expect.element(diagram()).toBeVisible();
+  const screen = (name: string) => {
+    const node = topology.nodes.find((candidate) => candidate.name === name);
+    const element = document.querySelector<SVGElement>(
+      `[data-node="${node?.id ?? ""}"] [data-screen]`,
+    );
+    if (element === null) {
+      throw new Error(`${name} draws no television`);
+    }
+    return { lit: element.dataset["screen"] === "lit", fill: getComputedStyle(element).fill };
+  };
+  const [lit, alsoLit, dark] = [screen("home"), screen("seedbox"), screen("office")];
+  expect([lit.lit, alsoLit.lit, dark.lit]).toEqual([true, true, false]);
+  expect(lit.fill).toBe(alsoLit.fill);
+  expect(dark.fill).not.toBe(lit.fill);
+});

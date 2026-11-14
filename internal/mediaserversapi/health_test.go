@@ -244,3 +244,50 @@ func TestARefusedPlexSignInIsUnhealthyAtOnce(t *testing.T) {
 		r.expectTransitions(t, v.ID, "plex", "unhealthy sign_in_refused", "recovered sign_in_refused")
 	})
 }
+
+// TestAContactChangeTellsTheList stops Den: once seedbox reports it isn't
+// responding, media-servers.changed names Den, and the list then reads
+// its new state, so the state line refreshes before Health raises it.
+func TestAContactChangeTellsTheList(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		s := newShelf(t, "")
+		before := len(s.w.Changed())
+		s.stop(t)
+		settle(time.Minute)
+		var told bool
+		for _, c := range s.w.Changed()[before:] {
+			told = told || slices.Equal(c.ServerIDs, []string{s.id})
+		}
+		if !told {
+			t.Fatalf("media-servers.changed published %v once Den stopped, want one naming %s", s.w.Changed()[before:], s.id)
+		}
+		status, body := s.o.Call(t, http.MethodGet, servers, "")
+		if status != http.StatusOK {
+			t.Fatalf("list the servers = %d %s", status, body)
+		}
+		type view struct {
+			Contact string `json:"contact"`
+		}
+		got := decode[struct{ Servers []view }](t, body).Servers
+		if len(got) != 1 || got[0].Contact != "not_responding" {
+			t.Errorf("the list reads %+v, want Den not responding", got)
+		}
+	})
+}
+
+// TestTheTelevisionLightsWhileAServerResponds stops Den: seedbox's
+// television is lit while Den responds and dark once it doesn't, and
+// home's, which reaches no server, stays dark.
+func TestTheTelevisionLightsWhileAServerResponds(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		s := newShelf(t, "")
+		if !s.w.Television(s.w.Seedbox) || s.w.Television(s.w.Home) {
+			t.Fatalf("seedbox's television lit %t and home's %t, want seedbox's alone", s.w.Television(s.w.Seedbox), s.w.Television(s.w.Home))
+		}
+		s.stop(t)
+		settle(time.Minute)
+		if s.w.Television(s.w.Seedbox) {
+			t.Error("seedbox's television is lit once Den stopped, want it dark")
+		}
+	})
+}

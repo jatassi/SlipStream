@@ -241,6 +241,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Storage: func(ctx context.Context, r storage.Reader[storage.Library], id role.NodeID) (nodes.StorageFigures, error) {
 			return homes.Figures(ctx, r, id)
 		},
+		Television: servers.Television,
 		Facts: func(id role.NodeID, scope string) {
 			arrivals.Note(id, scope)
 			clients.Arrived(id, scope)
@@ -250,6 +251,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Applied: func(id role.NodeID, scope string) {
 			clients.Applied(id, scope)
 			copies.Applied(id, scope)
+			servers.Applied(id, scope)
 		},
 		Reach: func(ctx context.Context, id role.NodeID, t nodesystem.Target) (nodesystem.Reached, error) {
 			return systems.Reach(ctx, id, t)

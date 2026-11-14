@@ -30,6 +30,7 @@ type topologyNode struct {
 	Roles      []roleView `json:"roles" nullable:"false" doc:"Every Role the Node stands in, in table order"`
 	Probes     []probe    `json:"probes" nullable:"false" doc:"The last verdict of each probe the Node ran, kept while it is away"`
 	Resources  resources  `json:"resources"`
+	Television bool       `json:"television" doc:"Whether any Media Server the Node reaches responds; false unless it stands in Media Server link"`
 }
 
 type resources struct {
@@ -95,6 +96,7 @@ func topologyOf(t nodes.Topology) topology {
 		v := topologyNode{
 			ID: n.ID.String(), Name: n.Name, Self: n.Controller, Controller: n.Controller,
 			State: nodeStates[n.Standing], Since: n.Since, Roles: rolesOf(n.Roles), Probes: probesOf(n.Probes),
+			Television: n.Television,
 		}
 		if n.Controller {
 			controller = v.ID

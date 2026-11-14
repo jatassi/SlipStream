@@ -68,6 +68,7 @@ function topologyNodeOf(node: NodesNode): NodesTopologyNode {
     roles: node.roles,
     probes: node.probes,
     resources: {},
+    television: false,
   };
 }
 
