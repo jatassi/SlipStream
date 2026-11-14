@@ -227,7 +227,8 @@ type replacedFile struct {
 	Path    string          `json:"path"`
 }
 
-// imported records l's landing of g, which v judged.
+// imported records l's landing of g, which v judged, and that g replaced
+// each doomed file of v.Replaces.
 func imported(ctx context.Context, q *db.Queries, l Landing, g File, v Verdict) error {
 	cells := make([]importedCell, len(v.Fills))
 	for i, k := range v.Fills {
@@ -236,6 +237,9 @@ func imported(ctx context.Context, q *db.Queries, l Landing, g File, v Verdict) 
 	replaced := make([]replacedFile, len(v.Replaces))
 	for i, d := range v.Replaces {
 		replaced[i] = replacedFile{Quality: d.Quality, Label: d.Label, Items: d.Items, Path: d.Path}
+		if err := q.SetReplacedBy(ctx, db.SetReplacedByParams{FileID: d.ID, ReplacedBy: g.ID}); err != nil {
+			return err
+		}
 	}
 	var cols [3][]byte
 	for i, v := range []any{g.Items, cells, replaced} {
@@ -677,17 +681,18 @@ func queueMove(ctx context.Context, q *db.Queries, g File, to string) error {
 }
 
 // doom removes d from the library and queues its bytes' removal from
-// wherever they sit: its path, or where its move had taken them.
+// wherever they sit: its path, or where its move had taken them. A
+// doomed move keeps its origin, where a Media Server still lists d.
 func doom(ctx context.Context, q *db.Queries, d File) error {
-	var moving *string
+	var moving, origin *string
 	at, err := q.GetMove(ctx, d.ID)
 	switch {
 	case err == nil:
-		moving = &at.Sits
+		moving, origin = &at.Sits, &at.Origin
 	case !errors.Is(err, storage.ErrNoRows):
 		return err
 	}
-	if err := q.InsertDoomed(ctx, db.InsertDoomedParams{FileID: d.ID, RootID: d.RootID, Path: d.Path, Sits: moving}); err != nil {
+	if err := q.InsertDoomed(ctx, db.InsertDoomedParams{FileID: d.ID, RootID: d.RootID, Path: d.Path, Sits: moving, Origin: origin}); err != nil {
 		return err
 	}
 	return q.DeleteFile(ctx, d.ID)
