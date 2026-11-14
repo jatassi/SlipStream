@@ -162,6 +162,7 @@ func (l *links) set(node role.NodeID, away, cut bool) {
 	l.cut[node] = cut
 	close(l.changed)
 	l.changed = make(chan struct{})
+	nodes.ChangedEvent.Bind(l.w.hub).Publish(context.Background(), nodes.Changed{NodeID: node.String()})
 }
 
 func (l *links) inStep(node role.NodeID) bool {

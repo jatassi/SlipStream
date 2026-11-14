@@ -1,5 +1,5 @@
 -- The sender of each server: it takes due rows, records each step, and
--- writes the server's sends columns.
+-- writes the server's sends and unhealthy columns.
 
 -- name: ListServerIDs :many
 SELECT id FROM mediaservers_server ORDER BY id;
@@ -33,4 +33,8 @@ WHERE id = sqlc.arg(id);
 
 -- name: SetSendsFailing :exec
 UPDATE mediaservers_server SET sends = 'failing', sends_since = coalesce(sends_since, sqlc.arg(at))
+WHERE id = sqlc.arg(id);
+
+-- name: SetUnhealthy :exec
+UPDATE mediaservers_server SET unhealthy_reason = sqlc.narg(reason), unhealthy_since = sqlc.arg(since)
 WHERE id = sqlc.arg(id);

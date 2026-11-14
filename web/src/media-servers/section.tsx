@@ -60,4 +60,5 @@ export const mediaServersSection: SettingsSection = {
     ]);
   },
   component: MediaServersSection,
+  health: ["media-servers"],
 };

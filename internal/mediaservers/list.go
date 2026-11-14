@@ -128,34 +128,18 @@ func (m *MediaServers) viewOf(row db.MediaserversServer, w world) ServerView {
 // stateOf is the server's one line on the list, leading with what to do:
 // what stops changes first, then what the reaching Node last saw.
 func (m *MediaServers) stateOf(row db.MediaserversServer, k link.Kind, w world, needed []roots.ID) State {
-	label := k.About().Label
 	node := w.names[row.ReachingNodeID].Name
-	at := func(t storage.Time) string { return t.Time().In(m.cfg.Zone).Format("15:04") }
 	switch {
 	case row.Contact == link.ContactOtherServer:
-		words, _ := Words(&OtherServerError{Label: label, Address: row.Address})
-		return State{Level: "fail", Words: words}
+		return State{Level: "fail", Words: otherServerWords(row, k)}
 	case row.Contact == link.ContactSignInRefused || (k.About().Form == link.SignInPlexPIN && w.plex.refused):
-		with := RefusedKey
-		if k.About().Form == link.SignInPlexPIN {
-			with = RefusedPlex
-		}
-		return State{Level: "fail", Words: refusedWords(&SignInRefusedError{Server: row.Name, With: with})}
-	case row.UnhealthyReason != nil && *row.UnhealthyReason == "sends_failing":
-		return State{Level: "fail", Words: fmt.Sprintf("%s hasn't accepted changes since %s. SlipStream retries automatically. Check %s's log for the cause.",
-			row.Name, at(row.UnhealthySince), label)}
-	case row.ReachingNodeID != m.cfg.Roster.Self() && !m.cfg.Roster.InStep(row.ReachingNodeID):
-		if row.Fallback == "available" {
-			return State{Level: "warn", Words: fmt.Sprintf("%s can't be checked while %s is offline. SlipStream sends changes through the Controller until %s is back.", row.Name, node, node)}
-		}
-		return State{Level: "warn", Words: fmt.Sprintf("SlipStream holds changes for %s until %s is back.", row.Name, node)}
+		return State{Level: "fail", Words: signInRefusedWords(row, k)}
+	case row.UnhealthyReason != nil && *row.UnhealthyReason == reasonSendsFailing:
+		return State{Level: "fail", Words: m.sendsFailingWords(row, k)}
+	case m.away(row.ReachingNodeID):
+		return State{Level: "warn", Words: offlineWords(row, node)}
 	case row.Contact == link.ContactNotResponding:
-		running := label + " is running"
-		if !row.RunsOnNodeID.IsZero() {
-			running += " on " + w.names[row.RunsOnNodeID].Name
-		}
-		return State{Level: "fail", Words: fmt.Sprintf("%s hasn't responded to %s since %s. Check that %s and that %s can reach %s.",
-			row.Name, node, at(row.ContactSince), running, node, hostOf(row.Address))}
+		return State{Level: "fail", Words: m.notRespondingWords(row, k, w)}
 	case len(needed) == 1:
 		return State{Level: "warn", Words: noMappingWords(row.Name, w.words[needed[0]])}
 	case len(needed) > 1:
@@ -164,6 +148,46 @@ func (m *MediaServers) stateOf(row db.MediaserversServer, k link.Kind, w world, 
 		return State{Level: "ok", Words: fmt.Sprintf("%s responds to %s.", row.Name, node)}
 	}
 	return State{Level: "ok", Words: fmt.Sprintf("%s hasn't checked %s yet.", node, row.Name)}
+}
+
+// away is a reaching Node's link down. The Controller is never away.
+func (m *MediaServers) away(node role.NodeID) bool { return !m.up(node) }
+
+func (m *MediaServers) clock(t storage.Time) string { return t.Time().In(m.cfg.Zone).Format("15:04") }
+
+func otherServerWords(row db.MediaserversServer, k link.Kind) string {
+	words, _ := Words(&OtherServerError{Label: k.About().Label, Address: row.Address})
+	return words
+}
+
+func signInRefusedWords(row db.MediaserversServer, k link.Kind) string {
+	with := RefusedKey
+	if k.About().Form == link.SignInPlexPIN {
+		with = RefusedPlex
+	}
+	return refusedWords(&SignInRefusedError{Server: row.Name, With: with})
+}
+
+func (m *MediaServers) sendsFailingWords(row db.MediaserversServer, k link.Kind) string {
+	return fmt.Sprintf("%s hasn't accepted changes since %s. SlipStream retries automatically. Check %s's log for the cause.",
+		row.Name, m.clock(row.UnhealthySince), k.About().Label)
+}
+
+func (m *MediaServers) notRespondingWords(row db.MediaserversServer, k link.Kind, w world) string {
+	node := w.names[row.ReachingNodeID].Name
+	running := k.About().Label + " is running"
+	if !row.RunsOnNodeID.IsZero() {
+		running += " on " + w.names[row.RunsOnNodeID].Name
+	}
+	return fmt.Sprintf("%s hasn't responded to %s since %s. Check that %s and that %s can reach %s.",
+		row.Name, node, m.clock(row.ContactSince), running, node, hostOf(row.Address))
+}
+
+func offlineWords(row db.MediaserversServer, node string) string {
+	if row.Fallback == "available" {
+		return fmt.Sprintf("%s can't be checked while %s is offline. SlipStream sends changes through the Controller until %s is back.", row.Name, node, node)
+	}
+	return fmt.Sprintf("SlipStream holds changes for %s until %s is back.", row.Name, node)
 }
 
 func noMappingWords(server, root string) string {

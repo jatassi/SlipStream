@@ -97,9 +97,14 @@ type half struct {
 	clients  *downloadclients.Clients
 	// mediaServers is the Media Servers' operations, on a Controller.
 	mediaServers mediaservers.Service
-	tasks        *tasks.Scheduler
-	health       *health.Health
-	firstRun     *firstrun.FirstRun
+
+	// mediaServersHealth is the Media Servers' Health category, on a
+	// Controller.
+	mediaServersHealth health.Source
+
+	tasks    *tasks.Scheduler
+	health   *health.Health
+	firstRun *firstrun.FirstRun
 	// transfers judges every Transfer, on a Controller, and copier sends
 	// and receives this Node's, on every Node.
 	transfers *transfers.Transfers
@@ -524,8 +529,11 @@ func (n *Node) startController(ctx context.Context) error {
 		tasks:    scheduler,
 
 		mediaServers: servers.Service(),
-		transfers:    copies,
-		copier:       copier,
+
+		mediaServersHealth: servers.HealthSource(),
+
+		transfers: copies,
+		copier:    copier,
 	}
 	if h.health, err = n.openHealth(ctx, lib.db, h); err != nil {
 		return err

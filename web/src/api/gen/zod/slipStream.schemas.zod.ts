@@ -4043,6 +4043,7 @@ export const HealthCategoryID = zod.enum([
   "library",
   "nodes",
   "download-clients",
+  "media-servers",
   "seeding",
   "indexers",
   "scheduled-tasks",
