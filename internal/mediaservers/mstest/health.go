@@ -57,8 +57,9 @@ func (e recoveredEvents) Publish(ctx context.Context, v mediaservers.Recovered) 
 	mediaservers.RecoveredEvent.Bind(e.w.hub).Publish(ctx, v)
 }
 
-// Health is home's Health with the Media Servers category, every other
-// category answering nothing, running until the test ends.
+// Health is home's Health at its shipped timings, spelled out, with the
+// Media Servers category and every other category answering nothing,
+// running until the test ends.
 func (w *World) Health(t *testing.T) *health.Health {
 	t.Helper()
 	none := health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }}
@@ -77,7 +78,7 @@ func (w *World) Health(t *testing.T) *health.Health {
 		Names: func(context.Context, storage.Reader[storage.Library]) (map[role.NodeID]string, error) {
 			return map[role.NodeID]string{w.Home: "home", w.Seedbox: "seedbox"}, nil
 		},
-		Zone: time.UTC, Timings: health.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
+		Zone: time.UTC, Timings: health.Timings{Retry: time.Minute, Check: 30 * time.Second}, Log: slog.New(slog.DiscardHandler),
 	})
 	if err != nil {
 		t.Fatal(err)
