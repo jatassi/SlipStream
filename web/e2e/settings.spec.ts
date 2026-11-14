@@ -9,7 +9,7 @@ const groups = [
   ["Files to keep", ["Targets", "Profiles", "Custom Formats", "Editions"]],
   ["Search and download", ["Indexers", "Trackers", "Download Clients"]],
   ["Access", ["Address", "Sign-in", "API key"]],
-  ["System", ["Nodes", "Email"]],
+  ["System", ["Nodes", "Email", "Media Servers"]],
 ] as const;
 
 test("Settings lists its sections by group, in a nav on desktop and pushed pages on phone", async ({
