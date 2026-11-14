@@ -30,7 +30,6 @@ import type {
   ConfirmMediaServerIdentity409,
   ConfirmMediaServerIdentity422,
   ConfirmMediaServerIdentity500,
-  ConfirmMediaServerIdentity501,
   ConfirmMediaServerIdentity502,
   GetMediaServer401,
   GetMediaServer403,
@@ -38,6 +37,10 @@ import type {
   GetMediaServer409,
   GetMediaServer422,
   GetMediaServer500,
+  GetMediaServerSettings401,
+  GetMediaServerSettings403,
+  GetMediaServerSettings409,
+  GetMediaServerSettings500,
   GetPlexAccount401,
   GetPlexAccount403,
   GetPlexAccount409,
@@ -66,7 +69,6 @@ import type {
   ListMediaServerCredentialHolders409,
   ListMediaServerCredentialHolders422,
   ListMediaServerCredentialHolders500,
-  ListMediaServerCredentialHolders501,
   ListMediaServerKinds401,
   ListMediaServerKinds403,
   ListMediaServerKinds409,
@@ -77,7 +79,6 @@ import type {
   ListMediaServerLibraries409,
   ListMediaServerLibraries422,
   ListMediaServerLibraries500,
-  ListMediaServerLibraries501,
   ListMediaServerLibraries502,
   ListMediaServerSessions401,
   ListMediaServerSessions403,
@@ -109,6 +110,7 @@ import type {
   MediaserversPlexPinState,
   MediaserversServerView,
   MediaserversSessions,
+  MediaserversSettings,
   MediaserversSignInBody,
   MediaserversSignedIn,
   MediaserversTested,
@@ -126,23 +128,21 @@ import type {
   RemoveMediaServer409,
   RemoveMediaServer422,
   RemoveMediaServer500,
-  RemoveMediaServer501,
   SaveMediaServerMappings401,
   SaveMediaServerMappings403,
   SaveMediaServerMappings404,
   SaveMediaServerMappings409,
   SaveMediaServerMappings422,
   SaveMediaServerMappings500,
-  SaveMediaServerMappings501,
   SaveMediaServerMappings502,
   ServersOutputBody,
+  SettingsInputBody,
   SignInToMediaServer401,
   SignInToMediaServer403,
   SignInToMediaServer404,
   SignInToMediaServer409,
   SignInToMediaServer422,
   SignInToMediaServer500,
-  SignInToMediaServer501,
   SignInToMediaServer502,
   SignOutOfPlex401,
   SignOutOfPlex403,
@@ -162,16 +162,18 @@ import type {
   TestMediaServer409,
   TestMediaServer422,
   TestMediaServer500,
-  TestMediaServer501,
-  TestMediaServer502,
   UpdateMediaServer401,
   UpdateMediaServer403,
   UpdateMediaServer404,
   UpdateMediaServer409,
   UpdateMediaServer422,
   UpdateMediaServer500,
-  UpdateMediaServer501,
   UpdateMediaServer502,
+  UpdateMediaServerSettings401,
+  UpdateMediaServerSettings403,
+  UpdateMediaServerSettings409,
+  UpdateMediaServerSettings422,
+  UpdateMediaServerSettings500,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -1274,6 +1276,278 @@ export function useListPlexServersSuspense<
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+export const getGetMediaServerSettingsUrl = () => {
+  return `/api/v1/media-servers/settings`;
+};
+
+/**
+ * @summary Get the Media Servers settings
+ */
+export const getMediaServerSettings = async (
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MediaserversSettings> => {
+  return apiFetch<MediaserversSettings>(getGetMediaServerSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMediaServerSettingsQueryKey = () => {
+  return [`/api/v1/media-servers/settings`] as const;
+};
+
+export const getGetMediaServerSettingsSuspenseQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMediaServerSettings>>,
+  TError = ErrorType<
+    | GetMediaServerSettings401
+    | GetMediaServerSettings403
+    | GetMediaServerSettings409
+    | GetMediaServerSettings500
+  >,
+>(options?: {
+  query?: Partial<
+    UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMediaServerSettings>>, TError, TData>
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMediaServerSettingsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMediaServerSettings>>> = ({ signal }) =>
+    getMediaServerSettings({ signal, ...requestOptions });
+
+  return queryOptionsBuilder({
+    queryKey,
+    ...queryOptions,
+    queryFn: queryOptions?.queryFn ?? queryFn,
+  }) as UseSuspenseQueryOptions<
+    Awaited<ReturnType<typeof getMediaServerSettings>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> } & {
+    throwOnError?: ((this: never, error: TError) => boolean) & { readonly __inferenceOnly: never };
+  };
+};
+
+export type GetMediaServerSettingsSuspenseQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMediaServerSettings>>
+>;
+export type GetMediaServerSettingsSuspenseQueryError = ErrorType<
+  | GetMediaServerSettings401
+  | GetMediaServerSettings403
+  | GetMediaServerSettings409
+  | GetMediaServerSettings500
+>;
+
+export function useGetMediaServerSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getMediaServerSettings>>,
+  TError = ErrorType<
+    | GetMediaServerSettings401
+    | GetMediaServerSettings403
+    | GetMediaServerSettings409
+    | GetMediaServerSettings500
+  >,
+>(
+  options: {
+    query: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMediaServerSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetMediaServerSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getMediaServerSettings>>,
+  TError = ErrorType<
+    | GetMediaServerSettings401
+    | GetMediaServerSettings403
+    | GetMediaServerSettings409
+    | GetMediaServerSettings500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMediaServerSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetMediaServerSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getMediaServerSettings>>,
+  TError = ErrorType<
+    | GetMediaServerSettings401
+    | GetMediaServerSettings403
+    | GetMediaServerSettings409
+    | GetMediaServerSettings500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMediaServerSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get the Media Servers settings
+ */
+
+export function useGetMediaServerSettingsSuspense<
+  TData = Awaited<ReturnType<typeof getMediaServerSettings>>,
+  TError = ErrorType<
+    | GetMediaServerSettings401
+    | GetMediaServerSettings403
+    | GetMediaServerSettings409
+    | GetMediaServerSettings500
+  >,
+>(
+  options?: {
+    query?: Partial<
+      UseSuspenseQueryOptions<Awaited<ReturnType<typeof getMediaServerSettings>>, TError, TData>
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+  const queryOptions = getGetMediaServerSettingsSuspenseQueryOptions(options);
+
+  const query = useSuspenseQuery(queryOptions, queryClient) as UseSuspenseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+export const getUpdateMediaServerSettingsUrl = () => {
+  return `/api/v1/media-servers/settings`;
+};
+
+/**
+ * @summary Change the Media Servers settings by key, all or none
+ */
+export const updateMediaServerSettings = async (
+  settingsInputBody: SettingsInputBody,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MediaserversSettings> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit["headers"]>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<MediaserversSettings>(getUpdateMediaServerSettingsUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(settingsInputBody),
+  });
+};
+
+export const getUpdateMediaServerSettingsMutationKey = () => ["updateMediaServerSettings"] as const;
+
+export const getUpdateMediaServerSettingsMutationOptions = <
+  TError = ErrorType<
+    | UpdateMediaServerSettings401
+    | UpdateMediaServerSettings403
+    | UpdateMediaServerSettings409
+    | UpdateMediaServerSettings422
+    | UpdateMediaServerSettings500
+  >,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMediaServerSettings>>,
+    TError,
+    UpdateMediaServerSettingsMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMediaServerSettings>>,
+  TError,
+  UpdateMediaServerSettingsMutationVariables,
+  TContext
+> => {
+  const mutationKey = getUpdateMediaServerSettingsMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMediaServerSettings>>,
+    UpdateMediaServerSettingsMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateMediaServerSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMediaServerSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMediaServerSettings>>
+>;
+export type UpdateMediaServerSettingsMutationBody = SettingsInputBody;
+export type UpdateMediaServerSettingsMutationError = ErrorType<
+  | UpdateMediaServerSettings401
+  | UpdateMediaServerSettings403
+  | UpdateMediaServerSettings409
+  | UpdateMediaServerSettings422
+  | UpdateMediaServerSettings500
+>;
+export type UpdateMediaServerSettingsMutationVariables = { data: SettingsInputBody };
+
+/**
+ * @summary Change the Media Servers settings by key, all or none
+ */
+export const useUpdateMediaServerSettings = <
+  TError = ErrorType<
+    | UpdateMediaServerSettings401
+    | UpdateMediaServerSettings403
+    | UpdateMediaServerSettings409
+    | UpdateMediaServerSettings422
+    | UpdateMediaServerSettings500
+  >,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updateMediaServerSettings>>,
+      TError,
+      UpdateMediaServerSettingsMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof updateMediaServerSettings>>,
+  TError,
+  UpdateMediaServerSettingsMutationVariables,
+  TContext
+> => {
+  return useMutation(getUpdateMediaServerSettingsMutationOptions(options), queryClient);
+};
 export const getSignInToMediaServerUrl = () => {
   return `/api/v1/media-servers/sign-in`;
 };
@@ -1322,7 +1596,6 @@ export const getSignInToMediaServerMutationOptions = <
     | SignInToMediaServer409
     | SignInToMediaServer422
     | SignInToMediaServer500
-    | SignInToMediaServer501
     | SignInToMediaServer502
   >,
   TContext = unknown,
@@ -1370,7 +1643,6 @@ export type SignInToMediaServerMutationError = ErrorType<
   | SignInToMediaServer409
   | SignInToMediaServer422
   | SignInToMediaServer500
-  | SignInToMediaServer501
   | SignInToMediaServer502
 >;
 export type SignInToMediaServerMutationVariables = { data: MediaserversSignInBody };
@@ -1386,7 +1658,6 @@ export const useSignInToMediaServer = <
     | SignInToMediaServer409
     | SignInToMediaServer422
     | SignInToMediaServer500
-    | SignInToMediaServer501
     | SignInToMediaServer502
   >,
   TContext = unknown,
@@ -1436,7 +1707,6 @@ export const getRemoveMediaServerMutationOptions = <
     | RemoveMediaServer409
     | RemoveMediaServer422
     | RemoveMediaServer500
-    | RemoveMediaServer501
   >,
   TContext = unknown,
 >(options?: {
@@ -1483,7 +1753,6 @@ export type RemoveMediaServerMutationError = ErrorType<
   | RemoveMediaServer409
   | RemoveMediaServer422
   | RemoveMediaServer500
-  | RemoveMediaServer501
 >;
 export type RemoveMediaServerMutationVariables = { id: string };
 
@@ -1498,7 +1767,6 @@ export const useRemoveMediaServer = <
     | RemoveMediaServer409
     | RemoveMediaServer422
     | RemoveMediaServer500
-    | RemoveMediaServer501
   >,
   TContext = unknown,
 >(
@@ -1733,7 +2001,6 @@ export const getUpdateMediaServerMutationOptions = <
     | UpdateMediaServer409
     | UpdateMediaServer422
     | UpdateMediaServer500
-    | UpdateMediaServer501
     | UpdateMediaServer502
   >,
   TContext = unknown,
@@ -1781,7 +2048,6 @@ export type UpdateMediaServerMutationError = ErrorType<
   | UpdateMediaServer409
   | UpdateMediaServer422
   | UpdateMediaServer500
-  | UpdateMediaServer501
   | UpdateMediaServer502
 >;
 export type UpdateMediaServerMutationVariables = { id: string; data: MediaserversPatchBody };
@@ -1797,7 +2063,6 @@ export const useUpdateMediaServer = <
     | UpdateMediaServer409
     | UpdateMediaServer422
     | UpdateMediaServer500
-    | UpdateMediaServer501
     | UpdateMediaServer502
   >,
   TContext = unknown,
@@ -2041,7 +2306,6 @@ export const getConfirmMediaServerIdentityMutationOptions = <
     | ConfirmMediaServerIdentity409
     | ConfirmMediaServerIdentity422
     | ConfirmMediaServerIdentity500
-    | ConfirmMediaServerIdentity501
     | ConfirmMediaServerIdentity502
   >,
   TContext = unknown,
@@ -2089,7 +2353,6 @@ export type ConfirmMediaServerIdentityMutationError = ErrorType<
   | ConfirmMediaServerIdentity409
   | ConfirmMediaServerIdentity422
   | ConfirmMediaServerIdentity500
-  | ConfirmMediaServerIdentity501
   | ConfirmMediaServerIdentity502
 >;
 export type ConfirmMediaServerIdentityMutationVariables = { id: string };
@@ -2105,7 +2368,6 @@ export const useConfirmMediaServerIdentity = <
     | ConfirmMediaServerIdentity409
     | ConfirmMediaServerIdentity422
     | ConfirmMediaServerIdentity500
-    | ConfirmMediaServerIdentity501
     | ConfirmMediaServerIdentity502
   >,
   TContext = unknown,
@@ -2158,7 +2420,6 @@ export const getListMediaServerCredentialHoldersSuspenseQueryOptions = <
     | ListMediaServerCredentialHolders409
     | ListMediaServerCredentialHolders422
     | ListMediaServerCredentialHolders500
-    | ListMediaServerCredentialHolders501
   >,
 >(
   id: string,
@@ -2204,7 +2465,6 @@ export type ListMediaServerCredentialHoldersSuspenseQueryError = ErrorType<
   | ListMediaServerCredentialHolders409
   | ListMediaServerCredentialHolders422
   | ListMediaServerCredentialHolders500
-  | ListMediaServerCredentialHolders501
 >;
 
 export function useListMediaServerCredentialHoldersSuspense<
@@ -2216,7 +2476,6 @@ export function useListMediaServerCredentialHoldersSuspense<
     | ListMediaServerCredentialHolders409
     | ListMediaServerCredentialHolders422
     | ListMediaServerCredentialHolders500
-    | ListMediaServerCredentialHolders501
   >,
 >(
   id: string,
@@ -2241,7 +2500,6 @@ export function useListMediaServerCredentialHoldersSuspense<
     | ListMediaServerCredentialHolders409
     | ListMediaServerCredentialHolders422
     | ListMediaServerCredentialHolders500
-    | ListMediaServerCredentialHolders501
   >,
 >(
   id: string,
@@ -2266,7 +2524,6 @@ export function useListMediaServerCredentialHoldersSuspense<
     | ListMediaServerCredentialHolders409
     | ListMediaServerCredentialHolders422
     | ListMediaServerCredentialHolders500
-    | ListMediaServerCredentialHolders501
   >,
 >(
   id: string,
@@ -2295,7 +2552,6 @@ export function useListMediaServerCredentialHoldersSuspense<
     | ListMediaServerCredentialHolders409
     | ListMediaServerCredentialHolders422
     | ListMediaServerCredentialHolders500
-    | ListMediaServerCredentialHolders501
   >,
 >(
   id: string,
@@ -2351,7 +2607,6 @@ export const getListMediaServerLibrariesSuspenseQueryOptions = <
     | ListMediaServerLibraries409
     | ListMediaServerLibraries422
     | ListMediaServerLibraries500
-    | ListMediaServerLibraries501
     | ListMediaServerLibraries502
   >,
 >(
@@ -2394,7 +2649,6 @@ export type ListMediaServerLibrariesSuspenseQueryError = ErrorType<
   | ListMediaServerLibraries409
   | ListMediaServerLibraries422
   | ListMediaServerLibraries500
-  | ListMediaServerLibraries501
   | ListMediaServerLibraries502
 >;
 
@@ -2407,7 +2661,6 @@ export function useListMediaServerLibrariesSuspense<
     | ListMediaServerLibraries409
     | ListMediaServerLibraries422
     | ListMediaServerLibraries500
-    | ListMediaServerLibraries501
     | ListMediaServerLibraries502
   >,
 >(
@@ -2429,7 +2682,6 @@ export function useListMediaServerLibrariesSuspense<
     | ListMediaServerLibraries409
     | ListMediaServerLibraries422
     | ListMediaServerLibraries500
-    | ListMediaServerLibraries501
     | ListMediaServerLibraries502
   >,
 >(
@@ -2451,7 +2703,6 @@ export function useListMediaServerLibrariesSuspense<
     | ListMediaServerLibraries409
     | ListMediaServerLibraries422
     | ListMediaServerLibraries500
-    | ListMediaServerLibraries501
     | ListMediaServerLibraries502
   >,
 >(
@@ -2477,7 +2728,6 @@ export function useListMediaServerLibrariesSuspense<
     | ListMediaServerLibraries409
     | ListMediaServerLibraries422
     | ListMediaServerLibraries500
-    | ListMediaServerLibraries501
     | ListMediaServerLibraries502
   >,
 >(
@@ -2549,7 +2799,6 @@ export const getSaveMediaServerMappingsMutationOptions = <
     | SaveMediaServerMappings409
     | SaveMediaServerMappings422
     | SaveMediaServerMappings500
-    | SaveMediaServerMappings501
     | SaveMediaServerMappings502
   >,
   TContext = unknown,
@@ -2597,7 +2846,6 @@ export type SaveMediaServerMappingsMutationError = ErrorType<
   | SaveMediaServerMappings409
   | SaveMediaServerMappings422
   | SaveMediaServerMappings500
-  | SaveMediaServerMappings501
   | SaveMediaServerMappings502
 >;
 export type SaveMediaServerMappingsMutationVariables = {
@@ -2616,7 +2864,6 @@ export const useSaveMediaServerMappings = <
     | SaveMediaServerMappings409
     | SaveMediaServerMappings422
     | SaveMediaServerMappings500
-    | SaveMediaServerMappings501
     | SaveMediaServerMappings502
   >,
   TContext = unknown,
@@ -2950,8 +3197,6 @@ export const getTestMediaServerMutationOptions = <
     | TestMediaServer409
     | TestMediaServer422
     | TestMediaServer500
-    | TestMediaServer501
-    | TestMediaServer502
   >,
   TContext = unknown,
 >(options?: {
@@ -2998,8 +3243,6 @@ export type TestMediaServerMutationError = ErrorType<
   | TestMediaServer409
   | TestMediaServer422
   | TestMediaServer500
-  | TestMediaServer501
-  | TestMediaServer502
 >;
 export type TestMediaServerMutationVariables = { id: string };
 
@@ -3014,8 +3257,6 @@ export const useTestMediaServer = <
     | TestMediaServer409
     | TestMediaServer422
     | TestMediaServer500
-    | TestMediaServer501
-    | TestMediaServer502
   >,
   TContext = unknown,
 >(

@@ -81,6 +81,33 @@ func (q *Queries) ListReached(ctx context.Context, nodeID role.NodeID) ([]ListRe
 	return items, nil
 }
 
+const listReachedIDs = `-- name: ListReachedIDs :many
+SELECT id FROM mediaservers_server WHERE reaching_node_id = ?1 ORDER BY id
+`
+
+func (q *Queries) ListReachedIDs(ctx context.Context, nodeID role.NodeID) ([]link.ServerID, error) {
+	rows, err := q.db.QueryContext(ctx, listReachedIDs, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []link.ServerID
+	for rows.Next() {
+		var id link.ServerID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReachedNames = `-- name: ListReachedNames :many
 SELECT name FROM mediaservers_server WHERE reaching_node_id = ?1 ORDER BY name
 `

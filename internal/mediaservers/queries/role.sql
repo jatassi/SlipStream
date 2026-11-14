@@ -31,3 +31,6 @@ SET reaching_node_id = sqlc.arg(controller),
     contact_found = NULL,
     updated_at = sqlc.arg(at)
 WHERE reaching_node_id = sqlc.arg(node_id);
+
+-- name: ListReachedIDs :many
+SELECT id FROM mediaservers_server WHERE reaching_node_id = sqlc.arg(node_id) ORDER BY id;

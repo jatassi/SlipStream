@@ -132,3 +132,12 @@ type MediaserversServer struct {
 	CreatedAt       storage.Time
 	UpdatedAt       storage.Time
 }
+
+type MediaserversSetting struct {
+	ID                    Singleton
+	WaitSeconds           *int64
+	SessionsEverySeconds  *int64
+	UnhealthyAfterSeconds *int64
+	KeepPlaysSeconds      *int64
+	RenewMarginSeconds    *int64
+}

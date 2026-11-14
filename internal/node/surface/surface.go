@@ -130,6 +130,7 @@ type Node interface {
 	servingapi.Worker
 	healthapi.Watch
 	firstrunapi.Guide
+	mediaserversapi.Servers
 }
 
 // Services are what the operations run against. Document passes none.
@@ -166,7 +167,7 @@ func Mount(r *api.Router, s Services) {
 	servingapi.Routes(r, s.Node)
 	healthapi.Routes(r, s.Node)
 	firstrunapi.Routes(r, s.Node)
-	mediaserversapi.Routes(r, mediaservers.Unbuilt{})
+	mediaserversapi.Routes(r, s.Node)
 }
 
 // Document is the OpenAPI document. Registering only captures each
