@@ -112,7 +112,7 @@ func TestTheNodesItemsFollowTheBoardAndTheProbes(t *testing.T) {
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			a := itemsOf(c.board, c.probes)
+			a := itemsOf(c.board, c.probes, nil)
 			if items, unsure := keysOf(a); !maps.Equal(items, c.items) || !slices.Equal(unsure, c.unsure) {
 				t.Errorf("items %v and unsure %v, want %v and %v", items, unsure, c.items, c.unsure)
 			}
@@ -148,7 +148,7 @@ func says(a health.Answer) []health.Says {
 }
 
 func TestTheNodesItemsSayWhatToDo(t *testing.T) {
-	lapsed := itemsOf(awayAt(15*time.Minute), everyFit())
+	lapsed := itemsOf(awayAt(15*time.Minute), everyFit(), nil)
 	want := []health.Item{
 		{Key: key(box.String()), Level: health.Fail, Says: health.Says{
 			Subject: "seedbox",
@@ -166,7 +166,7 @@ func TestTheNodesItemsSayWhatToDo(t *testing.T) {
 		t.Errorf("past the grace the items are %+v, want %+v", lapsed.Items, want)
 	}
 	failing := role.ProbeResult{Probe: role.EngineStarts, Fit: role.Fails, Reason: role.DownloadsNotWritable, At: start}
-	probed := itemsOf(cluster().at(start), with(everyFit(), box, failing))
+	probed := itemsOf(cluster().at(start), with(everyFit(), box, failing), nil)
 	if got, want := probed.Items, []health.Item{{Key: key(box.String(), "engine-starts"), Level: health.Fail, Says: health.Says{
 		Subject: "Downloading on seedbox",
 		Text:    "Downloading can't run on seedbox. Its downloads folder can't be written to. Let SlipStream write to its downloads folder, then Check now.",
@@ -174,6 +174,15 @@ func TestTheNodesItemsSayWhatToDo(t *testing.T) {
 		Action:  health.CheckAction(),
 	}}}; !slices.EqualFunc(got, want, sameItem) {
 		t.Errorf("a failing probe's items are %+v, want %+v", got, want)
+	}
+	skipped := itemsOf(cluster().at(start), everyFit(), map[ID]role.Rejected{box: {Count: 1, Last: start}})
+	if got, want := skipped.Items, []health.Item{{Key: key(box.String(), "rejected"), Level: health.Warn, Says: health.Says{
+		Subject: "seedbox",
+		Text:    "SlipStream can't apply a report from seedbox and skipped it. The log has its error. Read it, then Check now.",
+		Detail:  []health.Fact{{Label: "Last skipped", At: start}},
+		Action:  health.CheckAction(),
+	}}}; !slices.EqualFunc(got, want, sameItem) {
+		t.Errorf("a skipped report's items are %+v, want %+v", got, want)
 	}
 }
 

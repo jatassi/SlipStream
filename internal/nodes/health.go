@@ -24,16 +24,20 @@ var HealthAbout = health.About{
 	Events: []live.Event{ChangedEvent},
 }
 
-// HealthSource answers what is wrong with the Nodes from the board and the
-// probe verdicts kept from their facts, and re-runs a Node's probes for
-// Check now. It stores nothing.
+// HealthSource answers what is wrong with the Nodes from the board, the
+// probe verdicts kept from their facts and the results skipped from them,
+// and re-runs a Node's probes for Check now. It stores nothing.
 func (s *Service) HealthSource() health.Source {
 	return health.Source{
-		Answer: func(context.Context) (health.Answer, error) {
+		Answer: func(ctx context.Context) (health.Answer, error) {
+			rejected, err := s.controls.Rejected(ctx)
+			if err != nil {
+				return health.Answer{}, err
+			}
 			s.mu.Lock()
 			probes := maps.Clone(s.probes)
 			s.mu.Unlock()
-			return itemsOf(s.Board(), probes), nil
+			return itemsOf(s.Board(), probes, rejected), nil
 		},
 		Check: s.healthCheck,
 	}
@@ -50,10 +54,11 @@ var probeFixes = map[role.ProbeReason]string{
 
 // itemsOf is the Nodes category's answer on b: a Node lapsed or on another
 // version fails; a probe that fails or is weak for a Role the Node holds
-// fails or warns; the Controller covering a Role warns. A Node away inside
-// its grace, and a probe whose verdict isn't in since the Controller
-// started, is unsure, so a blip or a restart neither raises nor clears.
-func itemsOf(b *Board, probes map[ID][]role.ProbeResult) health.Answer {
+// fails or warns; results skipped from a Node and the Controller covering a
+// Role warn. A Node away inside its grace, and a probe whose verdict isn't
+// in since the Controller started, is unsure, so a blip or a restart
+// neither raises nor clears.
+func itemsOf(b *Board, probes map[ID][]role.ProbeResult, rejected map[ID]role.Rejected) health.Answer {
 	var a health.Answer
 	for i, v := range b.nodes {
 		key := health.KeyOf(v.ID.String())
@@ -65,6 +70,9 @@ func itemsOf(b *Board, probes map[ID][]role.ProbeResult) health.Answer {
 			a.Items = append(a.Items, nodeItem(v, v.Name+" has been offline past the offline grace. Start SlipStream on it, or remove it if it is gone.", "Offline since"))
 		case MismatchedNode:
 			a.Items = append(a.Items, nodeItem(v, v.Name+" runs another version of SlipStream. Update it to the Controller's version.", "Since"))
+		}
+		if r, ok := rejected[v.ID]; ok {
+			a.Items = append(a.Items, rejectedItem(v, r))
 		}
 		for _, p := range role.Probes() {
 			roles := probing(b, i, p)
@@ -101,6 +109,22 @@ func nodeItem(v NodeView, text, since string) health.Item {
 		Action:  health.LinkAction("/nodes/"+v.ID.String(), "Open "+v.Name),
 	}}
 }
+
+func rejectedItem(v NodeView, r role.Rejected) health.Item {
+	text := "SlipStream can't apply a report from " + v.Name + " and skipped it. The log has its error. Read it, then Check now."
+	if r.Count > 1 {
+		text = fmt.Sprintf("SlipStream can't apply %d reports from %s and skipped them. The log has an error for each one. Read them, then Check now.", r.Count, v.Name)
+	}
+	return health.Item{Key: health.KeyOf(v.ID.String(), rejectedKey), Level: health.Warn, Says: health.Says{
+		Subject: v.Name,
+		Text:    text,
+		Detail:  []health.Fact{{Label: "Last skipped", At: r.Last}},
+		Action:  health.CheckAction(),
+	}}
+}
+
+// rejectedKey ends the key of a Node's skipped results item.
+const rejectedKey = "rejected"
 
 func probeItem(key health.Key, level health.Level, subject, verdict string, p role.ProbeResult) health.Item {
 	return health.Item{Key: key, Level: level, Says: health.Says{
@@ -175,15 +199,21 @@ func awayWords(v NodeView) string {
 }
 
 // healthCheck re-runs the probes of the Node item names, or of every Node
-// when item is "". A Node out of step is unreached.
+// when item is "". A Node out of step is unreached. Check now on a Node's
+// skipped results item also forgets them.
 func (s *Service) healthCheck(ctx context.Context, item health.Key) ([]health.Unreached, error) {
 	b := s.Board()
 	views := b.nodes
 	if item != "" {
-		head, _, _ := strings.Cut(string(item), ".")
+		head, tail, _ := strings.Cut(string(item), ".")
 		u, err := storage.ParseUUID(head)
 		if err != nil {
 			return nil, fmt.Errorf("item %s names no Node", item)
+		}
+		if tail == rejectedKey {
+			if err := s.controls.ForgetRejected(ctx, ID{UUID: u}); err != nil {
+				return nil, err
+			}
 		}
 		v, ok := b.Node(ID{UUID: u})
 		if !ok {
