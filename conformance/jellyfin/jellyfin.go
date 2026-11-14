@@ -95,7 +95,7 @@ func absent(t *testing.T, shared mediaservers.Target, what string, p link.Server
 // folder keeps counting them once it is empty again.
 func FreshRootNeedsScanWithContent(t *testing.T, tg Target, shared mediaservers.Target, _ *mediabrowser.Server) {
 	if tg.FreshRoot == nil {
-		t.Skip("a real server's fresh root is recorded run 2026-11-14 under recorded/, since SlipStream adds no library folder")
+		mediaservers.Skip(t, "a real server's fresh root is recorded run 2026-11-14 under recorded/, since SlipStream adds no library folder")
 	}
 	root := shared
 	root.Folder, root.Disk = tg.FreshRoot.Folder, tg.FreshRoot.Disk
@@ -247,7 +247,7 @@ func EmbyFormsRefused(t *testing.T, tg Target, _ mediaservers.Target, _ *mediabr
 // and revoked it answers 401.
 func KeyCreatedWithNoBody(t *testing.T, tg Target, _ mediaservers.Target, _ *mediabrowser.Server) {
 	if tg.Admin == nil {
-		t.Skip("the target gives no administrator to sign in as")
+		mediaservers.Skip(t, "the target gives no administrator to sign in as")
 	}
 	admin := signIn(t, tg, mediabrowser.App)
 	defer func() { _ = admin.Logout(context.WithoutCancel(t.Context())) }()
@@ -292,7 +292,7 @@ func signIn(t *testing.T, tg Target, app jellyfin.App) *jellyfin.Client {
 // answers 401 (#71 delta 13).
 func DeviceIDRevokes(t *testing.T, tg Target, _ mediaservers.Target, _ *mediabrowser.Server) {
 	if tg.Admin == nil {
-		t.Skip("the target gives no administrator to sign in as")
+		mediaservers.Skip(t, "the target gives no administrator to sign in as")
 	}
 	app := mediabrowser.App
 	app.DeviceID = "slipstream-conformance-revoke"

@@ -17,7 +17,9 @@ import (
 // TEST_ONLINE_EMBY_URL with the API key TEST_ONLINE_EMBY_KEY, in the
 // library named TEST_ONLINE_EMBY_LIBRARY whose folder
 // TEST_ONLINE_EMBY_FOLDER is the local folder TEST_ONLINE_EMBY_DISK, each
-// video a copy of TEST_ONLINE_EMBY_SEED. The run counts as green on the throwaway containers on Jackson's Mac (ruling
+// video a copy of TEST_ONLINE_EMBY_SEED. The server must already have scanned that
+// library with a video in it, or its fresh folder rule drops the suite's
+// first report. The run counts as green on the throwaway containers on Jackson's Mac (ruling
 // J2), oldest and newest supported version each.
 func TestEmbyConforms(t *testing.T) {
 	address := os.Getenv("TEST_ONLINE_EMBY_URL")

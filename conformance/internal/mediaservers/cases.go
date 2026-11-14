@@ -169,13 +169,38 @@ type Case struct {
 	Run  func(*testing.T)
 }
 
-// Each runs cases in order, logging each name first.
+// Each runs cases in order, logging each name first. A case that calls Skip
+// ends alone and the cases after it still run.
 func Each(t *testing.T, cases []Case) {
 	t.Helper()
 	for _, c := range cases {
 		t.Logf("case %s", c.Name)
-		c.Run(t)
+		runCase(t, c)
 	}
+}
+
+type skipped string
+
+// Skip ends the running case only. t.Skip would end every case after it too,
+// since they share one *testing.T.
+func Skip(t *testing.T, why string) {
+	t.Helper()
+	panic(skipped(why))
+}
+
+func runCase(t *testing.T, c Case) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			return
+		}
+		why, ok := r.(skipped)
+		if !ok {
+			panic(r)
+		}
+		t.Logf("case %s skipped: %s", c.Name, why)
+	}()
+	c.Run(t)
 }
 
 // Shared runs every case the kinds share.
@@ -261,7 +286,7 @@ func RemovedLeaves(t *testing.T, tg Target) {
 // takes it anyway shows the item without one.
 func FreshFolderNeedsScan(t *testing.T, tg Target) {
 	if tg.Fresh == nil {
-		t.Skip("a real server's fresh library is a recorded manual run, since SlipStream creates no library")
+		Skip(t, "a real server's fresh library is a recorded manual run, since SlipStream creates no library")
 	}
 	f := tg.Case(t).InFresh()
 	defer f.Clear()
@@ -343,7 +368,7 @@ func SidecarRemoved(t *testing.T, tg Target) {
 
 func Sessions(t *testing.T, tg Target) {
 	if tg.Play == nil {
-		t.Skip("a real server's sessions need a player")
+		Skip(t, "a real server's sessions need a player")
 	}
 	f := tg.Case(t)
 	defer f.Clear()

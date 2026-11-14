@@ -205,7 +205,7 @@ func DeletedLeavesAtOnce(t *testing.T, _ Target, shared mediaservers.Target, s *
 // playback. The session has no transcode info until the report.
 func TranscodeAfterReport(t *testing.T, tg Target, shared mediaservers.Target, s *mediabrowser.Server) {
 	if tg.Play == nil {
-		t.Skip("a real server's sessions need a player")
+		mediaservers.Skip(t, "a real server's sessions need a player")
 	}
 	f := shared.Case(t)
 	defer f.Clear()
