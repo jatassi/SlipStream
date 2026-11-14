@@ -131,7 +131,11 @@ message SearchCall {
   Query query = 1;
 }
 
-message RecentCall {}
+message RecentCall {
+  // offset is how many of the newest Releases to skip, for paging back. It
+  // is sent only to an Indexer whose capabilities say recent_paging.
+  int32 offset = 1;
+}
 
 message FetchCall {
   string link = 1;
@@ -250,6 +254,8 @@ message Release {
   // flags are Radarr's indexer flags the Release carries, such as
   // "freeleech" or "internal".
   repeated string flags = 18;
+  // guid is the item's GUID as the site sent it, empty when it sent none.
+  string guid = 19;
 }
 
 message Source {
@@ -292,6 +298,8 @@ message Capabilities {
   // modes are by their t= value.
   map<string, ModeParams> modes = 1;
   repeated int32 categories = 2;
+  // recent_paging is whether a recent call lists older Releases by offset.
+  bool recent_paging = 3;
 }
 
 message ModeParams {
