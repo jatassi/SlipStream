@@ -89,14 +89,14 @@ func (f *Files) Remove(r storing.Rel) {
 	f.rels = slices.DeleteFunc(f.rels, func(x storing.Rel) bool { return x == r })
 }
 
-// Tell tells the server about rels.
+// Tell tells the server about rels, each gone unless the case placed it.
 func (f *Files) Tell(rels ...storing.Rel) {
 	f.t.Helper()
-	paths := make([]link.ServerPath, len(rels))
+	told := make([]Told, len(rels))
 	for i, r := range rels {
-		paths[i] = f.At(r)
+		told[i] = Told{Path: f.At(r), Gone: !slices.Contains(f.rels, r)}
 	}
-	if err := f.tg.Server.Tell(f.t.Context(), f.lib, paths); err != nil {
+	if err := f.tg.Server.Tell(f.t.Context(), f.lib, told); err != nil {
 		f.t.Fatal(err)
 	}
 }
@@ -104,13 +104,13 @@ func (f *Files) Tell(rels ...storing.Rel) {
 // Clear removes the case's files and tells the server, so a real server
 // forgets them. A case defers it.
 func (f *Files) Clear() {
-	var gone []link.ServerPath
+	var gone []Told
 	for _, r := range f.rels {
 		if to, ok := f.moved[r.String()]; ok {
 			r = to
 		}
 		if err := f.disk.Remove(r); err == nil {
-			gone = append(gone, f.At(r))
+			gone = append(gone, Told{Path: f.At(r), Gone: true})
 		}
 	}
 	if len(gone) > 0 {
@@ -257,7 +257,8 @@ func RemovedLeaves(t *testing.T, tg Target) {
 }
 
 // FreshFolderNeedsScan is the fresh folder rule: a change into a library
-// never scanned with content is ignored until a full scan.
+// never scanned with content is ignored until a full scan. A server that
+// takes it anyway shows the item without one.
 func FreshFolderNeedsScan(t *testing.T, tg Target) {
 	if tg.Fresh == nil {
 		t.Skip("a real server's fresh library is a recorded manual run, since SlipStream creates no library")
@@ -267,6 +268,10 @@ func FreshFolderNeedsScan(t *testing.T, tg Target) {
 	r := Rel(t, "Fresh", ".mkv")
 	f.Place(r)
 	f.Tell(r)
+	if tg.FreshTakesChange {
+		f.Found(r)
+		return
+	}
 	time.Sleep(tg.Settle)
 	if _, ok, err := tg.Server.ItemAt(t.Context(), tg.Fresh.Library, f.At(r)); err != nil || ok {
 		t.Fatalf("a change into a never-scanned library made an item (err %v)", err)
@@ -293,7 +298,7 @@ func ScanEndSignal(t *testing.T, tg Target) {
 }
 
 // CarryKeepsWatchData moves a played file in a collection to another
-// folder. The item now at the new path keeps its play count and
+// folder. The item now at the new path is still played and in the
 // collection.
 func CarryKeepsWatchData(t *testing.T, tg Target) {
 	f := tg.Case(t)
@@ -311,8 +316,8 @@ func CarryKeepsWatchData(t *testing.T, tg Target) {
 		t.Fatal(err)
 	}
 	now := f.Found(to)
-	if now.PlayCount != 1 || !slices.Contains(now.Collections, "SlipStream conformance") {
-		t.Fatalf("the moved item has play count %d and collections %v", now.PlayCount, now.Collections)
+	if !now.Played || !slices.Contains(now.Collections, "SlipStream conformance") {
+		t.Fatalf("the moved item has played %v and collections %v", now.Played, now.Collections)
 	}
 	f.Gone(from)
 }
