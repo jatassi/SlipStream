@@ -9,6 +9,7 @@ import type {
 } from "../api/gen/model";
 import {
   MediaserversDraftBody,
+  MediaserversKind,
   MediaserversMappingsBody,
   MediaserversPatchBody,
 } from "../api/gen/zod/slipStream.schemas.zod";
@@ -64,7 +65,7 @@ function draftHandlers(list: MediaserversServerView[], write: Write) {
       const made: MediaserversServerView = {
         ...denJellyfin,
         id: "0199f3c0-2222-7000-8000-0000000000aa",
-        kind: draft.kind,
+        kind: MediaserversKind.parse(draft.kind),
         name: draft.name,
         address: draft.address ?? "",
         mappingsNeeded: 1,
