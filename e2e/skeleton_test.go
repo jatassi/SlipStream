@@ -102,6 +102,7 @@ func (w *walked) tookTheAdvertised(t *testing.T, search string) {
 	reply := w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/searches", "")
 	var list struct {
 		Searches []struct {
+			GroupKey   string   `json:"groupKey"`
 			ItemIDs    []string `json:"itemIds"`
 			StartedAt  string   `json:"startedAt"`
 			FinishedAt string   `json:"finishedAt"`
@@ -115,10 +116,10 @@ func (w *walked) tookTheAdvertised(t *testing.T, search string) {
 		t.Fatalf("listSearches = %s, want one search of one Indexer", reply.Body)
 	}
 	r := list.Searches[0]
-	worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + search + `","itemIds":["` + r.ItemIDs[0] +
+	worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + search + `","groupKey":"` + r.GroupKey + `","groupLabel":null,"lane":"now","trigger":"search","itemIds":["` + r.ItemIDs[0] +
 		`"],"startedAt":"` + r.StartedAt + `","indexers":[{"indexerId":"` + r.Indexers[0].IndexerID +
 		`","name":"Fixture Site","outcome":"found","releases":2,"sentence":"Found 2 Releases"}],"finishedAt":"` + r.FinishedAt + `","outcome":"grabbed","candidates":2,` +
-		`"grabIds":["` + w.grab.ID + `"],"notes":[]}]}` + "\n"})
+		`"grabs":1,"grabIds":["` + w.grab.ID + `"],"notes":[]}]}` + "\n"})
 }
 
 // begin launches the catalog Scenario name, and its Admin finds the
