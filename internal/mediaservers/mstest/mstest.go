@@ -169,8 +169,12 @@ func (w *World) Jellyfin(t *testing.T, host string, srv jellyfin.Server, placed 
 	}
 	for _, f := range placed {
 		rel, err := filepath.Rel(srv.Root, f)
+		at := filepath.Join(media, rel)
 		if err == nil {
-			err = os.WriteFile(filepath.Join(media, rel), []byte(rel), 0o600)
+			err = os.MkdirAll(filepath.Dir(at), 0o700)
+		}
+		if err == nil {
+			err = os.WriteFile(at, []byte(rel), 0o600)
 		}
 		if err != nil {
 			t.Fatal(err)
