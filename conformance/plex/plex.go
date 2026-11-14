@@ -5,6 +5,8 @@
 package plex
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -74,6 +76,7 @@ func Run(t *testing.T, tg Target) {
 		{"SourceFirstPurges", SourceFirstPurges},
 		{"BackslashPaths", BackslashPaths},
 		{"EditionsOnlyUnderPlexPass", EditionsOnlyUnderPlexPass},
+		{"TimelineOnAdd", TimelineOnAdd},
 	}
 	var cases []mediaservers.Case
 	for _, pc := range plexCases {
@@ -237,5 +240,55 @@ func EditionsOnlyUnderPlexPass(t *testing.T, tg Target, shared mediaservers.Targ
 	a, b := f.Found(plain), f.Found(cut)
 	if (a.Key != b.Key) != srv.MyPlexSubscription {
 		t.Fatalf("with Plex Pass %v the editions are items %s and %s", srv.MyPlexSubscription, a.Key, b.Key)
+	}
+}
+
+// TimelineOnAdd listens on the notification socket while a file is added,
+// and reads a timeline entry for its new item.
+func TimelineOnAdd(t *testing.T, tg Target, shared mediaservers.Target) {
+	ctx, cancel := context.WithCancel(t.Context())
+	items, open, done := make(chan plex.ID, 64), make(chan struct{}), make(chan struct{})
+	var listenErr error
+	go func() {
+		defer close(done)
+		listenErr = tg.client(t, tg.Token).Notifications(ctx, func() { close(open) }, func(n plex.Notification) {
+			for _, e := range n.Timeline {
+				select {
+				case items <- e.ItemID:
+				case <-ctx.Done():
+				}
+			}
+		})
+	}()
+	defer func() {
+		cancel()
+		<-done
+		if !errors.Is(listenErr, context.Canceled) {
+			t.Errorf("the notification socket ended with %v, want the canceled context", listenErr)
+		}
+	}()
+	select {
+	case <-open:
+	case <-done:
+		t.Fatalf("the notification socket didn't open: %v", listenErr)
+	}
+	f := shared.Case(t)
+	defer f.Clear()
+	r := mediaservers.Rel(t, "Announced", ".mkv")
+	f.Place(r)
+	f.Tell(r)
+	it := f.Found(r)
+	deadline := time.After(tg.Bound)
+	for {
+		select {
+		case id := <-items:
+			if string(id) == it.Key {
+				return
+			}
+		case <-done:
+			t.Fatalf("the notification socket closed: %v", listenErr)
+		case <-deadline:
+			t.Fatalf("no timeline entry for item %s within %v", it.Key, tg.Bound)
+		}
 	}
 }

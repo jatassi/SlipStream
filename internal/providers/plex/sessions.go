@@ -145,9 +145,9 @@ type Activity struct {
 }
 
 // Notifications reads /:/websockets/notifications until ctx ends or the
-// server closes it, calling on for each message. It needs no subscription
-// message.
-func (c *Client) Notifications(ctx context.Context, on func(Notification)) error {
+// server closes it, calling opened once the socket is open and on for each
+// message. It needs no subscription message.
+func (c *Client) Notifications(ctx context.Context, opened func(), on func(Notification)) error {
 	u := c.base.JoinPath("/:/websockets/notifications")
 	switch u.Scheme {
 	case "https":
@@ -168,6 +168,7 @@ func (c *Client) Notifications(ctx context.Context, on func(Notification)) error
 	}
 	defer func() { _ = conn.CloseNow() }()
 	conn.SetReadLimit(16 << 20)
+	opened()
 	for {
 		var msg struct {
 			NotificationContainer Notification `json:"NotificationContainer"`

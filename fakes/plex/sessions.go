@@ -90,14 +90,14 @@ type notification struct {
 // notifications pushes timeline, activity and playing notifications until
 // the client leaves, the server restarts or the fake stops.
 func (s *server) notifications(w http.ResponseWriter, r *http.Request) {
+	sub := s.core.Subscribe()
+	defer sub.Cancel()
 	conn, err := websocket.Accept(w, r, nil)
 	if err != nil {
 		return
 	}
 	defer func() { _ = conn.CloseNow() }()
 	ctx := conn.CloseRead(r.Context())
-	sub := s.core.Subscribe()
-	defer sub.Cancel()
 	for {
 		select {
 		case <-ctx.Done():
