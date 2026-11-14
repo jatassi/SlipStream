@@ -107,6 +107,7 @@ type TargetsTarget struct {
 	ScoreIncrement int64
 	Propers        string
 	NameFolded     *string
+	HoldSeconds    int64
 }
 
 type TargetsWant struct {

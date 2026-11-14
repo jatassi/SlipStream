@@ -203,7 +203,7 @@ func (x *Indexers) Update(ctx context.Context, by identity.Admin, id ID, e Edit,
 		n, err := db.New(tx).UpdateIndexer(ctx, db.UpdateIndexerParams{
 			Name: p.Name, HomeNodeID: p.HomeNodeID, IsOn: p.IsOn, AutoSearch: p.AutoSearch, Rss: p.Rss, AllowFailover: p.AllowFailover,
 			Priority: p.Priority, Categories: p.Categories, Media: p.Media, SearchLimit: p.SearchLimit, SearchWindow: p.SearchWindow,
-			GrabLimit: p.GrabLimit, GrabWindow: p.GrabWindow, BaseAddress: p.BaseAddress, Plain: p.Plain, SecretsSealed: p.SecretsSealed,
+			SearchesAtOnce: p.SearchesAtOnce, GrabLimit: p.GrabLimit, GrabWindow: p.GrabWindow, BaseAddress: p.BaseAddress, Plain: p.Plain, SecretsSealed: p.SecretsSealed,
 			FeedHost: p.FeedHost, TrackerName: p.TrackerName, AllowNoSize: p.AllowNoSize, RssReading: p.RssReading, Caps: p.Caps, Revision: p.Revision,
 			UpdatedAt: now, ID: id,
 		})

@@ -98,8 +98,17 @@ func reserve(ctx context.Context, tx *storage.Tx[file], idx Indexer, u Use, now 
 
 func insertQuery(ctx context.Context, tx *storage.Tx[file], q QueryID, idx Indexer, u Use, now storage.Time) error {
 	return db.New(tx).InsertQuery(ctx, db.InsertQueryParams{
-		ID: q, IndexerID: idx.ID, Use: string(u), ReservedAt: now, Revision: idx.Revision, Sha: orNil(pinned(idx)),
+		ID: q, IndexerID: idx.ID, Use: string(u), Claim: claimOf(u), ReservedAt: now, Revision: idx.Revision, Sha: orNil(pinned(idx)),
 	})
+}
+
+// claimOf is whose line a query of u reserves, nil for a use that isn't a
+// search. Every search is Manual search's, a press.
+func claimOf(u Use) *string {
+	if u != UseSearch {
+		return nil
+	}
+	return new("press")
 }
 
 func reservedFor(ctx context.Context, r storage.Reader[file], id ID, u Use, since time.Time) ([]time.Time, error) {
