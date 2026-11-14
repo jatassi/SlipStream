@@ -21,6 +21,9 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/secret
               type: Sealed
+          - column: mediaservers_settings.id
+            go_type:
+              type: Singleton
           - column: mediaservers_server.id
             go_type:
               import: github.com/jatassi/slipstream/internal/mediaserverlink/link

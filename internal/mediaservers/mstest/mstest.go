@@ -81,7 +81,8 @@ func New(t *testing.T) *World {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(t.Output(), nil))
-	timings := link.DefaultTimings()
+	// A route test, a sign-in and a library read are each one call.
+	timings := link.Timings{Call: 10 * time.Second}
 	ms := mediaservers.New(mediaservers.Config{
 		Library: w.Lib, Sealer: w.Sealer, Roster: roster{w.Home}, Kinds: mediaserverlink.Kinds,
 		HTTP: w.net.client(), Timings: timings,

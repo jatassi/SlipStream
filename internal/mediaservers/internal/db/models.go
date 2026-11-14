@@ -134,7 +134,7 @@ type MediaserversServer struct {
 }
 
 type MediaserversSetting struct {
-	ID                    int64
+	ID                    Singleton
 	WaitSeconds           *int64
 	SessionsEverySeconds  *int64
 	UnhealthyAfterSeconds *int64
