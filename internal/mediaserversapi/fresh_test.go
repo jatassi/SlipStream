@@ -152,3 +152,24 @@ func TestAFreshFolderIsScannedBeforePlexRefreshesIt(t *testing.T) {
 		}
 	})
 }
+
+// TestAReportDroppedByJellyfinsOwnScanIsSentAgain starts Den's own
+// scheduled scan inside the monitor delay of a report, which drops it:
+// with nothing else queued, the report goes again once the scan ends, and
+// the change reads sent only after Den settled the second one.
+func TestAReportDroppedByJellyfinsOwnScanIsSentAgain(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		s := newShelf(t, "")
+		s.tell(t, at(t, files.PathAdded, fileIDs{}.of("trip"), "Trip/Trip.mkv"))
+		settle(15 * time.Second)
+		expectReported(t, s.den, "Created "+p+"Trip/Trip.mkv")
+		s.den.Cue(t, "jellyfin-scan", struct{}{})
+		settle(2 * time.Minute)
+		expectReported(t, s.den, "Created "+p+"Trip/Trip.mkv", "Created "+p+"Trip/Trip.mkv")
+		settle(2 * time.Minute)
+		if c := change(t, s.changes(t), "Trip/Trip.mkv"); c.State != "sent" {
+			t.Errorf("the change is %s: %s", c.State, c.Words)
+		}
+		expectReported(t, s.den, "Created "+p+"Trip/Trip.mkv", "Created "+p+"Trip/Trip.mkv")
+	})
+}
