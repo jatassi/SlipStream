@@ -67,6 +67,8 @@ type Control struct {
 	mu      sync.Mutex
 	pauseAt uint64
 	pause   chan struct{}
+	failAt  uint64
+	fail    error
 }
 
 // Serve derives a Node's intent from its probe_intent row and applies a
@@ -100,6 +102,19 @@ func (c *Control) PauseAt(n uint64) (resume func()) {
 	}
 }
 
+// FailAt fails each apply of result n with err, after it writes the
+// result, until heal.
+func (c *Control) FailAt(n uint64, err error) (heal func()) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.failAt, c.fail = n, err
+	return func() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		c.fail = nil
+	}
+}
+
 func derive(ctx context.Context, r storage.Reader[file], node role.NodeID) (*probev1.Intent, error) {
 	return intent(db.New(r).GetIntent(ctx, node))
 }
@@ -121,11 +136,18 @@ func (c *Control) apply(ctx context.Context, tx *storage.Tx[file], node role.Nod
 	if c.pauseAt != r.GetN() {
 		p = nil
 	}
+	fail := c.fail
+	if c.failAt != r.GetN() {
+		fail = nil
+	}
 	c.mu.Unlock()
 	if p != nil {
 		<-p
 	}
-	return db.New(tx).InsertApplied(ctx, db.InsertAppliedParams{NodeID: node, N: int64(r.GetN())}) //nolint:gosec // tests report small counts
+	if err := db.New(tx).InsertApplied(ctx, db.InsertAppliedParams{NodeID: node, N: int64(r.GetN())}); err != nil { //nolint:gosec // tests report small counts
+		return err
+	}
+	return fail
 }
 
 // Probe is one Node's Probe holder. Its run function records each

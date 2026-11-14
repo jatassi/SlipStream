@@ -8,6 +8,15 @@ import (
 	"github.com/jatassi/slipstream/internal/storage"
 )
 
+type RoleRejected struct {
+	NodeID     NodeID
+	Epoch      storage.UUID
+	Seq        int64
+	Scope      string
+	Reason     string
+	RejectedAt storage.Time
+}
+
 type RoleWatermark struct {
 	NodeID NodeID
 	Epoch  storage.UUID

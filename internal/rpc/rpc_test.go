@@ -218,6 +218,30 @@ func TestTheControllerCallsNodesItPicks(t *testing.T) {
 	})
 }
 
+func TestOnlyTheControllerCallsNodeAndRoleServices(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := newCluster(t, "", "")
+		c.Connect(t)
+		own, err := rpctestv1connect.SearchService.On(c.cluster, c.controllerID).Search(t.Context(), &rpctestv1.SearchRequest{})
+		if err != nil || link.Key(own.GetCaller()) != c.Controller.Key {
+			t.Errorf("the Controller's Search on itself = %v, %v", own, err)
+		}
+
+		forged := rpc.NewCluster(c.worker, c.roster)
+		_, err = rpctestv1connect.PingService.On(forged, c.controllerID).Ping(t.Context(), &rpctestv1.PingRequest{})
+		if rpc.CodeOf(err) != rpc.CodePermissionDenied {
+			t.Errorf("a Worker's Ping on the Controller = %v (code %v), want permission denied", err, rpc.CodeOf(err))
+		}
+		_, err = rpctestv1connect.SearchService.On(forged, c.controllerID).Search(t.Context(), &rpctestv1.SearchRequest{})
+		if rpc.CodeOf(err) != rpc.CodePermissionDenied {
+			t.Errorf("a Worker's Search on the Controller = %v (code %v), want permission denied", err, rpc.CodeOf(err))
+		}
+		if p, s := c.pingers[c.controllerID].calls.Load(), c.searchers[c.controllerID].calls.Load(); p != 0 || s != 1 {
+			t.Errorf("the Controller's pinger ran %d times and its searcher %d, want 0 and 1", p, s)
+		}
+	})
+}
+
 func TestCallsThatNeverRan(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := newCluster(t, "", "")

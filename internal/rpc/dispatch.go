@@ -50,17 +50,24 @@ func (d *Dispatch) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	d.mux.ServeHTTP(w, r)
 }
 
-func (d *Dispatch) mount(name string, held role.Name, register func(*connect.Server)) {
-	var gates []connect.ServerInterceptor
-	if held != "" {
-		gates = append(gates, d.gate(held))
-	}
+func (d *Dispatch) mount(name string, register func(*connect.Server), gates ...connect.ServerInterceptor) {
 	srv := connect.NewServer(gates...)
 	register(srv)
 	connecthttp.Mount(d.mux, srv, connecthttp.WithReadMaxBytes(link.MaxMessage))
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.servers[name] = srv
+}
+
+func (d *Dispatch) fromController(name string) connect.ServerInterceptor {
+	return func(next connect.ServerFunc) connect.ServerFunc {
+		return func(ctx context.Context, spec connect.Spec, stream connect.ServerStream) error {
+			if caller, _ := CallerOf(ctx); caller != d.controller {
+				return connect.NewError(connect.CodePermissionDenied, "only the Controller can call "+name)
+			}
+			return next(ctx, spec, stream)
+		}
+	}
 }
 
 func (d *Dispatch) gate(held role.Name) connect.ServerInterceptor {

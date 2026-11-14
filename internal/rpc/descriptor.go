@@ -49,7 +49,7 @@ func (s ControllerService[H]) Call(d *Dispatch) H {
 }
 
 func (s ControllerService[H]) Mount(c *Cluster, impl H) {
-	c.d.mount(s.name, "", func(srv *connect.Server) { s.register(srv, impl) })
+	c.d.mount(s.name, func(srv *connect.Server) { s.register(srv, impl) })
 }
 
 // On is node's implementation. A node the roster does not know fails every
@@ -58,8 +58,10 @@ func (s NodeService[H]) On(c *Cluster, node role.NodeID) H {
 	return s.client(c.client(node, ""))
 }
 
+// Mount serves impl on this Node. A call from any Node but the Controller
+// is refused with PermissionDenied before impl runs.
 func (s NodeService[H]) Mount(d *Dispatch, impl H) {
-	d.mount(s.name, "", func(srv *connect.Server) { s.register(srv, impl) })
+	d.mount(s.name, func(srv *connect.Server) { s.register(srv, impl) }, d.fromController(s.name))
 }
 
 // On is node's implementation. A node the roster says does not hold the
@@ -68,8 +70,9 @@ func (s RoleService[H]) On(c *Cluster, node role.NodeID) H {
 	return s.client(c.client(node, s.role))
 }
 
-// Mount serves impl on this Node. A call arriving while this Node does not
-// hold the Role is refused with NotHolder before impl runs.
+// Mount serves impl on this Node. A call from any Node but the Controller
+// is refused with PermissionDenied, and one arriving while this Node does
+// not hold the Role with NotHolder, before impl runs.
 func (s RoleService[H]) Mount(d *Dispatch, impl H) {
-	d.mount(s.name, s.role, func(srv *connect.Server) { s.register(srv, impl) })
+	d.mount(s.name, func(srv *connect.Server) { s.register(srv, impl) }, d.fromController(s.name), d.gate(s.role))
 }

@@ -31,6 +31,7 @@ import (
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/role"
+	"github.com/jatassi/slipstream/internal/role/roletest"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
@@ -63,6 +64,18 @@ func (p *published) has(id string) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return slices.Contains(p.ids, id)
+}
+
+func (p *published) count(id string) int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	n := 0
+	for _, v := range p.ids {
+		if v == id {
+			n++
+		}
+	}
+	return n
 }
 
 // heard records each nodes.traffic sample, with an Admin always listening.
@@ -129,7 +142,7 @@ func startController(t *testing.T, edit ...func(*nodes.Config)) *controller {
 	nw := fault.NewNetwork()
 	s := &side{}
 	node := linktest.Start(t, nw, "home", []netip.Addr{linktest.ControllerAddr}, linktest.Side{Trust: s, Pair: s.Pair, Lockstep: s, LaneHandler: echoLanes{}})
-	lib := storagetest.Library(t, nodes.Schema(), role.LibrarySchema())
+	lib := storagetest.Library(t, nodes.Schema(), role.LibrarySchema(), roletest.Schema())
 	c := &controller{net: nw, node: node, lib: lib, edit: edit}
 	c.open(t, s)
 	return c
