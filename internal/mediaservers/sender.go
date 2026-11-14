@@ -514,7 +514,14 @@ func (st stepped) land(ctx context.Context, q *db.Queries, c queue.Change) error
 	o, done := st.ended[c.ID]
 	switch {
 	case done:
-		c.State, c.Sent, c.Result, c.Lost = queue.Sent, st.now, o.Result, o.Lost
+		c.State, c.Sent, c.Result = queue.Sent, st.now, o.Result
+		if o.Result == link.ResultConverted && len(c.Lost) > 0 {
+			// Prepare couldn't snapshot the item, and by send it was gone:
+			// the server may have held watch data there, so it stays lost.
+			c.Result = link.ResultAccepted
+		} else {
+			c.Lost = o.Lost
+		}
 		if err := apply(ctx, q, []queue.Op{{Do: queue.Update, Change: c}}); err != nil || c.Kind != link.ChangeLibrary {
 			return err
 		}

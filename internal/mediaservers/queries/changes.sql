@@ -64,6 +64,15 @@ WHERE id = sqlc.arg(id);
 -- name: DeleteChange :exec
 DELETE FROM mediaservers_change WHERE id = sqlc.arg(id);
 
+-- ListUnsent is every unsent row of root at or from one of paths, or of
+-- one of files. Prepare leaves the snapshot of a rename such a row meets
+-- to that row's own send.
+-- name: ListUnsent :many
+SELECT * FROM mediaservers_change
+WHERE root_id = sqlc.arg(root_id) AND state <> 'sent'
+    AND (path IN (sqlc.slice(paths)) OR from_path IN (sqlc.slice(origins)) OR file_id IN (sqlc.slice(files)))
+ORDER BY created_at, id;
+
 -- name: DeletePrepared :exec
 DELETE FROM mediaservers_change WHERE file_id = sqlc.arg(file_id) AND state = 'prepared';
 

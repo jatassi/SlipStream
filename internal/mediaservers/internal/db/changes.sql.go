@@ -267,6 +267,94 @@ func (q *Queries) ListShowing(ctx context.Context, rootID roots.ID) ([]link.Serv
 	return items, nil
 }
 
+const listUnsent = `-- name: ListUnsent :many
+SELECT id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem FROM mediaservers_change
+WHERE root_id = ?1 AND state <> 'sent'
+    AND (path IN (/*SLICE:paths*/?) OR from_path IN (/*SLICE:origins*/?) OR file_id IN (/*SLICE:files*/?))
+ORDER BY created_at, id
+`
+
+type ListUnsentParams struct {
+	RootID  roots.ID
+	Paths   []string
+	Origins []*string
+	Files   []files.ID
+}
+
+// ListUnsent is every unsent row of root at or from one of paths, or of
+// one of files. Prepare leaves the snapshot of a rename such a row meets
+// to that row's own send.
+func (q *Queries) ListUnsent(ctx context.Context, arg ListUnsentParams) ([]MediaserversChange, error) {
+	query := listUnsent
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.RootID)
+	if len(arg.Paths) > 0 {
+		for _, v := range arg.Paths {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:paths*/?", strings.Repeat(",?", len(arg.Paths))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:paths*/?", "NULL", 1)
+	}
+	if len(arg.Origins) > 0 {
+		for _, v := range arg.Origins {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:origins*/?", strings.Repeat(",?", len(arg.Origins))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:origins*/?", "NULL", 1)
+	}
+	if len(arg.Files) > 0 {
+		for _, v := range arg.Files {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:files*/?", strings.Repeat(",?", len(arg.Files))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:files*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MediaserversChange
+	for rows.Next() {
+		var i MediaserversChange
+		if err := rows.Scan(
+			&i.ID,
+			&i.ServerID,
+			&i.Kind,
+			&i.RootID,
+			&i.Path,
+			&i.FromPath,
+			&i.FileID,
+			&i.ReplacedBy,
+			&i.Upgrade,
+			&i.State,
+			&i.Step,
+			&i.StepAt,
+			&i.Snapshot,
+			&i.Attempts,
+			&i.NextAttemptAt,
+			&i.CreatedAt,
+			&i.SentAt,
+			&i.Result,
+			&i.Lost,
+			&i.Problem,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const openAtPaths = `-- name: OpenAtPaths :many
 SELECT id, server_id, kind, root_id, path, from_path, file_id, replaced_by, upgrade, state, step, step_at, snapshot, attempts, next_attempt_at, created_at, sent_at, result, lost, problem FROM mediaservers_change
 WHERE server_id = ?1 AND root_id = ?2 AND from_path IS NULL
