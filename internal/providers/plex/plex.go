@@ -109,7 +109,7 @@ func (c *Client) url(path string, q url.Values) string {
 // do sends one request. With token false it carries no token, as Reach
 // does. A 2xx response's JSON body decodes into out when out isn't nil.
 func (c *Client) do(ctx context.Context, method, path string, q url.Values, token bool, out any) error {
-	req, err := http.NewRequestWithContext(ctx, method, c.url(path, q), nil)
+	req, err := http.NewRequestWithContext(ctx, method, c.url(path, q), http.NoBody)
 	if err != nil {
 		return fmt.Errorf("plex %s %s: %w", method, path, err)
 	}
