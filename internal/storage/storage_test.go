@@ -651,3 +651,60 @@ func TestOptimizeRunsOnBothFiles(t *testing.T) {
 		})
 	})
 }
+
+func TestFailedTellsTheDatabaseFailingFromWhatAWriteWrote(t *testing.T) {
+	path := libraryPath(t)
+	db := openLibrary(t, path, both(), nil, slog.New(slog.DiscardHandler))
+	addShelf(t, db, "taken")
+	add := func(ctx context.Context, db *storage.DB[storage.Library], name string) error {
+		return db.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			_, err := shelf.Add(ctx, tx, name)
+			return err
+		})
+	}
+	canceled, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	held, release := make(chan struct{}), make(chan struct{})
+	holding := make(chan error, 1)
+	go func() {
+		holding <- db.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+			if _, err := shelf.Add(ctx, tx, "held"); err != nil {
+				return err
+			}
+			close(held)
+			<-release
+			return nil
+		})
+	}()
+	<-held
+	impatient, err := storage.OpenLibrary(t.Context(), path, both(), nil, storage.Timings{BusyTimeout: time.Millisecond}, slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = impatient.Close() })
+	busy := add(t.Context(), impatient, "waiting")
+	close(release)
+	if err := <-holding; err != nil {
+		t.Fatal(err)
+	}
+
+	for _, c := range []struct {
+		what string
+		err  error
+		want bool
+	}{
+		{"a Write while another holds the lock", busy, true},
+		{"a Write on a canceled context", add(canceled, db, "late"), true},
+		{"a wrapped deadline", fmt.Errorf("apply: %w", context.DeadlineExceeded), true},
+		{"a unique constraint", add(t.Context(), db, "taken"), false},
+		{"the caller's own error", errors.New("the result names no Item"), false},
+	} {
+		if c.err == nil {
+			t.Fatalf("%s: no error", c.what)
+		}
+		if got := storage.Failed(c.err); got != c.want {
+			t.Errorf("Failed(%s: %v) = %v, want %v", c.what, c.err, got, c.want)
+		}
+	}
+}
