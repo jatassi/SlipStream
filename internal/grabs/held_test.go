@@ -15,7 +15,7 @@ import (
 // time, as the plan's rows do.
 func TestHeldCellsReadInWantOrder(t *testing.T) {
 	cells := []files.Cell{cell(hd, files.Missing), cell(small, files.Missing), cell(hd, files.Missing), cell(small, files.Missing)}
-	rs := runSheet{run: Search{ItemID: item.ID}, planIn: planIn{item: cells}, held: map[int]db.ListCellGrabsOfWorkRow{}}
+	rs := runSheet{run: Search{Items: []works.ItemID{item.ID}}, planIn: planIn{item: cells}, held: map[int]db.ListCellGrabsOfWorkRow{}}
 	var want []GrabID
 	for k := range cells {
 		id := GrabID{UUID: storage.NewUUID()}
@@ -52,7 +52,7 @@ func TestASheetOfOneEpisodeIsTitledWithItsCode(t *testing.T) {
 				Fields: []works.FieldSpec{{Key: "code", Tier: works.TierItem, Kind: works.KindText, In: []works.Place{works.PlaceCode}}},
 			},
 		},
-		runs: []runSheet{{run: Search{ItemID: episode.ID}}},
+		runs: []runSheet{{run: Search{Items: []works.ItemID{episode.ID}}}},
 	}
 	if got := s.title(); got != "S02E10 of The Lantern Keepers" {
 		t.Fatalf("the sheet is titled %q, want S02E10 of The Lantern Keepers", got)

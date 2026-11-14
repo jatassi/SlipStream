@@ -26,7 +26,7 @@ var (
 // j, whose run Better Site answered with ls and whose Item has cells.
 func manualOf(j judging, cs []files.Cell, ls ...listed) manualIn {
 	run := Search{
-		ID: SearchID{UUID: storage.NewUUID()}, ItemID: item.ID, Finished: time.Now(),
+		ID: SearchID{UUID: storage.NewUUID()}, Items: []works.ItemID{item.ID}, Finished: time.Now(),
 		Indexers: []SearchIndexer{{Indexer: betterSite, Name: "Better Site", Outcome: &indexers.Outcome{Kind: indexers.Found, Releases: len(ls)}}},
 	}
 	in := manualIn{
@@ -344,7 +344,7 @@ func TestAnIndexersLineAcrossItemsSaysWhatItSearched(t *testing.T) {
 			return lines[o.Kind]
 		}
 		skipped := in.runs[0]
-		skipped.ID, skipped.ItemID = SearchID{UUID: storage.NewUUID()}, works.ItemID{UUID: storage.NewUUID()}
+		skipped.ID, skipped.Items = SearchID{UUID: storage.NewUUID()}, []works.ItemID{{UUID: storage.NewUUID()}}
 		skipped.Indexers = []SearchIndexer{{Indexer: betterSite, Name: "Better Site", Outcome: &c.skipped}}
 		in.runs = append(in.runs, skipped)
 		if got := viewOf(t, in).Indexers[0].Sentence; got != c.want {

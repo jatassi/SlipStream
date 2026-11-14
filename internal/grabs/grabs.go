@@ -57,7 +57,13 @@ const (
 	FromSearch Source = "search"
 	// FromManual is a Grab an Admin picked in a Manual search.
 	FromManual Source = "manual"
+	// FromRSS is a Grab RSS sync's decision took from an Indexer's new
+	// uploads.
+	FromRSS Source = "rss"
 )
+
+// Sources is every Source, in the order the wire lists them.
+var Sources = []Source{FromSearch, FromManual, FromRSS}
 
 const (
 	CauseUnregistered BlockCause = "unregistered"
@@ -128,12 +134,26 @@ var Codes = []Code{
 }
 
 const (
-	Grabbed           Outcome = "grabbed"
+	Grabbed Outcome = "grabbed"
+	// Waiting is a run that holds a cell for a better Release.
+	Waiting Outcome = "waiting"
+	// NothingFound is a run that found no Release.
+	NothingFound Outcome = "nothing_found"
+	// NothingAcceptable is a run whose Releases fit no Target.
 	NothingAcceptable Outcome = "nothing_acceptable"
+	// NoIndexer is a run that no Indexer it asked responded to, or that no
+	// Indexer serves.
+	NoIndexer Outcome = "no_indexer"
+	// NoRoot is a run whose Work had no reachable root when it would
+	// start.
+	NoRoot Outcome = "no_root"
 	// ManualListed is a Manual run's outcome: it finished and took nothing
 	// by design.
 	ManualListed Outcome = "listed"
 )
+
+// Outcomes is every Outcome, in the order the wire lists them.
+var Outcomes = []Outcome{Grabbed, Waiting, NothingFound, NothingAcceptable, NoIndexer, NoRoot, ManualListed}
 
 type Timings struct {
 	// RetryMin and RetryMax bound the backoff before a step retries after
@@ -392,6 +412,11 @@ type Grab struct {
 	// By is the Admin who grabbed it, nil for an automatic Grab.
 	By        *Actor
 	Overrides Overrides
+	// GUID is its Release's GUID, "" when its Indexer sent none.
+	GUID string
+	// ChosenFills is the Items it was chosen to fill when the
+	// fewer-Releases step decided, 0 otherwise.
+	ChosenFills int
 }
 
 // Done reports whether the Grab has no step left.
@@ -462,6 +487,10 @@ func load(row db.GrabsGrab, rel related) (Grab, error) {
 		Ticket:  indexers.Ticket{Indexer: row.IndexerID, Query: row.FetchQueryID, Tracker: row.TrackerID},
 		Node:    row.NodeID, FetchNode: row.FetchNodeID, MetadataSince: row.MetadataStartedAt.Time(), Stage: row.Stage,
 		History: rel.history[row.ID], Created: row.CreatedAt.Time(), Source: row.Source, Manual: row.ManualID,
+		GUID: deref(row.ReleaseGuid),
+	}
+	if row.ChosenFills != nil {
+		g.ChosenFills = int(*row.ChosenFills)
 	}
 	for _, t := range rel.targets[row.ID] {
 		g.Targets = append(g.Targets, Cell{

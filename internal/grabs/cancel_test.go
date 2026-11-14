@@ -104,7 +104,7 @@ func TestCancelingAnAutomaticGrabAtFetchingEndsWhatItsRunKeptForARerun(t *testin
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := tw.g.Cancel(t.Context(), identity.Admin{}, runs[0].GrabID, false); err != nil {
+		if err := tw.g.Cancel(t.Context(), identity.Admin{}, runs[0].Grabs[0], false); err != nil {
 			t.Fatal(err)
 		}
 		if n := kept(); n != 0 {

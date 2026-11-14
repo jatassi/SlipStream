@@ -711,12 +711,8 @@ func (gr *Grabs) open(ctx context.Context) ([]Search, []Grab, error) {
 		if err != nil {
 			return err
 		}
-		for _, run := range runs {
-			s, err := searchOf(run, nil)
-			if err != nil {
-				return err
-			}
-			searches = append(searches, s)
+		if searches, err = runsOf(ctx, q, runs, nil); err != nil {
+			return err
 		}
 		rows, err := q.ListOpenGrabs(ctx)
 		if err != nil {

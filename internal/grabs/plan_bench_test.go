@@ -92,7 +92,7 @@ func (s *stored) searched(b *testing.B, gr *Grabs, level works.LevelID, mark str
 	for _, t := range []targets.Target{hd, small} {
 		s.in.cells = append(s.in.cells, files.Cell{Item: it, Edition: targets.AnyEdition, Target: t, State: files.Missing, Released: true})
 	}
-	run := Search{ID: SearchID{UUID: storage.NewUUID()}, ItemID: it.ID, Finished: time.Now()}
+	run := Search{ID: SearchID{UUID: storage.NewUUID()}, Items: []works.ItemID{it.ID}, Finished: time.Now()}
 	qualities := []string{"1080p.BluRay", "1080p.WEB-DL", "720p.WEB-DL", "1080p.TS"}
 	for k, site := range sites {
 		name := fmt.Sprintf("Site %d", k)

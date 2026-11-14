@@ -317,10 +317,10 @@ func (a atticWorld) searchedAutomatically(t *testing.T) string {
 	if len(runs) != 1 || runs[0].Finished.IsZero() {
 		t.Fatalf("the Work has runs %+v, want one finished", runs)
 	}
-	if runs[0].GrabID.IsZero() {
+	if len(runs[0].Grabs) == 0 {
 		return ""
 	}
-	v, err := a.g.Get(ctx, identity.Admin{}, runs[0].GrabID)
+	v, err := a.g.Get(ctx, identity.Admin{}, runs[0].Grabs[0])
 	if err != nil {
 		t.Fatal(err)
 	}

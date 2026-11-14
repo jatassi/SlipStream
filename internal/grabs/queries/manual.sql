@@ -18,8 +18,8 @@ SELECT id FROM grabs_search WHERE manual_id = sqlc.arg(manual_id) ORDER BY start
 DELETE FROM grabs_manual WHERE id = sqlc.arg(id);
 
 -- name: InsertManualRun :exec
-INSERT INTO grabs_search (id, work_id, item_id, manual_id, started_at)
-VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(manual_id), sqlc.arg(started_at));
+INSERT INTO grabs_search (id, work_id, manual_id, started_at)
+VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(manual_id), sqlc.arg(started_at));
 
 -- name: NextReleasePosition :one
 SELECT CAST(coalesce(max(position) + 1, 0) AS INTEGER) FROM grabs_release WHERE search_id = sqlc.arg(search_id);
