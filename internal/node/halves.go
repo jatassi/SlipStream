@@ -450,6 +450,10 @@ func (n *Node) startController(ctx context.Context) error {
 		BlocklistChanged: grabs.BlocklistChangedEvent.Bind(n.hub),
 		Reconciling:      trackers.NotReconciling,
 		BeforeStep:       n.env.Test.BeforeStep,
+		Tasks:            lateTasks{&scheduler},
+		GapCap:           grabs.NoGapCap,
+		QueueChanged:     grabs.QueueChangedEvent.Bind(n.hub),
+		Clock:            time.Now,
 		Log:              n.rootLog.With("subsystem", "grabs"),
 	})
 	var composer *library.Library
@@ -509,7 +513,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Types:    contenttype.Project(opened, func(t contenttype.Library) metadata.Refreshing { return t }),
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
-		}, found), append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask()), n.env.Test.tasks(started)...)...),
+		}, found), append(append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask()), pipeline.Tasks()...), n.env.Test.tasks(started)...)...),
 		Roster:     side,
 		Zone:       n.zone(),
 		Rand:       n.tasksRand,
@@ -598,8 +602,8 @@ func (r openedRoster) Draining(name role.Name, node role.NodeID) bool {
 	return (*r.side).Draining(name, node)
 }
 
-// lateTasks is the Scheduled tasks once they open: the Media Servers are
-// made before them, since the tasks' catalog lists the renewal task.
+// lateTasks is the Scheduled tasks once they open: the Media Servers and
+// grabs are made before them, since the tasks' catalog lists their tasks.
 type lateTasks struct{ tasks **tasks.Scheduler }
 
 func (t lateTasks) Every(ctx context.Context, id tasks.TaskID) (*int64, error) {
