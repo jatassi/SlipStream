@@ -121,3 +121,5 @@ func TestTheAccessWalkPassesOnAWorker(t *testing.T) {
 		t.Fatalf("breaches:\n%s", strings.Join(breaches, "\n"))
 	}
 }
+
+func (worker) OpenIn(context.Context, works.WorkID) ([]mediaservers.OpenIn, error) { return nil, nil }

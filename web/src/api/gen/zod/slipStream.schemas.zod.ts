@@ -10732,6 +10732,7 @@ export type WorksWebLinkOutput = zod.output<typeof WorksWebLink>;
 
 export const WorksOpenIn = zod.object({
   kind: MediaserversKind,
+  label: zod.string().describe("The kind's name, such as Plex"),
   name: zod.string().describe("The Media Server's name, such as Living room Plex"),
   serverId: zod.uuid(),
   url: zod.url(),

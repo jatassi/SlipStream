@@ -23325,6 +23325,10 @@
           "kind": {
             "$ref": "#/components/schemas/MediaserversKind"
           },
+          "label": {
+            "description": "The kind's name, such as Plex",
+            "type": "string"
+          },
           "name": {
             "description": "The Media Server's name, such as Living room Plex",
             "type": "string"
@@ -23341,6 +23345,7 @@
         "required": [
           "serverId",
           "kind",
+          "label",
           "name",
           "url"
         ],

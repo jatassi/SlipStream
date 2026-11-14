@@ -201,6 +201,9 @@ func (n *Node) startController(ctx context.Context) error {
 			return mediaserverv1connect.MediaServerLinkService.On(cluster, node)
 		},
 		FileIDs: files.IDsAt,
+		WorkFiles: func(ctx context.Context, r storage.Reader[storage.Library], work works.WorkID) ([]files.File, error) {
+			return files.LeftIn(ctx, r, []works.WorkID{work})
+		},
 		RootWords: func(ctx context.Context, r storage.Reader[storage.Library]) (map[roots.ID]string, error) {
 			return homes.WordsIn(ctx, r)
 		},
