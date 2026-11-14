@@ -12282,6 +12282,11 @@
         "type": "object"
       },
       "MediaserversKind": {
+        "enum": [
+          "plex",
+          "jellyfin",
+          "emby"
+        ],
         "type": "string"
       },
       "MediaserversKindView": {

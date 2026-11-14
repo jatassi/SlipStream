@@ -187,11 +187,13 @@ export const plexServers: MediaserversPlexServerView[] = [
   },
 ];
 
-const notFound = () =>
+const problem = (status: number, code: string, title: string, members: object = {}) =>
   HttpResponse.json(
-    { status: 404, code: "media_server_not_found", title: "No Media Server has this id" },
-    { status: 404, headers: { "Content-Type": "application/problem+json" } },
+    { status, code, title, ...members },
+    { status, headers: { "Content-Type": "application/problem+json" } },
   );
+
+const notFound = () => problem(404, "media_server_not_found", "No Media Server has this id");
 
 /** Answers every Media Servers read from these servers, and Den Jellyfin's details for any server. */
 export function mediaServerHandlers(list: MediaserversServerView[] = servers) {

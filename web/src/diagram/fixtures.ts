@@ -44,7 +44,7 @@ const groups: NodesRoleGroup[] = [
     label: "Connect",
     roles: [
       { role: "metadata", label: "Metadata", pinned: false },
-      { role: "media-server-link", label: "Media Server link", pinned: false },
+      { role: "media-server-link", label: "Media Server link", pinned: true },
       { role: "notifying", label: "Notifying", pinned: false },
     ],
   },
@@ -78,6 +78,7 @@ const SEATS: readonly Seat[] = [
       "storage",
       "converting",
       "metadata",
+      "media-server-link",
       "notifying",
       "serving",
     ],

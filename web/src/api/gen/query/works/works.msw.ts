@@ -2327,7 +2327,7 @@ export const getAddWorkResponseMock = (
     monitorNew: faker.datatype.boolean(),
     openIn: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
-        kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
         name: faker.string.alpha({ length: { min: 10, max: 20 } }),
         serverId: faker.string.uuid(),
         url: faker.internet.url(),
@@ -3512,7 +3512,7 @@ export const getGetWorkResponseMock = (
   monitorNew: faker.datatype.boolean(),
   openIn: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
-      kind: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
       serverId: faker.string.uuid(),
       url: faker.internet.url(),

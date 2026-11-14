@@ -4,5 +4,5 @@ export const settingsGroupLabels = {
   "Files to keep": ["Targets", "Profiles", "Custom Formats", "Editions"],
   "Search and download": ["Indexers", "Trackers", "Download Clients"],
   Access: ["Address", "Sign-in", "API key"],
-  System: ["Nodes", "Email"],
+  System: ["Nodes", "Email", "Media Servers"],
 } as const;

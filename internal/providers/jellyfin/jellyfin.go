@@ -412,6 +412,15 @@ type Item struct {
 	UserData              *UserData         `json:"UserData"`
 }
 
+// Top is the item a watch is shown under: an episode's show, or the item
+// itself.
+func (it Item) Top() string {
+	if it.SeriesID != "" {
+		return it.SeriesID
+	}
+	return it.ID
+}
+
 // MediaSource is one version of an item.
 type MediaSource struct {
 	ID           string   `json:"Id"`
@@ -444,6 +453,10 @@ const (
 	TypeEpisode = "Episode"
 	TypeBoxSet  = "BoxSet"
 )
+
+// VideoTypes are the listings that between them hold every video file of a
+// library.
+var VideoTypes = []string{TypeMovie, TypeEpisode}
 
 // Query is a GET /Items listing, as user so each item carries the user's
 // data.
