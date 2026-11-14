@@ -78,7 +78,7 @@ async function calmPage(page: Page): Promise<void> {
   await expect(page.getByText("Everything is working.")).toBeVisible();
   await expect(
     page.getByText(
-      "Checked storage, the library, Nodes, download clients, torrents that still owe a Tracker, Indexers and scheduled tasks",
+      "Checked storage, the library, Nodes, download clients, Media Servers, torrents that still owe a Tracker, Indexers and scheduled tasks",
     ),
   ).toBeVisible();
   for (const [label, phrase] of [
@@ -86,6 +86,7 @@ async function calmPage(page: Page): Promise<void> {
     ["Library", "the library"],
     ["Nodes", "Nodes"],
     ["Download Clients", "download clients"],
+    ["Media Servers", "Media Servers"],
     ["Seeding", "torrents that still owe a Tracker"],
     ["Indexers", "Indexers"],
     ["Scheduled tasks", "scheduled tasks"],

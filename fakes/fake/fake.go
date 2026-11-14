@@ -157,6 +157,9 @@ type Env struct {
 	// such as a Download Client's downloads. The world keeps it in its
 	// scratch dir, beside the media dir, so a Node can hard link from it.
 	Dir string
+	// Media is the world's media dir, which holds every library root, so a
+	// Media Server fake reads what a Node imported.
+	Media string
 	// Leaf serves a run-CA certificate for Spec.LeafNames, for an OwnTLS fake,
 	// and is nil otherwise.
 	Leaf   *tls.Config

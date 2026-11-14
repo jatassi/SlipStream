@@ -143,7 +143,7 @@ func shelfSeries() *TVDB {
 
 func TestLoadRefusesANameOutsideTheCatalog(t *testing.T) {
 	_, err := Load("office")
-	if want := "scenario office is not in the catalog (catalog-sites, cgnat-home, external-clients, external-kinds, first-run, home, imports, indexers, low-space, magnets, manual-search, movies, music, packs, ported-sites, scale, seedbox-nas, seeding-routing, seeding, series-scale, series, serving, showcase, single-machine, sizes, targets, torrents)"; err == nil || err.Error() != want {
+	if want := "scenario office is not in the catalog (catalog-sites, cgnat-home, external-clients, external-kinds, first-run, home, imports, indexers, low-space, magnets, manual-search, media-servers, movies, music, packs, ported-sites, scale, seedbox-nas, seeding-routing, seeding, series-scale, series, serving, showcase, single-machine, sizes, targets, torrents)"; err == nil || err.Error() != want {
 		t.Fatalf("err = %v, want %s", err, want)
 	}
 }
@@ -331,6 +331,23 @@ func TestParseRefuses(t *testing.T) {
 				"scenario x: node home has two transmission download clients; the world adds at most one of each kind\n" +
 				"scenario x: node home sends its New Grabs to 2 download clients; at most one\n" +
 				"scenario x: node home has download clients, and no library adds them",
+		},
+		{
+			"media servers",
+			"seed: x\nnodes:\n  - name: home\n    setup: controller\n    media_servers: [{kind: plex, name: P, sign_in: key, roots: [{folder: films}]}]\n" +
+				"  - name: den\n    setup: join\n    media_servers: [{kind: kodi, name: K}, {kind: plex, name: Q, users: [grace]}]\n" +
+				"  - name: nas\n    setup: join\n    roles: [storage, media-server-link]\n    media_servers: [{kind: jellyfin, name: J}]\n" +
+				"admin: {email: a@example.test, display_name: A, pin: \"1234\"}\n" +
+				"library: {roots: [{content_type: movie, folder: movies}]}\n",
+			"scenario x: media server P signs in with key, but Plex signs in only with the plex.tv PIN\n" +
+				"scenario x: media server P holds root films, which the library doesn't name\n" +
+				"scenario x: media server P holds no library root\n" +
+				"scenario x: node den reaches media servers, but doesn't hold media-server-link\n" +
+				"scenario x: node den media server kind \"kodi\" is not one of [plex jellyfin emby]\n" +
+				"scenario x: node den reaches a second plex; the world plays at most one of each kind\n" +
+				"scenario x: media server Q lists users, which only Jellyfin and Emby take\n" +
+				"scenario x: media server Q holds no library root\n" +
+				"scenario x: media server J holds no library root",
 		},
 		{
 			"two problems at once",

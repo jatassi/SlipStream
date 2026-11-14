@@ -1,0 +1,40 @@
+{
+ "tag": "12.2",
+ "version": "12.2.0",
+ "monitor_delay_s": 5,
+ "1_created_into_empty_scanned_root": {
+  "appeared": false,
+  "waited_s": 90.8
+ },
+ "2a_full_scan_with_file_on_disk_finds_it": true,
+ "2b_later_created_counts": {
+  "appeared": true,
+  "after_s": 5.1
+ },
+ "3a_deleted_file_folder_kept": {
+  "gone": true,
+  "after_s": 5.1
+ },
+ "3b_deleted_file_folder_removed": {
+  "gone": true,
+  "after_s": 5.2
+ },
+ "3c_created_after_root_emptied_again": {
+  "root_empty": true,
+  "appeared": true,
+  "after_s": 5.2
+ },
+ "4a_two_folders_removed_two_calls": {
+  "a_gone": true,
+  "b_gone": true,
+  "a_after_s": 0.0,
+  "b_after_s": 5.2
+ },
+ "4b_two_folders_removed_one_call": {
+  "a_gone": true,
+  "b_gone": true,
+  "a_after_s": 5.2,
+  "b_after_s": 0.0
+ },
+ "pass": true
+}

@@ -89,6 +89,9 @@ type Node struct {
 	// DownloadClients are the external clients the world adds to the Node
 	// with the library, before its Works.
 	DownloadClients []DownloadClient `yaml:"download_clients,omitempty"`
+	// MediaServers are the Media Servers the world adds with this Node as
+	// the reaching Node, after the library's roots.
+	MediaServers []MediaServer `yaml:"media_servers,omitempty"`
 	// PathLimit is the Node's storage.path_limit, the longest absolute path
 	// it writes in bytes, so a world can give one Node Windows' 259. Zero
 	// leaves the OS's.
@@ -194,6 +197,7 @@ func (s Scenario) Validate() error {
 		s.checkHomes(add)
 		s.checkWorks(add)
 	}
+	s.checkMediaServers(add)
 	checkFaults(add, s.Faults)
 	if problems != nil {
 		return errors.New(strings.Join(problems, "\n"))

@@ -25,9 +25,8 @@ import {
 } from "./part";
 import { faceY, roundRect } from "./face";
 
-// Media Server link's machine: a small television on a stand. Its screen
-// stays dark until the Media Server link reports whether the Media Server
-// answers.
+// Media Server link's machine: a small television on a stand whose screen
+// is lit while its Node is online and a Media Server it reaches responds.
 
 const FOOT: Plan = { x: -10, y: -7, w: 20, d: 14, r: 2 };
 const NECK_TOP = 9;
@@ -38,7 +37,7 @@ const BACK: Plan = { x: -10, y: -14, w: 20, d: 6.4, r: 2.4 };
 const FRONT = CASE.y + CASE.d;
 const SCREEN = { u0: -12, u1: 5, z0: CASE_Z + 3, z1: CASE_TOP - 3 } as const;
 
-function face(P: Projection): Drawn {
+function face(P: Projection, lit: boolean): Drawn {
   const grille: string[] = [];
   for (let index = 0; index < 4; index++) {
     grille.push(roundRect(7.6, CASE_Z + 3 + index * 2.2, 12, CASE_Z + 4 + index * 2.2, 0.5, 2));
@@ -52,7 +51,7 @@ function face(P: Projection): Drawn {
       />
       <path
         className="screen"
-        data-screen=""
+        data-screen={lit ? "lit" : ""}
         d={roundRect(SCREEN.u0, SCREEN.z0, SCREEN.u1, SCREEN.z1, 2.2)}
       />
       <path className="iso-line" data-tone="faint" d={grille.join("")} />
@@ -115,7 +114,7 @@ function stand(P: Projection): Drawn[] {
   ];
 }
 
-export function television(P: Projection): Item {
+export function television(P: Projection, lit: boolean): Item {
   return item(
     "media-server-link",
     [0, 0, 0],
@@ -137,7 +136,7 @@ export function television(P: Projection): Item {
         bevel: 0.8,
         inner: line(sideSeam(CASE, CASE_Z + 2.2, P, 3), "faint").el,
       }),
-      face(P),
+      face(P, lit),
       slots(P, CASE.x + CASE.w, {
         u0: CASE.y + 3,
         count: 5,

@@ -22,6 +22,8 @@ import (
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/mediaserverlink"
+	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata"
 	"github.com/jatassi/slipstream/internal/naming"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -32,6 +34,8 @@ import (
 	"github.com/jatassi/slipstream/internal/pb/slipstream/housekeeping/v1/housekeepingv1connect"
 	linkv1 "github.com/jatassi/slipstream/internal/pb/slipstream/link/v1"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/media/v1/mediav1connect"
+	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
+	"github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1/mediaserverv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/metadata/v1/metadatav1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/notify/v1/notifyv1connect"
 	"github.com/jatassi/slipstream/internal/pb/slipstream/search/v1/searchv1connect"
@@ -49,6 +53,7 @@ import (
 	"github.com/jatassi/slipstream/internal/scanning"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/serving"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storing"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -90,6 +95,13 @@ type half struct {
 	imports  *imports.Imports
 	grabs    *grabs.Grabs
 	clients  *downloadclients.Clients
+	// mediaServers is the Media Servers' operations, on a Controller.
+	mediaServers mediaservers.Service
+
+	// mediaServersHealth is the Media Servers' Health category, on a
+	// Controller.
+	mediaServersHealth health.Source
+
 	tasks    *tasks.Scheduler
 	health   *health.Health
 	firstRun *firstrun.FirstRun
@@ -114,11 +126,13 @@ func (n *Node) startController(ctx context.Context) error {
 	var (
 		downloads    *role.Control[*dlv1.Intent, *dlv1.Facts, *dlv1.Report]
 		transferring *role.Control[*tv1.Intent, *tv1.Facts, *tv1.Result]
+		linked       *role.Control[*msv1.Intent, *msv1.Facts, *msv1.Report]
 		side         *nodes.Service
 		cluster      *rpc.Cluster
 		homes        *roots.Roots
 		seeding      *trackers.Trackers
 		pipeline     *grabs.Grabs
+		scheduler    *tasks.Scheduler
 	)
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
@@ -143,7 +157,6 @@ func (n *Node) startController(ctx context.Context) error {
 		Hub: n.hub,
 		Log: n.rootLog.With("subsystem", "downloadclients"),
 	})
-	var scheduler *tasks.Scheduler
 	seeding = trackers.New(trackers.Config{
 		Library:         lib.db,
 		Clients:         clients,
@@ -176,6 +189,39 @@ func (n *Node) startController(ctx context.Context) error {
 		Log:        n.rootLog.With("subsystem", "transfers"),
 	})
 	transferring = transfers.Def.Serve(copies.Derive, copies.Apply)
+	servers := mediaservers.New(mediaservers.Config{
+		Library: lib.db,
+		Sealer:  lib.sealer,
+		Roster:  openedRoster{&side},
+		Kinds:   mediaserverlink.Kinds,
+		HTTP:    client,
+		Timings: n.cfg.Timings.MediaServers,
+		PlexTV:  n.cfg.Endpoints.PlexTV,
+		Link: func(node role.NodeID) mediaserverv1connect.MediaServerLinkServiceHandler {
+			return mediaserverv1connect.MediaServerLinkService.On(cluster, node)
+		},
+		FileIDs: files.IDsAt,
+		WorkFiles: func(ctx context.Context, r storage.Reader[storage.Library], work works.WorkID) ([]files.File, error) {
+			return files.LeftIn(ctx, r, []works.WorkID{work})
+		},
+		RootWords: func(ctx context.Context, r storage.Reader[storage.Library]) (map[roots.ID]string, error) {
+			return homes.WordsIn(ctx, r)
+		},
+		RootsChanged: func(ctx context.Context) <-chan struct{} { return n.hub.Watch(ctx, roots.ChangedEvent) },
+		Tasks:        lateTasks{&scheduler},
+		Events: mediaservers.Events{
+			Changed:         mediaservers.ChangedEvent.Bind(n.hub),
+			SessionsChanged: mediaservers.SessionsChangedEvent.Bind(n.hub),
+			Unhealthy:       mediaservers.UnhealthyEvent.Bind(n.hub),
+			Recovered:       mediaservers.RecoveredEvent.Bind(n.hub),
+			ItemsFound:      mediaservers.ItemsFoundEvent.Bind(n.hub),
+		},
+		Touch: func(nodes ...role.NodeID) { linked.Touch(nodes...) },
+		Facts: func(node role.NodeID) (*msv1.Facts, bool) { return linked.Facts(node) },
+		Zone:  n.zone(),
+		Log:   n.rootLog.With("subsystem", "mediaservers"),
+	})
+	linked = mediaserverlink.Def.Serve(servers.Intent, servers.Apply)
 	arrivals := roots.NewArrivals()
 	var systems *nodesystem.Nodes
 	side, err = nodes.Open(ctx, nodes.Config{
@@ -188,21 +234,24 @@ func (n *Node) startController(ctx context.Context) error {
 		Traffic: nodes.TrafficEvent.Bind(n.hub),
 
 		SettingsChanged: nodes.SettingsChangedEvent.Bind(n.hub),
-		Served:          append([]role.Served{downloads, stored, transferring}, n.env.Test.Served...),
-		Owners:          owners(clients),
+		Served:          append([]role.Served{downloads, stored, transferring, linked}, n.env.Test.Served...),
+		Owners:          owners(clients, servers),
 		Kept:            grabs.Kept,
 		Torrents:        clients,
 		Storage: func(ctx context.Context, r storage.Reader[storage.Library], id role.NodeID) (nodes.StorageFigures, error) {
 			return homes.Figures(ctx, r, id)
 		},
+		Television: servers.Television,
 		Facts: func(id role.NodeID, scope string) {
 			arrivals.Note(id, scope)
 			clients.Arrived(id, scope)
 			copies.Noted(id, scope)
+			servers.Noted(id, scope)
 		},
 		Applied: func(id role.NodeID, scope string) {
 			clients.Applied(id, scope)
 			copies.Applied(id, scope)
+			servers.Applied(id, scope)
 		},
 		Reach: func(ctx context.Context, id role.NodeID, t nodesystem.Target) (nodesystem.Reached, error) {
 			return systems.Reach(ctx, id, t)
@@ -221,6 +270,7 @@ func (n *Node) startController(ctx context.Context) error {
 	var holding *role.Holding
 	dispatch := rpc.NewDispatch(n.link, self, self, func(r role.Name) bool { return holding.Holds(r) })
 	cluster = rpc.NewCluster(dispatch, side)
+	n.mediaLink = n.newMediaLink()
 	holding, local, copier, err := n.startHolding(ctx, role.InProcess(controls), dispatch, nil)
 	if err != nil {
 		return err
@@ -232,6 +282,7 @@ func (n *Node) startController(ctx context.Context) error {
 	storagev1connect.StorageService.Mount(dispatch, n.store)
 	storagev1connect.FolderService.Mount(dispatch, n.store)
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
+	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
 	n.serveSystem(dispatch)
 	providers := make([]metadata.Provider, len(holder.Testers))
 	for i, t := range holder.Testers {
@@ -274,6 +325,7 @@ func (n *Node) startController(ctx context.Context) error {
 		return err
 	}
 	downloadingv1connect.DownloadingControlService.Mount(cluster, downloadclients.ControlService{Library: lib.db, Sealer: lib.sealer, Nodes: side, Types: tree})
+	mediaserverv1connect.MediaServerControlService.Mount(cluster, mediaservers.ControlService{Library: lib.db, Sealer: lib.sealer, Nodes: side})
 	systems = nodesystem.NewNodes(
 		func(id role.NodeID) systemv1connect.NodeSystemServiceHandler {
 			return systemv1connect.NodeSystemService.On(cluster, id)
@@ -361,7 +413,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Describe: tree.Describe, Budget: roots.SmallestBudget, Changed: naming.ChangedEvent.Bind(n.hub),
 	})
 	shelf, err := files.Open(ctx, files.Config{
-		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn,
+		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn, MediaServers: servers,
 		Naming:  names,
 		Names:   contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
 		Today:   n.today,
@@ -447,7 +499,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Tidy: func(node role.NodeID) housekeepingv1connect.HousekeepingServiceHandler {
 				return housekeepingv1connect.HousekeepingService.On(cluster, node)
 			},
-			Steps: []housekeeping.Step{{Key: "indexer-queries", Label: "Indexer queries and sessions", Run: registry.Prune}},
+			Steps: []housekeeping.Step{{Key: "indexer-queries", Label: "Indexer queries and sessions", Run: registry.Prune}, servers.Housekeeping()},
 		}, metadata.RefreshConfig{
 			Library:  lib.db,
 			Metadata: meta,
@@ -456,7 +508,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Types:    contenttype.Project(opened, func(t contenttype.Library) metadata.Refreshing { return t }),
 			Today:    n.today,
 			Log:      n.rootLog.With("subsystem", "metadata-refresh"),
-		}, found), append(append(registry.Tasks(), seeding.Task()), n.env.Test.tasks(started)...)...),
+		}, found), append(append(registry.Tasks(), seeding.Task(), servers.RenewalTask()), n.env.Test.tasks(started)...)...),
 		Roster:     side,
 		Zone:       n.zone(),
 		Rand:       n.tasksRand,
@@ -470,16 +522,21 @@ func (n *Node) startController(ctx context.Context) error {
 	}
 	h := &half{
 		self: side.Self(), peers: side, dispatch: dispatch, holding: holding, systems: systems, nodes: side, controls: controls, cluster: cluster, works: tree, metadata: meta, indexers: registry,
-		trackers:  seeding,
-		targets:   goals,
-		roots:     homes,
-		files:     shelf,
-		naming:    names,
-		library:   composer,
-		imports:   found,
-		grabs:     pipeline,
-		clients:   clients,
-		tasks:     scheduler,
+		trackers: seeding,
+		targets:  goals,
+		roots:    homes,
+		files:    shelf,
+		naming:   names,
+		library:  composer,
+		imports:  found,
+		grabs:    pipeline,
+		clients:  clients,
+		tasks:    scheduler,
+
+		mediaServers: servers.Service(),
+
+		mediaServersHealth: servers.HealthSource(),
+
 		transfers: copies,
 		copier:    copier,
 	}
@@ -494,6 +551,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("grabs", pipeline.Run)
 	n.claimed.Go("torrent clients", clients.Run)
 	n.claimed.Go("transfers", copies.Run)
+	n.claimed.Go("media servers", servers.Run)
 	n.claimed.Go("files", shelf.Run)
 	n.claimed.Go("tasks", scheduler.Run)
 	n.claimed.Go("library scan", found.Run)
@@ -515,11 +573,17 @@ type openedRoster struct{ side **nodes.Service }
 
 func (r openedRoster) InStep(node role.NodeID) bool { return (*r.side).InStep(node) }
 
+func (r openedRoster) Standing(node role.NodeID) (nodes.Standing, time.Time) {
+	return (*r.side).Standing(node)
+}
+
 func (r openedRoster) WrittenOff(name role.Name, node role.NodeID) bool {
 	return (*r.side).WrittenOff(name, node)
 }
 
 func (r openedRoster) Changed() <-chan struct{} { return (*r.side).Changed() }
+
+func (r openedRoster) Self() role.NodeID { return (*r.side).Self() }
 
 func (r openedRoster) Serving(name role.Name) []role.NodeID { return (*r.side).Serving(name) }
 
@@ -531,6 +595,18 @@ func (r openedRoster) Holds(name role.Name, node role.NodeID) bool {
 
 func (r openedRoster) Draining(name role.Name, node role.NodeID) bool {
 	return (*r.side).Draining(name, node)
+}
+
+// lateTasks is the Scheduled tasks once they open: the Media Servers are
+// made before them, since the tasks' catalog lists the renewal task.
+type lateTasks struct{ tasks **tasks.Scheduler }
+
+func (t lateTasks) Every(ctx context.Context, id tasks.TaskID) (*int64, error) {
+	return (*t.tasks).Every(ctx, id)
+}
+
+func (t lateTasks) SetCadence(ctx context.Context, id tasks.TaskID, v setting.Stored[int64]) error {
+	return (*t.tasks).SetCadence(ctx, id, v)
 }
 
 // lateSeeder is the Trackers' seeder once they are made: the download
@@ -632,6 +708,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	front := serving.NewWorker(n.link, controller.Key, n.cfg.Timings.Serving, n.rootLog.With("subsystem", "serving"))
 	var holding *role.Holding
 	dispatch := rpc.NewDispatch(n.link, n.key.Public(), controller.Key, func(r role.Name) bool { return holding.Holds(r) })
+	n.mediaLink = n.newMediaLink()
 	holding, local, copier, err := n.startHolding(ctx, role.OverLink(n.link, controller.Key, n.cfg.Timings.Link), dispatch, []role.Held{role.HoldRun(role.Serving, front.Run, front.Release)})
 	if err != nil {
 		return err
@@ -643,6 +720,7 @@ func (n *Node) startWorker(ctx context.Context) error {
 	storagev1connect.StorageService.Mount(dispatch, n.store)
 	storagev1connect.FolderService.Mount(dispatch, n.store)
 	downloadingv1connect.DownloadingService.Mount(dispatch, n.downloading)
+	mediaserverv1connect.MediaServerLinkService.Mount(dispatch, n.mediaLink.Service())
 	n.serveSystem(dispatch)
 	housekeepingv1connect.HousekeepingService.Mount(dispatch, housekeeping.Service{Local: local})
 	n.lockstep.Handle("/", dispatch)
@@ -725,7 +803,7 @@ func (n *Node) serveSystem(d *rpc.Dispatch) {
 }
 
 // owners is each Role's owner: the feature that keeps its work.
-func owners(clients *downloadclients.Clients) []nodes.Owner {
+func owners(clients *downloadclients.Clients, servers *mediaservers.MediaServers) []nodes.Owner {
 	return []nodes.Owner{
 		indexers.SearchingOwner,
 		clients.DownloadingOwner(),
@@ -733,7 +811,7 @@ func owners(clients *downloadclients.Clients) []nodes.Owner {
 		nodes.Unowned(role.Converting),
 		nodes.Unowned(role.Subtitles),
 		metadata.Owner,
-		nodes.Unowned(role.MediaServerLink),
+		servers.Owner(),
 		notifying.Owner,
 		nodes.Unowned(role.Relaying),
 		nodes.Unowned(role.Serving),
@@ -747,7 +825,18 @@ func (n *Node) heldRoles(local *storage.DB[storage.Local], dispatch *rpc.Dispatc
 		downloading.Def.Hold(n.downloading.Run(local, downloadingv1connect.DownloadingControlService.Call(dispatch)), n.downloading.Release),
 		storing.Def.Hold(n.store.Run, n.store.Release),
 		transfers.Def.Hold(copier.Run, copier.Release),
+		mediaserverlink.Def.Hold(n.mediaLink.Run(local, mediaserverv1connect.MediaServerControlService.Call(dispatch)), n.mediaLink.Release),
 	}
+}
+
+// newMediaLink is the half's Media Server link holder.
+func (n *Node) newMediaLink() *mediaserverlink.Link {
+	return mediaserverlink.NewLink(mediaserverlink.Config{
+		Kinds:   mediaserverlink.Kinds,
+		HTTP:    n.httpClient(n.env.Net.DialContext),
+		Timings: n.cfg.Timings.MediaServers,
+		Log:     n.rootLog.With("subsystem", "media server link"),
+	})
 }
 
 // claimPeers is how the link treats peers: as the half that started does,

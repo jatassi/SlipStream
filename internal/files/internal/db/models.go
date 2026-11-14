@@ -14,10 +14,12 @@ import (
 )
 
 type FilesDoomed struct {
-	FileID FileID
-	RootID roots.ID
-	Path   string
-	Sits   *string
+	FileID     FileID
+	RootID     roots.ID
+	Path       string
+	Sits       *string
+	Origin     *string
+	ReplacedBy FileID
 }
 
 type FilesFile struct {

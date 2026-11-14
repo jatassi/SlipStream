@@ -41,7 +41,7 @@ export const groups: NodesRoleGroup[] = [
     label: "Connect",
     roles: [
       { role: "metadata", label: "Metadata", pinned: false },
-      { role: "media-server-link", label: "Media Server link", pinned: false },
+      { role: "media-server-link", label: "Media Server link", pinned: true },
       { role: "notifying", label: "Notifying", pinned: false },
     ],
   },
@@ -60,11 +60,12 @@ export const homeSeat: NodesBoardNode = {
   name: "home",
   controller: true,
   away: false,
-  assigned: ["searching", "storage", "metadata", "notifying", "serving"],
+  assigned: ["searching", "storage", "metadata", "media-server-link", "notifying", "serving"],
   roles: [
     { role: "searching", state: "holding" },
     { role: "storage", state: "holding" },
     { role: "metadata", state: "holding" },
+    { role: "media-server-link", state: "holding" },
     { role: "notifying", state: "holding" },
     { role: "serving", state: "holding" },
   ],

@@ -38,8 +38,18 @@ const work: WorksWorkView = {
   ],
   artwork: [{ kind: "studio-logo", url: "/api/v1/artwork/orchard-pictures" }],
   links: [
-    { key: "tmdb", kind: "page", label: "TMDB", url: "https://www.themoviedb.org/movie/9000001" },
-    { key: "trailer", kind: "trailer", label: "Trailer", url: "https://www.youtube.com/watch?v=x" },
+    {
+      key: "tmdb",
+      kind: "page",
+      label: "TMDB",
+      url: "https://www.themoviedb.org/movie/9000001",
+    },
+    {
+      key: "trailer",
+      kind: "trailer",
+      label: "Trailer",
+      url: "https://www.youtube.com/watch?v=x",
+    },
   ],
 };
 
@@ -118,4 +128,48 @@ test("an Item not out yet is the next one whatever its cells hold, such as a dow
         .getByText("The next story, V01S03, counts as out on January 4, 2020."),
     )
     .toBeVisible();
+});
+
+const plex =
+  "https://app.plex.invalid/desktop/#!/server/living-room/details?key=/library/metadata/7";
+const den = "https://den.invalid/web/#/details?id=a&serverId=b";
+const loft = "https://loft.invalid/web/#/details?id=c&serverId=d";
+
+const held: WorksWorkView = {
+  ...work,
+  openIn: [
+    { serverId: "s1", kind: "plex", label: "Plex", name: "Living room Plex", url: plex },
+    { serverId: "s2", kind: "jellyfin", label: "Jellyfin", name: "Den", url: den },
+    { serverId: "s3", kind: "jellyfin", label: "Jellyfin", name: "Loft", url: loft },
+  ],
+};
+
+test("Open in links each Media Server that holds the Work in a new tab, by name when two share a kind", async () => {
+  renderKit(<About type={rated} work={held} statuses={[]} />);
+  const list = page.getByRole("list", { name: "Open in" });
+  await expect.element(list).toBeVisible();
+  expect(
+    list
+      .getByRole("link")
+      .all()
+      .map((link) => {
+        const anchor = link.element();
+        return [
+          anchor.textContent,
+          anchor.getAttribute("href"),
+          anchor.getAttribute("target"),
+          anchor.getAttribute("rel"),
+        ];
+      }),
+  ).toEqual([
+    ["Open in Plex", plex, "_blank", "noopener noreferrer"],
+    ["Open in Den", den, "_blank", "noopener noreferrer"],
+    ["Open in Loft", loft, "_blank", "noopener noreferrer"],
+  ]);
+});
+
+test("a Work on no Media Server shows no Open in", async () => {
+  renderKit(<About type={rated} work={work} statuses={[]} />);
+  await expect.element(page.getByRole("list", { name: "Links" })).toBeVisible();
+  await expect.element(page.getByRole("list", { name: "Open in" })).not.toBeInTheDocument();
 });

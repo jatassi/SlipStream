@@ -49,6 +49,8 @@ export type NodeRow = {
   readonly storage: NodesStorageResource | undefined;
   /** Its listener for browsers is up, as far as its last probe found. */
   readonly listening: boolean;
+  /** A Media Server it reaches responds, as its Media Server link last reported. */
+  readonly television: boolean;
 };
 
 /** How much of a torrent is down, as a whole percent. */
@@ -143,6 +145,7 @@ function rowOf(
     torrents: node.resources.downloading?.torrents ?? [],
     storage: node.resources.storage,
     listening: !node.probes.some(({ probe, fit }) => probe === "listener-up" && fit === "fails"),
+    television: node.television,
   };
 }
 

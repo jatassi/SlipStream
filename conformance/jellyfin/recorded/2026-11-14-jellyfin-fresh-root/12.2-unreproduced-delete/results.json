@@ -1,0 +1,19 @@
+{
+ "tag": "12.2",
+ "version": "12.2.0",
+ "monitor_delay_s": 5,
+ "1_created_into_empty_scanned_root": {
+  "appeared": false,
+  "waited_s": 90.5
+ },
+ "2a_full_scan_with_file_on_disk_finds_it": true,
+ "2b_later_created_counts": {
+  "appeared": true,
+  "after_s": 5.2
+ },
+ "3_created_after_root_emptied_again": {
+  "appeared": true,
+  "after_s": 5.2
+ },
+ "pass": true
+}

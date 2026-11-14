@@ -21,6 +21,7 @@ import { Section } from "../../ui/section";
 import { type Placed, codeOf, placedOf } from "../fields-by-tier";
 // oxlint-disable-next-line import/max-dependencies -- About shows every place a type puts a field, with its art and links
 import { aboutText, dayWords, ratingValue } from "./fields-format";
+import { OpenIn } from "./open-in";
 
 type Holder = Pick<WorksWorkView, "fields" | "artwork">;
 
@@ -227,7 +228,7 @@ function availabilityOf(
   ];
 }
 
-/** About the Work: its tagline and what its type places there, its credits, ratings and links, then Details. */
+/** About the Work: its tagline and what its type places there, its credits, ratings, links and Open in links, then Details. */
 export function About({
   type,
   work,
@@ -265,6 +266,7 @@ export function About({
             <Links links={work.links} />
           </Part>
         )}
+        <OpenIn links={work.openIn} />
         {details.length === 0 ? (
           <p className="text-ink-2">{record}</p>
         ) : (

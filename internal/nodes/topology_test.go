@@ -129,6 +129,33 @@ func TestTopologyCarriesStorage(t *testing.T) {
 	})
 }
 
+// TestTopologyLightsTheTelevision has every Node's servers respond: the
+// topology lights the television of each Node that stands in Media
+// Server link, home as the Controller, and of seedbox only once it does.
+func TestTopologyLightsTheTelevision(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		c := startController(t, func(cfg *nodes.Config) { cfg.Television = func(nodes.ID) bool { return true } })
+		w := c.worker(t, "seedbox", "127.0.0.3")
+		_, id := c.pair(t, w, c.mint(t), "seedbox")
+		holder(t, role.InProcess(c.svc.Controls()))
+		c.hold(t, w)
+		lit := func() [2]bool {
+			topo := c.topology(t)
+			return [2]bool{topo.Nodes[0].Television, topo.Nodes[1].Television}
+		}
+		c.apply(t, nodes.Roles{id: role.Of(role.Storage)})
+		synctest.Wait()
+		if got := lit(); got != [2]bool{true, false} {
+			t.Fatalf("home and seedbox's televisions lit %v, want home's alone while seedbox stands only in Storage", got)
+		}
+		c.apply(t, nodes.Roles{id: role.Of(role.Storage, role.MediaServerLink)})
+		synctest.Wait()
+		if got := lit(); got != [2]bool{true, true} {
+			t.Fatalf("home and seedbox's televisions lit %v, want both once seedbox stands in Media Server link", got)
+		}
+	})
+}
+
 // While seedbox is in session the Sync stream moves bytes over the link.
 // Each sample that shows them is published, and so is the first that
 // shows none, so the canvas comes to rest; nothing is published while

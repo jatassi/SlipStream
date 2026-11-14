@@ -8,6 +8,7 @@ export * from "./identity/identity.zod.ts";
 export * from "./imports/imports.zod.ts";
 export * from "./indexers/indexers.zod.ts";
 export * from "./mail/mail.zod.ts";
+export * from "./mediaservers/mediaservers.zod.ts";
 export * from "./metadata/metadata.zod.ts";
 export * from "./naming/naming.zod.ts";
 export * from "./nodes/nodes.zod.ts";

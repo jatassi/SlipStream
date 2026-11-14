@@ -98,6 +98,24 @@ func (s *Scheduler) SetSchedule(ctx context.Context, c ScheduleChange) error {
 	return nil
 }
 
+// Every is task id's cadence override in seconds, nil at its default,
+// whether the task is shown or not: a feature's section that shows the
+// task's cadence beside its own settings reads it here.
+func (s *Scheduler) Every(ctx context.Context, id TaskID) (*int64, error) {
+	if _, ok := s.byID[id]; !ok {
+		return nil, ErrUnknownTask
+	}
+	var every *int64
+	err := s.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		rows, err := db.New(r).ListTasks(ctx)
+		if i := slices.IndexFunc(rows, func(row db.TasksTask) bool { return row.ID == id }); i >= 0 {
+			every = rows[i].EverySeconds
+		}
+		return err
+	})
+	return every, err
+}
+
 // SetCadence stores the task's cadence override in seconds, which the
 // next plan reads.
 func (s *Scheduler) SetCadence(ctx context.Context, id TaskID, v setting.Stored[int64]) error {

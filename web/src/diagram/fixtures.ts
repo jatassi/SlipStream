@@ -44,7 +44,7 @@ const groups: NodesRoleGroup[] = [
     label: "Connect",
     roles: [
       { role: "metadata", label: "Metadata", pinned: false },
-      { role: "media-server-link", label: "Media Server link", pinned: false },
+      { role: "media-server-link", label: "Media Server link", pinned: true },
       { role: "notifying", label: "Notifying", pinned: false },
     ],
   },
@@ -67,6 +67,8 @@ type Seat = {
   readonly roles: readonly RoleName[];
   readonly away?: true;
   readonly draining?: RoleName;
+  /** No Media Server it reaches responds. */
+  readonly unreached?: true;
 };
 
 const SEATS: readonly Seat[] = [
@@ -78,6 +80,7 @@ const SEATS: readonly Seat[] = [
       "storage",
       "converting",
       "metadata",
+      "media-server-link",
       "notifying",
       "serving",
     ],
@@ -86,7 +89,7 @@ const SEATS: readonly Seat[] = [
   { name: "vps", roles: ["relaying", "serving"] },
   { name: "attic", roles: ["storage", "subtitles"], away: true },
   { name: "garage", roles: ["downloading", "converting"], draining: "downloading" },
-  { name: "office", roles: ["media-server-link", "metadata"] },
+  { name: "office", roles: ["media-server-link", "metadata"], unreached: true },
   { name: "cabin", roles: ["storage"] },
   { name: "studio", roles: ["converting", "subtitles", "notifying"] },
   { name: "lab", roles: ["searching"] },
@@ -176,6 +179,7 @@ function nodeOf(seat: Seat, index: number): NodesTopologyNode {
       ...(downloading ? { downloading: { torrents: torrentsOf(index) } } : {}),
       ...(storage ? { storage: storageOf(index) } : {}),
     },
+    television: roles.includes("media-server-link") && seat.unreached !== true,
   };
 }
 

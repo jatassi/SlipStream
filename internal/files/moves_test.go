@@ -226,6 +226,7 @@ func TestATargetTakenAtDiskTimePutsTheWholeChainBack(t *testing.T) {
 	l := open(t)
 	tree := l.work(t, "w1", true, nil)
 	ids := l.stock(t, tree, "w1/a.mkv", "w1/b.mkv", "w1/c.mkv")
+	base := l.listing(t)
 	l.renames(t, map[string]string{"w1/a.mkv": "w1/b.mkv", "w1/b.mkv": "w1/c.mkv", "w1/c.mkv": "w1/d.mkv"})
 	l.put(t, "w1/d.mkv", "not SlipStream's")
 	l.settle(t, l.files(files.NoGrabs{}))
@@ -243,6 +244,11 @@ func TestATargetTakenAtDiskTimePutsTheWholeChainBack(t *testing.T) {
 	if !l.moved.works()[tree.ID.String()] {
 		t.Fatal("no files.moved named the Work whose moves went back")
 	}
+	told := l.told(t)
+	if got, want := said(told), []string{"unmoved w1/a.mkv", "unmoved w1/b.mkv", "unmoved w1/c.mkv"}; !slices.Equal(slices.Sorted(slices.Values(got)), want) {
+		t.Fatalf("the put-back told %v, want each rename unmoved and nothing else", got)
+	}
+	l.converges(t, base)
 }
 
 func TestAFreshImportWhoseNameIsTakenLandsAtItsOwnHoldingName(t *testing.T) {
@@ -252,6 +258,9 @@ func TestAFreshImportWhoseNameIsTakenLandsAtItsOwnHoldingName(t *testing.T) {
 	f := l.download(t, svc, tree, 0, release.WEBDL1080p, "download")
 	l.put(t, f.Path, "not SlipStream's")
 	l.settle(t, svc)
+	if got := said(l.told(t)); len(got) != 0 {
+		t.Fatalf("the put-back import told %v, want nothing: no server lists its holding name", got)
+	}
 
 	own := files.HoldingOf(f.ID.UUID, ".mkv")
 	want := map[string]string{f.Path: "not SlipStream's", own: "download"}
@@ -271,6 +280,7 @@ func TestATradeWhoseTargetIsTakenMidwayEndsWithEveryRowAtItsBytes(t *testing.T) 
 	l := open(t)
 	tree := l.work(t, "w1", true, nil)
 	ids := l.stock(t, tree, "w1/a.mkv", "w1/b.mkv")
+	base := l.listing(t)
 	l.renames(t, map[string]string{"w1/a.mkv": "w1/b.mkv", "w1/b.mkv": "w1/a.mkv"})
 	disk := &recording{Disk: l.held}
 	taken := false
@@ -299,6 +309,7 @@ func TestATradeWhoseTargetIsTakenMidwayEndsWithEveryRowAtItsBytes(t *testing.T) 
 			t.Fatalf("the row at %s holds %q on disk, want its own bytes; the root holds %v", p, disk2[p], disk2)
 		}
 	}
+	l.converges(t, base)
 }
 
 func TestTheQueueRemovesTheFoldersItsMovesEmptied(t *testing.T) {

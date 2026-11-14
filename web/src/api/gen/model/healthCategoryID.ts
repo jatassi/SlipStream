@@ -3,6 +3,7 @@ export type HealthCategoryID =
   | "library"
   | "nodes"
   | "download-clients"
+  | "media-servers"
   | "seeding"
   | "indexers"
   | "scheduled-tasks";

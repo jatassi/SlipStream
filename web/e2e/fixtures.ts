@@ -28,7 +28,7 @@ import { overrideNewPageWithWarmUp, warmUp } from "./warm-up.ts";
 import type { Scenario } from "./scenario.ts";
 import { readSetupCode } from "./setup-code.ts";
 import { waitForSheets } from "./sheets.ts";
-import { pageErrors } from "./page-errors.ts";
+import { guard, origins } from "./guard.ts";
 
 export { expect, expectAccessible };
 
@@ -49,6 +49,8 @@ export type World = {
 
 type Fixtures = {
   scenario: Scenario;
+  /** Fronts, by target, whose origins a page may request beside the Node's, such as plex.tv's sign-in page. */
+  allow: readonly string[];
   /** How long fakeworld may take to bring the Scenario up, and to stop it. */
   launchSeconds: number;
   at: string;
@@ -63,12 +65,6 @@ type Fixtures = {
 type WorkerFixtures = {
   workerBrowser: Browser | null;
 };
-
-declare global {
-  interface Window {
-    reportCspViolation: (violation: string) => Promise<void>;
-  }
-}
 
 // The scale Scenario adds 20,000 Works before it is up.
 const slowestLaunch = 1800;
@@ -105,37 +101,10 @@ function testCommand(testInfo: TestInfo): string {
   return `bun run --cwd web e2e ${file.replaceAll("\\", "/")}:${testInfo.line} --project ${testInfo.project.name}`;
 }
 
-async function guard(context: BrowserContext, origin: string): Promise<() => Promise<void>> {
-  const foreign: string[] = [];
-  const violations: string[] = [];
-  const errors = await pageErrors(context);
-  context.on("request", (request) => {
-    const url = new URL(request.url());
-    if (url.protocol !== "data:" && url.protocol !== "blob:" && url.origin !== origin) {
-      foreign.push(request.url());
-    }
-  });
-  await context.exposeBinding("reportCspViolation", (_source, violation: string) => {
-    violations.push(violation);
-  });
-  // The page's CSP doesn't apply to an init script.
-  await context.addInitScript(() => {
-    document.addEventListener("securitypolicyviolation", (event) => {
-      void window.reportCspViolation(
-        `${event.violatedDirective} ${event.blockedURI} at ${event.sourceFile}:${event.lineNumber}`,
-      );
-    });
-  });
-  return async () => {
-    expect.soft(foreign, "requests to an origin other than the Node's").toEqual([]);
-    expect.soft(violations, "CSP violations").toEqual([]);
-    expect.soft(errors, "page errors").toEqual([]);
-    await Promise.all(context.pages().map((page) => expectAccessible(page)));
-  };
-}
-
 export const test = base.extend<Fixtures, WorkerFixtures>({
   scenario: ["single-machine", { option: true }],
+
+  allow: [[], { option: true }],
 
   launchSeconds: [60, { option: true }],
 
@@ -202,7 +171,11 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
           headers: manifest.apiKey === undefined ? {} : { "X-Api-Key": manifest.apiKey },
           ...(body === undefined
             ? {}
-            : { body: new Blob([JSON.stringify(body)], { type: "application/json" }) }),
+            : {
+                body: new Blob([JSON.stringify(body)], {
+                  type: "application/json",
+                }),
+              }),
         });
         return {
           status: response.status,
@@ -221,7 +194,10 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
         await use(null);
         return;
       }
-      const browser = await playwright[browserName].launch({ ...launchOptions, headless });
+      const browser = await playwright[browserName].launch({
+        ...launchOptions,
+        headless,
+      });
       await warmUp(browser);
       await use(browser);
       await browser.close();
@@ -241,6 +217,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       world,
       workerBrowser,
       startupSequence,
+      allow,
     },
     use,
   ) => {
@@ -261,7 +238,7 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       const origin = new URL(baseURL).origin;
       const context = await browser.newContext({ ...contextOptions, baseURL });
       contexts.push(context);
-      checks.push(await guard(context, origin));
+      checks.push(await guard(context, origins(world.manifest, origin, allow)));
       if (browserName === "webkit") {
         overrideNewPageWithWarmUp(context, `${origin}/icon-192.png`);
       }

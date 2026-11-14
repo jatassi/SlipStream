@@ -104,7 +104,7 @@ test("a probe that fails or is weak, or a guardrail on adding the Role, hints wh
 test("the Controller's pinned Roles stay ticked when its group switches off", () => {
   const shown = board(homeSeat, seedboxSeat);
   const locked = lockedOf(shown, homeSeat);
-  expect([...locked]).toEqual(["serving"]);
+  expect([...locked]).toEqual(["media-server-link", "serving"]);
   expect([...lockedOf(shown, seedboxSeat)]).toEqual([]);
   const reach = groups.find(({ group }) => group === "reach");
   if (reach === undefined) {

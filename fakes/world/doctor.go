@@ -587,7 +587,11 @@ func (d *doctor) checkEntered(c *CheckResult, target, what, rawURL, id string) {
 	if at, ok := sites.Address(u.Hostname()); ok {
 		dialed = at.String()
 	}
-	if dialed != d.m.Fronts[j].Address {
+	switch {
+	case dialed == d.m.Fronts[j].Address:
+	case strings.HasSuffix(u.Hostname(), ".plex.direct") || u.Port() == "32400":
+		fail(c, "%s %s looks like a real Plex server; type %s's front for %s, %s", what, rawURL, target, n.Name, d.m.Fronts[j].Address)
+	default:
 		fail(c, "%s %s is not %s's front for %s", what, rawURL, target, n.Name)
 	}
 }

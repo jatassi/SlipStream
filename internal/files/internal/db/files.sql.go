@@ -17,6 +17,25 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+const awaitsRemoval = `-- name: AwaitsRemoval :one
+SELECT EXISTS (SELECT 1 FROM files_doomed d WHERE d.replaced_by = ?1
+    AND substr(coalesce(d.origin, d.path), 1, length(?2)) <> ?2)
+`
+
+type AwaitsRemovalParams struct {
+	FileID  FileID
+	Holding interface{}
+}
+
+// Whether a doomed file names file_id as its replacer and its removal
+// will name a path outside holding.
+func (q *Queries) AwaitsRemoval(ctx context.Context, arg AwaitsRemovalParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, awaitsRemoval, arg.FileID, arg.Holding)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const countEveryGone = `-- name: CountEveryGone :many
 SELECT work_id, count(*) AS files FROM files_file WHERE gone_at IS NOT NULL GROUP BY work_id ORDER BY work_id
 `
@@ -369,8 +388,70 @@ func (q *Queries) HeldOfRoot(ctx context.Context, rootID roots.ID) ([]string, er
 	return items, nil
 }
 
+const iDsAt = `-- name: IDsAt :many
+SELECT f.id, coalesce(m.sits, f.path) AS place FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
+WHERE f.root_id = ?1 AND (m.sits IN (/*SLICE:sits*/?) OR m.file_id IS NULL AND f.path IN (/*SLICE:paths*/?))
+ORDER BY f.id
+`
+
+type IDsAtParams struct {
+	RootID roots.ID
+	Sits   []string
+	Paths  []string
+}
+
+type IDsAtRow struct {
+	ID    FileID
+	Place string
+}
+
+// Each file of a root, gone ones included, whose bytes sit at one of
+// paths: at its move's place while one is pending, else at its path.
+func (q *Queries) IDsAt(ctx context.Context, arg IDsAtParams) ([]IDsAtRow, error) {
+	query := iDsAt
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.RootID)
+	if len(arg.Sits) > 0 {
+		for _, v := range arg.Sits {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:sits*/?", strings.Repeat(",?", len(arg.Sits))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:sits*/?", "NULL", 1)
+	}
+	if len(arg.Paths) > 0 {
+		for _, v := range arg.Paths {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:paths*/?", strings.Repeat(",?", len(arg.Paths))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:paths*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []IDsAtRow
+	for rows.Next() {
+		var i IDsAtRow
+		if err := rows.Scan(&i.ID, &i.Place); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertDoomed = `-- name: InsertDoomed :exec
-INSERT INTO files_doomed (file_id, root_id, path, sits) VALUES (?1, ?2, ?3, ?4)
+INSERT INTO files_doomed (file_id, root_id, path, sits, origin)
+VALUES (?1, ?2, ?3, ?4, ?5)
 `
 
 type InsertDoomedParams struct {
@@ -378,6 +459,7 @@ type InsertDoomedParams struct {
 	RootID roots.ID
 	Path   string
 	Sits   *string
+	Origin *string
 }
 
 func (q *Queries) InsertDoomed(ctx context.Context, arg InsertDoomedParams) error {
@@ -386,6 +468,7 @@ func (q *Queries) InsertDoomed(ctx context.Context, arg InsertDoomedParams) erro
 		arg.RootID,
 		arg.Path,
 		arg.Sits,
+		arg.Origin,
 	)
 	return err
 }
@@ -630,7 +713,7 @@ func (q *Queries) ListBriefFilesOfWorks(ctx context.Context, workIds []works.Wor
 }
 
 const listDoomed = `-- name: ListDoomed :many
-SELECT file_id, root_id, path, sits FROM files_doomed ORDER BY file_id
+SELECT file_id, root_id, path, sits, origin, replaced_by FROM files_doomed ORDER BY file_id
 `
 
 func (q *Queries) ListDoomed(ctx context.Context) ([]FilesDoomed, error) {
@@ -647,6 +730,8 @@ func (q *Queries) ListDoomed(ctx context.Context) ([]FilesDoomed, error) {
 			&i.RootID,
 			&i.Path,
 			&i.Sits,
+			&i.Origin,
+			&i.ReplacedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -1633,6 +1718,40 @@ func (q *Queries) ListPutBack(ctx context.Context, holding interface{}) ([]ListP
 	return items, nil
 }
 
+const listReplacers = `-- name: ListReplacers :many
+SELECT d.file_id, f.path FROM files_doomed d JOIN files_file f ON f.id = d.replaced_by ORDER BY d.file_id
+`
+
+type ListReplacersRow struct {
+	FileID FileID
+	Path   string
+}
+
+// Each doomed file an upgrade replaced, with the path its replacer
+// belongs at.
+func (q *Queries) ListReplacers(ctx context.Context) ([]ListReplacersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listReplacers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListReplacersRow
+	for rows.Next() {
+		var i ListReplacersRow
+		if err := rows.Scan(&i.FileID, &i.Path); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTracked = `-- name: ListTracked :many
 SELECT f.work_id, f.root_id, f.path, m.sits FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
 WHERE f.gone_at IS NULL ORDER BY f.id
@@ -2013,6 +2132,20 @@ type SetPathParams struct {
 
 func (q *Queries) SetPath(ctx context.Context, arg SetPathParams) error {
 	_, err := q.db.ExecContext(ctx, setPath, arg.Path, arg.ID)
+	return err
+}
+
+const setReplacedBy = `-- name: SetReplacedBy :exec
+UPDATE files_doomed SET replaced_by = ?1 WHERE file_id = ?2
+`
+
+type SetReplacedByParams struct {
+	ReplacedBy FileID
+	FileID     FileID
+}
+
+func (q *Queries) SetReplacedBy(ctx context.Context, arg SetReplacedByParams) error {
+	_, err := q.db.ExecContext(ctx, setReplacedBy, arg.ReplacedBy, arg.FileID)
 	return err
 }
 

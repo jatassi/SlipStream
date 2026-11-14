@@ -20,6 +20,7 @@ import { importingSection, libraryScanSection } from "../imports/section";
 import { indexersSection } from "../indexers/section";
 // oxlint-disable-next-line import/max-dependencies -- the table names every section of Settings
 import { namingSection } from "../naming/section";
+import { mediaServersSection } from "../media-servers/section";
 import { libraryRootsSection } from "../roots/section";
 import { EditionsSection } from "../targets/editions-section";
 import { ProfilesSection } from "../targets/profiles-section";
@@ -134,7 +135,7 @@ export const settingsGroups: readonly [SettingsGroup, ...SettingsGroup[]] = [
     sections: [indexersSection, trackersSection, downloadClientsSection],
   },
   { id: "access", label: "Access", sections: [addressSection, signInSection, apiKeySection] },
-  { id: "system", label: "System", sections: [nodesSection, emailSection] },
+  { id: "system", label: "System", sections: [nodesSection, emailSection, mediaServersSection] },
 ];
 
 const settingsSections = settingsGroups.flatMap((group) => group.sections);

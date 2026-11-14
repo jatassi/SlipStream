@@ -13,9 +13,11 @@ import { getListMetadataProvidersQueryKey } from "../api/gen/query/metadata/meta
 import { downloadEffects } from "./download-effects";
 import { indexerEffects } from "./indexer-effects";
 import { libraryEffects, renameCounts } from "./library-effects";
+import { mediaServerEffects } from "./media-server-effects";
 import { everyPath } from "./refresh";
 import { systemEffects } from "./system-effects";
 import { targetsEffects } from "./targets-effects";
+// oxlint-disable-next-line import/max-dependencies -- every product event's effects meet in this one table
 import type { LiveEffects } from "./types";
 
 const everyAccount = everyPath(/^\/api\/v1\/accounts\/[^/]+(\/sessions)?$/u);
@@ -28,6 +30,7 @@ export const effects = {
   ...downloadEffects,
   ...indexerEffects,
   ...targetsEffects,
+  ...mediaServerEffects,
   "identity.sessions-changed": (data, { refresh }) => {
     refresh({ queryKey: getGetSessionQueryKey() });
     refresh({ queryKey: getListSessionsQueryKey() });

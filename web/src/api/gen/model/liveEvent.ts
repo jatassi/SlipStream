@@ -19,6 +19,11 @@ import type { LiveEventIndexersStatusChanged } from "./liveEventIndexersStatusCh
 import type { LiveEventLiveAccessChanged } from "./liveEventLiveAccessChanged.ts";
 import type { LiveEventLiveResync } from "./liveEventLiveResync.ts";
 import type { LiveEventLiveSessionEnded } from "./liveEventLiveSessionEnded.ts";
+import type { LiveEventMediaServersChanged } from "./liveEventMediaServersChanged.ts";
+import type { LiveEventMediaServersItemsFound } from "./liveEventMediaServersItemsFound.ts";
+import type { LiveEventMediaServersRecovered } from "./liveEventMediaServersRecovered.ts";
+import type { LiveEventMediaServersSessionsChanged } from "./liveEventMediaServersSessionsChanged.ts";
+import type { LiveEventMediaServersUnhealthy } from "./liveEventMediaServersUnhealthy.ts";
 import type { LiveEventMetadataChanged } from "./liveEventMetadataChanged.ts";
 import type { LiveEventNamingChanged } from "./liveEventNamingChanged.ts";
 import type { LiveEventNodesChanged } from "./liveEventNodesChanged.ts";
@@ -61,6 +66,11 @@ export type LiveEvent =
   | LiveEventLiveAccessChanged
   | LiveEventLiveResync
   | LiveEventLiveSessionEnded
+  | LiveEventMediaServersChanged
+  | LiveEventMediaServersItemsFound
+  | LiveEventMediaServersRecovered
+  | LiveEventMediaServersSessionsChanged
+  | LiveEventMediaServersUnhealthy
   | LiveEventMetadataChanged
   | LiveEventNamingChanged
   | LiveEventNodeSettingsChanged

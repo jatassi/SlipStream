@@ -323,7 +323,7 @@ func (w *walk) serveClients(t *testing.T, s scenario.Scenario, local *fault.Host
 			server, ok := served[c.Kind]
 			if !ok {
 				env := fake.NewEnv(s, spec, log, w.faults, sink)
-				env.Releases, env.Files, env.Dir = catalog, runDir, filepath.Join(dir, c.Kind)
+				env.Releases, env.Files, env.Dir, env.Media = catalog, runDir, filepath.Join(dir, c.Kind), w.mediaDir
 				if server, err = spec.New(s, env); err != nil {
 					t.Fatal(err)
 				}

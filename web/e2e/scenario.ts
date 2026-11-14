@@ -20,4 +20,5 @@ export type Scenario =
   | "external-clients"
   | "manual-search"
   | "packs"
-  | "imports";
+  | "imports"
+  | "media-servers";

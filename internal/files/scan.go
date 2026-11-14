@@ -65,7 +65,8 @@ type Scanned struct {
 // it, at the same path, sitting at the same place, at the same size and
 // as gone or live as it was, else its transition is dropped. A found
 // file, or a move's new path, that a row, a move or a doomed file names
-// now is dropped too. A Work no longer in Root is ErrRootChanged.
+// now is dropped too. A Work no longer in Root is ErrRootChanged. The
+// Media Servers are told each change the Write records.
 func (f *Files) Scan(ctx context.Context, tx *storage.Tx[file], s Scan) (Scanned, error) {
 	root, err := roots.OfWork(ctx, tx, s.Work)
 	switch {
@@ -110,6 +111,7 @@ func (f *Files) Scan(ctx context.Context, tx *storage.Tx[file], s Scan) (Scanned
 		}
 		after.files = append(after.files, g)
 		after.found[g.ID] = true
+		sc.went = append(sc.went, fact{file: g.ID, root: s.Root, to: g.Path})
 		after.see(items, fd.Cut)
 	}
 	if len(sc.changed) == 0 && len(after.found) == 0 {
@@ -124,13 +126,16 @@ func (f *Files) Scan(ctx context.Context, tx *storage.Tx[file], s Scan) (Scanned
 	if err != nil {
 		return Scanned{}, err
 	}
-	return Scanned{Changed: true, Dropped: sc.dropped}, apply(ctx, sc.q, p)
+	if err := apply(ctx, sc.q, p); err != nil {
+		return Scanned{}, err
+	}
+	return Scanned{Changed: true, Dropped: sc.dropped}, f.tell(ctx, tx, sc.went)
 }
 
 // scan is one Scan's Write in progress: the Work's files by id, as
 // changed so far, and the ones changed, in the order they were. left are
 // the files that left the place a pending move would take their bytes
-// from, by a move or by going.
+// from, by a move or by going. went is what each change did to the bytes.
 type scan struct {
 	Scan
 	q       *db.Queries
@@ -140,6 +145,7 @@ type scan struct {
 	at      map[ID]*File
 	changed []ID
 	left    map[ID]bool
+	went    []fact
 	dropped int
 }
 
@@ -147,12 +153,12 @@ type scan struct {
 // the compare read it.
 func (sc *scan) record(ctx context.Context) error {
 	for _, same := range sc.Share.Same {
-		if err := sc.transition(ctx, same.Rec, func(g *File) bool { return sc.same(g, same) }); err != nil {
+		if err := sc.transition(ctx, same.Rec, func(g *File, _ string) bool { return sc.same(g, same) }); err != nil {
 			return err
 		}
 	}
 	for _, c := range sc.Share.Changed {
-		if err := sc.transition(ctx, c.Rec, func(g *File) bool { return sc.resized(g, c) }); err != nil {
+		if err := sc.transition(ctx, c.Rec, func(g *File, _ string) bool { return sc.resized(g, c) }); err != nil {
 			return err
 		}
 	}
@@ -164,9 +170,13 @@ func (sc *scan) record(ctx context.Context) error {
 			sc.dropped++
 			continue
 		}
-		err := sc.transition(ctx, m.Rec, func(g *File) bool {
+		err := sc.transition(ctx, m.Rec, func(g *File, known string) bool {
+			if m.Returned {
+				known = ""
+			}
 			g.Path, g.Seen, g.GoneAt = m.To.Path.String(), &m.To.Seen, storage.Time{}
 			sc.left[g.ID] = true
+			sc.went = append(sc.went, fact{file: g.ID, root: sc.Root, from: known, to: g.Path})
 			return true
 		})
 		if err != nil {
@@ -174,8 +184,9 @@ func (sc *scan) record(ctx context.Context) error {
 		}
 	}
 	for _, r := range sc.Share.Gone {
-		err := sc.transition(ctx, r, func(g *File) bool {
+		err := sc.transition(ctx, r, func(g *File, known string) bool {
 			g.GoneAt, sc.left[g.ID] = sc.now, true
+			sc.went = append(sc.went, fact{file: g.ID, root: sc.Root, from: known})
 			return true
 		})
 		if err != nil {
@@ -186,18 +197,19 @@ func (sc *scan) record(ctx context.Context) error {
 }
 
 // transition changes rec's file with change when its row still reads as
-// rec does, and counts it dropped otherwise. change reports whether it
-// changed anything to write.
-func (sc *scan) transition(ctx context.Context, rec scanning.Recorded, change func(*File) bool) error {
+// rec does, and counts it dropped otherwise. change gets the path a server
+// lists the file at, its pending move's origin or else its path, and
+// reports whether it changed anything to write.
+func (sc *scan) transition(ctx context.Context, rec scanning.Recorded, change func(g *File, known string) bool) error {
 	g, ok := sc.at[ID{UUID: rec.ID}]
 	if !ok {
 		sc.dropped++
 		return nil
 	}
-	sits, next := g.Path, ""
+	sits, next, known := g.Path, "", g.Path
 	switch m, err := sc.q.GetMove(ctx, g.ID); {
 	case err == nil:
-		sits, next = m.Sits, move{file: g.ID, path: g.Path, sits: m.Sits, ring: m.Ring}.next()
+		sits, next, known = m.Sits, move{file: g.ID, path: g.Path, sits: m.Sits, ring: m.Ring}.next(), m.Origin
 	case !errors.Is(err, storage.ErrNoRows):
 		return err
 	}
@@ -205,7 +217,7 @@ func (sc *scan) transition(ctx context.Context, rec scanning.Recorded, change fu
 		sc.dropped++
 		return nil
 	}
-	if change(g) {
+	if change(g, known) {
 		sc.changed = append(sc.changed, g.ID)
 	}
 	return nil
@@ -226,6 +238,7 @@ func (sc *scan) same(g *File, s scanning.Same) bool {
 	g.Seen = &s.At.Seen
 	if s.Returned {
 		g.GoneAt = storage.Time{}
+		sc.went = append(sc.went, fact{file: g.ID, root: sc.Root, to: s.At.Path.String()})
 	}
 	return true
 }
@@ -244,9 +257,11 @@ func (sc *scan) resized(g *File, s scanning.Same) bool {
 		return q
 	})
 	g.Size, g.Seen, g.GrabID = s.At.Size, &s.At.Seen, storage.UUID{}
+	x := fact{file: g.ID, root: sc.Root, from: s.At.Path.String(), to: s.At.Path.String(), resized: true}
 	if s.Returned {
-		g.GoneAt = storage.Time{}
+		g.GoneAt, x.from = storage.Time{}, ""
 	}
+	sc.went = append(sc.went, x)
 	return true
 }
 

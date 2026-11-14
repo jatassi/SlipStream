@@ -35,6 +35,9 @@ type TopologyNode struct {
 	// Storage is its roots and their volumes, nil unless it stands in
 	// Storage; while it is away, as it last reported them.
 	Storage *StorageFigures
+	// Television is whether any Media Server it reaches responds, false
+	// unless it stands in Media Server link.
+	Television bool
 }
 
 type StorageFigures struct {
@@ -118,6 +121,9 @@ func (s *Service) topologyNode(ctx context.Context, r storage.Reader[file], boar
 			return TopologyNode{}, fmt.Errorf("read node %s's Storage: %w", v.ID, err)
 		}
 		n.Storage = &f
+	}
+	if board.Who(role.MediaServerLink).Serves(v.ID) {
+		n.Television = s.cfg.Television(v.ID)
 	}
 	return n, nil
 }

@@ -187,6 +187,7 @@ export const longShelf: WorksWorkView = {
   monitorAsides: false,
   levelFolders: true,
   options: [order, byPrinting],
+  openIn: [],
 };
 
 /** Every Story of The Long Shelf without a cell. */

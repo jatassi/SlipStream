@@ -46,10 +46,10 @@ func TestTheRuleColumnsMatchTheSpec(t *testing.T) {
 	if want := []role.Name{role.Searching, role.Downloading, role.Storage, role.Metadata, role.Notifying}; !slices.Equal(always, want) {
 		t.Errorf("Always = %v, want %v", always, want)
 	}
-	if want := []role.Name{role.Serving}; !slices.Equal(controller, want) {
+	if want := []role.Name{role.MediaServerLink, role.Serving}; !slices.Equal(controller, want) {
 		t.Errorf("Controller = %v, want %v", controller, want)
 	}
-	if want := []role.Name{role.MediaServerLink, role.Notifying}; !slices.Equal(reach, want) {
+	if want := []role.Name{role.Notifying}; !slices.Equal(reach, want) {
 		t.Errorf("Reach = %v, want %v", reach, want)
 	}
 	if got, want := role.Probes(), []role.Probe{role.EngineStarts, role.DataWritable, role.ListenerUp}; !slices.Equal(got, want) {

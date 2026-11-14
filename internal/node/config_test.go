@@ -32,7 +32,7 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 	want := []string{
 		"seed", "name", "torrent.listen", "torrent.downloads", "torrent.loopback_peers", "http.listen", "http.trusted_origins", "http.ports_to_try", "http.trusted_proxies", "link.listen", "link.advertise", "link.stream_window", "join.code",
 		"log.level", "log.max_size_mb", "log.max_files", "log.max_age_days", "log.compress", "log.viewer_lines", "storage.path_limit",
-		"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog", "endpoints.searching.sites",
+		"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.plex_tv.api", "endpoints.plex_tv.auth", "endpoints.plex_tv.desktop", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog", "endpoints.searching.sites",
 		"timings.node.stop_deadline", "timings.node.restart_lock_wait", "timings.storage.busy_timeout", "timings.http.read_header", "timings.http.idle",
 		"timings.live.heartbeat", "timings.live.retry",
 		"timings.link.handshake", "timings.link.keepalive", "timings.link.write_timeout", "timings.link.redial_min", "timings.link.redial_max", "timings.link.fallback_delay", "timings.link.log_poll", "timings.link.log_archive_ttl",
@@ -44,6 +44,13 @@ func TestDefaultsAreAValidTree(t *testing.T) {
 		"timings.metadata.attempts", "timings.metadata.try", "timings.metadata.retry_min", "timings.metadata.retry_max", "timings.metadata.wait", "timings.metadata.cache_entries", "timings.metadata.retest_min", "timings.metadata.retest_max", "timings.metadata.artwork_retry", "timings.metadata.changes_pages",
 		"timings.tmdb.interval", "timings.tmdb.burst", "timings.tvdb.interval", "timings.tvdb.burst", "timings.omdb.interval", "timings.omdb.burst",
 		"timings.health.retry", "timings.health.check",
+		"timings.media_servers.call", "timings.media_servers.keep_alive", "timings.media_servers.reconnect_min",
+		"timings.media_servers.reconnect_max", "timings.media_servers.retry_min", "timings.media_servers.retry_max",
+		"timings.media_servers.pin_poll", "timings.media_servers.scan_end_poll", "timings.media_servers.scan_end_poll_max",
+		"timings.media_servers.scan_end_bound", "timings.media_servers.moved_confirm", "timings.media_servers.moved_step",
+		"timings.media_servers.step_poll", "timings.media_servers.rename_snapshot", "timings.media_servers.upgrade_pairing",
+		"timings.media_servers.section_folders", "timings.media_servers.session_cap", "timings.media_servers.index_age",
+		"timings.media_servers.sent_age", "timings.media_servers.index_page",
 	}
 	if !slices.Equal(paths, want) {
 		t.Fatalf("leaves = %v, want %v", paths, want)
@@ -204,7 +211,7 @@ func TestAContentTypesEndpointsAreKeysOfTheirOwn(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := Key{Key: "endpoints.content_types.fixture.api", Value: "https://fixture.invalid/v1", Default: "https://fixture.invalid/v1", Source: config.SourceDefault, Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_FIXTURE_API"}
-	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog", "endpoints.content_types.fixture.api"}) || !slices.Equal(resolved.ContentTypes, []string{"fixture"}) {
+	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.plex_tv.api", "endpoints.plex_tv.auth", "endpoints.plex_tv.desktop", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog", "endpoints.content_types.fixture.api"}) || !slices.Equal(resolved.ContentTypes, []string{"fixture"}) {
 		t.Fatalf("resolved = %+v; want %+v, the key in the census and contentTypes [fixture]", resolved, key)
 	}
 
@@ -214,7 +221,7 @@ func TestAContentTypesEndpointsAreKeysOfTheirOwn(t *testing.T) {
 		t.Fatal(err)
 	}
 	key = Key{Key: "endpoints.content_types.fixture.api", Value: "https://127.0.0.1:8443/v1", Default: "https://fixture.invalid/v1", Source: config.SourceEnv, Env: "SLIPSTREAM_ENDPOINTS_CONTENT_TYPES_FIXTURE_API"}
-	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog"}) {
+	if !slices.Contains(resolved.Keys, key) || !slices.Equal(resolved.Census, []string{"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.plex_tv.api", "endpoints.plex_tv.auth", "endpoints.plex_tv.desktop", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog"}) {
 		t.Fatalf("resolved = %+v; want %+v and only the core endpoints in the census", resolved, key)
 	}
 	cfg, _, err = LoadConfig(env.DataDir, env.Environ, types, install.Dev)

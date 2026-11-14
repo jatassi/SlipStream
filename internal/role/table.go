@@ -75,7 +75,7 @@ var table = [...]row{
 	{Converting, "Converting", Process, "converts", Rule{Work: Portable, Lapse: ToPeer}},
 	{Subtitles, "Subtitles", Process, "fetches subtitles", Rule{Work: Portable, Lapse: ToPeer}},
 	{Metadata, "Metadata", Connect, "reads metadata", Rule{Always: true, Work: None, Lapse: ToController}},
-	{MediaServerLink, "Media Server link", Connect, "talks to Media Servers", Rule{Work: None, Lapse: ToController, Reach: true}},
+	{MediaServerLink, "Media Server link", Connect, "talks to Media Servers", Rule{Controller: true, Work: None, Lapse: Wait}},
 	{Notifying, "Notifying", Connect, "sends mail", Rule{Always: true, Work: Portable, Lapse: ToController, Reach: true}},
 	{Relaying, "Relaying", Reach, "relays", Rule{Max: 1, Work: Streams, Lapse: Wait}},
 	{Serving, "Serving", Reach, "serves SlipStream", Rule{Controller: true, Work: None, Lapse: Wait, Probe: ListenerUp}},

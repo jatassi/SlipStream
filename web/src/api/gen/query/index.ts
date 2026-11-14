@@ -8,6 +8,7 @@ export * from "./identity/identity.ts";
 export * from "./imports/imports.ts";
 export * from "./indexers/indexers.ts";
 export * from "./mail/mail.ts";
+export * from "./mediaservers/mediaservers.ts";
 export * from "./metadata/metadata.ts";
 export * from "./naming/naming.ts";
 export * from "./nodes/nodes.ts";

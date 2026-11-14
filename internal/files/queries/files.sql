@@ -155,7 +155,22 @@ SELECT count(*) FROM files_move m JOIN files_file f ON f.id = m.file_id WHERE f.
 SELECT f.work_id, count(*) AS files FROM files_move m JOIN files_file f ON f.id = m.file_id GROUP BY f.work_id ORDER BY f.work_id;
 
 -- name: InsertDoomed :exec
-INSERT INTO files_doomed (file_id, root_id, path, sits) VALUES (sqlc.arg(file_id), sqlc.arg(root_id), sqlc.arg(path), sqlc.arg(sits));
+INSERT INTO files_doomed (file_id, root_id, path, sits, origin)
+VALUES (sqlc.arg(file_id), sqlc.arg(root_id), sqlc.arg(path), sqlc.arg(sits), sqlc.arg(origin));
+
+-- name: SetReplacedBy :exec
+UPDATE files_doomed SET replaced_by = sqlc.arg(replaced_by) WHERE file_id = sqlc.arg(file_id);
+
+-- name: ListReplacers :many
+-- Each doomed file an upgrade replaced, with the path its replacer
+-- belongs at.
+SELECT d.file_id, f.path FROM files_doomed d JOIN files_file f ON f.id = d.replaced_by ORDER BY d.file_id;
+
+-- name: AwaitsRemoval :one
+-- Whether a doomed file names file_id as its replacer and its removal
+-- will name a path outside holding.
+SELECT EXISTS (SELECT 1 FROM files_doomed d WHERE d.replaced_by = sqlc.arg(file_id)
+    AND substr(coalesce(d.origin, d.path), 1, length(sqlc.arg(holding))) <> sqlc.arg(holding));
 
 -- name: ListDoomed :many
 SELECT * FROM files_doomed ORDER BY file_id;
@@ -243,6 +258,13 @@ DELETE FROM files_file WHERE root_id = sqlc.arg(root_id) AND path = sqlc.arg(pat
 
 -- name: ListPaths :many
 SELECT path FROM files_file ORDER BY id;
+
+-- name: IDsAt :many
+-- Each file of a root, gone ones included, whose bytes sit at one of
+-- paths: at its move's place while one is pending, else at its path.
+SELECT f.id, coalesce(m.sits, f.path) AS place FROM files_file f LEFT JOIN files_move m ON m.file_id = f.id
+WHERE f.root_id = sqlc.arg(root_id) AND (m.sits IN (sqlc.slice(sits)) OR m.file_id IS NULL AND f.path IN (sqlc.slice(paths)))
+ORDER BY f.id;
 
 -- name: ListPutBack :many
 -- Each live file that sits in its root's holding folder with no move

@@ -105,6 +105,9 @@ type Config struct {
 	Kept     func(ctx context.Context, r storage.Reader[file], node ID) ([]Kept, error)
 	Torrents Torrents
 	Storage  func(ctx context.Context, r storage.Reader[file], node ID) (StorageFigures, error)
+	// Television is whether any Media Server node reaches responds, from
+	// its Media Server link facts. It must not block.
+	Television func(node ID) bool
 	// Facts is called after a holder's Role facts are stored, with the
 	// Role's name, as role.ControlsConfig.Facts is. It must not block.
 	Facts func(node ID, scope string)
@@ -205,15 +208,15 @@ func Open(ctx context.Context, cfg Config) (*Service, error) {
 	}
 	err := cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
+		now := storage.Now()
 		row, err := q.GetNodeByKey(ctx, cfg.Key[:])
 		if err == nil {
 			s.self = row.ID
-			return nil
+			return holdControllerRoles(ctx, q, s.self, now)
 		}
 		if !errors.Is(err, storage.ErrNoRows) {
 			return err
 		}
-		now := storage.Now()
 		s.self = ID{UUID: storage.NewUUID()}
 		name, err := freeName(ctx, q, s.self, cfg.Name)
 		if err != nil {
@@ -293,6 +296,21 @@ func (s *Service) load(ctx context.Context) error {
 			return fmt.Errorf("load the roster: removed node %s: %w", row.ID, err)
 		}
 		s.removed[key] = true
+	}
+	return nil
+}
+
+// holdControllerRoles ticks every Role the Controller always holds on
+// self, which a library from before a Role's rule became Controller-held
+// may lack.
+func holdControllerRoles(ctx context.Context, q *db.Queries, self ID, now storage.Time) error {
+	for _, r := range role.Names() {
+		if !r.Rule().Controller {
+			continue
+		}
+		if err := q.InsertRole(ctx, db.InsertRoleParams{NodeID: self, Role: r, AssignedAt: now}); err != nil {
+			return err
+		}
 	}
 	return nil
 }
