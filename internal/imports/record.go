@@ -54,16 +54,20 @@ func rootImportAt(ctx context.Context, r storage.Reader[file], p db.GetRootImpor
 
 // allImports is every Import rows lists, with its files.
 func allImports(ctx context.Context, r storage.Reader[file], rows []db.ImportsImport) ([]Import, error) {
+	ids := make([]ImportID, len(rows))
+	for i, row := range rows {
+		ids[i] = row.ID
+	}
 	q := db.New(r)
-	fileRows, err := q.ListFiles(ctx)
+	fileRows, err := q.ListFilesOfImports(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	itemRows, err := q.ListFileItems(ctx)
+	itemRows, err := q.ListFileItemsOfImports(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	fillRows, err := q.ListFills(ctx)
+	fillRows, err := q.ListFillsOfImports(ctx, ids)
 	if err != nil {
 		return nil, err
 	}

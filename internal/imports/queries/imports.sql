@@ -17,14 +17,14 @@ SELECT * FROM imports_import WHERE source = 'root' AND finished_at IS NULL ORDER
 -- name: ListUnfinishedImports :many
 SELECT * FROM imports_import WHERE finished_at IS NULL ORDER BY source <> 'root', root_id, folder, id;
 
--- name: ListFiles :many
-SELECT * FROM imports_file ORDER BY import_id, position;
+-- name: ListFilesOfImports :many
+SELECT * FROM imports_file WHERE import_id IN (sqlc.slice(ids)) ORDER BY import_id, position;
 
 -- name: ListFilesOf :many
 SELECT * FROM imports_file WHERE import_id = ? ORDER BY position;
 
--- name: ListFileItems :many
-SELECT * FROM imports_file_item ORDER BY import_id, position, "order";
+-- name: ListFileItemsOfImports :many
+SELECT * FROM imports_file_item WHERE import_id IN (sqlc.slice(ids)) ORDER BY import_id, position, "order";
 
 -- name: ListFileItemsOf :many
 SELECT * FROM imports_file_item WHERE import_id = ? ORDER BY position, "order";
@@ -115,8 +115,8 @@ UPDATE imports_settings SET video_extensions = ?, smallest_video = ?, sample_sho
 SELECT f.path FROM imports_file f JOIN imports_import i ON i.id = f.import_id
 WHERE i.finished_at IS NULL AND f.outcome NOT IN ('left_out', 'not_better', 'placed', 'declined', 'failed') ORDER BY f.import_id, f.position;
 
--- name: ListFills :many
-SELECT * FROM imports_file_fill ORDER BY import_id, position, item_id, edition, target_id;
+-- name: ListFillsOfImports :many
+SELECT * FROM imports_file_fill WHERE import_id IN (sqlc.slice(ids)) ORDER BY import_id, position, item_id, edition, target_id;
 
 -- name: ListFillsOf :many
 SELECT * FROM imports_file_fill WHERE import_id = ? ORDER BY position, item_id, edition, target_id;
