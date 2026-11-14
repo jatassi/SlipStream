@@ -7,12 +7,13 @@ package mediaserverlink
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/mediaserverlink/internal/mbkind"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
 )
 
 // Kinds is the one list of kinds. Adding a kind is a line here.
-var Kinds = link.Registry{}
+var Kinds = link.Registry{mbkind.Jellyfin, mbkind.Emby}
 
 // Port is how the Controller's sender runs one step on a server. A
 // link.Conn the Controller dials itself at the fallback address is one.
@@ -39,3 +40,7 @@ func (r remote) Advance(ctx context.Context, j link.Job) (link.Advanced, error) 
 	}
 	return AdvancedOf(j.Server, resp)
 }
+
+// Direct is Advance in this process on the server d dials: the
+// Controller's fallback.
+func Direct(k link.Kind, d link.Dialed) Port { return k.Dial(d) }
