@@ -10,7 +10,6 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
-	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -404,36 +403,16 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, a
 			names[len(names)] = asked[i].IndexerName
 		}
 	}
-	bl, err := blocksOf(ctx, tx, as)
+	d, err := gr.decideIn(ctx, tx, runInput(run, as))
 	if err != nil {
 		return nil, err
 	}
-	as = bl.gate(as)
-	if err := sight(ctx, tx, as); err != nil {
+	if err := gr.storeReleases(ctx, q, run.ID, d.rows, names, d.grab != nil, nil); err != nil {
 		return nil, err
 	}
-	results := make([]formats.Result, len(as))
-	for i, a := range as {
-		results[i] = a.formats
-	}
-	if err := targets.AddTimeouts(ctx, tx, results); err != nil {
-		return nil, err
-	}
-	d, c, err := gr.decision(ctx, tx, run, as)
-	if err != nil {
-		return nil, err
-	}
-	finished := storage.Now()
-	grab, pick, err := gr.take(ctx, tx, run, d, c, nil, finished)
-	if err != nil {
-		return nil, err
-	}
-	if err := gr.storeReleases(ctx, q, run.ID, outcomes(d, c, pick.at), names, grab != nil, nil); err != nil {
-		return nil, err
-	}
-	finish := db.FinishSearchParams{ID: run.ID, FinishedAt: finished, Outcome: new(NothingAcceptable), Candidates: int64(len(as))}
-	if grab != nil {
-		notes, err := encodeReasons(pick.Notes)
+	finish := db.FinishSearchParams{ID: run.ID, FinishedAt: d.at, Outcome: new(NothingAcceptable), Candidates: int64(d.candidates)}
+	if d.grab != nil {
+		notes, err := encodeReasons(d.notes)
 		if err != nil {
 			return nil, err
 		}
@@ -447,7 +426,7 @@ func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, a
 			return nil, err
 		}
 	}
-	return grab, q.PruneGroup(ctx, db.PruneGroupParams{WorkID: run.WorkID, GroupKey: &run.Group})
+	return d.grab, q.PruneGroup(ctx, db.PruneGroupParams{WorkID: run.WorkID, GroupKey: &run.Group})
 }
 
 // sight records a sighting of the cut of every listed Release whose name
