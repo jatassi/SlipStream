@@ -398,6 +398,81 @@ func (q *Queries) GetTrackerOfKey(ctx context.Context, key string) (TrackerID, e
 	return tracker_id, err
 }
 
+const inFlightSearches = `-- name: InFlightSearches :many
+SELECT indexer_id, claim, reserved_at FROM indexers_query
+WHERE completed_at IS NULL AND use = 'search' AND reserved_at > ?1
+ORDER BY indexer_id, reserved_at
+`
+
+type InFlightSearchesRow struct {
+	IndexerID  IndexerID
+	Claim      *string
+	ReservedAt storage.Time
+}
+
+func (q *Queries) InFlightSearches(ctx context.Context, since storage.Time) ([]InFlightSearchesRow, error) {
+	rows, err := q.db.QueryContext(ctx, inFlightSearches, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []InFlightSearchesRow
+	for rows.Next() {
+		var i InFlightSearchesRow
+		if err := rows.Scan(&i.IndexerID, &i.Claim, &i.ReservedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const inFlightSearchesOf = `-- name: InFlightSearchesOf :many
+SELECT indexer_id, claim, reserved_at FROM indexers_query
+WHERE indexer_id = ?1 AND completed_at IS NULL AND use = 'search' AND reserved_at > ?2
+ORDER BY reserved_at
+`
+
+type InFlightSearchesOfParams struct {
+	IndexerID IndexerID
+	Since     storage.Time
+}
+
+type InFlightSearchesOfRow struct {
+	IndexerID  IndexerID
+	Claim      *string
+	ReservedAt storage.Time
+}
+
+func (q *Queries) InFlightSearchesOf(ctx context.Context, arg InFlightSearchesOfParams) ([]InFlightSearchesOfRow, error) {
+	rows, err := q.db.QueryContext(ctx, inFlightSearchesOf, arg.IndexerID, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []InFlightSearchesOfRow
+	for rows.Next() {
+		var i InFlightSearchesOfRow
+		if err := rows.Scan(&i.IndexerID, &i.Claim, &i.ReservedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertCatalogEntry = `-- name: InsertCatalogEntry :exec
 INSERT INTO indexers_catalog (id, file, sha, name, description, privacy, language, categories)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)

@@ -367,6 +367,7 @@ func (n *Node) startController(ctx context.Context) error {
 			return scheduler.Next(ctx, indexers.CatalogRefreshTaskID)
 		},
 		Timings: n.cfg.Timings.Indexers,
+		JobCap:  n.cfg.Timings.Searching.JobCap,
 		Zone:    n.zone(),
 		Log:     n.rootLog.With("subsystem", "indexers"),
 	})

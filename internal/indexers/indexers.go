@@ -387,6 +387,12 @@ type Config struct {
 	// it isn't waiting for a slot.
 	CatalogNext func(context.Context) (time.Time, error)
 	Timings     Timings
+	// JobCap is searching's: the longest a job runs on its Node, so a
+	// search query reserved longer ago is no longer in flight.
+	JobCap time.Duration
+	// RSS is RSS sync's cadence and whether it is on, read in r. Nil is
+	// off, so RSS sync keeps no slots of any search limit.
+	RSS func(ctx context.Context, r storage.Reader[file]) (every time.Duration, on bool, err error)
 	// Zone is the zone of the times inside sentences.
 	Zone *time.Location
 	Log  *slog.Logger

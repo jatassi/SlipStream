@@ -329,7 +329,11 @@ func TestReserveRefusesPastTheLimitAndCountsRecentWithSearches(t *testing.T) {
 	_, lib, idx := saved(t)
 	take := func(u Use, at time.Time) error {
 		return lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[file]) error {
-			_, err := reserve(ctx, tx, idx, u, storage.FromTime(at))
+			var c Claim
+			if u == UseSearch {
+				c = ClaimPress
+			}
+			_, err := reserve(ctx, tx, idx, u, c, storage.FromTime(at))
 			return err
 		})
 	}
@@ -359,7 +363,7 @@ func TestReserveRefusesPastTheLimitAndCountsRecentWithSearches(t *testing.T) {
 func TestRecordWritesNothingForAnOlderRevisionButItsQuery(t *testing.T) {
 	x, lib, idx := saved(t)
 	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[file]) error {
-		q, err := reserve(ctx, tx, idx, UseSearch, storage.FromTime(t0))
+		q, err := reserve(ctx, tx, idx, UseSearch, ClaimPress, storage.FromTime(t0))
 		if err != nil {
 			return err
 		}
@@ -387,7 +391,7 @@ func TestASessionReplayOrAnOlderOneChangesNothing(t *testing.T) {
 	offer := func(s searching.Session) {
 		t.Helper()
 		err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[file]) error {
-			q, err := reserve(ctx, tx, idx, UseTest, storage.FromTime(t0))
+			q, err := reserve(ctx, tx, idx, UseTest, 0, storage.FromTime(t0))
 			if err != nil {
 				return err
 			}

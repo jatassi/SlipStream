@@ -58,7 +58,7 @@ func (x *Indexers) Take(ctx context.Context, tx *storage.Tx[file], r Release) (T
 	}
 	if !r.Offered().IsMagnet() {
 		t.Query = QueryID{UUID: storage.NewUUID()}
-		if err := insertQuery(ctx, tx, t.Query, idx, UseFetch, now); err != nil {
+		if err := insertQuery(ctx, tx, t.Query, idx, UseFetch, 0, now); err != nil {
 			return Ticket{}, err
 		}
 	}
