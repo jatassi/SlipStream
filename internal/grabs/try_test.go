@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/formats"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/grabs/grabstest"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -29,22 +28,6 @@ import (
 	"github.com/jatassi/slipstream/internal/transfers"
 	"github.com/jatassi/slipstream/internal/works"
 )
-
-// dated reads a name's words up to its year as its title. A name with no
-// year reads no title. Its clean rule folds case.
-type dated struct{}
-
-func (dated) ReadName(p rel.Prepared) rel.Name {
-	words := strings.Split(p.Title.String(), ".")
-	for i, w := range words {
-		if y, err := strconv.Atoi(w); err == nil && y > 1900 && i > 0 {
-			return rel.Name{Titles: []string{strings.Join(words[:i], " ")}, Year: rel.Known(y)}
-		}
-	}
-	return rel.Name{}
-}
-
-func (dated) CleanTitle(title string) string { return strings.ToLower(title) }
 
 // titled expects a Work's label as its one title, and a name to cover
 // the Work's first Item unless covered is false.
@@ -120,7 +103,7 @@ func tester(t *testing.T, keys ...works.Key) (*grabs.Grabs, *titled, []works.Wor
 	claims := &titled{w: w, covered: true}
 	g := grabs.New(grabs.Config{
 		Library: lib, Works: w, Targets: goals, Files: shelf,
-		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: claims}, Names: map[works.TypeID]rel.Names{contenttypetest.ID: dated{}},
+		Terms: map[works.TypeID]indexers.Facet{contenttypetest.ID: claims}, Names: map[works.TypeID]rel.Names{contenttypetest.ID: grabstest.Dated{}},
 		Timings: grabs.DefaultTimings(), Log: slog.New(slog.DiscardHandler),
 	})
 	return g, claims, ids
