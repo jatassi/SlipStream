@@ -119,6 +119,33 @@ func TestPartitionSplitsAHeavyPackageByItsTests(t *testing.T) {
 	}
 }
 
+func TestPartitionSpreadsTestsTheTimingsHaveNotSeen(t *testing.T) {
+	timed := map[string]float64{"TestA": 10, "TestB": 10, "TestC": 10, "TestD": 10}
+	past := timings{Packages: map[string]packageTimings{"heavy": {Seconds: 40, Tests: timed}, "x": {Seconds: 1}}}
+	pkgs := packages("heavy", "x")
+	pkgs[0].testNames = []string{"TestA", "TestB", "TestC", "TestD", "TestN1", "TestN2", "TestN3", "TestN4"}
+	parts := splitParts(t, partition(pkgs, past, 2, true))
+	if len(parts) != 2 {
+		t.Fatalf("heavy splits into %v, want 2 parts", parts)
+	}
+	for _, name := range pkgs[0].testNames {
+		if n := timesRun(parts, name); n != 1 {
+			t.Errorf("the parts of heavy run %s %d times, want once", name, n)
+		}
+	}
+	for _, p := range parts {
+		var fresh int
+		for _, name := range pkgs[0].testNames[4:] {
+			if timesRun([]goRun{p}, name) == 1 {
+				fresh++
+			}
+		}
+		if fresh != 2 {
+			t.Errorf("part %v runs %d of the 4 untimed tests, want 2", p.args(), fresh)
+		}
+	}
+}
+
 func TestPartitionSplitsAPackageLongerThanAShardCanSpread(t *testing.T) {
 	past := timings{CPUs: 4, Packages: map[string]packageTimings{
 		"node": {Seconds: 144, Tests: map[string]float64{"TestA": 50, "TestB": 50, "TestC": 44}},
@@ -198,6 +225,9 @@ func TestListGoPackagesSumsTheTestFiles(t *testing.T) {
 	}
 	if pkgs[i].testBytes != want {
 		t.Errorf("cmd/release test files weigh %d bytes, want the %d its *_test.go files hold", pkgs[i].testBytes, want)
+	}
+	if !slices.Contains(pkgs[i].testNames, "TestListGoPackagesSumsTheTestFiles") {
+		t.Errorf("cmd/release declares tests %v, want this one among them", pkgs[i].testNames)
 	}
 }
 

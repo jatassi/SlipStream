@@ -7,6 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
 	"maps"
 	"math"
@@ -133,6 +136,8 @@ type goPackage struct {
 	tests bool
 	// testBytes is the size of the package's test files.
 	testBytes int64
+	// testNames is the top-level tests its test files declare.
+	testNames []string
 	// e2e says the package's tests depend on fakes/testbin.
 	e2e bool
 }
@@ -166,21 +171,44 @@ func listGoPackages(ctx context.Context, root string, env []string) ([]goPackage
 			testbin[strings.TrimSuffix(path, ".test")] = fields[4] != ""
 		default:
 			names := strings.FieldsFunc(fields[2]+","+fields[3], func(r rune) bool { return r == ',' })
-			var size int64
+			pkg := goPackage{path: path, tests: len(names) > 0}
 			for _, n := range names {
-				info, err := os.Stat(filepath.Join(fields[1], n))
+				file := filepath.Join(fields[1], n)
+				info, err := os.Stat(file)
 				if err != nil {
 					return nil, fmt.Errorf("go list: %w", err)
 				}
-				size += info.Size()
+				pkg.testBytes += info.Size()
+				tests, err := topLevelTests(file)
+				if err != nil {
+					return nil, err
+				}
+				pkg.testNames = append(pkg.testNames, tests...)
 			}
-			pkgs = append(pkgs, goPackage{path: path, tests: len(names) > 0, testBytes: size})
+			pkgs = append(pkgs, pkg)
 		}
 	}
 	for i := range pkgs {
 		pkgs[i].e2e = testbin[pkgs[i].path]
 	}
 	return pkgs, nil
+}
+
+// topLevelTests is the Test functions a test file declares, the names
+// go test -run matches at the top level.
+func topLevelTests(file string) ([]string, error) {
+	f, err := parser.ParseFile(token.NewFileSet(), file, nil, parser.SkipObjectResolution)
+	if err != nil {
+		return nil, fmt.Errorf("go list: %w", err)
+	}
+	var tests []string
+	for _, d := range f.Decls {
+		fn, ok := d.(*ast.FuncDecl)
+		if ok && fn.Recv == nil && strings.HasPrefix(fn.Name.Name, "Test") && fn.Name.Name != "TestMain" {
+			tests = append(tests, fn.Name.Name)
+		}
+	}
+	return tests, nil
 }
 
 // goRun is one go test of a shard: whole packages, or one package's
@@ -242,7 +270,7 @@ func partition(pkgs []goPackage, past timings, shards int, splitTests bool) [][]
 			items = append(items, weighed{pkg: p.path, seconds: w})
 			continue
 		}
-		items = append(items, splitPackage(p.path, w, tests, min(shards, len(tests), int(math.Ceil(w/span))))...)
+		items = append(items, splitPackage(p.path, w, tests, p.testNames, min(shards, len(tests), int(math.Ceil(w/span))))...)
 	}
 	return packShards(items, shards)
 }
@@ -323,13 +351,21 @@ func packShards(items []weighed, shards int) [][]goRun {
 }
 
 // splitPackage packs a package's top-level tests into n parts, longest
-// first, scaled so the parts weigh the package's seconds.
-func splitPackage(pkg string, seconds float64, tests map[string]float64, n int) []weighed {
-	names := slices.SortedFunc(maps.Keys(tests), func(a, b string) int { return cmp.Or(cmp.Compare(tests[b], tests[a]), cmp.Compare(a, b)) })
+// first, scaled so the timed tests weigh the package's seconds. A declared
+// test the timings have not seen weighs as their mean, so a batch of new
+// tests spreads over the parts instead of piling into the rest part.
+func splitPackage(pkg string, seconds float64, timed map[string]float64, declared []string, n int) []weighed {
 	var sum float64
-	for _, name := range names {
-		sum += tests[name]
+	for _, name := range slices.Sorted(maps.Keys(timed)) {
+		sum += timed[name]
 	}
+	tests := maps.Clone(timed)
+	for _, name := range declared {
+		if _, ok := tests[name]; !ok {
+			tests[name] = sum / float64(len(timed))
+		}
+	}
+	names := slices.SortedFunc(maps.Keys(tests), func(a, b string) int { return cmp.Or(cmp.Compare(tests[b], tests[a]), cmp.Compare(a, b)) })
 	scale := 1.0
 	if sum > 0 {
 		scale = seconds / sum

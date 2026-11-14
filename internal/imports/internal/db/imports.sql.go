@@ -666,38 +666,6 @@ func (q *Queries) ListCopies(ctx context.Context) ([]ListCopiesRow, error) {
 	return items, nil
 }
 
-const listFileItems = `-- name: ListFileItems :many
-SELECT import_id, position, item_id, "order" FROM imports_file_item ORDER BY import_id, position, "order"
-`
-
-func (q *Queries) ListFileItems(ctx context.Context) ([]ImportsFileItem, error) {
-	rows, err := q.db.QueryContext(ctx, listFileItems)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ImportsFileItem
-	for rows.Next() {
-		var i ImportsFileItem
-		if err := rows.Scan(
-			&i.ImportID,
-			&i.Position,
-			&i.ItemID,
-			&i.Order,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listFileItemsOf = `-- name: ListFileItemsOf :many
 SELECT import_id, position, item_id, "order" FROM imports_file_item WHERE import_id = ? ORDER BY position, "order"
 `
@@ -730,45 +698,34 @@ func (q *Queries) ListFileItemsOf(ctx context.Context, importID ImportID) ([]Imp
 	return items, nil
 }
 
-const listFiles = `-- name: ListFiles :many
-SELECT import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut, release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order, placed_by, file_id, source_removed_at, seeded FROM imports_file ORDER BY import_id, position
+const listFileItemsOfImports = `-- name: ListFileItemsOfImports :many
+SELECT import_id, position, item_id, "order" FROM imports_file_item WHERE import_id IN (/*SLICE:ids*/?) ORDER BY import_id, position, "order"
 `
 
-func (q *Queries) ListFiles(ctx context.Context) ([]ImportsFile, error) {
-	rows, err := q.db.QueryContext(ctx, listFiles)
+func (q *Queries) ListFileItemsOfImports(ctx context.Context, ids []ImportID) ([]ImportsFileItem, error) {
+	query := listFileItemsOfImports
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ImportsFile
+	var items []ImportsFileItem
 	for rows.Next() {
-		var i ImportsFile
+		var i ImportsFileItem
 		if err := rows.Scan(
 			&i.ImportID,
 			&i.Position,
-			&i.Path,
-			&i.SourceIndex,
-			&i.Size,
-			&i.ModifiedAt,
-			&i.NodeFileID,
-			&i.NodeVolumeID,
-			&i.Probe,
-			&i.Quality,
-			&i.Cut,
-			&i.ReleaseName,
-			&i.SourceName,
-			&i.Outcome,
-			&i.Reason,
-			&i.Hold,
-			&i.Confirmed,
-			&i.RootID,
-			&i.Dest,
-			&i.SentTransfer,
-			&i.SentOrder,
-			&i.PlacedBy,
-			&i.FileID,
-			&i.SourceRemovedAt,
-			&i.Seeded,
+			&i.ItemID,
+			&i.Order,
 		); err != nil {
 			return nil, err
 		}
@@ -836,12 +793,75 @@ func (q *Queries) ListFilesOf(ctx context.Context, importID ImportID) ([]Imports
 	return items, nil
 }
 
-const listFills = `-- name: ListFills :many
-SELECT import_id, position, item_id, edition, target_id, forced FROM imports_file_fill ORDER BY import_id, position, item_id, edition, target_id
+const listFilesOfImports = `-- name: ListFilesOfImports :many
+SELECT import_id, position, path, source_index, size, modified_at, node_file_id, node_volume_id, probe, quality, cut, release_name, source_name, outcome, reason, hold, confirmed, root_id, dest, sent_transfer, sent_order, placed_by, file_id, source_removed_at, seeded FROM imports_file WHERE import_id IN (/*SLICE:ids*/?) ORDER BY import_id, position
 `
 
-func (q *Queries) ListFills(ctx context.Context) ([]ImportsFileFill, error) {
-	rows, err := q.db.QueryContext(ctx, listFills)
+func (q *Queries) ListFilesOfImports(ctx context.Context, ids []ImportID) ([]ImportsFile, error) {
+	query := listFilesOfImports
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ImportsFile
+	for rows.Next() {
+		var i ImportsFile
+		if err := rows.Scan(
+			&i.ImportID,
+			&i.Position,
+			&i.Path,
+			&i.SourceIndex,
+			&i.Size,
+			&i.ModifiedAt,
+			&i.NodeFileID,
+			&i.NodeVolumeID,
+			&i.Probe,
+			&i.Quality,
+			&i.Cut,
+			&i.ReleaseName,
+			&i.SourceName,
+			&i.Outcome,
+			&i.Reason,
+			&i.Hold,
+			&i.Confirmed,
+			&i.RootID,
+			&i.Dest,
+			&i.SentTransfer,
+			&i.SentOrder,
+			&i.PlacedBy,
+			&i.FileID,
+			&i.SourceRemovedAt,
+			&i.Seeded,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFillsOf = `-- name: ListFillsOf :many
+SELECT import_id, position, item_id, edition, target_id, forced FROM imports_file_fill WHERE import_id = ? ORDER BY position, item_id, edition, target_id
+`
+
+func (q *Queries) ListFillsOf(ctx context.Context, importID ImportID) ([]ImportsFileFill, error) {
+	rows, err := q.db.QueryContext(ctx, listFillsOf, importID)
 	if err != nil {
 		return nil, err
 	}
@@ -870,12 +890,22 @@ func (q *Queries) ListFills(ctx context.Context) ([]ImportsFileFill, error) {
 	return items, nil
 }
 
-const listFillsOf = `-- name: ListFillsOf :many
-SELECT import_id, position, item_id, edition, target_id, forced FROM imports_file_fill WHERE import_id = ? ORDER BY position, item_id, edition, target_id
+const listFillsOfImports = `-- name: ListFillsOfImports :many
+SELECT import_id, position, item_id, edition, target_id, forced FROM imports_file_fill WHERE import_id IN (/*SLICE:ids*/?) ORDER BY import_id, position, item_id, edition, target_id
 `
 
-func (q *Queries) ListFillsOf(ctx context.Context, importID ImportID) ([]ImportsFileFill, error) {
-	rows, err := q.db.QueryContext(ctx, listFillsOf, importID)
+func (q *Queries) ListFillsOfImports(ctx context.Context, ids []ImportID) ([]ImportsFileFill, error) {
+	query := listFillsOfImports
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}
