@@ -62,6 +62,14 @@ func (s *server) Libraries(ctx context.Context) ([]link.Library, error) {
 	return out, nil
 }
 
+func toldPaths(told []mediaservers.Told) []link.ServerPath {
+	out := make([]link.ServerPath, len(told))
+	for i, x := range told {
+		out[i] = x.Path
+	}
+	return out
+}
+
 func folders(paths []link.ServerPath) []link.ServerPath {
 	var out []link.ServerPath
 	for _, p := range paths {
@@ -81,8 +89,8 @@ func (s *server) refresh(ctx context.Context, library string, fs []link.ServerPa
 	return nil
 }
 
-func (s *server) Tell(ctx context.Context, library string, paths []link.ServerPath) error {
-	return s.refresh(ctx, library, folders(paths))
+func (s *server) Tell(ctx context.Context, library string, told []mediaservers.Told) error {
+	return s.refresh(ctx, library, folders(toldPaths(told)))
 }
 
 // Moved refreshes the destination folders first, then each source folder
@@ -176,7 +184,7 @@ func has(m plex.Metadata, p link.ServerPath) bool {
 }
 
 func item(m plex.Metadata) mediaservers.Item {
-	it := mediaservers.Item{Key: string(m.RatingKey), PlayCount: m.ViewCount}
+	it := mediaservers.Item{Key: string(m.RatingKey), Played: m.ViewCount > 0, PlayCount: m.ViewCount}
 	for _, md := range m.Media {
 		for _, part := range md.Parts {
 			if f, err := link.ParsePath(part.File); err == nil {
