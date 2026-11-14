@@ -20070,6 +20070,13 @@
             "description": "The Node it ran on was removed since",
             "type": "boolean"
           },
+          "note": {
+            "description": "How it ended, such as Queued 212 groups for search.; null when it didn't succeed or has none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "outcome": {
             "enum": [
               "succeeded",
@@ -20087,7 +20094,8 @@
           "nodeId",
           "nodeRemoved",
           "outcome",
-          "cause"
+          "cause",
+          "note"
         ],
         "type": "object"
       },

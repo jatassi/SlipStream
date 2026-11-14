@@ -217,6 +217,10 @@ export const getListTasksResponseMock = (
                     node: faker.string.alpha({ length: { min: 10, max: 20 } }),
                     nodeId: faker.string.uuid(),
                     nodeRemoved: faker.datatype.boolean(),
+                    note: faker.helpers.arrayElement([
+                      faker.string.alpha({ length: { min: 10, max: 20 } }),
+                      null,
+                    ]),
                     outcome: faker.helpers.arrayElement([
                       "succeeded",
                       "failed",
@@ -1569,6 +1573,10 @@ export const getGetTaskResponseMock = (
         node: faker.string.alpha({ length: { min: 10, max: 20 } }),
         nodeId: faker.string.uuid(),
         nodeRemoved: faker.datatype.boolean(),
+        note: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          null,
+        ]),
         outcome: faker.helpers.arrayElement([
           "succeeded",
           "failed",
@@ -1671,6 +1679,10 @@ export const getGetTaskResponseMock = (
               node: faker.string.alpha({ length: { min: 10, max: 20 } }),
               nodeId: faker.string.uuid(),
               nodeRemoved: faker.datatype.boolean(),
+              note: faker.helpers.arrayElement([
+                faker.string.alpha({ length: { min: 10, max: 20 } }),
+                null,
+              ]),
               outcome: faker.helpers.arrayElement([
                 "succeeded",
                 "failed",
@@ -1908,6 +1920,10 @@ export const getUpdateTaskResponseMock = (
               node: faker.string.alpha({ length: { min: 10, max: 20 } }),
               nodeId: faker.string.uuid(),
               nodeRemoved: faker.datatype.boolean(),
+              note: faker.helpers.arrayElement([
+                faker.string.alpha({ length: { min: 10, max: 20 } }),
+                null,
+              ]),
               outcome: faker.helpers.arrayElement([
                 "succeeded",
                 "failed",
