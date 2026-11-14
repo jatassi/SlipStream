@@ -28,7 +28,11 @@ func (s *Service) Run(ctx context.Context, req *searchv1.RunRequest) (*searchv1.
 	if (job.Kind == Native) != (job.Port != "") {
 		return nil, rpc.Errorf(rpc.CodeInvalidArgument, "a native Indexer's job names its port, and no other job names one")
 	}
-	r := s.jobs.join(job.ID, func(r *run) Answer { return s.do(job, site, r) })
+	keep := s.cfg.Timings.Keep
+	if _, ok := job.Call.(SearchCall); ok {
+		keep = s.cfg.Timings.JobCap
+	}
+	r := s.jobs.join(job.ID, keep, func(r *run) Answer { return s.do(job, site, r) })
 	hold := time.NewTimer(s.cfg.Timings.Hold)
 	defer hold.Stop()
 	select {
