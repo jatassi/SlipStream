@@ -8221,6 +8221,11 @@ export const NodesTopologyNode = zod.object({
     .datetime({ offset: true })
     .describe("When it came in step; while away, its last Sync frame"),
   state: zod.enum(["online", "reconnecting", "offline", "lapsed", "mismatched"]),
+  television: zod
+    .boolean()
+    .describe(
+      "Whether any Media Server the Node reaches responds; false unless it stands in Media Server link",
+    ),
 });
 
 export type NodesTopologyNode = zod.input<typeof NodesTopologyNode>;

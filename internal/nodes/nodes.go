@@ -105,6 +105,9 @@ type Config struct {
 	Kept     func(ctx context.Context, r storage.Reader[file], node ID) ([]Kept, error)
 	Torrents Torrents
 	Storage  func(ctx context.Context, r storage.Reader[file], node ID) (StorageFigures, error)
+	// Television is whether any Media Server node reaches responds, from
+	// its Media Server link facts. It must not block.
+	Television func(node ID) bool
 	// Facts is called after a holder's Role facts are stored, with the
 	// Role's name, as role.ControlsConfig.Facts is. It must not block.
 	Facts func(node ID, scope string)

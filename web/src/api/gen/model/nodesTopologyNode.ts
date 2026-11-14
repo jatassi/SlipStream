@@ -19,4 +19,6 @@ export interface NodesTopologyNode {
   /** When it came in step; while away, its last Sync frame */
   since: string;
   state: NodesTopologyNodeState;
+  /** Whether any Media Server the Node reaches responds; false unless it stands in Media Server link */
+  television: boolean;
 }

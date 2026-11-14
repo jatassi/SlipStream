@@ -238,6 +238,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Storage: func(ctx context.Context, r storage.Reader[storage.Library], id role.NodeID) (nodes.StorageFigures, error) {
 			return homes.Figures(ctx, r, id)
 		},
+		Television: servers.Television,
 		Facts: func(id role.NodeID, scope string) {
 			arrivals.Note(id, scope)
 			clients.Arrived(id, scope)

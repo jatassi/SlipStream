@@ -63,6 +63,22 @@ func (m *MediaServers) Apply(ctx context.Context, tx *storage.Tx[storage.Library
 	}
 }
 
+// Television is whether any server node reaches responds, as its last
+// facts say; false while its session is detached.
+func (m *MediaServers) Television(node role.NodeID) bool {
+	f, ok := m.cfg.Facts(node)
+	return ok && responds(f)
+}
+
+func responds(f *msv1.Facts) bool {
+	for _, s := range f.GetServers() {
+		if s.GetResponding() {
+			return true
+		}
+	}
+	return false
+}
+
 func serverIDOf(b []byte) (link.ServerID, error) {
 	u, err := storage.UUIDFromBytes(b)
 	if err != nil {

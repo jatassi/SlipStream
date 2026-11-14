@@ -244,3 +244,20 @@ func TestARefusedPlexSignInIsUnhealthyAtOnce(t *testing.T) {
 		r.expectTransitions(t, v.ID, "plex", "unhealthy sign_in_refused", "recovered sign_in_refused")
 	})
 }
+
+// TestTheTelevisionLightsWhileAServerResponds stops Den: seedbox's
+// television is lit while Den responds and dark once it doesn't, and
+// home's, which reaches no server, stays dark.
+func TestTheTelevisionLightsWhileAServerResponds(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		s := newShelf(t, "")
+		if !s.w.Television(s.w.Seedbox) || s.w.Television(s.w.Home) {
+			t.Fatalf("seedbox's television lit %t and home's %t, want seedbox's alone", s.w.Television(s.w.Seedbox), s.w.Television(s.w.Home))
+		}
+		s.stop(t)
+		settle(time.Minute)
+		if s.w.Television(s.w.Seedbox) {
+			t.Error("seedbox's television is lit once Den stopped, want it dark")
+		}
+	})
+}

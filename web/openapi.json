@@ -15545,6 +15545,10 @@
               "mismatched"
             ],
             "type": "string"
+          },
+          "television": {
+            "description": "Whether any Media Server the Node reaches responds; false unless it stands in Media Server link",
+            "type": "boolean"
           }
         },
         "required": [
@@ -15556,7 +15560,8 @@
           "since",
           "roles",
           "probes",
-          "resources"
+          "resources",
+          "television"
         ],
         "type": "object"
       },
