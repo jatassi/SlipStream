@@ -105,9 +105,11 @@ func (f *Files) Run(ctx context.Context) error {
 
 type queue struct {
 	doomed []db.FilesDoomed
-	moves  []move
-	prunes []db.FilesPrune
-	lost   map[roots.ID]bool
+	// replacers is the path each doomed file's replacer belongs at.
+	replacers map[ID]string
+	moves     []move
+	prunes    []db.FilesPrune
+	lost      map[roots.ID]bool
 }
 
 func (f *Files) read(ctx context.Context) (queue, error) {
@@ -117,6 +119,14 @@ func (f *Files) read(ctx context.Context) (queue, error) {
 		var err error
 		if out.doomed, err = q.ListDoomed(ctx); err != nil {
 			return err
+		}
+		replacers, err := q.ListReplacers(ctx)
+		if err != nil {
+			return err
+		}
+		out.replacers = make(map[ID]string, len(replacers))
+		for _, row := range replacers {
+			out.replacers[row.FileID] = row.Path
 		}
 		rows, err := q.ListMoves(ctx)
 		if err != nil {
@@ -177,13 +187,25 @@ type place struct {
 }
 
 // drain runs one pass of the queue, skipping the rows of lost roots, and
-// reports what else it left undone. A pass removes the doomed files, sends
-// each ring member to its holding path, then moves every file whose bytes
-// may take its path there, and last removes the folders moves left empty.
+// reports what else it left undone. A pass has the Media Servers prepare
+// the pending renames, removes the doomed files, sends each ring member to
+// its holding path, then moves every file whose bytes may take its path
+// there, and last removes the folders moves left empty.
 func (f *Files) drain(ctx context.Context) (skippedLost bool, err error) {
 	q, err := f.read(ctx)
 	if err != nil {
 		return false, err
+	}
+	renames, err := q.renames()
+	if err != nil {
+		return false, err
+	}
+	f.cfg.MediaServers.Prepare(ctx, renames)
+	prepared := map[ID]storing.Rel{}
+	for _, r := range renames {
+		if r.Leaving {
+			prepared[r.File] = r.From
+		}
 	}
 	var errs []error
 	for _, d := range q.doomed {
@@ -205,7 +227,7 @@ func (f *Files) drain(ctx context.Context) (skippedLost bool, err error) {
 	if q, err = f.read(ctx); err != nil {
 		return false, err
 	}
-	errs = append(errs, f.land(ctx, q))
+	errs = append(errs, f.land(ctx, q, prepared))
 	if q, err = f.read(ctx); err != nil {
 		return false, errors.Join(append(errs, err)...)
 	}
@@ -215,14 +237,16 @@ func (f *Files) drain(ctx context.Context) (skippedLost bool, err error) {
 
 // land moves every file of q whose next hop is its path there, unless
 // another file's bytes still sit there, and puts back each whose path
-// another file holds. It publishes files.moved for the Works whose moves
-// it finished or put back.
-func (f *Files) land(ctx context.Context, q queue) error {
+// another file holds. A rename queued since the pass's Prepare, the origin
+// of a file not in prepared, waits for the next pass, which its Write's
+// poke runs. It publishes files.moved for the Works whose moves it
+// finished or put back.
+func (f *Files) land(ctx context.Context, q queue, prepared map[ID]storing.Rel) error {
 	var errs []error
 	var touched []works.WorkID
 	pending := q.pending()
 	for _, m := range q.moves {
-		if m.next() != m.path || q.lost[m.root] {
+		if m.next() != m.path || q.lost[m.root] || m.leaves() && prepared[m.file].String() != m.origin {
 			continue
 		}
 		if at, ok := pending[folded(m.root, m.path)]; ok && at != m.file {
@@ -295,33 +319,38 @@ func (f *Files) step(ctx context.Context, m move, to string) (done bool, err err
 		f.cfg.Log.Warn("another file has a companion's new name", "root", m.root.String(), "file", to, "companion", left.String())
 	}
 	err = f.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		var went []fact
 		var err error
-		done, err = reached(ctx, db.New(tx), m, to)
-		return err
+		if done, went, err = reached(ctx, db.New(tx), m, to); err != nil {
+			return err
+		}
+		return f.tell(ctx, tx, went)
 	})
 	return done, err
 }
 
-// reached records that m's bytes reached to, and whether that finished m.
-func reached(ctx context.Context, q *db.Queries, m move, to string) (bool, error) {
+// reached records that m's bytes reached to, and whether that finished m:
+// then the bytes went from m's origin to its path.
+func reached(ctx context.Context, q *db.Queries, m move, to string) (bool, []fact, error) {
 	if from := path.Dir(m.sits); from != "." && !isHeld(m.sits) && from != path.Dir(to) {
 		if err := q.InsertPrune(ctx, db.InsertPruneParams{RootID: m.root, Folder: from}); err != nil {
-			return false, err
+			return false, nil, err
 		}
 	}
 	if to == m.path {
 		n, err := q.FinishMove(ctx, db.FinishMoveParams{FileID: m.file, Sits: m.sits, Path: to})
+		went := []fact{{file: m.file, root: m.root, from: m.origin, to: to}}
 		switch {
 		case err != nil:
-			return false, err
+			return false, nil, err
 		case n == 1 && (isHeld(m.origin) || m.origin == to):
-			return true, nil
+			return true, went, nil
 		case n == 1:
-			return true, q.InsertRenamed(ctx, db.InsertRenamedParams{FileID: m.file, RootID: m.root, FromPath: m.origin, ToPath: to, RenamedAt: storage.Now()})
+			return true, went, q.InsertRenamed(ctx, db.InsertRenamedParams{FileID: m.file, RootID: m.root, FromPath: m.origin, ToPath: to, RenamedAt: storage.Now()})
 		}
 	}
 	_, err := q.MoveReached(ctx, db.MoveReachedParams{FileID: m.file, Sits: m.sits, Reached: to})
-	return false, err
+	return false, nil, err
 }
 
 // prune removes each folder a finished move left, with its empty parents,
@@ -379,7 +408,7 @@ func topOf(p string) string {
 // remove removes a doomed file's bytes, then its row. Bytes that were
 // moving sit at its move's place or its holding path; when neither holds
 // them the move had taken them to its path, which goes too unless another
-// file's bytes wait there.
+// file's bytes wait there. Servers saw them leave the path the doom names.
 func (f *Files) remove(ctx context.Context, q queue, d db.FilesDoomed) error {
 	if err := ctx.Err(); err != nil {
 		return err //nolint:wrapcheck // Run's own cancel
@@ -403,7 +432,10 @@ func (f *Files) remove(ctx context.Context, q queue, d db.FilesDoomed) error {
 		}
 	}
 	return f.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		return db.New(tx).DeleteDoomed(ctx, d.FileID)
+		if err := db.New(tx).DeleteDoomed(ctx, d.FileID); err != nil {
+			return err
+		}
+		return f.tell(ctx, tx, []fact{{file: d.FileID, root: d.RootID, from: named(d), replacedBy: d.ReplacedBy}})
 	})
 }
 

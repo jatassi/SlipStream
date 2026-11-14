@@ -16,6 +16,9 @@ import (
 // and its Title: the files the migration that added them left without
 // them take them first.
 func Open(ctx context.Context, cfg Config) (*Files, error) {
+	if cfg.MediaServers == nil {
+		cfg.MediaServers = NoMediaServers{}
+	}
 	f := &Files{cfg: cfg, poke: make(chan struct{}, 1)}
 	if err := f.catchUpReads(ctx); err != nil {
 		return nil, fmt.Errorf("open files: read release names: %w", err)
