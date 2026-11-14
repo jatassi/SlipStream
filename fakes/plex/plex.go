@@ -17,13 +17,16 @@ package plex
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/mediaserver"
 	"github.com/jatassi/slipstream/fakes/internal/plexaccount"
+	"github.com/jatassi/slipstream/fakes/internal/serverfake"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/node"
@@ -43,6 +46,7 @@ var Fake = fake.Spec{
 	Online:    fake.OnlineSuite("plex"),
 	Cues:      []fake.CueSpec{{Name: "plex-play"}, {Name: "plex-stop"}, {Name: "plex-restart"}, {Name: "plex-scan"}},
 	Captures:  []fake.CaptureSpec{Refreshes, Items},
+	Entered:   serverfake.Entered(name),
 }
 
 var (
@@ -107,8 +111,39 @@ func Playing(srv Server) fake.Spec {
 	return spec
 }
 
-// newServer plays no Plex until a Scenario names one.
-func newServer(_ scenario.Scenario, env fake.Env) (fake.Server, error) { return serve(env, nil) }
+// newServer plays the Plex the Scenario names, or none, as fake-plex-tv's
+// account owns it, with a section per Content Type of the roots it holds.
+func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
+	p, ok, err := serverfake.Playing(s, name, Versions)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return serve(env, nil)
+	}
+	srv := &Server{Name: p.Name, Version: p.Version, Identifier: p.ID(40), Owner: plexAdmin, PlexPass: true, Root: p.Root}
+	for i, l := range p.Libraries {
+		title, typ, ok := sectionOf(l.ContentType)
+		if !ok {
+			return nil, fmt.Errorf("plex %s holds a %s root, and fake-plex plays no section of it", p.Name, l.ContentType)
+		}
+		srv.Sections = append(srv.Sections, Section{Key: strconv.Itoa(i + 1), Title: title, Type: typ, Folders: l.Folders, Scanned: true})
+	}
+	return serve(env, srv)
+}
+
+// plexAdmin is the plex.tv account fake-plex-tv signs a world in to.
+const plexAdmin = "plex-admin"
+
+func sectionOf(contentType string) (title, typ string, ok bool) {
+	switch contentType {
+	case "movie":
+		return "Movies", "movie", true
+	case "series":
+		return "TV Shows", "show", true
+	}
+	return "", "", false
+}
 
 type server struct {
 	env     fake.Env

@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net"
 	"strconv"
 	"sync"
@@ -16,6 +17,8 @@ import (
 
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/internal/mediaserver"
+	"github.com/jatassi/slipstream/fakes/internal/serverfake"
+	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 )
 
@@ -255,4 +258,42 @@ func (s *server) record(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// ServeScenario is the fake for p playing the server the Scenario names
+// for p, or none: a library per Content Type of the roots it holds, its
+// key, its administrator and the Scenario's users.
+func ServeScenario(env fake.Env, p Product, s scenario.Scenario, versions []string) (fake.Server, error) {
+	played, ok, err := serverfake.Playing(s, p.Name, versions)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return Serve(env, p, nil)
+	}
+	srv := &Server{
+		Name: played.Name, Version: played.Version, ID: played.ID(32), Keys: []string{played.Key()},
+		Users: []User{{Name: serverfake.Admin, Password: serverfake.AdminPassword, Admin: true}}, Root: played.Root,
+	}
+	for _, u := range played.Users {
+		srv.Users = append(srv.Users, User{Name: u})
+	}
+	for _, l := range played.Libraries {
+		name, typ, ok := libraryOf(l.ContentType)
+		if !ok {
+			return nil, fmt.Errorf("%s %s holds a %s root, and fake-%s plays no library of it", p.Name, played.Name, l.ContentType, p.Name)
+		}
+		srv.Libraries = append(srv.Libraries, Library{Name: name, Type: typ, Folders: l.Folders, Scanned: true})
+	}
+	return Serve(env, p, srv)
+}
+
+func libraryOf(contentType string) (name, typ string, ok bool) {
+	switch contentType {
+	case "movie":
+		return "Movies", "movies", true
+	case "series":
+		return "Shows", "tvshows", true
+	}
+	return "", "", false
 }

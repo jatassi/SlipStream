@@ -367,7 +367,7 @@ func TestAFailingServerKeepsItsChanges(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s := newShelf(t, "")
 		ids := fileIDs{}
-		up := s.w.Down(host)
+		up := s.w.Down(t, host)
 		s.tell(t, at(t, files.PathAdded, ids.of("old"), "Trip/Trip.mkv"))
 		settle(time.Minute)
 		c := change(t, s.changes(t), "Trip/Trip.mkv")
@@ -475,12 +475,14 @@ const plexToken = "living-room-test-token"
 
 // shows is Living room Plex, which seedbox reaches, with the Shows root
 // mapped and scanned, once the section refresh its mapping queued has
-// gone. Each of placed, a path under Shows, is there before that refresh.
+// gone. Shows holds an episode of Harbor, so Plex scanned it with
+// content, and each of placed, a path under Shows, is there before that
+// refresh.
 func newShows(t *testing.T, placed ...string) (shelf, mstest.Plex) {
 	t.Helper()
 	r := plexRig{rig: newRig(t)}
 	r.plex = r.w.Plex(t, windowsPlex, fakeplextv.Account{Username: "plex-admin", PlexPass: true})
-	for _, rel := range placed {
+	for _, rel := range append([]string{"Harbor/Season 01/Harbor - S01E01.mkv"}, placed...) {
 		place(t, r.plex.Server.Media, "Shows/"+rel)
 	}
 	r.signIn(t)
@@ -518,7 +520,7 @@ func refreshed(t *testing.T, px mstest.Plex) []string {
 
 // TestASeasonPackIsOnePlexRefresh lands 40 episodes in one season folder
 // of a Windows Plex: Plex refreshes that one folder once, named with the
-// server's backslashes.
+// server's backslashes, and holds the last episode as an item.
 func TestASeasonPackIsOnePlexRefresh(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s, px := newShows(t)
@@ -526,6 +528,7 @@ func TestASeasonPackIsOnePlexRefresh(t *testing.T) {
 		var cs []files.PathChange
 		for e := 1; e <= 40; e++ {
 			name := fmt.Sprintf("Voyage/Season 01/Voyage - S01E%02d.mkv", e)
+			place(t, px.Server.Media, "Shows/"+name)
 			cs = append(cs, at(t, files.PathAdded, ids.of(name), name))
 		}
 		s.tell(t, cs...)
@@ -534,6 +537,7 @@ func TestASeasonPackIsOnePlexRefresh(t *testing.T) {
 		if got := refreshed(t, px); !slices.Equal(got, want) {
 			t.Errorf("Plex took the refreshes %v, want %v", got, want)
 		}
+		plexKey(t, px, "Voyage/Season 01/Voyage - S01E40.mkv")
 	})
 }
 

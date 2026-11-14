@@ -283,7 +283,7 @@ func TestARenameSnapshotsAtSendWhenDenWasDown(t *testing.T) {
 				v := s.viewer(t)
 				v.watch("Trip/Trip.mkv")
 				trip := fileIDs{}.of("trip")
-				up := s.w.Down(host)
+				up := s.w.Down(t, host)
 				s.prepare(t, rename(t, trip, "Trip/Trip.mkv>Trip/Trip (2024).mkv"))
 				ch := change(t, s.changes(t), "Trip/Trip (2024).mkv")
 				expectWords(t, ch, "prepared", "SlipStream couldn't save the watch data before the rename. It tries again when it sends this change.")

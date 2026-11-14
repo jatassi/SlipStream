@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/emby"
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/jellyfin"
 	fakeplex "github.com/jatassi/slipstream/fakes/plex"
 	fakeplextv "github.com/jatassi/slipstream/fakes/plextv"
@@ -100,7 +101,7 @@ func New(t *testing.T) *World {
 	w := &World{
 		Lib: storagetest.Library(t, Schemas()...), Sealer: secrettest.Sealer(t),
 		Home: role.NodeID{UUID: storage.NewUUID()}, Seedbox: role.NodeID{UUID: storage.NewUUID()},
-		net: &network{served: map[string]http.RoundTripper{}}, rehomed: make(chan struct{}, 1), files: map[works.WorkID][]files.File{}, hub: live.NewHub(hubEvents),
+		net: &network{served: map[string]http.RoundTripper{}, down: map[string]stopper{}}, rehomed: make(chan struct{}, 1), files: map[works.WorkID][]files.File{}, hub: live.NewHub(hubEvents),
 	}
 	t.Cleanup(w.hub.Close)
 	err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
@@ -200,6 +201,7 @@ func (w *World) mediaBrowser(t *testing.T, host string, spec fake.Spec, srv jell
 	w.net.mu.Lock()
 	defer w.net.mu.Unlock()
 	w.net.served[host] = f.Client.Transport
+	w.net.down[host] = stopper{faults: f.Faults, target: fault.Target(spec.Name)}
 	return f
 }
 
@@ -242,6 +244,7 @@ func (w *World) Plex(t *testing.T, srv fakeplex.Server, a fakeplextv.Account) Pl
 	defer w.net.mu.Unlock()
 	for host, node := range hosts {
 		w.net.served[host] = p.Server.From(t, node).Transport
+		w.net.down[host] = stopper{faults: p.Server.Faults, target: fault.Target(fakeplex.Fake.Name), origin: node}
 	}
 	w.net.served[plexTV.API.Hostname()] = p.TV.Client.Transport
 	return p
@@ -363,10 +366,18 @@ func (empty) ForgetGoneOf(context.Context, *storage.Tx[storage.Library], works.W
 	return nil
 }
 
-// network is the fakes served, by host.
+// network is the fakes served, by host, and how to stop each.
 type network struct {
 	mu     sync.Mutex
 	served map[string]http.RoundTripper
+	down   map[string]stopper
+}
+
+// stopper resets the connections that reach a fake at one host.
+type stopper struct {
+	faults *fault.Plan
+	target fault.Target
+	origin string
 }
 
 var errNoAnswer = errors.New("no answer")
@@ -480,16 +491,17 @@ func (w *World) Item(t *testing.T, server string, p link.ServerPath) (Item, bool
 	return Item{Key: it.ItemKey, Top: it.TopKey, Stale: it.Stale}, true
 }
 
-// Down stops the server at host answering, as a server that stopped does,
-// until the func it returns starts it again.
-func (w *World) Down(host string) (up func()) {
+// Down stops the server at host answering, as a server that stopped
+// does: every connection to it resets, an open socket too, until the func
+// it returns starts it again.
+func (w *World) Down(t *testing.T, host string) (up func()) {
+	t.Helper()
 	w.net.mu.Lock()
-	defer w.net.mu.Unlock()
-	rt := w.net.served[host]
-	delete(w.net.served, host)
-	return func() {
-		w.net.mu.Lock()
-		defer w.net.mu.Unlock()
-		w.net.served[host] = rt
+	s := w.net.down[host]
+	w.net.mu.Unlock()
+	id := "down " + host
+	if _, err := s.faults.Set(fault.Rule{ID: id, Target: s.target, Origin: s.origin, Fault: fault.Reset{}}); err != nil {
+		t.Fatal(err)
 	}
+	return func() { s.faults.Clear(id) }
 }
