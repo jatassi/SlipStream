@@ -21,7 +21,9 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/fault"
 	"github.com/jatassi/slipstream/fakes/internal/mediaserver"
+	"github.com/jatassi/slipstream/fakes/internal/plexaccount"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/node"
@@ -73,7 +75,8 @@ type Server struct {
 	Name       string
 	Version    string
 	Identifier string
-	// Tokens are the server tokens it accepts.
+	// Tokens are server tokens it accepts beside those fake-plex-tv issues
+	// for it.
 	Tokens []string
 	// Owner is the account owner, whose watch data the token reads.
 	Owner    string
@@ -108,16 +111,18 @@ func Playing(srv Server) fake.Spec {
 func newServer(_ scenario.Scenario, env fake.Env) (fake.Server, error) { return serve(env, nil) }
 
 type server struct {
-	env   fake.Env
-	srv   *Server
-	core  *mediaserver.Server
-	http  fake.Server
-	items *fake.Capture
+	env     fake.Env
+	srv     *Server
+	account *plexaccount.Account
+	core    *mediaserver.Server
+	http    fake.Server
+	items   *fake.Capture
 }
 
 func serve(env fake.Env, srv *Server) (fake.Server, error) {
-	s := &server{env: env, srv: srv}
+	s := &server{env: env, srv: srv, account: plexaccount.Of(env.Shared)}
 	if srv != nil {
+		s.account.Claim(plexaccount.Server{Target: fault.Target(env.Name), Name: srv.Name, Identifier: srv.Identifier, Version: srv.Version})
 		core, err := newCore(env, srv)
 		if err != nil {
 			return nil, err
