@@ -413,6 +413,8 @@ func TestTheDiskQueueConvergesFromACrashAtEveryStep(t *testing.T) {
 		for _, after := range []bool{false, true} {
 			t.Run(fmt.Sprintf("crash at step %d, done %t", n, after), func(t *testing.T) {
 				c := newCrashWorld(t)
+				base := c.l.listing(t)
+				c.l.forget(t)
 				ctx, cancel := context.WithCancel(t.Context())
 				defer cancel()
 				disk := &crashing{Disk: c.l.held, n: n, after: after, crash: cancel}
@@ -422,6 +424,7 @@ func TestTheDiskQueueConvergesFromACrashAtEveryStep(t *testing.T) {
 				c.later(t)
 				c.l.settle(t, c.l.files(files.NoGrabs{}))
 				c.check(t)
+				c.l.converges(t, base)
 				steps = max(steps, disk.seen)
 			})
 		}

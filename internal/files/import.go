@@ -182,8 +182,9 @@ func (e *Refused) Error() string {
 // dooms (the one delete that never asks, ADR 0002), the renames it causes,
 // the move from Holding to its name and a files_imported row with a
 // snapshot of each file it replaced. The disk queue does the IO once tx
-// commits; the caller pokes it. A Work no longer in the Batch's Root is
-// ErrRootChanged, and a file its judge refuses *Refused.
+// commits; the caller pokes it. A file whose bytes already sit at its name
+// is added for the Media Servers here. A Work no longer in the Batch's
+// Root is ErrRootChanged, and a file its judge refuses *Refused.
 func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], l Landing) (Landed, error) {
 	root, err := roots.OfWork(ctx, tx, l.Batch.Work)
 	switch {
@@ -206,9 +207,15 @@ func (f *Files) Import(ctx context.Context, tx *storage.Tx[file], l Landing) (La
 	}
 	g := j.fresh[0]
 	nm := j.names[g.ID]
+	inPlace := g.Path == nm.Path
 	g.Path, g.Label, g.Extra = nm.Path, nm.Label, nm.Extra
 	if err := imported(ctx, q, l, g, v); err != nil {
 		return Landed{}, err
+	}
+	if inPlace {
+		if err := f.tell(ctx, tx, []fact{{file: g.ID, root: g.RootID, to: g.Path}}); err != nil {
+			return Landed{}, err
+		}
 	}
 	return Landed{File: g, Fills: v.Fills}, nil
 }

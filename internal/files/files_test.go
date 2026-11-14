@@ -77,6 +77,8 @@ type library struct {
 	changed told
 	// moved is each files.moved its disk queues published.
 	moved moves
+	// servers is what its files owners told the Media Servers.
+	servers tellings
 }
 
 type moves struct {
@@ -131,7 +133,9 @@ func open(t testing.TB) *library {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &library{t: t, lib: lib, fx: fx, works: w, targets: goals, root: root, held: rootstest.Held(t, lib, node, nil, contenttypetest.ID), published: sent}
+	l := &library{t: t, lib: lib, fx: fx, works: w, targets: goals, root: root, held: rootstest.Held(t, lib, node, nil, contenttypetest.ID), published: sent}
+	l.servers.record(t, lib)
+	return l
 }
 
 type published struct{ events []targets.Changed }
@@ -156,7 +160,7 @@ func (l *library) on(cells files.Inflight, disk files.Disk) *files.Files {
 		}),
 		Names: map[works.TypeID]release.Names{contenttypetest.ID: l.fx},
 		Today: func() time.Time { return today },
-		Disk:  disk, Changed: &l.changed, Moved: &l.moved, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
+		Disk:  disk, Changed: &l.changed, Moved: &l.moved, MediaServers: &l.servers, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
 		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
 	})
 	if err != nil {
