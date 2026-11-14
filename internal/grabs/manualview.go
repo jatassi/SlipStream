@@ -342,7 +342,7 @@ func (gr *Grabs) manualInput(ctx context.Context, r storage.Reader[file], work w
 	if err != nil {
 		return manualIn{}, err
 	}
-	if in.judging, err = gr.judgingOf(ctx, r, typ, Search{WorkID: work}, expect); err != nil {
+	if in.judging, err = gr.judgingOf(ctx, r, typ, work, works.ItemID{}, expect); err != nil {
 		return manualIn{}, err
 	}
 	if in.standings, err = gr.cfg.Indexers.Standings(ctx, r); err != nil {
@@ -404,13 +404,7 @@ func manualRuns(ctx context.Context, q *db.Queries, id ManualID) ([]Search, erro
 	for _, l := range lines {
 		of[l.SearchID] = append(of[l.SearchID], SearchIndexer{Indexer: l.IndexerID, Name: l.IndexerName, Outcome: outcomeOf(l)})
 	}
-	out := make([]Search, len(rows))
-	for i, row := range rows {
-		if out[i], err = searchOf(row, of[row.ID]); err != nil {
-			return nil, err
-		}
-	}
-	return out, nil
+	return runsOf(ctx, q, rows, of)
 }
 
 // decodedRuns is the decoded Releases of each run of the Manual search
@@ -592,7 +586,7 @@ func grabsByID(grabs []db.ListCellGrabsOfWorkRow) map[GrabID]db.ListCellGrabsOfW
 // its Releases covers: the Grab in flight that holds each downloading
 // one, which a row may fill, and which of its Item's the plan walks.
 func place(rs *runSheet, in manualIn, gs map[GrabID]db.ListCellGrabsOfWorkRow) {
-	items := map[works.ItemID]bool{rs.run.ItemID: true}
+	items := map[works.ItemID]bool{rs.run.item(): true}
 	for _, a := range rs.as {
 		for _, it := range a.covers {
 			items[it] = true
@@ -606,7 +600,7 @@ func place(rs *runSheet, in manualIn, gs map[GrabID]db.ListCellGrabsOfWorkRow) {
 	}
 	scoped := map[works.ItemID]bool{}
 	for _, run := range in.runs {
-		scoped[run.ItemID] = true
+		scoped[run.item()] = true
 	}
 	rs.held, rs.failure = map[int]db.ListCellGrabsOfWorkRow{}, map[int]string{}
 	rs.fill, rs.scope = make([]bool, len(rs.item)), make([]bool, len(rs.item))
@@ -624,7 +618,7 @@ func place(rs *runSheet, in manualIn, gs map[GrabID]db.ListCellGrabsOfWorkRow) {
 		}
 		rs.fill[k] = true
 		rs.scope[k] = scoped[c.Item.ID] && (in.cell == nil || *in.cell == keyOf(c))
-		if rs.scope[k] && c.Item.ID == rs.run.ItemID {
+		if rs.scope[k] && c.Item.ID == rs.run.item() {
 			rs.walk = append(rs.walk, k)
 		}
 	}
@@ -635,7 +629,7 @@ func place(rs *runSheet, in manualIn, gs map[GrabID]db.ListCellGrabsOfWorkRow) {
 // covers. It stands refused, with no reason, at every other cell.
 func judgeRun(rs *runSheet, in manualIn, gs map[GrabID]db.ListCellGrabsOfWorkRow) {
 	j := in.judging
-	j.searched = rs.run.ItemID
+	j.searched = rs.run.item()
 	heard := in.heard[rs.run.ID]
 	rs.heard = make(map[int]string, len(heard))
 	byAt := make(map[int]int, len(heard))

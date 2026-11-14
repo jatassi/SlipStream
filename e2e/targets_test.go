@@ -106,10 +106,10 @@ func grabbedTargets(t *testing.T) walked {
 		t.Fatalf("before the search the cells are %q, want both Targets missing", got)
 	}
 	found := w.searched(t, w.search(t))
-	if found.Outcome == nil || *found.Outcome != "grabbed" || found.Candidates != 1 || found.GrabID == nil {
+	if found.Outcome == nil || *found.Outcome != "grabbed" || found.Candidates != 1 || len(found.GrabIDs) != 1 {
 		t.Fatalf("the search ended %+v, want the one listed release grabbed", found)
 	}
-	w.ended(t, *found.GrabID)
+	w.ended(t, found.GrabIDs[0])
 	if w.grab.Stage != "imported" {
 		t.Fatalf("the Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())
 	}
@@ -150,7 +150,7 @@ func TestASearchUpgradesTheHeldWEBDLToTheBlurayAndDeletesIt(t *testing.T) {
 
 	id := w.search(t)
 	found := w.searched(t, id)
-	if found.Outcome == nil || *found.Outcome != "grabbed" || found.Candidates != 2 || found.GrabID == nil {
+	if found.Outcome == nil || *found.Outcome != "grabbed" || found.Candidates != 2 || len(found.GrabIDs) != 1 {
 		t.Fatalf("the upgrade search ended %+v, want the Bluray of two candidates grabbed", found)
 	}
 	refused, cells := w.refused(t, id), w.cells(t)
@@ -162,7 +162,7 @@ func TestASearchUpgradesTheHeldWEBDLToTheBlurayAndDeletesIt(t *testing.T) {
 			t.Fatalf("the WEB-DL was refused for %+v, want not_an_upgrade at both Targets", refused[0].Reasons)
 		}
 	}
-	w.ended(t, *found.GrabID)
+	w.ended(t, found.GrabIDs[0])
 	if w.grab.Stage != "imported" {
 		t.Fatalf("the upgrade Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())
 	}
@@ -266,10 +266,10 @@ func (w *walked) list(t *testing.T, name string) {
 func (w *walked) grabbed(t *testing.T, candidates int) {
 	t.Helper()
 	found := w.searched(t, w.search(t))
-	if found.Outcome == nil || *found.Outcome != "grabbed" || found.Candidates != candidates || found.GrabID == nil {
+	if found.Outcome == nil || *found.Outcome != "grabbed" || found.Candidates != candidates || len(found.GrabIDs) != 1 {
 		t.Fatalf("the search ended %+v, want a grab of %d candidates", found, candidates)
 	}
-	w.ended(t, *found.GrabID)
+	w.ended(t, found.GrabIDs[0])
 	if w.grab.Stage != "imported" {
 		t.Fatalf("the Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())
 	}
@@ -400,11 +400,11 @@ func TestAnUpgradeInFlightWhenTheTargetsGoWaitsWithNoFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	found := w.searched(t, w.search(t))
-	if found.Outcome == nil || *found.Outcome != "grabbed" || found.GrabID == nil {
+	if found.Outcome == nil || *found.Outcome != "grabbed" || len(found.GrabIDs) != 1 {
 		t.Fatalf("the upgrade search ended %+v, want the Bluray grabbed", found)
 	}
 	worldtest.Until(t, "the Bluray Grab is downloading", func() (bool, error) {
-		w.grab = *decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+*found.GrabID, ""), &grabView{})
+		w.grab = *decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+found.GrabIDs[0], ""), &grabView{})
 		return w.grab.Stage == "downloading", nil
 	})
 
@@ -416,6 +416,6 @@ func TestAnUpgradeInFlightWhenTheTargetsGoWaitsWithNoFile(t *testing.T) {
 	if _, err := w.run.ClearFault(worldtest.Context(t), "bluray-hold"); err != nil {
 		t.Fatal(err)
 	}
-	w.waits(t, *found.GrabID, bluray+".mkv: waiting meets_nothing")
+	w.waits(t, found.GrabIDs[0], bluray+".mkv: waiting meets_nothing")
 	holdsOnly(t, w.m)
 }

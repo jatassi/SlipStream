@@ -197,7 +197,7 @@ func (tr trier) againstWork(ctx context.Context, r storage.Reader[file], name st
 	if err != nil {
 		return Tried{}, err
 	}
-	j, err := tr.gr.judgingOf(ctx, r, w.ContentType, Search{WorkID: w.ID}, expect)
+	j, err := tr.gr.judgingOf(ctx, r, w.ContentType, w.ID, works.ItemID{}, expect)
 	if err != nil {
 		return Tried{}, err
 	}

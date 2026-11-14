@@ -5933,10 +5933,11 @@
             "type": "string"
           },
           "source": {
-            "description": "How it was chosen: by a search's decision, or by an Admin in a Manual search",
+            "description": "How it was chosen: by a search's decision, by an Admin in a Manual search, or by RSS sync's decision",
             "enum": [
               "search",
-              "manual"
+              "manual",
+              "rss"
             ],
             "type": "string"
           },
@@ -7192,7 +7193,7 @@
         "additionalProperties": false,
         "properties": {
           "releases": {
-            "description": "Ranked ones first, in rank order, then the rest in the order they were listed. Empty once a later run of the Item finished.",
+            "description": "Ranked ones first, in rank order, then the rest in the order they were listed",
             "items": {
               "$ref": "#/components/schemas/GrabsListedRelease"
             },
@@ -7221,13 +7222,13 @@
               "null"
             ]
           },
-          "grabId": {
-            "description": "The run's Grab: the decision's, or the rerun's once a dropped Grab reran it; null when none",
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
+          "grabIds": {
+            "description": "The Grabs the run made, then those it joined: the decision's, or the rerun's once a dropped Grab reran it",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
           },
           "id": {
             "format": "uuid",
@@ -7240,9 +7241,13 @@
             },
             "type": "array"
           },
-          "itemId": {
-            "format": "uuid",
-            "type": "string"
+          "itemIds": {
+            "description": "The Items the run searched",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
           },
           "notes": {
             "description": "The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for",
@@ -7252,10 +7257,14 @@
             "type": "array"
           },
           "outcome": {
-            "description": "Null while the run searches. listed is a Manual search's run, which takes nothing.",
+            "description": "Null while the run searches. waiting holds a cell for a better Release. nothing_found is a run that found no Release, and nothing_acceptable one whose Releases fit no Target. no_indexer is a run that no Indexer responded to, and no_root one whose Work had no reachable root. listed is a Manual search's run, which takes nothing.",
             "enum": [
               "grabbed",
+              "waiting",
+              "nothing_found",
               "nothing_acceptable",
+              "no_indexer",
+              "no_root",
               "listed"
             ],
             "type": [
@@ -7270,13 +7279,13 @@
         },
         "required": [
           "id",
-          "itemId",
+          "itemIds",
           "startedAt",
           "indexers",
           "finishedAt",
           "outcome",
           "candidates",
-          "grabId",
+          "grabIds",
           "notes"
         ],
         "type": "object"

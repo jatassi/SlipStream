@@ -37,7 +37,7 @@ func TestTheManualSearchEnumsNameEveryDomainValueInOrder(t *testing.T) {
 	}
 }
 
-func TestTheGrabEnumsNameEveryStageCodeAndStepInOrder(t *testing.T) {
+func TestTheGrabEnumsNameEveryStageCodeStepOutcomeAndSourceInOrder(t *testing.T) {
 	var inFlight []grabs.Stage
 	for _, s := range grabs.Stages {
 		if s.InFlight() {
@@ -51,6 +51,8 @@ func TestTheGrabEnumsNameEveryStageCodeAndStepInOrder(t *testing.T) {
 		{"heldCell.Stage", enumOf[heldCell](t, "Stage"), joined(inFlight)},
 		{"failure.Code", enumOf[failure](t, "Code"), joined(grabs.Codes)},
 		{"lostAt.Step", enumOf[lostAt](t, "Step"), joined(grabs.Steps)},
+		{"search.Outcome", enumOf[search](t, "Outcome"), joined(grabs.Outcomes)},
+		{"grab.Source", enumOf[grab](t, "Source"), joined(grabs.Sources)},
 	} {
 		if c.got != c.want {
 			t.Errorf("%s enum = %q, want %q", c.name, c.got, c.want)

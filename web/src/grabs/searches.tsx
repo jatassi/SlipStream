@@ -13,7 +13,11 @@ import { stageWord } from "./stages";
 
 const outcomeText: Record<NonNullable<GrabsSearch["outcome"]>, string> = {
   grabbed: "Grabbed a Release",
+  waiting: "Waiting for a better Release",
+  nothing_found: "Found nothing",
   nothing_acceptable: "Found nothing acceptable",
+  no_indexer: "No Indexer could search",
+  no_root: "No library root",
   listed: "Listed Releases",
 };
 
@@ -30,17 +34,6 @@ function IndexerLines({ search }: { search: GrabsSearch }) {
       ))}
     </ul>
   );
-}
-
-/** Each Item's latest finished run, the only runs whose Releases are kept. */
-function latestRuns(searches: readonly GrabsSearch[]): ReadonlySet<string> {
-  const latest = new Map<string, string>();
-  for (const search of searches) {
-    if (search.outcome !== null && !latest.has(search.itemId)) {
-      latest.set(search.itemId, search.id);
-    }
-  }
-  return new Set(latest.values());
 }
 
 type Run = {
@@ -107,7 +100,6 @@ function SearchRow({ search, grab, releases, onTest }: Run) {
 export function Searches({ work }: { work: WorkRef }) {
   const { searches } = useListSearchesSuspense(work.id).data;
   const { grabs } = useListGrabsSuspense().data;
-  const latest = latestRuns(searches);
   const tester = useTester();
   const onTest = (title: string) => {
     tester.open({ names: [title], work });
@@ -122,8 +114,8 @@ export function Searches({ work }: { work: WorkRef }) {
             <SearchRow
               key={search.id}
               search={search}
-              grab={grabs.find(({ id }) => id === search.grabId)}
-              releases={latest.has(search.id) && search.candidates > 0}
+              grab={grabs.find(({ id }) => id === search.grabIds[0])}
+              releases={search.outcome !== null && search.candidates > 0}
               onTest={onTest}
             />
           ))}

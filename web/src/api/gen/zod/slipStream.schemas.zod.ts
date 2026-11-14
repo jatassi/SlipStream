@@ -3476,8 +3476,10 @@ export const GrabsGrab = zod.object({
   releaseTitle: zod.string(),
   releaseWords: zod.string().describe("Its Release in words, such as Bluray-1080p · FKW · 9.8 GB"),
   source: zod
-    .enum(["search", "manual"])
-    .describe("How it was chosen: by a search's decision, or by an Admin in a Manual search"),
+    .enum(["search", "manual", "rss"])
+    .describe(
+      "How it was chosen: by a search's decision, by an Admin in a Manual search, or by RSS sync's decision",
+    ),
   stage: zod.enum(["fetching", "downloading", "importing", "imported", "failed"]),
   targetIds: zod.array(zod.string()).describe("The Targets it was grabbed for, in Profile order"),
   targets: zod.array(GrabsGrabTarget).describe("Each cell it holds, in plan order"),
@@ -3877,9 +3879,7 @@ export type GrabsReasonOutput = zod.output<typeof GrabsReason>;
 export const GrabsReleaseList = zod.object({
   releases: zod
     .array(GrabsListedRelease)
-    .describe(
-      "Ranked ones first, in rank order, then the rest in the order they were listed. Empty once a later run of the Item finished.",
-    ),
+    .describe("Ranked ones first, in rank order, then the rest in the order they were listed"),
 });
 
 export type GrabsReleaseList = zod.input<typeof GrabsReleaseList>;
@@ -3922,17 +3922,16 @@ export const GrabsSearch = zod.object({
     .min(grabsSearchCandidatesMin)
     .describe("The Releases the Indexers found, each Release listed twice counted once"),
   finishedAt: zod.iso.datetime({ offset: true }).nullable().describe("Null while the run searches"),
-  grabId: zod
-    .uuid()
-    .nullable()
+  grabIds: zod
+    .array(zod.uuid())
     .describe(
-      "The run's Grab: the decision's, or the rerun's once a dropped Grab reran it; null when none",
+      "The Grabs the run made, then those it joined: the decision's, or the rerun's once a dropped Grab reran it",
     ),
   id: zod.uuid(),
   indexers: zod
     .array(GrabsSearchIndexer)
     .describe("Each Indexer the run asked or skipped, by priority"),
-  itemId: zod.uuid(),
+  itemIds: zod.array(zod.uuid()).describe("The Items the run searched"),
   notes: zod
     .array(GrabsReason)
     .describe(
@@ -3941,12 +3940,18 @@ export const GrabsSearch = zod.object({
   outcome: zod
     .union([
       zod.literal("grabbed"),
+      zod.literal("waiting"),
+      zod.literal("nothing_found"),
       zod.literal("nothing_acceptable"),
+      zod.literal("no_indexer"),
+      zod.literal("no_root"),
       zod.literal("listed"),
       zod.literal(null),
     ])
     .nullable()
-    .describe("Null while the run searches. listed is a Manual search's run, which takes nothing."),
+    .describe(
+      "Null while the run searches. waiting holds a cell for a better Release. nothing_found is a run that found no Release, and nothing_acceptable one whose Releases fit no Target. no_indexer is a run that no Indexer responded to, and no_root one whose Work had no reachable root. listed is a Manual search's run, which takes nothing.",
+    ),
   startedAt: zod.iso.datetime({ offset: true }),
 });
 

@@ -145,13 +145,13 @@ type searchIndexer struct {
 
 type search struct {
 	ID         string          `json:"id" format:"uuid"`
-	ItemID     string          `json:"itemId" format:"uuid"`
+	ItemIDs    []string        `json:"itemIds" format:"uuid" nullable:"false" doc:"The Items the run searched"`
 	StartedAt  time.Time       `json:"startedAt"`
 	Indexers   []searchIndexer `json:"indexers" nullable:"false" doc:"Each Indexer the run asked or skipped, by priority"`
 	FinishedAt *time.Time      `json:"finishedAt" doc:"Null while the run searches"`
-	Outcome    *string         `json:"outcome" enum:"grabbed,nothing_acceptable,listed" doc:"Null while the run searches. listed is a Manual search's run, which takes nothing."`
+	Outcome    *string         `json:"outcome" enum:"grabbed,waiting,nothing_found,nothing_acceptable,no_indexer,no_root,listed" doc:"Null while the run searches. waiting holds a cell for a better Release. nothing_found is a run that found no Release, and nothing_acceptable one whose Releases fit no Target. no_indexer is a run that no Indexer responded to, and no_root one whose Work had no reachable root. listed is a Manual search's run, which takes nothing."`
 	Candidates int             `json:"candidates" minimum:"0" doc:"The Releases the Indexers found, each Release listed twice counted once"`
-	GrabID     *string         `json:"grabId" format:"uuid" doc:"The run's Grab: the decision's, or the rerun's once a dropped Grab reran it; null when none"`
+	GrabIDs    []string        `json:"grabIds" format:"uuid" nullable:"false" doc:"The Grabs the run made, then those it joined: the decision's, or the rerun's once a dropped Grab reran it"`
 	Notes      []reason        `json:"notes" nullable:"false" doc:"The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for"`
 }
 
@@ -186,7 +186,7 @@ type listedRelease struct {
 }
 
 type releaseList struct {
-	Releases []listedRelease `json:"releases" nullable:"false" doc:"Ranked ones first, in rank order, then the rest in the order they were listed. Empty once a later run of the Item finished."`
+	Releases []listedRelease `json:"releases" nullable:"false" doc:"Ranked ones first, in rank order, then the rest in the order they were listed"`
 }
 
 type releaseListOutput struct{ Body releaseList }
@@ -229,8 +229,14 @@ type searchListOutput struct{ Body searchList }
 
 func searchOf(s grabs.Search) search {
 	out := search{
-		ID: s.ID.String(), ItemID: s.ItemID.String(), StartedAt: s.Started, Indexers: []searchIndexer{}, Candidates: s.Candidates,
-		Notes: reasonsOf(s.Notes),
+		ID: s.ID.String(), ItemIDs: []string{}, StartedAt: s.Started, Indexers: []searchIndexer{}, Candidates: s.Candidates,
+		GrabIDs: []string{}, Notes: reasonsOf(s.Notes),
+	}
+	for _, it := range s.Items {
+		out.ItemIDs = append(out.ItemIDs, it.String())
+	}
+	for _, g := range s.Grabs {
+		out.GrabIDs = append(out.GrabIDs, g.String())
 	}
 	for _, l := range s.Indexers {
 		w := searchIndexer{IndexerID: idOrNil(l.Indexer.UUID), Name: l.Name, Sentence: l.Line}
@@ -242,10 +248,6 @@ func searchOf(s grabs.Search) search {
 	if !s.Finished.IsZero() {
 		finished, outcome := s.Finished, string(s.Outcome)
 		out.FinishedAt, out.Outcome = &finished, &outcome
-	}
-	if !s.GrabID.IsZero() {
-		id := s.GrabID.String()
-		out.GrabID = &id
 	}
 	return out
 }
@@ -325,7 +327,7 @@ type grab struct {
 	FetchWait    *fetchWait               `json:"fetchWait,omitempty" doc:"Why fetching the .torrent waits on its Indexer, absent unless it does"`
 	WaitsFor     *clientWait              `json:"waitsFor,omitempty" doc:"The client a fetching Grab goes to, absent unless it waits for that client: its Node to be back online, or a pinned client that can't take it"`
 	CreatedAt    time.Time                `json:"createdAt"`
-	Source       string                   `json:"source" enum:"search,manual" doc:"How it was chosen: by a search's decision, or by an Admin in a Manual search"`
+	Source       string                   `json:"source" enum:"search,manual,rss" doc:"How it was chosen: by a search's decision, by an Admin in a Manual search, or by RSS sync's decision"`
 	GrabbedBy    *string                  `json:"grabbedBy" doc:"A name, or the API key; null for a search's Grab"`
 	ManualSearch *string                  `json:"manualSearchId" format:"uuid" doc:"The Manual search it came from; null for a search's Grab and once a later Manual search of the Work replaced it"`
 	Overrides    []string                 `json:"overrides" nullable:"false" doc:"Each choice the Admin made past the decision, as a sentence"`

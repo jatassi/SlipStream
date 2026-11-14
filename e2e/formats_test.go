@@ -75,10 +75,10 @@ func (w *walked) grabbedOf(t *testing.T, candidates int) string {
 	t.Helper()
 	id := w.search(t)
 	found := w.searched(t, id)
-	if found.Outcome == nil || *found.Outcome != "grabbed" || found.Candidates != candidates || found.GrabID == nil {
+	if found.Outcome == nil || *found.Outcome != "grabbed" || found.Candidates != candidates || len(found.GrabIDs) != 1 {
 		t.Fatalf("the search ended %+v, want a grab of %d candidates", found, candidates)
 	}
-	w.ended(t, *found.GrabID)
+	w.ended(t, found.GrabIDs[0])
 	if w.grab.Stage != "imported" {
 		t.Fatalf("the Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())
 	}

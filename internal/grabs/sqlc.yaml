@@ -77,12 +77,15 @@ sql:
             go_type:
               type: string
               pointer: true
-          - column: grabs_search_indexer.search_id
+          - column: "*.search_id"
             go_type:
               type: SearchID
-          - column: grabs_release.search_id
+          - column: grabs_nudge.id
             go_type:
-              type: SearchID
+              type: NudgeID
+          - column: grabs_settings.id
+            go_type:
+              type: Singleton
           - column: "*.query_id"
             go_type:
               import: github.com/jatassi/slipstream/internal/indexers
@@ -159,7 +162,7 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/role
               type: NodeID
-          - column: grabs_grab.edition
+          - column: "*.edition"
             go_type:
               import: github.com/jatassi/slipstream/internal/targets
               type: Edition
@@ -192,6 +195,104 @@ sql:
           - column: grabs_grab.failure_code
             go_type:
               type: Code
+              pointer: true
+          - column: "*.include_gone"
+            go_type:
+              type: bool
+          - column: grabs_due.upgrade_only
+            go_type:
+              type: bool
+          - column: grabs_due.fresh
+            go_type:
+              type: bool
+          - column: grabs_search_grab.made
+            go_type:
+              type: bool
+          - column: grabs_failure.counted
+            go_type:
+              type: bool
+          - column: grabs_failure.refuses
+            go_type:
+              type: bool
+          - column: grabs_failure.code
+            go_type:
+              type: Code
+          - column: grabs_search.group_key
+            go_type:
+              import: github.com/jatassi/slipstream/internal/indexers
+              type: GroupKey
+              pointer: true
+          - column: grabs_due.group_key
+            go_type:
+              import: github.com/jatassi/slipstream/internal/indexers
+              type: GroupKey
+          - column: grabs_due_item.group_key
+            go_type:
+              import: github.com/jatassi/slipstream/internal/indexers
+              type: GroupKey
+          - column: grabs_search.lane
+            go_type:
+              type: int64
+              pointer: true
+          - column: grabs_search.trigger
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_nudge.lane
+            go_type:
+              type: int64
+              pointer: true
+          - column: grabs_nudge.items
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_due.lane
+            go_type:
+              type: int64
+              pointer: true
+          - column: grabs_due.trigger
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_grab.release_guid
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_grab.chosen_fills
+            go_type:
+              type: int64
+              pointer: true
+          - column: grabs_failure.guid
+            go_type:
+              type: string
+              pointer: true
+          - column: grabs_settings.backlog_on
+            go_type:
+              type: bool
+              pointer: true
+          - column: grabs_settings.backlog_upgrades
+            go_type:
+              type: bool
+              pointer: true
+          - column: grabs_settings.rss_on
+            go_type:
+              type: bool
+              pointer: true
+          - column: grabs_settings.longest_gap_seconds
+            go_type:
+              type: int64
+              pointer: true
+          - column: grabs_settings.full_pace_seconds
+            go_type:
+              type: int64
+              pointer: true
+          - column: grabs_settings.stop_count
+            go_type:
+              type: int64
+              pointer: true
+          - column: grabs_settings.stop_window_seconds
+            go_type:
+              type: int64
               pointer: true
           - column: grabs_search.outcome
             go_type:

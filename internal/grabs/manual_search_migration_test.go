@@ -101,7 +101,7 @@ func TestManualSearchMigrationKeepsRowsAndEachCheckRefusesItsRow(t *testing.T) {
 		want  string
 	}{
 		{"SELECT source || ' ' || overrides || ' ' || (manual_id IS NULL) || ' ' || stage FROM grabs_grab", "search {} 1 fetching"},
-		{"SELECT outcome || ' ' || (manual_id IS NULL) || ' ' || (grab_id IS NOT NULL) FROM grabs_search", "grabbed 1 1"},
+		{"SELECT outcome || ' ' || (manual_id IS NULL) || ' ' || grabs FROM grabs_search", "grabbed 1 1"},
 		{"SELECT indexer_name || ' ' || outcome || ' ' || releases FROM grabs_search_indexer", "TorrentLeech found 1"},
 		{"SELECT title || ' ' || outcome || ' ' || rank || ' ' || (read IS NULL) FROM grabs_release", "Heat.1995.1080p.BluRay grabbed 1 1"},
 	} {
@@ -117,7 +117,7 @@ func TestManualSearchMigrationKeepsRowsAndEachCheckRefusesItsRow(t *testing.T) {
 	manual, listed := storage.NewUUID(), storage.NewUUID()
 	run(t, lib, insertRows(
 		tableRow{"grabs_manual", row{"id": manual, "work_id": work, "scope": "{}", "started_at": 0}},
-		tableRow{"grabs_search", row{"id": listed, "work_id": work, "item_id": item, "manual_id": manual, "started_at": 0}},
+		tableRow{"grabs_search", row{"id": listed, "work_id": work, "manual_id": manual, "started_at": 0}},
 	))
 
 	position, another := 0, storage.UUID{}
@@ -127,7 +127,7 @@ func TestManualSearchMigrationKeepsRowsAndEachCheckRefusesItsRow(t *testing.T) {
 			return row{"id": storage.NewUUID(), "work_id": another, "scope": "{}", "started_at": 0, "query": "heat"}
 		},
 		"grabs_search": func() row {
-			return row{"id": storage.NewUUID(), "work_id": work, "item_id": item, "started_at": 0, "finished_at": 1, "outcome": "listed", "manual_id": manual}
+			return row{"id": storage.NewUUID(), "work_id": work, "started_at": 0, "finished_at": 1, "outcome": "listed", "manual_id": manual}
 		},
 		"grabs_search_indexer": func() row {
 			position++
@@ -167,7 +167,7 @@ func TestManualSearchMigrationKeepsRowsAndEachCheckRefusesItsRow(t *testing.T) {
 		{"a query over 200 characters", "grabs_manual", row{"query": strings.Repeat("h", 201)}, false},
 		{"a scope that isn't JSON", "grabs_manual", row{"scope": "season 2"}, false},
 		{"a finished Manual run", "grabs_search", nil, true},
-		{"a Manual run that grabbed", "grabs_search", row{"outcome": "grabbed", "grab_id": grab}, false},
+		{"a Manual run that grabbed", "grabs_search", row{"outcome": "grabbed", "grabs": 1}, false},
 		{"a Manual run with nothing acceptable", "grabs_search", row{"outcome": "nothing_acceptable"}, false},
 		{"an automatic run listed", "grabs_search", row{"manual_id": nil}, false},
 		{"an RSS feed skipped", "grabs_search_indexer", nil, true},
@@ -181,7 +181,7 @@ func TestManualSearchMigrationKeepsRowsAndEachCheckRefusesItsRow(t *testing.T) {
 		{"a search Grab with an Admin", "grabs_grab", row{"source": "search", "manual_id": nil, "overrides": "{}"}, false},
 		{"a search Grab with overrides", "grabs_grab", row{"source": "search", "manual_id": nil, "grabbed_by_name": nil}, false},
 		{"a search Grab of a Manual search", "grabs_grab", row{"source": "search", "grabbed_by_name": nil, "overrides": "{}"}, false},
-		{"a Grab from another source", "grabs_grab", row{"source": "rss"}, false},
+		{"a Grab from another source", "grabs_grab", row{"source": "upload"}, false},
 		{"an entry blocklisted by hand", "grabs_blocklist", nil, true},
 		{"an engine error naming its client", "grabs_blocklist", row{"cause": "engine_error", "client_name": "qBittorrent on Den", "added_by_name": nil}, true},
 		{"a 19-byte info hash", "grabs_blocklist", row{"info_hash": hash(19)}, false},

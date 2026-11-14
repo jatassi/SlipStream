@@ -111,14 +111,14 @@ func TestATorznabSourceBecomesATrackerAtItsFirstGrabAndMergesWithItsGrabAndTorre
 	fixture := before[0]
 
 	s := w.searched(t, w.search(t))
-	if *s.Outcome != "grabbed" || w.grabbedFrom(t, *s.GrabID) != prowlarr {
+	if *s.Outcome != "grabbed" || w.grabbedFrom(t, s.GrabIDs[0]) != prowlarr {
 		t.Fatalf("the search ended %+v, want a Grab from Fixture Prowlarr %s", s, prowlarr)
 	}
-	w.ended(t, *s.GrabID)
+	w.ended(t, s.GrabIDs[0])
 	if w.grab.Stage != "imported" {
 		t.Fatalf("the Grab ended %s with %+v, want imported", w.grab.Stage, w.grab.Failure)
 	}
-	grabbed, attached, announce := w.trackedBy(t, *s.GrabID)
+	grabbed, attached, announce := w.trackedBy(t, s.GrabIDs[0])
 	var source trackerView
 	decode(t, "getTracker", w.a.Admin("home", http.MethodGet, "/api/v1/trackers/"+grabbed, ""), &source)
 	if source.Name != site.Source || source.Privacy != "private" || !slices.Equal(source.Keys, []string{"prowlarr:" + prowlarr + ":1"}) ||
@@ -131,7 +131,7 @@ func TestATorznabSourceBecomesATrackerAtItsFirstGrabAndMergesWithItsGrabAndTorre
 	if merged.ID != fixture.ID || merged.Name != "Fixture Site" || len(merged.Keys) != 2 || len(merged.IndexerIDs) != 2 || !slices.Equal(merged.Hosts, announce) {
 		t.Fatalf("the merge kept %+v, want Fixture Site with both keys, both Indexers and the announce host", merged)
 	}
-	if grabbed, attached, _ = w.trackedBy(t, *s.GrabID); grabbed != fixture.ID || attached != fixture.ID {
+	if grabbed, attached, _ = w.trackedBy(t, s.GrabIDs[0]); grabbed != fixture.ID || attached != fixture.ID {
 		t.Fatalf("after the merge the Grab names Tracker %s and the Torrent %s, want Fixture Site's %s", grabbed, attached, fixture.ID)
 	}
 	if r := w.a.Admin("home", http.MethodGet, "/api/v1/trackers/"+source.ID, ""); r.Status != http.StatusNotFound {

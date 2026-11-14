@@ -125,11 +125,12 @@ var dropOf = map[indexers.DropWhy]dropped{
 	indexers.DropRemoved:     {IndexerRemoved, "The Indexer was removed before the .torrent was fetched"},
 }
 
-// redo is what a dropped Grab's rerun reads before its Write: the run,
-// the Releases it kept, assessed, the positions of those gone, taken by a
-// Grab of the run, each one's Indexer's name by position, and the
-// position the run's Grab took.
+// redo is what a dropped Grab's rerun reads before its Write: the Grab,
+// the run that made it, the Releases it kept, assessed, the positions of
+// those gone, taken by a Grab of the run, each one's Indexer's name by
+// position, and the position the run's Grab took.
 type redo struct {
+	grab     GrabID
 	run      Search
 	assessed []assessed
 	gone     map[int]bool
@@ -171,10 +172,11 @@ func (gr *Grabs) rerunOf(ctx context.Context, g Grab) (*redo, error) {
 		if err != nil {
 			return err
 		}
-		run, err := searchOf(row, nil)
+		runs, err := runsOf(ctx, q, []db.GrabsSearch{row}, nil)
 		if err != nil {
 			return err
 		}
+		run := runs[0]
 		rows, err := q.ListKeptReleasesOfSearch(ctx, run.ID)
 		if err != nil {
 			return err
@@ -192,15 +194,15 @@ func (gr *Grabs) rerunOf(ctx context.Context, g Grab) (*redo, error) {
 		if err != nil {
 			return err
 		}
-		terms, err := gr.cfg.Terms[tree.ContentType].SearchTerms(ctx, r, run.ItemID)
+		terms, err := gr.cfg.Terms[tree.ContentType].SearchTerms(ctx, r, run.item())
 		if err != nil {
 			return err
 		}
-		j, err := gr.judgingOf(ctx, r, tree.ContentType, run, terms.Expect)
+		j, err := gr.judgingOf(ctx, r, tree.ContentType, run.WorkID, run.item(), terms.Expect)
 		if err != nil {
 			return err
 		}
-		out = &redo{run: run, assessed: assessAll(j, dedupe(ls)), gone: gone, names: names, taken: grabbedAt(rows)}
+		out = &redo{grab: g.ID, run: run, assessed: assessAll(j, dedupe(ls)), gone: gone, names: names, taken: grabbedAt(rows)}
 		return nil
 	})
 	return out, err
@@ -240,11 +242,15 @@ func (gr *Grabs) left(ctx context.Context, tx *storage.Tx[file], g Grab, o outco
 
 // redecide is re's run's decision again over the Releases it kept: the
 // first its Indexer takes, of those no Grab of the run took, becomes the
-// run's Grab, else the run found nothing acceptable. The run's Releases
-// are stored again with their new outcomes.
+// run's Grab in place of the dropped one, else the run found nothing
+// acceptable. The run's Releases are stored again with their new
+// outcomes.
 func (gr *Grabs) redecide(ctx context.Context, tx *storage.Tx[file], re redo) (*Grab, error) {
 	q := db.New(tx)
 	run := re.run
+	if err := q.DeleteSearchGrab(ctx, db.DeleteSearchGrabParams{SearchID: run.ID, GrabID: re.grab}); err != nil {
+		return nil, err
+	}
 	bl, err := blocksOf(ctx, tx, re.assessed)
 	if err != nil {
 		return nil, err
@@ -270,5 +276,5 @@ func (gr *Grabs) redecide(ctx context.Context, tx *storage.Tx[file], re redo) (*
 	if err != nil {
 		return nil, err
 	}
-	return grab, q.Redecide(ctx, db.RedecideParams{ID: run.ID, Outcome: new(Grabbed), GrabID: grab.ID, Notes: &notes})
+	return grab, q.Redecide(ctx, db.RedecideParams{ID: run.ID, Outcome: new(Grabbed), Grabs: 1, Notes: &notes})
 }

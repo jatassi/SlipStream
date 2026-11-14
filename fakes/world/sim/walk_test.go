@@ -422,10 +422,10 @@ func TestASearchWhileTheIndexersHomeNodeIsDisconnectedGrabsNothing(t *testing.T)
 			t.Fatalf("listSearches = %s, want one finished run", reply.Body)
 		}
 		s := searches.Searches[0]
-		worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + run + `","itemId":"` + itemOf(t, w, work) +
-			`","startedAt":"` + s.StartedAt + `","indexers":[{"indexerId":"` + s.Indexers[0].IndexerID +
+		worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + run + `","itemIds":["` + itemOf(t, w, work) +
+			`"],"startedAt":"` + s.StartedAt + `","indexers":[{"indexerId":"` + s.Indexers[0].IndexerID +
 			`","name":"Fixture Site","outcome":"waiting","releases":0,"sentence":"Waiting for seedbox"}],"finishedAt":"` + *s.FinishedAt +
-			`","outcome":"nothing_acceptable","candidates":0,"grabId":null,"notes":[]}]}` + "\n"})
+			`","outcome":"nothing_acceptable","candidates":0,"grabIds":[],"notes":[]}]}` + "\n"})
 		if gs := simtest.GrabsListed(t, w); len(gs) != 0 {
 			t.Fatalf("listGrabs = %+v, want none", gs)
 		}

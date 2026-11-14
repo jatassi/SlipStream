@@ -211,7 +211,7 @@ export const getListGrabsResponseMock = (
     releaseSize: faker.number.int({ min: 0 }),
     releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
     releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    source: faker.helpers.arrayElement(["search", "manual"] as const),
+    source: faker.helpers.arrayElement(["search", "manual", "rss"] as const),
     stage: faker.helpers.arrayElement([
       "fetching",
       "downloading",
@@ -420,7 +420,7 @@ export const getGetGrabResponseMock = (
   releaseSize: faker.number.int({ min: 0 }),
   releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
   releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  source: faker.helpers.arrayElement(["search", "manual"] as const),
+  source: faker.helpers.arrayElement(["search", "manual", "rss"] as const),
   stage: faker.helpers.arrayElement([
     "fetching",
     "downloading",
@@ -629,7 +629,7 @@ export const getListIndexerGrabsResponseMock = (
     releaseSize: faker.number.int({ min: 0 }),
     releaseTitle: faker.string.alpha({ length: { min: 10, max: 20 } }),
     releaseWords: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    source: faker.helpers.arrayElement(["search", "manual"] as const),
+    source: faker.helpers.arrayElement(["search", "manual", "rss"] as const),
     stage: faker.helpers.arrayElement([
       "fetching",
       "downloading",
@@ -1260,7 +1260,9 @@ export const getListSearchesResponseMock = (
         faker.date.past().toISOString().slice(0, 19) + "Z",
         null,
       ]),
-      grabId: faker.helpers.arrayElement([faker.string.uuid(), null]),
+      grabIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.uuid(),
+      ),
       id: faker.string.uuid(),
       indexers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
@@ -1286,7 +1288,9 @@ export const getListSearchesResponseMock = (
           sentence: faker.string.alpha({ length: { min: 10, max: 20 } }),
         }),
       ),
-      itemId: faker.string.uuid(),
+      itemIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.uuid(),
+      ),
       notes: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
         () => ({
           ...(faker.datatype.boolean()
@@ -1323,7 +1327,15 @@ export const getListSearchesResponseMock = (
         }),
       ),
       outcome: faker.helpers.arrayElement([
-        faker.helpers.arrayElement(["grabbed", "nothing_acceptable", "listed"] as const),
+        faker.helpers.arrayElement([
+          "grabbed",
+          "waiting",
+          "nothing_found",
+          "nothing_acceptable",
+          "no_indexer",
+          "no_root",
+          "listed",
+        ] as const),
         null,
       ]),
       startedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
