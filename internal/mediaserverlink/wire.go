@@ -80,13 +80,9 @@ func JobOnWire(j link.Job) *msv1.Job {
 		m.Work = &msv1.Job_Carry{Carry: &msv1.Carry{Changes: changesOnWire(w.Changes)}}
 	case link.Fresh:
 		m.Work = &msv1.Job_Fresh{Fresh: &msv1.Fresh{Library: w.Library, Folder: w.Folder.String(),
-			RequestedUnixMs: msOf(w.Requested), StartedUnixMs: msOf(w.Started)}}
+			RequestedUnixMs: msOf(w.Requested), StartedUnixMs: msOf(w.Started), Changes: idsOnWire(w.Changes)}}
 	case link.Rescan:
-		ids := make([][]byte, len(w.Changes))
-		for i, id := range w.Changes {
-			ids[i] = idOnWire(id.UUID)
-		}
-		m.Work = &msv1.Job_Rescan{Rescan: &msv1.Rescan{Libraries: w.Libraries, Changes: ids}}
+		m.Work = &msv1.Job_Rescan{Rescan: &msv1.Rescan{Libraries: w.Libraries, Changes: idsOnWire(w.Changes)}}
 	case link.Lookup:
 		m.Work = &msv1.Job_Lookup{Lookup: &msv1.Lookup{Paths: pathsOnWire(w.Paths)}}
 	case link.Index:
@@ -120,18 +116,15 @@ func workOf(m *msv1.Job) (link.Work, error) {
 		return link.Carry{Changes: cs}, err
 	case *msv1.Job_Fresh:
 		f, err := link.ParsePath(w.Fresh.GetFolder())
-		return link.Fresh{Library: w.Fresh.GetLibrary(), Folder: f,
+		if err != nil {
+			return nil, err
+		}
+		ids, err := idsOf(w.Fresh.GetChanges())
+		return link.Fresh{Library: w.Fresh.GetLibrary(), Folder: f, Changes: ids,
 			Requested: timeOf(w.Fresh.GetRequestedUnixMs()), Started: timeOf(w.Fresh.GetStartedUnixMs())}, err
 	case *msv1.Job_Rescan:
-		ids := make([]link.ChangeID, len(w.Rescan.GetChanges()))
-		for i, b := range w.Rescan.GetChanges() {
-			u, err := uuidOf(b)
-			if err != nil {
-				return nil, err
-			}
-			ids[i] = link.ChangeID{UUID: u}
-		}
-		return link.Rescan{Libraries: w.Rescan.GetLibraries(), Changes: ids}, nil
+		ids, err := idsOf(w.Rescan.GetChanges())
+		return link.Rescan{Libraries: w.Rescan.GetLibraries(), Changes: ids}, err
 	case *msv1.Job_Lookup:
 		ps, err := pathsOf(w.Lookup.GetPaths())
 		return link.Lookup{Paths: ps}, err
@@ -227,9 +220,6 @@ func AdvancedOnWire(a link.Advanced) *msv1.AdvanceResponse {
 	for _, e := range a.Learned {
 		m.Learned = append(m.Learned, &msv1.IndexEntry{Path: e.Path.String(), Library: e.Library, Item: itemOnWire(e.Item), Gone: e.Gone})
 	}
-	if a.Mapping != nil {
-		m.Mapping = &msv1.MappingFact{StartedUnixMs: msOf(a.Mapping.Started), Scanned: a.Mapping.Scanned}
-	}
 	return m
 }
 
@@ -261,9 +251,6 @@ func AdvancedOf(server link.ServerRef, m *msv1.AdvanceResponse) (link.Advanced, 
 			return link.Advanced{}, err
 		}
 		a.Learned = append(a.Learned, link.IndexEntry{Path: p, Library: e.GetLibrary(), Item: itemOf(e.GetItem()), Gone: e.GetGone()})
-	}
-	if f := m.GetMapping(); f != nil {
-		a.Mapping = &link.MappingFact{Started: timeOf(f.GetStartedUnixMs()), Scanned: f.GetScanned()}
 	}
 	return a, nil
 }
@@ -373,4 +360,24 @@ func CheckedOf(m *msv1.CheckResponse) (link.Checked, error) {
 		return link.Checked{}, err
 	}
 	return link.Checked{Identity: id, MonitorDelay: time.Duration(m.GetMonitorDelayMs()) * time.Millisecond, Libraries: libs}, nil
+}
+
+func idsOnWire(ids []link.ChangeID) [][]byte {
+	out := make([][]byte, len(ids))
+	for i, id := range ids {
+		out[i] = idOnWire(id.UUID)
+	}
+	return out
+}
+
+func idsOf(bs [][]byte) ([]link.ChangeID, error) {
+	out := make([]link.ChangeID, len(bs))
+	for i, b := range bs {
+		u, err := uuidOf(b)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = link.ChangeID{UUID: u}
+	}
+	return out, nil
 }

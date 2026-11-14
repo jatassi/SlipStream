@@ -196,48 +196,37 @@ func (c *conn) rescan(ctx context.Context, j link.Job, w link.Rescan) (link.Adva
 }
 
 // fresh is the fresh folder rule for one mapping, its step derived from
-// the mapping's columns: an item under the folder means scanned. Else a
-// full scan, asked for once Requested is written: the Job comes back with
-// Requested set and no scan sent, and the next call sends it. Emby's full
-// scan is the same RefreshLibrary task.
-//
-// Started is the task's last end before the scan was sent, on the
-// server's own clock, or Requested when the task never ran. The scan has
-// ended when the task is Idle with a later last end (graft 3), which no
-// skew between the two clocks can fool. A task already running when the
-// scan would be sent is waited on, not started again.
+// the mapping's columns, and a running scan always waited on. Undecided,
+// an item under the folder ends it. Else the Job comes back with Requested
+// and Started, the task's last end, and nothing sent, so the Controller
+// writes them before the scan goes. Decided, a last end past Started is
+// the scan's end, and no end yet sends the scan. Emby's full scan is the
+// same RefreshLibrary task.
 func (c *conn) fresh(ctx context.Context, j link.Job, w link.Fresh) (link.Advanced, error) {
-	if w.Requested.IsZero() {
-		has, err := c.anyUnder(ctx, w.Library, w.Folder)
-		if err != nil || has {
-			return link.Advanced{Job: j, Done: true, Mapping: &link.MappingFact{Scanned: true}}, err
-		}
-		w.Requested = time.Now()
-		return link.Advanced{Job: reached(j, link.StepNone, w)}, nil
-	}
 	t, err := c.task(ctx)
 	if err != nil {
 		return link.Advanced{}, err
 	}
-	end, now := lastRun(t).EndTimeUtc, time.Now()
+	now, end := time.Now(), lastRun(t).EndTimeUtc
+	wait := c.d.Timings.ScanWait(w.Requested, now)
 	switch {
-	case !w.Started.IsZero() && t.State == jellyfin.TaskIdle && end.After(w.Started):
-		return link.Advanced{Job: j, Done: true, Mapping: &link.MappingFact{Started: w.Started, Scanned: true}}, nil
-	case now.After(w.Requested.Add(c.d.Timings.ScanEndBound)):
-		return link.Advanced{}, failed(fmt.Sprintf("the library scan SlipStream asked for didn't end within %s", c.d.Timings.ScanEndBound))
-	case w.Started.IsZero():
-		if t.State == jellyfin.TaskIdle {
-			if err := c.c.RefreshAll(ctx); err != nil {
-				return link.Advanced{}, err
-			}
+	case t.State != jellyfin.TaskIdle:
+		return waitFor(j, wait), nil
+	case w.Requested.IsZero():
+		has, err := c.anyUnder(ctx, w.Library, w.Folder)
+		if err != nil || has {
+			return link.Advanced{Job: j, Done: true}, err
 		}
-		w.Started = end
-		if end.IsZero() {
-			w.Started = w.Requested
-		}
+		w.Requested, w.Started = now, end
+		j.Work = w
+		return link.Advanced{Job: j}, nil
+	case end.After(w.Started) || now.After(w.Requested.Add(c.d.Timings.ScanEndBound)):
+		return link.Advanced{Job: j, Done: true}, nil
 	}
-	poll := min(max(c.d.Timings.ScanEndPoll, now.Sub(w.Requested)), c.d.Timings.ScanEndPollMax)
-	return link.Advanced{Job: reached(j, link.StepNone, w), Wait: now.Add(poll), Mapping: &link.MappingFact{Started: w.Started}}, nil
+	if err := c.c.RefreshAll(ctx); err != nil {
+		return link.Advanced{}, err
+	}
+	return waitFor(j, wait), nil
 }
 
 // anyUnder is whether the library holds an item with a file under folder.

@@ -25,15 +25,21 @@ type Refresh struct{ Changes []JobChange }
 // that must keep their items' watch data and collections.
 type Carry struct{ Changes []JobChange }
 
-// Fresh is the fresh folder rule for one mapping, from its columns.
+// Fresh is the fresh folder rule for one mapping, from its columns. The
+// Job is done once the mapping counts as scanned.
 type Fresh struct {
 	Library string
 	Folder  ServerPath
-	// Requested is when SlipStream decided to ask for a full scan, written
-	// before the scan is sent. Zero: none asked for.
+	// Requested is when the rule decided on a full scan, written before
+	// the scan is sent. Zero: not decided.
 	Requested time.Time
-	// Started is when the server accepted that scan. Zero: not yet.
+	// Started is the server's last scan end before that scan, on its own
+	// clock, zero when it never scanned. A later end is the scan's end, so
+	// a retry never starts a second scan and no skew between clocks fools
+	// it (graft 3).
 	Started time.Time
+	// Changes are the rows that wait on the rule.
+	Changes []ChangeID
 }
 
 // Rescan refreshes whole libraries: library changes, and Plex's section
@@ -126,7 +132,6 @@ type Advanced struct {
 	// Outcomes are the changes that ended at this step.
 	Outcomes  []Outcome
 	Learned   []IndexEntry
-	Mapping   *MappingFact
 	Libraries []Library
 }
 
@@ -143,13 +148,4 @@ type IndexEntry struct {
 	Library string
 	Item    ItemKey
 	Gone    bool
-}
-
-// MappingFact is what a Fresh step learned about its mapping.
-type MappingFact struct {
-	// Started is when the server accepted the full scan this Job asked for.
-	Started time.Time
-	// Scanned is whether an item exists under the folder, or a scan ran
-	// with content there and ended.
-	Scanned bool
 }
