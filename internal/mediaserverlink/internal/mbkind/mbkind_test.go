@@ -3,10 +3,12 @@ package mbkind_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -515,23 +517,118 @@ func TestIndexPagesEveryFileOfALibrary(t *testing.T) {
 	})
 }
 
-func TestWatchPollsSessions(t *testing.T) {
-	each(t, func(t *testing.T, w *world) {
-		ctx, cancel := context.WithCancel(t.Context())
-		var seen []link.Seen
-		err := w.conn(apiKey).Watch(ctx, time.Second, func(s link.Seen) {
-			seen = append(seen, s)
-			if len(seen) == 2 {
-				cancel()
-			}
+// watched is every look a watch of the server passed on.
+type watched struct {
+	mu    sync.Mutex
+	looks []link.Seen
+}
+
+func (w *world) watch(every time.Duration) *watched {
+	ctx, cancel := context.WithCancel(w.t.Context())
+	out := &watched{}
+	done := make(chan error)
+	go func() {
+		done <- w.conn(apiKey).Watch(ctx, every, func(s link.Seen) {
+			out.mu.Lock()
+			defer out.mu.Unlock()
+			out.looks = append(out.looks, s)
 		})
-		if err == nil || ctx.Err() == nil {
-			t.Errorf("Watch = %v, want it to end with its context", err)
-		}
-		if len(seen) != 2 || !seen[0].Polled || seen[0].Problem != nil {
-			t.Errorf("seen = %+v, want two clean polls", seen)
+	}()
+	w.t.Cleanup(func() {
+		cancel()
+		if err := <-done; err != nil {
+			w.t.Errorf("Watch = %v, want nil once its context ends", err)
 		}
 	})
+	synctest.Wait()
+	return out
+}
+
+// last is the last look of the kind asked for.
+func (w *watched) last(polled bool) (link.Seen, bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for _, s := range slices.Backward(w.looks) {
+		if s.Polled == polled && len(s.Items) == 0 {
+			return s, true
+		}
+	}
+	return link.Seen{}, false
+}
+
+const metropolis = "Movies/Metropolis (1927)/Metropolis (1927).mkv"
+
+type played struct{ Session, Item string }
+
+// play starts Metropolis for jackson on Living room with d, a transcode
+// for a reason and on hardware, and has the player report its playback.
+func (w *world) play(d link.Decision) played {
+	w.t.Helper()
+	var p played
+	raw, err := json.Marshal(w.f.Cue(w.t, string(w.p.kind.About().Name)+"-play", map[string]any{
+		"path": w.at(metropolis).String(), "user": "jackson", "player": "Living room",
+		"decision": d, "reasons": reasonsFor(d), "hardware": d == link.DecisionTranscode,
+	}))
+	if err == nil {
+		err = json.Unmarshal(raw, &p)
+	}
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	synctest.Wait()
+	return p
+}
+
+func reasonsFor(d link.Decision) []string {
+	return map[link.Decision][]string{link.DecisionTranscode: {"VideoCodecNotSupported"}}[d]
+}
+
+// TestWatchSeesEachDecision plays Metropolis once per decision: the
+// server's socket pushes the session at once, the next poll lists it with
+// its decision, reasons and hardware, and a poll after the stop lists
+// nothing. Emby shows a transcode only once the player reports its
+// playback.
+func TestWatchSeesEachDecision(t *testing.T) {
+	for _, d := range link.Decisions() {
+		t.Run(string(d), func(t *testing.T) {
+			each(t, func(t *testing.T, w *world) { watchSees(t, w, d) })
+		})
+	}
+}
+
+func watchSees(t *testing.T, w *world, d link.Decision) {
+	const every = 10 * time.Second
+	looks := w.watch(every)
+	p := w.play(d)
+	if s, ok := looks.last(false); !ok || len(s.Sessions) != 1 {
+		t.Errorf("the socket pushed %+v, want Metropolis playing", s)
+	}
+	if w.p.flavor == wire.Emby && d != link.DecisionDirectPlay {
+		if err := w.admin.ReportPlaying(t.Context(), wire.Playing{ItemID: p.Item, PlaySessionID: p.Session, PlayMethod: wire.Transcode}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	time.Sleep(every)
+	synctest.Wait()
+	s, _ := looks.last(true)
+	want := fmt.Sprintf("%s plays %s for jackson on Living room, %s %q hardware %v", p.Session, w.at(metropolis), d, reasonsFor(d), d == link.DecisionTranscode)
+	if got := sessionsOf(s); !slices.Equal(got, []string{want}) || s.Transcoding != (d == link.DecisionTranscode) {
+		t.Errorf("the poll saw %q transcoding %v, want %q transcoding %v", got, s.Transcoding, want, d == link.DecisionTranscode)
+	}
+	w.f.Cue(t, string(w.p.kind.About().Name)+"-stop", map[string]string{"session": p.Session})
+	time.Sleep(every)
+	synctest.Wait()
+	if s, _ := looks.last(true); len(s.Sessions) != 0 || s.Problem != nil {
+		t.Errorf("the poll after the stop saw %+v, want no session", s)
+	}
+}
+
+func sessionsOf(s link.Seen) []string {
+	var out []string
+	for _, x := range s.Sessions {
+		out = append(out, fmt.Sprintf("%s plays %s for %s on %s, %s %q hardware %v", x.Key, x.Path, x.User, x.Player, x.Decision, x.Reasons, x.Hardware))
+	}
+	return out
 }
 
 func TestAPreparedSnapshotsPlayCountIsLostOnlyOnEmby(t *testing.T) {
