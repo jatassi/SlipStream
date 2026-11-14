@@ -43,7 +43,9 @@ function UnitLine({ unit }: { unit: TasksRunUnit }) {
       <span className="flex justify-end @[720px]:justify-start">
         <OutcomeChip outcome={unit.outcome} />
       </span>
-      <span className="col-span-2 text-meta text-ink-3 @[720px]:col-span-1">{unit.cause}</span>
+      <span className="col-span-2 text-meta text-ink-3 @[720px]:col-span-1">
+        {unit.cause ?? unit.note}
+      </span>
     </li>
   );
 }
