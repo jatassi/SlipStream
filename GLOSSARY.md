@@ -167,7 +167,7 @@ The state every restored Controller starts in, including after a manual rollback
 _Avoid_: Resync, recovery mode
 
 **Role**:
-A job the admin assigns to one or more Nodes. The Roles are Searching, Downloading, Storage, Converting, Subtitles, Metadata, Media Server link, Notifying, Relaying and Serving. Work that reads the library database on every call stays on the Controller and is never a Role. Every Role but Relaying can sit on any number of Nodes. Searching, Downloading, Storage, Metadata and Notifying always have a holder, falling back to the Controller.
+A job the admin assigns to one or more Nodes. The Roles are Searching, Downloading, Storage, Converting, Subtitles, Metadata, Media Server link, Notifying, Relaying and Serving. Work that reads the library database on every call stays on the Controller and is never a Role. Every Role but Relaying can sit on any number of Nodes. Searching, Downloading, Storage, Metadata and Notifying always have a holder, falling back to the Controller. The Controller always holds Serving and Media Server link, whatever the admin ticks.
 _Avoid_: Service, capability, purpose
 
 **Role Group**:
