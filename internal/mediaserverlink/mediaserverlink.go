@@ -7,12 +7,15 @@ package mediaserverlink
 import (
 	"context"
 
+	"github.com/jatassi/slipstream/internal/mediaserverlink/internal/plexkind"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
 )
 
 // Kinds is the one list of kinds. Adding a kind is a line here.
-var Kinds = link.Registry{}
+var Kinds = link.Registry{
+	plexkind.Kind,
+}
 
 // Port is how the Controller's sender runs one step on a server. A
 // link.Conn the Controller dials itself at the fallback address is one.

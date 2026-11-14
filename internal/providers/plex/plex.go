@@ -318,6 +318,10 @@ const (
 	TypeEpisode ItemType = 4
 )
 
+// ItemTypes are the listings that between them hold every file of a
+// section.
+var ItemTypes = []ItemType{TypeMovie, TypeEpisode}
+
 // Page is one page of a section's items.
 type Page struct {
 	Items []Metadata
