@@ -126,12 +126,13 @@ func TestAddRecordsTheReachingNodeAsAHolder(t *testing.T) {
 
 // TestEachWriteTellsTheList adds Den, renames it and saves its mappings:
 // each write publishes media-servers.changed for Den, so the list reads
-// its mappings needed again.
+// its mappings needed again. Den's first contact tells it too.
 func TestEachWriteTellsTheList(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		r := newRig(t)
 		r.w.Jellyfin(t, host, den(floorVer))
 		id := r.add(t)
+		synctest.Wait()
 		if status, body := r.o.Call(t, http.MethodPatch, servers+"/"+id, `{"name":"Loft"}`); status != http.StatusOK {
 			t.Fatalf("rename Den = %d %s", status, body)
 		}
@@ -139,8 +140,8 @@ func TestEachWriteTellsTheList(t *testing.T) {
 			t.Fatalf("save the mappings = %d %s", status, body)
 		}
 		got := r.w.Changed()
-		if len(got) != 3 {
-			t.Fatalf("media-servers.changed published %v, want three times", got)
+		if len(got) != 4 {
+			t.Fatalf("media-servers.changed published %v, want four times", got)
 		}
 		for _, c := range got {
 			if len(c.ServerIDs) != 1 || c.ServerIDs[0] != id {

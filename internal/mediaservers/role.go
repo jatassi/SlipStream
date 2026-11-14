@@ -30,6 +30,9 @@ type MediaServers struct {
 	pins    pins
 	seen    seenSessions
 	senders *senders
+	// contacted is the servers whose contact each Node's reports changed,
+	// published once they commit.
+	contacted pendingServers
 }
 
 type Config struct {
@@ -94,7 +97,7 @@ type Roster interface {
 }
 
 func New(cfg Config) *MediaServers {
-	return &MediaServers{cfg: cfg, seen: newSeenSessions(), senders: newSenders()}
+	return &MediaServers{cfg: cfg, seen: newSeenSessions(), senders: newSenders(), contacted: pendingServers{byNode: map[role.NodeID][]string{}}}
 }
 
 // Owner keeps Media Server link on every Node that a server names as its

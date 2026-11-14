@@ -248,6 +248,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Applied: func(id role.NodeID, scope string) {
 			clients.Applied(id, scope)
 			copies.Applied(id, scope)
+			servers.Applied(id, scope)
 		},
 		Reach: func(ctx context.Context, id role.NodeID, t nodesystem.Target) (nodesystem.Reached, error) {
 			return systems.Reach(ctx, id, t)
