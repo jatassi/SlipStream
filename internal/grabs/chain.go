@@ -10,10 +10,14 @@ import (
 )
 
 const (
-	StepWant     Step = "want"
-	StepTier     Step = "tier"
-	StepRevision Step = "revision"
-	StepScore    Step = "score"
+	StepWant Step = "want"
+	// StepFewerReleases ranks first the Release that fills more Items with
+	// no file, so a pack that meets the Target beats better singles and
+	// the Work fills with the fewest Releases.
+	StepFewerReleases Step = "fewer_releases"
+	StepTier          Step = "tier"
+	StepRevision      Step = "revision"
+	StepScore         Step = "score"
 	// StepChosenByAnother and StepFewerUnwanted are the pack tie-breaks:
 	// the Release another Want already chose, then the one covering fewer
 	// Items that aren't wanted.
@@ -28,7 +32,7 @@ const (
 
 // Steps is every Step, in the ranking's order.
 var Steps = []Step{
-	StepWant, StepTier, StepRevision, StepScore, StepChosenByAnother, StepFewerUnwanted, StepPriority, StepFreeleech, StepSeeders,
+	StepWant, StepFewerReleases, StepTier, StepRevision, StepScore, StepChosenByAnother, StepFewerUnwanted, StepPriority, StepFreeleech, StepSeeders,
 	StepSize, StepTitle,
 }
 
@@ -48,6 +52,8 @@ type rung struct {
 // them.
 var chain = [...]rung{
 	{StepWant, 0, byFirstCell, firstCell},
+	{StepFewerReleases, 0, func(c cells, a, b judged) int { return cmp.Compare(c.missing(a), c.missing(b)) },
+		func(c cells, r judged) string { return strconv.Itoa(c.missing(r)) }},
 	atTarget(StepTier, targets.ByTier),
 	atTarget(StepRevision, targets.ByRevision),
 	atTarget(StepScore, targets.ByScore),
@@ -80,6 +86,18 @@ func (c cells) unwanted(r judged) int {
 		}
 	}
 	return n
+}
+
+// missing is how many Items with no file r fills: those of the open
+// cells it is grabbable at that have none, and those beyond them.
+func (c cells) missing(r judged) int {
+	items := slices.Clone(r.beyond)
+	for _, v := range r.verdicts {
+		if cell := c.at(v.cell); v.grabbable() && cell.File == nil && !slices.Contains(items, cell.Item.ID) {
+			items = append(items, cell.Item.ID)
+		}
+	}
+	return len(items)
 }
 
 func byFirstCell(_ cells, a, b judged) int { return cmp.Compare(b.first, a.first) }

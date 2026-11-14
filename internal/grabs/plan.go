@@ -6,6 +6,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // planIn is one Manual run's plan inputs. Cells are counted by their
@@ -115,6 +116,7 @@ func (in planIn) next(taken []bool) (Pick, led, bool, error) {
 	js := make([]judged, len(in.js))
 	for g, j := range in.js {
 		js[g] = j.only(ks)
+		js[g].beyond = in.beyond(j, ks, taken)
 	}
 	p, _, ok, err := choose(decided(left, js).picks(left), nil, in.take)
 	if !ok || err != nil {
@@ -122,6 +124,22 @@ func (in planIn) next(taken []bool) (Pick, led, bool, error) {
 	}
 	g := groupOf(in.as, p.at)
 	return p, led{group: g, lead: ks[js[g].first]}, true, nil
+}
+
+// beyond is the Items with no file that j is grabbable at among the
+// cells a row may fill outside ks that no row fills yet, so a pack's
+// count of the Items it fills reaches past the walk as automatic search's
+// does past its Item.
+func (in planIn) beyond(j judged, ks []int, taken []bool) []works.ItemID {
+	var out []works.ItemID
+	for _, v := range j.verdicts {
+		cell := in.item[v.cell]
+		if v.grabbable() && in.fill[v.cell] && !taken[v.cell] && !slices.Contains(ks, v.cell) && cell.File == nil &&
+			!slices.Contains(out, cell.Item.ID) {
+			out = append(out, cell.Item.ID)
+		}
+	}
+	return out
 }
 
 // offer is the offer of as[g], or of a copy, that choose takes for cell

@@ -13,6 +13,8 @@ const percent = (factor: string): string => `${Math.round(Number(factor) * 100)}
 
 const seeders = { one: "seeder", many: "seeders" };
 
+const missing = { one: "Item with no file", many: "Items with no file" };
+
 const unwanted = { one: "Item that isn't wanted", many: "Items that aren't wanted" };
 
 type Step = (
@@ -23,6 +25,8 @@ type Step = (
 const steps: Record<GrabsLostAtStep, Step> = {
   want: ({ own, ref }, { subject }) =>
     `It would fill ${own}. ${subject} would fill ${ref}, which comes first in the Profile.`,
+  fewer_releases: ({ own, ref }, { subject }) =>
+    `It would fill ${countWords(Number(own), missing)}. ${subject} would fill ${countWords(Number(ref), missing)}, so fewer Releases fill the Work.`,
   tier: ({ own, ref, at }, { subject }) =>
     `Its quality is ${own}. ${subject} is ${ref}, a higher tier${at}.`,
   revision: ({ own, ref, at }, { subject }) =>
