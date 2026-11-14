@@ -156,9 +156,9 @@ type search struct {
 }
 
 type lostAt struct {
-	Step     string  `json:"step" enum:"want,tier,revision,score,chosen_by_another,fewer_unwanted,priority,freeleech,seeders,size,title" doc:"The first step of the ranking where the reference Release ranked above this one"`
+	Step     string  `json:"step" enum:"want,fewer_releases,tier,revision,score,chosen_by_another,fewer_unwanted,priority,freeleech,seeders,size,title" doc:"The first step of the ranking where the reference Release ranked above this one"`
 	TargetID *string `json:"targetId" format:"uuid" doc:"The Target the tier, revision and score steps compare at; null at the other steps and once the Target is deleted"`
-	Own      string  `json:"own" doc:"This Release's value at the step: a Target's name for want, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, whether another Want chose it for chosen_by_another, a count of the Items it covers that aren't wanted for fewer_unwanted, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title"`
+	Own      string  `json:"own" doc:"This Release's value at the step: a Target's name for want, a count of the Items with no file it fills for fewer_releases, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, whether another Want chose it for chosen_by_another, a count of the Items it covers that aren't wanted for fewer_unwanted, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title"`
 	Ref      string  `json:"ref" doc:"The reference Release's value at the step, written as own is. The reference is the grabbed Release, or the first a search could take when the run grabbed none."`
 }
 

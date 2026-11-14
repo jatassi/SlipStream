@@ -3,6 +3,7 @@
  */
 export type GrabsLostAtStep =
   | "want"
+  | "fewer_releases"
   | "tier"
   | "revision"
   | "score"

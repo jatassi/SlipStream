@@ -181,10 +181,13 @@ func (v verdict) reasons() []Reason {
 
 // judged is an assessed Release and its verdict at each cell it was
 // judged at. first is the first of them it is grabbable at, -1 for none.
+// beyond is the Items with no file it is grabbable at outside those
+// cells, which the chain counts toward the Items it fills.
 type judged struct {
 	*assessed
 	verdicts []verdict
 	first    int
+	beyond   []works.ItemID
 }
 
 // reasons is j's own refusals, then each verdict's reasons.
@@ -271,6 +274,11 @@ func judge(c cells, a *assessed) judged {
 		v := at(len(c.open)+i, cell)
 		if rule, _ := v.v.Upgrade(); v.wanted && rule == properRule {
 			j.verdicts = append(j.verdicts, v)
+		}
+	}
+	for i, cell := range c.others {
+		if cell.File == nil && a.coversItem(cell) && !slices.Contains(j.beyond, cell.Item.ID) && at(i, cell).grabbable() {
+			j.beyond = append(j.beyond, cell.Item.ID)
 		}
 	}
 	j.first = firstGrabbable(j.verdicts)

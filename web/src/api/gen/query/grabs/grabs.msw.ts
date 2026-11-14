@@ -700,6 +700,7 @@ export const getListSearchReleasesResponseMock = (
           ref: faker.string.alpha({ length: { min: 10, max: 20 } }),
           step: faker.helpers.arrayElement([
             "want",
+            "fewer_releases",
             "tier",
             "revision",
             "score",
@@ -889,6 +890,7 @@ export const getGetManualSearchResponseMock = (
                   ref: faker.string.alpha({ length: { min: 10, max: 20 } }),
                   step: faker.helpers.arrayElement([
                     "want",
+                    "fewer_releases",
                     "tier",
                     "revision",
                     "score",
@@ -1003,6 +1005,7 @@ export const getGetManualSearchResponseMock = (
                   ref: faker.string.alpha({ length: { min: 10, max: 20 } }),
                   step: faker.helpers.arrayElement([
                     "want",
+                    "fewer_releases",
                     "tier",
                     "revision",
                     "score",
@@ -1200,6 +1203,7 @@ export const getListManualSearchReleasesResponseMock = (
             ref: faker.string.alpha({ length: { min: 10, max: 20 } }),
             step: faker.helpers.arrayElement([
               "want",
+              "fewer_releases",
               "tier",
               "revision",
               "score",

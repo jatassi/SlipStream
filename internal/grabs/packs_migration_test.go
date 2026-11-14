@@ -119,7 +119,7 @@ func eachNewRuleRefusesItsRow(t *testing.T, lib library, work, item, grab storag
 			t.Errorf("%s: want a CHECK to refuse it, got %v", c.name, err)
 		}
 	}
-	for _, step := range []string{"chosen_by_another", "fewer_unwanted", "lost_by_luck"} {
+	for _, step := range []string{"fewer_releases", "chosen_by_another", "fewer_unwanted", "lost_by_luck"} {
 		search := storage.NewUUID()
 		err := lib.Write(ctx, insertRows(
 			tableRow{"grabs_search", row{"id": search, "work_id": work, "item_id": item, "started_at": 0, "finished_at": 1, "outcome": "nothing_acceptable"}},

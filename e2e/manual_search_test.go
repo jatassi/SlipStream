@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/jatassi/slipstream/fakes/fault"
-	"github.com/jatassi/slipstream/fakes/tracker"
 	"github.com/jatassi/slipstream/fakes/world"
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
@@ -420,14 +419,12 @@ func TestTheManualPlanLeadsWithWhatAutomaticSearchGrabs(t *testing.T) {
 
 // TestGrabbingTheManualPlanImportsEachRow opens Manual search on E05 to
 // E09 of The Lantern Keepers and grabs every row of the plan in one press.
-// Only the season pack lists E09, so its row gets E09 and E10. The pack's
-// swarm is held until the four episodes import, so its files for E01 to
-// E08 keep their files and only E09 and E10 land. Each Grab imports its
-// row's cells and records the Manual search it came from.
+// The season pack fills all five, and E10 too, with one Release, so it
+// beats each episode's own and is the series' only row. Each Grab imports
+// its row's cells and records the Manual search it came from.
 func TestGrabbingTheManualPlanImportsEachRow(t *testing.T) {
 	t.Parallel()
 	w := launchManual(t)
-	w.setFault(t, fault.Rule{ID: "pack-hold", Target: tracker.SeedersTarget(keepersPack), Origin: "home"}, "stall")
 	var items []string
 	for _, key := range []string{"100125", "100126", "100127", "100128", "100129"} {
 		items = append(items, `"`+w.item(t, w.series, key)+`"`)
@@ -442,25 +439,14 @@ func TestGrabbingTheManualPlanImportsEachRow(t *testing.T) {
 			rows = append(rows, r.Missing)
 		}
 	}
-	want := []string{
-		"The.Lantern.Keepers.S02E05.1080p.WEB-DL.H264-FKW: It gets you 1080p for E05.",
-		"The.Lantern.Keepers.S02E06.1080p.WEB-DL.H264-FKW: It gets you 1080p for E06.",
-		"The.Lantern.Keepers.S02E07.1080p.WEB-DL.H264-FKW: It gets you 1080p for E07.",
-		"The.Lantern.Keepers.S02E08.1080p.WEB-DL.H264-FKW: It gets you 1080p for E08.",
-		keepersPack + ": It gets you 1080p for E09 and E10. E01 to E04 keep their files.",
-	}
-	if v.Plan.Headline != "5 Grabs get you everything." || !slices.Equal(rows, want) {
+	want := []string{keepersPack + ": It gets you 1080p for E05 to E10. E01 to E04 keep their files."}
+	if v.Plan.Headline != "1 Grab gets you everything." || !slices.Equal(rows, want) {
 		t.Fatalf("the plan reads %q with rows\n%s\nwant\n%s", v.Plan.Headline, strings.Join(rows, "\n"), strings.Join(want, "\n"))
 	}
 	picks := v.picks()
-	grabs := w.grabManual(t, w.series, id, false, picks...)
-	for i, grab := range grabs[:4] {
+	for i, grab := range w.grabManual(t, w.series, id, false, picks...) {
 		w.rowImported(t, id, grab, picks[i])
 	}
-	if _, err := w.run.ClearFault(worldtest.Context(t), "pack-hold"); err != nil {
-		t.Fatal(err)
-	}
-	w.rowImported(t, id, grabs[4], picks[4])
 
 	id = w.open(t, w.work, "")
 	v = w.settled(t, w.work)

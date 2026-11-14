@@ -14,7 +14,8 @@ import (
 )
 
 // season is Season 1 of The Lantern Keepers: four episodes, of which a
-// release named S01 covers every one and S01E02 the second.
+// release named S01 covers every one, S01E01 the first and S01E02 the
+// second.
 type season struct {
 	level works.Level
 	items []works.Item
@@ -45,6 +46,8 @@ func (s season) judging() judging {
 				switch marks(n) {
 				case "S01":
 					return s.ids()
+				case "S01E01":
+					return []works.ItemID{s.items[0].ID}
 				case "S01E02":
 					return []works.ItemID{s.items[1].ID}
 				}
@@ -104,6 +107,31 @@ func TestAPackRowFillsTheEpisodesItBeatsAndNamesTheOnesThatKeepTheirFiles(t *tes
 	}
 	if offers := offersOf(t, in); len(offers) != 1 {
 		t.Errorf("All Releases lists %d, want the pack once", len(offers))
+	}
+}
+
+// TestAPackThatMeetsTheTargetFillsTheSeasonOverBetterEpisodes plans a
+// WEB-DL season pack against BluRay copies of episodes 1 and 2, every
+// episode missing: the pack alone fills the season, since fewer Releases
+// fill it, and each BluRay is another choice for its episode.
+func TestAPackThatMeetsTheTargetFillsTheSeasonOverBetterEpisodes(t *testing.T) {
+	s := newSeason()
+	cs := []files.Cell{s.cell(0, hd, files.Missing), s.cell(1, hd, files.Missing), s.cell(2, hd, files.Missing), s.cell(3, hd, files.Missing)}
+	pack := hashed(offered("Lantern.Keepers.S01.1080p.WEB-DL-GRP", 5, 10, nil), 'p')
+	in := s.manual(cs,
+		hashed(offered("Lantern.Keepers.S01E01.1080p.BluRay-GRP", 90, 10, nil), '1'),
+		hashed(offered("Lantern.Keepers.S01E02.1080p.BluRay-GRP", 90, 10, nil), '2'),
+		pack,
+	)
+	v := viewOf(t, in)
+	if len(v.Plan.Rows) != 1 || v.Plan.Rows[0].Pick == nil || v.Plan.Rows[0].Pick.Release.Title != pack.Release.Title {
+		t.Fatalf("the plan is %+v, want the pack's one row", v.Plan.Rows)
+	}
+	if want := []files.CellKey{keyOf(cs[0]), keyOf(cs[1]), keyOf(cs[2]), keyOf(cs[3])}; !slices.Equal(v.Plan.Rows[0].Cells, want) {
+		t.Errorf("the pack's row fills %v, want every episode", v.Plan.Rows[0].Cells)
+	}
+	if choices := v.Plan.Rows[0].Choices; len(choices) == 0 || choices[0].Release.Title != "Lantern.Keepers.S01E01.1080p.BluRay-GRP" {
+		t.Errorf("Other choices is %+v, want the BluRay of episode 1 first", choices)
 	}
 }
 

@@ -58,10 +58,8 @@ test("the series' Search counts every wanted episode, and a season's only its mo
   await setEpisodeMonitored(page, "S01E02", false);
   await workSearch(page).click();
   await expect(notifications(page)).toContainText("Searching 2 episodes");
-  await expect(grabbed(page)).toHaveCount(2);
-  await expect
-    .poll(async () => (await filed(world, workId)).toSorted(), { timeout: 90_000 })
-    .toEqual(["First Flame", "Salt and Oil"]);
+  // The season pack fills both wanted episodes, so one Grab does.
+  await expect(grabbed(page)).toHaveCount(1);
 
   await openLevel(page, "Season 2");
   await setEpisodeMonitored(page, "S02E01", true);

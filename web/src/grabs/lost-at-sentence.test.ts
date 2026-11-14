@@ -17,6 +17,10 @@ test.each<[GrabsLostAt, string]>([
     "It would fill 720p. The grabbed Release would fill 1080p, which comes first in the Profile.",
   ],
   [
+    at("fewer_releases", "1", "10"),
+    "It would fill 1 Item with no file. The grabbed Release would fill 10 Items with no file, so fewer Releases fill the Work.",
+  ],
+  [
     at("tier", "WEBDL-1080p", "Bluray-1080p"),
     "Its quality is WEBDL-1080p. The grabbed Release is Bluray-1080p, a higher tier at 1080p.",
   ],

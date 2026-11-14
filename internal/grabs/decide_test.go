@@ -155,7 +155,7 @@ func (episodic) ReadName(p release.Prepared) release.Name {
 		if y, err := strconv.Atoi(w); err == nil && y > 1900 {
 			n.Year = release.Known(y)
 		}
-		if w == "S01E02" || w == "S01E03" || w == "S01" {
+		if w == "S01E01" || w == "S01E02" || w == "S01E03" || w == "S01" {
 			n.Marks = []release.Mark{{Words: w, Key: w}}
 		}
 	}
@@ -290,6 +290,38 @@ func TestAPackIsJudgedAgainstEachItemsOwnFile(t *testing.T) {
 	}
 }
 
+func TestAPackThatMeetsTheTargetBeatsABetterEpisode(t *testing.T) {
+	d, c := packRun(true,
+		offered("Lantern.Keepers.S01E03.1080p.BluRay-GRP", 90, 10, nil),
+		offered("Lantern.Keepers.S01.1080p.WEB-DL", 5, 10, nil),
+	)
+	picks := d.picks(c)
+	if len(picks) != 2 || picks[0].Release.Title != "Lantern.Keepers.S01.1080p.WEB-DL" {
+		t.Fatalf("an automatic search may take %+v, want the season pack, which fills S01E02 too, before the BluRay episode", picks)
+	}
+	if l := lostAt(c, d.Ranked[0], d.Ranked[1]); l == nil || *l != (Loss{Step: StepFewerReleases, Own: "1", Ref: "2"}) {
+		t.Errorf("the episode lost at %+v, want fewer_releases, 1 against 2", l)
+	}
+}
+
+func TestOnceEveryCellHasAFileTheBetterEpisodeBeatsThePack(t *testing.T) {
+	ls := []listed{offered("Lantern.Keepers.S01.1080p.WEB-DL", 90, 10, nil), offered("Lantern.Keepers.S01E03.1080p.BluRay-GRP", 5, 10, nil)}
+	_, c := packRun(true, ls...)
+	hdtv := func(title string) *files.File {
+		return &files.File{Quality: release.HDTV720p, Title: release.Title(title, episodic{}, release.BuiltIn())}
+	}
+	c.open[0].State, c.open[0].File = files.Upgradable, hdtv("Lantern.Keepers.S01E03.720p.HDTV-GRP")
+	c.others[0].State, c.others[0].File = files.Upgradable, hdtv("Lantern.Keepers.S01E02.720p.HDTV-GRP")
+	d := decide(c, assessedBy(lanternS01E03, ls...))
+	picks := d.picks(c)
+	if len(picks) != 2 || picks[0].Release.Title != "Lantern.Keepers.S01E03.1080p.BluRay-GRP" {
+		t.Fatalf("an upgrade search may take %+v, want the BluRay episode before the pack, since no Item lacks a file", picks)
+	}
+	if l := lostAt(c, d.Ranked[0], d.Ranked[1]); l == nil || l.Step != StepTier {
+		t.Errorf("the pack lost at %+v, want tier", l)
+	}
+}
+
 func TestEqualUpToScoreTheReleaseCoveringFewerUnwantedItemsWins(t *testing.T) {
 	d, c := packRun(false,
 		offered("Lantern.Keepers.S01.1080p.WEB-DL", 90, 10, nil),
@@ -306,7 +338,7 @@ func TestEqualUpToScoreTheReleaseCoveringFewerUnwantedItemsWins(t *testing.T) {
 
 func TestEqualUpToScoreTheReleaseAnotherWantChoseWins(t *testing.T) {
 	pack := hashed(offered("Lantern.Keepers.S01.1080p.WEB-DL", 5, 10, nil), 'p')
-	d, c := packRun(true, offered("Lantern.Keepers.S01E03.1080p.WEB-DL", 90, 10, nil), pack)
+	d, c := packRun(false, offered("Lantern.Keepers.S01E03.1080p.WEB-DL", 90, 10, nil), pack)
 	c.chosen.hashes = map[bencode.InfoHash]bool{*pack.Release.InfoHash: true}
 	d = decided(c, append(d.Ranked, d.Refused...))
 	picks := d.picks(c)
