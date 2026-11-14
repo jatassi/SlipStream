@@ -206,7 +206,7 @@ func (q queue) renames() ([]Rename, error) {
 // IDsAt reads, in r, the file of root whose bytes sit at each of rels, gone
 // files included: at its move's place while one is pending, else at its
 // path. A rel no file's bytes sit at is left out.
-func (f *Files) IDsAt(ctx context.Context, r storage.Reader[file], root roots.ID, rels []storing.Rel) (map[storing.Rel]ID, error) {
+func IDsAt(ctx context.Context, r storage.Reader[file], root roots.ID, rels []storing.Rel) (map[storing.Rel]ID, error) {
 	paths := make([]string, len(rels))
 	for i, rel := range rels {
 		paths[i] = rel.String()

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
 	"github.com/jatassi/slipstream/internal/nodes"
@@ -17,6 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/storing"
 )
 
 // MediaServers is the Controller's side of S35 (Media Servers): the server
@@ -45,6 +47,9 @@ type Config struct {
 	// Link is MediaServerLinkService on node, the Controller's own through
 	// Local.
 	Link func(node role.NodeID) mediaserverv1connect.MediaServerLinkServiceHandler
+	// FileIDs is files.IDsAt: the file whose bytes sit at each path of a
+	// root.
+	FileIDs func(ctx context.Context, r storage.Reader[storage.Library], root roots.ID, rels []storing.Rel) (map[storing.Rel]files.ID, error)
 	// RootWords names each root the way copy does.
 	RootWords func(ctx context.Context, r storage.Reader[storage.Library]) (map[roots.ID]string, error)
 	// RootsChanged wakes after each roots.changed until ctx ends.

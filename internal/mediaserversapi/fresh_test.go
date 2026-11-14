@@ -14,6 +14,7 @@ import (
 	fakeplextv "github.com/jatassi/slipstream/fakes/plextv"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/mediaservers"
+	"github.com/jatassi/slipstream/internal/mediaservers/mstest"
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
 )
 
@@ -128,23 +129,32 @@ var freshPlex = fakeplex.Server{
 	Sections: []fakeplex.Section{{Key: "5", Title: "Films", Type: "movie", Folders: []string{`C:\Media\Films`}}},
 }
 
+// newFilms is Living room Plex, which seedbox reaches, with the Films
+// root mapped to its fresh section, once the section refresh its mapping
+// queued has gone.
+func newFilms(t *testing.T) (shelf, mstest.Plex) {
+	t.Helper()
+	r := plexRig{rig: newRig(t)}
+	r.plex = r.w.Plex(t, freshPlex, fakeplextv.Account{Username: "plex-admin", PlexPass: true})
+	r.signIn(t)
+	s := shelf{rig: r.rig, id: r.addPlex(t, r.w.Seedbox.String()).ID, root: r.w.Root(t, "Films").ID}
+	s.mapTo(t, `C:\Media\Films`)
+	settle(15 * time.Second)
+	return s, r.plex
+}
+
 // TestAFreshFolderIsScannedBeforePlexRefreshesIt lands the first file in
 // a section Plex never scanned with content, which ignores a folder
 // refresh (#101): Plex refreshes the section, and the folder once that
 // scan ends.
 func TestAFreshFolderIsScannedBeforePlexRefreshesIt(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		r := plexRig{rig: newRig(t)}
-		r.plex = r.w.Plex(t, freshPlex, fakeplextv.Account{Username: "plex-admin", PlexPass: true})
-		r.signIn(t)
-		s := shelf{rig: r.rig, id: r.addPlex(t, r.w.Seedbox.String()).ID, root: r.w.Root(t, "Films").ID}
-		s.mapTo(t, `C:\Media\Films`)
-		settle(15 * time.Second)
-		place(t, r.plex.Server.Media, "Films/Heat (1995)/Heat (1995).mkv")
+		s, px := newFilms(t)
+		place(t, px.Server.Media, "Films/Heat (1995)/Heat (1995).mkv")
 		s.tell(t, at(t, files.PathAdded, fileIDs{}.of("heat"), "Heat (1995)/Heat (1995).mkv"))
 		settle(time.Minute)
 		want := []string{"section 5", "section 5", `section 5 at C:\Media\Films\Heat (1995)`}
-		if got := refreshed(t, r.plex); !slices.Equal(got, want) {
+		if got := refreshed(t, px); !slices.Equal(got, want) {
 			t.Errorf("Plex took the refreshes %v, want %v", got, want)
 		}
 		if !s.scanned(t) {

@@ -430,13 +430,19 @@ func TestIndexPagesThroughEveryFile(t *testing.T) {
 		var paths, cursors []string
 		w := link.Index{Library: "2"}
 		for {
-			_, a := d.drive(link.Job{Work: w, Step: link.StepNone})
+			a, err := d.conn.Advance(t.Context(), link.Job{Work: w, Step: link.StepNone})
+			if err != nil {
+				t.Fatal(err)
+			}
 			for _, e := range a.Learned {
 				paths = append(paths, e.Path.String())
 			}
 			w, _ = a.Job.Work.(link.Index)
 			cursors = append(cursors, w.Cursor)
-			if w.Cursor == "" {
+			if a.Done != (w.Cursor == "") {
+				t.Fatalf("a page with the next cursor %q answered done %t", w.Cursor, a.Done)
+			}
+			if a.Done {
 				break
 			}
 		}

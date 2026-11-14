@@ -68,7 +68,7 @@ func (c *conn) index(ctx context.Context, j link.Job, w link.Index) (link.Advanc
 	if err != nil {
 		return link.Advanced{}, err
 	}
-	a := link.Advanced{Job: j, Done: true}
+	a := link.Advanced{Job: j}
 	for _, m := range page.Items {
 		for _, f := range files(m) {
 			a.Learned = append(a.Learned, entry(w.Library, f, m))
@@ -82,7 +82,7 @@ func (c *conn) index(ctx context.Context, j link.Job, w link.Index) (link.Advanc
 	default:
 		w.Cursor = ""
 	}
-	a.Job.Work = w
+	a.Job.Work, a.Done = w, w.Cursor == ""
 	return a, nil
 }
 

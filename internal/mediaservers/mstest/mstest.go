@@ -114,6 +114,7 @@ func New(t *testing.T) *World {
 		HTTP: w.net.client(), Timings: Timings, PlexTV: plexTV,
 		Link:         w.links.service,
 		RootWords:    w.roots.WordsIn,
+		FileIDs:      noFiles,
 		RootsChanged: func(context.Context) <-chan struct{} { return w.rehomed },
 		Tasks:        &cadences{},
 		Events:       mediaservers.Events{Changed: changedEvents{w}, SessionsChanged: sessionsEvents{w}},
@@ -299,6 +300,11 @@ func (e rootsChanged) Publish(context.Context, roots.Changed) {
 	}
 }
 
+// noFiles is files with no file at any path.
+func noFiles(context.Context, storage.Reader[storage.Library], roots.ID, []storing.Rel) (map[storing.Rel]files.ID, error) {
+	return nil, nil
+}
+
 // empty is roots that record no files.
 type empty struct{}
 
@@ -416,6 +422,33 @@ func (w *World) Scanned(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+// Item is what server's path index holds at p, false for none.
+type Item struct {
+	Key, Top string
+	Stale    bool
+}
+
+func (w *World) Item(t *testing.T, server string, p link.ServerPath) (Item, bool) {
+	t.Helper()
+	u, err := storage.ParseUUID(server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := link.ServerID{UUID: u}
+	var it db.MediaserversItem
+	err = w.Lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		it, err = db.New(r).GetItem(ctx, db.GetItemParams{ServerID: id, PathKey: p.Key()})
+		return err
+	})
+	switch {
+	case errors.Is(err, storage.ErrNoRows):
+		return Item{}, false
+	case err != nil:
+		t.Fatal(err)
+	}
+	return Item{Key: it.ItemKey, Top: it.TopKey, Stale: it.Stale}, true
 }
 
 // Down stops the server at host answering, as a server that stopped does,
