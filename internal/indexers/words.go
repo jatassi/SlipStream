@@ -454,6 +454,30 @@ func (e *SolverUnreachableError) Sentence() string {
 
 // unservedWords is the Health item of a Content Type whose Works, many,
 // no usable Indexer searches for.
-func unservedWords(many string) string {
-	return "No Indexer can search for " + strings.ToLower(many) + ". Add an Indexer or turn one on."
+func unservedWords(many string, feeds int) string {
+	out := "No Indexer can search for " + strings.ToLower(many) + "."
+	switch feeds {
+	case 0:
+	case 1:
+		out += " RSS sync still reads new uploads from 1 feed."
+	default:
+		out += fmt.Sprintf(" RSS sync still reads new uploads from %d feeds.", feeds)
+	}
+	return out + " Add an Indexer or turn one on."
+}
+
+// gapWords is why RSS sync may have missed Releases on Indexer name, for
+// gap.
+func (x *Indexers) gapWords(name string, gap GapKind) string {
+	out := "RSS sync may have missed Releases on " + name + ". "
+	switch gap {
+	case GapNoPaging:
+		out += fmt.Sprintf("More Releases were added to %[1]s between two RSS syncs than one fetch returns, and %[1]s can't list older ones.", name)
+	case GapPageCap:
+		out += fmt.Sprintf("More Releases were added to %s between two RSS syncs than %d pages hold.", name, x.cfg.Timings.RSSPages)
+	case GapLate:
+		return out + name + " took too long to list older uploads. Search Wanted to find what was missed."
+	case GapNone:
+	}
+	return out + " Search Wanted to find what was missed, or run RSS sync more often."
 }

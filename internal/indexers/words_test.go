@@ -6,6 +6,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 type named struct{ roster }
@@ -102,5 +103,25 @@ func TestStatusWords(t *testing.T) {
 				t.Errorf("words = %q, %q, want %q, %q", sentence, fix, tc.sentence, tc.fix)
 			}
 		})
+	}
+}
+
+func TestUnservedSaysHowManyRSSFeedsStillReadTheType(t *testing.T) {
+	feed := func(on, rss bool) Indexer {
+		return Indexer{Kind: RSS, On: on, RSS: rss, Media: []works.TypeID{"films"}}
+	}
+	all := []Indexer{feed(true, true), feed(true, true), feed(true, false), feed(false, true), {Kind: Torznab, On: true, RSS: true}}
+	for _, tc := range []struct {
+		all   []Indexer
+		rssOn bool
+		want  string
+	}{
+		{all, true, "No Indexer can search for films. RSS sync still reads new uploads from 2 feeds. Add an Indexer or turn one on."},
+		{all[:1], true, "No Indexer can search for films. RSS sync still reads new uploads from 1 feed. Add an Indexer or turn one on."},
+		{all, false, "No Indexer can search for films. Add an Indexer or turn one on."},
+	} {
+		if got := unservedWords("Films", feedsOf(tc.all, "films", tc.rssOn)); got != tc.want {
+			t.Errorf("unserved = %q, want %q", got, tc.want)
+		}
 	}
 }
