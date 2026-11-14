@@ -48,7 +48,7 @@ export const getListMediaServersResponseMock = (
         : {}),
       id: faker.string.uuid(),
       identity: faker.string.alpha({ length: { min: 10, max: 20 } }),
-      kind: faker.helpers.arrayElement(["jellyfin", "emby"] as const),
+      kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
       ...(faker.datatype.boolean()
         ? { lastContactAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
         : {}),
@@ -120,7 +120,7 @@ export const getAddMediaServerResponseMock = (
     : {}),
   id: faker.string.uuid(),
   identity: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  kind: faker.helpers.arrayElement(["jellyfin", "emby"] as const),
+  kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
   ...(faker.datatype.boolean()
     ? { lastContactAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
     : {}),
@@ -170,7 +170,7 @@ export const getListMediaServerKindsResponseMock = (
   kinds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({
     browser: faker.datatype.boolean(),
     floor: faker.string.alpha({ length: { min: 10, max: 20 } }),
-    kind: faker.helpers.arrayElement(["jellyfin", "emby"] as const),
+    kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
     label: faker.string.alpha({ length: { min: 10, max: 20 } }),
     signIn: faker.helpers.arrayElement(["plex_pin", "api_key_or_admin"] as const),
   })),
@@ -278,7 +278,7 @@ export const getGetMediaServerResponseMock = (
     : {}),
   id: faker.string.uuid(),
   identity: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  kind: faker.helpers.arrayElement(["jellyfin", "emby"] as const),
+  kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
   ...(faker.datatype.boolean()
     ? { lastContactAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
     : {}),
@@ -348,7 +348,7 @@ export const getUpdateMediaServerResponseMock = (
     : {}),
   id: faker.string.uuid(),
   identity: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  kind: faker.helpers.arrayElement(["jellyfin", "emby"] as const),
+  kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
   ...(faker.datatype.boolean()
     ? { lastContactAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
     : {}),
@@ -477,7 +477,7 @@ export const getConfirmMediaServerIdentityResponseMock = (
     : {}),
   id: faker.string.uuid(),
   identity: faker.string.alpha({ length: { min: 10, max: 20 } }),
-  kind: faker.helpers.arrayElement(["jellyfin", "emby"] as const),
+  kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
   ...(faker.datatype.boolean()
     ? { lastContactAt: faker.date.past().toISOString().slice(0, 19) + "Z" }
     : {}),

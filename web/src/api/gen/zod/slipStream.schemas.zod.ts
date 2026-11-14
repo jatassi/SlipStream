@@ -6397,7 +6397,7 @@ export const JoinInputBody = zod.object({
 export type JoinInputBody = zod.input<typeof JoinInputBody>;
 export type JoinInputBodyOutput = zod.output<typeof JoinInputBody>;
 
-export const MediaserversKind = zod.enum(["jellyfin", "emby"]);
+export const MediaserversKind = zod.enum(["plex", "jellyfin", "emby"]);
 
 export type MediaserversKind = zod.input<typeof MediaserversKind>;
 export type MediaserversKindOutput = zod.output<typeof MediaserversKind>;

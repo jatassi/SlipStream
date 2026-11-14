@@ -1,1 +1,1 @@
-export type MediaserversKind = "jellyfin" | "emby";
+export type MediaserversKind = "plex" | "jellyfin" | "emby";
