@@ -39,7 +39,7 @@ function useRunNames(search: GrabsSearch) {
   const targets = useSuspenseQuery(queries.targets).data;
   const grabs = useSuspenseQuery(queries.grabs).data;
   const targetsById = new Map(targets.targets.map(({ id, name }) => [id, name]));
-  const grab = grabs.grabs.find(({ id }) => id === search.grabId);
+  const grab = grabs.grabs.find(({ id }) => id === search.grabIds[0]);
   const names: RunNames = {
     targets: targetsById,
     formats: new Map(formats.formats.map(({ id, name }) => [id, name])),

@@ -72,7 +72,7 @@ export interface GrabsGrab {
   releaseTitle: string;
   /** Its Release in words, such as Bluray-1080p · FKW · 9.8 GB */
   releaseWords: string;
-  /** How it was chosen: by a search's decision, or by an Admin in a Manual search */
+  /** How it was chosen: by a search's decision, by an Admin in a Manual search, or by RSS sync's decision */
   source: GrabsGrabSource;
   stage: GrabsGrabStage;
   /** The Targets it was grabbed for, in Profile order */
