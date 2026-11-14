@@ -35,7 +35,7 @@ func (d *stall) Search(ctx context.Context, s *Site, _ Query) ([]Release, error)
 	}
 }
 
-func (*stall) Recent(context.Context, *Site) ([]Release, error) { panic("not asked") }
+func (*stall) Recent(context.Context, *Site, int) ([]Release, error) { panic("not asked") }
 
 func (*stall) Fetch(context.Context, *Site, Link) (Got, error) { panic("not asked") }
 

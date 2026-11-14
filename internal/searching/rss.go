@@ -31,7 +31,10 @@ func (rssDriver) Search(context.Context, *Site, Query) ([]Release, error) {
 	return nil, &Failing{Err: errors.New("an RSS feed has no search")}
 }
 
-func (d rssDriver) Recent(ctx context.Context, s *Site) ([]Release, error) {
+func (d rssDriver) Recent(ctx context.Context, s *Site, offset int) ([]Release, error) {
+	if err := NewestOnly(offset); err != nil {
+		return nil, err
+	}
 	body, err := d.feed(ctx, s)
 	if err != nil {
 		return nil, err
@@ -45,7 +48,7 @@ func (d rssDriver) Recent(ctx context.Context, s *Site) ([]Release, error) {
 		out[i] = Release{
 			Title: e.Title, Size: e.Size, Published: e.Published, Seeders: e.Seeders,
 			Link: LinkOf(e.Link), Magnet: LinkOf(e.Magnet), InfoHash: e.InfoHash, Details: e.Details,
-			Factors: Factors{Download: 1, Upload: 1},
+			Factors: Factors{Download: 1, Upload: 1}, GUID: e.GUID,
 		}
 	}
 	return out, nil

@@ -132,7 +132,7 @@ func encodeJob(j Job) *searchv1.Job {
 			Mode: q.Mode, Ids: q.IDs, Text: q.Text, Season: season32(q.Season), Episode: q.Episode,
 		}}}
 	case RecentCall:
-		w.Call = &searchv1.Job_Recent{Recent: &searchv1.RecentCall{}}
+		w.Call = &searchv1.Job_Recent{Recent: &searchv1.RecentCall{Offset: int32(c.Offset)}} //nolint:gosec // a page offset fits
 	case FetchCall:
 		w.Call = &searchv1.Job_Fetch{Fetch: &searchv1.FetchCall{Link: c.Link.raw}}
 	case TestCall:
@@ -176,7 +176,10 @@ func decodeJob(w *searchv1.Job) (Job, *Site, error) {
 		q := c.Search.GetQuery()
 		j.Call = SearchCall{Query: Query{Mode: q.GetMode(), IDs: q.GetIds(), Text: q.GetText(), Season: seasonOf(q), Episode: q.GetEpisode()}}
 	case *searchv1.Job_Recent:
-		j.Call = RecentCall{}
+		if c.Recent.GetOffset() < 0 {
+			return Job{}, nil, fmt.Errorf("the recent call's offset is %d, below 0", c.Recent.GetOffset())
+		}
+		j.Call = RecentCall{Offset: int(c.Recent.GetOffset())}
 	case *searchv1.Job_Fetch:
 		if _, err := httpURL(c.Fetch.GetLink()); err != nil {
 			return Job{}, nil, fmt.Errorf("the link to fetch: %w", err)
@@ -233,7 +236,7 @@ func encodeAnswer(a Answer) *searchv1.Answer {
 			modes[mode] = &searchv1.ModeParams{Params: params}
 		}
 		w.Result = &searchv1.Answer_Test{Test: &searchv1.TestReport{
-			Capabilities: &searchv1.Capabilities{Modes: modes, Categories: int32s(a.Report.Capabilities.Categories)},
+			Capabilities: &searchv1.Capabilities{Modes: modes, Categories: int32s(a.Report.Capabilities.Categories), RecentPaging: a.Report.Capabilities.RecentPaging},
 			Items:        int32(a.Report.Items), Sources: a.Report.Sources, //nolint:gosec // an item count fits
 			Refusal: onWire(refusalOnWire, a.Report.Refusal),
 		}}
@@ -275,7 +278,7 @@ func decodeAnswer(w *searchv1.Answer) (Answer, error) {
 			modes[mode] = p.GetParams()
 		}
 		a.Report = &Report{
-			Capabilities: Capabilities{Modes: modes, Categories: ints(r.Test.GetCapabilities().GetCategories())},
+			Capabilities: Capabilities{Modes: modes, Categories: ints(r.Test.GetCapabilities().GetCategories()), RecentPaging: r.Test.GetCapabilities().GetRecentPaging()},
 			Items:        int(r.Test.GetItems()), Sources: r.Test.GetSources(), Refusal: refusalOnWire[r.Test.GetRefusal()],
 		}
 		if w := r.Test.GetRss(); w != nil {
@@ -327,7 +330,7 @@ func encodeRelease(r Release) *searchv1.Release {
 		Seeders: int32(r.Seeders), Leechers: int32(r.Leechers), Grabs: int32(r.Grabs), //nolint:gosec // peer and grab counts fit
 		Link: r.Link.raw, Magnet: r.Magnet.raw, Categories: int32s(r.Categories), Ids: r.IDs,
 		DownloadFactor: r.Factors.Download, UploadFactor: r.Factors.Upload,
-		MinRatio: r.Floor.MinRatio, MinSeedSeconds: int64(r.Floor.MinSeed / time.Second), Details: r.Details,
+		MinRatio: r.Floor.MinRatio, MinSeedSeconds: int64(r.Floor.MinSeed / time.Second), Details: r.Details, Guid: r.GUID,
 	}
 	for _, f := range r.Flags {
 		w.Flags = append(w.Flags, string(f))
@@ -348,7 +351,7 @@ func decodeRelease(w *searchv1.Release) (Release, error) {
 		Link: LinkOf(w.GetLink()), Magnet: LinkOf(w.GetMagnet()), Categories: ints(w.GetCategories()), IDs: w.GetIds(),
 		Factors: Factors{Download: w.GetDownloadFactor(), Upload: w.GetUploadFactor()},
 		Floor:   Floor{MinRatio: w.GetMinRatio(), MinSeed: time.Duration(w.GetMinSeedSeconds()) * time.Second},
-		Details: w.GetDetails(),
+		Details: w.GetDetails(), GUID: w.GetGuid(),
 	}
 	for _, name := range w.GetFlags() {
 		f, ok := release.ParseFlag(name)

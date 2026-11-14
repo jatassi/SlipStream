@@ -244,12 +244,14 @@ func TestSearchParsesHTMLRows(t *testing.T) {
 			InfoHash: hash1, Size: 1610612736, Published: time.Date(2026, 10, 20, 11, 45, 0, 0, time.UTC),
 			Seeders: 1234, Leechers: 5, Grabs: 7, Categories: []newznab.ID{2040, 100010},
 			IDs: map[string]string{"imdbid": "tt0133093"}, DownloadFactor: 0, UploadFactor: 1, MinRatio: 0.8, MinSeed: 48 * time.Hour,
+			GUID: "https://html.example/dl.php?id=1",
 		},
 		{
 			Title: "Show S01E01", Details: "https://html.example/details.php?id=2",
 			Magnet:   "magnet:?xt=urn:btih:89abcdef0123456789abcdef0123456789abcdef&dn=Show",
 			InfoHash: hash2, Size: 734003200, Published: time.Date(2026, 10, 21, 6, 0, 0, 0, time.UTC),
 			Seeders: 3, Leechers: 0, Categories: []newznab.ID{5000, 100020}, DownloadFactor: 1, UploadFactor: 1, MinRatio: 0.8, MinSeed: 48 * time.Hour,
+			GUID: "magnet:?xt=urn:btih:89abcdef0123456789abcdef0123456789abcdef&dn=Show",
 		},
 	}
 	if !reflect.DeepEqual(rs, want) {
@@ -410,11 +412,12 @@ func TestSearchParsesJSONRows(t *testing.T) {
 			Title: "Alpha 720p", Link: "https://json.example/t/1",
 			InfoHash: []byte{0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67},
 			Size:     1000, Published: time.Date(2026, 10, 20, 13, 45, 0, 0, time.UTC), Seeders: 4, Leechers: 6,
-			Categories: []newznab.ID{2000}, DownloadFactor: 0, UploadFactor: 1,
+			Categories: []newznab.ID{2000}, DownloadFactor: 0, UploadFactor: 1, GUID: "https://json.example/t/1",
 		},
 		{
 			Title: "Alpha 1080p", Link: "https://cdn.example/t/2", Size: 2000, Published: time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC),
 			Seeders: 1, Categories: []newznab.ID{2000}, DownloadFactor: 1, UploadFactor: 1, IDs: map[string]string{"tmdbid": "603"},
+			GUID: "https://cdn.example/t/2",
 		},
 	}
 	if !reflect.DeepEqual(rs, want) {
@@ -505,7 +508,7 @@ search:
 	body := `<?xml version="1.0" encoding="UTF-8"?><rss><channel><item><title>Feed Item</title><link>https://rss.example/get/1</link>
 <pubDate>Tue, 20 Oct 2026 13:45:00 +00:00</pubDate><enclosure url="x" length="4096"/></item></channel></rss>`
 	rs := mustSearch(t, d, Query{Mode: "search"}, site{"GET https://rss.example/rss": page(body)})
-	want := []Release{{Title: "Feed Item", Link: "https://rss.example/get/1", Size: 4096, Published: time.Date(2026, 10, 20, 13, 45, 0, 0, time.UTC), Categories: []newznab.ID{2000}, DownloadFactor: 1, UploadFactor: 1}}
+	want := []Release{{Title: "Feed Item", Link: "https://rss.example/get/1", Size: 4096, Published: time.Date(2026, 10, 20, 13, 45, 0, 0, time.UTC), Categories: []newznab.ID{2000}, DownloadFactor: 1, UploadFactor: 1, GUID: "https://rss.example/get/1"}}
 	if !reflect.DeepEqual(rs, want) {
 		t.Errorf("Releases =\n%+v\nwant\n%+v", rs, want)
 	}

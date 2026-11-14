@@ -28,10 +28,14 @@ func TestAJobAndItsAnswerCrossTheWireWhole(t *testing.T) {
 
 	feed := Job{
 		ID: "f", Indexer: "b", Revision: 1, Kind: RSS, Address: "https://brook.test/rss?passkey=p", Session: session,
-		RSS: RSSReading{Link: "torrent", SizeFromDescription: true, SeedersFromDescription: true, AllowNoSize: true}, Call: RecentCall{},
+		RSS: RSSReading{Link: "torrent", SizeFromDescription: true, SeedersFromDescription: true, AllowNoSize: true}, Call: RecentCall{Offset: 200},
 	}
 	if got, site, err := decodeJob(encodeJob(feed)); err != nil || !reflect.DeepEqual(got, feed) || site.RSS != feed.RSS {
 		t.Fatalf("the RSS job came across as %+v, %+v, %v; want %+v", got, site, err, feed)
+	}
+	feed.Call = RecentCall{Offset: -1}
+	if _, _, err := decodeJob(encodeJob(feed)); err == nil {
+		t.Fatal("a recent call at offset -1 came across, want it refused")
 	}
 
 	for _, call := range []Call{TestCall{Captcha: &CaptchaAnswer{PreLogin: []byte(`{"Action":"x"}`), Text: "x7k2"}}, CaptchaCall{}} {
@@ -57,7 +61,7 @@ func TestAJobAndItsAnswerCrossTheWireWhole(t *testing.T) {
 			Categories: []int{5040}, IDs: map[string]string{"tvdbid": "1"}, Factors: Factors{Download: 0, Upload: 2},
 			Floor: Floor{MinRatio: 1, MinSeed: 48 * time.Hour}, Details: "https://site.test/t/1",
 			Source: &Source{ID: "12", Name: "Larkspur", Privacy: "private", Origin: "prowlarr"},
-			Flags:  []Flag{release.Freeleech, release.Internal},
+			Flags:  []Flag{release.Freeleech, release.Internal}, GUID: "https://site.test/t/1#guid",
 		}},
 	}
 	back, err := decodeAnswer(encodeAnswer(answer))
@@ -65,7 +69,7 @@ func TestAJobAndItsAnswerCrossTheWireWhole(t *testing.T) {
 		t.Fatalf("the answer came across as %+v, %v; want %+v", back, err, answer)
 	}
 	for _, outcome := range []error{nil, &Limited{RetryAfter: 2 * time.Second}, &Stopped{Cause: CodeNeeded}, &Stopped{Cause: PortRetired, Text: "the site closed"}} {
-		a := Answer{Outcome: outcome, Report: &Report{Capabilities: Capabilities{Modes: map[string][]string{"search": {"q"}}, Categories: []int{2000}}, Items: 3, Sources: []string{"Larkspur"}}}
+		a := Answer{Outcome: outcome, Report: &Report{Capabilities: Capabilities{Modes: map[string][]string{"search": {"q"}}, Categories: []int{2000}, RecentPaging: true}, Items: 3, Sources: []string{"Larkspur"}}}
 		if back, err := decodeAnswer(encodeAnswer(a)); err != nil || !same(back, a) {
 			t.Fatalf("a Test's answer came across as %+v, %v; want %+v", back, err, a)
 		}

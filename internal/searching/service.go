@@ -79,7 +79,7 @@ func (s *Service) do(job Job, site *Site, r *run) Answer {
 	case SearchCall:
 		a.Releases, err = d.Search(ctx, site, c.Query)
 	case RecentCall:
-		a.Releases, err = d.Recent(ctx, site)
+		a.Releases, err = d.Recent(ctx, site, c.Offset)
 	case FetchCall:
 		a.Got, err = d.Fetch(ctx, site, c.Link)
 	case TestCall:

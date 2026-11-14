@@ -85,7 +85,10 @@ func (d catalogDriver) Search(ctx context.Context, s *Site, q Query) ([]Release,
 	return d.releases(ctx, s, func() *cardigann.Search { return s.def.Search(d.settings(s), cq, clock()) })
 }
 
-func (d catalogDriver) Recent(ctx context.Context, s *Site) ([]Release, error) {
+func (d catalogDriver) Recent(ctx context.Context, s *Site, offset int) ([]Release, error) {
+	if err := NewestOnly(offset); err != nil {
+		return nil, err
+	}
 	return d.releases(ctx, s, func() *cardigann.Search { return s.def.Recent(d.settings(s), clock()) })
 }
 
@@ -137,7 +140,7 @@ func (d catalogDriver) Test(ctx context.Context, s *Site, answer *CaptchaAnswer)
 			return Report{}, err
 		}
 	}
-	items, err := d.Recent(ctx, s)
+	items, err := d.Recent(ctx, s, 0)
 	if err != nil {
 		return Report{}, err
 	}
@@ -322,7 +325,7 @@ func refused(def *cardigann.Definition, err error) error {
 func releaseOf(r cardigann.Release) Release {
 	out := Release{
 		Title: r.Title, Size: r.Size, Published: r.Published, Seeders: r.Seeders, Leechers: r.Leechers, Grabs: r.Grabs,
-		Link: LinkOf(r.Link), Magnet: LinkOf(r.Magnet), IDs: r.IDs, Details: r.Details,
+		Link: LinkOf(r.Link), Magnet: LinkOf(r.Magnet), IDs: r.IDs, Details: r.Details, GUID: r.GUID,
 		Factors: Factors{Download: r.DownloadFactor, Upload: r.UploadFactor}, Floor: Floor{MinRatio: r.MinRatio, MinSeed: r.MinSeed},
 	}
 	if len(r.InfoHash) == len(bencode.InfoHash{}) {
