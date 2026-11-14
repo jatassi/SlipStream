@@ -56,6 +56,22 @@ test("indexers.status-changed refreshes the list, that Indexer and its queries",
     .toEqual({ list: true, quarry: true, larkspur: false, queries: true });
 });
 
+test("indexers.rss-changed refreshes the list and that Indexer", async () => {
+  const server = liveServer();
+  const app = renderApp({ path: "/", handlers: server.handlers });
+  await synced(app);
+  const invalidated = seeded(app, {
+    list: getListIndexersQueryKey(),
+    quarry: getGetIndexerQueryKey(quarry),
+    larkspur: getGetIndexerQueryKey(larkspur),
+    queries: getListIndexerQueriesQueryKey(quarry),
+  });
+  server.clients[0]?.send({ event: "indexers.rss-changed", data: { indexerId: quarry } });
+  await expect
+    .poll(invalidated)
+    .toEqual({ list: true, quarry: true, larkspur: false, queries: false });
+});
+
 test("indexers.settings-changed refreshes the Indexer settings", async () => {
   const server = liveServer();
   const app = renderApp({ path: "/", handlers: server.handlers });

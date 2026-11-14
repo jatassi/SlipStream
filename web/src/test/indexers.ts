@@ -49,6 +49,7 @@ export function indexer(over: Partial<IndexersIndexer> & Pick<IndexersIndexer, "
     port: null,
     searchModes: [{ mode: "search", params: ["q"] }],
     notes: [],
+    rssFetch: null,
     revision: 3,
     createdAt: "2026-10-20T08:00:00Z",
     ...over,

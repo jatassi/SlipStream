@@ -175,6 +175,12 @@ type portPin struct {
 	Sealed      []string          `json:"sealed" nullable:"false" doc:"The names of the sealed settings that hold a value, in order"`
 }
 
+type rssFeed struct {
+	LastFetchAt time.Time  `json:"lastFetchAt"`
+	GapKind     *string    `json:"gapKind" enum:"no_paging,page_cap,late" doc:"Why the last fetches didn't reach where the one before stopped; null when they did"`
+	GapSince    *time.Time `json:"gapSince" doc:"Set with gapKind: the first fetch that didn't reach it"`
+}
+
 type session struct {
 	NodeID   string    `json:"nodeId" format:"uuid"`
 	Pasted   bool      `json:"pasted" doc:"Seeded from a browser cookie an Admin pasted"`
@@ -208,6 +214,7 @@ type indexer struct {
 	Port            api.Nullable[portPin] `json:"port" doc:"A native Indexer's ported site; null for every other kind"`
 	SearchModes     []searchMode          `json:"searchModes" nullable:"false" doc:"By mode"`
 	Notes           []string              `json:"notes" nullable:"false" doc:"What changed when SlipStream last moved it to a new definition version or from a ported site to its catalog definition, for the Indexer page"`
+	RSSFetch        api.Nullable[rssFeed] `json:"rssFetch" doc:"Its last RSS fetch; null before its first"`
 	Revision        int64                 `json:"revision" minimum:"1"`
 	CreatedAt       time.Time             `json:"createdAt"`
 }
@@ -281,6 +288,9 @@ func indexerOf(v indexers.View) indexer {
 	}
 	if v.Waits != nil {
 		out.Waits = api.Some(outcomeOf(*v.Waits))
+	}
+	if f := v.Feed; f != nil {
+		out.RSSFetch = api.Some(rssFeed{LastFetchAt: f.Fetched, GapKind: text(f.Gap), GapSince: when(f.GapSince)})
 	}
 	if v.Session != nil {
 		out.Session = api.Some(session{NodeID: v.Session.Node.String(), Pasted: v.Session.Pasted, EarnedAt: v.Session.Earned})

@@ -78,6 +78,7 @@ var Events = []live.Event{
 	indexers.StatusChangedEvent,
 	indexers.CatalogChangedEvent,
 	indexers.SettingsChangedEvent,
+	indexers.RSSChangedEvent,
 	indexers.TrackersEvent,
 	trackers.SeedingChangedEvent,
 	files.ChangedEvent,
