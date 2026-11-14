@@ -339,7 +339,7 @@ func TestFreshScansTheSectionOnceAndWaitsForItsEnd(t *testing.T) {
 		d.place("Fresh/Nosferatu (1922)/Nosferatu (1922).mkv")
 		_, a := d.drive(link.Job{Work: link.Fresh{Library: "4", Folder: d.at("Fresh")}, Step: link.StepNone})
 		check(t, "refreshes", d.refreshes(), []string{"section 4"})
-		if f := a.Job.Work.(link.Fresh); f.Requested.IsZero() {
+		if f, _ := a.Job.Work.(link.Fresh); f.Requested.IsZero() {
 			t.Errorf("the scan's end came back as %+v, want the request it answers", f)
 		}
 		d.drive(link.Job{Work: link.Fresh{Library: "4", Folder: d.at("Fresh")}, Step: link.StepNone})
@@ -355,7 +355,7 @@ func TestFreshDecidesBeforeItRefreshes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if f := a.Job.Work.(link.Fresh); a.Done || f.Requested.IsZero() || len(d.refreshes()) != 0 {
+		if f, _ := a.Job.Work.(link.Fresh); a.Done || f.Requested.IsZero() || len(d.refreshes()) != 0 {
 			t.Errorf("the first call = %+v with refreshes %v, want the decision and no refresh", a, d.refreshes())
 		}
 	})
@@ -377,7 +377,7 @@ func TestFreshRetriedAfterItsRefreshStartsNoSecond(t *testing.T) {
 		}
 		time.Sleep(time.Minute)
 		retry := decided.Job
-		f := retry.Work.(link.Fresh)
+		f, _ := retry.Work.(link.Fresh)
 		f.Requested = f.Requested.Add(time.Hour)
 		retry.Work = f
 		a, err := d.conn.Advance(t.Context(), retry)

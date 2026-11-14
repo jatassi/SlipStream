@@ -280,16 +280,9 @@ func (m *MediaServers) take(ctx context.Context, id link.ServerID, indexAfter ti
 			}
 			s.jobs = append(s.jobs, j)
 		}
-		if len(s.jobs) == 0 && indexAfter.After(d.Now) {
-			s.next = earliest(s.next, indexAfter)
-		} else if len(s.jobs) == 0 {
-			j, next, err := m.indexJob(ctx, q, d)
-			if err != nil {
+		if len(s.jobs) == 0 {
+			if err := m.takeIndex(ctx, q, d, indexAfter, &s); err != nil {
 				return err
-			}
-			s.next = earliest(s.next, next)
-			if j != nil {
-				s.jobs = append(s.jobs, *j)
 			}
 		}
 		if len(s.jobs) == 0 {
@@ -427,7 +420,8 @@ func changeIDs(cs []link.JobChange) []link.ChangeID {
 
 // drive runs j one step per call until it is done, waits or fails,
 // recording each step on its rows. An index Job runs one page a pass, so
-// a change that came meanwhile goes first. A failed call answers when the next
+// a change that came meanwhile goes first, and its answer goes in the
+// index, which a failed call leaves as it was. A failed call answers when the next
 // step may start: never before the call's deadline, by when the reaching
 // Node's handler has ended too.
 func (m *MediaServers) drive(ctx context.Context, s sending, j link.Job) (time.Time, error) {
@@ -437,7 +431,14 @@ func (m *MediaServers) drive(ctx context.Context, s sending, j link.Job) (time.T
 		out, err := s.port.Advance(call, j)
 		cancel()
 		more := err == nil && !out.Done && out.Wait.IsZero() && !isIndex(j)
-		if rerr := m.record(ctx, s, j, out, err, start, more); rerr != nil {
+		var rerr error
+		switch {
+		case !isIndex(j):
+			rerr = m.record(ctx, s, j, out, err, start, more)
+		case err == nil:
+			rerr = m.indexed(ctx, s, out)
+		}
+		if rerr != nil {
 			if ctx.Err() == nil {
 				m.cfg.Log.Error("record a step on a Media Server", "server", s.id.String(), "err", rerr.Error())
 			}
@@ -460,12 +461,6 @@ func (m *MediaServers) drive(ctx context.Context, s sending, j link.Job) (time.T
 // Job going on at once, whose rows stay taken.
 func (m *MediaServers) record(ctx context.Context, s sending, j link.Job, out link.Advanced, callErr error, start time.Time, more bool) error {
 	return m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		if isIndex(j) {
-			if callErr != nil {
-				return nil
-			}
-			return m.indexed(ctx, tx, s, out)
-		}
 		q := db.New(tx)
 		rows, err := q.GetChanges(ctx, jobIDs(j))
 		if err != nil {
@@ -478,13 +473,8 @@ func (m *MediaServers) record(ctx context.Context, s sending, j link.Job, out li
 		if callErr != nil {
 			return m.failed(ctx, q, s.id, cs, callErr, later(time.Now(), start.Add(m.cfg.Timings.Call)))
 		}
-		if err := m.learn(ctx, tx, s, out.Learned, time.Now()); err != nil {
+		if err := m.stepped(ctx, tx, s, cs, out); err != nil {
 			return err
-		}
-		if f, ok := out.Job.Work.(link.Fresh); ok && len(cs) > 0 {
-			if err := scan(ctx, q, s.id, cs[0].Root, f, out.Done); err != nil {
-				return err
-			}
 		}
 		st := stepped{s: s, out: out, start: start, now: time.Now(), more: more, ended: map[link.ChangeID]link.Outcome{}, snaps: snapshotsOf(out.Job)}
 		for _, o := range out.Outcomes {
@@ -534,6 +524,18 @@ func (st stepped) land(ctx context.Context, q *db.Queries, c queue.Change) error
 	}
 	c.NextAt = later(st.now, st.out.Wait)
 	return reopen(ctx, q, c)
+}
+
+// stepped writes what a step answered beside its rows: the entries it
+// learned, and a Fresh Job's mapping.
+func (m *MediaServers) stepped(ctx context.Context, tx *storage.Tx[storage.Library], s sending, cs []queue.Change, out link.Advanced) error {
+	if err := m.learn(ctx, tx, s, out.Learned, time.Now()); err != nil {
+		return err
+	}
+	if f, ok := out.Job.Work.(link.Fresh); ok && len(cs) > 0 {
+		return scan(ctx, db.New(tx), s.id, cs[0].Root, f, out.Done)
+	}
+	return nil
 }
 
 // scan writes a Fresh Job's answer on root's mapping: the decision and

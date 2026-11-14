@@ -123,22 +123,22 @@ func TestARetryNeverStartsASecondScan(t *testing.T) {
 	})
 }
 
-// freshPlex is Living room Plex with a Films section it never scanned.
+// freshPlex is Living room Plex with a Shows section it never scanned.
 var freshPlex = fakeplex.Server{
 	Name: "Living room", Version: "1.43.5.11029", Identifier: plexID, Owner: "plex-admin", Root: `C:\Media`,
-	Sections: []fakeplex.Section{{Key: "5", Title: "Films", Type: "movie", Folders: []string{`C:\Media\Films`}}},
+	Sections: []fakeplex.Section{{Key: "5", Title: "Shows", Type: "show", Folders: []string{`C:\Media\Shows`}}},
 }
 
-// newFilms is Living room Plex, which seedbox reaches, with the Films
+// newFresh is Living room Plex, which seedbox reaches, with the Shows
 // root mapped to its fresh section, once the section refresh its mapping
 // queued has gone.
-func newFilms(t *testing.T) (shelf, mstest.Plex) {
+func newFresh(t *testing.T) (shelf, mstest.Plex) {
 	t.Helper()
 	r := plexRig{rig: newRig(t)}
 	r.plex = r.w.Plex(t, freshPlex, fakeplextv.Account{Username: "plex-admin", PlexPass: true})
 	r.signIn(t)
-	s := shelf{rig: r.rig, id: r.addPlex(t, r.w.Seedbox.String()).ID, root: r.w.Root(t, "Films").ID}
-	s.mapTo(t, `C:\Media\Films`)
+	s := shelf{rig: r.rig, id: r.addPlex(t, r.w.Seedbox.String()).ID, root: r.w.Root(t, "Shows").ID}
+	s.mapTo(t, `C:\Media\Shows`)
 	settle(15 * time.Second)
 	return s, r.plex
 }
@@ -149,11 +149,11 @@ func newFilms(t *testing.T) (shelf, mstest.Plex) {
 // scan ends.
 func TestAFreshFolderIsScannedBeforePlexRefreshesIt(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		s, px := newFilms(t)
-		place(t, px.Server.Media, "Films/Heat (1995)/Heat (1995).mkv")
-		s.tell(t, at(t, files.PathAdded, fileIDs{}.of("heat"), "Heat (1995)/Heat (1995).mkv"))
+		s, px := newFresh(t)
+		place(t, px.Server.Media, "Shows/Voyage/Season 01/Voyage - S01E01.mkv")
+		s.tell(t, at(t, files.PathAdded, fileIDs{}.of("e1"), "Voyage/Season 01/Voyage - S01E01.mkv"))
 		settle(time.Minute)
-		want := []string{"section 5", "section 5", `section 5 at C:\Media\Films\Heat (1995)`}
+		want := []string{"section 5", "section 5", `section 5 at C:\Media\Shows\Voyage\Season 01`}
 		if got := refreshed(t, px); !slices.Equal(got, want) {
 			t.Errorf("Plex took the refreshes %v, want %v", got, want)
 		}

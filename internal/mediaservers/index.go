@@ -55,6 +55,24 @@ func (m *MediaServers) indexJob(ctx context.Context, q *db.Queries, d link.Due) 
 	return nil, next, nil
 }
 
+// takeIndex adds the path index's Job to s when a listing or a lookup is
+// due, not before indexAfter, and moves s.next to the next listing due.
+func (m *MediaServers) takeIndex(ctx context.Context, q *db.Queries, d link.Due, indexAfter time.Time, s *sending) error {
+	if indexAfter.After(d.Now) {
+		s.next = earliest(s.next, indexAfter)
+		return nil
+	}
+	j, next, err := m.indexJob(ctx, q, d)
+	if err != nil {
+		return err
+	}
+	s.next = earliest(s.next, next)
+	if j != nil {
+		s.jobs = append(s.jobs, *j)
+	}
+	return nil
+}
+
 // mapped are the libraries of the server's shown, confirmed mappings.
 func mapped(ms []link.PlanMapping) []string {
 	var out []string
@@ -77,23 +95,25 @@ func earliest(a, b time.Time) time.Time {
 // indexed writes an index Job's answer: what it learned, and the
 // listing's next page, or its end, which forgets every entry of the
 // library the listing didn't see.
-func (m *MediaServers) indexed(ctx context.Context, tx *storage.Tx[storage.Library], s sending, out link.Advanced) error {
-	now := time.Now()
-	if err := m.learn(ctx, tx, s, out.Learned, now); err != nil {
-		return err
-	}
-	w, ok := out.Job.Work.(link.Index)
-	if !ok {
-		return nil
-	}
-	q := db.New(tx)
-	if !out.Done {
-		return q.SetListingCursor(ctx, db.SetListingCursorParams{ServerID: s.id, LibraryKey: w.Library, Cursor: w.Cursor})
-	}
-	if err := q.PruneLibrary(ctx, db.PruneLibraryParams{ServerID: s.id, LibraryKey: w.Library}); err != nil {
-		return err
-	}
-	return q.EndListing(ctx, db.EndListingParams{ServerID: s.id, LibraryKey: w.Library, ListedAt: storage.FromTime(now)})
+func (m *MediaServers) indexed(ctx context.Context, s sending, out link.Advanced) error {
+	return m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		now := time.Now()
+		if err := m.learn(ctx, tx, s, out.Learned, now); err != nil {
+			return err
+		}
+		w, ok := out.Job.Work.(link.Index)
+		if !ok {
+			return nil
+		}
+		q := db.New(tx)
+		if !out.Done {
+			return q.SetListingCursor(ctx, db.SetListingCursorParams{ServerID: s.id, LibraryKey: w.Library, Cursor: w.Cursor})
+		}
+		if err := q.PruneLibrary(ctx, db.PruneLibraryParams{ServerID: s.id, LibraryKey: w.Library}); err != nil {
+			return err
+		}
+		return q.EndListing(ctx, db.EndListingParams{ServerID: s.id, LibraryKey: w.Library, ListedAt: storage.FromTime(now)})
+	})
 }
 
 func isIndex(j link.Job) bool {
@@ -104,26 +124,19 @@ func isIndex(j link.Job) bool {
 	return false
 }
 
-// place is a server path as a root-relative path under one of the
-// server's shown mappings.
-type place struct {
-	root roots.ID
-	rel  storing.Rel
-	ok   bool
-}
-
-// learn writes es in the server's path index, each entry naming the
-// library file whose bytes sit at its path. A gone entry is forgotten.
-func (m *MediaServers) learn(ctx context.Context, tx *storage.Tx[storage.Library], s sending, es []link.IndexEntry, now time.Time) error {
-	places := make([]place, len(es))
+// filesAt is the library file whose bytes sit at each of es's paths
+// under the server's shown mappings, zero for none.
+func (m *MediaServers) filesAt(ctx context.Context, tx *storage.Tx[storage.Library], ms []link.PlanMapping, es []link.IndexEntry) ([]files.ID, error) {
+	type place struct {
+		root roots.ID
+		rel  storing.Rel
+	}
+	places := make([]*place, len(es))
 	rels := map[roots.ID][]storing.Rel{}
 	for i, e := range es {
-		if e.Gone {
-			continue
-		}
-		for _, mp := range s.mappings {
-			if rel, ok := e.Path.Rel(mp.Folder); mp.Shown && ok {
-				places[i] = place{mp.Root, rel, true}
+		for _, mp := range ms {
+			if rel, ok := e.Path.Rel(mp.Folder); mp.Shown && !e.Gone && ok {
+				places[i] = &place{mp.Root, rel}
 				rels[mp.Root] = append(rels[mp.Root], rel)
 				break
 			}
@@ -133,8 +146,24 @@ func (m *MediaServers) learn(ctx context.Context, tx *storage.Tx[storage.Library
 	for root, rs := range rels {
 		var err error
 		if ids[root], err = m.cfg.FileIDs(ctx, tx, root, rs); err != nil {
-			return err
+			return nil, err
 		}
+	}
+	out := make([]files.ID, len(es))
+	for i, p := range places {
+		if p != nil {
+			out[i] = ids[p.root][p.rel]
+		}
+	}
+	return out, nil
+}
+
+// learn writes es in the server's path index, each entry naming the
+// library file whose bytes sit at its path. A gone entry is forgotten.
+func (m *MediaServers) learn(ctx context.Context, tx *storage.Tx[storage.Library], s sending, es []link.IndexEntry, now time.Time) error {
+	fs, err := m.filesAt(ctx, tx, s.mappings, es)
+	if err != nil {
+		return err
 	}
 	q := db.New(tx)
 	for i, e := range es {
@@ -144,12 +173,8 @@ func (m *MediaServers) learn(ctx context.Context, tx *storage.Tx[storage.Library
 			}
 			continue
 		}
-		var file files.ID
-		if p := places[i]; p.ok {
-			file = ids[p.root][p.rel]
-		}
 		err := q.UpsertItem(ctx, db.UpsertItemParams{
-			ServerID: s.id, PathKey: e.Path.Key(), ServerPath: e.Path.String(), LibraryKey: e.Library, FileID: file,
+			ServerID: s.id, PathKey: e.Path.Key(), ServerPath: e.Path.String(), LibraryKey: e.Library, FileID: fs[i],
 			ItemKey: e.Item.Item, TopKey: e.Item.Top, SeenAt: storage.FromTime(now),
 		})
 		if err != nil {
