@@ -546,6 +546,9 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "endpoints.tvdb.key_page", Value: "https://thetvdb.com/api-information", Default: "https://thetvdb.com/api-information", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TVDB_KEY_PAGE"},
 			{Key: "endpoints.omdb.api", Value: "https://www.omdbapi.com", Default: "https://www.omdbapi.com", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_OMDB_API"},
 			{Key: "endpoints.omdb.key_page", Value: "https://www.omdbapi.com/apikey.aspx", Default: "https://www.omdbapi.com/apikey.aspx", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_OMDB_KEY_PAGE"},
+			{Key: "endpoints.plex_tv.api", Value: "https://clients.plex.tv", Default: "https://clients.plex.tv", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_PLEX_TV_API"},
+			{Key: "endpoints.plex_tv.auth", Value: "https://app.plex.tv/auth", Default: "https://app.plex.tv/auth", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_PLEX_TV_AUTH"},
+			{Key: "endpoints.plex_tv.desktop", Value: "https://app.plex.tv/desktop", Default: "https://app.plex.tv/desktop", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_PLEX_TV_DESKTOP"},
 			{Key: "endpoints.torrent.dht_routers", Value: "dht.libtorrent.org:25401,router.bittorrent.com:6881", Default: "dht.libtorrent.org:25401,router.bittorrent.com:6881", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_TORRENT_DHT_ROUTERS"},
 			{Key: "endpoints.indexers.catalog", Value: "https://indexers.prowlarr.com/master", Default: "https://indexers.prowlarr.com/master", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_INDEXERS_CATALOG"},
 			{Key: "endpoints.searching.sites", Value: "", Default: "", Source: "default", Env: "SLIPSTREAM_ENDPOINTS_SEARCHING_SITES"},
@@ -694,7 +697,7 @@ func TestConfigPrintsResolvedKeysAndCensus(t *testing.T) {
 			{Key: "timings.media_servers.index_page", Value: "500", Default: "500", Source: "default", Env: "SLIPSTREAM_TIMINGS_MEDIA_SERVERS_INDEX_PAGE"},
 		},
 		Census: []string{
-			"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog",
+			"endpoints.tmdb.api", "endpoints.tmdb.images", "endpoints.tmdb.key_page", "endpoints.tvdb.api", "endpoints.tvdb.artwork", "endpoints.tvdb.key_page", "endpoints.omdb.api", "endpoints.omdb.key_page", "endpoints.plex_tv.api", "endpoints.plex_tv.auth", "endpoints.plex_tv.desktop", "endpoints.torrent.dht_routers", "endpoints.indexers.catalog",
 			"endpoints.content_types.movie.imdb", "endpoints.content_types.movie.tmdb_site", "endpoints.content_types.movie.trakt", "endpoints.content_types.movie.youtube",
 			"endpoints.content_types.series.tvdb_site", "endpoints.content_types.series.tmdb_site", "endpoints.content_types.series.imdb", "endpoints.content_types.series.trakt", "endpoints.content_types.series.youtube",
 		},

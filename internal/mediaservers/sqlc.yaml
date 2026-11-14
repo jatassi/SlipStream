@@ -13,6 +13,10 @@ sql:
             go_type:
               import: github.com/jatassi/slipstream/internal/storage
               type: Time
+          - column: "*.*_since"
+            go_type:
+              import: github.com/jatassi/slipstream/internal/storage
+              type: Time
           - column: "*.*_sealed"
             go_type:
               import: github.com/jatassi/slipstream/internal/secret

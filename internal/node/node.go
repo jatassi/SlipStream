@@ -31,6 +31,7 @@ import (
 	"github.com/jatassi/slipstream/internal/link"
 	"github.com/jatassi/slipstream/internal/live"
 	"github.com/jatassi/slipstream/internal/media"
+	"github.com/jatassi/slipstream/internal/mediaserverlink"
 	"github.com/jatassi/slipstream/internal/node/internal/config"
 	"github.com/jatassi/slipstream/internal/node/internal/control"
 	"github.com/jatassi/slipstream/internal/node/internal/host"
@@ -227,6 +228,8 @@ type Node struct {
 	torrent     engine.Engine
 	downloads   *downloading.Client
 	downloading *downloading.Node
+	// mediaLink is the running half's Media Server link holder.
+	mediaLink *mediaserverlink.Link
 	// ports is the one port Registry, which the Controller lists and the
 	// Node runs.
 	ports port.Registry

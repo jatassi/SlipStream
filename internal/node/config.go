@@ -31,6 +31,7 @@ import (
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/pairing"
 	"github.com/jatassi/slipstream/internal/providers/omdb"
+	"github.com/jatassi/slipstream/internal/providers/plextv"
 	"github.com/jatassi/slipstream/internal/providers/tmdb"
 	"github.com/jatassi/slipstream/internal/providers/tvdb"
 	"github.com/jatassi/slipstream/internal/role"
@@ -64,6 +65,7 @@ type EndpointsBlock struct {
 	TMDB         tmdb.Endpoints       `yaml:"tmdb"`
 	TVDB         tvdb.Endpoints       `yaml:"tvdb"`
 	OMDb         omdb.Endpoints       `yaml:"omdb"`
+	PlexTV       plextv.Endpoints     `yaml:"plex_tv"`
 	Torrent      engine.Endpoints     `yaml:"torrent"`
 	Indexers     indexers.Endpoints   `yaml:"indexers"`
 	Searching    searching.Endpoints  `yaml:"searching"`
@@ -191,6 +193,7 @@ func Defaults(types contenttype.Set, kind install.Kind) Config {
 			TMDB:         tmdb.DefaultEndpoints(),
 			TVDB:         tvdb.DefaultEndpoints(),
 			OMDb:         omdb.DefaultEndpoints(),
+			PlexTV:       plextv.DefaultEndpoints(),
 			Torrent:      engine.DefaultEndpoints(),
 			Indexers:     indexers.DefaultEndpoints(),
 			ContentTypes: contentTypeEndpoints(types),

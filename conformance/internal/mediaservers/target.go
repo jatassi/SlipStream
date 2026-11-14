@@ -32,6 +32,9 @@ type Target struct {
 	// Fresh is a library never scanned with content, nil when the target
 	// has none, as a real server SlipStream may not create libraries on.
 	Fresh *Fresh
+	// FreshTakesChange is a server that takes a change into a fresh library
+	// without a scan, as Emby did (#101 run 2).
+	FreshTakesChange bool
 	// Play starts a playback of the file at p and answers its stop, nil
 	// when no player is at hand.
 	Play func(t *testing.T, p link.ServerPath, d link.Decision) (stop func())
@@ -57,9 +60,9 @@ type Server interface {
 	// Reach reads the identity with no credential.
 	Reach(ctx context.Context) (link.Identity, error)
 	Libraries(ctx context.Context) ([]link.Library, error)
-	// Tell tells the server files changed at paths, the kind's way: a Plex
-	// folder refresh, a Jellyfin or Emby path report.
-	Tell(ctx context.Context, library string, paths []link.ServerPath) error
+	// Tell tells the server files changed, the kind's way: a Plex folder
+	// refresh, a Jellyfin or Emby path report.
+	Tell(ctx context.Context, library string, told []Told) error
 	// Moved tells the server files moved, in the order the kind keeps
 	// watch data.
 	Moved(ctx context.Context, library string, from, to []link.ServerPath) error
@@ -77,11 +80,19 @@ type Server interface {
 	Sessions(ctx context.Context) ([]link.Session, error)
 }
 
+// Told is one file a case tells the server about. Gone is a file no
+// longer on disk.
+type Told struct {
+	Path link.ServerPath
+	Gone bool
+}
+
 // Item is an item as the cases compare it.
 type Item struct {
 	Key         string
 	Files       []link.ServerPath
 	Sidecars    int
+	Played      bool
 	PlayCount   int
 	Collections []string
 }
