@@ -53,3 +53,8 @@ WHERE server_id = sqlc.arg(server_id) AND library_key = sqlc.arg(library_key);
 -- name: EndListing :exec
 UPDATE mediaservers_listing SET started_at = NULL, cursor = '', listed_at = sqlc.arg(listed_at)
 WHERE server_id = sqlc.arg(server_id) AND library_key = sqlc.arg(library_key);
+
+-- name: ListItemsAt :many
+SELECT path_key, top_key FROM mediaservers_item
+WHERE server_id = sqlc.arg(server_id) AND path_key IN (sqlc.slice(path_keys))
+ORDER BY path_key;

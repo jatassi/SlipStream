@@ -6,6 +6,7 @@ import (
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/setting"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 // Service is what internal/mediaserversapi's operations call. It renders
@@ -37,6 +38,9 @@ type Service interface {
 	PlexAccount(ctx context.Context) (AccountView, error)
 	SignOutOfPlex(ctx context.Context) error
 	PlexServers(ctx context.Context) ([]PlexServerView, error)
+	// OpenIn is the Work page's links to work on each server that holds
+	// it.
+	OpenIn(ctx context.Context, work works.WorkID) ([]OpenIn, error)
 	Settings() setting.Panel
 }
 

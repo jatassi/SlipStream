@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
@@ -67,6 +68,56 @@ func (q *Queries) GetItem(ctx context.Context, arg GetItemParams) (MediaserversI
 		&i.Stale,
 	)
 	return i, err
+}
+
+const listItemsAt = `-- name: ListItemsAt :many
+SELECT path_key, top_key FROM mediaservers_item
+WHERE server_id = ?1 AND path_key IN (/*SLICE:path_keys*/?)
+ORDER BY path_key
+`
+
+type ListItemsAtParams struct {
+	ServerID link.ServerID
+	PathKeys []string
+}
+
+type ListItemsAtRow struct {
+	PathKey string
+	TopKey  string
+}
+
+func (q *Queries) ListItemsAt(ctx context.Context, arg ListItemsAtParams) ([]ListItemsAtRow, error) {
+	query := listItemsAt
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.ServerID)
+	if len(arg.PathKeys) > 0 {
+		for _, v := range arg.PathKeys {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:path_keys*/?", strings.Repeat(",?", len(arg.PathKeys))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:path_keys*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListItemsAtRow
+	for rows.Next() {
+		var i ListItemsAtRow
+		if err := rows.Scan(&i.PathKey, &i.TopKey); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listListings = `-- name: ListListings :many

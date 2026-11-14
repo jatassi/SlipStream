@@ -14,8 +14,8 @@ import (
 )
 
 // indexJob is the one Job a pass with no change to send spends on the
-// path index: a Lookup of the entries a push marked stale, else the next
-// page of a listing due. A library is listed once it is mapped, and again
+// path index: a Lookup of the entries a push marked stale, else of the
+// paths Open in asked for, else the next page of a listing due. A library is listed once it is mapped, and again
 // Timings.IndexAge after its last listing ended. next is when a listing
 // is next due, zero for none.
 func (m *MediaServers) indexJob(ctx context.Context, q *db.Queries, d link.Due) (job *link.Job, next time.Time, err error) {
@@ -30,6 +30,9 @@ func (m *MediaServers) indexJob(ctx context.Context, q *db.Queries, d link.Due) 
 				return nil, time.Time{}, err
 			}
 		}
+		return &link.Job{Server: d.Server, Work: link.Lookup{Paths: ps}, Step: link.StepNone}, time.Time{}, nil
+	}
+	if ps := m.lookups.take(d.Server.ID, m.cfg.Timings.IndexPage); len(ps) > 0 {
 		return &link.Job{Server: d.Server, Work: link.Lookup{Paths: ps}, Step: link.StepNone}, time.Time{}, nil
 	}
 	rows, err := q.ListListings(ctx, d.Server.ID)
@@ -94,10 +97,11 @@ func earliest(a, b time.Time) time.Time {
 
 // indexed writes an index Job's answer: what it learned, and the
 // listing's next page, or its end, which forgets every entry of the
-// library the listing didn't see.
+// library the listing didn't see. It names the Works whose Open in links
+// the answer found.
 func (m *MediaServers) indexed(ctx context.Context, s sending, out link.Advanced) error {
-	return m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		now := time.Now()
+	now := time.Now()
+	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		if err := m.learn(ctx, tx, s, out.Learned, now); err != nil {
 			return err
 		}
@@ -114,6 +118,13 @@ func (m *MediaServers) indexed(ctx context.Context, s sending, out link.Advanced
 		}
 		return q.EndListing(ctx, db.EndListingParams{ServerID: s.id, LibraryKey: w.Library, ListedAt: storage.FromTime(now)})
 	})
+	if err != nil {
+		return err
+	}
+	if found := m.lookups.answered(s.id, out.Learned, now); len(found) > 0 {
+		m.cfg.Events.ItemsFound.Publish(ctx, Found{WorkIDs: found})
+	}
+	return nil
 }
 
 func isIndex(j link.Job) bool {

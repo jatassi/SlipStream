@@ -44,6 +44,9 @@ type Kind interface {
 	Plan(d Due) []Job
 	// Dial opens a connection to one server. It does no IO.
 	Dial(d Dialed) Conn
+	// OpenIn is the address of item on the server identity names, in the
+	// server's web app at app.
+	OpenIn(app, identity, item string) string
 }
 
 // Registry is every kind, in the order the API lists them.

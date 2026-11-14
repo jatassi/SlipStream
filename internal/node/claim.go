@@ -328,6 +328,11 @@ func (s surfaceNode) MediaServers() (mediaservers.Service, bool) {
 	return h.mediaServers, true
 }
 
+// OpenIn runs on a Controller only, as the Work page it fills does.
+func (s surfaceNode) OpenIn(ctx context.Context, work works.WorkID) ([]mediaservers.OpenIn, error) {
+	return s.n.half.Load().mediaServers.OpenIn(ctx, work)
+}
+
 func (s surfaceNode) Tasks() (*tasks.Scheduler, bool) {
 	h := s.n.half.Load()
 	if h == nil || h.tasks == nil {

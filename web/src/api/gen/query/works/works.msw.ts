@@ -2328,6 +2328,7 @@ export const getAddWorkResponseMock = (
     openIn: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => ({
         kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
+        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
         name: faker.string.alpha({ length: { min: 10, max: 20 } }),
         serverId: faker.string.uuid(),
         url: faker.internet.url(),
@@ -3513,6 +3514,7 @@ export const getGetWorkResponseMock = (
   openIn: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
       kind: faker.helpers.arrayElement(["plex", "jellyfin", "emby"] as const),
+      label: faker.string.alpha({ length: { min: 10, max: 20 } }),
       name: faker.string.alpha({ length: { min: 10, max: 20 } }),
       serverId: faker.string.uuid(),
       url: faker.internet.url(),
