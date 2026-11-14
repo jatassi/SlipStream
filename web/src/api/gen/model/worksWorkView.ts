@@ -3,6 +3,7 @@ import type { WorksArt } from "./worksArt.ts";
 import type { WorksFieldValue } from "./worksFieldValue.ts";
 import type { WorksItem } from "./worksItem.ts";
 import type { WorksLevel } from "./worksLevel.ts";
+import type { WorksOpenIn } from "./worksOpenIn.ts";
 import type { WorksRating } from "./worksRating.ts";
 import type { WorksWebLink } from "./worksWebLink.ts";
 import type { WorksWorkProfile } from "./worksWorkProfile.ts";
@@ -35,6 +36,8 @@ export interface WorksWorkView {
   monitorAsides: boolean;
   /** Items a refresh adds arrive monitored, unless they sit in an aside level and monitorAsides is off */
   monitorNew: boolean;
+  /** A link to the Work on each Media Server that holds it */
+  openIn: WorksOpenIn[];
   /** The Content Type's own options for the Work, in Edit's order; empty when it has none */
   options: SettingField[];
   /** The Profile the Work wants from */
