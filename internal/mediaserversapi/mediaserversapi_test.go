@@ -14,9 +14,7 @@ import (
 // notYet is every operation still answering 501. A PR that builds one
 // deletes its line here and its method on mediaservers.Unbuilt.
 var notYet = []string{
-	"refreshMediaServer",
 	"listMediaServerSessions",
-	"listMediaServerChanges",
 }
 
 const (

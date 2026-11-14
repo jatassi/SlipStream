@@ -400,7 +400,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Describe: tree.Describe, Budget: roots.SmallestBudget, Changed: naming.ChangedEvent.Bind(n.hub),
 	})
 	shelf, err := files.Open(ctx, files.Config{
-		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn,
+		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn, MediaServers: servers,
 		Naming:  names,
 		Names:   contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
 		Today:   n.today,
@@ -486,7 +486,7 @@ func (n *Node) startController(ctx context.Context) error {
 			Tidy: func(node role.NodeID) housekeepingv1connect.HousekeepingServiceHandler {
 				return housekeepingv1connect.HousekeepingService.On(cluster, node)
 			},
-			Steps: []housekeeping.Step{{Key: "indexer-queries", Label: "Indexer queries and sessions", Run: registry.Prune}},
+			Steps: []housekeeping.Step{{Key: "indexer-queries", Label: "Indexer queries and sessions", Run: registry.Prune}, servers.Housekeeping()},
 		}, metadata.RefreshConfig{
 			Library:  lib.db,
 			Metadata: meta,
