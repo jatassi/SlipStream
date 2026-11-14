@@ -248,10 +248,11 @@ type line struct {
 	Node    string  `json:"node,omitempty"`
 	Outcome Outcome `json:"outcome"`
 	Cause   string  `json:"cause,omitempty"`
+	Note    string  `json:"note,omitempty"`
 }
 
 func lineOf(key UnitKey, label string, node role.NodeID, r result) line {
-	l := line{Key: key, Label: label, Outcome: r.outcome, Cause: r.cause}
+	l := line{Key: key, Label: label, Outcome: r.outcome, Cause: r.cause, Note: r.note}
 	if !node.IsZero() {
 		l.Node = node.String()
 	}

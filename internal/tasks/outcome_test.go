@@ -91,6 +91,8 @@ func TestRollUp(t *testing.T) {
 		{"cancel requested", []result{ok, ok, {outcome: Canceled}}, true, [3]string{"canceled", "2 of 3 steps", ""}},
 		{"every unit succeeded", []result{ok, ok, ok, ok, ok, ok}, false, [3]string{"succeeded", "6 steps", ""}},
 		{"one unit succeeded", []result{ok}, false, [3]string{"succeeded", "1 step", ""}},
+		{"one unit succeeded with a note", []result{{outcome: Succeeded, note: "Queued 212 groups for search."}}, false, [3]string{"succeeded", "Queued 212 groups for search.", ""}},
+		{"every unit succeeded, each with a note", []result{{outcome: Succeeded, note: "Read 3 new Releases."}, {outcome: Succeeded, note: "Read 1 new Release."}}, false, [3]string{"succeeded", "2 steps", ""}},
 		{"every unit skipped", []result{offline, nasOffline, offline}, false, [3]string{"skipped", "Waiting for seedbox and nas", ""}},
 		{"none succeeded and one failed", []result{offline, locked, full}, false, [3]string{"failed", "2 of 3 steps failed", "database is locked"}},
 		{"some succeeded and one skipped", []result{ok, ok, ok, offline, ok, ok}, false, [3]string{"partial", "5 of 6 steps, seedbox offline", ""}},
