@@ -402,7 +402,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Describe: tree.Describe, Budget: roots.SmallestBudget, Changed: naming.ChangedEvent.Bind(n.hub),
 	})
 	shelf, err := files.Open(ctx, files.Config{
-		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn,
+		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn, MediaServers: servers,
 		Naming:  names,
 		Names:   contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),
 		Today:   n.today,

@@ -47241,7 +47241,7 @@
             "name": "cursor",
             "schema": {
               "description": "The next member of the previous page; absent for the newest",
-              "maxLength": 256,
+              "format": "uuid",
               "type": "string"
             }
           }

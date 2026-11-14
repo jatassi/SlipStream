@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
@@ -23,9 +24,10 @@ import (
 // link Role, the reports it applies and the reaching Nodes it follows on
 // the roster.
 type MediaServers struct {
-	cfg  Config
-	pins pins
-	seen seenSessions
+	cfg     Config
+	pins    pins
+	seen    seenSessions
+	senders *senders
 }
 
 type Config struct {
@@ -87,7 +89,7 @@ type Roster interface {
 }
 
 func New(cfg Config) *MediaServers {
-	return &MediaServers{cfg: cfg, seen: newSeenSessions()}
+	return &MediaServers{cfg: cfg, seen: newSeenSessions(), senders: newSenders()}
 }
 
 // Owner keeps Media Server link on every Node that a server names as its
@@ -136,19 +138,26 @@ func (m *MediaServers) Intent(ctx context.Context, r storage.Reader[storage.Libr
 	return in, nil
 }
 
-// Run follows the roster and the roots: at its start and at each change
-// of the roster it names the Controller as the reaching Node of every
-// server whose reaching Node the Admin removed with a write-off, and ends
-// the plays of a reaching Node away longer than Mark unhealthy after. At
-// its start and at each roots.changed it unconfirms the mappings of
-// re-homed roots. After each Node's new facts it writes when their open
-// plays were last seen.
+// Run sends every server's changes and follows the roster and the roots.
+// It first returns the changes being sent at the last stop to due, then
+// runs one sender per server. At its start and at each change of the
+// roster it names the Controller as the reaching Node of every server
+// whose reaching Node the Admin removed with a write-off, ends the plays
+// of a reaching Node away longer than Mark unhealthy after, and wakes
+// every sender to route again. At its start and at each roots.changed it
+// unconfirms the mappings of re-homed roots. After each Node's new facts
+// it writes when their open plays were last seen.
 func (m *MediaServers) Run(ctx context.Context) error {
 	rehomed := m.cfg.RootsChanged(ctx)
+	m.revert(ctx)
+	var wg sync.WaitGroup
+	defer wg.Wait()
 	m.unconfirm(ctx)
 	for {
 		changed := m.cfg.Roster.Changed()
 		m.repoint(ctx)
+		m.follow(ctx, &wg)
+		m.senders.wakeAll()
 		var away <-chan time.Time
 		if next := m.endAway(ctx); !next.IsZero() {
 			away = time.After(time.Until(next))
@@ -161,10 +170,13 @@ func (m *MediaServers) Run(ctx context.Context) error {
 				wait = false
 			case <-away:
 				wait = false
+			case <-m.senders.follow:
+				wait = false
 			case <-m.seen.wake:
 				m.writeSeen(ctx)
 			case <-rehomed:
 				m.unconfirm(ctx)
+				wait = false
 			}
 		}
 	}

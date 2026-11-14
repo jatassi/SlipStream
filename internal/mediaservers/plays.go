@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jatassi/slipstream/internal/housekeeping"
 	"github.com/jatassi/slipstream/internal/mediaserverlink/link"
 	"github.com/jatassi/slipstream/internal/mediaservers/internal/db"
 	msv1 "github.com/jatassi/slipstream/internal/pb/slipstream/mediaserver/v1"
@@ -170,22 +169,4 @@ func reasonsOf(rs []string) (string, error) {
 	}
 	b, err := json.Marshal(rs)
 	return string(b), err
-}
-
-// Housekeeping is the step that deletes the plays that ended longer ago
-// than Keep play history for.
-func (m *MediaServers) Housekeeping() housekeeping.Step {
-	return housekeeping.Step{Key: "media-server-plays", Label: "Media Server play history", Run: m.prunePlays}
-}
-
-func (m *MediaServers) prunePlays(ctx context.Context) error {
-	return m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		q := db.New(tx)
-		row, err := q.GetSettings(ctx)
-		if err != nil {
-			return err
-		}
-		_, err = q.PrunePlays(ctx, storage.FromTime(time.Now().Add(-KeepPlays.Value(row.KeepPlaysSeconds))))
-		return err
-	})
 }

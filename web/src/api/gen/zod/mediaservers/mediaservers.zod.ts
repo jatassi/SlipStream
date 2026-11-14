@@ -127,12 +127,9 @@ export const ListMediaServerChangesParams = zod.object({
   id: zod.uuid(),
 });
 
-export const listMediaServerChangesQueryCursorMax = 256;
-
 export const ListMediaServerChangesQueryParams = zod.object({
   cursor: zod
-    .string()
-    .max(listMediaServerChangesQueryCursorMax)
+    .uuid()
     .exactOptional()
     .describe("The next member of the previous page; absent for the newest"),
 });

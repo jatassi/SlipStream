@@ -73,7 +73,7 @@ type mappingsInput struct {
 
 type changesInput struct {
 	ID     string `path:"id" format:"uuid"`
-	Cursor string `query:"cursor" maxLength:"256" doc:"The next member of the previous page; absent for the newest"`
+	Cursor string `query:"cursor" format:"uuid" doc:"The next member of the previous page; absent for the newest"`
 }
 
 type signInBody struct {
@@ -418,7 +418,13 @@ func (h handlers) changes(ctx context.Context, _ identity.Admin, in *changesInpu
 	if err != nil {
 		return nil, err
 	}
-	c, err := h.svc().Changes(ctx, id, in.Cursor)
+	var before link.ChangeID
+	if in.Cursor != "" {
+		if before.UUID, err = storage.ParseUUID(in.Cursor); err != nil {
+			return nil, err
+		}
+	}
+	c, err := h.svc().Changes(ctx, id, before)
 	if err != nil {
 		return nil, answer(err)
 	}

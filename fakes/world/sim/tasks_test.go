@@ -68,7 +68,7 @@ func TestHousekeepingTidiesEveryNodeAndCatchesUpAReturningWorker(t *testing.T) {
 			"Join Codes|home|succeeded|",
 			"Sessions|home|succeeded|",
 			"Indexer queries and sessions|home|succeeded|",
-			"Media Server play history|home|succeeded|",
+			"Media Server history|home|succeeded|",
 			"Local database on home|home|succeeded|",
 			"Local database on seedbox|seedbox|succeeded|",
 			"Library database|home|succeeded|",

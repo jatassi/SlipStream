@@ -241,6 +241,7 @@ func (m *MediaServers) changed(ctx context.Context, ids ...link.ServerID) {
 		out[i] = id.String()
 	}
 	m.cfg.Events.Changed.Publish(ctx, Changed{ServerIDs: out})
+	m.senders.wake(ids...)
 }
 
 // touchAll follows a change to every intent.

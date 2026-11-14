@@ -24,9 +24,8 @@ const (
 // and seedbox's holder watching it.
 type watched struct {
 	rig
-	den  faketest.Served
-	id   string
-	stop func()
+	den faketest.Served
+	id  string
 }
 
 func newWatched(t *testing.T) watched {
@@ -36,7 +35,7 @@ func newWatched(t *testing.T) watched {
 	srv.Libraries[0].Scanned = true
 	w := watched{rig: r, den: r.w.Jellyfin(t, host, srv, clip)}
 	w.id = r.add(t)
-	w.stop = r.w.Watch(t, r.w.Seedbox)
+	synctest.Wait()
 	return w
 }
 
@@ -79,6 +78,9 @@ func expectPlays(t *testing.T, got []string, want ...string) {
 	}
 }
 
+const playing = `{"reachable":true,"sessions":[{"playId":"id1","user":"ada","player":"Living room","product":"Jellyfin Server Web",` +
+	`"path":"/media/Shelves/Clip.mkv","decision":"transcode","hardware":false,"reasons":["ContainerNotSupported"],"startedAt":"T"}]}`
+
 const transcoding = `/media/Shelves/Clip.mkv transcode ["ContainerNotSupported"] by ada on Living room, `
 
 // TestSessionsShowAPlayUntilItVanishesFromTwoPolls plays Clip on Den: the
@@ -90,8 +92,7 @@ func TestSessionsShowAPlayUntilItVanishesFromTwoPolls(t *testing.T) {
 		w.o.Expect(t, http.MethodGet, servers+"/"+w.id+"/sessions", "", http.StatusOK, `{"reachable":true,"sessions":[]}`)
 		session := w.play(t)
 		w.o.Expect(t, http.MethodGet, servers+"/"+w.id+"/sessions", "", http.StatusOK,
-			`{"reachable":true,"sessions":[{"playId":"id1","user":"ada","player":"Living room","product":"Jellyfin Server Web",`+
-				`"path":"/media/Shelves/Clip.mkv","decision":"transcode","hardware":false,"reasons":["ContainerNotSupported"],"startedAt":"T"}]}`)
+			playing)
 		if got := w.w.SessionsChanged(); len(got) == 0 || !slices.Equal(got[len(got)-1].ServerIDs, []string{w.id}) {
 			t.Errorf("media-servers.sessions-changed published %v, want Den last", got)
 		}
@@ -106,7 +107,8 @@ func TestSessionsShowAPlayUntilItVanishesFromTwoPolls(t *testing.T) {
 }
 
 // TestNamingAnotherReachingNodeEndsThePlays moves Den to home while Clip
-// plays: the play seedbox saw ends at its last look.
+// plays: the play seedbox saw ends at its last look, and home's holder
+// sees Clip playing on as a new play.
 func TestNamingAnotherReachingNodeEndsThePlays(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newWatched(t)
@@ -116,8 +118,8 @@ func TestNamingAnotherReachingNodeEndsThePlays(t *testing.T) {
 			t.Fatalf("name home = %d %s", status, body)
 		}
 		synctest.Wait()
-		expectPlays(t, w.plays(t), transcoding+"ended 15s in")
-		w.o.Expect(t, http.MethodGet, servers+"/"+w.id+"/sessions", "", http.StatusOK, `{"reachable":false,"sessions":[]}`)
+		expectPlays(t, w.plays(t), transcoding+"ended 15s in", transcoding+"open")
+		w.o.Expect(t, http.MethodGet, servers+"/"+w.id+"/sessions", "", http.StatusOK, playing)
 	})
 }
 
@@ -129,8 +131,8 @@ func TestALinkDownPastMarkUnhealthyAfterEndsThePlays(t *testing.T) {
 		w := newWatched(t)
 		w.play(t)
 		wait(every)
-		w.stop()
-		w.w.Away(w.w.Seedbox)
+		w.w.Stop(w.w.Seedbox)
+		w.w.Offline(w.w.Seedbox)
 		wait(5*time.Minute - time.Second)
 		expectPlays(t, w.plays(t), transcoding+"open")
 		wait(time.Second)
@@ -148,9 +150,9 @@ func TestAHolderStartedAgainEndsThePlaysItLeftOpen(t *testing.T) {
 		w.play(t)
 		_, body := w.o.Call(t, http.MethodGet, servers+"/"+w.id+"/sessions", "")
 		wait(every)
-		w.stop()
+		w.w.Stop(w.w.Seedbox)
 		wait(every)
-		w.w.Watch(t, w.w.Seedbox)
+		w.w.Start(w.w.Seedbox)
 		expectPlays(t, w.plays(t), transcoding+"ended 15s in", transcoding+"open")
 
 		old, err := storage.ParseUUID(ownertest.FirstID(body))

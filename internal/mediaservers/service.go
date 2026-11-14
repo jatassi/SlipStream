@@ -27,7 +27,9 @@ type Service interface {
 	// mapping's library.
 	Refresh(ctx context.Context, id link.ServerID) error
 	Sessions(ctx context.Context, id link.ServerID) (Sessions, error)
-	Changes(ctx context.Context, id link.ServerID, cursor string) (Changes, error)
+	// Changes lists the server's changes newest first, the page before
+	// before, which is zero for the newest page.
+	Changes(ctx context.Context, id link.ServerID, before link.ChangeID) (Changes, error)
 	CredentialHolders(ctx context.Context, id link.ServerID) ([]HolderView, error)
 	SignIn(ctx context.Context, d SignInDraft) (SignedIn, error)
 	StartPlexPin(ctx context.Context, forward string) (PlexPin, error)
@@ -49,9 +51,3 @@ type Mapping struct {
 // embeds it for the operations still in TestNotYetLedger, and each that is
 // built deletes its method here and its ledger line.
 type Unbuilt struct{}
-
-func (Unbuilt) Refresh(context.Context, link.ServerID) error { return ErrNotBuilt }
-
-func (Unbuilt) Changes(context.Context, link.ServerID, string) (Changes, error) {
-	return Changes{}, ErrNotBuilt
-}
