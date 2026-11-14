@@ -4,10 +4,13 @@ import type {
   MediaserversLibraries,
   MediaserversMappingView,
   MediaserversServerView,
+  MediaserversSettings,
   ServersOutputBody,
 } from "../api/gen/model";
 import {
   getGetMediaServerQueryKey,
+  getGetMediaServerSettingsQueryKey,
+  getGetPlexAccountQueryKey,
   getListMediaServerLibrariesQueryKey,
   getListMediaServersQueryKey,
 } from "../api/gen/query/mediaservers/mediaservers";
@@ -46,4 +49,13 @@ export function dropMediaServer(queryClient: QueryClient, id: string) {
     (list) => list && { ...list, servers: list.servers.filter((shown) => shown.id !== id) },
   );
   queryClient.removeQueries({ queryKey: getGetMediaServerQueryKey(id) });
+}
+
+export function adoptMediaServerSettings(queryClient: QueryClient, saved: MediaserversSettings) {
+  queryClient.setQueryData(getGetMediaServerSettingsQueryKey(), saved);
+}
+
+/** A Plex sign-in that signed in changes the account. It resolves once the account is read again. */
+export async function adoptPlexSignIn(queryClient: QueryClient) {
+  await queryClient.invalidateQueries({ queryKey: getGetPlexAccountQueryKey() });
 }

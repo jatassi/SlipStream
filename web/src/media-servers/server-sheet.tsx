@@ -12,6 +12,7 @@ import { Skeleton } from "../ui/skeleton";
 import { FieldsStep } from "./fields-step";
 import { KindStep } from "./kind-step";
 import { MappingsEditor } from "./mappings-field";
+import { PlexStep, forgetPlexPin, pendingPlexKind } from "./plex-step";
 
 /** Where the Add sheet stands: choosing the kind, filling its fields, then mapping the saved server's roots. */
 type Step =
@@ -55,17 +56,20 @@ function Steps({
     );
   }
   if (step.step === "fields") {
+    const Fields = step.kind.signIn === "plex_pin" ? PlexStep : FieldsStep;
     return (
-      <FieldsStep
-        kind={step.kind}
-        nodes={nodes}
-        onBack={() => {
-          onStep({ step: "kind" });
-        }}
-        onSaved={(server) => {
-          onStep({ step: "mappings", server });
-        }}
-      />
+      <Suspense fallback={<Skeleton label={`Loading ${step.kind.label}`} />}>
+        <Fields
+          kind={step.kind}
+          nodes={nodes}
+          onBack={() => {
+            onStep({ step: "kind" });
+          }}
+          onSaved={(server) => {
+            onStep({ step: "mappings", server });
+          }}
+        />
+      </Suspense>
     );
   }
   return (
@@ -76,9 +80,10 @@ function Steps({
 }
 
 /**
- * The Add sheet: the kind first, then its fields, whose Save tests the
- * server from its Node and from the Controller, then the new server's Path
- * mappings.
+ * The Add sheet: the kind first, then its fields or the Plex sign-in, whose
+ * Save tests the server from its Node and from the Controller, then the new
+ * server's Path mappings. A Plex sign-in still waiting after a reload opens
+ * the sheet on the Plex step again.
  */
 export function AddServerButton({
   kinds,
@@ -87,12 +92,17 @@ export function AddServerButton({
   kinds: readonly Kind[];
   nodes: readonly NodesNode[];
 }) {
-  const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<Step>({ step: "kind" });
+  const [resume] = useState(() => pendingPlexKind(kinds));
+  const [open, setOpen] = useState(resume !== undefined);
+  const [step, setStep] = useState<Step>(
+    resume === undefined ? { step: "kind" } : { step: "fields", kind: resume },
+  );
   const openChange = (next: boolean) => {
     setOpen(next);
     if (next) {
       setStep({ step: "kind" });
+    } else {
+      forgetPlexPin();
     }
   };
   return (

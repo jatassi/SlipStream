@@ -9,6 +9,7 @@ import type {
   MediaserversPlexServerView,
   MediaserversServerView,
   MediaserversSessionView,
+  SettingDurationField,
 } from "../api/gen/model";
 import { orchardId } from "./library";
 import { home, seedbox } from "./nodes";
@@ -187,6 +188,49 @@ export const plexServers: MediaserversPlexServerView[] = [
   },
 ];
 
+const minute = 60;
+const hour = 60 * minute;
+const day = 24 * hour;
+
+const duration = (
+  key: string,
+  label: string,
+  value: number,
+  [min, max, step]: readonly [number, number, number],
+): SettingDurationField => ({
+  kind: "duration",
+  key,
+  label,
+  value,
+  running: value,
+  default: value,
+  min,
+  max,
+  step,
+  source: "default",
+  applies: "live",
+  pendingRestart: false,
+  isDefault: true,
+});
+
+/** The Media Servers section's six settings at their defaults. */
+export const mediaServerSettings = (): SettingDurationField[] => [
+  duration("mediaServers.waitBeforeSending", "Wait before sending", 10, [0, 10 * minute, 1]),
+  duration("mediaServers.sessionsEvery", "Check sessions every", 15, [5, 10 * minute, 1]),
+  duration("mediaServers.unhealthyAfter", "Mark unhealthy after", 5 * minute, [
+    minute,
+    day,
+    minute,
+  ]),
+  duration("mediaServers.keepPlays", "Keep play history for", 30 * day, [day, 365 * day, day]),
+  duration("tasks.plex-sign-in.cadence", "Renew Plex sign-in every", day, [hour, 6 * day, hour]),
+  duration("mediaServers.renewMargin", "Renew when less than this is left", 3 * day, [
+    hour,
+    6 * day,
+    hour,
+  ]),
+];
+
 const problem = (status: number, code: string, title: string, members: object = {}) =>
   HttpResponse.json(
     { status, code, title, ...members },
@@ -201,6 +245,7 @@ export function mediaServerHandlers(list: MediaserversServerView[] = servers) {
   return [
     http.get(`${api}/kinds`, () => HttpResponse.json({ kinds })),
     http.get(api, () => HttpResponse.json({ servers: list })),
+    http.get(`${api}/settings`, () => HttpResponse.json({ settings: mediaServerSettings() })),
     http.get(`${api}/plex/account`, () => HttpResponse.json(plexAccount)),
     http.get(`${api}/plex/servers`, () => HttpResponse.json({ servers: plexServers })),
     http.get<{ id: string }>(`${api}/:id`, ({ params }) => {
