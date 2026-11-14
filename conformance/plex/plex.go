@@ -183,7 +183,7 @@ func MovedDestinationThenSource(t *testing.T, tg Target, shared mediaservers.Tar
 // no collection.
 func SourceFirstPurges(t *testing.T, tg Target, shared mediaservers.Target) {
 	if !tg.Fake {
-		t.Skip("source first destroys watch data; recorded run 2026-11-14 case E is the real server's result: https://github.com/jatassi/SlipStream/issues/160")
+		t.Skip("source first destroys watch data; recorded run 2026-11-14 case E is the real server's result")
 	}
 	f := shared.Case(t)
 	defer f.Clear()
@@ -208,7 +208,7 @@ func SourceFirstPurges(t *testing.T, tg Target, shared mediaservers.Target) {
 // forward slashes works, and Plex stores backslashes either way.
 func BackslashPaths(t *testing.T, tg Target, shared mediaservers.Target) {
 	if !tg.Folder.Windows() {
-		t.Skip("backslash paths are a Windows Plex's; recorded run 2026-11-14 case A covers Jackson's server: https://github.com/jatassi/SlipStream/issues/160")
+		t.Skip("backslash paths are a Windows Plex's; recorded run 2026-11-14 case A covers Jackson's server")
 	}
 	f := shared.Case(t)
 	defer f.Clear()

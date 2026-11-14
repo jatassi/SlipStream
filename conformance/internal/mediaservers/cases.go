@@ -260,7 +260,7 @@ func RemovedLeaves(t *testing.T, tg Target) {
 // never scanned with content is ignored until a full scan.
 func FreshFolderNeedsScan(t *testing.T, tg Target) {
 	if tg.Fresh == nil {
-		t.Skip("a real server's fresh library is a recorded manual run, since SlipStream creates no library: https://github.com/jatassi/SlipStream/issues/160")
+		t.Skip("a real server's fresh library is a recorded manual run, since SlipStream creates no library")
 	}
 	f := tg.Case(t).InFresh()
 	defer f.Clear()
@@ -338,7 +338,7 @@ func SidecarRemoved(t *testing.T, tg Target) {
 
 func Sessions(t *testing.T, tg Target) {
 	if tg.Play == nil {
-		t.Skip("a real server's sessions need a player: https://github.com/jatassi/SlipStream/issues/160")
+		t.Skip("a real server's sessions need a player")
 	}
 	f := tg.Case(t)
 	defer f.Clear()
