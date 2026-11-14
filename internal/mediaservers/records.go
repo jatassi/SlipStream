@@ -428,6 +428,7 @@ func (m *MediaServers) routesOf(sv saved, names map[role.NodeID]nodes.Named) (fr
 // address, reaching Node or API key tests it again first, as Add does,
 // and the server must still be the one saved. A change the reaching Node
 // reads moves the settings version, so it fetches the credential again.
+// A new reaching Node ends the plays the old one saw, at their last look.
 func (s service) Update(ctx context.Context, id link.ServerID, p Patch) (ServerView, error) {
 	sv, _, err := s.m.loaded(ctx, id)
 	if err != nil {
@@ -482,7 +483,7 @@ func (s service) Update(ctx context.Context, id link.ServerID, p Patch) (ServerV
 		if err != nil || !routed {
 			return err
 		}
-		return s.m.recordFetch(ctx, q, id, next.ReachingNodeID, next.SettingsVersion)
+		return s.m.rerouted(ctx, q, id, row.ReachingNodeID, next)
 	})
 	if err != nil {
 		return ServerView{}, err
@@ -490,6 +491,17 @@ func (s service) Update(ctx context.Context, id link.ServerID, p Patch) (ServerV
 	s.m.cfg.Touch(row.ReachingNodeID, next.ReachingNodeID)
 	s.m.changed(ctx, id)
 	return s.Get(ctx, id)
+}
+
+// rerouted records that next's reaching Node holds its credential, and
+// ends the plays was saw when next names another reaching Node.
+func (m *MediaServers) rerouted(ctx context.Context, q *db.Queries, id link.ServerID, was role.NodeID, next db.MediaserversServer) error {
+	if next.ReachingNodeID != was {
+		if _, err := q.EndServerPlays(ctx, id); err != nil {
+			return err
+		}
+	}
+	return m.recordFetch(ctx, q, id, next.ReachingNodeID, next.SettingsVersion)
 }
 
 // onto is row and cred with the patch's fields.

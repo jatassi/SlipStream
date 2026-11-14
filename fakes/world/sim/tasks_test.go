@@ -62,12 +62,13 @@ func TestHousekeepingTidiesEveryNodeAndCatchesUpAReturningWorker(t *testing.T) {
 		time.Sleep(time.Until(at("2000-01-01T04:30:00Z")))
 		synctest.Wait()
 		d := simtest.GetTask(t, a, "housekeeping")
-		expect(t, "runs by 04:30", d.RunLines(), []string{"schedule|succeeded|7 steps"})
+		expect(t, "runs by 04:30", d.RunLines(), []string{"schedule|succeeded|8 steps"})
 		expect(t, "units by 04:30", d.UnitLines(), []string{
 			"Run history|home|succeeded|",
 			"Join Codes|home|succeeded|",
 			"Sessions|home|succeeded|",
 			"Indexer queries and sessions|home|succeeded|",
+			"Media Server play history|home|succeeded|",
 			"Local database on home|home|succeeded|",
 			"Local database on seedbox|seedbox|succeeded|",
 			"Library database|home|succeeded|",
@@ -77,13 +78,13 @@ func TestHousekeepingTidiesEveryNodeAndCatchesUpAReturningWorker(t *testing.T) {
 		simtest.RunNow(t, a, "housekeeping")
 		synctest.Wait()
 		d = simtest.GetTask(t, a, "housekeeping")
-		expect(t, "runs with seedbox down", d.RunLines(), []string{"run-now|partial|6 of 7 steps, seedbox offline", "schedule|succeeded|7 steps"})
+		expect(t, "runs with seedbox down", d.RunLines(), []string{"run-now|partial|7 of 8 steps, seedbox offline", "schedule|succeeded|8 steps"})
 		expect(t, "due on return", d.DueOnReturn(), []string{"Local database on seedbox"})
 		expect(t, "sentence with seedbox down", sentence(t, a), []string{"Every task ran as scheduled."})
 
 		simtest.Heal(w, down)
 		d = simtest.GetTask(t, a, "housekeeping")
-		expect(t, "runs after seedbox returns", d.RunLines(), []string{"returned|succeeded|1 step", "run-now|partial|6 of 7 steps, seedbox offline", "schedule|succeeded|7 steps"})
+		expect(t, "runs after seedbox returns", d.RunLines(), []string{"returned|succeeded|1 step", "run-now|partial|7 of 8 steps, seedbox offline", "schedule|succeeded|8 steps"})
 		expect(t, "the returned run's units", d.UnitLines(), []string{"Local database on seedbox|seedbox|succeeded|"})
 		expect(t, "due on return after it ran", d.DueOnReturn(), []string{})
 	})
@@ -101,8 +102,8 @@ func TestHousekeepingSkipsAWorkerOnAnotherBuild(t *testing.T) {
 		simtest.RunNow(t, a, "housekeeping")
 		synctest.Wait()
 		d := simtest.GetTask(t, a, "housekeeping")
-		expect(t, "runs", d.RunLines(), []string{"run-now|partial|6 of 7 steps, seedbox runs 0.0.1-sim"})
-		if got := d.UnitLines()[5]; got != "Local database on seedbox|seedbox|skipped|seedbox runs 0.0.1-sim" {
+		expect(t, "runs", d.RunLines(), []string{"run-now|partial|7 of 8 steps, seedbox runs 0.0.1-sim"})
+		if got := d.UnitLines()[6]; got != "Local database on seedbox|seedbox|skipped|seedbox runs 0.0.1-sim" {
 			t.Fatalf("seedbox's unit is %q, want Skipped as seedbox runs 0.0.1-sim", got)
 		}
 	})
@@ -120,7 +121,7 @@ func TestHousekeepingWarnsOnlyOnceAUnitMissedThreeIntervals(t *testing.T) {
 		time.Sleep(time.Until(at("2000-01-04T03:59:59Z")))
 		synctest.Wait()
 		d := simtest.GetTask(t, a, "housekeeping")
-		expect(t, "runs after two days", d.RunLines(), []string{"schedule|partial|6 of 7 steps, seedbox offline", "schedule|partial|6 of 7 steps, seedbox offline", "schedule|succeeded|7 steps"})
+		expect(t, "runs after two days", d.RunLines(), []string{"schedule|partial|7 of 8 steps, seedbox offline", "schedule|partial|7 of 8 steps, seedbox offline", "schedule|succeeded|8 steps"})
 		expect(t, "sentence after two days", sentence(t, a), []string{"Every task ran as scheduled."})
 
 		time.Sleep(time.Until(at("2000-01-04T04:30:01Z")))

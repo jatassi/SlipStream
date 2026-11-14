@@ -25,6 +25,7 @@ import (
 type MediaServers struct {
 	cfg  Config
 	pins pins
+	seen seenSessions
 }
 
 type Config struct {
@@ -51,6 +52,9 @@ type Config struct {
 	Events Events
 	// Touch follows every commit that changes a Node's intent.
 	Touch func(nodes ...role.NodeID)
+	// Facts are a Node's last facts of Media Server link, false while its
+	// session is detached.
+	Facts func(node role.NodeID) (*msv1.Facts, bool)
 	// Zone is the Controller's, for the times copy names.
 	Zone *time.Location
 	Log  *slog.Logger
@@ -75,11 +79,16 @@ type Roster interface {
 	Self() role.NodeID
 	Changed() <-chan struct{}
 	InStep(node role.NodeID) bool
+	// Standing is how node stands and since when: while away, since its
+	// last Sync frame.
+	Standing(node role.NodeID) (nodes.Standing, time.Time)
 	Holds(name role.Name, node role.NodeID) bool
 	Holding(name role.Name) []role.NodeID
 }
 
-func New(cfg Config) *MediaServers { return &MediaServers{cfg: cfg} }
+func New(cfg Config) *MediaServers {
+	return &MediaServers{cfg: cfg, seen: newSeenSessions()}
+}
 
 // Owner keeps Media Server link on every Node that a server names as its
 // reaching Node, until the Admin names another or removes the Node with a
@@ -129,23 +138,102 @@ func (m *MediaServers) Intent(ctx context.Context, r storage.Reader[storage.Libr
 
 // Run follows the roster and the roots: at its start and at each change
 // of the roster it names the Controller as the reaching Node of every
-// server whose reaching Node the Admin removed with a write-off, and at
+// server whose reaching Node the Admin removed with a write-off, and ends
+// the plays of a reaching Node away longer than Mark unhealthy after. At
 // its start and at each roots.changed it unconfirms the mappings of
-// re-homed roots.
+// re-homed roots. After each Node's new facts it writes when their open
+// plays were last seen.
 func (m *MediaServers) Run(ctx context.Context) error {
 	rehomed := m.cfg.RootsChanged(ctx)
 	m.unconfirm(ctx)
 	for {
 		changed := m.cfg.Roster.Changed()
 		m.repoint(ctx)
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-changed:
-		case <-rehomed:
-			m.unconfirm(ctx)
+		var away <-chan time.Time
+		if next := m.endAway(ctx); !next.IsZero() {
+			away = time.After(time.Until(next))
+		}
+		for wait := true; wait; {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-changed:
+				wait = false
+			case <-away:
+				wait = false
+			case <-m.seen.wake:
+				m.writeSeen(ctx)
+			case <-rehomed:
+				m.unconfirm(ctx)
+			}
 		}
 	}
+}
+
+// endAway ends, at each one's last look, the open plays of every server
+// whose reaching Node has been away longer than Mark unhealthy after, and
+// answers when the next Node away will have been, zero for none.
+func (m *MediaServers) endAway(ctx context.Context) time.Time {
+	self := m.cfg.Roster.Self()
+	var next time.Time
+	var ended int64
+	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		next, ended = time.Time{}, 0
+		q := db.New(tx)
+		row, err := q.GetSettings(ctx)
+		if err != nil {
+			return err
+		}
+		after := UnhealthyAfter.Value(row.UnhealthyAfterSeconds)
+		reaching, err := q.ListReachingNodes(ctx)
+		if err != nil {
+			return err
+		}
+		now := time.Now()
+		for _, node := range reaching {
+			due, away := m.awayUntil(node, self, after)
+			switch {
+			case !away:
+			case now.Before(due):
+				next = earlier(next, due)
+			default:
+				n, err := q.EndPlaysOn(ctx, node)
+				if err != nil {
+					return err
+				}
+				ended += n
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		if ctx.Err() == nil {
+			m.cfg.Log.Error("end the plays of reaching Nodes away too long", "err", err.Error())
+		}
+		return time.Time{}
+	}
+	if ended > 0 {
+		m.cfg.Log.Info("ended the plays of reaching Nodes away longer than Mark unhealthy after", "plays", ended)
+	}
+	return next
+}
+
+// awayUntil is when node will have been away for after, false while it
+// is in step. The Controller is never away.
+func (m *MediaServers) awayUntil(node, self role.NodeID, after time.Duration) (time.Time, bool) {
+	standing, since := m.cfg.Roster.Standing(node)
+	if node == self || standing == nodes.InStep {
+		return time.Time{}, false
+	}
+	return since.Add(after), true
+}
+
+// earlier is the earlier of a and b, where zero is none.
+func earlier(a, b time.Time) time.Time {
+	if a.IsZero() || b.Before(a) {
+		return b
+	}
+	return a
 }
 
 // repoint moves every server of a written-off reaching Node to the
@@ -189,11 +277,14 @@ func (m *MediaServers) repoint(ctx context.Context) {
 	}
 }
 
-// repointFrom names self as the reaching Node of node's servers, and
-// answers which they are.
+// repointFrom names self as the reaching Node of node's servers, ends the
+// plays node saw, and answers which servers they are.
 func repointFrom(ctx context.Context, q *db.Queries, node, self role.NodeID) ([]link.ServerID, error) {
 	ids, err := q.ListReachedIDs(ctx, node)
 	if err != nil {
+		return nil, err
+	}
+	if _, err := q.EndPlaysOn(ctx, node); err != nil {
 		return nil, err
 	}
 	_, err = q.Repoint(ctx, db.RepointParams{Controller: self, At: storage.Now(), NodeID: node})
