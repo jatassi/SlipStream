@@ -89,21 +89,3 @@ func fold(ctx context.Context, q *db.Queries, in queue.Change) error {
 	}
 	return apply(ctx, q, queue.Fold(open, in))
 }
-
-// Prepare drops the prepared rows of files no pending rename names: a plan
-// called off or replaced since Prepare saw it.
-func (m *MediaServers) Prepare(ctx context.Context, rs []files.Rename) {
-	pending := make([]files.ID, len(rs))
-	for i, r := range rs {
-		pending[i] = r.File
-	}
-	err := m.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-		if len(pending) == 0 {
-			return db.New(tx).DeleteAllPrepared(ctx)
-		}
-		return db.New(tx).DeleteStalePrepared(ctx, pending)
-	})
-	if err != nil && ctx.Err() == nil {
-		m.cfg.Log.Error("drop the prepared Media Server changes of renames called off", "err", err.Error())
-	}
-}
