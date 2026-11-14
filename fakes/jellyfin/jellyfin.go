@@ -23,6 +23,7 @@ import (
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/internal/mediabrowser"
 	"github.com/jatassi/slipstream/fakes/internal/mediaserver"
+	"github.com/jatassi/slipstream/fakes/internal/serverfake"
 	"github.com/jatassi/slipstream/fakes/scenario"
 	"github.com/jatassi/slipstream/internal/node"
 )
@@ -52,6 +53,7 @@ var Fake = fake.Spec{
 	Online:    fake.OnlineSuite("jellyfin"),
 	Cues:      mediabrowser.Cues(name),
 	Captures:  []fake.CaptureSpec{Reports, Scans, Items},
+	Entered:   serverfake.Entered(name),
 }
 
 var product = mediabrowser.Product{
@@ -81,7 +83,7 @@ func Playing(srv Server) fake.Spec {
 	return spec
 }
 
-// newServer plays no Jellyfin until a Scenario names one.
-func newServer(_ scenario.Scenario, env fake.Env) (fake.Server, error) {
-	return mediabrowser.Serve(env, product, nil)
+// newServer plays the Jellyfin the Scenario names, or none.
+func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
+	return mediabrowser.ServeScenario(env, product, s, Versions)
 }
