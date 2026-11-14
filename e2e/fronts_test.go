@@ -20,7 +20,7 @@ type searchView struct {
 	Indexers   []lineView `json:"indexers"`
 	Outcome    *string    `json:"outcome"`
 	Candidates int        `json:"candidates"`
-	GrabID     *string    `json:"grabId"`
+	GrabIDs    []string   `json:"grabIds"`
 }
 
 // lineView is one Indexer's line in a search.
@@ -120,7 +120,7 @@ func TestHeldSwarmCompletesWhenCleared(t *testing.T) {
 	w := begin(t, "home")
 	w.setFault(t, fault.Rule{ID: "swarm-hold", Target: "seeders", Origin: "seedbox"}, "throttle=16KiB/s")
 	s := w.searched(t, w.search(t))
-	if s.Outcome == nil || *s.Outcome != "grabbed" || s.GrabID == nil {
+	if s.Outcome == nil || *s.Outcome != "grabbed" || len(s.GrabIDs) != 1 {
 		t.Fatalf("the search ended %+v, want grabbed", s)
 	}
 	ctx := worldtest.Context(t)
@@ -131,7 +131,7 @@ func TestHeldSwarmCompletesWhenCleared(t *testing.T) {
 	size := w.payload(t).Size
 	var reports []int64
 	worldtest.Until(t, "the held Grab reports its bytes rising three times", func() (bool, error) {
-		g := decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+*s.GrabID, ""), &grabView{})
+		g := decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+s.GrabIDs[0], ""), &grabView{})
 		if g.Stage != "fetching" && g.Stage != "downloading" {
 			return false, fmt.Errorf("the held Grab is %s after %v, want downloading", g.Stage, g.stages())
 		}
@@ -161,7 +161,7 @@ func TestHeldSwarmCompletesWhenCleared(t *testing.T) {
 	if _, err := events.Wait(ctx, w.m.RunDir, events.Query{Kind: tracker.Announces.Kind, Node: "seedbox", Match: map[string]string{"event": "completed"}}); err != nil {
 		t.Fatal(err)
 	}
-	w.ended(t, *s.GrabID)
+	w.ended(t, s.GrabIDs[0])
 	if w.grab.Stage != "imported" {
 		t.Fatalf("the Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())
 	}
@@ -175,7 +175,7 @@ func TestA429FromTheIndexerLimitsOneSearch(t *testing.T) {
 
 	first := w.searched(t, w.search(t))
 	lines := first.lines()
-	if *first.Outcome != "nothing_acceptable" || first.Candidates != 0 || first.GrabID != nil ||
+	if *first.Outcome != "nothing_acceptable" || first.Candidates != 0 || len(first.GrabIDs) != 0 ||
 		len(lines) != 1 || !strings.HasPrefix(lines[0], "Fixture Site limited: Limit reached until ") {
 		t.Fatalf("the first search ended %+v with lines %q, want nothing_acceptable with Fixture Site limited", first, lines)
 	}
@@ -193,7 +193,7 @@ func TestA429FromTheIndexerLimitsOneSearch(t *testing.T) {
 
 	worldtest.Until(t, "the Indexer waits out Retry-After", func() (bool, error) { return w.indexerWaits(t) == "none", nil })
 	second := w.searched(t, w.search(t))
-	if *second.Outcome != "grabbed" || second.GrabID == nil {
+	if *second.Outcome != "grabbed" || len(second.GrabIDs) != 1 {
 		t.Fatalf("the second search ended %+v with lines %q, want grabbed", second, second.lines())
 	}
 }
@@ -211,7 +211,7 @@ func TestALinkCutMidTransferResumes(t *testing.T) {
 	link := string(world.LinkTarget("seedbox"))
 	w.setFault(t, fault.Rule{ID: "link-cut", Target: fault.Target(link)}, "cut=256KiB")
 	s := w.searched(t, w.search(t))
-	if s.Outcome == nil || *s.Outcome != "grabbed" || s.GrabID == nil {
+	if s.Outcome == nil || *s.Outcome != "grabbed" || len(s.GrabIDs) != 1 {
 		t.Fatalf("the search ended %+v, want grabbed", s)
 	}
 	cut, err := events.Wait(worldtest.Context(t), w.m.RunDir, events.Query{Kind: "front.close", Match: map[string]string{"target": link, "cause": "cut"}})
@@ -225,7 +225,7 @@ func TestALinkCutMidTransferResumes(t *testing.T) {
 	if err := json.Unmarshal(cut.Data, &carried); err != nil || carried.Out < 256<<10 {
 		t.Fatalf("the cut connection carried %s, want the Transfer's 256 KiB from seedbox", cut.Data)
 	}
-	w.ended(t, *s.GrabID)
+	w.ended(t, s.GrabIDs[0])
 	if want := []string{"fetching", "downloading", "importing", "imported"}; !slices.Equal(w.grab.stages(), want) {
 		t.Fatalf("the Grab's history is %v with %+v, want %v", w.grab.stages(), w.grab.Failure, want)
 	}

@@ -83,10 +83,10 @@ func TestTwoSearchesAtOnceAskEveryIndexerWithinItsSearchLimit(t *testing.T) {
 
 	grabbed := w.searched(t, first)
 	expectLines(t, "first", grabbed, "Fixture Mirror found: Found 2 Releases", "Fixture Site found: Found 2 Releases")
-	if *grabbed.Outcome != "grabbed" || grabbed.Candidates != 2 || grabbed.GrabID == nil {
+	if *grabbed.Outcome != "grabbed" || grabbed.Candidates != 2 || len(grabbed.GrabIDs) != 1 {
 		t.Fatalf("the first search ended %+v, want 2 candidates and a Grab", grabbed)
 	}
-	if got := w.grabbedFrom(t, *grabbed.GrabID); got != mirror {
+	if got := w.grabbedFrom(t, grabbed.GrabIDs[0]); got != mirror {
 		t.Fatalf("the Grab is from Indexer %s, want Fixture Mirror %s", got, mirror)
 	}
 }
@@ -106,7 +106,7 @@ func TestAnIndexerTheSiteLimitsLeavesTheOtherToAnswer(t *testing.T) {
 	if *s.Outcome != "grabbed" || s.Candidates != 2 || len(lines) != 2 || limited < 0 || found < 0 {
 		t.Fatalf("the search ended %+v with lines %q, want one Indexer limited and the other's 2 Releases grabbed", s, lines)
 	}
-	if got := w.grabbedFrom(t, *s.GrabID); got != s.Indexers[found].IndexerID {
+	if got := w.grabbedFrom(t, s.GrabIDs[0]); got != s.Indexers[found].IndexerID {
 		t.Fatalf("the Grab is from Indexer %s, want %s, the one that answered", got, s.Indexers[found].IndexerID)
 	}
 }

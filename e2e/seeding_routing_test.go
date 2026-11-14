@@ -137,8 +137,8 @@ func TestAPrivateTrackersGrabsDownloadOnTheirHomeOrTheRouteAndWaitForAnOfflineHo
 	if s.Outcome == nil || *s.Outcome != "grabbed" {
 		t.Fatalf("the search past the grace ended %+v, want a Grab", s)
 	}
-	awaitClientAway(t, logs, *s.GrabID)
-	grab := "/api/v1/grabs/" + *s.GrabID
+	awaitClientAway(t, logs, s.GrabIDs[0])
+	grab := "/api/v1/grabs/" + s.GrabIDs[0]
 	w.grab = *decode(t, "getGrab", w.a.Admin("home", http.MethodGet, grab, ""), &grabView{})
 	if w.grab.Stage != "fetching" || w.grab.FetchNodeID != nil {
 		t.Fatalf("with seedbox lapsed Heron's Grab is %s, fetched by %v; want fetching and waiting for seedbox", w.grab.Stage, w.grab.FetchNodeID)
@@ -147,7 +147,7 @@ func TestAPrivateTrackersGrabsDownloadOnTheirHomeOrTheRouteAndWaitForAnOfflineHo
 	if r := w.a.Admin("home", http.MethodPost, grab+"/send-to", `{"builtInOn":"`+den+`"}`); r.Status != http.StatusNoContent {
 		t.Fatalf("sendGrabTo = %d %s, want 204", r.Status, r.Body)
 	}
-	w.ended(t, *s.GrabID)
+	w.ended(t, s.GrabIDs[0])
 	if w.grab.Stage != "imported" || w.grab.NodeID != den {
 		t.Fatalf("once sent Heron's Grab ended %s on %s after %v, want imported on den %s", w.grab.Stage, w.grab.NodeID, w.grab.stages(), den)
 	}
