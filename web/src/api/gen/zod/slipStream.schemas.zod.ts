@@ -4280,6 +4280,34 @@ export const HealthVolumeList = zod.object({
 export type HealthVolumeList = zod.input<typeof HealthVolumeList>;
 export type HealthVolumeListOutput = zod.output<typeof HealthVolumeList>;
 
+export const MediaserversNodeRef = zod.object({
+  id: zod.uuid(),
+  name: zod.string(),
+});
+
+export type MediaserversNodeRef = zod.input<typeof MediaserversNodeRef>;
+export type MediaserversNodeRefOutput = zod.output<typeof MediaserversNodeRef>;
+
+export const MediaserversHolderView = zod.object({
+  current: zod.boolean().describe("The server's reaching Node now"),
+  fetchedAt: zod.iso.datetime({ offset: true }),
+  node: MediaserversNodeRef,
+});
+
+export type MediaserversHolderView = zod.input<typeof MediaserversHolderView>;
+export type MediaserversHolderViewOutput = zod.output<typeof MediaserversHolderView>;
+
+export const HoldersOutputBody = zod.object({
+  holders: zod
+    .array(MediaserversHolderView)
+    .describe(
+      "Every Node that fetched the server's credential, newest first. A Worker that fetched a Jellyfin or Emby key holds it until the key is replaced on the server",
+    ),
+});
+
+export type HoldersOutputBody = zod.input<typeof HoldersOutputBody>;
+export type HoldersOutputBodyOutput = zod.output<typeof HoldersOutputBody>;
+
 export const identityAccountDisplayNameMax = 100;
 
 export const identityAccountEmailMax = 254;
@@ -6369,6 +6397,33 @@ export const JoinInputBody = zod.object({
 export type JoinInputBody = zod.input<typeof JoinInputBody>;
 export type JoinInputBodyOutput = zod.output<typeof JoinInputBody>;
 
+export const MediaserversKind = zod.string();
+
+export type MediaserversKind = zod.input<typeof MediaserversKind>;
+export type MediaserversKindOutput = zod.output<typeof MediaserversKind>;
+
+export const MediaserversKindView = zod.object({
+  browser: zod.boolean().describe("The kind takes a browser address, which Open in uses"),
+  floor: zod.string().describe("The oldest version SlipStream supports, such as 12.2"),
+  kind: MediaserversKind,
+  label: zod.string().describe("The product's name, such as Jellyfin"),
+  signIn: zod
+    .enum(["plex_pin", "api_key_or_admin"])
+    .describe(
+      "plex_pin signs in with a Plex account; api_key_or_admin takes an API key or an administrator's name and password",
+    ),
+});
+
+export type MediaserversKindView = zod.input<typeof MediaserversKindView>;
+export type MediaserversKindViewOutput = zod.output<typeof MediaserversKindView>;
+
+export const KindsOutputBody = zod.object({
+  kinds: zod.array(MediaserversKindView).describe("In the order the Add sheet offers them"),
+});
+
+export type KindsOutputBody = zod.input<typeof KindsOutputBody>;
+export type KindsOutputBodyOutput = zod.output<typeof KindsOutputBody>;
+
 export const LibraryScanSettingsInputBody = zod.object({
   values: zod
     .record(zod.string(), zod.unknown())
@@ -6450,6 +6505,511 @@ export const MakeFolderInputBody = zod.object({
 
 export type MakeFolderInputBody = zod.input<typeof MakeFolderInputBody>;
 export type MakeFolderInputBodyOutput = zod.output<typeof MakeFolderInputBody>;
+
+export const MediaserversLibrary = zod.object({
+  folder: zod
+    .string()
+    .describe("The library folder the mapping's folder sits inside, as the server names it"),
+  key: zod.string().describe("Plex's section key, or the Jellyfin or Emby library ItemId"),
+  name: zod.string(),
+});
+
+export type MediaserversLibrary = zod.input<typeof MediaserversLibrary>;
+export type MediaserversLibraryOutput = zod.output<typeof MediaserversLibrary>;
+
+export const MediaserversMappingView = zod.object({
+  confirmed: zod
+    .boolean()
+    .describe("false while a guess or after the root was re-homed, and changes under it wait"),
+  guess: zod
+    .boolean()
+    .describe("SlipStream pre-filled the folder from shared trailing folder names"),
+  library: MediaserversLibrary.exactOptional().describe(
+    "The library the folder sits inside; absent when not shown",
+  ),
+  rootId: zod.uuid(),
+  rootName: zod.string().describe("Such as Movies (D:)"),
+  rootNode: MediaserversNodeRef.describe("The Storage Node whose disk holds the root"),
+  scanned: zod
+    .boolean()
+    .describe("The server has content under the folder, or a full scan of its library ended"),
+  serverFolder: zod
+    .string()
+    .exactOptional()
+    .describe("The root's folder as the server sees it; absent when not shown"),
+  shown: zod.boolean().describe("false for a root this server doesn't show, which gets no changes"),
+  words: zod
+    .string()
+    .exactOptional()
+    .describe(
+      "What to do about the mapping, such as Living room Plex won't get changes for files in Movies (D:).",
+    ),
+});
+
+export type MediaserversMappingView = zod.input<typeof MediaserversMappingView>;
+export type MediaserversMappingViewOutput = zod.output<typeof MediaserversMappingView>;
+
+export const MappingsOutputBody = zod.object({
+  mappings: zod.array(MediaserversMappingView),
+});
+
+export type MappingsOutputBody = zod.input<typeof MappingsOutputBody>;
+export type MappingsOutputBodyOutput = zod.output<typeof MappingsOutputBody>;
+
+export const MediaserversAccountView = zod.object({
+  expiresAt: zod.iso.datetime({ offset: true }).describe("When the sign-in expires unless renewed"),
+  name: zod.string().describe("The Plex account's name"),
+  plexPass: zod.boolean(),
+  refused: zod.boolean().describe("plex.tv refused the last renewal. Sign in with Plex again."),
+  renewedAt: zod.iso.datetime({ offset: true }).exactOptional(),
+  signedInAt: zod.iso.datetime({ offset: true }),
+});
+
+export type MediaserversAccountView = zod.input<typeof MediaserversAccountView>;
+export type MediaserversAccountViewOutput = zod.output<typeof MediaserversAccountView>;
+
+export const mediaserversChangeViewAttemptsMin = 0;
+
+export const MediaserversChangeView = zod.object({
+  attempts: zod.int().min(mediaserversChangeViewAttemptsMin),
+  createdAt: zod.iso.datetime({ offset: true }),
+  fromPath: zod.string().exactOptional().describe("Where a moved or renamed file was"),
+  id: zod.uuid(),
+  kind: zod.enum([
+    "added",
+    "replaced",
+    "removed",
+    "moved",
+    "sidecar_added",
+    "sidecar_replaced",
+    "sidecar_removed",
+    "library",
+  ]),
+  lost: zod
+    .array(zod.enum(["watch_state", "play_count", "last_played", "rating", "collections"]))
+    .describe("What a move or rename couldn't carry to the new item"),
+  path: zod.string().describe("The file's path in its root; empty for a whole library"),
+  result: zod.enum(["accepted", "covered", "converted"]).exactOptional().describe("Set once sent"),
+  sentAt: zod.iso.datetime({ offset: true }).exactOptional(),
+  state: zod.enum(["prepared", "due", "sending", "sent"]),
+  step: zod.enum([
+    "none",
+    "snapshotted",
+    "scanned",
+    "source_scanned",
+    "confirmed",
+    "idle",
+    "reported",
+    "settled",
+    "old_removed",
+    "new_added",
+    "new_found",
+    "restored",
+  ]),
+  words: zod
+    .string()
+    .describe("The change as a person reads it, with its result or its last failure"),
+});
+
+export type MediaserversChangeView = zod.input<typeof MediaserversChangeView>;
+export type MediaserversChangeViewOutput = zod.output<typeof MediaserversChangeView>;
+
+export const MediaserversChanged = zod.object({
+  serverIds: zod.array(zod.uuid()),
+});
+
+export type MediaserversChanged = zod.input<typeof MediaserversChanged>;
+export type MediaserversChangedOutput = zod.output<typeof MediaserversChanged>;
+
+export const MediaserversChanges = zod.object({
+  changes: zod.array(MediaserversChangeView).describe("Newest first"),
+  next: zod.string().exactOptional().describe("The cursor of the next page; absent on the last"),
+});
+
+export type MediaserversChanges = zod.input<typeof MediaserversChanges>;
+export type MediaserversChangesOutput = zod.output<typeof MediaserversChanges>;
+
+export const mediaserversDraftBodyAddressMax = 2048;
+
+export const mediaserversDraftBodyApiKeyMax = 1024;
+
+export const mediaserversDraftBodyBrowserAddressMax = 2048;
+
+export const mediaserversDraftBodyDeviceIdMax = 256;
+
+export const mediaserversDraftBodyFallbackAddressMax = 2048;
+
+export const mediaserversDraftBodyNameMax = 100;
+
+export const mediaserversDraftBodyPlexServerMax = 256;
+
+export const MediaserversDraftBody = zod.object({
+  address: zod
+    .string()
+    .max(mediaserversDraftBodyAddressMax)
+    .exactOptional()
+    .describe(
+      "What the reaching Node calls, such as http://localhost:8096; absent for Plex, whose address SlipStream picks from the server's connections",
+    ),
+  apiKey: zod
+    .string()
+    .max(mediaserversDraftBodyApiKeyMax)
+    .exactOptional()
+    .describe("Jellyfin and Emby. Write-only"),
+  browserAddress: zod
+    .string()
+    .max(mediaserversDraftBodyBrowserAddressMax)
+    .exactOptional()
+    .describe("Jellyfin and Emby: where Open in sends a browser; absent for no Open in button"),
+  deviceId: zod
+    .string()
+    .max(mediaserversDraftBodyDeviceIdMax)
+    .exactOptional()
+    .describe("Jellyfin and Emby: the deviceId an administrator sign-in returned"),
+  fallbackAddress: zod
+    .string()
+    .max(mediaserversDraftBodyFallbackAddressMax)
+    .exactOptional()
+    .describe("What the Controller calls; absent for address"),
+  kind: zod.string().min(1).describe("One of the kinds listMediaServerKinds lists"),
+  name: zod.string().min(1).max(mediaserversDraftBodyNameMax).describe("Such as Living room Plex"),
+  plexServer: zod
+    .string()
+    .max(mediaserversDraftBodyPlexServerMax)
+    .exactOptional()
+    .describe("Plex: a machineIdentifier from listPlexServers"),
+  reachingNodeId: zod.uuid().describe("The Controller, or a Node that holds Media Server link"),
+  runsOnNodeId: zod
+    .uuid()
+    .exactOptional()
+    .describe("The Node the server runs on; absent when it runs on none"),
+});
+
+export type MediaserversDraftBody = zod.input<typeof MediaserversDraftBody>;
+export type MediaserversDraftBodyOutput = zod.output<typeof MediaserversDraftBody>;
+
+export const MediaserversFound = zod.object({
+  workIds: zod.array(zod.uuid()),
+});
+
+export type MediaserversFound = zod.input<typeof MediaserversFound>;
+export type MediaserversFoundOutput = zod.output<typeof MediaserversFound>;
+
+export const MediaserversLibraryView = zod.object({
+  folders: zod.array(zod.string()).describe("Each library folder as the server names it"),
+  key: zod.string(),
+  name: zod.string(),
+});
+
+export type MediaserversLibraryView = zod.input<typeof MediaserversLibraryView>;
+export type MediaserversLibraryViewOutput = zod.output<typeof MediaserversLibraryView>;
+
+export const MediaserversLibraries = zod.object({
+  libraries: zod.array(MediaserversLibraryView),
+  mappings: zod
+    .array(MediaserversMappingView)
+    .describe("Every library root, pre-filled where it has no saved mapping"),
+});
+
+export type MediaserversLibraries = zod.input<typeof MediaserversLibraries>;
+export type MediaserversLibrariesOutput = zod.output<typeof MediaserversLibraries>;
+
+export const mediaserversMappingInputServerFolderMax = 4096;
+
+export const MediaserversMappingInput = zod.object({
+  rootId: zod.uuid(),
+  serverFolder: zod
+    .string()
+    .max(mediaserversMappingInputServerFolderMax)
+    .exactOptional()
+    .describe(
+      "Required when shown: the root's folder as the server sees it, such as /data/movies or D:\\Movies",
+    ),
+  shown: zod.boolean(),
+});
+
+export type MediaserversMappingInput = zod.input<typeof MediaserversMappingInput>;
+export type MediaserversMappingInputOutput = zod.output<typeof MediaserversMappingInput>;
+
+export const mediaserversMappingsBodyMappingsMax = 1000;
+
+export const MediaserversMappingsBody = zod.object({
+  mappings: zod.array(MediaserversMappingInput).max(mediaserversMappingsBodyMappingsMax),
+});
+
+export type MediaserversMappingsBody = zod.input<typeof MediaserversMappingsBody>;
+export type MediaserversMappingsBodyOutput = zod.output<typeof MediaserversMappingsBody>;
+
+export const mediaserversPatchBodyAddressMax = 2048;
+
+export const mediaserversPatchBodyApiKeyMax = 1024;
+
+export const mediaserversPatchBodyNameMax = 100;
+
+export const MediaserversPatchBody = zod.object({
+  address: zod.string().min(1).max(mediaserversPatchBodyAddressMax).exactOptional(),
+  apiKey: zod
+    .string()
+    .min(1)
+    .max(mediaserversPatchBodyApiKeyMax)
+    .exactOptional()
+    .describe("Jellyfin and Emby. Write-only"),
+  browserAddress: zod.string().nullish().describe("null for no Open in button"),
+  fallbackAddress: zod.string().nullish().describe("null for address"),
+  name: zod.string().min(1).max(mediaserversPatchBodyNameMax).exactOptional(),
+  reachingNodeId: zod.uuid().exactOptional(),
+  runsOnNodeId: zod.string().nullish().describe("A Node id; null when the server runs on no Node"),
+});
+
+export type MediaserversPatchBody = zod.input<typeof MediaserversPatchBody>;
+export type MediaserversPatchBodyOutput = zod.output<typeof MediaserversPatchBody>;
+
+export const mediaserversPinBodyForwardMax = 2048;
+
+export const MediaserversPinBody = zod.object({
+  forward: zod
+    .url()
+    .max(mediaserversPinBodyForwardMax)
+    .describe("Where plex.tv sends the browser back to once the Admin signs in"),
+});
+
+export type MediaserversPinBody = zod.input<typeof MediaserversPinBody>;
+export type MediaserversPinBodyOutput = zod.output<typeof MediaserversPinBody>;
+
+export const MediaserversReached = zod.object({
+  nodeId: zod.uuid(),
+  ok: zod.boolean(),
+});
+
+export type MediaserversReached = zod.input<typeof MediaserversReached>;
+export type MediaserversReachedOutput = zod.output<typeof MediaserversReached>;
+
+export const MediaserversPlexConnection = zod.object({
+  https: zod.boolean(),
+  local: zod.boolean(),
+  reachedFrom: zod
+    .array(MediaserversReached)
+    .describe("The Controller and each Node that holds Media Server link"),
+  uri: zod.url(),
+});
+
+export type MediaserversPlexConnection = zod.input<typeof MediaserversPlexConnection>;
+export type MediaserversPlexConnectionOutput = zod.output<typeof MediaserversPlexConnection>;
+
+export const MediaserversPlexPin = zod.object({
+  authUrl: zod.url().describe("Open it in a new tab, where the Admin signs in to Plex"),
+  expiresAt: zod.iso.datetime({ offset: true }),
+  pinId: zod.int(),
+});
+
+export type MediaserversPlexPin = zod.input<typeof MediaserversPlexPin>;
+export type MediaserversPlexPinOutput = zod.output<typeof MediaserversPlexPin>;
+
+export const MediaserversPlexPinState = zod.object({
+  state: zod.enum(["waiting", "expired", "signed_in"]),
+});
+
+export type MediaserversPlexPinState = zod.input<typeof MediaserversPlexPinState>;
+export type MediaserversPlexPinStateOutput = zod.output<typeof MediaserversPlexPinState>;
+
+export const MediaserversPlexServerView = zod.object({
+  connections: zod.array(MediaserversPlexConnection).describe("Every connection but relays"),
+  machineIdentifier: zod.string(),
+  name: zod.string(),
+  suggestedReaching: MediaserversNodeRef,
+  suggestedRunsOn: MediaserversNodeRef.exactOptional().describe(
+    "The Node whose address a local connection has",
+  ),
+  version: zod.string(),
+});
+
+export type MediaserversPlexServerView = zod.input<typeof MediaserversPlexServerView>;
+export type MediaserversPlexServerViewOutput = zod.output<typeof MediaserversPlexServerView>;
+
+export const MediaserversRecovered = zod.object({
+  kind: MediaserversKind,
+  reason: zod.enum(["not_responding", "sends_failing", "sign_in_refused", "other_server"]),
+  serverId: zod.uuid(),
+});
+
+export type MediaserversRecovered = zod.input<typeof MediaserversRecovered>;
+export type MediaserversRecoveredOutput = zod.output<typeof MediaserversRecovered>;
+
+export const MediaserversRouteTest = zod.object({
+  ok: zod.boolean(),
+  words: zod.string().describe("What the test found, such as Den reached Living room Plex."),
+});
+
+export type MediaserversRouteTest = zod.input<typeof MediaserversRouteTest>;
+export type MediaserversRouteTestOutput = zod.output<typeof MediaserversRouteTest>;
+
+export const MediaserversState = zod.object({
+  level: zod.enum(["ok", "warn", "fail"]),
+  words: zod
+    .string()
+    .describe(
+      "The line a person reads, such as Living room Plex hasn't responded to Den since 14:02.",
+    ),
+});
+
+export type MediaserversState = zod.input<typeof MediaserversState>;
+export type MediaserversStateOutput = zod.output<typeof MediaserversState>;
+
+export const MediaserversUnhealthy = zod.object({
+  reason: zod.enum(["not_responding", "sends_failing", "sign_in_refused", "other_server"]),
+  since: zod.iso.datetime({ offset: true }),
+});
+
+export type MediaserversUnhealthy = zod.input<typeof MediaserversUnhealthy>;
+export type MediaserversUnhealthyOutput = zod.output<typeof MediaserversUnhealthy>;
+
+export const mediaserversServerViewMappingsNeededMin = 0;
+
+export const MediaserversServerView = zod.object({
+  address: zod.string().describe("What the reaching Node calls, such as http://localhost:8096"),
+  browserAddress: zod
+    .string()
+    .exactOptional()
+    .describe("Where Open in sends a browser, for Jellyfin and Emby; absent for no Open in button"),
+  checkedAt: zod.iso
+    .datetime({ offset: true })
+    .exactOptional()
+    .describe("When both routes were last tested"),
+  contact: zod
+    .enum(["unknown", "responding", "not_responding", "sign_in_refused", "other_server"])
+    .describe(
+      "As the reaching Node last reported it; unknown until it reports and while it is offline",
+    ),
+  contactSince: zod.iso.datetime({ offset: true }).exactOptional(),
+  fallback: zod
+    .enum(["available", "none", "untested"])
+    .describe(
+      "Whether the Controller reaches the server itself, which it does while the reaching Node is offline",
+    ),
+  fallbackAddress: zod
+    .string()
+    .exactOptional()
+    .describe("What the Controller calls; absent when it calls address"),
+  id: zod.uuid(),
+  identity: zod.string().describe("Plex's machineIdentifier, or the Jellyfin or Emby server Id"),
+  kind: MediaserversKind,
+  lastContactAt: zod.iso.datetime({ offset: true }).exactOptional(),
+  lastSendAt: zod.iso.datetime({ offset: true }).exactOptional(),
+  mappingsNeeded: zod
+    .int()
+    .min(mediaserversServerViewMappingsNeededMin)
+    .describe("Shown roots without a confirmed Path mapping"),
+  name: zod.string(),
+  plexPass: zod
+    .boolean()
+    .exactOptional()
+    .describe("Plex only: whether the signed-in account has Plex Pass"),
+  reachingNode: MediaserversNodeRef.describe("The Node that sends changes and watches sessions"),
+  runsOnNode: MediaserversNodeRef.exactOptional().describe(
+    "The Node the server runs on; absent when it runs on no Node",
+  ),
+  sends: zod.enum(["ok", "failing"]),
+  state: MediaserversState,
+  unhealthy: MediaserversUnhealthy.exactOptional().describe("Set while the server is unhealthy"),
+  version: zod.string().describe("As the server last reported it"),
+});
+
+export type MediaserversServerView = zod.input<typeof MediaserversServerView>;
+export type MediaserversServerViewOutput = zod.output<typeof MediaserversServerView>;
+
+export const MediaserversSessionView = zod.object({
+  decision: zod.enum(["direct_play", "copy", "transcode"]),
+  hardware: zod.boolean().describe("The server reports hardware transcoding"),
+  path: zod.string().describe("The file as the server names it"),
+  playId: zod.uuid(),
+  player: zod.string(),
+  product: zod.string(),
+  reasons: zod
+    .array(zod.string())
+    .describe("Transcode reasons as the server gave them; Plex gives none"),
+  startedAt: zod.iso.datetime({ offset: true }),
+  user: zod.string(),
+  workId: zod
+    .uuid()
+    .exactOptional()
+    .describe("The Work whose file plays; absent when no mapping leads to a library file"),
+});
+
+export type MediaserversSessionView = zod.input<typeof MediaserversSessionView>;
+export type MediaserversSessionViewOutput = zod.output<typeof MediaserversSessionView>;
+
+export const MediaserversSessions = zod.object({
+  reachable: zod
+    .boolean()
+    .describe("false while the reaching Node is offline, when sessions is empty"),
+  sessions: zod.array(MediaserversSessionView),
+});
+
+export type MediaserversSessions = zod.input<typeof MediaserversSessions>;
+export type MediaserversSessionsOutput = zod.output<typeof MediaserversSessions>;
+
+export const MediaserversSessionsChanged = zod.object({
+  serverIds: zod.array(zod.uuid()),
+});
+
+export type MediaserversSessionsChanged = zod.input<typeof MediaserversSessionsChanged>;
+export type MediaserversSessionsChangedOutput = zod.output<typeof MediaserversSessionsChanged>;
+
+export const mediaserversSignInBodyAddressMax = 2048;
+
+export const mediaserversSignInBodyPasswordMax = 1024;
+
+export const mediaserversSignInBodyUserMax = 256;
+
+export const MediaserversSignInBody = zod.object({
+  address: zod.string().min(1).max(mediaserversSignInBodyAddressMax),
+  kind: zod.string().min(1),
+  nodeId: zod
+    .uuid()
+    .describe(
+      "The reaching Node the draft names. The Controller signs in when it reaches the server, else this Node does",
+    ),
+  password: zod
+    .string()
+    .max(mediaserversSignInBodyPasswordMax)
+    .describe("Write-only. Used for this one sign-in and never stored"),
+  user: zod
+    .string()
+    .min(1)
+    .max(mediaserversSignInBodyUserMax)
+    .describe("An administrator of the server"),
+});
+
+export type MediaserversSignInBody = zod.input<typeof MediaserversSignInBody>;
+export type MediaserversSignInBodyOutput = zod.output<typeof MediaserversSignInBody>;
+
+export const MediaserversSignedIn = zod.object({
+  apiKey: zod
+    .string()
+    .describe("The key named SlipStream the sign-in created; send it as the Draft's apiKey"),
+  deviceId: zod.string().describe("The DeviceId the sign-in used; send it as the Draft's deviceId"),
+});
+
+export type MediaserversSignedIn = zod.input<typeof MediaserversSignedIn>;
+export type MediaserversSignedInOutput = zod.output<typeof MediaserversSignedIn>;
+
+export const MediaserversTested = zod.object({
+  controller: MediaserversRouteTest.describe("From the Controller at the fallback address"),
+  fallback: zod.enum(["available", "none", "untested"]),
+  reaching: MediaserversRouteTest.describe("From the reaching Node at address"),
+});
+
+export type MediaserversTested = zod.input<typeof MediaserversTested>;
+export type MediaserversTestedOutput = zod.output<typeof MediaserversTested>;
+
+export const MediaserversWentUnhealthy = zod.object({
+  kind: MediaserversKind,
+  reason: zod.enum(["not_responding", "sends_failing", "sign_in_refused", "other_server"]),
+  serverId: zod.uuid(),
+});
+
+export type MediaserversWentUnhealthy = zod.input<typeof MediaserversWentUnhealthy>;
+export type MediaserversWentUnhealthyOutput = zod.output<typeof MediaserversWentUnhealthy>;
 
 export const MergeTrackerInputBody = zod.object({
   into: zod.uuid().describe("The Tracker it merges into, which is kept"),
@@ -7785,6 +8345,13 @@ export const PlanInputBody = zod.object({
 export type PlanInputBody = zod.input<typeof PlanInputBody>;
 export type PlanInputBodyOutput = zod.output<typeof PlanInputBody>;
 
+export const PlexServersOutputBody = zod.object({
+  servers: zod.array(MediaserversPlexServerView),
+});
+
+export type PlexServersOutputBody = zod.input<typeof PlexServersOutputBody>;
+export type PlexServersOutputBodyOutput = zod.output<typeof PlexServersOutputBody>;
+
 export const Problem = zod.object({
   code: zod.string(),
   detail: zod.string().exactOptional(),
@@ -8219,6 +8786,13 @@ export const SendToInputBody = zod.object({
 
 export type SendToInputBody = zod.input<typeof SendToInputBody>;
 export type SendToInputBodyOutput = zod.output<typeof SendToInputBody>;
+
+export const ServersOutputBody = zod.object({
+  servers: zod.array(MediaserversServerView).describe("By name"),
+});
+
+export type ServersOutputBody = zod.input<typeof ServersOutputBody>;
+export type ServersOutputBodyOutput = zod.output<typeof ServersOutputBody>;
 
 export const ServingWorker = zod.object({
   controller: zod.string().describe("Its Controller's name"),
@@ -10131,6 +10705,16 @@ export const WorksWebLink = zod.object({
 export type WorksWebLink = zod.input<typeof WorksWebLink>;
 export type WorksWebLinkOutput = zod.output<typeof WorksWebLink>;
 
+export const WorksOpenIn = zod.object({
+  kind: MediaserversKind,
+  name: zod.string().describe("The Media Server's name, such as Living room Plex"),
+  serverId: zod.uuid(),
+  url: zod.url(),
+});
+
+export type WorksOpenIn = zod.input<typeof WorksOpenIn>;
+export type WorksOpenInOutput = zod.output<typeof WorksOpenIn>;
+
 export const WorksWorkProfile = zod.object({
   id: zod.uuid(),
   name: zod.string(),
@@ -10184,6 +10768,7 @@ export const WorksWorkView = zod.object({
     .describe(
       "Items a refresh adds arrive monitored, unless they sit in an aside level and monitorAsides is off",
     ),
+  openIn: zod.array(WorksOpenIn).describe("A link to the Work on each Media Server that holds it"),
   options: zod
     .array(SettingField)
     .describe(
@@ -11140,6 +11725,56 @@ export const LiveEventLiveSessionEnded = zod.object({
 export type LiveEventLiveSessionEnded = zod.input<typeof LiveEventLiveSessionEnded>;
 export type LiveEventLiveSessionEndedOutput = zod.output<typeof LiveEventLiveSessionEnded>;
 
+export const LiveEventMediaServersChanged = zod.object({
+  event: zod.enum(["media-servers.changed"]),
+  data: MediaserversChanged,
+});
+
+export type LiveEventMediaServersChanged = zod.input<typeof LiveEventMediaServersChanged>;
+export type LiveEventMediaServersChangedOutput = zod.output<typeof LiveEventMediaServersChanged>;
+
+export const LiveEventMediaServersItemsFound = zod.object({
+  event: zod.enum(["media-servers.items-found"]),
+  data: MediaserversFound,
+});
+
+export type LiveEventMediaServersItemsFound = zod.input<typeof LiveEventMediaServersItemsFound>;
+export type LiveEventMediaServersItemsFoundOutput = zod.output<
+  typeof LiveEventMediaServersItemsFound
+>;
+
+export const LiveEventMediaServersRecovered = zod.object({
+  event: zod.enum(["media-servers.recovered"]),
+  data: MediaserversRecovered,
+});
+
+export type LiveEventMediaServersRecovered = zod.input<typeof LiveEventMediaServersRecovered>;
+export type LiveEventMediaServersRecoveredOutput = zod.output<
+  typeof LiveEventMediaServersRecovered
+>;
+
+export const LiveEventMediaServersSessionsChanged = zod.object({
+  event: zod.enum(["media-servers.sessions-changed"]),
+  data: MediaserversSessionsChanged,
+});
+
+export type LiveEventMediaServersSessionsChanged = zod.input<
+  typeof LiveEventMediaServersSessionsChanged
+>;
+export type LiveEventMediaServersSessionsChangedOutput = zod.output<
+  typeof LiveEventMediaServersSessionsChanged
+>;
+
+export const LiveEventMediaServersUnhealthy = zod.object({
+  event: zod.enum(["media-servers.unhealthy"]),
+  data: MediaserversWentUnhealthy,
+});
+
+export type LiveEventMediaServersUnhealthy = zod.input<typeof LiveEventMediaServersUnhealthy>;
+export type LiveEventMediaServersUnhealthyOutput = zod.output<
+  typeof LiveEventMediaServersUnhealthy
+>;
+
 export const LiveEventMetadataChanged = zod.object({
   event: zod.enum(["metadata.changed"]),
   data: MetadataChanged,
@@ -11318,6 +11953,11 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventLiveAccessChanged,
   LiveEventLiveResync,
   LiveEventLiveSessionEnded,
+  LiveEventMediaServersChanged,
+  LiveEventMediaServersItemsFound,
+  LiveEventMediaServersRecovered,
+  LiveEventMediaServersSessionsChanged,
+  LiveEventMediaServersUnhealthy,
   LiveEventMetadataChanged,
   LiveEventNamingChanged,
   LiveEventNodeSettingsChanged,
