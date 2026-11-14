@@ -121,13 +121,13 @@ type MediaserversServer struct {
 	Fallback        string
 	CheckedAt       storage.Time
 	Contact         link.Contact
-	ContactSince    *int64
+	ContactSince    storage.Time
 	ContactFound    *string
 	LastContactAt   storage.Time
 	Sends           string
-	SendsSince      *int64
+	SendsSince      storage.Time
 	LastSendAt      storage.Time
-	UnhealthySince  *int64
+	UnhealthySince  storage.Time
 	UnhealthyReason *string
 	CreatedAt       storage.Time
 	UpdatedAt       storage.Time
