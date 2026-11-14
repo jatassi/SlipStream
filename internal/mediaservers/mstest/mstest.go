@@ -20,6 +20,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/jatassi/slipstream/fakes/emby"
 	"github.com/jatassi/slipstream/fakes/fake"
 	"github.com/jatassi/slipstream/fakes/fake/faketest"
 	"github.com/jatassi/slipstream/fakes/jellyfin"
@@ -83,6 +84,8 @@ type World struct {
 	// hub carries the events Health follows.
 	hub         *live.Hub
 	transitions []Transition
+	files       map[works.WorkID][]files.File
+	found       []mediaservers.Found
 }
 
 // Schemas are the library schemas the Media Servers read.
@@ -97,7 +100,7 @@ func New(t *testing.T) *World {
 	w := &World{
 		Lib: storagetest.Library(t, Schemas()...), Sealer: secrettest.Sealer(t),
 		Home: role.NodeID{UUID: storage.NewUUID()}, Seedbox: role.NodeID{UUID: storage.NewUUID()},
-		net: &network{served: map[string]http.RoundTripper{}}, rehomed: make(chan struct{}, 1), hub: live.NewHub(hubEvents),
+		net: &network{served: map[string]http.RoundTripper{}}, rehomed: make(chan struct{}, 1), files: map[works.WorkID][]files.File{}, hub: live.NewHub(hubEvents),
 	}
 	t.Cleanup(w.hub.Close)
 	err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
@@ -121,10 +124,12 @@ func New(t *testing.T) *World {
 		Link:         w.links.service,
 		RootWords:    w.roots.WordsIn,
 		FileIDs:      noFiles,
+		WorkFiles:    w.workFiles,
 		RootsChanged: func(context.Context) <-chan struct{} { return w.rehomed },
 		Tasks:        &cadences{},
 		Events: mediaservers.Events{
 			Changed: changedEvents{w}, SessionsChanged: sessionsEvents{w}, Unhealthy: unhealthyEvents{w}, Recovered: recoveredEvents{w},
+			ItemsFound: foundEvents{w},
 		},
 		Touch: w.links.touch,
 		Facts: w.links.factsOf,
@@ -155,6 +160,17 @@ func (w *World) MediaServers() (mediaservers.Service, bool) { return w.Service, 
 // each of placed, a path under srv.Root, placed before it serves.
 func (w *World) Jellyfin(t *testing.T, host string, srv jellyfin.Server, placed ...string) faketest.Served {
 	t.Helper()
+	return w.mediaBrowser(t, host, jellyfin.Playing(srv), srv, placed)
+}
+
+// Emby is Jellyfin for an Emby.
+func (w *World) Emby(t *testing.T, host string, srv emby.Server, placed ...string) faketest.Served {
+	t.Helper()
+	return w.mediaBrowser(t, host, emby.Playing(srv), srv, placed)
+}
+
+func (w *World) mediaBrowser(t *testing.T, host string, spec fake.Spec, srv jellyfin.Server, placed []string) faketest.Served {
+	t.Helper()
 	media := t.TempDir()
 	for _, l := range srv.Libraries {
 		for _, f := range l.Folders {
@@ -176,7 +192,7 @@ func (w *World) Jellyfin(t *testing.T, host string, srv jellyfin.Server, placed 
 			t.Fatal(err)
 		}
 	}
-	f := faketest.InMemory(t, jellyfin.Playing(srv), scenario.Scenario{Seed: "mstest"}, faketest.WithMedia(media))
+	f := faketest.InMemory(t, spec, scenario.Scenario{Seed: "mstest"}, faketest.WithMedia(media))
 	w.net.mu.Lock()
 	defer w.net.mu.Unlock()
 	w.net.served[host] = f.Client.Transport
