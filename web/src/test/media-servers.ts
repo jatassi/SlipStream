@@ -110,6 +110,28 @@ export const denLibraries: MediaserversLibraries = {
 
 export const denChanges: MediaserversChangeView[] = [
   {
+    id: "0199f3c1-3333-7000-8000-000000000004",
+    kind: "added",
+    path: "The Long Field (2019)/The Long Field (2019) WEBDL-1080p.mkv",
+    state: "due",
+    step: "none",
+    lost: [],
+    createdAt: "2026-11-14T09:25:00Z",
+    attempts: 0,
+    words: "This change is waiting to be sent.",
+  },
+  {
+    id: "0199f3c1-3333-7000-8000-000000000003",
+    kind: "removed",
+    path: "Night Train (2018)/Night Train (2018) DVD.mkv",
+    state: "due",
+    step: "none",
+    lost: [],
+    createdAt: "2026-11-14T09:20:00Z",
+    attempts: 2,
+    words: "Den Jellyfin responded with status 500. SlipStream retries automatically.",
+  },
+  {
     id: "0199f3c1-3333-7000-8000-000000000002",
     kind: "moved",
     path: "The Quiet Orchard (2021)/The Quiet Orchard (2021) Bluray-1080p.mkv",
@@ -121,8 +143,7 @@ export const denChanges: MediaserversChangeView[] = [
     createdAt: "2026-11-14T09:10:00Z",
     sentAt: "2026-11-14T09:13:00Z",
     attempts: 1,
-    words:
-      "Renamed The Quiet Orchard.mkv. Den Jellyfin kept its watch state but lost its play count and last played date.",
+    words: "Sent the rename. Lost: play count, last played.",
   },
   {
     id: "0199f3c1-3333-7000-8000-000000000001",
@@ -135,7 +156,7 @@ export const denChanges: MediaserversChangeView[] = [
     createdAt: "2026-11-14T09:00:00Z",
     sentAt: "2026-11-14T09:00:10Z",
     attempts: 1,
-    words: "Added The Quiet Orchard.mkv.",
+    words: "Sent the new file.",
   },
 ];
 

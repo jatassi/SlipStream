@@ -75,6 +75,8 @@ import { Route as AppSettingsIndexersNewCustomRouteImport } from "./routes/_app/
 import { Route as AppSettingsIndexersNewRssRouteImport } from "./routes/_app/settings/indexers.new.rss";
 import { Route as AppSettingsIndexersNewTorznabRouteImport } from "./routes/_app/settings/indexers.new.torznab";
 import { Route as AppSettingsMediaServersServerIdIndexRouteImport } from "./routes/_app/settings/media-servers.$serverId/index";
+import { Route as AppSettingsMediaServersServerIdChangesRouteImport } from "./routes/_app/settings/media-servers.$serverId/changes";
+import { Route as AppSettingsMediaServersServerIdDetailsRouteImport } from "./routes/_app/settings/media-servers.$serverId/details";
 import { Route as AppSettingsMediaServersServerIdMappingsRouteImport } from "./routes/_app/settings/media-servers.$serverId/mappings";
 import { Route as AppSettingsMediaServersServerIdSettingsRouteImport } from "./routes/_app/settings/media-servers.$serverId/settings";
 import { Route as AppSettingsTrackersTrackerIdTorrentsRouteRouteImport } from "./routes/_app/settings/trackers.$trackerId/_torrents/route";
@@ -430,6 +432,18 @@ const AppSettingsMediaServersServerIdIndexRoute =
     path: "/",
     getParentRoute: () => AppSettingsMediaServersServerIdRouteRoute,
   } as any);
+const AppSettingsMediaServersServerIdChangesRoute =
+  AppSettingsMediaServersServerIdChangesRouteImport.update({
+    id: "/changes",
+    path: "/changes",
+    getParentRoute: () => AppSettingsMediaServersServerIdRouteRoute,
+  } as any);
+const AppSettingsMediaServersServerIdDetailsRoute =
+  AppSettingsMediaServersServerIdDetailsRouteImport.update({
+    id: "/details",
+    path: "/details",
+    getParentRoute: () => AppSettingsMediaServersServerIdRouteRoute,
+  } as any);
 const AppSettingsMediaServersServerIdMappingsRoute =
   AppSettingsMediaServersServerIdMappingsRouteImport.update({
     id: "/mappings",
@@ -548,6 +562,8 @@ export interface FileRoutesByFullPath {
   "/settings/indexers/new/custom": typeof AppSettingsIndexersNewCustomRoute;
   "/settings/indexers/new/rss": typeof AppSettingsIndexersNewRssRoute;
   "/settings/indexers/new/torznab": typeof AppSettingsIndexersNewTorznabRoute;
+  "/settings/media-servers/$serverId/changes": typeof AppSettingsMediaServersServerIdChangesRoute;
+  "/settings/media-servers/$serverId/details": typeof AppSettingsMediaServersServerIdDetailsRoute;
   "/settings/media-servers/$serverId/mappings": typeof AppSettingsMediaServersServerIdMappingsRoute;
   "/settings/media-servers/$serverId/settings": typeof AppSettingsMediaServersServerIdSettingsRoute;
   "/settings/trackers/$trackerId/indexers": typeof AppSettingsTrackersTrackerIdIndexersRoute;
@@ -616,6 +632,8 @@ export interface FileRoutesByTo {
   "/settings/indexers/new/custom": typeof AppSettingsIndexersNewCustomRoute;
   "/settings/indexers/new/rss": typeof AppSettingsIndexersNewRssRoute;
   "/settings/indexers/new/torznab": typeof AppSettingsIndexersNewTorznabRoute;
+  "/settings/media-servers/$serverId/changes": typeof AppSettingsMediaServersServerIdChangesRoute;
+  "/settings/media-servers/$serverId/details": typeof AppSettingsMediaServersServerIdDetailsRoute;
   "/settings/media-servers/$serverId/mappings": typeof AppSettingsMediaServersServerIdMappingsRoute;
   "/settings/media-servers/$serverId/settings": typeof AppSettingsMediaServersServerIdSettingsRoute;
   "/settings/trackers/$trackerId/indexers": typeof AppSettingsTrackersTrackerIdIndexersRoute;
@@ -693,6 +711,8 @@ export interface FileRoutesById {
   "/_app/settings/indexers/new/custom": typeof AppSettingsIndexersNewCustomRoute;
   "/_app/settings/indexers/new/rss": typeof AppSettingsIndexersNewRssRoute;
   "/_app/settings/indexers/new/torznab": typeof AppSettingsIndexersNewTorznabRoute;
+  "/_app/settings/media-servers/$serverId/changes": typeof AppSettingsMediaServersServerIdChangesRoute;
+  "/_app/settings/media-servers/$serverId/details": typeof AppSettingsMediaServersServerIdDetailsRoute;
   "/_app/settings/media-servers/$serverId/mappings": typeof AppSettingsMediaServersServerIdMappingsRoute;
   "/_app/settings/media-servers/$serverId/settings": typeof AppSettingsMediaServersServerIdSettingsRoute;
   "/_app/settings/trackers/$trackerId/indexers": typeof AppSettingsTrackersTrackerIdIndexersRoute;
@@ -770,6 +790,8 @@ export interface FileRouteTypes {
     | "/settings/indexers/new/custom"
     | "/settings/indexers/new/rss"
     | "/settings/indexers/new/torznab"
+    | "/settings/media-servers/$serverId/changes"
+    | "/settings/media-servers/$serverId/details"
     | "/settings/media-servers/$serverId/mappings"
     | "/settings/media-servers/$serverId/settings"
     | "/settings/trackers/$trackerId/indexers"
@@ -838,6 +860,8 @@ export interface FileRouteTypes {
     | "/settings/indexers/new/custom"
     | "/settings/indexers/new/rss"
     | "/settings/indexers/new/torznab"
+    | "/settings/media-servers/$serverId/changes"
+    | "/settings/media-servers/$serverId/details"
     | "/settings/media-servers/$serverId/mappings"
     | "/settings/media-servers/$serverId/settings"
     | "/settings/trackers/$trackerId/indexers"
@@ -914,6 +938,8 @@ export interface FileRouteTypes {
     | "/_app/settings/indexers/new/custom"
     | "/_app/settings/indexers/new/rss"
     | "/_app/settings/indexers/new/torznab"
+    | "/_app/settings/media-servers/$serverId/changes"
+    | "/_app/settings/media-servers/$serverId/details"
     | "/_app/settings/media-servers/$serverId/mappings"
     | "/_app/settings/media-servers/$serverId/settings"
     | "/_app/settings/trackers/$trackerId/indexers"
@@ -1405,6 +1431,20 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppSettingsMediaServersServerIdIndexRouteImport;
       parentRoute: typeof AppSettingsMediaServersServerIdRouteRoute;
     };
+    "/_app/settings/media-servers/$serverId/changes": {
+      id: "/_app/settings/media-servers/$serverId/changes";
+      path: "/changes";
+      fullPath: "/settings/media-servers/$serverId/changes";
+      preLoaderRoute: typeof AppSettingsMediaServersServerIdChangesRouteImport;
+      parentRoute: typeof AppSettingsMediaServersServerIdRouteRoute;
+    };
+    "/_app/settings/media-servers/$serverId/details": {
+      id: "/_app/settings/media-servers/$serverId/details";
+      path: "/details";
+      fullPath: "/settings/media-servers/$serverId/details";
+      preLoaderRoute: typeof AppSettingsMediaServersServerIdDetailsRouteImport;
+      parentRoute: typeof AppSettingsMediaServersServerIdRouteRoute;
+    };
     "/_app/settings/media-servers/$serverId/mappings": {
       id: "/_app/settings/media-servers/$serverId/mappings";
       path: "/mappings";
@@ -1569,6 +1609,8 @@ const AppTasksRouteRouteWithChildren = AppTasksRouteRoute._addFileChildren(
 );
 
 interface AppSettingsMediaServersServerIdRouteRouteChildren {
+  AppSettingsMediaServersServerIdChangesRoute: typeof AppSettingsMediaServersServerIdChangesRoute;
+  AppSettingsMediaServersServerIdDetailsRoute: typeof AppSettingsMediaServersServerIdDetailsRoute;
   AppSettingsMediaServersServerIdMappingsRoute: typeof AppSettingsMediaServersServerIdMappingsRoute;
   AppSettingsMediaServersServerIdSettingsRoute: typeof AppSettingsMediaServersServerIdSettingsRoute;
   AppSettingsMediaServersServerIdIndexRoute: typeof AppSettingsMediaServersServerIdIndexRoute;
@@ -1576,6 +1618,10 @@ interface AppSettingsMediaServersServerIdRouteRouteChildren {
 
 const AppSettingsMediaServersServerIdRouteRouteChildren: AppSettingsMediaServersServerIdRouteRouteChildren =
   {
+    AppSettingsMediaServersServerIdChangesRoute:
+      AppSettingsMediaServersServerIdChangesRoute,
+    AppSettingsMediaServersServerIdDetailsRoute:
+      AppSettingsMediaServersServerIdDetailsRoute,
     AppSettingsMediaServersServerIdMappingsRoute:
       AppSettingsMediaServersServerIdMappingsRoute,
     AppSettingsMediaServersServerIdSettingsRoute:

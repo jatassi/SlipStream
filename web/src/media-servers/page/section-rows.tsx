@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 
 import type { MediaserversServerView as Server } from "../../api/gen/model";
 import { Chevron } from "../../ui/chevron";
-import { Count } from "../../ui/count";
+import { AlertDot, Count } from "../../ui/count";
 import { Icon } from "../../ui/icon";
 import { List, ListRow } from "../../ui/list";
 import { type ServerSection, serverSections } from "./sections";
@@ -10,7 +10,10 @@ import { type ServerSection, serverSections } from "./sections";
 export function SectionCount({ section, server }: { section: ServerSection; server: Server }) {
   const count = section.count?.(server) ?? 0;
   const dot = section.dot?.(server);
-  return count > 0 || dot !== undefined ? <Count value={count} {...(dot && { dot })} /> : null;
+  if (count > 0) {
+    return <Count value={count} {...(dot && { dot })} />;
+  }
+  return dot === undefined ? null : <AlertDot tone={dot} />;
 }
 
 /** On phone, the server's top page lists its other sections, each a pushed page. */
@@ -19,7 +22,7 @@ export function SectionRows({ server }: { server: Server }) {
     <div className="mb-7">
       <List label={server.name}>
         {serverSections
-          .filter((section) => section.id !== "details")
+          .filter((section) => section.id !== "playing")
           .map((section) => (
             <ListRow
               key={section.id}

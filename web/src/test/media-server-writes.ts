@@ -122,6 +122,10 @@ function serverHandlers(list: MediaserversServerView[], write: Write) {
       await write("test", request);
       return HttpResponse.json(tested);
     }),
+    http.post(`${api}/:id/refresh`, async ({ request }) => {
+      await write("refresh", request);
+      return new HttpResponse(null, { status: 204 });
+    }),
     http.delete<{ id: string }>(`${api}/:id`, async ({ request, params }) => {
       await write("remove", request);
       list.splice(
@@ -141,9 +145,14 @@ export const plexPin = {
 
 /**
  * plex.tv as the Controller relays it: no account until the PIN is polled
- * once more after it starts, when the PIN signs in as ada.
+ * once more after it starts, when the PIN signs in as ada. Signing out
+ * removes every Plex server.
  */
-function plexHandlers(write: Write, start: MediaserversAccountView | null) {
+function plexHandlers(
+  list: MediaserversServerView[],
+  write: Write,
+  start: MediaserversAccountView | null,
+) {
   let account = start;
   let polls = 0;
   return [
@@ -152,6 +161,12 @@ function plexHandlers(write: Write, start: MediaserversAccountView | null) {
         ? refused(409, "plex_not_signed_in", "SlipStream isn't signed in to Plex")
         : HttpResponse.json(account),
     ),
+    http.delete(`${api}/plex/account`, async ({ request }) => {
+      await write("plex-sign-out", request);
+      account = null;
+      list.splice(0, list.length, ...list.filter((server) => server.kind !== "plex"));
+      return new HttpResponse(null, { status: 204 });
+    }),
     http.post(`${api}/plex/pin`, async ({ request }) => {
       await write("plex-pin", request);
       return HttpResponse.json(plexPin, { status: 201 });
@@ -227,7 +242,7 @@ export function mediaServersWorld(
     return body;
   };
   const handlers = [
-    ...plexHandlers(write, plex),
+    ...plexHandlers(list, write, plex),
     ...settingsHandlers(write),
     ...draftHandlers(list, write),
     ...serverHandlers(list, write),
