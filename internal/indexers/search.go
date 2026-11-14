@@ -1,7 +1,6 @@
 package indexers
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -40,7 +39,8 @@ type Line struct {
 	Indexer ID
 	// Name is the Indexer's name when the search was planned.
 	Name string
-	// Query is zero when the Indexer is skipped.
+	// Query is zero when the Indexer is skipped or its query isn't
+	// reserved yet.
 	Query QueryID
 	// Skipped is nil when the Indexer is asked.
 	Skipped *Outcome
@@ -57,55 +57,25 @@ const (
 	ManualSearch
 )
 
-// Plan is the lines of one search of kind k of an Item of Content Type
-// typ, read and reserved in tx, by priority then name: for AutoSearch,
-// every Indexer that is on, has Automatic search on and isn't an RSS feed;
-// for ManualSearch, every one that is on, an RSS feed of typ skipped as
-// RSSOnly. One that doesn't serve typ, or that the gate or its search
-// limit holds back, is skipped with why. Each asked line reserves its
-// query, so concurrent searches never pass a limit.
+// Plan is Lines read and reserved in tx, for Manual search: each asked
+// line reserves its query as a press, so concurrent searches never pass a
+// limit, and one the search limit holds back is skipped limit_reached.
 func (x *Indexers) Plan(ctx context.Context, tx *storage.Tx[file], typ works.TypeID, k SearchKind) ([]Line, error) {
-	all, err := x.all(ctx, tx)
+	lines, byID, err := x.lines(ctx, tx, typ, k)
 	if err != nil {
 		return nil, err
 	}
-	statuses, err := statusesIn(ctx, tx)
-	if err != nil {
-		return nil, err
-	}
-	slices.SortStableFunc(all, func(a, b Indexer) int { return cmp.Compare(a.Priority, b.Priority) })
-	cats := x.categories(typ)
 	now := storage.Now()
-	var lines []Line
-	for _, idx := range all {
-		if !idx.On || (k == AutoSearch && (!idx.AutoSearch || idx.Kind == RSS)) {
+	for i, l := range lines {
+		if l.Skipped != nil {
 			continue
 		}
-		l := Line{Indexer: idx.ID, Name: idx.Name}
-		if idx.Kind == RSS {
-			if slices.Contains(idx.Media, typ) {
-				l.Skipped = &Outcome{Kind: RSSOnly}
-				lines = append(lines, l)
-			}
-			continue
-		}
-		if len(served(idx, cats)) == 0 {
-			l.Skipped = &Outcome{Kind: NoCategories}
-			lines = append(lines, l)
-			continue
-		}
-		if _, wait := gate(idx, statuses[idx.ID], Usage{}, x.cfg.Roster, UseSearch, now.Time()); wait != nil {
-			l.Skipped = wait
-			lines = append(lines, l)
-			continue
-		}
-		l.Query, err = reserve(ctx, tx, idx, UseSearch, now)
+		lines[i].Query, err = reserve(ctx, tx, byID[l.Indexer], UseSearch, ClaimPress, now)
 		if limit, ok := errors.AsType[*LimitError](err); ok {
-			l.Skipped = &Outcome{Kind: LimitReached, Until: limit.Until}
+			lines[i].Skipped = &Outcome{Kind: LimitReached, Until: limit.Until}
 		} else if err != nil {
 			return nil, err
 		}
-		lines = append(lines, l)
 	}
 	return lines, nil
 }
@@ -191,7 +161,7 @@ func (x *Indexers) Search(ctx context.Context, s Search, each func(Answer) error
 	var wg sync.WaitGroup
 	for i, l := range s.Asked {
 		wg.Go(func() {
-			answers[i], errs[i] = x.searchOne(jobs, l, s, wait)
+			answers[i], errs[i] = x.searchOne(jobs, l, s, wait, time.Now().Add(wait))
 			if each == nil || errs[i] != nil {
 				return
 			}
@@ -215,7 +185,28 @@ func (x *Indexers) Search(ctx context.Context, s Search, each func(Answer) error
 	return answers, errors.Join(errs...)
 }
 
-func (x *Indexers) searchOne(ctx context.Context, l Line, s Search, wait time.Duration) (Answer, error) {
+// SearchOne asks line l of s until deadline, which is durable across a
+// restart: asked again with the same line, it joins the job the Searching
+// Node runs or kept under the line's query id, so one reservation never
+// searches twice. A line past its deadline answers late without asking.
+// Its outcomes are Search's.
+func (x *Indexers) SearchOne(ctx context.Context, l Line, s Search, deadline time.Time) (Answer, error) {
+	if !time.Now().Before(deadline) {
+		return Answer{Indexer: l.Indexer, Outcome: Outcome{Kind: Late}}, nil
+	}
+	var wait time.Duration
+	err := x.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		wait, err = searchWait(ctx, r)
+		return err
+	})
+	if err != nil {
+		return Answer{}, err
+	}
+	return x.searchOne(ctx, l, s, wait, deadline)
+}
+
+func (x *Indexers) searchOne(ctx context.Context, l Line, s Search, wait time.Duration, deadline time.Time) (Answer, error) {
 	out := Answer{Indexer: l.Indexer}
 	idx, err := x.get(ctx, x.cfg.Library, l.Indexer)
 	if errors.Is(err, ErrNoIndexer) {
@@ -235,7 +226,7 @@ func (x *Indexers) searchOne(ctx context.Context, l Line, s Search, wait time.Du
 		x.lose(ctx, l.Query)
 		return Answer{}, err
 	}
-	j.wait = wait
+	j.wait, j.deadline = wait, deadline
 	for _, c := range served(idx, x.categories(s.Type)) {
 		j.wire.Categories = append(j.wire.Categories, int(c))
 	}

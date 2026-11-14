@@ -39,6 +39,8 @@ type planned struct {
 	ids  map[string]indexers.ID
 	// repointed is each merge's from and into, as the Repoints saw them.
 	repointed [][2]indexers.TrackerID
+	// rssEvery is RSS sync's cadence, zero while it is off.
+	rssEvery time.Duration
 }
 
 var self = role.NodeID{UUID: storage.NewUUID()}
@@ -89,7 +91,10 @@ func plannedIn(t *testing.T, roster indexerstest.Roster, home role.NodeID, names
 			p.repointed = append(p.repointed, [2]indexers.TrackerID{from, into})
 			return nil
 		}},
-		Timings: indexers.DefaultTimings(), Zone: time.UTC,
+		Timings: indexers.DefaultTimings(), JobCap: searching.DefaultTimings().JobCap, Zone: time.UTC,
+		RSS: func(context.Context, storage.Reader[storage.Library]) (time.Duration, bool, error) {
+			return p.rssEvery, p.rssEvery > 0, nil
+		},
 		Log: slog.New(slog.DiscardHandler),
 	})
 	return p

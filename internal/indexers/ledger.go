@@ -80,9 +80,9 @@ func free(l Limit, reserved []time.Time, now time.Time) time.Time {
 	return in[len(in)-l.Count].Add(window)
 }
 
-// reserve inserts a query row for u in tx, refusing with *LimitError while
+// reserve inserts a query row for u of claim c in tx, refusing with *LimitError while
 // idx's limit for u is used up. The row's id is the job's id.
-func reserve(ctx context.Context, tx *storage.Tx[file], idx Indexer, u Use, now storage.Time) (QueryID, error) {
+func reserve(ctx context.Context, tx *storage.Tx[file], idx Indexer, u Use, c Claim, now storage.Time) (QueryID, error) {
 	if l := idx.limit(u); l.Count > 0 {
 		reserved, err := reservedFor(ctx, tx, idx.ID, u, now.Time().Add(-l.Per.Duration()))
 		if err != nil {
@@ -93,22 +93,15 @@ func reserve(ctx context.Context, tx *storage.Tx[file], idx Indexer, u Use, now 
 		}
 	}
 	q := QueryID{UUID: storage.NewUUID()}
-	return q, insertQuery(ctx, tx, q, idx, u, now)
+	return q, insertQuery(ctx, tx, q, idx, u, c, now)
 }
 
-func insertQuery(ctx context.Context, tx *storage.Tx[file], q QueryID, idx Indexer, u Use, now storage.Time) error {
+// insertQuery inserts query row q for u in tx. c is the search's claim,
+// zero for every other use.
+func insertQuery(ctx context.Context, tx *storage.Tx[file], q QueryID, idx Indexer, u Use, c Claim, now storage.Time) error {
 	return db.New(tx).InsertQuery(ctx, db.InsertQueryParams{
-		ID: q, IndexerID: idx.ID, Use: string(u), Claim: claimOf(u), ReservedAt: now, Revision: idx.Revision, Sha: orNil(pinned(idx)),
+		ID: q, IndexerID: idx.ID, Use: string(u), Claim: c.word(), ReservedAt: now, Revision: idx.Revision, Sha: orNil(pinned(idx)),
 	})
-}
-
-// claimOf is whose line a query of u reserves, nil for a use that isn't a
-// search. Every search is Manual search's, a press.
-func claimOf(u Use) *string {
-	if u != UseSearch {
-		return nil
-	}
-	return new("press")
 }
 
 func reservedFor(ctx context.Context, r storage.Reader[file], id ID, u Use, since time.Time) ([]time.Time, error) {

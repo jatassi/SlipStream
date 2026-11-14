@@ -30,6 +30,38 @@ func (q *Queries) GetRSS(ctx context.Context, indexerID IndexerID) (IndexersRss,
 	return i, err
 }
 
+const listRSSPages = `-- name: ListRSSPages :many
+SELECT indexer_id, last_pages FROM indexers_rss ORDER BY indexer_id
+`
+
+type ListRSSPagesRow struct {
+	IndexerID IndexerID
+	LastPages int64
+}
+
+func (q *Queries) ListRSSPages(ctx context.Context) ([]ListRSSPagesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRSSPages)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRSSPagesRow
+	for rows.Next() {
+		var i ListRSSPagesRow
+		if err := rows.Scan(&i.IndexerID, &i.LastPages); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const putRSS = `-- name: PutRSS :exec
 INSERT INTO indexers_rss (indexer_id, last_guids, last_published_at, last_fetch_at, last_pages, gap_at, gap_kind)
 VALUES (?1, ?2, ?3, ?4, ?5,

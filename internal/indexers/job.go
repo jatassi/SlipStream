@@ -28,6 +28,9 @@ type job struct {
 	// wait is a search job's SearchWait, zero for every other use, which
 	// keeps Timings.Job.
 	wait time.Duration
+	// deadline is a search job's, counted from when its line was first
+	// asked, zero for every other use.
+	deadline time.Time
 }
 
 // answer is a as record reads it.
@@ -125,10 +128,12 @@ func (x *Indexers) where(ctx context.Context, idx Indexer) (role.NodeID, error) 
 // record wrote, zero when the answer was from an older revision. It fails
 // with *UnavailableError when the Node couldn't run it, completing its
 // query as lost, or ErrLate, which settle records once the Node answers.
+// A caller that stops leaves the query in flight, since the Node's job runs
+// on and a line asked again joins it.
 func (x *Indexers) run(ctx context.Context, j job) (searching.Answer, Status, error) {
 	a, err := x.ask(ctx, j)
 	if err != nil {
-		if !errors.Is(err, ErrLate) {
+		if !errors.Is(err, ErrLate) && ctx.Err() == nil {
 			x.lose(ctx, j.q)
 		}
 		return searching.Answer{}, Status{}, err
@@ -149,8 +154,8 @@ func (x *Indexers) lose(ctx context.Context, q QueryID) {
 
 // ask runs j on its Node. It polls Run until the answer or the job's
 // deadline and never waits past the deadline once it is known. A search
-// job's deadline is its wait from the first ask, or from when the Node
-// started it when that is earlier, since the Node says it started only
+// job's deadline is its line's, or its wait from when the Node started it
+// when that is earlier, since the Node says it started only
 // after Hold. Any other job's is Timings.Job from when the Node started it.
 // A job past it is ErrLate, as is one whose call the deadline ended, which
 // the Node may end a moment before this clock reads the deadline, since
@@ -159,10 +164,7 @@ func (x *Indexers) lose(ctx context.Context, q QueryID) {
 func (x *Indexers) ask(ctx context.Context, j job) (searching.Answer, error) {
 	remote := x.cfg.Searching(j.node)
 	limit := cmp.Or(j.wait, x.cfg.Timings.Job)
-	var deadline time.Time
-	if j.wait > 0 {
-		deadline = time.Now().Add(j.wait)
-	}
+	deadline := j.deadline
 	for {
 		asked := time.Now()
 		poll, err := runUntil(ctx, remote, j.wire, deadline)

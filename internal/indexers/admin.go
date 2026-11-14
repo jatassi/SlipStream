@@ -376,7 +376,7 @@ func (x *Indexers) testSaved(ctx context.Context, id ID, t Typed) (Indexer, Repo
 		return idx, Report{}, err
 	}
 	err = x.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		return insertQuery(ctx, tx, q, idx, UseTest, storage.Now())
+		return insertQuery(ctx, tx, q, idx, UseTest, 0, storage.Now())
 	})
 	if err != nil {
 		return idx, Report{}, err
@@ -433,7 +433,7 @@ func (x *Indexers) test(ctx context.Context, idx Indexer, session *searching.Ses
 // session and caps, and the session pasted for it unless nil, inside the
 // Write that saves idx.
 func (x *Indexers) recordTest(ctx context.Context, tx *storage.Tx[file], q QueryID, node role.NodeID, idx Indexer, a searching.Answer, session *searching.Session, now storage.Time) error {
-	if err := insertQuery(ctx, tx, q, idx, UseTest, now); err != nil {
+	if err := insertQuery(ctx, tx, q, idx, UseTest, 0, now); err != nil {
 		return err
 	}
 	if session != nil {

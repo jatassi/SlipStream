@@ -7,3 +7,6 @@ VALUES (sqlc.arg(indexer_id), sqlc.arg(last_guids), sqlc.narg(last_published_at)
     sqlc.narg(gap_at), sqlc.narg(gap_kind))
 ON CONFLICT (indexer_id) DO UPDATE SET last_guids = excluded.last_guids, last_published_at = excluded.last_published_at,
     last_fetch_at = excluded.last_fetch_at, last_pages = excluded.last_pages, gap_at = excluded.gap_at, gap_kind = excluded.gap_kind;
+
+-- name: ListRSSPages :many
+SELECT indexer_id, last_pages FROM indexers_rss ORDER BY indexer_id;

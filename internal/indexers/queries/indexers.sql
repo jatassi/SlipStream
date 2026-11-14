@@ -110,6 +110,16 @@ SELECT reserved_at FROM indexers_query
 WHERE indexer_id = sqlc.arg(indexer_id) AND reserved_at > sqlc.arg(since) AND use IN (sqlc.slice(uses))
 ORDER BY reserved_at;
 
+-- name: InFlightSearches :many
+SELECT indexer_id, claim, reserved_at FROM indexers_query
+WHERE completed_at IS NULL AND use = 'search' AND reserved_at > sqlc.arg(since)
+ORDER BY indexer_id, reserved_at;
+
+-- name: InFlightSearchesOf :many
+SELECT indexer_id, claim, reserved_at FROM indexers_query
+WHERE indexer_id = sqlc.arg(indexer_id) AND completed_at IS NULL AND use = 'search' AND reserved_at > sqlc.arg(since)
+ORDER BY reserved_at;
+
 -- name: ListQueries :many
 SELECT * FROM indexers_query WHERE indexer_id = sqlc.arg(indexer_id)
 ORDER BY reserved_at DESC, id DESC
