@@ -23283,6 +23283,33 @@
         ],
         "type": "object"
       },
+      "WorksOpenIn": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/MediaserversKind"
+          },
+          "name": {
+            "description": "The Media Server's name, such as Living room Plex",
+            "type": "string"
+          },
+          "serverId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "serverId",
+          "kind",
+          "name",
+          "url"
+        ],
+        "type": "object"
+      },
       "WorksOptionsChange": {
         "additionalProperties": false,
         "properties": {
@@ -24124,6 +24151,13 @@
             "description": "Items a refresh adds arrive monitored, unless they sit in an aside level and monitorAsides is off",
             "type": "boolean"
           },
+          "openIn": {
+            "description": "A link to the Work on each Media Server that holds it",
+            "items": {
+              "$ref": "#/components/schemas/WorksOpenIn"
+            },
+            "type": "array"
+          },
           "options": {
             "description": "The Content Type's own options for the Work, in Edit's order; empty when it has none",
             "items": {
@@ -24169,6 +24203,7 @@
           "monitorAsides",
           "levelFolders",
           "options",
+          "openIn",
           "fields",
           "ratings",
           "artwork",

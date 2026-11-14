@@ -6,6 +6,7 @@ import (
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/library"
+	"github.com/jatassi/slipstream/internal/mediaserversapi"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/works"
@@ -20,6 +21,14 @@ type workView struct {
 	MonitorAsides bool                          `json:"monitorAsides" doc:"The Items of aside levels are part of the Work's monitoring choice"`
 	LevelFolders  bool                          `json:"levelFolders" doc:"New files sit in a folder per level; unread for a Content Type with no levels"`
 	Options       []api.OneOf[settingapi.Field] `json:"options" nullable:"false" doc:"The Content Type's own options for the Work, in Edit's order; empty when it has none"`
+	OpenIn        []openIn                      `json:"openIn" nullable:"false" doc:"A link to the Work on each Media Server that holds it"`
+}
+
+type openIn struct {
+	ServerID string                         `json:"serverId" format:"uuid"`
+	Kind     api.Enum[mediaserversapi.Kind] `json:"kind"`
+	Name     string                         `json:"name" doc:"The Media Server's name, such as Living room Plex"`
+	URL      string                         `json:"url" format:"uri"`
 }
 
 type webLink struct {
@@ -65,7 +74,7 @@ func (h handlers) view(ctx context.Context, by identity.Admin, id works.WorkID) 
 func viewOf(m artwork.Minter, w library.Work) workView {
 	out := workView{
 		Tree: treeOf(m, w.Tree, w.Timings), Links: make([]webLink, len(w.Links)), Profile: workProfile{ID: w.Profile.ID.String(), Name: w.Profile.Name},
-		MonitorNew: w.MonitorNew, MonitorAsides: w.MonitorAsides, LevelFolders: w.Options.LevelFolders, Options: settingapi.FieldsOf(w.Options.Fields),
+		MonitorNew: w.MonitorNew, MonitorAsides: w.MonitorAsides, LevelFolders: w.Options.LevelFolders, Options: settingapi.FieldsOf(w.Options.Fields), OpenIn: []openIn{},
 	}
 	for i, l := range w.Links {
 		out.Links[i] = webLink{Key: l.Key, Label: l.Label, URL: l.URL, Kind: l.Kind.String()}
