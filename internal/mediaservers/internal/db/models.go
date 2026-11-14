@@ -90,7 +90,7 @@ type MediaserversPlay struct {
 }
 
 type MediaserversPlexAccount struct {
-	ID               int64
+	ID               Singleton
 	ClientIdentifier string
 	KeySealed        secret.Sealed
 	JwtSealed        secret.Sealed

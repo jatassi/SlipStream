@@ -92,6 +92,9 @@ sql:
             go_type: bool
           - column: mediaservers_play.hardware
             go_type: bool
+          - column: mediaservers_plex_account.id
+            go_type:
+              type: Singleton
           - column: mediaservers_plex_account.plex_pass
             go_type:
               type: bool
