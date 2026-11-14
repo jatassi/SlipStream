@@ -45039,31 +45039,6 @@
             },
             "description": "Internal Server Error"
           },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "media_servers_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
-          },
           "502": {
             "content": {
               "application/problem+json": {
@@ -45350,31 +45325,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "media_servers_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -45508,31 +45458,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "media_servers_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -45665,7 +45590,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "invalid"
+                            "invalid",
+                            "media_server_sign_in_refused"
                           ],
                           "type": "string"
                         }
@@ -45702,31 +45628,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "media_servers_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           },
           "502": {
             "content": {
@@ -45910,7 +45811,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "invalid"
+                            "invalid",
+                            "media_server_sign_in_refused"
                           ],
                           "type": "string"
                         }
@@ -45948,7 +45850,7 @@
             },
             "description": "Internal Server Error"
           },
-          "501": {
+          "502": {
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -45960,7 +45862,7 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "media_servers_not_built"
+                            "plex_tv_unreached"
                           ],
                           "type": "string"
                         }
@@ -45971,7 +45873,7 @@
                 }
               }
             },
-            "description": "Not Implemented"
+            "description": "Bad Gateway"
           }
         },
         "security": [
@@ -46132,31 +46034,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "media_servers_not_built"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           },
           "502": {
             "content": {
