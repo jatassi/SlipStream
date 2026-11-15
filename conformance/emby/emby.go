@@ -6,9 +6,8 @@
 // POST /Library/Refresh, and it has ended when the RefreshLibrary task is
 // Idle with a LastExecutionResult.EndTimeUtc later than before the scan
 // was asked for, the rule Jellyfin follows (graft 3). A library's
-// RefreshStatus is no end signal: it carries no end time, so a scan that
-// went Active and back to Idle between two polls reads as one not yet
-// started. RefreshStatusReturnsToIdle records what it does.
+// RefreshStatus is no end signal: it carries no end time, and on 4.10 it
+// never read Idle after a recursive refresh (online run 2026-11-14).
 package emby
 
 import (
@@ -26,6 +25,7 @@ import (
 // a Target.
 type (
 	Target  = mediabrowser.Target
+	Admin   = mediabrowser.Admin
 	Played  = mediabrowser.Played
 	Disk    = mediaservers.Disk
 	DirDisk = mediaservers.DirDisk
@@ -40,12 +40,13 @@ func Run(t *testing.T, tg Target) {
 		name string
 		run  func(*testing.T, Target, mediaservers.Target, *mediabrowser.Server)
 	}{
-		{"PathLookupExact", PathLookupExact},
+		{"PathLookup", PathLookup},
 		{"VersionsAreItems", VersionsAreItems},
-		{"RefreshStatusReturnsToIdle", RefreshStatusReturnsToIdle},
-		{"UserDataKeepsPlayCount", UserDataKeepsPlayCount},
-		{"DeletedLeavesAtOnce", DeletedLeavesAtOnce},
+		{"RecursiveRefreshFindsFile", RecursiveRefreshFindsFile},
+		{"UserDataDropsFavorite", UserDataDropsFavorite},
+		{"DeletedWaitsTheDelay", DeletedWaitsTheDelay},
 		{"TranscodeAfterReport", TranscodeAfterReport},
+		{"KeyCreated", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.KeyCreated(t) }},
 		{"SocketPushesSessions", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.SocketPushesSessions(t) }},
 	}
 	var cases []mediaservers.Case
@@ -55,10 +56,12 @@ func Run(t *testing.T, tg Target) {
 	mediaservers.Each(t, cases)
 }
 
-// PathLookupExact pins /Items?Path=: the file's exact path finds its item
-// and only that, while its folder, a prefix of its name and, on a POSIX
-// server, its name in other case find nothing.
-func PathLookupExact(t *testing.T, _ Target, shared mediaservers.Target, s *mediabrowser.Server) {
+// PathLookup pins /Items?Path=: the file's exact path finds its item and
+// only that. Emby 4.10 also answered one item for the file's folder
+// (online run 2026-11-14), so the case logs what the folder, a prefix of
+// the name and, on a POSIX server, the name in other case find, for the
+// next run to record.
+func PathLookup(t *testing.T, _ Target, shared mediaservers.Target, s *mediabrowser.Server) {
 	f := shared.Case(t)
 	defer f.Clear()
 	r := mediaservers.Rel(t, "Looked Up", ".mkv")
@@ -73,17 +76,20 @@ func PathLookupExact(t *testing.T, _ Target, shared mediaservers.Target, s *medi
 	if len(items) != 1 || items[0].ID != it.Key {
 		t.Fatalf("?Path=%s found %d items, want item %s alone", p, len(items), it.Key)
 	}
-	misses := map[string]string{"its folder": f.At(r).Dir().String(), "a name prefix": p[:len(p)-len(".mkv")]}
+	others := map[string]string{"its folder": f.At(r).Dir().String(), "a name prefix": p[:len(p)-len(".mkv")]}
 	if !f.At(r).Windows() {
-		misses["its name in other case"] = p[:len(p)-len(".mkv")] + ".MKV"
+		others["its name in other case"] = p[:len(p)-len(".mkv")] + ".MKV"
 	}
-	for what, q := range misses {
+	for what, q := range others {
 		items, err := s.C.ItemsAt(t.Context(), s.User(), q)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(items) != 0 {
-			t.Fatalf("?Path= with %s (%s) found %d items, want none", what, q, len(items))
+		for _, x := range items {
+			t.Logf("?Path= with %s (%s) finds %s item %s at %q, the file's item %v", what, q, x.Type, x.ID, x.Path, x.ID == it.Key)
+		}
+		if len(items) == 0 {
+			t.Logf("?Path= with %s (%s) finds no item", what, q)
 		}
 	}
 }
@@ -130,10 +136,12 @@ func refreshStatus(t *testing.T, s *mediabrowser.Server, library string) string 
 	return ""
 }
 
-// RefreshStatusReturnsToIdle refreshes the library's item recursively
-// with a file placed and not reported. The library's RefreshStatus reads
-// Idle again and the file has an item.
-func RefreshStatusReturnsToIdle(t *testing.T, _ Target, shared mediaservers.Target, s *mediabrowser.Server) {
+// RecursiveRefreshFindsFile refreshes the library's item recursively, a
+// Rescan's call, with a file placed and not reported. The file gets an
+// item. The case logs the library's RefreshStatus after: Emby 4.10's never
+// read Idle in five minutes (online run 2026-11-14), and what it reads is
+// unrecorded.
+func RecursiveRefreshFindsFile(t *testing.T, _ Target, shared mediaservers.Target, s *mediabrowser.Server) {
 	f := shared.Case(t)
 	defer f.Clear()
 	r := mediaservers.Rel(t, "Refreshed", ".mkv")
@@ -142,15 +150,14 @@ func RefreshStatusReturnsToIdle(t *testing.T, _ Target, shared mediaservers.Targ
 		t.Fatal(err)
 	}
 	f.Found(r)
-	mediaservers.Eventually(t, shared, "RefreshStatus Idle", func() (bool, error) {
-		return refreshStatus(t, s, shared.Library) == "Idle", nil
-	})
+	t.Logf("after the refresh the library's RefreshStatus reads %q", refreshStatus(t, s, shared.Library))
 }
 
-// UserDataKeepsPlayCount is #101's finding: a UserData write answers
-// success and sets played, position and favorite, and leaves the play
-// count and last played date as they were.
-func UserDataKeepsPlayCount(t *testing.T, _ Target, shared mediaservers.Target, s *mediabrowser.Server) {
+// UserDataDropsFavorite is Emby 4.10's UserData write: it answers success
+// and sets played, the position, the play count and the last played date,
+// and keeps the favorite the item had (online run 2026-11-14).
+// FavoriteItems sets the favorite.
+func UserDataDropsFavorite(t *testing.T, _ Target, shared mediaservers.Target, s *mediabrowser.Server) {
 	f := shared.Case(t)
 	defer f.Clear()
 	r := mediaservers.Rel(t, "Restored", ".mkv")
@@ -161,6 +168,9 @@ func UserDataKeepsPlayCount(t *testing.T, _ Target, shared mediaservers.Target, 
 	if err != nil {
 		t.Fatal(err)
 	}
+	if before.IsFavorite {
+		t.Fatal("the new item is a favorite before any write")
+	}
 	played := time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
 	want := jellyfin.UserData{Played: true, PlayCount: before.PlayCount + 3, PlaybackPositionTicks: 600_000_000, IsFavorite: true, LastPlayedDate: &played}
 	if err := s.C.SetUserData(t.Context(), s.User(), it.Key, want); err != nil {
@@ -170,17 +180,24 @@ func UserDataKeepsPlayCount(t *testing.T, _ Target, shared mediaservers.Target, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.Played || !got.IsFavorite || got.PlaybackPositionTicks != want.PlaybackPositionTicks {
-		t.Fatalf("after the write the data is %+v, want played, favorite and the position set", got)
+	if !got.Played || got.PlaybackPositionTicks != want.PlaybackPositionTicks || got.PlayCount != want.PlayCount || got.LastPlayedDate == nil || !got.LastPlayedDate.Equal(played) {
+		t.Fatalf("after the write the data is %+v, want played, the position, the play count and the last played date set", got)
 	}
-	if got.PlayCount != before.PlayCount || (got.LastPlayedDate != nil && got.LastPlayedDate.Equal(played)) {
-		t.Fatalf("after the write the play count is %d (was %d) and last played %v", got.PlayCount, before.PlayCount, got.LastPlayedDate)
+	if got.IsFavorite {
+		t.Fatalf("after the write the data is %+v, want the favorite kept unset", got)
+	}
+	if err := s.C.SetFavorite(t.Context(), s.User(), it.Key, true); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = s.C.UserData(t.Context(), s.User(), it.Key); err != nil || !got.IsFavorite {
+		t.Fatalf("after FavoriteItems the data is %+v (err %v), want a favorite", got, err)
 	}
 }
 
-// DeletedLeavesAtOnce is #101's delete timing: a Deleted report removes
-// the item without the monitor delay.
-func DeletedLeavesAtOnce(t *testing.T, _ Target, shared mediaservers.Target, s *mediabrowser.Server) {
+// DeletedWaitsTheDelay is a Deleted report on Emby 4.10: the item is
+// still there half the monitor delay after it, as after any report
+// (online run 2026-11-14), and gone once the delay has passed.
+func DeletedWaitsTheDelay(t *testing.T, _ Target, shared mediaservers.Target, s *mediabrowser.Server) {
 	cfg, err := s.C.Configuration(t.Context())
 	if err != nil {
 		t.Fatal(err)
@@ -193,19 +210,18 @@ func DeletedLeavesAtOnce(t *testing.T, _ Target, shared mediaservers.Target, s *
 	f.Found(r)
 	f.Remove(r)
 	f.Tell(r)
-	quick := shared
-	quick.Bound = cfg.MonitorDelay / 2
-	mediaservers.Eventually(t, quick, "the deleted file's item gone inside half the monitor delay", func() (bool, error) {
-		_, ok, err := shared.Server.ItemAt(t.Context(), shared.Library, f.At(r))
-		return !ok, err
-	})
+	time.Sleep(cfg.MonitorDelay / 2)
+	if _, ok, err := shared.Server.ItemAt(t.Context(), shared.Library, f.At(r)); err != nil || !ok {
+		t.Fatalf("the deleted file's item went inside half the monitor delay (err %v)", err)
+	}
+	f.Gone(r)
 }
 
 // TranscodeAfterReport plays a transcode whose player hasn't reported its
 // playback. The session has no transcode info until the report.
 func TranscodeAfterReport(t *testing.T, tg Target, shared mediaservers.Target, s *mediabrowser.Server) {
 	if tg.Play == nil {
-		t.Skip("a real server's sessions need a player")
+		mediaservers.Skip(t, "a real server's sessions need a player")
 	}
 	f := shared.Case(t)
 	defer f.Clear()

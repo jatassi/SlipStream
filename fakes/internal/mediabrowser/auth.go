@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/jatassi/slipstream/fakes/internal/mediaserver"
 )
 
 var authField = regexp.MustCompile(`(\w+)="([^"]*)"`)
@@ -151,6 +153,7 @@ func (s *server) authenticate(w http.ResponseWriter, r *http.Request, _ caller) 
 	token := s.mint()
 	s.tokens[token] = session{user: u.Name, device: app["DeviceId"]}
 	s.mu.Unlock()
+	s.core.Client(mediaserver.ClientStarted)
 	writeJSON(w, map[string]any{
 		"User": s.renderUser(u), "AccessToken": token, "ServerId": s.srv.ID,
 		"SessionInfo": map[string]any{
@@ -164,6 +167,7 @@ func (s *server) logout(w http.ResponseWriter, r *http.Request, _ caller) {
 	s.mu.Lock()
 	delete(s.tokens, s.token(r))
 	s.mu.Unlock()
+	s.core.Client(mediaserver.ClientEnded)
 	w.WriteHeader(http.StatusNoContent)
 }
 

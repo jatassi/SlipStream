@@ -560,12 +560,15 @@ type goTestLog struct {
 	w       io.Writer
 	pending []byte
 	// held holds each running test's output until it passes or fails.
-	held    map[string][]string
-	timings timings
+	held map[string][]string
+	// subtests holds the seconds each running test's finished subtests
+	// took, as go test reports a test's subtests before the test itself.
+	subtests map[string]float64
+	timings  timings
 }
 
 func newGoTestLog(w io.Writer) *goTestLog {
-	return &goTestLog{w: w, held: map[string][]string{}, timings: timings{Packages: map[string]packageTimings{}}}
+	return &goTestLog{w: w, held: map[string][]string{}, subtests: map[string]float64{}, timings: timings{Packages: map[string]packageTimings{}}}
 }
 
 func (l *goTestLog) Write(p []byte) (int, error) {
@@ -629,17 +632,28 @@ func (l *goTestLog) line(line []byte) error {
 	return nil
 }
 
+// record adds a package's seconds, or a top-level test's. A test weighs
+// at least what its subtests took together: go test times a test whose
+// subtests call t.Parallel only until it starts them, so its own seconds
+// leave them out.
 func (l *goTestLog) record(e testEvent) {
 	p := l.timings.Packages[e.Package]
-	switch {
-	case e.Test == "":
+	if e.Test == "" {
 		p.Seconds += e.Elapsed
-	case !strings.Contains(e.Test, "/"):
-		if p.Tests == nil {
-			p.Tests = map[string]float64{}
-		}
-		p.Tests[e.Test] += e.Elapsed
+		l.timings.Packages[e.Package] = p
+		return
 	}
+	key := e.Package + "\x00" + e.Test
+	seconds := max(e.Elapsed, l.subtests[key])
+	delete(l.subtests, key)
+	if i := strings.LastIndex(e.Test, "/"); i >= 0 {
+		l.subtests[e.Package+"\x00"+e.Test[:i]] += seconds
+		return
+	}
+	if p.Tests == nil {
+		p.Tests = map[string]float64{}
+	}
+	p.Tests[e.Test] += seconds
 	l.timings.Packages[e.Package] = p
 }
 
