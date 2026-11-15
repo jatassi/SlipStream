@@ -60,7 +60,7 @@ func choiceShape(c *downloadclients.Choice) api.Nullable[choice] {
 
 type route struct {
 	HomeNodeID string               `json:"homeNodeId" format:"uuid" doc:"The home Node of the Indexers that find the Grabs"`
-	To         api.Nullable[target] `json:"to" doc:"Where the Grabs download now: the stored client while it can take them, else the default; null while they download where the Work's library root is"`
+	To         api.Nullable[target] `json:"to" doc:"Where the Grabs download now: the stored client while it can take them, else the default; null while each goes to the client set for its Work's library root"`
 	Default    api.Nullable[target] `json:"default" doc:"The home Node's built-in client; null while the home Node doesn't hold Downloading"`
 	Stored     api.Nullable[choice] `json:"stored" doc:"The client an Admin picked; null for none"`
 	Skipped    bool                 `json:"skipped" doc:"True while the stored client can't take a Grab because it is off or deleted, or its Node doesn't hold Downloading"`

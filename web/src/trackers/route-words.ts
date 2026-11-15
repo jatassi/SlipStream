@@ -50,7 +50,7 @@ export function announcesWords(
   );
 }
 
-const byRoot = "download where the Work's library root is";
+const byRoot = "go to the client set for each Work's library root";
 
 function skippedWords(names: ClientNames, stored: TrackersChoice, then: string): string {
   const client = stored.clientId === undefined ? undefined : names.external(stored.clientId);
@@ -58,7 +58,7 @@ function skippedWords(names: ClientNames, stored: TrackersChoice, then: string):
     return `${client.name} is off, so these Grabs ${then}.`;
   }
   const node = names.node(client?.nodeId ?? stored.builtInOn ?? "");
-  return `${node} no longer holds Downloading, so these Grabs ${then}.`;
+  return `${node} no longer has the Downloading Role, so these Grabs ${then}.`;
 }
 
 /** Where a home Node's Grabs go now, and whether the Admin picked it. */
@@ -67,7 +67,7 @@ export function routeWords(names: ClientNames, route: TrackersRoute): string {
   if (to === null) {
     return stored !== null && skipped
       ? skippedWords(names, stored, byRoot)
-      : `${names.node(route.homeNodeId)} doesn't hold Downloading, so these Grabs ${byRoot}.`;
+      : `${names.node(route.homeNodeId)} doesn't have the Downloading Role, so these Grabs ${byRoot}.`;
   }
   const where = targetWords(names, to);
   if (stored === null) {

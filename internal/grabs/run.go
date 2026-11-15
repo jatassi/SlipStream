@@ -203,7 +203,7 @@ func (gr *Grabs) downloaded(_ context.Context, g Grab) outcome {
 	panic("grabs: a Grab whose Torrent is Pending is never due")
 }
 
-const writtenOffWords = "The Admin wrote off what this Grab's Node downloads"
+const writtenOffWords = "An Admin chose Write off for the Node downloading this Grab."
 
 func failOfGone(g downloadclients.Gone) fail {
 	switch g.Reason {

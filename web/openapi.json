@@ -20817,7 +20817,7 @@
                 "type": "null"
               }
             ],
-            "description": "Where the Grabs download now: the stored client while it can take them, else the default; null while they download where the Work's library root is"
+            "description": "Where the Grabs download now: the stored client while it can take them, else the default; null while each goes to the client set for its Work's library root"
           }
         },
         "required": [
@@ -71887,7 +71887,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Delete the client picked for a private Tracker's Grabs from Indexers on a home Node. They then download on its built-in client while it holds Downloading, and where the Work's library root is while it doesn't.",
+        "summary": "Delete the client picked for a private Tracker's Grabs from Indexers on a home Node. They then download on its built-in client while it has the Downloading Role, and on the client set for each Work's library root while it doesn't.",
         "tags": [
           "trackers"
         ],

@@ -14,13 +14,14 @@ export function impactLines(impact: TargetsImpact): string[] {
     ownList > 0 &&
       `${counted(ownList, "Work keeps its own Edition list", "Works keep their own Edition lists")}, so the new list doesn't apply to ${ownList === 1 ? "it" : "them"}.`,
     unwanted.files > 0 &&
-      `${counted(unwanted.files, "file would fill nothing", "files would fill nothing")} (${bytes(unwanted.bytes)}).`,
+      `${counted(unwanted.files, "file would no longer be used by any Target", "files would no longer be used by any Target")} (${bytes(unwanted.bytes)}).`,
     renamed > 0 && `${counted(renamed, "file is renamed", "files are renamed")}.`,
-    newlyWanted > 0 && `${counted(newlyWanted, "cell becomes wanted", "cells become wanted")}.`,
+    newlyWanted > 0 &&
+      `SlipStream will look for ${counted(newlyWanted, "more file", "more files")}.`,
     downloading > 0 &&
       (downloading === 1
-        ? "1 download in progress is for cells that are no longer wanted. It waits in Pending imports once it finishes."
-        : `${String(downloading)} downloads in progress are for cells that are no longer wanted. They wait in Pending imports once they finish.`),
+        ? "1 download in progress is no longer needed. When it finishes, it waits in Pending imports."
+        : `${String(downloading)} downloads in progress are no longer needed. When they finish, they wait in Pending imports.`),
   ].filter((line) => line !== false);
 }
 

@@ -33,7 +33,7 @@ const steps: Record<GrabsLostAtStep, Step> = {
     `Its revision is ${own}. ${subject} is ${ref}, a newer revision${at}.`,
   score: ({ own, ref, at }, { subject }) => `Its score${at} is ${own}. ${subject} scores ${ref}.`,
   chosen_by_another: (_, { object }) =>
-    `It ties ${object} up to score. Another Want already chose that one, so it comes first.`,
+    `It ties ${object} on every step through score. SlipStream already picked that one for another missing file, so it comes first.`,
   fewer_unwanted: ({ own, ref }, { subject }) =>
     `It covers ${countWords(Number(own), unwanted)}. ${subject} covers ${countWords(Number(ref), unwanted)}.`,
   priority: ({ own, ref }, { subject }) =>

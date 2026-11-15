@@ -10056,7 +10056,7 @@ export const TrackersRoute = zod.object({
   to: zod
     .union([TrackersTarget, zod.null()])
     .describe(
-      "Where the Grabs download now: the stored client while it can take them, else the default; null while they download where the Work's library root is",
+      "Where the Grabs download now: the stored client while it can take them, else the default; null while each goes to the client set for its Work's library root",
     ),
 });
 

@@ -45,10 +45,10 @@ test("saving a Target shows its Impact in plain counts, with Delete chosen and t
   await expect.element(sheet()).toBeVisible();
   expect(lines()).toEqual([
     "2 Works change.",
-    "1 file would fill nothing (700 MB).",
+    "1 file would no longer be used by any Target (700 MB).",
     "3 files are renamed.",
-    "4 cells become wanted.",
-    "1 download in progress is for cells that are no longer wanted. It waits in Pending imports once it finishes.",
+    "SlipStream will look for 4 more files.",
+    "1 download in progress is no longer needed. When it finishes, it waits in Pending imports.",
   ]);
   await expect.element(sheet().getByRole("radio", { name: "Delete" })).toBeChecked();
   await expect
@@ -153,7 +153,7 @@ test("a save refused as impact_changed previews again and shows the fresh counts
       sheet().getByText("These counts changed since the last preview. Check them before you save."),
     )
     .toBeVisible();
-  expect(lines()).toContain("3 files would fill nothing (2.1 GB).");
+  expect(lines()).toContain("3 files would no longer be used by any Target (2.1 GB).");
   await userEvent.click(sheet().getByRole("button", { name: "Save and delete 3 files" }));
 
   await expect.element(page.getByText("Saved 1080p.")).toBeVisible();

@@ -120,7 +120,7 @@ export const ListTrackerRoutesParams = zod.object({
 export const ListTrackerRoutesResponse = TrackersRouteList;
 
 /**
- * @summary Delete the client picked for a private Tracker's Grabs from Indexers on a home Node. They then download on its built-in client while it holds Downloading, and where the Work's library root is while it doesn't.
+ * @summary Delete the client picked for a private Tracker's Grabs from Indexers on a home Node. They then download on its built-in client while it has the Downloading Role, and on the client set for each Work's library root while it doesn't.
  */
 export const ClearTrackerRouteParams = zod.object({
   id: zod.uuid(),

@@ -90,7 +90,7 @@ test("a skipped pick says why its Grabs go to the default", async () => {
   await expect
     .element(
       homeRow().getByText(
-        "seedbox no longer holds Downloading, so these Grabs go to the built-in client on home, the default.",
+        "seedbox no longer has the Downloading Role, so these Grabs go to the built-in client on home, the default.",
       ),
     )
     .toBeVisible();
@@ -113,17 +113,17 @@ test("a pick of an external client that is off says so", async () => {
     .toBeVisible();
 });
 
-test("a home that doesn't hold Downloading sends its Grabs by the Work's library root", async () => {
+test("a home without the Downloading Role sends its Grabs to the client set for each Work's library root", async () => {
   const server = routingServer({ routes: [{ ...homeRoute, to: null, default: null }] });
   renderApp({ path: routingPage, handlers: server.handlers });
   await expect
     .element(
       homeRow().getByText(
-        "home doesn't hold Downloading, so these Grabs download where the Work's library root is.",
+        "home doesn't have the Downloading Role, so these Grabs go to the client set for each Work's library root.",
       ),
     )
     .toBeVisible();
-  await expect.element(picker()).toHaveTextContent("Where the Work's library root is");
+  await expect.element(picker()).toHaveTextContent("Client set for each Work's library root");
 });
 
 test("a public Tracker's Routing tab says its Grabs follow the library root", async () => {
@@ -134,7 +134,7 @@ test("a public Tracker's Routing tab says its Grabs follow the library root", as
   renderApp({ path: routingPage, handlers: server.handlers });
   await expect
     .element(
-      page.getByText("seedpool is public. Its Grabs download where the Work's library root is."),
+      page.getByText("seedpool is public. Its Grabs go to the client set for each Work's library root."),
     )
     .toBeVisible();
   await expect.element(page.getByRole("combobox")).not.toBeInTheDocument();

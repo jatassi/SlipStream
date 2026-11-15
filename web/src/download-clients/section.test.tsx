@@ -100,7 +100,7 @@ test("when a Release counts as bad saves each threshold on its own, in seconds",
   const clients = downloadClients();
   renderApp({ path, handlers: clients.handlers });
   await expect
-    .element(page.getByRole("heading", { name: "When a Release counts as bad" }))
+    .element(page.getByRole("heading", { name: "When a release counts as bad" }))
     .toBeVisible();
   await userEvent.fill(
     page.getByRole("textbox", { name: "Unregistered twice, this far apart" }),

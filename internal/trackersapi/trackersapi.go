@@ -332,7 +332,7 @@ func Routes(r *api.Router, registry Registry) {
 		ID:      "clearTrackerRoute",
 		Method:  http.MethodDelete,
 		Path:    "/trackers/{id}/routes/{nodeId}",
-		Summary: "Delete the client picked for a private Tracker's Grabs from Indexers on a home Node. They then download on its built-in client while it holds Downloading, and where the Work's library root is while it doesn't.",
+		Summary: "Delete the client picked for a private Tracker's Grabs from Indexers on a home Node. They then download on its built-in client while it has the Downloading Role, and on the client set for each Work's library root while it doesn't.",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{trackerNotFound, trackerPublic, nodeNotFound, routeNotAHome},
 	}, h.clearRoute)

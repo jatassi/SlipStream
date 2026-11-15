@@ -168,7 +168,8 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
     cause: "SlipStream couldn't put the file in the library.",
   },
   node_written_off: {
-    cause: "What the Node downloading it held was written off. Its files are kept.",
+    cause:
+      "An Admin chose Write off for the Node downloading this Grab. SlipStream stopped waiting for the download, and its files stay on that Node.",
     recovery: searchAgain,
   },
   root_changed: {

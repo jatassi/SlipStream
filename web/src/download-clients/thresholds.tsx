@@ -15,9 +15,9 @@ const sections: readonly {
   readonly keys: readonly Key[];
 }[] = [
   {
-    title: "When a Release counts as bad",
+    title: "When a release counts as bad",
     about:
-      "A download that gets no data at all for this long, or that its announce URL reports as unregistered twice this far apart, counts as a bad Release. Later automatic searches act on it.",
+      "SlipStream treats a release as bad when its download gets no data for the first time below, or when its tracker reports it unregistered twice at least the second time below apart. SlipStream then adds the release to the Blocklist, removes its torrent and fails the Grab. The next automatic search picks another release.",
     keys: ["faultStall", "unregisteredGap"],
   },
   {

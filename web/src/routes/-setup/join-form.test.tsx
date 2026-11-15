@@ -97,12 +97,12 @@ const refusals = [
   [
     502,
     "controller_key_mismatch",
-    "The SlipStream that responded doesn't hold the key in this Join Code. Make a new Join Code on the SlipStream you meant to join.",
+    "A different SlipStream responded at the address in this Join Code. Make a new Join Code in Add a Node on the SlipStream you want this Node to join.",
   ],
   [
     409,
     "node_unaddressed",
-    "This Node can't reach your SlipStream and has no network address your SlipStream could dial. Connect both to the same network, then try again.",
+    "This Node can't reach your SlipStream and has no network address your SlipStream could connect to. Connect both to the same network, then try again.",
   ],
   [
     409,
@@ -149,14 +149,14 @@ test("a Join refused for the Setup code goes back to the code screen", async () 
 const failures = [
   [
     "controller_unreachable",
-    "Your SlipStream didn't dial this Node before the address expired. Try again with a new Join Code.",
+    "Your SlipStream didn't connect to this Node before the address expired. Try again with a new Join Code.",
   ],
   ["join_code_unknown", "Your SlipStream has no such Join Code. Make a new one in Add a Node."],
   ["join_code_expired", "That Join Code has expired. Make a new one in Add a Node."],
   ["join_code_used", "That Join Code was already used. Make a new one in Add a Node."],
   [
     "controller_key_mismatch",
-    "The SlipStream that responded doesn't hold the key in this Join Code. Make a new Join Code on the SlipStream you meant to join.",
+    "A different SlipStream responded at the address in this Join Code. Make a new Join Code in Add a Node on the SlipStream you want this Node to join.",
   ],
   ["internal", "Joining failed on this Node. Try again, and check its log if it fails again."],
 ] as const;

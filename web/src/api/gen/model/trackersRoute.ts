@@ -10,6 +10,6 @@ export interface TrackersRoute {
   skipped: boolean;
   /** The client an Admin picked; null for none */
   stored: TrackersChoice | null;
-  /** Where the Grabs download now: the stored client while it can take them, else the default; null while they download where the Work's library root is */
+  /** Where the Grabs download now: the stored client while it can take them, else the default; null while each goes to the client set for its Work's library root */
   to: TrackersTarget | null;
 }
