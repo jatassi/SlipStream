@@ -95,7 +95,7 @@ func (m *MediaServers) unhealthyWords(row db.MediaserversServer, k link.Kind, w 
 // serverFacts are the server's facts under Details, with those of reason
 // when it is unhealthy.
 func (m *MediaServers) serverFacts(row db.MediaserversServer, node, reason string) []health.Fact {
-	out := []health.Fact{{Label: "Address", Text: row.Address}, {Label: "Reaching Node", Text: node}, {Label: "Version", Text: row.Version}}
+	out := []health.Fact{{Label: "Address", Text: row.Address}, {Label: "Connects from", Text: node}, {Label: "Version", Text: row.Version}}
 	at := func(label string, t storage.Time) {
 		if !t.IsZero() {
 			out = append(out, health.Fact{Label: label, At: t.Time()})

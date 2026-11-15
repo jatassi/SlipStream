@@ -56,7 +56,9 @@ test("a server's page leads with its state and what's playing, and keeps the mac
   await userEvent.click(page.getByRole("button", { name: "Test" }));
   await expect.element(page.getByText("home reached Den Jellyfin 12.2.0.")).toBeVisible();
   await expect
-    .element(page.getByText("The Controller sends changes while the reaching Node is offline."))
+    .element(
+      page.getByText("The Controller sends changes while the Node it connects from is offline."),
+    )
     .toBeVisible();
   expect(world.writes).toEqual([{ path: "test", body: null }]);
 });

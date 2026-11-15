@@ -58,7 +58,7 @@ async function addThroughTheSheet(page: Page, world: World, kind: string, name: 
   const fields = await openAddSheet(page, kind);
   await fields.getByRole("textbox", { name: "Name" }).fill(name);
   await fields.getByRole("textbox", { name: "Address" }).fill(front(world.manifest, id, "den"));
-  await fields.getByRole("combobox", { name: "Reached from" }).click();
+  await fields.getByRole("combobox", { name: "Connect from" }).click();
   await page.getByRole("option", { name: "den", exact: true }).click();
   await fields.getByRole("button", { name: "Sign in as an administrator" }).click();
   await fields.getByRole("textbox", { name: "User" }).fill("admin");
@@ -88,7 +88,7 @@ for (const [kind, name] of [
     );
     expect(removed.status).toBe(204);
     await addThroughTheSheet(page, world, kind, name);
-    await expect(serverRow(page, name)).toContainText(`${kind} · Reached from den`);
+    await expect(serverRow(page, name)).toContainText(`${kind} · Connects from den`);
     await expect(serverRow(page, name)).toContainText(`${name} responds to den.`);
 
     await imported(world, "den-movies");
@@ -151,11 +151,11 @@ test.describe("Plex", () => {
     await expect(plex.getByRole("radio", { name: "Living room Plex" })).toBeChecked();
     await plex.getByRole("combobox", { name: "Runs on" }).click();
     await page.getByRole("option", { name: "home", exact: true }).click();
-    await expect(plex.getByRole("combobox", { name: "Reached from" })).toContainText("home");
+    await expect(plex.getByRole("combobox", { name: "Connect from" })).toContainText("home");
     await expectAccessible(page);
     await plex.getByRole("button", { name: "Save" }).click();
     await saveMappings(page, "Living room Plex", "den");
-    await expect(serverRow(page, "Living room Plex")).toContainText("Plex · Reached from home");
+    await expect(serverRow(page, "Living room Plex")).toContainText("Plex · Connects from home");
     await expect(serverRow(page, "Living room Plex")).toContainText(
       "Living room Plex responds to home.",
     );

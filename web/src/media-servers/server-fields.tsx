@@ -61,7 +61,7 @@ export function NodeFields({
         {(field) => (
           <div className="flex flex-col gap-1.5">
             <Select
-              label="Reached from"
+              label="Connect from"
               options={reachingChoices(reaching).map((node) => ({
                 value: node.id,
                 label: node.id === reaching.controller.id ? `${node.name} (Controller)` : node.name,
@@ -191,7 +191,7 @@ function AddressDetails({ sheet, kind }: Pick<Props, "sheet" | "kind">) {
       fields
       open={sheet.detailsOpen}
       onOpenChange={sheet.setDetailsOpen}
-      summary="SlipStream calls the address from the Node it's reached from, and the fallback address from the Controller while that Node is offline."
+      summary="SlipStream calls the address from the Node it connects from, and the fallback address from the Controller while that Node is offline."
     >
       <div className="mt-2 flex flex-col gap-4">
         {kind.signIn === "plex_pin" && <PlexAddressField sheet={sheet} />}

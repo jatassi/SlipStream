@@ -64,7 +64,7 @@ test("adding Jellyfin signs in as its administrator, saves the key it made and m
     .element(dialog().getByRole("combobox", { name: "Runs on" }))
     .toHaveTextContent("den");
   await expect
-    .element(dialog().getByRole("combobox", { name: "Reached from" }))
+    .element(dialog().getByRole("combobox", { name: "Connect from" }))
     .toHaveTextContent("den");
 
   await signInAsAdmin();
@@ -110,7 +110,7 @@ test("adding Emby warns against localhost on a Worker and shows a refused name o
   });
   await openAdd("Emby");
   await userEvent.fill(dialog().getByRole("textbox", { name: "Address" }), "http://localhost:8096");
-  await userEvent.click(dialog().getByRole("combobox", { name: "Reached from" }));
+  await userEvent.click(dialog().getByRole("combobox", { name: "Connect from" }));
   await userEvent.click(page.getByRole("option", { name: "den" }));
   const warning =
     "The Controller can't use localhost on den. Enter den's network address, or add a fallback address under Details.";

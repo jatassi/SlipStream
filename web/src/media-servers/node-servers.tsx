@@ -18,10 +18,10 @@ export function NodeServers({ node }: { node: NodesNode }) {
     <Section title="Media Servers" count={reached.length}>
       {reached.length === 0 ? (
         <Empty>
-          {`No Media Server is reached from ${node.name}. Choose ${node.name} under Reached from when you add or edit a server in Settings > Media Servers.`}
+          {`No Media Server connects from ${node.name}. To use one from ${node.name}, edit it in Settings > Media Servers and set Connect from to ${node.name}.`}
         </Empty>
       ) : (
-        <List label={`Media Servers reached from ${node.name}`}>
+        <List label={`Media Servers that connect from ${node.name}`}>
           {reached.map((server) => (
             <ServerRow key={server.id} server={server} kinds={kinds} />
           ))}

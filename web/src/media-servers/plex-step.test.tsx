@@ -79,14 +79,14 @@ test("signing in to Plex opens plex.tv in a new tab, lists the account's servers
     .toBeVisible();
   await expect.element(dialog().getByRole("radio", { name: "Living room" })).toBeChecked();
   await expect
-    .element(dialog().getByText("Plex 1.43.5.11029. Reached from seedbox."))
+    .element(dialog().getByText("Plex 1.43.5.11029. Reachable from seedbox."))
     .toBeVisible();
   await expect.element(dialog().getByRole("textbox", { name: "Name" })).toHaveValue("Living room");
   await expect
     .element(dialog().getByRole("combobox", { name: "Runs on" }))
     .toHaveTextContent("seedbox");
   await expect
-    .element(dialog().getByRole("combobox", { name: "Reached from" }))
+    .element(dialog().getByRole("combobox", { name: "Connect from" }))
     .toHaveTextContent("seedbox");
 
   await userEvent.click(dialog().getByRole("button", { name: "Save" }));
@@ -168,7 +168,7 @@ test("picking a server no Node reached fills its own name and Nodes, and Details
   await expect
     .element(
       dialog().getByText(
-        "Plex 1.43.4.10903. No Node reached it. Type an address it responds at under Details.",
+        "Plex 1.43.4.10903. No Node can reach it. Type an address it responds at under Details.",
       ),
     )
     .toBeVisible();
@@ -178,13 +178,13 @@ test("picking a server no Node reached fills its own name and Nodes, and Details
     .element(dialog().getByRole("combobox", { name: "Runs on" }))
     .toHaveTextContent("No Node");
   await expect
-    .element(dialog().getByRole("combobox", { name: "Reached from" }))
+    .element(dialog().getByRole("combobox", { name: "Connect from" }))
     .toHaveTextContent("home (Controller)");
 
   await userEvent.click(dialog().getByRole("button", { name: "Details" }));
   const addresses = dialog().getByRole("list", { name: "Attic's addresses" });
   await expect.element(addresses.getByText(attic.connections[0]?.uri ?? "")).toBeVisible();
-  await expect.element(addresses.getByText("Remote. No Node reached it.")).toBeVisible();
+  await expect.element(addresses.getByText("Remote. No Node can reach it.")).toBeVisible();
   await expect
     .element(
       dialog().getByText("Without Plex Pass, Plex doesn't read edition tags", { exact: false }),
