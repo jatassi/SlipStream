@@ -39,7 +39,7 @@ export const starvedStatus = aQueueStatus({
     {
       indexerId: torrentLeech.id,
       indexerName: torrentLeech.name,
-      until: "2026-11-14T15:00:00Z",
+      until: null,
       starved: true,
     },
   ],

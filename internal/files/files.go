@@ -295,6 +295,10 @@ type SearchFact struct {
 	NextAt time.Time
 }
 
+// ItemKey is the key of a search fact about every cell of item: its
+// latest search, which searched the whole Item.
+func ItemKey(item works.ItemID) CellKey { return CellKey{Item: item} }
+
 // Step is what a Grab in flight, or its Import, does for a cell, in the
 // order a download walks it.
 type Step string
@@ -405,6 +409,8 @@ type Inflight interface {
 	// ReleaseTitles reads the Release title of every Grab with a record.
 	ReleaseTitles(ctx context.Context, r storage.Reader[storage.Library]) (map[storage.UUID]string, error)
 	// Searching reads the search facts of each cell of ws that has any.
+	// A fact keyed by ItemKey holds NotFound, SearchedAt and NextAt for
+	// each cell of its Item.
 	Searching(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[CellKey]SearchFact, error)
 }
 

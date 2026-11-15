@@ -36,6 +36,8 @@ var (
 type Cadences interface {
 	Every(ctx context.Context, id tasks.TaskID) (*int64, error)
 	SetCadence(ctx context.Context, id tasks.TaskID, v setting.Stored[int64]) error
+	// Next is when task id next opens on schedule, zero while it runs.
+	Next(ctx context.Context, id tasks.TaskID) (time.Time, error)
 }
 
 // Tasks is grabs' Scheduled tasks.

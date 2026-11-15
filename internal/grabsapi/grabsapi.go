@@ -17,6 +17,7 @@ import (
 	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -26,6 +27,17 @@ import (
 type Pipeline interface {
 	// Grabs is the grab pipeline, false unless the Node is a Controller.
 	Grabs() (*grabs.Grabs, bool)
+	// Minter signs the artwork URLs the answers carry, false unless the
+	// Node is a Controller.
+	Minter() (artwork.Minter, bool)
+}
+
+func minter(p Pipeline) artwork.Minter {
+	m, ok := p.Minter()
+	if !ok {
+		panic("grabsapi: an operation ran on a Node that is no Controller")
+	}
+	return m
 }
 
 func open(p Pipeline) *grabs.Grabs {

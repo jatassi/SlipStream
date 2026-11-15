@@ -27,6 +27,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/indexers/indexerstest"
 	"github.com/jatassi/slipstream/internal/magnet"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
 	"github.com/jatassi/slipstream/internal/newznab"
 	"github.com/jatassi/slipstream/internal/nodes"
 	"github.com/jatassi/slipstream/internal/nodes/nodestest"
@@ -58,6 +59,10 @@ func (s sent[T]) Publish(_ context.Context, v T) { s <- v }
 type pipeline struct{ g *grabs.Grabs }
 
 func (p pipeline) Grabs() (*grabs.Grabs, bool) { return p.g, true }
+
+func (pipeline) Minter() (artwork.Minter, bool) {
+	return artwork.NewMinter([]byte("grabsapi test key")), true
+}
 
 // terms is a Content Type's search terms, empty until set.
 type terms struct{ t indexers.Terms }

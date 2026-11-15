@@ -28,8 +28,19 @@ func Blocked(t testing.TB, lib *storage.DB[storage.Library], e grabs.BlockEntry)
 
 // Cadences is the Scheduled tasks' cadences as grabs reads them: Backlog
 // search's is Backlog, its default when zero, and every other at its
-// default. They don't change.
-type Cadences struct{ Backlog time.Duration }
+// default. They don't change. Backlog search next opens at NextBacklog,
+// and reads as running while it is zero.
+type Cadences struct {
+	Backlog     time.Duration
+	NextBacklog time.Time
+}
+
+func (c Cadences) Next(_ context.Context, id tasks.TaskID) (time.Time, error) {
+	if id != grabs.BacklogTaskID {
+		return time.Time{}, tasks.ErrUnknownTask
+	}
+	return c.NextBacklog, nil
+}
 
 func (c Cadences) Every(_ context.Context, id tasks.TaskID) (*int64, error) {
 	if id != grabs.BacklogTaskID || c.Backlog == 0 {

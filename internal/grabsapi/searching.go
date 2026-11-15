@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
 )
 
@@ -83,7 +85,83 @@ var getWorkSearchingOp = api.Op{
 	Errors:  []*api.Code{workNotFound},
 }
 
-// getWorkSearching answers every Work idle until the read model reads the queue.
-func (handlers) getWorkSearching(context.Context, identity.Admin, *workInput) (*workSearchingOutput, error) {
-	return &workSearchingOutput{Body: workSearching{Groups: []groupState{}, Waits: []waiting{}, Stops: []stopped{}}}, nil
+func (h handlers) getWorkSearching(ctx context.Context, _ identity.Admin, in *workInput) (*workSearchingOutput, error) {
+	work, err := workOf(in.WorkID)
+	if err != nil {
+		return nil, err
+	}
+	s, err := open(h.p).Searching(ctx, work)
+	if err != nil {
+		return nil, answer(err)
+	}
+	return &workSearchingOutput{Body: workSearchingOf(s)}, nil
+}
+
+func workSearchingOf(s grabs.WorkSearch) workSearching {
+	out := workSearching{Groups: make([]groupState, len(s.Groups)), Waits: make([]waiting, len(s.Waits)), Stops: make([]stopped, len(s.Stops))}
+	for i, g := range s.Groups {
+		out.Groups[i] = groupStateOf(g)
+	}
+	for i, w := range s.Waits {
+		out.Waits[i] = waitingOf(w)
+	}
+	for i, st := range s.Stops {
+		out.Stops[i] = stoppedOf(st)
+	}
+	l := s.Lead()
+	out.Lead.Of = l.Of
+	if l.Group != nil {
+		out.Lead.GroupKey = new(string(l.Group.Key))
+	}
+	if l.Wait != nil {
+		out.Lead.Wait = api.Some(waitingOf(*l.Wait))
+	}
+	return out
+}
+
+func groupStateOf(g grabs.GroupState) groupState {
+	out := groupState{Key: string(g.Key), Label: g.Label, State: g.Phase.String(), Again: g.Again, NextAt: timeOrNil(g.Next)}
+	if g.Lane != "" {
+		out.Lane, out.Trigger = new(g.Lane), new(string(g.Trigger))
+	}
+	if b := g.Behind; b != nil {
+		w := behind{Ahead: b.Ahead, Starved: b.Starved, Until: timeOrNil(b.Until)}
+		if b.Ahead > 0 {
+			w.AheadLane = new(b.AheadLane)
+			if b.AheadFrom != "" {
+				w.AheadFrom = new(string(b.AheadFrom))
+			}
+		}
+		if !b.Indexer.IsZero() {
+			w.IndexerID, w.IndexerName = new(b.Indexer.String()), new(b.Name)
+		}
+		out.Behind = api.Some(w)
+	}
+	if l := g.Last; l != nil {
+		out.LastAt, out.Last, out.LastFound, out.LastGrabs = new(l.At), new(string(l.Outcome)), l.Found, l.Grabs
+	}
+	return out
+}
+
+func waitingOf(w grabs.Wait) waiting {
+	return waiting{Cell: wireCellKey(w.Cell), Until: w.Until, Candidates: w.Candidates}
+}
+
+func stoppedOf(s grabs.Stop) stopped {
+	out := stopped{Cell: wireCellKey(s.Cell), Failures: make([]failureAt, len(s.Failures)), NextAt: timeOrNil(s.Next)}
+	for i, f := range s.Failures {
+		out.Failures[i] = failureAt{Code: string(f.Code), At: f.At, GrabID: idOrNil(f.Grab.UUID)}
+	}
+	return out
+}
+
+func wireCellKey(k files.CellKey) cellKey {
+	return cellKey{ItemID: k.Item.String(), Edition: string(k.Edition), TargetID: k.Target.String()}
+}
+
+func timeOrNil(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	return &t
 }

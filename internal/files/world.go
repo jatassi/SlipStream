@@ -346,6 +346,9 @@ func appendCells(out []Cell, w world) []Cell {
 				}
 				c.Gone = c.File == nil && slices.ContainsFunc(goneOf[it.ID], func(g *File) bool { return wouldFill(c, *g) })
 				c.Search = w.search[key]
+				if of, ok := w.search[ItemKey(it.ID)]; ok {
+					c.Search.NotFound, c.Search.SearchedAt, c.Search.NextAt = of.NotFound, of.SearchedAt, of.NextAt
+				}
 				out = append(out, stated(c, w.grabs[key]))
 			}
 		}
