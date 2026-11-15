@@ -431,3 +431,30 @@ func checkRow(t *testing.T, r Row, link string, roles []string) {
 		t.Fatalf("listNodes row %s: link %s, roles %v, facts %+v at intentVersion %s; want link %s with %v applied", r.Name, r.Link.State, r.Roles, r.Facts, r.IntentVersion, link, roles)
 	}
 }
+
+// Searched presses Search on work, within body's levels and Items when body
+// isn't empty, and returns the n runs it started, newest first.
+func (a *API) Searched(work, body string, n int) []string {
+	a.t.Helper()
+	reply := a.Admin("home", http.MethodPost, "/api/v1/works/"+work+"/search", body)
+	var queued struct {
+		Groups []struct{} `json:"groups"`
+	}
+	if err := json.Unmarshal([]byte(reply.Body), &queued); err != nil || reply.Status != http.StatusAccepted || len(queued.Groups) != n {
+		a.t.Fatalf("searchWork %s = %d %s, want 202 with %d groups", body, reply.Status, reply.Body, n)
+	}
+	listed := a.Admin("home", http.MethodGet, "/api/v1/works/"+work+"/searches", "")
+	var runs struct {
+		Searches []struct {
+			ID string `json:"id"`
+		} `json:"searches"`
+	}
+	if err := json.Unmarshal([]byte(listed.Body), &runs); err != nil || listed.Status != http.StatusOK || len(runs.Searches) < n {
+		a.t.Fatalf("listSearches = %d %s, want at least %d runs", listed.Status, listed.Body, n)
+	}
+	ids := make([]string, n)
+	for i := range n {
+		ids[i] = runs.Searches[i].ID
+	}
+	return ids
+}

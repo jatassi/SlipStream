@@ -34,6 +34,7 @@ type libraryRow struct {
 	Items       int                                    `json:"items" minimum:"0" doc:"Its monitored Items that its source still lists, the only Items the status and counts read"`
 	ItemStatus  api.Counts[filesapi.State]             `json:"itemStatus" doc:"Its monitored Items by status; an Item with no cell isn't counted"`
 	NeedsYou    int                                    `json:"needsYou" minimum:"0" doc:"The entries of its Needs you"`
+	Wanted      *string                                `json:"wanted" enum:"failed,missing,upgrade,gone" doc:"The first reason Wanted lists it for, in this order; null while it wants nothing"`
 	Values      map[string]api.Bare                    `json:"values" doc:"Its listed fields by key: a string for text and date, a number for number and duration in ms, a list of strings for texts; a field it lacks is left out"`
 }
 

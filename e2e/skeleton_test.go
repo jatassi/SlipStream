@@ -102,6 +102,7 @@ func (w *walked) tookTheAdvertised(t *testing.T, search string) {
 	reply := w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/searches", "")
 	var list struct {
 		Searches []struct {
+			GroupKey   string   `json:"groupKey"`
 			ItemIDs    []string `json:"itemIds"`
 			StartedAt  string   `json:"startedAt"`
 			FinishedAt string   `json:"finishedAt"`
@@ -115,10 +116,10 @@ func (w *walked) tookTheAdvertised(t *testing.T, search string) {
 		t.Fatalf("listSearches = %s, want one search of one Indexer", reply.Body)
 	}
 	r := list.Searches[0]
-	worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + search + `","itemIds":["` + r.ItemIDs[0] +
+	worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + search + `","groupKey":"` + r.GroupKey + `","groupLabel":null,"lane":"now","trigger":"search","itemIds":["` + r.ItemIDs[0] +
 		`"],"startedAt":"` + r.StartedAt + `","indexers":[{"indexerId":"` + r.Indexers[0].IndexerID +
 		`","name":"Fixture Site","outcome":"found","releases":2,"sentence":"Found 2 Releases"}],"finishedAt":"` + r.FinishedAt + `","outcome":"grabbed","candidates":2,` +
-		`"grabIds":["` + w.grab.ID + `"],"notes":[]}]}` + "\n"})
+		`"grabs":1,"grabIds":["` + w.grab.ID + `"],"notes":[]}]}` + "\n"})
 }
 
 // begin launches the catalog Scenario name, and its Admin finds the
@@ -159,15 +160,7 @@ func beginIn(t *testing.T, s scenario.Scenario, run *world.Run) walked {
 // search starts a search of w's Work and returns its run's id.
 func (w *walked) search(t *testing.T) string {
 	t.Helper()
-	reply := w.a.Admin("home", http.MethodPost, "/api/v1/works/"+w.work+"/search", "")
-	var started struct {
-		SearchIDs []string `json:"searchIds"`
-	}
-	if err := json.Unmarshal([]byte(reply.Body), &started); err != nil || reply.Status != http.StatusAccepted || len(started.SearchIDs) != 1 {
-		t.Fatalf("searchWork = %d %s, want 202 with one search", reply.Status, reply.Body)
-	}
-	worldtest.Expect(t, "searchWork", reply, worldtest.Reply{Status: http.StatusAccepted, Body: `{"searchIds":["` + started.SearchIDs[0] + `"]}` + "\n"})
-	return started.SearchIDs[0]
+	return w.a.Searched(w.work, "", 1)[0]
 }
 
 // ended reads the Grab id until it is imported or failed.

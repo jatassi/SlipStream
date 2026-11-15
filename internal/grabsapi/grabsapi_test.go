@@ -317,19 +317,19 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	expect(t, s, http.MethodPost, "/api/v1/works/"+f.unmonitored.ID.String()+"/search", http.StatusConflict,
 		`{"status":409,"code":"nothing_wanted","title":"The Work has no wanted cell to search for"}`)
 
-	code, body := s.Call(t, http.MethodPost, search, "")
-	run := ownertest.FirstID(body)
-	if want := `{"searchIds":["` + run + `"]}` + "\n"; code != http.StatusAccepted || run == "" || body != want {
-		t.Fatalf("searchWork = %d %s, want 202 %s", code, body, want)
-	}
-	item := tree.Items[0].ID.String()
-	run1 := `{"id":"` + run + `","itemIds":["` + item + `"],"startedAt":"T","indexers":[{"indexerId":"` + indexer.String() + `","name":"Fixture Site",`
-	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
-		`{"searches":[`+run1+`"outcome":null,"releases":0,"sentence":"Searching"}],"finishedAt":null,"outcome":null,"candidates":0,"grabIds":[],"notes":[]}]}`)
 	group := indexers.ItemGroup(tree.Items[0].ID)
 	if lvl := tree.Items[0].LevelID; !lvl.IsZero() {
 		group = indexers.LevelGroup(lvl)
 	}
+	if code, body := s.Call(t, http.MethodPost, search, ""); code != http.StatusAccepted || body != `{"groups":[{"key":"`+string(group)+`","label":"Scarf","state":"queued"}]}`+"\n" {
+		t.Fatalf("searchWork = %d %s, want 202 with the Item's group queued", code, body)
+	}
+	_, listed := s.Call(t, http.MethodGet, search+"es", "")
+	run := ownertest.FirstID(listed)
+	item := tree.Items[0].ID.String()
+	run1 := `{"id":"` + run + `","groupKey":"` + string(group) + `","groupLabel":null,"lane":"now","trigger":"search","itemIds":["` + item + `"],"startedAt":"T","indexers":[{"indexerId":"` + indexer.String() + `","name":"Fixture Site",`
+	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
+		`{"searches":[`+run1+`"outcome":null,"releases":0,"sentence":"Searching"}],"finishedAt":null,"outcome":null,"candidates":0,"grabs":0,"grabIds":[],"notes":[]}]}`)
 	runID, err := storage.ParseUUID(run)
 	if err != nil {
 		t.Fatal(err)
@@ -354,7 +354,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	}
 	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
 		`{"searches":[`+run1+`"outcome":"found","releases":2,"sentence":"Found 2 Releases"}],"finishedAt":"T","outcome":"grabbed","candidates":2,`+
-			`"grabIds":["`+grab+`"],"notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`","soft":false}]}]}`)
+			`"grabs":1,"grabIds":["`+grab+`"],"notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`","soft":false}]}]}`)
 	attic := `"indexerId":"` + indexer.String() + `","indexerName":"Fixture Site",`
 	scored := `"covers":["` + item + `"],"scores":[{"targetId":"` + hd.ID.String() + `","score":0}],"formatIds":[],`
 	expect(t, s, http.MethodGet, "/api/v1/searches/"+run+"/releases", http.StatusOK, `{"releases":[`+
@@ -371,7 +371,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		`"targets":[{"targetId":"` + hd.ID.String() + `","itemId":"` + item + `","forced":false,"settled":null}],"releaseTitle":"The.Attic.1080p.WEB","releaseWords":"WEBDL-1080p · 4.0 KB","quality":"webdl-1080p","releaseSize":4096,"indexerId":"` + indexer.String() + `",` +
 		`"trackerId":"` + reached[0].ID.String() + `","nodeId":"` + home.String() + `","fetchNodeId":null,"torrentId":null,"downloadClient":null,"infoHash":null,` +
 		`"stage":"failed","inFlight":false,"failure":{"stage":"fetching","code":"torrent_invalid","message":"The Indexer sent a .torrent file SlipStream can't read.","needsYou":true,"current":true},"import":null,` +
-		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"createdAt":"T","source":"search","grabbedBy":null,"manualSearchId":null,` +
+		`"history":[{"stage":"fetching","at":"T"},{"stage":"failed","at":"T"}],"createdAt":"T","source":"search","searchId":null,"foundBy":"search","rssIndexerName":null,"chosenBecause":null,"grabbedBy":null,"manualSearchId":null,` +
 		`"overrides":[],"actions":{"cancel":false,"blocklistable":false,"sendTo":false}}`
 	expect(t, s, http.MethodGet, "/api/v1/grabs/"+grab, http.StatusOK, want)
 	expect(t, s, http.MethodGet, "/api/v1/grabs", http.StatusOK, `{"grabs":[`+want+`]}`)
@@ -610,8 +610,8 @@ func TestASearchWithinLevelsAndItemsSearchesOnlyThem(t *testing.T) {
 	}
 	for _, body := range []string{`{"levelIds":["` + f.tree.Levels[0].ID.String() + `"],"itemIds":[]}`, `{"levelIds":[],"itemIds":["` + f.tree.Items[0].ID.String() + `"]}`} {
 		code, got := f.s.Call(t, http.MethodPost, f.search, body)
-		if run := ownertest.FirstID(got); code != http.StatusAccepted || got != `{"searchIds":["`+run+`"]}`+"\n" {
-			t.Fatalf("searchWork with %s = %d %s, want 202 with one search of the Item", body, code, got)
+		if want := `{"groups":[{"key":"` + string(indexers.LevelGroup(f.tree.Levels[0].ID)) + `","label":"Scarf","state":"queued"}]}` + "\n"; code != http.StatusAccepted || got != want {
+			t.Fatalf("searchWork with %s = %d %s, want 202 %s", body, code, got, want)
 		}
 	}
 }

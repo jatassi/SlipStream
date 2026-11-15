@@ -41,6 +41,7 @@ export const rowOf = (work: WorksWorkView, year: number): WorksLibraryRow => ({
   items: 1,
   itemStatus: { missing: 1 },
   needsYou: 0,
+  wanted: null,
   rating: null,
   values: { year },
 });

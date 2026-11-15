@@ -26,13 +26,13 @@ import { filmsRoot, mediaVolumes } from "./roots";
 export const longShelfCounts: WorksPresetCounts = {
   asides: 24,
   choices: [
-    { preset: "all", monitors: 1176, monitorsNew: true },
-    { preset: "future", monitors: 0, monitorsNew: true },
-    { preset: "missing", monitors: 1176, monitorsNew: true },
-    { preset: "existing", monitors: 0, monitorsNew: false },
-    { preset: "first", monitors: 49, monitorsNew: false },
-    { preset: "latest", monitors: 49, monitorsNew: true },
-    { preset: "none", monitors: 0, monitorsNew: false },
+    { preset: "all", monitors: 1176, monitorsNew: true, searches: [] },
+    { preset: "future", monitors: 0, monitorsNew: true, searches: [] },
+    { preset: "missing", monitors: 1176, monitorsNew: true, searches: [] },
+    { preset: "existing", monitors: 0, monitorsNew: false, searches: [] },
+    { preset: "first", monitors: 49, monitorsNew: false, searches: [] },
+    { preset: "latest", monitors: 49, monitorsNew: true, searches: [] },
+    { preset: "none", monitors: 0, monitorsNew: false, searches: [] },
   ],
 };
 

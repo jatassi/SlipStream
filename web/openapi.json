@@ -5389,6 +5389,102 @@
         ],
         "type": "object"
       },
+      "GrabWaitingInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "description": "The waiting cells to grab now; left out, every waiting cell of the Work",
+            "items": {
+              "$ref": "#/components/schemas/GrabsCellKey"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "GrabsBehind": {
+        "additionalProperties": false,
+        "properties": {
+          "ahead": {
+            "description": "Works ahead of it in its lane",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "aheadFrom": {
+            "description": "What queued the Works ahead, as in Queued behind 140 Works from Search all; null when none are",
+            "enum": [
+              "search",
+              "search_all",
+              "add",
+              "monitor",
+              "profile",
+              "editions",
+              "retarget",
+              "release_date",
+              "refresh",
+              "backlog",
+              "failed_grab"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "aheadLane": {
+            "description": "The lane of the Works ahead; null when none are",
+            "enum": [
+              "now",
+              "bulk",
+              "backlog"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "indexerId": {
+            "description": "The Indexer whose search limit it waits for; null when it waits for none",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "indexerName": {
+            "description": "That Indexer's name; null when it waits for none",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "starved": {
+            "description": "RSS sync uses all of the Indexer's search limit, so Backlog search waits for it",
+            "type": "boolean"
+          },
+          "until": {
+            "description": "When the Indexer's search limit frees a search; null when it waits for none",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "ahead",
+          "aheadLane",
+          "aheadFrom",
+          "indexerId",
+          "indexerName",
+          "until",
+          "starved"
+        ],
+        "type": "object"
+      },
       "GrabsBlockEntry": {
         "additionalProperties": false,
         "properties": {
@@ -5482,6 +5578,29 @@
         "additionalProperties": false,
         "type": "object"
       },
+      "GrabsCellKey": {
+        "additionalProperties": false,
+        "properties": {
+          "edition": {
+            "description": "any under any cut, else the key of the cut the cell wants",
+            "type": "string"
+          },
+          "itemId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "itemId",
+          "edition",
+          "targetId"
+        ],
+        "type": "object"
+      },
       "GrabsChanged": {
         "additionalProperties": false,
         "properties": {
@@ -5550,6 +5669,29 @@
           "cells",
           "lifts",
           "edition"
+        ],
+        "type": "object"
+      },
+      "GrabsChosenWhy": {
+        "additionalProperties": false,
+        "properties": {
+          "fills": {
+            "description": "The Items it was chosen to fill",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "kind": {
+            "description": "fewer_releases is a Release that fills more Items, so fewer Releases fill the group",
+            "enum": [
+              "fewer_releases"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "fills"
         ],
         "type": "object"
       },
@@ -5712,6 +5854,66 @@
         ],
         "type": "object"
       },
+      "GrabsFailureAt": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "code": {
+            "enum": [
+              "indexer_unavailable",
+              "indexer_removed",
+              "indexer_stopped",
+              "home_offline",
+              "torrent_unreachable",
+              "magnet_invalid",
+              "no_metadata",
+              "no_peer_source",
+              "torrent_invalid",
+              "infohash_mismatch",
+              "torrent_v2_only",
+              "download_failed",
+              "marked_failed",
+              "removed",
+              "client_removed",
+              "client_deleted",
+              "goal_met",
+              "no_video_file",
+              "probe_failed",
+              "fills_nothing",
+              "name_taken",
+              "name_too_long",
+              "transfer_failed",
+              "import_failed",
+              "node_written_off",
+              "root_changed",
+              "canceled",
+              "blocklisted",
+              "release_fault",
+              "client_error",
+              "declined",
+              "unreadable"
+            ],
+            "type": "string"
+          },
+          "grabId": {
+            "description": "The failed Grab; null once it is pruned",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "at",
+          "grabId"
+        ],
+        "type": "object"
+      },
       "GrabsFetchWait": {
         "additionalProperties": false,
         "properties": {
@@ -5778,6 +5980,17 @@
           "actions": {
             "$ref": "#/components/schemas/GrabsGrabActions"
           },
+          "chosenBecause": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrabsChosenWhy"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the decision chose its Release; null when the ranking alone chose it"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -5812,6 +6025,17 @@
           "fetchWait": {
             "$ref": "#/components/schemas/GrabsFetchWait",
             "description": "Why fetching the .torrent waits on its Indexer, absent unless it does"
+          },
+          "foundBy": {
+            "description": "What found its Release: a press of Search, Backlog search, RSS sync, a search again after a failed Grab, or an Admin in a Manual search",
+            "enum": [
+              "search",
+              "backlog",
+              "rss",
+              "failed_grab",
+              "manual"
+            ],
+            "type": "string"
           },
           "grabbedBy": {
             "description": "A name, or the API key; null for a search's Grab",
@@ -5932,6 +6156,21 @@
             "description": "Its Release in words, such as Bluray-1080p · FKW · 9.8 GB",
             "type": "string"
           },
+          "rssIndexerName": {
+            "description": "The Indexer whose feed RSS sync found it in; null unless foundBy is rss",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "searchId": {
+            "description": "The search run that made it; null for a Manual Grab and once the run is pruned",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "source": {
             "description": "How it was chosen: by a search's decision, by an Admin in a Manual search, or by RSS sync's decision",
             "enum": [
@@ -6013,6 +6252,10 @@
           "history",
           "createdAt",
           "source",
+          "searchId",
+          "foundBy",
+          "rssIndexerName",
+          "chosenBecause",
           "grabbedBy",
           "manualSearchId",
           "overrides",
@@ -6276,6 +6519,147 @@
         ],
         "type": "object"
       },
+      "GrabsGrabbing": {
+        "additionalProperties": false,
+        "properties": {
+          "grabbing": {
+            "description": "The waits ended now. 0 when nothing waited, because the wait already ended",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "grabbing"
+        ],
+        "type": "object"
+      },
+      "GrabsGroupState": {
+        "additionalProperties": false,
+        "properties": {
+          "again": {
+            "description": "Queued again behind its own running search",
+            "type": "boolean"
+          },
+          "behind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrabsBehind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What it waits on; null when nothing holds it"
+          },
+          "key": {
+            "description": "The search group's key, to compare and never to parse",
+            "type": "string"
+          },
+          "label": {
+            "description": "The group in words, such as season 3",
+            "type": "string"
+          },
+          "lane": {
+            "description": "The queued entry's lane, else the running search's; null while idle",
+            "enum": [
+              "now",
+              "bulk",
+              "backlog"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastFound": {
+            "description": "The Releases its last search found",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "lastGrabs": {
+            "description": "The Grabs its last search made or joined",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "lastResult": {
+            "description": "How its last search finished; null before one did",
+            "enum": [
+              "grabbed",
+              "waiting",
+              "nothing_found",
+              "nothing_acceptable",
+              "no_indexer",
+              "no_root"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastSearchedAt": {
+            "description": "When its last search finished; null before one did",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nextSearchAt": {
+            "description": "When Backlog search searches it next; null while queued or searching, and while Backlog search is off",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "enum": [
+              "idle",
+              "queued",
+              "searching"
+            ],
+            "type": "string"
+          },
+          "trigger": {
+            "description": "What queued it, else what started the running search; null while idle",
+            "enum": [
+              "search",
+              "search_all",
+              "add",
+              "monitor",
+              "profile",
+              "editions",
+              "retarget",
+              "release_date",
+              "refresh",
+              "backlog",
+              "failed_grab"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "state",
+          "lane",
+          "trigger",
+          "again",
+          "behind",
+          "lastSearchedAt",
+          "lastResult",
+          "lastFound",
+          "lastGrabs",
+          "nextSearchAt"
+        ],
+        "type": "object"
+      },
       "GrabsHeldCell": {
         "additionalProperties": false,
         "properties": {
@@ -6369,6 +6753,59 @@
         ],
         "type": "object"
       },
+      "GrabsItemRange": {
+        "additionalProperties": false,
+        "properties": {
+          "first": {
+            "description": "The label of the first Item of the run",
+            "type": "string"
+          },
+          "last": {
+            "description": "The label of the last Item of the run, the first's for a run of one",
+            "type": "string"
+          }
+        },
+        "required": [
+          "first",
+          "last"
+        ],
+        "type": "object"
+      },
+      "GrabsLead": {
+        "additionalProperties": false,
+        "properties": {
+          "groupKey": {
+            "description": "The group the line is about; null for a waiting or idle Work",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "of": {
+            "description": "The Work's groups queued or searching, as in Searching season 3 of 10",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "wait": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GrabsWaiting"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The wait the line is about; null unless the Work only waits"
+          }
+        },
+        "required": [
+          "groupKey",
+          "of",
+          "wait"
+        ],
+        "type": "object"
+      },
       "GrabsLiftKey": {
         "additionalProperties": false,
         "properties": {
@@ -6391,6 +6828,34 @@
         },
         "required": [
           "code"
+        ],
+        "type": "object"
+      },
+      "GrabsLimitUntil": {
+        "additionalProperties": false,
+        "properties": {
+          "indexerId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "indexerName": {
+            "type": "string"
+          },
+          "starved": {
+            "description": "RSS sync uses all of its search limit, so Backlog search waits for it",
+            "type": "boolean"
+          },
+          "until": {
+            "description": "When its search limit frees a search",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indexerId",
+          "indexerName",
+          "until",
+          "starved"
         ],
         "type": "object"
       },
@@ -7054,6 +7519,87 @@
         ],
         "type": "object"
       },
+      "GrabsQueueStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "limits": {
+            "description": "Each Indexer whose search limit holds queued searches",
+            "items": {
+              "$ref": "#/components/schemas/GrabsLimitUntil"
+            },
+            "type": "array"
+          },
+          "nextBacklogAt": {
+            "description": "When Backlog search runs next; null while Backlog search is off",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "queued": {
+            "description": "Search groups queued",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "searching": {
+            "description": "Search groups searching now",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "searching",
+          "queued",
+          "nextBacklogAt",
+          "limits"
+        ],
+        "type": "object"
+      },
+      "GrabsQueuedCanceled": {
+        "additionalProperties": false,
+        "properties": {
+          "canceled": {
+            "description": "The queued searches canceled. A search already running finishes",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "canceled"
+        ],
+        "type": "object"
+      },
+      "GrabsQueuedGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "description": "The search group's key, to compare and never to parse",
+            "type": "string"
+          },
+          "label": {
+            "description": "The group in words, such as season 3",
+            "type": "string"
+          },
+          "state": {
+            "description": "merged is a group already queued or searching with this scope",
+            "enum": [
+              "queued",
+              "merged"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "state"
+        ],
+        "type": "object"
+      },
       "GrabsReason": {
         "additionalProperties": false,
         "properties": {
@@ -7245,6 +7791,26 @@
             },
             "type": "array"
           },
+          "grabs": {
+            "description": "The Grabs it made or joined when it finished, still counted once one is pruned",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "groupKey": {
+            "description": "The search group the run searched, to compare and never to parse; null for a Manual search's run",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "groupLabel": {
+            "description": "The group in words, such as season 3; null for a Manual search's run, and until its Content Type names its groups",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "id": {
             "format": "uuid",
             "type": "string"
@@ -7263,6 +7829,18 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "lane": {
+            "description": "The lane it was queued in; null for a Manual search's run",
+            "enum": [
+              "now",
+              "bulk",
+              "backlog"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "notes": {
             "description": "The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for",
@@ -7290,16 +7868,42 @@
           "startedAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "trigger": {
+            "description": "What started it; null for a Manual search's run",
+            "enum": [
+              "search",
+              "search_all",
+              "add",
+              "monitor",
+              "profile",
+              "editions",
+              "retarget",
+              "release_date",
+              "refresh",
+              "backlog",
+              "failed_grab",
+              "rss"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "id",
+          "groupKey",
+          "groupLabel",
+          "lane",
+          "trigger",
           "itemIds",
           "startedAt",
           "indexers",
           "finishedAt",
           "outcome",
           "candidates",
+          "grabs",
           "grabIds",
           "notes"
         ],
@@ -7403,6 +8007,22 @@
         ],
         "type": "object"
       },
+      "GrabsSearchQueued": {
+        "additionalProperties": false,
+        "properties": {
+          "groups": {
+            "description": "Each search group the press queued, in tree order",
+            "items": {
+              "$ref": "#/components/schemas/GrabsQueuedGroup"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "groups"
+        ],
+        "type": "object"
+      },
       "GrabsSearchScope": {
         "additionalProperties": false,
         "properties": {
@@ -7430,19 +8050,77 @@
         ],
         "type": "object"
       },
-      "GrabsSearchStarted": {
+      "GrabsSearchSettings": {
         "additionalProperties": false,
         "properties": {
-          "searchIds": {
-            "description": "One run per Item in the scope with a wanted cell",
+          "settings": {
+            "description": "Backlog search, RSS sync, how long a search waits for each Indexer and when SlipStream stops searching again after failed Grabs",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/SettingField"
             },
             "type": "array"
           }
         },
         "required": [
-          "searchIds"
+          "settings"
+        ],
+        "type": "object"
+      },
+      "GrabsSeveralBody": {
+        "additionalProperties": false,
+        "properties": {
+          "wanted": {
+            "$ref": "#/components/schemas/GrabsWantedFilter",
+            "description": "Every Work Wanted lists for this filter; send this or workIds"
+          },
+          "workIds": {
+            "description": "The Works to search; send this or wanted",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "GrabsSeveralQueued": {
+        "additionalProperties": false,
+        "properties": {
+          "leftGone": {
+            "description": "Works left out because only gone files want a Release",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "merged": {
+            "description": "Works whose every group was already queued or searching",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "queued": {
+            "description": "Works with at least one group newly queued",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "works": {
+            "description": "One per Work, in request order",
+            "items": {
+              "$ref": "#/components/schemas/GrabsWorkOutcome"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "queued",
+          "merged",
+          "leftGone",
+          "works"
         ],
         "type": "object"
       },
@@ -7482,6 +8160,35 @@
         },
         "type": "object"
       },
+      "GrabsStopped": {
+        "additionalProperties": false,
+        "properties": {
+          "cell": {
+            "$ref": "#/components/schemas/GrabsCellKey"
+          },
+          "failures": {
+            "description": "The failed Grabs that stopped it, oldest first",
+            "items": {
+              "$ref": "#/components/schemas/GrabsFailureAt"
+            },
+            "type": "array"
+          },
+          "nextSearchAt": {
+            "description": "When Backlog search searches it next; null while Backlog search is off",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "cell",
+          "failures",
+          "nextSearchAt"
+        ],
+        "type": "object"
+      },
       "GrabsTargetScore": {
         "additionalProperties": false,
         "properties": {
@@ -7497,6 +8204,213 @@
         "required": [
           "targetId",
           "score"
+        ],
+        "type": "object"
+      },
+      "GrabsWaiting": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "description": "The Releases it holds",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "cell": {
+            "$ref": "#/components/schemas/GrabsCellKey"
+          },
+          "until": {
+            "description": "When the wait ends and SlipStream grabs the best Release it holds",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cell",
+          "until",
+          "candidates"
+        ],
+        "type": "object"
+      },
+      "GrabsWantedFilter": {
+        "additionalProperties": false,
+        "properties": {
+          "contentType": {
+            "description": "Left out, every Content Type",
+            "pattern": "^[a-z][a-z0-9]{1,15}$",
+            "type": "string"
+          },
+          "reasons": {
+            "description": "Left out, every reason but gone",
+            "items": {
+              "enum": [
+                "failed",
+                "missing",
+                "upgrade",
+                "gone"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "GrabsWantedPage": {
+        "additionalProperties": false,
+        "properties": {
+          "leftGone": {
+            "description": "Works with only gone files, left out unless the filter asks for gone",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "next": {
+            "description": "The cursor of the next page; null on the last",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rows": {
+            "description": "In the sort's order, ties by Work id",
+            "items": {
+              "$ref": "#/components/schemas/GrabsWantedRow"
+            },
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GrabsQueueStatus"
+          },
+          "total": {
+            "description": "The Works the filter lists",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "total",
+          "leftGone",
+          "rows",
+          "next"
+        ],
+        "type": "object"
+      },
+      "GrabsWantedRow": {
+        "additionalProperties": false,
+        "properties": {
+          "lastResult": {
+            "description": "How its last search finished; null before one did",
+            "enum": [
+              "grabbed",
+              "waiting",
+              "nothing_found",
+              "nothing_acceptable",
+              "no_indexer",
+              "no_root"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastSearchedAt": {
+            "description": "When its last search finished; null before one did",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nextSearchAt": {
+            "description": "When Backlog search searches it next; null for a gone row, which only a press searches, and while Backlog search is off",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "others": {
+            "additionalProperties": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "description": "The count of Items under each other reason, by reason",
+            "type": "object"
+          },
+          "ranges": {
+            "description": "The Items it lists, as runs in tree order",
+            "items": {
+              "$ref": "#/components/schemas/GrabsItemRange"
+            },
+            "type": "array"
+          },
+          "reason": {
+            "description": "The reason the row lists, the first in this order the Work has",
+            "enum": [
+              "failed",
+              "missing",
+              "upgrade",
+              "gone"
+            ],
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "idle",
+              "queued",
+              "searching"
+            ],
+            "type": "string"
+          },
+          "work": {
+            "$ref": "#/components/schemas/GrabsWantedWork"
+          }
+        },
+        "required": [
+          "work",
+          "reason",
+          "others",
+          "ranges",
+          "lastSearchedAt",
+          "lastResult",
+          "nextSearchAt",
+          "state"
+        ],
+        "type": "object"
+      },
+      "GrabsWantedWork": {
+        "additionalProperties": false,
+        "properties": {
+          "contentType": {
+            "pattern": "^[a-z][a-z0-9]{1,15}$",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "posterUrl": {
+            "description": "The artwork route for its poster, without a size; null when it has none",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "contentType",
+          "label",
+          "posterUrl"
         ],
         "type": "object"
       },
@@ -7558,6 +8472,42 @@
         ],
         "type": "object"
       },
+      "GrabsWorkOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "outcome": {
+            "enum": [
+              "queued",
+              "merged",
+              "skipped"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why it was skipped; null unless skipped",
+            "enum": [
+              "nothing_wanted",
+              "gone_only",
+              "no_root",
+              "not_searchable"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workId",
+          "outcome",
+          "reason"
+        ],
+        "type": "object"
+      },
       "GrabsWorkRef": {
         "additionalProperties": false,
         "properties": {
@@ -7572,6 +8522,43 @@
         "required": [
           "id",
           "title"
+        ],
+        "type": "object"
+      },
+      "GrabsWorkSearching": {
+        "additionalProperties": false,
+        "properties": {
+          "groups": {
+            "description": "Each search group of the Work, in tree order",
+            "items": {
+              "$ref": "#/components/schemas/GrabsGroupState"
+            },
+            "type": "array"
+          },
+          "lead": {
+            "$ref": "#/components/schemas/GrabsLead",
+            "description": "The one line the Work's header shows"
+          },
+          "stops": {
+            "description": "Each cell SlipStream stopped searching again for after failed Grabs",
+            "items": {
+              "$ref": "#/components/schemas/GrabsStopped"
+            },
+            "type": "array"
+          },
+          "waits": {
+            "description": "Each cell waiting for a better Release, by when it grabs",
+            "items": {
+              "$ref": "#/components/schemas/GrabsWaiting"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "groups",
+          "waits",
+          "stops",
+          "lead"
         ],
         "type": "object"
       },
@@ -10705,6 +11692,10 @@
             "minimum": 1,
             "type": "integer"
           },
+          "recentPaging": {
+            "description": "Its feed lists older uploads by offset, so RSS sync can page back to the last one it read. Read by its last Test",
+            "type": "boolean"
+          },
           "revision": {
             "format": "int64",
             "minimum": 1,
@@ -10722,6 +11713,13 @@
           },
           "searches": {
             "$ref": "#/components/schemas/IndexersLimitUse"
+          },
+          "searchesAtOnce": {
+            "description": "How many background searches go to it at a time. A press of Search takes one more",
+            "format": "int64",
+            "maximum": 10,
+            "minimum": 1,
+            "type": "integer"
           },
           "sentence": {
             "description": "Its status in words",
@@ -10774,6 +11772,8 @@
           "rss",
           "allowFailover",
           "priority",
+          "searchesAtOnce",
+          "recentPaging",
           "categories",
           "media",
           "allowNoSize",
@@ -10970,6 +11970,16 @@
               }
             ],
             "description": "Null turns the limit off"
+          },
+          "searchesAtOnce": {
+            "description": "Null resets it to 2",
+            "format": "int64",
+            "maximum": 10,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "values": {
             "additionalProperties": {
@@ -11174,6 +12184,14 @@
           },
           "searches": {
             "$ref": "#/components/schemas/IndexersLimit"
+          },
+          "searchesAtOnce": {
+            "default": 2,
+            "description": "How many background searches go to it at a time",
+            "format": "int64",
+            "maximum": 10,
+            "minimum": 1,
+            "type": "integer"
           },
           "trackerName": {
             "description": "The name of the Tracker the feed reaches when its items name no source; required for an RSS feed, absent for a Torznab feed's Indexer name",
@@ -16793,6 +17811,20 @@
         ],
         "type": "object"
       },
+      "SearchSettingsInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "values": {
+            "additionalProperties": {},
+            "description": "Each setting's new value by key, all or none; null resets one to its default",
+            "type": "object"
+          }
+        },
+        "required": [
+          "values"
+        ],
+        "type": "object"
+      },
       "SendToInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -18943,6 +19975,14 @@
               "null"
             ]
           },
+          "holdSeconds": {
+            "description": "How long an automatic grab waits after a Release's publish time for a better one, in whole minutes; left out, 0 grabs at once. Changing only the Hold changes no Work",
+            "format": "int64",
+            "maximum": 604800,
+            "minimum": 0,
+            "multipleOf": 60,
+            "type": "integer"
+          },
           "name": {
             "maxLength": 100,
             "minLength": 1,
@@ -19431,6 +20471,13 @@
             },
             "type": "array"
           },
+          "holdSeconds": {
+            "description": "How long an automatic grab waits after a Release's publish time for a better one, in whole minutes. 0 grabs at once",
+            "format": "int64",
+            "maximum": 604800,
+            "minimum": 0,
+            "type": "integer"
+          },
           "id": {
             "format": "uuid",
             "type": "string"
@@ -19487,6 +20534,7 @@
           "sizes",
           "scores",
           "propers",
+          "holdSeconds",
           "profiles",
           "contains",
           "createdAt"
@@ -21983,6 +23031,31 @@
         },
         "type": "object"
       },
+      "WorksAddSearch": {
+        "additionalProperties": false,
+        "properties": {
+          "choices": {
+            "description": "In the order the add sheet lists them",
+            "items": {
+              "$ref": "#/components/schemas/WorksSearchChoice"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "description": "switch for a type of one Item, whose first choice is on and second off",
+            "enum": [
+              "switch",
+              "choice"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "choices"
+        ],
+        "type": "object"
+      },
       "WorksAdded": {
         "additionalProperties": false,
         "properties": {
@@ -22201,6 +23274,10 @@
       "WorksContentType": {
         "additionalProperties": false,
         "properties": {
+          "addSearch": {
+            "$ref": "#/components/schemas/WorksAddSearch",
+            "description": "What the add sheet's Search after adding offers"
+          },
           "art": {
             "$ref": "#/components/schemas/WorksArtRoles"
           },
@@ -22308,7 +23385,8 @@
           "art",
           "ratings",
           "availability",
-          "releases"
+          "releases",
+          "addSearch"
         ],
         "type": "object"
       },
@@ -22972,6 +24050,19 @@
             },
             "description": "Its listed fields by key: a string for text and date, a number for number and duration in ms, a list of strings for texts; a field it lacks is left out",
             "type": "object"
+          },
+          "wanted": {
+            "description": "The first reason Wanted lists it for, in this order; null while it wants nothing",
+            "enum": [
+              "failed",
+              "missing",
+              "upgrade",
+              "gone"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -22991,6 +24082,7 @@
           "items",
           "itemStatus",
           "needsYou",
+          "wanted",
           "values",
           "id",
           "contentType",
@@ -23308,6 +24400,17 @@
             "description": "The root of the Content Type a new Work lives in; left out, the type's default, or none while the type has no root",
             "format": "uuid",
             "type": "string"
+          },
+          "search": {
+            "description": "What to search once the Work is added, one of its Content Type's addSearch choices; left out, nothing",
+            "enum": [
+              "monitored",
+              "first_level",
+              "latest_level",
+              "first_item",
+              "none"
+            ],
+            "type": "string"
           }
         },
         "required": [
@@ -23578,12 +24681,20 @@
               "none"
             ],
             "type": "string"
+          },
+          "searches": {
+            "description": "How many of the Items the preset monitors each add search scope searches",
+            "items": {
+              "$ref": "#/components/schemas/WorksScopeCount"
+            },
+            "type": "array"
           }
         },
         "required": [
           "preset",
           "monitors",
-          "monitorsNew"
+          "monitorsNew",
+          "searches"
         ],
         "type": "object"
       },
@@ -23811,6 +24922,54 @@
           "source",
           "value",
           "scale"
+        ],
+        "type": "object"
+      },
+      "WorksScopeCount": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "scope": {
+            "enum": [
+              "monitored",
+              "first_level",
+              "latest_level",
+              "first_item",
+              "none"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope",
+          "items"
+        ],
+        "type": "object"
+      },
+      "WorksSearchChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "enum": [
+              "monitored",
+              "first_level",
+              "latest_level",
+              "first_item",
+              "none"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
         ],
         "type": "object"
       },
@@ -61243,6 +62402,559 @@
         "x-slipstream-access": "admin"
       }
     },
+    "/search-queue": {
+      "delete": {
+        "operationId": "cancelQueuedSearches",
+        "parameters": [
+          {
+            "description": "The lane to empty. Only bulk can be canceled",
+            "explode": false,
+            "in": "query",
+            "name": "lane",
+            "required": true,
+            "schema": {
+              "description": "The lane to empty. Only bulk can be canceled",
+              "enum": [
+                "bulk"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrabsQueuedCanceled"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Cancel every search queued in a lane",
+        "tags": [
+          "grabs"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/search-settings": {
+      "get": {
+        "operationId": "getSearchSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrabsSearchSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get the Automatic search settings",
+        "tags": [
+          "grabs"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "patch": {
+        "operationId": "updateSearchSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchSettingsInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrabsSearchSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "setting_out_of_range",
+                            "unknown_setting"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Change Automatic search settings by key, all or none",
+        "tags": [
+          "grabs"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
     "/searches/{searchId}/releases": {
       "get": {
         "operationId": "listSearchReleases",
@@ -73837,6 +75549,289 @@
         "x-slipstream-access": "admin"
       }
     },
+    "/wanted": {
+      "get": {
+        "operationId": "listWanted",
+        "parameters": [
+          {
+            "description": "Left out, every Content Type",
+            "explode": false,
+            "in": "query",
+            "name": "contentType",
+            "schema": {
+              "description": "Left out, every Content Type",
+              "pattern": "^[a-z][a-z0-9]{1,15}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Left out, every reason but gone",
+            "explode": false,
+            "in": "query",
+            "name": "reason",
+            "schema": {
+              "description": "Left out, every reason but gone",
+              "items": {
+                "enum": [
+                  "failed",
+                  "missing",
+                  "upgrade",
+                  "gone"
+                ],
+                "type": "string"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "next is the next Backlog search first, last the longest since the last search first",
+            "explode": false,
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "default": "next",
+              "description": "next is the next Backlog search first, last the longest since the last search first",
+              "enum": [
+                "next",
+                "last",
+                "title",
+                "released"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The next value of the page before; left out, the first page",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "The next value of the page before; left out, the first page",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 100,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrabsWantedPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "wanted_cursor_stale"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List the Works that want a Release, 100 at a time, with what the search queue is doing",
+        "tags": [
+          "grabs"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
     "/works": {
       "post": {
         "operationId": "addWork",
@@ -75365,6 +77360,200 @@
         "summary": "Search the library's Works by every title they go by, best first",
         "tags": [
           "works"
+        ],
+        "x-slipstream-access": "admin"
+      },
+      "post": {
+        "operationId": "searchSeveralWorks",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrabsSeveralBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrabsSeveralQueued"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "reconciling",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid",
+                            "too_many_works"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Queue a search of several Works, by id or by a Wanted filter, behind every search already queued",
+        "tags": [
+          "grabs"
         ],
         "x-slipstream-access": "admin"
       }
@@ -77248,7 +79437,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GrabsSearchStarted"
+                  "$ref": "#/components/schemas/GrabsSearchQueued"
                 }
               }
             },
@@ -77347,6 +79536,7 @@
                             "no_root",
                             "not_searchable",
                             "nothing_wanted",
+                            "reconciling",
                             "root_unreachable",
                             "worker_node"
                           ],
@@ -77422,7 +79612,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Search for each wanted Item of a Work, or of some of its levels and Items, and grab the best release",
+        "summary": "Queue a search of each wanted Item of a Work, or of some of its levels and Items, to grab the best release",
         "tags": [
           "grabs"
         ],
@@ -77618,6 +79808,457 @@
           }
         ],
         "summary": "List a Work's search runs and their outcomes",
+        "tags": [
+          "grabs"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/works/{workId}/searching": {
+      "get": {
+        "operationId": "getWorkSearching",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrabsWorkSearching"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "work_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get what Automatic search is doing for a Work: each search group's state, its waits and its stopped cells",
+        "tags": [
+          "grabs"
+        ],
+        "x-slipstream-access": "admin"
+      }
+    },
+    "/works/{workId}/waits/grab": {
+      "post": {
+        "operationId": "grabWaiting",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrabWaitingInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrabsGrabbing"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "api_key_wrong",
+                            "signed_out"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "needs_admin",
+                            "pin_required"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "work_not_found"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "reconciling",
+                            "worker_node"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "internal"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Problem"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "not_yet"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "security": [
+          {
+            "session": [
+              "admin"
+            ]
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "End a Work's waits for a better Release and grab the best Release each holds now",
         "tags": [
           "grabs"
         ],

@@ -16,8 +16,8 @@ export const startedWords = (count: number, item: Noun | undefined): string =>
 export function useStartSearch(item?: Noun) {
   const search = useSearchWork({
     mutation: {
-      onSuccess: ({ searchIds }) => {
-        toast(startedWords(searchIds.length, item));
+      onSuccess: ({ groups }) => {
+        toast(startedWords(groups.length, item));
       },
       onError: (error) => {
         toast(error.message, { kind: "fail" });

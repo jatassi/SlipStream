@@ -44,6 +44,7 @@ func (w *walked) searchedOnce(t *testing.T, candidates int, refused []string, no
 	reply := w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/searches", "")
 	var list struct {
 		Searches []struct {
+			GroupKey   string   `json:"groupKey"`
 			ItemIDs    []string `json:"itemIds"`
 			StartedAt  string   `json:"startedAt"`
 			FinishedAt string   `json:"finishedAt"`
@@ -61,10 +62,10 @@ func (w *walked) searchedOnce(t *testing.T, candidates int, refused []string, no
 	if candidates == 1 {
 		sentence = "Found 1 Release"
 	}
-	worldtest.Expect(t, "getWorkSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + id + `","itemIds":["` + s.ItemIDs[0] +
+	worldtest.Expect(t, "getWorkSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + id + `","groupKey":"` + s.GroupKey + `","groupLabel":null,"lane":"now","trigger":"search","itemIds":["` + s.ItemIDs[0] +
 		`"],"startedAt":"` + s.StartedAt + `","indexers":[{"indexerId":"` + s.Indexers[0].IndexerID + `","name":"Fixture Site","outcome":"found","releases":` +
 		strconv.Itoa(candidates) + `,"sentence":"` + sentence + `"}],"finishedAt":"` + s.FinishedAt + `","outcome":"grabbed","candidates":` +
-		strconv.Itoa(candidates) + `,"grabIds":["` + found.GrabIDs[0] + `"],"notes":` + notes + `}]}` + "\n"})
+		strconv.Itoa(candidates) + `,"grabs":1,"grabIds":["` + found.GrabIDs[0] + `"],"notes":` + notes + `}]}` + "\n"})
 	var got []string
 	for _, r := range w.refused(t, id) {
 		reasons, err := json.Marshal(r.Reasons)

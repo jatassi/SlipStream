@@ -23,8 +23,11 @@ type Adding struct {
 	// IncludeAsides adds the Items of aside levels to what Preset monitors.
 	IncludeAsides *bool
 	LevelFolders  *bool
-	Remember      bool
-	By            works.AddedBy
+	// Search is the add's search scope. Remember makes it the type's
+	// default.
+	Search   *works.SearchScope
+	Remember bool
+	By       works.AddedBy
 	// Attach runs in the add's Write once the Work has its Profile and
 	// root and before its preset applies, so a preset that reads files
 	// (missing, existing) counts the files it attaches.
@@ -120,5 +123,5 @@ func remember(ctx context.Context, tx *storage.Tx[storage.Library], a Adding) (r
 			return remembered{}, err
 		}
 	}
-	return moved, works.RememberIn(ctx, tx, a.Type, works.Remembering{Preset: a.Preset, Asides: a.IncludeAsides, LevelFolders: a.LevelFolders})
+	return moved, works.RememberIn(ctx, tx, a.Type, works.Remembering{Preset: a.Preset, Asides: a.IncludeAsides, LevelFolders: a.LevelFolders, Search: a.Search})
 }

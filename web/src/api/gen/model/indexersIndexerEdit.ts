@@ -76,6 +76,13 @@ export interface IndexersIndexerEdit {
   rss?: boolean | null;
   /** Null turns the limit off */
   searches?: IndexersLimit | null;
+  /**
+   * Null resets it to 2
+   * @minimum 1
+   * @maximum 10
+   * @nullable
+   */
+  searchesAtOnce?: number | null;
   /** A catalog or native Indexer's settings to change, by name; a sealed one sent empty keeps its saved value */
   values?: IndexersIndexerEditValues;
 }

@@ -55,6 +55,8 @@ type Draft struct {
 	Categories    []newznab.ID
 	Searches      Limit
 	Grabs         Limit
+	// SearchesAtOnce is DefaultSearchesAtOnce when 0.
+	SearchesAtOnce int
 }
 
 // Edit is a change to a saved Indexer: nil leaves a field. Categories
@@ -68,6 +70,7 @@ type Edit struct {
 	Address, APIKey                    *string
 	On, AutoSearch, RSS, AllowFailover *bool
 	Priority                           *int
+	SearchesAtOnce                     *int
 	Categories                         *[]newznab.ID
 	Searches, Grabs                    *Limit
 	Media                              *[]works.TypeID
@@ -260,6 +263,7 @@ func (x *Indexers) edited(ctx context.Context, idx Indexer, e Edit) (Indexer, er
 	set(&idx.RSS, e.RSS)
 	set(&idx.AllowFailover, e.AllowFailover)
 	set(&idx.Priority, e.Priority)
+	set(&idx.SearchesAtOnce, e.SearchesAtOnce)
 	set(&idx.Categories, e.Categories)
 	set(&idx.Searches, e.Searches)
 	set(&idx.Grabs, e.Grabs)

@@ -13,6 +13,12 @@ export interface TargetsNewTarget {
    */
   filters?: TargetsFilter[] | null;
   /**
+   * How long an automatic grab waits after a Release's publish time for a better one, in whole minutes; left out, 0 grabs at once. Changing only the Hold changes no Work
+   * @minimum 0
+   * @maximum 604800
+   */
+  holdSeconds?: number;
+  /**
    * @minLength 1
    * @maxLength 100
    */

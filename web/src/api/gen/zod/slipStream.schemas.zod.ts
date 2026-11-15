@@ -3020,6 +3020,69 @@ export const GrabManualInputBody = zod.object({
 export type GrabManualInputBody = zod.input<typeof GrabManualInputBody>;
 export type GrabManualInputBodyOutput = zod.output<typeof GrabManualInputBody>;
 
+export const GrabsCellKey = zod.object({
+  edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
+  itemId: zod.uuid(),
+  targetId: zod.uuid(),
+});
+
+export type GrabsCellKey = zod.input<typeof GrabsCellKey>;
+export type GrabsCellKeyOutput = zod.output<typeof GrabsCellKey>;
+
+export const GrabWaitingInputBody = zod.object({
+  cells: zod
+    .array(GrabsCellKey)
+    .nullish()
+    .describe("The waiting cells to grab now; left out, every waiting cell of the Work"),
+});
+
+export type GrabWaitingInputBody = zod.input<typeof GrabWaitingInputBody>;
+export type GrabWaitingInputBodyOutput = zod.output<typeof GrabWaitingInputBody>;
+
+export const grabsBehindAheadMin = 0;
+
+export const GrabsBehind = zod.object({
+  ahead: zod.int().min(grabsBehindAheadMin).describe("Works ahead of it in its lane"),
+  aheadFrom: zod
+    .union([
+      zod.literal("search"),
+      zod.literal("search_all"),
+      zod.literal("add"),
+      zod.literal("monitor"),
+      zod.literal("profile"),
+      zod.literal("editions"),
+      zod.literal("retarget"),
+      zod.literal("release_date"),
+      zod.literal("refresh"),
+      zod.literal("backlog"),
+      zod.literal("failed_grab"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe(
+      "What queued the Works ahead, as in Queued behind 140 Works from Search all; null when none are",
+    ),
+  aheadLane: zod
+    .union([zod.literal("now"), zod.literal("bulk"), zod.literal("backlog"), zod.literal(null)])
+    .nullable()
+    .describe("The lane of the Works ahead; null when none are"),
+  indexerId: zod
+    .uuid()
+    .nullable()
+    .describe("The Indexer whose search limit it waits for; null when it waits for none"),
+  indexerName: zod.string().nullable().describe("That Indexer's name; null when it waits for none"),
+  starved: zod
+    .boolean()
+    .describe("RSS sync uses all of the Indexer's search limit, so Backlog search waits for it"),
+  until: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When the Indexer's search limit frees a search; null when it waits for none"),
+});
+
+export type GrabsBehind = zod.input<typeof GrabsBehind>;
+export type GrabsBehindOutput = zod.output<typeof GrabsBehind>;
+
 export const GrabsWorkRef = zod.object({
   id: zod.uuid(),
   title: zod.string(),
@@ -3191,6 +3254,18 @@ export const GrabsChoice = zod.object({
 export type GrabsChoice = zod.input<typeof GrabsChoice>;
 export type GrabsChoiceOutput = zod.output<typeof GrabsChoice>;
 
+export const GrabsChosenWhy = zod.object({
+  fills: zod.int().min(1).describe("The Items it was chosen to fill"),
+  kind: zod
+    .enum(["fewer_releases"])
+    .describe(
+      "fewer_releases is a Release that fills more Items, so fewer Releases fill the group",
+    ),
+});
+
+export type GrabsChosenWhy = zod.input<typeof GrabsChosenWhy>;
+export type GrabsChosenWhyOutput = zod.output<typeof GrabsChosenWhy>;
+
 export const GrabsGrabClient = zod.object({
   id: zod.uuid(),
   kind: zod.enum(["qbittorrent", "transmission", "deluge", "rtorrent"]),
@@ -3274,6 +3349,48 @@ export const GrabsFailure = zod.object({
 
 export type GrabsFailure = zod.input<typeof GrabsFailure>;
 export type GrabsFailureOutput = zod.output<typeof GrabsFailure>;
+
+export const GrabsFailureAt = zod.object({
+  at: zod.iso.datetime({ offset: true }),
+  code: zod.enum([
+    "indexer_unavailable",
+    "indexer_removed",
+    "indexer_stopped",
+    "home_offline",
+    "torrent_unreachable",
+    "magnet_invalid",
+    "no_metadata",
+    "no_peer_source",
+    "torrent_invalid",
+    "infohash_mismatch",
+    "torrent_v2_only",
+    "download_failed",
+    "marked_failed",
+    "removed",
+    "client_removed",
+    "client_deleted",
+    "goal_met",
+    "no_video_file",
+    "probe_failed",
+    "fills_nothing",
+    "name_taken",
+    "name_too_long",
+    "transfer_failed",
+    "import_failed",
+    "node_written_off",
+    "root_changed",
+    "canceled",
+    "blocklisted",
+    "release_fault",
+    "client_error",
+    "declined",
+    "unreadable",
+  ]),
+  grabId: zod.uuid().nullable().describe("The failed Grab; null once it is pruned"),
+});
+
+export type GrabsFailureAt = zod.input<typeof GrabsFailureAt>;
+export type GrabsFailureAtOutput = zod.output<typeof GrabsFailureAt>;
 
 export const GrabsFetchWait = zod.object({
   sentence: zod
@@ -3388,6 +3505,9 @@ export const grabsGrabReleaseSizeMin = 0;
 
 export const GrabsGrab = zod.object({
   actions: GrabsGrabActions,
+  chosenBecause: zod
+    .union([GrabsChosenWhy, zod.null()])
+    .describe("Why the decision chose its Release; null when the ranking alone chose it"),
   createdAt: zod.iso.datetime({ offset: true }),
   downloadClient: zod
     .union([GrabsGrabClient, zod.null()])
@@ -3407,6 +3527,11 @@ export const GrabsGrab = zod.object({
   fetchWait: GrabsFetchWait.exactOptional().describe(
     "Why fetching the .torrent waits on its Indexer, absent unless it does",
   ),
+  foundBy: zod
+    .enum(["search", "backlog", "rss", "failed_grab", "manual"])
+    .describe(
+      "What found its Release: a press of Search, Backlog search, RSS sync, a search again after a failed Grab, or an Admin in a Manual search",
+    ),
   grabbedBy: zod.string().nullable().describe("A name, or the API key; null for a search's Grab"),
   history: zod
     .array(GrabsEntered)
@@ -3475,6 +3600,14 @@ export const GrabsGrab = zod.object({
   releaseSize: zod.int().min(grabsGrabReleaseSizeMin),
   releaseTitle: zod.string(),
   releaseWords: zod.string().describe("Its Release in words, such as Bluray-1080p · FKW · 9.8 GB"),
+  rssIndexerName: zod
+    .string()
+    .nullable()
+    .describe("The Indexer whose feed RSS sync found it in; null unless foundBy is rss"),
+  searchId: zod
+    .uuid()
+    .nullable()
+    .describe("The search run that made it; null for a Manual Grab and once the run is pruned"),
   source: zod
     .enum(["search", "manual", "rss"])
     .describe(
@@ -3547,6 +3680,86 @@ export const GrabsGrabOffer = zod.object({
 export type GrabsGrabOffer = zod.input<typeof GrabsGrabOffer>;
 export type GrabsGrabOfferOutput = zod.output<typeof GrabsGrabOffer>;
 
+export const grabsGrabbingGrabbingMin = 0;
+
+export const GrabsGrabbing = zod.object({
+  grabbing: zod
+    .int()
+    .min(grabsGrabbingGrabbingMin)
+    .describe("The waits ended now. 0 when nothing waited, because the wait already ended"),
+});
+
+export type GrabsGrabbing = zod.input<typeof GrabsGrabbing>;
+export type GrabsGrabbingOutput = zod.output<typeof GrabsGrabbing>;
+
+export const grabsGroupStateLastFoundMin = 0;
+
+export const grabsGroupStateLastGrabsMin = 0;
+
+export const GrabsGroupState = zod.object({
+  again: zod.boolean().describe("Queued again behind its own running search"),
+  behind: zod
+    .union([GrabsBehind, zod.null()])
+    .describe("What it waits on; null when nothing holds it"),
+  key: zod.string().describe("The search group's key, to compare and never to parse"),
+  label: zod.string().describe("The group in words, such as season 3"),
+  lane: zod
+    .union([zod.literal("now"), zod.literal("bulk"), zod.literal("backlog"), zod.literal(null)])
+    .nullable()
+    .describe("The queued entry's lane, else the running search's; null while idle"),
+  lastFound: zod
+    .int()
+    .min(grabsGroupStateLastFoundMin)
+    .describe("The Releases its last search found"),
+  lastGrabs: zod
+    .int()
+    .min(grabsGroupStateLastGrabsMin)
+    .describe("The Grabs its last search made or joined"),
+  lastResult: zod
+    .union([
+      zod.literal("grabbed"),
+      zod.literal("waiting"),
+      zod.literal("nothing_found"),
+      zod.literal("nothing_acceptable"),
+      zod.literal("no_indexer"),
+      zod.literal("no_root"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("How its last search finished; null before one did"),
+  lastSearchedAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When its last search finished; null before one did"),
+  nextSearchAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When Backlog search searches it next; null while queued or searching, and while Backlog search is off",
+    ),
+  state: zod.enum(["idle", "queued", "searching"]),
+  trigger: zod
+    .union([
+      zod.literal("search"),
+      zod.literal("search_all"),
+      zod.literal("add"),
+      zod.literal("monitor"),
+      zod.literal("profile"),
+      zod.literal("editions"),
+      zod.literal("retarget"),
+      zod.literal("release_date"),
+      zod.literal("refresh"),
+      zod.literal("backlog"),
+      zod.literal("failed_grab"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("What queued it, else what started the running search; null while idle"),
+});
+
+export type GrabsGroupState = zod.input<typeof GrabsGroupState>;
+export type GrabsGroupStateOutput = zod.output<typeof GrabsGroupState>;
+
 export const GrabsIndexerGrabList = zod.object({
   grabs: zod.array(GrabsGrab).describe("Newest first"),
   nextOffset: zod.int().nullable().describe("The offset of the next page; null on the last"),
@@ -3570,6 +3783,58 @@ export const GrabsIndexerLine = zod.object({
 
 export type GrabsIndexerLine = zod.input<typeof GrabsIndexerLine>;
 export type GrabsIndexerLineOutput = zod.output<typeof GrabsIndexerLine>;
+
+export const GrabsItemRange = zod.object({
+  first: zod.string().describe("The label of the first Item of the run"),
+  last: zod
+    .string()
+    .describe("The label of the last Item of the run, the first's for a run of one"),
+});
+
+export type GrabsItemRange = zod.input<typeof GrabsItemRange>;
+export type GrabsItemRangeOutput = zod.output<typeof GrabsItemRange>;
+
+export const GrabsWaiting = zod.object({
+  candidates: zod.int().min(1).describe("The Releases it holds"),
+  cell: GrabsCellKey,
+  until: zod.iso
+    .datetime({ offset: true })
+    .describe("When the wait ends and SlipStream grabs the best Release it holds"),
+});
+
+export type GrabsWaiting = zod.input<typeof GrabsWaiting>;
+export type GrabsWaitingOutput = zod.output<typeof GrabsWaiting>;
+
+export const grabsLeadOfMin = 0;
+
+export const GrabsLead = zod.object({
+  groupKey: zod
+    .string()
+    .nullable()
+    .describe("The group the line is about; null for a waiting or idle Work"),
+  of: zod
+    .int()
+    .min(grabsLeadOfMin)
+    .describe("The Work's groups queued or searching, as in Searching season 3 of 10"),
+  wait: zod
+    .union([GrabsWaiting, zod.null()])
+    .describe("The wait the line is about; null unless the Work only waits"),
+});
+
+export type GrabsLead = zod.input<typeof GrabsLead>;
+export type GrabsLeadOutput = zod.output<typeof GrabsLead>;
+
+export const GrabsLimitUntil = zod.object({
+  indexerId: zod.uuid(),
+  indexerName: zod.string(),
+  starved: zod
+    .boolean()
+    .describe("RSS sync uses all of its search limit, so Backlog search waits for it"),
+  until: zod.iso.datetime({ offset: true }).describe("When its search limit frees a search"),
+});
+
+export type GrabsLimitUntil = zod.input<typeof GrabsLimitUntil>;
+export type GrabsLimitUntilOutput = zod.output<typeof GrabsLimitUntil>;
 
 export const GrabsTargetScore = zod.object({
   score: zod.int(),
@@ -3839,6 +4104,48 @@ export const GrabsQueueChanged = zod.object({
 export type GrabsQueueChanged = zod.input<typeof GrabsQueueChanged>;
 export type GrabsQueueChangedOutput = zod.output<typeof GrabsQueueChanged>;
 
+export const grabsQueueStatusQueuedMin = 0;
+
+export const grabsQueueStatusSearchingMin = 0;
+
+export const GrabsQueueStatus = zod.object({
+  limits: zod
+    .array(GrabsLimitUntil)
+    .describe("Each Indexer whose search limit holds queued searches"),
+  nextBacklogAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When Backlog search runs next; null while Backlog search is off"),
+  queued: zod.int().min(grabsQueueStatusQueuedMin).describe("Search groups queued"),
+  searching: zod.int().min(grabsQueueStatusSearchingMin).describe("Search groups searching now"),
+});
+
+export type GrabsQueueStatus = zod.input<typeof GrabsQueueStatus>;
+export type GrabsQueueStatusOutput = zod.output<typeof GrabsQueueStatus>;
+
+export const grabsQueuedCanceledCanceledMin = 0;
+
+export const GrabsQueuedCanceled = zod.object({
+  canceled: zod
+    .int()
+    .min(grabsQueuedCanceledCanceledMin)
+    .describe("The queued searches canceled. A search already running finishes"),
+});
+
+export type GrabsQueuedCanceled = zod.input<typeof GrabsQueuedCanceled>;
+export type GrabsQueuedCanceledOutput = zod.output<typeof GrabsQueuedCanceled>;
+
+export const GrabsQueuedGroup = zod.object({
+  key: zod.string().describe("The search group's key, to compare and never to parse"),
+  label: zod.string().describe("The group in words, such as season 3"),
+  state: zod
+    .enum(["queued", "merged"])
+    .describe("merged is a group already queued or searching with this scope"),
+});
+
+export type GrabsQueuedGroup = zod.input<typeof GrabsQueuedGroup>;
+export type GrabsQueuedGroupOutput = zod.output<typeof GrabsQueuedGroup>;
+
 export const GrabsReason = zod.object({
   attribute: zod
     .enum(["hdr", "video_codec", "audio_codec", "channels", "language"])
@@ -3923,6 +4230,8 @@ export type GrabsSearchIndexerOutput = zod.output<typeof GrabsSearchIndexer>;
 
 export const grabsSearchCandidatesMin = 0;
 
+export const grabsSearchGrabsMin = 0;
+
 export const GrabsSearch = zod.object({
   candidates: zod
     .int()
@@ -3934,11 +4243,31 @@ export const GrabsSearch = zod.object({
     .describe(
       "The Grabs the run made, then those it joined: the decision's, or the rerun's once a dropped Grab reran it",
     ),
+  grabs: zod
+    .int()
+    .min(grabsSearchGrabsMin)
+    .describe("The Grabs it made or joined when it finished, still counted once one is pruned"),
+  groupKey: zod
+    .string()
+    .nullable()
+    .describe(
+      "The search group the run searched, to compare and never to parse; null for a Manual search's run",
+    ),
+  groupLabel: zod
+    .string()
+    .nullable()
+    .describe(
+      "The group in words, such as season 3; null for a Manual search's run, and until its Content Type names its groups",
+    ),
   id: zod.uuid(),
   indexers: zod
     .array(GrabsSearchIndexer)
     .describe("Each Indexer the run asked or skipped, by priority"),
   itemIds: zod.array(zod.uuid()).describe("The Items the run searched"),
+  lane: zod
+    .union([zod.literal("now"), zod.literal("bulk"), zod.literal("backlog"), zod.literal(null)])
+    .nullable()
+    .describe("The lane it was queued in; null for a Manual search's run"),
   notes: zod
     .array(GrabsReason)
     .describe(
@@ -3960,6 +4289,24 @@ export const GrabsSearch = zod.object({
       "Null while the run searches. waiting holds a cell for a better Release. nothing_found is a run that found no Release, and nothing_acceptable one whose Releases fit no Target. no_indexer is a run that no Indexer responded to, and no_root one whose Work had no reachable root. listed is a Manual search's run, which takes nothing.",
     ),
   startedAt: zod.iso.datetime({ offset: true }),
+  trigger: zod
+    .union([
+      zod.literal("search"),
+      zod.literal("search_all"),
+      zod.literal("add"),
+      zod.literal("monitor"),
+      zod.literal("profile"),
+      zod.literal("editions"),
+      zod.literal("retarget"),
+      zod.literal("release_date"),
+      zod.literal("refresh"),
+      zod.literal("backlog"),
+      zod.literal("failed_grab"),
+      zod.literal("rss"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("What started it; null for a Manual search's run"),
 });
 
 export type GrabsSearch = zod.input<typeof GrabsSearch>;
@@ -3984,6 +4331,13 @@ export const GrabsSearchList = zod.object({
 export type GrabsSearchList = zod.input<typeof GrabsSearchList>;
 export type GrabsSearchListOutput = zod.output<typeof GrabsSearchList>;
 
+export const GrabsSearchQueued = zod.object({
+  groups: zod.array(GrabsQueuedGroup).describe("Each search group the press queued, in tree order"),
+});
+
+export type GrabsSearchQueued = zod.input<typeof GrabsSearchQueued>;
+export type GrabsSearchQueuedOutput = zod.output<typeof GrabsSearchQueued>;
+
 export const grabsSearchScopeItemIdsMax = 20000;
 
 export const grabsSearchScopeLevelIdsMax = 20000;
@@ -3999,12 +4353,401 @@ export const GrabsSearchScope = zod.object({
 export type GrabsSearchScope = zod.input<typeof GrabsSearchScope>;
 export type GrabsSearchScopeOutput = zod.output<typeof GrabsSearchScope>;
 
-export const GrabsSearchStarted = zod.object({
-  searchIds: zod.array(zod.string()).describe("One run per Item in the scope with a wanted cell"),
+export const SettingChoiceOption = zod.object({
+  label: zod.string(),
+  value: zod.string(),
 });
 
-export type GrabsSearchStarted = zod.input<typeof GrabsSearchStarted>;
-export type GrabsSearchStartedOutput = zod.output<typeof GrabsSearchStarted>;
+export type SettingChoiceOption = zod.input<typeof SettingChoiceOption>;
+export type SettingChoiceOptionOutput = zod.output<typeof SettingChoiceOption>;
+
+export const SettingChoiceField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.string(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["choice"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  options: zod.array(SettingChoiceOption),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.string(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.string(),
+});
+
+export type SettingChoiceField = zod.input<typeof SettingChoiceField>;
+export type SettingChoiceFieldOutput = zod.output<typeof SettingChoiceField>;
+
+export const SettingTimes = zod.object({
+  end: zod.string().describe("HH:MM, before start when the window crosses midnight"),
+  start: zod.string().describe("HH:MM"),
+});
+
+export type SettingTimes = zod.input<typeof SettingTimes>;
+export type SettingTimesOutput = zod.output<typeof SettingTimes>;
+
+export const SettingWindowField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: SettingTimes,
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["window"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: SettingTimes,
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: SettingTimes,
+  zone: zod.string().describe("The time zone's name, such as Europe/London"),
+});
+
+export type SettingWindowField = zod.input<typeof SettingWindowField>;
+export type SettingWindowFieldOutput = zod.output<typeof SettingWindowField>;
+
+export const SettingPortField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.int(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["port"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.int(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.int(),
+});
+
+export type SettingPortField = zod.input<typeof SettingPortField>;
+export type SettingPortFieldOutput = zod.output<typeof SettingPortField>;
+
+export const SettingAddressField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.string(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["address"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.string(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.string(),
+});
+
+export type SettingAddressField = zod.input<typeof SettingAddressField>;
+export type SettingAddressFieldOutput = zod.output<typeof SettingAddressField>;
+
+export const SettingFolderField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.string(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["folder"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  nodeId: zod.uuid().describe("The Node the path is on, which browses and judges it"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  purpose: zod
+    .enum(["downloads"])
+    .describe("The rules the Node judges the folder by, as checkFolder names them"),
+  running: zod.string(),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.string(),
+});
+
+export type SettingFolderField = zod.input<typeof SettingFolderField>;
+export type SettingFolderFieldOutput = zod.output<typeof SettingFolderField>;
+
+export const settingAmountAmountMin = 0;
+
+export const SettingAmount = zod.object({
+  amount: zod.int().min(settingAmountAmountMin),
+  unit: zod.enum(["bytes", "percent"]),
+});
+
+export type SettingAmount = zod.input<typeof SettingAmount>;
+export type SettingAmountOutput = zod.output<typeof SettingAmount>;
+
+export const SettingSpaceField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: SettingAmount,
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["space"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  maxBytes: zod.int().describe("The largest amount in bytes: 1 PB"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: SettingAmount,
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: SettingAmount,
+});
+
+export type SettingSpaceField = zod.input<typeof SettingSpaceField>;
+export type SettingSpaceFieldOutput = zod.output<typeof SettingSpaceField>;
+
+export const SettingTemplateField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.string(),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  field: zod.string().describe("The template field whose tokens the control offers"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["template"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  plain: zod.boolean().describe("The text holds no tokens"),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.string(),
+});
+
+export type SettingTemplateField = zod.input<typeof SettingTemplateField>;
+export type SettingTemplateFieldOutput = zod.output<typeof SettingTemplateField>;
+
+export const settingListFieldMinMin = 0;
+
+export const SettingListField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.array(zod.string()),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  item: zod
+    .enum(["extension"])
+    .describe(
+      "What each entry is: an extension is lowercase letters and digits with no leading dot, such as mkv",
+    ),
+  key: zod.string(),
+  kind: zod.enum(["list"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  min: zod.int().min(settingListFieldMinMin).describe("The fewest entries the list takes"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.array(zod.string()),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.array(zod.string()),
+});
+
+export type SettingListField = zod.input<typeof SettingListField>;
+export type SettingListFieldOutput = zod.output<typeof SettingListField>;
+
+export const SettingSizeField = zod.object({
+  applies: zod.enum(["live", "restart"]),
+  default: zod.int().describe("Bytes"),
+  defaultFrom: zod
+    .string()
+    .exactOptional()
+    .describe("Where the default comes from, when it is another setting's value"),
+  isDefault: zod
+    .boolean()
+    .describe("The setting has no override; Reset to default leaves it unchanged"),
+  key: zod.string(),
+  kind: zod.enum(["size"]),
+  label: zod.string(),
+  lockedBy: zod
+    .string()
+    .exactOptional()
+    .describe("The environment variable that sets the value; the control is read-only"),
+  max: zod.int().describe("Bytes"),
+  min: zod.int().describe("Bytes"),
+  pendingRestart: zod
+    .boolean()
+    .describe("The saved value differs from the running one until the Node restarts"),
+  running: zod.int().describe("Bytes"),
+  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
+  value: zod.int().describe("Bytes"),
+});
+
+export type SettingSizeField = zod.input<typeof SettingSizeField>;
+export type SettingSizeFieldOutput = zod.output<typeof SettingSizeField>;
+
+export const SettingField = zod.discriminatedUnion("kind", [
+  SettingDurationField,
+  SettingCountField,
+  SettingChoiceField,
+  SettingWindowField,
+  SettingPortField,
+  SettingSwitchField,
+  SettingRateField,
+  SettingAddressField,
+  SettingFolderField,
+  SettingSpaceField,
+  SettingTemplateField,
+  SettingListField,
+  SettingSizeField,
+]);
+
+export type SettingField = zod.input<typeof SettingField>;
+export type SettingFieldOutput = zod.output<typeof SettingField>;
+
+export const GrabsSearchSettings = zod.object({
+  settings: zod
+    .array(SettingField)
+    .describe(
+      "Backlog search, RSS sync, how long a search waits for each Indexer and when SlipStream stops searching again after failed Grabs",
+    ),
+});
+
+export type GrabsSearchSettings = zod.input<typeof GrabsSearchSettings>;
+export type GrabsSearchSettingsOutput = zod.output<typeof GrabsSearchSettings>;
+
+export const grabsWantedFilterContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const GrabsWantedFilter = zod.object({
+  contentType: zod
+    .string()
+    .regex(grabsWantedFilterContentTypeRegExp)
+    .exactOptional()
+    .describe("Left out, every Content Type"),
+  reasons: zod
+    .array(zod.enum(["failed", "missing", "upgrade", "gone"]))
+    .nullish()
+    .describe("Left out, every reason but gone"),
+});
+
+export type GrabsWantedFilter = zod.input<typeof GrabsWantedFilter>;
+export type GrabsWantedFilterOutput = zod.output<typeof GrabsWantedFilter>;
+
+export const GrabsSeveralBody = zod.object({
+  wanted: GrabsWantedFilter.exactOptional().describe(
+    "Every Work Wanted lists for this filter; send this or workIds",
+  ),
+  workIds: zod.array(zod.uuid()).nullish().describe("The Works to search; send this or wanted"),
+});
+
+export type GrabsSeveralBody = zod.input<typeof GrabsSeveralBody>;
+export type GrabsSeveralBodyOutput = zod.output<typeof GrabsSeveralBody>;
+
+export const GrabsWorkOutcome = zod.object({
+  outcome: zod.enum(["queued", "merged", "skipped"]),
+  reason: zod
+    .union([
+      zod.literal("nothing_wanted"),
+      zod.literal("gone_only"),
+      zod.literal("no_root"),
+      zod.literal("not_searchable"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Why it was skipped; null unless skipped"),
+  workId: zod.uuid(),
+});
+
+export type GrabsWorkOutcome = zod.input<typeof GrabsWorkOutcome>;
+export type GrabsWorkOutcomeOutput = zod.output<typeof GrabsWorkOutcome>;
+
+export const grabsSeveralQueuedLeftGoneMin = 0;
+
+export const grabsSeveralQueuedMergedMin = 0;
+
+export const grabsSeveralQueuedQueuedMin = 0;
+
+export const GrabsSeveralQueued = zod.object({
+  leftGone: zod
+    .int()
+    .min(grabsSeveralQueuedLeftGoneMin)
+    .describe("Works left out because only gone files want a Release"),
+  merged: zod
+    .int()
+    .min(grabsSeveralQueuedMergedMin)
+    .describe("Works whose every group was already queued or searching"),
+  queued: zod
+    .int()
+    .min(grabsSeveralQueuedQueuedMin)
+    .describe("Works with at least one group newly queued"),
+  works: zod.array(GrabsWorkOutcome).describe("One per Work, in request order"),
+});
+
+export type GrabsSeveralQueued = zod.input<typeof GrabsSeveralQueued>;
+export type GrabsSeveralQueuedOutput = zod.output<typeof GrabsSeveralQueued>;
 
 export const grabsStartManualItemIdsMax = 20000;
 
@@ -4037,6 +4780,102 @@ export const GrabsStartManual = zod.object({
 
 export type GrabsStartManual = zod.input<typeof GrabsStartManual>;
 export type GrabsStartManualOutput = zod.output<typeof GrabsStartManual>;
+
+export const GrabsStopped = zod.object({
+  cell: GrabsCellKey,
+  failures: zod.array(GrabsFailureAt).describe("The failed Grabs that stopped it, oldest first"),
+  nextSearchAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When Backlog search searches it next; null while Backlog search is off"),
+});
+
+export type GrabsStopped = zod.input<typeof GrabsStopped>;
+export type GrabsStoppedOutput = zod.output<typeof GrabsStopped>;
+
+export const grabsWantedWorkContentTypeRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
+
+export const GrabsWantedWork = zod.object({
+  contentType: zod.string().regex(grabsWantedWorkContentTypeRegExp),
+  id: zod.uuid(),
+  label: zod.string(),
+  posterUrl: zod
+    .string()
+    .nullable()
+    .describe("The artwork route for its poster, without a size; null when it has none"),
+});
+
+export type GrabsWantedWork = zod.input<typeof GrabsWantedWork>;
+export type GrabsWantedWorkOutput = zod.output<typeof GrabsWantedWork>;
+
+export const GrabsWantedRow = zod.object({
+  lastResult: zod
+    .union([
+      zod.literal("grabbed"),
+      zod.literal("waiting"),
+      zod.literal("nothing_found"),
+      zod.literal("nothing_acceptable"),
+      zod.literal("no_indexer"),
+      zod.literal("no_root"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("How its last search finished; null before one did"),
+  lastSearchedAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When its last search finished; null before one did"),
+  nextSearchAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When Backlog search searches it next; null for a gone row, which only a press searches, and while Backlog search is off",
+    ),
+  others: zod
+    .record(zod.string(), zod.int())
+    .describe("The count of Items under each other reason, by reason"),
+  ranges: zod.array(GrabsItemRange).describe("The Items it lists, as runs in tree order"),
+  reason: zod
+    .enum(["failed", "missing", "upgrade", "gone"])
+    .describe("The reason the row lists, the first in this order the Work has"),
+  state: zod.enum(["idle", "queued", "searching"]),
+  work: GrabsWantedWork,
+});
+
+export type GrabsWantedRow = zod.input<typeof GrabsWantedRow>;
+export type GrabsWantedRowOutput = zod.output<typeof GrabsWantedRow>;
+
+export const grabsWantedPageLeftGoneMin = 0;
+
+export const grabsWantedPageTotalMin = 0;
+
+export const GrabsWantedPage = zod.object({
+  leftGone: zod
+    .int()
+    .min(grabsWantedPageLeftGoneMin)
+    .describe("Works with only gone files, left out unless the filter asks for gone"),
+  next: zod.string().nullable().describe("The cursor of the next page; null on the last"),
+  rows: zod.array(GrabsWantedRow).describe("In the sort's order, ties by Work id"),
+  status: GrabsQueueStatus,
+  total: zod.int().min(grabsWantedPageTotalMin).describe("The Works the filter lists"),
+});
+
+export type GrabsWantedPage = zod.input<typeof GrabsWantedPage>;
+export type GrabsWantedPageOutput = zod.output<typeof GrabsWantedPage>;
+
+export const GrabsWorkSearching = zod.object({
+  groups: zod.array(GrabsGroupState).describe("Each search group of the Work, in tree order"),
+  lead: GrabsLead.describe("The one line the Work's header shows"),
+  stops: zod
+    .array(GrabsStopped)
+    .describe("Each cell SlipStream stopped searching again for after failed Grabs"),
+  waits: zod
+    .array(GrabsWaiting)
+    .describe("Each cell waiting for a better Release, by when it grabs"),
+});
+
+export type GrabsWorkSearching = zod.input<typeof GrabsWorkSearching>;
+export type GrabsWorkSearchingOutput = zod.output<typeof GrabsWorkSearching>;
 
 export const HealthAction = zod.object({
   href: zod.string().exactOptional(),
@@ -4160,16 +4999,6 @@ export const HealthChecked = zod.object({
 export type HealthChecked = zod.input<typeof HealthChecked>;
 export type HealthCheckedOutput = zod.output<typeof HealthChecked>;
 
-export const settingAmountAmountMin = 0;
-
-export const SettingAmount = zod.object({
-  amount: zod.int().min(settingAmountAmountMin),
-  unit: zod.enum(["bytes", "percent"]),
-});
-
-export type SettingAmount = zod.input<typeof SettingAmount>;
-export type SettingAmountOutput = zod.output<typeof SettingAmount>;
-
 export const HealthNotReporting = zod.object({
   errorBelow: zod
     .union([SettingAmount, zod.null()])
@@ -4184,35 +5013,6 @@ export const HealthNotReporting = zod.object({
 
 export type HealthNotReporting = zod.input<typeof HealthNotReporting>;
 export type HealthNotReportingOutput = zod.output<typeof HealthNotReporting>;
-
-export const SettingSpaceField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: SettingAmount,
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["space"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  maxBytes: zod.int().describe("The largest amount in bytes: 1 PB"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: SettingAmount,
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: SettingAmount,
-});
-
-export type SettingSpaceField = zod.input<typeof SettingSpaceField>;
-export type SettingSpaceFieldOutput = zod.output<typeof SettingSpaceField>;
 
 export const HealthSettings = zod.object({
   errorBelow: SettingSpaceField,
@@ -5236,282 +6036,6 @@ export const ImportsImportEntry = zod.object({
 export type ImportsImportEntry = zod.input<typeof ImportsImportEntry>;
 export type ImportsImportEntryOutput = zod.output<typeof ImportsImportEntry>;
 
-export const SettingChoiceOption = zod.object({
-  label: zod.string(),
-  value: zod.string(),
-});
-
-export type SettingChoiceOption = zod.input<typeof SettingChoiceOption>;
-export type SettingChoiceOptionOutput = zod.output<typeof SettingChoiceOption>;
-
-export const SettingChoiceField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.string(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["choice"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  options: zod.array(SettingChoiceOption),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.string(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.string(),
-});
-
-export type SettingChoiceField = zod.input<typeof SettingChoiceField>;
-export type SettingChoiceFieldOutput = zod.output<typeof SettingChoiceField>;
-
-export const SettingTimes = zod.object({
-  end: zod.string().describe("HH:MM, before start when the window crosses midnight"),
-  start: zod.string().describe("HH:MM"),
-});
-
-export type SettingTimes = zod.input<typeof SettingTimes>;
-export type SettingTimesOutput = zod.output<typeof SettingTimes>;
-
-export const SettingWindowField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: SettingTimes,
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["window"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: SettingTimes,
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: SettingTimes,
-  zone: zod.string().describe("The time zone's name, such as Europe/London"),
-});
-
-export type SettingWindowField = zod.input<typeof SettingWindowField>;
-export type SettingWindowFieldOutput = zod.output<typeof SettingWindowField>;
-
-export const SettingPortField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.int(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["port"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.int(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.int(),
-});
-
-export type SettingPortField = zod.input<typeof SettingPortField>;
-export type SettingPortFieldOutput = zod.output<typeof SettingPortField>;
-
-export const SettingAddressField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.string(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["address"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.string(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.string(),
-});
-
-export type SettingAddressField = zod.input<typeof SettingAddressField>;
-export type SettingAddressFieldOutput = zod.output<typeof SettingAddressField>;
-
-export const SettingFolderField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.string(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["folder"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  nodeId: zod.uuid().describe("The Node the path is on, which browses and judges it"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  purpose: zod
-    .enum(["downloads"])
-    .describe("The rules the Node judges the folder by, as checkFolder names them"),
-  running: zod.string(),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.string(),
-});
-
-export type SettingFolderField = zod.input<typeof SettingFolderField>;
-export type SettingFolderFieldOutput = zod.output<typeof SettingFolderField>;
-
-export const SettingTemplateField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.string(),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  field: zod.string().describe("The template field whose tokens the control offers"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["template"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  plain: zod.boolean().describe("The text holds no tokens"),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.string(),
-});
-
-export type SettingTemplateField = zod.input<typeof SettingTemplateField>;
-export type SettingTemplateFieldOutput = zod.output<typeof SettingTemplateField>;
-
-export const settingListFieldMinMin = 0;
-
-export const SettingListField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.array(zod.string()),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  item: zod
-    .enum(["extension"])
-    .describe(
-      "What each entry is: an extension is lowercase letters and digits with no leading dot, such as mkv",
-    ),
-  key: zod.string(),
-  kind: zod.enum(["list"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  min: zod.int().min(settingListFieldMinMin).describe("The fewest entries the list takes"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.array(zod.string()),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.array(zod.string()),
-});
-
-export type SettingListField = zod.input<typeof SettingListField>;
-export type SettingListFieldOutput = zod.output<typeof SettingListField>;
-
-export const SettingSizeField = zod.object({
-  applies: zod.enum(["live", "restart"]),
-  default: zod.int().describe("Bytes"),
-  defaultFrom: zod
-    .string()
-    .exactOptional()
-    .describe("Where the default comes from, when it is another setting's value"),
-  isDefault: zod
-    .boolean()
-    .describe("The setting has no override; Reset to default leaves it unchanged"),
-  key: zod.string(),
-  kind: zod.enum(["size"]),
-  label: zod.string(),
-  lockedBy: zod
-    .string()
-    .exactOptional()
-    .describe("The environment variable that sets the value; the control is read-only"),
-  max: zod.int().describe("Bytes"),
-  min: zod.int().describe("Bytes"),
-  pendingRestart: zod
-    .boolean()
-    .describe("The saved value differs from the running one until the Node restarts"),
-  running: zod.int().describe("Bytes"),
-  source: zod.enum(["database", "default", "config.yaml", ".env", "env"]),
-  value: zod.int().describe("Bytes"),
-});
-
-export type SettingSizeField = zod.input<typeof SettingSizeField>;
-export type SettingSizeFieldOutput = zod.output<typeof SettingSizeField>;
-
-export const SettingField = zod.discriminatedUnion("kind", [
-  SettingDurationField,
-  SettingCountField,
-  SettingChoiceField,
-  SettingWindowField,
-  SettingPortField,
-  SettingSwitchField,
-  SettingRateField,
-  SettingAddressField,
-  SettingFolderField,
-  SettingSpaceField,
-  SettingTemplateField,
-  SettingListField,
-  SettingSizeField,
-]);
-
-export type SettingField = zod.input<typeof SettingField>;
-export type SettingFieldOutput = zod.output<typeof SettingField>;
-
 export const ImportsImportingSettings = zod.object({
   settings: zod
     .array(SettingField)
@@ -5981,6 +6505,8 @@ export type IndexersOutcomeOutput = zod.output<typeof IndexersOutcome>;
 
 export const indexersIndexerPriorityMax = 50;
 
+export const indexersIndexerSearchesAtOnceMax = 10;
+
 export const IndexersIndexer = zod.object({
   allowFailover: zod.boolean().describe("Read only for an Indexer that signs in"),
   allowNoSize: zod.boolean().describe("An RSS feed whose items may have no size"),
@@ -6020,10 +6546,20 @@ export const IndexersIndexer = zod.object({
     .union([IndexersPortPin, zod.null()])
     .describe("A native Indexer's ported site; null for every other kind"),
   priority: zod.int().min(1).max(indexersIndexerPriorityMax).describe("Lower wins a tie"),
+  recentPaging: zod
+    .boolean()
+    .describe(
+      "Its feed lists older uploads by offset, so RSS sync can page back to the last one it read. Read by its last Test",
+    ),
   revision: zod.int().min(1),
   rss: zod.boolean(),
   searchModes: zod.array(IndexersSearchMode).describe("By mode"),
   searches: IndexersLimitUse,
+  searchesAtOnce: zod
+    .int()
+    .min(1)
+    .max(indexersIndexerSearchesAtOnceMax)
+    .describe("How many background searches go to it at a time. A press of Search takes one more"),
   sentence: zod.string().describe("Its status in words"),
   session: zod
     .union([IndexersSession, zod.null()])
@@ -6102,6 +6638,8 @@ export const indexersIndexerEditNameMax = 100;
 
 export const indexersIndexerEditPriorityMax = 50;
 
+export const indexersIndexerEditSearchesAtOnceMax = 10;
+
 export const IndexersIndexerEdit = zod.object({
   address: zod
     .string()
@@ -6149,6 +6687,12 @@ export const IndexersIndexerEdit = zod.object({
     .union([IndexersLimit, zod.null()])
     .exactOptional()
     .describe("Null turns the limit off"),
+  searchesAtOnce: zod
+    .int()
+    .min(1)
+    .max(indexersIndexerEditSearchesAtOnceMax)
+    .nullish()
+    .describe("Null resets it to 2"),
   values: zod
     .record(zod.string(), zod.string())
     .exactOptional()
@@ -6186,6 +6730,9 @@ export const indexersNewIndexerPortMax = 200;
 
 export const indexersNewIndexerPriorityDefault = 25;
 export const indexersNewIndexerPriorityMax = 50;
+
+export const indexersNewIndexerSearchesAtOnceDefault = 2;
+export const indexersNewIndexerSearchesAtOnceMax = 10;
 
 export const indexersNewIndexerTrackerNameMax = 100;
 
@@ -6259,6 +6806,12 @@ export const IndexersNewIndexer = zod.object({
     .default(indexersNewIndexerPriorityDefault),
   rss: zod.boolean().exactOptional().describe("Absent for on"),
   searches: IndexersLimit.exactOptional(),
+  searchesAtOnce: zod
+    .int()
+    .min(1)
+    .max(indexersNewIndexerSearchesAtOnceMax)
+    .default(indexersNewIndexerSearchesAtOnceDefault)
+    .describe("How many background searches go to it at a time"),
   trackerName: zod
     .string()
     .max(indexersNewIndexerTrackerNameMax)
@@ -8809,6 +9362,15 @@ export const RootsVolumesChanged = zod.object({
 export type RootsVolumesChanged = zod.input<typeof RootsVolumesChanged>;
 export type RootsVolumesChangedOutput = zod.output<typeof RootsVolumesChanged>;
 
+export const SearchSettingsInputBody = zod.object({
+  values: zod
+    .record(zod.string(), zod.unknown())
+    .describe("Each setting's new value by key, all or none; null resets one to its default"),
+});
+
+export type SearchSettingsInputBody = zod.input<typeof SearchSettingsInputBody>;
+export type SearchSettingsInputBodyOutput = zod.output<typeof SearchSettingsInputBody>;
+
 export const SendToInputBody = zod.object({
   builtInOn: zod
     .uuid()
@@ -9256,6 +9818,10 @@ export const TargetsSize = zod.object({
 export type TargetsSize = zod.input<typeof TargetsSize>;
 export type TargetsSizeOutput = zod.output<typeof TargetsSize>;
 
+export const targetsNewTargetHoldSecondsMin = 0;
+export const targetsNewTargetHoldSecondsMax = 604800;
+export const targetsNewTargetHoldSecondsMultipleOf = 60;
+
 export const targetsNewTargetNameMax = 100;
 
 export const targetsNewTargetPropersDefault = `prefer_and_upgrade`;
@@ -9284,6 +9850,15 @@ export const TargetsNewTarget = zod.object({
     ])
     .describe("Any quality of the tier at which a file is final"),
   filters: zod.array(TargetsFilter).nullish().describe("An attribute left out is Any"),
+  holdSeconds: zod
+    .int()
+    .min(targetsNewTargetHoldSecondsMin)
+    .max(targetsNewTargetHoldSecondsMax)
+    .multipleOf(targetsNewTargetHoldSecondsMultipleOf)
+    .exactOptional()
+    .describe(
+      "How long an automatic grab waits after a Release's publish time for a better one, in whole minutes; left out, 0 grabs at once. Changing only the Hold changes no Work",
+    ),
   name: zod.string().min(1).max(targetsNewTargetNameMax),
   propers: zod
     .enum(["prefer_and_upgrade", "prefer_no_upgrade", "dont_prefer"])
@@ -9467,6 +10042,9 @@ export const TargetsScores = zod.object({
 export type TargetsScores = zod.input<typeof TargetsScores>;
 export type TargetsScoresOutput = zod.output<typeof TargetsScores>;
 
+export const targetsTargetHoldSecondsMin = 0;
+export const targetsTargetHoldSecondsMax = 604800;
+
 export const TargetsTarget = zod.object({
   contains: zod
     .array(zod.uuid())
@@ -9474,6 +10052,13 @@ export const TargetsTarget = zod.object({
   createdAt: zod.iso.datetime({ offset: true }),
   cutoff: zod.string().describe("The first quality of the tier at which a file is final"),
   filters: zod.array(TargetsFilter).describe("Every attribute that isn't Any, in attribute order"),
+  holdSeconds: zod
+    .int()
+    .min(targetsTargetHoldSecondsMin)
+    .max(targetsTargetHoldSecondsMax)
+    .describe(
+      "How long an automatic grab waits after a Release's publish time for a better one, in whole minutes. 0 grabs at once",
+    ),
   id: zod.uuid(),
   name: zod.string(),
   profiles: zod.array(TargetsProfileRef).describe("The Profiles holding it, by name"),
@@ -10561,6 +11146,24 @@ export const WorkPlanInputBody = zod.object({
 export type WorkPlanInputBody = zod.input<typeof WorkPlanInputBody>;
 export type WorkPlanInputBodyOutput = zod.output<typeof WorkPlanInputBody>;
 
+export const WorksSearchChoice = zod.object({
+  label: zod.string(),
+  value: zod.enum(["monitored", "first_level", "latest_level", "first_item", "none"]),
+});
+
+export type WorksSearchChoice = zod.input<typeof WorksSearchChoice>;
+export type WorksSearchChoiceOutput = zod.output<typeof WorksSearchChoice>;
+
+export const WorksAddSearch = zod.object({
+  choices: zod.array(WorksSearchChoice).describe("In the order the add sheet lists them"),
+  kind: zod
+    .enum(["switch", "choice"])
+    .describe("switch for a type of one Item, whose first choice is on and second off"),
+});
+
+export type WorksAddSearch = zod.input<typeof WorksAddSearch>;
+export type WorksAddSearchOutput = zod.output<typeof WorksAddSearch>;
+
 export const WorksArt = zod.object({
   kind: zod.string().describe("An artwork kind of the Content Type"),
   url: zod.string().describe("The artwork route for the image, without a size"),
@@ -10970,6 +11573,7 @@ export type WorksFieldSpecOutput = zod.output<typeof WorksFieldSpec>;
 export const worksContentTypeIdRegExp = new RegExp("^[a-z][a-z0-9]{1,15}$");
 
 export const WorksContentType = zod.object({
+  addSearch: WorksAddSearch.describe("What the add sheet's Search after adding offers"),
   art: WorksArtRoles,
   artwork: zod.array(WorksArtworkKind).describe("The kinds of image its Works and Items carry"),
   aside: zod
@@ -11235,6 +11839,16 @@ export const WorksLibraryRow = zod.object({
     .describe(
       "Its listed fields by key: a string for text and date, a number for number and duration in ms, a list of strings for texts; a field it lacks is left out",
     ),
+  wanted: zod
+    .union([
+      zod.literal("failed"),
+      zod.literal("missing"),
+      zod.literal("upgrade"),
+      zod.literal("gone"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("The first reason Wanted lists it for, in this order; null while it wants nothing"),
 });
 
 export type WorksLibraryRow = zod.input<typeof WorksLibraryRow>;
@@ -11287,10 +11901,23 @@ export const WorksMonitoringChange = zod.object({
 export type WorksMonitoringChange = zod.input<typeof WorksMonitoringChange>;
 export type WorksMonitoringChangeOutput = zod.output<typeof WorksMonitoringChange>;
 
+export const worksScopeCountItemsMin = 0;
+
+export const WorksScopeCount = zod.object({
+  items: zod.int().min(worksScopeCountItemsMin),
+  scope: zod.enum(["monitored", "first_level", "latest_level", "first_item", "none"]),
+});
+
+export type WorksScopeCount = zod.input<typeof WorksScopeCount>;
+export type WorksScopeCountOutput = zod.output<typeof WorksScopeCount>;
+
 export const WorksPresetCount = zod.object({
   monitors: zod.int().describe("Live Items the preset monitors, asides left out"),
   monitorsNew: zod.boolean().describe("Whether the preset monitors Items a refresh adds"),
   preset: zod.enum(["all", "future", "missing", "existing", "first", "latest", "none"]),
+  searches: zod
+    .array(WorksScopeCount)
+    .describe("How many of the Items the preset monitors each add search scope searches"),
 });
 
 export type WorksPresetCount = zod.input<typeof WorksPresetCount>;
@@ -11390,6 +12017,12 @@ export const WorksNewWork = zod.object({
     .exactOptional()
     .describe(
       "The root of the Content Type a new Work lives in; left out, the type's default, or none while the type has no root",
+    ),
+  search: zod
+    .enum(["monitored", "first_level", "latest_level", "first_item", "none"])
+    .exactOptional()
+    .describe(
+      "What to search once the Work is added, one of its Content Type's addSearch choices; left out, nothing",
     ),
 });
 

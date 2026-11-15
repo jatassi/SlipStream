@@ -8,7 +8,6 @@ package grabsapi
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"slices"
 	"time"
@@ -95,22 +94,6 @@ type workInput struct {
 	WorkID string `path:"workId" format:"uuid"`
 }
 
-type searchWorkInput struct {
-	WorkID string `path:"workId" format:"uuid"`
-	Body   *searchScope
-}
-
-type searchScope struct {
-	LevelIDs []string `json:"levelIds" format:"uuid" maxItems:"20000" nullable:"false" doc:"Each level stands for every Item under it"`
-	ItemIDs  []string `json:"itemIds" format:"uuid" maxItems:"20000" nullable:"false"`
-}
-
-type searchStarted struct {
-	SearchIDs []string `json:"searchIds" nullable:"false" doc:"One run per Item in the scope with a wanted cell"`
-}
-
-type searchStartedOutput struct{ Body searchStarted }
-
 type reason struct {
 	Code      string `json:"code" enum:"wrong_work,wrong_item,wrong_title,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,score_below_minimum,not_an_upgrade,repack_other_group,blocklisted" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist."`
 	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work, wrong_item and wrong_title"`
@@ -145,12 +128,17 @@ type searchIndexer struct {
 
 type search struct {
 	ID         string          `json:"id" format:"uuid"`
+	GroupKey   *string         `json:"groupKey" doc:"The search group the run searched, to compare and never to parse; null for a Manual search's run"`
+	GroupLabel *string         `json:"groupLabel" doc:"The group in words, such as season 3; null for a Manual search's run, and until its Content Type names its groups"`
+	Lane       *string         `json:"lane" enum:"now,bulk,backlog" doc:"The lane it was queued in; null for a Manual search's run"`
+	Trigger    *string         `json:"trigger" enum:"search,search_all,add,monitor,profile,editions,retarget,release_date,refresh,backlog,failed_grab,rss" doc:"What started it; null for a Manual search's run"`
 	ItemIDs    []string        `json:"itemIds" format:"uuid" nullable:"false" doc:"The Items the run searched"`
 	StartedAt  time.Time       `json:"startedAt"`
 	Indexers   []searchIndexer `json:"indexers" nullable:"false" doc:"Each Indexer the run asked or skipped, by priority"`
 	FinishedAt *time.Time      `json:"finishedAt" doc:"Null while the run searches"`
 	Outcome    *string         `json:"outcome" enum:"grabbed,waiting,nothing_found,nothing_acceptable,no_indexer,no_root,listed" doc:"Null while the run searches. waiting holds a cell for a better Release. nothing_found is a run that found no Release, and nothing_acceptable one whose Releases fit no Target. no_indexer is a run that no Indexer responded to, and no_root one whose Work had no reachable root. listed is a Manual search's run, which takes nothing."`
 	Candidates int             `json:"candidates" minimum:"0" doc:"The Releases the Indexers found, each Release listed twice counted once"`
+	Grabs      int             `json:"grabs" minimum:"0" doc:"The Grabs it made or joined when it finished, still counted once one is pruned"`
 	GrabIDs    []string        `json:"grabIds" format:"uuid" nullable:"false" doc:"The Grabs the run made, then those it joined: the decision's, or the rerun's once a dropped Grab reran it"`
 	Notes      []reason        `json:"notes" nullable:"false" doc:"The grabbed Release's notes, such as size_not_checked, for each Target it was grabbed for"`
 }
@@ -229,8 +217,11 @@ type searchListOutput struct{ Body searchList }
 
 func searchOf(s grabs.Search) search {
 	out := search{
-		ID: s.ID.String(), ItemIDs: []string{}, StartedAt: s.Started, Indexers: []searchIndexer{}, Candidates: s.Candidates,
-		GrabIDs: []string{}, Notes: reasonsOf(s.Notes),
+		ID: s.ID.String(), Lane: text(s.Lane), Trigger: text(s.Trigger), ItemIDs: []string{}, StartedAt: s.Started, Indexers: []searchIndexer{},
+		Candidates: s.Candidates, Grabs: s.Took, GrabIDs: []string{}, Notes: reasonsOf(s.Notes),
+	}
+	if s.Group != "" {
+		out.GroupKey = new(string(s.Group))
 	}
 	for _, it := range s.Items {
 		out.ItemIDs = append(out.ItemIDs, it.String())
@@ -250,6 +241,14 @@ func searchOf(s grabs.Search) search {
 		out.FinishedAt, out.Outcome = &finished, &outcome
 	}
 	return out
+}
+
+// text is s, nil when it is empty.
+func text[S ~string](s S) *string {
+	if s == "" {
+		return nil
+	}
+	return new(string(s))
 }
 
 func idOrNil(id storage.UUID) *string {
@@ -328,10 +327,19 @@ type grab struct {
 	WaitsFor     *clientWait              `json:"waitsFor,omitempty" doc:"The client a fetching Grab goes to, absent unless it waits for that client: its Node to be back online, or a pinned client that can't take it"`
 	CreatedAt    time.Time                `json:"createdAt"`
 	Source       string                   `json:"source" enum:"search,manual,rss" doc:"How it was chosen: by a search's decision, by an Admin in a Manual search, or by RSS sync's decision"`
+	SearchID     *string                  `json:"searchId" format:"uuid" doc:"The search run that made it; null for a Manual Grab and once the run is pruned"`
+	FoundBy      string                   `json:"foundBy" enum:"search,backlog,rss,failed_grab,manual" doc:"What found its Release: a press of Search, Backlog search, RSS sync, a search again after a failed Grab, or an Admin in a Manual search"`
+	RSSIndexer   *string                  `json:"rssIndexerName" doc:"The Indexer whose feed RSS sync found it in; null unless foundBy is rss"`
+	Chosen       api.Nullable[chosenWhy]  `json:"chosenBecause" doc:"Why the decision chose its Release; null when the ranking alone chose it"`
 	GrabbedBy    *string                  `json:"grabbedBy" doc:"A name, or the API key; null for a search's Grab"`
 	ManualSearch *string                  `json:"manualSearchId" format:"uuid" doc:"The Manual search it came from; null for a search's Grab and once a later Manual search of the Work replaced it"`
 	Overrides    []string                 `json:"overrides" nullable:"false" doc:"Each choice the Admin made past the decision, as a sentence"`
 	Actions      grabActions              `json:"actions"`
+}
+
+type chosenWhy struct {
+	Kind  string `json:"kind" enum:"fewer_releases" doc:"fewer_releases is a Release that fills more Items, so fewer Releases fill the group"`
+	Fills int    `json:"fills" minimum:"1" doc:"The Items it was chosen to fill"`
 }
 
 type grabImport struct {
@@ -385,11 +393,14 @@ func grabOf(v grabs.View) grab {
 		ID: v.ID.String(), WorkID: v.WorkID.String(), Edition: string(v.Edition),
 		Items: []string{}, ReleaseTitle: v.Release.Title, ReleaseWords: v.ReleaseWords, ReleaseSize: v.Release.Size, IndexerID: idOrNil(v.Ticket.Indexer.UUID),
 		TrackerID: idOrNil(v.Ticket.Tracker.UUID), NodeID: v.Node.String(), Stage: string(v.Stage), InFlight: v.Stage.InFlight(), History: []entered{}, CreatedAt: v.Created,
-		Source: string(v.Source), ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...), Import: importOf(v.Import),
+		Source: string(v.Source), FoundBy: foundBy[v.Source], ManualSearch: idOrNil(v.Manual.UUID), Overrides: append([]string{}, v.Overrides...), Import: importOf(v.Import),
 		Actions: grabActions{Cancel: v.Actions.Cancel, Blocklistable: v.Actions.Blocklist, SendTo: v.Actions.SendTo},
 	}
 	if v.By != nil {
 		out.GrabbedBy = new(v.By.Words())
+	}
+	if v.ChosenFills > 0 {
+		out.Chosen = api.Some(chosenWhy{Kind: "fewer_releases", Fills: v.ChosenFills})
 	}
 	if !v.FetchNode.IsZero() {
 		id := v.FetchNode.String()
@@ -436,6 +447,10 @@ func grabOf(v grabs.View) grab {
 	return out
 }
 
+// foundBy is what found a Grab, by its source. A search's Grab reads
+// search until its run's trigger is read.
+var foundBy = map[grabs.Source]string{grabs.FromSearch: "search", grabs.FromManual: "manual", grabs.FromRSS: "rss"}
+
 type grabList struct {
 	Grabs []grab `json:"grabs" nullable:"false" doc:"Newest first"`
 }
@@ -466,14 +481,14 @@ func Routes(r *api.Router, p Pipeline) {
 	o := r.Owner("grabs", api.Admin)
 	h := handlers{p}
 
-	api.Register(o, api.Admin, api.Op{
-		ID:      "searchWork",
-		Method:  http.MethodPost,
-		Path:    "/works/{workId}/search",
-		Summary: "Search for each wanted Item of a Work, or of some of its levels and Items, and grab the best release",
-		Status:  http.StatusAccepted,
-		Errors:  []*api.Code{workNotFound, nothingWanted, noIndexer, noRoot, rootUnreachable, notSearchable},
-	}, h.searchWork)
+	api.Register(o, api.Admin, searchWorkOp, h.searchWork)
+	api.Register(o, api.Admin, searchSeveralWorksOp, h.searchSeveralWorks)
+	api.Register(o, api.Admin, cancelQueuedSearchesOp, h.cancelQueuedSearches)
+	api.Register(o, api.Admin, getWorkSearchingOp, h.getWorkSearching)
+	api.Register(o, api.Admin, grabWaitingOp, h.grabWaiting)
+	api.Register(o, api.Admin, listWantedOp, h.listWanted)
+	api.Register(o, api.Admin, getSearchSettingsOp, h.getSearchSettings)
+	api.Register(o, api.Admin, updateSearchSettingsOp, h.updateSearchSettings)
 	api.Register(o, api.Admin, api.Op{
 		ID:      "listSearches",
 		Method:  http.MethodGet,
@@ -579,73 +594,6 @@ func Routes(r *api.Router, p Pipeline) {
 }
 
 type handlers struct{ p Pipeline }
-
-func (h handlers) searchWork(ctx context.Context, by identity.Admin, in *searchWorkInput) (*searchStartedOutput, error) {
-	u, err := storage.ParseUUID(in.WorkID)
-	if err != nil {
-		return nil, workNotFound
-	}
-	scope, err := scopeOf(in.Body)
-	if err != nil {
-		return nil, err
-	}
-	ids, err := open(h.p).SearchWork(ctx, by, works.WorkID{UUID: u}, scope)
-	if e, ok := errors.AsType[*works.NotInWorkError](err); ok {
-		return nil, notInWork(e)
-	}
-	if err != nil {
-		return nil, answer(err)
-	}
-	out := searchStarted{SearchIDs: []string{}}
-	for _, id := range ids {
-		out.SearchIDs = append(out.SearchIDs, id.String())
-	}
-	return &searchStartedOutput{Body: out}, nil
-}
-
-// scopeOf is the search scope body names, the whole Work when it is left
-// out.
-func scopeOf(body *searchScope) (grabs.Scope, error) {
-	if body == nil {
-		return grabs.Scope{}, nil
-	}
-	if len(body.LevelIDs) == 0 && len(body.ItemIDs) == 0 {
-		return grabs.Scope{}, api.Invalid.On("levelIds", "Send at least one level or Item id, or leave the body out to search the whole Work.")
-	}
-	part, err := withinOf(body.LevelIDs, body.ItemIDs)
-	if err != nil {
-		return grabs.Scope{}, err
-	}
-	return grabs.Within(part), nil
-}
-
-func withinOf(levels, items []string) (works.Within, error) {
-	var part works.Within
-	for _, s := range levels {
-		u, err := storage.ParseUUID(s)
-		if err != nil {
-			return works.Within{}, api.Invalid
-		}
-		part.Levels = append(part.Levels, works.LevelID{UUID: u})
-	}
-	for _, s := range items {
-		u, err := storage.ParseUUID(s)
-		if err != nil {
-			return works.Within{}, api.Invalid
-		}
-		part.Items = append(part.Items, works.ItemID{UUID: u})
-	}
-	return part, nil
-}
-
-// notInWork is e as the field it names.
-func notInWork(e *works.NotInWorkError) error {
-	field, noun := "itemIds", "Item"
-	if e.Level {
-		field, noun = "levelIds", "level"
-	}
-	return api.Invalid.On(fmt.Sprintf("%s[%d]", field, e.Index), "The Work has no "+noun+" with that id.")
-}
 
 func (h handlers) listSearches(ctx context.Context, by identity.Admin, in *workInput) (*searchListOutput, error) {
 	u, err := storage.ParseUUID(in.WorkID)

@@ -12,6 +12,7 @@ import { filmPlan } from "../../../test/manual";
 // oxlint-disable-next-line import/max-dependencies -- Jobs read Grabs, Works, Targets, Torrents, the live stream and Manual search
 import { manualEntry, manualSheet } from "../../../test/manual-entry";
 import { renderApp } from "../../../test/render-app";
+import { aSearchQueued, queuedGroupOf } from "../../../test/searching";
 import { starter, targetHandlers } from "../../../test/targets";
 import { actionsServer, torrent, torrentsServer } from "../../../test/torrents";
 
@@ -178,7 +179,7 @@ test("Search again on a failed Grab searches its Work and says so", async () => 
     handlers: [
       http.post("*/api/v1/works/:workId/search", ({ params }) => {
         searched.push(String(params["workId"]));
-        return HttpResponse.json({ searchIds: [failed.id] }, { status: 202 });
+        return HttpResponse.json(aSearchQueued([queuedGroupOf(1)]), { status: 202 });
       }),
       ...activityServer().handlers,
     ],

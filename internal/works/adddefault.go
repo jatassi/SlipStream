@@ -11,12 +11,31 @@ import (
 	"github.com/jatassi/slipstream/internal/works/internal/db"
 )
 
+// SearchScope is what an add searches, a core choice the add sheet labels
+// from the Content Type's nouns.
+type SearchScope string
+
+const (
+	SearchMonitored  SearchScope = "monitored"
+	SearchFirstLevel SearchScope = "first_level"
+	// SearchLatestLevel is the latest level with an aired Item.
+	SearchLatestLevel SearchScope = "latest_level"
+	SearchFirstItem   SearchScope = "first_item"
+	SearchNone        SearchScope = "none"
+)
+
+// SearchScopes is every SearchScope, in the order the add sheet lists
+// them. works_add_default's CHECK lists the same.
+var SearchScopes = []SearchScope{SearchMonitored, SearchFirstLevel, SearchLatestLevel, SearchFirstItem, SearchNone}
+
 // AddDefaults are the add choices a Work of a type takes when the add
-// names none: All without asides and level folders on, until remembered.
+// names none: All without asides, level folders on and a search of
+// everything monitored, until remembered.
 type AddDefaults struct {
 	// Monitor has Asides set and New nil, so the preset decides.
 	Monitor      Choice
 	LevelFolders bool
+	Search       SearchScope
 }
 
 // Remembering is the add choices an add makes its type's defaults; nil
@@ -25,6 +44,7 @@ type Remembering struct {
 	Preset       *Preset
 	Asides       *bool
 	LevelFolders *bool
+	Search       *SearchScope
 }
 
 func storedAddDefault(ctx context.Context, r storage.Reader[file], t TypeID) (db.WorksAddDefault, error) {
@@ -36,7 +56,7 @@ func storedAddDefault(ctx context.Context, r storage.Reader[file], t TypeID) (db
 }
 
 func defaultsOf(row db.WorksAddDefault) AddDefaults {
-	d := AddDefaults{Monitor: Choice{Preset: PresetAll, Asides: new(bool)}, LevelFolders: true}
+	d := AddDefaults{Monitor: Choice{Preset: PresetAll, Asides: new(bool)}, LevelFolders: true, Search: SearchMonitored}
 	if row.Monitor != nil {
 		d.Monitor.Preset = Preset(*row.Monitor)
 	}
@@ -45,6 +65,9 @@ func defaultsOf(row db.WorksAddDefault) AddDefaults {
 	}
 	if row.LevelFolders != nil {
 		d.LevelFolders = *row.LevelFolders
+	}
+	if row.Search != nil {
+		d.Search = SearchScope(*row.Search)
 	}
 	return d
 }
@@ -72,6 +95,9 @@ func RememberIn(ctx context.Context, tx *storage.Tx[file], t TypeID, m Rememberi
 	}
 	if f := m.LevelFolders; f != nil && *f != was.LevelFolders {
 		put.LevelFolders = f
+	}
+	if sc := m.Search; sc != nil && *sc != was.Search {
+		put.Search = new(string(*sc))
 	}
 	if put == row {
 		return nil

@@ -31,10 +31,12 @@ function open(
     const scope = SearchWorkBody.parse(await request.json());
     scopes.push(scope);
     const count = scope.levelIds.length > 0 ? 49 : scope.itemIds.length;
-    return HttpResponse.json(
-      { searchIds: Array.from({ length: count }, () => crypto.randomUUID()) },
-      { status: 202 },
-    );
+    const groups = Array.from({ length: count }, (_, i) => ({
+      key: `i:${i}`,
+      label: `Story ${i + 1}`,
+      state: "queued",
+    }));
+    return HttpResponse.json({ groups }, { status: 202 });
   });
   const server = workServer({ work, startCells: shelfCells(work, stateOf) });
   renderApp({ path: `/works/${work.id}`, handlers: [monitored, searched, ...server.handlers] });
