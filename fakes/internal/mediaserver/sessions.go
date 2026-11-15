@@ -21,6 +21,10 @@ const (
 	ScanEnded   EventKind = "scan_ended"
 	PlayStarted EventKind = "play_started"
 	PlayStopped EventKind = "play_stopped"
+	// ClientStarted and ClientEnded are a client's session starting and
+	// ending, as a sign-in and its logout do on Jellyfin and Emby.
+	ClientStarted EventKind = "client_started"
+	ClientEnded   EventKind = "client_ended"
 )
 
 // Event is one change on the server. Item is set for the item kinds and
@@ -77,6 +81,14 @@ func (s *Server) publish(e Event) {
 			s.drop(sub)
 		}
 	}
+}
+
+// Client tells every push socket a client's session started or ended,
+// with ClientStarted or ClientEnded.
+func (s *Server) Client(k EventKind) {
+	s.lock()
+	defer s.mu.Unlock()
+	s.publish(Event{Kind: k})
 }
 
 // Play is a playback a cue starts.

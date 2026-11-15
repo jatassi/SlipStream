@@ -358,6 +358,9 @@ func TestAResultTheControllerCanNeverApplyIsSkipped(t *testing.T) {
 // TestAResultIsResentWhileTheDatabaseFails fails the probe's apply of the
 // second result as a database that timed out does: the Controller skips
 // nothing, and once the failure passes the Worker's resend applies it.
+// The first result lands before the others are reported, since the
+// Controller applies a batch in one Write and a failure rolls back the
+// whole batch.
 func TestAResultIsResentWhileTheDatabaseFails(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := newCluster(t, "", "")
@@ -366,7 +369,12 @@ func TestAResultIsResentWhileTheDatabaseFails(t *testing.T) {
 		c.pair.Connect(t)
 		synctest.Wait()
 		heal := c.probe.FailAt(2, fmt.Errorf("probe_applied: %w", context.DeadlineExceeded))
-		for _, n := range []uint64{1, 2, 3} {
+		if err := w.probe.Report(t.Context(), 1); err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		c.checkApplied(t, "before the database fails", 1)
+		for _, n := range []uint64{2, 3} {
 			if err := w.probe.Report(t.Context(), n); err != nil {
 				t.Fatal(err)
 			}

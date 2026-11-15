@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"maps"
 	"os"
 	"os/exec"
@@ -436,5 +437,29 @@ func TestLoadTimingsFillsAnUnseenTestFromAnotherTargetAtThisTargetsScale(t *test
 	want := map[string]float64{"[webkit-phone] › a": 20, "[webkit-phone] › slow": 60}
 	if fmt.Sprint(got.Packages["browser"].Tests) != fmt.Sprint(want) {
 		t.Errorf("darwin-arm64 browser tests = %v, want its own a and linux-amd64's slow at twice its seconds: %v", got.Packages["browser"].Tests, want)
+	}
+}
+
+func TestGoTestLogWeighsATestByItsParallelSubtests(t *testing.T) {
+	events := []string{
+		`{"Action":"pass","Package":"p","Test":"TestSuite/v1/a","Elapsed":30}`,
+		`{"Action":"pass","Package":"p","Test":"TestSuite/v2/a","Elapsed":25}`,
+		`{"Action":"pass","Package":"p","Test":"TestSuite/v1/b","Elapsed":15}`,
+		`{"Action":"pass","Package":"p","Test":"TestSuite/v1","Elapsed":0}`,
+		`{"Action":"pass","Package":"p","Test":"TestSuite/v2","Elapsed":0}`,
+		`{"Action":"pass","Package":"p","Test":"TestSuite","Elapsed":0}`,
+		`{"Action":"pass","Package":"p","Test":"TestSerial/a","Elapsed":4}`,
+		`{"Action":"pass","Package":"p","Test":"TestSerial","Elapsed":5}`,
+		`{"Action":"pass","Package":"p","Elapsed":60}`,
+	}
+	log := newGoTestLog(io.Discard)
+	for _, e := range events {
+		if _, err := log.Write([]byte(e + "\n")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := map[string]float64{"TestSuite": 70, "TestSerial": 5}
+	if got := log.timings.Packages["p"].Tests; fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("tests = %v, want %v", got, want)
 	}
 }
