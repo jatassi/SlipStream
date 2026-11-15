@@ -40,3 +40,13 @@ LIMIT 1;
 -- A finished run's group: its next gap and due time, and no run open.
 UPDATE grabs_due SET gap_seconds = sqlc.arg(gap_seconds), due_at = sqlc.arg(due_at), search_id = NULL, changed_at = sqlc.arg(changed_at)
 WHERE search_id = sqlc.arg(search_id);
+
+-- name: DeleteLaneItems :exec
+DELETE FROM grabs_due_item
+WHERE (work_id, group_key) IN (SELECT work_id, group_key FROM grabs_due WHERE lane = sqlc.arg(lane));
+
+-- name: CancelLane :many
+-- The lane's queued entries leave it. Due times and open runs stay.
+UPDATE grabs_due SET lane = NULL, queued_at = NULL, trigger = NULL, include_gone = 0, changed_at = sqlc.arg(changed_at)
+WHERE lane = sqlc.arg(lane)
+RETURNING work_id;
