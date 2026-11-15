@@ -288,6 +288,16 @@ func TestACellThatFillsDeletesItsFailures(t *testing.T) {
 // placed every cell it held.
 func imported(t *testing.T, w *grabstest.World, id grabs.GrabID) {
 	t.Helper()
+	followed(t, w, id, grabs.SettledPlaced, grabs.Report{Placed: true})
+	if v, err := w.Grabs.Get(t.Context(), identity.Admin{}, id); err != nil || v.Stage != grabs.Imported {
+		t.Fatalf("the Grab is %v (%v), want imported", v.Stage, err)
+	}
+}
+
+// followed moves Grab id to importing and has its Import report r, with
+// every cell settled as s, in one Write.
+func followed(t *testing.T, w *grabstest.World, id grabs.GrabID, s grabs.Settled, r grabs.Report) {
+	t.Helper()
 	rel := newRelease(t)
 	raw, err := rel.link.Torrent(rel.info)
 	if err != nil {
@@ -301,9 +311,9 @@ func imported(t *testing.T, w *grabstest.World, id grabs.GrabID) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	settled := map[files.CellKey]grabs.Settled{}
+	r.Settled = map[files.CellKey]grabs.Settled{}
 	for _, c := range v.Targets {
-		settled[c.Key] = grabs.SettledPlaced
+		r.Settled[c.Key] = s
 	}
 	run(t, w.Lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		torrent, _, err := downloadclients.Attach(ctx, tx, downloadclients.Want{
@@ -316,10 +326,44 @@ func imported(t *testing.T, w *grabstest.World, id grabs.GrabID) {
 		if _, err := tx.ExecContext(ctx, `UPDATE grabs_grab SET stage = 'importing', torrent_id = ? WHERE id = ?`, torrent, id); err != nil {
 			return err
 		}
-		_, err = w.Grabs.Follow(ctx, tx, id, grabs.Report{Settled: settled, Placed: true})
+		_, err = w.Grabs.Follow(ctx, tx, id, r)
 		return err
 	})
-	if v, err := w.Grabs.Get(t.Context(), identity.Admin{}, id); err != nil || v.Stage != grabs.Imported {
-		t.Fatalf("the Grab is %v (%v), want imported", v.Stage, err)
-	}
+}
+
+// importEnded has Grab id's Import end with code, placing nothing and
+// settling every cell none in the Write that fails the Grab, as an Import
+// that found no file for them does.
+func importEnded(t *testing.T, w *grabstest.World, id grabs.GrabID, code grabs.Code) {
+	t.Helper()
+	followed(t, w, id, grabs.SettledNone, grabs.Report{Ended: &grabs.Failure{Stage: grabs.Importing, Code: code}})
+}
+
+func TestAnImportThatPlacesNothingCountsLikeAnyFailedGrab(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := failureWorld(t)
+		settings(t, w, map[string]string{grabs.StopCount.Key: "2"})
+		importEnded(t, w, grabbedOver(t, w, heard(w, "E01", "1080p.WEB-DL", 'a')), grabs.NoVideoFile)
+		if got := reads(cellOf(t, w)); got != "Missing" {
+			t.Fatalf("after the first failed Import the cell reads %q, want Missing", got)
+		}
+		if got := len(w.Queue(t).Nudged); got != 1 {
+			t.Fatalf("after the first failed Import the queue holds %d nudges, want 1: it searches again at once", got)
+		}
+		second := grabbedOver(t, w, heard(w, "E01", "1080p.WEB-DL", 'b'))
+		importEnded(t, w, second, grabs.NoVideoFile)
+		if got := reads(cellOf(t, w)); got != "Failed, stopped" {
+			t.Fatalf("after the second failed Import the cell reads %q, want it stopped at the stop count of 2", got)
+		}
+		if got := len(w.Queue(t).Nudged); got != 1 {
+			t.Fatalf("after the stop the queue holds %d nudges, want still 1", got)
+		}
+		v, err := w.Grabs.Get(t.Context(), identity.Admin{}, second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !v.Current || !v.NeedsYou() {
+			t.Fatalf("the stopping Grab reads current %v, needs you %v: want both, so Needs you lists it", v.Current, v.NeedsYou())
+		}
+	})
 }
