@@ -89,7 +89,7 @@ export const atRiskTorrents: HealthItem = {
   key: `${seedpoolId}.at-risk`,
   subject: "Torrents on seedpool",
   level: "warn",
-  text: "2 torrents on seedpool stopped seeding before seedpool's rule was met. Resume or retry them before seedpool counts a hit and run.",
+  text: "2 torrents on seedpool stopped seeding before seedpool's seeding rule was met. Seed them again before seedpool counts a hit and run.",
   since: minutesAgo(10),
   changedAt: minutesAgo(10),
   unsure: false,
@@ -145,7 +145,7 @@ export function reportOf({
   const categories = [
     category("storage", "Storage", "storage", true, storage),
     category("nodes", "Nodes", "Nodes", true, nodes),
-    category("seeding", "Seeding", "torrents that still owe a Tracker", false, seeding),
+    category("seeding", "Seeding", "torrents that still need seeding", false, seeding),
     category("indexers", "Indexers", "Indexers", false, indexers),
     category("scheduled-tasks", "Scheduled tasks", "scheduled tasks", false, tasks),
   ];

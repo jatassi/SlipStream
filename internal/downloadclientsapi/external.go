@@ -28,7 +28,7 @@ var (
 	clientNameTaken    = api.NewCode(http.StatusConflict, "download_client_name_taken", "Another Download Client has that name")
 	clientNotFound     = api.NewCode(http.StatusNotFound, "download_client_not_found", "No Download Client has this id")
 	clientFieldRefused = api.NewCode(http.StatusUnprocessableEntity, "download_client_field_refused", "SlipStream can't use a value in this client's settings")
-	nodeNotDownloading = api.NewCode(http.StatusConflict, "node_not_downloading", "That Node doesn't hold Downloading")
+	nodeNotDownloading = api.NewCode(http.StatusConflict, "node_not_downloading", "That Node doesn't have the Downloading Role")
 	clientImporting    = api.NewCode(http.StatusConflict, "download_client_importing", "A Grab is importing from this client")
 )
 

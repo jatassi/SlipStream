@@ -71,10 +71,10 @@ export function Windows({ trackerId, name }: { trackerId: string; name: string }
   return (
     <>
       <WindowList
-        title="Open windows"
+        title="Open hit and run windows"
         windows={open.windows}
         more={open.more}
-        empty={`No torrent owes ${name} seeding.`}
+        empty={`No torrent needs more seeding for ${name}.`}
         tracker={name}
         clock={clock}
         lanes={lanes}
