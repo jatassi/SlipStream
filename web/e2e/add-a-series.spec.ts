@@ -35,18 +35,18 @@ async function expectEachPreset(page: Page, sheet: Locator) {
   ]);
   await page.keyboard.press("Escape");
   const monitoring = [
-    [/^Future/u, "monitoring only new episodes as they air"],
-    [/^Missing/u, "monitoring all 9 episodes and new ones as they air"],
-    [/^Existing/u, "monitoring no episodes"],
-    [/^First season/u, "monitoring 3 episodes and no new ones"],
-    [/^None/u, "monitoring no episodes"],
-    [/^Latest season/u, "monitoring 3 episodes and new ones as they air"],
+    [/^Future/u, "SlipStream monitors only new episodes as they air."],
+    [/^Missing/u, "SlipStream monitors all 9 episodes and new ones as they air."],
+    [/^Existing/u, "SlipStream monitors no episodes."],
+    [/^First season/u, "SlipStream monitors 3 episodes and no new ones."],
+    [/^None/u, "SlipStream monitors no episodes."],
+    [/^Latest season/u, "SlipStream monitors 3 episodes and new ones as they air."],
   ] as const;
   for (const [preset, words] of monitoring) {
     // oxlint-disable-next-line no-await-in-loop -- each choice reads the sentence the last one left
     await choose(page, sheet, preset);
     // oxlint-disable-next-line no-await-in-loop -- as above
-    await expect(sentence(sheet)).toContainText(`, ${words}, `);
+    await expect(sentence(sheet)).toContainText(words);
   }
 }
 
@@ -84,7 +84,7 @@ test("a series found by its alternative title adds with the preset, specials and
   const sheet = page.getByRole("dialog", { name: "Add The Lantern Keepers" });
   await expect(sheet).toContainText("3 seasons · 9 episodes");
   await expect(sentence(sheet)).toHaveText(
-    /^Adds The Lantern Keepers \(2020\) to TV on .+[/\\]tv, monitoring all 9 episodes and new ones as they air, wanting TV's 1 Target\.$/u,
+    /^Adds The Lantern Keepers \(2020\) to TV on .+[/\\]tv\. SlipStream monitors all 9 episodes and new ones as they air\. Its Profile, TV, has 1 Target\.$/u,
   );
   await expectEachPreset(page, sheet);
 

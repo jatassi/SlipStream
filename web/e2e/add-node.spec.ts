@@ -107,7 +107,7 @@ test("the open Join Codes survive a reload and revoke a code so it can't pair", 
   await homePage(page);
   await mint(page);
   await page.reload();
-  await expect(dialog(page).getByText(/^A Join Code shows only when it is made\./u)).toBeVisible();
+  await expect(dialog(page).getByText(/^SlipStream shows a Join Code only once, when you make it\./u)).toBeVisible();
   const open = dialog(page).getByRole("list", { name: "Open Join Codes" });
   await expect(open.getByRole("listitem")).toHaveCount(2);
 
