@@ -470,3 +470,30 @@ func TestParsePools(t *testing.T) {
 		}
 	}
 }
+
+func TestSetShardsReplacesALanesCountOnEveryTarget(t *testing.T) {
+	saved := slices.Clone(lanes)
+	t.Cleanup(func() { lanes = saved })
+	if err := setShards("browser=2,go=1"); err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range lanes {
+		for target, n := range l.shards {
+			want := saved[slices.IndexFunc(saved, func(s lane) bool { return s.kind == l.kind })].shards[target]
+			switch l.kind {
+			case "browser":
+				want = 2
+			case "go":
+				want = 1
+			}
+			if n != want {
+				t.Errorf("%s on %s has %d shards, want %d", l.kind, target, n, want)
+			}
+		}
+	}
+	for _, bad := range []string{"browser", "browser=0", "nosuch=1", "browser=x"} {
+		if err := setShards(bad); err == nil {
+			t.Errorf("setShards(%q) succeeded, want an error", bad)
+		}
+	}
+}

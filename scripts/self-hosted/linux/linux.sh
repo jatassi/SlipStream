@@ -113,7 +113,35 @@ MemoryMax=${memory_mib}M
 MemorySwapMax=0
 EOF
 done
+# Each runner's memory every 2 s, to size the runners from what jobs use.
+install -d -m 755 /var/log/slipstream-ci
+cat > /usr/local/bin/slipstream-ci-memory <<'EOF'
+#!/bin/bash
+while sleep 2; do
+  line=$(date -u +%FT%TZ)
+  for f in /sys/fs/cgroup/system.slice/system-slipstream\\x2dci\\x2drunner.slice/slipstream-ci-runner@*.service/memory.current; do
+    [ -e "$f" ] || continue
+    n=${f%.service/memory.current}
+    line+=" ${n##*@}=$(( $(cat "$f") / 1048576 ))"
+  done
+  echo "$line"
+done >> /var/log/slipstream-ci/memory.log
+EOF
+chmod 755 /usr/local/bin/slipstream-ci-memory
+cat > /etc/systemd/system/slipstream-ci-memory.service <<'EOF'
+[Unit]
+Description=Log each SlipStream CI runner's memory
+
+[Service]
+ExecStart=/usr/local/bin/slipstream-ci-memory
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
 systemctl daemon-reload
+systemctl enable --now slipstream-ci-memory > /dev/null 2>&1
+systemctl restart slipstream-ci-memory
 
 deps_installed=false
 for i in $(seq 1 "$RUNNERS"); do

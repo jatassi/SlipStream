@@ -149,12 +149,16 @@ func runPlan(_ context.Context, args []string) error {
 	fs.BoolVar(&t.diagram, "diagram", false, "the change touches what the Diagram check reads, as the scope command's diagram output says")
 	targets := fs.String("targets", "", "comma-separated targets to keep; empty keeps every target the event runs")
 	tier := fs.String("tier", "all", "lanes to run: all, "+strings.Join(laneTiers(), ", "))
+	shards := fs.String("shards", "", "comma-separated shard counts that replace a lane's on every target that runs it, as lane=n, such as browser=2")
 	selfHosted := fs.String("self-hosted", "", "comma-separated pools of self-hosted runners as target=runner:slots, such as linux-amd64=slipstream-linux-0a1b2c:8")
 	if err := fs.Parse(args); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
 	}
 	pools, err := parsePools(*selfHosted)
 	if err != nil {
+		return err
+	}
+	if err := setShards(*shards); err != nil {
 		return err
 	}
 	e, ok := events[*eventName]
@@ -307,6 +311,35 @@ func (l lane) selected(tier string, packaging bool) bool {
 	default:
 		return l.tier == tier
 	}
+}
+
+// setShards replaces lanes' shard counts on every target that runs them,
+// for a dispatch that measures how a lane splits.
+func setShards(s string) error {
+	if s == "" {
+		return nil
+	}
+	for item := range strings.SplitSeq(s, ",") {
+		kind, count, ok := strings.Cut(item, "=")
+		n, err := strconv.Atoi(count)
+		i := slices.IndexFunc(lanes, func(l lane) bool { return l.kind == kind })
+		if !ok || err != nil || n < 1 || i < 0 {
+			return fmt.Errorf("-shards %q isn't lane=n with a lane of %s and n of at least 1", item, strings.Join(laneKinds(), ", "))
+		}
+		lanes[i].shards = maps.Clone(lanes[i].shards)
+		for target := range lanes[i].shards {
+			lanes[i].shards[target] = n
+		}
+	}
+	return nil
+}
+
+func laneKinds() []string {
+	kinds := make([]string, len(lanes))
+	for i, l := range lanes {
+		kinds[i] = l.kind
+	}
+	return kinds
 }
 
 // pool is a set of self-hosted runners for one target: the label that

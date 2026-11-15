@@ -26,6 +26,10 @@ on:
         description: Run each test this many times, as go test -count and playwright --repeat-each
         type: number
         default: 1
+      shards:
+        description: Shard counts that replace the lanes' own, as lane=n pairs such as go=1,browser=2
+        type: string
+        default: ""
       update-shapes:
         description: Rewrite each conformance suite's shape.json from the real services and upload them
         type: boolean
@@ -122,7 +126,7 @@ jobs:
       # runs linux-amd64 alone unless labelled ci: full.
       - name: Plan the lanes and matrices
         id: plan
-        run: go run ./cmd/release plan -event "$EVENT" -scope "${SCOPE:-native}" -package="${PACKAGE:-false}" -diagram="${DIAGRAM:-false}" -targets "$TARGETS" -tier "$TIER" -self-hosted "$POOLS"
+        run: go run ./cmd/release plan -event "$EVENT" -scope "${SCOPE:-native}" -package="${PACKAGE:-false}" -diagram="${DIAGRAM:-false}" -targets "$TARGETS" -tier "$TIER" -shards "$SHARDS" -self-hosted "$POOLS"
         env:
           EVENT: >-
             ${{ github.event_name == 'schedule' && 'schedule' || github.event_name == 'workflow_dispatch' && 'dispatch' ||
@@ -134,6 +138,7 @@ jobs:
           TARGETS: ${{ inputs.targets }}
           TIER: ${{ inputs.tier || 'all' }}
           POOLS: ${{ steps.self-hosted.outputs.pools }}
+          SHARDS: ${{ inputs.shards }}
       # Every go, e2e and browser shard splits its tier by the same timings:
       # the go-timings artifact of the last run that recorded them. They are
       # kept as an artifact because a cache entry was evicted within the hour

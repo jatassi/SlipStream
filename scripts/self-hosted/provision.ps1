@@ -39,18 +39,24 @@ if ($Only -ne 'windows') {
     Write-Host "Linux kit $kit, runner $version"
     # .wslconfig sets the VM every distro shares, and WSL reads it only when
     # the VM starts, so a change shuts every distro down.
+    # autoMemoryReclaim hands the VM's idle page cache back to Windows, whose
+    # runners and apps share the rest of the PC's memory.
     $wslConfig = Join-Path $env:USERPROFILE '.wslconfig'
     $before = if (Test-Path $wslConfig) { Get-Content -Raw $wslConfig } else { '' }
-    $after = if ($before -match '(?m)^\s*memory\s*=') {
-        $before -replace '(?m)^\s*memory\s*=.*$', "memory=$WslMemory"
-    } elseif ($before -match '(?m)^\[wsl2\]') {
-        $before -replace '(?m)^\[wsl2\]\s*$', "[wsl2]`nmemory=$WslMemory"
-    } else {
-        $before.TrimEnd() + "`n[wsl2]`nmemory=$WslMemory`n"
+    $after = $before
+    foreach ($setting in @(@('wsl2', 'memory', $WslMemory), @('experimental', 'autoMemoryReclaim', 'dropCache'))) {
+        $section, $key, $value = $setting
+        $after = if ($after -match "(?m)^\s*$key\s*=") {
+            $after -replace "(?m)^\s*$key\s*=.*$", "$key=$value"
+        } elseif ($after -match "(?m)^\[$section\]") {
+            $after -replace "(?m)^\[$section\]\s*$", "[$section]`n$key=$value"
+        } else {
+            $after.TrimEnd() + "`n`n[$section]`n$key=$value`n"
+        }
     }
     if ($after.Trim() -ne $before.Trim()) {
         Set-Content -Path $wslConfig -Value $after.TrimStart() -NoNewline
-        Write-Host "Set memory=$WslMemory in $wslConfig. Shutting WSL down to apply it."
+        Write-Host "Updated $wslConfig. Shutting WSL down to apply it."
         wsl.exe --shutdown
     }
 
