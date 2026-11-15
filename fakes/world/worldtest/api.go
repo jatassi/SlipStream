@@ -434,10 +434,11 @@ func checkRow(t *testing.T, r Row, link string, roles []string) {
 
 // Searched presses Search on work, within body's levels and Items when body
 // isn't empty, and returns the n runs it queued, newest first, once the
-// reconciler has started them.
+// reconciler has started them. A run that finishes may prune an earlier
+// one of its group, so it waits for ids it hadn't listed, not for more.
 func (a *API) Searched(work, body string, n int) []string {
 	a.t.Helper()
-	before := len(a.searches(work))
+	before := a.searches(work)
 	reply := a.Admin("home", http.MethodPost, "/api/v1/works/"+work+"/search", body)
 	var queued struct {
 		Groups []struct{} `json:"groups"`
@@ -445,15 +446,15 @@ func (a *API) Searched(work, body string, n int) []string {
 	if err := json.Unmarshal([]byte(reply.Body), &queued); err != nil || reply.Status != http.StatusAccepted || len(queued.Groups) != n {
 		a.t.Fatalf("searchWork %s = %d %s, want 202 with %d groups", body, reply.Status, reply.Body, n)
 	}
-	var ids []string
+	var started []string
 	err := poll(a.ctx, func() (bool, error) {
-		ids = a.searches(work)
-		return len(ids) >= before+n, nil
+		started = slices.DeleteFunc(a.searches(work), func(id string) bool { return slices.Contains(before, id) })
+		return len(started) >= n, nil
 	})
 	if err != nil {
 		a.t.Fatalf("waiting until the press's %d runs start: %v", n, err)
 	}
-	return ids[:n]
+	return started[:n]
 }
 
 // searches is work's runs' ids, newest first.
