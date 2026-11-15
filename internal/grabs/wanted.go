@@ -8,6 +8,7 @@ import (
 	"errors"
 	"math"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/files"
@@ -79,7 +80,7 @@ type WantedRow struct {
 	Phase  Phase
 }
 
-// ItemRange is a run of Items in tree order, by their labels.
+// ItemRange is a run of Items in tree order, by their codes.
 type ItemRange struct{ First, Last string }
 
 // WantedPage is one page of Wanted. Total is the Works the filter lists,
@@ -97,6 +98,7 @@ type WantedPage struct {
 type wantedListing struct {
 	wanted files.WorkWanted
 	search WorkSearch
+	next   time.Time
 	key    sortKey
 }
 
@@ -145,7 +147,7 @@ func (gr *Grabs) Wanted(ctx context.Context, _ identity.Admin, q WantedQuery) (W
 		}
 		rows, left := filtered(ws, q.Filter)
 		page.Total, page.LeftGone = len(rows), left
-		if err := keyed(ctx, r, rows, s.byWork(), q.Sort); err != nil {
+		if err := keyed(ctx, r, rows, s, page.Status.NextBacklog, q.Sort); err != nil {
 			return err
 		}
 		slices.SortFunc(rows, func(a, b wantedListing) int { return a.key.compare(b.key) })
@@ -187,8 +189,12 @@ func filtered(ws []files.WorkWanted, f WantedFilter) (listed []wantedListing, le
 	return listed, leftGone
 }
 
-// keyed sets each row's search, from byWork, and its key under sort.
-func keyed(ctx context.Context, r storage.Reader[file], rows []wantedListing, byWork map[works.WorkID]*WorkSearch, sort WantedSort) error {
+// keyed sets each row's search, from s, its next search and its key under
+// sort. A row no group has a due time for, which Backlog search would
+// queue, is next searched at backlog, the next Backlog search, which gives
+// its groups their first due times.
+func keyed(ctx context.Context, r storage.Reader[file], rows []wantedListing, s states, backlog time.Time, sort WantedSort) error {
+	byWork := s.byWork()
 	labels := map[works.WorkID]string{}
 	if sort == ByTitle {
 		ids := make([]works.WorkID, len(rows))
@@ -205,18 +211,25 @@ func keyed(ctx context.Context, r storage.Reader[file], rows []wantedListing, by
 	}
 	for i := range rows {
 		l := &rows[i]
-		if s := byWork[l.wanted.Work]; s != nil {
-			l.search = *s
+		if ws := byWork[l.wanted.Work]; ws != nil {
+			l.search = *ws
+		}
+		lead, _, _ := files.ReasonOf(l.wanted.Cells)
+		switch l.next = l.search.Next(); {
+		case lead == files.ReasonGone:
+			l.next = time.Time{}
+		case l.next.IsZero() && l.search.Phase() == Idle && (lead != files.ReasonUpgrade || s.upgrades):
+			l.next = backlog
 		}
 		l.key.W = l.wanted.Work.String()
 		switch sort {
 		case ByNext:
-			switch next := l.search.Next(); {
+			switch {
 			case l.search.Phase() != Idle:
-			case next.IsZero() || onlyGone(l.wanted):
+			case l.next.IsZero():
 				l.key.N = math.MaxInt64
 			default:
-				l.key.N = next.UnixMicro()
+				l.key.N = l.next.UnixMicro()
 			}
 		case ByLast:
 			if last := l.search.Last(); last != nil {
@@ -229,11 +242,6 @@ func keyed(ctx context.Context, r storage.Reader[file], rows []wantedListing, by
 		}
 	}
 	return nil
-}
-
-func onlyGone(w files.WorkWanted) bool {
-	lead, _, _ := files.ReasonOf(w.Cells)
-	return lead == files.ReasonGone
 }
 
 // newest is the latest release of cells' Items.
@@ -266,21 +274,28 @@ func (gr *Grabs) wantedRows(ctx context.Context, r storage.Reader[file], page []
 	for i, l := range page {
 		w := of[l.wanted.Work]
 		reason, others, _ := files.ReasonOf(l.wanted.Cells)
-		row := WantedRow{
-			Work: w.Summary, Poster: w.Poster, Reason: reason, Others: others, Ranges: rangesOf(w.Items, l.wanted.Cells, reason),
-			Last: l.search.Last(), Phase: l.search.Phase(),
+		ranges, err := gr.rangesOf(ctx, r, w.Summary, l.wanted.Cells, reason)
+		if err != nil {
+			return nil, err
 		}
-		if reason != files.ReasonGone {
-			row.Next = l.search.Next()
+		out[i] = WantedRow{
+			Work: w.Summary, Poster: w.Poster, Reason: reason, Others: others, Ranges: ranges,
+			Last: l.search.Last(), Next: l.next, Phase: l.search.Phase(),
 		}
-		out[i] = row
 	}
 	return out, nil
 }
 
-// rangesOf is the runs, in the tree order of items, of the Items whose
-// first Reason among cells is reason.
-func rangesOf(items []works.Item, cells []files.Cell, reason files.Reason) []ItemRange {
+// rangesOf is the runs, in tree order, of w's Items whose first Reason
+// among cells is reason, each Item named as Needs you names it: by its
+// type's code, or its position when the type places none. A Work of one
+// Item lists none.
+func (gr *Grabs) rangesOf(ctx context.Context, r storage.Reader[file], w works.Summary, cells []files.Cell, reason files.Reason) ([]ItemRange, error) {
+	out := []ItemRange{}
+	d, _ := gr.cfg.Works.Describe(w.ContentType)
+	if d.Items == works.ItemsOne {
+		return out, nil
+	}
 	lists := map[works.ItemID]bool{}
 	for len(cells) > 0 {
 		n := 1 + slices.IndexFunc(cells[1:], func(c files.Cell) bool { return c.Item.ID != cells[0].Item.ID })
@@ -292,19 +307,23 @@ func rangesOf(items []works.Item, cells []files.Cell, reason files.Reason) []Ite
 		}
 		cells = cells[n:]
 	}
-	out := []ItemRange{}
+	tree, err := gr.cfg.Works.TreeIn(ctx, r, w.ID)
+	if err != nil {
+		return nil, err
+	}
 	open := false
-	for _, it := range items {
+	for _, it := range tree.Items {
+		code := cmp.Or(itemCode(d, it), strconv.Itoa(it.Position))
 		switch {
 		case !lists[it.ID]:
 			open = false
 		case open:
-			out[len(out)-1].Last = it.Label
+			out[len(out)-1].Last = code
 		default:
-			out, open = append(out, ItemRange{First: it.Label, Last: it.Label}), true
+			out, open = append(out, ItemRange{First: code, Last: code}), true
 		}
 	}
-	return out
+	return out, nil
 }
 
 // status is the queue's status sentence in r, from s.

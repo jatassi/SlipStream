@@ -82,3 +82,25 @@ test("a row's Search grabs that Work's Release, and the Grab takes it off Wanted
   await expect(row(page, "Meadowlark")).toBeHidden({ timeout: 30_000 });
   await expect(row(page, "The Quiet Orchard")).toBeVisible();
 });
+
+test("Items read as episode codes, a movie lists none, and a row never searched waits for the next Backlog search", async ({
+  adminPage: page,
+  world,
+}) => {
+  await addEverything(world);
+  await openWanted(page);
+  if (isPhone(page)) {
+    await expect(row(page, "The Lantern Keepers")).toContainText(
+      /Missing\. S01E01 to S02E03\. Next search .+ at \d{2}:\d{2}\./u,
+    );
+    await expect(row(page, "Meadowlark")).toContainText(
+      /Missing\. Next search .+ at \d{2}:\d{2}\./u,
+    );
+    return;
+  }
+  const cells = (work: string) => row(page, work).getByRole("cell");
+  await expect(cells("The Lantern Keepers").nth(1)).toHaveText("S01E01 to S02E03");
+  await expect(cells("Meadowlark").nth(1)).toHaveText("");
+  await expect(cells("The Lantern Keepers").nth(4)).toHaveText(/^.+ at \d{2}:\d{2}$/u);
+  await expect(cells("Meadowlark").nth(4)).toHaveText(/^.+ at \d{2}:\d{2}$/u);
+});

@@ -6961,11 +6961,11 @@
         "additionalProperties": false,
         "properties": {
           "first": {
-            "description": "The label of the first Item of the run",
+            "description": "The code of the first Item of the run, such as S02E01",
             "type": "string"
           },
           "last": {
-            "description": "The label of the last Item of the run, the first's for a run of one",
+            "description": "The code of the last Item of the run, the first's for a run of one",
             "type": "string"
           }
         },
@@ -8565,7 +8565,7 @@
             "type": "object"
           },
           "ranges": {
-            "description": "The Items it lists, as runs in tree order",
+            "description": "The Items it lists, as runs in tree order; empty for a Work of one Item",
             "items": {
               "$ref": "#/components/schemas/GrabsItemRange"
             },

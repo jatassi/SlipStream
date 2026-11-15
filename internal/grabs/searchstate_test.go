@@ -72,7 +72,7 @@ func TestTheHerosLeadAndWantedsRowAgreeForTheSameWork(t *testing.T) {
 			if led.Phase != phase || row.Phase != phase {
 				t.Fatalf("%s: the hero leads with %s and Wanted's row reads %s, want both %s", step, led.Phase, row.Phase, phase)
 			}
-			if !reflect.DeepEqual(led.Last, row.Last) || !led.Next.Equal(row.Next) {
+			if !reflect.DeepEqual(led.Last, row.Last) || lead.Group != nil && !led.Next.Equal(row.Next) {
 				t.Fatalf("%s: the hero's group last ran %+v, next %v, and Wanted's row %+v, next %v, want them equal", step, led.Last, led.Next, row.Last, row.Next)
 			}
 			if (last == "") != (row.Last == nil) || row.Last != nil && row.Last.Outcome != last {
@@ -88,6 +88,30 @@ func TestTheHerosLeadAndWantedsRowAgreeForTheSameWork(t *testing.T) {
 		agree("its run found nothing", grabs.Idle, grabs.NothingFound)
 		if lead := searchOf(t, w).Lead(); lead.Group.Next.IsZero() || lead.Group.Label != "Winter" {
 			t.Fatalf("after the run the hero leads with %+v, want Winter with its next Backlog search", lead.Group)
+		}
+	})
+}
+
+func TestANeverSearchedRowIsNextSearchedByTheNextBacklogSearch(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := queueWorld(t, grabstest.Options{Sites: []string{"Quick Site"}})
+		page := wantedPage(t, w, grabs.WantedQuery{})
+		if row := rowOf(t, page, w.Work); row.Phase != grabs.Idle || page.Status.NextBacklog.IsZero() || !row.Next.Equal(page.Status.NextBacklog) {
+			t.Fatalf("a never-searched row reads %s, next %v, with Backlog search next at %v, want idle and next at the Backlog search", row.Phase, row.Next, page.Status.NextBacklog)
+		}
+		settings(t, w, map[string]string{grabs.BacklogOn.Key: "false"})
+		if row := rowOf(t, wantedPage(t, w, grabs.WantedQuery{}), w.Work); !row.Next.IsZero() {
+			t.Fatalf("with Backlog search off a never-searched row is next searched at %v, want only on a press", row.Next)
+		}
+	})
+}
+
+func TestWantedsItemsReadAsTheWorkPagesCodes(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		w := queueWorld(t, grabstest.Options{Sites: []string{"Quick Site"}, Season: 3, Coded: true})
+		got := rowOf(t, wantedPage(t, w, grabs.WantedQuery{}), w.Work).Ranges
+		if want := []grabs.ItemRange{{First: "B1E01", Last: "B1E03"}}; !slices.Equal(got, want) {
+			t.Fatalf("Wanted's row lists %+v, want %+v", got, want)
 		}
 	})
 }

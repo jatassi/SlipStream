@@ -53,15 +53,15 @@ type wantedWork struct {
 }
 
 type itemRange struct {
-	First string `json:"first" doc:"The label of the first Item of the run"`
-	Last  string `json:"last" doc:"The label of the last Item of the run, the first's for a run of one"`
+	First string `json:"first" doc:"The code of the first Item of the run, such as S02E01"`
+	Last  string `json:"last" doc:"The code of the last Item of the run, the first's for a run of one"`
 }
 
 type wantedRow struct {
 	Work   wantedWork     `json:"work"`
 	Reason string         `json:"reason" enum:"failed,missing,upgrade,gone" doc:"The reason the row lists, the first in this order the Work has"`
 	Others map[string]int `json:"others" doc:"The count of Items under each other reason, by reason"`
-	Ranges []itemRange    `json:"ranges" nullable:"false" doc:"The Items it lists, as runs in tree order"`
+	Ranges []itemRange    `json:"ranges" nullable:"false" doc:"The Items it lists, as runs in tree order; empty for a Work of one Item"`
 	LastAt *time.Time     `json:"lastSearchedAt" doc:"When its last search finished; null before one did"`
 	Last   *string        `json:"lastResult" enum:"grabbed,waiting,nothing_found,nothing_acceptable,no_indexer,no_root" doc:"How its last search finished; null before one did"`
 	NextAt *time.Time     `json:"nextSearchAt" doc:"When Backlog search searches it next; null for a gone row, which only a press searches, and while Backlog search is off"`
