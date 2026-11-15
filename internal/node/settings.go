@@ -539,7 +539,7 @@ func outOfRange(key string, err error) error {
 // the first problem with a changed key, else the first.
 func refusal(err error, changed ...string) error {
 	if errors.Is(err, config.ErrNotRegular) {
-		return &nodesystem.Refusal{Reason: nodesystem.NotWritable, Sentence: "SlipStream can't rewrite config.yaml, a link or a mounted file. Edit it by hand."}
+		return &nodesystem.Refusal{Reason: nodesystem.NotWritable, Sentence: "config.yaml is a link or a mounted file, so SlipStream can't rewrite it. Edit it by hand."}
 	}
 	loadErr, ok := errors.AsType[*config.Error](err)
 	if !ok {

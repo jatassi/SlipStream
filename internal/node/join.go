@@ -263,7 +263,7 @@ func NodeAddress(env Env) (joincode.NodeAddress, error) {
 	}
 	addrs, ok := link.Advertising(cfg.Link)
 	if !ok {
-		return joincode.NodeAddress{}, fmt.Errorf("link.listen %s covers no address another machine can dial. Set link.advertise", cfg.Link.Listen)
+		return joincode.NodeAddress{}, fmt.Errorf("link.listen %s gives no address other machines can connect to. Set link.advertise to one they can", cfg.Link.Listen)
 	}
 	pub := key.Public()
 	return joincode.NewNodeAddress(pub[:], addrs.All())
