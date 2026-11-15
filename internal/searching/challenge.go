@@ -156,7 +156,7 @@ func solve(ctx context.Context, client *http.Client, solver Solver, u *url.URL, 
 	defer func() { _ = res.Body.Close() }()
 	var out solveResponse
 	if err := json.NewDecoder(io.LimitReader(res.Body, readLimit)).Decode(&out); err != nil {
-		return clearance{}, &Failing{Err: fmt.Errorf("the Challenge solver responded with status %d and no answer SlipStream reads", res.StatusCode)}
+		return clearance{}, &Failing{Err: fmt.Errorf("the Challenge solver responded with status %d and a body SlipStream can't read", res.StatusCode)}
 	}
 	switch {
 	case out.Status == "ok":
