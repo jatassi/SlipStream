@@ -1,11 +1,10 @@
 import { expect, test } from "./fixtures.ts";
-import { workSearch } from "./cells.ts";
 import { navigate } from "./shell.ts";
 
 test.use({ scenario: "home" });
 test.describe.configure({ timeout: 120_000 });
 
-test("an Admin adds a movie, searches it, and watches it import", async ({
+test("an Admin adds a movie, its search on add grabs it, and it imports", async ({
   adminPage: page,
   world,
 }) => {
@@ -17,14 +16,12 @@ test("an Admin adds a movie, searches it, and watches it import", async ({
     .getByRole("dialog", { name: "Add The Quiet Orchard" })
     .getByRole("button", { name: "Add Movie" })
     .click();
-  await expect(page.getByRole("heading", { name: "The Quiet Orchard", exact: true })).toBeVisible();
-
-  await workSearch(page).click();
   await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
-    "Searching The Quiet Orchard",
+    "Added The Quiet Orchard. Searching now.",
   );
+  await expect(page.getByRole("heading", { name: "The Quiet Orchard", exact: true })).toBeVisible();
   await expect(page.getByRole("list", { name: "Searches" })).toContainText(
-    /^Grabbed 1 ReleaseSearch · 2 Releases found · .+Fixture SiteFound 2 Releases/u,
+    /^Grabbed 1 ReleaseAdded · 2 Releases found · .+Fixture SiteFound 2 Releases/u,
   );
 
   await navigate(page, "Activity");
