@@ -2,7 +2,7 @@
 
 SlipStream finds, downloads, processes and files media into a library that media servers play, across one or more machines.
 
-This glossary names SlipStream's concepts for code, specs, issues and docs. It isn't the UI's word list. A term reaches a screen only through its `_In UI_` line, which gives the words a person sees there, and a line of none keeps it out of user-facing strings. Copy then says what the concept means for the reader. [WRITING.md](WRITING.md) sets how. A definition says what the thing is in one or two sentences. The rules for how it behaves belong in its spec or ADR.
+This glossary names SlipStream's concepts for code, specs, issues and docs. It isn't the UI's word list. A term reaches a screen only through its `_In UI_` line, which gives the words a person sees there, and a line of none keeps it out of user-facing strings. Copy then says what the concept means for the reader. [WRITING.md](WRITING.md) sets how. A definition says what the thing is in one or two sentences. The rules for how it behaves belong in its spec or ADR, or in [docs/domain-rules.md](docs/domain-rules.md) when neither records them.
 
 ## Media
 
@@ -27,7 +27,7 @@ _In UI_: none
 _Avoid_: Match, scope
 
 **Edition**:
-A cut of an Item, such as Standard, Theatrical, Extended or Director's. Every Item has at least one Edition. A Work's list is either any cut or named cuts, never both. Under any cut, an Item wants one file at each Target, of whatever Edition, and the file's own Edition sets only its name. A list naming Standard always wants it, and wants each other Edition on the list only once a release or file of it has been seen for the Item. A list without Standard wants its Editions outright. Each wanted Edition is wanted at every Target in its Work's Profile. A release with no cut named holds Standard.
+A cut of an Item, such as Standard, Theatrical, Extended or Director's. Every Item has at least one Edition.
 _In UI_: "Edition", or the cut's name, such as "Extended".
 _Avoid_: Version
 
@@ -37,7 +37,7 @@ _In UI_: "Cut", as in "Director's Cut".
 _Avoid_: Edition type, version
 
 **Target**:
-A library-wide, named encoding goal, such as 1080p low bitrate or 2160p HDR, with the qualities it accepts ranked in tiers, a cutoff, hard filters, sizes and Custom Format scores. A Profile sources each of its Targets by download, by Conversion from another Target, or both. One file meets every Target whose rules it passes.
+A library-wide, named encoding goal, such as 1080p low bitrate or 2160p HDR, with the qualities it accepts ranked in tiers, a cutoff, hard filters, sizes and Custom Format scores.
 _In UI_: "Target", defined on hover as one version of a Work to keep, such as 1080p or 2160p HDR.
 _Avoid_: Rendition, slot, version, quality version, variant
 
@@ -52,17 +52,17 @@ _In UI_: "Tier", in the Target editor only.
 _Avoid_: Group, quality group
 
 **Fills**:
-A file fills a Target for an Edition when it is the one file that Target holds for that Edition. Under any cut, a Target holds one file of any Edition. A file can meet a Target without filling it, when another file ranks higher there.
+A file fills a Target for an Edition when it is the one file that Target holds for that Edition. A file can meet a Target without filling it, when another file ranks higher there.
 _In UI_: none. Say what happens to the file: "the 2160p file for Heat (1995)", "no Target uses it".
 _Avoid_: Holds, occupies, assigned to
 
 **Kept file**:
-A library video file that fills no wanted Target and stays, flagged, such as one whose Edition stopped being wanted or one a Library scan found. It is named with the label of the first Target it meets, or the label last recorded for it when it meets none, plus ` (extra N)`, a counter, so two Kept files never clash. A Library scan records the label and counter without renaming the file.
+A library video file that fills no wanted Target and stays, flagged, such as one whose Edition stopped being wanted or one a Library scan found.
 _In UI_: "Kept file", with its hover definition.
 _Avoid_: Extra, extras
 
 **Gone file**:
-A library file a Library scan didn't find on its Ready root. Its record stays and its cells read missing until it returns or the Admin forgets it on its Work's page. A gone file never starts a search by itself.
+A library file a Library scan didn't find on its Ready root.
 _In UI_: "Gone", as a file's state.
 _Avoid_: Missing file (missing is a cell state), vanished, deleted
 
@@ -87,17 +87,17 @@ _In UI_: "Renames", as in "Review all renames".
 _Avoid_: Mass rename, rename preview
 
 **Cell**:
-One Edition at one Target of one Item. Under any cut, an Item has one cell per Target. A cell's state is failed, missing, downloading, upgradable, unreleased or met. A final file makes it met. Otherwise it is downloading from the moment a Grab for it exists until no unfinished Grab holds it, fetching included, and failed when its latest Grab failed in a way only an Admin can resolve. A downloading or failed cell keeps the file its Grab would replace.
+One Edition at one Target of one Item. A cell's state is failed, missing, downloading, upgradable, unreleased or met.
 _In UI_: none. Say "file" or name the episode and Target, such as "S01E03 at 1080p".
 _Avoid_: Slot, square
 
 **Availability date**:
-The day an Item counts as released, chosen by its Content Type's rule from the release dates its metadata source lists. A movie counts as released on its first home release in the metadata region, then in any country, then a settable delay after its cinema release; an Admin can let the first cinema release count instead. An episode counts as released on its TVDB air date plus TV's "Delay after an air date", 0 days unless the Admin sets one, on the Controller's calendar, with no air time or network time zone. An Item with no date stays unreleased.
+The day an Item counts as released, chosen by its Content Type's rule from the release dates its metadata source lists.
 _In UI_: "Available on".
 _Avoid_: Release date (for the deciding day), available date, out date
 
 **Item status**:
-An Item's state, rolled up from its cells with what needs attention first: failed, missing, downloading, upgradable, unreleased, met. An Item reads unreleased only when nothing else applies, and a Work's status rolls up its Items the same way. Cells of a listed cut not yet seen for the Item stay out of it.
+An Item's state, rolled up from its cells with what needs attention first: failed, missing, downloading, upgradable, unreleased, met.
 _In UI_: Each state's word: Failed, Missing, Downloading, Upgrade, Unreleased, Met.
 _Avoid_: Available (for an Item or cell), complete
 
@@ -107,17 +107,17 @@ _In UI_: The page name "Needs you" only. A sentence names the problem or says "n
 _Avoid_: Alerts, attention, inbox
 
 **Monitoring preset**:
-A rule that sets which of a Work's Items are monitored, from level order, the aside mark, each Item's availability date and whether a file fills any of its cells: All, Future, Missing, Existing, First (level), Latest (level) or None. Each also sets Monitor new Items, and Include adds the Items of aside levels, such as Specials, to any of them. The add, the Work page and bulk edit apply the same presets, and bulk Monitor and Unmonitor are All and None.
+A rule that sets which of a Work's Items are monitored: All, Future, Missing, Existing, First (level), Latest (level) or None.
 _In UI_: Each preset's name: All, Future, Missing, Existing, First season, Latest season, None.
 _Avoid_: Monitor mode, monitor option, preset (alone, which reads as a Target's tiers)
 
 **Monitor new Items**:
-A Work's switch for whether Items its metadata source adds later arrive monitored. An Item in an aside level arrives monitored only when the Work also includes its asides. A preset sets it, and an Admin can change it on its own. Its label uses the Item noun, such as "Monitor new episodes".
+A Work's switch for whether Items its metadata source adds later arrive monitored.
 _In UI_: With the Item noun, such as "Monitor new episodes".
 _Avoid_: Monitor future, auto-monitor
 
 **Episode order**:
-The numbering a series follows, chosen per Work in Edit: Aired (TVDB's default order), DVD or Absolute, Aired unless the Admin picks another. Each episode keeps its identity across orders, so changing the order moves episodes between seasons and keeps their files, Grabs and monitoring. Edit lists only the orders TVDB has for the series, and nothing ever reads TMDB's numbering.
+The numbering a series follows, chosen per Work from Aired (TVDB's default order), DVD and Absolute.
 _In UI_: "Episode order", and each order's name: Aired, DVD, Absolute.
 _Avoid_: Numbering scheme, season type, episode group
 
@@ -127,7 +127,7 @@ _In UI_: none. Say the Content Type's noun for it, such as "Specials".
 _Avoid_: Extras, special (as the generic term)
 
 **Profile**:
-The ordered Targets a Work wants, each with how it is sourced: downloaded, derived from another Target, or downloaded first and derived after a grace period. It also sets the default list of Editions wanted, which a Work can replace with its own list, and the Wanted Languages for subtitles. Every Work has one, defaulting per Content Type.
+The ordered Targets a Work wants, each with how it is sourced: downloaded, derived from another Target, or downloaded first and derived after a grace period. It also sets the default list of Editions wanted, which a Work can replace with its own list, and the Wanted Languages for subtitles.
 _In UI_: "Profile".
 _Avoid_: Rendition profile, quality profile, slot
 
@@ -154,7 +154,7 @@ _In UI_: "Node".
 _Avoid_: Instance, server, peer
 
 **Controller**:
-The one Node that owns the library database and serves the UI. A single-machine setup is a Controller holding every Role. The Controller moves to another Node only by Handover.
+The one Node that owns the library database and serves the UI. A single-machine setup is a Controller holding every Role.
 _In UI_: "Controller".
 _Avoid_: Primary, master, hub
 
@@ -189,7 +189,7 @@ _In UI_: "Node address".
 _Avoid_: Dial code, Node code, Join Code (for the Node's side)
 
 **Handover**:
-Moving the Controller to another paired Node, both running, by shipping it a Backup over the Node link. Workers follow a notice signed with the old Controller's key, without a Join Code, and nothing in flight is cancelled. The old Controller becomes a Worker that keeps its Roles, library roots and torrents and redirects Workers that reconnect late.
+Moving the Controller to another paired Node, both running, by shipping it a Backup over the Node link.
 _In UI_: none until it ships.
 _Avoid_: Failover, promotion, migration
 
@@ -209,7 +209,7 @@ _In UI_: "Reconciling", with its hover definition.
 _Avoid_: Resync, recovery mode
 
 **Role**:
-A job the admin assigns to one or more Nodes. The Roles are Searching, Downloading, Storage, Converting, Subtitles, Metadata, Media Server link, Notifying, Relaying and Serving. Work that reads the library database on every call stays on the Controller and is never a Role. Every Role but Relaying can sit on any number of Nodes. Searching, Downloading, Storage, Metadata and Notifying always have a holder, falling back to the Controller. The Controller always holds Serving and Media Server link, whatever the admin ticks.
+A job the admin assigns to one or more Nodes. The Roles are Searching, Downloading, Storage, Converting, Subtitles, Metadata, Media Server link, Notifying, Relaying and Serving.
 _In UI_: "Role", and each Role's name.
 _Avoid_: Service, capability, purpose
 
@@ -259,7 +259,7 @@ _In UI_: "Reachability check".
 _Avoid_: Port check, firewall check, connectivity test
 
 **Transfer**:
-A one-way copy of files from one Node to another for a job, such as a completed download going to the storage Node that imports it. The source keeps its copy, and the receiving Node is the destination. The Controller records each Transfer, and the job that asked for it places its files once verified.
+A one-way copy of files from one Node to another for a job, such as a completed download going to the storage Node that imports it. The source keeps its copy, and the receiving Node is the destination.
 _In UI_: "Transfer".
 _Avoid_: Sync, mirror, push; target for the destination
 
@@ -304,7 +304,7 @@ _In UI_: "Move".
 _Avoid_: Migration, relocation, sync, transfer (for the whole job), Handover
 
 **Media Server**:
-An external player-facing server that serves the library to players, such as Plex, Jellyfin or Emby. The admin adds each one SlipStream keeps up to date, and one Node holding the Media Server link Role reaches it. The Media Server, never SlipStream, picks which file a player gets.
+An external player-facing server that serves the library to players, such as Plex, Jellyfin or Emby.
 _In UI_: "Media Server", or the server's product name.
 _Avoid_: Plex (as a generic term), link, connection
 
@@ -314,7 +314,7 @@ _In UI_: "Connect from" as the setting, and "Connects from" on a server's row an
 _Avoid_: Home Node (that is an Indexer's), host Node, runs-on Node
 
 **Fallback address**:
-The address at which the Controller calls a Media Server itself while the server's Reaching Node is offline. The Controller uses it only once its own test of that address passed, and otherwise holds the server's changes until the Node is back. Session watching never falls back.
+The address at which the Controller calls a Media Server itself while the server's Reaching Node is offline.
 _In UI_: "Fallback address".
 _Avoid_: Covering (that is a Role's), failover
 
@@ -364,7 +364,7 @@ _In UI_: "Maintenance window".
 _Avoid_: Update window, quiet hours
 
 **Library scan**:
-The Scheduled task that compares each library root with SlipStream's records, matches found files to Works, sends the rest to Pending imports and reads media info. It runs daily in the Maintenance window with one unit per root. A new root's first Ready report, a finished re-home and Scan now each scan one root at once. A scan that would mark more of a root's files gone than the share the Admin set, 25% by default, marks none until the Admin confirms them with Mark them gone.
+The Scheduled task that compares each library root with SlipStream's records, matches found files to Works, sends the rest to Pending imports and reads media info.
 _In UI_: "Library scan".
 _Avoid_: Rescan, library sync, refresh
 
@@ -389,7 +389,7 @@ _In UI_: "Clone".
 _Avoid_: Reflink, CoW copy
 
 **Metadata refresh**:
-The Scheduled task that keeps every Work's record current from its metadata source. Each run refreshes the Works the source reports changed, then every Work its tier makes due: Works with an unreleased Item, Works that can still gain Items, and every other Work, each on its own cadence. Refreshing a Work never searches for it again.
+The Scheduled task that keeps every Work's record current from its metadata source.
 _In UI_: "Metadata refresh".
 _Avoid_: Metadata sync, rescan, update metadata
 
@@ -426,12 +426,12 @@ _In UI_: "Attached".
 _Avoid_: Adopted torrent, existing torrent
 
 **New Grabs go to**:
-A downloading Node's setting that names the one Download Client its Grabs go to: its built-in client or one of its external clients that is on. It starts at the built-in client. Tracker routing, where a Tracker has one, comes before it.
+A downloading Node's setting that names the one Download Client its Grabs go to: its built-in client or one of its external clients that is on.
 _In UI_: "New Grabs go to".
 _Avoid_: Default client, grabs to
 
 **Tracker**:
-A site a torrent comes from and seeds to. It carries the site's seeding rule, the admin's seeding goals over it, hit and run state and its Tracker routing. A Tracker outlives every Indexer that reaches it.
+A site a torrent comes from and seeds to. It carries the site's seeding rule, the admin's seeding goals over it, hit and run state and its Tracker routing.
 _In UI_: "Tracker" for the site, and lowercase "tracker" for an announce URL, as qBittorrent and Transmission say.
 _Avoid_: Site, indexer (for the seeding side), tracker (for an announce URL, except in UI copy)
 
@@ -441,7 +441,7 @@ _In UI_: "Seeding rule".
 _Avoid_: floor, minimums, H&R rule
 
 **Seeding goal**:
-What the built-in client seeds a torrent to: a ratio, a time, how they combine (Whichever first, Both or Forever) and what happens when met. A default goal applies unless a Tracker has its own. It never ends seeding before the Tracker's seeding rule is met. External clients keep their own rules.
+What the built-in client seeds a torrent to: a ratio, a time, how they combine (Whichever first, Both or Forever) and what happens when met.
 _In UI_: "Seeding goal".
 _Avoid_: Seed ratio target, cleanup mode, seeding rule (for the admin's goal)
 
@@ -456,7 +456,7 @@ _In UI_: "Hit and run window", and "Needs N more seeding" for what is left. Neve
 _Avoid_: H&R window
 
 **Indexer**:
-One configured way to search one or more Trackers, such as a catalog definition, a ported site indexer, a Torznab feed or an RSS feed. Each Indexer searches from one home Node. An Indexer that signs in to its site holds a login session and doesn't fail over unless the Admin allows it.
+One configured way to search one or more Trackers, such as a catalog definition, a ported site indexer, a Torznab feed or an RSS feed.
 _In UI_: "Indexer".
 _Avoid_: Tracker (for the search side), provider, source
 
@@ -471,7 +471,7 @@ _In UI_: "Definition".
 _Avoid_: Cardigann file, indexer YAML
 
 **Home Node**:
-The one Searching Node an Indexer runs every query, login, RSS fetch, Test and .torrent fetch from. It defaults to the Controller when the Controller holds Searching, and otherwise to the first Searching Node. The Controller still decides every Grab and keeps the Indexer's cookies, limits and health.
+The one Searching Node an Indexer runs every query, login, RSS fetch, Test and .torrent fetch from.
 _In UI_: "Home Node".
 _Avoid_: Search node, proxy
 
@@ -496,7 +496,7 @@ _In UI_: "Magnet link".
 _Avoid_: Magnet URI, magnet (alone, in UI)
 
 **Want**:
-One Edition at one Target of a monitored, released Item, still listed by its source, that no file fills, or whose filling file is below the Target's cutoff or below its upgrade-until score, and that no unfinished Grab holds. Under any cut, a Want is one Target of the Item, which a file of any Edition can fill. Every search and RSS sync tries to satisfy Wants.
+One Edition at one Target of a monitored, released Item, still listed by its source, that no file fills, or whose filling file is below the Target's cutoff or below its upgrade-until score, and that no unfinished Grab holds.
 _In UI_: none. Say what is missing, such as "missing episodes" or "3 more files".
 _Avoid_: Missing item, wanted cell, slot
 
@@ -536,7 +536,7 @@ _In UI_: "Score".
 _Avoid_: Weight, points
 
 **Revision**:
-How many times a Release was re-released to fix it, read from PROPER, REPACK, RERIP, vN and REAL. A higher Revision of the same Quality replaces the file it fixes, even past the cutoff, as each Target's propers and repacks setting allows. A repack replaces only a file from its own Release group.
+How many times a Release was re-released to fix it, read from PROPER, REPACK, RERIP, vN and REAL.
 _In UI_: "Proper" or "Repack", or "Revision" in the Target editor.
 _Avoid_: Version (for this)
 
@@ -546,7 +546,7 @@ _In UI_: "Release group".
 _Avoid_: Uploader
 
 **Refusal**:
-Why a Release can't fill a Want, such as a title that doesn't match the Work or a Score below the Target's minimum. A hard refusal, such as an id that names another Work, ends judging. A soft refusal, such as a title or year that doesn't match, leaves the Release judged at every Target, and Manual search can grab past it.
+Why a Release can't fill a Want, such as a title that doesn't match the Work or a Score below the Target's minimum.
 _In UI_: The refusal's own sentence. Never "Refusal".
 _Avoid_: Rejection, block
 
@@ -632,7 +632,7 @@ _Avoid_: Recovery email, password reset
 ## Requests
 
 **Request**:
-An Account's ask for a Work, or some of its levels or Items, to be added and monitored, which an Admin approves or auto-approval admits. Its stage is Pending, Approved, Searching, Downloading, Processing, Available or Denied, and Delayed flags it. A Request is Available once every requested Item is Playable.
+An Account's ask for a Work, or some of its levels or Items, to be added and monitored, which an Admin approves or auto-approval admits. Its stage is Pending, Approved, Searching, Downloading, Processing, Available or Denied, and Delayed flags it.
 _In UI_: "Request", and each stage's name.
 _Avoid_: Order, ticket, portal request; Requested, Coming, Ready (for a stage)
 
