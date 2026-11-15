@@ -37,6 +37,14 @@ func (gr *Grabs) Enqueue(ctx context.Context, work works.WorkID, t searches.Trig
 	return err
 }
 
+// Nudge asks for a search of items of work, nil for the whole Work, by t
+// in its own Write, as a call for one Work does.
+func (gr *Grabs) Nudge(ctx context.Context, work works.WorkID, t searches.Trigger, items []works.ItemID) error {
+	return gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		return gr.nudge(ctx, tx, work, t, landing(t, false).lane, items)
+	})
+}
+
 // DecideRun records a press's run of items of work, as if its lines had
 // listed rs, and decides it in one Write, as a group run whose every line
 // answered does.

@@ -30,10 +30,11 @@ type schedule struct {
 }
 
 // Run reconciles until ctx ends. Each pass settles what the Admin wrote
-// off and what a client removed, dispatches the search queue, then starts
-// what is due: each line in flight asks its Indexer, each queue run whose
-// lines all answered decides, each Manual run listens, and each
-// unfinished Grab runs its step, unless it runs or backs off. A pass runs
+// off and what a client removed, lands nudges on the search queue,
+// dispatches it, then starts what is due: each line in flight asks its
+// Indexer, each queue run whose lines all answered decides, each Manual
+// run listens, and each unfinished Grab runs its step, unless it runs or
+// backs off. A pass runs
 // at each change of the roster too. A restart needs no recovery: the
 // first pass is the recovery.
 func (gr *Grabs) Run(ctx context.Context) error {
@@ -50,6 +51,9 @@ func (gr *Grabs) Run(ctx context.Context) error {
 		var wake time.Time
 		var q queueJobs
 		if err == nil {
+			err = gr.drain(ctx)
+		}
+		if err == nil {
 			wake, err = gr.dispatch(ctx)
 		}
 		if err == nil {
@@ -59,7 +63,7 @@ func (gr *Grabs) Run(ctx context.Context) error {
 		if err == nil {
 			gr.startDue(ctx, &s, now, done, searches, grabs, q)
 		} else if ctx.Err() == nil {
-			gr.cfg.Log.Error("read, settle or dispatch the open runs and Grabs", "err", err.Error())
+			gr.cfg.Log.Error("read, settle, drain or dispatch the open runs and Grabs", "err", err.Error())
 		}
 		s.limited = wake
 		timer.Reset(s.next(now, grabs, err != nil, gr.cfg.Timings))

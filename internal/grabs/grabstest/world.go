@@ -260,6 +260,13 @@ func (w *World) add(ctx context.Context, tree *works.Works, key works.Key) works
 	return added
 }
 
+// AddWork adds another copy of The Attic, monitored and wanting the
+// World's goals, and answers its id.
+func (w *World) AddWork() works.WorkID {
+	w.t.Helper()
+	return w.add(w.t.Context(), w.Config.Works, works.Key("w"+strconv.Itoa(w.works+1))).ID
+}
+
 // Answer has site answer every later search job with a, after.
 func (w *World) Answer(site string, after time.Duration, a searching.Answer) {
 	w.Node.Answer(w.Sites[site], after, a)
@@ -317,11 +324,12 @@ func (w *World) Restart() {
 }
 
 // Queue is what the search queue holds, as one value a test compares:
-// each Work's queue rows, oldest first, and its open automatic runs with
-// their lines.
+// the Work of each nudge not yet drained, oldest first, each Work's queue
+// rows, oldest first, and its open automatic runs with their lines.
 type Queue struct {
-	Due  []Due
-	Runs []Run
+	Nudged []works.WorkID
+	Due    []Due
+	Runs   []Run
 }
 
 // Due is one queue row. Lane zero is not queued.
@@ -385,6 +393,13 @@ func (w *World) Queue(t testing.TB) Queue {
 func queueIn(ctx context.Context, r storage.Reader[storage.Library]) (Queue, error) {
 	dq := db.New(r)
 	var q Queue
+	nudges, err := dq.ListNudges(ctx)
+	if err != nil {
+		return Queue{}, err
+	}
+	for _, n := range nudges {
+		q.Nudged = append(q.Nudged, n.WorkID)
+	}
 	due, err := dq.ListDue(ctx)
 	if err != nil {
 		return Queue{}, err
