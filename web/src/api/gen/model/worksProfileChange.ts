@@ -1,5 +1,5 @@
 export interface WorksProfileChange {
-  /** The Profile each Work wants from; a Work with its own Edition list keeps it */
+  /** The Profile to give each Work; a Work with its own Edition list keeps it */
   profileId: string;
   /**
    * A repeated id counts once

@@ -56,7 +56,7 @@ export const getGetWorkerClaimUrl = () => {
 };
 
 /**
- * @summary Get the Join that awaited its Controller's dial: still awaiting, joined or failed
+ * @summary Get the last join that waited for the Controller to connect: still waiting, joined or failed
  */
 export const getWorkerClaim = async (
   options?: Parameters<typeof apiFetch>[1],
@@ -166,7 +166,7 @@ export function useGetWorkerClaimSuspense<
   queryClient?: QueryClient,
 ): UseSuspenseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
- * @summary Get the Join that awaited its Controller's dial: still awaiting, joined or failed
+ * @summary Get the last join that waited for the Controller to connect: still waiting, joined or failed
  */
 
 export function useGetWorkerClaimSuspense<

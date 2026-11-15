@@ -13,7 +13,7 @@ export interface ImportsReason {
   /** For elsewhere: the root the Work lives in */
   root?: ImportsRootLabel;
   /**
-   * The one sentence the row leads with; null for a root Import's reason, which its other fields word
+   * The one sentence the row leads with; null for a root Import's reason, whose other fields give it
    * @nullable
    */
   sentence: string | null;

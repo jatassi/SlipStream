@@ -21,7 +21,7 @@ import {
 } from "../slipStream.schemas.zod.ts";
 
 /**
- * @summary List the sites SlipStream includes, the Indexer catalog's definitions but those an included site replaces, and the custom definitions, with when the catalog last refreshed
+ * @summary List SlipStream's built-in sites, the Indexer catalog's definitions except those a built-in site replaces, and the custom definitions, with when the catalog last refreshed
  */
 export const GetIndexerCatalogResponse = IndexersIndexerCatalog;
 
@@ -51,7 +51,7 @@ export const DeleteCustomDefinitionParams = zod.object({
 export const DeleteCustomDefinitionResponse = zod.void();
 
 /**
- * @summary Get the add form of an included site or a definition: the site with the id, else the custom definition with it, else the catalog's
+ * @summary Get the add form of a built-in site or a definition: the site with the id, else the custom definition with it, else the catalog's
  */
 export const getCatalogDefinitionPathIdMax = 200;
 
@@ -168,7 +168,7 @@ export const TestIndexerBody = IndexersTestBody;
 export const TestIndexerResponse = IndexersReport;
 
 /**
- * @summary Get the Challenge solver of a Node that stands in Searching
+ * @summary Get the Challenge solver of a Node with the Searching Role
  */
 export const GetChallengeSolverParams = zod.object({
   id: zod.uuid(),

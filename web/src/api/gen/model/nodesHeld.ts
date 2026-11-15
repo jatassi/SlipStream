@@ -2,7 +2,7 @@ export interface NodesHeld {
   /** 0 when sizes don't apply */
   bytes: number;
   /**
-   * How many units the Node can't finish on its own, which stay until they are removed, moved or written off
+   * How many units the Node can't finish on its own, which stay until they are removed, moved or given up
    * @minimum 0
    */
   endlessUnits: number;

@@ -41,7 +41,7 @@ func Says(p clients.Problem, s Subject, node string) string {
 	case clients.LockedOut:
 		return fmt.Sprintf("%s locked out %s after too many failed sign-ins. Restart %s, then select Check now.", name, node, name)
 	case clients.VersionTooOld:
-		return fmt.Sprintf("%s reached %s %s, which is older than SlipStream supports. Update it to %s or later and test again.",
+		return fmt.Sprintf("%s connected to %s %s, which is older than SlipStream supports. Update it to %s or later and test again.",
 			node, product, p.Version, s.Kind.Facts().Floor)
 	case clients.LabelPluginOff:
 		return fmt.Sprintf("%s's Label plugin is off. Turn it on in %s's preferences and test again.", name, name)

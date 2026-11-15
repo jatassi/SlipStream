@@ -5,6 +5,6 @@ export interface GrabsClientWait {
   client: GrabsGrabClient | null;
   /** The client's Node */
   nodeId: string;
-  /** The Grab is pinned to this client and the client can't take it: it is off or deleted, or its Node doesn't hold Downloading. False while the client's Node is offline */
+  /** The Grab is pinned to this client and the client can't take it: it is off or deleted, or its Node doesn't have the Downloading Role. False while the client's Node is offline */
   off: boolean;
 }

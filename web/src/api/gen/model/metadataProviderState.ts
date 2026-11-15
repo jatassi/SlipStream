@@ -1,5 +1,5 @@
 /**
- * From the latest outcome of a call or test, unused until one
+ * The provider's state from its latest call or test; unused until the first one
  */
 export type MetadataProviderState =
   | "unused"

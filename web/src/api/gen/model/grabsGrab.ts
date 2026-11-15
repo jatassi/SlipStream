@@ -17,7 +17,7 @@ export interface GrabsGrab {
   createdAt: string;
   /** Its Torrent's external Download Client, null for its Node's built-in client or until the .torrent is fetched */
   downloadClient: GrabsGrabClient | null;
-  /** The Edition it was grabbed to fill: any under any cut, else a cut key */
+  /** The Edition it was grabbed for: any when the Work takes any cut, else a cut key */
   edition: string;
   /** Why it failed, absent unless it did */
   failure?: GrabsFailure;
@@ -38,7 +38,7 @@ export interface GrabsGrab {
   id: string;
   /** Its download's Import, from importing on; null before */
   import: GrabsGrabImport | null;
-  /** It holds its cells and counts in Activity: it is neither imported nor failed */
+  /** It is neither imported nor failed, so it counts in Activity and no other Grab can download the same files */
   inFlight: boolean;
   /**
    * The Indexer it was grabbed from, null once the Indexer is deleted
@@ -77,7 +77,7 @@ export interface GrabsGrab {
   stage: GrabsGrabStage;
   /** The Targets it was grabbed for, in Profile order */
   targetIds: string[];
-  /** Each cell it holds, in plan order */
+  /** Each Target of its Items it downloads for, in plan order */
   targets: GrabsGrabTarget[];
   /**
    * The Torrent it downloads, null until the .torrent is fetched
@@ -85,7 +85,7 @@ export interface GrabsGrab {
    */
   torrentId: string | null;
   /**
-   * The Tracker its Release reached, null for a Grab older than Trackers
+   * The Tracker its release came from, null for a Grab older than Trackers
    * @nullable
    */
   trackerId: string | null;

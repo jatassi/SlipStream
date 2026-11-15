@@ -1,9 +1,9 @@
 import type { FilesStateCounts } from "./filesStateCounts.ts";
 
 export interface FilesLevelRollup {
-  /** Its monitored Items' cells by state */
+  /** Its monitored Items at each of their Targets, by state */
   cells: FilesStateCounts;
-  /** Its monitored Items by status; an Item with no cell isn't counted */
+  /** Its monitored Items by status; an Item with no Target isn't counted */
   itemStatus: FilesStateCounts;
   /**
    * Its monitored Items that its source still lists
@@ -11,6 +11,6 @@ export interface FilesLevelRollup {
    */
   items: number;
   levelId: string;
-  /** The cells of its Items its source no longer lists that a file still fills, by state */
+  /** Its Items that its source no longer lists and that still have a file, at each of their Targets, by state */
   withdrawn: FilesStateCounts;
 }

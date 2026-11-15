@@ -10,7 +10,7 @@ export interface FormatsParsed {
   /** Every Custom Format, the draft included, by name */
   formats: FormatsExplained[];
   name: string;
-  /** What the name reads as, the Works it matches and the Targets it would fill, or why it would fill none */
+  /** What the name reads as, the Works it matches and the Targets an automatic search would grab it for, or why it would grab it for none */
   sentence: string;
   /** With one Work, its Profile's Targets judged against its held files; with several or none, every Target with no held file */
   targets: FormatsTriedTarget[];

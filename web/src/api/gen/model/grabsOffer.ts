@@ -9,7 +9,7 @@ export interface GrabsOffer {
    */
   quality: number;
   /**
-   * Its place in the ranking from 1; null when no cell's Target takes it
+   * Its place in the ranking from 1; null when no Target accepts it
    * @minimum 1
    * @nullable
    */

@@ -1889,7 +1889,7 @@ export const getSetTrackerRouteUrl = (id: string, nodeId: string) => {
 };
 
 /**
- * @summary Send a private Tracker's Grabs from Indexers on a home Node to a client you pick. They download there while it is on and its Node holds Downloading.
+ * @summary Send a private Tracker's Grabs from Indexers on a home Node to a client you pick. They download there while it is on and its Node has the Downloading Role.
  */
 export const setTrackerRoute = async (
   id: string,
@@ -1984,7 +1984,7 @@ export type SetTrackerRouteMutationError = ErrorType<
 export type SetTrackerRouteMutationVariables = { id: string; nodeId: string; data: TrackersChoice };
 
 /**
- * @summary Send a private Tracker's Grabs from Indexers on a home Node to a client you pick. They download there while it is on and its Node holds Downloading.
+ * @summary Send a private Tracker's Grabs from Indexers on a home Node to a client you pick. They download there while it is on and its Node has the Downloading Role.
  */
 export const useSetTrackerRoute = <
   TError = ErrorType<

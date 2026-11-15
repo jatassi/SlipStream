@@ -84,7 +84,7 @@ func TestTheSpecsSentencesReadAsTheSpecWritesThem(t *testing.T) {
 		},
 		{
 			tc.Problem{Cause: tc.VersionTooOld, Version: version(t, "4.5.2")}, qbittorrent,
-			"Media server reached qBittorrent 4.5.2, which is older than SlipStream supports. Update it to 4.6 or later and test again.",
+			"Media server connected to qBittorrent 4.5.2, which is older than SlipStream supports. Update it to 4.6 or later and test again.",
 		},
 		{tc.Problem{Cause: tc.LabelPluginOff}, deluge, "Deluge's Label plugin is off. Turn it on in Deluge's preferences and test again."},
 		{

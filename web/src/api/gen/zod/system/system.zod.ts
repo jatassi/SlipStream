@@ -56,7 +56,7 @@ export const GetNodeSystemParams = zod.object({
 export const GetNodeSystemResponse = SystemReport;
 
 /**
- * @summary Report whether the Node is Unclaimed, a Controller or a Worker, and whether this address can hold a passkey
+ * @summary Report whether the Node is Unclaimed, a Controller or a Worker, and whether passkeys work at this address
  */
 export const GetStatusResponse = SystemStatus;
 

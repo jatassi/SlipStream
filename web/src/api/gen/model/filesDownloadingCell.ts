@@ -3,9 +3,9 @@ import type { FilesLibraryFile } from "./filesLibraryFile.ts";
 import type { FilesStep } from "./filesStep.ts";
 
 export interface FilesDownloadingCell {
-  /** any under any cut, else the key of the cut the cell wants */
+  /** any under any cut, else the key of the cut this Item needs at this Target */
   edition: string;
-  /** The file the Grab would replace; null when it fills no file */
+  /** The file the Grab would replace; null when it replaces none */
   file: FilesLibraryFile | null;
   /**
    * When the Grab entered its stage; null with step
@@ -17,7 +17,7 @@ export interface FilesDownloadingCell {
   itemId: string;
   /** A Grab is in flight for it, fetching included */
   state: FilesDownloadingCellState;
-  /** What the Grab or its Import is doing for the cell; null until SlipStream reads it */
+  /** What the Grab or its Import is doing for this Item at this Target; null until SlipStream reads it */
   step: FilesStep | null;
   targetId: string;
   targetName: string;

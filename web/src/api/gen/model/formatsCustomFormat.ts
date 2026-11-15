@@ -7,13 +7,13 @@ export interface FormatsCustomFormat {
   /** The app whose values its conditions hold: radarr or sonarr for a pasted format, slipstream for one made here */
   dialect: FormatsCustomFormatDialect;
   id: string;
-  /** The Custom Formats naming token lists it */
+  /** A file that matches it gets its name in the {Custom Formats} naming token */
   includeWhenRenaming: boolean;
   name: string;
   /** Every Target that scores it, by name */
   scoredBy: FormatsTargetRef[];
   /**
-   * Releases one of its patterns ran past the match limit on since its last save; they count as not matching it
+   * How many releases a pattern of this format timed out on since it was last saved; those releases count as not matching
    * @minimum 0
    */
   slowReleases: number;

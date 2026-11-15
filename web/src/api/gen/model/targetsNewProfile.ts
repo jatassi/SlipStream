@@ -10,6 +10,6 @@ export interface TargetsNewProfile {
    * @maxLength 100
    */
   name: string;
-  /** In Profile order; none is a Profile whose Works want nothing */
+  /** In Profile order; none is a Profile whose Works need no files */
   targets: TargetsEntry[];
 }

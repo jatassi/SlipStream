@@ -130,7 +130,7 @@ export const ClearTrackerRouteParams = zod.object({
 export const ClearTrackerRouteResponse = TrackersRouteList;
 
 /**
- * @summary Send a private Tracker's Grabs from Indexers on a home Node to a client you pick. They download there while it is on and its Node holds Downloading.
+ * @summary Send a private Tracker's Grabs from Indexers on a home Node to a client you pick. They download there while it is on and its Node has the Downloading Role.
  */
 export const SetTrackerRouteParams = zod.object({
   id: zod.uuid(),
@@ -175,7 +175,7 @@ export const ListTrackerWindowsQueryParams = zod.object({
     .enum(["open", "history"])
     .exactOptional()
     .describe(
-      "open lists the windows that owe. history lists those met, missed or released, a missed one grabbed again included. Every window when absent.",
+      "open lists the windows whose torrent still needs seeding. history lists those met, missed or released, a missed one grabbed again included. Every window when absent.",
     ),
   offset: zod
     .int()

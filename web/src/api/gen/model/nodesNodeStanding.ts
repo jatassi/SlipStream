@@ -1,4 +1,4 @@
 /**
- * How the Node stands with the Controller since link.since: in step, reconnecting within the blip, offline, lapsed past the offline grace, or on another version
+ * The Node's connection to the Controller since link.since: in-step (connected), reconnecting (a short drop), offline, lapsed (offline longer than the offline grace) or mismatched (another version)
  */
 export type NodesNodeStanding = "in-step" | "reconnecting" | "offline" | "lapsed" | "mismatched";

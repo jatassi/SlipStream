@@ -6,7 +6,7 @@ export type UpdateTargetParams = {
    */
   preview?: boolean;
   /**
-   * What becomes of the files the change leaves filling nothing
+   * What happens to the files no Target uses after the change
    */
   unwanted?: UpdateTargetUnwanted;
   /**

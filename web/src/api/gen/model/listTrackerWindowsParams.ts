@@ -2,7 +2,7 @@ import type { ListTrackerWindowsList } from "./listTrackerWindowsList.ts";
 
 export type ListTrackerWindowsParams = {
   /**
-   * open lists the windows that owe. history lists those met, missed or released, a missed one grabbed again included. Every window when absent.
+   * open lists the windows whose torrent still needs seeding. history lists those met, missed or released, a missed one grabbed again included. Every window when absent.
    */
   list?: ListTrackerWindowsList;
   /**

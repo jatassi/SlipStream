@@ -3,13 +3,13 @@ import type { GrabsHeldCell } from "./grabsHeldCell.ts";
 import type { GrabsWordedReason } from "./grabsWordedReason.ts";
 
 export interface GrabsGrabOffer {
-  /** The Grabs downloading a cell it would also fill */
+  /** The Grabs downloading an Item and Target it would also download */
   cancels: GrabsHeldCell[];
-  /** The cells a Grab of it alone fills, any a Grab downloads among them. Send them back as the pick's cells. */
+  /** The Items and Targets a Grab of it alone downloads for, including any a Grab is already downloading. Send them back as the pick's cells. */
   cells: string[];
   /** The Edition it is grabbed as; null unless that is another Edition than its cut's */
   edition: GrabsEditionOverride | null;
-  /** It fills some cell and its Indexer would take it now. One on the Blocklist is grabbed only with unblock. */
+  /** Some Target accepts it and its Indexer would take it now. One on the Blocklist is grabbed only with unblock. */
   grabbable: boolean;
   lifts: GrabsWordedReason[];
   /** What a Grab of it alone gets */

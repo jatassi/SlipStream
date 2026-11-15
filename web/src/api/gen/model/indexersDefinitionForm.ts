@@ -14,7 +14,7 @@ export interface IndexersDefinitionForm {
   fields: IndexersDefinitionField[];
   /** The site's addresses, the first being the default */
   links: string[];
-  /** What an included site's form says beyond a definition's; null for a definition */
+  /** Extra form facts for a built-in site, such as its default limits and whether it lists new uploads; null for a catalog definition */
   port: IndexersPortFacts | null;
   /** Its Indexers sign in and keep a session on their Node */
   session: boolean;

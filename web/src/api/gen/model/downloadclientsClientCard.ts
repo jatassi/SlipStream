@@ -7,7 +7,7 @@ import type { DownloadclientsRoutedTracker } from "./downloadclientsRoutedTracke
 import type { DownloadclientsTotals } from "./downloadclientsTotals.ts";
 
 export interface DownloadclientsClientCard {
-  /** The built-in client as it reports itself, absent until it does and while the Node is out of step */
+  /** The built-in client as it reports itself, absent until it does and while inStep is false */
   client?: DownloadclientsClientFacts;
   /** Set while the disk guard holds the Node's new downloads: its downloads volume is below its error level */
   diskGuard?: DownloadclientsDiskGuard;
@@ -20,7 +20,7 @@ export interface DownloadclientsClientCard {
    * @nullable
    */
   grabsTo: string | null;
-  /** The Node is in step; while it isn't the card has no client */
+  /** The Node is connected and on the Controller's version; while it isn't, the card has no client */
   inStep: boolean;
   limits: DownloadclientsLimits;
   nodeId: string;

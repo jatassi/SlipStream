@@ -6,7 +6,7 @@ export interface WorksMonitoringChange {
   /** Whether to monitor Items a refresh adds; left out, the preset decides */
   monitorNew?: boolean;
   preset: WorksMonitoringChangePreset;
-  /** Answer what the change would move and write nothing */
+  /** Return what the change would start and stop monitoring, and save nothing */
   preview: boolean;
   /**
    * A repeated id counts once

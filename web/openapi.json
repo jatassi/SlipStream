@@ -243,7 +243,7 @@
         "properties": {
           "client": {
             "$ref": "#/components/schemas/DownloadclientsClientFacts",
-            "description": "The built-in client as it reports itself, absent until it does and while the Node is out of step"
+            "description": "The built-in client as it reports itself, absent until it does and while inStep is false"
           },
           "diskGuard": {
             "$ref": "#/components/schemas/DownloadclientsDiskGuard",
@@ -269,7 +269,7 @@
             ]
           },
           "inStep": {
-            "description": "The Node is in step; while it isn't the card has no client",
+            "description": "The Node is connected and on the Controller's version; while it isn't, the card has no client",
             "type": "boolean"
           },
           "limits": {
@@ -350,7 +350,7 @@
                 "type": "null"
               }
             ],
-            "description": "Null for Deluge's only daemon"
+            "description": "Null when Deluge has only one daemon"
           },
           "folder": {
             "description": "Empty for the client's default",
@@ -385,7 +385,7 @@
             "type": "string"
           },
           "nodeId": {
-            "description": "Another Node that holds Downloading; a client with Torrents can't move",
+            "description": "Another Node with the Downloading Role; a client with Torrents can't move",
             "format": "uuid",
             "type": "string"
           },
@@ -398,7 +398,7 @@
             "type": "string"
           },
           "username": {
-            "description": "Empty signs in with none",
+            "description": "Empty when the client has no sign-in",
             "maxLength": 256,
             "type": "string"
           }
@@ -677,7 +677,7 @@
             "type": "boolean"
           },
           "away": {
-            "description": "It isn't responding, refused the sign-in or needs attention while its Node is in step, so its card is red",
+            "description": "It isn't responding, refused the sign-in or needs attention while its Node is connected",
             "type": "boolean"
           },
           "checkEvery": {
@@ -903,7 +903,7 @@
         "additionalProperties": false,
         "properties": {
           "clears": {
-            "description": "What meets the rule it owes, or none while no rule is known",
+            "description": "What meets its Tracker's rule, or none while no rule is known",
             "enum": [
               "none",
               "time",
@@ -915,7 +915,7 @@
           },
           "owes": {
             "$ref": "#/components/schemas/DownloadclientsOwes",
-            "description": "What it still owes, absent while its Tracker's rule isn't known"
+            "description": "What it still needs, absent while its Tracker's rule isn't known"
           },
           "torrentId": {
             "format": "uuid",
@@ -930,7 +930,7 @@
                 "type": "null"
               }
             ],
-            "description": "The Tracker it owes, null while that Tracker isn't known"
+            "description": "The Tracker it needs more seeding for, null while that Tracker isn't known"
           }
         },
         "required": [
@@ -964,7 +964,7 @@
             "type": "boolean"
           },
           "deletesData": {
-            "description": "Its remove deletes data itself",
+            "description": "Removing a torrent in this client also deletes its data",
             "type": "boolean"
           },
           "floor": {
@@ -1002,7 +1002,7 @@
             "type": "string"
           },
           "path": {
-            "description": "The path an address with none takes; empty for a kind with none",
+            "description": "The path used when the address has none; empty for a kind with no usual path",
             "type": "string"
           },
           "username": {
@@ -1209,22 +1209,22 @@
             "type": "string"
           },
           "label": {
-            "description": "Absent for slipstream",
+            "description": "Defaults to slipstream",
             "maxLength": 100,
             "type": "string"
           },
           "name": {
-            "description": "Absent for the kind's name, such as Transmission",
+            "description": "Defaults to the kind's name, such as Transmission",
             "maxLength": 100,
             "type": "string"
           },
           "nodeId": {
-            "description": "A Node that holds Downloading",
+            "description": "A Node with the Downloading Role",
             "format": "uuid",
             "type": "string"
           },
           "on": {
-            "description": "Absent for on",
+            "description": "Defaults to true",
             "type": "boolean"
           },
           "password": {
@@ -1315,7 +1315,7 @@
         "additionalProperties": false,
         "properties": {
           "cancels": {
-            "description": "The Grabs at downloading that a remove fails",
+            "description": "The Grabs still downloading that removing would fail",
             "items": {
               "$ref": "#/components/schemas/DownloadclientsCanceled"
             },
@@ -1331,7 +1331,7 @@
             ]
           },
           "hitAndRun": {
-            "description": "The removed torrents whose removal counts as a hit and run, each the last copy of a torrent that still owes its Tracker",
+            "description": "The removed torrents whose removal counts as a hit and run, each the last copy of a torrent that still needs more seeding for its Tracker",
             "items": {
               "$ref": "#/components/schemas/DownloadclientsHitAndRun"
             },
@@ -1387,7 +1387,7 @@
         "additionalProperties": false,
         "properties": {
           "acceptsAt": {
-            "description": "window: when every announce URL accepts an announce",
+            "description": "window: when every tracker allows another announce",
             "format": "date-time",
             "type": "string"
           },
@@ -1482,7 +1482,7 @@
             "type": "string"
           },
           "atRisk": {
-            "description": "Whether a torrent that owes is at risk of a hit and run: yes while no copy of it announces as a seeder, unknown while every copy's Node is offline",
+            "description": "Whether a torrent that needs more seeding is at risk of a hit and run: yes while no copy of it announces as a seeder, unknown while every copy's Node is offline",
             "enum": [
               "no",
               "yes",
@@ -1523,18 +1523,18 @@
             "type": "string"
           },
           "goalMet": {
-            "description": "Its seeding goal is met and it owes its Tracker nothing",
+            "description": "Its seeding goal is met and its Tracker's seeding rule is met",
             "type": "boolean"
           },
           "owes": {
             "$ref": "#/components/schemas/DownloadclientsOwes",
-            "description": "What it still needs to meet its Tracker's rule and the margin, absent unless it owes under a known rule"
+            "description": "What it still needs to meet its Tracker's rule and the margin, absent unless it needs more seeding under a known rule"
           },
           "ratio": {
             "$ref": "#/components/schemas/DownloadclientsRatioLane"
           },
           "state": {
-            "description": "Its hit and run window's state, or none while it owes no Tracker",
+            "description": "Its hit and run window's state, or none while no Tracker needs more seeding from it",
             "enum": [
               "none",
               "owing",
@@ -1888,10 +1888,10 @@
           },
           "announce": {
             "$ref": "#/components/schemas/DownloadclientsTrackerCell",
-            "description": "Absent when its metainfo names no announce URL"
+            "description": "Absent when its .torrent lists no tracker"
           },
           "announceAt": {
-            "description": "The earliest every announce URL accepts an announce, set while live",
+            "description": "The earliest time every tracker allows another announce, set while live",
             "format": "date-time",
             "type": "string"
           },
@@ -2002,7 +2002,7 @@
             "type": "string"
           },
           "lastKnownCause": {
-            "description": "Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off",
+            "description": "Why the row shows its last report: its Node isn't connected, its external client isn't responding or refused the sign-in, or its external client is off",
             "enum": [
               "node",
               "client",
@@ -2011,7 +2011,7 @@
             "type": "string"
           },
           "live": {
-            "description": "Its Node responded, so announce URLs and files are live. Otherwise they are from its last report",
+            "description": "Its Node responded, so trackers and files are live. Otherwise they are from its last report",
             "type": "boolean"
           },
           "name": {
@@ -2169,7 +2169,7 @@
             "type": "array"
           },
           "until": {
-            "description": "When a window hold starts it, or a check resumes it",
+            "description": "When it starts after its trackers allow another announce, or resumes after a check",
             "format": "date-time",
             "type": "string"
           },
@@ -2280,7 +2280,7 @@
           },
           "announce": {
             "$ref": "#/components/schemas/DownloadclientsTrackerCell",
-            "description": "Absent when its metainfo names no announce URL"
+            "description": "Absent when its .torrent lists no tracker"
           },
           "attached": {
             "description": "It was in its external client before SlipStream attached to it, so removing it only stops tracking it",
@@ -2365,7 +2365,7 @@
             "type": "string"
           },
           "lastKnownCause": {
-            "description": "Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off",
+            "description": "Why the row shows its last report: its Node isn't connected, its external client isn't responding or refused the sign-in, or its external client is off",
             "enum": [
               "node",
               "client",
@@ -2508,7 +2508,7 @@
             "description": "The Tracker its first Grab's Release reached, null when none did or it is in an external client"
           },
           "until": {
-            "description": "When a window hold starts it, or a check resumes it",
+            "description": "When it starts after its trackers allow another announce, or resumes after a check",
             "format": "date-time",
             "type": "string"
           },
@@ -2584,15 +2584,15 @@
         "additionalProperties": false,
         "properties": {
           "host": {
-            "description": "Empty when its announce URLs are unknown",
+            "description": "Empty when its trackers are unknown",
             "type": "string"
           },
           "message": {
-            "description": "The announce URL's failure reason or warning, verbatim",
+            "description": "The tracker's failure reason or warning, verbatim",
             "type": "string"
           },
           "retryAt": {
-            "description": "When it tries a failing announce URL again",
+            "description": "When it tries a failing tracker again",
             "format": "date-time",
             "type": "string"
           },
@@ -2633,11 +2633,11 @@
             "type": "integer"
           },
           "message": {
-            "description": "The announce URL's failure reason or warning, verbatim",
+            "description": "The tracker's failure reason or warning, verbatim",
             "type": "string"
           },
           "minIntervalSeconds": {
-            "description": "Its min interval as the announce policy holds to it, set while live",
+            "description": "The tracker's minimum announce interval that SlipStream follows, set while live",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -2648,7 +2648,7 @@
             "type": "string"
           },
           "retryAt": {
-            "description": "When it tries a failing announce URL again, from the last report",
+            "description": "When it tries a failing tracker again, from the last report",
             "format": "date-time",
             "type": "string"
           },
@@ -2833,7 +2833,7 @@
             "type": "array"
           },
           "levels": {
-            "description": "What each level's cells add up to, in the order its first Item comes; empty for a type with no levels",
+            "description": "The states of each level's Items at their Targets, added up, in the order its first Item comes; empty for a type with no levels",
             "items": {
               "$ref": "#/components/schemas/FilesLevelRollup"
             },
@@ -2848,7 +2848,7 @@
           },
           "summary": {
             "$ref": "#/components/schemas/FilesSummary",
-            "description": "What the cells add up to for the Work"
+            "description": "The states of the Work's Items at their Targets, added up"
           }
         },
         "required": [
@@ -2963,7 +2963,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "description": "any under any cut, else the key of the cut the cell wants",
+            "description": "any under any cut, else the key of the cut this Item needs at this Target",
             "type": "string"
           },
           "file": {
@@ -2975,7 +2975,7 @@
                 "type": "null"
               }
             ],
-            "description": "The file the Grab would replace; null when it fills no file"
+            "description": "The file the Grab would replace; null when it replaces none"
           },
           "from": {
             "description": "When the Grab entered its stage; null with step",
@@ -3010,7 +3010,7 @@
                 "type": "null"
               }
             ],
-            "description": "What the Grab or its Import is doing for the cell; null until SlipStream reads it"
+            "description": "What the Grab or its Import is doing for this Item at this Target; null until SlipStream reads it"
           },
           "targetId": {
             "format": "uuid",
@@ -3051,7 +3051,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "description": "any under any cut, else the key of the cut the cell wants",
+            "description": "any under any cut, else the key of the cut this Item needs at this Target",
             "type": "string"
           },
           "file": {
@@ -3063,7 +3063,7 @@
                 "type": "null"
               }
             ],
-            "description": "The file the Grab would have replaced; null when it fills no file"
+            "description": "The file the Grab would have replaced; null when it replaced none"
           },
           "grabId": {
             "description": "The Grab that failed",
@@ -3108,7 +3108,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "description": "any under any cut, else the key of the cut the cells want",
+            "description": "any under any cut, else the key of the cut these Items need at this Target",
             "type": "string"
           },
           "grabId": {
@@ -3195,7 +3195,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "description": "any under any cut, else the key of the cut the cell wants",
+            "description": "any under any cut, else the key of the cut this Item needs at this Target",
             "type": "string"
           },
           "itemId": {
@@ -3233,7 +3233,7 @@
             "type": "string"
           },
           "grabId": {
-            "description": "The Grab in flight for the cell",
+            "description": "The Grab in flight for this Item at this Target",
             "format": "uuid",
             "type": "string"
           },
@@ -3302,7 +3302,7 @@
                 "type": "null"
               }
             ],
-            "description": "The first state its cells hold, in the glossary's order; null for an Item with no cell"
+            "description": "Its first state in the order failed, missing, downloading, upgradable, unreleased, met, across its Targets; null for an Item with no Target"
           }
         },
         "required": [
@@ -3317,11 +3317,11 @@
         "properties": {
           "cells": {
             "$ref": "#/components/schemas/FilesStateCounts",
-            "description": "Its monitored Items' cells by state"
+            "description": "Its monitored Items at each of their Targets, by state"
           },
           "itemStatus": {
             "$ref": "#/components/schemas/FilesStateCounts",
-            "description": "Its monitored Items by status; an Item with no cell isn't counted"
+            "description": "Its monitored Items by status; an Item with no Target isn't counted"
           },
           "items": {
             "description": "Its monitored Items that its source still lists",
@@ -3335,7 +3335,7 @@
           },
           "withdrawn": {
             "$ref": "#/components/schemas/FilesStateCounts",
-            "description": "The cells of its Items its source no longer lists that a file still fills, by state"
+            "description": "Its Items that its source no longer lists and that still have a file, at each of their Targets, by state"
           }
         },
         "required": [
@@ -3418,7 +3418,7 @@
             "type": "string"
           },
           "fills": {
-            "description": "The cells it fills; empty for a Kept or gone file",
+            "description": "The Items and Targets it is the file for; empty for a Kept or gone file",
             "items": {
               "$ref": "#/components/schemas/FilesFill"
             },
@@ -3452,7 +3452,7 @@
             "type": "string"
           },
           "kept": {
-            "description": "A Kept file, which fills no cell",
+            "description": "A Kept file, which no Target uses",
             "type": "boolean"
           },
           "label": {
@@ -3498,7 +3498,7 @@
             ]
           },
           "probeError": {
-            "description": "The first line ffprobe printed when the last library scan couldn't read it, and media is then the read before; null when that read worked",
+            "description": "The first line ffprobe printed when the last library scan couldn't read the file, in which case media is from the read before; null when the last read worked",
             "type": [
               "string",
               "null"
@@ -3605,7 +3605,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "description": "any under any cut, else the key of the cut the cell wants",
+            "description": "any under any cut, else the key of the cut this Item needs at this Target",
             "type": "string"
           },
           "file": {
@@ -3661,7 +3661,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "description": "any under any cut, else the key of the cut the cell wants",
+            "description": "any under any cut, else the key of the cut this Item needs at this Target",
             "type": "string"
           },
           "itemId": {
@@ -4048,11 +4048,11 @@
         "properties": {
           "cells": {
             "$ref": "#/components/schemas/FilesStateCounts",
-            "description": "Its monitored Items' cells by state"
+            "description": "Its monitored Items at each of their Targets, by state"
           },
           "itemStatus": {
             "$ref": "#/components/schemas/FilesStateCounts",
-            "description": "Its monitored Items by status; an Item with no cell isn't counted"
+            "description": "Its monitored Items by status; an Item with no Target isn't counted"
           },
           "items": {
             "description": "Its monitored Items that its source still lists, the only Items the status and counts read",
@@ -4069,7 +4069,7 @@
                 "type": "null"
               }
             ],
-            "description": "The first status its monitored Items hold, in the glossary's order; null while none holds a cell"
+            "description": "Its monitored Items' first status in the order failed, missing, downloading, upgradable, unreleased, met; null while none has a Target"
           }
         },
         "required": [
@@ -4102,7 +4102,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "description": "any under any cut, else the key of the cut the cell wants",
+            "description": "any under any cut, else the key of the cut this Item needs at this Target",
             "type": "string"
           },
           "itemId": {
@@ -4142,7 +4142,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "description": "any under any cut, else the key of the cut the cell wants",
+            "description": "any under any cut, else the key of the cut this Item needs at this Target",
             "type": "string"
           },
           "file": {
@@ -4187,7 +4187,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "description": "any under any cut, else the key of the cut the cells want",
+            "description": "any under any cut, else the key of the cut these Items need",
             "type": "string"
           },
           "itemIds": {
@@ -4309,7 +4309,7 @@
             "description": "The client's error, for client_error; null otherwise"
           },
           "code": {
-            "description": "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of step, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't hold Downloading. no_space while its root has too little free space for a file, root_not_ready while its root isn't ready, probe_timeout while reading a file timed out three times, and client_error while its external client reports an error",
+            "description": "Why the Grab waits: node_away while its Node, or the Node of the client its fetch goes to, is out of sync with the Controller, client_away while its Torrent's client isn't responding, refused the sign-in or needs attention, client_off while the client it is pinned to is off or deleted, or its Node doesn't have the Downloading Role. no_space while its root has too little free space for a file, root_not_ready while its root isn't ready, probe_timeout while reading a file timed out three times, and client_error while its external client reports an error",
             "enum": [
               "node_away",
               "client_away",
@@ -4552,7 +4552,7 @@
             "type": "boolean"
           },
           "required": {
-            "description": "The format matches only when this condition does, beside the others of its kind",
+            "description": "This condition must match for the format to match; without required, any one condition of the same kind is enough",
             "type": "boolean"
           }
         },
@@ -4588,7 +4588,7 @@
             "type": "string"
           },
           "includeWhenRenaming": {
-            "description": "The Custom Formats naming token lists it",
+            "description": "A file that matches it gets its name in the {Custom Formats} naming token",
             "type": "boolean"
           },
           "name": {
@@ -4602,7 +4602,7 @@
             "type": "array"
           },
           "slowReleases": {
-            "description": "Releases one of its patterns ran past the match limit on since its last save; they count as not matching it",
+            "description": "How many releases a pattern of this format timed out on since it was last saved; those releases count as not matching",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -4654,7 +4654,7 @@
             "type": "array"
           },
           "formatId": {
-            "description": "The saved Custom Format the draft stands in for, whose app it is written in; left out, the draft is a new format in SlipStream's own values",
+            "description": "The saved Custom Format the draft replaces in the test, whose app the draft's values use; omit it to test the draft as a new SlipStream format",
             "format": "uuid",
             "type": "string"
           },
@@ -4857,7 +4857,7 @@
             "type": "array"
           },
           "includeWhenRenaming": {
-            "description": "The Custom Formats naming token lists it",
+            "description": "A file that matches it gets its name in the {Custom Formats} naming token",
             "type": "boolean"
           },
           "name": {
@@ -4990,7 +4990,7 @@
             "type": "string"
           },
           "sentence": {
-            "description": "What the name reads as, the Works it matches and the Targets it would fill, or why it would fill none",
+            "description": "What the name reads as, the Works it matches and the Targets an automatic search would grab it for, or why it would grab it for none",
             "type": "string"
           },
           "targets": {
@@ -5040,7 +5040,7 @@
         "additionalProperties": false,
         "properties": {
           "app": {
-            "description": "The app the text was written for; left out, the app its kinds settle: Edition, Quality modifier or Year mean Radarr and Release type means Sonarr",
+            "description": "The app the text was written for; omitted, SlipStream infers it from the condition kinds: Edition, Quality modifier or Year mean Radarr and Release type means Sonarr",
             "enum": [
               "radarr",
               "sonarr"
@@ -5073,7 +5073,7 @@
         "additionalProperties": false,
         "properties": {
           "app": {
-            "description": "The app the formats are read for: the one given, or the one their kinds settle",
+            "description": "The app the formats are read for: the one given, or the one SlipStream infers from their condition kinds",
             "enum": [
               "radarr",
               "sonarr"
@@ -5221,7 +5221,7 @@
             ]
           },
           "source": {
-            "description": "The fine source in words, such as WEB-DL",
+            "description": "The source, such as WEB-DL or Blu-ray",
             "type": [
               "string",
               "null"
@@ -5322,7 +5322,7 @@
             "type": "string"
           },
           "reasons": {
-            "description": "The name's own refusals, then the reasons of the first cell it would fill, else of the first cell it was judged at",
+            "description": "The name's own refusals, then the reasons at the first Target an automatic search would grab it for, else at the first Target it was judged at",
             "items": {
               "$ref": "#/components/schemas/GrabsWordedReason"
             },
@@ -5509,7 +5509,7 @@
         "additionalProperties": false,
         "properties": {
           "cells": {
-            "description": "The cells its row fills once it is pinned, the row's first leading",
+            "description": "The Items and Targets its row downloads for once it is pinned, the row's first leading",
             "items": {
               "type": "string"
             },
@@ -5589,7 +5589,7 @@
             "type": "string"
           },
           "off": {
-            "description": "The Grab is pinned to this client and the client can't take it: it is off or deleted, or its Node doesn't hold Downloading. False while the client's Node is offline",
+            "description": "The Grab is pinned to this client and the client can't take it: it is off or deleted, or its Node doesn't have the Downloading Role. False while the client's Node is offline",
             "type": "boolean"
           }
         },
@@ -5684,14 +5684,14 @@
             "type": "string"
           },
           "current": {
-            "description": "No later Grab holds any of its cells. Needs you lists a failure only while it is current.",
+            "description": "No later Grab is downloading any of the same files. Needs you lists a failure only while it is current.",
             "type": "boolean"
           },
           "message": {
             "type": "string"
           },
           "needsYou": {
-            "description": "It goes under Needs you. False for a cancel and for a Manual Grab whose Release the Blocklist held after its fetch, which its sheet already said.",
+            "description": "True when Needs you lists the failure. False for a cancel, and for a Manual Grab whose fetched torrent was on the Blocklist, because the Manual search sheet already showed that.",
             "type": "boolean"
           },
           "stage": {
@@ -5762,7 +5762,7 @@
             "type": "array"
           },
           "line": {
-            "description": "Such as SlipStream wouldn't grab 14 more Releases.",
+            "description": "Such as SlipStream wouldn't grab 14 more releases.",
             "type": "string"
           }
         },
@@ -5794,7 +5794,7 @@
             "description": "Its Torrent's external Download Client, null for its Node's built-in client or until the .torrent is fetched"
           },
           "edition": {
-            "description": "The Edition it was grabbed to fill: any under any cut, else a cut key",
+            "description": "The Edition it was grabbed for: any when the Work takes any cut, else a cut key",
             "type": "string"
           },
           "failure": {
@@ -5843,7 +5843,7 @@
             "description": "Its download's Import, from importing on; null before"
           },
           "inFlight": {
-            "description": "It holds its cells and counts in Activity: it is neither imported nor failed",
+            "description": "It is neither imported nor failed, so it counts in Activity and no other Grab can download the same files",
             "type": "boolean"
           },
           "indexerId": {
@@ -5958,7 +5958,7 @@
             "type": "array"
           },
           "targets": {
-            "description": "Each cell it holds, in plan order",
+            "description": "Each Target of its Items it downloads for, in plan order",
             "items": {
               "$ref": "#/components/schemas/GrabsGrabTarget"
             },
@@ -5973,7 +5973,7 @@
             ]
           },
           "trackerId": {
-            "description": "The Tracker its Release reached, null for a Grab older than Trackers",
+            "description": "The Tracker its release came from, null for a Grab older than Trackers",
             "format": "uuid",
             "type": [
               "string",
@@ -6135,14 +6135,14 @@
         "additionalProperties": false,
         "properties": {
           "cancels": {
-            "description": "The Grabs downloading a cell it would also fill",
+            "description": "The Grabs downloading an Item and Target it would also download",
             "items": {
               "$ref": "#/components/schemas/GrabsHeldCell"
             },
             "type": "array"
           },
           "cells": {
-            "description": "The cells a Grab of it alone fills, any a Grab downloads among them. Send them back as the pick's cells.",
+            "description": "The Items and Targets a Grab of it alone downloads for, including any a Grab is already downloading. Send them back as the pick's cells.",
             "items": {
               "type": "string"
             },
@@ -6160,7 +6160,7 @@
             "description": "The Edition it is grabbed as; null unless that is another Edition than its cut's"
           },
           "grabbable": {
-            "description": "It fills some cell and its Indexer would take it now. One on the Blocklist is grabbed only with unblock.",
+            "description": "Some Target accepts it and its Indexer would take it now. One on the Blocklist is grabbed only with unblock.",
             "type": "boolean"
           },
           "lifts": {
@@ -6195,12 +6195,12 @@
         "additionalProperties": false,
         "properties": {
           "cancelGrabId": {
-            "description": "The Grab downloading a cell it fills, canceled first",
+            "description": "The Grab downloading an Item and Target it covers, canceled first",
             "format": "uuid",
             "type": "string"
           },
           "cells": {
-            "description": "The cells the row or the Release showed",
+            "description": "The Items and Targets the row or the release showed",
             "items": {
               "type": "string"
             },
@@ -6251,7 +6251,7 @@
             "type": "string"
           },
           "settled": {
-            "description": "How the Grab finished with the cell: a file placed into it, no file filled it, or the Admin declined it. Null while the Grab holds it",
+            "description": "How the Grab finished at this Target: it placed a file, it placed none, or the Admin declined it. Null while the Grab is still downloading for it",
             "enum": [
               "placed",
               "none",
@@ -6445,7 +6445,7 @@
             "description": "Where an outranked or kept Release lost to the reference Release; null for the others and for one that ties it at every step"
           },
           "outcome": {
-            "description": "grabbed is the run's Grab. not_taken ranked above it, and its Indexer stopped, reached its limit or dropped it. outranked ranked below it. kept ranked, and the run grabbed nothing. refused has a refusal of its own or is grabbable at no cell.",
+            "description": "grabbed is the run's Grab. not_taken ranked above it, but its Indexer had stopped, reached its limit or no longer listed it. outranked ranked below it. kept ranked, but the run grabbed nothing. refused has a refusal of its own, or no Target accepts it.",
             "enum": [
               "grabbed",
               "not_taken",
@@ -6462,7 +6462,7 @@
             "type": "integer"
           },
           "rank": {
-            "description": "Its place among the Releases grabbable at some cell, from 1; null for one grabbable at none",
+            "description": "Its place among the releases some Target accepts, from 1; null for one no Target accepts",
             "format": "int64",
             "minimum": 1,
             "type": [
@@ -6471,7 +6471,7 @@
             ]
           },
           "reasons": {
-            "description": "Its own refusals, then each cell's failures and notes, in Profile order",
+            "description": "Its own refusals, then the failures and notes at each Target, in Profile order",
             "items": {
               "$ref": "#/components/schemas/GrabsWordedReason"
             },
@@ -6526,7 +6526,7 @@
         "additionalProperties": false,
         "properties": {
           "own": {
-            "description": "This Release's value at the step: a Target's name for want, a count of the Items with no file it fills for fewer_releases, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, whether another Want chose it for chosen_by_another, a count of the Items it covers that aren't wanted for fewer_unwanted, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title",
+            "description": "This Release's value at the step: a Target's name for want, a count of the missing files it has for fewer_releases, a quality's name for tier, such as v2 or v1 REPACK for revision, a score, whether SlipStream already picked it for another missing file for chosen_by_another, a count of the files it has that SlipStream doesn't need for fewer_unwanted, an Indexer priority, a download factor from 0 to 1, a seeder count, bytes, or the title",
             "type": "string"
           },
           "ref": {
@@ -6572,7 +6572,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "description": "The cell's Edition: any, or a cut key",
+            "description": "The Edition at the Item's Target: any, or a cut key",
             "minLength": 1,
             "type": "string"
           },
@@ -6597,7 +6597,7 @@
         "properties": {
           "cell": {
             "$ref": "#/components/schemas/GrabsManualCell",
-            "description": "The one cell it plans for, absent for a wider scope"
+            "description": "The one Item and Target it plans for, absent for a wider scope"
           },
           "itemIds": {
             "items": {
@@ -6671,7 +6671,7 @@
           },
           "scope": {
             "$ref": "#/components/schemas/GrabsManualScope",
-            "description": "What it was started for; no levels, Items or cell for the whole Work"
+            "description": "What it was started for; no levels, Items or Target for the whole Work"
           },
           "searching": {
             "description": "An Indexer asked hasn't responded yet",
@@ -6755,7 +6755,7 @@
             "type": "integer"
           },
           "rank": {
-            "description": "Its place in the ranking from 1; null when no cell's Target takes it",
+            "description": "Its place in the ranking from 1; null when no Target accepts it",
             "format": "int64",
             "minimum": 1,
             "type": [
@@ -6817,7 +6817,7 @@
             "type": "string"
           },
           "grabId": {
-            "description": "cell_held: the Grab downloading the cell",
+            "description": "cell_held: the Grab downloading that Item and Target",
             "format": "uuid",
             "type": "string"
           }
@@ -6897,14 +6897,14 @@
             "type": "string"
           },
           "held": {
-            "description": "The cells a Grab downloads, which the plan leaves out",
+            "description": "The Items and Targets a Grab is already downloading, which the plan leaves out",
             "items": {
               "$ref": "#/components/schemas/GrabsHeldCell"
             },
             "type": "array"
           },
           "rows": {
-            "description": "Each Grab and each cell nothing fills, in Want order",
+            "description": "Each Grab and each Item and Target no release covers, in the order the plan walks them",
             "items": {
               "$ref": "#/components/schemas/GrabsPlanRow"
             },
@@ -6922,7 +6922,7 @@
         "additionalProperties": false,
         "properties": {
           "cells": {
-            "description": "The cells it fills, its row's first leading. Send them back as the pick's cells.",
+            "description": "The Items and Targets it downloads for, its row's first leading. Send them back as the pick's cells.",
             "items": {
               "type": "string"
             },
@@ -6966,26 +6966,26 @@
         "additionalProperties": false,
         "properties": {
           "cause": {
-            "description": "For a cell nothing fills, its plain cause, such as No Indexer listed a 720p Release.",
+            "description": "For an Item and Target no release covers, its plain cause, such as No Indexer listed a 720p release.",
             "type": "string"
           },
           "choices": {
-            "description": "Every other Release that could fill its first cell, ranked",
+            "description": "Every other release that could download its first Item and Target, ranked",
             "items": {
               "$ref": "#/components/schemas/GrabsChoice"
             },
             "type": "array"
           },
           "failure": {
-            "description": "For a failed cell, its last Grab's failure",
+            "description": "For a failed Item and Target, its last Grab's failure",
             "type": "string"
           },
           "key": {
-            "description": "The row's first cell, stable while that cell leads it. A pin chosen from its choices replaces the pin with this key.",
+            "description": "The row's first Item and Target, stable while it leads the row. A pin chosen from its choices replaces the pin with this key.",
             "type": "string"
           },
           "missing": {
-            "description": "For a cell nothing fills, such as Missing: 720p for E05.",
+            "description": "For an Item and Target no release covers, such as Missing: 720p for E05.",
             "type": "string"
           },
           "outcome": {
@@ -7001,7 +7001,7 @@
                 "type": "null"
               }
             ],
-            "description": "Null for a cell nothing fills"
+            "description": "Null for an Item and Target no release covers"
           },
           "pinned": {
             "description": "Its Release was swapped in by a pin",
@@ -7081,7 +7081,7 @@
             "type": "string"
           },
           "value": {
-            "description": "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
+            "description": "The value a filter failed on, the quality a Target doesn't accept, the cut the Edition doesn't include, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
             "type": "string"
           }
         },
@@ -7132,7 +7132,7 @@
                 "type": "null"
               }
             ],
-            "description": "Where it lost to the Release that fills its first cell; null when it didn't"
+            "description": "Where it lost to the release picked for its first Item and Target; null when it didn't"
           },
           "publishedAt": {
             "description": "Null when the Indexer sent no date",
@@ -7161,7 +7161,7 @@
             "type": "string"
           },
           "verdicts": {
-            "description": "Its verdict at each Target of its Item, such as It would fill 1080p.",
+            "description": "Its verdict at each Target of its Item, such as It would be the 1080p file.",
             "items": {
               "type": "string"
             },
@@ -7410,7 +7410,7 @@
         "additionalProperties": false,
         "properties": {
           "searchIds": {
-            "description": "One run per Item in the scope with a wanted cell",
+            "description": "One run per Item in the scope with a missing, failed or upgradable file",
             "items": {
               "type": "string"
             },
@@ -7431,7 +7431,7 @@
           },
           "cell": {
             "$ref": "#/components/schemas/GrabsManualCell",
-            "description": "One cell to plan for; send it without levelIds and itemIds"
+            "description": "One Item and Target to plan for; send it without levelIds and itemIds"
           },
           "itemIds": {
             "items": {
@@ -7519,7 +7519,7 @@
             "type": "string"
           },
           "value": {
-            "description": "The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
+            "description": "The value a filter failed on, the quality a Target doesn't accept, the cut the Edition doesn't include, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)",
             "type": "string"
           },
           "words": {
@@ -7852,7 +7852,7 @@
                 "type": "null"
               }
             ],
-            "description": "The item the status sentence leads with: the worst, then the oldest, then in page order; null while nothing is wrong"
+            "description": "The item the Health summary names first: the worst, then the oldest, then in page order; null while nothing is wrong"
           },
           "level": {
             "description": "The worst level over every category, null while nothing is wrong",
@@ -7963,7 +7963,7 @@
             ]
           },
           "live": {
-            "description": "Its Node is in step, so its figures are current. Otherwise they are from sampledAt",
+            "description": "Its Node is connected and on the Controller's version, so its figures are current. Otherwise they're from sampledAt",
             "type": "boolean"
           },
           "mount": {
@@ -8357,7 +8357,7 @@
         "properties": {
           "email": {
             "$ref": "#/components/schemas/MailOutcome",
-            "description": "What became of the confirm link's email to the new address"
+            "description": "What became of the confirmation link's email to the new address"
           }
         },
         "required": [
@@ -8468,7 +8468,7 @@
             "type": "string"
           },
           "host": {
-            "description": "The address's host the passkey signs in at",
+            "description": "The host name the passkey is registered for",
             "type": "string"
           },
           "id": {
@@ -9042,7 +9042,7 @@
         "additionalProperties": false,
         "properties": {
           "edition": {
-            "description": "any under any cut, else the key of the cut the cell wants",
+            "description": "any under any cut, else the key of the cut this Item needs at this Target",
             "type": "string"
           },
           "itemId": {
@@ -9215,7 +9215,7 @@
         "additionalProperties": false,
         "properties": {
           "attempts": {
-            "description": "The tries that ran into the hold",
+            "description": "How many tries ran into this hold",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -9540,7 +9540,7 @@
             ]
           },
           "fills": {
-            "description": "The cells it fills, or would fill once confirmed",
+            "description": "The Items and Targets it is the file for, or will be once confirmed",
             "items": {
               "$ref": "#/components/schemas/ImportsCellRef"
             },
@@ -9572,7 +9572,7 @@
             "type": "array"
           },
           "movable": {
-            "description": "Move files may take it: no tracked torrent seeds it",
+            "description": "Move files can move it, because no torrent SlipStream tracks is seeding it",
             "type": "boolean"
           },
           "outcome": {
@@ -10038,7 +10038,7 @@
             "description": "For elsewhere: the root the Work lives in"
           },
           "sentence": {
-            "description": "The one sentence the row leads with; null for a root Import's reason, which its other fields word",
+            "description": "The one sentence the row leads with; null for a root Import's reason, whose other fields give it",
             "type": [
               "string",
               "null"
@@ -10101,7 +10101,7 @@
             "type": "string"
           },
           "label": {
-            "description": "The root as copy names it, such as Movies library root on Media server",
+            "description": "The root's display name, such as Movies library root on Media server",
             "type": "string"
           }
         },
@@ -10115,7 +10115,7 @@
         "additionalProperties": false,
         "properties": {
           "settings": {
-            "description": "The stop share, then the files each Node probes at once",
+            "description": "The stop share, then how many files each Node reads at once",
             "items": {
               "$ref": "#/components/schemas/SettingField"
             },
@@ -10179,7 +10179,7 @@
         "additionalProperties": false,
         "properties": {
           "sentence": {
-            "description": "How the Target judges the file, such as Fills 2160p for Heat (1995).",
+            "description": "How the Target judges the file, such as Would be the 2160p file for Heat (1995).",
             "type": "string"
           },
           "targetId": {
@@ -10407,7 +10407,7 @@
             ]
           },
           "help": {
-            "description": "An info field's text, written by the definition's authors, or a ported site's help",
+            "description": "An info field's text, written by the definition's authors, or a built-in site's help",
             "type": [
               "string",
               "null"
@@ -10444,11 +10444,11 @@
             "type": "array"
           },
           "required": {
-            "description": "An Indexer can't be saved with the value empty; an edit that sends a sealed one empty keeps the saved value",
+            "description": "An Indexer can't be saved with the value empty; an edit that sends a secret one empty keeps the saved value",
             "type": "boolean"
           },
           "sealed": {
-            "description": "Its saved value is never returned",
+            "description": "A secret setting, whose saved value is never returned",
             "type": "boolean"
           },
           "type": {
@@ -10524,7 +10524,7 @@
                 "type": "null"
               }
             ],
-            "description": "What an included site's form says beyond a definition's; null for a definition"
+            "description": "Extra form facts for a built-in site, such as its default limits and whether it lists new uploads; null for a catalog definition"
           },
           "session": {
             "description": "Its Indexers sign in and keep a session on their Node",
@@ -10654,7 +10654,7 @@
             "type": "string"
           },
           "notes": {
-            "description": "What changed when SlipStream last moved it to a new definition version or from a ported site to its catalog definition, for the Indexer page",
+            "description": "What changed when SlipStream last moved it to a new definition version or from a built-in site to its catalog definition, for the Indexer page",
             "items": {
               "type": "string"
             },
@@ -10672,7 +10672,7 @@
                 "type": "null"
               }
             ],
-            "description": "A native Indexer's ported site; null for every other kind"
+            "description": "The built-in site this Indexer uses; null for every other kind"
           },
           "priority": {
             "description": "Lower wins a tie",
@@ -10856,7 +10856,7 @@
             ]
           },
           "baseAddress": {
-            "description": "A catalog Indexer's: one of its definition's addresses. A native Indexer's: one its port knows or a typed http or https one",
+            "description": "A catalog Indexer's: one of its definition's addresses. A built-in site's: one the site lists or a typed http or https one",
             "maxLength": 2048,
             "type": "string"
           },
@@ -10896,7 +10896,7 @@
             "description": "Null turns the limit off"
           },
           "homeNodeId": {
-            "description": "A Node that holds Searching",
+            "description": "A Node with the Searching Role",
             "format": "uuid",
             "type": "string"
           },
@@ -10951,7 +10951,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "A catalog or native Indexer's settings to change, by name; a sealed one sent empty keeps its saved value",
+            "description": "A catalog or built-in site Indexer's settings to change, by name; a secret one sent empty keeps its saved value",
             "type": "object"
           }
         },
@@ -11059,11 +11059,11 @@
             "type": "string"
           },
           "automaticSearch": {
-            "description": "Absent for on",
+            "description": "Defaults to on when omitted",
             "type": "boolean"
           },
           "baseAddress": {
-            "description": "One of the definition's addresses, absent for its first; or a native Indexer's address, one the port knows or a typed http or https one",
+            "description": "One of the definition's addresses, absent for its first; or a built-in site's address, one the site lists or a typed http or https one",
             "maxLength": 2048,
             "type": "string"
           },
@@ -11089,7 +11089,7 @@
           },
           "cookie": {
             "$ref": "#/components/schemas/IndexersPastedCookie",
-            "description": "A browser cookie for an RSS feed that needs one, or for a catalog or native Indexer whose site signs in with one. Write-only"
+            "description": "A browser cookie for an RSS feed that needs one, or for a catalog or built-in site Indexer whose site signs in with one. Write-only"
           },
           "definition": {
             "description": "A catalog Indexer's definition id; required for one",
@@ -11100,7 +11100,7 @@
             "$ref": "#/components/schemas/IndexersLimit"
           },
           "homeNodeId": {
-            "description": "A Node that holds Searching; absent for the default home",
+            "description": "A Node with the Searching Role; absent for the default home",
             "format": "uuid",
             "type": "string"
           },
@@ -11129,11 +11129,11 @@
             "type": "string"
           },
           "on": {
-            "description": "Absent for on",
+            "description": "Defaults to on when omitted",
             "type": "boolean"
           },
           "port": {
-            "description": "A native Indexer's port id; required for one",
+            "description": "The built-in site's id; required for an Indexer of a built-in site",
             "maxLength": 200,
             "type": "string"
           },
@@ -11145,14 +11145,14 @@
             "type": "integer"
           },
           "rss": {
-            "description": "Absent for on",
+            "description": "Defaults to on when omitted",
             "type": "boolean"
           },
           "searches": {
             "$ref": "#/components/schemas/IndexersLimit"
           },
           "trackerName": {
-            "description": "The name of the Tracker the feed reaches when its items name no source; required for an RSS feed, absent for a Torznab feed's Indexer name",
+            "description": "The Tracker an RSS feed's torrents belong to when its items don't name their source; required for an RSS feed, omitted for a Torznab feed",
             "maxLength": 100,
             "type": "string"
           },
@@ -11160,7 +11160,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "A catalog or native Indexer's settings by name, a checkbox's as true or false and a multiselect's as comma-separated option values; a setting left out takes its default. Sealed ones are write-only",
+            "description": "A catalog or built-in site Indexer's settings by name, a checkbox's as true or false and a multiselect's as comma-separated option values; a setting left out takes its default. Sealed ones are write-only",
             "type": "object"
           }
         },
@@ -11229,7 +11229,7 @@
             "type": "integer"
           },
           "since": {
-            "description": "Set for waiting: since when the home Node is away; null when it holds no Role to search with",
+            "description": "Set for waiting: since when the home Node is away; null when it doesn't have the Searching Role",
             "format": "date-time",
             "type": [
               "string",
@@ -11299,7 +11299,7 @@
             "type": "string"
           },
           "sealed": {
-            "description": "The names of the sealed settings that hold a value, in order",
+            "description": "The names of the secret settings that have a value, in order",
             "items": {
               "type": "string"
             },
@@ -11309,7 +11309,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "The settings saved in plain, by name. Sealed settings are never returned",
+            "description": "The settings that aren't secret, by name. Secret settings, such as passwords, are never returned",
             "type": "object"
           },
           "version": {
@@ -11348,7 +11348,7 @@
             "type": "number"
           },
           "synced": {
-            "description": "When the Prowlarr commit SlipStream's support for the site was synced to was made",
+            "description": "The date of the Prowlarr commit that SlipStream's support for this site is based on",
             "format": "date-time",
             "type": [
               "string",
@@ -11384,14 +11384,14 @@
             "type": "string"
           },
           "sealed": {
-            "description": "The names of the sealed settings that hold a value, in order",
+            "description": "The names of the secret settings that have a value, in order",
             "items": {
               "type": "string"
             },
             "type": "array"
           },
           "synced": {
-            "description": "When the Prowlarr commit the port was synced to was made; null once SlipStream no longer includes the site",
+            "description": "The date of the Prowlarr commit that SlipStream's support for this site is based on; null once the site is no longer built in",
             "format": "date-time",
             "type": [
               "string",
@@ -11402,7 +11402,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "The settings saved in plain, by name. Sealed settings are never returned",
+            "description": "The settings that aren't secret, by name. Secret settings, such as passwords, are never returned",
             "type": "object"
           }
         },
@@ -11432,7 +11432,7 @@
             "type": "string"
           },
           "outcome": {
-            "description": "Null while it runs; lost when its Node never answered",
+            "description": "Null while it runs; lost when its Node never responded",
             "enum": [
               "ok",
               "limited",
@@ -11694,7 +11694,7 @@
             "type": "boolean"
           },
           "state": {
-            "description": "home_only: a stop met on a failover Node, which waits for home",
+            "description": "home_only: the Indexer stopped while searching from a failover Node, and searches only from its home Node until that Node is back",
             "enum": [
               "ok",
               "limited",
@@ -11705,7 +11705,7 @@
             "type": "string"
           },
           "successAt": {
-            "description": "The last answer the site responded to",
+            "description": "When the site last responded successfully",
             "format": "date-time",
             "type": [
               "string",
@@ -11720,7 +11720,7 @@
             ]
           },
           "until": {
-            "description": "When a limited or failing Indexer is asked again",
+            "description": "When SlipStream sends a limited or failing Indexer its next request",
             "format": "date-time",
             "type": [
               "string",
@@ -12186,7 +12186,7 @@
         "additionalProperties": false,
         "properties": {
           "address": {
-            "description": "What the reaching Node calls, such as http://localhost:8096; absent for Plex, whose address SlipStream picks from the server's connections",
+            "description": "The address the Connect from Node uses, such as http://localhost:8096; absent for Plex, whose address SlipStream picks from the server's connections",
             "maxLength": 2048,
             "type": "string"
           },
@@ -12196,7 +12196,7 @@
             "type": "string"
           },
           "browserAddress": {
-            "description": "Jellyfin and Emby: where Open in sends a browser; absent for no Open in button",
+            "description": "Jellyfin and Emby: the address the Open in button opens; absent when there is no Open in button",
             "maxLength": 2048,
             "type": "string"
           },
@@ -12206,7 +12206,7 @@
             "type": "string"
           },
           "fallbackAddress": {
-            "description": "What the Controller calls; absent for address",
+            "description": "The address the Controller uses while the Connect from Node is offline; absent when it uses address",
             "maxLength": 2048,
             "type": "string"
           },
@@ -12227,7 +12227,7 @@
             "type": "string"
           },
           "reachingNodeId": {
-            "description": "The Controller, or a Node that holds Media Server link",
+            "description": "The Controller, or a Node with the Media Server link Role",
             "format": "uuid",
             "type": "string"
           },
@@ -12264,7 +12264,7 @@
         "additionalProperties": false,
         "properties": {
           "current": {
-            "description": "The server's reaching Node now",
+            "description": "This Node is the server's Connect from Node now",
             "type": "boolean"
           },
           "fetchedAt": {
@@ -12430,14 +12430,14 @@
           },
           "library": {
             "$ref": "#/components/schemas/MediaserversLibrary",
-            "description": "The library the folder sits inside; absent when not shown"
+            "description": "The library the folder sits inside; absent when shown is false"
           },
           "rootId": {
             "format": "uuid",
             "type": "string"
           },
           "rootName": {
-            "description": "The root as copy names it, such as Movies library root on Media server",
+            "description": "The root's display name, such as Movies library root on Media server",
             "type": "string"
           },
           "rootNode": {
@@ -12449,11 +12449,11 @@
             "type": "boolean"
           },
           "serverFolder": {
-            "description": "The root's folder as the server sees it; absent when not shown",
+            "description": "The path the server uses for the root's folder; absent when shown is false",
             "type": "string"
           },
           "shown": {
-            "description": "false for a root this server doesn't show, which gets no changes",
+            "description": "false for a root that isn't in one of this server's libraries, which gets no changes",
             "type": "boolean"
           },
           "words": {
@@ -12520,14 +12520,14 @@
             "type": "string"
           },
           "browserAddress": {
-            "description": "null for no Open in button",
+            "description": "null to hide the Open in button",
             "type": [
               "string",
               "null"
             ]
           },
           "fallbackAddress": {
-            "description": "null for address",
+            "description": "null to use address",
             "type": [
               "string",
               "null"
@@ -12577,7 +12577,7 @@
             "type": "boolean"
           },
           "reachedFrom": {
-            "description": "The Controller and each Node that holds Media Server link",
+            "description": "The Controller and each Node with the Media Server link Role",
             "items": {
               "$ref": "#/components/schemas/MediaserversReached"
             },
@@ -12724,7 +12724,7 @@
             "type": "boolean"
           },
           "words": {
-            "description": "What the test found, such as Den reached Living room Plex.",
+            "description": "What the test found, such as Den connected to Living room Plex.",
             "type": "string"
           }
         },
@@ -12738,11 +12738,11 @@
         "additionalProperties": false,
         "properties": {
           "address": {
-            "description": "What the reaching Node calls, such as http://localhost:8096",
+            "description": "The address the Connect from Node uses, such as http://localhost:8096",
             "type": "string"
           },
           "browserAddress": {
-            "description": "Where Open in sends a browser, for Jellyfin and Emby; absent for no Open in button",
+            "description": "The address the Open in button opens, for Jellyfin and Emby; absent when there is no Open in button",
             "type": "string"
           },
           "checkedAt": {
@@ -12751,7 +12751,7 @@
             "type": "string"
           },
           "contact": {
-            "description": "As the reaching Node last reported it; unknown until it reports and while it is offline",
+            "description": "As the Connect from Node last reported it; unknown until it reports and while it is offline",
             "enum": [
               "unknown",
               "responding",
@@ -12766,7 +12766,7 @@
             "type": "string"
           },
           "fallback": {
-            "description": "Whether the Controller reaches the server itself, which it does while the reaching Node is offline",
+            "description": "Whether the Controller can connect to the server itself, which it does while the Connect from Node is offline",
             "enum": [
               "available",
               "none",
@@ -12775,7 +12775,7 @@
             "type": "string"
           },
           "fallbackAddress": {
-            "description": "What the Controller calls; absent when it calls address",
+            "description": "The address the Controller uses while the Connect from Node is offline; absent when it uses address",
             "type": "string"
           },
           "id": {
@@ -12798,7 +12798,7 @@
             "type": "string"
           },
           "mappingsNeeded": {
-            "description": "Shown roots without a confirmed Path mapping",
+            "description": "Roots with shown true and no confirmed Path mapping",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -12919,7 +12919,7 @@
         "additionalProperties": false,
         "properties": {
           "reachable": {
-            "description": "false while the reaching Node is offline, when sessions is empty",
+            "description": "false while the Connect from Node is offline, when sessions is empty",
             "type": "boolean"
           },
           "sessions": {
@@ -12980,7 +12980,7 @@
             "type": "string"
           },
           "nodeId": {
-            "description": "The reaching Node the draft names. The Controller signs in when it reaches the server, else this Node does",
+            "description": "The Connect from Node the draft names. The Controller signs in when it reaches the server, else this Node does",
             "format": "uuid",
             "type": "string"
           },
@@ -13062,7 +13062,7 @@
           },
           "reaching": {
             "$ref": "#/components/schemas/MediaserversRouteTest",
-            "description": "From the reaching Node at address"
+            "description": "From the Connect from Node at address"
           }
         },
         "required": [
@@ -13194,7 +13194,7 @@
             ]
           },
           "nodes": {
-            "description": "Each holder that called the provider since the Controller started or the key changed, by id",
+            "description": "Each Node that called the provider since the Controller started or the key changed, by id",
             "items": {
               "$ref": "#/components/schemas/MetadataReach"
             },
@@ -13216,7 +13216,7 @@
             "type": "string"
           },
           "words": {
-            "description": "In plain words, the provider named",
+            "description": "The last error in plain words, starting with the provider's name",
             "type": "string"
           }
         },
@@ -13267,7 +13267,7 @@
             "type": "string"
           },
           "key": {
-            "description": "Whose key calls carry: none in this build, SlipStream's, or the Admin's",
+            "description": "Which key SlipStream sends: none (this build has none), the bundled key or the Admin's own key",
             "enum": [
               "none",
               "bundled",
@@ -13296,7 +13296,7 @@
             "type": "boolean"
           },
           "state": {
-            "description": "From the latest outcome of a call or test, unused until one",
+            "description": "The provider's state from its latest call or test; unused until the first one",
             "enum": [
               "unused",
               "working",
@@ -13316,7 +13316,7 @@
             "type": "boolean"
           },
           "until": {
-            "description": "When a rate limited provider, or one out of its daily allowance, takes calls again",
+            "description": "When a provider that is rate limiting SlipStream, or whose daily request limit is used up, takes calls again",
             "format": "date-time",
             "type": [
               "string",
@@ -13391,7 +13391,7 @@
             ]
           },
           "running": {
-            "description": "Whether a run that refreshes every Work of the type is open",
+            "description": "Whether a run that refreshes every Work of the type is in progress",
             "type": "boolean"
           }
         },
@@ -13405,7 +13405,7 @@
         "additionalProperties": false,
         "properties": {
           "runId": {
-            "description": "The Metadata refresh run that refreshes every Work of the type; null while a run is already open, and the next run refreshes them",
+            "description": "The Metadata refresh run that refreshes every Work of the type; null while a run is already in progress, and the next run refreshes them",
             "format": "int64",
             "type": [
               "integer",
@@ -13503,7 +13503,7 @@
             "type": "string"
           },
           "problems": {
-            "description": "What the save check refuses in the setting, each a sentence; empty when it passes",
+            "description": "The setting's problems, each a sentence; empty when it has none",
             "items": {
               "type": "string"
             },
@@ -13818,7 +13818,7 @@
             "type": "string"
           },
           "problems": {
-            "description": "What the save check refuses in the stored settings once renaming is on; empty when every file of a Work shows as one item on Plex, Jellyfin and Emby",
+            "description": "The problems in the stored settings once renaming is on; empty when every file of a Work shows as one item on Plex, Jellyfin and Emby",
             "items": {
               "$ref": "#/components/schemas/NamingProblem"
             },
@@ -13965,7 +13965,7 @@
             "type": "array"
           },
           "away": {
-            "description": "Out of step, so its checks can't run",
+            "description": "Not connected, so its checks can't run",
             "type": "boolean"
           },
           "controller": {
@@ -13986,7 +13986,7 @@
             "type": "array"
           },
           "roles": {
-            "description": "Every Role the Node stands in, in table order",
+            "description": "Every Role the Node has, in the order of the Roles table",
             "items": {
               "$ref": "#/components/schemas/NodesRoleView"
             },
@@ -14125,7 +14125,7 @@
         "properties": {
           "dialing": {
             "$ref": "#/components/schemas/NodesDialing",
-            "description": "The Node address the Controller dials for an open code; absent without one"
+            "description": "The Node address the Controller connects to for an open code; absent without one"
           },
           "nodeId": {
             "description": "The Node that paired with the code; absent unless used",
@@ -14150,7 +14150,7 @@
         "additionalProperties": false,
         "properties": {
           "by": {
-            "description": "The side that dialed the live session; absent with none",
+            "description": "The side that opened the live connection; absent with none",
             "enum": [
               "node",
               "controller"
@@ -14158,7 +14158,7 @@
             "type": "string"
           },
           "controllerDials": {
-            "description": "The addresses the Controller dials the Node at; empty when the Node dials the Controller",
+            "description": "The addresses the Controller connects to the Node at; empty when the Node connects to the Controller",
             "items": {
               "type": "string"
             },
@@ -14177,7 +14177,7 @@
             "type": "string"
           },
           "addresses": {
-            "description": "Where the Controller dials the Node, in order",
+            "description": "Where the Controller connects to the Node, in order",
             "items": {
               "type": "string"
             },
@@ -14386,7 +14386,7 @@
             "type": "string"
           },
           "note": {
-            "description": "The words of a Role the gesture hands back or pins",
+            "description": "What happens to a Role this drag returns to the Controller, or that the Controller keeps",
             "type": "string"
           },
           "role": {
@@ -14484,7 +14484,7 @@
             "type": "integer"
           },
           "endlessUnits": {
-            "description": "How many units the Node can't finish on its own, which stay until they are removed, moved or written off",
+            "description": "How many units the Node can't finish on its own, which stay until they are removed, moved or given up",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -14765,7 +14765,7 @@
             "type": "array"
           },
           "roles": {
-            "description": "Every Role the Node stands in, in table order",
+            "description": "Every Role the Node has, in the order of the Roles table",
             "items": {
               "$ref": "#/components/schemas/NodesRoleView"
             },
@@ -14775,7 +14775,7 @@
             "type": "boolean"
           },
           "standing": {
-            "description": "How the Node stands with the Controller since link.since: in step, reconnecting within the blip, offline, lapsed past the offline grace, or on another version",
+            "description": "The Node's connection to the Controller since link.since: in-step (connected), reconnecting (a short drop), offline, lapsed (offline longer than the offline grace) or mismatched (another version)",
             "enum": [
               "in-step",
               "reconnecting",
@@ -14806,7 +14806,7 @@
         "additionalProperties": false,
         "properties": {
           "addresses": {
-            "description": "Send [] to stop dialing the Node, which then dials the Controller",
+            "description": "Send [] to stop connecting to the Node, which then connects to the Controller",
             "items": {
               "type": "string"
             },
@@ -14814,7 +14814,7 @@
             "type": "array"
           },
           "nodeAddress": {
-            "description": "Dial the Node at this Node address from now on",
+            "description": "Connect to the Node at this Node address from now on",
             "type": "string"
           }
         },
@@ -14911,7 +14911,7 @@
         "additionalProperties": false,
         "properties": {
           "basis": {
-            "description": "The basis of the rows it was planned on",
+            "description": "The revision of the Roles it was planned against",
             "type": "string"
           },
           "checks": {
@@ -14927,7 +14927,7 @@
             "type": "array"
           },
           "forfeit": {
-            "description": "Every Node's written-off Roles once applied",
+            "description": "Every Node's Roles whose work is given up once applied",
             "items": {
               "$ref": "#/components/schemas/NodesAssignment"
             },
@@ -14993,7 +14993,7 @@
         "additionalProperties": false,
         "properties": {
           "basis": {
-            "description": "The basis of the board or Outcome the change was planned on",
+            "description": "The revision of the Roles the change was planned against; a newer revision fails the call with roles_stale",
             "type": "string"
           },
           "set": {
@@ -15078,11 +15078,11 @@
         "properties": {
           "downloading": {
             "$ref": "#/components/schemas/NodesDownloadingResource",
-            "description": "Its torrent client; absent unless the Node stands in Downloading and is in step"
+            "description": "Its torrent client; absent unless the Node has the Downloading Role and is connected"
           },
           "storage": {
             "$ref": "#/components/schemas/NodesStorageResource",
-            "description": "Its library roots and the volumes they sit on; absent unless the Node stands in Storage. While it is away, as it last reported them"
+            "description": "Its library roots and the volumes they sit on; absent unless the Node has the Storage Role. While it is away, as it last reported them"
           }
         },
         "type": "object"
@@ -15200,7 +15200,7 @@
         "properties": {
           "held": {
             "$ref": "#/components/schemas/NodesHeld",
-            "description": "The tied work the Node holds for the Role; absent when none"
+            "description": "The work the Node has for the Role that can't move to another Node; absent when none"
           },
           "role": {
             "enum": [
@@ -15239,7 +15239,7 @@
         "additionalProperties": false,
         "properties": {
           "basis": {
-            "description": "The basis of the board or Outcome the change was planned on",
+            "description": "The revision of the Roles the change was planned against; a newer revision fails the call with roles_stale",
             "type": "string"
           },
           "set": {
@@ -15444,7 +15444,7 @@
             "type": "array"
           },
           "sentence": {
-            "description": "What stands out across the Nodes, in plain words",
+            "description": "One sentence naming the Nodes that are offline, reconnecting, finishing their work or covered for, or saying every Node is online",
             "type": "string"
           }
         },
@@ -15470,7 +15470,7 @@
             "type": "string"
           },
           "dialer": {
-            "description": "The Node that dialed the live session; absent while the link is down",
+            "description": "The Node that opened the live connection; absent while it is down",
             "format": "uuid",
             "type": "string"
           },
@@ -15524,7 +15524,7 @@
             "$ref": "#/components/schemas/NodesResources"
           },
           "roles": {
-            "description": "Every Role the Node stands in, in table order",
+            "description": "Every Role the Node has, in the order of the Roles table",
             "items": {
               "$ref": "#/components/schemas/NodesRoleView"
             },
@@ -15535,7 +15535,7 @@
             "type": "boolean"
           },
           "since": {
-            "description": "When it came in step; while away, its last Sync frame",
+            "description": "When it connected; while away, when it last reported",
             "format": "date-time",
             "type": "string"
           },
@@ -15550,7 +15550,7 @@
             "type": "string"
           },
           "television": {
-            "description": "Whether any Media Server the Node reaches responds; false unless it stands in Media Server link",
+            "description": "Whether any Media Server the Node reaches responds; false unless it has the Media Server link Role",
             "type": "boolean"
           }
         },
@@ -15665,7 +15665,7 @@
         "additionalProperties": false,
         "properties": {
           "roles": {
-            "description": "The Roles whose work the Node holds to give up. A Role still ticked on the Node is unticked.",
+            "description": "The Roles whose work on the Node to give up. A Role still ticked on the Node is unticked.",
             "items": {
               "enum": [
                 "searching",
@@ -15929,7 +15929,7 @@
         "additionalProperties": false,
         "properties": {
           "forget": {
-            "description": "The missing file count the Admin confirmed from a rehome_missing response: those files are forgotten, so their cells read missing and wanted. A different count is refused with rehome_missing again",
+            "description": "The missing file count the Admin confirmed from a rehome_missing response: those files are forgotten, so their episodes or movies show as missing and SlipStream searches for them again. A different count is refused with rehome_missing again",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -16212,7 +16212,7 @@
             "type": "boolean"
           },
           "nodeId": {
-            "description": "A Node that holds Storage",
+            "description": "A Node with the Storage Role",
             "format": "uuid",
             "type": "string"
           },
@@ -18110,7 +18110,7 @@
             ]
           },
           "nodes": {
-            "description": "warn while a Node is away past the blip or the Controller covers a Role for one, fail while a Node is out of step past the offline grace, null otherwise",
+            "description": "warn while a Node has been offline longer than a brief drop, or the Controller is doing a Role's work for an offline Node; fail while a Node has been offline or on another version longer than the offline grace; null otherwise",
             "enum": [
               "warn",
               "fail"
@@ -18472,7 +18472,7 @@
           },
           "passkeys": {
             "$ref": "#/components/schemas/SystemPasskeys",
-            "description": "Whether the address this request reached SlipStream at can hold a passkey"
+            "description": "Whether passkeys work at the address this request used"
           },
           "removed": {
             "$ref": "#/components/schemas/SystemRemoved",
@@ -18672,7 +18672,7 @@
             "type": "string"
           },
           "mode": {
-            "description": "Only passes a fact holding one of the values, not one holding none; an unknown fact passes",
+            "description": "only passes a fact that has one of the values, and not passes a fact that has none of them; an unknown fact passes either mode",
             "enum": [
               "only",
               "not"
@@ -18719,13 +18719,13 @@
         "additionalProperties": false,
         "properties": {
           "downloading": {
-            "description": "Downloads in progress for cells that are no longer wanted. Each waits in Pending imports once it finishes",
+            "description": "Downloads in progress that are no longer needed. Each waits in Pending imports once it finishes",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
           "newlyWanted": {
-            "description": "Cells that become wanted",
+            "description": "How many more files SlipStream will look for",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -18751,10 +18751,10 @@
           },
           "unwanted": {
             "$ref": "#/components/schemas/TargetsUnwantedFiles",
-            "description": "Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses"
+            "description": "Files a Target uses now and none uses after: deleted, or kept as Kept files, as the save chooses"
           },
           "works": {
-            "description": "Works whose cells, fills or file names change",
+            "description": "Works whose Targets, files or file names change",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -18784,7 +18784,7 @@
             "uniqueItems": true
           },
           "kind": {
-            "description": "Named cuts: with Standard, each other cut once seen for an Item; without it, every cut outright",
+            "description": "Named cuts: with Standard, each other cut once a release or file of it turns up for an Item; without it, every cut every time",
             "enum": [
               "cuts"
             ],
@@ -18836,7 +18836,7 @@
             "type": "string"
           },
           "targets": {
-            "description": "In Profile order; none is a Profile whose Works want nothing",
+            "description": "In Profile order; none is a Profile whose Works need no files",
             "items": {
               "$ref": "#/components/schemas/TargetsEntry"
             },
@@ -19008,7 +19008,7 @@
             "type": "string"
           },
           "tiers": {
-            "description": "Every quality, best tier first. Over chosen qualities, keep these tiers to them; with no upgrades, put the cutoff at the bottom tier",
+            "description": "Every quality, best tier first. To apply the preset to chosen qualities, keep only those qualities in these tiers. For no upgrades, put the cutoff at the bottom tier",
             "items": {
               "items": {
                 "type": "string"
@@ -19036,7 +19036,7 @@
             "type": "string"
           },
           "default": {
-            "description": "Whether a Work added with no Profile takes it",
+            "description": "Whether a Work added with no Profile uses it",
             "type": "boolean"
           },
           "editions": {
@@ -19050,14 +19050,14 @@
             "type": "string"
           },
           "targets": {
-            "description": "In Profile order: a file is named after the first it fills",
+            "description": "In Profile order: a file is named after the first Target it is the file for",
             "items": {
               "$ref": "#/components/schemas/TargetsEntry"
             },
             "type": "array"
           },
           "works": {
-            "description": "The Works wanting from it",
+            "description": "The Works that use it",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -19098,7 +19098,7 @@
             "type": "string"
           },
           "default": {
-            "description": "Whether a Work added with no Profile takes it",
+            "description": "Whether a Work added with no Profile uses it",
             "type": "boolean"
           },
           "editions": {
@@ -19119,14 +19119,14 @@
             "type": "string"
           },
           "targets": {
-            "description": "In Profile order: a file is named after the first it fills",
+            "description": "In Profile order: a file is named after the first Target it is the file for",
             "items": {
               "$ref": "#/components/schemas/TargetsEntry"
             },
             "type": "array"
           },
           "works": {
-            "description": "The Works wanting from it",
+            "description": "The Works that use it",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -20395,7 +20395,7 @@
             "type": "string"
           },
           "nodeId": {
-            "description": "The Node it runs on now: where the roster routes portable work",
+            "description": "The Node it runs on now, which can change when Roles move between Nodes",
             "format": "uuid",
             "type": "string"
           },
@@ -20476,7 +20476,7 @@
             "type": "string"
           },
           "since": {
-            "description": "The Node's last Sync frame, or the Controller's start when it sent none since",
+            "description": "When the Controller last heard from the Node, or when the Controller started if it hasn't heard from it since",
             "format": "date-time",
             "type": "string"
           },
@@ -20584,7 +20584,7 @@
         "additionalProperties": false,
         "properties": {
           "atRisk": {
-            "description": "The ones that owe it seeding and aren't seeding",
+            "description": "The ones that haven't met its seeding rule and aren't seeding",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -20596,7 +20596,7 @@
             "type": "integer"
           },
           "owing": {
-            "description": "The ones that still owe it seeding",
+            "description": "The ones that haven't met its seeding rule yet",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -20637,7 +20637,7 @@
             ]
           },
           "combine": {
-            "description": "first is whichever of the ratio and seeding time is reached first; both needs both of them; forever seeds until an Admin removes the torrent. A goal that ends counts a ratio, a seeding time or both, and with only one of them first and both each wait for it",
+            "description": "first is whichever of the ratio and seeding time is reached first; both needs both of them; forever seeds until an Admin removes the torrent. A goal that isn't forever sets a ratio, a seeding time or both. With only one of them set, first and both wait for that one",
             "enum": [
               "first",
               "both",
@@ -20786,7 +20786,7 @@
                 "type": "null"
               }
             ],
-            "description": "The home Node's built-in client; null while the home Node doesn't hold Downloading"
+            "description": "The home Node's built-in client; null while the home Node doesn't have the Downloading Role"
           },
           "homeNodeId": {
             "description": "The home Node of the Indexers that find the Grabs",
@@ -20794,7 +20794,7 @@
             "type": "string"
           },
           "skipped": {
-            "description": "True while the stored client can't take a Grab because it is off or deleted, or its Node doesn't hold Downloading",
+            "description": "True while the stored client can't take a Grab because it is off or deleted, or its Node doesn't have the Downloading Role",
             "type": "boolean"
           },
           "stored": {
@@ -20985,7 +20985,7 @@
         "additionalProperties": false,
         "properties": {
           "settings": {
-            "description": "The margin added to every rule's seeding time, and how long a torrent that owes may go without announcing before Health warns",
+            "description": "The extra seeding time added to every rule's seeding time, and how long a torrent at hit and run risk may go without announcing before Health warns",
             "items": {
               "$ref": "#/components/schemas/SettingField"
             },
@@ -21027,7 +21027,7 @@
             "type": "integer"
           },
           "owing": {
-            "description": "Its torrents that still owe it seeding",
+            "description": "Its torrents that haven't met its seeding rule yet",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -21402,7 +21402,7 @@
             "type": "string"
           },
           "closedAt": {
-            "description": "Its latest miss or release; a regrab keeps it",
+            "description": "When it was last missed or released; grabbing it again doesn't clear this",
             "format": "date-time",
             "type": [
               "string",
@@ -21414,7 +21414,7 @@
             "type": "string"
           },
           "metAt": {
-            "description": "When its Tracker's rule and the margin were met; null unless met",
+            "description": "When its Tracker's rule and the extra seeding time were met; null unless met",
             "format": "date-time",
             "type": [
               "string",
@@ -21439,7 +21439,7 @@
                 "type": "null"
               }
             ],
-            "description": "What its latest miss still owed; null before a miss"
+            "description": "What it still needed when it was last missed; null before a miss"
           },
           "owes": {
             "anyOf": [
@@ -21450,10 +21450,10 @@
                 "type": "null"
               }
             ],
-            "description": "What it still needs to meet its Tracker's rule and the margin; null unless it owes under a known rule"
+            "description": "What it still needs to meet its Tracker's rule and the extra seeding time; null when it needs nothing or the rule isn't known"
           },
           "quietSince": {
-            "description": "When it stopped seeding while it owes; null while it seeds",
+            "description": "When it stopped seeding while it still needed seeding; null while it seeds",
             "format": "date-time",
             "type": [
               "string",
@@ -21477,7 +21477,7 @@
                 "type": "null"
               }
             ],
-            "description": "The rule it snapshot when it opened; null while none is known"
+            "description": "The rule recorded when the window opened; null while none is known"
           },
           "state": {
             "enum": [
@@ -22822,7 +22822,7 @@
           },
           "cells": {
             "$ref": "#/components/schemas/FilesStateCounts",
-            "description": "Its monitored Items' cells by state"
+            "description": "Its monitored Items' Editions at each Target, counted by state"
           },
           "contentType": {
             "pattern": "^[a-z][a-z0-9]{1,15}$",
@@ -22854,7 +22854,7 @@
           },
           "itemStatus": {
             "$ref": "#/components/schemas/FilesStateCounts",
-            "description": "Its monitored Items by status; an Item with no cell isn't counted"
+            "description": "Its monitored Items by status; an Item with no Target isn't counted"
           },
           "items": {
             "description": "Its monitored Items that its source still lists, the only Items the status and counts read",
@@ -22935,7 +22935,7 @@
                 "type": "null"
               }
             ],
-            "description": "The first status its monitored Items hold, in the glossary's order; null while none holds a cell"
+            "description": "The most urgent status among its monitored Items, in the order failed, missing, downloading, upgradable, unreleased, met; null while none of them has a Target"
           },
           "values": {
             "additionalProperties": {
@@ -23089,7 +23089,7 @@
             "type": "string"
           },
           "preview": {
-            "description": "Answer what the change would move and write nothing",
+            "description": "Return what the change would start and stop monitoring, and save nothing",
             "type": "boolean"
           },
           "workIds": {
@@ -23250,7 +23250,7 @@
             "type": "string"
           },
           "levelFolders": {
-            "description": "Put a new Work's files in a folder per level; left out, the type's add default. Unread for a Content Type with no levels",
+            "description": "Put a new Work's files in a folder per level; left out, the type's add default. Ignored for a Content Type with no levels",
             "type": "boolean"
           },
           "preset": {
@@ -23267,7 +23267,7 @@
             "type": "string"
           },
           "profileId": {
-            "description": "The Profile of the Content Type a new Work wants from; left out, the type's default",
+            "description": "The Profile the new Work gets; left out, the type's default",
             "format": "uuid",
             "type": "string"
           },
@@ -23399,7 +23399,7 @@
             "type": "array"
           },
           "withdraws": {
-            "description": "Live Items the change withdraws: the source doesn't list them under the new options, and they keep their files",
+            "description": "Items the source no longer lists under the new options; they keep their files",
             "format": "int64",
             "type": "integer"
           }
@@ -23613,7 +23613,7 @@
         "additionalProperties": false,
         "properties": {
           "profileId": {
-            "description": "The Profile each Work wants from; a Work with its own Edition list keeps it",
+            "description": "The Profile to give each Work; a Work with its own Edition list keeps it",
             "format": "uuid",
             "type": "string"
           },
@@ -24620,7 +24620,7 @@
             ]
           }
         ],
-        "summary": "Change your email by sending a confirm link to the new address. The email changes when the link is followed",
+        "summary": "Change your email by sending a confirmation link to the new address. The email changes when the link is opened",
         "tags": [
           "identity"
         ],
@@ -24808,7 +24808,7 @@
             "session": []
           }
         ],
-        "summary": "Change your PIN, or set a new one after a passkey sign-in on a turned-off PIN",
+        "summary": "Change your PIN, or set a new one after a passkey sign-in on a locked PIN",
         "tags": [
           "identity"
         ],
@@ -26822,7 +26822,7 @@
             "session": []
           }
         ],
-        "summary": "Get an image SlipStream handed out, at a size. The response at an address never changes",
+        "summary": "Get an artwork image at a size. The image at a URL never changes, so clients can cache it",
         "tags": [
           "metadata"
         ],
@@ -27766,7 +27766,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Read a record of a Content Type's metadata source as the Work adding it would make, without adding it or reading ratings",
+        "summary": "Preview the Work that adding a metadata record would create, without adding it or fetching ratings",
         "tags": [
           "works"
         ],
@@ -28167,7 +28167,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get when every Work of a Content Type was last refreshed together, and whether a run doing it is open",
+        "summary": "Get when every Work of a Content Type was last refreshed together, and whether a run doing it is in progress",
         "tags": [
           "metadata"
         ],
@@ -28360,7 +28360,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Refresh every Work of a Content Type as a run of Metadata refresh now, or at its next run while one is open",
+        "summary": "Refresh every Work of a Content Type in a Metadata refresh run now, or in the next run if one is in progress",
         "tags": [
           "metadata"
         ],
@@ -28760,7 +28760,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Change a Content Type's own settings by key, all or none. Every Work of the type may then read differently",
+        "summary": "Change a Content Type's own settings by key, all or none. A change can alter every Work of the type, such as its availability dates",
         "tags": [
           "works"
         ],
@@ -29245,13 +29245,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing",
+            "description": "What happens to the files no Target uses after the change",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing",
+              "description": "What happens to the files no Target uses after the change",
               "enum": [
                 "delete",
                 "keep"
@@ -29626,13 +29626,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing",
+            "description": "What happens to the files no Target uses after the change",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing",
+              "description": "What happens to the files no Target uses after the change",
               "enum": [
                 "delete",
                 "keep"
@@ -29828,7 +29828,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Delete a Custom Format and every Target's score for it, refilling the Works of the Targets that scored it, or preview the change's Impact",
+        "summary": "Delete a Custom Format and every Target's score for it, and re-rank the files of every Work whose Targets scored it, or preview what the change would do",
         "tags": [
           "formats"
         ],
@@ -30050,13 +30050,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing",
+            "description": "What happens to the files no Target uses after the change",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing",
+              "description": "What happens to the files no Target uses after the change",
               "enum": [
                 "delete",
                 "keep"
@@ -30290,7 +30290,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Replace a Custom Format's name, renaming flag and conditions, refilling the Works of the Targets that score it, or preview the change's Impact",
+        "summary": "Replace a Custom Format's name, renaming flag and conditions, and re-rank the files of every Work whose Targets score it, or preview what the change would do",
         "tags": [
           "formats"
         ],
@@ -31005,13 +31005,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing",
+            "description": "What happens to the files no Target uses after the change",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing",
+              "description": "What happens to the files no Target uses after the change",
               "enum": [
                 "delete",
                 "keep"
@@ -32009,7 +32009,7 @@
           }
         },
         "security": [],
-        "summary": "Get what a confirm link's page shows: the new email, or why it no longer works",
+        "summary": "Get what a confirmation link's page shows: the new email, or why it no longer works",
         "tags": [
           "identity"
         ],
@@ -32161,7 +32161,7 @@
           }
         },
         "security": [],
-        "summary": "Change an Account's email to the one a confirm link proved",
+        "summary": "Change an Account's email to the one a confirmation link proved",
         "tags": [
           "identity"
         ],
@@ -33959,12 +33959,12 @@
             }
           },
           {
-            "description": "Delete a client that holds torrents SlipStream tracks: they stay in the client, and Grabs not yet imported from them fail",
+            "description": "Delete a client that has torrents SlipStream tracks: they stay in the client, and Grabs not yet imported from them fail",
             "explode": false,
             "in": "query",
             "name": "stopTracking",
             "schema": {
-              "description": "Delete a client that holds torrents SlipStream tracks: they stay in the client, and Grabs not yet imported from them fail",
+              "description": "Delete a client that has torrents SlipStream tracks: they stay in the client, and Grabs not yet imported from them fail",
               "type": "boolean"
             }
           }
@@ -34394,7 +34394,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Change an external Download Client, testing it first when the change is to its Node, kind, address, sign-in, daemon, label, folder or Client folders",
+        "summary": "Change an external Download Client, testing it first when the change is to its Node, kind, address, sign-in, daemon, label, folder or remote path mappings",
         "tags": [
           "downloadclients"
         ],
@@ -36716,12 +36716,12 @@
             }
           },
           {
-            "description": "Only this root's Imports and lead; every root's when left out",
+            "description": "Only this root's Imports and its scan summary; every root's when left out",
             "explode": false,
             "in": "query",
             "name": "rootId",
             "schema": {
-              "description": "Only this root's Imports and lead; every root's when left out",
+              "description": "Only this root's Imports and its scan summary; every root's when left out",
               "format": "uuid",
               "type": "string"
             }
@@ -39554,7 +39554,7 @@
             "apiKey": []
           }
         ],
-        "summary": "List the sites SlipStream includes, the Indexer catalog's definitions but those an included site replaces, and the custom definitions, with when the catalog last refreshed",
+        "summary": "List SlipStream's built-in sites, the Indexer catalog's definitions except those a built-in site replaces, and the custom definitions, with when the catalog last refreshed",
         "tags": [
           "indexers"
         ],
@@ -40304,7 +40304,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get the add form of an included site or a definition: the site with the id, else the custom definition with it, else the catalog's",
+        "summary": "Get the add form of a built-in site or a definition: the site with the id, else the custom definition with it, else the catalog's",
         "tags": [
           "indexers"
         ],
@@ -43851,7 +43851,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get whether a Join Code is open, used or expired, and its dial",
+        "summary": "Get whether a Join Code is open, used or expired, and the Controller's connection to its Node",
         "tags": [
           "nodes"
         ],
@@ -44051,7 +44051,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Dial the Node waiting at a Node address, which pairs with the code over that session",
+        "summary": "Connect to the Node waiting at a Node address, which pairs with the code over that connection",
         "tags": [
           "nodes"
         ],
@@ -45089,7 +45089,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Add a Media Server once it responds from its reaching Node and accepts SlipStream's sign-in",
+        "summary": "Add a Media Server once it responds from its Connect from Node and accepts SlipStream's sign-in",
         "tags": [
           "mediaservers"
         ],
@@ -47227,7 +47227,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Change a Media Server, testing it again when the change is to its address, reaching Node or API key",
+        "summary": "Change a Media Server, testing it again when the change is to its address, Connect from Node or API key",
         "tags": [
           "mediaservers"
         ],
@@ -47656,7 +47656,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Accept the server that responds at a Media Server's address now as that Media Server",
+        "summary": "Confirm that the server now responding at a Media Server's address is that Media Server",
         "tags": [
           "mediaservers"
         ],
@@ -48690,7 +48690,7 @@
             "apiKey": []
           }
         ],
-        "summary": "List what plays on a Media Server now, as its reaching Node last saw it",
+        "summary": "List what plays on a Media Server now, as its Connect from Node last saw it",
         "tags": [
           "mediaservers"
         ],
@@ -48885,7 +48885,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Test a Media Server from its reaching Node at its address and from the Controller at its fallback address",
+        "summary": "Test a Media Server from its Connect from Node at its address and from the Controller at its fallback address",
         "tags": [
           "mediaservers"
         ],
@@ -49012,7 +49012,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Have every Node reading metadata drop what it cached, the next time it reads",
+        "summary": "Clear the metadata cache on every Node that reads metadata",
         "tags": [
           "metadata"
         ],
@@ -50225,7 +50225,7 @@
             "apiKey": []
           }
         ],
-        "summary": "List each Content Type's naming settings, with what the save check refuses once renaming is on",
+        "summary": "List each Content Type's naming settings, with their problems once renaming is on",
         "tags": [
           "naming"
         ],
@@ -50432,7 +50432,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Change a Content Type's naming settings by key, all or none. Every setting must pass the save check as the change leaves them",
+        "summary": "Change a Content Type's naming settings by key, all or none. Every setting must be free of problems as the change leaves them",
         "tags": [
           "naming"
         ],
@@ -50639,7 +50639,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Name a Content Type's samples, a Work's files and tested file names under a draft of its naming settings, with what the save check refuses. Nothing is stored",
+        "summary": "Name a Content Type's samples, a Work's files and tested file names under a draft of its naming settings, with their problems. Nothing is stored",
         "tags": [
           "naming"
         ],
@@ -51954,12 +51954,12 @@
             }
           },
           {
-            "description": "Write off the work the Node holds, files kept, instead of refusing while it holds any",
+            "description": "Give up the work the Node has, keeping its files, instead of refusing while it has any",
             "explode": false,
             "in": "query",
             "name": "writeOff",
             "schema": {
-              "description": "Write off the work the Node holds, files kept, instead of refusing while it holds any",
+              "description": "Give up the work the Node has, keeping its files, instead of refusing while it has any",
               "type": "boolean"
             }
           }
@@ -52707,7 +52707,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get the Challenge solver of a Node that stands in Searching",
+        "summary": "Get the Challenge solver of a Node with the Searching Role",
         "tags": [
           "indexers"
         ],
@@ -53577,7 +53577,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Set the Node address the Controller dials a Node at, or stop dialing it",
+        "summary": "Set the Node address the Controller connects to a Node at, or stop connecting to it",
         "tags": [
           "nodes"
         ],
@@ -56130,7 +56130,7 @@
           }
         },
         "security": [],
-        "summary": "Sign in with the browser's passkey response. On a turned-off PIN, the session must set a new PIN first",
+        "summary": "Sign in with the browser's passkey response. On a locked PIN, the session must set a new PIN first",
         "tags": [
           "identity"
         ],
@@ -56958,7 +56958,7 @@
             "apiKey": []
           }
         ],
-        "summary": "List the Profiles, each with the count of Works wanting from it",
+        "summary": "List the Profiles, each with the number of Works that use it",
         "tags": [
           "targets"
         ],
@@ -57196,13 +57196,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing",
+            "description": "What happens to the files no Target uses after the change",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing",
+              "description": "What happens to the files no Target uses after the change",
               "enum": [
                 "delete",
                 "keep"
@@ -57623,13 +57623,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing",
+            "description": "What happens to the files no Target uses after the change",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing",
+              "description": "What happens to the files no Target uses after the change",
               "enum": [
                 "delete",
                 "keep"
@@ -63333,7 +63333,7 @@
             "setupCode": []
           }
         ],
-        "summary": "Get the Join that awaited its Controller's dial: still awaiting, joined or failed",
+        "summary": "Get the last join that waited for the Controller to connect: still waiting, joined or failed",
         "tags": [
           "pairing"
         ],
@@ -64708,7 +64708,7 @@
           }
         },
         "security": [],
-        "summary": "Report whether the Node is Unclaimed, a Controller or a Worker, and whether this address can hold a passkey",
+        "summary": "Report whether the Node is Unclaimed, a Controller or a Worker, and whether passkeys work at this address",
         "tags": [
           "system"
         ],
@@ -67025,13 +67025,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing",
+            "description": "What happens to the files no Target uses after the change",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing",
+              "description": "What happens to the files no Target uses after the change",
               "enum": [
                 "delete",
                 "keep"
@@ -67703,7 +67703,7 @@
             "apiKey": []
           }
         ],
-        "summary": "List every open run, with how long a scheduled one waits before the header shows it",
+        "summary": "List every open run, with how long a scheduled one waits before the top bar shows it",
         "tags": [
           "tasks"
         ],
@@ -68387,7 +68387,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get one shown task with its units and its runs",
+        "summary": "Get one task with its units and its runs",
         "tags": [
           "tasks"
         ],
@@ -68787,7 +68787,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Run a task now over every unit, or add each unit its open run lacks. Its schedule stays as it was",
+        "summary": "Run every unit of a task now, or start the units its open run doesn't have yet. Its schedule stays as it was",
         "tags": [
           "tasks"
         ],
@@ -69553,7 +69553,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get a Torrent with its announce URLs, files and Grabs, live from its Node while the Node responds",
+        "summary": "Get a Torrent with its trackers, files and Grabs, live from its Node while the Node responds",
         "tags": [
           "downloadclients"
         ],
@@ -72107,7 +72107,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Send a private Tracker's Grabs from Indexers on a home Node to a client you pick. They download there while it is on and its Node holds Downloading.",
+        "summary": "Send a private Tracker's Grabs from Indexers on a home Node to a client you pick. They download there while it is on and its Node has the Downloading Role.",
         "tags": [
           "trackers"
         ],
@@ -72529,12 +72529,12 @@
             }
           },
           {
-            "description": "open lists the windows that owe. history lists those met, missed or released, a missed one grabbed again included. Every window when absent.",
+            "description": "open lists the windows whose torrent still needs seeding. history lists those met, missed or released, a missed one grabbed again included. Every window when absent.",
             "explode": false,
             "in": "query",
             "name": "list",
             "schema": {
-              "description": "open lists the windows that owe. history lists those met, missed or released, a missed one grabbed again included. Every window when absent.",
+              "description": "open lists the windows whose torrent still needs seeding. history lists those met, missed or released, a missed one grabbed again included. Every window when absent.",
               "enum": [
                 "open",
                 "history"
@@ -74531,13 +74531,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing",
+            "description": "What happens to the files no Target uses after the change",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing",
+              "description": "What happens to the files no Target uses after the change",
               "enum": [
                 "delete",
                 "keep"
@@ -75696,7 +75696,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get each of a Work's cells with its state and the file filling it, and each Item's status",
+        "summary": "Get the state of each of a Work's Items at each Target, with the file there, and each Item's status",
         "tags": [
           "files"
         ],
@@ -75891,7 +75891,7 @@
             "apiKey": []
           }
         ],
-        "summary": "List a Work's library files with the cells each fills, and the folder they sit in",
+        "summary": "List a Work's library files with the Item and Target each one is for, and the folder they sit in",
         "tags": [
           "files"
         ],
@@ -76321,7 +76321,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Start a Manual search of a Work, or of some of its levels and Items or one cell. 200 answers the Work's Manual search when it already has this scope and query",
+        "summary": "Start a Manual search of a Work, or of some of its levels and Items, or of one Item at one Target. Responds 200 with the existing Manual search when it already has this scope and query",
         "tags": [
           "grabs"
         ],
@@ -77756,7 +77756,7 @@
             "apiKey": []
           }
         ],
-        "summary": "Get the Profile a Work wants from and its Edition list",
+        "summary": "Get the Profile a Work uses and its Edition list",
         "tags": [
           "targets"
         ],
@@ -77785,13 +77785,13 @@
             }
           },
           {
-            "description": "What becomes of the files the change leaves filling nothing",
+            "description": "What happens to the files no Target uses after the change",
             "explode": false,
             "in": "query",
             "name": "unwanted",
             "schema": {
               "default": "delete",
-              "description": "What becomes of the files the change leaves filling nothing",
+              "description": "What happens to the files no Target uses after the change",
               "enum": [
                 "delete",
                 "keep"

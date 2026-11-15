@@ -62,7 +62,7 @@ export const PlanWorkRenamesResponse = FilesWorkRenamePlan;
 export const CountUnmatchedResponse = UnmatchedOutputBody;
 
 /**
- * @summary Get each of a Work's cells with its state and the file filling it, and each Item's status
+ * @summary Get the state of each of a Work's Items at each Target, with the file there, and each Item's status
  */
 export const GetWorkCellsParams = zod.object({
   workId: zod.uuid(),
@@ -71,7 +71,7 @@ export const GetWorkCellsParams = zod.object({
 export const GetWorkCellsResponse = FilesCellList;
 
 /**
- * @summary List a Work's library files with the cells each fills, and the folder they sit in
+ * @summary List a Work's library files with the Item and Target each one is for, and the folder they sit in
  */
 export const ListWorkFilesParams = zod.object({
   workId: zod.uuid(),

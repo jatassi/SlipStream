@@ -10,7 +10,7 @@ export interface TrackersStats {
    */
   grabs30d: number;
   /**
-   * Its torrents that still owe it seeding
+   * Its torrents that haven't met its seeding rule yet
    * @minimum 0
    */
   owing: number;
