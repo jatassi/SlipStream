@@ -60,6 +60,8 @@ type Options struct {
 	Sites []string
 	// Goals is the Work's Targets in Profile order, HD alone when nil.
 	Goals []targets.Spec
+	// Cuts is the Profile's Edition list, any cut when nil.
+	Cuts []rel.CutKey
 	// Levels is the Work's levels in tree order, each with its Items: one
 	// level, Winter, holding Scarf and Season's episodes when nil. Each
 	// level is a search group.
@@ -70,8 +72,9 @@ type Options struct {
 	// Remote answers the Indexers' jobs, as their Searching Node: the
 	// World's Node when nil.
 	Remote searching.Remote
-	// RSSEvery is RSS sync's cadence, which the Indexers' search limits
-	// keep slots for. Zero is RSS sync off.
+	// RSSEvery is RSS sync's cadence as tasks stores it, which the
+	// Indexers' search limits keep slots for while the Automatic search
+	// section has RSS sync on. Zero keeps no slots.
 	RSSEvery time.Duration
 	// Log is the Grabs' log, discarded when nil.
 	Log *slog.Logger
@@ -168,7 +171,12 @@ func New(t testing.TB, o Options) *World {
 		w.Goals = append(w.Goals, made.ID)
 		entries = append(entries, targets.Entry{Target: made.ID, Sourcing: targets.Download})
 	}
-	profile, err := wanted.CreateProfile(ctx, identity.Admin{}, targets.ProfileSpec{Name: "Standard", ContentType: contenttypetest.ID, Entries: entries})
+	editions := targets.AnyCut()
+	if o.Cuts != nil {
+		editions, err = targets.NamedCuts(o.Cuts...)
+		must(t, err)
+	}
+	profile, err := wanted.CreateProfile(ctx, identity.Admin{}, targets.ProfileSpec{Name: "Standard", ContentType: contenttypetest.ID, Entries: entries, Editions: editions})
 	must(t, err)
 	_, err = wanted.MakeDefault(ctx, identity.Admin{}, profile.ID)
 	must(t, err)
@@ -197,14 +205,14 @@ func New(t testing.TB, o Options) *World {
 	}
 	var rss func(context.Context, storage.Reader[storage.Library]) (time.Duration, bool, error)
 	if o.RSSEvery > 0 {
-		rss = func(context.Context, storage.Reader[storage.Library]) (time.Duration, bool, error) {
-			return o.RSSEvery, true, nil
+		rss = func(ctx context.Context, r storage.Reader[storage.Library]) (time.Duration, bool, error) {
+			return w.Grabs.RSSIn(ctx, r)
 		}
 	}
 	w.Indexers = indexers.New(indexers.Config{
 		Library: lib, Sealer: sealer, Roster: indexerstest.Alone(home), Searching: func(role.NodeID) searching.Remote { return remote }, RSS: rss,
 		Types: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Works: tree,
-		Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
+		Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{}, RSSChanged: discard[indexers.RSSChanged]{},
 		Timings: o.Indexers, JobCap: o.JobCap, Log: slog.New(slog.DiscardHandler),
 	})
 	write(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
@@ -233,7 +241,7 @@ func New(t testing.TB, o Options) *World {
 		Changed: discard[grabs.Changed]{}, SearchChanged: discard[grabs.SearchChanged]{}, FilesChanged: discard[files.Changed]{},
 		BlocklistChanged: discard[grabs.BlocklistChanged]{}, QueueChanged: discard[grabs.QueueChanged]{},
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return w.reconciling.Load(), nil },
-		Tasks:       Cadences{Backlog: o.BacklogEvery}, GapCap: grabs.NoGapCap, Clock: time.Now, Today: time.Now, Log: log,
+		Tasks:       Cadences{Backlog: o.BacklogEvery, RSS: o.RSSEvery}, GapCap: grabs.NoGapCap, Clock: time.Now, Today: time.Now, Log: log,
 	}
 	w.open()
 	t.Cleanup(w.halt)

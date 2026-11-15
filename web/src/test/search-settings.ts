@@ -4,7 +4,8 @@ import type { SettingField } from "../api/gen/model";
 import { SearchSettingsInputBody } from "../api/gen/zod/slipStream.schemas.zod";
 import { refused } from "./roots";
 
-const hour = 3600;
+const minute = 60;
+const hour = 60 * minute;
 const day = 24 * hour;
 
 const about = {
@@ -58,6 +59,15 @@ export const searchSettings = (): SettingField[] => [
     },
   ),
   onOff("search.rssOn", "RSS sync"),
+  duration(
+    "tasks.rss-sync.cadence",
+    "RSS sync runs every",
+    15 * minute,
+    [10 * minute, 2 * hour, minute],
+    {
+      floor: "Many trackers ban clients that read their RSS feed more often than every 10 minutes.",
+    },
+  ),
   duration(
     "search.longestGap",
     "Search a Want that keeps coming up empty at least every",

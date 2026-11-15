@@ -4,6 +4,7 @@ import {
   getGetIndexerCatalogSuspenseQueryOptions,
   getGetIndexerSettingsSuspenseQueryOptions,
 } from "../api/gen/query/indexers/indexers";
+import { getGetSearchSettingsSuspenseQueryOptions } from "../api/gen/query/grabs/grabs";
 import { getListTasksSuspenseQueryOptions } from "../api/gen/query/tasks/tasks";
 import { ensureQuery, freshQuery } from "../api/query-client";
 import { CatalogSection } from "./catalog/catalog-section";
@@ -15,6 +16,7 @@ export async function loadSectionTail(queryClient: QueryClient): Promise<void> {
     freshQuery(queryClient, getGetIndexerSettingsSuspenseQueryOptions()),
     ensureQuery(queryClient, getGetIndexerCatalogSuspenseQueryOptions()),
     ensureQuery(queryClient, getListTasksSuspenseQueryOptions()),
+    ensureQuery(queryClient, getGetSearchSettingsSuspenseQueryOptions()),
   ]);
 }
 

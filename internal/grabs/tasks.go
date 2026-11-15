@@ -35,13 +35,16 @@ var (
 // Cadences is the two tasks' cadences as tasks stores them, by task.
 type Cadences interface {
 	Every(ctx context.Context, id tasks.TaskID) (*int64, error)
+	// EveryIn is Every read in r, inside the caller's Read or Write.
+	EveryIn(ctx context.Context, r storage.Reader[file], id tasks.TaskID) (*int64, error)
 	SetCadence(ctx context.Context, id tasks.TaskID, v setting.Stored[int64]) error
 	// Next is when task id next opens on schedule, zero while it runs.
 	Next(ctx context.Context, id tasks.TaskID) (time.Time, error)
 }
 
 // Tasks is grabs' Scheduled tasks: Backlog search, on the Controller,
-// whose one unit reconciles the queue and queues what is due.
+// whose one unit reconciles the queue and queues what is due, and RSS
+// sync.
 func (gr *Grabs) Tasks() []tasks.Task {
 	return []tasks.Task{{
 		ID:   BacklogTaskID,
@@ -55,7 +58,7 @@ func (gr *Grabs) Tasks() []tasks.Task {
 			return []tasks.Unit{{Key: "due", Label: "Due searches", Place: tasks.OnController()}}, nil
 		},
 		Run: gr.backlog,
-	}}
+	}, gr.rssTask()}
 }
 
 // interval is Backlog search's cadence as tasks stores it.

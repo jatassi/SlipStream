@@ -34,3 +34,28 @@ UPDATE grabs_search SET phase = 2 WHERE id = sqlc.arg(id) AND finished_at IS NUL
 -- name: ListSearchedItems :many
 -- Of items, those an automatic run already searched.
 SELECT item_id FROM grabs_item_search WHERE item_id IN (sqlc.slice(item_ids)) ORDER BY item_id;
+
+-- name: InsertRSSSearch :exec
+-- An RSS run is decided in the Write that read its feed, so it is
+-- finished from its start, as nothing_acceptable until SettleRSSSearch.
+INSERT INTO grabs_search (id, work_id, trigger, started_at, finished_at, outcome)
+VALUES (sqlc.arg(id), sqlc.arg(work_id), 'rss', sqlc.arg(started_at), sqlc.arg(started_at), 'nothing_acceptable');
+
+-- name: SettleRSSSearch :exec
+UPDATE grabs_search SET outcome = sqlc.arg(outcome), candidates = sqlc.arg(candidates), grabs = sqlc.arg(grabs),
+    notes = sqlc.narg(notes)
+WHERE id = sqlc.arg(id) AND trigger = 'rss';
+
+-- name: DeleteRSSSearch :exec
+DELETE FROM grabs_search WHERE id = sqlc.arg(id) AND trigger = 'rss';
+
+-- name: PruneRSS :exec
+-- The RSS run bound: a Work keeps its latest RSS run, and every earlier
+-- one a wait holds a Release of or whose Grab still fetches.
+DELETE FROM grabs_search WHERE id IN (
+    SELECT s.id FROM grabs_search s
+    WHERE s.work_id = sqlc.arg(work_id) AND s.trigger = 'rss' AND s.id <> sqlc.arg(kept)
+        AND NOT EXISTS (SELECT 1 FROM grabs_wait_candidate c WHERE c.search_id = s.id)
+        AND NOT EXISTS (
+            SELECT 1 FROM grabs_search_grab sg JOIN grabs_grab g ON g.id = sg.grab_id
+            WHERE sg.search_id = s.id AND sg.made = 1 AND g.stage = 'fetching'));

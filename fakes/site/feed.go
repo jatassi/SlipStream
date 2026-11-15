@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/fakes/fake"
+	"github.com/jatassi/slipstream/fakes/scenario"
 )
 
 // Feed sets how every Torznab site lists its newest uploads, the listing
@@ -52,14 +53,33 @@ func (s *site) setFeed(_ context.Context, a FeedArgs) (any, error) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.listing, s.listingAt = a, time.Now().UTC().Truncate(time.Second)
+	s.listing, s.listingAt, s.listings = a, time.Now().UTC().Truncate(time.Second), nil
 	return struct{}{}, nil
 }
 
-func (s *site) feedArgs() (FeedArgs, time.Time) {
+// feedArgs is how the site labeled label lists its newest uploads, and
+// since when.
+func (s *site) feedArgs(label string) (FeedArgs, time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if a, ok := s.listings[label]; ok {
+		return a, s.listingAt
+	}
 	return s.listing, s.listingAt
+}
+
+// listingsOf is the listing each library Indexer of sc sets for its site.
+func listingsOf(sc scenario.Scenario) map[string]FeedArgs {
+	out := map[string]FeedArgs{}
+	if sc.Library == nil {
+		return out
+	}
+	for _, ix := range sc.Library.Indexers {
+		if ix.Uploads > 0 || ix.NoPaging || ix.AlwaysLate {
+			out[ix.Site] = FeedArgs{Uploads: ix.Uploads, NoPaging: ix.NoPaging, Late: ix.AlwaysLate}
+		}
+	}
+	return out
 }
 
 // feedListing is how write plays one listing's GUIDs and dates.
@@ -87,7 +107,8 @@ func (l feedListing) dated(rel Release) Release {
 // categories ask for, newest first, in its window as the Feed cue plays
 // it.
 func (s *site) recent(w http.ResponseWriter, r *http.Request) {
-	a, at := s.feedArgs()
+	label := labelOf(r)
+	a, at := s.feedArgs(label)
 	if a.Late {
 		select {
 		case <-time.After(lateBy):
@@ -96,7 +117,6 @@ func (s *site) recent(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	win := windowOf(r.URL.Query())
-	label := labelOf(r)
 	listed := made(a.Uploads, at)
 	var world []Release
 	for _, rel := range s.releases {

@@ -91,15 +91,21 @@ func unqueue(ctx context.Context, q *db.Queries, u db.UnqueueDueParams) error {
 }
 
 // runItems is the Items a run of row searches: those of its group, within
-// its queued scope, that have a cell trigger opens, in tree order.
+// its queued scope, that have a cell trigger opens, and at Backlog pace
+// those with a listed cut not yet seen, which a search's sighting makes
+// wanted, in tree order.
 func (gr *Grabs) runItems(ctx context.Context, p *pass, row db.GrabsDue, trigger searches.Trigger) ([]works.ItemID, error) {
 	cells, err := gr.cfg.Files.Cells(ctx, p.tx, row.WorkID)
 	if err != nil {
 		return nil, err
 	}
+	unseen, err := gr.unseenOf(ctx, p.tx, row.WorkID, trigger)
+	if err != nil {
+		return nil, err
+	}
 	var open []files.Cell
 	for _, c := range cells {
-		if opens(c, trigger, row.IncludeGone) {
+		if opens(c, trigger, row.IncludeGone) || unseen[c.Item.ID] {
 			open = append(open, c)
 		}
 	}
@@ -127,6 +133,25 @@ func (gr *Grabs) runItems(ctx context.Context, p *pass, row db.GrabsDue, trigger
 		}
 	}
 	return nil, nil
+}
+
+// unseenOf is work's Items with a listed cut not yet seen, read in r when
+// trigger runs at Backlog pace.
+func (gr *Grabs) unseenOf(ctx context.Context, r storage.Reader[file], work works.WorkID, trigger searches.Trigger) (map[works.ItemID]bool, error) {
+	unseen := map[works.ItemID]bool{}
+	if !laneRules[trigger].paced {
+		return unseen, nil
+	}
+	ws, err := gr.cfg.Files.Wanted(ctx, r, works.Only([]works.WorkID{work}))
+	if err != nil {
+		return nil, err
+	}
+	for _, w := range ws {
+		for _, it := range w.Unseen {
+			unseen[it] = true
+		}
+	}
+	return unseen, nil
 }
 
 // refusal is the outcome a run of work refuses with, "" when it may
