@@ -120,7 +120,7 @@ func TestANodeOfflinePastTheGraceIsANodesErrorUntilItIsBack(t *testing.T) {
 		t.Fatalf("after Check now seedbox's item is %+v, want it unchanged from %+v", after, lapsed)
 	}
 	worldtest.Expect(t, "checkHealthItem on a linked item", a.Admin("home", http.MethodPost, "/api/v1/system/health/nodes/items/"+box+"/check", ""),
-		problem(http.StatusNotFound, "no_check", "There is no Check now for that"))
+		problem(http.StatusNotFound, "no_check", "This Health item has no Check now action"))
 	worldtest.Expect(t, "checkHealthItem on no item", a.Admin("home", http.MethodPost, "/api/v1/system/health/nodes/items/nothing/check", ""),
 		problem(http.StatusNotFound, "health_item_not_found", "The category has no item with that key"))
 	worldtest.Expect(t, "checkHealthCategory on no category", a.Admin("home", http.MethodPost, "/api/v1/system/health/widgets/check", ""),

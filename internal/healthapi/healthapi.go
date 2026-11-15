@@ -33,7 +33,7 @@ func open(w Watch) *health.Health {
 var (
 	categoryNotFound = api.NewCode(http.StatusNotFound, "health_category_not_found", "No Health category has that id")
 	itemNotFound     = api.NewCode(http.StatusNotFound, "health_item_not_found", "The category has no item with that key")
-	noCheck          = api.NewCode(http.StatusNotFound, "no_check", "There is no Check now for that")
+	noCheck          = api.NewCode(http.StatusNotFound, "no_check", "This Health item has no Check now action")
 	volumeNotFound   = api.NewCode(http.StatusNotFound, "health_volume_not_found", "No volume reports at that Node and mount")
 )
 
@@ -66,7 +66,7 @@ func (categoryID) Values() []string {
 
 type report struct {
 	Level      *string               `json:"level" enum:"warn,fail" doc:"The worst level over every category, null while nothing is wrong"`
-	First      api.Nullable[pointer] `json:"first" doc:"The item the status sentence leads with: the worst, then the oldest, then in page order; null while nothing is wrong"`
+	First      api.Nullable[pointer] `json:"first" doc:"The item the Health summary names first: the worst, then the oldest, then in page order; null while nothing is wrong"`
 	Categories []category            `json:"categories" nullable:"false" doc:"In page order"`
 }
 
@@ -208,7 +208,7 @@ type volume struct {
 	Total        int64              `json:"total"`
 	Free         int64              `json:"free" doc:"The bytes SlipStream may write"`
 	SampledAt    time.Time          `json:"sampledAt"`
-	Live         bool               `json:"live" doc:"Its Node is in step, so its figures are current. Otherwise they are from sampledAt"`
+	Live         bool               `json:"live" doc:"Its Node is connected and on the Controller's version, so its figures are current. Otherwise they're from sampledAt"`
 	WarnBelow    setting.SpaceField `json:"warnBelow" doc:"Its own warning level, the default while it follows the global one"`
 	ErrorBelow   setting.SpaceField `json:"errorBelow" doc:"Its own error level, the default while it follows the global one"`
 	WarnBytes    int64              `json:"warnBytes" doc:"The warning level it follows, in bytes"`

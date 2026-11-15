@@ -101,7 +101,7 @@ func TestHealthSourceIsUnsureOfATaskWaitingForItsNode(t *testing.T) {
 		}
 		synctest.Wait()
 		r.set(nodes.Down)
-		want := []string{"unsure tidy|Tidy|Tidy is waiting for seedbox and runs again once it is back."}
+		want := []string{"unsure tidy|Tidy|Tidy is waiting for seedbox. It runs again once seedbox is back online."}
 		if got := answer(t, s, health.ScheduledTasksID); !equal(got, want) {
 			t.Fatalf("scheduled tasks = %q, want %q", got, want)
 		}
@@ -182,7 +182,7 @@ func TestHealthRaisesAPartialUnitTheInstantItIsOverdue(t *testing.T) {
 		time.Sleep(time.Second)
 		synctest.Wait()
 		got := shown()
-		if len(got) != 1 || !got[0].Since.Equal(overdue) || got[0].Text != "Tidy hasn't finished S since Jan 1 00:00. Run it now to try S again." {
+		if len(got) != 1 || !got[0].Since.Equal(overdue) || got[0].Text != "Tidy hasn't succeeded for S since Jan 1 00:00. Run it now to retry S." {
 			t.Fatalf("once S is overdue Health shows %+v, want its warning since %v", got, overdue)
 		}
 	})

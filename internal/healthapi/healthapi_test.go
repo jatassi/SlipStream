@@ -105,9 +105,9 @@ func TestTheReportListsEachCategoryWithItsItems(t *testing.T) {
 		t.Fatalf("checkHealthItem on an offline volume = %s, want it unreached", checked)
 	}
 	s.Expect(t, http.MethodPost, "/api/v1/system/health/nodes/check", "", http.StatusNotFound,
-		`{"status":404,"code":"no_check","title":"There is no Check now for that"}`)
+		`{"status":404,"code":"no_check","title":"This Health item has no Check now action"}`)
 	s.Expect(t, http.MethodPost, "/api/v1/system/health/scheduled-tasks/items/housekeeping/check", "", http.StatusNotFound,
-		`{"status":404,"code":"no_check","title":"There is no Check now for that"}`)
+		`{"status":404,"code":"no_check","title":"This Health item has no Check now action"}`)
 	s.Expect(t, http.MethodPost, "/api/v1/system/health/storage/items/nothing/check", "", http.StatusNotFound,
 		`{"status":404,"code":"health_item_not_found","title":"The category has no item with that key"}`)
 	s.Expect(t, http.MethodPost, "/api/v1/system/health/widgets/check", "", http.StatusNotFound,

@@ -93,7 +93,7 @@ test("with seedbox stopped Run now is Partial, and its return runs seedbox's uni
     timeout: 30_000,
   });
   await expect(seedboxUnit(page)).toContainText(
-    "SkippedNeverseedbox is offline. Runs when seedbox reconnects.",
+    "SkippedNeverseedbox is offline. This unit runs when seedbox reconnects.",
   );
 
   await world.fw.node("start", "seedbox");
