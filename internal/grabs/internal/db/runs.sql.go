@@ -24,6 +24,15 @@ func (q *Queries) DeleteHeard(ctx context.Context, searchID SearchID) error {
 	return err
 }
 
+const deleteRSSSearch = `-- name: DeleteRSSSearch :exec
+DELETE FROM grabs_search WHERE id = ?1 AND trigger = 'rss'
+`
+
+func (q *Queries) DeleteRSSSearch(ctx context.Context, id SearchID) error {
+	_, err := q.db.ExecContext(ctx, deleteRSSSearch, id)
+	return err
+}
+
 const insertHeard = `-- name: InsertHeard :exec
 INSERT INTO grabs_release (search_id, position, title, indexer_id, indexer_name, size, seeders, outcome, reasons, scores, formats,
     covers, release, link_sealed, heard_at)
@@ -57,6 +66,24 @@ func (q *Queries) InsertHeard(ctx context.Context, arg InsertHeardParams) error 
 		arg.LinkSealed,
 		arg.HeardAt,
 	)
+	return err
+}
+
+const insertRSSSearch = `-- name: InsertRSSSearch :exec
+INSERT INTO grabs_search (id, work_id, trigger, started_at, finished_at, outcome)
+VALUES (?1, ?2, 'rss', ?3, ?3, 'nothing_acceptable')
+`
+
+type InsertRSSSearchParams struct {
+	ID        SearchID
+	WorkID    works.WorkID
+	StartedAt storage.Time
+}
+
+// An RSS run is decided in the Write that read its feed, so it is
+// finished from its start, as nothing_acceptable until SettleRSSSearch.
+func (q *Queries) InsertRSSSearch(ctx context.Context, arg InsertRSSSearchParams) error {
+	_, err := q.db.ExecContext(ctx, insertRSSSearch, arg.ID, arg.WorkID, arg.StartedAt)
 	return err
 }
 
@@ -238,6 +265,53 @@ func (q *Queries) PromoteSearch(ctx context.Context, arg PromoteSearchParams) er
 		arg.Lane,
 		arg.Trigger,
 		arg.IncludeGone,
+		arg.ID,
+	)
+	return err
+}
+
+const pruneRSS = `-- name: PruneRSS :exec
+DELETE FROM grabs_search WHERE id IN (
+    SELECT s.id FROM grabs_search s
+    WHERE s.work_id = ?1 AND s.trigger = 'rss' AND s.id <> ?2
+        AND NOT EXISTS (SELECT 1 FROM grabs_wait_candidate c WHERE c.search_id = s.id)
+        AND NOT EXISTS (
+            SELECT 1 FROM grabs_search_grab sg JOIN grabs_grab g ON g.id = sg.grab_id
+            WHERE sg.search_id = s.id AND sg.made = 1 AND g.stage = 'fetching'))
+`
+
+type PruneRSSParams struct {
+	WorkID works.WorkID
+	Kept   SearchID
+}
+
+// The RSS run bound: a Work keeps its latest RSS run, and every earlier
+// one a wait holds a Release of or whose Grab still fetches.
+func (q *Queries) PruneRSS(ctx context.Context, arg PruneRSSParams) error {
+	_, err := q.db.ExecContext(ctx, pruneRSS, arg.WorkID, arg.Kept)
+	return err
+}
+
+const settleRSSSearch = `-- name: SettleRSSSearch :exec
+UPDATE grabs_search SET outcome = ?1, candidates = ?2, grabs = ?3,
+    notes = ?4
+WHERE id = ?5 AND trigger = 'rss'
+`
+
+type SettleRSSSearchParams struct {
+	Outcome    *Outcome
+	Candidates int64
+	Grabs      int64
+	Notes      *string
+	ID         SearchID
+}
+
+func (q *Queries) SettleRSSSearch(ctx context.Context, arg SettleRSSSearchParams) error {
+	_, err := q.db.ExecContext(ctx, settleRSSSearch,
+		arg.Outcome,
+		arg.Candidates,
+		arg.Grabs,
+		arg.Notes,
 		arg.ID,
 	)
 	return err

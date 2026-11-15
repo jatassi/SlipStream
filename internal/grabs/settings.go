@@ -12,6 +12,7 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/tasks"
 )
 
 // The Automatic search section's own settings, stored in grabs_settings.
@@ -63,8 +64,13 @@ func (p panel) Fields(ctx context.Context) ([]setting.Field, error) {
 	if err != nil {
 		return nil, err
 	}
+	rssEvery, err := p.gr.cfg.Tasks.Every(ctx, RSSTaskID)
+	if err != nil {
+		return nil, err
+	}
 	return []setting.Field{
-		BacklogOn.Field(row.BacklogOn), BacklogUpgrades.Field(row.BacklogUpgrades), BacklogEvery.Field(every), RSSOn.Field(row.RssOn),
+		BacklogOn.Field(row.BacklogOn), BacklogUpgrades.Field(row.BacklogUpgrades), BacklogEvery.Field(every),
+		RSSOn.Field(row.RssOn), RSSEvery.Field(rssEvery),
 		LongestGap.Field(row.LongestGapSeconds), FullPace.Field(row.FullPaceSeconds),
 		StopCount.Field(row.StopCount), StopWindow.Field(row.StopWindowSeconds),
 		indexers.SearchWait.Field(wait),
@@ -72,38 +78,50 @@ func (p panel) Fields(ctx context.Context) ([]setting.Field, error) {
 }
 
 // Apply stores the patch, all or none: grabs_settings and
-// indexers.SearchWait in one Write, then Backlog search's cadence through
-// tasks. A longest gap shorter than the interval the patch leaves is
-// *GapTooShortError on the key that moved.
+// indexers.SearchWait in one Write, then the two tasks' cadences through
+// tasks. A longest gap shorter than the Backlog interval the patch leaves
+// is *GapTooShortError on the key that moved.
 func (p panel) Apply(ctx context.Context, patch setting.Patch) error {
 	if len(patch) == 0 {
 		return nil
 	}
-	every, cadence, err := p.cadence(ctx, patch)
+	every, backlog, err := p.cadence(ctx, patch, BacklogTaskID, BacklogEvery)
+	if err != nil {
+		return err
+	}
+	_, rss, err := p.cadence(ctx, patch, RSSTaskID, RSSEvery)
 	if err != nil {
 		return err
 	}
 	err = p.gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		return store(ctx, tx, patch, BacklogEvery.Value(every))
 	})
-	if err != nil || cadence == nil {
+	if err != nil {
 		return err
 	}
-	return p.gr.cfg.Tasks.SetCadence(ctx, BacklogTaskID, *cadence)
+	if backlog != nil {
+		if err := p.gr.cfg.Tasks.SetCadence(ctx, BacklogTaskID, *backlog); err != nil {
+			return err
+		}
+	}
+	if rss == nil {
+		return nil
+	}
+	return p.gr.cfg.Tasks.SetCadence(ctx, RSSTaskID, *rss)
 }
 
-// cadence is Backlog search's cadence override the patch leaves, and the
-// change to store when the patch moves it.
-func (p panel) cadence(ctx context.Context, patch setting.Patch) (every *int64, change *setting.Stored[int64], err error) {
-	every, err = p.gr.cfg.Tasks.Every(ctx, BacklogTaskID)
+// cadence is task id's cadence override the patch leaves, by its setting
+// d, and the change to store when the patch moves it.
+func (p panel) cadence(ctx context.Context, patch setting.Patch, id tasks.TaskID, d setting.Duration) (every *int64, change *setting.Stored[int64], err error) {
+	every, err = p.gr.cfg.Tasks.Every(ctx, id)
 	if err != nil {
 		return nil, nil, err
 	}
-	raw, ok := patch[BacklogEvery.Key]
+	raw, ok := patch[d.Key]
 	if !ok {
 		return every, nil, nil
 	}
-	v, err := BacklogEvery.ParseJSON(raw)
+	v, err := d.ParseJSON(raw)
 	return v.Override(), &v, err
 }
 
@@ -126,6 +144,7 @@ func store(ctx context.Context, tx *storage.Tx[file], patch setting.Patch, inter
 		BacklogUpgrades.Key: into(BacklogUpgrades.ParseJSON, &next.BacklogUpgrades),
 		BacklogEvery.Key:    func(json.RawMessage) error { return nil }, // tasks stores it, after the Write
 		RSSOn.Key:           into(RSSOn.ParseJSON, &next.RssOn),
+		RSSEvery.Key:        func(json.RawMessage) error { return nil },
 		LongestGap.Key:      into(LongestGap.ParseJSON, &next.LongestGapSeconds),
 		FullPace.Key:        into(FullPace.ParseJSON, &next.FullPaceSeconds),
 		StopCount.Key:       into(StopCount.ParseJSON, &next.StopCount),

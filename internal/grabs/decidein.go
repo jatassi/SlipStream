@@ -7,20 +7,23 @@ import (
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/formats"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
 // decisionIn is what one decision reads: the run its Releases belong to,
-// those Releases, deduped and assessed, before the Blocklist gate, which
-// cells it opens and whether their Targets' Holds apply. Only its
-// constructors build it.
+// those Releases, deduped and assessed, before the Blocklist gate, the
+// Items whose cells it walks, which cells it opens and whether their
+// Targets' Holds apply. Only its constructors build it.
 type decisionIn struct {
-	run   Search
-	as    []assessed
-	open  openRule
-	holds bool
+	run Search
+	as  []assessed
+	// everyItem walks every Item of the Work, in place of the run's.
+	everyItem bool
+	open      openRule
+	holds     bool
 	// only is the cells of the run's Items a rerun opens, the dropped
 	// Grab's; nil opens every cell of them the rule opens.
 	only map[files.CellKey]bool
@@ -45,6 +48,14 @@ func (o openRule) opens(c files.Cell) bool {
 func runInput(run Search, as []assessed) decisionIn {
 	rule := laneRules[run.Trigger]
 	return decisionIn{run: run, as: as, open: openRule{gone: rule.gone, stopped: rule.paced}, holds: rule.holds}
+}
+
+// rssInput is the decision of run, an RSS run of one Work, over the
+// Releases its feed listed that name the Work. It walks every Item:
+// every Searchable cell opens, every Met cell is filled by a proper or a
+// repack, and the Targets' Holds apply.
+func rssInput(run Search, as []assessed) decisionIn {
+	return decisionIn{run: run, as: as, everyItem: true, holds: laneRules[searches.RSS].holds}
 }
 
 // rerunInput is the decision of re's run again, over the Releases it
@@ -73,7 +84,7 @@ func (in decisionIn) board(all []files.Cell, unfinished []Grab) cells {
 	}
 	c := cells{wanted: map[works.ItemID]bool{}, chosen: takenBy{hashes: map[bencode.InfoHash]bool{}}}
 	for _, cell := range all {
-		opens, scoped := in.open.opens(cell), scope[cell.Item.ID] && (in.only == nil || in.only[keyOf(cell)])
+		opens, scoped := in.open.opens(cell), (in.everyItem || scope[cell.Item.ID]) && (in.only == nil || in.only[keyOf(cell)])
 		switch {
 		case opens && scoped:
 			c.open = append(c.open, cell)

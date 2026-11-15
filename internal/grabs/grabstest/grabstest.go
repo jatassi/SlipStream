@@ -28,11 +28,12 @@ func Blocked(t testing.TB, lib *storage.DB[storage.Library], e grabs.BlockEntry)
 }
 
 // Cadences is the Scheduled tasks' cadences as grabs reads them: Backlog
-// search's is Backlog, its default when zero, and every other at its
-// default. They don't change. Backlog search next opens at NextBacklog,
-// and reads as running while it is zero.
+// search's is Backlog and RSS sync's RSS, each its default when zero.
+// They don't change. Backlog search next opens at NextBacklog, and reads
+// as running while it is zero.
 type Cadences struct {
 	Backlog     time.Duration
+	RSS         time.Duration
 	NextBacklog time.Time
 }
 
@@ -44,10 +45,15 @@ func (c Cadences) Next(_ context.Context, id tasks.TaskID) (time.Time, error) {
 }
 
 func (c Cadences) Every(_ context.Context, id tasks.TaskID) (*int64, error) {
-	if id != grabs.BacklogTaskID || c.Backlog == 0 {
+	every := map[tasks.TaskID]time.Duration{grabs.BacklogTaskID: c.Backlog, grabs.RSSTaskID: c.RSS}[id]
+	if every == 0 {
 		return nil, nil
 	}
-	return new(int64(c.Backlog / time.Second)), nil
+	return new(int64(every / time.Second)), nil
+}
+
+func (c Cadences) EveryIn(ctx context.Context, _ storage.Reader[storage.Library], id tasks.TaskID) (*int64, error) {
+	return c.Every(ctx, id)
 }
 
 func (Cadences) SetCadence(context.Context, tasks.TaskID, setting.Stored[int64]) error {
@@ -70,6 +76,10 @@ func (c *StoredCadences) Every(_ context.Context, id tasks.TaskID) (*int64, erro
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.every[id], nil
+}
+
+func (c *StoredCadences) EveryIn(ctx context.Context, _ storage.Reader[storage.Library], id tasks.TaskID) (*int64, error) {
+	return c.Every(ctx, id)
 }
 
 func (c *StoredCadences) SetCadence(_ context.Context, id tasks.TaskID, v setting.Stored[int64]) error {
