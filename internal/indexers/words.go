@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/works"
@@ -208,12 +209,13 @@ func (x *Indexers) Clock(t time.Time) string { return x.inZone(t).Format("15:04"
 // day is t's date in sentences, such as "3 Oct".
 func (x *Indexers) day(t time.Time) string { return x.inZone(t).Format("2 Jan") }
 
-func (x *Indexers) inZone(t time.Time) time.Time {
-	zone := x.cfg.Zone
-	if zone == nil {
-		zone = time.Local
+func (x *Indexers) inZone(t time.Time) time.Time { return t.In(x.zone()) }
+
+func (x *Indexers) zone() *time.Location {
+	if x.cfg.Zone == nil {
+		return time.Local
 	}
-	return t.In(zone)
+	return x.cfg.Zone
 }
 
 // stoppedWords is a stop in words, as the Indexer's status: %[1]s is the
@@ -362,7 +364,7 @@ func (x *Indexers) Line(typ works.TypeID, o *Outcome) string {
 		if o.Until.IsZero() {
 			return "Limit reached"
 		}
-		return "Limit reached until " + x.Clock(o.Until)
+		return "Limit reached until " + api.TimeWords(o.Until, time.Now(), x.zone())
 	case Waiting:
 		return "Waiting for " + x.cfg.Roster.Name(o.Node)
 	case IsFailing:
