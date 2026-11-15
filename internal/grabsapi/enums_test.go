@@ -55,6 +55,7 @@ func TestTheGrabEnumsNameEveryStageCodeStepOutcomeAndSourceInOrder(t *testing.T)
 		{"lostAt.Step", enumOf[lostAt](t, "Step"), joined(grabs.Steps)},
 		{"search.Outcome", enumOf[search](t, "Outcome"), joined(grabs.Outcomes)},
 		{"grab.Source", enumOf[grab](t, "Source"), joined(grabs.Sources)},
+		{"grab.FoundBy", enumOf[grab](t, "FoundBy"), joined(grabs.FoundBys)},
 	} {
 		if c.got != c.want {
 			t.Errorf("%s enum = %q, want %q", c.name, c.got, c.want)
