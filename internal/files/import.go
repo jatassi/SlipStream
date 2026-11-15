@@ -172,9 +172,9 @@ func (e *Refused) Error() string {
 	case e.Verdict.Refusal != nil:
 		return e.Verdict.Refusal.Error()
 	case e.Verdict.EditionGone:
-		return "the file's cut is in no Edition the Work wants"
+		return "the file's cut is no longer one of the Work's Editions"
 	}
-	return "the file fills no Target the Work still wants"
+	return "the file isn't better than the Work's files for any of its Targets"
 }
 
 // Import judges l again in tx and lands it: the file and its Items, its
