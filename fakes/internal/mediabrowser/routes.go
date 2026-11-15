@@ -51,6 +51,8 @@ func (s *server) routes() fake.Routes {
 		r["libraries"] = fake.Route{Pattern: "GET /Library/VirtualFolders/Query", Handler: s.guard(signedIn, s.libraries)}
 		r["item-refresh"] = fake.Route{Pattern: "POST /Items/{id}/Refresh", Handler: s.guard(elevated, s.refreshItem)}
 		r["played"] = fake.Route{Pattern: "POST /Users/{user}/PlayedItems/{id}", Handler: s.guard(signedIn, s.markPlayed)}
+		r["favorite"] = fake.Route{Pattern: "POST /Users/{user}/FavoriteItems/{id}", Handler: s.guard(signedIn, s.favorite(true))}
+		r["unfavorite"] = fake.Route{Pattern: "DELETE /Users/{user}/FavoriteItems/{id}", Handler: s.guard(signedIn, s.favorite(false))}
 		r["socket"] = fake.Route{Pattern: "GET /embywebsocket", Handler: s.socket}
 	}
 	return r
@@ -115,14 +117,16 @@ func (s *server) libraries(w http.ResponseWriter, _ *http.Request, _ caller) {
 			locations[i], infos[i] = f.String(), map[string]string{"Path": f.String()}
 		}
 		v := map[string]any{
-			"Name": l.Name, "Locations": locations, "CollectionType": l.Type, "ItemId": l.Key, "RefreshStatus": "Idle",
+			"Name": l.Name, "Locations": locations, "CollectionType": l.Type, "ItemId": l.Key,
 			"LibraryOptions": map[string]any{"Enabled": true, "EnableRealtimeMonitor": false, "PathInfos": infos},
 		}
-		if l.Scan.Running {
-			v["RefreshStatus"], v["RefreshProgress"] = "Active", 0
-		}
-		if s.p.Flavor == Emby {
+		switch {
+		case s.p.Flavor == Emby:
 			v["Id"], v["Guid"] = l.Key, l.Key
+		case l.Scan.Running:
+			v["RefreshStatus"], v["RefreshProgress"] = "Active", 0
+		default:
+			v["RefreshStatus"] = "Idle"
 		}
 		out = append(out, v)
 	}
@@ -177,7 +181,7 @@ func (s *server) updated(w http.ResponseWriter, r *http.Request, _ caller) {
 		return
 	}
 	rec := Report{Updates: []ReportedPath{}}
-	var updates []mediaserver.Update
+	var paths []link.ServerPath
 	for _, u := range in.Updates {
 		p, err := link.ParsePath(u.Path)
 		if err != nil {
@@ -185,10 +189,10 @@ func (s *server) updated(w http.ResponseWriter, r *http.Request, _ caller) {
 			return
 		}
 		rec.Updates = append(rec.Updates, ReportedPath{Path: p.String(), UpdateType: u.UpdateType})
-		updates = append(updates, mediaserver.Update{Path: p, Deleted: u.UpdateType == "Deleted"})
+		paths = append(paths, p)
 	}
 	s.reports.Record(r.Context(), rec)
-	s.core.Report(updates)
+	s.core.Report(paths)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -199,7 +203,7 @@ func (s *server) refreshAll(w http.ResponseWriter, r *http.Request, _ caller) {
 }
 
 // refreshItem is Emby's item refresh. On a library's item with
-// Recursive it scans that library, shown in its RefreshStatus.
+// Recursive it scans that library.
 func (s *server) refreshItem(w http.ResponseWriter, r *http.Request, _ caller) {
 	key := r.PathValue("id")
 	if _, ok := s.core.Item(key); ok {
@@ -271,9 +275,11 @@ func (s *server) userItems(w http.ResponseWriter, r *http.Request, c caller) {
 }
 
 // listItems is GET /Items: by ParentId (a library or a collection),
-// IncludeItemTypes, and on Emby an exact Path. Jellyfin has no Path
-// filter and lists alternate versions only in the primary item's
-// MediaSources.
+// IncludeItemTypes, and on Emby a Path, a file's exact path or the folder
+// an item is in. Emby 4.10 answered one item for a film's folder (online
+// run 2026-11-14); which item it was is unrecorded, and the fake answers
+// the film. Jellyfin has no Path filter and lists alternate versions only
+// in the primary item's MediaSources.
 func (s *server) listItems(w http.ResponseWriter, r *http.Request, c caller, uid string) {
 	user, ok := s.asUser(c, uid)
 	if !ok {
@@ -337,7 +343,7 @@ func (s *server) picked(it mediaserver.Item, parent string, types []string, q ma
 	}
 	if s.p.Flavor == Emby {
 		if paths, ok := q["Path"]; ok {
-			return slices.ContainsFunc(it.Parts, func(p mediaserver.Part) bool { return p.File.String() == paths[0] })
+			return it.Folder.String() == paths[0] || slices.ContainsFunc(it.Parts, func(p mediaserver.Part) bool { return p.File.String() == paths[0] })
 		}
 	}
 	return true
@@ -464,7 +470,7 @@ func (s *server) userItemData(w http.ResponseWriter, r *http.Request, c caller) 
 }
 
 // writeUserData sets the fields the body names on the user's data. Emby
-// keeps the play count and last played date it had (#101).
+// 4.10 keeps the favorite it had (online run 2026-11-14).
 func (s *server) writeUserData(w http.ResponseWriter, r *http.Request, c caller, uid string) {
 	user, ok := s.asUser(c, uid)
 	it, found := s.core.Item(r.PathValue("id"))
@@ -490,7 +496,7 @@ func (s *server) writeUserData(w http.ResponseWriter, r *http.Request, c caller,
 	if in.PlayCount != nil {
 		d.PlayCount = *in.PlayCount
 	}
-	if in.IsFavorite != nil {
+	if in.IsFavorite != nil && s.p.Flavor != Emby {
 		d.Favorite = *in.IsFavorite
 	}
 	if in.Played != nil {
@@ -517,9 +523,29 @@ func (s *server) markPlayed(w http.ResponseWriter, r *http.Request, c caller) {
 		return
 	}
 	d := s.core.UserData(user, it.Key)
-	d.Played, d.PlayCount, d.LastPlayed = true, d.PlayCount+1, time.Now()
+	d.Played = true
+	if s.p.Flavor != Emby {
+		d.PlayCount, d.LastPlayed = d.PlayCount+1, time.Now()
+	}
 	s.core.SetUserData(user, it.Key, d)
 	writeJSON(w, s.renderUserData(user, it))
+}
+
+// favorite is Emby's FavoriteItems: POST marks the item a favorite of the
+// user and DELETE unmarks it.
+func (s *server) favorite(on bool) func(http.ResponseWriter, *http.Request, caller) {
+	return func(w http.ResponseWriter, r *http.Request, c caller) {
+		user, ok := s.asUser(c, r.PathValue("user"))
+		it, found := s.core.Item(r.PathValue("id"))
+		if !ok || !found {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		d := s.core.UserData(user, it.Key)
+		d.Favorite = on
+		s.core.SetUserData(user, it.Key, d)
+		writeJSON(w, s.renderUserData(user, it))
+	}
 }
 
 func idsOf(r *http.Request) []string {

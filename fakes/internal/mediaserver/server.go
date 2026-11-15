@@ -41,9 +41,6 @@ type Behavior struct {
 	// does nothing (#101, recorded run 2026-11-14). Off, the nearest folder
 	// on disk is scanned.
 	ResolvesNearestItem bool
-	// DeletesAtOnce is Emby taking a Deleted report without the monitor
-	// delay (#101).
-	DeletesAtOnce bool
 	// FreshSectionIgnores is Plex ignoring a partial scan into a section
 	// never scanned with content in it (#101 P9).
 	FreshSectionIgnores bool
@@ -67,9 +64,6 @@ type Behavior struct {
 	// Carry is how a new item gets watch data from one with its provider
 	// id. Collections never carry.
 	Carry Carry
-	// UserDataIgnoresPlays is Emby answering a UserData write with success
-	// while keeping the play count and last played date it had (#101).
-	UserDataIgnoresPlays bool
 	// PurgesVacated is a scan dropping the files gone from disk, deleting
 	// an item left with none along with its watch data and collections:
 	// Plex's autoEmptyTrash (case E), and always on Jellyfin and Emby. Off,
@@ -403,17 +397,12 @@ func (s *Server) UserData(user, item string) link.UserData {
 	return d
 }
 
-// SetUserData replaces user's data on item. With UserDataIgnoresPlays the
-// play count and last played date stay as they were.
+// SetUserData replaces user's data on item.
 func (s *Server) SetUserData(user, item string, d link.UserData) {
 	s.lock()
 	defer s.mu.Unlock()
-	k := watchKey{user, item}
-	if s.b.UserDataIgnoresPlays {
-		d.PlayCount, d.LastPlayed = s.watch[k].PlayCount, s.watch[k].LastPlayed
-	}
 	d.User = user
-	s.watch[k] = d
+	s.watch[watchKey{user, item}] = d
 }
 
 // Played counts one more play of item by user, as a scrobble does.

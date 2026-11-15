@@ -165,8 +165,7 @@ func RenameInFolderKeepsRatingKey(t *testing.T, tg Target, shared mediaservers.T
 	old, from := watched(t, shared, f, "Renamed")
 	r := mediaservers.Rel(t, "Renamed", ".mkv")
 	to := mediaservers.Rel(t, "Renamed", " Bluray-1080p.mkv")
-	f.Move(r, to)
-	if err := shared.Server.Moved(t.Context(), tg.Section, []link.ServerPath{from}, []link.ServerPath{f.At(to)}); err != nil {
+	if err := shared.Server.Moved(t.Context(), tg.Section, []link.ServerPath{from}, []link.ServerPath{f.At(to)}, func() { f.Move(r, to) }); err != nil {
 		t.Fatal(err)
 	}
 	now := f.Found(to)
@@ -213,7 +212,7 @@ func MovedDestinationThenSource(t *testing.T, tg Target, shared mediaservers.Tar
 // no collection.
 func SourceFirstPurges(t *testing.T, tg Target, shared mediaservers.Target) {
 	if !tg.Fake {
-		t.Skip("source first destroys watch data; recorded run 2026-11-14 case E is the real server's result")
+		mediaservers.Skip(t, "source first destroys watch data; recorded run 2026-11-14 case E is the real server's result")
 	}
 	f := shared.Case(t)
 	defer f.Clear()
@@ -238,7 +237,7 @@ func SourceFirstPurges(t *testing.T, tg Target, shared mediaservers.Target) {
 // forward slashes works, and Plex stores backslashes either way.
 func BackslashPaths(t *testing.T, tg Target, shared mediaservers.Target) {
 	if !tg.Folder.Windows() {
-		t.Skip("backslash paths are a Windows Plex's; recorded run 2026-11-14 case A covers Jackson's server")
+		mediaservers.Skip(t, "backslash paths are a Windows Plex's; recorded run 2026-11-14 case A covers Jackson's server")
 	}
 	f := shared.Case(t)
 	defer f.Clear()
