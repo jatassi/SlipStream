@@ -294,6 +294,7 @@ func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], n newGrab
 		ID: GrabID{UUID: storage.NewUUID()}, WorkID: n.work, ItemID: n.item, Items: n.items, Edition: n.pick.Edition,
 		Release: Release{Title: r.Title, Size: r.Size, InfoHash: r.InfoHash}, Ticket: t, Stage: Fetching, Created: now.Time(),
 		Source: n.source, Manual: n.manual, By: n.by, Overrides: n.overrides, Sent: n.sent, Targets: n.cells, ChosenFills: n.fills,
+		GUID: r.GUID,
 	}
 	if len(g.Items) == 0 {
 		g.Items = []works.ItemID{n.item}
@@ -320,7 +321,7 @@ func (gr *Grabs) insertGrab(ctx context.Context, tx *storage.Tx[file], n newGrab
 		ID: g.ID, WorkID: g.WorkID, ItemID: g.ItemID, Edition: g.Edition, Source: g.Source, ManualID: g.Manual, Overrides: string(overrides),
 		IndexerID: t.Indexer, TrackerID: t.Tracker, NodeID: g.Node,
 		ReleaseTitle: g.Release.Title, ReleaseSize: g.Release.Size, ReleaseLinkSealed: g.Release.link, ReleaseMagnet: orNil(g.Release.magnet),
-		ReleaseInfoHash: hint, FetchQueryID: t.Query, CreatedAt: now,
+		ReleaseInfoHash: hint, ReleaseGuid: orNil(g.GUID), FetchQueryID: t.Query, CreatedAt: now,
 		MinRatio: orNil(r.Floor.MinRatio), MinSeedSeconds: orNil(int64(r.Floor.MinSeed.Seconds())),
 		DownloadFactor: new(r.Factors.Download), UploadFactor: new(r.Factors.Upload), ChosenFills: orNil(int64(n.fills)),
 	}

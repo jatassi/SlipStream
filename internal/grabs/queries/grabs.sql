@@ -1,12 +1,13 @@
 -- name: InsertGrab :exec
 INSERT INTO grabs_grab (id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id,
-    tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, chosen_fills, fetch_query_id,
-    min_ratio, min_seed_seconds, download_factor, upload_factor, stage, created_at, updated_at)
+    tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills,
+    fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, created_at, updated_at)
 VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(edition), sqlc.arg(source), sqlc.arg(manual_id),
     sqlc.arg(grabbed_by), sqlc.narg(grabbed_by_name), sqlc.arg(overrides), sqlc.arg(indexer_id), sqlc.arg(tracker_id),
     sqlc.arg(node_id),
     sqlc.arg(release_title), sqlc.arg(release_size), sqlc.arg(release_link_sealed), sqlc.narg(release_magnet),
-    sqlc.narg(release_info_hash), sqlc.narg(chosen_fills), sqlc.narg(fetch_query_id), sqlc.arg(min_ratio), sqlc.arg(min_seed_seconds),
+    sqlc.narg(release_info_hash), sqlc.narg(release_guid), sqlc.narg(chosen_fills), sqlc.narg(fetch_query_id), sqlc.arg(min_ratio),
+    sqlc.arg(min_seed_seconds),
     sqlc.arg(download_factor), sqlc.arg(upload_factor), 'fetching', sqlc.arg(created_at), sqlc.arg(created_at));
 
 -- name: InsertGrabItem :exec
