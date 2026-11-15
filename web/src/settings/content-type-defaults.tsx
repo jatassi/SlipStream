@@ -76,7 +76,7 @@ export function DefaultRoot({ type }: { type: WorksContentType }) {
       value={chosen.id}
       onValueChange={(id) => {
         const path = roots.find((root) => root.id === id)?.path;
-        void making(() => makeDefaultRoot(id), `New ${type.work.many} now go into ${path}.`);
+        void making(() => makeDefaultRoot(id), `New ${type.work.many.toLowerCase()} now go into ${path}.`);
       }}
     />
   );

@@ -125,7 +125,7 @@ test("Cancel library scan cancels the whole run the root's unit is in", async ()
   await expect
     .element(
       page.getByText(
-        "Library scan canceled for every root in the run. It keeps what it already recorded.",
+        "Library scan canceled for every root in the run. The files it already recorded stay recorded.",
       ),
     )
     .toBeVisible();

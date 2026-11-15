@@ -27,7 +27,11 @@ export function AddRootForm({
     async () => {
       const made = await createRoot({ contentType: type, ...editing.place, makeDefault });
       const label = contentTypes.find((candidate) => candidate.id === type)?.work.many ?? type;
-      toast(made.default ? `Added ${made.path}. New ${label} go there.` : `Added ${made.path}.`);
+      toast(
+        made.default
+          ? `Added ${made.path}. New ${label.toLowerCase()} go there.`
+          : `Added ${made.path}.`,
+      );
       onSaved(made);
     },
     (error) => placeRefusal(error, editing.namer),

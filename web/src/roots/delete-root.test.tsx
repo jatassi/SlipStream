@@ -59,7 +59,7 @@ test("the default root can't be deleted while its type has another root", async 
   await expect
     .element(
       dialog.getByText(
-        "New Films go into this root. Make another Films root the default first, then delete this one.",
+        "New films go into this root. Make another Films root the default first, then delete this one.",
       ),
     )
     .toBeVisible();

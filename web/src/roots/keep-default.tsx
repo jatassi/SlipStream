@@ -18,8 +18,8 @@ export function KeepDefaultDialog({
   return (
     <Dialog title={`Delete ${root.path}?`} open={open} onOpenChange={onOpenChange}>
       <p className="text-ink-2">
-        New {label} go into this root. Make another {label} root the default first, then delete this
-        one.
+        New {label.toLowerCase()} go into this root. Make another {label} root the default first,
+        then delete this one.
       </p>
       <DialogActions>
         <Button

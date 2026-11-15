@@ -32,7 +32,7 @@ test("hidden folders wait behind a counted row and Show hidden, remembered for t
 
 test("a folder SlipStream can't read shows a lock, and opening it names the account under Details", async () => {
   await browse({ startPath: "/srv/media" });
-  await userEvent.click(option("Locked Not allowed"));
+  await userEvent.click(option("Locked No access"));
   await expect
     .element(page.getByText("SlipStream on Media server isn't allowed to open this folder."))
     .toBeVisible();

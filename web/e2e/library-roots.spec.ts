@@ -155,7 +155,7 @@ test("an Admin adds a root through home's folder browser, makes it the default, 
   await expect(adding).toContainText(/This folder is on .+, .+ free\./u);
   await adding.getByRole("checkbox", { name: "Make this the default for Movies" }).check();
   await adding.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(toasts(page)).toContainText(`Added ${films}. New Movies go there.`);
+  await expect(toasts(page)).toContainText(`Added ${films}. New movies go there.`);
   await expect(rootRow(page, films)).toContainText("Default");
   await expect(rootRow(page, movies.path)).not.toContainText("Default");
 
@@ -165,7 +165,7 @@ test("an Admin adds a root through home's folder browser, makes it the default, 
   const workId = await addOrchard(world);
   await expect(rootRow(page, films)).toContainText("1 Movie");
   await act(page, movies.path, "Make default");
-  await expect(toasts(page)).toContainText(`New Movies now go into ${movies.path}.`);
+  await expect(toasts(page)).toContainText(`New movies now go into ${movies.path}.`);
   await expect(rootRow(page, movies.path)).toContainText("Default");
 
   await deleteMovingWorks(page, films, movies.path);

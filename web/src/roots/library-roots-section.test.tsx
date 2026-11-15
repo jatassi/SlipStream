@@ -85,7 +85,7 @@ test("Make default makes another root where its type's new Works go", async () =
   await userEvent.keyboard("{Escape}");
   await expect.element(page.getByRole("menu")).not.toBeInTheDocument();
   await act(archiveRoot, "Make default");
-  await expect.element(page.getByText("New Films now go into /mnt/archive/films.")).toBeVisible();
+  await expect.element(page.getByText("New films now go into /mnt/archive/films.")).toBeVisible();
   expect(sent.defaulted).toEqual([archiveRoot.id]);
 });
 

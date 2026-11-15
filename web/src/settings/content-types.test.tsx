@@ -144,7 +144,7 @@ test("Make default in a type's row makes that root the default for new Works", a
   });
   await userEvent.click(page.getByRole("combobox", { name: "Default root" }));
   await userEvent.click(page.getByRole("option", { name: "/mnt/archive/films" }));
-  await expect.element(page.getByText("New Films now go into /mnt/archive/films.")).toBeVisible();
+  await expect.element(page.getByText("New films now go into /mnt/archive/films.")).toBeVisible();
   expect(made).toEqual([archiveRoot.id]);
 });
 

@@ -37,7 +37,7 @@ function scanItems(root: RootsRoot, name: string, onAct: (acting: Acting) => voi
         onSelect: () =>
           void calling(
             () => cancelTaskRun(running.runId),
-            "Library scan canceled for every root in the run. It keeps what it already recorded.",
+            "Library scan canceled for every root in the run. The files it already recorded stay recorded.",
           ),
       },
     ];
@@ -88,7 +88,10 @@ export function RootMenu({
           label: "Make default",
           icon: StarIcon,
           onSelect: () =>
-            void calling(() => makeDefaultRoot(root.id), `New ${label} now go into ${root.path}.`),
+            void calling(
+              () => makeDefaultRoot(root.id),
+              `New ${label.toLowerCase()} now go into ${root.path}.`,
+            ),
         },
       ];
   return (
