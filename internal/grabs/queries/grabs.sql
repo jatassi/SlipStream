@@ -46,20 +46,23 @@ SELECT * FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY crea
 -- name: ListOpenGrabsOfWork :many
 SELECT * FROM grabs_grab WHERE work_id = sqlc.arg(work_id) AND stage NOT IN ('imported', 'failed') ORDER BY created_at, id;
 
+-- name: ListOpenGrabsOfWorks :many
+SELECT * FROM grabs_grab WHERE work_id IN (sqlc.slice(work_ids)) AND stage NOT IN ('imported', 'failed') ORDER BY created_at, id;
+
 -- name: CountMoving :one
 SELECT COUNT(*) FROM grabs_grab WHERE stage IN (sqlc.slice(stages));
 
 -- name: GetGrab :one
 SELECT * FROM grabs_grab WHERE id = sqlc.arg(id);
 
--- name: ListTargets :many
-SELECT * FROM grabs_target ORDER BY grab_id, position;
+-- name: ListTargetsOf :many
+SELECT * FROM grabs_target WHERE grab_id IN (sqlc.slice(grab_ids)) ORDER BY grab_id, position;
 
--- name: ListGrabItems :many
-SELECT * FROM grabs_grab_item ORDER BY grab_id, position;
+-- name: ListGrabItemsOf :many
+SELECT * FROM grabs_grab_item WHERE grab_id IN (sqlc.slice(grab_ids)) ORDER BY grab_id, position;
 
--- name: ListStages :many
-SELECT * FROM grabs_stage ORDER BY grab_id, entered_at, rowid;
+-- name: ListStagesOf :many
+SELECT * FROM grabs_stage WHERE grab_id IN (sqlc.slice(grab_ids)) ORDER BY grab_id, entered_at, rowid;
 
 -- name: ListGrabsOfTorrents :many
 SELECT id, torrent_id, work_id, item_id, edition, release_title, stage, min_ratio, min_seed_seconds, created_at FROM grabs_grab

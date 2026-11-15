@@ -752,12 +752,22 @@ func (q *Queries) ListEveryGrabTarget(ctx context.Context) ([]ListEveryGrabTarge
 	return items, nil
 }
 
-const listGrabItems = `-- name: ListGrabItems :many
-SELECT grab_id, item_id, position FROM grabs_grab_item ORDER BY grab_id, position
+const listGrabItemsOf = `-- name: ListGrabItemsOf :many
+SELECT grab_id, item_id, position FROM grabs_grab_item WHERE grab_id IN (/*SLICE:grab_ids*/?) ORDER BY grab_id, position
 `
 
-func (q *Queries) ListGrabItems(ctx context.Context) ([]GrabsGrabItem, error) {
-	rows, err := q.db.QueryContext(ctx, listGrabItems)
+func (q *Queries) ListGrabItemsOf(ctx context.Context, grabIds []GrabID) ([]GrabsGrabItem, error) {
+	query := listGrabItemsOf
+	var queryParams []interface{}
+	if len(grabIds) > 0 {
+		for _, v := range grabIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:grab_ids*/?", strings.Repeat(",?", len(grabIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:grab_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}
@@ -1199,6 +1209,80 @@ func (q *Queries) ListOpenGrabsOfWork(ctx context.Context, workID works.WorkID) 
 	return items, nil
 }
 
+const listOpenGrabsOfWorks = `-- name: ListOpenGrabsOfWorks :many
+SELECT id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, probe, failed_stage, failure_code, failure_message, created_at, updated_at, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id FROM grabs_grab WHERE work_id IN (/*SLICE:work_ids*/?) AND stage NOT IN ('imported', 'failed') ORDER BY created_at, id
+`
+
+func (q *Queries) ListOpenGrabsOfWorks(ctx context.Context, workIds []works.WorkID) ([]GrabsGrab, error) {
+	query := listOpenGrabsOfWorks
+	var queryParams []interface{}
+	if len(workIds) > 0 {
+		for _, v := range workIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", strings.Repeat(",?", len(workIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:work_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrabsGrab
+	for rows.Next() {
+		var i GrabsGrab
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkID,
+			&i.ItemID,
+			&i.Edition,
+			&i.Source,
+			&i.ManualID,
+			&i.GrabbedBy,
+			&i.GrabbedByName,
+			&i.Overrides,
+			&i.IndexerID,
+			&i.TrackerID,
+			&i.NodeID,
+			&i.ReleaseTitle,
+			&i.ReleaseSize,
+			&i.ReleaseLinkSealed,
+			&i.ReleaseMagnet,
+			&i.ReleaseInfoHash,
+			&i.ReleaseGuid,
+			&i.ChosenFills,
+			&i.FetchQueryID,
+			&i.MinRatio,
+			&i.MinSeedSeconds,
+			&i.DownloadFactor,
+			&i.UploadFactor,
+			&i.Stage,
+			&i.TorrentID,
+			&i.Probe,
+			&i.FailedStage,
+			&i.FailureCode,
+			&i.FailureMessage,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.FetchNodeID,
+			&i.MetadataStartedAt,
+			&i.SentBuiltInOn,
+			&i.SentClientID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOpenSearches = `-- name: ListOpenSearches :many
 SELECT id, work_id, group_key, lane, "trigger", include_gone, phase, manual_id, started_at, finished_at, outcome, candidates, grabs, notes FROM grabs_search WHERE finished_at IS NULL ORDER BY started_at, id
 `
@@ -1532,12 +1616,22 @@ func (q *Queries) ListSearchesOfWork(ctx context.Context, workID works.WorkID) (
 	return items, nil
 }
 
-const listStages = `-- name: ListStages :many
-SELECT grab_id, stage, entered_at FROM grabs_stage ORDER BY grab_id, entered_at, rowid
+const listStagesOf = `-- name: ListStagesOf :many
+SELECT grab_id, stage, entered_at FROM grabs_stage WHERE grab_id IN (/*SLICE:grab_ids*/?) ORDER BY grab_id, entered_at, rowid
 `
 
-func (q *Queries) ListStages(ctx context.Context) ([]GrabsStage, error) {
-	rows, err := q.db.QueryContext(ctx, listStages)
+func (q *Queries) ListStagesOf(ctx context.Context, grabIds []GrabID) ([]GrabsStage, error) {
+	query := listStagesOf
+	var queryParams []interface{}
+	if len(grabIds) > 0 {
+		for _, v := range grabIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:grab_ids*/?", strings.Repeat(",?", len(grabIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:grab_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}
@@ -1559,12 +1653,22 @@ func (q *Queries) ListStages(ctx context.Context) ([]GrabsStage, error) {
 	return items, nil
 }
 
-const listTargets = `-- name: ListTargets :many
-SELECT grab_id, position, item_id, target_id, forced, settled, settled_at FROM grabs_target ORDER BY grab_id, position
+const listTargetsOf = `-- name: ListTargetsOf :many
+SELECT grab_id, position, item_id, target_id, forced, settled, settled_at FROM grabs_target WHERE grab_id IN (/*SLICE:grab_ids*/?) ORDER BY grab_id, position
 `
 
-func (q *Queries) ListTargets(ctx context.Context) ([]GrabsTarget, error) {
-	rows, err := q.db.QueryContext(ctx, listTargets)
+func (q *Queries) ListTargetsOf(ctx context.Context, grabIds []GrabID) ([]GrabsTarget, error) {
+	query := listTargetsOf
+	var queryParams []interface{}
+	if len(grabIds) > 0 {
+		for _, v := range grabIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:grab_ids*/?", strings.Repeat(",?", len(grabIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:grab_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}

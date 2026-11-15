@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
@@ -479,11 +480,15 @@ type related struct {
 	torrents map[downloadclients.ID]downloadclients.Attached
 }
 
+// readRelated reads the Items, cells and history of rows' Grabs only,
+// works.Batch Grabs at a time.
 func readRelated(ctx context.Context, r storage.Reader[file], rows []db.GrabsGrab) (related, error) {
 	q := db.New(r)
 	rel := related{items: map[GrabID][]works.ItemID{}, targets: map[GrabID][]db.GrabsTarget{}, history: map[GrabID][]Entered{}}
 	var ids []downloadclients.ID
-	for _, row := range rows {
+	grabs := make([]GrabID, len(rows))
+	for i, row := range rows {
+		grabs[i] = row.ID
 		if !row.TorrentID.IsZero() {
 			ids = append(ids, row.TorrentID)
 		}
@@ -492,26 +497,28 @@ func readRelated(ctx context.Context, r storage.Reader[file], rows []db.GrabsGra
 	if rel.torrents, err = downloadclients.Outcomes(ctx, r, ids); err != nil {
 		return related{}, err
 	}
-	is, err := q.ListGrabItems(ctx)
-	if err != nil {
-		return related{}, err
-	}
-	for _, i := range is {
-		rel.items[i.GrabID] = append(rel.items[i.GrabID], i.ItemID)
-	}
-	ts, err := q.ListTargets(ctx)
-	if err != nil {
-		return related{}, err
-	}
-	for _, t := range ts {
-		rel.targets[t.GrabID] = append(rel.targets[t.GrabID], t)
-	}
-	ss, err := q.ListStages(ctx)
-	if err != nil {
-		return related{}, err
-	}
-	for _, s := range ss {
-		rel.history[s.GrabID] = append(rel.history[s.GrabID], Entered{Stage: s.Stage, At: s.EnteredAt.Time()})
+	for chunk := range slices.Chunk(grabs, works.Batch) {
+		is, err := q.ListGrabItemsOf(ctx, chunk)
+		if err != nil {
+			return related{}, err
+		}
+		for _, i := range is {
+			rel.items[i.GrabID] = append(rel.items[i.GrabID], i.ItemID)
+		}
+		ts, err := q.ListTargetsOf(ctx, chunk)
+		if err != nil {
+			return related{}, err
+		}
+		for _, t := range ts {
+			rel.targets[t.GrabID] = append(rel.targets[t.GrabID], t)
+		}
+		ss, err := q.ListStagesOf(ctx, chunk)
+		if err != nil {
+			return related{}, err
+		}
+		for _, s := range ss {
+			rel.history[s.GrabID] = append(rel.history[s.GrabID], Entered{Stage: s.Stage, At: s.EnteredAt.Time()})
+		}
 	}
 	return rel, nil
 }
