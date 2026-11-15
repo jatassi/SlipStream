@@ -446,10 +446,13 @@ func (a *API) Searched(work, body string, n int) []string {
 		a.t.Fatalf("searchWork %s = %d %s, want 202 with %d groups", body, reply.Status, reply.Body, n)
 	}
 	var ids []string
-	Until(a.t, "the press's runs start", func() (bool, error) {
+	err := poll(a.ctx, func() (bool, error) {
 		ids = a.searches(work)
 		return len(ids) >= before+n, nil
 	})
+	if err != nil {
+		a.t.Fatalf("waiting until the press's %d runs start: %v", n, err)
+	}
 	return ids[:n]
 }
 

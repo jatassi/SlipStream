@@ -425,7 +425,7 @@ func TestASearchWhileTheIndexersHomeNodeIsDisconnectedGrabsNothing(t *testing.T)
 		worldtest.Expect(t, "listSearches", reply, worldtest.Reply{Status: 200, Body: `{"searches":[{"id":"` + run + `","groupKey":"` + s.GroupKey + `","groupLabel":null,"lane":"now","trigger":"search","itemIds":["` + itemOf(t, w, work) +
 			`"],"startedAt":"` + s.StartedAt + `","indexers":[{"indexerId":"` + s.Indexers[0].IndexerID +
 			`","name":"Fixture Site","outcome":"waiting","releases":0,"sentence":"Waiting for seedbox"}],"finishedAt":"` + *s.FinishedAt +
-			`","outcome":"nothing_acceptable","candidates":0,"grabs":0,"grabIds":[],"notes":[]}]}` + "\n"})
+			`","outcome":"no_indexer","candidates":0,"grabs":0,"grabIds":[],"notes":[]}]}` + "\n"})
 		if gs := simtest.GrabsListed(t, w); len(gs) != 0 {
 			t.Fatalf("listGrabs = %+v, want none", gs)
 		}
