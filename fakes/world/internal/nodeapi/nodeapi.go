@@ -709,8 +709,8 @@ func SetImporting(ctx context.Context, c *http.Client, baseURL, apiKey string, i
 	}, &settings)
 }
 
-// SetAutomaticSearch turns Backlog search and RSS sync on or off as a
-// says, leaving a switch it leaves unset.
+// SetAutomaticSearch saves the Backlog search and RSS sync switches a
+// sets. A switch a leaves unset keeps its value.
 func SetAutomaticSearch(ctx context.Context, c *http.Client, baseURL, apiKey string, a scenario.LibraryAutomaticSearch) error {
 	values := map[string]bool{}
 	if a.BacklogSearch != nil {
