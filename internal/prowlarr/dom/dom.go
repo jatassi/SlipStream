@@ -1,5 +1,5 @@
 // Ported from Prowlarr's src/NzbDrone.Core/Prowlarr.Core.csproj
-// at ef9c182466ed04f34e6bcfedebb02c3c4af7eaf9. Copyright the Prowlarr
+// at d2d1fc0e77664a94b8d3931b7f216eaafd234af4. Copyright the Prowlarr
 // contributors, GPL-3.0. Modified for SlipStream: rewritten in Go.
 
 // Package dom is AngleSharp's HTML parser and DOM as Prowlarr's sites use
