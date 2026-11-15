@@ -1631,12 +1631,34 @@ export const FilesAudioTrack = zod.object({
 export type FilesAudioTrack = zod.input<typeof FilesAudioTrack>;
 export type FilesAudioTrackOutput = zod.output<typeof FilesAudioTrack>;
 
+export const filesUnreleasedCellCandidatesMin = 0;
+
 export const FilesUnreleasedCell = zod.object({
+  candidates: zod
+    .int()
+    .min(filesUnreleasedCellCandidatesMin)
+    .describe("The Releases its wait holds; 0 while it waits for none"),
   edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
+  gone: zod
+    .boolean()
+    .describe(
+      "No file fills it, and a library file that would is gone from its root. Only a search an Admin starts searches it",
+    ),
   itemId: zod.uuid(),
   state: zod.enum(["unreleased"]).describe("Its Item has no release date, or a later one"),
+  stopped: zod
+    .boolean()
+    .describe(
+      "Failed Grabs stopped SlipStream searching it again at once. Backlog search still searches it",
+    ),
   targetId: zod.uuid(),
   targetName: zod.string(),
+  waitUntil: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When SlipStream grabs the best Release found for it, unless a better one arrives; null while it waits for none",
+    ),
   wanted: zod
     .boolean()
     .describe(
@@ -1647,12 +1669,34 @@ export const FilesUnreleasedCell = zod.object({
 export type FilesUnreleasedCell = zod.input<typeof FilesUnreleasedCell>;
 export type FilesUnreleasedCellOutput = zod.output<typeof FilesUnreleasedCell>;
 
+export const filesMissingCellCandidatesMin = 0;
+
 export const FilesMissingCell = zod.object({
+  candidates: zod
+    .int()
+    .min(filesMissingCellCandidatesMin)
+    .describe("The Releases its wait holds; 0 while it waits for none"),
   edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
+  gone: zod
+    .boolean()
+    .describe(
+      "No file fills it, and a library file that would is gone from its root. Only a search an Admin starts searches it",
+    ),
   itemId: zod.uuid(),
   state: zod.enum(["missing"]),
+  stopped: zod
+    .boolean()
+    .describe(
+      "Failed Grabs stopped SlipStream searching it again at once. Backlog search still searches it",
+    ),
   targetId: zod.uuid(),
   targetName: zod.string(),
+  waitUntil: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When SlipStream grabs the best Release found for it, unless a better one arrives; null while it waits for none",
+    ),
   wanted: zod
     .boolean()
     .describe(
@@ -1719,7 +1763,13 @@ export const FilesStep = zod.enum([
 export type FilesStep = zod.input<typeof FilesStep>;
 export type FilesStepOutput = zod.output<typeof FilesStep>;
 
+export const filesDownloadingCellCandidatesMin = 0;
+
 export const FilesDownloadingCell = zod.object({
+  candidates: zod
+    .int()
+    .min(filesDownloadingCellCandidatesMin)
+    .describe("The Releases its wait holds; 0 while it waits for none"),
   edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   file: zod
     .union([FilesLibraryFile, zod.null()])
@@ -1728,18 +1778,34 @@ export const FilesDownloadingCell = zod.object({
     .datetime({ offset: true })
     .nullable()
     .describe("When the Grab entered its stage; null with step"),
+  gone: zod
+    .boolean()
+    .describe(
+      "No file fills it, and a library file that would is gone from its root. Only a search an Admin starts searches it",
+    ),
   grabId: zod.uuid().describe("The latest Grab in flight for it"),
   itemId: zod.uuid(),
   state: zod.enum(["downloading"]).describe("A Grab is in flight for it, fetching included"),
   step: zod
     .union([FilesStep, zod.null()])
     .describe("What the Grab or its Import is doing for the cell; null until SlipStream reads it"),
+  stopped: zod
+    .boolean()
+    .describe(
+      "Failed Grabs stopped SlipStream searching it again at once. Backlog search still searches it",
+    ),
   targetId: zod.uuid(),
   targetName: zod.string(),
   until: zod.iso
     .datetime({ offset: true })
     .nullable()
     .describe("When the Import delay ends, for a download that waits for it; null otherwise"),
+  waitUntil: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When SlipStream grabs the best Release found for it, unless a better one arrives; null while it waits for none",
+    ),
   wanted: zod
     .boolean()
     .describe(
@@ -1750,16 +1816,38 @@ export const FilesDownloadingCell = zod.object({
 export type FilesDownloadingCell = zod.input<typeof FilesDownloadingCell>;
 export type FilesDownloadingCellOutput = zod.output<typeof FilesDownloadingCell>;
 
+export const filesFailedCellCandidatesMin = 0;
+
 export const FilesFailedCell = zod.object({
+  candidates: zod
+    .int()
+    .min(filesFailedCellCandidatesMin)
+    .describe("The Releases its wait holds; 0 while it waits for none"),
   edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   file: zod
     .union([FilesLibraryFile, zod.null()])
     .describe("The file the Grab would have replaced; null when it fills no file"),
+  gone: zod
+    .boolean()
+    .describe(
+      "No file fills it, and a library file that would is gone from its root. Only a search an Admin starts searches it",
+    ),
   grabId: zod.uuid().describe("The Grab that failed"),
   itemId: zod.uuid(),
   state: zod.enum(["failed"]),
+  stopped: zod
+    .boolean()
+    .describe(
+      "Failed Grabs stopped SlipStream searching it again at once. Backlog search still searches it",
+    ),
   targetId: zod.uuid(),
   targetName: zod.string(),
+  waitUntil: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When SlipStream grabs the best Release found for it, unless a better one arrives; null while it waits for none",
+    ),
   wanted: zod
     .boolean()
     .describe(
@@ -1770,17 +1858,39 @@ export const FilesFailedCell = zod.object({
 export type FilesFailedCell = zod.input<typeof FilesFailedCell>;
 export type FilesFailedCellOutput = zod.output<typeof FilesFailedCell>;
 
+export const filesUpgradableCellCandidatesMin = 0;
+
 export const FilesUpgradableCell = zod.object({
+  candidates: zod
+    .int()
+    .min(filesUpgradableCellCandidatesMin)
+    .describe("The Releases its wait holds; 0 while it waits for none"),
   edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   file: FilesLibraryFile.describe(
     "The file filling it, short of its Target's cutoff or upgrade-until score",
   ),
+  gone: zod
+    .boolean()
+    .describe(
+      "No file fills it, and a library file that would is gone from its root. Only a search an Admin starts searches it",
+    ),
   itemId: zod.uuid(),
   state: zod
     .enum(["upgradable"])
     .describe("No Grab is in flight for it. A Grab in flight makes it downloading"),
+  stopped: zod
+    .boolean()
+    .describe(
+      "Failed Grabs stopped SlipStream searching it again at once. Backlog search still searches it",
+    ),
   targetId: zod.uuid(),
   targetName: zod.string(),
+  waitUntil: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When SlipStream grabs the best Release found for it, unless a better one arrives; null while it waits for none",
+    ),
   wanted: zod
     .boolean()
     .describe(
@@ -1804,16 +1914,38 @@ export const FilesHeldCell = zod.object({
 export type FilesHeldCell = zod.input<typeof FilesHeldCell>;
 export type FilesHeldCellOutput = zod.output<typeof FilesHeldCell>;
 
+export const filesMetCellCandidatesMin = 0;
+
 export const FilesMetCell = zod.object({
+  candidates: zod
+    .int()
+    .min(filesMetCellCandidatesMin)
+    .describe("The Releases its wait holds; 0 while it waits for none"),
   edition: zod.string().describe("any under any cut, else the key of the cut the cell wants"),
   file: FilesLibraryFile.describe("The file filling it"),
+  gone: zod
+    .boolean()
+    .describe(
+      "No file fills it, and a library file that would is gone from its root. Only a search an Admin starts searches it",
+    ),
   held: zod
     .union([FilesHeldCell, zod.null()])
     .describe("The Grab in flight for it; null while none is"),
   itemId: zod.uuid(),
   state: zod.enum(["met"]),
+  stopped: zod
+    .boolean()
+    .describe(
+      "Failed Grabs stopped SlipStream searching it again at once. Backlog search still searches it",
+    ),
   targetId: zod.uuid(),
   targetName: zod.string(),
+  waitUntil: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe(
+      "When SlipStream grabs the best Release found for it, unless a better one arrives; null while it waits for none",
+    ),
   wanted: zod
     .boolean()
     .describe(
@@ -1919,6 +2051,24 @@ export const FilesUpgradeNeed = zod.object({
 export type FilesUpgradeNeed = zod.input<typeof FilesUpgradeNeed>;
 export type FilesUpgradeNeedOutput = zod.output<typeof FilesUpgradeNeed>;
 
+export const FilesNotFoundNeed = zod.object({
+  edition: zod.string().describe("any under any cut, else the key of the cut the cells want"),
+  itemIds: zod.array(zod.string()).describe("A run of Items in tree order whose entries match"),
+  kind: zod
+    .enum(["not_found"])
+    .describe(
+      "Missing Items whose latest search found no Release, or none acceptable. It shows on the Work page only, and the Library's Needs you count leaves it out",
+    ),
+  lastSearchedAt: zod.iso.datetime({ offset: true }).describe("When the latest search finished"),
+  nextSearchAt: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When SlipStream searches them next; null while nothing will"),
+});
+
+export type FilesNotFoundNeed = zod.input<typeof FilesNotFoundNeed>;
+export type FilesNotFoundNeedOutput = zod.output<typeof FilesNotFoundNeed>;
+
 export const FilesClientError = zod.object({
   client: zod.string().describe("The external Download Client's name"),
   failsAt: zod.iso
@@ -1993,6 +2143,7 @@ export type FilesNoRootNeedOutput = zod.output<typeof FilesNoRootNeed>;
 export const FilesNeed = zod.discriminatedUnion("kind", [
   FilesFailedNeed,
   FilesUpgradeNeed,
+  FilesNotFoundNeed,
   FilesWaitingNeed,
   FilesNoRootNeed,
 ]);
@@ -11845,7 +11996,12 @@ export const WorksLibraryRow = zod.object({
   monitored: zod
     .enum(["all", "some", "none"])
     .describe("How many of the Items its source still lists are monitored"),
-  needsYou: zod.int().min(worksLibraryRowNeedsYouMin).describe("The entries of its Needs you"),
+  needsYou: zod
+    .int()
+    .min(worksLibraryRowNeedsYouMin)
+    .describe(
+      "The entries of its Needs you, leaving out not_found ones, which show on the Work page only",
+    ),
   posterUrl: zod
     .string()
     .nullable()

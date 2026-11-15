@@ -2962,6 +2962,12 @@
       "FilesDownloadingCell": {
         "additionalProperties": false,
         "properties": {
+          "candidates": {
+            "description": "The Releases its wait holds; 0 while it waits for none",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "edition": {
             "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
@@ -2984,6 +2990,10 @@
               "string",
               "null"
             ]
+          },
+          "gone": {
+            "description": "No file fills it, and a library file that would is gone from its root. Only a search an Admin starts searches it",
+            "type": "boolean"
           },
           "grabId": {
             "description": "The latest Grab in flight for it",
@@ -3012,6 +3022,10 @@
             ],
             "description": "What the Grab or its Import is doing for the cell; null until SlipStream reads it"
           },
+          "stopped": {
+            "description": "Failed Grabs stopped SlipStream searching it again at once. Backlog search still searches it",
+            "type": "boolean"
+          },
           "targetId": {
             "format": "uuid",
             "type": "string"
@@ -3021,6 +3035,14 @@
           },
           "until": {
             "description": "When the Import delay ends, for a download that waits for it; null otherwise",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "waitUntil": {
+            "description": "When SlipStream grabs the best Release found for it, unless a better one arrives; null while it waits for none",
             "format": "date-time",
             "type": [
               "string",
@@ -3043,13 +3065,23 @@
           "edition",
           "targetId",
           "targetName",
-          "wanted"
+          "wanted",
+          "gone",
+          "stopped",
+          "waitUntil",
+          "candidates"
         ],
         "type": "object"
       },
       "FilesFailedCell": {
         "additionalProperties": false,
         "properties": {
+          "candidates": {
+            "description": "The Releases its wait holds; 0 while it waits for none",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "edition": {
             "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
@@ -3064,6 +3096,10 @@
               }
             ],
             "description": "The file the Grab would have replaced; null when it fills no file"
+          },
+          "gone": {
+            "description": "No file fills it, and a library file that would is gone from its root. Only a search an Admin starts searches it",
+            "type": "boolean"
           },
           "grabId": {
             "description": "The Grab that failed",
@@ -3080,12 +3116,24 @@
             ],
             "type": "string"
           },
+          "stopped": {
+            "description": "Failed Grabs stopped SlipStream searching it again at once. Backlog search still searches it",
+            "type": "boolean"
+          },
           "targetId": {
             "format": "uuid",
             "type": "string"
           },
           "targetName": {
             "type": "string"
+          },
+          "waitUntil": {
+            "description": "When SlipStream grabs the best Release found for it, unless a better one arrives; null while it waits for none",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "wanted": {
             "description": "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
@@ -3100,7 +3148,11 @@
           "edition",
           "targetId",
           "targetName",
-          "wanted"
+          "wanted",
+          "gone",
+          "stopped",
+          "waitUntil",
+          "candidates"
         ],
         "type": "object"
       },
@@ -3604,6 +3656,12 @@
       "FilesMetCell": {
         "additionalProperties": false,
         "properties": {
+          "candidates": {
+            "description": "The Releases its wait holds; 0 while it waits for none",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "edition": {
             "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
@@ -3611,6 +3669,10 @@
           "file": {
             "$ref": "#/components/schemas/FilesLibraryFile",
             "description": "The file filling it"
+          },
+          "gone": {
+            "description": "No file fills it, and a library file that would is gone from its root. Only a search an Admin starts searches it",
+            "type": "boolean"
           },
           "held": {
             "anyOf": [
@@ -3633,12 +3695,24 @@
             ],
             "type": "string"
           },
+          "stopped": {
+            "description": "Failed Grabs stopped SlipStream searching it again at once. Backlog search still searches it",
+            "type": "boolean"
+          },
           "targetId": {
             "format": "uuid",
             "type": "string"
           },
           "targetName": {
             "type": "string"
+          },
+          "waitUntil": {
+            "description": "When SlipStream grabs the best Release found for it, unless a better one arrives; null while it waits for none",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "wanted": {
             "description": "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
@@ -3653,16 +3727,30 @@
           "edition",
           "targetId",
           "targetName",
-          "wanted"
+          "wanted",
+          "gone",
+          "stopped",
+          "waitUntil",
+          "candidates"
         ],
         "type": "object"
       },
       "FilesMissingCell": {
         "additionalProperties": false,
         "properties": {
+          "candidates": {
+            "description": "The Releases its wait holds; 0 while it waits for none",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "edition": {
             "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
+          },
+          "gone": {
+            "description": "No file fills it, and a library file that would is gone from its root. Only a search an Admin starts searches it",
+            "type": "boolean"
           },
           "itemId": {
             "format": "uuid",
@@ -3674,12 +3762,24 @@
             ],
             "type": "string"
           },
+          "stopped": {
+            "description": "Failed Grabs stopped SlipStream searching it again at once. Backlog search still searches it",
+            "type": "boolean"
+          },
           "targetId": {
             "format": "uuid",
             "type": "string"
           },
           "targetName": {
             "type": "string"
+          },
+          "waitUntil": {
+            "description": "When SlipStream grabs the best Release found for it, unless a better one arrives; null while it waits for none",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "wanted": {
             "description": "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
@@ -3692,7 +3792,11 @@
           "edition",
           "targetId",
           "targetName",
-          "wanted"
+          "wanted",
+          "gone",
+          "stopped",
+          "waitUntil",
+          "candidates"
         ],
         "type": "object"
       },
@@ -3716,6 +3820,7 @@
           "mapping": {
             "failed": "#/components/schemas/FilesFailedNeed",
             "no_root": "#/components/schemas/FilesNoRootNeed",
+            "not_found": "#/components/schemas/FilesNotFoundNeed",
             "upgrade": "#/components/schemas/FilesUpgradeNeed",
             "waiting": "#/components/schemas/FilesWaitingNeed"
           },
@@ -3727,6 +3832,9 @@
           },
           {
             "$ref": "#/components/schemas/FilesUpgradeNeed"
+          },
+          {
+            "$ref": "#/components/schemas/FilesNotFoundNeed"
           },
           {
             "$ref": "#/components/schemas/FilesWaitingNeed"
@@ -3749,6 +3857,50 @@
         },
         "required": [
           "kind"
+        ],
+        "type": "object"
+      },
+      "FilesNotFoundNeed": {
+        "additionalProperties": false,
+        "properties": {
+          "edition": {
+            "description": "any under any cut, else the key of the cut the cells want",
+            "type": "string"
+          },
+          "itemIds": {
+            "description": "A run of Items in tree order whose entries match",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "description": "Missing Items whose latest search found no Release, or none acceptable. It shows on the Work page only, and the Library's Needs you count leaves it out",
+            "enum": [
+              "not_found"
+            ],
+            "type": "string"
+          },
+          "lastSearchedAt": {
+            "description": "When the latest search finished",
+            "format": "date-time",
+            "type": "string"
+          },
+          "nextSearchAt": {
+            "description": "When SlipStream searches them next; null while nothing will",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "itemIds",
+          "edition",
+          "lastSearchedAt",
+          "nextSearchAt"
         ],
         "type": "object"
       },
@@ -4101,9 +4253,19 @@
       "FilesUnreleasedCell": {
         "additionalProperties": false,
         "properties": {
+          "candidates": {
+            "description": "The Releases its wait holds; 0 while it waits for none",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "edition": {
             "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
+          },
+          "gone": {
+            "description": "No file fills it, and a library file that would is gone from its root. Only a search an Admin starts searches it",
+            "type": "boolean"
           },
           "itemId": {
             "format": "uuid",
@@ -4116,12 +4278,24 @@
             ],
             "type": "string"
           },
+          "stopped": {
+            "description": "Failed Grabs stopped SlipStream searching it again at once. Backlog search still searches it",
+            "type": "boolean"
+          },
           "targetId": {
             "format": "uuid",
             "type": "string"
           },
           "targetName": {
             "type": "string"
+          },
+          "waitUntil": {
+            "description": "When SlipStream grabs the best Release found for it, unless a better one arrives; null while it waits for none",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "wanted": {
             "description": "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
@@ -4134,13 +4308,23 @@
           "edition",
           "targetId",
           "targetName",
-          "wanted"
+          "wanted",
+          "gone",
+          "stopped",
+          "waitUntil",
+          "candidates"
         ],
         "type": "object"
       },
       "FilesUpgradableCell": {
         "additionalProperties": false,
         "properties": {
+          "candidates": {
+            "description": "The Releases its wait holds; 0 while it waits for none",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "edition": {
             "description": "any under any cut, else the key of the cut the cell wants",
             "type": "string"
@@ -4148,6 +4332,10 @@
           "file": {
             "$ref": "#/components/schemas/FilesLibraryFile",
             "description": "The file filling it, short of its Target's cutoff or upgrade-until score"
+          },
+          "gone": {
+            "description": "No file fills it, and a library file that would is gone from its root. Only a search an Admin starts searches it",
+            "type": "boolean"
           },
           "itemId": {
             "format": "uuid",
@@ -4160,12 +4348,24 @@
             ],
             "type": "string"
           },
+          "stopped": {
+            "description": "Failed Grabs stopped SlipStream searching it again at once. Backlog search still searches it",
+            "type": "boolean"
+          },
           "targetId": {
             "format": "uuid",
             "type": "string"
           },
           "targetName": {
             "type": "string"
+          },
+          "waitUntil": {
+            "description": "When SlipStream grabs the best Release found for it, unless a better one arrives; null while it waits for none",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "wanted": {
             "description": "Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released",
@@ -4179,7 +4379,11 @@
           "edition",
           "targetId",
           "targetName",
-          "wanted"
+          "wanted",
+          "gone",
+          "stopped",
+          "waitUntil",
+          "candidates"
         ],
         "type": "object"
       },
@@ -24051,7 +24255,7 @@
             "type": "string"
           },
           "needsYou": {
-            "description": "The entries of its Needs you",
+            "description": "The entries of its Needs you, leaving out not_found ones, which show on the Work page only",
             "format": "int64",
             "minimum": 0,
             "type": "integer"

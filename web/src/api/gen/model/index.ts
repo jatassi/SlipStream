@@ -855,6 +855,8 @@ export * from "./filesMoved.ts";
 export * from "./filesNeed.ts";
 export * from "./filesNoRootNeed.ts";
 export * from "./filesNoRootNeedKind.ts";
+export * from "./filesNotFoundNeed.ts";
+export * from "./filesNotFoundNeedKind.ts";
 export * from "./filesProbe.ts";
 export * from "./filesRenameDraft.ts";
 export * from "./filesRenameDraftValues.ts";

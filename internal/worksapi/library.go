@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/filesapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/library"
@@ -33,7 +34,7 @@ type libraryRow struct {
 	Cells       api.Counts[filesapi.State]             `json:"cells" doc:"Its monitored Items' cells by state"`
 	Items       int                                    `json:"items" minimum:"0" doc:"Its monitored Items that its source still lists, the only Items the status and counts read"`
 	ItemStatus  api.Counts[filesapi.State]             `json:"itemStatus" doc:"Its monitored Items by status; an Item with no cell isn't counted"`
-	NeedsYou    int                                    `json:"needsYou" minimum:"0" doc:"The entries of its Needs you"`
+	NeedsYou    int                                    `json:"needsYou" minimum:"0" doc:"The entries of its Needs you, leaving out not_found ones, which show on the Work page only"`
 	Wanted      *string                                `json:"wanted" enum:"failed,missing,upgrade,gone" doc:"The first reason Wanted lists it for, in this order; null while it wants nothing"`
 	Values      map[string]api.Bare                    `json:"values" doc:"Its listed fields by key: a string for text and date, a number for number and duration in ms, a list of strings for texts; a field it lacks is left out"`
 }
@@ -87,15 +88,29 @@ func rowOf(m artwork.Minter, row library.Row) libraryRow {
 		Work: workOf(w.Summary), Monitored: w.Monitored.String(), ProfileID: r.Profile.String(), RootID: idOrNull(r.Root.UUID),
 		PosterURL: urlOrNull(m, w.Poster), Bytes: r.Bytes, Files: r.Files, Kept: r.Kept, GoneFiles: row.Gone, AddedBy: string(w.AddedBy),
 		Status: filesapi.StatusOf(r.Status), Cells: filesapi.CountsOf(r.Cells),
-		Items: r.Items, ItemStatus: filesapi.CountsOf(r.ByItem), NeedsYou: len(r.Needs), Values: valuesOf(w.Values),
+		Items: r.Items, ItemStatus: filesapi.CountsOf(r.ByItem), NeedsYou: flagged(r.Needs), Values: valuesOf(w.Values),
 	}
 	if rt := w.Rating; rt != nil {
 		out.Rating = api.Some(rowRating{Source: string(rt.Source), Value: rt.Value, Scale: works.RatingSources[rt.Source].Scale})
+	}
+	if r.Reason != 0 {
+		out.Wanted = new(r.Reason.String())
 	}
 	if d, known := r.Available.Get(); known {
 		out.AvailableOn = new(d.String())
 	}
 	return out
+}
+
+// flagged counts the entries of ns that the Library's Needs you counts.
+func flagged(ns []files.Need) int {
+	n := 0
+	for _, need := range ns {
+		if need.Flags() {
+			n++
+		}
+	}
+	return n
 }
 
 var bareOf = map[works.FieldKind]func(works.FieldValue) api.Bare{
