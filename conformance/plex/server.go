@@ -96,7 +96,8 @@ func (s *server) Tell(ctx context.Context, library string, told []mediaservers.T
 // Moved refreshes the destination folders first, then each source folder
 // that differs. A source refreshed first deletes the item when
 // autoEmptyTrash is on (recorded run 2026-11-14, case E).
-func (s *server) Moved(ctx context.Context, library string, from, to []link.ServerPath) error {
+func (s *server) Moved(ctx context.Context, library string, from, to []link.ServerPath, move func()) error {
+	move()
 	dest := folders(to)
 	if err := s.refresh(ctx, library, dest); err != nil {
 		return err

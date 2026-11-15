@@ -308,8 +308,9 @@ func (c *Client) Libraries(ctx context.Context) ([]VirtualFolder, error) {
 	return out, err
 }
 
-// UpdateType is a path report's kind. Jellyfin ignores it; Emby removes a
-// Deleted file at once (#101).
+// UpdateType is a path report's kind. Jellyfin ignores it, and Emby 4.10
+// waited its monitor delay for a Deleted report as for any other (online
+// run 2026-11-14).
 type UpdateType string
 
 const (
@@ -504,8 +505,9 @@ func (c *Client) Items(ctx context.Context, q Query) (Page, error) {
 	return out, err
 }
 
-// ItemsAt is Emby's lookup by file path, GET /Items?Path=, as user. It
-// matches the path exactly (conformance case PathLookupExact).
+// ItemsAt is Emby's lookup by path, GET /Items?Path=, as user. A file's
+// exact path finds its item, and a folder's path finds an item too
+// (conformance case PathLookup), so a caller checks the item's files.
 func (c *Client) ItemsAt(ctx context.Context, user, path string) ([]Item, error) {
 	if c.flavor != Emby {
 		return nil, fmt.Errorf("%s has no lookup by path", c.flavor)
@@ -555,11 +557,25 @@ func (c *Client) UserData(ctx context.Context, user, item string) (UserData, err
 	return out, err
 }
 
-// SetUserData writes user's data on item. Emby answers success and keeps
-// the play count and last played date it had (#101).
+// SetUserData writes user's data on item. Emby 4.10 answers success and
+// keeps the favorite it had, while it takes the rest (online run
+// 2026-11-14), so SetFavorite writes it there.
 func (c *Client) SetUserData(ctx context.Context, user, item string, d UserData) error {
 	path, q := c.userDataRoute(user, item)
 	return c.do(ctx, http.MethodPost, path, q, true, d, nil)
+}
+
+// SetFavorite marks item a favorite of user, or unmarks it: Emby's
+// POST or DELETE /Users/{user}/FavoriteItems/{item}.
+func (c *Client) SetFavorite(ctx context.Context, user, item string, favorite bool) error {
+	if c.flavor != Emby {
+		return fmt.Errorf("%s writes a favorite with the user data", c.flavor)
+	}
+	method := http.MethodDelete
+	if favorite {
+		method = http.MethodPost
+	}
+	return c.do(ctx, method, "/Users/"+url.PathEscape(user)+"/FavoriteItems/"+url.PathEscape(item), nil, true, nil, nil)
 }
 
 // MarkPlayed marks item played for user. On Emby it sets no play count

@@ -226,11 +226,22 @@ func (s *server) userByID(uid string) (User, bool) {
 	return User{}, false
 }
 
+// Serve returns once the recorder has stopped too, so no capture writes
+// after the fake is gone.
 func (s *server) Serve(ctx context.Context, l net.Listener) error {
-	if s.core != nil {
-		go s.record(ctx)
+	if s.core == nil {
+		return s.http.Serve(ctx, l)
 	}
-	return s.http.Serve(ctx, l)
+	ctx, cancel := context.WithCancel(ctx)
+	recorded := make(chan struct{})
+	go func() {
+		defer close(recorded)
+		s.record(ctx)
+	}()
+	err := s.http.Serve(ctx, l)
+	cancel()
+	<-recorded
+	return err
 }
 
 // record writes each item event to the items capture until ctx ends.
