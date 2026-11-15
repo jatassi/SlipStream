@@ -161,7 +161,7 @@ type Sample struct {
 	// multi-episode sample.
 	Units []Unit
 	// Missing marks the sample with every optional value absent. The core
-	// pairs it with the file sample that has no release facts.
+	// pairs it with the file sample that has no release details.
 	Missing bool
 }
 
@@ -625,9 +625,9 @@ type TooLongError struct {
 
 func (e *TooLongError) Error() string {
 	if e.Segment == "" {
-		return fmt.Sprintf("the path in the root is %d bytes long and the limit there is %d bytes", e.Bytes, e.Limit)
+		return fmt.Sprintf("the path in the root is %d bytes, and the root allows %d", e.Bytes, e.Limit)
 	}
-	return fmt.Sprintf("the name %q is %d bytes long and the limit is %d bytes", e.Segment, e.Bytes, e.Limit)
+	return fmt.Sprintf("the name %q is %d bytes, and the limit is %d", e.Segment, e.Bytes, e.Limit)
 }
 
 // Sentence is e for a person, with what to do.

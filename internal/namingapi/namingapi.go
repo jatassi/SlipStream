@@ -45,7 +45,7 @@ func open[T any](of func() (T, bool)) T {
 var (
 	contentTypeNotFound = api.NewCode(http.StatusNotFound, "content_type_not_found", "No Content Type has that id")
 	workNotFound        = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
-	templateRefused     = api.NewCode(http.StatusUnprocessableEntity, "naming_template_refused", "The naming settings don't pass the save check")
+	templateRefused     = api.NewCode(http.StatusUnprocessableEntity, "naming_template_refused", "A naming setting has a problem")
 )
 
 type problem struct {
@@ -56,7 +56,7 @@ type problem struct {
 type typeNaming struct {
 	ContentType string                        `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
 	Settings    []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"The rename switch, the folder templates outermost first, the file templates, the colon mode and its text, and the multi-episode style when the type's file templates number its Items"`
-	Problems    []problem                     `json:"problems" nullable:"false" doc:"What the save check refuses in the stored settings once renaming is on; empty when every file of a Work shows as one item on Plex, Jellyfin and Emby"`
+	Problems    []problem                     `json:"problems" nullable:"false" doc:"The problems in the stored settings once renaming is on; empty when every file of a Work shows as one item on Plex, Jellyfin and Emby"`
 }
 
 type namingList struct {
@@ -123,7 +123,7 @@ type samplePath struct {
 type fieldPreview struct {
 	Key      string       `json:"key"`
 	Samples  []samplePath `json:"samples" nullable:"false" doc:"The full paths a folder or file template names for the type's samples, with renaming on; empty for any other setting and for a template that doesn't parse"`
-	Problems []string     `json:"problems" nullable:"false" doc:"What the save check refuses in the setting, each a sentence; empty when it passes"`
+	Problems []string     `json:"problems" nullable:"false" doc:"The setting's problems, each a sentence; empty when it has none"`
 }
 
 type workFile struct {
@@ -160,7 +160,7 @@ func Routes(r *api.Router, n Namer) {
 		ID:      "listNaming",
 		Method:  http.MethodGet,
 		Path:    "/naming",
-		Summary: "List each Content Type's naming settings, with what the save check refuses once renaming is on",
+		Summary: "List each Content Type's naming settings, with their problems once renaming is on",
 		Status:  http.StatusOK,
 	}, h.list)
 
@@ -168,7 +168,7 @@ func Routes(r *api.Router, n Namer) {
 		ID:      "setNaming",
 		Method:  http.MethodPatch,
 		Path:    "/naming/{contentType}",
-		Summary: "Change a Content Type's naming settings by key, all or none. Every setting must pass the save check as the change leaves them",
+		Summary: "Change a Content Type's naming settings by key, all or none. Every setting must be free of problems as the change leaves them",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{contentTypeNotFound, templateRefused, settingapi.ErrUnknown},
 	}, h.set)
@@ -186,7 +186,7 @@ func Routes(r *api.Router, n Namer) {
 		ID:      "previewNaming",
 		Method:  http.MethodPost,
 		Path:    "/naming/{contentType}/preview",
-		Summary: "Name a Content Type's samples, a Work's files and tested file names under a draft of its naming settings, with what the save check refuses. Nothing is stored",
+		Summary: "Name a Content Type's samples, a Work's files and tested file names under a draft of its naming settings, with their problems. Nothing is stored",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{contentTypeNotFound, workNotFound, settingapi.ErrUnknown},
 	}, h.preview)
@@ -324,11 +324,11 @@ func (h handlers) tested(ctx context.Context, by identity.Admin, n testName, dra
 	case errors.As(err, &noItem):
 		out.Unplaced = &unplaced{Code: string(noItem.Reason.Code), Names: noItem.Reason.Names}
 	case errors.Is(err, imports.ErrNoQuality):
-		out.Detail = "SlipStream reads no quality from this name. Add a quality such as Bluray-1080p, or a video extension such as .mkv."
+		out.Detail = "SlipStream can't find a quality in this name. Add one such as Bluray-1080p, or a video extension such as .mkv."
 	case errors.Is(err, roots.ErrNoRoot):
-		out.Detail = "The Work is in no library root. Add a library root for its Content Type, then test the name again."
+		out.Detail = "It isn't in a library root. Add a library root for its kind of media, then test the name again."
 	case errors.As(err, &taken):
-		out.Detail = fmt.Sprintf("Another file of the Work is already at %q. Turn on renaming to give each file its own name.", taken.Path)
+		out.Detail = fmt.Sprintf("Another of its files is already at %q. Turn on renaming to give each file its own name.", taken.Path)
 	case errors.As(err, &long):
 		out.Detail = long.Sentence()
 	case err != nil:

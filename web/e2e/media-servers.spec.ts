@@ -40,7 +40,7 @@ async function saveMappings(page: Page, name: string, elsewhere: string): Promis
     mappings
       .getByRole("group")
       .filter({ hasText: `On ${on}` })
-      .getByRole("switch", { name: `Shown on ${name}` });
+      .getByRole("switch", { name: `In a ${name} library` });
   await expect(shown(elsewhere)).toHaveCount(2);
   await shown(elsewhere).nth(0).click();
   await shown(elsewhere).nth(1).click();

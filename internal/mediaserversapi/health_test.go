@@ -212,7 +212,7 @@ func TestARootWithNoMappingIsAWarning(t *testing.T) {
 		r.add(t)
 		r.w.Root(t, "Shelves")
 		r.openHealth(t)
-		it := r.expectHealth(t, "warn", "Den won't get changes for files in ", ". Add a Path mapping, or mark the root as not shown on this server.")
+		it := r.expectHealth(t, "warn", "Den won't get changes for files in ", ". Add a Path mapping, or mark the root as not in a Den library.")
 		if !strings.HasSuffix(it.Subject, " on Den") {
 			t.Errorf("the item's subject is %q", it.Subject)
 		}

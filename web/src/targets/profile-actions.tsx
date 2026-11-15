@@ -12,7 +12,7 @@ import { DeleteProfileDialog } from "./profile-delete";
 async function makingDefault(profile: TargetsProfile, works: string) {
   try {
     await makeDefaultProfile(profile.id);
-    toast(`New ${works} now take ${profile.name}.`);
+    toast(`New ${works.toLowerCase()} now use ${profile.name}.`);
   } catch (error) {
     toast(sentenceOf(error), { kind: "fail" });
   }

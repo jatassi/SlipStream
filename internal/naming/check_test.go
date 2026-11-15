@@ -36,7 +36,7 @@ func TestTheDefaultsPassTheCheck(t *testing.T) {
 	}
 }
 
-const groupsWork = "because Jellyfin and Emby show a Work's files as one item only when every name does."
+const groupsWork = "because Jellyfin and Emby group the files in a folder into one item only when every file name starts that way."
 
 func TestTheCheckRefuses(t *testing.T) {
 	for _, c := range []struct {
@@ -46,7 +46,7 @@ func TestTheCheckRefuses(t *testing.T) {
 		want []Problem
 	}{
 		{"no {Target}", filmDecl, Settings{Templates: templates("file.standard", "{Movie Title} {(Year)} - {Edition Tag}")},
-			[]Problem{{"file.standard", "The file name has no {Target}. Add {Target} so each file of a Work gets its own name."}}},
+			[]Problem{{"file.standard", "The file name has no {Target}. Add {Target} so the file for each Target gets its own name."}}},
 		{"no Edition token", filmDecl, Settings{Templates: templates("file.standard", "{Movie Title} {(Year)} - {Target}")},
 			[]Problem{{"file.standard", "The file name has no Edition token. Add {Edition Tag} or {Edition} so each cut gets its own name."}}},
 		{"a tag before the dash", filmDecl, Settings{Templates: templates("file.standard", "{Movie Title} {(Year)} {edition-{Edition}} - {Target}")},
@@ -66,7 +66,7 @@ func TestTheCheckRefuses(t *testing.T) {
 		{"a literal colon", filmDecl, Settings{Templates: templates("file.standard", "{Movie Title} {(Year)} - {Edition Tag}: {Target}")},
 			[]Problem{{"file.standard", "The file name can't hold ':'. Remove it or use a token."}}},
 		{"renaming on over a stored template without {Target}", filmDecl, Settings{Rename: ptr(true), Templates: templates("file.standard", "{Movie Title} {(Year)} - {Edition Tag}")},
-			[]Problem{{"file.standard", "The file name has no {Target}. Add {Target} so each file of a Work gets its own name."}}},
+			[]Problem{{"file.standard", "The file name has no {Target}. Add {Target} so the file for each Target gets its own name."}}},
 		{"a folder empty for a sample", filmDecl, Settings{Templates: templates("folder", "{(Year)}", "file.standard", "{(Year)} - {Edition Tag} {Target}")},
 			[]Problem{{"folder", `The folder name is empty for the sample "Nothing known". Use a token every Work has a value for, such as its title.`}}},
 		{"an unknown token", filmDecl, Settings{Templates: templates("file.standard", "{Movie Titel} - {Target}")},
@@ -82,11 +82,11 @@ func TestTheCheckRefuses(t *testing.T) {
 		{"a quality before the block", showDecl, Settings{Templates: templates("file.standard", "{Series Title} {Quality Title} - S{season:00}E{episode:00} - {Edition} {Target}")},
 			[]Problem{{"file.standard", "{Quality Title} comes before ' - '. Move it after ' - ', because it differs between files."}}},
 		{"no episode block", showDecl, Settings{Templates: templates("file.standard", "{Series Title} - {Episode Title} {Edition} {Target}")},
-			[]Problem{{"file.standard", "The file name has no {season} and {episode}. Add them and then ' - ', because Plex, Jellyfin and Emby show an Item's files as one item only when every name does."}}},
+			[]Problem{{"file.standard", "The file name has no {season} and {episode}. Add them and then ' - ', because Plex, Jellyfin and Emby group an episode's files into one item only when every file name starts that way."}}},
 		{"no air date", showDecl, Settings{Templates: templates("file.daily", "{Series Title} - {Episode Title} {Edition} {Target}")},
-			[]Problem{{"file.daily", "The file name has no {Air Date}. Add it and then ' - ', because Plex, Jellyfin and Emby show an Item's files as one item only when every name does."}}},
+			[]Problem{{"file.daily", "The file name has no {Air Date}. Add it and then ' - ', because Plex, Jellyfin and Emby group an episode's files into one item only when every file name starts that way."}}},
 		{"no dash after the air date", showDecl, Settings{Templates: templates("file.daily", "{Series Title} - {Air-Date}.{TvdbId} - {Edition} {Target}")},
-			[]Problem{{"file.daily", "' - ' doesn't come right after {Air-Date}. Put it there, because Plex, Jellyfin and Emby show an Item's files as one item only when every name does."}}},
+			[]Problem{{"file.daily", "' - ' doesn't come right after {Air-Date}. Put it there, because Plex, Jellyfin and Emby group an episode's files into one item only when every file name starts that way."}}},
 		{"an episode title in a level folder", showDecl, Settings{Templates: templates("levels.1", "Season {season} {Episode Title}")},
 			[]Problem{{"levels.1", "{Episode Title} can't go in a level folder name because it can differ between the files in one level folder. Use it in the file template."}}},
 	} {
@@ -117,7 +117,7 @@ func TestWithRenamingOffTheCheckJudgesOnlyParsingScopeAndCharacters(t *testing.T
 func TestTheCheckRefusesASampleThatDoesntFit(t *testing.T) {
 	file := "{Series Title} - S{season:00}E{episode:00} - {Edition} {Target}" + strings.Repeat(" {Series TitleYear}", 13)
 	got := problemsOf(t, showDecl, Settings{Templates: templates("file.standard", file)})
-	want := []Problem{{"file.standard", `For the sample "The Wire" with a Standard file, the path in the root is 263 bytes long and the limit there is 244 bytes. Shorten the template.`}}
+	want := []Problem{{"file.standard", `For the sample "The Wire" with a Standard file, the path in the root is 263 bytes, and the root allows 244. Shorten the template.`}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("problems = %q; want %q", got, want)
 	}
@@ -135,7 +135,7 @@ func TestConformanceNamesEachBrokenRule(t *testing.T) {
 		`sample "Heat" has a value for "Episode", which isn't a token of its tier`,
 		`sample "Heat" has a value for "Movie Title" of a kind the token doesn't hold`,
 		`sample "Picks" picks file variant "daily", which the type doesn't declare`,
-		"the default file.standard: The file name has no {Target}. Add {Target} so each file of a Work gets its own name.",
+		"the default file.standard: The file name has no {Target}. Add {Target} so the file for each Target gets its own name.",
 	}
 	got := Conformance(broken)
 	if len(got) < len(want) || !reflect.DeepEqual(got[:len(want)], want) {

@@ -36,9 +36,9 @@ func Words(err error) (string, bool) {
 		return fmt.Sprintf("The Controller can't use %s, because localhost on %s is %s itself. Enter %s's network address, or a fallback address the Controller can reach.",
 			local.Address, local.Node, local.Node, local.Node), true
 	case errors.As(err, &unlinked):
-		return fmt.Sprintf("%s doesn't hold Media Server link. Tick the Role on %s, or set Connect from to the Controller.", unlinked.Node, unlinked.Node), true
+		return fmt.Sprintf("%s doesn't have the Media Server link Role. Give %s that Role on the Nodes page, or set Connect from to the Controller.", unlinked.Node, unlinked.Node), true
 	case errors.As(err, &short):
-		return fmt.Sprintf("%q must be longer than %q, which is %s. Lengthen the margin or renew more often.",
+		return fmt.Sprintf("%q must be longer than %q, which is %s. Raise the first or lower the second.",
 			RenewMargin.Label, RenewEvery.Label, setting.Words(short.Cadence)), true
 	}
 	return "", false

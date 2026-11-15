@@ -23,10 +23,11 @@ export function FileDetails({
         <dd className="wrap-anywhere">
           <Data>{file.path}</Data>
         </dd>
-        <dt>Reads as</dt>
+        <dt>Detected as</dt>
         <dd>
           <Data>
-            {file.quality === null ? "No quality read" : quality(file.quality)} · {bytes(file.size)}
+            {file.quality === null ? "No quality found" : quality(file.quality)} ·{" "}
+            {bytes(file.size)}
           </Data>
         </dd>
         {file.verdicts.map(({ targetId, sentence }) => (

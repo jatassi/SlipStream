@@ -9,19 +9,19 @@ import { asPhone } from "../test/viewport";
 
 const entry = (folder: string) => page.getByRole("listitem", { name: folder });
 
-test("Pending imports leads with what each root's last scan added and how many folders need you", async () => {
+test("Pending imports leads with what each root's last scan added and how many folders need attention", async () => {
   openPending();
   await expect
     .element(
       page.getByText(
-        "The last scan of the Films library root on home added 398 films. 3 folders need you.",
+        "The last scan of the Films library root on home added 398 films. 3 folders need attention.",
       ),
     )
     .toBeVisible();
   await expect
     .element(
       page.getByText(
-        "The last scan of the Shows library root on home didn't add any shows. 1 folder needs you.",
+        "The last scan of the Shows library root on home didn't add any shows. 1 folder needs attention.",
       ),
     )
     .toBeVisible();
@@ -60,7 +60,7 @@ test("a folder whose Work lives in another root offers only Ignore", async () =>
   await expect
     .element(
       row.getByText(
-        "Heat (1995) is in the Films library root on vault. A Work's files all live in one root. Move these files there, or ignore them.",
+        "Heat (1995) is in the Films library root on vault, and all its files must be in one root. Move these files there, or ignore them.",
       ),
     )
     .toBeVisible();
@@ -145,7 +145,7 @@ test("Import into lists only the Works in the folder's root, and a film's files 
   await expect.element(sheet.getByRole("button", { name: "Brazil" })).toBeVisible();
   expect(sheet.getByRole("button", { name: "Heat" }).elements()).toHaveLength(0);
   await userEvent.click(sheet.getByRole("button", { name: "Brazil" }));
-  await expect.element(sheet.getByText("Its 2 files join Brazil.")).toBeVisible();
+  await expect.element(sheet.getByText("The 2 files go into Brazil.")).toBeVisible();
   await userEvent.click(sheet.getByRole("button", { name: "Import" }));
   await expect.element(page.getByText("Imported 2 files into Brazil.")).toBeVisible();
   const [item] = world.works.find(({ label }) => label === "Brazil")?.items ?? [];
@@ -177,7 +177,7 @@ test("Ignore sets a folder aside under Ignored, where Restore brings it back", a
     .toBeVisible();
   expect(page.getByText(/^The last scan of/u).elements()).toHaveLength(0);
   await userEvent.click(entry(brazil.folder).getByRole("button", { name: "Restore" }));
-  await expect.element(page.getByText("Brazil (1985) needs you again.")).toBeVisible();
+  await expect.element(page.getByText("Brazil (1985) is back in Pending imports.")).toBeVisible();
   expect(sent.restored).toEqual([[brazil.id]]);
   await expect.element(entry(brazil.folder)).not.toBeInTheDocument();
 });
@@ -187,7 +187,7 @@ test("with nothing waiting, each view says so", async () => {
   await expect
     .element(
       page.getByText(
-        "Nothing needs you. A download SlipStream can't import without you, and each folder a library scan can't match to a Work with confidence, waits here.",
+        "Nothing needs attention. Downloads SlipStream can't import on its own show up here, and so do folders a library scan can't match.",
       ),
     )
     .toBeVisible();
@@ -211,7 +211,7 @@ test("the Library counts the pending imports that need you and links to Pending 
   await expect
     .element(page.getByRole("navigation", { name: "Tabs" }).getByRole("link", { name: /Library/u }))
     .toHaveTextContent("Library4");
-  await userEvent.click(page.getByRole("link", { name: /4 pending imports need you/u }));
+  await userEvent.click(page.getByRole("link", { name: /4 pending imports need attention/u }));
   await expect.poll(() => app.router.state.location.pathname).toBe("/library/pending");
   await expect
     .element(page.getByRole("banner").getByRole("link", { name: "Library" }))

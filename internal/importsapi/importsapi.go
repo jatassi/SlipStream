@@ -99,7 +99,7 @@ func answer(err error) error {
 
 type rootLabel struct {
 	ID    string `json:"id" format:"uuid"`
-	Label string `json:"label" doc:"The root as copy names it, such as Movies library root on Media server"`
+	Label string `json:"label" doc:"The root's display name, such as Movies library root on Media server"`
 }
 
 type lead struct {
@@ -131,7 +131,7 @@ type suggestion struct {
 
 type reason struct {
 	Code     string               `json:"code" enum:"sample,bonus,hidden_folder,too_small,extension,runtime_sample,sibling_better,kept_better,meets_nothing,not_an_upgrade,edition_not_wanted,other_items,no_number,parts,name_taken,name_too_long,settings,busy,confirm,several,no_match,no_year,elsewhere,unlisted,no_such_item,unreadable,left,no_rule,import_failed,root_changed,by_admin,removed,canceled,blocklisted,work_deleted" doc:"Why the file is left out, waits, isn't better or failed"`
-	Sentence api.Nullable[string] `json:"sentence" doc:"The one sentence the row leads with; null for a root Import's reason, which its other fields word"`
+	Sentence api.Nullable[string] `json:"sentence" doc:"The one sentence the row leads with; null for a root Import's reason, whose other fields give it"`
 	Title    string               `json:"title,omitempty" doc:"For several, no_match, no_year, elsewhere and unlisted: the name's title or the Work's label"`
 	Year     int                  `json:"year,omitempty" doc:"The year beside title, when it has one"`
 	Count    int                  `json:"count,omitempty" doc:"For several: the candidates that match"`
@@ -150,7 +150,7 @@ type importFile struct {
 	Outcome     string                         `json:"outcome" enum:"pending,left_out,not_better,waiting,sending,placing,placed,declined,failed"`
 	Reason      api.Nullable[reason]           `json:"reason" doc:"Why it is left out, waits, isn't better or failed; null otherwise"`
 	Hold        api.Nullable[fileHold]         `json:"hold" doc:"What it waits on that SlipStream retries automatically; null while nothing holds it"`
-	Fills       []cellRef                      `json:"fills" nullable:"false" doc:"The cells it fills, or would fill once confirmed"`
+	Fills       []cellRef                      `json:"fills" nullable:"false" doc:"The Items and Targets it is the file for, or will be once confirmed"`
 	Verdicts    []targetVerdict                `json:"verdicts" nullable:"false" doc:"Each Target's verdict on it, for its Details"`
 	Recommended api.Nullable[api.Enum[action]] `json:"recommended" doc:"The action its row offers first; null when it offers none"`
 	Actions     []api.Enum[action]             `json:"actions" nullable:"false" doc:"The other actions its row offers"`
@@ -158,7 +158,7 @@ type importFile struct {
 	PlacedBy    api.Nullable[string]           `json:"placedBy" enum:"link,clone,copy,transfer,move,in_place" doc:"How it went into the library; null until it is placing"`
 	FileID      api.Nullable[string]           `json:"fileId" format:"uuid" doc:"The library file it became; null until it is placed"`
 	Staged      int64                          `json:"staged" minimum:"0" doc:"Bytes its holding or staged copy uses while it waits"`
-	Movable     bool                           `json:"movable" doc:"Move files may take it: no tracked torrent seeds it"`
+	Movable     bool                           `json:"movable" doc:"Move files can move it, because no torrent SlipStream tracks is seeding it"`
 }
 
 type action struct{}
@@ -170,18 +170,18 @@ func (action) Values() []string {
 type fileHold struct {
 	Code     string `json:"code" enum:"no_space,root_not_ready,node_away,probe_timeout,probe_error"`
 	Sentence string `json:"sentence" doc:"What it waits on and when SlipStream retries"`
-	Attempts int    `json:"attempts" minimum:"0" doc:"The tries that ran into the hold"`
+	Attempts int    `json:"attempts" minimum:"0" doc:"How many tries ran into this hold"`
 }
 
 type cellRef struct {
 	ItemID   string `json:"itemId" format:"uuid"`
-	Edition  string `json:"edition" doc:"any under any cut, else the key of the cut the cell wants"`
+	Edition  string `json:"edition" doc:"any under any cut, else the key of the cut this Item needs at this Target"`
 	TargetID string `json:"targetId" format:"uuid"`
 }
 
 type targetVerdict struct {
 	TargetID string `json:"targetId" format:"uuid"`
-	Sentence string `json:"sentence" doc:"How the Target judges the file, such as Fills 2160p for Heat (1995)."`
+	Sentence string `json:"sentence" doc:"How the Target judges the file, such as Would be the 2160p file for Heat (1995)."`
 }
 
 type forceOption struct {
@@ -357,7 +357,7 @@ func (c converter) file(e imports.Import, f imports.File) importFile {
 
 type listInput struct {
 	Source  string `query:"source" enum:"grab,root,folder" doc:"Only Imports from this source; every source's when left out"`
-	RootID  string `query:"rootId" format:"uuid" doc:"Only this root's Imports and lead; every root's when left out"`
+	RootID  string `query:"rootId" format:"uuid" doc:"Only this root's Imports and its scan summary; every root's when left out"`
 	WorkID  string `query:"work" format:"uuid" doc:"Only the Imports into this Work; every Work's when left out"`
 	Ignored bool   `query:"ignored" doc:"List the ignored Imports instead of the ones that need the Admin"`
 	Waiting bool   `query:"waiting" doc:"Only the Imports with a file that waits for the Admin"`
@@ -443,7 +443,7 @@ type addedList struct {
 type addedOutput struct{ Body addedList }
 
 type settings struct {
-	Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"The stop share, then the files each Node probes at once"`
+	Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"The stop share, then how many files each Node reads at once"`
 }
 
 type settingsOutput struct{ Body settings }

@@ -22,7 +22,7 @@ test("Pending imports lists downloads first, then each root, then the folders im
     "From downloads",
     "Films library root on home",
     "Shows library root on home",
-    "Imported by hand",
+    "From Import files",
   ]);
 });
 
@@ -55,7 +55,7 @@ test("Force names the file it deletes before it forces the file in", async () =>
   await expect
     .element(
       confirm.getByText(
-        "This deletes Severance - S01E01 - Good News About Hell.mkv, because it fills no other Target.",
+        "This deletes Severance - S01E01 - Good News About Hell.mkv, because no other Target uses it.",
       ),
     )
     .toBeVisible();

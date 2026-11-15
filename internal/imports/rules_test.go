@@ -67,6 +67,7 @@ func (w exampleWording) level(works.LevelID) string    { return w["level"] }
 func (w exampleWording) edition(release.CutKey) string { return w["edition"] }
 func (w exampleWording) item() string                  { return w["item"] }
 func (w exampleWording) work() string                  { return w["work"] }
+func (w exampleWording) itemMany() string              { return w["item"] + "s" }
 func (exampleWording) label() string                   { return "" }
 
 // exampleReasons are the waiting table's reasons with the values its

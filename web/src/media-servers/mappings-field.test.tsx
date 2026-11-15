@@ -16,13 +16,13 @@ test("the editor shows each root's pre-fill, marks a guess until it's edited and
   await expect
     .element(films().getByRole("combobox", { name: "Folder on Den Jellyfin" }))
     .toHaveValue("/data/films");
-  await expect.element(films().getByText("In Films.")).toBeVisible();
+  await expect.element(films().getByText("In the Films library.")).toBeVisible();
   expect(films().getByText("Guess").query()).toBeNull();
   await expect.element(archive().getByText("Guess")).toBeVisible();
   await expect
     .element(
       archive().getByText(
-        "Den Jellyfin won't get changes for files in Archive (/mnt/archive/films). Confirm the Path mapping, or mark the root as not shown on this server.",
+        "Den Jellyfin won't get changes for files in Archive (/mnt/archive/films). Confirm the Path mapping, or mark the root as not in a Den Jellyfin library.",
       ),
     )
     .toBeVisible();
@@ -61,7 +61,7 @@ test("Save shows a folder outside the libraries on its row, then saves a root ma
     )
     .toBeVisible();
 
-  await userEvent.click(archive().getByRole("switch", { name: "Shown on Den Jellyfin" }));
+  await userEvent.click(archive().getByRole("switch", { name: "In a Den Jellyfin library" }));
   expect(archive().getByRole("combobox").query()).toBeNull();
   await userEvent.click(editor().getByRole("button", { name: "Save" }));
   await expect.element(page.getByText("Saved the Path mappings of Den Jellyfin")).toBeVisible();

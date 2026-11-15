@@ -327,7 +327,7 @@ func TestAnUpgradeWaitsForItsOtherHalf(t *testing.T) {
 				s.tell(t, c.first(t, ids))
 				settle(time.Minute)
 				expectReported(t, s.den)
-				if cs := s.changes(t); cs[0].Words != "This change is waiting for the other half of its upgrade." {
+				if cs := s.changes(t); cs[0].Words != "This change is part of an upgrade. SlipStream sends it together with the upgrade's other file change." {
 					t.Errorf("the first half reads %q", cs[0].Words)
 				}
 				s.tell(t, c.second(t, ids))

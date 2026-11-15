@@ -9,7 +9,7 @@ const counted = new Intl.NumberFormat("en");
 
 function goneRefusal(error: unknown): string {
   return isProblem(error, "scan_not_stopped")
-    ? "This root's last library scan didn't stop, so no files are waiting to be marked gone."
+    ? "No files are waiting to be marked gone. The root's last library scan finished without stopping."
     : sentenceOf(error);
 }
 
@@ -45,8 +45,8 @@ export function MarkGoneDialog({
     >
       <p>
         Library scan didn&apos;t find {counted.format(stopped.gone)} of the {filesWords(stopped.of)}{" "}
-        in the {name}. Their records stay, and their cells read missing until the files come back or
-        you forget them on each Work&apos;s page.
+        in the {name}. SlipStream keeps their records and shows them as missing until the files come
+        back, or until you forget them on their pages.
       </p>
       <p>If the disk or share isn&apos;t mounted right, fix that and scan again instead.</p>
     </ConfirmDialog>

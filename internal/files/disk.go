@@ -85,7 +85,7 @@ func (f *Files) Run(ctx context.Context) error {
 		unswept = slices.Concat(unanswered, lostRoots)
 		lostRows, err := f.drain(ctx)
 		if len(unanswered) > 0 {
-			err = errors.Join(err, fmt.Errorf("%d roots wait for their sweep", len(unanswered)))
+			err = errors.Join(err, fmt.Errorf("couldn't clean up %d roots", len(unanswered)))
 		}
 		if len(lostRoots) == 0 && !lostRows {
 			watch = nil
@@ -94,7 +94,7 @@ func (f *Files) Run(ctx context.Context) error {
 		case ctx.Err() != nil:
 			return nil
 		case err != nil:
-			f.cfg.Log.Warn("the disk queue retries", "err", err.Error())
+			f.cfg.Log.Warn("disk queue failed, retrying", "err", err.Error())
 			timer.Reset(backoff.Delay(f.cfg.Timings.RetryMin, f.cfg.Timings.RetryMax, attempts, f.cfg.Rand))
 			attempts++
 		default:
@@ -250,7 +250,7 @@ func (f *Files) land(ctx context.Context, q queue, prepared map[ID]storing.Rel) 
 			continue
 		}
 		if at, ok := pending[folded(m.root, m.path)]; ok && at != m.file {
-			errs = append(errs, fmt.Errorf("%s waits for the bytes at its path to go", m.path))
+			errs = append(errs, fmt.Errorf("%s: another file is still at this path, waiting for it to be removed", m.path))
 			continue
 		}
 		done, err := f.step(ctx, m, m.path)
@@ -538,7 +538,7 @@ func (f *Files) held(ctx context.Context, ids []roots.ID) (found map[roots.ID][]
 	for _, root := range ids {
 		entries, err := f.heldIn(ctx, root)
 		if err != nil {
-			f.cfg.Log.Warn("sweep a root's held folders later", "root", root.String(), "err", err.Error())
+			f.cfg.Log.Warn("couldn't clean up a root's leftover folders, retrying later", "root", root.String(), "err", err.Error())
 			unanswered = append(unanswered, root)
 			continue
 		}
@@ -650,6 +650,6 @@ func (q queue) holds(root roots.ID, p string) bool {
 
 func (f *Files) logSweep(ctx context.Context, err error) {
 	if ctx.Err() == nil {
-		f.cfg.Log.Error("sweep the held folders", "err", err.Error())
+		f.cfg.Log.Error("couldn't clean up the leftover folders", "err", err.Error())
 	}
 }

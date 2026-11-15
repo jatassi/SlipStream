@@ -195,7 +195,7 @@ test("a name that matches several Works, or a card the save check refuses, says 
   await expect
     .element(
       results.getByText(
-        "It matches Heat (1995). The Films card has a setting the save check refuses. Fix it to see where this file would go.",
+        "It matches Heat (1995). A setting on the Films card has a problem. Fix it to see where this file would go.",
       ),
     )
     .toBeVisible();

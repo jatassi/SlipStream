@@ -26,7 +26,7 @@ function AccountRow({ account, plex }: { account: Account; plex: readonly Server
             <div className="pt-1 pb-1">
               <SignalLine
                 level="fail"
-                text="plex.tv refused SlipStream's last renewal of the Plex sign-in. Sign in with Plex again from Add."
+                text="plex.tv refused to renew SlipStream's Plex sign-in. Choose Add a Media Server, then Plex, and sign in again."
               />
             </div>
           ),

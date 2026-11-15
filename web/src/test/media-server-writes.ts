@@ -37,8 +37,8 @@ const insideLibraries = (folder: string, libraries: MediaserversLibraries) =>
   );
 
 const tested: MediaserversTested = {
-  reaching: { ok: true, words: "home reached Den Jellyfin 12.2.0." },
-  controller: { ok: true, words: "The Controller reached Den Jellyfin 12.2.0." },
+  reaching: { ok: true, words: "home connected to Den Jellyfin 12.2.0." },
+  controller: { ok: true, words: "The Controller connected to Den Jellyfin 12.2.0." },
   fallback: "available",
 };
 
@@ -201,11 +201,11 @@ function settingsHandlers(write: Write) {
       const margin = next("mediaServers.renewMargin");
       const every = next("tasks.plex-sign-in.cadence");
       if (margin !== undefined && every !== undefined && margin <= every) {
-        const words = `"Renew when less than this is left" must be longer than "Renew Plex sign-in every", which is ${durationWords(every)}. Lengthen the margin or renew more often.`;
+        const words = `"Renew when the sign-in expires within" must be longer than "Renew Plex sign-in every", which is ${durationWords(every)}. Raise the first or lower the second.`;
         return refused(
           422,
           "renew_margin_too_short",
-          "The renewal margin isn't longer than the renewal schedule",
+          "The renewal window isn't longer than the renewal interval",
           {
             detail: words,
             errors: [{ location: "body.values.mediaServers.renewMargin", message: words }],

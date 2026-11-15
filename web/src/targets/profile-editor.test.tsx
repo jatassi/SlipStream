@@ -41,11 +41,11 @@ const rowsOf = (list: string) =>
     .all()
     .map((row) => row.element().textContent);
 
-const sentence = () => page.getByText(/^Every Item |^Each Item /u);
+const sentence = () => page.getByText(/^SlipStream (keeps|always|searches) /u);
 
 async function chooseCuts() {
   await userEvent.click(page.getByRole("radio", { name: "Choose cuts" }));
-  await expect.element(sentence()).toHaveTextContent("Every Item always wants Standard.");
+  await expect.element(sentence()).toHaveTextContent("SlipStream always gets Standard.");
 }
 
 test("a new Profile takes Targets in an order the keyboard sets, and creates with Any cut", async () => {
@@ -56,7 +56,7 @@ test("a new Profile takes Targets in an order the keyboard sets, and creates wit
   });
   await expect.element(page.getByRole("heading", { name: "New Profile", level: 1 })).toBeVisible();
   await expect
-    .element(page.getByText("This Profile wants nothing.", { exact: false }))
+    .element(page.getByText("This Profile has no Targets.", { exact: false }))
     .toBeVisible();
   await userEvent.fill(page.getByRole("textbox", { name: "Name" }), "Both");
   for (const name of ["1080p", "2160p HDR"]) {
@@ -99,7 +99,7 @@ test("Choose cuts lists cuts from Standard, says what they want, and warns once 
   await expect
     .element(sentence())
     .toHaveTextContent(
-      "Each Item wants one file at every Target, of whatever cut. A file's cut only sets its name.",
+      "SlipStream keeps one file at each Target, whatever its cut. A file's cut only changes its name.",
     );
   await chooseCuts();
   await expect.element(page.getByRole("button", { name: "Remove Standard" })).toBeDisabled();
@@ -117,7 +117,7 @@ test("Choose cuts lists cuts from Standard, says what they want, and warns once 
   await expect
     .element(sentence())
     .toHaveTextContent(
-      "Every Item always wants Standard. It wants Extended only once a Release or file of that cut has been seen for it.",
+      "SlipStream always gets Standard. It also gets Extended once a release or file of that cut turns up.",
     );
 
   await userEvent.click(page.getByRole("button", { name: "Remove Standard" }));
@@ -126,7 +126,7 @@ test("Choose cuts lists cuts from Standard, says what they want, and warns once 
   await expect
     .element(sentence())
     .toHaveTextContent(
-      "Every Item wants Extended outright, even where no Release of it has been seen. A Release that names no cut is Standard, which this list doesn't want.",
+      "SlipStream searches for Extended every time, even if no release of it has turned up. It skips releases that name no cut, because they count as Standard.",
     );
   await expect.element(page.getByRole("button", { name: "Remove Extended" })).toBeDisabled();
 
@@ -161,7 +161,7 @@ test("a saved Profile shows each Target's disk estimate, flags a contained Targe
   expect(rowsOf("Targets")).toEqual([
     "Rank 12160p HDRNo estimate yet",
     "Rank 21080pAbout 2.1 GB across its Works, at 20 MiB per minute",
-    "Rank 31080p smallNo estimate yetEvery file 1080p small takes also meets 1080p.",
+    "Rank 31080p smallNo estimate yetEvery file that meets 1080p small also meets 1080p.",
   ]);
   await expect
     .element(page.getByRole("button", { name: "Create Profile" }))
@@ -174,7 +174,7 @@ test("removing every Target leaves a Profile that wants nothing", async () => {
   await expect
     .element(
       page.getByText(
-        "This Profile wants nothing. Add a Target to say which versions its Works keep.",
+        "This Profile has no Targets. Add one to choose which versions its Works keep.",
       ),
     )
     .toBeVisible();

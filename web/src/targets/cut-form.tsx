@@ -59,9 +59,9 @@ export function CutForm({
         <form.AppField name="aliases">
           {(field) => (
             <field.TextField
-              label="Also read as"
+              label="Aliases"
               autoComplete="off"
-              description="Other phrases a title names this cut by, split by commas, such as B&C, Black and Chrome. Its name always counts."
+              description="Other phrases that mean this cut in a release title, separated by commas, such as B&C, Black and Chrome. SlipStream always matches the name too."
             />
           )}
         </form.AppField>

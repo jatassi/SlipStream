@@ -11,37 +11,32 @@ test.each<[string, EditionList, string, boolean]>([
   [
     "any cut",
     { kind: "any" },
-    "Each Item wants one file at every Target, of whatever cut. A file's cut only sets its name.",
+    "SlipStream keeps one file at each Target, whatever its cut. A file's cut only changes its name.",
     false,
   ],
-  [
-    "Standard alone",
-    { kind: "cuts", cuts: [standard] },
-    "Every Item always wants Standard.",
-    false,
-  ],
+  ["Standard alone", { kind: "cuts", cuts: [standard] }, "SlipStream always gets Standard.", false],
   [
     "Standard and one other",
     { kind: "cuts", cuts: [standard, extended] },
-    "Every Item always wants Standard. It wants Extended only once a Release or file of that cut has been seen for it.",
+    "SlipStream always gets Standard. It also gets Extended once a release or file of that cut turns up.",
     false,
   ],
   [
     "Standard after others",
     { kind: "cuts", cuts: [extended, standard, directors, imax] },
-    "Every Item always wants Standard. It wants Extended, Director's Cut and IMAX only once a Release or file of that cut has been seen for it.",
+    "SlipStream always gets Standard. It also gets Extended, Director's Cut and IMAX once a release or file of that cut turns up.",
     false,
   ],
   [
     "one cut and no Standard",
     { kind: "cuts", cuts: [directors] },
-    "Every Item wants Director's Cut outright, even where no Release of it has been seen. A Release that names no cut is Standard, which this list doesn't want.",
+    "SlipStream searches for Director's Cut every time, even if no release of it has turned up. It skips releases that name no cut, because they count as Standard.",
     true,
   ],
   [
     "several cuts and no Standard",
     { kind: "cuts", cuts: [extended, directors] },
-    "Every Item wants Extended and Director's Cut outright, even where no Release of them has been seen. A Release that names no cut is Standard, which this list doesn't want.",
+    "SlipStream searches for Extended and Director's Cut every time, even if no release of them has turned up. It skips releases that name no cut, because they count as Standard.",
     true,
   ],
 ])("%s", (_shape, list, text, warning) => {

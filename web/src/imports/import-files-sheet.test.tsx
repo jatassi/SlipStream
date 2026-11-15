@@ -34,11 +34,15 @@ test("Import files opens a folder in the Node's download folders and lists what 
   const browser = page.getByRole("dialog", { name: "Choose a folder on home" });
   await userEvent.click(browser.getByRole("option", { name: /Films/u }));
   await userEvent.click(browser.getByRole("button", { name: /^Open/u }));
-  await expect.element(sheet().getByText("Fills 1080p for Brazil (1985).")).toBeVisible();
+  await expect
+    .element(sheet().getByText("Ready to import as the 1080p file for Brazil (1985)."))
+    .toBeVisible();
   expect(sent.opened).toEqual([{ nodeId: homeId, folder: "/downloads/Films" }]);
   await expect
     .element(
-      sheet().getByText("This doesn't meet any Target this Work wants. 1080p needs Bluray or WEB."),
+      sheet().getByText(
+        "This doesn't meet any of this movie's Targets. 1080p needs Bluray or WEB.",
+      ),
     )
     .toBeVisible();
   await expect.element(sheet().getByRole("heading", { name: "Heat" })).toBeVisible();
@@ -98,6 +102,8 @@ test("on a phone the sheet's rows stack and Continue still opens them", async ()
       name: "Continue",
     }),
   );
-  await expect.element(page.getByText("Fills 1080p for Brazil (1985).")).toBeVisible();
+  await expect
+    .element(page.getByText("Ready to import as the 1080p file for Brazil (1985)."))
+    .toBeVisible();
   await expect.element(page.getByRole("button", { name: "Import all" })).toBeEnabled();
 });

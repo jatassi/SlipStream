@@ -30,8 +30,8 @@ export function DeleteCutDialog({ cut, open, onOpenChange }: Opening & { cut: Ta
       onConfirm={() => deleting(cut)}
     >
       <p>
-        SlipStream stops reading it in titles. A cut that a Profile, a Work or a file holds
-        can&apos;t be deleted.
+        SlipStream stops looking for it in release titles. You can&apos;t delete a cut while a
+        Profile, a Work&apos;s Edition list or a file uses it.
       </p>
     </ConfirmDialog>
   );

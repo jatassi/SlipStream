@@ -125,7 +125,7 @@ function ImportFiles() {
 
 function waitWords(entry: ImportsImportEntry): string {
   const count = waitingFiles(entry).length;
-  return `${filesWords(count)} ${count === 1 ? "waits" : "wait"} for you`;
+  return `${filesWords(count)} ${count === 1 ? "needs" : "need"} attention`;
 }
 
 function Downloads({ downloads }: { downloads: readonly Download[] }) {
@@ -158,8 +158,8 @@ function Downloads({ downloads }: { downloads: readonly Download[] }) {
 
 function Folders({ folders }: { folders: readonly FolderGroup[] }) {
   return (
-    <Section title="Imported by hand">
-      <ul aria-label="Pending imports by hand" className="flex flex-col gap-2">
+    <Section title="From Import files">
+      <ul aria-label="Pending imports from Import files" className="flex flex-col gap-2">
         {folders.map((group) => (
           <FolderEntry key={JSON.stringify([group.nodeId, group.folder])} group={group} />
         ))}
@@ -185,7 +185,7 @@ const keyOf = (group: PendingGroup) => (group.kind === "root" ? group.group.root
 
 const empties: { readonly [V in PendingView]: string } = {
   "needs-you":
-    "Nothing needs you. A download SlipStream can't import without you, and each folder a library scan can't match to a Work with confidence, waits here.",
+    "Nothing needs attention. Downloads SlipStream can't import on its own show up here, and so do folders a library scan can't match.",
   ignored: "No folders are ignored.",
 };
 

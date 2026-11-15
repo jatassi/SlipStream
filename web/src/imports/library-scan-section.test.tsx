@@ -26,7 +26,7 @@ const share: SettingCountField = {
 const probes: SettingCountField = {
   ...share,
   key: "library.scan.probes",
-  label: "Files each Node reads media info from at once",
+  label: "Files read at once per Node",
   value: 2,
   running: 2,
   default: 2,

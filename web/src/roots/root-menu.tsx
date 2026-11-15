@@ -37,7 +37,7 @@ function scanItems(root: RootsRoot, name: string, onAct: (acting: Acting) => voi
         onSelect: () =>
           void calling(
             () => cancelTaskRun(running.runId),
-            "Library scan canceled for every root in the run. It keeps what it already recorded.",
+            "Library scan canceled for every root in the run. The files it already recorded stay recorded.",
           ),
       },
     ];
@@ -62,6 +62,9 @@ function scanItems(root: RootsRoot, name: string, onAct: (acting: Acting) => voi
 }
 
 /** The root's scan actions, Make default, Edit and Delete; a root on a written-off Node leads with Re-home. */
+const defaultWords = (label: string, path: string) =>
+  `New ${label.toLowerCase()} now go into ${path}.`;
+
 export function RootMenu({
   root,
   label,
@@ -88,7 +91,7 @@ export function RootMenu({
           label: "Make default",
           icon: StarIcon,
           onSelect: () =>
-            void calling(() => makeDefaultRoot(root.id), `New ${label} now go into ${root.path}.`),
+            void calling(() => makeDefaultRoot(root.id), defaultWords(label, root.path)),
         },
       ];
   return (

@@ -22,7 +22,8 @@ const naming = (part: Partial<NamingTypeNaming>): NamingTypeNaming => ({
 
 const lost = {
   key: "cinema.naming.file.standard",
-  sentence: "The file name has no {Target}. Add {Target} so each file of a Work gets its own name.",
+  sentence:
+    "The file name has no {Target}. Add {Target} so the file for each Target gets its own name.",
 };
 
 test("a card leads with turning renaming on, then the recommended templates, then the files that don't match, then that all is well", () => {

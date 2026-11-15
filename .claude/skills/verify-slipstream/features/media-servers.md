@@ -4,10 +4,10 @@ An Admin adds Plex, Jellyfin and Emby servers in Settings > Media Servers and gi
 
 ## Sub-features
 
-- `media-servers-add-plex` Settings > Media Servers lists `Living room Plex` with `Plex · Reached from home` and `Living room Plex responds to home.`, and the `Plex account` section reads `plex-admin` and `Plex Pass` (P-189).
-- `media-servers-add-jellyfin` `Den Jellyfin` reads `Jellyfin · Reached from den` and `Den Jellyfin responds to den.`; the API lists its fallback address at home's front and `fallback: available` (P-189).
-- `media-servers-add-emby` `Den Emby` reads `Emby · Reached from den` and `Den Emby responds to den.`, signed in with the key its administrator sign-in created (P-189).
-- `media-servers-mappings` a server's `Path mappings` tab shows each root its Node holds at `/media/<folder>` with `Shown on <server>` on, and every other root not shown (P-189).
+- `media-servers-add-plex` Settings > Media Servers lists `Living room Plex` with `Plex · Connects from home` and `Living room Plex responds to home.`, and the `Plex account` section reads `plex-admin` and `Plex Pass` (P-189).
+- `media-servers-add-jellyfin` `Den Jellyfin` reads `Jellyfin · Connects from den` and `Den Jellyfin responds to den.`; the API lists its fallback address at home's front and `fallback: available` (P-189).
+- `media-servers-add-emby` `Den Emby` reads `Emby · Connects from den` and `Den Emby responds to den.`, signed in with the key its administrator sign-in created (P-189).
+- `media-servers-mappings` a server's `Path mappings` tab shows each root its Node holds at `/media/<folder>` with `In a <server> library` on, and every other root not shown (P-189).
 - `media-servers-import` an import into a shown root sends the server its change: a fresh library is scanned whole first, then Plex refreshes the folder (`plex-refreshes`) and Jellyfin and Emby take a path report (`jellyfin-reports`, `emby-reports`); the server's `Changes` tab reads the change sent (P-189).
 - `media-servers-rename` a rename on Den Jellyfin keeps every user's watch data, and its change reads `Kept every user's watch data` (P-189).
 - `media-servers-fallback` with den stopped, the Controller sends Den Jellyfin's changes through home's front (P-189).

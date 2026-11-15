@@ -164,7 +164,7 @@ const reasons: { readonly [W in Why]: (said: Said) => string } = {
       ? `${from} and ${to} are tied.`
       : `${from} and ${to} are tied, and ${from} scores ${String(move.from.score)}, at or above this Target's upgrade-until score of ${String(rules.scores.upgradeUntil)}.`,
   gain: ({ from, to, move, rules }) =>
-    `${to} scores ${String(move.to.score)} and ${from} scores ${String(move.from.score)}, a gain of at least ${String(rules.scores.increment)}.`,
+    `${to} scores ${String(move.to.score)} and ${from} scores ${String(move.from.score)}. The gain of ${String(move.to.score - move.from.score)} meets this Target's increment of ${String(rules.scores.increment)}.`,
   short: ({ from, to, move, rules }) =>
     `${to} scores ${String(move.to.score)}. It needs ${String(move.from.score + rules.scores.increment)} or more to replace ${from}.`,
 };
@@ -242,9 +242,9 @@ export function upgradeSentence(
   const { tiers, cutoff, scores } = rules;
   const bottom = tiers.at(-1);
   if (bottom === undefined) {
-    return { sentence: "Accepts no quality yet, so it grabs nothing.", samples: [] };
+    return { sentence: "This Target accepts no quality yet, so it grabs nothing.", samples: [] };
   }
-  const grabs = `Grabs ${either(bottom.map((key) => name(key)))}${tiers.length > 1 ? " or better" : ""}.`;
+  const grabs = `This Target grabs ${either(bottom.map((key) => name(key)))}${tiers.length > 1 ? " or better" : ""}.`;
   const score = scores.upgradeUntil === 0 ? [] : [`a score of ${String(scores.upgradeUntil)}`];
   const until = [
     ...(cutoff >= tiers.length - 1 ? [] : [either((tiers[cutoff] ?? []).map((key) => name(key)))]),
@@ -252,8 +252,8 @@ export function upgradeSentence(
   ];
   const stops =
     until.length === 0
-      ? "Keeps the first file it grabs."
-      : `Upgrades until ${until.join(" and ")}, then stops.`;
+      ? "It keeps the first file it grabs."
+      : `It upgrades until ${until.join(" and ")}, then stops.`;
   const samples = sampleMoves(rules, table).map(([from, to]): Sample =>
     Object.assign(judgeInWords(rules, { from: plain(from), to: plain(to) }, name), { from, to }),
   );

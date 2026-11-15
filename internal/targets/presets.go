@@ -23,11 +23,11 @@ func Presets() []Preset { return []Preset{DiscOrResolution, AnythingBetter, Reso
 func (p Preset) Name() string {
 	switch p {
 	case AnythingBetter:
-		return "Upgrade for anything better"
+		return "Upgrade for any better quality"
 	case DiscOrResolution:
-		return "Upgrade for disc or resolution"
+		return "Upgrade for Blu-ray or higher resolution"
 	case ResolutionOnly:
-		return "Upgrade for resolution only"
+		return "Upgrade for higher resolution only"
 	}
 	panic("targets: no preset " + string(p))
 }

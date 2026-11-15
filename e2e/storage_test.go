@@ -108,7 +108,7 @@ func TestWriteOffMakesCellsMissingAndARehomeRestoresThem(t *testing.T) {
 	key := "r." + root.ID
 	worldtest.Until(t, "the written-off root is a Storage error", func() (bool, error) { return healthItems(t, w.a, "storage")[key].Level == "fail", nil })
 	if it := healthItems(t, w.a, "storage")[key]; it.Subject != "Movies library root on seedbox" || it.Action == nil || it.Action.Kind != "link" || it.Action.Href != "/settings/library-roots" ||
-		it.Text != "Its Node was written off, so its files count as missing. Re-home the root to a Node that holds Storage." {
+		it.Text != "SlipStream gave up this root's Node, so its files count as missing. Re-home the root to a Node with the Storage Role." {
 		t.Fatalf("the written-off root's Storage item is %+v, want it leading to Re-home", it)
 	}
 	if c := cells(t, w.a, w.work).Cells[0]; c.File != nil || c.State != "missing" {

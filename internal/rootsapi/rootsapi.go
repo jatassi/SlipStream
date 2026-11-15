@@ -45,7 +45,7 @@ func scanner(f Folders) *imports.Imports {
 var (
 	contentTypeNotFound = api.NewCode(http.StatusNotFound, "content_type_not_found", "No Content Type has that id")
 	rootNotFound        = api.NewCode(http.StatusNotFound, "root_not_found", "No root has that id")
-	nodeNotStorage      = api.NewCode(http.StatusConflict, "node_not_storage", "The Node doesn't hold Storage")
+	nodeNotStorage      = api.NewCode(http.StatusConflict, "node_not_storage", "The Node doesn't have the Storage Role")
 	nodeNotFound        = api.NewCode(http.StatusNotFound, "node_not_found", "No Node has this id")
 	nodeOffline         = api.NewCode(http.StatusServiceUnavailable, "node_offline", "The Node is offline")
 	rootUnusable        = api.NewCarrying[refusal](http.StatusUnprocessableEntity, "root_unusable", "The folder can't be a root", "refusal")
@@ -55,10 +55,10 @@ var (
 	folderOutside       = api.NewCode(http.StatusUnprocessableEntity, "folder_outside", "The folder isn't in a library root or a download folder on the Node")
 	rehomeMissing       = api.NewCarrying[missingFiles](http.StatusConflict, "rehome_missing", "Recorded files aren't at the new place", "missing")
 	rootInUse           = api.NewCarrying[inUse](http.StatusConflict, "root_in_use", "The root holds files or has a Grab in flight", "use")
-	rootIsDefault       = api.NewCode(http.StatusConflict, "root_is_default", "The root is its Content Type's default while another root exists")
+	rootIsDefault       = api.NewCode(http.StatusConflict, "root_is_default", "The root is the default for its kind of media. Make another root the default, then delete this one.")
 	worksToRequired     = api.NewCode(http.StatusUnprocessableEntity, "works_to_required", "The root's Works need another root of their Content Type to go to")
 	worksToWrongType    = api.NewCode(http.StatusUnprocessableEntity, "works_to_wrong_type", "The root's Works can go only to a root of their Content Type")
-	scanNotStopped      = api.NewCode(http.StatusConflict, "scan_not_stopped", "The root's last library scan didn't stop")
+	scanNotStopped      = api.NewCode(http.StatusConflict, "scan_not_stopped", "No files are waiting to be marked gone")
 )
 
 var codes = []struct {
@@ -228,7 +228,7 @@ func volumeOf(v *storing.Volume) *volume {
 
 type newRoot struct {
 	ContentType string `json:"contentType" pattern:"^[a-z][a-z0-9]{1,15}$"`
-	NodeID      string `json:"nodeId" format:"uuid" doc:"A Node that holds Storage"`
+	NodeID      string `json:"nodeId" format:"uuid" doc:"A Node with the Storage Role"`
 	Path        string `json:"path" minLength:"1" maxLength:"4096" doc:"An absolute path to an existing folder on the Node, in its own path style"`
 	MakeDefault bool   `json:"makeDefault,omitempty" doc:"Make it its Content Type's default; a Content Type's first root is its default whatever this says"`
 }
@@ -270,7 +270,7 @@ type rehomeRootInput struct {
 	Body   struct {
 		NodeID string `json:"nodeId,omitempty" format:"uuid" doc:"The Storage Node whose disk holds it now; left out, its Node"`
 		Path   string `json:"path,omitempty" maxLength:"4096" doc:"The folder that holds it now, in its Node's path style; left out, its folder"`
-		Forget *int   `json:"forget,omitempty" minimum:"0" doc:"The missing file count the Admin confirmed from a rehome_missing response: those files are forgotten, so their cells read missing and wanted. A different count is refused with rehome_missing again"`
+		Forget *int   `json:"forget,omitempty" minimum:"0" doc:"The missing file count the Admin confirmed from a rehome_missing response: those files are forgotten, so their episodes or movies show as missing and SlipStream searches for them again. A different count is refused with rehome_missing again"`
 	}
 }
 

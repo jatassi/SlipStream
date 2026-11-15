@@ -170,9 +170,11 @@ type NotReady struct {
 func (e *NotReady) Error() string {
 	switch {
 	case e.Unknown:
-		return "the root isn't in its Node's intent yet"
+		return "the root's Node hasn't confirmed the root yet"
 	case e.Draining:
-		return "the root's Node drains Storage"
+		return "the root's Node is finishing its Storage work and takes no new files"
+	case e.State == Foreign:
+		return "another library root already uses the root's folder"
 	}
 	return "the root is " + e.State.String()
 }

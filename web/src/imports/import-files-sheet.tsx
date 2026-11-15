@@ -93,7 +93,7 @@ function FolderStep({ onOpened }: { onOpened: (opened: Opened) => void }) {
     <div className="flex flex-col gap-4">
       <p>
         Pick a folder in one of the Node&apos;s library roots or download folders. SlipStream reads
-        each video in it and shows what it would fill.
+        each video in it and shows where each one would go in the library.
       </p>
       {nodes.length > 1 && (
         <Select
@@ -147,8 +147,7 @@ function ImportRows({ entry, type }: { entry: ImportsImportEntry; type: WorksCon
               <FileRow entry={entry} file={file} type={type} items={[]} />
               {!file.movable && (
                 <li className="text-meta text-ink-3">
-                  A torrent seeds {nameOf(file.path)}. Move files can&apos;t take a file while it
-                  seeds.
+                  {nameOf(file.path)} is still seeding, so Move files can&apos;t move it.
                 </li>
               )}
             </Fragment>
@@ -218,8 +217,8 @@ function RowsStep({ opened, onDone }: { opened: Opened; onDone: () => void }) {
             onCheckedChange={(on) => void moveFiles(on)}
           />
           <p className="text-meta text-ink-3">
-            On moves each file into the library and deletes it here. Off keeps the files in this
-            folder.
+            When on, each file moves into the library and leaves this folder. When off, the files
+            stay here too.
           </p>
         </div>
       )}

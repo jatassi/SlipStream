@@ -27,13 +27,13 @@ type unwantedFiles struct {
 }
 
 type Impact struct {
-	Works       int           `json:"works" minimum:"0" doc:"Works whose cells, fills or file names change"`
+	Works       int           `json:"works" minimum:"0" doc:"Works whose Targets, files or file names change"`
 	OwnList     int           `json:"ownList" minimum:"0" doc:"Works that keep their own Edition list through a change to their Profile's"`
-	Unwanted    unwantedFiles `json:"unwanted" doc:"Files that fill a cell now and none after: deleted, or kept as Kept files, as the save chooses"`
+	Unwanted    unwantedFiles `json:"unwanted" doc:"Files a Target uses now and none uses after: deleted, or kept as Kept files, as the save chooses"`
 	Renamed     int           `json:"renamed" minimum:"0" doc:"Files whose path changes, Kept files included"`
 	Renames     []workRenames `json:"renames" nullable:"false" doc:"The first 500 of the renamed files, by Work in title order"`
-	NewlyWanted int           `json:"newlyWanted" minimum:"0" doc:"Cells that become wanted"`
-	Downloading int           `json:"downloading" minimum:"0" doc:"Downloads in progress for cells that are no longer wanted. Each waits in Pending imports once it finishes"`
+	NewlyWanted int           `json:"newlyWanted" minimum:"0" doc:"How many more files SlipStream will look for"`
+	Downloading int           `json:"downloading" minimum:"0" doc:"Downloads in progress that are no longer needed. Each waits in Pending imports once it finishes"`
 }
 
 type workRenames struct {
@@ -66,7 +66,7 @@ func ImpactOf(i files.Impact) Impact {
 // It is exported so the document carries the parameters it embeds.
 type Changing struct {
 	Preview  bool                `query:"preview" doc:"Return the change's Impact and save nothing"`
-	Unwanted string              `query:"unwanted" enum:"delete,keep" default:"delete" doc:"What becomes of the files the change leaves filling nothing"`
+	Unwanted string              `query:"unwanted" enum:"delete,keep" default:"delete" doc:"What happens to the files no Target uses after the change"`
 	Confirm  api.Optional[int64] `query:"confirm" minimum:"0" doc:"The unwanted file count the Admin confirmed from the preview: a save that would delete more is refused with impact_changed"`
 }
 

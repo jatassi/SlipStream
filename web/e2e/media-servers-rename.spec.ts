@@ -113,7 +113,7 @@ test("with den stopped, the Controller refreshes Den Jellyfin through its fallba
     "Den Jellyfin can't be checked while den is offline. SlipStream sends changes through the Controller until den is back.",
   );
   await openServer(page, "Den Jellyfin");
-  await page.getByRole("button", { name: "Refresh whole library" }).click();
+  await page.getByRole("button", { name: "Refresh libraries" }).click();
   await page
     .getByRole("dialog", { name: "Refresh every library on Den Jellyfin?" })
     .getByRole("button", { name: "Refresh" })

@@ -109,7 +109,9 @@ async function downloadsAndTargets(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Continue" }).click();
 
   await expect(heading(page, "What SlipStream grabs")).toBeVisible();
-  await expect(page.getByRole("listitem", { name: "Movies" }).getByText(/^Grabs /u)).toBeVisible();
+  await expect(
+    page.getByRole("listitem", { name: "Movies" }).getByText(/^This Target grabs /u),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Continue" }).click();
 }
 

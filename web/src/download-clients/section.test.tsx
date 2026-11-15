@@ -165,7 +165,9 @@ test("a Node's external clients follow its built-in client, with their status in
   });
   const transmission = externals("home").getByRole("listitem", { name: "Transmission" });
   await expect.element(transmission.getByText("Responding")).toBeVisible();
-  await expect.element(transmission.getByText("home reached Transmission 4.1.0.")).toBeVisible();
+  await expect
+    .element(transmission.getByText("home connected to Transmission 4.1.0."))
+    .toBeVisible();
   await expect.element(transmission.getByText("Transmission, 3 torrents")).toBeVisible();
   const web = transmission.getByRole("link", { name: "Open Transmission" });
   await expect.element(web).toHaveAttribute("href", "http://192.168.1.20:9091/transmission/web/");

@@ -24,7 +24,7 @@ var (
 	// Probes is how many files a Node probes at once, for a scan and for
 	// an Import alike.
 	Probes = setting.Count{
-		Key: "library.scan.probes", Label: "Files each Node reads media info from at once",
+		Key: "library.scan.probes", Label: "Files read at once per Node",
 		Default: 2, Min: 1, Max: 8, Unit: setting.Noun{One: "file", Many: "files"},
 	}
 	VideoExtensions = setting.List{

@@ -21,7 +21,7 @@ export function leadWords({
   oneWork: boolean;
 }): string {
   if (files === 0) {
-    return saving ? "Saving renames no files." : "No files are ticked to rename.";
+    return saving ? "Saving won't rename any files." : "No files are ticked to rename.";
   }
   const where = oneWork ? "" : ` in ${counted(works, "Work", "Works")}`;
   return `${saving ? "Saving renames" : "This renames"} ${filesWords(files)}${where}.`;

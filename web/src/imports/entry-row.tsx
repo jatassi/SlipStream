@@ -35,7 +35,7 @@ function EntryDetails({ entry, type }: { entry: RootEntry; type: WorksContentTyp
   return (
     <Details>
       <dl className="mt-1 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-item bg-well px-3 py-2">
-        <dt>Name reads</dt>
+        <dt>From the name</dt>
         <dd>{hintWords(entry.hint)}</dd>
         {entry.files.map((file) => (
           <div key={file.path} className="contents">
@@ -44,7 +44,7 @@ function EntryDetails({ entry, type }: { entry: RootEntry; type: WorksContentTyp
             </dt>
             <dd className="wrap-anywhere">
               <Data>
-                {file.quality === null ? "No quality read" : quality(file.quality)} ·{" "}
+                {file.quality === null ? "No quality found" : quality(file.quality)} ·{" "}
                 {bytes(file.size)}
               </Data>{" "}
               {reasonOf(file.reason, type)}

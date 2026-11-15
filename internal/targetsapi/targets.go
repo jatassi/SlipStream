@@ -24,7 +24,7 @@ type size struct {
 
 type filter struct {
 	Attribute string   `json:"attribute" enum:"hdr,video_codec,audio_codec,channels,language"`
-	Mode      string   `json:"mode" enum:"only,not" doc:"Only passes a fact holding one of the values, not one holding none; an unknown fact passes"`
+	Mode      string   `json:"mode" enum:"only,not" doc:"only passes a fact that has one of the values, and not passes a fact that has none of them; an unknown fact passes either mode"`
 	Values    []string `json:"values" nullable:"false" minItems:"1" uniqueItems:"true" doc:"The attribute's values by name; a language is an ISO 639 code or original"`
 }
 
@@ -187,7 +187,7 @@ type quality struct {
 type preset struct {
 	Key   string     `json:"key" enum:"disc-or-resolution,anything-better,resolution-only"`
 	Name  string     `json:"name"`
-	Tiers [][]string `json:"tiers" nullable:"false" doc:"Every quality, best tier first. Over chosen qualities, keep these tiers to them; with no upgrades, put the cutoff at the bottom tier"`
+	Tiers [][]string `json:"tiers" nullable:"false" doc:"Every quality, best tier first. To apply the preset to chosen qualities, keep only those qualities in these tiers. For no upgrades, put the cutoff at the bottom tier"`
 }
 
 type qualityList struct {

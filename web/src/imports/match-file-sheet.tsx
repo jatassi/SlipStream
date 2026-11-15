@@ -88,7 +88,7 @@ function MatchFields({
       <Select
         label="Edition"
         options={[
-          { value: asNamed, label: "As its name reads" },
+          { value: asNamed, label: "From its name" },
           ...cuts.map((cut) => ({ value: cut.key, label: cut.name })),
         ]}
         value={match.edition}

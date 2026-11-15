@@ -17,8 +17,8 @@ import {
 } from "./use-impact-save";
 
 const choices = [
-  { value: "delete", label: "Delete" },
-  { value: "keep", label: "Keep as Kept files" },
+  { value: "delete", label: "Delete them" },
+  { value: "keep", label: "Keep them as Kept files" },
 ] as const;
 
 function Changed() {
@@ -36,7 +36,7 @@ function Choice({ value, onChange }: { value: Unwanted; onChange: (next: Unwante
   return (
     <div className="flex flex-col gap-1.5">
       <RadioGroup
-        label="Files that fill nothing"
+        label="Files no Target uses"
         options={choices}
         value={value}
         onValueChange={onChange}
@@ -91,7 +91,7 @@ function ImpactBody({
       {changed && <Changed />}
       <ul aria-label="What changes" className="flex flex-col gap-1.5 text-ink-1">
         {lines.length === 0 ? (
-          <li>Nothing else changes.</li>
+          <li>This change doesn&apos;t affect any files.</li>
         ) : (
           lines.map((line) => <li key={line}>{line}</li>)
         )}

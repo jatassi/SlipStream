@@ -316,13 +316,13 @@ func TestListQualitiesAnswersTheTableAndThePresets(t *testing.T) {
 		q("bluray-2160p", "Bluray-2160p", "bluray", "2160p", "102"), q("remux-2160p", "Remux-2160p", "remux", "2160p", "187.4"),
 		q("cam", "CAM", "cinema", "", "0"),
 	}, ",")
-	presets := `{"key":"disc-or-resolution","name":"Upgrade for disc or resolution","tiers":[` +
+	presets := `{"key":"disc-or-resolution","name":"Upgrade for Blu-ray or higher resolution","tiers":[` +
 		`["bluray-2160p","remux-2160p"],["hdtv-2160p","webrip-2160p","webdl-2160p"],["bluray-1080p","remux-1080p"],["hdtv-1080p","webrip-1080p","webdl-1080p"],` +
 		`["bluray-720p"],["hdtv-720p","webrip-720p","webdl-720p"],["dvd"],["sdtv","webrip-480p"],["cam"]]},` +
-		`{"key":"anything-better","name":"Upgrade for anything better","tiers":[` +
+		`{"key":"anything-better","name":"Upgrade for any better quality","tiers":[` +
 		`["remux-2160p"],["bluray-2160p"],["webdl-2160p"],["webrip-2160p"],["hdtv-2160p"],["remux-1080p"],["bluray-1080p"],["webdl-1080p"],["webrip-1080p"],["hdtv-1080p"],` +
 		`["bluray-720p"],["webdl-720p"],["webrip-720p"],["hdtv-720p"],["webrip-480p"],["dvd"],["sdtv"],["cam"]]},` +
-		`{"key":"resolution-only","name":"Upgrade for resolution only","tiers":[` +
+		`{"key":"resolution-only","name":"Upgrade for higher resolution only","tiers":[` +
 		`["hdtv-2160p","webrip-2160p","webdl-2160p","bluray-2160p","remux-2160p"],["hdtv-1080p","webrip-1080p","webdl-1080p","bluray-1080p","remux-1080p"],` +
 		`["hdtv-720p","webrip-720p","webdl-720p","bluray-720p"],["sdtv","dvd","webrip-480p"],["cam"]]}`
 	s.Expect(t, http.MethodGet, "/api/v1/qualities", "", http.StatusOK, `{"qualities":[`+qualities+`],"presets":[`+presets+`]}`)
