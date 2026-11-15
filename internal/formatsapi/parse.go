@@ -15,7 +15,7 @@ import (
 )
 
 type draft struct {
-	FormatID            string      `json:"formatId,omitempty" format:"uuid" doc:"The saved Custom Format the draft stands in for, whose app it is written in; left out, the draft is a new format in SlipStream's own values"`
+	FormatID            string      `json:"formatId,omitempty" format:"uuid" doc:"The saved Custom Format the draft replaces in the test, whose app the draft's values use; omit it to test the draft as a new SlipStream format"`
 	Name                string      `json:"name" minLength:"1" maxLength:"100"`
 	IncludeWhenRenaming bool        `json:"includeWhenRenaming,omitempty"`
 	Conditions          []condition `json:"conditions" nullable:"false"`
@@ -32,7 +32,7 @@ type parseInput struct{ Body parse }
 
 type readFacts struct {
 	Quality    *string           `json:"quality" doc:"The Quality's name, such as WEBDL-1080p; null when the name gives none"`
-	Source     *string           `json:"source" doc:"The fine source in words, such as WEB-DL"`
+	Source     *string           `json:"source" doc:"The source, such as WEB-DL or Blu-ray"`
 	Resolution *string           `json:"resolution"`
 	Modifier   *string           `json:"modifier" doc:"The quality modifier in words, such as Remux"`
 	Revision   *string           `json:"revision" doc:"The revision in words, such as v2 REPACK; null for the original release"`
@@ -79,12 +79,12 @@ type triedTarget struct {
 	Name      string                  `json:"name"`
 	Score     int                     `json:"score"`
 	WouldFill bool                    `json:"wouldFill" doc:"An automatic search would grab it for this Target"`
-	Reasons   []grabsapi.WordedReason `json:"reasons" nullable:"false" doc:"The name's own refusals, then the reasons of the first cell it would fill, else of the first cell it was judged at"`
+	Reasons   []grabsapi.WordedReason `json:"reasons" nullable:"false" doc:"The name's own refusals, then the reasons at the first Target an automatic search would grab it for, else at the first Target it was judged at"`
 }
 
 type parsed struct {
 	Name     string                `json:"name"`
-	Sentence string                `json:"sentence" doc:"What the name reads as, the Works it matches and the Targets it would fill, or why it would fill none"`
+	Sentence string                `json:"sentence" doc:"What the name reads as, the Works it matches and the Targets an automatic search would grab it for, or why it would grab it for none"`
 	Words    string                `json:"words" doc:"The facts in words, joined with a middle dot: Quality, the revision when it isn't the original, HDR, audio and channels, release group and size"`
 	Facts    readFacts             `json:"facts"`
 	Work     api.Nullable[workRef] `json:"work" doc:"The one Work the name is judged against: the given Work, or the only Work it matches; null when it matches several or none"`
