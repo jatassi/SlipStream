@@ -22,7 +22,7 @@ export function JoinForm(props: FormProps) {
     ) : (
       <Refusal
         text={joinSentences[refused].text}
-        action="Back to the wait"
+        action="Back to joining"
         onAction={() => {
           setRefused(undefined);
           void claim.refetch();
@@ -31,7 +31,7 @@ export function JoinForm(props: FormProps) {
     );
   }
   if (data === undefined && claim.isFetching) {
-    return <Spinner label="Reading this Node's Join" />;
+    return <Spinner label="Checking whether this Node is joining a SlipStream" />;
   }
   if (data?.state === "awaiting-dial") {
     return <JoinWait claim={data} />;

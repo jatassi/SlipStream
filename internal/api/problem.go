@@ -201,7 +201,7 @@ var (
 	SetupCodeWrong = NewCode(http.StatusForbidden, "setup_code_wrong", "The Setup code is wrong")
 	SetupBusy      = NewCode(http.StatusConflict, "setup_busy", "Another setup is running")
 	AlreadyClaimed = NewCode(http.StatusConflict, "already_claimed", "This Node is already set up")
-	JoinPending    = NewCode(http.StatusConflict, "join_pending", "A Join waits for its Controller to dial this Node")
+	JoinPending    = NewCode(http.StatusConflict, "join_pending", "This Node is waiting for its Controller to connect to it")
 	CrossOrigin    = NewCode(http.StatusForbidden, "cross_origin", "Another site can't make this request")
 	WorkerNode     = NewCode(http.StatusConflict, "worker_node", "This Node is a Worker. Manage it from its Controller.")
 	PINRequired    = NewCode(http.StatusForbidden, "pin_required", "Set a new PIN to continue")

@@ -149,7 +149,7 @@ test("a Join refused for the Setup code goes back to the code screen", async () 
 const failures = [
   [
     "controller_unreachable",
-    "Your SlipStream didn't connect to this Node before the address expired. Try again with a new Join Code.",
+    "Your SlipStream didn't connect to this Node before its Node address expired. Try again with a new Join Code.",
   ],
   ["join_code_unknown", "Your SlipStream has no such Join Code. Make a new one in Add a Node."],
   ["join_code_expired", "That Join Code has expired. Make a new one in Add a Node."],

@@ -57,7 +57,7 @@ func TestClaimWorkerProblemCodes(t *testing.T) {
 		{golden, pairing.KeyMismatch, problem(502, "controller_key_mismatch", "The Controller's key doesn't match the Join Code")},
 		{golden, pairing.IsController, problem(409, "already_claimed", "This Node is already set up")},
 		{golden, pairing.RestartRequired, problem(409, "restart_required", "A running Worker re-pairs only at start")},
-		{golden, pairing.JoinPending, problem(409, "join_pending", "A Join waits for its Controller to dial this Node")},
+		{golden, pairing.JoinPending, problem(409, "join_pending", "This Node is waiting for its Controller to connect to it")},
 	} {
 		t.Run(string(tc.kind), func(t *testing.T) {
 			call := setup(t, refusing{tc.kind})
