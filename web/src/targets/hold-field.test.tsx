@@ -17,7 +17,9 @@ test("a saved Target's Hold opens in its largest whole unit and saves in seconds
       ...targetHandlers([held, keeper]),
       http.put("*/api/v1/targets/:targetId", async ({ request }) => {
         const body = z.object({ holdSeconds: z.number() }).parse(await request.json());
-        sent.push(body.holdSeconds);
+        if (new URL(request.url).searchParams.get("preview") !== "true") {
+          sent.push(body.holdSeconds);
+        }
         return HttpResponse.json({
           target: { ...held, holdSeconds: body.holdSeconds },
           impact: noImpact,

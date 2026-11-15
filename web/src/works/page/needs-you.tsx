@@ -1,36 +1,53 @@
 import type {
   FilesFailedNeed,
   FilesNeed,
+  FilesNotFoundNeed,
   FilesUpgradeNeed,
   FilesWaitingNeed,
   GrabsGrab,
+  GrabsStopped,
 } from "../../api/gen/model";
 import { clock } from "../../format";
 import { GrabFailure } from "../../grabs/failure-cards";
+import { stoppedWords } from "../../grabs/search-words";
 import { type FailedGrab, failureWords, isFailed, trackStage } from "../../grabs/stages";
+import { useNow } from "../../tasks/use-now";
 import { Section } from "../../ui/section";
 import { SignalRow } from "../../ui/signal-row";
 import { stageLabel } from "../../ui/stage-track";
-import { NoRoot, Upgrades } from "./need-rows";
+import { NoRoot, NotFound, Upgrades } from "./need-rows";
+// oxlint-disable-next-line import/max-dependencies -- Needs you lists every kind of need, a stopped cell's card included
 import { type FailedEntry, type Naming, failedKey, failedWords } from "./need-words";
 import { Waiting } from "./waiting";
 
 const cardsShown = 3;
+const wordsTick = 30_000;
 
 function Failed({
   naming,
   need,
   grab,
+  stop,
   card,
 }: {
   naming: Naming;
   need: FilesFailedNeed;
   grab: FailedGrab;
+  stop: GrabsStopped | undefined;
   card: boolean;
 }) {
   const subject = failedWords(naming, need, grab);
+  const now = useNow(wordsTick);
   if (card) {
-    return <GrabFailure grab={grab} subject={subject} work={naming.work.label} form="compact" />;
+    return (
+      <GrabFailure
+        grab={grab}
+        subject={subject}
+        work={naming.work.label}
+        form="compact"
+        stop={stop}
+      />
+    );
   }
   const { cause, recovery } = failureWords[grab.failure.code];
   return (
@@ -38,7 +55,13 @@ function Failed({
       signal="fail"
       chip={`Failed at ${stageLabel[trackStage(grab)]}`}
       subject={subject}
-      verdict={recovery === undefined ? cause : `${cause} ${recovery}`}
+      verdict={
+        stop === undefined
+          ? recovery === undefined
+            ? cause
+            : `${cause} ${recovery}`
+          : `${cause} ${stoppedWords(stop, { now, zone: undefined })}`
+      }
       time={clock(grab.history.at(-1)?.at ?? grab.createdAt)}
     >
       <p className="text-fail-dim">{grab.failure.message}</p>
@@ -47,46 +70,74 @@ function Failed({
 }
 
 type Grouped = {
-  readonly failed: readonly FailedEntry[];
-  readonly upgrades: readonly FilesUpgradeNeed[];
-  readonly waiting: readonly FilesWaitingNeed[];
-  readonly noRoot: boolean;
+  readonly failed: FailedEntry[];
+  readonly upgrades: FilesUpgradeNeed[];
+  readonly notFound: FilesNotFoundNeed[];
+  readonly waiting: FilesWaitingNeed[];
+  noRoot: boolean;
 };
 
-// The server lists failures, then upgrades, then waiting jobs, then no_root.
+// The server lists failures, then upgrades, then not found, then waiting jobs, then no_root.
 function grouped(needs: readonly FilesNeed[], grabs: readonly GrabsGrab[]): Grouped {
-  const grabOf = (id: string) => grabs.find((grab) => grab.id === id);
-  const failed = needs.flatMap((need) => {
-    if (need.kind !== "failed") {
-      return [];
+  const out: Grouped = { failed: [], upgrades: [], notFound: [], waiting: [], noRoot: false };
+  for (const need of needs) {
+    switch (need.kind) {
+      case "failed": {
+        const grab = grabs.find(({ id }) => id === need.grabId);
+        if (grab !== undefined && isFailed(grab)) {
+          out.failed.push({ need, grab });
+        }
+        break;
+      }
+      case "upgrade":
+        out.upgrades.push(need);
+        break;
+      case "not_found":
+        out.notFound.push(need);
+        break;
+      case "waiting":
+        out.waiting.push(need);
+        break;
+      case "no_root":
+        out.noRoot = true;
+        break;
+      default:
+        return need satisfies never;
     }
-    const grab = grabOf(need.grabId);
-    return grab !== undefined && isFailed(grab) ? [{ need, grab }] : [];
-  });
-  return {
-    failed,
-    upgrades: needs.filter((need) => need.kind === "upgrade"),
-    waiting: needs.filter((need) => need.kind === "waiting"),
-    noRoot: needs.some((need) => need.kind === "no_root"),
-  };
+  }
+  return out;
 }
+
+/** The stop of a failed need's cell, when failed Grabs stopped SlipStream searching it again. */
+const stopOf = (stops: readonly GrabsStopped[], need: FilesFailedNeed) =>
+  stops.find(
+    ({ cell }) =>
+      need.itemIds.includes(cell.itemId) &&
+      cell.targetId === need.targetId &&
+      cell.edition === need.edition,
+  );
 
 /**
  * What only a person can resolve on this Work, failures first: the first
  * three as compact failure cards, the rest as Signal rows, then upgrades,
- * then waiting jobs. It shows nothing while nothing needs the Admin.
+ * then Items searched with nothing found, then waiting jobs. It shows
+ * nothing while nothing needs the Admin.
  */
 export function NeedsYou({
   naming,
   needs,
   grabs,
+  stops,
 }: {
   naming: Naming;
   needs: readonly FilesNeed[];
   grabs: readonly GrabsGrab[];
+  /** The cells failed Grabs stopped SlipStream searching again. */
+  stops: readonly GrabsStopped[];
 }) {
-  const { failed, upgrades, waiting, noRoot } = grouped(needs, grabs);
-  const count = failed.length + upgrades.length + waiting.length + (noRoot ? 1 : 0);
+  const { failed, upgrades, notFound, waiting, noRoot } = grouped(needs, grabs);
+  const count =
+    failed.length + upgrades.length + notFound.length + waiting.length + (noRoot ? 1 : 0);
   if (count === 0) {
     return null;
   }
@@ -99,10 +150,12 @@ export function NeedsYou({
             naming={naming}
             need={entry.need}
             grab={entry.grab}
+            stop={stopOf(stops, entry.need)}
             card={index < cardsShown}
           />
         ))}
         {upgrades.length > 0 && <Upgrades naming={naming} needs={upgrades} />}
+        {notFound.length > 0 && <NotFound naming={naming} needs={notFound} />}
         {waiting.map((need) => (
           <Waiting
             key={need.grabId}

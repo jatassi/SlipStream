@@ -1,11 +1,13 @@
 import { useNavigate } from "@tanstack/react-router";
 
-import type { FilesUpgradeNeed } from "../../api/gen/model";
+import type { FilesNotFoundNeed, FilesUpgradeNeed } from "../../api/gen/model";
 import { ManualSearchButton, useStartSearch } from "../../grabs/search";
 import { Button } from "../../ui/button";
 import { List, ListRow } from "../../ui/list";
 import { WarningLine } from "../../ui/warning-line";
-import { type Naming, upgradeWords } from "./need-words";
+import { notFoundWords } from "../../grabs/search-words";
+import { useNow } from "../../tasks/use-now";
+import { type Naming, notFoundSubject, upgradeWords } from "./need-words";
 
 export function Upgrades({
   naming,
@@ -28,7 +30,56 @@ export function Upgrades({
                 size="small"
                 busy={search.isPending}
                 onClick={() => {
-                  search.start(naming.work.id, {
+                  search.start(naming.work.id, itemsSearched(naming, need.itemIds), {
+                    levelIds: [],
+                    itemIds: need.itemIds,
+                  });
+                }}
+              >
+                Search
+              </Button>
+              <ManualSearchButton
+                workId={naming.work.id}
+                scope={{ itemIds: need.itemIds }}
+                size="small"
+              />
+            </span>
+          }
+        />
+      ))}
+    </List>
+  );
+}
+
+const itemsSearched = (naming: Naming, itemIds: readonly string[]) =>
+  naming.type.items === "one"
+    ? { name: naming.work.label }
+    : { count: itemIds.length, item: naming.type.item };
+
+/** Missing Items whose last search found nothing, with when SlipStream searches them next. */
+export function NotFound({
+  naming,
+  needs,
+}: {
+  naming: Naming;
+  needs: readonly FilesNotFoundNeed[];
+}) {
+  const search = useStartSearch();
+  const now = useNow(30_000);
+  return (
+    <List label="Not found">
+      {needs.map((need) => (
+        <ListRow
+          key={`${need.itemIds.join(" ")} ${need.edition}`}
+          title={notFoundSubject(naming, need)}
+          meta={notFoundWords(need.lastSearchedAt, need.nextSearchAt, { now, zone: undefined })}
+          trailing={
+            <span className="flex gap-2">
+              <Button
+                size="small"
+                busy={search.isPending}
+                onClick={() => {
+                  search.start(naming.work.id, itemsSearched(naming, need.itemIds), {
                     levelIds: [],
                     itemIds: need.itemIds,
                   });

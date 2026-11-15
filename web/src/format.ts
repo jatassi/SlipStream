@@ -200,7 +200,23 @@ export function atWords(iso: string, reading: Clock): string {
   return `${days < 7 ? formats.weekday.format(at) : formats.date.format(at)} at ${time}`;
 }
 
-/** A past time to the minute, to follow a verb: "Today at 09:12", "Yesterday at 22:40", "on Mon at 09:12", "on Nov 3 at 09:12". */
+/**
+ * A coming time as "until" or "at" reads it: the time alone today, else
+ * as atWords says it ("Tomorrow at 14:00").
+ */
+export function laterWords(iso: string, reading: Clock): { words: string; today: boolean } {
+  const at = new Date(iso);
+  const today = at > reading.now && daysFrom(reading.now, at, reading.zone) === 0;
+  return {
+    words: today ? formatsOf(reading.zone).time.format(at) : atWords(iso, reading),
+    today,
+  };
+}
+
+/**
+ * A past time as it reads after a verb: "Today at 09:12", "Yesterday at
+ * 09:12", "on Mon at 09:12" within the week, else "on Nov 3 at 09:12".
+ */
 export function pastAtWords(iso: string, { now, zone }: Clock): string {
   const at = new Date(iso);
   const formats = formatsOf(zone);

@@ -185,9 +185,8 @@ test("Search again on a failed Grab searches its Work and says so", async () => 
     ],
   });
   await userEvent.click(harvestCard().getByRole("button", { name: "Search again" }));
-  await expect
-    .element(page.getByRole("region", { name: "Notifications" }).getByText("Search started"))
-    .toBeVisible();
+  const toasts = page.getByRole("region", { name: "Notifications" });
+  await expect.element(toasts.getByText("Searching Orchard Harvest")).toBeVisible();
   expect(searched).toEqual([harvestId]);
 });
 

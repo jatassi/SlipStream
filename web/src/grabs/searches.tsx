@@ -9,19 +9,16 @@ import { Section } from "../ui/section";
 import { Spinner } from "../ui/spinner";
 import { RunReleases } from "./search-releases";
 // oxlint-disable-next-line import/max-dependencies -- a grabbed run reads its Grab's stage
+import { outcomeWords, triggerWords } from "./search-words";
 import { stageWord } from "./stages";
 
-const outcomeText: Record<NonNullable<GrabsSearch["outcome"]>, string> = {
-  grabbed: "Grabbed a Release",
-  waiting: "Waiting for a better Release",
-  nothing_found: "Found nothing",
-  nothing_acceptable: "Found nothing acceptable",
-  no_indexer: "No Indexer could search",
-  no_root: "No library root",
-  listed: "Listed Releases",
-};
-
 const found = (count: number) => (count === 1 ? "1 Release found" : `${count} Releases found`);
+
+/** What started the run, and its group: "Backlog search · season 3". */
+const startedBy = ({ trigger, groupLabel }: GrabsSearch): string =>
+  [trigger === null ? "Manual search" : triggerWords[trigger], groupLabel]
+    .filter((part) => part !== null)
+    .join(" · ");
 
 function IndexerLines({ search }: { search: GrabsSearch }) {
   return (
@@ -70,14 +67,18 @@ function SearchRow({ search, grab, releases, onTest }: Run) {
   // take the row's full width.
   return (
     <ListRow
-      title={search.outcome === null ? "Searching" : outcomeText[search.outcome]}
+      title={search.outcome === null ? "Searching" : outcomeWords[search.outcome](search)}
       meta={
-        search.outcome === null ? undefined : (
-          <>
-            {found(search.candidates)} · {stage}
-            {time}
-          </>
-        )
+        <>
+          {startedBy(search)}
+          {search.outcome !== null && (
+            <>
+              {" · "}
+              {found(search.candidates)} · {stage}
+              {time}
+            </>
+          )}
+        </>
       }
       detail={
         search.indexers.length === 0 && !releases ? undefined : (

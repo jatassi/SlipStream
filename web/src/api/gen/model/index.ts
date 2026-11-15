@@ -1601,8 +1601,6 @@ export * from "./getWorkSearching422.ts";
 export * from "./getWorkSearching422Code.ts";
 export * from "./getWorkSearching500.ts";
 export * from "./getWorkSearching500Code.ts";
-export * from "./getWorkSearching501.ts";
-export * from "./getWorkSearching501Code.ts";
 export * from "./getWorkWants401.ts";
 export * from "./getWorkWants401Code.ts";
 export * from "./getWorkWants403.ts";

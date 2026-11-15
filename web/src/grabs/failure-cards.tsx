@@ -8,6 +8,7 @@ import { FailureCard } from "../ui/failure-card";
 import { type GrabView, GrabDialogs } from "./grab-details";
 import { useStartSearch } from "./search";
 import { type FailedGrab, failureWords, skippedStages, trackStage } from "./stages";
+import { type Stop, useRecoveryFacts } from "./stopped-facts";
 
 export const failureAnchor = (grab: FailedGrab): string => `failed-${grab.id}`;
 
@@ -37,21 +38,28 @@ function useCardActions(grab: FailedGrab, form: "full" | "compact", onDetails: (
   return form === "full" ? [manual, details, openWork] : [manual, details];
 }
 
-/** `subject` heads the card; `work` names the Work in the Grab's Details and Cancel. */
+/**
+ * `subject` heads the card; `work` names the Work in the Grab's Details and
+ * Cancel. `stop` is set when failed Grabs stopped SlipStream searching the
+ * cell again, and the card then says when Backlog search tries next.
+ */
 export function GrabFailure({
   grab,
   subject,
   work,
   form,
+  stop,
 }: {
   grab: FailedGrab;
   subject: string;
   work: string;
   form: "full" | "compact";
+  stop?: Stop | undefined;
 }) {
   const search = useStartSearch();
+  const recovery = useRecoveryFacts(grab, stop);
   const [view, setView] = useState<GrabView>();
-  const { cause, recovery } = failureWords[grab.failure.code];
+  const { cause } = failureWords[grab.failure.code];
   const actions = useCardActions(grab, form, () => {
     setView("details");
   });
@@ -65,14 +73,14 @@ export function GrabFailure({
         track={{ skipped: skippedStages }}
         facts={[
           { label: "Cause", value: cause },
-          ...(recovery === undefined ? [] : [{ label: "Recovery", value: recovery }]),
+          ...recovery,
           { label: "Release", value: <Data>{grab.releaseTitle}</Data> },
           { label: "Detail", value: grab.failure.message },
         ]}
         fix={{
           label: "Search again",
           onClick: () => {
-            search.start(grab.workId, { levelIds: [], itemIds: grab.items });
+            search.start(grab.workId, { name: work }, { levelIds: [], itemIds: grab.items });
           },
         }}
         actions={actions}

@@ -8,13 +8,14 @@ import {
   getListWorkFilesMockHandler,
   getPlanRenamesMockHandler,
 } from "../api/gen/query/files/files.msw";
+import { getGetWorkSearchingMockHandler } from "../api/gen/query/grabs/grabs.msw";
 import { getGetSessionMockHandler } from "../api/gen/query/identity/identity.msw";
 import { getGetCountsMockHandler } from "../api/gen/query/shell/shell.msw";
 import { getGetStatusMockHandler } from "../api/gen/query/system/system.msw";
 import { getListOpenTaskRunsMockHandler } from "../api/gen/query/tasks/tasks.msw";
 import { getListLibraryMockHandler } from "../api/gen/query/works/works.msw";
-import type { LiveEventName, PayloadOf } from "../live/types";
 // oxlint-disable-next-line import/max-dependencies -- the base handlers answer every read the shell and Settings make
+import type { LiveEventName, PayloadOf } from "../live/types";
 import { quietHealth } from "./health";
 import { home, homeId, nodesAre, topologyIs, topologyOf } from "./nodes";
 import { board, boardIs, homeSeat } from "./roles";
@@ -94,6 +95,13 @@ const noRenames = [
   getCountMovingMockHandler({ files: 0 }),
   getPlanRenamesMockHandler({ works: [], files: 0, blocked: 0 }),
 ];
+// A Work no search has queued, run or held a wait for.
+const nothingSearched = getGetWorkSearchingMockHandler({
+  groups: [],
+  waits: [],
+  stops: [],
+  lead: { groupKey: null, of: 0, wait: null },
+});
 const resyncStream = sse<LiveMap>("*/api/v1/events", ({ client }) => {
   client.send({ event: "live.resync", data: {} });
 });
@@ -109,6 +117,7 @@ export const baseHandlers: RequestHandler[] = [
   noTaskRunning,
   emptyLibrary,
   noFiles,
+  nothingSearched,
   ...noRenames,
   ...quietHealth,
   ...tagMocks,

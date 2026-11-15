@@ -10,17 +10,27 @@ import { CellFacts } from "./cell-facts";
 import { type CellView, type MatrixShown, cellScope, fileOf } from "./matrix-model";
 
 /** Search while the cell is wanted, and Manual search; on phone, one menu with both. */
-function CellActions({ cell, name, workId }: { cell: FilesCell; name: string; workId: string }) {
+type WorkRef = { readonly id: string; readonly label: string };
+
+function useCellSearch(work: WorkRef, cell: FilesCell) {
   const search = useStartSearch();
-  const startSearch = () => {
-    search.start(workId, { levelIds: [], itemIds: [cell.itemId] });
+  return {
+    busy: search.isPending,
+    start: () => {
+      search.start(work.id, { name: work.label }, { levelIds: [], itemIds: [cell.itemId] });
+    },
   };
+}
+
+function CellActions({ cell, name, work }: { cell: FilesCell; name: string; work: WorkRef }) {
+  const workId = work.id;
+  const { busy, start: startSearch } = useCellSearch(work, cell);
   const searchButton = (onClick?: () => void) => (
     <Button
       size="small"
       look="ghost"
       aria-label={`Search for ${name}`}
-      busy={search.isPending}
+      busy={busy}
       {...(onClick && { onClick })}
     >
       Search
@@ -78,8 +88,8 @@ export function CellBlock({
         <StateChip state={cell.state} />
         {file !== null && <CellDetails view={view} cell={cell} file={file} shown={shown} />}
       </span>
-      <CellFacts cell={cell} grabs={shown.grabs} />
-      <CellActions cell={cell} name={`${view.target.name}, ${row}`} workId={shown.work.id} />
+      <CellFacts cell={cell} grabs={shown.grabs} workId={shown.work.id} />
+      <CellActions cell={cell} name={`${view.target.name}, ${row}`} work={shown.work} />
     </div>
   );
 }

@@ -24,7 +24,7 @@ const Items = z.object({ items: z.array(z.object({ id: z.string(), label: z.stri
 
 const notifications = (page: Page) => page.getByRole("region", { name: "Notifications" });
 const grabbed = (page: Page) =>
-  page.getByRole("list", { name: "Searches" }).getByText("Grabbed a Release");
+  page.getByRole("list", { name: "Searches" }).getByText("Grabbed 1 Release");
 
 /** The titles of the episodes that hold a library file. */
 async function filed(world: World, workId: string): Promise<string[]> {

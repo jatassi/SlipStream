@@ -220,3 +220,34 @@ export function searchingServer(initial: GrabsWorkSearching = aWorkSearching()) 
     ],
   };
 }
+
+/** The Work's search queue a test moves, answering each press of Search with pressed. */
+export function queueWorld({
+  workId,
+  initial,
+  pressed,
+  send,
+}: {
+  workId: string;
+  initial: GrabsWorkSearching;
+  pressed: GrabsSearchQueued;
+  send: (event: { event: "grabs.queue-changed"; data: { workIds: string[] } }) => void;
+}) {
+  const queue = searchingServer(initial);
+  const searched: string[] = [];
+  return {
+    searched,
+    grabbed: queue.grabbed,
+    handlers: [
+      ...queue.handlers,
+      http.post("*/api/v1/works/:workId/search", ({ params }) => {
+        searched.push(String(params["workId"]));
+        return HttpResponse.json(pressed, { status: 202 });
+      }),
+    ],
+    moves: (next: GrabsWorkSearching) => {
+      queue.set(next);
+      send({ event: "grabs.queue-changed", data: { workIds: [workId] } });
+    },
+  };
+}
