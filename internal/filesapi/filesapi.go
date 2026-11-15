@@ -62,11 +62,15 @@ func (cell) Variants() (discriminator string, variants []any) {
 
 // CellBase is exported so the document carries the fields each cell embeds.
 type CellBase struct {
-	ItemID     string `json:"itemId" format:"uuid"`
-	Edition    string `json:"edition" doc:"any under any cut, else the key of the cut the cell wants"`
-	TargetID   string `json:"targetId" format:"uuid"`
-	TargetName string `json:"targetName"`
-	Wanted     bool   `json:"wanted" doc:"Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released"`
+	ItemID     string     `json:"itemId" format:"uuid"`
+	Edition    string     `json:"edition" doc:"any under any cut, else the key of the cut the cell wants"`
+	TargetID   string     `json:"targetId" format:"uuid"`
+	TargetName string     `json:"targetName"`
+	Wanted     bool       `json:"wanted" doc:"Missing, failed or upgradable with no Grab in flight, and its Item monitored, listed and released"`
+	Gone       bool       `json:"gone" doc:"No file fills it, and a library file that would is gone from its root. Only a search an Admin starts searches it"`
+	Stopped    bool       `json:"stopped" doc:"Failed Grabs stopped SlipStream searching it again at once. Backlog search still searches it"`
+	WaitUntil  *time.Time `json:"waitUntil" doc:"When SlipStream grabs the best Release found for it, unless a better one arrives; null while it waits for none"`
+	Candidates int        `json:"candidates" minimum:"0" doc:"The Releases its wait holds; 0 while it waits for none"`
 }
 
 type unreleasedCell struct {
@@ -124,7 +128,13 @@ type metCell struct {
 }
 
 func variantOf(c files.Cell) api.OneOf[cell] {
-	base := CellBase{ItemID: c.Item.ID.String(), Edition: string(c.Edition), TargetID: c.Target.ID.String(), TargetName: c.Target.Name, Wanted: c.Wanted()}
+	base := CellBase{
+		ItemID: c.Item.ID.String(), Edition: string(c.Edition), TargetID: c.Target.ID.String(), TargetName: c.Target.Name, Wanted: c.Wanted(),
+		Gone: c.Gone, Stopped: c.Search.Stopped, Candidates: c.Search.Candidates,
+	}
+	if !c.Search.WaitUntil.IsZero() {
+		base.WaitUntil = new(c.Search.WaitUntil)
+	}
 	state := c.State.String()
 	switch c.State {
 	case files.Unreleased:

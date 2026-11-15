@@ -135,7 +135,7 @@ func TestANativeIndexerIsAddedFromItsPortAndShownWithIt(t *testing.T) {
 			`"status":{"state":"ok","cause":null,"text":null,"until":null,"since":null,"nodeId":null,"solverTried":false,"rung":0,"lastFailure":null,"successAt":"T"},`+
 			`"sentence":"Lantern is working.","fix":null,"signsIn":false,"trackerIds":["id3"],"waits":null,"session":null,"feedHost":null,"definition":null,`+
 			`"port":{"id":"lantern","name":"Lantern","synced":"T","baseAddress":"https://lantern.test/","values":{"codecs":"1,5"},"sealed":["passkey"]},`+
-			`"searchModes":[{"mode":"search","params":["q"]}],"notes":[],"revision":1,"createdAt":"T"}`)
+			`"searchModes":[{"mode":"search","params":["q"]}],"notes":[],"rssFetch":null,"revision":1,"createdAt":"T"}`)
 	if j := s.native.last(); j.Port != "lantern" || j.Settings["passkey"] != "pk1" {
 		t.Errorf("the Test ran %+v", j)
 	}

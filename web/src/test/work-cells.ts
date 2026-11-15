@@ -10,7 +10,10 @@ export const awayGrab: GrabsGrab = { ...downloading, nodeId: seedboxId };
 
 const hd = starter.id;
 const uhd = keeper.id;
-const base = { itemId: orchardItemId, edition: "any" } as const;
+/** A cell's search facts while nothing searches it. */
+export const unsearched = { gone: false, stopped: false, waitUntil: null, candidates: 0 } as const;
+
+const base = { itemId: orchardItemId, edition: "any", ...unsearched } as const;
 const unheld = { ...base, held: null } as const;
 
 export const missing: FilesCellList = {

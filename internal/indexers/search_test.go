@@ -41,6 +41,8 @@ type planned struct {
 	repointed [][2]indexers.TrackerID
 	// rssEvery is RSS sync's cadence, zero while it is off.
 	rssEvery time.Duration
+	// rssChanged is each indexers.rss-changed published.
+	rssChanged *heard[indexers.RSSChanged]
 }
 
 var self = role.NodeID{UUID: storage.NewUUID()}
@@ -55,7 +57,7 @@ func plannedIn(t *testing.T, roster indexerstest.Roster, home role.NodeID, names
 	t.Helper()
 	sealer := secrettest.Sealer(t)
 	lib := storagetest.Library(t, secret.Schema(), nodes.Schema(), works.Schema(), indexers.Schema())
-	p := &planned{t: t, lib: lib, node: &indexerstest.Node{}, ids: map[string]indexers.ID{}}
+	p := &planned{t: t, lib: lib, node: &indexerstest.Node{}, ids: map[string]indexers.ID{}, rssChanged: &heard[indexers.RSSChanged]{}}
 	err := lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		for _, n := range roster.Holders {
 			if err := nodestest.Insert(ctx, tx, n, roster.Name(n)); err != nil {
@@ -88,6 +90,7 @@ func plannedIn(t *testing.T, roster indexerstest.Roster, home role.NodeID, names
 		Types:     map[works.TypeID]indexers.Facet{indexerstest.Type: indexerstest.Facet{}, contenttypetest.ID: fx},
 		Works:     w,
 		Changed:   discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
+		RSSChanged: p.rssChanged,
 		Repoints: []indexers.Repoint{func(_ context.Context, _ *storage.Tx[storage.Library], from, into indexers.TrackerID) error {
 			p.repointed = append(p.repointed, [2]indexers.TrackerID{from, into})
 			return nil

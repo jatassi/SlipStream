@@ -40,7 +40,7 @@ func (j job) answer(a searching.Answer) answer {
 		session: a.Session, releases: len(a.Releases),
 	}
 	if a.Report != nil && a.Outcome == nil {
-		out.caps = &Caps{Modes: a.Report.Capabilities.Modes, Categories: CategoriesOf(a.Report.Capabilities.Categories)}
+		out.caps = &Caps{Modes: a.Report.Capabilities.Modes, Categories: CategoriesOf(a.Report.Capabilities.Categories), RecentPaging: a.Report.Capabilities.RecentPaging}
 	}
 	return out
 }

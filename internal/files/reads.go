@@ -8,6 +8,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files/internal/db"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -18,6 +19,9 @@ import (
 func Open(ctx context.Context, cfg Config) (*Files, error) {
 	if cfg.MediaServers == nil {
 		cfg.MediaServers = NoMediaServers{}
+	}
+	if cfg.Queue == nil {
+		cfg.Queue = searches.None{}
 	}
 	f := &Files{cfg: cfg, poke: make(chan struct{}, 1)}
 	if err := f.catchUpReads(ctx); err != nil {

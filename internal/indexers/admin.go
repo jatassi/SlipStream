@@ -454,7 +454,7 @@ func reportOf(r *searching.Report) Report {
 	if r == nil {
 		return Report{}
 	}
-	return Report{Caps: Caps{Modes: r.Capabilities.Modes, Categories: CategoriesOf(r.Capabilities.Categories)}, Items: r.Items, Sources: r.Sources}
+	return Report{Caps: Caps{Modes: r.Capabilities.Modes, Categories: CategoriesOf(r.Capabilities.Categories), RecentPaging: r.Capabilities.RecentPaging}, Items: r.Items, Sources: r.Sources}
 }
 
 // Delete removes Indexer id with its status, sessions and query rows in
@@ -537,6 +537,8 @@ type View struct {
 	// Sealed is the names of a catalog or native Indexer's sealed settings
 	// that hold a value, in order.
 	Sealed []string
+	// Feed is its last RSS fetch, nil before its first.
+	Feed *FeedFact
 }
 
 // List is every Indexer by name, viewed.
@@ -593,6 +595,10 @@ func (x *Indexers) views(ctx context.Context, r storage.Reader[file], all []Inde
 	if err != nil {
 		return nil, err
 	}
+	feeds, err := feedFacts(ctx, r)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]View, len(all))
 	for i, idx := range all {
 		st, ok := byID[idx.ID]
@@ -602,6 +608,9 @@ func (x *Indexers) views(ctx context.Context, r storage.Reader[file], all []Inde
 		v := View{Indexer: idx, Status: st, Usage: usage(idx, reserved, now)}
 		if s, ok := sessions[idx.ID]; ok {
 			v.Session = &s
+		}
+		if f, ok := feeds[idx.ID]; ok {
+			v.Feed = &f
 		}
 		_, v.Waits = gate(idx, st, v.Usage, x.cfg.Roster, UseSearch, now)
 		v.SignsIn, v.Trackers = holdsSession(idx), reach.trackers[idx.ID]

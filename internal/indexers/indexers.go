@@ -299,6 +299,11 @@ type TrackerChanged struct {
 	TrackerID string `json:"trackerId" format:"uuid"`
 }
 
+// RSSChanged is a feed whose RSS position or gap changed.
+type RSSChanged struct {
+	IndexerID string `json:"indexerId" format:"uuid"`
+}
+
 // SettingsChanged tells Admins that the Indexer settings changed.
 type SettingsChanged struct{}
 
@@ -312,6 +317,7 @@ var (
 	CatalogChangedEvent  = live.AdminEvent[CatalogChanged]("indexers.catalog-changed")
 	SettingsChangedEvent = live.AdminEvent[SettingsChanged]("indexers.settings-changed")
 	TrackersEvent        = live.AdminEvent[TrackerChanged]("trackers.changed")
+	RSSChangedEvent      = live.AdminEvent[RSSChanged]("indexers.rss-changed")
 )
 
 type Publisher[T any] interface {
@@ -378,6 +384,8 @@ type Config struct {
 	Catalogs Publisher[CatalogChanged]
 	Trackers Publisher[TrackerChanged]
 	Settings Publisher[SettingsChanged]
+	// RSSChanged is told of each feed whose position or gap Saw wrote.
+	RSSChanged Publisher[RSSChanged]
 	// Repoints move the rows naming a Tracker when it merges into another.
 	Repoints []Repoint
 	// HTTP reaches the Indexer catalog from the Controller.

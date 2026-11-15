@@ -10,3 +10,6 @@ ON CONFLICT (indexer_id) DO UPDATE SET last_guids = excluded.last_guids, last_pu
 
 -- name: ListRSSPages :many
 SELECT indexer_id, last_pages FROM indexers_rss ORDER BY indexer_id;
+
+-- name: ListRSS :many
+SELECT * FROM indexers_rss ORDER BY indexer_id;

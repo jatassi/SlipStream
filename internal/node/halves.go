@@ -357,17 +357,18 @@ func (n *Node) startController(ctx context.Context) error {
 		Searching: func(node role.NodeID) searching.Remote {
 			return searching.RemoteOf(searchv1connect.SearchingService.On(cluster, node))
 		},
-		Ports:     n.ports,
-		Types:     contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
-		Works:     tree,
-		Changed:   indexers.ChangedEvent.Bind(n.hub),
-		Status:    indexers.StatusChangedEvent.Bind(n.hub),
-		Catalogs:  indexers.CatalogChangedEvent.Bind(n.hub),
-		Trackers:  indexers.TrackersEvent.Bind(n.hub),
-		Settings:  indexers.SettingsChangedEvent.Bind(n.hub),
-		Repoints:  []indexers.Repoint{grabs.RepointTracker, downloadclients.RepointTracker, trackers.RepointTracker},
-		HTTP:      client,
-		Endpoints: n.cfg.Endpoints.Indexers,
+		Ports:      n.ports,
+		Types:      contenttype.Project(opened, func(t contenttype.Library) indexers.Facet { return t }),
+		Works:      tree,
+		Changed:    indexers.ChangedEvent.Bind(n.hub),
+		Status:     indexers.StatusChangedEvent.Bind(n.hub),
+		Catalogs:   indexers.CatalogChangedEvent.Bind(n.hub),
+		Trackers:   indexers.TrackersEvent.Bind(n.hub),
+		Settings:   indexers.SettingsChangedEvent.Bind(n.hub),
+		RSSChanged: indexers.RSSChangedEvent.Bind(n.hub),
+		Repoints:   []indexers.Repoint{grabs.RepointTracker, downloadclients.RepointTracker, trackers.RepointTracker},
+		HTTP:       client,
+		Endpoints:  n.cfg.Endpoints.Indexers,
 		CatalogNext: func(ctx context.Context) (time.Time, error) {
 			return scheduler.Next(ctx, indexers.CatalogRefreshTaskID)
 		},
@@ -418,7 +419,9 @@ func (n *Node) startController(ctx context.Context) error {
 		Library: lib.db, Facets: contenttype.Project(opened, func(t contenttype.Library) naming.Facet { return t }),
 		Describe: tree.Describe, Budget: roots.SmallestBudget, Changed: naming.ChangedEvent.Bind(n.hub),
 	})
+	var searchQueue searches.Queue = searches.None{}
 	shelf, err := files.Open(ctx, files.Config{
+		Queue:   searchQueue,
 		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn, MediaServers: servers,
 		Naming:  names,
 		Names:   contenttype.Project(opened, func(t contenttype.Library) release.Names { return t }),

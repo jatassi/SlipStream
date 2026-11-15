@@ -58,7 +58,7 @@ export interface WorksLibraryRow {
   /** How many of the Items its source still lists are monitored */
   monitored: WorksLibraryRowMonitored;
   /**
-   * The entries of its Needs you
+   * The entries of its Needs you, leaving out not_found ones, which show on the Work page only
    * @minimum 0
    */
   needsYou: number;

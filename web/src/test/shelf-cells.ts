@@ -9,6 +9,7 @@ import type {
   WorksWorkView,
 } from "../api/gen/model";
 import { starter } from "./targets";
+import { unsearched } from "./work-cells";
 
 const counted = (item: WorksItem) => item.monitored && item.withdrawnAt === null;
 
@@ -19,6 +20,7 @@ function cellOf(item: WorksItem, state: FilesState, edition: string): FilesCell 
     targetId: starter.id,
     targetName: starter.name,
     wanted: counted(item) && (state === "missing" || state === "failed" || state === "upgradable"),
+    ...unsearched,
   };
   if (state === "met" || state === "upgradable") {
     const file: FilesLibraryFile = {

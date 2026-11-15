@@ -113,12 +113,12 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 	file := `"file":{"id":"` + placed.ID.String() + `","path":"The Attic/The Attic - 1080p.mkv","size":4096,"quality":"webdl-1080p","probe":{"width":1920,"height":1080}}`
 	scarf, mittens := tree.Items[0].ID.String(), tree.Items[1].ID.String()
 	want := `{"cells":[` +
-		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":true,"state":"upgradable",` + file + `},` +
-		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"state":"missing"},` +
-		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"state":"met",` + file + `,"held":null},` +
-		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"unreleased"},` +
-		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":false,"state":"unreleased"},` +
-		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"state":"unreleased"}],` +
+		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":true,"gone":false,"stopped":false,"waitUntil":null,"candidates":0,"state":"upgradable",` + file + `},` +
+		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"gone":false,"stopped":false,"waitUntil":null,"candidates":0,"state":"missing"},` +
+		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"gone":false,"stopped":false,"waitUntil":null,"candidates":0,"state":"met",` + file + `,"held":null},` +
+		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"gone":false,"stopped":false,"waitUntil":null,"candidates":0,"state":"unreleased"},` +
+		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":false,"gone":false,"stopped":false,"waitUntil":null,"candidates":0,"state":"unreleased"},` +
+		`{"itemId":"` + mittens + `","edition":"any","targetId":"` + small.ID.String() + `","targetName":"Small","wanted":false,"gone":false,"stopped":false,"waitUntil":null,"candidates":0,"state":"unreleased"}],` +
 		`"items":[{"itemId":"` + scarf + `","status":"missing","released":true},{"itemId":"` + mittens + `","status":"unreleased","released":false}],` +
 		`"summary":{"status":"missing","cells":{"met":1,"missing":1,"unreleased":3,"upgradable":1},"items":2,"itemStatus":{"missing":1,"unreleased":1}},` +
 		`"levels":[{"levelId":"` + tree.Items[0].LevelID.String() + `","cells":{"met":1,"missing":1,"unreleased":3,"upgradable":1},"items":2,"itemStatus":{"missing":1,"unreleased":1},"withdrawn":{}}],` +
@@ -138,8 +138,8 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 		State: files.GrabInFlight, Grab: full, Waiting: "no_space", Hold: &files.ImportHold{Root: held, Free: 12 << 30, Needs: 48 << 30},
 	}
 	code, body = s.Call(t, http.MethodGet, "/api/v1/works/"+tree.ID.String()+"/cells", "")
-	want = `{"itemId":"` + scarf + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"state":"downloading","grabId":"` + upgrade.String() + `",` + file + `,"step":null,"from":null,"until":null},` +
-		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"state":"failed","grabId":"` + failed.String() + `","file":null},`
+	want = `{"itemId":"` + scarf + `","edition":"any","targetId":"` + hd.ID.String() + `","targetName":"HD","wanted":false,"gone":false,"stopped":false,"waitUntil":null,"candidates":0,"state":"downloading","grabId":"` + upgrade.String() + `",` + file + `,"step":null,"from":null,"until":null},` +
+		`{"itemId":"` + scarf + `","edition":"any","targetId":"` + uhd.ID.String() + `","targetName":"2160p","wanted":true,"gone":false,"stopped":false,"waitUntil":null,"candidates":0,"state":"failed","grabId":"` + failed.String() + `","file":null},`
 	if code != http.StatusOK || !strings.Contains(body, want) {
 		t.Fatalf("getWorkCells with an upgrade in flight and a failed Grab = %d\n%s\nwant it to hold\n%s", code, body, want)
 	}
@@ -176,6 +176,10 @@ func TestGetWorkCellsAnswersEachCellAndItsFile(t *testing.T) {
 type grabbing struct {
 	files.NoGrabs
 	cells map[files.CellKey]files.GrabCell
+}
+
+func (grabbing) Searching(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[files.CellKey]files.SearchFact, error) {
+	return nil, nil
 }
 
 func (g grabbing) GrabCells(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {

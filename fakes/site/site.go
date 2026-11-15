@@ -51,7 +51,7 @@ var Fake = fake.Spec{
 		e.Searching.Sites = append(e.Searching.Sites, searching.SiteAddress{Domain: Domain, At: at.AddrPort})
 	},
 	Online:     fake.OnlineSuite("ports"),
-	Cues:       []fake.CueSpec{List, RSSItem, Expire, Maintenance, Refuse, ports.PortCase},
+	Cues:       []fake.CueSpec{List, RSSItem, Expire, Maintenance, Refuse, Feed, ports.PortCase},
 	Captures:   []fake.CaptureSpec{CaptchaShown, SignedIn, Searched},
 	Entered:    indexers,
 	Subdomains: scenario.FixtureSites["native"],
@@ -137,6 +137,7 @@ func newServer(s scenario.Scenario, env fake.Env) (fake.Server, error) {
 		fake.OnCue(env, Expire.Name, site.expire),
 		fake.OnCue(env, Maintenance.Name, site.maintain),
 		fake.OnCue(env, Refuse.Name, site.refuse),
+		fake.OnCue(env, Feed.Name, site.setFeed),
 	} {
 		if cue != nil {
 			return nil, cue
@@ -261,6 +262,8 @@ type site struct {
 	listed    map[string]bool
 	rssListed map[string]bool
 	refusal   int
+	listing   FeedArgs
+	listingAt time.Time
 	// sessions are the catalog sites' sessions, by token.
 	sessions map[string]session
 	// minted counts the tokens and pre-login nonces handed out.
@@ -477,6 +480,10 @@ func (s *site) api(w http.ResponseWriter, r *http.Request) {
 			return rel.TVDB != nil && episodeMatches(*rel.TVDB, q) && matches(rel.Name, q.Get("q"))
 		})
 	case "search":
+		if q.Get("q") == "" {
+			s.recent(w, r)
+			return
+		}
 		s.feed(w, r, func(rel Release) bool { return matches(rel.Name, q.Get("q")) })
 	case "movie":
 		tmdb, imdb := q.Get("tmdbid"), q.Get("imdbid")
@@ -581,14 +588,8 @@ func capsOf(label string) string {
 // feed lists the releases keep keeps in the window the request asks for.
 // An extended request gets every attribute.
 func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) bool) {
-	origin := originOf(r)
 	win := windowOf(r.URL.Query())
-	extended := r.URL.Query().Get("extended") == "1"
 	label := labelOf(r)
-	var source string
-	if label == Prowlarr {
-		source = `      <prowlarrindexer id="1" type="private">` + Source + "</prowlarrindexer>\n"
-	}
 	var listed []Release
 	for _, rel := range s.releases {
 		if win.asks(rel) && keep(rel) && s.shown(label, rel) {
@@ -596,7 +597,19 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
 		}
 	}
 	listed = listed[min(win.offset, len(listed)):]
-	listed = listed[:min(win.limit, len(listed))]
+	s.write(w, r, listed[:min(win.limit, len(listed))], feedListing{})
+}
+
+// write writes listed as a Torznab feed, its GUIDs and dates as l plays
+// them.
+func (s *site) write(w http.ResponseWriter, r *http.Request, listed []Release, l feedListing) {
+	origin := originOf(r)
+	extended := r.URL.Query().Get("extended") == "1"
+	label := labelOf(r)
+	var source string
+	if label == Prowlarr {
+		source = `      <prowlarrindexer id="1" type="private">` + Source + "</prowlarrindexer>\n"
+	}
 	var b bytes.Buffer
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:torznab="http://torznab.com/schemas/2015/feed">
@@ -626,7 +639,7 @@ func (s *site) feed(w http.ResponseWriter, r *http.Request, keep func(Release) b
       <torznab:attr name="seeders" value="%d" />
       <torznab:attr name="infohash" value="%s" />
 %s%s%s%s    </item>
-`, esc(rel.Name), esc(link), rel.Size, esc(link), esc(link), rel.Size, rel.Seeders, rel.InfoHash, idAttrs(rel), magnetAttr, s.extendedAttrs(label, rel, origin, extended), source)
+`, esc(rel.Name), esc(l.guid(link)), rel.Size, esc(link), esc(link), rel.Size, rel.Seeders, rel.InfoHash, idAttrs(rel), magnetAttr, s.extendedAttrs(label, l.dated(rel), origin, extended), source)
 	}
 	b.WriteString("  </channel>\n</rss>\n")
 	reply(w, b.String())
