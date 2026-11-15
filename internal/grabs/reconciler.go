@@ -57,24 +57,7 @@ func (gr *Grabs) Run(ctx context.Context) error {
 		}
 		now := time.Now()
 		if err == nil {
-			s.keep(searches, grabs, q.lines...)
-			for _, l := range q.lines {
-				gr.start(ctx, &s, now, l.line.Query.UUID, done, func() result { return gr.ask(ctx, l) })
-			}
-			for _, run := range q.ready {
-				gr.start(ctx, &s, now, run.ID.UUID, done, func() result { return gr.settle(ctx, run) })
-			}
-			for _, run := range searches {
-				if !run.Manual.IsZero() {
-					gr.start(ctx, &s, now, run.ID.UUID, done, func() result { return gr.listen(ctx, run) })
-				}
-			}
-			for _, g := range grabs {
-				if g.due() {
-					gr.start(ctx, &s, now, g.ID.UUID, done, func() result { return gr.step(ctx, g) })
-				}
-			}
-			gr.publishProgress(ctx, &s, now, grabs)
+			gr.startDue(ctx, &s, now, done, searches, grabs, q)
 		} else if ctx.Err() == nil {
 			gr.cfg.Log.Error("read, settle or dispatch the open runs and Grabs", "err", err.Error())
 		}
@@ -95,6 +78,30 @@ func (gr *Grabs) Run(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// startDue starts every job due now: each line in flight asks, each
+// queue run whose lines all answered decides, each Manual run listens and
+// each unfinished Grab runs its step.
+func (gr *Grabs) startDue(ctx context.Context, s *schedule, now time.Time, done chan<- report, searches []Search, grabs []Grab, q queueJobs) {
+	s.keep(searches, grabs, q.lines...)
+	for _, l := range q.lines {
+		gr.start(ctx, s, now, l.line.Query.UUID, done, func() result { return gr.ask(ctx, l) })
+	}
+	for _, run := range q.ready {
+		gr.start(ctx, s, now, run.ID.UUID, done, func() result { return gr.settle(ctx, run) })
+	}
+	for _, run := range searches {
+		if !run.Manual.IsZero() {
+			gr.start(ctx, s, now, run.ID.UUID, done, func() result { return gr.listen(ctx, run) })
+		}
+	}
+	for _, g := range grabs {
+		if g.due() {
+			gr.start(ctx, s, now, g.ID.UUID, done, func() result { return gr.step(ctx, g) })
+		}
+	}
+	gr.publishProgress(ctx, s, now, grabs)
 }
 
 // queueJobs is the search queue's work for a pass: every line in flight,

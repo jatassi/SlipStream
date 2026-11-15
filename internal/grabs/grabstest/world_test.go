@@ -24,6 +24,7 @@ func TestARestartKeepsWhatTheQueueHolds(t *testing.T) {
 		w := grabstest.New(t, grabstest.Options{
 			Sites: []string{"Quick Site"}, Remote: node,
 			Grabs: grabs.DefaultTimings(), Indexers: indexers.DefaultTimings(), Formats: formats.DefaultTimings(),
+			JobCap: searching.DefaultTimings().JobCap,
 		})
 		node.Answer(w.Sites["Quick Site"], 5*time.Second, searching.Answer{})
 		if _, err := w.Grabs.SearchWork(t.Context(), identity.Admin{}, w.Work, grabs.Scope{}); err != nil {

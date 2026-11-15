@@ -74,6 +74,8 @@ type Options struct {
 	Grabs    grabs.Timings
 	Indexers indexers.Timings
 	Formats  formats.Timings
+	// JobCap is searching's: the longest a search query counts in flight.
+	JobCap time.Duration
 }
 
 // Level is one level of The Attic and its Items' labels.
@@ -199,13 +201,15 @@ func New(t testing.TB, o Options) *World {
 	}
 	var rss func(context.Context, storage.Reader[storage.Library]) (time.Duration, bool, error)
 	if o.RSSEvery > 0 {
-		rss = func(context.Context, storage.Reader[storage.Library]) (time.Duration, bool, error) { return o.RSSEvery, true, nil }
+		rss = func(context.Context, storage.Reader[storage.Library]) (time.Duration, bool, error) {
+			return o.RSSEvery, true, nil
+		}
 	}
 	w.Indexers = indexers.New(indexers.Config{
 		Library: lib, Sealer: sealer, Roster: indexerstest.Alone(home), Searching: func(role.NodeID) searching.Remote { return remote }, RSS: rss,
 		Types: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Works: tree,
 		Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
-		Timings: o.Indexers, Log: slog.New(slog.DiscardHandler),
+		Timings: o.Indexers, JobCap: o.JobCap, Log: slog.New(slog.DiscardHandler),
 	})
 	write(t, lib, func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
 		if err := nodestest.Insert(ctx, tx, home, "home"); err != nil {
@@ -335,6 +339,18 @@ type Line struct {
 	Indexer string
 	Item    works.ItemID
 	State   string
+}
+
+// DueAt is when Backlog search next queues the World's group.
+func (w *World) DueAt(t testing.TB, group indexers.GroupKey) time.Time {
+	t.Helper()
+	var at time.Time
+	must(t, w.Lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		row, err := db.New(r).GetDue(ctx, db.GetDueParams{WorkID: w.Work, GroupKey: group})
+		at = row.DueAt.Time()
+		return err
+	}))
+	return at
 }
 
 // Queue reads what the queue holds now.

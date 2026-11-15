@@ -43,9 +43,32 @@ func (gr *Grabs) settle(ctx context.Context, run Search) result {
 	if err != nil {
 		return gr.searchWaits(ctx, run, err)
 	}
-	as := assessAll(j, dedupe(listedOf(h.releases)))
+	grab, err := gr.decideRun(ctx, run, h, assessAll(j, dedupe(listedOf(h.releases))))
+	switch {
+	case errors.Is(err, errRunGone):
+		return committed
+	case errors.Is(err, ErrReconciling):
+		return waited
+	case err != nil:
+		return gr.searchWaits(ctx, run, err)
+	}
+	gr.cfg.SearchChanged.Publish(ctx, SearchChanged{SearchID: run.ID.String(), WorkID: run.WorkID.String()})
+	gr.cfg.QueueChanged.Publish(ctx, QueueChanged{WorkIDs: []string{run.WorkID.String()}})
+	if grab != nil {
+		gr.cfg.Indexers.Taken(ctx, grab.Ticket)
+		gr.cfg.Changed.Publish(ctx, Changed{GrabID: grab.ID.String(), WorkID: grab.WorkID.String()})
+	}
+	gr.wake()
+	return committed
+}
+
+// decideRun is run's one fenced deciding Write over as, what h heard
+// assessed: the decision, every Release with its outcome, and the run's
+// finish. It answers the Grab it took, and errRunGone once run is gone or
+// finished.
+func (gr *Grabs) decideRun(ctx context.Context, run Search, h heardRun, as []assessed) (*Grab, error) {
 	var grab *Grab
-	err = gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		if err := gr.fence(ctx, tx); err != nil {
 			return err
 		}
@@ -70,22 +93,7 @@ func (gr *Grabs) settle(ctx context.Context, run Search) result {
 		grab = d.grab
 		return finishRun(ctx, q, run, d, finishedAs(d, h))
 	})
-	switch {
-	case errors.Is(err, errRunGone):
-		return committed
-	case errors.Is(err, ErrReconciling):
-		return waited
-	case err != nil:
-		return gr.searchWaits(ctx, run, err)
-	}
-	gr.cfg.SearchChanged.Publish(ctx, SearchChanged{SearchID: run.ID.String(), WorkID: run.WorkID.String()})
-	gr.cfg.QueueChanged.Publish(ctx, QueueChanged{WorkIDs: []string{run.WorkID.String()}})
-	if grab != nil {
-		gr.cfg.Indexers.Taken(ctx, grab.Ticket)
-		gr.cfg.Changed.Publish(ctx, Changed{GrabID: grab.ID.String(), WorkID: grab.WorkID.String()})
-	}
-	gr.wake()
-	return committed
+	return grab, err
 }
 
 // linesHeard is what run's lines heard, read in r.

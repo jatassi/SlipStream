@@ -43,7 +43,7 @@ type pass struct {
 	changed map[works.WorkID]bool
 	// runs is the runs the pass started or refused, by Work.
 	runs map[SearchID]works.WorkID
-	wake    time.Time
+	wake time.Time
 }
 
 // dispatch is one fenced Write. It sends each Indexer's planned lines
@@ -114,17 +114,15 @@ func (gr *Grabs) send(ctx context.Context, p *pass) error {
 
 // sendOn walks Indexer id's FIFO: each line Reserve takes is sent with its
 // durable deadline, each it skips settles with its outcome, and the first
-// that waits holds the lines behind it. A line of an Indexer the Admin
-// turned off, or whose Automatic search is off, leaves its run, as
-// planning would leave it out now.
+// that waits holds the lines behind it. A line of an Indexer deleted,
+// turned off or with Automatic search off leaves its run, as planning
+// would leave it out now.
 func (gr *Grabs) sendOn(ctx context.Context, p *pass, id indexers.ID) error {
-	off := false
-	switch idx, err := indexers.Get(ctx, p.tx, id); {
-	case err == nil:
-		off = !idx.On || !idx.AutoSearch
-	case !errors.Is(err, indexers.ErrNoIndexer):
+	idx, err := indexers.Get(ctx, p.tx, id)
+	if err != nil && !errors.Is(err, indexers.ErrNoIndexer) {
 		return err
 	}
+	off := err != nil || !idx.On || !idx.AutoSearch
 	lines, err := p.q.ListPendingLines(ctx, id)
 	if err != nil {
 		return err
@@ -137,35 +135,46 @@ func (gr *Grabs) sendOn(ctx context.Context, p *pass, id indexers.ID) error {
 			p.changed[l.WorkID] = true
 			continue
 		}
-		typ, err := p.typeOf(ctx, l.WorkID)
-		if err != nil {
+		held, err := gr.sendLine(ctx, p, id, l)
+		if err != nil || held {
 			return err
 		}
-		query, err := gr.cfg.Indexers.Reserve(ctx, p.tx, id, typ, claimOf(laneOf(l.Lane)))
-		var skip *indexers.WaitError
-		var room *indexers.RoomError
-		switch {
-		case err == nil:
-			_, err = p.q.DispatchLine(ctx, db.DispatchLineParams{
-				QueryID: query, DispatchedAt: p.now, DeadlineAt: storage.FromTime(p.now.Time().Add(p.wait)),
-				SearchID: l.SearchID, Position: l.Position,
-			})
-		case errors.As(err, &skip):
-			a := outcomeRow(skip.Outcome)
-			a.SearchID, a.Position = l.SearchID, l.Position
-			_, err = p.q.AnswerSearchIndexer(ctx, a)
-		case errors.As(err, &room):
-			if !room.Until.IsZero() && (p.wake.IsZero() || room.Until.Before(p.wake)) {
-				p.wake = room.Until
-			}
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		p.changed[l.WorkID] = true
 	}
 	return nil
+}
+
+// sendLine reserves Indexer id's room for l and sends it, or settles it
+// with the outcome Reserve skips it with. It reports whether l waits for
+// room, holding the lines behind it.
+func (gr *Grabs) sendLine(ctx context.Context, p *pass, id indexers.ID, l db.ListPendingLinesRow) (bool, error) {
+	typ, err := p.typeOf(ctx, l.WorkID)
+	if err != nil {
+		return false, err
+	}
+	query, err := gr.cfg.Indexers.Reserve(ctx, p.tx, id, typ, claimOf(laneOf(l.Lane)))
+	var skip *indexers.WaitError
+	var room *indexers.RoomError
+	switch {
+	case err == nil:
+		_, err = p.q.DispatchLine(ctx, db.DispatchLineParams{
+			QueryID: query, DispatchedAt: p.now, DeadlineAt: storage.FromTime(p.now.Time().Add(p.wait)),
+			SearchID: l.SearchID, Position: l.Position,
+		})
+	case errors.As(err, &skip):
+		a := outcomeRow(skip.Outcome)
+		a.SearchID, a.Position = l.SearchID, l.Position
+		_, err = p.q.AnswerSearchIndexer(ctx, a)
+	case errors.As(err, &room):
+		if !room.Until.IsZero() && (p.wake.IsZero() || room.Until.Before(p.wake)) {
+			p.wake = room.Until
+		}
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	p.changed[l.WorkID] = true
+	return false, nil
 }
 
 // claimOf is whose claim a line of lane is.
@@ -196,30 +205,35 @@ func (gr *Grabs) startRuns(ctx context.Context, p *pass) (int, error) {
 			return 0, err
 		}
 		for _, row := range rows {
-			typ, err := p.typeOf(ctx, row.WorkID)
+			ok, err := gr.tryStart(ctx, p, row, lane)
 			if err != nil {
 				return 0, err
 			}
-			lines, err := p.linesOf(ctx, gr.cfg.Indexers, typ)
-			if err != nil {
-				return 0, err
+			if ok {
+				started++
 			}
-			if ok, err := p.starts(ctx, lines, lane.Press()); err != nil || !ok {
-				if err != nil {
-					return 0, err
-				}
-				continue
-			}
-			if err := gr.startRun(ctx, p, row, lines); err != nil {
-				return 0, err
-			}
-			started++
 		}
 		if started == most {
 			break
 		}
 	}
 	return started, nil
+}
+
+// tryStart starts row, queued in lane, when its run may start now.
+func (gr *Grabs) tryStart(ctx context.Context, p *pass, row db.GrabsDue, lane pace.Lane) (bool, error) {
+	typ, err := p.typeOf(ctx, row.WorkID)
+	if err != nil {
+		return false, err
+	}
+	lines, err := p.linesOf(ctx, gr.cfg.Indexers, typ)
+	if err != nil {
+		return false, err
+	}
+	if ok, err := p.starts(ctx, lines, lane.Press()); err != nil || !ok {
+		return false, err
+	}
+	return true, gr.startRun(ctx, p, row, lines)
 }
 
 // starts reports whether a run asking lines may start: every Indexer it
