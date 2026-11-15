@@ -254,7 +254,7 @@ var errLeft = errors.New("the Grab left the stage")
 // deleted went with it, so its commit commits nothing.
 func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	var params db.AdvanceParams
-	var taken *Grab
+	var taken []Grab
 	var reran *Search
 	var re *redo
 	if _, drop := o.(dropped); drop && g.Stage == Fetching {
@@ -290,9 +290,9 @@ func (gr *Grabs) commit(ctx context.Context, g Grab, o outcome) error {
 	if reran != nil {
 		gr.cfg.SearchChanged.Publish(ctx, SearchChanged{SearchID: reran.ID.String(), WorkID: reran.WorkID.String()})
 	}
-	if taken != nil {
-		gr.cfg.Indexers.Taken(ctx, taken.Ticket)
-		gr.cfg.Changed.Publish(ctx, Changed{GrabID: taken.ID.String(), WorkID: taken.WorkID.String()})
+	for _, t := range taken {
+		gr.cfg.Indexers.Taken(ctx, t.Ticket)
+		gr.cfg.Changed.Publish(ctx, Changed{GrabID: t.ID.String(), WorkID: t.WorkID.String()})
 	}
 	return nil
 }

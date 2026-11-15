@@ -38,14 +38,24 @@ type planIn struct {
 	// pins is the Release, by its index in as, pinned at a cell.
 	pins map[int]int
 	take taker
+	// gone is the positions take takes none of, which a rerun's run
+	// already took. wanted and chosen are as cells has them: an automatic
+	// decision's pack tie-breaks read them, a Manual plan's none.
+	gone   map[int]bool
+	wanted map[works.ItemID]bool
+	chosen takenBy
 }
 
 // planned is one row of a plan: a Grab of as[group], or a gap when group
 // is -1. cells is the cells it fills, first the one that leads it.
+// ticket is what take readied pick with, and fills the Items the
+// fewer-Releases step chose it to fill, 0 when another step did.
 type planned struct {
 	cells  []int
 	group  int
 	pick   Pick
+	ticket indexers.Ticket
+	fills  int
 	stance stance
 	pinned bool
 	// waits is why the Indexers won't take the best Release that stands
@@ -53,81 +63,12 @@ type planned struct {
 	waits *indexers.NotTakenError
 }
 
-// plan walks in.walk. At each cell no earlier row fills, a live pin takes
-// it. Otherwise it calls decide over the cells left and choose over its
-// picks, as finish and take do, and keeps the pick when its first cell is
-// this one. A cell nothing takes is a gap. On a monitored, released Item
-// with no pin at its first cell, the first call's cells are openCells
-// narrowed to the Item, so the first row is automatic search's take. A
-// pin whose Release doesn't stand at its cell, or whose Indexers won't
-// take it, is dropped.
+// plan is Manual search's walk of in: a gap says why the Indexers
+// won't take the best Release standing auto at its cell. On a monitored,
+// released Item with no pin at its first cell, the first row is
+// automatic search's take.
 func plan(in planIn) ([]planned, map[int]int, error) {
-	taken := make([]bool, len(in.item))
-	copy(taken, in.before)
-	live := map[int]int{}
-	var out []planned
-	for _, w := range in.walk {
-		if taken[w] {
-			continue
-		}
-		if g, ok := in.pins[w]; ok {
-			p, ok, err := in.offer(g, w)
-			if err != nil {
-				return nil, nil, err
-			}
-			if ok {
-				r := in.row(w, g, p, taken)
-				r.pinned = true
-				live[w] = g
-				out = append(out, r)
-				continue
-			}
-		}
-		p, g, ok, err := in.next(taken)
-		if err != nil {
-			return nil, nil, err
-		}
-		if ok && g.lead == w {
-			out = append(out, in.row(w, g.group, p, taken))
-			continue
-		}
-		taken[w] = true
-		gap := planned{cells: []int{w}, group: -1}
-		gap.waits, err = in.waitsAt(w)
-		if err != nil {
-			return nil, nil, err
-		}
-		out = append(out, gap)
-	}
-	return out, live, nil
-}
-
-// led is the Release choose picked, by its index in as, and the cell
-// leading what it fills.
-type led struct{ group, lead int }
-
-// next is what decide and choose pick over the walk's cells no row
-// fills yet, and the cell it leads at. It narrows in.js to those cells
-// rather than judging again, which gives the same verdicts.
-func (in planIn) next(taken []bool) (Pick, led, bool, error) {
-	var ks []int
-	var left cells
-	for _, w := range in.walk {
-		if !taken[w] {
-			ks, left.open = append(ks, w), append(left.open, in.item[w])
-		}
-	}
-	js := make([]judged, len(in.js))
-	for g, j := range in.js {
-		js[g] = j.only(ks)
-		js[g].beyond = in.beyond(j, ks, taken)
-	}
-	p, _, ok, err := choose(decided(left, js).picks(left), nil, in.take)
-	if !ok || err != nil {
-		return p, led{}, ok, err
-	}
-	g := groupOf(in.as, p.at)
-	return p, led{group: g, lead: ks[js[g].first]}, true, nil
+	return walk(in, hooks{waits: in.waitsAt})
 }
 
 // beyond is the Items with no file that j is grabbable at among the

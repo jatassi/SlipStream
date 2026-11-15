@@ -169,10 +169,15 @@ func (q *Queries) DeleteSearchGrab(ctx context.Context, arg DeleteSearchGrabPara
 
 const endReleasesOfGrab = `-- name: EndReleasesOfGrab :exec
 UPDATE grabs_release SET release = NULL, link_sealed = NULL
-WHERE search_id IN (SELECT search_id FROM grabs_search_grab WHERE grab_id = ?1)
+WHERE search_id IN (SELECT r.search_id FROM grabs_search_grab r WHERE r.grab_id = ?1)
+AND NOT EXISTS (
+    SELECT 1 FROM grabs_search_grab o JOIN grabs_grab g ON g.id = o.grab_id
+    WHERE o.search_id = grabs_release.search_id AND o.made = 1 AND o.grab_id <> ?1 AND g.stage = 'fetching'
+)
 `
 
-// No rerun follows once a run's Grab leaves fetching other than by a drop.
+// No rerun follows once a run's Grab leaves fetching other than by a drop,
+// unless another Grab the run made still fetches.
 func (q *Queries) EndReleasesOfGrab(ctx context.Context, grabID GrabID) error {
 	_, err := q.db.ExecContext(ctx, endReleasesOfGrab, grabID)
 	return err
@@ -318,14 +323,14 @@ func (q *Queries) GetSearchOfGrab(ctx context.Context, grabID GrabID) (GrabsSear
 
 const insertGrab = `-- name: InsertGrab :exec
 INSERT INTO grabs_grab (id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id,
-    tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id,
+    tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, chosen_fills, fetch_query_id,
     min_ratio, min_seed_seconds, download_factor, upload_factor, stage, created_at, updated_at)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6,
     ?7, ?8, ?9, ?10, ?11,
     ?12,
     ?13, ?14, ?15, ?16,
-    ?17, ?18, ?19, ?20,
-    ?21, ?22, 'fetching', ?23, ?23)
+    ?17, ?18, ?19, ?20, ?21,
+    ?22, ?23, 'fetching', ?24, ?24)
 `
 
 type InsertGrabParams struct {
@@ -346,6 +351,7 @@ type InsertGrabParams struct {
 	ReleaseLinkSealed secret.Sealed
 	ReleaseMagnet     *string
 	ReleaseInfoHash   []byte
+	ChosenFills       *int64
 	FetchQueryID      indexers.QueryID
 	MinRatio          *float64
 	MinSeedSeconds    *int64
@@ -373,6 +379,7 @@ func (q *Queries) InsertGrab(ctx context.Context, arg InsertGrabParams) error {
 		arg.ReleaseLinkSealed,
 		arg.ReleaseMagnet,
 		arg.ReleaseInfoHash,
+		arg.ChosenFills,
 		arg.FetchQueryID,
 		arg.MinRatio,
 		arg.MinSeedSeconds,

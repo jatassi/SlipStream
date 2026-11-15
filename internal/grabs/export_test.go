@@ -5,6 +5,9 @@ import (
 	"slices"
 
 	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs/internal/db"
+	"github.com/jatassi/slipstream/internal/grabs/internal/pace"
+	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -28,4 +31,48 @@ func (gr *Grabs) Enqueue(ctx context.Context, work works.WorkID, t searches.Trig
 	})
 	gr.wake()
 	return err
+}
+
+// DecideRun records a press's run of items of work, as if its lines had
+// listed rs, and decides it in one Write, as a group run whose every line
+// answered does.
+func (gr *Grabs) DecideRun(ctx context.Context, work works.WorkID, items []works.ItemID, rs []indexers.Release) (SearchID, error) {
+	var j judging
+	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		tree, err := gr.cfg.Works.TreeIn(ctx, r, work)
+		if err != nil {
+			return err
+		}
+		expect, err := gr.cfg.Terms[tree.ContentType].Expect(ctx, r, work)
+		if err != nil {
+			return err
+		}
+		j, err = gr.judgingOf(ctx, r, tree.ContentType, work, works.ItemID{}, expect)
+		return err
+	})
+	if err != nil {
+		return SearchID{}, err
+	}
+	as := assessAll(j, dedupe(listedOf(rs)))
+	run := Search{ID: SearchID{UUID: storage.NewUUID()}, WorkID: work, Group: indexers.ItemGroup(items[0]), Trigger: searches.Search, Items: items}
+	err = gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		q := db.New(tx)
+		started := storage.Now()
+		run.Started = started.Time()
+		p := db.InsertSearchParams{
+			ID: run.ID, WorkID: work, GroupKey: &run.Group, Lane: new(int64(pace.Now)), Trigger: new(string(searches.Search)),
+			IncludeGone: true, StartedAt: started,
+		}
+		if err := q.InsertSearch(ctx, p); err != nil {
+			return err
+		}
+		for _, it := range items {
+			if err := q.InsertSearchItem(ctx, db.InsertSearchItemParams{SearchID: run.ID, ItemID: it}); err != nil {
+				return err
+			}
+		}
+		_, err := gr.decided(ctx, tx, run, heardRun{releases: rs, names: map[int]string{}, answered: true}, as)
+		return err
+	})
+	return run.ID, err
 }

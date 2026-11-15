@@ -8,11 +8,11 @@ import (
 )
 
 // finishedAs is how a run that decided d over what h heard ended: grabbed
-// when it took a Grab, no_indexer when no asked Indexer answered,
+// when it made or joined a Grab, no_indexer when no asked Indexer answered,
 // nothing_found when they listed no Release, else nothing_acceptable.
 func finishedAs(d decisionOut, h heardRun) Outcome {
 	switch {
-	case d.grab != nil:
+	case len(d.grabs) > 0:
 		return Grabbed
 	case !h.answered:
 		return NoIndexer
@@ -27,12 +27,12 @@ func finishedAs(d decisionOut, h heardRun) Outcome {
 // next run, and prunes the group's runs the bound lets go.
 func finishRun(ctx context.Context, q *db.Queries, run Search, d decisionOut, outcome Outcome) error {
 	f := db.FinishSearchParams{ID: run.ID, FinishedAt: d.at, Outcome: &outcome, Candidates: int64(d.candidates)}
-	if d.grab != nil {
+	if len(d.grabs) > 0 {
 		notes, err := encodeReasons(d.notes)
 		if err != nil {
 			return err
 		}
-		f.Grabs, f.Notes = 1, &notes
+		f.Grabs, f.Notes = int64(len(d.grabs)), &notes
 	}
 	if err := q.FinishSearch(ctx, f); err != nil {
 		return err

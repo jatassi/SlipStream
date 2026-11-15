@@ -2,8 +2,10 @@ package grabstest
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -59,8 +61,12 @@ type Options struct {
 	// Goals is the Work's Targets in Profile order, HD alone when nil.
 	Goals []targets.Spec
 	// Levels is the Work's levels in tree order, each with its Items: one
-	// level, Winter, holding Scarf when nil. Each level is a search group.
+	// level, Winter, holding Scarf and Season's episodes when nil. Each
+	// level is a search group.
 	Levels []Level
+	// Season is how many Items the default level holds, one when 0: Scarf,
+	// then the episodes E02, E03 and on, which Pack names.
+	Season int
 	// Remote answers the Indexers' jobs, as their Searching Node: the
 	// World's Node when nil.
 	Remote searching.Remote
@@ -155,19 +161,7 @@ func New(t testing.TB, o Options) *World {
 	must(t, err)
 	_, err = wanted.MakeDefault(ctx, identity.Admin{}, profile.ID)
 	must(t, err)
-	levels := o.Levels
-	if levels == nil {
-		levels = []Level{{Label: "Winter", Items: []string{"Scarf"}}}
-	}
-	var boxes []works.Entry
-	for i, l := range levels {
-		box := works.Entry{Key: works.Key("b" + strconv.Itoa(i+1)), Label: l.Label}
-		for j, label := range l.Items {
-			box.Children = append(box.Children, works.Entry{Key: works.Key("c" + strconv.Itoa(i+1) + "." + strconv.Itoa(j+1)), Label: label})
-		}
-		boxes = append(boxes, box)
-	}
-	fx.Put("w1", contenttypetest.Record{Tree: works.Fetched{Label: "The Attic", Children: boxes}})
+	fx.Put("w1", contenttypetest.Record{Tree: works.Fetched{Label: "The Attic", Children: boxesOf(o)}})
 	added, _, err := tree.Add(ctx, identity.Admin{}, contenttypetest.ID, "w1", works.Adding{
 		Monitor: true,
 		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
@@ -179,7 +173,7 @@ func New(t testing.TB, o Options) *World {
 	})
 	must(t, err)
 	w.Work, w.Item, w.Level = added.ID, added.Items[0].ID, added.Items[0].LevelID
-	terms := attic{item: w.Item, level: map[works.ItemID]works.LevelID{}, label: map[works.LevelID]string{}}
+	terms := attic{level: map[works.ItemID]works.LevelID{}, label: map[works.LevelID]string{}}
 	for _, l := range added.Levels {
 		w.Levels = append(w.Levels, l.ID)
 		terms.label[l.ID] = l.Label
@@ -188,6 +182,7 @@ func New(t testing.TB, o Options) *World {
 		w.Items = append(w.Items, it.ID)
 		terms.level[it.ID] = it.LevelID
 	}
+	terms.items = w.Items
 	library, err := roots.Open(ctx, rootstest.Config(t, lib, contenttypetest.ID))
 	must(t, err)
 	r := alone{node: home}
@@ -432,16 +427,50 @@ func deref[T any](p *T) T {
 	return v
 }
 
-// attic is The Attic's search terms: its label, every name covering its
-// first Item, and a search group per level.
+// boxesOf is The Attic's levels as o names them, each with its Items.
+func boxesOf(o Options) []works.Entry {
+	levels := o.Levels
+	if levels == nil {
+		winter := Level{Label: "Winter", Items: []string{"Scarf"}}
+		for i := 2; i <= o.Season; i++ {
+			winter.Items = append(winter.Items, episode(i))
+		}
+		levels = []Level{winter}
+	}
+	var boxes []works.Entry
+	for i, l := range levels {
+		box := works.Entry{Key: works.Key("b" + strconv.Itoa(i+1)), Label: l.Label}
+		for j, label := range l.Items {
+			box.Children = append(box.Children, works.Entry{Key: works.Key("c" + strconv.Itoa(i+1) + "." + strconv.Itoa(j+1)), Label: label})
+		}
+		boxes = append(boxes, box)
+	}
+	return boxes
+}
+
+// attic is The Attic's search terms: its label, the Items a name's mark
+// covers, its first Item for a name with none, and a search group per
+// level.
 type attic struct {
-	item  works.ItemID
+	items []works.ItemID
 	level map[works.ItemID]works.LevelID
 	label map[works.LevelID]string
 }
 
 func (a attic) Expect(context.Context, storage.Reader[storage.Library], works.WorkID) (indexers.Expect, error) {
-	return indexers.Expect{Claim: rel.Claim{Titles: []string{"The Attic"}}, Covers: indexers.CoversOnly(a.item)}, nil
+	covers := func(n rel.Name) []works.ItemID {
+		if len(n.Marks) == 0 {
+			return a.items[:1]
+		}
+		from, to, _ := strings.Cut(n.Marks[0].Key, "-")
+		if to == "" {
+			to = from
+		}
+		first, _ := strconv.Atoi(from[1:])
+		last, _ := strconv.Atoi(to[1:])
+		return a.items[first-1 : min(last, len(a.items))]
+	}
+	return indexers.Expect{Claim: rel.Claim{Titles: []string{"The Attic"}}, Covers: covers}, nil
 }
 
 func (a attic) SearchTerms(ctx context.Context, r storage.Reader[storage.Library], _ works.ItemID) (indexers.Terms, error) {
@@ -470,18 +499,39 @@ func (a attic) GroupTerms(ctx context.Context, r storage.Reader[storage.Library]
 
 func (attic) Categories() []newznab.ID { return newznab.Family(2000) }
 
-// Dated reads a name's words up to its year as its title. A name with no
-// year reads no title. Its clean rule folds case.
+// Dated reads a name's words up to its year as its title, and a word
+// such as E03 or E01-E09 after it as its mark. A name with no year reads
+// no title. Its clean rule folds case.
 type Dated struct{}
 
 func (Dated) ReadName(p rel.Prepared) rel.Name {
 	words := strings.Split(p.Title.String(), ".")
 	for i, w := range words {
 		if y, err := strconv.Atoi(w); err == nil && y > 1900 && i > 0 {
-			return rel.Name{Titles: []string{strings.Join(words[:i], " ")}, Year: rel.Known(y)}
+			n := rel.Name{Titles: []string{strings.Join(words[:i], " ")}, Year: rel.Known(y)}
+			for _, m := range words[i+1:] {
+				if mark.MatchString(m) {
+					n.Marks = []rel.Mark{{Words: m, Key: m}}
+				}
+			}
+			return n
 		}
 	}
 	return rel.Name{}
+}
+
+var mark = regexp.MustCompile(`^E\d\d(-E\d\d)?$`)
+
+// episode is the mark of the i-th episode, from 1: E03.
+func episode(i int) string { return fmt.Sprintf("E%02d", i) }
+
+// Pack is the mark of a Release covering episodes first to last, from 1:
+// E01-E09, or E10 alone.
+func Pack(first, last int) string {
+	if first == last {
+		return episode(first)
+	}
+	return episode(first) + "-" + episode(last)
 }
 
 func (Dated) CleanTitle(title string) string { return strings.ToLower(title) }

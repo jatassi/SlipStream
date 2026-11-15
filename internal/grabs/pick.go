@@ -579,13 +579,16 @@ func (g *grabbing) publish(ctx context.Context) {
 // sameRelease reports whether r is j's Release or a copy of it: the same
 // info hash, or the same title and size when either lacks one.
 func sameRelease(r Release, j judged) bool {
-	same := func(o indexers.Release) bool {
-		if r.InfoHash != nil && o.InfoHash != nil {
-			return *r.InfoHash == *o.InfoHash
-		}
-		return r.Title == o.Title && r.Size == o.Size
+	return r.is(j.Release) || slices.ContainsFunc(j.copies, func(c copied) bool { return r.is(c.Release) })
+}
+
+// is reports whether o is r: the same info hash, or the same title and
+// size when either lacks one.
+func (r Release) is(o indexers.Release) bool {
+	if r.InfoHash != nil && o.InfoHash != nil {
+		return *r.InfoHash == *o.InfoHash
 	}
-	return same(j.Release) || slices.ContainsFunc(j.copies, func(c copied) bool { return same(c.Release) })
+	return r.Title == o.Title && r.Size == o.Size
 }
 
 // clientRefusal is err, a chosen client Usable refused, as a pick's
