@@ -33,12 +33,16 @@ test("a server's page leads with its state and what's playing, and keeps the mac
     )
     .toBeVisible();
   await expect.element(playing.getByText("Hardware transcode")).toBeVisible();
+  await userEvent.hover(playing.getByText("Hardware transcode"));
   await expect
     .element(
-      playing.getByText(
-        "Den Jellyfin converts the file on its graphics hardware because the player can't play its container.",
+      page.getByText(
+        "The server converts the file on its graphics hardware into a format the player can play.",
       ),
     )
+    .toBeVisible();
+  await expect
+    .element(playing.getByText("Transcoding because the player can't play its container."))
     .toBeVisible();
   await userEvent.click(playing.getByRole("button", { name: "Details" }));
   await expect
