@@ -80,9 +80,10 @@ var getWorkSearchingOp = api.Op{
 	Path:    "/works/{workId}/searching",
 	Summary: "Get what Automatic search is doing for a Work: each search group's state, its waits and its stopped cells",
 	Status:  http.StatusOK,
-	Errors:  []*api.Code{workNotFound, notYet},
+	Errors:  []*api.Code{workNotFound},
 }
 
+// getWorkSearching answers every Work idle until the read model reads the queue.
 func (handlers) getWorkSearching(context.Context, identity.Admin, *workInput) (*workSearchingOutput, error) {
-	return nil, notYet
+	return &workSearchingOutput{Body: workSearching{Groups: []groupState{}, Waits: []waiting{}, Stops: []stopped{}}}, nil
 }

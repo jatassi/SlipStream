@@ -1,8 +1,8 @@
 import { MoreHorizontalIcon } from "@hugeicons/core-free-icons";
 import type { ReactElement, ReactNode } from "react";
 
-import type { WorksContentType, WorksWorkView } from "../../api/gen/model";
-import { ManualSearchButton, SearchAction } from "../../grabs/search";
+import type { WorksWorkView } from "../../api/gen/model";
+import { ManualSearchButton, SearchAction, type Searched } from "../../grabs/search";
 import { openManualSearch } from "../../manual/sheet-state";
 import { Button } from "../../ui/button";
 import { IconButton } from "../../ui/icon-button";
@@ -28,6 +28,9 @@ export type HeroActions = {
   readonly menu: readonly MenuEntry[];
 };
 
+/** The hero's actions with what its Search names in the toast. */
+export type HeroControls = HeroActions & { readonly searched: Searched };
+
 const monitoringEntry = (monitoring: HeroActions["monitoring"]): MenuEntry =>
   monitoring.kind === "switch"
     ? {
@@ -40,19 +43,17 @@ const monitoringEntry = (monitoring: HeroActions["monitoring"]): MenuEntry =>
 
 // On phone the actions past Search sit in one action sheet, Manual search first and Editions as "Edit Editions".
 function PhoneActions({
-  type,
   work,
   actions,
   more,
 }: {
-  type: WorksContentType;
   work: WorksWorkView;
-  actions: HeroActions;
+  actions: HeroControls;
   more: ReactElement;
 }) {
   return (
     <div className="flex items-center gap-2">
-      <SearchAction workId={work.id} type={type} />
+      <SearchAction workId={work.id} searched={actions.searched} />
       <Menu
         label={`Actions for ${work.label}`}
         trigger={more}
@@ -75,22 +76,14 @@ function PhoneActions({
   );
 }
 
-export function Actions({
-  type,
-  work,
-  actions,
-}: {
-  type: WorksContentType;
-  work: WorksWorkView;
-  actions: HeroActions;
-}) {
+export function Actions({ work, actions }: { work: WorksWorkView; actions: HeroControls }) {
   const more = <IconButton icon={MoreHorizontalIcon} label={`More actions for ${work.label}`} />;
   if (useShell() === "phone") {
-    return <PhoneActions type={type} work={work} actions={actions} more={more} />;
+    return <PhoneActions work={work} actions={actions} more={more} />;
   }
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <SearchAction workId={work.id} type={type} />
+      <SearchAction workId={work.id} searched={actions.searched} />
       <ManualSearchButton workId={work.id} />
       {actions.editions(
         <Button>

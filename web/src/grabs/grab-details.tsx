@@ -1,17 +1,37 @@
 import { Suspense } from "react";
 
 import type { GrabsGrab } from "../api/gen/model";
+import { useGetWorkSuspense, useListContentTypesSuspense } from "../api/gen/query/works/works";
+import { countWords } from "../format";
 import { Button } from "../ui/button";
 import { Dialog } from "../ui/dialog";
 import { useShell } from "../ui/shell-context";
 import { Skeleton } from "../ui/skeleton";
+import { lowered } from "../works/monitoring/labels";
 import { CancelGrab } from "./cancel-grab";
+// oxlint-disable-next-line import/max-dependencies -- Details shows the Grab, its download's files and each sheet acting on it
 import { GrabFacts } from "./grab-facts";
 import { GrabOutcome, GrabRecord, GrabStages } from "./grab-record";
 import { ImportByHand, ImportLines } from "./import-lines";
-// oxlint-disable-next-line import/max-dependencies -- Details shows the Grab, its download's files and each sheet acting on it
 import { SendToSheet } from "./send-to-sheet";
 import { byHand } from "./stages";
+
+/** "Chosen because it fills 24 episodes with one Release." when the decision chose it to fill a group. */
+function ChosenBecause({ grab }: { grab: GrabsGrab }) {
+  const work = useGetWorkSuspense(grab.workId).data;
+  const type = useListContentTypesSuspense().data.contentTypes.find(
+    ({ id }) => id === work.contentType,
+  );
+  if (grab.chosenBecause === null || type === undefined) {
+    return null;
+  }
+  return (
+    <p>
+      Chosen because it fills {countWords(grab.chosenBecause.fills, lowered(type.item))} with one
+      Release.
+    </p>
+  );
+}
 
 /** Which of a Grab's dialogs is open. One at a time, so a phone never stacks two sheets. */
 export type GrabView = "details" | "cancel" | "send-to" | "import";
@@ -89,6 +109,7 @@ export function GrabDialogs({
           <GrabRecord grab={grab} />
           <GrabStages grab={grab} />
           <Suspense fallback={<Skeleton label="Loading the Grab" />}>
+            {grab.chosenBecause !== null && <ChosenBecause grab={grab} />}
             <GrabFacts grab={grab} />
             {grab.import !== null && <ImportLines importId={grab.import.id} />}
           </Suspense>

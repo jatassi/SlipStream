@@ -12,6 +12,7 @@ import type {
   WorksNewWorkPreset,
   WorksPresetCounts,
   WorksPreviewed,
+  WorksSearchChoiceValue,
   WorksWorkView,
 } from "../api/gen/model";
 import {
@@ -26,6 +27,7 @@ import {
   getSearchCatalogMockHandler,
 } from "../api/gen/query/works/works.msw";
 import { AddWorkBody } from "../api/gen/zod/works/works.zod";
+import { addSearch, anthologySearch, searching } from "./add-search";
 import { anthologies, extraCount, longShelf, storiesPerVolume, volumeCount } from "./anthology";
 import { cinema, orchard } from "./library";
 import { films, profileHandlers, ultra } from "./profiles";
@@ -109,12 +111,13 @@ export type Catalog = {
 
 export const cinemaCatalog = ({
   monitor = true,
+  search = true,
   roots = [filmsRoot],
-}: { monitor?: boolean; roots?: readonly RootsRoot[] } = {}): Catalog => ({
+}: { monitor?: boolean; search?: boolean; roots?: readonly RootsRoot[] } = {}): Catalog => ({
   type: cinema,
   candidates: [quietOrchard, orchardHarvest],
   preview: orchardPreview,
-  settings: [addMonitor(monitor)],
+  settings: [addMonitor(monitor), addSearch(search)],
   profiles: [films, ultra],
   roots,
 });
@@ -143,17 +146,37 @@ export const lostShelf: WorksCandidate = {
 
 const mainStories = volumeCount * storiesPerVolume;
 
-/** What each preset monitors of The Long Shelf, as the server counts it for a new Work. */
+/** What each preset monitors of The Long Shelf, and what each search scope searches of it, as the server counts them for a new Work. */
 export const longShelfPresets: WorksPresetCounts = {
   asides: extraCount,
   choices: [
-    { preset: "all", monitors: mainStories, monitorsNew: true, searches: [] },
-    { preset: "future", monitors: 0, monitorsNew: true, searches: [] },
-    { preset: "missing", monitors: mainStories, monitorsNew: true, searches: [] },
-    { preset: "existing", monitors: 0, monitorsNew: false, searches: [] },
-    { preset: "first", monitors: storiesPerVolume, monitorsNew: false, searches: [] },
-    { preset: "latest", monitors: storiesPerVolume, monitorsNew: true, searches: [] },
-    { preset: "none", monitors: 0, monitorsNew: false, searches: [] },
+    {
+      preset: "all",
+      monitors: mainStories,
+      monitorsNew: true,
+      searches: searching(mainStories, storiesPerVolume, storiesPerVolume, 1),
+    },
+    { preset: "future", monitors: 0, monitorsNew: true, searches: searching(0, 0, 0, 0) },
+    {
+      preset: "missing",
+      monitors: mainStories,
+      monitorsNew: true,
+      searches: searching(mainStories, storiesPerVolume, storiesPerVolume, 1),
+    },
+    { preset: "existing", monitors: 0, monitorsNew: false, searches: searching(0, 0, 0, 0) },
+    {
+      preset: "first",
+      monitors: storiesPerVolume,
+      monitorsNew: false,
+      searches: searching(storiesPerVolume, storiesPerVolume, 0, 1),
+    },
+    {
+      preset: "latest",
+      monitors: storiesPerVolume,
+      monitorsNew: true,
+      searches: searching(storiesPerVolume, 0, storiesPerVolume, 0),
+    },
+    { preset: "none", monitors: 0, monitorsNew: false, searches: searching(0, 0, 0, 0) },
   ],
 };
 
@@ -199,11 +222,13 @@ export const anthologyCatalog = ({
   preset = "all",
   asides = false,
   levelFolders = true,
+  search = "monitored",
   candidates = [longShelfCandidate, lostShelf],
 }: {
   preset?: WorksNewWorkPreset;
   asides?: boolean;
   levelFolders?: boolean;
+  search?: WorksSearchChoiceValue;
   candidates?: readonly WorksCandidate[];
 } = {}): Catalog => ({
   type: anthologies,
@@ -213,6 +238,7 @@ export const anthologyCatalog = ({
     anthologyMonitor(preset),
     switchField("anthology.add.asides", "Include extras", asides, false),
     switchField("anthology.add.levelFolders", "Volume folders", levelFolders, true),
+    anthologySearch(search),
   ],
   profiles: [shelves],
   roots: [anthologiesRoot],

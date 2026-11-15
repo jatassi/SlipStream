@@ -6,6 +6,7 @@ import { Poster } from "../ui/poster";
 import type { ColumnDef, Names } from "./columns";
 import { type CellHandlers, focusTarget } from "./picking";
 import type { LibraryWork } from "./rows";
+import { WorkMenu } from "./row-menu";
 import { leadFact } from "./values";
 import "../ui/rows.css";
 
@@ -44,6 +45,7 @@ function TitleCell({ work, tabbable, handlers }: Cell) {
         </Link>
         {fact !== undefined && <span className="truncate text-meta text-ink-3">{fact}</span>}
       </span>
+      <WorkMenu work={work} className="ml-auto" />
     </span>
   );
 }

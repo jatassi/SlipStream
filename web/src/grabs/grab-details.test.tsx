@@ -60,10 +60,12 @@ test("a Grab's Details say who grabbed it and how, each override, where it went 
   renderApp({ path: "/activity", handlers: grabServer(manual).handlers });
   await open("Details");
   const details = page.getByRole("dialog", { name: "Grab of The Quiet Orchard" });
-  await expect.element(details).toMatchTextContent(/^Grab of The Quiet OrchardFetchingManual/u);
   await expect
     .element(details)
-    .toMatchTextContent(`Manual search by Ada Okafor, ${clock(manual.createdAt)}.`);
+    .toMatchTextContent(/^Grab of The Quiet OrchardFetchingFound by Ada Okafor in Manual search/u);
+  await expect
+    .element(details)
+    .toMatchTextContent(`Found by Ada Okafor in Manual search, ${clock(manual.createdAt)}.`);
   await expect.element(details.getByText(override)).toBeVisible();
   await expect
     .element(details)
@@ -89,7 +91,7 @@ test("an automatic search's Grab says so and offers no cancel once it can't be c
   await expect
     .element(details)
     .toMatchTextContent(
-      /^Grab of The Quiet OrchardImportedAutomatic search, .*ClientBuilt-in client on home/u,
+      /^Grab of The Quiet OrchardImportedFound by Search, .*ClientBuilt-in client on home/u,
     );
   await expect
     .element(details.getByRole("region", { name: "Stages" }))

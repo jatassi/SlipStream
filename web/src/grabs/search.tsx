@@ -1,25 +1,29 @@
 import { Search01Icon } from "@hugeicons/core-free-icons";
 
-import type { GrabsSearchScope, WorksContentType } from "../api/gen/model";
+import type { GrabsSearchQueued, GrabsSearchScope } from "../api/gen/model";
 import { useSearchWork } from "../api/gen/query/grabs/grabs";
 import { type Noun, countWords } from "../format";
 import { type ManualScope, openManualSearch } from "../manual/sheet-state";
 import { Button, type ButtonLook, type ButtonSize } from "../ui/button";
 import { toast } from "../ui/toast";
 import { lowered } from "../works/monitoring/labels";
+import { queuedToast } from "./search-words";
+import { useReadSearchingNow } from "./searching-query";
 
-/** "Searching 12 episodes" when the Items are counted by noun, else "Search started". */
-export const startedWords = (count: number, item: Noun | undefined): string =>
-  item === undefined ? "Search started" : `Searching ${countWords(count, lowered(item))}`;
+/** What a press of Search names in its toast: a count of Items by noun, or a Work's or Item's name. */
+export type Searched = { readonly count: number; readonly item: Noun } | { readonly name: string };
 
-/** Starts a search of a Work, or of the levels and Items a scope names; the toast counts by item. */
-export function useStartSearch(item?: Noun) {
+const searchedWords = (searched: Searched): string =>
+  "name" in searched ? searched.name : countWords(searched.count, lowered(searched.item));
+
+/** Queues a search of a Work, or of the levels and Items a scope names, and toasts what it queued. */
+export function useStartSearch() {
+  const readNow = useReadSearchingNow();
+  const announce = async (workId: string, answer: GrabsSearchQueued, searched: Searched) => {
+    toast(queuedToast(answer, await readNow(workId), searchedWords(searched)));
+  };
   const search = useSearchWork({
     mutation: {
-      onSuccess: ({ groups }) => {
-        const items = groups.reduce((n, g) => n + g.itemIds.length, 0);
-        toast(startedWords(items, item));
-      },
       onError: (error) => {
         toast(error.message, { kind: "fail" });
       },
@@ -27,22 +31,26 @@ export function useStartSearch(item?: Noun) {
   });
   return {
     isPending: search.isPending,
-    start: (workId: string, scope?: GrabsSearchScope) => {
-      search.mutate(scope === undefined ? { workId } : { workId, data: scope });
+    start: (workId: string, searched: Searched, scope?: GrabsSearchScope) => {
+      search.mutate(scope === undefined ? { workId } : { workId, data: scope }, {
+        onSuccess: (answer) => {
+          void announce(workId, answer, searched);
+        },
+      });
     },
   };
 }
 
-/** The hero's Search: every wanted Item, counted when the Work has many. */
-export function SearchAction({ workId, type }: { workId: string; type: WorksContentType }) {
-  const search = useStartSearch(type.items === "many" ? type.item : undefined);
+/** The hero's Search: every wanted Item of the Work. */
+export function SearchAction({ workId, searched }: { workId: string; searched: Searched }) {
+  const search = useStartSearch();
   return (
     <Button
       look="primary"
       icon={Search01Icon}
       busy={search.isPending}
       onClick={() => {
-        search.start(workId);
+        search.start(workId, searched);
       }}
     >
       Search

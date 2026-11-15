@@ -78,7 +78,7 @@ test("a failed download shows under Needs you, and Search again retries it", asy
 
   await world.fw.fault.clear("download-damaged");
   await card.getByRole("button", { name: "Search again" }).click();
-  await expect(notifications(page)).toContainText("Search started");
+  await expect(notifications(page)).toContainText("Searching The Quiet Orchard");
   await expect(orchardCells(page)).toContainText("Upgrade available", { timeout: 60_000 });
   await expect(card).toHaveCount(0);
   await expect(needsYou.getByRole("list", { name: "Upgrades available" })).toContainText(
