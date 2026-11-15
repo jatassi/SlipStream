@@ -78,9 +78,6 @@
   "internal/mediaservers/errors.go": {
     "hold": 1
   },
-  "internal/mediaservers/health.go": {
-    "Reaching Node": 1
-  },
   "internal/mediaservers/role.go": {
     "Reaching Node": 1
   },
@@ -207,24 +204,6 @@
   },
   "web/src/media-servers/mappings-field.tsx": {
     "hold": 1
-  },
-  "web/src/media-servers/node-servers.tsx": {
-    "Reached from": 3
-  },
-  "web/src/media-servers/page/details-tab.tsx": {
-    "Reached from": 1
-  },
-  "web/src/media-servers/page/header.tsx": {
-    "Reaching Node": 2
-  },
-  "web/src/media-servers/plex-choice.tsx": {
-    "Reached from": 2
-  },
-  "web/src/media-servers/server-fields.tsx": {
-    "Reached from": 2
-  },
-  "web/src/media-servers/server-row.tsx": {
-    "Reached from": 1
   },
   "web/src/nodes/dial.ts": {
     "dial": 2
