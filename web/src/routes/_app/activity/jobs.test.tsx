@@ -167,7 +167,9 @@ test("grabs.changed moves a Grab to Imported without a reload", async () => {
     .toHaveTextContent(
       "The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DLWEBDL-1080p1080pImported",
     );
-  await expect.element(sentence()).toHaveTextContent("Nothing in progress · 1 failure · 1 imported");
+  await expect
+    .element(sentence())
+    .toHaveTextContent("Nothing in progress · 1 failure · 1 imported");
   expect(page.getByRole("progressbar").all()).toHaveLength(0);
 });
 
