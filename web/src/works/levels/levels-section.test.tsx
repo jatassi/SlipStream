@@ -34,6 +34,7 @@ function open(
     const groups = Array.from({ length: count }, (_, i) => ({
       key: `i:${i}`,
       label: `Story ${i + 1}`,
+      itemIds: [`item-${i}`],
       state: "queued",
     }));
     return HttpResponse.json({ groups }, { status: 202 });
