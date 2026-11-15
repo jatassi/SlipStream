@@ -1,8 +1,10 @@
 # Provisions this PC's self-hosted runners for jatassi/SlipStream from the
-# committed scripts/self-hosted, and labels them with that kit's tree hash.
-# The plan job routes a commit's jobs to them only when the commit's kit has
-# the same hash. Run it again after changing the kit. It's safe to run more
-# than once. Run it from PowerShell 7 as yourself. The Windows half asks for
+# committed kit. The Linux runners are labelled with the tree hash of
+# scripts/self-hosted/linux and the Windows runners with that of
+# scripts/self-hosted/windows. The plan job routes a commit's jobs to a pool
+# only when the commit's folder for it has the same hash, so only a change to
+# a folder needs the pool provisioned again. It's safe to run more than once.
+# Run it from PowerShell 7 as yourself. The Windows half asks for
 # administrator rights once.
 #   pwsh scripts/self-hosted/provision.ps1 [-LinuxRunners 4] [-WindowsRunners 2] [-WslMemory 24GB] [-Only linux|windows]
 param(
@@ -18,10 +20,12 @@ $Repo = 'jatassi/SlipStream'
 $Distro = 'SlipStream-CI'
 $env:WSL_UTF8 = '1'
 
-if (git -C $PSScriptRoot status --porcelain -- .) {
-    throw 'scripts/self-hosted has uncommitted changes. Commit them first, because the runners are labelled with the committed kit.'
+function Get-Kit([string]$Pool) {
+    if (git -C $PSScriptRoot status --porcelain -- $Pool) {
+        throw "scripts/self-hosted/$Pool has uncommitted changes. Commit them first, because the runners are labelled with the committed kit."
+    }
+    (git -C $PSScriptRoot rev-parse "HEAD:scripts/self-hosted/$Pool").Substring(0, 12)
 }
-$kit = (git -C $PSScriptRoot rev-parse HEAD:scripts/self-hosted).Substring(0, 12)
 $release = gh api repos/actions/runner/releases/latest | ConvertFrom-Json
 $version = $release.tag_name.TrimStart('v')
 function Get-RunnerSha([string]$Platform) {
@@ -29,9 +33,10 @@ function Get-RunnerSha([string]$Platform) {
     $Matches[1]
 }
 $token = gh api -X POST "repos/$Repo/actions/runners/registration-token" --jq .token
-Write-Host "Kit $kit, runner $version"
 
 if ($Only -ne 'windows') {
+    $kit = Get-Kit linux
+    Write-Host "Linux kit $kit, runner $version"
     # .wslconfig sets the VM every distro shares, and WSL reads it only when
     # the VM starts, so a change shuts every distro down.
     $wslConfig = Join-Path $env:USERPROFILE '.wslconfig'
@@ -55,7 +60,7 @@ if ($Only -ne 'windows') {
     # Without interop there's no \\wsl.localhost share, so the files go in on
     # the command line.
     foreach ($file in 'linux.sh', 'job-started.sh', 'job-completed.sh') {
-        $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$PSScriptRoot\$file"))
+        $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$PSScriptRoot\linux\$file"))
         wsl.exe -d $Distro -u root -- bash -c "mkdir -p /root/slipstream-ci-kit && echo $b64 | base64 -d | tr -d '\r' > /root/slipstream-ci-kit/$file"
     }
     wsl.exe -d $Distro -u root -- bash /root/slipstream-ci-kit/linux.sh wsl-conf
@@ -65,6 +70,8 @@ if ($Only -ne 'windows') {
 }
 
 if ($Only -ne 'linux') {
+    $kit = Get-Kit windows
+    Write-Host "Windows kit $kit, runner $version"
     $me = [Security.Principal.WindowsIdentity]::GetCurrent()
     $winArgs = @{
         Runners     = $WindowsRunners
@@ -79,11 +86,11 @@ if ($Only -ne 'linux') {
     }
     New-Item -ItemType Directory -Force (Split-Path $winArgs.PauseFlag) | Out-Null
     if ([Security.Principal.WindowsPrincipal]::new($me).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        & "$PSScriptRoot\windows.ps1" @winArgs
+        & "$PSScriptRoot\windows\windows.ps1" @winArgs
     } else {
         $log = Join-Path ([IO.Path]::GetTempPath()) 'slipstream-ci-provision.log'
         $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
-            "Start-Transcript -Force '$log' | Out-Null; try { & '$PSScriptRoot\windows.ps1' " +
+            "Start-Transcript -Force '$log' | Out-Null; try { & '$PSScriptRoot\windows\windows.ps1' " +
             (($winArgs.GetEnumerator() | ForEach-Object { "-$($_.Key) '$($_.Value)'" }) -join ' ') +
             "; 'PROVISION-OK' } finally { Stop-Transcript | Out-Null }")
         Start-Process pwsh -Verb RunAs -Wait -ArgumentList $argList
@@ -103,4 +110,4 @@ foreach ($r in $registered) {
     }
 }
 
-& "$PSScriptRoot\runners.ps1" status
+& "$PSScriptRoot\windows\runners.ps1" status

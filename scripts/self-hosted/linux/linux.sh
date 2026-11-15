@@ -43,6 +43,9 @@ export DEBIAN_FRONTEND=noninteractive
 # Hosted runners run in UTC, and tests that count days rely on it.
 ln -sf /usr/share/zoneinfo/Etc/UTC /etc/localtime
 echo Etc/UTC > /etc/timezone
+# WSL sets the distro's clock from Windows every few seconds. With NTP on as
+# well, the clock stepped back and forth by however far Windows was off.
+systemctl disable --now systemd-timesyncd > /dev/null 2>&1 || true
 
 # Jobs on different runners run apt at the same time, so apt waits for the
 # lock instead of failing.
@@ -63,6 +66,12 @@ if [ ! -f "$PACKAGE" ]; then
   mv "$PACKAGE.part" "$PACKAGE"
 fi
 
+# actions/cache versions a cache by its absolute paths, which name
+# runner.temp. Every runner's service sees its own work directory at the
+# hosted runners' /home/runner/work, so caches saved on hosted runners
+# restore here and the other way around.
+install -d -m 755 /home/runner/work
+
 groupadd -f slipstream-ci
 echo '%slipstream-ci ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/slipstream-ci
 chmod 440 /etc/sudoers.d/slipstream-ci
@@ -77,6 +86,7 @@ After=network-online.target
 [Service]
 User=gha%i
 WorkingDirectory=/home/gha%i/actions-runner
+BindPaths=/home/gha%i/work:/home/runner/work
 ExecStart=/home/gha%i/actions-runner/run.sh
 KillMode=mixed
 KillSignal=SIGINT
@@ -112,6 +122,7 @@ for i in $(seq 1 "$RUNNERS"); do
   id "$user" > /dev/null 2>&1 || useradd --create-home --shell /bin/bash "$user"
   usermod -aG slipstream-ci "$user"
   systemctl stop "slipstream-ci-runner@$i" 2> /dev/null || true
+  install -d -o "$user" -g "$user" "/home/$user/work"
   if [ ! -f "$dir/config.sh" ]; then
     install -d -o "$user" -g "$user" "$dir"
     sudo -u "$user" tar -xzf "$PACKAGE" -C "$dir"
@@ -127,7 +138,7 @@ for i in $(seq 1 "$RUNNERS"); do
     --token "$TOKEN" \
     --name "slipstream-linux-$i" \
     --labels "slipstream-linux,slipstream-linux-$KIT" \
-    --work _work > /dev/null
+    --work /home/runner/work > /dev/null
   printf 'ACTIONS_RUNNER_HOOK_JOB_STARTED=%s\nACTIONS_RUNNER_HOOK_JOB_COMPLETED=%s\n' \
     "$HOOKS/job-started.sh" "$HOOKS/job-completed.sh" | sudo -u "$user" tee "$dir/.env" > /dev/null
   systemctl enable --now "slipstream-ci-runner@$i" > /dev/null 2>&1

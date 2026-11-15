@@ -93,9 +93,10 @@ jobs:
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         run: go run ./cmd/release tag "$GITHUB_REF_NAME"
       # The maintainer's self-hosted runners take jobs only from the
-      # maintainer's own runs, and only while they were provisioned from this
-      # commit's scripts/self-hosted, which the label names. Every job they
-      # can't take stays on its hosted runner. See docs/self-hosted-runners.md.
+      # maintainer's own runs, and only while each pool was provisioned from
+      # this commit's scripts/self-hosted/<os>, which its label names. Every
+      # job they can't take stays on its hosted runner. See
+      # docs/self-hosted-runners.md.
       - name: Find the self-hosted runners
         id: self-hosted
         env:
@@ -107,11 +108,10 @@ jobs:
         run: |
           pools=""
           if [ "$TRUSTED" = true ] && [ "$PAUSED" != true ] && [ -n "$GH_TOKEN" ]; then
-            kit=$(git rev-parse HEAD:scripts/self-hosted | cut -c1-12)
             labels=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runners" \
               --jq '.runners[] | select(.status == "online") | .labels[].name') || labels=""
             for os in linux windows; do
-              runner="slipstream-$os-$kit"
+              runner="slipstream-$os-$(git rev-parse "HEAD:scripts/self-hosted/$os" | cut -c1-12)"
               slots=$(grep -cx "$runner" <<< "$labels" || true)
               if [ "$slots" -gt 0 ]; then pools="${pools:+$pools,}$os-amd64=$runner:$slots"; fi
             done

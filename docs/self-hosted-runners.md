@@ -9,7 +9,9 @@ The maintainer's PC runs self-hosted GitHub Actions runners for the linux-amd64 
 
 Each Linux runner has its own CPUs and an equal share of the WSL VM's memory, less 2 GiB for the distro. A job that outgrows its share is killed alone. The distro runs in UTC, as hosted runners do. Memory is what limits the count. Eight Linux jobs at once filled a 15 GB VM and hung it.
 
-Each runner has two labels: the pool's (`slipstream-linux`) and the pool's with the kit's hash (`slipstream-linux-0a1b2c3d4e5f`). The kit is `scripts/self-hosted`, and its hash is the first 12 characters of `git rev-parse HEAD:scripts/self-hosted`.
+Each runner has two labels: the pool's (`slipstream-linux`) and the pool's with its kit's hash (`slipstream-linux-0a1b2c3d4e5f`). A pool's kit is `scripts/self-hosted/linux` or `scripts/self-hosted/windows`, and its hash is the first 12 characters of `git rev-parse HEAD:scripts/self-hosted/<os>`.
+
+Each Linux runner's service sees its own work directory at `/home/runner/work`, the hosted runners' path. `actions/cache` versions a cache by its absolute paths, so with any other path no cache a hosted runner saved would restore on these runners. The distro takes its clock from Windows with NTP off, because the two corrected each other every few seconds when Windows was a minute off. Windows has to keep its own clock in time.
 
 ## Which jobs they take
 
@@ -21,7 +23,7 @@ The plan job's "Find the self-hosted runners" step counts the online runners who
 
 The planner moves up to one job per runner onto a pool. The lanes that start with the run take runners first. The e2e and browser lanes start when the build ends, so they get the build's runner and whatever is left. A packaging build always stays on its hosted runner, because its smoke tests install the packages system-wide. Every other job runs on the target's hosted runner, as it would without the pools.
 
-A commit that changes the kit gets no self-hosted runners until the PC is provisioned from it. Everything else, including new tools and new versions of the ones CI uses, needs no provisioning. CI installs them in every job, as it does on hosted runners.
+A commit that changes a pool's kit gets no runners from that pool until the pool is provisioned from it. Everything else, including new tools and new versions of the ones CI uses, needs no provisioning. CI installs them in every job, as it does on hosted runners.
 
 ## Who can run jobs on them
 
