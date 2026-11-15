@@ -2,12 +2,36 @@ package grabs
 
 import (
 	"context"
+	"slices"
 
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
+	"github.com/jatassi/slipstream/internal/grabs/internal/pace"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
+
+// Enqueue lands t on every wanted cell of work in its own Write, as a
+// call for one Work does, and wakes the reconciler.
+func (gr *Grabs) Enqueue(ctx context.Context, work works.WorkID, t searches.Trigger) error {
+	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		tree, err := gr.cfg.Works.TreeIn(ctx, tx, work)
+		if err != nil {
+			return err
+		}
+		cells, err := gr.cfg.Files.Cells(ctx, tx, work)
+		if err != nil {
+			return err
+		}
+		wanted := slices.DeleteFunc(cells, func(c files.Cell) bool { return !c.Wanted() })
+		_, err = gr.enqueue(ctx, tx, tree, wanted, landing(t, false))
+		return err
+	})
+	gr.wake()
+	return err
+}
 
 // DecideRun records a press's run of items of work, as if its lines had
 // listed rs, and decides it in one Write, as a group run whose every line
@@ -30,13 +54,15 @@ func (gr *Grabs) DecideRun(ctx context.Context, work works.WorkID, items []works
 		return SearchID{}, err
 	}
 	as := assessAll(j, dedupe(listedOf(rs)))
-	run := Search{ID: SearchID{UUID: storage.NewUUID()}, WorkID: work, Group: indexers.ItemGroup(items[0]), Trigger: pressTrigger, Items: items}
+	run := Search{ID: SearchID{UUID: storage.NewUUID()}, WorkID: work, Group: indexers.ItemGroup(items[0]), Trigger: searches.Search, Items: items}
 	err = gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
 		started := storage.Now()
 		run.Started = started.Time()
-		lane := pressLane
-		p := db.InsertSearchParams{ID: run.ID, WorkID: work, GroupKey: &run.Group, Lane: &lane, Trigger: new(string(pressTrigger)), IncludeGone: true, StartedAt: started}
+		p := db.InsertSearchParams{
+			ID: run.ID, WorkID: work, GroupKey: &run.Group, Lane: new(int64(pace.Now)), Trigger: new(string(searches.Search)),
+			IncludeGone: true, StartedAt: started,
+		}
 		if err := q.InsertSearch(ctx, p); err != nil {
 			return err
 		}
@@ -45,7 +71,7 @@ func (gr *Grabs) DecideRun(ctx context.Context, work works.WorkID, items []works
 				return err
 			}
 		}
-		_, err := gr.finish(ctx, tx, run, nil, nil, as)
+		_, err := gr.decided(ctx, tx, run, heardRun{releases: rs, names: map[int]string{}, answered: true}, as)
 		return err
 	})
 	return run.ID, err

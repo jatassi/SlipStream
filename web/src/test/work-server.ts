@@ -67,7 +67,9 @@ const run: Pick<
 };
 
 const pressed: GrabsSearchQueued = {
-  groups: [{ key: run.groupKey ?? "", label: orchard.label, state: "queued" }],
+  groups: [
+    { key: run.groupKey ?? "", label: orchard.label, itemIds: [orchardItemId], state: "queued" },
+  ],
 };
 
 const line = (

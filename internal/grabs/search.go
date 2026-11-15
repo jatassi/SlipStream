@@ -4,11 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/downloadclients"
-	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/grabs/internal/pace"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -55,13 +53,6 @@ type Search struct {
 
 // item is the one Item a Manual run or a press of one Item searches.
 func (s Search) item() works.ItemID { return s.Items[0] }
-
-// The press records its run as one of the now lane, with gone cells,
-// under the trigger search.
-const (
-	pressLane    int64 = 10
-	pressTrigger       = "search"
-)
 
 // SearchIndexer is one Indexer a run asked or skipped.
 type SearchIndexer struct {
@@ -199,116 +190,6 @@ func (s Scope) items(t works.Tree) ([]works.Item, error) {
 	return t.ItemsWithin(*s.part)
 }
 
-// Pressed is one run a press of SearchWork recorded: its search group and
-// the label of the Item it searches.
-type Pressed struct {
-	Search SearchID
-	Group  indexers.GroupKey
-	Label  string
-}
-
-// SearchWork records a search run for each Item of work within scope with
-// a wanted cell, each with the Indexers it asks and skips and a query
-// reserved on each it asks, and returns them.
-// Each run reserves its own queries, so an Indexer's search limit skips it
-// for the runs past the limit. Run searches them. An id scope names that
-// work doesn't have is a *works.NotInWorkError.
-func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.WorkID, scope Scope) ([]Pressed, error) {
-	var runs []Pressed
-	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		tree, err := gr.cfg.Works.TreeIn(ctx, tx, work)
-		if err != nil {
-			return err
-		}
-		items, err := scope.items(tree)
-		if err != nil {
-			return err
-		}
-		root, err := gr.searchable(ctx, tx, tree)
-		if err != nil {
-			return err
-		}
-		if err := gr.cfg.Roots.Reachable(ctx, tx, root); err != nil {
-			return err
-		}
-		open, err := gr.openCells(ctx, tx, work)
-		if err != nil {
-			return err
-		}
-		started := storage.Now()
-		for _, it := range wantedOf(items, open) {
-			id, err := gr.plan(ctx, tx, tree, it, started)
-			if err != nil {
-				return err
-			}
-			runs = append(runs, Pressed{Search: id, Group: pressGroup(it), Label: it.Label})
-		}
-		if len(runs) == 0 {
-			return ErrNothingWanted
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	for _, p := range runs {
-		gr.cfg.SearchChanged.Publish(ctx, SearchChanged{SearchID: p.Search.String(), WorkID: work.String()})
-	}
-	gr.wake()
-	return runs, nil
-}
-
-// wantedOf is each of items that has a cell in open, in items' order.
-func wantedOf(items []works.Item, open []files.Cell) []works.Item {
-	wanted := make(map[works.ItemID]bool, len(open))
-	for _, c := range open {
-		wanted[c.Item.ID] = true
-	}
-	var out []works.Item
-	for _, it := range items {
-		if wanted[it.ID] {
-			out = append(out, it)
-		}
-	}
-	return out
-}
-
-// pressGroup is the search group a press of item alone records its run in:
-// its level's, or its own when it has none.
-func pressGroup(item works.Item) indexers.GroupKey {
-	if item.LevelID.IsZero() {
-		return indexers.ItemGroup(item.ID)
-	}
-	return indexers.LevelGroup(item.LevelID)
-}
-
-// plan records a press's search run of item, of tree, with the lines Plan
-// read and reserved.
-func (gr *Grabs) plan(ctx context.Context, tx *storage.Tx[file], tree works.Tree, item works.Item, started storage.Time) (SearchID, error) {
-	q := db.New(tx)
-	id := SearchID{UUID: storage.NewUUID()}
-	group, lane, trigger := pressGroup(item), pressLane, pressTrigger
-	p := db.InsertSearchParams{
-		ID: id, WorkID: tree.ID, GroupKey: &group, Lane: &lane, Trigger: new(trigger), IncludeGone: true, StartedAt: started,
-	}
-	if err := q.InsertSearch(ctx, p); err != nil {
-		return SearchID{}, err
-	}
-	if err := q.InsertSearchItem(ctx, db.InsertSearchItemParams{SearchID: id, ItemID: item.ID}); err != nil {
-		return SearchID{}, err
-	}
-	lines, err := gr.cfg.Indexers.Plan(ctx, tx, tree.ContentType, indexers.AutoSearch)
-	if err != nil {
-		return SearchID{}, err
-	}
-	for i, l := range lines {
-		if err := q.InsertSearchIndexer(ctx, lineRow(id, i, l, started)); err != nil {
-			return SearchID{}, err
-		}
-	}
-	return id, nil
-}
-
 // searchable is why tree can't be searched, nil when it can, and its
 // root: its Content Type can't cover it, no Indexer exists at all, or the
 // Work is rootless.
@@ -330,125 +211,6 @@ func (gr *Grabs) searchable(ctx context.Context, r storage.Reader[file], tree wo
 		return roots.Root{}, ErrNoIndexer
 	}
 	return roots.OfWork(ctx, r, tree.ID)
-}
-
-// openCells is work's wanted cells, in tree and rank order: the cells a
-// search may fill.
-func (gr *Grabs) openCells(ctx context.Context, r storage.Reader[file], work works.WorkID) ([]files.Cell, error) {
-	cells, err := gr.cfg.Files.Cells(ctx, r, work)
-	if err != nil {
-		return nil, err
-	}
-	return slices.DeleteFunc(cells, func(c files.Cell) bool { return !c.Wanted() }), nil
-}
-
-// search asks every Indexer run planned to ask, assesses every Release
-// they list, then finishes the run in one Write with the Grab its
-// decision took. A search never waits on an Indexer: each one that
-// couldn't answer is its line's outcome, and the Admin searches again.
-func (gr *Grabs) search(ctx context.Context, run Search) result {
-	var s indexers.Search
-	var asked []db.GrabsSearchIndexer
-	var j judging
-	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		tree, err := gr.cfg.Works.TreeIn(ctx, r, run.WorkID)
-		if err != nil {
-			return err
-		}
-		s.Type = tree.ContentType
-		if s.Terms, err = gr.cfg.Terms[tree.ContentType].SearchTerms(ctx, r, run.item()); err != nil {
-			return err
-		}
-		if j, err = gr.judgingOf(ctx, r, tree.ContentType, run.WorkID, run.item(), s.Terms.Expect); err != nil {
-			return err
-		}
-		rows, err := db.New(r).ListSearchIndexersOfSearch(ctx, run.ID)
-		if err != nil {
-			return err
-		}
-		for _, row := range rows {
-			if row.Outcome == nil {
-				asked = append(asked, row)
-				s.Asked = append(s.Asked, indexers.Line{Indexer: row.IndexerID, Name: row.IndexerName, Query: row.QueryID})
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return gr.searchWaits(ctx, run, err)
-	}
-	answers, err := gr.cfg.Indexers.Search(ctx, s, nil)
-	if ctx.Err() != nil {
-		return halted
-	}
-	if err != nil {
-		return gr.searchWaits(ctx, run, err)
-	}
-	var releases []indexers.Release
-	for _, a := range answers {
-		releases = append(releases, a.Releases...)
-	}
-	as := assessAll(j, dedupe(listedOf(releases)))
-	var grabs []Grab
-	err = gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		var err error
-		grabs, err = gr.finish(ctx, tx, run, asked, answers, as)
-		return err
-	})
-	if err != nil {
-		return gr.searchWaits(ctx, run, err)
-	}
-	gr.cfg.SearchChanged.Publish(ctx, SearchChanged{SearchID: run.ID.String(), WorkID: run.WorkID.String()})
-	for _, g := range grabs {
-		gr.cfg.Indexers.Taken(ctx, g.Ticket)
-		gr.cfg.Changed.Publish(ctx, Changed{GrabID: g.ID.String(), WorkID: g.WorkID.String()})
-	}
-	return committed
-}
-
-// finish ends run in tx with each asked line's answer and decides once
-// over as, the Releases they listed, assessed. It stores every Release
-// with its outcome, keeping what a rerun needs while the run's Grabs
-// fetch, records when its Items were first searched, and prunes the
-// group's runs the bound lets go. It returns the Grabs the run made or
-// joined.
-func (gr *Grabs) finish(ctx context.Context, tx *storage.Tx[file], run Search, asked []db.GrabsSearchIndexer, answers []indexers.Answer, as []assessed) ([]Grab, error) {
-	q := db.New(tx)
-	names := map[int]string{}
-	for i, a := range answers {
-		p := outcomeRow(a.Outcome)
-		p.SearchID, p.Position = run.ID, asked[i].Position
-		if _, err := q.AnswerSearchIndexer(ctx, p); err != nil {
-			return nil, err
-		}
-		for range a.Releases {
-			names[len(names)] = asked[i].IndexerName
-		}
-	}
-	d, err := gr.decideIn(ctx, tx, runInput(run, as))
-	if err != nil {
-		return nil, err
-	}
-	if err := gr.storeReleases(ctx, q, run.ID, d.rows, names, len(d.grabs) > 0, nil); err != nil {
-		return nil, err
-	}
-	finish := db.FinishSearchParams{ID: run.ID, FinishedAt: d.at, Outcome: new(NothingAcceptable), Candidates: int64(d.candidates)}
-	if len(d.grabs) > 0 {
-		notes, err := encodeReasons(d.notes)
-		if err != nil {
-			return nil, err
-		}
-		finish.Outcome, finish.Grabs, finish.Notes = new(Grabbed), int64(len(d.grabs)), &notes
-	}
-	if err := q.FinishSearch(ctx, finish); err != nil {
-		return nil, err
-	}
-	for _, item := range run.Items {
-		if err := q.InsertItemSearch(ctx, db.InsertItemSearchParams{ItemID: item, FirstSearchedAt: storage.FromTime(run.Started)}); err != nil {
-			return nil, err
-		}
-	}
-	return d.grabs, q.PruneGroup(ctx, db.PruneGroupParams{WorkID: run.WorkID, GroupKey: &run.Group})
 }
 
 // sight records a sighting of the cut of every listed Release whose name

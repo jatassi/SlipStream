@@ -73,7 +73,7 @@ func TestAnOfflineSeedboxsSearchesGoHomePastTheGrace(t *testing.T) {
 
 	act(t, w.run, "seedbox", world.StopNode)
 	worldtest.Until(t, "the Indexer waits for seedbox", func() (bool, error) { return w.indexerWaits(t) != "none", nil })
-	w.expectSearch(t, "within the grace", "nothing_acceptable", "Fixture Site waiting: Waiting for seedbox")
+	w.expectSearch(t, "within the grace", "no_indexer", "Fixture Site waiting: Waiting for seedbox")
 
 	worldtest.Until(t, "seedbox lapses", func() (bool, error) { return w.navAlert(t) == "fail", nil })
 	if got := w.indexerWaits(t); got != "none" {

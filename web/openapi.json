@@ -7780,6 +7780,14 @@
       "GrabsQueuedGroup": {
         "additionalProperties": false,
         "properties": {
+          "itemIds": {
+            "description": "The group's wanted Items the press searches, in tree order",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
           "key": {
             "description": "The search group's key, to compare and never to parse",
             "type": "string"
@@ -7800,6 +7808,7 @@
         "required": [
           "key",
           "label",
+          "itemIds",
           "state"
         ],
         "type": "object"

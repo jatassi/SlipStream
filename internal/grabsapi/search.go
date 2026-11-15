@@ -28,9 +28,10 @@ type searchQueued struct {
 }
 
 type queuedGroup struct {
-	Key   string `json:"key" doc:"The search group's key, to compare and never to parse"`
-	Label string `json:"label" doc:"The group in words, such as season 3"`
-	State string `json:"state" enum:"queued,merged" doc:"merged is a group already queued or searching with this scope"`
+	Key     string   `json:"key" doc:"The search group's key, to compare and never to parse"`
+	Label   string   `json:"label" doc:"The group in words, such as season 3"`
+	ItemIDs []string `json:"itemIds" format:"uuid" nullable:"false" doc:"The group's wanted Items the press searches, in tree order"`
+	State   string   `json:"state" enum:"queued,merged" doc:"merged is a group already queued or searching with this scope"`
 }
 
 type searchQueuedOutput struct{ Body searchQueued }
@@ -53,7 +54,7 @@ func (h handlers) searchWork(ctx context.Context, by identity.Admin, in *searchW
 	if err != nil {
 		return nil, err
 	}
-	runs, err := open(h.p).SearchWork(ctx, by, works.WorkID{UUID: u}, scope)
+	groups, err := open(h.p).SearchWork(ctx, by, works.WorkID{UUID: u}, scope)
 	if e, ok := errors.AsType[*works.NotInWorkError](err); ok {
 		return nil, notInWork(e)
 	}
@@ -63,9 +64,15 @@ func (h handlers) searchWork(ctx context.Context, by identity.Admin, in *searchW
 	if err != nil {
 		return nil, answer(err)
 	}
-	out := searchQueued{Groups: []queuedGroup{}}
-	for _, r := range runs {
-		out.Groups = append(out.Groups, queuedGroup{Key: string(r.Group), Label: r.Label, State: "queued"})
+	out := searchQueued{Groups: make([]queuedGroup, len(groups))}
+	for i, g := range groups {
+		out.Groups[i] = queuedGroup{Key: string(g.Key), Label: g.Label, ItemIDs: make([]string, len(g.Items)), State: "queued"}
+		for j, it := range g.Items {
+			out.Groups[i].ItemIDs[j] = it.String()
+		}
+		if g.Merged {
+			out.Groups[i].State = "merged"
+		}
 	}
 	return &searchQueuedOutput{Body: out}, nil
 }

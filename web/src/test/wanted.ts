@@ -114,7 +114,7 @@ export function wantedServer(
   pages: readonly GrabsWantedPage[] = [aWantedPage([missingRange, failedQueued, upgradeSearching])],
   {
     several = { queued: 1, merged: 0, leftGone: 0, works: [] },
-    one = { groups: [{ key: "w", label: "the Work", state: "queued" }] },
+    one = { groups: [{ key: "w", label: "the Work", itemIds: ["i"], state: "queued" }] },
   }: { several?: GrabsSeveralQueued; one?: GrabsSearchQueued } = {},
 ) {
   const searched: unknown[] = [];

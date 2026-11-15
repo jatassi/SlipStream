@@ -129,7 +129,7 @@ func TestAnOfflineSeedboxsSearchesWaitThenGoHome(t *testing.T) {
 		synctest.Wait()
 		left := time.Now()
 		expectStanding(t, a, "just stopped", view{"away", "none", "waiting"})
-		expectSearch(t, a, work, "within the grace", "nothing_acceptable (waiting)")
+		expectSearch(t, a, work, "within the grace", "no_indexer (waiting)")
 		seen, err := time.Parse(time.RFC3339Nano, seedbox(t, a).Link.Since)
 		if err != nil {
 			t.Fatal(err)

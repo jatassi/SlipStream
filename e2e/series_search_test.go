@@ -167,7 +167,7 @@ func TestEpisodeSearchSendsSeasonAndEp(t *testing.T) {
 	}
 }
 
-func TestLevelSearchSearchesEachWantedEpisode(t *testing.T) {
+func TestALevelSearchSearchesItsWantedEpisodesAsOneSeason(t *testing.T) {
 	t.Parallel()
 	w, v := searchingSeries(t)
 	var season1 string
@@ -185,34 +185,31 @@ func TestLevelSearchSearchesEachWantedEpisode(t *testing.T) {
 		} `json:"indexers"`
 	}
 	decode(t, "listIndexers", w.a.Admin("home", http.MethodGet, "/api/v1/indexers", ""), &listed)
-	if r := w.a.Admin("home", http.MethodPatch, "/api/v1/indexers/"+listed.Indexers[0].ID, `{"searches":{"count":2,"per":"hour"}}`); r.Status != http.StatusOK {
+	if r := w.a.Admin("home", http.MethodPatch, "/api/v1/indexers/"+listed.Indexers[0].ID, `{"searches":{"count":1,"per":"hour"}}`); r.Status != http.StatusOK {
 		t.Fatalf("updateIndexer = %d %s, want 200", r.Status, r.Body)
 	}
 
-	runs := w.finished(t, w.searchWithin(t, `{"levelIds":["`+season1+`"],"itemIds":[]}`, 2))
+	runs := w.finished(t, w.searchWithin(t, `{"levelIds":["`+season1+`"],"itemIds":[]}`, 1))
 	searched := map[string]bool{}
 	for _, r := range runs {
 		for _, item := range r.ItemIDs {
 			searched[item] = true
 		}
 	}
-	if !searched[v.item(t, "100111").ID] || !searched[v.item(t, "100113").ID] {
+	if len(searched) != 2 || !searched[v.item(t, "100111").ID] || !searched[v.item(t, "100113").ID] {
 		t.Fatalf("Season 1's Search searched %v, want S01E01 and S01E03, the wanted episodes, and not S01E02", searched)
 	}
-	if got, want := tvSearches(t, w), []string{
-		`torznab t=tvsearch q="" tvdbid=1001 season="1" ep=1`,
-		`torznab t=tvsearch q="" tvdbid=1001 season="1" ep=3`,
-	}; !slices.Equal(got, want) {
-		t.Fatalf("fixture-site served %q, want one tvsearch per wanted episode", got)
+	if got, want := tvSearches(t, w), []string{`torznab t=tvsearch q="" tvdbid=1001 season="1" ep=`}; !slices.Equal(got, want) {
+		t.Fatalf("fixture-site served %q, want one tvsearch of the season", got)
 	}
 
-	limited := w.finished(t, w.searchWithin(t, "", 8))
+	limited := w.finished(t, w.searchWithin(t, "", 4))
 	var lines []string
 	for _, r := range limited {
 		lines = append(lines, r.Indexers[0].Name+" "+*r.Indexers[0].Outcome)
 	}
-	if n := len(tvSearches(t, w)); n != 2 || slices.ContainsFunc(lines, func(l string) bool { return l != "Fixture Site limit_reached" }) {
-		t.Fatalf("the series' Search of its 8 other wanted episodes ran lines %q with %d tvsearches served, want each held at the Indexer's limit of 2 searches an hour", lines, n)
+	if n := len(tvSearches(t, w)); n != 1 || slices.ContainsFunc(lines, func(l string) bool { return l != "Fixture Site limit_reached" }) {
+		t.Fatalf("the series' Search of its other 2 seasons and 2 specials ran lines %q with %d tvsearches served, want each held at the Indexer's limit of 1 search an hour", lines, n)
 	}
 }
 

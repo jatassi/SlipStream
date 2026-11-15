@@ -433,9 +433,12 @@ func checkRow(t *testing.T, r Row, link string, roles []string) {
 }
 
 // Searched presses Search on work, within body's levels and Items when body
-// isn't empty, and returns the n runs it started, newest first.
+// isn't empty, and returns the n runs it queued, newest first, once the
+// reconciler has started them. A run that finishes may prune an earlier
+// one of its group, so it waits for ids it hadn't listed, not for more.
 func (a *API) Searched(work, body string, n int) []string {
 	a.t.Helper()
+	before := a.searches(work)
 	reply := a.Admin("home", http.MethodPost, "/api/v1/works/"+work+"/search", body)
 	var queued struct {
 		Groups []struct{} `json:"groups"`
@@ -443,18 +446,32 @@ func (a *API) Searched(work, body string, n int) []string {
 	if err := json.Unmarshal([]byte(reply.Body), &queued); err != nil || reply.Status != http.StatusAccepted || len(queued.Groups) != n {
 		a.t.Fatalf("searchWork %s = %d %s, want 202 with %d groups", body, reply.Status, reply.Body, n)
 	}
+	var started []string
+	err := poll(a.ctx, func() (bool, error) {
+		started = slices.DeleteFunc(a.searches(work), func(id string) bool { return slices.Contains(before, id) })
+		return len(started) >= n, nil
+	})
+	if err != nil {
+		a.t.Fatalf("waiting until the press's %d runs start: %v", n, err)
+	}
+	return started[:n]
+}
+
+// searches is work's runs' ids, newest first.
+func (a *API) searches(work string) []string {
+	a.t.Helper()
 	listed := a.Admin("home", http.MethodGet, "/api/v1/works/"+work+"/searches", "")
 	var runs struct {
 		Searches []struct {
 			ID string `json:"id"`
 		} `json:"searches"`
 	}
-	if err := json.Unmarshal([]byte(listed.Body), &runs); err != nil || listed.Status != http.StatusOK || len(runs.Searches) < n {
-		a.t.Fatalf("listSearches = %d %s, want at least %d runs", listed.Status, listed.Body, n)
+	if err := json.Unmarshal([]byte(listed.Body), &runs); err != nil || listed.Status != http.StatusOK {
+		a.t.Fatalf("listSearches = %d %s, want 200", listed.Status, listed.Body)
 	}
-	ids := make([]string, n)
-	for i := range n {
-		ids[i] = runs.Searches[i].ID
+	ids := make([]string, len(runs.Searches))
+	for i, r := range runs.Searches {
+		ids[i] = r.ID
 	}
 	return ids
 }

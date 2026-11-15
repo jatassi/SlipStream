@@ -175,9 +175,9 @@ func TestA429FromTheIndexerLimitsOneSearch(t *testing.T) {
 
 	first := w.searched(t, w.search(t))
 	lines := first.lines()
-	if *first.Outcome != "nothing_acceptable" || first.Candidates != 0 || len(first.GrabIDs) != 0 ||
+	if *first.Outcome != "no_indexer" || first.Candidates != 0 || len(first.GrabIDs) != 0 ||
 		len(lines) != 1 || !strings.HasPrefix(lines[0], "Fixture Site limited: Limit reached until ") {
-		t.Fatalf("the first search ended %+v with lines %q, want nothing_acceptable with Fixture Site limited", first, lines)
+		t.Fatalf("the first search ended %+v with lines %q, want no_indexer with Fixture Site limited", first, lines)
 	}
 	fired, err := events.Select(w.m.RunDir, events.Query{Kind: events.FaultFired})
 	if err != nil {

@@ -4287,6 +4287,9 @@ export type GrabsQueuedCanceled = zod.input<typeof GrabsQueuedCanceled>;
 export type GrabsQueuedCanceledOutput = zod.output<typeof GrabsQueuedCanceled>;
 
 export const GrabsQueuedGroup = zod.object({
+  itemIds: zod
+    .array(zod.uuid())
+    .describe("The group's wanted Items the press searches, in tree order"),
   key: zod.string().describe("The search group's key, to compare and never to parse"),
   label: zod.string().describe("The group in words, such as season 3"),
   state: zod

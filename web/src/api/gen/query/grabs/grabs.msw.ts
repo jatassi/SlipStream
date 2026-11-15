@@ -2362,6 +2362,9 @@ export const getSearchWorkResponseMock = (
 ): GrabsSearchQueued => ({
   groups: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
     () => ({
+      itemIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+        () => faker.string.uuid(),
+      ),
       key: faker.string.alpha({ length: { min: 10, max: 20 } }),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
       state: faker.helpers.arrayElement(["queued", "merged"] as const),
