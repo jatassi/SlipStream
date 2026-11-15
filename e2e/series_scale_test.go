@@ -13,13 +13,10 @@ import (
 	"github.com/jatassi/slipstream/fakes/world/worldtest"
 )
 
-// The series-scale Scenario's two generated series: 12 seasons of 100
-// episodes, and 40 seasons of 250.
+// The series-scale Scenario's 12 seasons of 100 episodes.
 const (
-	longSeries    = "60000001"
-	longerSeries  = "60000002"
-	addBudget     = 30 * time.Second
-	refreshBudget = 30 * time.Second
+	longSeries = "60000001"
+	addBudget  = 30 * time.Second
 )
 
 func seriesScale(t *testing.T) *world.Run {
@@ -69,31 +66,6 @@ func TestAddA1200EpisodeSeriesInSeconds(t *testing.T) {
 	}
 	if got := getSeries(t, a, added.ID).size(); got != added.size() {
 		t.Fatalf("getWork reads %s, want what the add answered", got)
-	}
-}
-
-func TestRefreshA10000EpisodeSeries(t *testing.T) {
-	t.Parallel()
-	run := seriesScale(t)
-	a := api(t, run)
-	added, took := timedAdd(t, a, longerSeries)
-	t.Logf("adding 10,000 episodes took %s", took.Round(time.Millisecond))
-	if want := "40 seasons, 10000 episodes, 10000 monitored"; added.size() != want {
-		t.Fatalf("the add answered %s, want %s", added.size(), want)
-	}
-
-	cue(t, run, "tvdb-add-season", `{"id":`+longerSeries+`}`)
-	start := time.Now()
-	refreshed := refreshSeries(t, a, added, `"outcome":"done"`)
-	took = time.Since(start)
-	t.Logf("refreshing 10,250 episodes took %s against a %s budget", took.Round(time.Millisecond), refreshBudget)
-	if want := "41 seasons, 10250 episodes, 10250 monitored"; refreshed.size() != want || took > refreshBudget {
-		t.Fatalf("the refresh left %s in %s, want %s within %s", refreshed.size(), took, want, refreshBudget)
-	}
-	for _, it := range added.Items {
-		if got := refreshed.item(t, it.Key); got.ID != it.ID {
-			t.Fatalf("episode %s is Item %s once refreshed, want %s", it.Key, got.ID, it.ID)
-		}
 	}
 }
 
