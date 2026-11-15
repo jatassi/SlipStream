@@ -91,6 +91,14 @@ func (Facet) SearchTerms(context.Context, storage.Reader[storage.Library], works
 	return indexers.Terms{}, nil
 }
 
+func (Facet) Groups(_ context.Context, _ storage.Reader[storage.Library], _ works.WorkID, items []works.ItemID) ([]indexers.Group, error) {
+	return indexers.Singles(items, ""), nil
+}
+
+func (Facet) GroupTerms(context.Context, storage.Reader[storage.Library], works.WorkID, indexers.Group) (indexers.Terms, error) {
+	return indexers.Terms{}, nil
+}
+
 func (Facet) Categories() []newznab.ID { return newznab.Family(2000) }
 
 // Caps are a saved Torznab Indexer's: a free-text search, a search by

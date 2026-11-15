@@ -7504,6 +7504,21 @@
         ],
         "type": "object"
       },
+      "GrabsQueueChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "workIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "workIds"
+        ],
+        "type": "object"
+      },
       "GrabsQueueStatus": {
         "additionalProperties": false,
         "properties": {
@@ -33518,6 +33533,32 @@
                           "event"
                         ],
                         "title": "Event grabs.changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/GrabsQueueChanged"
+                          },
+                          "event": {
+                            "const": "grabs.queue-changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event grabs.queue-changed",
                         "type": "object"
                       },
                       {

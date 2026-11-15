@@ -163,10 +163,21 @@ type Timings struct {
 	// Progress is the least time between two grabs.changed for one Grab's
 	// download progress.
 	Progress time.Duration `yaml:"progress"`
+	// DrainBatch is the most nudged Works one drain Write turns into queue
+	// rows, so a bulk change never holds the writer long.
+	DrainBatch int `yaml:"drain_batch"`
+	// StartsPerPass is the most runs one dispatch Write starts.
+	StartsPerPass int `yaml:"starts_per_pass"`
+	// BacklogChunk is the most queue rows one Backlog search Write
+	// reconciles.
+	BacklogChunk int `yaml:"backlog_chunk"`
 }
 
 func DefaultTimings() Timings {
-	return Timings{RetryMin: time.Second, RetryMax: time.Minute, Progress: time.Second}
+	return Timings{
+		RetryMin: time.Second, RetryMax: time.Minute, Progress: time.Second,
+		DrainBatch: 100, StartsPerPass: 50, BacklogChunk: 500,
+	}
 }
 
 type Changed struct {
@@ -184,10 +195,17 @@ type SearchChanged struct {
 // BlocklistChanged is the Blocklist gaining or losing entries.
 type BlocklistChanged struct{}
 
+// QueueChanged is the Works whose queued searches, dispatch or last
+// result changed in one of grabs' Writes.
+type QueueChanged struct {
+	WorkIDs []string `json:"workIds" nullable:"false"`
+}
+
 var (
 	ChangedEvent          = live.AdminEvent[Changed]("grabs.changed")
 	SearchChangedEvent    = live.AdminEvent[SearchChanged]("grabs.search-changed")
 	BlocklistChangedEvent = live.AdminEvent[BlocklistChanged]("grabs.blocklist-changed")
+	QueueChangedEvent     = live.AdminEvent[QueueChanged]("grabs.queue-changed")
 )
 
 type Publisher[T any] interface {
@@ -291,7 +309,24 @@ type Config struct {
 	// BeforeStep sees each step before it runs: the simulation tier's
 	// hook, nil in production.
 	BeforeStep func(context.Context, Stage)
-	Log        *slog.Logger
+	// Tasks stores the cadences of Backlog search and RSS sync. It is read
+	// once the Scheduled tasks open.
+	Tasks Cadences
+	// GapCap is the longest a group's Backlog gap may grow for work's
+	// items, false for no cap of its own.
+	GapCap func(ctx context.Context, r storage.Reader[file], work works.WorkID, items []works.ItemID) (time.Duration, bool)
+	// QueueChanged publishes once a Write that changes a Work's queued
+	// searches, dispatch or last result commits.
+	QueueChanged Publisher[QueueChanged]
+	// Clock is the time now: time.Now, which testing/synctest drives in
+	// tests.
+	Clock func() time.Time
+	Log   *slog.Logger
+}
+
+// NoGapCap is GapCap with no cap: a group's gap grows to the longest gap.
+func NoGapCap(context.Context, storage.Reader[file], works.WorkID, []works.ItemID) (time.Duration, bool) {
+	return 0, false
 }
 
 type Grabs struct {

@@ -69,6 +69,14 @@ func (s *terms) SearchTerms(context.Context, storage.Reader[storage.Library], wo
 	return s.t, nil
 }
 
+func (*terms) Groups(_ context.Context, _ storage.Reader[storage.Library], _ works.WorkID, items []works.ItemID) ([]indexers.Group, error) {
+	return indexers.Singles(items, ""), nil
+}
+
+func (s *terms) GroupTerms(context.Context, storage.Reader[storage.Library], works.WorkID, indexers.Group) (indexers.Terms, error) {
+	return s.t, nil
+}
+
 func (*terms) Categories() []newznab.ID { return newznab.Family(2000) }
 
 // alone is a roster of one Node holding every Role.
