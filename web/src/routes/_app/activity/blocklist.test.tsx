@@ -113,9 +113,9 @@ test("the Blocklist hides the Node and Content Type filters and searches by titl
 test("Remove posts the picked info hashes and the list follows the Blocklist's change", async () => {
   const server = blocklistServer();
   renderApp({ path: "/activity/blocklist", handlers: server.handlers });
-  await userEvent.click(page.getByRole("checkbox", { name: `Pick ${orchard ?? ""}` }));
-  await userEvent.click(page.getByRole("checkbox", { name: `Pick ${flux ?? ""}` }));
-  const bar = page.getByRole("toolbar", { name: "Picked entries" });
+  await userEvent.click(page.getByRole("checkbox", { name: `Select ${orchard ?? ""}` }));
+  await userEvent.click(page.getByRole("checkbox", { name: `Select ${flux ?? ""}` }));
+  const bar = page.getByRole("toolbar", { name: "Selected entries" });
   await expect.element(bar).toMatchTextContent(/2 Releases picked/u);
 
   await userEvent.click(bar.getByRole("button", { name: "Remove" }));
@@ -135,11 +135,11 @@ test("Remove posts the picked info hashes and the list follows the Blocklist's c
   await expect.element(row(shelf ?? "")).toBeVisible();
 });
 
-test("Pick all picks every entry on the page", async () => {
+test("Select all selects every entry on the page", async () => {
   renderApp({ path: "/activity/blocklist", handlers: blocklistServer().handlers });
-  await userEvent.click(page.getByRole("checkbox", { name: "Pick all" }));
+  await userEvent.click(page.getByRole("checkbox", { name: "Select all" }));
   await expect
-    .element(page.getByRole("toolbar", { name: "Picked entries" }))
+    .element(page.getByRole("toolbar", { name: "Selected entries" }))
     .toMatchTextContent(/4 Releases picked/u);
 });
 
@@ -177,7 +177,7 @@ test("an empty Blocklist says what puts a Release on it", async () => {
   await expect
     .element(page.getByText(/^The Blocklist is empty\. SlipStream adds a Release when/u))
     .toBeVisible();
-  await expect.element(page.getByRole("checkbox", { name: "Pick all" })).not.toBeInTheDocument();
+  await expect.element(page.getByRole("checkbox", { name: "Select all" })).not.toBeInTheDocument();
 });
 
 test("on a phone the Blocklist is the third segment and its rows stack", async () => {
