@@ -169,7 +169,7 @@ export const failureWords: Readonly<Record<GrabsFailureCode, Words>> = {
   },
   node_written_off: {
     cause:
-      "An Admin chose Write off for the Node downloading this Grab. SlipStream stopped waiting for the download, and its files stay on that Node.",
+      "An Admin had SlipStream stop waiting for the Node downloading this Grab. The files it downloaded stay on that Node.",
     recovery: searchAgain,
   },
   root_changed: {

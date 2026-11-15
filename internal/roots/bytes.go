@@ -219,7 +219,7 @@ func (r *Roots) Reachable(ctx context.Context, rd storage.Reader[file], root Roo
 		return err
 	}
 	if state == WrittenOff {
-		return &UnreachableError{State: state, Node: name, Why: "An Admin chose Write off for " + name + "'s Storage, so SlipStream can't put new files in its library root."}
+		return &UnreachableError{State: state, Node: name, Why: "SlipStream stopped waiting for " + name + "'s Storage, so it can't put new files in its library root."}
 	}
 	return &UnreachableError{State: state, Node: name, Why: name + " is offline, so SlipStream can't put new files in its library root."}
 }

@@ -117,7 +117,7 @@ func TestWriteOffMakesCellsMissingAndARehomeRestoresThem(t *testing.T) {
 	worldtest.Expect(t, "searchWork", w.a.Admin("home", http.MethodPost, "/api/v1/works/"+w.work+"/search", ""), worldtest.Reply{
 		Status: http.StatusConflict,
 		Body: `{"status":409,"code":"root_unreachable","title":"SlipStream can't put new files in the Work's library root now",` +
-			`"detail":"An Admin chose Write off for seedbox's Storage, so SlipStream can't put new files in its library root."}` + "\n",
+			`"detail":"SlipStream stopped waiting for seedbox's Storage, so it can't put new files in its library root."}` + "\n",
 	})
 
 	rehomeOntoHome(t, w, root)

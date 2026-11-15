@@ -15,7 +15,7 @@ var goneAtAnyStage = []struct {
 	code   grabs.Code
 	msg    string
 }{
-	{downloadclients.NodeWrittenOff, grabs.NodeWrittenOff, "An Admin chose Write off for the Node downloading this Grab."},
+	{downloadclients.NodeWrittenOff, grabs.NodeWrittenOff, "An Admin had SlipStream stop waiting for the Node downloading this Grab."},
 	{downloadclients.ByClient, grabs.ClientRemoved, "Transmission removed the torrent before SlipStream imported it."},
 	{downloadclients.ClientDeleted, grabs.ClientDeleted, "The Admin deleted Transmission before SlipStream imported this torrent."},
 }

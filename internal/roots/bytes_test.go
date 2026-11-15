@@ -98,7 +98,7 @@ func TestARootOnAnOfflineOrWrittenOffNodeIsUnreachable(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = reachable(t, r)
-	if !errors.As(err, &unreachable) || unreachable.State != roots.WrittenOff || err.Error() != "An Admin chose Write off for Media server's Storage, so SlipStream can't put new files in its library root." {
+	if !errors.As(err, &unreachable) || unreachable.State != roots.WrittenOff || err.Error() != "SlipStream stopped waiting for Media server's Storage, so it can't put new files in its library root." {
 		t.Fatalf("a root on a written-off Node is %v, want unreachable written off, naming the Node", err)
 	}
 }
