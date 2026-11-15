@@ -48,10 +48,10 @@ export async function openNode(page: Page, name: string): Promise<void> {
   await navigate(page, "Nodes");
   await page
     .getByRole("navigation", { name: "View" })
-    .getByRole("link", { name: "Roster" })
+    .getByRole("link", { name: "List" })
     .click();
   await page
-    .getByRole("list", { name: "Roster" })
+    .getByRole("list", { name: "Nodes list" })
     .getByRole("link", { name: named(name) })
     .click();
   await page.getByRole("heading", { name, level: 1 }).waitFor();

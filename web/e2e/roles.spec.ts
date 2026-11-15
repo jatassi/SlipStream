@@ -80,7 +80,7 @@ test("a change someone made since the Review opened comes back as a fresh Review
 
   await review(page).getByRole("button", { name: "Apply" }).click();
   await expect(
-    review(page).getByText("Roles changed since you opened this. Here is the change as it is now."),
+    review(page).getByText("Someone changed Roles while this was open. The list below shows your change against the current Roles."),
   ).toBeVisible();
   await expect(review(page).getByRole("list", { name: "What changes" })).toContainText(
     "seedbox stops Converting.",

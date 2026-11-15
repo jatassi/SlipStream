@@ -168,7 +168,7 @@ test("the Inspector reads one torrent, and a remove with its download copy cance
   await inspector.getByRole("button", { name: "Remove", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: `Remove ${work}?` });
   await expect(dialog.getByText("Files in your library stay.")).toBeVisible();
-  await expect(dialog.getByText(/^It cancels this Grab, still downloading/u)).toBeVisible();
+  await expect(dialog.getByText(/^It cancels this Grab, which is still downloading/u)).toBeVisible();
   const copy = dialog.getByRole("checkbox", { name: /^Also delete the download copy \(frees /u });
   await copy.check();
   await expectAccessible(page);

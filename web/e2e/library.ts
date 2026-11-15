@@ -65,7 +65,7 @@ export const libraryRows = async (world: World) =>
   Library.parse((await world.api("GET", "/api/v1/library")).body).rows;
 
 export const bar = (page: Page) => page.getByRole("toolbar", { name: "Selected Works" });
-const barMenu = "Actions for the picked Works";
+const barMenu = "Actions for the selected Works";
 
 // A phone's bar holds its actions in a sheet.
 export async function barAction(page: Page, name: string) {

@@ -33,7 +33,7 @@ test("an Admin adds a movie, searches it, and watches it import", async ({
     "The Quiet OrchardThe.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKWWEBDL-1080p1080pImported",
     { timeout: 60_000 },
   );
-  await expect(page.getByText("Nothing moving · 1 imported")).toBeVisible();
+  await expect(page.getByText("Nothing in progress · 1 imported")).toBeVisible();
 
   await page.getByRole("link", { name: "The Quiet Orchard", exact: true }).click();
   const file = page.getByRole("list", { name: "Files" }).getByRole("listitem");
