@@ -17,7 +17,9 @@ import (
 // TEST_ONLINE_JELLYFIN_URL with the API key TEST_ONLINE_JELLYFIN_KEY, in the
 // library named TEST_ONLINE_JELLYFIN_LIBRARY whose folder
 // TEST_ONLINE_JELLYFIN_FOLDER is the local folder TEST_ONLINE_JELLYFIN_DISK, each
-// video a copy of TEST_ONLINE_JELLYFIN_SEED. TEST_ONLINE_JELLYFIN_ADMIN and
+// video a copy of TEST_ONLINE_JELLYFIN_SEED. The server must already have scanned that
+// library with a video in it, or its fresh folder rule drops the suite's
+// first report. TEST_ONLINE_JELLYFIN_ADMIN and
 // TEST_ONLINE_JELLYFIN_PASSWORD, when set, sign in as an administrator. The
 // run counts as green on the throwaway containers on Jackson's Mac (ruling
 // J2), oldest and newest supported version each.

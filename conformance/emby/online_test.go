@@ -17,8 +17,12 @@ import (
 // TEST_ONLINE_EMBY_URL with the API key TEST_ONLINE_EMBY_KEY, in the
 // library named TEST_ONLINE_EMBY_LIBRARY whose folder
 // TEST_ONLINE_EMBY_FOLDER is the local folder TEST_ONLINE_EMBY_DISK, each
-// video a copy of TEST_ONLINE_EMBY_SEED. The run counts as green on the throwaway containers on Jackson's Mac (ruling
-// J2), oldest and newest supported version each.
+// video a copy of TEST_ONLINE_EMBY_SEED. The server must already have scanned that
+// library with a video in it, or its fresh folder rule drops the suite's
+// first report. TEST_ONLINE_EMBY_ADMIN and TEST_ONLINE_EMBY_PASSWORD, when
+// set, sign in as an administrator. The run counts as green on the
+// throwaway containers on Jackson's Mac (ruling J2), oldest and newest
+// supported version each.
 func TestEmbyConforms(t *testing.T) {
 	address := os.Getenv("TEST_ONLINE_EMBY_URL")
 	if address == "" {
@@ -38,6 +42,9 @@ func TestEmbyConforms(t *testing.T) {
 		Settle:  2 * time.Minute,
 		Bound:   5 * time.Minute,
 		Log:     slog.New(slog.NewTextHandler(t.Output(), &slog.HandlerOptions{Level: slog.LevelDebug})),
+	}
+	if user := os.Getenv("TEST_ONLINE_EMBY_ADMIN"); user != "" {
+		tg.Admin = &conformance.Admin{User: user, Password: os.Getenv("TEST_ONLINE_EMBY_PASSWORD")}
 	}
 	conformance.Run(t, tg)
 }

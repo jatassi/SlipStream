@@ -63,9 +63,11 @@ type Server interface {
 	// Tell tells the server files changed, the kind's way: a Plex folder
 	// refresh, a Jellyfin or Emby path report.
 	Tell(ctx context.Context, library string, told []Told) error
-	// Moved tells the server files moved, in the order the kind keeps
-	// watch data.
-	Moved(ctx context.Context, library string, from, to []link.ServerPath) error
+	// Moved runs move, which moves the files on disk, and tells the server,
+	// in the order the kind keeps watch data. A kind that snapshots does it
+	// before move, as SlipStream's Prepare does, since a server can find
+	// the move first.
+	Moved(ctx context.Context, library string, from, to []link.ServerPath, move func()) error
 	// SidecarRemoved tells the server a Sidecar beside video is gone.
 	SidecarRemoved(ctx context.Context, library string, video, sidecar link.ServerPath) error
 	// Scan starts a full scan of library, and ScanEnded is whether the
