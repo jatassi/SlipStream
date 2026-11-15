@@ -19,8 +19,8 @@ import { RefreshServer } from "./refresh-server";
 type TestAnswer = { readonly tested: Tested } | { readonly refused: string };
 
 const fallbackWords: { readonly [F in Tested["fallback"]]: string } = {
-  available: "The Controller sends changes while the reaching Node is offline.",
-  none: "Changes wait while the reaching Node is offline, because the Controller can't reach the server.",
+  available: "The Controller sends changes while the Node it connects from is offline.",
+  none: "Changes wait while the Node it connects from is offline, because the Controller can't reach the server.",
   untested: "The Controller's route wasn't tested.",
 };
 

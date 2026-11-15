@@ -7,13 +7,15 @@ import { Chip } from "../../ui/chip";
 import { Data } from "../../ui/data";
 import { Details } from "../../ui/details";
 import { ListRow } from "../../ui/list";
+import { Tooltip } from "../../ui/tooltip";
 import { fileName } from "./paths";
-import { decisionLabels, decisionWords } from "./transcode-reasons";
+import { decisionTerm, transcodeWhy } from "./transcode-reasons";
 
 function SessionDetail({ server, session }: { server: Server; session: Session }) {
+  const why = transcodeWhy(session);
   return (
     <div className="flex flex-col gap-1 pt-1 pb-1 text-meta text-ink-2">
-      <p className="text-pretty">{decisionWords(server.name, session)}</p>
+      {why !== undefined && <p className="text-pretty">{why}</p>}
       <Details>
         <div className="flex flex-col gap-1 text-meta">
           <Data className="[overflow-wrap:anywhere]">{session.path}</Data>
@@ -36,16 +38,20 @@ export function SessionRow({
   session: Session;
   now: Date;
 }) {
+  const term = decisionTerm(session);
   return (
     <ListRow
       title={fileName(session.path)}
       meta={`${session.user} on ${session.player} · ${session.product} · Started ${agoWords(session.startedAt, now)}`}
       trailing={
-        <Chip>
-          {session.decision === "transcode" && session.hardware
-            ? "Hardware transcode"
-            : decisionLabels[session.decision]}
-        </Chip>
+        <Tooltip label={term.meaning} name={`${term.label}. ${term.meaning}`}>
+          <button
+            type="button"
+            className="rounded-chip focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            <Chip>{term.label}</Chip>
+          </button>
+        </Tooltip>
       }
       detail={<SessionDetail server={server} session={session} />}
     />

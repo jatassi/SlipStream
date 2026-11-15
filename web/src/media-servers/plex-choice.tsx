@@ -34,7 +34,7 @@ const reachedBy = (connections: readonly Connection[], nameOf: NameOf): string[]
 ];
 
 const reachedWords = (names: readonly string[]): string =>
-  names.length === 0 ? "No Node reached it." : `Reached from ${list.format(names)}.`;
+  names.length === 0 ? "No Node can reach it." : `Reachable from ${list.format(names)}.`;
 
 function choiceWords(server: PlexServer, nameOf: NameOf): string {
   const names = reachedBy(server.connections, nameOf);
@@ -51,9 +51,9 @@ export const pickedValues = (server: PlexServer) => ({
 });
 
 const passWords = {
-  has: "With Plex Pass, Plex shows a folder's edition tags as editions of one title, can transcode on the server's graphics hardware and can use IPv6 addresses.",
+  has: "With Plex Pass, Plex shows a folder's edition tags as editions of one title and can transcode on the server's graphics hardware.",
   lacks:
-    "Without Plex Pass, Plex ignores edition tags, transcodes on the processor only and can't use IPv6 addresses.",
+    "Without Plex Pass, Plex doesn't read edition tags on new movies and transcodes on the processor only.",
 } as const;
 
 function ConnectionRows({ server, nameOf }: { server: PlexServer; nameOf: NameOf }) {
@@ -89,7 +89,7 @@ export function PlexDetails({
       fields
       open={sheet.detailsOpen}
       onOpenChange={sheet.setDetailsOpen}
-      summary="SlipStream uses the first of the server's addresses that responds from the Node it's reached from, local before remote. It never uses a Plex relay."
+      summary="SlipStream uses the first of the server's addresses that responds from the Node it connects from, local before remote. It never uses a Plex relay."
     >
       <div className="mt-2 flex flex-col gap-4">
         <form.AppField name="address">

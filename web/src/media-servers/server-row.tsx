@@ -16,7 +16,7 @@ export function ServerRow({ server, kinds }: { server: Server; kinds: readonly K
   return (
     <ListRow
       title={server.name}
-      meta={`${kindOf(kinds, server.kind).label} · Reached from ${server.reachingNode.name}`}
+      meta={`${kindOf(kinds, server.kind).label} · Connects from ${server.reachingNode.name}`}
       leading={<Icon icon={Tv01Icon} className="size-5 shrink-0 text-ink-2" />}
       detail={
         <div className="pt-1 pb-1 pl-8">
