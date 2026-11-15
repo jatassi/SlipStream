@@ -173,3 +173,24 @@ test("Refresh all starts a run and reads its last run", async () => {
   await expect.element(page.getByRole("button", { name: "Refresh all" })).toBeDisabled();
   expect(started).toBe(1);
 });
+
+test("Refresh all while Metadata refresh runs says the next run refreshes them", async () => {
+  renderApp({
+    path: "/settings/content-types",
+    handlers: handlers({
+      handlers: [
+        http.post("*/api/v1/content-types/cinema/refresh", () =>
+          HttpResponse.json({ runId: null }, { status: 202 }),
+        ),
+      ],
+    }),
+  });
+  await userEvent.click(page.getByRole("button", { name: "Refresh all" }));
+  await expect
+    .element(
+      page.getByText(
+        "Metadata refresh is already running. The next run refreshes every Film from TMDB.",
+      ),
+    )
+    .toBeVisible();
+});

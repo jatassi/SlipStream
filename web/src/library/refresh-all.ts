@@ -13,8 +13,12 @@ export function useRefreshAll(types: readonly WorksContentType[]): (() => void) 
       refresh.mutate(
         { contentType: only.id },
         {
-          onSuccess: () => {
-            toast(`Refreshing the metadata of every ${only.work.one}.`);
+          onSuccess: ({ runId }) => {
+            toast(
+              runId === null
+                ? `Metadata refresh is already running. The next run refreshes every ${only.work.one}.`
+                : `Refreshing the metadata of every ${only.work.one}.`,
+            );
           },
           onError: (error) => {
             toast(sentenceOf(error), { kind: "fail" });

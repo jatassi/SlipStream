@@ -161,8 +161,8 @@ func TestARefusedPinReadsAsThePin(t *testing.T) {
 	}
 	d.set(func(d *door) { d.accepts["mine"] = "5678" })
 	d.expire()
-	if _, err := g.m.Fetch(t.Context(), "fixture", "k1", works.Fetching{Purpose: works.ForAdd}); !errors.Is(err, works.ErrRefused) {
-		t.Fatalf("a fetch once the PIN changed = %v, want ErrRefused", err)
+	if _, err := g.m.Fetch(t.Context(), "fixture", "k1", works.Fetching{Purpose: works.ForAdd}); !errors.Is(err, works.ErrPinRefused) || !errors.Is(err, works.ErrRefused) {
+		t.Fatalf("a fetch once the PIN changed = %v, want ErrPinRefused, which is ErrRefused", err)
 	}
 	s := g.status(t)
 	if s.State != metadata.StatePinRefused || s.LastError != "Gate refused the PIN" || s.Summary != "Gate refused your PIN. Check it and save it again with your key, or remove your key." {

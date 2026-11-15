@@ -103,7 +103,9 @@ var (
 	ErrNotFound    = errors.New("the metadata source has no record with that key")
 	ErrUnavailable = errors.New("the metadata source didn't respond")
 	ErrInvalid     = errors.New("the metadata source sent a record SlipStream can't use")
-	ErrRefused     = errors.New("the metadata source refused SlipStream's key")
+	ErrRefused     = errors.New("the metadata source refused the key")
+	// ErrPinRefused is ErrRefused for the PIN beside a key the source takes.
+	ErrPinRefused error = pinRefused{}
 
 	ErrNoType       = errors.New("no Content Type has that id")
 	ErrTypeOff      = errors.New("that Content Type is turned off")
@@ -121,6 +123,11 @@ var (
 	// Work, or none.
 	ErrNotInWork = errors.New("the Work has no level or Item with that id")
 )
+
+type pinRefused struct{}
+
+func (pinRefused) Error() string        { return "the metadata source refused the PIN" }
+func (pinRefused) Is(target error) bool { return target == ErrRefused }
 
 // SourceError is a metadata call that failed at its source. Err is
 // ErrNotFound, ErrRefused, ErrUnavailable or ErrInvalid.

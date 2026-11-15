@@ -50,7 +50,6 @@ var (
 	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't respond. Try again later.")
 	contentTypeNotFound = api.NewCode(http.StatusNotFound, "content_type_not_found", "No Content Type has that id")
 	taskUnknown         = api.NewCode(http.StatusNotFound, "task_unknown", "No task shown has this id")
-	taskRunning         = api.NewCode(http.StatusConflict, "task_running", "The task has a run open")
 	artworkUnavailable  = api.NewCode(http.StatusNotFound, "artwork_unavailable", "SlipStream has no such image to show")
 )
 
@@ -65,19 +64,46 @@ func answer(err error) error {
 		return pinRefused.Because(se.Source + " " + se.Words + ". Check the PIN on your " + se.Source + " account page.")
 	case isSource && errors.Is(err, metadata.ErrTakesNoPin):
 		return api.Invalid.Fields(api.FieldError{Location: "body.pin", Message: se.Source + " keys don't use a PIN. Leave the PIN out."})
-	case isSource && errors.Is(err, works.ErrUnavailable):
-		return metadataUnavailable.Because(se.Error())
+	case errors.Is(err, works.ErrUnavailable):
+		return Unavailable(metadataUnavailable, err)
 	case errors.Is(err, works.ErrNoType):
 		return contentTypeNotFound
 	case errors.Is(err, tasks.ErrUnknownTask):
 		return taskUnknown.Because("Metadata refresh is listed once the library holds a Work")
 	}
-	if running, ok := errors.AsType[*tasks.ErrRunning](err); ok {
-		return taskRunning.At(running.Since, func(at string) string {
-			return "Metadata refresh has been running since " + at + ". The next run refreshes every Work."
+	return err
+}
+
+// Unavailable answers code, a metadata_unavailable code, for err, a call
+// that didn't get through to a metadata source or to the Node reading
+// metadata.
+func Unavailable(code *api.Code, err error) error {
+	if holder, ok := errors.AsType[*metadata.HolderError](err); ok {
+		return code.Logged(holder, "No Node with the Metadata Role is responding. Check the Nodes page, then try again.")
+	}
+	se, ok := errors.AsType[*works.SourceError](err)
+	switch {
+	case !ok:
+		return code
+	case !se.Until.IsZero():
+		return code.At(se.Until, func(at string) string {
+			return se.Source + " is rate limiting SlipStream until " + at + ". Try again then."
 		})
 	}
-	return err
+	return code.Logged(se, se.Source+" isn't available right now. Try again later.")
+}
+
+// Refused answers code, a metadata_refused code, for err, a call its
+// source refused the key or PIN of.
+func Refused(code *api.Code, err error) error {
+	se, ok := errors.AsType[*works.SourceError](err)
+	switch {
+	case !ok:
+		return code
+	case errors.Is(err, works.ErrPinRefused):
+		return code.Because(se.Source + " refused the PIN. Check the PIN in Settings > Metadata.")
+	}
+	return code.Because(se.Source + " refused the API key. Check the key in Settings > Metadata.")
 }
 
 var keys = map[metadata.KeyInUse]string{
@@ -190,7 +216,7 @@ type refreshInput struct {
 }
 
 type refreshStarted struct {
-	RunID int64 `json:"runId" doc:"The Metadata refresh run that refreshes every Work of the type"`
+	RunID api.Nullable[int64] `json:"runId" doc:"The Metadata refresh run that refreshes every Work of the type; null while a run is already open, and the next run refreshes them"`
 }
 
 type refreshStartedOutput struct{ Body refreshStarted }
@@ -284,7 +310,7 @@ func Routes(r *api.Router, registry Registry) {
 		Path:    "/content-types/{contentType}/refresh",
 		Summary: "Refresh every Work of a Content Type as a run of Metadata refresh now, or at its next run while one is open",
 		Status:  http.StatusAccepted,
-		Errors:  []*api.Code{contentTypeNotFound, taskUnknown, taskRunning},
+		Errors:  []*api.Code{contentTypeNotFound, taskUnknown},
 	}, h.refreshAll)
 
 	api.Register(o, api.Admin, api.Op{
@@ -369,10 +395,13 @@ func (h handlers) refreshAll(ctx context.Context, by identity.Admin, in *refresh
 		who = account.Profile().ID.UUID
 	}
 	id, err := scheduler(h.registry).RunNow(ctx, metadata.RefreshTaskID, who)
+	if _, ok := errors.AsType[*tasks.ErrRunning](err); ok {
+		return &refreshStartedOutput{}, nil
+	}
 	if err != nil {
 		return nil, answer(err)
 	}
-	return &refreshStartedOutput{Body: refreshStarted{RunID: int64(id)}}, nil
+	return &refreshStartedOutput{Body: refreshStarted{RunID: api.Some(int64(id))}}, nil
 }
 
 // getRefreshAll reads the run that does the latest Refresh all: the first
@@ -416,10 +445,10 @@ type artworkInput struct {
 func (h handlers) artwork(ctx context.Context, _ identity.Account, in *artworkInput) (*api.Image, error) {
 	img, err := open(h.registry).Artwork(ctx, in.Token, artwork.Size(in.Size))
 	if errors.Is(err, artwork.ErrMissing) {
-		return nil, artworkUnavailable.Because(err.Error() + ". SlipStream tries again later.")
+		return nil, artworkUnavailable.Logged(err, "SlipStream couldn't fetch this image. It tries again later.")
 	}
 	if errors.Is(err, artwork.ErrForged) {
-		return nil, artworkUnavailable.Because(err.Error())
+		return nil, artworkUnavailable.Because("SlipStream didn't make this image link. Use an artwork URL from an API response.")
 	}
 	if err != nil {
 		return nil, err

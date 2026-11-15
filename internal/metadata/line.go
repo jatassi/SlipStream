@@ -239,7 +239,7 @@ var failures = map[OutcomeKind]error{
 	Limited:     works.ErrUnavailable,
 	Capped:      works.ErrUnavailable,
 	Unreachable: works.ErrUnavailable,
-	PinRefused:  works.ErrRefused,
+	PinRefused:  works.ErrPinRefused,
 }
 
 // verdict is what one try settled: an outcome, the answer when it is OK,

@@ -63,7 +63,7 @@ var (
 	metadataNotFound    = api.NewCode(http.StatusNotFound, "metadata_not_found", "The metadata source has no record with that key")
 	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't respond. Try again later.")
 	metadataInvalid     = api.NewCode(http.StatusBadGateway, "metadata_invalid", "The metadata source sent a record SlipStream can't use")
-	metadataRefused     = api.NewCode(http.StatusBadGateway, "metadata_refused", "The metadata source refused SlipStream's key")
+	metadataRefused     = api.NewCode(http.StatusBadGateway, "metadata_refused", "The metadata source refused the API key")
 	notOnSource         = api.NewCode(http.StatusUnprocessableEntity, "not_on_source", "The metadata source doesn't list this record")
 )
 

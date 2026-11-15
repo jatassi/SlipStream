@@ -25,8 +25,12 @@ export function RefreshAll({ type }: { type: WorksContentType }) {
   const start = async () => {
     setStarting(true);
     try {
-      await refreshContentType(type.id);
-      toast(`Refreshing every ${type.work.one} from ${type.source}.`);
+      const { runId } = await refreshContentType(type.id);
+      toast(
+        runId === null
+          ? `Metadata refresh is already running. The next run refreshes every ${type.work.one} from ${type.source}.`
+          : `Refreshing every ${type.work.one} from ${type.source}.`,
+      );
       await router.invalidate();
     } catch (error) {
       toast(sentenceOf(error), { kind: "fail" });

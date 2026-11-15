@@ -135,8 +135,8 @@ func TestInsideTheGraceMetadataIsUnavailableWithWhy(t *testing.T) {
 			Detail string `json:"detail"`
 		}
 		if err := json.Unmarshal([]byte(r.body), &p); err != nil || r.status != http.StatusBadGateway || p.Code != "metadata_unavailable" ||
-			!strings.HasPrefix(p.Detail, "Metadata: box is offline since ") || !strings.HasSuffix(p.Detail, ", and no other Node reads metadata") {
-			t.Fatalf("searchCatalog = %d %s, want metadata_unavailable saying box is offline", r.status, r.body)
+			p.Detail != "No Node with the Metadata Role is responding. Check the Nodes page, then try again." {
+			t.Fatalf("searchCatalog = %d %s, want metadata_unavailable pointing at the Nodes page", r.status, r.body)
 		}
 		if len(c.fx.Calls()) != calls {
 			t.Fatal("a provider half answered while no Node may read metadata")
@@ -287,7 +287,7 @@ func TestAUnitWhoseHolderIsAwayIsSkippedNotFailed(t *testing.T) {
 	})
 }
 
-func TestRefreshAllDuringARunKeepsTheRequestAndAnswersTaskRunning(t *testing.T) {
+func TestRefreshAllDuringARunKeepsTheRequestAndAcceptsItWithNoRun(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := startMetadataCluster(t)
 		c.fx.Put("w2", contenttypetest.Record{Tree: works.Fetched{Label: "The Cellar", Children: []works.Entry{{Key: "b1", Label: "Spring"}}}})
@@ -303,8 +303,8 @@ func TestRefreshAllDuringARunKeepsTheRequestAndAnswersTaskRunning(t *testing.T) 
 		letGo := c.fx.Hold(1)
 		decode[struct{}](t, c.hc.admin(c.apiKey, http.MethodPost, "/api/v1/tasks/metadata-refresh/runs", ""), http.StatusAccepted)
 		synctest.Wait()
-		if r := c.refreshAll(t); r.status != http.StatusConflict || !strings.Contains(r.body, `"code":"task_running"`) {
-			t.Fatalf("refreshContentType during a run = %d %s, want 409 task_running", r.status, r.body)
+		if r := c.refreshAll(t); r.status != http.StatusAccepted || r.body != `{"runId":null}`+"\n" {
+			t.Fatalf("refreshContentType during a run = %d %s, want 202 with no run of its own", r.status, r.body)
 		}
 		letGo()
 		synctest.Wait()

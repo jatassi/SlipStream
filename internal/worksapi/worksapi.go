@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/library"
 	"github.com/jatassi/slipstream/internal/mediaservers"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/metadataapi"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/settingapi"
 	"github.com/jatassi/slipstream/internal/storage"
@@ -66,7 +67,7 @@ var (
 	metadataNotFound    = api.NewCode(http.StatusNotFound, "metadata_not_found", "The metadata source has no record with that key")
 	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't respond. Try again later.")
 	metadataInvalid     = api.NewCode(http.StatusBadGateway, "metadata_invalid", "The metadata source sent a record SlipStream can't use")
-	metadataRefused     = api.NewCode(http.StatusBadGateway, "metadata_refused", "The metadata source refused SlipStream's key")
+	metadataRefused     = api.NewCode(http.StatusBadGateway, "metadata_refused", "The metadata source refused the API key")
 	notOnSource         = api.NewCode(http.StatusUnprocessableEntity, "not_on_source", "The metadata source doesn't list this record")
 	orderUnavailable    = api.NewCode(http.StatusUnprocessableEntity, "order_unavailable", "The metadata source doesn't list this Work in that order")
 	profileNotFound     = api.NewCode(http.StatusUnprocessableEntity, "profile_not_found", "No Profile has that id")
@@ -98,13 +99,11 @@ var codes = []struct {
 }
 
 func answer(err error) error {
-	if source, ok := errors.AsType[*works.SourceError](err); ok {
-		switch {
-		case errors.Is(err, works.ErrRefused):
-			return metadataRefused.Because(source.Source + " refused SlipStream's key")
-		case errors.Is(err, works.ErrUnavailable):
-			return metadataUnavailable.Because(source.Error())
-		}
+	switch {
+	case errors.Is(err, works.ErrRefused):
+		return metadataapi.Refused(metadataRefused, err)
+	case errors.Is(err, works.ErrUnavailable):
+		return metadataapi.Unavailable(metadataUnavailable, err)
 	}
 	for _, c := range codes {
 		if errors.Is(err, c.err) {

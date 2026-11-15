@@ -7157,7 +7157,12 @@ export type MetadataRefreshAllRun = zod.input<typeof MetadataRefreshAllRun>;
 export type MetadataRefreshAllRunOutput = zod.output<typeof MetadataRefreshAllRun>;
 
 export const MetadataRefreshStarted = zod.object({
-  runId: zod.int().describe("The Metadata refresh run that refreshes every Work of the type"),
+  runId: zod
+    .int()
+    .nullable()
+    .describe(
+      "The Metadata refresh run that refreshes every Work of the type; null while a run is already open, and the next run refreshes them",
+    ),
 });
 
 export type MetadataRefreshStarted = zod.input<typeof MetadataRefreshStarted>;

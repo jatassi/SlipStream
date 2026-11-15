@@ -13405,9 +13405,12 @@
         "additionalProperties": false,
         "properties": {
           "runId": {
-            "description": "The Metadata refresh run that refreshes every Work of the type",
+            "description": "The Metadata refresh run that refreshes every Work of the type; null while a run is already open, and the next run refreshes them",
             "format": "int64",
-            "type": "integer"
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "required": [
@@ -28283,7 +28286,6 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "task_running",
                             "worker_node"
                           ],
                           "type": "string"

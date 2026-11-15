@@ -85,6 +85,9 @@ enum FailureKind {
   // FAILURE_KIND_ORDER_UNAVAILABLE is an order the source doesn't list the
   // Work in.
   FAILURE_KIND_ORDER_UNAVAILABLE = 7;
+  // FAILURE_KIND_PIN_REFUSED is a refusal of the PIN beside a key the
+  // source takes. It is also FAILURE_KIND_REFUSED's error.
+  FAILURE_KIND_PIN_REFUSED = 8;
 }
 
 // Failure is a provider failure, answered as a normal response so the

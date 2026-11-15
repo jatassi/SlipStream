@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -175,7 +174,7 @@ func TestAnUnreachableHolderIsTriedOnceOnTheNext(t *testing.T) {
 
 	m, h = controller(roster{may: []role.NodeID{box, crate}}, nil, box, crate)
 	_, err := m.Search(t.Context(), "fixture", "attic")
-	if se, ok := errors.AsType[*works.SourceError](err); !ok || !errors.Is(err, works.ErrUnavailable) || !strings.Contains(se.Words, "didn't respond") {
+	if he, ok := errors.AsType[*metadata.HolderError](err); !ok || !errors.Is(err, works.ErrUnavailable) || he.Why != "the Node reading metadata didn't respond" || he.Cause == nil {
 		t.Fatalf("Search with both holders down = %v, want ErrUnavailable saying no holder answered", err)
 	}
 	if want := []string{"box unreached", "crate unreached"}; !slices.Equal(h.calls, want) {
@@ -194,8 +193,8 @@ func TestAnUnreachableHolderIsTriedOnceOnTheNext(t *testing.T) {
 func TestWhileNoNodeMayTheCallIsUnavailableSayingWhy(t *testing.T) {
 	m, h := controller(roster{}, nil)
 	_, err := m.Fetch(t.Context(), "fixture", "k1", works.Fetching{Purpose: works.ForAdd})
-	want := &works.SourceError{Source: "Metadata", Words: "box is offline, and no other Node reads metadata", Err: works.ErrUnavailable}
-	if se, ok := errors.AsType[*works.SourceError](err); !ok || *se != *want {
+	want := &metadata.HolderError{Why: "box is offline, and no other Node reads metadata"}
+	if he, ok := errors.AsType[*metadata.HolderError](err); !ok || *he != *want || !errors.Is(err, works.ErrUnavailable) {
 		t.Fatalf("Fetch = %#v, want %#v", err, want)
 	}
 	if len(h.calls) != 0 {

@@ -267,7 +267,7 @@ func call[R any](ctx context.Context, m *Metadata, via role.NodeID, do func(cont
 	}
 	node, ok := m.cfg.Roster.Pick(role.Metadata, m.cfg.Roster.Self())
 	if !ok {
-		return none, role.NodeID{}, unavailable(m.cfg.Roster.Why(role.Metadata))
+		return none, role.NodeID{}, &HolderError{Why: m.cfg.Roster.Why(role.Metadata)}
 	}
 	res, err := do(ctx, m.cfg.Service(node))
 	if unreached(err) && ctx.Err() == nil {
@@ -282,9 +282,9 @@ func call[R any](ctx context.Context, m *Metadata, via role.NodeID, do func(cont
 	case !unreached(err) && rpc.Answered(err) && ctx.Err() == nil:
 		return none, node, errors.New(rpc.MessageOf(err))
 	case ctx.Err() != nil:
-		return none, node, unavailable("the Node reading metadata didn't respond in time")
+		return none, node, &HolderError{Why: "the Node reading metadata didn't respond in time"}
 	}
-	return none, node, unavailable("the Node reading metadata didn't respond: " + err.Error())
+	return none, node, &HolderError{Why: "the Node reading metadata didn't respond", Cause: err}
 }
 
 func unreached(err error) bool {
@@ -292,6 +292,18 @@ func unreached(err error) bool {
 	return notSent || rpc.Lost(err)
 }
 
-func unavailable(why string) error {
-	return &works.SourceError{Source: "Metadata", Words: why, Err: works.ErrUnavailable}
+// HolderError is a call no Node with the Metadata Role took. It is
+// works.ErrUnavailable, and Why and Cause say why for the log.
+type HolderError struct {
+	Why   string
+	Cause error
 }
+
+func (e *HolderError) Error() string {
+	if e.Cause == nil {
+		return "metadata: " + e.Why
+	}
+	return "metadata: " + e.Why + ": " + e.Cause.Error()
+}
+
+func (e *HolderError) Unwrap() error { return works.ErrUnavailable }
