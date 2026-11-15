@@ -100,6 +100,11 @@ test.each<[string, GrabsListedRelease, string]>([
     "No search can grab it.",
   ],
   ["refused with only notes", refused([note]), "No Target this search was for can take it."],
+  [
+    "waiting",
+    listed({ outcome: "waiting", rank: 1 }),
+    "It's a candidate for a cell waiting for a better Release.",
+  ],
 ])("a %s Release says so in words", (_, release, words) => {
   expect(outcomeWords(release, names)).toBe(words);
 });

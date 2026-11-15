@@ -59,7 +59,7 @@ var noFormats = formats.Compile(nil, formats.DefaultTimings())
 
 // orchard is how a search judges a release of The Quiet Orchard (2021).
 var orchard = judging{
-	searched: item.ID,
+	scope: map[works.ItemID]bool{item.ID: true},
 	expect: indexers.Expect{
 		Claim: release.Claim{
 			IDs:    map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"},
@@ -73,7 +73,7 @@ var orchard = judging{
 // lanternS01E03 is how a search judges a release of S01E03 of The Lantern
 // Keepers, TVDB series 1001.
 var lanternS01E03 = judging{
-	searched: item.ID,
+	scope: map[works.ItemID]bool{item.ID: true},
 	expect: indexers.Expect{
 		Claim: release.Claim{IDs: map[string]string{"tvdbid": "1001"}, Titles: []string{"The Lantern Keepers", "Lantern Keepers"}},
 		Covers: func(n release.Name) []works.ItemID {

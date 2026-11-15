@@ -4,7 +4,7 @@ import type { GrabsReasonCode } from "./grabsReasonCode.ts";
 export interface GrabsReason {
   /** The attribute a failed filter rules on */
   attribute?: GrabsReasonAttribute;
-  /** Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist. */
+  /** Why the release was refused, or a note on it. wrong_item is a release whose title names another Item, no Item, or none of the searched Items. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist. not_aired is a pack listing an Item that hasn't aired, its value the Item's code. tried is a release a failed Grab of the Work already tried. */
   code: GrabsReasonCode;
   /** Whether the reason keeps only an automatic search from grabbing the release. A Manual search can grab past it. False for a hard refusal and for a note. */
   soft: boolean;

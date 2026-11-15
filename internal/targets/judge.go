@@ -19,7 +19,9 @@ type ReasonCode string
 // doesn't match the Work. CutNotWanted is a cell whose Edition doesn't take the Release's
 // cut. The rest are Judge's. RepackOtherGroup's value is the held file's
 // release group, empty when the file gives none. Blocklisted is a Release
-// whose info hash is on the Blocklist.
+// whose info hash is on the Blocklist. NotAired is a pack listing an Item
+// that hasn't aired, its value the Item's code. Tried is a Release a
+// failed Grab of the Work already tried.
 const (
 	WrongWork          ReasonCode = "wrong_work"
 	WrongItem          ReasonCode = "wrong_item"
@@ -34,6 +36,8 @@ const (
 	NotAnUpgrade       ReasonCode = "not_an_upgrade"
 	RepackOtherGroup   ReasonCode = "repack_other_group"
 	Blocklisted        ReasonCode = "blocklisted"
+	NotAired           ReasonCode = "not_aired"
+	Tried              ReasonCode = "tried"
 )
 
 type weight uint8
@@ -59,6 +63,7 @@ var weights = []weighed{
 	{WrongWork, hard}, {WrongItem, hard}, {WrongTitle, soft}, {CutNotWanted, soft},
 	{QualityNotInTarget, hard}, {FilterFailed, hard}, {SizeBelow, soft}, {SizeAbove, soft}, {SizeNotChecked, note},
 	{ScoreBelowMinimum, soft}, {NotAnUpgrade, soft}, {RepackOtherGroup, soft}, {Blocklisted, block},
+	{NotAired, soft}, {Tried, soft},
 }
 
 // ReasonCodes is every ReasonCode.

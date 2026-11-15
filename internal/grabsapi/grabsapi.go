@@ -95,7 +95,7 @@ type workInput struct {
 }
 
 type reason struct {
-	Code      string `json:"code" enum:"wrong_work,wrong_item,wrong_title,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,score_below_minimum,not_an_upgrade,repack_other_group,blocklisted" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist."`
+	Code      string `json:"code" enum:"wrong_work,wrong_item,wrong_title,cut_not_wanted,quality_not_in_target,filter,size_below,size_above,size_not_checked,score_below_minimum,not_an_upgrade,repack_other_group,blocklisted,not_aired,tried" doc:"Why the release was refused, or a note on it. wrong_item is a release whose title names another Item, no Item, or none of the searched Items. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist. not_aired is a pack listing an Item that hasn't aired, its value the Item's code. tried is a release a failed Grab of the Work already tried."`
 	TargetID  string `json:"targetId,omitempty" format:"uuid" doc:"The Target whose verdict it is, absent for wrong_work, wrong_item and wrong_title"`
 	Attribute string `json:"attribute,omitempty" enum:"hdr,video_codec,audio_codec,channels,language" doc:"The attribute a failed filter rules on"`
 	Value     string `json:"value,omitempty" doc:"The value a filter failed on, the quality a Target doesn't accept, the cut the cell's Edition doesn't take, the score under the minimum, what a wrong_item title names, such as S01E02, or the title and year a wrong_title release gives, such as Heat (1986)"`
@@ -163,7 +163,7 @@ type listedRelease struct {
 	Name     string               `json:"indexerName" doc:"The Indexer's name when the run started"`
 	Size     int64                `json:"size" minimum:"0" doc:"Bytes"`
 	Seeders  int                  `json:"seeders" minimum:"0"`
-	Outcome  string               `json:"outcome" enum:"grabbed,not_taken,outranked,kept,refused" doc:"grabbed is the run's Grab. not_taken ranked above it, and its Indexer stopped, reached its limit or dropped it. outranked ranked below it. kept ranked, and the run grabbed nothing. refused has a refusal of its own or is grabbable at no cell."`
+	Outcome  string               `json:"outcome" enum:"grabbed,not_taken,outranked,kept,refused,waiting" doc:"grabbed is the run's Grab. not_taken ranked above it, and its Indexer stopped, reached its limit or dropped it. outranked ranked below it. kept ranked, and the run grabbed nothing. refused has a refusal of its own or is grabbable at no cell. waiting is a candidate a cell's Hold keeps until it grabs the best one."`
 	Rank     *int                 `json:"rank" minimum:"1" doc:"Its place among the Releases grabbable at some cell, from 1; null for one grabbable at none"`
 	CopyOf   *int                 `json:"copyOf" minimum:"0" doc:"The position of the Release this is a copy of, listed by an Indexer of no better priority; null when it is no copy"`
 	Covers   []string             `json:"covers" format:"uuid" nullable:"false" doc:"The Items of the Work it holds"`

@@ -59,7 +59,7 @@ func (gr *Grabs) DecideRun(ctx context.Context, work works.WorkID, items []works
 		if err != nil {
 			return err
 		}
-		j, err = gr.judgingOf(ctx, r, tree.ContentType, work, works.ItemID{}, expect)
+		j, err = gr.judgingOf(ctx, r, tree, scopeOf(items), expect)
 		return err
 	})
 	if err != nil {

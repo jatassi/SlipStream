@@ -22,6 +22,7 @@ import (
 // not_an_upgrade forces its file into the cells it lifts it at.
 var Liftable = []targets.ReasonCode{
 	targets.WrongTitle, targets.SizeBelow, targets.SizeAbove, targets.ScoreBelowMinimum, targets.NotAnUpgrade, targets.RepackOtherGroup,
+	targets.NotAired, targets.Tried,
 }
 
 // ManualPick is one ticked row, or one Release's Grab, as the sheet sends

@@ -7020,12 +7020,14 @@
               "size_above",
               "score_below_minimum",
               "not_an_upgrade",
-              "repack_other_group"
+              "repack_other_group",
+              "not_aired",
+              "tried"
             ],
             "type": "string"
           },
           "targetId": {
-            "description": "Absent for wrong_title",
+            "description": "Absent for a release's own refusals: wrong_title, not_aired and tried",
             "format": "uuid",
             "type": "string"
           }
@@ -7115,13 +7117,14 @@
             "description": "Where an outranked or kept Release lost to the reference Release; null for the others and for one that ties it at every step"
           },
           "outcome": {
-            "description": "grabbed is the run's Grab. not_taken ranked above it, and its Indexer stopped, reached its limit or dropped it. outranked ranked below it. kept ranked, and the run grabbed nothing. refused has a refusal of its own or is grabbable at no cell.",
+            "description": "grabbed is the run's Grab. not_taken ranked above it, and its Indexer stopped, reached its limit or dropped it. outranked ranked below it. kept ranked, and the run grabbed nothing. refused has a refusal of its own or is grabbable at no cell. waiting is a candidate a cell's Hold keeps until it grabs the best one.",
             "enum": [
               "grabbed",
               "not_taken",
               "outranked",
               "kept",
-              "refused"
+              "refused",
+              "waiting"
             ],
             "type": "string"
           },
@@ -7828,7 +7831,7 @@
             "type": "string"
           },
           "code": {
-            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
+            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item, no Item, or none of the searched Items. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist. not_aired is a pack listing an Item that hasn't aired, its value the Item's code. tried is a release a failed Grab of the Work already tried.",
             "enum": [
               "wrong_work",
               "wrong_item",
@@ -7842,7 +7845,9 @@
               "score_below_minimum",
               "not_an_upgrade",
               "repack_other_group",
-              "blocklisted"
+              "blocklisted",
+              "not_aired",
+              "tried"
             ],
             "type": "string"
           },
@@ -8642,7 +8647,7 @@
             "type": "string"
           },
           "code": {
-            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
+            "description": "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item, no Item, or none of the searched Items. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist. not_aired is a pack listing an Item that hasn't aired, its value the Item's code. tried is a release a failed Grab of the Work already tried.",
             "enum": [
               "wrong_work",
               "wrong_item",
@@ -8656,7 +8661,9 @@
               "score_below_minimum",
               "not_an_upgrade",
               "repack_other_group",
-              "blocklisted"
+              "blocklisted",
+              "not_aired",
+              "tried"
             ],
             "type": "string"
           },

@@ -45,7 +45,7 @@ func (gr *Grabs) settle(ctx context.Context, run Search) result {
 		if err != nil {
 			return err
 		}
-		j, err = gr.judgingOf(ctx, r, tree.ContentType, run.WorkID, searchedOf(run), expect)
+		j, err = gr.judgingOf(ctx, r, tree, scopeOf(run.Items), expect)
 		return err
 	})
 	if err != nil {
@@ -75,16 +75,6 @@ func (gr *Grabs) settle(ctx context.Context, run Search) result {
 		gr.cfg.Changed.Publish(ctx, Changed{GrabID: g.ID.String(), WorkID: g.WorkID.String()})
 	}
 	return committed
-}
-
-// searchedOf is the Item a Release that run heard must cover: its one
-// Item, zero for a run of several, whose cells judge what each Release
-// covers.
-func searchedOf(run Search) works.ItemID {
-	if len(run.Items) == 1 {
-		return run.Items[0]
-	}
-	return works.ItemID{}
 }
 
 // decideRun is run's one fenced Write over as, what h heard assessed. A
