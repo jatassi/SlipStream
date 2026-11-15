@@ -69,7 +69,7 @@ test("Add a Node shows a fresh Join Code with its countdown, Copy and the three 
   await expect.element(code).toHaveValue(codeText(1));
   await expect
     .element(code)
-    .toHaveAccessibleDescription(/^Expires in 59:\d\d\. It pairs one Node\.$/u);
+    .toHaveAccessibleDescription(/^Expires in 59:\d\d\. Each code works for one Node\.$/u);
   await expect.element(button("Copy Join Code")).toBeVisible();
   const ways = dialog().getByRole("list", { name: "Ways to use the code" });
   await expect.element(ways.getByText("First-run page.")).toBeVisible();
@@ -86,7 +86,7 @@ test("a reload keeps the dialog on its code and says the code's text shows only 
   await expect
     .element(
       dialog().getByText(
-        /^A Join Code shows only when it is made\. This one still works for 59:\d\d\.$/u,
+        /^SlipStream shows a Join Code only once, when you make it\. This one still works for 59:\d\d\. If you don't have it, make a new one\.$/u,
       ),
     )
     .toBeVisible();
@@ -104,15 +104,15 @@ test("a pasted Node address has home dial the new Node, then says when it can't 
   await userEvent.click(button("The new Node can't reach home?"));
   const address = dialog().getByRole("textbox", { name: "Node address" });
   await userEvent.fill(address, "not an address");
-  await userEvent.click(button("home dials it"));
+  await userEvent.click(button("Connect from home"));
   await expect
     .element(address)
     .toHaveAccessibleDescription("The Node address is mistyped, cut short or not a Node address");
 
   await userEvent.fill(address, "SLN1-7Q2KD-M4ZP1");
-  await userEvent.click(button("home dials it"));
+  await userEvent.click(button("Connect from home"));
   await expect
-    .element(dialog().getByText("home is dialing the new Node at 203.0.113.9:8485…"))
+    .element(dialog().getByText("home is connecting to the new Node at 203.0.113.9:8485…"))
     .toBeVisible();
   expect(codes.dialed).toEqual(["SLN1-7Q2KD-M4ZP1"]);
 
@@ -138,7 +138,7 @@ test("once the code is used the dialog shows the new Node's key and who dials, t
   pair(vps);
   await expect.element(dialog().getByText("vps paired.")).toBeVisible();
   await expect.element(dialog().getByText("SHA256:vps-key")).toBeVisible();
-  await expect.element(dialog().getByText("home dials vps")).toBeVisible();
+  await expect.element(dialog().getByText("home connects to vps")).toBeVisible();
 
   await userEvent.click(button("Choose its Roles"));
   await expect

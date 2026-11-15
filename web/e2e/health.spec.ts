@@ -213,7 +213,7 @@ async function nodeOffline(page: Page, world: World): Promise<void> {
 
   await world.fw.node("stop", "seedbox");
   const nodes = category(page, "Nodes");
-  const offline = "seedbox has been offline past the offline grace.";
+  const offline = "seedbox has been offline for longer than the Offline grace.";
   await expect(itemRow(nodes, offline)).toContainText("Error", { timeout: 150_000 });
   await expect(page.getByRole("link", { name: new RegExp(`^${offline}`, "u") })).toBeVisible();
   await expect(itemRow(nodes, "Searching on home")).toContainText("Warning");

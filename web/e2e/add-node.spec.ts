@@ -53,7 +53,7 @@ test("a Node paired with the dialog's Join Code shows its key, then takes its pr
   const code = await mint(page);
   await expect(dialog(page).getByText(`slipstream join ${code}`)).toBeVisible();
   expect((await claimSeedbox(world, code)).status).toBe(201);
-  await expectPaired(page, world, "seedbox dials home");
+  await expectPaired(page, world, "seedbox connects to home");
 
   await dialog(page).getByRole("button", { name: "Choose its Roles" }).click();
   await expect(
@@ -92,8 +92,8 @@ test("a new Node that can't reach home pairs once its Node address is pasted and
   await dialog(page)
     .getByRole("textbox", { name: "Node address" })
     .fill(nodeAddress ?? "");
-  await dialog(page).getByRole("button", { name: "home dials it" }).click();
-  await expectPaired(page, world, "home dials seedbox");
+  await dialog(page).getByRole("button", { name: "Connect from home" }).click();
+  await expectPaired(page, world, "home connects to seedbox");
 });
 
 test("the open Join Codes survive a reload and revoke a code so it can't pair", async ({

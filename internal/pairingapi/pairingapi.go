@@ -30,9 +30,9 @@ var (
 	joinCodeExpired       = api.NewCode(http.StatusForbidden, "join_code_expired", "The Join Code has expired")
 	joinCodeUsed          = api.NewCode(http.StatusForbidden, "join_code_used", "The Join Code was already used")
 	controllerKeyMismatch = api.NewCode(http.StatusBadGateway, "controller_key_mismatch", "The Controller's key doesn't match the Join Code")
-	restartRequired       = api.NewCode(http.StatusConflict, "restart_required", "A running Worker re-pairs only at start")
-	nodeUnaddressed       = api.NewCode(http.StatusConflict, "node_unaddressed", "The Controller is unreachable, and this Node's link has no address for it to dial")
-	noJoinPending         = api.NewCode(http.StatusNotFound, "no_join_pending", "No Join has awaited its Controller's dial")
+	restartRequired       = api.NewCode(http.StatusConflict, "restart_required", "A running Worker can't pair again. Stop it, then run slipstream join with the new code.")
+	nodeUnaddressed       = api.NewCode(http.StatusConflict, "node_unaddressed", "This Node can't connect to the Controller, and it has no address the Controller can connect to")
+	noJoinPending         = api.NewCode(http.StatusNotFound, "no_join_pending", "This Node hasn't started a join that waits for the Controller to connect")
 )
 
 var refusals = map[pairing.Kind]*api.Code{
@@ -158,7 +158,7 @@ func Routes(r *api.Router, j Joiner) {
 		ID:      "getWorkerClaim",
 		Method:  http.MethodGet,
 		Path:    "/setup/worker",
-		Summary: "Get the Join that awaited its Controller's dial: still awaiting, joined or failed",
+		Summary: "Get the last join that waited for the Controller to connect: still waiting, joined or failed",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{noJoinPending},
 	}, func(context.Context, identity.Claim, *struct{}) (*claimOutput, error) {

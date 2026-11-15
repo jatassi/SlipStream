@@ -146,7 +146,7 @@ func TestAJoinCodeNeedsALinkAddress(t *testing.T) {
 	req.Header.Set("X-Api-Key", apiKey)
 	w := httptest.NewRecorder()
 	r.Handler().ServeHTTP(w, req)
-	if want := `{"status":409,"code":"no_link_address","title":"The link has no address to put in a Join Code"}` + "\n"; w.Body.String() != want {
+	if want := `{"status":409,"code":"no_link_address","title":"The Controller has no address other Nodes can connect to. Set link.advertise in its config.yaml, then restart it."}` + "\n"; w.Body.String() != want {
 		t.Fatalf("createJoinCode = %d %s, want %s", w.Code, w.Body, want)
 	}
 }
@@ -297,7 +297,7 @@ func TestTheRoleOperations(t *testing.T) {
 
 	var planned outcome
 	call(t, s, http.MethodPost, plan, set(b.Basis, assign(box, `"relaying","searching"`)), http.StatusOK, &planned)
-	if len(planned.Effects) != 1 || planned.Effects[0].Kind != "gains" || planned.Effects[0].Words != "box starts Searching." || planned.Basis != b.Basis {
+	if len(planned.Effects) != 1 || planned.Effects[0].Kind != "gains" || planned.Effects[0].Words != "box gets the Searching Role." || planned.Basis != b.Basis {
 		t.Fatalf("planRoles answered %+v, want box gaining Searching on the board's basis", planned)
 	}
 	var blocked problem
@@ -313,7 +313,7 @@ func TestTheRoleOperations(t *testing.T) {
 
 	var applied outcome
 	call(t, s, http.MethodPut, roles, set(b.Basis, assign(box, `"relaying","searching"`)), http.StatusOK, &applied)
-	if len(applied.Effects) != 1 || applied.Effects[0].Words != "box starts Searching." || applied.Basis != b.Basis {
+	if len(applied.Effects) != 1 || applied.Effects[0].Words != "box gets the Searching Role." || applied.Basis != b.Basis {
 		t.Fatalf("setRoles answered %+v, want box gaining Searching", applied)
 	}
 	var stale problem
@@ -555,7 +555,7 @@ func TestTheRenameAndRemoveOperations(t *testing.T) {
 
 	refused(http.MethodDelete, node(ns.Self()), "", http.StatusConflict, "node_is_controller")
 	holds := refused(http.MethodDelete, node(boxID), "", http.StatusConflict, "node_holds_work")
-	want := "box still holds 3 torrents (41 GB) for Downloading. Untick its Roles and remove it when they finish, or remove it now and write them off."
+	want := "box still has 3 torrents (41 GB) for Downloading. Untick its Roles and remove box once that work finishes, or remove it now and give up that work."
 	if len(holds.Outcome.Checks) != 1 || holds.Outcome.Checks[0].Words != want {
 		t.Fatalf("removing box while it holds work answered %+v, want the check %q", holds, want)
 	}

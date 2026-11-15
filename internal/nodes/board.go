@@ -345,7 +345,7 @@ func (e *Unrouted) Error() string { return e.Why }
 func (h Holders) Route(home ID) (ID, error) {
 	if a, away := h.Away(home); away && !a.Lapsed {
 		v, _ := h.b.Node(home)
-		return ID{}, &Unrouted{Why: v.Name + " is " + standingWords(v)}
+		return ID{}, &Unrouted{Why: v.Name + " " + standingWords(v)}
 	}
 	if to, ok := h.Pick(home); ok {
 		return to, nil
@@ -363,15 +363,15 @@ func (h Holders) Why() string {
 		}
 		switch h.State(n.ID) {
 		case Holding:
-			reasons = append(reasons, n.Name+" is back and settling")
+			reasons = append(reasons, n.Name+" is back online but takes no new work yet")
 		case Away, Lapsed:
-			reasons = append(reasons, n.Name+" is "+standingWords(n))
+			reasons = append(reasons, n.Name+" "+standingWords(n))
 		case NoState, Draining, WritingOff, Covering:
 		}
 	}
 	switch len(reasons) {
 	case 0:
-		return "no Node holds " + h.r.Label()
+		return "no Node has the " + h.r.Label() + " Role"
 	case 1:
 		return reasons[0] + ", and no other Node " + h.r.Purpose()
 	}
@@ -379,15 +379,15 @@ func (h Holders) Why() string {
 }
 
 func standingWords(v NodeView) string {
-	since := " since " + v.Since.UTC().Format(time.RFC3339)
+	since := " since " + v.Since.UTC().Format("Jan 2 15:04 UTC")
 	switch v.Standing {
 	case Reconnecting:
-		return "reconnecting"
+		return "is reconnecting"
 	case MismatchedNode:
-		return "on another version" + since
+		return "has run another version of SlipStream" + since
 	case InStep, Offline, LapsedNode:
 	}
-	return "offline" + since
+	return "has been offline" + since
 }
 
 func (h Holders) Covering() bool {

@@ -40,7 +40,7 @@ export const stateWords: { readonly [S in NodeState]: string } = {
   online: "online",
   reconnecting: "reconnecting",
   offline: "offline",
-  lapsed: "offline past the grace",
+  lapsed: "offline too long",
   mismatched: "on another version",
   restarting: "restarting",
 };

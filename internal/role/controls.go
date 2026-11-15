@@ -433,7 +433,7 @@ func (c *Controls) receive(ctx context.Context, sess *controlSession, epoch stor
 		return err
 	}
 	for _, r := range rejected {
-		c.cfg.Log.Error("skipped a result the Controller can't apply", "node", sess.node.String(), "scope", r.scope, "seq", r.seq, "err", r.cause)
+		c.cfg.Log.Error("skipped a result the Controller couldn't apply", "node", sess.node.String(), "scope", r.scope, "seq", r.seq, "err", r.cause)
 	}
 	if len(rejected) > 0 && c.cfg.Changed != nil {
 		c.cfg.Changed(sess.node)
@@ -569,7 +569,7 @@ func (c *Controls) derive(ctx context.Context, node NodeID, dirty map[string]boo
 	all := dirty == nil || dirty[nodeScope]
 	scope, err := c.cfg.Scope(ctx, c.cfg.Library, node)
 	if err != nil {
-		return nil, fmt.Errorf("derive node intent: %w", err)
+		return nil, fmt.Errorf("work out the Roles each Node should have: %w", err)
 	}
 	var intents []*nodev1.Intent
 	add := func(scope string, msg proto.Message) error {

@@ -1,7 +1,8 @@
 import type { NodesCheck, NodesOutcome } from "../../../../api/gen/model";
 import { type Signal, SignalChip } from "../../../../ui/signal-chip";
 
-const staleWords = "Roles changed since you opened this. Here is the change as it is now.";
+const staleWords =
+  "Someone changed Roles while this was open. The list below shows your change against the current Roles.";
 
 const checkSignals: { readonly [V in NodesCheck["verdict"]]: { signal: Signal; chip: string } } = {
   block: { signal: "fail", chip: "Blocked" },

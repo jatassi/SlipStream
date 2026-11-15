@@ -38,14 +38,14 @@ func open(r Roster) *nodes.Service {
 }
 
 var (
-	noLinkAddress = api.NewCode(http.StatusConflict, "no_link_address", "The link has no address to put in a Join Code")
+	noLinkAddress = api.NewCode(http.StatusConflict, "no_link_address", "The Controller has no address other Nodes can connect to. Set link.advertise in its config.yaml, then restart it.")
 	nodeNotFound  = api.NewCode(http.StatusNotFound, "node_not_found", "No Node has this id")
 	rolesStale    = api.NewCarrying[outcome](http.StatusConflict, "roles_stale", "The Roles changed since this was planned", "outcome")
-	rolesBlocked  = api.NewCarrying[outcome](http.StatusConflict, "roles_blocked", "A guardrail blocks this change", "outcome")
-	nothingHeld   = api.NewCarrying[outcome](http.StatusConflict, "nothing_held", "The Node holds nothing to write off for these Roles", "outcome")
-	keepsRole     = api.NewCarrying[outcome](http.StatusConflict, "keeps_role", "The Node is the last that can hold a Role it would write off", "outcome")
+	rolesBlocked  = api.NewCarrying[outcome](http.StatusConflict, "roles_blocked", "This change can't be applied. The outcome's checks say why.", "outcome")
+	nothingHeld   = api.NewCarrying[outcome](http.StatusConflict, "nothing_held", "The Node has no work to give up for these Roles", "outcome")
+	keepsRole     = api.NewCarrying[outcome](http.StatusConflict, "keeps_role", "This would give up the work of a Role no other Node has. Tick that Role on another Node first.", "outcome")
 	isController  = api.NewCarrying[outcome](http.StatusConflict, "node_is_controller", "The Controller can't be removed", "outcome")
-	holdsWork     = api.NewCarrying[outcome](http.StatusConflict, "node_holds_work", "The Node holds work. Remove it with writeOff to write the work off.", "outcome")
+	holdsWork     = api.NewCarrying[outcome](http.StatusConflict, "node_holds_work", "The Node still has work for its Roles", "outcome")
 	nameTaken     = api.NewCode(http.StatusConflict, "node_name_taken", "Another Node has this name")
 	nameInvalid   = api.NewCode(http.StatusUnprocessableEntity, "node_name_invalid", "A Node's name is 1 to 63 characters, with no space at either end")
 )
@@ -70,11 +70,11 @@ type node struct {
 	Self      bool       `json:"self"`
 	PairedAt  time.Time  `json:"pairedAt"`
 	Addresses []string   `json:"addresses" nullable:"false"`
-	Roles     []roleView `json:"roles" nullable:"false" doc:"Every Role the Node stands in, in table order"`
+	Roles     []roleView `json:"roles" nullable:"false" doc:"Every Role the Node has, in the order of the Roles table"`
 	// IntentVersion is the node-scope version the library derives now.
 	IntentVersion string   `json:"intentVersion" pattern:"^[0-9a-f]{32}$"`
 	Link          link     `json:"link"`
-	Standing      string   `json:"standing" enum:"in-step,reconnecting,offline,lapsed,mismatched" doc:"How the Node stands with the Controller since link.since: in step, reconnecting within the blip, offline, lapsed past the offline grace, or on another version"`
+	Standing      string   `json:"standing" enum:"in-step,reconnecting,offline,lapsed,mismatched" doc:"The Node's connection to the Controller since link.since: in-step (connected), reconnecting (a short drop), offline, lapsed (offline longer than the offline grace) or mismatched (another version)"`
 	Dial          dialView `json:"dial"`
 	Facts         *facts   `json:"facts,omitempty" doc:"Absent while the Node has no session"`
 	Probes        []probe  `json:"probes" nullable:"false" doc:"The last verdict of each probe the Node ran, kept while it is away"`
@@ -109,14 +109,14 @@ func probesOf(results []role.ProbeResult) []probe {
 type roleView struct {
 	Role  string `json:"role" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving"`
 	State string `json:"state" enum:"holding,away,lapsed,draining,writing-off,covering"`
-	Held  *held  `json:"held,omitempty" doc:"The tied work the Node holds for the Role; absent when none"`
+	Held  *held  `json:"held,omitempty" doc:"The work the Node has for the Role that can't move to another Node; absent when none"`
 }
 
 type held struct {
 	Units        int64  `json:"units"`
 	Noun         string `json:"noun" doc:"The noun that fits units: torrent, torrents"`
 	Bytes        int64  `json:"bytes" doc:"0 when sizes don't apply"`
-	EndlessUnits int64  `json:"endlessUnits" minimum:"0" doc:"How many units the Node can't finish on its own, which stay until they are removed, moved or written off"`
+	EndlessUnits int64  `json:"endlessUnits" minimum:"0" doc:"How many units the Node can't finish on its own, which stay until they are removed, moved or given up"`
 }
 
 func rolesOf(views []nodes.RoleView) []roleView {
@@ -225,13 +225,13 @@ type planInput struct {
 }
 
 type planChange struct {
-	Basis string       `json:"basis" doc:"The basis of the board or Outcome the change was planned on"`
+	Basis string       `json:"basis" doc:"The revision of the Roles the change was planned against; a newer revision fails the call with roles_stale"`
 	Set   []assignment `json:"set" nullable:"false" doc:"The Roles of each Node the change names. A Node it doesn't name keeps its own."`
 	Test  bool         `json:"test,omitempty" doc:"Run the reach test of each added Role whose target is set, from its Node; setRoles always runs them"`
 }
 
 type rolesChange struct {
-	Basis string       `json:"basis" doc:"The basis of the board or Outcome the change was planned on"`
+	Basis string       `json:"basis" doc:"The revision of the Roles the change was planned against; a newer revision fails the call with roles_stale"`
 	Set   []assignment `json:"set" nullable:"false" doc:"The Roles of each Node the change names. A Node it doesn't name keeps its own."`
 }
 
@@ -265,7 +265,7 @@ type writeOffInput struct {
 }
 
 type writeOffBody struct {
-	Roles []string `json:"roles" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving" minItems:"1" nullable:"false" doc:"The Roles whose work the Node holds to give up. A Role still ticked on the Node is unticked."`
+	Roles []string `json:"roles" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving" minItems:"1" nullable:"false" doc:"The Roles whose work on the Node to give up. A Role still ticked on the Node is unticked."`
 }
 
 // change is the write-off as nodes reads it, or the problem with it.
@@ -296,7 +296,7 @@ type renameBody struct {
 
 type removeInput struct {
 	ID       string `path:"id" format:"uuid"`
-	WriteOff bool   `query:"writeOff" doc:"Write off the work the Node holds, files kept, instead of refusing while it holds any"`
+	WriteOff bool   `query:"writeOff" doc:"Give up the work the Node has, keeping its files, instead of refusing while it has any"`
 }
 
 type assignment struct {
@@ -330,9 +330,9 @@ func namedOf(n nodes.Named) named { return named{ID: n.ID.String(), Name: n.Name
 // outcome is what a change of Roles does: the whole assignment and
 // forfeits it stores, what happens and the guardrails' answers.
 type outcome struct {
-	Basis   string              `json:"basis" doc:"The basis of the rows it was planned on"`
+	Basis   string              `json:"basis" doc:"The revision of the Roles it was planned against"`
 	Next    []assignment        `json:"next" nullable:"false" doc:"Every Node's Roles once applied"`
-	Forfeit []assignment        `json:"forfeit" nullable:"false" doc:"Every Node's written-off Roles once applied"`
+	Forfeit []assignment        `json:"forfeit" nullable:"false" doc:"Every Node's Roles whose work is given up once applied"`
 	Effects []api.OneOf[effect] `json:"effects" nullable:"false"`
 	Checks  []check             `json:"checks" nullable:"false"`
 }
@@ -499,9 +499,9 @@ type boardNode struct {
 	ID         string     `json:"id" format:"uuid"`
 	Name       string     `json:"name"`
 	Controller bool       `json:"controller"`
-	Away       bool       `json:"away" doc:"Out of step, so its checks can't run"`
+	Away       bool       `json:"away" doc:"Not connected, so its checks can't run"`
 	Assigned   []string   `json:"assigned" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving" nullable:"false" doc:"The Roles ticked on the Node, as a set sends them"`
-	Roles      []roleView `json:"roles" nullable:"false" doc:"Every Role the Node stands in, in table order"`
+	Roles      []roleView `json:"roles" nullable:"false" doc:"Every Role the Node has, in the order of the Roles table"`
 	Probes     []probe    `json:"probes" nullable:"false" doc:"The last verdict of each probe the Node ran"`
 	Suggested  []string   `json:"suggested" enum:"searching,downloading,storage,converting,subtitles,metadata,media-server-link,notifying,relaying,serving" nullable:"false" doc:"What a new Node's Roles step ticks first: each Acquire Role that has no probe or whose probe fits on the Node"`
 }
@@ -512,7 +512,7 @@ type gesture struct {
 	To      string `json:"to" format:"uuid"`
 	Verdict string `json:"verdict" enum:"allow,warn,block"`
 	Word    string `json:"word"`
-	Note    string `json:"note,omitempty" doc:"The words of a Role the gesture hands back or pins"`
+	Note    string `json:"note,omitempty" doc:"What happens to a Role this drag returns to the Controller, or that the Controller keeps"`
 }
 
 func boardOf(b nodes.RoleBoard) roleBoard {
@@ -606,7 +606,7 @@ func Routes(r *api.Router, roster Roster) {
 		ID:      "getJoinCode",
 		Method:  http.MethodGet,
 		Path:    "/join-codes/{id}",
-		Summary: "Get whether a Join Code is open, used or expired, and its dial",
+		Summary: "Get whether a Join Code is open, used or expired, and the Controller's connection to its Node",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{joinCodeNotFound},
 	}, h.getJoinCode)
@@ -624,7 +624,7 @@ func Routes(r *api.Router, roster Roster) {
 		ID:      "dialForCode",
 		Method:  http.MethodPost,
 		Path:    "/join-codes/{id}/dial",
-		Summary: "Dial the Node waiting at a Node address, which pairs with the code over that session",
+		Summary: "Connect to the Node waiting at a Node address, which pairs with the code over that connection",
 		Status:  http.StatusAccepted,
 		Errors:  []*api.Code{joinCodeNotFound, joinCodeClosed, nodeAddressDamaged},
 	}, h.dialForCode)
@@ -633,7 +633,7 @@ func Routes(r *api.Router, roster Roster) {
 		ID:      "setNodeDial",
 		Method:  http.MethodPut,
 		Path:    "/nodes/{id}/dial",
-		Summary: "Set the Node address the Controller dials a Node at, or stop dialing it",
+		Summary: "Set the Node address the Controller connects to a Node at, or stop connecting to it",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{nodeNotFound, nodeAddressDamaged, nodeKeyMismatch},
 	}, h.setNodeDial)

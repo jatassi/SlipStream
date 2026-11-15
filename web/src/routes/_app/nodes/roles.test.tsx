@@ -55,10 +55,8 @@ test("the Roles section shows each Role Group's switch and every Role's state", 
   await expect.element(page.getByText("0 of 2").first()).toBeVisible();
   await expect.element(titled("Acquire")).toHaveAttribute("aria-expanded", "true");
   await expect.element(role("Downloading")).not.toBeChecked();
-  await expect.element(page.getByText("Draining, 3 torrents (41 GB) stay")).toBeVisible();
-  await expect
-    .element(page.getByRole("button", { name: "Write off what seedbox holds" }))
-    .toBeVisible();
+  await expect.element(page.getByText("Finishing its work, 3 torrents (41 GB) stay")).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Give up seedbox's work" })).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Review" })).toBeDisabled();
 });
 
@@ -80,7 +78,7 @@ test("the Controller keeps Serving ticked and says why", async () => {
   rolesOf(homeSeat);
   await expect.element(role("Serving")).toBeChecked();
   await expect.element(role("Serving")).toBeDisabled();
-  await expect.element(page.getByText("The Controller always holds Serving.")).toBeVisible();
+  await expect.element(page.getByText("The Controller always has the Serving Role.")).toBeVisible();
 });
 
 test("a group switch ticks its Roles together, and Apply sends the Reviewed change", async () => {
@@ -92,7 +90,7 @@ test("a group switch ticks its Roles together, and Apply sends the Reviewed chan
             kind: "gains",
             node: seedboxNamed,
             role: "searching",
-            words: "seedbox starts Searching.",
+            words: "seedbox gets the Searching Role.",
           },
         ],
       }),
@@ -106,7 +104,7 @@ test("a group switch ticks its Roles together, and Apply sends the Reviewed chan
   await expect.element(page.getByText("2 of 2")).toBeVisible();
 
   await userEvent.click(page.getByRole("button", { name: "Review" }));
-  await expect.element(dialog().getByText("seedbox starts Searching.")).toBeVisible();
+  await expect.element(dialog().getByText("seedbox gets the Searching Role.")).toBeVisible();
   expect(roles.planned).toEqual([
     {
       basis: "basis-1",
@@ -189,11 +187,13 @@ test("the Review says what unticking does, and a check that blocks keeps Apply o
   await expect.element(dialog().getByRole("button", { name: "Apply" })).toBeDisabled();
 });
 
+const gainsNotifying = "seedbox gets the Notifying Role.";
+
 test("a change planned on an old basis comes back as a fresh Review, and a failed reach test blocks", async () => {
   const fresh = outcome({
     basis: "basis-2",
     effects: [
-      { kind: "gains", node: seedboxNamed, role: "notifying", words: "seedbox starts Notifying." },
+      { kind: "gains", node: seedboxNamed, role: "notifying", words: gainsNotifying },
       { kind: "lets-go", node: homeNamed, role: "notifying", words: "home stops Notifying." },
     ],
   });
@@ -223,7 +223,9 @@ test("a change planned on an old basis comes back as a fresh Review, and a faile
   await userEvent.click(dialog().getByRole("button", { name: "Apply" }));
   await expect
     .element(
-      dialog().getByText("Roles changed since you opened this. Here is the change as it is now."),
+      dialog().getByText(
+        "Someone changed Roles while this was open. The list below shows your change against the current Roles.",
+      ),
     )
     .toBeVisible();
   await expect.element(dialog().getByText("home stops Notifying.")).toBeVisible();
@@ -239,10 +241,10 @@ test("a change planned on an old basis comes back as a fresh Review, and a faile
 test("Write off shows the count and size first, then gives up what the Node holds", async () => {
   const writing = writeOffServer(outcome({}));
   rolesOf(seedboxSeat, { handlers: [writing.handler] });
-  await userEvent.click(page.getByRole("button", { name: "Write off what seedbox holds" }));
-  const confirm = page.getByRole("dialog", { name: "Write off what seedbox holds" });
+  await userEvent.click(page.getByRole("button", { name: "Give up seedbox's work" }));
+  const confirm = page.getByRole("dialog", { name: "Give up seedbox's work" });
   await expect
-    .element(confirm.getByText("seedbox holds 3 torrents (41 GB) for Downloading."))
+    .element(confirm.getByText("seedbox has 3 torrents (41 GB) for Downloading."))
     .toBeVisible();
   await expect
     .element(confirm.getByText("This also unticks Downloading on seedbox."))
@@ -272,8 +274,8 @@ test("a write-off a guardrail refuses says why", async () => {
     ),
   );
   rolesOf(seedboxSeat, { handlers: [writing.handler] });
-  await userEvent.click(page.getByRole("button", { name: "Write off what seedbox holds" }));
-  const confirm = page.getByRole("dialog", { name: "Write off what seedbox holds" });
+  await userEvent.click(page.getByRole("button", { name: "Give up seedbox's work" }));
+  const confirm = page.getByRole("dialog", { name: "Give up seedbox's work" });
   await userEvent.click(confirm.getByRole("button", { name: "Write off" }));
   await expect
     .element(confirm.getByRole("alert"))

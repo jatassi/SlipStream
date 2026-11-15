@@ -9,7 +9,7 @@ import { outcome, refusal } from "../../../test/roles";
 import { asPhone, resize } from "../../../test/viewport";
 
 const views = () => page.getByRole("navigation", { name: "View" });
-const roster = () => page.getByRole("list", { name: "Roster" });
+const roster = () => page.getByRole("list", { name: "Nodes list" });
 const diagram = () => page.getByRole("figure", { name: "Diagram" });
 const rowOf = (name: string) =>
   roster()
@@ -33,11 +33,11 @@ test("a desktop browser opens Nodes on the Diagram, which takes drags, and the R
   await expect.element(diagram()).toHaveAttribute("data-takes-drags", "true");
   await expect.element(page.getByRole("button", { name: "Add a Node" })).toBeVisible();
 
-  await userEvent.click(views().getByRole("link", { name: "Roster" }));
+  await userEvent.click(views().getByRole("link", { name: "List" }));
   expect(router.state.location.search).toEqual({ view: "roster" });
   await expect.element(roster()).toBeVisible();
   await expect
-    .element(views().getByRole("link", { name: "Roster" }))
+    .element(views().getByRole("link", { name: "List" }))
     .toHaveAttribute("aria-current", "page");
 });
 
@@ -46,7 +46,7 @@ test("below 1000px Nodes opens on the Roster, and the Diagram is there to look a
   renderApp({ path: "/nodes", handlers: threeNodes });
   await expect.element(roster()).toBeVisible();
   await expect
-    .element(views().getByRole("link", { name: "Roster" }))
+    .element(views().getByRole("link", { name: "List" }))
     .toHaveAttribute("aria-current", "page");
   await userEvent.click(views().getByRole("link", { name: "Diagram" }));
   await expect.element(diagram()).toHaveAttribute("data-takes-drags", "false");
@@ -68,13 +68,13 @@ test("each Roster row says the Node's state, when it was last seen, how it is re
   const seedboxRow = rowOf("seedbox");
   await expect
     .poll(textOf(seedboxRow))
-    .toMatch(/Offline · Last seen .+Downloading · Draining, 3 torrents \(41 GB\) stay/u);
+    .toMatch(/Offline · Last seen .+Downloading · Finishing its work, 3 torrents \(41 GB\) stay/u);
   await expect
     .element(seedboxRow.getByRole("list", { name: "What seedbox found" }))
     .toHaveTextContent("Weak: The downloads folder is on a network share.");
   await expect
     .element(rowOf("vps"))
-    .toHaveTextContent("vpsOnline · home dials vps · 24 ms round tripSearching");
+    .toHaveTextContent("vpsOnline · home connects to vps · 24 ms round tripSearching");
   expect(
     roster()
       .getByRole("link")
@@ -127,9 +127,9 @@ test("Remove from the Roster says what the Node still holds and writes it off", 
   await expect
     .poll(textOf(dialog))
     .toMatch(
-      /seedbox still holds 3 torrents \(41 GB\) for Downloading\. Untick its Roles and remove it when they finish, or remove it now and write them off\./u,
+      /seedbox still has 3 torrents \(41 GB\) for Downloading\. Untick its Roles and remove seedbox once that work finishes, or remove it now and give up that work\./u,
     );
-  await userEvent.click(dialog.getByRole("button", { name: "Remove and write off" }));
+  await userEvent.click(dialog.getByRole("button", { name: "Remove and give up its work" }));
   await expect.element(dialog).not.toBeInTheDocument();
   expect(server.removed).toEqual([{ nodeId: ids.seedbox, writeOff: "true" }]);
 });
@@ -143,7 +143,7 @@ test("a Node that started holding work since the Roster loaded is refused, then 
         node: { id: ids.vps, name: "vps" },
         role: "downloading",
         words:
-          "vps still holds 1 torrent for Downloading. Untick its Roles and remove it when they finish, or remove it now and write them off.",
+          "vps still has 1 torrent for Downloading. Untick its Roles and remove vps once that work finishes, or remove it now and give up that work.",
       },
     ],
   });
@@ -157,8 +157,8 @@ test("a Node that started holding work since the Roster loaded is refused, then 
   await expect
     .element(dialog.getByRole("alert"))
     .toHaveTextContent("vps started holding work, so nothing was removed.");
-  await expect.poll(textOf(dialog)).toMatch(/vps still holds 1 torrent for Downloading\./u);
-  await userEvent.click(dialog.getByRole("button", { name: "Remove and write off" }));
+  await expect.poll(textOf(dialog)).toMatch(/vps still has 1 torrent for Downloading\./u);
+  await userEvent.click(dialog.getByRole("button", { name: "Remove and give up its work" }));
   await expect.element(dialog).not.toBeInTheDocument();
   expect(server.removed).toEqual([
     { nodeId: ids.vps, writeOff: "false" },
@@ -173,7 +173,7 @@ test("the Controller can't be removed, and Remove says why", async () => {
   const dialog = page.getByRole("dialog", { name: "home can't be removed" });
   await expect
     .poll(textOf(dialog))
-    .toMatch(/home is the Controller, which keeps the library, so it can't be removed\./u);
+    .toMatch(/home is the Controller and keeps the library, so it can't be removed\./u);
   await expect.poll(textOf(dialog)).not.toMatch(/hand/iu);
   await userEvent.click(dialog.getByRole("button", { name: "Close" }));
   await expect.element(dialog).not.toBeInTheDocument();
@@ -188,6 +188,6 @@ test("Write off is on the menu only of a Node that holds work, and opens the wri
   await userEvent.keyboard("{Escape}");
   await openMenu("seedbox", "Write off");
   await expect
-    .poll(textOf(page.getByRole("dialog", { name: "Write off what seedbox holds" })))
-    .toMatch(/seedbox holds 3 torrents \(41 GB\) for Downloading\./u);
+    .poll(textOf(page.getByRole("dialog", { name: "Give up seedbox's work" })))
+    .toMatch(/seedbox has 3 torrents \(41 GB\) for Downloading\./u);
 });

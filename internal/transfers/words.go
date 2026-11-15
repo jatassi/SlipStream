@@ -37,7 +37,7 @@ func (w Wait) words(names map[role.NodeID]string, source, dest string) string {
 	case Connecting:
 		return fmt.Sprintf("Connecting to %s.", node)
 	case NoRoute:
-		return fmt.Sprintf("%s and %s can't reach each other. Open the link port on one of them.", source, dest)
+		return fmt.Sprintf("%s and %s can't connect to each other. Open the port in link.listen on one of them.", source, dest)
 	case RootNotReady:
 		return fmt.Sprintf("Waiting for the library root on %s.", node)
 	case StorageDraining:
@@ -66,18 +66,18 @@ func sentence(t Transfer, dest role.NodeID, code Code, position int, detail stri
 			return fmt.Sprintf("%s can't read %s: %s.", from, file, detail)
 		}
 		if detail == "" {
-			return fmt.Sprintf("%s's torrent client failed %s.", from, file)
+			return fmt.Sprintf("%s's torrent client couldn't read %s.", from, file)
 		}
-		return fmt.Sprintf("%s's torrent client failed %s: %s.", from, file, detail)
+		return fmt.Sprintf("%s's torrent client couldn't read %s: %s.", from, file, detail)
 	case Damaged:
 		if detail == readBack {
-			return fmt.Sprintf("%s kept reading back damaged on %s. Check %s's disk.", file, names[dest], names[dest])
+			return fmt.Sprintf("%s was damaged each time %s read it back from disk. Check %s's disk.", file, names[dest], names[dest])
 		}
 		return fmt.Sprintf("%s kept arriving damaged from %s. Check %s's memory.", file, from, from)
 	case SourceWrittenOff:
-		return fmt.Sprintf("%s was written off before %s was copied.", from, file)
+		return fmt.Sprintf("SlipStream gave up %s's work before %s was copied.", from, file)
 	case Rerouted:
-		return fmt.Sprintf("The library root is on %s now, which already has the files.", from)
+		return fmt.Sprintf("The library root moved to %s, which already has these files. Nothing needs copying.", from)
 	}
 	panic("transfers: a failure of no known code")
 }

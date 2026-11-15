@@ -18,7 +18,7 @@ var (
 	joinCodeNotFound   = api.NewCode(http.StatusNotFound, "join_code_not_found", "No Join Code has this id")
 	joinCodeClosed     = api.NewCode(http.StatusConflict, "join_code_closed", "The Join Code is used or expired")
 	nodeAddressDamaged = api.NewCode(http.StatusUnprocessableEntity, "node_address_damaged", "The Node address is mistyped, cut short or not a Node address")
-	nodeKeyMismatch    = api.NewCode(http.StatusConflict, "node_key_mismatch", "The Node address names another Node")
+	nodeKeyMismatch    = api.NewCode(http.StatusConflict, "node_key_mismatch", "This Node address belongs to another Node. Run slipstream node-address on the Node you want to add and paste what it prints.")
 )
 
 type joinCode struct {
@@ -48,12 +48,12 @@ type openCodesOutput struct {
 type codeState struct {
 	State   string   `json:"state" enum:"open,used,expired"`
 	NodeID  string   `json:"nodeId,omitempty" format:"uuid" doc:"The Node that paired with the code; absent unless used"`
-	Dialing *dialing `json:"dialing,omitempty" doc:"The Node address the Controller dials for an open code; absent without one"`
+	Dialing *dialing `json:"dialing,omitempty" doc:"The Node address the Controller connects to for an open code; absent without one"`
 }
 
 type dialing struct {
 	Address     string    `json:"address"`
-	Addresses   []string  `json:"addresses" nullable:"false" doc:"Where the Controller dials the Node, in order"`
+	Addresses   []string  `json:"addresses" nullable:"false" doc:"Where the Controller connects to the Node, in order"`
 	Since       time.Time `json:"since"`
 	Unreachable bool      `json:"unreachable" doc:"The Node hasn't paired within timings.nodes.dial_report of the paste"`
 }
@@ -79,13 +79,13 @@ type nodeDialInput struct {
 }
 
 type nodeDial struct {
-	NodeAddress *string   `json:"nodeAddress,omitempty" doc:"Dial the Node at this Node address from now on"`
-	Addresses   *[]string `json:"addresses,omitempty" maxItems:"0" doc:"Send [] to stop dialing the Node, which then dials the Controller"`
+	NodeAddress *string   `json:"nodeAddress,omitempty" doc:"Connect to the Node at this Node address from now on"`
+	Addresses   *[]string `json:"addresses,omitempty" maxItems:"0" doc:"Send [] to stop connecting to the Node, which then connects to the Controller"`
 }
 
 type dialView struct {
-	By              string   `json:"by,omitempty" enum:"node,controller" doc:"The side that dialed the live session; absent with none"`
-	ControllerDials []string `json:"controllerDials" nullable:"false" doc:"The addresses the Controller dials the Node at; empty when the Node dials the Controller"`
+	By              string   `json:"by,omitempty" enum:"node,controller" doc:"The side that opened the live connection; absent with none"`
+	ControllerDials []string `json:"controllerDials" nullable:"false" doc:"The addresses the Controller connects to the Node at; empty when the Node connects to the Controller"`
 }
 
 func dialOf(d nodes.Dial) dialView {

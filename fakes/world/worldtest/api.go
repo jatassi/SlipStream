@@ -410,7 +410,7 @@ func CheckHome(t *testing.T, a *API) {
 	}
 
 	set := a.SetRoles("home", seedbox.ID, "searching")
-	if want := []string{"seedbox stops Downloading.", "home takes over Downloading, since SlipStream always needs a Node that downloads."}; !slices.Equal(set.Words(), want) {
+	if want := []string{"seedbox loses the Downloading Role.", "home takes over Downloading, since SlipStream always needs a Node that downloads."}; !slices.Equal(set.Words(), want) {
 		t.Fatalf("setRoles(seedbox, [searching]) answered %q, want %q", set.Words(), want)
 	}
 	rows = a.Nodes("home")

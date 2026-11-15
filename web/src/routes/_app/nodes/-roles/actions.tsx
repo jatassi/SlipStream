@@ -47,7 +47,7 @@ export function Actions({
       )}
       {seat.roles.some(({ held }) => held !== undefined) && (
         <Button className="ml-auto" onClick={onWriteOff}>
-          Write off what {seat.name} holds
+          Give up {seat.name}&apos;s work
         </Button>
       )}
     </div>

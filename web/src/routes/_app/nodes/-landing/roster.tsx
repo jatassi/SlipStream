@@ -72,7 +72,7 @@ export function Roster({
 }) {
   return (
     <ul
-      aria-label="Roster"
+      aria-label="Nodes list"
       {...rosterGroup}
       className="rounded-card bg-glass ring-1 ring-hairline ring-inset"
     >

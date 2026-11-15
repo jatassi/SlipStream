@@ -192,7 +192,7 @@ test("den that can't reach home waits on its page until home dials the pasted No
 
   await addANode(page).getByRole("button", { name: "The new Node can't reach home?" }).click();
   await addANode(page).getByRole("textbox", { name: "Node address" }).fill(address);
-  await addANode(page).getByRole("button", { name: "home dials it" }).click();
+  await addANode(page).getByRole("button", { name: "Connect from home" }).click();
   await expect(addANode(page).getByText("den paired.")).toBeVisible();
   await expectWorkerOfHome(den);
 });
