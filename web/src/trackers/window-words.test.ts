@@ -24,9 +24,9 @@ const owing: TrackersWindow = {
 };
 
 test("an open window says what it still owes, joined as its rule clears", () => {
-  expect(owesWords(owing)).toBe("Still needs 3 days 4 h of seeding or 1.2 GB of upload");
+  expect(owesWords(owing)).toBe("Still needs 3 days 4 h more seeding or 1.2 GB more upload");
   expect(owesWords({ ...owing, rule: { ...tenDays, clears: "both" } })).toBe(
-    "Still needs 3 days 4 h of seeding and 1.2 GB of upload",
+    "Still needs 3 days 4 h more seeding and 1.2 GB more upload",
   );
   expect(owesWords({ ...owing, rule: null, owes: null })).toBe("No rule known");
 });
@@ -73,7 +73,7 @@ test("a window's sentences say how it stands at risk, after a regrab, and what a
       "seedpool",
       clock,
     ),
-  ).toEqual(["It still needed 1 day of seeding when its last torrent was removed."]);
+  ).toEqual(["It still needed 1 day more seeding when its last torrent was removed."]);
 });
 
 test("the history tells a window grabbed again after its miss as that miss, and drops a regrab older than its last miss", () => {
@@ -86,7 +86,7 @@ test("the history tells a window grabbed again after its miss as that miss, and 
   };
   expect(endedLine(asEnded(regrabbed), clock)).toBe("Missed at 08:00");
   expect(windowSentences(asEnded(regrabbed), "seedpool", clock)).toEqual([
-    "It still needed 1 day of seeding when its last torrent was removed.",
+    "It still needed 1 day more seeding when its last torrent was removed.",
     "It was grabbed again at 10:00.",
   ]);
   expect(
@@ -95,5 +95,5 @@ test("the history tells a window grabbed again after its miss as that miss, and 
       "seedpool",
       clock,
     ),
-  ).toEqual(["It still needed 1 day of seeding when its last torrent was removed."]);
+  ).toEqual(["It still needed 1 day more seeding when its last torrent was removed."]);
 });

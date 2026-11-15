@@ -31,12 +31,12 @@ test("the Seeding tab lists the windows still owed with their lanes, and a link 
     handlers: [windows.handler, ...trackersServer().handlers],
   });
   const holdFast = rowOf(open(), "Hold.Fast.2024.1080p.WEB-DL");
-  await expect.element(holdFast).toMatchTextContent("Still needs 3 days 4 h of seeding");
+  await expect.element(holdFast).toMatchTextContent("Still needs 3 days 4 h more seeding");
   await expect
     .element(holdFast.getByRole("meter", { name: "Seeding time" }))
     .toHaveAttribute("aria-valuetext", "6 days 22 h, rule 10 days 2 h, goal 14 days");
   const saltLine = rowOf(open(), "Salt.Line.2022.1080p.WEB-DL");
-  await expect.element(saltLine).toMatchTextContent("Still needs 5 days of seeding");
+  await expect.element(saltLine).toMatchTextContent("Still needs 5 days more seeding");
   await expect.element(saltLine.getByText("At risk")).toBeVisible();
   await expect
     .element(saltLine)
@@ -70,7 +70,7 @@ test("the history lists met, missed and released windows a page at a time", asyn
   await expect
     .element(rowOf(history(), "Ash.Road.2020.1080p.WEB-DL"))
     .toMatchTextContent(
-      /Missed at .+It still needed 1 day of seeding when its last torrent was removed\./u,
+      /Missed at .+It still needed 1 day more seeding when its last torrent was removed\./u,
     );
   await expect
     .element(rowOf(history(), "Gone.Quiet.2019.1080p.WEB-DL"))
@@ -87,13 +87,13 @@ test("a window missed and grabbed again stays in the history as its miss while i
   await expect
     .element(missed)
     .toMatchTextContent(
-      /Missed at .+It still needed 6 days of seeding when its last torrent was removed\.It was grabbed again at .+\./u,
+      /Missed at .+It still needed 6 days more seeding when its last torrent was removed\.It was grabbed again at .+\./u,
     );
   expect(missed.getByText("At risk").query()).toBeNull();
   expect(missed.getByText(/Still needs /u).query()).toBeNull();
   await expect
     .element(rowOf(open(), "Salt.Line.2022.1080p.WEB-DL"))
-    .toMatchTextContent("Still needs 5 days of seeding");
+    .toMatchTextContent("Still needs 5 days more seeding");
   expect(page.getByText("No hit and run window has ended yet.").query()).toBeNull();
 });
 
