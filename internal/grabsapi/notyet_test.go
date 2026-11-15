@@ -16,8 +16,6 @@ import (
 // notYet is every operation whose handler isn't built. The PR that builds
 // one deletes its line.
 var notYet = []struct{ op, method, path, body string }{
-	{"searchSeveralWorks", http.MethodPost, "/api/v1/works/search", `{"workIds":[]}`},
-	{"cancelQueuedSearches", http.MethodDelete, "/api/v1/search-queue?lane=bulk", ""},
 	{"grabWaiting", http.MethodPost, "/api/v1/works/" + storage.NewUUID().String() + "/waits/grab", "{}"},
 	{"listWanted", http.MethodGet, "/api/v1/wanted", ""},
 }
