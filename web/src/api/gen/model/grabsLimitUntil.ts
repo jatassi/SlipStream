@@ -3,6 +3,9 @@ export interface GrabsLimitUntil {
   indexerName: string;
   /** RSS sync uses all of its search limit, so Backlog search waits for it */
   starved: boolean;
-  /** When its search limit frees a search */
-  until: string;
+  /**
+   * When its search limit frees a search; null while starved
+   * @nullable
+   */
+  until: string | null;
 }

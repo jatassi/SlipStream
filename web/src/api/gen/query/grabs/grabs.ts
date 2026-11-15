@@ -127,7 +127,6 @@ import type {
   ListWanted409,
   ListWanted422,
   ListWanted500,
-  ListWanted501,
   ListWantedParams,
   RemoveFromBlocklist401,
   RemoveFromBlocklist403,
@@ -1650,13 +1649,7 @@ export const getListWantedQueryKey = (params?: ListWantedParams) => {
 export const getListWantedSuspenseQueryOptions = <
   TData = Awaited<ReturnType<typeof listWanted>>,
   TError = ErrorType<
-    | ListWanted400
-    | ListWanted401
-    | ListWanted403
-    | ListWanted409
-    | ListWanted422
-    | ListWanted500
-    | ListWanted501
+    ListWanted400 | ListWanted401 | ListWanted403 | ListWanted409 | ListWanted422 | ListWanted500
   >,
 >(
   params?: ListWantedParams,
@@ -1685,25 +1678,13 @@ export const getListWantedSuspenseQueryOptions = <
 
 export type ListWantedSuspenseQueryResult = NonNullable<Awaited<ReturnType<typeof listWanted>>>;
 export type ListWantedSuspenseQueryError = ErrorType<
-  | ListWanted400
-  | ListWanted401
-  | ListWanted403
-  | ListWanted409
-  | ListWanted422
-  | ListWanted500
-  | ListWanted501
+  ListWanted400 | ListWanted401 | ListWanted403 | ListWanted409 | ListWanted422 | ListWanted500
 >;
 
 export function useListWantedSuspense<
   TData = Awaited<ReturnType<typeof listWanted>>,
   TError = ErrorType<
-    | ListWanted400
-    | ListWanted401
-    | ListWanted403
-    | ListWanted409
-    | ListWanted422
-    | ListWanted500
-    | ListWanted501
+    ListWanted400 | ListWanted401 | ListWanted403 | ListWanted409 | ListWanted422 | ListWanted500
   >,
 >(
   params: undefined | ListWantedParams,
@@ -1716,13 +1697,7 @@ export function useListWantedSuspense<
 export function useListWantedSuspense<
   TData = Awaited<ReturnType<typeof listWanted>>,
   TError = ErrorType<
-    | ListWanted400
-    | ListWanted401
-    | ListWanted403
-    | ListWanted409
-    | ListWanted422
-    | ListWanted500
-    | ListWanted501
+    ListWanted400 | ListWanted401 | ListWanted403 | ListWanted409 | ListWanted422 | ListWanted500
   >,
 >(
   params?: ListWantedParams,
@@ -1735,13 +1710,7 @@ export function useListWantedSuspense<
 export function useListWantedSuspense<
   TData = Awaited<ReturnType<typeof listWanted>>,
   TError = ErrorType<
-    | ListWanted400
-    | ListWanted401
-    | ListWanted403
-    | ListWanted409
-    | ListWanted422
-    | ListWanted500
-    | ListWanted501
+    ListWanted400 | ListWanted401 | ListWanted403 | ListWanted409 | ListWanted422 | ListWanted500
   >,
 >(
   params?: ListWantedParams,
@@ -1758,13 +1727,7 @@ export function useListWantedSuspense<
 export function useListWantedSuspense<
   TData = Awaited<ReturnType<typeof listWanted>>,
   TError = ErrorType<
-    | ListWanted400
-    | ListWanted401
-    | ListWanted403
-    | ListWanted409
-    | ListWanted422
-    | ListWanted500
-    | ListWanted501
+    ListWanted400 | ListWanted401 | ListWanted403 | ListWanted409 | ListWanted422 | ListWanted500
   >,
 >(
   params?: ListWantedParams,

@@ -345,7 +345,7 @@ func appendCells(out []Cell, w world) []Cell {
 					c.File, c.Score = files[fill.File], fill.Score
 				}
 				c.Gone = c.File == nil && slices.ContainsFunc(goneOf[it.ID], func(g *File) bool { return wouldFill(c, *g) })
-				c.Search = w.search[key]
+				c.Search = w.searchOf(key)
 				out = append(out, stated(c, w.grabs[key]))
 			}
 		}
@@ -459,4 +459,13 @@ func (s *scoring) compare(t targets.Target, a, b File) int {
 		}
 	}
 	return 0
+}
+
+// searchOf is key's search fact, with its Item's latest search.
+func (w world) searchOf(key CellKey) SearchFact {
+	f := w.search[key]
+	if of, ok := w.search[ItemKey(key.Item)]; ok {
+		f.NotFound, f.SearchedAt, f.NextAt = of.NotFound, of.SearchedAt, of.NextAt
+	}
+	return f
 }

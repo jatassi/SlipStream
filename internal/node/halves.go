@@ -619,6 +619,10 @@ func (t lateTasks) Every(ctx context.Context, id tasks.TaskID) (*int64, error) {
 	return (*t.tasks).Every(ctx, id)
 }
 
+func (t lateTasks) Next(ctx context.Context, id tasks.TaskID) (time.Time, error) {
+	return (*t.tasks).Next(ctx, id)
+}
+
 func (t lateTasks) SetCadence(ctx context.Context, id tasks.TaskID, v setting.Stored[int64]) error {
 	return (*t.tasks).SetCadence(ctx, id, v)
 }

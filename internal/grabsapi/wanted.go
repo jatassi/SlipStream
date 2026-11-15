@@ -2,11 +2,15 @@ package grabsapi
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 var wantedCursorStale = api.NewCode(http.StatusBadRequest, "wanted_cursor_stale", "This list changed. Load Wanted again.")
@@ -35,10 +39,10 @@ type queueStatus struct {
 }
 
 type limitUntil struct {
-	IndexerID   string    `json:"indexerId" format:"uuid"`
-	IndexerName string    `json:"indexerName"`
-	Until       time.Time `json:"until" doc:"When its search limit frees a search"`
-	Starved     bool      `json:"starved" doc:"RSS sync uses all of its search limit, so Backlog search waits for it"`
+	IndexerID   string     `json:"indexerId" format:"uuid"`
+	IndexerName string     `json:"indexerName"`
+	Until       *time.Time `json:"until" doc:"When its search limit frees a search; null while starved"`
+	Starved     bool       `json:"starved" doc:"RSS sync uses all of its search limit, so Backlog search waits for it"`
 }
 
 type wantedWork struct {
@@ -72,9 +76,59 @@ var listWantedOp = api.Op{
 	Path:    "/wanted",
 	Summary: "List the Works that want a Release, 100 at a time, with what the search queue is doing",
 	Status:  http.StatusOK,
-	Errors:  []*api.Code{wantedCursorStale, notYet},
+	Errors:  []*api.Code{wantedCursorStale},
 }
 
-func (handlers) listWanted(context.Context, identity.Admin, *wantedInput) (*wantedPageOutput, error) {
-	return nil, notYet
+func (h handlers) listWanted(ctx context.Context, by identity.Admin, in *wantedInput) (*wantedPageOutput, error) {
+	q := grabs.WantedQuery{
+		Filter: grabs.WantedFilter{Type: works.TypeID(in.ContentType)}, Sort: grabs.WantedSort(in.Sort), Cursor: in.Cursor, Limit: in.Limit,
+	}
+	for _, r := range in.Reasons {
+		q.Filter.Reasons = append(q.Filter.Reasons, wantedReasons[r])
+	}
+	page, err := open(h.p).Wanted(ctx, by, q)
+	if errors.Is(err, grabs.ErrCursorStale) {
+		return nil, wantedCursorStale
+	}
+	if err != nil {
+		return nil, err
+	}
+	m := minter(h.p)
+	out := wantedPage{Status: queueStatusOf(page.Status), Total: page.Total, LeftGone: page.LeftGone, Rows: make([]wantedRow, len(page.Rows))}
+	if page.Next != "" {
+		out.Next = &page.Next
+	}
+	for i, r := range page.Rows {
+		out.Rows[i] = wantedRowOf(m, r)
+	}
+	return &wantedPageOutput{Body: out}, nil
+}
+
+func queueStatusOf(s grabs.QueueStatus) queueStatus {
+	out := queueStatus{Searching: s.Searching, Queued: s.Queued, NextBacklog: timeOrNil(s.NextBacklog), Limits: make([]limitUntil, len(s.Limits))}
+	for i, l := range s.Limits {
+		out.Limits[i] = limitUntil{IndexerID: l.Indexer.String(), IndexerName: l.Name, Until: timeOrNil(l.Until), Starved: l.Starved}
+	}
+	return out
+}
+
+func wantedRowOf(m artwork.Minter, r grabs.WantedRow) wantedRow {
+	out := wantedRow{
+		Work:   wantedWork{ID: r.Work.ID.String(), ContentType: string(r.Work.ContentType), Label: r.Work.Label},
+		Reason: r.Reason.String(), Others: make(map[string]int, len(r.Others)), Ranges: make([]itemRange, len(r.Ranges)),
+		NextAt: timeOrNil(r.Next), State: r.Phase.String(),
+	}
+	if !r.Poster.IsZero() {
+		out.Work.PosterURL = new(m.URL(r.Poster))
+	}
+	for reason, n := range r.Others {
+		out.Others[reason.String()] = n
+	}
+	for i, ir := range r.Ranges {
+		out.Ranges[i] = itemRange{First: ir.First, Last: ir.Last}
+	}
+	if l := r.Last; l != nil {
+		out.LastAt, out.Last = new(l.At), new(string(l.Outcome))
+	}
+	return out
 }

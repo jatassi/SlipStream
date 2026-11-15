@@ -54,7 +54,7 @@ const possessive = (name: string): string => (name.endsWith("s") ? `${name}'` : 
 
 function limitPart(limit: GrabsLimitUntil, clock: Clock): StatusPart {
   const href = `/settings/indexers/${limit.indexerId}`;
-  return limit.starved
+  return limit.starved || limit.until === null
     ? {
         kind: "warning",
         text: `RSS sync uses all of ${possessive(limit.indexerName)} search limit`,

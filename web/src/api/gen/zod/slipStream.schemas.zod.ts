@@ -3988,7 +3988,10 @@ export const GrabsLimitUntil = zod.object({
   starved: zod
     .boolean()
     .describe("RSS sync uses all of its search limit, so Backlog search waits for it"),
-  until: zod.iso.datetime({ offset: true }).describe("When its search limit frees a search"),
+  until: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("When its search limit frees a search; null while starved"),
 });
 
 export type GrabsLimitUntil = zod.input<typeof GrabsLimitUntil>;

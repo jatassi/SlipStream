@@ -1856,7 +1856,10 @@ export const getListWantedResponseMock = (
         indexerId: faker.string.uuid(),
         indexerName: faker.string.alpha({ length: { min: 10, max: 20 } }),
         starved: faker.datatype.boolean(),
-        until: faker.date.past().toISOString().slice(0, 19) + "Z",
+        until: faker.helpers.arrayElement([
+          faker.date.past().toISOString().slice(0, 19) + "Z",
+          null,
+        ]),
       }),
     ),
     nextBacklogAt: faker.helpers.arrayElement([

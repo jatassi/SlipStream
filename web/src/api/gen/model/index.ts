@@ -2415,8 +2415,6 @@ export * from "./listWanted422.ts";
 export * from "./listWanted422Code.ts";
 export * from "./listWanted500.ts";
 export * from "./listWanted500Code.ts";
-export * from "./listWanted501.ts";
-export * from "./listWanted501Code.ts";
 export * from "./listWantedParams.ts";
 export * from "./listWantedReasonItem.ts";
 export * from "./listWantedSort.ts";
