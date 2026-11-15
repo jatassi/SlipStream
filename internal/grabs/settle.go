@@ -14,9 +14,10 @@ import (
 )
 
 // heardRun is what a run's lines heard: their Releases in the order they
-// landed, each one's Indexer name by that order, whether any asked
-// Indexer answered, the Indexers that answered its group's query, and the
-// position its next line takes.
+// landed, each published no later than its line heard it and at that
+// time when its Indexer sent no date, each one's Indexer name by that
+// order, whether any asked Indexer answered, the Indexers that answered
+// its group's query, and the position its next line takes.
 type heardRun struct {
 	releases []indexers.Release
 	names    map[int]string
@@ -124,7 +125,11 @@ func (gr *Grabs) decided(ctx context.Context, tx *storage.Tx[file], run Search, 
 	if err != nil {
 		return nil, err
 	}
-	if err := gr.storeReleases(ctx, db.New(tx), run.ID, d.rows, h.names, len(d.grabs) > 0, nil); err != nil {
+	q := db.New(tx)
+	if err := gr.storeReleases(ctx, q, run.ID, d.rows, h.names, len(d.grabs) > 0, nil); err != nil {
+		return nil, err
+	}
+	if err := commitWaits(ctx, q, run, d.waits, d.at); err != nil {
 		return nil, err
 	}
 	return d.grabs, gr.finishRun(ctx, tx, run, d, h, interval)
@@ -245,6 +250,9 @@ func (gr *Grabs) linesHeard(ctx context.Context, r storage.Reader[file], run Sea
 		rel, err := gr.kept(row)
 		if err != nil {
 			return heardRun{}, err
+		}
+		if heard := row.HeardAt.Time(); rel.Published.IsZero() || rel.Published.After(heard) {
+			rel.Published = heard
 		}
 		h.releases = append(h.releases, rel)
 		h.names[i] = row.IndexerName

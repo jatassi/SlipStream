@@ -30,6 +30,8 @@ const (
 	// ReleaseListed is a Manual run's Release: stored as heard, judged on
 	// read.
 	ReleaseListed ReleaseOutcome = "listed"
+	// ReleaseWaiting is a candidate a cell's wait holds, kept whole.
+	ReleaseWaiting ReleaseOutcome = "waiting"
 )
 
 // TargetScore is a Release's score at one Target.
@@ -70,10 +72,11 @@ func (j judged) offers() []judged {
 
 // outcomes is every Release d judged, copies included, by position, with
 // its outcome. taken is the positions of the Releases the run grabbed, or
-// of their copies. An outranked or kept Release says where it lost to the
+// of their copies, and waited those of the Releases its cells wait for.
+// An outranked or kept Release says where it lost to the
 // reference: the first grabbed Release as its best Indexer listed it,
 // else the first a search may take.
-func outcomes(d Decision, c cells, taken []int) []row {
+func outcomes(d Decision, c cells, taken, waited []int) []row {
 	var ref *judged
 	for i, j := range d.Ranked {
 		grabbed := slices.ContainsFunc(j.offers(), func(o judged) bool { return slices.Contains(taken, o.at) })
@@ -90,6 +93,8 @@ func outcomes(d Decision, c cells, taken []int) []row {
 			switch {
 			case len(j.refusals) > 0:
 				r.outcome = ReleaseRefused
+			case slices.Contains(waited, o.at):
+				r.outcome = ReleaseWaiting
 			case len(taken) == 0:
 				r.outcome = ReleaseKept
 			case slices.Contains(taken, o.at):
@@ -134,7 +139,8 @@ func rowOf(j, o judged) row {
 // storeReleases inserts rows as run's Releases, with names[at] the name
 // of the Indexer that listed the Release at. While a rerun may take them,
 // rerunnable, each keeps its Release, and its link unless it is the
-// grabbed one or gone, taken by an earlier Grab of the run.
+// grabbed one or gone, taken by an earlier Grab of the run. A waiting
+// Release keeps both for its wait.
 func (gr *Grabs) storeReleases(ctx context.Context, q *db.Queries, run SearchID, rows []row, names map[int]string, rerunnable bool, gone map[int]bool) error {
 	for _, r := range rows {
 		p, err := releaseRow(run, r)
@@ -142,7 +148,7 @@ func (gr *Grabs) storeReleases(ctx context.Context, q *db.Queries, run SearchID,
 			return err
 		}
 		p.IndexerName = names[r.at]
-		if rerunnable {
+		if rerunnable || r.outcome == ReleaseWaiting {
 			k, err := encodeKept(r.release)
 			if err != nil {
 				return err

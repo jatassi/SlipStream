@@ -12,12 +12,15 @@ import (
 )
 
 // finishedAs is how a run that decided d over what h heard ended: grabbed
-// when it made or joined a Grab, no_indexer when no asked Indexer answered,
-// nothing_found when they listed no Release, else nothing_acceptable.
+// when it made or joined a Grab, waiting when a cell waits for one of its
+// Releases, no_indexer when no asked Indexer answered, nothing_found when
+// they listed no Release, else nothing_acceptable.
 func finishedAs(d decisionOut, h heardRun) Outcome {
 	switch {
 	case len(d.grabs) > 0:
 		return Grabbed
+	case len(d.waits) > 0:
+		return Waiting
 	case !h.answered:
 		return NoIndexer
 	case len(h.releases) == 0:
@@ -27,10 +30,10 @@ func finishedAs(d decisionOut, h heardRun) Outcome {
 }
 
 // resultOf is what a run that decided d over what h heard tells its
-// group's pace.
+// group's pace: a Release its cells wait for is one it took.
 func resultOf(d decisionOut, h heardRun) pace.Result {
 	switch {
-	case len(d.grabs) > 0:
+	case len(d.grabs) > 0, len(d.waits) > 0:
 		return pace.Took
 	case h.answered:
 		return pace.Answered
