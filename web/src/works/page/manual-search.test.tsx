@@ -80,9 +80,9 @@ test("a failed Grab under Needs you opens Manual search on its Item beside Searc
     .toBeVisible();
   work.grabMoves(failedGrab, failedCells(failedGrab.id));
 
-  const card = page
-    .getByRole("region", { name: "Needs you" })
-    .getByRole("article", { name: "2160p HDR failed at Import · 1080p is made from it and can't start" });
+  const card = page.getByRole("region", { name: "Needs you" }).getByRole("article", {
+    name: "2160p HDR failed at Import · 1080p is made from it and can't start",
+  });
   await expect.element(card.getByRole("button", { name: "Search again" })).toBeVisible();
   await userEvent.click(card.getByRole("button", { name: "Manual search" }));
   await expect.element(sheet()).toBeVisible();

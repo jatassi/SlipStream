@@ -76,7 +76,9 @@ test("each preset says what it monitors now and whether it monitors new stories"
   await openSheet();
 
   await pick("First volume");
-  await expect.element(sentence()).toHaveTextContent(says("SlipStream monitors 49 stories and no new ones."));
+  await expect
+    .element(sentence())
+    .toHaveTextContent(says("SlipStream monitors 49 stories and no new ones."));
   await pick("Future");
   await expect
     .element(sentence())
@@ -94,7 +96,9 @@ test("Include extras adds the extras to every preset's count", async () => {
     .element(sentence())
     .toHaveTextContent(says("SlipStream monitors all 1200 stories and new ones as they come out."));
   await pick("First volume");
-  await expect.element(sentence()).toHaveTextContent(says("SlipStream monitors 73 stories and no new ones."));
+  await expect
+    .element(sentence())
+    .toHaveTextContent(says("SlipStream monitors 73 stories and no new ones."));
   await expect.element(presetPicker()).toHaveTextContent("First volume · 73 stories");
 });
 
@@ -133,7 +137,9 @@ test("the sheet starts on the type's stored add defaults and moves nothing", asy
   await expect.element(presetPicker()).toHaveTextContent("First volume · 73 stories");
   await expect.element(extras()).toBeChecked();
   await expect.element(folders()).not.toBeChecked();
-  await expect.element(sentence()).toHaveTextContent(says("SlipStream monitors 73 stories and no new ones."));
+  await expect
+    .element(sentence())
+    .toHaveTextContent(says("SlipStream monitors 73 stories and no new ones."));
   expect(willStart().query()).toBeNull();
 
   await userEvent.click(sheet().getByRole("button", { name: "Add Anthology" }));

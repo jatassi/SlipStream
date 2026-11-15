@@ -8,7 +8,8 @@ import { CellBlock } from "./cell";
 import type { Matrix, MatrixShown } from "./matrix-model";
 import { RowHead } from "./row-head";
 
-const unseenWords = "No release of this Edition has turned up yet. SlipStream downloads it once one does.";
+const unseenWords =
+  "No release of this Edition has turned up yet. SlipStream downloads it once one does.";
 
 function MatrixTable({ matrix, shown }: { matrix: Matrix; shown: MatrixShown }) {
   return (

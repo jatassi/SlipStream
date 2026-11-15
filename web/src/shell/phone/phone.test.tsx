@@ -117,9 +117,9 @@ test("More opens a sheet with the rest of the nav and the version, and Cancel cl
       .all()
       .map((button) => button.element().textContent),
   ).toEqual(moreButtons);
-  const startup = sheet.getByRole("switch", { name: "Startup sequence" });
+  const startup = sheet.getByRole("switch", { name: "Startup animation" });
   await expect.element(startup).toBeChecked();
-  await userEvent.click(sheet.getByText("Startup sequence"));
+  await userEvent.click(sheet.getByText("Startup animation"));
   await expect.element(startup).not.toBeChecked();
   await expect.element(sheet).toBeVisible();
 

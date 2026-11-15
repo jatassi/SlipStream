@@ -117,7 +117,7 @@ func TestTheReportListsEachCategoryWithItsItems(t *testing.T) {
 func TestTheLevelsAreSetGloballyAndPerVolume(t *testing.T) {
 	s := serve(t)
 	s.Expect(t, http.MethodPatch, "/api/v1/system/health/settings", `{"errorBelow":{"amount":214748364800,"unit":"bytes"}}`, http.StatusUnprocessableEntity,
-		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"No more than the warning level, 100 GB."}`)
+		`{"status":422,"code":"setting_out_of_range","title":"The value is outside the setting's range","detail":"Set the error level at or below the warning level, 100 GB."}`)
 	s.Expect(t, http.MethodPatch, "/api/v1/system/health/volumes", `{"nodeId":"`+storage.NewUUID().String()+`","mount":"E:\\","warnBelow":{"amount":5,"unit":"percent"}}`,
 		http.StatusNotFound, `{"status":404,"code":"health_volume_not_found","title":"No volume reports at that Node and mount"}`)
 	_, row := s.Call(t, http.MethodPatch, "/api/v1/system/health/volumes", `{"nodeId":"`+media.String()+`","mount":"D:\\","warnBelow":{"amount":0,"unit":"percent"},"errorBelow":{"amount":0,"unit":"percent"}}`)

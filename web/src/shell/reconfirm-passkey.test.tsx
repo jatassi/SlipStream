@@ -70,7 +70,11 @@ test("Use a passkey with no passkey for this address says to enter the PIN, whic
     passkeysAt(passkeysHere),
     ...server.handlers,
     http.post("*/api/v1/session/reconfirm/passkey", () =>
-      problem(409, "passkey_unavailable", "You have no passkey for this address, or passkeys don't work here. Sign in with your PIN."),
+      problem(
+        409,
+        "passkey_unavailable",
+        "You have no passkey for this address, or passkeys don't work here. Sign in with your PIN.",
+      ),
     ),
   ]);
   const saved = updateOwnAccount({ displayName: "Ada O." });

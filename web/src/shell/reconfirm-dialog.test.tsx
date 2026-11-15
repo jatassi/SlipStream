@@ -167,11 +167,7 @@ test.each([
     "0000",
     "This PIN is locked after too many wrong PINs. Sign in with a passkey or ask an Admin for a Reset link.",
   ],
-  [
-    "a PIN in its wait",
-    "1111",
-    `Too many wrong PINs. Try again at ${clock(waitEnds)}.`,
-  ],
+  ["a PIN in its wait", "1111", `Too many wrong PINs. Try again at ${clock(waitEnds)}.`],
   [
     "an address past its limit",
     "2222",

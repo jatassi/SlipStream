@@ -67,7 +67,9 @@ test("the sheet opens on the preview and adds with the defaults, remembering, th
   expect(willStart().query()).toBeNull();
   await expect
     .element(
-      sheet().getByText("Adding a film doesn't start a search. To search now, open its page and select Search."),
+      sheet().getByText(
+        "Adding a film doesn't start a search. To search now, open its page and select Search.",
+      ),
     )
     .toBeVisible();
 

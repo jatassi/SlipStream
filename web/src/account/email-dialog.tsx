@@ -12,7 +12,8 @@ import { DialogActions } from "./dialog-actions";
 
 const emailForm = z.object({ email: z.string().trim().pipe(StartEmailChangeBody.shape.email) });
 
-const addressUnset = "You can't change your email until an Admin sets SlipStream's address. Ask an Admin to set it.";
+const addressUnset =
+  "You can't change your email until an Admin sets SlipStream's address. Ask an Admin to set it.";
 
 function sentence(email: string, { email: { outcome, detail } }: IdentityEmailChangeStarted) {
   switch (outcome) {

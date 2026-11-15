@@ -111,5 +111,7 @@ test("the arrow keys move between posters and Space picks the one in focus", asy
   await userEvent.keyboard(" ");
   const bar = page.getByRole("toolbar", { name: "Selected Works" });
   await expect.element(bar.getByText("1 film selected")).toBeVisible();
-  await expect.element(page.getByRole("checkbox", { name: `Select ${harvest.label}` })).toBeChecked();
+  await expect
+    .element(page.getByRole("checkbox", { name: `Select ${harvest.label}` }))
+    .toBeChecked();
 });

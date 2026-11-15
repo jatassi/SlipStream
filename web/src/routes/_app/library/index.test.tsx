@@ -42,9 +42,7 @@ test("the Library draws each Work as a poster under its letter, and adds a Work"
 
 test("an empty Library offers to add a Work of each enabled type", async () => {
   const { router } = renderApp({ path: "/library", handlers: cinemaLibrary([]).handlers });
-  await expect
-    .element(page.getByText("Nothing in the library yet."))
-    .toBeVisible();
+  await expect.element(page.getByText("Nothing in the library yet.")).toBeVisible();
   await userEvent.click(page.getByRole("main").getByRole("button", { name: "Add a film" }));
   await expect.element(page.getByRole("heading", { name: "Add a film" })).toBeVisible();
   expect(router.state.location.href).toBe("/add?contentType=cinema");
@@ -59,7 +57,9 @@ test("an empty Library with every Content Type off offers nothing to add", async
     ],
   });
   await expect
-    .element(page.getByText("Nothing in the library yet. Turn on a kind of media in Settings to start."))
+    .element(
+      page.getByText("Nothing in the library yet. Turn on a kind of media in Settings to start."),
+    )
     .toBeVisible();
   await expect.element(page.getByRole("button", { name: "Add" })).not.toBeInTheDocument();
 });

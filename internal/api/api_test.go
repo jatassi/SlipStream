@@ -410,7 +410,7 @@ func (f readerFunc) Read(p []byte) (int, error) { return f(p) }
 
 func TestUnknownAPIPathsAnswerNotFound(t *testing.T) {
 	h := newRouter(t, &bytes.Buffer{}).Handler()
-	want := `{"status":404,"code":"not_found","title":"Nothing is here"}` + "\n"
+	want := `{"status":404,"code":"not_found","title":"Nothing exists at this path"}` + "\n"
 	for _, target := range []string{"/api/v1/nothing", "/api/v2/health", "/api/"} {
 		w := get(t, h, target)
 		if w.Code != http.StatusNotFound || w.Body.String() != want {

@@ -69,5 +69,7 @@ test("a Shift-click picks every Work between it and the last pick", async () => 
     modifiers: ["Shift"],
   });
   await expect.element(bar.getByText("3 films selected")).toBeVisible();
-  await expect.element(page.getByRole("checkbox", { name: "Select all shown Works" })).toBeChecked();
+  await expect
+    .element(page.getByRole("checkbox", { name: "Select all shown Works" }))
+    .toBeChecked();
 });

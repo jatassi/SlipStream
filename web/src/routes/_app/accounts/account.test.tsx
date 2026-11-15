@@ -83,7 +83,11 @@ test("the last Admin's demotion is refused inside the dialog", async () => {
     handlers: [
       getGetAccountMockHandler(adaDetail),
       http.patch("*/api/v1/accounts/:id", () =>
-        problem(409, "last_admin", "SlipStream needs at least one active Admin. Make another Account an Admin first."),
+        problem(
+          409,
+          "last_admin",
+          "SlipStream needs at least one active Admin. Make another Account an Admin first.",
+        ),
       ),
     ],
   });
@@ -92,7 +96,9 @@ test("the last Admin's demotion is refused inside the dialog", async () => {
   await userEvent.click(dialog.getByRole("button", { name: "Make Member" }));
   await expect
     .element(dialog.getByRole("alert"))
-    .toHaveTextContent("SlipStream needs at least one active Admin. Make another Account an Admin first.");
+    .toHaveTextContent(
+      "SlipStream needs at least one active Admin. Make another Account an Admin first.",
+    );
 });
 
 test("Turn off and Sign out everywhere ask first, then send the change", async () => {

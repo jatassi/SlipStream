@@ -21,8 +21,8 @@ export function Candidates({ type, query }: { type: WorksContentType; query: str
   if (candidates.length === 0) {
     return (
       <Empty>
-        Nothing matches &quot;{query}&quot;. Try another spelling, or the {type.work.one.toLowerCase()}&apos;s
-        original title.
+        Nothing matches &quot;{query}&quot;. Try another spelling, or the{" "}
+        {type.work.one.toLowerCase()}&apos;s original title.
       </Empty>
     );
   }

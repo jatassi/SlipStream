@@ -6,7 +6,6 @@ import { Button } from "../ui/button";
 import { IconButton } from "../ui/icon-button";
 import { Menu, type MenuEntry } from "../ui/menu";
 import { useShell } from "../ui/shell-context";
-import { lowered } from "../works/monitoring/labels";
 import { type BulkAction, useBulkActions } from "./bulk-actions";
 import { BulkDialog, type BulkDialogKind } from "./bulk-dialogs";
 import type { Picking } from "./picking";
@@ -108,7 +107,7 @@ export function BulkBar({ picking }: { picking: Picking }) {
       <span className="mr-auto min-w-0 text-ink-1 tabular-nums">
         {picked.length === 0
           ? "Select Works to change them together."
-          : `${countWords(picked.length, type ? lowered(type.work) : anyWork)} selected`}
+          : `${countWords(picked.length, type ? { one: type.work.one.toLowerCase(), many: type.work.many.toLowerCase() } : anyWork)} selected`}
         {hidden > 0 && <span className="text-ink-3">{` · ${hidden} hidden by filters`}</span>}
       </span>
       {phone ? (

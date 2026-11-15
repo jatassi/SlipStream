@@ -10,9 +10,7 @@ import { clickWhenStill } from "./still.ts";
 test("an Admin adds a movie from the catalog and sees its missing cell", async ({
   adminPage: page,
 }) => {
-  await expect(
-    page.getByText("Nothing in the library yet."),
-  ).toBeVisible();
+  await expect(page.getByText("Nothing in the library yet.")).toBeVisible();
   await page.getByRole("main").getByRole("button", { name: "Add a movie" }).click();
   await page.getByRole("searchbox", { name: "Title" }).fill("quiet orchard");
   await page.getByRole("main").getByRole("button", { name: "Search", exact: true }).click();

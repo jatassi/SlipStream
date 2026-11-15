@@ -331,7 +331,7 @@ func TestListContentTypesAnswersASession(t *testing.T) {
 	if w.Code != http.StatusOK || w.Body.String() != want {
 		t.Fatalf("listContentTypes = %d %s, want %s", w.Code, w.Body, want)
 	}
-	expect(t, s, http.MethodGet, "/api/v1/content-types", "", http.StatusForbidden, `{"status":403,"code":"needs_account","title":"Only a signed-in person can do this"}`)
+	expect(t, s, http.MethodGet, "/api/v1/content-types", "", http.StatusForbidden, `{"status":403,"code":"needs_account","title":"The API key can't do this. Sign in to an Account to do it."}`)
 }
 
 func TestEachWorksErrorAnswersItsProblem(t *testing.T) {

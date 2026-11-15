@@ -42,7 +42,10 @@ function Cells({
     });
   });
   return (
-    <ul aria-label="Editions and Targets" className="flex flex-col divide-y divide-hairline rounded-card bg-fill">
+    <ul
+      aria-label="Editions and Targets"
+      className="flex flex-col divide-y divide-hairline rounded-card bg-fill"
+    >
       {lines.map(({ key, label, cell }) => (
         <li key={key} className="flex items-start gap-3 px-4 py-3">
           {cell !== undefined && <StateSquare state={cell.state} quiet={view.quiet} />}

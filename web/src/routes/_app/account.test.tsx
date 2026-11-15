@@ -80,7 +80,9 @@ test("an email change says where the confirm link went", async () => {
   ]);
   await userEvent.click(page.getByRole("button", { name: "Change email" }));
   await userEvent.fill(dialog("Change email").getByLabelText("New email"), "ada@okafor.example");
-  await userEvent.click(dialog("Change email").getByRole("button", { name: "Send confirmation link" }));
+  await userEvent.click(
+    dialog("Change email").getByRole("button", { name: "Send confirmation link" }),
+  );
 
   await expect
     .element(dialog("Change email").getByRole("status"))
@@ -100,7 +102,9 @@ test("an email change before the address is set says email changes don't work ye
   ]);
   await userEvent.click(page.getByRole("button", { name: "Change email" }));
   await userEvent.fill(dialog("Change email").getByLabelText("New email"), "ada@okafor.example");
-  await userEvent.click(dialog("Change email").getByRole("button", { name: "Send confirmation link" }));
+  await userEvent.click(
+    dialog("Change email").getByRole("button", { name: "Send confirmation link" }),
+  );
 
   await expect
     .element(dialog("Change email").getByRole("alert"))

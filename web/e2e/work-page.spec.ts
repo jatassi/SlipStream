@@ -104,7 +104,9 @@ test("an Admin sets the Work's own Editions through the Impact, and an unseen cu
   await clickWhenStill(
     page.getByRole(isPhone(page) ? "button" : "menuitem", { name: "Extended", exact: true }),
   );
-  await expect(editions.getByRole("heading", { name: /^Editions set for The Quiet Orchard/u })).toBeVisible();
+  await expect(
+    editions.getByRole("heading", { name: /^Editions set for The Quiet Orchard/u }),
+  ).toBeVisible();
   await expectAccessible(page);
   await page.screenshot({ path: testInfo.outputPath("editions.png") });
   await editions.getByRole("button", { name: "Save", exact: true }).click();

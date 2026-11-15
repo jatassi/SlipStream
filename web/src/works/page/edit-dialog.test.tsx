@@ -89,7 +89,7 @@ test("an order change previews what it withdraws and saves once confirmed", asyn
   await expect
     .element(
       confirm.getByText(
-        '3 stories aren\'t listed with story order Reading order, so they\'ll be marked "No longer listed by Fixture source".',
+        "3 stories aren't listed with story order Reading order, so they'll be marked \"No longer listed by Fixture source\".",
       ),
     )
     .toBeVisible();

@@ -40,7 +40,11 @@ test("the roots step shows each enabled type's folder, or Add a folder, and says
   await expect.element(row("Zines")).toHaveTextContent("ZinesNo folder yetAdd a folder");
   await expect.element(row("Off")).not.toBeInTheDocument();
   await expect
-    .element(page.getByText("You can add Works before you add a root. Each one gets its folder once you add a root for its kind of media."))
+    .element(
+      page.getByText(
+        "You can add Works before you add a root. Each one gets its folder once you add a root for its kind of media.",
+      ),
+    )
     .toBeVisible();
 });
 
@@ -63,6 +67,10 @@ test("Add a folder opens Add a library root with the type chosen and the only St
   ]);
   await expect.element(row("Zines")).toHaveTextContent("Zines/srv/media/zines on home");
   await expect
-    .element(page.getByText("You can add Works before you add a root. Each one gets its folder once you add a root for its kind of media."))
+    .element(
+      page.getByText(
+        "You can add Works before you add a root. Each one gets its folder once you add a root for its kind of media.",
+      ),
+    )
     .not.toBeInTheDocument();
 });

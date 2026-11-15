@@ -74,7 +74,12 @@ export function RootsStep({ nav }: StepBodyProps) {
           />
         ))}
       </ul>
-      {waiting && <p>You can add Works before you add a root. Each one gets its folder once you add a root for its kind of media.</p>}
+      {waiting && (
+        <p>
+          You can add Works before you add a root. Each one gets its folder once you add a root for
+          its kind of media.
+        </p>
+      )}
       <StepFooter nav={nav} />
       <LibraryRootDialog
         open={adding !== undefined}

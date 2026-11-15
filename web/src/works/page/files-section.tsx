@@ -120,7 +120,9 @@ export function FilesSection({
         </div>
       </dl>
       {files.length === 0 ? (
-        <p className="text-ink-3">No files yet. Downloaded files show here once they're imported.</p>
+        <p className="text-ink-3">
+          No files yet. Downloaded files show here once they&apos;re imported.
+        </p>
       ) : (
         <FileLists files={files} names={names} />
       )}
