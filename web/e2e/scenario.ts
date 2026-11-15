@@ -21,4 +21,6 @@ export type Scenario =
   | "manual-search"
   | "packs"
   | "imports"
-  | "media-servers";
+  | "media-servers"
+  | "auto-search"
+  | "hold";
