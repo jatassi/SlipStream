@@ -26,6 +26,7 @@ import (
 // a Target.
 type (
 	Target  = mediabrowser.Target
+	Admin   = mediabrowser.Admin
 	Played  = mediabrowser.Played
 	Disk    = mediaservers.Disk
 	DirDisk = mediaservers.DirDisk
@@ -46,6 +47,7 @@ func Run(t *testing.T, tg Target) {
 		{"UserDataKeepsPlayCount", UserDataKeepsPlayCount},
 		{"DeletedLeavesAtOnce", DeletedLeavesAtOnce},
 		{"TranscodeAfterReport", TranscodeAfterReport},
+		{"KeyCreated", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.KeyCreated(t) }},
 		{"SocketPushesSessions", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.SocketPushesSessions(t) }},
 	}
 	var cases []mediaservers.Case

@@ -101,10 +101,13 @@ type inbound struct {
 
 // socket is Jellyfin's /socket or Emby's /embywebsocket. A refused
 // Jellyfin socket answers 403, as ?api_key= did with legacy authorization
-// off (#71). It pushes Sessions every period a SessionsStart asks for and
-// at once on a play's start or stop. Jellyfin asks for KeepAlive and drops
-// a silent client. Emby pushes LibraryChanged on each item change; a
-// Jellyfin key's socket gets none.
+// off (#71). Once a SessionsStart subscribes, it pushes Sessions when a
+// play or a signed-in client starts or ends, and at no other time. That
+// is Jellyfin's SessionInfoWebSocketListener, which sends on session
+// events alone, and neither Jellyfin 12.2, 12.4 nor Emby 4.10 sent one in
+// five minutes with no session changing (online run 2026-11-14). Jellyfin
+// asks for KeepAlive and drops a silent client. Emby pushes
+// LibraryChanged on each item change; a Jellyfin key's socket gets none.
 func (s *server) socket(w http.ResponseWriter, r *http.Request) {
 	if s.srv == nil {
 		http.NotFound(w, r)
@@ -150,8 +153,6 @@ type push struct {
 	conn    *websocket.Conn
 	sub     *mediaserver.Subscription
 	in      <-chan inbound
-	period  *time.Ticker
-	tick    <-chan time.Time
 	heard   time.Time
 	asked   bool
 	started bool
@@ -162,11 +163,6 @@ func (p *push) send(ctx context.Context, m message) bool {
 }
 
 func (p *push) run(ctx context.Context) {
-	defer func() {
-		if p.period != nil {
-			p.period.Stop()
-		}
-	}()
 	p.heard = time.Now()
 	var silence <-chan time.Time
 	if p.s.p.Flavor == Jellyfin {
@@ -186,9 +182,7 @@ func (p *push) run(ctx context.Context) {
 			return
 		case m := <-p.in:
 			p.heard, p.asked = time.Now(), false
-			ok = p.take(ctx, m)
-		case <-p.tick:
-			ok = p.sessions(ctx)
+			p.take(m)
 		case <-silence:
 			ok = p.silent(ctx)
 		case e := <-p.sub.C:
@@ -218,31 +212,20 @@ func (p *push) silent(ctx context.Context) bool {
 
 // take handles one client message: SessionsStart "<dueMs>,<periodMs>",
 // SessionsStop and KeepAlive.
-func (p *push) take(ctx context.Context, m inbound) bool {
+func (p *push) take(m inbound) {
 	switch m.MessageType {
 	case "SessionsStart":
 		var arg string
 		if err := json.Unmarshal(m.Data, &arg); err != nil {
-			return true
+			return
 		}
 		_, after, _ := strings.Cut(arg, ",")
-		ms, err := strconv.Atoi(after)
-		if err != nil || ms <= 0 {
-			return true
+		if ms, err := strconv.Atoi(after); err == nil && ms > 0 {
+			p.started = true
 		}
-		if p.period != nil {
-			p.period.Stop()
-		}
-		p.period = time.NewTicker(time.Duration(ms) * time.Millisecond)
-		p.tick, p.started = p.period.C, true
-		return p.sessions(ctx)
 	case "SessionsStop":
-		if p.period != nil {
-			p.period.Stop()
-		}
-		p.tick, p.started = nil, false
+		p.started = false
 	}
-	return true
 }
 
 func (p *push) sessions(ctx context.Context) bool {
@@ -252,7 +235,7 @@ func (p *push) sessions(ctx context.Context) bool {
 func (p *push) event(ctx context.Context, e mediaserver.Event) bool {
 	switch e.Kind {
 	case mediaserver.ScanStarted, mediaserver.ScanEnded:
-	case mediaserver.PlayStarted, mediaserver.PlayStopped:
+	case mediaserver.PlayStarted, mediaserver.PlayStopped, mediaserver.ClientStarted, mediaserver.ClientEnded:
 		if p.started {
 			return p.sessions(ctx)
 		}

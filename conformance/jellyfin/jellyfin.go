@@ -8,7 +8,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"slices"
 	"testing"
 	"time"
 
@@ -45,8 +44,8 @@ func Run(t *testing.T, tg Target) {
 		{"VersionsOnOneItem", VersionsOnOneItem},
 		{"CollectionAddIsIdempotent", CollectionAddIsIdempotent},
 		{"EmbyFormsRefused", EmbyFormsRefused},
-		{"KeyCreatedWithNoBody", KeyCreatedWithNoBody},
 		{"DeviceIDRevokes", DeviceIDRevokes},
+		{"KeyCreated", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.KeyCreated(t) }},
 		{"SocketPushesSessions", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.SocketPushesSessions(t) }},
 	}
 	var cases []mediaservers.Case
@@ -246,62 +245,16 @@ func EmbyFormsRefused(t *testing.T, tg Target, _ mediaservers.Target, _ *mediabr
 	}
 }
 
-// KeyCreatedWithNoBody is the administrator sign-in's key: POST
-// /Auth/Keys answers 204 with no body, the key list holds it, it works,
-// and revoked it answers 401.
-func KeyCreatedWithNoBody(t *testing.T, tg Target, _ mediaservers.Target, _ *mediabrowser.Server) {
-	if tg.Admin == nil {
-		mediaservers.Skip(t, "the target gives no administrator to sign in as")
-	}
-	admin := signIn(t, tg, mediabrowser.App)
-	defer func() { _ = admin.Logout(context.WithoutCancel(t.Context())) }()
-	app := "SlipStream conformance " + time.Now().Format("150405.000")
-	if err := admin.CreateKey(t.Context(), app); err != nil {
-		t.Fatal(err)
-	}
-	keys, err := admin.Keys(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	i := slices.IndexFunc(keys, func(k jellyfin.Key) bool { return k.AppName == app })
-	if i < 0 {
-		t.Fatalf("no key named %q in %d keys", app, len(keys))
-	}
-	key := tg.Client(t, jellyfin.Jellyfin, keys[i].AccessToken)
-	if _, err := key.Libraries(t.Context()); err != nil {
-		t.Fatalf("the new key: %v", err)
-	}
-	if err := admin.RevokeKey(t.Context(), keys[i].AccessToken); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := key.Libraries(t.Context()); !jellyfin.Refused(err) {
-		t.Fatalf("the revoked key answered %v, want a 401", err)
-	}
-}
-
-func signIn(t *testing.T, tg Target, app jellyfin.App) *jellyfin.Client {
-	t.Helper()
-	base, err := url.Parse(tg.Address)
-	if err != nil {
-		t.Fatal(err)
-	}
-	auth, err := jellyfin.New(base, jellyfin.Jellyfin, "", app, tg.HTTP).AuthenticateByName(t.Context(), tg.Admin.User, tg.Admin.Password)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return jellyfin.New(base, jellyfin.Jellyfin, auth.AccessToken, app, tg.HTTP)
-}
-
 // DeviceIDRevokes signs in twice with one DeviceId. The first token then
 // answers 401 (#71 delta 13).
-func DeviceIDRevokes(t *testing.T, tg Target, _ mediaservers.Target, _ *mediabrowser.Server) {
+func DeviceIDRevokes(t *testing.T, tg Target, _ mediaservers.Target, s *mediabrowser.Server) {
 	if tg.Admin == nil {
 		mediaservers.Skip(t, "the target gives no administrator to sign in as")
 	}
 	app := mediabrowser.App
 	app.DeviceID = "slipstream-conformance-revoke"
-	first := signIn(t, tg, app)
-	second := signIn(t, tg, app)
+	first := s.SignIn(t, app)
+	second := s.SignIn(t, app)
 	defer func() { _ = second.Logout(context.WithoutCancel(t.Context())) }()
 	if _, err := first.Sessions(t.Context()); !jellyfin.Refused(err) {
 		t.Fatalf("the first token answered %v after a second sign-in on its DeviceId, want a 401", err)
