@@ -77,7 +77,7 @@ func (gr *Grabs) judgingOf(ctx context.Context, r storage.Reader[file], tree wor
 		runtimes[id] = t.Runtime
 	}
 	nouns, _ := gr.cfg.Works.Describe(typ)
-	today, unaired := time.Now(), map[works.ItemID]string{}
+	today, unaired := gr.cfg.Today(), map[works.ItemID]string{}
 	for _, it := range tree.Items {
 		if !timings[it.ID].ReleasedBy(today) {
 			unaired[it.ID] = cmp.Or(itemCode(nouns, it), it.Label)

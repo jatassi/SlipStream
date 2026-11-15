@@ -232,7 +232,7 @@ func New(t testing.TB, o Options) *World {
 		Changed: discard[grabs.Changed]{}, SearchChanged: discard[grabs.SearchChanged]{}, FilesChanged: discard[files.Changed]{},
 		BlocklistChanged: discard[grabs.BlocklistChanged]{}, QueueChanged: discard[grabs.QueueChanged]{},
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return w.reconciling.Load(), nil },
-		Tasks:       Cadences{Backlog: o.BacklogEvery}, GapCap: grabs.NoGapCap, Clock: time.Now, Log: log,
+		Tasks:       Cadences{Backlog: o.BacklogEvery}, GapCap: grabs.NoGapCap, Clock: time.Now, Today: time.Now, Log: log,
 	}
 	w.Grabs = grabs.New(w.Config)
 	t.Cleanup(w.halt)
