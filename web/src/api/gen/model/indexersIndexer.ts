@@ -3,6 +3,7 @@ import type { IndexersLimitUse } from "./indexersLimitUse.ts";
 import type { IndexersOutcome } from "./indexersOutcome.ts";
 import type { IndexersPin } from "./indexersPin.ts";
 import type { IndexersPortPin } from "./indexersPortPin.ts";
+import type { IndexersRssFeed } from "./indexersRssFeed.ts";
 import type { IndexersSearchMode } from "./indexersSearchMode.ts";
 import type { IndexersSession } from "./indexersSession.ts";
 import type { IndexersStatus } from "./indexersStatus.ts";
@@ -58,6 +59,8 @@ export interface IndexersIndexer {
   /** @minimum 1 */
   revision: number;
   rss: boolean;
+  /** Its last RSS fetch; null before its first */
+  rssFetch: IndexersRssFeed | null;
   /** By mode */
   searchModes: IndexersSearchMode[];
   searches: IndexersLimitUse;

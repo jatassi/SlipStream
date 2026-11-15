@@ -11704,6 +11704,17 @@
           "rss": {
             "type": "boolean"
           },
+          "rssFetch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndexersRssFeed"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its last RSS fetch; null before its first"
+          },
           "searchModes": {
             "description": "By mode",
             "items": {
@@ -11791,6 +11802,7 @@
           "port",
           "searchModes",
           "notes",
+          "rssFetch",
           "revision",
           "createdAt"
         ],
@@ -12550,6 +12562,19 @@
         ],
         "type": "object"
       },
+      "IndexersRSSChanged": {
+        "additionalProperties": false,
+        "properties": {
+          "indexerId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indexerId"
+        ],
+        "type": "object"
+      },
       "IndexersReport": {
         "additionalProperties": false,
         "properties": {
@@ -12578,6 +12603,41 @@
           "searchModes",
           "items",
           "sources"
+        ],
+        "type": "object"
+      },
+      "IndexersRssFeed": {
+        "additionalProperties": false,
+        "properties": {
+          "gapKind": {
+            "description": "Why the last fetches didn't reach where the one before stopped; null when they did",
+            "enum": [
+              "no_paging",
+              "page_cap",
+              "late"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "gapSince": {
+            "description": "Set with gapKind: the first fetch that didn't reach it",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastFetchAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lastFetchAt",
+          "gapKind",
+          "gapSince"
         ],
         "type": "object"
       },
@@ -33819,6 +33879,32 @@
                           "event"
                         ],
                         "title": "Event indexers.changed",
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "data": {
+                            "$ref": "#/components/schemas/IndexersRSSChanged"
+                          },
+                          "event": {
+                            "const": "indexers.rss-changed",
+                            "description": "The event name.",
+                            "type": "string"
+                          },
+                          "id": {
+                            "description": "The event ID.",
+                            "type": "integer"
+                          },
+                          "retry": {
+                            "description": "The retry time in milliseconds.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "data",
+                          "event"
+                        ],
+                        "title": "Event indexers.rss-changed",
                         "type": "object"
                       },
                       {

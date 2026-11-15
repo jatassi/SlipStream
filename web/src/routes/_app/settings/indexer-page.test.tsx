@@ -184,3 +184,20 @@ test("an Indexer waiting on a lapsed home leads with Allow failover", async () =
       body: { allowFailover: true },
     });
 });
+
+test("an Indexer with RSS on shows when RSS sync last read it, and a gap", async () => {
+  const read = new Date(Date.now() - 5 * 60_000).toISOString();
+  const missed: IndexersIndexer = {
+    ...prowlarr,
+    rssFetch: { lastFetchAt: read, gapKind: "page_cap", gapSince: read },
+  };
+  const server = indexersServer({ indexers: [torrentLeech, missed, larkspur] });
+  renderApp({ path: pageOf(prowlarrId), handlers: server.handlers });
+  await userEvent.click(page.getByRole("button", { name: "Details" }));
+  await expect.element(page.getByText("Read 5 minutes ago")).toBeVisible();
+  await expect
+    .element(
+      page.getByText("RSS sync may have missed Releases. Search Wanted from its Health item."),
+    )
+    .toBeVisible();
+});

@@ -6400,6 +6400,26 @@ export const IndexersPortPin = zod.object({
 export type IndexersPortPin = zod.input<typeof IndexersPortPin>;
 export type IndexersPortPinOutput = zod.output<typeof IndexersPortPin>;
 
+export const IndexersRssFeed = zod.object({
+  gapKind: zod
+    .union([
+      zod.literal("no_paging"),
+      zod.literal("page_cap"),
+      zod.literal("late"),
+      zod.literal(null),
+    ])
+    .nullable()
+    .describe("Why the last fetches didn't reach where the one before stopped; null when they did"),
+  gapSince: zod.iso
+    .datetime({ offset: true })
+    .nullable()
+    .describe("Set with gapKind: the first fetch that didn't reach it"),
+  lastFetchAt: zod.iso.datetime({ offset: true }),
+});
+
+export type IndexersRssFeed = zod.input<typeof IndexersRssFeed>;
+export type IndexersRssFeedOutput = zod.output<typeof IndexersRssFeed>;
+
 export const IndexersSearchMode = zod.object({
   mode: zod.string().describe("The Torznab t= value"),
   params: zod.array(zod.string()).describe("In the Indexer's order"),
@@ -6553,6 +6573,9 @@ export const IndexersIndexer = zod.object({
     ),
   revision: zod.int().min(1),
   rss: zod.boolean(),
+  rssFetch: zod
+    .union([IndexersRssFeed, zod.null()])
+    .describe("Its last RSS fetch; null before its first"),
   searchModes: zod.array(IndexersSearchMode).describe("By mode"),
   searches: IndexersLimitUse,
   searchesAtOnce: zod
@@ -6865,6 +6888,13 @@ export const IndexersQueryList = zod.object({
 
 export type IndexersQueryList = zod.input<typeof IndexersQueryList>;
 export type IndexersQueryListOutput = zod.output<typeof IndexersQueryList>;
+
+export const IndexersRSSChanged = zod.object({
+  indexerId: zod.uuid(),
+});
+
+export type IndexersRSSChanged = zod.input<typeof IndexersRSSChanged>;
+export type IndexersRSSChangedOutput = zod.output<typeof IndexersRSSChanged>;
 
 export const indexersReportItemsMin = 0;
 
@@ -12371,6 +12401,14 @@ export const LiveEventIndexersChanged = zod.object({
 export type LiveEventIndexersChanged = zod.input<typeof LiveEventIndexersChanged>;
 export type LiveEventIndexersChangedOutput = zod.output<typeof LiveEventIndexersChanged>;
 
+export const LiveEventIndexersRssChanged = zod.object({
+  event: zod.enum(["indexers.rss-changed"]),
+  data: IndexersRSSChanged,
+});
+
+export type LiveEventIndexersRssChanged = zod.input<typeof LiveEventIndexersRssChanged>;
+export type LiveEventIndexersRssChangedOutput = zod.output<typeof LiveEventIndexersRssChanged>;
+
 export const LiveEventIndexersSettingsChanged = zod.object({
   event: zod.enum(["indexers.settings-changed"]),
   data: IndexersSettingsChanged,
@@ -12639,6 +12677,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventImportsChanged,
   LiveEventIndexersCatalogChanged,
   LiveEventIndexersChanged,
+  LiveEventIndexersRssChanged,
   LiveEventIndexersSettingsChanged,
   LiveEventIndexersStatusChanged,
   LiveEventLiveAccessChanged,

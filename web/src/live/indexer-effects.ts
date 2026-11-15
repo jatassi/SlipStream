@@ -32,6 +32,10 @@ export const indexerEffects = {
     refresh({ queryKey: getGetIndexerQueryKey(data.indexerId) });
     refresh({ queryKey: getListIndexerQueriesQueryKey(data.indexerId) });
   },
+  "indexers.rss-changed": (data, { refresh }) => {
+    refresh({ queryKey: getListIndexersQueryKey() });
+    refresh({ queryKey: getGetIndexerQueryKey(data.indexerId) });
+  },
   "indexers.catalog-changed": (_data, { refresh }) => {
     refresh({ queryKey: getGetIndexerCatalogQueryKey() });
     refresh(everyCatalogDefinition);
@@ -62,6 +66,7 @@ export const indexerEffects = {
   LiveEffects,
   | "indexers.changed"
   | "indexers.status-changed"
+  | "indexers.rss-changed"
   | "indexers.catalog-changed"
   | "indexers.settings-changed"
   | "trackers.changed"
