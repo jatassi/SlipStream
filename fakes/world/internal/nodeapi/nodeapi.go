@@ -264,6 +264,14 @@ type NewIndexer struct {
 	AutomaticSearch *bool             `json:"automaticSearch,omitempty"`
 	Captcha         *CaptchaAnswer    `json:"captcha,omitempty"`
 	Priority        int               `json:"priority,omitempty"`
+	SearchesAtOnce  int               `json:"searchesAtOnce,omitempty"`
+	Searches        *IndexerLimit     `json:"searches,omitempty"`
+}
+
+// IndexerLimit is an Indexer's search limit as the API takes it.
+type IndexerLimit struct {
+	Count int    `json:"count"`
+	Per   string `json:"per"`
 }
 
 type PastedCookie struct {
@@ -445,12 +453,13 @@ type newTarget struct {
 	Filters []targetFilter          `json:"filters,omitempty"`
 	Sizes   []targetSize            `json:"sizes,omitempty"`
 	Scores  *targetScores           `json:"scores,omitempty"`
+	Hold    int64                   `json:"holdSeconds,omitempty"`
 }
 
 // targetBody is t's body, its scores naming each Custom Format by its id
 // in formats.
 func targetBody(t scenario.LibraryTarget, formats map[string]string) newTarget {
-	body := newTarget{Name: t.Name, Tiers: t.Tiers, Cutoff: t.Cutoff}
+	body := newTarget{Name: t.Name, Tiers: t.Tiers, Cutoff: t.Cutoff, Hold: int64(t.Hold / time.Second)}
 	if t.Scores != nil {
 		body.Scores = &targetScores{Minimum: t.Scores.Minimum}
 		for _, name := range slices.Sorted(maps.Keys(t.Scores.Formats)) {
@@ -697,6 +706,23 @@ func SetImporting(ctx context.Context, c *http.Client, baseURL, apiKey string, i
 		header: apiKeyHeader(apiKey), want: http.StatusOK, body: map[string]any{"values": map[string]int64{
 			"library.importing.smallestVideo": int64(im.SmallestVideoFile), "library.importing.sampleShorter": int64(im.SampleShorterThan),
 		}},
+	}, &settings)
+}
+
+// SetAutomaticSearch turns Backlog search and RSS sync on or off as a
+// says, leaving a switch it leaves unset.
+func SetAutomaticSearch(ctx context.Context, c *http.Client, baseURL, apiKey string, a scenario.LibraryAutomaticSearch) error {
+	values := map[string]bool{}
+	if a.BacklogSearch != nil {
+		values["search.backlogOn"] = *a.BacklogSearch
+	}
+	if a.RSSSync != nil {
+		values["search.rssOn"] = *a.RSSSync
+	}
+	var settings struct{}
+	return call(ctx, c, request{
+		what: "save the Automatic search settings", method: http.MethodPatch, url: baseURL + "/api/v1/search-settings",
+		header: apiKeyHeader(apiKey), want: http.StatusOK, body: map[string]any{"values": values},
 	}, &settings)
 }
 

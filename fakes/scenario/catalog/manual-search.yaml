@@ -247,6 +247,8 @@ tracker:
   interval: 5s
 library:
   storage_levels: {warn_below: 0B, error_below: 0B}
+  # Its specs count search runs, so only the runs they start may run.
+  automatic_search: {backlog_search: false, rss_sync: false}
   folders:
     - folder: movies
       files:
