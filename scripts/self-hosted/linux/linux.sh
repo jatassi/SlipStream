@@ -159,7 +159,8 @@ for i in $(seq 1 "$RUNNERS"); do
     "$dir/bin/installdependencies.sh" > /dev/null
     deps_installed=true
   fi
-  rm -f "$dir/.runner" "$dir/.credentials" "$dir/.credentials_rsaparams"
+  # A runner moves its settings to the _migrated files once it starts.
+  rm -f "$dir/.runner" "$dir/.credentials" "$dir/.credentials_rsaparams" "$dir/.runner_migrated" "$dir/.credentials_migrated"
   cd "$dir"
   sudo -u "$user" ./config.sh --unattended --replace \
     --url https://github.com/jatassi/SlipStream \
