@@ -33,12 +33,16 @@ test("a server's page leads with its state and what's playing, and keeps the mac
     )
     .toBeVisible();
   await expect.element(playing.getByText("Hardware transcode")).toBeVisible();
+  await userEvent.hover(playing.getByText("Hardware transcode"));
   await expect
     .element(
-      playing.getByText(
-        "Den Jellyfin converts the file on its graphics hardware because the player can't play its container.",
+      page.getByText(
+        "The server converts the file on its graphics hardware into a format the player can play.",
       ),
     )
+    .toBeVisible();
+  await expect
+    .element(playing.getByText("Transcoding because the player can't play its container."))
     .toBeVisible();
   await userEvent.click(playing.getByRole("button", { name: "Details" }));
   await expect
@@ -52,7 +56,9 @@ test("a server's page leads with its state and what's playing, and keeps the mac
   await userEvent.click(page.getByRole("button", { name: "Test" }));
   await expect.element(page.getByText("home reached Den Jellyfin 12.2.0.")).toBeVisible();
   await expect
-    .element(page.getByText("The Controller sends changes while the reaching Node is offline."))
+    .element(
+      page.getByText("The Controller sends changes while the Node it connects from is offline."),
+    )
     .toBeVisible();
   expect(world.writes).toEqual([{ path: "test", body: null }]);
 });

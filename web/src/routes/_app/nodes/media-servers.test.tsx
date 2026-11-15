@@ -40,7 +40,7 @@ function serve(nodes: NodesNode[], list: MediaserversServerView[] = [denJellyfin
 }
 
 const servers = (node: string) =>
-  page.getByRole("list", { name: `Media Servers reached from ${node}` });
+  page.getByRole("list", { name: `Media Servers that connect from ${node}` });
 
 test("a Node's Media Servers list the servers it reaches, each with its state", async () => {
   renderApp({
@@ -74,7 +74,7 @@ test("a Node that reaches no server says how to choose it", async () => {
   await expect
     .element(
       page.getByText(
-        "No Media Server is reached from home. Choose home under Reached from when you add or edit a server in Settings > Media Servers.",
+        "No Media Server connects from home. To use one from home, edit it in Settings > Media Servers and set Connect from to home.",
       ),
     )
     .toBeVisible();

@@ -52,7 +52,7 @@ export function DetailsTab({ server }: { server: Server }) {
     ["Address", server.address],
     ["Fallback address", server.fallbackAddress ?? words("The address")],
     ...(kind.browser ? [["Browser address", server.browserAddress ?? words("None")] as const] : []),
-    ["Reached from", words(server.reachingNode.name)],
+    ["Connects from", words(server.reachingNode.name)],
     ["Runs on", words(server.runsOnNode?.name ?? "No Node")],
     ["Fallback", words(fallbackWords[server.fallback])],
     ["Last contact", words(when(server.lastContactAt))],

@@ -35,24 +35,39 @@ const reasonWords: Readonly<Record<string, string>> = {
   DirectPlayError: "direct play failed on the player",
 };
 
-export const decisionLabels: { readonly [D in Decision]: string } = {
-  direct_play: "Direct play",
-  copy: "Copy",
-  transcode: "Transcode",
+type Shown = Decision | "hardware_transcode";
+
+const terms: { readonly [S in Shown]: { label: string; meaning: string } } = {
+  direct_play: { label: "Direct play", meaning: "The player plays the original file." },
+  copy: {
+    label: "Direct stream",
+    meaning: "The server repackages the audio and video for the player without converting them.",
+  },
+  transcode: {
+    label: "Transcode",
+    meaning: "The server converts the file into a format the player can play.",
+  },
+  hardware_transcode: {
+    label: "Hardware transcode",
+    meaning:
+      "The server converts the file on its graphics hardware into a format the player can play.",
+  },
 };
+
+/** The standard name for what the server does with the file, and what it means. */
+export function decisionTerm(session: Session): { label: string; meaning: string } {
+  return terms[
+    session.decision === "transcode" && session.hardware ? "hardware_transcode" : session.decision
+  ];
+}
 
 const list = new Intl.ListFormat("en", { type: "conjunction" });
 
-/** What the server does with the file, and why when it converts it. */
-export function decisionWords(server: string, session: Session): string {
-  if (session.decision === "direct_play") {
-    return `${server} sends the file as it is.`;
+/** Why the server transcodes, in plain words, or undefined when it gave no known reason. */
+export function transcodeWhy(session: Session): string | undefined {
+  if (session.decision !== "transcode") {
+    return undefined;
   }
-  if (session.decision === "copy") {
-    return `${server} copies the file's streams into a new container without converting them.`;
-  }
-  const where = session.hardware ? " on its graphics hardware" : "";
   const known = session.reasons.flatMap((reason) => reasonWords[reason] ?? []);
-  const why = known.length === 0 ? "" : ` because ${list.format(known)}`;
-  return `${server} converts the file${where}${why}.`;
+  return known.length === 0 ? undefined : `Transcoding because ${list.format(known)}.`;
 }
