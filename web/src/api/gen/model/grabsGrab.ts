@@ -79,7 +79,7 @@ export interface GrabsGrab {
   /** Its Release in words, such as Bluray-1080p · FKW · 9.8 GB */
   releaseWords: string;
   /**
-   * The Indexer whose feed RSS sync found it in; null unless foundBy is rss
+   * The Indexer whose feed RSS sync found it in; null unless foundBy is rss, and once the Indexer is deleted
    * @nullable
    */
   rssIndexerName: string | null;

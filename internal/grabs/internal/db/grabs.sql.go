@@ -1081,6 +1081,51 @@ func (q *Queries) ListKeptReleasesOfSearch(ctx context.Context, searchID SearchI
 	return items, nil
 }
 
+const listMadeRunsOf = `-- name: ListMadeRunsOf :many
+SELECT sg.grab_id, s.id AS search_id, s.trigger FROM grabs_search_grab sg JOIN grabs_search s ON s.id = sg.search_id
+WHERE sg.grab_id IN (/*SLICE:grab_ids*/?) AND sg.made = 1
+`
+
+type ListMadeRunsOfRow struct {
+	GrabID   GrabID
+	SearchID SearchID
+	Trigger  *string
+}
+
+// The run that made each Grab, for what found its Release.
+func (q *Queries) ListMadeRunsOf(ctx context.Context, grabIds []GrabID) ([]ListMadeRunsOfRow, error) {
+	query := listMadeRunsOf
+	var queryParams []interface{}
+	if len(grabIds) > 0 {
+		for _, v := range grabIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:grab_ids*/?", strings.Repeat(",?", len(grabIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:grab_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMadeRunsOfRow
+	for rows.Next() {
+		var i ListMadeRunsOfRow
+		if err := rows.Scan(&i.GrabID, &i.SearchID, &i.Trigger); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOpenGrabs = `-- name: ListOpenGrabs :many
 SELECT id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id, tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills, fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, torrent_id, probe, failed_stage, failure_code, failure_message, created_at, updated_at, fetch_node_id, metadata_started_at, sent_built_in_on, sent_client_id FROM grabs_grab WHERE stage NOT IN ('imported', 'failed') ORDER BY created_at, id
 `

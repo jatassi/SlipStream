@@ -10,6 +10,7 @@ import (
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -35,6 +36,86 @@ type View struct {
 	// Current is whether a cell reads from it. A failure stays under
 	// Needs you only while it is.
 	Current bool
+	// Search is the run that made it, zero for a Manual Grab and once the
+	// run is pruned.
+	Search SearchID
+	// FoundBy is what found its Release.
+	FoundBy FoundBy
+	// RSSIndexer is the name of the Indexer whose feed RSS sync found it
+	// in, "" unless FoundBy is FoundByRSS or once the Indexer is deleted.
+	RSSIndexer string
+}
+
+// FoundBy is what found a Grab's Release, for Grab Details.
+type FoundBy string
+
+const (
+	FoundBySearch     FoundBy = "search"
+	FoundByBacklog    FoundBy = "backlog"
+	FoundByRSS        FoundBy = "rss"
+	FoundByFailedGrab FoundBy = "failed_grab"
+	FoundByManual     FoundBy = "manual"
+)
+
+// FoundBys is every FoundBy.
+var FoundBys = []FoundBy{FoundBySearch, FoundByBacklog, FoundByRSS, FoundByFailedGrab, FoundByManual}
+
+// foundByOf is what found g's Release, given the trigger of the run that
+// made it, "" when none is recorded. Every other trigger is a search.
+func foundByOf(g Grab, trigger searches.Trigger) FoundBy {
+	switch {
+	case g.Source == FromManual:
+		return FoundByManual
+	case g.Source == FromRSS:
+		return FoundByRSS
+	case trigger == searches.Backlog:
+		return FoundByBacklog
+	case trigger == searches.FailedGrab:
+		return FoundByFailedGrab
+	}
+	return FoundBySearch
+}
+
+// madeRun is the run that made a Grab and what queued it.
+type madeRun struct {
+	search  SearchID
+	trigger searches.Trigger
+}
+
+// madeRunsOf is the run that made each of grabs that has one.
+func madeRunsOf(ctx context.Context, r storage.Reader[file], grabs []Grab) (map[GrabID]madeRun, error) {
+	ids := make([]GrabID, len(grabs))
+	for i, g := range grabs {
+		ids[i] = g.ID
+	}
+	q, out := db.New(r), map[GrabID]madeRun{}
+	for chunk := range slices.Chunk(ids, works.Batch) {
+		rows, err := q.ListMadeRunsOf(ctx, chunk)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			out[row.GrabID] = madeRun{search: row.SearchID, trigger: searches.Trigger(deref(row.Trigger))}
+		}
+	}
+	return out, nil
+}
+
+// rssIndexersOf is the name of each Indexer an RSS Grab of grabs came
+// from, nil when none of grabs is an RSS Grab.
+func rssIndexersOf(ctx context.Context, r storage.Reader[file], grabs []Grab) (map[indexers.ID]string, error) {
+	if !slices.ContainsFunc(grabs, func(g Grab) bool { return g.Source == FromRSS }) {
+		return nil, nil
+	}
+	all, err := indexers.All(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[indexers.ID]string, len(all))
+	for _, idx := range all {
+		out[idx.ID] = idx.Name
+	}
+	return out, nil
 }
 
 // Actions is what an Admin can do to a Grab now.
@@ -54,6 +135,8 @@ type reads struct {
 	releaseWords map[GrabID]string
 	imports      map[GrabID]ImportView
 	current      map[GrabID]bool
+	made         map[GrabID]madeRun
+	rssIndexers  map[indexers.ID]string
 }
 
 func (gr *Grabs) readsIn(ctx context.Context, r storage.Reader[file], grabs []Grab) (reads, error) {
@@ -76,6 +159,12 @@ func (gr *Grabs) readsIn(ctx context.Context, r storage.Reader[file], grabs []Gr
 		return reads{}, err
 	}
 	if out.current, err = grabsCellsReadFrom(ctx, r, grabs); err != nil {
+		return reads{}, err
+	}
+	if out.made, err = madeRunsOf(ctx, r, grabs); err != nil {
+		return reads{}, err
+	}
+	if out.rssIndexers, err = rssIndexersOf(ctx, r, grabs); err != nil {
 		return reads{}, err
 	}
 	out.metadataWait, err = metadataWaitIn(ctx, r)
@@ -257,6 +346,11 @@ func (gr *Grabs) views(grabs []Grab, rd reads) ([]View, error) {
 		}
 		out[i].Overrides = g.overrideWords()
 		out[i].Current = rd.current[g.ID]
+		made := rd.made[g.ID]
+		out[i].Search, out[i].FoundBy = made.search, foundByOf(g, made.trigger)
+		if out[i].FoundBy == FoundByRSS {
+			out[i].RSSIndexer = rd.rssIndexers[g.Ticket.Indexer]
+		}
 	}
 	return out, nil
 }
