@@ -47,7 +47,6 @@ import type {
   GetSearchSettings403,
   GetSearchSettings409,
   GetSearchSettings500,
-  GetSearchSettings501,
   GetWorkSearching401,
   GetWorkSearching403,
   GetWorkSearching404,
@@ -170,7 +169,6 @@ import type {
   UpdateSearchSettings409,
   UpdateSearchSettings422,
   UpdateSearchSettings500,
-  UpdateSearchSettings501,
 } from "../../model";
 
 import { apiFetch } from "../../../fetch.ts";
@@ -1232,11 +1230,7 @@ export const getGetSearchSettingsQueryKey = () => {
 export const getGetSearchSettingsSuspenseQueryOptions = <
   TData = Awaited<ReturnType<typeof getSearchSettings>>,
   TError = ErrorType<
-    | GetSearchSettings401
-    | GetSearchSettings403
-    | GetSearchSettings409
-    | GetSearchSettings500
-    | GetSearchSettings501
+    GetSearchSettings401 | GetSearchSettings403 | GetSearchSettings409 | GetSearchSettings500
   >,
 >(options?: {
   query?: Partial<
@@ -1266,21 +1260,13 @@ export type GetSearchSettingsSuspenseQueryResult = NonNullable<
   Awaited<ReturnType<typeof getSearchSettings>>
 >;
 export type GetSearchSettingsSuspenseQueryError = ErrorType<
-  | GetSearchSettings401
-  | GetSearchSettings403
-  | GetSearchSettings409
-  | GetSearchSettings500
-  | GetSearchSettings501
+  GetSearchSettings401 | GetSearchSettings403 | GetSearchSettings409 | GetSearchSettings500
 >;
 
 export function useGetSearchSettingsSuspense<
   TData = Awaited<ReturnType<typeof getSearchSettings>>,
   TError = ErrorType<
-    | GetSearchSettings401
-    | GetSearchSettings403
-    | GetSearchSettings409
-    | GetSearchSettings500
-    | GetSearchSettings501
+    GetSearchSettings401 | GetSearchSettings403 | GetSearchSettings409 | GetSearchSettings500
   >,
 >(
   options: {
@@ -1294,11 +1280,7 @@ export function useGetSearchSettingsSuspense<
 export function useGetSearchSettingsSuspense<
   TData = Awaited<ReturnType<typeof getSearchSettings>>,
   TError = ErrorType<
-    | GetSearchSettings401
-    | GetSearchSettings403
-    | GetSearchSettings409
-    | GetSearchSettings500
-    | GetSearchSettings501
+    GetSearchSettings401 | GetSearchSettings403 | GetSearchSettings409 | GetSearchSettings500
   >,
 >(
   options?: {
@@ -1312,11 +1294,7 @@ export function useGetSearchSettingsSuspense<
 export function useGetSearchSettingsSuspense<
   TData = Awaited<ReturnType<typeof getSearchSettings>>,
   TError = ErrorType<
-    | GetSearchSettings401
-    | GetSearchSettings403
-    | GetSearchSettings409
-    | GetSearchSettings500
-    | GetSearchSettings501
+    GetSearchSettings401 | GetSearchSettings403 | GetSearchSettings409 | GetSearchSettings500
   >,
 >(
   options?: {
@@ -1334,11 +1312,7 @@ export function useGetSearchSettingsSuspense<
 export function useGetSearchSettingsSuspense<
   TData = Awaited<ReturnType<typeof getSearchSettings>>,
   TError = ErrorType<
-    | GetSearchSettings401
-    | GetSearchSettings403
-    | GetSearchSettings409
-    | GetSearchSettings500
-    | GetSearchSettings501
+    GetSearchSettings401 | GetSearchSettings403 | GetSearchSettings409 | GetSearchSettings500
   >,
 >(
   options?: {
@@ -1406,7 +1380,6 @@ export const getUpdateSearchSettingsMutationOptions = <
     | UpdateSearchSettings409
     | UpdateSearchSettings422
     | UpdateSearchSettings500
-    | UpdateSearchSettings501
   >,
   TContext = unknown,
 >(options?: {
@@ -1452,7 +1425,6 @@ export type UpdateSearchSettingsMutationError = ErrorType<
   | UpdateSearchSettings409
   | UpdateSearchSettings422
   | UpdateSearchSettings500
-  | UpdateSearchSettings501
 >;
 export type UpdateSearchSettingsMutationVariables = { data: SearchSettingsInputBody };
 
@@ -1466,7 +1438,6 @@ export const useUpdateSearchSettings = <
     | UpdateSearchSettings409
     | UpdateSearchSettings422
     | UpdateSearchSettings500
-    | UpdateSearchSettings501
   >,
   TContext = unknown,
 >(

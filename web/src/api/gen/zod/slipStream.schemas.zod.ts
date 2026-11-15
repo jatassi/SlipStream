@@ -7065,9 +7065,7 @@ export type IndexersReportOutput = zod.output<typeof IndexersReport>;
 export const IndexersSettings = zod.object({
   settings: zod
     .array(SettingField)
-    .describe(
-      "How long a search waits for each Indexer, and how long every request to an Indexer may fail before Health warns",
-    ),
+    .describe("How long every request to an Indexer may fail before Health warns"),
 });
 
 export type IndexersSettings = zod.input<typeof IndexersSettings>;

@@ -350,6 +350,17 @@ func TestParseRefuses(t *testing.T) {
 				"scenario x: media server J holds no library root",
 		},
 		{
+			"automatic search out of range",
+			"seed: x\nadmin: {email: a@example.test, display_name: A, pin: \"1234\"}\nnodes: [{name: home, setup: controller}]\n" +
+				"library:\n  roots: [{content_type: movie, folder: movies}]\n" +
+				"  targets: [{name: HD, tiers: [[webdl-1080p]], cutoff: webdl-1080p, hold: 192h}, {name: Soon, tiers: [[webdl-1080p]], cutoff: webdl-1080p, hold: 90s}]\n" +
+				"  indexers: [{name: A, kind: torznab, site: torznab, searches_at_once: 11, limit: {count: 0, per: week}}]\n",
+			"scenario x: library target HD holds 192h0m0s; a Hold is 0 to 7 days in whole minutes\n" +
+				"scenario x: library target Soon holds 1m30s; a Hold is 0 to 7 days in whole minutes\n" +
+				"scenario x: library indexer A has searches_at_once 11; it is 1 to 10, or 0 for the default\n" +
+				"scenario x: library indexer A has a limit of 0 per \"week\"; it is 1 to 100000 per hour or day",
+		},
+		{
 			"two problems at once",
 			"seed: x\nnodes: [{name: Home}, {name: Home}]\n",
 			"scenario x: node name \"Home\" does not match ^[a-z][a-z0-9-]{0,15}$\n" +
@@ -364,6 +375,26 @@ func TestParseRefuses(t *testing.T) {
 				t.Fatalf("err = %v, want %s", err, c.want)
 			}
 		})
+	}
+}
+
+func TestAScenarioReadsItsAutomaticSearchSwitchesHoldsAndIndexerPacing(t *testing.T) {
+	s, err := Parse("x", []byte("seed: x\nadmin: {email: a@example.test, display_name: A, pin: \"1234\"}\nnodes: [{name: home, setup: controller}]\n"+
+		"library:\n  automatic_search: {backlog_search: false}\n  roots: [{content_type: movie, folder: movies}]\n"+
+		"  targets: [{name: HD, tiers: [[webdl-1080p]], cutoff: webdl-1080p, hold: 2h}]\n"+
+		"  indexers: [{name: A, kind: torznab, site: torznab, searches_at_once: 4, limit: {count: 2, per: hour}}]\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, ix := s.Library.AutomaticSearch, s.Library.Indexers[0]
+	if a == nil || a.BacklogSearch == nil || *a.BacklogSearch || a.RSSSync != nil {
+		t.Errorf("automatic_search = %+v, want Backlog search off and RSS sync unset", a)
+	}
+	if got := s.Library.Targets[0].Hold; got != 2*time.Hour {
+		t.Errorf("hold = %s, want 2h", got)
+	}
+	if ix.SearchesAtOnce != 4 || ix.Limit == nil || *ix.Limit != (LibraryLimit{Count: 2, Per: "hour"}) {
+		t.Errorf("indexer = %+v, want 4 searches at once and a limit of 2 an hour", ix)
 	}
 }
 
