@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller that searches five Torznab Indexers,
+  Fixture Site, Heron, Tamarack, Kestrel and Prowlarr, of which Tamarack
+  answers every request 25 seconds late once the run is ready. fake-tmdb
+  lists The Quiet Orchard and The Salt Road, and every site lists a 1080p
+  WEB-DL of The Quiet Orchard. With the search wait set below 25 seconds,
+  a search hears four Indexers at once and decides at its deadline with
+  Tamarack's line late. Backlog search and RSS sync are off, so only the
+  Admin searches. The library has a Movies root, and no Work until a test
+  adds one.
+seed: five-indexers-one-late
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 15s
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+    - id: 9000005
+      imdb_id: tt9000005
+      title: The Salt Road
+      released: 2022-09-14
+      runtime: 112m
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 8.2GiB
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: movie, folder: movies}]
+  automatic_search: {backlog_search: false, rss_sync: false}
+  indexers:
+    - {name: Fixture Site, kind: torznab, site: torznab}
+    - {name: Heron, kind: torznab, site: heron}
+    - {name: Tamarack, kind: torznab, site: tamarack}
+    - {name: Kestrel, kind: torznab, site: torznab}
+    - {name: Prowlarr, kind: torznab, site: prowlarr}
+faults:
+  - {id: tamarack-answers-late, target: fixture-site, route: tamarack.api, fault: delay=25s, after: {kind: run.ready}}
