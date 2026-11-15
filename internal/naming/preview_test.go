@@ -42,8 +42,8 @@ func TestAPreviewNamesTheSamplesUnderEachTemplateAndStoresNothing(t *testing.T) 
 	}
 	file := field(t, p, "shelf.naming.file.standard")
 	for label, want := range map[string]string{
-		"A scarf with a cut":                  "Shelf Attic/Box 01/Attic - B01T01 - Scarf Director's Cut 4K HDR.mkv",
-		"Two things with a Kept file":         "Shelf Attic/Box 01/Attic - B01T01-T02 - Scarf + Hat 1080p (extra 1).mkv",
+		"A scarf with a cut":                    "Shelf Attic/Box 01/Attic - B01T01 - Scarf Director's Cut 4K HDR.mkv",
+		"Two things with a Kept file":           "Shelf Attic/Box 01/Attic - B01T01-T02 - Scarf + Hat 1080p (extra 1).mkv",
 		"Nothing known with no release details": "Shelf Attic/Box 01/Attic - B01T01 - 1080p.mkv",
 	} {
 		if got := pathOf(t, file, label); got != want {
