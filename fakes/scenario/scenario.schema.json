@@ -2544,6 +2544,16 @@
                   "count",
                   "per"
                 ]
+              },
+              "uploads": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "no_paging": {
+                "type": "boolean"
+              },
+              "always_late": {
+                "type": "boolean"
               }
             },
             "additionalProperties": false,
