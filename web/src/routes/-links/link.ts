@@ -24,7 +24,7 @@ type Kind = {
 export const kinds: { readonly [K in LinkKind]: Kind } = {
   signup: { noun: "link", key: getGetSignupLinkByTokenQueryKey, get: getSignupLinkByToken },
   reset: { noun: "Reset link", key: getGetResetLinkByTokenQueryKey, get: getResetLinkByToken },
-  email: { noun: "confirm link", key: getGetEmailLinkByTokenQueryKey, get: getEmailLinkByToken },
+  email: { noun: "confirmation link", key: getGetEmailLinkByTokenQueryKey, get: getEmailLinkByToken },
 };
 
 /** Why a link card shows no flow: the Node's reason, or that the Node didn't answer. */

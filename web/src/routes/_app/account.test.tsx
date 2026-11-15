@@ -80,12 +80,12 @@ test("an email change says where the confirm link went", async () => {
   ]);
   await userEvent.click(page.getByRole("button", { name: "Change email" }));
   await userEvent.fill(dialog("Change email").getByLabelText("New email"), "ada@okafor.example");
-  await userEvent.click(dialog("Change email").getByRole("button", { name: "Send confirm link" }));
+  await userEvent.click(dialog("Change email").getByRole("button", { name: "Send confirmation link" }));
 
   await expect
     .element(dialog("Change email").getByRole("status"))
     .toHaveTextContent(
-      "We sent a confirm link to ada@okafor.example. Your email changes once you follow it.",
+      "SlipStream sent a confirmation link to ada@okafor.example. Your email changes once you open it.",
     );
   expect(seen).toEqual([
     { method: "POST", url: "/api/v1/account/email", body: { email: "ada@okafor.example" } },
@@ -100,12 +100,12 @@ test("an email change before the address is set says email changes don't work ye
   ]);
   await userEvent.click(page.getByRole("button", { name: "Change email" }));
   await userEvent.fill(dialog("Change email").getByLabelText("New email"), "ada@okafor.example");
-  await userEvent.click(dialog("Change email").getByRole("button", { name: "Send confirm link" }));
+  await userEvent.click(dialog("Change email").getByRole("button", { name: "Send confirmation link" }));
 
   await expect
     .element(dialog("Change email").getByRole("alert"))
     .toHaveTextContent(
-      "Your Admin hasn't set SlipStream's address yet, so email changes don't work.",
+      "You can't change your email until an Admin sets SlipStream's address. Ask an Admin to set it.",
     );
 });
 

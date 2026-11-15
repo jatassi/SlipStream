@@ -12,15 +12,15 @@ import { DialogActions } from "./dialog-actions";
 
 const emailForm = z.object({ email: z.string().trim().pipe(StartEmailChangeBody.shape.email) });
 
-const addressUnset = "Your Admin hasn't set SlipStream's address yet, so email changes don't work.";
+const addressUnset = "You can't change your email until an Admin sets SlipStream's address. Ask an Admin to set it.";
 
 function sentence(email: string, { email: { outcome, detail } }: IdentityEmailChangeStarted) {
   switch (outcome) {
     case "sent": {
-      return `We sent a confirm link to ${email}. Your email changes once you follow it.`;
+      return `SlipStream sent a confirmation link to ${email}. Your email changes once you open it.`;
     }
     case "failed": {
-      return `The confirm link to ${email} didn't send${detail === undefined ? "" : `: ${detail}`}.`;
+      return `The confirmation link to ${email} didn't send${detail === undefined ? "" : `: ${detail}`}.`;
     }
     case "not-set-up": {
       return "SlipStream can't send email yet. Ask your Admin to change your email for you.";
@@ -59,8 +59,8 @@ function EmailForm({ onSent }: { onSent: (outcome: string) => void }) {
       }}
     >
       <p className="text-ink-2">
-        SlipStream sends a confirm link to the new address, and your email changes once you follow
-        it.
+        SlipStream sends a confirmation link to the new address, and your email changes once you
+        open it.
       </p>
       <form.AppForm>
         <form.AppField name="email">
@@ -71,7 +71,7 @@ function EmailForm({ onSent }: { onSent: (outcome: string) => void }) {
           <DialogClose>
             <Button>Cancel</Button>
           </DialogClose>
-          <form.SubmitButton label="Send confirm link" />
+          <form.SubmitButton label="Send confirmation link" />
         </DialogActions>
       </form.AppForm>
     </form>

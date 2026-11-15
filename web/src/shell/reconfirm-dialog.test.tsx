@@ -39,15 +39,15 @@ const refusals: Record<string, () => Response> = {
     problem(
       403,
       "pin_off",
-      "This PIN is turned off. Use a passkey or ask an Admin for a Reset link.",
+      "This PIN is locked after too many wrong PINs. Sign in with a passkey or ask an Admin for a Reset link.",
     ),
   "1111": () =>
     HttpResponse.json(
       {
         status: 429,
         code: "pin_wait",
-        title: "Too many wrong PINs. Wait before trying again.",
-        detail: "You can try again at 16:42.",
+        title: "Too many wrong PINs",
+        detail: "Try again at 16:42.",
         until: waitEnds,
       },
       { status: 429, headers: { "Content-Type": "application/problem+json" } },
@@ -57,8 +57,8 @@ const refusals: Record<string, () => Response> = {
       {
         status: 429,
         code: "too_many_attempts",
-        title: "Too many failed attempts from this address. Wait before trying again.",
-        detail: "You can try again at 16:42.",
+        title: "Too many failed sign-ins from this IP address",
+        detail: "Try again at 16:42.",
         until: waitEnds,
       },
       { status: 429, headers: { "Content-Type": "application/problem+json" } },
@@ -165,17 +165,17 @@ test.each([
   [
     "a turned-off PIN",
     "0000",
-    "This PIN is turned off. Use a passkey or ask an Admin for a Reset link.",
+    "This PIN is locked after too many wrong PINs. Sign in with a passkey or ask an Admin for a Reset link.",
   ],
   [
     "a PIN in its wait",
     "1111",
-    `Too many wrong PINs. Wait before trying again. You can try again at ${clock(waitEnds)}.`,
+    `Too many wrong PINs. Try again at ${clock(waitEnds)}.`,
   ],
   [
     "an address past its limit",
     "2222",
-    `Too many failed attempts from this address. Wait before trying again. You can try again at ${clock(waitEnds)}.`,
+    `Too many failed sign-ins from this IP address. Try again at ${clock(waitEnds)}.`,
   ],
 ])("%s shows its alert in the dialog and clears the PIN", async (_case, pin, alert) => {
   const server = reconfirmServer();

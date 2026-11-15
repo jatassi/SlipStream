@@ -99,7 +99,7 @@ func NewWaiting(status int, name, title string) Waiting {
 func (c Waiting) Until(t time.Time) error {
 	return &explained{
 		code: c.Code, at: t, retryAfter: t, carried: t.UTC(),
-		words: func(at string) string { return "You can try again at " + at + "." },
+		words: func(at string) string { return "Try again at " + at + "." },
 	}
 }
 

@@ -26,7 +26,7 @@ type healthOutput struct {
 
 type status struct {
 	Claim    string   `json:"claim" enum:"unclaimed,controller,worker"`
-	Passkeys passkeys `json:"passkeys" doc:"Whether the address this request reached SlipStream at can hold a passkey"`
+	Passkeys passkeys `json:"passkeys" doc:"Whether passkeys work at the address this request used"`
 	Removed  *removed `json:"removed,omitempty" doc:"Set on an Unclaimed Node its Controller removed, until it joins again"`
 }
 
@@ -143,7 +143,7 @@ func Routes(r *api.Router, facts system.Facts, node Node) {
 		ID:      "getStatus",
 		Method:  http.MethodGet,
 		Path:    "/status",
-		Summary: "Report whether the Node is Unclaimed, a Controller or a Worker, and whether this address can hold a passkey",
+		Summary: "Report whether the Node is Unclaimed, a Controller or a Worker, and whether passkeys work at this address",
 		Status:  http.StatusOK,
 	}, func(ctx context.Context, a identity.Anyone, _ *struct{}) (*statusOutput, error) {
 		claim, err := node.Claim(ctx)
