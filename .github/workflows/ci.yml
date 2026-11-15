@@ -92,11 +92,37 @@ jobs:
         id: tag
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         run: go run ./cmd/release tag "$GITHUB_REF_NAME"
+      # The maintainer's self-hosted runners take jobs only from the
+      # maintainer's own runs, and only while they were provisioned from this
+      # commit's scripts/self-hosted, which the label names. Every job they
+      # can't take stays on its hosted runner. See docs/self-hosted-runners.md.
+      - name: Find the self-hosted runners
+        id: self-hosted
+        env:
+          GH_TOKEN: ${{ secrets.RUNNER_STATUS_TOKEN }}
+          TRUSTED: >-
+            ${{ github.repository == 'jatassi/SlipStream' && github.actor == 'jatassi' && github.triggering_actor == 'jatassi' &&
+              (github.event.pull_request == null || github.event.pull_request.head.repo.full_name == github.repository) }}
+          PAUSED: ${{ vars.SELF_HOSTED_RUNNERS == 'paused' }}
+        run: |
+          pools=""
+          if [ "$TRUSTED" = true ] && [ "$PAUSED" != true ] && [ -n "$GH_TOKEN" ]; then
+            kit=$(git rev-parse HEAD:scripts/self-hosted | cut -c1-12)
+            labels=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runners" \
+              --jq '.runners[] | select(.status == "online") | .labels[].name') || labels=""
+            for os in linux windows; do
+              runner="slipstream-$os-$kit"
+              slots=$(grep -cx "$runner" <<< "$labels" || true)
+              if [ "$slots" -gt 0 ]; then pools="${pools:+$pools,}$os-amd64=$runner:$slots"; fi
+            done
+          fi
+          echo "Self-hosted pools: ${pools:-none}"
+          echo "pools=$pools" >> "$GITHUB_OUTPUT"
       # A pull request into another pull request's branch is stacked: it
       # runs linux-amd64 alone unless labelled ci: full.
       - name: Plan the lanes and matrices
         id: plan
-        run: go run ./cmd/release plan -event "$EVENT" -scope "${SCOPE:-native}" -package="${PACKAGE:-false}" -diagram="${DIAGRAM:-false}" -targets "$TARGETS" -tier "$TIER"
+        run: go run ./cmd/release plan -event "$EVENT" -scope "${SCOPE:-native}" -package="${PACKAGE:-false}" -diagram="${DIAGRAM:-false}" -targets "$TARGETS" -tier "$TIER" -self-hosted "$POOLS"
         env:
           EVENT: >-
             ${{ github.event_name == 'schedule' && 'schedule' || github.event_name == 'workflow_dispatch' && 'dispatch' ||
@@ -107,6 +133,7 @@ jobs:
           DIAGRAM: ${{ steps.scope.outputs.diagram }}
           TARGETS: ${{ inputs.targets }}
           TIER: ${{ inputs.tier || 'all' }}
+          POOLS: ${{ steps.self-hosted.outputs.pools }}
       # Every go, e2e and browser shard splits its tier by the same timings:
       # the go-timings artifact of the last run that recorded them. They are
       # kept as an artifact because a cache entry was evicted within the hour
@@ -342,9 +369,10 @@ jobs:
         run: sudo ifconfig lo0 alias 127.0.0.2 up
       # With one address besides loopback a host announces once whatever the
       # engine does, so TestEachTorrentAnnouncesStartedOnce needs a second.
+      # A self-hosted runner keeps the address from its last run.
       - name: Add a second IPv4 address to the default interface
         if: matrix.goos == 'linux'
-        run: sudo ip addr add 198.51.100.7/32 dev "$(ip -4 route show default | awk '{print $5; exit}')"
+        run: sudo ip addr replace 198.51.100.7/32 dev "$(ip -4 route show default | awk '{print $5; exit}')"
       - name: Run Go test shard
         run: go run ./cmd/release test -tier go -shard "$SHARD" -filter "$FILTER" -repeat "$REPEAT" -timings .timings -record "$RUNNER_TEMP/timings/${{ matrix.target }}-go-${{ matrix.shard }}.json"
       - name: Upload this shard's test timings

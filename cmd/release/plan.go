@@ -149,8 +149,13 @@ func runPlan(_ context.Context, args []string) error {
 	fs.BoolVar(&t.diagram, "diagram", false, "the change touches what the Diagram check reads, as the scope command's diagram output says")
 	targets := fs.String("targets", "", "comma-separated targets to keep; empty keeps every target the event runs")
 	tier := fs.String("tier", "all", "lanes to run: all, "+strings.Join(laneTiers(), ", "))
+	selfHosted := fs.String("self-hosted", "", "comma-separated pools of self-hosted runners as target=runner:slots, such as linux-amd64=slipstream-linux-0a1b2c:8")
 	if err := fs.Parse(args); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
+	}
+	pools, err := parsePools(*selfHosted)
+	if err != nil {
+		return err
 	}
 	e, ok := events[*eventName]
 	if !ok {
@@ -167,6 +172,9 @@ func runPlan(_ context.Context, args []string) error {
 	p, err := plan(in, e, scope, t, keep, *tier)
 	if err != nil {
 		return err
+	}
+	for target, pool := range pools {
+		p.selfHost(target, pool)
 	}
 	for _, l := range lanes {
 		m, err := json.Marshal(p.Lanes[l.kind])
@@ -298,6 +306,66 @@ func (l lane) selected(tier string, packaging bool) bool {
 		return packaging || slices.ContainsFunc(lanes, func(o lane) bool { return o.tier == tier && slices.Contains(lanesOnBuild, o.kind) })
 	default:
 		return l.tier == tier
+	}
+}
+
+// pool is a set of self-hosted runners for one target: the label that
+// selects them and how many jobs they run at once.
+type pool struct {
+	runner string
+	slots  int
+}
+
+func parsePools(s string) (map[string]pool, error) {
+	pools := map[string]pool{}
+	if s == "" {
+		return pools, nil
+	}
+	for item := range strings.SplitSeq(s, ",") {
+		target, rest, ok := strings.Cut(item, "=")
+		runner, slots, ok2 := strings.Cut(rest, ":")
+		n, err := strconv.Atoi(slots)
+		if !ok || !ok2 || target == "" || runner == "" || err != nil || n < 1 {
+			return nil, fmt.Errorf("-self-hosted %q isn't target=runner:slots with at least one slot", item)
+		}
+		pools[target] = pool{runner, n}
+	}
+	return pools, nil
+}
+
+// selfHost moves up to the pool's slots of a target's jobs onto the pool,
+// and leaves the rest on the target's hosted runner. The lanes that start
+// with the run take slots first. The lanes on the build's dist/ start when
+// the build ends, so they get the build's slot and whatever the others left.
+// A packaging build stays on its hosted runner, because its smoke tests
+// install the packages system-wide.
+func (p Plan) selfHost(target string, pl pool) {
+	used := 0
+	take := func(kind string) bool {
+		taken := false
+		for i, e := range p.Lanes[kind].Include {
+			if e.Target == target && used < pl.slots {
+				p.Lanes[kind].Include[i].Runner = pl.runner
+				used++
+				taken = true
+			}
+		}
+		return taken
+	}
+	build := false
+	for _, l := range lanes {
+		switch {
+		case l.kind == "build":
+			build = !p.Package && take(l.kind)
+		case !slices.Contains(lanesOnBuild, l.kind):
+			take(l.kind)
+		}
+	}
+	if build {
+		used--
+	}
+	for _, kind := range lanesOnBuild {
+		take(kind)
 	}
 }
 

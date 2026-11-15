@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -404,5 +405,68 @@ func TestCIRunsEveryLane(t *testing.T) {
 	}
 	if !slices.Equal(needs, gateNeeds) {
 		t.Errorf("gate needs %s, want %s", strings.Join(needs, ", "), strings.Join(gateNeeds, ", "))
+	}
+}
+
+// onPool counts each lane's jobs for target that run on runner.
+func onPool(p Plan, target, runner string) map[string]int {
+	counts := map[string]int{}
+	for kind, m := range p.Lanes {
+		for _, e := range m.Include {
+			if e.Target == target && e.Runner == runner {
+				counts[kind]++
+			}
+		}
+	}
+	return counts
+}
+
+func TestSelfHostFillsTheStartingLanesFirst(t *testing.T) {
+	p, err := plan(planInputs, events["dispatch"], changescope.PR, touched{}, nil, "all")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.selfHost("linux-amd64", pool{"self-linux", 8})
+	// Seven jobs start with the run. The build's slot goes back to the pool
+	// when the e2e and browser lanes start, so e2e takes the last two.
+	want := map[string]int{"build": 1, "lint": 1, "lint-repo": 1, "go": 2, "component": 1, "diagram": 1, "e2e": 2}
+	if got := onPool(p, "linux-amd64", "self-linux"); !maps.Equal(got, want) {
+		t.Errorf("self-hosted jobs = %v, want %v", got, want)
+	}
+	for _, e := range p.Lanes["browser"].Include {
+		if e.Runner == "self-linux" {
+			t.Errorf("browser shard %d/%d is on the pool, want the hosted runner", e.Shard, e.Shards)
+		}
+	}
+	if got := onPool(p, "windows-amd64", "self-linux"); len(got) != 0 {
+		t.Errorf("windows-amd64 jobs on the linux pool = %v, want none", got)
+	}
+}
+
+func TestSelfHostKeepsAPackagingBuildHosted(t *testing.T) {
+	p, err := plan(planInputs, events["schedule"], changescope.PR, touched{}, nil, "all")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.selfHost("linux-amd64", pool{"self-linux", 3})
+	want := map[string]int{"lint": 1, "lint-repo": 1, "go": 1}
+	if got := onPool(p, "linux-amd64", "self-linux"); !maps.Equal(got, want) {
+		t.Errorf("self-hosted jobs = %v, want %v", got, want)
+	}
+}
+
+func TestParsePools(t *testing.T) {
+	got, err := parsePools("linux-amd64=self-linux:8,windows-amd64=self-windows:4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]pool{"linux-amd64": {"self-linux", 8}, "windows-amd64": {"self-windows", 4}}
+	if !maps.Equal(got, want) {
+		t.Errorf("parsePools = %v, want %v", got, want)
+	}
+	for _, bad := range []string{"linux-amd64", "linux-amd64=self-linux", "linux-amd64=:2", "=self-linux:2", "linux-amd64=self-linux:0"} {
+		if _, err := parsePools(bad); err == nil {
+			t.Errorf("parsePools(%q) succeeded, want an error", bad)
+		}
 	}
 }
