@@ -86,6 +86,7 @@ func target(t *testing.T, f faketest.Served, root string, settle, bound time.Dur
 		Library: "Movies", Folder: path(t, join(root, "Movies")),
 		Disk:  conformance.DirDisk{Dir: filepath.Join(f.Media, "Movies")},
 		Fresh: &conformance.Fresh{Library: "Fresh", Folder: path(t, join(root, "Fresh")), Disk: conformance.DirDisk{Dir: filepath.Join(f.Media, "Fresh")}},
+		Admin: &conformance.Admin{User: "jackson", Password: "conformance-password"},
 		Play: func(t *testing.T, p link.ServerPath, d link.Decision) (conformance.Played, func()) {
 			played, _ := f.Cue(t, "emby-play", emby.Play{Path: p.String(), User: "jackson", Player: "Living Room", Decision: d}).(emby.Played)
 			return conformance.Played{Session: played.Session, Item: played.Item}, func() { f.Cue(t, "emby-stop", emby.Stop{Session: played.Session}) }

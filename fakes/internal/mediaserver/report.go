@@ -14,25 +14,15 @@ type batch struct {
 	timer *time.Timer
 }
 
-// Update is one path report. Deleted is the report's update type, which
-// only DeletesAtOnce reads.
-type Update struct {
-	Path    link.ServerPath
-	Deleted bool
-}
-
 // Report takes path reports, as Jellyfin's and Emby's /Library/Media/Updated
-// do. After the monitor delay each path's folder is scanned.
-func (s *Server) Report(updates []Update) {
+// do. After the monitor delay each path's folder is scanned, whatever the
+// report's update type: Emby 4.10 waited its delay for a Deleted one too
+// (online run 2026-11-14).
+func (s *Server) Report(paths []link.ServerPath) {
 	s.lock()
 	defer s.mu.Unlock()
-	for _, u := range updates {
-		p := u.Path
+	for _, p := range paths {
 		if _, _, ok := s.libraryOf(p); !ok {
-			continue
-		}
-		if u.Deleted && s.b.DeletesAtOnce {
-			s.scanNearest(p)
 			continue
 		}
 		if s.b.RestartsOnRepeat {
