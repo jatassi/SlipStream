@@ -42,7 +42,7 @@ var (
 	nothingWanted   = api.NewCode(http.StatusConflict, "nothing_wanted", "The Work has no wanted cell to search for")
 	noIndexer       = api.NewCode(http.StatusConflict, "no_indexer", "No Indexer is set up")
 	noRoot          = api.NewCode(http.StatusConflict, "no_root", "The Work's Content Type has no library root")
-	rootUnreachable = api.NewCode(http.StatusConflict, "root_unreachable", "The Work's library root is on a Node that takes no new files now")
+	rootUnreachable = api.NewCode(http.StatusConflict, "root_unreachable", "SlipStream can't put new files in the Work's library root now")
 	notSearchable   = api.NewCode(http.StatusConflict, "not_searchable", "The Work's Content Type can't be searched")
 	grabNotFound    = api.NewCode(http.StatusNotFound, "grab_not_found", "No Grab has that id")
 	searchNotFound  = api.NewCode(http.StatusNotFound, "search_not_found", "No search run has that id")

@@ -304,7 +304,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	rootstest.Root(t, lib, role.NodeID{UUID: home}, contenttypetest.ID, t.TempDir())
 	f.storageNodes.lapsed.Store(true)
 	expect(t, s, http.MethodPost, search, http.StatusConflict,
-		`{"status":409,"code":"root_unreachable","title":"The Work's library root is on a Node that takes no new files now","detail":"home is offline, so the library root there takes no new files."}`)
+		`{"status":409,"code":"root_unreachable","title":"SlipStream can't put new files in the Work's library root now","detail":"home is offline, so SlipStream can't put new files in its library root."}`)
 	f.storageNodes.lapsed.Store(false)
 	expect(t, s, http.MethodPost, "/api/v1/works/"+f.unmonitored.ID.String()+"/search", http.StatusConflict,
 		`{"status":409,"code":"nothing_wanted","title":"The Work has no wanted cell to search for"}`)
