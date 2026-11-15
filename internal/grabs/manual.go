@@ -329,7 +329,7 @@ func (gr *Grabs) asking(ctx context.Context, run Search) (asking, error) {
 		if a.search.Terms, err = gr.cfg.Terms[tree.ContentType].SearchTerms(ctx, r, run.item()); err != nil {
 			return err
 		}
-		if a.judging, err = gr.judgingOf(ctx, r, tree.ContentType, run.WorkID, run.item(), a.search.Terms.Expect); err != nil {
+		if a.judging, err = gr.judgingOf(ctx, r, tree, scopeOf(run.Items), a.search.Terms.Expect); err != nil {
 			return err
 		}
 		rows, err := q.ListSearchIndexersOfSearch(ctx, run.ID)

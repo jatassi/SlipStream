@@ -14,13 +14,14 @@ import { ReleaseLine, type RunNames } from "./release-line";
 
 const outcomeOrder: Record<GrabsListedReleaseOutcome, number> = {
   grabbed: 0,
-  not_taken: 1,
-  outranked: 2,
-  kept: 3,
-  refused: 4,
+  waiting: 1,
+  not_taken: 2,
+  outranked: 3,
+  kept: 4,
+  refused: 5,
 };
 
-/** The grabbed Release first, then the ones not taken, outranked and kept, then the refused ones. */
+/** The grabbed Release first, then the waiting ones, the ones not taken, outranked and kept, then the refused ones. */
 const byOutcome = (releases: readonly GrabsListedRelease[]): GrabsListedRelease[] =>
   releases.toSorted((a, b) => outcomeOrder[a.outcome] - outcomeOrder[b.outcome]);
 

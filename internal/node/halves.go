@@ -461,6 +461,7 @@ func (n *Node) startController(ctx context.Context) error {
 		GapCap:           grabs.NoGapCap,
 		QueueChanged:     grabs.QueueChangedEvent.Bind(n.hub),
 		Clock:            time.Now,
+		Today:            n.today,
 		Log:              n.rootLog.With("subsystem", "grabs"),
 	})
 	searchQueue.Bind(pipeline)

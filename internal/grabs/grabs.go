@@ -321,6 +321,9 @@ type Config struct {
 	// Clock is the time now: time.Now, which testing/synctest drives in
 	// tests.
 	Clock func() time.Time
+	// Today is the time now in the Controller's zone, whose calendar date
+	// decides which Items have aired.
+	Today func() time.Time
 	Log   *slog.Logger
 }
 

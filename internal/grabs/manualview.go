@@ -342,7 +342,7 @@ func (gr *Grabs) manualInput(ctx context.Context, r storage.Reader[file], work w
 	if err != nil {
 		return manualIn{}, err
 	}
-	if in.judging, err = gr.judgingOf(ctx, r, typ, work, works.ItemID{}, expect); err != nil {
+	if in.judging, err = gr.judgingOf(ctx, r, in.tree, nil, expect); err != nil {
 		return manualIn{}, err
 	}
 	if in.standings, err = gr.cfg.Indexers.Standings(ctx, r); err != nil {
@@ -629,7 +629,7 @@ func place(rs *runSheet, in manualIn, gs map[GrabID]db.ListCellGrabsOfWorkRow) {
 // covers. It stands refused, with no reason, at every other cell.
 func judgeRun(rs *runSheet, in manualIn, gs map[GrabID]db.ListCellGrabsOfWorkRow) {
 	j := in.judging
-	j.searched = rs.run.item()
+	j.scope = scopeOf(rs.run.Items)
 	heard := in.heard[rs.run.ID]
 	rs.heard = make(map[int]string, len(heard))
 	byAt := make(map[int]int, len(heard))

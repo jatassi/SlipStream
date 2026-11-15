@@ -1,6 +1,7 @@
 package grabs
 
 import (
+	"cmp"
 	"context"
 	"maps"
 	"runtime"
@@ -20,22 +21,37 @@ import (
 )
 
 // judging is what assessing a run's Releases needs, read before the
-// Indexers are asked: the searched Item, zero when the tester judges a
-// whole Work, what its Work expects of a name, its Content Type's Names
-// and cuts, the formats its Work's Targets score and each of its Items'
+// Indexers are asked: scope, the Items a Release must cover one of, nil
+// for any of the Work's, as the tester and Manual search's sheet judge;
+// the code of each of the Work's Items that hasn't aired by its own date,
+// before any delay, or has no date; the Releases failed Grabs of the Work
+// tried; what its Work expects of a name, its Content Type's Names and
+// cuts, the formats its Work's Targets score and each of its Items'
 // runtime.
 type judging struct {
-	searched works.ItemID
-	expect   indexers.Expect
-	names    release.Names
-	cuts     []release.Cut
-	scoring  *formats.Catalog
-	runtime  map[works.ItemID]release.Fact[time.Duration]
+	scope   map[works.ItemID]bool
+	unaired map[works.ItemID]string
+	tried   []triedRelease
+	expect  indexers.Expect
+	names   release.Names
+	cuts    []release.Cut
+	scoring *formats.Catalog
+	runtime map[works.ItemID]release.Fact[time.Duration]
 }
 
-// judgingOf reads, in r, the judging of Releases searched for searched,
-// zero for none, of work, of Content Type typ and expecting expect.
-func (gr *Grabs) judgingOf(ctx context.Context, r storage.Reader[file], typ works.TypeID, work works.WorkID, searched works.ItemID, expect indexers.Expect) (judging, error) {
+// scopeOf is items as a judging scope.
+func scopeOf(items []works.ItemID) map[works.ItemID]bool {
+	out := make(map[works.ItemID]bool, len(items))
+	for _, it := range items {
+		out[it] = true
+	}
+	return out
+}
+
+// judgingOf reads, in r, the judging of Releases of tree's Work searched
+// for scope and expecting expect.
+func (gr *Grabs) judgingOf(ctx context.Context, r storage.Reader[file], tree works.Tree, scope map[works.ItemID]bool, expect indexers.Expect) (judging, error) {
+	typ, work := tree.ContentType, tree.ID
 	known, err := gr.cfg.Targets.CutsIn(ctx, r)
 	if err != nil {
 		return judging{}, err
@@ -52,14 +68,40 @@ func (gr *Grabs) judgingOf(ctx context.Context, r storage.Reader[file], typ work
 	if err != nil {
 		return judging{}, err
 	}
+	tried, err := triedOf(ctx, r, work)
+	if err != nil {
+		return judging{}, err
+	}
 	runtimes := make(map[works.ItemID]release.Fact[time.Duration], len(timings))
 	for id, t := range timings {
 		runtimes[id] = t.Runtime
 	}
+	nouns, _ := gr.cfg.Works.Describe(typ)
+	today, unaired := gr.cfg.Today(), map[works.ItemID]string{}
+	for _, it := range tree.Items {
+		if !timings[it.ID].ReleasedBy(today) {
+			unaired[it.ID] = cmp.Or(itemCode(nouns, it), it.Label)
+		}
+	}
 	return judging{
-		searched: searched, expect: expect, names: gr.cfg.Names[typ], cuts: known.For(typ),
+		scope: scope, unaired: unaired, tried: tried, expect: expect, names: gr.cfg.Names[typ], cuts: known.For(typ),
 		scoring: all.Only(targets.ScoredIn(goals)), runtime: runtimes,
 	}, nil
+}
+
+// itemCode is the code the Work page leads it with, "S02E10", "" when its
+// type, described by d, places none.
+func itemCode(d works.Description, it works.Item) string {
+	i := slices.IndexFunc(d.Fields, func(f works.FieldSpec) bool { return slices.Contains(f.In, works.PlaceCode) })
+	if i < 0 {
+		return ""
+	}
+	for _, v := range it.Fields {
+		if v.Key == d.Fields[i].Key && v.Kind == works.KindText {
+			return v.Text
+		}
+	}
+	return ""
 }
 
 // assessed is one listed Release read against its Work before any cell
@@ -145,9 +187,9 @@ func (j judging) runtimeOf(items []works.ItemID) release.Fact[time.Duration] {
 
 // refusals is a's own refusals: an id that names another Work alone, else
 // a title or year that doesn't match the Work, then a name that covers
-// none of the Work's Items or not the searched one.
-// With no searched Item, as the tester judges, any of the Work's Items
-// passes. Its ids are the Indexer's, over the id tags its name carries.
+// none of the Work's Items or none of the scope, a pack listing an Item
+// that hasn't aired, and a Release a failed Grab of the Work tried. Its
+// ids are the Indexer's, over the id tags its name carries.
 func (j judging) refusals(a assessed) []Reason {
 	ids := map[string]string{}
 	maps.Copy(ids, a.read.Facts.IDs)
@@ -160,10 +202,23 @@ func (j judging) refusals(a assessed) []Reason {
 	if m == release.WrongTitle {
 		out = append(out, own(targets.WrongTitle, given))
 	}
-	if len(a.covers) == 0 || !j.searched.IsZero() && !slices.Contains(a.covers, j.searched) {
+	if len(a.covers) == 0 || j.scope != nil && !slices.ContainsFunc(a.covers, func(it works.ItemID) bool { return j.scope[it] }) {
 		out = append(out, own(targets.WrongItem, marks(a.read.Name)))
 	}
+	if len(a.covers) > 1 {
+		if i := slices.IndexFunc(a.covers, func(it works.ItemID) bool { _, ok := j.unaired[it]; return ok }); i >= 0 {
+			out = append(out, own(targets.NotAired, j.unaired[a.covers[i]]))
+		}
+	}
+	if slices.ContainsFunc(j.tried, a.tried) {
+		out = append(out, own(targets.Tried, ""))
+	}
 	return out
+}
+
+// tried reports whether t is a's Release or one of its copies.
+func (a assessed) tried(t triedRelease) bool {
+	return t.is(a.Release) || slices.ContainsFunc(a.copies, func(c copied) bool { return t.is(c.Release) })
 }
 
 func own(code targets.ReasonCode, value string) Reason {

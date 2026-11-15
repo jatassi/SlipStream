@@ -42,6 +42,9 @@ type keptRelease struct {
 	// Published is when its Indexer published it, zero when it sent no
 	// date.
 	Published time.Time `json:"published,omitzero"`
+	// GUID is the one its Indexer sent, which a tried refusal matches
+	// when no info hash is known.
+	GUID string `json:"guid,omitempty"`
 }
 
 // keptSource is the site a Torznab feed said the Release came from, which
@@ -58,7 +61,7 @@ func encodeKept(r indexers.Release) (string, error) {
 	k := keptRelease{
 		Priority: r.Priority, Title: r.Title, Size: r.Size, Seeders: r.Seeders, IDs: r.IDs,
 		DownloadFactor: r.Factors.Download, UploadFactor: r.Factors.Upload, MinRatio: r.Floor.MinRatio, MinSeedSeconds: int64(r.Floor.MinSeed.Seconds()),
-		Flags: r.Flags, Published: r.Published,
+		Flags: r.Flags, Published: r.Published, GUID: r.GUID,
 	}
 	if r.InfoHash != nil {
 		k.InfoHash = r.InfoHash.String()
@@ -83,7 +86,7 @@ func (gr *Grabs) kept(row db.GrabsRelease) (indexers.Release, error) {
 		Title: k.Title, Size: k.Size, Seeders: k.Seeders, IDs: k.IDs,
 		Factors: searching.Factors{Download: k.DownloadFactor, Upload: k.UploadFactor},
 		Floor:   searching.Floor{MinRatio: k.MinRatio, MinSeed: time.Duration(k.MinSeedSeconds) * time.Second},
-		Flags:   k.Flags, Published: k.Published,
+		Flags:   k.Flags, Published: k.Published, GUID: k.GUID,
 	}}
 	if k.InfoHash != "" {
 		h, err := bencode.ParseInfoHash(k.InfoHash)
@@ -202,7 +205,7 @@ func (gr *Grabs) rerunOf(ctx context.Context, g Grab) (*redo, error) {
 		if err != nil {
 			return err
 		}
-		j, err := gr.judgingOf(ctx, r, tree.ContentType, run.WorkID, run.item(), terms.Expect)
+		j, err := gr.judgingOf(ctx, r, tree, scopeOf(run.Items), terms.Expect)
 		if err != nil {
 			return err
 		}

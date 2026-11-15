@@ -99,6 +99,8 @@ const liftable: Record<GrabsLiftKeyCode, true> = {
   score_below_minimum: true,
   not_an_upgrade: true,
   repack_other_group: true,
+  not_aired: true,
+  tried: true,
 };
 
 const isLift = (code: string): code is GrabsLiftKeyCode => Object.hasOwn(liftable, code);

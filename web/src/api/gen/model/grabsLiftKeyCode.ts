@@ -4,4 +4,6 @@ export type GrabsLiftKeyCode =
   | "size_above"
   | "score_below_minimum"
   | "not_an_upgrade"
-  | "repack_other_group";
+  | "repack_other_group"
+  | "not_aired"
+  | "tried";

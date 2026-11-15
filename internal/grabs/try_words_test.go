@@ -47,3 +47,14 @@ func TestARepackFromAnotherGroupNamesBothGroupsAndTheTarget(t *testing.T) {
 		}
 	}
 }
+
+func TestASoftRefusalOfItsOwnSaysManualSearchCanStillGrabIt(t *testing.T) {
+	for code, want := range map[targets.ReasonCode]string{
+		targets.NotAired: "This pack lists S03E10, which hasn't aired. You can still grab it here.",
+		targets.Tried:    "A Grab of this Release already failed for this Work. You can still grab it here.",
+	} {
+		if got := reasonWords(Reason{Reason: targets.Reason{Code: code, Value: "S03E10"}}, nil, release.Facts{}); got != want || !code.Soft() {
+			t.Errorf("%s reads %q, soft %v, want %q and soft", code, got, code.Soft(), want)
+		}
+	}
+}
