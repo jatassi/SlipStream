@@ -210,7 +210,7 @@ func (x *Indexers) Search(ctx context.Context, s Search, each func(Answer) error
 		return nil, fmt.Errorf("search: %w", err)
 	}
 	if err := context.Cause(jobs); err != nil {
-		return nil, fmt.Errorf("hear an answer: %w", err)
+		return nil, fmt.Errorf("read a response: %w", err)
 	}
 	return answers, errors.Join(errs...)
 }

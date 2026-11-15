@@ -325,7 +325,7 @@ func (rs runSheet) open(k int) bool {
 	return rs.fill[k] || held
 }
 
-var changedPick = &PickError{Code: PickChanged, Words: "What this Release gets you changed since the plan. Check the plan and grab again."}
+var changedPick = &PickError{Code: PickChanged, Words: "The files this release would download changed after the plan was made. Check the plan and grab again."}
 
 // conflicted is each of all that fills a cell another of all fills.
 func (g *grabbing) conflicted(all []*chosen) []chosen {
@@ -598,7 +598,7 @@ func clientRefusal(err error) *PickError {
 	case errors.Is(err, downloadclients.ErrNoClient):
 		return &PickError{Code: ClientRefused, Words: "That Download Client was deleted. Choose another client."}
 	case errors.Is(err, downloadclients.ErrNotDownloading):
-		return &PickError{Code: NotDownloading, Words: "That Node doesn't hold Downloading. Choose another client."}
+		return &PickError{Code: NotDownloading, Words: "That Node doesn't have the Downloading Role. Choose another client."}
 	}
 	return nil
 }
@@ -607,7 +607,7 @@ func clientRefusal(err error) *PickError {
 // from err, the primary's refusal: "TorrentLeech is at its grab limit
 // until 14:05."
 func notTaken(_ indexers.Ticket, err error) *PickError {
-	words := "No Indexer that listed this Release takes it now."
+	words := "No Indexer that listed this release can fetch it right now. Try again later or choose another release."
 	if e, ok := errors.AsType[*indexers.NotTakenError](err); ok {
 		words = e.Sentence
 	}

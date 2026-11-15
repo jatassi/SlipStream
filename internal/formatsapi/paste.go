@@ -17,7 +17,7 @@ import (
 
 type paste struct {
 	Text    string   `json:"text" minLength:"1" doc:"One Custom Format's JSON or a list of them, as TRaSH Guides, Radarr and Sonarr export them or as Sonarr's API returns them"`
-	App     string   `json:"app,omitempty" enum:"radarr,sonarr" doc:"The app the text was written for; left out, the app its kinds settle: Edition, Quality modifier or Year mean Radarr and Release type means Sonarr"`
+	App     string   `json:"app,omitempty" enum:"radarr,sonarr" doc:"The app the text was written for; omitted, SlipStream infers it from the condition kinds: Edition, Quality modifier or Year mean Radarr and Release type means Sonarr"`
 	Replace []string `json:"replace,omitempty" format:"uuid" doc:"The Custom Formats of a pasted one's name that it replaces; a pasted one whose name is taken and not listed here is added beside the other, with a number after its name"`
 }
 
@@ -40,7 +40,7 @@ type pastedFormat struct {
 }
 
 type pasted struct {
-	App     string            `json:"app" enum:"radarr,sonarr" doc:"The app the formats are read for: the one given, or the one their kinds settle"`
+	App     string            `json:"app" enum:"radarr,sonarr" doc:"The app the formats are read for: the one given, or the one SlipStream infers from their condition kinds"`
 	Formats []pastedFormat    `json:"formats" nullable:"false" doc:"In the text's order"`
 	Impact  targetsapi.Impact `json:"impact"`
 }

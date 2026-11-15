@@ -136,7 +136,7 @@ var quietMediaServers = health.Category{
 }
 
 var quietSeeding = health.Category{
-	About:  health.About{ID: health.SeedingID, Label: "Seeding", Phrase: "torrents that still owe a Tracker"},
+	About:  health.About{ID: health.SeedingID, Label: "Seeding", Phrase: "torrents that still need seeding"},
 	Source: health.Source{Answer: func(context.Context) (health.Answer, error) { return health.Answer{}, nil }},
 }
 

@@ -17,7 +17,7 @@ var goneAtAnyStage = []struct {
 }{
 	{downloadclients.NodeWrittenOff, grabs.NodeWrittenOff, "An Admin had SlipStream stop waiting for the Node downloading this Grab."},
 	{downloadclients.ByClient, grabs.ClientRemoved, "Transmission removed the torrent before SlipStream imported it."},
-	{downloadclients.ClientDeleted, grabs.ClientDeleted, "The Admin deleted Transmission before SlipStream imported this torrent."},
+	{downloadclients.ClientDeleted, grabs.ClientDeleted, "An Admin deleted Transmission before SlipStream imported this torrent."},
 }
 
 // inTransmission is a Grab at stage whose Torrent is in Transmission on

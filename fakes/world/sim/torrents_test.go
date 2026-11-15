@@ -385,6 +385,6 @@ func TestRemoveFailsDownloadingGrabsWithRemoved(t *testing.T) {
 			t.Fatalf("the remove's preview cancels %+v, want the Grab downloading %s", preview.Cancels, release)
 		}
 		act(t, w, downloadclients.Action{Kind: downloadclients.Remove, IDs: []downloadclients.ID{id}})
-		expectFailed(t, simtest.Await(t, w), "downloading", "removed", "The Admin removed this Grab's torrent")
+		expectFailed(t, simtest.Await(t, w), "downloading", "removed", "An Admin removed this Grab's torrent.")
 	})
 }

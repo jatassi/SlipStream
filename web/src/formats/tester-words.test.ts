@@ -131,11 +131,11 @@ const result = (works: number, judgedAgainst = works === 1): FormatsParsed => ({
 });
 
 test("a name judged against one Work fills, and one matching several Works or none is accepted", () => {
-  expect(verdictWords(result(1), true)).toBe("Would fill");
-  expect(verdictWords(result(1), false)).toBe("Wouldn't fill");
+  expect(verdictWords(result(1), true)).toBe("Would grab");
+  expect(verdictWords(result(1), false)).toBe("Wouldn't grab");
   expect(verdictWords(result(0), true)).toBe("Accepts it");
   expect(verdictWords(result(2), false)).toBe("Doesn't accept it");
-  expect(verdictWords(result(0, true), false)).toBe("Wouldn't fill");
+  expect(verdictWords(result(0, true), false)).toBe("Wouldn't grab");
 });
 
 test("a draft's compile refusal lands under the editor's own field", () => {

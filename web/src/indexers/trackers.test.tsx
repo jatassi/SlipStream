@@ -32,7 +32,7 @@ test("Rename saves the new name and the group takes it", async () => {
   await userEvent.click(dialog.getByRole("button", { name: "Rename" }));
   await expect.element(heading("TL")).toBeVisible();
   await expect
-    .element(group("Indexers reaching TL").getByRole("listitem", { name: "Prowlarr" }))
+    .element(group("Indexers searching TL").getByRole("listitem", { name: "Prowlarr" }))
     .toBeVisible();
   expect(server.writes).toEqual([
     { method: "PATCH", id: torrentLeechTrackerId, body: { name: "TL" } },
@@ -77,7 +77,7 @@ test("Merge into offers every other Tracker but never the Tracker itself, and mo
   await expect.element(heading("Aither")).not.toBeInTheDocument();
   await expect
     .element(
-      group("Indexers reaching TorrentLeech").getByRole("listitem", {
+      group("Indexers searching TorrentLeech").getByRole("listitem", {
         name: "Prowlarr",
       }),
     )
@@ -118,7 +118,7 @@ test("a Tracker no Indexer reaches stays, says so and keeps its keys and hosts u
   await expect.element(heading("BeyondHD")).toBeVisible();
   const section = page.getByRole("region", { name: "BeyondHD" });
   await expect
-    .element(section.getByText("No Indexer reaches this Tracker.", { exact: false }))
+    .element(section.getByText("No Indexer searches this Tracker.", { exact: false }))
     .toBeVisible();
   expect(section.getByRole("list").query()).toBeNull();
   await userEvent.click(section.getByRole("button", { name: "Details" }));
@@ -138,7 +138,7 @@ test("with one Tracker its menu has Rename and no Merge into…", async () => {
   });
   await expect
     .element(
-      page.getByText("No Indexers yet. Every search asks each Indexer added here that is on."),
+      page.getByText("No Indexers yet. Every search uses each Indexer added here that is on."),
     )
     .toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "BeyondHD actions" }));

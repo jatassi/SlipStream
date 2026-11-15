@@ -94,6 +94,6 @@ test("Cancel at Import says what stays and what goes back to wanted", async () =
   await expect
     .element(page.getByRole("dialog", { name: "Cancel this Grab?" }))
     .toMatchTextContent(
-      "SlipStream stops importing the download and keeps its torrent. Files already in your library stay, and Items it hasn't imported go back to wanted.",
+      "SlipStream stops importing the download and keeps its torrent. Files already in your library stay, and files it hasn't imported count as missing again.",
     );
 });

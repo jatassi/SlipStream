@@ -39,7 +39,7 @@ export function DeleteIndexerDialog({
       }}
     >
       <p>
-        Searches stop asking it. Its Trackers stay, and so does the history of the Grabs it made.
+        Searches stop using it. Its Trackers stay, and so does the history of the Grabs it made.
       </p>
     </ConfirmDialog>
   );

@@ -360,7 +360,7 @@ func TestTheSearchingServiceFetchesFromAnyHostAndNamesARefusal(t *testing.T) {
 	wrong := "wrong"
 	_, err = x.Update(t.Context(), identity.Admin{}, idx.ID, indexers.Edit{APIKey: &wrong}, indexers.Typed{})
 	var failed *indexers.TestFailedError
-	want := "Fixture Site refused the API key with 'Invalid API Key'. Check the account, then test again."
+	want := "Fixture Site refused the API key and responded 'Invalid API Key'. Check the account, then test again."
 	if !errors.As(err, &failed) || failed.Outcome.Cause != searching.AccountRefused || failed.Sentence != want {
 		t.Fatalf("a wrong key = %v, want account_refused with %q", err, want)
 	}

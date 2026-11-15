@@ -95,14 +95,14 @@ export function outcomeWords(query: IndexersQuery): string {
 
 const indexerNoun = { one: "Indexer", many: "Indexers" } as const;
 
-/** What the list comes to, in a sentence: who needs the Admin first, then who searches ask. */
+/** What the list comes to, in a sentence: which Indexers have a problem first, then which ones searches use. */
 export function summaryOf(indexers: readonly IndexersIndexer[]): string {
   const needing = indexers.filter((indexer) => indexer.on && indexer.fix !== null);
   if (needing.length === 1) {
-    return `${needing[0]?.name} needs you. Open it to see what to do.`;
+    return `${needing[0]?.name} has a problem. Open it to see how to fix it.`;
   }
   if (needing.length > 1) {
-    return `${countWords(needing.length, indexerNoun)} need you. Open each to see what to do.`;
+    return `${countWords(needing.length, indexerNoun)} have a problem. Open each to see how to fix it.`;
   }
   const on = indexers.filter((indexer) => indexer.on);
   if (on.length === 0) {
@@ -110,9 +110,9 @@ export function summaryOf(indexers: readonly IndexersIndexer[]): string {
   }
   const asked = on.filter((indexer) => indexer.waits === null);
   if (asked.length < on.length) {
-    return `Searches ask ${asked.length} of the ${on.length} Indexers that are on. The others are waiting, and each row says why.`;
+    return `Searches use ${asked.length} of the ${on.length} Indexers that are on. The others are waiting, and each row says why.`;
   }
   return on.length === 1
-    ? `Searches ask ${on[0]?.name}.`
-    : `Searches ask all ${on.length} Indexers that are on.`;
+    ? `Searches use ${on[0]?.name}.`
+    : `Searches use all ${on.length} Indexers that are on.`;
 }

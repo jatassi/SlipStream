@@ -14,7 +14,7 @@ import (
 
 var (
 	// ErrNoPort is a native Indexer of a port this build doesn't carry.
-	ErrNoPort = errors.New("SlipStream carries no ported site with that id")
+	ErrNoPort = errors.New("SlipStream has no built-in site with that id")
 	// ErrNotAnAddress is a native Indexer's address that isn't an http or
 	// https URL.
 	ErrNotAnAddress = errors.New("the address isn't an http or https URL")

@@ -202,6 +202,7 @@ func (tr trier) againstWork(ctx context.Context, r storage.Reader[file], name st
 		return Tried{}, err
 	}
 	j.scoring = tr.catalog
+	nouns, _ := tr.gr.cfg.Works.Describe(w.ContentType)
 	a := assessRead(j, listed{Release: indexers.Release{Release: searching.Release{Title: name}}}, rd)
 	goals, err := targets.GoalsIn(ctx, r, w.ID)
 	if err != nil {
@@ -238,10 +239,10 @@ func (tr trier) againstWork(ctx context.Context, r storage.Reader[file], name st
 		} else if len(at) > 0 {
 			reasons = append(reasons, at[0].reasons()...)
 		}
-		tt.Reasons = worded(reasons, &target, a.read.Facts)
+		tt.Reasons = worded(reasons, &target, a.read.Facts, nouns)
 		t.Targets = append(t.Targets, tt)
 	}
-	t.Sentence = sentence(t, worded(a.refusals, nil, a.read.Facts))
+	t.Sentence = sentence(t, worded(a.refusals, nil, a.read.Facts, nouns))
 	return t, nil
 }
 
@@ -252,7 +253,7 @@ func (tr trier) againstEvery(name string, rd release.Read, ws []works.Summary) T
 	s := scoredOf(rd, t.Formats)
 	for _, target := range tr.every {
 		v := verdict{target: target.ID, wanted: true, v: targets.Judge(target, s, nil)}
-		t.Targets = append(t.Targets, TriedTarget{Target: target, Score: v.v.Score(), WouldFill: v.grabbable(), Reasons: worded(v.reasons(), &target, rd.Facts)})
+		t.Targets = append(t.Targets, TriedTarget{Target: target, Score: v.v.Score(), WouldFill: v.grabbable(), Reasons: worded(v.reasons(), &target, rd.Facts, works.Description{})})
 	}
 	t.Sentence = acceptance(t)
 	return t
@@ -269,26 +270,27 @@ func scoredOf(rd release.Read, es []formats.Explained) targets.Scored {
 	return targets.Scored{Facts: rd.Facts, Formats: matched}
 }
 
-// sentence is t, judged against one Work, in words: "Reads as
-// WEBDL-1080p from FLUX. It matches Heat (1995) and would fill 1080p." A
-// name that would fill no Target ends with the first reason a Target
-// gives, in Profile order. A name that doesn't name the Work says why
+// sentence is t, judged against one Work, in words: "SlipStream reads
+// this as WEBDL-1080p from FLUX. It matches Heat (1995), and an automatic
+// search would grab it for 1080p." A name no Target would grab ends with
+// the first reason a Target gives, in Profile order. A name that doesn't name the Work says why
 // with the first of own, its own refusals.
 func sentence(t Tried, own []Worded) string {
 	if len(t.Works) == 0 {
-		return readWords(t) + ". " + own[0].Words + " It would fill no Target."
+		return readWords(t) + ". " + own[0].Words + " No Target would grab it."
 	}
 	read := readWords(t) + ". " + matchWords(t)
 	fills := targetNames(t)
 	if len(fills) > 0 {
-		return read + " and would fill " + joinWords(fills) + "."
+		return read + ", and an automatic search would grab it for " + joinWords(fills) + "."
 	}
-	return read + " and would fill no Target. " + whyNot(t)
+	return read + ", but no Target would grab it. " + whyNot(t)
 }
 
 // acceptance is t, judged at every Target with no held file because it
-// matches several Works or none, in words: "Reads as WEBDL-1080p from
-// FLUX. It matches no Work. 1080p and HD accept it." With no Work there
+// matches several Works or none, in words: "SlipStream reads this as
+// WEBDL-1080p from FLUX. It matches nothing in your library. 1080p and HD
+// accept it." With no Work there
 // is no cell to fill, so it says which Targets accept the name.
 func acceptance(t Tried) string {
 	read := readWords(t) + ". " + matchWords(t) + "."
@@ -305,12 +307,13 @@ func acceptance(t Tried) string {
 	}
 }
 
-// readWords is what t reads as: "Reads as WEBDL-1080p from FLUX".
+// readWords is what t reads as: "SlipStream reads this as WEBDL-1080p
+// from FLUX".
 func readWords(t Tried) string {
 	f := t.Read.Facts
-	read := "Reads no Quality"
+	read := "SlipStream can't read a quality from this name"
 	if q, ok := f.Quality.Get(); ok {
-		read = "Reads as " + q.Info().Name
+		read = "SlipStream reads this as " + q.Info().Name
 	}
 	if g, ok := f.Group.Get(); ok {
 		read += " from " + g
@@ -321,7 +324,7 @@ func readWords(t Tried) string {
 // matchWords is the Works t matches: "It matches Heat (1995)".
 func matchWords(t Tried) string {
 	if len(t.Works) == 0 {
-		return "It matches no Work"
+		return "It matches nothing in your library"
 	}
 	labels := make([]string, len(t.Works))
 	for i, w := range t.Works {
@@ -363,11 +366,11 @@ var attributeWords = map[targets.Attribute]string{
 }
 
 // worded is rs, reasons at t about a name whose facts are f, each with
-// its words. t is nil once the Target is deleted.
-func worded(rs []Reason, t *targets.Target, f release.Facts) []Worded {
+// its words in the nouns of n. t is nil once the Target is deleted.
+func worded(rs []Reason, t *targets.Target, f release.Facts, n works.Description) []Worded {
 	out := make([]Worded, len(rs))
 	for i, r := range rs {
-		out[i] = Worded{Reason: r, Words: reasonWords(r, t, f)}
+		out[i] = Worded{Reason: r, Words: reasonWords(r, t, f, n)}
 	}
 	return out
 }
@@ -375,27 +378,29 @@ func worded(rs []Reason, t *targets.Target, f release.Facts) []Worded {
 const deletedTarget = "a deleted Target"
 
 // reasonWords is r, a reason at t about a name whose facts are f, as a
-// sentence. t is nil once the Target is deleted.
-func reasonWords(r Reason, t *targets.Target, f release.Facts) string {
+// sentence in the nouns of n, the Content Type of the Work it is judged
+// against. t is nil once the Target is deleted.
+func reasonWords(r Reason, t *targets.Target, f release.Facts, n works.Description) string {
 	at := deletedTarget
 	if t != nil {
 		at = t.Name
 	}
+	work, item := strings.ToLower(n.Work.One), strings.ToLower(n.Item.One)
 	switch r.Code {
 	case targets.WrongWork:
-		return "An id in the name belongs to another Work."
+		return "An id in its name belongs to a different " + work + "."
 	case targets.WrongItem:
 		if r.Value == "" {
-			return "It names none of the Work's Items."
+			return "Its name doesn't include any " + item + " of this " + work + "."
 		}
-		return "The Work has no Item " + r.Value + "."
+		return "This " + work + " has no " + item + " " + r.Value + "."
 	case targets.WrongTitle:
 		if r.Value == "" {
-			return "Its name gives no title."
+			return "SlipStream can't read a title from its name."
 		}
-		return "Its name gives " + r.Value + ", which isn't this Work."
+		return "Its name is for " + r.Value + ", a different " + work + "."
 	case targets.CutNotWanted:
-		return "The Work doesn't want the " + r.Value + " cut at " + at + "."
+		return "This " + work + "'s Editions at " + at + " don't include the " + r.Value + " cut."
 	case targets.QualityNotInTarget:
 		what := "a release with no Quality"
 		if q, ok := f.Quality.Get(); ok {
@@ -412,7 +417,7 @@ func reasonWords(r Reason, t *targets.Target, f release.Facts) string {
 	case targets.SizeAbove:
 		return "It's larger than " + at + " allows."
 	case targets.SizeNotChecked:
-		return "Its size isn't checked at " + at + " because the name gives no size or the runtime is unknown."
+		return "Its size isn't checked at " + at + " because its name has no size or the runtime is unknown."
 	case targets.ScoreBelowMinimum:
 		if t == nil {
 			return "Score " + r.Value + " is below the minimum of " + deletedTarget + "."

@@ -15,8 +15,8 @@ type hdBitsSettings struct {
 	Codecs            []hdBitsCodec  `port:"codecs" label:"Codecs" help:"Leave empty to search every codec."`
 	Mediums           []hdBitsMedium `port:"mediums" label:"Mediums" help:"Leave empty to search every medium."`
 	Origins           []hdBitsOrigin `port:"origins" label:"Origins" help:"Leave empty to search every origin."`
-	FreeleechOnly     bool           `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech Releases."`
-	UseFilenames      bool           `port:"useFilenames" label:"Use file names" default:"true" help:"Use each torrent's file name as the Release title."`
+	FreeleechOnly     bool           `port:"freeleechOnly" label:"Freeleech only" help:"Search only freeleech releases."`
+	UseFilenames      bool           `port:"useFilenames" label:"Use file names" default:"true" help:"Use each torrent's file name as the release title."`
 }
 
 type hdBitsCodec int

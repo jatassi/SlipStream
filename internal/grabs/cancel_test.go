@@ -18,7 +18,7 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-const canceledByKey = "This Grab was canceled through the API key."
+const canceledByKey = "An app using the API key canceled this Grab."
 
 func (p *pipeline) cancel(id grabs.GrabID, blocklist bool) error {
 	return p.g.Cancel(p.t.Context(), identity.Admin{}, id, blocklist)
@@ -183,7 +183,7 @@ func TestCancelAtImportingEndsItsImportAndFailsTheGrabWithNothingPlaced(t *testi
 // is busy, saying which Node it waits for while that Node is away, and
 // imported and failed are finished. Each is left as it was.
 func TestCancelRefusesAGrabPlacingItsFileOrFinished(t *testing.T) {
-	const waits = "This Grab is waiting for home to come back. It can't be canceled until it places its file."
+	const waits = "This Grab is waiting for home to come back online. You can cancel it after it imports its file."
 	for _, c := range []struct {
 		stage grabs.Stage
 		away  bool

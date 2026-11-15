@@ -346,6 +346,6 @@ func getInfoURL(ix *ix, groupID string, torrentID int) string {
 // and options are the same.
 type redactedSettings struct {
 	port.APIKeyField  `help:"Find your API key on the site under Settings > Access Settings."`
-	UseFreeleechToken gazelle.GazelleFreeleechTokenAction `port:"useFreeleechToken" label:"Use freeleech tokens" default:"0" help:"With Always, SlipStream lists only Releases that can take a token."`
-	FreeloadOnly      bool                                `port:"freeloadOnly" label:"Freeload only" help:"Search only freeload Releases. Redacted ended freeload on January 31, 2024."`
+	UseFreeleechToken gazelle.GazelleFreeleechTokenAction `port:"useFreeleechToken" label:"Use freeleech tokens" default:"0" help:"With Always, SlipStream lists only releases that can take a token."`
+	FreeloadOnly      bool                                `port:"freeloadOnly" label:"Freeload only" help:"Search only freeload releases. Redacted ended freeload on January 31, 2024."`
 }

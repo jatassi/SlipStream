@@ -142,7 +142,7 @@ func TestTheTrackerOperationsAnswerAsBeforeTheMove(t *testing.T) {
 func TestAPublicTrackerRefusesARule(t *testing.T) {
 	s := serve(t)
 	nyaa := s.tracker(t, "Nyaa", indexers.Public)
-	refused := `{"status":409,"code":"tracker_public","title":"This Tracker is public","detail":"Nyaa is public, so its torrents follow your seeding goal alone."}`
+	refused := `{"status":409,"code":"tracker_public","title":"This Tracker is public","detail":"Nyaa is public and has no seeding rule. Its torrents seed until your seeding goal is met."}`
 	s.owner.Expect(t, http.MethodPut, "/api/v1/trackers/"+nyaa+"/rule", `{"clears":"time","ratio":null,"seedSeconds":3600}`, http.StatusConflict, refused)
 	s.owner.Expect(t, http.MethodDelete, "/api/v1/trackers/"+nyaa+"/rule", "", http.StatusConflict, refused)
 	if code, got := s.owner.Call(t, http.MethodPut, "/api/v1/trackers/"+nyaa+"/goal", `{"combine":"forever","ratio":null,"seedSeconds":null,"action":null}`); code != http.StatusOK ||
@@ -161,8 +161,8 @@ func TestSeedingValuesOutOfRangeAreRefused(t *testing.T) {
 	for _, c := range []struct{ path, body, field, detail string }{
 		{"/rule", `{"clears":"ratio","ratio":1.234,"seedSeconds":null}`, "ratio", "Use a ratio of 0.01 or more with at most two decimals."},
 		{"/rule", `{"clears":"ratio","ratio":0,"seedSeconds":null}`, "ratio", "Use a ratio of 0.01 or more with at most two decimals."},
-		{"/rule", `{"clears":"time","ratio":1,"seedSeconds":3600}`, "clears", "Give a seeding time and no ratio for a rule that clears by time."},
-		{"/rule", `{"clears":"both","ratio":1,"seedSeconds":null}`, "clears", "Give a ratio and a seeding time for a rule that clears by both."},
+		{"/rule", `{"clears":"time","ratio":1,"seedSeconds":3600}`, "clears", "A rule met by seeding time needs a seeding time and no ratio."},
+		{"/rule", `{"clears":"both","ratio":1,"seedSeconds":null}`, "clears", "A rule met by both ratio and seeding time needs both a ratio and a seeding time."},
 		{"/rule", `{"clears":"time","ratio":null,"seedSeconds":0}`, "seedSeconds", "Use a seeding time between 1 second and 3650 days."},
 		{"/goal", `{"combine":"forever","ratio":null,"seedSeconds":null,"action":"pause"}`, "combine", "Leave out the ratio, seeding time and action of a goal that seeds forever."},
 		{"/goal", `{"combine":"first","ratio":2,"seedSeconds":3600,"action":null}`, "action", "Choose what happens to a torrent once the goal is met."},
@@ -283,8 +283,8 @@ func TestTheListCountsATrackersTorrentsAndItsPageSumsThem(t *testing.T) {
 	if !strings.Contains(page, want) {
 		t.Errorf("getTracker = %s, want %s: removed Harbor's upload counts, and only live Orchard seeds and owes", page, want)
 	}
-	attention := `"attention":[{"level":"warn","text":"No torrents are seeding. 1 still owes seedpool, and it isn't seeding."},` +
-		`{"level":"info","text":"seedpool's Releases don't state a seeding rule. Set one so its seeding goal can run."}]`
+	attention := `"attention":[{"level":"warn","text":"No torrents are seeding. 1 hasn't met seedpool's seeding rule yet, and it isn't seeding."},` +
+		`{"level":"info","text":"seedpool's releases don't include a seeding rule. SlipStream keeps seeding its private torrents until you set one."}]`
 	if !strings.Contains(page, attention) {
 		t.Errorf("getTracker = %s, want %s", page, attention)
 	}

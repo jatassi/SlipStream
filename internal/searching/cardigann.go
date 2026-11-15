@@ -124,7 +124,7 @@ func (d catalogDriver) Fetch(ctx context.Context, s *Site, link Link) (Got, erro
 	case cardigann.Magnet:
 		return Magnet{Link: LinkOf(g.Link.String())}, nil
 	}
-	return nil, &Failing{Err: errors.New("the download led to nothing SlipStream can use")}
+	return nil, &Failing{Err: errors.New("the download link returned no .torrent file or magnet link")}
 }
 
 // Test signs in when the definition signs in, with answer when the Admin

@@ -25,7 +25,7 @@ type ix = port.Indexer[XSpeedsSettings]
 var Port = port.Define(port.Entry{
 	ID:           "xspeeds",
 	Name:         "XSpeeds",
-	Description:  "XSpeeds is a private Tracker for movies, TV and general Releases.",
+	Description:  "XSpeeds is a private Tracker for movies, TV and general releases.",
 	Language:     "en-US",
 	Privacy:      port.Private,
 	IndexerURLs:  []string{"https://www.xspeeds.eu/"},
@@ -276,5 +276,5 @@ func parseResponse(ix *ix, indexerResponse *port.IndexerResponse) ([]port.Torren
 
 type XSpeedsSettings struct {
 	port.UserPass
-	FreeleechOnly bool `port:"freeleechOnly" label:"Freeleech only" help:"Show only the freeleech Releases of each search."`
+	FreeleechOnly bool `port:"freeleechOnly" label:"Freeleech only" help:"Show only the freeleech releases of each search."`
 }

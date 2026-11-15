@@ -42,7 +42,7 @@ func (again) outcome() {}
 // Node is still looking.
 func (gr *Grabs) resolve(ctx context.Context, g Grab, link magnet.Link, to role.NodeID) outcome {
 	if h := g.Release.InfoHash; h != nil && *h != link.InfoHash {
-		return fail{InfohashMismatch, fmt.Sprintf("The magnet link's info hash is %s and the Indexer's is %s", link.InfoHash, h)}
+		return fail{InfohashMismatch, fmt.Sprintf("The magnet link's info hash is %s, but the Indexer listed %s.", link.InfoHash, h)}
 	}
 	var (
 		info  []byte

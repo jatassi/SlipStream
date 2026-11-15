@@ -96,15 +96,16 @@ export const conditionNotes = (condition: FormatsEvaluated): string[] => [
 ];
 
 /**
- * A name judged against one Work fills its cells. One that matches several
- * Works or none is judged at every Target, which accepts it or doesn't.
+ * A name judged against one Work would be grabbed for each Target or not. One
+ * that matches several Works or none is judged at every Target, which accepts
+ * it or doesn't.
  */
 export function verdictWords(result: FormatsParsed, wouldFill: boolean): string {
   const oneWork = result.work !== null;
   if (wouldFill) {
-    return oneWork ? "Would fill" : "Accepts it";
+    return oneWork ? "Would grab" : "Accepts it";
   }
-  return oneWork ? "Wouldn't fill" : "Doesn't accept it";
+  return oneWork ? "Wouldn't grab" : "Doesn't accept it";
 }
 
 /**

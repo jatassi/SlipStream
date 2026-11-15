@@ -71,7 +71,7 @@ test("a refusal with no detail, such as node_not_downloading, shows its title on
     refuse: {
       status: 409,
       code: "node_not_downloading",
-      title: "That Node doesn't hold Downloading",
+      title: "That Node doesn't have the Downloading Role",
     },
   });
   renderApp({ path: routingPage, handlers: server.handlers });
@@ -79,7 +79,7 @@ test("a refusal with no detail, such as node_not_downloading, shows its title on
   await userEvent.click(page.getByRole("option", { name: "Built-in client on seedbox" }));
   await expect
     .element(homeRow().getByRole("alert"))
-    .toHaveTextContent("That Node doesn't hold Downloading");
+    .toHaveTextContent("That Node doesn't have the Downloading Role");
 });
 
 test("a skipped pick says why its Grabs go to the default", async () => {

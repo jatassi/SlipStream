@@ -88,7 +88,7 @@ const duration = (
 });
 
 const seedingSettings = [
-  duration("trackers.margin", "Margin past a rule", 7200, 0),
+  duration("trackers.margin", "Extra seeding time", 7200, 0),
   duration("trackers.warnAfter", "Warn when a torrent that owes hasn't announced for", 21_600, 60),
 ];
 

@@ -71,15 +71,15 @@ func TestStatusWords(t *testing.T) {
 		},
 		{
 			"definition", stop(searching.DefinitionUnloadable, ""),
-			"Stopped because TorrentLeech's definition doesn't load.", "Replace the custom definition, or wait for a catalog fix.",
+			"Stopped because SlipStream can't load TorrentLeech's definition.", "Replace it with a fixed custom definition, or wait for the next catalog refresh.",
 		},
 		{
 			"account", stop(searching.AccountRefused, "Account suspended"),
-			"Stopped because TorrentLeech refused the API key with 'Account suspended'.", "Check the account, then test the Indexer.",
+			"Stopped because TorrentLeech refused the API key and responded 'Account suspended'.", "Check the account, then test the Indexer.",
 		},
 		{
 			"request", stop(searching.RequestRejected, "Incorrect parameter"),
-			"Stopped because TorrentLeech refused a search with 'Incorrect parameter'.", "Test the Indexer after the feed is fixed.",
+			"Stopped because TorrentLeech refused a search and responded 'Incorrect parameter'.", "Test the Indexer once the site fixes the problem.",
 		},
 		{
 			"waiting inside the grace", View{SignsIn: true, Waits: &Outcome{Kind: Waiting, Node: seed, Since: at(8, 0)}},
@@ -91,7 +91,7 @@ func TestStatusWords(t *testing.T) {
 		},
 		{
 			"waiting for a home that can't take work", View{Waits: &Outcome{Kind: Waiting, Node: seed}},
-			"TorrentLeech is waiting for seedbox.", "",
+			"TorrentLeech searches only from seedbox, and seedbox can't search right now.", "",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

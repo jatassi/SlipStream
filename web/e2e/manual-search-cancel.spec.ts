@@ -47,9 +47,9 @@ test("a downloading Grab canceled with Also blocklist lists its Release on Activ
   await expectAccessible(page);
   await frame(page, testInfo, "blocklist");
 
-  await entry.getByRole("checkbox", { name: `Pick ${webdlTitle}` }).check();
+  await entry.getByRole("checkbox", { name: `Select ${webdlTitle}` }).check();
   await page
-    .getByRole("toolbar", { name: "Picked entries" })
+    .getByRole("toolbar", { name: "Selected entries" })
     .getByRole("button", { name: "Remove" })
     .click();
   await expect(page.getByRole("region", { name: "Notifications" })).toContainText(

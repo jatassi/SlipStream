@@ -82,7 +82,7 @@ func TestATorrentThatOwesAndIsPausedIsAtRiskAndAHealthWarningOnceTheDelayPasses(
 		item, ok = healthItems(t, w.a, "seeding")[key]
 		return ok, nil
 	})
-	want := "1 torrent on Heron stopped seeding before Heron's rule was met. Resume or retry it before Heron counts a hit and run."
+	want := "1 torrent on Heron stopped seeding before Heron's seeding rule was met. Seed it again before Heron counts a hit and run."
 	if item.Level != "warn" || item.Text != want || item.Action == nil || item.Action.Href != "/settings/trackers/"+heron+"?tab=problems" {
 		t.Fatalf("Health warns %+v, want a warning %q linking to Heron's Problems", item, want)
 	}

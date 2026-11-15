@@ -12,8 +12,8 @@ import { toast } from "../ui/toast";
 function WhatMoves({ from, into }: { from: string; into: string }) {
   return (
     <p>
-      {from}&apos;s Indexers, Grabs and torrents move to {into}, and {from} is deleted. Releases
-      that reached {from} reach {into} from then on.
+      {from}&apos;s Indexers, Grabs and torrents move to {into}, and {from} is deleted. From then
+      on, releases from that site go to {into}.
     </p>
   );
 }
@@ -57,8 +57,8 @@ export function MergeTrackerDialog({
       }}
     >
       <p>
-        Merge only when both Trackers are the same site, such as one site reached from the catalog
-        and through a Torznab feed.
+        Merge only when both Trackers are the same site, such as one site added from the catalog and
+        again as a Torznab feed.
       </p>
       <Select label="Merge into" options={options} value={into} onValueChange={setInto} />
       {kept && <WhatMoves from={tracker.name} into={kept.name} />}

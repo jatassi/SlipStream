@@ -185,7 +185,7 @@ func (gr *Grabs) waitWords(ctx context.Context, r storage.Reader[file], g Grab) 
 	}
 	for _, n := range named {
 		if n.ID == node {
-			return "This Grab is waiting for " + n.Name + " to come back. It can't be canceled until it places its file.", nil
+			return "This Grab is waiting for " + n.Name + " to come back online. You can cancel it after it imports its file.", nil
 		}
 	}
 	return "", nil
@@ -231,7 +231,7 @@ func (gr *Grabs) blockByHand(ctx context.Context, tx *storage.Tx[file], g Grab, 
 // canceledWords is a canceled Grab's failure message.
 func canceledWords(by Actor) string {
 	if by.Name == "" {
-		return "This Grab was canceled through the API key."
+		return "An app using the API key canceled this Grab."
 	}
 	return by.Name + " canceled this Grab."
 }
