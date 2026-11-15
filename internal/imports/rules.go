@@ -50,12 +50,12 @@ var rules = map[ReasonCode]rule{
 		recommended: ActDecline, also: []ActionKind{ActForce, ActNotThisRelease},
 	},
 	MeetsNothing: {
-		sentence:    func(Reason, wording) string { return "This doesn't meet any Target this Work wants." },
+		sentence:    func(_ Reason, w wording) string { return "This doesn't meet any of this " + w.work() + "'s Targets." },
 		recommended: ActDecline, also: []ActionKind{ActNotThisRelease},
 	},
 	EditionNotWanted: {
 		sentence: func(r Reason, w wording) string {
-			return "This Work stopped wanting the " + w.edition(r.Edition) + " after this was grabbed."
+			return w.edition(r.Edition) + " was taken off this " + w.work() + "'s Editions after this download was grabbed."
 		},
 		recommended: ActDecline, also: []ActionKind{ActChangeEditions},
 	},
@@ -95,9 +95,11 @@ var rules = map[ReasonCode]rule{
 	},
 	Settings: {sentence: settingsSentence, recommended: ActChangeSetting, also: []ActionKind{ActDecline}},
 	Busy: {sentence: func(r Reason, w wording) string {
-		return "Another import is placing " + w.items(r.Reading) + ". This one continues after it."
+		return "Another import is already importing " + w.items(r.Reading) + ". This one continues after it."
 	}, also: []ActionKind{ActDecline}},
-	Confirm: {sentence: func(r Reason, w wording) string { return "Fills " + w.targets(r.Targets) + " for " + w.label() + "." }, recommended: ActConfirm, also: []ActionKind{ActMatch, ActDecline}},
+	Confirm: {sentence: func(r Reason, w wording) string {
+		return "Ready to import as the " + w.targets(r.Targets) + " file for " + w.label() + "."
+	}, recommended: ActConfirm, also: []ActionKind{ActMatch, ActDecline}},
 	NoMatch: {
 		sentence: func(_ Reason, w wording) string {
 			return "No " + w.work() + " in the library matches this file's name."
@@ -106,7 +108,7 @@ var rules = map[ReasonCode]rule{
 	},
 	NoRule: {
 		sentence: func(_ Reason, w wording) string {
-			return "This file's name doesn't name " + article(w.item()) + " of " + w.label() + "."
+			return "This file's name doesn't match " + article(w.item()) + " of " + w.label() + "."
 		},
 		recommended: ActMatch, also: []ActionKind{ActDecline},
 	},
@@ -117,26 +119,30 @@ var rules = map[ReasonCode]rule{
 	}},
 	NotAVideoType: {sentence: fixed("Its extension isn't one of the video file extensions.")},
 	RuntimeSample: {sentence: func(r Reason, _ wording) string {
-		return fmt.Sprintf("This runs shorter than %d%% of its runtime, which makes it a sample.", r.Value)
+		return fmt.Sprintf("This file is shorter than %d%% of its runtime, so SlipStream treats it as a sample.", r.Value)
 	}},
 	HiddenFolder:  {sentence: fixed("This is in a hidden, system or disc folder.")},
 	SiblingBetter: {sentence: fixed("Another file in this download is better.")},
-	KeptBetter:    {sentence: fixed("These Items keep their files, which are as good or better.")},
+	KeptBetter: {sentence: func(_ Reason, w wording) string {
+		return "The library already has files as good or better for these " + w.itemMany() + "."
+	}},
 	Unreadable: {sentence: func(r Reason, _ wording) string {
 		return fmt.Sprintf("ffprobe can't read this file. It printed %q.", r.Line)
 	}},
 	ImportFail: {
 		sentence: func(r Reason, _ wording) string {
-			return fmt.Sprintf("Placing this file failed with %q. Retry once that is fixed.", r.Line)
+			return fmt.Sprintf("Moving this file into the library failed with %q. Fix that error, then retry.", r.Line)
 		},
 		recommended: ActRetry, also: []ActionKind{ActDecline},
 	},
-	RootChanged: {sentence: fixed("The Work moved to another library root while this was placed.")},
+	RootChanged: {sentence: func(_ Reason, w wording) string {
+		return "The " + w.work() + " moved to another library root while this file was being imported."
+	}},
 	ByAdmin:     {sentence: fixed("You chose not to import this.")},
 	Removed:     {sentence: fixed("The download was removed.")},
 	Canceled:    {sentence: fixed("The Grab was canceled.")},
 	Blocklisted: {sentence: fixed("The Release is on the Blocklist.")},
-	WorkDeleted: {sentence: fixed("The Work was deleted.")},
+	WorkDeleted: {sentence: func(_ Reason, w wording) string { return "The " + w.work() + " was deleted." }},
 }
 
 func fixed(s string) func(Reason, wording) string { return func(Reason, wording) string { return s } }
@@ -146,7 +152,7 @@ func settingsSentence(r Reason, _ wording) string {
 	case SmallestVideo.Key:
 		return "Every video here is smaller than " + sizeWords(r.Value) + ", the smallest video file to import."
 	case SampleShorter.Key:
-		return fmt.Sprintf("Every video here runs shorter than %d%% of its runtime, the sample setting.", r.Value)
+		return fmt.Sprintf("Every video here is shorter than %d%% of its runtime, so SlipStream treats each one as a sample.", r.Value)
 	}
 	return "Every video here has an extension that isn't one of the video file extensions."
 }
@@ -165,9 +171,10 @@ type wording interface {
 	items(ids []works.ItemID) string
 	level(id works.LevelID) string
 	edition(cut release.CutKey) string
-	// item and work are the Content Type's nouns for an Item and a Work,
-	// and label the Work's.
+	// item, itemMany and work are the Content Type's lowercase nouns for
+	// an Item, many Items and a Work, and label the Work's.
 	item() string
+	itemMany() string
 	work() string
 	label() string
 }

@@ -181,7 +181,7 @@ type cellRef struct {
 
 type targetVerdict struct {
 	TargetID string `json:"targetId" format:"uuid"`
-	Sentence string `json:"sentence" doc:"How the Target judges the file, such as Fills 2160p for Heat (1995)."`
+	Sentence string `json:"sentence" doc:"How the Target judges the file, such as Would be the 2160p file for Heat (1995)."`
 }
 
 type forceOption struct {
