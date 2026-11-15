@@ -69,15 +69,15 @@ func (j judged) offers() []judged {
 }
 
 // outcomes is every Release d judged, copies included, by position, with
-// its outcome. taken is the position of the Release the run grabbed, or
-// of its copy, -1 for none. An outranked or kept Release says where it
-// lost to the reference: the grabbed Release as its best Indexer listed
-// it, else the first a search may take.
-func outcomes(d Decision, c cells, taken int) []row {
+// its outcome. taken is the positions of the Releases the run grabbed, or
+// of their copies. An outranked or kept Release says where it lost to the
+// reference: the first grabbed Release as its best Indexer listed it,
+// else the first a search may take.
+func outcomes(d Decision, c cells, taken []int) []row {
 	var ref *judged
 	for i, j := range d.Ranked {
-		grabbed := slices.ContainsFunc(j.offers(), func(o judged) bool { return o.at == taken })
-		if len(j.refusals) == 0 && (grabbed || taken < 0 && ref == nil) {
+		grabbed := slices.ContainsFunc(j.offers(), func(o judged) bool { return slices.Contains(taken, o.at) })
+		if len(j.refusals) == 0 && ref == nil && (grabbed || len(taken) == 0) {
 			ref = &d.Ranked[i]
 		}
 	}
@@ -90,9 +90,9 @@ func outcomes(d Decision, c cells, taken int) []row {
 			switch {
 			case len(j.refusals) > 0:
 				r.outcome = ReleaseRefused
-			case taken < 0:
+			case len(taken) == 0:
 				r.outcome = ReleaseKept
-			case o.at == taken:
+			case slices.Contains(taken, o.at):
 				r.outcome, passed = ReleaseGrabbed, true
 			case !passed:
 				r.outcome = ReleaseNotTaken

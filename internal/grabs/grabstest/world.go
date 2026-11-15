@@ -2,8 +2,10 @@ package grabstest
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -58,6 +60,9 @@ type Options struct {
 	Sites []string
 	// Goals is the Work's Targets in Profile order, HD alone when nil.
 	Goals []targets.Spec
+	// Season is how many Items the Work's one level holds, one when 0:
+	// the episodes E01, E02 and on, which Pack names.
+	Season int
 	// Remote answers the Indexers' jobs, as their Searching Node.
 	Remote searching.Remote
 	// Log is the Grabs' log, discarded when nil.
@@ -89,6 +94,8 @@ type World struct {
 	Indexers *indexers.Indexers
 	Work     works.WorkID
 	Item     works.ItemID
+	// Items are the level's Items in order, Item first.
+	Items []works.ItemID
 	// Level is the Item's level.
 	Level works.LevelID
 	// Home is the one Node, which holds every Role.
@@ -134,8 +141,12 @@ func New(t testing.TB, o Options) *World {
 	must(t, err)
 	_, err = wanted.MakeDefault(ctx, identity.Admin{}, profile.ID)
 	must(t, err)
+	episodes := []works.Entry{{Key: "c1", Label: "Scarf"}}
+	for i := 2; i <= o.Season; i++ {
+		episodes = append(episodes, works.Entry{Key: works.Key("c" + strconv.Itoa(i)), Label: episode(i)})
+	}
 	fx.Put("w1", contenttypetest.Record{Tree: works.Fetched{Label: "The Attic", Children: []works.Entry{
-		{Key: "b1", Label: "Winter", Children: []works.Entry{{Key: "c1", Label: "Scarf"}}},
+		{Key: "b1", Label: "Winter", Children: episodes},
 	}}})
 	added, _, err := tree.Add(ctx, identity.Admin{}, contenttypetest.ID, "w1", works.Adding{
 		Monitor: true,
@@ -148,13 +159,16 @@ func New(t testing.TB, o Options) *World {
 	})
 	must(t, err)
 	w.Work, w.Item, w.Level = added.ID, added.Items[0].ID, added.Items[0].LevelID
+	for _, it := range added.Items {
+		w.Items = append(w.Items, it.ID)
+	}
 	library, err := roots.Open(ctx, rootstest.Config(t, lib, contenttypetest.ID))
 	must(t, err)
 	r := alone{node: home}
 	router := downloadclients.Router{Roster: r, Routes: trackers.Routing{Roster: r}}
 	shelf, err := files.Open(ctx, files.Config{Library: lib, Targets: wanted, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: r.InStep, Router: router}}, Today: time.Now})
 	must(t, err)
-	terms := attic{item: w.Item}
+	terms := attic{items: w.Items}
 	w.Indexers = indexers.New(indexers.Config{
 		Library: lib, Sealer: sealer, Roster: indexerstest.Alone(home), Searching: func(role.NodeID) searching.Remote { return o.Remote },
 		Types: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Works: tree,
@@ -351,12 +365,24 @@ func deref[T any](p *T) T {
 	return v
 }
 
-// attic is The Attic's search terms: its label, and every name covering
-// its one Item.
-type attic struct{ item works.ItemID }
+// attic is The Attic's search terms: its label, and the Items a name's
+// mark covers, its first Item for a name with none.
+type attic struct{ items []works.ItemID }
 
 func (a attic) Expect(context.Context, storage.Reader[storage.Library], works.WorkID) (indexers.Expect, error) {
-	return indexers.Expect{Claim: rel.Claim{Titles: []string{"The Attic"}}, Covers: indexers.CoversOnly(a.item)}, nil
+	covers := func(n rel.Name) []works.ItemID {
+		if len(n.Marks) == 0 {
+			return a.items[:1]
+		}
+		from, to, _ := strings.Cut(n.Marks[0].Key, "-")
+		if to == "" {
+			to = from
+		}
+		first, _ := strconv.Atoi(from[1:])
+		last, _ := strconv.Atoi(to[1:])
+		return a.items[first-1 : min(last, len(a.items))]
+	}
+	return indexers.Expect{Claim: rel.Claim{Titles: []string{"The Attic"}}, Covers: covers}, nil
 }
 
 func (a attic) SearchTerms(ctx context.Context, r storage.Reader[storage.Library], _ works.ItemID) (indexers.Terms, error) {
@@ -374,18 +400,39 @@ func (a attic) GroupTerms(ctx context.Context, r storage.Reader[storage.Library]
 
 func (attic) Categories() []newznab.ID { return newznab.Family(2000) }
 
-// Dated reads a name's words up to its year as its title. A name with no
-// year reads no title. Its clean rule folds case.
+// Dated reads a name's words up to its year as its title, and a word
+// such as E03 or E01-E09 after it as its mark. A name with no year reads
+// no title. Its clean rule folds case.
 type Dated struct{}
 
 func (Dated) ReadName(p rel.Prepared) rel.Name {
 	words := strings.Split(p.Title.String(), ".")
 	for i, w := range words {
 		if y, err := strconv.Atoi(w); err == nil && y > 1900 && i > 0 {
-			return rel.Name{Titles: []string{strings.Join(words[:i], " ")}, Year: rel.Known(y)}
+			n := rel.Name{Titles: []string{strings.Join(words[:i], " ")}, Year: rel.Known(y)}
+			for _, m := range words[i+1:] {
+				if mark.MatchString(m) {
+					n.Marks = []rel.Mark{{Words: m, Key: m}}
+				}
+			}
+			return n
 		}
 	}
 	return rel.Name{}
+}
+
+var mark = regexp.MustCompile(`^E\d\d(-E\d\d)?$`)
+
+// episode is the mark of the i-th episode, from 1: E03.
+func episode(i int) string { return fmt.Sprintf("E%02d", i) }
+
+// Pack is the mark of a Release covering episodes first to last, from 1:
+// E01-E09, or E10 alone.
+func Pack(first, last int) string {
+	if first == last {
+		return episode(first)
+	}
+	return episode(first) + "-" + episode(last)
 }
 
 func (Dated) CleanTitle(title string) string { return strings.ToLower(title) }

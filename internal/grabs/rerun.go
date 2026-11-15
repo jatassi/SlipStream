@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
+	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/searching"
@@ -125,17 +126,20 @@ var dropOf = map[indexers.DropWhy]dropped{
 	indexers.DropRemoved:     {IndexerRemoved, "The Indexer was removed before the .torrent was fetched"},
 }
 
-// redo is what a dropped Grab's rerun reads before its Write: the Grab,
-// the run that made it, the Releases it kept, assessed, the positions of
-// those gone, taken by a Grab of the run, each one's Indexer's name by
-// position, and the position the run's Grab took.
+// redo is what a dropped Grab's rerun reads before its Write: the Grab
+// and the cells it held, the run that made it, the Releases it kept,
+// assessed, the positions of those gone, taken by a Grab of the run, each
+// one's Indexer's name by position, the position the dropped Grab took
+// and those the run's other Grabs took.
 type redo struct {
 	grab     GrabID
+	cells    []files.CellKey
 	run      Search
 	assessed []assessed
 	gone     map[int]bool
 	names    map[int]string
 	taken    int
+	grabbed  []int
 }
 
 // goneGroup marks gone every copy of the Release listed at position, so
@@ -202,30 +206,39 @@ func (gr *Grabs) rerunOf(ctx context.Context, g Grab) (*redo, error) {
 		if err != nil {
 			return err
 		}
-		out = &redo{grab: g.ID, run: run, assessed: assessAll(j, dedupe(ls)), gone: gone, names: names, taken: grabbedAt(rows)}
+		out = &redo{grab: g.ID, run: run, assessed: assessAll(j, dedupe(ls)), gone: gone, names: names}
+		out.held(g, rows, ls)
 		return nil
 	})
 	return out, err
 }
 
-// grabbedAt is the position of the Release a run's kept rows say its
-// Grab took, -1 for none.
-func grabbedAt(rows []db.GrabsRelease) int {
-	for _, row := range rows {
-		if row.Outcome == ReleaseGrabbed {
-			return int(row.Position)
+// held sets what re's dropped Grab g held: its cells, the position of
+// its Release among the run's kept rows, as ls lists them, -1 when no
+// grabbed row is it, and the positions the run's other Grabs took.
+func (re *redo) held(g Grab, rows []db.GrabsRelease, ls []listed) {
+	for _, c := range g.Targets {
+		re.cells = append(re.cells, c.Key)
+	}
+	re.taken = -1
+	for i, row := range rows {
+		switch {
+		case row.Outcome != ReleaseGrabbed:
+		case re.taken < 0 && g.Release.is(ls[i].Release):
+			re.taken = ls[i].at
+		default:
+			re.grabbed = append(re.grabbed, ls[i].at)
 		}
 	}
-	return -1
 }
 
 // left settles the run of g, a Grab leaving fetching by o: a drop reruns
-// its decision over re, returning the rerun's Grab and run, and any other
+// its decision over re, returning the rerun's Grabs and run, and any other
 // way out ends what the run's Releases keep for a rerun, since none
 // follows. A drop for the Blocklist reruns with every copy of g's Release
 // gone, since a copy listed without an info hash passes the Blocklist
 // until its fetch.
-func (gr *Grabs) left(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome, re *redo) (*Grab, *Search, error) {
+func (gr *Grabs) left(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome, re *redo) ([]Grab, *Search, error) {
 	d, drop := o.(dropped)
 	if !drop {
 		return nil, nil, db.New(tx).EndReleasesOfGrab(ctx, g.ID)
@@ -236,45 +249,48 @@ func (gr *Grabs) left(ctx context.Context, tx *storage.Tx[file], g Grab, o outco
 	if d.code == Blocklisted {
 		re.goneGroup(re.taken)
 	}
-	grab, err := gr.redecide(ctx, tx, *re)
-	return grab, &re.run, err
+	grabs, err := gr.redecide(ctx, tx, *re)
+	return grabs, &re.run, err
 }
 
-// redecide is re's run's decision again over the Releases it kept: the
-// first its Indexer takes, of those no Grab of the run took, becomes the
-// run's Grab in place of the dropped one, else the run found nothing
-// acceptable. The run's Releases are stored again with their new
-// outcomes.
-func (gr *Grabs) redecide(ctx context.Context, tx *storage.Tx[file], re redo) (*Grab, error) {
+// redecide is re's run's decision again over the Releases it kept, at
+// the cells its dropped Grab held: what its Indexers take, of those no
+// Grab of the run took, become Grabs of the run in place of the dropped
+// one. The run's Releases are stored again with their new outcomes, and
+// it found nothing acceptable once it holds no Grab.
+func (gr *Grabs) redecide(ctx context.Context, tx *storage.Tx[file], re redo) ([]Grab, error) {
 	q := db.New(tx)
 	run := re.run
 	if err := q.DeleteSearchGrab(ctx, db.DeleteSearchGrabParams{SearchID: run.ID, GrabID: re.grab}); err != nil {
 		return nil, err
 	}
-	bl, err := blocksOf(ctx, tx, re.assessed)
+	in := rerunInput(re)
+	bl, err := blocksOf(ctx, tx, in.as)
 	if err != nil {
 		return nil, err
 	}
-	d, c, err := gr.decision(ctx, tx, run, bl.gate(re.assessed))
-	if err != nil {
-		return nil, err
-	}
-	grab, pick, err := gr.take(ctx, tx, run, d, c, re.gone, storage.Now())
+	in.as = bl.gate(in.as)
+	d, err := gr.claimIn(ctx, tx, in)
 	if err != nil {
 		return nil, err
 	}
 	if err := q.DeleteReleasesOfSearch(ctx, run.ID); err != nil {
 		return nil, err
 	}
-	if err := gr.storeReleases(ctx, q, run.ID, outcomes(d, c, pick.at), re.names, grab != nil, re.gone); err != nil {
+	held := run.Took - 1 + len(d.grabs)
+	if err := gr.storeReleases(ctx, q, run.ID, d.rows, re.names, held > 0, re.gone); err != nil {
 		return nil, err
 	}
-	if grab == nil {
+	if held == 0 {
 		return nil, q.Redecide(ctx, db.RedecideParams{ID: run.ID, Outcome: new(NothingAcceptable)})
 	}
-	notes, err := encodeReasons(pick.Notes)
+	notes := run.Notes
+	if len(d.grabs) > 0 {
+		notes = d.notes
+	}
+	stored, err := encodeReasons(notes)
 	if err != nil {
 		return nil, err
 	}
-	return grab, q.Redecide(ctx, db.RedecideParams{ID: run.ID, Outcome: new(Grabbed), Grabs: 1, Notes: &notes})
+	return d.grabs, q.Redecide(ctx, db.RedecideParams{ID: run.ID, Outcome: new(Grabbed), Grabs: int64(held), Notes: &stored})
 }
