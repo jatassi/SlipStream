@@ -151,7 +151,7 @@ func (q *Queries) ListPlacedTargets(ctx context.Context, grabID GrabID) ([]ListP
 }
 
 const listStopped = `-- name: ListStopped :many
-SELECT DISTINCT item_id, edition, target_id FROM grabs_failure WHERE stopped_at IS NOT NULL
+SELECT DISTINCT item_id, edition, target_id FROM grabs_failure WHERE stopped_at IS NOT NULL ORDER BY item_id, edition, target_id
 `
 
 type ListStoppedRow struct {
@@ -185,6 +185,7 @@ func (q *Queries) ListStopped(ctx context.Context) ([]ListStoppedRow, error) {
 
 const listStoppedOfWorks = `-- name: ListStoppedOfWorks :many
 SELECT DISTINCT item_id, edition, target_id FROM grabs_failure WHERE stopped_at IS NOT NULL AND work_id IN (/*SLICE:work_ids*/?)
+ORDER BY item_id, edition, target_id
 `
 
 type ListStoppedOfWorksRow struct {
@@ -228,6 +229,7 @@ func (q *Queries) ListStoppedOfWorks(ctx context.Context, workIds []works.WorkID
 
 const listTried = `-- name: ListTried :many
 SELECT DISTINCT info_hash, indexer_id, guid FROM grabs_failure WHERE work_id = ?1 AND refuses = 1
+ORDER BY info_hash, indexer_id, guid
 `
 
 type ListTriedRow struct {

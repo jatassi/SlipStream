@@ -34,10 +34,12 @@ DELETE FROM grabs_failure WHERE item_id = sqlc.arg(item_id) AND edition = sqlc.a
 
 -- name: ListTried :many
 -- The Releases the Work's failure rows refuse.
-SELECT DISTINCT info_hash, indexer_id, guid FROM grabs_failure WHERE work_id = sqlc.arg(work_id) AND refuses = 1;
+SELECT DISTINCT info_hash, indexer_id, guid FROM grabs_failure WHERE work_id = sqlc.arg(work_id) AND refuses = 1
+ORDER BY info_hash, indexer_id, guid;
 
 -- name: ListStopped :many
-SELECT DISTINCT item_id, edition, target_id FROM grabs_failure WHERE stopped_at IS NOT NULL;
+SELECT DISTINCT item_id, edition, target_id FROM grabs_failure WHERE stopped_at IS NOT NULL ORDER BY item_id, edition, target_id;
 
 -- name: ListStoppedOfWorks :many
-SELECT DISTINCT item_id, edition, target_id FROM grabs_failure WHERE stopped_at IS NOT NULL AND work_id IN (sqlc.slice(work_ids));
+SELECT DISTINCT item_id, edition, target_id FROM grabs_failure WHERE stopped_at IS NOT NULL AND work_id IN (sqlc.slice(work_ids))
+ORDER BY item_id, edition, target_id;
