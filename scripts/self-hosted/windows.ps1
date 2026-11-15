@@ -32,6 +32,40 @@ if (-not (Test-Path $Package)) {
     Move-Item "$Package.part" $Package
 }
 
+# Hosted runners run as administrators, which may create symbolic links, and
+# setup-bun links bunx.exe to bun.exe. The runner accounts get that one right.
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class SlipStreamLsa {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    struct LsaString { public ushort Length, MaximumLength; public string Buffer; }
+    [StructLayout(LayoutKind.Sequential)]
+    struct ObjectAttributes { public int Length; public IntPtr RootDirectory, ObjectName; public uint Attributes; public IntPtr SecurityDescriptor, SecurityQualityOfService; }
+    [DllImport("advapi32.dll")] static extern uint LsaOpenPolicy(IntPtr system, ref ObjectAttributes attributes, uint access, out IntPtr policy);
+    [DllImport("advapi32.dll")] static extern uint LsaAddAccountRights(IntPtr policy, byte[] sid, LsaString[] rights, uint count);
+    [DllImport("advapi32.dll")] static extern uint LsaClose(IntPtr policy);
+    [DllImport("advapi32.dll")] static extern uint LsaNtStatusToWinError(uint status);
+    public static void Grant(byte[] sid, string right) {
+        var attributes = new ObjectAttributes();
+        IntPtr policy;
+        uint status = LsaOpenPolicy(IntPtr.Zero, ref attributes, 0x00000811, out policy);
+        if (status != 0) throw new System.ComponentModel.Win32Exception((int)LsaNtStatusToWinError(status));
+        try {
+            var rights = new[] { new LsaString { Buffer = right, Length = (ushort)(right.Length * 2), MaximumLength = (ushort)((right.Length + 1) * 2) } };
+            status = LsaAddAccountRights(policy, sid, rights, 1);
+            if (status != 0) throw new System.ComponentModel.Win32Exception((int)LsaNtStatusToWinError(status));
+        } finally { LsaClose(policy); }
+    }
+}
+'@
+function Grant-SymlinkRight([string]$User) {
+    $sid = (Get-LocalUser $User).SID
+    $bytes = [byte[]]::new($sid.BinaryLength)
+    $sid.GetBinaryForm($bytes, 0)
+    [SlipStreamLsa]::Grant($bytes, 'SeCreateSymbolicLinkPrivilege')
+}
+
 # Jobs default to bash, which is Git Bash on GitHub's images. It goes ahead
 # of System32, whose bash.exe starts WSL.
 $path = "C:\Program Files\Git\bin;C:\Program Files\Git\usr\bin;" + [Environment]::GetEnvironmentVariable('Path', 'Machine')
@@ -53,6 +87,7 @@ foreach ($i in 1..$Runners) {
         Add-LocalGroupMember -Group (Get-LocalGroup -SID 'S-1-5-32-545') -Member $user
     }
     Set-ItemProperty $hidden $user 0 -Type DWord
+    Grant-SymlinkRight $user
 
     if (Test-Path "$dir\.runner") {
         & "$dir\config.cmd" remove --token $RemoveToken
