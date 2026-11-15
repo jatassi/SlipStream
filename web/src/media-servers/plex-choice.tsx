@@ -51,9 +51,9 @@ export const pickedValues = (server: PlexServer) => ({
 });
 
 const passWords = {
-  has: "With Plex Pass, Plex shows a folder's edition tags as editions of one title, can transcode on the server's graphics hardware and can use IPv6 addresses.",
+  has: "With Plex Pass, Plex shows a folder's edition tags as editions of one title and can transcode on the server's graphics hardware.",
   lacks:
-    "Without Plex Pass, Plex ignores edition tags, transcodes on the processor only and can't use IPv6 addresses.",
+    "Without Plex Pass, Plex doesn't read edition tags on new movies and transcodes on the processor only.",
 } as const;
 
 function ConnectionRows({ server, nameOf }: { server: PlexServer; nameOf: NameOf }) {

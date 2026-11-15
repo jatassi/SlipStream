@@ -186,7 +186,9 @@ test("picking a server no Node reached fills its own name and Nodes, and Details
   await expect.element(addresses.getByText(attic.connections[0]?.uri ?? "")).toBeVisible();
   await expect.element(addresses.getByText("Remote. No Node reached it.")).toBeVisible();
   await expect
-    .element(dialog().getByText("Without Plex Pass, Plex ignores edition tags", { exact: false }))
+    .element(
+      dialog().getByText("Without Plex Pass, Plex doesn't read edition tags", { exact: false }),
+    )
     .toBeVisible();
   await userEvent.fill(
     dialog().getByRole("textbox", { name: "Address" }),
