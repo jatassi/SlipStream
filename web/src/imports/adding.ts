@@ -68,7 +68,7 @@ export function useAdding() {
 export async function restoring(entry: RootEntry) {
   try {
     await unignoreImports({ importIds: [entry.id] });
-    toast(`${entry.folder} needs you again.`);
+    toast(`${entry.folder} is back in Pending imports.`);
   } catch (error) {
     toast(sentenceOf(error), { kind: "fail" });
   }

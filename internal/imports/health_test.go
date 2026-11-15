@@ -206,7 +206,7 @@ func TestHealthWarnsOfAFreshImportPutBackInItsHoldingFolder(t *testing.T) {
 	if !ok || it.Level != health.Warn || it.Subject != "Shelves library root on Media server" {
 		t.Fatalf("a put-back file raises %+v, want a Warn on its root", it)
 	}
-	if want := "A file imported into Shelves went back to its holding folder because another file already has its name, Shelf w1 - Clip 1 - HD.mkv. Rename or remove that file."; it.Text != want {
+	if want := "A file couldn't be imported into Shelves because another file already has the name Shelf w1 - Clip 1 - HD.mkv. SlipStream keeps it in a hidden folder in the library root. Rename or remove the other file."; it.Text != want {
 		t.Errorf("it says %q, want %q", it.Text, want)
 	}
 	if a := it.Action; a.Kind() != health.ActionLink || a.Href() != "/works/"+tree.ID.String() || a.Label() != "Open the Work" {

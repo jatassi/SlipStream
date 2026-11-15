@@ -158,7 +158,7 @@ type importFile struct {
 	PlacedBy    api.Nullable[string]           `json:"placedBy" enum:"link,clone,copy,transfer,move,in_place" doc:"How it went into the library; null until it is placing"`
 	FileID      api.Nullable[string]           `json:"fileId" format:"uuid" doc:"The library file it became; null until it is placed"`
 	Staged      int64                          `json:"staged" minimum:"0" doc:"Bytes its holding or staged copy uses while it waits"`
-	Movable     bool                           `json:"movable" doc:"Move files may take it: no tracked torrent seeds it"`
+	Movable     bool                           `json:"movable" doc:"Move files can move it, because no torrent SlipStream tracks is seeding it"`
 }
 
 type action struct{}
@@ -443,7 +443,7 @@ type addedList struct {
 type addedOutput struct{ Body addedList }
 
 type settings struct {
-	Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"The stop share, then the files each Node probes at once"`
+	Settings []api.OneOf[settingapi.Field] `json:"settings" nullable:"false" doc:"The stop share, then how many files each Node reads at once"`
 }
 
 type settingsOutput struct{ Body settings }

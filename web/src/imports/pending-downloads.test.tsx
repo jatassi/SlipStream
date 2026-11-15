@@ -22,7 +22,7 @@ test("Pending imports lists downloads first, then each root, then the folders im
     "From downloads",
     "Films library root on home",
     "Shows library root on home",
-    "Imported by hand",
+    "From Import files",
   ]);
 });
 

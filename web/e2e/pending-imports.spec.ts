@@ -70,7 +70,7 @@ async function waitingDownload(world: World): Promise<string> {
 
 async function openPendingImports(page: Page): Promise<void> {
   await navigate(page, "Library");
-  await page.getByRole("link", { name: /^1 pending import needs you/u }).click();
+  await page.getByRole("link", { name: /^1 pending import needs attention/u }).click();
   await expect(page).toHaveURL(/\/library\/pending$/u);
 }
 
@@ -216,7 +216,7 @@ test("on a phone Pending imports list the download, and its pushed page declines
   await openPendingImports(page);
   const downloads = page.getByRole("list", { name: "Pending imports from downloads" });
   const entry = downloads.getByRole("link").filter({ hasText: release });
-  await expect(entry).toContainText("1 file waits for you");
+  await expect(entry).toContainText("1 file needs attention");
   await expectAccessible(page);
   await screenshotWholePage(page, testInfo.outputPath("pending-imports-phone.png"));
 

@@ -324,11 +324,11 @@ func (h handlers) tested(ctx context.Context, by identity.Admin, n testName, dra
 	case errors.As(err, &noItem):
 		out.Unplaced = &unplaced{Code: string(noItem.Reason.Code), Names: noItem.Reason.Names}
 	case errors.Is(err, imports.ErrNoQuality):
-		out.Detail = "SlipStream reads no quality from this name. Add a quality such as Bluray-1080p, or a video extension such as .mkv."
+		out.Detail = "SlipStream can't find a quality in this name. Add one such as Bluray-1080p, or a video extension such as .mkv."
 	case errors.Is(err, roots.ErrNoRoot):
-		out.Detail = "The Work is in no library root. Add a library root for its Content Type, then test the name again."
+		out.Detail = "It isn't in a library root. Add a library root for its kind of media, then test the name again."
 	case errors.As(err, &taken):
-		out.Detail = fmt.Sprintf("Another file of the Work is already at %q. Turn on renaming to give each file its own name.", taken.Path)
+		out.Detail = fmt.Sprintf("Another of its files is already at %q. Turn on renaming to give each file its own name.", taken.Path)
 	case errors.As(err, &long):
 		out.Detail = long.Sentence()
 	case err != nil:
