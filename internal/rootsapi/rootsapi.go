@@ -91,7 +91,7 @@ func answer(err error) error {
 		return folderUnreadable.With(folderProblem{Kind: fe.Kind.String(), OSText: fe.Text, Account: fe.Account})
 	}
 	if errors.Is(err, storing.ErrInvalid) {
-		return folderInvalid.Because(err.Error())
+		return folderInvalid.Logged(err, `Use a full path, such as /mnt/media or D:\Media, and a folder name without / or \.`)
 	}
 	if _, ok := errors.AsType[*storing.OutsideError](err); ok {
 		return folderOutside

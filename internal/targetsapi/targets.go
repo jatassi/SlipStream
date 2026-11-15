@@ -113,15 +113,15 @@ type newTarget struct {
 func specOf(in newTarget) (targets.Spec, error) {
 	s := targets.Spec{Name: in.Name, Sizes: map[release.Quality]targets.Size{}}
 	var bad []api.FieldError
-	field := func(location string, err error) {
-		bad = append(bad, api.FieldError{Location: location, Message: err.Error()})
+	field := func(location, message string) {
+		bad = append(bad, api.FieldError{Location: location, Message: message})
 	}
 	for i, tier := range in.Tiers {
 		var qs []release.Quality
 		for j, key := range tier {
 			q, err := release.ParseQuality(key)
 			if err != nil {
-				field(fmt.Sprintf("body.tiers[%d][%d]", i, j), err)
+				field(fmt.Sprintf("body.tiers[%d][%d]", i, j), fmt.Sprintf("SlipStream has no quality with the key %q.", key))
 			}
 			qs = append(qs, q)
 		}
@@ -133,16 +133,16 @@ func specOf(in newTarget) (targets.Spec, error) {
 	for i, f := range in.Filters {
 		mode, _ := targets.ParseMode(f.Mode)
 		if filtered[f.Attribute] {
-			field(fmt.Sprintf("body.filters[%d].attribute", i), errors.New("the attribute is listed twice"))
+			field(fmt.Sprintf("body.filters[%d].attribute", i), "List each attribute once.")
 		} else if err := s.Filters.Set(targets.Attribute(f.Attribute), mode, f.Values); err != nil {
-			field(fmt.Sprintf("body.filters[%d].values", i), err)
+			field(fmt.Sprintf("body.filters[%d].values", i), specWords(err))
 		}
 		filtered[f.Attribute] = true
 	}
 	for i, z := range in.Sizes {
 		q, _ := release.ParseQuality(z.Quality)
 		if _, twice := s.Sizes[q]; twice {
-			field(fmt.Sprintf("body.sizes[%d].quality", i), errors.New("the quality is listed twice"))
+			field(fmt.Sprintf("body.sizes[%d].quality", i), "List each quality once.")
 		}
 		s.Sizes[q] = targets.Size{Min: z.Min, Max: z.Max}
 	}
@@ -150,7 +150,7 @@ func specOf(in newTarget) (targets.Spec, error) {
 	for i, fs := range in.Scores.Formats {
 		id, _ := targets.ParseFormatID(fs.FormatID)
 		if _, twice := s.Scores.Formats[id]; twice {
-			field(fmt.Sprintf("body.scores.formats[%d].formatId", i), errors.New("the Custom Format is listed twice"))
+			field(fmt.Sprintf("body.scores.formats[%d].formatId", i), "List each Custom Format once.")
 		}
 		s.Scores.Formats[id] = fs.Score
 	}

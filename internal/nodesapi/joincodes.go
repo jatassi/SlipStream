@@ -131,8 +131,11 @@ func codeRefusal(err error) error {
 
 func parseNodeAddress(field, s string) (joincode.NodeAddress, error) {
 	a, err := joincode.ParseNodeAddress(s)
-	if err != nil {
-		return joincode.NodeAddress{}, nodeAddressDamaged.On(field, err.Error())
+	switch {
+	case errors.Is(err, joincode.ErrNotNodeAddress):
+		return joincode.NodeAddress{}, nodeAddressDamaged.On(field, "This isn't a Node address. Copy the Node address the other Node shows.")
+	case err != nil:
+		return joincode.NodeAddress{}, nodeAddressDamaged.On(field, "This Node address is mistyped or cut short. Copy it again from the other Node.")
 	}
 	return a, nil
 }

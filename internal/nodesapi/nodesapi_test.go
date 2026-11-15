@@ -192,6 +192,8 @@ type outcome struct {
 
 type problem struct {
 	Code    string  `json:"code"`
+	Title   string  `json:"title"`
+	Detail  string  `json:"detail"`
 	Outcome outcome `json:"outcome"`
 }
 
@@ -451,8 +453,8 @@ func TestTheJoinCodeOperations(t *testing.T) {
 	}
 	var damaged problem
 	call(t, s, http.MethodPost, code+"/dial", `{"nodeAddress":"SLN1-40GJ4"}`, http.StatusUnprocessableEntity, &damaged)
-	if damaged.Code != "node_address_damaged" {
-		t.Fatalf("a dial for damaged text answered %+v, want node_address_damaged", damaged)
+	if damaged.Code != "node_address_damaged" || damaged.Detail != "This Node address is mistyped or cut short. Copy it again from the other Node." {
+		t.Fatalf("a dial for damaged text answered %+v, want node_address_damaged saying to copy it again", damaged)
 	}
 	dial := fmt.Sprintf(`{"nodeAddress":%q}`, box)
 	if status, reply := s.Call(t, http.MethodPost, code+"/dial", dial); status != http.StatusAccepted {

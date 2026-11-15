@@ -187,7 +187,7 @@ func (h handlers) deleteProfile(ctx context.Context, by identity.Admin, in *dele
 	case errors.Is(err, targets.ErrProfileIsDefault):
 		return nil, profileIsDefault
 	case errors.Is(err, targets.ErrMovesToItself):
-		return nil, api.Invalid.Fields(api.FieldError{Location: "query.moveTo", Message: err.Error()})
+		return nil, api.Invalid.Fields(api.FieldError{Location: "query.moveTo", Message: "Choose a Profile other than the one you're deleting."})
 	case err != nil:
 		return nil, wrongType(changed(err))
 	}

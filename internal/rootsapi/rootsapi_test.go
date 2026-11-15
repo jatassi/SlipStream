@@ -483,8 +483,8 @@ func TestFoldersOnANode(t *testing.T) {
 	s.Expect(t, http.MethodPost, folders, made, http.StatusCreated, `{"path":`+strconv.Quote(filepath.Join(dir, "Movies"))+`}`)
 	s.Expect(t, http.MethodPost, folders, made, http.StatusConflict, `{"status":409,"code":"folder_exists","title":"A folder of that name is already there"}`)
 	code, reply = s.Call(t, http.MethodPost, folders, `{"parent":`+strconv.Quote(dir)+`,"name":"a/b"}`)
-	if code != http.StatusUnprocessableEntity || !strings.HasPrefix(reply, `{"status":422,"code":"folder_invalid",`) {
-		t.Fatalf("makeFolder a/b = %d %s, want folder_invalid", code, reply)
+	if want := `{"status":422,"code":"folder_invalid","title":"The Node can't use that path or folder name","detail":"Use a full path, such as /mnt/media or D:\\Media, and a folder name without / or \\."}` + "\n"; code != http.StatusUnprocessableEntity || reply != want {
+		t.Fatalf("makeFolder a/b = %d %s, want %s", code, reply, want)
 	}
 	code, reply = s.Call(t, http.MethodGet, folders+"?path="+url.QueryEscape(filepath.Join(dir, "gone")), "")
 	if code != http.StatusUnprocessableEntity || !strings.HasPrefix(reply, `{"status":422,"code":"folder_unreadable","title":"The Node can't read the folder","problem":{"kind":"not_found","osText":`) {

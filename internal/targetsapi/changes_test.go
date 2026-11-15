@@ -210,7 +210,7 @@ func TestEachChangesErrorAnswersItsProblem(t *testing.T) {
 		{http.MethodPut, "/api/v1/targets/@starter", webBody, http.StatusConflict, `{"status":409,"code":"target_name_taken","title":"A Target already has that name","detail":"Another Target is named Web. Choose another name."}`},
 		{
 			http.MethodPut, "/api/v1/targets/@starter", `{"name":"1080p","tiers":[["webdl-1080p"]],"cutoff":"bluray-1080p"}`, http.StatusUnprocessableEntity,
-			`{"status":422,"code":"quality_not_in_target","title":"The Target doesn't accept that quality","detail":"the Target doesn't accept that quality: the cutoff bluray-1080p"}`,
+			`{"status":422,"code":"quality_not_in_target","title":"The Target doesn't accept that quality","detail":"No tier has the cutoff, Bluray-1080p. Add it to a tier, or choose another cutoff."}`,
 		},
 		{http.MethodPut, "/api/v1/profiles/@none", profileBody("Small"), http.StatusNotFound, notFound("profile")},
 		{http.MethodPut, "/api/v1/profiles/@fixture", profileBody("Small"), http.StatusConflict, `{"status":409,"code":"profile_name_taken","title":"A Profile already has that name"}`},
@@ -224,7 +224,7 @@ func TestEachChangesErrorAnswersItsProblem(t *testing.T) {
 		{http.MethodDelete, "/api/v1/profiles/@small?moveTo=@none", "", http.StatusUnprocessableEntity, `{"status":422,"code":"profile_not_found","title":"No Profile has that id"}`},
 		{
 			http.MethodDelete, "/api/v1/profiles/@small?moveTo=@small", "", http.StatusUnprocessableEntity,
-			`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"query.moveTo","message":"a Profile's Works can't move to the Profile being deleted"}]}`,
+			`{"status":422,"code":"invalid","title":"Some fields have values SlipStream can't accept","errors":[{"location":"query.moveTo","message":"Choose a Profile other than the one you're deleting."}]}`,
 		},
 		{http.MethodDelete, "/api/v1/profiles/@small", "", http.StatusUnprocessableEntity, `@invalid`},
 		{http.MethodPut, "/api/v1/works/@none/wants", `{"editions":null}`, http.StatusNotFound, `{"status":404,"code":"work_not_found","title":"No Work has that id"}`},

@@ -16,7 +16,7 @@ var (
 	cutNotFound     = api.NewCode(http.StatusUnprocessableEntity, "cut_not_found", "No cut has that key")
 	noSuchCut       = api.NewCode(http.StatusNotFound, "cut_not_found", "No cut has that key")
 	cutNameTaken    = api.NewCode(http.StatusConflict, "cut_name_taken", "A cut already has that name, alias or key")
-	cutInUse        = api.NewCode(http.StatusConflict, "cut_in_use", "Edition lists or files hold the cut")
+	cutInUse        = api.NewCode(http.StatusConflict, "cut_in_use", "Edition lists or files use the cut")
 	standardIsFixed = api.NewCode(http.StatusConflict, "standard_is_fixed", "Standard can't be renamed or removed")
 	cutNotCustom    = api.NewCode(http.StatusConflict, "cut_not_custom", "Only a custom cut can be changed or removed")
 )
@@ -77,14 +77,14 @@ func cutRefused(err error) error {
 	case errors.Is(err, targets.ErrCutNameTaken):
 		return cutNameTaken
 	case errors.Is(err, targets.ErrBadCutName):
-		return api.Invalid.On("name", err.Error())
+		return api.Invalid.On("name", "Give the cut and each alias a name with at least one letter or number.")
 	case errors.Is(err, targets.ErrStandardIsFixed):
 		return standardIsFixed
 	case errors.Is(err, targets.ErrCutNotCustom):
 		return cutNotCustom
 	}
 	if inUse, ok := errors.AsType[*targets.InUseError](err); ok {
-		return cutInUse.Because(inUse.Error())
+		return cutInUse.Because(usesWords(inUse.By, "this cut"))
 	}
 	return changed(err)
 }
