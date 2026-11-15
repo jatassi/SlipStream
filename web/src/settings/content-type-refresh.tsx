@@ -28,8 +28,8 @@ export function RefreshAll({ type }: { type: WorksContentType }) {
       const { runId } = await refreshContentType(type.id);
       toast(
         runId === null
-          ? `Metadata refresh is already running. The next run refreshes every ${type.work.one} from ${type.source}.`
-          : `Refreshing every ${type.work.one} from ${type.source}.`,
+          ? `Metadata refresh is already running. The next run refreshes every ${type.work.one.toLowerCase()} from ${type.source}.`
+          : `Refreshing every ${type.work.one.toLowerCase()} from ${type.source}.`,
       );
       await router.invalidate();
     } catch (error) {
@@ -41,7 +41,7 @@ export function RefreshAll({ type }: { type: WorksContentType }) {
   return (
     <div className="flex flex-col items-start gap-2">
       <p className="text-ink-2">
-        Refresh all fetches the details of every {type.work.one} from {type.source} again. Use it after changing the
+        Refresh all fetches the details of every {type.work.one.toLowerCase()} from {type.source} again. Use it after changing the
         metadata language or region. {lastRunWords(run)}
       </p>
       <Button busy={starting} disabled={run.running} onClick={() => void start()}>

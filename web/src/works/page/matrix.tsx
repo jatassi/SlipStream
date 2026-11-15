@@ -8,7 +8,7 @@ import { CellBlock } from "./cell";
 import type { Matrix, MatrixShown } from "./matrix-model";
 import { RowHead } from "./row-head";
 
-const unseenWords = "Not seen yet. It's wanted once a release of it is found.";
+const unseenWords = "No release of this Edition has turned up yet. SlipStream downloads it once one does.";
 
 function MatrixTable({ matrix, shown }: { matrix: Matrix; shown: MatrixShown }) {
   return (
@@ -97,14 +97,15 @@ export function MatrixSection({
     <Section title="Editions and Targets">
       {matrix.targets.length === 0 ? (
         <p className="text-ink-3">
-          Its Profile has no Targets, so this {type.work.one.toLowerCase()} wants nothing.
+          This {type.work.one.toLowerCase()}&apos;s Profile has no Targets, so SlipStream won&apos;t
+          download anything for it.
         </p>
       ) : phone ? (
         <MatrixCards matrix={matrix} shown={shown} />
       ) : (
         <MatrixTable matrix={matrix} shown={shown} />
       )}
-      <div className="mt-3">{wantAnother(<Button size="small">Want another Edition</Button>)}</div>
+      <div className="mt-3">{wantAnother(<Button size="small">Add an Edition</Button>)}</div>
     </Section>
   );
 }

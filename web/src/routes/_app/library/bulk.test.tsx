@@ -8,7 +8,7 @@ import { orchardRow } from "../../../test/library";
 import { cinemaLibrary, ember, harvest } from "../../../test/library-page";
 import { renderApp } from "../../../test/render-app";
 
-const bar = page.getByRole("toolbar", { name: "Picked Works" });
+const bar = page.getByRole("toolbar", { name: "Selected Works" });
 
 function monitorServer() {
   const sent: WorksMonitoredChange[] = [];
@@ -28,11 +28,11 @@ test("while picking a click picks, and Monitor acts on every pick, the ones filt
   });
   await userEvent.click(page.getByRole("button", { name: "Library options" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Select" }));
-  await expect.element(bar.getByText("Pick Works to change them together.")).toBeVisible();
+  await expect.element(bar.getByText("Select Works to change them together.")).toBeVisible();
 
   await userEvent.click(page.getByRole("link", { name: ember.label }));
-  await userEvent.click(page.getByRole("checkbox", { name: `Pick ${orchardRow.label}` }));
-  await expect.element(bar.getByText("2 Films picked")).toBeVisible();
+  await userEvent.click(page.getByRole("checkbox", { name: `Select ${orchardRow.label}` }));
+  await expect.element(bar.getByText("2 films selected")).toBeVisible();
   expect(router.state.location.pathname).toBe("/library");
 
   await userEvent.click(page.getByRole("button", { name: "Filter" }));
@@ -49,12 +49,12 @@ test("while picking a click picks, and Monitor acts on every pick, the ones filt
 
 test("Select all picks every Work shown, and Done leaves picking with nothing picked", async () => {
   const { router } = renderApp({ path: "/library", handlers: cinemaLibrary().handlers });
-  await userEvent.click(page.getByRole("checkbox", { name: `Pick ${harvest.label}` }));
-  await expect.element(bar.getByText("1 Film picked")).toBeVisible();
+  await userEvent.click(page.getByRole("checkbox", { name: `Select ${harvest.label}` }));
+  await expect.element(bar.getByText("1 film selected")).toBeVisible();
   await userEvent.click(bar.getByRole("button", { name: "Select all" }));
-  await expect.element(bar.getByText("3 Films picked")).toBeVisible();
+  await expect.element(bar.getByText("3 films selected")).toBeVisible();
   await userEvent.click(bar.getByRole("button", { name: "Select all" }));
-  await expect.element(bar.getByText("Pick Works to change them together.")).toBeVisible();
+  await expect.element(bar.getByText("Select Works to change them together.")).toBeVisible();
 
   await userEvent.click(bar.getByRole("button", { name: "Done" }));
   await expect.element(bar).not.toBeInTheDocument();
@@ -64,10 +64,10 @@ test("Select all picks every Work shown, and Done leaves picking with nothing pi
 
 test("a Shift-click picks every Work between it and the last pick", async () => {
   renderApp({ path: "/library?view=table", handlers: cinemaLibrary().handlers });
-  await userEvent.click(page.getByRole("checkbox", { name: `Pick ${ember.label}` }));
+  await userEvent.click(page.getByRole("checkbox", { name: `Select ${ember.label}` }));
   await userEvent.click(page.getByRole("link", { name: orchardRow.label }), {
     modifiers: ["Shift"],
   });
-  await expect.element(bar.getByText("3 Films picked")).toBeVisible();
-  await expect.element(page.getByRole("checkbox", { name: "Pick every shown Work" })).toBeChecked();
+  await expect.element(bar.getByText("3 films selected")).toBeVisible();
+  await expect.element(page.getByRole("checkbox", { name: "Select all shown Works" })).toBeChecked();
 });

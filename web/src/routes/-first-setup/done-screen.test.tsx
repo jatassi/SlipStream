@@ -26,16 +26,16 @@ function open() {
 test("the done screen offers an Add for each enabled Content Type beside Go to Library", async () => {
   open();
   await expect.element(stepHeading("First setup")).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "Add a Film" })).toBeVisible();
-  await expect.element(page.getByRole("button", { name: "Add an Anthology" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Add a film" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Add an anthology" })).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Go to Library" })).toBeVisible();
   expect(page.getByRole("button", { name: `Add a ${zines.work.one}` }).query()).toBeNull();
 });
 
 test("an Add finishes first setup and opens that type's add page", async () => {
   const { app, server } = open();
-  await userEvent.click(page.getByRole("button", { name: "Add an Anthology" }));
-  await expect.element(page.getByRole("heading", { name: "Add an Anthology" })).toBeVisible();
+  await userEvent.click(page.getByRole("button", { name: "Add an anthology" }));
+  await expect.element(page.getByRole("heading", { name: "Add an anthology" })).toBeVisible();
   expect(server.finishes).toHaveLength(1);
   expect(app.router.state.location.href).toBe("/add?contentType=anthology");
 });

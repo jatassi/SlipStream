@@ -14,14 +14,14 @@ const shown = 25;
 
 /** Why a result another source found can't be added, in the type's source and nouns. */
 export const unlistedLine = ({ source, work }: WorksContentType): string =>
-  `${source} doesn't list this ${work.one.toLowerCase()}. SlipStream needs ${source} to keep it up to date.`;
+  `${source} doesn't list this ${work.one.toLowerCase()}, so it can't be added. SlipStream gets the details of each ${work.one.toLowerCase()} from ${source}.`;
 
 export function Candidates({ type, query }: { type: WorksContentType; query: string }) {
   const candidates = useSearchCatalogSuspense(type.id, { query }).data.candidates.slice(0, shown);
   if (candidates.length === 0) {
     return (
       <Empty>
-        Nothing matches &quot;{query}&quot;. Try another spelling, or the {type.work.one}&apos;s
+        Nothing matches &quot;{query}&quot;. Try another spelling, or the {type.work.one.toLowerCase()}&apos;s
         original title.
       </Empty>
     );

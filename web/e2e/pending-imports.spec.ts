@@ -176,7 +176,7 @@ test("a folder imports by hand, and a download that isn't an upgrade forces into
   await expectAccessible(page);
   await confirm.getByRole("button", { name: "Force into 1080p", exact: true }).click();
   if (isPhone(page)) {
-    await expect(page.getByText("Nothing in this download waits for you now.")).toBeVisible({
+    await expect(page.getByText("Nothing in this download needs attention now.")).toBeVisible({
       timeout: 60_000,
     });
   } else {
@@ -228,7 +228,7 @@ test("on a phone Pending imports list the download, and its pushed page declines
   await screenshotWholePage(page, testInfo.outputPath("pending-import-phone.png"));
 
   await file.getByRole("button", { name: "Don't import", exact: true }).click();
-  await expect(page.getByText("Nothing in this download waits for you now.")).toBeVisible({
+  await expect(page.getByText("Nothing in this download needs attention now.")).toBeVisible({
     timeout: 60_000,
   });
 });

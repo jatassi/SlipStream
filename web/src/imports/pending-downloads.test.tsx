@@ -103,6 +103,6 @@ test("on a phone a download opens as a pushed page that links back to Pending im
     .element(page.getByRole("banner").getByRole("link", { name: "Pending imports" }))
     .toHaveAttribute("href", "/library/pending");
   await userEvent.click(episodeOne().getByRole("button", { name: "Don't import" }));
-  await expect.element(page.getByText("Nothing in this download waits for you now.")).toBeVisible();
+  await expect.element(page.getByText("Nothing in this download needs attention now.")).toBeVisible();
   expect(sent.acted).toEqual([{ id: packEntry.id, position: 0, action: "decline" }]);
 });

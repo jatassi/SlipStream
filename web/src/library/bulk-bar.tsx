@@ -6,6 +6,7 @@ import { Button } from "../ui/button";
 import { IconButton } from "../ui/icon-button";
 import { Menu, type MenuEntry } from "../ui/menu";
 import { useShell } from "../ui/shell-context";
+import { lowered } from "../works/monitoring/labels";
 import { type BulkAction, useBulkActions } from "./bulk-actions";
 import { BulkDialog, type BulkDialogKind } from "./bulk-dialogs";
 import type { Picking } from "./picking";
@@ -22,7 +23,7 @@ const placed = {
   desktop: "bottom-3 flex-wrap pr-4",
 } as const;
 
-const menuLabel = "Actions for the picked Works";
+const menuLabel = "Actions for the selected Works";
 
 function BulkButtons({ actions, oneType }: { actions: readonly BulkAction[]; oneType: boolean }) {
   return (
@@ -42,7 +43,7 @@ function BulkButtons({ actions, oneType }: { actions: readonly BulkAction[]; one
         ))}
       {!oneType && (
         <span className="text-meta text-ink-3">
-          Pick Works of one Content Type to change their Profile or library root.
+          Select Works of one kind of media to change their Profile or library root.
         </span>
       )}
     </>
@@ -101,13 +102,13 @@ export function BulkBar({ picking }: { picking: Picking }) {
   return (
     <div
       role="toolbar"
-      aria-label="Picked Works"
+      aria-label="Selected Works"
       className={`${floating} ${placed[phone ? "phone" : "desktop"]}`}
     >
       <span className="mr-auto min-w-0 text-ink-1 tabular-nums">
         {picked.length === 0
-          ? "Pick Works to change them together."
-          : `${countWords(picked.length, type?.work ?? anyWork)} picked`}
+          ? "Select Works to change them together."
+          : `${countWords(picked.length, type ? lowered(type.work) : anyWork)} selected`}
         {hidden > 0 && <span className="text-ink-3">{` · ${hidden} hidden by filters`}</span>}
       </span>
       {phone ? (

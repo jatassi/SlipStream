@@ -16,8 +16,8 @@ export function useRefreshAll(types: readonly WorksContentType[]): (() => void) 
           onSuccess: ({ runId }) => {
             toast(
               runId === null
-                ? `Metadata refresh is already running. The next run refreshes every ${only.work.one}.`
-                : `Refreshing the metadata of every ${only.work.one}.`,
+                ? `Metadata refresh is already running. The next run refreshes every ${only.work.one.toLowerCase()}.`
+                : `Refreshing the metadata of every ${only.work.one.toLowerCase()}.`,
             );
           },
           onError: (error) => {

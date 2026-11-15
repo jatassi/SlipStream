@@ -60,7 +60,7 @@ func composer(s Shelf) *library.Library {
 var (
 	contentTypeNotFound = api.NewCode(http.StatusNotFound, "content_type_not_found", "No Content Type has that id")
 	contentTypeDisabled = api.NewCode(http.StatusConflict, "content_type_disabled", "That Content Type is turned off")
-	contentTypeInUse    = api.NewCode(http.StatusConflict, "content_type_in_use", "Remove its Works before turning this Content Type off")
+	contentTypeInUse    = api.NewCode(http.StatusConflict, "content_type_in_use", "Delete every Work of this kind of media before turning it off")
 	contentTypeLast     = api.NewCode(http.StatusConflict, "content_type_last", "Turn on another Content Type before turning this one off")
 	workNotFound        = api.NewCode(http.StatusNotFound, "work_not_found", "No Work has that id")
 	workGoneUpstream    = api.NewCode(http.StatusConflict, "work_gone_upstream", "The metadata source no longer has this Work")
@@ -195,7 +195,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		ID:      "updateContentTypeSettings",
 		Method:  http.MethodPatch,
 		Path:    "/content-types/{contentType}/settings",
-		Summary: "Change a Content Type's own settings by key, all or none. Every Work of the type may then read differently",
+		Summary: "Change a Content Type's own settings by key, all or none. A change can alter every Work of the type, such as its availability dates",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{contentTypeNotFound, settingapi.ErrOutOfRange, settingapi.ErrUnknown},
 	}, h.updateContentTypeSettings)

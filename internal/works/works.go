@@ -196,7 +196,7 @@ func Open(ctx context.Context, cfg Config) (*Works, error) {
 	}
 	for _, id := range held {
 		if _, ok := w.types[id]; !ok {
-			return nil, &storage.RefusedError{Err: fmt.Errorf("library.db holds Works of Content Type %s, which this binary doesn't register", id)}
+			return nil, &storage.RefusedError{Err: fmt.Errorf("library.db has Works of Content Type %s, which this version of SlipStream doesn't include", id)}
 		}
 	}
 	if err := w.catchUpTitles(ctx); err != nil {

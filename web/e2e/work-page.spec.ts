@@ -72,7 +72,7 @@ test("a failed download shows under Needs you, and Search again retries it", asy
     "SlipStream can't read the Release's .torrent file, or the metadata peers sent for its magnet link.",
   );
   await expect(card).not.toContainText("unavailable:");
-  await expect(page.getByRole("list", { name: "Cells" })).toContainText("failed");
+  await expect(page.getByRole("list", { name: "Download status" })).toContainText("failed");
   await expectAccessible(page);
   await screenshotWholePage(page, testInfo.outputPath("needs-you.png"));
 
@@ -104,7 +104,7 @@ test("an Admin sets the Work's own Editions through the Impact, and an unseen cu
   await clickWhenStill(
     page.getByRole(isPhone(page) ? "button" : "menuitem", { name: "Extended", exact: true }),
   );
-  await expect(editions.getByRole("heading", { name: "Editions set for this Work" })).toBeVisible();
+  await expect(editions.getByRole("heading", { name: /^Editions set for The Quiet Orchard/u })).toBeVisible();
   await expectAccessible(page);
   await page.screenshot({ path: testInfo.outputPath("editions.png") });
   await editions.getByRole("button", { name: "Save", exact: true }).click();
@@ -123,7 +123,7 @@ test("an Admin sets the Work's own Editions through the Impact, and an unseen cu
   await expect(matrix).toHaveCount(2);
   await expect(matrix.first()).toContainText("StandardSet for this Work");
   await expect(matrix.nth(1)).toContainText(
-    "Not seen yet. It's wanted once a release of it is found.",
+    "No release of this Edition has turned up yet. SlipStream downloads it once one does.",
   );
   const wants = await world.api("GET", `/api/v1/works/${workId}/wants`);
   expect(wants.body).toMatchObject({

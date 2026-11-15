@@ -13,7 +13,7 @@ import { filmsRoot } from "../../test/roots";
 const sheet = () => page.getByRole("dialog", { name: "Add The Quiet Orchard" });
 const notifications = () => page.getByRole("region", { name: "Notifications" });
 const sentence = () => sheet().getByText(/^Adds /u);
-const willStart = () => sheet().getByText("New Films will start with these.");
+const willStart = () => sheet().getByText("New films will start with these.");
 
 async function openSheet() {
   await userEvent.click(page.getByRole("button", { name: "Add The Quiet Orchard" }));
@@ -25,7 +25,7 @@ const quietPage = "/add?contentType=cinema&query=quiet";
 test("searching puts the term in the URL and lists each candidate with its year, original title and overview", async () => {
   const server = addServer();
   const { router } = renderApp({ path: "/add?contentType=cinema", handlers: server.handlers });
-  await expect.element(page.getByRole("heading", { name: "Add a Film" })).toBeVisible();
+  await expect.element(page.getByRole("heading", { name: "Add a film" })).toBeVisible();
 
   await userEvent.fill(page.getByRole("searchbox", { name: "Title" }), "  quiet orchard ");
   await userEvent.click(page.getByRole("button", { name: "Search" }));
@@ -56,7 +56,7 @@ test("the sheet opens on the preview and adds with the defaults, remembering, th
   await expect
     .element(sentence())
     .toHaveTextContent(
-      "Adds The Quiet Orchard (2021) to Films on /srv/media/films, monitored, wanting Films' 1 Target.",
+      "Adds The Quiet Orchard (2021) to Films on /srv/media/films. SlipStream monitors it. Its Profile, Films, has 1 Target.",
     );
   await expect.element(sheet().getByText("2021 · 1h 52m")).toBeVisible();
   await expect.element(sheet().getByRole("switch", { name: "Monitor" })).toBeChecked();
@@ -67,7 +67,7 @@ test("the sheet opens on the preview and adds with the defaults, remembering, th
   expect(willStart().query()).toBeNull();
   await expect
     .element(
-      sheet().getByText("Adding doesn't search. To search now, use Search on its Work page."),
+      sheet().getByText("Adding a film doesn't start a search. To search now, open its page and select Search."),
     )
     .toBeVisible();
 
@@ -98,7 +98,7 @@ test("a changed choice says new Works will start with it, until Remember is off"
   await expect
     .element(sentence())
     .toHaveTextContent(
-      "Adds The Quiet Orchard (2021) to Films on /srv/media/films, not monitored, wanting Ultra's 2 Targets.",
+      "Adds The Quiet Orchard (2021) to Films on /srv/media/films. It isn't monitored. Its Profile, Ultra, has 2 Targets.",
     );
   await expect.element(willStart()).toBeVisible();
 
@@ -135,7 +135,7 @@ test("with two roots the sheet offers each with its free space", async () => {
   await expect
     .element(sentence())
     .toHaveTextContent(
-      "Adds The Quiet Orchard (2021) to Films on /mnt/shelf/films, monitored, wanting Films' 1 Target.",
+      "Adds The Quiet Orchard (2021) to Films on /mnt/shelf/films. SlipStream monitors it. Its Profile, Films, has 1 Target.",
     );
   await expect.element(willStart()).toBeVisible();
 });
@@ -148,7 +148,7 @@ test("the sheet starts unmonitored when the type adds unmonitored, and moves not
   await expect
     .element(sentence())
     .toHaveTextContent(
-      "Adds The Quiet Orchard (2021) to Films on /srv/media/films, not monitored, wanting Films' 1 Target.",
+      "Adds The Quiet Orchard (2021) to Films on /srv/media/films. It isn't monitored. Its Profile, Films, has 1 Target.",
     );
   expect(willStart().query()).toBeNull();
 });

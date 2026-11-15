@@ -78,7 +78,7 @@ test("on a phone an episode's row opens a sheet with its cells, Monitor and Deta
   await page.goto(`/works/${workId}`);
   await clickWhenStill(episodeRow(page, "S01E01"));
   const sheet = page.getByRole("dialog", { name: "S01E01 First Flame" });
-  await expect(sheet.getByRole("list", { name: "Cells" })).toContainText("Missing");
+  await expect(sheet.getByRole("list", { name: "Editions and Targets" })).toContainText("Missing");
   await expect(sheet.getByRole("switch", { name: "Monitor" })).toBeChecked();
   await expect(sheet.getByRole("button", { name: "Details" })).toBeVisible();
 });

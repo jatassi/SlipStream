@@ -89,7 +89,7 @@ test("an order change previews what it withdraws and saves once confirmed", asyn
   await expect
     .element(
       confirm.getByText(
-        "3 stories aren't in Reading order, so they'll show as No longer listed by Fixture source.",
+        '3 stories aren\'t listed with story order Reading order, so they\'ll be marked "No longer listed by Fixture source".',
       ),
     )
     .toBeVisible();
@@ -123,7 +123,7 @@ test("an order the source doesn't list is refused on the field", async () => {
   await expect
     .element(
       edit.getByText(
-        "Fixture source doesn't list this anthology in Reading order. Choose another story order.",
+        "Fixture source doesn't list this anthology with story order Reading order. Choose another story order.",
       ),
     )
     .toBeVisible();

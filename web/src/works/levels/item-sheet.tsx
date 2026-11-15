@@ -26,7 +26,7 @@ function Cells({
   const lines = level.columns.flatMap((column, index): Line[] => {
     const group = view.groups[index];
     if (group === undefined || group.kind === "unseen") {
-      return column.seen ? [{ key: column.edition, label: `${column.name}, not seen yet` }] : [];
+      return column.seen ? [{ key: column.edition, label: `${column.name}, no release yet` }] : [];
     }
     return context.targets.flatMap((target, at) => {
       const cell = group.cells[at];
@@ -42,7 +42,7 @@ function Cells({
     });
   });
   return (
-    <ul aria-label="Cells" className="flex flex-col divide-y divide-hairline rounded-card bg-fill">
+    <ul aria-label="Editions and Targets" className="flex flex-col divide-y divide-hairline rounded-card bg-fill">
       {lines.map(({ key, label, cell }) => (
         <li key={key} className="flex items-start gap-3 px-4 py-3">
           {cell !== undefined && <StateSquare state={cell.state} quiet={view.quiet} />}

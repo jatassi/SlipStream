@@ -29,10 +29,10 @@ type libraryRow struct {
 	Kept        int                                    `json:"kept" minimum:"0" doc:"Its Kept files"`
 	GoneFiles   int                                    `json:"goneFiles" minimum:"0" doc:"Its files a library scan found missing from its root, which the other counts leave out"`
 	AddedBy     string                                 `json:"addedBy" enum:"admin,scan" doc:"Who added it: an Admin, or a library scan that matched a folder on disk"`
-	Status      api.Nullable[api.Enum[filesapi.State]] `json:"status" doc:"The first status its monitored Items hold, in the glossary's order; null while none holds a cell"`
-	Cells       api.Counts[filesapi.State]             `json:"cells" doc:"Its monitored Items' cells by state"`
+	Status      api.Nullable[api.Enum[filesapi.State]] `json:"status" doc:"The most urgent status among its monitored Items, in the order failed, missing, downloading, upgradable, unreleased, met; null while none of them has a Target"`
+	Cells       api.Counts[filesapi.State]             `json:"cells" doc:"Its monitored Items' Editions at each Target, counted by state"`
 	Items       int                                    `json:"items" minimum:"0" doc:"Its monitored Items that its source still lists, the only Items the status and counts read"`
-	ItemStatus  api.Counts[filesapi.State]             `json:"itemStatus" doc:"Its monitored Items by status; an Item with no cell isn't counted"`
+	ItemStatus  api.Counts[filesapi.State]             `json:"itemStatus" doc:"Its monitored Items by status; an Item with no Target isn't counted"`
 	NeedsYou    int                                    `json:"needsYou" minimum:"0" doc:"The entries of its Needs you"`
 	Values      map[string]api.Bare                    `json:"values" doc:"Its listed fields by key: a string for text and date, a number for number and duration in ms, a list of strings for texts; a field it lacks is left out"`
 }

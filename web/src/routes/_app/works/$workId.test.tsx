@@ -28,7 +28,7 @@ test("the Work page shows its facts, its cells and one column per Target", async
     .toBeVisible();
   await expect.element(page.getByText("2021 · Film · 1h 52m")).toBeVisible();
   await expect
-    .element(page.getByRole("list", { name: "Cells" }))
+    .element(page.getByRole("list", { name: "Download status" }))
     .toHaveTextContent("0 of 2 met2 missing");
   expect(
     page
@@ -39,7 +39,7 @@ test("the Work page shows its facts, its cells and one column per Target", async
   ).toEqual(["Edition", "2160p HDR Downloaded", "1080p Downloaded"]);
   await expect.element(cutRow()).toHaveTextContent(missingRow);
   await expect
-    .element(page.getByText("No files yet. A Grab that imports puts its file here."))
+    .element(page.getByText("No files yet. Downloaded files show here once they're imported."))
     .toBeVisible();
   await expect
     .element(page.getByText("No searches yet. Search looks for a Release on every Indexer."))
@@ -67,12 +67,12 @@ test("files.changed shows the new file without a reload", async () => {
 
   await expect.element(cutRow()).toMatchTextContent(/^Any cutFrom Profile UltraDownloading.*Met/u);
   await expect
-    .element(page.getByRole("list", { name: "Cells" }))
+    .element(page.getByRole("list", { name: "Download status" }))
     .toHaveTextContent("1 of 2 met1 downloading");
   await expect
     .element(page.getByRole("list", { name: "Files" }).getByRole("listitem"))
     .toHaveTextContent(
-      "The Quiet Orchard (2021) - 1080p.mkvmovies/The Quiet Orchard (2021) · Fills 1080pWEBDL-1080p · 1920×1080 · 700 MBDetails",
+      "The Quiet Orchard (2021) - 1080p.mkvmovies/The Quiet Orchard (2021) · Used for 1080pWEBDL-1080p · 1920×1080 · 700 MBDetails",
     );
 });
 
@@ -85,7 +85,7 @@ test("a file that fills two Targets names both", async () => {
 
   await expect
     .element(page.getByRole("list", { name: "Files" }).getByRole("listitem"))
-    .toMatchTextContent(/· Fills 2160p HDR and 1080p/u);
+    .toMatchTextContent(/· Used for 2160p HDR and 1080p/u);
 });
 
 test("a cell below its Target's cutoff shows upgradable with its file", async () => {
@@ -207,7 +207,7 @@ test("a failed Grab shows under Needs you with the cells it holds back and a way
 
   const needsYou = page.getByRole("region", { name: "Needs you" });
   const card = needsYou.getByRole("article", {
-    name: "2160p HDR failed at Import · 1080p waits on it",
+    name: "2160p HDR failed at Import · 1080p is made from it and can't start",
   });
   await expect.element(card).toMatchTextContent(/^Failed at Import/u);
   await expect
@@ -218,7 +218,7 @@ test("a failed Grab shows under Needs you with the cells it holds back and a way
         "Detailplace movies/The Quiet Orchard (2021): permission denied",
     );
   await expect
-    .element(page.getByRole("list", { name: "Cells" }))
+    .element(page.getByRole("list", { name: "Download status" }))
     .toHaveTextContent("0 of 2 met1 failed1 missing");
 
   await userEvent.click(card.getByRole("button", { name: "Search again" }));

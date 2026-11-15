@@ -35,18 +35,18 @@ test("the Library draws each Work as a poster under its letter, and adds a Work"
   await expect.element(card(ember.label)).toHaveTextContent("Ember Lane2024Failed 1Not monitored");
 
   await userEvent.click(page.getByRole("banner").getByRole("button", { name: "Add" }));
-  await userEvent.click(page.getByRole("menuitem", { name: "Add a Film" }));
-  await expect.element(page.getByRole("heading", { name: "Add a Film" })).toBeVisible();
+  await userEvent.click(page.getByRole("menuitem", { name: "Add a film" }));
+  await expect.element(page.getByRole("heading", { name: "Add a film" })).toBeVisible();
   expect(router.state.location.href).toBe("/add?contentType=cinema");
 });
 
 test("an empty Library offers to add a Work of each enabled type", async () => {
   const { router } = renderApp({ path: "/library", handlers: cinemaLibrary([]).handlers });
   await expect
-    .element(page.getByText("Nothing in the library yet. Add your first Work to start."))
+    .element(page.getByText("Nothing in the library yet."))
     .toBeVisible();
-  await userEvent.click(page.getByRole("main").getByRole("button", { name: "Add a Film" }));
-  await expect.element(page.getByRole("heading", { name: "Add a Film" })).toBeVisible();
+  await userEvent.click(page.getByRole("main").getByRole("button", { name: "Add a film" }));
+  await expect.element(page.getByRole("heading", { name: "Add a film" })).toBeVisible();
   expect(router.state.location.href).toBe("/add?contentType=cinema");
 });
 
@@ -59,7 +59,7 @@ test("an empty Library with every Content Type off offers nothing to add", async
     ],
   });
   await expect
-    .element(page.getByText("Nothing in the library yet. Turn on a Content Type to add Works."))
+    .element(page.getByText("Nothing in the library yet. Turn on a kind of media in Settings to start."))
     .toBeVisible();
   await expect.element(page.getByRole("button", { name: "Add" })).not.toBeInTheDocument();
 });
@@ -67,8 +67,8 @@ test("an empty Library with every Content Type off offers nothing to add", async
 test("a Content Type's empty Library offers to add one", async () => {
   const { router } = renderApp({ path: "/library/cinema", handlers: cinemaLibrary([]).handlers });
   await expect.element(page.getByText("No Films in the library yet.")).toBeVisible();
-  await userEvent.click(page.getByRole("main").getByRole("button", { name: "Add a Film" }));
-  await expect.element(page.getByRole("heading", { name: "Add a Film" })).toBeVisible();
+  await userEvent.click(page.getByRole("main").getByRole("button", { name: "Add a film" }));
+  await expect.element(page.getByRole("heading", { name: "Add a film" })).toBeVisible();
   expect(router.state.location.href).toBe("/add?contentType=cinema");
 });
 

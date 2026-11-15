@@ -89,7 +89,7 @@ test("a level's header shows its bar and tally, and Items nobody monitors read N
   await expect
     .element(levels().getByRole("heading", { name: "Volume 1 43 Unreleased, 6 Met 6 of 49 met" }))
     .toBeVisible();
-  const extras = levels().getByRole("heading", { name: "Extras No cells Not monitored" });
+  const extras = levels().getByRole("heading", { name: "Extras Nothing to download Not monitored" });
   await scrollTo(extras);
   await userEvent.click(header("Extras"));
   const extra = levels().getByRole("button", { name: "X01 1080p, Missing" });
@@ -170,7 +170,7 @@ test("hovering a square shows its cell, and Details shows the Item's own fields"
   await expect
     .element(page.getByRole("dialog", { name: "V01S02 Story V01S02" }))
     .toHaveTextContent(
-      "V01S02 Story V01S02PublishedJanuary 3, 2020Fixture source lists this story as v1s2.",
+      "V01S02 Story V01S02PublishedJanuary 3, 2020Fixture source ID: v1s2",
     );
 });
 

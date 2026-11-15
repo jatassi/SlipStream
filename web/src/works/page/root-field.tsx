@@ -31,7 +31,7 @@ export function RootField({
       />
       {files > 0 && (
         <p className="text-meta text-ink-3 in-data-[density=touch]:text-body-touch">
-          {`This ${type.work.one.toLowerCase()} has files, so it stays in its library root. Moving a Work that has files isn't supported yet.`}
+          {`This ${type.work.one.toLowerCase()} has files, so it stays in its library root. SlipStream can't move files between library roots yet.`}
         </p>
       )}
     </div>

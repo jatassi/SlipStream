@@ -172,7 +172,7 @@ test("on a phone a menu opens as an action sheet", async () => {
   });
   await userEvent.click(page.getByRole("button", { name: "Add" }));
   const sheet = page.getByRole("dialog", { name: "Add a Work" });
-  await expect.element(sheet.getByRole("button", { name: "Add a Film" })).toBeVisible();
+  await expect.element(sheet.getByRole("button", { name: "Add a film" })).toBeVisible();
   await userEvent.click(sheet.getByRole("button", { name: "Cancel" }));
   await expect.element(sheet).not.toBeInTheDocument();
 });

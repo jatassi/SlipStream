@@ -64,7 +64,7 @@ export async function makeUHD(world: World) {
 export const libraryRows = async (world: World) =>
   Library.parse((await world.api("GET", "/api/v1/library")).body).rows;
 
-export const bar = (page: Page) => page.getByRole("toolbar", { name: "Picked Works" });
+export const bar = (page: Page) => page.getByRole("toolbar", { name: "Selected Works" });
 const barMenu = "Actions for the picked Works";
 
 // A phone's bar holds its actions in a sheet.
@@ -84,7 +84,7 @@ export const toasts = (page: Page) => page.getByRole("region", { name: "Notifica
 export async function pick(page: Page, ...labels: string[]) {
   for (const label of labels) {
     // oxlint-disable-next-line no-await-in-loop -- each pick is a click after the last
-    await page.getByRole("checkbox", { name: `Pick ${label}` }).click();
+    await page.getByRole("checkbox", { name: `Select ${label}` }).click();
   }
 }
 

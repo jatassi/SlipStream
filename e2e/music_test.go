@@ -215,7 +215,7 @@ func TestMusic(t *testing.T) {
 		problem(404, "metadata_not_found", "The metadata source has no record with that key"))
 
 	worldtest.Expect(t, "turning music off while it holds Works", a.Admin("home", http.MethodPut, "/api/v1/content-types/music/enabled", `{"enabled":false}`),
-		problem(409, "content_type_in_use", "Remove its Works before turning this Content Type off"))
+		problem(409, "content_type_in_use", "Delete every Work of this kind of media before turning it off"))
 	t.Run("a fresh run with no Works", turnOffAndOn)
 }
 
