@@ -41,7 +41,7 @@ var (
 	noLinkAddress = api.NewCode(http.StatusConflict, "no_link_address", "The Controller has no address other Nodes can connect to. Set link.advertise in its config.yaml, then restart it.")
 	nodeNotFound  = api.NewCode(http.StatusNotFound, "node_not_found", "No Node has this id")
 	rolesStale    = api.NewCarrying[outcome](http.StatusConflict, "roles_stale", "The Roles changed since this was planned", "outcome")
-	rolesBlocked  = api.NewCarrying[outcome](http.StatusConflict, "roles_blocked", "This change can't be applied. The outcome's checks say why.", "outcome")
+	rolesBlocked  = api.NewCarrying[outcome](http.StatusConflict, "roles_blocked", "This change can't be applied. The checks below say why.", "outcome")
 	nothingHeld   = api.NewCarrying[outcome](http.StatusConflict, "nothing_held", "The Node has no work to give up for these Roles", "outcome")
 	keepsRole     = api.NewCarrying[outcome](http.StatusConflict, "keeps_role", "This would give up the work of a Role no other Node has. Tick that Role on another Node first.", "outcome")
 	isController  = api.NewCarrying[outcome](http.StatusConflict, "node_is_controller", "The Controller can't be removed", "outcome")
