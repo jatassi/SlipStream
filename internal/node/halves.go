@@ -374,8 +374,11 @@ func (n *Node) startController(ctx context.Context) error {
 		},
 		Timings: n.cfg.Timings.Indexers,
 		JobCap:  n.cfg.Timings.Searching.JobCap,
-		Zone:    n.zone(),
-		Log:     n.rootLog.With("subsystem", "indexers"),
+		RSS: func(ctx context.Context, r storage.Reader[storage.Library]) (time.Duration, bool, error) {
+			return pipeline.RSSIn(ctx, r)
+		},
+		Zone: n.zone(),
+		Log:  n.rootLog.With("subsystem", "indexers"),
 	})
 	goals, err := targets.Open(ctx, targets.Config{
 		Library: lib.db,
@@ -617,6 +620,10 @@ type lateTasks struct{ tasks **tasks.Scheduler }
 
 func (t lateTasks) Every(ctx context.Context, id tasks.TaskID) (*int64, error) {
 	return (*t.tasks).Every(ctx, id)
+}
+
+func (t lateTasks) EveryIn(ctx context.Context, r storage.Reader[storage.Library], id tasks.TaskID) (*int64, error) {
+	return (*t.tasks).EveryIn(ctx, r, id)
 }
 
 func (t lateTasks) Next(ctx context.Context, id tasks.TaskID) (time.Time, error) {

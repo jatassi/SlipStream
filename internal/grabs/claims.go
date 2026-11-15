@@ -9,6 +9,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs/internal/db"
 	"github.com/jatassi/slipstream/internal/indexers"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
@@ -137,7 +138,7 @@ func (gr *Grabs) commitClaims(ctx context.Context, tx *storage.Tx[file], run Sea
 			for i, k := range c.cells {
 				cells[i] = Cell{Key: k}
 			}
-			n := newGrab{work: run.WorkID, item: c.cells[0].Item, items: c.covers, cells: cells, pick: c.pick, ticket: c.ticket, source: FromSearch, fills: c.fills}
+			n := newGrab{work: run.WorkID, item: c.cells[0].Item, items: c.covers, cells: cells, pick: c.pick, ticket: c.ticket, source: sourceOf(run), fills: c.fills}
 			g, err = gr.insertGrab(ctx, tx, n, now)
 		}
 		if err != nil {
@@ -149,6 +150,14 @@ func (gr *Grabs) commitClaims(ctx context.Context, tx *storage.Tx[file], run Sea
 		out = append(out, g)
 	}
 	return out, nil
+}
+
+// sourceOf is the source of the Grabs run's claims make.
+func sourceOf(run Search) Source {
+	if run.Trigger == searches.RSS {
+		return FromRSS
+	}
+	return FromSearch
 }
 
 // commitWaits writes ws, run's waiting claims, once run's Releases are

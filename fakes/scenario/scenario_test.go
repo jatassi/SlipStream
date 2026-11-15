@@ -361,6 +361,13 @@ func TestParseRefuses(t *testing.T) {
 				"scenario x: library indexer A has a limit of 0 per \"week\"; it is 1 to 100000 per hour or day",
 		},
 		{
+			"a feed played on a site that isn't Torznab",
+			"seed: x\nadmin: {email: a@example.test, display_name: A, pin: \"1234\"}\nnodes: [{name: home, setup: controller}]\n" +
+				"library:\n  roots: [{content_type: movie, folder: movies}]\n" +
+				"  indexers: [{name: B, kind: rss, site: brook, tracker: Brook, media: [movie], no_paging: true}]\n",
+			"scenario x: library indexer B sets how its feed lists uploads, which only a Torznab Indexer's site plays",
+		},
+		{
 			"two problems at once",
 			"seed: x\nnodes: [{name: Home}, {name: Home}]\n",
 			"scenario x: node name \"Home\" does not match ^[a-z][a-z0-9-]{0,15}$\n" +
@@ -382,7 +389,7 @@ func TestAScenarioReadsItsAutomaticSearchSwitchesHoldsAndIndexerPacing(t *testin
 	s, err := Parse("x", []byte("seed: x\nadmin: {email: a@example.test, display_name: A, pin: \"1234\"}\nnodes: [{name: home, setup: controller}]\n"+
 		"library:\n  automatic_search: {backlog_search: false}\n  roots: [{content_type: movie, folder: movies}]\n"+
 		"  targets: [{name: HD, tiers: [[webdl-1080p]], cutoff: webdl-1080p, hold: 2h}]\n"+
-		"  indexers: [{name: A, kind: torznab, site: torznab, searches_at_once: 4, limit: {count: 2, per: hour}}]\n"))
+		"  indexers: [{name: A, kind: torznab, site: torznab, searches_at_once: 4, limit: {count: 2, per: hour}, uploads: 250, no_paging: true, always_late: true}]\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -395,6 +402,9 @@ func TestAScenarioReadsItsAutomaticSearchSwitchesHoldsAndIndexerPacing(t *testin
 	}
 	if ix.SearchesAtOnce != 4 || ix.Limit == nil || *ix.Limit != (LibraryLimit{Count: 2, Per: "hour"}) {
 		t.Errorf("indexer = %+v, want 4 searches at once and a limit of 2 an hour", ix)
+	}
+	if ix.Uploads != 250 || !ix.NoPaging || !ix.AlwaysLate {
+		t.Errorf("indexer = %+v, want 250 uploads on a feed that doesn't page and is always late", ix)
 	}
 }
 

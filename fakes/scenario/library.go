@@ -219,6 +219,14 @@ type LibraryIndexer struct {
 	SearchesAtOnce int `jsonschema:"minimum=0,maximum=10" yaml:"searches_at_once,omitempty"`
 	// Limit is its search limit. Unset is no limit.
 	Limit *LibraryLimit `yaml:"limit,omitempty"`
+	// Uploads, NoPaging and AlwaysLate are how a Torznab site lists its
+	// newest uploads, the listing RSS sync reads, until a Feed cue plays:
+	// that many made-up uploads above the world's releases, posted a second
+	// apart from the world's start, the newest page at every offset, and
+	// every listing held past the longest search wait.
+	Uploads    int  `jsonschema:"minimum=0" yaml:"uploads,omitempty"`
+	NoPaging   bool `yaml:"no_paging,omitempty"`
+	AlwaysLate bool `yaml:"always_late,omitempty"`
 }
 
 // LibraryLimit is an Indexer's search limit: Count searches in a sliding
@@ -410,6 +418,7 @@ func (l Library) checkIndexers(add func(format string, args ...any)) {
 		}
 		ix.checkPort(add)
 		ix.checkPacing(add)
+		ix.checkFeed(add)
 	}
 }
 
@@ -422,6 +431,15 @@ func (ix LibraryIndexer) checkPacing(add func(format string, args ...any)) {
 	}
 	if limit := ix.Limit; limit != nil && (limit.Count < 1 || limit.Count > 100000 || (limit.Per != "hour" && limit.Per != "day")) {
 		add("library indexer %s has a limit of %d per %q; it is 1 to 100000 per hour or day", ix.Name, limit.Count, limit.Per)
+	}
+}
+
+func (ix LibraryIndexer) checkFeed(add func(format string, args ...any)) {
+	if ix.Uploads < 0 {
+		add("library indexer %s has %d uploads; it is 0 or more", ix.Name, ix.Uploads)
+	}
+	if ix.Kind != "torznab" && (ix.Uploads > 0 || ix.NoPaging || ix.AlwaysLate) {
+		add("library indexer %s sets how its feed lists uploads, which only a Torznab Indexer's site plays", ix.Name)
 	}
 }
 

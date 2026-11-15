@@ -70,3 +70,32 @@ func TestTheNewestUploadsListNewestFirstAndPlayEachFeedCue(t *testing.T) {
 		t.Fatalf("an oversized page lists %d items, want more than 1,000", n)
 	}
 }
+
+func TestAScenarioIndexerSetsItsSitesListingUntilAFeedCuePlays(t *testing.T) {
+	s := scenarioWithSeed()
+	s.Library = &scenario.Library{Indexers: []scenario.LibraryIndexer{{Name: "Heron", Kind: "torznab", Site: site.Heron, Uploads: 3, NoPaging: true}}}
+	f := faketest.Loopback(t, site.Fake, s, faketest.WithReleases(&releases.Catalog{}), faketest.WithFronts(nil))
+	key := site.APIKey(s)
+	recent := func(label string, offset int) []string {
+		t.Helper()
+		a := jobAt(t, f, label, key, searching.RecentCall{Offset: offset})
+		if a.Outcome != nil {
+			t.Fatalf("a recent call to %s at offset %d = %v", label, offset, a.Outcome)
+		}
+		return listed(a)
+	}
+	first := recent(site.Heron, 0)
+	if len(first) != 3 || !strings.HasPrefix(first[0], "Fixture.Upload.") {
+		t.Fatalf("Heron lists %v, want the scenario's 3 uploads", first)
+	}
+	if got := recent(site.Heron, 2); !slices.Equal(got, first) {
+		t.Fatalf("Heron lists %v at offset 2, want the newest page %v: its scenario Indexer doesn't page", got, first)
+	}
+	if got := recent(site.Torznab, 0); len(got) != 0 {
+		t.Fatalf("the Torznab site lists %v, want nothing: the scenario sets Heron's listing alone", got)
+	}
+	f.Cue(t, site.Feed.Name, site.FeedArgs{})
+	if got := recent(site.Heron, 0); len(got) != 0 {
+		t.Fatalf("after a Feed cue Heron lists %v, want the cue's plain listing", got)
+	}
+}

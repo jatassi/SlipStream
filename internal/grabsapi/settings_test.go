@@ -35,7 +35,7 @@ func values(t *testing.T, f *atticFixture) map[string]any {
 // defaults is every Automatic search setting at its default.
 var defaults = map[string]any{
 	"search.backlogOn": true, "search.backlogUpgrades": true, "tasks.backlog-search.cadence": 28800.0, "search.rssOn": true,
-	"search.longestGap": 604800.0, "search.fullPace": 1209600.0, "search.stopCount": 3.0, "search.stopWindow": 604800.0,
+	"tasks.rss-sync.cadence": 900.0, "search.longestGap": 604800.0, "search.fullPace": 1209600.0, "search.stopCount": 3.0, "search.stopWindow": 604800.0,
 	"indexers.searchWait": 120.0,
 }
 
@@ -60,6 +60,8 @@ func TestASearchSettingsChangeOutsideARangeChangesNothing(t *testing.T) {
 		`{"values":{"search.stopWindow":2595600}}`,
 		`{"values":{"indexers.searchWait":9}}`,
 		`{"values":{"indexers.searchWait":601}}`,
+		`{"values":{"tasks.rss-sync.cadence":540}}`,
+		`{"values":{"tasks.rss-sync.cadence":7260}}`,
 		`{"values":{"search.backlogOn":"off"}}`,
 		`{"values":{"search.backlogOn":false,"indexers.searchWait":601}}`,
 		`{"values":{"search.stopCount":5,"search.stopWindow":60}}`,
@@ -80,13 +82,14 @@ func TestASearchSettingsChangeOutsideARangeChangesNothing(t *testing.T) {
 func TestASearchSettingsChangeStoresEveryValueAndNullResetsIt(t *testing.T) {
 	f := searchable(t, site{})
 	change := `{"values":{"search.backlogOn":false,"search.backlogUpgrades":false,"search.rssOn":false,"search.longestGap":172800,` +
-		`"search.fullPace":0,"search.stopCount":1,"search.stopWindow":3600,"indexers.searchWait":45}}`
+		`"search.fullPace":0,"search.stopCount":1,"search.stopWindow":3600,"indexers.searchWait":45,"tasks.rss-sync.cadence":1800}}`
 	if code, body := f.s.Call(t, http.MethodPatch, "/api/v1/search-settings", change); code != http.StatusOK {
 		t.Fatalf("PATCH %s = %d %s", change, code, body)
 	}
 	want := map[string]any{
 		"search.backlogOn": false, "search.backlogUpgrades": false, "search.rssOn": false, "search.longestGap": 172800.0,
 		"search.fullPace": 0.0, "search.stopCount": 1.0, "search.stopWindow": 3600.0, "indexers.searchWait": 45.0,
+		"tasks.rss-sync.cadence": 1800.0,
 	}
 	got := values(t, f)
 	for key, v := range want {
