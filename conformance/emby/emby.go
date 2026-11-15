@@ -6,9 +6,8 @@
 // POST /Library/Refresh, and it has ended when the RefreshLibrary task is
 // Idle with a LastExecutionResult.EndTimeUtc later than before the scan
 // was asked for, the rule Jellyfin follows (graft 3). A library's
-// RefreshStatus is no end signal: it carries no end time, so a scan that
-// went Active and back to Idle between two polls reads as one not yet
-// started. RefreshStatusReturnsToIdle records what it does.
+// RefreshStatus is no end signal: it carries no end time, and on 4.10 it
+// never read Idle after a recursive refresh (online run 2026-11-14).
 package emby
 
 import (
@@ -43,7 +42,7 @@ func Run(t *testing.T, tg Target) {
 	}{
 		{"PathLookup", PathLookup},
 		{"VersionsAreItems", VersionsAreItems},
-		{"RefreshStatusReturnsToIdle", RefreshStatusReturnsToIdle},
+		{"RecursiveRefreshFindsFile", RecursiveRefreshFindsFile},
 		{"UserDataDropsFavorite", UserDataDropsFavorite},
 		{"DeletedWaitsTheDelay", DeletedWaitsTheDelay},
 		{"TranscodeAfterReport", TranscodeAfterReport},
@@ -137,10 +136,12 @@ func refreshStatus(t *testing.T, s *mediabrowser.Server, library string) string 
 	return ""
 }
 
-// RefreshStatusReturnsToIdle refreshes the library's item recursively
-// with a file placed and not reported. The library's RefreshStatus reads
-// Idle again and the file has an item.
-func RefreshStatusReturnsToIdle(t *testing.T, _ Target, shared mediaservers.Target, s *mediabrowser.Server) {
+// RecursiveRefreshFindsFile refreshes the library's item recursively, a
+// Rescan's call, with a file placed and not reported. The file gets an
+// item. The case logs the library's RefreshStatus after: Emby 4.10's never
+// read Idle in five minutes (online run 2026-11-14), and what it reads is
+// unrecorded.
+func RecursiveRefreshFindsFile(t *testing.T, _ Target, shared mediaservers.Target, s *mediabrowser.Server) {
 	f := shared.Case(t)
 	defer f.Clear()
 	r := mediaservers.Rel(t, "Refreshed", ".mkv")
@@ -149,9 +150,7 @@ func RefreshStatusReturnsToIdle(t *testing.T, _ Target, shared mediaservers.Targ
 		t.Fatal(err)
 	}
 	f.Found(r)
-	mediaservers.Eventually(t, shared, "RefreshStatus Idle", func() (bool, error) {
-		return refreshStatus(t, s, shared.Library) == "Idle", nil
-	})
+	t.Logf("after the refresh the library's RefreshStatus reads %q", refreshStatus(t, s, shared.Library))
 }
 
 // UserDataDropsFavorite is Emby 4.10's UserData write: it answers success

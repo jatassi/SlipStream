@@ -117,14 +117,16 @@ func (s *server) libraries(w http.ResponseWriter, _ *http.Request, _ caller) {
 			locations[i], infos[i] = f.String(), map[string]string{"Path": f.String()}
 		}
 		v := map[string]any{
-			"Name": l.Name, "Locations": locations, "CollectionType": l.Type, "ItemId": l.Key, "RefreshStatus": "Idle",
+			"Name": l.Name, "Locations": locations, "CollectionType": l.Type, "ItemId": l.Key,
 			"LibraryOptions": map[string]any{"Enabled": true, "EnableRealtimeMonitor": false, "PathInfos": infos},
 		}
-		if l.Scan.Running {
-			v["RefreshStatus"], v["RefreshProgress"] = "Active", 0
-		}
-		if s.p.Flavor == Emby {
+		switch {
+		case s.p.Flavor == Emby:
 			v["Id"], v["Guid"] = l.Key, l.Key
+		case l.Scan.Running:
+			v["RefreshStatus"], v["RefreshProgress"] = "Active", 0
+		default:
+			v["RefreshStatus"] = "Idle"
 		}
 		out = append(out, v)
 	}
@@ -201,7 +203,7 @@ func (s *server) refreshAll(w http.ResponseWriter, r *http.Request, _ caller) {
 }
 
 // refreshItem is Emby's item refresh. On a library's item with
-// Recursive it scans that library, shown in its RefreshStatus.
+// Recursive it scans that library.
 func (s *server) refreshItem(w http.ResponseWriter, r *http.Request, _ caller) {
 	key := r.PathValue("id")
 	if _, ok := s.core.Item(key); ok {
