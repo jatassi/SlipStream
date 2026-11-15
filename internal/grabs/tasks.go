@@ -2,10 +2,10 @@ package grabs
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/setting"
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/tasks"
 )
 
@@ -38,17 +38,27 @@ type Cadences interface {
 	SetCadence(ctx context.Context, id tasks.TaskID, v setting.Stored[int64]) error
 }
 
-// Tasks is grabs' Scheduled tasks.
-func (*Grabs) Tasks() []tasks.Task { return nil }
+// Tasks is grabs' Scheduled tasks: Backlog search, on the Controller,
+// whose one unit reconciles the queue and queues what is due.
+func (gr *Grabs) Tasks() []tasks.Task {
+	return []tasks.Task{{
+		ID:   BacklogTaskID,
+		Name: "Backlog search",
+		About: "Searches the Wants that are due. A Want that keeps coming up empty is searched less often, up to the longest gap. " +
+			"Run now searches only the Wants already due. To search every Want now, use Search all on Wanted.",
+		Group:   tasks.ControllerGroup,
+		Cadence: tasks.Every{Interval: BacklogEvery},
+		Noun:    setting.Noun{One: "step", Many: "steps"},
+		Units: func(context.Context, storage.Reader[storage.Library]) ([]tasks.Unit, error) {
+			return []tasks.Unit{{Key: "due", Label: "Due searches", Place: tasks.OnController()}}, nil
+		},
+		Run: gr.backlog,
+	}}
+}
 
-// interval is Backlog search's cadence as tasks stores it. tasks knows no
-// Backlog search task until Backlog search registers one, and its cadence
-// is the default till then.
+// interval is Backlog search's cadence as tasks stores it.
 func (gr *Grabs) interval(ctx context.Context) (time.Duration, error) {
 	every, err := gr.cfg.Tasks.Every(ctx, BacklogTaskID)
-	if errors.Is(err, tasks.ErrUnknownTask) {
-		return BacklogEvery.Default, nil
-	}
 	if err != nil {
 		return 0, err
 	}
