@@ -168,7 +168,7 @@ func TestConfirmIdentityAfterAnotherServerAnswers(t *testing.T) {
 		status, body = r.o.Call(t, http.MethodPost, servers+"/"+id+"/confirm-identity", "")
 		expectProblem(t, status, body, http.StatusOK, `"identity":"`+other.ID+`"`)
 		status, body = r.o.Call(t, http.MethodPost, servers+"/"+id+"/test", "")
-		expectProblem(t, status, body, http.StatusOK, `"reaching":{"ok":true,"words":"seedbox reached Den."}`)
+		expectProblem(t, status, body, http.StatusOK, `"reaching":{"ok":true,"words":"seedbox connected to Den."}`)
 	})
 }
 
@@ -206,10 +206,10 @@ func TestRehomeUnconfirmsTheMapping(t *testing.T) {
 		r.w.Rehome(t, root.ID, "Shelves")
 		status, body = r.o.Call(t, http.MethodGet, servers+"/"+id, "")
 		expectProblem(t, status, body, http.StatusOK, `"mappingsNeeded":1`,
-			`"words":"Den won't get changes for files in Shelves library root on home. Add a Path mapping, or mark the root as not shown on this server."`)
+			`"words":"Den won't get changes for files in Shelves library root on home. Add a Path mapping, or mark the root as not in a Den library."`)
 		status, body = r.o.Call(t, http.MethodGet, servers+"/"+id+"/libraries", "")
 		expectProblem(t, status, body, http.StatusOK, `"confirmed":false`,
-			`Den holds changes for files in Shelves library root on home until its Path mapping is confirmed.`)
+			`SlipStream won't send Den changes for files in Shelves library root on home until you confirm its Path mapping.`)
 	})
 }
 
@@ -220,6 +220,6 @@ func TestSettingsRefuseAMarginNoLongerThanTheCadence(t *testing.T) {
 		r := newRig(t)
 		status, body := r.o.Call(t, http.MethodPatch, servers+"/settings", `{"values":{"mediaServers.renewMargin":86400}}`)
 		expectProblem(t, status, body, http.StatusUnprocessableEntity, `"code":"renew_margin_too_short"`,
-			`\"Renew when less than this is left\" must be longer than \"Renew Plex sign-in every\", which is 1 day.`)
+			`\"Renew when the sign-in expires within\" must be longer than \"Renew Plex sign-in every\", which is 1 day.`)
 	})
 }

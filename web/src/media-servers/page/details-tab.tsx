@@ -29,12 +29,12 @@ function Holders({ holders, kind }: { holders: readonly Holder[]; kind: Kind }) 
     <span className="flex flex-col gap-1">
       <span>
         {holders
-          .map((holder) => (holder.current ? holder.node.name : `${holder.node.name} (before)`))
+          .map((holder) => (holder.current ? holder.node.name : `${holder.node.name} (earlier)`))
           .join(", ")}
       </span>
       {kind.signIn === "api_key_or_admin" && (
         <span className="text-meta text-ink-3">
-          {`To take the key from these Nodes, replace it on ${kind.label} and paste the new key under Settings.`}
+          {`To revoke their copies, create a new key in ${kind.label} and paste it under Settings.`}
         </span>
       )}
     </span>
@@ -50,7 +50,7 @@ export function DetailsTab({ server }: { server: Server }) {
   const rows: (readonly [string, ReactNode])[] = [
     ["Server", words(`${kind.label} ${server.version}`)],
     ["Address", server.address],
-    ["Fallback address", server.fallbackAddress ?? words("The address")],
+    ["Fallback address", server.fallbackAddress ?? words("Same as Address")],
     ...(kind.browser ? [["Browser address", server.browserAddress ?? words("None")] as const] : []),
     ["Connects from", words(server.reachingNode.name)],
     ["Runs on", words(server.runsOnNode?.name ?? "No Node")],
@@ -58,7 +58,7 @@ export function DetailsTab({ server }: { server: Server }) {
     ["Last contact", words(when(server.lastContactAt))],
     ["Last send", words(when(server.lastSendAt))],
     [
-      "Key held by",
+      "Nodes with the key",
       holders.length === 0 ? (
         words("No Node")
       ) : (

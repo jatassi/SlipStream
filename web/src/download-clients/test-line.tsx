@@ -34,7 +34,7 @@ export function TestLine({ result, node }: { result: TestResult; node: string })
       <Line
         signal="ok"
         ink="text-ink-1"
-        text={`The Test passed. ${node} reached ${product} ${version}.`}
+        text={`The Test passed. ${node} connected to ${product} ${version}.`}
       />
       {warnings.map((warning) => (
         <Line key={warning} signal="warn" ink="text-warn" text={warning} />

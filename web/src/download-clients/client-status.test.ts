@@ -9,7 +9,7 @@ test.each<{ name: string; client: DownloadclientsExternalClient; words: ClientSt
   {
     name: "a responding client names the version its Node reached",
     client: attic,
-    words: { signal: "ok", chip: "Responding", sentence: "home reached Transmission 4.1.0." },
+    words: { signal: "ok", chip: "Responding", sentence: "home connected to Transmission 4.1.0." },
   },
   {
     name: "a client that isn't responding says what to check",

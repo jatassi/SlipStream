@@ -168,7 +168,7 @@ test("picking a server no Node reached fills its own name and Nodes, and Details
   await expect
     .element(
       dialog().getByText(
-        "Plex 1.43.4.10903. No Node can reach it. Type an address it responds at under Details.",
+        "Plex 1.43.4.10903. No Node can reach it. Enter the server's address under Details.",
       ),
     )
     .toBeVisible();

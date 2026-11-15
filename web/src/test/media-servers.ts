@@ -103,7 +103,7 @@ export const denLibraries: MediaserversLibraries = {
       confirmed: false,
       scanned: false,
       words:
-        "Den Jellyfin won't get changes for files in Archive (/mnt/archive/films). Confirm the Path mapping, or mark the root as not shown on this server.",
+        "Den Jellyfin won't get changes for files in Archive (/mnt/archive/films). Confirm the Path mapping, or mark the root as not in a Den Jellyfin library.",
     },
   ],
 };
@@ -245,7 +245,7 @@ export const mediaServerSettings = (): SettingDurationField[] => [
   ]),
   duration("mediaServers.keepPlays", "Keep play history for", 30 * day, [day, 365 * day, day]),
   duration("tasks.plex-sign-in.cadence", "Renew Plex sign-in every", day, [hour, 6 * day, hour]),
-  duration("mediaServers.renewMargin", "Renew when less than this is left", 3 * day, [
+  duration("mediaServers.renewMargin", "Renew when the sign-in expires within", 3 * day, [
     hour,
     6 * day,
     hour,

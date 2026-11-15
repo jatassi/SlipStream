@@ -143,7 +143,7 @@ func (m *MediaServers) stateOf(row db.MediaserversServer, k link.Kind, w world, 
 	case len(needed) == 1:
 		return State{Level: "warn", Words: noMappingWords(row.Name, w.words[needed[0]])}
 	case len(needed) > 1:
-		return State{Level: "warn", Words: fmt.Sprintf("%s won't get changes for files in %d library roots. Add their Path mappings, or mark them as not shown on this server.", row.Name, len(needed))}
+		return State{Level: "warn", Words: fmt.Sprintf("%s won't get changes for files in %d library roots. Add their Path mappings, or mark them as not in a %s library.", row.Name, len(needed), row.Name)}
 	case row.Contact == link.ContactResponding:
 		return State{Level: "ok", Words: fmt.Sprintf("%s responds to %s.", row.Name, node)}
 	}
@@ -187,9 +187,9 @@ func offlineWords(row db.MediaserversServer, node string) string {
 	if row.Fallback == "available" {
 		return fmt.Sprintf("%s can't be checked while %s is offline. SlipStream sends changes through the Controller until %s is back.", row.Name, node, node)
 	}
-	return fmt.Sprintf("SlipStream holds changes for %s until %s is back.", row.Name, node)
+	return fmt.Sprintf("%s is offline. SlipStream keeps the changes for %s and sends them once %s is back.", node, row.Name, node)
 }
 
 func noMappingWords(server, root string) string {
-	return fmt.Sprintf("%s won't get changes for files in %s. Add a Path mapping, or mark the root as not shown on this server.", server, root)
+	return fmt.Sprintf("%s won't get changes for files in %s. Add a Path mapping, or mark the root as not in a %s library.", server, root, server)
 }
