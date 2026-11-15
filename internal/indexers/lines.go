@@ -57,8 +57,8 @@ func (x *Indexers) lines(ctx context.Context, r storage.Reader[file], typ works.
 	return lines, byID, nil
 }
 
-// SearchWaitIn is the stored SearchWait, read in r: a line dispatched now
+// SearchWaitDurationIn is the SearchWait in force, read in r: a line dispatched now
 // answers late once it passes.
-func SearchWaitIn(ctx context.Context, r storage.Reader[file]) (time.Duration, error) {
+func SearchWaitDurationIn(ctx context.Context, r storage.Reader[file]) (time.Duration, error) {
 	return searchWait(ctx, r)
 }

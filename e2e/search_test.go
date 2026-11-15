@@ -89,7 +89,8 @@ func TestASecondSearchMergesIntoTheRunningOneWithinEachIndexersSearchLimit(t *te
 	var list struct {
 		Searches []searchView `json:"searches"`
 	}
-	if decode(t, "listSearches", w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/searches", ""), &list); len(list.Searches) != 1 {
+	decode(t, "listSearches", w.a.Admin("home", http.MethodGet, "/api/v1/works/"+w.work+"/searches", ""), &list)
+	if len(list.Searches) != 1 {
 		t.Fatalf("the Work's searches are %+v, want the one run both presses share", list.Searches)
 	}
 }

@@ -56,7 +56,7 @@ func (gr *Grabs) dispatch(ctx context.Context) (time.Time, error) {
 		if err := gr.fence(ctx, tx); err != nil {
 			return err
 		}
-		wait, err := indexers.SearchWaitIn(ctx, tx)
+		wait, err := indexers.SearchWaitDurationIn(ctx, tx)
 		if err != nil {
 			return err
 		}
