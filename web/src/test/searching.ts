@@ -105,6 +105,12 @@ export const starvedByRSS = (n: number) =>
     nextSearchAt: null,
   });
 
+/** Searching, its paced line waiting for TorrentLeech, whose search limit RSS sync uses up. */
+export const searchingStarved = (n: number) => ({
+  ...starvedByRSS(n),
+  state: "searching" as const,
+});
+
 /** Searching now for a press. */
 export const searchingNow = (n: number) =>
   aGroupState(n, { state: "searching", lane: "now", trigger: "search", nextSearchAt: null });

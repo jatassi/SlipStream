@@ -20,6 +20,7 @@ import {
   queuedNow,
   searchingNow,
   searchingSeveral,
+  searchingStarved,
   starvedByRSS,
 } from "../test/searching";
 import {
@@ -86,10 +87,24 @@ test("the hero leads with the searching group, counting the Work's groups in fli
   expect(leadWords(searchingSeveral, clock, true)).toEqual({
     kind: "searching",
     words: "Searching volume 3 of 10",
+    behind: undefined,
   });
   expect(leadWords(searchingSeveral, clock, false)).toEqual({
     kind: "searching",
     words: "Searching",
+    behind: undefined,
+  });
+});
+
+test("a searching group whose line waits for a starved Indexer says what it waits for", () => {
+  const searching = aWorkSearching({
+    groups: [searchingStarved(1)],
+    lead: { groupKey: searchingStarved(1).key, of: 1, wait: null },
+  });
+  expect(leadWords(searching, clock, false)).toEqual({
+    kind: "searching",
+    words: "Searching",
+    behind: "Backlog search waits for TorrentLeech. RSS sync uses all of its search limit.",
   });
 });
 
