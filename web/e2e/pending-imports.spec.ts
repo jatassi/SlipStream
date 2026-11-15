@@ -171,7 +171,7 @@ test("a folder imports by hand, and a download that isn't an upgrade forces into
   await menuItem(page, `Other actions for ${video}`, "Force into 1080p").click();
   const confirm = page.getByRole("dialog", { name: "Force into 1080p?" });
   await expect(
-    confirm.getByText(`This deletes ${kept}, because it fills no other Target.`, { exact: true }),
+    confirm.getByText(`This deletes ${kept}, because no other Target uses it.`, { exact: true }),
   ).toBeVisible();
   await expectAccessible(page);
   await confirm.getByRole("button", { name: "Force into 1080p", exact: true }).click();
