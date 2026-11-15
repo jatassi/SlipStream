@@ -120,17 +120,15 @@ func InUse(node string) string {
 // HasTorrents is the sentence of a refusal to delete or move client name
 // while it holds count Torrents SlipStream tracks.
 func HasTorrents(name string, count int, moving bool) string {
-	if count == 1 {
-		if moving {
-			return name + " holds 1 torrent SlipStream tracks. Remove it, or delete the client with Stop tracking, then move the client."
-		}
-		return name + " holds 1 torrent SlipStream tracks. Stop tracking it to delete the client."
+	switch {
+	case count == 1 && moving:
+		return name + " can't move to another Node while it has 1 torrent that SlipStream tracks. Remove the torrent first, or select Stop tracking and delete, then add the client again on the other Node."
+	case count == 1:
+		return name + " has 1 torrent that SlipStream tracks. Stop tracking it to delete the client."
+	case moving:
+		return fmt.Sprintf("%s can't move to another Node while it has %d torrents that SlipStream tracks. Remove the torrents first, or select Stop tracking and delete, then add the client again on the other Node.", name, count)
 	}
-	held := fmt.Sprintf("%s holds %d torrents SlipStream tracks.", name, count)
-	if moving {
-		return held + " Remove them, or delete the client with Stop tracking, then move it."
-	}
-	return held + " Stop tracking them to delete it."
+	return fmt.Sprintf("%s has %d torrents that SlipStream tracks. Stop tracking them to delete the client.", name, count)
 }
 
 // Importing is the sentence of a refusal to delete client name while a

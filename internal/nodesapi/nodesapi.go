@@ -44,7 +44,7 @@ var (
 	rolesBlocked  = api.NewCarrying[outcome](http.StatusConflict, "roles_blocked", "A guardrail blocks this change", "outcome")
 	nothingHeld   = api.NewCarrying[outcome](http.StatusConflict, "nothing_held", "The Node holds nothing to write off for these Roles", "outcome")
 	keepsRole     = api.NewCarrying[outcome](http.StatusConflict, "keeps_role", "The Node is the last that can hold a Role it would write off", "outcome")
-	isController  = api.NewCarrying[outcome](http.StatusConflict, "node_is_controller", "The Controller can't be removed. Hand it over instead.", "outcome")
+	isController  = api.NewCarrying[outcome](http.StatusConflict, "node_is_controller", "The Controller can't be removed", "outcome")
 	holdsWork     = api.NewCarrying[outcome](http.StatusConflict, "node_holds_work", "The Node holds work. Remove it with writeOff to write the work off.", "outcome")
 	nameTaken     = api.NewCode(http.StatusConflict, "node_name_taken", "Another Node has this name")
 	nameInvalid   = api.NewCode(http.StatusUnprocessableEntity, "node_name_invalid", "A Node's name is 1 to 63 characters, with no space at either end")

@@ -23,7 +23,7 @@ var (
 	clientChooseDaemon = api.NewCarrying[[]daemon](http.StatusUnprocessableEntity, "download_client_choose_daemon", "Choose the daemon SlipStream uses", "daemons")
 	clientUnavailable  = api.NewCode(http.StatusBadGateway, "download_client_unavailable", "The Test couldn't run")
 	clientInUse        = api.NewCode(http.StatusConflict, "download_client_in_use", "New Grabs go to this client")
-	clientHasTorrents  = api.NewCode(http.StatusConflict, "download_client_has_torrents", "This client holds torrents SlipStream tracks")
+	clientHasTorrents  = api.NewCode(http.StatusConflict, "download_client_has_torrents", "This client has torrents that SlipStream tracks")
 	clientAddressTaken = api.NewCode(http.StatusConflict, "download_client_address_taken", "Another Download Client already uses this address")
 	clientNameTaken    = api.NewCode(http.StatusConflict, "download_client_name_taken", "Another Download Client has that name")
 	clientNotFound     = api.NewCode(http.StatusNotFound, "download_client_not_found", "No Download Client has this id")

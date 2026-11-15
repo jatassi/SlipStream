@@ -79,7 +79,7 @@ test("Change under Reached by dials the Worker at a pasted Node address, or stop
   expect(dial.sent).toEqual([{ nodeAddress: "SLN1-7Q2KD-M4ZP1" }, { addresses: [] }]);
 });
 
-test("the Controller's Overview has no Reached by, and its Remove row says to hand it over", async () => {
+test("the Controller's Overview has no Reached by, and its Remove row says why it stays", async () => {
   renderApp({ path: `/nodes/${ids.home}`, handlers: [...threeNodes, ...systems] });
   await expect.element(overview().getByText("Key")).toBeVisible();
   await expect.element(overview().getByText("Reached by")).not.toBeInTheDocument();

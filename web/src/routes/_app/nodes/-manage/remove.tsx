@@ -21,9 +21,9 @@ const closing = (onClose: () => void) => (open: boolean) => {
   }
 };
 
-/** Why the Controller stays, and what retires it instead. */
+/** Why the Controller stays. */
 export const controllerStays = (name: string): string =>
-  `${name} is the Controller, which keeps the library, so it can't be removed. To retire it, hand the Controller over to another Node first. Handover comes in a later version of SlipStream.`;
+  `${name} is the Controller, which keeps the library, so it can't be removed.`;
 
 function ControllerStays({ seat, onClose }: Pick<Props, "seat" | "onClose">) {
   return (

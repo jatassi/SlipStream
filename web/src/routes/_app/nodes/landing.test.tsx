@@ -166,12 +166,15 @@ test("a Node that started holding work since the Roster loaded is refused, then 
   ]);
 });
 
-test("the Controller can't be removed, and Remove says to hand it over", async () => {
+test("the Controller can't be removed, and Remove says why", async () => {
   const server = manageServer({});
   renderApp({ path: "/nodes?view=roster", handlers: [...threeNodes, ...server.handlers] });
   await openMenu("home", "Remove");
   const dialog = page.getByRole("dialog", { name: "home can't be removed" });
-  await expect.poll(textOf(dialog)).toMatch(/hand the Controller over to another Node first/u);
+  await expect
+    .poll(textOf(dialog))
+    .toMatch(/home is the Controller, which keeps the library, so it can't be removed\./u);
+  await expect.poll(textOf(dialog)).not.toMatch(/hand/iu);
   await userEvent.click(dialog.getByRole("button", { name: "Close" }));
   await expect.element(dialog).not.toBeInTheDocument();
   expect(server.removed).toEqual([]);

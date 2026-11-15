@@ -37,11 +37,11 @@ func (w Wait) words(names map[role.NodeID]string, source, dest string) string {
 	case Connecting:
 		return fmt.Sprintf("Connecting to %s.", node)
 	case NoRoute:
-		return fmt.Sprintf("%s and %s can't reach each other. Open the link port on one of them, or add a Relay Node.", source, dest)
+		return fmt.Sprintf("%s and %s can't reach each other. Open the link port on one of them.", source, dest)
 	case RootNotReady:
 		return fmt.Sprintf("Waiting for the library root on %s.", node)
 	case StorageDraining:
-		return fmt.Sprintf("Waiting while %s drains Storage.", node)
+		return fmt.Sprintf("Waiting while %s finishes its Storage work.", node)
 	case SourceChecking:
 		return fmt.Sprintf("Waiting for %s to check %s.", node, w.Name)
 	case SourceNotReady:
