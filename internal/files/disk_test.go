@@ -557,6 +557,10 @@ type claiming struct {
 	paths []string
 }
 
+func (claiming) Searching(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[files.CellKey]files.SearchFact, error) {
+	return nil, nil
+}
+
 func (claiming) GrabCells(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
 	return nil, nil
 }

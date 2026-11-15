@@ -24,6 +24,7 @@ import (
 	"github.com/jatassi/slipstream/internal/role"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 	"github.com/jatassi/slipstream/internal/targets"
@@ -48,6 +49,10 @@ func must[T any](t *testing.T) func(T, error) T {
 }
 
 type grabbing map[files.CellKey]files.GrabCell
+
+func (grabbing) Searching(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[files.CellKey]files.SearchFact, error) {
+	return nil, nil
+}
 
 func (g grabbing) GrabCells(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
 	return g, nil
@@ -79,6 +84,8 @@ type library struct {
 	moved moves
 	// servers is what its files owners told the Media Servers.
 	servers tellings
+	// queue is what its files owners ask to search.
+	queue searches.Queue
 }
 
 type moves struct {
@@ -162,6 +169,7 @@ func (l *library) on(cells files.Inflight, disk files.Disk) *files.Files {
 		Today: func() time.Time { return today },
 		Disk:  disk, Changed: &l.changed, Moved: &l.moved, MediaServers: &l.servers, Timings: files.Timings{RetryMin: time.Millisecond, RetryMax: 4 * time.Millisecond},
 		Rand: rand.New(rand.NewPCG(1, 2)), Log: slog.New(slog.DiscardHandler), //nolint:gosec // seeded on purpose so tests replay
+		Queue: l.queue,
 	})
 	if err != nil {
 		l.t.Fatal(err)

@@ -11,6 +11,7 @@ import (
 	"github.com/jatassi/slipstream/internal/files/internal/db"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/release"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -176,7 +177,39 @@ func (f *Files) change(ctx context.Context, tx *storage.Tx[file], c targets.Chan
 		impact.Downloading += downloading(was.grabs, gone(from[i], to))
 	}
 	impact.Renames = listed(impact.Renames, trees)
+	if err := f.queue(ctx, tx, c, ids); err != nil {
+		return Impact{}, nil, err
+	}
 	return impact, ids, nil
+}
+
+// queue asks, in tx, for the search c calls for of the Works it touched.
+func (f *Files) queue(ctx context.Context, tx *storage.Tx[file], c targets.Change, touched []works.WorkID) error {
+	t, ok := searchesOf(c)
+	if !ok || len(touched) == 0 {
+		return nil
+	}
+	asks := make([]searches.Ask, len(touched))
+	for i, w := range touched {
+		asks[i] = searches.Ask{Work: w}
+	}
+	return f.cfg.Queue.Queue(ctx, tx, t, asks...)
+}
+
+// searchesOf is the search a save of c asks for the Works it touches,
+// false for none. A Target, cut or format edit only resets their gaps.
+func searchesOf(c targets.Change) (searches.Trigger, bool) {
+	switch c.(type) {
+	case targets.SetProfiles, targets.DeleteProfile:
+		return searches.Profile, true
+	case targets.SetWants:
+		return searches.Editions, true
+	case targets.UpdateTarget, targets.UpdateProfile, targets.UpdateCut, targets.UpdateFormat, targets.DeleteFormat, targets.AddFormats:
+		return searches.Retarget, true
+	case targets.SetHold:
+		return "", false
+	}
+	panic(fmt.Sprintf("files: no search rule for a %T", c))
 }
 
 // touches is what c may change, narrowed by its format edits to the

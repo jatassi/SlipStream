@@ -45,6 +45,12 @@ const (
 	ClientErrorWait = "client_error"
 )
 
+// Searching is files.Inflight's search facts. Nothing searches by itself
+// yet, so no cell has any.
+func (g GrabCells) Searching(context.Context, storage.Reader[storage.Library], works.Among[works.WorkID]) (map[files.CellKey]files.SearchFact, error) {
+	return nil, nil
+}
+
 func (g GrabCells) GrabCells(ctx context.Context, r storage.Reader[storage.Library], ws works.Among[works.WorkID]) (map[files.CellKey]files.GrabCell, error) {
 	q := db.New(r)
 	rows, err := works.Read(ws, func() ([]db.ListTargetsOfWorksRow, error) {

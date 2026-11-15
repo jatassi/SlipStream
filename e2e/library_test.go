@@ -153,7 +153,7 @@ func TestAFreshControllerWantsTheStarterForItsContentType(t *testing.T) {
 	worldtest.Expect(t, "getWorkWants", a.Admin("home", http.MethodGet, "/api/v1/works/"+tr.ID+"/wants", ""), worldtest.Reply{Status: 200,
 		Body: `{"profileId":"` + movies.ID + `","profileName":"Movies","editions":{"kind":"any"},"from":"profile"}` + "\n"})
 	worldtest.Expect(t, "getWorkCells", a.Admin("home", http.MethodGet, "/api/v1/works/"+tr.ID+"/cells", ""), worldtest.Reply{Status: 200,
-		Body: `{"cells":[{"itemId":"` + tr.Items[0].ID + `","edition":"any","targetId":"` + starter.ID + `","targetName":"1080p","wanted":true,"state":"missing"}],` +
+		Body: `{"cells":[{"itemId":"` + tr.Items[0].ID + `","edition":"any","targetId":"` + starter.ID + `","targetName":"1080p","wanted":true,"gone":false,"stopped":false,"waitUntil":null,"candidates":0,"state":"missing"}],` +
 			`"items":[{"itemId":"` + tr.Items[0].ID + `","status":"missing","released":true}],` +
 			`"summary":{"status":"missing","cells":{"missing":1},"items":1,"itemStatus":{"missing":1}},"levels":[],"needsYou":[]}` + "\n"})
 }
