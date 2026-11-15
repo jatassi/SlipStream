@@ -241,7 +241,7 @@ func (c lifting) imports(t *testing.T) {
 	}
 	g := awaitGrab(t, w, grabByHand(t, w, work, v, o))
 	simtest.ExpectImported(t, g.GrabView)
-	want := []string{"It was grabbed through the API key " + c.overrides}
+	want := []string{"An app using the API key grabbed it " + c.overrides}
 	if g.Source != "manual" || g.GrabbedBy == nil || *g.GrabbedBy != "the API key" || !slices.Equal(g.Overrides, want) {
 		t.Fatalf("the Grab is from %s by %v with overrides %q, want a Manual Grab through the API key with %q", g.Source, g.GrabbedBy, g.Overrides, want)
 	}
