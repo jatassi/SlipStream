@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 
 import type { TargetDraft } from "./draft";
 import { FiltersSection } from "./filters";
+import { HoldField } from "./hold-field";
 import { NameSection } from "./name-section";
 import { PropersSection } from "./propers-section";
 import { QualitiesSection } from "./qualities";
@@ -28,4 +29,5 @@ export const targetSections: readonly EditorSection<TargetDraft>[] = [
   { id: "sizes", label: "Sizes", component: SizesSection },
   { id: "scores", label: "Scores", component: ScoresSection },
   { id: "propers", label: "Propers and repacks", component: PropersSection },
+  { id: "hold", label: "Hold", component: HoldField },
 ];

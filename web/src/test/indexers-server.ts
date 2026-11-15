@@ -14,7 +14,6 @@ import { type Server, find, missing, testHandlers, tested, trackerHandlers } fro
 import {
   larkspur,
   longBackoff,
-  searchWait,
   prowlarr,
   queries,
   searchingSeedbox,
@@ -78,6 +77,8 @@ function edited(row: IndexersIndexer, edit: Edit): IndexersIndexer {
     priority: edit.priority === undefined ? row.priority : (edit.priority ?? 25),
     searches: limitOf(row.searches, edit.searches),
     grabs: limitOf(row.grabs, edit.grabs),
+    searchesAtOnce:
+      edit.searchesAtOnce === undefined ? row.searchesAtOnce : (edit.searchesAtOnce ?? 2),
     sentence: on ? row.sentence : `${row.name} is off.`,
     revision: row.revision + 1,
   };
@@ -158,7 +159,7 @@ export function indexersServer({
     state: {
       indexers: [...indexers],
       trackers: [...trackerList],
-      settings: [searchWait, longBackoff],
+      settings: [longBackoff],
     },
     writes: [],
     failTest,

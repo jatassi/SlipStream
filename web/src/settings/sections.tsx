@@ -16,9 +16,10 @@ import { getListContentTypesSuspenseQueryOptions } from "../api/gen/query/works/
 import { ensureQuery, freshQuery } from "../api/query-client";
 import { downloadClientsSection } from "../download-clients/section";
 import { customFormatsSection } from "../formats/section";
+import { automaticSearchSection } from "../grabs/settings-section";
 import { importingSection, libraryScanSection } from "../imports/section";
-import { indexersSection } from "../indexers/section";
 // oxlint-disable-next-line import/max-dependencies -- the table names every section of Settings
+import { indexersSection } from "../indexers/section";
 import { namingSection } from "../naming/section";
 import { mediaServersSection } from "../media-servers/section";
 import { libraryRootsSection } from "../roots/section";
@@ -132,7 +133,7 @@ export const settingsGroups: readonly [SettingsGroup, ...SettingsGroup[]] = [
   {
     id: "search-download",
     label: "Search and download",
-    sections: [indexersSection, trackersSection, downloadClientsSection],
+    sections: [indexersSection, automaticSearchSection, trackersSection, downloadClientsSection],
   },
   { id: "access", label: "Access", sections: [addressSection, signInSection, apiKeySection] },
   { id: "system", label: "System", sections: [nodesSection, emailSection, mediaServersSection] },
