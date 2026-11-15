@@ -43,26 +43,33 @@ func landing(t searches.Trigger, several bool) entry {
 	return entry{trigger: t, lane: lane, gone: r.gone, resets: r.resets, holds: r.holds}
 }
 
-// enqueue lands e on each search group of cells' Items, cells of tree, in
-// tx, and answers each group's state. It is the one writer of a due row's
-// queued entry, and promotes an open run e outranks.
-func (gr *Grabs) enqueue(ctx context.Context, tx *storage.Tx[file], tree works.Tree, cells []files.Cell, e entry) ([]Queued, error) {
-	groups, err := gr.cfg.Terms[tree.ContentType].Groups(ctx, tx, tree.ID, itemsOf(cells))
+// enqueue lands e on each search group of cells' Items, cells of work of
+// Content Type typ, in tx, under Backlog search's interval, and answers
+// each group's state.
+func (gr *Grabs) enqueue(ctx context.Context, tx *storage.Tx[file], work works.WorkID, typ works.TypeID, cells []files.Cell, e entry, interval time.Duration) ([]Queued, error) {
+	groups, err := gr.cfg.Terms[typ].Groups(ctx, tx, work, itemsOf(cells))
 	if err != nil {
 		return nil, err
 	}
-	q, now, interval := db.New(tx), storage.Now().Time(), BacklogEvery.Default
+	return land(ctx, tx, work, groups, cells, e, interval)
+}
+
+// land lands e on each of groups, the search groups of cells' Items, in
+// tx. It is the one writer of a due row's queued entry, and promotes an
+// open run e outranks.
+func land(ctx context.Context, tx *storage.Tx[file], work works.WorkID, groups []indexers.Group, cells []files.Cell, e entry, interval time.Duration) ([]Queued, error) {
+	q, now := db.New(tx), storage.Now().Time()
 	out := make([]Queued, 0, len(groups))
 	for _, g := range groups {
-		row, run, err := dueOf(ctx, q, tree.ID, g.Key)
+		row, run, err := dueOf(ctx, q, work, g.Key)
 		if err != nil {
 			return nil, err
 		}
 		next, state, promote := pace.Merge(row, pace.Entry{
 			Lane: e.lane, Trigger: e.trigger, Holds: e.holds, Items: keysOf(g.Items), Gone: e.gone,
 			Order: orderOf(within(cells, g.Items)), ResetGap: e.resets, At: now,
-		}, interval, pace.Spread(tree.ID.String(), string(g.Key), interval))
-		if err := putDue(ctx, q, tree.ID, g.Key, next); err != nil {
+		}, interval, pace.Spread(work.String(), string(g.Key), interval))
+		if err := putDue(ctx, q, work, g.Key, next); err != nil {
 			return nil, err
 		}
 		if promote {

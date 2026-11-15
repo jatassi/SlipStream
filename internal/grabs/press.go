@@ -18,8 +18,12 @@ import (
 // Search on a Failed cell is Search again. An id scope names that work
 // doesn't have is a *works.NotInWorkError.
 func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.WorkID, scope Scope) ([]Queued, error) {
+	interval, err := gr.interval(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var out []Queued
-	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+	err = gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		if err := gr.fence(ctx, tx); err != nil {
 			return err
 		}
@@ -53,7 +57,7 @@ func (gr *Grabs) SearchWork(ctx context.Context, _ identity.Admin, work works.Wo
 		if err := uncount(ctx, tx, pressed); err != nil {
 			return err
 		}
-		out, err = gr.enqueue(ctx, tx, tree, pressed, landing(searches.Search, false))
+		out, err = gr.enqueue(ctx, tx, work, tree.ContentType, pressed, landing(searches.Search, false), interval)
 		return err
 	})
 	if err != nil {

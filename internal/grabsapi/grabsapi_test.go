@@ -20,6 +20,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/grabs/grabstest"
 	"github.com/jatassi/slipstream/internal/grabsapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/imports"
@@ -254,8 +255,9 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Timings: grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, BlocklistChanged: blocklisted,
 		QueueChanged: discard[grabs.QueueChanged]{},
-		Reconciling:  trackers.NotReconciling,
-		Log:          slog.New(slog.DiscardHandler),
+		Tasks:        grabstest.Cadences{}, GapCap: grabs.NoGapCap,
+		Reconciling: trackers.NotReconciling,
+		Log:         slog.New(slog.DiscardHandler),
 	})
 	return &atticFixture{
 		ctx: ctx, lib: lib, sealer: sealer, home: role.NodeID{UUID: home}, tree: tree, unmonitored: unmonitored, hd: hd, terms: terms,

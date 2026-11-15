@@ -16,7 +16,11 @@ import (
 // Enqueue lands t on every wanted cell of work in its own Write, as a
 // call for one Work does, and wakes the reconciler.
 func (gr *Grabs) Enqueue(ctx context.Context, work works.WorkID, t searches.Trigger) error {
-	err := gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+	interval, err := gr.interval(ctx)
+	if err != nil {
+		return err
+	}
+	err = gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		tree, err := gr.cfg.Works.TreeIn(ctx, tx, work)
 		if err != nil {
 			return err
@@ -26,11 +30,19 @@ func (gr *Grabs) Enqueue(ctx context.Context, work works.WorkID, t searches.Trig
 			return err
 		}
 		wanted := slices.DeleteFunc(cells, func(c files.Cell) bool { return !c.Wanted() })
-		_, err = gr.enqueue(ctx, tx, tree, wanted, landing(t, false))
+		_, err = gr.enqueue(ctx, tx, work, tree.ContentType, wanted, landing(t, false), interval)
 		return err
 	})
 	gr.wake()
 	return err
+}
+
+// Nudge asks for a search of items of work, nil for the whole Work, by t
+// in its own Write, as a call for one Work does.
+func (gr *Grabs) Nudge(ctx context.Context, work works.WorkID, t searches.Trigger, items []works.ItemID) error {
+	return gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
+		return gr.nudge(ctx, tx, work, t, landing(t, false).lane, items)
+	})
 }
 
 // DecideRun records a press's run of items of work, as if its lines had
@@ -54,6 +66,10 @@ func (gr *Grabs) DecideRun(ctx context.Context, work works.WorkID, items []works
 		return SearchID{}, err
 	}
 	as := assessAll(j, dedupe(listedOf(rs)))
+	interval, err := gr.interval(ctx)
+	if err != nil {
+		return SearchID{}, err
+	}
 	run := Search{ID: SearchID{UUID: storage.NewUUID()}, WorkID: work, Group: indexers.ItemGroup(items[0]), Trigger: searches.Search, Items: items}
 	err = gr.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
 		q := db.New(tx)
@@ -71,7 +87,7 @@ func (gr *Grabs) DecideRun(ctx context.Context, work works.WorkID, items []works
 				return err
 			}
 		}
-		_, err := gr.decided(ctx, tx, run, heardRun{releases: rs, names: map[int]string{}, answered: true}, as)
+		_, err := gr.decided(ctx, tx, run, heardRun{releases: rs, names: map[int]string{}, answered: true}, as, interval)
 		return err
 	})
 	return run.ID, err

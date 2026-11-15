@@ -30,11 +30,13 @@ UPDATE grabs_due SET lane = NULL, queued_at = NULL, trigger = NULL, include_gone
     changed_at = sqlc.arg(changed_at)
 WHERE work_id = sqlc.arg(work_id) AND group_key = sqlc.arg(group_key);
 
--- name: EndDueSearch :exec
-UPDATE grabs_due SET search_id = NULL, changed_at = sqlc.arg(changed_at) WHERE search_id = sqlc.arg(search_id);
-
 -- name: LastSearchOfGroup :one
 SELECT finished_at FROM grabs_search
 WHERE work_id = sqlc.arg(work_id) AND group_key = sqlc.arg(group_key) AND manual_id IS NULL AND finished_at IS NOT NULL
 ORDER BY finished_at DESC, id DESC
 LIMIT 1;
+
+-- name: PaceDue :exec
+-- A finished run's group: its next gap and due time, and no run open.
+UPDATE grabs_due SET gap_seconds = sqlc.arg(gap_seconds), due_at = sqlc.arg(due_at), search_id = NULL, changed_at = sqlc.arg(changed_at)
+WHERE search_id = sqlc.arg(search_id);
