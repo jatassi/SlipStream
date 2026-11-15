@@ -13,6 +13,11 @@ WHERE withdrawn_at IS NULL
 GROUP BY work_id, aside, monitored
 ORDER BY work_id;
 
+-- name: ListUnmonitoredOfWorks :many
+SELECT work_id, id FROM works_item
+WHERE aside = sqlc.arg(aside) AND withdrawn_at IS NULL AND NOT monitored AND work_id IN (sqlc.slice(work_ids))
+ORDER BY work_id, id;
+
 -- name: SetMonitoredOfWorks :exec
 UPDATE works_item SET monitored = sqlc.arg(monitored)
 WHERE aside = sqlc.arg(aside) AND withdrawn_at IS NULL AND work_id IN (sqlc.slice(work_ids));

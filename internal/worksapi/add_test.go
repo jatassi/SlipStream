@@ -318,3 +318,15 @@ func TestAnAddRemembersWhatItSearchesAsTheTypesDefault(t *testing.T) {
 		t.Fatalf("an add searching everything = %d %s, want 422", code, reply)
 	}
 }
+
+func TestAnAddQueuesWhatItsSearchPicksAndOnlyWhenAsked(t *testing.T) {
+	w := newWorld(t)
+	s := w.s
+	s.queued.take()
+	s.add(t, `{"contentType":"fixture","key":"w1","search":"first_item"}`)
+	s.add(t, `{"contentType":"fixture","key":"w2"}`)
+	s.add(t, `{"contentType":"fixture","key":"w3","preset":"none","search":"monitored"}`)
+	if got := s.queued.take(); !slices.Equal(got, []string{"add 1"}) {
+		t.Fatalf("adds searching the first Item, searching nothing and monitoring nothing queued %v, want one add of one Item", got)
+	}
+}

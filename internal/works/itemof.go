@@ -50,6 +50,23 @@ func ItemsOf(ctx context.Context, r storage.Reader[file], ws Among[WorkID]) (map
 	return out, nil
 }
 
+// WorksOfItems groups items by their Work inside a caller's read. An
+// unknown id is left out.
+func WorksOfItems(ctx context.Context, r storage.Reader[file], items []ItemID) (map[WorkID][]ItemID, error) {
+	q := db.New(r)
+	out := map[WorkID][]ItemID{}
+	for chunk := range slices.Chunk(items, Batch) {
+		rows, err := q.ListWorksOfItems(ctx, chunk)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			out[row.WorkID] = append(out[row.WorkID], row.ID)
+		}
+	}
+	return out, nil
+}
+
 // Summaries reads every Work's summary inside a caller's read, by sort
 // label.
 func Summaries(ctx context.Context, r storage.Reader[file]) ([]Summary, error) {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -23,8 +24,8 @@ type Adding struct {
 	// IncludeAsides adds the Items of aside levels to what Preset monitors.
 	IncludeAsides *bool
 	LevelFolders  *bool
-	// Search is the add's search scope. Remember makes it the type's
-	// default.
+	// Search is what a new Work searches once its preset applies; nil
+	// searches nothing. Remember makes it the type's default.
 	Search   *works.SearchScope
 	Remember bool
 	By       works.AddedBy
@@ -76,25 +77,8 @@ func (l *Library) Add(ctx context.Context, by identity.Admin, a Adding) (Added, 
 		LevelFolders: folders,
 		By:           a.By,
 		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
-			if err := targets.Assign(ctx, tx, w, a.Profile); err != nil {
-				return err
-			}
-			if err := roots.Assign(ctx, tx, w, a.Root); err != nil {
-				return err
-			}
-			if a.Attach != nil {
-				if err := a.Attach(ctx, tx, w); err != nil {
-					return err
-				}
-			}
-			if _, err := l.applyIn(ctx, tx, works.Only([]works.WorkID{w.ID}), choice); err != nil {
-				return err
-			}
-			if !a.Remember {
-				return nil
-			}
 			var err error
-			moved, err = remember(ctx, tx, a)
+			moved, err = l.settleIn(ctx, tx, w, a, choice)
 			return err
 		},
 	})
@@ -106,6 +90,55 @@ func (l *Library) Add(ctx context.Context, by identity.Admin, a Adding) (Added, 
 	}
 	l.cfg.Roots.Publish(ctx, moved.roots)
 	return Added{Tree: tree, Created: created}, nil
+}
+
+// settleIn gives new Work w a's Profile, root and files, applies choice,
+// queues what a searches and remembers a's choices, in the add's Write.
+func (l *Library) settleIn(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary, a Adding, choice works.Choice) (remembered, error) {
+	if err := targets.Assign(ctx, tx, w, a.Profile); err != nil {
+		return remembered{}, err
+	}
+	if err := roots.Assign(ctx, tx, w, a.Root); err != nil {
+		return remembered{}, err
+	}
+	if a.Attach != nil {
+		if err := a.Attach(ctx, tx, w); err != nil {
+			return remembered{}, err
+		}
+	}
+	if _, err := l.applyIn(ctx, tx, works.Only([]works.WorkID{w.ID}), choice); err != nil {
+		return remembered{}, err
+	}
+	if a.Search != nil && *a.Search != works.SearchNone {
+		if err := l.queueAdd(ctx, tx, w.ID, *a.Search); err != nil {
+			return remembered{}, err
+		}
+	}
+	if !a.Remember {
+		return remembered{}, nil
+	}
+	return remember(ctx, tx, a)
+}
+
+// queueAdd queues the Items of Work id that s searches, in the add's
+// Write. A scope that picks nothing queues nothing.
+func (l *Library) queueAdd(ctx context.Context, tx *storage.Tx[storage.Library], id works.WorkID, s works.SearchScope) error {
+	among := works.Only([]works.WorkID{id})
+	trees, err := works.OutlinesIn(ctx, tx, among)
+	if err != nil {
+		return err
+	}
+	var facts map[works.WorkID]works.Facts
+	if s.NeedsFacts() {
+		if facts, err = l.cfg.Files.ItemFacts(ctx, tx, among); err != nil {
+			return err
+		}
+	}
+	items := s.ItemsOf(trees[0], facts[id])
+	if len(items) == 0 {
+		return nil
+	}
+	return l.cfg.Queue.Queue(ctx, tx, searches.Add, searches.Ask{Work: id, Items: items})
 }
 
 // remember makes each choice a gives its type's default in tx, through

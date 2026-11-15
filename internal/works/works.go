@@ -152,12 +152,20 @@ type Config struct {
 		Prefetch(wants []artwork.Want)
 	}
 	Timings      Timings
+	ItemsAdded   ItemsAdded
 	Changed      Publisher[Changed]
 	Removed      Publisher[Removed]
 	TypesChanged Publisher[ContentTypesChanged]
 	TypeChanged  Publisher[TypeChanged]
 	Log          *slog.Logger
 }
+
+// ItemsAdded hears of the monitored Items a refresh inserted into work,
+// in the refresh's Write.
+type ItemsAdded func(ctx context.Context, tx *storage.Tx[storage.Library], work WorkID, items []ItemID) error
+
+// NoItemsAdded hears nothing.
+func NoItemsAdded(context.Context, *storage.Tx[storage.Library], WorkID, []ItemID) error { return nil }
 
 type Works struct {
 	cfg   Config

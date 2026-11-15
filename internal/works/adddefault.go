@@ -28,6 +28,70 @@ const (
 // them. works_add_default's CHECK lists the same.
 var SearchScopes = []SearchScope{SearchMonitored, SearchFirstLevel, SearchLatestLevel, SearchFirstItem, SearchNone}
 
+// SearchScopes is the scopes an add of d's Works offers, in the order the
+// add sheet lists them: everything monitored or nothing for a type of one
+// Item, and the level scopes only for a type with levels.
+func (d Description) SearchScopes() []SearchScope {
+	switch {
+	case d.Items == ItemsOne:
+		return []SearchScope{SearchMonitored, SearchNone}
+	case len(d.Levels) == 0:
+		return []SearchScope{SearchMonitored, SearchFirstItem, SearchNone}
+	}
+	return SearchScopes
+}
+
+// ScopeLabel names s for d's Works, from its outermost level's and its
+// Item's nouns.
+func (d Description) ScopeLabel(s SearchScope) string {
+	level := d.Work.One
+	if len(d.Levels) > 0 {
+		level = d.Levels[0].One
+	}
+	return map[SearchScope]string{
+		SearchMonitored: "Everything monitored", SearchFirstLevel: "First " + strings.ToLower(level), SearchLatestLevel: "Latest " + strings.ToLower(level),
+		SearchFirstItem: "First " + strings.ToLower(d.Item.One), SearchNone: "Nothing",
+	}[s]
+}
+
+// NeedsFacts reports whether ItemsOf reads facts.
+func (s SearchScope) NeedsFacts() bool { return s == SearchLatestLevel }
+
+// ItemsOf is the monitored live Items of t that s searches, under facts.
+func (s SearchScope) ItemsOf(t Tree, facts Facts) []ItemID {
+	on := map[ItemID]bool{}
+	for _, it := range t.Items {
+		if it.Live() && it.Monitored {
+			on[it.ID] = true
+		}
+	}
+	var ids []ItemID
+	for _, it := range s.searched(t.Items, runOf(t), facts, on) {
+		ids = append(ids, it.ID)
+	}
+	return ids
+}
+
+// searched is the Items of on that s picks among a Work's Items and its
+// run r. The latest level is the latest with an aired Item, as the Latest
+// preset reads it.
+func (s SearchScope) searched(items []Item, r run, facts Facts, on map[ItemID]bool) []Item {
+	var picked []Item
+	switch s {
+	case SearchMonitored:
+		picked = items
+	case SearchFirstLevel:
+		picked = rules[PresetFirst](r, facts)
+	case SearchLatestLevel:
+		picked = rules[PresetLatest](r, facts)
+	case SearchFirstItem:
+		first := r.level(0)
+		picked = first[:min(1, len(first))]
+	case SearchNone:
+	}
+	return where(picked, func(it Item) bool { return on[it.ID] })
+}
+
 // AddDefaults are the add choices a Work of a type takes when the add
 // names none: All without asides, level folders on and a search of
 // everything monitored, until remembered.
@@ -117,7 +181,8 @@ type addSetting struct {
 // addSettings are t's core add settings, which come first among its
 // settings: how a new Work is monitored, a Switch for a type of one Item
 // and a Choice of presets for one of many, then Include for a type that
-// names an aside, then level folders for a type with levels.
+// names an aside, then level folders for a type with levels, then what an
+// add searches.
 func addSettings(t TypeID, d Description) []addSetting {
 	out := []addSetting{monitorSetting(t, d)}
 	if d.Aside.Many != "" {
@@ -128,7 +193,48 @@ func addSettings(t TypeID, d Description) []addSetting {
 		out = append(out, switchSetting(setting.Switch{Key: string(t) + ".add.levelFolders", Label: d.Levels[0].One + " folders", Default: true},
 			func(row *db.WorksAddDefault) **bool { return &row.LevelFolders }))
 	}
-	return out
+	return append(out, searchSetting(t, d))
+}
+
+// searchSetting is "<type>.add.search": a Switch for a type of one Item,
+// on searching everything monitored, else a Choice of d's scopes.
+func searchSetting(t TypeID, d Description) addSetting {
+	key, label := string(t)+".add.search", "Search after adding"
+	if d.Items == ItemsOne {
+		s := setting.Switch{Key: key, Label: label, Default: true}
+		return addSetting{
+			key: key,
+			field: func(row db.WorksAddDefault) setting.Field {
+				if row.Search == nil {
+					return s.Field(nil)
+				}
+				return s.Field(new(SearchScope(*row.Search) != SearchNone))
+			},
+			apply: func(raw json.RawMessage, row *db.WorksAddDefault) error {
+				on, err := s.ParseJSON(raw)
+				row.Search = nil
+				if v := on.Override(); v != nil {
+					row.Search = new(string(map[bool]SearchScope{true: SearchMonitored, false: SearchNone}[*v]))
+				}
+				return err
+			},
+		}
+	}
+	c := setting.Choice[SearchScope]{Key: key, Label: label, Default: SearchMonitored}
+	for _, s := range d.SearchScopes() {
+		c.Options = append(c.Options, setting.Option[SearchScope]{Value: s, Label: d.ScopeLabel(s)})
+	}
+	return addSetting{
+		key: key,
+		field: func(row db.WorksAddDefault) setting.Field {
+			return c.Field((*SearchScope)(row.Search))
+		},
+		apply: func(raw json.RawMessage, row *db.WorksAddDefault) error {
+			s, err := c.ParseJSON(raw)
+			row.Search = (*string)(s.Override())
+			return err
+		},
+	}
 }
 
 func switchSetting(s setting.Switch, of func(*db.WorksAddDefault) **bool) addSetting {
