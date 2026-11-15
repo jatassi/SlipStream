@@ -46,10 +46,19 @@ export type BulkAction = {
   readonly danger: boolean;
   /** Profiles and roots belong to one Content Type, so only picks of one type change them. */
   readonly oneTypeOnly: boolean;
+  /** A desktop bar keeps it in its More actions menu, so the bar stays one row. */
+  readonly secondary: boolean;
   readonly onSelect: () => void;
 };
 
-const plain = { icon: undefined, busy: false, danger: false, oneTypeOnly: false } as const;
+const plain = {
+  icon: undefined,
+  busy: false,
+  danger: false,
+  oneTypeOnly: false,
+  secondary: false,
+} as const;
+const more = { ...plain, secondary: true } as const;
 
 /** Searches the picked Works in the bulk lane, asking first above 100; `dialog` holds the question. */
 export function useBulkSearch(picked: readonly LibraryWork[]): {
@@ -103,14 +112,14 @@ export function useBulkActions(
       ? [{ ...plain, label: "Set monitoring…", oneTypeOnly: true, onSelect: open("monitoring") }]
       : []),
     { ...plain, label: "Change Profile…", oneTypeOnly: true, onSelect: open("profile") },
-    { ...plain, label: "Set library root…", oneTypeOnly: true, onSelect: open("root") },
+    { ...more, label: "Set library root…", oneTypeOnly: true, onSelect: open("root") },
     {
-      ...plain,
+      ...more,
       label: "Refresh metadata",
       icon: RefreshIcon,
       busy: running === "refresh",
       onSelect: on({ kind: "refresh" }),
     },
-    { ...plain, label: "Delete…", icon: Delete02Icon, danger: true, onSelect: open("delete") },
+    { ...more, label: "Delete…", icon: Delete02Icon, danger: true, onSelect: open("delete") },
   ];
 }
