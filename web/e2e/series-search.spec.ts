@@ -11,6 +11,8 @@ import {
   seasons,
   setEpisodeMonitored,
 } from "./series.ts";
+import { isPhone } from "./shell.ts";
+import { clickWhenStill } from "./still.ts";
 
 test.use({ scenario: "series" });
 test.describe.configure({ timeout: 180_000 });
@@ -32,6 +34,21 @@ async function filed(world: World, workId: string): Promise<string[]> {
   return items.filter(({ id }) => held.has(id)).map(({ label }) => label);
 }
 
+// A phone row opens the episode's sheet, which holds its Search.
+async function searchEpisode(page: Page, code: string): Promise<void> {
+  if (!isPhone(page)) {
+    await seasons(page)
+      .getByRole("button", { name: `Search ${code}` })
+      .click();
+    return;
+  }
+  await clickWhenStill(episodeRow(page, code));
+  await page
+    .getByRole("dialog", { name: new RegExp(`^${code} `, "u") })
+    .getByRole("button", { name: "Search", exact: true })
+    .click();
+}
+
 test("the series' Search counts every wanted episode, and a season's only its monitored ones", async ({
   adminPage: page,
   world,
@@ -48,6 +65,9 @@ test("the series' Search counts every wanted episode, and a season's only its mo
   await openLevel(page, "Season 2");
   await setEpisodeMonitored(page, "S02E01", true);
   await expect(searches(page)).toContainText(/^Found nothingMonitoring turned on/u);
+  await searchEpisode(page, "S02E01");
+  await expect(notifications(page)).toContainText("Searching 1 episode");
+  await expect(searches(page)).toContainText(/^Found nothingSearch/u);
   await seasons(page).getByRole("button", { name: "Search Season 2" }).click();
   await expect(notifications(page)).toContainText("Searching 1 episode");
 });
