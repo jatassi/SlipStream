@@ -6,12 +6,15 @@ import (
 
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/targets"
+	"github.com/jatassi/slipstream/internal/works"
 )
+
+var tv = works.Description{Work: works.Noun{One: "Series", Many: "Series"}, Item: works.Noun{One: "Episode", Many: "Episodes"}}
 
 func TestEveryReasonReadsAsASentence(t *testing.T) {
 	for _, at := range []*targets.Target{{Name: "1080p"}, nil} {
 		for _, code := range targets.ReasonCodes() {
-			words := reasonWords(Reason{Reason: targets.Reason{Code: code, Value: "x"}}, at, release.Facts{})
+			words := reasonWords(Reason{Reason: targets.Reason{Code: code, Value: "x"}}, at, release.Facts{}, tv)
 			if !strings.HasSuffix(words, ".") || strings.ContainsAny(words, "—–") {
 				t.Errorf("%s reads %q", code, words)
 			}
@@ -25,7 +28,7 @@ func TestAReasonAtADeletedTargetNamesItAsDeleted(t *testing.T) {
 		targets.ScoreBelowMinimum:  "Score 10 is below the minimum of a deleted Target.",
 		targets.SizeAbove:          "It's larger than a deleted Target allows.",
 	} {
-		if got := reasonWords(Reason{Reason: targets.Reason{Code: code, Value: "10"}}, nil, release.Facts{}); got != want {
+		if got := reasonWords(Reason{Reason: targets.Reason{Code: code, Value: "10"}}, nil, release.Facts{}, tv); got != want {
 			t.Errorf("%s reads %q, want %q", code, got, want)
 		}
 	}
@@ -42,7 +45,7 @@ func TestARepackFromAnotherGroupNamesBothGroupsAndTheTarget(t *testing.T) {
 		{"", ntb, "It's a repack from NTb, and the file at 1080p has no release group."},
 		{"FKW", release.Facts{}, "It's a repack with no release group, and the file at 1080p is from FKW."},
 	} {
-		if got := reasonWords(Reason{Reason: targets.Reason{Code: targets.RepackOtherGroup, Value: c.held}}, &targets.Target{Name: "1080p"}, c.facts); got != c.want {
+		if got := reasonWords(Reason{Reason: targets.Reason{Code: targets.RepackOtherGroup, Value: c.held}}, &targets.Target{Name: "1080p"}, c.facts, tv); got != c.want {
 			t.Errorf("held %q reads %q, want %q", c.held, got, c.want)
 		}
 	}

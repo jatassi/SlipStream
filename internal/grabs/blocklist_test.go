@@ -22,7 +22,7 @@ import (
 const (
 	bluRay = "The.Attic.2020.1080p.BluRay.x264-GRP"
 	webDL  = "The.Attic.2020.1080p.WEB-DL-GRP"
-	noSize = " Its size isn't checked at HD because the name gives no size or the runtime is unknown."
+	noSize = " Its size isn't checked at HD because its name has no size or the runtime is unknown."
 )
 
 func hashed(letter string) bencode.InfoHash {

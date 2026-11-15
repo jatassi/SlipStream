@@ -34,18 +34,18 @@ test("the sheet leads with the headline, then each Grab in words, the cell nothi
   const grabs = sheet.getByRole("list", { name: "Grabs" });
   await expect.element(grabs.getByText("WEBDL-1080p · DD+ 5.1 · FLUX · 4.0 GB")).toBeVisible();
   await expect
-    .element(grabs.getByText("It gets you 1080p for The Quiet Orchard (2021)."))
+    .element(grabs.getByText("It downloads 1080p for The Quiet Orchard (2021)."))
     .toBeVisible();
   await expect.element(grabs.getByText(routedWords)).toBeVisible();
   await expect
     .element(grabs.getByRole("checkbox", { name: "WEBDL-1080p · DD+ 5.1 · FLUX · 4.0 GB" }))
     .toBeChecked();
-  const gaps = sheet.getByRole("list", { name: "Cells nothing fills" });
+  const gaps = sheet.getByRole("list", { name: "Files with no release found" });
   await expect
     .element(gaps.getByText("Missing: 2160p HDR for The Quiet Orchard (2021)."))
     .toBeVisible();
-  await expect.element(gaps.getByText("No Indexer listed a 2160p Release.")).toBeVisible();
-  await expect.element(sheet.getByText("SlipStream wouldn't grab 4 more Releases.")).toBeVisible();
+  await expect.element(gaps.getByText("No Indexer listed a 2160p release.")).toBeVisible();
+  await expect.element(sheet.getByText("SlipStream wouldn't grab 4 more releases.")).toBeVisible();
   await expect.element(sheet.getByRole("button", { name: "Grab 1" })).toBeEnabled();
 });
 
@@ -56,9 +56,9 @@ test("red marks only an Indexer that failed and a group of Releases with a fault
       at === 0 ? line : { ...line, sentence: "TorrentLeech isn't responding.", failed: true },
     ),
     folded: {
-      line: "SlipStream wouldn't grab 4 more Releases.",
+      line: "SlipStream wouldn't grab 4 more releases.",
       groups: [
-        { words: "3 are 720p, which no Target here takes.", fault: false },
+        { words: "3 are 720p, which no Target here accepts.", fault: false },
         { words: "1 has a .torrent that couldn't be read.", fault: true },
       ],
     },
@@ -79,7 +79,7 @@ test("red marks only an Indexer that failed and a group of Releases with a fault
     .toHaveTextContent("Fault: 1 has a .torrent that couldn't be read.");
   await expect
     .element(folded.getByRole("listitem").first())
-    .toHaveTextContent("3 are 720p, which no Target here takes.");
+    .toHaveTextContent("3 are 720p, which no Target here accepts.");
 });
 
 test("a swap reads the plan again with the pin, keeps the other row's untick, and the Grab posts only ticked rows", async () => {
@@ -103,8 +103,7 @@ test("a swap reads the plan again with the pin, keeps the other row's untick, an
 });
 
 test("a search another Admin replaced says so in place of the Grab button", async () => {
-  const replaced =
-    "Someone searched this Work again, so this list is gone. Open Manual search again to see the new one.";
+  const replaced = "A newer Manual search replaced this list. Open Manual search again to see it.";
   openSheet(manualServer({ plan: () => filmPlan }), {
     handlers: [
       http.post("*/api/v1/works/:workId/manual-search/grabs", () =>

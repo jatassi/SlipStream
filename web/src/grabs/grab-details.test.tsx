@@ -111,7 +111,9 @@ test("Cancel with Also blocklist this Release cancels the Grab and blocklists it
   const cancel = page.getByRole("dialog", { name: "Cancel this Grab?" });
   await expect
     .element(cancel)
-    .toMatchTextContent("SlipStream stops fetching the Release. Its Item goes back to wanted.");
+    .toMatchTextContent(
+      "SlipStream stops fetching the release and counts the files it was for as missing again.",
+    );
   await userEvent.click(cancel.getByRole("checkbox", { name: "Also blocklist this Release" }));
   await userEvent.click(cancel.getByRole("button", { name: "Cancel Grab" }));
   await expect
@@ -126,7 +128,7 @@ test("Cancel with Also blocklist this Release cancels the Grab and blocklists it
 
 test("a cancel the server refuses keeps the dialog open with its sentence", async () => {
   const busy =
-    "This Grab is waiting for Den to come back. It can't be canceled until it places its file.";
+    "This Grab is waiting for Den to come back online. You can cancel it after it imports its file.";
   renderApp({
     path: "/activity",
     handlers: [
@@ -201,7 +203,7 @@ test("Details on a Needs you card opens its Grab's record", async () => {
   await expect
     .element(page.getByRole("dialog", { name: "Grab of The Quiet Orchard" }))
     .toMatchTextContent(
-      /^Grab of The Quiet OrchardSlipStream couldn't download the Release's \.torrent file or magnet link from the Indexer\./u,
+      /^Grab of The Quiet OrchardSlipStream couldn't download the release's \.torrent file or magnet link from the Indexer\./u,
     );
 });
 

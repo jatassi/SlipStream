@@ -18,7 +18,7 @@ func TestTheBlocklistListsAndRemovesThroughTheAPI(t *testing.T) {
 	})
 
 	code, got := f.s.Call(t, http.MethodGet, "/api/v1/blocklist?q=attic", "")
-	for _, want := range []string{`"total":1`, `"infoHash":"` + h.String() + `"`, `"cause":"marked_failed"`, `"because":"Marked failed through the API key."`, `"title":"The Attic"`} {
+	for _, want := range []string{`"total":1`, `"infoHash":"` + h.String() + `"`, `"cause":"marked_failed"`, `"because":"An app using the API key marked its download failed."`, `"title":"The Attic"`} {
 		if code != http.StatusOK || !strings.Contains(got, want) {
 			t.Fatalf("listBlocklist = %d %s, want 200 with %s", code, got, want)
 		}

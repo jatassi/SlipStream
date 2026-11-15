@@ -89,9 +89,9 @@ test("the tester reads each pasted name, matches it to a Work by its title and s
 
   const results = resultsIn(page);
   await expect(results.locator(":scope > div > p")).toHaveText([
-    "Reads as WEBDL-1080p from FKW. It matches The Quiet Orchard and would fill 1080p and HD.",
-    "Reads as WEBDL-720p from GRP. It matches no Work. 1080p and HD accept it.",
-    "Reads as Bluray-2160p from FKW. It matches The Quiet Orchard and would fill no Target. 1080p doesn't accept Bluray-2160p.",
+    "SlipStream reads this as WEBDL-1080p from FKW. It matches The Quiet Orchard, and an automatic search would grab it for 1080p and HD.",
+    "SlipStream reads this as WEBDL-720p from GRP. It matches nothing in your library. 1080p and HD accept it.",
+    "SlipStream reads this as Bluray-2160p from FKW. It matches The Quiet Orchard, but no Target would grab it. 1080p doesn't accept Bluray-2160p.",
   ]);
   const first = results.first();
   await expect(first).toContainText(webdl);
@@ -131,7 +131,7 @@ test("the tester reads a file path with its folder's name when the file's gives 
     String.raw`D:\Films\The Quiet Orchard (2021)\1080p.BluRay-FKW.mkv`,
   ]);
   await expect(resultsIn(page).locator(":scope > div > p")).toHaveText([
-    "Reads as Bluray-1080p from FKW. It matches The Quiet Orchard and would fill 1080p and HD.",
+    "SlipStream reads this as Bluray-1080p from FKW. It matches The Quiet Orchard, and an automatic search would grab it for 1080p and HD.",
   ]);
   await expectAccessible(page);
 });
@@ -153,7 +153,7 @@ test("Try it scores the names with the editor's draft before it is saved", async
   await testNames(dialog, "Release names", [webdl]);
   const result = resultsIn(dialog).first();
   await expect(result.locator(":scope > div > p")).toHaveText(
-    "Reads as WEBDL-1080p from FKW. It matches The Quiet Orchard and would fill 1080p and HD.",
+    "SlipStream reads this as WEBDL-1080p from FKW. It matches The Quiet Orchard, and an automatic search would grab it for 1080p and HD.",
   );
   await result.getByRole("button", { name: "Details" }).click();
   await expect(result.getByRole("list", { name: "Custom Formats it matches" })).toHaveText(

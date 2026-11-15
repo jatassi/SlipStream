@@ -50,7 +50,7 @@ func TestCancelThroughTheAPIKeyFailsTheGrabAndBlocklistsItsReleaseWithNoAccount(
 
 	_, got := f.s.Call(t, http.MethodGet, "/api/v1/grabs/"+id, "")
 	for _, want := range []string{
-		`"failure":{"stage":"fetching","code":"canceled","message":"This Grab was canceled through the API key.","needsYou":false,"current":true}`,
+		`"failure":{"stage":"fetching","code":"canceled","message":"An app using the API key canceled this Grab.","needsYou":false,"current":true}`,
 		`"actions":{"cancel":false,"blocklistable":false,"sendTo":false}`,
 	} {
 		if !strings.Contains(got, want) {
@@ -58,7 +58,7 @@ func TestCancelThroughTheAPIKeyFailsTheGrabAndBlocklistsItsReleaseWithNoAccount(
 		}
 	}
 	_, got = f.s.Call(t, http.MethodGet, "/api/v1/blocklist", "")
-	for _, want := range []string{`"total":1`, `"cause":"by_hand"`, `"because":"Blocklisted through the API key when its Grab was canceled."`} {
+	for _, want := range []string{`"total":1`, `"cause":"by_hand"`, `"because":"An app using the API key blocklisted it when canceling its Grab."`} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("listBlocklist = %s, want %s", got, want)
 		}

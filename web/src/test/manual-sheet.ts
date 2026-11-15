@@ -31,7 +31,7 @@ export const rowOf = (
     routed: "qBittorrent on Den",
   },
   pinned: false,
-  outcome: `It gets you 1080p for E0${n}.`,
+  outcome: `It downloads 1080p for E0${n}.`,
   choices,
 });
 
@@ -52,7 +52,7 @@ export const twoGrabs = (pins: readonly string[]): GrabsManualSearch => {
     title: "Season 1 of The Long Shelf",
     queryable: false,
     plan: {
-      headline: "2 Grabs get you everything.",
+      headline: "2 Grabs download every file you're missing.",
       held: [],
       rows: [
         rowOf("cell-e01", "NTb", 1),

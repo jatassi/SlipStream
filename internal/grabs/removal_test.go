@@ -273,7 +273,7 @@ func TestMarkFailedOnAHeldTorrentBlocklistsItsRelease(t *testing.T) {
 
 		p.running()
 		time.Sleep(time.Second)
-		if v := p.view(id); v.Stage != grabs.Failed || v.Failed.Code != grabs.MarkedFailed || v.Failed.Message != "Marked failed through the API key." {
+		if v := p.view(id); v.Stage != grabs.Failed || v.Failed.Code != grabs.MarkedFailed || v.Failed.Message != "An app using the API key marked its download failed." {
 			t.Fatalf("the Grab is %s with %+v, want failed with marked_failed through the API key", v.Stage, v.Failed)
 		}
 	})

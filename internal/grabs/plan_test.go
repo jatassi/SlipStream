@@ -31,7 +31,7 @@ func manualOf(j judging, cs []files.Cell, ls ...listed) manualIn {
 	}
 	in := manualIn{
 		tree: works.Tree{Summary: works.Summary{Label: "The Quiet Orchard (2021)"}, Items: []works.Item{item}}, runs: []Search{run},
-		nouns: works.Description{Item: works.Noun{One: "Item", Many: "Items"}, Items: works.ItemsOne}, heard: map[SearchID][]heardRelease{},
+		nouns: works.Description{Work: works.Noun{One: "Movie", Many: "Movies"}, Item: works.Noun{One: "Item", Many: "Items"}, Items: works.ItemsOne}, heard: map[SearchID][]heardRelease{},
 		cells: cs, judging: j, blocks: blocks{}, routed: map[indexers.ID]string{}, now: time.Now(),
 		standings: indexers.Standings{betterSite: {Indexer: betterSite, Automatic: true}, hiddenSite: {Indexer: hiddenSite}},
 		line:      func(*indexers.Outcome) string { return "Found" },
@@ -96,16 +96,16 @@ func TestEachRefusalIsGrabbableOrNotAsTheSpecsTableSays(t *testing.T) {
 		// its Blocked words.
 		says string
 	}{
-		{targets.WrongWork, orchard, open, offered("Orchard.2021.1080p.WEB-DL", 5, 10, map[string]string{"tmdbid": "9000002"}), false, "An id in the name belongs to another Work."},
-		{targets.WrongItem, lanternS01E03, open, offered("Lantern.Keepers.S01E02.1080p.WEB-DL", 5, 10, nil), false, "The Work has no Item S01E02."},
+		{targets.WrongWork, orchard, open, offered("Orchard.2021.1080p.WEB-DL", 5, 10, map[string]string{"tmdbid": "9000002"}), false, "An id in its name belongs to a different movie."},
+		{targets.WrongItem, lanternS01E03, open, offered("Lantern.Keepers.S01E02.1080p.WEB-DL", 5, 10, nil), false, "This movie has no item S01E02."},
 		{targets.QualityNotInTarget, orchard, open, offered("Orchard.2021.1080p.TS.x264", 5, 10, nil), false, "1080p doesn't accept"},
 		{targets.FilterFailed, orchard, []files.Cell{cell(targetOf(notX265), files.Missing)}, offered("Orchard.2021.1080p.WEB-DL.x265", 5, 10, nil), false, "It fails the video codec filter of No x265."},
-		{targets.WrongTitle, orchard, open, offered("Orchard.2019.1080p.WEB-DL", 5, 10, nil), true, "Its name gives"},
+		{targets.WrongTitle, orchard, open, offered("Orchard.2019.1080p.WEB-DL", 5, 10, nil), true, "Its name is for"},
 		{targets.SizeBelow, long, open, offered("Orchard.2021.1080p.WEB-DL", 5, 10, nil), true, "It's smaller than 1080p allows."},
 		{targets.SizeAbove, long, open, offered("Orchard.2021.1080p.WEB-DL", 5, 10000<<20, nil), true, "It's larger than 1080p allows."},
 		{targets.ScoreBelowMinimum, orchard, []files.Cell{cell(targetOf(minimum), files.Missing)}, offered("Orchard.2021.1080p.WEB-DL", 5, 10, nil), true, "is below the minimum of 10 at Minimum."},
 		{targets.RepackOtherGroup, orchard, []files.Cell{upgradable}, offered("Orchard.2021.1080p.WEB-DL.REPACK-OTHER", 5, 10, nil), true, "It's a repack from OTHER"},
-		{targets.CutNotWanted, orchard, []files.Cell{cellOf(targets.Edition("extended"), hd, files.Missing)}, offered("Orchard.2021.1080p.WEB-DL", 5, 10, nil), true, "Its name gives the Standard Edition, which the Work doesn't want. It's grabbed as the Extended Edition."},
+		{targets.CutNotWanted, orchard, []files.Cell{cellOf(targets.Edition("extended"), hd, files.Missing)}, offered("Orchard.2021.1080p.WEB-DL", 5, 10, nil), true, "Its title names the Standard Edition, which isn't one of this movie's Editions. SlipStream grabs it as the Extended Edition."},
 		{targets.NotAnUpgrade, orchard, []files.Cell{upgradable}, offered("Orchard.2021.1080p.WEB-DL-GRP2", 5, 10, nil), true, "It isn't better than Orchard (2021) WEBDL-1080p.mkv, the file at Web. Grabbing it replaces that file."},
 		{targets.Blocklisted, orchard, open, blocked, true, "It's been on the Blocklist since"},
 	} {
@@ -158,21 +158,21 @@ func TestACellNothingFillsSaysItsCause(t *testing.T) {
 	}{
 		{
 			name: "nothing listed for a Target", cells: []files.Cell{cell(hd, files.Missing), cell(small, files.Missing)}, ls: []listed{bluray},
-			missing: "Missing: Small.", cause: "No Indexer listed a Small Release.",
-			headline: "1 Grab gets you 1 of the 2 files you're missing. SlipStream hasn't found a Release for Small yet.",
+			missing: "Missing: Small.", cause: "No Indexer listed a Small release.",
+			headline: "1 Grab downloads 1 of the 2 files you're missing. SlipStream hasn't found a release for Small yet.",
 		},
 		{
 			name: "every Release on the Blocklist", cells: []files.Cell{cell(hd, files.Missing)}, ls: []listed{hashed(bluray, 'b')},
 			in: func(in *manualIn) {
 				in.blocks = blocks{bencode.InfoHash([]byte(strings.Repeat("b", 20))): {Cause: CauseNoPayload, Added: time.Now()}}
 			},
-			missing: "Missing: 1080p.", cause: "Every 1080p Release is on the Blocklist.",
-			headline: "SlipStream hasn't found a Release for 1080p yet.",
+			missing: "Missing: 1080p.", cause: "Every 1080p release is on the Blocklist.",
+			headline: "SlipStream hasn't found a release for 1080p yet.",
 		},
 		{
 			name: "every Release needing an override", cells: []files.Cell{failed}, ls: []listed{offered("Orchard.2019.1080p.BluRay-GRP", 5, 10, nil)},
-			missing: "Failed: 1080p.", cause: "Every 1080p Release needs an override. Other choices lists them.",
-			headline: "SlipStream hasn't found a Release for 1080p yet.",
+			missing: "Failed: 1080p.", cause: "Every 1080p release was skipped for a reason you can override. Pick one under Other choices to grab it anyway.",
+			headline: "SlipStream hasn't found a release for 1080p yet.",
 		},
 		{
 			name: "an Indexer at its grab limit", cells: []files.Cell{cell(hd, files.Missing)}, ls: []listed{bluray},
@@ -182,7 +182,7 @@ func TestACellNothingFillsSaysItsCause(t *testing.T) {
 				}}
 			},
 			missing: "Missing: 1080p.", cause: "Better Site is at its grab limit until 14:05.",
-			headline: "SlipStream hasn't found a Release for 1080p yet.",
+			headline: "SlipStream hasn't found a release for 1080p yet.",
 		},
 	} {
 		in := manualOf(orchard, c.cells, c.ls...)
@@ -209,9 +209,9 @@ func TestTheReleasesSlipStreamWouldntGrabFoldIntoGroups(t *testing.T) {
 	in := manualOf(orchard, []files.Cell{cell(hd, files.Missing)}, ls...)
 	in.blocks = blocks{bencode.InfoHash([]byte(strings.Repeat("b", 20))): {Cause: CauseNoPayload, Added: time.Now()}}
 	f := viewOf(t, in).Folded
-	want := Folded{Line: "SlipStream wouldn't grab 4 more Releases.", Groups: []FoldGroup{
-		{Words: "2 are CAM, which no Target here takes."},
-		{Words: "1 names another Work."},
+	want := Folded{Line: "SlipStream wouldn't grab 4 more releases.", Groups: []FoldGroup{
+		{Words: "2 are CAM, which no Target here accepts."},
+		{Words: "1 names a different movie."},
 		{Words: "1 is on the Blocklist.", Fault: true},
 	}}
 	if !slices.Equal(f.Groups, want.Groups) || f.Line != want.Line {
@@ -358,7 +358,7 @@ func TestACellsManualSearchCountsOnlyThatCellAsFilled(t *testing.T) {
 	in := manualOf(orchard, []files.Cell{cell(hd, files.Missing), cell(both, files.Missing)}, offered("Orchard.2021.1080p.BluRay-GRP", 5, 10, nil))
 	key := keyOf(in.cells[0])
 	in.cell = &key
-	if v := viewOf(t, in); v.Plan.Headline != "1 Grab gets you everything." {
-		t.Fatalf("the plan for one cell says %q, want 1 Grab gets you everything", v.Plan.Headline)
+	if v := viewOf(t, in); v.Plan.Headline != "1 Grab downloads every file you're missing." {
+		t.Fatalf("the plan for one cell says %q, want 1 Grab downloads everything", v.Plan.Headline)
 	}
 }

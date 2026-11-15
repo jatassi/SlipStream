@@ -307,7 +307,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		`{"status":409,"code":"root_unreachable","title":"SlipStream can't put new files in the Work's library root now","detail":"home is offline, so SlipStream can't put new files in its library root."}`)
 	f.storageNodes.lapsed.Store(false)
 	expect(t, s, http.MethodPost, "/api/v1/works/"+f.unmonitored.ID.String()+"/search", http.StatusConflict,
-		`{"status":409,"code":"nothing_wanted","title":"The Work has no wanted cell to search for"}`)
+		`{"status":409,"code":"nothing_wanted","title":"Nothing to search for. Every monitored, released file meets its Target or is downloading."}`)
 
 	code, body := s.Call(t, http.MethodPost, search, "")
 	run := ownertest.FirstID(body)
@@ -339,7 +339,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	expect(t, s, http.MethodGet, "/api/v1/searches/"+run+"/releases", http.StatusOK, `{"releases":[`+
 		`{"position":0,"title":"The.Attic.1080p.WEB","words":"WEBDL-1080p · 4.0 KB",`+attic+`"size":4096,"seeders":5,"outcome":"grabbed","rank":1,"copyOf":null,`+
 		scored+`"reasons":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`","soft":false,`+
-		`"words":"Its size isn't checked at HD because the name gives no size or the runtime is unknown."}],"lostAt":null},`+
+		`"words":"Its size isn't checked at HD because its name has no size or the runtime is unknown."}],"lostAt":null},`+
 		`{"position":1,"title":"The.Attic.720p.WEB","words":"WEBDL-720p · 2.0 KB",`+attic+`"size":2048,"seeders":50,"outcome":"refused","rank":null,"copyOf":null,`+
 		scored+`"reasons":[{"code":"quality_not_in_target","targetId":"`+hd.ID.String()+`","value":"webdl-720p","soft":false,"words":"HD doesn't accept WEBDL-720p."}],"lostAt":null}]}`)
 	reached, err := f.xs.Trackers(ctx, admin)
@@ -525,7 +525,7 @@ func TestAGrabDroppedAtFetchingRerunsTheDecisionOverTheKeptReleases(t *testing.T
 	f.searchAttic(t)
 	failed := f.failed(t, 2)
 	dropped, rerun := failed[stopping.String()], failed[other.String()]
-	if dropped.Failure.Code != "indexer_stopped" || dropped.Failure.Message != "The Indexer stopped before the .torrent was fetched" || rerun.Failure.Code != "torrent_invalid" {
+	if dropped.Failure.Code != "indexer_stopped" || dropped.Failure.Message != "The Indexer stopped searching before SlipStream fetched the .torrent file." || rerun.Failure.Code != "torrent_invalid" {
 		t.Fatalf("the Grabs are %+v, want Better Site's dropped indexer_stopped and Other Site's from the rerun", failed)
 	}
 	if r := f.onlyRun(t); r.Outcome != "grabbed" || r.Candidates != 2 || r.GrabID != rerun.ID {
@@ -624,9 +624,9 @@ func TestARefusalSaysWhetherAManualSearchCanGrabPastIt(t *testing.T) {
 			refused = append(refused, r.Title+" "+string(r.Reasons))
 		}
 	}
-	want := `Another.Film.1080p.WEB [{"code":"wrong_title","value":"Another.Film.1080p.WEB","soft":true,"words":"Its name gives Another.Film.1080p.WEB, which isn't this Work."},` +
+	want := `Another.Film.1080p.WEB [{"code":"wrong_title","value":"Another.Film.1080p.WEB","soft":true,"words":"Its name is for Another.Film.1080p.WEB, a different shelf."},` +
 		`{"code":"size_not_checked","targetId":"` + f.hd.ID.String() + `","soft":false,` +
-		`"words":"Its size isn't checked at HD because the name gives no size or the runtime is unknown."}]`
+		`"words":"Its size isn't checked at HD because its name has no size or the runtime is unknown."}]`
 	if !slices.Equal(refused, []string{want}) {
 		t.Fatalf("the run refused %q, want another film's release as a soft wrong_title in words, judged at the cell: %s", refused, want)
 	}

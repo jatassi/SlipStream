@@ -10,18 +10,19 @@ test.describe.configure({ timeout: 180_000 });
 const bluray = "Bluray-1080p · FKW · 9.8 GB";
 const webdl = "WEBDL-1080p · FKW · 8.2 GB";
 const cmrg = "WEBDL-1080p · CMRG · 8.1 GB";
-const both = "It gets you 1080p (standard) for The Quiet Orchard, and HD (standard) as an upgrade.";
+const both =
+  "It downloads 1080p (standard) for The Quiet Orchard, and HD (standard) as an upgrade.";
 
 /** Tamarack's Bluray for 1080p, and the WEB-DL every automatic Indexer lists for HD. */
 async function readsTwoGrabs(opened: Locator): Promise<void> {
-  await expect(opened).toContainText("2 Grabs get you everything.");
+  await expect(opened).toContainText("2 Grabs download every file you're missing.");
   const rows = grabRows(opened);
   await expect(rows).toHaveCount(2);
   await expect(rows.nth(0)).toContainText(bluray);
-  await expect(rows.nth(0)).toContainText("It gets you 1080p (standard) for The Quiet Orchard.");
+  await expect(rows.nth(0)).toContainText("It downloads 1080p (standard) for The Quiet Orchard.");
   await expect(rows.nth(1)).toContainText(webdl);
   await expect(rows.nth(1)).toContainText(
-    "It gets you HD (standard) for The Quiet Orchard as an upgrade.",
+    "It downloads HD (standard) for The Quiet Orchard as an upgrade.",
   );
 }
 
@@ -38,7 +39,7 @@ async function keepsGrabbed(opened: Locator, words: readonly string[]): Promise<
 async function reopensHeld(page: Page, opened: Locator, lines: readonly string[]): Promise<void> {
   await page.keyboard.press("Escape");
   await openFromHero(page, orchard);
-  const held = opened.getByRole("list", { name: "Cells a Grab is downloading" });
+  const held = opened.getByRole("list", { name: "Files already downloading" });
   await expect(held.getByRole("listitem")).toHaveText([...lines]);
   await expect(grabRows(opened)).toHaveCount(0);
 }
@@ -62,7 +63,7 @@ test("the plan reads as automatic search would grab, a swapped row holds while I
 
   await expect(opened).toContainText("3 have responded.");
   await useChoice(rows.nth(0), webdl);
-  await expect(opened).toContainText("1 Grab gets you everything.");
+  await expect(opened).toContainText("1 Grab downloads every file you're missing.");
   await expect(rows).toHaveCount(1);
   await expect(rows.nth(0)).toContainText(webdl);
   await expect(rows.nth(0)).toContainText(both);
@@ -73,12 +74,12 @@ test("the plan reads as automatic search would grab, a swapped row holds while I
   await searched(opened);
   await expect(rows).toHaveCount(1);
   await expect(rows.nth(0)).toContainText(webdl);
-  await expect(opened).toContainText("1 Grab gets you everything.");
+  await expect(opened).toContainText("1 Grab downloads every file you're missing.");
 
   await world.fw.fault.set({ id: "swarm-stalled", target: "seeders", fault: "stall" });
   await opened.getByRole("button", { name: "Grab 1" }).click();
   await keepsGrabbed(opened, [webdl]);
-  await expect(opened.getByRole("list", { name: "Cells a Grab is downloading" })).toHaveCount(0);
+  await expect(opened.getByRole("list", { name: "Files already downloading" })).toHaveCount(0);
   await expectAccessible(page);
   await frame(page, testInfo, "plan-grabbed");
 
@@ -110,7 +111,7 @@ test("a Release pinned in the HD row that also fills 1080p gets the HD row alone
   await expect(rows.nth(0)).toContainText(bluray);
   await expect(rows.nth(1)).toContainText(cmrg);
   await expect(rows.nth(1)).toContainText(
-    "It gets you HD (standard) for The Quiet Orchard as an upgrade.",
+    "It downloads HD (standard) for The Quiet Orchard as an upgrade.",
   );
 
   await world.fw.fault.set({ id: "swarm-stalled", target: "seeders", fault: "stall" });
