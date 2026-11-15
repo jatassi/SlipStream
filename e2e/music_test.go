@@ -26,7 +26,7 @@ const musicType = `{"id":"music","name":"Music","icon":"note","enabled":true,"wo
 	`{"key":"disc","label":"Disc","tier":"item","kind":"number","in":["details"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null},` +
 	`{"key":"length","label":"Length","tier":"item","kind":"duration","in":["facts"],"list":{"column":false,"sort":false,"filter":false},"with":null,"art":null}],` +
 	`"artwork":[{"key":"cover","label":"Cover","tier":"work","shape":"cover"},{"key":"cover","label":"Cover","tier":"level","depth":1,"shape":"cover"}],` +
-	`"source":"MusicBrainz","items":"many","art":{"poster":null,"backdrop":null,"title":null},"ratings":[],"availability":"","releases":""}`
+	`"source":"MusicBrainz","items":"many","art":{"poster":null,"backdrop":null,"title":null},"ratings":[],"availability":"","releases":"","addSearch":{"kind":"choice","choices":[{"value":"monitored","label":"Everything monitored"},{"value":"first_level","label":"First album"},{"value":"latest_level","label":"Latest album"},{"value":"first_item","label":"First track"},{"value":"none","label":"Nothing"}]}}`
 
 func searchLanterns(workID string) worldtest.Reply {
 	return worldtest.Reply{Status: 200, Body: `{"candidates":[{"key":"` + lanterns + `","label":"The Lanterns","original":"","overview":"","fields":[{"key":"country","kind":"text","text":"GB"}],"posterUrl":null,"workId":` + workID + `,"unlisted":false}]}` + "\n"}
@@ -261,9 +261,9 @@ func TestMusicPresets(t *testing.T) {
 		Presets json.RawMessage `json:"presets"`
 	}
 	decode(t, "previewCatalogRecord", a.Admin("home", http.MethodGet, "/api/v1/content-types/music/catalog/"+lanterns, ""), &preview)
-	if want := `{"asides":0,"choices":[{"preset":"all","monitors":5,"monitorsNew":true},{"preset":"future","monitors":0,"monitorsNew":true},` +
-		`{"preset":"missing","monitors":5,"monitorsNew":true},{"preset":"existing","monitors":0,"monitorsNew":false},{"preset":"first","monitors":3,"monitorsNew":false},` +
-		`{"preset":"latest","monitors":2,"monitorsNew":true},{"preset":"none","monitors":0,"monitorsNew":false}]}`; string(preview.Presets) != want {
+	if want := `{"asides":0,"choices":[{"preset":"all","monitors":5,"monitorsNew":true,"searches":[]},{"preset":"future","monitors":0,"monitorsNew":true,"searches":[]},` +
+		`{"preset":"missing","monitors":5,"monitorsNew":true,"searches":[]},{"preset":"existing","monitors":0,"monitorsNew":false,"searches":[]},{"preset":"first","monitors":3,"monitorsNew":false,"searches":[]},` +
+		`{"preset":"latest","monitors":2,"monitorsNew":true,"searches":[]},{"preset":"none","monitors":0,"monitorsNew":false,"searches":[]}]}`; string(preview.Presets) != want {
 		t.Fatalf("the preview's presets are %s, want %s", preview.Presets, want)
 	}
 
