@@ -12,12 +12,14 @@ import (
 )
 
 // decisionIn is what one decision reads: the run its Releases belong to,
-// those Releases, deduped and assessed, before the Blocklist gate, and
-// which cells it opens. Only its constructors build it.
+// those Releases, deduped and assessed, before the Blocklist gate, which
+// cells it opens and whether their Targets' Holds apply. Only its
+// constructors build it.
 type decisionIn struct {
-	run  Search
-	as   []assessed
-	open openRule
+	run   Search
+	as    []assessed
+	open  openRule
+	holds bool
 	// only is the cells of the run's Items a rerun opens, the dropped
 	// Grab's; nil opens every cell of them the rule opens.
 	only map[files.CellKey]bool
@@ -37,16 +39,19 @@ func (o openRule) opens(c files.Cell) bool {
 
 // runInput is the decision of run, a search run, over what its lines
 // listed. Its trigger's lane rule opens gone cells for the Admin's
-// Search and stopped ones for Backlog search.
+// Search and stopped ones for Backlog search, and applies Holds to every
+// trigger but the Admin's: a press, promoting the run, takes them off.
 func runInput(run Search, as []assessed) decisionIn {
 	rule := laneRules[run.Trigger]
-	return decisionIn{run: run, as: as, open: openRule{gone: rule.gone, stopped: rule.paced}}
+	return decisionIn{run: run, as: as, open: openRule{gone: rule.gone, stopped: rule.paced}, holds: rule.holds}
 }
 
 // rerunInput is the decision of re's run again, over the Releases it
-// kept, at the cells its dropped Grab held.
+// kept, at the cells its dropped Grab held. It applies no Hold: the run
+// already grabbed past them, and it keeps no Release for a wait.
 func rerunInput(re redo) decisionIn {
 	in := runInput(re.run, re.assessed)
+	in.holds = false
 	in.only = map[files.CellKey]bool{}
 	for _, k := range re.cells {
 		in.only[k] = true
@@ -90,10 +95,12 @@ func (in decisionIn) board(all []files.Cell, unfinished []Grab) cells {
 
 // decisionOut is what a decision took and why: the Grabs it made or
 // joined, in the order it walked them, the notes of the first one's
-// pick, every Release with its outcome, how many passed the Blocklist,
-// and when it decided.
+// pick, the claims that wait, which commitWaits writes once the Releases
+// are stored, every Release with its outcome, how many passed the
+// Blocklist, and when it decided.
 type decisionOut struct {
 	grabs      []Grab
+	waits      []claim
 	notes      []Reason
 	rows       []row
 	candidates int
@@ -134,21 +141,26 @@ func (gr *Grabs) claimIn(ctx context.Context, tx *storage.Tx[file], in decisionI
 	}
 	c := in.board(all, unfinished)
 	held := heldOf(unfinished)
-	cs, err := claimsOf(c, in.as, gr.taker(ctx, tx, held), in.gone)
+	out := decisionOut{candidates: len(in.as), at: storage.Now()}
+	cs, err := claimsOf(c, in.as, gr.taker(ctx, tx, held), in.gone, in.holds, out.at.Time())
 	if err != nil {
 		return decisionOut{}, err
 	}
-	out := decisionOut{candidates: len(in.as), at: storage.Now()}
-	if out.grabs, err = gr.commitClaims(ctx, tx, in.run, cs, held, out.at); err != nil {
+	var grabbing []claim
+	taken, waited := in.grabbed, []int(nil)
+	for _, cl := range cs {
+		if cl.until.IsZero() {
+			grabbing, taken = append(grabbing, cl), append(taken, cl.pick.at)
+		} else {
+			out.waits, waited = append(out.waits, cl), append(waited, cl.pick.at)
+		}
+	}
+	if out.grabs, err = gr.commitClaims(ctx, tx, in.run, grabbing, held, out.at); err != nil {
 		return decisionOut{}, err
 	}
-	taken := in.grabbed
-	for _, cl := range cs {
-		taken = append(taken, cl.pick.at)
+	if len(grabbing) > 0 {
+		out.notes = grabbing[0].pick.Notes
 	}
-	if len(cs) > 0 {
-		out.notes = cs[0].pick.Notes
-	}
-	out.rows = outcomes(decide(c, in.as), c, taken)
+	out.rows = outcomes(decide(c, in.as), c, taken, waited)
 	return out, nil
 }

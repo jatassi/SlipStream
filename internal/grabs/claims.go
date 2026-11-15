@@ -3,6 +3,7 @@ package grabs
 import (
 	"context"
 	"slices"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/files"
@@ -12,24 +13,27 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// claim is one pick an automatic decision grabs: the cells it holds,
-// the one leading first, the Items its Release covers, the Ticket take
-// readied it with, and the Items the fewer-Releases step chose it to
-// fill, 0 when another step did.
+// claim is one pick an automatic decision grabs, or waits for: the cells
+// it holds, the one leading first, the Items its Release covers, the
+// Ticket take readied it with, the Items the fewer-Releases step chose it
+// to fill, 0 when another step did, and when its wait ends, zero for a
+// Grab.
 type claim struct {
 	cells  []files.CellKey
 	covers []works.ItemID
 	pick   Pick
 	ticket indexers.Ticket
 	fills  int
+	until  time.Time
 }
 
 // claimsOf is c's walk with take: its open cells in Want order, then its
 // filled cells. Each pick holds every free cell of its Edition where it
 // stands auto, and the other Items' open cells where it ranks first, so
 // a pack that the fewer-Releases step puts first fills the season and a
-// single fills what the pack leaves.
-func claimsOf(c cells, as []assessed, take taker, gone map[int]bool) ([]claim, error) {
+// single fills what the pack leaves. When holds, a pick the cells'
+// Holds keep past now waits.
+func claimsOf(c cells, as []assessed, take taker, gone map[int]bool, holds bool, now time.Time) ([]claim, error) {
 	walked := len(c.open) + len(c.filled)
 	in := planIn{item: slices.Concat(c.open, c.filled, c.others), as: as, take: take, gone: gone, wanted: c.wanted, chosen: c.chosen}
 	in.fill, in.scope = make([]bool, len(in.item)), make([]bool, len(in.item))
@@ -54,7 +58,11 @@ func claimsOf(c cells, as []assessed, take taker, gone map[int]bool) ([]claim, e
 		}
 		return out
 	}
-	rows, _, err := walk(in, hooks{also: also})
+	h := hooks{also: also}
+	if holds {
+		h.hold = holdRule(in, also, now)
+	}
+	rows, _, err := walk(in, h)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +71,7 @@ func claimsOf(c cells, as []assessed, take taker, gone map[int]bool) ([]claim, e
 		if r.group < 0 {
 			continue
 		}
-		cl := claim{covers: as[r.group].covers, pick: r.pick, ticket: r.ticket, fills: r.fills}
+		cl := claim{covers: as[r.group].covers, pick: r.pick, ticket: r.ticket, fills: r.fills, until: r.until}
 		for _, k := range r.cells {
 			cl.cells = append(cl.cells, keyOf(in.item[k]))
 		}
@@ -103,14 +111,19 @@ func (gr *Grabs) taker(ctx context.Context, tx *storage.Tx[file], held map[benco
 	}
 }
 
-// commitClaims writes cs, run's claims, in tx: a Grab of each pick, or
-// the pick's cells added to the unfinished Grab of held its Release
-// joins, and the run's link to each, made or joined. It answers the
-// Grabs in cs' order.
+// commitClaims writes cs, run's Grab claims, in tx: a Grab of each pick,
+// or the pick's cells added to the unfinished Grab of held its Release
+// joins, and the run's link to each, made or joined. A Grab ends the wait
+// of each cell it holds. It answers the Grabs in cs' order.
 func (gr *Grabs) commitClaims(ctx context.Context, tx *storage.Tx[file], run Search, cs []claim, held map[bencode.InfoHash]Grab, now storage.Time) ([]Grab, error) {
 	q := db.New(tx)
 	var out []Grab
 	for _, c := range cs {
+		for _, k := range c.cells {
+			if err := q.DeleteWait(ctx, db.DeleteWaitParams{ItemID: k.Item, Edition: k.Edition, TargetID: k.Target}); err != nil {
+				return nil, err
+			}
+		}
 		var g Grab
 		var err error
 		joined := false
@@ -136,6 +149,25 @@ func (gr *Grabs) commitClaims(ctx context.Context, tx *storage.Tx[file], run Sea
 		out = append(out, g)
 	}
 	return out, nil
+}
+
+// commitWaits writes ws, run's waiting claims, once run's Releases are
+// stored: each cell's wait, which a cell already waiting keeps until the
+// earlier time, with the claim's Release as one more of its candidates.
+func commitWaits(ctx context.Context, q *db.Queries, run Search, ws []claim, now storage.Time) error {
+	for _, c := range ws {
+		for _, k := range c.cells {
+			w := db.UpsertWaitParams{WorkID: run.WorkID, ItemID: k.Item, Edition: k.Edition, TargetID: k.Target, UntilAt: storage.FromTime(c.until), StartedAt: now}
+			if err := q.UpsertWait(ctx, w); err != nil {
+				return err
+			}
+			cand := db.InsertWaitCandidateParams{ItemID: k.Item, Edition: k.Edition, TargetID: k.Target, SearchID: run.ID, Position: int64(c.pick.at)}
+			if err := q.InsertWaitCandidate(ctx, cand); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // join adds cells to g, the Grab a decision's pick joins, but those g

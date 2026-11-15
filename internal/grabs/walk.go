@@ -2,6 +2,7 @@ package grabs
 
 import (
 	"slices"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/indexers"
 )
@@ -10,10 +11,12 @@ import (
 // apart. waits is why the Indexers won't take what stands at a gap's
 // cell, nil for no reason. also is the cells beyond a row's own its Grab
 // holds: for an automatic decision, the other Items' cells where its
-// Release ranks first.
+// Release ranks first. hold is when a pick of as[g] led by cell w waits
+// until, false when it is grabbed now: nil for no Hold.
 type hooks struct {
 	waits func(w int) (*indexers.NotTakenError, error)
 	also  func(r planned) []int
+	hold  func(w, g int, p Pick, taken []bool) (time.Time, bool)
 }
 
 // walk walks in.walk in order, the one walk Manual search's plan and
@@ -21,6 +24,8 @@ type hooks struct {
 // live pin takes it. Otherwise it calls decide over the walk's cells left
 // and choose over the picks first grabbable at this cell, and the pick
 // choose takes is a row over the cells it fills, which h.also widens. A
+// pick h.hold holds back is a waiting row over those cells instead, taken
+// from no Indexer, so no single is grabbed beside a waiting pack. A
 // cell nothing takes is a gap. A pin whose Release doesn't stand at its
 // cell, or whose Indexers won't take it, is dropped. It answers the rows
 // and each live pin's Release, by cell.
@@ -42,7 +47,7 @@ func walk(in planIn, h hooks) ([]planned, map[int]int, error) {
 			out = append(out, r)
 			continue
 		}
-		l, ok, err := in.next(taken)
+		l, ok, err := in.next(taken, h)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -82,7 +87,7 @@ func (in planIn) pinned(w int, taken []bool) (planned, bool, error) {
 // row fills yet. It marks them taken.
 func (in planIn) widened(w int, l led, taken []bool, h hooks) planned {
 	r := in.row(w, l.group, l.pick, taken)
-	r.ticket, r.fills = l.ticket, l.fills
+	r.ticket, r.fills, r.until = l.ticket, l.fills, l.until
 	if h.also == nil {
 		return r
 	}
@@ -96,21 +101,24 @@ func (in planIn) widened(w int, l led, taken []bool, h hooks) planned {
 }
 
 // led is what next picked: the pick, the Ticket take readied it with,
-// its Release's index in as, and the Items it was chosen to fill when
-// the fewer-Releases step put it first, 0 otherwise.
+// its Release's index in as, the Items it was chosen to fill when the
+// fewer-Releases step put it first, 0 otherwise, and when it waits
+// until, zero for a pick take readied.
 type led struct {
 	pick   Pick
 	ticket indexers.Ticket
 	group  int
 	fills  int
+	until  time.Time
 }
 
 // next is what decide and choose pick among the Releases first
 // grabbable at the first of the walk's cells no row fills yet, judged
 // over those cells. It narrows in.js to them rather than judging again,
 // which gives the same verdicts. Only a pick it keeps is offered to
-// in.take, so a take that reserves a grab reserves none it drops.
-func (in planIn) next(taken []bool) (led, bool, error) {
+// in.take, so a take that reserves a grab reserves none it drops, and a
+// pick h.hold holds back is offered to none.
+func (in planIn) next(taken []bool, h hooks) (led, bool, error) {
 	var ks []int
 	left := cells{wanted: in.wanted, chosen: in.chosen}
 	for _, w := range in.walk {
@@ -128,11 +136,22 @@ func (in planIn) next(taken []bool) (led, bool, error) {
 		js = append(js, o)
 	}
 	d := decided(left, js)
-	p, t, ok, err := choose(d.picks(left), in.gone, in.take)
-	if !ok || err != nil {
-		return led{}, ok, err
+	for _, pick := range d.picks(left) {
+		if h.hold != nil {
+			g := groupOf(in.as, pick.at)
+			if until, ok := h.hold(ks[0], g, pick, taken); ok {
+				return led{pick: pick, group: g, fills: fewerFills(left, d.Ranked, pick), until: until}, true, nil
+			}
+		}
+		p, t, ok, err := choose([]Pick{pick}, in.gone, in.take)
+		if err != nil {
+			return led{}, false, err
+		}
+		if ok {
+			return led{pick: p, ticket: t, group: groupOf(in.as, p.at), fills: fewerFills(left, d.Ranked, p)}, true, nil
+		}
 	}
-	return led{pick: p, ticket: t, group: groupOf(in.as, p.at), fills: fewerFills(left, d.Ranked, p)}, true, nil
+	return led{}, false, nil
 }
 
 // fewerFills is the Items with no file p's Release fills when the

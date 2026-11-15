@@ -125,6 +125,8 @@ type World struct {
 	Home role.NodeID
 	// Sites is each site's Indexer, by name.
 	Sites map[string]indexers.ID
+	// Goals is the Work's Targets in Profile order.
+	Goals []targets.TargetID
 
 	t           testing.TB
 	o           Options
@@ -163,6 +165,7 @@ func New(t testing.TB, o Options) *World {
 	for _, spec := range goals {
 		made, err := wanted.CreateTarget(ctx, identity.Admin{}, spec)
 		must(t, err)
+		w.Goals = append(w.Goals, made.ID)
 		entries = append(entries, targets.Entry{Target: made.ID, Sourcing: targets.Download})
 	}
 	profile, err := wanted.CreateProfile(ctx, identity.Admin{}, targets.ProfileSpec{Name: "Standard", ContentType: contenttypetest.ID, Entries: entries})
@@ -230,7 +233,7 @@ func New(t testing.TB, o Options) *World {
 		Changed: discard[grabs.Changed]{}, SearchChanged: discard[grabs.SearchChanged]{}, FilesChanged: discard[files.Changed]{},
 		BlocklistChanged: discard[grabs.BlocklistChanged]{}, QueueChanged: discard[grabs.QueueChanged]{},
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return w.reconciling.Load(), nil },
-		Tasks:       Cadences{Backlog: o.BacklogEvery}, GapCap: grabs.NoGapCap, Clock: time.Now, Log: log,
+		Tasks:       Cadences{Backlog: o.BacklogEvery}, GapCap: grabs.NoGapCap, Clock: time.Now, Today: time.Now, Log: log,
 	}
 	w.open()
 	t.Cleanup(w.halt)
@@ -285,6 +288,34 @@ func (w *World) edit(site string, e indexers.Edit) {
 	w.t.Helper()
 	_, err := w.Indexers.Update(w.t.Context(), identity.Admin{}, w.Sites[site], e, indexers.Typed{})
 	must(w.t, err)
+}
+
+// Hold sets the Hold of the World's goal at i, in Profile order.
+func (w *World) Hold(i int, hold time.Duration) {
+	w.t.Helper()
+	_, err := w.Config.Files.Change(w.t.Context(), identity.Admin{}, targets.SetHold{ID: w.Goals[i], Hold: hold}, files.Mode{})
+	must(w.t, err)
+}
+
+// Wait is a cell waiting for a better Release until Until.
+type Wait struct {
+	Cell  files.CellKey
+	Until time.Time
+}
+
+// Waits reads the World's Work's waiting cells, soonest first.
+func (w *World) Waits(t testing.TB) []Wait {
+	t.Helper()
+	synctest.Wait()
+	var out []Wait
+	must(t, w.Lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		rows, err := db.New(r).ListWaitsOfWork(ctx, w.Work)
+		for _, row := range rows {
+			out = append(out, Wait{Cell: files.CellKey{Item: row.ItemID, Edition: row.Edition, Target: row.TargetID}, Until: row.UntilAt.Time()})
+		}
+		return err
+	}))
+	return out
 }
 
 // open opens a Grabs with Config, which the Files' changes queue on.

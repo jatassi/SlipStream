@@ -82,17 +82,8 @@ func (s sheet) title() string {
 // codeOf is the code the Work page leads item with, "S02E10", "" when its
 // type places none.
 func (s sheet) codeOf(item works.ItemID) string {
-	i := slices.IndexFunc(s.in.nouns.Fields, func(f works.FieldSpec) bool { return slices.Contains(f.In, works.PlaceCode) })
-	if i < 0 {
-		return ""
-	}
 	j := slices.IndexFunc(s.in.tree.Items, func(it works.Item) bool { return it.ID == item })
-	for _, v := range s.in.tree.Items[j].Fields {
-		if v.Key == s.in.nouns.Fields[i].Key && v.Kind == works.KindText {
-			return v.Text
-		}
-	}
-	return ""
+	return itemCode(s.in.nouns, s.in.tree.Items[j])
 }
 
 func liveItems(t works.Tree) []works.Item {
@@ -907,7 +898,7 @@ func (s sheet) foldWords(key foldKey, n int) string {
 	case targets.NotAnUpgrade:
 		return plural(n, "1 isn't", "%d aren't") + " better than the files you have."
 	case targets.WrongTitle, targets.CutNotWanted, targets.SizeBelow, targets.SizeAbove, targets.SizeNotChecked,
-		targets.ScoreBelowMinimum, targets.RepackOtherGroup:
+		targets.ScoreBelowMinimum, targets.RepackOtherGroup, targets.NotAired, targets.Tried:
 	}
 	return plural(n, "1 is", "%d are") + " refused at every Target here."
 }

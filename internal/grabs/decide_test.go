@@ -59,7 +59,7 @@ var noFormats = formats.Compile(nil, formats.DefaultTimings())
 
 // orchard is how a search judges a release of The Quiet Orchard (2021).
 var orchard = judging{
-	searched: item.ID,
+	scope: map[works.ItemID]bool{item.ID: true},
 	expect: indexers.Expect{
 		Claim: release.Claim{
 			IDs:    map[string]string{"tmdbid": "9000001", "imdbid": "tt9000001"},
@@ -73,7 +73,7 @@ var orchard = judging{
 // lanternS01E03 is how a search judges a release of S01E03 of The Lantern
 // Keepers, TVDB series 1001.
 var lanternS01E03 = judging{
-	searched: item.ID,
+	scope: map[works.ItemID]bool{item.ID: true},
 	expect: indexers.Expect{
 		Claim: release.Claim{IDs: map[string]string{"tvdbid": "1001"}, Titles: []string{"The Lantern Keepers", "Lantern Keepers"}},
 		Covers: func(n release.Name) []works.ItemID {
@@ -117,7 +117,7 @@ func assessedBy(j judging, ls ...listed) []assessed {
 func searched(open []files.Cell, as []assessed) ([]Pick, []refusal) {
 	c := cells{open: open}
 	d := decide(c, as)
-	return d.picks(c), refusedIn(outcomes(d, c, nil))
+	return d.picks(c), refusedIn(outcomes(d, c, nil, nil))
 }
 
 // refusal is a Release a search refused and why.
@@ -446,7 +446,7 @@ func TestDecideTakesAProperOnAFilledCell(t *testing.T) {
 		{"Orchard.2021.720p.WEB-DL.PROPER-GRP", nil},
 		{"Orchard.2021.1080p.WEB-DL.REPACK-OTHER", []Reason{notChecked(web), {Reason: targets.Reason{Code: targets.RepackOtherGroup, Value: "GRP"}, Target: web.ID}}},
 	}
-	if got := refusedIn(outcomes(d, c, nil)); !reflect.DeepEqual(got, want) {
+	if got := refusedIn(outcomes(d, c, nil, nil)); !reflect.DeepEqual(got, want) {
 		t.Fatalf("refused = %+v\nwant the same revision and another Quality's proper judged at no cell, and a repack from another group refused: %+v", got, want)
 	}
 }
@@ -745,7 +745,7 @@ func TestEachReleaseARunListedHasItsOutcomeAndWhereItLostToTheGrabbedOne(t *test
 			"5 kept rank 3 copy of 1 lost at tier WEBDL-1080p against Bluray-1080p",
 		}},
 	} {
-		if got := describe(outcomes(d, c, tc.taken)); !slices.Equal(got, tc.want) {
+		if got := describe(outcomes(d, c, tc.taken, nil)); !slices.Equal(got, tc.want) {
 			t.Errorf("%s: the rows are\n%s\nwant\n%s", tc.name, strings.Join(got, "\n"), strings.Join(tc.want, "\n"))
 		}
 	}
@@ -753,7 +753,7 @@ func TestEachReleaseARunListedHasItsOutcomeAndWhereItLostToTheGrabbedOne(t *test
 
 func TestARefusedRowKeepsEveryReasonAndEachTargetsScore(t *testing.T) {
 	c, d := listedRuns()
-	rows := outcomes(d, c, []int{1})
+	rows := outcomes(d, c, []int{1}, nil)
 	if got, want := rows[3].reasons, []Reason{own(targets.WrongTitle, "Another Film"), notChecked(hd)}; !reflect.DeepEqual(got, want) {
 		t.Errorf("another film's Bluray is refused for %+v, want %+v", got, want)
 	}
@@ -806,7 +806,7 @@ func TestAGroupDecisionGrabsAPackTheSingleItLeavesAndARepackOfAMetFile(t *testin
 		offered("Lantern.Keepers.S01E10.1080p.WEB-DL-GRP", 5, 10, nil),
 		offered("Lantern.Keepers.S01E05.1080p.BluRay.REPACK-NTb", 5, 10, nil),
 	}
-	cs, err := claimsOf(c, assessedBy(j, ls...), func(indexers.Release) (indexers.Ticket, error) { return indexers.Ticket{}, nil }, nil)
+	cs, err := claimsOf(c, assessedBy(j, ls...), func(indexers.Release) (indexers.Ticket, error) { return indexers.Ticket{}, nil }, nil, false, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}

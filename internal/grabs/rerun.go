@@ -39,10 +39,12 @@ type keptRelease struct {
 	MinSeedSeconds int64             `json:"minSeedSeconds,omitempty"`
 	Source         *keptSource       `json:"source,omitempty"`
 	Flags          []searching.Flag  `json:"flags,omitempty"`
-	GUID           string            `json:"guid,omitempty"`
 	// Published is when its Indexer published it, zero when it sent no
 	// date.
 	Published time.Time `json:"published,omitzero"`
+	// GUID is the one its Indexer sent, which a tried refusal matches
+	// when no info hash is known.
+	GUID string `json:"guid,omitempty"`
 }
 
 // keptSource is the site a Torznab feed said the Release came from, which
@@ -203,7 +205,7 @@ func (gr *Grabs) rerunOf(ctx context.Context, g Grab) (*redo, error) {
 		if err != nil {
 			return err
 		}
-		j, err := gr.judgingOf(ctx, r, tree.ContentType, run.WorkID, run.item(), terms.Expect)
+		j, err := gr.judgingOf(ctx, r, tree, scopeOf(run.Items), terms.Expect)
 		if err != nil {
 			return err
 		}

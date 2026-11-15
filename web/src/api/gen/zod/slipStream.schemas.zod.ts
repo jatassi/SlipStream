@@ -2955,9 +2955,11 @@ export const GrabsWordedReason = zod.object({
       "not_an_upgrade",
       "repack_other_group",
       "blocklisted",
+      "not_aired",
+      "tried",
     ])
     .describe(
-      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item, no Item, or none of the searched Items. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist. not_aired is a pack listing an Item that hasn't aired, its value the Item's code. tried is a release a failed Grab of the Work already tried.",
     ),
   soft: zod
     .boolean()
@@ -3128,8 +3130,13 @@ export const GrabsLiftKey = zod.object({
     "score_below_minimum",
     "not_an_upgrade",
     "repack_other_group",
+    "not_aired",
+    "tried",
   ]),
-  targetId: zod.uuid().exactOptional().describe("Absent for wrong_title"),
+  targetId: zod
+    .uuid()
+    .exactOptional()
+    .describe("Absent for a release's own refusals: wrong_title, not_aired and tried"),
 });
 
 export type GrabsLiftKey = zod.input<typeof GrabsLiftKey>;
@@ -4025,9 +4032,9 @@ export const GrabsListedRelease = zod.object({
       "Where an outranked or kept Release lost to the reference Release; null for the others and for one that ties it at every step",
     ),
   outcome: zod
-    .enum(["grabbed", "not_taken", "outranked", "kept", "refused"])
+    .enum(["grabbed", "not_taken", "outranked", "kept", "refused", "waiting"])
     .describe(
-      "grabbed is the run's Grab. not_taken ranked above it, and its Indexer stopped, reached its limit or dropped it. outranked ranked below it. kept ranked, and the run grabbed nothing. refused has a refusal of its own or is grabbable at no cell.",
+      "grabbed is the run's Grab. not_taken ranked above it, and its Indexer stopped, reached its limit or dropped it. outranked ranked below it. kept ranked, and the run grabbed nothing. refused has a refusal of its own or is grabbable at no cell. waiting is a candidate a cell's Hold keeps until it grabs the best one.",
     ),
   position: zod
     .int()
@@ -4320,9 +4327,11 @@ export const GrabsReason = zod.object({
       "not_an_upgrade",
       "repack_other_group",
       "blocklisted",
+      "not_aired",
+      "tried",
     ])
     .describe(
-      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item or no Item. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist.",
+      "Why the release was refused, or a note on it. wrong_item is a release whose title names another Item, no Item, or none of the searched Items. wrong_title is a release whose title or year doesn't match the Work's. blocklisted is a release whose info hash is on the Blocklist. not_aired is a pack listing an Item that hasn't aired, its value the Item's code. tried is a release a failed Grab of the Work already tried.",
     ),
   soft: zod
     .boolean()

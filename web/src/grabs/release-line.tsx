@@ -61,6 +61,7 @@ const outcomes: Record<
   kept: (release, names) =>
     lost(release, names, "first") ?? "It ranked first. The search grabbed nothing.",
   refused: (release) => refusalWords(release.reasons),
+  waiting: () => "It's a candidate for a cell waiting for a better Release.",
 };
 
 /** Its outcome in words: what it was grabbed for, where it lost, or what refused it. */

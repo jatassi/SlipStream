@@ -3,6 +3,7 @@ package grabs
 import (
 	"errors"
 	"slices"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -49,13 +50,15 @@ type planIn struct {
 // planned is one row of a plan: a Grab of as[group], or a gap when group
 // is -1. cells is the cells it fills, first the one that leads it.
 // ticket is what take readied pick with, and fills the Items the
-// fewer-Releases step chose it to fill, 0 when another step did.
+// fewer-Releases step chose it to fill, 0 when another step did. until is
+// when a waiting row's wait ends, zero for a Grab.
 type planned struct {
 	cells  []int
 	group  int
 	pick   Pick
 	ticket indexers.Ticket
 	fills  int
+	until  time.Time
 	stance stance
 	pinned bool
 	// waits is why the Indexers won't take the best Release that stands
