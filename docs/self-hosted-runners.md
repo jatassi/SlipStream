@@ -4,8 +4,10 @@ The maintainer's PC runs self-hosted GitHub Actions runners for the linux-amd64 
 
 | Pool | Runners | Where | Account |
 |---|---|---|---|
-| Linux | `slipstream-linux-1` to `-8` | systemd services in the `SlipStream-CI` WSL distro | `gha1` to `gha8`, with passwordless sudo |
-| Windows | `slipstream-windows-1` to `-4` | services in `C:\slipstream-ci\windows-N` | local standard users `slipstream-ci-N` |
+| Linux | `slipstream-linux-1` to `-4` | systemd services in the `SlipStream-CI` WSL distro | `gha1` to `gha4`, with passwordless sudo |
+| Windows | `slipstream-windows-1` and `-2` | services in `C:\slipstream-ci\windows-N` | local standard users `slipstream-ci-N` |
+
+Each Linux runner has its own CPUs and an equal share of the WSL VM's memory, less 2 GiB for the distro. A job that outgrows its share is killed alone. The distro runs in UTC, as hosted runners do. Memory is what limits the count. Eight Linux jobs at once filled a 15 GB VM and hung it.
 
 Each runner has two labels: the pool's (`slipstream-linux`) and the pool's with the kit's hash (`slipstream-linux-0a1b2c3d4e5f`). The kit is `scripts/self-hosted`, and its hash is the first 12 characters of `git rev-parse HEAD:scripts/self-hosted`.
 
@@ -37,7 +39,7 @@ From PowerShell 7 in a checkout with the kit committed:
 pwsh scripts/self-hosted/provision.ps1
 ```
 
-It installs the `SlipStream-CI` distro if it's missing, registers 8 Linux and 4 Windows runners with the kit's hash, and asks for administrator rights once for the Windows half. Run it again after changing the kit. `-LinuxRunners`, `-WindowsRunners` and `-Only linux|windows` change what it does.
+It sets the WSL VM's memory to 24 GB in `%USERPROFILE%\.wslconfig`, which every distro shares, and shuts WSL down when that changes. It installs the `SlipStream-CI` distro if it's missing, registers 4 Linux and 2 Windows runners with the kit's hash, removes the registrations of runners above those counts, and asks for administrator rights once for the Windows half. Run it again after changing the kit. `-LinuxRunners`, `-WindowsRunners`, `-WslMemory` and `-Only linux|windows` change what it does.
 
 The "SlipStream CI (WSL)" scheduled task keeps the distro running from startup, whether or not anyone is logged on.
 
@@ -56,7 +58,7 @@ From an administrator PowerShell:
 ```powershell
 $token = gh api -X POST repos/jatassi/SlipStream/actions/runners/remove-token --jq .token
 Get-ChildItem C:\slipstream-ci -Directory -Filter 'windows-*' | ForEach-Object { & "$($_.FullName)\config.cmd" remove --token $token }
-1..4 | ForEach-Object { Remove-LocalUser "slipstream-ci-$_" }
+Get-LocalUser 'slipstream-ci-*' | Remove-LocalUser
 Unregister-ScheduledTask 'SlipStream CI (WSL)' -Confirm:$false
 wsl --unregister SlipStream-CI
 Remove-Item -Recurse -Force C:\slipstream-ci

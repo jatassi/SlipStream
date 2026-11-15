@@ -33,7 +33,7 @@ switch ($Action) {
 Write-Host ''
 Write-Host "Paused: $(Test-Path $PauseFlag)"
 Get-Service $Services | Sort-Object Name | ForEach-Object { Write-Host "$($_.Name -replace '^actions\.runner\.jatassi-SlipStream\.'): $($_.Status)" }
-$runners = gh api "repos/$Repo/actions/runners" --paginate | ConvertFrom-Json
+$runners = gh api "repos/$Repo/actions/runners?per_page=100" | ConvertFrom-Json
 foreach ($r in $runners.runners | Sort-Object name) {
     Write-Host ("GitHub lists {0} as {1}{2}" -f $r.name, $r.status, ($r.busy ? ', busy' : ''))
 }

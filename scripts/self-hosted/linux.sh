@@ -21,6 +21,9 @@ mountFsTab=false
 enabled=false
 appendWindowsPath=false
 
+[time]
+useWindowsTimezone=false
+
 [user]
 default=root
 EOF
@@ -36,6 +39,10 @@ KIT_DIR=$(cd "$(dirname "$0")" && pwd)
 HOOKS=/opt/slipstream-ci/hooks
 PACKAGE=/opt/slipstream-ci/actions-runner-linux-x64-$VERSION.tar.gz
 export DEBIAN_FRONTEND=noninteractive
+
+# Hosted runners run in UTC, and tests that count days rely on it.
+ln -sf /usr/share/zoneinfo/Etc/UTC /etc/localtime
+echo Etc/UTC > /etc/timezone
 
 # Jobs on different runners run apt at the same time, so apt waits for the
 # lock instead of failing.
@@ -81,6 +88,21 @@ PrivateTmp=yes
 [Install]
 WantedBy=multi-user.target
 EOF
+# Each runner gets its own CPUs and an equal share of memory, less 2 GiB for
+# the distro, so it runs its job like a hosted runner of that size. Go, Node
+# and Playwright size their parallelism from the CPUs a process may use. A job
+# that outgrows its memory is killed alone, instead of the VM running out.
+cpus=$(( $(nproc) / RUNNERS ))
+memory_mib=$(( ($(awk '/^MemTotal:/ {print $2}' /proc/meminfo) / 1024 - 2048) / RUNNERS ))
+for i in $(seq 1 "$RUNNERS"); do
+  install -d "/etc/systemd/system/slipstream-ci-runner@$i.service.d"
+  cat > "/etc/systemd/system/slipstream-ci-runner@$i.service.d/limits.conf" <<EOF
+[Service]
+AllowedCPUs=$(( (i - 1) * cpus ))-$(( i * cpus - 1 ))
+MemoryMax=${memory_mib}M
+MemorySwapMax=0
+EOF
+done
 systemctl daemon-reload
 
 deps_installed=false
@@ -118,5 +140,8 @@ for d in /etc/systemd/system/multi-user.target.wants/slipstream-ci-runner@*.serv
   [ -e "$d" ] || continue
   n=${d##*@}
   n=${n%.service}
-  if [ "$n" -gt "$RUNNERS" ]; then systemctl disable --now "slipstream-ci-runner@$n" > /dev/null 2>&1 || true; fi
+  if [ "$n" -gt "$RUNNERS" ]; then
+    systemctl disable --now "slipstream-ci-runner@$n" > /dev/null 2>&1 || true
+    rm -f "/etc/systemd/system/slipstream-ci-runner@$n.service.d/limits.conf"
+  fi
 done
