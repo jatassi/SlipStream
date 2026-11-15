@@ -134,6 +134,7 @@ type World struct {
 	terms       attic
 	works       int
 	reconciling atomic.Bool
+	queue       searches.Late
 	stop        func()
 }
 
@@ -187,7 +188,7 @@ func New(t testing.TB, o Options) *World {
 	must(t, err)
 	r := alone{node: home}
 	router := downloadclients.Router{Roster: r, Routes: trackers.Routing{Roster: r}}
-	shelf, err := files.Open(ctx, files.Config{Library: lib, Targets: wanted, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: r.InStep, Router: router}}, Today: time.Now})
+	shelf, err := files.Open(ctx, files.Config{Library: lib, Targets: wanted, Queue: &w.queue, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: r.InStep, Router: router}}, Today: time.Now})
 	must(t, err)
 	remote := o.Remote
 	if remote == nil {
@@ -234,7 +235,7 @@ func New(t testing.TB, o Options) *World {
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return w.reconciling.Load(), nil },
 		Tasks:       Cadences{Backlog: o.BacklogEvery}, GapCap: grabs.NoGapCap, Clock: time.Now, Today: time.Now, Log: log,
 	}
-	w.Grabs = grabs.New(w.Config)
+	w.open()
 	t.Cleanup(w.halt)
 	return w
 }
@@ -317,6 +318,12 @@ func (w *World) Waits(t testing.TB) []Wait {
 	return out
 }
 
+// open opens a Grabs with Config, which the Files' changes queue on.
+func (w *World) open() {
+	w.Grabs = grabs.New(w.Config)
+	w.queue.Bind(w.Grabs)
+}
+
 // Reconciling sets whether the Controller is Reconciling after a restore.
 func (w *World) Reconciling(on bool) { w.reconciling.Store(on) }
 
@@ -348,7 +355,7 @@ func (w *World) halt() {
 func (w *World) Restart() {
 	ran := w.stop != nil
 	w.halt()
-	w.Grabs = grabs.New(w.Config)
+	w.open()
 	if ran {
 		w.Run()
 	}
@@ -399,9 +406,15 @@ type Line struct {
 // DueAt is when Backlog search next queues the World's group.
 func (w *World) DueAt(t testing.TB, group indexers.GroupKey) time.Time {
 	t.Helper()
+	return w.DueOf(t, w.Work, group)
+}
+
+// DueOf is when Backlog search next queues work's group.
+func (w *World) DueOf(t testing.TB, work works.WorkID, group indexers.GroupKey) time.Time {
+	t.Helper()
 	var at time.Time
 	must(t, w.Lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-		row, err := db.New(r).GetDue(ctx, db.GetDueParams{WorkID: w.Work, GroupKey: group})
+		row, err := db.New(r).GetDue(ctx, db.GetDueParams{WorkID: work, GroupKey: group})
 		at = row.DueAt.Time()
 		return err
 	}))

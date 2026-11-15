@@ -47,17 +47,9 @@ func (gr *Grabs) nudge(ctx context.Context, tx *storage.Tx[file], work works.Wor
 // queues nothing, and a deleted Work's nudges went with it. It isn't
 // fenced: while Reconciling the rows wait for dispatch. It publishes
 // grabs.queue-changed for the Works it landed, and wakes the reconciler
-// again when more Works wait.
+// again when more Works wait. It always opens its Write: a nudge wakes
+// the reconciler before its Write commits, and a Read would miss it.
 func (gr *Grabs) drain(ctx context.Context) error {
-	var nudged bool
-	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
-		ids, err := db.New(r).ListNudgedWorks(ctx, 1)
-		nudged = len(ids) > 0
-		return err
-	})
-	if err != nil || !nudged {
-		return err
-	}
 	interval, err := gr.interval(ctx)
 	if err != nil {
 		return err

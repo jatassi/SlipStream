@@ -134,7 +134,7 @@ func (n *Node) startController(ctx context.Context) error {
 		seeding      *trackers.Trackers
 		pipeline     *grabs.Grabs
 		scheduler    *tasks.Scheduler
-		searchQueue  searches.Queue = searches.None{}
+		searchQueue  = &searches.Late{}
 	)
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
@@ -464,6 +464,7 @@ func (n *Node) startController(ctx context.Context) error {
 		Today:            n.today,
 		Log:              n.rootLog.With("subsystem", "grabs"),
 	})
+	searchQueue.Bind(pipeline)
 	var composer *library.Library
 	found := imports.New(imports.Config{
 		Library: lib.db,
@@ -571,7 +572,7 @@ func (n *Node) startController(ctx context.Context) error {
 	n.claimed.Go("metadata", meta.Run)
 	n.claimed.Go("availability", metadata.NewAvailability(metadata.AvailabilityConfig{
 		Library: lib.db, Local: local, Targets: goals, Hub: n.hub, Changed: works.ChangedEvent.Bind(n.hub),
-		Now: n.today, Released: metadata.NoBacklog, Log: n.rootLog.With("subsystem", "availability"),
+		Now: n.today, Released: pipeline.Released, Log: n.rootLog.With("subsystem", "availability"),
 	}).Run)
 	n.claimed.Go("health", h.health.Run)
 	n.claimed.Go("first setup", h.firstRun.Run)
