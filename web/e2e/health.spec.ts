@@ -129,7 +129,9 @@ async function levelsOnHealth(page: Page): Promise<void> {
   await storage.getByRole("radio", { name: "%" }).nth(1).click();
   await error.fill("5");
   await storage.getByRole("button", { name: "Save" }).click();
-  await expect(storage.getByRole("alert")).toHaveText("No more than the warning level, 2%.");
+  await expect(storage.getByRole("alert")).toHaveText(
+    "Set the error level at or below the warning level, 2%.",
+  );
   await expect(storage).toContainText(storageSummary("2%", "0 GB"));
 
   await warn.fill("100");

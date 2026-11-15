@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 
-import type { FilesUpgradeNeed } from "../../api/gen/model";
+import type { FilesUpgradeNeed, WorksContentType } from "../../api/gen/model";
 import { ManualSearchButton, useStartSearch } from "../../grabs/search";
 import { Button } from "../../ui/button";
 import { List, ListRow } from "../../ui/list";
@@ -49,13 +49,13 @@ export function Upgrades({
   );
 }
 
-export function NoRoot() {
+export function NoRoot({ type }: { type: WorksContentType }) {
   const navigate = useNavigate();
   return (
     <WarningLine
       signal="warn"
       chip="No root"
-      subject="No library root for this Work"
+      subject={`This ${type.work.one.toLowerCase()} has no library root`}
       detail="Its downloads wait until it has one. Add a library root, or choose one in Edit."
       action={{
         label: "Open Library roots",

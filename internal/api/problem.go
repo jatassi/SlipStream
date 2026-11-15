@@ -99,7 +99,7 @@ func NewWaiting(status int, name, title string) Waiting {
 func (c Waiting) Until(t time.Time) error {
 	return &explained{
 		code: c.Code, at: t, retryAfter: t, carried: t.UTC(),
-		words: func(at string) string { return "You can try again at " + at + "." },
+		words: func(at string) string { return "Try again at " + at + "." },
 	}
 }
 
@@ -185,7 +185,7 @@ func timeWords(t, now time.Time, zone *time.Location) string {
 
 var (
 	BadRequest           = NewCode(http.StatusBadRequest, "bad_request", "The request is malformed")
-	NotFound             = NewCode(http.StatusNotFound, "not_found", "Nothing is here")
+	NotFound             = NewCode(http.StatusNotFound, "not_found", "Nothing exists at this path")
 	BodyTimeout          = NewCode(http.StatusRequestTimeout, "body_timeout", "The request body took too long to arrive")
 	TooLarge             = NewCode(http.StatusRequestEntityTooLarge, "too_large", "The request body is too large")
 	UnsupportedMediaType = NewCode(http.StatusUnsupportedMediaType, "unsupported_media_type", "Send the request body as JSON")
@@ -196,13 +196,13 @@ var (
 var (
 	SignedOut      = NewCode(http.StatusUnauthorized, "signed_out", "Sign in to continue")
 	APIKeyWrong    = NewCode(http.StatusUnauthorized, "api_key_wrong", "The API key is wrong")
-	NeedsAccount   = NewCode(http.StatusForbidden, "needs_account", "Only a signed-in person can do this")
+	NeedsAccount   = NewCode(http.StatusForbidden, "needs_account", "The API key can't do this. Sign in to an Account to do it.")
 	NeedsAdmin     = NewCode(http.StatusForbidden, "needs_admin", "Only an Admin can do this")
 	SetupCodeWrong = NewCode(http.StatusForbidden, "setup_code_wrong", "The Setup code is wrong")
 	SetupBusy      = NewCode(http.StatusConflict, "setup_busy", "Another setup is running")
 	AlreadyClaimed = NewCode(http.StatusConflict, "already_claimed", "This Node is already set up")
-	JoinPending    = NewCode(http.StatusConflict, "join_pending", "A Join waits for its Controller to dial this Node")
-	CrossOrigin    = NewCode(http.StatusForbidden, "cross_origin", "Another site can't make this request")
+	JoinPending    = NewCode(http.StatusConflict, "join_pending", "This Node is waiting for its Controller to connect to it")
+	CrossOrigin    = NewCode(http.StatusForbidden, "cross_origin", "SlipStream refused this request because it came from another site")
 	WorkerNode     = NewCode(http.StatusConflict, "worker_node", "This Node is a Worker. Manage it from its Controller.")
 	PINRequired    = NewCode(http.StatusForbidden, "pin_required", "Set a new PIN to continue")
 	NeedsReconfirm = NewCode(http.StatusForbidden, "needs_reconfirm", "Confirm it's you to continue")

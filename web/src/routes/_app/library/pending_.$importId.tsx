@@ -53,7 +53,7 @@ function PendingImport() {
   return (
     <Page>
       {type === undefined || waitingFiles(entry).length === 0 ? (
-        <Empty>Nothing in this download waits for you now.</Empty>
+        <Empty>Nothing in this download needs attention now.</Empty>
       ) : (
         <ul>
           <DownloadEntry entry={entry} type={type} />

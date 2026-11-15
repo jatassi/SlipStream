@@ -19,7 +19,7 @@ test("the account menu asks before restarting SlipStream, and Cancel restarts no
   await userEvent.click(page.getByRole("button", { name: /^Account/u }));
   await expect
     .element(page.getByRole("menu"))
-    .toMatchTextContent(/Startup sequence.*Restart SlipStream….*Sign out$/u);
+    .toMatchTextContent(/Startup animation.*Restart SlipStream….*Sign out$/u);
   await userEvent.click(page.getByRole("menuitem", { name: "Restart SlipStream…" }));
 
   await expect.element(confirm("Restart SlipStream?")).toMatchTextContent(said);

@@ -49,7 +49,7 @@ function Library() {
         }}
         empty={
           enabled.length === 0 ? (
-            <Empty>Nothing in the library yet. Turn on a Content Type to add Works.</Empty>
+            <Empty>Nothing in the library yet. Turn on a kind of media in Settings to start.</Empty>
           ) : (
             <Empty
               action={
@@ -60,7 +60,7 @@ function Library() {
                 </div>
               }
             >
-              Nothing in the library yet. Add your first Work to start.
+              Nothing in the library yet.
             </Empty>
           )
         }

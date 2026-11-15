@@ -334,7 +334,7 @@ func TestTheGatesCodes(t *testing.T) {
 	member := identitytest.Session(t, n.lib, identitytest.Member(t, n.lib, "member@example.com"))
 	expect(t, n.getSession(""), 401, signedOut)
 	expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/session", headers: map[string]string{"X-Api-Key": res.APIKey}}), 403,
-		problem(403, "needs_account", "Only a signed-in person can do this"))
+		problem(403, "needs_account", "The API key can't do this. Sign in to an Account to do it."))
 	expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/fixture", session: member}), 403,
 		problem(403, "needs_admin", "Only an Admin can do this"))
 	expect(t, n.do(call{method: http.MethodGet, target: "/api/v1/fixture", headers: map[string]string{"X-Api-Key": res.APIKey}}), 204, "")
@@ -407,7 +407,7 @@ func TestCrossSiteRequestsAreRefused(t *testing.T) {
 	crossSite := map[string]string{"Sec-Fetch-Site": "cross-site", "Origin": "https://evil.example"}
 	body := `{"email":"admin@example.com","pin":"1235"}`
 	expect(t, n.do(call{method: http.MethodPost, target: "/api/v1/session", body: body, headers: crossSite}), 403,
-		problem(403, "cross_origin", "Another site can't make this request"))
+		problem(403, "cross_origin", "SlipStream refused this request because it came from another site"))
 	crossSite["X-Api-Key"] = res.APIKey
 	expect(t, n.do(call{method: http.MethodPost, target: "/api/v1/session", body: body, headers: crossSite}), 401, pinWrong)
 	proxied := map[string]string{"Sec-Fetch-Site": "cross-site", "Origin": "https://media.example.com"}

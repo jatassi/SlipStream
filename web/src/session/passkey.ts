@@ -23,7 +23,7 @@ const whyNot: { readonly [R in NonNullable<SystemPasskeys["reason"]>]: string } 
     "Passkeys need SlipStream's name, not an IP address. Open SlipStream by its name to use one.",
   plain_http: "Passkeys need a secure address. Open SlipStream at its https:// address to use one.",
   not_a_domain:
-    "Passkeys need a full name such as slipstream.example.com. Open SlipStream at one to use a passkey.",
+    "Passkeys need a full domain name, such as slipstream.example.com. Open SlipStream at its domain name to use one.",
 };
 
 const noBrowserSupport = "This browser can't use passkeys here.";

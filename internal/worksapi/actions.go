@@ -30,7 +30,7 @@ type profileInput struct {
 
 type profileChange struct {
 	WorkIDs   []string `json:"workIds" format:"uuid" minItems:"1" maxItems:"20000" nullable:"false" doc:"A repeated id counts once"`
-	ProfileID string   `json:"profileId" format:"uuid" doc:"The Profile each Work wants from; a Work with its own Edition list keeps it"`
+	ProfileID string   `json:"profileId" format:"uuid" doc:"The Profile to give each Work; a Work with its own Edition list keeps it"`
 }
 
 type profileChanged struct {

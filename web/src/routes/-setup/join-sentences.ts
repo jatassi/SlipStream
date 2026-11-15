@@ -51,7 +51,7 @@ export const joinSentences: {
     next: "retry",
   },
   controller_unreachable: {
-    text: "Your SlipStream didn't connect to this Node before the address expired. Try again with a new Join Code.",
+    text: "Your SlipStream didn't connect to this Node before its Node address expired. Try again with a new Join Code.",
     next: "retry",
   },
   node_unaddressed: {

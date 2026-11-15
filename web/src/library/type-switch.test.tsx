@@ -72,7 +72,7 @@ test("a many-Items type's poster shows its status with its tally of counted Item
   renderApp({ path: "/library/anthology", handlers: twoTypeLibrary() });
   await expect
     .element(page.getByRole("listitem").filter({ hasText: harborTales.label }))
-    .toHaveTextContent(`${harborTales.label}Harbor PressMissing · 12 of 40 met`);
+    .toHaveTextContent(`${harborTales.label}Harbor PressMissing · 12 of 40 stories met`);
 });
 
 test("a type's Library filters by its own listed fields, and All only by the ones every type shares", async () => {

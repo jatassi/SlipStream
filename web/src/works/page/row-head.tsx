@@ -29,7 +29,7 @@ function editionEntries(row: MatrixRow, shown: MatrixShown): MenuEntry[] {
     ...(cuts.length > 1
       ? [
           {
-            label: `Stop wanting ${row.name} on this Work`,
+            label: `Remove ${row.name}`,
             tone: "danger" as const,
             onSelect: saving(cuts.filter((key) => key !== row.edition)),
           },

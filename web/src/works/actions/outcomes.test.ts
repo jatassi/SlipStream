@@ -136,7 +136,7 @@ test("every other skip reason has its words", () => {
   const skips: [WorksSkippedOutcomeReason, string][] = [
     [
       "work_has_files",
-      "The Quiet Orchard has files, so it stays in its library root. Moving a Work that has files isn't supported yet.",
+      "The Quiet Orchard has files, so it stays in its library root. SlipStream can't move files between library roots yet.",
     ],
     ["work_gone_upstream", "TMDB no longer lists The Quiet Orchard, so it wasn't refreshed."],
     ["work_not_found", "The Quiet Orchard is no longer in the library."],
@@ -165,7 +165,7 @@ test("a few Works alike are named together, and Works with files stay where they
       [orchard, second, third],
     ).done,
   ).toBe(
-    "Set the library root of The Quiet Orchard. Film 2 and Film 3 have files, so they stay in their library roots. Moving a Work that has files isn't supported yet.",
+    "Set the library root of The Quiet Orchard. Film 2 and Film 3 have files, so they stay in their library roots. SlipStream can't move files between library roots yet.",
   );
 });
 

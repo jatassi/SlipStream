@@ -41,7 +41,7 @@ func TestEveryEmailMatchesItsGolden(t *testing.T) {
 		{"reset", "Reset your PIN for slipstream.example.com", render(resetMail.Render(grace, link("reset")))},
 		{"reset-from-host", "Reset your PIN for slipstream.example.com", render(resetMail.Render(grace, hostReset))},
 		{"confirm-email", "Confirm your new email for slipstream.example.com", render(confirmEmailMail.Render(grace, link("confirm-email")))},
-		{"pin-off", "Your SlipStream PIN was turned off", render(pinOffMail.Render(grace, pinOffData{Email: "grace@example.com", Count: 10}))},
+		{"pin-off", "Your SlipStream PIN is locked", render(pinOffMail.Render(grace, pinOffData{Email: "grace@example.com", Count: 10}))},
 		{"email-changed", "Your SlipStream email was changed", render(emailChangedMail.Render(grace, emailChangedData{NewEmail: "grace@hopper.example"}))},
 	}
 	for _, c := range cases {

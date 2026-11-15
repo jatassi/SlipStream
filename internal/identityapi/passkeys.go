@@ -12,7 +12,7 @@ import (
 type passkey struct {
 	ID         string     `json:"id" format:"uuid"`
 	Name       string     `json:"name"`
-	Host       string     `json:"host" doc:"The address's host the passkey signs in at"`
+	Host       string     `json:"host" doc:"The host name the passkey is registered for"`
 	CreatedAt  time.Time  `json:"createdAt"`
 	LastUsedAt *time.Time `json:"lastUsedAt,omitempty"`
 }

@@ -39,7 +39,7 @@ const metadataSettings = (region: string): MetadataSettings => ({
       ...about,
       kind: "duration",
       key: "metadata.cacheFor",
-      label: "Metadata cache keeps responses for",
+      label: "Cache metadata responses for",
       isDefault: true,
       value: 3600,
       running: 3600,
@@ -105,7 +105,7 @@ test("Metadata leads with language and region in words and keeps the cache under
 
   await userEvent.click(page.getByRole("button", { name: "Details" }));
   await expect
-    .element(page.getByRole("textbox", { name: "Metadata cache keeps responses for" }))
+    .element(page.getByRole("textbox", { name: "Cache metadata responses for" }))
     .toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Clear metadata cache" }));
   await expect.poll(() => cleared).toBe(1);

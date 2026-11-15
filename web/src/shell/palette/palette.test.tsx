@@ -66,7 +66,7 @@ test("at rest the palette lists the commands, and Esc returns focus to the capsu
       "Go to Searchinghome",
       "Go to Logshome",
       "Go to Log settingshome",
-      "Add a Film",
+      "Add a film",
       "Toggle sidebar",
       "New Signup link",
       "Your Account",
@@ -114,7 +114,7 @@ test("Toggle sidebar keeps the highlight when the catalog answers, and collapses
   await openFromCapsule();
   await userEvent.keyboard("toggle");
   await expect.poll(highlighted).toBe("Toggle sidebar");
-  await expect.poll(groupLabels).toEqual(["Add a Film", "Commands"]);
+  await expect.poll(groupLabels).toEqual(["Add a film", "Commands"]);
   expect(highlighted()).toBe("Toggle sidebar");
   await userEvent.keyboard("{Enter}");
   await expect.poll(() => nav.element().getBoundingClientRect().width).toBe(60);
@@ -124,7 +124,7 @@ test("a changed query highlights the top result", async () => {
   renderApp({ path: "/library", handlers: library().handlers });
   await openFromCapsule();
   await userEvent.keyboard("toggle");
-  await expect.poll(groupLabels).toEqual(["Add a Film", "Commands"]);
+  await expect.poll(groupLabels).toEqual(["Add a film", "Commands"]);
   await expect.poll(highlighted).toBe("Toggle sidebar");
   await userEvent.keyboard("{Backspace}");
   await expect.poll(highlighted).toBe("The Quiet Orchard2021");
@@ -162,10 +162,10 @@ test("a highlighted Work the answer drops gives the highlight to the top result"
   expect(highlighted()).toBe("Orchard 12021 · Film · Missing");
 });
 
-test("Add a Film opens the Add page for its Content Type", async () => {
+test("Add a film opens the Add page for its Content Type", async () => {
   const { router } = renderApp({ path: "/activity", handlers: library().handlers });
   await userEvent.click(capsule());
-  await userEvent.click(group("Commands").getByRole("option", { name: "Add a Film" }));
+  await userEvent.click(group("Commands").getByRole("option", { name: "Add a film" }));
   await expect.poll(() => router.state.location.href).toBe("/add?contentType=cinema");
 });
 
@@ -197,7 +197,7 @@ test("an unmatched query suggests what to try", async () => {
   await expect
     .element(palette().getByText(/^Nothing matches/u))
     .toHaveTextContent(
-      `Nothing matches "zzz". Try a Work's name, or a command such as Add a Film.`,
+      `Nothing matches "zzz". Try a Work's name, or a command such as Add a film.`,
     );
   expect(palette().getByRole("option").all()).toHaveLength(0);
 });

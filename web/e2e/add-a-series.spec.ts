@@ -72,8 +72,8 @@ test("a series found by its alternative title adds with the preset, specials and
 }) => {
   await page.goto("/library/series");
   await expect(page.getByText("No Series in the library yet.")).toBeVisible();
-  await page.getByRole("main").getByRole("button", { name: "Add a Series" }).last().click();
-  await expect(page.getByRole("heading", { name: "Add a Series", level: 1 })).toBeVisible();
+  await page.getByRole("main").getByRole("button", { name: "Add a series" }).last().click();
+  await expect(page.getByRole("heading", { name: "Add a series", level: 1 })).toBeVisible();
 
   await search(page, "Nights at the Harbor");
   await expect(results(page).getByRole("listitem")).toHaveCount(1);
@@ -126,7 +126,7 @@ test("while TVDB search fails, TMDB's results show, and one TVDB doesn't list ca
   await page.goto("/add?contentType=series&query=harbor");
   const unlisted = results(page).getByRole("listitem").filter({ hasText: "Harbor Lights" });
   await expect(unlisted).toContainText(
-    "TVDB doesn't list this series. SlipStream needs TVDB to keep it up to date.",
+    "TVDB doesn't list this series, so it can't be added. SlipStream gets the details of each series from TVDB.",
   );
   await expect(unlisted.getByRole("button")).toHaveCount(0);
 

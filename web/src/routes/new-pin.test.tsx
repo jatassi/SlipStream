@@ -72,7 +72,7 @@ test("a PIN the Node refuses says why and the page stays", async () => {
     path: "/",
     handlers: [
       http.post("*/api/v1/account/pin", () =>
-        problem(429, "too_many_attempts", "Too many failed attempts from this address."),
+        problem(429, "too_many_attempts", "Too many failed sign-ins from this IP address."),
       ),
       ...server.handlers,
     ],
@@ -81,7 +81,7 @@ test("a PIN the Node refuses says why and the page stays", async () => {
   await typeTwice("2468");
   await expect
     .element(page.getByRole("alert"))
-    .toHaveTextContent("Too many failed attempts from this address.");
+    .toHaveTextContent("Too many failed sign-ins from this IP address.");
   await expect.element(heading()).toBeVisible();
 });
 

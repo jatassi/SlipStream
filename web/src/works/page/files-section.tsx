@@ -18,11 +18,11 @@ type Names = {
 
 const list = new Intl.ListFormat("en", { type: "conjunction" });
 
-// "Fills Director's Cut 2160p and 1080p", a cut before its Target as Needs you says it.
+// "Used for Director's Cut 2160p and 1080p", a cut before its Target as Needs you says it.
 const fillWords =
   ({ cutName, targetName }: Names) =>
   (file: FilesListedFile) =>
-    `Fills ${list.format(
+    `Used for ${list.format(
       file.fills.map(({ targetId, edition }) =>
         edition === anyCut ? targetName(targetId) : `${cutName(edition)} ${targetName(targetId)}`,
       ),
@@ -68,7 +68,7 @@ function placed(file: FilesListedFile, fills: (file: FilesListedFile) => string)
     return { file, group: "gone", about: goneWords(file.goneAt) } as const;
   }
   return file.kept
-    ? ({ file, group: "kept", about: "Fills no wanted Target" } as const)
+    ? ({ file, group: "kept", about: "Not used for any wanted Target" } as const)
     : ({ file, group: "filling", about: fills(file) } as const);
 }
 
@@ -120,7 +120,9 @@ export function FilesSection({
         </div>
       </dl>
       {files.length === 0 ? (
-        <p className="text-ink-3">No files yet. A Grab that imports puts its file here.</p>
+        <p className="text-ink-3">
+          No files yet. Downloaded files show here once they&apos;re imported.
+        </p>
       ) : (
         <FileLists files={files} names={names} />
       )}

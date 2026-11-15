@@ -29,7 +29,7 @@ function pickedWords(field: Field, value: unknown): string {
 }
 
 const unavailableWords = (type: WorksContentType, { field, value }: Omit<Pending, "withdraws">) =>
-  `${type.source} doesn't list this ${lowered(type.work).one} in ${pickedWords(field, value)}. Choose another ${field.label.toLowerCase()}.`;
+  `${type.source} doesn't list this ${lowered(type.work).one} with ${field.label.toLowerCase()} ${pickedWords(field, value)}. Choose another ${field.label.toLowerCase()}.`;
 
 /** The source's refusal of a value, in words that name the value. */
 function refusalOf(type: WorksContentType, error: unknown, pending: Omit<Pending, "withdraws">) {
@@ -64,7 +64,7 @@ function ChangeWords({ type, pending }: { type: WorksContentType; pending: Pendi
       </p>
       {withdraws > 0 && (
         <p>
-          {`${countWords(withdraws, items)} ${withdraws === 1 ? "isn't" : "aren't"} in ${pickedWords(pending.field, pending.value)}, so ${withdraws === 1 ? "it'll" : "they'll"} show as No longer listed by ${type.source}.`}
+          {`${countWords(withdraws, items)} ${withdraws === 1 ? "isn't" : "aren't"} listed with ${pending.field.label.toLowerCase()} ${pickedWords(pending.field, pending.value)}, so ${withdraws === 1 ? "it'll" : "they'll"} be marked "No longer listed by ${type.source}".`}
         </p>
       )}
       <p>File names keep the old numbering until you rename the files.</p>

@@ -278,7 +278,7 @@ func TestAUnitWhoseHolderIsAwayIsSkippedNotFailed(t *testing.T) {
 		synctest.Wait()
 		runs := c.refreshRuns(t)
 		if len(runs) != 1 || runs[0].Result != "skipped" || len(runs[0].Units) != 1 ||
-			runs[0].Units[0].Outcome != "skipped" || runs[0].Units[0].Cause != "home no longer holds Metadata" {
+			runs[0].Units[0].Outcome != "skipped" || runs[0].Units[0].Cause != "home no longer has the Metadata Role" {
 			t.Fatalf("Metadata refresh ran %+v while box was away, want the Work skipped because home no longer holds Metadata", runs)
 		}
 		if len(c.fx.Calls()) != calls {

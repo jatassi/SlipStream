@@ -36,7 +36,7 @@ func open(s Systems) *nodesystem.Nodes {
 var (
 	nodeNotFound      = api.NewCode(http.StatusNotFound, "node_not_found", "No Node has this id")
 	nodeOffline       = api.NewCode(http.StatusServiceUnavailable, "node_offline", "The Node is offline")
-	nodeMismatched    = api.NewCode(http.StatusConflict, "node_mismatched", "The Node runs another version")
+	nodeMismatched    = api.NewCode(http.StatusConflict, "node_mismatched", "The Node runs a different SlipStream version. Update it to the Controller's version.")
 	alreadyRestarting = api.NewCode(http.StatusConflict, "already_restarting", "The Node is already restarting")
 	setByEnvironment  = api.NewCode(http.StatusConflict, "set_by_environment", "An environment variable sets this setting")
 	portUsedByNode    = api.NewCode(http.StatusUnprocessableEntity, "port_used_by_node", "The Node uses this port already")

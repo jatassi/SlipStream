@@ -11,7 +11,7 @@ function StartRefused({ refused, open }: { refused: StartRefusal; open: FormProp
   ) : (
     <Refusal
       text="This Node is waiting to join a SlipStream."
-      action="Back to the wait"
+      action="Back to joining"
       onAction={() => {
         open("join");
       }}

@@ -43,7 +43,7 @@ func TestDurationParse(t *testing.T) {
 		{"null resets", rss, nil, nil, ""},
 		{"inside the range", rss, ptr[int64](1800), ptr[int64](1800), ""},
 		{"the minimum", rss, ptr[int64](600), ptr[int64](600), ""},
-		{"below a floor", rss, ptr[int64](540), nil, "No faster than 10 min. Private trackers ban for hammering."},
+		{"below a floor", rss, ptr[int64](540), nil, "Use 10 min or longer. Private trackers ban for hammering."},
 		{"below a minimum with no floor", lifetime, ptr[int64](540), nil, "Between 10 min and 7 days."},
 		{"above the maximum", lifetime, ptr[int64](8 * 86400), nil, "Between 10 min and 7 days."},
 		{"off the step", rss, ptr[int64](630), nil, "In whole minutes."},
@@ -284,7 +284,7 @@ func TestParseJSONReadsEachKindsWireValue(t *testing.T) {
 		refusal string
 	}{
 		{"a duration in seconds", stored(rss.ParseJSON), `1800`, "1800", ""},
-		{"a duration out of range", stored(rss.ParseJSON), `60`, "", "No faster than 10 min. Private trackers ban for hammering."},
+		{"a duration out of range", stored(rss.ParseJSON), `60`, "", "Use 10 min or longer. Private trackers ban for hammering."},
 		{"a duration as a word", stored(rss.ParseJSON), `"soon"`, "", "Seconds, as a whole number."},
 		{"null resets a duration", stored(rss.ParseJSON), `null`, "reset", ""},
 		{"a count", stored(runsKept.ParseJSON), `7`, "7", ""},

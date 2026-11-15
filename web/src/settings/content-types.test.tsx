@@ -108,7 +108,7 @@ test("turning off a type that holds Works is refused with a link to its Library"
           return refused(
             409,
             "content_type_in_use",
-            "Remove its Works before turning this Content Type off",
+            "Delete every Work of this kind of media before turning it off",
           );
         }),
       ],
@@ -168,7 +168,7 @@ test("Refresh all starts a run and reads its last run", async () => {
   });
   await expect.element(page.getByText("It last ran", { exact: false })).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: "Refresh all" }));
-  await expect.element(page.getByText("Refreshing every Film from TMDB.")).toBeVisible();
+  await expect.element(page.getByText("Refreshing every film from TMDB.")).toBeVisible();
   await expect.element(page.getByText("It's running now.", { exact: false })).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Refresh all" })).toBeDisabled();
   expect(started).toBe(1);
@@ -189,7 +189,7 @@ test("Refresh all while Metadata refresh runs says the next run refreshes them",
   await expect
     .element(
       page.getByText(
-        "Metadata refresh is already running. The next run refreshes every Film from TMDB.",
+        "Metadata refresh is already running. The next run refreshes every film from TMDB.",
       ),
     )
     .toBeVisible();

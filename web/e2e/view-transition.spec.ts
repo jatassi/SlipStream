@@ -58,7 +58,7 @@ test(
   async ({ adminPage: page }) => {
     await recordTransitions(page);
     await page.goto("/add?contentType=movie");
-    await expect(page.getByRole("heading", { name: "Add a Movie" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Add a movie" })).toBeVisible();
 
     await page.getByRole("banner").getByRole("link", { name: "Movies" }).click();
     await expect(page.getByRole("heading", { name: "Movies", level: 1 })).toBeVisible();

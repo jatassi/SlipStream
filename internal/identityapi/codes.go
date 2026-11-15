@@ -10,21 +10,21 @@ import (
 
 var (
 	pinWrong           = api.NewCode(http.StatusUnauthorized, "pin_wrong", "The email or PIN is wrong")
-	pinWait            = api.NewWaiting(http.StatusTooManyRequests, "pin_wait", "Too many wrong PINs. Wait before trying again.")
-	pinOff             = api.NewCode(http.StatusForbidden, "pin_off", "This PIN is turned off. Use a passkey or ask an Admin for a Reset link.")
-	tooManyAttempts    = api.NewWaiting(http.StatusTooManyRequests, "too_many_attempts", "Too many failed attempts from this address. Wait before trying again.")
+	pinWait            = api.NewWaiting(http.StatusTooManyRequests, "pin_wait", "Too many wrong PINs")
+	pinOff             = api.NewCode(http.StatusForbidden, "pin_off", "This PIN is locked after too many wrong PINs. Sign in with a passkey or ask an Admin for a Reset link.")
+	tooManyAttempts    = api.NewWaiting(http.StatusTooManyRequests, "too_many_attempts", "Too many failed sign-ins from this IP address")
 	addressIP          = api.NewCode(http.StatusUnprocessableEntity, "address_ip", "The address must be a name, not an IP address")
 	accountDisabled    = api.NewCode(http.StatusForbidden, "account_disabled", "This Account is turned off. Ask an Admin to turn it back on.")
 	addressUnset       = api.NewCode(http.StatusConflict, "address_unset", "Set SlipStream's address first, so links point somewhere people can reach")
 	accountExists      = api.NewCode(http.StatusConflict, "account_exists", "An Account already has that email")
 	emailTaken         = api.NewCode(http.StatusConflict, "email_taken", "Another Account has that email")
-	lastAdmin          = api.NewCode(http.StatusConflict, "last_admin", "SlipStream needs at least one Admin who is turned on")
+	lastAdmin          = api.NewCode(http.StatusConflict, "last_admin", "SlipStream needs at least one active Admin. Make another Account an Admin first.")
 	linkDead           = api.NewCode(http.StatusGone, "link_dead", "This link no longer works")
 	linkNotFound       = api.NewCode(http.StatusNotFound, "link_not_found", "No pending Signup link has that id")
 	accountNotFound    = api.NewCode(http.StatusNotFound, "account_not_found", "No Account has that id")
 	sessionNotFound    = api.NewCode(http.StatusNotFound, "session_not_found", "The Account has no session with that id")
 	passkeyNotFound    = api.NewCode(http.StatusNotFound, "passkey_not_found", "You have no passkey with that id")
-	passkeyUnavailable = api.NewCode(http.StatusConflict, "passkey_unavailable", "A passkey can't be used at this address")
+	passkeyUnavailable = api.NewCode(http.StatusConflict, "passkey_unavailable", "You have no passkey for this address, or passkeys don't work here. Sign in with your PIN.")
 	passkeyFailed      = api.NewCode(http.StatusUnauthorized, "passkey_failed", "The passkey couldn't be verified")
 )
 
@@ -69,9 +69,9 @@ func answer(err error) error {
 	}
 	switch {
 	case errors.Is(err, identity.ErrCurrentPINMissing):
-		return api.Invalid.Fields(api.FieldError{Location: "body.current", Message: "expected the current PIN"})
+		return api.Invalid.Fields(api.FieldError{Location: "body.current", Message: "Enter your current PIN."})
 	case errors.Is(err, identity.ErrAddressShape):
-		return api.Invalid.Fields(api.FieldError{Location: "body.address", Message: "expected http:// or https:// then a host name and an optional port"})
+		return api.Invalid.Fields(api.FieldError{Location: "body.address", Message: "Start with http:// or https://, then a host name and an optional port, such as https://slipstream.example.com."})
 	}
 	return err
 }

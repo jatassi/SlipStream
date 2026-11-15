@@ -331,7 +331,7 @@ func TestListContentTypesAnswersASession(t *testing.T) {
 	if w.Code != http.StatusOK || w.Body.String() != want {
 		t.Fatalf("listContentTypes = %d %s, want %s", w.Code, w.Body, want)
 	}
-	expect(t, s, http.MethodGet, "/api/v1/content-types", "", http.StatusForbidden, `{"status":403,"code":"needs_account","title":"Only a signed-in person can do this"}`)
+	expect(t, s, http.MethodGet, "/api/v1/content-types", "", http.StatusForbidden, `{"status":403,"code":"needs_account","title":"The API key can't do this. Sign in to an Account to do it."}`)
 }
 
 func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
@@ -367,7 +367,7 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 	if code != 200 {
 		t.Fatalf("addWork = %d %s", code, body)
 	}
-	expect(t, s, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":false}`, 409, `{"status":409,"code":"content_type_in_use","title":"Remove its Works before turning this Content Type off"}`)
+	expect(t, s, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":false}`, 409, `{"status":409,"code":"content_type_in_use","title":"Delete every Work of this kind of media before turning it off"}`)
 	s.fx.Fail("w2", &works.SourceError{Source: "TMDB", Words: "refused the key: 401 Unauthorized", Err: works.ErrRefused})
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_refused","title":"The metadata source refused the API key or PIN","detail":"TMDB refused the API key. Check the key in Settings \u003e Metadata."}`)
 	s.fx.Fail("w2", &works.SourceError{Source: "TVDB", Words: "refused the PIN", Err: works.ErrPinRefused})
