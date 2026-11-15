@@ -650,12 +650,15 @@ func (n *Node) zone() *time.Location {
 }
 
 // searchingService is the Searching service a half mounts, reaching each
-// site through endpoints.searching ahead of the Node's network.
+// site through endpoints.searching ahead of the Node's network. Its jobs
+// stop with the Node.
 func (n *Node) searchingService() *searching.Service {
 	client := n.httpClient(n.cfg.Endpoints.Searching.Dial(n.env.Net.DialContext))
-	return searching.New(searching.Config{
+	svc := searching.New(searching.Config{
 		HTTP: client, Native: port.Driver(n.ports), Timings: n.cfg.Timings.Searching, Log: n.rootLog.With("subsystem", "searching"),
 	})
+	n.claimed.OnStop("searching jobs", svc.Stop)
+	return svc
 }
 
 // httpClient is a half's client for the hosts the Node reaches, dialing
