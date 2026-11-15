@@ -26,10 +26,6 @@ func LocalSchema() storage.Schema[storage.Local] { return announced.Schema() }
 // be idempotent.
 type Released func(ctx context.Context, items []works.ItemID) error
 
-// NoBacklog is the hook until S34 (Automatic search, Backlog search and
-// RSS sync) registers its own.
-func NoBacklog(context.Context, []works.ItemID) error { return nil }
-
 const retry = time.Minute
 
 type AvailabilityConfig struct {

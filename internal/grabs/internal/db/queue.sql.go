@@ -13,6 +13,25 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
+const cancelLane = `-- name: CancelLane :execrows
+UPDATE grabs_due SET lane = NULL, queued_at = NULL, trigger = NULL, include_gone = 0, changed_at = ?1
+WHERE lane = ?2
+`
+
+type CancelLaneParams struct {
+	ChangedAt storage.Time
+	Lane      *int64
+}
+
+// The lane's queued entries leave it. Due times and open runs stay.
+func (q *Queries) CancelLane(ctx context.Context, arg CancelLaneParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, cancelLane, arg.ChangedAt, arg.Lane)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteDueItems = `-- name: DeleteDueItems :exec
 DELETE FROM grabs_due_item WHERE work_id = ?1 AND group_key = ?2
 `
@@ -24,6 +43,16 @@ type DeleteDueItemsParams struct {
 
 func (q *Queries) DeleteDueItems(ctx context.Context, arg DeleteDueItemsParams) error {
 	_, err := q.db.ExecContext(ctx, deleteDueItems, arg.WorkID, arg.GroupKey)
+	return err
+}
+
+const deleteLaneItems = `-- name: DeleteLaneItems :exec
+DELETE FROM grabs_due_item
+WHERE (work_id, group_key) IN (SELECT work_id, group_key FROM grabs_due WHERE lane = ?1)
+`
+
+func (q *Queries) DeleteLaneItems(ctx context.Context, lane *int64) error {
+	_, err := q.db.ExecContext(ctx, deleteLaneItems, lane)
 	return err
 }
 
@@ -89,6 +118,33 @@ func (q *Queries) LastSearchOfGroup(ctx context.Context, arg LastSearchOfGroupPa
 	var finished_at storage.Time
 	err := row.Scan(&finished_at)
 	return finished_at, err
+}
+
+const listLaneWorks = `-- name: ListLaneWorks :many
+SELECT DISTINCT work_id FROM grabs_due WHERE lane = ?1 ORDER BY work_id
+`
+
+func (q *Queries) ListLaneWorks(ctx context.Context, lane *int64) ([]works.WorkID, error) {
+	rows, err := q.db.QueryContext(ctx, listLaneWorks, lane)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []works.WorkID
+	for rows.Next() {
+		var work_id works.WorkID
+		if err := rows.Scan(&work_id); err != nil {
+			return nil, err
+		}
+		items = append(items, work_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listQueued = `-- name: ListQueued :many

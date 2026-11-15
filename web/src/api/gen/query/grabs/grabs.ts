@@ -28,7 +28,6 @@ import type {
   CancelQueuedSearches409,
   CancelQueuedSearches422,
   CancelQueuedSearches500,
-  CancelQueuedSearches501,
   CancelQueuedSearchesParams,
   GetGrab401,
   GetGrab403,
@@ -142,7 +141,6 @@ import type {
   SearchSeveralWorks409,
   SearchSeveralWorks422,
   SearchSeveralWorks500,
-  SearchSeveralWorks501,
   SearchWork401,
   SearchWork403,
   SearchWork404,
@@ -1124,7 +1122,6 @@ export const getCancelQueuedSearchesMutationOptions = <
     | CancelQueuedSearches409
     | CancelQueuedSearches422
     | CancelQueuedSearches500
-    | CancelQueuedSearches501
   >,
   TContext = unknown,
 >(options?: {
@@ -1170,7 +1167,6 @@ export type CancelQueuedSearchesMutationError = ErrorType<
   | CancelQueuedSearches409
   | CancelQueuedSearches422
   | CancelQueuedSearches500
-  | CancelQueuedSearches501
 >;
 export type CancelQueuedSearchesMutationVariables = { params: CancelQueuedSearchesParams };
 
@@ -1184,7 +1180,6 @@ export const useCancelQueuedSearches = <
     | CancelQueuedSearches409
     | CancelQueuedSearches422
     | CancelQueuedSearches500
-    | CancelQueuedSearches501
   >,
   TContext = unknown,
 >(
@@ -1837,7 +1832,6 @@ export const getSearchSeveralWorksMutationOptions = <
     | SearchSeveralWorks409
     | SearchSeveralWorks422
     | SearchSeveralWorks500
-    | SearchSeveralWorks501
   >,
   TContext = unknown,
 >(options?: {
@@ -1883,7 +1877,6 @@ export type SearchSeveralWorksMutationError = ErrorType<
   | SearchSeveralWorks409
   | SearchSeveralWorks422
   | SearchSeveralWorks500
-  | SearchSeveralWorks501
 >;
 export type SearchSeveralWorksMutationVariables = { data: GrabsSeveralBody };
 
@@ -1897,7 +1890,6 @@ export const useSearchSeveralWorks = <
     | SearchSeveralWorks409
     | SearchSeveralWorks422
     | SearchSeveralWorks500
-    | SearchSeveralWorks501
   >,
   TContext = unknown,
 >(

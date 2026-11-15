@@ -2,10 +2,16 @@ package grabsapi
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/jatassi/slipstream/internal/api"
+	"github.com/jatassi/slipstream/internal/files"
+	"github.com/jatassi/slipstream/internal/grabs"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 var tooManyWorks = api.NewCode(http.StatusUnprocessableEntity, "too_many_works", "Search at most 5,000 Works at once")
@@ -43,9 +49,63 @@ var searchSeveralWorksOp = api.Op{
 	Path:    "/works/search",
 	Summary: "Queue a search of several Works, by id or by a Wanted filter, behind every search already queued",
 	Status:  http.StatusAccepted,
-	Errors:  []*api.Code{reconciling, tooManyWorks, notYet},
+	Errors:  []*api.Code{reconciling, tooManyWorks},
 }
 
-func (handlers) searchSeveralWorks(context.Context, identity.Admin, *severalInput) (*severalQueuedOutput, error) {
-	return nil, notYet
+const mostWorks = 5000
+
+var wantedReasons = map[string]files.Reason{
+	"failed": files.ReasonFailed, "missing": files.ReasonMissing, "upgrade": files.ReasonUpgrade, "gone": files.ReasonGone,
+}
+
+func (h handlers) searchSeveralWorks(ctx context.Context, by identity.Admin, in *severalInput) (*severalQueuedOutput, error) {
+	s, err := severalOf(in.Body)
+	if err != nil {
+		return nil, err
+	}
+	q, err := open(h.p).SearchSeveral(ctx, by, s)
+	if errors.Is(err, grabs.ErrReconciling) {
+		return nil, reconciling.Because("Search again once Reconciling finishes.")
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := severalQueued{Queued: q.Queued, Merged: q.Merged, LeftGone: q.LeftGone, Works: make([]workOutcome, len(q.Works))}
+	for i, o := range q.Works {
+		w := workOutcome{WorkID: o.Work.String(), Outcome: "queued"}
+		switch {
+		case o.Skipped != "":
+			w.Outcome, w.Reason = "skipped", new(string(o.Skipped))
+		case o.Merged:
+			w.Outcome = "merged"
+		}
+		out.Works[i] = w
+	}
+	return &severalQueuedOutput{Body: out}, nil
+}
+
+// severalOf is the search b asks for: its Works by id, or Wanted's for
+// its filter.
+func severalOf(b severalBody) (grabs.Several, error) {
+	switch {
+	case (b.WorkIDs == nil) == (b.Wanted == nil):
+		return grabs.Several{}, api.Invalid.On("workIds", "Send either workIds or wanted.")
+	case len(b.WorkIDs) > mostWorks:
+		return grabs.Several{}, tooManyWorks
+	case b.Wanted != nil:
+		f := grabs.WantedFilter{Type: works.TypeID(b.Wanted.ContentType)}
+		for _, r := range b.Wanted.Reasons {
+			f.Reasons = append(f.Reasons, wantedReasons[r])
+		}
+		return grabs.Several{Wanted: &f}, nil
+	}
+	ids := make([]works.WorkID, len(b.WorkIDs))
+	for i, s := range b.WorkIDs {
+		u, err := storage.ParseUUID(s)
+		if err != nil {
+			return grabs.Several{}, api.Invalid.On(fmt.Sprintf("workIds[%d]", i), "Use a Work's id.")
+		}
+		ids[i] = works.WorkID{UUID: u}
+	}
+	return grabs.Several{Works: ids}, nil
 }
