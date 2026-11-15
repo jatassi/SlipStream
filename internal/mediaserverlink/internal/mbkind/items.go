@@ -68,8 +68,9 @@ func (f found) at(p link.ServerPath) (jellyfin.Item, bool) {
 }
 
 // find is the items with a file at the paths w names, as user sees them,
-// with user's data. Emby looks each path up; Jellyfin, which has no
-// lookup by path, pages through each library once.
+// with user's data. Emby looks each path up and takes the item with a file
+// there, since its lookup answers an item for a folder too; Jellyfin,
+// which has no lookup by path, pages through each library once.
 func (c *conn) find(ctx context.Context, user string, w want) (found, error) {
 	out := found{}
 	for library, paths := range w {
@@ -79,8 +80,11 @@ func (c *conn) find(ctx context.Context, user string, w want) (found, error) {
 				if err != nil {
 					return nil, err
 				}
-				if len(items) > 0 {
-					out[p.Key()] = items[0]
+				i := slices.IndexFunc(items, func(it jellyfin.Item) bool {
+					return slices.ContainsFunc(files(it), func(f link.ServerPath) bool { return f.Key() == p.Key() })
+				})
+				if i >= 0 {
+					out[p.Key()] = items[i]
 				}
 			}
 			continue

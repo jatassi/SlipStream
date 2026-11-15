@@ -273,9 +273,11 @@ func (s *server) userItems(w http.ResponseWriter, r *http.Request, c caller) {
 }
 
 // listItems is GET /Items: by ParentId (a library or a collection),
-// IncludeItemTypes, and on Emby an exact Path. Jellyfin has no Path
-// filter and lists alternate versions only in the primary item's
-// MediaSources.
+// IncludeItemTypes, and on Emby a Path, a file's exact path or the folder
+// an item is in. Emby 4.10 answered one item for a film's folder (online
+// run 2026-11-14); which item it was is unrecorded, and the fake answers
+// the film. Jellyfin has no Path filter and lists alternate versions only
+// in the primary item's MediaSources.
 func (s *server) listItems(w http.ResponseWriter, r *http.Request, c caller, uid string) {
 	user, ok := s.asUser(c, uid)
 	if !ok {
@@ -339,7 +341,7 @@ func (s *server) picked(it mediaserver.Item, parent string, types []string, q ma
 	}
 	if s.p.Flavor == Emby {
 		if paths, ok := q["Path"]; ok {
-			return slices.ContainsFunc(it.Parts, func(p mediaserver.Part) bool { return p.File.String() == paths[0] })
+			return it.Folder.String() == paths[0] || slices.ContainsFunc(it.Parts, func(p mediaserver.Part) bool { return p.File.String() == paths[0] })
 		}
 	}
 	return true

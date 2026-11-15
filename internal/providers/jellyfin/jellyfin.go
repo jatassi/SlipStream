@@ -505,8 +505,9 @@ func (c *Client) Items(ctx context.Context, q Query) (Page, error) {
 	return out, err
 }
 
-// ItemsAt is Emby's lookup by file path, GET /Items?Path=, as user. It
-// matches the path exactly (conformance case PathLookupExact).
+// ItemsAt is Emby's lookup by path, GET /Items?Path=, as user. A file's
+// exact path finds its item, and a folder's path finds an item too
+// (conformance case PathLookup), so a caller checks the item's files.
 func (c *Client) ItemsAt(ctx context.Context, user, path string) ([]Item, error) {
 	if c.flavor != Emby {
 		return nil, fmt.Errorf("%s has no lookup by path", c.flavor)

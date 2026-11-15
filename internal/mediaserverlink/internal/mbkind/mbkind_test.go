@@ -339,6 +339,17 @@ func TestJellyfinReportsAgainWhenAScanStartsInsideTheMonitorDelay(t *testing.T) 
 	})
 }
 
+func TestALookupFindsOnlyTheItemWithTheFile(t *testing.T) {
+	each(t, func(t *testing.T, w *world) {
+		if it, ok := w.item("Movies/Metropolis (1927)"); ok {
+			t.Errorf("a lookup of Metropolis's folder found item %+v, want none", it)
+		}
+		if _, ok := w.item("Movies/Metropolis (1927)/Metropolis (1927).mkv"); !ok {
+			t.Error("a lookup of Metropolis's file found no item")
+		}
+	})
+}
+
 func TestEmbyAcceptsAReportWithoutSettling(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newWorld(t, products[1])
