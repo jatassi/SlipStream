@@ -13,6 +13,7 @@ import (
 	"github.com/jatassi/slipstream/internal/downloadclients"
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/grabs"
+	"github.com/jatassi/slipstream/internal/grabs/grabstest"
 	"github.com/jatassi/slipstream/internal/health"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/indexers"
@@ -126,7 +127,7 @@ func (noImports) Of(context.Context, storage.Reader[storage.Library], []grabs.Gr
 
 func grabOf(t *testing.T, lib library, id storage.UUID) grabs.View {
 	t.Helper()
-	v, err := grabs.New(grabs.Config{Library: lib, Names: map[works.TypeID]rel.Names{contenttypetest.ID: dated{}}, Downloads: noDownloads{}, Imports: noImports{}}).Get(t.Context(), identity.Admin{}, grabs.GrabID{UUID: id})
+	v, err := grabs.New(grabs.Config{Library: lib, Names: map[works.TypeID]rel.Names{contenttypetest.ID: grabstest.Dated{}}, Downloads: noDownloads{}, Imports: noImports{}}).Get(t.Context(), identity.Admin{}, grabs.GrabID{UUID: id})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3832,6 +3832,13 @@ export const GrabsPickResults = zod.object({
 export type GrabsPickResults = zod.input<typeof GrabsPickResults>;
 export type GrabsPickResultsOutput = zod.output<typeof GrabsPickResults>;
 
+export const GrabsQueueChanged = zod.object({
+  workIds: zod.array(zod.string()),
+});
+
+export type GrabsQueueChanged = zod.input<typeof GrabsQueueChanged>;
+export type GrabsQueueChangedOutput = zod.output<typeof GrabsQueueChanged>;
+
 export const GrabsReason = zod.object({
   attribute: zod
     .enum(["hdr", "video_codec", "audio_codec", "channels", "language"])
@@ -11633,6 +11640,14 @@ export const LiveEventGrabsChanged = zod.object({
 export type LiveEventGrabsChanged = zod.input<typeof LiveEventGrabsChanged>;
 export type LiveEventGrabsChangedOutput = zod.output<typeof LiveEventGrabsChanged>;
 
+export const LiveEventGrabsQueueChanged = zod.object({
+  event: zod.enum(["grabs.queue-changed"]),
+  data: GrabsQueueChanged,
+});
+
+export type LiveEventGrabsQueueChanged = zod.input<typeof LiveEventGrabsQueueChanged>;
+export type LiveEventGrabsQueueChangedOutput = zod.output<typeof LiveEventGrabsQueueChanged>;
+
 export const LiveEventGrabsSearchChanged = zod.object({
   event: zod.enum(["grabs.search-changed"]),
   data: GrabsSearchChanged,
@@ -11980,6 +11995,7 @@ export const LiveEvent = zod.discriminatedUnion("event", [
   LiveEventFirstrunChanged,
   LiveEventGrabsBlocklistChanged,
   LiveEventGrabsChanged,
+  LiveEventGrabsQueueChanged,
   LiveEventGrabsSearchChanged,
   LiveEventHealthChanged,
   LiveEventIdentityAccountsChanged,
