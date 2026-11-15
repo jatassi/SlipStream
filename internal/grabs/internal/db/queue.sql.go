@@ -27,20 +27,6 @@ func (q *Queries) DeleteDueItems(ctx context.Context, arg DeleteDueItemsParams) 
 	return err
 }
 
-const endDueSearch = `-- name: EndDueSearch :exec
-UPDATE grabs_due SET search_id = NULL, changed_at = ?1 WHERE search_id = ?2
-`
-
-type EndDueSearchParams struct {
-	ChangedAt storage.Time
-	SearchID  SearchID
-}
-
-func (q *Queries) EndDueSearch(ctx context.Context, arg EndDueSearchParams) error {
-	_, err := q.db.ExecContext(ctx, endDueSearch, arg.ChangedAt, arg.SearchID)
-	return err
-}
-
 const getDue = `-- name: GetDue :one
 SELECT work_id, group_key, lane, queued_at, "trigger", include_gone, upgrade_only, fresh, released_at, due_at, gap_seconds, search_id, changed_at FROM grabs_due WHERE work_id = ?1 AND group_key = ?2
 `
@@ -152,6 +138,29 @@ func (q *Queries) ListQueued(ctx context.Context, arg ListQueuedParams) ([]Grabs
 		return nil, err
 	}
 	return items, nil
+}
+
+const paceDue = `-- name: PaceDue :exec
+UPDATE grabs_due SET gap_seconds = ?1, due_at = ?2, search_id = NULL, changed_at = ?3
+WHERE search_id = ?4
+`
+
+type PaceDueParams struct {
+	GapSeconds int64
+	DueAt      storage.Time
+	ChangedAt  storage.Time
+	SearchID   SearchID
+}
+
+// A finished run's group: its next gap and due time, and no run open.
+func (q *Queries) PaceDue(ctx context.Context, arg PaceDueParams) error {
+	_, err := q.db.ExecContext(ctx, paceDue,
+		arg.GapSeconds,
+		arg.DueAt,
+		arg.ChangedAt,
+		arg.SearchID,
+	)
+	return err
 }
 
 const putDue = `-- name: PutDue :exec

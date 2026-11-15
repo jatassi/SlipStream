@@ -2,6 +2,7 @@ package grabs
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/jatassi/slipstream/internal/setting"
@@ -39,3 +40,17 @@ type Cadences interface {
 
 // Tasks is grabs' Scheduled tasks.
 func (*Grabs) Tasks() []tasks.Task { return nil }
+
+// interval is Backlog search's cadence as tasks stores it. tasks knows no
+// Backlog search task until Backlog search registers one, and its cadence
+// is the default till then.
+func (gr *Grabs) interval(ctx context.Context) (time.Duration, error) {
+	every, err := gr.cfg.Tasks.Every(ctx, BacklogTaskID)
+	if errors.Is(err, tasks.ErrUnknownTask) {
+		return BacklogEvery.Default, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return BacklogEvery.Value(every), nil
+}

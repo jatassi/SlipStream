@@ -22,3 +22,15 @@ SELECT * FROM grabs_release WHERE search_id = sqlc.arg(search_id) AND outcome = 
 
 -- name: DeleteHeard :exec
 DELETE FROM grabs_release WHERE search_id = sqlc.arg(search_id) AND outcome = 'heard';
+
+-- name: InsertSingleLine :exec
+-- A line of phase two: one Item's own query.
+INSERT INTO grabs_search_indexer (search_id, position, indexer_id, indexer_name, item_id)
+VALUES (sqlc.arg(search_id), sqlc.arg(position), sqlc.arg(indexer_id), sqlc.arg(indexer_name), sqlc.arg(item_id));
+
+-- name: StartPhaseTwo :exec
+UPDATE grabs_search SET phase = 2 WHERE id = sqlc.arg(id) AND finished_at IS NULL;
+
+-- name: ListSearchedItems :many
+-- Of items, those an automatic run already searched.
+SELECT item_id FROM grabs_item_search WHERE item_id IN (sqlc.slice(item_ids)) ORDER BY item_id;

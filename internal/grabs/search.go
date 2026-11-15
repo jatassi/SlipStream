@@ -31,6 +31,8 @@ type Search struct {
 	Trigger searches.Trigger
 	// Items are the Items it searched.
 	Items []works.ItemID
+	// Phase is 2 once the run asked its Items' own queries, else 1.
+	Phase int
 	// Manual is the Manual search the run lists Releases for, zero for an
 	// automatic run.
 	Manual  ManualID
@@ -100,7 +102,7 @@ func runsOf(ctx context.Context, q *db.Queries, rows []db.GrabsSearch, lines map
 
 func searchOf(row db.GrabsSearch, items []works.ItemID, grabs []GrabID, lines []SearchIndexer) (Search, error) {
 	s := Search{
-		ID: row.ID, WorkID: row.WorkID, Items: items, Manual: row.ManualID, Started: row.StartedAt.Time(), Indexers: lines,
+		ID: row.ID, WorkID: row.WorkID, Items: items, Phase: int(row.Phase), Manual: row.ManualID, Started: row.StartedAt.Time(), Indexers: lines,
 		Finished: row.FinishedAt.Time(), Candidates: int(row.Candidates), Took: int(row.Grabs), Grabs: grabs,
 	}
 	if row.GroupKey != nil {

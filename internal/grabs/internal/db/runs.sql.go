@@ -7,10 +7,12 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/indexers"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
+	"github.com/jatassi/slipstream/internal/works"
 )
 
 const deleteHeard = `-- name: DeleteHeard :exec
@@ -54,6 +56,31 @@ func (q *Queries) InsertHeard(ctx context.Context, arg InsertHeardParams) error 
 		arg.Release,
 		arg.LinkSealed,
 		arg.HeardAt,
+	)
+	return err
+}
+
+const insertSingleLine = `-- name: InsertSingleLine :exec
+INSERT INTO grabs_search_indexer (search_id, position, indexer_id, indexer_name, item_id)
+VALUES (?1, ?2, ?3, ?4, ?5)
+`
+
+type InsertSingleLineParams struct {
+	SearchID    SearchID
+	Position    int64
+	IndexerID   indexers.ID
+	IndexerName string
+	ItemID      works.ItemID
+}
+
+// A line of phase two: one Item's own query.
+func (q *Queries) InsertSingleLine(ctx context.Context, arg InsertSingleLineParams) error {
+	_, err := q.db.ExecContext(ctx, insertSingleLine,
+		arg.SearchID,
+		arg.Position,
+		arg.IndexerID,
+		arg.IndexerName,
+		arg.ItemID,
 	)
 	return err
 }
@@ -155,6 +182,44 @@ func (q *Queries) ListReadyRuns(ctx context.Context) ([]GrabsSearch, error) {
 	return items, nil
 }
 
+const listSearchedItems = `-- name: ListSearchedItems :many
+SELECT item_id FROM grabs_item_search WHERE item_id IN (/*SLICE:item_ids*/?) ORDER BY item_id
+`
+
+// Of items, those an automatic run already searched.
+func (q *Queries) ListSearchedItems(ctx context.Context, itemIds []works.ItemID) ([]works.ItemID, error) {
+	query := listSearchedItems
+	var queryParams []interface{}
+	if len(itemIds) > 0 {
+		for _, v := range itemIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:item_ids*/?", strings.Repeat(",?", len(itemIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:item_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []works.ItemID
+	for rows.Next() {
+		var item_id works.ItemID
+		if err := rows.Scan(&item_id); err != nil {
+			return nil, err
+		}
+		items = append(items, item_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const promoteSearch = `-- name: PromoteSearch :exec
 UPDATE grabs_search SET lane = ?1, trigger = ?2, include_gone = ?3
 WHERE id = ?4 AND finished_at IS NULL
@@ -175,5 +240,14 @@ func (q *Queries) PromoteSearch(ctx context.Context, arg PromoteSearchParams) er
 		arg.IncludeGone,
 		arg.ID,
 	)
+	return err
+}
+
+const startPhaseTwo = `-- name: StartPhaseTwo :exec
+UPDATE grabs_search SET phase = 2 WHERE id = ?1 AND finished_at IS NULL
+`
+
+func (q *Queries) StartPhaseTwo(ctx context.Context, id SearchID) error {
+	_, err := q.db.ExecContext(ctx, startPhaseTwo, id)
 	return err
 }

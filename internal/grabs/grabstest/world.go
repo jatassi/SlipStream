@@ -82,6 +82,9 @@ type Options struct {
 	Formats  formats.Timings
 	// JobCap is searching's: the longest a search query counts in flight.
 	JobCap time.Duration
+	// BacklogEvery is Backlog search's cadence as tasks stores it, its
+	// default when zero.
+	BacklogEvery time.Duration
 }
 
 // Level is one level of The Attic and its Items' labels.
@@ -124,6 +127,10 @@ type World struct {
 	Sites map[string]indexers.ID
 
 	t           testing.TB
+	o           Options
+	fx          *contenttypetest.Fixture
+	terms       attic
+	works       int
 	reconciling atomic.Bool
 	stop        func()
 }
@@ -133,7 +140,7 @@ func New(t testing.TB, o Options) *World {
 	t.Helper()
 	ctx := t.Context()
 	lib := storagetest.Library(t, Schemas()...)
-	w := &World{Lib: lib, Sites: map[string]indexers.ID{}, t: t}
+	w := &World{Lib: lib, Sites: map[string]indexers.ID{}, t: t, o: o}
 	home := role.NodeID{UUID: storage.NewUUID()}
 	w.Home = home
 	sealer := secrettest.Sealer(t)
@@ -161,28 +168,18 @@ func New(t testing.TB, o Options) *World {
 	must(t, err)
 	_, err = wanted.MakeDefault(ctx, identity.Admin{}, profile.ID)
 	must(t, err)
-	fx.Put("w1", contenttypetest.Record{Tree: works.Fetched{Label: "The Attic", Children: boxesOf(o)}})
-	added, _, err := tree.Add(ctx, identity.Admin{}, contenttypetest.ID, "w1", works.Adding{
-		Monitor: true,
-		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
-			if err := targets.Assign(ctx, tx, w, nil); err != nil {
-				return err
-			}
-			return roots.Assign(ctx, tx, w, nil)
-		},
-	})
-	must(t, err)
+	w.fx = fx
+	w.terms = attic{level: map[works.ItemID]works.LevelID{}, label: map[works.LevelID]string{}, name: map[works.ItemID]string{}}
+	added := w.add(ctx, tree, "w1")
 	w.Work, w.Item, w.Level = added.ID, added.Items[0].ID, added.Items[0].LevelID
-	terms := attic{level: map[works.ItemID]works.LevelID{}, label: map[works.LevelID]string{}}
 	for _, l := range added.Levels {
 		w.Levels = append(w.Levels, l.ID)
-		terms.label[l.ID] = l.Label
 	}
 	for _, it := range added.Items {
 		w.Items = append(w.Items, it.ID)
-		terms.level[it.ID] = it.LevelID
 	}
-	terms.items = w.Items
+	w.terms.items = w.Items
+	terms := w.terms
 	library, err := roots.Open(ctx, rootstest.Config(t, lib, contenttypetest.ID))
 	must(t, err)
 	r := alone{node: home}
@@ -232,11 +229,35 @@ func New(t testing.TB, o Options) *World {
 		Changed: discard[grabs.Changed]{}, SearchChanged: discard[grabs.SearchChanged]{}, FilesChanged: discard[files.Changed]{},
 		BlocklistChanged: discard[grabs.BlocklistChanged]{}, QueueChanged: discard[grabs.QueueChanged]{},
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return w.reconciling.Load(), nil },
-		GapCap:      grabs.NoGapCap, Clock: time.Now, Log: log,
+		Tasks:       Cadences{Backlog: o.BacklogEvery}, GapCap: grabs.NoGapCap, Clock: time.Now, Log: log,
 	}
 	w.Grabs = grabs.New(w.Config)
 	t.Cleanup(w.halt)
 	return w
+}
+
+// add adds The Attic as key, monitored, with its Items' search terms.
+func (w *World) add(ctx context.Context, tree *works.Works, key works.Key) works.Tree {
+	w.works++
+	w.fx.Put(key, contenttypetest.Record{Tree: works.Fetched{Label: "The Attic", Children: boxesOf(w.o)}})
+	added, _, err := tree.Add(ctx, identity.Admin{}, contenttypetest.ID, key, works.Adding{
+		Monitor: true,
+		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
+			if err := targets.Assign(ctx, tx, w, nil); err != nil {
+				return err
+			}
+			return roots.Assign(ctx, tx, w, nil)
+		},
+	})
+	must(w.t, err)
+	for _, l := range added.Levels {
+		w.terms.label[l.ID] = l.Label
+	}
+	for _, it := range added.Items {
+		w.terms.level[it.ID] = it.LevelID
+		w.terms.name[it.ID] = it.Label
+	}
+	return added
 }
 
 // Answer has site answer every later search job with a, after.
@@ -450,11 +471,13 @@ func boxesOf(o Options) []works.Entry {
 
 // attic is The Attic's search terms: its label, the Items a name's mark
 // covers, its first Item for a name with none, and a search group per
-// level.
+// level, whose query is the label alone, while an Item's own query names
+// the Item too.
 type attic struct {
 	items []works.ItemID
 	level map[works.ItemID]works.LevelID
 	label map[works.LevelID]string
+	name  map[works.ItemID]string
 }
 
 func (a attic) Expect(context.Context, storage.Reader[storage.Library], works.WorkID) (indexers.Expect, error) {
@@ -473,9 +496,9 @@ func (a attic) Expect(context.Context, storage.Reader[storage.Library], works.Wo
 	return indexers.Expect{Claim: rel.Claim{Titles: []string{"The Attic"}}, Covers: covers}, nil
 }
 
-func (a attic) SearchTerms(ctx context.Context, r storage.Reader[storage.Library], _ works.ItemID) (indexers.Terms, error) {
+func (a attic) SearchTerms(ctx context.Context, r storage.Reader[storage.Library], item works.ItemID) (indexers.Terms, error) {
 	e, err := a.Expect(ctx, r, works.WorkID{})
-	return indexers.Terms{Expect: e, Mode: "search", Query: "The Attic"}, err
+	return indexers.Terms{Expect: e, Mode: "search", Query: "The Attic " + a.name[item]}, err
 }
 
 func (a attic) Groups(_ context.Context, _ storage.Reader[storage.Library], _ works.WorkID, items []works.ItemID) ([]indexers.Group, error) {
@@ -493,8 +516,9 @@ func (a attic) Groups(_ context.Context, _ storage.Reader[storage.Library], _ wo
 	return out, nil
 }
 
-func (a attic) GroupTerms(ctx context.Context, r storage.Reader[storage.Library], _ works.WorkID, g indexers.Group) (indexers.Terms, error) {
-	return a.SearchTerms(ctx, r, g.Items[0])
+func (a attic) GroupTerms(ctx context.Context, r storage.Reader[storage.Library], _ works.WorkID, _ indexers.Group) (indexers.Terms, error) {
+	e, err := a.Expect(ctx, r, works.WorkID{})
+	return indexers.Terms{Expect: e, Mode: "search", Query: "The Attic"}, err
 }
 
 func (attic) Categories() []newznab.ID { return newznab.Family(2000) }
