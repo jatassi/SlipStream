@@ -1,0 +1,10 @@
+{
+  "internal/metadataapi/metadataapi.go": 3,
+  "internal/nodesapi/joincodes.go": 1,
+  "internal/rootsapi/rootsapi.go": 1,
+  "internal/targetsapi/changes.go": 1,
+  "internal/targetsapi/cuts.go": 2,
+  "internal/targetsapi/targets.go": 1,
+  "internal/targetsapi/targetsapi.go": 3,
+  "internal/worksapi/worksapi.go": 1
+}
