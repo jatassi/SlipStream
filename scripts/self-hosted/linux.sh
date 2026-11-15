@@ -99,7 +99,8 @@ for i in $(seq 1 "$RUNNERS"); do
     deps_installed=true
   fi
   rm -f "$dir/.runner" "$dir/.credentials" "$dir/.credentials_rsaparams"
-  sudo -u "$user" "$dir/config.sh" --unattended --replace \
+  cd "$dir"
+  sudo -u "$user" ./config.sh --unattended --replace \
     --url https://github.com/jatassi/SlipStream \
     --token "$TOKEN" \
     --name "slipstream-linux-$i" \
