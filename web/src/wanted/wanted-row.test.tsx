@@ -47,7 +47,7 @@ test("Search on a row presses Search for that Work and says so", async () => {
 test("a press on a Work already searching says so", async () => {
   openRows(
     wantedServer([aWantedPage([missingRange])], {
-      one: { groups: [{ key: "l:1", label: "volume 2", state: "merged" }] },
+      one: { groups: [{ key: "l:1", label: "volume 2", itemIds: ["i"], state: "merged" }] },
     }),
   );
   await userEvent.click(page.getByRole("button", { name: "Search The Long Shelf" }));
