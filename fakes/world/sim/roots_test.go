@@ -157,7 +157,7 @@ func TestAWorkOnAnOfflineNodesRootDoesntSearch(t *testing.T) {
 		worldtest.Expect(t, "searchWork", w.API().Admin("home", http.MethodPost, "/api/v1/works/"+work+"/search", ""), worldtest.Reply{
 			Status: http.StatusConflict,
 			Body: `{"status":409,"code":"root_unreachable","title":"SlipStream can't put new files in this library root now",` +
-				`"detail":"seedbox is offline, so the library root there takes no new files."}` + "\n",
+				`"detail":"seedbox is offline, so SlipStream can't put new files in its library root."}` + "\n",
 		})
 	})
 }
