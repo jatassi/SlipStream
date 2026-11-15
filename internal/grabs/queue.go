@@ -14,12 +14,13 @@ import (
 	"github.com/jatassi/slipstream/internal/works"
 )
 
-// Queued is one search group a press landed on: its key, its label, and
-// whether it merged into a row already queued or searching with its
-// scope.
+// Queued is one search group a press landed on: its key, its label, the
+// Items of it the press searches, and whether it merged into a row
+// already queued or searching with its scope.
 type Queued struct {
 	Key    indexers.GroupKey
 	Label  string
+	Items  []works.ItemID
 	Merged bool
 }
 
@@ -70,7 +71,7 @@ func (gr *Grabs) enqueue(ctx context.Context, tx *storage.Tx[file], tree works.T
 				return nil, err
 			}
 		}
-		out = append(out, Queued{Key: g.Key, Label: g.Label, Merged: state == pace.Merged})
+		out = append(out, Queued{Key: g.Key, Label: g.Label, Items: g.Items, Merged: state == pace.Merged})
 	}
 	return out, nil
 }

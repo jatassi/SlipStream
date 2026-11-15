@@ -320,7 +320,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 
 	group := indexers.ItemGroup(tree.Items[0].ID)
 	for _, state := range []string{"queued", "merged"} {
-		if code, body := s.Call(t, http.MethodPost, search, ""); code != http.StatusAccepted || body != `{"groups":[{"key":"`+string(group)+`","label":"The Attic","state":"`+state+`"}]}`+"\n" {
+		if code, body := s.Call(t, http.MethodPost, search, ""); code != http.StatusAccepted || body != `{"groups":[{"key":"`+string(group)+`","label":"The Attic","itemIds":["`+tree.Items[0].ID.String()+`"],"state":"`+state+`"}]}`+"\n" {
 			t.Fatalf("searchWork = %d %s, want 202 with the Item's group %s", code, body, state)
 		}
 	}
@@ -605,7 +605,7 @@ func TestASearchWithinLevelsAndItemsSearchesOnlyThem(t *testing.T) {
 		{`{"levelIds":[],"itemIds":["` + f.tree.Items[0].ID.String() + `"]}`, "merged"},
 	} {
 		code, got := f.s.Call(t, http.MethodPost, f.search, tc.body)
-		if want := `{"groups":[{"key":"` + string(indexers.ItemGroup(f.tree.Items[0].ID)) + `","label":"The Attic","state":"` + tc.state + `"}]}` + "\n"; code != http.StatusAccepted || got != want {
+		if want := `{"groups":[{"key":"` + string(indexers.ItemGroup(f.tree.Items[0].ID)) + `","label":"The Attic","itemIds":["` + f.tree.Items[0].ID.String() + `"],"state":"` + tc.state + `"}]}` + "\n"; code != http.StatusAccepted || got != want {
 			t.Fatalf("searchWork with %s = %d %s, want 202 %s", tc.body, code, got, want)
 		}
 	}

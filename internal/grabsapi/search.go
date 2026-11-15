@@ -28,9 +28,10 @@ type searchQueued struct {
 }
 
 type queuedGroup struct {
-	Key   string `json:"key" doc:"The search group's key, to compare and never to parse"`
-	Label string `json:"label" doc:"The group in words, such as season 3"`
-	State string `json:"state" enum:"queued,merged" doc:"merged is a group already queued or searching with this scope"`
+	Key     string   `json:"key" doc:"The search group's key, to compare and never to parse"`
+	Label   string   `json:"label" doc:"The group in words, such as season 3"`
+	ItemIDs []string `json:"itemIds" format:"uuid" nullable:"false" doc:"The group's wanted Items the press searches, in tree order"`
+	State   string   `json:"state" enum:"queued,merged" doc:"merged is a group already queued or searching with this scope"`
 }
 
 type searchQueuedOutput struct{ Body searchQueued }
@@ -65,7 +66,10 @@ func (h handlers) searchWork(ctx context.Context, by identity.Admin, in *searchW
 	}
 	out := searchQueued{Groups: make([]queuedGroup, len(groups))}
 	for i, g := range groups {
-		out.Groups[i] = queuedGroup{Key: string(g.Key), Label: g.Label, State: "queued"}
+		out.Groups[i] = queuedGroup{Key: string(g.Key), Label: g.Label, ItemIDs: make([]string, len(g.Items)), State: "queued"}
+		for j, it := range g.Items {
+			out.Groups[i].ItemIDs[j] = it.String()
+		}
 		if g.Merged {
 			out.Groups[i].State = "merged"
 		}

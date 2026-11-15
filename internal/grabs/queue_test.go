@@ -93,7 +93,7 @@ func TestASecondPressOnAQueuedOrSearchingGroupMerges(t *testing.T) {
 		w := queueWorld(t, grabstest.Options{Sites: []string{"Quick Site"}, Levels: []grabstest.Level{{Label: "Winter", Items: []string{"Scarf", "Mitten"}}}})
 		w.Answer("Quick Site", time.Minute, searching.Answer{})
 		group := indexers.LevelGroup(w.Level)
-		want := []grabs.Queued{{Key: group, Label: "Winter"}}
+		want := []grabs.Queued{{Key: group, Label: "Winter", Items: w.Items}}
 		if got := press(t, w, grabs.Scope{}); !reflect.DeepEqual(got, want) {
 			t.Fatalf("the first press answers %+v, want %+v", got, want)
 		}

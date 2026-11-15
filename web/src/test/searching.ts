@@ -197,6 +197,7 @@ export const queuedGroupOf = (
 ): GrabsQueuedGroup => ({
   key: groupKey(volume(n)),
   label: volume(n).label.toLowerCase(),
+  itemIds: longShelf.items.filter((it) => it.levelId === volume(n).id).map((it) => it.id),
   state,
 });
 
