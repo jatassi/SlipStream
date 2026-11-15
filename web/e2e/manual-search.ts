@@ -79,8 +79,16 @@ export async function searchedItem(world: World, work: string, item: string): Pr
     .not.toBeNull();
 }
 
-/** An automatic search of one Item whose Grab fails on a damaged .torrent, so Needs you lists it. */
+/**
+ * An automatic search of one Item whose Grab fails on a damaged .torrent. The
+ * first failure stops the cell, so SlipStream doesn't search it again and
+ * Needs you lists it.
+ */
 export async function failedGrab(world: World, work: string, item: string): Promise<void> {
+  const stop = await world.api("PATCH", "/api/v1/search-settings", {
+    values: { "search.stopCount": 1 },
+  });
+  expect(stop.status, "the first failed Grab stops the cell").toBe(200);
   await world.fw.fault.set({
     id: "torrent-damaged",
     target: "fixture-site",
