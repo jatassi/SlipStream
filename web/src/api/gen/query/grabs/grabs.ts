@@ -54,7 +54,6 @@ import type {
   GetWorkSearching409,
   GetWorkSearching422,
   GetWorkSearching500,
-  GetWorkSearching501,
   GrabFromManualSearch401,
   GrabFromManualSearch403,
   GrabFromManualSearch404,
@@ -2863,7 +2862,6 @@ export const getGetWorkSearchingSuspenseQueryOptions = <
     | GetWorkSearching409
     | GetWorkSearching422
     | GetWorkSearching500
-    | GetWorkSearching501
   >,
 >(
   workId: string,
@@ -2902,7 +2900,6 @@ export type GetWorkSearchingSuspenseQueryError = ErrorType<
   | GetWorkSearching409
   | GetWorkSearching422
   | GetWorkSearching500
-  | GetWorkSearching501
 >;
 
 export function useGetWorkSearchingSuspense<
@@ -2914,7 +2911,6 @@ export function useGetWorkSearchingSuspense<
     | GetWorkSearching409
     | GetWorkSearching422
     | GetWorkSearching500
-    | GetWorkSearching501
   >,
 >(
   workId: string,
@@ -2935,7 +2931,6 @@ export function useGetWorkSearchingSuspense<
     | GetWorkSearching409
     | GetWorkSearching422
     | GetWorkSearching500
-    | GetWorkSearching501
   >,
 >(
   workId: string,
@@ -2956,7 +2951,6 @@ export function useGetWorkSearchingSuspense<
     | GetWorkSearching409
     | GetWorkSearching422
     | GetWorkSearching500
-    | GetWorkSearching501
   >,
 >(
   workId: string,
@@ -2981,7 +2975,6 @@ export function useGetWorkSearchingSuspense<
     | GetWorkSearching409
     | GetWorkSearching422
     | GetWorkSearching500
-    | GetWorkSearching501
   >,
 >(
   workId: string,

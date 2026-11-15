@@ -18,7 +18,6 @@ import (
 var notYet = []struct{ op, method, path, body string }{
 	{"searchSeveralWorks", http.MethodPost, "/api/v1/works/search", `{"workIds":[]}`},
 	{"cancelQueuedSearches", http.MethodDelete, "/api/v1/search-queue?lane=bulk", ""},
-	{"getWorkSearching", http.MethodGet, "/api/v1/works/" + storage.NewUUID().String() + "/searching", ""},
 	{"grabWaiting", http.MethodPost, "/api/v1/works/" + storage.NewUUID().String() + "/waits/grab", "{}"},
 	{"listWanted", http.MethodGet, "/api/v1/wanted", ""},
 	{"getSearchSettings", http.MethodGet, "/api/v1/search-settings", ""},

@@ -20,9 +20,11 @@ test("an Admin adds a movie, searches it, and watches it import", async ({
   await expect(page.getByRole("heading", { name: "The Quiet Orchard", exact: true })).toBeVisible();
 
   await workSearch(page).click();
-  await expect(page.getByRole("region", { name: "Notifications" })).toContainText("Search started");
+  await expect(page.getByRole("region", { name: "Notifications" })).toContainText(
+    "Searching The Quiet Orchard",
+  );
   await expect(page.getByRole("list", { name: "Searches" })).toContainText(
-    /^Grabbed a Release2 Releases found · .+Fixture SiteFound 2 Releases/u,
+    /^Grabbed 1 ReleaseSearch · 2 Releases found · .+Fixture SiteFound 2 Releases/u,
   );
 
   await navigate(page, "Activity");
