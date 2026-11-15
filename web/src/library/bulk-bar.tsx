@@ -6,7 +6,7 @@ import { Button } from "../ui/button";
 import { IconButton } from "../ui/icon-button";
 import { Menu, type MenuEntry } from "../ui/menu";
 import { useShell } from "../ui/shell-context";
-import { type BulkAction, useBulkActions } from "./bulk-actions";
+import { type BulkAction, useBulkActions, useBulkSearch } from "./bulk-actions";
 import { BulkDialog, type BulkDialogKind } from "./bulk-dialogs";
 import type { Picking } from "./picking";
 
@@ -24,11 +24,42 @@ const placed = {
 
 const menuLabel = "Actions for the picked Works";
 
+function BulkMenu({
+  name,
+  lead,
+  actions,
+  oneType,
+}: {
+  name: string;
+  lead: readonly MenuEntry[];
+  actions: readonly BulkAction[];
+  oneType: boolean;
+}) {
+  const items: MenuEntry[] = [
+    ...lead,
+    ...(lead.length > 0 && actions.length > 0 ? ["separator" as const] : []),
+    ...actions.map(({ label, icon, busy, danger, oneTypeOnly, onSelect }): MenuEntry => ({
+      label,
+      icon,
+      tone: danger ? "danger" : "default",
+      disabled: busy || (oneTypeOnly && !oneType),
+      onSelect,
+    })),
+  ];
+  return (
+    <Menu
+      label={name}
+      trigger={<IconButton icon={MoreHorizontalIcon} label={name} />}
+      items={items}
+    />
+  );
+}
+
 function BulkButtons({ actions, oneType }: { actions: readonly BulkAction[]; oneType: boolean }) {
   return (
     <>
       {actions
-        .filter(({ oneTypeOnly }) => oneType || !oneTypeOnly)
+        .filter(({ secondary, oneTypeOnly }) => !secondary && (oneType || !oneTypeOnly))
         .map(({ label, icon, busy, danger, onSelect }) => (
           <Button
             key={label}
@@ -40,41 +71,18 @@ function BulkButtons({ actions, oneType }: { actions: readonly BulkAction[]; one
             {label}
           </Button>
         ))}
+      <BulkMenu
+        name="More actions"
+        lead={[]}
+        actions={actions.filter(({ secondary }) => secondary)}
+        oneType={oneType}
+      />
       {!oneType && (
         <span className="text-meta text-ink-3">
           Pick Works of one Content Type to change their Profile or library root.
         </span>
       )}
     </>
-  );
-}
-
-function BulkMenu({
-  actions,
-  oneType,
-  onSelectAll,
-}: {
-  actions: readonly BulkAction[];
-  oneType: boolean;
-  onSelectAll: () => void;
-}) {
-  const items: MenuEntry[] = [
-    { label: "Select all", onSelect: onSelectAll },
-    ...(actions.length === 0 ? [] : ["separator" as const]),
-    ...actions.map(({ label, icon, busy, danger, oneTypeOnly, onSelect }): MenuEntry => ({
-      label,
-      icon,
-      tone: danger ? "danger" : "default",
-      disabled: busy || (oneTypeOnly && !oneType),
-      onSelect,
-    })),
-  ];
-  return (
-    <Menu
-      label={menuLabel}
-      trigger={<IconButton icon={MoreHorizontalIcon} label={menuLabel} />}
-      items={items}
-    />
   );
 }
 
@@ -88,14 +96,15 @@ function typeOf(picked: Picking["picked"]) {
 /**
  * What the picked Works can do together, each one request that answers per
  * Work. An action acts on every pick, the ones the filters hide included,
- * as the bar says. On a phone the actions sit in one menu, so the bar
- * stays one row.
+ * as the bar says. On a phone the actions sit in one menu, and on a
+ * desktop the secondary ones do, so the bar stays one row.
  */
 export function BulkBar({ picking }: { picking: Picking }) {
   const [dialog, setDialog] = useState<BulkDialogKind>();
   const phone = useShell() === "phone";
   const { picked, hidden } = picking;
-  const actions = useBulkActions(picked, setDialog);
+  const search = useBulkSearch(picked);
+  const actions = useBulkActions(picked, setDialog, search.action);
   const type = typeOf(picked);
   const oneType = type !== undefined;
   return (
@@ -112,9 +121,10 @@ export function BulkBar({ picking }: { picking: Picking }) {
       </span>
       {phone ? (
         <BulkMenu
+          name={menuLabel}
+          lead={[{ label: "Select all", onSelect: picking.toggleAll }]}
           actions={picked.length === 0 ? [] : actions}
           oneType={oneType}
-          onSelectAll={picking.toggleAll}
         />
       ) : (
         <>
@@ -127,6 +137,7 @@ export function BulkBar({ picking }: { picking: Picking }) {
       <Button look="ghost" onClick={picking.done}>
         Done
       </Button>
+      {search.dialog}
       <BulkDialog
         kind={dialog}
         type={type}

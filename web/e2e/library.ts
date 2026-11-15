@@ -66,14 +66,18 @@ export const libraryRows = async (world: World) =>
 
 export const bar = (page: Page) => page.getByRole("toolbar", { name: "Picked Works" });
 const barMenu = "Actions for the picked Works";
+const desktopMore = new Set(["Set library root…", "Refresh metadata", "Delete…"]);
 
-// A phone's bar holds its actions in a sheet.
+// A phone's bar holds its actions in a sheet, and a desktop's holds the secondary ones in a menu.
 export async function barAction(page: Page, name: string) {
   if (isPhone(page)) {
     await bar(page).getByRole("button", { name: barMenu }).click();
     await clickWhenStill(
       page.getByRole("dialog", { name: barMenu }).getByRole("button", { name, exact: true }),
     );
+  } else if (desktopMore.has(name)) {
+    await bar(page).getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menu", { name: "More actions" }).getByRole("menuitem", { name }).click();
   } else {
     await bar(page).getByRole("button", { name, exact: true }).click();
   }

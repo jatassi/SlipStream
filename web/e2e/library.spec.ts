@@ -7,6 +7,10 @@ import { addSeries, harborNights, lanternKeepers } from "./series.ts";
 import { isPhone, navigate } from "./shell.ts";
 import { clickWhenStill } from "./still.ts";
 
+/** The Library's poster cards, not the Wanted and Pending imports rows above them. */
+const posterCards = (page: Page) =>
+  page.getByRole("main").getByRole("listitem").and(page.locator("[data-work-id]"));
+
 test("an Admin adds a movie from the catalog and sees its missing cell", async ({
   adminPage: page,
 }) => {
@@ -38,9 +42,7 @@ test("an Admin adds a movie from the catalog and sees its missing cell", async (
 
   await navigate(page, "Library");
   await expect(page.getByRole("heading", { name: "Q 1", level: 2 })).toBeVisible();
-  await expect(page.getByRole("main").getByRole("listitem")).toHaveText(
-    "The Quiet Orchard2021Missing",
-  );
+  await expect(posterCards(page)).toHaveText("The Quiet Orchard2021Missing");
   await page.goto("/add?contentType=movie&query=quiet+orchard");
   await expect(
     page.getByRole("link", { name: "The Quiet Orchard 2021 In the library" }),
@@ -86,7 +88,7 @@ test.describe("with movies and TV", () => {
     const types = page.getByRole("navigation", { name: "Content Types" });
     await expect(types.getByRole("link")).toHaveText(["All", "Movies", "TV"]);
     await expect(types.getByRole("link", { name: "All" })).toHaveAttribute("aria-current", "page");
-    const posters = page.getByRole("main").getByRole("listitem");
+    const posters = posterCards(page);
     await expect(posters).toHaveCount(3);
     await expect(posters.filter({ hasText: orchard })).toContainText("Missing");
 

@@ -51,8 +51,12 @@ export type NavRow = {
   /** The alert in the shell's counts whose dot the row carries, with no number. */
   alert?: AlertKey;
   children?: "content-types";
-  /** The row stays current on every page below `to`, such as a Node's sections under Nodes. */
-  within?: true;
+  /**
+   * The row stays current on every page below `to`, such as a Node's
+   * sections under Nodes, or only on the listed pages and those below them,
+   * such as Wanted under Library.
+   */
+  within?: true | readonly AppPath[];
 };
 
 const contentTypeLibrary = "/library/$contentType";
@@ -80,6 +84,7 @@ export const adminNav: NavTable = [
     tab: { order: 1 },
     count: "pendingImports",
     children: "content-types",
+    within: ["/library/pending", "/library/wanted"],
   },
   {
     id: "activity",
@@ -209,6 +214,13 @@ export function useAdminNav(): ShownRow[] {
     children: row.children === "content-types" ? contentTypes : [],
   }));
 }
+
+const below = (pathname: string, path: string) =>
+  pathname === path || pathname.startsWith(`${path}/`);
+
+/** Whether a page on pathname keeps a row with listed pages current, besides `to` itself. */
+export const keepsCurrent = (paths: readonly AppPath[], pathname: string): boolean =>
+  paths.some((path) => below(pathname, path));
 
 export const tabRows = (rows: readonly ShownRow[]): ShownRow[] =>
   rows

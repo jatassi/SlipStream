@@ -11,9 +11,9 @@ import { Switch } from "../../ui/switch";
 import { includeLabel } from "../monitoring/labels";
 import { ProfilePicker } from "../profile-picker";
 import type { AddChoices, MonitorControl } from "./choices";
+import { note } from "./note";
 import { PresetChoice } from "./preset-choice";
-
-export const note = "text-meta text-ink-3 in-data-[density=touch]:text-body-touch";
+import { SearchChoice } from "./search-choice";
 
 type Choose = (next: Partial<AddChoices>) => void;
 
@@ -194,6 +194,7 @@ export function ChoiceFields({
         choose={choose}
       />
       <LevelSwitches type={type} choices={choices} choose={choose} />
+      <SearchChoice type={type} counts={counts} choices={choices} choose={choose} />
       <Remember type={type} remember={choices.remember} moves={moves} choose={choose} />
     </>
   );

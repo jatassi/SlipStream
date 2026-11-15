@@ -3,6 +3,7 @@ import { http, HttpResponse } from "msw";
 import type {
   GrabsQueueStatus,
   GrabsQueuedCanceled,
+  GrabsSearchQueued,
   GrabsSeveralQueued,
   GrabsWantedPage,
   GrabsWantedRow,
@@ -108,15 +109,21 @@ export const aWantedPage = (
   ...over,
 });
 
-/** Serves Wanted's pages in order by cursor, Search on several Works and Cancel of the bulk lane. */
+/** Serves Wanted's pages in order by cursor, Search on one Work or several and Cancel of the bulk lane. */
 export function wantedServer(
   pages: readonly GrabsWantedPage[] = [aWantedPage([missingRange, failedQueued, upgradeSearching])],
+  {
+    several = { queued: 1, merged: 0, leftGone: 0, works: [] },
+    one = { groups: [{ key: "w", label: "the Work", state: "queued" }] },
+  }: { several?: GrabsSeveralQueued; one?: GrabsSearchQueued } = {},
 ) {
   const searched: unknown[] = [];
+  const pressed: string[] = [];
   const asked: URLSearchParams[] = [];
   let canceled = 0;
   return {
     searched,
+    pressed,
     asked,
     get canceled() {
       return canceled;
@@ -132,8 +139,11 @@ export function wantedServer(
       }),
       http.post("*/api/v1/works/search", async ({ request }) => {
         searched.push(await request.json());
-        const answer: GrabsSeveralQueued = { queued: 1, merged: 0, leftGone: 0, works: [] };
-        return HttpResponse.json(answer, { status: 202 });
+        return HttpResponse.json(several, { status: 202 });
+      }),
+      http.post("*/api/v1/works/:workId/search", ({ params }) => {
+        pressed.push(String(params["workId"]));
+        return HttpResponse.json(one, { status: 202 });
       }),
       http.delete("*/api/v1/search-queue", () => {
         canceled++;

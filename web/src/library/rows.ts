@@ -7,6 +7,7 @@ import type {
   WorksLibraryRow,
   WorksLibraryRowAddedBy,
   WorksLibraryRowMonitored,
+  WorksLibraryRowWanted,
   WorksRowRating,
 } from "../api/gen/model";
 
@@ -50,6 +51,8 @@ export type LibraryWork = {
   readonly items: number;
   readonly itemStatus: FilesStateCounts;
   readonly needsYou: number;
+  /** The first reason Wanted lists it for, null while it wants nothing. */
+  readonly wanted: WorksLibraryRowWanted;
   readonly values: ReadonlyMap<string, ListValue>;
 };
 
@@ -144,6 +147,7 @@ export function parseRow(row: WorksLibraryRow, type: WorksContentType): LibraryW
     items: row.items,
     itemStatus: row.itemStatus,
     needsYou: row.needsYou,
+    wanted: row.wanted,
     values: valuesOf(row, type),
   };
   cache.set(row, work);
