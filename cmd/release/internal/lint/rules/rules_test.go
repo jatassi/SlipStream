@@ -120,16 +120,7 @@ func TestEndpointLiterals(t *testing.T) {
 func TestCopyWords(t *testing.T) {
 	const rewrite = " is banned in user-facing strings. Rewrite it per WRITING.md"
 	repo := fixtureRepo(t, "copy-words")
-	words, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "web", "lint", "copy-words.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(repo.Root, "web", "lint"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(repo.Root, "web", "lint", "copy-words.json"), words, 0o644); err != nil {
-		t.Fatal(err)
-	}
+	copyWebLint(t, repo, "copy-words.json")
 	assertFindings(t, check(t, "copy-words", repo), []string{
 		`internal/api/problem.go:6: [copy-words] "please"` + rewrite,
 		`internal/api/problem.go:6: [copy-words] "robust"` + rewrite,
@@ -144,6 +135,88 @@ func TestCopyWords(t *testing.T) {
 		`internal/api/problem.go:21: [copy-words] "enhance"` + rewrite,
 		`internal/api/problem.go:21: [copy-words] "let's"` + rewrite,
 		`internal/torrent/unit3d/unit3d.go:9: [copy-words] "please"` + rewrite,
+	})
+}
+
+// copyWebLint gives repo the real web/lint file name, so a fixture runs
+// against the words the repository bans.
+func copyWebLint(t *testing.T, repo *lint.Repo, name string) {
+	t.Helper()
+	src, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "web", "lint", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(repo.Root, "web", "lint"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo.Root, "web", "lint", name), src, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHouseWords(t *testing.T) {
+	const (
+		word     = " is a glossary word. Say what it means for the reader, per WRITING.md rule 21"
+		baseline = "web/lint/house-words-baseline.json"
+	)
+	repo := fixtureRepo(t, "house-words")
+	copyWebLint(t, repo, "house-words.json")
+	assertFindings(t, check(t, "house-words", repo), []string{
+		`internal/api/problem.go:5: [house-words] "stand in"` + word,
+		`internal/api/problem.go:8: [house-words] "written off"` + word,
+		`internal/api/problem.go:11: [house-words] "Want"` + word,
+		`internal/api/problem.go:16: [house-words] "glossary"` + word,
+		`internal/trackers/health.go:1: [house-words] ` + baseline + ` allows 3 "owe" here and the file has 1. Lower it to 1`,
+		`internal/trackers/page.go:4: [house-words] "owe"` + word + ". " + baseline + " allows 1 here and the file has 2",
+		`internal/trackers/page.go:5: [house-words] "owe"` + word + ". " + baseline + " allows 1 here and the file has 2",
+		baseline + `:1: [house-words] internal/api/problem.go counts "lean", which web/lint/house-words.json doesn't list. Remove it`,
+		baseline + `:1: [house-words] internal/trackers/gone.go no longer exists. Remove its entry`,
+	})
+}
+
+func TestHouseWordsCountsEveryMatchWithTheBaselineOff(t *testing.T) {
+	const word = " is a glossary word. Say what it means for the reader, per WRITING.md rule 21"
+	t.Setenv("HOUSE_WORDS_BASELINE", "off")
+	repo := fixtureRepo(t, "house-words")
+	copyWebLint(t, repo, "house-words.json")
+	assertFindings(t, check(t, "house-words", repo), []string{
+		`internal/api/problem.go:4: [house-words] "hold"` + word,
+		`internal/api/problem.go:5: [house-words] "stand in"` + word,
+		`internal/api/problem.go:8: [house-words] "written off"` + word,
+		`internal/api/problem.go:10: [house-words] "cell"` + word,
+		`internal/api/problem.go:11: [house-words] "Want"` + word,
+		`internal/api/problem.go:16: [house-words] "glossary"` + word,
+		`internal/trackers/health.go:3: [house-words] "owe"` + word,
+		`internal/trackers/page.go:4: [house-words] "owe"` + word,
+		`internal/trackers/page.go:5: [house-words] "owe"` + word,
+	})
+}
+
+func TestProblemDetailFromError(t *testing.T) {
+	const (
+		baseline = "web/lint/problem-detail-baseline.json"
+		detail   = " [problem-detail-from-error] a problem detail is a sentence for a person. Log the error and write the detail, per WRITING.md rule 27. " + baseline + " allows 1 here and the file has 4"
+	)
+	assertFindings(t, check(t, "problem-detail-from-error", fixtureRepo(t, "problem-detail-from-error")), []string{
+		"internal/rootsapi/rootsapi.go:1: [problem-detail-from-error] " + baseline + " allows 1 details built from an error here and the file has 0. Remove it",
+		"internal/worksapi/worksapi.go:12:" + detail,
+		"internal/worksapi/worksapi.go:16:" + detail,
+		"internal/worksapi/worksapi.go:18:" + detail,
+		"internal/worksapi/worksapi.go:25:" + detail,
+		baseline + ":1: [problem-detail-from-error] internal/gone/gone.go no longer exists. Remove its entry",
+	})
+}
+
+func TestGlossaryFormat(t *testing.T) {
+	const rule = " [glossary-format] "
+	assertFindings(t, check(t, "glossary-format", fixtureRepo(t, "glossary-format")), []string{
+		"GLOSSARY.md:8:" + rule + "**Edition** has 3 sentences. Define it in two and move the rules to its spec or ADR",
+		"GLOSSARY.md:13:" + rule + "**Cell** has 2 sentences now. Remove it from web/lint/glossary-long.json",
+		"GLOSSARY.md:18:" + rule + `**Tier** has no _In UI_ line. Add one before _Avoid_, or "_In UI_: none" for a term no screen shows`,
+		"GLOSSARY.md:25:" + rule + "**Quality** has its _In UI_ line after _Avoid_. Move it above",
+		"GLOSSARY.md:29:" + rule + `**Revision** has an empty _In UI_ line. Write the words a screen uses, or "none"`,
+		"GLOSSARY.md:35:" + rule + "**Score** has 2 _In UI_ lines. Keep one",
+		"web/lint/glossary-long.json:1:" + rule + `GLOSSARY.md has no entry "Hub". Remove it`,
 	})
 }
 

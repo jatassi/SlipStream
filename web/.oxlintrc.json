@@ -180,6 +180,7 @@
     ],
     "unicorn/prefer-top-level-await": "off",
     "slipstream/copy-words": "error",
+    "slipstream/house-words": "error",
     "slipstream/no-restricted-syntax": [
       "error",
       {
@@ -711,7 +712,14 @@
     {
       "files": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**", "e2e/**", "harness/**"],
       "rules": {
-        "slipstream/copy-words": "off"
+        "slipstream/copy-words": "off",
+        "slipstream/house-words": "off"
+      }
+    },
+    {
+      "files": ["lint/**"],
+      "rules": {
+        "slipstream/house-words": "off"
       }
     }
   ]

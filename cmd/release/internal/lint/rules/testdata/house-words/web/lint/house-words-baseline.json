@@ -1,0 +1,7 @@
+{
+  "internal/trackers/page.go": { "owe": 1 },
+  "internal/trackers/health.go": { "owe": 3 },
+  "internal/trackers/gone.go": { "owe": 1 },
+  "internal/api/problem.go": { "cell": 1, "hold": 1, "lean": 1 },
+  "web/src/cells.tsx": { "cell": 1 }
+}
