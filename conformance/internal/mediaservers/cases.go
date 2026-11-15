@@ -347,15 +347,21 @@ func CarryKeepsWatchData(t *testing.T, tg Target) {
 	f.Gone(from)
 }
 
+// SidecarRemoved places a video with an .srt beside it. The server shows
+// the item, then the .srt on it, and drops the .srt once told it is gone.
+// Jellyfin lists a new item before it has probed the file, so the .srt
+// may show some time after the item (online run 2026-11-14 on 12.4).
 func SidecarRemoved(t *testing.T, tg Target) {
 	f := tg.Case(t)
 	defer f.Clear()
 	video, srt := Rel(t, "Subtitled", ".mkv"), Rel(t, "Subtitled", ".en.srt")
 	f.Place(video, srt)
 	f.Tell(video)
-	if it := f.Found(video); it.Sidecars != 1 {
-		t.Fatalf("the item has %d Sidecars, want the .srt", it.Sidecars)
-	}
+	f.Found(video)
+	Eventually(t, tg, "the .srt on the item", func() (bool, error) {
+		it, ok, err := tg.Server.ItemAt(t.Context(), tg.Library, f.At(video))
+		return ok && it.Sidecars == 1, err
+	})
 	f.Remove(srt)
 	if err := tg.Server.SidecarRemoved(t.Context(), tg.Library, f.At(video), f.At(srt)); err != nil {
 		t.Fatal(err)

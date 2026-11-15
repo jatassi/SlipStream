@@ -143,9 +143,13 @@ func ReportDroppedByScanIsSentAgain(t *testing.T, tg Target, shared mediaservers
 
 // TwoReportsInOneDelay pins what a repeat report does: it restarts that
 // path's timer, so the item shows a monitor delay after the second report
-// and not after the first.
-func TwoReportsInOneDelay(t *testing.T, _ Target, shared mediaservers.Target, s *mediabrowser.Server) {
+// and not after the first. It first waits out the reports the cases
+// before it left: a report of a gone file refreshes the folder above it,
+// which would make this case's item early (online run 2026-11-14, and
+// FileRefresher in Jellyfin's source).
+func TwoReportsInOneDelay(t *testing.T, tg Target, shared mediaservers.Target, s *mediabrowser.Server) {
 	d := delay(t, s)
+	time.Sleep(tg.Settle)
 	f := shared.Case(t)
 	defer f.Clear()
 	r := mediaservers.Rel(t, "Repeated", ".mkv")
