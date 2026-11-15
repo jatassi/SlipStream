@@ -62,7 +62,7 @@ func untickStorage(t *testing.T, w walked) string {
 	seedbox := w.m.Nodes[1].NodeID
 	out := w.a.SetRoles("home", seedbox, string(role.Searching), string(role.Downloading))
 	if !slices.ContainsFunc(out.Words(), func(s string) bool {
-		return strings.HasPrefix(s, "seedbox takes no new Storage work. It keeps its 1 root (") && strings.HasSuffix(s, ") until you move or write it off.")
+		return strings.HasPrefix(s, "seedbox takes no new Storage work. It keeps its 1 root (") && strings.HasSuffix(s, ") until you move it or give it up.")
 	}) {
 		t.Fatalf("unticking seedbox's Storage says %q, want it keeping its 1 root", out.Words())
 	}
@@ -101,7 +101,7 @@ func TestWriteOffMakesCellsMissingAndARehomeRestoresThem(t *testing.T) {
 	seedbox := untickStorage(t, w)
 	var wrote worldtest.Outcome
 	decode(t, "writeOff", w.a.Admin("home", http.MethodPost, "/api/v1/nodes/"+seedbox+"/write-offs", `{"roles":["storage"]}`), &wrote)
-	if words := wrote.Words(); len(words) != 1 || !strings.HasPrefix(words[0], "The 1 root (") || !strings.HasSuffix(words[0], ") seedbox holds for Storage is written off. No files are deleted.") {
+	if words := wrote.Words(); len(words) != 1 || !strings.HasPrefix(words[0], "SlipStream gives up the 1 root (") || !strings.HasSuffix(words[0], ") seedbox has for Storage. No files are deleted.") {
 		t.Fatalf("writing off seedbox's Storage says %q, want its 1 root written off", words)
 	}
 	root := rootOn(t, w.a, seedbox, "written_off")
