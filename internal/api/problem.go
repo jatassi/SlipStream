@@ -120,7 +120,7 @@ type explained struct {
 
 func (e *explained) Error() string {
 	if e.words != nil {
-		return e.code.name + ": " + e.words(timeWords(e.at, time.Now(), time.Local))
+		return e.code.name + ": " + e.words(TimeWords(e.at, time.Now(), time.Local))
 	}
 	return e.code.name + ": " + e.detail
 }
@@ -148,7 +148,7 @@ func (e *explained) answer(code *Code, zone *time.Location) error {
 	}
 	p.Detail, p.Errors = e.detail, e.fields
 	if e.words != nil {
-		p.Detail = e.words(timeWords(e.at, time.Now(), zone))
+		p.Detail = e.words(TimeWords(e.at, time.Now(), zone))
 	}
 	if e.carried != nil {
 		p.member, p.carried = code.member, e.carried
@@ -162,10 +162,10 @@ func (e *explained) answer(code *Code, zone *time.Location) error {
 	return p
 }
 
-// timeWords is t as a person reads it in zone: "14:05" on now's day,
+// TimeWords is t as a person reads it in zone: "14:05" on now's day,
 // "3 Oct, 14:05" on another day this year, and "3 Oct 2025, 14:05" in
 // another year.
-func timeWords(t, now time.Time, zone *time.Location) string {
+func TimeWords(t, now time.Time, zone *time.Location) string {
 	t, now = t.In(zone), now.In(zone)
 	switch {
 	case t.Year() != now.Year():

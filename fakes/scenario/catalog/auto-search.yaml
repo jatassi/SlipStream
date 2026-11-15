@@ -1,0 +1,114 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller, with Backlog search and RSS sync on as
+  the product ships them, for Automatic search. fake-tvdb lists The Lantern
+  Keepers, two seasons of three episodes, and Harbor Nights, two seasons of
+  two, and fake-tmdb lists The Quiet Orchard, The Salt Road and Meadowlark.
+  Fixture Site lists a season pack of The Lantern Keepers' season 1, Harbor
+  Nights' S01E01 and S01E02, a 1080p WEB-DL of The Quiet Orchard and one of
+  Meadowlark. Nothing lists season 2 of either series or The Salt Road, so
+  their searches find nothing. Heron lists the same Releases and allows one
+  search a day, so once one search spends it, Backlog search and Search
+  all wait for Heron while a press skips it. The library has a TV root
+  and a Movies root, and no Work until a test adds one.
+seed: auto-search
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 15s
+tvdb:
+  series:
+    - id: 1001
+      name: The Lantern Keepers
+      status: continuing
+      network: Lantern One
+      imdb: tt1001001
+      tmdb: 7001
+      seasons:
+        - number: 1
+          episodes:
+            - {id: 100111, number: 1, name: First Flame, aired: 2020-01-10, runtime: 52}
+            - {id: 100112, number: 2, name: The Tide Book, aired: 2020-01-17, runtime: 50}
+            - {id: 100113, number: 3, name: Salt and Oil, aired: 2020-01-24, runtime: 51}
+        - number: 2
+          episodes:
+            - {id: 100121, number: 1, name: The Northern Lamp, aired: 2021-01-08, runtime: 49}
+            - {id: 100122, number: 2, name: Fog Signal, aired: 2021-01-15, runtime: 47}
+            - {id: 100123, number: 3, name: Keeper's Log, aired: 2021-01-22, runtime: 53}
+    - id: 1002
+      name: Harbor Nights
+      status: ended
+      network: Harbor TV
+      imdb: tt1002001
+      tmdb: 7002
+      seasons:
+        - number: 1
+          episodes:
+            - {id: 100211, number: 1, name: Docklands, aired: 2015-09-14, runtime: 42}
+            - {id: 100212, number: 2, name: The Night Ferry, aired: 2015-09-21, runtime: 43}
+        - number: 2
+          episodes:
+            - {id: 100221, number: 1, name: Low Water, aired: 2016-09-12, runtime: 44}
+            - {id: 100222, number: 2, name: Last Crossing, aired: 2016-09-19, runtime: 45}
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+    - id: 9000005
+      imdb_id: tt9000005
+      title: The Salt Road
+      released: 2022-09-14
+      runtime: 112m
+    - id: 9000006
+      imdb_id: tt9000006
+      title: Meadowlark
+      released: 2023-05-12
+      runtime: 98m
+releases:
+  - name: The.Lantern.Keepers.S01.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 1001, season: 1}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 40
+    seeded: true
+    advertised_size: 12.2GiB
+  - name: Harbor.Nights.S01E01.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 1002, season: 1, episode: 1}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 9
+    seeded: true
+    advertised_size: 3.9GiB
+  - name: Harbor.Nights.S01E02.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 1002, season: 1, episode: 2}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 8
+    seeded: true
+    advertised_size: 3.8GiB
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 8.2GiB
+  - name: Meadowlark.2023.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000006
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 15
+    seeded: true
+    advertised_size: 7.4GiB
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: series, folder: tv}, {content_type: movie, folder: movies}]
+  indexers:
+    - {name: Fixture Site, kind: torznab, site: torznab}
+    - {name: Heron, kind: torznab, site: heron, limit: {count: 1, per: day}}

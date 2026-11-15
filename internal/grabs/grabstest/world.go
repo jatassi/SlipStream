@@ -88,6 +88,9 @@ type Options struct {
 	// BacklogEvery is Backlog search's cadence as tasks stores it, its
 	// default when zero.
 	BacklogEvery time.Duration
+	// Coded gives each Item the code the Work page leads it with: its
+	// level and place, such as B1E02.
+	Coded bool
 }
 
 // Level is one level of The Attic and its Items' labels.
@@ -251,7 +254,12 @@ func New(t testing.TB, o Options) *World {
 // add adds The Attic as key, monitored, with its Items' search terms.
 func (w *World) add(ctx context.Context, tree *works.Works, key works.Key) works.Tree {
 	w.works++
-	w.fx.Put(key, contenttypetest.Record{Tree: works.Fetched{Label: "The Attic", Children: boxesOf(w.o)}})
+	boxes := boxesOf(w.o)
+	record := contenttypetest.Record{Tree: works.Fetched{Label: "The Attic", Children: boxes}}
+	if w.o.Coded {
+		record.ItemFields = codesOf(boxes)
+	}
+	w.fx.Put(key, record)
 	added, _, err := tree.Add(ctx, identity.Admin{}, contenttypetest.ID, key, works.Adding{
 		Monitor: true,
 		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
@@ -540,6 +548,16 @@ func boxesOf(o Options) []works.Entry {
 		boxes = append(boxes, box)
 	}
 	return boxes
+}
+
+func codesOf(boxes []works.Entry) map[works.Key][]works.FieldValue {
+	out := map[works.Key][]works.FieldValue{}
+	for i, box := range boxes {
+		for j, it := range box.Children {
+			out[it.Key] = []works.FieldValue{works.TextField("code", fmt.Sprintf("B%dE%02d", i+1, j+1))}
+		}
+	}
+	return out
 }
 
 // attic is The Attic's search terms: its label, the Items a name's mark

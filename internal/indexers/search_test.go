@@ -347,8 +347,6 @@ func TestEachOutcomeLineSaysItInWords(t *testing.T) {
 		{&indexers.Outcome{Kind: indexers.Found, Releases: 1}, "Found 1 Release"},
 		{&indexers.Outcome{Kind: indexers.Found, Releases: 12}, "Found 12 Releases"},
 		{&indexers.Outcome{Kind: indexers.NoReleases}, "No Releases"},
-		{&indexers.Outcome{Kind: indexers.IsLimited, Until: at}, "Limit reached until 14:05"},
-		{&indexers.Outcome{Kind: indexers.LimitReached, Until: at}, "Limit reached until 14:05"},
 		{&indexers.Outcome{Kind: indexers.Waiting, Node: self}, "Waiting for home"},
 		{&indexers.Outcome{Kind: indexers.IsFailing, Until: at}, "Isn't responding. SlipStream retries at 14:05."},
 		{&indexers.Outcome{Kind: indexers.IsStopped, Cause: searching.CredentialsRejected}, "Stopped because the username or password was rejected."},
@@ -368,6 +366,24 @@ func TestEachOutcomeLineSaysItInWords(t *testing.T) {
 			t.Errorf("Line(%+v) = %q, want %q", tc.o, got, tc.want)
 		}
 	}
+}
+
+func TestALimitEndingAnotherDayNamesTheDay(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		p := plannedWith(t)
+		now := time.Now().UTC()
+		for _, tc := range []struct {
+			until time.Time
+			want  string
+		}{
+			{now.Add(14*time.Hour + 5*time.Minute), "Limit reached until 14:05"},
+			{now.Add(44*time.Hour + 59*time.Minute), "Limit reached until 2 Jan, 20:59"},
+		} {
+			if got := p.x.Line(contenttypetest.ID, &indexers.Outcome{Kind: indexers.LimitReached, Until: tc.until}); got != tc.want {
+				t.Errorf("a limit until %s at %s reads %q, want %q", tc.until, now, got, tc.want)
+			}
+		}
+	})
 }
 
 func TestPlanNeverAsksAnRSSFeed(t *testing.T) {
