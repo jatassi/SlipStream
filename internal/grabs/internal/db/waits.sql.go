@@ -7,11 +7,27 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
 )
+
+const addWaitGrab = `-- name: AddWaitGrab :exec
+UPDATE grabs_search SET outcome = 'grabbed', grabs = grabs + 1, notes = coalesce(notes, ?1) WHERE id = ?2
+`
+
+type AddWaitGrabParams struct {
+	Notes *string
+	ID    SearchID
+}
+
+// A run whose Release a wait's end grabbed took one more Grab.
+func (q *Queries) AddWaitGrab(ctx context.Context, arg AddWaitGrabParams) error {
+	_, err := q.db.ExecContext(ctx, addWaitGrab, arg.Notes, arg.ID)
+	return err
+}
 
 const deleteWait = `-- name: DeleteWait :exec
 DELETE FROM grabs_wait WHERE item_id = ?1 AND edition = ?2 AND target_id = ?3
@@ -25,6 +41,21 @@ type DeleteWaitParams struct {
 
 func (q *Queries) DeleteWait(ctx context.Context, arg DeleteWaitParams) error {
 	_, err := q.db.ExecContext(ctx, deleteWait, arg.ItemID, arg.Edition, arg.TargetID)
+	return err
+}
+
+const grabWaitingRelease = `-- name: GrabWaitingRelease :exec
+UPDATE grabs_release SET outcome = 'grabbed' WHERE search_id = ?1 AND position = ?2
+`
+
+type GrabWaitingReleaseParams struct {
+	SearchID SearchID
+	Position int64
+}
+
+// A candidate a wait's end grabbed.
+func (q *Queries) GrabWaitingRelease(ctx context.Context, arg GrabWaitingReleaseParams) error {
+	_, err := q.db.ExecContext(ctx, grabWaitingRelease, arg.SearchID, arg.Position)
 	return err
 }
 
@@ -51,6 +82,97 @@ func (q *Queries) InsertWaitCandidate(ctx context.Context, arg InsertWaitCandida
 		arg.Position,
 	)
 	return err
+}
+
+const keepEndedCandidates = `-- name: KeepEndedCandidates :exec
+UPDATE grabs_release SET outcome = 'kept'
+WHERE grabs_release.search_id IN (/*SLICE:search_ids*/?) AND grabs_release.outcome = 'waiting'
+    AND NOT EXISTS (
+        SELECT 1 FROM grabs_wait_candidate c WHERE c.search_id = grabs_release.search_id AND c.position = grabs_release.position)
+`
+
+// A waiting Release of runs that no wait holds any more ranked, and was
+// not grabbed.
+func (q *Queries) KeepEndedCandidates(ctx context.Context, searchIds []SearchID) error {
+	query := keepEndedCandidates
+	var queryParams []interface{}
+	if len(searchIds) > 0 {
+		for _, v := range searchIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:search_ids*/?", strings.Repeat(",?", len(searchIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:search_ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
+}
+
+const listWaitCandidatesOfWork = `-- name: ListWaitCandidatesOfWork :many
+SELECT c.item_id, c.edition, c.target_id, r.search_id, r.position, r.title, r.indexer_id, r.indexer_name, r.size, r.seeders, r.outcome, r.rank, r.reasons, r.lost_step, r.lost_target_id, r.lost_own, r.lost_ref, r.scores, r.formats, r.covers, r.copy_of, r."release", r.link_sealed, r.read, r.heard_at
+FROM grabs_wait w
+JOIN grabs_wait_candidate c ON c.item_id = w.item_id AND c.edition = w.edition AND c.target_id = w.target_id
+JOIN grabs_release r ON r.search_id = c.search_id AND r.position = c.position
+WHERE w.work_id = ?1
+ORDER BY r.search_id, r.position, c.item_id, c.edition, c.target_id
+`
+
+type ListWaitCandidatesOfWorkRow struct {
+	ItemID       works.ItemID
+	Edition      targets.Edition
+	TargetID     targets.TargetID
+	GrabsRelease GrabsRelease
+}
+
+// Each candidate of work's waits, by the cell it waits at, with its
+// Release row.
+func (q *Queries) ListWaitCandidatesOfWork(ctx context.Context, workID works.WorkID) ([]ListWaitCandidatesOfWorkRow, error) {
+	rows, err := q.db.QueryContext(ctx, listWaitCandidatesOfWork, workID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListWaitCandidatesOfWorkRow
+	for rows.Next() {
+		var i ListWaitCandidatesOfWorkRow
+		if err := rows.Scan(
+			&i.ItemID,
+			&i.Edition,
+			&i.TargetID,
+			&i.GrabsRelease.SearchID,
+			&i.GrabsRelease.Position,
+			&i.GrabsRelease.Title,
+			&i.GrabsRelease.IndexerID,
+			&i.GrabsRelease.IndexerName,
+			&i.GrabsRelease.Size,
+			&i.GrabsRelease.Seeders,
+			&i.GrabsRelease.Outcome,
+			&i.GrabsRelease.Rank,
+			&i.GrabsRelease.Reasons,
+			&i.GrabsRelease.LostStep,
+			&i.GrabsRelease.LostTargetID,
+			&i.GrabsRelease.LostOwn,
+			&i.GrabsRelease.LostRef,
+			&i.GrabsRelease.Scores,
+			&i.GrabsRelease.Formats,
+			&i.GrabsRelease.Covers,
+			&i.GrabsRelease.CopyOf,
+			&i.GrabsRelease.Release,
+			&i.GrabsRelease.LinkSealed,
+			&i.GrabsRelease.Read,
+			&i.GrabsRelease.HeardAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listWaitsOfWork = `-- name: ListWaitsOfWork :many
@@ -85,6 +207,45 @@ func (q *Queries) ListWaitsOfWork(ctx context.Context, workID works.WorkID) ([]G
 		return nil, err
 	}
 	return items, nil
+}
+
+const listWorksWithWaitsEnding = `-- name: ListWorksWithWaitsEnding :many
+SELECT DISTINCT work_id FROM grabs_wait WHERE until_at <= ?1 ORDER BY work_id
+`
+
+// The Works with a wait that ends at or before now.
+func (q *Queries) ListWorksWithWaitsEnding(ctx context.Context, now storage.Time) ([]works.WorkID, error) {
+	rows, err := q.db.QueryContext(ctx, listWorksWithWaitsEnding, now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []works.WorkID
+	for rows.Next() {
+		var work_id works.WorkID
+		if err := rows.Scan(&work_id); err != nil {
+			return nil, err
+		}
+		items = append(items, work_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const nextWaitEnd = `-- name: NextWaitEnd :one
+SELECT until_at FROM grabs_wait WHERE until_at > ?1 ORDER BY until_at LIMIT 1
+`
+
+func (q *Queries) NextWaitEnd(ctx context.Context, now storage.Time) (storage.Time, error) {
+	row := q.db.QueryRowContext(ctx, nextWaitEnd, now)
+	var until_at storage.Time
+	err := row.Scan(&until_at)
+	return until_at, err
 }
 
 const upsertWait = `-- name: UpsertWait :exec

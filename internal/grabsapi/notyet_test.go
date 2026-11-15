@@ -9,14 +9,12 @@ import (
 	"github.com/jatassi/slipstream/internal/grabsapi"
 	"github.com/jatassi/slipstream/internal/identity"
 	"github.com/jatassi/slipstream/internal/secret"
-	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
 )
 
 // notYet is every operation whose handler isn't built. The PR that builds
 // one deletes its line.
 var notYet = []struct{ op, method, path, body string }{
-	{"grabWaiting", http.MethodPost, "/api/v1/works/" + storage.NewUUID().String() + "/waits/grab", "{}"},
 	{"listWanted", http.MethodGet, "/api/v1/wanted", ""},
 }
 

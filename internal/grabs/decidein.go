@@ -2,6 +2,7 @@ package grabs
 
 import (
 	"context"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/bencode"
 	"github.com/jatassi/slipstream/internal/files"
@@ -128,24 +129,38 @@ func (gr *Grabs) decideIn(ctx context.Context, tx *storage.Tx[file], in decision
 	return gr.claimIn(ctx, tx, in)
 }
 
-// claimIn walks in's board over its gated Releases, commits each claim
-// and answers every Release's outcome.
-func (gr *Grabs) claimIn(ctx context.Context, tx *storage.Tx[file], in decisionIn) (decisionOut, error) {
+// walkOut is a decision's walk: its board, the Work's unfinished Grabs by
+// info hash, which a claim joins, and the claims.
+type walkOut struct {
+	board  cells
+	held   map[bencode.InfoHash]Grab
+	claims []claim
+}
+
+// walkIn walks in's board in tx over its gated Releases at now.
+func (gr *Grabs) walkIn(ctx context.Context, tx *storage.Tx[file], in decisionIn, now time.Time) (walkOut, error) {
 	all, err := gr.cfg.Files.Cells(ctx, tx, in.run.WorkID)
 	if err != nil {
-		return decisionOut{}, err
+		return walkOut{}, err
 	}
 	unfinished, err := unfinishedOf(ctx, tx, in.run.WorkID)
 	if err != nil {
-		return decisionOut{}, err
+		return walkOut{}, err
 	}
-	c := in.board(all, unfinished)
-	held := heldOf(unfinished)
+	w := walkOut{board: in.board(all, unfinished), held: heldOf(unfinished)}
+	w.claims, err = claimsOf(w.board, in.as, gr.taker(ctx, tx, w.held), in.gone, in.holds, now)
+	return w, err
+}
+
+// claimIn walks in's board over its gated Releases, commits each claim
+// and answers every Release's outcome.
+func (gr *Grabs) claimIn(ctx context.Context, tx *storage.Tx[file], in decisionIn) (decisionOut, error) {
 	out := decisionOut{candidates: len(in.as), at: storage.Now()}
-	cs, err := claimsOf(c, in.as, gr.taker(ctx, tx, held), in.gone, in.holds, out.at.Time())
+	w, err := gr.walkIn(ctx, tx, in, out.at.Time())
 	if err != nil {
 		return decisionOut{}, err
 	}
+	c, held, cs := w.board, w.held, w.claims
 	var grabbing []claim
 	taken, waited := in.grabbed, []int(nil)
 	for _, cl := range cs {

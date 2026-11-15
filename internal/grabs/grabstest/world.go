@@ -318,6 +318,12 @@ func (w *World) Waits(t testing.TB) []Wait {
 	return out
 }
 
+// AdvanceTo lets the bubble's clock run to at and waits for it to settle.
+func (w *World) AdvanceTo(at time.Time) {
+	time.Sleep(time.Until(at))
+	synctest.Wait()
+}
+
 // open opens a Grabs with Config, which the Files' changes queue on.
 func (w *World) open() {
 	w.Grabs = grabs.New(w.Config)

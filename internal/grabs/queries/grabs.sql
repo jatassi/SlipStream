@@ -152,9 +152,10 @@ SELECT * FROM grabs_release WHERE search_id = sqlc.arg(search_id) AND release IS
 
 -- name: EndReleasesOfGrab :exec
 -- No rerun follows once a run's Grab leaves fetching other than by a drop,
--- unless another Grab the run made still fetches.
+-- unless another Grab the run made still fetches. A candidate a wait holds
+-- stays whole.
 UPDATE grabs_release SET release = NULL, link_sealed = NULL
-WHERE search_id IN (SELECT r.search_id FROM grabs_search_grab r WHERE r.grab_id = sqlc.arg(grab_id))
+WHERE search_id IN (SELECT r.search_id FROM grabs_search_grab r WHERE r.grab_id = sqlc.arg(grab_id)) AND outcome <> 'waiting'
 AND NOT EXISTS (
     SELECT 1 FROM grabs_search_grab o JOIN grabs_grab g ON g.id = o.grab_id
     WHERE o.search_id = grabs_release.search_id AND o.made = 1 AND o.grab_id <> sqlc.arg(grab_id) AND g.stage = 'fetching'

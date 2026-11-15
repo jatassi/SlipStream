@@ -65,7 +65,6 @@ import type {
   GrabWaiting409,
   GrabWaiting422,
   GrabWaiting500,
-  GrabWaiting501,
   GrabWaitingInputBody,
   GrabsBlocklist,
   GrabsGrab,
@@ -3008,7 +3007,6 @@ export const getGrabWaitingMutationOptions = <
     | GrabWaiting409
     | GrabWaiting422
     | GrabWaiting500
-    | GrabWaiting501
   >,
   TContext = unknown,
 >(options?: {
@@ -3053,7 +3051,6 @@ export type GrabWaitingMutationError = ErrorType<
   | GrabWaiting409
   | GrabWaiting422
   | GrabWaiting500
-  | GrabWaiting501
 >;
 export type GrabWaitingMutationVariables = { workId: string; data: GrabWaitingInputBody };
 
@@ -3068,7 +3065,6 @@ export const useGrabWaiting = <
     | GrabWaiting409
     | GrabWaiting422
     | GrabWaiting500
-    | GrabWaiting501
   >,
   TContext = unknown,
 >(
