@@ -24,9 +24,12 @@ var cancelQueuedSearchesOp = api.Op{
 	Path:    "/search-queue",
 	Summary: "Cancel every search queued in a lane",
 	Status:  http.StatusOK,
-	Errors:  []*api.Code{notYet},
 }
 
-func (handlers) cancelQueuedSearches(context.Context, identity.Admin, *cancelQueuedInput) (*queuedCanceledOutput, error) {
-	return nil, notYet
+func (h handlers) cancelQueuedSearches(ctx context.Context, by identity.Admin, _ *cancelQueuedInput) (*queuedCanceledOutput, error) {
+	n, err := open(h.p).CancelQueued(ctx, by)
+	if err != nil {
+		return nil, err
+	}
+	return &queuedCanceledOutput{Body: queuedCanceled{Canceled: n}}, nil
 }
