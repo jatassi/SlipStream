@@ -49,7 +49,7 @@ var (
 	pinRefused          = api.NewCode(http.StatusUnprocessableEntity, "metadata_pin_refused", "The metadata provider refused that PIN, so SlipStream didn't save it")
 	metadataUnavailable = api.NewCode(http.StatusBadGateway, "metadata_unavailable", "The metadata source didn't respond. Try again later.")
 	contentTypeNotFound = api.NewCode(http.StatusNotFound, "content_type_not_found", "No Content Type has that id")
-	taskUnknown         = api.NewCode(http.StatusNotFound, "task_unknown", "No task shown has this id")
+	taskUnknown         = api.NewCode(http.StatusNotFound, "task_unknown", "No task has this id")
 	artworkUnavailable  = api.NewCode(http.StatusNotFound, "artwork_unavailable", "SlipStream has no such image to show")
 )
 
@@ -69,7 +69,7 @@ func answer(err error) error {
 	case errors.Is(err, works.ErrNoType):
 		return contentTypeNotFound
 	case errors.Is(err, tasks.ErrUnknownTask):
-		return taskUnknown.Because("Metadata refresh is listed once the library holds a Work")
+		return taskUnknown.Because("Metadata refresh starts once the library has something in it")
 	}
 	return err
 }
@@ -126,9 +126,9 @@ type provider struct {
 	ID          string                    `json:"id" doc:"The provider, such as tmdb"`
 	Label       string                    `json:"label"`
 	Summary     string                    `json:"summary" doc:"How the provider stands and what to do, in plain words: the sentence a page leads with, the rest under Details"`
-	Key         string                    `json:"key" enum:"none,bundled,yours" doc:"Whose key calls carry: none in this build, SlipStream's, or the Admin's"`
-	State       string                    `json:"state" enum:"unused,working,key_refused,rate_limited,out_of_allowance,unreachable" doc:"From the latest outcome of a call or test, unused until one"`
-	Until       api.Nullable[time.Time]   `json:"until" doc:"When a rate limited provider, or one out of its daily allowance, takes calls again"`
+	Key         string                    `json:"key" enum:"none,bundled,yours" doc:"Which key SlipStream sends: none (this build has none), the bundled key or the Admin's own key"`
+	State       string                    `json:"state" enum:"unused,working,key_refused,rate_limited,out_of_allowance,unreachable" doc:"The provider's state from its latest call or test; unused until the first one"`
+	Until       api.Nullable[time.Time]   `json:"until" doc:"When a provider that is rate limiting SlipStream, or whose daily request limit is used up, takes calls again"`
 	KeySetAt    api.Nullable[time.Time]   `json:"keySetAt" doc:"When the Admin set the key in use; null unless it is theirs"`
 	KeyPage     string                    `json:"keyPage" format:"uri" doc:"Where an Admin gets a key, opened in the browser"`
 	TakesPin    bool                      `json:"takesPin" doc:"Set key offers a subscriber PIN beside the key"`
@@ -145,11 +145,11 @@ type attribution struct {
 type details struct {
 	LastSuccess api.Nullable[time.Time] `json:"lastSuccess"`
 	LastError   api.Nullable[lastError] `json:"lastError"`
-	Nodes       []reach                 `json:"nodes" nullable:"false" doc:"Each holder that called the provider since the Controller started or the key changed, by id"`
+	Nodes       []reach                 `json:"nodes" nullable:"false" doc:"Each Node that called the provider since the Controller started or the key changed, by id"`
 }
 
 type lastError struct {
-	Words string    `json:"words" doc:"In plain words, the provider named"`
+	Words string    `json:"words" doc:"The last error in plain words, starting with the provider's name"`
 	At    time.Time `json:"at"`
 }
 
@@ -216,14 +216,14 @@ type refreshInput struct {
 }
 
 type refreshStarted struct {
-	RunID api.Nullable[int64] `json:"runId" doc:"The Metadata refresh run that refreshes every Work of the type; null while a run is already open, and the next run refreshes them"`
+	RunID api.Nullable[int64] `json:"runId" doc:"The Metadata refresh run that refreshes every Work of the type; null while a run is already in progress, and the next run refreshes them"`
 }
 
 type refreshStartedOutput struct{ Body refreshStarted }
 
 type refreshAllRun struct {
 	LastRunAt api.Nullable[time.Time] `json:"lastRunAt" doc:"When the latest Refresh all of the type ran; null until one has"`
-	Running   bool                    `json:"running" doc:"Whether a run that refreshes every Work of the type is open"`
+	Running   bool                    `json:"running" doc:"Whether a run that refreshes every Work of the type is in progress"`
 }
 
 type refreshAllRunOutput struct{ Body refreshAllRun }
@@ -300,7 +300,7 @@ func Routes(r *api.Router, registry Registry) {
 		ID:      "clearMetadataCache",
 		Method:  http.MethodDelete,
 		Path:    "/metadata/cache",
-		Summary: "Have every Node reading metadata drop what it cached, the next time it reads",
+		Summary: "Clear the metadata cache on every Node that reads metadata",
 		Status:  http.StatusNoContent,
 	}, h.clearCache)
 
@@ -308,7 +308,7 @@ func Routes(r *api.Router, registry Registry) {
 		ID:      "refreshContentType",
 		Method:  http.MethodPost,
 		Path:    "/content-types/{contentType}/refresh",
-		Summary: "Refresh every Work of a Content Type as a run of Metadata refresh now, or at its next run while one is open",
+		Summary: "Refresh every Work of a Content Type in a Metadata refresh run now, or in the next run if one is in progress",
 		Status:  http.StatusAccepted,
 		Errors:  []*api.Code{contentTypeNotFound, taskUnknown},
 	}, h.refreshAll)
@@ -317,7 +317,7 @@ func Routes(r *api.Router, registry Registry) {
 		ID:      "getContentTypeRefresh",
 		Method:  http.MethodGet,
 		Path:    "/content-types/{contentType}/refresh",
-		Summary: "Get when every Work of a Content Type was last refreshed together, and whether a run doing it is open",
+		Summary: "Get when every Work of a Content Type was last refreshed together, and whether a run doing it is in progress",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{contentTypeNotFound},
 	}, h.getRefreshAll)
@@ -326,7 +326,7 @@ func Routes(r *api.Router, registry Registry) {
 		ID:      "getArtwork",
 		Method:  http.MethodGet,
 		Path:    "/artwork/{token}",
-		Summary: "Get an image SlipStream handed out, at a size. The response at an address never changes",
+		Summary: "Get an artwork image at a size. The image at a URL never changes, so clients can cache it",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{artworkUnavailable},
 	}, h.artwork)

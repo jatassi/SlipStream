@@ -365,9 +365,9 @@ func summary(s ProviderStatus) string {
 		return l + " is rate limiting SlipStream. SlipStream retries automatically when the limit ends."
 	case StateOutOfAllowance:
 		if s.Key == KeyBundled {
-			return l + " is out of today's allowance. It resets automatically. Add your own key to continue now."
+			return l + "'s daily request limit is used up. It resets automatically. Add your own key to continue now."
 		}
-		return l + " is out of today's allowance. It resets automatically."
+		return l + "'s daily request limit is used up. It resets automatically."
 	case StateUnreachable:
 		return "SlipStream can't reach " + l + ". SlipStream retries automatically. Check the network of each Node that can't reach it."
 	}

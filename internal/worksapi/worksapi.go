@@ -213,7 +213,7 @@ func Routes(r *api.Router, shelf Shelf) {
 		ID:      "previewCatalogRecord",
 		Method:  http.MethodGet,
 		Path:    "/content-types/{contentType}/catalog/{key}",
-		Summary: "Read a record of a Content Type's metadata source as the Work adding it would make, without adding it or reading ratings",
+		Summary: "Preview the Work that adding a metadata record would create, without adding it or fetching ratings",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{contentTypeNotFound, contentTypeDisabled, metadataNotFound, metadataUnavailable, metadataInvalid, metadataRefused, notOnSource},
 	}, h.previewCatalogRecord)

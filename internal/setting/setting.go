@@ -72,7 +72,7 @@ func (d Duration) Parse(seconds *int64) (Stored[int64], error) {
 	v := time.Duration(*seconds) * time.Second
 	switch {
 	case v < d.Min && d.Floor != "":
-		return Stored[int64]{}, refuse(d.Key, "No faster than %s. %s", Words(d.Min), d.Floor)
+		return Stored[int64]{}, refuse(d.Key, "Use %s or longer. %s", Words(d.Min), d.Floor)
 	case v < d.Min || v > d.Max:
 		return Stored[int64]{}, refuse(d.Key, "Between %s and %s.", Words(d.Min), Words(d.Max))
 	case v%d.Step != 0:

@@ -439,7 +439,7 @@ func TestAProviderFaultEndsInItsStatusAndProblem(t *testing.T) {
 	cue(t, run, "omdb-cap", `{}`)
 	addSaltRoad(t, a)
 	midnight := time.Now().UTC().Truncate(24 * time.Hour).Add(24 * time.Hour).Format(time.RFC3339)
-	if p := provider(t, a, "omdb"); p.State != "out_of_allowance" || p.Until == nil || *p.Until != midnight || p.Summary != "OMDb is out of today's allowance. It resets automatically." {
+	if p := provider(t, a, "omdb"); p.State != "out_of_allowance" || p.Until == nil || *p.Until != midnight || p.Summary != "OMDb's daily request limit is used up. It resets automatically." {
 		t.Fatalf("OMDb once capped = %+v, want out_of_allowance until %s", p, midnight)
 	}
 

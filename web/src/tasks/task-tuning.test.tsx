@@ -17,7 +17,7 @@ const day = 86_400;
 const othersEvery: SettingDurationField = {
   ...about,
   key: "metadata.refresh.others",
-  label: "Every other Work refresh every",
+  label: "Refresh all other Works every",
   kind: "duration",
   value: 30 * day,
   running: 30 * day,
@@ -30,7 +30,7 @@ const othersEvery: SettingDurationField = {
 const followChanges: SettingSwitchField = {
   ...about,
   key: "metadata.refresh.changes",
-  label: "Refresh what the provider reports changed",
+  label: "Refresh Works the provider reports as changed",
   kind: "switch",
   value: true,
   running: true,
@@ -42,13 +42,13 @@ test("a task's tuning shows through the shared control and saves under tuning by
   tasks.state.tuning = [othersEvery, followChanges];
   renderApp({ path: "/tasks/housekeeping", handlers: tasks.handlers });
   const when = page.getByRole("region", { name: "When it runs" });
-  const every = when.getByRole("textbox", { name: "Every other Work refresh every" });
+  const every = when.getByRole("textbox", { name: "Refresh all other Works every" });
   await expect.element(every).toHaveValue("30");
 
   await userEvent.fill(every, "14");
   await userEvent.click(when.getByRole("button", { name: "Save" }));
   await userEvent.click(
-    when.getByRole("switch", { name: "Refresh what the provider reports changed" }),
+    when.getByRole("switch", { name: "Refresh Works the provider reports as changed" }),
   );
   await expect
     .poll(() => tasks.writes)

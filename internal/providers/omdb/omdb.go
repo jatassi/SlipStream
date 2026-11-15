@@ -105,7 +105,7 @@ func classify(status int, _ http.Header, body []byte, now time.Time) (metadata.O
 	switch {
 	case b.Error == errCapped:
 		until := now.UTC().Truncate(24 * time.Hour).Add(24 * time.Hour)
-		return metadata.Outcome{Kind: metadata.Capped, Until: until, Words: "is out of its daily allowance until " + until.Format(time.RFC3339)}, true
+		return metadata.Outcome{Kind: metadata.Capped, Until: until, Words: "has used up its daily request limit"}, true
 	case b.Error == errBadKey || b.Error == errNoKey || status == http.StatusUnauthorized:
 		return metadata.Outcome{Kind: metadata.Refused, Words: "refused the key: " + b.Error}, true
 	case b.Error == errNotFound || b.Error == errNoSeason || b.Error == errIncorrect:

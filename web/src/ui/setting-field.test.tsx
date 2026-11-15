@@ -100,7 +100,7 @@ test("a duration shows its default, its range and its floor", async () => {
   renderKit(<SettingField field={rss} onSave={saving()} />);
   await expect.element(page.getByText("Default 15 min. Between 10 min and 2 h.")).toBeVisible();
   await expect
-    .element(page.getByText("No faster than 10 min. Private trackers ban for hammering."))
+    .element(page.getByText("Use 10 min or longer. Private trackers ban for hammering."))
     .toBeVisible();
   await expect.element(page.getByRole("textbox", { name: "RSS sync" })).toHaveValue("15");
   await expect.element(page.getByRole("radio", { name: "min" })).toBeChecked();
@@ -128,7 +128,7 @@ test("a duration below its floor is refused with the floor before any request", 
   await userEvent.click(page.getByRole("button", { name: "Save" }));
   await expect
     .element(page.getByRole("alert"))
-    .toHaveTextContent("No faster than 10 min. Private trackers ban for hammering.");
+    .toHaveTextContent("Use 10 min or longer. Private trackers ban for hammering.");
   await expect.element(input).toHaveAttribute("aria-invalid", "true");
   expect(onSave).not.toHaveBeenCalled();
 
@@ -175,7 +175,7 @@ test("Reset to default sends null and shows only off the default", async () => {
 
 test("the server's refusal shows as the field's error", async () => {
   const onSave = vi.fn<(value: unknown) => Promise<unknown>>(() =>
-    Promise.reject(outOfRange("No faster than 1 h. Indexers rate-limit searches.")),
+    Promise.reject(outOfRange("Use 1 h or longer. Indexers rate-limit searches.")),
   );
   renderKit(<SettingField field={rss} onSave={onSave} />);
   await userEvent.fill(page.getByRole("textbox", { name: "RSS sync" }), "20");
@@ -183,7 +183,7 @@ test("the server's refusal shows as the field's error", async () => {
   expect(onSave).toHaveBeenCalledExactlyOnceWith(1200);
   await expect
     .element(page.getByRole("alert"))
-    .toHaveTextContent("No faster than 1 h. Indexers rate-limit searches.");
+    .toHaveTextContent("Use 1 h or longer. Indexers rate-limit searches.");
 
   await userEvent.type(page.getByRole("textbox", { name: "RSS sync" }), "5");
   await expect.element(page.getByRole("alert")).not.toBeInTheDocument();
