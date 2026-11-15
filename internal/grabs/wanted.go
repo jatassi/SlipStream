@@ -190,9 +190,7 @@ func filtered(ws []files.WorkWanted, f WantedFilter) (listed []wantedListing, le
 }
 
 // keyed sets each row's search, from s, its next search and its key under
-// sort. A row no group has a due time for, which Backlog search would
-// queue, is next searched at backlog, the next Backlog search, which gives
-// its groups their first due times.
+// sort.
 func keyed(ctx context.Context, r storage.Reader[file], rows []wantedListing, s states, backlog time.Time, sort WantedSort) error {
 	byWork := s.byWork()
 	labels := map[works.WorkID]string{}
@@ -214,13 +212,7 @@ func keyed(ctx context.Context, r storage.Reader[file], rows []wantedListing, s 
 		if ws := byWork[l.wanted.Work]; ws != nil {
 			l.search = *ws
 		}
-		lead, _, _ := files.ReasonOf(l.wanted.Cells)
-		switch l.next = l.search.Next(); {
-		case lead == files.ReasonGone:
-			l.next = time.Time{}
-		case l.next.IsZero() && l.search.Phase() == Idle && (lead != files.ReasonUpgrade || s.upgrades):
-			l.next = backlog
-		}
+		l.next = s.nextOf(*l, backlog)
 		l.key.W = l.wanted.Work.String()
 		switch sort {
 		case ByNext:
@@ -242,6 +234,22 @@ func keyed(ctx context.Context, r storage.Reader[file], rows []wantedListing, s 
 		}
 	}
 	return nil
+}
+
+// nextOf is when SlipStream next searches l: never for a gone row, and at
+// backlog, the next Backlog search, for an idle row no group has a due time
+// for yet that Backlog search would queue, since that run gives its groups
+// their first due times.
+func (s states) nextOf(l wantedListing, backlog time.Time) time.Time {
+	lead, _, _ := files.ReasonOf(l.wanted.Cells)
+	switch next := l.search.Next(); {
+	case lead == files.ReasonGone:
+		return time.Time{}
+	case next.IsZero() && l.search.Phase() == Idle && (lead != files.ReasonUpgrade || s.upgrades):
+		return backlog
+	default:
+		return next
+	}
 }
 
 // newest is the latest release of cells' Items.
