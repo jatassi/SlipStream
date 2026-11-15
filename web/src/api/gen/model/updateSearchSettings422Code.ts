@@ -1,1 +1,5 @@
-export type UpdateSearchSettings422Code = "invalid" | "setting_out_of_range" | "unknown_setting";
+export type UpdateSearchSettings422Code =
+  | "invalid"
+  | "longest_gap_too_short"
+  | "setting_out_of_range"
+  | "unknown_setting";

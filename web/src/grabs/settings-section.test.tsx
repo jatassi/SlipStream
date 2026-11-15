@@ -109,3 +109,32 @@ test("the stop reads as one line and saves its count and its window apart", asyn
     .poll(() => world.writes.at(-1))
     .toEqual({ values: { "search.stopWindow": 2 * 24 * 3600 } });
 });
+
+test("Backlog search's interval sits beside its switches, and a longest gap shorter than it is refused on the field that moved", async () => {
+  const { world, section } = openSection();
+  await userEvent.click(section.getByRole("button", { name: "Details" }));
+  await userEvent.fill(
+    section.getByRole("textbox", {
+      name: "Search a Want that keeps coming up empty at least every",
+    }),
+    "1",
+  );
+  await userEvent.click(section.getByRole("button", { name: "Save" }));
+  await expect.poll(() => world.writes.at(-1)).toEqual({ values: { "search.longestGap": 86_400 } });
+  await userEvent.fill(section.getByRole("textbox", { name: "Backlog search runs every" }), "48");
+  await userEvent.click(section.getByRole("button", { name: "Save" }));
+  await expect
+    .element(
+      section
+        .getByRole("alert")
+        .getByText("Use a longest gap of at least the Backlog search interval, 2 days."),
+    )
+    .toBeVisible();
+  expect(world.writes.at(-1)).toEqual({ values: { "tasks.backlog-search.cadence": 172_800 } });
+  await userEvent.fill(section.getByRole("textbox", { name: "Backlog search runs every" }), "24");
+  await userEvent.click(section.getByRole("button", { name: "Save" }));
+  await expect
+    .poll(() => world.writes.at(-1))
+    .toEqual({ values: { "tasks.backlog-search.cadence": 86_400 } });
+  expect(section.getByRole("alert").query()).toBeNull();
+});

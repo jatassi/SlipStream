@@ -4,6 +4,7 @@ package grabstest
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -51,4 +52,32 @@ func (c Cadences) Every(_ context.Context, id tasks.TaskID) (*int64, error) {
 
 func (Cadences) SetCadence(context.Context, tasks.TaskID, setting.Stored[int64]) error {
 	return errors.New("grabstest: the cadences don't change")
+}
+
+// StoredCadences is the Scheduled tasks' cadences as tasks stores them:
+// each at its default until SetCadence stores an override. None has a
+// schedule, so Next knows no task.
+type StoredCadences struct {
+	mu    sync.Mutex
+	every map[tasks.TaskID]*int64
+}
+
+func (*StoredCadences) Next(context.Context, tasks.TaskID) (time.Time, error) {
+	return time.Time{}, tasks.ErrUnknownTask
+}
+
+func (c *StoredCadences) Every(_ context.Context, id tasks.TaskID) (*int64, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.every[id], nil
+}
+
+func (c *StoredCadences) SetCadence(_ context.Context, id tasks.TaskID, v setting.Stored[int64]) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.every == nil {
+		c.every = map[tasks.TaskID]*int64{}
+	}
+	c.every[id] = v.Override()
+	return nil
 }

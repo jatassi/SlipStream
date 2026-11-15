@@ -260,7 +260,7 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Timings: grabs.DefaultTimings(), Today: time.Now, Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, BlocklistChanged: blocklisted,
 		QueueChanged: discard[grabs.QueueChanged]{},
-		Tasks:        grabstest.Cadences{}, GapCap: grabs.NoGapCap,
+		Tasks:        &grabstest.StoredCadences{}, GapCap: grabs.NoGapCap,
 		Reconciling: trackers.NotReconciling,
 		Log:         slog.New(slog.DiscardHandler),
 	})
