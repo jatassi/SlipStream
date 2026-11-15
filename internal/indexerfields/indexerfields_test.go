@@ -23,12 +23,12 @@ func TestAValueFitsOnlyWhatItsFieldTakes(t *testing.T) {
 		{codecs, "h264,hevc", ""},
 		{codecs, "h264,av1", "Choose from the options for Codecs."},
 		{pages, "9", ""},
-		{pages, "0", "Pages is a whole number from 1 to 9."},
-		{pages, "2.5", "Pages is a whole number from 1 to 9."},
+		{pages, "0", "Enter a whole number from 1 to 9 for Pages."},
+		{pages, "2.5", "Enter a whole number from 1 to 9 for Pages."},
 		{Field{Name: "n", Label: "Limit", Type: Number}, "-4", ""},
-		{Field{Name: "n", Label: "Limit", Type: Number, Min: &one}, "x", "Limit is a whole number of 1 or more."},
+		{Field{Name: "n", Label: "Limit", Type: Number, Min: &one}, "x", "Enter a whole number of 1 or more for Limit."},
 		{free, "true", ""},
-		{free, "yes", "Freeleech only is true or false."},
+		{free, "yes", "Choose on or off for Freeleech only."},
 		{Field{Name: "apiKey", Type: Text}, "anything", ""},
 	} {
 		err := Fits(tc.f, tc.v)

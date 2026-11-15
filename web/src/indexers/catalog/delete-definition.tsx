@@ -52,8 +52,8 @@ export function DeleteDefinition({
       >
         <p>
           {replaces
-            ? `Add Indexer offers the catalog's ${entry.name} again.`
-            : `Add Indexer stops offering ${entry.name}.`}
+            ? `${entry.name} from the catalog appears in Add Indexer again.`
+            : `${entry.name} no longer appears in Add Indexer.`}
         </p>
       </ConfirmDialog>
     </>

@@ -73,7 +73,7 @@ func (x *Indexers) migrateMoved(ctx context.Context, tx *storage.Tx[file], now s
 
 // errNotYet is a moved port's definition the catalog doesn't hold at a
 // version that loads.
-var errNotYet = errors.New("the catalog holds no loading version of the definition")
+var errNotYet = errors.New("no version of the definition in the catalog loads")
 
 // target is the definition version a moved port's Indexers move to.
 type target struct {

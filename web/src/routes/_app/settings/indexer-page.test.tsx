@@ -68,7 +68,7 @@ test("Test reports what the Indexer listed, or the sentence of why it failed", a
 
 test("a failed Test shows the cause's sentence", async () => {
   const failTest =
-    "Prowlarr refused the API key with 'Invalid API Key'. Check the account, then test again.";
+    "Prowlarr refused the API key and responded 'Invalid API Key'. Check the account, then test again.";
   renderApp({ path: pageOf(prowlarrId), handlers: indexersServer({ failTest }).handlers });
   await userEvent.click(page.getByRole("button", { name: "Test" }));
   await expect.element(page.getByRole("alert").getByText(failTest)).toBeVisible();
@@ -76,7 +76,7 @@ test("a failed Test shows the cause's sentence", async () => {
 
 test("Edit shows secrets as Saved, sends only what changed, and a new key is tested before it saves", async () => {
   const failTest =
-    "Prowlarr refused the API key with 'Invalid API Key'. Check the account, then test again.";
+    "Prowlarr refused the API key and responded 'Invalid API Key'. Check the account, then test again.";
   const server = indexersServer({ failTest });
   renderApp({ path: pageOf(prowlarrId), handlers: server.handlers });
   await userEvent.click(page.getByRole("button", { name: "Edit" }));
@@ -143,7 +143,7 @@ test("delete keeps the Trackers and returns to the list", async () => {
   await expect
     .element(
       dialog().getByText(
-        "Searches stop asking it. Its Trackers stay, and so does the history of the Grabs it made.",
+        "Searches stop using it. Its Trackers stay, and so does the history of the Grabs it made.",
       ),
     )
     .toBeVisible();

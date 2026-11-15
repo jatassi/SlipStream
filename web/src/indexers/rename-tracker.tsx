@@ -43,7 +43,8 @@ function RenameForm({ tracker, onClose }: Props) {
     >
       <form.AppForm>
         <p className="text-ink-2">
-          Its Indexers, Grabs and torrents stay with it, and Releases from it keep reaching it.
+          Renaming keeps its Indexers, Grabs and torrents, and new releases from this site still go
+          to it.
         </p>
         <form.AppField name="name">
           {(field) => <field.TextField label="Name" autoComplete="off" spellCheck={false} />}

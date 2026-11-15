@@ -14,7 +14,7 @@ import (
 // PortIDTakenError is a custom definition whose id is a ported site's.
 type PortIDTakenError struct{ Name string }
 
-func (e *PortIDTakenError) Error() string { return "the ported site " + e.Name + " has this id" }
+func (e *PortIDTakenError) Error() string { return "the built-in site " + e.Name + " has this id" }
 
 func (e *PortIDTakenError) Unwrap() error { return ErrDefinitionIDTaken }
 

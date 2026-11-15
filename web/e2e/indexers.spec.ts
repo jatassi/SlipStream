@@ -72,11 +72,13 @@ test("an Indexer stops when its site refuses the account and comes back once a T
     page
       .getByRole("alert")
       .getByText(
-        "Fixture Site refused the API key with 'Account suspended'. Check the account, then test again.",
+        "Fixture Site refused the API key and responded 'Account suspended'. Check the account, then test again.",
       ),
   ).toBeVisible({ timeout: 30_000 });
   await expect(
-    page.getByText("Stopped because Fixture Site refused the API key with 'Account suspended'."),
+    page.getByText(
+      "Stopped because Fixture Site refused the API key and responded 'Account suspended'.",
+    ),
   ).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("stopped.png") });
 

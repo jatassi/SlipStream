@@ -143,7 +143,7 @@ func (x *Indexers) lose(ctx context.Context, q QueryID) {
 		return completeLost(ctx, tx, q, storage.Now())
 	})
 	if err != nil {
-		x.cfg.Log.Error("record a job that never answered", "job", q.String(), "err", err.Error())
+		x.cfg.Log.Error("record a job with no response", "job", q.String(), "err", err.Error())
 	}
 }
 
@@ -235,7 +235,7 @@ func (x *Indexers) settle(ctx context.Context, remote searching.Remote, j job) {
 		}
 		if poll.Answer != nil {
 			if _, err := x.record(ctx, j.q, j.idx.ID, j.answer(*poll.Answer)); err != nil && ctx.Err() == nil {
-				x.cfg.Log.Error("record an Indexer's late answer", "indexer", j.idx.ID.String(), "job", j.q.String(), "err", err.Error())
+				x.cfg.Log.Error("record an Indexer's late response", "indexer", j.idx.ID.String(), "job", j.q.String(), "err", err.Error())
 			}
 			return
 		}
