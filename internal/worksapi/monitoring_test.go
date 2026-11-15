@@ -191,9 +191,10 @@ func TestPreviewCountsEveryPresetBeforeTheAdd(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &p); code != http.StatusOK || err != nil {
 		t.Fatalf("previewCatalogRecord = %d %s", code, body)
 	}
-	want := `{"asides":2,"choices":[{"preset":"all","monitors":12,"monitorsNew":true,"searches":[]},{"preset":"future","monitors":12,"monitorsNew":true,"searches":[]},` +
-		`{"preset":"missing","monitors":12,"monitorsNew":true,"searches":[]},{"preset":"existing","monitors":0,"monitorsNew":false,"searches":[]},{"preset":"first","monitors":4,"monitorsNew":false,"searches":[]},` +
-		`{"preset":"latest","monitors":4,"monitorsNew":true,"searches":[]},{"preset":"none","monitors":0,"monitorsNew":false,"searches":[]}]}`
+	every, first, none := searching(12, 4, 4, 1), searching(4, 4, 4, 1), searching(0, 0, 0, 0)
+	want := `{"asides":2,"choices":[{"preset":"all","monitors":12,"monitorsNew":true,` + every + `},{"preset":"future","monitors":12,"monitorsNew":true,` + every + `},` +
+		`{"preset":"missing","monitors":12,"monitorsNew":true,` + every + `},{"preset":"existing","monitors":0,"monitorsNew":false,` + none + `},{"preset":"first","monitors":4,"monitorsNew":false,` + first + `},` +
+		`{"preset":"latest","monitors":4,"monitorsNew":true,` + first + `},{"preset":"none","monitors":0,"monitorsNew":false,` + none + `}]}`
 	if string(p.Presets) != want {
 		t.Fatalf("preview presets = %s, want %s", p.Presets, want)
 	}

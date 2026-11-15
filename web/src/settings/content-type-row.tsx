@@ -12,7 +12,7 @@ import { DefaultProfile, DefaultRoot } from "./content-type-defaults";
 import { RefreshAll } from "./content-type-refresh";
 import { ContentTypeSwitch } from "./content-type-switch";
 
-const addKeys = ["add.monitor", "add.asides", "add.levelFolders"] as const;
+const addKeys = ["add.monitor", "add.asides", "add.levelFolders", "add.search"] as const;
 
 const addDefaultsFirst = (type: WorksContentType, settings: readonly Field[]) => {
   const rank = (key: string) => {

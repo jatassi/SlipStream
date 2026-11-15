@@ -197,6 +197,14 @@ type PresetCount struct {
 	Preset      Preset
 	Monitors    int
 	MonitorsNew bool
+	// Searches is how many of the Items it monitors each SearchScope
+	// searches, in SearchScopes order.
+	Searches []ScopeCount
+}
+
+type ScopeCount struct {
+	Scope SearchScope
+	Items int
 }
 
 // PresetCounts is what each Preset monitors without asides, and how many
@@ -211,7 +219,16 @@ func CountPresets(t Tree, facts Facts) PresetCounts {
 	r := runOf(t)
 	out := PresetCounts{Choices: make([]PresetCount, len(presets))}
 	for i, p := range presets {
-		out.Choices[i] = PresetCount{Preset: p, Monitors: len(rules[p](r, facts)), MonitorsNew: p.MonitorsNew()}
+		picked := rules[p](r, facts)
+		on := make(map[ItemID]bool, len(picked))
+		for _, it := range picked {
+			on[it.ID] = true
+		}
+		c := PresetCount{Preset: p, Monitors: len(picked), MonitorsNew: p.MonitorsNew(), Searches: make([]ScopeCount, len(SearchScopes))}
+		for j, s := range SearchScopes {
+			c.Searches[j] = ScopeCount{Scope: s, Items: len(s.searched(t.Items, r, facts, on))}
+		}
+		out.Choices[i] = c
 	}
 	for _, it := range t.Items {
 		if it.Live() && it.Aside {
@@ -226,9 +243,11 @@ type Delta struct {
 	Start, Stop int
 	// Rule: MonitorNew or MonitorAsides moved.
 	Rule bool
+	// On is the Items it starts monitoring.
+	On []ItemID
 }
 
-func (d Delta) Zero() bool { return d == Delta{} }
+func (d Delta) Zero() bool { return d.Start == 0 && d.Stop == 0 && !d.Rule }
 
 // moving is d with n Items that are monitored as was and should be as
 // want.
@@ -303,10 +322,10 @@ func applySet(ctx context.Context, q *db.Queries, rows []db.WorksWork, present A
 		}
 	}
 	for chunk := range slices.Chunk(moved, Batch) {
-		if err := q.SetMonitoredOfWorks(ctx, db.SetMonitoredOfWorksParams{WorkIds: chunk, Aside: false, Monitored: main}); err != nil {
+		if err := setMonitoredOfWorks(ctx, q, chunk, false, main, out); err != nil {
 			return err
 		}
-		if err := setAsides(ctx, q, chunk, asides); err != nil {
+		if err := setAsides(ctx, q, chunk, asides, out); err != nil {
 			return err
 		}
 	}
@@ -314,17 +333,34 @@ func applySet(ctx context.Context, q *db.Queries, rows []db.WorksWork, present A
 }
 
 // setAsides turns the aside Items of each of ws on or off as asides says.
-func setAsides(ctx context.Context, q *db.Queries, ws []WorkID, asides map[WorkID]bool) error {
+func setAsides(ctx context.Context, q *db.Queries, ws []WorkID, asides map[WorkID]bool, out map[WorkID]Delta) error {
 	for _, on := range []bool{true, false} {
 		of := slices.DeleteFunc(slices.Clone(ws), func(id WorkID) bool { return asides[id] != on })
 		if len(of) == 0 {
 			continue
 		}
-		if err := q.SetMonitoredOfWorks(ctx, db.SetMonitoredOfWorksParams{WorkIds: of, Aside: true, Monitored: on}); err != nil {
+		if err := setMonitoredOfWorks(ctx, q, of, true, on, out); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// setMonitoredOfWorks turns the live Items of ws inside or outside asides
+// on or off, adding each it turns on to its Work's Delta.On.
+func setMonitoredOfWorks(ctx context.Context, q *db.Queries, ws []WorkID, aside, on bool, out map[WorkID]Delta) error {
+	if on {
+		rows, err := q.ListUnmonitoredOfWorks(ctx, db.ListUnmonitoredOfWorksParams{WorkIds: ws, Aside: aside})
+		if err != nil {
+			return err
+		}
+		for _, r := range rows {
+			d := out[r.WorkID]
+			d.On = append(d.On, r.ID)
+			out[r.WorkID] = d
+		}
+	}
+	return q.SetMonitoredOfWorks(ctx, db.SetMonitoredOfWorksParams{WorkIds: ws, Aside: aside, Monitored: on})
 }
 
 // applyTrees writes a preset that reads each Work's levels or facts, Item
@@ -344,6 +380,7 @@ func applyTrees(ctx context.Context, q *db.Queries, rows []db.WorksWork, present
 			case on[it.ID]:
 				start = append(start, it.ID)
 				d.Start++
+				d.On = append(d.On, it.ID)
 			default:
 				stop = append(stop, it.ID)
 				d.Stop++
@@ -508,28 +545,8 @@ func (t *Tree) ItemsWithin(part Within) ([]Item, error) {
 func (w *Works) SetMonitored(ctx context.Context, _ identity.Admin, id WorkID, part Within, on bool) (changed int, err error) {
 	var moved []ItemID
 	err = w.cfg.Library.Write(ctx, func(ctx context.Context, tx *storage.Tx[file]) error {
-		q := db.New(tx)
-		rows, err := q.ListWorksOf(ctx, []WorkID{id})
-		switch {
-		case err != nil:
-			return err
-		case len(rows) == 0:
-			return ErrNoWork
-		}
-		trees, err := outlines(ctx, q, rows, Only([]WorkID{id}))
-		if err != nil {
-			return err
-		}
-		items, err := trees[0].ItemsWithin(part)
-		if err != nil {
-			return err
-		}
-		for _, it := range items {
-			if it.Monitored != on {
-				moved = append(moved, it.ID)
-			}
-		}
-		return setItems(ctx, q, moved, on)
+		moved, err = SetMonitoredIn(ctx, tx, id, part, on)
+		return err
 	})
 	if err != nil {
 		return 0, err
@@ -538,4 +555,31 @@ func (w *Works) SetMonitored(ctx context.Context, _ identity.Admin, id WorkID, p
 		w.Touched(ctx, []WorkID{id})
 	}
 	return len(moved), nil
+}
+
+// SetMonitoredIn is SetMonitored in tx, the caller's Write, publishing
+// nothing. moved is the Items it turned on or off.
+func SetMonitoredIn(ctx context.Context, tx *storage.Tx[file], id WorkID, part Within, on bool) (moved []ItemID, err error) {
+	q := db.New(tx)
+	rows, err := q.ListWorksOf(ctx, []WorkID{id})
+	switch {
+	case err != nil:
+		return nil, err
+	case len(rows) == 0:
+		return nil, ErrNoWork
+	}
+	trees, err := outlines(ctx, q, rows, Only([]WorkID{id}))
+	if err != nil {
+		return nil, err
+	}
+	items, err := trees[0].ItemsWithin(part)
+	if err != nil {
+		return nil, err
+	}
+	for _, it := range items {
+		if it.Monitored != on {
+			moved = append(moved, it.ID)
+		}
+	}
+	return moved, setItems(ctx, q, moved, on)
 }

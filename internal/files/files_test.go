@@ -114,6 +114,7 @@ func open(t testing.TB) *library {
 	lib := storagetest.Library(t, identity.Schema(), nodes.Schema(), works.Schema(), targets.Schema(), roots.Schema(), downloadclients.Schema(), grabs.Schema(), indexers.Schema(), files.Schema(), naming.Schema())
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
+		ItemsAdded:   works.NoItemsAdded,
 		Library:      lib,
 		Catalogs:     map[works.TypeID]works.Catalog{contenttypetest.ID: fx},
 		Source:       fx.Source(),

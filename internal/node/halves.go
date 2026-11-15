@@ -51,6 +51,7 @@ import (
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/rpc"
 	"github.com/jatassi/slipstream/internal/scanning"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/searching"
 	"github.com/jatassi/slipstream/internal/serving"
 	"github.com/jatassi/slipstream/internal/setting"
@@ -133,6 +134,7 @@ func (n *Node) startController(ctx context.Context) error {
 		seeding      *trackers.Trackers
 		pipeline     *grabs.Grabs
 		scheduler    *tasks.Scheduler
+		searchQueue  searches.Queue = searches.None{}
 	)
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
@@ -320,6 +322,9 @@ func (n *Node) startController(ctx context.Context) error {
 		TypesChanged: works.ContentTypesChangedEvent.Bind(n.hub),
 		TypeChanged:  typeChanged,
 		Log:          n.rootLog.With("subsystem", "works"),
+		ItemsAdded: func(ctx context.Context, tx *storage.Tx[storage.Library], work works.WorkID, items []works.ItemID) error {
+			return searchQueue.Queue(ctx, tx, searches.Refresh, searches.Ask{Work: work, Items: items})
+		},
 	})
 	if err != nil {
 		return err
@@ -492,7 +497,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err := found.Carry(ctx); err != nil {
 		return err
 	}
-	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found})
+	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue})
 
 	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found}
 	scheduler, err = tasks.Open(ctx, tasks.Config{

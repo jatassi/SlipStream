@@ -1,6 +1,7 @@
 package works_test
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"slices"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/contenttype/contenttypetest"
 	"github.com/jatassi/slipstream/internal/metadata/artwork"
+	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -122,9 +124,10 @@ func TestRefreshInsertsUnderMonitorNew(t *testing.T) {
 		name             string
 		monitor          bool
 		added, refreshed string
+		told             []works.Key
 	}{
-		{"a Work that monitors new Items", true, "c1 c2 c3 c4", "c1 c2 c3 c4 c5"},
-		{"a Work that doesn't", false, "", ""},
+		{"a Work that monitors new Items", true, "c1 c2 c3 c4", "c1 c2 c3 c4 c5", []works.Key{"c5"}},
+		{"a Work that doesn't", false, "", "", nil},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			h := newHarness(t)
@@ -150,6 +153,68 @@ func TestRefreshInsertsUnderMonitorNew(t *testing.T) {
 			if got := monitored(refreshed); got != c.refreshed {
 				t.Fatalf("monitored after a refresh added c5 and the aside c10 = %q, want %q", got, c.refreshed)
 			}
+			if got := keysOfIDs(refreshed, h.added.items[added.ID]); !slices.Equal(got, c.told) {
+				t.Fatalf("ItemsAdded heard %v of the refresh that added c5 and the aside c10, want %v", got, c.told)
+			}
 		})
+	}
+}
+
+func keysOfIDs(t works.Tree, ids []works.ItemID) []works.Key {
+	var keys []works.Key
+	for _, id := range ids {
+		i := slices.IndexFunc(t.Items, func(it works.Item) bool { return it.ID == id })
+		keys = append(keys, t.Items[i].Key)
+	}
+	return keys
+}
+
+func TestARefreshWhoseItemsAddedFailsInsertsNothing(t *testing.T) {
+	h := newHarness(t)
+	r := shelf()
+	h.fx.Put("w1", r)
+	added, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", works.Adding{Monitor: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Tree.Children[1].Children = append(r.Tree.Children[1].Children, works.Entry{Key: "c4", Label: "Sandals"})
+	h.fx.Put("w1", r)
+	h.added.refuse = errors.New("the queue is closed")
+	if _, err := h.works.Refresh(t.Context(), admin, added.ID); !errors.Is(err, h.added.refuse) {
+		t.Fatalf("a refresh whose ItemsAdded fails = %v, want its error", err)
+	}
+	got, err := h.works.Get(t.Context(), admin, added.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := monitored(got); got != "c1 c2 c3" {
+		t.Fatalf("after a refresh whose ItemsAdded failed the Work monitors %q, want c1 c2 c3 and no c4", got)
+	}
+}
+
+func TestWorksOfItemsGroupsItemsByTheirWork(t *testing.T) {
+	h := newHarness(t)
+	h.fx.Put("w1", shelf())
+	h.fx.Put("w2", shelf())
+	one, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w1", works.Adding{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	two, _, err := h.works.Add(t.Context(), admin, contenttypetest.ID, "w2", works.Adding{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	unknown := works.ItemID{UUID: storage.NewUUID()}
+	var got map[works.WorkID][]works.ItemID
+	err = h.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		got, err = works.WorksOfItems(ctx, r, []works.ItemID{two.Items[0].ID, one.Items[2].ID, unknown, one.Items[0].ID})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[works.WorkID][]works.ItemID{one.ID: {one.Items[0].ID, one.Items[2].ID}, two.ID: {two.Items[0].ID}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("WorksOfItems = %v, want %v with the unknown id left out", got, want)
 	}
 }

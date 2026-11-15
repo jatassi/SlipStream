@@ -2,6 +2,7 @@ package worksapi
 
 import (
 	"context"
+	"slices"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -60,12 +61,16 @@ func (h handlers) addWork(ctx context.Context, by identity.Admin, in *addInput) 
 	if in.Body.Preset != "" {
 		preset = new(works.Preset(in.Body.Preset))
 	}
+	t := works.TypeID(in.Body.ContentType)
 	var search *works.SearchScope
 	if in.Body.Search != "" {
 		search = new(works.SearchScope(in.Body.Search))
+		if d, ok := open(h.shelf).Describe(t); ok && !slices.Contains(d.SearchScopes(), *search) {
+			return nil, api.Invalid.On("search", "This Content Type doesn't offer that search. Use one of its addSearch choices.")
+		}
 	}
 	a, err := composer(h.shelf).Add(ctx, by, library.Adding{
-		Type: works.TypeID(in.Body.ContentType), Key: key, Profile: profile, Root: root, Preset: preset,
+		Type: t, Key: key, Profile: profile, Root: root, Preset: preset,
 		IncludeAsides: in.Body.IncludeAsides, LevelFolders: in.Body.LevelFolders, Search: search, Remember: in.Body.Remember,
 	})
 	if err != nil {
