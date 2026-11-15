@@ -20,7 +20,7 @@ test("the section leads with what Backlog search and RSS sync do, and the lead f
   await expect
     .element(
       section.getByText(
-        "SlipStream searches for what's wanted and reads new uploads on a schedule. Searches never go past an Indexer's limits.",
+        "SlipStream searches for what's wanted every 8 hours and reads new uploads every 15 minutes. Searches never go past an Indexer's limits.",
       ),
     )
     .toBeVisible();
@@ -28,7 +28,7 @@ test("the section leads with what Backlog search and RSS sync do, and the lead f
   await expect
     .element(
       section.getByText(
-        "SlipStream reads new uploads on a schedule and searches only when you ask. Searches never go past an Indexer's limits.",
+        "SlipStream reads new uploads every 15 minutes and searches only when you ask. Searches never go past an Indexer's limits.",
       ),
     )
     .toBeVisible();
@@ -137,4 +137,20 @@ test("Backlog search's interval sits beside its switches, and a longest gap shor
     .poll(() => world.writes.at(-1))
     .toEqual({ values: { "tasks.backlog-search.cadence": 86_400 } });
   expect(section.getByRole("alert").query()).toBeNull();
+});
+
+test("RSS sync's interval sits beside its switch, and the lead reads the new interval", async () => {
+  const { world, section } = openSection();
+  await userEvent.fill(section.getByRole("textbox", { name: "RSS sync runs every" }), "30");
+  await userEvent.click(section.getByRole("button", { name: "Save" }));
+  await expect
+    .poll(() => world.writes.at(-1))
+    .toEqual({ values: { "tasks.rss-sync.cadence": 1800 } });
+  await expect
+    .element(
+      section.getByText(
+        "SlipStream searches for what's wanted every 8 hours and reads new uploads every 30 minutes. Searches never go past an Indexer's limits.",
+      ),
+    )
+    .toBeVisible();
 });

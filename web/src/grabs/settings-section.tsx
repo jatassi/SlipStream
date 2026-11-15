@@ -7,7 +7,11 @@ import {
   useGetSearchSettingsSuspense,
 } from "../api/gen/query/grabs/grabs";
 import { freshQuery } from "../api/query-client";
-import { adoptSearchSettings, backlogCadenceKey } from "../live/adopt-search-settings";
+import {
+  adoptSearchSettings,
+  backlogCadenceKey,
+  rssCadenceKey,
+} from "../live/adopt-search-settings";
 import type { SettingsSection } from "../settings/section";
 import { Details } from "../ui/details";
 import { Section } from "../ui/section";
@@ -18,6 +22,7 @@ const keys = {
   backlogUpgrades: "search.backlogUpgrades",
   backlogEvery: backlogCadenceKey,
   rssOn: "search.rssOn",
+  rssEvery: rssCadenceKey,
   longestGap: "search.longestGap",
   fullPace: "search.fullPace",
   stopCount: "search.stopCount",
@@ -27,16 +32,33 @@ const keys = {
 
 const limits = "Searches never go past an Indexer's limits.";
 
-/** The section's lead, from whether Backlog search and RSS sync are on. */
-export function leadSentence(backlogOn: boolean, rssOn: boolean): string {
-  if (backlogOn && rssOn) {
-    return `SlipStream searches for what's wanted and reads new uploads on a schedule. ${limits}`;
+const units = [
+  [24 * 3600, "day"],
+  [3600, "hour"],
+  [60, "minute"],
+] as const;
+
+/** A cadence in words: "every 8 hours", "every 15 minutes", "every day". */
+export function everyWords(interval: number): string {
+  const [size, unit] = units.find(([each]) => interval % each === 0) ?? [1, "second"];
+  const count = interval / size;
+  return count === 1 ? `every ${unit}` : `every ${count} ${unit}s`;
+}
+
+type Schedule = { on: boolean; every: number };
+
+/** The section's lead, from whether Backlog search and RSS sync are on and how often each runs. */
+export function leadSentence(backlog: Schedule, rss: Schedule): string {
+  const searches = `searches for what's wanted ${everyWords(backlog.every)}`;
+  const reads = `reads new uploads ${everyWords(rss.every)}`;
+  if (backlog.on && rss.on) {
+    return `SlipStream ${searches} and ${reads}. ${limits}`;
   }
-  if (rssOn) {
-    return `SlipStream reads new uploads on a schedule and searches only when you ask. ${limits}`;
+  if (rss.on) {
+    return `SlipStream ${reads} and searches only when you ask. ${limits}`;
   }
-  if (backlogOn) {
-    return `SlipStream searches for what's wanted on a schedule. ${limits}`;
+  if (backlog.on) {
+    return `SlipStream ${searches}. ${limits}`;
   }
   return `SlipStream searches only when you ask. ${limits}`;
 }
@@ -65,6 +87,13 @@ function useSave(): Save {
 function switchOn(field: Field): boolean {
   if (field.kind !== "switch") {
     throw new Error(`${field.key} is no switch`);
+  }
+  return field.value;
+}
+
+function seconds(field: Field): number {
+  if (field.kind !== "duration") {
+    throw new Error(`${field.key} is no duration`);
   }
   return field.value;
 }
@@ -124,18 +153,39 @@ function AutomaticSearchSection() {
   const { settings } = useGetSearchSettingsSuspense().data;
   const save = useSave();
   const on = (key: string) => switchOn(fieldOf(settings, key));
+  const every = (key: string) => seconds(fieldOf(settings, key));
   return (
     <Section title="Automatic search">
       <div className="flex flex-col gap-5">
-        <p className="text-ink-2">{leadSentence(on(keys.backlogOn), on(keys.rssOn))}</p>
+        <p className="text-ink-2">
+          {leadSentence(
+            { on: on(keys.backlogOn), every: every(keys.backlogEvery) },
+            { on: on(keys.rssOn), every: every(keys.rssEvery) },
+          )}
+        </p>
         <SettingGroup>
-          {[keys.backlogOn, keys.backlogUpgrades, keys.backlogEvery, keys.rssOn].map((key) => (
-            <SettingField key={key} field={fieldOf(settings, key)} onSave={save(key)} />
-          ))}
+          {[keys.backlogOn, keys.backlogUpgrades, keys.backlogEvery, keys.rssOn, keys.rssEvery].map(
+            (key) => (
+              <SettingField key={key} field={fieldOf(settings, key)} onSave={save(key)} />
+            ),
+          )}
         </SettingGroup>
         <Machinery settings={settings} save={save} />
       </div>
     </Section>
+  );
+}
+
+/** RSS sync's cadence as the Automatic search section stores it, for where the task isn't listed. */
+export function RSSEveryField() {
+  const { settings } = useGetSearchSettingsSuspense().data;
+  const save = useSave();
+  return (
+    <SettingField
+      field={fieldOf(settings, keys.rssEvery)}
+      onSave={save(keys.rssEvery)}
+      variant="row"
+    />
   );
 }
 
