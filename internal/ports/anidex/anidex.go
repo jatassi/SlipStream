@@ -180,8 +180,8 @@ func ParseResponse(ix *ix, indexerResponse *port.IndexerResponse) ([]port.Torren
 
 type AnidexSettings struct {
 	// SlipStream: labels and help reworded per WRITING.md.
-	AuthorisedOnly bool             `port:"authorisedOnly" label:"Authorized only" help:"Search only Releases from authorized uploaders."`
-	LanguagesOnly  []AnidexLanguage `port:"languagesOnly" label:"Languages" help:"Search only Releases in these languages. With none selected, Anidex searches every language."`
+	AuthorisedOnly bool             `port:"authorisedOnly" label:"Authorized only" help:"Search only releases from authorized uploaders."`
+	LanguagesOnly  []AnidexLanguage `port:"languagesOnly" label:"Languages" help:"Search only releases in these languages. With none selected, Anidex searches every language."`
 }
 
 type AnidexLanguage int

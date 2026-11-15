@@ -333,5 +333,5 @@ func getInfoURL(ix *ix, groupID string, torrentID int) string {
 // and options are the same.
 type orpheusSettings struct {
 	port.APIKeyField  `help:"Find your API key on the site under Settings > Access Settings."`
-	UseFreeleechToken gazelle.GazelleFreeleechTokenAction `port:"useFreeleechToken" label:"Use freeleech tokens" default:"0" help:"With Always, SlipStream lists only Releases that can take a token."`
+	UseFreeleechToken gazelle.GazelleFreeleechTokenAction `port:"useFreeleechToken" label:"Use freeleech tokens" default:"0" help:"With Always, SlipStream lists only releases that can take a token."`
 }

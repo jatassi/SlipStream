@@ -29,7 +29,7 @@ var Port = port.Define(port.Entry{
 	IndexerURLs:  []string{"https://torrents-csv.com/"},
 	LegacyURLs:   []string{"https://torrents-csv.ml/"},
 	Language:     "en-US",
-	Description:  "TorrentsCSV is a public, open-source search engine over its own database of Releases.",
+	Description:  "TorrentsCSV is a public, open-source search engine over its own database of releases.",
 	Privacy:      port.Public,
 	Capabilities: setCapabilities(),
 	Upstream:     port.ReadUpstream(upstream),

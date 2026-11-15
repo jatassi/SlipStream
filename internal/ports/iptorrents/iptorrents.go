@@ -351,8 +351,8 @@ func cleanTitle(title string) string {
 // CookieLogin{UserAgent: true} asks for, which also requires the
 // User-Agent as IPTorrentsValidator does, so neither is a setting here.
 type settings struct {
-	FreeLeechOnly bool           `port:"freeLeechOnly" label:"Freeleech only" help:"Search only freeleech Releases."`
-	SearchSortBy  iptorrentsSort `port:"searchSortBy" label:"Sort searches by" default:"0" help:"IPTorrents sorts each search's Releases in this order. RSS sync always takes the newest first."`
+	FreeLeechOnly bool           `port:"freeLeechOnly" label:"Freeleech only" help:"Search only freeleech releases."`
+	SearchSortBy  iptorrentsSort `port:"searchSortBy" label:"Sort searches by" default:"0" help:"IPTorrents sorts each search's releases in this order. RSS sync always takes the newest first."`
 }
 
 type iptorrentsSort int

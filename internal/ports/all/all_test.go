@@ -28,9 +28,10 @@ func TestAPortAddedFromItsOwnFileJoinsTheRegistry(t *testing.T) {
 	}
 }
 
-// glossaryTerms are the GLOSSARY.md terms a description may use, which
-// keep their capital.
-var glossaryTerms = []string{"tracker", "trackers", "release", "releases"}
+// miscased are the GLOSSARY.md terms a description may use, in the case
+// their _In UI_ lines rule out: Tracker keeps its capital, and release
+// is lowercase in sentences.
+var miscased = []string{"tracker", "trackers", "Release", "Releases"}
 
 func TestEveryPortDescribesItsSiteInOneSentenceOfGlossaryTerms(t *testing.T) {
 	for _, e := range Registry().Entries() {
@@ -39,8 +40,8 @@ func TestEveryPortDescribesItsSiteInOneSentenceOfGlossaryTerms(t *testing.T) {
 			t.Errorf("%s: %q doesn't end with a period", e.ID, e.Description)
 		}
 		for _, w := range words {
-			if slices.Contains(glossaryTerms, w) {
-				t.Errorf("%s: %q writes the glossary term %q in lowercase", e.ID, e.Description, w)
+			if slices.Contains(miscased, w) {
+				t.Errorf("%s: %q writes the glossary term %q in the wrong case", e.ID, e.Description, w)
 			}
 		}
 		for _, p := range []port.Privacy{port.Private, port.SemiPrivate, port.Public} {
