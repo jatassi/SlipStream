@@ -228,7 +228,7 @@ func newPipeline(t *testing.T, answers ...answer) *pipeline {
 		}),
 		Roster: p.roster, Downloads: p.swarm, Imports: imports.GrabImports{},
 		Router:  downloadclients.Router{Roster: p.roster, Routes: trackers.Routing{Roster: p.roster}},
-		Timings: grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
+		Timings: grabs.DefaultTimings(), Tasks: grabstest.Cadences{}, Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: p.changed, BlocklistChanged: discard[grabs.BlocklistChanged]{}, Log: slog.New(slog.DiscardHandler),
 		Reconciling: func(context.Context, storage.Reader[storage.Library]) (bool, error) { return p.reconciling.Load(), nil },
 		BeforeStep: func(ctx context.Context, s grabs.Stage) {

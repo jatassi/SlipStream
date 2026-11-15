@@ -357,7 +357,9 @@ func RepointTracker(ctx context.Context, tx *storage.Tx[storage.Library], from, 
 // stage it stood at when read. It is the only code that writes a Grab's
 // stage: commit calls it for a step's outcome, cancelIn for a cancel and
 // Follow for what the Grab's Import reports. A move into importing starts
-// the Grab's Import in the same Write.
+// the Grab's Import in the same Write, a move into imported clears the
+// failures of the cells it placed, and a failure records its cells'
+// failures, except a drop at fetching, whose rerun decides first.
 func (gr *Grabs) move(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome) (db.AdvanceParams, error) {
 	now := storage.Now()
 	params, a := advanceParams(g, o, now)
@@ -378,14 +380,23 @@ func (gr *Grabs) move(ctx context.Context, tx *storage.Tx[file], g Grab, o outco
 	if err := q.InsertStage(ctx, db.InsertStageParams{GrabID: g.ID, Stage: params.Next, EnteredAt: now}); err != nil {
 		return params, err
 	}
-	if params.Next != Importing {
-		return params, nil
+	switch params.Next {
+	case Importing:
+		h, err := Handed(ctx, tx, g.ID)
+		if err != nil {
+			return params, err
+		}
+		return params, gr.importer.Start(ctx, tx, h)
+	case Imported:
+		return params, clearPlaced(ctx, tx, g)
+	case Failed:
+		if _, drop := o.(dropped); drop && g.Stage == Fetching {
+			return params, nil
+		}
+		return params, gr.failed(ctx, tx, g, *params.FailureCode)
+	case Fetching, Downloading:
 	}
-	h, err := Handed(ctx, tx, g.ID)
-	if err != nil {
-		return params, err
-	}
-	return params, gr.importer.Start(ctx, tx, h)
+	return params, nil
 }
 
 // entered tells what g entering stage next changes beyond the library:
