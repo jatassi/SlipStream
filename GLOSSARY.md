@@ -106,7 +106,7 @@ _Avoid_: Rendition profile, quality profile, slot
 
 **Conversion**:
 One run that turns one source file into one file for one Target, following that Target's Conversion settings, whether or not the video is re-encoded. Making a 1080p file from a 2160p one is a Conversion, and so is dropping extra audio from a download and adding a stereo track.
-_Avoid_: Transcode, transcode job, pipeline job, encode, task; never a Media Server's live transcoding
+_Avoid_: Transcode, transcode job, pipeline job, encode, task. Transcode names only a Media Server's live transcoding, never a Conversion
 
 **Conversion settings**:
 What a Target's file should come out as when SlipStream makes or adjusts it: video, dynamic range, audio tracks and container. They belong to the Target, and every Profile that derives the Target uses them.
@@ -247,7 +247,7 @@ An external player-facing server that serves the library to players, such as Ple
 _Avoid_: Plex (as a generic term), link, connection
 
 **Reaching Node**:
-The one Node a Media Server names to reach it, which is the Controller or a Worker holding Media Server link. It sends the server its Media Server changes and watches its sessions, and it need not be the Node the server runs on. Settings labels it Reached from.
+The one Node a Media Server names to reach it, which is the Controller or a Worker holding Media Server link. It sends the server its Media Server changes and watches its sessions, and it need not be the Node the server runs on. Settings labels it Connect from, and a server's row and Details say "Connects from".
 _Avoid_: Home Node (that is an Indexer's), host Node, runs-on Node
 
 **Fallback address**:
@@ -275,7 +275,7 @@ What a Media Server records for each of its users about one item: played, play c
 _Avoid_: Watch history, user data
 
 **Play history**:
-The plays SlipStream records from each Media Server's sessions: who played which library file on which player, and whether the server direct played, copied or transcoded it, with the reasons the server gave. It keeps them for "Keep play history for", 30 days by default.
+The plays SlipStream records from each Media Server's sessions: who played which library file on which player, and whether the server direct played, direct streamed or transcoded it (shown as Direct play, Direct stream, Transcode or Hardware transcode), with the reasons the server gave. It keeps them for "Keep play history for", 30 days by default.
 _Avoid_: Session history, watch history, stats
 
 **Playback report**:

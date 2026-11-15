@@ -126,7 +126,7 @@ function AddressField({ sheet: { form }, kind, nodes, reaching }: Omit<Props, "k
           autoComplete="off"
           spellCheck={false}
           placeholder={example}
-          description={`The whole address, such as ${example}, as the Node that reaches ${kind.label} calls it.`}
+          description={`The whole address, such as ${example}, that the Connect from Node uses to call ${kind.label}.`}
         />
       )}
     </form.AppField>
