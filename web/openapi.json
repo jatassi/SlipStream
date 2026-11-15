@@ -8272,7 +8272,7 @@
         "additionalProperties": false,
         "properties": {
           "settings": {
-            "description": "Backlog search, RSS sync, how long a search waits for each Indexer and when SlipStream stops searching again after failed Grabs",
+            "description": "Backlog search and how often it runs, RSS sync, how long a search waits for each Indexer and when SlipStream stops searching again after failed Grabs",
             "items": {
               "$ref": "#/components/schemas/SettingField"
             },
@@ -63129,6 +63129,7 @@
                         "code": {
                           "enum": [
                             "invalid",
+                            "longest_gap_too_short",
                             "setting_out_of_range",
                             "unknown_setting"
                           ],

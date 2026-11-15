@@ -2,6 +2,7 @@ import { HttpResponse, type RequestHandler, http } from "msw";
 
 import type { SettingField } from "../api/gen/model";
 import { SearchSettingsInputBody } from "../api/gen/zod/slipStream.schemas.zod";
+import { refused } from "./roots";
 
 const hour = 3600;
 const day = 24 * hour;
@@ -28,6 +29,7 @@ const duration = (
   label: string,
   value: number,
   [min, max, step]: readonly [number, number, number],
+  extra: { floor?: string } = {},
 ): SettingField => ({
   ...about,
   kind: "duration",
@@ -39,12 +41,22 @@ const duration = (
   min,
   max,
   step,
+  ...extra,
 });
 
 /** The Automatic search settings at their defaults, in the order the server lists them. */
 export const searchSettings = (): SettingField[] => [
   onOff("search.backlogOn", "Backlog search"),
   onOff("search.backlogUpgrades", "Backlog search looks for upgrades"),
+  duration(
+    "tasks.backlog-search.cadence",
+    "Backlog search runs every",
+    8 * hour,
+    [hour, 7 * day, hour],
+    {
+      floor: "Each run can send a search to every Indexer's site.",
+    },
+  ),
   onOff("search.rssOn", "RSS sync"),
   duration(
     "search.longestGap",
@@ -79,6 +91,37 @@ export type SearchSettingsWorld = {
   handlers: RequestHandler[];
 };
 
+const gapKey = "search.longestGap";
+const everyKey = "tasks.backlog-search.cadence";
+
+function spelled(seconds: number): string {
+  const [n, unit] = seconds % day === 0 ? [seconds / day, "day"] : [seconds / hour, "hour"];
+  return n === 1 ? `1 ${unit}` : `${n} ${unit}s`;
+}
+
+/** The server's refusal of a longest gap shorter than Backlog search's interval, on the key that moved. */
+function gapRefusal(settings: readonly SettingField[], values: Record<string, unknown>) {
+  const next = (key: string): number => {
+    const sent = values[key];
+    const field = settings.find((each) => each.key === key);
+    return Number(sent ?? (key in values ? field?.default : field?.value));
+  };
+  const moved = [gapKey, everyKey].find((key) => key in values);
+  if (moved === undefined || next(gapKey) >= next(everyKey)) {
+    return null;
+  }
+  const words = `Use a longest gap of at least the Backlog search interval, ${spelled(next(everyKey))}.`;
+  return refused(
+    422,
+    "longest_gap_too_short",
+    "The longest gap is shorter than the Backlog search interval",
+    {
+      detail: words,
+      errors: [{ location: `body.values.${moved}`, message: words }],
+    },
+  );
+}
+
 /** Answers GET and PATCH /search-settings from one list, keeping each write. */
 export function searchSettingsWorld(): SearchSettingsWorld {
   const world: SearchSettingsWorld = {
@@ -91,6 +134,10 @@ export function searchSettingsWorld(): SearchSettingsWorld {
     http.patch("*/api/v1/search-settings", async ({ request }) => {
       const body = SearchSettingsInputBody.parse(await request.json());
       world.writes.push(body);
+      const refusal = gapRefusal(world.settings, body.values);
+      if (refusal !== null) {
+        return refusal;
+      }
       const next = world.settings.map((field) => {
         const sent = body.values[field.key];
         if (sent === undefined) {
