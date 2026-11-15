@@ -213,11 +213,12 @@ type snapshot struct {
 }
 
 // Moved runs the carry: snapshotted, old_removed, new_found, restored.
-func (s *Server) Moved(ctx context.Context, library string, from, to []link.ServerPath) error {
+func (s *Server) Moved(ctx context.Context, library string, from, to []link.ServerPath, move func()) error {
 	snaps, err := s.snapshot(ctx, library, from)
 	if err != nil {
 		return err
 	}
+	move()
 	if err := s.report(ctx, jellyfin.Deleted, from); err != nil {
 		return err
 	}

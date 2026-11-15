@@ -165,8 +165,7 @@ func RenameInFolderKeepsRatingKey(t *testing.T, tg Target, shared mediaservers.T
 	old, from := watched(t, shared, f, "Renamed")
 	r := mediaservers.Rel(t, "Renamed", ".mkv")
 	to := mediaservers.Rel(t, "Renamed", " Bluray-1080p.mkv")
-	f.Move(r, to)
-	if err := shared.Server.Moved(t.Context(), tg.Section, []link.ServerPath{from}, []link.ServerPath{f.At(to)}); err != nil {
+	if err := shared.Server.Moved(t.Context(), tg.Section, []link.ServerPath{from}, []link.ServerPath{f.At(to)}, func() { f.Move(r, to) }); err != nil {
 		t.Fatal(err)
 	}
 	now := f.Found(to)

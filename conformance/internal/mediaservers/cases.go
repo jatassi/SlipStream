@@ -336,8 +336,7 @@ func CarryKeepsWatchData(t *testing.T, tg Target) {
 	if err := tg.Server.Watched(t.Context(), it.Key, "SlipStream conformance"); err != nil {
 		t.Fatal(err)
 	}
-	f.Move(from, to)
-	if err := tg.Server.Moved(t.Context(), tg.Library, []link.ServerPath{f.At(from)}, []link.ServerPath{f.At(to)}); err != nil {
+	if err := tg.Server.Moved(t.Context(), tg.Library, []link.ServerPath{f.At(from)}, []link.ServerPath{f.At(to)}, func() { f.Move(from, to) }); err != nil {
 		t.Fatal(err)
 	}
 	now := f.Found(to)
