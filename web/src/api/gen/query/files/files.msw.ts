@@ -12,6 +12,7 @@ import type {
   FilesMetCell,
   FilesMissingCell,
   FilesNoRootNeed,
+  FilesNotFoundNeed,
   FilesRenamePlan,
   FilesRenameResult,
   FilesUnreleasedCell,
@@ -99,11 +100,18 @@ export const getGetWorkCellsResponseFilesUnreleasedCellMock = (
   overrideResponse: Partial<FilesUnreleasedCell> = {},
 ): FilesUnreleasedCell => ({
   ...{
+    candidates: faker.number.int({ min: 0 }),
     edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    gone: faker.datatype.boolean(),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["unreleased"] as const),
+    stopped: faker.datatype.boolean(),
     targetId: faker.string.uuid(),
     targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    waitUntil: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
     wanted: faker.datatype.boolean(),
   },
   ...overrideResponse,
@@ -113,11 +121,18 @@ export const getGetWorkCellsResponseFilesMissingCellMock = (
   overrideResponse: Partial<FilesMissingCell> = {},
 ): FilesMissingCell => ({
   ...{
+    candidates: faker.number.int({ min: 0 }),
     edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    gone: faker.datatype.boolean(),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["missing"] as const),
+    stopped: faker.datatype.boolean(),
     targetId: faker.string.uuid(),
     targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    waitUntil: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
     wanted: faker.datatype.boolean(),
   },
   ...overrideResponse,
@@ -127,6 +142,7 @@ export const getGetWorkCellsResponseFilesDownloadingCellMock = (
   overrideResponse: Partial<FilesDownloadingCell> = {},
 ): FilesDownloadingCell => ({
   ...{
+    candidates: faker.number.int({ min: 0 }),
     edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     file: faker.helpers.arrayElement([
       {
@@ -158,6 +174,7 @@ export const getGetWorkCellsResponseFilesDownloadingCellMock = (
       null,
     ]),
     from: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
+    gone: faker.datatype.boolean(),
     grabId: faker.string.uuid(),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["downloading"] as const),
@@ -172,9 +189,14 @@ export const getGetWorkCellsResponseFilesDownloadingCellMock = (
       ] as const),
       null,
     ]),
+    stopped: faker.datatype.boolean(),
     targetId: faker.string.uuid(),
     targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
     until: faker.helpers.arrayElement([faker.date.past().toISOString().slice(0, 19) + "Z", null]),
+    waitUntil: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
     wanted: faker.datatype.boolean(),
   },
   ...overrideResponse,
@@ -184,6 +206,7 @@ export const getGetWorkCellsResponseFilesFailedCellMock = (
   overrideResponse: Partial<FilesFailedCell> = {},
 ): FilesFailedCell => ({
   ...{
+    candidates: faker.number.int({ min: 0 }),
     edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     file: faker.helpers.arrayElement([
       {
@@ -214,11 +237,17 @@ export const getGetWorkCellsResponseFilesFailedCellMock = (
       },
       null,
     ]),
+    gone: faker.datatype.boolean(),
     grabId: faker.string.uuid(),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["failed"] as const),
+    stopped: faker.datatype.boolean(),
     targetId: faker.string.uuid(),
     targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    waitUntil: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
     wanted: faker.datatype.boolean(),
   },
   ...overrideResponse,
@@ -228,6 +257,7 @@ export const getGetWorkCellsResponseFilesUpgradableCellMock = (
   overrideResponse: Partial<FilesUpgradableCell> = {},
 ): FilesUpgradableCell => ({
   ...{
+    candidates: faker.number.int({ min: 0 }),
     edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     file: {
       id: faker.string.uuid(),
@@ -255,10 +285,16 @@ export const getGetWorkCellsResponseFilesUpgradableCellMock = (
       ] as const),
       size: faker.number.int({ min: 0 }),
     },
+    gone: faker.datatype.boolean(),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["upgradable"] as const),
+    stopped: faker.datatype.boolean(),
     targetId: faker.string.uuid(),
     targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    waitUntil: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
     wanted: faker.datatype.boolean(),
   },
   ...overrideResponse,
@@ -268,6 +304,7 @@ export const getGetWorkCellsResponseFilesMetCellMock = (
   overrideResponse: Partial<FilesMetCell> = {},
 ): FilesMetCell => ({
   ...{
+    candidates: faker.number.int({ min: 0 }),
     edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
     file: {
       id: faker.string.uuid(),
@@ -295,6 +332,7 @@ export const getGetWorkCellsResponseFilesMetCellMock = (
       ] as const),
       size: faker.number.int({ min: 0 }),
     },
+    gone: faker.datatype.boolean(),
     held: faker.helpers.arrayElement([
       {
         from: faker.date.past().toISOString().slice(0, 19) + "Z",
@@ -316,8 +354,13 @@ export const getGetWorkCellsResponseFilesMetCellMock = (
     ]),
     itemId: faker.string.uuid(),
     state: faker.helpers.arrayElement(["met"] as const),
+    stopped: faker.datatype.boolean(),
     targetId: faker.string.uuid(),
     targetName: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    waitUntil: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
     wanted: faker.datatype.boolean(),
   },
   ...overrideResponse,
@@ -353,6 +396,24 @@ export const getGetWorkCellsResponseFilesUpgradeNeedMock = (
     upgrades: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
       () => faker.string.alpha({ length: { min: 10, max: 20 } }),
     ),
+  },
+  ...overrideResponse,
+});
+
+export const getGetWorkCellsResponseFilesNotFoundNeedMock = (
+  overrideResponse: Partial<FilesNotFoundNeed> = {},
+): FilesNotFoundNeed => ({
+  ...{
+    edition: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    itemIds: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(
+      () => faker.string.alpha({ length: { min: 10, max: 20 } }),
+    ),
+    kind: faker.helpers.arrayElement(["not_found"] as const),
+    lastSearchedAt: faker.date.past().toISOString().slice(0, 19) + "Z",
+    nextSearchAt: faker.helpers.arrayElement([
+      faker.date.past().toISOString().slice(0, 19) + "Z",
+      null,
+    ]),
   },
   ...overrideResponse,
 });
@@ -464,6 +525,7 @@ export const getGetWorkCellsResponseMock = (
     faker.helpers.arrayElement([
       { ...getGetWorkCellsResponseFilesFailedNeedMock() },
       { ...getGetWorkCellsResponseFilesUpgradeNeedMock() },
+      { ...getGetWorkCellsResponseFilesNotFoundNeedMock() },
       { ...getGetWorkCellsResponseFilesWaitingNeedMock() },
       { ...getGetWorkCellsResponseFilesNoRootNeedMock() },
     ]),
