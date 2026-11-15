@@ -391,29 +391,44 @@ func TestManualSearchListsEachIndexersReleasesAsItAnswers(t *testing.T) {
 	}
 }
 
-// TestTheManualPlanLeadsWithWhatAutomaticSearchGrabs reads the plan's
-// first row, Tamarack's Bluray, then turns automatic search on for
-// Tamarack and searches automatically: the search grabs the same Release.
+// TestTheManualPlanLeadsWithWhatAutomaticSearchGrabs reads the plan:
+// Tamarack's Bluray for the 1080p cell, then Fixture Site's WEB-DL as the
+// HD cell's upgrade, since HD doesn't take the Bluray. It turns automatic
+// search on for Tamarack and searches automatically: the search grabs
+// the plan's rows, the same Releases, one Grab each.
 func TestTheManualPlanLeadsWithWhatAutomaticSearchGrabs(t *testing.T) {
 	t.Parallel()
 	w := launchManual(t)
 	w.open(t, w.work, "")
 	v := w.settled(t, w.work)
-	if len(v.Plan.Rows) == 0 || v.Plan.Rows[0].Pick == nil {
-		t.Fatalf("the plan has no first row to grab: %+v", v.Plan)
+	var planned []string
+	for _, r := range v.Plan.Rows {
+		if r.Pick == nil {
+			t.Fatalf("the plan has a row with nothing to grab: %+v", v.Plan)
+		}
+		planned = append(planned, r.Pick.Release.Title)
 	}
-	first := v.Plan.Rows[0].Pick.Release
-	if first.Title != orchardBluray {
-		t.Fatalf("the plan's first row grabs %s, want %s", first.Title, orchardBluray)
+	if want := []string{orchardBluray, release}; !slices.Equal(planned, want) {
+		t.Fatalf("the plan's rows grab %v, want %v", planned, want)
 	}
 	w.patchIndexer(t, v.line(t, "Tamarack").IndexerID, `{"automaticSearch":true}`)
 
 	s := w.searched(t, w.search(t))
-	if s.Outcome == nil || *s.Outcome != "grabbed" || len(s.GrabIDs) != 1 {
-		t.Fatalf("the automatic search ended %+v, want a Grab", s)
+	if s.Outcome == nil || *s.Outcome != "grabbed" {
+		t.Fatalf("the automatic search ended %+v, want its Grabs", s)
 	}
-	if g := w.grabRecord(t, s.GrabIDs[0]); g.ReleaseTitle != first.Title || g.Source != "search" || g.GrabbedBy != nil {
-		t.Fatalf("automatic search grabbed %s from %s by %v, want %s, the plan's first row", g.ReleaseTitle, g.Source, g.GrabbedBy, first.Title)
+	var grabbed []string
+	for _, id := range s.GrabIDs {
+		g := w.grabRecord(t, id)
+		if g.Source != "search" || g.GrabbedBy != nil {
+			t.Fatalf("automatic search's Grab of %s came from %s by %v, want the search", g.ReleaseTitle, g.Source, g.GrabbedBy)
+		}
+		grabbed = append(grabbed, g.ReleaseTitle)
+	}
+	slices.Sort(grabbed)
+	slices.Sort(planned)
+	if !slices.Equal(grabbed, planned) {
+		t.Fatalf("automatic search grabbed %v, want the plan's rows %v", grabbed, planned)
 	}
 }
 
