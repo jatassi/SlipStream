@@ -75,6 +75,12 @@ func (c *Code) problem() *Problem {
 // Because answers c with detail, a reason a person reads beside the title.
 func (c *Code) Because(detail string) error { return &explained{code: c, detail: detail} }
 
+// Logged answers c with detail, and logs cause beside the operation: the
+// error a person never reads.
+func (c *Code) Logged(cause error, detail string) error {
+	return &explained{code: c, detail: detail, cause: cause}
+}
+
 // At answers c with the detail that words makes of t, which it gets as a
 // person reads a time in the Node's zone.
 func (c *Code) At(t time.Time, words func(at string) string) error {
@@ -116,6 +122,7 @@ type explained struct {
 	retryAfter time.Time
 	fields     []FieldError
 	carried    any
+	cause      error
 }
 
 func (e *explained) Error() string {

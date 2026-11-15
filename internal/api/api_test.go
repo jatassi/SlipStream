@@ -173,6 +173,23 @@ func TestACodeBecauseAReasonAnswersItAsTheDetail(t *testing.T) {
 	}
 }
 
+func TestALoggedCodeAnswersTheDetailAndLogsTheCause(t *testing.T) {
+	var log bytes.Buffer
+	r := newRouter(t, &log)
+	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture", Errors: []*Code{fixtureGone}},
+		func(context.Context, identity.Anyone, *struct{}) (*struct{}, error) {
+			return nil, fixtureGone.Logged(errors.New("dial tcp: no such host"), "The fixture moved.")
+		})
+	w := get(t, r.Handler(), "/api/v1/fixture")
+	want := `{"status":410,"code":"fixture_gone","title":"The fixture is gone","detail":"The fixture moved."}` + "\n"
+	if w.Code != http.StatusGone || w.Body.String() != want {
+		t.Fatalf("got %d %q, want 410 %q", w.Code, w.Body, want)
+	}
+	if !strings.Contains(log.String(), "dial tcp: no such host") {
+		t.Fatalf("log = %q, want the cause", log.String())
+	}
+}
+
 func TestACodeOnAMemberAnswersItAsAFieldError(t *testing.T) {
 	r := newRouter(t, &bytes.Buffer{})
 	Register(r.Owner("fixture", Public), Public, Op{ID: "fixtureGet", Method: http.MethodGet, Path: "/fixture", Errors: []*Code{fixtureGone}},

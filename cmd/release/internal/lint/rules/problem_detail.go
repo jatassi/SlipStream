@@ -20,7 +20,7 @@ func init() {
 
 // detailArgs is the argument of each api.Code method that becomes the
 // problem's detail.
-var detailArgs = map[string]int{"Because": 0, "Explained": 0, "On": 1}
+var detailArgs = map[string]int{"Because": 0, "Explained": 0, "On": 1, "Logged": 1}
 
 const problemDetailBaseline = "web/lint/problem-detail-baseline.json"
 
