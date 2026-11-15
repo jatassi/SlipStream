@@ -51,6 +51,8 @@ func (s *server) routes() fake.Routes {
 		r["libraries"] = fake.Route{Pattern: "GET /Library/VirtualFolders/Query", Handler: s.guard(signedIn, s.libraries)}
 		r["item-refresh"] = fake.Route{Pattern: "POST /Items/{id}/Refresh", Handler: s.guard(elevated, s.refreshItem)}
 		r["played"] = fake.Route{Pattern: "POST /Users/{user}/PlayedItems/{id}", Handler: s.guard(signedIn, s.markPlayed)}
+		r["favorite"] = fake.Route{Pattern: "POST /Users/{user}/FavoriteItems/{id}", Handler: s.guard(signedIn, s.favorite(true))}
+		r["unfavorite"] = fake.Route{Pattern: "DELETE /Users/{user}/FavoriteItems/{id}", Handler: s.guard(signedIn, s.favorite(false))}
 		r["socket"] = fake.Route{Pattern: "GET /embywebsocket", Handler: s.socket}
 	}
 	return r
@@ -464,7 +466,7 @@ func (s *server) userItemData(w http.ResponseWriter, r *http.Request, c caller) 
 }
 
 // writeUserData sets the fields the body names on the user's data. Emby
-// keeps the play count and last played date it had (#101).
+// 4.10 keeps the favorite it had (online run 2026-11-14).
 func (s *server) writeUserData(w http.ResponseWriter, r *http.Request, c caller, uid string) {
 	user, ok := s.asUser(c, uid)
 	it, found := s.core.Item(r.PathValue("id"))
@@ -490,7 +492,7 @@ func (s *server) writeUserData(w http.ResponseWriter, r *http.Request, c caller,
 	if in.PlayCount != nil {
 		d.PlayCount = *in.PlayCount
 	}
-	if in.IsFavorite != nil {
+	if in.IsFavorite != nil && s.p.Flavor != Emby {
 		d.Favorite = *in.IsFavorite
 	}
 	if in.Played != nil {
@@ -517,9 +519,29 @@ func (s *server) markPlayed(w http.ResponseWriter, r *http.Request, c caller) {
 		return
 	}
 	d := s.core.UserData(user, it.Key)
-	d.Played, d.PlayCount, d.LastPlayed = true, d.PlayCount+1, time.Now()
+	d.Played = true
+	if s.p.Flavor != Emby {
+		d.PlayCount, d.LastPlayed = d.PlayCount+1, time.Now()
+	}
 	s.core.SetUserData(user, it.Key, d)
 	writeJSON(w, s.renderUserData(user, it))
+}
+
+// favorite is Emby's FavoriteItems: POST marks the item a favorite of the
+// user and DELETE unmarks it.
+func (s *server) favorite(on bool) func(http.ResponseWriter, *http.Request, caller) {
+	return func(w http.ResponseWriter, r *http.Request, c caller) {
+		user, ok := s.asUser(c, r.PathValue("user"))
+		it, found := s.core.Item(r.PathValue("id"))
+		if !ok || !found {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		d := s.core.UserData(user, it.Key)
+		d.Favorite = on
+		s.core.SetUserData(user, it.Key, d)
+		writeJSON(w, s.renderUserData(user, it))
+	}
 }
 
 func idsOf(r *http.Request) []string {

@@ -21,7 +21,7 @@ var (
 	}
 	emby = mediaserver.Behavior{
 		MonitorDelay: 90 * time.Second, DeletesAtOnce: true, ItemPerFile: true, NewIDOnPathChange: true,
-		Carry: mediaserver.CarryEitherOrder, UserDataIgnoresPlays: true, PurgesVacated: true, ScanTime: time.Second,
+		Carry: mediaserver.CarryEitherOrder, PurgesVacated: true, ScanTime: time.Second,
 	}
 )
 
@@ -602,18 +602,6 @@ func TestEmbyCarriesWatchDataByProviderIDInEitherOrder(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestEmbysUserDataWriteKeepsThePlayCountAndLastPlayed(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		w := newWorld(t, emby, true, metropolis)
-		it, _ := w.item(metropolis)
-		w.s.SetUserData("owner", it.Key, link.UserData{Played: true, PlayCount: 3, LastPlayed: time.Now(), Favorite: true, Position: time.Minute})
-		d := w.s.UserData("owner", it.Key)
-		if !d.Played || !d.Favorite || d.Position != time.Minute || d.PlayCount != 0 || !d.LastPlayed.IsZero() {
-			t.Fatalf("after the write the data is %+v", d)
-		}
-	})
 }
 
 func TestEmbyRemovesADeletedFileAtOnce(t *testing.T) {

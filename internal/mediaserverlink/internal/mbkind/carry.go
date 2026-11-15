@@ -222,8 +222,6 @@ func findNew(ctx context.Context, c *conn, j link.Job, w link.Carry) (link.Advan
 
 // restore writes every user's data and the collections back onto each
 // new item, then reads them again: what the server didn't keep is lost.
-// Emby answers success to a UserData write and keeps its own play count
-// and last played (#101), so those read back as lost there.
 func restore(ctx context.Context, c *conn, j link.Job, w link.Carry) (link.Advanced, error) {
 	v, err := c.view(ctx, wantAt(w.Changes, to))
 	if err != nil {
@@ -256,6 +254,11 @@ func (c *conn) write(ctx context.Context, v view, item string, s *link.Snapshot)
 		}
 		if err := c.c.SetUserData(ctx, d.User, item, wire(d)); err != nil {
 			return err
+		}
+		if c.f.favoriteApart {
+			if err := c.c.SetFavorite(ctx, d.User, item, d.Favorite); err != nil {
+				return err
+			}
 		}
 	}
 	for _, name := range s.Collections {

@@ -555,11 +555,25 @@ func (c *Client) UserData(ctx context.Context, user, item string) (UserData, err
 	return out, err
 }
 
-// SetUserData writes user's data on item. Emby answers success and keeps
-// the play count and last played date it had (#101).
+// SetUserData writes user's data on item. Emby 4.10 answers success and
+// keeps the favorite it had, while it takes the rest (online run
+// 2026-11-14), so SetFavorite writes it there.
 func (c *Client) SetUserData(ctx context.Context, user, item string, d UserData) error {
 	path, q := c.userDataRoute(user, item)
 	return c.do(ctx, http.MethodPost, path, q, true, d, nil)
+}
+
+// SetFavorite marks item a favorite of user, or unmarks it: Emby's
+// POST or DELETE /Users/{user}/FavoriteItems/{item}.
+func (c *Client) SetFavorite(ctx context.Context, user, item string, favorite bool) error {
+	if c.flavor != Emby {
+		return fmt.Errorf("%s writes a favorite with the user data", c.flavor)
+	}
+	method := http.MethodDelete
+	if favorite {
+		method = http.MethodPost
+	}
+	return c.do(ctx, method, "/Users/"+url.PathEscape(user)+"/FavoriteItems/"+url.PathEscape(item), nil, true, nil, nil)
 }
 
 // MarkPlayed marks item played for user. On Emby it sets no play count

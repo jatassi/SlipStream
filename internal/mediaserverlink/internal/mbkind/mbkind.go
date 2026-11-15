@@ -28,6 +28,9 @@ type family struct {
 	// deletesAtOnce is Emby's: a Deleted report removes its item without
 	// waiting out the monitor delay (#101).
 	deletesAtOnce bool
+	// favoriteApart is Emby's: a UserData write keeps the favorite the item
+	// had, and only FavoriteItems sets it (online run 2026-11-14).
+	favoriteApart bool
 	// details is the web app's route to an item page, after its address.
 	details string
 }
@@ -43,6 +46,7 @@ var (
 		about:         link.About{Name: "emby", Label: "Emby", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustVersion("4.10")},
 		flavor:        jellyfin.Emby,
 		deletesAtOnce: true,
+		favoriteApart: true,
 		details:       "/web/index.html#!/item",
 	}
 )

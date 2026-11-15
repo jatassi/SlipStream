@@ -2,14 +2,16 @@
 // core, the same server at every Node's front. It copies Emby 4.10.1.0
 // (#71, #101): its own routes (/Library/VirtualFolders/Query, /Items?Path=
 // matched exactly, /Users/{user}/Items/{id}/UserData,
-// /Users/{user}/PlayedItems/{id}, /embywebsocket), path reports under one
+// /Users/{user}/PlayedItems/{id}, /Users/{user}/FavoriteItems/{id},
+// /embywebsocket), path reports under one
 // 90 s timer that a repeat doesn't restart, a Deleted report taken at
 // once, a report under an empty root taken (#101 run 2), one item per
 // file joined by PresentationUniqueKey, ids derived from the path so a
 // moved file is a new item that takes watch data by provider id in either
 // order, the recursive refresh of a library shown in its RefreshStatus,
-// the RefreshLibrary task, UserData writes answered with success that
-// keep the play count and last played date, transcode info only after the
+// the RefreshLibrary task, UserData writes that keep the favorite (online
+// run 2026-11-14), a mark played that sets no play count or last played
+// date, transcode info only after the
 // player reports its playback, LibraryChanged pushes, and X-Emby-Token or
 // ?api_key= on every call and socket.
 package emby
@@ -58,7 +60,7 @@ var product = mediabrowser.Product{
 	TaskName: "Scan media library", TaskID: "6330ee8fb4a957f33981f89aa78b030f",
 	Behavior: mediaserver.Behavior{
 		MonitorDelay: 90 * time.Second, DeletesAtOnce: true, ItemPerFile: true, NewIDOnPathChange: true,
-		Carry: mediaserver.CarryEitherOrder, UserDataIgnoresPlays: true, PurgesVacated: true, ScanTime: time.Second,
+		Carry: mediaserver.CarryEitherOrder, PurgesVacated: true, ScanTime: time.Second,
 	},
 }
 

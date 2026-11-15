@@ -4,7 +4,7 @@
 // move is the carry the kinds run (snapshot every user's data and the
 // item's collections, report the old paths Deleted and wait until they
 // are gone, report the new paths Created and wait until they exist, then
-// write the data back), and a scan's end is the RefreshLibrary task read
+// write the data back, on Emby the favorite apart), and a scan's end is the RefreshLibrary task read
 // Idle with a LastExecutionResult.EndTimeUtc later than before the scan
 // was asked for.
 package mediabrowser
@@ -279,6 +279,11 @@ func (s *Server) restore(ctx context.Context, item string, snap snapshot) error 
 	for user, d := range snap.data {
 		if err := s.C.SetUserData(ctx, user, item, d); err != nil {
 			return err
+		}
+		if s.f == jellyfin.Emby {
+			if err := s.C.SetFavorite(ctx, user, item, d.IsFavorite); err != nil {
+				return err
+			}
 		}
 	}
 	for _, c := range snap.collections {

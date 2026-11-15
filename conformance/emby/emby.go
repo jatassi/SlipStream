@@ -44,7 +44,7 @@ func Run(t *testing.T, tg Target) {
 		{"PathLookupExact", PathLookupExact},
 		{"VersionsAreItems", VersionsAreItems},
 		{"RefreshStatusReturnsToIdle", RefreshStatusReturnsToIdle},
-		{"UserDataKeepsPlayCount", UserDataKeepsPlayCount},
+		{"UserDataDropsFavorite", UserDataDropsFavorite},
 		{"DeletedLeavesAtOnce", DeletedLeavesAtOnce},
 		{"TranscodeAfterReport", TranscodeAfterReport},
 		{"KeyCreated", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.KeyCreated(t) }},
@@ -149,10 +149,11 @@ func RefreshStatusReturnsToIdle(t *testing.T, _ Target, shared mediaservers.Targ
 	})
 }
 
-// UserDataKeepsPlayCount is #101's finding: a UserData write answers
-// success and sets played, position and favorite, and leaves the play
-// count and last played date as they were.
-func UserDataKeepsPlayCount(t *testing.T, _ Target, shared mediaservers.Target, s *mediabrowser.Server) {
+// UserDataDropsFavorite is Emby 4.10's UserData write: it answers success
+// and sets played, the position, the play count and the last played date,
+// and keeps the favorite the item had (online run 2026-11-14).
+// FavoriteItems sets the favorite.
+func UserDataDropsFavorite(t *testing.T, _ Target, shared mediaservers.Target, s *mediabrowser.Server) {
 	f := shared.Case(t)
 	defer f.Clear()
 	r := mediaservers.Rel(t, "Restored", ".mkv")
@@ -163,6 +164,9 @@ func UserDataKeepsPlayCount(t *testing.T, _ Target, shared mediaservers.Target, 
 	if err != nil {
 		t.Fatal(err)
 	}
+	if before.IsFavorite {
+		t.Fatal("the new item is a favorite before any write")
+	}
 	played := time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
 	want := jellyfin.UserData{Played: true, PlayCount: before.PlayCount + 3, PlaybackPositionTicks: 600_000_000, IsFavorite: true, LastPlayedDate: &played}
 	if err := s.C.SetUserData(t.Context(), s.User(), it.Key, want); err != nil {
@@ -172,11 +176,17 @@ func UserDataKeepsPlayCount(t *testing.T, _ Target, shared mediaservers.Target, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.Played || !got.IsFavorite || got.PlaybackPositionTicks != want.PlaybackPositionTicks {
-		t.Fatalf("after the write the data is %+v, want played, favorite and the position set", got)
+	if !got.Played || got.PlaybackPositionTicks != want.PlaybackPositionTicks || got.PlayCount != want.PlayCount || got.LastPlayedDate == nil || !got.LastPlayedDate.Equal(played) {
+		t.Fatalf("after the write the data is %+v, want played, the position, the play count and the last played date set", got)
 	}
-	if got.PlayCount != before.PlayCount || (got.LastPlayedDate != nil && got.LastPlayedDate.Equal(played)) {
-		t.Fatalf("after the write the play count is %d (was %d) and last played %v", got.PlayCount, before.PlayCount, got.LastPlayedDate)
+	if got.IsFavorite {
+		t.Fatalf("after the write the data is %+v, want the favorite kept unset", got)
+	}
+	if err := s.C.SetFavorite(t.Context(), s.User(), it.Key, true); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = s.C.UserData(t.Context(), s.User(), it.Key); err != nil || !got.IsFavorite {
+		t.Fatalf("after FavoriteItems the data is %+v (err %v), want a favorite", got, err)
 	}
 }
 
