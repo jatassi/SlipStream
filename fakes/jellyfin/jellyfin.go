@@ -11,7 +11,8 @@
 // derived from the path so a moved file is a new item that takes watch
 // data only by provider id and only when removed first, versions in the
 // primary item's MediaSources, users, UserData, collections, /Sessions,
-// /socket with SessionsStart and ForceKeepAlive, API keys whose create
+// /socket with SessionsStart, Sessions pushed only when a session starts
+// or ends, and ForceKeepAlive, API keys whose create
 // answers no body, DeviceId revocation, and 401 to Emby's sign-in forms
 // (X-Emby-Token, X-Emby-Authorization, ?api_key=), since 12.x has legacy
 // authorization off.
