@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../scenario.schema.json
+description: >-
+  One Node set up as the Controller whose 1080p Target, the starter both
+  Content Types want, waits 2 hours for a better Release before an
+  automatic grab. Fixture Site lists a 1080p WEB-DL of The Quiet Orchard
+  and a season 1 pack of The Lantern Keepers, both below the Bluray
+  cutoff, so a search on add waits rather than grabs. Their publish times
+  are in the future, which SlipStream reads as the moment it first hears
+  them, so each wait ends 2 hours after the search. The library has a TV
+  root and a Movies root, and no Work until a test adds one.
+seed: hold
+admin:
+  email: ada@example.test
+  display_name: Ada Okafor
+  pin: "2468"
+nodes:
+  - name: home
+    setup: controller
+timings:
+  node:
+    stop_deadline: 15s
+tvdb:
+  series:
+    - id: 1001
+      name: The Lantern Keepers
+      status: continuing
+      network: Lantern One
+      imdb: tt1001001
+      tmdb: 7001
+      seasons:
+        - number: 1
+          episodes:
+            - {id: 100111, number: 1, name: First Flame, aired: 2020-01-10, runtime: 52}
+            - {id: 100112, number: 2, name: The Tide Book, aired: 2020-01-17, runtime: 50}
+            - {id: 100113, number: 3, name: Salt and Oil, aired: 2020-01-24, runtime: 51}
+tmdb:
+  movies:
+    - id: 9000001
+      imdb_id: tt9000001
+      title: The Quiet Orchard
+      released: 2021-04-16
+      runtime: 104m
+releases:
+  - name: The.Quiet.Orchard.2021.1080p.WEB-DL.H264-FKW
+    tmdb_id: 9000001
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 12
+    seeded: true
+    advertised_size: 8.2GiB
+    published: 2099-01-01T00:00:00Z
+  - name: The.Lantern.Keepers.S01.1080p.WEB-DL.H264-FKW
+    tvdb: {series: 1001, season: 1}
+    video: {width: 1920, height: 1080, seconds: 6}
+    seeders: 40
+    seeded: true
+    advertised_size: 12.2GiB
+    published: 2099-01-01T00:00:00Z
+tracker:
+  interval: 5s
+library:
+  storage_levels: {warn_below: 0B, error_below: 0B}
+  roots: [{content_type: series, folder: tv}, {content_type: movie, folder: movies}]
+  targets:
+    - name: 1080p
+      tiers: [[bluray-1080p, remux-1080p], [hdtv-1080p, webrip-1080p, webdl-1080p]]
+      cutoff: bluray-1080p
+      hold: 2h
+  indexers:
+    - {name: Fixture Site, kind: torznab, site: torznab}
