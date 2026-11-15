@@ -4,7 +4,7 @@
 // move is the carry the kinds run (snapshot every user's data and the
 // item's collections, report the old paths Deleted and wait until they
 // are gone, report the new paths Created and wait until they exist, then
-// write the data back), and a scan's end is the RefreshLibrary task read
+// write the data back, on Emby the favorite apart), and a scan's end is the RefreshLibrary task read
 // Idle with a LastExecutionResult.EndTimeUtc later than before the scan
 // was asked for.
 package mediabrowser
@@ -213,11 +213,12 @@ type snapshot struct {
 }
 
 // Moved runs the carry: snapshotted, old_removed, new_found, restored.
-func (s *Server) Moved(ctx context.Context, library string, from, to []link.ServerPath) error {
+func (s *Server) Moved(ctx context.Context, library string, from, to []link.ServerPath, move func()) error {
 	snaps, err := s.snapshot(ctx, library, from)
 	if err != nil {
 		return err
 	}
+	move()
 	if err := s.report(ctx, jellyfin.Deleted, from); err != nil {
 		return err
 	}
@@ -279,6 +280,11 @@ func (s *Server) restore(ctx context.Context, item string, snap snapshot) error 
 	for user, d := range snap.data {
 		if err := s.C.SetUserData(ctx, user, item, d); err != nil {
 			return err
+		}
+		if s.f == jellyfin.Emby {
+			if err := s.C.SetFavorite(ctx, user, item, d.IsFavorite); err != nil {
+				return err
+			}
 		}
 	}
 	for _, c := range snap.collections {
@@ -527,16 +533,72 @@ func (s *Server) Sessions(ctx context.Context) ([]link.Session, error) {
 	return out, nil
 }
 
+// SignIn signs in as the target's administrator with app, and answers a
+// client with that session's token.
+func (s *Server) SignIn(t *testing.T, app jellyfin.App) *jellyfin.Client {
+	t.Helper()
+	base, err := url.Parse(s.tg.Address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	auth, err := jellyfin.New(base, s.f, "", app, s.tg.HTTP).AuthenticateByName(t.Context(), s.tg.Admin.User, s.tg.Admin.Password)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return jellyfin.New(base, s.f, auth.AccessToken, app, s.tg.HTTP)
+}
+
+// KeyCreated is the administrator sign-in's key: POST /Auth/Keys answers
+// success, Jellyfin's with no body, the key list holds it, it works, and
+// revoked it answers 401.
+func (s *Server) KeyCreated(t *testing.T) {
+	if s.tg.Admin == nil {
+		mediaservers.Skip(t, "the target gives no administrator to sign in as")
+	}
+	admin := s.SignIn(t, App)
+	defer func() { _ = admin.Logout(context.WithoutCancel(t.Context())) }()
+	app := "SlipStream conformance " + time.Now().Format("150405.000")
+	if err := admin.CreateKey(t.Context(), app); err != nil {
+		t.Fatal(err)
+	}
+	keys, err := admin.Keys(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	i := slices.IndexFunc(keys, func(k jellyfin.Key) bool { return k.AppName == app })
+	if i < 0 {
+		t.Fatalf("no key named %q in %d keys", app, len(keys))
+	}
+	key := s.tg.Client(t, s.f, keys[i].AccessToken)
+	if _, err := key.Libraries(t.Context()); err != nil {
+		t.Fatalf("the new key: %v", err)
+	}
+	if err := admin.RevokeKey(t.Context(), keys[i].AccessToken); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := key.Libraries(t.Context()); !jellyfin.Refused(err) {
+		t.Fatalf("the revoked key answered %v, want a 401", err)
+	}
+}
+
 // SocketPushesSessions opens the server's socket with the key, each
-// product's way, asks for sessions and reads a Sessions message.
+// product's way, subscribes with SessionsStart, starts a session and reads
+// a Sessions message. A server sends one only when a session starts or
+// ends, never at the subscribe or on its period (Jellyfin's
+// SessionInfoWebSocketListener, and no message in five minutes from
+// Jellyfin 12.2, 12.4 or Emby 4.10 in online run 2026-11-14), so the case
+// signs the administrator in on a device of its own.
 func (s *Server) SocketPushesSessions(t *testing.T) {
 	t.Helper()
+	if s.tg.Admin == nil {
+		mediaservers.Skip(t, "a server pushes Sessions only when a session starts or ends, and the target gives no administrator to start one")
+	}
 	ctx, cancel := context.WithCancel(t.Context())
-	got, done := make(chan struct{}, 1), make(chan struct{})
+	opened, got, done := make(chan struct{}), make(chan struct{}, 1), make(chan struct{})
 	var listenErr error
 	go func() {
 		defer close(done)
-		listenErr = s.C.Socket(ctx, time.Second, func() {}, func(m jellyfin.Message) {
+		listenErr = s.C.Socket(ctx, time.Second, func() { close(opened) }, func(m jellyfin.Message) {
 			if m.MessageType != jellyfin.MessageSessions {
 				return
 			}
@@ -557,10 +619,20 @@ func (s *Server) SocketPushesSessions(t *testing.T) {
 		}
 	}()
 	select {
+	case <-opened:
+	case <-done:
+		t.Fatalf("the socket closed: %v", listenErr)
+	}
+	time.Sleep(time.Second)
+	app := App
+	app.DeviceID = "slipstream-conformance-sessions"
+	admin := s.SignIn(t, app)
+	defer func() { _ = admin.Logout(context.WithoutCancel(t.Context())) }()
+	select {
 	case <-got:
 	case <-done:
 		t.Fatalf("the socket closed: %v", listenErr)
 	case <-time.After(s.tg.Bound):
-		t.Fatalf("no Sessions message within %v", s.tg.Bound)
+		t.Fatalf("no Sessions message within %v of a sign-in", s.tg.Bound)
 	}
 }

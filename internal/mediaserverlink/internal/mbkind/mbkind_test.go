@@ -339,6 +339,17 @@ func TestJellyfinReportsAgainWhenAScanStartsInsideTheMonitorDelay(t *testing.T) 
 	})
 }
 
+func TestALookupFindsOnlyTheItemWithTheFile(t *testing.T) {
+	each(t, func(t *testing.T, w *world) {
+		if it, ok := w.item("Movies/Metropolis (1927)"); ok {
+			t.Errorf("a lookup of Metropolis's folder found item %+v, want none", it)
+		}
+		if _, ok := w.item("Movies/Metropolis (1927)/Metropolis (1927).mkv"); !ok {
+			t.Error("a lookup of Metropolis's file found no item")
+		}
+	})
+}
+
 func TestEmbyAcceptsAReportWithoutSettling(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newWorld(t, products[1])
@@ -350,8 +361,9 @@ func TestEmbyAcceptsAReportWithoutSettling(t *testing.T) {
 		if len(as) != 1 || outcomes(as)[ch.ID].Result != link.ResultAccepted {
 			t.Errorf("steps = %+v, want one accepted step", as)
 		}
+		time.Sleep(w.checked.MonitorDelay + 5*time.Second)
 		if _, ok := w.item("Movies/Metropolis (1927)/Metropolis (1927).mkv"); ok {
-			t.Error("Emby still holds the deleted item")
+			t.Error("Emby still holds the deleted item after its monitor delay")
 		}
 	})
 }
@@ -370,6 +382,11 @@ func (w *world) watched() link.ItemKey {
 	}
 	if err := w.admin.SetUserData(ctx, w.guestID, it.Item, wire.UserData{PlaybackPositionTicks: int64(20 * time.Minute / 100), IsFavorite: true}); err != nil {
 		w.t.Fatal(err)
+	}
+	if w.p.flavor == wire.Emby {
+		if err := w.admin.SetFavorite(ctx, w.guestID, it.Item, true); err != nil {
+			w.t.Fatal(err)
+		}
 	}
 	if _, err := w.admin.CreateCollection(ctx, "Silents", []string{it.Item}); err != nil {
 		w.t.Fatal(err)
@@ -627,7 +644,7 @@ func sessionsOf(s link.Seen) []string {
 	return out
 }
 
-func TestAPreparedSnapshotsPlayCountIsLostOnlyOnEmby(t *testing.T) {
+func TestAPreparedSnapshotsPlayCountCarries(t *testing.T) {
 	each(t, func(t *testing.T, w *world) {
 		old, ok := w.item("Movies/Metropolis (1927)/Metropolis (1927).mkv")
 		if !ok {
@@ -640,20 +657,16 @@ func TestAPreparedSnapshotsPlayCountIsLostOnlyOnEmby(t *testing.T) {
 		j := job(link.Carry{Changes: []link.JobChange{ch}})
 		j.Step, j.At = link.StepSnapshotted, time.Now()
 		o := outcomes(w.drive(j))[ch.ID]
-		var want []link.Loss
-		if w.p.flavor == wire.Emby {
-			want = []link.Loss{link.LostPlayCount, link.LostLastPlayed}
-		}
-		if o.Result != link.ResultAccepted || !slices.Equal(o.Lost, want) {
-			t.Errorf("outcome = %+v, want accepted, lost %v", o, want)
+		if o.Result != link.ResultAccepted || len(o.Lost) != 0 {
+			t.Errorf("outcome = %+v, want accepted with nothing lost", o)
 		}
 		it := w.eventually("Movies/Metropolis/Metropolis.mkv")
 		d, err := w.admin.UserData(t.Context(), w.adminID, it.Item)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !d.Played {
-			t.Errorf("the new item isn't played: %+v", d)
+		if !d.Played || d.PlayCount != 3 || d.LastPlayedDate == nil || !d.LastPlayedDate.Equal(last) {
+			t.Errorf("the new item's data is %+v, want played 3 times, last on %v", d, last)
 		}
 	})
 }
