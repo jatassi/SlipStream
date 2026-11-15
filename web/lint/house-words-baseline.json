@@ -45,9 +45,6 @@
   "internal/grabs/pick.go": {
     "hold": 1
   },
-  "internal/grabs/run.go": {
-    "written off": 1
-  },
   "internal/grabs/try.go": {
     "fill": 3
   },
@@ -121,9 +118,6 @@
     "dial": 1,
     "stand in": 4
   },
-  "internal/roots/bytes.go": {
-    "written off": 1
-  },
   "internal/roots/roots.go": {
     "hold": 1
   },
@@ -158,7 +152,7 @@
     "owe": 1
   },
   "internal/trackersapi/trackersapi.go": {
-    "hold": 2,
+    "hold": 1,
     "owe": 3
   },
   "internal/trackersapi/windows.go": {
@@ -181,11 +175,7 @@
     "fill": 2
   },
   "web/src/grabs/lost-at-sentence.ts": {
-    "fill": 4,
-    "Want": 1
-  },
-  "web/src/grabs/stages.ts": {
-    "written off": 1
+    "fill": 4
   },
   "web/src/imports/force-confirm.tsx": {
     "fill": 2
@@ -249,10 +239,6 @@
   "web/src/targets/impact-sheet.tsx": {
     "fill": 1
   },
-  "web/src/targets/impact-words.ts": {
-    "cell": 4,
-    "fill": 2
-  },
   "web/src/torrents/inspector-seeding.tsx": {
     "owe": 1
   },
@@ -261,9 +247,6 @@
   },
   "web/src/torrents/seeding.ts": {
     "owe": 1
-  },
-  "web/src/trackers/route-words.ts": {
-    "hold": 2
   },
   "web/src/trackers/seeding-settings.tsx": {
     "owe": 2
