@@ -4,6 +4,8 @@ import { GoneUpstream } from "./gone-upstream";
 import { Hero } from "./hero";
 import { useWorkAmbient } from "./hero-art";
 import { useWorkReads } from "./reads";
+import { SearchLine } from "./search-line";
+import { searchedOf } from "./searched";
 import { WorkSections } from "./sections";
 import { useWorkActions } from "./work-actions";
 
@@ -36,7 +38,10 @@ export function WorkPage({
         warning={
           work.goneUpstreamAt !== null && <GoneUpstream type={type} onDelete={actions.openDelete} />
         }
-        actions={actions.hero}
+        searchLine={
+          <SearchLine state={reads.searching} workId={work.id} many={type.items === "many"} />
+        }
+        actions={{ ...actions.hero, searched: searchedOf(type, work.label, reads.cells.cells) }}
       />
       <WorkSections
         type={type}

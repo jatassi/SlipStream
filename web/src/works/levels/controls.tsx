@@ -5,6 +5,7 @@ import { Menu, type MenuItem } from "../../ui/menu";
 import { RowSwitch } from "../../ui/row-switch";
 import type { RowActions } from "./item-row";
 import type { HeaderActions } from "./level-header";
+import type { LevelSearch } from "./level-search";
 import type { ItemView, LevelView } from "./model";
 
 function MoreMenu({ name, items }: { name: string; items: readonly MenuItem[] }) {
@@ -19,14 +20,42 @@ function MoreMenu({ name, items }: { name: string; items: readonly MenuItem[] })
 
 const iconPlace = <span aria-hidden="true" className="size-(--icon-button-size) shrink-0" />;
 
+/** Manual search, and Grab now while a cell of the level waits for a better Release. */
+function levelMenu(
+  level: LevelView,
+  search: LevelSearch | undefined,
+  actions: HeaderActions,
+): MenuItem[] {
+  const manual: MenuItem = {
+    label: "Manual search",
+    onSelect: () => {
+      actions.manual(level);
+    },
+  };
+  if (search === undefined || search.waits.length === 0) {
+    return [manual];
+  }
+  return [
+    manual,
+    {
+      label: "Grab now",
+      onSelect: () => {
+        actions.grabNow(level, search);
+      },
+    },
+  ];
+}
+
 /** The withdrawn section has no switch, Search or menu, only their places. */
 export function LevelControls({
   level,
   phone,
+  search,
   actions,
 }: {
   level: LevelView;
   phone: boolean;
+  search: LevelSearch | undefined;
   actions: HeaderActions;
 }) {
   if (level.withdrawn) {
@@ -50,21 +79,12 @@ export function LevelControls({
       <IconButton
         icon={Search01Icon}
         label={`Search ${level.name}`}
+        busy={search?.searching ?? false}
         onClick={() => {
           actions.search(level);
         }}
       />
-      <MoreMenu
-        name={level.name}
-        items={[
-          {
-            label: "Manual search",
-            onSelect: () => {
-              actions.manual(level);
-            },
-          },
-        ]}
-      />
+      <MoreMenu name={level.name} items={levelMenu(level, search, actions)} />
     </>
   );
 }

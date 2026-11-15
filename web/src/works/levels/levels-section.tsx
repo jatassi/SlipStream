@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import type { WorksContentType, WorksWorkView } from "../../api/gen/model";
+import type { FilesCell, WorksContentType, WorksWorkView } from "../../api/gen/model";
 import { useStartSearch } from "../../grabs/search";
 import { openManualSearch } from "../../manual/sheet-state";
 import { CellPopover, type CellPopoverState, useCellPopover } from "../../ui/cell-popover";
@@ -12,6 +12,8 @@ import { CellDetail, type PoppedCell, cellLabel } from "./cell-detail";
 // oxlint-disable-next-line import/max-dependencies -- the section composes its rows, cell popover, Item Details and phone sheet
 import { ItemDetails } from "./item-details";
 import { ItemSheet } from "./item-sheet";
+import { useHeaderActions } from "./header-actions";
+import { useLevelSearches } from "./level-search";
 import { type ItemView, type LevelView, levelContext, levelsOf } from "./model";
 import { levelRows } from "./rows";
 import { useMonitorParts } from "./use-monitored";
@@ -78,16 +80,26 @@ function viewOf(
 
 type Picked = { readonly id: string; readonly as: "details" | "sheet" };
 
-function useActions(type: WorksContentType, workId: string, toggle: (level: LevelView) => void) {
+function useActions(
+  type: WorksContentType,
+  work: WorksWorkView,
+  cells: readonly FilesCell[],
+  toggle: (level: LevelView) => void,
+) {
+  const workId = work.id;
   const monitor = useMonitorParts(workId);
-  const search = useStartSearch(type.item);
+  const search = useStartSearch();
   const [picked, setPicked] = useState<Picked>();
   const rowActions: Drawn["rowActions"] = {
     monitor: (view, on) => {
       monitor({ levelIds: [], itemIds: [view.item.id], on });
     },
     search: (view) => {
-      search.start(workId, { levelIds: [], itemIds: [view.item.id] });
+      search.start(
+        workId,
+        { count: 1, item: type.item },
+        { levelIds: [], itemIds: [view.item.id] },
+      );
     },
     details: (view) => {
       setPicked({ id: view.item.id, as: "details" });
@@ -99,18 +111,7 @@ function useActions(type: WorksContentType, workId: string, toggle: (level: Leve
       setPicked({ id: view.item.id, as: "sheet" });
     },
   };
-  const headerActions: Drawn["headerActions"] = {
-    toggle,
-    monitor: (level, on) => {
-      monitor({ levelIds: [level.id], itemIds: [], on });
-    },
-    search: (level) => {
-      search.start(workId, { levelIds: [level.id], itemIds: [] });
-    },
-    manual: (level) => {
-      openManualSearch({ workId, scope: { levelIds: [level.id] } });
-    },
-  };
+  const headerActions = useHeaderActions({ type, work, cells, toggle, monitor });
   // The sheet's Details closes the sheet after it opens Details, so each closes only itself.
   const close = (as: Picked["as"]) => () => {
     setPicked((prev) => (prev?.as === as ? undefined : prev));
@@ -161,13 +162,19 @@ export function LevelsSection({
   const phone = useShell() === "phone";
   const { context, levels, rows, toggle } = useLevels(type, work, reads);
   const popover = useCellPopover<PoppedCell>();
-  const { picked, close, rowActions, headerActions } = useActions(type, work.id, toggle);
+  const { picked, close, rowActions, headerActions } = useActions(
+    type,
+    work,
+    reads.cells.cells,
+    toggle,
+  );
+  const searches = useLevelSearches(work.items, reads.cells.cells, reads.searching);
   const found = picked && viewOf(levels, picked.id);
   return (
     <Section title={type.levels[0]?.many ?? type.item.many}>
       <VirtualLevels
         rows={rows}
-        drawn={{ phone, context, controls: popover.controls, rowActions, headerActions }}
+        drawn={{ phone, context, controls: popover.controls, rowActions, headerActions, searches }}
       />
       <SquarePopover popover={popover} shown={shown} />
       <ItemDetails

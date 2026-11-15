@@ -8,6 +8,7 @@ import type {
   GrabsSearchIndexer,
   GrabsSearchList,
   GrabsSearchQueued,
+  GrabsWorkSearching,
   TargetsWants,
   WorksWorkView,
 } from "../api/gen/model";
@@ -38,6 +39,7 @@ import { home, nodesAre, seedbox } from "./nodes";
 import { profileHandlers, ultra } from "./profiles";
 import { filmsRoot, mediaVolumes } from "./roots";
 import { targetHandlers } from "./targets";
+import { aWorkSearching, queueWorld } from "./searching";
 import { filesOf, missing } from "./work-cells";
 
 const otherWork: GrabsGrab = {
@@ -64,7 +66,7 @@ const run: Pick<
   notes: [],
 };
 
-const queued: GrabsSearchQueued = {
+const pressed: GrabsSearchQueued = {
   groups: [{ key: run.groupKey ?? "", label: orchard.label, state: "queued" }],
 };
 
@@ -231,6 +233,14 @@ function filesWorld(
   };
 }
 
+type WorkServerOptions = {
+  readonly work?: WorksWorkView;
+  readonly startCells?: FilesCellList;
+  readonly files?: FilesFileList;
+  /** What the search queue is doing for the Work. */
+  readonly queue?: GrabsWorkSearching;
+};
+
 /**
  * The Work page's reads, of The Quiet Orchard on Ultra unless work names
  * another Work and its cells. Its files are the ones its cells hold, unless
@@ -240,32 +250,32 @@ export function workServer({
   work = orchardOnUltra,
   startCells = missing,
   files,
-}: { work?: WorksWorkView; startCells?: FilesCellList; files?: FilesFileList } = {}) {
+  queue: queued = aWorkSearching({ groups: [] }),
+}: WorkServerOptions = {}) {
   let cells = startCells;
   let searches: GrabsSearchList = { searches: [] };
   let grabs: GrabsGrab[] = [otherWork];
-  const searched: string[] = [];
   const { handler, send } = liveStream();
   const changed = () => {
     send({ event: "files.changed", data: { workId: work.id } });
   };
   const filed = filesWorld(files, () => cells, changed);
+  const queue = queueWorld({ workId: work.id, initial: queued, pressed, send });
   const handlers = [
+    ...queue.handlers,
     ...fixedHandlers(work),
     getGetWorkCellsMockHandler(() => cells),
     ...filed.handlers,
     getListSearchesMockHandler(() => searches),
     getListGrabsMockHandler(() => ({ grabs })),
-    http.post("*/api/v1/works/:workId/search", ({ params }) => {
-      searched.push(String(params["workId"]));
-      return HttpResponse.json(queued, { status: 202 });
-    }),
     handler,
   ];
   return {
     handlers,
-    searched,
+    searched: queue.searched,
+    grabbed: queue.grabbed,
     forgot: filed.forgot,
+    queueMoves: queue.moves,
     fileArrives(next: FilesCellList) {
       cells = next;
       send({ event: "files.changed", data: { workId: orchardId } });
