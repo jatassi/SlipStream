@@ -169,7 +169,7 @@ func (q *Queries) DeleteSearchGrab(ctx context.Context, arg DeleteSearchGrabPara
 
 const endReleasesOfGrab = `-- name: EndReleasesOfGrab :exec
 UPDATE grabs_release SET release = NULL, link_sealed = NULL
-WHERE search_id IN (SELECT r.search_id FROM grabs_search_grab r WHERE r.grab_id = ?1)
+WHERE search_id IN (SELECT r.search_id FROM grabs_search_grab r WHERE r.grab_id = ?1) AND outcome <> 'waiting'
 AND NOT EXISTS (
     SELECT 1 FROM grabs_search_grab o JOIN grabs_grab g ON g.id = o.grab_id
     WHERE o.search_id = grabs_release.search_id AND o.made = 1 AND o.grab_id <> ?1 AND g.stage = 'fetching'
@@ -177,7 +177,8 @@ AND NOT EXISTS (
 `
 
 // No rerun follows once a run's Grab leaves fetching other than by a drop,
-// unless another Grab the run made still fetches.
+// unless another Grab the run made still fetches. A candidate a wait holds
+// stays whole.
 func (q *Queries) EndReleasesOfGrab(ctx context.Context, grabID GrabID) error {
 	_, err := q.db.ExecContext(ctx, endReleasesOfGrab, grabID)
 	return err

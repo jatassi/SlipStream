@@ -3844,7 +3844,7 @@ export const GrabsGrabbing = zod.object({
   grabbing: zod
     .int()
     .min(grabsGrabbingGrabbingMin)
-    .describe("The waits ended now. 0 when nothing waited, because the wait already ended"),
+    .describe("The Releases grabbed now. 0 when nothing waited, because the wait already ended"),
 });
 
 export type GrabsGrabbing = zod.input<typeof GrabsGrabbing>;

@@ -612,7 +612,7 @@ func TestAJobWhoseGrabVanishedLeavesTheReconcilerIdle(t *testing.T) {
 		retryAt: map[storage.UUID]time.Time{vanished: now.Add(-time.Second), open: now.Add(time.Minute)},
 		shown:   map[GrabID]Progress{{UUID: vanished}: {Done: 1, Total: 2}},
 	}
-	s.keep(nil, []Grab{{ID: GrabID{UUID: open}}})
+	s.keep(nil, []Grab{{ID: GrabID{UUID: open}}}, queueJobs{})
 	if got := s.next(now, nil, false, DefaultTimings()); got != time.Minute {
 		t.Fatalf("after a waiting Grab vanished with its Work, the reconciler sleeps %s, want a minute until the open one's retry", got)
 	}
