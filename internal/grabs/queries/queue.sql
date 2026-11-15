@@ -45,8 +45,10 @@ WHERE search_id = sqlc.arg(search_id);
 DELETE FROM grabs_due_item
 WHERE (work_id, group_key) IN (SELECT work_id, group_key FROM grabs_due WHERE lane = sqlc.arg(lane));
 
--- name: CancelLane :many
+-- name: ListLaneWorks :many
+SELECT DISTINCT work_id FROM grabs_due WHERE lane = sqlc.arg(lane) ORDER BY work_id;
+
+-- name: CancelLane :execrows
 -- The lane's queued entries leave it. Due times and open runs stay.
 UPDATE grabs_due SET lane = NULL, queued_at = NULL, trigger = NULL, include_gone = 0, changed_at = sqlc.arg(changed_at)
-WHERE lane = sqlc.arg(lane)
-RETURNING work_id;
+WHERE lane = sqlc.arg(lane);
