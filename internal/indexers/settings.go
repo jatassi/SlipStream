@@ -21,7 +21,9 @@ var LongBackoff = setting.Duration{
 
 // SearchWait is how long a search waits for each Indexer's job, from when
 // it first asked. Fetch, Test and captcha jobs keep Timings.Job. Its step
-// is a second, since a Duration steps by a whole unit.
+// is a second, since a Duration steps by a whole unit. indexers stores it,
+// and the Automatic search section shows and sets it through
+// SearchWaitIn and SetSearchWaitIn.
 var SearchWait = setting.Duration{
 	Key: "indexers.searchWait", Label: "Wait for each Indexer up to",
 	Default: 2 * time.Minute, Min: 10 * time.Second, Max: 10 * time.Minute, Step: time.Second,
@@ -42,7 +44,7 @@ func (p panel) Fields(ctx context.Context) ([]setting.Field, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []setting.Field{SearchWait.Field(s.SearchWaitSeconds), LongBackoff.Field(s.LongBackoffSeconds)}, nil
+	return []setting.Field{LongBackoff.Field(s.LongBackoffSeconds)}, nil
 }
 
 func (p panel) Apply(ctx context.Context, patch setting.Patch) error {
@@ -58,7 +60,6 @@ func (p panel) Apply(ctx context.Context, patch setting.Patch) error {
 		next := db.SetSettingsParams{LongBackoffSeconds: s.LongBackoffSeconds, SearchWaitSeconds: s.SearchWaitSeconds}
 		stored := map[string]func(json.RawMessage) error{
 			LongBackoff.Key: into(LongBackoff, &next.LongBackoffSeconds),
-			SearchWait.Key:  into(SearchWait, &next.SearchWaitSeconds),
 		}
 		for _, key := range slices.Sorted(maps.Keys(patch)) {
 			parse, ok := stored[key]
@@ -85,6 +86,23 @@ func into(d setting.Duration, to **int64) func(json.RawMessage) error {
 		*to = v.Override()
 		return err
 	}
+}
+
+// SearchWaitIn is SearchWait's stored override, nil at its default, read
+// in r.
+func SearchWaitIn(ctx context.Context, r storage.Reader[file]) (*int64, error) {
+	s, err := db.New(r).GetSettings(ctx)
+	return s.SearchWaitSeconds, err
+}
+
+// SetSearchWaitIn stores SearchWait in the caller's Write.
+func SetSearchWaitIn(ctx context.Context, tx *storage.Tx[file], v setting.Stored[int64]) error {
+	q := db.New(tx)
+	s, err := q.GetSettings(ctx)
+	if err != nil {
+		return err
+	}
+	return q.SetSettings(ctx, db.SetSettingsParams{LongBackoffSeconds: s.LongBackoffSeconds, SearchWaitSeconds: v.Override()})
 }
 
 // searchWait is the stored SearchWait, read in r.

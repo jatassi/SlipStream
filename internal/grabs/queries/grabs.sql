@@ -1,12 +1,12 @@
 -- name: InsertGrab :exec
 INSERT INTO grabs_grab (id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id,
-    tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, fetch_query_id,
+    tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, chosen_fills, fetch_query_id,
     min_ratio, min_seed_seconds, download_factor, upload_factor, stage, created_at, updated_at)
 VALUES (sqlc.arg(id), sqlc.arg(work_id), sqlc.arg(item_id), sqlc.arg(edition), sqlc.arg(source), sqlc.arg(manual_id),
     sqlc.arg(grabbed_by), sqlc.narg(grabbed_by_name), sqlc.arg(overrides), sqlc.arg(indexer_id), sqlc.arg(tracker_id),
     sqlc.arg(node_id),
     sqlc.arg(release_title), sqlc.arg(release_size), sqlc.arg(release_link_sealed), sqlc.narg(release_magnet),
-    sqlc.narg(release_info_hash), sqlc.narg(fetch_query_id), sqlc.arg(min_ratio), sqlc.arg(min_seed_seconds),
+    sqlc.narg(release_info_hash), sqlc.narg(chosen_fills), sqlc.narg(fetch_query_id), sqlc.arg(min_ratio), sqlc.arg(min_seed_seconds),
     sqlc.arg(download_factor), sqlc.arg(upload_factor), 'fetching', sqlc.arg(created_at), sqlc.arg(created_at));
 
 -- name: InsertGrabItem :exec
@@ -150,9 +150,14 @@ SELECT * FROM grabs_release WHERE search_id = sqlc.arg(search_id) ORDER BY rank 
 SELECT * FROM grabs_release WHERE search_id = sqlc.arg(search_id) AND release IS NOT NULL ORDER BY position;
 
 -- name: EndReleasesOfGrab :exec
--- No rerun follows once a run's Grab leaves fetching other than by a drop.
+-- No rerun follows once a run's Grab leaves fetching other than by a drop,
+-- unless another Grab the run made still fetches.
 UPDATE grabs_release SET release = NULL, link_sealed = NULL
-WHERE search_id IN (SELECT search_id FROM grabs_search_grab WHERE grab_id = sqlc.arg(grab_id));
+WHERE search_id IN (SELECT r.search_id FROM grabs_search_grab r WHERE r.grab_id = sqlc.arg(grab_id))
+AND NOT EXISTS (
+    SELECT 1 FROM grabs_search_grab o JOIN grabs_grab g ON g.id = o.grab_id
+    WHERE o.search_id = grabs_release.search_id AND o.made = 1 AND o.grab_id <> sqlc.arg(grab_id) AND g.stage = 'fetching'
+);
 
 -- name: DeleteReleasesOfSearch :exec
 DELETE FROM grabs_release WHERE search_id = sqlc.arg(search_id);

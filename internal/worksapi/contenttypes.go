@@ -3,7 +3,6 @@ package worksapi
 import (
 	"context"
 	"encoding/json"
-	"strings"
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
@@ -81,18 +80,13 @@ type searchChoice struct {
 // addSearchOf is the add searches t offers: on or off for a type of one
 // Item, else each scope its nouns name.
 func addSearchOf(t works.ContentType) addSearch {
-	on, off := searchChoice{Value: string(works.SearchMonitored), Label: "Everything monitored"}, searchChoice{Value: string(works.SearchNone), Label: "Nothing"}
+	out := addSearch{Kind: "choice", Choices: []searchChoice{}}
 	if t.Items == works.ItemsOne {
-		return addSearch{Kind: "switch", Choices: []searchChoice{on, off}}
+		out.Kind = "switch"
 	}
-	out := addSearch{Kind: "choice", Choices: []searchChoice{on}}
-	if len(t.Levels) > 0 {
-		level := strings.ToLower(t.Levels[0].One)
-		out.Choices = append(out.Choices,
-			searchChoice{Value: string(works.SearchFirstLevel), Label: "First " + level},
-			searchChoice{Value: string(works.SearchLatestLevel), Label: "Latest " + level})
+	for _, s := range t.SearchScopes() {
+		out.Choices = append(out.Choices, searchChoice{Value: string(s), Label: t.ScopeLabel(s)})
 	}
-	out.Choices = append(out.Choices, searchChoice{Value: string(works.SearchFirstItem), Label: "First " + strings.ToLower(t.Item.One)}, off)
 	return out
 }
 

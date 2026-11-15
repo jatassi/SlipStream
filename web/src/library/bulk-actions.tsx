@@ -3,12 +3,14 @@ import {
   Notification01Icon,
   NotificationOff01Icon,
   RefreshIcon,
+  Search01Icon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import { sentenceOf } from "../api/errors";
 import { toast } from "../ui/toast";
+import { useSearchSeveral } from "../wanted/several";
 import { act } from "../works/actions/act";
 import type { WorkAction } from "../works/actions/actions";
 import type { BulkDialogKind } from "./bulk-dialogs";
@@ -44,14 +46,46 @@ export type BulkAction = {
   readonly danger: boolean;
   /** Profiles and roots belong to one Content Type, so only picks of one type change them. */
   readonly oneTypeOnly: boolean;
+  /** A desktop bar keeps it in its More actions menu, so the bar stays one row. */
+  readonly secondary: boolean;
   readonly onSelect: () => void;
 };
 
-const plain = { icon: undefined, busy: false, danger: false, oneTypeOnly: false } as const;
+const plain = {
+  icon: undefined,
+  busy: false,
+  danger: false,
+  oneTypeOnly: false,
+  secondary: false,
+} as const;
+const more = { ...plain, secondary: true } as const;
+
+/** Searches the picked Works in the bulk lane, asking first above 100; `dialog` holds the question. */
+export function useBulkSearch(picked: readonly LibraryWork[]): {
+  action: BulkAction;
+  dialog: ReactNode;
+} {
+  const [first] = picked;
+  const oneType = picked.every(({ type }) => type.id === first?.type.id);
+  const several = useSearchSeveral(oneType ? first?.type.id : undefined);
+  return {
+    action: {
+      ...plain,
+      label: "Search",
+      icon: Search01Icon,
+      busy: several.busy,
+      onSelect: () => {
+        several.ask({ workIds: picked.map(({ id }) => id) }, picked.length);
+      },
+    },
+    dialog: several.dialog,
+  };
+}
 
 export function useBulkActions(
   picked: readonly LibraryWork[],
   onDialog: (kind: BulkDialogKind) => void,
+  search: BulkAction,
 ): readonly BulkAction[] {
   const { running, on } = useRun(picked);
   const open = (kind: BulkDialogKind) => () => {
@@ -59,6 +93,7 @@ export function useBulkActions(
   };
   const manyItems = picked.length > 0 && picked.every(({ type }) => type.items === "many");
   return [
+    search,
     {
       ...plain,
       label: "Monitor",
@@ -77,14 +112,14 @@ export function useBulkActions(
       ? [{ ...plain, label: "Set monitoring…", oneTypeOnly: true, onSelect: open("monitoring") }]
       : []),
     { ...plain, label: "Change Profile…", oneTypeOnly: true, onSelect: open("profile") },
-    { ...plain, label: "Set library root…", oneTypeOnly: true, onSelect: open("root") },
+    { ...more, label: "Set library root…", oneTypeOnly: true, onSelect: open("root") },
     {
-      ...plain,
+      ...more,
       label: "Refresh metadata",
       icon: RefreshIcon,
       busy: running === "refresh",
       onSelect: on({ kind: "refresh" }),
     },
-    { ...plain, label: "Delete…", icon: Delete02Icon, danger: true, onSelect: open("delete") },
+    { ...more, label: "Delete…", icon: Delete02Icon, danger: true, onSelect: open("delete") },
   ];
 }

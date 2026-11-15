@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -34,6 +35,7 @@ import (
 	"github.com/jatassi/slipstream/internal/release"
 	"github.com/jatassi/slipstream/internal/roots"
 	"github.com/jatassi/slipstream/internal/roots/rootstest"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/secret"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/storage/storagetest"
@@ -123,6 +125,7 @@ type server struct {
 	homes   *roots.Roots
 	files   *files.Files
 	library *library.Library
+	queued  *queued
 	// targetsChanged and rootsChanged record targets.changed and
 	// roots.changed.
 	targetsChanged *recorder[targets.Changed]
@@ -130,6 +133,32 @@ type server struct {
 	apiKey         string
 	session        string
 	log            *bytes.Buffer
+}
+
+// queued records each Queue call as its trigger and how many Items each
+// Ask names.
+type queued struct {
+	mu    sync.Mutex
+	calls []string
+}
+
+func (q *queued) Queue(_ context.Context, _ *storage.Tx[storage.Library], tr searches.Trigger, asks ...searches.Ask) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	c := []string{string(tr)}
+	for _, a := range asks {
+		c = append(c, strconv.Itoa(len(a.Items)))
+	}
+	q.calls = append(q.calls, strings.Join(c, " "))
+	return nil
+}
+
+func (q *queued) take() []string {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	calls := q.calls
+	q.calls = nil
+	return calls
 }
 
 func serve(t *testing.T) *server {
@@ -205,10 +234,11 @@ func serveAt(t *testing.T, today func() time.Time) *server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sh := shelf{lib: lib, w: w, t: goals, f: shelved, l: library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: homes, Files: shelved, Imports: noImports{}})}
+	asked := &queued{}
+	sh := shelf{lib: lib, w: w, t: goals, f: shelved, l: library.New(library.Config{Library: lib, Works: w, Targets: goals, Roots: homes, Files: shelved, Imports: noImports{}, Queue: asked})}
 	worksapi.Routes(r, sh)
 	filesapi.Routes(r, sh)
-	return &server{handler: r.Handler(), lib: lib, fx: fx, works: w, goals: goals, grabs: cells, homes: homes, files: shelved, library: sh.l, targetsChanged: targetsChanged, rootsChanged: rootsChanged, apiKey: identitytest.APIKey(t, lib), session: admin.Cookie.Value, log: logged}
+	return &server{handler: r.Handler(), lib: lib, fx: fx, works: w, goals: goals, grabs: cells, homes: homes, files: shelved, library: sh.l, queued: asked, targetsChanged: targetsChanged, rootsChanged: rootsChanged, apiKey: identitytest.APIKey(t, lib), session: admin.Cookie.Value, log: logged}
 }
 
 func (s *server) call(t *testing.T, method, path, body string) (status int, reply string) {
@@ -290,9 +320,10 @@ func TestPreviewCatalogRecordAnswersTheAddedTreeAndAddsNothing(t *testing.T) {
 		`"levels":[{"id":"id2","parentId":null,"depth":1,"key":"b1","label":"Winter","position":1,"withdrawnAt":null,"aside":false,"fields":[{"key":"packed","kind":"date","date":"2024-11-02"}],"artwork":[]}],` +
 		`"items":[{"id":"id3","levelId":"id2","key":"c1","label":"Scarf","position":1,"withdrawnAt":null,"monitored":false,"aside":false,"fields":[{"key":"count","kind":"number","number":2},{"key":"runtime","kind":"duration","ms":90000}],"ratings":[],"artwork":[],"availability":{"date":"2000-01-01","basis":""}}]}`
 	code, body := s.call(t, http.MethodGet, "/api/v1/content-types/fixture/catalog/w1", "")
-	presets := `{"asides":0,"choices":[{"preset":"all","monitors":1,"monitorsNew":true,"searches":[]},{"preset":"future","monitors":0,"monitorsNew":true,"searches":[]},` +
-		`{"preset":"missing","monitors":1,"monitorsNew":true,"searches":[]},{"preset":"existing","monitors":0,"monitorsNew":false,"searches":[]},{"preset":"first","monitors":1,"monitorsNew":false,"searches":[]},` +
-		`{"preset":"latest","monitors":1,"monitorsNew":true,"searches":[]},{"preset":"none","monitors":0,"monitorsNew":false,"searches":[]}]}`
+	one, none := searching(1, 1, 1, 1), searching(0, 0, 0, 0)
+	presets := `{"asides":0,"choices":[{"preset":"all","monitors":1,"monitorsNew":true,` + one + `},{"preset":"future","monitors":0,"monitorsNew":true,` + none + `},` +
+		`{"preset":"missing","monitors":1,"monitorsNew":true,` + one + `},{"preset":"existing","monitors":0,"monitorsNew":false,` + none + `},{"preset":"first","monitors":1,"monitorsNew":false,` + one + `},` +
+		`{"preset":"latest","monitors":1,"monitorsNew":true,` + one + `},{"preset":"none","monitors":0,"monitorsNew":false,` + none + `}]}`
 	if want := `{"inLibrary":false,"work":` + tree + `,"presets":` + presets + `}` + "\n"; code != http.StatusOK || masked(body) != want {
 		t.Fatalf("previewCatalogRecord = %d\n%s\nwant\n%s", code, masked(body), want)
 	}
@@ -466,6 +497,10 @@ func TestTypeSettingsRoundTripTheAPI(t *testing.T) {
 		`"Box folders","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":true,"running":true`,
 		`"Box folders","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"switch","value":false,"running":false`, 1)
 	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.asides":true,"fixture.add.levelFolders":false}}`, 200, settings(both, 3, true))
+	latest := strings.Replace(on, `"Search after adding","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"choice","value":"monitored","running":"monitored"`,
+		`"Search after adding","source":"database","applies":"live","isDefault":false,"pendingRestart":false,"kind":"choice","value":"latest_level","running":"latest_level"`, 1)
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.asides":null,"fixture.add.levelFolders":null,"fixture.add.search":"latest_level"}}`, 200, settings(latest, 3, true))
+	expect(t, s, http.MethodPatch, path, `{"values":{"fixture.add.search":null}}`, 200, settings(on, 3, true))
 	expect(t, s, http.MethodGet, "/api/v1/content-types/ghost/settings", "", 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
 	expect(t, s, http.MethodPatch, "/api/v1/content-types/ghost/settings", `{"values":{}}`, 404, `{"status":404,"code":"content_type_not_found","title":"No Content Type has that id"}`)
 }
@@ -476,7 +511,17 @@ func addFields(monitor string, isDefault bool) string {
 	return fmt.Sprintf(`{"key":"fixture.add.monitor","label":"Things to monitor","source":"database","applies":"live","isDefault":%t,"pendingRestart":false,"kind":"choice","value":%q,"running":%q,"default":"all",`+
 		`"options":[{"value":"all","label":"All"},{"value":"future","label":"Future"},{"value":"missing","label":"Missing"},{"value":"existing","label":"Existing"},{"value":"first","label":"First box"},{"value":"latest","label":"Latest box"},{"value":"none","label":"None"}]},`+
 		`{"key":"fixture.add.asides","label":"Include spare boxes","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":false,"running":false,"default":false},`+
-		`{"key":"fixture.add.levelFolders","label":"Box folders","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":true,"running":true,"default":true}`, isDefault, monitor, monitor)
+		`{"key":"fixture.add.levelFolders","label":"Box folders","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"switch","value":true,"running":true,"default":true},`+
+		`{"key":"fixture.add.search","label":"Search after adding","source":"database","applies":"live","isDefault":true,"pendingRestart":false,"kind":"choice","value":"monitored","running":"monitored","default":"monitored",`+
+		`"options":[{"value":"monitored","label":"Everything monitored"},{"value":"first_level","label":"First box"},{"value":"latest_level","label":"Latest box"},{"value":"first_item","label":"First thing"},{"value":"none","label":"Nothing"}]}`, isDefault, monitor, monitor)
+}
+
+// searching is a preset's searches on the wire: what everything
+// monitored, the first level, the latest level and the first Item search
+// of it, and nothing.
+func searching(monitored, first, latest, item int) string {
+	return fmt.Sprintf(`"searches":[{"scope":"monitored","items":%d},{"scope":"first_level","items":%d},{"scope":"latest_level","items":%d},{"scope":"first_item","items":%d},{"scope":"none","items":0}]`,
+		monitored, first, latest, item)
 }
 
 func TestAPlainSourceErrorAnswersInternalAndLogsIt(t *testing.T) {

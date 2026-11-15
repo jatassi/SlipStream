@@ -8,6 +8,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/files"
 	"github.com/jatassi/slipstream/internal/roots"
+	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/targets"
 	"github.com/jatassi/slipstream/internal/works"
@@ -21,6 +22,9 @@ type Config struct {
 	Files   *files.Files
 	Imports Imports
 	Leaver  Leaver
+	// Queue takes the searches an Admin's add and monitoring ask for, in
+	// their Write.
+	Queue searches.Queue
 }
 
 // Leaver hears of the Works a Leave files delete removes, inside the

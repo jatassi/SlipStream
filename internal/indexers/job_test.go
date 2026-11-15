@@ -155,10 +155,17 @@ func (w slowWorld) fetch(t *testing.T) (indexers.Got, error) {
 	return w.x.Fetch(t.Context(), ticket, r.Link)
 }
 
-// setWait stores raw as the search wait.
+// setWait stores raw as the search wait, as the Automatic search section
+// does.
 func (w slowWorld) setWait(t *testing.T, raw string) error {
 	t.Helper()
-	return w.x.Settings().Apply(t.Context(), setting.Patch{indexers.SearchWait.Key: []byte(raw)})
+	v, err := indexers.SearchWait.ParseJSON([]byte(raw))
+	if err != nil {
+		return err
+	}
+	return w.lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
+		return indexers.SetSearchWaitIn(ctx, tx, v)
+	})
 }
 
 // query is the world's Indexer's one query row: its outcome and Releases.
@@ -238,17 +245,16 @@ func TestTheSearchWaitIsStoredFrom10SecondsTo10MinutesInWholeSeconds(t *testing.
 	w := newSlowWorld(t, &slowNode{})
 	wait := func() setting.DurationField {
 		t.Helper()
-		fields, err := w.x.Settings().Fields(t.Context())
+		var v *int64
+		err := w.lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+			var err error
+			v, err = indexers.SearchWaitIn(ctx, r)
+			return err
+		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, f := range fields {
-			if d, ok := f.(setting.DurationField); ok && d.Key == indexers.SearchWait.Key {
-				return d
-			}
-		}
-		t.Fatalf("the Indexer settings %+v hold no search wait", fields)
-		return setting.DurationField{}
+		return indexers.SearchWait.Field(v)
 	}
 	if d := wait(); d.Value != 120 || !d.IsDefault || d.Min != 10 || d.Max != 600 || d.Step != 1 {
 		t.Fatalf("the search wait at first = %+v, want the 2m default from 10s to 10m by the second", d)

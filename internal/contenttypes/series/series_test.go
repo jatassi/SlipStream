@@ -29,8 +29,9 @@ func TestTheLibraryAuditPassesWithSeries(t *testing.T) {
 func TestWorksOpensWithTheSeriesDescription(t *testing.T) {
 	lib := series.Def.OpenLibrary(contenttype.LibraryDeps{Region: metadata.Region, Log: slog.New(slog.DiscardHandler)}, series.Def.Endpoints())
 	w, err := works.Open(t.Context(), works.Config{
-		Library:  storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(series.Def))...),
-		Catalogs: map[works.TypeID]works.Catalog{series.Def.ID(): lib}, Timings: works.DefaultTimings(),
+		ItemsAdded: works.NoItemsAdded,
+		Library:    storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(series.Def))...),
+		Catalogs:   map[works.TypeID]works.Catalog{series.Def.ID(): lib}, Timings: works.DefaultTimings(),
 		Artwork: noPrefetch{}, Changed: discard[works.Changed]{}, Removed: discard[works.Removed]{},
 		TypesChanged: discard[works.ContentTypesChanged]{}, TypeChanged: discard[works.TypeChanged]{},
 		Log: slog.New(slog.DiscardHandler),

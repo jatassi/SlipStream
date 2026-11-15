@@ -3,6 +3,7 @@ package works_test
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -145,5 +146,75 @@ func TestCountPresetsIsEachPresetsSizeWithoutAsides(t *testing.T) {
 	}
 	if want := "all=3/true future=1/true missing=2/true existing=1/false first=2/false latest=2/true none=0/false"; strings.Join(line, " ") != want {
 		t.Errorf("counts are %s, want %s", strings.Join(line, " "), want)
+	}
+}
+
+func TestEachSearchScopePicksAmongTheMonitoredItems(t *testing.T) {
+	tree, facts := grow(true,
+		box{position: 0, aside: true, things: []string{"x1r"}},
+		box{position: 1, things: []string{"a1r", "a2r"}},
+		box{position: 2, things: []string{"b1r", "b2"}},
+		box{position: 3, things: []string{"c1", "c2"}},
+	)
+	for i := range tree.Items {
+		tree.Items[i].Monitored = tree.Items[i].Key != "a1"
+	}
+	for scope, want := range map[works.SearchScope]string{
+		works.SearchMonitored:   "a2 b1 b2 c1 c2 x1",
+		works.SearchFirstLevel:  "a2",
+		works.SearchLatestLevel: "b1 b2",
+		works.SearchFirstItem:   "",
+		works.SearchNone:        "",
+	} {
+		on := map[works.ItemID]bool{}
+		for _, id := range scope.ItemsOf(tree, facts) {
+			on[id] = true
+		}
+		if got := keysOf(tree, on); got != want {
+			t.Errorf("%s with a1 unmonitored searches %q, want %q", scope, got, want)
+		}
+	}
+}
+
+func TestCountPresetsCountsWhatEachScopeSearchesOfEachPreset(t *testing.T) {
+	tree, facts := grow(false,
+		box{position: 0, aside: true, things: []string{"x1r"}},
+		box{position: 1, things: []string{"a1rf", "a2r"}},
+		box{position: 2, things: []string{"b1r", "b2"}},
+	)
+	var line []string
+	for _, c := range works.CountPresets(tree, facts).Choices {
+		var n []string
+		for _, s := range c.Searches {
+			n = append(n, strconv.Itoa(s.Items))
+		}
+		line = append(line, string(c.Preset)+"="+strings.Join(n, "/"))
+	}
+	want := "all=4/2/2/1/0 future=1/0/1/0/0 missing=3/1/2/0/0 existing=1/1/0/1/0 first=2/2/0/1/0 latest=2/0/2/0/0 none=0/0/0/0/0"
+	if got := strings.Join(line, " "); got != want {
+		t.Errorf("monitored/first level/latest level/first item/nothing per preset are %s, want %s", got, want)
+	}
+}
+
+func TestATypeOffersTheSearchScopesItsShapeNames(t *testing.T) {
+	shelves := works.Description{Work: works.Noun{One: "Shelf"}, Levels: []works.Noun{{One: "Box"}}, Item: works.Noun{One: "Clip"}, Items: works.ItemsMany}
+	flat := works.Description{Work: works.Noun{One: "Book"}, Item: works.Noun{One: "Chapter"}, Items: works.ItemsMany}
+	single := works.Description{Work: works.Noun{One: "Lamp"}, Item: works.Noun{One: "Lamp"}, Items: works.ItemsOne}
+	for _, c := range []struct {
+		name string
+		d    works.Description
+		want string
+	}{
+		{"a type with levels", shelves, "Everything monitored, First box, Latest box, First clip, Nothing"},
+		{"a type of many Items without levels", flat, "Everything monitored, First chapter, Nothing"},
+		{"a type of one Item", single, "Everything monitored, Nothing"},
+	} {
+		var labels []string
+		for _, s := range c.d.SearchScopes() {
+			labels = append(labels, c.d.ScopeLabel(s))
+		}
+		if got := strings.Join(labels, ", "); got != c.want {
+			t.Errorf("%s offers %s, want %s", c.name, got, c.want)
+		}
 	}
 }

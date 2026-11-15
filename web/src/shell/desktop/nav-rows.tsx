@@ -1,5 +1,5 @@
 import type { IconSvgElement } from "@hugeicons/react";
-import { Link, type LinkProps } from "@tanstack/react-router";
+import { Link, type LinkProps, useLocation } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { AlertDot, type AlertTone, Count, type CountDot, dotOf } from "../../ui/count";
@@ -7,17 +7,22 @@ import { Icon } from "../../ui/icon";
 import { RowFill } from "../../ui/row-fill";
 import { Tooltip } from "../../ui/tooltip";
 import { type Fill, alertOf, countDots, fillOf, useCounts } from "../counts";
-import type { ShownRow } from "../nav";
+import { type ShownRow, keepsCurrent } from "../nav";
 
 export function NavRows({ rows, collapsed }: { rows: readonly ShownRow[]; collapsed: boolean }) {
   const counts = useCounts();
+  const { pathname } = useLocation();
   return (
     <ul className="flex flex-col gap-0.5">
       {rows.map((row) => (
         <li key={row.id}>
           <Row
-            link={{ to: row.to }}
-            within={row.within}
+            link={{
+              to: row.to,
+              activeOptions: { exact: row.within !== true },
+              ...(Array.isArray(row.within) &&
+                keepsCurrent(row.within, pathname) && { "aria-current": "page" }),
+            }}
             label={row.label}
             icon={row.icon}
             alert={alertOf(counts, row.alert)}
@@ -34,7 +39,7 @@ export function NavRows({ rows, collapsed }: { rows: readonly ShownRow[]; collap
               {row.children.map((child) => (
                 <li key={child.id}>
                   <Row
-                    link={{ to: child.to, params: child.params }}
+                    link={{ to: child.to, params: child.params, activeOptions: { exact: true } }}
                     label={child.label}
                     icon={child.icon}
                     collapsed={collapsed}
@@ -64,7 +69,6 @@ function RowIcon({ icon, dot }: { icon: IconSvgElement; dot: CountDot | undefine
 
 function Row({
   link,
-  within = false,
   label,
   icon,
   alert,
@@ -74,7 +78,6 @@ function Row({
   nested = false,
 }: {
   link: LinkProps;
-  within?: boolean | undefined;
   label: string;
   icon: IconSvgElement;
   alert?: AlertTone | undefined;
@@ -91,7 +94,6 @@ function Row({
   const anchor = (
     <Link
       {...link}
-      activeOptions={{ exact: !within }}
       className={`relative flex h-8 items-center gap-2.5 rounded-item text-body text-ink-2 transition-colors duration-(--duration-control) hover:bg-fill hover:text-ink-1 aria-[current=page]:bg-selected aria-[current=page]:font-medium aria-[current=page]:text-ink-1 ${collapsed ? "justify-center" : nested ? "pr-2.5 pl-8" : "px-2.5"}`}
     >
       <RowIcon icon={icon} dot={collapsed ? (alert ?? shown?.dot) : undefined} />

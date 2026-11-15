@@ -382,7 +382,8 @@ func open(t *testing.T, src works.Source) shelf {
 	sh := shelf{m: library(), lib: storagetest.Library(t, node.LibrarySchemas(contenttype.NewSet(movie.Def))...), sent: &published{}, retyped: &retyped{}}
 	var err error
 	sh.works, err = works.Open(t.Context(), works.Config{
-		Library: sh.lib, Catalogs: map[works.TypeID]works.Catalog{movie.Def.ID(): sh.m}, Timings: works.DefaultTimings(),
+		ItemsAdded: works.NoItemsAdded,
+		Library:    sh.lib, Catalogs: map[works.TypeID]works.Catalog{movie.Def.ID(): sh.m}, Timings: works.DefaultTimings(),
 		Source: src, Artwork: noPrefetch{}, Changed: sh.sent, TypesChanged: discard[works.ContentTypesChanged]{}, TypeChanged: sh.retyped,
 		Log: slog.New(slog.DiscardHandler),
 	})
@@ -1009,6 +1010,7 @@ func TestATypeSettingChangePublishesOneTypeChanged(t *testing.T) {
 	fields := sh.set(t, cinema)
 	want := []setting.Field{
 		setting.Switch{Key: "movie.add.monitor", Label: "New movies are monitored", Default: true}.Field(nil),
+		setting.Switch{Key: "movie.add.search", Label: "Search after adding", Default: true}.Field(nil),
 		movie.CountsAs.Field(ptr(movie.CountsAs.Options[1].Value)),
 		movie.CinemaDelay.Field(ptr(int64(604800))),
 		movie.YearSlack.Field(nil),

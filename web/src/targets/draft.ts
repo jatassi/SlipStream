@@ -50,7 +50,37 @@ export type TargetDraft = {
   readonly sizes: Readonly<Partial<Record<QualityKey, SizeDraft>>>;
   readonly scores: ScoresDraft;
   readonly propers: TargetsTargetPropers;
+  readonly hold: HoldDraft;
 };
+
+export type HoldUnit = "minutes" | "hours" | "days";
+
+/** A Hold as typed: an amount of a unit, 0 for none. */
+export type HoldDraft = { readonly amount: string; readonly unit: HoldUnit };
+
+const unitSeconds: Readonly<Record<HoldUnit, number>> = {
+  minutes: 60,
+  hours: 3600,
+  days: 86_400,
+};
+
+const longestHold = 7 * unitSeconds.days;
+
+export function holdDraftOf(seconds: number): HoldDraft {
+  const whole = (unit: HoldUnit) => seconds > 0 && seconds % unitSeconds[unit] === 0;
+  const unit: HoldUnit = whole("days") ? "days" : whole("hours") ? "hours" : "minutes";
+  return { amount: String(seconds / unitSeconds[unit]), unit };
+}
+
+const holdSecondsOf = ({ amount, unit }: HoldDraft): number => Number(amount) * unitSeconds[unit];
+
+export function holdProblem(hold: HoldDraft): string | undefined {
+  const seconds = holdSecondsOf(hold);
+  if (hold.amount.trim() === "" || !(seconds >= 0 && seconds <= longestHold)) {
+    return "Between 0 and 7 days.";
+  }
+  return Number.isInteger(seconds / unitSeconds.minutes) ? undefined : "In whole minutes.";
+}
 
 const anyRules = (): Record<Attribute, Rule> => ({
   hdr: { mode: "any" },
@@ -89,6 +119,7 @@ export function newDraft(
     sizes: floors(qualities),
     scores: scoresDraftOf({ formats: [], minimum: 0, upgradeUntil: 0, increment: 1 }, formats),
     propers: "prefer_and_upgrade",
+    hold: holdDraftOf(0),
   };
 }
 
@@ -117,6 +148,7 @@ export function draftOf(
     sizes,
     scores: scoresDraftOf(target.scores, formats),
     propers: target.propers,
+    hold: holdDraftOf(target.holdSeconds),
   };
 }
 
@@ -186,6 +218,9 @@ export function problemsOf(draft: TargetDraft): string[] {
   if (scoresProblem(draft.scores)) {
     problems.push("Fix the scores marked below.");
   }
+  if (holdProblem(draft.hold) !== undefined) {
+    problems.push("Fix the Hold marked below.");
+  }
   return problems;
 }
 
@@ -212,5 +247,6 @@ export function bodyOf(draft: TargetDraft): TargetsNewTarget {
     }),
     scores: scoresBody(draft.scores),
     propers: draft.propers,
+    holdSeconds: holdSecondsOf(draft.hold),
   };
 }

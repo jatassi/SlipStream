@@ -200,14 +200,16 @@ func (j judged) reasons() []Reason {
 }
 
 // pick is j as a search grabs it: at its first cell's Edition, for every
-// cell's Target it is grabbable at, with their notes.
+// cell's Target it is grabbable at, with their notes, each once across
+// the Items of a pack.
 func (j judged) pick(c cells) Pick {
 	p := Pick{Release: j.Release, Edition: c.at(j.first).Edition, at: j.at, copies: j.copies}
 	for _, v := range j.verdicts {
-		if v.grabbable() {
-			p.Targets = append(p.Targets, v.target)
-			p.Notes = append(p.Notes, v.reasons()...)
+		if !v.grabbable() || slices.Contains(p.Targets, v.target) {
+			continue
 		}
+		p.Targets = append(p.Targets, v.target)
+		p.Notes = append(p.Notes, v.reasons()...)
 	}
 	return p
 }

@@ -134,7 +134,8 @@ func open(t *testing.T) shelf {
 	}
 	var err error
 	sh.works, err = works.Open(t.Context(), works.Config{
-		Library: sh.lib, Catalogs: map[works.TypeID]works.Catalog{Def.ID(): sh.s}, Timings: works.DefaultTimings(),
+		ItemsAdded: works.NoItemsAdded,
+		Library:    sh.lib, Catalogs: map[works.TypeID]works.Catalog{Def.ID(): sh.s}, Timings: works.DefaultTimings(),
 		Source: sh.src, Artwork: noPrefetch{}, Changed: sh.sent, TypesChanged: discard[works.ContentTypesChanged]{},
 		TypeChanged: discard[works.TypeChanged]{}, Removed: discard[works.Removed]{}, Log: slog.New(slog.DiscardHandler),
 	})

@@ -646,6 +646,19 @@ One Work in the Library grid. Its poster is 2:3 on `glass-raised` with radius 14
 
 Posters fill the width in equal columns at least 120px (small), 160px (medium, the default) or 240px (large) wide, 16px apart both ways, so a phone shows two to a row. Each section of the sort opens on its name in Heading, with its count in Label at `ink-3` and tabular numerals. The grid draws only the rows near the window's view, so 20,000 Works scroll as smoothly as 20, and a change to one Work redraws only its card. The arrow keys move between posters, up and down keep the column across section headings, Home and End go to the first and last, Enter opens a Work and Space picks it. The table view is a table from Lists and tables with one row per Work and the same marks. The Library is a screen with no Work, so its tint is neutral.
 
+### Wanted
+
+The page under Library that lists what SlipStream is searching for, at `/library/wanted` for every Content Type and `/library/wanted/<type>` for one. It is a Library page, not a nav destination: the Library nav row stays current on it, and the phone pushes it with a "Library" back link. It reuses the Library's parts and adds none of its own.
+
+- **Order.** The Library's Content Type links (All, then each enabled type) sit beside the title. The Status sentence leads the content with what the queue is doing ("3 searching · 142 queued · Next Backlog search Tonight at 22:00"), then one warning part per Indexer whose search limit holds searches, linked to that Indexer. Under it sit the reason chips, the Sort menu and the page's actions, then the table.
+- **Reason chips.** One 24px toggle chip per reason (Failed, Missing, Upgrade available, File gone) in that order. A pressed chip is `selected` with `ink-1`, an unpressed one `fill` with `ink-2`. The default presses every reason but File gone. At least one stays pressed. On phone the chips scroll sideways in one row.
+- **Actions.** "Search 140 Works" for the filtered total is the page's one primary button, and the only one on phone. Above 100 Works it asks first in a Dialog (a bottom sheet on phone). Cancel queued searches is a default button after the Sort menu, shown only while searches are queued.
+- **Table.** Lists and tables' table, 60px two-line rows. Work (the poster and label, as in the Library's table), Items (ranges such as "S02E01 to S02E08"), Reason ("Missing. 3 upgrades."), Last searched ("Found nothing on Mon at 09:12"), Next search ("Tomorrow at 14:00", "Searching" with the spinner, "Queued", "Only when you search"), then a small Search button and a "…" menu with Manual search and Open Work. Items hides below 900px of the table's width and Last searched below 760px.
+- **Phone.** An inset list of two-line touch rows. The title is the Work, and the second line reads the reason, the Items and the next search as one sentence ("Missing. S02E01 to S02E08. Next search Tomorrow at 14:00."). A row opens an action sheet with Search, Manual search and Open Work.
+- **Paging.** 100 rows a page. "Load more" ends the table on desktop, and the next page loads as the end scrolls into view on phone.
+- **Empty.** "Nothing is wanted." in the Empty pattern.
+- **Entry.** A row above the Library grid beside Pending imports, "1,204 wanted. 12 failed.", shown while anything is wanted, and the command "Open Wanted".
+
 ### Status marks
 
 A Work's status is a mark of a word and an icon, so colour never carries it alone. Marks are Meta with 14px icons.

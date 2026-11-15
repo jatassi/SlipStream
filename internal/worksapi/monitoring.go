@@ -138,7 +138,11 @@ func (h handlers) setWorksMonitoring(ctx context.Context, by identity.Admin, in 
 func presetCountsOf(c works.PresetCounts) presetCounts {
 	out := presetCounts{Asides: c.Asides, Choices: make([]presetCount, len(c.Choices))}
 	for i, p := range c.Choices {
-		out.Choices[i] = presetCount{Preset: string(p.Preset), Monitors: p.Monitors, MonitorsNew: p.MonitorsNew, Searches: []scopeCount{}}
+		c := presetCount{Preset: string(p.Preset), Monitors: p.Monitors, MonitorsNew: p.MonitorsNew, Searches: make([]scopeCount, len(p.Searches))}
+		for j, sc := range p.Searches {
+			c.Searches[j] = scopeCount{Scope: string(sc.Scope), Items: sc.Items}
+		}
+		out.Choices[i] = c
 	}
 	return out
 }

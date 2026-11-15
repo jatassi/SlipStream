@@ -127,7 +127,7 @@ func withdrawnBy(ctx context.Context, tx *storage.Tx[file], c Catalog, id WorkID
 	if err != nil {
 		return 0, err
 	}
-	if _, err := converge(ctx, tx, c, id, *p, storage.Now()); err != nil {
+	if _, _, err := converge(ctx, tx, c, id, *p, storage.Now()); err != nil {
 		return 0, err
 	}
 	after, err := liveItems(ctx, q, id)
