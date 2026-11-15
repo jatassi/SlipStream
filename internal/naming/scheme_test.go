@@ -222,7 +222,7 @@ func TestNameShrinksOnlyItemTitles(t *testing.T) {
 	if !errors.As(err, &long) || long.Segment != "" || long.Limit != 70 {
 		t.Fatalf("Name in 70 bytes = %v; want a *TooLongError for the path", err)
 	}
-	if want := "the path in the root is 91 bytes long and the limit there is 70 bytes"; err.Error() != want {
+	if want := "the path in the root is 91 bytes, and the root allows 70"; err.Error() != want {
 		t.Errorf("Error() = %q; want %q", err, want)
 	}
 }

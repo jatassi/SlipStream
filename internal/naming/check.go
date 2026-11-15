@@ -14,7 +14,7 @@ import (
 const sampleExt = ".mkv"
 
 // fileSample is one of the core's files a type's samples are crossed
-// with. bare marks the one with no release facts, which a Missing sample
+// with. bare marks the one with no release details, which a Missing sample
 // pairs with alone.
 type fileSample struct {
 	label string
@@ -26,7 +26,7 @@ var fileSamples = []fileSample{
 	{label: "a Standard file", facts: FileFacts{Target: "1080p"}},
 	{label: "a cut", facts: FileFacts{Target: "4K HDR", Cut: "Director's Cut"}},
 	{label: "a Kept file", facts: FileFacts{Target: "1080p (extra 1)"}},
-	{label: "every release fact", facts: FileFacts{
+	{label: "every release detail", facts: FileFacts{
 		Target:  "4K HDR (extra 2)",
 		Cut:     "Extended",
 		Release: "The.Quiet.Orchard.2021.2160p.UHD.BluRay.REMUX.DV.HDR10.HEVC.TrueHD.Atmos.7.1-FLUX",
@@ -48,7 +48,7 @@ var fileSamples = []fileSample{
 			Subtitles: []media.Subtitle{{Language: "en"}, {Language: "de"}, {Language: "fr"}, {Language: "ja"}},
 		},
 	}},
-	{label: "no release facts", facts: FileFacts{Target: "1080p"}, bare: true},
+	{label: "no release details", facts: FileFacts{Target: "1080p"}, bare: true},
 }
 
 // check judges s as one save would leave it, naming samples within
@@ -137,7 +137,7 @@ func (s *Scheme) holds(v int) []string {
 	}
 	var out []string
 	if !target {
-		out = append(out, "The file name has no {Target}. Add {Target} so each file of a Work gets its own name.")
+		out = append(out, "The file name has no {Target}. Add {Target} so the file for each Target gets its own name.")
 	}
 	if !edition {
 		out = append(out, "The file name has no Edition token. Add {Edition Tag} or {Edition} so each cut gets its own name.")
@@ -175,7 +175,7 @@ type crossing struct {
 
 // crossings are the type's samples that name with variant v, each
 // crossed with the core's file samples: a Missing sample with the file
-// that has no release facts, every other with the rest. A sample whose
+// that has no release details, every other with the rest. A sample whose
 // first Item can't take v names with the first variant, which is judged
 // on its own.
 func (s *Scheme) crossings(v int) iter.Seq[crossing] {

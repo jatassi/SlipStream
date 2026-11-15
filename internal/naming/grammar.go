@@ -238,9 +238,9 @@ func modOf(text string) (m mod, cause, fix string) {
 	case n == 0 && !fromEnd:
 		return padding(len(digits)), "", ""
 	case err != nil || n > maxWidth:
-		return nil, fmt.Sprintf("cuts to more than %d bytes", maxWidth), fmt.Sprintf("Use a number from 1 to %d, the most a name can hold.", maxWidth)
+		return nil, fmt.Sprintf("allows more than %d bytes", maxWidth), fmt.Sprintf("Use a number from 1 to %d, the longest a name can be.", maxWidth)
 	case n == 0:
-		return nil, "cuts the value to 0 bytes", fmt.Sprintf("Use a number from 1 to %d.", maxWidth)
+		return nil, "shortens the value to 0 bytes", fmt.Sprintf("Use a number from 1 to %d.", maxWidth)
 	}
 	return cut{bytes: n, fromEnd: fromEnd}, "", ""
 }
