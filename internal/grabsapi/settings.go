@@ -7,6 +7,7 @@ import (
 
 	"github.com/jatassi/slipstream/internal/api"
 	"github.com/jatassi/slipstream/internal/identity"
+	"github.com/jatassi/slipstream/internal/setting"
 	"github.com/jatassi/slipstream/internal/settingapi"
 )
 
@@ -28,7 +29,6 @@ var getSearchSettingsOp = api.Op{
 	Path:    "/search-settings",
 	Summary: "Get the Automatic search settings",
 	Status:  http.StatusOK,
-	Errors:  []*api.Code{notYet},
 }
 
 var updateSearchSettingsOp = api.Op{
@@ -37,13 +37,25 @@ var updateSearchSettingsOp = api.Op{
 	Path:    "/search-settings",
 	Summary: "Change Automatic search settings by key, all or none",
 	Status:  http.StatusOK,
-	Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown, notYet},
+	Errors:  []*api.Code{settingapi.ErrOutOfRange, settingapi.ErrUnknown},
 }
 
-func (handlers) getSearchSettings(context.Context, identity.Admin, *struct{}) (*searchSettingsOutput, error) {
-	return nil, notYet
+func (h handlers) getSearchSettings(ctx context.Context, _ identity.Admin, _ *struct{}) (*searchSettingsOutput, error) {
+	return searchSettingsOf(ctx, open(h.p).Settings())
 }
 
-func (handlers) updateSearchSettings(context.Context, identity.Admin, *searchSettingsInput) (*searchSettingsOutput, error) {
-	return nil, notYet
+func (h handlers) updateSearchSettings(ctx context.Context, _ identity.Admin, in *searchSettingsInput) (*searchSettingsOutput, error) {
+	p := open(h.p).Settings()
+	if err := p.Apply(ctx, in.Body.Values); err != nil {
+		return nil, settingapi.Refused(err)
+	}
+	return searchSettingsOf(ctx, p)
+}
+
+func searchSettingsOf(ctx context.Context, p setting.Panel) (*searchSettingsOutput, error) {
+	fields, err := p.Fields(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &searchSettingsOutput{Body: searchSettings{Settings: settingapi.FieldsOf(fields)}}, nil
 }

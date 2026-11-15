@@ -376,32 +376,24 @@ func TestAnIndexerSaysItWaitsForItsHomeUntilTheGrace(t *testing.T) {
 
 func TestTheSettingsChangeAllOrNone(t *testing.T) {
 	s := serve(t, indexerstest.Alone(self), role.NodeID{})
-	field := func(wait, backoff int) string {
-		about := func(value, def int) string {
-			v := strconv.Itoa(value)
-			return `"source":"database","applies":"live","isDefault":` + strconv.FormatBool(value == def) +
-				`,"pendingRestart":false,"kind":"duration","value":` + v + `,"running":` + v + `,"default":` + strconv.Itoa(def)
-		}
-		return `{"settings":[{"key":"indexers.searchWait","label":"Wait for each Indexer up to",` + about(wait, 120) + `,"min":10,"max":600,"step":1},` +
-			`{"key":"indexers.longBackoff","label":"Warn when every request has failed for",` + about(backoff, 21600) + `,"min":3600,"max":604800,"step":3600}]}`
+	field := func(backoff int) string {
+		v := strconv.Itoa(backoff)
+		return `{"settings":[{"key":"indexers.longBackoff","label":"Warn when every request has failed for","source":"database","applies":"live","isDefault":` +
+			strconv.FormatBool(backoff == 21600) + `,"pendingRestart":false,"kind":"duration","value":` + v + `,"running":` + v + `,"default":21600,"min":3600,"max":604800,"step":3600}]}`
 	}
-	s.owner.Expect(t, http.MethodGet, "/api/v1/indexer-settings", "", http.StatusOK, field(120, 21600))
-	s.owner.Expect(t, http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.longBackoff":7200,"indexers.searchWait":45}}`, http.StatusOK, field(45, 7200))
+	s.owner.Expect(t, http.MethodGet, "/api/v1/indexer-settings", "", http.StatusOK, field(21600))
+	s.owner.Expect(t, http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.longBackoff":7200}}`, http.StatusOK, field(7200))
 	for _, refused := range []string{
 		`{"values":{"indexers.longBackoff":60}}`,
-		`{"values":{"indexers.longBackoff":3600,"indexers.searchWait":9}}`,
-		`{"values":{"indexers.longBackoff":3600,"indexers.searchWait":601}}`,
+		`{"values":{"indexers.longBackoff":3600,"indexers.searchWait":45}}`,
+		`{"values":{"indexers.longBackoff":3600,"indexers.other":1}}`,
 	} {
 		if code, _ := s.owner.Call(t, http.MethodPatch, "/api/v1/indexer-settings", refused); code != http.StatusUnprocessableEntity {
 			t.Fatalf("PATCH %s answered %d, want 422", refused, code)
 		}
 	}
-	code, _ := s.owner.Call(t, http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.longBackoff":3600,"indexers.other":1}}`)
-	if code == http.StatusOK {
-		t.Fatal("a patch with an unknown key was applied")
-	}
-	s.owner.Expect(t, http.MethodGet, "/api/v1/indexer-settings", "", http.StatusOK, field(45, 7200))
-	s.owner.Expect(t, http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.longBackoff":null,"indexers.searchWait":null}}`, http.StatusOK, field(120, 21600))
+	s.owner.Expect(t, http.MethodGet, "/api/v1/indexer-settings", "", http.StatusOK, field(7200))
+	s.owner.Expect(t, http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.longBackoff":null}}`, http.StatusOK, field(21600))
 }
 
 func TestAnIndexerListsTheTrackersItReaches(t *testing.T) {

@@ -12893,7 +12893,7 @@
         "additionalProperties": false,
         "properties": {
           "settings": {
-            "description": "How long a search waits for each Indexer, and how long every request to an Indexer may fail before Health warns",
+            "description": "How long every request to an Indexer may fail before Health warns",
             "items": {
               "$ref": "#/components/schemas/SettingField"
             },
@@ -63007,31 +63007,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "not_yet"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
@@ -63201,31 +63176,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "not_yet"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
