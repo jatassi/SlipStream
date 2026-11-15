@@ -409,15 +409,19 @@ func (l Library) checkIndexers(add func(format string, args ...any)) {
 			add("library indexer %s takes settings, which only a catalog or native Indexer has", ix.Name)
 		}
 		ix.checkPort(add)
-		if ix.Priority < 0 || ix.Priority > 50 {
-			add("library indexer %s has priority %d; it is 1 to 50, or 0 for the default", ix.Name, ix.Priority)
-		}
-		if ix.SearchesAtOnce < 0 || ix.SearchesAtOnce > 10 {
-			add("library indexer %s has searches_at_once %d; it is 1 to 10, or 0 for the default", ix.Name, ix.SearchesAtOnce)
-		}
-		if l := ix.Limit; l != nil && (l.Count < 1 || l.Count > 100000 || (l.Per != "hour" && l.Per != "day")) {
-			add("library indexer %s has a limit of %d per %q; it is 1 to 100000 per hour or day", ix.Name, l.Count, l.Per)
-		}
+		ix.checkPacing(add)
+	}
+}
+
+func (ix LibraryIndexer) checkPacing(add func(format string, args ...any)) {
+	if ix.Priority < 0 || ix.Priority > 50 {
+		add("library indexer %s has priority %d; it is 1 to 50, or 0 for the default", ix.Name, ix.Priority)
+	}
+	if ix.SearchesAtOnce < 0 || ix.SearchesAtOnce > 10 {
+		add("library indexer %s has searches_at_once %d; it is 1 to 10, or 0 for the default", ix.Name, ix.SearchesAtOnce)
+	}
+	if limit := ix.Limit; limit != nil && (limit.Count < 1 || limit.Count > 100000 || (limit.Per != "hour" && limit.Per != "day")) {
+		add("library indexer %s has a limit of %d per %q; it is 1 to 100000 per hour or day", ix.Name, limit.Count, limit.Per)
 	}
 }
 

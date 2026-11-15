@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -31,21 +32,17 @@ func values(t *testing.T, f *atticFixture) map[string]any {
 	return out
 }
 
+// defaults is every Automatic search setting at its default.
+var defaults = map[string]any{
+	"search.backlogOn": true, "search.backlogUpgrades": true, "search.rssOn": true,
+	"search.longestGap": 604800.0, "search.fullPace": 1209600.0, "search.stopCount": 3.0, "search.stopWindow": 604800.0,
+	"indexers.searchWait": 120.0,
+}
+
 func TestTheSearchSettingsListEveryKeyWithItsDefault(t *testing.T) {
 	f := searchable(t, site{})
-	want := map[string]any{
-		"search.backlogOn": true, "search.backlogUpgrades": true, "search.rssOn": true,
-		"search.longestGap": 604800.0, "search.fullPace": 1209600.0, "search.stopCount": 3.0, "search.stopWindow": 604800.0,
-		"indexers.searchWait": 120.0,
-	}
-	got := values(t, f)
-	for key, v := range want {
-		if got[key] != v {
-			t.Errorf("%s = %v, want %v", key, got[key], v)
-		}
-	}
-	if len(got) != len(want) {
-		t.Errorf("getSearchSettings lists %d settings, want %d: %v", len(got), len(want), got)
+	if got := values(t, f); !reflect.DeepEqual(got, defaults) {
+		t.Fatalf("getSearchSettings = %v, want %v", got, defaults)
 	}
 }
 
@@ -75,9 +72,8 @@ func TestASearchSettingsChangeOutsideARangeChangesNothing(t *testing.T) {
 	if want := `"code":"unknown_setting"`; code != http.StatusUnprocessableEntity || !strings.Contains(body, want) {
 		t.Errorf("an unknown key = %d %s, want 422 %s", code, body, want)
 	}
-	got := values(t, f)
-	if got["search.backlogOn"] != true || got["search.rssOn"] != true || got["search.stopCount"] != 3.0 || got["indexers.searchWait"] != 120.0 {
-		t.Fatalf("after refused changes the settings read %v, want every default", got)
+	if !reflect.DeepEqual(values(t, f), defaults) {
+		t.Fatalf("after refused changes the settings read %v, want every default %v", values(t, f), defaults)
 	}
 }
 
@@ -102,7 +98,7 @@ func TestASearchSettingsChangeStoresEveryValueAndNullResetsIt(t *testing.T) {
 	if code, body := f.s.Call(t, http.MethodPatch, "/api/v1/search-settings", reset); code != http.StatusOK {
 		t.Fatalf("PATCH %s = %d %s", reset, code, body)
 	}
-	if got := values(t, f); got["search.backlogOn"] != true || got["indexers.searchWait"] != 120.0 || got["search.rssOn"] != false {
+	if got := values(t, f); got["search.backlogOn"] != defaults["search.backlogOn"] || got["indexers.searchWait"] != defaults["indexers.searchWait"] || got["search.rssOn"] == defaults["search.rssOn"] {
 		t.Fatalf("after the reset the settings read %v, want Backlog search on, a 120 s wait and RSS sync still off", got)
 	}
 }
