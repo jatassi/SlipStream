@@ -118,7 +118,8 @@ func openOver(t *testing.T, lib *storage.DB[storage.Library]) *files.Files {
 	t.Helper()
 	fx := contenttypetest.New()
 	w, err := works.Open(t.Context(), works.Config{
-		Library: lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
+		ItemsAdded: works.NoItemsAdded,
+		Library:    lib, Catalogs: map[works.TypeID]works.Catalog{contenttypetest.ID: fx}, Source: fx.Source(), Artwork: fx,
 		Changed: discard[works.Changed]{}, TypesChanged: discard[works.ContentTypesChanged]{},
 	})
 	if err != nil {

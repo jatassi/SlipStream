@@ -45,6 +45,9 @@ SELECT * FROM works_item WHERE id = sqlc.arg(id);
 -- name: ListItems :many
 SELECT * FROM works_item WHERE work_id = sqlc.arg(work_id) ORDER BY withdrawn_at IS NOT NULL, position, id;
 
+-- name: ListWorksOfItems :many
+SELECT work_id, id FROM works_item WHERE id IN (sqlc.slice(ids)) ORDER BY work_id, position, id;
+
 -- name: ListItemsOfWorks :many
 SELECT * FROM works_item WHERE work_id IN (sqlc.slice(work_ids)) ORDER BY work_id, withdrawn_at IS NOT NULL, position, id;
 

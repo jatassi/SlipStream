@@ -261,9 +261,14 @@ func TestMusicPresets(t *testing.T) {
 		Presets json.RawMessage `json:"presets"`
 	}
 	decode(t, "previewCatalogRecord", a.Admin("home", http.MethodGet, "/api/v1/content-types/music/catalog/"+lanterns, ""), &preview)
-	if want := `{"asides":0,"choices":[{"preset":"all","monitors":5,"monitorsNew":true,"searches":[]},{"preset":"future","monitors":0,"monitorsNew":true,"searches":[]},` +
-		`{"preset":"missing","monitors":5,"monitorsNew":true,"searches":[]},{"preset":"existing","monitors":0,"monitorsNew":false,"searches":[]},{"preset":"first","monitors":3,"monitorsNew":false,"searches":[]},` +
-		`{"preset":"latest","monitors":2,"monitorsNew":true,"searches":[]},{"preset":"none","monitors":0,"monitorsNew":false,"searches":[]}]}`; string(preview.Presets) != want {
+	searching := func(monitored, first, latest, item int) string {
+		return fmt.Sprintf(`"searches":[{"scope":"monitored","items":%d},{"scope":"first_level","items":%d},{"scope":"latest_level","items":%d},{"scope":"first_item","items":%d},{"scope":"none","items":0}]`,
+			monitored, first, latest, item)
+	}
+	every, none := searching(5, 3, 2, 1), searching(0, 0, 0, 0)
+	if want := `{"asides":0,"choices":[{"preset":"all","monitors":5,"monitorsNew":true,` + every + `},{"preset":"future","monitors":0,"monitorsNew":true,` + none + `},` +
+		`{"preset":"missing","monitors":5,"monitorsNew":true,` + every + `},{"preset":"existing","monitors":0,"monitorsNew":false,` + none + `},{"preset":"first","monitors":3,"monitorsNew":false,` + searching(3, 3, 0, 1) + `},` +
+		`{"preset":"latest","monitors":2,"monitorsNew":true,` + searching(2, 0, 2, 0) + `},{"preset":"none","monitors":0,"monitorsNew":false,` + none + `}]}`; string(preview.Presets) != want {
 		t.Fatalf("the preview's presets are %s, want %s", preview.Presets, want)
 	}
 

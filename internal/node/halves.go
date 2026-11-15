@@ -134,6 +134,7 @@ func (n *Node) startController(ctx context.Context) error {
 		seeding      *trackers.Trackers
 		pipeline     *grabs.Grabs
 		scheduler    *tasks.Scheduler
+		searchQueue  searches.Queue = searches.None{}
 	)
 	clients := downloadclients.New(downloadclients.Config{
 		Library:      lib.db,
@@ -321,6 +322,9 @@ func (n *Node) startController(ctx context.Context) error {
 		TypesChanged: works.ContentTypesChangedEvent.Bind(n.hub),
 		TypeChanged:  typeChanged,
 		Log:          n.rootLog.With("subsystem", "works"),
+		ItemsAdded: func(ctx context.Context, tx *storage.Tx[storage.Library], work works.WorkID, items []works.ItemID) error {
+			return searchQueue.Queue(ctx, tx, searches.Refresh, searches.Ask{Work: work, Items: items})
+		},
 	})
 	if err != nil {
 		return err
@@ -415,7 +419,6 @@ func (n *Node) startController(ctx context.Context) error {
 		Library: lib.db, Facets: contenttype.Project(opened, func(t contenttype.Library) naming.Facet { return t }),
 		Describe: tree.Describe, Budget: roots.SmallestBudget, Changed: naming.ChangedEvent.Bind(n.hub),
 	})
-	var searchQueue searches.Queue = searches.None{}
 	shelf, err := files.Open(ctx, files.Config{
 		Queue:   searchQueue,
 		Library: lib.db, Targets: goals, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: side.InStep, Router: router}}, Transfers: transfers.LiveIn, MediaServers: servers,
@@ -496,7 +499,7 @@ func (n *Node) startController(ctx context.Context) error {
 	if err := found.Carry(ctx); err != nil {
 		return err
 	}
-	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found})
+	composer = library.New(library.Config{Library: lib.db, Works: tree, Targets: goals, Roots: homes, Files: shelf, Imports: found, Leaver: found, Queue: searchQueue})
 
 	started := Half{Link: n.link, Dispatch: dispatch, Local: local, Library: lib.db, Controls: controls, Cluster: cluster, Clients: clients, Imports: found}
 	scheduler, err = tasks.Open(ctx, tasks.Config{
