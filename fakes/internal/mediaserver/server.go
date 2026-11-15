@@ -41,9 +41,6 @@ type Behavior struct {
 	// does nothing (#101, recorded run 2026-11-14). Off, the nearest folder
 	// on disk is scanned.
 	ResolvesNearestItem bool
-	// DeletesAtOnce is Emby taking a Deleted report without the monitor
-	// delay (#101).
-	DeletesAtOnce bool
 	// FreshSectionIgnores is Plex ignoring a partial scan into a section
 	// never scanned with content in it (#101 P9).
 	FreshSectionIgnores bool

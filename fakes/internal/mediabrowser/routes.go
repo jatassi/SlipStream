@@ -179,7 +179,7 @@ func (s *server) updated(w http.ResponseWriter, r *http.Request, _ caller) {
 		return
 	}
 	rec := Report{Updates: []ReportedPath{}}
-	var updates []mediaserver.Update
+	var paths []link.ServerPath
 	for _, u := range in.Updates {
 		p, err := link.ParsePath(u.Path)
 		if err != nil {
@@ -187,10 +187,10 @@ func (s *server) updated(w http.ResponseWriter, r *http.Request, _ caller) {
 			return
 		}
 		rec.Updates = append(rec.Updates, ReportedPath{Path: p.String(), UpdateType: u.UpdateType})
-		updates = append(updates, mediaserver.Update{Path: p, Deleted: u.UpdateType == "Deleted"})
+		paths = append(paths, p)
 	}
 	s.reports.Record(r.Context(), rec)
-	s.core.Report(updates)
+	s.core.Report(paths)
 	w.WriteHeader(http.StatusNoContent)
 }
 

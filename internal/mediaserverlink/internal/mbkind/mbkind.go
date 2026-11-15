@@ -2,7 +2,7 @@
 // the one wire client, with the few places the products differ held as
 // data on the family. Jellyfin drops pending path reports when a full scan
 // starts, so its reports wait out a running scan and settle one monitor
-// delay later. Emby takes a Deleted report at once.
+// delay later.
 package mbkind
 
 import (
@@ -25,9 +25,6 @@ type family struct {
 	// scanDropsReports is Jellyfin's: a full scan or a folder change drops
 	// the reports still inside their monitor delay.
 	scanDropsReports bool
-	// deletesAtOnce is Emby's: a Deleted report removes its item without
-	// waiting out the monitor delay (#101).
-	deletesAtOnce bool
 	// favoriteApart is Emby's: a UserData write keeps the favorite the item
 	// had, and only FavoriteItems sets it (online run 2026-11-14).
 	favoriteApart bool
@@ -45,7 +42,6 @@ var (
 	Emby link.Kind = family{
 		about:         link.About{Name: "emby", Label: "Emby", Form: link.SignInKeyOrAdmin, Browser: true, Floor: link.MustVersion("4.10")},
 		flavor:        jellyfin.Emby,
-		deletesAtOnce: true,
 		favoriteApart: true,
 		details:       "/web/index.html#!/item",
 	}

@@ -59,7 +59,7 @@ var product = mediabrowser.Product{
 	Name: name, Flavor: mediabrowser.Emby, ProductName: "Emby Server",
 	TaskName: "Scan media library", TaskID: "6330ee8fb4a957f33981f89aa78b030f",
 	Behavior: mediaserver.Behavior{
-		MonitorDelay: 90 * time.Second, DeletesAtOnce: true, ItemPerFile: true, NewIDOnPathChange: true,
+		MonitorDelay: 90 * time.Second, ItemPerFile: true, NewIDOnPathChange: true,
 		Carry: mediaserver.CarryEitherOrder, PurgesVacated: true, ScanTime: time.Second,
 	},
 }

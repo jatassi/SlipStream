@@ -350,8 +350,9 @@ func TestEmbyAcceptsAReportWithoutSettling(t *testing.T) {
 		if len(as) != 1 || outcomes(as)[ch.ID].Result != link.ResultAccepted {
 			t.Errorf("steps = %+v, want one accepted step", as)
 		}
+		time.Sleep(w.checked.MonitorDelay + 5*time.Second)
 		if _, ok := w.item("Movies/Metropolis (1927)/Metropolis (1927).mkv"); ok {
-			t.Error("Emby still holds the deleted item")
+			t.Error("Emby still holds the deleted item after its monitor delay")
 		}
 	})
 }

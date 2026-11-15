@@ -45,7 +45,7 @@ func Run(t *testing.T, tg Target) {
 		{"VersionsAreItems", VersionsAreItems},
 		{"RefreshStatusReturnsToIdle", RefreshStatusReturnsToIdle},
 		{"UserDataDropsFavorite", UserDataDropsFavorite},
-		{"DeletedLeavesAtOnce", DeletedLeavesAtOnce},
+		{"DeletedWaitsTheDelay", DeletedWaitsTheDelay},
 		{"TranscodeAfterReport", TranscodeAfterReport},
 		{"KeyCreated", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.KeyCreated(t) }},
 		{"SocketPushesSessions", func(t *testing.T, _ Target, _ mediaservers.Target, s *mediabrowser.Server) { s.SocketPushesSessions(t) }},
@@ -190,9 +190,10 @@ func UserDataDropsFavorite(t *testing.T, _ Target, shared mediaservers.Target, s
 	}
 }
 
-// DeletedLeavesAtOnce is #101's delete timing: a Deleted report removes
-// the item without the monitor delay.
-func DeletedLeavesAtOnce(t *testing.T, _ Target, shared mediaservers.Target, s *mediabrowser.Server) {
+// DeletedWaitsTheDelay is a Deleted report on Emby 4.10: the item is
+// still there half the monitor delay after it, as after any report
+// (online run 2026-11-14), and gone once the delay has passed.
+func DeletedWaitsTheDelay(t *testing.T, _ Target, shared mediaservers.Target, s *mediabrowser.Server) {
 	cfg, err := s.C.Configuration(t.Context())
 	if err != nil {
 		t.Fatal(err)
@@ -205,12 +206,11 @@ func DeletedLeavesAtOnce(t *testing.T, _ Target, shared mediaservers.Target, s *
 	f.Found(r)
 	f.Remove(r)
 	f.Tell(r)
-	quick := shared
-	quick.Bound = cfg.MonitorDelay / 2
-	mediaservers.Eventually(t, quick, "the deleted file's item gone inside half the monitor delay", func() (bool, error) {
-		_, ok, err := shared.Server.ItemAt(t.Context(), shared.Library, f.At(r))
-		return !ok, err
-	})
+	time.Sleep(cfg.MonitorDelay / 2)
+	if _, ok, err := shared.Server.ItemAt(t.Context(), shared.Library, f.At(r)); err != nil || !ok {
+		t.Fatalf("the deleted file's item went inside half the monitor delay (err %v)", err)
+	}
+	f.Gone(r)
 }
 
 // TranscodeAfterReport plays a transcode whose player hasn't reported its

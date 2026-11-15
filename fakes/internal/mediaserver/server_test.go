@@ -20,7 +20,7 @@ var (
 		NewIDOnPathChange: true, Carry: mediaserver.CarryRemovedFirst, PurgesVacated: true, ScanTime: time.Second,
 	}
 	emby = mediaserver.Behavior{
-		MonitorDelay: 90 * time.Second, DeletesAtOnce: true, ItemPerFile: true, NewIDOnPathChange: true,
+		MonitorDelay: 90 * time.Second, ItemPerFile: true, NewIDOnPathChange: true,
 		Carry: mediaserver.CarryEitherOrder, PurgesVacated: true, ScanTime: time.Second,
 	}
 )
@@ -101,7 +101,7 @@ func (w world) refresh(folder string) {
 
 func (w world) report(rel string) {
 	w.t.Helper()
-	w.s.Report([]mediaserver.Update{{Path: path(w.t, "/media/"+rel)}})
+	w.s.Report([]link.ServerPath{path(w.t, "/media/"+rel)})
 }
 
 func (w world) scan() {
@@ -567,7 +567,7 @@ func moveTagged(w world, removedFirst bool) mediaserver.Item {
 		order = []string{tagged, taggedMoved}
 	}
 	for _, rel := range order {
-		w.s.Report([]mediaserver.Update{{Path: path(w.t, "/media/"+rel), Deleted: rel == tagged}})
+		w.report(rel)
 		w.settle()
 	}
 	now, ok := w.item(taggedMoved)
@@ -604,13 +604,19 @@ func TestEmbyCarriesWatchDataByProviderIDInEitherOrder(t *testing.T) {
 	}
 }
 
-func TestEmbyRemovesADeletedFileAtOnce(t *testing.T) {
+func TestEmbyRemovesADeletedFileAfterItsDelay(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		w := newWorld(t, emby, true, metropolis)
 		w.remove(metropolis)
-		w.s.Report([]mediaserver.Update{{Path: path(t, "/media/"+metropolis), Deleted: true}})
+		w.report(metropolis)
+		time.Sleep(45 * time.Second)
+		synctest.Wait()
+		if !w.has(metropolis) {
+			t.Fatal("Emby removed a deleted file inside half its delay")
+		}
+		w.settle()
 		if w.has(metropolis) {
-			t.Fatal("Emby waited its delay to remove a Deleted file")
+			t.Fatal("Emby still holds a deleted file after its delay")
 		}
 	})
 }

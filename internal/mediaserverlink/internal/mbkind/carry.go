@@ -130,11 +130,7 @@ func reportOld(ctx context.Context, c *conn, j link.Job, w link.Carry) (link.Adv
 			return link.Advanced{}, err
 		}
 	}
-	wait := c.d.MonitorDelay
-	if c.f.deletesAtOnce {
-		wait = c.d.Timings.StepPoll
-	}
-	return waitFor(reached(j, link.StepOldRemoved, w), wait), nil
+	return waitFor(reached(j, link.StepOldRemoved, w), c.d.MonitorDelay), nil
 }
 
 // past is whether bound has passed since j reached its step, counted from

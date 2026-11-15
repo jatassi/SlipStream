@@ -308,8 +308,9 @@ func (c *Client) Libraries(ctx context.Context) ([]VirtualFolder, error) {
 	return out, err
 }
 
-// UpdateType is a path report's kind. Jellyfin ignores it; Emby removes a
-// Deleted file at once (#101).
+// UpdateType is a path report's kind. Jellyfin ignores it, and Emby 4.10
+// waited its monitor delay for a Deleted report as for any other (online
+// run 2026-11-14).
 type UpdateType string
 
 const (
