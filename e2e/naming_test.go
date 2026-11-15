@@ -34,10 +34,10 @@ func TestAGrabWhoseNameAFileSlipStreamDoesntTrackHoldsWaitsNameTaken(t *testing.
 	}
 
 	found := w.searched(t, w.search(t))
-	if found.Outcome == nil || *found.Outcome != "grabbed" || found.GrabID == nil {
+	if found.Outcome == nil || *found.Outcome != "grabbed" || len(found.GrabIDs) != 1 {
 		t.Fatalf("the search ended %+v, want a release grabbed", found)
 	}
-	w.waits(t, *found.GrabID, "The.Lantern.Keeper.2019.1080p.WEB-DL.H264-FKW.mkv: waiting name_taken")
+	w.waits(t, found.GrabIDs[0], "The.Lantern.Keeper.2019.1080p.WEB-DL.H264-FKW.mkv: waiting name_taken")
 	holdsOnly(t, w.m, theirs)
 	if data, err := os.ReadFile(at); err != nil || string(data) != "theirs" {
 		t.Fatalf("the file at the name holds %q, %v, want what it held before", data, err)
@@ -464,10 +464,10 @@ func TestWithRenamingOffAnImportKeepsTheDownloadedNameAndATargetRenameRenamesNot
 	saveNaming(t, w.a, "movie", `{"movie.naming.renameFiles":false}`)
 	w.add(t)
 	found := w.searched(t, w.search(t))
-	if found.Outcome == nil || *found.Outcome != "grabbed" || found.GrabID == nil {
+	if found.Outcome == nil || *found.Outcome != "grabbed" || len(found.GrabIDs) != 1 {
 		t.Fatalf("the search ended %+v, want a release grabbed", found)
 	}
-	w.ended(t, *found.GrabID)
+	w.ended(t, found.GrabIDs[0])
 	if w.grab.Stage != "imported" {
 		t.Fatalf("the Grab ended %s with %+v after %v, want imported", w.grab.Stage, w.grab.Failure, w.grab.stages())
 	}
@@ -500,9 +500,9 @@ func TestAGrabWhoseNameIsTooLongForAWindowsNodeWaitsNameTooLong(t *testing.T) {
 	w.add(t)
 
 	found := w.searched(t, w.search(t))
-	if found.Outcome == nil || *found.Outcome != "grabbed" || found.GrabID == nil {
+	if found.Outcome == nil || *found.Outcome != "grabbed" || len(found.GrabIDs) != 1 {
 		t.Fatalf("the search ended %+v, want a release grabbed", found)
 	}
-	w.waits(t, *found.GrabID, s.Releases[0].Name+".mkv: waiting name_too_long")
+	w.waits(t, found.GrabIDs[0], s.Releases[0].Name+".mkv: waiting name_too_long")
 	holdsOnly(t, w.m)
 }

@@ -88,6 +88,7 @@ var Events = []live.Event{
 	grabs.ChangedEvent,
 	grabs.SearchChangedEvent,
 	grabs.BlocklistChangedEvent,
+	grabs.QueueChangedEvent,
 	downloadclients.ChangedEvent,
 	downloadclients.LiveEvent,
 	downloadclients.ClientsChangedEvent,

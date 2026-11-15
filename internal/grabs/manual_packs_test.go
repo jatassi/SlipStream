@@ -68,7 +68,7 @@ func (s season) manual(cs []files.Cell, ls ...listed) manualIn {
 	in.runs = nil
 	for _, it := range s.items {
 		run := first
-		run.ID, run.ItemID = SearchID{UUID: storage.NewUUID()}, it.ID
+		run.ID, run.Items = SearchID{UUID: storage.NewUUID()}, []works.ItemID{it.ID}
 		in.runs = append(in.runs, run)
 		in.heard[run.ID] = in.heard[first.ID]
 	}

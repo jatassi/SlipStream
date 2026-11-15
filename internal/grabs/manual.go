@@ -217,7 +217,10 @@ func (gr *Grabs) hasCell(ctx context.Context, r storage.Reader[file], work works
 func (gr *Grabs) planManual(ctx context.Context, tx *storage.Tx[file], tree works.Tree, item works.ItemID, manual ManualID, started storage.Time) (SearchID, error) {
 	q := db.New(tx)
 	id := SearchID{UUID: storage.NewUUID()}
-	if err := q.InsertManualRun(ctx, db.InsertManualRunParams{ID: id, WorkID: tree.ID, ItemID: item, ManualID: manual, StartedAt: started}); err != nil {
+	if err := q.InsertManualRun(ctx, db.InsertManualRunParams{ID: id, WorkID: tree.ID, ManualID: manual, StartedAt: started}); err != nil {
+		return SearchID{}, err
+	}
+	if err := q.InsertSearchItem(ctx, db.InsertSearchItemParams{SearchID: id, ItemID: item}); err != nil {
 		return SearchID{}, err
 	}
 	lines, err := gr.cfg.Indexers.Plan(ctx, tx, tree.ContentType, indexers.ManualSearch)
@@ -225,7 +228,7 @@ func (gr *Grabs) planManual(ctx context.Context, tx *storage.Tx[file], tree work
 		return SearchID{}, err
 	}
 	for i, l := range lines {
-		if err := q.InsertSearchIndexer(ctx, lineRow(id, i, l)); err != nil {
+		if err := q.InsertSearchIndexer(ctx, lineRow(id, i, l, started)); err != nil {
 			return SearchID{}, err
 		}
 	}
@@ -323,10 +326,10 @@ func (gr *Grabs) asking(ctx context.Context, run Search) (asking, error) {
 			return err
 		}
 		a.search.Type, a.search.Text = tree.ContentType, deref(m.Query)
-		if a.search.Terms, err = gr.cfg.Terms[tree.ContentType].SearchTerms(ctx, r, run.ItemID); err != nil {
+		if a.search.Terms, err = gr.cfg.Terms[tree.ContentType].SearchTerms(ctx, r, run.item()); err != nil {
 			return err
 		}
-		if a.judging, err = gr.judgingOf(ctx, r, tree.ContentType, run, a.search.Terms.Expect); err != nil {
+		if a.judging, err = gr.judgingOf(ctx, r, tree.ContentType, run.WorkID, run.item(), a.search.Terms.Expect); err != nil {
 			return err
 		}
 		rows, err := q.ListSearchIndexersOfSearch(ctx, run.ID)

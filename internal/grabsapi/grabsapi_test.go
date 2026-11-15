@@ -69,6 +69,14 @@ func (s *terms) SearchTerms(context.Context, storage.Reader[storage.Library], wo
 	return s.t, nil
 }
 
+func (*terms) Groups(_ context.Context, _ storage.Reader[storage.Library], _ works.WorkID, items []works.ItemID) ([]indexers.Group, error) {
+	return indexers.Singles(items, ""), nil
+}
+
+func (s *terms) GroupTerms(context.Context, storage.Reader[storage.Library], works.WorkID, indexers.Group) (indexers.Terms, error) {
+	return s.t, nil
+}
+
 func (*terms) Categories() []newznab.ID { return newznab.Family(2000) }
 
 // alone is a roster of one Node holding every Role.
@@ -315,9 +323,22 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		t.Fatalf("searchWork = %d %s, want 202 %s", code, body, want)
 	}
 	item := tree.Items[0].ID.String()
-	run1 := `{"id":"` + run + `","itemId":"` + item + `","startedAt":"T","indexers":[{"indexerId":"` + indexer.String() + `","name":"Fixture Site",`
+	run1 := `{"id":"` + run + `","itemIds":["` + item + `"],"startedAt":"T","indexers":[{"indexerId":"` + indexer.String() + `","name":"Fixture Site",`
 	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
-		`{"searches":[`+run1+`"outcome":null,"releases":0,"sentence":"Searching"}],"finishedAt":null,"outcome":null,"candidates":0,"grabId":null,"notes":[]}]}`)
+		`{"searches":[`+run1+`"outcome":null,"releases":0,"sentence":"Searching"}],"finishedAt":null,"outcome":null,"candidates":0,"grabIds":[],"notes":[]}]}`)
+	group := indexers.ItemGroup(tree.Items[0].ID)
+	if lvl := tree.Items[0].LevelID; !lvl.IsZero() {
+		group = indexers.LevelGroup(lvl)
+	}
+	runID, err := storage.ParseUUID(run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recorded string
+	if err := lib.QueryRowContext(ctx, `SELECT group_key || ' ' || lane || ' ' || trigger || ' ' || include_gone FROM grabs_search WHERE id = ?`,
+		runID).Scan(&recorded); err != nil || recorded != string(group)+" 10 search 1" {
+		t.Fatalf("the press is recorded as %q (%v), want a run of the Item's group %s in the now lane with gone cells", recorded, err, group)
+	}
 	expect(t, s, http.MethodGet, "/api/v1/searches/"+run+"/releases", http.StatusOK, `{"releases":[]}`)
 	expect(t, s, http.MethodGet, "/api/v1/searches/"+none+"/releases", http.StatusNotFound,
 		`{"status":404,"code":"search_not_found","title":"No search run has that id"}`)
@@ -333,7 +354,7 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 	}
 	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
 		`{"searches":[`+run1+`"outcome":"found","releases":2,"sentence":"Found 2 Releases"}],"finishedAt":"T","outcome":"grabbed","candidates":2,`+
-			`"grabId":"`+grab+`","notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`","soft":false}]}]}`)
+			`"grabIds":["`+grab+`"],"notes":[{"code":"size_not_checked","targetId":"`+hd.ID.String()+`","soft":false}]}]}`)
 	attic := `"indexerId":"` + indexer.String() + `","indexerName":"Fixture Site",`
 	scored := `"covers":["` + item + `"],"scores":[{"targetId":"` + hd.ID.String() + `","score":0}],"formatIds":[],`
 	expect(t, s, http.MethodGet, "/api/v1/searches/"+run+"/releases", http.StatusOK, `{"releases":[`+
@@ -467,10 +488,10 @@ func (f *atticFixture) searchAttic(t *testing.T) {
 }
 
 type searchRun struct {
-	ID         string `json:"id"`
-	Outcome    string `json:"outcome"`
-	Candidates int    `json:"candidates"`
-	GrabID     string `json:"grabId"`
+	ID         string   `json:"id"`
+	Outcome    string   `json:"outcome"`
+	Candidates int      `json:"candidates"`
+	GrabIDs    []string `json:"grabIds"`
 }
 
 // onlyRun is the one search run of The Attic.
@@ -528,7 +549,7 @@ func TestAGrabDroppedAtFetchingRerunsTheDecisionOverTheKeptReleases(t *testing.T
 	if dropped.Failure.Code != "indexer_stopped" || dropped.Failure.Message != "The Indexer stopped before the .torrent was fetched" || rerun.Failure.Code != "torrent_invalid" {
 		t.Fatalf("the Grabs are %+v, want Better Site's dropped indexer_stopped and Other Site's from the rerun", failed)
 	}
-	if r := f.onlyRun(t); r.Outcome != "grabbed" || r.Candidates != 2 || r.GrabID != rerun.ID {
+	if r := f.onlyRun(t); r.Outcome != "grabbed" || r.Candidates != 2 || !slices.Equal(r.GrabIDs, []string{rerun.ID}) {
 		t.Fatalf("the run is %+v, want grabbed of 2 candidates with the rerun's Grab %s", r, rerun.ID)
 	}
 	var kept int
@@ -632,9 +653,10 @@ func TestARefusalSaysWhetherAManualSearchCanGrabPastIt(t *testing.T) {
 	}
 }
 
-// TestARunKeepsItsReleasesUntilALaterRunOfItsItemFinishes searches The
-// Attic twice. Each Grab fails at fetching, so the Item is wanted again.
-func TestARunKeepsItsReleasesUntilALaterRunOfItsItemFinishes(t *testing.T) {
+// TestALaterRunOfAnItemPrunesItsEarlierRun searches The Attic twice. Each
+// Grab fails at fetching, so the Item is wanted again, and the first run's
+// Grab no longer holds it.
+func TestALaterRunOfAnItemPrunesItsEarlierRun(t *testing.T) {
 	f, better, _ := mirrored(t, "The.Attic.1080p.WEB", "The.Attic.720p.WEB", false, indexers.Edit{})
 	f.searchAttic(t)
 	f.failed(t, 1)
@@ -660,14 +682,14 @@ func TestARunKeepsItsReleasesUntilALaterRunOfItsItemFinishes(t *testing.T) {
 	var runs struct {
 		Searches []searchRun `json:"searches"`
 	}
-	if err := json.Unmarshal([]byte(got), &runs); err != nil || len(runs.Searches) != 2 || runs.Searches[1].ID != first {
-		t.Fatalf("listSearches = %s, %v; want the second run then the first", got, err)
+	if err := json.Unmarshal([]byte(got), &runs); err != nil || len(runs.Searches) != 1 || runs.Searches[0].ID == first {
+		t.Fatalf("listSearches = %s, %v; want only the second run", got, err)
 	}
 	if got := f.outcomes(t, runs.Searches[0].ID); !slices.Equal(got, want) {
 		t.Fatalf("the second run lists %q, want %q", got, want)
 	}
-	if got := f.outcomes(t, first); got != nil {
-		t.Fatalf("the first run lists %q once the second finished, want none", got)
+	if code, _ := f.s.Call(t, http.MethodGet, "/api/v1/searches/"+first+"/releases", ""); code != http.StatusNotFound {
+		t.Fatalf("the first run's Releases answer %d once the second finished, want 404", code)
 	}
 	var rows int
 	if err := f.lib.QueryRowContext(f.ctx, `SELECT count(*) FROM grabs_release`).Scan(&rows); err != nil || rows != 2 {
@@ -682,7 +704,7 @@ func TestRerunRedecidesWithCoverage(t *testing.T) {
 	if g, ok := f.failed(t, 1)[stopping.String()]; !ok || g.Failure.Code != "indexer_stopped" {
 		t.Fatalf("the failed Grab is %+v, want Better Site's dropped indexer_stopped", g)
 	}
-	if r := f.onlyRun(t); r.Outcome != "nothing_acceptable" || r.GrabID != "" {
+	if r := f.onlyRun(t); r.Outcome != "nothing_acceptable" || len(r.GrabIDs) != 0 {
 		t.Fatalf("the run after the rerun is %+v, want nothing acceptable: the kept release names Spring, another Item", r)
 	}
 }

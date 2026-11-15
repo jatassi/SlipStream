@@ -49,9 +49,9 @@ const otherWork: GrabsGrab = {
 const searchId = "2b4d6f8a-0c2e-4a6c-8e0a-2c4e6a8c0e2a";
 const mirrorId = "8a0c2e4f-6b8d-4f0a-9c2e-4f6a8b0d2e4f";
 
-const run: Pick<GrabsSearch, "id" | "itemId" | "startedAt" | "notes"> = {
+const run: Pick<GrabsSearch, "id" | "itemIds" | "startedAt" | "notes"> = {
   id: searchId,
-  itemId: orchardItemId,
+  itemIds: [orchardItemId],
   startedAt: "2026-10-12T09:00:58Z",
   notes: [],
 };
@@ -81,7 +81,7 @@ export const searching: GrabsSearchList = {
       finishedAt: null,
       outcome: null,
       candidates: 0,
-      grabId: null,
+      grabIds: [],
     },
   ],
 };
@@ -96,7 +96,7 @@ export const grabbed: GrabsSearchList = {
       finishedAt: "2026-10-12T09:01:00Z",
       outcome: "grabbed",
       candidates: 2,
-      grabId,
+      grabIds: [grabId],
     },
   ],
 };
@@ -146,7 +146,7 @@ export const everyOutcome: GrabsSearchList = {
       finishedAt: "2026-10-12T09:01:00Z",
       outcome: "nothing_acceptable",
       candidates: 1,
-      grabId: null,
+      grabIds: [],
     },
   ],
 };

@@ -188,14 +188,13 @@ func (q *Queries) InsertManual(ctx context.Context, arg InsertManualParams) erro
 }
 
 const insertManualRun = `-- name: InsertManualRun :exec
-INSERT INTO grabs_search (id, work_id, item_id, manual_id, started_at)
-VALUES (?1, ?2, ?3, ?4, ?5)
+INSERT INTO grabs_search (id, work_id, manual_id, started_at)
+VALUES (?1, ?2, ?3, ?4)
 `
 
 type InsertManualRunParams struct {
 	ID        SearchID
 	WorkID    works.WorkID
-	ItemID    works.ItemID
 	ManualID  ManualID
 	StartedAt storage.Time
 }
@@ -204,7 +203,6 @@ func (q *Queries) InsertManualRun(ctx context.Context, arg InsertManualRunParams
 	_, err := q.db.ExecContext(ctx, insertManualRun,
 		arg.ID,
 		arg.WorkID,
-		arg.ItemID,
 		arg.ManualID,
 		arg.StartedAt,
 	)
@@ -269,7 +267,7 @@ func (q *Queries) ListCellGrabsOfWork(ctx context.Context, workID works.WorkID) 
 }
 
 const listLinesOfManual = `-- name: ListLinesOfManual :many
-SELECT grabs_search_indexer.search_id, grabs_search_indexer.position, grabs_search_indexer.indexer_id, grabs_search_indexer.indexer_name, grabs_search_indexer.query_id, grabs_search_indexer.outcome, grabs_search_indexer.releases, grabs_search_indexer.until_at, grabs_search_indexer.since_at, grabs_search_indexer.node_id, grabs_search_indexer.lapsed, grabs_search_indexer.cause, grabs_search_indexer.text FROM grabs_search_indexer JOIN grabs_search ON grabs_search.id = grabs_search_indexer.search_id
+SELECT grabs_search_indexer.search_id, grabs_search_indexer.position, grabs_search_indexer.indexer_id, grabs_search_indexer.indexer_name, grabs_search_indexer.item_id, grabs_search_indexer.query_id, grabs_search_indexer.dispatched_at, grabs_search_indexer.deadline_at, grabs_search_indexer.outcome, grabs_search_indexer.releases, grabs_search_indexer.until_at, grabs_search_indexer.since_at, grabs_search_indexer.node_id, grabs_search_indexer.lapsed, grabs_search_indexer.cause, grabs_search_indexer.text FROM grabs_search_indexer JOIN grabs_search ON grabs_search.id = grabs_search_indexer.search_id
 WHERE grabs_search.manual_id = ?1
 ORDER BY grabs_search_indexer.search_id, grabs_search_indexer.position
 `
@@ -288,7 +286,10 @@ func (q *Queries) ListLinesOfManual(ctx context.Context, manualID ManualID) ([]G
 			&i.Position,
 			&i.IndexerID,
 			&i.IndexerName,
+			&i.ItemID,
 			&i.QueryID,
+			&i.DispatchedAt,
+			&i.DeadlineAt,
 			&i.Outcome,
 			&i.Releases,
 			&i.UntilAt,
@@ -312,7 +313,7 @@ func (q *Queries) ListLinesOfManual(ctx context.Context, manualID ManualID) ([]G
 }
 
 const listManualRuns = `-- name: ListManualRuns :many
-SELECT id, work_id, item_id, manual_id, started_at, finished_at, outcome, candidates, grab_id, notes FROM grabs_search WHERE manual_id = ?1 ORDER BY started_at, id
+SELECT id, work_id, group_key, lane, "trigger", include_gone, phase, manual_id, started_at, finished_at, outcome, candidates, grabs, notes FROM grabs_search WHERE manual_id = ?1 ORDER BY started_at, id
 `
 
 func (q *Queries) ListManualRuns(ctx context.Context, manualID ManualID) ([]GrabsSearch, error) {
@@ -327,13 +328,17 @@ func (q *Queries) ListManualRuns(ctx context.Context, manualID ManualID) ([]Grab
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkID,
-			&i.ItemID,
+			&i.GroupKey,
+			&i.Lane,
+			&i.Trigger,
+			&i.IncludeGone,
+			&i.Phase,
 			&i.ManualID,
 			&i.StartedAt,
 			&i.FinishedAt,
 			&i.Outcome,
 			&i.Candidates,
-			&i.GrabID,
+			&i.Grabs,
 			&i.Notes,
 		); err != nil {
 			return nil, err

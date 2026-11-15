@@ -14,6 +14,10 @@ type (
 	GrabID   struct{ storage.UUID }
 	SearchID struct{ storage.UUID }
 	ManualID struct{ storage.UUID }
+	// NudgeID orders the nudges a reconciler drains, oldest first.
+	NudgeID int64
+	// Singleton is the id of a table's one row.
+	Singleton int64
 )
 
 // Stage is where a Grab is in the pipeline.

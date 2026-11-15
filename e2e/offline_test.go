@@ -82,7 +82,7 @@ func TestAnOfflineSeedboxsSearchesGoHomePastTheGrace(t *testing.T) {
 	grabbed := w.expectSearch(t, "past the grace, through home", "grabbed", "Fixture Site found: Found 2 Releases")
 
 	act(t, w.run, "seedbox", world.StartNode)
-	w.ended(t, *grabbed.GrabID)
+	w.ended(t, grabbed.GrabIDs[0])
 	if w.grab.Stage != "imported" || w.grab.NodeID != box || w.grab.FetchNodeID == nil || *w.grab.FetchNodeID != box {
 		t.Fatalf("the Grab ended %s, fetched by %v and downloaded by %s; want imported, both by seedbox %s", w.grab.Stage, w.grab.FetchNodeID, w.grab.NodeID, box)
 	}

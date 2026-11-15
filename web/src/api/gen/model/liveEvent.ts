@@ -4,6 +4,7 @@ import type { LiveEventFilesMoved } from "./liveEventFilesMoved.ts";
 import type { LiveEventFirstrunChanged } from "./liveEventFirstrunChanged.ts";
 import type { LiveEventGrabsBlocklistChanged } from "./liveEventGrabsBlocklistChanged.ts";
 import type { LiveEventGrabsChanged } from "./liveEventGrabsChanged.ts";
+import type { LiveEventGrabsQueueChanged } from "./liveEventGrabsQueueChanged.ts";
 import type { LiveEventGrabsSearchChanged } from "./liveEventGrabsSearchChanged.ts";
 import type { LiveEventHealthChanged } from "./liveEventHealthChanged.ts";
 import type { LiveEventIdentityAccountsChanged } from "./liveEventIdentityAccountsChanged.ts";
@@ -52,6 +53,7 @@ export type LiveEvent =
   | LiveEventFirstrunChanged
   | LiveEventGrabsBlocklistChanged
   | LiveEventGrabsChanged
+  | LiveEventGrabsQueueChanged
   | LiveEventGrabsSearchChanged
   | LiveEventHealthChanged
   | LiveEventIdentityAccountsChanged

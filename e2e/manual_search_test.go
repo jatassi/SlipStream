@@ -409,10 +409,10 @@ func TestTheManualPlanLeadsWithWhatAutomaticSearchGrabs(t *testing.T) {
 	w.patchIndexer(t, v.line(t, "Tamarack").IndexerID, `{"automaticSearch":true}`)
 
 	s := w.searched(t, w.search(t))
-	if s.Outcome == nil || *s.Outcome != "grabbed" || s.GrabID == nil {
+	if s.Outcome == nil || *s.Outcome != "grabbed" || len(s.GrabIDs) != 1 {
 		t.Fatalf("the automatic search ended %+v, want a Grab", s)
 	}
-	if g := w.grabRecord(t, *s.GrabID); g.ReleaseTitle != first.Title || g.Source != "search" || g.GrabbedBy != nil {
+	if g := w.grabRecord(t, s.GrabIDs[0]); g.ReleaseTitle != first.Title || g.Source != "search" || g.GrabbedBy != nil {
 		t.Fatalf("automatic search grabbed %s from %s by %v, want %s, the plan's first row", g.ReleaseTitle, g.Source, g.GrabbedBy, first.Title)
 	}
 }

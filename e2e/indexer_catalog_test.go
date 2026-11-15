@@ -147,13 +147,13 @@ func TestDeletingAnIndexerKeepsItsGrabsUnderItsTracker(t *testing.T) {
 	t.Parallel()
 	w := begin(t, "indexers")
 	s := w.searched(t, w.search(t))
-	if s.GrabID == nil {
+	if len(s.GrabIDs) != 1 {
 		t.Fatalf("the search ended %+v, want a Grab", s)
 	}
-	from := w.grabbedFrom(t, *s.GrabID)
-	g := decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+*s.GrabID, ""), &trackedGrab{})
+	from := w.grabbedFrom(t, s.GrabIDs[0])
+	g := decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+s.GrabIDs[0], ""), &trackedGrab{})
 	if g.TrackerID == nil {
-		t.Fatalf("Grab %s names no Tracker", *s.GrabID)
+		t.Fatalf("Grab %s names no Tracker", s.GrabIDs[0])
 	}
 
 	var page struct {
@@ -162,14 +162,14 @@ func TestDeletingAnIndexerKeepsItsGrabsUnderItsTracker(t *testing.T) {
 		} `json:"grabs"`
 	}
 	decode(t, "listIndexerGrabs", w.a.Admin("home", http.MethodGet, "/api/v1/indexers/"+from+"/grabs", ""), &page)
-	if len(page.Grabs) != 1 || page.Grabs[0].ID != *s.GrabID {
-		t.Errorf("the Indexer's page lists Grabs %+v, want the search's Grab %s", page.Grabs, *s.GrabID)
+	if len(page.Grabs) != 1 || page.Grabs[0].ID != s.GrabIDs[0] {
+		t.Errorf("the Indexer's page lists Grabs %+v, want the search's Grab %s", page.Grabs, s.GrabIDs[0])
 	}
 
 	if r := w.a.Admin("home", http.MethodDelete, "/api/v1/indexers/"+from, ""); r.Status != http.StatusNoContent {
 		t.Fatalf("deleteIndexer = %d %s, want 204", r.Status, r.Body)
 	}
-	after := decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+*s.GrabID, ""), &struct {
+	after := decode(t, "getGrab", w.a.Admin("home", http.MethodGet, "/api/v1/grabs/"+s.GrabIDs[0], ""), &struct {
 		IndexerID *string `json:"indexerId"`
 		TrackerID *string `json:"trackerId"`
 	}{})

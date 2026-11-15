@@ -33,18 +33,18 @@ type judging struct {
 	runtime  map[works.ItemID]release.Fact[time.Duration]
 }
 
-// judgingOf reads, in r, the judging of run's Releases, run's Work being
-// of Content Type typ and expecting expect.
-func (gr *Grabs) judgingOf(ctx context.Context, r storage.Reader[file], typ works.TypeID, run Search, expect indexers.Expect) (judging, error) {
+// judgingOf reads, in r, the judging of Releases searched for searched,
+// zero for none, of work, of Content Type typ and expecting expect.
+func (gr *Grabs) judgingOf(ctx context.Context, r storage.Reader[file], typ works.TypeID, work works.WorkID, searched works.ItemID, expect indexers.Expect) (judging, error) {
 	known, err := gr.cfg.Targets.CutsIn(ctx, r)
 	if err != nil {
 		return judging{}, err
 	}
-	timings, err := gr.cfg.Targets.TimingsIn(ctx, r, typ, works.Only([]works.WorkID{run.WorkID}))
+	timings, err := gr.cfg.Targets.TimingsIn(ctx, r, typ, works.Only([]works.WorkID{work}))
 	if err != nil {
 		return judging{}, err
 	}
-	goals, err := targets.GoalsIn(ctx, r, run.WorkID)
+	goals, err := targets.GoalsIn(ctx, r, work)
 	if err != nil {
 		return judging{}, err
 	}
@@ -57,7 +57,7 @@ func (gr *Grabs) judgingOf(ctx context.Context, r storage.Reader[file], typ work
 		runtimes[id] = t.Runtime
 	}
 	return judging{
-		searched: run.ItemID, expect: expect, names: gr.cfg.Names[typ], cuts: known.For(typ),
+		searched: searched, expect: expect, names: gr.cfg.Names[typ], cuts: known.For(typ),
 		scoring: all.Only(targets.ScoredIn(goals)), runtime: runtimes,
 	}, nil
 }

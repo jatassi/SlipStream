@@ -71,7 +71,7 @@ func (s sheet) title() string {
 	}
 	var items []works.ItemID
 	for _, rs := range s.runs {
-		items = append(items, rs.run.ItemID)
+		items = append(items, rs.run.item())
 	}
 	if code := s.codeOf(items[0]); len(items) == 1 && code != "" {
 		return code + " of " + t.Label
@@ -457,7 +457,7 @@ func (s sheet) heldIn(rs runSheet) []HeldCell {
 	var out []HeldCell
 	for _, k := range slices.Sorted(maps.Keys(rs.held)) {
 		c := rs.item[k]
-		if c.Item.ID == rs.run.ItemID && (s.in.cell == nil || *s.in.cell == keyOf(c)) {
+		if c.Item.ID == rs.run.item() && (s.in.cell == nil || *s.in.cell == keyOf(c)) {
 			out = append(out, s.heldCell(c, rs.held[k]))
 		}
 	}
@@ -675,7 +675,7 @@ func (rs runSheet) verdicts(g int) []string {
 	}
 	var own []int
 	for k, c := range rs.item {
-		if c.Item.ID == rs.run.ItemID {
+		if c.Item.ID == rs.run.item() {
 			own = append(own, k)
 		}
 	}

@@ -446,7 +446,7 @@ func (g *grabbing) clear(ctx context.Context, c chosen, p ManualPick) (cleared, 
 func (g *grabbing) make(ctx context.Context, c chosen, cl cleared) (GrabID, error) {
 	rs := g.s.runs[c.run]
 	p := g.picks[c.picks[0]]
-	n := newGrab{work: g.s.in.tree.ID, item: rs.run.ItemID, source: FromManual, manual: g.s.in.manual.ID, by: &g.by, sent: p.Client}
+	n := newGrab{work: g.s.in.tree.ID, item: rs.run.item(), source: FromManual, manual: g.s.in.manual.ID, by: &g.by, sent: p.Client}
 	for _, w := range rs.worded(c.stance.lifts, c.group) {
 		n.overrides.Lifted = append(n.overrides.Lifted, Lifted{Code: w.Code, Words: w.Words})
 	}
