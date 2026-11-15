@@ -32,10 +32,13 @@ if ($Only -ne 'windows') {
     if (-not ((wsl.exe -l -q) -contains $Distro)) {
         wsl.exe --install Ubuntu-24.04 --name $Distro --location "C:\slipstream-ci\wsl" --no-launch
     }
-    $stage = "\\wsl.localhost\$Distro\root\slipstream-ci-kit"
-    wsl.exe -d $Distro -u root -- mkdir -p /root/slipstream-ci-kit
-    Copy-Item "$PSScriptRoot\linux.sh", "$PSScriptRoot\job-started.sh", "$PSScriptRoot\job-completed.sh" $stage -Force
-    wsl.exe -d $Distro -u root -- bash -c "sed -i 's/\r$//' /root/slipstream-ci-kit/*.sh && bash /root/slipstream-ci-kit/linux.sh wsl-conf"
+    # Without interop there's no \\wsl.localhost share, so the files go in on
+    # the command line.
+    foreach ($file in 'linux.sh', 'job-started.sh', 'job-completed.sh') {
+        $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$PSScriptRoot\$file"))
+        wsl.exe -d $Distro -u root -- bash -c "mkdir -p /root/slipstream-ci-kit && echo $b64 | base64 -d | tr -d '\r' > /root/slipstream-ci-kit/$file"
+    }
+    wsl.exe -d $Distro -u root -- bash /root/slipstream-ci-kit/linux.sh wsl-conf
     wsl.exe --terminate $Distro | Out-Null
     wsl.exe -d $Distro -u root -- bash /root/slipstream-ci-kit/linux.sh $LinuxRunners $kit $version (Get-RunnerSha 'linux-x64') $token
     if ($LASTEXITCODE -ne 0) { throw "Provisioning the Linux runners failed with exit code $LASTEXITCODE." }
