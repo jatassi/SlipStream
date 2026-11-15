@@ -12,22 +12,25 @@ import { useListProfilesSuspense } from "../../api/gen/query/targets/targets";
 import { Button } from "../../ui/button";
 import { DialogClose } from "../../ui/dialog";
 import { useAdding } from "./adding";
-import { ChoiceFields, note } from "./choice-fields";
+import { ChoiceFields } from "./choice-fields";
 import { type AddChoices, addSetupOf, movedDefaults, startChoices } from "./choices";
 // oxlint-disable-next-line import/max-dependencies -- the form reads the Profiles and the roots with their free space, and says what Add will do
 import { Preview } from "./preview";
+import { searchedItems } from "./search-choice";
 import { addSentence } from "./sentence";
 
 function AddButton({
   type,
   work,
   choices,
+  searches,
 }: {
   type: WorksContentType;
   work: WorksTree;
   choices: AddChoices;
+  searches: boolean;
 }) {
-  const addWork = useAdding();
+  const addWork = useAdding(searches);
   return (
     <Button
       look="primary"
@@ -42,6 +45,7 @@ function AddButton({
             preset: choices.preset,
             ...(choices.asides !== undefined && { includeAsides: choices.asides }),
             ...(choices.levelFolders !== undefined && { levelFolders: choices.levelFolders }),
+            search: choices.search,
             remember: choices.remember,
           },
         });
@@ -87,14 +91,16 @@ export function AddForm({
           setChoices((current) => ({ ...current, ...next }));
         }}
       />
-      <p className={note}>
-        Adding doesn&apos;t search. To search now, use Search on its Work page.
-      </p>
       <DialogActions>
         <DialogClose>
           <Button>Cancel</Button>
         </DialogClose>
-        <AddButton type={type} work={work} choices={choices} />
+        <AddButton
+          type={type}
+          work={work}
+          choices={choices}
+          searches={searchedItems(type, presets, choices) !== 0}
+        />
       </DialogActions>
     </div>
   );

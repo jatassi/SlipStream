@@ -26,7 +26,7 @@ function wanting(profile: TargetsProfile): string {
     : `wanting ${possessive(profile.name)} ${countWords(profile.targets.length, targetNoun)}`;
 }
 
-function countOf(counts: WorksPresetCounts, preset: Preset) {
+export function countOf(counts: WorksPresetCounts, preset: Preset) {
   const choice = counts.choices.find((each) => each.preset === preset);
   if (choice === undefined) {
     throw new Error(`the preview counts no ${preset} preset`);
