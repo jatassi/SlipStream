@@ -6727,7 +6727,7 @@
         "additionalProperties": false,
         "properties": {
           "grabbing": {
-            "description": "The waits ended now. 0 when nothing waited, because the wait already ended",
+            "description": "The Releases grabbed now. 0 when nothing waited, because the wait already ended",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -80402,31 +80402,6 @@
               }
             },
             "description": "Internal Server Error"
-          },
-          "501": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Problem"
-                    },
-                    {
-                      "properties": {
-                        "code": {
-                          "enum": [
-                            "not_yet"
-                          ],
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
         "security": [
