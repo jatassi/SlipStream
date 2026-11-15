@@ -50,13 +50,13 @@ test("saving a Target shows its Impact in plain counts, with Delete chosen and t
     "SlipStream will look for 4 more files.",
     "1 download in progress is no longer needed. When it finishes, it waits in Pending imports.",
   ]);
-  await expect.element(sheet().getByRole("radio", { name: "Delete" })).toBeChecked();
+  await expect.element(sheet().getByRole("radio", { name: "Delete them" })).toBeChecked();
   await expect
     .element(sheet().getByRole("button", { name: "Save and delete 1 file" }))
     .toBeVisible();
   expect(op.sent.map((call) => call.query)).toEqual([{ preview: "true" }]);
 
-  await userEvent.click(sheet().getByRole("radio", { name: "Keep as Kept files" }));
+  await userEvent.click(sheet().getByRole("radio", { name: "Keep them as Kept files" }));
   await userEvent.click(sheet().getByRole("button", { name: "Save and keep 1 file" }));
 
   await expect.element(page.getByText("Saved 1080p.")).toBeVisible();
@@ -181,7 +181,7 @@ test("Cancel on the Impact saves nothing and keeps the edit", async () => {
 
 async function editScores() {
   const scores = page.getByRole("region", { name: "Scores" });
-  await expect.element(scores.getByText(/^Scores 1 of 3 Custom Formats\./u)).toBeVisible();
+  await expect.element(scores.getByText(/^This Target scores 1 of 3 Custom Formats\./u)).toBeVisible();
   await userEvent.click(scores.getByRole("button", { name: "Details" }));
   await userEvent.fill(scores.getByRole("searchbox", { name: "Filter Custom Formats" }), "tier");
   await expect
@@ -194,10 +194,10 @@ async function editScores() {
     )
     .toEqual(["HD Bluray Tier 01Score"]);
   await userEvent.fill(scores.getByRole("textbox", { name: "HD Bluray Tier 01 score" }), "60");
-  await userEvent.fill(scores.getByRole("textbox", { name: "Increment" }), "0");
+  await userEvent.fill(scores.getByRole("textbox", { name: "Minimum score increment" }), "0");
   await userEvent.click(page.getByRole("button", { name: "Save", exact: true }));
   await expect.element(page.getByText("Fix the scores marked below.")).toBeVisible();
-  await userEvent.fill(scores.getByRole("textbox", { name: "Increment" }), "10");
+  await userEvent.fill(scores.getByRole("textbox", { name: "Minimum score increment" }), "10");
 }
 
 test("saving a Target sends the scores and propers setting as edited", async () => {

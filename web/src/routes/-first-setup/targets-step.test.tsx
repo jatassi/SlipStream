@@ -34,9 +34,9 @@ test("the Targets step says in one sentence what each enabled type grabs, from i
   open();
   await expect.element(stepHeading("What SlipStream grabs")).toBeVisible();
   await expect
-    .element(filmsRow().getByText(/^Grabs /u))
+    .element(filmsRow().getByText(/^This Target grabs /u))
     .toHaveTextContent(
-      "Grabs HDTV-720p, WEBRip-720p or WEBDL-720p or better. Upgrades until Bluray-1080p or Remux-1080p, then stops.",
+      "This Target grabs HDTV-720p, WEBRip-720p or WEBDL-720p or better. It upgrades until Bluray-1080p or Remux-1080p, then stops.",
     );
   await expect.element(page.getByRole("listitem", { name: "Zines" })).not.toBeInTheDocument();
 });

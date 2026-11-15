@@ -87,7 +87,9 @@ export function TargetsSection() {
         </Button>
       </div>
       {targets.length === 0 ? (
-        <p className="text-ink-3">No Targets yet. Make one to say what a file should be.</p>
+        <p className="text-ink-3">
+          No Targets yet. Add one to set the quality and size a file should have.
+        </p>
       ) : (
         <Table
           label="Targets"
@@ -114,7 +116,8 @@ export function TargetsSection() {
         onConfirm={() => (acting === undefined ? undefined : deleting(acting.target))}
       >
         <p>
-          Deleting it also deletes its rules. A Target that a Profile holds can&apos;t be deleted.
+          Deleting it also deletes its rules. You can&apos;t delete a Target while a Profile uses
+          it.
         </p>
       </ConfirmDialog>
     </div>

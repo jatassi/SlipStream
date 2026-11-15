@@ -29,7 +29,7 @@ function Totals({
         label="Minimum score"
         value={scores.minimum}
         error={scoreProblem(scores.minimum)}
-        description="A Release scoring below it isn't grabbed."
+        description="A release that scores below it isn't grabbed."
         onChange={(minimum) => {
           onScores({ ...scores, minimum });
         }}
@@ -44,10 +44,10 @@ function Totals({
         }}
       />
       <DraftField
-        label="Increment"
+        label="Minimum score increment"
         value={scores.increment}
         error={incrementProblem(scores.increment)}
-        description="How much more a Release must score to replace a file of its tier."
+        description="How much more a release must score to replace a file of its tier."
         onChange={(increment) => {
           onScores({ ...scores, increment });
         }}

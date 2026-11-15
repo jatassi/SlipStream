@@ -73,7 +73,7 @@ type Filters struct {
 	Language Filter[release.Language]
 }
 
-var ErrBadFilter = errors.New("a filter is Any with values, Only or Not with none, or names a value twice")
+var ErrBadFilter = errors.New("a filter set to Only or Not needs at least one value, Any takes none, and no value can repeat")
 
 // ParseMode reads a mode by name: any, only or not.
 func ParseMode(s string) (Mode, error) {

@@ -208,7 +208,7 @@ func Routes(r *api.Router, goals Goals) {
 		ID:      "listProfiles",
 		Method:  http.MethodGet,
 		Path:    "/profiles",
-		Summary: "List the Profiles, each with the count of Works wanting from it",
+		Summary: "List the Profiles, each with the number of Works that use it",
 		Status:  http.StatusOK,
 	}, h.listProfiles)
 	api.Register(o, api.Admin, api.Op{
@@ -278,7 +278,7 @@ func Routes(r *api.Router, goals Goals) {
 		ID:      "getWorkWants",
 		Method:  http.MethodGet,
 		Path:    "/works/{workId}/wants",
-		Summary: "Get the Profile a Work wants from and its Edition list",
+		Summary: "Get the Profile a Work uses and its Edition list",
 		Status:  http.StatusOK,
 		Errors:  []*api.Code{workNotFound},
 	}, h.getWorkWants)

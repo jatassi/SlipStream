@@ -74,7 +74,7 @@ test("Make default makes another Profile the type's default and says what new Wo
   });
   await userEvent.click(page.getByRole("button", { name: "Actions for Ultra" }));
   await userEvent.click(page.getByRole("menuitem", { name: "Make default" }));
-  await expect.element(page.getByText("New Films now take Ultra.")).toBeVisible();
+  await expect.element(page.getByText("New films now use Ultra.")).toBeVisible();
   expect(made).toEqual([ultra.id]);
 });
 
@@ -87,7 +87,7 @@ test("New Profile opens an empty editor on the first enabled Content Type", asyn
     .element(page.getByRole("combobox", { name: "Content Type" }))
     .toHaveTextContent("Films");
   await expect
-    .element(page.getByText("This Profile wants nothing.", { exact: false }))
+    .element(page.getByText("This Profile has no Targets.", { exact: false }))
     .toBeVisible();
 });
 
@@ -152,7 +152,7 @@ test("Delete moves a Profile's Works to the one picked, through the Impact", asy
     );
   await userEvent.click(impact.getByRole("button", { name: "Delete Ultra and delete 2 files" }));
 
-  await expect.element(page.getByText("Deleted Ultra. Its Works now take Other.")).toBeVisible();
+  await expect.element(page.getByText("Deleted Ultra. Its Works now use Other.")).toBeVisible();
   expect(op.sent.map((call) => call.query)).toEqual([
     { moveTo: other.id, preview: "true" },
     { moveTo: other.id, unwanted: "delete", confirm: "2" },
