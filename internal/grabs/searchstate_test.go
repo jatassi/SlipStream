@@ -187,30 +187,18 @@ func TestTheQueueReadsDontGrowWithTheLibrary(t *testing.T) {
 		var unbound []string
 		counts := func() []int {
 			t.Helper()
-			synctest.Wait()
-			var out []int
 			only := works.Only([]works.WorkID{w.Work})
 			cells := grabs.GrabCells{InStep: func(role.NodeID) bool { return true }}
-			for _, read := range []func(context.Context, storage.Reader[storage.Library]) error{
-				func(ctx context.Context, r storage.Reader[storage.Library]) error {
+			return []int{
+				queriesOf(t, w, &unbound, func(ctx context.Context, r storage.Reader[storage.Library]) error {
 					_, err := cells.GrabCells(ctx, r, only)
 					return err
-				},
-				func(ctx context.Context, r storage.Reader[storage.Library]) error {
+				}),
+				queriesOf(t, w, &unbound, func(ctx context.Context, r storage.Reader[storage.Library]) error {
 					_, err := cells.Searching(ctx, r, only)
 					return err
-				},
-			} {
-				n := 0
-				err := w.Lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
-					return read(ctx, counting{Reader: r, n: &n, unbound: &unbound})
-				})
-				if err != nil {
-					t.Fatal(err)
-				}
-				out = append(out, n)
+				}),
 			}
-			return out
 		}
 		search := func(work works.WorkID) {
 			t.Helper()
@@ -237,6 +225,21 @@ func TestTheQueueReadsDontGrowWithTheLibrary(t *testing.T) {
 			}
 		}
 	})
+}
+
+// queriesOf is how many queries read asks of w's library, adding those that
+// bind no argument to unbound.
+func queriesOf(t *testing.T, w *grabstest.World, unbound *[]string, read func(context.Context, storage.Reader[storage.Library]) error) int {
+	t.Helper()
+	synctest.Wait()
+	n := 0
+	err := w.Lib.Read(t.Context(), func(ctx context.Context, r storage.Reader[storage.Library]) error {
+		return read(ctx, counting{Reader: r, n: &n, unbound: unbound})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
 }
 
 // counting is a reader that counts the queries asked through it and

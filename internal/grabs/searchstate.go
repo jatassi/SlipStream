@@ -65,7 +65,7 @@ type Behind struct {
 	Starved bool
 }
 
-func (b Behind) holds() bool { return b.Ahead > 0 || !b.Indexer.IsZero() }
+func (b *Behind) holds() bool { return b.Ahead > 0 || !b.Indexer.IsZero() }
 
 // LastRun is how a group's latest finished run ended.
 type LastRun struct {
@@ -310,36 +310,16 @@ func (gr *Grabs) Searching(ctx context.Context, work works.WorkID) (WorkSearch, 
 		if ws := s.byWork()[work]; ws != nil {
 			read = *ws
 		}
-		var counted []works.ItemID
-		for _, it := range bare.Items {
-			if it.Counts() {
-				counted = append(counted, it.ID)
-			}
-		}
-		groups, err := gr.groupsOf(ctx, r, bare.Summary, counted)
+		groups, err := gr.groupsOf(ctx, r, bare)
 		if err != nil {
 			return err
 		}
-		out = WorkSearch{Work: work, Waits: read.Waits}
-		of := map[works.ItemID]indexers.GroupKey{}
-		for _, g := range groups {
-			for _, it := range g.Items {
-				of[it] = g.Key
-			}
-			i := slices.IndexFunc(read.Groups, func(s GroupState) bool { return s.Key == g.Key })
-			state := GroupState{Key: g.Key}
-			if i >= 0 {
-				state = read.Groups[i]
-				read.Groups = slices.Delete(read.Groups, i, i+1)
-			}
-			state.Label = g.Label
-			out.Groups = append(out.Groups, state)
-		}
-		out.Groups = append(out.Groups, read.Groups...)
-		if err := gr.holding(ctx, r, bare.ContentType, &out); err != nil {
+		out = WorkSearch{Work: work, Groups: labeled(read.Groups, groups), Waits: read.Waits}
+		h := holder{gr: gr, r: r, typ: bare.ContentType, lanes: map[pace.Lane][]db.ListLaneRow{}}
+		if err := h.fill(ctx, &out); err != nil {
 			return err
 		}
-		out.Stops, err = stopsOf(ctx, r, work, out.Groups, of)
+		out.Stops, err = stopsOf(ctx, r, work, out.Groups, groups)
 		return err
 	})
 	if err != nil {
@@ -348,9 +328,15 @@ func (gr *Grabs) Searching(ctx context.Context, work works.WorkID) (WorkSearch, 
 	return out, nil
 }
 
-// groupsOf is the search groups of items, items of w, none when its
+// groupsOf is the search groups of w's counted Items, none when its
 // Content Type can't search.
-func (gr *Grabs) groupsOf(ctx context.Context, r storage.Reader[file], w works.Summary, items []works.ItemID) ([]indexers.Group, error) {
+func (gr *Grabs) groupsOf(ctx context.Context, r storage.Reader[file], w works.Bare) ([]indexers.Group, error) {
+	var items []works.ItemID
+	for _, it := range w.Items {
+		if it.Counts() {
+			items = append(items, it.ID)
+		}
+	}
 	terms, ok := gr.cfg.Terms[w.ContentType]
 	if !ok || len(items) == 0 {
 		return nil, nil
@@ -358,61 +344,97 @@ func (gr *Grabs) groupsOf(ctx context.Context, r storage.Reader[file], w works.S
 	return terms.Groups(ctx, r, w.ID, items)
 }
 
-// holding fills each of s's groups' open run lane and trigger, and what
-// holds it: the Works ahead in its lane, and the Indexer whose search
-// limit holds its run's planned lines, or would hold its run's start.
-func (gr *Grabs) holding(ctx context.Context, r storage.Reader[file], typ works.TypeID, s *WorkSearch) error {
-	q := db.New(r)
-	rooms, err := gr.cfg.Indexers.Room(ctx, r)
-	if err != nil {
+// labeled is groups, in their order with their labels, each with its
+// state in read, then the groups of read groups doesn't name.
+func labeled(read []GroupState, groups []indexers.Group) []GroupState {
+	out := make([]GroupState, 0, len(groups)+len(read))
+	for _, g := range groups {
+		state := GroupState{Key: g.Key}
+		if i := slices.IndexFunc(read, func(s GroupState) bool { return s.Key == g.Key }); i >= 0 {
+			state = read[i]
+			read = slices.Delete(read, i, i+1)
+		}
+		state.Label = g.Label
+		out = append(out, state)
+	}
+	return append(out, read...)
+}
+
+// holder reads what holds a Work's groups, each kind of row once.
+type holder struct {
+	gr    *Grabs
+	r     storage.Reader[file]
+	typ   works.TypeID
+	rooms map[indexers.ID]indexers.Room
+	runs  []db.ListOpenRunsOfWorkRow
+	plan  []db.ListPlannedOfWorkRow
+	lines []indexers.Line
+	lanes map[pace.Lane][]db.ListLaneRow
+}
+
+// fill sets each of s's searching groups' open run lane and trigger, and
+// what holds each group: the Works ahead in its lane, and the Indexer
+// whose search limit holds its run's planned lines, or its run's start.
+func (h *holder) fill(ctx context.Context, s *WorkSearch) error {
+	q := db.New(h.r)
+	var err error
+	if h.rooms, err = h.gr.cfg.Indexers.Room(ctx, h.r); err != nil {
 		return err
 	}
-	runs, err := q.ListOpenRunsOfWork(ctx, s.Work)
-	if err != nil {
+	if h.runs, err = q.ListOpenRunsOfWork(ctx, s.Work); err != nil {
 		return err
 	}
-	planned, err := q.ListPlannedOfWork(ctx, s.Work)
-	if err != nil {
+	if h.plan, err = q.ListPlannedOfWork(ctx, s.Work); err != nil {
 		return err
 	}
-	var lines []indexers.Line
-	lanes := map[pace.Lane][]db.ListLaneRow{}
 	for i := range s.Groups {
 		g := &s.Groups[i]
 		var b Behind
 		switch g.Phase {
 		case Searching:
-			run := runs[slices.IndexFunc(runs, func(run db.ListOpenRunsOfWorkRow) bool { return *run.GroupKey == g.Key })]
-			if !g.Again {
-				g.Lane, g.Trigger = laneOf(run.Lane).String(), searches.Trigger(*run.Trigger)
-			}
-			for _, p := range planned {
-				if p.SearchID == run.ID {
-					b.limited(rooms, p.IndexerID, laneOf(run.Lane))
-				}
-			}
+			h.searching(g, &b)
 		case InQueue:
-			lane := laneNamed(g.Lane)
-			if lanes[lane] == nil {
-				if lanes[lane], err = q.ListLane(ctx, new(int64(lane))); err != nil {
-					return err
-				}
-			}
-			b.ahead(lanes[lane], s.Work, g.Key, lane)
-			if lines == nil {
-				if lines, err = gr.cfg.Indexers.Lines(ctx, r, typ, indexers.AutoSearch); err != nil {
-					return err
-				}
-			}
-			for _, l := range lines {
-				if l.Skipped == nil {
-					b.limited(rooms, l.Indexer, lane)
-				}
+			if err := h.queued(ctx, s.Work, g, &b); err != nil {
+				return err
 			}
 		case Idle:
 		}
 		if b.holds() {
 			g.Behind = &b
+		}
+	}
+	return nil
+}
+
+func (h *holder) searching(g *GroupState, b *Behind) {
+	run := h.runs[slices.IndexFunc(h.runs, func(run db.ListOpenRunsOfWorkRow) bool { return *run.GroupKey == g.Key })]
+	if !g.Again {
+		g.Lane, g.Trigger = laneOf(run.Lane).String(), searches.Trigger(*run.Trigger)
+	}
+	for _, p := range h.plan {
+		if p.SearchID == run.ID {
+			b.limited(h.rooms, p.IndexerID, laneOf(run.Lane))
+		}
+	}
+}
+
+func (h *holder) queued(ctx context.Context, work works.WorkID, g *GroupState, b *Behind) error {
+	q, lane := db.New(h.r), laneNamed(g.Lane)
+	var err error
+	if h.lanes[lane] == nil {
+		if h.lanes[lane], err = q.ListLane(ctx, new(int64(lane))); err != nil {
+			return err
+		}
+	}
+	b.ahead(h.lanes[lane], work, g.Key, lane)
+	if h.lines == nil {
+		if h.lines, err = h.gr.cfg.Indexers.Lines(ctx, h.r, h.typ, indexers.AutoSearch); err != nil {
+			return err
+		}
+	}
+	for _, l := range h.lines {
+		if l.Skipped == nil {
+			b.limited(h.rooms, l.Indexer, lane)
 		}
 	}
 	return nil
@@ -471,9 +493,8 @@ func (b *Behind) ahead(rows []db.ListLaneRow, work works.WorkID, key indexers.Gr
 }
 
 // stopsOf is work's stopped cells with the failures that stopped them,
-// each with its group's due time from groups, of naming each Item's
-// group.
-func stopsOf(ctx context.Context, r storage.Reader[file], work works.WorkID, groups []GroupState, of map[works.ItemID]indexers.GroupKey) ([]Stop, error) {
+// each with the due time in states of its Item's group among groups.
+func stopsOf(ctx context.Context, r storage.Reader[file], work works.WorkID, states []GroupState, groups []indexers.Group) ([]Stop, error) {
 	rows, err := db.New(r).ListStopsOfWork(ctx, work)
 	if err != nil {
 		return nil, err
@@ -483,8 +504,8 @@ func stopsOf(ctx context.Context, r storage.Reader[file], work works.WorkID, gro
 		cell := files.CellKey{Item: row.ItemID, Edition: row.Edition, Target: row.TargetID}
 		if len(out) == 0 || out[len(out)-1].Cell != cell {
 			s := Stop{Cell: cell}
-			if i := slices.IndexFunc(groups, func(g GroupState) bool { return g.Key == of[row.ItemID] }); i >= 0 {
-				s.Next = groups[i].Next
+			if g := slices.IndexFunc(groups, func(g indexers.Group) bool { return slices.Contains(g.Items, row.ItemID) }); g >= 0 {
+				s.Next = states[slices.IndexFunc(states, func(st GroupState) bool { return st.Key == groups[g].Key })].Next
 			}
 			out = append(out, s)
 		}

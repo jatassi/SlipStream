@@ -169,24 +169,22 @@ func (gr *Grabs) Wanted(ctx context.Context, _ identity.Admin, q WantedQuery) (W
 
 // filtered is the Works of ws f lists, and how many it leaves out
 // because only gone cells want, as SearchSeveral reads a filter.
-func filtered(ws []files.WorkWanted, f WantedFilter) ([]wantedListing, int) {
+func filtered(ws []files.WorkWanted, f WantedFilter) (listed []wantedListing, leftGone int) {
 	reasons := f.Reasons
 	if reasons == nil {
 		reasons = []files.Reason{files.ReasonFailed, files.ReasonMissing, files.ReasonUpgrade}
 	}
-	var out []wantedListing
-	left := 0
 	for _, w := range ws {
 		have := reasonsOf(w.Cells)
 		switch {
 		case len(have) == 0 || f.Type != "" && w.Type != f.Type:
 		case slices.ContainsFunc(reasons, func(r files.Reason) bool { return slices.Contains(have, r) }):
-			out = append(out, wantedListing{wanted: w})
+			listed = append(listed, wantedListing{wanted: w})
 		case slices.Equal(have, []files.Reason{files.ReasonGone}):
-			left++
+			leftGone++
 		}
 	}
-	return out, left
+	return listed, leftGone
 }
 
 // keyed sets each row's search, from byWork, and its key under sort.
