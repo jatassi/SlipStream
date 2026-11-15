@@ -134,7 +134,9 @@ test("a public Tracker's Routing tab says its Grabs follow the library root", as
   renderApp({ path: routingPage, handlers: server.handlers });
   await expect
     .element(
-      page.getByText("seedpool is public. Its Grabs go to the client set for each Work's library root."),
+      page.getByText(
+        "seedpool is public. Its Grabs go to the client set for each Work's library root.",
+      ),
     )
     .toBeVisible();
   await expect.element(page.getByRole("combobox")).not.toBeInTheDocument();

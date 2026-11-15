@@ -37,7 +37,8 @@ test("deleting a client that holds torrents says how many stay in it, stops trac
     refusal(409, {
       code: "download_client_has_torrents",
       title: "This client has torrents that SlipStream tracks",
-      detail: "Transmission has 3 torrents that SlipStream tracks. Stop tracking them to delete the client.",
+      detail:
+        "Transmission has 3 torrents that SlipStream tracks. Stop tracking them to delete the client.",
     });
   renderApp({ path, handlers: clients.handlers });
   await openDelete();

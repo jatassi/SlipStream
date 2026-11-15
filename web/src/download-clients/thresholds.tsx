@@ -17,7 +17,7 @@ const sections: readonly {
   {
     title: "When a release counts as bad",
     about:
-      "SlipStream treats a release as bad when its download gets no data for the first time below, or when its tracker reports it unregistered twice at least the second time below apart. SlipStream then adds the release to the Blocklist, removes its torrent and fails the Grab. The next automatic search picks another release.",
+      "A release is bad when either setting below applies to its download. SlipStream then adds the release to the Blocklist, removes its torrent and fails the Grab. The next automatic search picks another release.",
     keys: ["faultStall", "unregisteredGap"],
   },
   {

@@ -369,9 +369,9 @@ func TestEachWorksErrorAnswersItsProblem(t *testing.T) {
 	}
 	expect(t, s, http.MethodPut, "/api/v1/content-types/fixture/enabled", `{"enabled":false}`, 409, `{"status":409,"code":"content_type_in_use","title":"Remove its Works before turning this Content Type off"}`)
 	s.fx.Fail("w2", &works.SourceError{Source: "TMDB", Words: "refused the key: 401 Unauthorized", Err: works.ErrRefused})
-	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_refused","title":"The metadata source refused the API key","detail":"TMDB refused the API key. Check the key in Settings \u003e Metadata."}`)
+	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_refused","title":"The metadata source refused the API key or PIN","detail":"TMDB refused the API key. Check the key in Settings \u003e Metadata."}`)
 	s.fx.Fail("w2", &works.SourceError{Source: "TVDB", Words: "refused the PIN", Err: works.ErrPinRefused})
-	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_refused","title":"The metadata source refused the API key","detail":"TVDB refused the PIN. Check the PIN in Settings \u003e Metadata."}`)
+	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_refused","title":"The metadata source refused the API key or PIN","detail":"TVDB refused the PIN. Check the PIN in Settings \u003e Metadata."}`)
 	s.fx.Fail("w2", &works.SourceError{Source: "TMDB", Words: "didn't respond: dial tcp: lookup api.themoviedb.org: no such host", Err: works.ErrUnavailable})
 	expect(t, s, http.MethodPost, "/api/v1/works", `{"contentType":"fixture","key":"w2"}`, 502, `{"status":502,"code":"metadata_unavailable","title":"The metadata source didn't respond. Try again later.","detail":"TMDB isn't available right now. Try again later."}`)
 	s.fx.Fail("w2", &works.SourceError{Source: "TMDB", Until: time.Now().Add(time.Hour), Words: "is rate limited", Err: works.ErrUnavailable})

@@ -444,7 +444,7 @@ func TestAProviderFaultEndsInItsStatusAndProblem(t *testing.T) {
 	}
 
 	cue(t, run, "tmdb-revoke-key", `{}`)
-	worldtest.Expect(t, "searchCatalog with the key revoked", search("orchard"), worldtest.Reply{Status: 502, Body: `{"status":502,"code":"metadata_refused","title":"The metadata source refused the API key","detail":"TMDB refused the API key. Check the key in Settings \u003e Metadata."}` + "\n"})
+	worldtest.Expect(t, "searchCatalog with the key revoked", search("orchard"), worldtest.Reply{Status: 502, Body: `{"status":502,"code":"metadata_refused","title":"The metadata source refused the API key or PIN","detail":"TMDB refused the API key. Check the key in Settings \u003e Metadata."}` + "\n"})
 	if p := provider(t, a, "tmdb"); p.State != "key_refused" || p.Key != "none" || p.Summary != "This build has no TMDB key. Add your own." {
 		t.Fatalf("TMDB with its key revoked = %+v, want key_refused with no key in this build", p)
 	}

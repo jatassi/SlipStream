@@ -66,7 +66,10 @@ function parseWindow(times: SettingTimes): Draft<"window"> {
     return { refused: "Times are 00:00 to 23:59." };
   }
   return times.start === times.end
-    ? { refused: "The start and end are the same time. Choose a different end. A window can cross midnight, such as 22:00 to 04:00." }
+    ? {
+        refused:
+          "The start and end are the same time. Choose a different end. A window can cross midnight, such as 22:00 to 04:00.",
+      }
     : { value: times };
 }
 

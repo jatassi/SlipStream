@@ -97,8 +97,7 @@ func answer(err error) error {
 	return err
 }
 
-// usesWords is the sentence that by, each a name of what uses it, use
-// thing.
+// usesWords is the sentence that the things by names use thing.
 func usesWords(by []string, thing string) string {
 	if len(by) == 1 {
 		return by[0] + " uses " + thing + "."
