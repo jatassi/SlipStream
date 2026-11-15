@@ -83,7 +83,7 @@ func New(cfg Config) *Service {
 	return &Service{
 		cfg:      cfg,
 		client:   &client,
-		jobs:     &jobs{byID: map[string]*run{}},
+		jobs:     newJobs(),
 		sessions: &sessions{by: map[string]*slot{}},
 		cleared:  &clearances{byHost: map[string]clearance{}},
 		spacer:   &spacer{floor: cfg.Timings.Floor, next: map[string]time.Time{}},

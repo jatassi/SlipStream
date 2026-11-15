@@ -360,13 +360,13 @@ func (s sheet) conflictWords(c chosen) string {
 // follows.
 func (g *grabbing) grab(ctx context.Context, c chosen) (GrabID, *PickError, error) {
 	p := g.picks[c.picks[0]]
+	if c.stance.kind == standsBlocked && !p.Unblock {
+		return GrabID{}, &PickError{Code: PickChanged, Words: "This Release is on the Blocklist now. Remove it from the Blocklist to grab it."}, nil
+	}
 	for _, l := range c.stance.lifts {
 		if !slices.ContainsFunc(c.picks, func(i int) bool { return slices.Contains(g.picks[i].Lifts, LiftKey{Code: l.Code, Target: l.Target}) }) {
 			return GrabID{}, changedPick, nil
 		}
-	}
-	if c.stance.kind == standsBlocked && !p.Unblock {
-		return GrabID{}, &PickError{Code: PickChanged, Words: "This Release is on the Blocklist now. Remove it from the Blocklist to grab it."}, nil
 	}
 	cancel, same, e, err := g.held(ctx, c, p)
 	if !same.IsZero() || e != nil || err != nil {

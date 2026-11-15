@@ -7,7 +7,7 @@ import {
   useGetSearchSettingsSuspense,
 } from "../api/gen/query/grabs/grabs";
 import { freshQuery } from "../api/query-client";
-import { adoptSearchSettings } from "../live/adopt-search-settings";
+import { adoptSearchSettings, backlogCadenceKey } from "../live/adopt-search-settings";
 import type { SettingsSection } from "../settings/section";
 import { Details } from "../ui/details";
 import { Section } from "../ui/section";
@@ -16,6 +16,7 @@ import { SettingField, SettingGroup } from "../ui/setting-field";
 const keys = {
   backlogOn: "search.backlogOn",
   backlogUpgrades: "search.backlogUpgrades",
+  backlogEvery: backlogCadenceKey,
   rssOn: "search.rssOn",
   longestGap: "search.longestGap",
   fullPace: "search.fullPace",
@@ -53,7 +54,11 @@ type Save = (key: string) => (value: unknown) => Promise<void>;
 function useSave(): Save {
   const queryClient = useQueryClient();
   return (key) => async (value) => {
-    adoptSearchSettings(queryClient, await updateSearchSettings({ values: { [key]: value } }));
+    await adoptSearchSettings(
+      queryClient,
+      key,
+      await updateSearchSettings({ values: { [key]: value } }),
+    );
   };
 }
 
@@ -124,7 +129,7 @@ function AutomaticSearchSection() {
       <div className="flex flex-col gap-5">
         <p className="text-ink-2">{leadSentence(on(keys.backlogOn), on(keys.rssOn))}</p>
         <SettingGroup>
-          {[keys.backlogOn, keys.backlogUpgrades, keys.rssOn].map((key) => (
+          {[keys.backlogOn, keys.backlogUpgrades, keys.backlogEvery, keys.rssOn].map((key) => (
             <SettingField key={key} field={fieldOf(settings, key)} onSave={save(key)} />
           ))}
         </SettingGroup>

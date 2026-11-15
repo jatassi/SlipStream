@@ -34,7 +34,7 @@ func values(t *testing.T, f *atticFixture) map[string]any {
 
 // defaults is every Automatic search setting at its default.
 var defaults = map[string]any{
-	"search.backlogOn": true, "search.backlogUpgrades": true, "search.rssOn": true,
+	"search.backlogOn": true, "search.backlogUpgrades": true, "tasks.backlog-search.cadence": 28800.0, "search.rssOn": true,
 	"search.longestGap": 604800.0, "search.fullPace": 1209600.0, "search.stopCount": 3.0, "search.stopWindow": 604800.0,
 	"indexers.searchWait": 120.0,
 }
@@ -117,5 +117,29 @@ func TestTheWaitForEachIndexerKeepsTheValueTheIndexersSectionStored(t *testing.T
 	}
 	if got := values(t, f)["indexers.searchWait"]; got != 300.0 {
 		t.Fatalf("indexers.searchWait = %v after the move, want the stored 300", got)
+	}
+}
+
+func TestTheGapRefusalLandsOnTheFieldThatMoved(t *testing.T) {
+	f := searchable(t, site{})
+	patch := func(body string) (int, string) { return f.s.Call(t, http.MethodPatch, "/api/v1/search-settings", body) }
+	if code, body := patch(`{"values":{"search.longestGap":86400}}`); code != http.StatusOK {
+		t.Fatalf("a longest gap of 1 day over an 8 hour interval = %d %s", code, body)
+	}
+	for _, c := range []struct{ patch, field string }{
+		{`{"values":{"tasks.backlog-search.cadence":172800}}`, "values.tasks.backlog-search.cadence"},
+		{`{"values":{"search.longestGap":86400,"tasks.backlog-search.cadence":172800}}`, "values.search.longestGap"},
+	} {
+		code, body := patch(c.patch)
+		if code != http.StatusUnprocessableEntity || !strings.Contains(body, `"location":"body.`+c.field+`"`) ||
+			!strings.Contains(body, "Use a longest gap of at least the Backlog search interval, 2 days.") {
+			t.Errorf("PATCH %s = %d %s, want 422 on %s naming 2 days", c.patch, code, body, c.field)
+		}
+	}
+	if code, body := patch(`{"values":{"tasks.backlog-search.cadence":86400}}`); code != http.StatusOK {
+		t.Fatalf("an interval equal to the longest gap = %d %s", code, body)
+	}
+	if got := values(t, f); got["tasks.backlog-search.cadence"] != 86400.0 || got["search.longestGap"] != 86400.0 {
+		t.Fatalf("after the changes the settings read %v, want both at 1 day", got)
 	}
 }

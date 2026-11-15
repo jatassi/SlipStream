@@ -255,7 +255,7 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Timings: grabs.DefaultTimings(), Today: time.Now, Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, BlocklistChanged: blocklisted,
 		QueueChanged: discard[grabs.QueueChanged]{},
-		Tasks:        grabstest.Cadences{}, GapCap: grabs.NoGapCap,
+		Tasks:        &grabstest.StoredCadences{}, GapCap: grabs.NoGapCap,
 		Reconciling: trackers.NotReconciling,
 		Log:         slog.New(slog.DiscardHandler),
 	})
@@ -442,7 +442,8 @@ func (m mirrors) Run(_ context.Context, job searching.Job) (searching.Poll, erro
 
 // mirrored searches The Attic across Better Site, at priority 10 with
 // edit, listing betterTitle, and Other Site listing otherTitle. A fetch
-// from Better Site has its account refused when stops.
+// from Better Site has its account refused when stops. The first failed
+// Grab stops its cell, so a failure leaves the press's run the only one.
 func mirrored(t *testing.T, betterTitle, otherTitle string, stops bool, edit indexers.Edit) (f *atticFixture, better, other indexers.ID) {
 	t.Helper()
 	better, other = indexers.ID{UUID: storage.NewUUID()}, indexers.ID{UUID: storage.NewUUID()}
@@ -469,6 +470,9 @@ func mirrored(t *testing.T, betterTitle, otherTitle string, stops bool, edit ind
 		t.Fatal(err)
 	}
 	rootstest.Root(t, f.lib, f.home, contenttypetest.ID, t.TempDir())
+	if code, body := f.s.Call(t, http.MethodPatch, "/api/v1/search-settings", `{"values":{"search.stopCount":1}}`); code != http.StatusOK {
+		t.Fatalf("updateSearchSettings = %d %s, want 200", code, body)
+	}
 	return f, better, other
 }
 

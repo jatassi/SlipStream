@@ -37,6 +37,8 @@ async function searched(world: World, workId: string, state: string): Promise<vo
     .toBe(true);
 }
 
+const flux = "The.Quiet.Orchard.2021.1080p.WEB-DL.DDP5.1.H264-FLUX";
+
 const notifications = (page: Page) => page.getByRole("region", { name: "Notifications" });
 
 async function openEditions(page: Page) {
@@ -52,6 +54,10 @@ test("a failed download shows under Needs you, and Search again retries it", asy
   adminPage: page,
   world,
 }, testInfo) => {
+  const stop = await world.api("PATCH", "/api/v1/search-settings", {
+    values: { "search.stopCount": 1 },
+  });
+  expect(stop.status, "the first failed Grab stops the cell").toBe(200);
   await world.fw.fault.set({
     id: "download-damaged",
     target: "fixture-site",
@@ -77,6 +83,8 @@ test("a failed download shows under Needs you, and Search again retries it", asy
   await screenshotWholePage(page, testInfo.outputPath("needs-you.png"));
 
   await world.fw.fault.clear("download-damaged");
+  // The failed Release stays refused, so Search again grabs another.
+  await world.fw.cue("fixture-site-list", { release: flux });
   await card.getByRole("button", { name: "Search again" }).click();
   await expect(notifications(page)).toContainText("Searching The Quiet Orchard");
   await expect(orchardCells(page)).toContainText("Upgrade available", { timeout: 60_000 });

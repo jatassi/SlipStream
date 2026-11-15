@@ -134,7 +134,10 @@ func newTwinWorld(t *testing.T, tw twin) atticWorld {
 // atticWorld is a library holding The Attic, monitored, rooted and
 // wanting its goals, or HD (Bluray-1080p over WEB-DL 1080p) when none
 // are given, with an Indexer for each site, whose searches remote
-// answers. g is the first Grabs opened over it.
+// answers. A cell stops at its first failed Grab: a fetch that isn't a
+// torrent fails, and the search again that would follow refuses the
+// failed Release and replaces the run that grabbed it. g is the first
+// Grabs opened over it.
 type atticWorld struct {
 	g     *grabs.Grabs
 	lib   library
@@ -156,6 +159,7 @@ func newAttic(t *testing.T, remote searching.Remote, sites []twinSite, goals []t
 		Sites: names, Goals: goals, Remote: remote, Log: log,
 		Grabs: grabs.DefaultTimings(), Indexers: indexers.DefaultTimings(), Formats: formats.DefaultTimings(),
 	})
+	settings(t, w, map[string]string{grabs.StopCount.Key: "1"})
 	world := atticWorld{lib: w.Lib, cfg: w.Config, home: w.Home, work: w.Work, ids: w.Sites, names: map[indexers.ID]string{}}
 	for _, site := range sites {
 		id := w.Sites[site.name]

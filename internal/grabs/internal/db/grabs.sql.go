@@ -324,14 +324,15 @@ func (q *Queries) GetSearchOfGrab(ctx context.Context, grabID GrabID) (GrabsSear
 
 const insertGrab = `-- name: InsertGrab :exec
 INSERT INTO grabs_grab (id, work_id, item_id, edition, source, manual_id, grabbed_by, grabbed_by_name, overrides, indexer_id,
-    tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, chosen_fills, fetch_query_id,
-    min_ratio, min_seed_seconds, download_factor, upload_factor, stage, created_at, updated_at)
+    tracker_id, node_id, release_title, release_size, release_link_sealed, release_magnet, release_info_hash, release_guid, chosen_fills,
+    fetch_query_id, min_ratio, min_seed_seconds, download_factor, upload_factor, stage, created_at, updated_at)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6,
     ?7, ?8, ?9, ?10, ?11,
     ?12,
     ?13, ?14, ?15, ?16,
     ?17, ?18, ?19, ?20, ?21,
-    ?22, ?23, 'fetching', ?24, ?24)
+    ?22,
+    ?23, ?24, 'fetching', ?25, ?25)
 `
 
 type InsertGrabParams struct {
@@ -352,6 +353,7 @@ type InsertGrabParams struct {
 	ReleaseLinkSealed secret.Sealed
 	ReleaseMagnet     *string
 	ReleaseInfoHash   []byte
+	ReleaseGuid       *string
 	ChosenFills       *int64
 	FetchQueryID      indexers.QueryID
 	MinRatio          *float64
@@ -380,6 +382,7 @@ func (q *Queries) InsertGrab(ctx context.Context, arg InsertGrabParams) error {
 		arg.ReleaseLinkSealed,
 		arg.ReleaseMagnet,
 		arg.ReleaseInfoHash,
+		arg.ReleaseGuid,
 		arg.ChosenFills,
 		arg.FetchQueryID,
 		arg.MinRatio,

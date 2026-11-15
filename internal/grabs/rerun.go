@@ -240,20 +240,24 @@ func (re *redo) held(g Grab, rows []db.GrabsRelease, ls []listed) {
 // way out ends what the run's Releases keep for a rerun, since none
 // follows. A drop for the Blocklist reruns with every copy of g's Release
 // gone, since a copy listed without an info hash passes the Blocklist
-// until its fetch.
+// until its fetch. A drop that takes nothing in g's place records g's
+// failure.
 func (gr *Grabs) left(ctx context.Context, tx *storage.Tx[file], g Grab, o outcome, re *redo) ([]Grab, *Search, error) {
 	d, drop := o.(dropped)
 	if !drop {
 		return nil, nil, db.New(tx).EndReleasesOfGrab(ctx, g.ID)
 	}
 	if re == nil {
-		return nil, nil, nil
+		return nil, nil, gr.failed(ctx, tx, g, d.code)
 	}
 	if d.code == Blocklisted {
 		re.goneGroup(re.taken)
 	}
 	grabs, err := gr.redecide(ctx, tx, *re)
-	return grabs, &re.run, err
+	if err != nil || len(grabs) > 0 {
+		return grabs, &re.run, err
+	}
+	return nil, &re.run, gr.failed(ctx, tx, g, d.code)
 }
 
 // redecide is re's run's decision again over the Releases it kept, at

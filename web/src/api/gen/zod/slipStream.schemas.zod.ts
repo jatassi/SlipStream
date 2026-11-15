@@ -4835,7 +4835,7 @@ export const GrabsSearchSettings = zod.object({
   settings: zod
     .array(SettingField)
     .describe(
-      "Backlog search, RSS sync, how long a search waits for each Indexer and when SlipStream stops searching again after failed Grabs",
+      "Backlog search and how often it runs, RSS sync, how long a search waits for each Indexer and when SlipStream stops searching again after failed Grabs",
     ),
 });
 
