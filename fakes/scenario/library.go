@@ -31,6 +31,10 @@ type Library struct {
 	// Seeding is the seeding settings and the Seeding goals task's cadence
 	// the world sets, so a Scenario's windows and Health move in minutes.
 	Seeding *LibrarySeeding `yaml:"seeding,omitempty"`
+	// AutomaticSearch turns Backlog search or RSS sync off, so a world
+	// that counts search runs sees only the ones it starts. Unset keeps
+	// both on, the product's default.
+	AutomaticSearch *LibraryAutomaticSearch `yaml:"automatic_search,omitempty"`
 	// Importing is the Importing settings the world sets, both 0 when
 	// unset: the fakes' payloads are a few MiB that run seconds, which the
 	// defaults, 50 MB and a quarter of the runtime, would leave out.
@@ -39,6 +43,13 @@ type Library struct {
 	Works *LibraryWorks `yaml:"works,omitempty"`
 	// Folders are written before any root is made.
 	Folders []LibraryFolder `yaml:"folders,omitempty"`
+}
+
+// LibraryAutomaticSearch is the Automatic search switches the world sets.
+// Unset is on.
+type LibraryAutomaticSearch struct {
+	BacklogSearch *bool `yaml:"backlog_search,omitempty"`
+	RSSSync       *bool `yaml:"rss_sync,omitempty"`
 }
 
 // LibraryWorks adds a Work for every record of its Content Type the fakes
@@ -85,6 +96,9 @@ type LibraryTarget struct {
 	Filters []LibraryFilter `yaml:"filters,omitempty"`
 	Sizes   []LibrarySize   `yaml:"sizes,omitempty"`
 	Scores  *LibraryScores  `yaml:"scores,omitempty"`
+	// Hold is how long an automatic grab waits for a better Release, 0 to
+	// 7 days in whole minutes.
+	Hold time.Duration `yaml:"hold,omitempty"`
 }
 
 // LibraryScores are a Target's scores: the lowest score a Release may
@@ -201,6 +215,17 @@ type LibraryIndexer struct {
 	AutomaticSearch *bool `yaml:"automatic_search,omitempty"`
 	// Priority is from 1, first, to 50. Zero keeps the API's default.
 	Priority int `jsonschema:"minimum=0,maximum=50" yaml:"priority,omitempty"`
+	// SearchesAtOnce is from 1 to 10. Zero keeps the API's default.
+	SearchesAtOnce int `jsonschema:"minimum=0,maximum=10" yaml:"searches_at_once,omitempty"`
+	// Limit is its search limit. Unset is no limit.
+	Limit *LibraryLimit `yaml:"limit,omitempty"`
+}
+
+// LibraryLimit is an Indexer's search limit: Count searches in a sliding
+// hour or day.
+type LibraryLimit struct {
+	Count int    `jsonschema:"required,minimum=1,maximum=100000" yaml:"count"`
+	Per   string `jsonschema:"required,enum=hour,enum=day"      yaml:"per"`
 }
 
 // FixtureSites are the labels of fixture-site's sites by the kind of
@@ -316,6 +341,9 @@ func (l Library) checkTargets(add func(format string, args ...any)) {
 		if err != nil {
 			add("library target %s: %v", t.Name, strings.ReplaceAll(err.Error(), "\n", "; "))
 		}
+		if t.Hold < 0 || t.Hold > 7*24*time.Hour || t.Hold%time.Minute != 0 {
+			add("library target %s holds %s; a Hold is 0 to 7 days in whole minutes", t.Name, t.Hold)
+		}
 		if t.Scores == nil {
 			continue
 		}
@@ -381,9 +409,19 @@ func (l Library) checkIndexers(add func(format string, args ...any)) {
 			add("library indexer %s takes settings, which only a catalog or native Indexer has", ix.Name)
 		}
 		ix.checkPort(add)
-		if ix.Priority < 0 || ix.Priority > 50 {
-			add("library indexer %s has priority %d; it is 1 to 50, or 0 for the default", ix.Name, ix.Priority)
-		}
+		ix.checkPacing(add)
+	}
+}
+
+func (ix LibraryIndexer) checkPacing(add func(format string, args ...any)) {
+	if ix.Priority < 0 || ix.Priority > 50 {
+		add("library indexer %s has priority %d; it is 1 to 50, or 0 for the default", ix.Name, ix.Priority)
+	}
+	if ix.SearchesAtOnce < 0 || ix.SearchesAtOnce > 10 {
+		add("library indexer %s has searches_at_once %d; it is 1 to 10, or 0 for the default", ix.Name, ix.SearchesAtOnce)
+	}
+	if limit := ix.Limit; limit != nil && (limit.Count < 1 || limit.Count > 100000 || (limit.Per != "hour" && limit.Per != "day")) {
+		add("library indexer %s has a limit of %d per %q; it is 1 to 100000 per hour or day", ix.Name, limit.Count, limit.Per)
 	}
 }
 

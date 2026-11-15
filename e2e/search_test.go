@@ -122,8 +122,8 @@ func TestAnIndexerPastTheSearchWaitIsLateAndItsAnswerStillLands(t *testing.T) {
 	t.Parallel()
 	w := begin(t, "home")
 	w.addMirror(t, "")
-	if r := w.a.Admin("home", http.MethodPatch, "/api/v1/indexer-settings", `{"values":{"indexers.searchWait":10}}`); r.Status != http.StatusOK {
-		t.Fatalf("updateIndexerSettings = %d %s, want 200", r.Status, r.Body)
+	if r := w.a.Admin("home", http.MethodPatch, "/api/v1/search-settings", `{"values":{"indexers.searchWait":10}}`); r.Status != http.StatusOK {
+		t.Fatalf("updateSearchSettings = %d %s, want 200", r.Status, r.Body)
 	}
 	w.setFault(t, fault.Rule{ID: "slow-feed", Target: "fixture-site", Origin: "seedbox", Route: "torznab.api", Times: 1}, "delay=15s")
 
