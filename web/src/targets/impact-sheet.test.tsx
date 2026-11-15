@@ -181,7 +181,9 @@ test("Cancel on the Impact saves nothing and keeps the edit", async () => {
 
 async function editScores() {
   const scores = page.getByRole("region", { name: "Scores" });
-  await expect.element(scores.getByText(/^This Target scores 1 of 3 Custom Formats\./u)).toBeVisible();
+  await expect
+    .element(scores.getByText(/^This Target scores 1 of 3 Custom Formats\./u))
+    .toBeVisible();
   await userEvent.click(scores.getByRole("button", { name: "Details" }));
   await userEvent.fill(scores.getByRole("searchbox", { name: "Filter Custom Formats" }), "tier");
   await expect

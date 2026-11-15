@@ -9,6 +9,8 @@ import { renderApp } from "../test/render-app";
 import { keeper, starter, targetHandlers } from "../test/targets";
 
 const sentence = () => page.getByText(/^This Target grabs /u);
+const grabs = (rest: string) =>
+  expect.element(sentence()).toHaveTextContent(`This Target grabs ${rest}`);
 const reachedCutoff = "Bluray-1080p has reached the cutoff, so no better tier replaces it.";
 
 const newTarget = z.object({
@@ -57,19 +59,11 @@ test("a Target built from a preset says what its order means as the cutoff moves
   await userEvent.click(page.getByRole("menuitem", { name: "Upgrade for any better quality" }));
   await pick("Remux-2160p", "Bluray-2160p", "WEBDL-2160p", "WEBRip-2160p", "HDTV-2160p");
   await pick("WEBRip-480p", "DVD", "SDTV");
-  await expect
-    .element(sentence())
-    .toHaveTextContent(
-      "This Target grabs HDTV-720p or better. It upgrades until Remux-1080p, then stops.",
-    );
+  await grabs("HDTV-720p or better. It upgrades until Remux-1080p, then stops.");
 
   page.getByRole("button", { name: "Move Cutoff", exact: true }).element().focus();
   await userEvent.keyboard("{ArrowDown}");
-  await expect
-    .element(sentence())
-    .toHaveTextContent(
-      "This Target grabs HDTV-720p or better. It upgrades until Bluray-1080p, then stops.",
-    );
+  await grabs("HDTV-720p or better. It upgrades until Bluray-1080p, then stops.");
   const samples = page.getByRole("list", { name: "Example upgrades" });
   await expect.element(samples.getByText(reachedCutoff)).toBeVisible();
   await expect.element(samples.getByText("This Target doesn't accept Remux-2160p.")).toBeVisible();
@@ -98,24 +92,16 @@ test("a Target built from a preset says what its order means as the cutoff moves
 
 test("the cutoff stays below an accepted quality, and No upgrades keeps the first file", async () => {
   renderApp({ path: "/settings/targets/new", handlers: targetHandlers() });
-  await expect
-    .element(sentence())
-    .toHaveTextContent(
-      "This Target grabs SDTV or WEBRip-480p or better. It upgrades until Bluray-2160p or Remux-2160p, then stops.",
-    );
+  await grabs(
+    "SDTV or WEBRip-480p or better. It upgrades until Bluray-2160p or Remux-2160p, then stops.",
+  );
   await pick("Bluray-2160p", "Remux-2160p");
-  await expect
-    .element(sentence())
-    .toHaveTextContent(
-      "This Target grabs SDTV or WEBRip-480p or better. It upgrades until HDTV-2160p, WEBRip-2160p or WEBDL-2160p, then stops.",
-    );
+  await grabs(
+    "SDTV or WEBRip-480p or better. It upgrades until HDTV-2160p, WEBRip-2160p or WEBDL-2160p, then stops.",
+  );
   await userEvent.click(page.getByRole("button", { name: "Fill from a preset" }));
   await userEvent.click(page.getByRole("menuitem", { name: "No upgrades" }));
-  await expect
-    .element(sentence())
-    .toHaveTextContent(
-      "This Target grabs SDTV or WEBRip-480p or better. It keeps the first file it grabs.",
-    );
+  await grabs("SDTV or WEBRip-480p or better. It keeps the first file it grabs.");
 });
 
 test("CAM sits apart, off, and once accepted ranks below everything", async () => {
@@ -127,11 +113,7 @@ test("CAM sits apart, off, and once accepted ranks below everything", async () =
     .element(page.getByText(/Cinema recordings \(CAM, TS, TELESYNC, HDCAM\)/u))
     .toBeVisible();
   await userEvent.click(cinema);
-  await expect
-    .element(sentence())
-    .toHaveTextContent(
-      "This Target grabs CAM or better. It upgrades until Bluray-2160p or Remux-2160p, then stops.",
-    );
+  await grabs("CAM or better. It upgrades until Bluray-2160p or Remux-2160p, then stops.");
   await userEvent.fill(page.getByRole("textbox", { name: "Name" }), "Anything");
   await userEvent.click(page.getByRole("button", { name: "Create Target" }));
   await expect.poll(() => sent[0]?.tiers.at(-1)).toEqual(["cam"]);
@@ -240,11 +222,7 @@ test("a ticked quality ranks where the default preset puts it, and focus follows
     "Rank 2Remux-1080p",
   ]);
   expect(ranked().at(-1)).toBe("Rank 6DVD");
-  await expect
-    .element(sentence())
-    .toHaveTextContent(
-      "This Target grabs DVD or better. It upgrades until Bluray-1080p or Remux-1080p, then stops.",
-    );
+  await grabs("DVD or better. It upgrades until Bluray-1080p or Remux-1080p, then stops.");
 
   await pick("Remux-2160p", "HDTV-1080p");
   await expect
@@ -278,11 +256,9 @@ test("a saved Target opens as its draft, its accepted qualities first", async ()
   await expect.element(page.getByRole("textbox", { name: "Name" })).toHaveValue("1080p");
   await expect.element(page.getByRole("checkbox", { name: "WEBDL-1080p" })).toBeChecked();
   await expect.element(page.getByRole("checkbox", { name: "Remux-2160p" })).not.toBeChecked();
-  await expect
-    .element(sentence())
-    .toHaveTextContent(
-      "This Target grabs HDTV-720p, WEBRip-720p or WEBDL-720p or better. It upgrades until Bluray-1080p or Remux-1080p, then stops.",
-    );
+  await grabs(
+    "HDTV-720p, WEBRip-720p or WEBDL-720p or better. It upgrades until Bluray-1080p or Remux-1080p, then stops.",
+  );
   await expect
     .element(page.getByRole("textbox", { name: "WEBDL-1080p maximum" }))
     .toHaveValue("40");
@@ -297,9 +273,5 @@ test("a saved Target's filters open as they were saved", async () => {
     )
     .toBeChecked();
   await expect.element(page.getByRole("button", { name: "HDR: HDR10" })).toBeVisible();
-  await expect
-    .element(sentence())
-    .toHaveTextContent(
-      "This Target grabs WEBDL-2160p or WEBRip-2160p or better. It keeps the first file it grabs.",
-    );
+  await grabs("WEBDL-2160p or WEBRip-2160p or better. It keeps the first file it grabs.");
 });

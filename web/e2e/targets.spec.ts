@@ -190,5 +190,7 @@ test("a Target's scores and propers setting show in its sentence, and save", asy
   await scores.getByRole("button", { name: "Details" }).click();
   await expect(scores.getByRole("textbox", { name: "HDR score" })).toHaveValue("40");
   await expect(page.getByRole("radio", { name: "Don't prefer" })).toBeChecked();
-  await expect(page.getByText(/^This Target grabs /u)).toContainText("and a score of 100, then stops.");
+  await expect(page.getByText(/^This Target grabs /u)).toContainText(
+    "and a score of 100, then stops.",
+  );
 });
