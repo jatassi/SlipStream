@@ -3,12 +3,14 @@ import {
   Notification01Icon,
   NotificationOff01Icon,
   RefreshIcon,
+  Search01Icon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import { sentenceOf } from "../api/errors";
 import { toast } from "../ui/toast";
+import { useSearchSeveral } from "../wanted/several";
 import { act } from "../works/actions/act";
 import type { WorkAction } from "../works/actions/actions";
 import type { BulkDialogKind } from "./bulk-dialogs";
@@ -49,9 +51,32 @@ export type BulkAction = {
 
 const plain = { icon: undefined, busy: false, danger: false, oneTypeOnly: false } as const;
 
+/** Searches the picked Works in the bulk lane, asking first above 100; `dialog` holds the question. */
+export function useBulkSearch(picked: readonly LibraryWork[]): {
+  action: BulkAction;
+  dialog: ReactNode;
+} {
+  const [first] = picked;
+  const oneType = picked.every(({ type }) => type.id === first?.type.id);
+  const several = useSearchSeveral(oneType ? first?.type.id : undefined);
+  return {
+    action: {
+      ...plain,
+      label: "Search",
+      icon: Search01Icon,
+      busy: several.busy,
+      onSelect: () => {
+        several.ask({ workIds: picked.map(({ id }) => id) }, picked.length);
+      },
+    },
+    dialog: several.dialog,
+  };
+}
+
 export function useBulkActions(
   picked: readonly LibraryWork[],
   onDialog: (kind: BulkDialogKind) => void,
+  search: BulkAction,
 ): readonly BulkAction[] {
   const { running, on } = useRun(picked);
   const open = (kind: BulkDialogKind) => () => {
@@ -59,6 +84,7 @@ export function useBulkActions(
   };
   const manyItems = picked.length > 0 && picked.every(({ type }) => type.items === "many");
   return [
+    search,
     {
       ...plain,
       label: "Monitor",

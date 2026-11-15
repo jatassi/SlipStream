@@ -6,7 +6,7 @@ import { Button } from "../ui/button";
 import { IconButton } from "../ui/icon-button";
 import { Menu, type MenuEntry } from "../ui/menu";
 import { useShell } from "../ui/shell-context";
-import { type BulkAction, useBulkActions } from "./bulk-actions";
+import { type BulkAction, useBulkActions, useBulkSearch } from "./bulk-actions";
 import { BulkDialog, type BulkDialogKind } from "./bulk-dialogs";
 import type { Picking } from "./picking";
 
@@ -95,7 +95,8 @@ export function BulkBar({ picking }: { picking: Picking }) {
   const [dialog, setDialog] = useState<BulkDialogKind>();
   const phone = useShell() === "phone";
   const { picked, hidden } = picking;
-  const actions = useBulkActions(picked, setDialog);
+  const search = useBulkSearch(picked);
+  const actions = useBulkActions(picked, setDialog, search.action);
   const type = typeOf(picked);
   const oneType = type !== undefined;
   return (
@@ -127,6 +128,7 @@ export function BulkBar({ picking }: { picking: Picking }) {
       <Button look="ghost" onClick={picking.done}>
         Done
       </Button>
+      {search.dialog}
       <BulkDialog
         kind={dialog}
         type={type}
