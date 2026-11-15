@@ -305,7 +305,7 @@ func (w Window) Parse(t *Times) (Stored[Span], error) {
 		return Stored[Span]{}, refuse(w.Key, "Times are 00:00 to 23:59.")
 	}
 	if start == end {
-		return Stored[Span]{}, refuse(w.Key, "The window needs an end after its start.")
+		return Stored[Span]{}, refuse(w.Key, "The start and end are the same time. Choose a different end. A window can cross midnight, such as 22:00 to 04:00.")
 	}
 	return override(Span{Start: start, End: end}), nil
 }

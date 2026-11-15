@@ -239,7 +239,7 @@ test("a window shows its zone and saves both times", async () => {
   await userEvent.click(page.getByRole("button", { name: "Save" }));
   await expect
     .element(page.getByRole("alert"))
-    .toHaveTextContent("The window needs an end after its start.");
+    .toHaveTextContent("The start and end are the same time. Choose a different end. A window can cross midnight, such as 22:00 to 04:00.");
   expect(onSave).not.toHaveBeenCalled();
 
   await userEvent.fill(page.getByLabelText("From"), "01:00");

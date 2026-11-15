@@ -123,7 +123,7 @@ func TestWindowParse(t *testing.T) {
 		refusal string
 	}{
 		{"crossing midnight", setting.Times{Start: "23:30", End: "01:00"}, setting.Span{Start: 1410, End: 60}, ""},
-		{"empty", setting.Times{Start: "04:00", End: "04:00"}, setting.Span{}, "The window needs an end after its start."},
+		{"empty", setting.Times{Start: "04:00", End: "04:00"}, setting.Span{}, "The start and end are the same time. Choose a different end. A window can cross midnight, such as 22:00 to 04:00."},
 		{"not a time", setting.Times{Start: "24:00", End: "01:00"}, setting.Span{}, "Times are 00:00 to 23:59."},
 		{"no leading zero", setting.Times{Start: "4:00", End: "06:00"}, setting.Span{}, "Times are 00:00 to 23:59."},
 	} {
