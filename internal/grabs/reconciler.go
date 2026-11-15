@@ -24,13 +24,18 @@ type schedule struct {
 	retryAt  map[storage.UUID]time.Time
 	shown    map[GrabID]Progress
 	ticked   time.Time
+	// limited is when the search limit next frees a slot for a line that
+	// waits, zero when none waits on one.
+	limited time.Time
 }
 
 // Run reconciles until ctx ends. Each pass settles what the Admin wrote
-// off and what a client removed, reads every open search run and unfinished Grab and starts the step
-// each is due, unless it runs or backs off. A pass runs at each change of
-// the roster too. A restart needs no recovery: the first pass is the
-// recovery.
+// off and what a client removed, dispatches the search queue, then starts
+// what is due: each line in flight asks its Indexer, each queue run whose
+// lines all answered decides, each Manual run listens, and each
+// unfinished Grab runs its step, unless it runs or backs off. A pass runs
+// at each change of the roster too. A restart needs no recovery: the
+// first pass is the recovery.
 func (gr *Grabs) Run(ctx context.Context) error {
 	s := schedule{
 		inflight: map[storage.UUID]bool{}, attempts: map[storage.UUID]int{}, retryAt: map[storage.UUID]time.Time{},
@@ -42,11 +47,27 @@ func (gr *Grabs) Run(ctx context.Context) error {
 	for {
 		changed, moved := gr.cfg.Roster.Changed(), gr.cfg.Downloads.Moved()
 		searches, grabs, err := gr.settled(ctx)
+		var wake time.Time
+		var q queueJobs
+		if err == nil {
+			wake, err = gr.dispatch(ctx)
+		}
+		if err == nil {
+			q, err = gr.queueJobs(ctx)
+		}
 		now := time.Now()
 		if err == nil {
-			s.keep(searches, grabs)
+			s.keep(searches, grabs, q.lines...)
+			for _, l := range q.lines {
+				gr.start(ctx, &s, now, l.line.Query.UUID, done, func() result { return gr.ask(ctx, l) })
+			}
+			for _, run := range q.ready {
+				gr.start(ctx, &s, now, run.ID.UUID, done, func() result { return gr.settle(ctx, run) })
+			}
 			for _, run := range searches {
-				gr.start(ctx, &s, now, run.ID.UUID, done, gr.runJob(ctx, run))
+				if !run.Manual.IsZero() {
+					gr.start(ctx, &s, now, run.ID.UUID, done, func() result { return gr.listen(ctx, run) })
+				}
 			}
 			for _, g := range grabs {
 				if g.due() {
@@ -55,8 +76,9 @@ func (gr *Grabs) Run(ctx context.Context) error {
 			}
 			gr.publishProgress(ctx, &s, now, grabs)
 		} else if ctx.Err() == nil {
-			gr.cfg.Log.Error("read or settle the open Grabs", "err", err.Error())
+			gr.cfg.Log.Error("read, settle or dispatch the open runs and Grabs", "err", err.Error())
 		}
+		s.limited = wake
 		timer.Reset(s.next(now, grabs, err != nil, gr.cfg.Timings))
 		select {
 		case r := <-done:
@@ -73,6 +95,31 @@ func (gr *Grabs) Run(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// queueJobs is the search queue's work for a pass: every line in flight,
+// and every queue run whose lines all answered, were skipped or went late.
+type queueJobs struct {
+	lines []sent
+	ready []Search
+}
+
+func (gr *Grabs) queueJobs(ctx context.Context) (queueJobs, error) {
+	var out queueJobs
+	err := gr.cfg.Library.Read(ctx, func(ctx context.Context, r storage.Reader[file]) error {
+		var err error
+		if out.lines, err = inFlight(ctx, r); err != nil {
+			return err
+		}
+		q := db.New(r)
+		rows, err := q.ListReadyRuns(ctx)
+		if err != nil {
+			return err
+		}
+		out.ready, err = runsOf(ctx, q, rows, nil)
+		return err
+	})
+	return out, err
 }
 
 // settled is the open search runs and unfinished Grabs once the release
@@ -92,15 +139,6 @@ func (gr *Grabs) settled(ctx context.Context) ([]Search, []Grab, error) {
 	return gr.open(ctx)
 }
 
-// runJob is run's job: an automatic run searches and decides, and a
-// Manual run listens.
-func (gr *Grabs) runJob(ctx context.Context, run Search) func() result {
-	if run.Manual.IsZero() {
-		return func() result { return gr.search(ctx, run) }
-	}
-	return func() result { return gr.listen(ctx, run) }
-}
-
 func (gr *Grabs) start(ctx context.Context, s *schedule, now time.Time, id storage.UUID, done chan<- report, job func() result) {
 	if s.inflight[id] || now.Before(s.retryAt[id]) || ctx.Err() != nil {
 		return
@@ -112,13 +150,16 @@ func (gr *Grabs) start(ctx context.Context, s *schedule, now time.Time, id stora
 // keep forgets each job neither open nor running, as one whose Work was
 // deleted: a vanished job ends as a finished one does, and its past retry
 // never wakes the reconciler again.
-func (s *schedule) keep(searches []Search, grabs []Grab) {
-	open := make(map[storage.UUID]bool, len(searches)+len(grabs))
+func (s *schedule) keep(searches []Search, grabs []Grab, lines ...sent) {
+	open := make(map[storage.UUID]bool, len(searches)+len(grabs)+len(lines))
 	for _, run := range searches {
 		open[run.ID.UUID] = true
 	}
 	for _, g := range grabs {
 		open[g.ID.UUID] = true
+	}
+	for _, l := range lines {
+		open[l.line.Query.UUID] = true
 	}
 	for id := range s.retryAt {
 		if !open[id] && !s.inflight[id] {
@@ -146,11 +187,15 @@ func (s *schedule) record(r report, now time.Time, t Timings, rnd *rand.Rand) {
 }
 
 // next is how long the reconciler sleeps: until the earliest retry of a
-// job not running, as a running one may be waiting on the roster, and
+// job not running, as a running one may be waiting on the roster, or until
+// the search limit frees a slot for a waiting line, and
 // no longer than one progress tick while a Grab downloads or a read
 // failed.
 func (s *schedule) next(now time.Time, grabs []Grab, readFailed bool, t Timings) time.Duration {
 	wake := now.Add(time.Hour)
+	if !s.limited.IsZero() && s.limited.Before(wake) {
+		wake = s.limited
+	}
 	if readFailed || slices.ContainsFunc(grabs, func(g Grab) bool { return g.waitsOnTorrent() }) {
 		wake = now.Add(t.Progress)
 	}

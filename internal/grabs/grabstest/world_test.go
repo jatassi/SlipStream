@@ -1,7 +1,6 @@
 package grabstest_test
 
 import (
-	"context"
 	"reflect"
 	"testing"
 	"testing/synctest"
@@ -16,7 +15,6 @@ import (
 	"github.com/jatassi/slipstream/internal/indexers/indexerstest"
 	"github.com/jatassi/slipstream/internal/searches"
 	"github.com/jatassi/slipstream/internal/searching"
-	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
 )
 
@@ -31,23 +29,12 @@ func TestARestartKeepsWhatTheQueueHolds(t *testing.T) {
 		if _, err := w.Grabs.SearchWork(t.Context(), identity.Admin{}, w.Work, grabs.Scope{}); err != nil {
 			t.Fatal(err)
 		}
-		queued := grabstest.Due{Work: w.Work, Group: indexers.ItemGroup(w.Item), Items: []works.ItemID{w.Item}}
-		err := w.Lib.Write(t.Context(), func(ctx context.Context, tx *storage.Tx[storage.Library]) error {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO grabs_due (work_id, group_key, lane, queued_at, trigger, due_at, gap_seconds, changed_at)
-				VALUES (?, ?, 40, 1, 'backlog', 0, 3600, 0)`, w.Work, queued.Group); err != nil {
-				return err
-			}
-			_, err := tx.ExecContext(ctx, `INSERT INTO grabs_due_item (work_id, group_key, item_id) VALUES (?, ?, ?)`, w.Work, queued.Group, w.Item)
-			return err
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		queued.Lane, queued.Trigger = pace.Backlog, searches.Backlog
+		w.Run()
+		group := indexers.LevelGroup(w.Level)
 		want := grabstest.Queue{
-			Due: []grabstest.Due{queued},
+			Due: []grabstest.Due{{Work: w.Work, Group: group, Searching: true}},
 			Runs: []grabstest.Run{{
-				Work: w.Work, Group: indexers.LevelGroup(w.Level), Lane: pace.Now, Trigger: searches.Search, Gone: true, Phase: 1,
+				Work: w.Work, Group: group, Lane: pace.Now, Trigger: searches.Search, Gone: true, Phase: 1,
 				Items: []works.ItemID{w.Item}, Lines: []grabstest.Line{{Indexer: "Quick Site", State: "sent"}},
 			}},
 		}
@@ -58,10 +45,9 @@ func TestARestartKeepsWhatTheQueueHolds(t *testing.T) {
 		if got := w.Queue(t); !reflect.DeepEqual(got, want) {
 			t.Fatalf("after the restart the queue holds %+v, want %+v", got, want)
 		}
-		w.Run()
 		time.Sleep(5 * time.Second)
-		if got := w.Queue(t); len(got.Runs) != 0 {
-			t.Fatalf("the restarted Grabs left runs %+v open, want the press finished", got.Runs)
+		if got := w.Queue(t); len(got.Runs) != 0 || len(node.Jobs()) != 1 {
+			t.Fatalf("the restarted Grabs left runs %+v open after %d jobs, want the press finished by its one job", got.Runs, len(node.Jobs()))
 		}
 	})
 }

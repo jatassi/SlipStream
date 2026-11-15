@@ -70,7 +70,7 @@ func (s *terms) SearchTerms(context.Context, storage.Reader[storage.Library], wo
 }
 
 func (*terms) Groups(_ context.Context, _ storage.Reader[storage.Library], _ works.WorkID, items []works.ItemID) ([]indexers.Group, error) {
-	return indexers.Singles(items, ""), nil
+	return indexers.Singles(items, "The Attic"), nil
 }
 
 func (s *terms) GroupTerms(context.Context, storage.Reader[storage.Library], works.WorkID, indexers.Group) (indexers.Terms, error) {
@@ -253,8 +253,9 @@ func searchable(t *testing.T, remote searching.Remote) *atticFixture {
 		Router:  router,
 		Timings: grabs.DefaultTimings(), Rand: rand.New(rand.NewPCG(1, 2)), //nolint:gosec // seeded on purpose so tests replay
 		Changed: changed, SearchChanged: searched, FilesChanged: discard[files.Changed]{}, BlocklistChanged: blocklisted,
-		Reconciling: trackers.NotReconciling,
-		Log:         slog.New(slog.DiscardHandler),
+		QueueChanged: discard[grabs.QueueChanged]{},
+		Reconciling:  trackers.NotReconciling,
+		Log:          slog.New(slog.DiscardHandler),
 	})
 	return &atticFixture{
 		ctx: ctx, lib: lib, sealer: sealer, home: role.NodeID{UUID: home}, tree: tree, unmonitored: unmonitored, hd: hd, terms: terms,
@@ -318,36 +319,27 @@ func TestSearchingAWorkAnswersEachProblemThenGrabs(t *testing.T) {
 		`{"status":409,"code":"nothing_wanted","title":"The Work has no wanted cell to search for"}`)
 
 	group := indexers.ItemGroup(tree.Items[0].ID)
-	if lvl := tree.Items[0].LevelID; !lvl.IsZero() {
-		group = indexers.LevelGroup(lvl)
+	for _, state := range []string{"queued", "merged"} {
+		if code, body := s.Call(t, http.MethodPost, search, ""); code != http.StatusAccepted || body != `{"groups":[{"key":"`+string(group)+`","label":"The Attic","state":"`+state+`"}]}`+"\n" {
+			t.Fatalf("searchWork = %d %s, want 202 with the Item's group %s", code, body, state)
+		}
 	}
-	if code, body := s.Call(t, http.MethodPost, search, ""); code != http.StatusAccepted || body != `{"groups":[{"key":"`+string(group)+`","label":"Scarf","state":"queued"}]}`+"\n" {
-		t.Fatalf("searchWork = %d %s, want 202 with the Item's group queued", code, body)
+	expect(t, s, http.MethodGet, search+"es", http.StatusOK, `{"searches":[]}`)
+	var queued string
+	if err := lib.QueryRowContext(ctx, `SELECT group_key || ' ' || lane || ' ' || trigger || ' ' || include_gone FROM grabs_due`).Scan(&queued); err != nil ||
+		queued != string(group)+" 10 search 1" {
+		t.Fatalf("the press queued %q (%v), want the Item's group %s in the now lane with gone cells", queued, err, group)
 	}
-	_, listed := s.Call(t, http.MethodGet, search+"es", "")
-	run := ownertest.FirstID(listed)
-	item := tree.Items[0].ID.String()
-	run1 := `{"id":"` + run + `","groupKey":"` + string(group) + `","groupLabel":null,"lane":"now","trigger":"search","itemIds":["` + item + `"],"startedAt":"T","indexers":[{"indexerId":"` + indexer.String() + `","name":"Fixture Site",`
-	expect(t, s, http.MethodGet, search+"es", http.StatusOK,
-		`{"searches":[`+run1+`"outcome":null,"releases":0,"sentence":"Searching"}],"finishedAt":null,"outcome":null,"candidates":0,"grabs":0,"grabIds":[],"notes":[]}]}`)
-	runID, err := storage.ParseUUID(run)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var recorded string
-	if err := lib.QueryRowContext(ctx, `SELECT group_key || ' ' || lane || ' ' || trigger || ' ' || include_gone FROM grabs_search WHERE id = ?`,
-		runID).Scan(&recorded); err != nil || recorded != string(group)+" 10 search 1" {
-		t.Fatalf("the press is recorded as %q (%v), want a run of the Item's group %s in the now lane with gone cells", recorded, err, group)
-	}
-	expect(t, s, http.MethodGet, "/api/v1/searches/"+run+"/releases", http.StatusOK, `{"releases":[]}`)
 	expect(t, s, http.MethodGet, "/api/v1/searches/"+none+"/releases", http.StatusNotFound,
 		`{"status":404,"code":"search_not_found","title":"No search run has that id"}`)
-	if got := <-searched; got != (grabs.SearchChanged{SearchID: run, WorkID: tree.ID.String()}) {
-		t.Fatalf("grabs.search-changed = %+v, want the run %s", got, run)
-	}
 
 	f.running(t)
-	<-searched
+	started := <-searched
+	if finished := <-searched; finished != started || started.WorkID != tree.ID.String() {
+		t.Fatalf("grabs.search-changed = %+v then %+v, want one run of the Work starting then finishing", started, finished)
+	}
+	run, item := started.SearchID, tree.Items[0].ID.String()
+	run1 := `{"id":"` + run + `","groupKey":"` + string(group) + `","groupLabel":null,"lane":"now","trigger":"search","itemIds":["` + item + `"],"startedAt":"T","indexers":[{"indexerId":"` + indexer.String() + `","name":"Fixture Site",`
 	grab := (<-changed).GrabID
 	if failed := <-changed; failed.GrabID != grab || failed.WorkID != tree.ID.String() {
 		t.Fatalf("grabs.changed = %+v, want the Grab %s failing", failed, grab)
@@ -608,10 +600,13 @@ func TestASearchWithinLevelsAndItemsSearchesOnlyThem(t *testing.T) {
 			t.Fatalf("searchWork with %s = %d %s, want 422 %s", tc.name, code, got, tc.want)
 		}
 	}
-	for _, body := range []string{`{"levelIds":["` + f.tree.Levels[0].ID.String() + `"],"itemIds":[]}`, `{"levelIds":[],"itemIds":["` + f.tree.Items[0].ID.String() + `"]}`} {
-		code, got := f.s.Call(t, http.MethodPost, f.search, body)
-		if want := `{"groups":[{"key":"` + string(indexers.LevelGroup(f.tree.Levels[0].ID)) + `","label":"Scarf","state":"queued"}]}` + "\n"; code != http.StatusAccepted || got != want {
-			t.Fatalf("searchWork with %s = %d %s, want 202 %s", body, code, got, want)
+	for _, tc := range []struct{ body, state string }{
+		{`{"levelIds":["` + f.tree.Levels[0].ID.String() + `"],"itemIds":[]}`, "queued"},
+		{`{"levelIds":[],"itemIds":["` + f.tree.Items[0].ID.String() + `"]}`, "merged"},
+	} {
+		code, got := f.s.Call(t, http.MethodPost, f.search, tc.body)
+		if want := `{"groups":[{"key":"` + string(indexers.ItemGroup(f.tree.Items[0].ID)) + `","label":"The Attic","state":"` + tc.state + `"}]}` + "\n"; code != http.StatusAccepted || got != want {
+			t.Fatalf("searchWork with %s = %d %s, want 202 %s", tc.body, code, got, want)
 		}
 	}
 }

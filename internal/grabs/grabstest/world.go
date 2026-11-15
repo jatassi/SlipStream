@@ -58,8 +58,15 @@ type Options struct {
 	Sites []string
 	// Goals is the Work's Targets in Profile order, HD alone when nil.
 	Goals []targets.Spec
-	// Remote answers the Indexers' jobs, as their Searching Node.
+	// Levels is the Work's levels in tree order, each with its Items: one
+	// level, Winter, holding Scarf when nil. Each level is a search group.
+	Levels []Level
+	// Remote answers the Indexers' jobs, as their Searching Node: the
+	// World's Node when nil.
 	Remote searching.Remote
+	// RSSEvery is RSS sync's cadence, which the Indexers' search limits
+	// keep slots for. Zero is RSS sync off.
+	RSSEvery time.Duration
 	// Log is the Grabs' log, discarded when nil.
 	Log *slog.Logger
 	// Grabs, Indexers and Formats are the owners' Timings, as a Node's
@@ -67,6 +74,12 @@ type Options struct {
 	Grabs    grabs.Timings
 	Indexers indexers.Timings
 	Formats  formats.Timings
+}
+
+// Level is one level of The Attic and its Items' labels.
+type Level struct {
+	Label string
+	Items []string
 }
 
 // HD is The Attic's Target when Options name none: Bluray-1080p over
@@ -88,9 +101,15 @@ type World struct {
 	Config   grabs.Config
 	Indexers *indexers.Indexers
 	Work     works.WorkID
-	Item     works.ItemID
-	// Level is the Item's level.
-	Level works.LevelID
+	// Item is the Work's first Item, and Items every one in tree order.
+	Item  works.ItemID
+	Items []works.ItemID
+	// Level is the first Item's level, and Levels every level in tree
+	// order.
+	Level  works.LevelID
+	Levels []works.LevelID
+	// Node answers the Indexers' jobs unless Options name a Remote.
+	Node *indexerstest.Node
 	// Home is the one Node, which holds every Role.
 	Home role.NodeID
 	// Sites is each site's Indexer, by name.
@@ -134,9 +153,19 @@ func New(t testing.TB, o Options) *World {
 	must(t, err)
 	_, err = wanted.MakeDefault(ctx, identity.Admin{}, profile.ID)
 	must(t, err)
-	fx.Put("w1", contenttypetest.Record{Tree: works.Fetched{Label: "The Attic", Children: []works.Entry{
-		{Key: "b1", Label: "Winter", Children: []works.Entry{{Key: "c1", Label: "Scarf"}}},
-	}}})
+	levels := o.Levels
+	if levels == nil {
+		levels = []Level{{Label: "Winter", Items: []string{"Scarf"}}}
+	}
+	var boxes []works.Entry
+	for i, l := range levels {
+		box := works.Entry{Key: works.Key("b" + strconv.Itoa(i+1)), Label: l.Label}
+		for j, label := range l.Items {
+			box.Children = append(box.Children, works.Entry{Key: works.Key("c" + strconv.Itoa(i+1) + "." + strconv.Itoa(j+1)), Label: label})
+		}
+		boxes = append(boxes, box)
+	}
+	fx.Put("w1", contenttypetest.Record{Tree: works.Fetched{Label: "The Attic", Children: boxes}})
 	added, _, err := tree.Add(ctx, identity.Admin{}, contenttypetest.ID, "w1", works.Adding{
 		Monitor: true,
 		Also: func(ctx context.Context, tx *storage.Tx[storage.Library], w works.Summary) error {
@@ -148,15 +177,32 @@ func New(t testing.TB, o Options) *World {
 	})
 	must(t, err)
 	w.Work, w.Item, w.Level = added.ID, added.Items[0].ID, added.Items[0].LevelID
+	terms := attic{item: w.Item, level: map[works.ItemID]works.LevelID{}, label: map[works.LevelID]string{}}
+	for _, l := range added.Levels {
+		w.Levels = append(w.Levels, l.ID)
+		terms.label[l.ID] = l.Label
+	}
+	for _, it := range added.Items {
+		w.Items = append(w.Items, it.ID)
+		terms.level[it.ID] = it.LevelID
+	}
 	library, err := roots.Open(ctx, rootstest.Config(t, lib, contenttypetest.ID))
 	must(t, err)
 	r := alone{node: home}
 	router := downloadclients.Router{Roster: r, Routes: trackers.Routing{Roster: r}}
 	shelf, err := files.Open(ctx, files.Config{Library: lib, Targets: wanted, Grabs: imports.Cells{Grabs: grabs.GrabCells{InStep: r.InStep, Router: router}}, Today: time.Now})
 	must(t, err)
-	terms := attic{item: w.Item}
+	remote := o.Remote
+	if remote == nil {
+		w.Node = &indexerstest.Node{}
+		remote = w.Node
+	}
+	var rss func(context.Context, storage.Reader[storage.Library]) (time.Duration, bool, error)
+	if o.RSSEvery > 0 {
+		rss = func(context.Context, storage.Reader[storage.Library]) (time.Duration, bool, error) { return o.RSSEvery, true, nil }
+	}
 	w.Indexers = indexers.New(indexers.Config{
-		Library: lib, Sealer: sealer, Roster: indexerstest.Alone(home), Searching: func(role.NodeID) searching.Remote { return o.Remote },
+		Library: lib, Sealer: sealer, Roster: indexerstest.Alone(home), Searching: func(role.NodeID) searching.Remote { return remote }, RSS: rss,
 		Types: map[works.TypeID]indexers.Facet{contenttypetest.ID: terms}, Works: tree,
 		Changed: discard[indexers.Changed]{}, Status: discard[indexers.StatusChanged]{}, Trackers: discard[indexers.TrackerChanged]{},
 		Timings: o.Indexers, Log: slog.New(slog.DiscardHandler),
@@ -192,6 +238,25 @@ func New(t testing.TB, o Options) *World {
 	w.Grabs = grabs.New(w.Config)
 	t.Cleanup(w.halt)
 	return w
+}
+
+// Answer has site answer every later search job with a, after.
+func (w *World) Answer(site string, after time.Duration, a searching.Answer) {
+	w.Node.Answer(w.Sites[site], after, a)
+}
+
+// Limit sets site's search limit to count a window.
+func (w *World) Limit(site string, count int, per indexers.Window) {
+	w.edit(site, indexers.Edit{Searches: &indexers.Limit{Count: count, Per: per}})
+}
+
+// AtOnce sets site's Searches at once.
+func (w *World) AtOnce(site string, n int) { w.edit(site, indexers.Edit{SearchesAtOnce: &n}) }
+
+func (w *World) edit(site string, e indexers.Edit) {
+	w.t.Helper()
+	_, err := w.Indexers.Update(w.t.Context(), identity.Admin{}, w.Sites[site], e, indexers.Typed{})
+	must(w.t, err)
 }
 
 // Reconciling sets whether the Controller is Reconciling after a restore.
@@ -351,9 +416,13 @@ func deref[T any](p *T) T {
 	return v
 }
 
-// attic is The Attic's search terms: its label, and every name covering
-// its one Item.
-type attic struct{ item works.ItemID }
+// attic is The Attic's search terms: its label, every name covering its
+// first Item, and a search group per level.
+type attic struct {
+	item  works.ItemID
+	level map[works.ItemID]works.LevelID
+	label map[works.LevelID]string
+}
 
 func (a attic) Expect(context.Context, storage.Reader[storage.Library], works.WorkID) (indexers.Expect, error) {
 	return indexers.Expect{Claim: rel.Claim{Titles: []string{"The Attic"}}, Covers: indexers.CoversOnly(a.item)}, nil
@@ -364,8 +433,19 @@ func (a attic) SearchTerms(ctx context.Context, r storage.Reader[storage.Library
 	return indexers.Terms{Expect: e, Mode: "search", Query: "The Attic"}, err
 }
 
-func (attic) Groups(_ context.Context, _ storage.Reader[storage.Library], _ works.WorkID, items []works.ItemID) ([]indexers.Group, error) {
-	return indexers.Singles(items, "The Attic"), nil
+func (a attic) Groups(_ context.Context, _ storage.Reader[storage.Library], _ works.WorkID, items []works.ItemID) ([]indexers.Group, error) {
+	var out []indexers.Group
+	at := map[works.LevelID]int{}
+	for _, it := range items {
+		l := a.level[it]
+		i, ok := at[l]
+		if !ok {
+			i, at[l] = len(out), len(out)
+			out = append(out, indexers.Group{Key: indexers.LevelGroup(l), Label: a.label[l]})
+		}
+		out[i].Items = append(out[i].Items, it)
+	}
+	return out, nil
 }
 
 func (a attic) GroupTerms(ctx context.Context, r storage.Reader[storage.Library], _ works.WorkID, g indexers.Group) (indexers.Terms, error) {

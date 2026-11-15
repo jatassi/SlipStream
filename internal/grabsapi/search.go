@@ -53,7 +53,7 @@ func (h handlers) searchWork(ctx context.Context, by identity.Admin, in *searchW
 	if err != nil {
 		return nil, err
 	}
-	runs, err := open(h.p).SearchWork(ctx, by, works.WorkID{UUID: u}, scope)
+	groups, err := open(h.p).SearchWork(ctx, by, works.WorkID{UUID: u}, scope)
 	if e, ok := errors.AsType[*works.NotInWorkError](err); ok {
 		return nil, notInWork(e)
 	}
@@ -63,9 +63,12 @@ func (h handlers) searchWork(ctx context.Context, by identity.Admin, in *searchW
 	if err != nil {
 		return nil, answer(err)
 	}
-	out := searchQueued{Groups: []queuedGroup{}}
-	for _, r := range runs {
-		out.Groups = append(out.Groups, queuedGroup{Key: string(r.Group), Label: r.Label, State: "queued"})
+	out := searchQueued{Groups: make([]queuedGroup, len(groups))}
+	for i, g := range groups {
+		out.Groups[i] = queuedGroup{Key: string(g.Key), Label: g.Label, State: "queued"}
+		if g.Merged {
+			out.Groups[i].State = "merged"
+		}
 	}
 	return &searchQueuedOutput{Body: out}, nil
 }

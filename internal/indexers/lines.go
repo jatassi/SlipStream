@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"slices"
+	"time"
 
 	"github.com/jatassi/slipstream/internal/storage"
 	"github.com/jatassi/slipstream/internal/works"
@@ -54,4 +55,10 @@ func (x *Indexers) lines(ctx context.Context, r storage.Reader[file], typ works.
 		lines = append(lines, l)
 	}
 	return lines, byID, nil
+}
+
+// SearchWaitIn is the stored SearchWait, read in r: a line dispatched now
+// answers late once it passes.
+func SearchWaitIn(ctx context.Context, r storage.Reader[file]) (time.Duration, error) {
+	return searchWait(ctx, r)
 }
