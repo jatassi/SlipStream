@@ -40,7 +40,7 @@ type TorrentRow struct {
 	Quality     string                    `json:"quality,omitempty" enum:"sdtv,dvd,webrip-480p,hdtv-720p,webrip-720p,webdl-720p,bluray-720p,hdtv-1080p,webrip-1080p,webdl-1080p,bluray-1080p,remux-1080p,hdtv-2160p,webrip-2160p,webdl-2160p,bluray-2160p,remux-2160p,cam" doc:"The quality its newest Grab's release title names"`
 	State       string                    `json:"state" enum:"removing,failed,tracker-error,paused,checking,queued,stalled,downloading,seeding"`
 	Hold        string                    `json:"hold,omitempty" enum:"wanted,window,disk_full,slot,check_slot,disk_guard,draining,controller,client_error" doc:"Why its Node holds it back, as its Node last reported; client_error is an external client's own error, in error"`
-	Until       *time.Time                `json:"until,omitempty" doc:"When a window hold starts it, or a check resumes it"`
+	Until       *time.Time                `json:"until,omitempty" doc:"When it starts after its trackers allow another announce, or resumes after a check"`
 	InLine      int                       `json:"queuePosition,omitempty" minimum:"0" doc:"Its place, from 1, among its Node's downloads waiting for a slot"`
 	Severity    string                    `json:"severity" enum:"none,warning,failure"`
 	Tabs        []string                  `json:"tabs" enum:"downloading,seeding,problems,goal-met,all" nullable:"false" doc:"The Torrents view's tabs it shows under"`
@@ -50,7 +50,7 @@ type TorrentRow struct {
 	Uploaded    int64                     `json:"uploaded" minimum:"0" doc:"All-time bytes uploaded"`
 	Ratio       float64                   `json:"ratio" minimum:"0" doc:"Uploaded over the larger of downloaded and size"`
 	Seeding     int64                     `json:"seedingSeconds" minimum:"0" doc:"All-time seconds seeded"`
-	Announce    *trackerCell              `json:"announce,omitempty" doc:"Absent when its metainfo names no announce URL"`
+	Announce    *trackerCell              `json:"announce,omitempty" doc:"Absent when its .torrent lists no tracker"`
 	Tracker     api.Nullable[trackerRef]  `json:"tracker" doc:"The Tracker its first Grab's Release reached, null when none did or it is in an external client"`
 	SeedingView api.Nullable[seedingView] `json:"seeding" doc:"Its seeding against its Tracker's rule and its seeding goal, null in an external client, whose own limits govern its seeding"`
 	Error       string                    `json:"error,omitempty" doc:"The engine's error message for the failure, or an external client's own words for its error"`
@@ -59,7 +59,7 @@ type TorrentRow struct {
 	Held        bool                      `json:"held" doc:"A Grab that hasn't finished holds it, so Mark failed can put its Release on the Blocklist"`
 	Retry       *retried                  `json:"retry,omitempty" doc:"Its last Retry, absent before one"`
 	LastKnown   *time.Time                `json:"lastKnown,omitempty" doc:"When its Node last reported it, set while the row is stale for lastKnownCause"`
-	Stale       string                    `json:"lastKnownCause,omitempty" enum:"node,client,off" doc:"Why the row is its last report: its Node is out of step, its external client isn't responding or refused the sign-in, or its external client is off"`
+	Stale       string                    `json:"lastKnownCause,omitempty" enum:"node,client,off" doc:"Why the row shows its last report: its Node isn't connected, its external client isn't responding or refused the sign-in, or its external client is off"`
 	ImportAt    *time.Time                `json:"importAt,omitempty" doc:"When a finished external torrent imports, set while its client's Import delay runs"`
 	AtLimit     bool                      `json:"stoppedAtLimit,omitempty" doc:"Its external client stopped it at its seeding limit"`
 	AddedAt     time.Time                 `json:"addedAt"`
@@ -71,10 +71,10 @@ type retried struct {
 }
 
 type trackerCell struct {
-	Host    string     `json:"host" doc:"Empty when its announce URLs are unknown"`
+	Host    string     `json:"host" doc:"Empty when its trackers are unknown"`
 	Status  string     `json:"status" enum:"working,updating,error,unregistered,not_contacted"`
-	Message string     `json:"message,omitempty" doc:"The announce URL's failure reason or warning, verbatim"`
-	RetryAt *time.Time `json:"retryAt,omitempty" doc:"When it tries a failing announce URL again"`
+	Message string     `json:"message,omitempty" doc:"The tracker's failure reason or warning, verbatim"`
+	RetryAt *time.Time `json:"retryAt,omitempty" doc:"When it tries a failing tracker again"`
 }
 
 type trackerRef struct {
@@ -85,10 +85,10 @@ type trackerRef struct {
 type seedingView struct {
 	Ratio   ratioLane `json:"ratio"`
 	Time    timeLane  `json:"time"`
-	State   string    `json:"state" enum:"none,owing,met,missed,released" doc:"Its hit and run window's state, or none while it owes no Tracker"`
-	Owes    *owes     `json:"owes,omitempty" doc:"What it still needs to meet its Tracker's rule and the margin, absent unless it owes under a known rule"`
-	AtRisk  string    `json:"atRisk" enum:"no,yes,unknown" doc:"Whether a torrent that owes is at risk of a hit and run: yes while no copy of it announces as a seeder, unknown while every copy's Node is offline"`
-	GoalMet bool      `json:"goalMet" doc:"Its seeding goal is met and it owes its Tracker nothing"`
+	State   string    `json:"state" enum:"none,owing,met,missed,released" doc:"Its hit and run window's state, or none while no Tracker needs more seeding from it"`
+	Owes    *owes     `json:"owes,omitempty" doc:"What it still needs to meet its Tracker's rule and the margin, absent unless it needs more seeding under a known rule"`
+	AtRisk  string    `json:"atRisk" enum:"no,yes,unknown" doc:"Whether a torrent that needs more seeding is at risk of a hit and run: yes while no copy of it announces as a seeder, unknown while every copy's Node is offline"`
+	GoalMet bool      `json:"goalMet" doc:"Its seeding goal is met and its Tracker's seeding rule is met"`
 	Combine string    `json:"combine" enum:"first,both,forever" doc:"How its goal's ratio and seeding time combine. A forever goal seeds until an Admin removes it"`
 	Action  string    `json:"action,omitempty" enum:"pause,remove,remove-delete" doc:"What its goal does once met, absent for a forever goal"`
 	Endless string    `json:"endless" enum:"none,forever,resumed,no-tracker,no-rule,partial" doc:"Why its goal never acts on it, or none while its goal can act"`
@@ -164,8 +164,8 @@ type fault struct {
 
 // faultWords is why each fault makes a release look bad.
 var faultWords = map[downloadclients.FaultKind]string{
-	downloadclients.FaultEngineError:  "The torrent client found an error in the Release's data.",
-	downloadclients.FaultUnregistered: "An announce URL responded that the torrent is no longer registered.",
+	downloadclients.FaultEngineError:  "The torrent client found an error in the release's data.",
+	downloadclients.FaultUnregistered: "The tracker reports that this torrent is no longer registered.",
 	downloadclients.FaultNoPayload:    "The torrent received no data while it was downloading.",
 }
 
@@ -365,19 +365,19 @@ type TorrentDetail struct {
 	Trackers   []trackerDetail `json:"trackers" nullable:"false" doc:"In its metainfo's order"`
 	Files      []fileDetail    `json:"files" nullable:"false" doc:"In its metainfo's order"`
 	Grabs      []torrentGrab   `json:"grabs" nullable:"false" doc:"The Grabs that used it, newest first"`
-	Live       bool            `json:"live" doc:"Its Node responded, so announce URLs and files are live. Otherwise they are from its last report"`
-	AnnounceAt *time.Time      `json:"announceAt,omitempty" doc:"The earliest every announce URL accepts an announce, set while live"`
+	Live       bool            `json:"live" doc:"Its Node responded, so trackers and files are live. Otherwise they are from its last report"`
+	AnnounceAt *time.Time      `json:"announceAt,omitempty" doc:"The earliest time every tracker allows another announce, set while live"`
 }
 
 type trackerDetail struct {
 	URL          string     `json:"url" doc:"With its passkey hidden"`
 	Tier         int        `json:"tier" minimum:"0"`
 	Status       string     `json:"status" enum:"working,updating,error,unregistered,not_contacted"`
-	Message      string     `json:"message,omitempty" doc:"The announce URL's failure reason or warning, verbatim"`
-	RetryAt      *time.Time `json:"retryAt,omitempty" doc:"When it tries a failing announce URL again, from the last report"`
+	Message      string     `json:"message,omitempty" doc:"The tracker's failure reason or warning, verbatim"`
+	RetryAt      *time.Time `json:"retryAt,omitempty" doc:"When it tries a failing tracker again, from the last report"`
 	AnsweredAt   *time.Time `json:"answeredAt,omitempty" doc:"When it last responded, set while live"`
 	NextAnnounce *time.Time `json:"nextAnnounce,omitempty" doc:"When its next announce is due, set while live"`
-	MinInterval  int64      `json:"minIntervalSeconds,omitempty" minimum:"0" doc:"Its min interval as the announce policy holds to it, set while live"`
+	MinInterval  int64      `json:"minIntervalSeconds,omitempty" minimum:"0" doc:"The tracker's minimum announce interval that SlipStream follows, set while live"`
 	AcceptsAt    *time.Time `json:"acceptsAt,omitempty" doc:"The earliest it accepts an announce, set while live"`
 	Seeders      *int       `json:"seeders,omitempty" minimum:"0" doc:"The seeders its last announce response counted, set while live and the response carried a count"`
 	Leechers     *int       `json:"leechers,omitempty" minimum:"0" doc:"The leechers its last announce response counted, set while live and the response carried a count"`
@@ -472,24 +472,24 @@ type actResult struct {
 type refusal struct {
 	Code      string     `json:"code" enum:"not_found,removed,importing,not_held,use_not_this_release,reconciling,offline,client_away,client_off,window,not_running,failed,not_retryable"`
 	WorkID    *string    `json:"workId,omitempty" format:"uuid" doc:"importing: the Work whose import holds it; use_not_this_release: the Work whose Pending import waits on it"`
-	AcceptsAt *time.Time `json:"acceptsAt,omitempty" doc:"window: when every announce URL accepts an announce"`
+	AcceptsAt *time.Time `json:"acceptsAt,omitempty" doc:"window: when every tracker allows another announce"`
 	Client    string     `json:"client,omitempty" doc:"client_away and client_off: the external client's name"`
 	Node      string     `json:"node,omitempty" doc:"client_away and client_off: the name of the external client's Node"`
 }
 
 type preview struct {
-	Cancels     []canceled  `json:"cancels" nullable:"false" doc:"The Grabs at downloading that a remove fails"`
+	Cancels     []canceled  `json:"cancels" nullable:"false" doc:"The Grabs still downloading that removing would fail"`
 	StopSeeding []string    `json:"stopSeeding" format:"uuid" nullable:"false" doc:"The Works whose complete Torrents stop seeding"`
 	Frees       *int64      `json:"frees" minimum:"0" doc:"Bytes deleting the download copies frees, null while a Node can't report it"`
 	Linked      bool        `json:"linked" doc:"Some file is also a library file, as a recheck reads it"`
-	HitAndRun   []hitAndRun `json:"hitAndRun" nullable:"false" doc:"The removed torrents whose removal counts as a hit and run, each the last copy of a torrent that still owes its Tracker"`
+	HitAndRun   []hitAndRun `json:"hitAndRun" nullable:"false" doc:"The removed torrents whose removal counts as a hit and run, each the last copy of a torrent that still needs more seeding for its Tracker"`
 }
 
 type hitAndRun struct {
 	TorrentID string                   `json:"torrentId" format:"uuid"`
-	Tracker   api.Nullable[trackerRef] `json:"tracker" doc:"The Tracker it owes, null while that Tracker isn't known"`
-	Owes      *owes                    `json:"owes,omitempty" doc:"What it still owes, absent while its Tracker's rule isn't known"`
-	Clears    string                   `json:"clears" enum:"none,time,ratio,either,both" doc:"What meets the rule it owes, or none while no rule is known"`
+	Tracker   api.Nullable[trackerRef] `json:"tracker" doc:"The Tracker it needs more seeding for, null while that Tracker isn't known"`
+	Owes      *owes                    `json:"owes,omitempty" doc:"What it still needs, absent while its Tracker's rule isn't known"`
+	Clears    string                   `json:"clears" enum:"none,time,ratio,either,both" doc:"What meets its Tracker's rule, or none while no rule is known"`
 }
 
 type canceled struct {

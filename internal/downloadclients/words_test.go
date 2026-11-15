@@ -89,13 +89,13 @@ func TestTheSpecsSentencesReadAsTheSpecWritesThem(t *testing.T) {
 		{tc.Problem{Cause: tc.LabelPluginOff}, deluge, "Deluge's Label plugin is off. Turn it on in Deluge's preferences and test again."},
 		{
 			tc.Problem{Cause: tc.FolderUnreadable, Folder: "/downloads"}, transmission,
-			"Media server can't open /downloads, the folder Transmission saves to. Under Client folders, pair /downloads with the folder Media server sees.",
+			"Media server can't open /downloads, the folder Transmission saves to. Under Remote path mappings, pair /downloads with the folder Media server sees.",
 		},
 		{
 			tc.Problem{Cause: tc.FolderUnreadable, Folder: `D:\Torrents`, Paired: "/downloads"}, transmission,
 			`Media server can't open D:\Torrents, which is paired with /downloads. Check the pair, and check that Media server can read that folder.`,
 		},
-		{tc.Problem{Cause: tc.NotKept}, transmission, "Transmission didn't keep the torrent SlipStream sent it. Check Transmission's log for the reason."},
+		{tc.Problem{Cause: tc.NotKept}, transmission, "Transmission accepted a torrent from SlipStream but no longer lists it. Check Transmission's log for the reason."},
 		{
 			tc.Problem{Cause: tc.MostMissing, Missing: 14}, transmission,
 			"Transmission no longer lists 14 of SlipStream's torrents. Check that the address points at the right Transmission.",

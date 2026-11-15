@@ -146,7 +146,7 @@ test("a failed Test shows its sentence and marks the fields it names, opening De
 
   clients.state.answers.test = testFailed(
     ["folder"],
-    "home can't open /downloads, the folder Transmission saves to. Under Client folders, pair /downloads with the folder home sees.",
+    "home can't open /downloads, the folder Transmission saves to. Under Remote path mappings, pair /downloads with the folder home sees.",
   );
   await userEvent.click(editing.getByRole("button", { name: "Test" }));
   await expect.element(editing.getByRole("textbox", { name: "Download folder" })).toBeVisible();

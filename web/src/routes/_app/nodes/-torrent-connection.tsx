@@ -6,7 +6,7 @@ import { Section } from "../../../ui/section";
 import { NodeSettings } from "./-config";
 
 const adapterNote =
-  "Trackers reachable only through another network adapter, such as a VPN or a second network card, can't be reached from that address. To reach them, set the listen address to that adapter's address.";
+  "The client can't connect to a tracker that only another network adapter can get to, such as a VPN or a second network card. To use such a tracker, set the listen address to that adapter's address.";
 
 /** The Node's own torrent rows, read at start: its listen address and downloads folder. */
 export function TorrentConnection({ node, online }: { node: NodesNode; online: boolean }) {
@@ -16,7 +16,7 @@ export function TorrentConnection({ node, online }: { node: NodesNode; online: b
         <div className="flex flex-col gap-3">
           <PendingRestart node={node} />
           <NodeSettings nodeId={node.id} section="torrent" />
-          <Details summary="With 0.0.0.0 or [::], the client listens on the address this computer reaches the internet from.">
+          <Details summary="With 0.0.0.0 or [::], the client listens on every network address of this computer and connects out through its default network adapter.">
             <p className="mt-1 text-pretty">{adapterNote}</p>
           </Details>
         </div>

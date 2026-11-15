@@ -233,7 +233,7 @@ test("Cancel on a downloading Grab names it once and lists only the other Grabs 
   await expect
     .element(cancel)
     .toMatchTextContent(
-      "It also cancels another Grab still downloading this torrent, and its Item goes back to wanted:",
+      "It also cancels another Grab still downloading this torrent, and SlipStream searches for a release again:",
     );
   expect(cancel.getByText(downloading.releaseTitle).elements()).toHaveLength(1);
   await expect.element(cancel.getByText(other.release)).toBeVisible();

@@ -122,7 +122,7 @@ func TestATrackerlessMagnetLinkWithTheDHTOffFailsAtOnce(t *testing.T) {
 		start := time.Now()
 		simtest.Search(t, w, simtest.AddOrchard(t, w))
 		g := simtest.Await(t, w)
-		expectFailed(t, g, "fetching", "no_peer_source", "The magnet link names no announce URL, and DHT is off on the Node that downloads it")
+		expectFailed(t, g, "fetching", "no_peer_source", "The magnet link lists no trackers, and DHT is off on the Node that downloads it")
 		if took := time.Since(start); took > time.Minute || n.Load() != 0 || !slices.Equal(g.Stages(), []string{"fetching", "failed"}) {
 			t.Fatalf("the Grab failed after %s and %d searches through %v, want at once with none", took, n.Load(), g.Stages())
 		}

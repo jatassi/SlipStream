@@ -14,7 +14,7 @@ import { rowLook } from "./external-row";
 const torrents = { one: "torrent", many: "torrents" } as const;
 
 const about =
-  "SlipStream doesn't check these clients, because their Nodes no longer hold Downloading. Delete each one, or give its Node Downloading again.";
+  "SlipStream doesn't check these clients, because their Nodes no longer have the Downloading Role. Delete each one, or give its Node the Downloading Role again.";
 
 const nodeName = (nodes: readonly NodesNode[], id: string): string =>
   nodes.find((node) => node.id === id)?.name ?? "a removed Node";
@@ -36,7 +36,7 @@ function UnattachedRow({ client, kind, node }: { client: External; kind: Kind; n
   );
 }
 
-/** External clients whose Nodes no longer hold Downloading. SlipStream doesn't check them, and each can only be deleted. */
+/** External clients whose Nodes no longer have the Downloading Role. SlipStream doesn't check them, and each can only be deleted. */
 export function Unattached({
   orphans,
   kinds,

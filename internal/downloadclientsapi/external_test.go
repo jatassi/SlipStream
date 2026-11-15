@@ -413,7 +413,7 @@ func TestATestOnAnOfflineNodeCouldNotRun(t *testing.T) {
 		`{"status":502,"code":"download_client_unavailable","title":"The Test couldn't run",`+
 			`"detail":"SlipStream couldn't reach home to run the Test. Test again once home is back."}`)
 	w.o.Expect(t, http.MethodPost, "/api/v1/external-download-clients/test", `{"nodeId":"0b0e3b9c-7c0a-4c8e-9a51-2f7d1e7f9a10","kind":"transmission","address":"http://192.168.1.20:9091"}`,
-		http.StatusConflict, `{"status":409,"code":"node_not_downloading","title":"That Node doesn't hold Downloading"}`)
+		http.StatusConflict, `{"status":409,"code":"node_not_downloading","title":"That Node doesn't have the Downloading Role"}`)
 }
 
 func TestADraftTestAnswersTheVersionAndWarnings(t *testing.T) {

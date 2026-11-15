@@ -16,18 +16,18 @@ export const list = new Intl.ListFormat("en", { type: "conjunction" });
 const cancelsLead: { readonly [P in Parting]: (count: number) => string } = {
   remove: (count) =>
     count === 1
-      ? "It cancels this Grab, still downloading, and its Item goes back to wanted:"
-      : `It cancels ${count} Grabs still downloading, and their Items go back to wanted:`,
+      ? "It cancels this Grab, which is still downloading, and SlipStream searches for a release again:"
+      : `It cancels ${count} Grabs still downloading, and SlipStream searches for a release of each again:`,
   "mark-failed": (count) =>
     count === 1
-      ? "This Grab fails, and its Item goes back to wanted:"
-      : `These ${count} Grabs fail, and their Items go back to wanted:`,
+      ? "This Grab fails, and SlipStream searches for another release:"
+      : `These ${count} Grabs fail, and SlipStream searches for another release of each:`,
 };
 
 const othersLead = (count: number) =>
   count === 1
-    ? "It also cancels another Grab still downloading this torrent, and its Item goes back to wanted:"
-    : `It also cancels ${count} other Grabs still downloading this torrent, and their Items go back to wanted:`;
+    ? "It also cancels another Grab still downloading this torrent, and SlipStream searches for a release again:"
+    : `It also cancels ${count} other Grabs still downloading this torrent, and SlipStream searches for a release of each again:`;
 
 const parted: { readonly [P in Parting]: (who: string) => string } = {
   remove: (who) => `Removing ${who}`,
@@ -59,21 +59,21 @@ function HitsAndRuns({
       return (
         <p key={only.torrentId} className="text-warn-ink">
           {`${parted[parting](name(only.torrentId) ?? "it")} now counts as a hit and run on ${tracker ?? "its Tracker"}.`}
-          {owed !== undefined && ` It still owes ${owed}.`}
+          {owed !== undefined && ` It needs ${owed}.`}
         </p>
       );
     }
     return (
       <div key={tracker ?? ""}>
         <p className="text-warn-ink">
-          {`${parted[parting]("these")} now counts as a hit and run on ${tracker === undefined ? "each one's Tracker" : `${tracker} for each`}:`}
+          {`${parted[parting]("these")} now counts as a hit and run on ${tracker === undefined ? "each one's Tracker" : `${tracker} for each of them`}:`}
         </p>
         <ul className="mt-2 flex flex-col gap-1">
           {owing.map((hit) => (
             <li key={hit.torrentId} className="flex min-w-0 flex-col">
               <span className="text-ink-1">{name(hit.torrentId) ?? "A torrent"}</span>
               {owes(hit) !== undefined && (
-                <span className="text-meta text-ink-3">{`Owes ${owes(hit)}`}</span>
+                <span className="text-meta text-ink-3">{`Needs ${owes(hit)}`}</span>
               )}
             </li>
           ))}
@@ -171,7 +171,7 @@ export function SpaceNote({ acted }: { acted: DownloadclientsActed | undefined }
   return preview.linked ? (
     <p className="text-meta text-ink-3">
       {
-        "Your library shares some of these files, so the copy frees only what the library doesn't use."
+        "Some of these files are also in your library as hardlinks or clones. Deleting the download copy frees only the space the library doesn't use."
       }
     </p>
   ) : null;

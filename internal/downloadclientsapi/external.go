@@ -28,7 +28,7 @@ var (
 	clientNameTaken    = api.NewCode(http.StatusConflict, "download_client_name_taken", "Another Download Client has that name")
 	clientNotFound     = api.NewCode(http.StatusNotFound, "download_client_not_found", "No Download Client has this id")
 	clientFieldRefused = api.NewCode(http.StatusUnprocessableEntity, "download_client_field_refused", "SlipStream can't use a value in this client's settings")
-	nodeNotDownloading = api.NewCode(http.StatusConflict, "node_not_downloading", "That Node doesn't hold Downloading")
+	nodeNotDownloading = api.NewCode(http.StatusConflict, "node_not_downloading", "That Node doesn't have the Downloading Role")
 	clientImporting    = api.NewCode(http.StatusConflict, "download_client_importing", "A Grab is importing from this client")
 )
 
@@ -104,20 +104,20 @@ type daemon struct {
 }
 
 type newClient struct {
-	NodeID        string         `json:"nodeId" format:"uuid" doc:"A Node that holds Downloading"`
+	NodeID        string         `json:"nodeId" format:"uuid" doc:"A Node with the Downloading Role"`
 	Kind          string         `json:"kind" enum:"qbittorrent,transmission,deluge,rtorrent"`
-	Name          string         `json:"name,omitempty" maxLength:"100" doc:"Absent for the kind's name, such as Transmission"`
+	Name          string         `json:"name,omitempty" maxLength:"100" doc:"Defaults to the kind's name, such as Transmission"`
 	Address       string         `json:"address" minLength:"1" maxLength:"2048" doc:"The client's whole address, such as http://localhost:9091/transmission/rpc; with no path it takes the kind's usual one"`
 	Username      string         `json:"username,omitempty" maxLength:"256"`
 	Password      string         `json:"password,omitempty" maxLength:"1024" doc:"Write-only"`
 	APIKey        string         `json:"apiKey,omitempty" maxLength:"1024" doc:"qBittorrent 5.2 and later. Write-only"`
-	Label         string         `json:"label,omitempty" maxLength:"100" doc:"Absent for slipstream"`
+	Label         string         `json:"label,omitempty" maxLength:"100" doc:"Defaults to slipstream"`
 	Folder        string         `json:"folder,omitempty" maxLength:"4096" doc:"The download folder as the client sees it; absent for the client's default"`
 	ClientFolders []clientFolder `json:"clientFolders,omitempty" maxItems:"50"`
 	Daemon        *daemon        `json:"daemon,omitempty" doc:"Deluge's daemon; absent for the only one"`
 	CheckEvery    *int64         `json:"checkEvery,omitempty" doc:"Seconds; absent for the default"`
 	ImportDelay   *int64         `json:"importDelay,omitempty" doc:"Seconds; absent for the default"`
-	On            *bool          `json:"on,omitempty" doc:"Absent for on"`
+	On            *bool          `json:"on,omitempty" doc:"Defaults to true"`
 }
 
 func nodeOf(raw string) role.NodeID {
@@ -184,17 +184,17 @@ func folders(in []clientFolder) (clients.Folders, error) {
 }
 
 type clientEdit struct {
-	NodeID        *string           `json:"nodeId,omitempty" format:"uuid" doc:"Another Node that holds Downloading; a client with Torrents can't move"`
+	NodeID        *string           `json:"nodeId,omitempty" format:"uuid" doc:"Another Node with the Downloading Role; a client with Torrents can't move"`
 	Kind          *string           `json:"kind,omitempty" enum:"qbittorrent,transmission,deluge,rtorrent"`
 	Name          *string           `json:"name,omitempty" maxLength:"100" doc:"Empty for the kind's name"`
 	Address       *string           `json:"address,omitempty" minLength:"1" maxLength:"2048"`
-	Username      *string           `json:"username,omitempty" maxLength:"256" doc:"Empty signs in with none"`
+	Username      *string           `json:"username,omitempty" maxLength:"256" doc:"Empty when the client has no sign-in"`
 	Password      string            `json:"password,omitempty" maxLength:"1024" doc:"Write-only; empty keeps the saved one"`
 	APIKey        string            `json:"apiKey,omitempty" maxLength:"1024" doc:"Write-only; empty keeps the saved one"`
 	Label         *string           `json:"label,omitempty" minLength:"1" maxLength:"100"`
 	Folder        *string           `json:"folder,omitempty" maxLength:"4096" doc:"Empty for the client's default"`
 	ClientFolders *[]clientFolder   `json:"clientFolders,omitempty" maxItems:"50"`
-	Daemon        api.Patch[daemon] `json:"daemon,omitempty" doc:"Null for Deluge's only daemon"`
+	Daemon        api.Patch[daemon] `json:"daemon,omitempty" doc:"Null when Deluge has only one daemon"`
 	CheckEvery    api.Patch[int64]  `json:"checkEvery,omitempty" doc:"Seconds; null resets it to its default"`
 	ImportDelay   api.Patch[int64]  `json:"importDelay,omitempty" doc:"Seconds; null resets it to its default"`
 	On            *bool             `json:"on,omitempty"`
@@ -275,7 +275,7 @@ func (e clientEdit) parsed(kind clients.Kind, out *downloadclients.Edit) error {
 type kind struct {
 	Kind        string   `json:"kind" enum:"qbittorrent,transmission,deluge,rtorrent"`
 	Name        string   `json:"name" doc:"The product's name, a new client's name by default"`
-	Path        string   `json:"path" doc:"The path an address with none takes; empty for a kind with none"`
+	Path        string   `json:"path" doc:"The path used when the address has none; empty for a kind with no usual path"`
 	Username    string   `json:"username" enum:"none,optional,required"`
 	Password    string   `json:"password" enum:"none,optional,required"`
 	APIKey      bool     `json:"apiKey" doc:"It may sign in with an API key in place of the username and password"`
@@ -283,7 +283,7 @@ type kind struct {
 	Label       string   `json:"label" enum:"any,no_comma,lower_word" doc:"Which labels it takes: lower_word is a-z, 0-9, _ and - only"`
 	Floor       string   `json:"floor" doc:"The oldest version SlipStream supports, such as 4.0"`
 	Actions     []string `json:"actions" enum:"pause,resume,recheck,announce" nullable:"false"`
-	DeletesData bool     `json:"deletesData" doc:"Its remove deletes data itself"`
+	DeletesData bool     `json:"deletesData" doc:"Removing a torrent in this client also deletes its data"`
 }
 
 var (
@@ -332,7 +332,7 @@ type externalClient struct {
 	On             bool                      `json:"on"`
 	Version        int64                     `json:"settingsVersion" minimum:"1" doc:"Bumped on every edit"`
 	Reach          string                    `json:"reach" enum:"responding,not_responding,sign_in_refused,needs_attention,off,node_offline,unchecked"`
-	Away           bool                      `json:"away" doc:"It isn't responding, refused the sign-in or needs attention while its Node is in step, so its card is red"`
+	Away           bool                      `json:"away" doc:"It isn't responding, refused the sign-in or needs attention while its Node is connected"`
 	Since          *time.Time                `json:"since" doc:"When its poll state began; null before its Node first polled it"`
 	ProductVersion string                    `json:"productVersion" doc:"The product's version at the last sign-in, such as 4.1.1; empty before one"`
 	Problem        api.Nullable[pollProblem] `json:"problem" doc:"Why its last poll failed; null while it responds and before its first poll"`
@@ -507,7 +507,7 @@ func (h handlers) testSaved(ctx context.Context, _ identity.Admin, in *testClien
 
 type deleteClientInput struct {
 	ID           string `path:"id" format:"uuid"`
-	StopTracking bool   `query:"stopTracking" doc:"Delete a client that holds torrents SlipStream tracks: they stay in the client, and Grabs not yet imported from them fail"`
+	StopTracking bool   `query:"stopTracking" doc:"Delete a client that has torrents SlipStream tracks: they stay in the client, and Grabs not yet imported from them fail"`
 }
 
 func (h handlers) deleteClient(ctx context.Context, _ identity.Admin, in *deleteClientInput) (*struct{}, error) {

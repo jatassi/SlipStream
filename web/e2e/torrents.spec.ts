@@ -156,7 +156,7 @@ test("the Inspector reads one torrent, and a remove with its download copy cance
   await expect(page).toHaveURL(/\/activity\/torrents\/[\da-f-]+$/u);
   const inspector = inspectorOf(page);
   await expect(inspector.getByText(/^Downloading from \d+ peers?/u)).toBeVisible();
-  for (const section of ["Numbers", "Announce URLs", "Files", "Grabs", "Details"]) {
+  for (const section of ["Numbers", "Trackers", "Files", "Grabs", "Details"]) {
     // oxlint-disable-next-line no-await-in-loop -- one section at a time names the one missing
     await expect(inspector.getByRole("heading", { name: section, exact: true })).toBeVisible();
   }

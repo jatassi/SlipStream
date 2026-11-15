@@ -59,7 +59,7 @@ test("a client on the same Node that already has the torrent refuses with its se
       code: "grab_torrent_in_client",
       title: "This client's Node already has the torrent",
       detail:
-        "Transmission already has this torrent. Send it to a client on another Node, or remove it in Activity.",
+        "Transmission already has this torrent. Send it to a client on another Node, or first remove the copy in Transmission from Activity.",
     }),
   );
   await userEvent.click(needsYou.getByRole("button", { name: "Send to another client" }));
@@ -68,7 +68,7 @@ test("a client on the same Node that already has the torrent refuses with its se
   await expect
     .element(
       sheet().getByText(
-        "Transmission already has this torrent. Send it to a client on another Node, or remove it in Activity.",
+        "Transmission already has this torrent. Send it to a client on another Node, or first remove the copy in Transmission from Activity.",
       ),
     )
     .toBeVisible();

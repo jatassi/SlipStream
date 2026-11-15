@@ -57,12 +57,12 @@ function open(
 }
 
 test.each([
-  ["owes seeding time", owing(), "Owes 3 days 4 h of seeding"],
-  ["owes either one", either, "Owes 3 days 4 h of seeding or 1.2 GB of upload"],
+  ["owes seeding time", owing(), "Needs 3 days 4 h more seeding"],
+  ["owes either one", either, "Needs 3 days 4 h more seeding or 1.2 GB more upload"],
   [
     "owes both",
     { ...either, clears: "both" as const },
-    "Owes 3 days 4 h of seeding and 1.2 GB of upload",
+    "Needs 3 days 4 h more seeding and 1.2 GB more upload",
   ],
   [
     "seeds Forever past its rule",
@@ -74,7 +74,7 @@ test.each([
       endless: "forever",
       clears: "time",
     }),
-    "Seeds with no end",
+    "No seeding limit",
   ],
 ])("a seeding row that %s says so over its lanes", async (_case, seeding, line) => {
   open([seed("Harbor.2019.1080p", seeding)]);
@@ -98,7 +98,7 @@ test("a row owing seedpool's time has a tick only on the time lane, amber while 
   await expect.element(harbor.getByText("At risk")).not.toBeInTheDocument();
 
   const quay = rowOf("Quay");
-  await expect.element(quay).toMatchTextContent("At riskOwes 3 days 4 h of seeding");
+  await expect.element(quay).toMatchTextContent("At riskNeeds 3 days 4 h more seeding");
   await expect
     .element(quay.getByRole("meter", { name: "Seeding time" }))
     .toHaveAttribute("aria-valuetext", "7 days, rule 10 days 2 h, at risk, goal 14 days");
@@ -137,8 +137,8 @@ test("the Inspector says what the torrent owes seedpool and what its goal does o
         "Trackerseedpool" +
         "Ratio0.4 of 2.0Seeding time7 days of 14 days" +
         "seedpool requires 10 days of seeding for each torrent. Ratio doesn't count." +
-        "It still owes 3 days 4 h of seeding." +
-        "This includes 2 h past seedpool's rule." +
+        "It needs 3 days 4 h more seeding." +
+        "That includes a 2 h safety margin on top of seedpool's rule." +
         "Its goal is a ratio of 2.0 or 14 days of seeding, whichever comes first. Once it's met, SlipStream removes it and deletes its download copy.",
     );
   await expect
@@ -160,12 +160,12 @@ test.each([
   [
     "under no known rule",
     unruled("no-rule"),
-    "seedpool's Releases don't state a seeding rule, so SlipStream never stops this torrent. Set seedpool's rule so that its goal can act.",
+    "seedpool's releases state no minimum ratio or seeding time, so SlipStream never stops this torrent. Set a seeding rule for seedpool in Settings > Trackers, and its seeding goal can then stop it.",
   ],
   [
     "resumed after its goal paused it",
     seedingOf({ state: "met", action: "pause", endless: "resumed" }),
-    "It seeds with no end, because you resumed it after its goal was met.",
+    "You resumed it after its seeding goal was met. It seeds until you stop it.",
   ],
 ])("the Inspector of a torrent %s says so", async (_case, seeding, sentence) => {
   const harbor = seed("Harbor.2019.1080p", seeding, { nodeId: seedboxId });
@@ -182,7 +182,7 @@ test("the Inspector of a private torrent with no known Tracker says it never sto
     .toMatchTextContent(
       "TrackerNot known" +
         "Ratio0.4 of 2.0Seeding time0 s of 14 days" +
-        "This torrent has no known Tracker, so SlipStream never stops it. Remove it yourself once its Tracker's rule is met.",
+        "SlipStream doesn't know which Tracker this torrent came from, so it never stops it. Remove it yourself once it has seeded long enough for that Tracker.",
     );
 });
 

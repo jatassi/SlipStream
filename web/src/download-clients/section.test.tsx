@@ -39,7 +39,9 @@ test("each downloading Node's card leads with its port verdict and links to its 
     .element(card("seedbox").getByText("Can't listen on 0.0.0.0:51413: address already in use."))
     .toBeVisible();
   await expect
-    .element(card("home").getByText("This card is removed once this Node stops downloading."))
+    .element(
+      card("home").getByText("This card disappears if this Node loses the Downloading Role."),
+    )
     .toBeVisible();
   expect(page.getByRole("button", { name: /remove/iu }).query()).toBeNull();
 
@@ -48,7 +50,7 @@ test("each downloading Node's card leads with its port verdict and links to its 
   await expect.element(card("home").getByText("SlipStream/0.4.0 libtorrent/2.0.11")).toBeVisible();
   await expect.element(card("home").getByText("4 MB/s")).toBeVisible();
   await expect
-    .element(card("home").getByText(/the address this computer reaches the internet from/u))
+    .element(card("home").getByText(/every network address on this computer/u))
     .toBeVisible();
 
   await userEvent.click(
@@ -103,7 +105,7 @@ test("when a Release counts as bad saves each threshold on its own, in seconds",
     .element(page.getByRole("heading", { name: "When a release counts as bad" }))
     .toBeVisible();
   await userEvent.fill(
-    page.getByRole("textbox", { name: "Unregistered twice, this far apart" }),
+    page.getByRole("textbox", { name: "Tracker reports unregistered twice, this far apart" }),
     "45",
   );
   await userEvent.click(page.getByRole("button", { name: "Save" }));
@@ -133,7 +135,7 @@ test("the client error setting saves in seconds", async () => {
   renderApp({ path, handlers: clients.handlers });
   await expect.element(page.getByRole("heading", { name: "Client errors" })).toBeVisible();
   await userEvent.fill(
-    page.getByRole("textbox", { name: "A client error fails its Grab after" }),
+    page.getByRole("textbox", { name: "Grabs fail after a client error of" }),
     "2",
   );
   await userEvent.click(page.getByRole("button", { name: "Save" }));
@@ -144,7 +146,7 @@ test("the client error setting saves in seconds", async () => {
 test("with no Node downloading, the section says how to get a client", async () => {
   renderApp({ path, handlers: downloadClients({ cards: [], thresholds }).handlers });
   await expect
-    .element(page.getByText(/^No Node downloads yet\. Give one Downloading in its/u))
+    .element(page.getByText(/^No Node downloads yet\. Give a Node the Downloading Role on the/u))
     .toBeVisible();
 });
 
@@ -227,7 +229,7 @@ test("clients on Nodes that no longer download sit under their own heading with 
   await expect
     .element(
       section.getByText(
-        "SlipStream doesn't check these clients, because their Nodes no longer hold Downloading. Delete each one, or give its Node Downloading again.",
+        "SlipStream doesn't check these clients, because their Nodes no longer have the Downloading Role. Delete each one, or give its Node the Downloading Role again.",
       ),
     )
     .toBeVisible();
