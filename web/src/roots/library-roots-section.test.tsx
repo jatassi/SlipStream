@@ -93,7 +93,7 @@ test("a root on a written-off Node says so and leads its menu with Re-home", asy
   const lost: RootsRoot = { ...archiveRoot, state: "written_off" };
   serveRoots({ roots: [filmsRoot, lost] });
   openRoots();
-  await expect.element(page.getByText("Node written off")).toBeVisible();
+  await expect.element(page.getByText("Node given up")).toBeVisible();
   await userEvent.click(page.getByRole("button", { name: `Actions for ${lost.path}` }));
   await expect
     .poll(() =>
